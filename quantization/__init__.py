@@ -1,0 +1,1 @@
+from quantization.modules.rnn import QuantizedGRU, QuantizedLSTM

@@ -1,0 +1,1 @@
+/usr/bin/c++ -fPIC  -std=c++11  -shared -Wl,-soname,libQUANTIZATION.so -o libQUANTIZATION.so CMakeFiles/QUANTIZATION.dir/kernel/QUANTIZATION_generated_quantized_fused_rnn_kernel.cu.o -Wl,-rpath,/opt/conda/lib/python2.7/site-packages/torch/lib /usr/local/cuda/lib64/libcudart_static.a -lpthread -ldl -lrt /opt/conda/lib/python2.7/site-packages/torch/lib/libATen.so.1 
