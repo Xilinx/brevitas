@@ -1,35 +1,40 @@
-# Pytorch Quantization
+# Brevitas
+
+Brevitas is a Pytorch library for training-aware quantization.
+
+*Brevitas is currently in alpha stage and under active development. APIs might and probably will change. Documentation, examples, and pretrained models will be progressively released.*
+
+## Requirements
+* [Pytorch](https://pytorch.org) >= 1.1.0
 
 ## Introduction
 
-This repository implements a set of quantization strategies to be applied to supported type of layers.
+Brevitas implements a set of building blocks to model a reduced precision hardware data-path at training time.
+While partially biased towards modelling dataflow-style, very low-precision implementations, the building blocks can be parametrized and assembled together to target all sorts of reduced precision hardware.
 
-The code originally started from the Pytorch and ATen implementation of a fused GRU/LSTM, extracted as a CFFI extension and expanded from there.
+The implementations tries to adhere to the following design principles:
+- Idiomatic Pytorch, when possible.
+- Modularity first, at the cost of some verbosity.
+- Easily extendible.
 
-## Requirements
-Building currently requires an appropriate CUDA environment, but execution is supported on CPU as well.
+## Target audience
+Brevitas is mainly targeted at researchers and practicioners in the fields of training for reduced precision inference. 
 
-* Nvidia CUDA Toolkit (tested with CUDA 9.0)
-* [Pytorch](https://pytorch.org) (tested with version 0.3.1)
+The implementation is quite rich in options and allows for very fine grained control over the trained model. However, compared to other software solutions in this space, the burden of correctly modelling the target data-path is currently placed on the user. 
+
+## Features
+
+Soon.
 
 ## Installation
 
-1. Run `python build.py`
-2. Add current path to the python path: `EXPORT PYTHONPATH=/path/to/pytorch-quantization:PYTHONPATH`
+Soon.
 
 ## Usage
+Soon.
 
-The following quantization modes are implemented for weights:
+## Author
 
-* FP: full-precision, no quantization performed.
-* SIGNED_FIXED_UNIT: fixed point quantization between [-1,1).
+Alessandro Pappalardo @ Xilinx Research Labs.
 
-The following quantization modes are implemented for activations:
-
-* FP: full-precision, no quantization performed.
-* SIGNED_FIXED_UNIT: fixed point quantization between [-1,1).
-
-The following quantized layers are implemented:
-
-* QuantizedLinear
-* QuantizedLSTM 
+##

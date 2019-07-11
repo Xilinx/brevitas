@@ -1,3 +1,0 @@
-/pytorch_quantization/quantization/lib/CMakeFiles/rebuild_cache.dir
-/pytorch_quantization/quantization/lib/CMakeFiles/QUANTIZATION.dir
-/pytorch_quantization/quantization/lib/CMakeFiles/edit_cache.dir
