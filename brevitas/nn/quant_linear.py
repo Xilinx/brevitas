@@ -57,6 +57,9 @@ from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy, Wei
 from brevitas import docstrings
 from .quant_layer import QuantLayer, SCALING_MIN_VAL
 
+import brevitas.onnx as bo
+from brevitas.onnx.onnx_custom_ops import QuantizedLinearPlaceholderFunction
+
 __all__ = ['QuantLinear']
 
 
@@ -158,6 +161,16 @@ class QuantLinear(QuantLayer, Linear):
                                          narrow_range=bias_narrow_range,
                                          bit_width=bias_bit_width)
 
+    @QuantLayer.export_mode.setter
+    def export_mode(self, value):
+        self._export_mode = value
+        # create completely detached prequantized tensors for export
+        # calling these in forward() causes the ops to be included in the graph
+        # as dead-end nodes. note: this might be fixed in PyTorch 1.2.0 and
+        # if so this workaround prepare_for_export is not necessary.
+        self.export_int_weight = self.int_weight.detach()
+        self.export_quant_weight_scale = self.quant_weight_scale.detach()
+
     @property
     def int_weight(self):
         if isinstance(self.weight_quant.tensor_quant, IdentityQuant):
@@ -180,32 +193,38 @@ class QuantLinear(QuantLayer, Linear):
         return scale
 
     def forward(self, input):
-        output_scale = None
-        output_bit_width = None
-        bias_bit_width = None
-
-        input, input_scale, input_bit_width = self.unpack_input(input)
-
-        quant_weight, quant_weight_scale, quant_weight_bit_width = self.weight_quant(self.weight)
-        quant_weight = self.weight_reg(quant_weight)
-
-        if self.compute_output_bit_width:
-            assert input_bit_width is not None
-            output_bit_width = self.max_output_bit_width(input_bit_width, quant_weight_bit_width)
-        if self.compute_output_scale:
-            assert input_scale is not None
-            output_scale = input_scale * quant_weight_scale
-
-        if self.bias is not None:
-            quant_bias, _, bias_bit_width = self.bias_quant(self.bias, output_scale, output_bit_width)
-            output = linear(input, quant_weight, quant_bias)
+        if self.export_mode:
+            # TODO how to get the bitwidth properly here?
+            bitwidth = 1
+            # TODO what to do about the scale here?
+            return QuantizedLinearPlaceholderFunction.apply(self.export_int_weight, input, bitwidth, self.out_features)
         else:
-            output = linear(input, quant_weight, None)
+            output_scale = None
+            output_bit_width = None
+            bias_bit_width = None
 
-        if self.compute_output_bit_width and bias_bit_width is not None:
-            output_bit_width = torch.where(bias_bit_width > output_bit_width, bias_bit_width, output_bit_width)
-            output_bit_width = output_bit_width + 1
-        return self.pack_output(output, output_scale, output_bit_width)
+            input, input_scale, input_bit_width = self.unpack_input(input)
+
+            quant_weight, quant_weight_scale, quant_weight_bit_width = self.weight_quant(self.weight)
+            quant_weight = self.weight_reg(quant_weight)
+
+            if self.compute_output_bit_width:
+                assert input_bit_width is not None
+                output_bit_width = self.max_output_bit_width(input_bit_width, quant_weight_bit_width)
+            if self.compute_output_scale:
+                assert input_scale is not None
+                output_scale = input_scale * quant_weight_scale
+
+            if self.bias is not None:
+                quant_bias, _, bias_bit_width = self.bias_quant(self.bias, output_scale, output_bit_width)
+                output = linear(input, quant_weight, quant_bias)
+            else:
+                output = linear(input, quant_weight, None)
+
+            if self.compute_output_bit_width and bias_bit_width is not None:
+                output_bit_width = torch.where(bias_bit_width > output_bit_width, bias_bit_width, output_bit_width)
+                output_bit_width = output_bit_width + 1
+            return self.pack_output(output, output_scale, output_bit_width)
 
     def max_output_bit_width(self, input_bit_width, weight_bit_width):
         max_input_val = max_uint(bit_width=input_bit_width, narrow_range=False)
@@ -213,6 +232,3 @@ class QuantLinear(QuantLayer, Linear):
         max_output_val = max_input_val * max_fc_val * self.in_features
         output_bit_width = ceil_ste(torch.log2(max_output_val))
         return output_bit_width
-
-
-
