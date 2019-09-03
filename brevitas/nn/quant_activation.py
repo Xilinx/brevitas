@@ -53,6 +53,7 @@ from brevitas.core.scaling import ScalingImplType, StatsInputViewShapeImpl
 from brevitas.proxy.runtime_quant import ActivationQuantProxy
 from .quant_layer import QuantLayer, SCALING_MIN_VAL
 
+import brevitas.onnx.onnx_custom_ops as finn_onnx_ops
 
 class QuantActivation(QuantLayer, Module):
     __metaclass__ = ABCMeta
@@ -338,3 +339,9 @@ class QuantIdentity(QuantActivation):
                                                     scaling_stats_op=scaling_stats_op,
                                                     scaling_stats_buffer_momentum=scaling_stats_buffer_momentum,
                                                     scaling_stats_permute_dims=scaling_stats_permute_dims)
+
+    def forward(self, input):
+        if self.export_mode:
+            return finn_onnx_ops.QuantizedHardTanhPlaceholderFunction.apply(input)
+        else:
+            return super().forward(input)
