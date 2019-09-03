@@ -201,7 +201,7 @@ class QuantLinear(QuantLayer, Linear):
         # calling these in forward() causes the ops to be included in the graph
         # as dead-end nodes. note: this might be fixed in PyTorch 1.2.0 and
         # if so this workaround prepare_for_export is not necessary.
-        self.export_int_weight = self.int_weight.detach()
+        self.export_int_weight = self.int_weight.type(torch.FloatTensor).detach()
         self.export_quant_weight_scale = self.quant_weight_scale.detach()
 
     @property
