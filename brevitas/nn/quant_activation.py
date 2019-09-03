@@ -257,6 +257,9 @@ class QuantHardTanh(QuantActivation):
                  override_pretrained_bit_width: bool = False,
                  return_quant_tensor: bool = False):
         super(QuantHardTanh, self).__init__(return_quant_tensor=return_quant_tensor)
+        # save a copy of args passed constructor, used to determine whether
+        # the quantization config is exportable to something FINN supports
+        self.init_args = locals()
         if quant_type == QuantType.FP:
             activation_impl = ConstScalarClamp(min_val=min_val, max_val=max_val)
         else:
@@ -286,6 +289,48 @@ class QuantHardTanh(QuantActivation):
                                                     scaling_stats_buffer_momentum=scaling_stats_buffer_momentum,
                                                     scaling_stats_permute_dims=scaling_stats_permute_dims)
 
+    def get_exportable_quantization_type(self):
+        # Brevitas provides a wide range of possibilities for quantization,
+        # but FINN only supports a subset. Here we test the quantization
+        # config to see if it's something that FINN would understand.
+        # TODO: the checks below are overly conservative, relax these.
+        # alternatively, create specialized subclasses and only provide export
+        # flows for those.
+        ia = self.init_args
+        if (
+            ia["min_val"] == -1.0 and
+            ia["max_val"] == 1.0 and
+            ia["bit_width"] == 1 and
+            ia["quant_type"] == QuantType.BINARY and
+            ia["bit_width_impl_type"] == BitWidthImplType.CONST and
+            ia["scaling_impl_type"] == ScalingImplType.CONST and
+            ia["restrict_scaling_type"] == RestrictValueType.LOG_FP and
+            ia["scaling_per_channel"] == False and
+            ia["narrow_range"] == True and
+            ia["float_to_int_impl_type"] == FloatToIntImplType.ROUND and
+            ia["scaling_stats_sigma"] == 3.0 and
+            ia["scaling_stats_op"] == StatsOp.MEAN_LEARN_SIGMA_STD and
+            ia["scaling_stats_buffer_momentum"] == 0.1 and
+            ia["scaling_stats_permute_dims"] == (1, 0, 2, 3) and
+            ia["per_channel_broadcastable_shape"] == None and
+            ia["min_overall_bit_width"] == 2 and
+            ia["max_overall_bit_width"] == None and
+            ia["bit_width_impl_override"] == None and
+            ia["restrict_bit_width_type"] == RestrictValueType.INT and
+            ia["scaling_min_val"] == SCALING_MIN_VAL and
+            ia["override_pretrained_bit_width"] == False and
+            ia["return_quant_tensor"] == False
+            ):
+            return "BIPOLAR"
+        else:
+            raise Exception("Unsupported config combination for export")
+
+    def forward(self, input):
+        if self.export_mode:
+            export_qnt_type = self.get_exportable_quantization_type()
+            return finn_onnx_ops.QuantizedHardTanhPlaceholderFunction.apply(input, export_qnt_type)
+        else:
+            return super().forward(input)
 
 class QuantIdentity(QuantActivation):
 
@@ -339,9 +384,3 @@ class QuantIdentity(QuantActivation):
                                                     scaling_stats_op=scaling_stats_op,
                                                     scaling_stats_buffer_momentum=scaling_stats_buffer_momentum,
                                                     scaling_stats_permute_dims=scaling_stats_permute_dims)
-
-    def forward(self, input):
-        if self.export_mode:
-            return finn_onnx_ops.QuantizedHardTanhPlaceholderFunction.apply(input)
-        else:
-            return super().forward(input)

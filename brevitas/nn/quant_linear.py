@@ -109,6 +109,9 @@ class QuantLinear(QuantLayer, Linear):
                         in_features=in_features,
                         out_features=out_features,
                         bias=bias)
+        # save a copy of args passed constructor, used to determine whether
+        # the quantization config is exportable to something FINN supports
+        self.init_args = locals()
         if weight_quant_type == QuantType.FP and compute_output_bit_width:
             raise Exception("Computing output bit width requires enabling quantization")
         if bias_quant_type != QuantType.FP and not (compute_output_scale and compute_output_bit_width):
@@ -161,6 +164,41 @@ class QuantLinear(QuantLayer, Linear):
                                          narrow_range=bias_narrow_range,
                                          bit_width=bias_bit_width)
 
+    def get_exportable_quantization_type(self):
+        # Brevitas provides a wide range of possibilities for quantization,
+        # but FINN only supports a subset. Here we test the quantization
+        # config to see if it's something that FINN would understand.
+        # TODO: the checks below are overly conservative, relax these.
+        # alternatively, create specialized subclasses and only provide export
+        # flows for those.
+        ia = self.init_args
+        if (
+            ia["bias"] == False and
+            ia["weight_quant_type"] == QuantType.BINARY and
+            ia["weight_bit_width"] == 1 and
+            ia["weight_bit_width_impl_type"] == BitWidthImplType.CONST and
+            ia["weight_scaling_stats_op"] == StatsOp.AVE and
+            ia["weight_scaling_stats_sigma"] == 0.001 and
+            ia["weight_quant_override"] == None and
+            ia["weight_narrow_range"] == False and
+            ia["weight_bit_width_impl_override"] == None and
+            ia["weight_bit_width_impl_type"] == BitWidthImplType.CONST and
+            ia["weight_restrict_bit_width_type"] == RestrictValueType.INT and
+            ia["weight_min_overall_bit_width"] == 2 and
+            ia["weight_max_overall_bit_width"] == None and
+            ia["weight_scaling_impl_type"] == ScalingImplType.STATS and
+            ia["weight_scaling_min_val"] == SCALING_MIN_VAL and
+            ia["weight_ternary_threshold"] == 0.5 and
+            ia["weight_restrict_scaling_type"] == RestrictValueType.LOG_FP and
+            ia["weight_override_pretrained_bit_width"] == False and
+            ia["compute_output_scale"] == False and
+            ia["compute_output_bit_width"] == False and
+            ia["return_quant_tensor"] == False
+            ):
+            return "BIPOLAR"
+        else:
+            raise Exception("Unsupported config combination for export")
+
     @QuantLayer.export_mode.setter
     def export_mode(self, value):
         self._export_mode = value
@@ -194,10 +232,9 @@ class QuantLinear(QuantLayer, Linear):
 
     def forward(self, input):
         if self.export_mode:
-            # TODO how to get the bitwidth properly here?
-            bitwidth = 1
-            # TODO what to do about the scale here?
-            return QuantizedLinearPlaceholderFunction.apply(self.export_int_weight, input, bitwidth, self.out_features)
+            export_qnt_type = self.get_exportable_quantization_type()
+            # TODO what to do about the scale here? per out ch scaling also
+            return QuantizedLinearPlaceholderFunction.apply(self.export_int_weight, input, export_qnt_type, self.out_features)
         else:
             output_scale = None
             output_bit_width = None
