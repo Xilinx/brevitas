@@ -1,5 +1,3 @@
-quantization_annotation = dict()
-
 def prepare_for_onnx_export(pytorch_module, enable_export = True):
     """Traverse children of given module to prepare them for ONNX export.
 
