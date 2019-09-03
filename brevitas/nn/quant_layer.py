@@ -52,6 +52,15 @@ class QuantLayer(object):
         self.compute_output_scale = compute_output_scale
         self.compute_output_bit_width = compute_output_bit_width
         self.return_quant_tensor = return_quant_tensor
+        self._export_mode = False
+
+    @property
+    def export_mode(self):
+        return self._export_mode
+
+    @export_mode.setter
+    def export_mode(self, value):
+        self._export_mode = value
 
     def unpack_input(self, input):
         if isinstance(input, QuantTensor):
