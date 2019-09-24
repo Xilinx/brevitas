@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>Brevitas &mdash; Brevitas 0.1.0-alpha documentation</title>
+  <title>Introduction &mdash; Brevitas 0.1.0-alpha documentation</title>
   
 
   
@@ -48,7 +48,7 @@
           
 
           
-            <a href="#" class="icon icon-home"> Brevitas
+            <a href="index.html" class="icon icon-home"> Brevitas
           
 
           
@@ -80,9 +80,10 @@
             
               <!-- Local TOC -->
               <div class="local-toc"><ul>
-<li><a class="reference internal" href="#">Brevitas</a><ul>
+<li><a class="reference internal" href="#">Introduction</a></li>
+<li><a class="reference internal" href="#brevitas">Brevitas</a><ul>
 <li><a class="reference internal" href="#requirements">Requirements</a></li>
-<li><a class="reference internal" href="#introduction">Introduction</a></li>
+<li><a class="reference internal" href="#id1">Introduction</a></li>
 <li><a class="reference internal" href="#target-audience">Target audience</a></li>
 <li><a class="reference internal" href="#installation">Installation</a><ul>
 <li><a class="reference internal" href="#installing-from-master">Installing from master</a></li>
@@ -96,7 +97,6 @@
 <li><a class="reference internal" href="#author">Author</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#indices-and-tables">Indices and tables</a></li>
 </ul>
 </div>
             
@@ -111,7 +111,7 @@
       <nav class="wy-nav-top" aria-label="top navigation">
         
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
-          <a href="#">Brevitas</a>
+          <a href="index.html">Brevitas</a>
         
       </nav>
 
@@ -140,15 +140,15 @@
 
   <ul class="wy-breadcrumbs">
     
-      <li><a href="#">Docs</a> &raquo;</li>
+      <li><a href="index.html">Docs</a> &raquo;</li>
         
-      <li>Brevitas</li>
+      <li>Introduction</li>
     
     
       <li class="wy-breadcrumbs-aside">
         
             
-            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+            <a href="_sources/readme_link.rst.txt" rel="nofollow"> View page source</a>
           
         
       </li>
@@ -161,11 +161,12 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
             
-  <div class="toctree-wrapper compound">
+  <div class="section" id="introduction">
+<h1>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h1>
+<a class="reference external image-reference" href="https://zenodo.org/badge/latestdoi/140494324"><img alt="DOI" src="https://zenodo.org/badge/140494324.svg" /></a>
 </div>
 <div class="section" id="brevitas">
 <h1>Brevitas<a class="headerlink" href="#brevitas" title="Permalink to this headline">¶</a></h1>
-<a class="reference external image-reference" href="https://zenodo.org/badge/latestdoi/140494324"><img alt="DOI" src="https://zenodo.org/badge/140494324.svg" /></a>
 <p>Brevitas is a Pytorch library for training-aware quantization.</p>
 <p><em>Brevitas is currently under active development and to be considered in alpha stage. APIs might and probably will change. Documentation, examples, and pretrained models will be progressively released.</em></p>
 <div class="section" id="requirements">
@@ -174,8 +175,8 @@
 <li><p><a class="reference external" href="https://pytorch.org">Pytorch</a> &gt;= 1.1.0</p></li>
 </ul>
 </div>
-<div class="section" id="introduction">
-<h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="id1">
+<h2>Introduction<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h2>
 <p>Brevitas implements a set of building blocks to model a reduced precision hardware data-path at training time.
 While partially biased towards modelling dataflow-style, very low-precision implementations, the building blocks can be parametrized and assembled together to target all sorts of reduced precision hardware.</p>
 <p>The implementations tries to adhere to the following design principles:</p>
@@ -295,14 +296,6 @@ However, propagating a tuple of values in a forward() call breaks compatibility 
 <h2>Author<a class="headerlink" href="#author" title="Permalink to this headline">¶</a></h2>
 <p>Alessandro Pappalardo &#64; Xilinx Research Labs.</p>
 </div>
-</div>
-<div class="section" id="indices-and-tables">
-<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h1>
-<ul class="simple">
-<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
-<li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
-<li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
-</ul>
 </div>
 
 
