@@ -40,23 +40,27 @@
 
 from enum import auto
 from typing import Union, Optional, Tuple
+import re
 
 import math
 import torch
-from torch.nn import Conv2d
+import docrep
+from torch.nn import Conv2d, Module
 from torch.nn import functional as F
 from torch.nn.functional import conv2d
 from torch.nn.parameter import Parameter
 
 from brevitas.core.bit_width import BitWidthParameter, BitWidthConst, BitWidthImplType
-from brevitas.core.quant import QuantType
+from brevitas.core.quant import QuantType, IdentityQuant
 from brevitas.core.restrict_val import RestrictValueType
 from brevitas.core.scaling import ScalingImplType, SCALING_SCALAR_SHAPE
 from brevitas.core.stats import StatsInputViewShapeImpl, StatsOp
 from brevitas.function.ops import ceil_ste, max_uint
-from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy
+from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy, WeightReg
 from brevitas.utils.python_utils import AutoName
-from .quant_layer import QuantLayer
+from brevitas.nn.quant_bn import mul_add_from_bn, QuantBatchNorm2d
+from brevitas.nn.quant_layer import QuantLayer, SCALING_MIN_VAL
+from brevitas.config import docstrings
 
 __all__ = ['QuantConv2d']
 
@@ -66,8 +70,15 @@ class PaddingType(AutoName):
     SAME = auto()
 
 
+@docstrings.dedent
 class QuantConv2d(QuantLayer, Conv2d):
+    """
 
+        Parameters
+        ----------
+
+        %(weight_quant_proxy.parameters_with_prefix)s
+    """
     def __init__(self,
                  in_channels: int,
                  out_channels: int,
@@ -80,9 +91,11 @@ class QuantConv2d(QuantLayer, Conv2d):
                  bias: bool = True,
                  bias_quant_type: QuantType = QuantType.FP,
                  bias_narrow_range: bool = False,
+                 bias_bit_width: int = None,
                  weight_quant_override: WeightQuantProxy = None,
                  weight_quant_type: QuantType = QuantType.FP,
                  weight_narrow_range: bool = False,
+                 weight_scaling_override: Optional[Module] = None,
                  weight_bit_width_impl_override: Union[BitWidthParameter, BitWidthConst] = None,
                  weight_bit_width_impl_type: BitWidthImplType = BitWidthImplType.CONST,
                  weight_restrict_bit_width_type: RestrictValueType = RestrictValueType.INT,
@@ -90,11 +103,13 @@ class QuantConv2d(QuantLayer, Conv2d):
                  weight_min_overall_bit_width: Optional[int] = 2,
                  weight_max_overall_bit_width: Optional[int] = None,
                  weight_scaling_impl_type: ScalingImplType = ScalingImplType.STATS,
+                 weight_scaling_const: Optional[float] = None,
                  weight_scaling_stats_op: StatsOp = StatsOp.MAX,
                  weight_scaling_per_output_channel: bool = False,
                  weight_ternary_threshold: float = 0.5,
                  weight_restrict_scaling_type: RestrictValueType = RestrictValueType.LOG_FP,
                  weight_scaling_stats_sigma: float = 3.0,
+                 weight_scaling_min_val: float = SCALING_MIN_VAL,
                  weight_override_pretrained_bit_width: bool = False,
                  compute_output_scale: bool = False,
                  compute_output_bit_width: bool = False,
@@ -119,6 +134,7 @@ class QuantConv2d(QuantLayer, Conv2d):
 
         self.per_elem_ops = 2 * self.kernel_size[0] * self.kernel_size[1] * (in_channels // groups)
         self.padding_type = padding_type
+        self.weight_reg = WeightReg()
 
         if weight_quant_override is not None:
             self.weight_quant = weight_quant_override
@@ -141,7 +157,9 @@ class QuantConv2d(QuantLayer, Conv2d):
             self.weight_quant = WeightQuantProxy(bit_width=weight_bit_width,
                                                  quant_type=weight_quant_type,
                                                  narrow_range=weight_narrow_range,
+                                                 scaling_override=weight_scaling_override,
                                                  restrict_scaling_type=weight_restrict_scaling_type,
+                                                 scaling_const=weight_scaling_const,
                                                  scaling_stats_op=weight_scaling_stats_op,
                                                  scaling_impl_type=weight_scaling_impl_type,
                                                  scaling_stats_reduce_dim=weight_scaling_stats_reduce_dim,
@@ -156,8 +174,10 @@ class QuantConv2d(QuantLayer, Conv2d):
                                                  scaling_stats_input_view_shape_impl=weight_stats_input_view_shape_impl,
                                                  scaling_stats_input_concat_dim=weight_scaling_stats_input_concat_dim,
                                                  scaling_stats_sigma=weight_scaling_stats_sigma,
+                                                 scaling_min_val=weight_scaling_min_val,
                                                  override_pretrained_bit_width=weight_override_pretrained_bit_width)
         self.bias_quant = BiasQuantProxy(quant_type=bias_quant_type,
+                                         bit_width=bias_bit_width,
                                          narrow_range=bias_narrow_range)
 
     @property
@@ -171,11 +191,25 @@ class QuantConv2d(QuantLayer, Conv2d):
         per_channel_size = tuple(per_channel_size)
         return per_channel_size
 
+    @property
+    def int_weight(self):
+        if isinstance(self.weight_quant.tensor_quant, IdentityQuant):
+            raise Exception("Can't export int weight without quantization enabled")
+        return self.weight_quant.int_weight(self.weight)
+
+    @property
+    def quant_weight_scale(self):
+        if isinstance(self.weight_quant.tensor_quant, IdentityQuant):
+            raise Exception("Can't generate scaling factor without quantization enabled")
+        zero_hw_sentinel = self.weight_quant.zero_hw_sentinel
+        return self.weight_quant.tensor_quant.scaling_impl(zero_hw_sentinel)
+
     def forward(self, input):
         output_scale = None
         output_bit_width = None
         input, input_scale, input_bit_width = self.unpack_input(input)
         quant_weight, quant_weight_scale, quant_weight_bit_width = self.weight_quant(self.weight)
+        quant_weight = self.weight_reg(quant_weight)
 
         if self.compute_output_bit_width:
             output_bit_width = self.max_output_bit_width(input_bit_width, quant_weight_bit_width)
@@ -208,21 +242,25 @@ class QuantConv2d(QuantLayer, Conv2d):
         out = F.conv2d(x, weight, bias, self.stride, 0, self.dilation, self.groups)
         return out
 
-    def merge_bn_in(self, bn, affine_only):
+    def merge_bn_in(self, bn, affine_only, sign_only):
+        if sign_only and not isinstance(bn, QuantBatchNorm2d):
+            raise Exception("Sign-only supported only with QuantBatchNorm2d")
         if affine_only and not bn.affine:
             raise Exception("Affine-only merging requires BN to have affine scaling enabled.")
-        per_output_channel_mul_factor = bn.weight.data
-        per_output_channel_add_factor = bn.bias.data * torch.sqrt(bn.running_var + bn.eps)
-        per_output_channel_add_factor -= bn.running_mean * (bn.weight.data - 1.0)
-        if not affine_only:
-            per_output_channel_mul_factor *= 1.0 / torch.sqrt(bn.running_var + bn.eps)
-            per_output_channel_add_factor -= bn.running_mean
-            per_output_channel_add_factor *= 1.0 / torch.sqrt(bn.running_var + bn.eps)
-        self.weight.data *= per_output_channel_mul_factor.view(self.per_output_channel_broadcastable_shape)
-        if self.bias is not None:
-            self.bias.data += per_output_channel_add_factor
+        if sign_only:
+            self.weight.data *= bn.weight_sign.view(self.per_output_channel_broadcastable_shape)
         else:
-            self.bias = Parameter(per_output_channel_add_factor)
+            mul_factor, add_factor = mul_add_from_bn(bn_mean=bn.running_mean,
+                                                     bn_var=bn.running_var,
+                                                     bn_eps=bn.eps,
+                                                     bn_weight=bn.weight.data.clone(),
+                                                     bn_bias=bn.bias.data.clone(),
+                                                     affine_only=affine_only)
+            self.weight.data *= mul_factor.view(self.per_output_channel_broadcastable_shape)
+            if self.bias is not None:
+                self.bias.data += add_factor
+            else:
+                self.bias = Parameter(add_factor)
 
     def max_output_bit_width(self, input_bit_width, weight_bit_width):
         max_uint_input = max_uint(bit_width=input_bit_width, narrow_range=False)

@@ -39,32 +39,39 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 from enum import auto
-from typing import Callable, Tuple, Optional, List
+from typing import Tuple, Optional, List
 
 import torch
 from torch.nn import Module, Parameter
 
-from brevitas.utils.python_utils import AutoName
+import brevitas.config as config
+from brevitas.core.function_wrapper import Identity
 from brevitas.function.ops import min_int, max_int
-from .stats import StatsOp, StatsInputViewShapeImpl, ParameterListStats
+from brevitas.utils.python_utils import AutoName
 from .restrict_val import RestrictValue, RestrictValueType, FloatToIntImplType, RestrictValueOpImplType
+from .stats import StatsOp, StatsInputViewShapeImpl, ParameterListStats, RuntimeStats
 
 SCALING_SCALAR_SHAPE = ()
 
 
 class ScalingImplType(AutoName):
+    HE = auto()
     CONST = auto()
     STATS = auto()
+    AFFINE_STATS = auto()
     PARAMETER = auto()
     PARAMETER_FROM_STATS = auto()
+    OVERRIDE = auto()
 
 
 class StandaloneScaling(torch.jit.ScriptModule):
+    __constants__ = ['const_value']
 
     def __init__(self,
-                 scaling_init: float,
+                 scaling_init: torch.Tensor,
                  is_parameter: bool,
                  parameter_shape: Optional[Tuple[int, ...]],
+                 scaling_min_val: Optional[float],
                  restrict_scaling_type: RestrictValueType) -> None:
         super(StandaloneScaling, self).__init__()
 
@@ -76,41 +83,77 @@ class StandaloneScaling(torch.jit.ScriptModule):
             raise Exception("Restriction of type {} is not supported for standalone scaling."
                             .format(str(restrict_scaling_type)))
 
-        self.restrict_value = RestrictValue(restrict_scaling_type, FloatToIntImplType.CEIL)
+        self.restrict_value = RestrictValue(restrict_scaling_type, FloatToIntImplType.CEIL, scaling_min_val)
         scaling_init_op = RestrictValue.restrict_value_op(restrict_scaling_type,
-                                                          restrict_value_op_impl_type=RestrictValueOpImplType.MATH)
+                                                          restrict_value_op_impl_type=RestrictValueOpImplType.TORCH_FN)
         scaling_init = scaling_init_op(scaling_init)
-        if is_parameter:
-            self.value = Parameter(torch.full(parameter_shape, scaling_init))
+        if is_parameter and scaling_init.dim() == 0:  # for activations with per channel scaling
+            self.learned_value = Parameter(torch.full(parameter_shape, scaling_init))
+            self.const_value = None
+        elif is_parameter and scaling_init.shape == parameter_shape:
+            self.learned_value = Parameter(scaling_init)  # for weight with per output channel scaling from stats
+            self.const_value = None
+        elif not is_parameter and scaling_init.dim() == 0:  # for fixed scalar scaling
+            self.learned_value = None
+            self.const_value = scaling_init.item()
         else:
-            self.value = torch.tensor(scaling_init)
+            raise Exception("Problem with init of standalone scaling from value {}".format(str(scaling_init)))
 
     @torch.jit.script_method
     def forward(self, zero_hw_sentinel: torch.Tensor) -> torch.Tensor:
-        value = self.value + zero_hw_sentinel
+        if self.const_value is not None:
+            value = self.const_value + zero_hw_sentinel
+        else:
+            value = self.learned_value
         value = self.restrict_value(value)
         return value
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
                               missing_keys, unexpected_keys, error_msgs):
+        value_key = prefix + 'learned_value'
+        retrocomp_value_key = prefix + 'value'
+        if retrocomp_value_key in state_dict: #  Retrocompatibility
+            state_dict[value_key] = state_dict.pop(retrocomp_value_key)
         super(StandaloneScaling, self)._load_from_state_dict(state_dict, prefix, local_metadata, strict,
             missing_keys, unexpected_keys, error_msgs)
-        value_key = prefix + 'value'
-        if value_key in missing_keys:
+        if config.IGNORE_MISSING_KEYS and value_key in missing_keys:
             missing_keys.remove(value_key)
 
 
+class AffineRescaling(torch.jit.ScriptModule):
+
+    def __init__(self, affine_shape):
+        super(AffineRescaling, self).__init__()
+        self.affine_weight = Parameter(torch.ones(affine_shape))
+        self.affine_bias = Parameter(torch.zeros(affine_shape))
+
+    def forward(self, x):
+        out = x * self.affine_weight + self.affine_bias
+        out = torch.abs(out)
+        return out
+
+    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
+                              missing_keys, unexpected_keys, error_msgs):
+        super(AffineRescaling, self)._load_from_state_dict(state_dict, prefix, local_metadata, strict,
+            missing_keys, unexpected_keys, error_msgs)
+        affine_weight_key = prefix + 'affine_weight'
+        affine_bias_key = prefix + 'affine_bias'
+        if config.IGNORE_MISSING_KEYS and affine_weight_key in missing_keys:
+            missing_keys.remove(affine_weight_key)
+        if config.IGNORE_MISSING_KEYS and affine_bias_key in missing_keys:
+            missing_keys.remove(affine_bias_key)
+
+
 class StatsScaling(torch.jit.ScriptModule):
+    __constants__ = ['affine', 'const_affine_weight', 'const_affine_bias']
 
     def __init__(self,
                  stats_op: StatsOp,
                  restrict_scaling_type: RestrictValueType,
-                 tracked_parameter_list: List[torch.nn.Parameter],
-                 stats_input_view_shape_impl: StatsInputViewShapeImpl,
                  stats_output_shape: Tuple[int, ...],
-                 stats_input_concat_dim: Optional[int],
-                 sigma: Optional[float],
-                 stats_reduce_dim: Optional[int]) -> None:
+                 scaling_min_val: Optional[float],
+                 stats_reduce_dim: Optional[int],
+                 affine: bool) -> None:
         super(StatsScaling, self).__init__()
 
         if not (restrict_scaling_type == RestrictValueType.FP
@@ -121,32 +164,103 @@ class StatsScaling(torch.jit.ScriptModule):
         if stats_op == StatsOp.MAX_AVE and stats_reduce_dim is not None:
             raise Exception("Scaling with MAX_AVE stats can't be over output channels.")
 
-        self.restrict_scaling = RestrictValue(restrict_scaling_type, FloatToIntImplType.CEIL)
+        self.affine = affine
+        if affine:
+            self.affine_rescaling = AffineRescaling(stats_output_shape)
+        else:
+            self.affine_rescaling = Identity()
+
+        self.restrict_scaling = RestrictValue(restrict_scaling_type, FloatToIntImplType.CEIL, scaling_min_val)
         self.restrict_scaling_preprocess = RestrictValue.restrict_value_op(restrict_scaling_type,
                                                                            restrict_value_op_impl_type=
                                                                            RestrictValueOpImplType.TORCH_MODULE)
-        self.parameter_list_stats = ParameterListStats(stats_op=stats_op,
-                                                       stats_output_shape=stats_output_shape,
-                                                       stats_reduce_dim=stats_reduce_dim,
-                                                       stats_input_view_shape_impl=stats_input_view_shape_impl,
-                                                       tracked_parameter_list=tracked_parameter_list,
-                                                       stats_input_concat_dim=stats_input_concat_dim,
-                                                       sigma=sigma)
 
     @torch.jit.script_method
-    def forward(self, zero_hw_sentinel: torch.Tensor) -> torch.Tensor:
-        stats = self.parameter_list_stats()
+    def forward(self, stats: torch.Tensor) -> torch.Tensor:
+        stats = self.affine_rescaling(stats)
         stats = self.restrict_scaling_preprocess(stats)
         stats = self.restrict_scaling(stats)
         return stats
 
 
-class FpIntScale(torch.jit.ScriptModule):
+class RuntimeStatsScaling(torch.jit.ScriptModule):
+
+    def __init__(self,
+                 stats_op: StatsOp,
+                 restrict_scaling_type: RestrictValueType,
+                 stats_input_view_shape_impl: StatsInputViewShapeImpl,
+                 stats_output_shape: Tuple[int, ...],
+                 sigma: Optional[float],
+                 scaling_min_val: Optional[float],
+                 stats_reduce_dim: Optional[int],
+                 stats_permute_dims: Tuple,
+                 stats_buffer_momentum: Optional[float],
+                 stats_buffer_init: float,
+                 affine: bool) -> None:
+        super(RuntimeStatsScaling, self).__init__()
+
+        self.runtime_stats = RuntimeStats(stats_op=stats_op,
+                                          stats_output_shape=stats_output_shape,
+                                          stats_reduce_dim=stats_reduce_dim,
+                                          stats_input_view_shape_impl=stats_input_view_shape_impl,
+                                          stats_buffer_momentum=stats_buffer_momentum,
+                                          stats_buffer_init=stats_buffer_init,
+                                          stats_permute_dims=stats_permute_dims,
+                                          sigma=sigma)
+        self.stats_scaling_impl = StatsScaling(restrict_scaling_type=restrict_scaling_type,
+                                               scaling_min_val=scaling_min_val,
+                                               affine=affine,
+                                               stats_op=stats_op,
+                                               stats_output_shape=stats_output_shape,
+                                               stats_reduce_dim=stats_reduce_dim)
+
+    @torch.jit.script_method
+    def forward(self, x: torch.Tensor):
+        stats = self.runtime_stats(x)
+        return self.stats_scaling_impl(stats)
+
+
+class ParameterStatsScaling(torch.jit.ScriptModule):
+
+    def __init__(self,
+                 stats_op: StatsOp,
+                 restrict_scaling_type: RestrictValueType,
+                 stats_input_view_shape_impl: StatsInputViewShapeImpl,
+                 stats_output_shape: Tuple[int, ...],
+                 stats_input_concat_dim: Optional[int],
+                 sigma: Optional[float],
+                 scaling_min_val: Optional[float],
+                 stats_reduce_dim: Optional[int],
+                 tracked_parameter_list: List[torch.nn.Parameter],
+                 affine: bool) -> None:
+        super(ParameterStatsScaling, self).__init__()
+
+        self.parameter_list_stats = ParameterListStats(stats_op=stats_op,
+                                                       stats_output_shape=stats_output_shape,
+                                                       stats_reduce_dim=stats_reduce_dim,
+                                                       stats_input_view_shape_impl=stats_input_view_shape_impl,
+                                                       stats_input_concat_dim=stats_input_concat_dim,
+                                                       tracked_parameter_list=tracked_parameter_list,
+                                                       sigma=sigma)
+        self.stats_scaling_impl = StatsScaling(restrict_scaling_type=restrict_scaling_type,
+                                               scaling_min_val=scaling_min_val,
+                                               affine=affine,
+                                               stats_op=stats_op,
+                                               stats_output_shape=stats_output_shape,
+                                               stats_reduce_dim=stats_reduce_dim)
+
+    @torch.jit.script_method
+    def forward(self, zero_hw_sentinel: torch.Tensor):
+        stats = self.parameter_list_stats()
+        return self.stats_scaling_impl(stats)
+
+
+class SignedFpIntScale(torch.jit.ScriptModule):
     __constants__ = ['signed', 'narrow_range']
 
-    def __init__(self, signed, narrow_range):
-        super(FpIntScale, self).__init__()
-        self.signed = signed
+    def __init__(self, narrow_range):
+        super(SignedFpIntScale, self).__init__()
+        self.signed = True
         self.narrow_range = narrow_range
 
     @torch.jit.script_method
@@ -154,12 +268,12 @@ class FpIntScale(torch.jit.ScriptModule):
         return - min_int(self.signed, self.narrow_range, bit_width)
 
 
-class LogFpIntScale(torch.jit.ScriptModule):
+class UnsignedFpIntScale(torch.jit.ScriptModule):
     __constants__ = ['signed']
 
-    def __init__(self, signed):
-        super(LogFpIntScale, self).__init__()
-        self.signed = signed
+    def __init__(self):
+        super(UnsignedFpIntScale, self).__init__()
+        self.signed = False
 
     @torch.jit.script_method
     def forward(self, bit_width):
@@ -193,9 +307,9 @@ class IntScaling(torch.jit.ScriptModule):
                             .format(str(restrict_scaling_type)))
 
         if signed and not restrict_scaling_type == RestrictValueType.POWER_OF_TWO:  # FP or LOG_FP
-            self.forward_impl = FpIntScale(signed, narrow_range)
+            self.forward_impl = SignedFpIntScale(narrow_range)
         elif not signed and not restrict_scaling_type == RestrictValueType.POWER_OF_TWO:  # FP or LOG_FP
-            self.forward_impl = LogFpIntScale(signed)
+            self.forward_impl = UnsignedFpIntScale()
         elif restrict_scaling_type == RestrictValueType.POWER_OF_TWO:
             self.forward_impl = PowerOfTwoIntScale(signed)
         else:

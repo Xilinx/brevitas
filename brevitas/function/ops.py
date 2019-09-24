@@ -85,7 +85,6 @@ def max_int(signed: bool, bit_width: torch.Tensor):
     value = round_ste(value)
     return value
 
-
 @torch.jit.script
 def min_int(signed: bool, narrow_range: bool, bit_width: torch.Tensor):
     if signed and narrow_range:
@@ -101,6 +100,12 @@ def min_int(signed: bool, narrow_range: bool, bit_width: torch.Tensor):
 @torch.jit.script
 def tensor_clamp_ste(x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor) -> torch.Tensor:
     y = tensor_clamp(x, min_val, max_val)
+    return _ste(x, y)
+
+
+@torch.jit.script
+def scalar_clamp_ste(x: torch.Tensor, min_val: float, max_val: float) -> torch.Tensor:
+    y = torch.clamp(x, min_val, max_val)
     return _ste(x, y)
 
 

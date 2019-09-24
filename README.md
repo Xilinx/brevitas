@@ -1,10 +1,8 @@
-[![DOI](https://zenodo.org/badge/140494324.svg)](https://zenodo.org/badge/latestdoi/140494324)
-
 # Brevitas
 
 Brevitas is a Pytorch library for training-aware quantization.
 
-*Brevitas is currently in alpha stage and under active development. APIs might and probably will change. Documentation, examples, and pretrained models will be progressively released.*
+*Brevitas is currently under active development and to be considered in alpha stage. APIs might and probably will change. Documentation, examples, and pretrained models will be progressively released.*
 
 ## Requirements
 * [Pytorch](https://pytorch.org) >= 1.1.0
@@ -23,6 +21,10 @@ The implementations tries to adhere to the following design principles:
 Brevitas is mainly targeted at researchers and practicioners in the fields of training for reduced precision inference. 
 
 The implementation is quite rich in options and allows for very fine grained control over the trained model. However, compared to other software solutions in this space, the burden of correctly modelling the target data-path is currently placed on the user. 
+
+## Docs
+
+Soon.
 
 ## Features
 

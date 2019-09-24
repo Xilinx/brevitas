@@ -108,6 +108,7 @@ class TruncQuantAccumulator(QuantAccumulator):
                  quant_type: QuantType = QuantType.INT,
                  lsb_trunc_bit_width_impl_type: BitWidthImplType = BitWidthImplType.CONST,
                  trunc_at_least_init_val=False,
+                 explicit_rescaling=False,
                  override_pretrained_bit_width: bool = False):
         super(TruncQuantAccumulator, self).__init__()
         self.acc_quant_proxy = TruncQuantProxy(signed=signed,
@@ -117,4 +118,5 @@ class TruncQuantAccumulator(QuantAccumulator):
                                                max_overall_bit_width=max_overall_bit_width,
                                                trunc_at_least_init_val=trunc_at_least_init_val,
                                                lsb_trunc_bit_width_impl_type=lsb_trunc_bit_width_impl_type,
-                                               override_pretrained_bit_width=override_pretrained_bit_width)
+                                               override_pretrained_bit_width=override_pretrained_bit_width,
+                                               explicit_rescaling=explicit_rescaling)

@@ -1,0 +1,524 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>brevitas.nn package &mdash; Brevitas 0.1.0-alpha documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script type="text/javascript" src="_static/jquery.js"></script>
+        <script type="text/javascript" src="_static/underscore.js"></script>
+        <script type="text/javascript" src="_static/doctools.js"></script>
+        <script type="text/javascript" src="_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="index.html" class="icon icon-home"> Brevitas
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <!-- Local TOC -->
+              <div class="local-toc"><ul>
+<li><a class="reference internal" href="#">brevitas.nn package</a><ul>
+<li><a class="reference internal" href="#submodules">Submodules</a></li>
+<li><a class="reference internal" href="#module-brevitas.nn.quant_accumulator">brevitas.nn.quant_accumulator module</a></li>
+<li><a class="reference internal" href="#module-brevitas.nn.quant_activation">brevitas.nn.quant_activation module</a></li>
+<li><a class="reference internal" href="#module-brevitas.nn.quant_avg_pool">brevitas.nn.quant_avg_pool module</a></li>
+<li><a class="reference internal" href="#module-brevitas.nn.quant_conv">brevitas.nn.quant_conv module</a></li>
+<li><a class="reference internal" href="#module-brevitas.nn.quant_layer">brevitas.nn.quant_layer module</a></li>
+<li><a class="reference internal" href="#module-brevitas.nn.quant_linear">brevitas.nn.quant_linear module</a></li>
+<li><a class="reference internal" href="#brevitas-nn-quant-recurrent-module">brevitas.nn.quant_recurrent module</a></li>
+<li><a class="reference internal" href="#module-brevitas.nn">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</div>
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">Brevitas</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html">Docs</a> &raquo;</li>
+        
+      <li>brevitas.nn package</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/brevitas.nn.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="brevitas-nn-package">
+<h1>brevitas.nn package<a class="headerlink" href="#brevitas-nn-package" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-brevitas.nn.quant_accumulator">
+<span id="brevitas-nn-quant-accumulator-module"></span><h2>brevitas.nn.quant_accumulator module<a class="headerlink" href="#module-brevitas.nn.quant_accumulator" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="brevitas.nn.quant_accumulator.ClampQuantAccumulator">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.nn.quant_accumulator.</code><code class="sig-name descname">ClampQuantAccumulator</code><span class="sig-paren">(</span><em class="sig-param">ms_bit_width_to_clamp=0</em>, <em class="sig-param">signed=True</em>, <em class="sig-param">narrow_range=True</em>, <em class="sig-param">min_overall_bit_width=2</em>, <em class="sig-param">max_overall_bit_width=32</em>, <em class="sig-param">quant_type=&lt;QuantType.INT: 'INT'&gt;</em>, <em class="sig-param">msb_clamp_bit_width_impl_type=&lt;BitWidthImplType.CONST: 'CONST'&gt;</em>, <em class="sig-param">per_elem_ops=None</em>, <em class="sig-param">clamp_at_least_init_val=False</em>, <em class="sig-param">override_pretrained_bit_width=False</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_accumulator.ClampQuantAccumulator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#brevitas.nn.quant_accumulator.QuantAccumulator" title="brevitas.nn.quant_accumulator.QuantAccumulator"><code class="xref py py-class docutils literal notranslate"><span class="pre">brevitas.nn.quant_accumulator.QuantAccumulator</span></code></a></p>
+</dd></dl>
+
+<dl class="class">
+<dt id="brevitas.nn.quant_accumulator.QuantAccumulator">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.nn.quant_accumulator.</code><code class="sig-name descname">QuantAccumulator</code><a class="headerlink" href="#brevitas.nn.quant_accumulator.QuantAccumulator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#brevitas.nn.quant_layer.QuantLayer" title="brevitas.nn.quant_layer.QuantLayer"><code class="xref py py-class docutils literal notranslate"><span class="pre">brevitas.nn.quant_layer.QuantLayer</span></code></a>, <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
+<dl class="method">
+<dt id="brevitas.nn.quant_accumulator.QuantAccumulator.acc_quant_proxy">
+<em class="property">property </em><code class="sig-name descname">acc_quant_proxy</code><a class="headerlink" href="#brevitas.nn.quant_accumulator.QuantAccumulator.acc_quant_proxy" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="brevitas.nn.quant_accumulator.QuantAccumulator.forward">
+<code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">input</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_accumulator.QuantAccumulator.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="brevitas.nn.quant_accumulator.TruncQuantAccumulator">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.nn.quant_accumulator.</code><code class="sig-name descname">TruncQuantAccumulator</code><span class="sig-paren">(</span><em class="sig-param">ls_bit_width_to_trunc=0</em>, <em class="sig-param">signed=True</em>, <em class="sig-param">min_overall_bit_width=2</em>, <em class="sig-param">max_overall_bit_width=32</em>, <em class="sig-param">quant_type=&lt;QuantType.INT: 'INT'&gt;</em>, <em class="sig-param">lsb_trunc_bit_width_impl_type=&lt;BitWidthImplType.CONST: 'CONST'&gt;</em>, <em class="sig-param">trunc_at_least_init_val=False</em>, <em class="sig-param">explicit_rescaling=False</em>, <em class="sig-param">override_pretrained_bit_width=False</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_accumulator.TruncQuantAccumulator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#brevitas.nn.quant_accumulator.QuantAccumulator" title="brevitas.nn.quant_accumulator.QuantAccumulator"><code class="xref py py-class docutils literal notranslate"><span class="pre">brevitas.nn.quant_accumulator.QuantAccumulator</span></code></a></p>
+</dd></dl>
+
+</div>
+<div class="section" id="module-brevitas.nn.quant_activation">
+<span id="brevitas-nn-quant-activation-module"></span><h2>brevitas.nn.quant_activation module<a class="headerlink" href="#module-brevitas.nn.quant_activation" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="brevitas.nn.quant_activation.QuantActivation">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.nn.quant_activation.</code><code class="sig-name descname">QuantActivation</code><span class="sig-paren">(</span><em class="sig-param">return_quant_tensor</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_activation.QuantActivation" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#brevitas.nn.quant_layer.QuantLayer" title="brevitas.nn.quant_layer.QuantLayer"><code class="xref py py-class docutils literal notranslate"><span class="pre">brevitas.nn.quant_layer.QuantLayer</span></code></a>, <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
+<dl class="method">
+<dt id="brevitas.nn.quant_activation.QuantActivation.act_quant_proxy">
+<em class="property">property </em><code class="sig-name descname">act_quant_proxy</code><a class="headerlink" href="#brevitas.nn.quant_activation.QuantActivation.act_quant_proxy" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="brevitas.nn.quant_activation.QuantActivation.forward">
+<code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">input</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_activation.QuantActivation.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="brevitas.nn.quant_activation.QuantActivation.quant_act_scale">
+<em class="property">property </em><code class="sig-name descname">quant_act_scale</code><a class="headerlink" href="#brevitas.nn.quant_activation.QuantActivation.quant_act_scale" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="brevitas.nn.quant_activation.QuantHardTanh">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.nn.quant_activation.</code><code class="sig-name descname">QuantHardTanh</code><span class="sig-paren">(</span><em class="sig-param">bit_width</em>, <em class="sig-param">min_val=-1.0</em>, <em class="sig-param">max_val=1.0</em>, <em class="sig-param">narrow_range=False</em>, <em class="sig-param">quant_type=&lt;QuantType.FP: 'FP'&gt;</em>, <em class="sig-param">float_to_int_impl_type=&lt;FloatToIntImplType.ROUND: 'ROUND'&gt;</em>, <em class="sig-param">scaling_impl_type=&lt;ScalingImplType.PARAMETER: 'PARAMETER'&gt;</em>, <em class="sig-param">scaling_override=None</em>, <em class="sig-param">scaling_per_channel=False</em>, <em class="sig-param">scaling_stats_sigma=3.0</em>, <em class="sig-param">scaling_stats_input_view_shape_impl=&lt;class 'brevitas.core.function_wrapper.OverOutputChannelView'&gt;</em>, <em class="sig-param">scaling_stats_op=&lt;StatsOp.MEAN_LEARN_SIGMA_STD: 'MEAN_LEARN_SIGMA_STD'&gt;</em>, <em class="sig-param">scaling_stats_buffer_momentum=0.1</em>, <em class="sig-param">scaling_stats_permute_dims=(1</em>, <em class="sig-param">0</em>, <em class="sig-param">2</em>, <em class="sig-param">3)</em>, <em class="sig-param">per_channel_broadcastable_shape=None</em>, <em class="sig-param">min_overall_bit_width=2</em>, <em class="sig-param">max_overall_bit_width=None</em>, <em class="sig-param">bit_width_impl_override=None</em>, <em class="sig-param">bit_width_impl_type=&lt;BitWidthImplType.CONST: 'CONST'&gt;</em>, <em class="sig-param">restrict_bit_width_type=&lt;RestrictValueType.INT: 'INT'&gt;</em>, <em class="sig-param">restrict_scaling_type=&lt;RestrictValueType.LOG_FP: 'LOG_FP'&gt;</em>, <em class="sig-param">scaling_min_val=1.52587890625e-05</em>, <em class="sig-param">override_pretrained_bit_width=False</em>, <em class="sig-param">return_quant_tensor=False</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_activation.QuantHardTanh" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#brevitas.nn.quant_activation.QuantActivation" title="brevitas.nn.quant_activation.QuantActivation"><code class="xref py py-class docutils literal notranslate"><span class="pre">brevitas.nn.quant_activation.QuantActivation</span></code></a></p>
+</dd></dl>
+
+<dl class="class">
+<dt id="brevitas.nn.quant_activation.QuantReLU">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.nn.quant_activation.</code><code class="sig-name descname">QuantReLU</code><span class="sig-paren">(</span><em class="sig-param">bit_width</em>, <em class="sig-param">max_val</em>, <em class="sig-param">quant_type=&lt;QuantType.FP: 'FP'&gt;</em>, <em class="sig-param">float_to_int_impl_type=&lt;FloatToIntImplType.ROUND: 'ROUND'&gt;</em>, <em class="sig-param">scaling_impl_type=&lt;ScalingImplType.PARAMETER: 'PARAMETER'&gt;</em>, <em class="sig-param">scaling_override=None</em>, <em class="sig-param">scaling_per_channel=False</em>, <em class="sig-param">scaling_min_val=1.52587890625e-05</em>, <em class="sig-param">scaling_stats_sigma=2.0</em>, <em class="sig-param">scaling_stats_input_view_shape_impl=&lt;class 'brevitas.core.function_wrapper.OverOutputChannelView'&gt;</em>, <em class="sig-param">scaling_stats_op=&lt;StatsOp.MEAN_LEARN_SIGMA_STD: 'MEAN_LEARN_SIGMA_STD'&gt;</em>, <em class="sig-param">scaling_stats_buffer_momentum=0.1</em>, <em class="sig-param">scaling_stats_permute_dims=(1</em>, <em class="sig-param">0</em>, <em class="sig-param">2</em>, <em class="sig-param">3)</em>, <em class="sig-param">per_channel_broadcastable_shape=None</em>, <em class="sig-param">min_overall_bit_width=2</em>, <em class="sig-param">max_overall_bit_width=None</em>, <em class="sig-param">bit_width_impl_override=None</em>, <em class="sig-param">bit_width_impl_type=&lt;BitWidthImplType.CONST: 'CONST'&gt;</em>, <em class="sig-param">restrict_bit_width_type=&lt;RestrictValueType.INT: 'INT'&gt;</em>, <em class="sig-param">restrict_scaling_type=&lt;RestrictValueType.LOG_FP: 'LOG_FP'&gt;</em>, <em class="sig-param">override_pretrained_bit_width=False</em>, <em class="sig-param">return_quant_tensor=False</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_activation.QuantReLU" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#brevitas.nn.quant_activation.QuantActivation" title="brevitas.nn.quant_activation.QuantActivation"><code class="xref py py-class docutils literal notranslate"><span class="pre">brevitas.nn.quant_activation.QuantActivation</span></code></a></p>
+</dd></dl>
+
+<dl class="class">
+<dt id="brevitas.nn.quant_activation.QuantSigmoid">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.nn.quant_activation.</code><code class="sig-name descname">QuantSigmoid</code><span class="sig-paren">(</span><em class="sig-param">bit_width</em>, <em class="sig-param">narrow_range=False</em>, <em class="sig-param">quant_type=&lt;QuantType.FP: 'FP'&gt;</em>, <em class="sig-param">float_to_int_impl_type=&lt;FloatToIntImplType.ROUND: 'ROUND'&gt;</em>, <em class="sig-param">min_overall_bit_width=2</em>, <em class="sig-param">max_overall_bit_width=None</em>, <em class="sig-param">bit_width_impl_override=None</em>, <em class="sig-param">bit_width_impl_type=&lt;BitWidthImplType.CONST: 'CONST'&gt;</em>, <em class="sig-param">restrict_bit_width_type=&lt;RestrictValueType.INT: 'INT'&gt;</em>, <em class="sig-param">restrict_scaling_type=&lt;RestrictValueType.LOG_FP: 'LOG_FP'&gt;</em>, <em class="sig-param">scaling_min_val=1.52587890625e-05</em>, <em class="sig-param">override_pretrained_bit_width=False</em>, <em class="sig-param">return_quant_tensor=False</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_activation.QuantSigmoid" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#brevitas.nn.quant_activation.QuantActivation" title="brevitas.nn.quant_activation.QuantActivation"><code class="xref py py-class docutils literal notranslate"><span class="pre">brevitas.nn.quant_activation.QuantActivation</span></code></a></p>
+</dd></dl>
+
+<dl class="class">
+<dt id="brevitas.nn.quant_activation.QuantTanh">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.nn.quant_activation.</code><code class="sig-name descname">QuantTanh</code><span class="sig-paren">(</span><em class="sig-param">bit_width</em>, <em class="sig-param">narrow_range=False</em>, <em class="sig-param">quant_type=&lt;QuantType.FP: 'FP'&gt;</em>, <em class="sig-param">float_to_int_impl_type=&lt;FloatToIntImplType.ROUND: 'ROUND'&gt;</em>, <em class="sig-param">min_overall_bit_width=2</em>, <em class="sig-param">max_overall_bit_width=None</em>, <em class="sig-param">bit_width_impl_override=None</em>, <em class="sig-param">bit_width_impl_type=&lt;BitWidthImplType.CONST: 'CONST'&gt;</em>, <em class="sig-param">restrict_bit_width_type=&lt;RestrictValueType.INT: 'INT'&gt;</em>, <em class="sig-param">restrict_scaling_type=&lt;RestrictValueType.LOG_FP: 'LOG_FP'&gt;</em>, <em class="sig-param">scaling_min_val=1.52587890625e-05</em>, <em class="sig-param">override_pretrained_bit_width=False</em>, <em class="sig-param">return_quant_tensor=False</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_activation.QuantTanh" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#brevitas.nn.quant_activation.QuantActivation" title="brevitas.nn.quant_activation.QuantActivation"><code class="xref py py-class docutils literal notranslate"><span class="pre">brevitas.nn.quant_activation.QuantActivation</span></code></a></p>
+</dd></dl>
+
+</div>
+<div class="section" id="module-brevitas.nn.quant_avg_pool">
+<span id="brevitas-nn-quant-avg-pool-module"></span><h2>brevitas.nn.quant_avg_pool module<a class="headerlink" href="#module-brevitas.nn.quant_avg_pool" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="brevitas.nn.quant_avg_pool.QuantAvgPool2d">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.nn.quant_avg_pool.</code><code class="sig-name descname">QuantAvgPool2d</code><span class="sig-paren">(</span><em class="sig-param">kernel_size</em>, <em class="sig-param">stride=None</em>, <em class="sig-param">signed=True</em>, <em class="sig-param">min_overall_bit_width=2</em>, <em class="sig-param">max_overall_bit_width=32</em>, <em class="sig-param">quant_type=&lt;QuantType.FP: 'FP'&gt;</em>, <em class="sig-param">lsb_trunc_bit_width_impl_type=&lt;BitWidthImplType.CONST: 'CONST'&gt;</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_avg_pool.QuantAvgPool2d" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#brevitas.nn.quant_layer.QuantLayer" title="brevitas.nn.quant_layer.QuantLayer"><code class="xref py py-class docutils literal notranslate"><span class="pre">brevitas.nn.quant_layer.QuantLayer</span></code></a>, <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.pooling.AvgPool2d</span></code></p>
+<dl class="method">
+<dt id="brevitas.nn.quant_avg_pool.QuantAvgPool2d.forward">
+<code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">input</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_avg_pool.QuantAvgPool2d.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="brevitas.nn.quant_avg_pool.QuantAvgPool2d.max_output_bit_width">
+<code class="sig-name descname">max_output_bit_width</code><span class="sig-paren">(</span><em class="sig-param">input_bit_width</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_avg_pool.QuantAvgPool2d.max_output_bit_width" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-brevitas.nn.quant_conv">
+<span id="brevitas-nn-quant-conv-module"></span><h2>brevitas.nn.quant_conv module<a class="headerlink" href="#module-brevitas.nn.quant_conv" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="brevitas.nn.quant_conv.QuantConv2d">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.nn.quant_conv.</code><code class="sig-name descname">QuantConv2d</code><span class="sig-paren">(</span><em class="sig-param">in_channels</em>, <em class="sig-param">out_channels</em>, <em class="sig-param">kernel_size</em>, <em class="sig-param">stride=1</em>, <em class="sig-param">padding=0</em>, <em class="sig-param">padding_type=&lt;PaddingType.STANDARD: 'STANDARD'&gt;</em>, <em class="sig-param">dilation=1</em>, <em class="sig-param">groups=1</em>, <em class="sig-param">bias=True</em>, <em class="sig-param">bias_quant_type=&lt;QuantType.FP: 'FP'&gt;</em>, <em class="sig-param">bias_narrow_range=False</em>, <em class="sig-param">bias_bit_width=None</em>, <em class="sig-param">weight_quant_override=None</em>, <em class="sig-param">weight_quant_type=&lt;QuantType.FP: 'FP'&gt;</em>, <em class="sig-param">weight_narrow_range=False</em>, <em class="sig-param">weight_scaling_override=None</em>, <em class="sig-param">weight_bit_width_impl_override=None</em>, <em class="sig-param">weight_bit_width_impl_type=&lt;BitWidthImplType.CONST: 'CONST'&gt;</em>, <em class="sig-param">weight_restrict_bit_width_type=&lt;RestrictValueType.INT: 'INT'&gt;</em>, <em class="sig-param">weight_bit_width=32</em>, <em class="sig-param">weight_min_overall_bit_width=2</em>, <em class="sig-param">weight_max_overall_bit_width=None</em>, <em class="sig-param">weight_scaling_impl_type=&lt;ScalingImplType.STATS: 'STATS'&gt;</em>, <em class="sig-param">weight_scaling_const=None</em>, <em class="sig-param">weight_scaling_stats_op=&lt;StatsOp.MAX: 'MAX'&gt;</em>, <em class="sig-param">weight_scaling_per_output_channel=False</em>, <em class="sig-param">weight_ternary_threshold=0.5</em>, <em class="sig-param">weight_restrict_scaling_type=&lt;RestrictValueType.LOG_FP: 'LOG_FP'&gt;</em>, <em class="sig-param">weight_scaling_stats_sigma=3.0</em>, <em class="sig-param">weight_scaling_min_val=1.52587890625e-05</em>, <em class="sig-param">weight_override_pretrained_bit_width=False</em>, <em class="sig-param">compute_output_scale=False</em>, <em class="sig-param">compute_output_bit_width=False</em>, <em class="sig-param">return_quant_tensor=False</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_conv.QuantConv2d" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#brevitas.nn.quant_layer.QuantLayer" title="brevitas.nn.quant_layer.QuantLayer"><code class="xref py py-class docutils literal notranslate"><span class="pre">brevitas.nn.quant_layer.QuantLayer</span></code></a>, <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.conv.Conv2d</span></code></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>weight_bit_width</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code>) – The bit-width at which weights are quantized to. If <cite>weight_bit_width_impl_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">PARAMETER</span></code>, this value is
+used for initialization. If <cite>weight_quant_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">FP</span></code>, this value is ignored.</p></li>
+<li><p><strong>weight_quant_type</strong> (<a class="reference internal" href="brevitas.core.html#brevitas.core.quant.QuantType" title="brevitas.core.quant.QuantType"><code class="xref py py-class docutils literal notranslate"><span class="pre">QuantType</span></code></a>) – Type of quantization. If set to <code class="docutils literal notranslate"><span class="pre">FP</span></code>, no quantization is performed.</p></li>
+<li><p><strong>weight_narrow_range</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code>) – Restrict range of quantized values to a symmetrical interval around 0. For example, given <cite>weight_bit_width</cite> set to
+8 and quant_type set to <code class="docutils literal notranslate"><span class="pre">INT</span></code>, if <cite>weight_narrow_range</cite> is set to <code class="docutils literal notranslate"><span class="pre">True</span></code>, the range of quantized values is in
+<code class="docutils literal notranslate"><span class="pre">[-127,</span> <span class="pre">127]</span></code>; If set to <code class="docutils literal notranslate"><span class="pre">False</span></code>, it’s in <code class="docutils literal notranslate"><span class="pre">[-128,127]</span></code>.</p></li>
+<li><p><strong>weight_restrict_scaling_type</strong> (<a class="reference internal" href="brevitas.core.html#brevitas.core.restrict_val.RestrictValueType" title="brevitas.core.restrict_val.RestrictValueType"><code class="xref py py-class docutils literal notranslate"><span class="pre">RestrictValueType</span></code></a>) – Type of restriction imposed on the values of the scaling factor of the quantized weights.</p></li>
+<li><p><strong>weight_scaling_const</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code>]) – If <cite>weight_scaling_impl_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">CONST</span></code>, this value is used as the scaling factor across all relevant
+dimensions. Ignored otherwise.</p></li>
+<li><p><strong>weight_scaling_stats_op</strong> (<a class="reference internal" href="brevitas.core.html#brevitas.core.stats.StatsOp" title="brevitas.core.stats.StatsOp"><code class="xref py py-class docutils literal notranslate"><span class="pre">StatsOp</span></code></a>) – Type of statistical operation performed for scaling, if required. If <cite>weight_scaling_impl_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">STATS</span></code>,
+the operation is part of the compute graph and back-propagated through. If If <cite>weight_scaling_impl_type</cite> is set to
+<code class="docutils literal notranslate"><span class="pre">PARAMETER_FROM_STATS</span></code>, the operation is used only for computing the initialization of the parameter, possibly
+across some dimensions. Ignored otherwise.</p></li>
+<li><p><strong>weight_scaling_impl_type</strong> (<a class="reference internal" href="brevitas.core.html#brevitas.core.scaling.ScalingImplType" title="brevitas.core.scaling.ScalingImplType"><code class="xref py py-class docutils literal notranslate"><span class="pre">ScalingImplType</span></code></a>) – Type of strategy adopted for scaling the quantized weights.</p></li>
+<li><p><strong>weight_scaling_min_val</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code>) – Minimum value that the scaling factors can reach. This has precedence over anything else, including
+<cite>weight_scaling_const</cite> when <cite>weight_scaling_impl_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">CONST</span></code>. Useful in case of numerical instabilities.
+If set to None, no minimum is imposed.</p></li>
+<li><p><strong>weight_bit_width_impl_type</strong> (<a class="reference internal" href="brevitas.core.html#brevitas.core.bit_width.BitWidthImplType" title="brevitas.core.bit_width.BitWidthImplType"><code class="xref py py-class docutils literal notranslate"><span class="pre">BitWidthImplType</span></code></a>) – Type of strategy adopted for precision at which the weights are quantized to when <cite>weight_quant_type</cite> is set to
+<code class="docutils literal notranslate"><span class="pre">INT</span></code>. Ignored otherwise.</p></li>
+<li><p><strong>weight_restrict_bit_width_type</strong> (<a class="reference internal" href="brevitas.core.html#brevitas.core.restrict_val.RestrictValueType" title="brevitas.core.restrict_val.RestrictValueType"><code class="xref py py-class docutils literal notranslate"><span class="pre">RestrictValueType</span></code></a>) – If <cite>weight_bit_width_impl_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">PARAMETER</span></code> and <cite>weight_quant_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">INT</span></code>, this value constraints or
+relax the bit-width value that can be learned. Ignored otherwise.</p></li>
+<li><p><strong>weight_min_overall_bit_width</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code>]) – If <cite>weight_bit_width_impl_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">PARAMETER</span></code> and <cite>weight_quant_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">INT</span></code>, this value imposes a lower
+bound on the learned value. Ignored otherwise.</p></li>
+<li><p><strong>weight_max_overall_bit_width</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code>]) – If <cite>weight_bit_width_impl_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">PARAMETER</span></code> and <cite>weight_quant_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">INT</span></code>, this value imposes an upper
+bound on the learned value. Ignored otherwise.</p></li>
+<li><p><strong>weight_tracked_parameter_list_init</strong> – </p></li>
+<li><p><strong>bit_width_impl_override</strong> – </p></li>
+<li><p><strong>weight_ternary_threshold</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code>) – </p></li>
+<li><p><strong>scaling_stats_sigma</strong> – </p></li>
+<li><p><strong>override_pretrained_bit_width</strong> – </p></li>
+</ul>
+</dd>
+</dl>
+<dl class="method">
+<dt id="brevitas.nn.quant_conv.QuantConv2d.conv2d">
+<code class="sig-name descname">conv2d</code><span class="sig-paren">(</span><em class="sig-param">x</em>, <em class="sig-param">weight</em>, <em class="sig-param">bias</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_conv.QuantConv2d.conv2d" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="brevitas.nn.quant_conv.QuantConv2d.conv2d_same_padding">
+<code class="sig-name descname">conv2d_same_padding</code><span class="sig-paren">(</span><em class="sig-param">x</em>, <em class="sig-param">weight</em>, <em class="sig-param">bias</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_conv.QuantConv2d.conv2d_same_padding" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="brevitas.nn.quant_conv.QuantConv2d.forward">
+<code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">input</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_conv.QuantConv2d.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="brevitas.nn.quant_conv.QuantConv2d.int_weight">
+<em class="property">property </em><code class="sig-name descname">int_weight</code><a class="headerlink" href="#brevitas.nn.quant_conv.QuantConv2d.int_weight" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="brevitas.nn.quant_conv.QuantConv2d.max_output_bit_width">
+<code class="sig-name descname">max_output_bit_width</code><span class="sig-paren">(</span><em class="sig-param">input_bit_width</em>, <em class="sig-param">weight_bit_width</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_conv.QuantConv2d.max_output_bit_width" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="brevitas.nn.quant_conv.QuantConv2d.merge_bn_in">
+<code class="sig-name descname">merge_bn_in</code><span class="sig-paren">(</span><em class="sig-param">bn</em>, <em class="sig-param">affine_only</em>, <em class="sig-param">sign_only</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_conv.QuantConv2d.merge_bn_in" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="brevitas.nn.quant_conv.QuantConv2d.per_output_channel_broadcastable_shape">
+<em class="property">property </em><code class="sig-name descname">per_output_channel_broadcastable_shape</code><a class="headerlink" href="#brevitas.nn.quant_conv.QuantConv2d.per_output_channel_broadcastable_shape" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="brevitas.nn.quant_conv.QuantConv2d.quant_weight_scale">
+<em class="property">property </em><code class="sig-name descname">quant_weight_scale</code><a class="headerlink" href="#brevitas.nn.quant_conv.QuantConv2d.quant_weight_scale" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-brevitas.nn.quant_layer">
+<span id="brevitas-nn-quant-layer-module"></span><h2>brevitas.nn.quant_layer module<a class="headerlink" href="#module-brevitas.nn.quant_layer" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="brevitas.nn.quant_layer.QuantLayer">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.nn.quant_layer.</code><code class="sig-name descname">QuantLayer</code><span class="sig-paren">(</span><em class="sig-param">compute_output_scale</em>, <em class="sig-param">compute_output_bit_width</em>, <em class="sig-param">return_quant_tensor</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_layer.QuantLayer" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="method">
+<dt id="brevitas.nn.quant_layer.QuantLayer.pack_output">
+<code class="sig-name descname">pack_output</code><span class="sig-paren">(</span><em class="sig-param">output</em>, <em class="sig-param">output_scale</em>, <em class="sig-param">output_bit_width</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_layer.QuantLayer.pack_output" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="brevitas.nn.quant_layer.QuantLayer.unpack_input">
+<code class="sig-name descname">unpack_input</code><span class="sig-paren">(</span><em class="sig-param">input</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_layer.QuantLayer.unpack_input" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-brevitas.nn.quant_linear">
+<span id="brevitas-nn-quant-linear-module"></span><h2>brevitas.nn.quant_linear module<a class="headerlink" href="#module-brevitas.nn.quant_linear" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="brevitas.nn.quant_linear.QuantLinear">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.nn.quant_linear.</code><code class="sig-name descname">QuantLinear</code><span class="sig-paren">(</span><em class="sig-param">in_features</em>, <em class="sig-param">out_features</em>, <em class="sig-param">bias</em>, <em class="sig-param">bias_quant_type=&lt;QuantType.FP: 'FP'&gt;</em>, <em class="sig-param">bias_narrow_range=False</em>, <em class="sig-param">bias_bit_width=None</em>, <em class="sig-param">weight_quant_override=None</em>, <em class="sig-param">weight_quant_type=&lt;QuantType.FP: 'FP'&gt;</em>, <em class="sig-param">weight_narrow_range=False</em>, <em class="sig-param">weight_bit_width_impl_override=None</em>, <em class="sig-param">weight_bit_width_impl_type=&lt;BitWidthImplType.CONST: 'CONST'&gt;</em>, <em class="sig-param">weight_restrict_bit_width_type=&lt;RestrictValueType.INT: 'INT'&gt;</em>, <em class="sig-param">weight_bit_width=32</em>, <em class="sig-param">weight_min_overall_bit_width=2</em>, <em class="sig-param">weight_max_overall_bit_width=None</em>, <em class="sig-param">weight_scaling_override=None</em>, <em class="sig-param">weight_scaling_impl_type=&lt;ScalingImplType.STATS: 'STATS'&gt;</em>, <em class="sig-param">weight_scaling_const=None</em>, <em class="sig-param">weight_scaling_stats_op=&lt;StatsOp.MAX: 'MAX'&gt;</em>, <em class="sig-param">weight_scaling_per_output_channel=False</em>, <em class="sig-param">weight_scaling_min_val=1.52587890625e-05</em>, <em class="sig-param">weight_ternary_threshold=0.5</em>, <em class="sig-param">weight_restrict_scaling_type=&lt;RestrictValueType.LOG_FP: 'LOG_FP'&gt;</em>, <em class="sig-param">weight_scaling_stats_sigma=3.0</em>, <em class="sig-param">weight_override_pretrained_bit_width=False</em>, <em class="sig-param">compute_output_scale=False</em>, <em class="sig-param">compute_output_bit_width=False</em>, <em class="sig-param">return_quant_tensor=False</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_linear.QuantLinear" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#brevitas.nn.quant_layer.QuantLayer" title="brevitas.nn.quant_layer.QuantLayer"><code class="xref py py-class docutils literal notranslate"><span class="pre">brevitas.nn.quant_layer.QuantLayer</span></code></a>, <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.linear.Linear</span></code></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>weight_bit_width</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code>) – The bit-width at which weights are quantized to. If <cite>weight_bit_width_impl_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">PARAMETER</span></code>, this value is
+used for initialization. If <cite>weight_quant_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">FP</span></code>, this value is ignored.</p></li>
+<li><p><strong>weight_quant_type</strong> (<a class="reference internal" href="brevitas.core.html#brevitas.core.quant.QuantType" title="brevitas.core.quant.QuantType"><code class="xref py py-class docutils literal notranslate"><span class="pre">QuantType</span></code></a>) – Type of quantization. If set to <code class="docutils literal notranslate"><span class="pre">FP</span></code>, no quantization is performed.</p></li>
+<li><p><strong>weight_narrow_range</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code>) – Restrict range of quantized values to a symmetrical interval around 0. For example, given <cite>weight_bit_width</cite> set to
+8 and quant_type set to <code class="docutils literal notranslate"><span class="pre">INT</span></code>, if <cite>weight_narrow_range</cite> is set to <code class="docutils literal notranslate"><span class="pre">True</span></code>, the range of quantized values is in
+<code class="docutils literal notranslate"><span class="pre">[-127,</span> <span class="pre">127]</span></code>; If set to <code class="docutils literal notranslate"><span class="pre">False</span></code>, it’s in <code class="docutils literal notranslate"><span class="pre">[-128,127]</span></code>.</p></li>
+<li><p><strong>weight_restrict_scaling_type</strong> (<a class="reference internal" href="brevitas.core.html#brevitas.core.restrict_val.RestrictValueType" title="brevitas.core.restrict_val.RestrictValueType"><code class="xref py py-class docutils literal notranslate"><span class="pre">RestrictValueType</span></code></a>) – Type of restriction imposed on the values of the scaling factor of the quantized weights.</p></li>
+<li><p><strong>weight_scaling_const</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code>]) – If <cite>weight_scaling_impl_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">CONST</span></code>, this value is used as the scaling factor across all relevant
+dimensions. Ignored otherwise.</p></li>
+<li><p><strong>weight_scaling_stats_op</strong> (<a class="reference internal" href="brevitas.core.html#brevitas.core.stats.StatsOp" title="brevitas.core.stats.StatsOp"><code class="xref py py-class docutils literal notranslate"><span class="pre">StatsOp</span></code></a>) – Type of statistical operation performed for scaling, if required. If <cite>weight_scaling_impl_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">STATS</span></code>,
+the operation is part of the compute graph and back-propagated through. If If <cite>weight_scaling_impl_type</cite> is set to
+<code class="docutils literal notranslate"><span class="pre">PARAMETER_FROM_STATS</span></code>, the operation is used only for computing the initialization of the parameter, possibly
+across some dimensions. Ignored otherwise.</p></li>
+<li><p><strong>weight_scaling_impl_type</strong> (<a class="reference internal" href="brevitas.core.html#brevitas.core.scaling.ScalingImplType" title="brevitas.core.scaling.ScalingImplType"><code class="xref py py-class docutils literal notranslate"><span class="pre">ScalingImplType</span></code></a>) – Type of strategy adopted for scaling the quantized weights.</p></li>
+<li><p><strong>weight_scaling_min_val</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code>) – Minimum value that the scaling factors can reach. This has precedence over anything else, including
+<cite>weight_scaling_const</cite> when <cite>weight_scaling_impl_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">CONST</span></code>. Useful in case of numerical instabilities.
+If set to None, no minimum is imposed.</p></li>
+<li><p><strong>weight_bit_width_impl_type</strong> (<a class="reference internal" href="brevitas.core.html#brevitas.core.bit_width.BitWidthImplType" title="brevitas.core.bit_width.BitWidthImplType"><code class="xref py py-class docutils literal notranslate"><span class="pre">BitWidthImplType</span></code></a>) – Type of strategy adopted for precision at which the weights are quantized to when <cite>weight_quant_type</cite> is set to
+<code class="docutils literal notranslate"><span class="pre">INT</span></code>. Ignored otherwise.</p></li>
+<li><p><strong>weight_restrict_bit_width_type</strong> (<a class="reference internal" href="brevitas.core.html#brevitas.core.restrict_val.RestrictValueType" title="brevitas.core.restrict_val.RestrictValueType"><code class="xref py py-class docutils literal notranslate"><span class="pre">RestrictValueType</span></code></a>) – If <cite>weight_bit_width_impl_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">PARAMETER</span></code> and <cite>weight_quant_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">INT</span></code>, this value constraints or
+relax the bit-width value that can be learned. Ignored otherwise.</p></li>
+<li><p><strong>weight_min_overall_bit_width</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code>]) – If <cite>weight_bit_width_impl_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">PARAMETER</span></code> and <cite>weight_quant_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">INT</span></code>, this value imposes a lower
+bound on the learned value. Ignored otherwise.</p></li>
+<li><p><strong>weight_max_overall_bit_width</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code>]) – If <cite>weight_bit_width_impl_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">PARAMETER</span></code> and <cite>weight_quant_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">INT</span></code>, this value imposes an upper
+bound on the learned value. Ignored otherwise.</p></li>
+<li><p><strong>weight_tracked_parameter_list_init</strong> – </p></li>
+<li><p><strong>bit_width_impl_override</strong> – </p></li>
+<li><p><strong>weight_ternary_threshold</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code>) – </p></li>
+<li><p><strong>scaling_stats_sigma</strong> – </p></li>
+<li><p><strong>override_pretrained_bit_width</strong> – </p></li>
+</ul>
+</dd>
+</dl>
+<dl class="method">
+<dt id="brevitas.nn.quant_linear.QuantLinear.forward">
+<code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">input</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_linear.QuantLinear.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="brevitas.nn.quant_linear.QuantLinear.int_weight">
+<em class="property">property </em><code class="sig-name descname">int_weight</code><a class="headerlink" href="#brevitas.nn.quant_linear.QuantLinear.int_weight" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="brevitas.nn.quant_linear.QuantLinear.max_output_bit_width">
+<code class="sig-name descname">max_output_bit_width</code><span class="sig-paren">(</span><em class="sig-param">input_bit_width</em>, <em class="sig-param">weight_bit_width</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_linear.QuantLinear.max_output_bit_width" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="brevitas.nn.quant_linear.QuantLinear.quant_weight_scale">
+<em class="property">property </em><code class="sig-name descname">quant_weight_scale</code><a class="headerlink" href="#brevitas.nn.quant_linear.QuantLinear.quant_weight_scale" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="brevitas-nn-quant-recurrent-module">
+<h2>brevitas.nn.quant_recurrent module<a class="headerlink" href="#brevitas-nn-quant-recurrent-module" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-brevitas.nn">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-brevitas.nn" title="Permalink to this headline">¶</a></h2>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2019, Alessandro Pappalardo
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

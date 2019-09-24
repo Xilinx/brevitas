@@ -40,7 +40,7 @@
 
 import os
 
-from setuptools import setup
+from setuptools import setup, find_packages
 
 
 def read(fname):
@@ -48,10 +48,10 @@ def read(fname):
 
 
 setup(name="Brevitas",
-      version="0.1.0-alpha",
+      version="0.2.0-alpha",
       description="Training-aware quantization in PyTorch",
       long_description=read('README.md'),
       author="Alessandro Pappalardo",
       python_requires=">=3.6",
-      install_requires=["torch>=1.1.0"],
-      packages=['brevitas'])
+      install_requires=["torch>=1.1.0", "docrep"],
+      packages=find_packages())

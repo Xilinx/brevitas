@@ -38,18 +38,9 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from enum import auto
-
-import torch
-
-from brevitas.utils.python_utils import AutoName
 from brevitas.function.ops import ceil_ste, round_ste, floor_ste
+from brevitas.function.shape import *
 from brevitas.function import tensor_clamp, tensor_clamp_ste
-
-
-class TensorClampImplType(AutoName):
-    STE = auto()
-    DIFFERENTIABLE = auto()
 
 
 class Identity(torch.jit.ScriptModule):
@@ -122,3 +113,88 @@ class TensorClamp(torch.jit.ScriptModule):
     @torch.jit.script_method
     def forward(self, x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor):
         return tensor_clamp(x, min_val=min_val, max_val=max_val)
+
+
+class ConstScalarClamp(torch.jit.ScriptModule):
+    __constants__ = ['min_val, max_val']
+
+    def __init__(self, min_val, max_val) -> None:
+        super(ConstScalarClamp, self).__init__()
+        self.min_val = min_val
+        self.max_val = max_val
+
+    @torch.jit.script_method
+    def forward(self, x: torch.Tensor):
+        return torch.clamp(x, min=self.min_val, max=self.max_val)
+
+
+class ClampMin(torch.jit.ScriptModule):
+    __constants__ = ['min_val']
+
+    def __init__(self, min_val: float) -> None:
+        super(ClampMin, self).__init__()
+        self.min_val = min_val
+
+    @torch.jit.script_method
+    def forward(self, x: torch.Tensor):
+        return x.clamp_min(self.min_val)
+
+
+class OverTensorView(torch.jit.ScriptModule):
+
+    def __init__(self) -> None:
+        super(OverTensorView, self).__init__()
+
+    @torch.jit.script_method
+    def shape(self, x: torch.Tensor):
+        return over_tensor(x)
+
+    @torch.jit.script_method
+    def forward(self, x: torch.Tensor):
+        shape = self.shape(x)
+        return x.view(shape)
+
+
+class OverOutputChannelView(torch.jit.ScriptModule):
+
+    def __init__(self) -> None:
+        super(OverOutputChannelView, self).__init__()
+
+    @torch.jit.script_method
+    def shape(self, x: torch.Tensor):
+        return over_output_channels(x)
+
+    @torch.jit.script_method
+    def forward(self, x: torch.Tensor):
+        shape = self.shape(x)
+        return x.view(shape)
+
+
+class OverBatchOverTensorView(torch.jit.ScriptModule):
+
+    def __init__(self) -> None:
+        super(OverBatchOverTensorView, self).__init__()
+
+    @torch.jit.script_method
+    def shape(self, x: torch.Tensor):
+        return over_batch_over_tensor(x)
+
+    @torch.jit.script_method
+    def forward(self, x: torch.Tensor):
+        shape = self.shape(x)
+        return x.view(shape)
+
+
+class OverBatchOverOutputChannelView(torch.jit.ScriptModule):
+
+    def __init__(self) -> None:
+        super(OverBatchOverOutputChannelView, self).__init__()
+
+    @torch.jit.script_method
+    def shape(self, x: torch.Tensor):
+        return over_batch_over_output_channels(x)
+
+    @torch.jit.script_method
+    def forward(self, x: torch.Tensor):
+        shape = self.shape(x)
+        return x.view(shape)

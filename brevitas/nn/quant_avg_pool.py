@@ -71,6 +71,8 @@ class QuantAvgPool2d(QuantLayer, AvgPool2d):
                            stride=stride)
         ls_bit_width_to_trunc = math.ceil(math.log2(kernel_size * kernel_size))
         self.signed = signed
+        self.quant_type = quant_type
+        explicit_rescaling = True  # we are explicitly rescaling as we are replacing the div in avg with trunc
         self.accumulator_quant = TruncQuantProxy(signed=signed,
                                                  quant_type=quant_type,
                                                  trunc_at_least_init_val=True,
@@ -78,15 +80,19 @@ class QuantAvgPool2d(QuantLayer, AvgPool2d):
                                                  min_overall_bit_width=min_overall_bit_width,
                                                  max_overall_bit_width=max_overall_bit_width,
                                                  lsb_trunc_bit_width_impl_type=lsb_trunc_bit_width_impl_type,
+                                                 explicit_rescaling=explicit_rescaling,
                                                  override_pretrained_bit_width=False)
 
     def forward(self, input):
         input_tensor, input_scale, input_bit_width = self.unpack_input(input)
         x = super(QuantAvgPool2d, self).forward(input_tensor)
-        output_bit_width = self.max_output_bit_width(input_bit_width)
-        output_scale = input_scale / (self.kernel_size * self.kernel_size)
-        x, output_scale, output_bit_width = self.accumulator_quant(x, output_scale, output_bit_width)
-        return pack_quant_tensor(x, output_scale, output_bit_width)
+        if self.quant_type != QuantType.FP:
+            x = x * (self.kernel_size * self.kernel_size)  # remove scaling introduced by average
+            output_bit_width = self.max_output_bit_width(input_bit_width)
+            x, output_scale, output_bit_width = self.accumulator_quant(x, input_scale, output_bit_width)
+            return pack_quant_tensor(x, output_scale, output_bit_width)
+        else:
+            return pack_quant_tensor(x, input_scale, input_bit_width)
 
     def max_output_bit_width(self, input_bit_width):
         max_uint_input = max_uint(bit_width=input_bit_width, narrow_range=False)

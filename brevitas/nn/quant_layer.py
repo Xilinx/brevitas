@@ -38,10 +38,15 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+from abc import ABCMeta, abstractmethod
 from brevitas.quant_tensor import QuantTensor
 
 
+SCALING_MIN_VAL = 2.0 ** (-16)
+
+
 class QuantLayer(object):
+    __metaclass__ = ABCMeta
 
     def __init__(self, compute_output_scale, compute_output_bit_width, return_quant_tensor):
         self.compute_output_scale = compute_output_scale

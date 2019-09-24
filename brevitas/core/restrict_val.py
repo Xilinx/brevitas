@@ -39,14 +39,14 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 from enum import auto
-from typing import Callable, Union
+from typing import Callable, Union, Optional
 import math
 
 import torch
 from torch.nn import Sequential
 
 from brevitas.utils.python_utils import AutoName
-from .function_wrapper import RoundSte, CeilSte, Identity, PowerOfTwo, LogTwo, FloorSte
+from .function_wrapper import RoundSte, CeilSte, Identity, PowerOfTwo, LogTwo, FloorSte, ClampMin
 
 
 class RestrictValueType(AutoName):
@@ -72,7 +72,8 @@ class RestrictValue(torch.jit.ScriptModule):
 
     def __init__(self,
                  restrict_value_type: RestrictValueType,
-                 float_to_int_impl_type: FloatToIntImplType) -> None:
+                 float_to_int_impl_type: FloatToIntImplType,
+                 min_val: Optional[float]) -> None:
         super(RestrictValue, self).__init__()
 
         if float_to_int_impl_type == FloatToIntImplType.ROUND:
@@ -85,14 +86,19 @@ class RestrictValue(torch.jit.ScriptModule):
             raise Exception("Float to int impl type {} not supported for restrict value"
                             .format(str(float_to_int_impl_type)))
 
+        if min_val is not None:
+            clamp_to_min_val = ClampMin(min_val=min_val)
+        else:
+            clamp_to_min_val = Identity()
+
         if restrict_value_type == RestrictValueType.FP:
-            self.forward_impl = Identity()
+            self.forward_impl = Sequential(Identity(), clamp_to_min_val)
         elif restrict_value_type == RestrictValueType.LOG_FP:
-            self.forward_impl = PowerOfTwo()
+            self.forward_impl = Sequential(PowerOfTwo(), clamp_to_min_val)
         elif restrict_value_type == RestrictValueType.INT:
-            self.forward_impl = float_to_int_impl
+            self.forward_impl = Sequential(float_to_int_impl, clamp_to_min_val)
         elif restrict_value_type == RestrictValueType.POWER_OF_TWO:
-            self.forward_impl = Sequential(float_to_int_impl, PowerOfTwo())
+            self.forward_impl = Sequential(float_to_int_impl, PowerOfTwo(), clamp_to_min_val)
         else:
             raise Exception("Restrict value type {} not recognized".format(str(restrict_value_type)))
 

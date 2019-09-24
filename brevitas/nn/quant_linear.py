@@ -40,31 +40,41 @@
 
 from typing import Optional, Union
 
+import math
 import torch
-from torch.nn import Linear
+from torch.nn import Linear, Module
 from torch.nn.functional import linear
 
 from brevitas.core.bit_width import BitWidthParameter, BitWidthConst, BitWidthImplType
-from brevitas.core.quant import QuantType
+from brevitas.core.quant import QuantType, IdentityQuant
 from brevitas.core.restrict_val import RestrictValueType
 from brevitas.core.scaling import ScalingImplType, SCALING_SCALAR_SHAPE
 from brevitas.core.stats import StatsInputViewShapeImpl
 from brevitas.core.stats import StatsOp
 from brevitas.function.ops import ceil_ste, max_uint
-from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy
-from .quant_layer import QuantLayer
+from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy, WeightReg
+from brevitas.config import docstrings
+from .quant_layer import QuantLayer, SCALING_MIN_VAL
 
 __all__ = ['QuantLinear']
 
 
+@docstrings.dedent
 class QuantLinear(QuantLayer, Linear):
+    """
 
+        Parameters
+        ----------
+
+        %(weight_quant_proxy.parameters_with_prefix)s
+    """
     def __init__(self,
                  in_features: int,
                  out_features: int,
                  bias: bool,
                  bias_quant_type: QuantType = QuantType.FP,
                  bias_narrow_range: bool = False,
+                 bias_bit_width: int = None,
                  weight_quant_override: WeightQuantProxy = None,
                  weight_quant_type: QuantType = QuantType.FP,
                  weight_narrow_range: bool = False,
@@ -74,9 +84,12 @@ class QuantLinear(QuantLayer, Linear):
                  weight_bit_width: int = 32,
                  weight_min_overall_bit_width: Optional[int] = 2,
                  weight_max_overall_bit_width: Optional[int] = None,
+                 weight_scaling_override: Optional[Module] = None,
                  weight_scaling_impl_type: ScalingImplType = ScalingImplType.STATS,
+                 weight_scaling_const: Optional[float] = None,
                  weight_scaling_stats_op: StatsOp = StatsOp.MAX,
                  weight_scaling_per_output_channel: bool = False,
+                 weight_scaling_min_val: float = SCALING_MIN_VAL,
                  weight_ternary_threshold: float = 0.5,
                  weight_restrict_scaling_type: RestrictValueType = RestrictValueType.LOG_FP,
                  weight_scaling_stats_sigma: float = 3.0,
@@ -98,6 +111,7 @@ class QuantLinear(QuantLayer, Linear):
             raise Exception("Quantizing bias requires to compute output scale and output bit width")
 
         self.per_elem_ops = 2 * in_features
+        self.weight_reg = WeightReg()
 
         if weight_quant_override is not None:
             self.weight_quant = weight_quant_override
@@ -112,10 +126,13 @@ class QuantLinear(QuantLayer, Linear):
                 weight_stats_input_view_shape_impl = StatsInputViewShapeImpl.OVER_TENSOR
                 weight_scaling_shape = SCALING_SCALAR_SHAPE
                 weight_scaling_stats_reduce_dim = None
+
             self.weight_quant = WeightQuantProxy(bit_width=weight_bit_width,
                                                  quant_type=weight_quant_type,
                                                  narrow_range=weight_narrow_range,
+                                                 scaling_override=weight_scaling_override,
                                                  restrict_scaling_type=weight_restrict_scaling_type,
+                                                 scaling_const=weight_scaling_const,
                                                  scaling_stats_op=weight_scaling_stats_op,
                                                  scaling_impl_type=weight_scaling_impl_type,
                                                  scaling_stats_reduce_dim=weight_scaling_stats_reduce_dim,
@@ -130,9 +147,24 @@ class QuantLinear(QuantLayer, Linear):
                                                  scaling_stats_input_view_shape_impl=weight_stats_input_view_shape_impl,
                                                  scaling_stats_input_concat_dim=weight_scaling_stats_input_concat_dim,
                                                  scaling_stats_sigma=weight_scaling_stats_sigma,
+                                                 scaling_min_val=weight_scaling_min_val,
                                                  override_pretrained_bit_width=weight_override_pretrained_bit_width)
         self.bias_quant = BiasQuantProxy(quant_type=bias_quant_type,
-                                         narrow_range=bias_narrow_range)
+                                         narrow_range=bias_narrow_range,
+                                         bit_width=bias_bit_width)
+
+    @property
+    def int_weight(self):
+        if isinstance(self.weight_quant.tensor_quant, IdentityQuant):
+            raise Exception("Can't generate int weight without quantization enabled")
+        return self.weight_quant.int_weight(self.weight)
+
+    @property
+    def quant_weight_scale(self):
+        if isinstance(self.weight_quant.tensor_quant, IdentityQuant):
+            raise Exception("Can't generate scaling factor without quantization enabled")
+        zero_hw_sentinel = self.weight_quant.zero_hw_sentinel
+        return self.weight_quant.tensor_quant.scaling_impl(zero_hw_sentinel)
 
     def forward(self, input):
         output_scale = None
@@ -141,6 +173,7 @@ class QuantLinear(QuantLayer, Linear):
         input, input_scale, input_bit_width = self.unpack_input(input)
 
         quant_weight, quant_weight_scale, quant_weight_bit_width = self.weight_quant(self.weight)
+        quant_weight = self.weight_reg(quant_weight)
 
         if self.compute_output_bit_width:
             output_bit_width = self.max_output_bit_width(input_bit_width, quant_weight_bit_width)
