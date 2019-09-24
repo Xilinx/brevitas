@@ -90,6 +90,7 @@
 </ul>
 </li>
 <li><a class="reference internal" href="#features">Features</a></li>
+<li><a class="reference internal" href="#supported-layers">Supported Layers</a></li>
 <li><a class="reference internal" href="#getting-started">Getting started</a></li>
 <li><a class="reference internal" href="#code-organization">Code organization</a></li>
 <li><a class="reference internal" href="#a-note-on-the-implementation">A note on the implementation</a></li>
@@ -221,6 +222,20 @@ pip install -e .
 <li><p><strong>Cost</strong>: model the hardware cost at training-time.</p></li>
 </ul>
 </div>
+<div class="section" id="supported-layers">
+<h2>Supported Layers<a class="headerlink" href="#supported-layers" title="Permalink to this headline">¶</a></h2>
+<p>The following layers and operations are supported out-of-the-box:</p>
+<ul class="simple">
+<li><p>QuantLinear</p></li>
+<li><p>QuantConv2d</p></li>
+<li><p>QuantReLU, QuantHardTanh, QuantTanh, QuantSigmoid</p></li>
+<li><p>QuantAvgPool2d</p></li>
+<li><p>QuantBatchNorm2d</p></li>
+<li><p>Element-wise add, concat</p></li>
+<li><p>Saturating integer accumulator</p></li>
+</ul>
+<p>Additional layers can be easily supported using a combination of pre-existing modules.</p>
+</div>
 <div class="section" id="getting-started">
 <h2>Getting started<a class="headerlink" href="#getting-started" title="Permalink to this headline">¶</a></h2>
 <p>Here’s how a simple quantized LeNet might look like, starting from a ReLU6 for activations and using default settings for scaling:</p>
@@ -289,7 +304,7 @@ pip install -e .
 <li><p><strong>bit_width</strong>: the precision of <em>quant_tensor</em> in bits.</p></li>
 </ul>
 <p>Propagating scale factors and bit-width along the forward pass allows to model and operate on accumulators, whose bit-width and scale factor depends on the layers contributing to them.
-However, propagating a tuple of values in a forward() call breaks compatibility with certail modules like <em>nn.Sequential</em>, which assumes 1 input and 1 output. As such, operating on a QuantTensor is optional.</p>
+However, propagating a tuple of values in a forward() call breaks compatibility with certain modules like <em>nn.Sequential</em>, which assumes 1 input and 1 output. As such, operating on a QuantTensor is optional.</p>
 </div>
 <div class="section" id="author">
 <h2>Author<a class="headerlink" href="#author" title="Permalink to this headline">¶</a></h2>
