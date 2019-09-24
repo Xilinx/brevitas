@@ -56,6 +56,19 @@ Brevitas' features are organized along the following (mostly) orthogonal axes:
 - **Cost**: model the hardware cost at training-time.
 
 
+## Supported Layers
+The following layers and operations are supported out-of-the-box:
+
+- QuantLinear
+- QuantConv2d
+- QuantReLU, QuantHardTanh, QuantTanh, QuantSigmoid
+- QuantAvgPool2d
+- QuantBatchNorm2d
+- Element-wise add, concat
+- Saturating integer accumulator
+
+Additional layers can be easily supported using a combination of pre-existing modules.
+
 ## Getting started
 
 Here's how a simple quantized LeNet might look like, starting from a ReLU6 for activations and using default settings for scaling:
