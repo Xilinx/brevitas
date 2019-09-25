@@ -92,6 +92,8 @@
 <li><a class="reference internal" href="#features">Features</a></li>
 <li><a class="reference internal" href="#supported-layers">Supported Layers</a></li>
 <li><a class="reference internal" href="#getting-started">Getting started</a></li>
+<li><a class="reference internal" href="#scaling">Scaling</a></li>
+<li><a class="reference internal" href="#precision">Precision</a></li>
 <li><a class="reference internal" href="#code-organization">Code organization</a></li>
 <li><a class="reference internal" href="#a-note-on-the-implementation">A note on the implementation</a></li>
 <li><a class="reference internal" href="#author">Author</a></li>
@@ -216,9 +218,9 @@ pip install -e .
 <p>Brevitas’ features are organized along the following (mostly) orthogonal axes:</p>
 <ul class="simple">
 <li><p><strong>Quantization type</strong>: binary, ternary, or uniform integer quantization.</p></li>
+<li><p><strong>Target tensor</strong>: weights, activations or accumulators.</p></li>
 <li><p><strong>Scaling</strong>: support for various shapes, learning strategies and constraints.</p></li>
 <li><p><strong>Precision</strong>: constant or learned bit-width.</p></li>
-<li><p><strong>Target tensor</strong>: weights, activations or accumulators.</p></li>
 <li><p><strong>Cost</strong>: model the hardware cost at training-time.</p></li>
 </ul>
 </div>
@@ -279,6 +281,56 @@ pip install -e .
         <span class="k">return</span> <span class="n">out</span>
 </pre></div>
 </div>
+</div>
+<div class="section" id="scaling">
+<h2>Scaling<a class="headerlink" href="#scaling" title="Permalink to this headline">¶</a></h2>
+<p>Brevitas supports multiple alternative options for scaling factors.</p>
+<p>With respect to the number of dimensions:</p>
+<ul class="simple">
+<li><p>Per tensor or per (output) channel scaling, for both weights and activations.
+For activations, per channel scaling usually makes sense only before a depth-wise separable convolution.</p></li>
+</ul>
+<p>With respect to how they are learned:</p>
+<ul class="simple">
+<li><p>As a standalone Pytorch <em>Parameter</em>, initialized from statistics (for weights) or from user-defined values (for activations).</p></li>
+<li><p>as a statistical function of the full-precision version of the target tensor, possibly along with affine coefficients.
+Various function as supported, such as <em>max(abs(x))</em>, and more can be easily added.
+For activations, learning of this kind is done in the style of batch-norm, i.e. statistics are collected at training-time to use them at inference time.
+In all cases, gradients are allowed to backprop through the defined function for best accuracy results.</p></li>
+</ul>
+<p>Possibly shared between different layers that have to scaled equally:</p>
+<ul class="simple">
+<li><p>By sharing the underlying Parameter, when the scale factor is a learned parameter.</p></li>
+<li><p>By applying the statistical function to a concatenation of the different set of weights involved, when the scale factors are learned as a function of the weights.</p></li>
+</ul>
+<p>Possibly constrained to:</p>
+<ul class="simple">
+<li><p>A standard floating point number, i.e. no restrictions.</p></li>
+<li><p>A floating point power-of-two exponent, i.e. a floating point number learned in log domain.</p></li>
+<li><p>An integer power-of-two value exponent, i.e. rounding the above fp log version to the next integer.</p></li>
+</ul>
+</div>
+<div class="section" id="precision">
+<h2>Precision<a class="headerlink" href="#precision" title="Permalink to this headline">¶</a></h2>
+<p>Brevitas supports both constant and learned precision.</p>
+<p>In an quantization flow leveraging integer uniform quantization, the <em>bit-width</em> (together with the <em>sign</em>) determines the <em>min</em> and <em>max</em> integer values
+used for scaling and clamping. Assuming that an integer bit-width can be modelled as the rounded copy of an underlying floating point value (with a straight-through estimator in the backward pass),
+all the operations involving bit-width are differentiable. As such, the bit-width can a learned parameter,
+without resorting to more complicated approaches leveraging AutoML or Gumbel-Softmax categorical variables.</p>
+<ul class="simple">
+<li><p>For weights and activation:
+Learned bit-width is equal to <em>base_bit_width + round_ste(abs(offset))</em>, where <em>base_bit_width</em> is a constant representing the minimum bit-width to converge to (required to be <em>&gt;= 2</em>) and offset is a learned parameter.</p></li>
+<li><p>For modelling an accumulator saturate to a learned bit width:
+The bit-width of the accumulator (computed by upstream layers) is taken as an input, and a learned negative offset is subtracted from it.
+In order to avoid conflicting with regularization losses that promotes small magnitude of learned parameters, such as weight-decay,
+the offset is implemented with the learned parameter at the denominator, so that smaller values results in reduced overall bit-width.</p></li>
+</ul>
+<p>Additional requirements or relaxations can be put on the resulting bit-width:</p>
+<ul class="simple">
+<li><p>Avoid the rounding step, and learn a floating point bit-width first (with the goal of retrained afterwards).</p></li>
+<li><p>Constrain the bit width to power-of-two values, e.g. 2, 4, 8.</p></li>
+<li><p>Share the learned bit-width between two or more layers, in order to e.g. keep the precision of a Conv2d layer and the precision of its input the same.</p></li>
+</ul>
 </div>
 <div class="section" id="code-organization">
 <h2>Code organization<a class="headerlink" href="#code-organization" title="Permalink to this headline">¶</a></h2>

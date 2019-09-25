@@ -50,9 +50,9 @@ pip install -e .
 Brevitas' features are organized along the following (mostly) orthogonal axes:
 
 - **Quantization type**: binary, ternary, or uniform integer quantization.
+- **Target tensor**: weights, activations or accumulators.
 - **Scaling**: support for various shapes, learning strategies and constraints.
 - **Precision**: constant or learned bit-width.
-- **Target tensor**: weights, activations or accumulators.
 - **Cost**: model the hardware cost at training-time.
 
 
@@ -114,6 +114,55 @@ class QuantLeNet(Module):
         out = self.fc3(out)
         return out
 ```
+
+## Scaling
+
+Brevitas supports multiple alternative options for scaling factors.
+
+
+With respect to the number of dimensions:
+- Per tensor or per (output) channel scaling, for both weights and activations.
+For activations, per channel scaling usually makes sense only before a depth-wise separable convolution.
+
+With respect to how they are learned:
+- As a standalone Pytorch *Parameter*, initialized from statistics (for weights) or from user-defined values (for activations).
+- as a statistical function of the full-precision version of the target tensor, possibly along with affine coefficients. 
+  Various function as supported, such as *max(abs(x))*, and more can be easily added. 
+  For activations, learning of this kind is done in the style of batch-norm, i.e. statistics are collected at training-time to use them at inference time.
+  In all cases, gradients are allowed to backprop through the defined function for best accuracy results.
+  
+Possibly shared between different layers that have to scaled equally:
+- By sharing the underlying Parameter, when the scale factor is a learned parameter.
+- By applying the statistical function to a concatenation of the different set of weights involved, when the scale factors are learned as a function of the weights.
+
+Possibly constrained to:
+- A standard floating point number, i.e. no restrictions.
+- A floating point power-of-two exponent, i.e. a floating point number learned in log domain.
+- An integer power-of-two value exponent, i.e. rounding the above fp log version to the next integer.
+
+
+## Precision
+Brevitas supports both constant and learned precision.
+
+In an quantization flow leveraging integer uniform quantization, the *bit-width* (together with the *sign*) determines the *min* and *max* integer values
+used for scaling and clamping. Assuming that an integer bit-width can be modelled as the rounded copy of an underlying floating point value (with a straight-through estimator in the backward pass), 
+all the operations involving bit-width are differentiable. As such, the bit-width can a learned parameter, 
+without resorting to more complicated approaches leveraging AutoML or Gumbel-Softmax categorical variables.
+
+- For weights and activation:
+Learned bit-width is equal to *base_bit_width + round_ste(abs(offset))*, where *base_bit_width* is a constant representing the minimum bit-width to converge to (required to be *>= 2*) and offset is a learned parameter.
+
+- For modelling an accumulator saturate to a learned bit width:
+The bit-width of the accumulator (computed by upstream layers) is taken as an input, and a learned negative offset is subtracted from it.
+In order to avoid conflicting with regularization losses that promotes small magnitude of learned parameters, such as weight-decay, 
+the offset is implemented with the learned parameter at the denominator, so that smaller values results in reduced overall bit-width.
+
+Additional requirements or relaxations can be put on the resulting bit-width:
+- Avoid the rounding step, and learn a floating point bit-width first (with the goal of retrained afterwards).
+- Constrain the bit width to power-of-two values, e.g. 2, 4, 8.
+- Share the learned bit-width between two or more layers, in order to e.g. keep the precision of a Conv2d layer and the precision of its input the same.
+
+
 
 ## Code organization
 
