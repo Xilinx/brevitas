@@ -12,6 +12,14 @@ brevitas.function.ops module
    :undoc-members:
    :show-inheritance:
 
+brevitas.function.shape module
+------------------------------
+
+.. automodule:: brevitas.function.shape
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 
 Module contents
 ---------------

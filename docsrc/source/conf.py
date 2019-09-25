@@ -17,7 +17,7 @@
 import os
 import sys
 import sphinx_rtd_theme
-sys.path.insert(0, os.path.abspath('../../../brevitas'))
+sys.path.insert(0, os.path.abspath('../..'))
 
 # -- Project information -----------------------------------------------------
 
@@ -26,7 +26,7 @@ copyright = '2019, Alessandro Pappalardo'
 author = 'Alessandro Pappalardo'
 
 # The full version, including alpha/beta/rc tags
-release = '0.1.0-alpha'
+release = '0.2.0-alpha'
 
 
 # -- General configuration ---------------------------------------------------

@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>brevitas.nn package &mdash; Brevitas 0.1.0-alpha documentation</title>
+  <title>brevitas.nn package &mdash; Brevitas 0.2.0-alpha documentation</title>
   
 
   
@@ -85,10 +85,10 @@
 <li><a class="reference internal" href="#module-brevitas.nn.quant_accumulator">brevitas.nn.quant_accumulator module</a></li>
 <li><a class="reference internal" href="#module-brevitas.nn.quant_activation">brevitas.nn.quant_activation module</a></li>
 <li><a class="reference internal" href="#module-brevitas.nn.quant_avg_pool">brevitas.nn.quant_avg_pool module</a></li>
+<li><a class="reference internal" href="#module-brevitas.nn.quant_bn">brevitas.nn.quant_bn module</a></li>
 <li><a class="reference internal" href="#module-brevitas.nn.quant_conv">brevitas.nn.quant_conv module</a></li>
 <li><a class="reference internal" href="#module-brevitas.nn.quant_layer">brevitas.nn.quant_layer module</a></li>
 <li><a class="reference internal" href="#module-brevitas.nn.quant_linear">brevitas.nn.quant_linear module</a></li>
-<li><a class="reference internal" href="#brevitas-nn-quant-recurrent-module">brevitas.nn.quant_recurrent module</a></li>
 <li><a class="reference internal" href="#module-brevitas.nn">Module contents</a></li>
 </ul>
 </li>
@@ -286,6 +286,34 @@ registered hooks while the latter silently ignores them.</p>
 </dd></dl>
 
 </div>
+<div class="section" id="module-brevitas.nn.quant_bn">
+<span id="brevitas-nn-quant-bn-module"></span><h2>brevitas.nn.quant_bn module<a class="headerlink" href="#module-brevitas.nn.quant_bn" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="brevitas.nn.quant_bn.QuantBatchNorm2d">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.nn.quant_bn.</code><code class="sig-name descname">QuantBatchNorm2d</code><span class="sig-paren">(</span><em class="sig-param">num_features</em>, <em class="sig-param">eps=1e-05</em>, <em class="sig-param">momentum=0.1</em>, <em class="sig-param">restrict_value_type=&lt;RestrictValueType.FP: 'FP'&gt;</em>, <em class="sig-param">impl_type=&lt;ScalingImplType.STATS: 'STATS'&gt;</em>, <em class="sig-param">bias_quant_type=&lt;QuantType.FP: 'FP'&gt;</em>, <em class="sig-param">bias_narrow_range=False</em>, <em class="sig-param">bias_bit_width=None</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_bn.QuantBatchNorm2d" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#brevitas.nn.quant_layer.QuantLayer" title="brevitas.nn.quant_layer.QuantLayer"><code class="xref py py-class docutils literal notranslate"><span class="pre">brevitas.nn.quant_layer.QuantLayer</span></code></a>, <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
+<dl class="method">
+<dt id="brevitas.nn.quant_bn.QuantBatchNorm2d.forward">
+<code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">quant_tensor</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_bn.QuantBatchNorm2d.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="brevitas.nn.quant_bn.QuantBatchNorm2d.stats">
+<code class="sig-name descname">stats</code><span class="sig-paren">(</span><em class="sig-param">input_tensor</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_bn.QuantBatchNorm2d.stats" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
 <div class="section" id="module-brevitas.nn.quant_conv">
 <span id="brevitas-nn-quant-conv-module"></span><h2>brevitas.nn.quant_conv module<a class="headerlink" href="#module-brevitas.nn.quant_conv" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
@@ -304,10 +332,10 @@ used for initialization. If <cite>weight_quant_type</cite> is set to <code class
 <li><p><strong>weight_restrict_scaling_type</strong> (<a class="reference internal" href="brevitas.core.html#brevitas.core.restrict_val.RestrictValueType" title="brevitas.core.restrict_val.RestrictValueType"><code class="xref py py-class docutils literal notranslate"><span class="pre">RestrictValueType</span></code></a>) – Type of restriction imposed on the values of the scaling factor of the quantized weights.</p></li>
 <li><p><strong>weight_scaling_const</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code>]) – If <cite>weight_scaling_impl_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">CONST</span></code>, this value is used as the scaling factor across all relevant
 dimensions. Ignored otherwise.</p></li>
-<li><p><strong>weight_scaling_stats_op</strong> (<a class="reference internal" href="brevitas.core.html#brevitas.core.stats.StatsOp" title="brevitas.core.stats.StatsOp"><code class="xref py py-class docutils literal notranslate"><span class="pre">StatsOp</span></code></a>) – Type of statistical operation performed for scaling, if required. If <cite>weight_scaling_impl_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">STATS</span></code>,
-the operation is part of the compute graph and back-propagated through. If If <cite>weight_scaling_impl_type</cite> is set to
-<code class="docutils literal notranslate"><span class="pre">PARAMETER_FROM_STATS</span></code>, the operation is used only for computing the initialization of the parameter, possibly
-across some dimensions. Ignored otherwise.</p></li>
+<li><p><strong>weight_scaling_stats_op</strong> (<a class="reference internal" href="brevitas.core.html#brevitas.core.stats.StatsOp" title="brevitas.core.stats.StatsOp"><code class="xref py py-class docutils literal notranslate"><span class="pre">StatsOp</span></code></a>) – Type of statistical operation performed for scaling, if required. If <cite>weight_scaling_impl_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">STATS</span></code> or
+<code class="docutils literal notranslate"><span class="pre">AFFINE_STATS</span></code>, the operation is part of the compute graph and back-propagated through. If <cite>weight_scaling_impl_type</cite>
+is set to <code class="docutils literal notranslate"><span class="pre">PARAMETER_FROM_STATS</span></code>, the operation is used only for computing the initialization of the
+parameter, possibly across some dimensions. Ignored otherwise.</p></li>
 <li><p><strong>weight_scaling_impl_type</strong> (<a class="reference internal" href="brevitas.core.html#brevitas.core.scaling.ScalingImplType" title="brevitas.core.scaling.ScalingImplType"><code class="xref py py-class docutils literal notranslate"><span class="pre">ScalingImplType</span></code></a>) – Type of strategy adopted for scaling the quantized weights.</p></li>
 <li><p><strong>weight_scaling_min_val</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code>) – Minimum value that the scaling factors can reach. This has precedence over anything else, including
 <cite>weight_scaling_const</cite> when <cite>weight_scaling_impl_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">CONST</span></code>. Useful in case of numerical instabilities.
@@ -320,11 +348,15 @@ relax the bit-width value that can be learned. Ignored otherwise.</p></li>
 bound on the learned value. Ignored otherwise.</p></li>
 <li><p><strong>weight_max_overall_bit_width</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code>]) – If <cite>weight_bit_width_impl_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">PARAMETER</span></code> and <cite>weight_quant_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">INT</span></code>, this value imposes an upper
 bound on the learned value. Ignored otherwise.</p></li>
-<li><p><strong>weight_tracked_parameter_list_init</strong> – </p></li>
-<li><p><strong>bit_width_impl_override</strong> – </p></li>
-<li><p><strong>weight_ternary_threshold</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code>) – </p></li>
-<li><p><strong>scaling_stats_sigma</strong> – </p></li>
-<li><p><strong>override_pretrained_bit_width</strong> – </p></li>
+<li><p><strong>weight_bit_width_impl_override</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code>[<a class="reference internal" href="brevitas.core.html#brevitas.core.bit_width.BitWidthConst" title="brevitas.core.bit_width.BitWidthConst"><code class="xref py py-class docutils literal notranslate"><span class="pre">BitWidthConst</span></code></a>, <a class="reference internal" href="brevitas.core.html#brevitas.core.bit_width.BitWidthParameter" title="brevitas.core.bit_width.BitWidthParameter"><code class="xref py py-class docutils literal notranslate"><span class="pre">BitWidthParameter</span></code></a>, <code class="docutils literal notranslate"><span class="pre">None</span></code>]) – Override the bit-width implementation with an implementation defined elsewhere. Accepts BitWidthConst or
+BitWidthParameter type of Modules. Useful for sharing the same learned bit-width between different layers.</p></li>
+<li><p><strong>weight_ternary_threshold</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code>) – Value to be used as a threshold when <cite>weight_quant_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">TERNARY</span></code>. Ignored otherwise.</p></li>
+<li><p><strong>weight_scaling_stats_sigma</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code>) – Value to be used as sigma if <cite>weight_scaling_impl_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">STATS</span></code>, <code class="docutils literal notranslate"><span class="pre">AFFINE_STATS</span></code> or
+<code class="docutils literal notranslate"><span class="pre">PARAMETER_FROM_STATS</span></code> and <cite>weight_scaling_stats_op</cite> is set to <code class="docutils literal notranslate"><span class="pre">AVE_SIGMA_STD</span></code> or <code class="docutils literal notranslate"><span class="pre">AVE_LEARN_SIGMA_STD</span></code>.
+Ignored otherwise. When <cite>weight_scaling_impl_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">STATS</span></code> or <code class="docutils literal notranslate"><span class="pre">AFFINE_STATS</span></code>, and
+<cite>weight_scaling_stats_op</cite> is set to <code class="docutils literal notranslate"><span class="pre">AVE_LEARN_SIGMA_STD</span></code>, the value is used for initialization.</p></li>
+<li><p><strong>weight_override_pretrained_bit_width</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code>) – If set to <code class="docutils literal notranslate"><span class="pre">True</span></code>, when loading a pre-trained model that includes a learned bit-width, the pre-trained value
+is ignored and replaced by the value specified by <code class="docutils literal notranslate"><span class="pre">bit-width</span></code>.</p></li>
 </ul>
 </dd>
 </dl>
@@ -417,10 +449,10 @@ used for initialization. If <cite>weight_quant_type</cite> is set to <code class
 <li><p><strong>weight_restrict_scaling_type</strong> (<a class="reference internal" href="brevitas.core.html#brevitas.core.restrict_val.RestrictValueType" title="brevitas.core.restrict_val.RestrictValueType"><code class="xref py py-class docutils literal notranslate"><span class="pre">RestrictValueType</span></code></a>) – Type of restriction imposed on the values of the scaling factor of the quantized weights.</p></li>
 <li><p><strong>weight_scaling_const</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code>]) – If <cite>weight_scaling_impl_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">CONST</span></code>, this value is used as the scaling factor across all relevant
 dimensions. Ignored otherwise.</p></li>
-<li><p><strong>weight_scaling_stats_op</strong> (<a class="reference internal" href="brevitas.core.html#brevitas.core.stats.StatsOp" title="brevitas.core.stats.StatsOp"><code class="xref py py-class docutils literal notranslate"><span class="pre">StatsOp</span></code></a>) – Type of statistical operation performed for scaling, if required. If <cite>weight_scaling_impl_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">STATS</span></code>,
-the operation is part of the compute graph and back-propagated through. If If <cite>weight_scaling_impl_type</cite> is set to
-<code class="docutils literal notranslate"><span class="pre">PARAMETER_FROM_STATS</span></code>, the operation is used only for computing the initialization of the parameter, possibly
-across some dimensions. Ignored otherwise.</p></li>
+<li><p><strong>weight_scaling_stats_op</strong> (<a class="reference internal" href="brevitas.core.html#brevitas.core.stats.StatsOp" title="brevitas.core.stats.StatsOp"><code class="xref py py-class docutils literal notranslate"><span class="pre">StatsOp</span></code></a>) – Type of statistical operation performed for scaling, if required. If <cite>weight_scaling_impl_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">STATS</span></code> or
+<code class="docutils literal notranslate"><span class="pre">AFFINE_STATS</span></code>, the operation is part of the compute graph and back-propagated through. If <cite>weight_scaling_impl_type</cite>
+is set to <code class="docutils literal notranslate"><span class="pre">PARAMETER_FROM_STATS</span></code>, the operation is used only for computing the initialization of the
+parameter, possibly across some dimensions. Ignored otherwise.</p></li>
 <li><p><strong>weight_scaling_impl_type</strong> (<a class="reference internal" href="brevitas.core.html#brevitas.core.scaling.ScalingImplType" title="brevitas.core.scaling.ScalingImplType"><code class="xref py py-class docutils literal notranslate"><span class="pre">ScalingImplType</span></code></a>) – Type of strategy adopted for scaling the quantized weights.</p></li>
 <li><p><strong>weight_scaling_min_val</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code>) – Minimum value that the scaling factors can reach. This has precedence over anything else, including
 <cite>weight_scaling_const</cite> when <cite>weight_scaling_impl_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">CONST</span></code>. Useful in case of numerical instabilities.
@@ -433,11 +465,15 @@ relax the bit-width value that can be learned. Ignored otherwise.</p></li>
 bound on the learned value. Ignored otherwise.</p></li>
 <li><p><strong>weight_max_overall_bit_width</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code>]) – If <cite>weight_bit_width_impl_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">PARAMETER</span></code> and <cite>weight_quant_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">INT</span></code>, this value imposes an upper
 bound on the learned value. Ignored otherwise.</p></li>
-<li><p><strong>weight_tracked_parameter_list_init</strong> – </p></li>
-<li><p><strong>bit_width_impl_override</strong> – </p></li>
-<li><p><strong>weight_ternary_threshold</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code>) – </p></li>
-<li><p><strong>scaling_stats_sigma</strong> – </p></li>
-<li><p><strong>override_pretrained_bit_width</strong> – </p></li>
+<li><p><strong>weight_bit_width_impl_override</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code>[<a class="reference internal" href="brevitas.core.html#brevitas.core.bit_width.BitWidthConst" title="brevitas.core.bit_width.BitWidthConst"><code class="xref py py-class docutils literal notranslate"><span class="pre">BitWidthConst</span></code></a>, <a class="reference internal" href="brevitas.core.html#brevitas.core.bit_width.BitWidthParameter" title="brevitas.core.bit_width.BitWidthParameter"><code class="xref py py-class docutils literal notranslate"><span class="pre">BitWidthParameter</span></code></a>, <code class="docutils literal notranslate"><span class="pre">None</span></code>]) – Override the bit-width implementation with an implementation defined elsewhere. Accepts BitWidthConst or
+BitWidthParameter type of Modules. Useful for sharing the same learned bit-width between different layers.</p></li>
+<li><p><strong>weight_ternary_threshold</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code>) – Value to be used as a threshold when <cite>weight_quant_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">TERNARY</span></code>. Ignored otherwise.</p></li>
+<li><p><strong>weight_scaling_stats_sigma</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code>) – Value to be used as sigma if <cite>weight_scaling_impl_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">STATS</span></code>, <code class="docutils literal notranslate"><span class="pre">AFFINE_STATS</span></code> or
+<code class="docutils literal notranslate"><span class="pre">PARAMETER_FROM_STATS</span></code> and <cite>weight_scaling_stats_op</cite> is set to <code class="docutils literal notranslate"><span class="pre">AVE_SIGMA_STD</span></code> or <code class="docutils literal notranslate"><span class="pre">AVE_LEARN_SIGMA_STD</span></code>.
+Ignored otherwise. When <cite>weight_scaling_impl_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">STATS</span></code> or <code class="docutils literal notranslate"><span class="pre">AFFINE_STATS</span></code>, and
+<cite>weight_scaling_stats_op</cite> is set to <code class="docutils literal notranslate"><span class="pre">AVE_LEARN_SIGMA_STD</span></code>, the value is used for initialization.</p></li>
+<li><p><strong>weight_override_pretrained_bit_width</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code>) – If set to <code class="docutils literal notranslate"><span class="pre">True</span></code>, when loading a pre-trained model that includes a learned bit-width, the pre-trained value
+is ignored and replaced by the value specified by <code class="docutils literal notranslate"><span class="pre">bit-width</span></code>.</p></li>
 </ul>
 </dd>
 </dl>
@@ -472,9 +508,6 @@ registered hooks while the latter silently ignores them.</p>
 
 </dd></dl>
 
-</div>
-<div class="section" id="brevitas-nn-quant-recurrent-module">
-<h2>brevitas.nn.quant_recurrent module<a class="headerlink" href="#brevitas-nn-quant-recurrent-module" title="Permalink to this headline">¶</a></h2>
 </div>
 <div class="section" id="module-brevitas.nn">
 <span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-brevitas.nn" title="Permalink to this headline">¶</a></h2>

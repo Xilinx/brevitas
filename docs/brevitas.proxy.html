@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>brevitas.proxy package &mdash; Brevitas 0.1.0-alpha documentation</title>
+  <title>brevitas.proxy package &mdash; Brevitas 0.2.0-alpha documentation</title>
   
 
   
@@ -78,13 +78,17 @@
               
             
             
-              <p class="caption"><span class="caption-text">Contents:</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="readme_link.html">Readme File</a></li>
-<li class="toctree-l1"><a class="reference internal" href="readme_link.html#brevitas">Brevitas</a></li>
-<li class="toctree-l1"><a class="reference internal" href="readme_link.html#id1">#</a></li>
+              <!-- Local TOC -->
+              <div class="local-toc"><ul>
+<li><a class="reference internal" href="#">brevitas.proxy package</a><ul>
+<li><a class="reference internal" href="#submodules">Submodules</a></li>
+<li><a class="reference internal" href="#module-brevitas.proxy.parameter_quant">brevitas.proxy.parameter_quant module</a></li>
+<li><a class="reference internal" href="#module-brevitas.proxy.runtime_quant">brevitas.proxy.runtime_quant module</a></li>
+<li><a class="reference internal" href="#module-brevitas.proxy">Module contents</a></li>
 </ul>
-
+</li>
+</ul>
+</div>
             
           
         </div>
@@ -170,10 +174,10 @@ used for initialization. If <cite>quant_type</cite> is set to <code class="docut
 <li><p><strong>restrict_scaling_type</strong> (<a class="reference internal" href="brevitas.core.html#brevitas.core.restrict_val.RestrictValueType" title="brevitas.core.restrict_val.RestrictValueType"><code class="xref py py-class docutils literal notranslate"><span class="pre">RestrictValueType</span></code></a>) – Type of restriction imposed on the values of the scaling factor of the quantized weights.</p></li>
 <li><p><strong>scaling_const</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code>]) – If <cite>scaling_impl_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">CONST</span></code>, this value is used as the scaling factor across all relevant
 dimensions. Ignored otherwise.</p></li>
-<li><p><strong>scaling_stats_op</strong> (<a class="reference internal" href="brevitas.core.html#brevitas.core.stats.StatsOp" title="brevitas.core.stats.StatsOp"><code class="xref py py-class docutils literal notranslate"><span class="pre">StatsOp</span></code></a>) – Type of statistical operation performed for scaling, if required. If <cite>scaling_impl_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">STATS</span></code>,
-the operation is part of the compute graph and back-propagated through. If If <cite>scaling_impl_type</cite> is set to
-<code class="docutils literal notranslate"><span class="pre">PARAMETER_FROM_STATS</span></code>, the operation is used only for computing the initialization of the parameter, possibly
-across some dimensions. Ignored otherwise.</p></li>
+<li><p><strong>scaling_stats_op</strong> (<a class="reference internal" href="brevitas.core.html#brevitas.core.stats.StatsOp" title="brevitas.core.stats.StatsOp"><code class="xref py py-class docutils literal notranslate"><span class="pre">StatsOp</span></code></a>) – Type of statistical operation performed for scaling, if required. If <cite>scaling_impl_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">STATS</span></code> or
+<code class="docutils literal notranslate"><span class="pre">AFFINE_STATS</span></code>, the operation is part of the compute graph and back-propagated through. If <cite>scaling_impl_type</cite>
+is set to <code class="docutils literal notranslate"><span class="pre">PARAMETER_FROM_STATS</span></code>, the operation is used only for computing the initialization of the
+parameter, possibly across some dimensions. Ignored otherwise.</p></li>
 <li><p><strong>scaling_impl_type</strong> (<a class="reference internal" href="brevitas.core.html#brevitas.core.scaling.ScalingImplType" title="brevitas.core.scaling.ScalingImplType"><code class="xref py py-class docutils literal notranslate"><span class="pre">ScalingImplType</span></code></a>) – Type of strategy adopted for scaling the quantized weights.</p></li>
 <li><p><strong>scaling_stats_reduce_dim</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code>]) – Dimension within the shape determined by <cite>scaling_stats_input_view_shape_impl</cite> along which <cite>scaling_stats_op</cite> is
 applied. If set to <code class="docutils literal notranslate"><span class="pre">None</span></code>, scaling is assumed to be over the whole tensor. Ignored whenever <cite>scaling_stats_op</cite>
@@ -190,13 +194,23 @@ relax the bit-width value that can be learned. Ignored otherwise.</p></li>
 bound on the learned value. Ignored otherwise.</p></li>
 <li><p><strong>max_overall_bit_width</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code>]) – If <cite>bit_width_impl_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">PARAMETER</span></code> and <cite>quant_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">INT</span></code>, this value imposes an upper
 bound on the learned value. Ignored otherwise.</p></li>
-<li><p><strong>tracked_parameter_list_init</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Parameter</span></code>) – </p></li>
-<li><p><strong>bit_width_impl_override</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code>[<a class="reference internal" href="brevitas.core.html#brevitas.core.bit_width.BitWidthConst" title="brevitas.core.bit_width.BitWidthConst"><code class="xref py py-class docutils literal notranslate"><span class="pre">BitWidthConst</span></code></a>, <a class="reference internal" href="brevitas.core.html#brevitas.core.bit_width.BitWidthParameter" title="brevitas.core.bit_width.BitWidthParameter"><code class="xref py py-class docutils literal notranslate"><span class="pre">BitWidthParameter</span></code></a>, <code class="docutils literal notranslate"><span class="pre">None</span></code>]) – </p></li>
-<li><p><strong>scaling_stats_input_view_shape_impl</strong> (<a class="reference internal" href="brevitas.core.html#brevitas.core.stats.StatsInputViewShapeImpl" title="brevitas.core.stats.StatsInputViewShapeImpl"><code class="xref py py-class docutils literal notranslate"><span class="pre">StatsInputViewShapeImpl</span></code></a>) – </p></li>
-<li><p><strong>scaling_stats_input_concat_dim</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code>) – </p></li>
-<li><p><strong>ternary_threshold</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code>]) – </p></li>
-<li><p><strong>scaling_stats_sigma</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code>]) – </p></li>
-<li><p><strong>override_pretrained_bit_width</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code>) – </p></li>
+<li><p><strong>tracked_parameter_list_init</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Parameter</span></code>) – Pytorch Parameter of which statistics are computed when <cite>scaling_impl_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">STATS</span></code>,
+<code class="docutils literal notranslate"><span class="pre">AFFINE_STATS</span></code> or <code class="docutils literal notranslate"><span class="pre">PARAMETER_FROM_STATS</span></code>. This value initializes the list of parameters that are
+concatenated together when computing statistics.</p></li>
+<li><p><strong>bit_width_impl_override</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code>[<a class="reference internal" href="brevitas.core.html#brevitas.core.bit_width.BitWidthConst" title="brevitas.core.bit_width.BitWidthConst"><code class="xref py py-class docutils literal notranslate"><span class="pre">BitWidthConst</span></code></a>, <a class="reference internal" href="brevitas.core.html#brevitas.core.bit_width.BitWidthParameter" title="brevitas.core.bit_width.BitWidthParameter"><code class="xref py py-class docutils literal notranslate"><span class="pre">BitWidthParameter</span></code></a>, <code class="docutils literal notranslate"><span class="pre">None</span></code>]) – Override the bit-width implementation with an implementation defined elsewhere. Accepts BitWidthConst or
+BitWidthParameter type of Modules. Useful for sharing the same learned bit-width between different layers.</p></li>
+<li><p><strong>scaling_stats_input_view_shape_impl</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code>) – When <cite>scaling_impl_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">STATS</span></code>, <code class="docutils literal notranslate"><span class="pre">AFFINE_STATS</span></code> or <code class="docutils literal notranslate"><span class="pre">PARAMETER_FROM_STATS</span></code>,
+this Module reshapes each tracked parameter before concatenating them together and computing their statistics.</p></li>
+<li><p><strong>scaling_stats_input_concat_dim</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code>) – When <cite>scaling_impl_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">STATS</span></code>, <code class="docutils literal notranslate"><span class="pre">AFFINE_STATS</span></code> or <code class="docutils literal notranslate"><span class="pre">PARAMETER_FROM_STATS</span></code>,
+this value defines the dimension along which the tracked parameters are concated after
+<cite>scaling_stats_input_view_shape_impl</cite> is called, but before statistics are taken.</p></li>
+<li><p><strong>ternary_threshold</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code>]) – Value to be used as a threshold when <cite>quant_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">TERNARY</span></code>. Ignored otherwise.</p></li>
+<li><p><strong>scaling_stats_sigma</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code>]) – Value to be used as sigma if <cite>scaling_impl_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">STATS</span></code>, <code class="docutils literal notranslate"><span class="pre">AFFINE_STATS</span></code> or
+<code class="docutils literal notranslate"><span class="pre">PARAMETER_FROM_STATS</span></code> and <cite>scaling_stats_op</cite> is set to <code class="docutils literal notranslate"><span class="pre">AVE_SIGMA_STD</span></code> or <code class="docutils literal notranslate"><span class="pre">AVE_LEARN_SIGMA_STD</span></code>.
+Ignored otherwise. When <cite>scaling_impl_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">STATS</span></code> or <code class="docutils literal notranslate"><span class="pre">AFFINE_STATS</span></code>, and
+<cite>scaling_stats_op</cite> is set to <code class="docutils literal notranslate"><span class="pre">AVE_LEARN_SIGMA_STD</span></code>, the value is used for initialization.</p></li>
+<li><p><strong>override_pretrained_bit_width</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code>) – If set to <code class="docutils literal notranslate"><span class="pre">True</span></code>, when loading a pre-trained model that includes a learned bit-width, the pre-trained value
+is ignored and replaced by the value specified by <code class="docutils literal notranslate"><span class="pre">bit-width</span></code>.</p></li>
 </ul>
 </dd>
 </dl>

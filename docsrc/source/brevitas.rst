@@ -15,6 +15,14 @@ Subpackages
 Submodules
 ----------
 
+brevitas.config module
+----------------------
+
+.. automodule:: brevitas.config
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 brevitas.quant\_tensor module
 -----------------------------
 

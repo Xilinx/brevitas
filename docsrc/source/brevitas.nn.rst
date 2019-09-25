@@ -28,6 +28,14 @@ brevitas.nn.quant\_avg\_pool module
    :undoc-members:
    :show-inheritance:
 
+brevitas.nn.quant\_bn module
+----------------------------
+
+.. automodule:: brevitas.nn.quant_bn
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 brevitas.nn.quant\_conv module
 ------------------------------
 
@@ -48,14 +56,6 @@ brevitas.nn.quant\_linear module
 --------------------------------
 
 .. automodule:: brevitas.nn.quant_linear
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-brevitas.nn.quant\_recurrent module
------------------------------------
-
-.. automodule:: brevitas.nn.quant_recurrent
    :members:
    :undoc-members:
    :show-inheritance:
