@@ -116,7 +116,7 @@ class TensorClamp(torch.jit.ScriptModule):
 
 
 class ConstScalarClamp(torch.jit.ScriptModule):
-    __constants__ = ['min_val, max_val']
+    __constants__ = ['min_val', 'max_val']
 
     def __init__(self, min_val, max_val) -> None:
         super(ConstScalarClamp, self).__init__()
