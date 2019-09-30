@@ -140,7 +140,7 @@ class QuantConv2d(QuantLayer, Conv2d):
             self.weight_quant = weight_quant_override
             self.weight_quant.add_tracked_parameter(self.weight)
         else:
-            weight_scaling_stats_input_concat_dim = 0
+            weight_scaling_stats_input_concat_dim = 1
             if weight_scaling_per_output_channel:
                 weight_stats_input_view_shape_impl = StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS
                 weight_scaling_shape = self.per_output_channel_broadcastable_shape
