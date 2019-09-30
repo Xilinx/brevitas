@@ -429,9 +429,9 @@ class BiasQuantProxy(ParameterQuantProxy):
             zero_hw_sentinel = getattr(self, ZERO_HW_SENTINEL_NAME)
             reshaped_scale = scale.view(-1)
             if self.requires_input_bit_width:
-                out = self.tensor_quant(x, reshaped_scale, bit_width, zero_hw_sentinel)
+                out, scale, bit_width = self.tensor_quant(x, reshaped_scale, bit_width, zero_hw_sentinel)
             else:
-                out = self.tensor_quant(x, reshaped_scale, zero_hw_sentinel)
+                out, scale, bit_width = self.tensor_quant(x, reshaped_scale, zero_hw_sentinel)
             return out
         else:
             return x
