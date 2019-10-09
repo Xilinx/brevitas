@@ -177,6 +177,7 @@ class QuantLinear(QuantLayer, Linear):
     def forward(self, input):
         output_scale = None
         output_bit_width = None
+        bias_bit_width = None
 
         input, input_scale, input_bit_width = self.unpack_input(input)
 
@@ -189,10 +190,14 @@ class QuantLinear(QuantLayer, Linear):
             output_scale = input_scale * quant_weight_scale
 
         if self.bias is not None:
-            quant_bias = self.bias_quant(self.bias, output_scale, output_bit_width)
+            quant_bias, _, bias_bit_width = self.bias_quant(self.bias, output_scale, output_bit_width)
             output = linear(input, quant_weight, quant_bias)
         else:
             output = linear(input, quant_weight, None)
+
+        if self.compute_output_bit_width and bias_bit_width is not None:
+            output_bit_width = torch.where(bias_bit_width > output_bit_width, bias_bit_width, output_bit_width)
+
         return self.pack_output(output, output_scale, output_bit_width)
 
     def max_output_bit_width(self, input_bit_width, weight_bit_width):

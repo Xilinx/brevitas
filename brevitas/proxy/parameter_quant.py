@@ -361,7 +361,7 @@ class WeightQuantProxy(ParameterQuantProxy):
             del self.tensor_quant
             self.re_init_tensor_quant()
 
-    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[torch.Tensor]]:
+    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         zero_hw_sentinel = getattr(self, ZERO_HW_SENTINEL_NAME)
         out, scale, bit_width = self.tensor_quant(x, zero_hw_sentinel)
         reshaped_scale = scale.view(self.scale_output_shape)
@@ -390,6 +390,7 @@ class BiasQuantProxy(ParameterQuantProxy):
                  bit_width: Optional[int],
                  narrow_range: bool) -> None:
         super(BiasQuantProxy, self).__init__()
+        self.scale_output_shape = OVER_BATCH_OVER_CHANNELS_SHAPE
 
         if quant_type == QuantType.FP:
             self.tensor_quant = None
@@ -418,17 +419,24 @@ class BiasQuantProxy(ParameterQuantProxy):
 
     def forward(self,
                 x: Tensor,
-                scale: Tensor,
-                bit_width: Optional[Tensor]) -> Tensor:
+                input_scale: Tensor,
+                input_bit_width: Optional[Tensor]) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[torch.Tensor]]:
+        zero_hw_sentinel = getattr(self, ZERO_HW_SENTINEL_NAME)
         if self.tensor_quant is not None:
-            zero_hw_sentinel = getattr(self, ZERO_HW_SENTINEL_NAME)
-            reshaped_scale = scale.view(-1)
-            if self.requires_input_bit_width:
-                out, scale, bit_width = self.tensor_quant(x, reshaped_scale, bit_width, zero_hw_sentinel)
+
+            if input_scale is None:
+                raise Exception("Input scale can't be None when quantizing bias")
+            input_scale = input_scale.view(-1)
+
+            if self.requires_input_bit_width:  # bit width is defined outside
+                if input_bit_width is None:
+                    raise Exception("Input bit width can't be None when quantizing bias without a predefined bit width")
+                out, output_scale, bias_bit_width = self.tensor_quant(x, input_scale, input_bit_width, zero_hw_sentinel)
             else:
-                out, scale, bit_width = self.tensor_quant(x, reshaped_scale, zero_hw_sentinel)
-            return out
+                out, output_scale, bias_bit_width = self.tensor_quant(x, input_scale, zero_hw_sentinel)
+            output_scale = output_scale.view(self.scale_output_shape)
+            return out, output_scale, bias_bit_width
         else:
-            return x
+            return x, input_scale, input_bit_width
 
 

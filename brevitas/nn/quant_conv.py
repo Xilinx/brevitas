@@ -215,6 +215,8 @@ class QuantConv2d(QuantLayer, Conv2d):
     def forward(self, input):
         output_scale = None
         output_bit_width = None
+        bias_bit_width = None
+
         input, input_scale, input_bit_width = self.unpack_input(input)
         quant_weight, quant_weight_scale, quant_weight_bit_width = self.weight_quant(self.weight)
         quant_weight = self.weight_reg(quant_weight)
@@ -225,10 +227,14 @@ class QuantConv2d(QuantLayer, Conv2d):
             output_scale = input_scale * quant_weight_scale
 
         if self.bias is not None:
-            quant_bias = self.bias_quant(self.bias, output_scale, output_bit_width)
+            quant_bias, _, bias_bit_width = self.bias_quant(self.bias, output_scale, output_bit_width)
             output = self.conv2d(input, quant_weight, quant_bias)
         else:
             output = self.conv2d(input, quant_weight, None)
+
+        if self.compute_output_bit_width and bias_bit_width is not None:
+            output_bit_width = torch.where(bias_bit_width > output_bit_width, bias_bit_width, output_bit_width)
+
         return self.pack_output(output, output_scale, output_bit_width)
 
     def conv2d(self, x, weight, bias):

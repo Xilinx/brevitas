@@ -93,8 +93,6 @@ class QuantBatchNorm2d(QuantLayer, nn.Module):
         return mean, unbias_var, bias_var
 
     def forward(self, quant_tensor):
-        output_scale = None
-        output_bit_width = None
         input_tensor, input_scale, input_bit_width = self.unpack_input(quant_tensor)
         if self.impl_type == ScalingImplType.STATS:
             if self.training:
@@ -114,9 +112,16 @@ class QuantBatchNorm2d(QuantLayer, nn.Module):
             weight = self.weight.view(OVER_BATCH_OVER_CHANNELS_SHAPE)
             bias = self.bias.view(OVER_BATCH_OVER_CHANNELS_SHAPE)
         weight = self.restrict_weight(weight)
+        output_scale = input_scale * weight
         if self.impl_type == ScalingImplType.STATS:
             weight = sign * weight
-        bias = self.bias_quant(bias, output_scale, output_bit_width)
+
+        # if bias_bit_width is not None, input_bit_width is ignored
+        bias, _, output_bit_width = self.bias_quant(bias, output_scale, input_bit_width)
+
+        if input_bit_width is not None:
+            output_bit_width = torch.where(output_bit_width > input_bit_width, output_bit_width, input_bit_width)
+
         output_tensor = input_tensor * weight + bias
         return self.pack_output(output_tensor, output_scale, output_bit_width)
 
