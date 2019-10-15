@@ -34,7 +34,7 @@
 
 import torch
 import torch.nn as nn
-from .common import make_quant_conv2d, make_quant_linear, make_quant_relu
+from examples.models.common import make_quant_conv2d, make_quant_linear, make_quant_relu
 
 __all__ = [
     'QuantVGG', 'quant_vgg11', 'quant_vgg11_bn', 'quant_vgg13', 'quant_vgg13_bn', 'quant_vgg16', 'quant_vgg16_bn',
@@ -56,7 +56,7 @@ class QuantVGG(nn.Module):
             make_quant_relu(bit_width),
             nn.Dropout(),
             make_quant_linear(4096, num_classes, bias=False, bit_width=bit_width,
-                              scaling_per_output_channel=False),
+                              weight_scaling_per_output_channel=False),
         )
         self._initialize_weights()
 
@@ -88,8 +88,8 @@ def make_layers(cfg, batch_norm, bit_width):
         if v == 'M':
             layers += [nn.MaxPool2d(kernel_size=2, stride=2)]
         else:
-            conv2d = make_quant_conv2d(in_channels, v, kernel_size=3, stride=1, padding=1, bias=not batch_norm,
-                                       bit_width=bit_width)
+            conv2d = make_quant_conv2d(in_channels, v, kernel_size=3, stride=1, padding=1, groups=1,
+                                       bias=not batch_norm, bit_width=bit_width)
             act = make_quant_relu(bit_width)
             if batch_norm:
                 layers += [conv2d, nn.BatchNorm2d(v), act]
