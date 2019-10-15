@@ -233,8 +233,10 @@ class QuantLinear(QuantLayer, Linear):
     def forward(self, input):
         if self.export_mode:
             export_qnt_type = self.get_exportable_quantization_type()
-            # TODO what to do about the scale here? per out ch scaling also
-            return QuantizedLinearPlaceholderFunction.apply(self.export_int_weight, input, export_qnt_type, self.out_features)
+            return QuantizedLinearPlaceholderFunction.apply(
+                self.export_int_weight, input, self.export_quant_weight_scale,
+                export_qnt_type, self.out_features
+                )
         else:
             output_scale = None
             output_bit_width = None
