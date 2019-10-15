@@ -31,7 +31,7 @@ __all__ = ['quant_mobilenet_v1']
 from torch import nn
 from torch.nn import Sequential
 
-from examples.models.common import make_quant_conv2d, make_quant_linear, make_quant_relu, make_quant_avg_pool
+from .common import make_quant_conv2d, make_quant_linear, make_quant_relu, make_quant_avg_pool
 
 
 FIRST_LAYER_BIT_WIDTH = 8

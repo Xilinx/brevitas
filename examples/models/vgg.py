@@ -34,7 +34,7 @@
 
 import torch
 import torch.nn as nn
-from examples.models.common import make_quant_conv2d, make_quant_linear, make_quant_relu
+from .common import make_quant_conv2d, make_quant_linear, make_quant_relu
 
 __all__ = [
     'QuantVGG', 'quant_vgg11', 'quant_vgg11_bn', 'quant_vgg13', 'quant_vgg13_bn', 'quant_vgg16', 'quant_vgg16_bn',
