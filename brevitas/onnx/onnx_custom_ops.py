@@ -18,7 +18,12 @@ class QuantizedLinearPlaceholderFunction(Function):
 class QuantizedHardTanhPlaceholderFunction(Function):
     @staticmethod
     def symbolic(g, input, qnt_type):
-        ret = g.op('QuantizedHardTanh', input, domain_s = "finn", activation_qnt_s = qnt_type)
+        if qnt_type == "BIPOLAR":
+            # TODO ONNX Sign op returns 0 for a 0 input, which does not conform
+            # to bipolar {-1, +1} quantization.
+            ret = g.op('Sign', input, domain_s = "finn", activation_qnt_s = qnt_type)
+        else:
+            ret = g.op('QuantizedHardTanh', input, domain_s = "finn", activation_qnt_s = qnt_type)
         return ret
 
     @staticmethod
