@@ -55,6 +55,8 @@ from brevitas.core.scaling import RuntimeStatsScaling, SCALING_SCALAR_SHAPE, Sta
 from brevitas.core.scaling import ScalingImplType, StandaloneScaling, IntScaling
 from brevitas.core.stats import StatsOp
 
+from .quant_proxy import QuantProxy
+
 
 class FusedActivationQuantProxy(torch.jit.ScriptModule):
 
@@ -72,7 +74,7 @@ class FusedActivationQuantProxy(torch.jit.ScriptModule):
         return x, output_scale, output_bit_width
 
 
-class ActivationQuantProxy(Module):
+class ActivationQuantProxy(QuantProxy):
 
     def __init__(self,
                  activation_impl: Module,
@@ -106,8 +108,6 @@ class ActivationQuantProxy(Module):
             raise Exception("Min val has to be 0.0 when quantization is unsigned.")
         if scaling_per_channel and per_channel_broadcastable_shape is None:
             raise Exception("Per channel scaling requires to specify number of channels.")
-
-        self.register_buffer(ZERO_HW_SENTINEL_NAME, torch.tensor(ZERO_HW_SENTINEL_VALUE))
 
         if scaling_per_channel and not scaling_stats_op == StatsOp.MAX_AVE:
             scaling_shape = per_channel_broadcastable_shape
@@ -210,16 +210,8 @@ class ActivationQuantProxy(Module):
         output, output_scale, output_bit_width = self.fused_activation_quant_proxy(x, self.zero_hw_sentinel)
         return output, output_scale, output_bit_width
 
-    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
-                              missing_keys, unexpected_keys, error_msgs):
-        super(ActivationQuantProxy, self)._load_from_state_dict(state_dict, prefix, local_metadata, strict,
-            missing_keys, unexpected_keys, error_msgs)
-        zero_hw_sentinel_key = prefix + ZERO_HW_SENTINEL_NAME
-        if zero_hw_sentinel_key in missing_keys:
-            missing_keys.remove(zero_hw_sentinel_key)
 
-
-class ClampQuantProxy(Module):
+class ClampQuantProxy(QuantProxy):
 
     def __init__(self,
                  signed: bool,
@@ -232,7 +224,6 @@ class ClampQuantProxy(Module):
                  msb_clamp_bit_width_impl_type: BitWidthImplType,
                  override_pretrained_bit_width: bool):
         super(ClampQuantProxy, self).__init__()
-        self.register_buffer(ZERO_HW_SENTINEL_NAME, torch.tensor(ZERO_HW_SENTINEL_VALUE))
 
         if quant_type == QuantType.FP:
             self.tensor_quant = IdentityPrescaledIntQuant()
@@ -261,16 +252,8 @@ class ClampQuantProxy(Module):
         x, output_scale, output_bit_width = self.tensor_quant(x, input_scale, input_bit_width, self.zero_hw_sentinel)
         return x, output_scale, output_bit_width
 
-    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
-                              missing_keys, unexpected_keys, error_msgs):
-        super(ClampQuantProxy, self)._load_from_state_dict(state_dict, prefix, local_metadata, strict,
-                                                            missing_keys, unexpected_keys, error_msgs)
-        zero_hw_sentinel_key = prefix + ZERO_HW_SENTINEL_NAME
-        if zero_hw_sentinel_key in missing_keys:
-            missing_keys.remove(zero_hw_sentinel_key)
 
-
-class TruncQuantProxy(Module):
+class TruncQuantProxy(QuantProxy):
 
     def __init__(self,
                  signed: bool,
@@ -283,7 +266,6 @@ class TruncQuantProxy(Module):
                  explicit_rescaling: bool,
                  override_pretrained_bit_width: bool):
         super(TruncQuantProxy, self).__init__()
-        self.register_buffer(ZERO_HW_SENTINEL_NAME, torch.tensor(ZERO_HW_SENTINEL_VALUE))
         self.explicit_rescaling = explicit_rescaling
 
         if quant_type == QuantType.FP:
@@ -318,11 +300,3 @@ class TruncQuantProxy(Module):
             output_scale = output_scale / trunc_scale
         output_bit_width = input_bit_width - trunc_bit_width
         return x, output_scale, output_bit_width
-
-    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
-                              missing_keys, unexpected_keys, error_msgs):
-        super(TruncQuantProxy, self)._load_from_state_dict(state_dict, prefix, local_metadata, strict,
-                                                            missing_keys, unexpected_keys, error_msgs)
-        zero_hw_sentinel_key = prefix + ZERO_HW_SENTINEL_NAME
-        if zero_hw_sentinel_key in missing_keys:
-            missing_keys.remove(zero_hw_sentinel_key)
