@@ -48,7 +48,7 @@ import torch
 from torch import nn, Tensor
 
 
-from brevitas.core import ZERO_HW_SENTINEL_NAME, ZERO_HW_SENTINEL_VALUE
+from brevitas.core import ZERO_HW_SENTINEL_NAME
 from brevitas.core.bit_width import BitWidthConst, BitWidthParameter, BitWidthImplType
 from brevitas.core.function_wrapper import TensorClampSte, TensorClamp
 from brevitas.core.quant import IdentityQuant
@@ -61,6 +61,8 @@ from brevitas.function.ops import round_ste
 from brevitas.core.stats import StatsOp
 from brevitas import config
 from brevitas.config import docstrings
+
+from .quant_proxy import QuantProxy
 
 __all__ = ['WeightQuantProxy', 'BiasQuantProxy']
 
@@ -78,12 +80,8 @@ class WeightReg(nn.Module):
         return weight + 0
 
 
-class ParameterQuantProxy(nn.Module):
+class ParameterQuantProxy(QuantProxy):
     __metaclass__ = ABCMeta
-
-    def __init__(self):
-        super(ParameterQuantProxy, self).__init__()
-        self.register_buffer(ZERO_HW_SENTINEL_NAME, torch.tensor(ZERO_HW_SENTINEL_VALUE))
 
     @property
     def tensor_quant(self):
@@ -381,9 +379,6 @@ class WeightQuantProxy(ParameterQuantProxy):
                               missing_keys, unexpected_keys, error_msgs):
         super(WeightQuantProxy, self)._load_from_state_dict(state_dict, prefix, local_metadata, strict,
             missing_keys, unexpected_keys, error_msgs)
-        zero_hw_sentinel_key = prefix + ZERO_HW_SENTINEL_NAME
-        if zero_hw_sentinel_key in missing_keys:
-            missing_keys.remove(zero_hw_sentinel_key)
         if config.REINIT_WEIGHT_QUANT_ON_LOAD:
             self.re_init_tensor_quant()
 
@@ -435,14 +430,5 @@ class BiasQuantProxy(ParameterQuantProxy):
             return out
         else:
             return x
-
-    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
-                              missing_keys, unexpected_keys, error_msgs):
-        super(BiasQuantProxy, self)._load_from_state_dict(state_dict, prefix, local_metadata, strict,
-            missing_keys, unexpected_keys, error_msgs)
-        zero_hw_sentinel_key = prefix + ZERO_HW_SENTINEL_NAME
-        if zero_hw_sentinel_key in missing_keys:
-            missing_keys.remove(zero_hw_sentinel_key)
-
 
 

@@ -92,6 +92,11 @@ class _ViewParameterWrapper(torch.jit.ScriptModule):
         if parameter_key in missing_keys:
             missing_keys.remove(parameter_key)
 
+    def state_dict(self, destination=None, prefix='', keep_vars=False):
+        output_dict = super(_ViewParameterWrapper, self).state_dict(destination, prefix, keep_vars)
+        del output_dict[prefix + 'parameter']
+        return output_dict
+
 
 class _ViewCatParameterWrapper(torch.jit.ScriptModule):
     __constants__ = ['shape', 'cat_dim']
@@ -113,6 +118,11 @@ class _ViewCatParameterWrapper(torch.jit.ScriptModule):
         parameter_key = prefix + 'parameter'
         if parameter_key in missing_keys:
             missing_keys.remove(parameter_key)
+
+    def state_dict(self, destination=None, prefix='', keep_vars=False):
+        output_dict = super(_ViewCatParameterWrapper, self).state_dict(destination, prefix, keep_vars)
+        del output_dict[prefix + 'parameter']
+        return output_dict
 
 
 class AbsMax(torch.jit.ScriptModule):
