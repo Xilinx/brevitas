@@ -29,23 +29,6 @@ parser.add_argument('--gpu', default=None, type=int, help='GPU id to use.')
 parser.add_argument('--bit-width', default=4, type=int, help='Model bit-width')
 
 
-class objdict(dict):
-    def __getattr__(self, name):
-        if name in self:
-            return self[name]
-        else:
-            raise AttributeError("No such attribute: " + name)
-
-    def __setattr__(self, name, value):
-        self[name] = value
-
-    def __delattr__(self, name):
-        if name in self:
-            del self[name]
-        else:
-            raise AttributeError("No such attribute: " + name)
-
-
 def main():
     args = parser.parse_args()
     random.seed(SEED)
