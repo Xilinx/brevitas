@@ -3,8 +3,7 @@ from torch.autograd import Function
 
 class QuantizedLinearPlaceholderFunction(Function):
     @staticmethod
-    def symbolic(g, x, W, scale_factor, qnt_type, out_features):
-        Wt = W.transpose().detach()
+    def symbolic(g, x, Wt, scale_factor, qnt_type, out_features):
         ret = g.op('MatMul', x, Wt, domain_s = "finn", weight_qnt_s = qnt_type)
         if scale_factor is not None:
             # TODO add info about scaling factor constraints as attributes here
@@ -13,7 +12,7 @@ class QuantizedLinearPlaceholderFunction(Function):
         return ret
 
     @staticmethod
-    def forward(ctx, x, W, scale_factor, qnt_type, out_features):
+    def forward(ctx, x, Wt, scale_factor, qnt_type, out_features):
         return torch.empty(1, out_features, dtype = torch.float)
 
 class QuantizedHardTanhPlaceholderFunction(Function):
