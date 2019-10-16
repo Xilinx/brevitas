@@ -4,7 +4,7 @@ from torch.autograd import Function
 class QuantizedLinearPlaceholderFunction(Function):
     @staticmethod
     def symbolic(g, x, Wt, scale_factor, qnt_type, out_features):
-        ret = g.op('MatMul', x, Wt, domain_s = "finn", weight_qnt_s = qnt_type)
+        ret = g.op('MatMul', x, Wt, weight_qnt_s = qnt_type)
         if scale_factor is not None:
             # TODO add info about scaling factor constraints as attributes here
             # (e.g. power of two, channel-wise or tensor-wise, ...)
@@ -21,9 +21,9 @@ class QuantizedHardTanhPlaceholderFunction(Function):
         if qnt_type == "BIPOLAR":
             # TODO ONNX Sign op returns 0 for a 0 input, which does not conform
             # to bipolar {-1, +1} quantization.
-            ret = g.op('Sign', input, domain_s = "finn", activation_qnt_s = qnt_type)
+            ret = g.op('Sign', input, activation_qnt_s = qnt_type)
         else:
-            ret = g.op('QuantizedHardTanh', input, domain_s = "finn", activation_qnt_s = qnt_type)
+            ret = g.op('QuantizedHardTanh', input, activation_qnt_s = qnt_type)
         return ret
 
     @staticmethod
