@@ -4,7 +4,8 @@ from torch.autograd import Function
 class QuantizedLinearPlaceholderFunction(Function):
     @staticmethod
     def symbolic(g, x, W, scale_factor, qnt_type, out_features):
-        ret = g.op('MatMul', x, torch.t(W), domain_s = "finn", weight_qnt_s = qnt_type)
+        Wt = W.transpose().detach()
+        ret = g.op('MatMul', x, Wt, domain_s = "finn", weight_qnt_s = qnt_type)
         if scale_factor is not None:
             # TODO add info about scaling factor constraints as attributes here
             # (e.g. power of two, channel-wise or tensor-wise, ...)
