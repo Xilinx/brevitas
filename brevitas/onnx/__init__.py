@@ -29,8 +29,8 @@ def _move_quant_attributes_into_annotations(model):
         for a in n.attribute:
             mark_for_removal = False
             if a.name == "weight_qnt":
-                # assume first input is weight, make sure it has an initializer
-                w_tensor_name = n.input[0]
+                # assume second input is weight, make sure it has an initializer
+                w_tensor_name = n.input[1]
                 assert w_tensor_name in [x.name for x in model.graph.initializer]
                 tq = onnx.StringStringEntryProto(key = a.name, value = a.s)
                 ta = onnx.TensorAnnotation(
