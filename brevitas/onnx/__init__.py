@@ -52,7 +52,7 @@ def _move_quant_attributes_into_annotations(model):
                 n.attribute.remove(a)
     return model
 
-def export_finn_onnx(module, input_shape, export_path):
+def export_finn_onnx(module, input_shape, export_path, torch_onnx_kwargs = {}):
     """Export given module with Brevitas layers to FINN-ONNX with some cleanup."""
 
     with torch.no_grad():
@@ -60,7 +60,8 @@ def export_finn_onnx(module, input_shape, export_path):
         module = module.eval()
         _prepare_for_finn_onnx_export(module, enable_export = True)
         torch.onnx.export(
-            module, torch.empty(input_shape, dtype=torch.float), export_path
+            module, torch.empty(input_shape, dtype=torch.float), export_path,
+            **torch_onnx_kwargs
         )
         # restore the model to non-export mode to keep it clean
         _prepare_for_finn_onnx_export(module, enable_export = False)
