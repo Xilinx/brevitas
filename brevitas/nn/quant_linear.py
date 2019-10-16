@@ -234,7 +234,7 @@ class QuantLinear(QuantLayer, Linear):
         if self.export_mode:
             export_qnt_type = self.get_exportable_quantization_type()
             return QuantizedLinearPlaceholderFunction.apply(
-                self.export_int_weight, input, self.export_quant_weight_scale,
+                input, self.export_int_weight, self.export_quant_weight_scale,
                 export_qnt_type, self.out_features
                 )
         else:
