@@ -125,13 +125,14 @@ class BitWidthParameter(torch.jit.ScriptModule):
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
                               missing_keys, unexpected_keys, error_msgs):
-        super(BitWidthParameter, self)._load_from_state_dict(state_dict, prefix, local_metadata, strict,
-            missing_keys, unexpected_keys, error_msgs)
         bit_width_offset_key = prefix + 'bit_width_offset'
-        if config.IGNORE_MISSING_KEYS and bit_width_offset_key in missing_keys:
-            missing_keys.remove(bit_width_offset_key)
         if self.override_pretrained and bit_width_offset_key in state_dict:
             del state_dict[bit_width_offset_key]
+        super(BitWidthParameter, self)._load_from_state_dict(state_dict, prefix, local_metadata, strict,
+            missing_keys, unexpected_keys, error_msgs)
+        if config.IGNORE_MISSING_KEYS and bit_width_offset_key in missing_keys:
+            missing_keys.remove(bit_width_offset_key)
+
 
 
 class RemoveBitwidthParameter(torch.jit.ScriptModule):
@@ -161,13 +162,14 @@ class RemoveBitwidthParameter(torch.jit.ScriptModule):
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
                               missing_keys, unexpected_keys, error_msgs):
-        super(RemoveBitwidthParameter, self)._load_from_state_dict(state_dict, prefix, local_metadata, strict,
-                                                                   missing_keys, unexpected_keys, error_msgs)
         bit_width_coeff_key = prefix + 'bit_width_coeff'
-        if config.IGNORE_MISSING_KEYS and bit_width_coeff_key in missing_keys:
-            missing_keys.remove(bit_width_coeff_key)
         if self.override_pretrained and bit_width_coeff_key in state_dict:
             del state_dict[bit_width_coeff_key]
+        super(RemoveBitwidthParameter, self)._load_from_state_dict(state_dict, prefix, local_metadata, strict,
+                                                                   missing_keys, unexpected_keys, error_msgs)
+        if config.IGNORE_MISSING_KEYS and bit_width_coeff_key in missing_keys:
+            missing_keys.remove(bit_width_coeff_key)
+
 
 
 class MsbClampParameterBitWidth(torch.jit.ScriptModule):
