@@ -112,8 +112,10 @@ class ActivationQuantProxy(QuantProxy):
         if scaling_per_channel and not scaling_stats_op == StatsOp.MAX_AVE:
             scaling_shape = per_channel_broadcastable_shape
             scaling_stats_reduce_dim = 1
+        elif scaling_per_channel and scaling_stats_op ==  StatsOp.MAX_AVE:
+            raise Exception("Can't do per channel scaling with MAX AVE statistics.")
         elif not scaling_per_channel and scaling_stats_op == StatsOp.MAX_AVE:
-            raise Exception("Not supported yet")
+            raise Exception("Not supported yet.")
         else:  # not scaling_per_channel
             scaling_shape = SCALING_SCALAR_SHAPE
             scaling_stats_input_view_shape_impl = StatsInputViewShapeImpl.OVER_TENSOR
