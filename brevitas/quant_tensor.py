@@ -58,7 +58,7 @@ class QuantTensor(namedtuple("QuantTensor", ["tensor", "scale", "bit_width"])):
 
     def check_scaling_factors_same(self, other):
         if not torch.allclose(self.scale, other.scale):
-            raise Exception("Other tensor is not a QuantTensor")
+            raise Exception("Scalign factors are different")
 
     # Reference: https://docs.python.org/3/reference/datamodel.html#emulating-numeric-types
 
