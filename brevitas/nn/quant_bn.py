@@ -43,15 +43,18 @@ class QuantBatchNorm2d(QuantLayer, nn.Module):
                  impl_type: ScalingImplType = ScalingImplType.STATS,
                  bias_quant_type: QuantType = QuantType.FP,
                  bias_narrow_range: bool = False,
-                 bias_bit_width: int = None):
+                 bias_bit_width: int = None,
+                 return_quant_tensor: bool = False):
         QuantLayer.__init__(self,
-                            compute_output_scale=False,
-                            compute_output_bit_width=False,
-                            return_quant_tensor=False)
+                            compute_output_scale=True,
+                            compute_output_bit_width=True,
+                            return_quant_tensor=return_quant_tensor)
         nn.Module.__init__(self)
 
-        if bias_quant_type != QuantType.FP and not (self.compute_output_scale and self.compute_output_bit_width):
-            raise Exception("Quantizing bias requires to compute output scale and output bit width")
+        if bias_quant_type != QuantType.FP and not self.compute_output_scale:
+            raise Exception("Quantizing bias requires to compute output scale")
+        if bias_quant_type != QuantType.FP and bias_bit_width is None and not self.compute_output_bit_width:
+            raise Exception("Quantizing bias requires a bit-width, either computed or defined")
 
         self.weight = nn.Parameter(torch.ones(num_features))
         self.bias = nn.Parameter(torch.zeros(num_features))
@@ -65,6 +68,7 @@ class QuantBatchNorm2d(QuantLayer, nn.Module):
         else:
             raise Exception("Scaling mode not supported")
 
+        self.weight_sign = 1.0
         self.eps = eps
         self.momentum = momentum
         self.impl_type = impl_type
@@ -93,6 +97,9 @@ class QuantBatchNorm2d(QuantLayer, nn.Module):
         return mean, unbias_var, bias_var
 
     def forward(self, quant_tensor):
+        output_scale = None
+        output_bit_width = None
+
         input_tensor, input_scale, input_bit_width = self.unpack_input(quant_tensor)
         if self.impl_type == ScalingImplType.STATS:
             if self.training:
@@ -112,15 +119,18 @@ class QuantBatchNorm2d(QuantLayer, nn.Module):
             weight = self.weight.view(OVER_BATCH_OVER_CHANNELS_SHAPE)
             bias = self.bias.view(OVER_BATCH_OVER_CHANNELS_SHAPE)
         weight = self.restrict_weight(weight)
-        output_scale = input_scale * weight
+
+        if self.compute_output_scale:
+            output_scale = input_scale * weight
         if self.impl_type == ScalingImplType.STATS:
             weight = sign * weight
 
         # if bias_bit_width is not None, input_bit_width is ignored
-        bias, _, output_bit_width = self.bias_quant(bias, output_scale, input_bit_width)
+        bias, _, bias_bit_width = self.bias_quant(bias, output_scale, input_bit_width)
 
-        if input_bit_width is not None:
-            output_bit_width = torch.where(output_bit_width > input_bit_width, output_bit_width, input_bit_width)
+        if self.compute_output_bit_width:
+            assert input_bit_width is not None
+            output_bit_width = torch.where(bias_bit_width > input_bit_width, bias_bit_width, input_bit_width)
 
         output_tensor = input_tensor * weight + bias
         return self.pack_output(output_tensor, output_scale, output_bit_width)
