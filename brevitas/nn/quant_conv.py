@@ -222,8 +222,10 @@ class QuantConv2d(QuantLayer, Conv2d):
         quant_weight = self.weight_reg(quant_weight)
 
         if self.compute_output_bit_width:
+            assert input_bit_width is not None
             output_bit_width = self.max_output_bit_width(input_bit_width, quant_weight_bit_width)
         if self.compute_output_scale:
+            assert input_scale is not None
             output_scale = input_scale * quant_weight_scale
 
         if self.bias is not None:
