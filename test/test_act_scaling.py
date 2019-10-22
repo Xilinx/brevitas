@@ -27,7 +27,7 @@ class TestQuantReLU:
         param_act = QuantReLU(bit_width=BIT_WIDTH,
                               max_val=MAX_VAL,
                               quant_type=QuantType.INT,
-                              scaling_impl_type=ScalingImplType.CONST)
+                              scaling_impl_type=ScalingImplType.PARAMETER)
         param_act.load_state_dict(stats_state_dict)
 
         stats_act.eval()

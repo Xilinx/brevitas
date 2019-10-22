@@ -223,7 +223,8 @@ class ActivationQuantProxy(QuantProxy):
         scaling_affine_weight_key = prefix + '.stats_scaling_impl.affine_rescaling.affine_weight'
         scaling_affine_bias_key = prefix + '.stats_scaling_impl.affine_rescaling.affine_bias'
 
-        if self.scaling_impl_type == ScalingImplType.PARAMETER or self.scaling_impl_type == ScalingImplType.CONST:
+        if not isinstance(self.fused_activation_quant_proxy.tensor_quant, IdentityQuant) and \
+            self.scaling_impl_type == ScalingImplType.PARAMETER:
             scaling_impl = self.fused_activation_quant_proxy.tensor_quant.scaling_impl
 
             # If it's retrained directly from statistics, i.e. there isn't a preexisting parameter
@@ -242,10 +243,6 @@ class ActivationQuantProxy(QuantProxy):
                                                                                        RestrictValueOpImplType.TORCH_FN)
                 scaling_init = restrict_value_init_op(scaling_init)
 
-                # Put scaling init in place in the module for const
-                if self.scaling_impl_type == ScalingImplType.CONST:
-                    self.fused_activation_quant_proxy.tensor_quant.scaling_impl.const_value = scaling_init
-
                 # Put scaling init in place in the dict for parameter
                 if self.scaling_impl_type == ScalingImplType.PARAMETER:
                     state_dict[scaling_parameter_key] = scaling_init
@@ -255,9 +252,9 @@ class ActivationQuantProxy(QuantProxy):
                 if k.startswith(runtime_stats_key):
                     del state_dict[k]
 
-            # Go on with dict restoring
-            super(ActivationQuantProxy, self)._load_from_state_dict(state_dict, prefix, local_metadata, strict,
-                                                                    missing_keys, unexpected_keys, error_msgs)
+        # Go on with dict restoring
+        super(ActivationQuantProxy, self)._load_from_state_dict(state_dict, prefix, local_metadata, strict,
+                                                                missing_keys, unexpected_keys, error_msgs)
 
 
 class ClampQuantProxy(QuantProxy):
