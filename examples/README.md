@@ -14,6 +14,7 @@ Below in the table is a list of example pretrained models made available for ref
 The reduced-precision implementation of MobileNet V1 makes the following assumptions:
 - Input preprocessing is not modified compared to the full-precision model.
 - Weights of the first layer are always quantized to 8 bit.
+- Padding in the first convolution is removed, so that the input's mean can be propagated through the convolution to thresholds.
 - Floating point per-channel scale factors can be implemented by the target hardware, e.g. using FINN-style thresholds.
 - Biases and batch-norm can be merged into FINN-style thresholds, and as such as left unquantized. The only exception is the bias of the fully connected layer, which is quantized.
 - Scaling of the fully connected layer is per-layer, so that the output of the network doesn't require rescaling.
