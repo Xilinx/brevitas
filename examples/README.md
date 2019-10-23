@@ -5,9 +5,9 @@ and by no means a direct mapping to hardware should be assumed.
 
 Below in the table is a list of example pretrained models made available for reference.
 
-|   | Name         | Scaling Type               | First layer weights | Weights | Activations | Avg pool | Top1  | Top5  | Pretrained model                                                                                | Retrained from                                                |
-|---|--------------|----------------------------|---------------------|---------|-------------|----------|-------|-------|-------------------------------------------------------------------------------------------------|---------------------------------------------------------------|
-|   | MobileNet V1 | Floating-point per channel | 8 bit               | 4 bit   | 4 bit       | 4 bit    | 71.25 | 90.10 | [Download](https://github.com/Xilinx/brevitas/releases/download/examples-0.0.1/mobilenetv1.pth) | [link](https://github.com/osmr/imgclsmob/tree/master/pytorch) |
+| Name         | Scaling Type               | First layer weights | Weights | Activations | Avg pool | Top1  | Top5  | Pretrained model                                                                                | Retrained from                                                |
+|--------------|----------------------------|---------------------|---------|-------------|----------|-------|-------|-------------------------------------------------------------------------------------------------|---------------------------------------------------------------|
+| MobileNet V1 | Floating-point per channel | 8 bit               | 4 bit   | 4 bit       | 4 bit    | 71.25 | 90.10 | [Download](https://github.com/Xilinx/brevitas/releases/download/examples-0.0.1/mobilenetv1.pth) | [link](https://github.com/osmr/imgclsmob/tree/master/pytorch) |
 
 ## MobileNet V1
 
