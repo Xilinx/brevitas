@@ -115,6 +115,16 @@ class QuantLeNet(Module):
         return out
 ```
 
+## Pretrained models
+
+Below a list of relevant pretrained models available, currently for evaluation only. Look at the `examples` folder for how to verify accuracy. Training scripts will be made available in the near future.
+
+
+|   | Name         | Scaling Type               | First layer weights | Weights | Activations | Avg pool | Top1  | Top5  | Pretrained model                                                                                | Retrained from                                                |
+|---|--------------|----------------------------|---------------------|---------|-------------|----------|-------|-------|-------------------------------------------------------------------------------------------------|---------------------------------------------------------------|
+|   | MobileNet V1 | Floating-point per channel | 8 bit               | 4 bit   | 4 bit       | 4 bit    | 71.25 | 90.10 | [Download](https://github.com/Xilinx/brevitas/releases/download/examples-0.0.1/mobilenetv1.pth) | [link](https://github.com/osmr/imgclsmob/tree/master/pytorch) |
+
+
 ## Scaling
 
 Brevitas supports multiple alternative options for scaling factors.
