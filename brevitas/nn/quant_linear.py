@@ -163,8 +163,8 @@ class QuantLinear(QuantLayer, Linear):
     def quant_weight_scale(self):
         if isinstance(self.weight_quant.tensor_quant, IdentityQuant):
             raise Exception("Can't generate scaling factor without quantization enabled")
-        zero_hw_sentinel = self.weight_quant.zero_hw_sentinel
-        return self.weight_quant.tensor_quant.scaling_impl(zero_hw_sentinel)
+        _, scale, _ = self.weight_quant(self.weight)
+        return scale
 
     def forward(self, input):
         output_scale = None
