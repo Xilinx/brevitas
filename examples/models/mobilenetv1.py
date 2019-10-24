@@ -31,6 +31,8 @@ __all__ = ['quant_mobilenet_v1']
 from torch import nn
 from torch.nn import Sequential
 
+from brevitas.quant_tensor import pack_quant_tensor
+
 from .common import make_quant_conv2d, make_quant_linear, make_quant_relu, make_quant_avg_pool
 
 
@@ -142,6 +144,7 @@ class MobileNet(nn.Module):
                                               bit_width=bit_width)
         self.output = make_quant_linear(in_channels, num_classes,
                                         bias=True,
+                                        enable_bias_quant=True,
                                         bit_width=bit_width,
                                         weight_scaling_per_output_channel=False)
 
@@ -149,7 +152,7 @@ class MobileNet(nn.Module):
         quant_tensor = self.features(x)
         x, scale, bit_width = self.final_pool(quant_tensor)
         x = x.view(x.size(0), -1)
-        out = self.output(x)
+        out = self.output(pack_quant_tensor(x, scale, bit_width))
         return out
 
 
