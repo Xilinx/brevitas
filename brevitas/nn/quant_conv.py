@@ -199,9 +199,17 @@ class QuantConv2d(QuantLayer, Conv2d):
 
     @property
     def quant_weight_scale(self):
+        """
+
+        Returns scale factor of the quantized weights with scalar () shape or (self.out_channels, 1, 1, 1)
+        shape depending on whether scaling is per layer or per-channel.
+        -------
+
+        """
         if isinstance(self.weight_quant.tensor_quant, IdentityQuant):
             raise Exception("Can't generate scaling factor without quantization enabled")
-        _, scale, _ = self.weight_quant(self.weight)
+        zero_hw_sentinel = self.weight_quant.zero_hw_sentinel
+        _, scale, _ = self.weight_quant.tensor_quant(self.weight, zero_hw_sentinel)
         return scale
 
     def forward(self, input):
