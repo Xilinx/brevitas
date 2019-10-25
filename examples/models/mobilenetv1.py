@@ -156,22 +156,17 @@ class MobileNet(nn.Module):
         return out
 
 
-def get_mobilenet(width_scale,
-                  **kwargs):
+def quant_mobilenet_v1(cfg):
 
     channels = [[32], [64], [128, 128], [256, 256], [512, 512, 512, 512, 512, 512], [1024, 1024]]
     first_stage_stride = False
+    width_scale = float(cfg.get('MODEL', 'WIDTH_SCALE'))
+    bit_width = cfg.getint('QUANT', 'BIT_WIDTH')
 
     if width_scale != 1.0:
         channels = [[int(cij * width_scale) for cij in ci] for ci in channels]
 
-    net = MobileNet(
-        channels=channels,
-        first_stage_stride=first_stage_stride,
-        **kwargs)
-
+    net = MobileNet(channels=channels,
+                    first_stage_stride=first_stage_stride,
+                    bit_width=bit_width)
     return net
-
-
-def quant_mobilenet_v1(**kwargs):
-    return get_mobilenet(width_scale=1.0, **kwargs)
