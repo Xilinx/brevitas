@@ -75,10 +75,15 @@ class QuantActivation(QuantLayer, Module):
 
     @property
     def quant_act_scale(self):
-        if isinstance(self.act_quant_proxy.tensor_quant, IdentityQuant):
+        if isinstance(self.act_quant_proxy.fused_activation_quant_proxy.tensor_quant, IdentityQuant):
             raise Exception("Can't generate scaling factor without quantization enabled")
-        zero_hw_sentinel = self.weight_quant.zero_hw_sentinel
-        return self.act_quant_proxy.tensor_quant.scaling_impl(zero_hw_sentinel)
+        zero_hw_sentinel = self.act_quant_proxy.zero_hw_sentinel
+        scaling_impl = self.act_quant_proxy.fused_activation_quant_proxy.tensor_quant.scaling_impl
+        current_status = scaling_impl.training
+        scaling_impl.eval()
+        out = scaling_impl(zero_hw_sentinel)
+        scaling_impl.train(current_status)
+        return out
 
     def forward(self, input):
         tensor, _, _ = self.unpack_input(input)

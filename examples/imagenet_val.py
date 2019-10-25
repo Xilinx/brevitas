@@ -1,6 +1,7 @@
 import argparse
 import os
 import random
+import configparser
 
 import torch
 import torch.nn.parallel
@@ -20,13 +21,10 @@ models = {'quant_mobilenet_v1': quant_mobilenet_v1}
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Validation')
 parser.add_argument('--imagenet-dir', help='path to folder containing Imagenet val folder')
-parser.add_argument('--resume', type=str, help='Path to pretrained model')
-parser.add_argument('--arch', choices=models.keys(), default='quant_mobilenet_v1',
-                    help='model architecture: ' + ' | '.join(models.keys()))
+parser.add_argument('--model-cfg', type=str, help='Path to pretrained model .ini configuration file')
 parser.add_argument('--workers', default=4, type=int, help='number of data loading workers')
 parser.add_argument('--batch-size', default=256, type=int, help='Minibatch size')
 parser.add_argument('--gpu', default=None, type=int, help='GPU id to use.')
-parser.add_argument('--bit-width', default=4, type=int, help='Model bit-width')
 
 
 def main():
@@ -34,27 +32,34 @@ def main():
     random.seed(SEED)
     torch.manual_seed(SEED)
 
-    model = models[args.arch](bit_width=args.bit_width)
+    assert os.path.exists(args.model_cfg)
+    cfg = configparser.ConfigParser()
+    cfg.read(args.model_cfg)
+    arch = cfg.get('MODEL', 'ARCH')
+
+    model = models[arch](cfg)
 
     if args.gpu is not None:
         torch.cuda.set_device(args.gpu)
         model = model.cuda(args.gpu)
         cudnn.benchmark = True
 
-    # optionally resume from a checkpoint
-    if args.resume:
-        if os.path.isfile(args.resume):
-            print("=> loading checkpoint '{}'".format(args.resume))
-            if args.gpu is None:
-                checkpoint = torch.load(args.resume)
-            else:
-                # Map model to be loaded to specified single gpu.
-                loc = 'cuda:{}'.format(args.gpu)
-                checkpoint = torch.load(args.resume, map_location=loc)
-            model.load_state_dict(checkpoint, strict=False)
+    pretrained_url = cfg.get('MODEL', 'PRETRAINED_URL')
+    print("=> Loading checkpoint from:'{}'".format(pretrained_url))
+    if args.gpu is None:
+        checkpoint = torch.hub.load_state_dict_from_url(pretrained_url)
+    else:
+        # Map model to be loaded to specified single gpu.
+        loc = 'cuda:{}'.format(args.gpu)
+        checkpoint = torch.hub.load_state_dict_from_url(pretrained_url, map_location=loc)
+    model.load_state_dict(checkpoint, strict=True)
 
     valdir = os.path.join(args.imagenet_dir, 'val')
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    mean = [float(cfg.get('PREPROCESS', 'MEAN_0')), float(cfg.get('PREPROCESS', 'MEAN_1')),
+            float(cfg.get('PREPROCESS', 'MEAN_2'))]
+    std = [float(cfg.get('PREPROCESS', 'STD_0')), float(cfg.get('PREPROCESS', 'STD_1')),
+           float(cfg.get('PREPROCESS', 'STD_2'))]
+    normalize = transforms.Normalize(mean=mean, std=std)
     val_loader = torch.utils.data.DataLoader(
         datasets.ImageFolder(valdir, transforms.Compose([
             transforms.Resize(256),

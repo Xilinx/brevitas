@@ -102,6 +102,8 @@ class RestrictValue(torch.jit.ScriptModule):
         else:
             raise Exception("Restrict value type {} not recognized".format(str(restrict_value_type)))
 
+        self.restrict_value_type = restrict_value_type
+
     @staticmethod
     def restrict_value_op(restrict_value_type: RestrictValueType, restrict_value_op_impl_type: RestrictValueOpImplType):
         if restrict_value_type == RestrictValueType.FP or restrict_value_type == RestrictValueType.INT:

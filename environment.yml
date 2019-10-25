@@ -1,0 +1,9 @@
+name: brevitas
+channels:
+  - pytorch
+dependencies:
+  - python>=3.6
+  - pytorch>=1.1.0
+  - pytest
+  - pip:
+    - docrep

@@ -145,7 +145,7 @@ class AffineRescaling(torch.jit.ScriptModule):
 
 
 class StatsScaling(torch.jit.ScriptModule):
-    __constants__ = ['affine', 'const_affine_weight', 'const_affine_bias']
+    __constants__ = ['const_affine_weight', 'const_affine_bias']
 
     def __init__(self,
                  stats_op: StatsOp,
@@ -164,7 +164,6 @@ class StatsScaling(torch.jit.ScriptModule):
         if stats_op == StatsOp.MAX_AVE and stats_reduce_dim is not None:
             raise Exception("Scaling with MAX_AVE stats can't be over output channels.")
 
-        self.affine = affine
         if affine:
             self.affine_rescaling = AffineRescaling(stats_output_shape)
         else:

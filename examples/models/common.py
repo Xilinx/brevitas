@@ -20,6 +20,8 @@ WEIGHT_SCALING_STATS_OP = StatsOp.MAX
 WEIGHT_RESTRICT_SCALING_TYPE = RestrictValueType.LOG_FP
 WEIGHT_NARROW_RANGE = True
 
+ENABLE_BIAS_QUANT = False
+
 
 def make_quant_conv2d(in_channels,
                       out_channels,
@@ -29,6 +31,7 @@ def make_quant_conv2d(in_channels,
                       groups,
                       bias,
                       bit_width,
+                      enable_bias_quant=ENABLE_BIAS_QUANT,
                       weight_quant_type=QUANT_TYPE,
                       weight_scaling_impl_type=WEIGHT_SCALING_IMPL_TYPE,
                       weight_scaling_stats_op=WEIGHT_SCALING_STATS_OP,
@@ -36,6 +39,7 @@ def make_quant_conv2d(in_channels,
                       weight_restrict_scaling_type=WEIGHT_RESTRICT_SCALING_TYPE,
                       weight_narrow_range=WEIGHT_NARROW_RANGE,
                       weight_scaling_min_val=SCALING_MIN_VAL):
+    bias_quant_type = QUANT_TYPE if enable_bias_quant else QuantType.FP
     return qnn.QuantConv2d(in_channels,
                            out_channels,
                            groups=groups,
@@ -43,6 +47,9 @@ def make_quant_conv2d(in_channels,
                            padding=padding,
                            stride=stride,
                            bias=bias,
+                           bias_quant_type=bias_quant_type,
+                           compute_output_bit_width=bias and enable_bias_quant,
+                           compute_output_scale=bias and enable_bias_quant,
                            weight_bit_width=bit_width,
                            weight_quant_type=weight_quant_type,
                            weight_scaling_impl_type=weight_scaling_impl_type,
@@ -57,6 +64,7 @@ def make_quant_linear(in_channels,
                       out_channels,
                       bias,
                       bit_width,
+                      enable_bias_quant=ENABLE_BIAS_QUANT,
                       weight_quant_type=QUANT_TYPE,
                       weight_scaling_impl_type=WEIGHT_SCALING_IMPL_TYPE,
                       weight_scaling_stats_op=WEIGHT_SCALING_STATS_OP,
@@ -64,8 +72,12 @@ def make_quant_linear(in_channels,
                       weight_restrict_scaling_type=WEIGHT_RESTRICT_SCALING_TYPE,
                       weight_narrow_range=WEIGHT_NARROW_RANGE,
                       weight_scaling_min_val=SCALING_MIN_VAL):
+    bias_quant_type = QUANT_TYPE if enable_bias_quant else QuantType.FP
     return qnn.QuantLinear(in_channels, out_channels,
                            bias=bias,
+                           bias_quant_type=bias_quant_type,
+                           compute_output_bit_width=bias and enable_bias_quant,
+                           compute_output_scale=bias and enable_bias_quant,
                            weight_bit_width=bit_width,
                            weight_quant_type=weight_quant_type,
                            weight_scaling_impl_type=weight_scaling_impl_type,

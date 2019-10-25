@@ -43,6 +43,10 @@ import os
 from setuptools import setup, find_packages
 
 
+INSTALL_REQUIRES = ["torch>=1.1.0", "docrep"]
+TEST_REQUIRES = ["pytest"]
+
+
 def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
@@ -51,7 +55,11 @@ setup(name="Brevitas",
       version="0.2.0-alpha",
       description="Training-aware quantization in PyTorch",
       long_description=read('README.md'),
+      long_description_content_type="text/markdown",
       author="Alessandro Pappalardo",
       python_requires=">=3.6",
-      install_requires=["torch>=1.1.0", "docrep"],
+      install_requires=INSTALL_REQUIRES,
+      extras_require={
+            "test": TEST_REQUIRES,
+      },
       packages=find_packages())

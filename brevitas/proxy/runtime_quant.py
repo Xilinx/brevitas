@@ -50,7 +50,7 @@ from brevitas.core.function_wrapper import TensorClamp
 from brevitas.core.quant import PrescaledRestrictIntQuantWithInputBitWidth, ClampedBinaryQuant
 from brevitas.core.quant import QuantType, IdentityPrescaledIntQuant, PrescaledIntQuant
 from brevitas.core.quant import RescalingIntQuant, IdentityQuant
-from brevitas.core.restrict_val import RestrictValueType, RestrictValue, FloatToIntImplType
+from brevitas.core.restrict_val import RestrictValueType, RestrictValue, FloatToIntImplType, RestrictValueOpImplType
 from brevitas.core.scaling import RuntimeStatsScaling, SCALING_SCALAR_SHAPE, StatsInputViewShapeImpl
 from brevitas.core.scaling import ScalingImplType, StandaloneScaling, IntScaling
 from brevitas.core.stats import StatsOp
@@ -112,8 +112,10 @@ class ActivationQuantProxy(QuantProxy):
         if scaling_per_channel and not scaling_stats_op == StatsOp.MAX_AVE:
             scaling_shape = per_channel_broadcastable_shape
             scaling_stats_reduce_dim = 1
+        elif scaling_per_channel and scaling_stats_op ==  StatsOp.MAX_AVE:
+            raise Exception("Can't do per channel scaling with MAX AVE statistics.")
         elif not scaling_per_channel and scaling_stats_op == StatsOp.MAX_AVE:
-            raise Exception("Not supported yet")
+            raise Exception("Not supported yet.")
         else:  # not scaling_per_channel
             scaling_shape = SCALING_SCALAR_SHAPE
             scaling_stats_input_view_shape_impl = StatsInputViewShapeImpl.OVER_TENSOR
@@ -205,10 +207,54 @@ class ActivationQuantProxy(QuantProxy):
                 raise Exception("Quantization type {} not supported for activations.".format(quant_type))
 
         self.fused_activation_quant_proxy = FusedActivationQuantProxy(activation_impl, tensor_quant)
+        self.scaling_impl_type = scaling_impl_type  # needed to switch between different scaling modes
 
     def forward(self, x):
         output, output_scale, output_bit_width = self.fused_activation_quant_proxy(x, self.zero_hw_sentinel)
         return output, output_scale, output_bit_width
+
+    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
+                              missing_keys, unexpected_keys, error_msgs):
+
+        scaling_impl_key = prefix + 'fused_activation_quant_proxy.tensor_quant.scaling_impl'
+        runtime_stats_key = scaling_impl_key + '.runtime_stats'
+        running_stats_key = scaling_impl_key + '.runtime_stats.running_stats'
+        scaling_parameter_key = scaling_impl_key + '.learned_value'
+        scaling_affine_weight_key = prefix + '.stats_scaling_impl.affine_rescaling.affine_weight'
+        scaling_affine_bias_key = prefix + '.stats_scaling_impl.affine_rescaling.affine_bias'
+
+        if not isinstance(self.fused_activation_quant_proxy.tensor_quant, IdentityQuant) and \
+            self.scaling_impl_type == ScalingImplType.PARAMETER:
+            scaling_impl = self.fused_activation_quant_proxy.tensor_quant.scaling_impl
+
+            # If it's retrained directly from statistics, i.e. there isn't a preexisting parameter
+            if running_stats_key in state_dict and not scaling_parameter_key in state_dict:
+                scaling_init = state_dict[running_stats_key]
+                if scaling_affine_weight_key in state_dict:
+                    scaling_init *= state_dict[scaling_affine_weight_key]
+                if scaling_affine_bias_key in state_dict:
+                    scaling_init += state_dict[scaling_affine_bias_key]
+
+                scaling_init = scaling_init.abs()
+
+                # Preprocess scaling init, which is always in FP range, based on current value restrictions
+                restrict_value_type = scaling_impl.restrict_value.restrict_value_type
+                restrict_value_init_op = scaling_impl.restrict_value.restrict_value_op(restrict_value_type,
+                                                                                       RestrictValueOpImplType.TORCH_FN)
+                scaling_init = restrict_value_init_op(scaling_init)
+
+                # Put scaling init in place in the dict for parameter
+                if self.scaling_impl_type == ScalingImplType.PARAMETER:
+                    state_dict[scaling_parameter_key] = scaling_init
+
+            # Get rid of statistics after using them or in case there is already a parameter
+            for k in list(state_dict.keys()):
+                if k.startswith(runtime_stats_key):
+                    del state_dict[k]
+
+        # Go on with dict restoring
+        super(ActivationQuantProxy, self)._load_from_state_dict(state_dict, prefix, local_metadata, strict,
+                                                                missing_keys, unexpected_keys, error_msgs)
 
 
 class ClampQuantProxy(QuantProxy):

@@ -31,6 +31,8 @@ __all__ = ['quant_mobilenet_v1']
 from torch import nn
 from torch.nn import Sequential
 
+from brevitas.quant_tensor import pack_quant_tensor
+
 from .common import make_quant_conv2d, make_quant_linear, make_quant_relu, make_quant_avg_pool
 
 
@@ -142,6 +144,7 @@ class MobileNet(nn.Module):
                                               bit_width=bit_width)
         self.output = make_quant_linear(in_channels, num_classes,
                                         bias=True,
+                                        enable_bias_quant=True,
                                         bit_width=bit_width,
                                         weight_scaling_per_output_channel=False)
 
@@ -149,26 +152,21 @@ class MobileNet(nn.Module):
         quant_tensor = self.features(x)
         x, scale, bit_width = self.final_pool(quant_tensor)
         x = x.view(x.size(0), -1)
-        out = self.output(x)
+        out = self.output(pack_quant_tensor(x, scale, bit_width))
         return out
 
 
-def get_mobilenet(width_scale,
-                  **kwargs):
+def quant_mobilenet_v1(cfg):
 
     channels = [[32], [64], [128, 128], [256, 256], [512, 512, 512, 512, 512, 512], [1024, 1024]]
     first_stage_stride = False
+    width_scale = float(cfg.get('MODEL', 'WIDTH_SCALE'))
+    bit_width = cfg.getint('QUANT', 'BIT_WIDTH')
 
     if width_scale != 1.0:
         channels = [[int(cij * width_scale) for cij in ci] for ci in channels]
 
-    net = MobileNet(
-        channels=channels,
-        first_stage_stride=first_stage_stride,
-        **kwargs)
-
+    net = MobileNet(channels=channels,
+                    first_stage_stride=first_stage_stride,
+                    bit_width=bit_width)
     return net
-
-
-def quant_mobilenet_v1(**kwargs):
-    return get_mobilenet(width_scale=1.0, **kwargs)
