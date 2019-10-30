@@ -13,6 +13,7 @@ ACT_SCALING_RESTRICT_SCALING_TYPE = RestrictValueType.LOG_FP
 ACT_MAX_VAL = 6.0
 ACT_RETURN_QUANT_TENSOR = False
 ACT_PER_CHANNEL_BROADCASTABLE_SHAPE = None
+HARD_TANH_THRESHOLD = 10.0
 
 WEIGHT_SCALING_IMPL_TYPE = ScalingImplType.STATS
 WEIGHT_SCALING_PER_OUTPUT_CHANNEL = True
@@ -106,6 +107,28 @@ def make_quant_relu(bit_width,
                          max_val=max_val,
                          return_quant_tensor=return_quant_tensor,
                          per_channel_broadcastable_shape=per_channel_broadcastable_shape)
+
+
+def make_quant_hard_tanh(bit_width,
+                         quant_type=QUANT_TYPE,
+                         scaling_impl_type=ACT_SCALING_IMPL_TYPE,
+                         scaling_per_channel=ACT_SCALING_PER_CHANNEL,
+                         restrict_scaling_type=ACT_SCALING_RESTRICT_SCALING_TYPE,
+                         scaling_min_val=SCALING_MIN_VAL,
+                         threshold=HARD_TANH_THRESHOLD,
+                         return_quant_tensor=ACT_RETURN_QUANT_TENSOR,
+                         per_channel_broadcastable_shape=ACT_PER_CHANNEL_BROADCASTABLE_SHAPE):
+    return qnn.QuantHardTanh(bit_width=bit_width,
+                             quant_type=quant_type,
+                             scaling_per_channel=scaling_per_channel,
+                             scaling_impl_type=scaling_impl_type,
+                             restrict_scaling_type=restrict_scaling_type,
+                             scaling_min_val=scaling_min_val,
+                             max_val=threshold,
+                             min_val=-threshold,
+                             per_channel_broadcastable_shape=per_channel_broadcastable_shape,
+                             return_quant_tensor=return_quant_tensor)
+
 
 def make_quant_avg_pool(bit_width,
                         kernel_size,
