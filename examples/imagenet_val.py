@@ -12,11 +12,12 @@ import torch.utils.data.distributed
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 
-from models import quant_mobilenet_v1
+from models import *
 
 SEED = 123456
 
-models = {'quant_mobilenet_v1': quant_mobilenet_v1}
+models = {'quant_mobilenet_v1': quant_mobilenet_v1,
+          'quant_proxylessnas_mobile14': quant_proxylessnas_mobile14}
 
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Validation')
