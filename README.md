@@ -123,7 +123,8 @@ Below a list of relevant pretrained models available, currently for evaluation o
 
 | Name         | Scaling Type               | First layer weights | Weights | Activations | Avg pool | Top1  | Top5  | Pretrained model                                                                                | Retrained from                                                |
 |--------------|----------------------------|---------------------|---------|-------------|----------|-------|-------|-------------------------------------------------------------------------------------------------|---------------------------------------------------------------|
-| MobileNet V1 | Floating-point per channel | 8 bit               | 4 bit   | 4 bit       | 4 bit    | 71.14 | 90.10 | [Download](https://github.com/Xilinx/brevitas/releases/download/examples-0.0.1/mobilenetv1.pth) | [link](https://github.com/osmr/imgclsmob/tree/master/pytorch) |
+| MobileNet V1 | Floating-point per channel | 8 bit               | 4 bit   | 4 bit       | 4 bit    | 71.14 | 90.10 | [Download](https://github.com/Xilinx/brevitas/releases/download/quant_mobilenetv1_4b-r1/quant_mobilenet_v1_4b-0100a667.pth) | [link](https://github.com/osmr/imgclsmob/tree/master/pytorch) |
+| ProxylessNAS Mobile14 | Floating-point per channel | 8 bit               | 4 bit, 5 bit  | 4 bit, 5 bit       | 4 bit    | 75.01 | 92.33 | [Download](https://github.com/Xilinx/brevitas/releases/download/quant_proxylessnas_mobile14_4b5b-r0/quant_proxylessnas_mobile14_4b5b-2bdf7f8d.pth) | [link](https://github.com/osmr/imgclsmob/tree/master/pytorch) |
 
 
 ## Scaling
