@@ -62,6 +62,8 @@ from brevitas.nn.quant_bn import mul_add_from_bn, QuantBatchNorm2d
 from brevitas.nn.quant_layer import QuantLayer, SCALING_MIN_VAL
 from brevitas.config import docstrings
 
+from brevitas.onnx.onnx_custom_ops import QuantizedConv2dPlaceholderFunction
+
 __all__ = ['QuantConv2d']
 
 
@@ -127,6 +129,9 @@ class QuantConv2d(QuantLayer, Conv2d):
                         dilation=dilation,
                         groups=groups,
                         bias=bias)
+        # save a copy of args passed constructor, used to determine whether
+        # the quantization config is exportable to something FINN supports
+        self.init_args = locals()
         if weight_quant_type == QuantType.FP and compute_output_bit_width:
             raise Exception("Computing output bit width requires enabling quantization")
         if bias_quant_type != QuantType.FP and not (compute_output_scale and compute_output_bit_width):
@@ -180,6 +185,39 @@ class QuantConv2d(QuantLayer, Conv2d):
                                          bit_width=bias_bit_width,
                                          narrow_range=bias_narrow_range)
 
+    def get_exportable_quantization_type(self):
+        # Brevitas provides a wide range of possibilities for quantization,
+        # but FINN only supports a subset. Here we test the quantization
+        # config to see if it's something that FINN would understand.
+        # TODO: the checks below are overly conservative, relax these.
+        # alternatively, create specialized subclasses and only provide export
+        # flows for those.
+        ia = self.init_args
+        if (
+            ia["bias"] == False and
+            ia["weight_quant_type"] == QuantType.BINARY and
+            ia["weight_bit_width"] == 1 and
+            ia["weight_bit_width_impl_type"] == BitWidthImplType.CONST and
+            ia["weight_quant_override"] == None and
+            ia["weight_bit_width_impl_override"] == None and
+            ia["weight_bit_width_impl_type"] == BitWidthImplType.CONST and
+            ia["weight_restrict_bit_width_type"] == RestrictValueType.INT and
+            ia["weight_min_overall_bit_width"] == 2 and
+            ia["weight_max_overall_bit_width"] == None and
+            ia["weight_ternary_threshold"] == 0.5 and
+            ia["weight_restrict_scaling_type"] == RestrictValueType.LOG_FP and
+            ia["weight_override_pretrained_bit_width"] == False and
+            ia["compute_output_scale"] == False and
+            ia["compute_output_bit_width"] == False and
+            ia["return_quant_tensor"] == False and
+            ia["padding_type"] == PaddingType.STANDARD and
+            ia["groups"] == 1 and
+            ia["dilation"] == 1
+            ):
+            return "BIPOLAR"
+        else:
+            raise Exception("Unsupported config combination for export")
+
     @property
     def per_output_channel_broadcastable_shape(self):
         if self.transposed:
@@ -212,24 +250,57 @@ class QuantConv2d(QuantLayer, Conv2d):
         _, scale, _ = self.weight_quant.tensor_quant(self.weight, zero_hw_sentinel)
         return scale
 
+    @QuantLayer.export_mode.setter
+    def export_mode(self, value):
+        self._export_mode = value
+        # create completely detached prequantized tensors for export
+        # calling these in forward() causes the ops to be included in the graph
+        # as dead-end nodes. note: this might be fixed in PyTorch 1.2.0 and
+        # if so this workaround prepare_for_export is not necessary.
+        self.export_int_weight = self.int_weight.type(torch.FloatTensor).detach()
+        self.export_quant_weight_scale = self.quant_weight_scale.type(torch.FloatTensor).detach()
+
     def forward(self, input):
-        output_scale = None
-        output_bit_width = None
-        input, input_scale, input_bit_width = self.unpack_input(input)
-        quant_weight, quant_weight_scale, quant_weight_bit_width = self.weight_quant(self.weight)
-        quant_weight = self.weight_reg(quant_weight)
-
-        if self.compute_output_bit_width:
-            output_bit_width = self.max_output_bit_width(input_bit_width, quant_weight_bit_width)
-        if self.compute_output_scale:
-            output_scale = input_scale * quant_weight_scale
-
-        if self.bias is not None:
-            quant_bias = self.bias_quant(self.bias, output_scale, output_bit_width)
-            output = self.conv2d(input, quant_weight, quant_bias)
+        if self.export_mode:
+            export_qnt_type = self.get_exportable_quantization_type()
+            # provide padding and stride as lists, one elem per dimension
+            if isinstance(self.padding, int):
+                export_pads = [self.padding, self.padding]
+            else:
+                export_pads = list(self.padding)
+            if isinstance(self.stride, int):
+                export_strides = [self.stride, self.stride]
+            else:
+                export_strides = list(self.stride)
+            export_scale = self.export_quant_weight_scale
+            # if we have channelwise scaling factors, reshape them to match
+            # the output shape while exporting
+            if len(export_scale.shape) == 4:
+                export_scale_shape = (1, self.out_channels, 1, 1)
+                export_scale = export_scale.reshape(export_scale_shape)
+            # TODO add support for biases
+            export_bias = None
+            return QuantizedConv2dPlaceholderFunction.apply(
+                input, self.export_int_weight, export_scale,
+                export_qnt_type, self.export_out_shape, export_pads,
+                export_strides, export_bias
+                )
         else:
-            output = self.conv2d(input, quant_weight, None)
-        return self.pack_output(output, output_scale, output_bit_width)
+            output_scale = None
+            output_bit_width = None
+            input, input_scale, input_bit_width = self.unpack_input(input)
+            quant_weight, quant_weight_scale, quant_weight_bit_width = self.weight_quant(self.weight)
+            quant_weight = self.weight_reg(quant_weight)
+            if self.compute_output_bit_width:
+                output_bit_width = self.max_output_bit_width(input_bit_width, quant_weight_bit_width)
+            if self.compute_output_scale:
+                output_scale = input_scale * quant_weight_scale
+            if self.bias is not None:
+                quant_bias = self.bias_quant(self.bias, output_scale, output_bit_width)
+                output = self.conv2d(input, quant_weight, quant_bias)
+            else:
+                output = self.conv2d(input, quant_weight, None)
+            return self.pack_output(output, output_scale, output_bit_width)
 
     def conv2d(self, x, weight, bias):
         if self.padding_type == PaddingType.SAME:
