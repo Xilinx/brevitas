@@ -23,9 +23,9 @@ SOFTWARE.
 __all__ = ['quant_proxylessnas_mobile14']
 
 import torch.nn as nn
-
 from brevitas.quant_tensor import pack_quant_tensor
-from .common import make_quant_conv2d, make_quant_relu, make_quant_linear, make_quant_avg_pool, make_quant_hard_tanh
+
+from .common import *
 
 
 class ConvBlock(nn.Module):
@@ -188,6 +188,7 @@ class ProxylessNAS(nn.Module):
                  bit_width,
                  depthwise_bit_width,
                  first_layer_weight_bit_width,
+                 hadamard_classifier,
                  bn_eps=1e-3,
                  in_channels=3,
                  num_classes=1000):
@@ -262,13 +263,16 @@ class ProxylessNAS(nn.Module):
                                               stride=1,
                                               signed=False,
                                               bit_width=bit_width)
-
-        self.output = make_quant_linear(in_channels=in_channels,
-                                        out_channels=num_classes,
-                                        bias=True,
-                                        enable_bias_quant=True,
-                                        bit_width=bit_width,
-                                        weight_scaling_per_output_channel=False)
+        if hadamard_classifier:
+            self.output = make_hadamard_classifier(in_channels=in_channels,
+                                                   out_channels=num_classes)
+        else:
+            self.output = make_quant_linear(in_channels=in_channels,
+                                            out_channels=num_classes,
+                                            bias=True,
+                                            enable_bias_quant=True,
+                                            bit_width=bit_width,
+                                            weight_scaling_per_output_channel=False)
 
     def forward(self, x):
         x = self.features(x)
@@ -292,6 +296,7 @@ def quant_proxylessnas_mobile14(cfg):
     bit_width = int(cfg.get('QUANT', 'BIT_WIDTH'))
     first_layer_weight_bit_width = int(cfg.get('QUANT', 'FIRST_LAYER_WEIGHT_BIT_WIDTH'))
     depthwise_bit_width = int(cfg.get('QUANT', 'DEPTHWISE_BIT_WIDTH'))
+    hadamard_classifier = cfg.getboolean('MODEL', 'HADAMARD_CLASSIFIER')
 
     net = ProxylessNAS(channels=channels,
                        init_block_channels=init_block_channels,
@@ -302,5 +307,6 @@ def quant_proxylessnas_mobile14(cfg):
                        expansions=expansions,
                        bit_width=bit_width,
                        first_layer_weight_bit_width=first_layer_weight_bit_width,
-                       depthwise_bit_width=depthwise_bit_width)
+                       depthwise_bit_width=depthwise_bit_width,
+                       hadamard_classifier=hadamard_classifier)
     return net

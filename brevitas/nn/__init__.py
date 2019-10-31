@@ -4,3 +4,4 @@ from .quant_avg_pool import QuantAvgPool2d
 from .quant_linear import QuantLinear
 from .quant_conv import QuantConv2d, PaddingType
 from .quant_bn import QuantBatchNorm2d
+from .hadamard_classifier import HadamardClassifier
