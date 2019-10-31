@@ -265,10 +265,14 @@ class QuantConv2d(QuantLayer, Conv2d):
         if self.export_mode:
             export_qnt_type = self.get_exportable_quantization_type()
             # provide padding and stride as lists, one elem per dimension
+            # onnxruntime expects a 4D padding list, so we make one
             if isinstance(self.padding, int):
-                export_pads = [self.padding, self.padding]
+                export_pads = [self.padding, self.padding, self.padding, self.padding]
             else:
-                export_pads = list(self.padding)
+                # assume we have a tuple and symmetric padding
+                # [x1_begin, x2_begin...x1_end, x2_end,...],
+                # so just duplicate the padding tuple
+                export_pads = list(self.padding) + list(self.padding)
             if isinstance(self.stride, int):
                 export_strides = [self.stride, self.stride]
             else:
@@ -284,7 +288,7 @@ class QuantConv2d(QuantLayer, Conv2d):
             return QuantizedConv2dPlaceholderFunction.apply(
                 input, self.export_int_weight, export_scale,
                 export_qnt_type, self.export_out_shape, export_pads,
-                export_strides, export_bias
+                export_strides, export_bias, list(self.kernel_size)
                 )
         else:
             output_scale = None
