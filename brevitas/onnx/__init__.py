@@ -58,11 +58,13 @@ def export_finn_onnx(module, input_shape, export_path, torch_onnx_kwargs = {}):
     with torch.no_grad():
         # TODO maybe consider a deepcopy of the module first?
         module = module.eval()
+        input_t = torch.empty(input_shape, dtype=torch.float)
+        # do a forward pass with the dummy input to e.g. store per-layer input
+        # and output shapes
+        output_t = module.forward(input_t)
+        # enable export mode and call export
         _prepare_for_finn_onnx_export(module, enable_export = True)
-        torch.onnx.export(
-            module, torch.empty(input_shape, dtype=torch.float), export_path,
-            **torch_onnx_kwargs
-        )
+        torch.onnx.export(module, input_t, export_path, **torch_onnx_kwargs)
         # restore the model to non-export mode to keep it clean
         _prepare_for_finn_onnx_export(module, enable_export = False)
         # do some cleanup on the exported ONNX model
