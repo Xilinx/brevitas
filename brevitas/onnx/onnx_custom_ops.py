@@ -15,6 +15,26 @@ class QuantizedLinearPlaceholderFunction(Function):
     def forward(ctx, x, Wt, scale_factor, qnt_type, out_features):
         return torch.empty(1, out_features, dtype = torch.float)
 
+class QuantizedConv2dPlaceholderFunction(Function):
+    @staticmethod
+    def symbolic(g, x, W, scale_factor, qnt_type, out_shape, pads, strides, bias):
+        # TODO add attributes as needed: auto_pad_s, dilations_i, group_i
+        ret = g.op('Conv', x, W, weight_qnt_s = qnt_type,
+            pads_i = pads,
+            strides_i = strides
+        )
+        if scale_factor is not None:
+            # TODO add info about scaling factor constraints as attributes here
+            # (e.g. power of two, channel-wise or tensor-wise, ...)
+            ret = g.op('Mul', ret, scale_factor)
+        if bias is not None:
+            ret = g.op('Add', ret, bias)
+        return ret
+
+    @staticmethod
+    def forward(ctx, x, W, scale_factor, qnt_type, out_shape, pads, strides, bias):
+        return torch.empty(out_shape, dtype = torch.float)
+
 class QuantizedHardTanhPlaceholderFunction(Function):
     @staticmethod
     def symbolic(g, input, qnt_type):
