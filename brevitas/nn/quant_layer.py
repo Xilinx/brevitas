@@ -53,6 +53,10 @@ class QuantLayer(object):
         self.compute_output_bit_width = compute_output_bit_width
         self.return_quant_tensor = return_quant_tensor
         self._export_mode = False
+        # these will be assigned during a normal forward pass; make sure to call
+        # .forward with an appropriately-sized input at least once before export
+        self.export_in_shape = None
+        self.export_out_shape = None
 
     @property
     def export_mode(self):
@@ -64,14 +68,17 @@ class QuantLayer(object):
 
     def unpack_input(self, input):
         if isinstance(input, QuantTensor):
+            self.export_in_shape = input.tensor.shape
             return input
         else:
+            self.export_in_shape = input.shape
             return input, None, None
 
     def pack_output(self,
                     output,
                     output_scale,
                     output_bit_width):
+        self.export_out_shape = output.shape
         if self.return_quant_tensor:
             return QuantTensor(tensor=output, scale=output_scale, bit_width=output_bit_width)
         else:
