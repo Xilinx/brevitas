@@ -23,6 +23,8 @@ WEIGHT_NARROW_RANGE = True
 
 ENABLE_BIAS_QUANT = False
 
+HADAMARD_FIXED_SCALE = False
+
 
 def make_quant_conv2d(in_channels,
                       out_channels,
@@ -142,3 +144,10 @@ def make_quant_avg_pool(bit_width,
                               min_overall_bit_width=bit_width,
                               max_overall_bit_width=bit_width)
 
+
+def make_hadamard_classifier(in_channels,
+                             out_channels,
+                             fixed_scale=HADAMARD_FIXED_SCALE):
+    return qnn.HadamardClassifier(in_channels=in_channels,
+                                  out_channels=out_channels,
+                                  fixed_scale=fixed_scale)
