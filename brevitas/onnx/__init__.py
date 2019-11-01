@@ -25,6 +25,7 @@ def _move_quant_attributes_into_annotations(model):
     """Move quantization info in attributes into quantization_annotation"""
 
     model = copy.deepcopy(model)
+    qaname = "finn_datatype"
     for n in model.graph.node:
         for a in n.attribute:
             mark_for_removal = False
@@ -32,7 +33,7 @@ def _move_quant_attributes_into_annotations(model):
                 # assume second input is weight, make sure it has an initializer
                 w_tensor_name = n.input[1]
                 assert w_tensor_name in [x.name for x in model.graph.initializer]
-                tq = onnx.StringStringEntryProto(key = a.name, value = a.s)
+                tq = onnx.StringStringEntryProto(key = qaname, value = a.s)
                 ta = onnx.TensorAnnotation(
                     tensor_name = w_tensor_name,
                     quant_parameter_tensor_names = [tq]
@@ -41,7 +42,7 @@ def _move_quant_attributes_into_annotations(model):
                 mark_for_removal = True
             elif a.name == "activation_qnt":
                 a_tensor_name = n.output[0]
-                tq = onnx.StringStringEntryProto(key = a.name, value = a.s)
+                tq = onnx.StringStringEntryProto(key = qaname, value = a.s)
                 ta = onnx.TensorAnnotation(
                     tensor_name = a_tensor_name,
                     quant_parameter_tensor_names = [tq]
