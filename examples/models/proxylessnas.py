@@ -1,7 +1,7 @@
 """
 Source: https://github.com/osmr/imgclsmob/blob/master/pytorch/pytorchcv
 MIT License
-Copyright (c) 2019 Alessandro Pappalardo
+Copyright (c) 2019 Xilinx, Inc (Alessandro Pappalardo)
 Copyright (c) 2018 Oleg Sémery
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
