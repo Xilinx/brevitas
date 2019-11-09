@@ -334,19 +334,27 @@ class QuantHardTanh(QuantActivation):
         # calling these in forward() causes the ops to be included in the graph
         # as dead-end nodes. note: this might be fixed in PyTorch 1.2.0 and
         # if so this workaround prepare_for_export is not necessary.
-        self.export_act_scale = self.quant_act_scale().type(torch.FloatTensor).detach()
         qt = self.get_exportable_quantization_type()
         if qt != "BIPOLAR":
-            n_distinct_values = 2 ** ia["bit_width"]
+            self.export_act_scale = self.quant_act_scale().type(torch.FloatTensor).detach()
+            min_val_torch = torch.tensor(ia["min_val"]).type(torch.FloatTensor)
+            self.export_act_bias = min_val_torch
+            assert(ia["min_val"] == -ia["max_val"])
+            assert(ia["narrow_range"])
+            # assuming narrow range, symmetric quantization around zero
             # when using narrow range, we represent one element less
-            n_distinct_values -= (1 if ia["narrow_range"] else 0)
+            n_distinct_values = 2 ** ia["bit_width"] - 1
             n_thresholds = n_distinct_values - 1
-            step = self.export_act_scale / n_thresholds
+            step = torch.abs(self.export_act_scale) / ((n_thresholds//2)+1)
             self.export_thres = torch.empty([1, n_thresholds])
-            for t in range(n_thresholds):
-                self.export_thres[0][t] = (t+1) * step
-            self.export_act_bias = torch.tensor(ia["min_val"]).type(torch.FloatTensor)
+            step_no = 1
+            for t in range(n_thresholds//2, n_thresholds):
+                self.export_thres[0][t] = 0.0 + step * step_no
+                step_no += 1
+            for t in range(0, n_thresholds//2):
+                self.export_thres[0][t] = -self.export_thres[0][t + n_thresholds//2]
         else:
+            self.export_act_scale = None
             self.export_act_bias = None
             self.export_thres = None
 
