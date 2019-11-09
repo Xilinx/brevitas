@@ -39,15 +39,19 @@ class QuantizedConv2dPlaceholderFunction(Function):
 
 class QuantizedHardTanhPlaceholderFunction(Function):
     @staticmethod
-    def symbolic(g, input, qnt_type):
+    def symbolic(g, input, qnt_type, thres, bias, scale):
         if qnt_type == "BIPOLAR":
             # TODO ONNX Sign op returns 0 for a 0 input, which does not conform
             # to bipolar {-1, +1} quantization.
             ret = g.op('Sign', input, activation_qnt_s = qnt_type)
         else:
-            ret = g.op('QuantizedHardTanh', input, activation_qnt_s = qnt_type)
+            ret = g.op('MultiThreshold', input, thres)
+            if bias is not None:
+                ret = g.op('Add', ret, bias)
+            if scale is not None:
+                ret = g.op('Mul', ret, scale)
         return ret
 
     @staticmethod
-    def forward(ctx, input, qnt_type):
+    def forward(ctx, input, qnt_type, thres, bias, scale):
         return input.clamp(0)
