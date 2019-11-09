@@ -53,6 +53,20 @@ def _move_quant_attributes_into_annotations(model):
                 n.attribute.remove(a)
     return model
 
+def _move_domain_attributes_into_domain(model):
+    """Move domain info in attributes into the actual node.domain field"""
+
+    model = copy.deepcopy(model)
+    for n in model.graph.node:
+        for a in n.attribute:
+            mark_for_removal = False
+            if a.name == "domain":
+                n.domain = a.s
+                mark_for_removal = True
+            if mark_for_removal:
+                n.attribute.remove(a)
+    return model
+
 def export_finn_onnx(module, input_shape, export_path, torch_onnx_kwargs = {}):
     """Export given module with Brevitas layers to FINN-ONNX with some cleanup."""
 
@@ -78,4 +92,5 @@ def export_finn_onnx(module, input_shape, export_path, torch_onnx_kwargs = {}):
         ]
         model = opt.optimize(model, onnx_passes)
         model = _move_quant_attributes_into_annotations(model)
+        model = _move_domain_attributes_into_domain(model)
         onnx.save(model, export_path)
