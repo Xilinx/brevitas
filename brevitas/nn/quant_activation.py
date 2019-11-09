@@ -43,6 +43,7 @@ from typing import Optional, Union, Tuple
 
 from torch import nn
 from torch.nn import Module
+import torch
 
 from brevitas.core.bit_width import BitWidthParameter, BitWidthImplType
 from brevitas.core.function_wrapper import Identity, ConstScalarClamp
@@ -307,10 +308,7 @@ class QuantHardTanh(QuantActivation):
         if (
             ia["min_val"] == -1.0 and
             ia["max_val"] == 1.0 and
-            ia["bit_width"] == 1 and
-            ia["quant_type"] == QuantType.BINARY and
             ia["bit_width_impl_type"] == BitWidthImplType.CONST and
-            ia["scaling_impl_type"] == ScalingImplType.CONST and
             ia["restrict_scaling_type"] == RestrictValueType.LOG_FP and
             ia["scaling_per_channel"] == False and
             ia["narrow_range"] == True and
@@ -329,14 +327,42 @@ class QuantHardTanh(QuantActivation):
             ia["override_pretrained_bit_width"] == False and
             ia["return_quant_tensor"] == False
             ):
-            return "BIPOLAR"
+            if ia["bit_width"] == 1 and ia["quant_type"] == QuantType.BINARY and ia["scaling_impl_type"] == ScalingImplType.CONST:
+                return "BIPOLAR"
+            elif ia["bit_width"] == 2 and ia["quant_type"] == QuantType.INT and ia["scaling_impl_type"] == ScalingImplType.PARAMETER:
+                return "INT2"
         else:
             raise Exception("Unsupported config combination for export")
 
+    @QuantLayer.export_mode.setter
+    def export_mode(self, value):
+        ia = self.init_args
+        self._export_mode = value
+        # create completely detached prequantized tensors for export
+        # calling these in forward() causes the ops to be included in the graph
+        # as dead-end nodes. note: this might be fixed in PyTorch 1.2.0 and
+        # if so this workaround prepare_for_export is not necessary.
+        self.export_act_scale = self.quant_act_scale.type(torch.FloatTensor).detach()
+        qt = self.get_exportable_quantization_type()
+        if qt != "BIPOLAR":
+            n_distinct_values = 2 ** ia["bit_width"]
+            # when using narrow range, we represent one element less
+            n_distinct_values -= (1 if ia["narrow_range"] else 0)
+            n_thresholds = n_distinct_values - 1
+            step = self.export_act_scale / n_thresholds
+            self.export_thres = torch.empty([1, n_thresholds])
+            for t in range(n_thresholds):
+                self.export_thres[0][t] = (t+1) * step
+            self.export_act_bias = torch.tensor(ia["min_val"]).type(torch.FloatTensor)
+        else:
+            self.export_act_bias = None
+            self.export_thres = None
 
     def forward(self, input):
         if self.export_mode:
-            export_qnt_type = self.get_exportable_quantization_type()
-            return finn_onnx_ops.QuantizedHardTanhPlaceholderFunction.apply(input, export_qnt_type)
+            return finn_onnx_ops.QuantizedHardTanhPlaceholderFunction.apply(
+                input, self.get_exportable_quantization_type(),
+                self.export_thres, self.export_act_bias, self.export_act_scale
+                )
         else:
             return super().forward(input)
