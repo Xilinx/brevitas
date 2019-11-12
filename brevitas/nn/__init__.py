@@ -7,3 +7,4 @@ from .quant_bn import BatchNorm2dToQuantScaleBias
 from .quant_scale_bias import ScaleBias, QuantScaleBias
 from .hadamard_classifier import HadamardClassifier
 from .quant_convtranspose1d import QuantConvTranspose1d
+
