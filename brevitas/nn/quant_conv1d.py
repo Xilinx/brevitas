@@ -18,7 +18,8 @@ from brevitas.core.stats import StatsInputViewShapeImpl, StatsOp
 from brevitas.function.ops import ceil_ste, max_uint
 from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy, WeightReg
 from brevitas.utils.python_utils import AutoName
-from brevitas.nn.quant_bn import mul_add_from_bn, QuantBatchNorm2d
+from brevitas.nn.quant_bn import mul_add_from_bn
+from brevitas.nn.quant_bn1d import QuantBatchNorm1d
 from brevitas.nn.quant_layer import QuantLayer, SCALING_MIN_VAL
 from brevitas.config import docstrings
 __all__ = ['QuantConv1d']
@@ -211,8 +212,8 @@ class QuantConv1d(QuantLayer, Conv1d):
     #     return out
 
     def merge_bn_in(self, bn, affine_only, sign_only):
-        if sign_only and not isinstance(bn, QuantBatchNorm2d):
-            raise Exception("Sign-only supported only with QuantBatchNorm2d")
+        if sign_only and not isinstance(bn, QuantBatchNorm1d):
+            raise Exception("Sign-only supported only with QuantBatchNorm1d")
         if affine_only and not bn.affine:
             raise Exception("Affine-only merging requires BN to have affine scaling enabled.")
         if sign_only:
