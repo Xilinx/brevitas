@@ -238,19 +238,3 @@ class QuantConv1d(QuantLayer, Conv1d):
         max_output_bit_width = ceil_ste(torch.log2(max_uint_output))
         return max_output_bit_width
 
-
-if __name__ == '__main__':
-    import random
-    SEED = 123456
-    random.seed(SEED)
-    A = torch.randn(10, 50, 100)
-    QuantConv = QuantConv1d(50, 70, 2, dilation=3, padding=5)
-    NormConv = torch.nn.Conv1d(50,70,2, dilation=3, padding=5)
-
-    NormConv.weight = QuantConv.weight
-    NormConv.bias = QuantConv.bias
-    B = QuantConv(A)
-    C = NormConv(A)
-    print(B.size())
-
-    print(C.size())
