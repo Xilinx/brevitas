@@ -18,8 +18,7 @@ from brevitas.core.stats import StatsInputViewShapeImpl, StatsOp
 from brevitas.function.ops import ceil_ste, max_uint
 from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy, WeightReg
 from brevitas.utils.python_utils import AutoName
-from brevitas.nn.quant_bn import mul_add_from_bn
-from brevitas.nn.quant_bn1d import QuantBatchNorm1d
+# from brevitas.nn.quant_bn import mul_add_from_bn
 from brevitas.nn.quant_layer import QuantLayer, SCALING_MIN_VAL
 from brevitas.config import docstrings
 __all__ = ['QuantConv1d']
@@ -92,8 +91,7 @@ class QuantConv1d(QuantLayer, Conv1d):
         if bias_quant_type != QuantType.FP and not (compute_output_scale and compute_output_bit_width):
             raise Exception("Quantizing bias requires to compute output scale and output bit width")
 
-
-        # self.per_elem_ops = 2 * self.kernel_size[0] * self.kernel_size[1] * (in_channels // groups) NOT USED
+        self.per_elem_ops = 2 * self.kernel_size[0] * (in_channels // groups)
         self.padding_type = padding_type
         self.weight_reg = WeightReg()
 
@@ -193,49 +191,48 @@ class QuantConv1d(QuantLayer, Conv1d):
         return self.pack_output(output, output_scale, output_bit_width)
 
     def conv1d(self, x, weight, bias):
-        # if self.padding_type == PaddingType.SAME:
-        #     out = self.conv2d_same_padding(x, weight, bias)
-        # else:
-        out = conv1d(x, weight, bias, self.stride, self.padding, self.dilation, self.groups)
+        if self.padding_type == PaddingType.SAME:
+            out = self.conv1d_same_padding(x, weight, bias)
+        else:
+            out = conv1d(x, weight, bias, self.stride, self.padding, self.dilation, self.groups)
         return out
 
-    # def conv2d_same_padding(self, x, weight, bias):
-    #     ih, iw = x.size()[-2:]
-    #     kh, kw = weight.size()[-2:]
-    #     sh, sw = self.stride
-    #     oh, ow = math.ceil(ih / sh), math.ceil(iw / sw)
-    #     pad_h = max((oh - 1) * self.stride[0] + (kh - 1) * self.dilation[0] + 1 - ih, 0)
-    #     pad_w = max((ow - 1) * self.stride[1] + (kw - 1) * self.dilation[1] + 1 - iw, 0)
-    #     if pad_h > 0 or pad_w > 0:
-    #         x = F.pad(x, [pad_w // 2, pad_w - pad_w // 2, pad_h // 2, pad_h - pad_h // 2])
-    #     out = F.conv2d(x, weight, bias, self.stride, 0, self.dilation, self.groups)
-    #     return out
+    def conv1d_same_padding(self, x, weight, bias):
+        ih = x.size()[-1]
+        kh = weight.size()[-1]
+        sh = self.stride[0]
+        oh = math.ceil(ih / sh)
+        pad_h = max((oh - 1) * self.stride[0] + (kh - 1) * self.dilation[0] + 1 - ih, 0)
+        if pad_h > 0:
+            x = F.pad(x, [pad_h // 2, pad_h - pad_h // 2])
+        out = F.conv1d(x, weight, bias, self.stride, 0, self.dilation, self.groups)
+        return out
 
-    def merge_bn_in(self, bn, affine_only, sign_only):
-        if sign_only and not isinstance(bn, QuantBatchNorm1d):
-            raise Exception("Sign-only supported only with QuantBatchNorm1d")
-        if affine_only and not bn.affine:
-            raise Exception("Affine-only merging requires BN to have affine scaling enabled.")
-        if sign_only:
-            self.weight.data *= bn.weight_sign.view(self.per_output_channel_broadcastable_shape)
-        else:
-            mul_factor, add_factor = mul_add_from_bn(bn_mean=bn.running_mean,
-                                                     bn_var=bn.running_var,
-                                                     bn_eps=bn.eps,
-                                                     bn_weight=bn.weight.data.clone(),
-                                                     bn_bias=bn.bias.data.clone(),
-                                                     affine_only=affine_only)
-            self.weight.data *= mul_factor.view(self.per_output_channel_broadcastable_shape)
-            if self.bias is not None:
-                self.bias.data += add_factor
-            else:
-                self.bias = Parameter(add_factor)
+    # def merge_bn_in(self, bn, affine_only, sign_only):
+    #     if sign_only and not isinstance(bn, QuantBatchNorm1d):
+    #         raise Exception("Sign-only supported only with QuantBatchNorm1d")
+    #     if affine_only and not bn.affine:
+    #         raise Exception("Affine-only merging requires BN to have affine scaling enabled.")
+    #     if sign_only:
+    #         self.weight.data *= bn.weight_sign.view(self.per_output_channel_broadcastable_shape)
+    #     else:
+    #         mul_factor, add_factor = mul_add_from_bn(bn_mean=bn.running_mean,
+    #                                                  bn_var=bn.running_var,
+    #                                                  bn_eps=bn.eps,
+    #                                                  bn_weight=bn.weight.data.clone(),
+    #                                                  bn_bias=bn.bias.data.clone(),
+    #                                                  affine_only=affine_only)
+    #         self.weight.data *= mul_factor.view(self.per_output_channel_broadcastable_shape)
+    #         if self.bias is not None:
+    #             self.bias.data += add_factor
+    #         else:
+    #             self.bias = Parameter(add_factor)
 
     def max_output_bit_width(self, input_bit_width, weight_bit_width):
         max_uint_input = max_uint(bit_width=input_bit_width, narrow_range=False)
         max_kernel_val = self.weight_quant.tensor_quant.int_quant.max_uint(weight_bit_width)
         group_size = self.out_channels // self.groups
-        max_uint_output = max_uint_input * max_kernel_val * self.kernel_size[0] * self.kernel_size[1] * group_size
+        max_uint_output = max_uint_input * max_kernel_val * self.kernel_size[0] * group_size
         max_output_bit_width = ceil_ste(torch.log2(max_uint_output))
         return max_output_bit_width
 
