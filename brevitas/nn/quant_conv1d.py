@@ -18,7 +18,6 @@ from brevitas.core.stats import StatsInputViewShapeImpl, StatsOp
 from brevitas.function.ops import ceil_ste, max_uint
 from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy, WeightReg
 from brevitas.utils.python_utils import AutoName
-# from brevitas.nn.quant_bn import mul_add_from_bn
 from brevitas.nn.quant_layer import QuantLayer, SCALING_MIN_VAL
 from brevitas.config import docstrings
 __all__ = ['QuantConv1d']
@@ -208,25 +207,8 @@ class QuantConv1d(QuantLayer, Conv1d):
         out = F.conv1d(x, weight, bias, self.stride, 0, self.dilation, self.groups)
         return out
 
-    # def merge_bn_in(self, bn, affine_only, sign_only):
-    #     if sign_only and not isinstance(bn, QuantBatchNorm1d):
-    #         raise Exception("Sign-only supported only with QuantBatchNorm1d")
-    #     if affine_only and not bn.affine:
-    #         raise Exception("Affine-only merging requires BN to have affine scaling enabled.")
-    #     if sign_only:
-    #         self.weight.data *= bn.weight_sign.view(self.per_output_channel_broadcastable_shape)
-    #     else:
-    #         mul_factor, add_factor = mul_add_from_bn(bn_mean=bn.running_mean,
-    #                                                  bn_var=bn.running_var,
-    #                                                  bn_eps=bn.eps,
-    #                                                  bn_weight=bn.weight.data.clone(),
-    #                                                  bn_bias=bn.bias.data.clone(),
-    #                                                  affine_only=affine_only)
-    #         self.weight.data *= mul_factor.view(self.per_output_channel_broadcastable_shape)
-    #         if self.bias is not None:
-    #             self.bias.data += add_factor
-    #         else:
-    #             self.bias = Parameter(add_factor)
+    def merge_bn_in(self, bn, affine_only, sign_only):
+        raise Exception("Merged Batch-Normalization is not yet supported")
 
     def max_output_bit_width(self, input_bit_width, weight_bit_width):
         max_uint_input = max_uint(bit_width=input_bit_width, narrow_range=False)

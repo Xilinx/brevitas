@@ -3,16 +3,20 @@ import brevitas.nn.quant_conv1d as quant_conv1d
 import test.generate_quant_input as input_gen
 from brevitas.core.quant import QuantType
 
-RAND_IT = 1
+# Quantization parameters
 BIT = 8
 SCALE = 0.2
+
+# Absolute and Relative Tolerances
 ATOL = 1E-3
 RTOL = 1E-5
 
+#Input Shape
 BATCH = 10
 IN_CHANNEL= 100
-WIDTH = 21
+HEIGHT = 21
 
+#Kernel/Output parameters
 OUT_CHANNEL = 200
 KERNEL = 2
 STRIDE = 2
@@ -21,7 +25,7 @@ STRIDE = 2
 class Test1DConv:
 
     def test_float_quant(self):
-        shape = (BATCH, IN_CHANNEL, WIDTH)
+        shape = (BATCH, IN_CHANNEL, HEIGHT)
         input_quant_int, input_quant = input_gen.generate_quant_input(shape, BIT, SCALE, True, True)
         Conv1D = quant_conv1d.QuantConv1d(in_channels=IN_CHANNEL,
                                           out_channels=OUT_CHANNEL,
@@ -40,7 +44,7 @@ class Test1DConv:
         assert (torch.allclose(results_float_quantized, result_rescaled, atol= ATOL, rtol= RTOL))
 
     def test_int(self):
-        shape = (BATCH, IN_CHANNEL, WIDTH)
+        shape = (BATCH, IN_CHANNEL, HEIGHT)
         input_quant_int, input_quant = input_gen.generate_quant_input(shape, BIT, SCALE, True, True)
         Conv1D = quant_conv1d.QuantConv1d(in_channels=IN_CHANNEL,
                                           out_channels=OUT_CHANNEL,
@@ -59,7 +63,7 @@ class Test1DConv:
         assert (torch.allclose(results_int_quantized, result_rescaled, atol=ATOL, rtol=RTOL))
 
     def test_basic_padding(self):
-        shape = (BATCH, IN_CHANNEL, WIDTH)
+        shape = (BATCH, IN_CHANNEL, HEIGHT)
         input_quant_int, input_quant = input_gen.generate_quant_input(shape, BIT, SCALE, True, True)
         Conv1D = quant_conv1d.QuantConv1d(in_channels=IN_CHANNEL,
                                           out_channels=OUT_CHANNEL,
