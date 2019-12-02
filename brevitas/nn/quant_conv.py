@@ -215,7 +215,7 @@ class QuantConv2d(QuantLayer, Conv2d):
     def forward(self, input):
         output_scale = None
         output_bit_width = None
-        bias_bit_width = None
+        quant_bias_bit_width = None
 
         input, input_scale, input_bit_width = self.unpack_input(input)
         quant_weight, quant_weight_scale, quant_weight_bit_width = self.weight_quant(self.weight)
@@ -229,13 +229,15 @@ class QuantConv2d(QuantLayer, Conv2d):
             output_scale = input_scale * quant_weight_scale
 
         if self.bias is not None:
-            quant_bias, _, bias_bit_width = self.bias_quant(self.bias, output_scale, output_bit_width)
+            quant_bias, _, quant_bias_bit_width = self.bias_quant(self.bias, output_scale, output_bit_width)
             output = self.conv2d(input, quant_weight, quant_bias)
         else:
             output = self.conv2d(input, quant_weight, None)
 
-        if self.compute_output_bit_width and bias_bit_width is not None:
-            output_bit_width = torch.where(bias_bit_width > output_bit_width, bias_bit_width, output_bit_width)
+        if self.compute_output_bit_width and quant_bias_bit_width is not None:
+            output_bit_width = torch.where(quant_bias_bit_width > output_bit_width,
+                                           quant_bias_bit_width,
+                                           output_bit_width)
 
         return self.pack_output(output, output_scale, output_bit_width)
 
@@ -258,13 +260,9 @@ class QuantConv2d(QuantLayer, Conv2d):
         out = F.conv2d(x, weight, bias, self.stride, 0, self.dilation, self.groups)
         return out
 
-    def merge_bn_in(self, bn, affine_only, sign_only):
-        if sign_only and not isinstance(bn, QuantBatchNorm2d):
-            raise Exception("Sign-only supported only with QuantBatchNorm2d")
+    def merge_bn_in(self, bn, affine_only):
         if affine_only and not bn.affine:
             raise Exception("Affine-only merging requires BN to have affine scaling enabled.")
-        if sign_only:
-            self.weight.data *= bn.weight_sign.view(self.per_output_channel_broadcastable_shape)
         else:
             mul_factor, add_factor = mul_add_from_bn(bn_mean=bn.running_mean,
                                                      bn_var=bn.running_var,

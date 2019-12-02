@@ -8,15 +8,19 @@
 # https://github.com/vacancy/Synchronized-BatchNorm-PyTorch
 # Distributed under MIT License.
 
+from typing import Optional
+
 import torch
 import torch.nn as nn
 
 import brevitas.config as config
-from brevitas.core import ZERO_HW_SENTINEL_NAME
+from brevitas.core.bit_width import BitWidthImplType
 from brevitas.core.quant import QuantType
-from brevitas.core.restrict_val import RestrictValueType, RestrictValue, RestrictValueOpImplType, FloatToIntImplType
-from brevitas.core.scaling import ScalingImplType, StandaloneScaling
-from brevitas.proxy.parameter_quant import BiasQuantProxy, OVER_BATCH_OVER_CHANNELS_SHAPE
+from brevitas.core.restrict_val import RestrictValueType
+from brevitas.core.scaling import ScalingImplType, SCALING_SCALAR_SHAPE
+from brevitas.core.stats import StatsInputViewShapeImpl, StatsOp
+from brevitas.nn.quant_layer import SCALING_MIN_VAL
+from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy, OVER_BATCH_OVER_CHANNELS_SHAPE
 from .quant_layer import QuantLayer
 
 __all__ = ['QuantBatchNorm2d']
@@ -37,17 +41,28 @@ class QuantBatchNorm2d(QuantLayer, nn.Module):
 
     def __init__(self,
                  num_features,
-                 eps=1e-5,
-                 momentum=0.1,
-                 restrict_value_type: RestrictValueType = RestrictValueType.FP,
-                 impl_type: ScalingImplType = ScalingImplType.STATS,
+                 eps: float = 1e-5,
                  bias_quant_type: QuantType = QuantType.FP,
                  bias_narrow_range: bool = False,
                  bias_bit_width: int = None,
+                 weight_quant_type: QuantType = QuantType.FP,
+                 weight_quant_override: nn.Module = None,
+                 weight_narrow_range: bool = False,
+                 weight_scaling_override: Optional[nn.Module] = None,
+                 weight_bit_width: int = 32,
+                 weight_scaling_impl_type: ScalingImplType = ScalingImplType.STATS,
+                 weight_scaling_const: Optional[float] = None,
+                 weight_scaling_stats_op: StatsOp = StatsOp.MAX,
+                 weight_scaling_per_output_channel: bool = False,
+                 weight_restrict_scaling_type: RestrictValueType = RestrictValueType.LOG_FP,
+                 weight_scaling_stats_sigma: float = 3.0,
+                 weight_scaling_min_val: float = SCALING_MIN_VAL,
+                 compute_output_scale: bool = False,
+                 compute_output_bit_width: bool = False,
                  return_quant_tensor: bool = False):
         QuantLayer.__init__(self,
-                            compute_output_scale=True,
-                            compute_output_bit_width=True,
+                            compute_output_scale=compute_output_scale,
+                            compute_output_bit_width=compute_output_bit_width,
                             return_quant_tensor=return_quant_tensor)
         nn.Module.__init__(self)
 
@@ -56,84 +71,83 @@ class QuantBatchNorm2d(QuantLayer, nn.Module):
         if bias_quant_type != QuantType.FP and bias_bit_width is None and not self.compute_output_bit_width:
             raise Exception("Quantizing bias requires a bit-width, either computed or defined")
 
+        self.eps = eps
         self.weight = nn.Parameter(torch.ones(num_features))
         self.bias = nn.Parameter(torch.zeros(num_features))
 
-        if impl_type == ScalingImplType.PARAMETER_FROM_STATS:
-            self.running_mean = None
-            self.running_var = None
-        elif impl_type == ScalingImplType.STATS:
-            self.register_buffer('running_mean', torch.zeros(num_features))
-            self.register_buffer('running_var', torch.ones(num_features))
+        if weight_quant_override is not None:
+            self.weight_quant = weight_quant_override
+            self.weight_quant.add_tracked_parameter(self.weight)
         else:
-            raise Exception("Scaling mode not supported")
+            weight_scaling_stats_input_concat_dim = 1
+            if weight_scaling_stats_op == StatsOp.MAX_AVE:
+                assert not weight_scaling_per_output_channel
+                weight_stats_input_view_shape_impl = StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS
+                weight_scaling_shape = SCALING_SCALAR_SHAPE
+                weight_scaling_stats_reduce_dim = None
+            else:
+                if weight_scaling_per_output_channel:
+                    weight_stats_input_view_shape_impl = StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS
+                    weight_scaling_shape = (num_features, 1)
+                    weight_scaling_stats_reduce_dim = 1
+                else:
+                    weight_stats_input_view_shape_impl = StatsInputViewShapeImpl.OVER_TENSOR
+                    weight_scaling_shape = SCALING_SCALAR_SHAPE
+                    weight_scaling_stats_reduce_dim = None
 
-        self.weight_sign = 1.0
-        self.eps = eps
-        self.momentum = momentum
-        self.impl_type = impl_type
-        self.num_features = num_features
-        self.restrict_value_type = restrict_value_type
+            self.weight_quant = WeightQuantProxy(bit_width=weight_bit_width,
+                                                 quant_type=weight_quant_type,
+                                                 narrow_range=weight_narrow_range,
+                                                 scaling_override=weight_scaling_override,
+                                                 restrict_scaling_type=weight_restrict_scaling_type,
+                                                 scaling_const=weight_scaling_const,
+                                                 scaling_stats_op=weight_scaling_stats_op,
+                                                 scaling_impl_type=weight_scaling_impl_type,
+                                                 scaling_stats_reduce_dim=weight_scaling_stats_reduce_dim,
+                                                 scaling_shape=weight_scaling_shape,
+                                                 bit_width_impl_type=BitWidthImplType.CONST,
+                                                 bit_width_impl_override=None,
+                                                 restrict_bit_width_type=RestrictValueType.INT,
+                                                 min_overall_bit_width=None,
+                                                 max_overall_bit_width=None,
+                                                 tracked_parameter_list_init=self.weight,
+                                                 ternary_threshold=None,
+                                                 scaling_stats_input_view_shape_impl=weight_stats_input_view_shape_impl,
+                                                 scaling_stats_input_concat_dim=weight_scaling_stats_input_concat_dim,
+                                                 scaling_stats_sigma=weight_scaling_stats_sigma,
+                                                 scaling_min_val=weight_scaling_min_val,
+                                                 override_pretrained_bit_width=None)
         self.bias_quant = BiasQuantProxy(quant_type=bias_quant_type,
                                          narrow_range=bias_narrow_range,
                                          bit_width=bias_bit_width)
-        self.restrict_weight = RestrictValue(restrict_value_type=restrict_value_type,
-                                             float_to_int_impl_type=FloatToIntImplType.ROUND,
-                                             min_val=None)
-        self.restrict_scaling_preprocess = RestrictValue.restrict_value_op(restrict_value_type,
-                                                                           restrict_value_op_impl_type=
-                                                                           RestrictValueOpImplType.TORCH_MODULE)
-
-    def stats(self, input_tensor):
-        batch_size, channels, height, width = input_tensor.size()
-        input_tensor = input_tensor.permute(1, 0, 2, 3).contiguous().view(channels, -1)
-        num_elems = input_tensor.shape[1]
-        sum_ = input_tensor.sum(1)
-        sum_of_square = input_tensor.pow(2).sum(1)
-        mean = sum_ / num_elems
-        sumvar = sum_of_square - sum_ * mean
-        unbias_var = sumvar / (num_elems - 1)
-        bias_var = sumvar / num_elems
-        return mean, unbias_var, bias_var
 
     def forward(self, quant_tensor):
         output_scale = None
         output_bit_width = None
 
         input_tensor, input_scale, input_bit_width = self.unpack_input(quant_tensor)
-        if self.impl_type == ScalingImplType.STATS:
-            if self.training:
-                mean, unbias_var, var = self.stats(input_tensor)
-                self.running_mean = (1 - self.momentum) * self.running_mean + self.momentum * mean.detach()
-                self.running_var = (1 - self.momentum) * self.running_var + self.momentum * unbias_var.detach()
-            else:
-                mean = self.running_mean
-                var = self.running_var
-            weight, bias = mul_add_from_bn(bn_mean=mean, bn_var=var, bn_weight=self.weight,
-                                           bn_bias=self.bias, bn_eps=self.eps, affine_only=False)
-            weight = weight.view(OVER_BATCH_OVER_CHANNELS_SHAPE)
-            sign = weight.sign()
-            weight = self.restrict_scaling_preprocess(weight.abs())
-            bias = bias.view(OVER_BATCH_OVER_CHANNELS_SHAPE)
-        else:  # ScalingImplType.PARAMETER_FROM_STATS
-            weight = self.weight.view(OVER_BATCH_OVER_CHANNELS_SHAPE)
-            bias = self.bias.view(OVER_BATCH_OVER_CHANNELS_SHAPE)
-        weight = self.restrict_weight(weight)
-
-        if self.compute_output_scale:
-            output_scale = input_scale * weight
-        if self.impl_type == ScalingImplType.STATS:
-            weight = sign * weight
-
-        # if bias_bit_width is not None, input_bit_width is ignored
-        bias, _, bias_bit_width = self.bias_quant(bias, output_scale, input_bit_width)
+        quant_weight, quant_weight_scale, quant_weight_bit_width = self.weight_quant(self.weight.view(-1, 1))
 
         if self.compute_output_bit_width:
             assert input_bit_width is not None
-            output_bit_width = torch.where(bias_bit_width > input_bit_width, bias_bit_width, input_bit_width)
+            output_bit_width = input_bit_width + quant_weight_bit_width
+        if self.compute_output_scale:
+            assert input_scale is not None
+            output_scale = input_scale * quant_weight_scale
 
-        output_tensor = input_tensor * weight + bias
-        return self.pack_output(output_tensor, output_scale, output_bit_width)
+        # if bias_bit_width is not None, input_bit_width is ignored
+        quant_bias, _, quant_bias_bit_width = self.bias_quant(self.bias, output_scale, input_bit_width)
+
+        quant_weight = quant_weight.view(OVER_BATCH_OVER_CHANNELS_SHAPE)
+        quant_bias = quant_bias.view(OVER_BATCH_OVER_CHANNELS_SHAPE)
+        output = input_tensor * quant_weight + quant_bias
+
+        if self.compute_output_bit_width and quant_bias_bit_width is not None:
+            output_bit_width = torch.where(quant_bias_bit_width > output_bit_width,
+                                           quant_bias_bit_width,
+                                           output_bit_width)
+
+        return self.pack_output(output, output_scale, output_bit_width)
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
                               missing_keys, unexpected_keys, error_msgs):
@@ -143,21 +157,15 @@ class QuantBatchNorm2d(QuantLayer, nn.Module):
         running_var_key = prefix + 'running_var'
         num_batches_tracked_key = prefix + 'num_batches_tracked'
 
-        # If it's converting a FP BN into weight/bias impl
-        if self.impl_type == ScalingImplType.PARAMETER_FROM_STATS \
-                and running_mean_key in state_dict and running_var_key in state_dict:
+        if running_mean_key in state_dict and running_var_key in state_dict:
             weight_init, bias_init = mul_add_from_bn(bn_bias=state_dict[bias_key],
                                                      bn_weight=state_dict[weight_key],
                                                      bn_mean=state_dict[running_mean_key],
                                                      bn_var=state_dict[running_var_key],
                                                      bn_eps=self.eps,
                                                      affine_only=False)
-            restrict_op = RestrictValue.restrict_value_op(restrict_value_type=self.restrict_value_type,
-                                                          restrict_value_op_impl_type=RestrictValueOpImplType.TORCH_FN)
-            self.weight_sign = torch.sign(weight_init.data)
-            weight_init = weight_init.detach().clone().abs().data
-            self.weight.data = restrict_op(weight_init)
-            self.bias.data = bias_init.detach().clone().data
+            self.weight.data = weight_init
+            self.bias.data = bias_init
             del state_dict[bias_key]
             del state_dict[weight_key]
             del state_dict[running_mean_key]
