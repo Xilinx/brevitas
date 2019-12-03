@@ -58,7 +58,7 @@ from brevitas.core.stats import StatsInputViewShapeImpl, StatsOp
 from brevitas.function.ops import ceil_ste, max_uint
 from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy, WeightReg
 from brevitas.utils.python_utils import AutoName
-from brevitas.nn.quant_bn import mul_add_from_bn, QuantBatchNorm2d
+from brevitas.nn.quant_bn import mul_add_from_bn
 from brevitas.nn.quant_layer import QuantLayer, SCALING_MIN_VAL
 from brevitas.config import docstrings
 
