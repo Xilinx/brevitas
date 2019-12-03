@@ -28,7 +28,7 @@ __all__ = ['ScaleBias', 'QuantScaleBias']
 class ScaleBias(nn.Module):
 
     def __init__(self, num_features):
-        super(nn.Module, self).__init__()
+        super(ScaleBias, self).__init__()
         self.weight = nn.Parameter(torch.ones(num_features))
         self.bias = nn.Parameter(torch.zeros(num_features))
 
