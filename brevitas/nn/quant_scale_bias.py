@@ -36,7 +36,7 @@ class ScaleBias(nn.Module):
         return x * self.weight + self.bias
 
 
-class QuantScaleBias(QuantLayer, nn.Module):
+class QuantScaleBias(QuantLayer, ScaleBias):
 
     def __init__(self,
                  num_features,
@@ -62,7 +62,7 @@ class QuantScaleBias(QuantLayer, nn.Module):
                             compute_output_scale=compute_output_scale,
                             compute_output_bit_width=compute_output_bit_width,
                             return_quant_tensor=return_quant_tensor)
-        nn.Module.__init__(self)
+        ScaleBias.__init__(self, num_features)
 
         if bias_quant_type != QuantType.FP and not self.compute_output_scale:
             raise Exception("Quantizing bias requires to compute output scale")
