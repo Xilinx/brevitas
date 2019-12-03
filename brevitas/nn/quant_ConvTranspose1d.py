@@ -5,9 +5,9 @@ import re
 import math
 import torch
 import docrep
-from torch.nn import Conv1d, Module
+from torch.nn import ConvTranspose1d, Module
 from torch.nn import functional as F
-from torch.nn.functional import conv1d
+from torch.nn.functional import conv_transpose1d
 from torch.nn.parameter import Parameter
 
 from brevitas.core.bit_width import BitWidthParameter, BitWidthConst, BitWidthImplType
@@ -20,7 +20,7 @@ from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy, Wei
 from brevitas.utils.python_utils import AutoName
 from brevitas.nn.quant_layer import QuantLayer, SCALING_MIN_VAL
 from brevitas.config import docstrings
-__all__ = ['QuantConv1d']
+__all__ = ['QuantConvTranspose1d']
 
 
 class PaddingType(AutoName):
@@ -29,7 +29,7 @@ class PaddingType(AutoName):
 
 
 @docstrings.dedent
-class QuantConv1d(QuantLayer, Conv1d):
+class QuantConvTranspose1d(QuantLayer, ConvTranspose1d):
     """
 
         Parameters
@@ -43,6 +43,7 @@ class QuantConv1d(QuantLayer, Conv1d):
                  kernel_size: Union[int, Tuple[int]],
                  stride: Union[int, Tuple[int]] = 1,
                  padding: Union[int, Tuple[int]] = 0,
+                 output_padding : Union[int, Tuple[int]] = 0,
                  padding_type: PaddingType = PaddingType.STANDARD,
                  dilation: Union[int, Tuple[int]] = 1,
                  groups: int = 1,
@@ -71,17 +72,19 @@ class QuantConv1d(QuantLayer, Conv1d):
                  weight_override_pretrained_bit_width: bool = False,
                  compute_output_scale: bool = False,
                  compute_output_bit_width: bool = False,
-                 return_quant_tensor: bool = False) -> None:
+                 return_quant_tensor: bool = False,
+                 deterministic: bool = False) -> None:
         QuantLayer.__init__(self,
                             compute_output_scale=compute_output_scale,
                             compute_output_bit_width=compute_output_bit_width,
                             return_quant_tensor=return_quant_tensor)
-        Conv1d.__init__(self,
+        ConvTranspose1d.__init__(self,
                         in_channels=in_channels,
                         out_channels=out_channels,
                         kernel_size=kernel_size,
                         stride=stride,
                         padding=padding,
+                        output_padding = output_padding,
                         dilation=dilation,
                         groups=groups,
                         bias=bias)
@@ -90,7 +93,10 @@ class QuantConv1d(QuantLayer, Conv1d):
         if bias_quant_type != QuantType.FP and not (compute_output_scale and compute_output_bit_width):
             raise Exception("Quantizing bias requires to compute output scale and output bit width")
 
-        self.per_elem_ops = 2 * self.kernel_size[0] * (in_channels // groups)
+        if torch.backends.cudnn.benchmark:
+            torch.backends.cudnn.deterministic = deterministic
+
+        # self.per_elem_ops = 2 * self.kernel_size[0] * (in_channels // groups) # TO DO: Implement op_count
         self.padding_type = padding_type
         self.weight_reg = WeightReg()
 
@@ -170,7 +176,7 @@ class QuantConv1d(QuantLayer, Conv1d):
         _, scale, _ = self.weight_quant.tensor_quant(self.weight, zero_hw_sentinel)
         return scale
 
-    def forward(self, input):
+    def forward(self, input, output_size = None):
         output_scale = None
         output_bit_width = None
         input, input_scale, input_bit_width = self.unpack_input(input)
@@ -182,30 +188,28 @@ class QuantConv1d(QuantLayer, Conv1d):
         if self.compute_output_scale:
             output_scale = input_scale * quant_weight_scale
 
+        output_padding = self.compute_output_padding(input, output_size)
+
         if self.bias is not None:
             quant_bias = self.bias_quant(self.bias, output_scale, output_bit_width)
-            output = self.conv1d(input, quant_weight, quant_bias)
+            output = self.conv_transpose1d(input, quant_weight, quant_bias, output_padding)
         else:
-            output = self.conv1d(input, quant_weight, None)
+            output = self.conv_transpose1d(input, quant_weight, None, output_padding)
         return self.pack_output(output, output_scale, output_bit_width)
 
-    def conv1d(self, x, weight, bias):
+    def compute_output_padding(self, input, output_size):
+        return self._output_padding(input, output_size, self.stride, self.padding, self.kernel_size )
+
+
+    def conv_transpose1d(self, x, weight, bias, output_padding):
         if self.padding_type == PaddingType.SAME:
-            out = self.conv1d_same_padding(x, weight, bias)
+            out = self.conv1d_same_padding(x, weight, bias, output_padding)
         else:
-            out = conv1d(x, weight, bias, self.stride, self.padding, self.dilation, self.groups)
+            out = conv_transpose1d(x, weight, bias, self.stride, self.padding, output_padding , self.groups, self.dilation)
         return out
 
-    def conv1d_same_padding(self, x, weight, bias):
-        ih = x.size()[-1]
-        kh = weight.size()[-1]
-        sh = self.stride[0]
-        oh = math.ceil(ih / sh)
-        pad_h = max((oh - 1) * self.stride[0] + (kh - 1) * self.dilation[0] + 1 - ih, 0)
-        if pad_h > 0:
-            x = F.pad(x, [pad_h // 2, pad_h - pad_h // 2])
-        out = F.conv1d(x, weight, bias, self.stride, 0, self.dilation, self.groups)
-        return out
+    def conv1d_same_padding(self, x, weight, bias, output_padding):
+        raise Exception("SAME PADDING not supported for ConvTranspose1d")
 
     def merge_bn_in(self, bn, affine_only, sign_only):
         raise Exception("Merged Batch-Normalization is not yet supported")
@@ -214,7 +218,7 @@ class QuantConv1d(QuantLayer, Conv1d):
         max_uint_input = max_uint(bit_width=input_bit_width, narrow_range=False)
         max_kernel_val = self.weight_quant.tensor_quant.int_quant.max_uint(weight_bit_width)
         group_size = self.out_channels // self.groups
-        max_uint_output = max_uint_input * max_kernel_val * self.kernel_size[0] * group_size
+        max_uint_output = max_uint_input * max_kernel_val * (self.kernel_size[0] - self.stride) * group_size
         max_output_bit_width = ceil_ste(torch.log2(max_uint_output))
         return max_output_bit_width
 
