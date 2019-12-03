@@ -1,13 +1,3 @@
-#! /usr/bin/env python3
-# -*- coding: utf-8 -*-
-# File   : batchnorm_reimpl.py
-# Author : acgtyrant
-# Date   : 11/01/2018
-#
-# This file is part of Synchronized-BatchNorm-PyTorch.
-# https://github.com/vacancy/Synchronized-BatchNorm-PyTorch
-# Distributed under MIT License.
-
 from typing import Optional
 
 import torch
