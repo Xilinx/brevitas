@@ -152,7 +152,6 @@ class StatsScaling(torch.jit.ScriptModule):
                  restrict_scaling_type: RestrictValueType,
                  stats_output_shape: Tuple[int, ...],
                  scaling_min_val: Optional[float],
-                 stats_reduce_dim: Optional[int],
                  affine: bool) -> None:
         super(StatsScaling, self).__init__()
 
@@ -161,7 +160,7 @@ class StatsScaling(torch.jit.ScriptModule):
                 or restrict_scaling_type == RestrictValueType.POWER_OF_TWO):
             raise Exception("Restriction of type {} is not supported for stats scaling."
                             .format(str(restrict_scaling_type)))
-        if stats_op == StatsOp.MAX_AVE and stats_reduce_dim is not None:
+        if stats_op == StatsOp.MAX_AVE and stats_output_shape != SCALING_SCALAR_SHAPE:
             raise Exception("Scaling with MAX_AVE stats can't be over output channels.")
 
         if affine:
@@ -210,8 +209,7 @@ class RuntimeStatsScaling(torch.jit.ScriptModule):
                                                scaling_min_val=scaling_min_val,
                                                affine=affine,
                                                stats_op=stats_op,
-                                               stats_output_shape=stats_output_shape,
-                                               stats_reduce_dim=stats_reduce_dim)
+                                               stats_output_shape=stats_output_shape)
 
     @torch.jit.script_method
     def forward(self, x: torch.Tensor):
@@ -245,8 +243,7 @@ class ParameterStatsScaling(torch.jit.ScriptModule):
                                                scaling_min_val=scaling_min_val,
                                                affine=affine,
                                                stats_op=stats_op,
-                                               stats_output_shape=stats_output_shape,
-                                               stats_reduce_dim=stats_reduce_dim)
+                                               stats_output_shape=stats_output_shape)
 
     @torch.jit.script_method
     def forward(self, zero_hw_sentinel: torch.Tensor):
