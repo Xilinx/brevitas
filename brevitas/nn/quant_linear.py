@@ -127,6 +127,10 @@ class QuantLinear(QuantLayer, Linear):
                 weight_scaling_shape = SCALING_SCALAR_SHAPE
                 weight_scaling_stats_reduce_dim = None
 
+            if weight_scaling_stats_op == StatsOp.MAX_AVE:
+                weight_stats_input_view_shape_impl = StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS
+                weight_scaling_stats_reduce_dim = 1
+
             self.weight_quant = WeightQuantProxy(bit_width=weight_bit_width,
                                                  quant_type=weight_quant_type,
                                                  narrow_range=weight_narrow_range,
