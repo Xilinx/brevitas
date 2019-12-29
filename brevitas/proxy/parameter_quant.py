@@ -200,7 +200,9 @@ def _weight_quant_init_impl(bit_width: Optional[int],
             else:
                 bit_width_impl = bit_width_impl_override
 
-            if scaling_impl_type == ScalingImplType.STATS or scaling_impl_type == ScalingImplType.AFFINE_STATS:
+            if bit_width_impl_type == BitWidthImplType.CONST and \
+                    (scaling_impl_type == ScalingImplType.STATS
+                     or scaling_impl_type == ScalingImplType.AFFINE_STATS):
                 tensor_clamp_impl = TensorClampSte()
             else:
                 tensor_clamp_impl = TensorClamp()
