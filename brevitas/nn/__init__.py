@@ -5,3 +5,4 @@ from .quant_linear import QuantLinear
 from .quant_conv import QuantConv2d, PaddingType
 from .quant_bn import BatchNorm2dToQuantScaleBias
 from .quant_scale_bias import ScaleBias, QuantScaleBias
+from .hadamard_classifier import HadamardClassifier

@@ -43,7 +43,7 @@ import os
 from setuptools import setup, find_packages
 
 
-INSTALL_REQUIRES = ["torch>=1.1.0", "docrep"]
+INSTALL_REQUIRES = ["torch>=1.1.0", "docrep", "scipy"]
 TEST_REQUIRES = ["pytest"]
 
 
