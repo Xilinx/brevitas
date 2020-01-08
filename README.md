@@ -59,11 +59,12 @@ Brevitas' features are organized along the following (mostly) orthogonal axes:
 ## Supported Layers
 The following layers and operations are supported out-of-the-box:
 
+- QuantScaleBias
 - QuantLinear
 - QuantConv2d
 - QuantReLU, QuantHardTanh, QuantTanh, QuantSigmoid
 - QuantAvgPool2d
-- QuantBatchNorm2d
+- BatchNorm2dToQuantScaleBias
 - Element-wise add, concat
 - Saturating integer accumulator
 
