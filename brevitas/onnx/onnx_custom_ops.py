@@ -45,7 +45,8 @@ class QuantizedHardTanhPlaceholderFunction(Function):
             # to bipolar {-1, +1} quantization.
             ret = g.op('Sign', input, activation_qnt_s = qnt_type)
         else:
-            ret = g.op('MultiThreshold', input, thres, domain_s = "finn")
+            ret = g.op('MultiThreshold', input, thres, domain_s = "finn",
+                        out_dtype_s = qnt_type)
             if bias is not None:
                 ret = g.op('Add', ret, bias)
             if scale is not None:
