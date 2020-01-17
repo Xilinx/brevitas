@@ -49,11 +49,11 @@ from torch import nn, Tensor
 
 
 from brevitas.core import ZERO_HW_SENTINEL_NAME
-from brevitas.core.bit_width import BitWidthConst, BitWidthParameter, BitWidthImplType
+from brevitas.core.bit_width import BitWidthConst, BitWidthParameter, BitWidthImplType, IdentityBitWidth
 from brevitas.core.function_wrapper import TensorClampSte, TensorClamp
 from brevitas.core.quant import IdentityQuant
-from brevitas.core.quant import QuantType, BinaryQuant, TernaryQuant, RescalingIntQuant, PrescaledIntQuant
-from brevitas.core.quant import PrescaledRestrictIntQuant
+from brevitas.core.quant import QuantType, BinaryQuant, TernaryQuant, RescalingIntQuant
+from brevitas.core.quant import PrescaledRestrictIntQuant, PrescaledRestrictIntQuantWithInputBitWidth
 from brevitas.core.restrict_val import RestrictValueType, FloatToIntImplType, RestrictValue
 from brevitas.core.scaling import ScalingImplType, ParameterStatsScaling, StatsInputViewShapeImpl, IntScaling
 from brevitas.core.scaling import StandaloneScaling, SCALING_SCALAR_SHAPE
@@ -412,10 +412,12 @@ class BiasQuantProxy(ParameterQuantProxy):
                                                               float_to_int_impl=float_to_int_impl)
                 self.requires_input_bit_width = False
             else:
-                self.tensor_quant = PrescaledIntQuant(narrow_range=narrow_range,
-                                                      signed=True,
-                                                      tensor_clamp_impl=tensor_clamp_impl,
-                                                      float_to_int_impl=float_to_int_impl)
+                msb_clamp_bit_width_impl = IdentityBitWidth()
+                self.tensor_quant = PrescaledRestrictIntQuantWithInputBitWidth(narrow_range=narrow_range,
+                                                                               signed=True,
+                                                                               tensor_clamp_impl=tensor_clamp_impl,
+                                                                               msb_clamp_bit_width_impl=msb_clamp_bit_width_impl,
+                                                                               float_to_int_impl=float_to_int_impl)
                 self.requires_input_bit_width = True
         else:
             raise Exception('Quantization type {} not supported for bias quant.'
