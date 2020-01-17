@@ -60,6 +60,11 @@ class BitWidthImplType(AutoName):
     CONST = auto()
     PARAMETER = auto()
 
+class IdentityBitWidth(torch.jit.ScriptModule):
+
+    @torch.jit.script_method
+    def forward(self, x: Tensor, zero_hw_sentinel: Tensor) -> Tensor:
+        return x
 
 class ZeroLsbTruncBitWidth(torch.jit.ScriptModule):
 

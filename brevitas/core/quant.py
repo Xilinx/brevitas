@@ -50,7 +50,7 @@ from brevitas.function.ops import min_int, max_int, max_uint, tensor_clamp, tens
 from brevitas.function import binary_sign_ste, ternary_sign_ste
 
 
-__all__ = ['QuantType', 'BinaryQuant', 'TernaryQuant', 'RescalingIntQuant', 'PrescaledIntQuant',
+__all__ = ['QuantType', 'BinaryQuant', 'TernaryQuant', 'RescalingIntQuant',
            'PrescaledRestrictIntQuant']
 
 
@@ -172,29 +172,6 @@ class IdentityPrescaledIntQuant(torch.jit.ScriptModule):
     @torch.jit.script_method
     def forward(self, x, input_scale, input_bit_width, zero_hw_sentinel) -> Tuple[Tensor, Tensor, Tensor]:
         return x, input_scale, input_bit_width
-
-
-class PrescaledIntQuant(torch.jit.ScriptModule):
-
-    def __init__(self,
-                 narrow_range: bool,
-                 signed: bool,
-                 tensor_clamp_impl: Module,
-                 float_to_int_impl: Module):
-        super(PrescaledIntQuant, self).__init__()
-        self.int_quant = IntQuant(signed=signed,
-                                  narrow_range=narrow_range,
-                                  tensor_clamp_impl=tensor_clamp_impl,
-                                  float_to_int_impl=float_to_int_impl)
-
-    @torch.jit.script_method
-    def forward(self,
-                x: Tensor,
-                scale: Tensor,
-                bit_width: Tensor,
-                zero_hw_sentinel: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
-        y = self.int_quant(scale, zero_hw_sentinel + 1, bit_width, x)
-        return y, scale, bit_width
 
 
 class RescalingIntQuant(torch.jit.ScriptModule):

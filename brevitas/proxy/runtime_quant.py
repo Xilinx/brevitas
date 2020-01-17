@@ -44,11 +44,11 @@ import torch
 from torch.nn import Module
 
 from brevitas.core import ZERO_HW_SENTINEL_NAME, ZERO_HW_SENTINEL_VALUE
-from brevitas.core.bit_width import BitWidthImplType, MsbClampParameterBitWidth, BitWidthConst
+from brevitas.core.bit_width import BitWidthImplType, MsbClampParameterBitWidth, BitWidthConst, IdentityBitWidth
 from brevitas.core.bit_width import BitWidthParameter, LsbTruncParameterBitWidth, ZeroLsbTruncBitWidth
 from brevitas.core.function_wrapper import TensorClamp
 from brevitas.core.quant import PrescaledRestrictIntQuantWithInputBitWidth, ClampedBinaryQuant
-from brevitas.core.quant import QuantType, IdentityPrescaledIntQuant, PrescaledIntQuant
+from brevitas.core.quant import QuantType, IdentityPrescaledIntQuant
 from brevitas.core.quant import RescalingIntQuant, IdentityQuant
 from brevitas.core.restrict_val import RestrictValueType, RestrictValue, FloatToIntImplType, RestrictValueOpImplType
 from brevitas.core.scaling import RuntimeStatsScaling, SCALING_SCALAR_SHAPE, StatsInputViewShapeImpl
@@ -228,7 +228,7 @@ class ActivationQuantProxy(QuantProxy):
         scaling_affine_bias_key = prefix + '.stats_scaling_impl.affine_rescaling.affine_bias'
 
         if not isinstance(self.fused_activation_quant_proxy.tensor_quant, IdentityQuant) and \
-            self.scaling_impl_type == ScalingImplType.PARAMETER:
+                self.scaling_impl_type == ScalingImplType.PARAMETER:
             scaling_impl = self.fused_activation_quant_proxy.tensor_quant.scaling_impl
 
             # If it's retrained directly from statistics, i.e. there isn't a preexisting parameter
@@ -333,10 +333,13 @@ class TruncQuantProxy(QuantProxy):
             float_to_int_impl = RestrictValue(restrict_value_type=RestrictValueType.INT,
                                               float_to_int_impl_type=FloatToIntImplType.FLOOR,
                                               min_val=None)
-            self.tensor_quant = PrescaledIntQuant(signed=signed,
-                                                  narrow_range=False,
-                                                  tensor_clamp_impl=tensor_clamp_impl,
-                                                  float_to_int_impl=float_to_int_impl)
+            msb_clamp_bit_width_impl = IdentityBitWidth()
+            self.tensor_quant = PrescaledRestrictIntQuantWithInputBitWidth(narrow_range=False,
+                                                                           signed=signed,
+                                                                           tensor_clamp_impl=tensor_clamp_impl,
+                                                                           msb_clamp_bit_width_impl=msb_clamp_bit_width_impl,
+                                                                           float_to_int_impl=float_to_int_impl)
+
         else:
             raise Exception("Quantization type {} not supported for accumulators.".format(quant_type))
 
@@ -346,7 +349,7 @@ class TruncQuantProxy(QuantProxy):
         output_scale = trunc_scale * input_scale
         x, output_scale, input_bit_width = self.tensor_quant(x, output_scale, input_bit_width, self.zero_hw_sentinel)
         if self.explicit_rescaling:
-            x = x / trunc_scale # rescaling is explicit, so the truncation scale stays with x rather with output_scale
+            x = x / trunc_scale  # rescaling is explicit, so the truncation scale stays with x rather with output_scale
             output_scale = output_scale / trunc_scale
         output_bit_width = input_bit_width - trunc_bit_width
         return x, output_scale, output_bit_width
