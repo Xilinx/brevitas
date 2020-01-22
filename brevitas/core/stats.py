@@ -274,10 +274,10 @@ class RuntimeStats(torch.jit.ScriptModule):
 
     @torch.jit.script_method
     def forward(self, stats_input) -> torch.Tensor:
-        if self.stats_permute_dims is not None:
-            stats_input = stats_input.permute(*self.stats_permute_dims).contiguous()
-        stats_input = self.stats_input_view_shape_impl(stats_input)
         if self.training:
+            if self.stats_permute_dims is not None:
+                stats_input = stats_input.permute(*self.stats_permute_dims).contiguous()
+            stats_input = self.stats_input_view_shape_impl(stats_input)
             out = self.stats(stats_input)
             self.running_stats *= (1 - self.momentum)
             self.running_stats += self.momentum * out.detach()
