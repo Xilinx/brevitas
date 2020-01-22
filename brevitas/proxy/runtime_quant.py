@@ -92,7 +92,6 @@ class ActivationQuantProxy(QuantProxy):
                  scaling_stats_sigma: Optional[float],
                  scaling_stats_op: Optional[StatsOp],
                  scaling_stats_buffer_momentum: Optional[float],
-                 scaling_stats_input_view_shape_impl: Optional[StatsInputViewShapeImpl],
                  scaling_stats_permute_dims: Optional[Tuple],
                  per_channel_broadcastable_shape: Optional[Tuple[int, ...]],
                  min_overall_bit_width: Optional[int],
@@ -137,11 +136,13 @@ class ActivationQuantProxy(QuantProxy):
             elif scaling_impl_type == ScalingImplType.STATS or scaling_impl_type == ScalingImplType.AFFINE_STATS:
 
                 if scaling_per_channel and not scaling_stats_op == StatsOp.MAX_AVE:
+                    scaling_stats_input_view_shape_impl = StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS
                     scaling_stats_reduce_dim = 1
                 elif scaling_per_channel and scaling_stats_op == StatsOp.MAX_AVE:
                     raise Exception("Can't do per channel scaling with MAX AVE statistics.")
                 elif not scaling_per_channel and scaling_stats_op == StatsOp.MAX_AVE:
-                    raise Exception("MAX AVE not supported yet.")
+                    scaling_stats_input_view_shape_impl = StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS
+                    scaling_stats_reduce_dim = 1
                 else:  # not scaling_per_channel
                     scaling_stats_input_view_shape_impl = StatsInputViewShapeImpl.OVER_TENSOR
                     scaling_stats_reduce_dim = None
