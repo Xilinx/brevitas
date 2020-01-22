@@ -261,7 +261,7 @@ class QuantHardTanh(QuantActivation):
                  override_pretrained_bit_width: bool = False,
                  return_quant_tensor: bool = False):
         super(QuantHardTanh, self).__init__(return_quant_tensor=return_quant_tensor)
-        if quant_type == quant_type.FP:
+        if quant_type == QuantType.FP:
             activation_impl = ConstScalarClamp(min_val=min_val, max_val=max_val)
         else:
             activation_impl = Identity()
