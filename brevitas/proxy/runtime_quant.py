@@ -109,27 +109,18 @@ class ActivationQuantProxy(QuantProxy):
         if scaling_per_channel and per_channel_broadcastable_shape is None:
             raise Exception("Per channel scaling requires to specify number of channels.")
 
-        if scaling_per_channel and not scaling_stats_op == StatsOp.MAX_AVE:
-            scaling_shape = per_channel_broadcastable_shape
-            scaling_stats_reduce_dim = 1
-        elif scaling_per_channel and scaling_stats_op ==  StatsOp.MAX_AVE:
-            raise Exception("Can't do per channel scaling with MAX AVE statistics.")
-        elif not scaling_per_channel and scaling_stats_op == StatsOp.MAX_AVE:
-            raise Exception("Not supported yet.")
-        else:  # not scaling_per_channel
-            scaling_shape = SCALING_SCALAR_SHAPE
-            scaling_stats_input_view_shape_impl = StatsInputViewShapeImpl.OVER_TENSOR
-            scaling_stats_reduce_dim = None
-            scaling_stats_permute_dims = None
-
         if quant_type == QuantType.FP:
             tensor_quant = IdentityQuant()
-
         else:
             if scaling_impl_type != ScalingImplType.OVERRIDE and scaling_override is not None:
                 raise Exception("Overriding scaling requires to set ScalingImplType to OVERRIDE explicitly.")
             if scaling_impl_type == ScalingImplType.OVERRIDE and scaling_override is None:
                 raise Exception("Overriding scaling requires to pass a scaling impl module.")
+
+            if scaling_per_channel:
+                scaling_shape = per_channel_broadcastable_shape
+            else:
+                scaling_shape = SCALING_SCALAR_SHAPE
 
             if scaling_impl_type == ScalingImplType.OVERRIDE and scaling_override is not None:
                 scaling_impl = scaling_override
@@ -144,6 +135,18 @@ class ActivationQuantProxy(QuantProxy):
                                                  scaling_min_val=scaling_min_val)
                 runtime = False
             elif scaling_impl_type == ScalingImplType.STATS or scaling_impl_type == ScalingImplType.AFFINE_STATS:
+
+                if scaling_per_channel and not scaling_stats_op == StatsOp.MAX_AVE:
+                    scaling_stats_reduce_dim = 1
+                elif scaling_per_channel and scaling_stats_op == StatsOp.MAX_AVE:
+                    raise Exception("Can't do per channel scaling with MAX AVE statistics.")
+                elif not scaling_per_channel and scaling_stats_op == StatsOp.MAX_AVE:
+                    raise Exception("MAX AVE not supported yet.")
+                else:  # not scaling_per_channel
+                    scaling_stats_input_view_shape_impl = StatsInputViewShapeImpl.OVER_TENSOR
+                    scaling_stats_reduce_dim = None
+                    scaling_stats_permute_dims = None
+
                 stats_buffer_init = RescalingIntQuant.scaling_init_from_min_max(min_val, max_val).item()
                 scaling_impl = RuntimeStatsScaling(stats_op=scaling_stats_op,
                                                    restrict_scaling_type=restrict_scaling_type,
