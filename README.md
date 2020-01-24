@@ -2,7 +2,7 @@
 
 [![DOI](https://zenodo.org/badge/140494324.svg)](https://zenodo.org/badge/latestdoi/140494324)
 
-Brevitas is a Pytorch library for training-aware quantization.
+Brevitas is a Pytorch library for quantization-aware training.
 
 *Brevitas is currently under active development and to be considered in alpha stage. APIs might and probably will change. Documentation, examples, and pretrained models will be progressively released.*
 
