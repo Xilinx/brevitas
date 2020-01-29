@@ -200,12 +200,12 @@ def _weight_quant_init_impl(bit_width: Optional[int],
             else:
                 bit_width_impl = bit_width_impl_override
 
-            if bit_width_impl_type == BitWidthImplType.CONST and \
-                    (scaling_impl_type == ScalingImplType.STATS
-                     or scaling_impl_type == ScalingImplType.AFFINE_STATS):
-                tensor_clamp_impl = TensorClampSte()
-            else:
+            if bit_width_impl_type == BitWidthImplType.PARAMETER or \
+                    bit_width_impl_type == BitWidthImplType.CONST and \
+                    scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS:
                 tensor_clamp_impl = TensorClamp()
+            else:
+                tensor_clamp_impl = TensorClampSte()
 
             float_to_int_impl = RestrictValue(restrict_value_type=RestrictValueType.INT,
                                               float_to_int_impl_type=FloatToIntImplType.ROUND,
