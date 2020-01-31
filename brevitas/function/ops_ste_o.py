@@ -41,24 +41,51 @@
 from brevitas.function.autograd_ops import *
 
 
-@torch.jit.script
-def tensor_clamp(x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor) -> torch.Tensor:
-    out = torch.where(x > max_val, max_val, x)
-    out = torch.where(out < min_val, min_val, out)
-    return out
+def round_ste(x: torch.Tensor) -> torch.Tensor:
+    return round_ste_fn.apply(x)
 
 
-@torch.jit.script
-def tensor_clamp_(x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor):
-    torch.min(x, max_val, out=x)
-    torch.max(x, min_val, out=x)
-    return x
+def tensor_clamp_ste(x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor) -> torch.Tensor:
+    return tensor_clamp_ste_fn.apply(x, min_val, max_val)
 
 
-def ceil_ste(x: torch.Tensor) -> torch.Tensor:
-    return ceil_ste_fn.apply(x)
+def scalar_clamp_ste(x: torch.Tensor, min_val: float, max_val: float) -> torch.Tensor:
+    return scalar_clamp_ste_fn.apply(x, min_val, max_val)
 
 
-def floor_ste(x: torch.Tensor) -> torch.Tensor:
-    return floor_ste_fn.apply(x)
+def binary_sign_ste(x: torch.Tensor) -> torch.Tensor:
+    return binary_sign_ste_fn.apply(x)
 
+
+def ternary_sign_ste(x: torch.Tensor) -> torch.Tensor:
+
+    return ternary_sign_ste_fn.apply(x)
+
+
+def max_uint(narrow_range: bool, bit_width: torch.Tensor):
+    if narrow_range:
+        value = (2 ** bit_width) - 2
+    else:
+        value = (2 ** bit_width) - 1
+    value = round_ste(value)
+    return value
+
+
+def max_int(signed: bool, bit_width: torch.Tensor):
+    if signed:
+        value = (2 ** (bit_width - 1)) - 1
+    else:
+        value = (2 ** bit_width) - 1
+    value = round_ste(value)
+    return value
+
+
+def min_int(signed: bool, narrow_range: bool, bit_width: torch.Tensor):
+    if signed and narrow_range:
+        value = - (2 ** (bit_width - 1)) + 1
+    elif signed and not narrow_range:
+        value = - (2 ** (bit_width - 1))
+    else:
+        value = 0 * bit_width
+    value = round_ste(value)
+    return value

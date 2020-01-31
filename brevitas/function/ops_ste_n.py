@@ -1,4 +1,4 @@
-# Copyright (c) 2018-     Xilinx, Inc              (Alessandro Pappalardo)
+# Copyright (c) 2019-     Xilinx, Inc              (Giuseppe Franco)
 # Copyright (c) 2016-     Facebook, Inc            (Adam Paszke)
 # Copyright (c) 2014-     Facebook, Inc            (Soumith Chintala)
 # Copyright (c) 2011-2014 Idiap Research Institute (Ronan Collobert)
@@ -38,27 +38,62 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from brevitas.function.autograd_ops import *
+import torch
 
 
 @torch.jit.script
-def tensor_clamp(x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor) -> torch.Tensor:
-    out = torch.where(x > max_val, max_val, x)
-    out = torch.where(out < min_val, min_val, out)
-    return out
+def round_ste(x: torch.Tensor) -> torch.Tensor:
+    return torch.ops.brevitas.round_ste(x)
 
 
 @torch.jit.script
-def tensor_clamp_(x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor):
-    torch.min(x, max_val, out=x)
-    torch.max(x, min_val, out=x)
-    return x
+def tensor_clamp_ste(x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor) -> torch.Tensor:
+    output = torch.ops.brevitas.tensor_clamp_ste(x, min_val, max_val)
+    return output
 
 
-def ceil_ste(x: torch.Tensor) -> torch.Tensor:
-    return ceil_ste_fn.apply(x)
+@torch.jit.script
+def scalar_clamp_ste(x: torch.Tensor, min_val: float, max_val: float) -> torch.Tensor:
+    return torch.ops.brevitas.scalar_clamp_ste(x, min_val, max_val)
 
 
-def floor_ste(x: torch.Tensor) -> torch.Tensor:
-    return floor_ste_fn.apply(x)
+@torch.jit.script
+def binary_sign_ste(x: torch.Tensor) -> torch.Tensor:
+    return torch.ops.brevitas.binary_sign_ste(x)
 
+
+@torch.jit.script
+def ternary_sign_ste(x: torch.Tensor) -> torch.Tensor:
+    return torch.ops.brevitas.ternary_sign_ste(x)
+
+
+@torch.jit.script
+def max_uint(narrow_range: bool, bit_width: torch.Tensor):
+    if narrow_range:
+        value = (2 ** bit_width) - 2
+    else:
+        value = (2 ** bit_width) - 1
+    value = round_ste(value)
+    return value
+
+
+@torch.jit.script
+def max_int(signed: bool, bit_width: torch.Tensor):
+    if signed:
+        value = (2 ** (bit_width - 1)) - 1
+    else:
+        value = (2 ** bit_width) - 1
+    value = round_ste(value)
+    return value
+
+
+@torch.jit.script
+def min_int(signed: bool, narrow_range: bool, bit_width: torch.Tensor):
+    if signed and narrow_range:
+        value = - (2 ** (bit_width - 1)) + 1
+    elif signed and not narrow_range:
+        value = - (2 ** (bit_width - 1))
+    else:
+        value = 0 * bit_width
+    value = round_ste(value)
+    return value
