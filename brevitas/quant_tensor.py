@@ -42,7 +42,8 @@ from collections import namedtuple
 
 import torch
 
-from brevitas.function.ops import max_uint, ceil_ste, round_ste
+from brevitas.function.ops import ceil_ste
+from brevitas.function.ops_ste import max_uint, round_ste
 
 
 def pack_quant_tensor(tensor, scale, bit_width):

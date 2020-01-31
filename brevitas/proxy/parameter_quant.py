@@ -57,7 +57,7 @@ from brevitas.core.quant import PrescaledRestrictIntQuant, PrescaledRestrictIntQ
 from brevitas.core.restrict_val import RestrictValueType, FloatToIntImplType, RestrictValue
 from brevitas.core.scaling import ScalingImplType, ParameterStatsScaling, StatsInputViewShapeImpl, IntScaling
 from brevitas.core.scaling import StandaloneScaling, SCALING_SCALAR_SHAPE
-from brevitas.function.ops import round_ste
+from brevitas.function.ops_ste import round_ste
 from brevitas.core.stats import StatsOp
 from brevitas import config
 from brevitas.config import docstrings
