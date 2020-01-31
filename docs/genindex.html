@@ -148,6 +148,7 @@
  <a href="#A"><strong>A</strong></a>
  | <a href="#B"><strong>B</strong></a>
  | <a href="#C"><strong>C</strong></a>
+ | <a href="#E"><strong>E</strong></a>
  | <a href="#F"><strong>F</strong></a>
  | <a href="#H"><strong>H</strong></a>
  | <a href="#I"><strong>I</strong></a>
@@ -171,12 +172,14 @@
 </li>
       <li><a href="brevitas.nn.html#brevitas.nn.quant_activation.QuantActivation.act_quant_proxy">act_quant_proxy() (brevitas.nn.quant_activation.QuantActivation property)</a>
 </li>
-      <li><a href="brevitas.proxy.html#brevitas.proxy.runtime_quant.ActivationQuantProxy">ActivationQuantProxy (class in brevitas.proxy.runtime_quant)</a>
+      <li><a href="brevitas.loss.html#brevitas.loss.weighted_bit_width.ActivationBitWidthWeightedBySize">ActivationBitWidthWeightedBySize (class in brevitas.loss.weighted_bit_width)</a>
 </li>
-      <li><a href="brevitas.proxy.html#brevitas.proxy.parameter_quant.WeightQuantProxy.add_tracked_parameter">add_tracked_parameter() (brevitas.proxy.parameter_quant.WeightQuantProxy method)</a>
+      <li><a href="brevitas.proxy.html#brevitas.proxy.runtime_quant.ActivationQuantProxy">ActivationQuantProxy (class in brevitas.proxy.runtime_quant)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="brevitas.proxy.html#brevitas.proxy.parameter_quant.WeightQuantProxy.add_tracked_parameter">add_tracked_parameter() (brevitas.proxy.parameter_quant.WeightQuantProxy method)</a>
+</li>
       <li><a href="brevitas.core.html#brevitas.core.scaling.ScalingImplType.AFFINE_STATS">AFFINE_STATS (brevitas.core.scaling.ScalingImplType attribute)</a>
 </li>
       <li><a href="brevitas.core.html#brevitas.core.scaling.AffineRescaling">AffineRescaling (class in brevitas.core.scaling)</a>
@@ -191,9 +194,31 @@
 <h2 id="B">B</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="brevitas.function.html#brevitas.function.autograd_ops.binary_sign_ste_fn.backward">backward() (brevitas.function.autograd_ops.binary_sign_ste_fn static method)</a>
+
+      <ul>
+        <li><a href="brevitas.function.html#brevitas.function.autograd_ops.ceil_ste_fn.backward">(brevitas.function.autograd_ops.ceil_ste_fn static method)</a>
+</li>
+        <li><a href="brevitas.function.html#brevitas.function.autograd_ops.floor_ste_fn.backward">(brevitas.function.autograd_ops.floor_ste_fn static method)</a>
+</li>
+        <li><a href="brevitas.function.html#brevitas.function.autograd_ops.round_ste_fn.backward">(brevitas.function.autograd_ops.round_ste_fn static method)</a>
+</li>
+        <li><a href="brevitas.function.html#brevitas.function.autograd_ops.scalar_clamp_ste_fn.backward">(brevitas.function.autograd_ops.scalar_clamp_ste_fn static method)</a>
+</li>
+        <li><a href="brevitas.function.html#brevitas.function.autograd_ops.tensor_clamp_ste_fn.backward">(brevitas.function.autograd_ops.tensor_clamp_ste_fn static method)</a>
+</li>
+        <li><a href="brevitas.function.html#brevitas.function.autograd_ops.ternary_sign_ste_fn.backward">(brevitas.function.autograd_ops.ternary_sign_ste_fn static method)</a>
+</li>
+      </ul></li>
+      <li><a href="brevitas.nn.html#brevitas.nn.quant_bn.BatchNorm2dToQuantScaleBias">BatchNorm2dToQuantScaleBias (class in brevitas.nn.quant_bn)</a>
+</li>
       <li><a href="brevitas.proxy.html#brevitas.proxy.parameter_quant.BiasQuantProxy">BiasQuantProxy (class in brevitas.proxy.parameter_quant)</a>
 </li>
       <li><a href="brevitas.core.html#brevitas.core.quant.QuantType.BINARY">BINARY (brevitas.core.quant.QuantType attribute)</a>
+</li>
+      <li><a href="brevitas.function.html#brevitas.function.ops_ste.binary_sign_ste">binary_sign_ste() (in module brevitas.function.ops_ste)</a>
+</li>
+      <li><a href="brevitas.function.html#brevitas.function.autograd_ops.binary_sign_ste_fn">binary_sign_ste_fn (class in brevitas.function.autograd_ops)</a>
 </li>
       <li><a href="brevitas.core.html#brevitas.core.quant.BinaryQuant">BinaryQuant (class in brevitas.core.quant)</a>
 </li>
@@ -202,6 +227,8 @@
       <li><a href="brevitas.core.html#brevitas.core.bit_width.BitWidthImplType">BitWidthImplType (class in brevitas.core.bit_width)</a>
 </li>
       <li><a href="brevitas.core.html#brevitas.core.bit_width.BitWidthParameter">BitWidthParameter (class in brevitas.core.bit_width)</a>
+</li>
+      <li><a href="brevitas.loss.html#brevitas.loss.weighted_bit_width.BitWidthWeighted">BitWidthWeighted (class in brevitas.loss.weighted_bit_width)</a>
 </li>
       <li><a href="brevitas.html#module-brevitas">brevitas (module)</a>
 </li>
@@ -223,13 +250,25 @@
 </li>
       <li><a href="brevitas.function.html#module-brevitas.function">brevitas.function (module)</a>
 </li>
-      <li><a href="brevitas.function.html#module-brevitas.function.ops">brevitas.function.ops (module)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="brevitas.function.html#module-brevitas.function.autograd_ops">brevitas.function.autograd_ops (module)</a>
+</li>
+      <li><a href="brevitas.function.html#module-brevitas.function.ops">brevitas.function.ops (module)</a>
+</li>
+      <li><a href="brevitas.function.html#module-brevitas.function.ops_ste">brevitas.function.ops_ste (module)</a>
+</li>
       <li><a href="brevitas.function.html#module-brevitas.function.shape">brevitas.function.shape (module)</a>
 </li>
+      <li><a href="brevitas.loss.html#module-brevitas.loss">brevitas.loss (module)</a>
+</li>
+      <li><a href="brevitas.loss.html#module-brevitas.loss.base_loss">brevitas.loss.base_loss (module)</a>
+</li>
+      <li><a href="brevitas.loss.html#module-brevitas.loss.weighted_bit_width">brevitas.loss.weighted_bit_width (module)</a>
+</li>
       <li><a href="brevitas.nn.html#module-brevitas.nn">brevitas.nn (module)</a>
+</li>
+      <li><a href="brevitas.nn.html#module-brevitas.nn.hadamard_classifier">brevitas.nn.hadamard_classifier (module)</a>
 </li>
       <li><a href="brevitas.nn.html#module-brevitas.nn.quant_accumulator">brevitas.nn.quant_accumulator (module)</a>
 </li>
@@ -245,9 +284,13 @@
 </li>
       <li><a href="brevitas.nn.html#module-brevitas.nn.quant_linear">brevitas.nn.quant_linear (module)</a>
 </li>
+      <li><a href="brevitas.nn.html#module-brevitas.nn.quant_scale_bias">brevitas.nn.quant_scale_bias (module)</a>
+</li>
       <li><a href="brevitas.proxy.html#module-brevitas.proxy">brevitas.proxy (module)</a>
 </li>
       <li><a href="brevitas.proxy.html#module-brevitas.proxy.parameter_quant">brevitas.proxy.parameter_quant (module)</a>
+</li>
+      <li><a href="brevitas.proxy.html#module-brevitas.proxy.quant_proxy">brevitas.proxy.quant_proxy (module)</a>
 </li>
       <li><a href="brevitas.proxy.html#module-brevitas.proxy.runtime_quant">brevitas.proxy.runtime_quant (module)</a>
 </li>
@@ -271,6 +314,10 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="brevitas.core.html#brevitas.core.restrict_val.FloatToIntImplType.CEIL">CEIL (brevitas.core.restrict_val.FloatToIntImplType attribute)</a>
 </li>
+      <li><a href="brevitas.function.html#brevitas.function.ops.ceil_ste">ceil_ste() (in module brevitas.function.ops)</a>
+</li>
+      <li><a href="brevitas.function.html#brevitas.function.autograd_ops.ceil_ste_fn">ceil_ste_fn (class in brevitas.function.autograd_ops)</a>
+</li>
       <li><a href="brevitas.core.html#brevitas.core.function_wrapper.CeilSte">CeilSte (class in brevitas.core.function_wrapper)</a>
 </li>
       <li><a href="brevitas.html#brevitas.quant_tensor.QuantTensor.check_input_type">check_input_type() (brevitas.quant_tensor.QuantTensor static method)</a>
@@ -279,10 +326,10 @@
 </li>
       <li><a href="brevitas.core.html#brevitas.core.function_wrapper.ClampMin">ClampMin (class in brevitas.core.function_wrapper)</a>
 </li>
-      <li><a href="brevitas.nn.html#brevitas.nn.quant_accumulator.ClampQuantAccumulator">ClampQuantAccumulator (class in brevitas.nn.quant_accumulator)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="brevitas.nn.html#brevitas.nn.quant_accumulator.ClampQuantAccumulator">ClampQuantAccumulator (class in brevitas.nn.quant_accumulator)</a>
+</li>
       <li><a href="brevitas.proxy.html#brevitas.proxy.runtime_quant.ClampQuantProxy">ClampQuantProxy (class in brevitas.proxy.runtime_quant)</a>
 </li>
       <li><a href="brevitas.core.html#brevitas.core.bit_width.BitWidthImplType.CONST">CONST (brevitas.core.bit_width.BitWidthImplType attribute)</a>
@@ -300,12 +347,24 @@
   </ul></td>
 </tr></table>
 
+<h2 id="E">E</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="brevitas.html#brevitas.config.env_to_bool">env_to_bool() (in module brevitas.config)</a>
+</li>
+  </ul></td>
+</tr></table>
+
 <h2 id="F">F</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="brevitas.core.html#brevitas.core.restrict_val.FloatToIntImplType">FloatToIntImplType (class in brevitas.core.restrict_val)</a>
 </li>
       <li><a href="brevitas.core.html#brevitas.core.restrict_val.FloatToIntImplType.FLOOR">FLOOR (brevitas.core.restrict_val.FloatToIntImplType attribute)</a>
+</li>
+      <li><a href="brevitas.function.html#brevitas.function.ops.floor_ste">floor_ste() (in module brevitas.function.ops)</a>
+</li>
+      <li><a href="brevitas.function.html#brevitas.function.autograd_ops.floor_ste_fn">floor_ste_fn (class in brevitas.function.autograd_ops)</a>
 </li>
       <li><a href="brevitas.core.html#brevitas.core.function_wrapper.FloorSte">FloorSte (class in brevitas.core.function_wrapper)</a>
 </li>
@@ -314,17 +373,35 @@
       <ul>
         <li><a href="brevitas.core.html#brevitas.core.scaling.AffineRescaling.forward">(brevitas.core.scaling.AffineRescaling method)</a>
 </li>
+        <li><a href="brevitas.function.html#brevitas.function.autograd_ops.binary_sign_ste_fn.forward">(brevitas.function.autograd_ops.binary_sign_ste_fn static method)</a>
+</li>
+        <li><a href="brevitas.function.html#brevitas.function.autograd_ops.ceil_ste_fn.forward">(brevitas.function.autograd_ops.ceil_ste_fn static method)</a>
+</li>
+        <li><a href="brevitas.function.html#brevitas.function.autograd_ops.floor_ste_fn.forward">(brevitas.function.autograd_ops.floor_ste_fn static method)</a>
+</li>
+        <li><a href="brevitas.function.html#brevitas.function.autograd_ops.round_ste_fn.forward">(brevitas.function.autograd_ops.round_ste_fn static method)</a>
+</li>
+        <li><a href="brevitas.function.html#brevitas.function.autograd_ops.scalar_clamp_ste_fn.forward">(brevitas.function.autograd_ops.scalar_clamp_ste_fn static method)</a>
+</li>
+        <li><a href="brevitas.function.html#brevitas.function.autograd_ops.tensor_clamp_ste_fn.forward">(brevitas.function.autograd_ops.tensor_clamp_ste_fn static method)</a>
+</li>
+        <li><a href="brevitas.function.html#brevitas.function.autograd_ops.ternary_sign_ste_fn.forward">(brevitas.function.autograd_ops.ternary_sign_ste_fn static method)</a>
+</li>
+        <li><a href="brevitas.nn.html#brevitas.nn.hadamard_classifier.HadamardClassifier.forward">(brevitas.nn.hadamard_classifier.HadamardClassifier method)</a>
+</li>
         <li><a href="brevitas.nn.html#brevitas.nn.quant_accumulator.QuantAccumulator.forward">(brevitas.nn.quant_accumulator.QuantAccumulator method)</a>
 </li>
         <li><a href="brevitas.nn.html#brevitas.nn.quant_activation.QuantActivation.forward">(brevitas.nn.quant_activation.QuantActivation method)</a>
 </li>
         <li><a href="brevitas.nn.html#brevitas.nn.quant_avg_pool.QuantAvgPool2d.forward">(brevitas.nn.quant_avg_pool.QuantAvgPool2d method)</a>
 </li>
-        <li><a href="brevitas.nn.html#brevitas.nn.quant_bn.QuantBatchNorm2d.forward">(brevitas.nn.quant_bn.QuantBatchNorm2d method)</a>
-</li>
         <li><a href="brevitas.nn.html#brevitas.nn.quant_conv.QuantConv2d.forward">(brevitas.nn.quant_conv.QuantConv2d method)</a>
 </li>
         <li><a href="brevitas.nn.html#brevitas.nn.quant_linear.QuantLinear.forward">(brevitas.nn.quant_linear.QuantLinear method)</a>
+</li>
+        <li><a href="brevitas.nn.html#brevitas.nn.quant_scale_bias.QuantScaleBias.forward">(brevitas.nn.quant_scale_bias.QuantScaleBias method)</a>
+</li>
+        <li><a href="brevitas.nn.html#brevitas.nn.quant_scale_bias.ScaleBias.forward">(brevitas.nn.quant_scale_bias.ScaleBias method)</a>
 </li>
         <li><a href="brevitas.proxy.html#brevitas.proxy.parameter_quant.BiasQuantProxy.forward">(brevitas.proxy.parameter_quant.BiasQuantProxy method)</a>
 </li>
@@ -355,6 +432,8 @@
 <h2 id="H">H</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="brevitas.nn.html#brevitas.nn.hadamard_classifier.HadamardClassifier">HadamardClassifier (class in brevitas.nn.hadamard_classifier)</a>
+</li>
       <li><a href="brevitas.utils.html#brevitas.utils.quant_utils.has_learned_activation_bit_width">has_learned_activation_bit_width() (in module brevitas.utils.quant_utils)</a>
 </li>
   </ul></td>
@@ -395,14 +474,20 @@
 <h2 id="L">L</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="brevitas.loss.html#brevitas.loss.base_loss.SimpleBaseLoss.log">log() (brevitas.loss.base_loss.SimpleBaseLoss method)</a>
+
+      <ul>
+        <li><a href="brevitas.loss.html#brevitas.loss.weighted_bit_width.BitWidthWeighted.log">(brevitas.loss.weighted_bit_width.BitWidthWeighted method)</a>
+</li>
+      </ul></li>
       <li><a href="brevitas.core.html#brevitas.core.restrict_val.RestrictValueType.LOG_FP">LOG_FP (brevitas.core.restrict_val.RestrictValueType attribute)</a>
 </li>
       <li><a href="brevitas.utils.html#brevitas.utils.logging.LogActivationBitWidth">LogActivationBitWidth (class in brevitas.utils.logging)</a>
 </li>
-      <li><a href="brevitas.utils.html#brevitas.utils.logging.LogBitWidth">LogBitWidth (class in brevitas.utils.logging)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="brevitas.utils.html#brevitas.utils.logging.LogBitWidth">LogBitWidth (class in brevitas.utils.logging)</a>
+</li>
       <li><a href="brevitas.core.html#brevitas.core.function_wrapper.LogTwo">LogTwo (class in brevitas.core.function_wrapper)</a>
 </li>
       <li><a href="brevitas.utils.html#brevitas.utils.logging.LogWeightBitWidth">LogWeightBitWidth (class in brevitas.utils.logging)</a>
@@ -421,9 +506,13 @@
 </li>
       <li><a href="brevitas.core.html#brevitas.core.stats.StatsOp.MAX_AVE">MAX_AVE (brevitas.core.stats.StatsOp attribute)</a>
 </li>
-      <li><a href="brevitas.nn.html#brevitas.nn.quant_avg_pool.QuantAvgPool2d.max_output_bit_width">max_output_bit_width() (brevitas.nn.quant_avg_pool.QuantAvgPool2d method)</a>
+      <li><a href="brevitas.function.html#brevitas.function.ops_ste.max_int">max_int() (in module brevitas.function.ops_ste)</a>
+</li>
+      <li><a href="brevitas.nn.html#brevitas.nn.hadamard_classifier.HadamardClassifier.max_output_bit_width">max_output_bit_width() (brevitas.nn.hadamard_classifier.HadamardClassifier method)</a>
 
       <ul>
+        <li><a href="brevitas.nn.html#brevitas.nn.quant_avg_pool.QuantAvgPool2d.max_output_bit_width">(brevitas.nn.quant_avg_pool.QuantAvgPool2d method)</a>
+</li>
         <li><a href="brevitas.nn.html#brevitas.nn.quant_conv.QuantConv2d.max_output_bit_width">(brevitas.nn.quant_conv.QuantConv2d method)</a>
 </li>
         <li><a href="brevitas.nn.html#brevitas.nn.quant_linear.QuantLinear.max_output_bit_width">(brevitas.nn.quant_linear.QuantLinear method)</a>
@@ -431,13 +520,19 @@
       </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="brevitas.function.html#brevitas.function.ops_ste.max_uint">max_uint() (in module brevitas.function.ops_ste)</a>
+</li>
       <li><a href="brevitas.core.html#brevitas.core.stats.StatsOp.MEAN_LEARN_SIGMA_STD">MEAN_LEARN_SIGMA_STD (brevitas.core.stats.StatsOp attribute)</a>
 </li>
       <li><a href="brevitas.core.html#brevitas.core.stats.StatsOp.MEAN_SIGMA_STD">MEAN_SIGMA_STD (brevitas.core.stats.StatsOp attribute)</a>
 </li>
       <li><a href="brevitas.nn.html#brevitas.nn.quant_conv.QuantConv2d.merge_bn_in">merge_bn_in() (brevitas.nn.quant_conv.QuantConv2d method)</a>
 </li>
+      <li><a href="brevitas.function.html#brevitas.function.ops_ste.min_int">min_int() (in module brevitas.function.ops_ste)</a>
+</li>
       <li><a href="brevitas.core.html#brevitas.core.bit_width.MsbClampParameterBitWidth">MsbClampParameterBitWidth (class in brevitas.core.bit_width)</a>
+</li>
+      <li><a href="brevitas.nn.html#brevitas.nn.quant_bn.mul_add_from_bn">mul_add_from_bn() (in module brevitas.nn.quant_bn)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -509,7 +604,7 @@
 <h2 id="Q">Q</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="brevitas.nn.html#brevitas.nn.quant_activation.QuantActivation.quant_act_scale">quant_act_scale() (brevitas.nn.quant_activation.QuantActivation property)</a>
+      <li><a href="brevitas.nn.html#brevitas.nn.quant_activation.QuantActivation.quant_act_scale">quant_act_scale() (brevitas.nn.quant_activation.QuantActivation method)</a>
 </li>
       <li><a href="brevitas.nn.html#brevitas.nn.quant_conv.QuantConv2d.quant_weight_scale">quant_weight_scale() (brevitas.nn.quant_conv.QuantConv2d property)</a>
 
@@ -523,19 +618,23 @@
 </li>
       <li><a href="brevitas.nn.html#brevitas.nn.quant_avg_pool.QuantAvgPool2d">QuantAvgPool2d (class in brevitas.nn.quant_avg_pool)</a>
 </li>
-      <li><a href="brevitas.nn.html#brevitas.nn.quant_bn.QuantBatchNorm2d">QuantBatchNorm2d (class in brevitas.nn.quant_bn)</a>
-</li>
       <li><a href="brevitas.nn.html#brevitas.nn.quant_conv.QuantConv2d">QuantConv2d (class in brevitas.nn.quant_conv)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="brevitas.nn.html#brevitas.nn.quant_activation.QuantHardTanh">QuantHardTanh (class in brevitas.nn.quant_activation)</a>
 </li>
       <li><a href="brevitas.nn.html#brevitas.nn.quant_layer.QuantLayer">QuantLayer (class in brevitas.nn.quant_layer)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="brevitas.loss.html#brevitas.loss.weighted_bit_width.QuantLayerOutputBitWidthWeightedByOps">QuantLayerOutputBitWidthWeightedByOps (class in brevitas.loss.weighted_bit_width)</a>
+</li>
       <li><a href="brevitas.nn.html#brevitas.nn.quant_linear.QuantLinear">QuantLinear (class in brevitas.nn.quant_linear)</a>
 </li>
+      <li><a href="brevitas.proxy.html#brevitas.proxy.quant_proxy.QuantProxy">QuantProxy (class in brevitas.proxy.quant_proxy)</a>
+</li>
       <li><a href="brevitas.nn.html#brevitas.nn.quant_activation.QuantReLU">QuantReLU (class in brevitas.nn.quant_activation)</a>
+</li>
+      <li><a href="brevitas.nn.html#brevitas.nn.quant_scale_bias.QuantScaleBias">QuantScaleBias (class in brevitas.nn.quant_scale_bias)</a>
 </li>
       <li><a href="brevitas.nn.html#brevitas.nn.quant_activation.QuantSigmoid">QuantSigmoid (class in brevitas.nn.quant_activation)</a>
 </li>
@@ -553,9 +652,19 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="brevitas.proxy.html#brevitas.proxy.parameter_quant.WeightQuantProxy.re_init_tensor_quant">re_init_tensor_quant() (brevitas.proxy.parameter_quant.WeightQuantProxy method)</a>
 </li>
-      <li><a href="brevitas.utils.html#brevitas.utils.logging.LogActivationBitWidth.register_hooks">register_hooks() (brevitas.utils.logging.LogActivationBitWidth method)</a>
+      <li><a href="brevitas.loss.html#brevitas.loss.base_loss.SimpleBaseLoss.register_hooks">register_hooks() (brevitas.loss.base_loss.SimpleBaseLoss method)</a>
 
       <ul>
+        <li><a href="brevitas.loss.html#brevitas.loss.weighted_bit_width.ActivationBitWidthWeightedBySize.register_hooks">(brevitas.loss.weighted_bit_width.ActivationBitWidthWeightedBySize method)</a>
+</li>
+        <li><a href="brevitas.loss.html#brevitas.loss.weighted_bit_width.BitWidthWeighted.register_hooks">(brevitas.loss.weighted_bit_width.BitWidthWeighted method)</a>
+</li>
+        <li><a href="brevitas.loss.html#brevitas.loss.weighted_bit_width.QuantLayerOutputBitWidthWeightedByOps.register_hooks">(brevitas.loss.weighted_bit_width.QuantLayerOutputBitWidthWeightedByOps method)</a>
+</li>
+        <li><a href="brevitas.loss.html#brevitas.loss.weighted_bit_width.WeightBitWidthWeightedBySize.register_hooks">(brevitas.loss.weighted_bit_width.WeightBitWidthWeightedBySize method)</a>
+</li>
+        <li><a href="brevitas.utils.html#brevitas.utils.logging.LogActivationBitWidth.register_hooks">(brevitas.utils.logging.LogActivationBitWidth method)</a>
+</li>
         <li><a href="brevitas.utils.html#brevitas.utils.logging.LogBitWidth.register_hooks">(brevitas.utils.logging.LogBitWidth method)</a>
 </li>
         <li><a href="brevitas.utils.html#brevitas.utils.logging.LogWeightBitWidth.register_hooks">(brevitas.utils.logging.LogWeightBitWidth method)</a>
@@ -575,7 +684,17 @@
 </li>
       <li><a href="brevitas.core.html#brevitas.core.restrict_val.RestrictValueType">RestrictValueType (class in brevitas.core.restrict_val)</a>
 </li>
+      <li><a href="brevitas.loss.html#brevitas.loss.base_loss.SimpleBaseLoss.retrieve">retrieve() (brevitas.loss.base_loss.SimpleBaseLoss method)</a>
+
+      <ul>
+        <li><a href="brevitas.loss.html#brevitas.loss.weighted_bit_width.BitWidthWeighted.retrieve">(brevitas.loss.weighted_bit_width.BitWidthWeighted method)</a>
+</li>
+      </ul></li>
       <li><a href="brevitas.core.html#brevitas.core.restrict_val.FloatToIntImplType.ROUND">ROUND (brevitas.core.restrict_val.FloatToIntImplType attribute)</a>
+</li>
+      <li><a href="brevitas.function.html#brevitas.function.ops_ste.round_ste">round_ste() (in module brevitas.function.ops_ste)</a>
+</li>
+      <li><a href="brevitas.function.html#brevitas.function.autograd_ops.round_ste_fn">round_ste_fn (class in brevitas.function.autograd_ops)</a>
 </li>
       <li><a href="brevitas.core.html#brevitas.core.function_wrapper.RoundSte">RoundSte (class in brevitas.core.function_wrapper)</a>
 </li>
@@ -587,19 +706,31 @@
 <h2 id="S">S</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="brevitas.function.html#brevitas.function.ops_ste.scalar_clamp_ste">scalar_clamp_ste() (in module brevitas.function.ops_ste)</a>
+</li>
+      <li><a href="brevitas.function.html#brevitas.function.autograd_ops.scalar_clamp_ste_fn">scalar_clamp_ste_fn (class in brevitas.function.autograd_ops)</a>
+</li>
+      <li><a href="brevitas.nn.html#brevitas.nn.quant_scale_bias.ScaleBias">ScaleBias (class in brevitas.nn.quant_scale_bias)</a>
+</li>
       <li><a href="brevitas.core.html#brevitas.core.quant.RescalingIntQuant.scaling_init_from_min_max">scaling_init_from_min_max() (brevitas.core.quant.RescalingIntQuant static method)</a>
 </li>
       <li><a href="brevitas.core.html#brevitas.core.scaling.ScalingImplType">ScalingImplType (class in brevitas.core.scaling)</a>
 </li>
       <li><a href="brevitas.core.html#brevitas.core.scaling.SignedFpIntScale">SignedFpIntScale (class in brevitas.core.scaling)</a>
 </li>
-      <li><a href="brevitas.core.html#brevitas.core.scaling.StandaloneScaling">StandaloneScaling (class in brevitas.core.scaling)</a>
+      <li><a href="brevitas.loss.html#brevitas.loss.base_loss.SimpleBaseLoss">SimpleBaseLoss (class in brevitas.loss.base_loss)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="brevitas.core.html#brevitas.core.scaling.ScalingImplType.STATS">STATS (brevitas.core.scaling.ScalingImplType attribute)</a>
+      <li><a href="brevitas.core.html#brevitas.core.scaling.StandaloneScaling">StandaloneScaling (class in brevitas.core.scaling)</a>
 </li>
-      <li><a href="brevitas.nn.html#brevitas.nn.quant_bn.QuantBatchNorm2d.stats">stats() (brevitas.nn.quant_bn.QuantBatchNorm2d method)</a>
+      <li><a href="brevitas.nn.html#brevitas.nn.hadamard_classifier.HadamardClassifier.state_dict">state_dict() (brevitas.nn.hadamard_classifier.HadamardClassifier method)</a>
+
+      <ul>
+        <li><a href="brevitas.proxy.html#brevitas.proxy.quant_proxy.QuantProxy.state_dict">(brevitas.proxy.quant_proxy.QuantProxy method)</a>
+</li>
+      </ul></li>
+      <li><a href="brevitas.core.html#brevitas.core.scaling.ScalingImplType.STATS">STATS (brevitas.core.scaling.ScalingImplType attribute)</a>
 </li>
       <li><a href="brevitas.core.html#brevitas.core.stats.StatsInputViewShapeImpl">StatsInputViewShapeImpl (class in brevitas.core.stats)</a>
 </li>
@@ -613,16 +744,26 @@
 <h2 id="T">T</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="brevitas.function.html#brevitas.function.ops.tensor_clamp">tensor_clamp() (in module brevitas.function.ops)</a>
+</li>
+      <li><a href="brevitas.function.html#brevitas.function.ops_ste.tensor_clamp_ste">tensor_clamp_ste() (in module brevitas.function.ops_ste)</a>
+</li>
+      <li><a href="brevitas.function.html#brevitas.function.autograd_ops.tensor_clamp_ste_fn">tensor_clamp_ste_fn (class in brevitas.function.autograd_ops)</a>
+</li>
       <li><a href="brevitas.core.html#brevitas.core.function_wrapper.TensorClamp">TensorClamp (class in brevitas.core.function_wrapper)</a>
 </li>
       <li><a href="brevitas.core.html#brevitas.core.function_wrapper.TensorClampSte">TensorClampSte (class in brevitas.core.function_wrapper)</a>
 </li>
       <li><a href="brevitas.core.html#brevitas.core.quant.QuantType.TERNARY">TERNARY (brevitas.core.quant.QuantType attribute)</a>
 </li>
-      <li><a href="brevitas.core.html#brevitas.core.quant.TernaryQuant">TernaryQuant (class in brevitas.core.quant)</a>
+      <li><a href="brevitas.function.html#brevitas.function.ops_ste.ternary_sign_ste">ternary_sign_ste() (in module brevitas.function.ops_ste)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="brevitas.function.html#brevitas.function.autograd_ops.ternary_sign_ste_fn">ternary_sign_ste_fn (class in brevitas.function.autograd_ops)</a>
+</li>
+      <li><a href="brevitas.core.html#brevitas.core.quant.TernaryQuant">TernaryQuant (class in brevitas.core.quant)</a>
+</li>
       <li><a href="brevitas.core.html#brevitas.core.restrict_val.RestrictValueOpImplType.TORCH_FN">TORCH_FN (brevitas.core.restrict_val.RestrictValueOpImplType attribute)</a>
 </li>
       <li><a href="brevitas.core.html#brevitas.core.restrict_val.RestrictValueOpImplType.TORCH_MODULE">TORCH_MODULE (brevitas.core.restrict_val.RestrictValueOpImplType attribute)</a>
@@ -651,6 +792,10 @@
 <h2 id="W">W</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="brevitas.loss.html#brevitas.loss.weighted_bit_width.WeightBitWidthWeightedBySize">WeightBitWidthWeightedBySize (class in brevitas.loss.weighted_bit_width)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="brevitas.proxy.html#brevitas.proxy.parameter_quant.WeightQuantProxy">WeightQuantProxy (class in brevitas.proxy.parameter_quant)</a>
 </li>
   </ul></td>
@@ -658,6 +803,14 @@
 
 <h2 id="Z">Z</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="brevitas.loss.html#brevitas.loss.base_loss.SimpleBaseLoss.zero_accumulated_values">zero_accumulated_values() (brevitas.loss.base_loss.SimpleBaseLoss method)</a>
+
+      <ul>
+        <li><a href="brevitas.loss.html#brevitas.loss.weighted_bit_width.BitWidthWeighted.zero_accumulated_values">(brevitas.loss.weighted_bit_width.BitWidthWeighted method)</a>
+</li>
+      </ul></li>
+  </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="brevitas.core.html#brevitas.core.bit_width.ZeroLsbTruncBitWidth">ZeroLsbTruncBitWidth (class in brevitas.core.bit_width)</a>
 </li>

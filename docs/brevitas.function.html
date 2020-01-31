@@ -82,7 +82,9 @@
               <div class="local-toc"><ul>
 <li><a class="reference internal" href="#">brevitas.function package</a><ul>
 <li><a class="reference internal" href="#submodules">Submodules</a></li>
+<li><a class="reference internal" href="#module-brevitas.function.autograd_ops">brevitas.function.autograd_ops module</a></li>
 <li><a class="reference internal" href="#module-brevitas.function.ops">brevitas.function.ops module</a></li>
+<li><a class="reference internal" href="#module-brevitas.function.ops_ste">brevitas.function.ops_ste module</a></li>
 <li><a class="reference internal" href="#module-brevitas.function.shape">brevitas.function.shape module</a></li>
 <li><a class="reference internal" href="#module-brevitas.function">Module contents</a></li>
 </ul>
@@ -156,8 +158,324 @@
 <div class="section" id="submodules">
 <h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
 </div>
+<div class="section" id="module-brevitas.function.autograd_ops">
+<span id="brevitas-function-autograd-ops-module"></span><h2>brevitas.function.autograd_ops module<a class="headerlink" href="#module-brevitas.function.autograd_ops" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="brevitas.function.autograd_ops.binary_sign_ste_fn">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.function.autograd_ops.</code><code class="sig-name descname">binary_sign_ste_fn</code><a class="headerlink" href="#brevitas.function.autograd_ops.binary_sign_ste_fn" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.autograd.function.Function</span></code></p>
+<dl class="method">
+<dt id="brevitas.function.autograd_ops.binary_sign_ste_fn.backward">
+<em class="property">static </em><code class="sig-name descname">backward</code><span class="sig-paren">(</span><em class="sig-param">ctx</em>, <em class="sig-param">grad_y</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.autograd_ops.binary_sign_ste_fn.backward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Defines a formula for differentiating the operation.</p>
+<p>This function is to be overridden by all subclasses.</p>
+<p>It must accept a context <code class="xref py py-attr docutils literal notranslate"><span class="pre">ctx</span></code> as the first argument, followed by
+as many outputs did <a class="reference internal" href="#brevitas.function.autograd_ops.binary_sign_ste_fn.forward" title="brevitas.function.autograd_ops.binary_sign_ste_fn.forward"><code class="xref py py-func docutils literal notranslate"><span class="pre">forward()</span></code></a> return, and it should return as many
+tensors, as there were inputs to <a class="reference internal" href="#brevitas.function.autograd_ops.binary_sign_ste_fn.forward" title="brevitas.function.autograd_ops.binary_sign_ste_fn.forward"><code class="xref py py-func docutils literal notranslate"><span class="pre">forward()</span></code></a>. Each argument is the
+gradient w.r.t the given output, and each returned value should be the
+gradient w.r.t. the corresponding input.</p>
+<p>The context can be used to retrieve tensors saved during the forward
+pass. It also has an attribute <code class="xref py py-attr docutils literal notranslate"><span class="pre">ctx.needs_input_grad</span></code> as a tuple
+of booleans representing whether each input needs gradient. E.g.,
+<a class="reference internal" href="#brevitas.function.autograd_ops.binary_sign_ste_fn.backward" title="brevitas.function.autograd_ops.binary_sign_ste_fn.backward"><code class="xref py py-func docutils literal notranslate"><span class="pre">backward()</span></code></a> will have <code class="docutils literal notranslate"><span class="pre">ctx.needs_input_grad[0]</span> <span class="pre">=</span> <span class="pre">True</span></code> if the
+first input to <a class="reference internal" href="#brevitas.function.autograd_ops.binary_sign_ste_fn.forward" title="brevitas.function.autograd_ops.binary_sign_ste_fn.forward"><code class="xref py py-func docutils literal notranslate"><span class="pre">forward()</span></code></a> needs gradient computated w.r.t. the
+output.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="brevitas.function.autograd_ops.binary_sign_ste_fn.forward">
+<em class="property">static </em><code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">ctx</em>, <em class="sig-param">x</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.autograd_ops.binary_sign_ste_fn.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Performs the operation.</p>
+<p>This function is to be overridden by all subclasses.</p>
+<p>It must accept a context ctx as the first argument, followed by any
+number of arguments (tensors or other types).</p>
+<p>The context can be used to store tensors that can be then retrieved
+during the backward pass.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="brevitas.function.autograd_ops.ceil_ste_fn">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.function.autograd_ops.</code><code class="sig-name descname">ceil_ste_fn</code><a class="headerlink" href="#brevitas.function.autograd_ops.ceil_ste_fn" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.autograd.function.Function</span></code></p>
+<dl class="method">
+<dt id="brevitas.function.autograd_ops.ceil_ste_fn.backward">
+<em class="property">static </em><code class="sig-name descname">backward</code><span class="sig-paren">(</span><em class="sig-param">ctx</em>, <em class="sig-param">grad_y</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.autograd_ops.ceil_ste_fn.backward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Defines a formula for differentiating the operation.</p>
+<p>This function is to be overridden by all subclasses.</p>
+<p>It must accept a context <code class="xref py py-attr docutils literal notranslate"><span class="pre">ctx</span></code> as the first argument, followed by
+as many outputs did <a class="reference internal" href="#brevitas.function.autograd_ops.ceil_ste_fn.forward" title="brevitas.function.autograd_ops.ceil_ste_fn.forward"><code class="xref py py-func docutils literal notranslate"><span class="pre">forward()</span></code></a> return, and it should return as many
+tensors, as there were inputs to <a class="reference internal" href="#brevitas.function.autograd_ops.ceil_ste_fn.forward" title="brevitas.function.autograd_ops.ceil_ste_fn.forward"><code class="xref py py-func docutils literal notranslate"><span class="pre">forward()</span></code></a>. Each argument is the
+gradient w.r.t the given output, and each returned value should be the
+gradient w.r.t. the corresponding input.</p>
+<p>The context can be used to retrieve tensors saved during the forward
+pass. It also has an attribute <code class="xref py py-attr docutils literal notranslate"><span class="pre">ctx.needs_input_grad</span></code> as a tuple
+of booleans representing whether each input needs gradient. E.g.,
+<a class="reference internal" href="#brevitas.function.autograd_ops.ceil_ste_fn.backward" title="brevitas.function.autograd_ops.ceil_ste_fn.backward"><code class="xref py py-func docutils literal notranslate"><span class="pre">backward()</span></code></a> will have <code class="docutils literal notranslate"><span class="pre">ctx.needs_input_grad[0]</span> <span class="pre">=</span> <span class="pre">True</span></code> if the
+first input to <a class="reference internal" href="#brevitas.function.autograd_ops.ceil_ste_fn.forward" title="brevitas.function.autograd_ops.ceil_ste_fn.forward"><code class="xref py py-func docutils literal notranslate"><span class="pre">forward()</span></code></a> needs gradient computated w.r.t. the
+output.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="brevitas.function.autograd_ops.ceil_ste_fn.forward">
+<em class="property">static </em><code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">ctx</em>, <em class="sig-param">x</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.autograd_ops.ceil_ste_fn.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Performs the operation.</p>
+<p>This function is to be overridden by all subclasses.</p>
+<p>It must accept a context ctx as the first argument, followed by any
+number of arguments (tensors or other types).</p>
+<p>The context can be used to store tensors that can be then retrieved
+during the backward pass.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="brevitas.function.autograd_ops.floor_ste_fn">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.function.autograd_ops.</code><code class="sig-name descname">floor_ste_fn</code><a class="headerlink" href="#brevitas.function.autograd_ops.floor_ste_fn" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.autograd.function.Function</span></code></p>
+<dl class="method">
+<dt id="brevitas.function.autograd_ops.floor_ste_fn.backward">
+<em class="property">static </em><code class="sig-name descname">backward</code><span class="sig-paren">(</span><em class="sig-param">ctx</em>, <em class="sig-param">grad_y</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.autograd_ops.floor_ste_fn.backward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Defines a formula for differentiating the operation.</p>
+<p>This function is to be overridden by all subclasses.</p>
+<p>It must accept a context <code class="xref py py-attr docutils literal notranslate"><span class="pre">ctx</span></code> as the first argument, followed by
+as many outputs did <a class="reference internal" href="#brevitas.function.autograd_ops.floor_ste_fn.forward" title="brevitas.function.autograd_ops.floor_ste_fn.forward"><code class="xref py py-func docutils literal notranslate"><span class="pre">forward()</span></code></a> return, and it should return as many
+tensors, as there were inputs to <a class="reference internal" href="#brevitas.function.autograd_ops.floor_ste_fn.forward" title="brevitas.function.autograd_ops.floor_ste_fn.forward"><code class="xref py py-func docutils literal notranslate"><span class="pre">forward()</span></code></a>. Each argument is the
+gradient w.r.t the given output, and each returned value should be the
+gradient w.r.t. the corresponding input.</p>
+<p>The context can be used to retrieve tensors saved during the forward
+pass. It also has an attribute <code class="xref py py-attr docutils literal notranslate"><span class="pre">ctx.needs_input_grad</span></code> as a tuple
+of booleans representing whether each input needs gradient. E.g.,
+<a class="reference internal" href="#brevitas.function.autograd_ops.floor_ste_fn.backward" title="brevitas.function.autograd_ops.floor_ste_fn.backward"><code class="xref py py-func docutils literal notranslate"><span class="pre">backward()</span></code></a> will have <code class="docutils literal notranslate"><span class="pre">ctx.needs_input_grad[0]</span> <span class="pre">=</span> <span class="pre">True</span></code> if the
+first input to <a class="reference internal" href="#brevitas.function.autograd_ops.floor_ste_fn.forward" title="brevitas.function.autograd_ops.floor_ste_fn.forward"><code class="xref py py-func docutils literal notranslate"><span class="pre">forward()</span></code></a> needs gradient computated w.r.t. the
+output.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="brevitas.function.autograd_ops.floor_ste_fn.forward">
+<em class="property">static </em><code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">ctx</em>, <em class="sig-param">x</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.autograd_ops.floor_ste_fn.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Performs the operation.</p>
+<p>This function is to be overridden by all subclasses.</p>
+<p>It must accept a context ctx as the first argument, followed by any
+number of arguments (tensors or other types).</p>
+<p>The context can be used to store tensors that can be then retrieved
+during the backward pass.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="brevitas.function.autograd_ops.round_ste_fn">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.function.autograd_ops.</code><code class="sig-name descname">round_ste_fn</code><a class="headerlink" href="#brevitas.function.autograd_ops.round_ste_fn" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.autograd.function.Function</span></code></p>
+<dl class="method">
+<dt id="brevitas.function.autograd_ops.round_ste_fn.backward">
+<em class="property">static </em><code class="sig-name descname">backward</code><span class="sig-paren">(</span><em class="sig-param">ctx</em>, <em class="sig-param">grad_y</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.autograd_ops.round_ste_fn.backward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Defines a formula for differentiating the operation.</p>
+<p>This function is to be overridden by all subclasses.</p>
+<p>It must accept a context <code class="xref py py-attr docutils literal notranslate"><span class="pre">ctx</span></code> as the first argument, followed by
+as many outputs did <a class="reference internal" href="#brevitas.function.autograd_ops.round_ste_fn.forward" title="brevitas.function.autograd_ops.round_ste_fn.forward"><code class="xref py py-func docutils literal notranslate"><span class="pre">forward()</span></code></a> return, and it should return as many
+tensors, as there were inputs to <a class="reference internal" href="#brevitas.function.autograd_ops.round_ste_fn.forward" title="brevitas.function.autograd_ops.round_ste_fn.forward"><code class="xref py py-func docutils literal notranslate"><span class="pre">forward()</span></code></a>. Each argument is the
+gradient w.r.t the given output, and each returned value should be the
+gradient w.r.t. the corresponding input.</p>
+<p>The context can be used to retrieve tensors saved during the forward
+pass. It also has an attribute <code class="xref py py-attr docutils literal notranslate"><span class="pre">ctx.needs_input_grad</span></code> as a tuple
+of booleans representing whether each input needs gradient. E.g.,
+<a class="reference internal" href="#brevitas.function.autograd_ops.round_ste_fn.backward" title="brevitas.function.autograd_ops.round_ste_fn.backward"><code class="xref py py-func docutils literal notranslate"><span class="pre">backward()</span></code></a> will have <code class="docutils literal notranslate"><span class="pre">ctx.needs_input_grad[0]</span> <span class="pre">=</span> <span class="pre">True</span></code> if the
+first input to <a class="reference internal" href="#brevitas.function.autograd_ops.round_ste_fn.forward" title="brevitas.function.autograd_ops.round_ste_fn.forward"><code class="xref py py-func docutils literal notranslate"><span class="pre">forward()</span></code></a> needs gradient computated w.r.t. the
+output.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="brevitas.function.autograd_ops.round_ste_fn.forward">
+<em class="property">static </em><code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">ctx</em>, <em class="sig-param">x</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.autograd_ops.round_ste_fn.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Performs the operation.</p>
+<p>This function is to be overridden by all subclasses.</p>
+<p>It must accept a context ctx as the first argument, followed by any
+number of arguments (tensors or other types).</p>
+<p>The context can be used to store tensors that can be then retrieved
+during the backward pass.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="brevitas.function.autograd_ops.scalar_clamp_ste_fn">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.function.autograd_ops.</code><code class="sig-name descname">scalar_clamp_ste_fn</code><a class="headerlink" href="#brevitas.function.autograd_ops.scalar_clamp_ste_fn" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.autograd.function.Function</span></code></p>
+<dl class="method">
+<dt id="brevitas.function.autograd_ops.scalar_clamp_ste_fn.backward">
+<em class="property">static </em><code class="sig-name descname">backward</code><span class="sig-paren">(</span><em class="sig-param">ctx</em>, <em class="sig-param">grad_y</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.autograd_ops.scalar_clamp_ste_fn.backward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Defines a formula for differentiating the operation.</p>
+<p>This function is to be overridden by all subclasses.</p>
+<p>It must accept a context <code class="xref py py-attr docutils literal notranslate"><span class="pre">ctx</span></code> as the first argument, followed by
+as many outputs did <a class="reference internal" href="#brevitas.function.autograd_ops.scalar_clamp_ste_fn.forward" title="brevitas.function.autograd_ops.scalar_clamp_ste_fn.forward"><code class="xref py py-func docutils literal notranslate"><span class="pre">forward()</span></code></a> return, and it should return as many
+tensors, as there were inputs to <a class="reference internal" href="#brevitas.function.autograd_ops.scalar_clamp_ste_fn.forward" title="brevitas.function.autograd_ops.scalar_clamp_ste_fn.forward"><code class="xref py py-func docutils literal notranslate"><span class="pre">forward()</span></code></a>. Each argument is the
+gradient w.r.t the given output, and each returned value should be the
+gradient w.r.t. the corresponding input.</p>
+<p>The context can be used to retrieve tensors saved during the forward
+pass. It also has an attribute <code class="xref py py-attr docutils literal notranslate"><span class="pre">ctx.needs_input_grad</span></code> as a tuple
+of booleans representing whether each input needs gradient. E.g.,
+<a class="reference internal" href="#brevitas.function.autograd_ops.scalar_clamp_ste_fn.backward" title="brevitas.function.autograd_ops.scalar_clamp_ste_fn.backward"><code class="xref py py-func docutils literal notranslate"><span class="pre">backward()</span></code></a> will have <code class="docutils literal notranslate"><span class="pre">ctx.needs_input_grad[0]</span> <span class="pre">=</span> <span class="pre">True</span></code> if the
+first input to <a class="reference internal" href="#brevitas.function.autograd_ops.scalar_clamp_ste_fn.forward" title="brevitas.function.autograd_ops.scalar_clamp_ste_fn.forward"><code class="xref py py-func docutils literal notranslate"><span class="pre">forward()</span></code></a> needs gradient computated w.r.t. the
+output.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="brevitas.function.autograd_ops.scalar_clamp_ste_fn.forward">
+<em class="property">static </em><code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">ctx</em>, <em class="sig-param">x</em>, <em class="sig-param">min_val</em>, <em class="sig-param">max_val</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.autograd_ops.scalar_clamp_ste_fn.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Performs the operation.</p>
+<p>This function is to be overridden by all subclasses.</p>
+<p>It must accept a context ctx as the first argument, followed by any
+number of arguments (tensors or other types).</p>
+<p>The context can be used to store tensors that can be then retrieved
+during the backward pass.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="brevitas.function.autograd_ops.tensor_clamp_ste_fn">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.function.autograd_ops.</code><code class="sig-name descname">tensor_clamp_ste_fn</code><a class="headerlink" href="#brevitas.function.autograd_ops.tensor_clamp_ste_fn" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.autograd.function.Function</span></code></p>
+<dl class="method">
+<dt id="brevitas.function.autograd_ops.tensor_clamp_ste_fn.backward">
+<em class="property">static </em><code class="sig-name descname">backward</code><span class="sig-paren">(</span><em class="sig-param">ctx</em>, <em class="sig-param">grad_y</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.autograd_ops.tensor_clamp_ste_fn.backward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Defines a formula for differentiating the operation.</p>
+<p>This function is to be overridden by all subclasses.</p>
+<p>It must accept a context <code class="xref py py-attr docutils literal notranslate"><span class="pre">ctx</span></code> as the first argument, followed by
+as many outputs did <a class="reference internal" href="#brevitas.function.autograd_ops.tensor_clamp_ste_fn.forward" title="brevitas.function.autograd_ops.tensor_clamp_ste_fn.forward"><code class="xref py py-func docutils literal notranslate"><span class="pre">forward()</span></code></a> return, and it should return as many
+tensors, as there were inputs to <a class="reference internal" href="#brevitas.function.autograd_ops.tensor_clamp_ste_fn.forward" title="brevitas.function.autograd_ops.tensor_clamp_ste_fn.forward"><code class="xref py py-func docutils literal notranslate"><span class="pre">forward()</span></code></a>. Each argument is the
+gradient w.r.t the given output, and each returned value should be the
+gradient w.r.t. the corresponding input.</p>
+<p>The context can be used to retrieve tensors saved during the forward
+pass. It also has an attribute <code class="xref py py-attr docutils literal notranslate"><span class="pre">ctx.needs_input_grad</span></code> as a tuple
+of booleans representing whether each input needs gradient. E.g.,
+<a class="reference internal" href="#brevitas.function.autograd_ops.tensor_clamp_ste_fn.backward" title="brevitas.function.autograd_ops.tensor_clamp_ste_fn.backward"><code class="xref py py-func docutils literal notranslate"><span class="pre">backward()</span></code></a> will have <code class="docutils literal notranslate"><span class="pre">ctx.needs_input_grad[0]</span> <span class="pre">=</span> <span class="pre">True</span></code> if the
+first input to <a class="reference internal" href="#brevitas.function.autograd_ops.tensor_clamp_ste_fn.forward" title="brevitas.function.autograd_ops.tensor_clamp_ste_fn.forward"><code class="xref py py-func docutils literal notranslate"><span class="pre">forward()</span></code></a> needs gradient computated w.r.t. the
+output.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="brevitas.function.autograd_ops.tensor_clamp_ste_fn.forward">
+<em class="property">static </em><code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">ctx</em>, <em class="sig-param">x</em>, <em class="sig-param">min_val</em>, <em class="sig-param">max_val</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.autograd_ops.tensor_clamp_ste_fn.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Performs the operation.</p>
+<p>This function is to be overridden by all subclasses.</p>
+<p>It must accept a context ctx as the first argument, followed by any
+number of arguments (tensors or other types).</p>
+<p>The context can be used to store tensors that can be then retrieved
+during the backward pass.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="brevitas.function.autograd_ops.ternary_sign_ste_fn">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.function.autograd_ops.</code><code class="sig-name descname">ternary_sign_ste_fn</code><a class="headerlink" href="#brevitas.function.autograd_ops.ternary_sign_ste_fn" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.autograd.function.Function</span></code></p>
+<dl class="method">
+<dt id="brevitas.function.autograd_ops.ternary_sign_ste_fn.backward">
+<em class="property">static </em><code class="sig-name descname">backward</code><span class="sig-paren">(</span><em class="sig-param">ctx</em>, <em class="sig-param">grad_y</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.autograd_ops.ternary_sign_ste_fn.backward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Defines a formula for differentiating the operation.</p>
+<p>This function is to be overridden by all subclasses.</p>
+<p>It must accept a context <code class="xref py py-attr docutils literal notranslate"><span class="pre">ctx</span></code> as the first argument, followed by
+as many outputs did <a class="reference internal" href="#brevitas.function.autograd_ops.ternary_sign_ste_fn.forward" title="brevitas.function.autograd_ops.ternary_sign_ste_fn.forward"><code class="xref py py-func docutils literal notranslate"><span class="pre">forward()</span></code></a> return, and it should return as many
+tensors, as there were inputs to <a class="reference internal" href="#brevitas.function.autograd_ops.ternary_sign_ste_fn.forward" title="brevitas.function.autograd_ops.ternary_sign_ste_fn.forward"><code class="xref py py-func docutils literal notranslate"><span class="pre">forward()</span></code></a>. Each argument is the
+gradient w.r.t the given output, and each returned value should be the
+gradient w.r.t. the corresponding input.</p>
+<p>The context can be used to retrieve tensors saved during the forward
+pass. It also has an attribute <code class="xref py py-attr docutils literal notranslate"><span class="pre">ctx.needs_input_grad</span></code> as a tuple
+of booleans representing whether each input needs gradient. E.g.,
+<a class="reference internal" href="#brevitas.function.autograd_ops.ternary_sign_ste_fn.backward" title="brevitas.function.autograd_ops.ternary_sign_ste_fn.backward"><code class="xref py py-func docutils literal notranslate"><span class="pre">backward()</span></code></a> will have <code class="docutils literal notranslate"><span class="pre">ctx.needs_input_grad[0]</span> <span class="pre">=</span> <span class="pre">True</span></code> if the
+first input to <a class="reference internal" href="#brevitas.function.autograd_ops.ternary_sign_ste_fn.forward" title="brevitas.function.autograd_ops.ternary_sign_ste_fn.forward"><code class="xref py py-func docutils literal notranslate"><span class="pre">forward()</span></code></a> needs gradient computated w.r.t. the
+output.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="brevitas.function.autograd_ops.ternary_sign_ste_fn.forward">
+<em class="property">static </em><code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">ctx</em>, <em class="sig-param">x</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.autograd_ops.ternary_sign_ste_fn.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Performs the operation.</p>
+<p>This function is to be overridden by all subclasses.</p>
+<p>It must accept a context ctx as the first argument, followed by any
+number of arguments (tensors or other types).</p>
+<p>The context can be used to store tensors that can be then retrieved
+during the backward pass.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
 <div class="section" id="module-brevitas.function.ops">
 <span id="brevitas-function-ops-module"></span><h2>brevitas.function.ops module<a class="headerlink" href="#module-brevitas.function.ops" title="Permalink to this headline">¶</a></h2>
+<dl class="function">
+<dt id="brevitas.function.ops.tensor_clamp">
+<code class="sig-prename descclassname">brevitas.function.ops.</code><code class="sig-name descname">tensor_clamp</code><span class="sig-paren">(</span><em class="sig-param">x</em>, <em class="sig-param">min_val</em>, <em class="sig-param">max_val</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.ops.tensor_clamp" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="brevitas.function.ops.ceil_ste">
+<code class="sig-prename descclassname">brevitas.function.ops.</code><code class="sig-name descname">ceil_ste</code><span class="sig-paren">(</span><em class="sig-param">x</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.ops.ceil_ste" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brevitas.function.ops.floor_ste">
+<code class="sig-prename descclassname">brevitas.function.ops.</code><code class="sig-name descname">floor_ste</code><span class="sig-paren">(</span><em class="sig-param">x</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.ops.floor_ste" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<div class="section" id="module-brevitas.function.ops_ste">
+<span id="brevitas-function-ops-ste-module"></span><h2>brevitas.function.ops_ste module<a class="headerlink" href="#module-brevitas.function.ops_ste" title="Permalink to this headline">¶</a></h2>
+<dl class="function">
+<dt id="brevitas.function.ops_ste.round_ste">
+<code class="sig-prename descclassname">brevitas.function.ops_ste.</code><code class="sig-name descname">round_ste</code><span class="sig-paren">(</span><em class="sig-param">x</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.ops_ste.round_ste" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="brevitas.function.ops_ste.tensor_clamp_ste">
+<code class="sig-prename descclassname">brevitas.function.ops_ste.</code><code class="sig-name descname">tensor_clamp_ste</code><span class="sig-paren">(</span><em class="sig-param">x</em>, <em class="sig-param">min_val</em>, <em class="sig-param">max_val</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.ops_ste.tensor_clamp_ste" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="brevitas.function.ops_ste.scalar_clamp_ste">
+<code class="sig-prename descclassname">brevitas.function.ops_ste.</code><code class="sig-name descname">scalar_clamp_ste</code><span class="sig-paren">(</span><em class="sig-param">x</em>, <em class="sig-param">min_val</em>, <em class="sig-param">max_val</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.ops_ste.scalar_clamp_ste" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="brevitas.function.ops_ste.binary_sign_ste">
+<code class="sig-prename descclassname">brevitas.function.ops_ste.</code><code class="sig-name descname">binary_sign_ste</code><span class="sig-paren">(</span><em class="sig-param">x</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.ops_ste.binary_sign_ste" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="brevitas.function.ops_ste.ternary_sign_ste">
+<code class="sig-prename descclassname">brevitas.function.ops_ste.</code><code class="sig-name descname">ternary_sign_ste</code><span class="sig-paren">(</span><em class="sig-param">x</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.ops_ste.ternary_sign_ste" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="brevitas.function.ops_ste.max_uint">
+<code class="sig-prename descclassname">brevitas.function.ops_ste.</code><code class="sig-name descname">max_uint</code><span class="sig-paren">(</span><em class="sig-param">narrow_range</em>, <em class="sig-param">bit_width</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.ops_ste.max_uint" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="brevitas.function.ops_ste.max_int">
+<code class="sig-prename descclassname">brevitas.function.ops_ste.</code><code class="sig-name descname">max_int</code><span class="sig-paren">(</span><em class="sig-param">signed</em>, <em class="sig-param">bit_width</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.ops_ste.max_int" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="brevitas.function.ops_ste.min_int">
+<code class="sig-prename descclassname">brevitas.function.ops_ste.</code><code class="sig-name descname">min_int</code><span class="sig-paren">(</span><em class="sig-param">signed</em>, <em class="sig-param">narrow_range</em>, <em class="sig-param">bit_width</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.ops_ste.min_int" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 </div>
 <div class="section" id="module-brevitas.function.shape">
 <span id="brevitas-function-shape-module"></span><h2>brevitas.function.shape module<a class="headerlink" href="#module-brevitas.function.shape" title="Permalink to this headline">¶</a></h2>

@@ -92,6 +92,7 @@
 <li><a class="reference internal" href="#features">Features</a></li>
 <li><a class="reference internal" href="#supported-layers">Supported Layers</a></li>
 <li><a class="reference internal" href="#getting-started">Getting started</a></li>
+<li><a class="reference internal" href="#pretrained-models">Pretrained models</a></li>
 <li><a class="reference internal" href="#scaling">Scaling</a></li>
 <li><a class="reference internal" href="#precision">Precision</a></li>
 <li><a class="reference internal" href="#code-organization">Code organization</a></li>
@@ -169,7 +170,7 @@
 <div class="section" id="brevitas">
 <h1>Brevitas<a class="headerlink" href="#brevitas" title="Permalink to this headline">¶</a></h1>
 <a class="reference external image-reference" href="https://zenodo.org/badge/latestdoi/140494324"><img alt="DOI" src="https://zenodo.org/badge/140494324.svg" /></a>
-<p>Brevitas is a Pytorch library for training-aware quantization.</p>
+<p>Brevitas is a Pytorch library for quantization-aware training.</p>
 <p><em>Brevitas is currently under active development and to be considered in alpha stage. APIs might and probably will change. Documentation, examples, and pretrained models will be progressively released.</em></p>
 <div class="section" id="requirements">
 <h2>Requirements<a class="headerlink" href="#requirements" title="Permalink to this headline">¶</a></h2>
@@ -228,11 +229,12 @@ pip install -e .
 <h2>Supported Layers<a class="headerlink" href="#supported-layers" title="Permalink to this headline">¶</a></h2>
 <p>The following layers and operations are supported out-of-the-box:</p>
 <ul class="simple">
+<li><p>QuantScaleBias</p></li>
 <li><p>QuantLinear</p></li>
 <li><p>QuantConv2d</p></li>
 <li><p>QuantReLU, QuantHardTanh, QuantTanh, QuantSigmoid</p></li>
 <li><p>QuantAvgPool2d</p></li>
-<li><p>QuantBatchNorm2d</p></li>
+<li><p>BatchNorm2dToQuantScaleBias</p></li>
 <li><p>Element-wise add, concat</p></li>
 <li><p>Saturating integer accumulator</p></li>
 </ul>
@@ -242,8 +244,8 @@ pip install -e .
 <h2>Getting started<a class="headerlink" href="#getting-started" title="Permalink to this headline">¶</a></h2>
 <p>Here’s how a simple quantized LeNet might look like, starting from a ReLU6 for activations and using default settings for scaling:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">torch.nn</span> <span class="kn">import</span> <span class="n">Module</span>
-<span class="kn">import</span> <span class="nn">torch.nn.functional</span> <span class="kn">as</span> <span class="nn">F</span>
-<span class="kn">import</span> <span class="nn">brevitas.nn</span> <span class="kn">as</span> <span class="nn">qnn</span>
+<span class="kn">import</span> <span class="nn">torch.nn.functional</span> <span class="k">as</span> <span class="nn">F</span>
+<span class="kn">import</span> <span class="nn">brevitas.nn</span> <span class="k">as</span> <span class="nn">qnn</span>
 <span class="kn">from</span> <span class="nn">brevitas.core.quant</span> <span class="kn">import</span> <span class="n">QuantType</span>
 
 <span class="k">class</span> <span class="nc">QuantLeNet</span><span class="p">(</span><span class="n">Module</span><span class="p">):</span>
@@ -257,15 +259,15 @@ pip install -e .
                                      <span class="n">weight_quant_type</span><span class="o">=</span><span class="n">QuantType</span><span class="o">.</span><span class="n">INT</span><span class="p">,</span>
                                      <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">relu2</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantReLU</span><span class="p">(</span><span class="n">quant_type</span><span class="o">=</span><span class="n">QuantType</span><span class="o">.</span><span class="n">INT</span><span class="p">,</span> <span class="n">bit_width</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">max_val</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">fc1</span>   <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantLinear</span><span class="p">(</span><span class="mi">16</span><span class="o">*</span><span class="mi">5</span><span class="o">*</span><span class="mi">5</span><span class="p">,</span> <span class="mi">120</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc1</span>   <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantLinear</span><span class="p">(</span><span class="mi">16</span><span class="o">*</span><span class="mi">5</span><span class="o">*</span><span class="mi">5</span><span class="p">,</span> <span class="mi">120</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                                      <span class="n">weight_quant_type</span><span class="o">=</span><span class="n">QuantType</span><span class="o">.</span><span class="n">INT</span><span class="p">,</span>
                                      <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">relu3</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantReLU</span><span class="p">(</span><span class="n">quant_type</span><span class="o">=</span><span class="n">QuantType</span><span class="o">.</span><span class="n">INT</span><span class="p">,</span> <span class="n">bit_width</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">max_val</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">fc2</span>   <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantLinear</span><span class="p">(</span><span class="mi">120</span><span class="p">,</span> <span class="mi">84</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc2</span>   <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantLinear</span><span class="p">(</span><span class="mi">120</span><span class="p">,</span> <span class="mi">84</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                                      <span class="n">weight_quant_type</span><span class="o">=</span><span class="n">QuantType</span><span class="o">.</span><span class="n">INT</span><span class="p">,</span>
                                      <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">relu4</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantReLU</span><span class="p">(</span><span class="n">quant_type</span><span class="o">=</span><span class="n">QuantType</span><span class="o">.</span><span class="n">INT</span><span class="p">,</span> <span class="n">bit_width</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">max_val</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">fc3</span>   <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantLinear</span><span class="p">(</span><span class="mi">84</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc3</span>   <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantLinear</span><span class="p">(</span><span class="mi">84</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
                                      <span class="n">weight_quant_type</span><span class="o">=</span><span class="n">QuantType</span><span class="o">.</span><span class="n">INT</span><span class="p">,</span>
                                      <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
 
@@ -281,6 +283,83 @@ pip install -e .
         <span class="k">return</span> <span class="n">out</span>
 </pre></div>
 </div>
+</div>
+<div class="section" id="pretrained-models">
+<h2>Pretrained models<a class="headerlink" href="#pretrained-models" title="Permalink to this headline">¶</a></h2>
+<p>Below a list of relevant pretrained models available, currently for evaluation only. Look at the <code class="docutils literal notranslate"><span class="pre">examples</span></code> folder for how to verify accuracy. Training scripts will be made available in the near future.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 10%" />
+<col style="width: 10%" />
+<col style="width: 10%" />
+<col style="width: 10%" />
+<col style="width: 10%" />
+<col style="width: 10%" />
+<col style="width: 10%" />
+<col style="width: 10%" />
+<col style="width: 10%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Name</p></th>
+<th class="head"><p>Scaling Type</p></th>
+<th class="head"><p>First layer weights</p></th>
+<th class="head"><p>Weights</p></th>
+<th class="head"><p>Activations</p></th>
+<th class="head"><p>Avg pool</p></th>
+<th class="head"><p>Top1</p></th>
+<th class="head"><p>Top5</p></th>
+<th class="head"><p>Pretrained model</p></th>
+<th class="head"><p>Retrained from</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>MobileNet V1</p></td>
+<td><p>Floating-point per channel</p></td>
+<td><p>8 bit</p></td>
+<td><p>4 bit</p></td>
+<td><p>4 bit</p></td>
+<td><p>4 bit</p></td>
+<td><p>71.14</p></td>
+<td><p>90.10</p></td>
+<td><p><a class="reference external" href="https://github.com/Xilinx/brevitas/releases/download/quant_mobilenet_v1_4b-r1/quant_mobilenet_v1_4b-0100a667.pth">Download</a></p></td>
+<td><p><a class="reference external" href="https://github.com/osmr/imgclsmob/tree/master/pytorch">link</a></p></td>
+</tr>
+<tr class="row-odd"><td><p>ProxylessNAS Mobile14 w/ Hadamard classifier</p></td>
+<td><p>Floating-point per channel</p></td>
+<td><p>8 bit</p></td>
+<td><p>4 bit</p></td>
+<td><p>4 bit</p></td>
+<td><p>4 bit</p></td>
+<td><p>73.52</p></td>
+<td><p>91.46</p></td>
+<td><p><a class="reference external" href="https://github.com/Xilinx/brevitas/releases/download/quant_proxylessnas_mobile14_hadamard_4b-r0/quant_proxylessnas_mobile14_hadamard_4b-4acbfa9f.pth">Download</a></p></td>
+<td><p><a class="reference external" href="https://github.com/osmr/imgclsmob/tree/master/pytorch">link</a></p></td>
+</tr>
+<tr class="row-even"><td><p>ProxylessNAS Mobile14</p></td>
+<td><p>Floating-point per channel</p></td>
+<td><p>8 bit</p></td>
+<td><p>4 bit</p></td>
+<td><p>4 bit</p></td>
+<td><p>4 bit</p></td>
+<td><p>74.42</p></td>
+<td><p>92.04</p></td>
+<td><p><a class="reference external" href="https://github.com/Xilinx/brevitas/releases/download/quant_proxylessnas_mobile14_4b-r0/quant_proxylessnas_mobile14_4b-e10882e1.pth">Download</a></p></td>
+<td><p><a class="reference external" href="https://github.com/osmr/imgclsmob/tree/master/pytorch">link</a></p></td>
+</tr>
+<tr class="row-odd"><td><p>ProxylessNAS Mobile14</p></td>
+<td><p>Floating-point per channel</p></td>
+<td><p>8 bit</p></td>
+<td><p>4 bit, 5 bit</p></td>
+<td><p>4 bit, 5 bit</p></td>
+<td><p>4 bit</p></td>
+<td><p>75.01</p></td>
+<td><p>92.33</p></td>
+<td><p><a class="reference external" href="https://github.com/Xilinx/brevitas/releases/download/quant_proxylessnas_mobile14_4b5b-r0/quant_proxylessnas_mobile14_4b5b-2bdf7f8d.pth">Download</a></p></td>
+<td><p><a class="reference external" href="https://github.com/osmr/imgclsmob/tree/master/pytorch">link</a></p></td>
+</tr>
+</tbody>
+</table>
 </div>
 <div class="section" id="scaling">
 <h2>Scaling<a class="headerlink" href="#scaling" title="Permalink to this headline">¶</a></h2>

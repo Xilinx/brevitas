@@ -43,6 +43,22 @@ from brevitas.function.autograd_ops import *
 
 @torch.jit.script
 def tensor_clamp(x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor) -> torch.Tensor:
+    """
+
+    Parameters
+    ----------
+    x : Tensor
+        Tensor on which to apply the clamp operation
+    min_val : Tensor
+        Tensor containing the minimum values for the clamp operation. Must have the same shape of `x`
+    max_val : Tensor
+        Tensor containing the maximum values for the clamp operation. Must have the same shape of `x`
+
+    Returns
+    -------
+    Tensor
+        Tensor for which every element of `x` is clamped between the corresponding minimum and maximum values.
+    """
     out = torch.where(x > max_val, max_val, x)
     out = torch.where(out < min_val, min_val, out)
     return out
@@ -56,9 +72,43 @@ def tensor_clamp_(x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor)
 
 
 def ceil_ste(x: torch.Tensor) -> torch.Tensor:
+    """ Perform ceil operation with Straight Trough Estimation (STE) of the Gradient
+
+    This operation has no effect on the backpropagation of the gradient. The STE is implemented using the
+    torch.autograd.Function class in python, due to some unexpected behaviour of at::ceil implementation in C++
+
+    Parameters
+    ----------
+    x : Tensor
+        Tensor on which to apply the ceil operation
+
+    Returns
+    -------
+    Tensor
+        Tensor after applying ceil operation. When backpropagating, the gradient will be unaffected by the ceil
+        operation
+
+    """
     return ceil_ste_fn.apply(x)
 
 
 def floor_ste(x: torch.Tensor) -> torch.Tensor:
+    """ Perform floor operation with Straight Trough Estimation (STE) of the Gradient
+
+    This operation has no effect on the backpropagation of the gradient. The STE is implemented using the
+    torch.autograd.Function class in python, due to some unexpected behaviour of at::floor implementation in C++
+
+    Parameters
+    ----------
+    x : Tensor
+        Tensor on which to apply the floor operation
+
+    Returns
+    -------
+    Tensor
+        Tensor after applying floor operation. When backpropagating, the gradient will be unaffected by the floor
+        operation
+
+    """
     return floor_ste_fn.apply(x)
 
