@@ -38,18 +38,143 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-import os
-
 from setuptools import setup, find_packages
+import os
+import io
+import torch
+from torch.utils.cpp_extension import BuildExtension, CppExtension
+from pkg_resources import get_distribution, DistributionNotFound
+from setuptools.command.build_py import build_py as build_py_orig
+import fnmatch
+from packaging import version
+import glob
+import sys
+import distutils.command.clean
+import distutils.spawn
+import shutil
+
+torch_version = version.parse(torch.__version__)
 
 
-INSTALL_REQUIRES = ["torch>=1.1.0", "docrep", "scipy"]
-TEST_REQUIRES = ["pytest"]
+class build_py(build_py_orig):
+    def find_package_modules(self, package, package_dir):
+        modules = super().find_package_modules(package, package_dir)
+        if torch_version >= version.parse("1.3.0"):
+            file_to_rename = ['ops_ste_o']
+        else:
+            file_to_rename = ['ops_ste_n']
+
+        pacchetti = [(pkg, mod, file,) for (pkg, mod, file,) in modules
+                     if not any(fnmatch.fnmatchcase(mod, pat=pattern)
+                                for pattern in file_to_rename)]
+        return pacchetti
+
+
+    def build_module(self, module, module_file, package):
+        _, file_name = os.path.split(module_file)
+        if file_name == 'ops_ste_n.py' or file_name == 'ops_ste_o.py':
+            file_name = 'ops_ste.py'
+        if isinstance(package, str):
+            package = package.split('.')
+        elif not isinstance(package, (list, tuple)):
+            raise TypeError(
+                "'package' must be a string (dot-separated), list, or tuple")
+
+        # Now put the module source file into the "build" area -- this is
+        # easy, we just copy it somewhere under self.build_lib (the build
+        # directory for Python source).
+        outfile = self.get_module_outfile(self.build_lib, package, module)
+
+        head, _ = os.path.split(outfile)
+        outfile = os.path.join(head, file_name)
+
+        dir = os.path.dirname(outfile)
+        self.mkpath(dir)
+        return self.copy_file(module_file, outfile, preserve_mode=0)
+
+
+def read(*names, **kwargs):
+    with io.open(
+            os.path.join(os.path.dirname(__file__), *names),
+            encoding=kwargs.get("encoding", "utf8")
+    ) as fp:
+        return fp.read()
+
+
+def get_dist(pkgname):
+    try:
+        return get_distribution(pkgname)
+    except DistributionNotFound:
+        return None
+
+
+def get_extensions():
+    if torch_version >= version.parse("1.3.0"):
+        this_dir = os.path.dirname(os.path.abspath(__file__))
+        extensions_dir = os.path.join(this_dir, 'brevitas', 'csrc')
+
+        main_file = glob.glob(os.path.join(extensions_dir, '*.cpp'))
+        source_cpu = glob.glob(os.path.join(extensions_dir, 'cpu', '*.cpp'))
+        sources = main_file + source_cpu
+        extension = CppExtension
+
+        define_macros = []
+
+        extra_compile_args = {}
+
+        if sys.platform == 'win32':
+            define_macros += [('brevitas_EXPORTS', None)]
+            extra_compile_args.setdefault('cxx', [])
+            extra_compile_args['cxx'].append('/MP')
+        sources = [os.path.join(extensions_dir, s) for s in sources]
+        include_dirs = [extensions_dir]
+        ext_modules = [
+            extension(
+                'brevitas._C',
+                sources,
+                include_dirs=include_dirs,
+                define_macros=define_macros,
+                extra_compile_args=extra_compile_args,
+            )
+        ]
+        return ext_modules
+    else:
+        return []
+
+
+class clean(distutils.command.clean.clean):
+    def run(self):
+        with open('.gitignore', 'r') as f:
+            ignores = f.read()
+            for wildcard in filter(None, ignores.split('\n')):
+                for filename in glob.glob(wildcard):
+                    try:
+                        os.remove(filename)
+                    except OSError:
+                        shutil.rmtree(filename, ignore_errors=True)
+
+        # It's an old-style class in Python 2.7...
+        distutils.command.clean.clean.run(self)
+
+
+INSTALL_REQUIRES = ["torch>=1.1.0", "docrep", "scipy", "packaging"]
+TEST_REQUIRES = ["pytest", "hypothesis", "mock"]
 
 
 def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
+
+if torch_version >= version.parse("1.3.0"):
+    cmdclass_dict = {
+        'build_ext': BuildExtension.with_options(no_python_abi_suffix=True),
+        'clean': clean,
+        'build_py': build_py
+    }
+else:
+    cmdclass_dict = {
+        'build_py': build_py
+    }
 
 setup(name="Brevitas",
       version="0.2.0-alpha",
@@ -60,6 +185,11 @@ setup(name="Brevitas",
       python_requires=">=3.6",
       install_requires=INSTALL_REQUIRES,
       extras_require={
-            "test": TEST_REQUIRES,
+          "test": TEST_REQUIRES,
       },
-      packages=find_packages())
+      packages=find_packages(),
+
+      zip_safe=False,
+      ext_modules=get_extensions(),
+      cmdclass=cmdclass_dict
+      )

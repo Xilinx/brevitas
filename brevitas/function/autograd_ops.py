@@ -1,4 +1,4 @@
-# Copyright (c) 2018-     Xilinx, Inc              (Alessandro Pappalardo)
+# Copyright (c) 2019-     Xilinx, Inc              (Giuseppe Franco)
 # Copyright (c) 2016-     Facebook, Inc            (Adam Paszke)
 # Copyright (c) 2014-     Facebook, Inc            (Soumith Chintala)
 # Copyright (c) 2011-2014 Idiap Research Institute (Ronan Collobert)
@@ -38,27 +38,77 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from brevitas.function.autograd_ops import *
+import torch
 
 
-@torch.jit.script
-def tensor_clamp(x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor) -> torch.Tensor:
-    out = torch.where(x > max_val, max_val, x)
-    out = torch.where(out < min_val, min_val, out)
-    return out
+class scalar_clamp_ste_fn(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, x: torch.Tensor, min_val: float, max_val: float):
+        y = torch.clamp(x, min_val, max_val)
+        return y
+    @staticmethod
+    def backward(ctx, grad_y):
+        return grad_y, None, None
 
 
-@torch.jit.script
-def tensor_clamp_(x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor):
-    torch.min(x, max_val, out=x)
-    torch.max(x, min_val, out=x)
-    return x
+class tensor_clamp_ste_fn(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor):
+        y = torch.where(x > max_val, max_val, x)
+        y = torch.where(y < min_val, min_val, y)
+        return y
+    @staticmethod
+    def backward(ctx, grad_y):
+        return grad_y, None, None
 
 
-def ceil_ste(x: torch.Tensor) -> torch.Tensor:
-    return ceil_ste_fn.apply(x)
+class ceil_ste_fn(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, x: torch.Tensor):
+        y = torch.ceil(x)
+        return y
+    @staticmethod
+    def backward(ctx, grad_y):
+        return grad_y
 
 
-def floor_ste(x: torch.Tensor) -> torch.Tensor:
-    return floor_ste_fn.apply(x)
+class floor_ste_fn(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, x: torch.Tensor):
+        y = torch.floor(x)
+        return y
+    @staticmethod
+    def backward(ctx, grad_y):
+        return grad_y
 
+
+class binary_sign_ste_fn(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, x: torch.Tensor):
+        positive_mask = torch.ge(x, 0.0)
+        negative_mask = torch.lt(x, 0.0)
+        y = positive_mask.float() - negative_mask.float()
+        return y
+    @staticmethod
+    def backward(ctx, grad_y):
+        return grad_y
+
+
+class ternary_sign_ste_fn(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, x: torch.Tensor):
+        y = torch.sign(x)
+        return y
+    @staticmethod
+    def backward(ctx, grad_y):
+        return grad_y
+
+
+class round_ste_fn(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, x: torch.Tensor):
+        y = torch.round(x)
+        return y
+    @staticmethod
+    def backward(ctx, grad_y):
+        return grad_y
