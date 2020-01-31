@@ -47,7 +47,6 @@ from torch.nn import AvgPool2d
 from brevitas.core.bit_width import BitWidthImplType
 from brevitas.core.quant import QuantType
 from brevitas.function.ops_ste import ceil_ste
-from brevitas.function.ops import max_uint
 from brevitas.nn.quant_layer import QuantLayer
 from brevitas.proxy.runtime_quant import TruncQuantProxy
 from brevitas.quant_tensor import pack_quant_tensor

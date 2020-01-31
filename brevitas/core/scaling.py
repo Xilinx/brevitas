@@ -46,7 +46,7 @@ from torch.nn import Module, Parameter
 
 import brevitas.config as config
 from brevitas.core.function_wrapper import Identity
-from brevitas.function.ops import min_int, max_int
+from brevitas.function.ops_ste import min_int, max_int
 from brevitas.utils.python_utils import AutoName
 from .restrict_val import RestrictValue, RestrictValueType, FloatToIntImplType, RestrictValueOpImplType
 from .stats import StatsOp, StatsInputViewShapeImpl, ParameterListStats, RuntimeStats
