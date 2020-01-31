@@ -4,6 +4,14 @@ brevitas.nn package
 Submodules
 ----------
 
+brevitas.nn.hadamard\_classifier module
+---------------------------------------
+
+.. automodule:: brevitas.nn.hadamard_classifier
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 brevitas.nn.quant\_accumulator module
 -------------------------------------
 
@@ -56,6 +64,14 @@ brevitas.nn.quant\_linear module
 --------------------------------
 
 .. automodule:: brevitas.nn.quant_linear
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+brevitas.nn.quant\_scale\_bias module
+-------------------------------------
+
+.. automodule:: brevitas.nn.quant_scale_bias
    :members:
    :undoc-members:
    :show-inheritance:

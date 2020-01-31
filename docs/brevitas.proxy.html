@@ -83,6 +83,7 @@
 <li><a class="reference internal" href="#">brevitas.proxy package</a><ul>
 <li><a class="reference internal" href="#submodules">Submodules</a></li>
 <li><a class="reference internal" href="#module-brevitas.proxy.parameter_quant">brevitas.proxy.parameter_quant module</a></li>
+<li><a class="reference internal" href="#module-brevitas.proxy.quant_proxy">brevitas.proxy.quant_proxy module</a></li>
 <li><a class="reference internal" href="#module-brevitas.proxy.runtime_quant">brevitas.proxy.runtime_quant module</a></li>
 <li><a class="reference internal" href="#module-brevitas.proxy">Module contents</a></li>
 </ul>
@@ -182,7 +183,7 @@ parameter, possibly across some dimensions. Ignored otherwise.</p></li>
 <li><p><strong>scaling_stats_reduce_dim</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code>]) – Dimension within the shape determined by <cite>scaling_stats_input_view_shape_impl</cite> along which <cite>scaling_stats_op</cite> is
 applied. If set to <code class="docutils literal notranslate"><span class="pre">None</span></code>, scaling is assumed to be over the whole tensor. Ignored whenever <cite>scaling_stats_op</cite>
 is ignored.</p></li>
-<li><p><strong>scaling_shape</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Tuple</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code>, …]) – Shape of the scaling factor tensor. This is required to be broadcastable w.r.t. the weight tensor to scale.</p></li>
+<li><p><strong>scaling_shape</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code>, …]) – Shape of the scaling factor tensor. This is required to be broadcastable w.r.t. the weight tensor to scale.</p></li>
 <li><p><strong>scaling_min_val</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code>]) – Minimum value that the scaling factors can reach. This has precedence over anything else, including
 <cite>scaling_const</cite> when <cite>scaling_impl_type</cite> is set to <code class="docutils literal notranslate"><span class="pre">CONST</span></code>. Useful in case of numerical instabilities.
 If set to None, no minimum is imposed.</p></li>
@@ -238,7 +239,7 @@ registered hooks while the latter silently ignores them.</p>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Tuple</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>, <code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>], <code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>]]</p>
+<dd class="field-odd"><p><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>]</p>
 </dd>
 </dl>
 </dd></dl>
@@ -261,7 +262,7 @@ registered hooks while the latter silently ignores them.</p>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">brevitas.proxy.parameter_quant.ParameterQuantProxy</span></code></p>
 <dl class="method">
 <dt id="brevitas.proxy.parameter_quant.BiasQuantProxy.forward">
-<code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">x</em>, <em class="sig-param">scale</em>, <em class="sig-param">bit_width</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.proxy.parameter_quant.BiasQuantProxy.forward" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">x</em>, <em class="sig-param">input_scale</em>, <em class="sig-param">input_bit_width</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.proxy.parameter_quant.BiasQuantProxy.forward" title="Permalink to this definition">¶</a></dt>
 <dd><p>Defines the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">
@@ -273,9 +274,39 @@ registered hooks while the latter silently ignores them.</p>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
+<dd class="field-odd"><p><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>, <code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>], <code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code>]]</p>
 </dd>
 </dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-brevitas.proxy.quant_proxy">
+<span id="brevitas-proxy-quant-proxy-module"></span><h2>brevitas.proxy.quant_proxy module<a class="headerlink" href="#module-brevitas.proxy.quant_proxy" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="brevitas.proxy.quant_proxy.QuantProxy">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.proxy.quant_proxy.</code><code class="sig-name descname">QuantProxy</code><a class="headerlink" href="#brevitas.proxy.quant_proxy.QuantProxy" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
+<dl class="method">
+<dt id="brevitas.proxy.quant_proxy.QuantProxy.state_dict">
+<code class="sig-name descname">state_dict</code><span class="sig-paren">(</span><em class="sig-param">destination=None</em>, <em class="sig-param">prefix=''</em>, <em class="sig-param">keep_vars=False</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.proxy.quant_proxy.QuantProxy.state_dict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a dictionary containing a whole state of the module.</p>
+<p>Both parameters and persistent buffers (e.g. running averages) are
+included. Keys are corresponding parameter and buffer names.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>a dictionary containing a whole state of the module</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>dict</p>
+</dd>
+</dl>
+<p>Example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">module</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+<span class="go">[&#39;bias&#39;, &#39;weight&#39;]</span>
+</pre></div>
+</div>
 </dd></dl>
 
 </dd></dl>
@@ -285,8 +316,8 @@ registered hooks while the latter silently ignores them.</p>
 <span id="brevitas-proxy-runtime-quant-module"></span><h2>brevitas.proxy.runtime_quant module<a class="headerlink" href="#module-brevitas.proxy.runtime_quant" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
 <dt id="brevitas.proxy.runtime_quant.ActivationQuantProxy">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.proxy.runtime_quant.</code><code class="sig-name descname">ActivationQuantProxy</code><span class="sig-paren">(</span><em class="sig-param">activation_impl</em>, <em class="sig-param">bit_width</em>, <em class="sig-param">signed</em>, <em class="sig-param">narrow_range</em>, <em class="sig-param">min_val</em>, <em class="sig-param">max_val</em>, <em class="sig-param">quant_type</em>, <em class="sig-param">float_to_int_impl_type</em>, <em class="sig-param">scaling_override</em>, <em class="sig-param">scaling_impl_type</em>, <em class="sig-param">scaling_per_channel</em>, <em class="sig-param">scaling_min_val</em>, <em class="sig-param">scaling_stats_sigma</em>, <em class="sig-param">scaling_stats_op</em>, <em class="sig-param">scaling_stats_buffer_momentum</em>, <em class="sig-param">scaling_stats_input_view_shape_impl</em>, <em class="sig-param">scaling_stats_permute_dims</em>, <em class="sig-param">per_channel_broadcastable_shape</em>, <em class="sig-param">min_overall_bit_width</em>, <em class="sig-param">max_overall_bit_width</em>, <em class="sig-param">bit_width_impl_override</em>, <em class="sig-param">bit_width_impl_type</em>, <em class="sig-param">restrict_bit_width_type</em>, <em class="sig-param">restrict_scaling_type</em>, <em class="sig-param">override_pretrained_bit_width</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.proxy.runtime_quant.ActivationQuantProxy" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.proxy.runtime_quant.</code><code class="sig-name descname">ActivationQuantProxy</code><span class="sig-paren">(</span><em class="sig-param">activation_impl</em>, <em class="sig-param">bit_width</em>, <em class="sig-param">signed</em>, <em class="sig-param">narrow_range</em>, <em class="sig-param">min_val</em>, <em class="sig-param">max_val</em>, <em class="sig-param">quant_type</em>, <em class="sig-param">float_to_int_impl_type</em>, <em class="sig-param">scaling_override</em>, <em class="sig-param">scaling_impl_type</em>, <em class="sig-param">scaling_per_channel</em>, <em class="sig-param">scaling_min_val</em>, <em class="sig-param">scaling_stats_sigma</em>, <em class="sig-param">scaling_stats_op</em>, <em class="sig-param">scaling_stats_buffer_momentum</em>, <em class="sig-param">scaling_stats_permute_dims</em>, <em class="sig-param">per_channel_broadcastable_shape</em>, <em class="sig-param">min_overall_bit_width</em>, <em class="sig-param">max_overall_bit_width</em>, <em class="sig-param">bit_width_impl_override</em>, <em class="sig-param">bit_width_impl_type</em>, <em class="sig-param">restrict_bit_width_type</em>, <em class="sig-param">restrict_scaling_type</em>, <em class="sig-param">override_pretrained_bit_width</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.proxy.runtime_quant.ActivationQuantProxy" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#brevitas.proxy.quant_proxy.QuantProxy" title="brevitas.proxy.quant_proxy.QuantProxy"><code class="xref py py-class docutils literal notranslate"><span class="pre">brevitas.proxy.quant_proxy.QuantProxy</span></code></a></p>
 <dl class="method">
 <dt id="brevitas.proxy.runtime_quant.ActivationQuantProxy.forward">
 <code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">x</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.proxy.runtime_quant.ActivationQuantProxy.forward" title="Permalink to this definition">¶</a></dt>
@@ -306,7 +337,7 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="class">
 <dt id="brevitas.proxy.runtime_quant.ClampQuantProxy">
 <em class="property">class </em><code class="sig-prename descclassname">brevitas.proxy.runtime_quant.</code><code class="sig-name descname">ClampQuantProxy</code><span class="sig-paren">(</span><em class="sig-param">signed</em>, <em class="sig-param">narrow_range</em>, <em class="sig-param">quant_type</em>, <em class="sig-param">ms_bit_width_to_clamp</em>, <em class="sig-param">clamp_at_least_init_val</em>, <em class="sig-param">min_overall_bit_width</em>, <em class="sig-param">max_overall_bit_width</em>, <em class="sig-param">msb_clamp_bit_width_impl_type</em>, <em class="sig-param">override_pretrained_bit_width</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.proxy.runtime_quant.ClampQuantProxy" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
+<dd><p>Bases: <a class="reference internal" href="#brevitas.proxy.quant_proxy.QuantProxy" title="brevitas.proxy.quant_proxy.QuantProxy"><code class="xref py py-class docutils literal notranslate"><span class="pre">brevitas.proxy.quant_proxy.QuantProxy</span></code></a></p>
 <dl class="method">
 <dt id="brevitas.proxy.runtime_quant.ClampQuantProxy.forward">
 <code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">x</em>, <em class="sig-param">input_scale</em>, <em class="sig-param">input_bit_width</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.proxy.runtime_quant.ClampQuantProxy.forward" title="Permalink to this definition">¶</a></dt>
@@ -332,7 +363,7 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="class">
 <dt id="brevitas.proxy.runtime_quant.TruncQuantProxy">
 <em class="property">class </em><code class="sig-prename descclassname">brevitas.proxy.runtime_quant.</code><code class="sig-name descname">TruncQuantProxy</code><span class="sig-paren">(</span><em class="sig-param">signed</em>, <em class="sig-param">quant_type</em>, <em class="sig-param">ls_bit_width_to_trunc</em>, <em class="sig-param">trunc_at_least_init_val</em>, <em class="sig-param">min_overall_bit_width</em>, <em class="sig-param">max_overall_bit_width</em>, <em class="sig-param">lsb_trunc_bit_width_impl_type</em>, <em class="sig-param">explicit_rescaling</em>, <em class="sig-param">override_pretrained_bit_width</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.proxy.runtime_quant.TruncQuantProxy" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
+<dd><p>Bases: <a class="reference internal" href="#brevitas.proxy.quant_proxy.QuantProxy" title="brevitas.proxy.quant_proxy.QuantProxy"><code class="xref py py-class docutils literal notranslate"><span class="pre">brevitas.proxy.quant_proxy.QuantProxy</span></code></a></p>
 <dl class="method">
 <dt id="brevitas.proxy.runtime_quant.TruncQuantProxy.forward">
 <code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">x</em>, <em class="sig-param">input_scale</em>, <em class="sig-param">input_bit_width</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.proxy.runtime_quant.TruncQuantProxy.forward" title="Permalink to this definition">¶</a></dt>

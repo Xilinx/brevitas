@@ -42,73 +42,136 @@ import torch
 
 
 class scalar_clamp_ste_fn(torch.autograd.Function):
+    """ Python class to implement Straight Trough Estimator operations
+
+    Look at the documentation of `scalar_clamp_ste` for further details.
+
+    """
     @staticmethod
     def forward(ctx, x: torch.Tensor, min_val: float, max_val: float):
+        """
+        """
         y = torch.clamp(x, min_val, max_val)
         return y
     @staticmethod
     def backward(ctx, grad_y):
+        """
+        """
         return grad_y, None, None
 
 
 class tensor_clamp_ste_fn(torch.autograd.Function):
+    """ Python class to implement Straight Trough Estimator operations
+
+    Look at the documentation of `tensor_clamp_ste_fn` for further details.
+
+    """
     @staticmethod
     def forward(ctx, x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor):
+        """
+        """
         y = torch.where(x > max_val, max_val, x)
         y = torch.where(y < min_val, min_val, y)
         return y
     @staticmethod
     def backward(ctx, grad_y):
+        """
+        """
         return grad_y, None, None
 
 
 class ceil_ste_fn(torch.autograd.Function):
+    """ Python class to implement Straight Trough Estimator operations
+
+    Look at the documentation of `ceil_ste_fn` for further details.
+
+    """
     @staticmethod
     def forward(ctx, x: torch.Tensor):
+        """
+        """
         y = torch.ceil(x)
         return y
     @staticmethod
     def backward(ctx, grad_y):
+        """
+        """
         return grad_y
 
 
 class floor_ste_fn(torch.autograd.Function):
+    """ Python class to implement Straight Trough Estimator operations
+
+    Look at the documentation of `floor_ste_fn` for further details.
+
+    """
     @staticmethod
     def forward(ctx, x: torch.Tensor):
+        """
+        """
         y = torch.floor(x)
         return y
     @staticmethod
     def backward(ctx, grad_y):
+        """
+        """
         return grad_y
 
 
 class binary_sign_ste_fn(torch.autograd.Function):
+    """ Python class to implement Straight Trough Estimator operations
+
+    Look at the documentation of `binary_sign_ste_fn` for further details.
+
+    """
     @staticmethod
     def forward(ctx, x: torch.Tensor):
+        """
+        """
         positive_mask = torch.ge(x, 0.0)
         negative_mask = torch.lt(x, 0.0)
         y = positive_mask.float() - negative_mask.float()
         return y
     @staticmethod
     def backward(ctx, grad_y):
+        """
+        """
         return grad_y
 
 
 class ternary_sign_ste_fn(torch.autograd.Function):
+    """ Python class to implement Straight Trough Estimator operations
+
+    Look at the documentation of `ternary_sign_ste_fn` for further details.
+
+    """
     @staticmethod
     def forward(ctx, x: torch.Tensor):
+        """
+        """
         y = torch.sign(x)
         return y
     @staticmethod
     def backward(ctx, grad_y):
+        """
+        """
         return grad_y
 
 
 class round_ste_fn(torch.autograd.Function):
+    """ Python class to implement Straight Trough Estimator operations
+
+    Look at the documentation of `ternary_sign_ste_fn` for further details.
+
+    """
     @staticmethod
     def forward(ctx, x: torch.Tensor):
+        """
+        """
         y = torch.round(x)
         return y
     @staticmethod
     def backward(ctx, grad_y):
+        """
+        """
         return grad_y

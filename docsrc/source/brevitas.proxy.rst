@@ -12,6 +12,14 @@ brevitas.proxy.parameter\_quant module
    :undoc-members:
    :show-inheritance:
 
+brevitas.proxy.quant\_proxy module
+----------------------------------
+
+.. automodule:: brevitas.proxy.quant_proxy
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 brevitas.proxy.runtime\_quant module
 ------------------------------------
 
