@@ -1,16 +1,13 @@
 #include <ATen/TensorUtils.h>
 #include <torch/extension.h>
 
-at::Tensor SampleInput(const at::Tensor& input);
-at::Tensor SampleInput_backward(const at::Tensor& grad);
-
 using namespace at;
 using torch::Tensor;
 using torch::autograd::AutogradContext;
 using torch::autograd::Variable;
 using torch::autograd::variable_list;
 
-class Round_Ste_Class : public torch::autograd::Function<Round_Ste_Class> {
+class RoundSteClass : public torch::autograd::Function<Round_Ste_Class> {
  public:
   static variable_list forward(
     AutogradContext* ctx,
@@ -26,7 +23,7 @@ class Round_Ste_Class : public torch::autograd::Function<Round_Ste_Class> {
 };
 
 
-class Tensor_Clamp_Ste_Class : public torch::autograd::Function<Tensor_Clamp_Ste_Class> {
+class TensorClampSteClass : public torch::autograd::Function<Tensor_Clamp_Ste_Class> {
  public:
   static variable_list forward(
     AutogradContext* ctx,
@@ -47,7 +44,7 @@ class Tensor_Clamp_Ste_Class : public torch::autograd::Function<Tensor_Clamp_Ste
 };
 
 
-class Scalar_Clamp_Ste_Class : public torch::autograd::Function<Scalar_Clamp_Ste_Class> {
+class ScalarClampSteClass : public torch::autograd::Function<Scalar_Clamp_Ste_Class> {
  public:
   static variable_list forward(
     AutogradContext* ctx,
@@ -67,7 +64,7 @@ class Scalar_Clamp_Ste_Class : public torch::autograd::Function<Scalar_Clamp_Ste
 };
 
 
-class Ceil_Ste_Class : public torch::autograd::Function<Ceil_Ste_Class> {
+class CeilSteClass : public torch::autograd::Function<Ceil_Ste_Class> {
  public:
   static variable_list forward(
     AutogradContext* ctx,
@@ -82,7 +79,7 @@ class Ceil_Ste_Class : public torch::autograd::Function<Ceil_Ste_Class> {
    }
 };
 
-class Floor_Ste_Class : public torch::autograd::Function<Floor_Ste_Class> {
+class FloorSteClass : public torch::autograd::Function<Floor_Ste_Class> {
  public:
   static variable_list forward(
     AutogradContext* ctx,
@@ -97,7 +94,7 @@ class Floor_Ste_Class : public torch::autograd::Function<Floor_Ste_Class> {
    }
 };
 
-class Binary_Sign_Ste_Class : public torch::autograd::Function<Binary_Sign_Ste_Class> {
+class BinarySignSteClass : public torch::autograd::Function<Binary_Sign_Ste_Class> {
  public:
   static variable_list forward(
     AutogradContext* ctx,
@@ -115,7 +112,7 @@ class Binary_Sign_Ste_Class : public torch::autograd::Function<Binary_Sign_Ste_C
    }
 };
 
-class Ternary_Sign_Ste_Class : public torch::autograd::Function<Ternary_Sign_Ste_Class> {
+class TernarySignSteClass : public torch::autograd::Function<Ternary_Sign_Ste_Class> {
  public:
   static variable_list forward(
     AutogradContext* ctx,
