@@ -67,6 +67,57 @@ def round_ste(x: torch.Tensor) -> torch.Tensor:
     """
     return torch.ops.brevitas.round_ste(x)
 
+@torch.jit.script
+def ceil_ste(x: torch.Tensor) -> torch.Tensor:
+    """ Perform ceil operation with Straight Trough Estimation (STE) of the Gradient
+
+    This operation behaves like an identity on the backward pass.
+    For Pytorch version >= 1.3.0, the STE operator is implemented in C++ using the
+    torch::autograd::Function class and compiled. At execution time, the Just-In-Time (JIT) compiler of Pytorch
+    is used to speed-up the computation.
+    For Pytorch version < 1.3.0, the STE operator is implemented using the
+    torch.autograd.Function class in python, and the JIT cannot be used.
+
+    Parameters
+    ----------
+    x : Tensor
+        Tensor on which to apply the ceil operation
+
+    Returns
+    -------
+    Tensor
+        Tensor after applying ceil operation. When backpropagating, the gradient will be unaffected by the ceil
+        operation
+
+    """
+    return torch.ops.brevitas.ceil_ste(x)
+
+
+@torch.jit.script
+def floor_ste(x: torch.Tensor) -> torch.Tensor:
+    """ Perform floor operation with Straight Trough Estimation (STE) of the Gradient
+
+    This operation behaves like an identity on the backward pass.
+    For Pytorch version >= 1.3.0, the STE operator is implemented in C++ using the
+    torch::autograd::Function class and compiled. At execution time, the Just-In-Time (JIT) compiler of Pytorch
+    is used to speed-up the computation.
+    For Pytorch version < 1.3.0, the STE operator is implemented using the
+    torch.autograd.Function class in python, and the JIT cannot be used.
+
+    Parameters
+    ----------
+    x : Tensor
+        Tensor on which to apply the floor operation
+
+    Returns
+    -------
+    Tensor
+        Tensor after applying floor operation. When backpropagating, the gradient will be unaffected by the floor
+        operation
+
+    """
+    return torch.ops.brevitas.floor_ste(x)
+
 
 @torch.jit.script
 def tensor_clamp_ste(x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor) -> torch.Tensor:
