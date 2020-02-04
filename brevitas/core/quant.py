@@ -90,7 +90,8 @@ class ClampedBinaryQuant(torch.jit.ScriptModule):
         super(ClampedBinaryQuant, self).__init__()
         self.scaling_impl = scaling_impl
         self.bit_width = 1
-
+        
+    @torch.jit.script_method
     def forward(self, x: Tensor, zero_hw_sentinel: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
         scale = self.scaling_impl(zero_hw_sentinel)
         y = tensor_clamp(x, - scale, scale)
