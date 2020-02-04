@@ -38,8 +38,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from brevitas.function.ops import ceil_ste, floor_ste
-from brevitas.function.ops_ste import round_ste, tensor_clamp_ste
+from brevitas.function.ops_ste import round_ste, tensor_clamp_ste, ceil_ste, floor_ste
 from brevitas.function.shape import *
 from brevitas.function import tensor_clamp
 

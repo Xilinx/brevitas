@@ -55,7 +55,8 @@ from brevitas.core.quant import QuantType, IdentityQuant
 from brevitas.core.restrict_val import RestrictValueType
 from brevitas.core.scaling import ScalingImplType, SCALING_SCALAR_SHAPE
 from brevitas.core.stats import StatsInputViewShapeImpl, StatsOp
-from brevitas.function.ops import ceil_ste, max_uint
+from brevitas.function.ops import max_uint
+from brevitas.function.ops_ste import ceil_ste
 from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy, WeightReg
 from brevitas.utils.python_utils import AutoName
 from brevitas.nn.quant_bn import mul_add_from_bn
