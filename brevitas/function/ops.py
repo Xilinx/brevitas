@@ -38,7 +38,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from brevitas.function.autograd_ops import *
+import torch
 
 
 @torch.jit.script
@@ -65,56 +65,14 @@ def tensor_clamp(x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor) 
 
 
 @torch.jit.script
-def tensor_clamp_(x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor):
+def tensor_clamp_(x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor) -> torch.Tensor:
     torch.min(x, max_val, out=x)
     torch.max(x, min_val, out=x)
     return x
 
 
-def ceil_ste(x: torch.Tensor) -> torch.Tensor:
-    """ Perform ceil operation with Straight Trough Estimation (STE) of the Gradient
-
-    This operation behaves like an identity on the backward pass. The STE is implemented using the
-    torch.autograd.Function class in python, due to some unexpected behaviour of at::ceil implementation in C++
-
-    Parameters
-    ----------
-    x : Tensor
-        Tensor on which to apply the ceil operation
-
-    Returns
-    -------
-    Tensor
-        Tensor after applying ceil operation. When backpropagating, the gradient will be unaffected by the ceil
-        operation
-
-    """
-    return ceil_ste_fn.apply(x)
-
-
-def floor_ste(x: torch.Tensor) -> torch.Tensor:
-    """ Perform floor operation with Straight Trough Estimation (STE) of the Gradient
-
-    This operation behaves like an identity on the backward pass. The STE is implemented using the
-    torch.autograd.Function class in python, due to some unexpected behaviour of at::floor implementation in C++
-
-    Parameters
-    ----------
-    x : Tensor
-        Tensor on which to apply the floor operation
-
-    Returns
-    -------
-    Tensor
-        Tensor after applying floor operation. When backpropagating, the gradient will be unaffected by the floor
-        operation
-
-    """
-    return floor_ste_fn.apply(x)
-
-
 @torch.jit.script
-def max_uint(narrow_range: bool, bit_width: torch.Tensor):
+def max_uint(narrow_range: bool, bit_width: torch.Tensor) -> torch.Tensor:
     """ Compute the maximum unsigned integer representable
 
     The maximum unsigned integer representable depends on the number of bits, and whether the narrow range setting
@@ -141,7 +99,7 @@ def max_uint(narrow_range: bool, bit_width: torch.Tensor):
 
 
 @torch.jit.script
-def max_int(signed: bool, bit_width: torch.Tensor):
+def max_int(signed: bool, bit_width: torch.Tensor) -> torch.Tensor:
     """ Compute the maximum integer representable
 
     The maximum integer representable depends on the number of bits, and whether the negative numbers are included
@@ -168,7 +126,7 @@ def max_int(signed: bool, bit_width: torch.Tensor):
 
 
 @torch.jit.script
-def min_int(signed: bool, narrow_range: bool, bit_width: torch.Tensor):
+def min_int(signed: bool, narrow_range: bool, bit_width: torch.Tensor) -> torch.Tensor:
     """ Compute the minimum integer representable
 
     The minimum integer representable depends on the number of bits, whether the negative numbers are included
