@@ -315,6 +315,82 @@
 <dd><p>Compute the maximum unsigned integer representable</p>
 <p>The maximum unsigned integer representable depends on the number of bits, and whether the narrow range setting
 is used. If so, the maximum value represented is decreased by one unit.</p>
+<<<<<<< HEAD
+=======
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>narrow_range</strong> (<em>Bool</em>) – Flag that indicates whether to decrease the possible maximum value represented</p></li>
+<li><p><strong>bit_width</strong> (<em>Tensor</em>) – Number of bits available for the representation</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Maximum unsigned integer that can be represented according to the input parameters</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brevitas.function.ops.max_int">
+<code class="sig-prename descclassname">brevitas.function.ops.</code><code class="sig-name descname">max_int</code><span class="sig-paren">(</span><em class="sig-param">signed</em>, <em class="sig-param">bit_width</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.ops.max_int" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the maximum integer representable</p>
+<p>The maximum integer representable depends on the number of bits, and whether the negative numbers are included
+in the representation. If so, one bit is lost in the computation of the maximum value.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>signed</strong> (<em>Bool</em>) – Flag that indicates whether negative numbers must be included or not</p></li>
+<li><p><strong>bit_width</strong> (<em>Tensor</em>) – Number of bits available for the representation</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Maximum integer that can be represented according to the input parameters</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brevitas.function.ops.min_int">
+<code class="sig-prename descclassname">brevitas.function.ops.</code><code class="sig-name descname">min_int</code><span class="sig-paren">(</span><em class="sig-param">signed</em>, <em class="sig-param">narrow_range</em>, <em class="sig-param">bit_width</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.ops.min_int" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the minimum integer representable</p>
+<p>The minimum integer representable depends on the number of bits, whether the negative numbers are included
+in the representation, and whether the narrow range setting is used.
+For positive-only number, the minimum value will always be zero.
+If the sign and narrow range flags are both set, then the representation will be such that there is symmetry
+between positive and negative values.
+For example, for 3 bit representation, with sign and narrow range, the
+values representable are in the range [-3, 3].
+If the narrow range is not enabled, then the possible values will be in the range [-4, 3].</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>signed</strong> (<em>Bool</em>) – Flag that indicates whether negative numbers must be included or not</p></li>
+<li><p><strong>narrow_range</strong> (<em>Bool</em>) – Flag that indicates whether the narrow range setting is enabled or not</p></li>
+<li><p><strong>bit_width</strong> (<em>Tensor</em>) – Number of bits available for the representation</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Minimum integer that can be represented according to the input parameters</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brevitas.function.ops.ceil_ste">
+<code class="sig-prename descclassname">brevitas.function.ops.</code><code class="sig-name descname">ceil_ste</code><span class="sig-paren">(</span><em class="sig-param">x</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.ops.ceil_ste" title="Permalink to this definition">¶</a></dt>
+<dd><p>Perform ceil operation with Straight Trough Estimation (STE) of the Gradient</p>
+<p>This operation behaves like an identity on the backward pass. The STE is implemented using the
+torch.autograd.Function class in python, due to some unexpected behaviour of at::ceil implementation in C++</p>
+>>>>>>> Removed round_ste from max_int, min_int, and max_uint. Moved the functions in <ops> module. Refactored code and doc source. Modified test_ops appropriately
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
@@ -557,6 +633,199 @@ torch.autograd.Function class in python, and the JIT cannot be used.</p>
 <dd class="field-odd"><p><strong>x</strong> (<em>Tensor</em>) – Tensor on which to apply the ternary operation</p>
 </dd>
 <dt class="field-even">Returns</dt>
+<<<<<<< HEAD
+<dd class="field-even"><p>Tensor after applying ternary operation. When backpropagating through this value,
+a straight through estimator is applied.</p>
+=======
+<dd class="field-even"><p>Tensor after applying ternary operation. When backpropagating, the gradient will be unaffected by the
+operation</p>
+>>>>>>> Removed round_ste from max_int, min_int, and max_uint. Moved the functions in <ops> module. Refactored code and doc source. Modified test_ops appropriately
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<<<<<<< HEAD
+=======
+<dl class="function">
+<dt>
+<code class="sig-prename descclassname">brevitas.function.ops_ste.</code><code class="sig-name descname">binary_sign_ste</code><span class="sig-paren">(</span><em class="sig-param">x</em><span class="sig-paren">)</span></dt>
+<dd><p>Perform binarization with Straight Trough Estimation (STE) of the Gradient</p>
+<p>This operation performs binarization on the input Tensor.
+The output value will be one for each input value &gt;= 0, otherwise it will be 0.
+This operation behaves like an identity on the backward pass.
+For Pytorch version &gt;= 1.3.0, the STE operator is implemented in C++ using the
+torch::autograd::Function class and compiled. At execution time, the Just-In-Time (JIT) compiler of Pytorch
+is used to speed-up the computation.
+For Pytorch version &lt; 1.3.0, the STE operator is implemented using the
+torch.autograd.Function class in python, and the JIT cannot be used.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>x</strong> (<em>Tensor</em>) – Tensor on which to apply the binarization operation</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<<<<<<< HEAD
+<dd class="field-even"><p>Tensor after applying binarization. When backpropagating through this value, a straight
+through estimator is applied.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt>
+<code class="sig-prename descclassname">brevitas.function.ops_ste.</code><code class="sig-name descname">ceil_ste</code><span class="sig-paren">(</span><em class="sig-param">x</em><span class="sig-paren">)</span></dt>
+<dd><p>Perform ceil operation with Straight Trough Estimation (STE) of the Gradient</p>
+<p>This operation behaves like an identity on the backward pass.
+For Pytorch version &gt;= 1.3.0, the STE operator is implemented in C++ using the
+torch::autograd::Function class and compiled. At execution time, the Just-In-Time (JIT) compiler of Pytorch
+is used to speed-up the computation.
+For Pytorch version &lt; 1.3.0, the STE operator is implemented using the
+torch.autograd.Function class in python, and the JIT cannot be used.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>x</strong> (<em>Tensor</em>) – Tensor on which to apply the ceil operation</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Tensor after applying ceil operation.
+When backpropagating through this value, a straight through estimator is applied.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt>
+<code class="sig-prename descclassname">brevitas.function.ops_ste.</code><code class="sig-name descname">floor_ste</code><span class="sig-paren">(</span><em class="sig-param">x</em><span class="sig-paren">)</span></dt>
+<dd><p>Perform floor operation with Straight Trough Estimation (STE) of the Gradient</p>
+<p>This operation behaves like an identity on the backward pass.
+For Pytorch version &gt;= 1.3.0, the STE operator is implemented in C++ using the
+torch::autograd::Function class and compiled. At execution time, the Just-In-Time (JIT) compiler of Pytorch
+is used to speed-up the computation.
+For Pytorch version &lt; 1.3.0, the STE operator is implemented using the
+torch.autograd.Function class in python, and the JIT cannot be used.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>x</strong> (<em>Tensor</em>) – Tensor on which to apply the floor operation</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Tensor after applying floor operation.
+When backpropagating through this value, a straight through estimator is applied.</p>
+=======
+<dd class="field-even"><p>Tensor after applying binarization. When backpropagating, the gradient will be unaffected by the
+operation</p>
+>>>>>>> Removed round_ste from max_int, min_int, and max_uint. Moved the functions in <ops> module. Refactored code and doc source. Modified test_ops appropriately
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt>
+<code class="sig-prename descclassname">brevitas.function.ops_ste.</code><code class="sig-name descname">round_ste</code><span class="sig-paren">(</span><em class="sig-param">x</em><span class="sig-paren">)</span></dt>
+<dd><p>Perform round operation with Straight Trough Estimation (STE) of the Gradient</p>
+<p>This operation behaves like an identity on the backward pass.
+For Pytorch version &gt;= 1.3.0, the STE operator is implemented in C++ using the
+torch::autograd::Function class and compiled. At execution time, the Just-In-Time (JIT) compiler of Pytorch
+is used to speed-up the computation.
+For Pytorch version &lt; 1.3.0, the STE operator is implemented using the
+torch.autograd.Function class in python, and the JIT cannot be used.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>x</strong> (<em>Tensor</em>) – Tensor on which to apply the round operation</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Tensor after applying round operation. When backpropagating through this value,
+a straight through estimator is applied.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt>
+<code class="sig-prename descclassname">brevitas.function.ops_ste.</code><code class="sig-name descname">scalar_clamp_ste</code><span class="sig-paren">(</span><em class="sig-param">x</em>, <em class="sig-param">min_val</em>, <em class="sig-param">max_val</em><span class="sig-paren">)</span></dt>
+<dd><p>Perform clamp operation with Straight Trough Estimation (STE) of the Gradient</p>
+<p>This operation behaves like an identity on the backward pass.
+For Pytorch version &gt;= 1.3.0, the STE operator is implemented in C++ using the
+torch::autograd::Function class and compiled. At execution time, the Just-In-Time (JIT) compiler of Pytorch
+is used to speed-up the computation.
+For Pytorch version &lt; 1.3.0, the STE operator is implemented using the
+torch.autograd.Function class in python, and the JIT cannot be used.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>Tensor</em>) – Tensor on which to apply the clamp operation</p></li>
+<li><p><strong>min_val</strong> (<em>Float</em>) – Scalar containing the minimum value for the clamp operation</p></li>
+<li><p><strong>max_val</strong> (<em>Float</em>) – Scalar containing the maximum value for the clamp operation</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Tensor for which every element of <cite>x</cite> is clamped between <cite>min_val</cite> and <cite>max_val</cite>.
+When backpropagating through this value, a straight through estimator is applied.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt>
+<code class="sig-prename descclassname">brevitas.function.ops_ste.</code><code class="sig-name descname">tensor_clamp_ste</code><span class="sig-paren">(</span><em class="sig-param">x</em>, <em class="sig-param">min_val</em>, <em class="sig-param">max_val</em><span class="sig-paren">)</span></dt>
+<dd><p>Perform tensor-clamp operation with Straight Trough Estimation (STE) of the Gradient</p>
+<p>This function accepts two Tensors as <cite>min_val</cite> and <cite>max_val</cite>. These Tensors must have the same shape as
+<cite>x</cite>, so that each element of <cite>x</cite> can be clamped according to the correspondent min_val and max_val.
+This operation behaves like an identity on the backward pass.
+For Pytorch version &gt;= 1.3.0, the STE operator is implemented in C++ using the
+torch::autograd::Function class and compiled. At execution time, the Just-In-Time (JIT) compiler of Pytorch
+is used to speed-up the computation.
+For Pytorch version &lt; 1.3.0, the STE operator is implemented using the
+torch.autograd.Function class in python, and the JIT cannot be used.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>Tensor</em>) – Tensor on which to apply the clamp operation</p></li>
+<li><p><strong>min_val</strong> (<em>Tensor</em>) – Tensor containing the minimum values for the clamp operation. Must have the same shape of <cite>x</cite></p></li>
+<li><p><strong>max_val</strong> (<em>Tensor</em>) – Tensor containing the maximum values for the clamp operation. Must have the same shape of <cite>x</cite></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Tensor for which every element of <cite>x</cite> is clamped between the corresponding minimum and maximum values.
+When backpropagating through this value, a straight through estimator is applied.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt>
+<code class="sig-prename descclassname">brevitas.function.ops_ste.</code><code class="sig-name descname">ternary_sign_ste</code><span class="sig-paren">(</span><em class="sig-param">x</em><span class="sig-paren">)</span></dt>
+<dd><p>Perform ternary operator with Straight Trough Estimation (STE) of the Gradient</p>
+<p>This operations behaves as the function <cite>sign</cite> of Pytorch.
+This operation behaves like an identity on the backward pass.
+For Pytorch version &gt;= 1.3.0, the STE operator is implemented in C++ using the
+torch::autograd::Function class and compiled. At execution time, the Just-In-Time (JIT) compiler of Pytorch
+is used to speed-up the computation.
+For Pytorch version &lt; 1.3.0, the STE operator is implemented using the
+torch.autograd.Function class in python, and the JIT cannot be used.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>x</strong> (<em>Tensor</em>) – Tensor on which to apply the ternary operation</p>
+</dd>
+<dt class="field-even">Returns</dt>
 <dd class="field-even"><p>Tensor after applying ternary operation. When backpropagating through this value,
 a straight through estimator is applied.</p>
 </dd>
@@ -566,6 +835,7 @@ a straight through estimator is applied.</p>
 </dl>
 </dd></dl>
 
+>>>>>>> Removed round_ste from max_int, min_int, and max_uint. Moved the functions in <ops> module. Refactored code and doc source. Modified test_ops appropriately
 </div>
 <div class="section" id="module-brevitas.function.shape">
 <span id="brevitas-function-shape-module"></span><h2>brevitas.function.shape module<a class="headerlink" href="#module-brevitas.function.shape" title="Permalink to this headline">¶</a></h2>
