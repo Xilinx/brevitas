@@ -45,7 +45,7 @@ import torch
 def round_ste(x: torch.Tensor) -> torch.Tensor:
     """ Perform round operation with Straight Trough Estimation (STE) of the Gradient
 
-    This operation has no effect on the backpropagation of the gradient.
+    This operation behaves like an identity on the backward pass.
     For Pytorch version >= 1.3.0, the STE operator is implemented in C++ using the
     torch::autograd::Function class and compiled. At execution time, the Just-In-Time (JIT) compiler of Pytorch
     is used to speed-up the computation.
@@ -74,7 +74,7 @@ def tensor_clamp_ste(x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tens
 
     This function accepts two Tensors as `min_val` and `max_val`. These Tensors must have the same shape as
     `x`, so that each element of `x` can be clamped according to the correspondent min_val and max_val.
-    This operation has no effect on the backpropagation of the gradient.
+    This operation behaves like an identity on the backward pass.
     For Pytorch version >= 1.3.0, the STE operator is implemented in C++ using the
     torch::autograd::Function class and compiled. At execution time, the Just-In-Time (JIT) compiler of Pytorch
     is used to speed-up the computation.
@@ -106,7 +106,7 @@ def tensor_clamp_ste(x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tens
 def scalar_clamp_ste(x: torch.Tensor, min_val: float, max_val: float) -> torch.Tensor:
     """ Perform clamp operation with Straight Trough Estimation (STE) of the Gradient
 
-    This operation has no effect on the backpropagation of the gradient.
+    This operation behaves like an identity on the backward pass.
     For Pytorch version >= 1.3.0, the STE operator is implemented in C++ using the
     torch::autograd::Function class and compiled. At execution time, the Just-In-Time (JIT) compiler of Pytorch
     is used to speed-up the computation.
@@ -139,7 +139,7 @@ def binary_sign_ste(x: torch.Tensor) -> torch.Tensor:
 
     This operation performs binarization on the input Tensor.
     The output value will be one for each input value >= 0, otherwise it will be 0.
-    This operation has no effect on the backpropagation of the gradient.
+    This operation behaves like an identity on the backward pass.
     For Pytorch version >= 1.3.0, the STE operator is implemented in C++ using the
     torch::autograd::Function class and compiled. At execution time, the Just-In-Time (JIT) compiler of Pytorch
     is used to speed-up the computation.
@@ -167,7 +167,7 @@ def ternary_sign_ste(x: torch.Tensor) -> torch.Tensor:
     """ Perform ternary operator with Straight Trough Estimation (STE) of the Gradient
 
     This operations behaves as the function `sign` of Pytorch.
-    This operation has no effect on the backpropagation of the gradient.
+    This operation behaves like an identity on the backward pass.
     For Pytorch version >= 1.3.0, the STE operator is implemented in C++ using the
     torch::autograd::Function class and compiled. At execution time, the Just-In-Time (JIT) compiler of Pytorch
     is used to speed-up the computation.
@@ -196,7 +196,6 @@ def max_uint(narrow_range: bool, bit_width: torch.Tensor):
 
     The maximum unsigned integer representable depends on the number of bits, and whether the narrow range setting
     is used. If so, the maximum value represented is decreased by one unit.
-    The operation uses `round_ste` function. Look at the documentation for details on its implementation.
 
     Parameters
     ----------
@@ -225,7 +224,6 @@ def max_int(signed: bool, bit_width: torch.Tensor):
 
     The maximum integer representable depends on the number of bits, and whether the negative numbers are included
     in the representation. If so, one bit is lost in the computation of the maximum value.
-    The operation uses `round_ste` function. Look at the documentation for details on its implementation.
 
     Parameters
     ----------
@@ -260,8 +258,6 @@ def min_int(signed: bool, narrow_range: bool, bit_width: torch.Tensor):
     For example, for 3 bit representation, with sign and narrow range, the
     values representable are in the range [-3, 3].
     If the narrow range is not enabled, then the possible values will be in the range [-4, 3].
-
-    The operation uses `round_ste` function. Look at the documentation for details on its implementation.
 
     Parameters
     ----------
