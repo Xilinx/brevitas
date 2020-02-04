@@ -7,8 +7,8 @@ import math
 import torch
 from scipy.linalg import hadamard
 
-
-from brevitas.function.ops import ceil_ste, max_uint
+from brevitas.function.ops_ste import ceil_ste
+from brevitas.function.ops import max_uint
 from .quant_layer import QuantLayer
 
 
