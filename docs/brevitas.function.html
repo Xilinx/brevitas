@@ -183,7 +183,7 @@
 <em class="property">class </em><code class="sig-prename descclassname">brevitas.function.autograd_ops.</code><code class="sig-name descname">ceil_ste_fn</code><a class="headerlink" href="#brevitas.function.autograd_ops.ceil_ste_fn" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.autograd.function.Function</span></code></p>
 <p>Autograd function that implements ceil_ste with a straight through estimator</p>
-<p>Look at the documentation of <a class="reference internal" href="#brevitas.function.ops.ceil_ste" title="brevitas.function.ops.ceil_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">ceil_ste()</span></code></a> for further details.</p>
+<p>Look at the documentation of <a class="reference internal" href="#brevitas.function.ops_ste.ceil_ste" title="brevitas.function.ops_ste.ceil_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">ceil_ste()</span></code></a> for further details.</p>
 <dl class="method">
 <dt id="brevitas.function.autograd_ops.ceil_ste_fn.backward">
 <em class="property">static </em><code class="sig-name descname">backward</code><span class="sig-paren">(</span><em class="sig-param">ctx</em>, <em class="sig-param">grad_y</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.autograd_ops.ceil_ste_fn.backward" title="Permalink to this definition">¶</a></dt>
@@ -201,7 +201,7 @@
 <em class="property">class </em><code class="sig-prename descclassname">brevitas.function.autograd_ops.</code><code class="sig-name descname">floor_ste_fn</code><a class="headerlink" href="#brevitas.function.autograd_ops.floor_ste_fn" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.autograd.function.Function</span></code></p>
 <p>Autograd function that implements floor_ste with a straight through estimator</p>
-<p>Look at the documentation of <a class="reference internal" href="#brevitas.function.ops.floor_ste" title="brevitas.function.ops.floor_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">floor_ste()</span></code></a> for further details.</p>
+<p>Look at the documentation of <a class="reference internal" href="#brevitas.function.ops_ste.floor_ste" title="brevitas.function.ops_ste.floor_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">floor_ste()</span></code></a> for further details.</p>
 <dl class="method">
 <dt id="brevitas.function.autograd_ops.floor_ste_fn.backward">
 <em class="property">static </em><code class="sig-name descname">backward</code><span class="sig-paren">(</span><em class="sig-param">ctx</em>, <em class="sig-param">grad_y</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.autograd_ops.floor_ste_fn.backward" title="Permalink to this definition">¶</a></dt>
@@ -382,46 +382,6 @@ If the narrow range is not enabled, then the possible values will be in the rang
 </dl>
 </dd></dl>
 
-<dl class="function">
-<dt id="brevitas.function.ops.ceil_ste">
-<code class="sig-prename descclassname">brevitas.function.ops.</code><code class="sig-name descname">ceil_ste</code><span class="sig-paren">(</span><em class="sig-param">x</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.ops.ceil_ste" title="Permalink to this definition">¶</a></dt>
-<dd><p>Perform ceil operation with Straight Trough Estimation (STE) of the Gradient</p>
-<p>This operation behaves like an identity on the backward pass. The STE is implemented using the
-torch.autograd.Function class in python, due to some unexpected behaviour of at::ceil implementation in C++</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>x</strong> (<em>Tensor</em>) – Tensor on which to apply the ceil operation</p>
-</dd>
-<dt class="field-even">Returns</dt>
-<dd class="field-even"><p>Tensor after applying ceil operation. When backpropagating, the gradient will be unaffected by the ceil
-operation</p>
-</dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>Tensor</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="function">
-<dt id="brevitas.function.ops.floor_ste">
-<code class="sig-prename descclassname">brevitas.function.ops.</code><code class="sig-name descname">floor_ste</code><span class="sig-paren">(</span><em class="sig-param">x</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.ops.floor_ste" title="Permalink to this definition">¶</a></dt>
-<dd><p>Perform floor operation with Straight Trough Estimation (STE) of the Gradient</p>
-<p>This operation behaves like an identity on the backward pass. The STE is implemented using the
-torch.autograd.Function class in python, due to some unexpected behaviour of at::floor implementation in C++</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>x</strong> (<em>Tensor</em>) – Tensor on which to apply the floor operation</p>
-</dd>
-<dt class="field-even">Returns</dt>
-<dd class="field-even"><p>Tensor after applying floor operation. When backpropagating, the gradient will be unaffected by the floor
-operation</p>
-</dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>Tensor</p>
-</dd>
-</dl>
-</dd></dl>
-
 </div>
 <div class="section" id="module-brevitas.function.ops_ste">
 <span id="brevitas-function-ops-ste-module"></span><h2>brevitas.function.ops_ste module<a class="headerlink" href="#module-brevitas.function.ops_ste" title="Permalink to this headline">¶</a></h2>
@@ -429,7 +389,7 @@ operation</p>
 <dt id="brevitas.function.ops_ste.round_ste">
 <code class="sig-prename descclassname">brevitas.function.ops_ste.</code><code class="sig-name descname">round_ste</code><span class="sig-paren">(</span><em class="sig-param">x</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.ops_ste.round_ste" title="Permalink to this definition">¶</a></dt>
 <dd><p>Perform round operation with Straight Trough Estimation (STE) of the Gradient</p>
-<p>This operation has no effect on the backpropagation of the gradient.
+<p>This operation behaves like an identity on the backward pass.
 For Pytorch version &gt;= 1.3.0, the STE operator is implemented in C++ using the
 torch::autograd::Function class and compiled. At execution time, the Just-In-Time (JIT) compiler of Pytorch
 is used to speed-up the computation.
@@ -450,12 +410,60 @@ operation</p>
 </dd></dl>
 
 <dl class="function">
+<dt id="brevitas.function.ops_ste.ceil_ste">
+<code class="sig-prename descclassname">brevitas.function.ops_ste.</code><code class="sig-name descname">ceil_ste</code><span class="sig-paren">(</span><em class="sig-param">x</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.ops_ste.ceil_ste" title="Permalink to this definition">¶</a></dt>
+<dd><p>Perform ceil operation with Straight Trough Estimation (STE) of the Gradient</p>
+<p>This operation behaves like an identity on the backward pass.
+For Pytorch version &gt;= 1.3.0, the STE operator is implemented in C++ using the
+torch::autograd::Function class and compiled. At execution time, the Just-In-Time (JIT) compiler of Pytorch
+is used to speed-up the computation.
+For Pytorch version &lt; 1.3.0, the STE operator is implemented using the
+torch.autograd.Function class in python, and the JIT cannot be used.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>x</strong> (<em>Tensor</em>) – Tensor on which to apply the ceil operation</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Tensor after applying ceil operation. When backpropagating, the gradient will be unaffected by the ceil
+operation</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="brevitas.function.ops_ste.floor_ste">
+<code class="sig-prename descclassname">brevitas.function.ops_ste.</code><code class="sig-name descname">floor_ste</code><span class="sig-paren">(</span><em class="sig-param">x</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.ops_ste.floor_ste" title="Permalink to this definition">¶</a></dt>
+<dd><p>Perform floor operation with Straight Trough Estimation (STE) of the Gradient</p>
+<p>This operation behaves like an identity on the backward pass.
+For Pytorch version &gt;= 1.3.0, the STE operator is implemented in C++ using the
+torch::autograd::Function class and compiled. At execution time, the Just-In-Time (JIT) compiler of Pytorch
+is used to speed-up the computation.
+For Pytorch version &lt; 1.3.0, the STE operator is implemented using the
+torch.autograd.Function class in python, and the JIT cannot be used.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>x</strong> (<em>Tensor</em>) – Tensor on which to apply the floor operation</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Tensor after applying floor operation. When backpropagating, the gradient will be unaffected by the floor
+operation</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
 <dt id="brevitas.function.ops_ste.tensor_clamp_ste">
 <code class="sig-prename descclassname">brevitas.function.ops_ste.</code><code class="sig-name descname">tensor_clamp_ste</code><span class="sig-paren">(</span><em class="sig-param">x</em>, <em class="sig-param">min_val</em>, <em class="sig-param">max_val</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.ops_ste.tensor_clamp_ste" title="Permalink to this definition">¶</a></dt>
 <dd><p>Perform tensor-clamp operation with Straight Trough Estimation (STE) of the Gradient</p>
 <p>This function accepts two Tensors as <cite>min_val</cite> and <cite>max_val</cite>. These Tensors must have the same shape as
 <cite>x</cite>, so that each element of <cite>x</cite> can be clamped according to the correspondent min_val and max_val.
-This operation has no effect on the backpropagation of the gradient.
+This operation behaves like an identity on the backward pass.
 For Pytorch version &gt;= 1.3.0, the STE operator is implemented in C++ using the
 torch::autograd::Function class and compiled. At execution time, the Just-In-Time (JIT) compiler of Pytorch
 is used to speed-up the computation.
@@ -484,7 +492,7 @@ operation</p>
 <dt id="brevitas.function.ops_ste.scalar_clamp_ste">
 <code class="sig-prename descclassname">brevitas.function.ops_ste.</code><code class="sig-name descname">scalar_clamp_ste</code><span class="sig-paren">(</span><em class="sig-param">x</em>, <em class="sig-param">min_val</em>, <em class="sig-param">max_val</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.ops_ste.scalar_clamp_ste" title="Permalink to this definition">¶</a></dt>
 <dd><p>Perform clamp operation with Straight Trough Estimation (STE) of the Gradient</p>
-<p>This operation has no effect on the backpropagation of the gradient.
+<p>This operation behaves like an identity on the backward pass.
 For Pytorch version &gt;= 1.3.0, the STE operator is implemented in C++ using the
 torch::autograd::Function class and compiled. At execution time, the Just-In-Time (JIT) compiler of Pytorch
 is used to speed-up the computation.
@@ -515,7 +523,7 @@ operation</p>
 <dd><p>Perform binarization with Straight Trough Estimation (STE) of the Gradient</p>
 <p>This operation performs binarization on the input Tensor.
 The output value will be one for each input value &gt;= 0, otherwise it will be 0.
-This operation has no effect on the backpropagation of the gradient.
+This operation behaves like an identity on the backward pass.
 For Pytorch version &gt;= 1.3.0, the STE operator is implemented in C++ using the
 torch::autograd::Function class and compiled. At execution time, the Just-In-Time (JIT) compiler of Pytorch
 is used to speed-up the computation.
@@ -540,7 +548,7 @@ operation</p>
 <code class="sig-prename descclassname">brevitas.function.ops_ste.</code><code class="sig-name descname">ternary_sign_ste</code><span class="sig-paren">(</span><em class="sig-param">x</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.ops_ste.ternary_sign_ste" title="Permalink to this definition">¶</a></dt>
 <dd><p>Perform ternary operator with Straight Trough Estimation (STE) of the Gradient</p>
 <p>This operations behaves as the function <cite>sign</cite> of Pytorch.
-This operation has no effect on the backpropagation of the gradient.
+This operation behaves like an identity on the backward pass.
 For Pytorch version &gt;= 1.3.0, the STE operator is implemented in C++ using the
 torch::autograd::Function class and compiled. At execution time, the Just-In-Time (JIT) compiler of Pytorch
 is used to speed-up the computation.
@@ -566,7 +574,7 @@ operation</p>
 <dd><p>Perform binarization with Straight Trough Estimation (STE) of the Gradient</p>
 <p>This operation performs binarization on the input Tensor.
 The output value will be one for each input value &gt;= 0, otherwise it will be 0.
-This operation has no effect on the backpropagation of the gradient.
+This operation behaves like an identity on the backward pass.
 For Pytorch version &gt;= 1.3.0, the STE operator is implemented in C++ using the
 torch::autograd::Function class and compiled. At execution time, the Just-In-Time (JIT) compiler of Pytorch
 is used to speed-up the computation.
@@ -588,9 +596,57 @@ operation</p>
 
 <dl class="function">
 <dt>
+<code class="sig-prename descclassname">brevitas.function.ops_ste.</code><code class="sig-name descname">ceil_ste</code><span class="sig-paren">(</span><em class="sig-param">x</em><span class="sig-paren">)</span></dt>
+<dd><p>Perform ceil operation with Straight Trough Estimation (STE) of the Gradient</p>
+<p>This operation behaves like an identity on the backward pass.
+For Pytorch version &gt;= 1.3.0, the STE operator is implemented in C++ using the
+torch::autograd::Function class and compiled. At execution time, the Just-In-Time (JIT) compiler of Pytorch
+is used to speed-up the computation.
+For Pytorch version &lt; 1.3.0, the STE operator is implemented using the
+torch.autograd.Function class in python, and the JIT cannot be used.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>x</strong> (<em>Tensor</em>) – Tensor on which to apply the ceil operation</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Tensor after applying ceil operation. When backpropagating, the gradient will be unaffected by the ceil
+operation</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt>
+<code class="sig-prename descclassname">brevitas.function.ops_ste.</code><code class="sig-name descname">floor_ste</code><span class="sig-paren">(</span><em class="sig-param">x</em><span class="sig-paren">)</span></dt>
+<dd><p>Perform floor operation with Straight Trough Estimation (STE) of the Gradient</p>
+<p>This operation behaves like an identity on the backward pass.
+For Pytorch version &gt;= 1.3.0, the STE operator is implemented in C++ using the
+torch::autograd::Function class and compiled. At execution time, the Just-In-Time (JIT) compiler of Pytorch
+is used to speed-up the computation.
+For Pytorch version &lt; 1.3.0, the STE operator is implemented using the
+torch.autograd.Function class in python, and the JIT cannot be used.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>x</strong> (<em>Tensor</em>) – Tensor on which to apply the floor operation</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Tensor after applying floor operation. When backpropagating, the gradient will be unaffected by the floor
+operation</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt>
 <code class="sig-prename descclassname">brevitas.function.ops_ste.</code><code class="sig-name descname">round_ste</code><span class="sig-paren">(</span><em class="sig-param">x</em><span class="sig-paren">)</span></dt>
 <dd><p>Perform round operation with Straight Trough Estimation (STE) of the Gradient</p>
-<p>This operation has no effect on the backpropagation of the gradient.
+<p>This operation behaves like an identity on the backward pass.
 For Pytorch version &gt;= 1.3.0, the STE operator is implemented in C++ using the
 torch::autograd::Function class and compiled. At execution time, the Just-In-Time (JIT) compiler of Pytorch
 is used to speed-up the computation.
@@ -614,7 +670,7 @@ operation</p>
 <dt>
 <code class="sig-prename descclassname">brevitas.function.ops_ste.</code><code class="sig-name descname">scalar_clamp_ste</code><span class="sig-paren">(</span><em class="sig-param">x</em>, <em class="sig-param">min_val</em>, <em class="sig-param">max_val</em><span class="sig-paren">)</span></dt>
 <dd><p>Perform clamp operation with Straight Trough Estimation (STE) of the Gradient</p>
-<p>This operation has no effect on the backpropagation of the gradient.
+<p>This operation behaves like an identity on the backward pass.
 For Pytorch version &gt;= 1.3.0, the STE operator is implemented in C++ using the
 torch::autograd::Function class and compiled. At execution time, the Just-In-Time (JIT) compiler of Pytorch
 is used to speed-up the computation.
@@ -645,7 +701,7 @@ operation</p>
 <dd><p>Perform tensor-clamp operation with Straight Trough Estimation (STE) of the Gradient</p>
 <p>This function accepts two Tensors as <cite>min_val</cite> and <cite>max_val</cite>. These Tensors must have the same shape as
 <cite>x</cite>, so that each element of <cite>x</cite> can be clamped according to the correspondent min_val and max_val.
-This operation has no effect on the backpropagation of the gradient.
+This operation behaves like an identity on the backward pass.
 For Pytorch version &gt;= 1.3.0, the STE operator is implemented in C++ using the
 torch::autograd::Function class and compiled. At execution time, the Just-In-Time (JIT) compiler of Pytorch
 is used to speed-up the computation.
@@ -675,7 +731,7 @@ operation</p>
 <code class="sig-prename descclassname">brevitas.function.ops_ste.</code><code class="sig-name descname">ternary_sign_ste</code><span class="sig-paren">(</span><em class="sig-param">x</em><span class="sig-paren">)</span></dt>
 <dd><p>Perform ternary operator with Straight Trough Estimation (STE) of the Gradient</p>
 <p>This operations behaves as the function <cite>sign</cite> of Pytorch.
-This operation has no effect on the backpropagation of the gradient.
+This operation behaves like an identity on the backward pass.
 For Pytorch version &gt;= 1.3.0, the STE operator is implemented in C++ using the
 torch::autograd::Function class and compiled. At execution time, the Just-In-Time (JIT) compiler of Pytorch
 is used to speed-up the computation.

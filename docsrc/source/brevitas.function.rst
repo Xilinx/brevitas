@@ -35,6 +35,8 @@ brevitas.function.ops\_ste module
    :show-inheritance:
 
    .. autofunction:: round_ste(x)
+   .. autofunction:: ceil_ste(x)
+   .. autofunction:: floor_ste(x)
    .. autofunction:: tensor_clamp_ste(x, min_val, max_val)
    .. autofunction:: scalar_clamp_ste(x, min_val, max_val)
    .. autofunction:: binary_sign_ste(x)

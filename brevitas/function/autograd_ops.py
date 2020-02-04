@@ -83,7 +83,7 @@ class tensor_clamp_ste_fn(torch.autograd.Function):
 class ceil_ste_fn(torch.autograd.Function):
     """ Autograd function that implements ceil_ste with a straight through estimator
 
-    Look at the documentation of :func:`~brevitas.function.ops.ceil_ste` for further details.
+    Look at the documentation of :func:`~brevitas.function.ops_ste.ceil_ste` for further details.
 
     """
     @staticmethod
@@ -102,7 +102,7 @@ class ceil_ste_fn(torch.autograd.Function):
 class floor_ste_fn(torch.autograd.Function):
     """ Autograd function that implements floor_ste with a straight through estimator
 
-    Look at the documentation of :func:`~brevitas.function.ops.floor_ste` for further details.
+    Look at the documentation of :func:`~brevitas.function.ops_ste.floor_ste` for further details.
 
     """
     @staticmethod
