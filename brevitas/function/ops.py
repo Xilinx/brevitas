@@ -112,3 +112,93 @@ def floor_ste(x: torch.Tensor) -> torch.Tensor:
     """
     return floor_ste_fn.apply(x)
 
+
+@torch.jit.script
+def max_uint(narrow_range: bool, bit_width: torch.Tensor):
+    """ Compute the maximum unsigned integer representable
+
+    The maximum unsigned integer representable depends on the number of bits, and whether the narrow range setting
+    is used. If so, the maximum value represented is decreased by one unit.
+
+    Parameters
+    ----------
+    narrow_range : Bool
+        Flag that indicates whether to decrease the possible maximum value represented
+    bit_width : Tensor
+        Number of bits available for the representation
+
+    Returns
+    -------
+    Tensor
+        Maximum unsigned integer that can be represented according to the input parameters
+
+    """
+    if narrow_range:
+        value = (2 ** bit_width) - 2
+    else:
+        value = (2 ** bit_width) - 1
+    return value
+
+
+@torch.jit.script
+def max_int(signed: bool, bit_width: torch.Tensor):
+    """ Compute the maximum integer representable
+
+    The maximum integer representable depends on the number of bits, and whether the negative numbers are included
+    in the representation. If so, one bit is lost in the computation of the maximum value.
+
+    Parameters
+    ----------
+    signed : Bool
+        Flag that indicates whether negative numbers must be included or not
+    bit_width : Tensor
+        Number of bits available for the representation
+
+    Returns
+    -------
+    Tensor
+        Maximum integer that can be represented according to the input parameters
+
+    """
+    if signed:
+        value = (2 ** (bit_width - 1)) - 1
+    else:
+        value = (2 ** bit_width) - 1
+    return value
+
+
+@torch.jit.script
+def min_int(signed: bool, narrow_range: bool, bit_width: torch.Tensor):
+    """ Compute the minimum integer representable
+
+    The minimum integer representable depends on the number of bits, whether the negative numbers are included
+    in the representation, and whether the narrow range setting is used.
+    For positive-only number, the minimum value will always be zero.
+    If the sign and narrow range flags are both set, then the representation will be such that there is symmetry
+    between positive and negative values.
+    For example, for 3 bit representation, with sign and narrow range, the
+    values representable are in the range [-3, 3].
+    If the narrow range is not enabled, then the possible values will be in the range [-4, 3].
+
+    Parameters
+    ----------
+    signed : Bool
+        Flag that indicates whether negative numbers must be included or not
+    narrow_range : Bool
+        Flag that indicates whether the narrow range setting is enabled or not
+    bit_width : Tensor
+        Number of bits available for the representation
+
+    Returns
+    -------
+    Tensor
+        Minimum integer that can be represented according to the input parameters
+
+    """
+    if signed and narrow_range:
+        value = - (2 ** (bit_width - 1)) + 1
+    elif signed and not narrow_range:
+        value = - (2 ** (bit_width - 1))
+    else:
+        value = 0 * bit_width
+    return value

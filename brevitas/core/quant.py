@@ -46,8 +46,8 @@ from torch import Tensor
 from torch.nn import Module
 
 from brevitas.utils.python_utils import AutoName
-from brevitas.function.ops import tensor_clamp
-from brevitas.function.ops_ste import min_int, max_int, max_uint, tensor_clamp_ste, binary_sign_ste, ternary_sign_ste
+from brevitas.function.ops import tensor_clamp, min_int, max_int, max_uint
+from brevitas.function.ops_ste import tensor_clamp_ste, binary_sign_ste, ternary_sign_ste
 
 
 __all__ = ['QuantType', 'BinaryQuant', 'TernaryQuant', 'RescalingIntQuant',

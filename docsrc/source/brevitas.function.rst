@@ -21,6 +21,9 @@ brevitas.function.ops module
    :show-inheritance:
 
    .. autofunction:: tensor_clamp(x, min_val, max_val)
+   .. autofunction:: max_uint(narrow_range, bit_width)
+   .. autofunction:: max_int(signed, bit_width)
+   .. autofunction:: min_int(signed, narrow_range, bit_width)
 
 
 brevitas.function.ops\_ste module
@@ -36,9 +39,6 @@ brevitas.function.ops\_ste module
    .. autofunction:: scalar_clamp_ste(x, min_val, max_val)
    .. autofunction:: binary_sign_ste(x)
    .. autofunction:: ternary_sign_ste(x)
-   .. autofunction:: max_uint(narrow_range, bit_width)
-   .. autofunction:: max_int(signed, bit_width)
-   .. autofunction:: min_int(signed, narrow_range, bit_width)
 
 
 brevitas.function.shape module
