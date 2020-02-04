@@ -42,9 +42,9 @@ import torch
 
 
 class scalar_clamp_ste_fn(torch.autograd.Function):
-    """ Python class to implement Straight Trough Estimator operations
+    """ Autograd function that implements scalar_clamp with a straight through estimator
 
-    Look at the documentation of `scalar_clamp_ste` for further details.
+    Look at the documentation of :func:`~brevitas.function.ops_ste.scalar_clamp_ste` for further details.
 
     """
     @staticmethod
@@ -61,9 +61,9 @@ class scalar_clamp_ste_fn(torch.autograd.Function):
 
 
 class tensor_clamp_ste_fn(torch.autograd.Function):
-    """ Python class to implement Straight Trough Estimator operations
+    """ Autograd function that implements tensor_clamp with a straight through estimator
 
-    Look at the documentation of `tensor_clamp_ste_fn` for further details.
+    Look at the documentation of :func:`~brevitas.function.ops_ste.tensor_clamp_ste` for further details.
 
     """
     @staticmethod
@@ -81,9 +81,9 @@ class tensor_clamp_ste_fn(torch.autograd.Function):
 
 
 class ceil_ste_fn(torch.autograd.Function):
-    """ Python class to implement Straight Trough Estimator operations
+    """ Autograd function that implements ceil_ste with a straight through estimator
 
-    Look at the documentation of `ceil_ste_fn` for further details.
+    Look at the documentation of :func:`~brevitas.function.ops.ceil_ste` for further details.
 
     """
     @staticmethod
@@ -100,9 +100,9 @@ class ceil_ste_fn(torch.autograd.Function):
 
 
 class floor_ste_fn(torch.autograd.Function):
-    """ Python class to implement Straight Trough Estimator operations
+    """ Autograd function that implements floor_ste with a straight through estimator
 
-    Look at the documentation of `floor_ste_fn` for further details.
+    Look at the documentation of :func:`~brevitas.function.ops.floor_ste` for further details.
 
     """
     @staticmethod
@@ -119,9 +119,9 @@ class floor_ste_fn(torch.autograd.Function):
 
 
 class binary_sign_ste_fn(torch.autograd.Function):
-    """ Python class to implement Straight Trough Estimator operations
+    """ Autograd function that implements binary_sign_ste with a straight through estimator
 
-    Look at the documentation of `binary_sign_ste_fn` for further details.
+    Look at the documentation of :func:`~brevitas.function.ops_ste.binary_sign_ste` for further details.
 
     """
     @staticmethod
@@ -140,9 +140,9 @@ class binary_sign_ste_fn(torch.autograd.Function):
 
 
 class ternary_sign_ste_fn(torch.autograd.Function):
-    """ Python class to implement Straight Trough Estimator operations
+    """ Autograd function that implements ternary_sign_ste with a straight through estimator
 
-    Look at the documentation of `ternary_sign_ste_fn` for further details.
+    Look at the documentation of :func:`~brevitas.function.ops_ste.ternary_sign_ste` for further details.
 
     """
     @staticmethod
@@ -159,9 +159,9 @@ class ternary_sign_ste_fn(torch.autograd.Function):
 
 
 class round_ste_fn(torch.autograd.Function):
-    """ Python class to implement Straight Trough Estimator operations
+    """ Autograd function that implements round_ste with a straight through estimator
 
-    Look at the documentation of `ternary_sign_ste_fn` for further details.
+    Look at the documentation of :func:`~brevitas.function.ops_ste.round_ste` for further details.
 
     """
     @staticmethod
