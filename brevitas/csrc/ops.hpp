@@ -7,7 +7,7 @@ using torch::autograd::AutogradContext;
 using torch::autograd::Variable;
 using torch::autograd::variable_list;
 
-class RoundSteClass : public torch::autograd::Function<Round_Ste_Class> {
+class RoundSteClass : public torch::autograd::Function<RoundSteClass> {
  public:
   static variable_list forward(
     AutogradContext* ctx,
@@ -23,7 +23,7 @@ class RoundSteClass : public torch::autograd::Function<Round_Ste_Class> {
 };
 
 
-class TensorClampSteClass : public torch::autograd::Function<Tensor_Clamp_Ste_Class> {
+class TensorClampSteClass : public torch::autograd::Function<TensorClampSteClass> {
  public:
   static variable_list forward(
     AutogradContext* ctx,
@@ -44,7 +44,7 @@ class TensorClampSteClass : public torch::autograd::Function<Tensor_Clamp_Ste_Cl
 };
 
 
-class ScalarClampSteClass : public torch::autograd::Function<Scalar_Clamp_Ste_Class> {
+class ScalarClampSteClass : public torch::autograd::Function<ScalarClampSteClass> {
  public:
   static variable_list forward(
     AutogradContext* ctx,
@@ -64,7 +64,7 @@ class ScalarClampSteClass : public torch::autograd::Function<Scalar_Clamp_Ste_Cl
 };
 
 
-class CeilSteClass : public torch::autograd::Function<Ceil_Ste_Class> {
+class CeilSteClass : public torch::autograd::Function<CeilSteClass> {
  public:
   static variable_list forward(
     AutogradContext* ctx,
@@ -79,7 +79,7 @@ class CeilSteClass : public torch::autograd::Function<Ceil_Ste_Class> {
    }
 };
 
-class FloorSteClass : public torch::autograd::Function<Floor_Ste_Class> {
+class FloorSteClass : public torch::autograd::Function<FloorSteClass> {
  public:
   static variable_list forward(
     AutogradContext* ctx,
@@ -94,7 +94,7 @@ class FloorSteClass : public torch::autograd::Function<Floor_Ste_Class> {
    }
 };
 
-class BinarySignSteClass : public torch::autograd::Function<Binary_Sign_Ste_Class> {
+class BinarySignSteClass : public torch::autograd::Function<BinarySignSteClass> {
  public:
   static variable_list forward(
     AutogradContext* ctx,
@@ -112,7 +112,7 @@ class BinarySignSteClass : public torch::autograd::Function<Binary_Sign_Ste_Clas
    }
 };
 
-class TernarySignSteClass : public torch::autograd::Function<Ternary_Sign_Ste_Class> {
+class TernarySignSteClass : public torch::autograd::Function<TernarySignSteClass> {
  public:
   static variable_list forward(
     AutogradContext* ctx,
@@ -131,39 +131,39 @@ class TernarySignSteClass : public torch::autograd::Function<Ternary_Sign_Ste_Cl
 
 Tensor ceil_ste(
  const Tensor& input){
- return Round_Ste_Class::apply(input)[0];
+ return CeilSteClass::apply(input)[0];
 };
 
 Tensor floor_ste(
  const Tensor& input){
- return Round_Ste_Class::apply(input)[0];
+ return FloorSteClass::apply(input)[0];
 };
 
 Tensor round_ste(
  const Tensor& input){
- return Round_Ste_Class::apply(input)[0];
+ return RoundSteClass::apply(input)[0];
 };
 
 Tensor binary_sign_ste(
  const Tensor& input){
- return Binary_Sign_Ste_Class::apply(input)[0];
+ return BinarySignSteClass::apply(input)[0];
 };
 
 Tensor ternary_sign_ste(
  const Tensor& input){
- return Ternary_Sign_Ste_Class::apply(input)[0];
+ return TernarySignSteClass::apply(input)[0];
 };
 
 Tensor tensor_clamp_ste(
  const Tensor& input,
  const Tensor& min_val,
  const Tensor& max_val){
- return Tensor_Clamp_Ste_Class::apply(input, min_val, max_val)[0];
+ return TensorClampSteClass::apply(input, min_val, max_val)[0];
 };
 
 Tensor scalar_clamp_ste(
  const Tensor& input,
  const double min_val,
  const double max_val){
- return Scalar_Clamp_Ste_Class::apply(input, min_val, max_val)[0];
+ return ScalarClampSteClass::apply(input, min_val, max_val)[0];
 };
