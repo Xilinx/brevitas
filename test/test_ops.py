@@ -191,9 +191,8 @@ def test_result_of_max_uint(narrow_range, bit_width):
         expected_output = (2 ** bit_width) - 2
     else:
         expected_output = (2 ** bit_width) - 1
-    expected_output = torch.round(expected_output)
+    expected_output = expected_output
 
-    assert (output % 1 == 0)  # Check that number is an integer, not most elegant solution
     assert (torch.allclose(expected_output, output, RTOL, ATOL))
 
 
@@ -207,9 +206,8 @@ def test_result_of_max_int(signed, bit_width):
         expected_output = (2 ** (bit_width - 1)) - 1
     else:
         expected_output = (2 ** bit_width) - 1
-    expected_output = torch.round(expected_output)
+    expected_output = expected_output
 
-    assert (output % 1 == 0)  # Check that number is an integer, not most elegant solution
     assert (torch.allclose(expected_output, output, RTOL, ATOL))
 
 
@@ -226,9 +224,8 @@ def test_result_of_min_int(narrow_range, signed, bit_width):
     else:
         expected_output = torch.tensor(0.0)
 
-    expected_output = torch.round(expected_output)
+    expected_output = expected_output
 
-    assert (output % 1 == 0)  # Check that number is an integer, not most elegant solution
     assert (torch.allclose(expected_output, output, RTOL, ATOL))
 
 
