@@ -303,3 +303,4 @@ def test_RescalingIntQuant(x, narrow_range, signed, scale, int_scale, bit_width)
     expected_scale = scale/int_scale
     assert torch.allclose(expected_output, output, RTOL, ATOL)
     assert torch.allclose(expected_scale, scale_out, RTOL, ATOL)
+
