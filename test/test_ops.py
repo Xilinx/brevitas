@@ -60,7 +60,7 @@ def test_ste_of_round_ste(x):
 
 
 # Generate a list of custom floats with at least one element
-@given(x=st.lists(float_st, min_size=1))
+@given(x=list_float_st)
 def test_result_of_round_ste(x):
     x = torch.tensor(x)
 
@@ -99,8 +99,9 @@ def test_ste_of_tensor_clamp_ste(x):
     output.backward(grad, retain_graph=True)
     assert (torch.allclose(grad, value.grad, RTOL, ATOL))
 
+
 # Test different combinations of Narrow Range (True/False) and BitWidth (1...8)
-@given(narrow_range=st.booleans(), bit_width=st.integers(min_value=0, max_value=8))
+@given(narrow_range=st.booleans(), bit_width=st.integers(min_value=1, max_value=8))
 def test_result_of_max_uint(narrow_range, bit_width):
     bit_width = torch.tensor(bit_width, dtype=torch.float)
     output = max_uint(narrow_range, bit_width)
@@ -115,7 +116,7 @@ def test_result_of_max_uint(narrow_range, bit_width):
 
 
 # Test different combinations of Narrow Range (True/False) and BitWidth (1...8)
-@given(signed=st.booleans(), bit_width=st.integers(min_value=0, max_value=8))
+@given(signed=st.booleans(), bit_width=st.integers(min_value=1, max_value=8))
 def test_result_of_max_int(signed, bit_width):
     bit_width = torch.tensor(bit_width, dtype=torch.float)
     output = max_int(signed, bit_width)
@@ -148,7 +149,7 @@ def test_result_of_min_int(narrow_range, signed, bit_width):
 
 
 # Requires two floats as maximum and minimum and a tensor of float
-@given(minmax=two_ordered_numbers(), x=st.lists(float_st, min_size=1))
+@given(minmax=two_ordered_numbers(), x=list_float_st)
 def test_result_of_scalar_clamp_ste(minmax, x):
     minimum = torch.tensor(minmax[0])
     value = torch.tensor(x)
@@ -159,6 +160,7 @@ def test_result_of_scalar_clamp_ste(minmax, x):
 
     assert ((output >= minimum).all() and (output <= maximum).all())
     assert (torch.allclose(expected_output, output, RTOL, ATOL))
+
 
 # Same as before, but with two Tensors of Float
 @given(minmax=two_ordered_numbers(), x=two_lists_equal_size())
@@ -174,7 +176,7 @@ def test_ste_of_scalar_clamp_ste(minmax, x):
     assert (torch.allclose(grad, value.grad, RTOL, ATOL))
 
 
-@given(x=st.lists(float_st, min_size=1))
+@given(x=list_float_st)
 def test_result_of_ceil_ste(x):
     value = torch.tensor(x)
     output = ceil_ste(value)
@@ -192,7 +194,7 @@ def test_ste_of_ceil_ste(x):
     assert (torch.allclose(grad, value.grad, RTOL, ATOL))
 
 
-@given(x=st.lists(float_st, min_size=1))
+@given(x=list_float_st)
 def test_result_of_floor_ste(x):
     value = torch.tensor(x)
     output = floor_ste(value)
@@ -210,7 +212,7 @@ def test_ste_of_floor_ste(x):
     assert (torch.allclose(grad, value.grad, RTOL, ATOL))
 
 
-@given(x=st.lists(float_st, min_size=1))
+@given(x=list_float_st)
 def test_result_of_binary_sign_ste(x):
     value = torch.tensor(x)
     output = binary_sign_ste(value)
@@ -229,7 +231,7 @@ def test_ste_of_binary_sign_ste(x):
     assert (torch.allclose(grad, value.grad, RTOL, ATOL))
 
 
-@given(x=st.lists(float_st, min_size=1))
+@given(x=list_float_st)
 def test_result_of_ternary_sign_ste(x):
     value = torch.tensor(x)
     output = ternary_sign_ste(value)

@@ -1,16 +1,16 @@
 import hypothesis.strategies as st
 
-
 # Set Constants
-RTOL = 1e-03
-ATOL = 1e-03
-
+RTOL = 0
+ATOL = 1e-23
 
 # Define custom type of floating point generator.
 # We are never interested in NaN and Infinity. In some case, such as when generating gradients, we may also want to
-# exclude zero
+# exclude zero. For scale factor, we want only positive numbers
 float_st = st.floats(allow_nan=False, allow_infinity=False, width=32)
 float_st_nz = st.floats(allow_nan=False, allow_infinity=False, width=32).filter(lambda x: x != 0.0)
+float_st_p = st.floats(min_value=0.0, exclude_min=True, allow_nan=False, allow_infinity=False, width=32)
+list_float_st = st.lists(float_st, min_size=1)
 
 
 # Create custom strategy for generating two lists of floats with equal size
