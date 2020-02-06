@@ -43,6 +43,8 @@ from brevitas.function.ops_ste import *
 from hypothesis import given
 from common import *
 
+MIN_BIT_WIDTH = 1
+MAX_BIT_WIDTH = 8
 
 # When testing STE attribute, we pass an external gradient to backward and we check that it is correctly backpropagated
 # over the function
@@ -101,7 +103,7 @@ def test_ste_of_tensor_clamp_ste(x):
 
 
 # Test different combinations of Narrow Range (True/False) and BitWidth (1...8)
-@given(narrow_range=st.booleans(), bit_width=st.integers(min_value=1, max_value=8))
+@given(narrow_range=st.booleans(), bit_width=st.integers(min_value=MIN_BIT_WIDTH, max_value=MAX_BIT_WIDTH))
 def test_result_of_max_uint(narrow_range, bit_width):
     bit_width = torch.tensor(bit_width, dtype=torch.float)
     output = max_uint(narrow_range, bit_width)
@@ -116,7 +118,7 @@ def test_result_of_max_uint(narrow_range, bit_width):
 
 
 # Test different combinations of Narrow Range (True/False) and BitWidth (1...8)
-@given(signed=st.booleans(), bit_width=st.integers(min_value=1, max_value=8))
+@given(signed=st.booleans(), bit_width=st.integers(min_value=MIN_BIT_WIDTH, max_value=MAX_BIT_WIDTH))
 def test_result_of_max_int(signed, bit_width):
     bit_width = torch.tensor(bit_width, dtype=torch.float)
     output = max_int(signed, bit_width)
@@ -131,7 +133,8 @@ def test_result_of_max_int(signed, bit_width):
 
 
 # Test different combinations of Narrow Range (True/False), Signed (True/False), and BitWidth (1...8)
-@given(narrow_range=st.booleans(), signed=st.booleans(), bit_width=st.integers(min_value=0, max_value=8))
+@given(narrow_range=st.booleans(), signed=st.booleans(),
+       bit_width=st.integers(min_value=MIN_BIT_WIDTH, max_value=MAX_BIT_WIDTH))
 def test_result_of_min_int(narrow_range, signed, bit_width):
     bit_width = torch.tensor(bit_width, dtype=torch.float)
     output = min_int(signed, narrow_range, bit_width)
@@ -162,7 +165,8 @@ def test_result_of_scalar_clamp_ste(minmax, x):
     assert (torch.allclose(expected_output, output, RTOL, ATOL))
 
 
-# Same as before, but with two Tensors of Float
+# Same as test_result_of_scalar_clamp_ste, but with two Tensors of Float: one for the input and the other one for the
+# gradient
 @given(minmax=two_ordered_numbers(), x=two_lists_equal_size())
 def test_ste_of_scalar_clamp_ste(minmax, x):
     minimum = minmax[0]
