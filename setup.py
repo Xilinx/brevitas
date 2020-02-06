@@ -64,11 +64,10 @@ class build_py(build_py_orig):
         else:
             file_to_rename = ['ops_ste_n']
 
-        pacchetti = [(pkg, mod, file,) for (pkg, mod, file,) in modules
-                     if not any(fnmatch.fnmatchcase(mod, pat=pattern)
-                                for pattern in file_to_rename)]
-        return pacchetti
-
+        packages = [(pkg, mod, file,) for (pkg, mod, file,) in modules
+                    if not any(fnmatch.fnmatchcase(mod, pat=pattern)
+                               for pattern in file_to_rename)]
+        return packages
 
     def build_module(self, module, module_file, package):
         _, file_name = os.path.split(module_file)
@@ -153,7 +152,6 @@ class clean(distutils.command.clean.clean):
                     except OSError:
                         shutil.rmtree(filename, ignore_errors=True)
 
-        # It's an old-style class in Python 2.7...
         distutils.command.clean.clean.run(self)
 
 
@@ -193,3 +191,5 @@ setup(name="Brevitas",
       ext_modules=get_extensions(),
       cmdclass=cmdclass_dict
       )
+
+# Setup file loosely inspired by https://github.com/pytorch/vision/blob/v0.5.0/setup.py
