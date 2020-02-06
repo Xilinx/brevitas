@@ -61,8 +61,8 @@ def round_ste(x: torch.Tensor) -> torch.Tensor:
     Returns
     -------
     Tensor
-        Tensor after applying round operation. When backpropagating, the gradient will be unaffected by the
-        operation
+        Tensor after applying round operation.When backpropagating through this value,
+        a straight through estimator is applied.
 
     """
     return torch.ops.brevitas.round_ste(x)
@@ -146,8 +146,7 @@ def tensor_clamp_ste(x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tens
     -------
     Tensor
         Tensor for which every element of `x` is clamped between the corresponding minimum and maximum values.
-        When backpropagating, the gradient will be unaffected by the
-        operation
+        When backpropagating through this value, a straight through estimator is applied.
     """
     output = torch.ops.brevitas.tensor_clamp_ste(x, min_val, max_val)
     return output
@@ -178,8 +177,7 @@ def scalar_clamp_ste(x: torch.Tensor, min_val: float, max_val: float) -> torch.T
     -------
     Tensor
         Tensor for which every element of `x` is clamped between `min_val` and `max_val`.
-        When backpropagating, the gradient will be unaffected by the
-        operation
+        When backpropagating through this value, a straight through estimator is applied.
     """
     return torch.ops.brevitas.scalar_clamp_ste(x, min_val, max_val)
 
@@ -206,8 +204,8 @@ def binary_sign_ste(x: torch.Tensor) -> torch.Tensor:
     Returns
     -------
     Tensor
-        Tensor after applying binarization. When backpropagating, the gradient will be unaffected by the
-        operation
+        Tensor after applying binarization.When backpropagating through this value, a straight
+        through estimator is applied.
 
     """
     return torch.ops.brevitas.binary_sign_ste(x)
@@ -234,8 +232,8 @@ def ternary_sign_ste(x: torch.Tensor) -> torch.Tensor:
     Returns
     -------
     Tensor
-        Tensor after applying ternary operation. When backpropagating, the gradient will be unaffected by the
-        operation
+        Tensor after applying ternary operation.When backpropagating through this value,
+        a straight through estimator is applied.
 
     """
     return torch.ops.brevitas.ternary_sign_ste(x)

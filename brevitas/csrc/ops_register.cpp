@@ -1,4 +1,5 @@
 #include "ops_register.hpp"
+
 // If we are in a Windows environment, we need to define
 // initialization functions for the _custom_ops extension
 #ifdef _WIN32
