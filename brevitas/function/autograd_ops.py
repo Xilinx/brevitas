@@ -53,6 +53,7 @@ class scalar_clamp_ste_fn(torch.autograd.Function):
         """
         y = torch.clamp(x, min_val, max_val)
         return y
+
     @staticmethod
     def backward(ctx, grad_y):
         """
