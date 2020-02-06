@@ -61,7 +61,7 @@ def round_ste(x: torch.Tensor) -> torch.Tensor:
     Returns
     -------
     Tensor
-        Tensor after applying round operation.When backpropagating through this value,
+        Tensor after applying round operation. When backpropagating through this value,
         a straight through estimator is applied.
 
     """
@@ -204,7 +204,7 @@ def binary_sign_ste(x: torch.Tensor) -> torch.Tensor:
     Returns
     -------
     Tensor
-        Tensor after applying binarization.When backpropagating through this value, a straight
+        Tensor after applying binarization. When backpropagating through this value, a straight
         through estimator is applied.
 
     """
@@ -232,7 +232,7 @@ def ternary_sign_ste(x: torch.Tensor) -> torch.Tensor:
     Returns
     -------
     Tensor
-        Tensor after applying ternary operation.When backpropagating through this value,
+        Tensor after applying ternary operation. When backpropagating through this value,
         a straight through estimator is applied.
 
     """
