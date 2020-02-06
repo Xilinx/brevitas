@@ -220,6 +220,14 @@
 </li>
       <li><a href="brevitas.core.html#brevitas.core.quant.BinaryQuant">BinaryQuant (class in brevitas.core.quant)</a>
 </li>
+      <li><a href="brevitas.core.html#brevitas.core.quant.BinaryQuant.bit_width">bit_width (brevitas.core.quant.BinaryQuant attribute)</a>
+
+      <ul>
+        <li><a href="brevitas.core.html#brevitas.core.quant.ClampedBinaryQuant.bit_width">(brevitas.core.quant.ClampedBinaryQuant attribute)</a>
+</li>
+        <li><a href="brevitas.core.html#brevitas.core.quant.TernaryQuant.bit_width">(brevitas.core.quant.TernaryQuant attribute)</a>
+</li>
+      </ul></li>
       <li><a href="brevitas.core.html#brevitas.core.bit_width.BitWidthConst">BitWidthConst (class in brevitas.core.bit_width)</a>
 </li>
       <li><a href="brevitas.core.html#brevitas.core.bit_width.BitWidthImplType">BitWidthImplType (class in brevitas.core.bit_width)</a>
@@ -240,12 +248,12 @@
 </li>
       <li><a href="brevitas.core.html#module-brevitas.core.restrict_val">brevitas.core.restrict_val (module)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="brevitas.core.html#module-brevitas.core.scaling">brevitas.core.scaling (module)</a>
 </li>
       <li><a href="brevitas.core.html#module-brevitas.core.stats">brevitas.core.stats (module)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="brevitas.function.html#module-brevitas.function">brevitas.function (module)</a>
 </li>
       <li><a href="brevitas.function.html#module-brevitas.function.autograd_ops">brevitas.function.autograd_ops (module)</a>
@@ -363,8 +371,27 @@
       <li><a href="brevitas.core.html#brevitas.core.bit_width.ZeroLsbTruncBitWidth.forward">forward() (brevitas.core.bit_width.ZeroLsbTruncBitWidth method)</a>
 
       <ul>
+<<<<<<< HEAD
         <li><a href="brevitas.core.html#brevitas.core.quant.IdentityQuant.forward">(brevitas.core.quant.IdentityQuant method)</a>
 </li>
+=======
+        <li><a href="brevitas.core.html#brevitas.core.quant.BinaryQuant.forward">(brevitas.core.quant.BinaryQuant method)</a>
+</li>
+        <li><a href="brevitas.core.html#brevitas.core.quant.ClampedBinaryQuant.forward">(brevitas.core.quant.ClampedBinaryQuant method)</a>
+</li>
+        <li><a href="brevitas.core.html#brevitas.core.quant.IdentityQuant.forward">(brevitas.core.quant.IdentityQuant method)</a>
+</li>
+        <li><a href="brevitas.core.html#brevitas.core.quant.IntQuant.forward">(brevitas.core.quant.IntQuant method)</a>
+</li>
+        <li><a href="brevitas.core.html#brevitas.core.quant.PrescaledRestrictIntQuant.forward">(brevitas.core.quant.PrescaledRestrictIntQuant method)</a>
+</li>
+        <li><a href="brevitas.core.html#brevitas.core.quant.PrescaledRestrictIntQuantWithInputBitWidth.forward">(brevitas.core.quant.PrescaledRestrictIntQuantWithInputBitWidth method)</a>
+</li>
+        <li><a href="brevitas.core.html#brevitas.core.quant.RescalingIntQuant.forward">(brevitas.core.quant.RescalingIntQuant method)</a>
+</li>
+        <li><a href="brevitas.core.html#brevitas.core.quant.TernaryQuant.forward">(brevitas.core.quant.TernaryQuant method)</a>
+</li>
+>>>>>>> Documentation now works correctly and includes all functions and methods
         <li><a href="brevitas.core.html#brevitas.core.scaling.AffineRescaling.forward">(brevitas.core.scaling.AffineRescaling method)</a>
 </li>
         <li><a href="brevitas.function.html#brevitas.function.autograd_ops.binary_sign_ste_fn.forward">(brevitas.function.autograd_ops.binary_sign_ste_fn static method)</a>
@@ -456,8 +483,18 @@
         <li><a href="brevitas.core.html#brevitas.core.restrict_val.RestrictValueType.INT">(brevitas.core.restrict_val.RestrictValueType attribute)</a>
 </li>
       </ul></li>
+      <li><a href="brevitas.core.html#brevitas.core.quant.PrescaledRestrictIntQuant.int_quant">int_quant (brevitas.core.quant.PrescaledRestrictIntQuant attribute)</a>
+
+      <ul>
+        <li><a href="brevitas.core.html#brevitas.core.quant.PrescaledRestrictIntQuantWithInputBitWidth.int_quant">(brevitas.core.quant.PrescaledRestrictIntQuantWithInputBitWidth attribute)</a>
+</li>
+        <li><a href="brevitas.core.html#brevitas.core.quant.RescalingIntQuant.int_quant">(brevitas.core.quant.RescalingIntQuant attribute)</a>
+</li>
+      </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="brevitas.core.html#brevitas.core.quant.RescalingIntQuant.int_scaling_impl">int_scaling_impl (brevitas.core.quant.RescalingIntQuant attribute)</a>
+</li>
       <li><a href="brevitas.nn.html#brevitas.nn.quant_conv.QuantConv2d.int_weight">int_weight() (brevitas.nn.quant_conv.QuantConv2d property)</a>
 
       <ul>
@@ -502,8 +539,12 @@
 </li>
       <li><a href="brevitas.core.html#brevitas.core.stats.StatsOp.MAX_AVE">MAX_AVE (brevitas.core.stats.StatsOp attribute)</a>
 </li>
-      <li><a href="brevitas.function.html#brevitas.function.ops.max_int">max_int() (in module brevitas.function.ops)</a>
+      <li><a href="brevitas.core.html#brevitas.core.quant.IntQuant.max_int">max_int() (brevitas.core.quant.IntQuant method)</a>
+
+      <ul>
+        <li><a href="brevitas.function.html#brevitas.function.ops.max_int">(in module brevitas.function.ops)</a>
 </li>
+      </ul></li>
       <li><a href="brevitas.nn.html#brevitas.nn.hadamard_classifier.HadamardClassifier.max_output_bit_width">max_output_bit_width() (brevitas.nn.hadamard_classifier.HadamardClassifier method)</a>
 
       <ul>
@@ -514,18 +555,34 @@
         <li><a href="brevitas.nn.html#brevitas.nn.quant_linear.QuantLinear.max_output_bit_width">(brevitas.nn.quant_linear.QuantLinear method)</a>
 </li>
       </ul></li>
+      <li><a href="brevitas.core.html#brevitas.core.quant.IntQuant.max_uint">max_uint() (brevitas.core.quant.IntQuant method)</a>
+
+      <ul>
+        <li><a href="brevitas.function.html#brevitas.function.ops.max_uint">(in module brevitas.function.ops)</a>
+</li>
+      </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="brevitas.function.html#brevitas.function.ops.max_uint">max_uint() (in module brevitas.function.ops)</a>
-</li>
       <li><a href="brevitas.core.html#brevitas.core.stats.StatsOp.MEAN_LEARN_SIGMA_STD">MEAN_LEARN_SIGMA_STD (brevitas.core.stats.StatsOp attribute)</a>
 </li>
       <li><a href="brevitas.core.html#brevitas.core.stats.StatsOp.MEAN_SIGMA_STD">MEAN_SIGMA_STD (brevitas.core.stats.StatsOp attribute)</a>
 </li>
       <li><a href="brevitas.nn.html#brevitas.nn.quant_conv.QuantConv2d.merge_bn_in">merge_bn_in() (brevitas.nn.quant_conv.QuantConv2d method)</a>
 </li>
-      <li><a href="brevitas.function.html#brevitas.function.ops.min_int">min_int() (in module brevitas.function.ops)</a>
+      <li><a href="brevitas.core.html#brevitas.core.quant.IntQuant.min_int">min_int() (brevitas.core.quant.IntQuant method)</a>
+
+      <ul>
+        <li><a href="brevitas.function.html#brevitas.function.ops.min_int">(in module brevitas.function.ops)</a>
 </li>
+      </ul></li>
+      <li><a href="brevitas.core.html#brevitas.core.quant.PrescaledRestrictIntQuant.msb_clamp_bit_width_impl">msb_clamp_bit_width_impl (brevitas.core.quant.PrescaledRestrictIntQuant attribute)</a>
+
+      <ul>
+        <li><a href="brevitas.core.html#brevitas.core.quant.PrescaledRestrictIntQuantWithInputBitWidth.msb_clamp_bit_width_impl">(brevitas.core.quant.PrescaledRestrictIntQuantWithInputBitWidth attribute)</a>
+</li>
+        <li><a href="brevitas.core.html#brevitas.core.quant.RescalingIntQuant.msb_clamp_bit_width_impl">(brevitas.core.quant.RescalingIntQuant attribute)</a>
+</li>
+      </ul></li>
       <li><a href="brevitas.core.html#brevitas.core.bit_width.MsbClampParameterBitWidth">MsbClampParameterBitWidth (class in brevitas.core.bit_width)</a>
 </li>
       <li><a href="brevitas.nn.html#brevitas.nn.quant_bn.mul_add_from_bn">mul_add_from_bn() (in module brevitas.nn.quant_bn)</a>
@@ -660,10 +717,10 @@
 </li>
       <li><a href="brevitas.core.html#brevitas.core.restrict_val.RestrictValue.restrict_value_op">restrict_value_op() (brevitas.core.restrict_val.RestrictValue static method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="brevitas.core.html#brevitas.core.restrict_val.RestrictValue">RestrictValue (class in brevitas.core.restrict_val)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="brevitas.core.html#brevitas.core.restrict_val.RestrictValueOpImplType">RestrictValueOpImplType (class in brevitas.core.restrict_val)</a>
 </li>
       <li><a href="brevitas.core.html#brevitas.core.restrict_val.RestrictValueType">RestrictValueType (class in brevitas.core.restrict_val)</a>
@@ -675,6 +732,8 @@
       <li><a href="brevitas.function.html#brevitas.function.autograd_ops.round_ste_fn">round_ste_fn (class in brevitas.function.autograd_ops)</a>
 </li>
       <li><a href="brevitas.core.html#brevitas.core.function_wrapper.RoundSte">RoundSte (class in brevitas.core.function_wrapper)</a>
+</li>
+      <li><a href="brevitas.core.html#brevitas.core.quant.RescalingIntQuant.runtime">runtime (brevitas.core.quant.RescalingIntQuant attribute)</a>
 </li>
       <li><a href="brevitas.core.html#brevitas.core.scaling.RuntimeStatsScaling">RuntimeStatsScaling (class in brevitas.core.scaling)</a>
 </li>
@@ -690,14 +749,24 @@
 </li>
       <li><a href="brevitas.nn.html#brevitas.nn.quant_scale_bias.ScaleBias">ScaleBias (class in brevitas.nn.quant_scale_bias)</a>
 </li>
+      <li><a href="brevitas.core.html#brevitas.core.quant.BinaryQuant.scaling_impl">scaling_impl (brevitas.core.quant.BinaryQuant attribute)</a>
+
+      <ul>
+        <li><a href="brevitas.core.html#brevitas.core.quant.ClampedBinaryQuant.scaling_impl">(brevitas.core.quant.ClampedBinaryQuant attribute)</a>
+</li>
+        <li><a href="brevitas.core.html#brevitas.core.quant.RescalingIntQuant.scaling_impl">(brevitas.core.quant.RescalingIntQuant attribute)</a>
+</li>
+        <li><a href="brevitas.core.html#brevitas.core.quant.TernaryQuant.scaling_impl">(brevitas.core.quant.TernaryQuant attribute)</a>
+</li>
+      </ul></li>
       <li><a href="brevitas.core.html#brevitas.core.quant.RescalingIntQuant.scaling_init_from_min_max">scaling_init_from_min_max() (brevitas.core.quant.RescalingIntQuant static method)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="brevitas.core.html#brevitas.core.scaling.ScalingImplType">ScalingImplType (class in brevitas.core.scaling)</a>
 </li>
       <li><a href="brevitas.core.html#brevitas.core.scaling.SignedFpIntScale">SignedFpIntScale (class in brevitas.core.scaling)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="brevitas.core.html#brevitas.core.scaling.StandaloneScaling">StandaloneScaling (class in brevitas.core.scaling)</a>
 </li>
       <li><a href="brevitas.nn.html#brevitas.nn.hadamard_classifier.HadamardClassifier.state_dict">state_dict() (brevitas.nn.hadamard_classifier.HadamardClassifier method)</a>
@@ -734,11 +803,15 @@
 </li>
       <li><a href="brevitas.function.html#brevitas.function.ops_ste.ternary_sign_ste">ternary_sign_ste() (in module brevitas.function.ops_ste)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="brevitas.function.html#brevitas.function.autograd_ops.ternary_sign_ste_fn">ternary_sign_ste_fn (class in brevitas.function.autograd_ops)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="brevitas.core.html#brevitas.core.quant.TernaryQuant">TernaryQuant (class in brevitas.core.quant)</a>
+</li>
+      <li><a href="brevitas.core.html#brevitas.core.quant.TernaryQuant.threshold">threshold (brevitas.core.quant.TernaryQuant attribute)</a>
+</li>
+      <li><a href="brevitas.core.html#brevitas.core.quant.IntQuant.to_int">to_int() (brevitas.core.quant.IntQuant method)</a>
 </li>
       <li><a href="brevitas.core.html#brevitas.core.restrict_val.RestrictValueOpImplType.TORCH_FN">TORCH_FN (brevitas.core.restrict_val.RestrictValueOpImplType attribute)</a>
 </li>

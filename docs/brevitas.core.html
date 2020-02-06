@@ -193,7 +193,11 @@
 
 <dl class="class">
 <dt id="brevitas.core.bit_width.IdentityBitWidth">
+<<<<<<< HEAD
 <em class="property">class </em><code class="sig-prename descclassname">brevitas.core.bit_width.</code><code class="sig-name descname">IdentityBitWidth</code><span class="sig-paren">(</span><em class="sig-param">optimize=None</em>, <em class="sig-param">_qualified_name=None</em>, <em class="sig-param">_compilation_unit=None</em>, <em class="sig-param">_cpp_module=None</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.bit_width.IdentityBitWidth" title="Permalink to this definition">¶</a></dt>
+=======
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.bit_width.</code><code class="sig-name descname">IdentityBitWidth</code><a class="headerlink" href="#brevitas.core.bit_width.IdentityBitWidth" title="Permalink to this definition">¶</a></dt>
+>>>>>>> Documentation now works correctly and includes all functions and methods
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
 </dd></dl>
 
@@ -217,7 +221,11 @@
 
 <dl class="class">
 <dt id="brevitas.core.bit_width.ZeroLsbTruncBitWidth">
+<<<<<<< HEAD
 <em class="property">class </em><code class="sig-prename descclassname">brevitas.core.bit_width.</code><code class="sig-name descname">ZeroLsbTruncBitWidth</code><span class="sig-paren">(</span><em class="sig-param">optimize=None</em>, <em class="sig-param">_qualified_name=None</em>, <em class="sig-param">_compilation_unit=None</em>, <em class="sig-param">_cpp_module=None</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.bit_width.ZeroLsbTruncBitWidth" title="Permalink to this definition">¶</a></dt>
+=======
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.bit_width.</code><code class="sig-name descname">ZeroLsbTruncBitWidth</code><a class="headerlink" href="#brevitas.core.bit_width.ZeroLsbTruncBitWidth" title="Permalink to this definition">¶</a></dt>
+>>>>>>> Documentation now works correctly and includes all functions and methods
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
 <dl class="method">
 <dt id="brevitas.core.bit_width.ZeroLsbTruncBitWidth.forward">
@@ -329,6 +337,11 @@ registered hooks while the latter silently ignores them.</p>
 <dt id="brevitas.core.quant.IdentityQuant">
 <em class="property">class </em><code class="sig-prename descclassname">brevitas.core.quant.</code><code class="sig-name descname">IdentityQuant</code><a class="headerlink" href="#brevitas.core.quant.IdentityQuant" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
+<<<<<<< HEAD
+=======
+<p>Placeholder Class that returns the input without performing any operation. The scale and bit_width output
+arguments are set to zero_hw_sentinel (0).</p>
+>>>>>>> Documentation now works correctly and includes all functions and methods
 <dl class="method">
 <dt id="brevitas.core.quant.IdentityQuant.forward">
 <code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">x</em>, <em class="sig-param">zero_hw_sentinel</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.quant.IdentityQuant.forward" title="Permalink to this definition">¶</a></dt>
@@ -340,24 +353,272 @@ registered hooks while the latter silently ignores them.</p>
 <dt id="brevitas.core.quant.ClampedBinaryQuant">
 <em class="property">class </em><code class="sig-prename descclassname">brevitas.core.quant.</code><code class="sig-name descname">ClampedBinaryQuant</code><span class="sig-paren">(</span><em class="sig-param">scaling_impl</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.quant.ClampedBinaryQuant" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
+<<<<<<< HEAD
+=======
+<p>Class that implement the binary quantization of the input tensor, which is then converted to its floating point
+representation according to the scale factor.</p>
+<p>Before performing the binarization, the input tensor is clamped in the range of admissible values, determined by the
+scale factor.
+The scale factor is determined internally through the scaling_impl module.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>scaling_impl</strong> (<em>Module</em>) – Module that determines the value of the scale factor</p>
+</dd>
+</dl>
+<dl class="attribute">
+<dt id="brevitas.core.quant.ClampedBinaryQuant.scaling_impl">
+<code class="sig-name descname">scaling_impl</code><a class="headerlink" href="#brevitas.core.quant.ClampedBinaryQuant.scaling_impl" title="Permalink to this definition">¶</a></dt>
+<dd><p>Module that determines the value of the scale factor</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Module</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="brevitas.core.quant.ClampedBinaryQuant.bit_width">
+<code class="sig-name descname">bit_width</code><a class="headerlink" href="#brevitas.core.quant.ClampedBinaryQuant.bit_width" title="Permalink to this definition">¶</a></dt>
+<dd><p>For binary quantization, the bit_width is constant and fixed to 1</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="brevitas.core.quant.ClampedBinaryQuant.forward">
+<code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">x</em>, <em class="sig-param">zero_hw_sentinel</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.quant.ClampedBinaryQuant.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Perform the binary quantization using <a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.binary_sign_ste" title="brevitas.function.ops_ste.binary_sign_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">binary_sign_ste()</span></code></a>. After that, the
+result is converted to floating point through the scale factor.
+The scale factor is determined by the attribute <cite>scaling_impl</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>Tensor</em>) – Input tensor that will be quantized</p></li>
+<li><p><strong>zero_hw_sentinel</strong> (<em>Tensor</em>) – Constant buffer required to move stateless (as in, not part of the model’s state_dict) constant values
+to the appropriate device and converting them to Tensor</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Tuple with three values where:
+y is the quantized Tensor;
+scale is the scale factor;
+bit_width is the bit_width of the quantization.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Tuple(Tensor, Tensor, Tensor)</p>
+</dd>
+</dl>
+</dd></dl>
+
+>>>>>>> Documentation now works correctly and includes all functions and methods
 </dd></dl>
 
 <dl class="class">
 <dt id="brevitas.core.quant.IntQuant">
 <em class="property">class </em><code class="sig-prename descclassname">brevitas.core.quant.</code><code class="sig-name descname">IntQuant</code><span class="sig-paren">(</span><em class="sig-param">narrow_range</em>, <em class="sig-param">signed</em>, <em class="sig-param">float_to_int_impl</em>, <em class="sig-param">tensor_clamp_impl</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.quant.IntQuant" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
+<<<<<<< HEAD
+=======
+<p>Class that implement the quantization of the input tensor, which is then converted to its floating point
+representation according to the scale factor (i.e. scale/int_scale).</p>
+<p>All values required for the quantization are determined externally.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>float_to_int_impl</strong> (<em>Module</em>) – Module that performs the conversion from floating point to integer representation</p></li>
+<li><p><strong>tensor_clamp_impl</strong> (<em>Module</em>) – Module that performs the clamping of the input values for a proper integer representation</p></li>
+<li><p><strong>signed</strong> (<em>Bool</em>) – Bool that determines whether to use signed or unsigned integers.</p></li>
+<li><p><strong>narrow_range</strong> (<em>Bool</em>) – Bool that determines whether to enable or not the narrow range representation.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="method">
+<dt id="brevitas.core.quant.IntQuant.to_int">
+<code class="sig-name descname">to_int</code><span class="sig-paren">(</span><em class="sig-param">scale</em>, <em class="sig-param">int_scale_msb_clamp_bit_width</em>, <em class="sig-param">x</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.quant.IntQuant.to_int" title="Permalink to this definition">¶</a></dt>
+<dd><p>Perform the conversion to integer of the input tensor.
+After diving by the scale factor (i.e. scale/int_scale), the input tensor is clamped in the range of admissible
+integer values, and then converted to integer according to the strategy defined by <cite>float_to_int_impl</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>Tensor</em>) – Input tensor that will be quantized</p></li>
+<li><p><strong>scale</strong> (<em>Tensor</em>) – Floating point component of the scale factor</p></li>
+<li><p><strong>int_scale</strong> (<em>Tensor</em>) – Integer component of the scale factor</p></li>
+<li><p><strong>msb_clamp_bit_width</strong> (<em>Tensor</em>) – Bit_width to be used for the conversion to integer</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="brevitas.core.quant.IntQuant.forward">
+<code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">scale</em>, <em class="sig-param">int_scale</em>, <em class="sig-param">msb_clamp_bit_width</em>, <em class="sig-param">x</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.quant.IntQuant.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Perform the quantization of the input tensor. The value is first converted to its integer representation and
+quantized, then converted to its floating representation multiplying it by the scale factor
+(i.e. scale/scale_int)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>Tensor</em>) – Input tensor that will be quantized</p></li>
+<li><p><strong>scale</strong> (<em>Tensor</em>) – Floating point component of the scale factor</p></li>
+<li><p><strong>int_scale</strong> (<em>Tensor</em>) – Integer component of the scale factor</p></li>
+<li><p><strong>msb_clamp_bit_width</strong> (<em>Tensor</em>) – Bit_width to be used for the conversion to integer</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The quantized tensor after its conversion to floating point</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="brevitas.core.quant.IntQuant.min_int">
+<code class="sig-name descname">min_int</code><span class="sig-paren">(</span><em class="sig-param">bit_width</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.quant.IntQuant.min_int" title="Permalink to this definition">¶</a></dt>
+<dd><p>Determines the minimum integer representable according to the values of <cite>signed</cite>, <cite>narrow_range</cite>, and
+<cite>bit_width</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>bit_width</strong> (<em>Tensor</em>) – Number of bits for determining the minimum integer representable</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The minimum integer representable</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="brevitas.core.quant.IntQuant.max_int">
+<code class="sig-name descname">max_int</code><span class="sig-paren">(</span><em class="sig-param">bit_width</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.quant.IntQuant.max_int" title="Permalink to this definition">¶</a></dt>
+<dd><p>Determines the maximum signed integer representable according to the values of <cite>signed</cite>, <cite>narrow_range</cite>, and
+<cite>bit_width</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>bit_width</strong> (<em>Tensor</em>) – Number of bits for determining the maximum integer representable</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The maximum integer representable</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="brevitas.core.quant.IntQuant.max_uint">
+<code class="sig-name descname">max_uint</code><span class="sig-paren">(</span><em class="sig-param">bit_width</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.quant.IntQuant.max_uint" title="Permalink to this definition">¶</a></dt>
+<dd><p>Determines the maximum unsigned integer representable according to the values of <cite>narrow_range</cite> and
+<cite>bit_width</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>bit_width</strong> (<em>Tensor</em>) – Number of bits for determining the maximum integer representable</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The maximum integer representable</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+>>>>>>> Documentation now works correctly and includes all functions and methods
 </dd></dl>
 
 <dl class="class">
 <dt id="brevitas.core.quant.PrescaledRestrictIntQuantWithInputBitWidth">
 <em class="property">class </em><code class="sig-prename descclassname">brevitas.core.quant.</code><code class="sig-name descname">PrescaledRestrictIntQuantWithInputBitWidth</code><span class="sig-paren">(</span><em class="sig-param">narrow_range</em>, <em class="sig-param">signed</em>, <em class="sig-param">tensor_clamp_impl</em>, <em class="sig-param">msb_clamp_bit_width_impl</em>, <em class="sig-param">float_to_int_impl</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.quant.PrescaledRestrictIntQuantWithInputBitWidth" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
+<<<<<<< HEAD
+=======
+<p>Wrapper around <a class="reference internal" href="#brevitas.core.quant.IntQuant" title="brevitas.core.quant.IntQuant"><code class="xref py py-class docutils literal notranslate"><span class="pre">IntQuant</span></code></a>, that is responsible for the actual quantization of the
+input.</p>
+<p>The modules tensor_clamp_impl and float_to_int_impl, and the booleans <cite>signed</cite> and <cite>narrow_range</cite> are required by
+<cite>IntQuant</cite> to perform the quantization.</p>
+<p>In order to perform the actual quantization, it is required to determine the following values: scale, int_scale,
+bit_width.
+Scale is determined externally, int_scale is set to 1, while bit_width is determined internally through
+msb_clamp_bit_width_impl.
+Must be noted that there is a name overload and that the actual scale factor is obtained computing scale/int_scale.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>narrow_range</strong> (<em>Bool</em>) – Bool that determines whether to enable or not the narrow range representation.</p></li>
+<li><p><strong>signed</strong> (<em>Bool</em>) – Bool that determines whether to use signed or unsigned integers.</p></li>
+<li><p><strong>tensor_clamp_impl</strong> (<em>Module</em>) – Module that performs the clamping of the input values for a proper integer representation</p></li>
+<li><p><strong>msb_clamp_bit_width_impl</strong> (<em>Module</em>) – Module that determines the bit_width for the integer conversion</p></li>
+<li><p><strong>float_to_int_impl</strong> (<em>Module</em>) – Module that performs the conversion from floating point to integer representation</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="attribute">
+<dt id="brevitas.core.quant.PrescaledRestrictIntQuantWithInputBitWidth.int_quant">
+<code class="sig-name descname">int_quant</code><a class="headerlink" href="#brevitas.core.quant.PrescaledRestrictIntQuantWithInputBitWidth.int_quant" title="Permalink to this definition">¶</a></dt>
+<dd><p>Module that performs the actual quantization</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Module</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="brevitas.core.quant.PrescaledRestrictIntQuantWithInputBitWidth.msb_clamp_bit_width_impl">
+<code class="sig-name descname">msb_clamp_bit_width_impl</code><a class="headerlink" href="#brevitas.core.quant.PrescaledRestrictIntQuantWithInputBitWidth.msb_clamp_bit_width_impl" title="Permalink to this definition">¶</a></dt>
+<dd><p>Module that determines the bit_width for the integer conversion</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="brevitas.core.quant.PrescaledRestrictIntQuantWithInputBitWidth.forward">
+<code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">x</em>, <em class="sig-param">scale</em>, <em class="sig-param">input_bit_width</em>, <em class="sig-param">zero_hw_sentinel</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.quant.PrescaledRestrictIntQuantWithInputBitWidth.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>After determining internally the bit_width value, it calls IntQuant to perform the quantization of the input</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>Tensor</em>) – Input tensor that will be quantized</p></li>
+<li><p><strong>scale</strong> (<em>Tensor</em>) – Scale factor that regulates the conversion between integer and floating point version of the number</p></li>
+<li><p><strong>input_bit_width</strong> – Bit_width that, going in <cite>msb_clamp_bit_with</cite>, is used to determine the bit_width for the quantization</p></li>
+<li><p><strong>zero_hw_sentinel</strong> (<em>Tensor</em>) – Constant buffer required to move stateless (as in, not part of the model’s state_dict) constant values
+to the appropriate device and converting them to Tensor</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Tuple with three values where:
+y is the quantized Tensor;
+scale is the scale factor;
+bit_width is the bit_width of the quantization.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Tuple(Tensor, Tensor, Tensor)</p>
+</dd>
+</dl>
+</dd></dl>
+
+>>>>>>> Documentation now works correctly and includes all functions and methods
 </dd></dl>
 
 <dl class="class">
 <dt id="brevitas.core.quant.IdentityPrescaledIntQuant">
 <em class="property">class </em><code class="sig-prename descclassname">brevitas.core.quant.</code><code class="sig-name descname">IdentityPrescaledIntQuant</code><a class="headerlink" href="#brevitas.core.quant.IdentityPrescaledIntQuant" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
+<<<<<<< HEAD
+=======
+<p>Placeholder Class that returns the input without performing any operation.</p>
+>>>>>>> Documentation now works correctly and includes all functions and methods
 </dd></dl>
 
 <dl class="class">
@@ -391,24 +652,58 @@ registered hooks while the latter silently ignores them.</p>
 <dt id="brevitas.core.quant.BinaryQuant">
 <em class="property">class </em><code class="sig-prename descclassname">brevitas.core.quant.</code><code class="sig-name descname">BinaryQuant</code><span class="sig-paren">(</span><em class="sig-param">scaling_impl</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.quant.BinaryQuant" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
+<p>Class that implement the binary quantization of the input tensor, which is then converted to its floating point
+representation according to the scale factor.</p>
+<p>The scale factor is determined internally through the scaling_impl module.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>scaling_impl</strong> (<em>Module</em>) – Module that determines the value of the scale factor</p>
+</dd>
+</dl>
+<dl class="attribute">
+<dt id="brevitas.core.quant.BinaryQuant.scaling_impl">
+<code class="sig-name descname">scaling_impl</code><a class="headerlink" href="#brevitas.core.quant.BinaryQuant.scaling_impl" title="Permalink to this definition">¶</a></dt>
+<dd><p>Module that determines the value of the scale factor</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Module</p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="class">
-<dt id="brevitas.core.quant.TernaryQuant">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.quant.</code><code class="sig-name descname">TernaryQuant</code><span class="sig-paren">(</span><em class="sig-param">scaling_impl</em>, <em class="sig-param">threshold</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.quant.TernaryQuant" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
+<dl class="attribute">
+<dt id="brevitas.core.quant.BinaryQuant.bit_width">
+<code class="sig-name descname">bit_width</code><a class="headerlink" href="#brevitas.core.quant.BinaryQuant.bit_width" title="Permalink to this definition">¶</a></dt>
+<dd><p>For binary quantization, the bit_width is constant and fixed to 1</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Int</p>
+</dd>
+</dl>
 </dd></dl>
 
-<dl class="class">
-<dt id="brevitas.core.quant.RescalingIntQuant">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.quant.</code><code class="sig-name descname">RescalingIntQuant</code><span class="sig-paren">(</span><em class="sig-param">narrow_range</em>, <em class="sig-param">runtime</em>, <em class="sig-param">signed</em>, <em class="sig-param">scaling_impl</em>, <em class="sig-param">int_scaling_impl</em>, <em class="sig-param">tensor_clamp_impl</em>, <em class="sig-param">msb_clamp_bit_width_impl</em>, <em class="sig-param">float_to_int_impl</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.quant.RescalingIntQuant" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
 <dl class="method">
-<dt id="brevitas.core.quant.RescalingIntQuant.scaling_init_from_min_max">
-<em class="property">static </em><code class="sig-name descname">scaling_init_from_min_max</code><span class="sig-paren">(</span><em class="sig-param">min_val_init</em>, <em class="sig-param">max_val_init</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.quant.RescalingIntQuant.scaling_init_from_min_max" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
+<dt id="brevitas.core.quant.BinaryQuant.forward">
+<code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">x</em>, <em class="sig-param">zero_hw_sentinel</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.quant.BinaryQuant.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Perform the binary quantization using <a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.binary_sign_ste" title="brevitas.function.ops_ste.binary_sign_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">binary_sign_ste()</span></code></a>. After that, the
+result is converted to floating point through the scale factor.
+The scale factor is determined by the attribute <cite>scaling_impl</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>Tensor</em>) – Input tensor that will be quantized</p></li>
+<li><p><strong>zero_hw_sentinel</strong> (<em>Tensor</em>) – Constant buffer required to move stateless (as in, not part of the model’s state_dict) constant values
+to the appropriate device and converting them to Tensor</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Tuple with three values where:
+y is the quantized Tensor;
+scale is the scale factor;
+bit_width is the bit_width of the quantization.</p>
+</dd>
 <dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
+<dd class="field-odd"><p>Tuple(Tensor, Tensor, Tensor)</p>
 </dd>
 </dl>
 </dd></dl>
@@ -416,9 +711,285 @@ registered hooks while the latter silently ignores them.</p>
 </dd></dl>
 
 <dl class="class">
+<dt id="brevitas.core.quant.TernaryQuant">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.quant.</code><code class="sig-name descname">TernaryQuant</code><span class="sig-paren">(</span><em class="sig-param">scaling_impl</em>, <em class="sig-param">threshold</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.quant.TernaryQuant" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
+<p>Class that implement the ternary quantization of the input tensor, which is then converted to its floating point
+representation according to the scale factor.</p>
+<p>The scale factor is determined internally through the scaling_impl module. The threshold is a user-defined value in
+the range (0,1).</p>
+<p>The quantization is performed in such a way that all input values in the range
+(-scale*threshold, scale*threshold) are quantized to 0. Values greater than the upper bound are quantized to 1.
+Values lower than the lower bound are quantized to -1.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>scaling_impl</strong> (<em>Module</em>) – Module that determines the value of the scale factor</p></li>
+<li><p><strong>threshold</strong> (<em>Float</em>) – User-defined value that determines, together with the scale factor, the range of values that are quantized to 0.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="attribute">
+<dt id="brevitas.core.quant.TernaryQuant.scaling_impl">
+<code class="sig-name descname">scaling_impl</code><a class="headerlink" href="#brevitas.core.quant.TernaryQuant.scaling_impl" title="Permalink to this definition">¶</a></dt>
+<dd><p>Module that determines the value of the scale factor</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Module</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="brevitas.core.quant.TernaryQuant.bit_width">
+<code class="sig-name descname">bit_width</code><a class="headerlink" href="#brevitas.core.quant.TernaryQuant.bit_width" title="Permalink to this definition">¶</a></dt>
+<dd><p>For binary quantization, the bit_width is constant and fixed to 2</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="brevitas.core.quant.TernaryQuant.threshold">
+<code class="sig-name descname">threshold</code><a class="headerlink" href="#brevitas.core.quant.TernaryQuant.threshold" title="Permalink to this definition">¶</a></dt>
+<dd><p>User-defined value that determines, together with the scale factor, the range of values that are quantized to 0.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="brevitas.core.quant.TernaryQuant.forward">
+<code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">x</em>, <em class="sig-param">zero_hw_sentinel</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.quant.TernaryQuant.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Perform the ternary quantization using <a class="reference internal" href="brevitas.function.html#brevitas.function.ops_ste.ternary_sign_ste" title="brevitas.function.ops_ste.ternary_sign_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">ternary_sign_ste()</span></code></a>. After that, the
+result is converted to floating point through the scale factor.
+The scale factor is determined by the attribute <cite>scaling_impl</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>Tensor</em>) – Input tensor that will be quantized</p></li>
+<li><p><strong>zero_hw_sentinel</strong> (<em>Tensor</em>) – Constant buffer required to move stateless (as in, not part of the model’s state_dict) constant values
+to the appropriate device and converting them to Tensor</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Tuple with three values where:
+y is the quantized Tensor;
+scale is the scale factor;
+bit_width is the bit_width of the quantization.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Tuple(Tensor, Tensor, Tensor)</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="brevitas.core.quant.RescalingIntQuant">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.quant.</code><code class="sig-name descname">RescalingIntQuant</code><span class="sig-paren">(</span><em class="sig-param">narrow_range</em>, <em class="sig-param">runtime</em>, <em class="sig-param">signed</em>, <em class="sig-param">scaling_impl</em>, <em class="sig-param">int_scaling_impl</em>, <em class="sig-param">tensor_clamp_impl</em>, <em class="sig-param">msb_clamp_bit_width_impl</em>, <em class="sig-param">float_to_int_impl</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.quant.RescalingIntQuant" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
+<p>Wrapper around <a class="reference internal" href="#brevitas.core.quant.IntQuant" title="brevitas.core.quant.IntQuant"><code class="xref py py-class docutils literal notranslate"><span class="pre">IntQuant</span></code></a>, that is responsible for the actual quantization of the
+input.</p>
+<p>The modules tensor_clamp_impl and float_to_int_impl, and the booleans <cite>signed</cite> and <cite>narrow_range</cite> are required by
+<cite>IntQuant</cite> to perform the quantization.</p>
+<p>The <cite>runtime</cite> boolean is required to determine how to compute the scale factor.
+The <cite>int_scaling_impl</cite> module is required to  determine int_scale.</p>
+<p>In order to perform the actual quantization, it is required to determine the following values: scale, int_scale,
+bit_width. All values are determined internally.
+Must be noted that there is a name overload and that the actual scale factor is obtained computing scale/int_scale.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>narrow_range</strong> (<em>Bool</em>) – Bool that determines whether to enable or not the narrow range representation.</p></li>
+<li><p><strong>signed</strong> (<em>Bool</em>) – Bool that determines whether to use signed or unsigned integers.</p></li>
+<li><p><strong>tensor_clamp_impl</strong> (<em>Module</em>) – Module that performs the clamping of the input values for a proper integer representation</p></li>
+<li><p><strong>msb_clamp_bit_width_impl</strong> (<em>Module</em>) – Module that determines the bit_width for the integer conversion</p></li>
+<li><p><strong>float_to_int_impl</strong> (<em>Module</em>) – Module that performs the conversion from floating point to integer representation</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="attribute">
+<dt id="brevitas.core.quant.RescalingIntQuant.int_quant">
+<code class="sig-name descname">int_quant</code><a class="headerlink" href="#brevitas.core.quant.RescalingIntQuant.int_quant" title="Permalink to this definition">¶</a></dt>
+<dd><p>Module that performs the actual quantization</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Module</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="brevitas.core.quant.RescalingIntQuant.runtime">
+<code class="sig-name descname">runtime</code><a class="headerlink" href="#brevitas.core.quant.RescalingIntQuant.runtime" title="Permalink to this definition">¶</a></dt>
+<dd><p>Value that determines how the scaling factor is computed in <cite>scaling_impl</cite></p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="brevitas.core.quant.RescalingIntQuant.scaling_impl">
+<code class="sig-name descname">scaling_impl</code><a class="headerlink" href="#brevitas.core.quant.RescalingIntQuant.scaling_impl" title="Permalink to this definition">¶</a></dt>
+<dd><p>Module that is responsible for the computation of the scale factor</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Module</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="brevitas.core.quant.RescalingIntQuant.int_scaling_impl">
+<code class="sig-name descname">int_scaling_impl</code><a class="headerlink" href="#brevitas.core.quant.RescalingIntQuant.int_scaling_impl" title="Permalink to this definition">¶</a></dt>
+<dd><p>Module that is responsible for the computation of the int_scale factor</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Module</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="brevitas.core.quant.RescalingIntQuant.msb_clamp_bit_width_impl">
+<code class="sig-name descname">msb_clamp_bit_width_impl</code><a class="headerlink" href="#brevitas.core.quant.RescalingIntQuant.msb_clamp_bit_width_impl" title="Permalink to this definition">¶</a></dt>
+<dd><p>Module that determines the bit_width for the integer conversion</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="brevitas.core.quant.RescalingIntQuant.forward">
+<code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">x</em>, <em class="sig-param">zero_hw_sentinel</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.quant.RescalingIntQuant.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>After determining internally the bit_width value, the scale factor, and the int_scale factor
+the method calls IntQuant to perform the quantization of the input.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>Tensor</em>) – Input tensor that will be quantized</p></li>
+<li><p><strong>zero_hw_sentinel</strong> (<em>Tensor</em>) – Constant buffer required to move stateless (as in, not part of the model’s state_dict) constant values
+to the appropriate device and converting them to Tensor</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Tuple with three values where:
+y is the quantized Tensor;
+scale is the scale factor;
+bit_width is the bit_width of the quantization.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Tuple(Tensor, Tensor, Tensor)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="brevitas.core.quant.RescalingIntQuant.scaling_init_from_min_max">
+<em class="property">static </em><code class="sig-name descname">scaling_init_from_min_max</code><span class="sig-paren">(</span><em class="sig-param">min_val_init</em>, <em class="sig-param">max_val_init</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.quant.RescalingIntQuant.scaling_init_from_min_max" title="Permalink to this definition">¶</a></dt>
+<dd><p>Static Method that is used in the step of initializing the scale factor</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>min_val_init</strong> (<em>Tensor</em>) – Minimum value used for initialization</p></li>
+<li><p><strong>max_val_init</strong> (<em>Tensor</em>) – Maximum value used for initialization</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The largest number, in absolute value, between <cite>max_val_init</cite> and <cite>min_val_init</cite></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<<<<<<< HEAD
+=======
+</dd></dl>
+
+>>>>>>> Documentation now works correctly and includes all functions and methods
+<dl class="class">
 <dt id="brevitas.core.quant.PrescaledRestrictIntQuant">
 <em class="property">class </em><code class="sig-prename descclassname">brevitas.core.quant.</code><code class="sig-name descname">PrescaledRestrictIntQuant</code><span class="sig-paren">(</span><em class="sig-param">narrow_range</em>, <em class="sig-param">signed</em>, <em class="sig-param">tensor_clamp_impl</em>, <em class="sig-param">msb_clamp_bit_width_impl</em>, <em class="sig-param">float_to_int_impl</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.quant.PrescaledRestrictIntQuant" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
+<p>Wrapper around <a class="reference internal" href="#brevitas.core.quant.IntQuant" title="brevitas.core.quant.IntQuant"><code class="xref py py-class docutils literal notranslate"><span class="pre">IntQuant</span></code></a>, that is responsible for the actual quantization of the
+input.</p>
+<p>The modules tensor_clamp_impl and float_to_int_impl, and the booleans <cite>signed</cite> and <cite>narrow_range</cite> are required by
+<cite>IntQuant</cite> to perform the quantization.</p>
+<p>In order to perform the actual quantization, it is required to determine the following values: scale, int_scale,
+bit_width.
+Scale is determined externally, int_scale is set to 1, while bit_width is determined internally through
+msb_clamp_bit_width_impl.
+Must be noted that there is a name overload and that the actual scale factor is obtained computing scale/int_scale.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>narrow_range</strong> (<em>Bool</em>) – Bool that determines whether to enable or not the narrow range representation.</p></li>
+<li><p><strong>signed</strong> (<em>Bool</em>) – Bool that determines whether to use signed or unsigned integers.</p></li>
+<li><p><strong>tensor_clamp_impl</strong> (<em>Module</em>) – Module that performs the clamping of the input values for a proper integer representation</p></li>
+<li><p><strong>msb_clamp_bit_width_impl</strong> (<em>Module</em>) – Module that determines the bit_width for the integer conversion</p></li>
+<li><p><strong>float_to_int_impl</strong> (<em>Module</em>) – Module that performs the conversion from floating point to integer representation</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="attribute">
+<dt id="brevitas.core.quant.PrescaledRestrictIntQuant.int_quant">
+<code class="sig-name descname">int_quant</code><a class="headerlink" href="#brevitas.core.quant.PrescaledRestrictIntQuant.int_quant" title="Permalink to this definition">¶</a></dt>
+<dd><p>Module that performs the actual quantization</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Module</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="brevitas.core.quant.PrescaledRestrictIntQuant.msb_clamp_bit_width_impl">
+<code class="sig-name descname">msb_clamp_bit_width_impl</code><a class="headerlink" href="#brevitas.core.quant.PrescaledRestrictIntQuant.msb_clamp_bit_width_impl" title="Permalink to this definition">¶</a></dt>
+<dd><p>Module that determines the bit_width for the integer conversion</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="brevitas.core.quant.PrescaledRestrictIntQuant.forward">
+<code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">x</em>, <em class="sig-param">scale</em>, <em class="sig-param">zero_hw_sentinel</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.quant.PrescaledRestrictIntQuant.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>After determining internally the bit_width value, it calls IntQuant to perform the quantization of the input</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>Tensor</em>) – Input tensor that will be quantized</p></li>
+<li><p><strong>scale</strong> (<em>Tensor</em>) – Scale factor that regulates the conversion between integer and floating point version of the number</p></li>
+<li><p><strong>zero_hw_sentinel</strong> (<em>Tensor</em>) – Constant buffer required to move stateless (as in, not part of the model’s state_dict) constant values
+to the appropriate device and converting them to Tensor</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Tuple with three values where:
+y is the quantized Tensor;
+scale is the scale factor;
+bit_width is the bit_width of the quantization.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Tuple(Tensor, Tensor, Tensor)</p>
+</dd>
+</dl>
+</dd></dl>
+
 </dd></dl>
 
 </div>
