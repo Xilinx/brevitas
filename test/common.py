@@ -4,12 +4,14 @@ import hypothesis.strategies as st
 RTOL = 0
 ATOL = 1e-23
 
+FP_BIT_WIDTH = 32
+
 # Define custom type of floating point generator.
 # We are never interested in NaN and Infinity. In some case, such as when generating gradients, we may also want to
 # exclude zero. For scale factor, we want only positive numbers
-float_st = st.floats(allow_nan=False, allow_infinity=False, width=32)
-float_st_nz = st.floats(allow_nan=False, allow_infinity=False, width=32).filter(lambda x: x != 0.0)
-float_st_p = st.floats(min_value=0.0, exclude_min=True, allow_nan=False, allow_infinity=False, width=32)
+float_st = st.floats(allow_nan=False, allow_infinity=False, width=FP_BIT_WIDTH)
+float_st_nz = st.floats(allow_nan=False, allow_infinity=False, width=FP_BIT_WIDTH).filter(lambda x: x != 0.0)
+float_st_p = st.floats(min_value=0.0, exclude_min=True, allow_nan=False, allow_infinity=False, width=FP_BIT_WIDTH)
 list_float_st = st.lists(float_st, min_size=1)
 
 
@@ -30,7 +32,7 @@ def two_lists_equal_size(draw):
 def two_ordered_numbers(draw):
     minimum = draw(float_st)
     maximum = draw(
-        st.floats(allow_infinity=False, allow_nan=False, width=32, min_value=minimum))
+        st.floats(allow_infinity=False, allow_nan=False, width=FP_BIT_WIDTH, min_value=minimum))
     return minimum, maximum
 
 
@@ -45,7 +47,7 @@ def tensor_clamp_input(draw):
     for i in range(size):
         minimum = draw(float_st)
         maximum = draw(
-            st.floats(allow_infinity=False, allow_nan=False, width=32, min_value=minimum))
+            st.floats(allow_infinity=False, allow_nan=False, width=FP_BIT_WIDTH, min_value=minimum))
         minimum_list[i] = minimum
         maximum_list[i] = maximum
     values = draw(st.lists(float_st, min_size=size, max_size=size))
@@ -62,7 +64,7 @@ def tensor_clamp_ste_input(draw):
     for i in range(size):
         minimum = draw(float_st)
         maximum = draw(
-            st.floats(allow_infinity=False, allow_nan=False, width=32, min_value=minimum))
+            st.floats(allow_infinity=False, allow_nan=False, width=FP_BIT_WIDTH, min_value=minimum))
         minimum_list[i] = minimum
         maximum_list[i] = maximum
     values = draw(st.lists(float_st, min_size=size, max_size=size))
