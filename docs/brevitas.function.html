@@ -400,8 +400,8 @@ torch.autograd.Function class in python, and the JIT cannot be used.</p>
 <dd class="field-odd"><p><strong>x</strong> (<em>Tensor</em>) – Tensor on which to apply the round operation</p>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p>Tensor after applying round operation. When backpropagating, the gradient will be unaffected by the
-operation</p>
+<dd class="field-even"><p>Tensor after applying round operation. When backpropagating through this value,
+a straight through estimator is applied.</p>
 </dd>
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p>Tensor</p>
@@ -479,8 +479,7 @@ torch.autograd.Function class in python, and the JIT cannot be used.</p>
 </dd>
 <dt class="field-even">Returns</dt>
 <dd class="field-even"><p>Tensor for which every element of <cite>x</cite> is clamped between the corresponding minimum and maximum values.
-When backpropagating, the gradient will be unaffected by the
-operation</p>
+When backpropagating through this value, a straight through estimator is applied.</p>
 </dd>
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p>Tensor</p>
@@ -508,8 +507,7 @@ torch.autograd.Function class in python, and the JIT cannot be used.</p>
 </dd>
 <dt class="field-even">Returns</dt>
 <dd class="field-even"><p>Tensor for which every element of <cite>x</cite> is clamped between <cite>min_val</cite> and <cite>max_val</cite>.
-When backpropagating, the gradient will be unaffected by the
-operation</p>
+When backpropagating through this value, a straight through estimator is applied.</p>
 </dd>
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p>Tensor</p>
@@ -534,8 +532,8 @@ torch.autograd.Function class in python, and the JIT cannot be used.</p>
 <dd class="field-odd"><p><strong>x</strong> (<em>Tensor</em>) – Tensor on which to apply the binarization operation</p>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p>Tensor after applying binarization. When backpropagating, the gradient will be unaffected by the
-operation</p>
+<dd class="field-even"><p>Tensor after applying binarization. When backpropagating through this value, a straight
+through estimator is applied.</p>
 </dd>
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p>Tensor</p>
@@ -559,8 +557,8 @@ torch.autograd.Function class in python, and the JIT cannot be used.</p>
 <dd class="field-odd"><p><strong>x</strong> (<em>Tensor</em>) – Tensor on which to apply the ternary operation</p>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p>Tensor after applying ternary operation. When backpropagating, the gradient will be unaffected by the
-operation</p>
+<dd class="field-even"><p>Tensor after applying ternary operation. When backpropagating through this value,
+a straight through estimator is applied.</p>
 </dd>
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p>Tensor</p>
@@ -585,8 +583,8 @@ torch.autograd.Function class in python, and the JIT cannot be used.</p>
 <dd class="field-odd"><p><strong>x</strong> (<em>Tensor</em>) – Tensor on which to apply the binarization operation</p>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p>Tensor after applying binarization. When backpropagating, the gradient will be unaffected by the
-operation</p>
+<dd class="field-even"><p>Tensor after applying binarization. When backpropagating through this value, a straight
+through estimator is applied.</p>
 </dd>
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p>Tensor</p>
@@ -657,8 +655,8 @@ torch.autograd.Function class in python, and the JIT cannot be used.</p>
 <dd class="field-odd"><p><strong>x</strong> (<em>Tensor</em>) – Tensor on which to apply the round operation</p>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p>Tensor after applying round operation. When backpropagating, the gradient will be unaffected by the
-operation</p>
+<dd class="field-even"><p>Tensor after applying round operation. When backpropagating through this value,
+a straight through estimator is applied.</p>
 </dd>
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p>Tensor</p>
@@ -686,8 +684,7 @@ torch.autograd.Function class in python, and the JIT cannot be used.</p>
 </dd>
 <dt class="field-even">Returns</dt>
 <dd class="field-even"><p>Tensor for which every element of <cite>x</cite> is clamped between <cite>min_val</cite> and <cite>max_val</cite>.
-When backpropagating, the gradient will be unaffected by the
-operation</p>
+When backpropagating through this value, a straight through estimator is applied.</p>
 </dd>
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p>Tensor</p>
@@ -717,8 +714,7 @@ torch.autograd.Function class in python, and the JIT cannot be used.</p>
 </dd>
 <dt class="field-even">Returns</dt>
 <dd class="field-even"><p>Tensor for which every element of <cite>x</cite> is clamped between the corresponding minimum and maximum values.
-When backpropagating, the gradient will be unaffected by the
-operation</p>
+When backpropagating through this value, a straight through estimator is applied.</p>
 </dd>
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p>Tensor</p>
@@ -742,8 +738,8 @@ torch.autograd.Function class in python, and the JIT cannot be used.</p>
 <dd class="field-odd"><p><strong>x</strong> (<em>Tensor</em>) – Tensor on which to apply the ternary operation</p>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p>Tensor after applying ternary operation. When backpropagating, the gradient will be unaffected by the
-operation</p>
+<dd class="field-even"><p>Tensor after applying ternary operation. When backpropagating through this value,
+a straight through estimator is applied.</p>
 </dd>
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p>Tensor</p>
