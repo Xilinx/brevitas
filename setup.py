@@ -52,44 +52,11 @@ import sys
 import distutils.command.clean
 import distutils.spawn
 import shutil
+import fileinput
 
+# Check pytorch version, so that to determine the correct brevitas installation
 torch_version = version.parse(torch.__version__)
 
-
-class build_py(build_py_orig):
-    def find_package_modules(self, package, package_dir):
-        modules = super().find_package_modules(package, package_dir)
-        if torch_version >= version.parse("1.3.0"):
-            file_to_rename = ['ops_ste_o']
-        else:
-            file_to_rename = ['ops_ste_n']
-
-        packages = [(pkg, mod, file,) for (pkg, mod, file,) in modules
-                    if not any(fnmatch.fnmatchcase(mod, pat=pattern)
-                               for pattern in file_to_rename)]
-        return packages
-
-    def build_module(self, module, module_file, package):
-        _, file_name = os.path.split(module_file)
-        if file_name == 'ops_ste_n.py' or file_name == 'ops_ste_o.py':
-            file_name = 'ops_ste.py'
-        if isinstance(package, str):
-            package = package.split('.')
-        elif not isinstance(package, (list, tuple)):
-            raise TypeError(
-                "'package' must be a string (dot-separated), list, or tuple")
-
-        # Now put the module source file into the "build" area -- this is
-        # easy, we just copy it somewhere under self.build_lib (the build
-        # directory for Python source).
-        outfile = self.get_module_outfile(self.build_lib, package, module)
-
-        head, _ = os.path.split(outfile)
-        outfile = os.path.join(head, file_name)
-
-        dir = os.path.dirname(outfile)
-        self.mkpath(dir)
-        return self.copy_file(module_file, outfile, preserve_mode=0)
 
 
 def read(*names, **kwargs):
@@ -108,6 +75,7 @@ def get_dist(pkgname):
 
 
 def get_extensions():
+    ext_modules = []
     if torch_version >= version.parse("1.3.0"):
         this_dir = os.path.dirname(os.path.abspath(__file__))
         extensions_dir = os.path.join(this_dir, 'brevitas', 'csrc')
@@ -127,7 +95,7 @@ def get_extensions():
             extra_compile_args['cxx'].append('/MP')
         sources = [os.path.join(extensions_dir, s) for s in sources]
         include_dirs = [extensions_dir]
-        ext_modules = [
+        ext_modules.append(
             extension(
                 'brevitas._C',
                 sources,
@@ -135,10 +103,35 @@ def get_extensions():
                 define_macros=define_macros,
                 extra_compile_args=extra_compile_args,
             )
-        ]
-        return ext_modules
+        )
+
+        # Determine replacement for templated file
+        suffix = ''
+        prefix = 'torch.ops.brevitas.'
+        torch_jit = '@torch.jit.script'
     else:
-        return []
+
+        # Determine replacement for templated file
+        suffix = '_fn.apply'
+        prefix = ''
+        torch_jit = ''
+
+    # Copy templated file and remove the .template extension
+    shutil.copyfile("brevitas/function/ops_ste_n.py.template", "brevitas/function/ops_ste.py")
+
+    # Perform replacements
+    with fileinput.FileInput(files=["brevitas/function/ops_ste.py"], inplace=True) as file:
+        for line in file:
+            if '<torch_jit_template>' in line:
+                print(line.replace('<torch_jit_template>', torch_jit), end='')
+            elif '<function_prefix>' in line:
+                new_line = line.replace('<function_prefix>', prefix)
+                print(new_line.replace('<function_suffix>', suffix), end='')
+            else:
+                print(line, end='')
+
+    return ext_modules
+
 
 
 class clean(distutils.command.clean.clean):
@@ -166,8 +159,7 @@ def read(fname):
 if torch_version >= version.parse("1.3.0"):
     cmdclass_dict = {
         'build_ext': BuildExtension.with_options(no_python_abi_suffix=True),
-        'clean': clean,
-        'build_py': build_py
+        'clean': clean
     }
 else:
     cmdclass_dict = {
