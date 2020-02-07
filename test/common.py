@@ -37,7 +37,8 @@ FP_BIT_WIDTH = 32
 # exclude zero. For scale factor, we want only positive numbers
 float_st = st.floats(allow_nan=False, allow_infinity=False, width=FP_BIT_WIDTH)
 float_st_nz = st.floats(allow_nan=False, allow_infinity=False, width=FP_BIT_WIDTH).filter(lambda x: x != 0.0)
-float_st_p = st.floats(min_value=0.0, exclude_min=True, allow_nan=False, allow_infinity=False, width=FP_BIT_WIDTH)
+float_st_p = st.floats(min_value=0.0, exclude_min=True, allow_nan=False, allow_infinity=False,
+                       max_value=2.000000054512845e+16, width=FP_BIT_WIDTH)
 list_float_st = st.lists(float_st, min_size=1)
 
 
