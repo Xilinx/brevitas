@@ -163,7 +163,7 @@ if torch_version >= version.parse("1.3.0"):
     }
 else:
     cmdclass_dict = {
-        'build_py': build_py
+        'clean': clean
     }
 
 setup(name="Brevitas",
