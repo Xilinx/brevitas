@@ -1,4 +1,4 @@
-# Copyright (c) 2018-     Xilinx, Inc              (Alessandro Pappalardo)
+# Copyright (c) 2019-     Xilinx, Inc              (Giuseppe Franco)
 # Copyright (c) 2016-     Facebook, Inc            (Adam Paszke)
 # Copyright (c) 2014-     Facebook, Inc            (Soumith Chintala)
 # Copyright (c) 2011-2014 Idiap Research Institute (Ronan Collobert)
@@ -41,6 +41,7 @@
 from brevitas.function.autograd_ops import *
 
 
+<torch_jit_template>
 def round_ste(x: torch.Tensor) -> torch.Tensor:
     """ Perform round operation with Straight Trough Estimation (STE) of the Gradient
 
@@ -60,13 +61,13 @@ def round_ste(x: torch.Tensor) -> torch.Tensor:
     Returns
     -------
     Tensor
-        Tensor after applying round operation.
-        When backpropagating through this value, a straight through estimator is applied.
+        Tensor after applying round operation. When backpropagating through this value,
+        a straight through estimator is applied.
 
     """
-    return round_ste_fn.apply(x)
+    return <function_prefix>round_ste<function_suffix>(x)
 
-
+<torch_jit_template>
 def ceil_ste(x: torch.Tensor) -> torch.Tensor:
     """ Perform ceil operation with Straight Trough Estimation (STE) of the Gradient
 
@@ -89,9 +90,10 @@ def ceil_ste(x: torch.Tensor) -> torch.Tensor:
         operation
 
     """
-    return ceil_ste_fn.apply(x)
+    return <function_prefix>ceil_ste<function_suffix>(x)
 
 
+<torch_jit_template>
 def floor_ste(x: torch.Tensor) -> torch.Tensor:
     """ Perform floor operation with Straight Trough Estimation (STE) of the Gradient
 
@@ -114,9 +116,10 @@ def floor_ste(x: torch.Tensor) -> torch.Tensor:
         operation
 
     """
-    return floor_ste_fn.apply(x)
+    return <function_prefix>floor_ste<function_suffix>(x)
 
 
+<torch_jit_template>
 def tensor_clamp_ste(x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor) -> torch.Tensor:
     """ Perform tensor-clamp operation with Straight Trough Estimation (STE) of the Gradient
 
@@ -145,9 +148,11 @@ def tensor_clamp_ste(x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tens
         Tensor for which every element of `x` is clamped between the corresponding minimum and maximum values.
         When backpropagating through this value, a straight through estimator is applied.
     """
-    return tensor_clamp_ste_fn.apply(x, min_val, max_val)
+    output = <function_prefix>tensor_clamp_ste<function_suffix>(x, min_val, max_val)
+    return output
 
 
+<torch_jit_template>
 def scalar_clamp_ste(x: torch.Tensor, min_val: float, max_val: float) -> torch.Tensor:
     """ Perform clamp operation with Straight Trough Estimation (STE) of the Gradient
 
@@ -174,9 +179,10 @@ def scalar_clamp_ste(x: torch.Tensor, min_val: float, max_val: float) -> torch.T
         Tensor for which every element of `x` is clamped between `min_val` and `max_val`.
         When backpropagating through this value, a straight through estimator is applied.
     """
-    return scalar_clamp_ste_fn.apply(x, min_val, max_val)
+    return <function_prefix>scalar_clamp_ste<function_suffix>(x, min_val, max_val)
 
 
+<torch_jit_template>
 def binary_sign_ste(x: torch.Tensor) -> torch.Tensor:
     """ Perform binarization with Straight Trough Estimation (STE) of the Gradient
 
@@ -198,13 +204,14 @@ def binary_sign_ste(x: torch.Tensor) -> torch.Tensor:
     Returns
     -------
     Tensor
-        Tensor after applying binarization.
-        When backpropagating through this value, a straight through estimator is applied.
+        Tensor after applying binarization. When backpropagating through this value, a straight
+        through estimator is applied.
 
     """
-    return binary_sign_ste_fn.apply(x)
+    return <function_prefix>binary_sign_ste<function_suffix>(x)
 
 
+<torch_jit_template>
 def ternary_sign_ste(x: torch.Tensor) -> torch.Tensor:
     """ Perform ternary operator with Straight Trough Estimation (STE) of the Gradient
 
@@ -225,8 +232,8 @@ def ternary_sign_ste(x: torch.Tensor) -> torch.Tensor:
     Returns
     -------
     Tensor
-        Tensor after applying ternary operation.
-        When backpropagating through this value, a straight through estimator is applied.
+        Tensor after applying ternary operation. When backpropagating through this value,
+        a straight through estimator is applied.
 
     """
-    return ternary_sign_ste_fn.apply(x)
+    return <function_prefix>ternary_sign_ste<function_suffix>(x)
