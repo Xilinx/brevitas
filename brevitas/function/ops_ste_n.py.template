@@ -86,8 +86,8 @@ def ceil_ste(x: torch.Tensor) -> torch.Tensor:
     Returns
     -------
     Tensor
-        Tensor after applying ceil operation. When backpropagating, the gradient will be unaffected by the ceil
-        operation
+        Tensor after applying ceil operation.
+        When backpropagating through this value, a straight through estimator is applied.
 
     """
     return <function_prefix>ceil_ste<function_suffix>(x)
@@ -112,8 +112,8 @@ def floor_ste(x: torch.Tensor) -> torch.Tensor:
     Returns
     -------
     Tensor
-        Tensor after applying floor operation. When backpropagating, the gradient will be unaffected by the floor
-        operation
+        Tensor after applying floor operation.
+        When backpropagating through this value, a straight through estimator is applied.
 
     """
     return <function_prefix>floor_ste<function_suffix>(x)
