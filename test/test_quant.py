@@ -64,6 +64,9 @@ MAX_BITWIDTH=8
 float_to_int_impl_scale_options = [(FloorSte, 1), (CeilSte, 1), (RoundSte, 0.5)]
 
 
+MIN_BITWIDTH=2
+MAX_BITWIDTH=8
+
 # Used for BinaryQuant and ClampedBinaryQuant. The two tests are basically identical.
 def perform_test_binary(binary_type, inp, scaling):
     scaling_impl_mock = Mock()
@@ -303,4 +306,3 @@ def test_RescalingIntQuant(x, narrow_range, signed, scale, int_scale, bit_width)
     expected_scale = scale/int_scale
     assert torch.allclose(expected_output, output, RTOL, ATOL)
     assert torch.allclose(expected_scale, scale_out, RTOL, ATOL)
-
