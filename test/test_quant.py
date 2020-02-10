@@ -40,7 +40,7 @@
 
 import torch
 from brevitas.core.quant import BinaryQuant, ClampedBinaryQuant, TernaryQuant
-from brevitas.core.quant import PrescaledRestrictIntQuantWithInputBitWidth, PrescaledIntQuant, PrescaledRestrictIntQuant
+from brevitas.core.quant import PrescaledRestrictIntQuantWithInputBitWidth, PrescaledRestrictIntQuant
 from brevitas.core.quant import RescalingIntQuant
 from brevitas.core.quant import IntQuant
 from brevitas.function.ops import min_int, max_int
@@ -55,6 +55,9 @@ from brevitas.core import ZERO_HW_SENTINEL_VALUE
 
 
 # EXECUTE WITH ENVIRONMENTAL VARIABLE PYTORCH_JIT=0
+
+MIN_BITWIDTH=2
+MAX_BITWIDTH=8
 
 # Used for BinaryQuant and ClampedBinaryQuant. The two tests are basically identical.
 def perform_test_binary(binary_type, inp, scaling):
@@ -138,7 +141,7 @@ def test_of_TernaryQuant(x, threshold, scale):
 #    backpropagation of the gradient, which is something we are not interested in here.
 #  - float_to_int implementation is a stripped down version of RestrictValue object for clarity and easiness of testing.
 @given(x=list_float_st, narrow_range=st.booleans(), signed=st.booleans(),
-       bit_width=st.integers(min_value=2, max_value=8),
+       bit_width=st.integers(min_value=MIN_BITWIDTH, max_value=MAX_BITWIDTH),
        scale=float_st_p, int_scale=st.integers(min_value=1, max_value=256))
 def test_IntQuant(x, narrow_range, signed, bit_width, scale, int_scale):
     float_to_int_impl_mock = Mock()
@@ -181,7 +184,7 @@ def test_IntQuant(x, narrow_range, signed, bit_width, scale, int_scale):
 #  - (i.e. correct by definition) version for genereting the expected_output. IntQuant is tested in an apposite function
 #  - msb_clamp_bit_width returns a random integer between 2 and 8
 @given(x=list_float_st, narrow_range=st.booleans(), signed=st.booleans(),
-       bit_width=st.integers(min_value=2, max_value=8), scale=float_st_p)
+       bit_width=st.integers(min_value=MIN_BITWIDTH, max_value=MAX_BITWIDTH), scale=float_st_p)
 def test_PrescaledRestrictIntQuantWithInputBitWidth(x, narrow_range, signed, scale, bit_width):
     value = torch.tensor(x)
     scale = torch.tensor(scale)
@@ -214,7 +217,7 @@ def test_PrescaledRestrictIntQuantWithInputBitWidth(x, narrow_range, signed, sca
 #    (i.e. correct by definition) version for genereting the expected_output. IntQuant is tested in an apposite function
 #  - msb_clamp_bit_width returns a random integer between 2 and 8
 @given(x=list_float_st, narrow_range=st.booleans(), signed=st.booleans(),
-       bit_width=st.integers(min_value=2, max_value=8), scale=float_st_p)
+       bit_width=st.integers(min_value=MIN_BITWIDTH, max_value=MAX_BITWIDTH), scale=float_st_p)
 def test_PrescaledRestrictIntQuanth(x, narrow_range, signed, scale, bit_width):
     value = torch.tensor(x)
     scale = torch.tensor(scale)
@@ -241,36 +244,6 @@ def test_PrescaledRestrictIntQuanth(x, narrow_range, signed, scale, bit_width):
 
 
 # Propriety tested:
-#  - This function is just a wrapper around IntQuant. For this reason, we are testing only the interface
-# Assumption:
-#  - IntQuant doesn't perform any real operation and behaves as an identity.
-#  - Since IntQuant is created inside the object, we assume that IntQuant is correct, and create an "expected"
-#  - (i.e. correct by definition) version for genereting the expected_output. IntQuant is tested in an apposite function
-@given(x=list_float_st, narrow_range=st.booleans(), signed=st.booleans(),
-       bit_width=st.integers(min_value=2, max_value=8), scale=float_st_p)
-def test_PrescaledIntQuant(x, narrow_range, signed, scale, bit_width):
-    value = torch.tensor(x)
-    scale = torch.tensor(scale)
-    bit_width = torch.tensor(bit_width, dtype=torch.float)
-    tensor_clamp_impl = TensorClamp()
-
-    float_to_int_impl_mock = Mock()
-    float_to_int_impl_mock.side_effect = (lambda y: y)
-
-    obj = PrescaledIntQuant(narrow_range=narrow_range, signed=signed,
-                            tensor_clamp_impl=tensor_clamp_impl,
-                            float_to_int_impl=float_to_int_impl_mock)
-
-    output, scale, bit_width = obj(value, scale, bit_width, torch.tensor(ZERO_HW_SENTINEL_VALUE))
-
-    expected_IntQuant = IntQuant(signed=signed, narrow_range=narrow_range, tensor_clamp_impl=tensor_clamp_impl,
-                                 float_to_int_impl=float_to_int_impl_mock)
-    expected_output = expected_IntQuant(scale, torch.tensor(ZERO_HW_SENTINEL_VALUE) + 1, bit_width, value)
-
-    assert (torch.allclose(expected_output, output, RTOL, ATOL))
-
-
-# Propriety tested:
 #  - This function is just a wrapper around IntQuant. For this reason, we are testing the interface
 #  - In addition, we test that the scale factor generated is correct with what we expect.
 # Assumption:
@@ -280,7 +253,7 @@ def test_PrescaledIntQuant(x, narrow_range, signed, scale, bit_width):
 #  - Runtime is default to true, since it has no effect in the generation of the scale factor (which is random)
 #  - msb_clamp_bit_width returns a random integer between 2 and 8
 @given(x=list_float_st, narrow_range=st.booleans(), signed=st.booleans(),
-       bit_width=st.integers(min_value=2, max_value=8), scale=float_st_p,
+       bit_width=st.integers(min_value=MIN_BITWIDTH, max_value=MAX_BITWIDTH), scale=float_st_p,
        int_scale=st.integers(min_value=1, max_value=256))
 def test_RescalingIntQuant(x, narrow_range, signed, scale, int_scale, bit_width):
     value = torch.tensor(x)
