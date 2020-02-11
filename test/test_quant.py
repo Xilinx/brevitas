@@ -53,12 +53,17 @@ from common import ATOL, RTOL
 from unittest.mock import Mock
 from brevitas.core import ZERO_HW_SENTINEL_VALUE
 import os
+import pytest
 
 # EXECUTE WITH ENVIRONMENTAL VARIABLE PYTORCH_JIT=0. If this is not the case, exit from the tests
 assert(os.environ.get('PYTORCH_JIT', '1') == '0')
 
+# Constants
 MIN_BITWIDTH=2
 MAX_BITWIDTH=8
+
+# Pytest Parametrize options
+implementation_type_ops = [(FloorSte()), (CeilSte()), (RoundSte())]
 
 # Used for BinaryQuant and ClampedBinaryQuant. The two tests are basically identical.
 def perform_test_binary(binary_type, inp, scaling):
@@ -70,7 +75,8 @@ def perform_test_binary(binary_type, inp, scaling):
     expected_output = torch.tensor([-1 * scaling, 1 * scaling])
 
     # Check that output values match one of the possible values in expected_output
-    return check_admissible_values(output, expected_output) and check_binary_sign(inp, output)
+    check_admissible_values(output, expected_output)
+    check_binary_sign(inp, output)
 
 
 # Check that the output values are one of the admissible values. If not, return False and fail the test
@@ -80,33 +86,35 @@ def check_admissible_values(predicted, admissible):
         if value not in admissible:
             result = False
 
-    return result
+    assert result
 
 
 # Check that after binarization the sign match the one expected given the input value
 def check_binary_sign(inp, predicted):
+    result = True
     for value_input, value_predicted in zip(inp, predicted):
         if not ((value_input >= 0 and value_predicted > 0) or (value_input < 0 and value_predicted < 0)):
-            return False
-    return True
+            result = False
+    assert result
 
 
 # Check that the sign is correct in ternarization. Take in account the margin introduced by the threshold
 # Threshold here is overloaded. It corresponds to threshold * scale
 def check_ternary_sign(inp, predicted, threshold):
+    result = True
     for value_input, value_predicted in zip(inp, predicted):
         if (value_input.abs() < threshold and value_predicted != 0) or \
            (value_input > threshold and value_predicted < 0) or (value_input < threshold and value_predicted > 0):
-            return False
+            result = False
 
-    return True
+    assert result
 
 # Check that all values generated are either -scale or +scale. Check that the sign is coherent
 @given(x=list_float_st, scale=float_st_p)
 def test_of_BinaryQuant(x, scale):
     value = torch.tensor(x)
     scale = torch.tensor(scale)
-    assert perform_test_binary(BinaryQuant, value, scale)
+    perform_test_binary(BinaryQuant, value, scale)
 
 
 # Check that all values generated are either -scale or +scale. Check that the sign is coherent
@@ -114,7 +122,7 @@ def test_of_BinaryQuant(x, scale):
 def test_of_ClampedBinaryQuant(x, scale):
     value = torch.tensor(x)
     scale = torch.tensor(scale)
-    assert perform_test_binary(ClampedBinaryQuant, value, scale)
+    perform_test_binary(ClampedBinaryQuant, value, scale)
 
 
 # Check that all values generated are either -scale, +scale or 0. Check that the sign is coherent
@@ -129,7 +137,8 @@ def test_of_TernaryQuant(x, threshold, scale):
     output, _, _ = obj(value, torch.tensor(ZERO_HW_SENTINEL_VALUE))
     expected_output = torch.tensor([-1 * scale, 1 * scale, 0])
 
-    assert check_admissible_values(output, expected_output) and check_ternary_sign(value, output, scale * threshold)
+    check_admissible_values(output, expected_output)
+    check_ternary_sign(value, output, scale * threshold)
 
 
 # Propriety tested:
@@ -144,7 +153,8 @@ def test_of_TernaryQuant(x, threshold, scale):
 @given(x=list_float_st, narrow_range=st.booleans(), signed=st.booleans(),
        bit_width=st.integers(min_value=MIN_BITWIDTH, max_value=MAX_BITWIDTH),
        scale=float_st_p, int_scale=st.integers(min_value=1, max_value=256))
-def test_IntQuant(x, narrow_range, signed, bit_width, scale, int_scale):
+@pytest.mark.parametrize('implementation_type', implementation_type_ops)
+def test_IntQuant(x, narrow_range, signed, bit_width, scale, int_scale, implementation_type):
     float_to_int_impl_mock = Mock()
     tensor_clamp_impl = TensorClamp()
 
@@ -153,28 +163,30 @@ def test_IntQuant(x, narrow_range, signed, bit_width, scale, int_scale):
     scale = torch.tensor(scale)
     int_scale = torch.tensor(int_scale)
 
-    implementation_type = [FloorSte(), CeilSte(), RoundSte()]
-    atol_value = [scale, scale, scale/2.0]
+    if implementation_type != RoundSte():
+        tol = scale
+    else:
+        tol = scale/2.0
+    float_to_int_impl_mock.side_effect = implementation_type
 
-    for tol, type in zip(atol_value, implementation_type):
-        float_to_int_impl_mock.side_effect = type
+    obj = IntQuant(narrow_range=narrow_range, signed=signed, float_to_int_impl=float_to_int_impl_mock,
+                   tensor_clamp_impl=tensor_clamp_impl)
+    output = obj(scale, int_scale, bit_width, value)
 
-        obj = IntQuant(narrow_range=narrow_range, signed=signed, float_to_int_impl=float_to_int_impl_mock,
-                       tensor_clamp_impl=tensor_clamp_impl)
-        output = obj(scale, int_scale, bit_width, value)
+    min_value = int(min_int(signed, narrow_range, bit_width))
+    max_value = int(max_int(signed, bit_width))
+    admissible_values = [x for x in range(min_value, max_value+1)]
 
-        min_value = int(min_int(signed, narrow_range, bit_width))
-        max_value = int(max_int(signed, bit_width))
-        admissible_values = [x for x in range(min_value, max_value+1)]
+    value = (value / scale) * int_scale
+    expected_output = tensor_clamp(value, min_val=min_int(signed, narrow_range, bit_width),
+                                   max_val=max_int(signed, bit_width))
+    expected_output = (expected_output / int_scale) * scale
 
-        value = (value / scale) * int_scale
-        expected_output = tensor_clamp(value, min_val=min_int(signed, narrow_range, bit_width),
-                                       max_val=max_int(signed, bit_width))
-        expected_output = (expected_output / int_scale) * scale
+    int_output = obj.to_int(scale, int_scale, bit_width, value)
 
-        int_output = obj.to_int(scale, int_scale, bit_width, value)
-        assert check_admissible_values(int_output, admissible_values)
-        assert (torch.allclose(expected_output, output, RTOL, tol))
+    # The assert is performed internally check_admissible_values
+    check_admissible_values(int_output, admissible_values)
+    assert (torch.allclose(expected_output, output, RTOL, tol))
 
 
 # Propriety tested:
@@ -182,7 +194,7 @@ def test_IntQuant(x, narrow_range, signed, bit_width, scale, int_scale):
 # Assumption:
 #  - IntQuant doesn't perform any real operation and behaves as an identity.
 #  - Since IntQuant is created inside the object, we assume that IntQuant is correct, and create an "expected"
-#  - (i.e. correct by definition) version for genereting the expected_output. IntQuant is tested in an apposite function
+#  - (i.e. correct by definition) version for generating the expected_output. IntQuant is tested in an apposite function
 #  - msb_clamp_bit_width returns a random integer between 2 and 8
 @given(x=list_float_st, narrow_range=st.booleans(), signed=st.booleans(),
        bit_width=st.integers(min_value=MIN_BITWIDTH, max_value=MAX_BITWIDTH), scale=float_st_p)
