@@ -52,9 +52,10 @@ from common import float_st, float_st_nz, two_lists_equal_size, list_float_st, f
 from common import ATOL, RTOL
 from unittest.mock import Mock
 from brevitas.core import ZERO_HW_SENTINEL_VALUE
+import os
 
-
-# EXECUTE WITH ENVIRONMENTAL VARIABLE PYTORCH_JIT=0
+# EXECUTE WITH ENVIRONMENTAL VARIABLE PYTORCH_JIT=0. If this is not the case, exit from the tests
+assert(os.environ.get('PYTORCH_JIT', '1') == '0')
 
 MIN_BITWIDTH=2
 MAX_BITWIDTH=8
@@ -85,7 +86,7 @@ def check_admissible_values(predicted, admissible):
 # Check that after binarization the sign match the one expected given the input value
 def check_binary_sign(inp, predicted):
     for value_input, value_predicted in zip(inp, predicted):
-        if ((value_input >= 0) and value_predicted < 0) or ((value_input < 0) and value_predicted > 0):
+        if not ((value_input >= 0 and value_predicted > 0) or (value_input < 0 and value_predicted < 0)):
             return False
     return True
 
