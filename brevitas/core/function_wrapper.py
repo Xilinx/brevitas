@@ -103,7 +103,7 @@ class TensorClampSte(torch.jit.ScriptModule):
 
     @torch.jit.script_method
     def forward(self, x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor):
-        return tensor_clamp_ste(x, min_val=min_val, max_val=max_val)
+        return tensor_clamp_ste(x, min_val, max_val)
 
 
 class TensorClamp(torch.jit.ScriptModule):
