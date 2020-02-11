@@ -126,7 +126,7 @@ def test_of_ClampedBinaryQuant(x, scale):
 
 
 # Check that all values generated are either -scale, +scale or 0. Check that the sign is coherent
-@given(x=list_float_st, threshold=float_st_p.filter(lambda x: x < 1), scale=float_st_p)
+@given(x=list_float_st, threshold=st.floats(min_value=0.0, max_value=1.0), scale=float_st_p)
 def test_of_TernaryQuant(x, threshold, scale):
     value = torch.tensor(x)
 
