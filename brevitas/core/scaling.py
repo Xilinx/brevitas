@@ -65,6 +65,57 @@ class ScalingImplType(AutoName):
 
 
 class StandaloneScaling(torch.jit.ScriptModule):
+    """ This class implements the computation of the scaling factor.
+
+    It is used when the computation of the scaling factor does not depend on 'external' variables or operation.
+    This may be the case when the scaling factor is constant and then no computation at all is performed after
+    initialization, or when the scaling factor is a parameter that must be learned on its own through backpropagation.
+
+
+    Parameters
+    ----------
+    scaling_init: Tensor
+        Value used for initializing the computation of the scale factor. May be a scalar, or have the same shape as
+        `parameter_shape`.
+    is_parameter: Bool
+        Boolean flag for determining whether the scale factor is a learned parameter or a constant value
+    parameter_shape: Tuple
+        The output shape of the scaling factor. May be a scalar or a multi-dimensional Tuple where all dimensions but
+        one are set to 1.
+    scaling_min_val: Float
+        The minimum admissible value that the scaling factor can assume
+    restrict_scaling_type: Module
+        Module that implement the operations for restricting the possible values that the scaling factor can assume.
+
+
+    Attributes
+    ----------
+    restrict_value: Module
+            Module that implement the operations for restricting the possible values that the scaling factor can assume.
+    learned_value: Tensor
+        if `is_parameter` is set to True, then the scaling factor is learned and stored in `learned_value`, None
+        otherwise
+    const_value: Tensor
+       if `is_parameter` is set to False, then the scaling factor is not learned and stored in `const_value`, None
+        otherwise
+
+    Methods
+    -------
+    forward(zero_hw_sentinel)
+        Compute and return the scaling factor according to whether is stored in `const_value` or `learned_value`.
+
+        Parameters
+        ----------
+        zero_hw_sentinel: Tensor
+            Constant buffer required to move stateless (as in, not part of the model's state_dict) constant values
+            to the appropriate device and converting them to Tensor
+
+        Returns
+        -------
+        Tensor
+            The computed scale factor
+
+    """
     __constants__ = ['const_value']
 
     def __init__(self,
@@ -121,6 +172,35 @@ class StandaloneScaling(torch.jit.ScriptModule):
 
 
 class AffineRescaling(torch.jit.ScriptModule):
+    """ This class allows to include some learnable parameters to the `STATS` setting for determining the scale factor.
+
+    This class introduces a learnable set of weights and bias that are then applied to the scale factor determined
+    through statistics. The weights and the bias will be learned through backpropagation.
+
+
+    Attributes
+    ----------
+    affine_weight: Tensor
+        Learnable weights that multiply the scale factor in the forward pass
+    affine_bias: Tensor
+        Learnable bias that is added to the scale factor in the forward pass
+
+    Methods
+    -------
+    forward(zero_hw_sentinel)
+        Apply the weights and the bias to the scale factor
+
+        Parameters
+        ----------
+        x: Tensor
+            The scale factor
+
+        Returns
+        -------
+        Tensor
+            The rescaled scale factor
+
+    """
 
     def __init__(self, affine_shape):
         super(AffineRescaling, self).__init__()
@@ -145,6 +225,58 @@ class AffineRescaling(torch.jit.ScriptModule):
 
 
 class StatsScaling(torch.jit.ScriptModule):
+    """ This class implements the post-processing computation of the scale factor, in combination with
+     :class:`~brevitas.core.stats.RuntimeStats` or :class:`~brevitas.core.stats.ParameterStats`
+
+    After receiving the stats computed in the pre-processing step, it determines the final scale factor and restrict its
+    value according to the settings passed to the RestricValue module.
+    If the `affine` flag is set, the learnable parameters are applied here
+    (see :class:`~brevitas.core.scaling.AffineRescaling).
+
+
+    Parameters
+    ----------
+    stats_op: StatsOp
+        Type of operation applied to determine the scale factor. Here it is used only as
+    is_parameter: Bool
+        Boolean flag for determining whether the scale factor is a learned parameter or a constant value
+    parameter_shape: Tuple
+        The output shape of the scaling factor. May be a scalar or a multi-dimensional Tuple where all dimensions but
+        one are set to 1.
+    scaling_min_val: Float
+        The minimum admissible value that the scaling factor can assume
+    restrict_scaling_type: Module
+        Module that implement the operations for restricting the possible values that the scaling factor can assume.
+
+
+    Attributes
+    ----------
+    restrict_value: Module
+            Module that implement the operations for restricting the possible values that the scaling factor can assume.
+    learned_value: Tensor
+        if `is_parameter` is set to True, then the scaling factor is learned and stored in `learned_value`, None
+        otherwise
+    const_value: Tensor
+       if `is_parameter` is set to False, then the scaling factor is not learned and stored in `const_value`, None
+        otherwise
+
+    Methods
+    -------
+    forward(zero_hw_sentinel)
+        Compute and return the scaling factor according to whether is stored in `const_value` or `learned_value`.
+
+        Parameters
+        ----------
+        zero_hw_sentinel: Tensor
+            Constant buffer required to move stateless (as in, not part of the model's state_dict) constant values
+            to the appropriate device and converting them to Tensor
+
+        Returns
+        -------
+        Tensor
+            The computed scale factor
+
+    """
     __constants__ = ['const_affine_weight', 'const_affine_bias']
 
     def __init__(self,
