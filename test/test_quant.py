@@ -56,14 +56,15 @@ import os
 import pytest
 
 # EXECUTE WITH ENVIRONMENTAL VARIABLE PYTORCH_JIT=0. If this is not the case, exit from the tests
-assert(os.environ.get('PYTORCH_JIT', '1') == '0')
+assert os.environ.get('PYTORCH_JIT', '1') == '0'
 
 # Constants
 MIN_BITWIDTH=2
 MAX_BITWIDTH=8
 
 # Pytest Parametrize options
-implementation_type_ops = [(FloorSte()), (CeilSte()), (RoundSte())]
+float_to_int_impl_scale_options = [(FloorSte(), 1), (CeilSte(), 1), (RoundSte(), 0.5)]
+
 
 # Used for BinaryQuant and ClampedBinaryQuant. The two tests are basically identical.
 def perform_test_binary(binary_type, inp, scaling):
@@ -153,8 +154,8 @@ def test_of_TernaryQuant(x, threshold, scale):
 @given(x=list_float_st, narrow_range=st.booleans(), signed=st.booleans(),
        bit_width=st.integers(min_value=MIN_BITWIDTH, max_value=MAX_BITWIDTH),
        scale=float_st_p, int_scale=st.integers(min_value=1, max_value=256))
-@pytest.mark.parametrize('implementation_type', implementation_type_ops)
-def test_IntQuant(x, narrow_range, signed, bit_width, scale, int_scale, implementation_type):
+@pytest.mark.parametrize('float_to_int_impl, scale_multiplier', float_to_int_impl_scale_options)
+def test_IntQuant(x, narrow_range, signed, bit_width, scale, int_scale, float_to_int_impl, scale_multiplier):
     float_to_int_impl_mock = Mock()
     tensor_clamp_impl = TensorClamp()
 
@@ -163,11 +164,8 @@ def test_IntQuant(x, narrow_range, signed, bit_width, scale, int_scale, implemen
     scale = torch.tensor(scale)
     int_scale = torch.tensor(int_scale)
 
-    if implementation_type != RoundSte():
-        tol = scale
-    else:
-        tol = scale/2.0
-    float_to_int_impl_mock.side_effect = implementation_type
+    tol = scale * scale_multiplier
+    float_to_int_impl_mock.side_effect = float_to_int_impl
 
     obj = IntQuant(narrow_range=narrow_range, signed=signed, float_to_int_impl=float_to_int_impl_mock,
                    tensor_clamp_impl=tensor_clamp_impl)
@@ -186,7 +184,7 @@ def test_IntQuant(x, narrow_range, signed, bit_width, scale, int_scale, implemen
 
     # The assert is performed internally check_admissible_values
     check_admissible_values(int_output, admissible_values)
-    assert (torch.allclose(expected_output, output, RTOL, tol))
+    assert torch.allclose(expected_output, output, RTOL, tol)
 
 
 # Propriety tested:
@@ -219,7 +217,7 @@ def test_PrescaledRestrictIntQuantWithInputBitWidth(x, narrow_range, signed, sca
                                  float_to_int_impl=float_to_int_impl_mock)
     expected_output = expected_IntQuant(scale, torch.tensor(ZERO_HW_SENTINEL_VALUE) + 1, bit_width, value)
 
-    assert (torch.allclose(expected_output, output, RTOL, ATOL))
+    assert torch.allclose(expected_output, output, RTOL, ATOL)
 
 
 # Propriety tested:
@@ -253,7 +251,7 @@ def test_PrescaledRestrictIntQuanth(x, narrow_range, signed, scale, bit_width):
                                  float_to_int_impl=float_to_int_impl_mock)
     expected_output = expected_IntQuant(scale, torch.tensor(ZERO_HW_SENTINEL_VALUE) + 1, bit_width, value)
 
-    assert (torch.allclose(expected_output, output, RTOL, ATOL))
+    assert torch.allclose(expected_output, output, RTOL, ATOL)
 
 
 # Propriety tested:
@@ -298,5 +296,5 @@ def test_RescalingIntQuant(x, narrow_range, signed, scale, int_scale, bit_width)
                                  float_to_int_impl=float_to_int_impl_mock)
     expected_output = expected_IntQuant(scale, int_scale, bit_width, value)
     expected_scale = scale/int_scale
-    assert (torch.allclose(expected_output, output, RTOL, ATOL))
-    assert (torch.allclose(expected_scale, scale_out, RTOL, ATOL))
+    assert torch.allclose(expected_output, output, RTOL, ATOL)
+    assert torch.allclose(expected_scale, scale_out, RTOL, ATOL)
