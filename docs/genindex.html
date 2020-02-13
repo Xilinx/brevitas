@@ -176,9 +176,15 @@
 </li>
       <li><a href="brevitas.proxy.html#brevitas.proxy.parameter_quant.WeightQuantProxy.add_tracked_parameter">add_tracked_parameter() (brevitas.proxy.parameter_quant.WeightQuantProxy method)</a>
 </li>
+      <li><a href="brevitas.core.html#brevitas.core.scaling.AffineRescaling.affine_bias">affine_bias (brevitas.core.scaling.AffineRescaling attribute)</a>
+</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="brevitas.core.html#brevitas.core.scaling.StatsScaling.affine_rescaling">affine_rescaling (brevitas.core.scaling.StatsScaling attribute)</a>
+</li>
       <li><a href="brevitas.core.html#brevitas.core.scaling.ScalingImplType.AFFINE_STATS">AFFINE_STATS (brevitas.core.scaling.ScalingImplType attribute)</a>
+</li>
+      <li><a href="brevitas.core.html#brevitas.core.scaling.AffineRescaling.affine_weight">affine_weight (brevitas.core.scaling.AffineRescaling attribute)</a>
 </li>
       <li><a href="brevitas.core.html#brevitas.core.scaling.AffineRescaling">AffineRescaling (class in brevitas.core.scaling)</a>
 </li>
@@ -324,10 +330,10 @@
 </li>
       <li><a href="brevitas.core.html#brevitas.core.quant.ClampedBinaryQuant">ClampedBinaryQuant (class in brevitas.core.quant)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="brevitas.core.html#brevitas.core.function_wrapper.ClampMin">ClampMin (class in brevitas.core.function_wrapper)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="brevitas.nn.html#brevitas.nn.quant_accumulator.ClampQuantAccumulator">ClampQuantAccumulator (class in brevitas.nn.quant_accumulator)</a>
 </li>
       <li><a href="brevitas.proxy.html#brevitas.proxy.runtime_quant.ClampQuantProxy">ClampQuantProxy (class in brevitas.proxy.runtime_quant)</a>
@@ -338,6 +344,8 @@
         <li><a href="brevitas.core.html#brevitas.core.scaling.ScalingImplType.CONST">(brevitas.core.scaling.ScalingImplType attribute)</a>
 </li>
       </ul></li>
+      <li><a href="brevitas.core.html#brevitas.core.scaling.StandaloneScaling.const_value">const_value (brevitas.core.scaling.StandaloneScaling attribute)</a>
+</li>
       <li><a href="brevitas.core.html#brevitas.core.function_wrapper.ConstScalarClamp">ConstScalarClamp (class in brevitas.core.function_wrapper)</a>
 </li>
       <li><a href="brevitas.nn.html#brevitas.nn.quant_conv.QuantConv2d.conv2d">conv2d() (brevitas.nn.quant_conv.QuantConv2d method)</a>
@@ -391,8 +399,16 @@
 </li>
         <li><a href="brevitas.core.html#brevitas.core.quant.TernaryQuant.forward">(brevitas.core.quant.TernaryQuant method)</a>
 </li>
+<<<<<<< HEAD
 >>>>>>> Documentation now works correctly and includes all functions and methods
         <li><a href="brevitas.core.html#brevitas.core.scaling.AffineRescaling.forward">(brevitas.core.scaling.AffineRescaling method)</a>
+=======
+        <li><a href="brevitas.core.html#brevitas.core.scaling.AffineRescaling.forward">(brevitas.core.scaling.AffineRescaling method)</a>, <a href="brevitas.core.html#brevitas.core.scaling.AffineRescaling.forward">[1]</a>
+</li>
+        <li><a href="brevitas.core.html#brevitas.core.scaling.StandaloneScaling.forward">(brevitas.core.scaling.StandaloneScaling method)</a>
+</li>
+        <li><a href="brevitas.core.html#brevitas.core.scaling.StatsScaling.forward">(brevitas.core.scaling.StatsScaling method)</a>
+>>>>>>> Updated docs
 </li>
         <li><a href="brevitas.function.html#brevitas.function.autograd_ops.binary_sign_ste_fn.forward">(brevitas.function.autograd_ops.binary_sign_ste_fn static method)</a>
 </li>
@@ -513,14 +529,16 @@
 <h2 id="L">L</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="brevitas.core.html#brevitas.core.scaling.StandaloneScaling.learned_value">learned_value (brevitas.core.scaling.StandaloneScaling attribute)</a>
+</li>
       <li><a href="brevitas.core.html#brevitas.core.restrict_val.RestrictValueType.LOG_FP">LOG_FP (brevitas.core.restrict_val.RestrictValueType attribute)</a>
 </li>
       <li><a href="brevitas.utils.html#brevitas.utils.logging.LogActivationBitWidth">LogActivationBitWidth (class in brevitas.utils.logging)</a>
 </li>
-      <li><a href="brevitas.utils.html#brevitas.utils.logging.LogBitWidth">LogBitWidth (class in brevitas.utils.logging)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="brevitas.utils.html#brevitas.utils.logging.LogBitWidth">LogBitWidth (class in brevitas.utils.logging)</a>
+</li>
       <li><a href="brevitas.core.html#brevitas.core.function_wrapper.LogTwo">LogTwo (class in brevitas.core.function_wrapper)</a>
 </li>
       <li><a href="brevitas.utils.html#brevitas.utils.logging.LogWeightBitWidth">LogWeightBitWidth (class in brevitas.utils.logging)</a>
@@ -539,14 +557,10 @@
 </li>
       <li><a href="brevitas.core.html#brevitas.core.stats.StatsOp.MAX_AVE">MAX_AVE (brevitas.core.stats.StatsOp attribute)</a>
 </li>
-<<<<<<< HEAD
       <li><a href="brevitas.core.html#brevitas.core.quant.IntQuant.max_int">max_int() (brevitas.core.quant.IntQuant method)</a>
 
       <ul>
         <li><a href="brevitas.function.html#brevitas.function.ops.max_int">(in module brevitas.function.ops)</a>
-=======
-      <li><a href="brevitas.function.html#brevitas.function.ops.max_int">max_int() (in module brevitas.function.ops)</a>
->>>>>>> Removed round_ste from max_int, min_int, and max_uint. Moved the functions in <ops> module. Refactored code and doc source. Modified test_ops appropriately
 </li>
       </ul></li>
       <li><a href="brevitas.nn.html#brevitas.nn.hadamard_classifier.HadamardClassifier.max_output_bit_width">max_output_bit_width() (brevitas.nn.hadamard_classifier.HadamardClassifier method)</a>
@@ -567,18 +581,12 @@
       </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-<<<<<<< HEAD
-=======
-      <li><a href="brevitas.function.html#brevitas.function.ops.max_uint">max_uint() (in module brevitas.function.ops)</a>
-</li>
->>>>>>> Removed round_ste from max_int, min_int, and max_uint. Moved the functions in <ops> module. Refactored code and doc source. Modified test_ops appropriately
       <li><a href="brevitas.core.html#brevitas.core.stats.StatsOp.MEAN_LEARN_SIGMA_STD">MEAN_LEARN_SIGMA_STD (brevitas.core.stats.StatsOp attribute)</a>
 </li>
       <li><a href="brevitas.core.html#brevitas.core.stats.StatsOp.MEAN_SIGMA_STD">MEAN_SIGMA_STD (brevitas.core.stats.StatsOp attribute)</a>
 </li>
       <li><a href="brevitas.nn.html#brevitas.nn.quant_conv.QuantConv2d.merge_bn_in">merge_bn_in() (brevitas.nn.quant_conv.QuantConv2d method)</a>
 </li>
-<<<<<<< HEAD
       <li><a href="brevitas.core.html#brevitas.core.quant.IntQuant.min_int">min_int() (brevitas.core.quant.IntQuant method)</a>
 
       <ul>
@@ -591,9 +599,6 @@
         <li><a href="brevitas.core.html#brevitas.core.quant.PrescaledRestrictIntQuantWithInputBitWidth.msb_clamp_bit_width_impl">(brevitas.core.quant.PrescaledRestrictIntQuantWithInputBitWidth attribute)</a>
 </li>
         <li><a href="brevitas.core.html#brevitas.core.quant.RescalingIntQuant.msb_clamp_bit_width_impl">(brevitas.core.quant.RescalingIntQuant attribute)</a>
-=======
-      <li><a href="brevitas.function.html#brevitas.function.ops.min_int">min_int() (in module brevitas.function.ops)</a>
->>>>>>> Removed round_ste from max_int, min_int, and max_uint. Moved the functions in <ops> module. Refactored code and doc source. Modified test_ops appropriately
 </li>
       </ul></li>
       <li><a href="brevitas.core.html#brevitas.core.bit_width.MsbClampParameterBitWidth">MsbClampParameterBitWidth (class in brevitas.core.bit_width)</a>
@@ -728,12 +733,18 @@
 </li>
       <li><a href="brevitas.core.html#brevitas.core.quant.RescalingIntQuant">RescalingIntQuant (class in brevitas.core.quant)</a>
 </li>
+      <li><a href="brevitas.core.html#brevitas.core.scaling.StatsScaling.restrict_scaling">restrict_scaling (brevitas.core.scaling.StatsScaling attribute)</a>
+</li>
+      <li><a href="brevitas.core.html#brevitas.core.scaling.StatsScaling.restrict_scaling_preprocess">restrict_scaling_preprocess (brevitas.core.scaling.StatsScaling attribute)</a>
+</li>
+      <li><a href="brevitas.core.html#brevitas.core.scaling.StandaloneScaling.restrict_value">restrict_value (brevitas.core.scaling.StandaloneScaling attribute)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="brevitas.core.html#brevitas.core.restrict_val.RestrictValue.restrict_value_op">restrict_value_op() (brevitas.core.restrict_val.RestrictValue static method)</a>
 </li>
       <li><a href="brevitas.core.html#brevitas.core.restrict_val.RestrictValue">RestrictValue (class in brevitas.core.restrict_val)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="brevitas.core.html#brevitas.core.restrict_val.RestrictValueOpImplType">RestrictValueOpImplType (class in brevitas.core.restrict_val)</a>
 </li>
       <li><a href="brevitas.core.html#brevitas.core.restrict_val.RestrictValueType">RestrictValueType (class in brevitas.core.restrict_val)</a>

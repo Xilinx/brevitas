@@ -315,82 +315,6 @@
 <dd><p>Compute the maximum unsigned integer representable</p>
 <p>The maximum unsigned integer representable depends on the number of bits, and whether the narrow range setting
 is used. If so, the maximum value represented is decreased by one unit.</p>
-<<<<<<< HEAD
-=======
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>narrow_range</strong> (<em>Bool</em>) – Flag that indicates whether to decrease the possible maximum value represented</p></li>
-<li><p><strong>bit_width</strong> (<em>Tensor</em>) – Number of bits available for the representation</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns</dt>
-<dd class="field-even"><p>Maximum unsigned integer that can be represented according to the input parameters</p>
-</dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>Tensor</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="function">
-<dt id="brevitas.function.ops.max_int">
-<code class="sig-prename descclassname">brevitas.function.ops.</code><code class="sig-name descname">max_int</code><span class="sig-paren">(</span><em class="sig-param">signed</em>, <em class="sig-param">bit_width</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.ops.max_int" title="Permalink to this definition">¶</a></dt>
-<dd><p>Compute the maximum integer representable</p>
-<p>The maximum integer representable depends on the number of bits, and whether the negative numbers are included
-in the representation. If so, one bit is lost in the computation of the maximum value.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>signed</strong> (<em>Bool</em>) – Flag that indicates whether negative numbers must be included or not</p></li>
-<li><p><strong>bit_width</strong> (<em>Tensor</em>) – Number of bits available for the representation</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns</dt>
-<dd class="field-even"><p>Maximum integer that can be represented according to the input parameters</p>
-</dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>Tensor</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="function">
-<dt id="brevitas.function.ops.min_int">
-<code class="sig-prename descclassname">brevitas.function.ops.</code><code class="sig-name descname">min_int</code><span class="sig-paren">(</span><em class="sig-param">signed</em>, <em class="sig-param">narrow_range</em>, <em class="sig-param">bit_width</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.ops.min_int" title="Permalink to this definition">¶</a></dt>
-<dd><p>Compute the minimum integer representable</p>
-<p>The minimum integer representable depends on the number of bits, whether the negative numbers are included
-in the representation, and whether the narrow range setting is used.
-For positive-only number, the minimum value will always be zero.
-If the sign and narrow range flags are both set, then the representation will be such that there is symmetry
-between positive and negative values.
-For example, for 3 bit representation, with sign and narrow range, the
-values representable are in the range [-3, 3].
-If the narrow range is not enabled, then the possible values will be in the range [-4, 3].</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>signed</strong> (<em>Bool</em>) – Flag that indicates whether negative numbers must be included or not</p></li>
-<li><p><strong>narrow_range</strong> (<em>Bool</em>) – Flag that indicates whether the narrow range setting is enabled or not</p></li>
-<li><p><strong>bit_width</strong> (<em>Tensor</em>) – Number of bits available for the representation</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns</dt>
-<dd class="field-even"><p>Minimum integer that can be represented according to the input parameters</p>
-</dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>Tensor</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="function">
-<dt id="brevitas.function.ops.ceil_ste">
-<code class="sig-prename descclassname">brevitas.function.ops.</code><code class="sig-name descname">ceil_ste</code><span class="sig-paren">(</span><em class="sig-param">x</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.ops.ceil_ste" title="Permalink to this definition">¶</a></dt>
-<dd><p>Perform ceil operation with Straight Trough Estimation (STE) of the Gradient</p>
-<p>This operation behaves like an identity on the backward pass. The STE is implemented using the
-torch.autograd.Function class in python, due to some unexpected behaviour of at::ceil implementation in C++</p>
->>>>>>> Removed round_ste from max_int, min_int, and max_uint. Moved the functions in <ops> module. Refactored code and doc source. Modified test_ops appropriately
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
@@ -633,13 +557,8 @@ torch.autograd.Function class in python, and the JIT cannot be used.</p>
 <dd class="field-odd"><p><strong>x</strong> (<em>Tensor</em>) – Tensor on which to apply the ternary operation</p>
 </dd>
 <dt class="field-even">Returns</dt>
-<<<<<<< HEAD
 <dd class="field-even"><p>Tensor after applying ternary operation. When backpropagating through this value,
 a straight through estimator is applied.</p>
-=======
-<dd class="field-even"><p>Tensor after applying ternary operation. When backpropagating, the gradient will be unaffected by the
-operation</p>
->>>>>>> Removed round_ste from max_int, min_int, and max_uint. Moved the functions in <ops> module. Refactored code and doc source. Modified test_ops appropriately
 </dd>
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p>Tensor</p>
@@ -666,7 +585,6 @@ torch.autograd.Function class in python, and the JIT cannot be used.</p>
 <dd class="field-odd"><p><strong>x</strong> (<em>Tensor</em>) – Tensor on which to apply the binarization operation</p>
 </dd>
 <dt class="field-even">Returns</dt>
-<<<<<<< HEAD
 <dd class="field-even"><p>Tensor after applying binarization. When backpropagating through this value, a straight
 through estimator is applied.</p>
 </dd>
@@ -717,10 +635,6 @@ torch.autograd.Function class in python, and the JIT cannot be used.</p>
 <dt class="field-even">Returns</dt>
 <dd class="field-even"><p>Tensor after applying floor operation.
 When backpropagating through this value, a straight through estimator is applied.</p>
-=======
-<dd class="field-even"><p>Tensor after applying binarization. When backpropagating, the gradient will be unaffected by the
-operation</p>
->>>>>>> Removed round_ste from max_int, min_int, and max_uint. Moved the functions in <ops> module. Refactored code and doc source. Modified test_ops appropriately
 </dd>
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p>Tensor</p>

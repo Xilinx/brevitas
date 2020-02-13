@@ -50,7 +50,7 @@ from brevitas.function.ops import min_int, max_int
 from brevitas.utils.python_utils import AutoName
 from .restrict_val import RestrictValue, RestrictValueType, FloatToIntImplType, RestrictValueOpImplType
 from .stats import StatsOp, StatsInputViewShapeImpl, ParameterListStats, RuntimeStats
-
+from brevitas.config import docstrings
 SCALING_SCALAR_SHAPE = ()
 
 
@@ -62,7 +62,6 @@ class ScalingImplType(AutoName):
     PARAMETER = auto()
     PARAMETER_FROM_STATS = auto()
     OVERRIDE = auto()
-
 
 class StandaloneScaling(torch.jit.ScriptModule):
     """ This class implements the computation of the scaling factor.
@@ -84,19 +83,20 @@ class StandaloneScaling(torch.jit.ScriptModule):
         one are set to 1.
     scaling_min_val: Float
         The minimum admissible value that the scaling factor can assume
-    restrict_scaling_type: Module
-        Module that implement the operations for restricting the possible values that the scaling factor can assume.
+    restrict_scaling_type: RestrictValueType
+        Type of operation that will be applied to the scale factor. Only FP, LOG_FP, and INT are supported.
+        :class:`~brevitas.core.restrict_val.RestrictValueType`.
 
 
     Attributes
     ----------
     restrict_value: Module
-            Module that implement the operations for restricting the possible values that the scaling factor can assume.
+        Module that implement the operations for restricting the possible values that the scaling factor can assume.
     learned_value: Tensor
         if `is_parameter` is set to True, then the scaling factor is learned and stored in `learned_value`, None
         otherwise
     const_value: Tensor
-       if `is_parameter` is set to False, then the scaling factor is not learned and stored in `const_value`, None
+        if `is_parameter` is set to False, then the scaling factor is not learned and stored in `const_value`, None
         otherwise
 
     Methods
@@ -208,6 +208,7 @@ class AffineRescaling(torch.jit.ScriptModule):
         self.affine_bias = Parameter(torch.zeros(affine_shape))
 
     def forward(self, x):
+        """"""
         out = x * self.affine_weight + self.affine_bias
         out = torch.abs(out)
         return out
@@ -224,50 +225,52 @@ class AffineRescaling(torch.jit.ScriptModule):
             missing_keys.remove(affine_bias_key)
 
 
+@docstrings.get_sectionsf('StatsScaling')
 class StatsScaling(torch.jit.ScriptModule):
     """ This class implements the post-processing computation of the scale factor, in combination with
-     :class:`~brevitas.core.stats.RuntimeStats` or :class:`~brevitas.core.stats.ParameterStats`
+    :class:`~brevitas.core.stats.RuntimeStats` or :class:`~brevitas.core.stats.ParameterListStats`.
 
     After receiving the stats computed in the pre-processing step, it determines the final scale factor and restrict its
     value according to the settings passed to the RestricValue module.
     If the `affine` flag is set, the learnable parameters are applied here
-    (see :class:`~brevitas.core.scaling.AffineRescaling).
+    (see :class:`~brevitas.core.scaling.AffineRescaling`).
 
 
     Parameters
     ----------
     stats_op: StatsOp
-        Type of operation applied to determine the scale factor. Here it is used only as
-    is_parameter: Bool
-        Boolean flag for determining whether the scale factor is a learned parameter or a constant value
-    parameter_shape: Tuple
+        Type of operation applied to determine the scale factor. Here it is used only as check with `stats_output_shape`
+        to avoid illegal operations.
+    restrict_scaling_type: RestrictValueType
+        Type of operation that will be applied to the scale factor. Only FP, LOG_FP, and INT are supported.
+        :class:`~brevitas.core.restrict_val.RestrictValueType`.
+    stats_output_shape: Tuple
         The output shape of the scaling factor. May be a scalar or a multi-dimensional Tuple where all dimensions but
         one are set to 1.
     scaling_min_val: Float
         The minimum admissible value that the scaling factor can assume
-    restrict_scaling_type: Module
-        Module that implement the operations for restricting the possible values that the scaling factor can assume.
+    affine: Bool
+        Flag that determines where the affine parameters must be learned or not
 
 
     Attributes
     ----------
-    restrict_value: Module
-            Module that implement the operations for restricting the possible values that the scaling factor can assume.
-    learned_value: Tensor
-        if `is_parameter` is set to True, then the scaling factor is learned and stored in `learned_value`, None
-        otherwise
-    const_value: Tensor
-       if `is_parameter` is set to False, then the scaling factor is not learned and stored in `const_value`, None
-        otherwise
+    affine_rescaling: Module
+        Module that implements affine statistics. If `affine` is set to False, then `affine_rescaling` is an Identity
+        Module
+    restrict_scaling: Module
+        Module that implement the operations for restricting the possible values that the scaling factor can assume.
+    restrict_scaling_preprocess: Method
+        Method of `restrict_scaling` that implements a pre-process operations on the scale factor
 
     Methods
     -------
-    forward(zero_hw_sentinel)
-        Compute and return the scaling factor according to whether is stored in `const_value` or `learned_value`.
+    forward(stats)
+        Compute the post-processing operations on the statistics computed so far, and return the scale factor.
 
         Parameters
         ----------
-        zero_hw_sentinel: Tensor
+        stats: Tensor
             Constant buffer required to move stateless (as in, not part of the model's state_dict) constant values
             to the appropriate device and converting them to Tensor
 
@@ -313,8 +316,16 @@ class StatsScaling(torch.jit.ScriptModule):
         return stats
 
 
+@docstrings.dedent
 class RuntimeStatsScaling(torch.jit.ScriptModule):
+    """ This class is a wrapper around :class:`~brevitas.core.stats.RuntimeStats` and
+    :class:`~brevitas.core.scaling.StatsScaling`. It allows to take the input Tensor on which the stats must be
+    computed and determine the corresponding scale factor.
 
+    Parameters
+    ----------
+    %(StatsScaling.parameters)s
+    """
     def __init__(self,
                  stats_op: StatsOp,
                  restrict_scaling_type: RestrictValueType,
@@ -349,8 +360,16 @@ class RuntimeStatsScaling(torch.jit.ScriptModule):
         return self.stats_scaling_impl(stats)
 
 
+@docstrings.dedent
 class ParameterStatsScaling(torch.jit.ScriptModule):
+    """ This class is a wrapper around :class:`~brevitas.core.stats.ParameterListStats` and
+    :class:`~brevitas.core.scaling.StatsScaling`. It allows to take the input Tensor on which the stats must be
+    computed and determine the corresponding scale factor.
 
+    Parameters
+    ----------
+    %(StatsScaling.parameters)s
+    """
     def __init__(self,
                  stats_op: StatsOp,
                  restrict_scaling_type: RestrictValueType,
@@ -384,6 +403,9 @@ class ParameterStatsScaling(torch.jit.ScriptModule):
 
 
 class SignedFpIntScale(torch.jit.ScriptModule):
+    """ Wrapper around :class:`~brevitas.function.ops.min_int` to determine the int_scale in case of signed, floating
+    point number.
+    """
     __constants__ = ['signed', 'narrow_range']
 
     def __init__(self, narrow_range):
@@ -397,6 +419,9 @@ class SignedFpIntScale(torch.jit.ScriptModule):
 
 
 class UnsignedFpIntScale(torch.jit.ScriptModule):
+    """ Wrapper around :class:`~brevitas.function.ops.max_int` to determine the int_scale in case of unsigned, floating
+    point number.
+    """
     __constants__ = ['signed']
 
     def __init__(self):
@@ -409,6 +434,8 @@ class UnsignedFpIntScale(torch.jit.ScriptModule):
 
 
 class PowerOfTwoIntScale(torch.jit.ScriptModule):
+    """ Wrapper around :class:`~brevitas.function.ops.max_int` to determine the int_scale in case of power of two number
+    """
     __constants__ = ['signed']
 
     def __init__(self, signed):
@@ -421,7 +448,19 @@ class PowerOfTwoIntScale(torch.jit.ScriptModule):
 
 
 class IntScaling(torch.jit.ScriptModule):
+    """ Class that implements the computation of int_scale using :class:`~brevitas.core.scaling.SignedFpIntScale`,
+    :class:`~brevitas.core.scaling.UnsignedFpIntScale`, :class:`~brevitas.core.scaling.PowerOfTwoIntScale`.
 
+    Parameters
+    ----------
+    narrow_range: Bool
+        Flag that indicates whether the narrow range setting is enabled or not
+    signed : Bool
+        Flag that indicates whether negative numbers must be included or not
+    restrict_scaling_type: RestrictValueType
+        Type of operation that will be applied to the scale factor. Only FP, LOG_FP, and INT are supported.
+        :class:`~brevitas.core.restrict_val.RestrictValueType`.
+    """
     def __init__(self,
                  narrow_range: bool,
                  signed: bool,

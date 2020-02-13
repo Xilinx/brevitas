@@ -194,10 +194,14 @@
 <dl class="class">
 <dt id="brevitas.core.bit_width.IdentityBitWidth">
 <<<<<<< HEAD
+<<<<<<< HEAD
 <em class="property">class </em><code class="sig-prename descclassname">brevitas.core.bit_width.</code><code class="sig-name descname">IdentityBitWidth</code><span class="sig-paren">(</span><em class="sig-param">optimize=None</em>, <em class="sig-param">_qualified_name=None</em>, <em class="sig-param">_compilation_unit=None</em>, <em class="sig-param">_cpp_module=None</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.bit_width.IdentityBitWidth" title="Permalink to this definition">¶</a></dt>
 =======
 <em class="property">class </em><code class="sig-prename descclassname">brevitas.core.bit_width.</code><code class="sig-name descname">IdentityBitWidth</code><a class="headerlink" href="#brevitas.core.bit_width.IdentityBitWidth" title="Permalink to this definition">¶</a></dt>
 >>>>>>> Documentation now works correctly and includes all functions and methods
+=======
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.bit_width.</code><code class="sig-name descname">IdentityBitWidth</code><span class="sig-paren">(</span><em class="sig-param">optimize=True</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.bit_width.IdentityBitWidth" title="Permalink to this definition">¶</a></dt>
+>>>>>>> Updated docs
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
 </dd></dl>
 
@@ -222,10 +226,14 @@
 <dl class="class">
 <dt id="brevitas.core.bit_width.ZeroLsbTruncBitWidth">
 <<<<<<< HEAD
+<<<<<<< HEAD
 <em class="property">class </em><code class="sig-prename descclassname">brevitas.core.bit_width.</code><code class="sig-name descname">ZeroLsbTruncBitWidth</code><span class="sig-paren">(</span><em class="sig-param">optimize=None</em>, <em class="sig-param">_qualified_name=None</em>, <em class="sig-param">_compilation_unit=None</em>, <em class="sig-param">_cpp_module=None</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.bit_width.ZeroLsbTruncBitWidth" title="Permalink to this definition">¶</a></dt>
 =======
 <em class="property">class </em><code class="sig-prename descclassname">brevitas.core.bit_width.</code><code class="sig-name descname">ZeroLsbTruncBitWidth</code><a class="headerlink" href="#brevitas.core.bit_width.ZeroLsbTruncBitWidth" title="Permalink to this definition">¶</a></dt>
 >>>>>>> Documentation now works correctly and includes all functions and methods
+=======
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.bit_width.</code><code class="sig-name descname">ZeroLsbTruncBitWidth</code><span class="sig-paren">(</span><em class="sig-param">optimize=True</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.bit_width.ZeroLsbTruncBitWidth" title="Permalink to this definition">¶</a></dt>
+>>>>>>> Updated docs
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
 <dl class="method">
 <dt id="brevitas.core.bit_width.ZeroLsbTruncBitWidth.forward">
@@ -1084,19 +1092,52 @@ bit_width is the bit_width of the quantization.</p>
 <dt id="brevitas.core.scaling.AffineRescaling">
 <em class="property">class </em><code class="sig-prename descclassname">brevitas.core.scaling.</code><code class="sig-name descname">AffineRescaling</code><span class="sig-paren">(</span><em class="sig-param">affine_shape</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.scaling.AffineRescaling" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
+<p>This class allows to include some learnable parameters to the <cite>STATS</cite> setting for determining the scale factor.</p>
+<p>This class introduces a learnable set of weights and bias that are then applied to the scale factor determined
+through statistics. The weights and the bias will be learned through backpropagation.</p>
+<dl class="attribute">
+<dt id="brevitas.core.scaling.AffineRescaling.affine_weight">
+<code class="sig-name descname">affine_weight</code><a class="headerlink" href="#brevitas.core.scaling.AffineRescaling.affine_weight" title="Permalink to this definition">¶</a></dt>
+<dd><p>Learnable weights that multiply the scale factor in the forward pass</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="brevitas.core.scaling.AffineRescaling.affine_bias">
+<code class="sig-name descname">affine_bias</code><a class="headerlink" href="#brevitas.core.scaling.AffineRescaling.affine_bias" title="Permalink to this definition">¶</a></dt>
+<dd><p>Learnable bias that is added to the scale factor in the forward pass</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
 <dl class="method">
 <dt id="brevitas.core.scaling.AffineRescaling.forward">
-<code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">x</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.scaling.AffineRescaling.forward" title="Permalink to this definition">¶</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
-<p>Should be overridden by all subclasses.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Although the recipe for forward pass needs to be defined within
-this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
-instead of this since the former takes care of running the
-registered hooks while the latter silently ignores them.</p>
-</div>
+<code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">zero_hw_sentinel</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.scaling.AffineRescaling.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Apply the weights and the bias to the scale factor</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>x</strong> (<em>Tensor</em>) – The scale factor</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The rescaled scale factor</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Tensor</p>
+</dd>
+</dl>
 </dd></dl>
+
+<dl class="method">
+<dt>
+<code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">x</em><span class="sig-paren">)</span></dt>
+<dd></dd></dl>
 
 </dd></dl>
 
@@ -1104,24 +1145,71 @@ registered hooks while the latter silently ignores them.</p>
 <dt id="brevitas.core.scaling.IntScaling">
 <em class="property">class </em><code class="sig-prename descclassname">brevitas.core.scaling.</code><code class="sig-name descname">IntScaling</code><span class="sig-paren">(</span><em class="sig-param">narrow_range</em>, <em class="sig-param">signed</em>, <em class="sig-param">restrict_scaling_type</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.scaling.IntScaling" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
+<p>Class that implements the computation of int_scale using <a class="reference internal" href="#brevitas.core.scaling.SignedFpIntScale" title="brevitas.core.scaling.SignedFpIntScale"><code class="xref py py-class docutils literal notranslate"><span class="pre">SignedFpIntScale</span></code></a>,
+<a class="reference internal" href="#brevitas.core.scaling.UnsignedFpIntScale" title="brevitas.core.scaling.UnsignedFpIntScale"><code class="xref py py-class docutils literal notranslate"><span class="pre">UnsignedFpIntScale</span></code></a>, <a class="reference internal" href="#brevitas.core.scaling.PowerOfTwoIntScale" title="brevitas.core.scaling.PowerOfTwoIntScale"><code class="xref py py-class docutils literal notranslate"><span class="pre">PowerOfTwoIntScale</span></code></a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>narrow_range</strong> (<em>Bool</em>) – Flag that indicates whether the narrow range setting is enabled or not</p></li>
+<li><p><strong>signed</strong> (<em>Bool</em>) – Flag that indicates whether negative numbers must be included or not</p></li>
+<li><p><strong>restrict_scaling_type</strong> (<a class="reference internal" href="#brevitas.core.restrict_val.RestrictValueType" title="brevitas.core.restrict_val.RestrictValueType"><em>RestrictValueType</em></a>) – Type of operation that will be applied to the scale factor. Only FP, LOG_FP, and INT are supported.
+<a class="reference internal" href="#brevitas.core.restrict_val.RestrictValueType" title="brevitas.core.restrict_val.RestrictValueType"><code class="xref py py-class docutils literal notranslate"><span class="pre">RestrictValueType</span></code></a>.</p></li>
+</ul>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="class">
 <dt id="brevitas.core.scaling.ParameterStatsScaling">
 <em class="property">class </em><code class="sig-prename descclassname">brevitas.core.scaling.</code><code class="sig-name descname">ParameterStatsScaling</code><span class="sig-paren">(</span><em class="sig-param">stats_op</em>, <em class="sig-param">restrict_scaling_type</em>, <em class="sig-param">stats_input_view_shape_impl</em>, <em class="sig-param">stats_output_shape</em>, <em class="sig-param">stats_input_concat_dim</em>, <em class="sig-param">sigma</em>, <em class="sig-param">scaling_min_val</em>, <em class="sig-param">stats_reduce_dim</em>, <em class="sig-param">tracked_parameter_list</em>, <em class="sig-param">affine</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.scaling.ParameterStatsScaling" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
+<p>This class is a wrapper around <a class="reference internal" href="#brevitas.core.stats.ParameterListStats" title="brevitas.core.stats.ParameterListStats"><code class="xref py py-class docutils literal notranslate"><span class="pre">ParameterListStats</span></code></a> and
+<a class="reference internal" href="#brevitas.core.scaling.StatsScaling" title="brevitas.core.scaling.StatsScaling"><code class="xref py py-class docutils literal notranslate"><span class="pre">StatsScaling</span></code></a>. It allows to take the input Tensor on which the stats must be
+computed and determine the corresponding scale factor.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>stats_op</strong> (<a class="reference internal" href="#brevitas.core.stats.StatsOp" title="brevitas.core.stats.StatsOp"><em>StatsOp</em></a>) – Type of operation applied to determine the scale factor. Here it is used only as check with <cite>stats_output_shape</cite>
+to avoid illegal operations.</p></li>
+<li><p><strong>restrict_scaling_type</strong> (<a class="reference internal" href="#brevitas.core.restrict_val.RestrictValueType" title="brevitas.core.restrict_val.RestrictValueType"><em>RestrictValueType</em></a>) – Type of operation that will be applied to the scale factor. Only FP, LOG_FP, and INT are supported.
+<a class="reference internal" href="#brevitas.core.restrict_val.RestrictValueType" title="brevitas.core.restrict_val.RestrictValueType"><code class="xref py py-class docutils literal notranslate"><span class="pre">RestrictValueType</span></code></a>.</p></li>
+<li><p><strong>stats_output_shape</strong> (<em>Tuple</em>) – The output shape of the scaling factor. May be a scalar or a multi-dimensional Tuple where all dimensions but
+one are set to 1.</p></li>
+<li><p><strong>scaling_min_val</strong> (<em>Float</em>) – The minimum admissible value that the scaling factor can assume</p></li>
+<li><p><strong>affine</strong> (<em>Bool</em>) – Flag that determines where the affine parameters must be learned or not</p></li>
+</ul>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="class">
 <dt id="brevitas.core.scaling.PowerOfTwoIntScale">
 <em class="property">class </em><code class="sig-prename descclassname">brevitas.core.scaling.</code><code class="sig-name descname">PowerOfTwoIntScale</code><span class="sig-paren">(</span><em class="sig-param">signed</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.scaling.PowerOfTwoIntScale" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
+<p>Wrapper around <a class="reference internal" href="brevitas.function.html#brevitas.function.ops.max_int" title="brevitas.function.ops.max_int"><code class="xref py py-class docutils literal notranslate"><span class="pre">max_int</span></code></a> to determine the int_scale in case of power of two number</p>
 </dd></dl>
 
 <dl class="class">
 <dt id="brevitas.core.scaling.RuntimeStatsScaling">
 <em class="property">class </em><code class="sig-prename descclassname">brevitas.core.scaling.</code><code class="sig-name descname">RuntimeStatsScaling</code><span class="sig-paren">(</span><em class="sig-param">stats_op</em>, <em class="sig-param">restrict_scaling_type</em>, <em class="sig-param">stats_input_view_shape_impl</em>, <em class="sig-param">stats_output_shape</em>, <em class="sig-param">sigma</em>, <em class="sig-param">scaling_min_val</em>, <em class="sig-param">stats_reduce_dim</em>, <em class="sig-param">stats_permute_dims</em>, <em class="sig-param">stats_buffer_momentum</em>, <em class="sig-param">stats_buffer_init</em>, <em class="sig-param">affine</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.scaling.RuntimeStatsScaling" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
+<p>This class is a wrapper around <code class="xref py py-class docutils literal notranslate"><span class="pre">RuntimeStats</span></code> and
+<a class="reference internal" href="#brevitas.core.scaling.StatsScaling" title="brevitas.core.scaling.StatsScaling"><code class="xref py py-class docutils literal notranslate"><span class="pre">StatsScaling</span></code></a>. It allows to take the input Tensor on which the stats must be
+computed and determine the corresponding scale factor.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>stats_op</strong> (<a class="reference internal" href="#brevitas.core.stats.StatsOp" title="brevitas.core.stats.StatsOp"><em>StatsOp</em></a>) – Type of operation applied to determine the scale factor. Here it is used only as check with <cite>stats_output_shape</cite>
+to avoid illegal operations.</p></li>
+<li><p><strong>restrict_scaling_type</strong> (<a class="reference internal" href="#brevitas.core.restrict_val.RestrictValueType" title="brevitas.core.restrict_val.RestrictValueType"><em>RestrictValueType</em></a>) – Type of operation that will be applied to the scale factor. Only FP, LOG_FP, and INT are supported.
+<a class="reference internal" href="#brevitas.core.restrict_val.RestrictValueType" title="brevitas.core.restrict_val.RestrictValueType"><code class="xref py py-class docutils literal notranslate"><span class="pre">RestrictValueType</span></code></a>.</p></li>
+<li><p><strong>stats_output_shape</strong> (<em>Tuple</em>) – The output shape of the scaling factor. May be a scalar or a multi-dimensional Tuple where all dimensions but
+one are set to 1.</p></li>
+<li><p><strong>scaling_min_val</strong> (<em>Float</em>) – The minimum admissible value that the scaling factor can assume</p></li>
+<li><p><strong>affine</strong> (<em>Bool</em>) – Flag that determines where the affine parameters must be learned or not</p></li>
+</ul>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="class">
@@ -1170,24 +1258,171 @@ registered hooks while the latter silently ignores them.</p>
 <dt id="brevitas.core.scaling.SignedFpIntScale">
 <em class="property">class </em><code class="sig-prename descclassname">brevitas.core.scaling.</code><code class="sig-name descname">SignedFpIntScale</code><span class="sig-paren">(</span><em class="sig-param">narrow_range</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.scaling.SignedFpIntScale" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
+<p>Wrapper around <a class="reference internal" href="brevitas.function.html#brevitas.function.ops.min_int" title="brevitas.function.ops.min_int"><code class="xref py py-class docutils literal notranslate"><span class="pre">min_int</span></code></a> to determine the int_scale in case of signed, floating
+point number.</p>
 </dd></dl>
 
 <dl class="class">
 <dt id="brevitas.core.scaling.StandaloneScaling">
 <em class="property">class </em><code class="sig-prename descclassname">brevitas.core.scaling.</code><code class="sig-name descname">StandaloneScaling</code><span class="sig-paren">(</span><em class="sig-param">scaling_init</em>, <em class="sig-param">is_parameter</em>, <em class="sig-param">parameter_shape</em>, <em class="sig-param">scaling_min_val</em>, <em class="sig-param">restrict_scaling_type</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.scaling.StandaloneScaling" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
+<p>This class implements the computation of the scaling factor.</p>
+<p>It is used when the computation of the scaling factor does not depend on ‘external’ variables or operation.
+This may be the case when the scaling factor is constant and then no computation at all is performed after
+initialization, or when the scaling factor is a parameter that must be learned on its own through backpropagation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>scaling_init</strong> (<em>Tensor</em>) – Value used for initializing the computation of the scale factor. May be a scalar, or have the same shape as
+<cite>parameter_shape</cite>.</p></li>
+<li><p><strong>is_parameter</strong> (<em>Bool</em>) – Boolean flag for determining whether the scale factor is a learned parameter or a constant value</p></li>
+<li><p><strong>parameter_shape</strong> (<em>Tuple</em>) – The output shape of the scaling factor. May be a scalar or a multi-dimensional Tuple where all dimensions but
+one are set to 1.</p></li>
+<li><p><strong>scaling_min_val</strong> (<em>Float</em>) – The minimum admissible value that the scaling factor can assume</p></li>
+<li><p><strong>restrict_scaling_type</strong> (<a class="reference internal" href="#brevitas.core.restrict_val.RestrictValueType" title="brevitas.core.restrict_val.RestrictValueType"><em>RestrictValueType</em></a>) – Type of operation that will be applied to the scale factor. Only FP, LOG_FP, and INT are supported.
+<a class="reference internal" href="#brevitas.core.restrict_val.RestrictValueType" title="brevitas.core.restrict_val.RestrictValueType"><code class="xref py py-class docutils literal notranslate"><span class="pre">RestrictValueType</span></code></a>.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="attribute">
+<dt id="brevitas.core.scaling.StandaloneScaling.restrict_value">
+<code class="sig-name descname">restrict_value</code><a class="headerlink" href="#brevitas.core.scaling.StandaloneScaling.restrict_value" title="Permalink to this definition">¶</a></dt>
+<dd><p>Module that implement the operations for restricting the possible values that the scaling factor can assume.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Module</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="brevitas.core.scaling.StandaloneScaling.learned_value">
+<code class="sig-name descname">learned_value</code><a class="headerlink" href="#brevitas.core.scaling.StandaloneScaling.learned_value" title="Permalink to this definition">¶</a></dt>
+<dd><p>if <cite>is_parameter</cite> is set to True, then the scaling factor is learned and stored in <cite>learned_value</cite>, None
+otherwise</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="brevitas.core.scaling.StandaloneScaling.const_value">
+<code class="sig-name descname">const_value</code><a class="headerlink" href="#brevitas.core.scaling.StandaloneScaling.const_value" title="Permalink to this definition">¶</a></dt>
+<dd><p>if <cite>is_parameter</cite> is set to False, then the scaling factor is not learned and stored in <cite>const_value</cite>, None
+otherwise</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="brevitas.core.scaling.StandaloneScaling.forward">
+<code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">zero_hw_sentinel</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.scaling.StandaloneScaling.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute and return the scaling factor according to whether is stored in <cite>const_value</cite> or <cite>learned_value</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>zero_hw_sentinel</strong> (<em>Tensor</em>) – Constant buffer required to move stateless (as in, not part of the model’s state_dict) constant values
+to the appropriate device and converting them to Tensor</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The computed scale factor</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
 </dd></dl>
 
 <dl class="class">
 <dt id="brevitas.core.scaling.StatsScaling">
 <em class="property">class </em><code class="sig-prename descclassname">brevitas.core.scaling.</code><code class="sig-name descname">StatsScaling</code><span class="sig-paren">(</span><em class="sig-param">stats_op</em>, <em class="sig-param">restrict_scaling_type</em>, <em class="sig-param">stats_output_shape</em>, <em class="sig-param">scaling_min_val</em>, <em class="sig-param">affine</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.scaling.StatsScaling" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
+<p>This class implements the post-processing computation of the scale factor, in combination with
+<code class="xref py py-class docutils literal notranslate"><span class="pre">RuntimeStats</span></code> or <a class="reference internal" href="#brevitas.core.stats.ParameterListStats" title="brevitas.core.stats.ParameterListStats"><code class="xref py py-class docutils literal notranslate"><span class="pre">ParameterListStats</span></code></a>.</p>
+<p>After receiving the stats computed in the pre-processing step, it determines the final scale factor and restrict its
+value according to the settings passed to the RestricValue module.
+If the <cite>affine</cite> flag is set, the learnable parameters are applied here
+(see <a class="reference internal" href="#brevitas.core.scaling.AffineRescaling" title="brevitas.core.scaling.AffineRescaling"><code class="xref py py-class docutils literal notranslate"><span class="pre">AffineRescaling</span></code></a>).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>stats_op</strong> (<a class="reference internal" href="#brevitas.core.stats.StatsOp" title="brevitas.core.stats.StatsOp"><em>StatsOp</em></a>) – Type of operation applied to determine the scale factor. Here it is used only as check with <cite>stats_output_shape</cite>
+to avoid illegal operations.</p></li>
+<li><p><strong>restrict_scaling_type</strong> (<a class="reference internal" href="#brevitas.core.restrict_val.RestrictValueType" title="brevitas.core.restrict_val.RestrictValueType"><em>RestrictValueType</em></a>) – Type of operation that will be applied to the scale factor. Only FP, LOG_FP, and INT are supported.
+<a class="reference internal" href="#brevitas.core.restrict_val.RestrictValueType" title="brevitas.core.restrict_val.RestrictValueType"><code class="xref py py-class docutils literal notranslate"><span class="pre">RestrictValueType</span></code></a>.</p></li>
+<li><p><strong>stats_output_shape</strong> (<em>Tuple</em>) – The output shape of the scaling factor. May be a scalar or a multi-dimensional Tuple where all dimensions but
+one are set to 1.</p></li>
+<li><p><strong>scaling_min_val</strong> (<em>Float</em>) – The minimum admissible value that the scaling factor can assume</p></li>
+<li><p><strong>affine</strong> (<em>Bool</em>) – Flag that determines where the affine parameters must be learned or not</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="attribute">
+<dt id="brevitas.core.scaling.StatsScaling.affine_rescaling">
+<code class="sig-name descname">affine_rescaling</code><a class="headerlink" href="#brevitas.core.scaling.StatsScaling.affine_rescaling" title="Permalink to this definition">¶</a></dt>
+<dd><p>Module that implements affine statistics. If <cite>affine</cite> is set to False, then <cite>affine_rescaling</cite> is an Identity
+Module</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Module</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="brevitas.core.scaling.StatsScaling.restrict_scaling">
+<code class="sig-name descname">restrict_scaling</code><a class="headerlink" href="#brevitas.core.scaling.StatsScaling.restrict_scaling" title="Permalink to this definition">¶</a></dt>
+<dd><p>Module that implement the operations for restricting the possible values that the scaling factor can assume.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Module</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="brevitas.core.scaling.StatsScaling.restrict_scaling_preprocess">
+<code class="sig-name descname">restrict_scaling_preprocess</code><a class="headerlink" href="#brevitas.core.scaling.StatsScaling.restrict_scaling_preprocess" title="Permalink to this definition">¶</a></dt>
+<dd><p>Method of <cite>restrict_scaling</cite> that implements a pre-process operations on the scale factor</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Method</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="brevitas.core.scaling.StatsScaling.forward">
+<code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">stats</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.scaling.StatsScaling.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the post-processing operations on the statistics computed so far, and return the scale factor.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>stats</strong> (<em>Tensor</em>) – Constant buffer required to move stateless (as in, not part of the model’s state_dict) constant values
+to the appropriate device and converting them to Tensor</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The computed scale factor</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
 </dd></dl>
 
 <dl class="class">
 <dt id="brevitas.core.scaling.UnsignedFpIntScale">
 <em class="property">class </em><code class="sig-prename descclassname">brevitas.core.scaling.</code><code class="sig-name descname">UnsignedFpIntScale</code><a class="headerlink" href="#brevitas.core.scaling.UnsignedFpIntScale" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
+<p>Wrapper around <a class="reference internal" href="brevitas.function.html#brevitas.function.ops.max_int" title="brevitas.function.ops.max_int"><code class="xref py py-class docutils literal notranslate"><span class="pre">max_int</span></code></a> to determine the int_scale in case of unsigned, floating
+point number.</p>
 </dd></dl>
 
 </div>
