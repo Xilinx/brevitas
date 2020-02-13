@@ -42,6 +42,7 @@ from brevitas.function.ops import *
 from brevitas.function.ops_ste import *
 from hypothesis import given
 from common import *
+import pytest
 
 MIN_BIT_WIDTH = 1
 MAX_BIT_WIDTH = 8
@@ -119,6 +120,7 @@ def test_result_of_max_uint(narrow_range, bit_width):
 
 # Test different combinations of Narrow Range (True/False) and BitWidth (1...8)
 @given(signed=st.booleans(), bit_width=st.integers(min_value=MIN_BIT_WIDTH, max_value=MAX_BIT_WIDTH))
+@pytest.mark.dependency(name="result_of_max_int")
 def test_result_of_max_int(signed, bit_width):
     bit_width = torch.tensor(bit_width, dtype=torch.float)
     output = max_int(signed, bit_width)
@@ -135,6 +137,7 @@ def test_result_of_max_int(signed, bit_width):
 # Test different combinations of Narrow Range (True/False), Signed (True/False), and BitWidth (1...8)
 @given(narrow_range=st.booleans(), signed=st.booleans(),
        bit_width=st.integers(min_value=MIN_BIT_WIDTH, max_value=MAX_BIT_WIDTH))
+@pytest.mark.dependency(name="result_of_min_int")
 def test_result_of_min_int(narrow_range, signed, bit_width):
     bit_width = torch.tensor(bit_width, dtype=torch.float)
     output = min_int(signed, narrow_range, bit_width)

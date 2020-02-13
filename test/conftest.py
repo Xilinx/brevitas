@@ -50,3 +50,6 @@ settings.load_profile("standard")
 SEED = 123456
 torch.random.manual_seed(SEED)
 set_seed(SEED)
+
+from pytest_dependency import DependencyManager
+DependencyManager.ScopeCls['module'] = DependencyManager.ScopeCls['session']

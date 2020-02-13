@@ -4,12 +4,15 @@ from common import *
 from brevitas.core.scaling import *
 from brevitas.core import ZERO_HW_SENTINEL_VALUE
 import pytest
-
 from brevitas.core.stats import StatsOp
+from brevitas.function.ops import min_int, max_int
+
 
 # Constants
 OUTCHANNEL = 20
 SCALING_MIN_VAL = 0.0
+MIN_BIT_WIDTH=1
+MAX_BIT_WIDTH=8
 
 # Pytest Parametrize options
 restrict_scaling_type_options = [(RestrictValueType.FP), (RestrictValueType.LOG_FP), (RestrictValueType.POWER_OF_TWO)]
@@ -124,6 +127,7 @@ def test_standlonescaling_tensor_tensor(scaling_init, restrict_scaling_type, is_
 # Test the case where scaling_init is a scalar
 @given(scaling_init=float_st_p)
 @pytest.mark.parametrize('restrict_scaling_type', restrict_scaling_type_options)
+@pytest.mark.dependency(name="statsscaling_scalar")
 def test_statsscaling_scalar(scaling_init, restrict_scaling_type):
     scaling_init = torch.tensor(scaling_init)
     assert perform_test_statsscaling(scaling_init, SCALING_SCALAR_SHAPE, restrict_scaling_type)
@@ -132,6 +136,7 @@ def test_statsscaling_scalar(scaling_init, restrict_scaling_type):
 # Test the case where scaling_init is a Tensor
 # In this case, the stats shape has 2,3, or 4 dimensions. All the dimensions are set to 1, with the exception of one
 # dimension. All possible combinations are tested.
+@pytest.mark.dependency(name="statsscaling_tensor")
 @given(scaling_init=st.lists(float_st_p, min_size=OUTCHANNEL, max_size=OUTCHANNEL))
 @pytest.mark.parametrize('restrict_scaling_type', restrict_scaling_type_options)
 @pytest.mark.parametrize('dim', max_dim_options)
@@ -143,3 +148,42 @@ def test_statsscaling_tensor(scaling_init, restrict_scaling_type, dim):
         scaling_init_tensor = torch.tensor(scaling_init).view(shape)
         assert perform_test_statsscaling(scaling_init_tensor, shape, restrict_scaling_type)
 
+
+@pytest.mark.dependency(name="runtimestatsscaling", depends=["statsscaling_scalar", "statsscaling_tensor"])
+def test_runtimestatsscaling():
+    pass
+
+
+@pytest.mark.dependency(name="parameterstatsscaling", depends=["statsscaling_scalar", "statsscaling_tensor"])
+def test_parameterstatsscaling():
+    pass
+
+
+@pytest.mark.dependency(name="signedfpintscale", depends=["result_of_min_int"])
+@given(narrow_range=st.booleans(), bit_width=st.integers(min_value=MIN_BIT_WIDTH, max_value=MAX_BIT_WIDTH))
+def test_signedfpintscale(narrow_range, bit_width):
+    obj = SignedFpIntScale(narrow_range)
+    output = obj(bit_width)
+    expected_output = -1 * min_int(signed=True, narrow_range=narrow_range, bit_width=bit_width)
+
+    assert output == expected_output
+
+
+@pytest.mark.dependency(name="unsignedfpintscale", depends=["result_of_max_int"])
+def test_unsignedfpintscale():
+    pass
+
+
+@pytest.mark.dependency(name="poweroftwointscale", depends=["result_of_max_int"])
+@given(bit_width=st.integers(min_value=MIN_BIT_WIDTH, max_value=MAX_BIT_WIDTH), signed=st.booleans())
+def test_poweroftwointscale(bit_width, signed):
+    obj = PowerOfTwoIntScale(signed)
+    output = obj(bit_width)
+    expected_output = max_int(signed, bit_width)+1
+
+    assert output == expected_output
+
+
+@pytest.mark.dependency(name="intscaling", depends=["poweroftwointscale", "unsignedfpintscale", "signedfpintscale"])
+def test_intscaling():
+    pass
