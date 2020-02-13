@@ -178,4 +178,3 @@ setup(name="Brevitas",
             'develop': DevelopInstall,
         }
       )
-
