@@ -322,7 +322,10 @@ class QuantHardTanh(QuantActivation):
             if ia["bit_width"] == 1 and ia["quant_type"] == QuantType.BINARY and ia["scaling_impl_type"] == ScalingImplType.CONST:
                 return "BIPOLAR"
             elif ia["bit_width"] == 2 and ia["quant_type"] == QuantType.INT and ia["scaling_impl_type"] == ScalingImplType.PARAMETER:
-                return "INT2"
+                # note: even though this particular config is int2 (signed)
+                # quantization, we set the export mode for MultiThreshold as
+                # UINT2, since the signed bias is added as a separate node
+                return "UINT2"
         else:
             raise Exception("Unsupported config combination for export")
 
