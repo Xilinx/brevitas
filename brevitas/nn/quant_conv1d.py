@@ -15,7 +15,8 @@ from brevitas.core.quant import QuantType, IdentityQuant
 from brevitas.core.restrict_val import RestrictValueType
 from brevitas.core.scaling import ScalingImplType, SCALING_SCALAR_SHAPE
 from brevitas.core.stats import StatsInputViewShapeImpl, StatsOp
-from brevitas.function.ops import ceil_ste, max_uint
+from brevitas.function.ops import max_uint
+from brevitas.function.ops_ste import ceil_ste
 from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy, WeightReg
 from brevitas.utils.python_utils import AutoName
 from brevitas.nn.quant_layer import QuantLayer, SCALING_MIN_VAL
@@ -159,7 +160,7 @@ class QuantConv1d(QuantLayer, Conv1d):
     def quant_weight_scale(self):
         """
 
-        Returns scale factor of the quantized weights with scalar () shape or (self.out_channels, 1, 1, 1)
+        Returns scale factor of the quantized weights with scalar () shape or (self.out_channels, 1, 1)
         shape depending on whether scaling is per layer or per-channel.
         -------
 
@@ -173,20 +174,30 @@ class QuantConv1d(QuantLayer, Conv1d):
     def forward(self, input):
         output_scale = None
         output_bit_width = None
+        quant_bias_bit_width = None
+
         input, input_scale, input_bit_width = self.unpack_input(input)
         quant_weight, quant_weight_scale, quant_weight_bit_width = self.weight_quant(self.weight)
         quant_weight = self.weight_reg(quant_weight)
 
         if self.compute_output_bit_width:
+            assert input_bit_width is not None
             output_bit_width = self.max_output_bit_width(input_bit_width, quant_weight_bit_width)
         if self.compute_output_scale:
+            assert input_scale is not None
             output_scale = input_scale * quant_weight_scale
 
         if self.bias is not None:
-            quant_bias = self.bias_quant(self.bias, output_scale, output_bit_width)
+            quant_bias, _, quant_bias_bit_width = self.bias_quant(self.bias, output_scale, output_bit_width)
             output = self.conv1d(input, quant_weight, quant_bias)
         else:
             output = self.conv1d(input, quant_weight, None)
+
+        if self.compute_output_bit_width and quant_bias_bit_width is not None:
+            output_bit_width = torch.where(quant_bias_bit_width > output_bit_width,
+                                           quant_bias_bit_width,
+                                           output_bit_width)
+
         return self.pack_output(output, output_scale, output_bit_width)
 
     def conv1d(self, x, weight, bias):
