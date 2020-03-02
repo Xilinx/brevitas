@@ -21,6 +21,7 @@ from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy, Wei
 from brevitas.utils.python_utils import AutoName
 from brevitas.nn.quant_layer import QuantLayer, SCALING_MIN_VAL
 from brevitas.config import docstrings
+
 __all__ = ['QuantConvTranspose1d']
 
 
@@ -38,13 +39,14 @@ class QuantConvTranspose1d(QuantLayer, ConvTranspose1d):
 
         %(weight_quant_proxy.parameters_with_prefix)s
     """
+
     def __init__(self,
                  in_channels: int,
                  out_channels: int,
                  kernel_size: Union[int, Tuple[int]],
                  stride: Union[int, Tuple[int]] = 1,
                  padding: Union[int, Tuple[int]] = 0,
-                 output_padding : Union[int, Tuple[int]] = 0,
+                 output_padding: Union[int, Tuple[int]] = 0,
                  padding_type: PaddingType = PaddingType.STANDARD,
                  dilation: Union[int, Tuple[int]] = 1,
                  groups: int = 1,
@@ -80,15 +82,15 @@ class QuantConvTranspose1d(QuantLayer, ConvTranspose1d):
                             compute_output_bit_width=compute_output_bit_width,
                             return_quant_tensor=return_quant_tensor)
         ConvTranspose1d.__init__(self,
-                        in_channels=in_channels,
-                        out_channels=out_channels,
-                        kernel_size=kernel_size,
-                        stride=stride,
-                        padding=padding,
-                        output_padding = output_padding,
-                        dilation=dilation,
-                        groups=groups,
-                        bias=bias)
+                                 in_channels=in_channels,
+                                 out_channels=out_channels,
+                                 kernel_size=kernel_size,
+                                 stride=stride,
+                                 padding=padding,
+                                 output_padding=output_padding,
+                                 dilation=dilation,
+                                 groups=groups,
+                                 bias=bias)
         if weight_quant_type == QuantType.FP and compute_output_bit_width:
             raise Exception("Computing output bit width requires enabling quantization")
         if bias_quant_type != QuantType.FP and not (compute_output_scale and compute_output_bit_width):
@@ -177,39 +179,48 @@ class QuantConvTranspose1d(QuantLayer, ConvTranspose1d):
         _, scale, _ = self.weight_quant.tensor_quant(self.weight, zero_hw_sentinel)
         return scale
 
-    def forward(self, input, output_size = None):
+    def forward(self, input, output_size=None):
         output_scale = None
         output_bit_width = None
+        quant_bias_bit_width = None
+
         input, input_scale, input_bit_width = self.unpack_input(input)
         quant_weight, quant_weight_scale, quant_weight_bit_width = self.weight_quant(self.weight)
         quant_weight = self.weight_reg(quant_weight)
 
         if self.compute_output_bit_width:
+            assert input_bit_width is not None
             output_bit_width = self.max_output_bit_width(input_bit_width, quant_weight_bit_width)
         if self.compute_output_scale:
+            assert input_scale is not None
             output_scale = input_scale * quant_weight_scale
 
         output_padding = self.compute_output_padding(input, output_size)
 
         if self.bias is not None:
-            quant_bias = self.bias_quant(self.bias, output_scale, output_bit_width)
+            quant_bias, _, quant_bias_bit_width = self.bias_quant(self.bias, output_scale, output_bit_width)
             output = self.conv_transpose1d(input, quant_weight, quant_bias, output_padding)
         else:
             output = self.conv_transpose1d(input, quant_weight, None, output_padding)
+
+        if self.compute_output_bit_width and quant_bias_bit_width is not None:
+            output_bit_width = torch.where(quant_bias_bit_width > output_bit_width,
+                                           quant_bias_bit_width,
+                                           output_bit_width)
         return self.pack_output(output, output_scale, output_bit_width)
 
     def compute_output_padding(self, input, output_size):
-        return self._output_padding(input, output_size, self.stride, self.padding, self.kernel_size )
-
+        return self._output_padding(input, output_size, self.stride, self.padding, self.kernel_size)
 
     def conv_transpose1d(self, x, weight, bias, output_padding):
         if self.padding_type == PaddingType.SAME:
-            out = self.conv1d_same_padding(x, weight, bias, output_padding)
+            out = self.transposeconv1d_same_padding(x, weight, bias, output_padding)
         else:
-            out = conv_transpose1d(x, weight, bias, self.stride, self.padding, output_padding , self.groups, self.dilation)
+            out = conv_transpose1d(x, weight, bias, self.stride, self.padding, output_padding, self.groups,
+                                   self.dilation)
         return out
 
-    def conv1d_same_padding(self, x, weight, bias, output_padding):
+    def transposeconv1d_same_padding(self, x, weight, bias, output_padding):
         raise Exception("SAME PADDING not supported for ConvTranspose1d")
 
     def merge_bn_in(self, bn, affine_only, sign_only):
@@ -219,7 +230,7 @@ class QuantConvTranspose1d(QuantLayer, ConvTranspose1d):
         max_uint_input = max_uint(bit_width=input_bit_width, narrow_range=False)
         max_kernel_val = self.weight_quant.tensor_quant.int_quant.max_uint(weight_bit_width)
         group_size = self.out_channels // self.groups
-        max_uint_output = max_uint_input * max_kernel_val * (self.kernel_size[0] - self.stride) * group_size
+        overlapping_sums = max(round(self.kernel_size[0] / self.stride[0]), 1)
+        max_uint_output = max_uint_input * max_kernel_val * overlapping_sums * group_size
         max_output_bit_width = ceil_ste(torch.log2(max_uint_output))
         return max_output_bit_width
-
