@@ -114,7 +114,7 @@ def get_extensions():
         # Determine replacement for templated file
         suffix = '_fn.apply'
         prefix = ''
-        torch_jit = ''
+        torch_jit = '@torch.jit.ignore'
 
     # Copy templated file and remove the .template extension
     shutil.copyfile("brevitas/function/ops_ste_n.py.template", "brevitas/function/ops_ste.py")
