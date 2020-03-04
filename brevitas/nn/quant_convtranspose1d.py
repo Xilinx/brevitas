@@ -91,6 +91,7 @@ class QuantConvTranspose1d(QuantLayer, ConvTranspose1d):
                                  dilation=dilation,
                                  groups=groups,
                                  bias=bias)
+
         if weight_quant_type == QuantType.FP and compute_output_bit_width:
             raise Exception("Computing output bit width requires enabling quantization")
         if bias_quant_type != QuantType.FP and not (compute_output_scale and compute_output_bit_width):
