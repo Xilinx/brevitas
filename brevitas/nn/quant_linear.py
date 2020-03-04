@@ -180,7 +180,6 @@ class QuantLinear(QuantLayer, Linear):
             ia["weight_scaling_stats_op"] == StatsOp.AVE and
             ia["weight_scaling_stats_sigma"] == 0.001 and
             ia["weight_quant_override"] == None and
-            ia["weight_narrow_range"] == False and
             ia["weight_bit_width_impl_override"] == None and
             ia["weight_bit_width_impl_type"] == BitWidthImplType.CONST and
             ia["weight_restrict_bit_width_type"] == RestrictValueType.INT and
@@ -203,7 +202,6 @@ class QuantLinear(QuantLayer, Linear):
             ia["weight_scaling_stats_op"] == StatsOp.MAX and
             ia["weight_scaling_stats_sigma"] == 0.001 and
             ia["weight_quant_override"] == None and
-            ia["weight_narrow_range"] == False and
             ia["weight_bit_width_impl_override"] == None and
             ia["weight_bit_width_impl_type"] == BitWidthImplType.CONST and
             ia["weight_restrict_bit_width_type"] == RestrictValueType.INT and
