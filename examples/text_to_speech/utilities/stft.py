@@ -1,6 +1,8 @@
 """
 BSD 3-Clause License
+Source: https://github.com/seungwonpark/melgan
 
+Copyright (c) 2020 Xilinx, Inc (Giuseppe Franco)
 Copyright (c) 2017, Prem Seetharaman
 All rights reserved.
 
