@@ -1,0 +1,11 @@
+librosa
+matplotlib
+numpy
+scipy
+tensorboardX
+torch
+tqdm
+pillow
+pyyaml
+soundfile
+packaging
