@@ -1,7 +1,7 @@
-import torch
-import torch.onnx
 import onnx
 import onnx.optimizer as opt
+import torch
+import torch.onnx
 import copy
 
 def _prepare_for_finn_onnx_export(module, enable_export = True):
