@@ -232,7 +232,6 @@ class Quartznet(nn.Module):
         print("Checkpoint restored")
 
 
-
 def quartznet(cfg, quartzet_params):
 
     outer_bit_width = cfg.getint('QUANT', 'OUTER_LAYERS_BIT_WIDTH')
