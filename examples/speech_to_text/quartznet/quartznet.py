@@ -229,8 +229,8 @@ class Quartznet(nn.Module):
     def restore_checkpoints(self, encoder_state_dict, decoder_state_dict):
         self.encoder.load_state_dict(encoder_state_dict)
         self.decoder.load_state_dict(decoder_state_dict)
-        print("Restoring from checkpoint")
-        print(encoder_state_dict, decoder_state_dict)
+        print("Checkpoint restored")
+
 
 
 def quartznet(cfg, quartzet_params):
