@@ -185,7 +185,6 @@ class QuantLinear(QuantLayer, Linear):
             ia["weight_restrict_bit_width_type"] == RestrictValueType.INT and
             ia["weight_min_overall_bit_width"] == 2 and
             ia["weight_max_overall_bit_width"] == None and
-            ia["weight_scaling_impl_type"] == ScalingImplType.STATS and
             ia["weight_scaling_min_val"] == SCALING_MIN_VAL and
             ia["weight_ternary_threshold"] == 0.5 and
             ia["weight_restrict_scaling_type"] == RestrictValueType.LOG_FP and
