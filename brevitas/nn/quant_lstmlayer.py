@@ -541,19 +541,18 @@ class QuantLSTMLayer(nn.Module):
                 bias_f = bias_f + value[hidden:hidden * 2]
                 bias_a = bias_a + value[2 * hidden:hidden * 3]
                 bias_o = bias_o + value[3 * hidden:]
-            elif name.split('_')[1] == 'ih':
+            elif name[:9] == 'weight_ih':
                 newstate['weight_ii'] = value[:hidden, :]
                 newstate['weight_fi'] = value[hidden:hidden * 2, :]
                 newstate['weight_ai'] = value[2 * hidden:hidden * 3, :]
                 newstate['weight_oi'] = value[3 * hidden:, :]
-            elif name.split('_')[1] == 'hh':
+            elif name[:9] == 'weight_hh':
                 newstate['weight_ih'] = value[:hidden, :]
                 newstate['weight_fh'] = value[hidden:hidden * 2, :]
                 newstate['weight_ah'] = value[2 * hidden:hidden * 3, :]
                 newstate['weight_oh'] = value[3 * hidden:, :]
             else:
                 newstate[name] = value
-
 
         newstate['bias_i'] = bias_i
         newstate['bias_f'] = bias_f
@@ -566,17 +565,24 @@ class QuantLSTMLayer(nn.Module):
 class BidirLSTMLayer(nn.Module):
     __constants__ = ['directions']
 
-    def __init__(self, input_size, hidden_size, weight_config, activation_config, layer_norm='identity',
+    def __init__(self, input_size, hidden_size, weight_config, activation_config,
+                 hidden_state_activation_config, layer_norm='identity',
                  compute_output_scale=False, compute_output_bit_width=False,
                  return_quant_tensor=False):
         super(BidirLSTMLayer, self).__init__()
         self.directions = nn.ModuleList([
-            torch.jit.script(QuantLSTMLayer(input_size, hidden_size, weight_config, activation_config,
-                                            False, layer_norm, compute_output_scale, compute_output_bit_width,
-                                            return_quant_tensor)),
-            torch.jit.script(QuantLSTMLayer(input_size, hidden_size, weight_config, activation_config,
-                                            True, layer_norm, compute_output_scale, compute_output_bit_width,
-                                            return_quant_tensor)),
+            torch.jit.script(QuantLSTMLayer(input_size=input_size, hidden_size=hidden_size, weight_config=weight_config,
+                                            activation_config=activation_config,
+                                            hidden_state_activation_config=hidden_state_activation_config,
+                                            reverse_input=False, compute_output_scale=compute_output_scale,
+                                            compute_output_bit_width=compute_output_bit_width,
+                                            return_quant_tensor=return_quant_tensor)),
+            torch.jit.script(QuantLSTMLayer(input_size=input_size, hidden_size=hidden_size, weight_config=weight_config,
+                                            activation_config=activation_config,
+                                            hidden_state_activation_config=hidden_state_activation_config,
+                                            reverse_input=True, compute_output_scale=compute_output_scale,
+                                            compute_output_bit_width=compute_output_bit_width,
+                                            return_quant_tensor=return_quant_tensor))
         ])
 
     # @jit.script_method
@@ -595,3 +601,15 @@ class BidirLSTMLayer(nn.Module):
             i += 1
 
         return torch.cat(outputs, -1), output_states
+
+    def load_state_dict_new(self, state_dict, strict=True):
+        direct = OrderedDict()
+        reverse = OrderedDict()
+        for name, value in state_dict.items():
+            if name[-7:] == 'reverse':
+                reverse[name] = value
+            else:
+                direct[name] = value
+
+        self.directions[0].load_state_dict_new(direct, strict)
+        self.directions[1].load_state_dict_new(reverse, strict)

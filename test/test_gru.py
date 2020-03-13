@@ -48,7 +48,7 @@ class TestLSTMQuant:
         assert torch.allclose(gru_out_state, out_state, 1e-05, 1e-05)
         print("DONE")
 
-    def test_BIwLSTM(self):
+    def test_BIGRU(self):
         weight_config = {
             'weight_quant_type': 'QuantType.FP'
         }
