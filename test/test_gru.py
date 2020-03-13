@@ -1,0 +1,49 @@
+from brevitas.nn import QuantGRULayer
+import torch
+import time
+from collections import namedtuple
+
+SEQ = 1000
+INPUT_SIZE = 5
+BATCH = 5
+HIDDEN = 100
+SEED = 123456
+LSTMState = namedtuple('LSTMState', ['hx', 'cx'])
+torch.manual_seed(SEED)
+
+
+class TestLSTMQuant:
+    def test_naiveLSTM(self):
+        weight_config = {
+            'weight_quant_type': 'QuantType.FP'
+        }
+
+        activation_config = {
+            'quant_type': 'QuantType.FP'
+        }
+        hardtanh_activation_config = {
+            'quant_type': 'QuantType.FP',
+            'min_val': -1e64,
+            'max_val': 1e64
+        }
+
+        input = torch.randn(SEQ, BATCH, INPUT_SIZE)
+        states = torch.randn(BATCH, HIDDEN)
+
+        q_gru = torch.jit.script(QuantGRULayer(INPUT_SIZE, HIDDEN, activation_config=activation_config,
+                                               weight_config=weight_config,
+                                               scale_factor_normalize_config=hardtanh_activation_config,
+                                               output_residual_config=hardtanh_activation_config))
+        q_gru.eval()
+
+        # Control
+        gru = torch.nn.GRU(INPUT_SIZE, HIDDEN)
+        q_gru.load_state_dict_new(gru.state_dict())
+        gru_out, gru_out_state = gru(input, states.unsqueeze(0))
+        start = time.time()
+        out, out_state = q_gru(input, states)
+        end = time.time() - start
+        print(end)
+        assert torch.allclose(gru_out, out, 1e-05, 1e-05)
+        assert torch.allclose(gru_out_state, out_state, 1e-05, 1e-05)
+        print("DONE")
