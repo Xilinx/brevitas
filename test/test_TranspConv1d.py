@@ -1,6 +1,6 @@
 import torch
 import brevitas.nn.quant_convtranspose1d as quant_convtranspose1d
-import test.generate_quant_input as input_gen
+from generate_quant_input import generate_quant_input
 from brevitas.core.quant import QuantType
 import random
 import numpy as np
@@ -32,7 +32,7 @@ class Test1DTranspConv:
 
     def test_float_quant(self):
         shape = (BATCH, IN_CHANNEL, HEIGHT)
-        input_quant_int, input_quant = input_gen.generate_quant_input(shape, BIT, SCALE, True, True)
+        input_quant_int, input_quant = generate_quant_input(shape, BIT, SCALE, True, True)
         ConvTranspose1d = quant_convtranspose1d.QuantConvTranspose1d(in_channels=IN_CHANNEL,
                                           out_channels=OUT_CHANNEL,
                                           kernel_size=KERNEL,
@@ -53,7 +53,7 @@ class Test1DTranspConv:
 
     def test_int(self):
         shape = (BATCH, IN_CHANNEL, HEIGHT)
-        input_quant_int, input_quant = input_gen.generate_quant_input(shape, BIT, SCALE, True, True)
+        input_quant_int, input_quant = generate_quant_input(shape, BIT, SCALE, True, True)
         ConvTranspose1d = quant_convtranspose1d.QuantConvTranspose1d(in_channels=IN_CHANNEL,
 
                                           out_channels=OUT_CHANNEL,

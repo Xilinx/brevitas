@@ -1,6 +1,6 @@
 import torch
 import brevitas.nn.quant_conv1d as quant_conv1d
-import test.generate_quant_input as input_gen
+from generate_quant_input import generate_quant_input
 from brevitas.core.quant import QuantType
 
 # Quantization parameters
@@ -26,7 +26,7 @@ class Test1DConv:
 
     def test_float_quant(self):
         shape = (BATCH, IN_CHANNEL, HEIGHT)
-        input_quant_int, input_quant = input_gen.generate_quant_input(shape, BIT, SCALE, True, True)
+        input_quant_int, input_quant = generate_quant_input(shape, BIT, SCALE, True, True)
         Conv1D = quant_conv1d.QuantConv1d(in_channels=IN_CHANNEL,
                                           out_channels=OUT_CHANNEL,
                                           kernel_size=KERNEL,
@@ -45,7 +45,7 @@ class Test1DConv:
 
     def test_int(self):
         shape = (BATCH, IN_CHANNEL, HEIGHT)
-        input_quant_int, input_quant = input_gen.generate_quant_input(shape, BIT, SCALE, True, True)
+        input_quant_int, input_quant = generate_quant_input(shape, BIT, SCALE, True, True)
         Conv1D = quant_conv1d.QuantConv1d(in_channels=IN_CHANNEL,
                                           out_channels=OUT_CHANNEL,
                                           kernel_size=KERNEL,
@@ -64,7 +64,7 @@ class Test1DConv:
 
     def test_basic_padding(self):
         shape = (BATCH, IN_CHANNEL, HEIGHT)
-        input_quant_int, input_quant = input_gen.generate_quant_input(shape, BIT, SCALE, True, True)
+        input_quant_int, input_quant = generate_quant_input(shape, BIT, SCALE, True, True)
         Conv1D = quant_conv1d.QuantConv1d(in_channels=IN_CHANNEL,
                                           out_channels=OUT_CHANNEL,
                                           kernel_size=KERNEL,
