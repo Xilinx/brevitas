@@ -44,6 +44,7 @@ from typing import Optional, Union, Tuple
 from torch import nn
 from torch.nn import Module
 import torch
+from numpy import isclose
 
 from brevitas.core.bit_width import BitWidthParameter, BitWidthImplType
 from brevitas.core.function_wrapper import Identity, ConstScalarClamp
@@ -306,12 +307,10 @@ class QuantHardTanh(QuantActivation):
         # flows for those.
         ia = self.init_args
         if (
-            ia["min_val"] == -1.0 and
-            ia["max_val"] == 1.0 and
+            isclose(ia["min_val"], -1.0) and
+            isclose(ia["max_val"], 1.0, atol=1e-2) and
             ia["bit_width_impl_type"] == BitWidthImplType.CONST and
-            ia["restrict_scaling_type"] == RestrictValueType.LOG_FP and
             ia["scaling_per_channel"] == False and
-            ia["narrow_range"] == True and
             ia["float_to_int_impl_type"] == FloatToIntImplType.ROUND and
             ia["scaling_stats_sigma"] == 3.0 and
             ia["scaling_stats_input_view_shape_impl"] == StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS and
