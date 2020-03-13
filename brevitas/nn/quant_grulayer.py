@@ -191,11 +191,12 @@ class QuantGRULayer(nn.Module):
 
         rgate, _, _ = self.quant_sigmoid(rgate, zero_hw_sentinel)
         igate, _, _ = self.quant_sigmoid(igate, zero_hw_sentinel)
-        gates_ni = self.norm_scale_newgate(gates_ni, zero_hw_sentinel)[0] + self.norm_scale_newgate(rgate*gates_nh, zero_hw_sentinel)[0]
+        gates_ni = self.norm_scale_newgate(gates_ni, zero_hw_sentinel)[0] + \
+                   self.norm_scale_newgate(rgate * gates_nh, zero_hw_sentinel)[0]
         ngate, _, _ = self.quant_tanh(gates_ni, zero_hw_sentinel)
 
         state = self.norm_scale_out(state, zero_hw_sentinel)[0] - ngate
-        hy = ngate + self.norm_scale_newgate(igate * state, zero_hw_sentinel)[0]
+        hy = ngate + self.norm_scale_out(igate * state, zero_hw_sentinel)[0]
 
         return hy, hy
 
@@ -218,7 +219,6 @@ class QuantGRULayer(nn.Module):
                                                                                                 zero_hw_sentinel)
         quant_weight_nh, quant_weight_nh_scale, quant_weight_nh_bit_width = self.weight_proxy_n(self.weight_nh,
                                                                                                 zero_hw_sentinel)
-
 
         inputs = inputs.unbind(0)
 
@@ -315,7 +315,6 @@ class QuantGRULayer(nn.Module):
                 activation_impl = ConstScalarClamp(min_val=min_val, max_val=max_val)
             else:
                 activation_impl = nn.Identity()
-
 
         activation_object = _activation_quant_init_impl(activation_impl=activation_impl,
                                                         bit_width=activation_config.get('bit_width', 8),
@@ -512,11 +511,11 @@ class QuantGRULayer(nn.Module):
                 bias_r = bias_r + value[:hidden]
                 bias_i = bias_i + value[hidden:hidden * 2]
                 newstate['bias_nh'] = value[2 * hidden:hidden * 3]
-            elif name.split('_')[1] == 'ih':
+            elif name[:9] == 'weight_ih':
                 newstate['weight_ri'] = value[:hidden, :]
                 newstate['weight_ii'] = value[hidden:hidden * 2, :]
                 newstate['weight_ni'] = value[2 * hidden:hidden * 3, :]
-            elif name.split('_')[1] == 'hh':
+            elif name[:9] == 'weight_hh':
                 newstate['weight_rh'] = value[:hidden, :]
                 newstate['weight_ih'] = value[hidden:hidden * 2, :]
                 newstate['weight_nh'] = value[2 * hidden:hidden * 3, :]
@@ -529,25 +528,34 @@ class QuantGRULayer(nn.Module):
         return newstate
 
 
-class BidirLSTMLayer(nn.Module):
+class BidirGRULayer(nn.Module):
     __constants__ = ['directions']
 
-    def __init__(self, input_size, hidden_size, weight_config, activation_config, layer_norm='identity',
+    def __init__(self, input_size, hidden_size, weight_config, activation_config, output_residual_config,
+                 scale_factor_normalize_config, layer_norm='identity',
                  compute_output_scale=False, compute_output_bit_width=False,
                  return_quant_tensor=False):
-        super(BidirLSTMLayer, self).__init__()
+        super(BidirGRULayer, self).__init__()
         self.directions = nn.ModuleList([
-            torch.jit.script(QuantGRULayer(input_size, hidden_size, weight_config, activation_config,
-                                            False, layer_norm, compute_output_scale, compute_output_bit_width,
-                                            return_quant_tensor)),
-            torch.jit.script(QuantGRULayer(input_size, hidden_size, weight_config, activation_config,
-                                            True, layer_norm, compute_output_scale, compute_output_bit_width,
-                                            return_quant_tensor)),
+            torch.jit.script(QuantGRULayer(input_size=input_size, hidden_size=hidden_size, weight_config=weight_config,
+                                           activation_config=activation_config,
+                                           output_residual_config=output_residual_config,
+                                           scale_factor_normalize_config=scale_factor_normalize_config,
+                                           reverse_input=False, compute_output_scale=compute_output_scale,
+                                           compute_output_bit_width=compute_output_bit_width,
+                                           return_quant_tensor=return_quant_tensor)),
+            torch.jit.script(QuantGRULayer(input_size=input_size, hidden_size=hidden_size, weight_config=weight_config,
+                                           activation_config=activation_config,
+                                           output_residual_config=output_residual_config,
+                                           scale_factor_normalize_config=scale_factor_normalize_config,
+                                           reverse_input=True, compute_output_scale=compute_output_scale,
+                                           compute_output_bit_width=compute_output_bit_width,
+                                           return_quant_tensor=return_quant_tensor)),
         ])
 
     # @jit.script_method
     def forward(self, input, states):
-        # type: (Tensor, List[Tuple[Tensor, Tensor]]) -> Tuple[Tensor, List[Tuple[Tensor, Tensor]]]
+        # type: (Tensor, List[Tensor]) -> Tuple[Tensor, List[Tuple[Tensor, Tensor]]]
         # List[LSTMState]: [forward LSTMState, backward LSTMState]
         outputs = torch.jit.annotate(List[Tensor], [])
         output_states = torch.jit.annotate(List[Tuple[Tensor, Tensor]], [])
@@ -561,3 +569,15 @@ class BidirLSTMLayer(nn.Module):
             i += 1
 
         return torch.cat(outputs, -1), output_states
+
+    def load_state_dict_new(self, state_dict, strict=True):
+        direct = OrderedDict()
+        reverse = OrderedDict()
+        for name, value in state_dict.items():
+            if name[-7:] == 'reverse':
+                reverse[name] = value
+            else:
+                direct[name] = value
+
+        self.directions[0].load_state_dict_new(direct, strict)
+        self.directions[1].load_state_dict_new(reverse, strict)
