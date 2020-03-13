@@ -93,7 +93,7 @@ import itertools
 
 OVER_BATCH_OVER_CHANNELS_SHAPE = (1, -1, 1, 1)
 
-__all__ = ['QuantGRULayer', 'BidirLSTMLayer']
+__all__ = ['QuantGRULayer', 'BidirGRULayer']
 
 brevitas_QuantType = {
     'QuantType.INT': QuantType.INT,
@@ -231,8 +231,10 @@ class QuantGRULayer(nn.Module):
             step = -1
 
         outputs = torch.jit.annotate(List[Tensor], [])
+        state = self.norm_scale_out(state, zero_hw_sentinel)[0]
         for i in range(start, end, step):
-            output, state = self.forward_iteration(inputs[i], state,
+            input_quant = self.norm_scale_out(inputs[i], zero_hw_sentinel)[0]
+            output, state = self.forward_iteration(input_quant, state,
                                                    quant_weight_ri, quant_weight_ii, quant_weight_ni,
                                                    quant_weight_rh, quant_weight_ih, quant_weight_nh)
             outputs += [state]

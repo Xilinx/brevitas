@@ -24,16 +24,16 @@ class TestLSTMQuant:
         }
         hidden_activation_config = {
             'quant_type': 'QuantType.FP',
-            'min_val': -1e32,
-            'max_val': 1e32
+            'min_val': -1e64,
+            'max_val': 1e64
         }
         input = torch.randn(SEQ, BATCH, INPUT_SIZE)
         states = LSTMState(torch.randn(BATCH, HIDDEN),
                            torch.randn(BATCH, HIDDEN))
 
-        q_lstm = torch.jit.script(QuantLSTMLayer(INPUT_SIZE, HIDDEN, activation_config=activation_config,
+        q_lstm = torch.jit.script(QuantLSTMLayer(INPUT_SIZE, HIDDEN, activation_config=activation_config, out_quant_config=hidden_activation_config,
                                                  hidden_state_activation_config=hidden_activation_config,
-                                                 weight_config=weight_config, layer_norm='decompose'))
+                                                 weight_config=weight_config))
         q_lstm.eval()
 
         # Control
@@ -59,7 +59,7 @@ class TestLSTMQuant:
         activation_config = {
             'quant_type': 'QuantType.FP'
         }
-        hardtanh_activation_config = {
+        hidden_activation_config = {
             'quant_type': 'QuantType.FP',
             'min_val': -1e64,
             'max_val': 1e64
@@ -73,8 +73,8 @@ class TestLSTMQuant:
         states_quant_reverse = LSTMState(states[0][1].squeeze(0), states[1][1].squeeze(0))
         states_quant = [states_quant_direct, states_quant_reverse]
         q_gru = torch.jit.script(BidirLSTMLayer(INPUT_SIZE, HIDDEN, activation_config=activation_config,
-                                               weight_config=weight_config,
-                                               hidden_state_activation_config=hardtanh_activation_config))
+                                               weight_config=weight_config, out_quant_config=hidden_activation_config,
+                                               hidden_state_activation_config=hidden_activation_config))
         q_gru.eval()
 
         # Control

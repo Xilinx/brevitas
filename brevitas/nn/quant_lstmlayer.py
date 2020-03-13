@@ -127,9 +127,9 @@ def reverse(lst):
 
 class QuantLSTMLayer(nn.Module):
     def __init__(self, input_size, hidden_size, weight_config, activation_config, hidden_state_activation_config,
-                 reverse_input=False, layer_norm='identity', compute_output_scale=False,
+                 out_quant_config, reverse_input=False, layer_norm='identity', compute_output_scale=False,
                  compute_output_bit_width=False, return_quant_tensor=False,
-                 recurrent_quant=None, output_quant=None):
+                 recurrent_quant=None):
 
         super(QuantLSTMLayer, self).__init__()
         self.register_buffer(ZERO_HW_SENTINEL_NAME, torch.tensor(ZERO_HW_SENTINEL_VALUE))
@@ -170,15 +170,11 @@ class QuantLSTMLayer(nn.Module):
         self.quant_tanh = self.configure_activation(self.activation_config, QuantTanh)
         self.normalize_hidden_state = self.configure_activation(hidden_state_activation_config, QuantHardTanh)
 
-        if output_quant is not None:
-            self.out_quant = self.configure_activation(output_quant, QuantHardTanh)
-            if recurrent_quant is None:
-                self.rec_quant = self.configure_activation(output_quant, QuantHardTanh)
-            else:
-                self.out_quant = self.configure_activation(recurrent_quant, QuantHardTanh)
+        self.out_quant = self.configure_activation(out_quant_config, QuantHardTanh)
+        if recurrent_quant is None:
+            self.rec_quant = self.configure_activation(out_quant_config, QuantHardTanh)
         else:
-            self.rec_quant = IdentityQuant()
-            self.out_quant = IdentityQuant()
+            self.out_quant = self.configure_activation(recurrent_quant, QuantHardTanh)
 
         if self.weight_config.get('weight_quant_type', 'QuantType.FP') == 'QuantType.FP' and compute_output_bit_width:
             raise Exception("Computing output bit width requires enabling quantization")
@@ -186,11 +182,10 @@ class QuantLSTMLayer(nn.Module):
                 compute_output_scale and compute_output_bit_width):
             raise Exception("Quantizing bias requires to compute output scale and output bit width")
 
-    def forward_iteration(self, input, state,
+    def forward_iteration(self, input, hx, cx,
                           quant_weight_ii, quant_weight_fi, quant_weight_ai, quant_weight_oi,
                           quant_weight_ih, quant_weight_fh, quant_weight_ah, quant_weight_oh):
-        # type: (Tensor, Tuple[Tensor, Tensor], Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor) -> Tuple[Tensor, Tuple[Tensor, Tensor]]
-        hx, cx = state
+        # type: (Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor) -> Tuple[Tensor, Tuple[Tensor, Tensor]]
         zero_hw_sentinel = getattr(self, 'zero_hw_sentinel')
 
         igates_ii = torch.mm(input, quant_weight_ii.t())
@@ -257,10 +252,14 @@ class QuantLSTMLayer(nn.Module):
             step = -1
 
         outputs = torch.jit.annotate(List[Tensor], [])
+        hx, cx = state
+        hx = self.out_quant(hx, zero_hw_sentinel)[0]
         for i in range(start, end, step):
-            output, state = self.forward_iteration(inputs[i], state,
+            input_quant = self.out_quant(inputs[i], zero_hw_sentinel)[0]
+            output, state = self.forward_iteration(input_quant, hx, cx,
                                                    quant_weight_ii, quant_weight_fi, quant_weight_ai, quant_weight_oi,
                                                    quant_weight_ih, quant_weight_fh, quant_weight_ah, quant_weight_oh)
+            hx, cx = state
             outputs += [output]
 
         if self.reverse_input:
@@ -565,20 +564,20 @@ class QuantLSTMLayer(nn.Module):
 class BidirLSTMLayer(nn.Module):
     __constants__ = ['directions']
 
-    def __init__(self, input_size, hidden_size, weight_config, activation_config,
+    def __init__(self, input_size, hidden_size, weight_config, activation_config, out_quant_config,
                  hidden_state_activation_config, layer_norm='identity',
                  compute_output_scale=False, compute_output_bit_width=False,
                  return_quant_tensor=False):
         super(BidirLSTMLayer, self).__init__()
         self.directions = nn.ModuleList([
             torch.jit.script(QuantLSTMLayer(input_size=input_size, hidden_size=hidden_size, weight_config=weight_config,
-                                            activation_config=activation_config,
+                                            activation_config=activation_config, out_quant_config=out_quant_config,
                                             hidden_state_activation_config=hidden_state_activation_config,
                                             reverse_input=False, compute_output_scale=compute_output_scale,
                                             compute_output_bit_width=compute_output_bit_width,
                                             return_quant_tensor=return_quant_tensor)),
             torch.jit.script(QuantLSTMLayer(input_size=input_size, hidden_size=hidden_size, weight_config=weight_config,
-                                            activation_config=activation_config,
+                                            activation_config=activation_config, out_quant_config=out_quant_config,
                                             hidden_state_activation_config=hidden_state_activation_config,
                                             reverse_input=True, compute_output_scale=compute_output_scale,
                                             compute_output_bit_width=compute_output_bit_width,
