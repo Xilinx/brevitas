@@ -555,10 +555,10 @@ class BidirGRULayer(nn.Module):
 
     # @jit.script_method
     def forward(self, input, states):
-        # type: (Tensor, List[Tensor]) -> Tuple[Tensor, List[Tuple[Tensor, Tensor]]]
+        # type: (Tensor, List[Tensor]) -> Tuple[Tensor, List[Tensor]]
         # List[LSTMState]: [forward LSTMState, backward LSTMState]
         outputs = torch.jit.annotate(List[Tensor], [])
-        output_states = torch.jit.annotate(List[Tuple[Tensor, Tensor]], [])
+        output_states = torch.jit.annotate(List[Tensor], [])
         # XXX: enumerate https://github.com/pytorch/pytorch/issues/14471
         i = 0
         for direction in self.directions:
