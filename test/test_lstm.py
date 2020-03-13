@@ -22,12 +22,17 @@ class TestLSTMQuant:
         activation_config = {
             'quant_type': 'QuantType.FP'
         }
-
+        hidden_activation_config = {
+            'quant_type': 'QuantType.FP',
+            'min_val': -1e32,
+            'max_val': 1e32
+        }
         input = torch.randn(SEQ, BATCH, INPUT_SIZE)
         states = LSTMState(torch.randn(BATCH, HIDDEN),
                            torch.randn(BATCH, HIDDEN))
 
         q_lstm = torch.jit.script(QuantLSTMLayer(INPUT_SIZE, HIDDEN, activation_config=activation_config,
+                                                 hidden_state_activation_config=hidden_activation_config,
                                                  weight_config=weight_config, layer_norm='decompose'))
         q_lstm.eval()
 

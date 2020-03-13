@@ -81,6 +81,7 @@ from brevitas.proxy.runtime_quant import _activation_quant_init_impl
 from brevitas.core.quant import IdentityQuant
 from brevitas.core.restrict_val import RestrictValueType, FloatToIntImplType
 from brevitas.quant_tensor import QuantTensor
+from brevitas.core.function_wrapper import ConstScalarClamp
 
 from brevitas.nn.quant_layer import SCALING_MIN_VAL
 import torch
@@ -125,7 +126,7 @@ def reverse(lst):
 
 
 class QuantLSTMLayer(nn.Module):
-    def __init__(self, input_size, hidden_size, weight_config, activation_config,
+    def __init__(self, input_size, hidden_size, weight_config, activation_config, hidden_state_activation_config,
                  reverse_input=False, layer_norm='identity', compute_output_scale=False,
                  compute_output_bit_width=False, return_quant_tensor=False,
                  recurrent_quant=None, output_quant=None):
@@ -167,6 +168,7 @@ class QuantLSTMLayer(nn.Module):
 
         self.quant_sigmoid = self.configure_activation(self.activation_config, QuantSigmoid)
         self.quant_tanh = self.configure_activation(self.activation_config, QuantTanh)
+        self.normalize_hidden_state = self.configure_activation(hidden_state_activation_config, QuantHardTanh)
 
         if output_quant is not None:
             self.out_quant = self.configure_activation(output_quant, QuantHardTanh)
@@ -187,6 +189,7 @@ class QuantLSTMLayer(nn.Module):
     def forward_iteration(self, input, state,
                           quant_weight_ii, quant_weight_fi, quant_weight_ai, quant_weight_oi,
                           quant_weight_ih, quant_weight_fh, quant_weight_ah, quant_weight_oh):
+        # type: (Tensor, Tuple[Tensor, Tensor], Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor, Tensor) -> Tuple[Tensor, Tuple[Tensor, Tensor]]
         hx, cx = state
         zero_hw_sentinel = getattr(self, 'zero_hw_sentinel')
 
@@ -212,6 +215,7 @@ class QuantLSTMLayer(nn.Module):
         cellgate, _, _ = self.quant_tanh(cellgate, zero_hw_sentinel)
         outgate, _, _ = self.quant_sigmoid(outgate, zero_hw_sentinel)
 
+        cx = self.normalize_hidden_state(cx, zero_hw_sentinel)[0]
         cy = (forgetgate * cx) + (ingate * cellgate)
         hy = outgate * self.quant_tanh(cy, zero_hw_sentinel)[0]
         hy1, _, _ = self.out_quant(hy, zero_hw_sentinel)
@@ -322,14 +326,21 @@ class QuantLSTMLayer(nn.Module):
 
     def configure_activation(self, activation_config, activation_func=QuantSigmoid):
         signed = True
-        min_val = -1
         max_val = 1
-        activation_impl = nn.Tanh()
-
-        if activation_func == QuantSigmoid:
+        min_val = -1
+        if activation_func == QuantTanh:
+            activation_impl = nn.Tanh()
+        elif activation_func == QuantSigmoid:
             activation_impl = nn.Sigmoid()
             min_val = 0
             signed = False
+        else:
+            min_val = activation_config.get('min_val')
+            max_val = activation_config.get('max_val')
+            if activation_config.get('quant_type') == QuantType.FP:
+                activation_impl = ConstScalarClamp(min_val=min_val, max_val=max_val)
+            else:
+                activation_impl = nn.Identity()
 
         activation_object = _activation_quant_init_impl(activation_impl=activation_impl,
                                                         bit_width=activation_config.get('bit_width', 8),
@@ -542,24 +553,7 @@ class QuantLSTMLayer(nn.Module):
                 newstate['weight_oh'] = value[3 * hidden:, :]
             else:
                 newstate[name] = value
-        # if 'layernorm_i.weight' not in state_dict.items():
-        #     newstate['layernorm_i.weight'] = torch.ones(1)
-        #     newstate['layernorm_f.weight'] = torch.ones(1)
-        #     newstate['layernorm_a.weight'] = torch.ones(1)
-        #     newstate['layernorm_o.weight'] = torch.ones(1)
-        #     newstate['layernorm_c.weight'] = torch.ones(1)
-        #
-        #     newstate['layernorm_i.running_mean'] = torch.zeros(1)
-        #     newstate['layernorm_f.running_mean'] = torch.zeros(1)
-        #     newstate['layernorm_a.running_mean'] = torch.zeros(1)
-        #     newstate['layernorm_o.running_mean'] = torch.zeros(1)
-        #     newstate['layernorm_c.running_mean'] = torch.zeros(1)
-        #
-        #     newstate['layernorm_i.running_var'] = torch.ones(1)
-        #     newstate['layernorm_f.running_var'] = torch.ones(1)
-        #     newstate['layernorm_a.running_var'] = torch.ones(1)
-        #     newstate['layernorm_o.running_var'] = torch.ones(1)
-        #     newstate['layernorm_c.running_var'] = torch.ones(1)
+
 
         newstate['bias_i'] = bias_i
         newstate['bias_f'] = bias_f
