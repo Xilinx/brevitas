@@ -78,7 +78,6 @@ from brevitas.core.scaling import ScalingImplType, SCALING_SCALAR_SHAPE
 from brevitas.core.stats import StatsInputViewShapeImpl, StatsOp
 from brevitas.proxy.parameter_quant import _weight_quant_init_impl
 from brevitas.proxy.runtime_quant import _activation_quant_init_impl
-from brevitas.core.quant import IdentityQuant
 from brevitas.core.restrict_val import RestrictValueType, FloatToIntImplType
 from brevitas.quant_tensor import QuantTensor
 from brevitas.core.function_wrapper import ConstScalarClamp
@@ -124,7 +123,7 @@ def reverse(lst):
 
 
 class QuantRNNLayer(nn.Module):
-    def __init__(self, input_size, hidden_size, weight_config, activation_config, input_quant_config,
+    def __init__(self, input_size, hidden_size, weight_config, activation_config, norm_scale_input_config,
                  reverse_input=False, compute_output_scale=False,
                  compute_output_bit_width=False, return_quant_tensor=False):
 
@@ -150,7 +149,7 @@ class QuantRNNLayer(nn.Module):
         self.weight_proxy = self.configure_weight([self.weight_ri, self.weight_rh], self.weight_config)
 
         self.quant_tanh = self.configure_activation(self.activation_config, QuantTanh)
-        self.quant_input = self.configure_activation(input_quant_config, QuantHardTanh)
+        self.quant_input = self.configure_activation(norm_scale_input_config, QuantHardTanh)
 
         if self.weight_config.get('weight_quant_type', 'QuantType.FP') == 'QuantType.FP' and compute_output_bit_width:
             raise Exception("Computing output bit width requires enabling quantization")
@@ -167,7 +166,7 @@ class QuantRNNLayer(nn.Module):
 
         rgate = (gates_ri + gates_rh) + self.bias_r
 
-        hy, _, _ = self.quant_tanh(rgate, zero_hw_sentinel)
+        hy = self.quant_tanh(rgate, zero_hw_sentinel)[0]
 
         return hy, hy
 
@@ -483,18 +482,18 @@ class QuantRNNLayer(nn.Module):
 class BidirRNNLayer(nn.Module):
     __constants__ = ['directions']
 
-    def __init__(self, input_size, hidden_size, weight_config, activation_config, input_quant_config,
+    def __init__(self, input_size, hidden_size, weight_config, activation_config, norm_scale_input_config,
                  compute_output_scale=False, compute_output_bit_width=False,
                  return_quant_tensor=False):
         super(BidirRNNLayer, self).__init__()
         self.directions = nn.ModuleList([
             torch.jit.script(QuantRNNLayer(input_size=input_size, hidden_size=hidden_size, weight_config=weight_config,
-                                           activation_config=activation_config, input_quant_config=input_quant_config,
+                                           activation_config=activation_config, norm_scale_input_config=norm_scale_input_config,
                                            reverse_input=False, compute_output_scale=compute_output_scale,
                                            compute_output_bit_width=compute_output_bit_width,
                                            return_quant_tensor=return_quant_tensor)),
             torch.jit.script(QuantRNNLayer(input_size=input_size, hidden_size=hidden_size, weight_config=weight_config,
-                                           activation_config=activation_config, input_quant_config=input_quant_config,
+                                           activation_config=activation_config, norm_scale_input_config=norm_scale_input_config,
                                            reverse_input=True, compute_output_scale=compute_output_scale,
                                            compute_output_bit_width=compute_output_bit_width,
                                            return_quant_tensor=return_quant_tensor)),

@@ -78,7 +78,6 @@ from brevitas.core.scaling import ScalingImplType, SCALING_SCALAR_SHAPE
 from brevitas.core.stats import StatsInputViewShapeImpl, StatsOp
 from brevitas.proxy.parameter_quant import _weight_quant_init_impl
 from brevitas.proxy.runtime_quant import _activation_quant_init_impl
-from brevitas.core.quant import IdentityQuant
 from brevitas.core.restrict_val import RestrictValueType, FloatToIntImplType
 from brevitas.quant_tensor import QuantTensor
 from brevitas.core.function_wrapper import ConstScalarClamp
@@ -126,8 +125,8 @@ def reverse(lst):
 
 
 class QuantLSTMLayer(nn.Module):
-    def __init__(self, input_size, hidden_size, weight_config, activation_config, hidden_state_activation_config,
-                 out_quant_config, reverse_input=False, layer_norm='identity', compute_output_scale=False,
+    def __init__(self, input_size, hidden_size, weight_config, activation_config, norm_scale_hidden_config,
+                 norm_scale_out_config, reverse_input=False, compute_output_scale=False,
                  compute_output_bit_width=False, return_quant_tensor=False,
                  recurrent_quant_config=None):
 
@@ -168,11 +167,11 @@ class QuantLSTMLayer(nn.Module):
 
         self.quant_sigmoid = self.configure_activation(self.activation_config, QuantSigmoid)
         self.quant_tanh = self.configure_activation(self.activation_config, QuantTanh)
-        self.normalize_hidden_state = self.configure_activation(hidden_state_activation_config, QuantHardTanh)
+        self.normalize_hidden_state = self.configure_activation(norm_scale_hidden_config, QuantHardTanh)
 
-        self.out_quant = self.configure_activation(out_quant_config, QuantHardTanh)
+        self.out_quant = self.configure_activation(norm_scale_out_config, QuantHardTanh)
         if recurrent_quant_config is None:
-            self.rec_quant = self.configure_activation(out_quant_config, QuantHardTanh)
+            self.rec_quant = self.configure_activation(norm_scale_out_config, QuantHardTanh)
         else:
             self.rec_quant = self.configure_activation(recurrent_quant_config, QuantHardTanh)
 
@@ -205,16 +204,16 @@ class QuantLSTMLayer(nn.Module):
         cellgate = (igates_ai + hgates_ah) + self.bias_a
         outgate = (igates_oi + hgates_oh) + self.bias_o
 
-        ingate, _, _ = self.quant_sigmoid(ingate, zero_hw_sentinel)
-        forgetgate, _, _ = self.quant_sigmoid(forgetgate, zero_hw_sentinel)
-        cellgate, _, _ = self.quant_tanh(cellgate, zero_hw_sentinel)
-        outgate, _, _ = self.quant_sigmoid(outgate, zero_hw_sentinel)
+        ingate = self.quant_sigmoid(ingate, zero_hw_sentinel)[0]
+        forgetgate = self.quant_sigmoid(forgetgate, zero_hw_sentinel)[0]
+        cellgate = self.quant_tanh(cellgate, zero_hw_sentinel)[0]
+        outgate = self.quant_sigmoid(outgate, zero_hw_sentinel)[0]
 
         cx = self.normalize_hidden_state(cx, zero_hw_sentinel)[0]
         cy = (forgetgate * cx) + (ingate * cellgate)
         hy = outgate * self.quant_tanh(cy, zero_hw_sentinel)[0]
-        hy1, _, _ = self.out_quant(hy, zero_hw_sentinel)
-        hy2, _, _ = self.rec_quant(hy, zero_hw_sentinel)
+        hy1 = self.out_quant(hy, zero_hw_sentinel)[0]
+        hy2 = self.rec_quant(hy, zero_hw_sentinel)[0]
 
         return hy1, (hy2, cy)
 
@@ -564,21 +563,21 @@ class QuantLSTMLayer(nn.Module):
 class BidirLSTMLayer(nn.Module):
     __constants__ = ['directions']
 
-    def __init__(self, input_size, hidden_size, weight_config, activation_config, out_quant_config,
-                 hidden_state_activation_config, layer_norm='identity',
+    def __init__(self, input_size, hidden_size, weight_config, activation_config, norm_scale_out_config,
+                 norm_scale_hidden_config,
                  compute_output_scale=False, compute_output_bit_width=False,
                  return_quant_tensor=False):
         super(BidirLSTMLayer, self).__init__()
         self.directions = nn.ModuleList([
             torch.jit.script(QuantLSTMLayer(input_size=input_size, hidden_size=hidden_size, weight_config=weight_config,
-                                            activation_config=activation_config, out_quant_config=out_quant_config,
-                                            hidden_state_activation_config=hidden_state_activation_config,
+                                            activation_config=activation_config, norm_scale_out_config=norm_scale_out_config,
+                                            norm_scale_hidden_config=norm_scale_hidden_config,
                                             reverse_input=False, compute_output_scale=compute_output_scale,
                                             compute_output_bit_width=compute_output_bit_width,
                                             return_quant_tensor=return_quant_tensor)),
             torch.jit.script(QuantLSTMLayer(input_size=input_size, hidden_size=hidden_size, weight_config=weight_config,
-                                            activation_config=activation_config, out_quant_config=out_quant_config,
-                                            hidden_state_activation_config=hidden_state_activation_config,
+                                            activation_config=activation_config, norm_scale_out_config=norm_scale_out_config,
+                                            norm_scale_hidden_config=norm_scale_hidden_config,
                                             reverse_input=True, compute_output_scale=compute_output_scale,
                                             compute_output_bit_width=compute_output_bit_width,
                                             return_quant_tensor=return_quant_tensor))

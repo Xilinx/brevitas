@@ -124,8 +124,8 @@ def reverse(lst):
 
 
 class QuantGRULayer(nn.Module):
-    def __init__(self, input_size, hidden_size, weight_config, activation_config, output_residual_config,
-                 scale_factor_normalize_config,
+    def __init__(self, input_size, hidden_size, weight_config, activation_config, norm_scale_out_config,
+                 norm_scale_newgate_config,
                  reverse_input=False, compute_output_scale=False,
                  compute_output_bit_width=False, return_quant_tensor=False):
 
@@ -162,8 +162,8 @@ class QuantGRULayer(nn.Module):
         self.quant_sigmoid = self.configure_activation(self.activation_config, QuantSigmoid)
         self.quant_tanh = self.configure_activation(self.activation_config, QuantTanh)
 
-        self.norm_scale_newgate = self.configure_activation(scale_factor_normalize_config, QuantHardTanh)
-        self.norm_scale_out = self.configure_activation(output_residual_config, QuantHardTanh)
+        self.norm_scale_newgate = self.configure_activation(norm_scale_newgate_config, QuantHardTanh)
+        self.norm_scale_out = self.configure_activation(norm_scale_out_config, QuantHardTanh)
         self._all_weights = []
 
         if self.weight_config.get('weight_quant_type', 'QuantType.FP') == 'QuantType.FP' and compute_output_bit_width:
@@ -190,11 +190,11 @@ class QuantGRULayer(nn.Module):
         rgate = (gates_ri + gates_rh) + self.bias_r
         igate = (gates_ii + gates_ih) + self.bias_i
 
-        rgate, _, _ = self.quant_sigmoid(rgate, zero_hw_sentinel)
-        igate, _, _ = self.quant_sigmoid(igate, zero_hw_sentinel)
+        rgate = self.quant_sigmoid(rgate, zero_hw_sentinel)[0]
+        igate = self.quant_sigmoid(igate, zero_hw_sentinel)[0]
         gates_ni = self.norm_scale_newgate(gates_ni, zero_hw_sentinel)[0] + \
                    self.norm_scale_newgate(rgate * gates_nh, zero_hw_sentinel)[0]
-        ngate, _, _ = self.quant_tanh(gates_ni, zero_hw_sentinel)
+        ngate = self.quant_tanh(gates_ni, zero_hw_sentinel)[0]
 
         state = self.norm_scale_out(state, zero_hw_sentinel)[0] - ngate
         hy = ngate + self.norm_scale_out(igate * state, zero_hw_sentinel)[0]
@@ -534,23 +534,23 @@ class QuantGRULayer(nn.Module):
 class BidirGRULayer(nn.Module):
     __constants__ = ['directions']
 
-    def __init__(self, input_size, hidden_size, weight_config, activation_config, output_residual_config,
-                 scale_factor_normalize_config, layer_norm='identity',
+    def __init__(self, input_size, hidden_size, weight_config, activation_config, norm_scale_out_config,
+                 norm_scale_newgate_config,
                  compute_output_scale=False, compute_output_bit_width=False,
                  return_quant_tensor=False):
         super(BidirGRULayer, self).__init__()
         self.directions = nn.ModuleList([
             torch.jit.script(QuantGRULayer(input_size=input_size, hidden_size=hidden_size, weight_config=weight_config,
                                            activation_config=activation_config,
-                                           output_residual_config=output_residual_config,
-                                           scale_factor_normalize_config=scale_factor_normalize_config,
+                                           norm_scale_out_config=norm_scale_out_config,
+                                           norm_scale_newgate_config=norm_scale_newgate_config,
                                            reverse_input=False, compute_output_scale=compute_output_scale,
                                            compute_output_bit_width=compute_output_bit_width,
                                            return_quant_tensor=return_quant_tensor)),
             torch.jit.script(QuantGRULayer(input_size=input_size, hidden_size=hidden_size, weight_config=weight_config,
                                            activation_config=activation_config,
-                                           output_residual_config=output_residual_config,
-                                           scale_factor_normalize_config=scale_factor_normalize_config,
+                                           norm_scale_out_config=norm_scale_out_config,
+                                           norm_scale_newgate_config=norm_scale_newgate_config,
                                            reverse_input=True, compute_output_scale=compute_output_scale,
                                            compute_output_bit_width=compute_output_bit_width,
                                            return_quant_tensor=return_quant_tensor)),
@@ -584,47 +584,3 @@ class BidirGRULayer(nn.Module):
 
         self.directions[0].load_state_dict_new(direct, strict)
         self.directions[1].load_state_dict_new(reverse, strict)
-
-    #
-    # def flatten_parameters(self):
-    #     """Resets parameter data pointer so that they can use faster code paths.
-    #
-    #     Right now, this works only if the module is on the GPU and cuDNN is enabled.
-    #     Otherwise, it's a no-op.
-    #     """
-    #     any_param = next(self.parameters()).data
-    #     if not any_param.is_cuda or not torch.backends.cudnn.is_acceptable(any_param):
-    #         return
-    #
-    #     # If any parameters alias, we fall back to the slower, copying code path. This is
-    #     # a sufficient check, because overlapping parameter buffers that don't completely
-    #     # alias would break the assumptions of the uniqueness check in
-    #     # Module.named_parameters().
-    #     all_weights = self._flat_weights
-    #     unique_data_ptrs = set(p.data_ptr() for p in all_weights)
-    #     if len(unique_data_ptrs) != len(all_weights):
-    #         return
-    #
-    #     with torch.cuda.device_of(any_param):
-    #         import torch.backends.cudnn.rnn as rnn
-    #
-    #         # NB: This is a temporary hack while we still don't have Tensor
-    #         # bindings for ATen functions
-    #         with torch.no_grad():
-    #             # NB: this is an INPLACE function on all_weights, that's why the
-    #             # no_grad() is necessary.
-    #             torch._cudnn_rnn_flatten_weight(
-    #                 all_weights, (4 if self.bias else 2),
-    #                 self.input_size, rnn.get_cudnn_mode(self.mode), self.hidden_size, self.num_layers,
-    #                 self.batch_first, bool(self.bidirectional))
-    #
-    # @property
-    # def _flat_weights(self):
-    #     return [p for layerparams in self.all_weights for p in layerparams]
-    #
-    # @property
-    # def all_weights(self):
-    #     c = []
-    #     for key, value in self._parameters.items():
-    #         c.append(value)
-    #     return [c]

@@ -31,8 +31,7 @@ class TestRNNQuant:
         states = torch.randn(BATCH, HIDDEN)
 
         q_gru = torch.jit.script(QuantRNNLayer(INPUT_SIZE, HIDDEN, activation_config=activation_config,
-                                               weight_config=weight_config,
-                                               input_quant_config=hardtanh_activation_config))
+                                               weight_config=weight_config, norm_scale_input_config=hardtanh_activation_config))
         q_gru.eval()
 
         # Control
@@ -66,7 +65,7 @@ class TestRNNQuant:
 
         q_gru = torch.jit.script(BidirRNNLayer(INPUT_SIZE, HIDDEN, activation_config=activation_config,
                                                weight_config=weight_config,
-                                               input_quant_config=hardtanh_activation_config))
+                                               norm_scale_input_config=hardtanh_activation_config))
         q_gru.eval()
 
         # Control

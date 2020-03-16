@@ -32,8 +32,8 @@ class TestLSTMQuant:
 
         q_gru = torch.jit.script(QuantGRULayer(INPUT_SIZE, HIDDEN, activation_config=activation_config,
                                                weight_config=weight_config,
-                                               scale_factor_normalize_config=hardtanh_activation_config,
-                                               output_residual_config=hardtanh_activation_config))
+                                               norm_scale_out_config=hardtanh_activation_config,
+                                               norm_scale_newgate_config=hardtanh_activation_config))
         q_gru.eval()
 
         # Control
@@ -68,8 +68,8 @@ class TestLSTMQuant:
 
         q_gru = torch.jit.script(BidirGRULayer(INPUT_SIZE, HIDDEN, activation_config=activation_config,
                                                weight_config=weight_config,
-                                               scale_factor_normalize_config=hardtanh_activation_config,
-                                               output_residual_config=hardtanh_activation_config))
+                                               norm_scale_out_config=hardtanh_activation_config,
+                                               norm_scale_newgate_config=hardtanh_activation_config))
         q_gru.eval()
 
         # Control
