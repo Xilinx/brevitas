@@ -164,6 +164,7 @@ class QuantGRULayer(nn.Module):
 
         self.norm_scale_newgate = self.configure_activation(scale_factor_normalize_config, QuantHardTanh)
         self.norm_scale_out = self.configure_activation(output_residual_config, QuantHardTanh)
+        self._all_weights = []
 
         if self.weight_config.get('weight_quant_type', 'QuantType.FP') == 'QuantType.FP' and compute_output_bit_width:
             raise Exception("Computing output bit width requires enabling quantization")
@@ -583,3 +584,47 @@ class BidirGRULayer(nn.Module):
 
         self.directions[0].load_state_dict_new(direct, strict)
         self.directions[1].load_state_dict_new(reverse, strict)
+
+    #
+    # def flatten_parameters(self):
+    #     """Resets parameter data pointer so that they can use faster code paths.
+    #
+    #     Right now, this works only if the module is on the GPU and cuDNN is enabled.
+    #     Otherwise, it's a no-op.
+    #     """
+    #     any_param = next(self.parameters()).data
+    #     if not any_param.is_cuda or not torch.backends.cudnn.is_acceptable(any_param):
+    #         return
+    #
+    #     # If any parameters alias, we fall back to the slower, copying code path. This is
+    #     # a sufficient check, because overlapping parameter buffers that don't completely
+    #     # alias would break the assumptions of the uniqueness check in
+    #     # Module.named_parameters().
+    #     all_weights = self._flat_weights
+    #     unique_data_ptrs = set(p.data_ptr() for p in all_weights)
+    #     if len(unique_data_ptrs) != len(all_weights):
+    #         return
+    #
+    #     with torch.cuda.device_of(any_param):
+    #         import torch.backends.cudnn.rnn as rnn
+    #
+    #         # NB: This is a temporary hack while we still don't have Tensor
+    #         # bindings for ATen functions
+    #         with torch.no_grad():
+    #             # NB: this is an INPLACE function on all_weights, that's why the
+    #             # no_grad() is necessary.
+    #             torch._cudnn_rnn_flatten_weight(
+    #                 all_weights, (4 if self.bias else 2),
+    #                 self.input_size, rnn.get_cudnn_mode(self.mode), self.hidden_size, self.num_layers,
+    #                 self.batch_first, bool(self.bidirectional))
+    #
+    # @property
+    # def _flat_weights(self):
+    #     return [p for layerparams in self.all_weights for p in layerparams]
+    #
+    # @property
+    # def all_weights(self):
+    #     c = []
+    #     for key, value in self._parameters.items():
+    #         c.append(value)
+    #     return [c]
