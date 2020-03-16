@@ -129,7 +129,7 @@ class QuantLSTMLayer(nn.Module):
     def __init__(self, input_size, hidden_size, weight_config, activation_config, hidden_state_activation_config,
                  out_quant_config, reverse_input=False, layer_norm='identity', compute_output_scale=False,
                  compute_output_bit_width=False, return_quant_tensor=False,
-                 recurrent_quant=None):
+                 recurrent_quant_config=None):
 
         super(QuantLSTMLayer, self).__init__()
         self.register_buffer(ZERO_HW_SENTINEL_NAME, torch.tensor(ZERO_HW_SENTINEL_VALUE))
@@ -171,10 +171,10 @@ class QuantLSTMLayer(nn.Module):
         self.normalize_hidden_state = self.configure_activation(hidden_state_activation_config, QuantHardTanh)
 
         self.out_quant = self.configure_activation(out_quant_config, QuantHardTanh)
-        if recurrent_quant is None:
+        if recurrent_quant_config is None:
             self.rec_quant = self.configure_activation(out_quant_config, QuantHardTanh)
         else:
-            self.out_quant = self.configure_activation(recurrent_quant, QuantHardTanh)
+            self.rec_quant = self.configure_activation(recurrent_quant_config, QuantHardTanh)
 
         if self.weight_config.get('weight_quant_type', 'QuantType.FP') == 'QuantType.FP' and compute_output_bit_width:
             raise Exception("Computing output bit width requires enabling quantization")
