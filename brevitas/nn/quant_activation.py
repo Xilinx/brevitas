@@ -307,7 +307,7 @@ class QuantHardTanh(QuantActivation):
         # flows for those.
         ia = self.init_args
         if (
-            isclose(ia["min_val"], -1.0) and
+            isclose(ia["min_val"], -1.0, atol=1e-2) and
             isclose(ia["max_val"], 1.0, atol=1e-2) and
             ia["bit_width_impl_type"] == BitWidthImplType.CONST and
             ia["scaling_per_channel"] == False and
@@ -328,11 +328,15 @@ class QuantHardTanh(QuantActivation):
             ):
             if ia["bit_width"] == 1 and ia["quant_type"] == QuantType.BINARY and ia["scaling_impl_type"] == ScalingImplType.CONST:
                 return "BIPOLAR"
-            elif ia["bit_width"] == 2 and ia["quant_type"] == QuantType.INT and ia["scaling_impl_type"] == ScalingImplType.PARAMETER:
-                # note: even though this particular config is int2 (signed)
+            elif ia["quant_type"] == QuantType.INT:
+                # note: even though this particular config is intx (signed)
                 # quantization, we set the export mode for MultiThreshold as
-                # UINT2, since the signed bias is added as a separate node
-                return "UINT2"
+                # UINTX, since the signed bias is added as a separate node
+                bw = ia["bit_width"]
+                if bw in [1,2,4,8,16]:
+                    return "UINT%d" % ia["bit_width"]
+                else:
+                    raise Exception("Unsupported bitwidth for export")
         else:
             raise Exception("Unsupported config combination for export")
 
@@ -349,20 +353,25 @@ class QuantHardTanh(QuantActivation):
             self.export_act_scale = self.quant_act_scale.type(torch.FloatTensor).detach()
             min_val_torch = torch.tensor(ia["min_val"]).type(torch.FloatTensor)
             self.export_act_bias = min_val_torch
-            assert(ia["min_val"] == -ia["max_val"])
-            assert(ia["narrow_range"])
-            # assuming narrow range, symmetric quantization around zero
-            # when using narrow range, we represent one element less
-            n_distinct_values = 2 ** ia["bit_width"] - 1
+            #assert(ia["min_val"] == -ia["max_val"])
+            n_distinct_values = 2 ** ia["bit_width"]
+            if ia["narrow_range"]:
+                # assuming narrow range, symmetric quantization around zero
+                # when using narrow range, we represent one element less
+                n_distinct_values = n_distinct_values - 1
             n_thresholds = n_distinct_values - 1
-            step = torch.abs(self.export_act_scale) / ((n_thresholds//2)+1)
+            step = torch.abs(self.export_act_scale)
+            half_step = step / 2.0
             self.export_thres = torch.empty([1, n_thresholds])
-            step_no = 1
-            for t in range(n_thresholds//2, n_thresholds):
-                self.export_thres[0][t] = 0.0 + step * step_no
-                step_no += 1
-            for t in range(0, n_thresholds//2):
-                self.export_thres[0][t] = -self.export_thres[0][t + n_thresholds//2]
+            # compute the value of the smallest threshold, we'll neg-bias all
+            # generated thresholds by this much
+            min_thres = -half_step - step * ((n_thresholds//2) -1)
+            if not ia["narrow_range"]:
+                min_thres -= step
+            for t in range(n_thresholds):
+                self.export_thres[0][t] = min_thres + step * t
+            for t in range(n_thresholds):
+                print("threshold %d is %f" % (t, self.export_thres[0][t]))
         else:
             self.export_act_scale = None
             self.export_act_bias = None
