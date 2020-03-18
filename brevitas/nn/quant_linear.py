@@ -172,17 +172,12 @@ class QuantLinear(QuantLayer, Linear):
             ia["weight_quant_type"] == QuantType.BINARY and
             ia["weight_bit_width"] == 1 and
             ia["weight_bit_width_impl_type"] == BitWidthImplType.CONST and
-            ia["weight_scaling_stats_op"] == StatsOp.AVE and
-            ia["weight_scaling_stats_sigma"] == 0.001 and
             ia["weight_quant_override"] == None and
             ia["weight_bit_width_impl_override"] == None and
             ia["weight_bit_width_impl_type"] == BitWidthImplType.CONST and
             ia["weight_restrict_bit_width_type"] == RestrictValueType.INT and
             ia["weight_min_overall_bit_width"] == 2 and
             ia["weight_max_overall_bit_width"] == None and
-            ia["weight_scaling_min_val"] == SCALING_MIN_VAL and
-            ia["weight_ternary_threshold"] == 0.5 and
-            ia["weight_restrict_scaling_type"] == RestrictValueType.LOG_FP and
             ia["weight_override_pretrained_bit_width"] == False and
             ia["compute_output_scale"] == False and
             ia["compute_output_bit_width"] == False and
@@ -193,18 +188,12 @@ class QuantLinear(QuantLayer, Linear):
             ia["bias"] == False and
             ia["weight_quant_type"] == QuantType.INT and
             ia["weight_bit_width_impl_type"] == BitWidthImplType.CONST and
-            ia["weight_scaling_stats_op"] == StatsOp.MAX and
-            ia["weight_scaling_stats_sigma"] == 0.001 and
             ia["weight_quant_override"] == None and
             ia["weight_bit_width_impl_override"] == None and
             ia["weight_bit_width_impl_type"] == BitWidthImplType.CONST and
             ia["weight_restrict_bit_width_type"] == RestrictValueType.INT and
             ia["weight_min_overall_bit_width"] == 2 and
             ia["weight_max_overall_bit_width"] == None and
-            ia["weight_scaling_impl_type"] == ScalingImplType.STATS and
-            ia["weight_scaling_min_val"] == SCALING_MIN_VAL and
-            ia["weight_ternary_threshold"] == 0.5 and
-            ia["weight_restrict_scaling_type"] == RestrictValueType.LOG_FP and
             ia["weight_override_pretrained_bit_width"] == False and
             ia["compute_output_scale"] == False and
             ia["compute_output_bit_width"] == False and
