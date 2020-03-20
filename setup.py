@@ -38,150 +38,125 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+
 from setuptools import setup, find_packages
 import os
-import io
+from string import Template
 import torch
-from torch.utils.cpp_extension import BuildExtension, CppExtension
-from pkg_resources import get_distribution, DistributionNotFound
-from setuptools.command.build_py import build_py as build_py_orig
-import fnmatch
-from packaging import version
+from torch.utils.cpp_extension import BuildExtension, include_paths, library_paths
+from distutils.command.build_py import build_py
+from setuptools import Extension
 import glob
 import sys
-import distutils.command.clean
-import distutils.spawn
-import shutil
-import fileinput
 
-# Check pytorch version, so that to determine the correct brevitas installation
-torch_version = version.parse(torch.__version__)
+MIN_TORCH_JITTABLE_VERSION = "1.3.0"
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+REQUIREMENTS_DIR = os.path.join(PROJECT_ROOT, 'requirements')
 
+def read(*path):
+    return open(os.path.join(*path)).read()
 
-
-def read(*names, **kwargs):
-    with io.open(
-            os.path.join(os.path.dirname(__file__), *names),
-            encoding=kwargs.get("encoding", "utf8")
-    ) as fp:
-        return fp.read()
+def read_requirements(filename):
+    return read(REQUIREMENTS_DIR, filename).splitlines()
 
 
-def get_dist(pkgname):
-    try:
-        return get_distribution(pkgname)
-    except DistributionNotFound:
-        return None
+class JittableExtension(Extension):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
 
-def get_extensions():
+class BuildJittableExtension(BuildExtension):
+
+    def run(self):
+        from packaging import version
+        if version.parse(torch.__version__) < version.parse(MIN_TORCH_JITTABLE_VERSION):
+            self.extensions = [e for e in self.extensions if not isinstance(e, JittableExtension)]
+        super().run()
+
+
+def get_jittable_extension():
     ext_modules = []
-    if torch_version >= version.parse("1.3.0"):
-        this_dir = os.path.dirname(os.path.abspath(__file__))
-        extensions_dir = os.path.join(this_dir, 'brevitas', 'csrc')
+    extensions_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'brevitas', 'csrc')
 
-        main_file = glob.glob(os.path.join(extensions_dir, '*.cpp'))
-        source_cpu = glob.glob(os.path.join(extensions_dir, 'cpu', '*.cpp'))
-        sources = main_file + source_cpu
-        extension = CppExtension
+    sources = glob.glob(os.path.join(extensions_dir, '*.cpp'))
+    sources = [os.path.join(extensions_dir, s) for s in sources]
+    include_dirs = [extensions_dir] + include_paths()
+    define_macros = []
+    libraries = []
+    library_dirs = []
+    extra_compile_args = {}
 
-        define_macros = []
+    if sys.platform == 'win32':
+        define_macros += [('brevitas_EXPORTS', None)]
+        extra_compile_args.setdefault('cxx', [])
+        extra_compile_args['cxx'].append('/MP')
+        library_dirs += library_paths()
+        libraries.append('c10')
+        libraries.append('torch')
+        libraries.append('torch_python')
+        libraries.append('_C')
 
-        extra_compile_args = {}
 
-        if sys.platform == 'win32':
-            define_macros += [('brevitas_EXPORTS', None)]
-            extra_compile_args.setdefault('cxx', [])
-            extra_compile_args['cxx'].append('/MP')
-        sources = [os.path.join(extensions_dir, s) for s in sources]
-        include_dirs = [extensions_dir]
-        ext_modules.append(
-            extension(
-                'brevitas._C',
-                sources,
-                include_dirs=include_dirs,
-                define_macros=define_macros,
-                extra_compile_args=extra_compile_args,
-            )
-        )
-
-        # Determine replacement for templated file
-        suffix = ''
-        prefix = 'torch.ops.brevitas.'
-        torch_jit = '@torch.jit.script'
-    else:
-
-        # Determine replacement for templated file
-        suffix = '_fn.apply'
-        prefix = ''
-        torch_jit = '@torch.jit.ignore'
-
-    # Copy templated file and remove the .template extension
-    shutil.copyfile("brevitas/function/ops_ste_n.py.template", "brevitas/function/ops_ste.py")
-
-    # Perform replacements
-    with fileinput.FileInput(files=["brevitas/function/ops_ste.py"], inplace=True) as file:
-        for line in file:
-            if '<torch_jit_template>' in line:
-                print(line.replace('<torch_jit_template>', torch_jit), end='')
-            elif '<function_prefix>' in line:
-                new_line = line.replace('<function_prefix>', prefix)
-                print(new_line.replace('<function_suffix>', suffix), end='')
-            else:
-                print(line, end='')
-
+    jittable_ext = JittableExtension(
+        'brevitas._C',
+        language='c++',
+        sources=sources,
+        libraries=libraries,
+        library_dirs=library_dirs,
+        include_dirs=include_dirs,
+        define_macros=define_macros,
+        extra_compile_args=extra_compile_args)
+    ext_modules.append(jittable_ext)
     return ext_modules
 
 
+class BuildPy(build_py):
 
-class clean(distutils.command.clean.clean):
     def run(self):
-        with open('.gitignore', 'r') as f:
-            ignores = f.read()
-            for wildcard in filter(None, ignores.split('\n')):
-                for filename in glob.glob(wildcard):
-                    try:
-                        os.remove(filename)
-                    except OSError:
-                        shutil.rmtree(filename, ignore_errors=True)
+        if not self.dry_run:
+            from packaging import version
+            target_dir = os.path.join(self.build_lib, 'brevitas', 'function')
+            self.mkpath(target_dir)
+            template_path = os.path.join('brevitas', 'function', 'ops_ste.py.template')
+            generated_path = os.path.join(target_dir, 'ops_ste.py')
 
-        distutils.command.clean.clean.run(self)
+            if version.parse(torch.__version__) >= version.parse(MIN_TORCH_JITTABLE_VERSION):
+                d = dict(
+                    function_suffix='',
+                    function_prefix='torch.ops.brevitas.',
+                    torch_jit_template='@torch.jit.script')
+            else:
+                d = dict(
+                    function_suffix='_fn.apply',
+                    function_prefix='',
+                    torch_jit_template='@torch.jit.ignore')
 
+            template_file = Template(read(template_path))
+            generated_file = template_file.substitute(d)
+            with open(generated_path, 'w') as f:
+                f.write(generated_file)
+        build_py.run(self)
 
-INSTALL_REQUIRES = ["torch>=1.1.0", "docrep", "scipy", "packaging"]
-TEST_REQUIRES = ["pytest", "hypothesis", "mock"]
-
-
-def read(fname):
-    return open(os.path.join(os.path.dirname(__file__), fname)).read()
-
-
-if torch_version >= version.parse("1.3.0"):
-    cmdclass_dict = {
-        'build_ext': BuildExtension.with_options(no_python_abi_suffix=True),
-        'clean': clean
-    }
-else:
-    cmdclass_dict = {
-        'clean': clean
-    }
 
 setup(name="Brevitas",
       version="0.2.0-alpha",
-      description="Training-aware quantization in PyTorch",
-      long_description=read('README.md'),
+      description="Quantization-aware training in PyTorch",
+      long_description=read(PROJECT_ROOT, 'README.md'),
       long_description_content_type="text/markdown",
       author="Alessandro Pappalardo",
       python_requires=">=3.6",
-      install_requires=INSTALL_REQUIRES,
+      setup_requires=read_requirements('requirements-setup.txt'),
+      install_requires=read_requirements('requirements.txt'),
       extras_require={
-          "test": TEST_REQUIRES,
+          "Hadamard": read_requirements('requirements-hadamard.txt'),
+          "test": read_requirements('requirements-test.txt')
       },
       packages=find_packages(),
-
       zip_safe=False,
-      ext_modules=get_extensions(),
-      cmdclass=cmdclass_dict
+      ext_modules=get_jittable_extension(),
+      cmdclass={
+            'build_py': BuildPy,
+            'build_ext': BuildJittableExtension.with_options(no_python_abi_suffix=True),
+        }
       )
 
-# Setup file loosely inspired by https://github.com/pytorch/vision/blob/v0.5.0/setup.py
