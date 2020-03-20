@@ -13,32 +13,32 @@ torch.manual_seed(SEED)
 
 
 class TestLSTMQuant:
-    def test_naiveLSTM(self):
+    def test_naiveGRU(self):
         weight_config = {
-            'weight_quant_type': 'QuantType.FP'
+            'weight_quant_type': 'FP'
         }
 
         activation_config = {
-            'quant_type': 'QuantType.FP'
+            'quant_type': 'FP'
         }
         hardtanh_activation_config = {
-            'quant_type': 'QuantType.FP',
-            'min_val': -1e64,
-            'max_val': 1e64
+            'quant_type': 'FP',
+            'min_val': -1e32,
+            'max_val': 1e32
         }
 
         input = torch.randn(SEQ, BATCH, INPUT_SIZE)
         states = torch.randn(BATCH, HIDDEN)
 
-        q_gru = torch.jit.script(QuantGRULayer(INPUT_SIZE, HIDDEN, activation_config=activation_config,
+        q_gru =QuantGRULayer(INPUT_SIZE, HIDDEN, activation_config=activation_config,
                                                weight_config=weight_config,
                                                norm_scale_out_config=hardtanh_activation_config,
-                                               norm_scale_newgate_config=hardtanh_activation_config))
+                                               norm_scale_newgate_config=hardtanh_activation_config)
         q_gru.eval()
 
         # Control
         gru = torch.nn.GRU(INPUT_SIZE, HIDDEN)
-        q_gru.load_state_dict_new(gru.state_dict())
+        q_gru.load_state_dict(gru.state_dict())
         gru_out, gru_out_state = gru(input, states.unsqueeze(0))
         start = time.time()
         out, out_state = q_gru(input, states)
@@ -50,31 +50,31 @@ class TestLSTMQuant:
 
     def test_BIGRU(self):
         weight_config = {
-            'weight_quant_type': 'QuantType.FP'
+            'weight_quant_type': 'FP'
         }
 
         activation_config = {
-            'quant_type': 'QuantType.FP'
+            'quant_type': 'FP'
         }
         hardtanh_activation_config = {
-            'quant_type': 'QuantType.FP',
-            'min_val': -1e64,
-            'max_val': 1e64
+            'quant_type': 'FP',
+            'min_val': -1e32,
+            'max_val': 1e32
         }
 
         input = torch.randn(SEQ, BATCH, INPUT_SIZE)
         states = torch.randn(BATCH, HIDDEN)
         states_fp = torch.randn(2, BATCH, HIDDEN)
 
-        q_gru = torch.jit.script(BidirGRULayer(INPUT_SIZE, HIDDEN, activation_config=activation_config,
+        q_gru = BidirGRULayer(INPUT_SIZE, HIDDEN, activation_config=activation_config,
                                                weight_config=weight_config,
                                                norm_scale_out_config=hardtanh_activation_config,
-                                               norm_scale_newgate_config=hardtanh_activation_config))
+                                               norm_scale_newgate_config=hardtanh_activation_config)
         q_gru.eval()
 
         # Control
         gru = torch.nn.GRU(INPUT_SIZE, HIDDEN, bidirectional=True)
-        q_gru.load_state_dict_new(gru.state_dict())
+        q_gru.load_state_dict(gru.state_dict())
         gru_out, gru_out_state = gru(input, states_fp)
         start = time.time()
         out, out_state = q_gru(input, [states_fp[0].squeeze(0), states_fp[1].squeeze(0)])

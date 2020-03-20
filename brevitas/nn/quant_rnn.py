@@ -87,30 +87,13 @@ import torch
 from typing import Tuple, List
 from torch import Tensor
 from brevitas.core import ZERO_HW_SENTINEL_NAME, ZERO_HW_SENTINEL_VALUE
-from collections import namedtuple, OrderedDict
-import itertools
+from collections import OrderedDict
 
 OVER_BATCH_OVER_CHANNELS_SHAPE = (1, -1, 1, 1)
 
 __all__ = ['QuantRNNLayer', 'BidirRNNLayer']
 
-brevitas_QuantType = {
-    'QuantType.INT': QuantType.INT,
-    'QuantType.FP': QuantType.FP,
-    'QuantType.BINARY': QuantType.BINARY,
-    'QuantType.TERNARY': QuantType.TERNARY
-}
-
-
-class _IncompatibleKeys(namedtuple('IncompatibleKeys', ['missing_keys', 'unexpected_keys'])):
-    def __repr__(self):
-        if not self.missing_keys and not self.unexpected_keys:
-            return '<All keys matched successfully>'
-        return super(_IncompatibleKeys, self).__repr__()
-
-    __str__ = __repr__
-
-
+@torch.jit.script
 def reverse(lst):
     # type: (List[Tensor]) -> List[Tensor]
     out = torch.jit.annotate(List[Tensor], [])
@@ -122,7 +105,9 @@ def reverse(lst):
     return out
 
 
-class QuantRNNLayer(nn.Module):
+class QuantRNNLayer(torch.jit.ScriptModule):
+    __constants__ = ['reverse_input']
+
     def __init__(self, input_size, hidden_size, weight_config, activation_config, norm_scale_input_config,
                  reverse_input=False, compute_output_scale=False,
                  compute_output_bit_width=False, return_quant_tensor=False):
@@ -133,9 +118,11 @@ class QuantRNNLayer(nn.Module):
         self.weight_config = weight_config
         self.activation_config = activation_config
 
-        self.weight_ri = nn.Parameter(torch.randn(hidden_size, input_size), requires_grad=True)
+        weight_ri = nn.Parameter(torch.randn(hidden_size, input_size), requires_grad=True)
+        weight_rh = nn.Parameter(torch.randn(hidden_size, hidden_size), requires_grad=True)
 
-        self.weight_rh = nn.Parameter(torch.randn(hidden_size, hidden_size), requires_grad=True)
+        self.weight_ri = weight_ri
+        self.weight_rh = weight_rh
 
         self.bias_r = nn.Parameter(torch.randn(hidden_size), requires_grad=True)
 
@@ -157,6 +144,7 @@ class QuantRNNLayer(nn.Module):
                 compute_output_scale and compute_output_bit_width):
             raise Exception("Quantizing bias requires to compute output scale and output bit width")
 
+    @torch.jit.script_method
     def forward_iteration(self, input, state, quant_weight_ri, quant_weight_rh):
 
         zero_hw_sentinel = getattr(self, 'zero_hw_sentinel')
@@ -170,6 +158,7 @@ class QuantRNNLayer(nn.Module):
 
         return hy, hy
 
+    @torch.jit.script_method
     def forward(self, inputs, state):
         # type: (Tensor, Tensor) -> Tuple[Tensor, Tensor]
 
@@ -204,8 +193,9 @@ class QuantRNNLayer(nn.Module):
             return torch.stack(outputs), outputs[-1]
 
     def max_output_bit_width(self, input_bit_width, weight_bit_width):
-        pass
+        raise Exception("Not supported yet")
 
+    @torch.jit.script_method
     def unpack_input(self, input):
         if isinstance(input, QuantTensor):
             return input
@@ -215,8 +205,7 @@ class QuantRNNLayer(nn.Module):
     def configure_weight(self, weight, weight_config):
         zero_hw_sentinel = getattr(self, 'zero_hw_sentinel')
         wqp = _weight_quant_init_impl(bit_width=weight_config.get('weight_bit_width', 8),
-                                      quant_type=brevitas_QuantType[
-                                          weight_config.get('weight_quant_type', 'QuantType.FP')],
+                                      quant_type=weight_config.get('weight_quant_type', 'FP'),
                                       narrow_range=weight_config.get('weight_narrow_range', True),
                                       scaling_override=weight_config.get('weight_scaling_override',
                                                                          None),
@@ -280,8 +269,7 @@ class QuantRNNLayer(nn.Module):
         activation_object = _activation_quant_init_impl(activation_impl=activation_impl,
                                                         bit_width=activation_config.get('bit_width', 8),
                                                         narrow_range=activation_config.get('narrow_range', True),
-                                                        quant_type=brevitas_QuantType[
-                                                            activation_config.get('quant_type', 'QuantType.FP')],
+                                                        quant_type=activation_config.get('quant_type', 'FP'),
                                                         float_to_int_impl_type=activation_config.get(
                                                             'float_to_int_impl_type', FloatToIntImplType.ROUND),
                                                         min_overall_bit_width=activation_config.get(
@@ -317,79 +305,9 @@ class QuantRNNLayer(nn.Module):
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
                               missing_keys, unexpected_keys, error_msgs):
-        r"""Copies parameters and buffers from :attr:`state_dict` into only
-        this module, but not its descendants. This is called on every submodule
-        in :meth:`~torch.nn.Module.load_state_dict`. Metadata saved for this
-        module in input :attr:`state_dict` is provided as :attr:`local_metadata`.
-        For state dicts without metadata, :attr:`local_metadata` is empty.
-        Subclasses can achieve class-specific backward compatible loading using
-        the version number at `local_metadata.get("version", None)`.
-
-        .. note::
-            :attr:`state_dict` is not the same object as the input
-            :attr:`state_dict` to :meth:`~torch.nn.Module.load_state_dict`. So
-            it can be modified.
-
-        Arguments:
-            state_dict (dict): a dict containing parameters and
-                persistent buffers.
-            prefix (str): the prefix for parameters and buffers used in this
-                module
-            local_metadata (dict): a dict containing the metadata for this module.
-                See
-            strict (bool): whether to strictly enforce that the keys in
-                :attr:`state_dict` with :attr:`prefix` match the names of
-                parameters and buffers in this module
-            missing_keys (list of str): if ``strict=True``, add missing keys to
-                this list
-            unexpected_keys (list of str): if ``strict=True``, add unexpected
-                keys to this list
-            error_msgs (list of str): error messages should be added to this
-                list, and will be reported together in
-                :meth:`~torch.nn.Module.load_state_dict`
-        """
-        for hook in self._load_state_dict_pre_hooks.values():
-            hook(state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
-
-        local_name_params = itertools.chain(self._parameters.items(), self._buffers.items())
-        local_state = {k: v.data for k, v in local_name_params if v is not None}
-
-        for name, param in local_state.items():
-            key = prefix + name
-            if key in state_dict:
-                input_param = state_dict[key]
-
-                # Backward compatibility: loading 1-dim tensor from 0.3.* to version 0.4+
-                if len(param.shape) == 0 and len(input_param.shape) == 1:
-                    input_param = input_param[0]
-
-                if input_param.shape != param.shape:
-                    # local shape should match the one in checkpoint
-                    error_msgs.append('size mismatch for {}: copying a param with shape {} from checkpoint, '
-                                      'the shape in current model is {}.'
-                                      .format(key, input_param.shape, param.shape))
-                    continue
-
-                if isinstance(input_param, nn.Parameter):
-                    # backwards compatibility for serialized parameters
-                    input_param = input_param.data
-                try:
-                    param.copy_(input_param)
-                except Exception:
-                    error_msgs.append('While copying the parameter named "{}", '
-                                      'whose dimensions in the model are {} and '
-                                      'whose dimensions in the checkpoint are {}.'
-                                      .format(key, param.size(), input_param.size()))
-            elif strict:
-                missing_keys.append(key)
-
-        if strict:
-            for key in state_dict.keys():
-                if key.startswith(prefix):
-                    input_name = key[len(prefix):]
-                    input_name = input_name.split('.', 1)[0]  # get the name of param/buffer/child
-                    if input_name not in self._modules and input_name not in local_state:
-                        unexpected_keys.append(key)
+        state_dict = self.fix_state_dict(state_dict)
+        super(QuantRNNLayer, self)._load_from_state_dict(state_dict, prefix, local_metadata, strict,
+                                                          missing_keys, unexpected_keys, error_msgs)
 
         zero_hw_sentinel_key = prefix + "zero_hw_sentinel"
 
@@ -397,66 +315,6 @@ class QuantRNNLayer(nn.Module):
             missing_keys.remove(zero_hw_sentinel_key)
         if zero_hw_sentinel_key in unexpected_keys:  # for retrocompatibility with when it wasn't removed
             unexpected_keys.remove(zero_hw_sentinel_key)
-
-    def state_dict(self, destination=None, prefix='', keep_vars=False):
-        output_dict = super(QuantRNNLayer, self).state_dict(destination, prefix, keep_vars)
-        del output_dict[prefix + ZERO_HW_SENTINEL_NAME]
-        return output_dict
-
-    def load_state_dict_new(self, state_dict, strict=True):
-        r"""Copies parameters and buffers from :attr:`state_dict` into
-        this module and its descendants. If :attr:`strict` is ``True``, then
-        the keys of :attr:`state_dict` must exactly match the keys returned
-        by this module's :meth:`~torch.nn.Module.state_dict` function.
-
-        Arguments:
-            state_dict (dict): a dict containing parameters and
-                persistent buffers.
-            strict (bool, optional): whether to strictly enforce that the keys
-                in :attr:`state_dict` match the keys returned by this module's
-                :meth:`~torch.nn.Module.state_dict` function. Default: ``True``
-
-        Returns:
-            ``NamedTuple`` with ``missing_keys`` and ``unexpected_keys`` fields:
-                * **missing_keys** is a list of str containing the missing keys
-                * **unexpected_keys** is a list of str containing the unexpected keys
-        """
-        state_dict = self.fix_state_dict(state_dict)
-        missing_keys = []
-        unexpected_keys = []
-        error_msgs = []
-
-        # copy state_dict so _load_from_state_dict can modify it
-        metadata = getattr(state_dict, '_metadata', None)
-        state_dict = state_dict.copy()
-        if metadata is not None:
-            state_dict._metadata = metadata
-
-        def load(module, prefix=''):
-            local_metadata = {} if metadata is None else metadata.get(prefix[:-1], {})
-            module._load_from_state_dict(
-                state_dict, prefix, local_metadata, True, missing_keys, unexpected_keys, error_msgs)
-            for name, child in module._modules.items():
-                if child is not None:
-                    load(child, prefix + name + '.')
-
-        load(self)
-        load = None  # break load->load reference cycle
-
-        if strict:
-            if len(unexpected_keys) > 0:
-                error_msgs.insert(
-                    0, 'Unexpected key(s) in state_dict: {}. '.format(
-                        ', '.join('"{}"'.format(k) for k in unexpected_keys)))
-            if len(missing_keys) > 0:
-                error_msgs.insert(
-                    0, 'Missing key(s) in state_dict: {}. '.format(
-                        ', '.join('"{}"'.format(k) for k in missing_keys)))
-
-        if len(error_msgs) > 0:
-            raise RuntimeError('Error(s) in loading state_dict for {}:\n\t{}'.format(
-                self.__class__.__name__, "\n\t".join(error_msgs)))
-        return _IncompatibleKeys(missing_keys, unexpected_keys)
 
     def fix_state_dict(self, state_dict):
         newstate = OrderedDict()
@@ -479,7 +337,7 @@ class QuantRNNLayer(nn.Module):
         return newstate
 
 
-class BidirRNNLayer(nn.Module):
+class BidirRNNLayer(torch.jit.ScriptModule):
     __constants__ = ['directions']
 
     def __init__(self, input_size, hidden_size, weight_config, activation_config, norm_scale_input_config,
@@ -487,19 +345,21 @@ class BidirRNNLayer(nn.Module):
                  return_quant_tensor=False):
         super(BidirRNNLayer, self).__init__()
         self.directions = nn.ModuleList([
-            torch.jit.script(QuantRNNLayer(input_size=input_size, hidden_size=hidden_size, weight_config=weight_config,
-                                           activation_config=activation_config, norm_scale_input_config=norm_scale_input_config,
+            QuantRNNLayer(input_size=input_size, hidden_size=hidden_size, weight_config=weight_config,
+                                           activation_config=activation_config,
+                                           norm_scale_input_config=norm_scale_input_config,
                                            reverse_input=False, compute_output_scale=compute_output_scale,
                                            compute_output_bit_width=compute_output_bit_width,
-                                           return_quant_tensor=return_quant_tensor)),
-            torch.jit.script(QuantRNNLayer(input_size=input_size, hidden_size=hidden_size, weight_config=weight_config,
-                                           activation_config=activation_config, norm_scale_input_config=norm_scale_input_config,
+                                           return_quant_tensor=return_quant_tensor),
+            QuantRNNLayer(input_size=input_size, hidden_size=hidden_size, weight_config=weight_config,
+                                           activation_config=activation_config,
+                                           norm_scale_input_config=norm_scale_input_config,
                                            reverse_input=True, compute_output_scale=compute_output_scale,
                                            compute_output_bit_width=compute_output_bit_width,
-                                           return_quant_tensor=return_quant_tensor)),
+                                           return_quant_tensor=return_quant_tensor),
         ])
 
-    # @jit.script_method
+    @torch.jit.script_method
     def forward(self, input, states):
         # type: (Tensor, List[Tensor]) -> Tuple[Tensor, List[Tensor]]
         # List[LSTMState]: [forward LSTMState, backward LSTMState]
@@ -516,7 +376,7 @@ class BidirRNNLayer(nn.Module):
 
         return torch.cat(outputs, -1), output_states
 
-    def load_state_dict_new(self, state_dict, strict=True):
+    def load_state_dict(self, state_dict, strict=True):
         direct = OrderedDict()
         reverse = OrderedDict()
         for name, value in state_dict.items():
@@ -525,5 +385,5 @@ class BidirRNNLayer(nn.Module):
             else:
                 direct[name] = value
 
-        self.directions[0].load_state_dict_new(direct, strict)
-        self.directions[1].load_state_dict_new(reverse, strict)
+        self.directions[0].load_state_dict(direct, strict)
+        self.directions[1].load_state_dict(reverse, strict)
