@@ -371,7 +371,18 @@ class QuantLSTMLayer(torch.jit.ScriptModule):
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
                               missing_keys, unexpected_keys, error_msgs):
-        state_dict = self.fix_state_dict(state_dict)
+        dict_to_change = dict()
+        for k, v in state_dict.items():
+            if k.startswith(prefix):
+                dict_to_change[k] = v
+
+        for k in list(state_dict.keys()):
+            if k.startswith(prefix):
+                del state_dict[k]
+
+        dict_changed = self.fix_state_dict(prefix, dict_to_change)
+        for k, v in dict_changed.items():
+            state_dict[k] = v
         super(QuantLSTMLayer, self)._load_from_state_dict(state_dict, prefix, local_metadata, strict,
                                                           missing_keys, unexpected_keys, error_msgs)
 
@@ -382,41 +393,42 @@ class QuantLSTMLayer(torch.jit.ScriptModule):
         if zero_hw_sentinel_key in unexpected_keys:  # for retrocompatibility with when it wasn't removed
             unexpected_keys.remove(zero_hw_sentinel_key)
 
-    def fix_state_dict(self, state_dict):
+    def fix_state_dict(self, prefix, state_dict):
         newstate = OrderedDict()
         hidden = self.weight_fh.shape[0]
         bias_i = torch.zeros(hidden)
         bias_f = torch.zeros(hidden)
         bias_a = torch.zeros(hidden)
         bias_o = torch.zeros(hidden)
+        prefix_len = len(prefix)
         for name, value in state_dict.items():
-            if name[:7] == 'bias_ih':
+            if name[:prefix_len+7] == prefix+'bias_ih':
                 bias_i = bias_i + value[:hidden]
                 bias_f = bias_f + value[hidden:hidden * 2]
                 bias_a = bias_a + value[2 * hidden:hidden * 3]
                 bias_o = bias_o + value[3 * hidden:]
-            elif name[:7] == 'bias_hh':
+            elif name[:prefix_len+7] == prefix+'bias_hh':
                 bias_i = bias_i + value[:hidden]
                 bias_f = bias_f + value[hidden:hidden * 2]
                 bias_a = bias_a + value[2 * hidden:hidden * 3]
                 bias_o = bias_o + value[3 * hidden:]
-            elif name[:9] == 'weight_ih':
-                newstate['weight_ii'] = value[:hidden, :]
-                newstate['weight_fi'] = value[hidden:hidden * 2, :]
-                newstate['weight_ai'] = value[2 * hidden:hidden * 3, :]
-                newstate['weight_oi'] = value[3 * hidden:, :]
-            elif name[:9] == 'weight_hh':
-                newstate['weight_ih'] = value[:hidden, :]
-                newstate['weight_fh'] = value[hidden:hidden * 2, :]
-                newstate['weight_ah'] = value[2 * hidden:hidden * 3, :]
-                newstate['weight_oh'] = value[3 * hidden:, :]
+            elif name[:prefix_len+9] == prefix+'weight_ih':
+                newstate[prefix+'weight_ii'] = value[:hidden, :]
+                newstate[prefix+'weight_fi'] = value[hidden:hidden * 2, :]
+                newstate[prefix+'weight_ai'] = value[2 * hidden:hidden * 3, :]
+                newstate[prefix+'weight_oi'] = value[3 * hidden:, :]
+            elif name[:prefix_len+9] == prefix+'weight_hh':
+                newstate[prefix+'weight_ih'] = value[:hidden, :]
+                newstate[prefix+'weight_fh'] = value[hidden:hidden * 2, :]
+                newstate[prefix+'weight_ah'] = value[2 * hidden:hidden * 3, :]
+                newstate[prefix+'weight_oh'] = value[3 * hidden:, :]
             else:
                 newstate[name] = value
 
-        newstate['bias_i'] = bias_i
-        newstate['bias_f'] = bias_f
-        newstate['bias_a'] = bias_a
-        newstate['bias_o'] = bias_o
+        newstate[prefix+'bias_i'] = bias_i
+        newstate[prefix+'bias_f'] = bias_f
+        newstate[prefix+'bias_a'] = bias_a
+        newstate[prefix+'bias_o'] = bias_o
 
         return newstate
 
