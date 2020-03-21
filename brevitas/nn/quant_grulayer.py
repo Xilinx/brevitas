@@ -121,19 +121,19 @@ class QuantGRULayer(torch.jit.ScriptModule):
         self.activation_config = activation_config
 
         weight_ri = nn.Parameter(torch.randn(hidden_size, input_size), requires_grad=True)
-        weight_ii = nn.Parameter(torch.randn(hidden_size, input_size), requires_grad=True)
+        weight_ci = nn.Parameter(torch.randn(hidden_size, input_size), requires_grad=True)
         weight_ni = nn.Parameter(torch.randn(hidden_size, input_size), requires_grad=True)
 
         weight_rh = nn.Parameter(torch.randn(hidden_size, hidden_size), requires_grad=True)
-        weight_ih = nn.Parameter(torch.randn(hidden_size, hidden_size), requires_grad=True)
+        weight_ch = nn.Parameter(torch.randn(hidden_size, hidden_size), requires_grad=True)
         weight_nh = nn.Parameter(torch.randn(hidden_size, hidden_size), requires_grad=True)
 
         self.weight_ri = weight_ri
-        self.weight_ii = weight_ii
+        self.weight_ci = weight_ci
         self.weight_ni = weight_ni
 
         self.weight_rh = weight_rh
-        self.weight_ih = weight_ih
+        self.weight_ch = weight_ch
         self.weight_nh = weight_nh
 
         self.bias_r = nn.Parameter(torch.randn(hidden_size), requires_grad=True)
@@ -149,7 +149,7 @@ class QuantGRULayer(torch.jit.ScriptModule):
         self.weight_config['weight_scaling_stats_reduce_dim'] = None
 
         self.weight_proxy_r = self.configure_weight([weight_ri, weight_rh], self.weight_config)
-        self.weight_proxy_i = self.configure_weight([weight_ii, weight_ih], self.weight_config)
+        self.weight_proxy_i = self.configure_weight([weight_ci, weight_ch], self.weight_config)
         self.weight_proxy_n = self.configure_weight([weight_ni, weight_nh], self.weight_config)
 
         self.quant_sigmoid = self.configure_activation(self.activation_config, QuantSigmoid)
@@ -167,30 +167,30 @@ class QuantGRULayer(torch.jit.ScriptModule):
 
     @torch.jit.script_method
     def forward_iteration(self, input, state,
-                          quant_weight_ri, quant_weight_ii, quant_weight_ni,
-                          quant_weight_rh, quant_weight_ih, quant_weight_nh):
+                          quant_weight_ri, quant_weight_ci, quant_weight_ni,
+                          quant_weight_rh, quant_weight_ch, quant_weight_nh):
         zero_hw_sentinel = getattr(self, 'zero_hw_sentinel')
 
         gates_ri = torch.mm(input, quant_weight_ri.t())
         gates_rh = torch.mm(state, quant_weight_rh.t())
 
-        gates_ii = torch.mm(input, quant_weight_ii.t())
-        gates_ih = torch.mm(state, quant_weight_ih.t())
+        gates_ci = torch.mm(input, quant_weight_ci.t())
+        gates_ch = torch.mm(state, quant_weight_ch.t())
 
         gates_ni = torch.mm(input, quant_weight_ni.t()) + self.bias_ni
         gates_nh = torch.mm(state, quant_weight_nh.t()) + self.bias_nh
 
         rgate = (gates_ri + gates_rh) + self.bias_r
-        igate = (gates_ii + gates_ih) + self.bias_i
+        cgate = (gates_ci + gates_ch) + self.bias_i
 
         rgate = self.quant_sigmoid(rgate, zero_hw_sentinel)[0]
-        igate = self.quant_sigmoid(igate, zero_hw_sentinel)[0]
+        cgate = self.quant_sigmoid(cgate, zero_hw_sentinel)[0]
         gates_ni = self.norm_scale_newgate(gates_ni, zero_hw_sentinel)[0] + \
                    self.norm_scale_newgate(rgate * gates_nh, zero_hw_sentinel)[0]
         ngate = self.quant_tanh(gates_ni, zero_hw_sentinel)[0]
 
         state = self.norm_scale_out(state, zero_hw_sentinel)[0] - ngate
-        hy = ngate + self.norm_scale_out(igate * state, zero_hw_sentinel)[0]
+        hy = ngate + self.norm_scale_out(cgate * state, zero_hw_sentinel)[0]
 
         return hy, hy
 
@@ -202,11 +202,11 @@ class QuantGRULayer(torch.jit.ScriptModule):
         inputs, input_scale, input_bit_width = self.unpack_input(inputs)
 
         quant_weight_ri, quant_weight_ri_scale, quant_weight_ri_bit_width = self.weight_proxy_r(self.weight_ri, zero_hw_sentinel)
-        quant_weight_ii, quant_weight_ii_scale, quant_weight_ii_bit_width = self.weight_proxy_i(self.weight_ii, zero_hw_sentinel)
+        quant_weight_ci, quant_weight_ci_scale, quant_weight_ci_bit_width = self.weight_proxy_i(self.weight_ci, zero_hw_sentinel)
         quant_weight_ni, quant_weight_ni_scale, quant_weight_ni_bit_width = self.weight_proxy_n(self.weight_ni, zero_hw_sentinel)
 
         quant_weight_rh, quant_weight_rh_scale, quant_weight_rh_bit_width = self.weight_proxy_r(self.weight_rh, zero_hw_sentinel)
-        quant_weight_ih, quant_weight_ih_scale, quant_weight_ih_bit_width = self.weight_proxy_i(self.weight_ih, zero_hw_sentinel)
+        quant_weight_ch, quant_weight_ch_scale, quant_weight_ch_bit_width = self.weight_proxy_i(self.weight_ch, zero_hw_sentinel)
         quant_weight_nh, quant_weight_nh_scale, quant_weight_nh_bit_width = self.weight_proxy_n(self.weight_nh, zero_hw_sentinel)
 
         inputs = inputs.unbind(0)
@@ -224,8 +224,8 @@ class QuantGRULayer(torch.jit.ScriptModule):
         for i in range(start, end, step):
             input_quant = self.norm_scale_out(inputs[i], zero_hw_sentinel)[0]
             output, state = self.forward_iteration(input_quant, state,
-                                                   quant_weight_ri, quant_weight_ii, quant_weight_ni,
-                                                   quant_weight_rh, quant_weight_ih, quant_weight_nh)
+                                                   quant_weight_ri, quant_weight_ci, quant_weight_ni,
+                                                   quant_weight_rh, quant_weight_ch, quant_weight_nh)
             outputs += [state]
 
         if self.reverse_input:
@@ -372,7 +372,7 @@ class QuantGRULayer(torch.jit.ScriptModule):
 
     def fix_state_dict(self, prefix, state_dict):
         newstate = OrderedDict()
-        hidden = self.weight_ih.shape[0]
+        hidden = self.weight_ch.shape[0]
         bias_r = torch.zeros(hidden)
         bias_i = torch.zeros(hidden)
         prefix_len = len(prefix)
@@ -387,11 +387,11 @@ class QuantGRULayer(torch.jit.ScriptModule):
                 newstate[prefix+'bias_nh'] = value[2 * hidden:hidden * 3]
             elif name[:prefix_len+9] == prefix+'weight_ih':
                 newstate[prefix+'weight_ri'] = value[:hidden, :]
-                newstate[prefix+'weight_ii'] = value[hidden:hidden * 2, :]
+                newstate[prefix+'weight_ci'] = value[hidden:hidden * 2, :]
                 newstate[prefix+'weight_ni'] = value[2 * hidden:hidden * 3, :]
             elif name[:prefix_len+9] == prefix+'weight_hh':
                 newstate[prefix+'weight_rh'] = value[:hidden, :]
-                newstate[prefix+'weight_ih'] = value[hidden:hidden * 2, :]
+                newstate[prefix+'weight_ch'] = value[hidden:hidden * 2, :]
                 newstate[prefix+'weight_nh'] = value[2 * hidden:hidden * 3, :]
             else:
                 newstate[name] = value
