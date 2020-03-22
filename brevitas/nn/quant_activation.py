@@ -370,8 +370,6 @@ class QuantHardTanh(QuantActivation):
                 min_thres -= step
             for t in range(n_thresholds):
                 self.export_thres[0][t] = min_thres + step * t
-            for t in range(n_thresholds):
-                print("threshold %d is %f" % (t, self.export_thres[0][t]))
         else:
             self.export_act_scale = None
             self.export_act_bias = None
