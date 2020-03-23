@@ -108,7 +108,9 @@ jobs:
 
     - name: Move cached Pytorch pkg to Conda pkgs cache
       shell: bash
-      run: mv ${{ steps.cache-dirs.outputs.pytorch_pkg_cache_path }}/pytorch* ${{ steps.cache-dirs.outputs.conda_pkgs_cache_path }}/
+      run: |
+        cp -R ${{ steps.cache-dirs.outputs.pytorch_pkg_cache_path }}/pytorch* ${{ steps.cache-dirs.outputs.conda_pkgs_cache_path }}/
+        rm -R ${{ steps.cache-dirs.outputs.pytorch_pkg_cache_path }}/pytorch*
       if: steps.pytorch-cache.outputs.cache-hit == 'true'
 
     - name: Run Nox session
@@ -127,5 +129,7 @@ jobs:
 
     - name: Move Pytorch pkg to its cache location before caching
       shell: bash
-      run: mv ${{ steps.cache-dirs.outputs.conda_pkgs_cache_path }}/pytorch* ${{ steps.cache-dirs.outputs.pytorch_pkg_cache_path }}/
+      run: |
+        cp -R ${{ steps.cache-dirs.outputs.conda_pkgs_cache_path }}/pytorch* ${{ steps.cache-dirs.outputs.pytorch_pkg_cache_path }}/
+        rm -R ${{ steps.cache-dirs.outputs.conda_pkgs_cache_path }}/pytorch*
       if: steps.pytorch-cache.outputs.cache-hit != 'true'
