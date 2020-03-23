@@ -201,13 +201,19 @@ class QuantGRULayer(torch.jit.ScriptModule):
 
         inputs, input_scale, input_bit_width = self.unpack_input(inputs)
 
-        quant_weight_ri, quant_weight_ri_scale, quant_weight_ri_bit_width = self.weight_proxy_r(self.weight_ri, zero_hw_sentinel)
-        quant_weight_ci, quant_weight_ci_scale, quant_weight_ci_bit_width = self.weight_proxy_i(self.weight_ci, zero_hw_sentinel)
-        quant_weight_ni, quant_weight_ni_scale, quant_weight_ni_bit_width = self.weight_proxy_n(self.weight_ni, zero_hw_sentinel)
+        quant_weight_ri, quant_weight_ri_scale, quant_weight_ri_bit_width = self.weight_proxy_r(self.weight_ri,
+                                                                                                zero_hw_sentinel)
+        quant_weight_ci, quant_weight_ci_scale, quant_weight_ci_bit_width = self.weight_proxy_i(self.weight_ci,
+                                                                                                zero_hw_sentinel)
+        quant_weight_ni, quant_weight_ni_scale, quant_weight_ni_bit_width = self.weight_proxy_n(self.weight_ni,
+                                                                                                zero_hw_sentinel)
 
-        quant_weight_rh, quant_weight_rh_scale, quant_weight_rh_bit_width = self.weight_proxy_r(self.weight_rh, zero_hw_sentinel)
-        quant_weight_ch, quant_weight_ch_scale, quant_weight_ch_bit_width = self.weight_proxy_i(self.weight_ch, zero_hw_sentinel)
-        quant_weight_nh, quant_weight_nh_scale, quant_weight_nh_bit_width = self.weight_proxy_n(self.weight_nh, zero_hw_sentinel)
+        quant_weight_rh, quant_weight_rh_scale, quant_weight_rh_bit_width = self.weight_proxy_r(self.weight_rh,
+                                                                                                zero_hw_sentinel)
+        quant_weight_ch, quant_weight_ch_scale, quant_weight_ch_bit_width = self.weight_proxy_i(self.weight_ch,
+                                                                                                zero_hw_sentinel)
+        quant_weight_nh, quant_weight_nh_scale, quant_weight_nh_bit_width = self.weight_proxy_n(self.weight_nh,
+                                                                                                zero_hw_sentinel)
 
         inputs = inputs.unbind(0)
 
@@ -360,7 +366,7 @@ class QuantGRULayer(torch.jit.ScriptModule):
         for k, v in dict_changed.items():
             state_dict[k] = v
         super(QuantGRULayer, self)._load_from_state_dict(state_dict, prefix, local_metadata, strict,
-                                                          missing_keys, unexpected_keys, error_msgs)
+                                                         missing_keys, unexpected_keys, error_msgs)
 
         zero_hw_sentinel_key = prefix + "zero_hw_sentinel"
 
@@ -369,7 +375,6 @@ class QuantGRULayer(torch.jit.ScriptModule):
         if zero_hw_sentinel_key in unexpected_keys:  # for retrocompatibility with when it wasn't removed
             unexpected_keys.remove(zero_hw_sentinel_key)
 
-
     def fix_state_dict(self, prefix, state_dict):
         newstate = OrderedDict()
         hidden = self.weight_ch.shape[0]
@@ -377,27 +382,27 @@ class QuantGRULayer(torch.jit.ScriptModule):
         bias_i = torch.zeros(hidden)
         prefix_len = len(prefix)
         for name, value in state_dict.items():
-            if name[:prefix_len+7] == prefix+'bias_ih':
+            if name[:prefix_len + 7] == prefix + 'bias_ih':
                 bias_r = bias_r + value[:hidden]
                 bias_i = bias_i + value[hidden:hidden * 2]
-                newstate[prefix+'bias_ni'] = value[2 * hidden:hidden * 3]
-            elif name[:prefix_len+7] == prefix+'bias_hh':
+                newstate[prefix + 'bias_ni'] = value[2 * hidden:hidden * 3]
+            elif name[:prefix_len + 7] == prefix + 'bias_hh':
                 bias_r = bias_r + value[:hidden]
                 bias_i = bias_i + value[hidden:hidden * 2]
-                newstate[prefix+'bias_nh'] = value[2 * hidden:hidden * 3]
-            elif name[:prefix_len+9] == prefix+'weight_ih':
-                newstate[prefix+'weight_ri'] = value[:hidden, :]
-                newstate[prefix+'weight_ci'] = value[hidden:hidden * 2, :]
-                newstate[prefix+'weight_ni'] = value[2 * hidden:hidden * 3, :]
-            elif name[:prefix_len+9] == prefix+'weight_hh':
-                newstate[prefix+'weight_rh'] = value[:hidden, :]
-                newstate[prefix+'weight_ch'] = value[hidden:hidden * 2, :]
-                newstate[prefix+'weight_nh'] = value[2 * hidden:hidden * 3, :]
+                newstate[prefix + 'bias_nh'] = value[2 * hidden:hidden * 3]
+            elif name[:prefix_len + 9] == prefix + 'weight_ih':
+                newstate[prefix + 'weight_ri'] = value[:hidden, :]
+                newstate[prefix + 'weight_ci'] = value[hidden:hidden * 2, :]
+                newstate[prefix + 'weight_ni'] = value[2 * hidden:hidden * 3, :]
+            elif name[:prefix_len + 9] == prefix + 'weight_hh':
+                newstate[prefix + 'weight_rh'] = value[:hidden, :]
+                newstate[prefix + 'weight_ch'] = value[hidden:hidden * 2, :]
+                newstate[prefix + 'weight_nh'] = value[2 * hidden:hidden * 3, :]
             else:
                 newstate[name] = value
 
-        newstate[prefix+'bias_r'] = bias_r
-        newstate[prefix+'bias_i'] = bias_i
+        newstate[prefix + 'bias_r'] = bias_r
+        newstate[prefix + 'bias_i'] = bias_i
 
         return newstate
 
@@ -412,19 +417,19 @@ class BidirGRULayer(torch.jit.ScriptModule):
         super(BidirGRULayer, self).__init__()
         self.directions = nn.ModuleList([
             QuantGRULayer(input_size=input_size, hidden_size=hidden_size, weight_config=weight_config,
-                                           activation_config=activation_config,
-                                           norm_scale_out_config=norm_scale_out_config,
-                                           norm_scale_newgate_config=norm_scale_newgate_config,
-                                           reverse_input=False, compute_output_scale=compute_output_scale,
-                                           compute_output_bit_width=compute_output_bit_width,
-                                           return_quant_tensor=return_quant_tensor),
+                          activation_config=activation_config,
+                          norm_scale_out_config=norm_scale_out_config,
+                          norm_scale_newgate_config=norm_scale_newgate_config,
+                          reverse_input=False, compute_output_scale=compute_output_scale,
+                          compute_output_bit_width=compute_output_bit_width,
+                          return_quant_tensor=return_quant_tensor),
             QuantGRULayer(input_size=input_size, hidden_size=hidden_size, weight_config=weight_config,
-                                           activation_config=activation_config,
-                                           norm_scale_out_config=norm_scale_out_config,
-                                           norm_scale_newgate_config=norm_scale_newgate_config,
-                                           reverse_input=True, compute_output_scale=compute_output_scale,
-                                           compute_output_bit_width=compute_output_bit_width,
-                                           return_quant_tensor=return_quant_tensor),
+                          activation_config=activation_config,
+                          norm_scale_out_config=norm_scale_out_config,
+                          norm_scale_newgate_config=norm_scale_newgate_config,
+                          reverse_input=True, compute_output_scale=compute_output_scale,
+                          compute_output_bit_width=compute_output_bit_width,
+                          return_quant_tensor=return_quant_tensor),
         ])
 
     @torch.jit.script_method

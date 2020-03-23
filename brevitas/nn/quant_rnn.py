@@ -93,6 +93,7 @@ OVER_BATCH_OVER_CHANNELS_SHAPE = (1, -1, 1, 1)
 
 __all__ = ['QuantRNNLayer', 'BidirRNNLayer']
 
+
 @torch.jit.script
 def reverse(lst):
     # type: (List[Tensor]) -> List[Tensor]
@@ -318,7 +319,7 @@ class QuantRNNLayer(torch.jit.ScriptModule):
         for k, v in dict_changed.items():
             state_dict[k] = v
         super(QuantRNNLayer, self)._load_from_state_dict(state_dict, prefix, local_metadata, strict,
-                                                          missing_keys, unexpected_keys, error_msgs)
+                                                         missing_keys, unexpected_keys, error_msgs)
 
         zero_hw_sentinel_key = prefix + "zero_hw_sentinel"
 
@@ -333,18 +334,18 @@ class QuantRNNLayer(torch.jit.ScriptModule):
         bias_r = torch.zeros(hidden)
         prefix_len = len(prefix)
         for name, value in state_dict.items():
-            if name[:prefix_len+7] == prefix+'bias_ih':
+            if name[:prefix_len + 7] == prefix + 'bias_ih':
                 bias_r = bias_r + value
-            elif name[:prefix_len+7] == prefix+'bias_hh':
+            elif name[:prefix_len + 7] == prefix + 'bias_hh':
                 bias_r = bias_r + value
-            elif name[:prefix_len+9] == prefix+'weight_ih':
-                newstate[prefix+'weight_ri'] = value[:, :]
-            elif name[:prefix_len+9] == prefix+'weight_hh':
-                newstate[prefix+'weight_rh'] = value[:, :]
+            elif name[:prefix_len + 9] == prefix + 'weight_ih':
+                newstate[prefix + 'weight_ri'] = value[:, :]
+            elif name[:prefix_len + 9] == prefix + 'weight_hh':
+                newstate[prefix + 'weight_rh'] = value[:, :]
             else:
                 newstate[name] = value
 
-        newstate[prefix+'bias_r'] = bias_r
+        newstate[prefix + 'bias_r'] = bias_r
 
         return newstate
 
@@ -358,17 +359,17 @@ class BidirRNNLayer(torch.jit.ScriptModule):
         super(BidirRNNLayer, self).__init__()
         self.directions = nn.ModuleList([
             QuantRNNLayer(input_size=input_size, hidden_size=hidden_size, weight_config=weight_config,
-                                           activation_config=activation_config,
-                                           norm_scale_input_config=norm_scale_input_config,
-                                           reverse_input=False, compute_output_scale=compute_output_scale,
-                                           compute_output_bit_width=compute_output_bit_width,
-                                           return_quant_tensor=return_quant_tensor),
+                          activation_config=activation_config,
+                          norm_scale_input_config=norm_scale_input_config,
+                          reverse_input=False, compute_output_scale=compute_output_scale,
+                          compute_output_bit_width=compute_output_bit_width,
+                          return_quant_tensor=return_quant_tensor),
             QuantRNNLayer(input_size=input_size, hidden_size=hidden_size, weight_config=weight_config,
-                                           activation_config=activation_config,
-                                           norm_scale_input_config=norm_scale_input_config,
-                                           reverse_input=True, compute_output_scale=compute_output_scale,
-                                           compute_output_bit_width=compute_output_bit_width,
-                                           return_quant_tensor=return_quant_tensor),
+                          activation_config=activation_config,
+                          norm_scale_input_config=norm_scale_input_config,
+                          reverse_input=True, compute_output_scale=compute_output_scale,
+                          compute_output_bit_width=compute_output_bit_width,
+                          return_quant_tensor=return_quant_tensor),
         ])
 
     @torch.jit.script_method
