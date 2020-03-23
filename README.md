@@ -1,5 +1,6 @@
 # Brevitas
 
+![Tests](https://github.com/Xilinx/brevitas/workflows/Tests/badge.svg)
 [![DOI](https://zenodo.org/badge/140494324.svg)](https://zenodo.org/badge/latestdoi/140494324)
 
 Brevitas is a Pytorch library for quantization-aware training.
