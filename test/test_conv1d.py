@@ -2,6 +2,9 @@ import torch
 import brevitas.nn.quant_conv1d as quant_conv1d
 from generate_quant_input import generate_quant_input
 from brevitas.core.quant import QuantType
+from packaging import version
+import os
+import pytest
 
 # Quantization parameters
 BIT = 8
@@ -23,7 +26,9 @@ STRIDE = 2
 
 
 class Test1DConv:
-
+    @pytest.mark.skipif(version.parse(torch.__version__) == version.parse('1.2') and
+                        os.environ.get('PYTORCH_JIT', '0') == '0',
+                        reason="Known bug with Pytorch JIT")
     def test_float_quant(self):
         shape = (BATCH, IN_CHANNEL, HEIGHT)
         input_quant_int, input_quant = generate_quant_input(shape, BIT, SCALE, True, True)
@@ -43,6 +48,9 @@ class Test1DConv:
         result_rescaled = results_int_quantized * totalScale
         assert (torch.allclose(results_float_quantized, result_rescaled, atol= ATOL, rtol= RTOL))
 
+    @pytest.mark.skipif(version.parse(torch.__version__) == version.parse('1.2') and
+                        os.environ.get('PYTORCH_JIT', '0') == '0',
+                        reason="Known bug with Pytorch JIT")
     def test_int(self):
         shape = (BATCH, IN_CHANNEL, HEIGHT)
         input_quant_int, input_quant = generate_quant_input(shape, BIT, SCALE, True, True)
@@ -62,6 +70,9 @@ class Test1DConv:
         result_rescaled = torch.round(results_float_quantized / totalScale)
         assert (torch.allclose(results_int_quantized, result_rescaled, atol=ATOL, rtol=RTOL))
 
+    @pytest.mark.skipif(version.parse(torch.__version__) == version.parse('1.2') and
+                        os.environ.get('PYTORCH_JIT', '0') == '0',
+                        reason="Known bug with Pytorch JIT")
     def test_basic_padding(self):
         shape = (BATCH, IN_CHANNEL, HEIGHT)
         input_quant_int, input_quant = generate_quant_input(shape, BIT, SCALE, True, True)
