@@ -3,7 +3,7 @@ import torch
 from brevitas.core.quant import QuantType
 from brevitas.core.scaling import ScalingImplType
 from brevitas.nn import QuantReLU
-from conftest import check_expected_fail
+from common import check_expected_fail
 
 BIT_WIDTH = 8
 MAX_VAL = 6.0

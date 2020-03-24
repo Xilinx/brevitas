@@ -4,7 +4,7 @@ from generate_quant_input import generate_quant_input
 from brevitas.core.quant import QuantType
 import random
 import numpy as np
-from conftest import check_expected_fail
+from common import check_expected_fail
 
 # Quantization parameters
 BIT = 8

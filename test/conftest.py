@@ -38,12 +38,9 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-import pytest
 import torch
 from hypothesis import settings, HealthCheck
 from hypothesis import seed as set_seed
-import os
-from packaging import version
 
 # Remove Hypothesis check for too slow tests. Some tests requires particular input conditions, and it may take a
 # while to generate the appropriate inputs.
@@ -53,8 +50,3 @@ settings.load_profile("standard")
 SEED = 123456
 torch.random.manual_seed(SEED)
 set_seed(SEED)
-
-# Condition for mark.xfail
-CONDITION = version.parse(torch.__version__) == version.parse('1.2') and os.environ.get('PYTORCH_JIT', '1') == '0'
-REASON = 'Known bug to Pytorch 1.2.0 with JIT disabled'
-check_expected_fail = pytest.mark.xfail(CONDITION, reason=REASON, raises=RuntimeError)

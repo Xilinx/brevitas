@@ -1,4 +1,13 @@
 import hypothesis.strategies as st
+import os
+import pytest
+from packaging import version
+import torch
+
+# Condition for mark.xfail
+CONDITION = version.parse(torch.__version__) == version.parse('1.2') and os.environ.get('PYTORCH_JIT', '1') == '0'
+REASON = 'Known bug to Pytorch 1.2.0 with JIT disabled'
+check_expected_fail = pytest.mark.xfail(CONDITION, reason=REASON, raises=RuntimeError)
 
 # Set Constants
 RTOL = 0

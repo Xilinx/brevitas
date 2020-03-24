@@ -2,7 +2,7 @@ import torch
 import brevitas.nn.quant_conv1d as quant_conv1d
 from generate_quant_input import generate_quant_input
 from brevitas.core.quant import QuantType
-from conftest import check_expected_fail
+from common import check_expected_fail
 
 # Quantization parameters
 BIT = 8
