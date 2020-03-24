@@ -4,6 +4,7 @@ from generate_quant_input import generate_quant_input
 from brevitas.core.quant import QuantType
 import random
 import numpy as np
+from common import check_expected_pyt_120_fail
 
 # Quantization parameters
 BIT = 8
@@ -30,6 +31,7 @@ torch.manual_seed(42)
 
 class Test1DTranspConv:
 
+    @check_expected_pyt_120_fail
     def test_float_quant(self):
         shape = (BATCH, IN_CHANNEL, HEIGHT)
         input_quant_int, input_quant = generate_quant_input(shape, BIT, SCALE, True, True)
@@ -51,6 +53,7 @@ class Test1DTranspConv:
         # print(torch.norm(results_float_quantized- result_rescaled))
         assert (torch.allclose(results_float_quantized, result_rescaled, atol= ATOL, rtol= RTOL))
 
+    @check_expected_pyt_120_fail
     def test_int(self):
         shape = (BATCH, IN_CHANNEL, HEIGHT)
         input_quant_int, input_quant = generate_quant_input(shape, BIT, SCALE, True, True)

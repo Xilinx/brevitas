@@ -1,4 +1,13 @@
 import hypothesis.strategies as st
+import os
+import pytest
+from packaging import version
+import torch
+
+# Setup expected fail for Pytorch 1.2.0 and JIT Disabled
+PYT_120_JIT_CONDITION = version.parse(torch.__version__) == version.parse('1.2') and os.environ.get('PYTORCH_JIT', '1') == '0'
+PYT_120_JIT_REASON = 'Known bug to Pytorch 1.2.0 with JIT disabled'
+check_expected_pyt_120_fail = pytest.mark.xfail(PYT_120_JIT_CONDITION, reason=PYT_120_JIT_REASON, raises=RuntimeError)
 
 # Set Constants
 RTOL = 0

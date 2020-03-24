@@ -38,11 +38,9 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-import pytest
 import torch
 from hypothesis import settings, HealthCheck
 from hypothesis import seed as set_seed
-import os
 
 # Remove Hypothesis check for too slow tests. Some tests requires particular input conditions, and it may take a
 # while to generate the appropriate inputs.
@@ -52,4 +50,3 @@ settings.load_profile("standard")
 SEED = 123456
 torch.random.manual_seed(SEED)
 set_seed(SEED)
-
