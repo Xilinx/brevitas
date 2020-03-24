@@ -3,9 +3,7 @@ import torch
 from brevitas.core.quant import QuantType
 from brevitas.core.scaling import ScalingImplType
 from brevitas.nn import QuantReLU
-from packaging import version
-import os
-import pytest
+from conftest import check_expected_fail
 
 BIT_WIDTH = 8
 MAX_VAL = 6.0
@@ -14,9 +12,7 @@ RANDOM_ITERS = 32
 
 class TestQuantReLU:
 
-    @pytest.mark.skipif(version.parse(torch.__version__) == version.parse('1.2') and
-                        os.environ.get('PYTORCH_JIT', '1') == '0',
-                        reason="Known bug with Pytorch JIT")
+    @check_expected_fail
     def test_scaling_stats_to_parameter(self):
 
         stats_act = QuantReLU(bit_width=BIT_WIDTH,
