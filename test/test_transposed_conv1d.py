@@ -34,7 +34,7 @@ torch.manual_seed(42)
 class Test1DTranspConv:
 
     @pytest.mark.skipif(version.parse(torch.__version__) == version.parse('1.2') and
-                        os.environ.get('PYTORCH_JIT', '0') == '0',
+                        os.environ.get('PYTORCH_JIT', '1') == '0',
                         reason="Known bug with pytorch JIT")
     def test_float_quant(self):
         shape = (BATCH, IN_CHANNEL, HEIGHT)
@@ -58,7 +58,7 @@ class Test1DTranspConv:
         assert (torch.allclose(results_float_quantized, result_rescaled, atol= ATOL, rtol= RTOL))
 
     @pytest.mark.skipif(version.parse(torch.__version__) == version.parse('1.2') and
-                        os.environ.get('PYTORCH_JIT', '0') == '0',
+                        os.environ.get('PYTORCH_JIT', '1') == '0',
                         reason="Known bug with pytorch JIT")
     def test_int(self):
         shape = (BATCH, IN_CHANNEL, HEIGHT)

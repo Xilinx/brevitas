@@ -15,7 +15,7 @@ RANDOM_ITERS = 32
 class TestQuantReLU:
 
     @pytest.mark.skipif(version.parse(torch.__version__) == version.parse('1.2') and
-                        os.environ.get('PYTORCH_JIT', '0') == '0',
+                        os.environ.get('PYTORCH_JIT', '1') == '0',
                         reason="Known bug with Pytorch JIT")
     def test_scaling_stats_to_parameter(self):
 
