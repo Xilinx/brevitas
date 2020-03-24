@@ -3,7 +3,7 @@ import torch
 from brevitas.core.quant import QuantType
 from brevitas.core.scaling import ScalingImplType
 from brevitas.nn import QuantReLU
-from common import check_expected_fail
+from common import check_expected_pyt_120_fail
 
 BIT_WIDTH = 8
 MAX_VAL = 6.0
@@ -12,7 +12,7 @@ RANDOM_ITERS = 32
 
 class TestQuantReLU:
 
-    @check_expected_fail
+    @check_expected_pyt_120_fail
     def test_scaling_stats_to_parameter(self):
 
         stats_act = QuantReLU(bit_width=BIT_WIDTH,
