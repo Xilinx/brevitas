@@ -168,7 +168,6 @@ class QuantLinear(QuantLayer, Linear):
         # flows for those.
         ia = self.init_args
         if (
-            ia["bias"] == False and
             ia["weight_quant_type"] == QuantType.BINARY and
             ia["weight_bit_width"] == 1 and
             ia["weight_bit_width_impl_type"] == BitWidthImplType.CONST and
@@ -185,7 +184,6 @@ class QuantLinear(QuantLayer, Linear):
             ):
             return "BIPOLAR"
         elif (
-            ia["bias"] == False and
             ia["weight_quant_type"] == QuantType.INT and
             ia["weight_bit_width_impl_type"] == BitWidthImplType.CONST and
             ia["weight_quant_override"] == None and
@@ -212,6 +210,10 @@ class QuantLinear(QuantLayer, Linear):
         # if so this workaround prepare_for_export is not necessary.
         self.export_int_weight = torch.t(self.int_weight.type(torch.FloatTensor)).detach()
         self.export_quant_weight_scale = torch.t(self.quant_weight_scale.type(torch.FloatTensor)).detach()
+        if self.bias is not None:
+            self.export_bias = torch.t(self.bias.type(torch.FloatTensor)).detach()
+        else:
+            self.export_bias = None
 
     @property
     def int_weight(self):
@@ -237,10 +239,11 @@ class QuantLinear(QuantLayer, Linear):
     def forward(self, input):
         if self.export_mode:
             export_qnt_type = self.get_exportable_quantization_type()
-            return QuantizedLinearPlaceholderFunction.apply(
+            ret = QuantizedLinearPlaceholderFunction.apply(
                 input, self.export_int_weight, self.export_quant_weight_scale,
-                export_qnt_type, self.out_features
+                export_qnt_type, self.out_features, self.export_bias
                 )
+            return ret
         else:
             output_scale = None
             output_bit_width = None
