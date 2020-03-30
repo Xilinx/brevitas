@@ -44,7 +44,10 @@ import os
 from string import Template
 import torch
 from torch.utils.cpp_extension import BuildExtension, include_paths, library_paths
+from pkg_resources import normalize_path
 from distutils.command.build_py import build_py
+from setuptools.command.develop import develop
+from setuptools.command.install import install
 from setuptools import Extension
 import glob
 import sys
@@ -53,8 +56,30 @@ MIN_TORCH_JITTABLE_VERSION = "1.3.0"
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 REQUIREMENTS_DIR = os.path.join(PROJECT_ROOT, 'requirements')
 
+
+def apply_template(dest_build, version):
+    template_path = os.path.join('brevitas', 'function', 'ops_ste.py.template')
+    generated_path = os.path.join(dest_build, 'ops_ste.py')
+    if version.parse(torch.__version__) >= version.parse(MIN_TORCH_JITTABLE_VERSION):
+        d = dict(
+            function_suffix='',
+            function_prefix='torch.ops.brevitas.',
+            torch_jit_template='@torch.jit.script')
+    else:
+        d = dict(
+            function_suffix='_fn.apply',
+            function_prefix='',
+            torch_jit_template='@torch.jit.ignore')
+
+    template_file = Template(read(template_path))
+    generated_file = template_file.substitute(d)
+    with open(generated_path, 'w') as f:
+        f.write(generated_file)
+
+
 def read(*path):
     return open(os.path.join(*path)).read()
+
 
 def read_requirements(filename):
     return read(REQUIREMENTS_DIR, filename).splitlines()
@@ -117,25 +142,18 @@ class BuildPy(build_py):
             from packaging import version
             target_dir = os.path.join(self.build_lib, 'brevitas', 'function')
             self.mkpath(target_dir)
-            template_path = os.path.join('brevitas', 'function', 'ops_ste.py.template')
-            generated_path = os.path.join(target_dir, 'ops_ste.py')
-
-            if version.parse(torch.__version__) >= version.parse(MIN_TORCH_JITTABLE_VERSION):
-                d = dict(
-                    function_suffix='',
-                    function_prefix='torch.ops.brevitas.',
-                    torch_jit_template='@torch.jit.script')
-            else:
-                d = dict(
-                    function_suffix='_fn.apply',
-                    function_prefix='',
-                    torch_jit_template='@torch.jit.ignore')
-
-            template_file = Template(read(template_path))
-            generated_file = template_file.substitute(d)
-            with open(generated_path, 'w') as f:
-                f.write(generated_file)
+            apply_template(target_dir, version)
         build_py.run(self)
+
+class DevelopInstall(develop):
+    def run(self):
+        from packaging import version
+        super().run()
+        bext_cmd = self.get_finalized_command('build_ext')
+        build_path = normalize_path(bext_cmd.build_lib)
+        build_lib = os.path.dirname(os.path.dirname(build_path))
+        target_dir = os.path.join(build_lib, 'brevitas', 'function')
+        apply_template(target_dir, version)
 
 
 setup(name="Brevitas",
@@ -157,6 +175,7 @@ setup(name="Brevitas",
       cmdclass={
             'build_py': BuildPy,
             'build_ext': BuildJittableExtension.with_options(no_python_abi_suffix=True),
+            'develop': DevelopInstall,
         }
       )
 
