@@ -300,8 +300,6 @@ class QuantHardTanh(QuantActivation):
         # flows for those.
         ia = self.init_args
         if (
-            isclose(ia["min_val"], -1.0, atol=1e-2) and
-            isclose(ia["max_val"], 1.0, atol=1e-2) and
             ia["bit_width_impl_type"] == BitWidthImplType.CONST and
             ia["scaling_per_channel"] == False and
             ia["float_to_int_impl_type"] == FloatToIntImplType.ROUND and
@@ -314,11 +312,10 @@ class QuantHardTanh(QuantActivation):
             ia["max_overall_bit_width"] == None and
             ia["bit_width_impl_override"] == None and
             ia["restrict_bit_width_type"] == RestrictValueType.INT and
-            ia["scaling_min_val"] == SCALING_MIN_VAL and
             ia["override_pretrained_bit_width"] == False and
             ia["return_quant_tensor"] == False
             ):
-            if ia["bit_width"] == 1 and ia["quant_type"] == QuantType.BINARY and ia["scaling_impl_type"] == ScalingImplType.CONST:
+            if ia["bit_width"] == 1 and ia["quant_type"] == QuantType.BINARY:
                 return "BIPOLAR"
             elif ia["quant_type"] == QuantType.INT:
                 # note: even though this particular config is intx (signed)
