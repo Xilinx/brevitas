@@ -3,6 +3,7 @@ import os
 import yaml
 import nox
 from packaging import version
+from platform import system
 
 
 PYTORCH_CPU_VIRTUAL_PKG = '1.2.0'
@@ -34,6 +35,22 @@ def tests_cpu(session, pytorch, jit_status):
     session.install('.[test]')
     session.run('pytest', '-v')
 
+
+@nox.session(venv_backend="conda", python=CONDA_PYTHON_VERSIONS)
+@nox.parametrize("pytorch", PYTORCH_VERSIONS, ids=PYTORCH_IDS)
+def tests_install_develop(session, pytorch):
+    if version.parse(pytorch) >= version.parse(PYTORCH_CPU_VIRTUAL_PKG):
+        session.conda_install('-c', 'pytorch', f'pytorch=={pytorch}', 'cpuonly')
+    else:
+        session.conda_install('-c', 'pytorch', f'pytorch-cpu=={pytorch}')
+    session.install('-e', '.')
+    if system() == 'Windows':
+        env = session.env
+        nox.command.run(['python', '-c', 'import brevitas'], env=env, path=os.path.dirname(session.bin))
+        nox.command.run(['python', '-c', 'import brevitas.function.ops_ste'], env=env, path=os.path.dirname(session.bin))
+    else:
+        session.run('python', '-c', 'import brevitas')
+        session.run('python', '-c', 'import brevitas.function.ops_ste')
 
 @nox.session(python=False)
 @nox.parametrize("pytorch", PYTORCH_VERSIONS, ids=PYTORCH_IDS)

@@ -116,9 +116,13 @@ jobs:
         rm -R ${{ steps.cache-dirs.outputs.pytorch_pkg_cache_path }}/pytorch*
       if: steps.pytorch-cache.outputs.cache-hit == 'true'
 
-    - name: Run Nox session
+    - name: Run Nox session for pytest
       shell: bash
       run: nox --verbose --session tests_cpu-${{ matrix.conda_python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)
+
+    - name: Run Nox session for import tests
+      shell: bash
+      run: nox --verbose --session tests_install_develop-${{ matrix.conda_python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)
 
     - name: Remove tarballs before caching Pytorch deps pkgs
       shell: bash
