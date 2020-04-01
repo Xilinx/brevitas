@@ -204,7 +204,7 @@ class QuantLinear(QuantLayer, Linear):
 
         if self.compute_output_bit_width and bias_bit_width is not None:
             output_bit_width = torch.where(bias_bit_width > output_bit_width, bias_bit_width, output_bit_width)
-
+            output_bit_width = output_bit_width + 1
         return self.pack_output(output, output_scale, output_bit_width)
 
     def max_output_bit_width(self, input_bit_width, weight_bit_width):

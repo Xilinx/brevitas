@@ -238,6 +238,7 @@ class QuantConv1d(QuantLayer, Conv1d):
             output_bit_width = torch.where(quant_bias_bit_width > output_bit_width,
                                            quant_bias_bit_width,
                                            output_bit_width)
+            output_bit_width = output_bit_width + 1
 
         return self.pack_output(output, output_scale, output_bit_width)
 
