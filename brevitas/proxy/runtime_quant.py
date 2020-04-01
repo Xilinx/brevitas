@@ -50,6 +50,7 @@ from brevitas.core.function_wrapper import TensorClamp
 from brevitas.core.quant import PrescaledRestrictIntQuantWithInputBitWidth, ClampedBinaryQuant
 from brevitas.core.quant import QuantType, IdentityPrescaledIntQuant
 from brevitas.core.quant import RescalingIntQuant, IdentityQuant
+from brevitas.function.ops_ste import round_ste
 from brevitas.core.restrict_val import RestrictValueType, RestrictValue, FloatToIntImplType, RestrictValueOpImplType
 from brevitas.core.scaling import RuntimeStatsScaling, SCALING_SCALAR_SHAPE, StatsInputViewShapeImpl
 from brevitas.core.scaling import ScalingImplType, StandaloneScaling, IntScaling
@@ -344,6 +345,7 @@ class TruncQuantProxy(QuantProxy):
             raise Exception("Quantization type {} not supported for accumulators.".format(quant_type))
 
     def forward(self, x, input_scale, input_bit_width):
+        x = round_ste(x / input_scale) * input_scale  # clean up fp errors before floor
         trunc_bit_width = self.lsb_trunc_bit_width_impl(input_bit_width, self.zero_hw_sentinel)
         trunc_scale = 2.0 ** trunc_bit_width
         output_scale = trunc_scale * input_scale
