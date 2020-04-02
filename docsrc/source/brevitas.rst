@@ -8,7 +8,6 @@ Subpackages
 
    brevitas.core
    brevitas.function
-   brevitas.loss
    brevitas.nn
    brevitas.proxy
    brevitas.utils
