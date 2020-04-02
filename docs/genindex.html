@@ -22,10 +22,10 @@
   
     
       <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
-        <script type="text/javascript" src="_static/jquery.js"></script>
-        <script type="text/javascript" src="_static/underscore.js"></script>
-        <script type="text/javascript" src="_static/doctools.js"></script>
-        <script type="text/javascript" src="_static/language_data.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/language_data.js"></script>
     
     <script type="text/javascript" src="_static/js/theme.js"></script>
 
@@ -214,7 +214,7 @@
 </li>
       <li><a href="brevitas.core.html#brevitas.core.quant.QuantType.BINARY">BINARY (brevitas.core.quant.QuantType attribute)</a>
 </li>
-      <li><a href="brevitas.function.html#brevitas.function.ops_ste.binary_sign_ste">binary_sign_ste() (in module brevitas.function.ops_ste)</a>, <a href="brevitas.function.html#brevitas.function.ops_ste.binary_sign_ste">[1]</a>
+      <li><a href="brevitas.function.html#brevitas.function.ops_ste.binary_sign_ste">binary_sign_ste() (in module brevitas.function.ops_ste)</a>
 </li>
       <li><a href="brevitas.function.html#brevitas.function.autograd_ops.binary_sign_ste_fn">binary_sign_ste_fn (class in brevitas.function.autograd_ops)</a>
 </li>
@@ -304,7 +304,7 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="brevitas.core.html#brevitas.core.restrict_val.FloatToIntImplType.CEIL">CEIL (brevitas.core.restrict_val.FloatToIntImplType attribute)</a>
 </li>
-      <li><a href="brevitas.function.html#brevitas.function.ops_ste.ceil_ste">ceil_ste() (in module brevitas.function.ops_ste)</a>, <a href="brevitas.function.html#brevitas.function.ops_ste.ceil_ste">[1]</a>
+      <li><a href="brevitas.function.html#brevitas.function.ops_ste.ceil_ste">ceil_ste() (in module brevitas.function.ops_ste)</a>
 </li>
       <li><a href="brevitas.function.html#brevitas.function.autograd_ops.ceil_ste_fn">ceil_ste_fn (class in brevitas.function.autograd_ops)</a>
 </li>
@@ -314,10 +314,12 @@
 </li>
       <li><a href="brevitas.html#brevitas.quant_tensor.QuantTensor.check_scaling_factors_same">check_scaling_factors_same() (brevitas.quant_tensor.QuantTensor method)</a>
 </li>
-      <li><a href="brevitas.core.html#brevitas.core.function_wrapper.ClampMin">ClampMin (class in brevitas.core.function_wrapper)</a>
+      <li><a href="brevitas.core.html#brevitas.core.quant.ClampedBinaryQuant">ClampedBinaryQuant (class in brevitas.core.quant)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="brevitas.core.html#brevitas.core.function_wrapper.ClampMin">ClampMin (class in brevitas.core.function_wrapper)</a>
+</li>
       <li><a href="brevitas.nn.html#brevitas.nn.quant_accumulator.ClampQuantAccumulator">ClampQuantAccumulator (class in brevitas.nn.quant_accumulator)</a>
 </li>
       <li><a href="brevitas.proxy.html#brevitas.proxy.runtime_quant.ClampQuantProxy">ClampQuantProxy (class in brevitas.proxy.runtime_quant)</a>
@@ -352,7 +354,7 @@
 </li>
       <li><a href="brevitas.core.html#brevitas.core.restrict_val.FloatToIntImplType.FLOOR">FLOOR (brevitas.core.restrict_val.FloatToIntImplType attribute)</a>
 </li>
-      <li><a href="brevitas.function.html#brevitas.function.ops_ste.floor_ste">floor_ste() (in module brevitas.function.ops_ste)</a>, <a href="brevitas.function.html#brevitas.function.ops_ste.floor_ste">[1]</a>
+      <li><a href="brevitas.function.html#brevitas.function.ops_ste.floor_ste">floor_ste() (in module brevitas.function.ops_ste)</a>
 </li>
       <li><a href="brevitas.function.html#brevitas.function.autograd_ops.floor_ste_fn">floor_ste_fn (class in brevitas.function.autograd_ops)</a>
 </li>
@@ -361,6 +363,8 @@
       <li><a href="brevitas.core.html#brevitas.core.bit_width.ZeroLsbTruncBitWidth.forward">forward() (brevitas.core.bit_width.ZeroLsbTruncBitWidth method)</a>
 
       <ul>
+        <li><a href="brevitas.core.html#brevitas.core.quant.IdentityQuant.forward">(brevitas.core.quant.IdentityQuant method)</a>
+</li>
         <li><a href="brevitas.core.html#brevitas.core.scaling.AffineRescaling.forward">(brevitas.core.scaling.AffineRescaling method)</a>
 </li>
         <li><a href="brevitas.function.html#brevitas.function.autograd_ops.binary_sign_ste_fn.forward">(brevitas.function.autograd_ops.binary_sign_ste_fn static method)</a>
@@ -440,6 +444,12 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="brevitas.core.html#brevitas.core.function_wrapper.Identity">Identity (class in brevitas.core.function_wrapper)</a>
 </li>
+      <li><a href="brevitas.core.html#brevitas.core.bit_width.IdentityBitWidth">IdentityBitWidth (class in brevitas.core.bit_width)</a>
+</li>
+      <li><a href="brevitas.core.html#brevitas.core.quant.IdentityPrescaledIntQuant">IdentityPrescaledIntQuant (class in brevitas.core.quant)</a>
+</li>
+      <li><a href="brevitas.core.html#brevitas.core.quant.IdentityQuant">IdentityQuant (class in brevitas.core.quant)</a>
+</li>
       <li><a href="brevitas.core.html#brevitas.core.quant.QuantType.INT">INT (brevitas.core.quant.QuantType attribute)</a>
 
       <ul>
@@ -456,6 +466,8 @@
         <li><a href="brevitas.proxy.html#brevitas.proxy.parameter_quant.WeightQuantProxy.int_weight">(brevitas.proxy.parameter_quant.WeightQuantProxy method)</a>
 </li>
       </ul></li>
+      <li><a href="brevitas.core.html#brevitas.core.quant.IntQuant">IntQuant (class in brevitas.core.quant)</a>
+</li>
       <li><a href="brevitas.core.html#brevitas.core.scaling.IntScaling">IntScaling (class in brevitas.core.scaling)</a>
 </li>
   </ul></td>
@@ -578,9 +590,9 @@
 </li>
       <li><a href="brevitas.core.html#brevitas.core.scaling.PowerOfTwoIntScale">PowerOfTwoIntScale (class in brevitas.core.scaling)</a>
 </li>
-      <li><a href="brevitas.core.html#brevitas.core.quant.PrescaledIntQuant">PrescaledIntQuant (class in brevitas.core.quant)</a>
-</li>
       <li><a href="brevitas.core.html#brevitas.core.quant.PrescaledRestrictIntQuant">PrescaledRestrictIntQuant (class in brevitas.core.quant)</a>
+</li>
+      <li><a href="brevitas.core.html#brevitas.core.quant.PrescaledRestrictIntQuantWithInputBitWidth">PrescaledRestrictIntQuantWithInputBitWidth (class in brevitas.core.quant)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -658,7 +670,7 @@
 </li>
       <li><a href="brevitas.core.html#brevitas.core.restrict_val.FloatToIntImplType.ROUND">ROUND (brevitas.core.restrict_val.FloatToIntImplType attribute)</a>
 </li>
-      <li><a href="brevitas.function.html#brevitas.function.ops_ste.round_ste">round_ste() (in module brevitas.function.ops_ste)</a>, <a href="brevitas.function.html#brevitas.function.ops_ste.round_ste">[1]</a>
+      <li><a href="brevitas.function.html#brevitas.function.ops_ste.round_ste">round_ste() (in module brevitas.function.ops_ste)</a>
 </li>
       <li><a href="brevitas.function.html#brevitas.function.autograd_ops.round_ste_fn">round_ste_fn (class in brevitas.function.autograd_ops)</a>
 </li>
@@ -672,7 +684,7 @@
 <h2 id="S">S</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="brevitas.function.html#brevitas.function.ops_ste.scalar_clamp_ste">scalar_clamp_ste() (in module brevitas.function.ops_ste)</a>, <a href="brevitas.function.html#brevitas.function.ops_ste.scalar_clamp_ste">[1]</a>
+      <li><a href="brevitas.function.html#brevitas.function.ops_ste.scalar_clamp_ste">scalar_clamp_ste() (in module brevitas.function.ops_ste)</a>
 </li>
       <li><a href="brevitas.function.html#brevitas.function.autograd_ops.scalar_clamp_ste_fn">scalar_clamp_ste_fn (class in brevitas.function.autograd_ops)</a>
 </li>
@@ -710,7 +722,7 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="brevitas.function.html#brevitas.function.ops.tensor_clamp">tensor_clamp() (in module brevitas.function.ops)</a>
 </li>
-      <li><a href="brevitas.function.html#brevitas.function.ops_ste.tensor_clamp_ste">tensor_clamp_ste() (in module brevitas.function.ops_ste)</a>, <a href="brevitas.function.html#brevitas.function.ops_ste.tensor_clamp_ste">[1]</a>
+      <li><a href="brevitas.function.html#brevitas.function.ops_ste.tensor_clamp_ste">tensor_clamp_ste() (in module brevitas.function.ops_ste)</a>
 </li>
       <li><a href="brevitas.function.html#brevitas.function.autograd_ops.tensor_clamp_ste_fn">tensor_clamp_ste_fn (class in brevitas.function.autograd_ops)</a>
 </li>
@@ -720,7 +732,7 @@
 </li>
       <li><a href="brevitas.core.html#brevitas.core.quant.QuantType.TERNARY">TERNARY (brevitas.core.quant.QuantType attribute)</a>
 </li>
-      <li><a href="brevitas.function.html#brevitas.function.ops_ste.ternary_sign_ste">ternary_sign_ste() (in module brevitas.function.ops_ste)</a>, <a href="brevitas.function.html#brevitas.function.ops_ste.ternary_sign_ste">[1]</a>
+      <li><a href="brevitas.function.html#brevitas.function.ops_ste.ternary_sign_ste">ternary_sign_ste() (in module brevitas.function.ops_ste)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
