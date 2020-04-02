@@ -60,8 +60,9 @@ from brevitas.function.ops import max_uint
 from brevitas.function.ops_ste import ceil_ste
 from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy, WeightReg
 from brevitas.utils.python_utils import AutoName
-from brevitas.nn.quant_layer import QuantLayer, SCALING_MIN_VAL
+from brevitas.nn.quant_layer import QuantWeightLayer, SCALING_MIN_VAL
 from brevitas import docstrings
+import brevitas.config as config
 
 __all__ = ['QuantConvTranspose1d']
 
@@ -72,7 +73,7 @@ class PaddingType(AutoName):
 
 
 @docstrings.dedent
-class QuantConvTranspose1d(QuantLayer, ConvTranspose1d):
+class QuantConvTranspose1d(QuantWeightLayer, ConvTranspose1d):
     """
 
         Parameters
@@ -118,7 +119,7 @@ class QuantConvTranspose1d(QuantLayer, ConvTranspose1d):
                  compute_output_bit_width: bool = False,
                  return_quant_tensor: bool = False,
                  deterministic: bool = False) -> None:
-        QuantLayer.__init__(self,
+        QuantWeightLayer.__init__(self,
                             compute_output_scale=compute_output_scale,
                             compute_output_bit_width=compute_output_bit_width,
                             return_quant_tensor=return_quant_tensor)
@@ -140,8 +141,9 @@ class QuantConvTranspose1d(QuantLayer, ConvTranspose1d):
         if torch.backends.cudnn.benchmark:
             torch.backends.cudnn.deterministic = deterministic
 
-        # self.per_elem_ops = 2 * self.kernel_size[0] * (in_channels // groups) # TO DO: Implement op_count
+        # self.per_elem_ops = 2 * self.kernel_size[0] * (in_channels // groups) # TODO: Implement op_count
         self.padding_type = padding_type
+        self.weight_int = None
         self.weight_reg = WeightReg()
 
         if weight_quant_override is not None:
@@ -203,7 +205,10 @@ class QuantConvTranspose1d(QuantLayer, ConvTranspose1d):
     def int_weight(self):
         if isinstance(self.weight_quant.tensor_quant, IdentityQuant):
             raise Exception("Can't export int weight without quantization enabled")
-        return self.weight_quant.int_weight(self.weight)
+        if not self.training and config.USE_DYNAMIC_QUANTIZATION:
+            return self.weight_int[0] if self.weight_int is not None else self.weight_quant(self.weight)[0]
+        else:
+            return self.weight_quant.int_weight(self.weight)
 
     @property
     def quant_weight_scale(self):
@@ -224,32 +229,42 @@ class QuantConvTranspose1d(QuantLayer, ConvTranspose1d):
         output_scale = None
         output_bit_width = None
         quant_bias_bit_width = None
+        enable_dynamic_quant = False
 
+        if not self.training and config.USE_DYNAMIC_QUANTIZATION:
+            enable_dynamic_quant = True
+
+        quant_weight, input, self.weight_int = self.dynamic_quant(self.weight, input, self.weight_int,
+                                                                  self.weight_quant,
+                                                                  enable_dynamic_quant)
         input, input_scale, input_bit_width = self.unpack_input(input)
-        quant_weight, quant_weight_scale, quant_weight_bit_width = self.weight_quant(self.weight)
+        quant_weight, quant_weight_scale, quant_weight_bit_width = quant_weight
         quant_weight = self.weight_reg(quant_weight)
 
         if self.compute_output_bit_width:
             assert input_bit_width is not None
             output_bit_width = self.max_output_bit_width(input_bit_width, quant_weight_bit_width)
-        if self.compute_output_scale:
-            assert input_scale is not None
-            output_scale = input_scale * quant_weight_scale
+        if self.compute_output_scale or enable_dynamic_quant:
+            if input_scale is not None:
+                output_scale = input_scale * quant_weight_scale
 
         output_padding = self.compute_output_padding(input, output_size)
 
         if self.bias is not None:
             quant_bias, _, quant_bias_bit_width = self.bias_quant(self.bias, output_scale, output_bit_width)
-            output = self.conv_transpose1d(input, quant_weight, quant_bias, output_padding)
-        else:
-            output = self.conv_transpose1d(input, quant_weight, None, output_padding)
+        output = self.conv_transpose1d(input, quant_weight, None, output_padding)
 
         if self.compute_output_bit_width and quant_bias_bit_width is not None:
             output_bit_width = torch.where(quant_bias_bit_width > output_bit_width,
                                            quant_bias_bit_width,
                                            output_bit_width)
             output_bit_width = output_bit_width + 1
-            
+
+        if enable_dynamic_quant and input_scale is not None:
+            output = output * output_scale
+        if self.bias is not None:
+            output = output + quant_bias.view(1, -1, 1)
+
         return self.pack_output(output, output_scale, output_bit_width)
 
     def compute_output_padding(self, input, output_size):

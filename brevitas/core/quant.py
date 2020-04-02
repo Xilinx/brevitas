@@ -37,7 +37,7 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-
+import os
 from enum import auto
 from typing import Optional, Tuple, Union
 
@@ -48,6 +48,7 @@ from torch.nn import Module
 from brevitas.utils.python_utils import AutoName
 from brevitas.function.ops import tensor_clamp, min_int, max_int, max_uint
 from brevitas.function.ops_ste import tensor_clamp_ste, binary_sign_ste, ternary_sign_ste
+import brevitas.config
 
 
 __all__ = ['QuantType', 'BinaryQuant', 'TernaryQuant', 'RescalingIntQuant',
@@ -122,7 +123,9 @@ class BinaryQuant(torch.jit.ScriptModule):
     @torch.jit.script_method
     def forward(self, x: Tensor, zero_hw_sentinel: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
         scale = self.scaling_impl(zero_hw_sentinel)
-        y = binary_sign_ste(x) * scale
+        y = binary_sign_ste(x)
+        if (not self.training) and brevitas.config.USE_DYNAMIC_QUANTIZATION:
+            y = y * scale
         return y, scale, zero_hw_sentinel + self.bit_width
 
 
@@ -181,7 +184,9 @@ class ClampedBinaryQuant(torch.jit.ScriptModule):
     def forward(self, x: Tensor, zero_hw_sentinel: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
         scale = self.scaling_impl(zero_hw_sentinel)
         y = tensor_clamp(x, - scale, scale)
-        y = binary_sign_ste(y) * scale
+        y = binary_sign_ste(y)
+        if (not self.training) and brevitas.config.USE_DYNAMIC_QUANTIZATION:
+            y = y * scale
         return y, scale, zero_hw_sentinel + self.bit_width
 
 
@@ -248,7 +253,9 @@ class TernaryQuant(torch.jit.ScriptModule):
         scale = self.scaling_impl(zero_hw_sentinel)
         mask = x.abs().ge(self.threshold * scale)
         y = mask.float() * ternary_sign_ste(x)
-        y = y * scale
+        y = y
+        if (not self.training) and brevitas.config.USE_DYNAMIC_QUANTIZATION:
+            y = y * scale
         return y, scale, zero_hw_sentinel + self.bit_width
 
 
@@ -684,6 +691,9 @@ class IntQuant(torch.jit.ScriptModule):
                 msb_clamp_bit_width: Tensor,
                 x: Tensor) -> Tensor:
         y_int = self.to_int(scale, int_scale, msb_clamp_bit_width, x)
-        y = y_int / int_scale
-        y = y * scale
+        if (not self.training) and brevitas.config.USE_DYNAMIC_QUANTIZATION:
+            y = y_int
+        else:
+            y = y_int / int_scale
+            y = y * scale
         return y

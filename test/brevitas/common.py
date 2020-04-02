@@ -5,26 +5,32 @@ from packaging import version
 import torch
 
 # Setup expected fail for Pytorch 1.2.0 and JIT Disabled
-PYT_120_JIT_CONDITION = version.parse(torch.__version__) == version.parse('1.2') and os.environ.get('PYTORCH_JIT', '1') == '0'
+PYT_120_JIT_CONDITION = version.parse(torch.__version__) == version.parse('1.2') and os.environ.get('PYTORCH_JIT',
+                                                                                                    '1') == '0'
 PYT_120_JIT_REASON = 'Known bug to Pytorch 1.2.0 with JIT disabled'
 check_expected_pyt_120_fail = pytest.mark.xfail(PYT_120_JIT_CONDITION, reason=PYT_120_JIT_REASON, raises=RuntimeError)
 
 # Setup expected fail for mock and JIT Enabled for Pytorch < 1.4.0
-MOCK_JIT_CONDITION = version.parse(torch.__version__) < version.parse('1.4') and os.environ.get('PYTORCH_JIT', '1') == '1'
+MOCK_JIT_CONDITION = version.parse(torch.__version__) < version.parse('1.4') and os.environ.get('PYTORCH_JIT',
+                                                                                                '1') == '1'
 MOCK_JIT_REASON = 'Cannot use Mock class with pytorch JIT enabled'
 check_mock_jit_pyt_l140_fail = pytest.mark.xfail(MOCK_JIT_CONDITION, reason=MOCK_JIT_REASON, raises=AttributeError)
 
 # Setup expected fail for mock and JIT Enabled for Pytorch >= 1.4.0
-MOCK_JIT_CONDITION = version.parse(torch.__version__) >= version.parse('1.4') and os.environ.get('PYTORCH_JIT', '1') == '1'
+MOCK_JIT_CONDITION = version.parse(torch.__version__) >= version.parse('1.4') and os.environ.get('PYTORCH_JIT',
+                                                                                                 '1') == '1'
 MOCK_JIT_REASON = 'Cannot use Mock class with pytorch JIT enabled'
 check_mock_jit_pyt_ge140_fail = pytest.mark.xfail(MOCK_JIT_CONDITION, reason=MOCK_JIT_REASON, raises=RuntimeError)
+
 
 def combine_conditions(*decs):
     def deco(f):
         for dec in reversed(decs):
             f = dec(f)
         return f
+
     return deco
+
 
 # Set Constants
 RTOL = 0
@@ -37,8 +43,31 @@ FP_BIT_WIDTH = 32
 # exclude zero. For scale factor, we want only positive numbers
 float_st = st.floats(allow_nan=False, allow_infinity=False, width=FP_BIT_WIDTH)
 float_st_nz = st.floats(allow_nan=False, allow_infinity=False, width=FP_BIT_WIDTH).filter(lambda x: x != 0.0)
-float_st_p = st.floats(min_value=0.0, exclude_min=True, allow_nan=False, allow_infinity=False, width=FP_BIT_WIDTH)
+float_st_p = st.floats(min_value=0.0, max_value=10, exclude_min=True, allow_nan=False, allow_infinity=False, width=FP_BIT_WIDTH)
 list_float_st = st.lists(float_st, min_size=1)
+
+
+# Create custom strategy for generating three floating point numbers such that minimum < value < maximum
+# Used for Clamps function
+@st.composite
+def generate_quant_input(draw, MIN_BIT_WIDTH, MAX_BIT_WIDTH):
+    narrow_band = True
+    signed = True
+    bit = draw(st.integers(min_value=MIN_BIT_WIDTH, max_value=MAX_BIT_WIDTH))
+    scale = draw(float_st_p)
+    n_elements = 2 ** bit
+    min_value = 0
+    if narrow_band and signed:
+        min_value = 1
+
+    input_tensor = []
+    for i in range(0, 36):
+        input_tensor.append(draw(st.integers(min_value=min_value, max_value=2**bit)))
+    input_tensor = torch.tensor(input_tensor, dtype=torch.int)
+    if signed:
+        input_tensor = input_tensor - n_elements / 2
+
+    return input_tensor.float(), scale, bit
 
 
 # Create custom strategy for generating two lists of floats with equal size

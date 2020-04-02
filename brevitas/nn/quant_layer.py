@@ -40,7 +40,8 @@
 
 from abc import ABCMeta, abstractmethod
 from brevitas.quant_tensor import QuantTensor
-
+import brevitas.config as config
+import torch
 
 SCALING_MIN_VAL = 2.0 ** (-16)
 
@@ -63,7 +64,49 @@ class QuantLayer(object):
                     output,
                     output_scale,
                     output_bit_width):
-        if self.return_quant_tensor:
+        if self.return_quant_tensor or (config.USE_DYNAMIC_QUANTIZATION and not self.training):
             return QuantTensor(tensor=output, scale=output_scale, bit_width=output_bit_width)
         else:
             return output
+
+
+class QuantWeightLayer(object):
+    __metaclass__ = ABCMeta
+
+    def __init__(self, compute_output_scale, compute_output_bit_width, return_quant_tensor):
+        self.compute_output_scale = compute_output_scale
+        self.compute_output_bit_width = compute_output_bit_width
+        self.return_quant_tensor = return_quant_tensor
+
+    def unpack_input(self, input):
+        if isinstance(input, QuantTensor):
+            return input
+        else:
+            return input, None, None
+
+    def pack_output(self,
+                    output,
+                    output_scale,
+                    output_bit_width):
+        if self.return_quant_tensor or (config.USE_DYNAMIC_QUANTIZATION and not self.training):
+            return QuantTensor(tensor=output, scale=output_scale, bit_width=output_bit_width)
+        else:
+            return output
+
+    def dynamic_quant(self, weight, input, weight_int, weight_quant, enable_dynamic_quant=False):
+        input, input_scale, input_bit_width = self.unpack_input(input)
+
+        if enable_dynamic_quant:
+            if weight_int is None:
+                weight_int = weight_quant(weight)
+
+            quant_weight, quant_weight_scale, quant_weight_bit_width = weight_int
+            if input_scale is None:
+                quant_weight = quant_weight * quant_weight_scale
+        else:
+            quant_weight, quant_weight_scale, quant_weight_bit_width = weight_quant(weight)
+
+        quant_weight = (quant_weight, quant_weight_scale, quant_weight_bit_width)
+        input = QuantTensor(tensor=input, scale=input_scale, bit_width=input_bit_width)
+
+        return quant_weight, input, weight_int

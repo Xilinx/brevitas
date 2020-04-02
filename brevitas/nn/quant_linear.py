@@ -55,13 +55,14 @@ from brevitas.function.ops_ste import ceil_ste
 from brevitas.function.ops import max_uint
 from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy, WeightReg
 from brevitas import docstrings
-from .quant_layer import QuantLayer, SCALING_MIN_VAL
+from .quant_layer import QuantWeightLayer, SCALING_MIN_VAL
+import brevitas.config as config
 
 __all__ = ['QuantLinear']
 
 
 @docstrings.dedent
-class QuantLinear(QuantLayer, Linear):
+class QuantLinear(QuantWeightLayer, Linear):
     """
 
         Parameters
@@ -98,7 +99,7 @@ class QuantLinear(QuantLayer, Linear):
                  compute_output_scale: bool = False,
                  compute_output_bit_width: bool = False,
                  return_quant_tensor: bool = False) -> None:
-        QuantLayer.__init__(self,
+        QuantWeightLayer.__init__(self,
                             compute_output_scale=compute_output_scale,
                             compute_output_bit_width=compute_output_bit_width,
                             return_quant_tensor=return_quant_tensor)
@@ -113,6 +114,7 @@ class QuantLinear(QuantLayer, Linear):
 
         self.per_elem_ops = 2 * in_features
         self.weight_reg = WeightReg()
+        self.weight_int = None
 
         if weight_quant_override is not None:
             self.weight_quant = weight_quant_override
@@ -161,8 +163,11 @@ class QuantLinear(QuantLayer, Linear):
     @property
     def int_weight(self):
         if isinstance(self.weight_quant.tensor_quant, IdentityQuant):
-            raise Exception("Can't generate int weight without quantization enabled")
-        return self.weight_quant.int_weight(self.weight)
+            raise Exception("Can't export int weight without quantization enabled")
+        if not self.training and config.USE_DYNAMIC_QUANTIZATION:
+            return self.weight_int[0] if self.weight_int is not None else self.weight_quant(self.weight)[0]
+        else:
+            return self.weight_quant.int_weight(self.weight)
 
     @property
     def quant_weight_scale(self):
@@ -183,28 +188,38 @@ class QuantLinear(QuantLayer, Linear):
         output_scale = None
         output_bit_width = None
         bias_bit_width = None
+        enable_dynamic_quant = False
 
+        if not self.training and config.USE_DYNAMIC_QUANTIZATION:
+            enable_dynamic_quant = True
+
+        quant_weight, input, self.weight_int = self.dynamic_quant(self.weight, input, self.weight_int, self.weight_quant,
+                                                                  enable_dynamic_quant)
+        quant_weight, quant_weight_scale, quant_weight_bit_width = quant_weight
         input, input_scale, input_bit_width = self.unpack_input(input)
 
-        quant_weight, quant_weight_scale, quant_weight_bit_width = self.weight_quant(self.weight)
         quant_weight = self.weight_reg(quant_weight)
 
         if self.compute_output_bit_width:
             assert input_bit_width is not None
             output_bit_width = self.max_output_bit_width(input_bit_width, quant_weight_bit_width)
-        if self.compute_output_scale:
-            assert input_scale is not None
-            output_scale = input_scale * quant_weight_scale
+        if self.compute_output_scale or enable_dynamic_quant:
+            if input_scale is not None:
+                output_scale = input_scale * quant_weight_scale
 
         if self.bias is not None:
             quant_bias, _, bias_bit_width = self.bias_quant(self.bias, output_scale, output_bit_width)
-            output = linear(input, quant_weight, quant_bias)
-        else:
-            output = linear(input, quant_weight, None)
+        output = linear(input, quant_weight, None)
 
         if self.compute_output_bit_width and bias_bit_width is not None:
             output_bit_width = torch.where(bias_bit_width > output_bit_width, bias_bit_width, output_bit_width)
             output_bit_width = output_bit_width + 1
+
+        if enable_dynamic_quant and input_scale is not None:
+            output = output * output_scale
+        if self.bias is not None:
+            output = output + quant_bias.view(1, 1, 1, -1)
+
         return self.pack_output(output, output_scale, output_bit_width)
 
     def max_output_bit_width(self, input_bit_width, weight_bit_width):

@@ -9,9 +9,9 @@ from brevitas.core.restrict_val import RestrictValueType
 from brevitas.core.scaling import ScalingImplType, SCALING_SCALAR_SHAPE
 from brevitas.core.stats import StatsInputViewShapeImpl, StatsOp
 from brevitas.nn.quant_layer import SCALING_MIN_VAL
-from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy
-from brevitas.proxy.runtime_quant import OVER_BATCH_OVER_CHANNELS_4D_SHAPE
-from .quant_layer import QuantLayer
+from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy, OVER_BATCH_OVER_CHANNELS_4D_SHAPE
+from .quant_layer import QuantWeightLayer
+import brevitas.config as config
 
 __all__ = ['ScaleBias', 'QuantScaleBias']
 
@@ -27,7 +27,7 @@ class ScaleBias(nn.Module):
         return x * self.weight + self.bias
 
 
-class QuantScaleBias(QuantLayer, ScaleBias):
+class QuantScaleBias(QuantWeightLayer, ScaleBias):
 
     def __init__(self,
                  num_features,
@@ -49,12 +49,12 @@ class QuantScaleBias(QuantLayer, ScaleBias):
                  compute_output_scale: bool = False,
                  compute_output_bit_width: bool = False,
                  return_quant_tensor: bool = False):
-        QuantLayer.__init__(self,
+        QuantWeightLayer.__init__(self,
                             compute_output_scale=compute_output_scale,
                             compute_output_bit_width=compute_output_bit_width,
                             return_quant_tensor=return_quant_tensor)
         ScaleBias.__init__(self, num_features)
-
+        self.weight_int = None
         if bias_quant_type != QuantType.FP and not self.compute_output_scale:
             raise Exception("Quantizing bias requires to compute output scale")
         if bias_quant_type != QuantType.FP and bias_bit_width is None and not self.compute_output_bit_width:
@@ -109,23 +109,34 @@ class QuantScaleBias(QuantLayer, ScaleBias):
     def forward(self, quant_tensor):
         output_scale = None
         output_bit_width = None
+        enable_dynamic_quant = False
 
-        input_tensor, input_scale, input_bit_width = self.unpack_input(quant_tensor)
-        quant_weight, quant_weight_scale, quant_weight_bit_width = self.weight_quant(self.weight.view(-1, 1))
+        # input_tensor, input_scale, input_bit_width = self.unpack_input(quant_tensor)
+        # quant_weight, quant_weight_scale, quant_weight_bit_width = self.weight_quant(self.weight.view(-1, 1))
 
+        if not self.training and config.USE_DYNAMIC_QUANTIZATION:
+            enable_dynamic_quant = True
+
+        quant_weight, input, self.weight_int = self.dynamic_quant(self.weight.view(-1, 1), quant_tensor, self.weight_int,
+                                                                  self.weight_quant,
+                                                                  enable_dynamic_quant)
+        input, input_scale, input_bit_width = self.unpack_input(input)
+        quant_weight, quant_weight_scale, quant_weight_bit_width = quant_weight
         if self.compute_output_bit_width:
             assert input_bit_width is not None
             output_bit_width = input_bit_width + quant_weight_bit_width
-        if self.compute_output_scale:
-            assert input_scale is not None
-            output_scale = input_scale * quant_weight_scale
+        if self.compute_output_scale or enable_dynamic_quant:
+            if input_scale is not None:
+                output_scale = input_scale * quant_weight_scale
 
         # if bias_bit_width is not None, input_bit_width is ignored
         quant_bias, _, quant_bias_bit_width = self.bias_quant(self.bias, output_scale, input_bit_width)
 
         quant_weight = quant_weight.view(OVER_BATCH_OVER_CHANNELS_4D_SHAPE)
         quant_bias = quant_bias.view(OVER_BATCH_OVER_CHANNELS_4D_SHAPE)
-        output = input_tensor * quant_weight + quant_bias
+        if enable_dynamic_quant and input_scale is not None:
+            quant_weight = quant_weight * output_scale
+        output = input * quant_weight + quant_bias
 
         if self.compute_output_bit_width and quant_bias_bit_width is not None:
             output_bit_width = torch.where(quant_bias_bit_width > output_bit_width,
