@@ -124,8 +124,7 @@ class BinaryQuant(torch.jit.ScriptModule):
     def forward(self, x: Tensor, zero_hw_sentinel: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
         scale = self.scaling_impl(zero_hw_sentinel)
         y = binary_sign_ste(x)
-        if (not self.training) and brevitas.config.USE_DYNAMIC_QUANTIZATION:
-            y = y * scale
+        y = y * scale
         return y, scale, zero_hw_sentinel + self.bit_width
 
 
@@ -185,8 +184,7 @@ class ClampedBinaryQuant(torch.jit.ScriptModule):
         scale = self.scaling_impl(zero_hw_sentinel)
         y = tensor_clamp(x, - scale, scale)
         y = binary_sign_ste(y)
-        if (not self.training) and brevitas.config.USE_DYNAMIC_QUANTIZATION:
-            y = y * scale
+        y = y * scale
         return y, scale, zero_hw_sentinel + self.bit_width
 
 
@@ -253,9 +251,7 @@ class TernaryQuant(torch.jit.ScriptModule):
         scale = self.scaling_impl(zero_hw_sentinel)
         mask = x.abs().ge(self.threshold * scale)
         y = mask.float() * ternary_sign_ste(x)
-        y = y
-        if (not self.training) and brevitas.config.USE_DYNAMIC_QUANTIZATION:
-            y = y * scale
+        y = y * scale
         return y, scale, zero_hw_sentinel + self.bit_width
 
 
