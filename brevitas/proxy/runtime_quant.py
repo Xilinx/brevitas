@@ -59,6 +59,9 @@ from brevitas.core.stats import StatsOp
 from .quant_proxy import QuantProxy
 
 
+OVER_BATCH_OVER_CHANNELS_4D_SHAPE = (1, -1, 1, 1)
+
+
 class FusedActivationQuantProxy(torch.jit.ScriptModule):
 
     def __init__(self,

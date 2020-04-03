@@ -61,13 +61,13 @@ from brevitas.function.ops_ste import round_ste
 from brevitas.core.stats import StatsOp
 from brevitas import config
 from brevitas.config import docstrings
+from brevitas.proxy.runtime_quant import OVER_BATCH_OVER_CHANNELS_4D_SHAPE
 
 from .quant_proxy import QuantProxy
 
 __all__ = ['WeightQuantProxy', 'BiasQuantProxy']
 
 
-OVER_BATCH_OVER_CHANNELS_SHAPE = (1, -1, 1, 1)
 
 
 class WeightReg(nn.Module):
@@ -353,7 +353,7 @@ class WeightQuantProxy(ParameterQuantProxy):
                                               zero_hw_sentinel=zero_hw_sentinel,
                                               override_pretrained_bit_width=override_pretrained_bit_width)
         self._tracked_parameter_list = [tracked_parameter_list_init]
-        self.scale_output_shape = OVER_BATCH_OVER_CHANNELS_SHAPE
+        self.scale_output_shape = OVER_BATCH_OVER_CHANNELS_4D_SHAPE
         self.re_init_tensor_quant()
 
     def re_init_tensor_quant(self):
@@ -394,7 +394,7 @@ class BiasQuantProxy(ParameterQuantProxy):
                  bit_width: Optional[int],
                  narrow_range: bool) -> None:
         super(BiasQuantProxy, self).__init__()
-        self.scale_output_shape = OVER_BATCH_OVER_CHANNELS_SHAPE
+        self.scale_output_shape = OVER_BATCH_OVER_CHANNELS_4D_SHAPE
 
         if quant_type == QuantType.FP:
             self.tensor_quant = None
