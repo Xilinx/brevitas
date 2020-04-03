@@ -63,14 +63,29 @@ KERNEL_SIZE = 3
 ATOL_DYN = 1e-04
 RTOL_DYN = 1e-04
 weight_scaling_impl_type_options = [('STATS'), ('CONST'), ('PARAMETER_FROM_STATS')]
+activation_scaling_impl_type_options = [('STATS'), ('CONST'), ('PARAMETER')]
 
 
-def perform_dynamic_quant_test(input_fp, input_quant, layer_type, layer_config, quant_config):
+def perform_dynamic_quant_test_weight(input_fp, input_quant, layer_type, layer_config, quant_config):
     layer = layer_type(*layer_config, **quant_config)
     layer.eval()
 
     brevitas.config.USE_DYNAMIC_QUANTIZATION = True
     output = layer(input_quant)[0]
+
+    # Expected
+    brevitas.config.USE_DYNAMIC_QUANTIZATION = False
+    expected_output = layer(input_fp)
+
+    assert torch.allclose(expected_output, output, RTOL_DYN, ATOL_DYN)
+
+
+def perform_dynamic_quant_test_activation(input_fp, layer_type, quant_config):
+    layer = layer_type(**quant_config)
+    layer.eval()
+
+    brevitas.config.USE_DYNAMIC_QUANTIZATION = True
+    output = layer(input_fp)[0]
 
     # Expected
     brevitas.config.USE_DYNAMIC_QUANTIZATION = False
@@ -91,7 +106,7 @@ def test_conv2d(input_quant_scale_bit, bit_width_layer, weight_scaling_impl_type
     bit_width = input_quant_scale_bit[2]
     input_fp = input_quant * scale
 
-    input_q = pack_quant_tensor(input_quant, scale, bit_width)
+    input_q = pack_quant_tensor(input_fp, scale, bit_width)
 
     weight_quant_type = 'INT'
 
@@ -104,7 +119,7 @@ def test_conv2d(input_quant_scale_bit, bit_width_layer, weight_scaling_impl_type
     }
     layer_config = [INPUT_CHANNEL, OUTPUT_CHANNEL, KERNEL_SIZE]
 
-    perform_dynamic_quant_test(input_fp, input_q, quant_nn.QuantConv2d, layer_config, config)
+    perform_dynamic_quant_test_weight(input_fp, input_q, quant_nn.QuantConv2d, layer_config, config)
 
 
 
@@ -120,7 +135,7 @@ def test_linear(input_quant_scale_bit, bit_width_layer, weight_scaling_impl_type
     input_quant = input_quant.view(shape_3d)
     input_fp = input_quant * scale
 
-    input_q = pack_quant_tensor(input_quant, scale, bit_width)
+    input_q = pack_quant_tensor(input_fp, scale, bit_width)
 
     weight_quant_type = 'INT'
 
@@ -132,7 +147,7 @@ def test_linear(input_quant_scale_bit, bit_width_layer, weight_scaling_impl_type
         'weight_scaling_const': 0.0001
     }
     layer_config = [INPUT_CHANNEL, OUTPUT_CHANNEL]
-    perform_dynamic_quant_test(input_fp, input_q, quant_nn.QuantLinear, layer_config, config)
+    perform_dynamic_quant_test_weight(input_fp, input_q, quant_nn.QuantLinear, layer_config, config)
 
 
 @given(input_quant_scale_bit=generate_quant_input(MIN_BITWIDTH, MAX_BITWIDTH),
@@ -147,7 +162,7 @@ def test_conv1d(input_quant_scale_bit, bit_width_layer, weight_scaling_impl_type
     input_quant = input_quant.view(shape_3d)
     input_fp = input_quant * scale
 
-    input_q = pack_quant_tensor(input_quant, scale, bit_width)
+    input_q = pack_quant_tensor(input_fp, scale, bit_width)
 
     weight_quant_type = 'INT'
 
@@ -159,7 +174,7 @@ def test_conv1d(input_quant_scale_bit, bit_width_layer, weight_scaling_impl_type
         'weight_scaling_const': 0.0001
     }
     layer_config = [INPUT_CHANNEL, OUTPUT_CHANNEL, KERNEL_SIZE]
-    perform_dynamic_quant_test(input_fp, input_q, quant_nn.QuantConv1d, layer_config, config)
+    perform_dynamic_quant_test_weight(input_fp, input_q, quant_nn.QuantConv1d, layer_config, config)
 
 
 @given(input_quant_scale_bit=generate_quant_input(MIN_BITWIDTH, MAX_BITWIDTH),
@@ -174,7 +189,7 @@ def test_transposedconv1d(input_quant_scale_bit, bit_width_layer, weight_scaling
     input_quant = input_quant.view(shape_3d)
     input_fp = input_quant * scale
 
-    input_q = pack_quant_tensor(input_quant, scale, bit_width)
+    input_q = pack_quant_tensor(input_fp, scale, bit_width)
 
     weight_quant_type = 'INT'
 
@@ -186,7 +201,7 @@ def test_transposedconv1d(input_quant_scale_bit, bit_width_layer, weight_scaling
         'weight_scaling_const': 0.0001
     }
     layer_config = [INPUT_CHANNEL, OUTPUT_CHANNEL, KERNEL_SIZE]
-    perform_dynamic_quant_test(input_fp, input_q, quant_nn.QuantConvTranspose1d, layer_config, config)
+    perform_dynamic_quant_test_weight(input_fp, input_q, quant_nn.QuantConvTranspose1d, layer_config, config)
 
 
 @given(input_quant_scale_bit=generate_quant_input(MIN_BITWIDTH, MAX_BITWIDTH),
@@ -201,7 +216,7 @@ def test_quantscalebias(input_quant_scale_bit, bit_width_layer, weight_scaling_i
     input_quant = input_quant.view(shape_2d)
     input_fp = input_quant * scale
 
-    input_q = pack_quant_tensor(input_quant, scale, bit_width)
+    input_q = pack_quant_tensor(input_fp, scale, bit_width)
 
     weight_quant_type = 'INT'
 
@@ -212,4 +227,91 @@ def test_quantscalebias(input_quant_scale_bit, bit_width_layer, weight_scaling_i
         'weight_scaling_const': 0.0001
     }
     layer_config = [INPUT_CHANNEL*WIDTH*LENGTH]
-    perform_dynamic_quant_test(input_fp, input_q, quant_nn.QuantScaleBias, layer_config, config)
+    perform_dynamic_quant_test_weight(input_fp, input_q, quant_nn.QuantScaleBias, layer_config, config)
+
+
+@given(input_quant_scale_bit=generate_quant_input(MIN_BITWIDTH, MAX_BITWIDTH),
+       bit_width_layer=st.integers(min_value=MIN_BITWIDTH, max_value=MAX_BITWIDTH))
+@pytest.mark.parametrize('activation_scaling_impl_type', activation_scaling_impl_type_options)
+@combine_conditions(check_expected_pyt_120_fail, check_dynamic_quant_jit_skip)
+def test_activationrelu(input_quant_scale_bit, bit_width_layer, activation_scaling_impl_type):
+    input_quant = input_quant_scale_bit[0]
+    scale = input_quant_scale_bit[1]
+
+    shape_4d = (BATCH_SIZE, INPUT_CHANNEL, WIDTH, LENGTH)
+    input_quant = input_quant.view(shape_4d)
+    input_fp = input_quant * scale
+
+    quant_type = 'INT'
+
+    config = {
+        'bit_width': bit_width_layer,
+        'quant_type': quant_type,
+        'scaling_impl_type': activation_scaling_impl_type,
+        'max_val': 6
+    }
+    perform_dynamic_quant_test_activation(input_fp, quant_nn.QuantReLU, config)
+
+
+@given(input_quant_scale_bit=generate_quant_input(MIN_BITWIDTH, MAX_BITWIDTH),
+       bit_width_layer=st.integers(min_value=MIN_BITWIDTH, max_value=MAX_BITWIDTH))
+@combine_conditions(check_expected_pyt_120_fail, check_dynamic_quant_jit_skip)
+def test_activationsigmoid(input_quant_scale_bit, bit_width_layer):
+    input_quant = input_quant_scale_bit[0]
+    scale = input_quant_scale_bit[1]
+
+    shape_4d = (BATCH_SIZE, INPUT_CHANNEL, WIDTH, LENGTH)
+    input_quant = input_quant.view(shape_4d)
+    input_fp = input_quant * scale
+
+    quant_type = 'INT'
+
+    config = {
+        'bit_width': bit_width_layer,
+        'quant_type': quant_type,
+    }
+    perform_dynamic_quant_test_activation(input_fp, quant_nn.QuantSigmoid, config)
+
+
+@given(input_quant_scale_bit=generate_quant_input(MIN_BITWIDTH, MAX_BITWIDTH),
+       bit_width_layer=st.integers(min_value=MIN_BITWIDTH, max_value=MAX_BITWIDTH))
+@combine_conditions(check_expected_pyt_120_fail, check_dynamic_quant_jit_skip)
+def test_activationtanh(input_quant_scale_bit, bit_width_layer):
+    input_quant = input_quant_scale_bit[0]
+    scale = input_quant_scale_bit[1]
+
+    shape_4d = (BATCH_SIZE, INPUT_CHANNEL, WIDTH, LENGTH)
+    input_quant = input_quant.view(shape_4d)
+    input_fp = input_quant * scale
+
+    quant_type = 'INT'
+
+    config = {
+        'bit_width': bit_width_layer,
+        'quant_type': quant_type,
+    }
+    perform_dynamic_quant_test_activation(input_fp, quant_nn.QuantTanh, config)
+
+
+@given(input_quant_scale_bit=generate_quant_input(MIN_BITWIDTH, MAX_BITWIDTH),
+       bit_width_layer=st.integers(min_value=MIN_BITWIDTH, max_value=MAX_BITWIDTH))
+@pytest.mark.parametrize('activation_scaling_impl_type', activation_scaling_impl_type_options)
+@combine_conditions(check_expected_pyt_120_fail, check_dynamic_quant_jit_skip)
+def test_activationhardtanh(input_quant_scale_bit, bit_width_layer, activation_scaling_impl_type):
+    input_quant = input_quant_scale_bit[0]
+    scale = input_quant_scale_bit[1]
+
+    shape_4d = (BATCH_SIZE, INPUT_CHANNEL, WIDTH, LENGTH)
+    input_quant = input_quant.view(shape_4d)
+    input_fp = input_quant * scale
+
+    quant_type = 'INT'
+
+    config = {
+        'bit_width': bit_width_layer,
+        'quant_type': quant_type,
+        'scaling_impl_type': activation_scaling_impl_type,
+        'min_val': -10,
+        'max_val': 10
+    }
+    perform_dynamic_quant_test_activation(input_fp, quant_nn.QuantHardTanh, config)

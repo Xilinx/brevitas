@@ -55,6 +55,7 @@ from brevitas.core.restrict_val import RestrictValueType, RestrictValue, FloatTo
 from brevitas.core.scaling import RuntimeStatsScaling, SCALING_SCALAR_SHAPE, StatsInputViewShapeImpl
 from brevitas.core.scaling import ScalingImplType, StandaloneScaling, IntScaling
 from brevitas.core.stats import StatsOp
+import brevitas.config
 
 from .quant_proxy import QuantProxy
 
@@ -75,6 +76,8 @@ class FusedActivationQuantProxy(torch.jit.ScriptModule):
     def forward(self, x, zero_hw_sentinel):
         x = self.activation_impl(x)
         x, output_scale, output_bit_width = self.tensor_quant(x, zero_hw_sentinel)
+        if (not self.training) and brevitas.config.USE_DYNAMIC_QUANTIZATION:
+            x = x * output_scale
         return x, output_scale, output_bit_width
 
 

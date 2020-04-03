@@ -101,7 +101,9 @@ class QuantWeightLayer(object):
                 weight_int = weight_quant(weight)
 
             quant_weight, quant_weight_scale, quant_weight_bit_width = weight_int
-            if input_scale is None:
+            if input_scale is not None:
+                input = input/input_scale  # Cast to integers
+            else:
                 quant_weight = quant_weight * quant_weight_scale
         else:
             quant_weight, quant_weight_scale, quant_weight_bit_width = weight_quant(weight)
