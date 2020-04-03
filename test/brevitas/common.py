@@ -22,6 +22,10 @@ MOCK_JIT_CONDITION = version.parse(torch.__version__) >= version.parse('1.4') an
 MOCK_JIT_REASON = 'Cannot use Mock class with pytorch JIT enabled'
 check_mock_jit_pyt_ge140_fail = pytest.mark.xfail(MOCK_JIT_CONDITION, reason=MOCK_JIT_REASON, raises=RuntimeError)
 
+# Setup skip for tests on Dynamic Quantization and pythorch JIT
+DYNAMIC_QUANT_JIT_CONDITION = os.environ.get('PYTORCH_JIT', '1') == '1'
+DYNAMIC_QUANT_JIT_REASON = 'Cannot test Dynamic Quant with JIT enabled, due to compiled flags'
+check_dynamic_quant_jit_skip = pytest.mark.skipif(DYNAMIC_QUANT_JIT_CONDITION, reason=DYNAMIC_QUANT_JIT_REASON)
 
 def combine_conditions(*decs):
     def deco(f):
@@ -55,7 +59,7 @@ def generate_quant_input(draw, MIN_BIT_WIDTH, MAX_BIT_WIDTH):
     signed = True
     bit = draw(st.integers(min_value=MIN_BIT_WIDTH, max_value=MAX_BIT_WIDTH))
     scale = draw(float_st_p)
-    n_elements = 2 ** bit
+    n_elements = int(2 ** bit)
     min_value = 0
     if narrow_band and signed:
         min_value = 1

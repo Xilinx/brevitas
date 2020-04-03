@@ -47,7 +47,7 @@ import pytest
 from hypothesis import given, example, note
 import hypothesis.strategies as st
 from common import float_st, float_st_nz, two_lists_equal_size, list_float_st, float_st_p, generate_quant_input
-from common import ATOL, RTOL
+from common import check_dynamic_quant_jit_skip, check_expected_pyt_120_fail, combine_conditions
 
 # Constants
 MIN_BITWIDTH = 3
@@ -81,6 +81,7 @@ def perform_dynamic_quant_test(input_fp, input_quant, layer_type, layer_config, 
 @given(input_quant_scale_bit=generate_quant_input(MIN_BITWIDTH, MAX_BITWIDTH),
        bit_width_layer=st.integers(min_value=MIN_BITWIDTH, max_value=MAX_BITWIDTH))
 @pytest.mark.parametrize('weight_scaling_impl_type', weight_scaling_impl_type_options)
+@combine_conditions(check_expected_pyt_120_fail, check_dynamic_quant_jit_skip)
 def test_conv2d(input_quant_scale_bit, bit_width_layer, weight_scaling_impl_type):
     input_quant = input_quant_scale_bit[0]
     scale = input_quant_scale_bit[1]
@@ -110,6 +111,7 @@ def test_conv2d(input_quant_scale_bit, bit_width_layer, weight_scaling_impl_type
 @given(input_quant_scale_bit=generate_quant_input(MIN_BITWIDTH, MAX_BITWIDTH),
        bit_width_layer=st.integers(min_value=MIN_BITWIDTH, max_value=MAX_BITWIDTH))
 @pytest.mark.parametrize('weight_scaling_impl_type', weight_scaling_impl_type_options)
+@combine_conditions(check_expected_pyt_120_fail, check_dynamic_quant_jit_skip)
 def test_linear(input_quant_scale_bit, bit_width_layer, weight_scaling_impl_type):
     input_quant = input_quant_scale_bit[0]
     scale = input_quant_scale_bit[1]
@@ -136,6 +138,7 @@ def test_linear(input_quant_scale_bit, bit_width_layer, weight_scaling_impl_type
 @given(input_quant_scale_bit=generate_quant_input(MIN_BITWIDTH, MAX_BITWIDTH),
        bit_width_layer=st.integers(min_value=MIN_BITWIDTH, max_value=MAX_BITWIDTH))
 @pytest.mark.parametrize('weight_scaling_impl_type', weight_scaling_impl_type_options)
+@combine_conditions(check_expected_pyt_120_fail, check_dynamic_quant_jit_skip)
 def test_conv1d(input_quant_scale_bit, bit_width_layer, weight_scaling_impl_type):
     input_quant = input_quant_scale_bit[0]
     scale = input_quant_scale_bit[1]
@@ -162,6 +165,7 @@ def test_conv1d(input_quant_scale_bit, bit_width_layer, weight_scaling_impl_type
 @given(input_quant_scale_bit=generate_quant_input(MIN_BITWIDTH, MAX_BITWIDTH),
        bit_width_layer=st.integers(min_value=MIN_BITWIDTH, max_value=MAX_BITWIDTH))
 @pytest.mark.parametrize('weight_scaling_impl_type', weight_scaling_impl_type_options)
+@combine_conditions(check_expected_pyt_120_fail, check_dynamic_quant_jit_skip)
 def test_transposedconv1d(input_quant_scale_bit, bit_width_layer, weight_scaling_impl_type):
     input_quant = input_quant_scale_bit[0]
     scale = input_quant_scale_bit[1]
@@ -188,6 +192,7 @@ def test_transposedconv1d(input_quant_scale_bit, bit_width_layer, weight_scaling
 @given(input_quant_scale_bit=generate_quant_input(MIN_BITWIDTH, MAX_BITWIDTH),
        bit_width_layer=st.integers(min_value=MIN_BITWIDTH, max_value=MAX_BITWIDTH))
 @pytest.mark.parametrize('weight_scaling_impl_type', weight_scaling_impl_type_options)
+@combine_conditions(check_expected_pyt_120_fail, check_dynamic_quant_jit_skip)
 def test_quantscalebias(input_quant_scale_bit, bit_width_layer, weight_scaling_impl_type):
     input_quant = input_quant_scale_bit[0]
     scale = input_quant_scale_bit[1]

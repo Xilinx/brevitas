@@ -34,7 +34,7 @@ class Test1DTranspConv:
     @check_expected_pyt_120_fail
     def test_float_quant(self):
         shape = (BATCH, IN_CHANNEL, HEIGHT)
-        input_quant_int, input_quant = generate_quant_input(shape, BIT, SCALE, True, True)
+        input_quant_int, input_quant = generate_quant_input(shape, SCALE, BIT, True, True)
         ConvTranspose1d = quant_convtranspose1d.QuantConvTranspose1d(in_channels=IN_CHANNEL,
                                           out_channels=OUT_CHANNEL,
                                           kernel_size=KERNEL,
@@ -56,7 +56,7 @@ class Test1DTranspConv:
     @check_expected_pyt_120_fail
     def test_int(self):
         shape = (BATCH, IN_CHANNEL, HEIGHT)
-        input_quant_int, input_quant = generate_quant_input(shape, BIT, SCALE, True, True)
+        input_quant_int, input_quant = generate_quant_input(shape, SCALE, BIT, True, True)
         ConvTranspose1d = quant_convtranspose1d.QuantConvTranspose1d(in_channels=IN_CHANNEL,
 
                                           out_channels=OUT_CHANNEL,
