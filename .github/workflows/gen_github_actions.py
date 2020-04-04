@@ -1,4 +1,3 @@
-import os
 from functools import reduce
 from string import Template
 from textwrap import indent
@@ -6,8 +5,10 @@ from collections import OrderedDict as od
 
 import yaml
 
-GITHUB_WORKFLOWS_PATH = os.path.join('.github', 'workflows')
-TESTS_YAML_TEMPLATE_PATH = os.path.join(GITHUB_WORKFLOWS_PATH, 'base.yaml.template')
+
+BASE_YML_TEMPLATE = 'base.yml.template'
+PYTEST_YML = 'pytest.yml'
+DEVELOP_INSTALL_YML = 'develop_install.yml'
 
 
 # Data shared betwen Nox sessions and Github Actions, formatted as tuples
@@ -96,7 +97,7 @@ class Action:
              'exclude': indent(Action.list_of_dicts_str(self.exclude_list, True, True), EXCLUDE_INDENT*' '),
              'matrix': indent(Action.dict_str(self.matrix, False, False), MATRIX_INDENT*' '),
              'steps': indent(Action.list_of_dicts_str(self.step_list, False, True), STEP_INDENT*' ')}
-        template = CustomTemplate(open(TESTS_YAML_TEMPLATE_PATH).read())
+        template = CustomTemplate(open(BASE_YML_TEMPLATE).read())
         generated_file = template.substitute(d)
         yaml.safe_load(generated_file)  # validate the generated yaml
         with open(output_path, 'w') as f:
@@ -107,24 +108,24 @@ def combine_od_list(od_list):
     return od(reduce(lambda l1, l2: l1 + l2, list(map(lambda d: list(d.items()), od_list))))
 
 
-def gen_pytest_yaml():
+def gen_pytest_yml():
     pytest = Action(
         'Pytest',
         EXCLUDE_LIST + PYTEST_EXCLUDE_LIST_EXTRA,
         combine_od_list([MATRIX, PYTEST_MATRIX_EXTRA]),
         PYTEST_STEP_LIST)
-    pytest.gen_yaml(os.path.join(GITHUB_WORKFLOWS_PATH, 'pytest.yml'))
+    pytest.gen_yaml(PYTEST_YML)
 
 
-def gen_test_develop_install_yaml():
+def gen_test_develop_install_yml():
     test_develop_install = Action(
         'Test develop install',
         EXCLUDE_LIST,
         MATRIX,
         TEST_INSTALL_DEVELOP_STEP_LIST)
-    test_develop_install.gen_yaml(os.path.join(GITHUB_WORKFLOWS_PATH, 'develop_install.yml'))
+    test_develop_install.gen_yaml(DEVELOP_INSTALL_YML)
 
 
 if __name__ == '__main__':
-    gen_pytest_yaml()
-    gen_test_develop_install_yaml()
+    gen_pytest_yml()
+    gen_test_develop_install_yml()

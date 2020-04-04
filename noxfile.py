@@ -3,20 +3,21 @@ import os
 import nox
 from packaging import version
 from platform import system
-import gen_github_actions as gga
+import sys
+
+sys.path.append(os.path.join(os.path.dirname(__file__), os.path.join('.', '.github', 'workflows')))
+from gen_github_actions import *
+
 
 PYTORCH_CPU_VIRTUAL_PKG = '1.2.0'
-GITHUB_WORKFLOWS_PATH = os.path.join('.', '.github', 'workflows')
-TESTS_YAML_TEMPLATE_PATH = os.path.join(GITHUB_WORKFLOWS_PATH, 'tests.yaml.template')
-
-CONDA_PYTHON_IDS = tuple([f'conda_python_{i}' for i in gga.CONDA_PYTHON_VERSIONS])
-PYTORCH_IDS = tuple([f'pytorch_{i}' for i in gga.PYTORCH_VERSIONS])
-JIT_IDS = tuple([f'{i}'.lower() for i in gga.JIT_STATUSES])
+CONDA_PYTHON_IDS = tuple([f'conda_python_{i}' for i in CONDA_PYTHON_VERSIONS])
+PYTORCH_IDS = tuple([f'pytorch_{i}' for i in PYTORCH_VERSIONS])
+JIT_IDS = tuple([f'{i}'.lower() for i in JIT_STATUSES])
 
 
-@nox.session(venv_backend="conda", python=gga.CONDA_PYTHON_VERSIONS)
-@nox.parametrize("pytorch", gga.PYTORCH_VERSIONS, ids=PYTORCH_IDS)
-@nox.parametrize("jit_status", gga.JIT_STATUSES, ids=JIT_IDS)
+@nox.session(venv_backend="conda", python=CONDA_PYTHON_VERSIONS)
+@nox.parametrize("pytorch", PYTORCH_VERSIONS, ids=PYTORCH_IDS)
+@nox.parametrize("jit_status", JIT_STATUSES, ids=JIT_IDS)
 def tests_cpu(session, pytorch, jit_status):
     session.env['PYTORCH_JIT'] = '{}'.format(int(jit_status == 'jit_enabled'))
     if version.parse(pytorch) >= version.parse(PYTORCH_CPU_VIRTUAL_PKG):
@@ -27,8 +28,8 @@ def tests_cpu(session, pytorch, jit_status):
     session.run('pytest', '-v')
 
 
-@nox.session(venv_backend="conda", python=gga.CONDA_PYTHON_VERSIONS)
-@nox.parametrize("pytorch", gga.PYTORCH_VERSIONS, ids=PYTORCH_IDS)
+@nox.session(venv_backend="conda", python=CONDA_PYTHON_VERSIONS)
+@nox.parametrize("pytorch", PYTORCH_VERSIONS, ids=PYTORCH_IDS)
 def tests_install_develop(session, pytorch):
     if version.parse(pytorch) >= version.parse(PYTORCH_CPU_VIRTUAL_PKG):
         session.conda_install('-c', 'pytorch', f'pytorch=={pytorch}', 'cpuonly')
@@ -46,8 +47,8 @@ def tests_install_develop(session, pytorch):
 
 
 @nox.session(python=False)
-@nox.parametrize("pytorch", gga.PYTORCH_VERSIONS, ids=PYTORCH_IDS)
-@nox.parametrize("python", gga.CONDA_PYTHON_VERSIONS, ids=CONDA_PYTHON_IDS)
+@nox.parametrize("pytorch", PYTORCH_VERSIONS, ids=PYTORCH_IDS)
+@nox.parametrize("python", CONDA_PYTHON_VERSIONS, ids=CONDA_PYTHON_IDS)
 def dry_run_pytorch_only_deps(session, pytorch, python):
     if version.parse(pytorch) >= version.parse(PYTORCH_CPU_VIRTUAL_PKG):
         session.run('conda', 'create', '-n', 'dry_run', '--only-deps', '-d', '-c', 'pytorch', f'pytorch=={pytorch}',
@@ -58,8 +59,8 @@ def dry_run_pytorch_only_deps(session, pytorch, python):
 
 
 @nox.session(python=False)
-@nox.parametrize("pytorch", gga.PYTORCH_VERSIONS, ids=PYTORCH_IDS)
-@nox.parametrize("python", gga.CONDA_PYTHON_VERSIONS, ids=CONDA_PYTHON_IDS)
+@nox.parametrize("pytorch", PYTORCH_VERSIONS, ids=PYTORCH_IDS)
+@nox.parametrize("python", CONDA_PYTHON_VERSIONS, ids=CONDA_PYTHON_IDS)
 def dry_run_pytorch_no_deps(session, pytorch, python):
     if version.parse(pytorch) >= version.parse(PYTORCH_CPU_VIRTUAL_PKG):
         session.run('conda', 'create', '-n', 'dry_run', '--no-deps', '-d', '-c', 'pytorch', f'pytorch=={pytorch}',
