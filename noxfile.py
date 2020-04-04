@@ -23,6 +23,7 @@ JIT_STATUSES = ('jit_enabled', 'jit_disabled')
 
 # Data used only by Github Actions, formatted as lists or lists of oredered dicts
 PLATFORM_LIST = ['windows-latest', 'ubuntu-latest', 'macos-latest']
+
 EXCLUDE_LIST = [od([('platform', 'windows-latest'),
                     ('conda_python_version', '3.6')]),
                 od([('platform', 'macos-latest'),
@@ -34,15 +35,16 @@ EXCLUDE_LIST = [od([('platform', 'windows-latest'),
                 od([('pytorch_version', '1.3.0'),
                     ('conda_python_version', '3.8')]),
                 od([('pytorch_version', '1.3.1'),
-                    ('conda_python_version', '3.8')]),
-                od([('pytorch_version', '1.1.0'),
-                   ('jit_status', 'jit_disabled')])]
+                    ('conda_python_version', '3.8')])]
+
+PYTEST_EXCLUDE_LIST_EXTRA = od([('pytorch_version', '1.1.0'),
+                                ('jit_status', 'jit_disabled')])
 
 MATRIX = od([('conda_python_version', list(CONDA_PYTHON_VERSIONS)),
              ('pytorch_version', list(PYTORCH_VERSIONS)),
              ('platform', PLATFORM_LIST)])
+
 PYTEST_MATRIX_EXTRA = od([('jit_status', list(JIT_STATUSES))])
-TEST_INSTALL_DEVELOP_MATRIX_EXTRA = od()
 
 PYTEST_STEP_LIST = [od([
     ('name', 'Run Nox session for pytest'),
@@ -172,7 +174,11 @@ def combine_od_list(od_list):
 
 
 def gen_pytest_yaml():
-    pytest = Action('pytest', EXCLUDE_LIST, combine_od_list([MATRIX, PYTEST_MATRIX_EXTRA]), PYTEST_STEP_LIST)
+    pytest = Action(
+        'pytest',
+        combine_od_list([EXCLUDE_LIST, PYTEST_EXCLUDE_LIST_EXTRA]),
+        combine_od_list([MATRIX, PYTEST_MATRIX_EXTRA]),
+        PYTEST_STEP_LIST)
     pytest.gen_yaml(os.path.join(GITHUB_WORKFLOWS_PATH, 'pytest.yaml'))
 
 
@@ -180,7 +186,7 @@ def gen_test_develop_install_yaml():
     test_develop_install = Action(
         'Test develop install',
         EXCLUDE_LIST,
-        combine_od_list([MATRIX, TEST_INSTALL_DEVELOP_MATRIX_EXTRA]),
+        MATRIX,
         TEST_INSTALL_DEVELOP_STEP_LIST)
     test_develop_install.gen_yaml(os.path.join(GITHUB_WORKFLOWS_PATH, 'develop_install.yaml'))
 
