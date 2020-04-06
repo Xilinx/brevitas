@@ -40,7 +40,7 @@
 
 from brevitas.function.ops_ste import round_ste, tensor_clamp_ste, ceil_ste, floor_ste
 from brevitas.function.shape import *
-from brevitas.function import tensor_clamp
+from brevitas.function import tensor_clamp, identity
 
 
 class Identity(torch.jit.ScriptModule):
@@ -49,7 +49,7 @@ class Identity(torch.jit.ScriptModule):
 
     @torch.jit.script_method
     def forward(self, x: torch.Tensor):
-        return x
+        return identity(x)
 
 
 class RoundSte(torch.jit.ScriptModule):
