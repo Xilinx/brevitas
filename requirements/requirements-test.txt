@@ -1,3 +1,4 @@
 pytest
 mock
 hypothesis
+pytest-dependency
