@@ -19,6 +19,7 @@ MOCK_JIT_CONDITION = version.parse(torch.__version__) >= version.parse('1.4') an
 MOCK_JIT_REASON = 'Cannot use Mock class with pytorch JIT enabled'
 check_mock_jit_pyt_ge140_fail = pytest.mark.xfail(MOCK_JIT_CONDITION, reason=MOCK_JIT_REASON, raises=RuntimeError)
 
+
 def combine_conditions(*decs):
     def deco(f):
         for dec in reversed(decs):
@@ -26,9 +27,10 @@ def combine_conditions(*decs):
         return f
     return deco
 
+
 # Set Constants
-RTOL = 0
-ATOL = 1e-23
+RTOL = 1e-6
+ATOL = 1e-6
 
 FP_BIT_WIDTH = 32
 
@@ -38,7 +40,7 @@ FP_BIT_WIDTH = 32
 float_st = st.floats(allow_nan=False, allow_infinity=False, width=FP_BIT_WIDTH)
 float_st_nz = st.floats(allow_nan=False, allow_infinity=False, width=FP_BIT_WIDTH).filter(lambda x: x != 0.0)
 float_st_p = st.floats(min_value=0.0, exclude_min=True, allow_nan=False, allow_infinity=False,
-                       max_value=2.000000054512845e+16, width=FP_BIT_WIDTH)
+                       max_value=10, width=FP_BIT_WIDTH)
 list_float_st = st.lists(float_st, min_size=1)
 
 

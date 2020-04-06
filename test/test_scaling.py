@@ -46,8 +46,8 @@ def perform_test_standalonescaling(scaling, shape, restrict_scaling_type, is_par
             result = result and (torch.abs(expected_output-element) <= ATOL)
     else:
         result = (torch.allclose(expected_output, output, RTOL, ATOL))
-    result = result and (output.shape == shape)
-    return result
+    assert result
+    assert output.shape == shape
 
 
 # Perform test for standalone scaling. It takes the scaling Tensor (which can be either a scalar or a real Tensor), and
@@ -68,17 +68,18 @@ def perform_test_statsscaling(scaling, shape, restrict_scaling_type):
 
     expected_output = expected_restrict_value_op(scaling)
     expected_output = expected_restrict_value(expected_output)
-    return torch.allclose(expected_output, output, RTOL, ATOL)
+    assert torch.allclose(expected_output, output, RTOL, ATOL)
 
 
 # Test the case where both scaling_init and the parameter shape are scalar
 @given(scaling_init=float_st_p)
 @pytest.mark.parametrize('restrict_scaling_type', restrict_scaling_type_options)
 @pytest.mark.parametrize('is_parameter', is_parameter_bool_options)
+@check_expected_pyt_120_fail
 def test_standlonescaling_scalar_scalar(scaling_init, restrict_scaling_type, is_parameter):
     scaling_init = torch.tensor(scaling_init)
     parameter_shape = ()
-    assert perform_test_standalonescaling(scaling_init, parameter_shape, restrict_scaling_type, is_parameter)
+    perform_test_standalonescaling(scaling_init, parameter_shape, restrict_scaling_type, is_parameter)
 
 
 # Test the case where scaling_init is scalar and parameter_shape is a Tensor.
@@ -88,6 +89,7 @@ def test_standlonescaling_scalar_scalar(scaling_init, restrict_scaling_type, is_
 @pytest.mark.parametrize('restrict_scaling_type', restrict_scaling_type_options)
 @pytest.mark.parametrize('is_parameter', is_parameter_bool_options)
 @pytest.mark.parametrize('dim', max_dim_options)
+@check_expected_pyt_120_fail
 def test_standlonescaling_scalar_tensor(scaling_init, restrict_scaling_type, is_parameter, dim):
     scaling_init = torch.tensor(scaling_init)
     for posix in range(0, dim):
@@ -97,8 +99,8 @@ def test_standlonescaling_scalar_tensor(scaling_init, restrict_scaling_type, is_
 
         # Skip case not supported by StandaloneScaling which would throw error
         if len(parameter_shape) > 1 and not is_parameter:
-            continue
-        assert perform_test_standalonescaling(scaling_init, parameter_shape, restrict_scaling_type, is_parameter)
+            pytest.xfail(reason="Combination not support by Brevitas")
+        perform_test_standalonescaling(scaling_init, parameter_shape, restrict_scaling_type, is_parameter)
 
 
 # Test the case where both scaling_init and the parameter shape are tensor
@@ -111,6 +113,7 @@ def test_standlonescaling_scalar_tensor(scaling_init, restrict_scaling_type, is_
 @pytest.mark.parametrize('restrict_scaling_type', restrict_scaling_type_options)
 @pytest.mark.parametrize('is_parameter', is_parameter_bool_options)
 @pytest.mark.parametrize('dim', max_dim_options)
+@check_expected_pyt_120_fail
 def test_standlonescaling_tensor_tensor(scaling_init, restrict_scaling_type, is_parameter, dim):
     for posix in range(0, dim):
         parameter_shape = [1] * dim
@@ -121,16 +124,17 @@ def test_standlonescaling_tensor_tensor(scaling_init, restrict_scaling_type, is_
         if len(parameter_shape) > 1 and not is_parameter:
             continue
         scaling_init_tensor = torch.tensor(scaling_init).view(parameter_shape)
-        assert perform_test_standalonescaling(scaling_init_tensor, parameter_shape, restrict_scaling_type, is_parameter)
+        perform_test_standalonescaling(scaling_init_tensor, parameter_shape, restrict_scaling_type, is_parameter)
 
 
 # Test the case where scaling_init is a scalar
 @given(scaling_init=float_st_p)
 @pytest.mark.parametrize('restrict_scaling_type', restrict_scaling_type_options)
 @pytest.mark.dependency(name="statsscaling_scalar")
+@check_expected_pyt_120_fail
 def test_statsscaling_scalar(scaling_init, restrict_scaling_type):
     scaling_init = torch.tensor(scaling_init)
-    assert perform_test_statsscaling(scaling_init, SCALING_SCALAR_SHAPE, restrict_scaling_type)
+    perform_test_statsscaling(scaling_init, SCALING_SCALAR_SHAPE, restrict_scaling_type)
 
 
 # Test the case where scaling_init is a Tensor
@@ -140,13 +144,14 @@ def test_statsscaling_scalar(scaling_init, restrict_scaling_type):
 @given(scaling_init=st.lists(float_st_p, min_size=OUTCHANNEL, max_size=OUTCHANNEL))
 @pytest.mark.parametrize('restrict_scaling_type', restrict_scaling_type_options)
 @pytest.mark.parametrize('dim', max_dim_options)
+@check_expected_pyt_120_fail
 def test_statsscaling_tensor(scaling_init, restrict_scaling_type, dim):
     for posix in range(0, dim):
         shape = [1] * dim
         shape[posix] = OUTCHANNEL
         shape = tuple(shape)
         scaling_init_tensor = torch.tensor(scaling_init).view(shape)
-        assert perform_test_statsscaling(scaling_init_tensor, shape, restrict_scaling_type)
+        perform_test_statsscaling(scaling_init_tensor, shape, restrict_scaling_type)
 
 
 @pytest.mark.dependency(name="runtimestatsscaling", depends=["statsscaling_scalar", "statsscaling_tensor"])
@@ -161,8 +166,10 @@ def test_parameterstatsscaling():
 
 @pytest.mark.dependency(name="signedfpintscale", depends=["result_of_min_int"])
 @given(narrow_range=st.booleans(), bit_width=st.integers(min_value=MIN_BIT_WIDTH, max_value=MAX_BIT_WIDTH))
+@check_expected_pyt_120_fail
 def test_signedfpintscale(narrow_range, bit_width):
     obj = SignedFpIntScale(narrow_range)
+    bit_width = torch.tensor(bit_width)
     output = obj(bit_width)
     expected_output = -1 * min_int(signed=True, narrow_range=narrow_range, bit_width=bit_width)
 
@@ -176,8 +183,10 @@ def test_unsignedfpintscale():
 
 @pytest.mark.dependency(name="poweroftwointscale", depends=["result_of_max_int"])
 @given(bit_width=st.integers(min_value=MIN_BIT_WIDTH, max_value=MAX_BIT_WIDTH), signed=st.booleans())
+@check_expected_pyt_120_fail
 def test_poweroftwointscale(bit_width, signed):
     obj = PowerOfTwoIntScale(signed)
+    bit_width = torch.tensor(bit_width)
     output = obj(bit_width)
     expected_output = max_int(signed, bit_width)+1
 
