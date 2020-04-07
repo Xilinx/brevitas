@@ -1,8 +1,6 @@
 librosa
 numpy
 scipy
-torch
 tqdm
 pillow
 pyyaml
-soundfile

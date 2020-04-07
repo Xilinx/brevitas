@@ -4,5 +4,6 @@ requests
 librosa
 inflect
 unidecode
-docrep
 torch-stft
+sox
+tqdm

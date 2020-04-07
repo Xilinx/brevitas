@@ -167,7 +167,9 @@ setup(name="Brevitas",
       install_requires=read_requirements('requirements.txt'),
       extras_require={
           "Hadamard": read_requirements('requirements-hadamard.txt'),
-          "test": read_requirements('requirements-test.txt')
+          "test": read_requirements('requirements-test.txt'),
+          "tts": read_requirements('requirements-tts.txt'),
+          "stt": read_requirements('requirements-stt.txt')
       },
       packages=find_packages(),
       zip_safe=False,
