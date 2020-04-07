@@ -15,19 +15,20 @@ It is highly recommended to setup a virtual environment.
 
 Download and pre-process the LibriSpeech dataset with the following command:
 ```
-python utilities/get_librispeech_data.py --data_root=/path/to/validation/folder --data_set=DEV_OTHER
+brevitas_quartznet_preprocess --data_root=/path/to/validation/folder --data_set=DEV_OTHER
 ```
 
 To evaluate a pretrained quantized model on LibriSpeech:
 
  - Install pytorch from the [Pytorch Website](https://pytorch.org/), and Cython with the following command:
  `python install --upgrade cython`
- - Install  the Quartznet requirements with `pip install requirements.txt`
- - Make sure you have Brevitas installed
- - Pass the corresponding cfg .ini file as an input to the evaluation script. The required checkpoint will be downloaded automatically. 
+ - Install SoX (this [guide](https://at.projects.genivi.org/wiki/display/PROJ/Installation+of+SoX+on+different+Platforms)
+ may be helpful)
+ - After cloning the repository, install Brevitas and QuartzNet requirements with `pip install .[stt]`
+ - Pass the name of the model as an input to the evaluation script. The required checkpoint will be downloaded automatically. 
  
  For example, for the evaluation on GPU 0:
 
 ```
-python quartznet_val.py --input-folder /path/to/validation/folder --model-cfg cfg/quant_quartznet_pertensorscaling_8b.ini --gpu 0
+brevitas_quartznet_val --input-folder /path/to/validation/folder --model quant_quartznet_pertensorscaling_8b --gpu 0 --pretrained
 ```
