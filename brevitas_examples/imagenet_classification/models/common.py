@@ -4,6 +4,7 @@ from brevitas.core.restrict_val import RestrictValueType
 from brevitas.core.scaling import ScalingImplType
 from brevitas.core.stats import StatsOp
 
+
 QUANT_TYPE = QuantType.INT
 SCALING_MIN_VAL = 2e-16
 
@@ -151,3 +152,6 @@ def make_hadamard_classifier(in_channels,
     return qnn.HadamardClassifier(in_channels=in_channels,
                                   out_channels=out_channels,
                                   fixed_scale=fixed_scale)
+
+
+

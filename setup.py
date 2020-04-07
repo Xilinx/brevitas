@@ -173,9 +173,17 @@ setup(name="Brevitas",
       zip_safe=False,
       ext_modules=get_jittable_extension(),
       cmdclass={
-            'build_py': BuildPy,
-            'build_ext': BuildJittableExtension.with_options(no_python_abi_suffix=True),
-            'develop': DevelopInstall,
-        }
-      )
+          'build_py': BuildPy,
+          'build_ext': BuildJittableExtension.with_options(no_python_abi_suffix=True),
+          'develop': DevelopInstall,
+      },
+      package_data={
+          'brevitas_examples': ['*.ini', '*.yaml'],
+      },
+      entry_points={
+          'console_scripts': [
+              'brevitas_imagenet_val = brevitas_examples.imagenet_classification.imagenet_val:main',
+          ],
+      })
+
 

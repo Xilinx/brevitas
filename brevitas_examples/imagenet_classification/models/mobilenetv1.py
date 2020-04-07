@@ -33,7 +33,7 @@ from torch.nn import Sequential
 
 from brevitas.quant_tensor import pack_quant_tensor
 
-from .common import make_quant_conv2d, make_quant_linear, make_quant_relu, make_quant_avg_pool
+from .common import *
 
 
 FIRST_LAYER_BIT_WIDTH = 8
@@ -170,3 +170,6 @@ def quant_mobilenet_v1(cfg):
                     first_stage_stride=first_stage_stride,
                     bit_width=bit_width)
     return net
+
+
+

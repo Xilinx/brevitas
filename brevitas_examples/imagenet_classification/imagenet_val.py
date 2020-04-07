@@ -12,17 +12,15 @@ import torch.utils.data.distributed
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 
-from models import *
+from .models import model_with_cfg
 
 SEED = 123456
-
-models = {'quant_mobilenet_v1': quant_mobilenet_v1,
-          'quant_proxylessnas_mobile14': quant_proxylessnas_mobile14}
 
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Validation')
 parser.add_argument('--imagenet-dir', help='path to folder containing Imagenet val folder')
-parser.add_argument('--model-cfg', type=str, help='Path to pretrained model .ini configuration file')
+parser.add_argument('--model', type=str, default='quant_mobilenet_v1_4b', help='Name of the model')
+parser.add_argument('--pretrained', action='store_true', help='Load pretrained checkpoint')
 parser.add_argument('--workers', default=4, type=int, help='number of data loading workers')
 parser.add_argument('--batch-size', default=256, type=int, help='Minibatch size')
 parser.add_argument('--gpu', default=None, type=int, help='GPU id to use.')
@@ -33,27 +31,12 @@ def main():
     random.seed(SEED)
     torch.manual_seed(SEED)
 
-    assert os.path.exists(args.model_cfg)
-    cfg = configparser.ConfigParser()
-    cfg.read(args.model_cfg)
-    arch = cfg.get('MODEL', 'ARCH')
-
-    model = models[arch](cfg)
+    model, cfg = model_with_cfg(args.model, args.pretrained)
 
     if args.gpu is not None:
         torch.cuda.set_device(args.gpu)
         model = model.cuda(args.gpu)
         cudnn.benchmark = True
-
-    pretrained_url = cfg.get('MODEL', 'PRETRAINED_URL')
-    print("=> Loading checkpoint from:'{}'".format(pretrained_url))
-    if args.gpu is None:
-        checkpoint = torch.hub.load_state_dict_from_url(pretrained_url)
-    else:
-        # Map model to be loaded to specified single gpu.
-        loc = 'cuda:{}'.format(args.gpu)
-        checkpoint = torch.hub.load_state_dict_from_url(pretrained_url, map_location=loc)
-    model.load_state_dict(checkpoint, strict=True)
 
     valdir = os.path.join(args.imagenet_dir, 'val')
     mean = [float(cfg.get('PREPROCESS', 'MEAN_0')), float(cfg.get('PREPROCESS', 'MEAN_1')),
