@@ -183,6 +183,7 @@ setup(name="Brevitas",
       entry_points={
           'console_scripts': [
               'brevitas_imagenet_val = brevitas_examples.imagenet_classification.imagenet_val:main',
+              'brevitas_quartznet_val = brevitas_examples.speech_to_text.quartznet_val:main',
           ],
       })
 

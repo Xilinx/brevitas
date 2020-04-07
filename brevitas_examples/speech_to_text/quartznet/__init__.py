@@ -17,15 +17,60 @@
 # limitations under the License.
 
 
-# from .audio_preprocessing import AudioToMelSpectrogramPreprocessor
 from .data_layer import (
         AudioToTextDataLayer)
 from .greedy_ctc_decoder import GreedyCTCDecoder
 from .quartznet import quartznet
 from .losses import CTCLossNM
+from .helpers import *
+
+import os
+from configparser import ConfigParser
+from ruamel.yaml import YAML
+from torch import hub
 
 __all__ = ['AudioToTextDataLayer',
            'quartznet']
 
-
 name = "quarznet_release"
+model_impl = {
+    'quartznet': quartznet,
+}
+
+def model_with_cfg(name, pretrained):
+    cfg = ConfigParser()
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    config_path = os.path.join(current_dir, '..', 'cfg', name + '.ini')
+    assert os.path.exists(config_path)
+    cfg.read(config_path)
+    arch = cfg.get('MODEL', 'ARCH')
+    topology_file = cfg.get('MODEL', 'TOPOLOGY_FILE')
+    topology_path = os.path.join(current_dir, '..', 'cfg', 'topology', topology_file)
+    yaml = YAML(typ="safe")
+    with open(topology_path) as f:
+        quartnzet_params = yaml.load(f)
+    model = model_impl[arch](cfg, quartnzet_params)
+    if pretrained:
+        pretrained_encoder_url = cfg.get('MODEL', 'PRETRAINED_ENCODER_URL')
+        pretrained_decoder_url = cfg.get('MODEL', 'PRETRAINED_DECODER_URL')
+        print("=> Loading encoder checkpoint from:'{}'".format(pretrained_encoder_url))
+        print("=> Loading decoder checkpoint from:'{}'".format(pretrained_decoder_url))
+        checkpoint_enc = torch.hub.load_state_dict_from_url(pretrained_encoder_url, progress=True, map_location='cpu')
+        checkpoint_dec = torch.hub.load_state_dict_from_url(pretrained_decoder_url, progress=True, map_location='cpu')
+        model.restore_checkpoints(checkpoint_enc, checkpoint_dec)
+    return model, cfg
+
+
+def quant_quartznet_perchannelscaling_4b(pretrained=True):
+    model, _ = model_with_cfg('quant_quartznet_perchannelscaling_4b', pretrained)
+    return model
+
+
+def quant_quartznet_perchannelscaling_8b(pretrained=True):
+    model, _ = model_with_cfg('quant_quartznet_perchannelscaling_8b', pretrained)
+    return model
+
+
+def quant_quartznet_pertensorscaling_8b(pretrained=True):
+    model, _ = model_with_cfg('quant_quartznet_pertensorscaling_8b', pretrained)
+    return model

@@ -7,22 +7,24 @@ from ruamel.yaml import YAML
 import random
 import torch
 
-from quartznet import AudioToTextDataLayer, quartznet
-from quartznet.helpers import word_error_rate, post_process_predictions, \
+from .quartznet import AudioToTextDataLayer
+from .quartznet.helpers import word_error_rate, post_process_predictions, \
     post_process_transcripts
 import torch.backends.cudnn as cudnn
 import brevitas.config
+from .quartznet import model_with_cfg
+
 brevitas.config.IGNORE_MISSING_KEYS = False
 SEED = 123456
 BATCH_SIZE = 64
 
 
-models = {'quartznet': quartznet}
 
 parser = argparse.ArgumentParser(description='Quartznet')
-parser.add_argument("--model-cfg", type=str, required=True)
 parser.add_argument("--input-folder", type=str, required=False)
 parser.add_argument("--gpu", type=int)
+parser.add_argument('--pretrained', action='store_true', default=True, help='Load pretrained checkpoint')
+parser.add_argument('--model', type=str, default='quant_quartznet_perchannelscaling_4b', help='Name of the model')
 
 
 def main():
@@ -31,19 +33,15 @@ def main():
 
     args = parser.parse_args()
 
-    assert os.path.exists(args.model_cfg)
-    cfg = configparser.ConfigParser()
-    cfg.read(args.model_cfg)
+    model, cfg = model_with_cfg(args.model, args.pretrained)
 
     topology_file = cfg.get('MODEL', 'TOPOLOGY_FILE')
-
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    topology_path = os.path.join(current_dir, 'cfg', 'topology', topology_file)
     yaml = YAML(typ="safe")
-    with open(topology_file) as f:
+    with open(topology_path) as f:
         quartnzet_params = yaml.load(f)
 
-    arch = cfg.get('MODEL', 'ARCH')
-
-    model = models[arch](cfg, quartnzet_params)
     vocab = quartnzet_params['labels']
     sample_rate = quartnzet_params['sample_rate']
 
@@ -79,27 +77,12 @@ def main():
     print('================================')
 
 
-
     if args.gpu is not None:
         torch.cuda.set_device(args.gpu)
         cudnn.benchmark = True
-
-    pretrained_encoder_url = cfg.get('MODEL', 'PRETRAINED_ENCODER_URL')
-    pretrained_decoder_url = cfg.get('MODEL', 'PRETRAINED_DECODER_URL')
-    print("=> Loading encoder checkpoint from:'{}'".format(pretrained_encoder_url))
-    print("=> Loading decoder checkpoint from:'{}'".format(pretrained_decoder_url))
-    if args.gpu is None:
-        loc = 'cpu'
-        checkpoint_enc = torch.hub.load_state_dict_from_url(pretrained_encoder_url)
-        checkpoint_dec = torch.hub.load_state_dict_from_url(pretrained_decoder_url)
-    else:
-        # Map model to be loaded to specified single gpu.
         loc = 'cuda:{}'.format(args.gpu)
-        checkpoint_enc = torch.hub.load_state_dict_from_url(pretrained_encoder_url, map_location=loc)
-        checkpoint_dec = torch.hub.load_state_dict_from_url(pretrained_decoder_url, map_location=loc)
-
-    model.restore_checkpoints(checkpoint_enc, checkpoint_dec)
-    model.to(loc)
+    else:
+        loc = 'cpu'
 
     predictions = []
     transcripts = []
