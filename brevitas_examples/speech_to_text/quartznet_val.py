@@ -83,7 +83,8 @@ def main():
         loc = 'cuda:{}'.format(args.gpu)
     else:
         loc = 'cpu'
-
+    model.to(loc)
+    
     predictions = []
     transcripts = []
     transcripts_len = []
