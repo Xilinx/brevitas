@@ -187,6 +187,8 @@ setup(name="Brevitas",
               'brevitas_imagenet_val = brevitas_examples.imagenet_classification.imagenet_val:main',
               'brevitas_quartznet_val = brevitas_examples.speech_to_text.quartznet_val:main',
               'brevitas_melgan_val = brevitas_examples.text_to_speech.melgan_val:main',
+              'brevitas_quartznet_preprocess = brevitas_examples.speech_to_text.get_librispeech_data:main',
+              'brevitas_melgan_preprocess = brevitas_examples.text_to_speech.preprocess_dataset:main'
           ],
       })
 

@@ -4,13 +4,13 @@ import tqdm
 import torch
 import argparse
 import numpy as np
-import configparser
+from configparser import ConfigParser
 
 from .utilities.stft import TacotronSTFT
 from .utilities.audio_processing import read_wav_np
 
 
-def main(cfg, args):
+def preprocess(cfg, args):
     filter_length = cfg.getint('AUDIO', 'filter_length')
     hop_length = cfg.getint('AUDIO', 'hop_length')
     win_length = cfg.getint('AUDIO', 'win_length')
@@ -48,16 +48,21 @@ def main(cfg, args):
         torch.save(mel, melpath)
 
 
-if __name__ == '__main__':
+def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--config', type=str, required=True,
-                        help="yaml file for config.")
+    parser.add_argument('-n', '--name', type=str, required=True,
+                        help="name of the model")
     parser.add_argument('-d', '--data-path', type=str, required=True,
                         help="root directory of wav files")
     args = parser.parse_args()
+    cfg = ConfigParser()
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    config_path = os.path.join(current_dir, 'cfg', args.name + '.ini')
+    assert os.path.exists(config_path)
+    cfg.read(config_path)
 
-    assert os.path.exists(args.config)
-    cfg = configparser.ConfigParser()
-    cfg.read(args.config)
+    preprocess(cfg, args)
 
-    main(cfg, args)
+
+if __name__ == '__main__':
+    main()
