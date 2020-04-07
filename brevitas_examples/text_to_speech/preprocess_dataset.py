@@ -6,8 +6,8 @@ import argparse
 import numpy as np
 import configparser
 
-from utilities.stft import TacotronSTFT
-from utilities.audio_processing import read_wav_np
+from .utilities.stft import TacotronSTFT
+from .utilities.audio_processing import read_wav_np
 
 
 def main(cfg, args):
