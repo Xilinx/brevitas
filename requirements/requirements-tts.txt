@@ -1,3 +1,4 @@
+soundfile
 librosa
 numpy
 scipy

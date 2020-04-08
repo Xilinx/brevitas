@@ -7,3 +7,4 @@ unidecode
 torch-stft
 sox
 tqdm
+soundfile
