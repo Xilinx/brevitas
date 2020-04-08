@@ -167,15 +167,29 @@ setup(name="Brevitas",
       install_requires=read_requirements('requirements.txt'),
       extras_require={
           "Hadamard": read_requirements('requirements-hadamard.txt'),
-          "test": read_requirements('requirements-test.txt')
+          "test": read_requirements('requirements-test.txt'),
+          "tts": read_requirements('requirements-tts.txt'),
+          "stt": read_requirements('requirements-stt.txt')
       },
       packages=find_packages(),
       zip_safe=False,
       ext_modules=get_jittable_extension(),
       cmdclass={
-            'build_py': BuildPy,
-            'build_ext': BuildJittableExtension.with_options(no_python_abi_suffix=True),
-            'develop': DevelopInstall,
-        }
-      )
+          'build_py': BuildPy,
+          'build_ext': BuildJittableExtension.with_options(no_python_abi_suffix=True),
+          'develop': DevelopInstall,
+      },
+      package_data={
+          'brevitas_examples': ['*.ini', '*.yaml'],
+      },
+      entry_points={
+          'console_scripts': [
+              'brevitas_imagenet_val = brevitas_examples.imagenet_classification.imagenet_val:main',
+              'brevitas_quartznet_val = brevitas_examples.speech_to_text.quartznet_val:main',
+              'brevitas_melgan_val = brevitas_examples.text_to_speech.melgan_val:main',
+              'brevitas_quartznet_preprocess = brevitas_examples.speech_to_text.get_librispeech_data:main',
+              'brevitas_melgan_preprocess = brevitas_examples.text_to_speech.preprocess_dataset:main'
+          ],
+      })
+
 

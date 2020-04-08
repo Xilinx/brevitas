@@ -57,6 +57,11 @@ jobs:
         mkdir $CONDA_PKGS_DIRS
         mkdir $PYTORCH_PKG_CACHE_PATH
 
+    - name: Install libsndfile on Ubuntu
+      shell: bash
+      run: sudo apt-get install -y libsndfile-dev
+      if: startsWith(runner.os, 'Linux') == true
+
     - name: Setup Conda
       uses: s-weigand/setup-conda@v1
 

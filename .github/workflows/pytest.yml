@@ -18,21 +18,29 @@ jobs:
         platform: ['windows-latest', 'ubuntu-latest', 'macos-latest']
         jit_status: ['jit_enabled', 'jit_disabled']
 
+
         exclude:
           - platform: 'windows-latest'
             conda_python_version: '3.6'
+
           - platform: 'macos-latest'
             pytorch_version: '1.1.0'
+
           - pytorch_version: '1.1.0'
             conda_python_version: '3.8'
+
           - pytorch_version: '1.2.0'
             conda_python_version: '3.8'
+
           - pytorch_version: '1.3.0'
             conda_python_version: '3.8'
+
           - pytorch_version: '1.3.1'
             conda_python_version: '3.8'
+
           - pytorch_version: '1.1.0'
             jit_status: 'jit_disabled'
+
 
 
     steps:
@@ -74,6 +82,11 @@ jobs:
         echo "::set-output name=pytorch_pkg_cache_path::"$PYTORCH_PKG_CACHE_PATH
         mkdir $CONDA_PKGS_DIRS
         mkdir $PYTORCH_PKG_CACHE_PATH
+
+    - name: Install libsndfile on Ubuntu
+      shell: bash
+      run: sudo apt-get install -y libsndfile-dev
+      if: startsWith(runner.os, 'Linux') == true
 
     - name: Setup Conda
       uses: s-weigand/setup-conda@v1
@@ -120,7 +133,8 @@ jobs:
 
     - name: Run Nox session for pytest
       shell: bash
-      run: nox --verbose --session tests_cpu-${{ matrix.conda_python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)
+      run: nox -v -s tests_brevitas_cpu-${{ matrix.conda_python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)
+
 
 
     - name: Remove tarballs before caching Pytorch deps pkgs

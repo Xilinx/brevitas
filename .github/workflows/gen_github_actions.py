@@ -42,15 +42,23 @@ MATRIX = od([('conda_python_version', list(CONDA_PYTHON_VERSIONS)),
 
 PYTEST_MATRIX_EXTRA = od([('jit_status', list(JIT_STATUSES))])
 
-PYTEST_STEP_LIST = [od([
-    ('name', 'Run Nox session for pytest'),
-    ('shell', 'bash'),
-    ('run', 'nox --verbose --session tests_cpu-${{ matrix.conda_python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)')])]
+PYTEST_STEP_LIST = [
+    od([
+        ('name', 'Run Nox session for pytest'),
+        ('shell', 'bash'),
+        ('run', 'nox -v -s tests_brevitas_cpu-${{ matrix.conda_python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)')
+    ])]
 
-TEST_INSTALL_DEVELOP_STEP_LIST = [od([
-    ('name', 'Run Nox session for testing develop install and imports'),
-    ('shell', 'bash'),
-    ('run', 'nox --verbose --session tests_install_develop-${{ matrix.conda_python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)')])]
+TEST_INSTALL_DEV_STEP_LIST = [
+    od([
+        ('name', 'Run Nox session for testing brevitas develop install and imports'),
+        ('shell', 'bash'),
+        ('run', 'nox -v -s tests_brevitas_install_dev-${{ matrix.conda_python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)')]),
+    od([
+        ('name', 'Run Nox session for testing brevitas_examples develop install and imports'),
+        ('shell', 'bash'),
+        ('run', 'nox -v -s tests_brevitas_examples_install_dev-${{ matrix.conda_python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)')
+    ])]
 
 
 # whitespaces to indent generated portions of output yaml
@@ -90,6 +98,7 @@ class Action:
                 repr += f"{name}: {val}\n"
         if indent_first:
             repr = indent(repr, RELATIVE_INDENT*' ', predicate=lambda line: not first_line_prefix in line)
+        repr += '\n'
         return repr
 
     def gen_yaml(self, output_path):
@@ -122,7 +131,7 @@ def gen_test_develop_install_yml():
         'Test develop install',
         EXCLUDE_LIST,
         MATRIX,
-        TEST_INSTALL_DEVELOP_STEP_LIST)
+        TEST_INSTALL_DEV_STEP_LIST)
     test_develop_install.gen_yaml(DEVELOP_INSTALL_YML)
 
 
