@@ -18,32 +18,36 @@ JIT_IDS = tuple([f'{i}'.lower() for i in JIT_STATUSES])
 @nox.session(venv_backend="conda", python=CONDA_PYTHON_VERSIONS)
 @nox.parametrize("pytorch", PYTORCH_VERSIONS, ids=PYTORCH_IDS)
 @nox.parametrize("jit_status", JIT_STATUSES, ids=JIT_IDS)
-def tests_cpu(session, pytorch, jit_status):
+def tests_brevitas_cpu(session, pytorch, jit_status):
     session.env['PYTORCH_JIT'] = '{}'.format(int(jit_status == 'jit_enabled'))
     if version.parse(pytorch) >= version.parse(PYTORCH_CPU_VIRTUAL_PKG):
         session.conda_install('-c', 'pytorch', f'pytorch=={pytorch}', 'cpuonly')
     else:
         session.conda_install('-c', 'pytorch', f'pytorch-cpu=={pytorch}')
     session.install('.[test]')
-    session.run('pytest', '-v')
+    session.run('pytest', 'test/brevitas', '-v')
 
 
 @nox.session(venv_backend="conda", python=CONDA_PYTHON_VERSIONS)
 @nox.parametrize("pytorch", PYTORCH_VERSIONS, ids=PYTORCH_IDS)
-def tests_install_develop(session, pytorch):
+def tests_brevitas_install_dev(session, pytorch):
     if version.parse(pytorch) >= version.parse(PYTORCH_CPU_VIRTUAL_PKG):
         session.conda_install('-c', 'pytorch', f'pytorch=={pytorch}', 'cpuonly')
     else:
         session.conda_install('-c', 'pytorch', f'pytorch-cpu=={pytorch}')
-    session.install('-e', '.')
-    if system() == 'Windows':
-        env = session.env
-        nox.command.run(['python', '-c', 'import brevitas'], env=env, path=os.path.dirname(session.bin))
-        nox.command.run(['python', '-c', 'import brevitas.function.ops_ste'], env=env,
-                        path=os.path.dirname(session.bin))
+    session.install('-e', '.[test]')
+    session.run('pytest', '-v', 'test/brevitas/test_import.py')
+
+
+@nox.session(venv_backend="conda", python=CONDA_PYTHON_VERSIONS)
+@nox.parametrize("pytorch", PYTORCH_VERSIONS, ids=PYTORCH_IDS)
+def tests_brevitas_examples_install_dev(session, pytorch):
+    if version.parse(pytorch) >= version.parse(PYTORCH_CPU_VIRTUAL_PKG):
+        session.conda_install('-c', 'pytorch', f'pytorch=={pytorch}', 'cpuonly')
     else:
-        session.run('python', '-c', 'import brevitas')
-        session.run('python', '-c', 'import brevitas.function.ops_ste')
+        session.conda_install('-c', 'pytorch', f'pytorch-cpu=={pytorch}')
+    session.install('-e', '.[test, tts, stt]')
+    session.run('pytest', '-v', 'test/brevitas_examples/test_import.py')
 
 
 @nox.session(python=False)

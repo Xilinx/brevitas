@@ -21,7 +21,7 @@ To evaluate a pretrained quantized model on ImageNet:
  For example, for *quant_mobilenet_v1_4b* evaluated on GPU 0:
 
 ```
-brevitas_imagenet_val --imagenet-dir /path/to/imagenet --model ./cfg/quant_mobilenet_v1_4b.ini --gpu 0 --pretrained
+brevitas_imagenet_val --imagenet-dir /path/to/imagenet --model quant_mobilenet_v1_4b --gpu 0 --pretrained
 ```
 
 ## MobileNet V1

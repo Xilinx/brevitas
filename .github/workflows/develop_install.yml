@@ -115,9 +115,12 @@ jobs:
         rm -R ${{ steps.cache-dirs.outputs.pytorch_pkg_cache_path }}/pytorch*
       if: steps.pytorch-cache.outputs.cache-hit == 'true'
 
-    - name: Run Nox session for testing develop install and imports
+    - name: Run Nox session for testing brevitas develop install and imports
       shell: bash
-      run: nox --verbose --session tests_install_develop-${{ matrix.conda_python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)
+      run: nox -v -s tests_brevitas_install_dev-${{ matrix.conda_python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)
+    - name: Run Nox session for testing brevitas_examples develop install and imports
+      shell: bash
+      run: nox -v -s tests_brevitas_examples_install_dev-${{ matrix.conda_python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)
 
 
     - name: Remove tarballs before caching Pytorch deps pkgs

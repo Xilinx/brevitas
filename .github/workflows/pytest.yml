@@ -120,7 +120,7 @@ jobs:
 
     - name: Run Nox session for pytest
       shell: bash
-      run: nox --verbose --session tests_cpu-${{ matrix.conda_python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)
+      run: nox -v -s tests_brevitas_cpu-${{ matrix.conda_python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)
 
 
     - name: Remove tarballs before caching Pytorch deps pkgs

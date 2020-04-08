@@ -30,12 +30,16 @@ from ruamel.yaml import YAML
 from torch import hub
 
 __all__ = ['AudioToTextDataLayer',
-           'quartznet']
+           'quartznet',
+           'quant_quartznet_perchannelscaling_4b',
+           'quant_quartznet_perchannelscaling_8b',
+           'quant_quartznet_pertensorscaling_8b']
 
 name = "quarznet_release"
 model_impl = {
     'quartznet': quartznet,
 }
+
 
 def model_with_cfg(name, pretrained):
     cfg = ConfigParser()
