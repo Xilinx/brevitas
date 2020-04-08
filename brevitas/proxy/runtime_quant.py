@@ -44,12 +44,13 @@ import torch
 from torch.nn import Module
 
 from brevitas.core import ZERO_HW_SENTINEL_NAME, ZERO_HW_SENTINEL_VALUE
-from brevitas.core.bit_width import BitWidthImplType, MsbClampParameterBitWidth, BitWidthConst
+from brevitas.core.bit_width import BitWidthImplType, MsbClampParameterBitWidth, BitWidthConst, IdentityBitWidth
 from brevitas.core.bit_width import BitWidthParameter, LsbTruncParameterBitWidth, ZeroLsbTruncBitWidth
 from brevitas.core.function_wrapper import TensorClamp
 from brevitas.core.quant import PrescaledRestrictIntQuantWithInputBitWidth, ClampedBinaryQuant
-from brevitas.core.quant import QuantType, IdentityPrescaledIntQuant, PrescaledIntQuant
+from brevitas.core.quant import QuantType, IdentityPrescaledIntQuant
 from brevitas.core.quant import RescalingIntQuant, IdentityQuant
+from brevitas.function.ops_ste import round_ste
 from brevitas.core.restrict_val import RestrictValueType, RestrictValue, FloatToIntImplType, RestrictValueOpImplType
 from brevitas.core.scaling import RuntimeStatsScaling, SCALING_SCALAR_SHAPE, StatsInputViewShapeImpl
 from brevitas.core.scaling import ScalingImplType, StandaloneScaling, IntScaling
@@ -92,7 +93,6 @@ class ActivationQuantProxy(QuantProxy):
                  scaling_stats_sigma: Optional[float],
                  scaling_stats_op: Optional[StatsOp],
                  scaling_stats_buffer_momentum: Optional[float],
-                 scaling_stats_input_view_shape_impl: Optional[StatsInputViewShapeImpl],
                  scaling_stats_permute_dims: Optional[Tuple],
                  per_channel_broadcastable_shape: Optional[Tuple[int, ...]],
                  min_overall_bit_width: Optional[int],
@@ -109,27 +109,18 @@ class ActivationQuantProxy(QuantProxy):
         if scaling_per_channel and per_channel_broadcastable_shape is None:
             raise Exception("Per channel scaling requires to specify number of channels.")
 
-        if scaling_per_channel and not scaling_stats_op == StatsOp.MAX_AVE:
-            scaling_shape = per_channel_broadcastable_shape
-            scaling_stats_reduce_dim = 1
-        elif scaling_per_channel and scaling_stats_op ==  StatsOp.MAX_AVE:
-            raise Exception("Can't do per channel scaling with MAX AVE statistics.")
-        elif not scaling_per_channel and scaling_stats_op == StatsOp.MAX_AVE:
-            raise Exception("Not supported yet.")
-        else:  # not scaling_per_channel
-            scaling_shape = SCALING_SCALAR_SHAPE
-            scaling_stats_input_view_shape_impl = StatsInputViewShapeImpl.OVER_TENSOR
-            scaling_stats_reduce_dim = None
-            scaling_stats_permute_dims = None
-
         if quant_type == QuantType.FP:
             tensor_quant = IdentityQuant()
-
         else:
             if scaling_impl_type != ScalingImplType.OVERRIDE and scaling_override is not None:
                 raise Exception("Overriding scaling requires to set ScalingImplType to OVERRIDE explicitly.")
             if scaling_impl_type == ScalingImplType.OVERRIDE and scaling_override is None:
                 raise Exception("Overriding scaling requires to pass a scaling impl module.")
+
+            if scaling_per_channel:
+                scaling_shape = per_channel_broadcastable_shape
+            else:
+                scaling_shape = SCALING_SCALAR_SHAPE
 
             if scaling_impl_type == ScalingImplType.OVERRIDE and scaling_override is not None:
                 scaling_impl = scaling_override
@@ -144,6 +135,20 @@ class ActivationQuantProxy(QuantProxy):
                                                  scaling_min_val=scaling_min_val)
                 runtime = False
             elif scaling_impl_type == ScalingImplType.STATS or scaling_impl_type == ScalingImplType.AFFINE_STATS:
+
+                if scaling_per_channel and not scaling_stats_op == StatsOp.MAX_AVE:
+                    scaling_stats_input_view_shape_impl = StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS
+                    scaling_stats_reduce_dim = 1
+                elif scaling_per_channel and scaling_stats_op == StatsOp.MAX_AVE:
+                    raise Exception("Can't do per channel scaling with MAX AVE statistics.")
+                elif not scaling_per_channel and scaling_stats_op == StatsOp.MAX_AVE:
+                    scaling_stats_input_view_shape_impl = StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS
+                    scaling_stats_reduce_dim = 1
+                else:  # not scaling_per_channel
+                    scaling_stats_input_view_shape_impl = StatsInputViewShapeImpl.OVER_TENSOR
+                    scaling_stats_reduce_dim = None
+                    scaling_stats_permute_dims = None
+
                 stats_buffer_init = RescalingIntQuant.scaling_init_from_min_max(min_val, max_val).item()
                 scaling_impl = RuntimeStatsScaling(stats_op=scaling_stats_op,
                                                    restrict_scaling_type=restrict_scaling_type,
@@ -224,7 +229,7 @@ class ActivationQuantProxy(QuantProxy):
         scaling_affine_bias_key = prefix + '.stats_scaling_impl.affine_rescaling.affine_bias'
 
         if not isinstance(self.fused_activation_quant_proxy.tensor_quant, IdentityQuant) and \
-            self.scaling_impl_type == ScalingImplType.PARAMETER:
+                self.scaling_impl_type == ScalingImplType.PARAMETER:
             scaling_impl = self.fused_activation_quant_proxy.tensor_quant.scaling_impl
 
             # If it's retrained directly from statistics, i.e. there isn't a preexisting parameter
@@ -329,20 +334,24 @@ class TruncQuantProxy(QuantProxy):
             float_to_int_impl = RestrictValue(restrict_value_type=RestrictValueType.INT,
                                               float_to_int_impl_type=FloatToIntImplType.FLOOR,
                                               min_val=None)
-            self.tensor_quant = PrescaledIntQuant(signed=signed,
-                                                  narrow_range=False,
-                                                  tensor_clamp_impl=tensor_clamp_impl,
-                                                  float_to_int_impl=float_to_int_impl)
+            msb_clamp_bit_width_impl = IdentityBitWidth()
+            self.tensor_quant = PrescaledRestrictIntQuantWithInputBitWidth(narrow_range=False,
+                                                                           signed=signed,
+                                                                           tensor_clamp_impl=tensor_clamp_impl,
+                                                                           msb_clamp_bit_width_impl=msb_clamp_bit_width_impl,
+                                                                           float_to_int_impl=float_to_int_impl)
+
         else:
             raise Exception("Quantization type {} not supported for accumulators.".format(quant_type))
 
     def forward(self, x, input_scale, input_bit_width):
+        x = round_ste(x / input_scale) * input_scale  # clean up fp errors before floor
         trunc_bit_width = self.lsb_trunc_bit_width_impl(input_bit_width, self.zero_hw_sentinel)
         trunc_scale = 2.0 ** trunc_bit_width
         output_scale = trunc_scale * input_scale
         x, output_scale, input_bit_width = self.tensor_quant(x, output_scale, input_bit_width, self.zero_hw_sentinel)
         if self.explicit_rescaling:
-            x = x / trunc_scale # rescaling is explicit, so the truncation scale stays with x rather with output_scale
+            x = x / trunc_scale  # rescaling is explicit, so the truncation scale stays with x rather with output_scale
             output_scale = output_scale / trunc_scale
         output_bit_width = input_bit_width - trunc_bit_width
         return x, output_scale, output_bit_width

@@ -16,9 +16,10 @@
 
 import os
 import sys
+import brevitas
 import sphinx_rtd_theme
-sys.path.insert(0, os.path.abspath('../..'))
-
+# sys.path.insert(0, os.path.abspath('../..'))
+sys.path.insert(0, os.path.abspath(brevitas.__file__))
 # -- Project information -----------------------------------------------------
 
 project = 'Brevitas'
@@ -45,7 +46,6 @@ extensions = [
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
-
 # Napoleon config
 napoleon_use_param = True
 
@@ -54,6 +54,7 @@ napoleon_use_param = True
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = []
+autodoc_mock_imports = ['_C']
 
 
 # -- Options for HTML output -------------------------------------------------

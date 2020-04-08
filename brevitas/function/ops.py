@@ -42,94 +42,121 @@ import torch
 
 
 @torch.jit.script
-def _ste(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-    return x + (y - x).detach()
+def tensor_clamp(x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor) -> torch.Tensor:
+    """
 
+    Parameters
+    ----------
+    x : Tensor
+        Tensor on which to apply the clamp operation
+    min_val : Tensor
+        Tensor containing the minimum values for the clamp operation. Must have the same shape of `x`
+    max_val : Tensor
+        Tensor containing the maximum values for the clamp operation. Must have the same shape of `x`
 
-@torch.jit.script
-def round_ste(x: torch.Tensor) -> torch.Tensor:
-    y = torch.round(x)
-    return _ste(x, y)
-
-
-@torch.jit.script
-def tensor_clamp(x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor):
+    Returns
+    -------
+    Tensor
+        Tensor for which every element of `x` is clamped between the corresponding minimum and maximum values.
+    """
     out = torch.where(x > max_val, max_val, x)
     out = torch.where(out < min_val, min_val, out)
     return out
 
 
 @torch.jit.script
-def tensor_clamp_(x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor):
+def tensor_clamp_(x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor) -> torch.Tensor:
     torch.min(x, max_val, out=x)
     torch.max(x, min_val, out=x)
     return x
 
 
 @torch.jit.script
-def max_uint(narrow_range: bool, bit_width: torch.Tensor):
+def max_uint(narrow_range: bool, bit_width: torch.Tensor) -> torch.Tensor:
+    """ Compute the maximum unsigned integer representable
+
+    The maximum unsigned integer representable depends on the number of bits, and whether the narrow range setting
+    is used. If so, the maximum value represented is decreased by one unit.
+
+    Parameters
+    ----------
+    narrow_range : Bool
+        Flag that indicates whether to decrease the possible maximum value represented
+    bit_width : Tensor
+        Number of bits available for the representation
+
+    Returns
+    -------
+    Tensor
+        Maximum unsigned integer that can be represented according to the input parameters
+
+    """
     if narrow_range:
         value = (2 ** bit_width) - 2
     else:
         value = (2 ** bit_width) - 1
-    value = round_ste(value)
     return value
 
 
 @torch.jit.script
-def max_int(signed: bool, bit_width: torch.Tensor):
+def max_int(signed: bool, bit_width: torch.Tensor) -> torch.Tensor:
+    """ Compute the maximum integer representable
+
+    The maximum integer representable depends on the number of bits, and whether the negative numbers are included
+    in the representation. If so, one bit is lost in the computation of the maximum value.
+
+    Parameters
+    ----------
+    signed : Bool
+        Flag that indicates whether negative numbers must be included or not
+    bit_width : Tensor
+        Number of bits available for the representation
+
+    Returns
+    -------
+    Tensor
+        Maximum integer that can be represented according to the input parameters
+
+    """
     if signed:
         value = (2 ** (bit_width - 1)) - 1
     else:
         value = (2 ** bit_width) - 1
-    value = round_ste(value)
     return value
 
+
 @torch.jit.script
-def min_int(signed: bool, narrow_range: bool, bit_width: torch.Tensor):
+def min_int(signed: bool, narrow_range: bool, bit_width: torch.Tensor) -> torch.Tensor:
+    """ Compute the minimum integer representable
+
+    The minimum integer representable depends on the number of bits, whether the negative numbers are included
+    in the representation, and whether the narrow range setting is used.
+    For positive-only number, the minimum value will always be zero.
+    If the sign and narrow range flags are both set, then the representation will be such that there is symmetry
+    between positive and negative values.
+    For example, for 3 bit representation, with sign and narrow range, the
+    values representable are in the range [-3, 3].
+    If the narrow range is not enabled, then the possible values will be in the range [-4, 3].
+
+    Parameters
+    ----------
+    signed : Bool
+        Flag that indicates whether negative numbers must be included or not
+    narrow_range : Bool
+        Flag that indicates whether the narrow range setting is enabled or not
+    bit_width : Tensor
+        Number of bits available for the representation
+
+    Returns
+    -------
+    Tensor
+        Minimum integer that can be represented according to the input parameters
+
+    """
     if signed and narrow_range:
         value = - (2 ** (bit_width - 1)) + 1
     elif signed and not narrow_range:
         value = - (2 ** (bit_width - 1))
     else:
         value = 0 * bit_width
-    value = round_ste(value)
     return value
-
-
-@torch.jit.script
-def tensor_clamp_ste(x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor) -> torch.Tensor:
-    y = tensor_clamp(x, min_val, max_val)
-    return _ste(x, y)
-
-
-@torch.jit.script
-def scalar_clamp_ste(x: torch.Tensor, min_val: float, max_val: float) -> torch.Tensor:
-    y = torch.clamp(x, min_val, max_val)
-    return _ste(x, y)
-
-
-@torch.jit.script
-def ceil_ste(x: torch.Tensor) -> torch.Tensor:
-    y = torch.ceil(x)
-    return _ste(x, y)
-
-
-@torch.jit.script
-def floor_ste(x: torch.Tensor) -> torch.Tensor:
-    y = torch.floor(x)
-    return _ste(x, y)
-
-
-@torch.jit.script
-def binary_sign_ste(x: torch.Tensor) -> torch.Tensor:
-    positive_mask = torch.ge(x, 0.0)
-    negative_mask = torch.lt(x, 0.0)
-    y = positive_mask.float() - negative_mask.float()
-    return _ste(x, y)
-
-
-@torch.jit.script
-def ternary_sign_ste(x: torch.Tensor) -> torch.Tensor:
-    y = torch.sign(x)
-    return _ste(x, y)

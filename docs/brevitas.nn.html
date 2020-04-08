@@ -21,10 +21,10 @@
   
     
       <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
-        <script type="text/javascript" src="_static/jquery.js"></script>
-        <script type="text/javascript" src="_static/underscore.js"></script>
-        <script type="text/javascript" src="_static/doctools.js"></script>
-        <script type="text/javascript" src="_static/language_data.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/language_data.js"></script>
     
     <script type="text/javascript" src="_static/js/theme.js"></script>
 
@@ -82,6 +82,7 @@
               <div class="local-toc"><ul>
 <li><a class="reference internal" href="#">brevitas.nn package</a><ul>
 <li><a class="reference internal" href="#submodules">Submodules</a></li>
+<li><a class="reference internal" href="#module-brevitas.nn.hadamard_classifier">brevitas.nn.hadamard_classifier module</a></li>
 <li><a class="reference internal" href="#module-brevitas.nn.quant_accumulator">brevitas.nn.quant_accumulator module</a></li>
 <li><a class="reference internal" href="#module-brevitas.nn.quant_activation">brevitas.nn.quant_activation module</a></li>
 <li><a class="reference internal" href="#module-brevitas.nn.quant_avg_pool">brevitas.nn.quant_avg_pool module</a></li>
@@ -89,6 +90,7 @@
 <li><a class="reference internal" href="#module-brevitas.nn.quant_conv">brevitas.nn.quant_conv module</a></li>
 <li><a class="reference internal" href="#module-brevitas.nn.quant_layer">brevitas.nn.quant_layer module</a></li>
 <li><a class="reference internal" href="#module-brevitas.nn.quant_linear">brevitas.nn.quant_linear module</a></li>
+<li><a class="reference internal" href="#module-brevitas.nn.quant_scale_bias">brevitas.nn.quant_scale_bias module</a></li>
 <li><a class="reference internal" href="#module-brevitas.nn">Module contents</a></li>
 </ul>
 </li>
@@ -161,6 +163,55 @@
 <div class="section" id="submodules">
 <h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
 </div>
+<div class="section" id="module-brevitas.nn.hadamard_classifier">
+<span id="brevitas-nn-hadamard-classifier-module"></span><h2>brevitas.nn.hadamard_classifier module<a class="headerlink" href="#module-brevitas.nn.hadamard_classifier" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="brevitas.nn.hadamard_classifier.HadamardClassifier">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.nn.hadamard_classifier.</code><code class="sig-name descname">HadamardClassifier</code><span class="sig-paren">(</span><em class="sig-param">in_channels</em>, <em class="sig-param">out_channels</em>, <em class="sig-param">fixed_scale=False</em>, <em class="sig-param">compute_output_scale=False</em>, <em class="sig-param">compute_output_bit_width=False</em>, <em class="sig-param">return_quant_tensor=False</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.hadamard_classifier.HadamardClassifier" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#brevitas.nn.quant_layer.QuantLayer" title="brevitas.nn.quant_layer.QuantLayer"><code class="xref py py-class docutils literal notranslate"><span class="pre">brevitas.nn.quant_layer.QuantLayer</span></code></a>, <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
+<dl class="method">
+<dt id="brevitas.nn.hadamard_classifier.HadamardClassifier.forward">
+<code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">x</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.hadamard_classifier.HadamardClassifier.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+</dd></dl>
+
+<dl class="method">
+<dt id="brevitas.nn.hadamard_classifier.HadamardClassifier.max_output_bit_width">
+<code class="sig-name descname">max_output_bit_width</code><span class="sig-paren">(</span><em class="sig-param">input_bit_width</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.hadamard_classifier.HadamardClassifier.max_output_bit_width" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="brevitas.nn.hadamard_classifier.HadamardClassifier.state_dict">
+<code class="sig-name descname">state_dict</code><span class="sig-paren">(</span><em class="sig-param">destination=None</em>, <em class="sig-param">prefix=''</em>, <em class="sig-param">keep_vars=False</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.hadamard_classifier.HadamardClassifier.state_dict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a dictionary containing a whole state of the module.</p>
+<p>Both parameters and persistent buffers (e.g. running averages) are
+included. Keys are corresponding parameter and buffer names.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>a dictionary containing a whole state of the module</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>dict</p>
+</dd>
+</dl>
+<p>Example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">module</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+<span class="go">[&#39;bias&#39;, &#39;weight&#39;]</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</dd></dl>
+
+</div>
 <div class="section" id="module-brevitas.nn.quant_accumulator">
 <span id="brevitas-nn-quant-accumulator-module"></span><h2>brevitas.nn.quant_accumulator module<a class="headerlink" href="#module-brevitas.nn.quant_accumulator" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
@@ -228,20 +279,20 @@ registered hooks while the latter silently ignores them.</p>
 
 <dl class="method">
 <dt id="brevitas.nn.quant_activation.QuantActivation.quant_act_scale">
-<em class="property">property </em><code class="sig-name descname">quant_act_scale</code><a class="headerlink" href="#brevitas.nn.quant_activation.QuantActivation.quant_act_scale" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">quant_act_scale</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_activation.QuantActivation.quant_act_scale" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
 
 <dl class="class">
 <dt id="brevitas.nn.quant_activation.QuantHardTanh">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.nn.quant_activation.</code><code class="sig-name descname">QuantHardTanh</code><span class="sig-paren">(</span><em class="sig-param">bit_width</em>, <em class="sig-param">min_val=-1.0</em>, <em class="sig-param">max_val=1.0</em>, <em class="sig-param">narrow_range=False</em>, <em class="sig-param">quant_type=&lt;QuantType.FP: 'FP'&gt;</em>, <em class="sig-param">float_to_int_impl_type=&lt;FloatToIntImplType.ROUND: 'ROUND'&gt;</em>, <em class="sig-param">scaling_impl_type=&lt;ScalingImplType.PARAMETER: 'PARAMETER'&gt;</em>, <em class="sig-param">scaling_override=None</em>, <em class="sig-param">scaling_per_channel=False</em>, <em class="sig-param">scaling_stats_sigma=3.0</em>, <em class="sig-param">scaling_stats_input_view_shape_impl=&lt;class 'brevitas.core.function_wrapper.OverOutputChannelView'&gt;</em>, <em class="sig-param">scaling_stats_op=&lt;StatsOp.MEAN_LEARN_SIGMA_STD: 'MEAN_LEARN_SIGMA_STD'&gt;</em>, <em class="sig-param">scaling_stats_buffer_momentum=0.1</em>, <em class="sig-param">scaling_stats_permute_dims=(1</em>, <em class="sig-param">0</em>, <em class="sig-param">2</em>, <em class="sig-param">3)</em>, <em class="sig-param">per_channel_broadcastable_shape=None</em>, <em class="sig-param">min_overall_bit_width=2</em>, <em class="sig-param">max_overall_bit_width=None</em>, <em class="sig-param">bit_width_impl_override=None</em>, <em class="sig-param">bit_width_impl_type=&lt;BitWidthImplType.CONST: 'CONST'&gt;</em>, <em class="sig-param">restrict_bit_width_type=&lt;RestrictValueType.INT: 'INT'&gt;</em>, <em class="sig-param">restrict_scaling_type=&lt;RestrictValueType.LOG_FP: 'LOG_FP'&gt;</em>, <em class="sig-param">scaling_min_val=1.52587890625e-05</em>, <em class="sig-param">override_pretrained_bit_width=False</em>, <em class="sig-param">return_quant_tensor=False</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_activation.QuantHardTanh" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.nn.quant_activation.</code><code class="sig-name descname">QuantHardTanh</code><span class="sig-paren">(</span><em class="sig-param">bit_width</em>, <em class="sig-param">min_val=-1.0</em>, <em class="sig-param">max_val=1.0</em>, <em class="sig-param">narrow_range=False</em>, <em class="sig-param">quant_type=&lt;QuantType.FP: 'FP'&gt;</em>, <em class="sig-param">float_to_int_impl_type=&lt;FloatToIntImplType.ROUND: 'ROUND'&gt;</em>, <em class="sig-param">scaling_impl_type=&lt;ScalingImplType.PARAMETER: 'PARAMETER'&gt;</em>, <em class="sig-param">scaling_override=None</em>, <em class="sig-param">scaling_per_channel=False</em>, <em class="sig-param">scaling_stats_sigma=3.0</em>, <em class="sig-param">scaling_stats_op=&lt;StatsOp.MEAN_LEARN_SIGMA_STD: 'MEAN_LEARN_SIGMA_STD'&gt;</em>, <em class="sig-param">scaling_stats_buffer_momentum=0.1</em>, <em class="sig-param">scaling_stats_permute_dims=(1</em>, <em class="sig-param">0</em>, <em class="sig-param">2</em>, <em class="sig-param">3)</em>, <em class="sig-param">per_channel_broadcastable_shape=None</em>, <em class="sig-param">min_overall_bit_width=2</em>, <em class="sig-param">max_overall_bit_width=None</em>, <em class="sig-param">bit_width_impl_override=None</em>, <em class="sig-param">bit_width_impl_type=&lt;BitWidthImplType.CONST: 'CONST'&gt;</em>, <em class="sig-param">restrict_bit_width_type=&lt;RestrictValueType.INT: 'INT'&gt;</em>, <em class="sig-param">restrict_scaling_type=&lt;RestrictValueType.LOG_FP: 'LOG_FP'&gt;</em>, <em class="sig-param">scaling_min_val=1.52587890625e-05</em>, <em class="sig-param">override_pretrained_bit_width=False</em>, <em class="sig-param">return_quant_tensor=False</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_activation.QuantHardTanh" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#brevitas.nn.quant_activation.QuantActivation" title="brevitas.nn.quant_activation.QuantActivation"><code class="xref py py-class docutils literal notranslate"><span class="pre">brevitas.nn.quant_activation.QuantActivation</span></code></a></p>
 </dd></dl>
 
 <dl class="class">
 <dt id="brevitas.nn.quant_activation.QuantReLU">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.nn.quant_activation.</code><code class="sig-name descname">QuantReLU</code><span class="sig-paren">(</span><em class="sig-param">bit_width</em>, <em class="sig-param">max_val</em>, <em class="sig-param">quant_type=&lt;QuantType.FP: 'FP'&gt;</em>, <em class="sig-param">float_to_int_impl_type=&lt;FloatToIntImplType.ROUND: 'ROUND'&gt;</em>, <em class="sig-param">scaling_impl_type=&lt;ScalingImplType.PARAMETER: 'PARAMETER'&gt;</em>, <em class="sig-param">scaling_override=None</em>, <em class="sig-param">scaling_per_channel=False</em>, <em class="sig-param">scaling_min_val=1.52587890625e-05</em>, <em class="sig-param">scaling_stats_sigma=2.0</em>, <em class="sig-param">scaling_stats_input_view_shape_impl=&lt;class 'brevitas.core.function_wrapper.OverOutputChannelView'&gt;</em>, <em class="sig-param">scaling_stats_op=&lt;StatsOp.MEAN_LEARN_SIGMA_STD: 'MEAN_LEARN_SIGMA_STD'&gt;</em>, <em class="sig-param">scaling_stats_buffer_momentum=0.1</em>, <em class="sig-param">scaling_stats_permute_dims=(1</em>, <em class="sig-param">0</em>, <em class="sig-param">2</em>, <em class="sig-param">3)</em>, <em class="sig-param">per_channel_broadcastable_shape=None</em>, <em class="sig-param">min_overall_bit_width=2</em>, <em class="sig-param">max_overall_bit_width=None</em>, <em class="sig-param">bit_width_impl_override=None</em>, <em class="sig-param">bit_width_impl_type=&lt;BitWidthImplType.CONST: 'CONST'&gt;</em>, <em class="sig-param">restrict_bit_width_type=&lt;RestrictValueType.INT: 'INT'&gt;</em>, <em class="sig-param">restrict_scaling_type=&lt;RestrictValueType.LOG_FP: 'LOG_FP'&gt;</em>, <em class="sig-param">override_pretrained_bit_width=False</em>, <em class="sig-param">return_quant_tensor=False</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_activation.QuantReLU" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.nn.quant_activation.</code><code class="sig-name descname">QuantReLU</code><span class="sig-paren">(</span><em class="sig-param">bit_width</em>, <em class="sig-param">max_val</em>, <em class="sig-param">quant_type=&lt;QuantType.FP: 'FP'&gt;</em>, <em class="sig-param">float_to_int_impl_type=&lt;FloatToIntImplType.ROUND: 'ROUND'&gt;</em>, <em class="sig-param">scaling_impl_type=&lt;ScalingImplType.PARAMETER: 'PARAMETER'&gt;</em>, <em class="sig-param">scaling_override=None</em>, <em class="sig-param">scaling_per_channel=False</em>, <em class="sig-param">scaling_min_val=1.52587890625e-05</em>, <em class="sig-param">scaling_stats_sigma=2.0</em>, <em class="sig-param">scaling_stats_op=&lt;StatsOp.MEAN_LEARN_SIGMA_STD: 'MEAN_LEARN_SIGMA_STD'&gt;</em>, <em class="sig-param">scaling_stats_buffer_momentum=0.1</em>, <em class="sig-param">scaling_stats_permute_dims=(1</em>, <em class="sig-param">0</em>, <em class="sig-param">2</em>, <em class="sig-param">3)</em>, <em class="sig-param">per_channel_broadcastable_shape=None</em>, <em class="sig-param">min_overall_bit_width=2</em>, <em class="sig-param">max_overall_bit_width=None</em>, <em class="sig-param">bit_width_impl_override=None</em>, <em class="sig-param">bit_width_impl_type=&lt;BitWidthImplType.CONST: 'CONST'&gt;</em>, <em class="sig-param">restrict_bit_width_type=&lt;RestrictValueType.INT: 'INT'&gt;</em>, <em class="sig-param">restrict_scaling_type=&lt;RestrictValueType.LOG_FP: 'LOG_FP'&gt;</em>, <em class="sig-param">override_pretrained_bit_width=False</em>, <em class="sig-param">return_quant_tensor=False</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_activation.QuantReLU" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#brevitas.nn.quant_activation.QuantActivation" title="brevitas.nn.quant_activation.QuantActivation"><code class="xref py py-class docutils literal notranslate"><span class="pre">brevitas.nn.quant_activation.QuantActivation</span></code></a></p>
 </dd></dl>
 
@@ -289,29 +340,15 @@ registered hooks while the latter silently ignores them.</p>
 <div class="section" id="module-brevitas.nn.quant_bn">
 <span id="brevitas-nn-quant-bn-module"></span><h2>brevitas.nn.quant_bn module<a class="headerlink" href="#module-brevitas.nn.quant_bn" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
-<dt id="brevitas.nn.quant_bn.QuantBatchNorm2d">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.nn.quant_bn.</code><code class="sig-name descname">QuantBatchNorm2d</code><span class="sig-paren">(</span><em class="sig-param">num_features</em>, <em class="sig-param">eps=1e-05</em>, <em class="sig-param">momentum=0.1</em>, <em class="sig-param">restrict_value_type=&lt;RestrictValueType.FP: 'FP'&gt;</em>, <em class="sig-param">impl_type=&lt;ScalingImplType.STATS: 'STATS'&gt;</em>, <em class="sig-param">bias_quant_type=&lt;QuantType.FP: 'FP'&gt;</em>, <em class="sig-param">bias_narrow_range=False</em>, <em class="sig-param">bias_bit_width=None</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_bn.QuantBatchNorm2d" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="#brevitas.nn.quant_layer.QuantLayer" title="brevitas.nn.quant_layer.QuantLayer"><code class="xref py py-class docutils literal notranslate"><span class="pre">brevitas.nn.quant_layer.QuantLayer</span></code></a>, <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
-<dl class="method">
-<dt id="brevitas.nn.quant_bn.QuantBatchNorm2d.forward">
-<code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">quant_tensor</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_bn.QuantBatchNorm2d.forward" title="Permalink to this definition">¶</a></dt>
-<dd><p>Defines the computation performed at every call.</p>
-<p>Should be overridden by all subclasses.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Although the recipe for forward pass needs to be defined within
-this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
-instead of this since the former takes care of running the
-registered hooks while the latter silently ignores them.</p>
-</div>
+<dt id="brevitas.nn.quant_bn.BatchNorm2dToQuantScaleBias">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.nn.quant_bn.</code><code class="sig-name descname">BatchNorm2dToQuantScaleBias</code><span class="sig-paren">(</span><em class="sig-param">num_features</em>, <em class="sig-param">eps=1e-05</em>, <em class="sig-param">bias_quant_type=&lt;QuantType.FP: 'FP'&gt;</em>, <em class="sig-param">bias_narrow_range=False</em>, <em class="sig-param">bias_bit_width=None</em>, <em class="sig-param">weight_quant_type=&lt;QuantType.FP: 'FP'&gt;</em>, <em class="sig-param">weight_quant_override=None</em>, <em class="sig-param">weight_narrow_range=False</em>, <em class="sig-param">weight_scaling_override=None</em>, <em class="sig-param">weight_bit_width=32</em>, <em class="sig-param">weight_scaling_impl_type=&lt;ScalingImplType.STATS: 'STATS'&gt;</em>, <em class="sig-param">weight_scaling_const=None</em>, <em class="sig-param">weight_scaling_stats_op=&lt;StatsOp.MAX: 'MAX'&gt;</em>, <em class="sig-param">weight_scaling_per_output_channel=False</em>, <em class="sig-param">weight_restrict_scaling_type=&lt;RestrictValueType.LOG_FP: 'LOG_FP'&gt;</em>, <em class="sig-param">weight_scaling_stats_sigma=3.0</em>, <em class="sig-param">weight_scaling_min_val=1.52587890625e-05</em>, <em class="sig-param">compute_output_scale=False</em>, <em class="sig-param">compute_output_bit_width=False</em>, <em class="sig-param">return_quant_tensor=False</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_bn.BatchNorm2dToQuantScaleBias" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#brevitas.nn.quant_scale_bias.QuantScaleBias" title="brevitas.nn.quant_scale_bias.QuantScaleBias"><code class="xref py py-class docutils literal notranslate"><span class="pre">brevitas.nn.quant_scale_bias.QuantScaleBias</span></code></a></p>
 </dd></dl>
 
-<dl class="method">
-<dt id="brevitas.nn.quant_bn.QuantBatchNorm2d.stats">
-<code class="sig-name descname">stats</code><span class="sig-paren">(</span><em class="sig-param">input_tensor</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_bn.QuantBatchNorm2d.stats" title="Permalink to this definition">¶</a></dt>
+<dl class="function">
+<dt id="brevitas.nn.quant_bn.mul_add_from_bn">
+<code class="sig-prename descclassname">brevitas.nn.quant_bn.</code><code class="sig-name descname">mul_add_from_bn</code><span class="sig-paren">(</span><em class="sig-param">bn_mean</em>, <em class="sig-param">bn_var</em>, <em class="sig-param">bn_eps</em>, <em class="sig-param">bn_weight</em>, <em class="sig-param">bn_bias</em>, <em class="sig-param">affine_only</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_bn.mul_add_from_bn" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
-
-</dd></dl>
 
 </div>
 <div class="section" id="module-brevitas.nn.quant_conv">
@@ -396,7 +433,7 @@ registered hooks while the latter silently ignores them.</p>
 
 <dl class="method">
 <dt id="brevitas.nn.quant_conv.QuantConv2d.merge_bn_in">
-<code class="sig-name descname">merge_bn_in</code><span class="sig-paren">(</span><em class="sig-param">bn</em>, <em class="sig-param">affine_only</em>, <em class="sig-param">sign_only</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_conv.QuantConv2d.merge_bn_in" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">merge_bn_in</code><span class="sig-paren">(</span><em class="sig-param">bn</em>, <em class="sig-param">affine_only</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_conv.QuantConv2d.merge_bn_in" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -407,7 +444,10 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="method">
 <dt id="brevitas.nn.quant_conv.QuantConv2d.quant_weight_scale">
 <em class="property">property </em><code class="sig-name descname">quant_weight_scale</code><a class="headerlink" href="#brevitas.nn.quant_conv.QuantConv2d.quant_weight_scale" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Returns scale factor of the quantized weights with scalar () shape or (self.out_channels, 1, 1, 1)
+shape depending on whether scaling is per layer or per-channel.
+——-</p>
+</dd></dl>
 
 </dd></dl>
 
@@ -504,7 +544,53 @@ registered hooks while the latter silently ignores them.</p>
 <dl class="method">
 <dt id="brevitas.nn.quant_linear.QuantLinear.quant_weight_scale">
 <em class="property">property </em><code class="sig-name descname">quant_weight_scale</code><a class="headerlink" href="#brevitas.nn.quant_linear.QuantLinear.quant_weight_scale" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Returns scale factor of the quantized weights with scalar () shape or (self.out_channels, 1)
+shape depending on whether scaling is per layer or per-channel.
+——-</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-brevitas.nn.quant_scale_bias">
+<span id="brevitas-nn-quant-scale-bias-module"></span><h2>brevitas.nn.quant_scale_bias module<a class="headerlink" href="#module-brevitas.nn.quant_scale_bias" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="brevitas.nn.quant_scale_bias.ScaleBias">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.nn.quant_scale_bias.</code><code class="sig-name descname">ScaleBias</code><span class="sig-paren">(</span><em class="sig-param">num_features</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_scale_bias.ScaleBias" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
+<dl class="method">
+<dt id="brevitas.nn.quant_scale_bias.ScaleBias.forward">
+<code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">x</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_scale_bias.ScaleBias.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="brevitas.nn.quant_scale_bias.QuantScaleBias">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.nn.quant_scale_bias.</code><code class="sig-name descname">QuantScaleBias</code><span class="sig-paren">(</span><em class="sig-param">num_features</em>, <em class="sig-param">bias_quant_type=&lt;QuantType.FP: 'FP'&gt;</em>, <em class="sig-param">bias_narrow_range=False</em>, <em class="sig-param">bias_bit_width=None</em>, <em class="sig-param">weight_quant_type=&lt;QuantType.FP: 'FP'&gt;</em>, <em class="sig-param">weight_quant_override=None</em>, <em class="sig-param">weight_narrow_range=False</em>, <em class="sig-param">weight_scaling_override=None</em>, <em class="sig-param">weight_bit_width=32</em>, <em class="sig-param">weight_scaling_impl_type=&lt;ScalingImplType.STATS: 'STATS'&gt;</em>, <em class="sig-param">weight_scaling_const=None</em>, <em class="sig-param">weight_scaling_stats_op=&lt;StatsOp.MAX: 'MAX'&gt;</em>, <em class="sig-param">weight_scaling_per_output_channel=False</em>, <em class="sig-param">weight_restrict_scaling_type=&lt;RestrictValueType.LOG_FP: 'LOG_FP'&gt;</em>, <em class="sig-param">weight_scaling_stats_sigma=3.0</em>, <em class="sig-param">weight_scaling_min_val=1.52587890625e-05</em>, <em class="sig-param">compute_output_scale=False</em>, <em class="sig-param">compute_output_bit_width=False</em>, <em class="sig-param">return_quant_tensor=False</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_scale_bias.QuantScaleBias" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#brevitas.nn.quant_layer.QuantLayer" title="brevitas.nn.quant_layer.QuantLayer"><code class="xref py py-class docutils literal notranslate"><span class="pre">brevitas.nn.quant_layer.QuantLayer</span></code></a>, <a class="reference internal" href="#brevitas.nn.quant_scale_bias.ScaleBias" title="brevitas.nn.quant_scale_bias.ScaleBias"><code class="xref py py-class docutils literal notranslate"><span class="pre">brevitas.nn.quant_scale_bias.ScaleBias</span></code></a></p>
+<dl class="method">
+<dt id="brevitas.nn.quant_scale_bias.QuantScaleBias.forward">
+<code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">quant_tensor</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.nn.quant_scale_bias.QuantScaleBias.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+</dd></dl>
 
 </dd></dl>
 

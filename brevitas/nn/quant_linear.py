@@ -51,7 +51,8 @@ from brevitas.core.restrict_val import RestrictValueType
 from brevitas.core.scaling import ScalingImplType, SCALING_SCALAR_SHAPE
 from brevitas.core.stats import StatsInputViewShapeImpl
 from brevitas.core.stats import StatsOp
-from brevitas.function.ops import ceil_ste, max_uint
+from brevitas.function.ops_ste import ceil_ste
+from brevitas.function.ops import max_uint
 from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy, WeightReg
 from brevitas.config import docstrings
 from .quant_layer import QuantLayer, SCALING_MIN_VAL
@@ -132,6 +133,10 @@ class QuantLinear(QuantLayer, Linear):
                 weight_stats_input_view_shape_impl = StatsInputViewShapeImpl.OVER_TENSOR
                 weight_scaling_shape = SCALING_SCALAR_SHAPE
                 weight_scaling_stats_reduce_dim = None
+
+            if weight_scaling_stats_op == StatsOp.MAX_AVE:
+                weight_stats_input_view_shape_impl = StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS
+                weight_scaling_stats_reduce_dim = 1
 
             self.weight_quant = WeightQuantProxy(bit_width=weight_bit_width,
                                                  quant_type=weight_quant_type,
@@ -244,26 +249,33 @@ class QuantLinear(QuantLayer, Linear):
                 export_qnt_type, self.out_features, self.export_bias
                 )
             return ret
+
+        output_scale = None
+        output_bit_width = None
+        bias_bit_width = None
+
+        input, input_scale, input_bit_width = self.unpack_input(input)
+
+        quant_weight, quant_weight_scale, quant_weight_bit_width = self.weight_quant(self.weight)
+        quant_weight = self.weight_reg(quant_weight)
+
+        if self.compute_output_bit_width:
+            assert input_bit_width is not None
+            output_bit_width = self.max_output_bit_width(input_bit_width, quant_weight_bit_width)
+        if self.compute_output_scale:
+            assert input_scale is not None
+            output_scale = input_scale * quant_weight_scale
+
+        if self.bias is not None:
+            quant_bias, _, bias_bit_width = self.bias_quant(self.bias, output_scale, output_bit_width)
+            output = linear(input, quant_weight, quant_bias)
         else:
-            output_scale = None
-            output_bit_width = None
+            output = linear(input, quant_weight, None)
 
-            input, input_scale, input_bit_width = self.unpack_input(input)
-
-            quant_weight, quant_weight_scale, quant_weight_bit_width = self.weight_quant(self.weight)
-            quant_weight = self.weight_reg(quant_weight)
-
-            if self.compute_output_bit_width:
-                output_bit_width = self.max_output_bit_width(input_bit_width, quant_weight_bit_width)
-            if self.compute_output_scale:
-                output_scale = input_scale * quant_weight_scale
-
-            if self.bias is not None:
-                quant_bias = self.bias_quant(self.bias, output_scale, output_bit_width)
-                output = linear(input, quant_weight, quant_bias)
-            else:
-                output = linear(input, quant_weight, None)
-            return self.pack_output(output, output_scale, output_bit_width)
+        if self.compute_output_bit_width and bias_bit_width is not None:
+            output_bit_width = torch.where(bias_bit_width > output_bit_width, bias_bit_width, output_bit_width)
+            output_bit_width = output_bit_width + 1
+        return self.pack_output(output, output_scale, output_bit_width)
 
     def max_output_bit_width(self, input_bit_width, weight_bit_width):
         max_input_val = max_uint(bit_width=input_bit_width, narrow_range=False)

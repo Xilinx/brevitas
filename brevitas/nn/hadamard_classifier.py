@@ -5,10 +5,14 @@
 import torch.nn as nn
 import math
 import torch
-from scipy.linalg import hadamard
 
+try:
+    from scipy.linalg import hadamard
+except ImportError:
+    hadamard = None
 
-from brevitas.function.ops import ceil_ste, max_uint
+from brevitas.function.ops_ste import ceil_ste
+from brevitas.function.ops import max_uint
 from .quant_layer import QuantLayer
 
 
@@ -26,6 +30,9 @@ class HadamardClassifier(QuantLayer, nn.Module):
                             compute_output_bit_width=compute_output_bit_width,
                             return_quant_tensor=return_quant_tensor)
         nn.Module.__init__(self)
+        if hadamard is None:
+            raise Exception("Hadamard layer requires scipy to be installed.")
+
         self.out_channels = out_channels
         self.in_channels = in_channels
         sz = 2 ** int(math.ceil(math.log(max(in_channels, out_channels), 2)))

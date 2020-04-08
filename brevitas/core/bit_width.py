@@ -47,7 +47,8 @@ from torch.nn import Parameter
 
 import brevitas.config as config
 from brevitas.utils.python_utils import AutoName
-from brevitas.function.ops import tensor_clamp_ste, tensor_clamp
+from brevitas.function.ops import tensor_clamp
+from brevitas.function.ops_ste import tensor_clamp_ste
 from .restrict_val import RestrictValueOpImplType, RestrictValueType, RestrictValue, FloatToIntImplType
 
 
@@ -60,6 +61,11 @@ class BitWidthImplType(AutoName):
     CONST = auto()
     PARAMETER = auto()
 
+class IdentityBitWidth(torch.jit.ScriptModule):
+
+    @torch.jit.script_method
+    def forward(self, x: Tensor, zero_hw_sentinel: Tensor) -> Tensor:
+        return x
 
 class ZeroLsbTruncBitWidth(torch.jit.ScriptModule):
 

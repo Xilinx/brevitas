@@ -42,7 +42,8 @@ from collections import namedtuple
 
 import torch
 
-from brevitas.function.ops import max_uint, ceil_ste, round_ste
+from brevitas.function.ops_ste import round_ste, ceil_ste
+from brevitas.function.ops import max_uint
 
 
 def pack_quant_tensor(tensor, scale, bit_width):
@@ -58,7 +59,7 @@ class QuantTensor(namedtuple("QuantTensor", ["tensor", "scale", "bit_width"])):
 
     def check_scaling_factors_same(self, other):
         if not torch.allclose(self.scale, other.scale):
-            raise Exception("Other tensor is not a QuantTensor")
+            raise Exception("Scalign factors are different")
 
     # Reference: https://docs.python.org/3/reference/datamodel.html#emulating-numeric-types
 

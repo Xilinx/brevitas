@@ -21,10 +21,10 @@
   
     
       <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
-        <script type="text/javascript" src="_static/jquery.js"></script>
-        <script type="text/javascript" src="_static/underscore.js"></script>
-        <script type="text/javascript" src="_static/doctools.js"></script>
-        <script type="text/javascript" src="_static/language_data.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/language_data.js"></script>
     
     <script type="text/javascript" src="_static/js/theme.js"></script>
 
@@ -192,6 +192,12 @@
 </dd></dl>
 
 <dl class="class">
+<dt id="brevitas.core.bit_width.IdentityBitWidth">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.bit_width.</code><code class="sig-name descname">IdentityBitWidth</code><span class="sig-paren">(</span><em class="sig-param">optimize=None</em>, <em class="sig-param">_qualified_name=None</em>, <em class="sig-param">_compilation_unit=None</em>, <em class="sig-param">_cpp_module=None</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.bit_width.IdentityBitWidth" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
+</dd></dl>
+
+<dl class="class">
 <dt id="brevitas.core.bit_width.LsbTruncParameterBitWidth">
 <em class="property">class </em><code class="sig-prename descclassname">brevitas.core.bit_width.</code><code class="sig-name descname">LsbTruncParameterBitWidth</code><span class="sig-paren">(</span><em class="sig-param">ls_bit_width_to_trunc</em>, <em class="sig-param">trunc_at_least_init_val</em>, <em class="sig-param">min_overall_bit_width</em>, <em class="sig-param">max_overall_bit_width</em>, <em class="sig-param">bit_width_impl_type</em>, <em class="sig-param">override_pretrained</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.bit_width.LsbTruncParameterBitWidth" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
@@ -211,7 +217,7 @@
 
 <dl class="class">
 <dt id="brevitas.core.bit_width.ZeroLsbTruncBitWidth">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.bit_width.</code><code class="sig-name descname">ZeroLsbTruncBitWidth</code><span class="sig-paren">(</span><em class="sig-param">optimize=True</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.bit_width.ZeroLsbTruncBitWidth" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.bit_width.</code><code class="sig-name descname">ZeroLsbTruncBitWidth</code><span class="sig-paren">(</span><em class="sig-param">optimize=None</em>, <em class="sig-param">_qualified_name=None</em>, <em class="sig-param">_compilation_unit=None</em>, <em class="sig-param">_cpp_module=None</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.bit_width.ZeroLsbTruncBitWidth" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
 <dl class="method">
 <dt id="brevitas.core.bit_width.ZeroLsbTruncBitWidth.forward">
@@ -320,6 +326,41 @@ registered hooks while the latter silently ignores them.</p>
 <div class="section" id="module-brevitas.core.quant">
 <span id="brevitas-core-quant-module"></span><h2>brevitas.core.quant module<a class="headerlink" href="#module-brevitas.core.quant" title="Permalink to this headline">¶</a></h2>
 <dl class="class">
+<dt id="brevitas.core.quant.IdentityQuant">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.quant.</code><code class="sig-name descname">IdentityQuant</code><a class="headerlink" href="#brevitas.core.quant.IdentityQuant" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
+<dl class="method">
+<dt id="brevitas.core.quant.IdentityQuant.forward">
+<code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">x</em>, <em class="sig-param">zero_hw_sentinel</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.quant.IdentityQuant.forward" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="brevitas.core.quant.ClampedBinaryQuant">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.quant.</code><code class="sig-name descname">ClampedBinaryQuant</code><span class="sig-paren">(</span><em class="sig-param">scaling_impl</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.quant.ClampedBinaryQuant" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
+</dd></dl>
+
+<dl class="class">
+<dt id="brevitas.core.quant.IntQuant">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.quant.</code><code class="sig-name descname">IntQuant</code><span class="sig-paren">(</span><em class="sig-param">narrow_range</em>, <em class="sig-param">signed</em>, <em class="sig-param">float_to_int_impl</em>, <em class="sig-param">tensor_clamp_impl</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.quant.IntQuant" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
+</dd></dl>
+
+<dl class="class">
+<dt id="brevitas.core.quant.PrescaledRestrictIntQuantWithInputBitWidth">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.quant.</code><code class="sig-name descname">PrescaledRestrictIntQuantWithInputBitWidth</code><span class="sig-paren">(</span><em class="sig-param">narrow_range</em>, <em class="sig-param">signed</em>, <em class="sig-param">tensor_clamp_impl</em>, <em class="sig-param">msb_clamp_bit_width_impl</em>, <em class="sig-param">float_to_int_impl</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.quant.PrescaledRestrictIntQuantWithInputBitWidth" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
+</dd></dl>
+
+<dl class="class">
+<dt id="brevitas.core.quant.IdentityPrescaledIntQuant">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.quant.</code><code class="sig-name descname">IdentityPrescaledIntQuant</code><a class="headerlink" href="#brevitas.core.quant.IdentityPrescaledIntQuant" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
+</dd></dl>
+
+<dl class="class">
 <dt id="brevitas.core.quant.QuantType">
 <em class="property">class </em><code class="sig-prename descclassname">brevitas.core.quant.</code><code class="sig-name descname">QuantType</code><a class="headerlink" href="#brevitas.core.quant.QuantType" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="brevitas.utils.html#brevitas.utils.python_utils.AutoName" title="brevitas.utils.python_utils.AutoName"><code class="xref py py-class docutils literal notranslate"><span class="pre">brevitas.utils.python_utils.AutoName</span></code></a></p>
@@ -372,12 +413,6 @@ registered hooks while the latter silently ignores them.</p>
 </dl>
 </dd></dl>
 
-</dd></dl>
-
-<dl class="class">
-<dt id="brevitas.core.quant.PrescaledIntQuant">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.quant.</code><code class="sig-name descname">PrescaledIntQuant</code><span class="sig-paren">(</span><em class="sig-param">narrow_range</em>, <em class="sig-param">signed</em>, <em class="sig-param">tensor_clamp_impl</em>, <em class="sig-param">float_to_int_impl</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.quant.PrescaledIntQuant" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
 </dd></dl>
 
 <dl class="class">
@@ -574,7 +609,7 @@ registered hooks while the latter silently ignores them.</p>
 
 <dl class="class">
 <dt id="brevitas.core.scaling.StatsScaling">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.scaling.</code><code class="sig-name descname">StatsScaling</code><span class="sig-paren">(</span><em class="sig-param">stats_op</em>, <em class="sig-param">restrict_scaling_type</em>, <em class="sig-param">stats_output_shape</em>, <em class="sig-param">scaling_min_val</em>, <em class="sig-param">stats_reduce_dim</em>, <em class="sig-param">affine</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.scaling.StatsScaling" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.scaling.</code><code class="sig-name descname">StatsScaling</code><span class="sig-paren">(</span><em class="sig-param">stats_op</em>, <em class="sig-param">restrict_scaling_type</em>, <em class="sig-param">stats_output_shape</em>, <em class="sig-param">scaling_min_val</em>, <em class="sig-param">affine</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.scaling.StatsScaling" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
 </dd></dl>
 

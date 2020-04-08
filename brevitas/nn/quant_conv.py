@@ -55,10 +55,11 @@ from brevitas.core.quant import QuantType, IdentityQuant
 from brevitas.core.restrict_val import RestrictValueType
 from brevitas.core.scaling import ScalingImplType, SCALING_SCALAR_SHAPE
 from brevitas.core.stats import StatsInputViewShapeImpl, StatsOp
-from brevitas.function.ops import ceil_ste, max_uint
+from brevitas.function.ops import max_uint
+from brevitas.function.ops_ste import ceil_ste
 from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy, WeightReg
 from brevitas.utils.python_utils import AutoName
-from brevitas.nn.quant_bn import mul_add_from_bn, QuantBatchNorm2d
+from brevitas.nn.quant_bn import mul_add_from_bn
 from brevitas.nn.quant_layer import QuantLayer, SCALING_MIN_VAL
 from brevitas.config import docstrings
 
@@ -305,22 +306,35 @@ class QuantConv2d(QuantLayer, Conv2d):
                 export_qnt_type, self.export_out_shape, export_pads,
                 export_strides, export_bias, list(self.kernel_size)
                 )
+
+        output_scale = None
+        output_bit_width = None
+        quant_bias_bit_width = None
+
+        input, input_scale, input_bit_width = self.unpack_input(input)
+        quant_weight, quant_weight_scale, quant_weight_bit_width = self.weight_quant(self.weight)
+        quant_weight = self.weight_reg(quant_weight)
+
+        if self.compute_output_bit_width:
+            assert input_bit_width is not None
+            output_bit_width = self.max_output_bit_width(input_bit_width, quant_weight_bit_width)
+        if self.compute_output_scale:
+            assert input_scale is not None
+            output_scale = input_scale * quant_weight_scale
+
+        if self.bias is not None:
+            quant_bias, _, quant_bias_bit_width = self.bias_quant(self.bias, output_scale, output_bit_width)
+            output = self.conv2d(input, quant_weight, quant_bias)
         else:
-            output_scale = None
-            output_bit_width = None
-            input, input_scale, input_bit_width = self.unpack_input(input)
-            quant_weight, quant_weight_scale, quant_weight_bit_width = self.weight_quant(self.weight)
-            quant_weight = self.weight_reg(quant_weight)
-            if self.compute_output_bit_width:
-                output_bit_width = self.max_output_bit_width(input_bit_width, quant_weight_bit_width)
-            if self.compute_output_scale:
-                output_scale = input_scale * quant_weight_scale
-            if self.bias is not None:
-                quant_bias = self.bias_quant(self.bias, output_scale, output_bit_width)
-                output = self.conv2d(input, quant_weight, quant_bias)
-            else:
-                output = self.conv2d(input, quant_weight, None)
-            return self.pack_output(output, output_scale, output_bit_width)
+            output = self.conv2d(input, quant_weight, None)
+
+        if self.compute_output_bit_width and quant_bias_bit_width is not None:
+            output_bit_width = torch.where(quant_bias_bit_width > output_bit_width,
+                                           quant_bias_bit_width,
+                                           output_bit_width)
+            output_bit_width = output_bit_width + 1
+
+        return self.pack_output(output, output_scale, output_bit_width)
 
     def conv2d(self, x, weight, bias):
         if self.padding_type == PaddingType.SAME:
@@ -341,13 +355,9 @@ class QuantConv2d(QuantLayer, Conv2d):
         out = F.conv2d(x, weight, bias, self.stride, 0, self.dilation, self.groups)
         return out
 
-    def merge_bn_in(self, bn, affine_only, sign_only):
-        if sign_only and not isinstance(bn, QuantBatchNorm2d):
-            raise Exception("Sign-only supported only with QuantBatchNorm2d")
+    def merge_bn_in(self, bn, affine_only):
         if affine_only and not bn.affine:
             raise Exception("Affine-only merging requires BN to have affine scaling enabled.")
-        if sign_only:
-            self.weight.data *= bn.weight_sign.view(self.per_output_channel_broadcastable_shape)
         else:
             mul_factor, add_factor = mul_add_from_bn(bn_mean=bn.running_mean,
                                                      bn_var=bn.running_var,

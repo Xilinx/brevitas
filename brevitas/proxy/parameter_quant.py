@@ -49,15 +49,15 @@ from torch import nn, Tensor
 
 
 from brevitas.core import ZERO_HW_SENTINEL_NAME
-from brevitas.core.bit_width import BitWidthConst, BitWidthParameter, BitWidthImplType
+from brevitas.core.bit_width import BitWidthConst, BitWidthParameter, BitWidthImplType, IdentityBitWidth
 from brevitas.core.function_wrapper import TensorClampSte, TensorClamp
 from brevitas.core.quant import IdentityQuant
-from brevitas.core.quant import QuantType, BinaryQuant, TernaryQuant, RescalingIntQuant, PrescaledIntQuant
-from brevitas.core.quant import PrescaledRestrictIntQuant
+from brevitas.core.quant import QuantType, BinaryQuant, TernaryQuant, RescalingIntQuant
+from brevitas.core.quant import PrescaledRestrictIntQuant, PrescaledRestrictIntQuantWithInputBitWidth
 from brevitas.core.restrict_val import RestrictValueType, FloatToIntImplType, RestrictValue
 from brevitas.core.scaling import ScalingImplType, ParameterStatsScaling, StatsInputViewShapeImpl, IntScaling
 from brevitas.core.scaling import StandaloneScaling, SCALING_SCALAR_SHAPE
-from brevitas.function.ops import round_ste
+from brevitas.function.ops_ste import round_ste
 from brevitas.core.stats import StatsOp
 from brevitas import config
 from brevitas.config import docstrings
@@ -187,10 +187,8 @@ def _weight_quant_init_impl(bit_width: Optional[int],
                     raise Exception("Bit width is not defined properly")
 
                 if bit_width_impl_type == BitWidthImplType.CONST:
-                    tensor_clamp_impl = TensorClampSte()
                     bit_width_impl = BitWidthConst(bit_width, restrict_bit_width_type)
                 elif bit_width_impl_type == BitWidthImplType.PARAMETER:
-                    tensor_clamp_impl = TensorClamp()
                     bit_width_impl = BitWidthParameter(bit_width_init=bit_width,
                                                        restrict_bit_width_type=restrict_bit_width_type,
                                                        min_overall_bit_width=min_overall_bit_width,
@@ -200,8 +198,14 @@ def _weight_quant_init_impl(bit_width: Optional[int],
                     raise Exception("Bit width type {} not supported for weight quantization."
                                     .format(str(bit_width_impl_type)))
             else:
-                tensor_clamp_impl = TensorClamp()
                 bit_width_impl = bit_width_impl_override
+
+            if bit_width_impl_type == BitWidthImplType.PARAMETER or \
+                    bit_width_impl_type == BitWidthImplType.CONST and \
+                    scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS:
+                tensor_clamp_impl = TensorClamp()
+            else:
+                tensor_clamp_impl = TensorClampSte()
 
             float_to_int_impl = RestrictValue(restrict_value_type=RestrictValueType.INT,
                                               float_to_int_impl_type=FloatToIntImplType.ROUND,
@@ -361,7 +365,7 @@ class WeightQuantProxy(ParameterQuantProxy):
             del self.tensor_quant
             self.re_init_tensor_quant()
 
-    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[torch.Tensor]]:
+    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         zero_hw_sentinel = getattr(self, ZERO_HW_SENTINEL_NAME)
         out, scale, bit_width = self.tensor_quant(x, zero_hw_sentinel)
         reshaped_scale = scale.view(self.scale_output_shape)
@@ -390,6 +394,7 @@ class BiasQuantProxy(ParameterQuantProxy):
                  bit_width: Optional[int],
                  narrow_range: bool) -> None:
         super(BiasQuantProxy, self).__init__()
+        self.scale_output_shape = OVER_BATCH_OVER_CHANNELS_SHAPE
 
         if quant_type == QuantType.FP:
             self.tensor_quant = None
@@ -407,10 +412,12 @@ class BiasQuantProxy(ParameterQuantProxy):
                                                               float_to_int_impl=float_to_int_impl)
                 self.requires_input_bit_width = False
             else:
-                self.tensor_quant = PrescaledIntQuant(narrow_range=narrow_range,
-                                                      signed=True,
-                                                      tensor_clamp_impl=tensor_clamp_impl,
-                                                      float_to_int_impl=float_to_int_impl)
+                msb_clamp_bit_width_impl = IdentityBitWidth()
+                self.tensor_quant = PrescaledRestrictIntQuantWithInputBitWidth(narrow_range=narrow_range,
+                                                                               signed=True,
+                                                                               tensor_clamp_impl=tensor_clamp_impl,
+                                                                               msb_clamp_bit_width_impl=msb_clamp_bit_width_impl,
+                                                                               float_to_int_impl=float_to_int_impl)
                 self.requires_input_bit_width = True
         else:
             raise Exception('Quantization type {} not supported for bias quant.'
@@ -418,17 +425,24 @@ class BiasQuantProxy(ParameterQuantProxy):
 
     def forward(self,
                 x: Tensor,
-                scale: Tensor,
-                bit_width: Optional[Tensor]) -> Tensor:
+                input_scale: Tensor,
+                input_bit_width: Optional[Tensor]) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[torch.Tensor]]:
+        zero_hw_sentinel = getattr(self, ZERO_HW_SENTINEL_NAME)
         if self.tensor_quant is not None:
-            zero_hw_sentinel = getattr(self, ZERO_HW_SENTINEL_NAME)
-            reshaped_scale = scale.view(-1)
-            if self.requires_input_bit_width:
-                out, scale, bit_width = self.tensor_quant(x, reshaped_scale, bit_width, zero_hw_sentinel)
+
+            if input_scale is None:
+                raise Exception("Input scale can't be None when quantizing bias")
+            input_scale = input_scale.view(-1)
+
+            if self.requires_input_bit_width:  # bit width is defined outside
+                if input_bit_width is None:
+                    raise Exception("Input bit width can't be None when quantizing bias without a predefined bit width")
+                out, output_scale, bias_bit_width = self.tensor_quant(x, input_scale, input_bit_width, zero_hw_sentinel)
             else:
-                out, scale, bit_width = self.tensor_quant(x, reshaped_scale, zero_hw_sentinel)
-            return out
+                out, output_scale, bias_bit_width = self.tensor_quant(x, input_scale, zero_hw_sentinel)
+            output_scale = output_scale.view(self.scale_output_shape)
+            return out, output_scale, bias_bit_width
         else:
-            return x
+            return x, input_scale, input_bit_width
 
 
