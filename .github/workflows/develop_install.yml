@@ -17,19 +17,26 @@ jobs:
         pytorch_version: ['1.1.0', '1.2.0', '1.3.0', '1.3.1', '1.4.0']
         platform: ['windows-latest', 'ubuntu-latest', 'macos-latest']
 
+
         exclude:
           - platform: 'windows-latest'
             conda_python_version: '3.6'
+
           - platform: 'macos-latest'
             pytorch_version: '1.1.0'
+
           - pytorch_version: '1.1.0'
             conda_python_version: '3.8'
+
           - pytorch_version: '1.2.0'
             conda_python_version: '3.8'
+
           - pytorch_version: '1.3.0'
             conda_python_version: '3.8'
+
           - pytorch_version: '1.3.1'
             conda_python_version: '3.8'
+
 
 
     steps:
@@ -71,6 +78,11 @@ jobs:
         echo "::set-output name=pytorch_pkg_cache_path::"$PYTORCH_PKG_CACHE_PATH
         mkdir $CONDA_PKGS_DIRS
         mkdir $PYTORCH_PKG_CACHE_PATH
+
+    - name: Install libsndfile on Ubuntu
+      shell: bash
+      run: apt-get install -y libsndfile
+      if: startsWith(runner.os, 'Ubuntu') == true
 
     - name: Setup Conda
       uses: s-weigand/setup-conda@v1
@@ -118,9 +130,11 @@ jobs:
     - name: Run Nox session for testing brevitas develop install and imports
       shell: bash
       run: nox -v -s tests_brevitas_install_dev-${{ matrix.conda_python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)
+
     - name: Run Nox session for testing brevitas_examples develop install and imports
       shell: bash
       run: nox -v -s tests_brevitas_examples_install_dev-${{ matrix.conda_python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)
+
 
 
     - name: Remove tarballs before caching Pytorch deps pkgs

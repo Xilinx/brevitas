@@ -23,7 +23,7 @@ def tests_brevitas_cpu(session, pytorch, jit_status):
     if version.parse(pytorch) >= version.parse(PYTORCH_CPU_VIRTUAL_PKG):
         session.conda_install('-c', 'pytorch', f'pytorch=={pytorch}', f'numpy=={NOX_NUMPY_VERSION}', 'cpuonly')
     else:
-        session.conda_install('-c', 'pytorch', f'pytorch-cpu=={pytorch}' f'numpy=={NOX_NUMPY_VERSION}')
+        session.conda_install('-c', 'pytorch', f'pytorch-cpu=={pytorch}', f'numpy=={NOX_NUMPY_VERSION}')
     session.install('.[test]')
     session.run('pytest', 'test/brevitas', '-v')
 

@@ -98,6 +98,7 @@ class Action:
                 repr += f"{name}: {val}\n"
         if indent_first:
             repr = indent(repr, RELATIVE_INDENT*' ', predicate=lambda line: not first_line_prefix in line)
+        repr += '\n'
         return repr
 
     def gen_yaml(self, output_path):
