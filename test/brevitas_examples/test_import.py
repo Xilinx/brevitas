@@ -39,6 +39,14 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 
+def test_import_bnn_pynq():
+    from brevitas_examples.bnn_pynq import (
+        cnv_1w1a, cnv_1w2a, cnv_2w2a,
+        sfc_1w1a, sfc_1w2a, sfc_2w2a,
+        tfc_1w1a, tfc_1w2a, tfc_2w2a,
+        lfc_1w1a, lfc_1w2a)
+
+
 def test_import_image_classification():
     from brevitas_examples.imagenet_classification import (
         quant_mobilenet_v1_4b,
