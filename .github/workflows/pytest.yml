@@ -86,7 +86,7 @@ jobs:
     - name: Install libsndfile on Ubuntu
       shell: bash
       run: apt-get install -y libsndfile
-      if: startsWith(runner.os, 'Ubuntu') == true
+      if: startsWith(runner.os, 'Linux') == true
 
     - name: Setup Conda
       uses: s-weigand/setup-conda@v1
