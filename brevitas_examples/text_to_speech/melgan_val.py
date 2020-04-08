@@ -4,25 +4,24 @@ import torch
 import argparse
 from scipy.io.wavfile import write
 
-from MelGAN import *
 import torch.backends.cudnn as cudnn
 import brevitas.config
+from .MelGAN import model_with_cfg
 
 brevitas.config.IGNORE_MISSING_KEYS = False
 MAX_WAV_VALUE = 32768.0
-import configparser
 import random
 import os
 
 SEED = 123456
-models = {'melgan': melgan}
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--input-folder', help='path to folder containing the val folder')
-parser.add_argument('--model-cfg', type=str, help='Path to pretrained model .ini configuration file')
 parser.add_argument('--workers', default=32, type=int, help='number of data loading workers')
 parser.add_argument('--batch-size', default=16, type=int, help='Minibatch size')
 parser.add_argument('--gpu', default=None, type=int, help='GPU id to use.')
+parser.add_argument('--pretrained', action='store_true', default=True, help='Load pretrained checkpoint')
+parser.add_argument('--model', type=str, default='quant_melgan_8b', help='Name of the model')
 
 
 def main():
@@ -30,30 +29,19 @@ def main():
     random.seed(SEED)
     torch.manual_seed(SEED)
 
-    assert os.path.exists(args.model_cfg)
-    cfg = configparser.ConfigParser()
-    cfg.read(args.model_cfg)
+    model, cfg = model_with_cfg(args.model, args.pretrained)
+
     sampling_rate = cfg.getint('AUDIO', 'sampling_rate')
 
-    arch = cfg.get('MODEL', 'ARCH')
-
-    model = models[arch](cfg)
-
     if args.gpu is not None:
+        loc = 'cuda:{}'.format(args.gpu)
         torch.cuda.set_device(args.gpu)
         model = model.cuda(args.gpu)
         cudnn.benchmark = True
-    pretrained_url = cfg.get('MODEL', 'PRETRAINED_URL')
-    print("=> Loading checkpoint from:'{}'".format(pretrained_url))
-    if args.gpu is None:
-        loc = 'cpu'
-        checkpoint = torch.hub.load_state_dict_from_url(pretrained_url)
     else:
-        # Map model to be loaded to specified single gpu.
-        loc = 'cuda:{}'.format(args.gpu)
-        checkpoint = torch.hub.load_state_dict_from_url(pretrained_url, map_location=loc)
+        loc = 'cpu'
 
-    model.load_state_dict(checkpoint, strict=True)
+    model.to(loc)
     model.eval(inference=True)
 
     with torch.no_grad():

@@ -1,0 +1,6 @@
+librosa
+numpy
+scipy
+tqdm
+pillow
+pyyaml

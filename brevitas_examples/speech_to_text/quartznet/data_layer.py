@@ -25,10 +25,7 @@ from functools import partial
 import torch
 import torch.nn as nn
 
-# from nemo.backends.pytorch import DataLayerNM
-# from nemo.core import DeviceType
-# from nemo.core.neural_types import *
-from .parts.dataset import (AudioDataset, seq_collate_fn)  # , KaldiFeatureDataset, TranscriptDataset)
+from .parts.dataset import (AudioDataset, seq_collate_fn)
 from .parts.features import WaveformFeaturizer
 
 def pad_to(x, k=8):
@@ -117,7 +114,7 @@ transcript_n}
             load_audio=True,
             drop_last=False,
             shuffle=True,
-            num_workers=0,
+            num_workers=4,
             placement='cpu',
             # perturb_config=None,
             **kwargs

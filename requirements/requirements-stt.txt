@@ -1,0 +1,9 @@
+pillow>=4.3.0
+ruamel.yaml
+requests
+librosa
+inflect
+unidecode
+torch-stft
+sox
+tqdm

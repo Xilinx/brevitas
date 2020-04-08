@@ -19,13 +19,12 @@ find /path/to/LJSpeech/LJSpeech-1.1/wavs -type f | head -10 | xargs cp -t /path/
 
 To evaluate a pretrained quantized model on LJSpeech1.1:
 
- - Install  the MelGAN requirements with `pip install requirements.txt`
- - Make sure you have Brevitas installed
- - Preprocess the dataset with `python preprocess_datasets --model-cfg cfg/quant_melgan_8b --data-path /path/to/validation/folder`
- - Pass the corresponding cfg .ini file as an input to the evaluation script. The required checkpoint will be downloaded automatically. 
+ - After cloning the repository, install Brevitas and MelGAN requirements with `pip install .[tts]`
+ - Preprocess the dataset with `brevitas_melgan_preprocess --name quant_melgan_8b --data-path /path/to/validation/folder`
+ - Pass the name of the model as an input to the evaluation script. The required checkpoint will be downloaded automatically. 
  
  For example, for the evaluation on GPU 0:
 
 ```
-python melgan_val.py --input-folder /path/to/validation/folder --model-cfg cfg/quant_melgan_8b --gpu 0
+brevitas_melgan_val --input-folder /path/to/validation/folder --model quant_melgan_8b --gpu 0 --pretrained
 ```
