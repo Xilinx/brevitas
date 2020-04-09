@@ -21,9 +21,7 @@ JIT_STATUSES = ('jit_enabled', 'jit_disabled')
 # Data used only by Github Actions, formatted as lists or lists of oredered dicts
 PLATFORM_LIST = ['windows-latest', 'ubuntu-latest', 'macos-latest']
 
-EXCLUDE_LIST = [od([('platform', 'windows-latest'),
-                    ('conda_python_version', '3.6')]),
-                od([('platform', 'macos-latest'),
+EXCLUDE_LIST = [od([('platform', 'macos-latest'),
                     ('pytorch_version', '1.1.0')]),
                 od([('pytorch_version', '1.1.0'),
                     ('conda_python_version', '3.8')]),
