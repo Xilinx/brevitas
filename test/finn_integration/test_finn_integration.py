@@ -47,10 +47,14 @@ INPUT_SIZE = (1, 1, 28, 28)
 # activation: None or DataType
 @pytest.mark.parametrize("size", ["TFC", "SFC", "LFC"])
 # weight bits
-@pytest.mark.parametrize("wbits", [1])
+@pytest.mark.parametrize("wbits", [1, 2])
 # act bits
 @pytest.mark.parametrize("abits", [1, 2])
 def test_brevitas_fc_onnx_export_and_exec(size, wbits, abits):
+    if size == "LFC" and wbits == 2 and abits == 2:
+        pytest.skip("No LFC_W2A2 present.")
+    if wbits > abits:
+        pytest.skip("No wbits > abits cases.")
     nname = "%s_%dW%dA" % (size.lower(), wbits, abits)
     finn_onnx = "%s.onnx" % nname
     fc, _ = model_with_cfg(nname, pretrained=False)
