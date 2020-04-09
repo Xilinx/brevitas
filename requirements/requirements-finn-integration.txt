@@ -1,0 +1,4 @@
+bitstring
+onnx
+onnxruntime
+finn @ git+https://github.com/Xilinx/finn@dev#egg=finn
