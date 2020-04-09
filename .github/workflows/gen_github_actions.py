@@ -41,6 +41,10 @@ PYTEST_EXAMPLE_EXCLUDE_LIST_EXTRA = [od([('platform', 'macos-latest'),
                                          ('pytorch_version', '1.5.0'),
                                          ('conda_python_version', '3.6')])]
 
+FINN_INTEGRATION_EXCLUDE_LIST_EXTRA = [od([('pytorch_version', '1.3.0')]),
+                                       od([('pytorch_version', '1.3.1')]),
+                                       od([('pytorch_version', '1.4.0')])]
+
 MATRIX = od([('conda_python_version', list(CONDA_PYTHON_VERSIONS)),
              ('pytorch_version', list(PYTORCH_VERSIONS)),
              ('platform', PLATFORM_LIST)])
@@ -169,7 +173,7 @@ def gen_test_develop_install_yml():
 def gen_test_brevitas_finn_integration():
     test_finn_integration = Action(
         'Test Brevitas-FINN integration',
-        EXCLUDE_LIST,
+        EXCLUDE_LIST + FINN_INTEGRATION_EXCLUDE_LIST_EXTRA,
         MATRIX,
         FINN_INTEGRATION_STEP_LIST)
     test_finn_integration.gen_yaml(FINN_INTEGRATION_YML)
