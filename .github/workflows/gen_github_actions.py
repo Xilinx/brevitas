@@ -10,6 +10,7 @@ BASE_YML_TEMPLATE = 'base.yml.template'
 PYTEST_YML = 'pytest.yml'
 DEVELOP_INSTALL_YML = 'develop_install.yml'
 
+NIX_NEWLINE = '\n'
 
 # Data shared betwen Nox sessions and Github Actions, formatted as tuples
 CONDA_PYTHON_VERSIONS = ('3.6', '3.7', '3.8')
@@ -93,12 +94,12 @@ class Action:
         repr = first_line_prefix
         for name, val in d.items():
             if quote_val:
-                repr += f"{name}: '{val}'\n"
+                repr += f"{name}: '{val}'" + NIX_NEWLINE
             else:
-                repr += f"{name}: {val}\n"
+                repr += f"{name}: {val}" + NIX_NEWLINE
         if indent_first:
             repr = indent(repr, RELATIVE_INDENT*' ', predicate=lambda line: not first_line_prefix in line)
-        repr += '\n'
+        repr += NIX_NEWLINE
         return repr
 
     def gen_yaml(self, output_path):
@@ -109,7 +110,7 @@ class Action:
         template = CustomTemplate(open(BASE_YML_TEMPLATE).read())
         generated_file = template.substitute(d)
         yaml.safe_load(generated_file)  # validate the generated yaml
-        with open(output_path, 'w') as f:
+        with open(output_path, 'w', newline=NIX_NEWLINE) as f:
             f.write(generated_file)
 
 
