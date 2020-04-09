@@ -29,7 +29,8 @@ from torch import hub
 __all__ = ['cnv_1w1a', 'cnv_1w2a', 'cnv_2w2a',
            'sfc_1w1a', 'sfc_1w2a', 'sfc_2w2a',
            'tfc_1w1a', 'tfc_1w2a', 'tfc_2w2a',
-           'lfc_1w1a', 'lfc_1w2a']
+           'lfc_1w1a', 'lfc_1w2a',
+           'model_with_cfg']
 
 from .CNV import cnv
 from .LFC import lfc
