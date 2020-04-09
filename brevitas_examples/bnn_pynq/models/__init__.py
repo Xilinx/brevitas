@@ -29,8 +29,7 @@ from torch import hub
 __all__ = ['cnv_1w1a', 'cnv_1w2a', 'cnv_2w2a',
            'sfc_1w1a', 'sfc_1w2a', 'sfc_2w2a',
            'tfc_1w1a', 'tfc_1w2a', 'tfc_2w2a',
-           'lfc_1w1a', 'lfc_1w2a',
-           'model_with_cfg']
+           'lfc_1w1a', 'lfc_1w2a']
 
 from .CNV import cnv
 from .LFC import lfc
@@ -54,9 +53,8 @@ def model_with_cfg(name, pretrained):
     arch = cfg.get('MODEL', 'ARCH')
     model = model_impl[arch](cfg)
     if pretrained:
-        pretrained_path = os.path.join(current_dir, '..', 'pretrained_models', name.upper(), 'checkpoints', 'best.tar')
-        checkpoint = torch.load(pretrained_path, map_location='cpu')
-        state_dict = checkpoint['state_dict']
+        checkpoint = cfg.get('MODEL', 'PRETRAINED_URL')
+        state_dict = hub.load_state_dict_from_url(checkpoint, progress=True, map_location='cpu')
         model.load_state_dict(state_dict, strict=True)
     return model, cfg
 
