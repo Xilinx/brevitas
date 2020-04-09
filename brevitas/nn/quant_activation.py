@@ -305,7 +305,6 @@ class QuantHardTanh(QuantActivation):
             ia["scaling_per_channel"] == False and
             ia["float_to_int_impl_type"] == FloatToIntImplType.ROUND and
             ia["scaling_stats_sigma"] == 3.0 and
-            ia["scaling_stats_input_view_shape_impl"] == StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS and
             ia["scaling_stats_op"] == StatsOp.MEAN_LEARN_SIGMA_STD and
             ia["scaling_stats_buffer_momentum"] == 0.1 and
             ia["scaling_stats_permute_dims"] == (1, 0, 2, 3) and
