@@ -50,20 +50,22 @@ INPUT_SIZE = (1, 1, 28, 28)
 @pytest.mark.parametrize("wbits", [1, 2])
 # act bits
 @pytest.mark.parametrize("abits", [1, 2])
-def test_brevitas_fc_onnx_export_and_exec(size, wbits, abits):
+# Pretrained
+@pytest.mark.parametrize("pretrained", [True, False])
+def test_brevitas_fc_onnx_export_and_exec(size, wbits, abits, pretrained):
     if size == "LFC" and wbits == 2 and abits == 2:
         pytest.skip("No LFC_W2A2 present.")
     if wbits > abits:
         pytest.skip("No wbits > abits cases.")
-    nname = "%s_%dW%dA" % (size.lower(), wbits, abits)
+    nname = "%s_%dW%dA" % (size, wbits, abits)
     finn_onnx = "%s.onnx" % nname
-    fc, _ = model_with_cfg(nname, pretrained=False)
+    fc, _ = model_with_cfg(nname.lower(), pretrained=pretrained)
     bo.export_finn_onnx(fc, INPUT_SIZE, finn_onnx)
     model = ModelWrapper(finn_onnx)
     model = model.transform(InferShapes())
     model = model.transform(FoldConstants())
     # load a random test vector
-    input_tensor = np.random.uniform(-1.0, 1.0, size=INPUT_SIZE).astype(np.float32)
+    input_tensor = np.random.uniform(0.0, 1.0, size=INPUT_SIZE).astype(np.float32)
     # run using FINN-based execution
     input_dict = {"0": input_tensor}
     output_dict = oxe.execute_onnx(model, input_dict)
