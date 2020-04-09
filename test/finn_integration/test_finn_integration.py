@@ -58,14 +58,14 @@ def test_brevitas_fc_onnx_export_and_exec(size, wbits, abits):
     model = ModelWrapper(finn_onnx)
     model = model.transform(InferShapes())
     model = model.transform(FoldConstants())
-    # load one of the test vectors
-    input_tensor = np.randn(INPUT_SIZE)
+    # load a random test vector
+    input_tensor = np.random.uniform(-1.0, 1.0, size=INPUT_SIZE).astype(np.float32)
     # run using FINN-based execution
-    input_dict = {"0": nph.to_array(input_tensor)}
+    input_dict = {"0": input_tensor}
     output_dict = oxe.execute_onnx(model, input_dict)
     produced = output_dict[list(output_dict.keys())[0]]
     # run using PyTorch/Brevitas
-    input_tensor = torch.from_numpy(nph.to_array(input_tensor)).float()
+    input_tensor = torch.from_numpy(input_tensor).float()
     # do forward pass in PyTorch/Brevitas
     expected = fc.forward(input_tensor).detach().numpy()
     assert np.isclose(produced, expected, atol=1e-3).all()
