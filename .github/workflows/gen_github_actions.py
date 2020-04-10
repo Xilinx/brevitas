@@ -5,10 +5,10 @@ from collections import OrderedDict as od
 
 import yaml
 
-
 BASE_YML_TEMPLATE = 'base.yml.template'
 PYTEST_YML = 'pytest.yml'
 DEVELOP_INSTALL_YML = 'develop_install.yml'
+FINN_INTEGRATION_YML = 'finn_integration.yml'
 
 NIX_NEWLINE = '\n'
 
@@ -16,7 +16,6 @@ NIX_NEWLINE = '\n'
 CONDA_PYTHON_VERSIONS = ('3.6', '3.7', '3.8')
 PYTORCH_VERSIONS = ('1.1.0', '1.2.0', '1.3.0', '1.3.1', '1.4.0')
 JIT_STATUSES = ('jit_enabled', 'jit_disabled')
-
 
 # Data used only by Github Actions, formatted as lists or lists of oredered dicts
 PLATFORM_LIST = ['windows-latest', 'ubuntu-latest', 'macos-latest']
@@ -33,7 +32,11 @@ EXCLUDE_LIST = [od([('platform', 'macos-latest'),
                     ('conda_python_version', '3.8')])]
 
 PYTEST_EXCLUDE_LIST_EXTRA = [od([('pytorch_version', '1.1.0'),
-                                ('jit_status', 'jit_disabled')])]
+                                 ('jit_status', 'jit_disabled')])]
+
+FINN_INTEGRATION_EXCLUDE_LIST_EXTRA = [od([('pytorch_version', '1.3.0')]),
+                                       od([('pytorch_version', '1.3.1')]),
+                                       od([('pytorch_version', '1.4.0')])]
 
 MATRIX = od([('conda_python_version', list(CONDA_PYTHON_VERSIONS)),
              ('pytorch_version', list(PYTORCH_VERSIONS)),
@@ -45,20 +48,37 @@ PYTEST_STEP_LIST = [
     od([
         ('name', 'Run Nox session for pytest'),
         ('shell', 'bash'),
-        ('run', 'nox -v -s tests_brevitas_cpu-${{ matrix.conda_python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)')
+        ('run',
+         'nox -v -s tests_brevitas_cpu-${{ matrix.conda_python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)')
     ])]
 
 TEST_INSTALL_DEV_STEP_LIST = [
     od([
         ('name', 'Run Nox session for testing brevitas develop install and imports'),
         ('shell', 'bash'),
-        ('run', 'nox -v -s tests_brevitas_install_dev-${{ matrix.conda_python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)')]),
+        ('run',
+         'nox -v -s tests_brevitas_install_dev-${{ matrix.conda_python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)')]),
     od([
         ('name', 'Run Nox session for testing brevitas_examples develop install and imports'),
         ('shell', 'bash'),
-        ('run', 'nox -v -s tests_brevitas_examples_install_dev-${{ matrix.conda_python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)')
+        ('run',
+         'nox -v -s tests_brevitas_examples_install_dev-${{ matrix.conda_python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)')
     ])]
 
+FINN_INTEGRATION_STEP_LIST = [
+    od([
+        ('name', 'Install protobuf on Ubuntu'),
+        ('shell', 'bash'),
+        ('run',
+         'sudo apt-get install protobuf-compiler libprotoc-dev'),
+        ('if', "startsWith(runner.os, 'Linux') == true")
+    ]),
+    od([
+        ('name', 'Run Nox session for Brevitas-FINN integration'),
+        ('shell', 'bash'),
+        ('run',
+         'nox -v -s tests_brevitas_finn_integration-${{ matrix.conda_python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)')
+    ])]
 
 # whitespaces to indent generated portions of output yaml
 STEP_INDENT = 4
@@ -96,15 +116,15 @@ class Action:
             else:
                 repr += f"{name}: {val}" + NIX_NEWLINE
         if indent_first:
-            repr = indent(repr, RELATIVE_INDENT*' ', predicate=lambda line: not first_line_prefix in line)
+            repr = indent(repr, RELATIVE_INDENT * ' ', predicate=lambda line: not first_line_prefix in line)
         repr += NIX_NEWLINE
         return repr
 
     def gen_yaml(self, output_path):
         d = {'name': self.name,
-             'exclude': indent(Action.list_of_dicts_str(self.exclude_list, True, True), EXCLUDE_INDENT*' '),
-             'matrix': indent(Action.dict_str(self.matrix, False, False), MATRIX_INDENT*' '),
-             'steps': indent(Action.list_of_dicts_str(self.step_list, False, True), STEP_INDENT*' ')}
+             'exclude': indent(Action.list_of_dicts_str(self.exclude_list, True, True), EXCLUDE_INDENT * ' '),
+             'matrix': indent(Action.dict_str(self.matrix, False, False), MATRIX_INDENT * ' '),
+             'steps': indent(Action.list_of_dicts_str(self.step_list, False, True), STEP_INDENT * ' ')}
         template = CustomTemplate(open(BASE_YML_TEMPLATE).read())
         generated_file = template.substitute(d)
         yaml.safe_load(generated_file)  # validate the generated yaml
@@ -134,6 +154,16 @@ def gen_test_develop_install_yml():
     test_develop_install.gen_yaml(DEVELOP_INSTALL_YML)
 
 
+def gen_test_brevitas_finn_integration():
+    test_finn_integration = Action(
+        'Test Brevitas-FINN integration',
+        EXCLUDE_LIST + FINN_INTEGRATION_EXCLUDE_LIST_EXTRA,
+        MATRIX,
+        FINN_INTEGRATION_STEP_LIST)
+    test_finn_integration.gen_yaml(FINN_INTEGRATION_YML)
+
+
 if __name__ == '__main__':
     gen_pytest_yml()
     gen_test_develop_install_yml()
+    gen_test_brevitas_finn_integration()
