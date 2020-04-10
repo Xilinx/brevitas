@@ -1,5 +1,10 @@
-import onnx
-import onnx.optimizer as opt
+try:
+    import onnx
+    import onnx.optimizer as opt
+except ModuleNotFoundError:
+    onnx = None
+    opt = None
+
 import torch
 import torch.onnx
 import copy
@@ -23,6 +28,8 @@ def _prepare_for_finn_onnx_export(module, enable_export = True):
 
 def _move_quant_attributes_into_annotations(model):
     """Move quantization info in attributes into quantization_annotation"""
+    if onnx is None:
+        raise ModuleNotFoundError("Installation of ONNX is required.")
 
     model = copy.deepcopy(model)
     qaname = "finn_datatype"
@@ -55,6 +62,8 @@ def _move_quant_attributes_into_annotations(model):
 
 def _move_domain_attributes_into_domain(model):
     """Move domain info in attributes into the actual node.domain field"""
+    if onnx is None:
+        raise ModuleNotFoundError("Installation of ONNX is required.")
 
     model = copy.deepcopy(model)
     for n in model.graph.node:
@@ -69,6 +78,8 @@ def _move_domain_attributes_into_domain(model):
 
 def export_finn_onnx(module, input_shape, export_path, torch_onnx_kwargs = {}):
     """Export given module with Brevitas layers to FINN-ONNX with some cleanup."""
+    if onnx is None or opt is None:
+        raise ModuleNotFoundError("Installation of ONNX is required.")
 
     with torch.no_grad():
         # TODO maybe consider a deepcopy of the module first?
