@@ -75,7 +75,6 @@ class QuantActivation(QuantLayer, Module):
     def act_quant_proxy(self, act_quant_proxy):
         self._act_quant_proxy = act_quant_proxy
 
-    @property
     def quant_act_scale(self):
         if isinstance(self.act_quant_proxy.fused_activation_quant_proxy.tensor_quant, IdentityQuant):
             raise Exception("Can't generate scaling factor without quantization enabled")
@@ -340,7 +339,7 @@ class QuantHardTanh(QuantActivation):
         # if so this workaround prepare_for_export is not necessary.
         qt = self.get_exportable_quantization_type()
         if qt != "BIPOLAR":
-            self.export_act_scale = self.quant_act_scale.type(torch.FloatTensor).detach()
+            self.export_act_scale = self.quant_act_scale().type(torch.FloatTensor).detach()
             min_val_torch = torch.tensor(ia["min_val"]).type(torch.FloatTensor)
             self.export_act_bias = min_val_torch
             #assert(ia["min_val"] == -ia["max_val"])
