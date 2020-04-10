@@ -40,6 +40,9 @@ jobs:
 
           - pytorch_version: '1.4.0'
 
+          - platform: 'windows-latest'
+            conda_python_version: '3.6'
+
 
 
     steps:
