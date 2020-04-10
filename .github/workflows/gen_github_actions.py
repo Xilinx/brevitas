@@ -43,7 +43,9 @@ PYTEST_EXAMPLE_EXCLUDE_LIST_EXTRA = [od([('platform', 'macos-latest'),
 
 FINN_INTEGRATION_EXCLUDE_LIST_EXTRA = [od([('pytorch_version', '1.3.0')]),
                                        od([('pytorch_version', '1.3.1')]),
-                                       od([('pytorch_version', '1.4.0')])]
+                                       od([('pytorch_version', '1.4.0')]),
+                                       od([('platform', 'windows-latest'),
+                                           ('conda_python_version', '3.6')])]
 
 MATRIX = od([('conda_python_version', list(CONDA_PYTHON_VERSIONS)),
              ('pytorch_version', list(PYTORCH_VERSIONS)),
