@@ -69,9 +69,17 @@ EXAMPLES_PYTEST_STEP_LIST = [
 
 FINN_INTEGRATION_STEP_LIST = [
     od([
+        ('name', 'Install protobuf on Ubuntu'),
+        ('shell', 'bash'),
+        ('run',
+         'sudo apt-get install protobuf-compiler libprotoc-dev'),
+        ('if', "startsWith(runner.os, 'Linux') == true")
+    ]),
+    od([
         ('name', 'Run Nox session for Brevitas-FINN integration'),
         ('shell', 'bash'),
-        ('run', 'nox -v -s tests_brevitas_finn_integration-${{ matrix.conda_python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)')
+        ('run',
+         'nox -v -s tests_brevitas_finn_integration-${{ matrix.conda_python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)')
     ])]
 
 TEST_INSTALL_DEV_STEP_LIST = [
@@ -177,7 +185,6 @@ def gen_test_brevitas_finn_integration():
         MATRIX,
         FINN_INTEGRATION_STEP_LIST)
     test_finn_integration.gen_yaml(FINN_INTEGRATION_YML)
-
 
 
 if __name__ == '__main__':
