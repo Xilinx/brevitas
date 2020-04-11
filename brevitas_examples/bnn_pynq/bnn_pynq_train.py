@@ -22,9 +22,13 @@
 
 import argparse
 import os
+import sys
 
 import torch
 from .trainer import Trainer
+
+# Pytorch precision
+torch.set_printoptions(precision=10)
 
 
 # Util method to add mutually exclusive boolean
@@ -48,41 +52,36 @@ def none_or_int(value):
     return int(value)
 
 
-# I/O
-parser = argparse.ArgumentParser(description="PyTorch MNIST/CIFAR10 Training")
-parser.add_argument("--datadir", default="./data/", help="Dataset location")
-parser.add_argument("--experiments", default="./experiments", help="Path to experiments folder")
-parser.add_argument("--dry_run", action="store_true", help="Disable output files generation")
-parser.add_argument("--log_freq", type=int, default=10)
-
-# Execution modes
-parser.add_argument("--evaluate", dest="evaluate", action="store_true", help="evaluate model on validation set")
-parser.add_argument("--resume", dest="resume", type=none_or_str,
-                    help="Resume from checkpoint. Overrides --pretrained flag.")
-add_bool_arg(parser, "detect_nan", default=False)
-
-# Compute resources
-parser.add_argument("--num_workers", default=4, type=int, help="Number of workers")
-parser.add_argument("--gpus", type=none_or_str, default="0", help="Comma separated GPUs")
-
-# Optimizer hyperparams
-parser.add_argument("--batch_size", default=100, type=int, help="batch size")
-parser.add_argument("--lr", default=0.02, type=float, help="Learning rate")
-parser.add_argument("--optim", type=none_or_str, default="ADAM",help="Optimizer to use")
-parser.add_argument("--loss", type=none_or_str, default="SqrHinge",help="Loss function to use")
-parser.add_argument("--scheduler", default="FIXED", type=none_or_str, help="LR Scheduler")
-parser.add_argument("--milestones", type=none_or_str, default='100,150,200,250', help="Scheduler milestones")
-parser.add_argument("--momentum", default=0.9, type=float, help="Momentum")
-parser.add_argument("--weight_decay", default=0, type=float, help="Weight decay")
-parser.add_argument("--epochs", default=1000, type=int, help="Number of epochs")
-parser.add_argument("--random_seed", default=1, type=int, help="Random seed")
-
-# Neural network Architecture
-parser.add_argument("--network", default="LFC_1W1A", type=str, help="neural network")
-parser.add_argument("--pretrained", action='store_true', help="Load pretrained model")
-
-# Pytorch precision
-torch.set_printoptions(precision=10)
+def parse_args(args):
+    parser = argparse.ArgumentParser(description="PyTorch MNIST/CIFAR10 Training")
+    # I/O
+    parser.add_argument("--datadir", default="./data/", help="Dataset location")
+    parser.add_argument("--experiments", default="./experiments", help="Path to experiments folder")
+    parser.add_argument("--dry_run", action="store_true", help="Disable output files generation")
+    parser.add_argument("--log_freq", type=int, default=10)
+    # Execution modes
+    parser.add_argument("--evaluate", dest="evaluate", action="store_true", help="evaluate model on validation set")
+    parser.add_argument("--resume", dest="resume", type=none_or_str,
+                        help="Resume from checkpoint. Overrides --pretrained flag.")
+    add_bool_arg(parser, "detect_nan", default=False)
+    # Compute resources
+    parser.add_argument("--num_workers", default=4, type=int, help="Number of workers")
+    parser.add_argument("--gpus", type=none_or_str, default="0", help="Comma separated GPUs")
+    # Optimizer hyperparams
+    parser.add_argument("--batch_size", default=100, type=int, help="batch size")
+    parser.add_argument("--lr", default=0.02, type=float, help="Learning rate")
+    parser.add_argument("--optim", type=none_or_str, default="ADAM", help="Optimizer to use")
+    parser.add_argument("--loss", type=none_or_str, default="SqrHinge", help="Loss function to use")
+    parser.add_argument("--scheduler", default="FIXED", type=none_or_str, help="LR Scheduler")
+    parser.add_argument("--milestones", type=none_or_str, default='100,150,200,250', help="Scheduler milestones")
+    parser.add_argument("--momentum", default=0.9, type=float, help="Momentum")
+    parser.add_argument("--weight_decay", default=0, type=float, help="Weight decay")
+    parser.add_argument("--epochs", default=1000, type=int, help="Number of epochs")
+    parser.add_argument("--random_seed", default=1, type=int, help="Random seed")
+    # Neural network Architecture
+    parser.add_argument("--network", default="LFC_1W1A", type=str, help="neural network")
+    parser.add_argument("--pretrained", action='store_true', help="Load pretrained model")
+    return parser.parse_args(args)
 
 
 class objdict(dict):
@@ -102,8 +101,8 @@ class objdict(dict):
             raise AttributeError("No such attribute: " + name)
 
 
-def main():
-    args = parser.parse_args()
+def main(cmd_args):
+    args = parse_args(cmd_args)
 
     # Set relative paths relative to current workdir
     path_args = ["datadir", "experiments", "resume"]
@@ -132,4 +131,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])
