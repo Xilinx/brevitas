@@ -181,7 +181,7 @@ setup(name="Brevitas",
           'develop': DevelopInstall,
       },
       package_data={
-          'brevitas_examples': ['*.ini', '*.yaml'],
+          '': ['*.ini', '*.yaml'],
       },
       entry_points={
           'console_scripts': [
