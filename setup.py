@@ -169,7 +169,8 @@ setup(name="Brevitas",
           "Hadamard": read_requirements('requirements-hadamard.txt'),
           "test": read_requirements('requirements-test.txt'),
           "tts": read_requirements('requirements-tts.txt'),
-          "stt": read_requirements('requirements-stt.txt')
+          "stt": read_requirements('requirements-stt.txt'),
+          "vision": read_requirements('requirements-vision.txt')
       },
       packages=find_packages(),
       zip_safe=False,
