@@ -38,6 +38,9 @@ jobs:
           - pytorch_version: '1.1.0'
             jit_status: 'jit_disabled'
 
+          - pytorch_version: '1.2.0'
+            jit_status: 'jit_disabled'
+
 
 
     steps:

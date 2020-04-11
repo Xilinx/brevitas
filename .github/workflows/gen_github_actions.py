@@ -34,7 +34,9 @@ EXCLUDE_LIST = [od([('platform', 'macos-latest'),
                     ('conda_python_version', '3.8')])]
 
 PYTEST_EXCLUDE_LIST_EXTRA = [od([('pytorch_version', '1.1.0'),
-                                ('jit_status', 'jit_disabled')])]
+                                ('jit_status', 'jit_disabled')]),
+                             od([('pytorch_version', '1.2.0'),
+                                 ('jit_status', 'jit_disabled')])]
 
 MATRIX = od([('conda_python_version', list(CONDA_PYTHON_VERSIONS)),
              ('pytorch_version', list(PYTORCH_VERSIONS)),
