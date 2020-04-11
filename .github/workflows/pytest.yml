@@ -38,6 +38,9 @@ jobs:
           - pytorch_version: '1.1.0'
             jit_status: 'jit_disabled'
 
+          - pytorch_version: '1.2.0'
+            jit_status: 'jit_disabled'
+
 
 
     steps:
@@ -128,7 +131,7 @@ jobs:
         rm -R ${{ steps.cache-dirs.outputs.pytorch_pkg_cache_path }}/pytorch*
       if: steps.pytorch-cache.outputs.cache-hit == 'true'
 
-    - name: Run Nox session for pytest
+    - name: Run Nox session for brevitas pytest
       shell: bash
       run: nox -v -s tests_brevitas_cpu-${{ matrix.conda_python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)
 
