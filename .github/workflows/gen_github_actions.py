@@ -8,6 +8,7 @@ import yaml
 
 BASE_YML_TEMPLATE = 'base.yml.template'
 PYTEST_YML = 'pytest.yml'
+EXAMPLES_PYTEST_YML = 'examples_pytest.yml'
 DEVELOP_INSTALL_YML = 'develop_install.yml'
 
 NIX_NEWLINE = '\n'
@@ -43,10 +44,17 @@ PYTEST_MATRIX_EXTRA = od([('jit_status', list(JIT_STATUSES))])
 
 PYTEST_STEP_LIST = [
     od([
-        ('name', 'Run Nox session for pytest'),
+        ('name', 'Run Nox session for brevitas pytest'),
         ('shell', 'bash'),
-        ('run', 'nox -v -s tests_brevitas_cpu-${{ matrix.conda_python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)')
-    ])]
+        ('run', 'nox -v -s tests_brevitas_cpu-${{ matrix.conda_python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)')]),
+]
+
+EXAMPLES_PYTEST_STEP_LIST = [
+    od([
+        ('name', 'Run Nox session for brevitas_examples pytest'),
+        ('shell', 'bash'),
+        ('run', 'nox -v -s tests_brevitas_examples_cpu-${{ matrix.conda_python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)')]),
+]
 
 TEST_INSTALL_DEV_STEP_LIST = [
     od([
@@ -125,6 +133,15 @@ def gen_pytest_yml():
     pytest.gen_yaml(PYTEST_YML)
 
 
+def gen_examples_pytest_yml():
+    pytest = Action(
+        'Examples Pytest',
+        EXCLUDE_LIST + PYTEST_EXCLUDE_LIST_EXTRA,
+        combine_od_list([MATRIX, PYTEST_MATRIX_EXTRA]),
+        EXAMPLES_PYTEST_STEP_LIST)
+    pytest.gen_yaml(EXAMPLES_PYTEST_YML)
+
+
 def gen_test_develop_install_yml():
     test_develop_install = Action(
         'Test develop install',
@@ -136,4 +153,5 @@ def gen_test_develop_install_yml():
 
 if __name__ == '__main__':
     gen_pytest_yml()
+    gen_examples_pytest_yml()
     gen_test_develop_install_yml()
