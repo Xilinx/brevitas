@@ -43,13 +43,16 @@ model_impl = {
     'SFC': sfc
 }
 
-
-def model_with_cfg(name, pretrained):
+def get_model_cfg(name):
     cfg = ConfigParser()
     current_dir = os.path.dirname(os.path.abspath(__file__))
     config_path = os.path.join(current_dir, '..', 'cfg', name.lower() + '.ini')
     assert os.path.exists(config_path)
     cfg.read(config_path)
+    return cfg
+
+def model_with_cfg(name, pretrained):
+    cfg = get_model_cfg(name)
     arch = cfg.get('MODEL', 'ARCH')
     model = model_impl[arch](cfg)
     if pretrained:
