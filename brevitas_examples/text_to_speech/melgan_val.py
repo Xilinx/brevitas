@@ -6,7 +6,7 @@ from scipy.io.wavfile import write
 
 import torch.backends.cudnn as cudnn
 import brevitas.config
-from .MelGAN import model_with_cfg
+from melgan import model_with_cfg
 
 brevitas.config.IGNORE_MISSING_KEYS = False
 MAX_WAV_VALUE = 32768.0
