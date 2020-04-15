@@ -42,12 +42,19 @@ class QuantizedConv2dPlaceholderFunction(Function):
 class QuantizedHardTanhPlaceholderFunction(Function):
     @staticmethod
     def symbolic(g, input, qnt_type, thres, bias, scale):
-        ret = g.op('MultiThreshold', input, thres, domain_s = "finn",
-                    out_dtype_s = qnt_type)
-        if scale is not None:
-            ret = g.op('Mul', ret, scale)
-        if bias is not None:
-            ret = g.op('Add', ret, bias)
+        if qnt_type == "BIPOLAR":
+            # don't export the scale/bias as separate nodes for bipolar,
+            # we don't want to get rid of them convert this node to binary
+            ret = g.op('MultiThreshold', input, thres, domain_s = "finn",
+                        out_scale_f = 2.0, out_bias_f = -1,
+                        out_dtype_s = qnt_type, activation_qnt_s = qnt_type)
+        else:
+            ret = g.op('MultiThreshold', input, thres, domain_s = "finn",
+                        out_dtype_s = qnt_type)
+            if scale is not None:
+                ret = g.op('Mul', ret, scale)
+            if bias is not None:
+                ret = g.op('Add', ret, bias)
         return ret
 
     @staticmethod
