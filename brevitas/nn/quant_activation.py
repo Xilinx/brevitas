@@ -360,12 +360,14 @@ class QuantHardTanh(QuantActivation):
             for t in range(n_thresholds):
                 self.export_thres[0][t] = min_thres + step * t
         else:
+            # export bipolar act. quantization as a MultiThreshold node
+            # with a single threshold at 0, followed by 2*x - 1
             self.export_act_scale = torch.empty([1, ])
             self.export_act_scale[0] = 2.0
             self.export_act_bias = torch.empty([1, ])
             self.export_act_bias[0] = -1.0
             self.export_thres = torch.empty([1, 1])
-            self.export_act_bias[0] = 0
+            self.export_thres[0] = 0
 
     def forward(self, input):
         if self.export_mode:
