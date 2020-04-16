@@ -2,9 +2,9 @@ name: Test Brevitas-FINN integration
 
 on:
   push:
-    branches: [ master, infra, dev, feature/finn_onnx_export ]
+    branches: [ master, infra, dev, feature/finn_onnx_export_dev ]
   pull_request:
-    branches: [ master, infra, dev, feature/finn_onnx_export ]
+    branches: [ master, infra, dev, feature/finn_onnx_export_dev ]
 
 jobs:
   build:
