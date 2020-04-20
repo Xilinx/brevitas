@@ -7,19 +7,19 @@ These pretrained models and training scripts are courtesy of
 
 ## Experiments
 
-| Name     | Input quantization           | Weight quantization | Activation quantization | Brevitas Top1 | Theano Top1 |
+| Name     | Input quantization           | Weight quantization | Activation quantization | Dataset       | Top1 accuracy |
 |----------|------------------------------|---------------------|-------------------------|---------------|---------------|
-| TFC_1W1A | 1 bit                        | 1 bit               | 1 bit                   | 93.17%        |               |
-| TFC_1W2A | 2 bit                        | 1 bit               | 2 bit                   | 94.79%        |               |
-| TFC_2W2A | 2 bit                        | 2 bit               | 2 bit                   | 96.60%        |               |
-| SFC_1W1A | 1 bit                        | 1 bit               | 1 bit                   | 97.81%        |               |
-| SFC_1W2A | 2 bit                        | 1 bit               | 2 bit                   | 98.31%        |               |
-| SFC_2W2A | 2 bit                        | 2 bit               | 2 bit                   | 98.66%        |               |
-| LFC_1W1A | 1 bit                        | 1 bit               | 1 bit                   | 98.88%        | 98.35%        |
-| LFC_1W2A | 2 bit                        | 1 bit               | 2 bit                   | 98.99%        | 98.55%        |
-| CNV_1W1A | 8 bit                        | 1 bit               | 1 bit                   | 84.22%        | 79.54%        |
-| CNV_1W2A | 8 bit                        | 1 bit               | 2 bit                   | 87.80%        | 83.63%        |
-| CNV_2W2A | 8 bit                        | 2 bit               | 2 bit                   | 89.03%        | 84.80%        |
+| TFC_1W1A | 1 bit                        | 1 bit               | 1 bit                   |  MNIST        |    93.17%     |
+| TFC_1W2A | 2 bit                        | 1 bit               | 2 bit                   |  MNIST        |    94.79%     |
+| TFC_2W2A | 2 bit                        | 2 bit               | 2 bit                   |  MNIST        |    96.60%     |
+| SFC_1W1A | 1 bit                        | 1 bit               | 1 bit                   |  MNIST        |    97.81%     |
+| SFC_1W2A | 2 bit                        | 1 bit               | 2 bit                   |  MNIST        |    98.31%     |
+| SFC_2W2A | 2 bit                        | 2 bit               | 2 bit                   |  MNIST        |    98.66%     |
+| LFC_1W1A | 1 bit                        | 1 bit               | 1 bit                   |  MNIST        |    98.88%     |
+| LFC_1W2A | 2 bit                        | 1 bit               | 2 bit                   |  MNIST        |    98.99%     |
+| CNV_1W1A | 8 bit                        | 1 bit               | 1 bit                   |  CIFAR10      |    84.22%     |
+| CNV_1W2A | 8 bit                        | 1 bit               | 2 bit                   |  CIFAR10      |    87.80%     |
+| CNV_2W2A | 8 bit                        | 2 bit               | 2 bit                   |  CIFAR10      |    89.03%     |
 
 ## Train
 
