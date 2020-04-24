@@ -24,6 +24,7 @@ brevitas.function.ops module
    .. autofunction:: max_uint(narrow_range, bit_width)
    .. autofunction:: max_int(signed, bit_width)
    .. autofunction:: min_int(signed, narrow_range, bit_width)
+   .. autofunction:: identity(x)
 
 
 brevitas.function.ops\_ste module

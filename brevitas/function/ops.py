@@ -72,6 +72,24 @@ def tensor_clamp_(x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor)
 
 
 @torch.jit.script
+def identity(x: torch.Tensor) -> torch.Tensor:
+    """ Identity function
+
+    Parameters
+    ----------
+    x : Tensor
+        Input Tensor
+
+    Returns
+    -------
+    Tensor
+        Unaltered input tensor
+
+    """
+    return x
+
+
+@torch.jit.script
 def max_uint(narrow_range: bool, bit_width: torch.Tensor) -> torch.Tensor:
     """ Compute the maximum unsigned integer representable
 
