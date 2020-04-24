@@ -47,7 +47,7 @@ from torch.nn import Sequential
 
 from brevitas.utils.python_utils import AutoName
 from .function_wrapper import RoundSte, CeilSte, Identity, PowerOfTwo, LogTwo, FloorSte, ClampMin
-
+from brevitas.function.ops import identity
 
 class RestrictValueType(AutoName):
     FP = auto()
@@ -107,7 +107,7 @@ class RestrictValue(torch.jit.ScriptModule):
     @staticmethod
     def restrict_value_op(restrict_value_type: RestrictValueType, restrict_value_op_impl_type: RestrictValueOpImplType):
         if restrict_value_type == RestrictValueType.FP or restrict_value_type == RestrictValueType.INT:
-            return lambda x: x
+            return identity
         elif restrict_value_type == RestrictValueType.LOG_FP or restrict_value_type == RestrictValueType.POWER_OF_TWO:
             if restrict_value_op_impl_type == RestrictValueOpImplType.TORCH_FN:
                 return torch.log2
