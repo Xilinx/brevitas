@@ -165,6 +165,7 @@ def test_IntQuant(x, narrow_range, signed, bit_width, scale, norm, int_scale, fl
     bit_width = torch.tensor(bit_width, dtype=torch.float)
     scale = torch.tensor(scale)
     int_scale = torch.tensor(int_scale)
+    norm = torch.tensor(norm)
 
     tol = scale * scale_multiplier
     float_to_int_impl_mock.side_effect = float_to_int_impl()
