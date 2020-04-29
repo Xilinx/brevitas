@@ -120,6 +120,39 @@ class StandaloneScaling(torch.jit.ScriptModule):
             missing_keys.remove(value_key)
 
 
+class BufferScaling(torch.jit.ScriptModule):
+
+    def __init__(self,
+                 scaling_init: torch.Tensor,
+                 scaling_min_val: Optional[float],
+                 restrict_scaling_type: RestrictValueType) -> None:
+        super(BufferScaling, self).__init__()
+
+        if not (restrict_scaling_type == RestrictValueType.FP
+                or restrict_scaling_type == RestrictValueType.LOG_FP
+                or restrict_scaling_type == RestrictValueType.POWER_OF_TWO):
+            raise Exception("Restriction of type {} is not supported for standalone scaling."
+                            .format(str(restrict_scaling_type)))
+
+        self.restrict_value = RestrictValue(restrict_scaling_type, FloatToIntImplType.ROUND, scaling_min_val)
+        scaling_init_op = RestrictValue.restrict_value_op(restrict_scaling_type,
+                                                          restrict_value_op_impl_type=RestrictValueOpImplType.TORCH_FN)
+        self.register_buffer('value', scaling_init_op(scaling_init))
+
+    @torch.jit.script_method
+    def forward(self, zero_hw_sentinel: torch.Tensor) -> torch.Tensor:
+        value = self.restrict_value(self.value)
+        return value
+
+    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
+                              missing_keys, unexpected_keys, error_msgs):
+        value_key = prefix + 'value'
+        super(BufferScaling, self)._load_from_state_dict(state_dict, prefix, local_metadata, strict,
+            missing_keys, unexpected_keys, error_msgs)
+        if config.IGNORE_MISSING_KEYS and value_key in missing_keys:
+            missing_keys.remove(value_key)
+
+
 class AffineRescaling(torch.jit.ScriptModule):
 
     def __init__(self, affine_shape):

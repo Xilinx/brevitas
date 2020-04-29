@@ -74,10 +74,8 @@ class PaddingType(AutoName):
 @docstrings.dedent
 class QuantConv2d(QuantLayer, Conv2d):
     """
-
         Parameters
         ----------
-
         %(weight_quant_proxy.parameters_with_prefix)s
     """
     def __init__(self,
@@ -96,6 +94,7 @@ class QuantConv2d(QuantLayer, Conv2d):
                  weight_quant_override: WeightQuantProxy = None,
                  weight_quant_type: QuantType = QuantType.FP,
                  weight_narrow_range: bool = False,
+                 weight_norm_impl_type: NormImplType = NormImplType.SAME_AS_SCALING,
                  weight_scaling_override: Optional[Module] = None,
                  weight_bit_width_impl_override: Union[BitWidthParameter, BitWidthConst] = None,
                  weight_bit_width_impl_type: BitWidthImplType = BitWidthImplType.CONST,
@@ -136,6 +135,7 @@ class QuantConv2d(QuantLayer, Conv2d):
         self.per_elem_ops = 2 * self.kernel_size[0] * self.kernel_size[1] * (in_channels // groups)
         self.padding_type = padding_type
         self.weight_reg = WeightReg()
+        self.weight_scaling_stats_op = weight_scaling_stats_op
 
         if weight_quant_override is not None:
             self.weight_quant = weight_quant_override
@@ -151,13 +151,16 @@ class QuantConv2d(QuantLayer, Conv2d):
                 weight_scaling_shape = SCALING_SCALAR_SHAPE
                 weight_scaling_stats_reduce_dim = None
 
-            if weight_scaling_stats_op == StatsOp.MAX_AVE:
+            if weight_scaling_stats_op == StatsOp.MAX_AVE or \
+                    weight_scaling_stats_op == StatsOp.MAX_L2 or \
+                    weight_scaling_stats_op == StatsOp.SAT_MAX_L2:
                 weight_stats_input_view_shape_impl = StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS
                 weight_scaling_stats_reduce_dim = 1
 
             self.weight_quant = WeightQuantProxy(bit_width=weight_bit_width,
                                                  quant_type=weight_quant_type,
                                                  narrow_range=weight_narrow_range,
+                                                 norm_impl_type=weight_norm_impl_type,
                                                  scaling_override=weight_scaling_override,
                                                  restrict_scaling_type=weight_restrict_scaling_type,
                                                  scaling_const=weight_scaling_const,
@@ -180,7 +183,6 @@ class QuantConv2d(QuantLayer, Conv2d):
         self.bias_quant = BiasQuantProxy(quant_type=bias_quant_type,
                                          bit_width=bias_bit_width,
                                          narrow_range=bias_narrow_range)
-
     @property
     def per_output_channel_broadcastable_shape(self):
         if self.transposed:

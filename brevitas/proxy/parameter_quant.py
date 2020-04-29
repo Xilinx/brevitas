@@ -56,7 +56,8 @@ from brevitas.core.quant import QuantType, BinaryQuant, TernaryQuant, RescalingI
 from brevitas.core.quant import PrescaledRestrictIntQuant, PrescaledRestrictIntQuantWithInputBitWidth
 from brevitas.core.restrict_val import RestrictValueType, FloatToIntImplType, RestrictValue
 from brevitas.core.scaling import ScalingImplType, ParameterStatsScaling, StatsInputViewShapeImpl, IntScaling
-from brevitas.core.scaling import StandaloneScaling, SCALING_SCALAR_SHAPE
+from brevitas.core.norm import MaxParameterListNorm, NormImplType, SameAsScalingNorm
+from brevitas.core.scaling import StandaloneScaling, SCALING_SCALAR_SHAPE, BufferScaling
 from brevitas.function.ops_ste import round_ste
 from brevitas.core.stats import StatsOp
 from brevitas import config
@@ -99,6 +100,7 @@ class ParameterQuantProxy(QuantProxy):
 def _weight_quant_init_impl(bit_width: Optional[int],
                             quant_type: QuantType,
                             narrow_range: bool,
+                            norm_impl_type: NormImplType,
                             scaling_override: Optional[nn.Module],
                             restrict_scaling_type: RestrictValueType,
                             scaling_const: float,
@@ -133,7 +135,8 @@ def _weight_quant_init_impl(bit_width: Optional[int],
 
         elif scaling_impl_type == ScalingImplType.STATS \
                 or scaling_impl_type == ScalingImplType.AFFINE_STATS \
-                or scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS:
+                or scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS \
+                or scaling_impl_type == ScalingImplType.BUFFER_FROM_STATS:
             stats_scaling = ParameterStatsScaling(stats_op=scaling_stats_op,
                                                   restrict_scaling_type=restrict_scaling_type,
                                                   tracked_parameter_list=tracked_parameter_list,
@@ -153,6 +156,13 @@ def _weight_quant_init_impl(bit_width: Optional[int],
                                                  restrict_scaling_type=restrict_scaling_type,
                                                  is_parameter=True,
                                                  scaling_min_val=scaling_min_val)
+            elif scaling_impl_type == ScalingImplType.BUFFER_FROM_STATS:
+                if quant_type == QuantType.BINARY or quant_type == QuantType.TERNARY:
+                    raise Exception("Buffer from stats scaling is currently not supported for binary/ternary")
+                scaling_init = stats_scaling(zero_hw_sentinel).detach()
+                scaling_impl = BufferScaling(scaling_init=scaling_init,
+                                             restrict_scaling_type=restrict_scaling_type,
+                                             scaling_min_val=scaling_min_val)
             else:
                 scaling_impl = stats_scaling
 
@@ -200,13 +210,26 @@ def _weight_quant_init_impl(bit_width: Optional[int],
             else:
                 bit_width_impl = bit_width_impl_override
 
-            if bit_width_impl_type == BitWidthImplType.PARAMETER or \
+            if bit_width_impl_type != BitWidthImplType.CONST or \
                     bit_width_impl_type == BitWidthImplType.CONST and \
-                    scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS:
+                    norm_impl_type == NormImplType.SAME_AS_SCALING and \
+                    scaling_impl_type != ScalingImplType.STATS:
                 tensor_clamp_impl = TensorClamp()
             else:
                 tensor_clamp_impl = TensorClampSte()
-
+            if norm_impl_type == NormImplType.MAX or \
+                    norm_impl_type == NormImplType.MAX_AVE or \
+                    norm_impl_type == NormImplType.MAX_L2:
+                norm_impl = MaxParameterListNorm(stats_op=StatsOp(norm_impl_type),
+                                                 tracked_parameter_list=tracked_parameter_list,
+                                                 input_view_shape_impl=scaling_stats_input_view_shape_impl,
+                                                 input_concat_dim=scaling_stats_input_concat_dim,
+                                                 reduce_dim=scaling_stats_reduce_dim,
+                                                 output_shape=scaling_shape)
+            elif norm_impl_type == NormImplType.SAME_AS_SCALING:
+                norm_impl = SameAsScalingNorm()
+            else:
+                raise Exception("Norm impl type {} not supported yet".format(norm_impl_type))
             float_to_int_impl = RestrictValue(restrict_value_type=RestrictValueType.INT,
                                               float_to_int_impl_type=FloatToIntImplType.ROUND,
                                               min_val=None)
@@ -220,6 +243,7 @@ def _weight_quant_init_impl(bit_width: Optional[int],
                                              tensor_clamp_impl=tensor_clamp_impl,
                                              msb_clamp_bit_width_impl=bit_width_impl,
                                              float_to_int_impl=float_to_int_impl,
+                                             norm_impl=norm_impl,
                                              runtime=False)
         else:
             raise Exception('Unsupported weight quantization: {} bit width, {} quantization.'
@@ -307,6 +331,7 @@ class WeightQuantProxy(ParameterQuantProxy):
                  bit_width: Optional[int],
                  quant_type: QuantType,
                  narrow_range: bool,
+                 norm_impl_type: NormImplType,
                  scaling_override: Optional[nn.Module],
                  restrict_scaling_type: RestrictValueType,
                  scaling_const: Optional[float],
@@ -333,6 +358,7 @@ class WeightQuantProxy(ParameterQuantProxy):
                                               bit_width=bit_width,
                                               quant_type=quant_type,
                                               narrow_range=narrow_range,
+                                              norm_impl_type=norm_impl_type,
                                               scaling_override=scaling_override,
                                               restrict_scaling_type=restrict_scaling_type,
                                               scaling_const=scaling_const,
