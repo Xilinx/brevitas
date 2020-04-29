@@ -154,10 +154,10 @@ def test_of_TernaryQuant(x, threshold, scale):
 #  - float_to_int implementation is a stripped down version of RestrictValue object for clarity and easiness of testing.
 @given(x=list_float_st, narrow_range=st.booleans(), signed=st.booleans(),
        bit_width=st.integers(min_value=MIN_BITWIDTH, max_value=MAX_BITWIDTH),
-       scale=float_st_p, int_scale=st.integers(min_value=1, max_value=256))
+       scale=float_st_p, norm=float_st_nz, int_scale=st.integers(min_value=1, max_value=256))
 @pytest.mark.parametrize('float_to_int_impl, scale_multiplier', float_to_int_impl_scale_options)
 @combine_conditions(check_expected_pyt_120_fail, check_mock_jit_pyt_l140_fail, check_mock_jit_pyt_ge140_fail)
-def test_IntQuant(x, narrow_range, signed, bit_width, scale, int_scale, float_to_int_impl, scale_multiplier):
+def test_IntQuant(x, narrow_range, signed, bit_width, scale, norm, int_scale, float_to_int_impl, scale_multiplier):
     float_to_int_impl_mock = Mock()
     tensor_clamp_impl = TensorClamp()
 
@@ -171,13 +171,13 @@ def test_IntQuant(x, narrow_range, signed, bit_width, scale, int_scale, float_to
 
     obj = IntQuant(narrow_range=narrow_range, signed=signed, float_to_int_impl=float_to_int_impl_mock,
                    tensor_clamp_impl=tensor_clamp_impl)
-    output = obj(scale, int_scale, bit_width, value)
+    output = obj(norm, scale, int_scale, bit_width, value)
 
     min_value = int(min_int(signed, narrow_range, bit_width))
     max_value = int(max_int(signed, bit_width))
     admissible_values = [x for x in range(min_value, max_value+1)]
 
-    value = (value / scale) * int_scale
+    value = (value / norm) * int_scale
     expected_output = tensor_clamp(value, min_val=min_int(signed, narrow_range, bit_width),
                                    max_val=max_int(signed, bit_width))
     expected_output = (expected_output / int_scale) * scale
@@ -218,7 +218,7 @@ def test_PrescaledRestrictIntQuantWithInputBitWidth(x, narrow_range, signed, sca
 
     expected_IntQuant = IntQuant(signed=signed, narrow_range=narrow_range, tensor_clamp_impl=tensor_clamp_impl,
                                  float_to_int_impl=float_to_int_impl_mock)
-    expected_output = expected_IntQuant(scale, torch.tensor(ZERO_HW_SENTINEL_VALUE) + 1, bit_width, value)
+    expected_output = expected_IntQuant(scale, scale, torch.tensor(ZERO_HW_SENTINEL_VALUE) + 1, bit_width, value)
 
     assert torch.allclose(expected_output, output, RTOL, ATOL)
 
@@ -253,7 +253,7 @@ def test_PrescaledRestrictIntQuanth(x, narrow_range, signed, scale, bit_width):
 
     expected_IntQuant = IntQuant(signed=signed, narrow_range=narrow_range, tensor_clamp_impl=tensor_clamp_impl,
                                  float_to_int_impl=float_to_int_impl_mock)
-    expected_output = expected_IntQuant(scale, torch.tensor(ZERO_HW_SENTINEL_VALUE) + 1, bit_width, value)
+    expected_output = expected_IntQuant(scale, scale, torch.tensor(ZERO_HW_SENTINEL_VALUE) + 1, bit_width, value)
 
     assert torch.allclose(expected_output, output, RTOL, ATOL)
 
@@ -268,14 +268,15 @@ def test_PrescaledRestrictIntQuanth(x, narrow_range, signed, scale, bit_width):
 #  - Runtime is default to true, since it has no effect in the generation of the scale factor (which is random)
 #  - msb_clamp_bit_width returns a random integer between 2 and 8
 @given(x=list_float_st, narrow_range=st.booleans(), signed=st.booleans(),
-       bit_width=st.integers(min_value=MIN_BITWIDTH, max_value=MAX_BITWIDTH), scale=float_st_p,
+       bit_width=st.integers(min_value=MIN_BITWIDTH, max_value=MAX_BITWIDTH), scale=float_st_p, norm=float_st_nz,
        int_scale=st.integers(min_value=1, max_value=256))
 @combine_conditions(check_expected_pyt_120_fail, check_mock_jit_pyt_l140_fail, check_mock_jit_pyt_ge140_fail)
-def test_RescalingIntQuant(x, narrow_range, signed, scale, int_scale, bit_width):
+def test_RescalingIntQuant(x, narrow_range, signed, scale, norm, int_scale, bit_width):
     value = torch.tensor(x)
     scale = torch.tensor(scale)
     bit_width = torch.tensor(bit_width, dtype=torch.float)
     int_scale = torch.tensor(int_scale, dtype=torch.float)
+    norm = torch.tensor(norm)
     tensor_clamp_impl = TensorClamp()
 
     msb_clamp_bitwidth_mock = Mock()
@@ -284,11 +285,14 @@ def test_RescalingIntQuant(x, narrow_range, signed, scale, int_scale, bit_width)
     float_to_int_impl_mock.side_effect = (lambda y: y)
     int_scaling_impl_mock = Mock()
     int_scaling_impl_mock.return_value = int_scale
+    norm_impl_mock = Mock()
+    norm_impl_mock.return_value = norm
     scaling_impl = Mock()
     scaling_impl.return_value = scale
 
     obj = RescalingIntQuant(narrow_range=narrow_range, signed=signed,
                             runtime=True,
+                            norm_impl=norm_impl_mock,
                             tensor_clamp_impl=tensor_clamp_impl,
                             float_to_int_impl=float_to_int_impl_mock,
                             int_scaling_impl=int_scaling_impl_mock,
@@ -299,7 +303,7 @@ def test_RescalingIntQuant(x, narrow_range, signed, scale, int_scale, bit_width)
 
     expected_IntQuant = IntQuant(signed=signed, narrow_range=narrow_range, tensor_clamp_impl=tensor_clamp_impl,
                                  float_to_int_impl=float_to_int_impl_mock)
-    expected_output = expected_IntQuant(scale, int_scale, bit_width, value)
+    expected_output = expected_IntQuant(norm, scale, int_scale, bit_width, value)
     expected_scale = scale/int_scale
     assert torch.allclose(expected_output, output, RTOL, ATOL)
     assert torch.allclose(expected_scale, scale_out, RTOL, ATOL)
