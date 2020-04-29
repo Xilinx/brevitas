@@ -61,6 +61,7 @@ class ScalingImplType(AutoName):
     AFFINE_STATS = auto()
     PARAMETER = auto()
     PARAMETER_FROM_STATS = auto()
+    BUFFER_FROM_STATS = auto()
     OVERRIDE = auto()
 
 
