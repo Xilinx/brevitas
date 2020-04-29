@@ -331,7 +331,7 @@ class PrescaledRestrictIntQuantWithInputBitWidth(torch.jit.ScriptModule):
                 zero_hw_sentinel: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
 
         msb_clamp_bit_width = self.msb_clamp_bit_width_impl(input_bit_width, zero_hw_sentinel)
-        y = self.int_quant(scale, zero_hw_sentinel + 1, msb_clamp_bit_width, x)
+        y = self.int_quant(scale, scale, zero_hw_sentinel + 1, msb_clamp_bit_width, x)
         return y, scale, msb_clamp_bit_width
 
 
@@ -410,7 +410,7 @@ class PrescaledRestrictIntQuant(torch.jit.ScriptModule):
                 scale: Tensor,
                 zero_hw_sentinel: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
         msb_clamp_bit_width = self.msb_clamp_bit_width_impl(zero_hw_sentinel)
-        y = self.int_quant(scale, zero_hw_sentinel + 1, msb_clamp_bit_width, x)
+        y = self.int_quant(scale, scale, zero_hw_sentinel + 1, msb_clamp_bit_width, x)
         return y, scale, msb_clamp_bit_width
 
 

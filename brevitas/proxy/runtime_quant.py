@@ -55,6 +55,7 @@ from brevitas.core.restrict_val import RestrictValueType, RestrictValue, FloatTo
 from brevitas.core.scaling import RuntimeStatsScaling, SCALING_SCALAR_SHAPE, StatsInputViewShapeImpl
 from brevitas.core.scaling import ScalingImplType, StandaloneScaling, IntScaling
 from brevitas.core.stats import StatsOp
+from brevitas.core.norm import SameAsScalingNorm
 
 from .quant_proxy import QuantProxy
 
@@ -204,6 +205,7 @@ class ActivationQuantProxy(QuantProxy):
                                               signed=signed,
                                               restrict_scaling_type=restrict_scaling_type)
                 tensor_quant = RescalingIntQuant(signed=signed,
+                                                 norm_impl=SameAsScalingNorm(),
                                                  narrow_range=narrow_range,
                                                  scaling_impl=scaling_impl,
                                                  int_scaling_impl=int_scaling_impl,
