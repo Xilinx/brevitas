@@ -153,8 +153,7 @@ class QuantConv2d(QuantLayer, Conv2d):
                 weight_scaling_stats_reduce_dim = None
 
             if weight_scaling_stats_op == StatsOp.MAX_AVE or \
-                    weight_scaling_stats_op == StatsOp.MAX_L2 or \
-                    weight_scaling_stats_op == StatsOp.SAT_MAX_L2:
+                    weight_scaling_stats_op == StatsOp.MAX_L2:
                 weight_stats_input_view_shape_impl = StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS
                 weight_scaling_stats_reduce_dim = 1
 

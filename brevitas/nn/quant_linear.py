@@ -130,7 +130,8 @@ class QuantLinear(QuantLayer, Linear):
                 weight_scaling_shape = SCALING_SCALAR_SHAPE
                 weight_scaling_stats_reduce_dim = None
 
-            if weight_scaling_stats_op == StatsOp.MAX_AVE:
+            if weight_scaling_stats_op == StatsOp.MAX_AVE or \
+                    weight_scaling_stats_op == StatsOp.MAX_L2:
                 weight_stats_input_view_shape_impl = StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS
                 weight_scaling_stats_reduce_dim = 1
 
