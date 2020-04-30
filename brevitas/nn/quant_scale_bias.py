@@ -9,7 +9,8 @@ from brevitas.core.restrict_val import RestrictValueType
 from brevitas.core.scaling import ScalingImplType, SCALING_SCALAR_SHAPE
 from brevitas.core.stats import StatsInputViewShapeImpl, StatsOp
 from brevitas.nn.quant_layer import SCALING_MIN_VAL
-from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy, OVER_BATCH_OVER_CHANNELS_SHAPE
+from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy
+from brevitas.proxy.runtime_quant import OVER_BATCH_OVER_CHANNELS_4D_SHAPE
 from .quant_layer import QuantLayer
 
 __all__ = ['ScaleBias', 'QuantScaleBias']
@@ -122,8 +123,8 @@ class QuantScaleBias(QuantLayer, ScaleBias):
         # if bias_bit_width is not None, input_bit_width is ignored
         quant_bias, _, quant_bias_bit_width = self.bias_quant(self.bias, output_scale, input_bit_width)
 
-        quant_weight = quant_weight.view(OVER_BATCH_OVER_CHANNELS_SHAPE)
-        quant_bias = quant_bias.view(OVER_BATCH_OVER_CHANNELS_SHAPE)
+        quant_weight = quant_weight.view(OVER_BATCH_OVER_CHANNELS_4D_SHAPE)
+        quant_bias = quant_bias.view(OVER_BATCH_OVER_CHANNELS_4D_SHAPE)
         output = input_tensor * quant_weight + quant_bias
 
         if self.compute_output_bit_width and quant_bias_bit_width is not None:
