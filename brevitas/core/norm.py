@@ -49,7 +49,7 @@ from brevitas.core.function_wrapper import Identity
 from brevitas.function.ops import min_int, max_int
 from brevitas.utils.python_utils import AutoName
 from .restrict_val import RestrictValue, RestrictValueType, FloatToIntImplType, RestrictValueOpImplType
-from .stats import StatsOp, StatsInputViewShapeImpl, ParameterListStats, RuntimeStats, RuntimeRestats
+from .stats import StatsOp, StatsInputViewShapeImpl, ParameterListStats
 
 SCALING_SCALAR_SHAPE = ()
 EPS = 1e-22
@@ -62,7 +62,7 @@ class NormImplType(AutoName):
     MAX_L2 = auto()
 
 
-class MaxParameterListNorm(torch.jit.ScriptModule):
+class ParameterListNorm(torch.jit.ScriptModule):
     __constants__ = ['eps']
 
     def __init__(
@@ -73,7 +73,7 @@ class MaxParameterListNorm(torch.jit.ScriptModule):
             reduce_dim: Optional[int],
             input_concat_dim: int,
             tracked_parameter_list: List[torch.nn.Parameter]):
-        super(MaxParameterListNorm, self).__init__()
+        super(ParameterListNorm, self).__init__()
         assert stats_op == StatsOp.MAX or stats_op == StatsOp.MAX_AVE or StatsOp.MAX_L2
 
         if (stats_op == StatsOp.MAX_AVE or stats_op == StatsOp.MAX_L2) and output_shape != SCALING_SCALAR_SHAPE:

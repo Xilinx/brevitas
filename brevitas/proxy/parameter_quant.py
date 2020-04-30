@@ -47,7 +47,6 @@ import math
 import torch
 from torch import nn, Tensor
 
-
 from brevitas.core import ZERO_HW_SENTINEL_NAME
 from brevitas.core.bit_width import BitWidthConst, BitWidthParameter, BitWidthImplType, IdentityBitWidth
 from brevitas.core.function_wrapper import TensorClampSte, TensorClamp
@@ -56,8 +55,8 @@ from brevitas.core.quant import QuantType, BinaryQuant, TernaryQuant, RescalingI
 from brevitas.core.quant import PrescaledRestrictIntQuant, PrescaledRestrictIntQuantWithInputBitWidth
 from brevitas.core.restrict_val import RestrictValueType, FloatToIntImplType, RestrictValue
 from brevitas.core.scaling import ScalingImplType, ParameterStatsScaling, StatsInputViewShapeImpl, IntScaling
-from brevitas.core.norm import MaxParameterListNorm, NormImplType, SameAsScalingNorm
-from brevitas.core.scaling import StandaloneScaling, SCALING_SCALAR_SHAPE, BufferScaling
+from brevitas.core.norm import ParameterListNorm, NormImplType, SameAsScalingNorm
+from brevitas.core.scaling import StandaloneScaling, SCALING_SCALAR_SHAPE
 from brevitas.function.ops_ste import round_ste
 from brevitas.core.stats import StatsOp
 from brevitas import config
@@ -67,8 +66,6 @@ from brevitas.proxy.runtime_quant import OVER_BATCH_OVER_CHANNELS_4D_SHAPE
 from .quant_proxy import QuantProxy
 
 __all__ = ['WeightQuantProxy', 'BiasQuantProxy']
-
-
 
 
 class WeightReg(nn.Module):
@@ -121,7 +118,6 @@ def _weight_quant_init_impl(bit_width: Optional[int],
                             tracked_parameter_list: List[torch.nn.Parameter],
                             zero_hw_sentinel: torch.Tensor,
                             override_pretrained_bit_width: bool):
-
     if quant_type == QuantType.FP:
         tensor_quant = IdentityQuant()
     else:
@@ -135,8 +131,7 @@ def _weight_quant_init_impl(bit_width: Optional[int],
 
         elif scaling_impl_type == ScalingImplType.STATS \
                 or scaling_impl_type == ScalingImplType.AFFINE_STATS \
-                or scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS \
-                or scaling_impl_type == ScalingImplType.BUFFER_FROM_STATS:
+                or scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS:
             stats_scaling = ParameterStatsScaling(stats_op=scaling_stats_op,
                                                   restrict_scaling_type=restrict_scaling_type,
                                                   tracked_parameter_list=tracked_parameter_list,
@@ -156,13 +151,6 @@ def _weight_quant_init_impl(bit_width: Optional[int],
                                                  restrict_scaling_type=restrict_scaling_type,
                                                  is_parameter=True,
                                                  scaling_min_val=scaling_min_val)
-            elif scaling_impl_type == ScalingImplType.BUFFER_FROM_STATS:
-                if quant_type == QuantType.BINARY or quant_type == QuantType.TERNARY:
-                    raise Exception("Buffer from stats scaling is currently not supported for binary/ternary")
-                scaling_init = stats_scaling(zero_hw_sentinel).detach()
-                scaling_impl = BufferScaling(scaling_init=scaling_init,
-                                             restrict_scaling_type=restrict_scaling_type,
-                                             scaling_min_val=scaling_min_val)
             else:
                 scaling_impl = stats_scaling
 
@@ -220,12 +208,12 @@ def _weight_quant_init_impl(bit_width: Optional[int],
             if norm_impl_type == NormImplType.MAX or \
                     norm_impl_type == NormImplType.MAX_AVE or \
                     norm_impl_type == NormImplType.MAX_L2:
-                norm_impl = MaxParameterListNorm(stats_op=StatsOp(norm_impl_type),
-                                                 tracked_parameter_list=tracked_parameter_list,
-                                                 input_view_shape_impl=scaling_stats_input_view_shape_impl,
-                                                 input_concat_dim=scaling_stats_input_concat_dim,
-                                                 reduce_dim=scaling_stats_reduce_dim,
-                                                 output_shape=scaling_shape)
+                norm_impl = ParameterListNorm(stats_op=StatsOp(norm_impl_type),
+                                              tracked_parameter_list=tracked_parameter_list,
+                                              input_view_shape_impl=scaling_stats_input_view_shape_impl,
+                                              input_concat_dim=scaling_stats_input_concat_dim,
+                                              reduce_dim=scaling_stats_reduce_dim,
+                                              output_shape=scaling_shape)
             elif norm_impl_type == NormImplType.SAME_AS_SCALING:
                 norm_impl = SameAsScalingNorm()
             else:
@@ -408,7 +396,7 @@ class WeightQuantProxy(ParameterQuantProxy):
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
                               missing_keys, unexpected_keys, error_msgs):
         super(WeightQuantProxy, self)._load_from_state_dict(state_dict, prefix, local_metadata, strict,
-            missing_keys, unexpected_keys, error_msgs)
+                                                            missing_keys, unexpected_keys, error_msgs)
         if config.REINIT_WEIGHT_QUANT_ON_LOAD:
             self.re_init_tensor_quant()
 
@@ -452,7 +440,8 @@ class BiasQuantProxy(ParameterQuantProxy):
     def forward(self,
                 x: Tensor,
                 input_scale: Tensor,
-                input_bit_width: Optional[Tensor]) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[torch.Tensor]]:
+                input_bit_width: Optional[Tensor]) -> Tuple[
+        torch.Tensor, Optional[torch.Tensor], Optional[torch.Tensor]]:
         zero_hw_sentinel = getattr(self, ZERO_HW_SENTINEL_NAME)
         if self.tensor_quant is not None:
 
@@ -470,5 +459,3 @@ class BiasQuantProxy(ParameterQuantProxy):
             return out, output_scale, bias_bit_width
         else:
             return x, input_scale, input_bit_width
-
-
