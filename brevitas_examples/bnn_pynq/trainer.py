@@ -134,7 +134,7 @@ class Trainer(object):
             print('Loading model checkpoint at: {}'.format(args.resume))
             package = torch.load(args.resume, map_location='cpu')
             model_state_dict = package['state_dict']
-            self.model.load_state_dict(model_state_dict, strict=args.strict)
+            model.load_state_dict(model_state_dict, strict=args.strict)
 
         if args.gpus is not None and len(args.gpus) == 1:
             model = model.to(device=self.device)
