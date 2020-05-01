@@ -61,7 +61,7 @@ from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy, Wei
 from brevitas.utils.python_utils import AutoName
 from brevitas.nn.quant_bn import mul_add_from_bn
 from brevitas.nn.quant_layer import QuantLayer, SCALING_MIN_VAL
-from brevitas.config import docstrings
+from brevitas import docstrings
 
 __all__ = ['QuantConv2d']
 
