@@ -61,7 +61,7 @@ from brevitas.function.ops_ste import ceil_ste
 from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy, WeightReg
 from brevitas.utils.python_utils import AutoName
 from brevitas.nn.quant_layer import QuantLayer, SCALING_MIN_VAL
-from brevitas.config import docstrings
+from brevitas import docstrings
 __all__ = ['QuantConv1d']
 
 

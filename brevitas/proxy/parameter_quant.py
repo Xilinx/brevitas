@@ -60,7 +60,7 @@ from brevitas.core.scaling import StandaloneScaling, SCALING_SCALAR_SHAPE
 from brevitas.function.ops_ste import round_ste
 from brevitas.core.stats import StatsOp
 from brevitas import config
-from brevitas.config import docstrings
+from brevitas import docstrings
 from brevitas.proxy.runtime_quant import OVER_BATCH_OVER_CHANNELS_4D_SHAPE
 
 from .quant_proxy import QuantProxy

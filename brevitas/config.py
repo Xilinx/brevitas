@@ -1,8 +1,6 @@
 import os
-import docrep
 from distutils.util import strtobool
 
-docstrings = docrep.DocstringProcessor()
 
 def env_to_bool(name, default):
     return bool(strtobool(os.environ.get(name, "{}".format(default))))
