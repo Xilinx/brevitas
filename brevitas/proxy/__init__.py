@@ -3,7 +3,7 @@ import re
 from .parameter_quant import *
 from .runtime_quant import *
 
-from brevitas.config import docstrings
+from brevitas import docstrings
 
 #
 # Docs post processing
