@@ -51,8 +51,15 @@ from setuptools.command.install import install
 from setuptools import Extension
 import glob
 import sys
+from distutils.util import convert_path
 
-MIN_TORCH_JITTABLE_VERSION = "1.3.0"
+
+config= {}
+exec(open(convert_path('brevitas/config.py')).read(), config)
+MIN_TORCH_JITTABLE_VERSION = config['MIN_TORCH_JITTABLE_VERSION']
+MAX_TORCH_JITTABLE_VERSION = config['MAX_TORCH_JITTABLE_VERSION']
+
+
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 REQUIREMENTS_DIR = os.path.join(PROJECT_ROOT, 'requirements')
 
@@ -60,7 +67,8 @@ REQUIREMENTS_DIR = os.path.join(PROJECT_ROOT, 'requirements')
 def apply_template(dest_build, version):
     template_path = os.path.join('brevitas', 'function', 'ops_ste.py.template')
     generated_path = os.path.join(dest_build, 'ops_ste.py')
-    if version.parse(torch.__version__) >= version.parse(MIN_TORCH_JITTABLE_VERSION):
+    torch_version = version.parse(torch.__version__)
+    if version.parse(MIN_TORCH_JITTABLE_VERSION) <= torch_version <= version.parse(MAX_TORCH_JITTABLE_VERSION):
         d = dict(
             function_suffix='',
             function_prefix='torch.ops.brevitas.',
@@ -94,7 +102,8 @@ class BuildJittableExtension(BuildExtension):
 
     def run(self):
         from packaging import version
-        if version.parse(torch.__version__) < version.parse(MIN_TORCH_JITTABLE_VERSION):
+        torch_version = version.parse(torch.__version__)
+        if not (version.parse(MIN_TORCH_JITTABLE_VERSION) <= torch_version <= version.parse(MAX_TORCH_JITTABLE_VERSION)):
             self.extensions = [e for e in self.extensions if not isinstance(e, JittableExtension)]
         super().run()
 
