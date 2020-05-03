@@ -8,14 +8,12 @@ import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), os.path.join('.', '.github', 'workflows')))
 from gen_github_actions import *
 
-
 PYTORCH_CPU_VIRTUAL_PKG = '1.2.0'
 PYTORCH_PILLOW_FIXED = '1.4.0'
 NOX_WIN_NUMPY_VERSION = '1.17.4'  # avoid errors from more recent Numpy called through Nox on Windows
 CONDA_PYTHON_IDS = tuple([f'conda_python_{i}' for i in CONDA_PYTHON_VERSIONS])
 PYTORCH_IDS = tuple([f'pytorch_{i}' for i in PYTORCH_VERSIONS])
 JIT_IDS = tuple([f'{i}'.lower() for i in JIT_STATUSES])
-
 
 def install_pytorch(pytorch, session):
     is_win = system() == 'Windows'
