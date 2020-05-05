@@ -84,15 +84,17 @@ from brevitas.core.function_wrapper import ConstScalarClamp
 from brevitas.nn.quant_layer import SCALING_MIN_VAL
 import torch
 
-from typing import Tuple, List
+from typing import Tuple, List, Optional
 from torch import Tensor
 from brevitas.core import ZERO_HW_SENTINEL_NAME, ZERO_HW_SENTINEL_VALUE
 from collections import namedtuple, OrderedDict
+import math
 
 OVER_BATCH_OVER_CHANNELS_SHAPE = (1, -1, 1, 1)
 LSTMState = namedtuple('LSTMState', ['hx', 'cx'])
 
 __all__ = ['QuantLSTMLayer', 'BidirLSTMLayer']
+
 
 @torch.jit.script
 def reverse(lst):
@@ -107,11 +109,11 @@ def reverse(lst):
 
 
 class QuantLSTMLayer(torch.jit.ScriptModule):
-    __constants__ = ['reverse_input']
+    __constants__ = ['reverse_input', 'batch_first', 'hidden_size']
 
     def __init__(self, input_size, hidden_size, weight_config, activation_config, norm_scale_hidden_config,
                  norm_scale_out_config, reverse_input=False, compute_output_scale=False,
-                 compute_output_bit_width=False, return_quant_tensor=False,
+                 compute_output_bit_width=False, return_quant_tensor=False, batch_first=False,
                  recurrent_quant_config=None):
 
         super(QuantLSTMLayer, self).__init__()
@@ -120,10 +122,10 @@ class QuantLSTMLayer(torch.jit.ScriptModule):
         self.weight_config = weight_config
         self.activation_config = activation_config
 
-        weight_ci = nn.Parameter(torch.randn(hidden_size, input_size), requires_grad=True)
-        weight_fi = nn.Parameter(torch.randn(hidden_size, input_size), requires_grad=True)
-        weight_ai = nn.Parameter(torch.randn(hidden_size, input_size), requires_grad=True)
-        weight_oi = nn.Parameter(torch.randn(hidden_size, input_size), requires_grad=True)
+        weight_ci = nn.Parameter(torch.randn(input_size, hidden_size), requires_grad=True)
+        weight_fi = nn.Parameter(torch.randn(input_size, hidden_size), requires_grad=True)
+        weight_ai = nn.Parameter(torch.randn(input_size, hidden_size), requires_grad=True)
+        weight_oi = nn.Parameter(torch.randn(input_size, hidden_size), requires_grad=True)
 
         weight_ch = nn.Parameter(torch.randn(hidden_size, hidden_size), requires_grad=True)
         weight_fh = nn.Parameter(torch.randn(hidden_size, hidden_size), requires_grad=True)
@@ -144,7 +146,12 @@ class QuantLSTMLayer(torch.jit.ScriptModule):
         self.bias_f = nn.Parameter(torch.randn(hidden_size), requires_grad=True)
         self.bias_a = nn.Parameter(torch.randn(hidden_size), requires_grad=True)
         self.bias_o = nn.Parameter(torch.randn(hidden_size), requires_grad=True)
+
+
         self.reverse_input = reverse_input
+        self.batch_first = batch_first
+        self.hidden_size = hidden_size
+        self.reset_parameters()
 
         self.weight_config['weight_scaling_shape'] = SCALING_SCALAR_SHAPE
         self.weight_config['weight_stats_input_view_shape_impl'] = StatsInputViewShapeImpl.OVER_TENSOR
@@ -156,8 +163,11 @@ class QuantLSTMLayer(torch.jit.ScriptModule):
         self.weight_proxy_a = self.configure_weight([weight_ai, weight_ah], self.weight_config)
         self.weight_proxy_o = self.configure_weight([weight_oi, weight_oh], self.weight_config)
 
-        self.quant_sigmoid = self.configure_activation(self.activation_config, QuantSigmoid)
-        self.quant_tanh = self.configure_activation(self.activation_config, QuantTanh)
+        self.quant_sigmoid_c = self.configure_activation(self.activation_config, QuantSigmoid)
+        self.quant_sigmoid_f = self.configure_activation(self.activation_config, QuantSigmoid)
+        self.quant_sigmoid_o = self.configure_activation(self.activation_config, QuantSigmoid)
+        self.quant_tanh_c = self.configure_activation(self.activation_config, QuantTanh)
+        self.quant_tanh_h = self.configure_activation(self.activation_config, QuantTanh)
         self.normalize_hidden_state = self.configure_activation(norm_scale_hidden_config, QuantHardTanh)
 
         self.out_quant = self.configure_activation(norm_scale_out_config, QuantHardTanh)
@@ -172,47 +182,48 @@ class QuantLSTMLayer(torch.jit.ScriptModule):
                 compute_output_scale and compute_output_bit_width):
             raise Exception("Quantizing bias requires to compute output scale and output bit width")
 
+    def reset_parameters(self):
+        stdv = 1.0 / math.sqrt(self.hidden_size)
+        for weight in self.parameters():
+            torch.nn.init.uniform_(weight, -stdv, stdv)
+
     @torch.jit.script_method
     def forward_iteration(self, input, hx, cx,
-                          quant_weight_ci, quant_weight_fi, quant_weight_ai, quant_weight_oi,
-                          quant_weight_ch, quant_weight_fh, quant_weight_ah, quant_weight_oh):
+                          quant_weight_ih,
+                          quant_weight_hh):
 
         zero_hw_sentinel = getattr(self, 'zero_hw_sentinel')
+        gates = (torch.mm(input, quant_weight_ih) + torch.mm(hx, quant_weight_hh))
+        cgate, forgetgate, cellgate, outgate = gates.chunk(4, 1)
 
-        igates_ci = torch.mm(input, quant_weight_ci.t())
-        hgates_ch = torch.mm(hx, quant_weight_ch.t())
+        cgate = cgate + self.bias_i
+        forgetgate = forgetgate + self.bias_f
+        cellgate = cellgate + self.bias_a
+        outgate = outgate + self.bias_o
 
-        igates_fi = torch.mm(input, quant_weight_fi.t())
-        hgates_fh = torch.mm(hx, quant_weight_fh.t())
-
-        igates_ai = torch.mm(input, quant_weight_ai.t())
-        hgates_ah = torch.mm(hx, quant_weight_ah.t())
-
-        igates_oi = torch.mm(input, quant_weight_oi.t())
-        hgates_oh = torch.mm(hx, quant_weight_oh.t())
-
-        cgate = (igates_ci + hgates_ch) + self.bias_i
-        forgetgate = (igates_fi + hgates_fh) + self.bias_f
-        cellgate = (igates_ai + hgates_ah) + self.bias_a
-        outgate = (igates_oi + hgates_oh) + self.bias_o
-
-        cgate = self.quant_sigmoid(cgate, zero_hw_sentinel)[0]
-        forgetgate = self.quant_sigmoid(forgetgate, zero_hw_sentinel)[0]
-        cellgate = self.quant_tanh(cellgate, zero_hw_sentinel)[0]
-        outgate = self.quant_sigmoid(outgate, zero_hw_sentinel)[0]
+        cgate = self.quant_sigmoid_c(cgate, zero_hw_sentinel)[0]
+        forgetgate = self.quant_sigmoid_f(forgetgate, zero_hw_sentinel)[0]
+        cellgate = self.quant_tanh_c(cellgate, zero_hw_sentinel)[0]
+        outgate = self.quant_sigmoid_o(outgate, zero_hw_sentinel)[0]
 
         cx = self.normalize_hidden_state(cx, zero_hw_sentinel)[0]
         cy = (forgetgate * cx) + (cgate * cellgate)
-        hy = outgate * self.quant_tanh(cy, zero_hw_sentinel)[0]
+        hy = outgate * self.quant_tanh_h(cy, zero_hw_sentinel)[0]
         hy1 = self.out_quant(hy, zero_hw_sentinel)[0]
         hy2 = self.rec_quant(hy, zero_hw_sentinel)[0]
 
         return hy1, (hy2, cy)
 
     @torch.jit.script_method
-    def forward(self, inputs, state):
-        # type: (Tensor, Tuple[Tensor, Tensor]) -> Tuple[Tensor, Tuple[Tensor, Tensor]]
-        inputs, input_scale, input_bit_width = self.unpack_input(inputs)
+    def forward(self, inputs, state=None):
+        # type: (Tensor, Optional[Tuple[Tensor, Tensor]]) -> Tuple[Tensor, Tuple[Tensor, Tensor]]
+
+        # Inline unpack input
+        if isinstance(inputs, QuantTensor):
+            inputs = inputs
+        else:
+            inputs, input_scale, input_bit_width = inputs, None, None
+
         zero_hw_sentinel = getattr(self, 'zero_hw_sentinel')
 
         quant_weight_ci, quant_weight_ci_scale, quant_weight_ci_bit_width = self.weight_proxy_i(self.weight_ci,
@@ -232,10 +243,24 @@ class QuantLSTMLayer(torch.jit.ScriptModule):
         quant_weight_oh, quant_weight_oh_scale, quant_weight_oh_bit_width = self.weight_proxy_o(self.weight_oh,
                                                                                                 zero_hw_sentinel)
 
-        inputs = inputs.unbind(0)
+        quant_weight_ih = torch.cat([quant_weight_ci, quant_weight_fi, quant_weight_ai, quant_weight_oi], dim=1)
+        quant_weight_hh = torch.cat([quant_weight_ch, quant_weight_fh, quant_weight_ah, quant_weight_oh], dim=1)
+
+        if self.batch_first:
+            dim = 1
+            inputs_unbinded = inputs.unbind(1)
+        else:
+            dim = 0
+            inputs_unbinded = inputs.unbind(0)
+        batch_size = inputs_unbinded[0].shape[0]
+
+        if state is None:
+            device = self.weight_ch.device
+            state = LSTMState(torch.zeros(batch_size, self.hidden_size, device=device),
+                              torch.zeros(batch_size, self.hidden_size, device=device))
 
         start = 0
-        end = len(inputs)
+        end = len(inputs_unbinded)
         step = 1
         if self.reverse_input:
             start = end - 1
@@ -246,27 +271,19 @@ class QuantLSTMLayer(torch.jit.ScriptModule):
         outputs = torch.jit.annotate(List[Tensor], [])
         hx = self.out_quant(hx, zero_hw_sentinel)[0]
         for i in range(start, end, step):
-            input_quant = self.out_quant(inputs[i], zero_hw_sentinel)[0]
-            output, state = self.forward_iteration(input_quant, hx, cx,
-                                                   quant_weight_ci, quant_weight_fi, quant_weight_ai, quant_weight_oi,
-                                                   quant_weight_ch, quant_weight_fh, quant_weight_ah, quant_weight_oh)
+            input_quant = self.out_quant(inputs_unbinded[i], zero_hw_sentinel)[0]
+            output, state = self.forward_iteration(input_quant, hx, cx, quant_weight_ih, quant_weight_hh)
+
             hx, cx = state
             outputs += [output]
 
         if self.reverse_input:
-            return torch.stack(reverse(outputs)), state
+            return torch.stack(reverse(outputs), dim=dim), state
         else:
-            return torch.stack(outputs), state
+            return torch.stack(outputs, dim=dim), state
 
     def max_output_bit_width(self, input_bit_width, weight_bit_width):
         raise Exception("Not supported yet")
-
-    @torch.jit.script_method
-    def unpack_input(self, input):
-        if isinstance(input, QuantTensor):
-            return input
-        else:
-            return input, None, None
 
     def configure_weight(self, weight, weight_config):
         zero_hw_sentinel = getattr(self, 'zero_hw_sentinel')
@@ -325,12 +342,7 @@ class QuantLSTMLayer(torch.jit.ScriptModule):
             min_val = 0
             signed = False
         else:
-            min_val = activation_config.get('min_val')
-            max_val = activation_config.get('max_val')
-            if activation_config.get('quant_type') == 'FP':
-                activation_impl = ConstScalarClamp(min_val=min_val, max_val=max_val)
-            else:
-                activation_impl = nn.Identity()
+            activation_impl = nn.Identity()
 
         activation_object = _activation_quant_init_impl(activation_impl=activation_impl,
                                                         bit_width=activation_config.get('bit_width', 8),
@@ -362,10 +374,16 @@ class QuantLSTMLayer(torch.jit.ScriptModule):
                                                         scaling_override=activation_config.get('scaling_override',
                                                                                                None),
                                                         scaling_impl_type=ScalingImplType.CONST,
-                                                        scaling_stats_sigma=None,
-                                                        scaling_stats_op=None,
-                                                        scaling_stats_buffer_momentum=None,
-                                                        scaling_stats_permute_dims=None)
+                                                        scaling_stats_sigma=activation_config.get('scaling_stats_sigma',
+                                                                                                  2.0),
+                                                        scaling_stats_op=activation_config.get('scaling_stats_op',
+                                                                                               StatsOp.MAX),
+                                                        scaling_stats_buffer_momentum=activation_config.get(
+                                                            'scaling_stats_buffer_momentum',
+                                                            0.1),
+                                                        scaling_stats_permute_dims=activation_config.get(
+                                                            'scaling_stats_permute_dims',
+                                                            (1, 0, 2, 3)))
 
         return activation_object
 
@@ -395,40 +413,40 @@ class QuantLSTMLayer(torch.jit.ScriptModule):
 
     def fix_state_dict(self, prefix, state_dict):
         newstate = OrderedDict()
-        hidden = self.weight_fh.shape[0]
+        hidden = self.hidden_size
         bias_i = torch.zeros(hidden)
         bias_f = torch.zeros(hidden)
         bias_a = torch.zeros(hidden)
         bias_o = torch.zeros(hidden)
         prefix_len = len(prefix)
         for name, value in state_dict.items():
-            if name[:prefix_len+7] == prefix+'bias_ih':
+            if name[:prefix_len + 7] == prefix + 'bias_ih':
                 bias_i = bias_i + value[:hidden]
                 bias_f = bias_f + value[hidden:hidden * 2]
                 bias_a = bias_a + value[2 * hidden:hidden * 3]
                 bias_o = bias_o + value[3 * hidden:]
-            elif name[:prefix_len+7] == prefix+'bias_hh':
+            elif name[:prefix_len + 7] == prefix + 'bias_hh':
                 bias_i = bias_i + value[:hidden]
                 bias_f = bias_f + value[hidden:hidden * 2]
                 bias_a = bias_a + value[2 * hidden:hidden * 3]
                 bias_o = bias_o + value[3 * hidden:]
-            elif name[:prefix_len+9] == prefix+'weight_ih':
-                newstate[prefix+'weight_ci'] = value[:hidden, :]
-                newstate[prefix+'weight_fi'] = value[hidden:hidden * 2, :]
-                newstate[prefix+'weight_ai'] = value[2 * hidden:hidden * 3, :]
-                newstate[prefix+'weight_oi'] = value[3 * hidden:, :]
-            elif name[:prefix_len+9] == prefix+'weight_hh':
-                newstate[prefix+'weight_ch'] = value[:hidden, :]
-                newstate[prefix+'weight_fh'] = value[hidden:hidden * 2, :]
-                newstate[prefix+'weight_ah'] = value[2 * hidden:hidden * 3, :]
-                newstate[prefix+'weight_oh'] = value[3 * hidden:, :]
+            elif name[:prefix_len + 9] == prefix + 'weight_ih':
+                newstate[prefix + 'weight_ci'] = value[:hidden, :].t()
+                newstate[prefix + 'weight_fi'] = value[hidden:hidden * 2, :].t()
+                newstate[prefix + 'weight_ai'] = value[2 * hidden:hidden * 3, :].t()
+                newstate[prefix + 'weight_oi'] = value[3 * hidden:, :].t()
+            elif name[:prefix_len + 9] == prefix + 'weight_hh':
+                newstate[prefix + 'weight_ch'] = value[:hidden, :].t()
+                newstate[prefix + 'weight_fh'] = value[hidden:hidden * 2, :].t()
+                newstate[prefix + 'weight_ah'] = value[2 * hidden:hidden * 3, :].t()
+                newstate[prefix + 'weight_oh'] = value[3 * hidden:, :].t()
             else:
                 newstate[name] = value
 
-        newstate[prefix+'bias_i'] = bias_i
-        newstate[prefix+'bias_f'] = bias_f
-        newstate[prefix+'bias_a'] = bias_a
-        newstate[prefix+'bias_o'] = bias_o
+        newstate[prefix + 'bias_i'] = bias_i
+        newstate[prefix + 'bias_f'] = bias_f
+        newstate[prefix + 'bias_a'] = bias_a
+        newstate[prefix + 'bias_o'] = bias_o
 
         return newstate
 

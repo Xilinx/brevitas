@@ -88,6 +88,7 @@ from typing import Tuple, List
 from torch import Tensor
 from brevitas.core import ZERO_HW_SENTINEL_NAME, ZERO_HW_SENTINEL_VALUE
 from collections import OrderedDict
+import math
 
 OVER_BATCH_OVER_CHANNELS_SHAPE = (1, -1, 1, 1)
 
@@ -107,10 +108,10 @@ def reverse(lst):
 
 
 class QuantGRULayer(torch.jit.ScriptModule):
-    __constants__ = ['reverse_input']
+    __constants__ = ['reverse_input', 'batch_first', 'hidden_size']
 
     def __init__(self, input_size, hidden_size, weight_config, activation_config, norm_scale_out_config,
-                 norm_scale_newgate_config,
+                 norm_scale_hidden_config, batch_first=False,
                  reverse_input=False, compute_output_scale=False,
                  compute_output_bit_width=False, return_quant_tensor=False):
 
@@ -120,9 +121,9 @@ class QuantGRULayer(torch.jit.ScriptModule):
         self.weight_config = weight_config
         self.activation_config = activation_config
 
-        weight_ri = nn.Parameter(torch.randn(hidden_size, input_size), requires_grad=True)
-        weight_ci = nn.Parameter(torch.randn(hidden_size, input_size), requires_grad=True)
-        weight_ni = nn.Parameter(torch.randn(hidden_size, input_size), requires_grad=True)
+        weight_ri = nn.Parameter(torch.randn(input_size, hidden_size), requires_grad=True)
+        weight_ci = nn.Parameter(torch.randn(input_size, hidden_size), requires_grad=True)
+        weight_ni = nn.Parameter(torch.randn(input_size, hidden_size), requires_grad=True)
 
         weight_rh = nn.Parameter(torch.randn(hidden_size, hidden_size), requires_grad=True)
         weight_ch = nn.Parameter(torch.randn(hidden_size, hidden_size), requires_grad=True)
@@ -136,12 +137,15 @@ class QuantGRULayer(torch.jit.ScriptModule):
         self.weight_ch = weight_ch
         self.weight_nh = weight_nh
 
-        self.bias_r = nn.Parameter(torch.randn(hidden_size), requires_grad=True)
-        self.bias_i = nn.Parameter(torch.randn(hidden_size), requires_grad=True)
-        self.bias_ni = nn.Parameter(torch.randn(hidden_size), requires_grad=True)
-        self.bias_nh = nn.Parameter(torch.randn(hidden_size), requires_grad=True)
+        self.bias_r = nn.Parameter(torch.zeros(hidden_size), requires_grad=True)
+        self.bias_i = nn.Parameter(torch.zeros(hidden_size), requires_grad=True)
+        self.bias_ni = nn.Parameter(torch.zeros(hidden_size), requires_grad=True)
+        self.bias_nh = nn.Parameter(torch.zeros(hidden_size), requires_grad=True)
 
         self.reverse_input = reverse_input
+        self.batch_first = batch_first
+        self.hidden_size = hidden_size
+        self.reset_parameters()
 
         self.weight_config['weight_scaling_shape'] = SCALING_SCALAR_SHAPE
         self.weight_config['weight_stats_input_view_shape_impl'] = StatsInputViewShapeImpl.OVER_TENSOR
@@ -152,12 +156,12 @@ class QuantGRULayer(torch.jit.ScriptModule):
         self.weight_proxy_i = self.configure_weight([weight_ci, weight_ch], self.weight_config)
         self.weight_proxy_n = self.configure_weight([weight_ni, weight_nh], self.weight_config)
 
-        self.quant_sigmoid = self.configure_activation(self.activation_config, QuantSigmoid)
+        self.quant_sigmoid_r = self.configure_activation(self.activation_config, QuantSigmoid)
+        self.quant_sigmoid_c = self.configure_activation(self.activation_config, QuantSigmoid)
         self.quant_tanh = self.configure_activation(self.activation_config, QuantTanh)
 
-        self.norm_scale_newgate = self.configure_activation(norm_scale_newgate_config, QuantHardTanh)
+        self.norm_scale_newgate = self.configure_activation(norm_scale_hidden_config, QuantHardTanh)
         self.norm_scale_out = self.configure_activation(norm_scale_out_config, QuantHardTanh)
-        self._all_weights = []
 
         if self.weight_config.get('weight_quant_type', 'QuantType.FP') == 'QuantType.FP' and compute_output_bit_width:
             raise Exception("Computing output bit width requires enabling quantization")
@@ -165,26 +169,27 @@ class QuantGRULayer(torch.jit.ScriptModule):
                 compute_output_scale and compute_output_bit_width):
             raise Exception("Quantizing bias requires to compute output scale and output bit width")
 
+    def reset_parameters(self):
+        stdv = 1.0 / math.sqrt(self.hidden_size)
+        for weight in self.parameters():
+            torch.nn.init.uniform_(weight, -stdv, stdv)
+
     @torch.jit.script_method
     def forward_iteration(self, input, state,
-                          quant_weight_ri, quant_weight_ci, quant_weight_ni,
-                          quant_weight_rh, quant_weight_ch, quant_weight_nh):
+                          quant_weight_ih, quant_weight_hh, quant_weight_ni, quant_weight_nh):
         zero_hw_sentinel = getattr(self, 'zero_hw_sentinel')
 
-        gates_ri = torch.mm(input, quant_weight_ri.t())
-        gates_rh = torch.mm(state, quant_weight_rh.t())
+        gates = (torch.mm(input, quant_weight_ih) + torch.mm(state, quant_weight_hh))
+        rgate, cgate = gates.chunk(2, 1)
 
-        gates_ci = torch.mm(input, quant_weight_ci.t())
-        gates_ch = torch.mm(state, quant_weight_ch.t())
+        gates_ni = torch.mm(input, quant_weight_ni) + self.bias_ni
+        gates_nh = torch.mm(state, quant_weight_nh) + self.bias_nh
 
-        gates_ni = torch.mm(input, quant_weight_ni.t()) + self.bias_ni
-        gates_nh = torch.mm(state, quant_weight_nh.t()) + self.bias_nh
+        rgate = rgate + self.bias_r
+        cgate = cgate + self.bias_i
 
-        rgate = (gates_ri + gates_rh) + self.bias_r
-        cgate = (gates_ci + gates_ch) + self.bias_i
-
-        rgate = self.quant_sigmoid(rgate, zero_hw_sentinel)[0]
-        cgate = self.quant_sigmoid(cgate, zero_hw_sentinel)[0]
+        rgate = self.quant_sigmoid_r(rgate, zero_hw_sentinel)[0]
+        cgate = self.quant_sigmoid_c(cgate, zero_hw_sentinel)[0]
         gates_ni = self.norm_scale_newgate(gates_ni, zero_hw_sentinel)[0] + \
                    self.norm_scale_newgate(rgate * gates_nh, zero_hw_sentinel)[0]
         ngate = self.quant_tanh(gates_ni, zero_hw_sentinel)[0]
@@ -195,11 +200,15 @@ class QuantGRULayer(torch.jit.ScriptModule):
         return hy, hy
 
     @torch.jit.script_method
-    def forward(self, inputs, state):
-        # type: (Tensor, Tensor) -> Tuple[Tensor, Tensor]
+    def forward(self, inputs, state=None):
+        # type: (Tensor, Optional[Tensor]) -> Tuple[Tensor, Tensor]
         zero_hw_sentinel = getattr(self, 'zero_hw_sentinel')
 
-        inputs, input_scale, input_bit_width = self.unpack_input(inputs)
+        # Inline unpack input
+        if isinstance(inputs, QuantTensor):
+            inputs = inputs
+        else:
+            inputs, input_scale, input_bit_width = inputs, None, None
 
         quant_weight_ri, quant_weight_ri_scale, quant_weight_ri_bit_width = self.weight_proxy_r(self.weight_ri,
                                                                                                 zero_hw_sentinel)
@@ -215,10 +224,23 @@ class QuantGRULayer(torch.jit.ScriptModule):
         quant_weight_nh, quant_weight_nh_scale, quant_weight_nh_bit_width = self.weight_proxy_n(self.weight_nh,
                                                                                                 zero_hw_sentinel)
 
-        inputs = inputs.unbind(0)
+        quant_weight_ih = torch.cat([quant_weight_ri, quant_weight_ci], dim=1)
+        quant_weight_hh = torch.cat([quant_weight_rh, quant_weight_ch], dim=1)
+
+        if self.batch_first:
+            dim = 1
+            inputs_unbided = inputs.unbind(1)
+        else:
+            dim = 0
+            inputs_unbided = inputs.unbind(0)
+        batch_size = inputs_unbided[0].shape[0]
+
+        if state is None:
+            device = self.weight_ri.device
+            state = torch.zeros(batch_size, self.hidden_size, device=device)
 
         start = 0
-        end = len(inputs)
+        end = len(inputs_unbided)
         step = 1
         if self.reverse_input:
             start = end - 1
@@ -228,26 +250,18 @@ class QuantGRULayer(torch.jit.ScriptModule):
         outputs = torch.jit.annotate(List[Tensor], [])
         state = self.norm_scale_out(state, zero_hw_sentinel)[0]
         for i in range(start, end, step):
-            input_quant = self.norm_scale_out(inputs[i], zero_hw_sentinel)[0]
+            input_quant = self.norm_scale_out(inputs_unbided[i], zero_hw_sentinel)[0]
             output, state = self.forward_iteration(input_quant, state,
-                                                   quant_weight_ri, quant_weight_ci, quant_weight_ni,
-                                                   quant_weight_rh, quant_weight_ch, quant_weight_nh)
+                                                   quant_weight_ih, quant_weight_hh, quant_weight_ni, quant_weight_nh)
             outputs += [state]
 
         if self.reverse_input:
-            return torch.stack(reverse(outputs)), outputs[-1]
+            return torch.stack(reverse(outputs), dim=dim), outputs[-1]
         else:
-            return torch.stack(outputs), outputs[-1]
+            return torch.stack(outputs, dim=dim), outputs[-1]
 
     def max_output_bit_width(self, input_bit_width, weight_bit_width):
         raise Exception("Not supported yet")
-
-    @torch.jit.script_method
-    def unpack_input(self, input):
-        if isinstance(input, QuantTensor):
-            return input
-        else:
-            return input, None, None
 
     def configure_weight(self, weight, weight_config):
         zero_hw_sentinel = getattr(self, 'zero_hw_sentinel')
@@ -306,12 +320,7 @@ class QuantGRULayer(torch.jit.ScriptModule):
             min_val = 0
             signed = False
         else:
-            min_val = activation_config.get('min_val')
-            max_val = activation_config.get('max_val')
-            if activation_config.get('quant_type') == QuantType.FP:
-                activation_impl = ConstScalarClamp(min_val=min_val, max_val=max_val)
-            else:
-                activation_impl = nn.Identity()
+            activation_impl = nn.Identity()
 
         activation_object = _activation_quant_init_impl(activation_impl=activation_impl,
                                                         bit_width=activation_config.get('bit_width', 8),
@@ -342,11 +351,18 @@ class QuantGRULayer(torch.jit.ScriptModule):
                                                         scaling_per_channel=False,
                                                         scaling_override=activation_config.get('scaling_override',
                                                                                                None),
-                                                        scaling_impl_type=ScalingImplType.CONST,
-                                                        scaling_stats_sigma=None,
-                                                        scaling_stats_op=None,
-                                                        scaling_stats_buffer_momentum=None,
-                                                        scaling_stats_permute_dims=None)
+                                                        scaling_impl_type=activation_config.get('scaling_impl_type',
+                                                                                                ScalingImplType.CONST),
+                                                        scaling_stats_sigma=activation_config.get('scaling_stats_sigma',
+                                                                                                  2.0),
+                                                        scaling_stats_op=activation_config.get('scaling_stats_op',
+                                                                                               StatsOp.MAX),
+                                                        scaling_stats_buffer_momentum=activation_config.get(
+                                                            'scaling_stats_buffer_momentum',
+                                                            0.1),
+                                                        scaling_stats_permute_dims=activation_config.get(
+                                                            'scaling_stats_permute_dims',
+                                                            (1, 0, 2, 3)))
 
         return activation_object
 
@@ -377,7 +393,7 @@ class QuantGRULayer(torch.jit.ScriptModule):
 
     def fix_state_dict(self, prefix, state_dict):
         newstate = OrderedDict()
-        hidden = self.weight_ch.shape[0]
+        hidden = self.hidden_size
         bias_r = torch.zeros(hidden)
         bias_i = torch.zeros(hidden)
         prefix_len = len(prefix)
@@ -391,13 +407,13 @@ class QuantGRULayer(torch.jit.ScriptModule):
                 bias_i = bias_i + value[hidden:hidden * 2]
                 newstate[prefix + 'bias_nh'] = value[2 * hidden:hidden * 3]
             elif name[:prefix_len + 9] == prefix + 'weight_ih':
-                newstate[prefix + 'weight_ri'] = value[:hidden, :]
-                newstate[prefix + 'weight_ci'] = value[hidden:hidden * 2, :]
-                newstate[prefix + 'weight_ni'] = value[2 * hidden:hidden * 3, :]
+                newstate[prefix + 'weight_ri'] = (value[:hidden, :]).t()
+                newstate[prefix + 'weight_ci'] = (value[hidden:hidden * 2, :]).t()
+                newstate[prefix + 'weight_ni'] = (value[2 * hidden:hidden * 3, :]).t()
             elif name[:prefix_len + 9] == prefix + 'weight_hh':
-                newstate[prefix + 'weight_rh'] = value[:hidden, :]
-                newstate[prefix + 'weight_ch'] = value[hidden:hidden * 2, :]
-                newstate[prefix + 'weight_nh'] = value[2 * hidden:hidden * 3, :]
+                newstate[prefix + 'weight_rh'] = (value[:hidden, :]).t()
+                newstate[prefix + 'weight_ch'] = (value[hidden:hidden * 2, :]).t()
+                newstate[prefix + 'weight_nh'] = (value[2 * hidden:hidden * 3, :]).t()
             else:
                 newstate[name] = value
 
@@ -411,7 +427,7 @@ class BidirGRULayer(torch.jit.ScriptModule):
     __constants__ = ['directions']
 
     def __init__(self, input_size, hidden_size, weight_config, activation_config, norm_scale_out_config,
-                 norm_scale_newgate_config,
+                 norm_scale_hidden_config,
                  compute_output_scale=False, compute_output_bit_width=False,
                  return_quant_tensor=False):
         super(BidirGRULayer, self).__init__()
@@ -419,14 +435,14 @@ class BidirGRULayer(torch.jit.ScriptModule):
             QuantGRULayer(input_size=input_size, hidden_size=hidden_size, weight_config=weight_config,
                           activation_config=activation_config,
                           norm_scale_out_config=norm_scale_out_config,
-                          norm_scale_newgate_config=norm_scale_newgate_config,
+                          norm_scale_hidden_config=norm_scale_hidden_config,
                           reverse_input=False, compute_output_scale=compute_output_scale,
                           compute_output_bit_width=compute_output_bit_width,
                           return_quant_tensor=return_quant_tensor),
             QuantGRULayer(input_size=input_size, hidden_size=hidden_size, weight_config=weight_config,
                           activation_config=activation_config,
                           norm_scale_out_config=norm_scale_out_config,
-                          norm_scale_newgate_config=norm_scale_newgate_config,
+                          norm_scale_hidden_config=norm_scale_hidden_config,
                           reverse_input=True, compute_output_scale=compute_output_scale,
                           compute_output_bit_width=compute_output_bit_width,
                           return_quant_tensor=return_quant_tensor),
