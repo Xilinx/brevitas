@@ -94,18 +94,19 @@ OVER_BATCH_OVER_CHANNELS_SHAPE = (1, -1, 1, 1)
 
 __all__ = ['QuantGRULayer', 'BidirGRULayer']
 
-
 @torch.jit.script
 def reverse(lst):
     # type: (List[Tensor]) -> List[Tensor]
     out = torch.jit.annotate(List[Tensor], [])
-    start = len(lst) - 1
-    end = -1
+    # start = len(lst) - 1
+    end = len(lst)
     step = -1
-    for i in range(start, end, step):
-        out += [lst[i]]
-    return out
+    index = len(lst)-1
 
+    for i in range(end):
+        out += [lst[index]]
+        index = index + step
+    return out
 
 class QuantGRULayer(torch.jit.ScriptModule):
     __constants__ = ['reverse_input', 'batch_first', 'hidden_size']
@@ -175,9 +176,32 @@ class QuantGRULayer(torch.jit.ScriptModule):
             torch.nn.init.uniform_(weight, -stdv, stdv)
 
     @torch.jit.script_method
+    def forward_cycle(self, inputs, state, quant_weight_ih, quant_weight_hh, quant_weight_ni, quant_weight_nh, zhws):
+        # type: (List[Tensor], Tensor, Tensor, Tensor, Tensor, Tensor, Tensor) -> Tuple[List[Tensor], Tensor]
+
+        end = len(inputs)
+        step = 1
+        index = 0
+        if self.reverse_input:
+            end = len(inputs)
+            index = end - 1
+            step = -1
+
+        outputs = torch.jit.annotate(List[Tensor], [])
+        state = self.norm_scale_out(state, zhws)[0]
+        for i in range(end):
+            input_quant = self.norm_scale_out(inputs[index], zhws)[0]
+            output, state = self.forward_iteration(input_quant, state, quant_weight_ih, quant_weight_hh, quant_weight_ni,
+                                                   quant_weight_nh, zhws)
+            index = index + step
+
+            outputs += [output]
+
+        return outputs, state
+
+    @torch.jit.script_method
     def forward_iteration(self, input, state,
-                          quant_weight_ih, quant_weight_hh, quant_weight_ni, quant_weight_nh):
-        zero_hw_sentinel = getattr(self, 'zero_hw_sentinel')
+                          quant_weight_ih, quant_weight_hh, quant_weight_ni, quant_weight_nh, zhws):
 
         gates = (torch.mm(input, quant_weight_ih) + torch.mm(state, quant_weight_hh))
         rgate, cgate = gates.chunk(2, 1)
@@ -188,20 +212,18 @@ class QuantGRULayer(torch.jit.ScriptModule):
         rgate = rgate + self.bias_r
         cgate = cgate + self.bias_i
 
-        rgate = self.quant_sigmoid_r(rgate, zero_hw_sentinel)[0]
-        cgate = self.quant_sigmoid_c(cgate, zero_hw_sentinel)[0]
-        gates_ni = self.norm_scale_newgate(gates_ni, zero_hw_sentinel)[0] + \
-                   self.norm_scale_newgate(rgate * gates_nh, zero_hw_sentinel)[0]
-        ngate = self.quant_tanh(gates_ni, zero_hw_sentinel)[0]
+        rgate = self.quant_sigmoid_r(rgate, zhws)[0]
+        cgate = self.quant_sigmoid_c(cgate, zhws)[0]
+        gates_ni = self.norm_scale_newgate(gates_ni, zhws)[0] + \
+                   self.norm_scale_newgate(rgate * gates_nh, zhws)[0]
+        ngate = self.quant_tanh(gates_ni, zhws)[0]
 
-        state = self.norm_scale_out(state, zero_hw_sentinel)[0] - ngate
-        hy = ngate + self.norm_scale_out(cgate * state, zero_hw_sentinel)[0]
+        state = self.norm_scale_out(state, zhws)[0] - ngate
+        hy = ngate + self.norm_scale_out(cgate * state, zhws)[0]
 
         return hy, hy
 
-    @torch.jit.script_method
     def forward(self, inputs, state=None):
-        # type: (Tensor, Optional[Tensor]) -> Tuple[Tensor, Tensor]
         zero_hw_sentinel = getattr(self, 'zero_hw_sentinel')
 
         # Inline unpack input
@@ -229,31 +251,18 @@ class QuantGRULayer(torch.jit.ScriptModule):
 
         if self.batch_first:
             dim = 1
-            inputs_unbided = inputs.unbind(1)
+            inputs_unbinded = inputs.unbind(1)
         else:
             dim = 0
-            inputs_unbided = inputs.unbind(0)
-        batch_size = inputs_unbided[0].shape[0]
+            inputs_unbinded = inputs.unbind(0)
+        batch_size = inputs_unbinded[0].shape[0]
 
         if state is None:
             device = self.weight_ri.device
             state = torch.zeros(batch_size, self.hidden_size, device=device)
 
-        start = 0
-        end = len(inputs_unbided)
-        step = 1
-        if self.reverse_input:
-            start = end - 1
-            end = -1
-            step = -1
-
-        outputs = torch.jit.annotate(List[Tensor], [])
-        state = self.norm_scale_out(state, zero_hw_sentinel)[0]
-        for i in range(start, end, step):
-            input_quant = self.norm_scale_out(inputs_unbided[i], zero_hw_sentinel)[0]
-            output, state = self.forward_iteration(input_quant, state,
-                                                   quant_weight_ih, quant_weight_hh, quant_weight_ni, quant_weight_nh)
-            outputs += [state]
+        outputs, state = self.forward_cycle(inputs_unbinded, state, quant_weight_ih, quant_weight_hh, quant_weight_ni,
+                                            quant_weight_nh, zero_hw_sentinel)
 
         if self.reverse_input:
             return torch.stack(reverse(outputs), dim=dim), outputs[-1]
@@ -423,7 +432,7 @@ class QuantGRULayer(torch.jit.ScriptModule):
         return newstate
 
 
-class BidirGRULayer(torch.jit.ScriptModule):
+class BidirGRULayer(nn.Module):
     __constants__ = ['directions']
 
     def __init__(self, input_size, hidden_size, weight_config, activation_config, norm_scale_out_config,
@@ -448,10 +457,7 @@ class BidirGRULayer(torch.jit.ScriptModule):
                           return_quant_tensor=return_quant_tensor),
         ])
 
-    @torch.jit.script_method
     def forward(self, input, states):
-        # type: (Tensor, List[Tensor]) -> Tuple[Tensor, List[Tensor]]
-        # List[LSTMState]: [forward LSTMState, backward LSTMState]
         outputs = torch.jit.annotate(List[Tensor], [])
         output_states = torch.jit.annotate(List[Tensor], [])
         # XXX: enumerate https://github.com/pytorch/pytorch/issues/14471

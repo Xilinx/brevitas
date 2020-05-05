@@ -99,11 +99,14 @@ __all__ = ['QuantRNNLayer', 'BidirRNNLayer']
 def reverse(lst):
     # type: (List[Tensor]) -> List[Tensor]
     out = torch.jit.annotate(List[Tensor], [])
-    start = len(lst) - 1
-    end = -1
+    # start = len(lst) - 1
+    end = len(lst)
     step = -1
-    for i in range(start, end, step):
-        out += [lst[i]]
+    index = len(lst)-1
+
+    for i in range(end):
+        out += [lst[index]]
+        index = index + step
     return out
 
 
@@ -154,15 +157,37 @@ class QuantRNNLayer(torch.jit.ScriptModule):
             torch.nn.init.uniform_(weight, -stdv, stdv)
 
     @torch.jit.script_method
-    def forward_iteration(self, input, state, quant_weight_ri, quant_weight_rh):
+    def forward_cycle(self, inputs, state, quant_weight_ih, quant_weight_hh, zhws):
+        # type: (List[Tensor], Tensor, Tensor, Tensor, Tensor) -> Tuple[List[Tensor], Tensor]
 
-        zero_hw_sentinel = getattr(self, 'zero_hw_sentinel')
+        end = len(inputs)
+        step = 1
+        index = 0
+        if self.reverse_input:
+            end = len(inputs)
+            index = end - 1
+            step = -1
+
+        outputs = torch.jit.annotate(List[Tensor], [])
+        state = self.quant_input(state, zhws)[0]
+        for i in range(end):
+            input_quant = self.quant_input(inputs[index], zhws)[0]
+            output, state = self.forward_iteration(input_quant, state, quant_weight_ih, quant_weight_hh, zhws)
+            index = index + step
+
+            outputs += [output]
+
+        return outputs, state
+
+    @torch.jit.script_method
+    def forward_iteration(self, input, state, quant_weight_ri, quant_weight_rh, zhws):
+
         gates_ri = torch.mm(input, quant_weight_ri)
         gates_rh = torch.mm(state, quant_weight_rh)
 
         rgate = (gates_ri + gates_rh) + self.bias_r
 
-        hy = self.quant_tanh(rgate, zero_hw_sentinel)[0]
+        hy = self.quant_tanh(rgate, zhws)[0]
 
         return hy, hy
 
@@ -194,20 +219,7 @@ class QuantRNNLayer(torch.jit.ScriptModule):
             device = self.weight_ri.device
             state = torch.zeros(batch_size, self.hidden_size, device=device)
 
-        start = 0
-        end = len(inputs_unbinded)
-        step = 1
-        if self.reverse_input:
-            start = end - 1
-            end = -1
-            step = -1
-
-        outputs = torch.jit.annotate(List[Tensor], [])
-        state = self.quant_input(state, zero_hw_sentinel)[0]
-        for i in range(start, end, step):
-            input_quant = self.quant_input(inputs_unbinded[i], zero_hw_sentinel)[0]
-            output, state = self.forward_iteration(input_quant, state, quant_weight_ri, quant_weight_rh)
-            outputs += [state]
+        outputs, state = self.forward_cycle(inputs_unbinded, state, quant_weight_ri, quant_weight_rh, zero_hw_sentinel)
 
         if self.reverse_input:
             return torch.stack(reverse(outputs), dim=dim), outputs[-1]

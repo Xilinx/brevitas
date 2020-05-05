@@ -100,11 +100,14 @@ __all__ = ['QuantLSTMLayer', 'BidirLSTMLayer']
 def reverse(lst):
     # type: (List[Tensor]) -> List[Tensor]
     out = torch.jit.annotate(List[Tensor], [])
-    start = len(lst) - 1
-    end = -1
+    # start = len(lst) - 1
+    end = len(lst)
     step = -1
-    for i in range(start, end, step):
-        out += [lst[i]]
+    index = len(lst)-1
+
+    for i in range(end):
+        out += [lst[index]]
+        index = index + step
     return out
 
 
@@ -188,11 +191,33 @@ class QuantLSTMLayer(torch.jit.ScriptModule):
             torch.nn.init.uniform_(weight, -stdv, stdv)
 
     @torch.jit.script_method
-    def forward_iteration(self, input, hx, cx,
-                          quant_weight_ih,
-                          quant_weight_hh):
+    def forward_cycle(self, inputs, state, quant_weight_ih, quant_weight_hh, zhws):
+        # type: (List[Tensor], Tuple[Tensor, Tensor], Tensor, Tensor, Tensor) -> Tuple[List[Tensor], Tuple[Tensor, Tensor]]
 
-        zero_hw_sentinel = getattr(self, 'zero_hw_sentinel')
+        end = len(inputs)
+        step = 1
+        index = 0
+        if self.reverse_input:
+            end = len(inputs)
+            index = end - 1
+            step = -1
+
+        hx, cx = state
+        outputs = torch.jit.annotate(List[Tensor], [])
+        hx = self.out_quant(hx, zhws)[0]
+        for i in range(end):
+            input_quant = self.out_quant(inputs[index], zhws)[0]
+            output, state = self.forward_iteration(input_quant, hx, cx, quant_weight_ih, quant_weight_hh, zhws)
+            index = index + step
+
+            hx, cx = state
+            outputs += [output]
+
+        return outputs, state
+
+    @torch.jit.script_method
+    def forward_iteration(self, input, hx, cx, quant_weight_ih, quant_weight_hh, zhws):
+
         gates = (torch.mm(input, quant_weight_ih) + torch.mm(hx, quant_weight_hh))
         cgate, forgetgate, cellgate, outgate = gates.chunk(4, 1)
 
@@ -201,23 +226,20 @@ class QuantLSTMLayer(torch.jit.ScriptModule):
         cellgate = cellgate + self.bias_a
         outgate = outgate + self.bias_o
 
-        cgate = self.quant_sigmoid_c(cgate, zero_hw_sentinel)[0]
-        forgetgate = self.quant_sigmoid_f(forgetgate, zero_hw_sentinel)[0]
-        cellgate = self.quant_tanh_c(cellgate, zero_hw_sentinel)[0]
-        outgate = self.quant_sigmoid_o(outgate, zero_hw_sentinel)[0]
+        cgate = self.quant_sigmoid_c(cgate, zhws)[0]
+        forgetgate = self.quant_sigmoid_f(forgetgate, zhws)[0]
+        cellgate = self.quant_tanh_c(cellgate, zhws)[0]
+        outgate = self.quant_sigmoid_o(outgate, zhws)[0]
 
-        cx = self.normalize_hidden_state(cx, zero_hw_sentinel)[0]
+        cx = self.normalize_hidden_state(cx, zhws)[0]
         cy = (forgetgate * cx) + (cgate * cellgate)
-        hy = outgate * self.quant_tanh_h(cy, zero_hw_sentinel)[0]
-        hy1 = self.out_quant(hy, zero_hw_sentinel)[0]
-        hy2 = self.rec_quant(hy, zero_hw_sentinel)[0]
+        hy = outgate * self.quant_tanh_h(cy, zhws)[0]
+        hy1 = self.out_quant(hy, zhws)[0]
+        hy2 = self.rec_quant(hy, zhws)[0]
 
         return hy1, (hy2, cy)
 
-    @torch.jit.script_method
     def forward(self, inputs, state=None):
-        # type: (Tensor, Optional[Tuple[Tensor, Tensor]]) -> Tuple[Tensor, Tuple[Tensor, Tensor]]
-
         # Inline unpack input
         if isinstance(inputs, QuantTensor):
             inputs = inputs
@@ -259,24 +281,7 @@ class QuantLSTMLayer(torch.jit.ScriptModule):
             state = LSTMState(torch.zeros(batch_size, self.hidden_size, device=device),
                               torch.zeros(batch_size, self.hidden_size, device=device))
 
-        start = 0
-        end = len(inputs_unbinded)
-        step = 1
-        if self.reverse_input:
-            start = end - 1
-            end = -1
-            step = -1
-
-        hx, cx = state
-        outputs = torch.jit.annotate(List[Tensor], [])
-        hx = self.out_quant(hx, zero_hw_sentinel)[0]
-        for i in range(start, end, step):
-            input_quant = self.out_quant(inputs_unbinded[i], zero_hw_sentinel)[0]
-            output, state = self.forward_iteration(input_quant, hx, cx, quant_weight_ih, quant_weight_hh)
-
-            hx, cx = state
-            outputs += [output]
-
+        outputs, state = self.forward_cycle(inputs_unbinded, state, quant_weight_ih, quant_weight_hh, zero_hw_sentinel)
         if self.reverse_input:
             return torch.stack(reverse(outputs), dim=dim), state
         else:
@@ -451,7 +456,7 @@ class QuantLSTMLayer(torch.jit.ScriptModule):
         return newstate
 
 
-class BidirLSTMLayer(torch.jit.ScriptModule):
+class BidirLSTMLayer(nn.Module):
     __constants__ = ['directions']
 
     def __init__(self, input_size, hidden_size, weight_config, activation_config, norm_scale_out_config,
@@ -476,7 +481,6 @@ class BidirLSTMLayer(torch.jit.ScriptModule):
                            return_quant_tensor=return_quant_tensor)
         ])
 
-    @torch.jit.script_method
     def forward(self, input, states):
         # type: (Tensor, List[Tuple[Tensor, Tensor]]) -> Tuple[Tensor, List[Tuple[Tensor, Tensor]]]
         # List[LSTMState]: [forward LSTMState, backward LSTMState]
