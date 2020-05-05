@@ -191,9 +191,7 @@ class QuantRNNLayer(torch.jit.ScriptModule):
 
         return hy, hy
 
-    @torch.jit.script_method
     def forward(self, inputs, state=None):
-        # type: (Tensor, Optional[Tensor]) -> Tuple[Tensor, Tensor]
 
         # Inline unpack input
         if isinstance(inputs, QuantTensor):
@@ -377,7 +375,7 @@ class QuantRNNLayer(torch.jit.ScriptModule):
         return newstate
 
 
-class BidirRNNLayer(torch.jit.ScriptModule):
+class BidirRNNLayer(nn.Module):
     __constants__ = ['directions']
 
     def __init__(self, input_size, hidden_size, weight_config, activation_config, norm_scale_input_config,
@@ -399,7 +397,6 @@ class BidirRNNLayer(torch.jit.ScriptModule):
                           return_quant_tensor=return_quant_tensor),
         ])
 
-    @torch.jit.script_method
     def forward(self, input, states):
         # type: (Tensor, List[Tensor]) -> Tuple[Tensor, List[Tensor]]
         # List[LSTMState]: [forward LSTMState, backward LSTMState]
