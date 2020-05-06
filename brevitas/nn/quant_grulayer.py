@@ -72,7 +72,7 @@
 
 from brevitas.core.bit_width import BitWidthImplType
 from brevitas.core.quant import QuantType
-from brevitas.nn import QuantSigmoid, QuantTanh, QuantHardTanh
+from brevitas.nn import QuantSigmoid, QuantTanh, QuantIdentity
 import torch.nn as nn
 from brevitas.core.scaling import ScalingImplType, SCALING_SCALAR_SHAPE
 from brevitas.core.stats import StatsInputViewShapeImpl, StatsOp
@@ -94,6 +94,7 @@ OVER_BATCH_OVER_CHANNELS_SHAPE = (1, -1, 1, 1)
 
 __all__ = ['QuantGRULayer', 'BidirGRULayer']
 
+
 @torch.jit.script
 def reverse(lst):
     # type: (List[Tensor]) -> List[Tensor]
@@ -101,12 +102,13 @@ def reverse(lst):
     # start = len(lst) - 1
     end = len(lst)
     step = -1
-    index = len(lst)-1
+    index = len(lst) - 1
 
     for i in range(end):
         out += [lst[index]]
         index = index + step
     return out
+
 
 class QuantGRULayer(torch.jit.ScriptModule):
     __constants__ = ['reverse_input', 'batch_first', 'hidden_size']
@@ -121,6 +123,8 @@ class QuantGRULayer(torch.jit.ScriptModule):
         self.return_quant_tensor = return_quant_tensor
         self.weight_config = weight_config
         self.activation_config = activation_config
+        self.norm_scale_out_config = norm_scale_out_config
+        self.norm_scale_hidden_config = norm_scale_hidden_config
 
         weight_ri = nn.Parameter(torch.randn(input_size, hidden_size), requires_grad=True)
         weight_ci = nn.Parameter(torch.randn(input_size, hidden_size), requires_grad=True)
@@ -148,10 +152,15 @@ class QuantGRULayer(torch.jit.ScriptModule):
         self.hidden_size = hidden_size
         self.reset_parameters()
 
-        self.weight_config['weight_scaling_shape'] = SCALING_SCALAR_SHAPE
-        self.weight_config['weight_stats_input_view_shape_impl'] = StatsInputViewShapeImpl.OVER_TENSOR
         self.weight_config['weight_scaling_stats_input_concat_dim'] = 0
-        self.weight_config['weight_scaling_stats_reduce_dim'] = None
+        if self.weight_config.get('weight_scaling_per_output_channel', False):
+            self.weight_config['weight_stats_input_view_shape_impl'] = StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS
+            self.weight_config['weight_scaling_shape'] = self.per_output_channel_broadcastable_shape()
+            self.weight_config['weight_scaling_stats_reduce_dim'] = 0
+        else:
+            self.weight_config['weight_scaling_shape'] = SCALING_SCALAR_SHAPE
+            self.weight_config['weight_stats_input_view_shape_impl'] = StatsInputViewShapeImpl.OVER_TENSOR
+            self.weight_config['weight_scaling_stats_reduce_dim'] = None
 
         self.weight_proxy_r = self.configure_weight([weight_ri, weight_rh], self.weight_config)
         self.weight_proxy_i = self.configure_weight([weight_ci, weight_ch], self.weight_config)
@@ -161,8 +170,8 @@ class QuantGRULayer(torch.jit.ScriptModule):
         self.quant_sigmoid_c = self.configure_activation(self.activation_config, QuantSigmoid)
         self.quant_tanh = self.configure_activation(self.activation_config, QuantTanh)
 
-        self.norm_scale_newgate = self.configure_activation(norm_scale_hidden_config, QuantHardTanh)
-        self.norm_scale_out = self.configure_activation(norm_scale_out_config, QuantHardTanh)
+        self.norm_scale_newgate = self.configure_activation(self.norm_scale_hidden_config, QuantIdentity)
+        self.norm_scale_out = self.configure_activation(self.norm_scale_out_config, QuantIdentity)
 
         if self.weight_config.get('weight_quant_type', 'QuantType.FP') == 'QuantType.FP' and compute_output_bit_width:
             raise Exception("Computing output bit width requires enabling quantization")
@@ -174,6 +183,13 @@ class QuantGRULayer(torch.jit.ScriptModule):
         stdv = 1.0 / math.sqrt(self.hidden_size)
         for weight in self.parameters():
             torch.nn.init.uniform_(weight, -stdv, stdv)
+
+    def per_output_channel_broadcastable_shape(self):
+        output_dim = 1
+        per_channel_size = [1] * len(self.weight_ci.size())
+        per_channel_size[output_dim] = self.hidden_size
+        per_channel_size = tuple(per_channel_size)
+        return per_channel_size
 
     @torch.jit.script_method
     def forward_cycle(self, inputs, state, quant_weight_ih, quant_weight_hh, quant_weight_ni, quant_weight_nh, zhws):
@@ -191,7 +207,8 @@ class QuantGRULayer(torch.jit.ScriptModule):
         state = self.norm_scale_out(state, zhws)[0]
         for i in range(end):
             input_quant = self.norm_scale_out(inputs[index], zhws)[0]
-            output, state = self.forward_iteration(input_quant, state, quant_weight_ih, quant_weight_hh, quant_weight_ni,
+            output, state = self.forward_iteration(input_quant, state, quant_weight_ih, quant_weight_hh,
+                                                   quant_weight_ni,
                                                    quant_weight_nh, zhws)
             index = index + step
 
@@ -356,8 +373,11 @@ class QuantGRULayer(torch.jit.ScriptModule):
                                                         min_val=activation_config.get('min_val', min_val),
                                                         max_val=activation_config.get('max_val', max_val),
                                                         signed=activation_config.get('signed', signed),
-                                                        per_channel_broadcastable_shape=None,
-                                                        scaling_per_channel=False,
+                                                        per_channel_broadcastable_shape=activation_config.get(
+                                                            'per_channel_broadcastable_shape',
+                                                            None),
+                                                        scaling_per_channel=activation_config.get('scaling_per_channel',
+                                                                                                  False),
                                                         scaling_override=activation_config.get('scaling_override',
                                                                                                None),
                                                         scaling_impl_type=activation_config.get('scaling_impl_type',
@@ -377,6 +397,13 @@ class QuantGRULayer(torch.jit.ScriptModule):
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
                               missing_keys, unexpected_keys, error_msgs):
+
+        stats_key = 'tensor_quant.scaling_impl.runtime_stats.running_stats'
+        activation_type = self.norm_scale_out_config.get('scaling_impl_type', ScalingImplType.CONST)
+        name = '.'.join([prefix, 'norm_scale_out']) if prefix is not '' else 'norm_scale_out'
+        name = '.'.join([name, stats_key])
+        if (name in state_dict) and activation_type == ScalingImplType.PARAMETER:
+            raise Exception("Switching from STATS to PARAMETER in activations is not supported")
 
         dict_to_change = dict()
         for k, v in state_dict.items():

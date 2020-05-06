@@ -71,7 +71,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 from brevitas.core.bit_width import BitWidthImplType
-from brevitas.nn import QuantSigmoid, QuantTanh, QuantHardTanh
+from brevitas.nn import QuantSigmoid, QuantTanh, QuantIdentity
 import torch.nn as nn
 from brevitas.core.scaling import ScalingImplType, SCALING_SCALAR_SHAPE
 from brevitas.core.stats import StatsInputViewShapeImpl, StatsOp
@@ -103,7 +103,7 @@ def reverse(lst):
     # start = len(lst) - 1
     end = len(lst)
     step = -1
-    index = len(lst)-1
+    index = len(lst) - 1
 
     for i in range(end):
         out += [lst[index]]
@@ -124,6 +124,12 @@ class QuantLSTMLayer(torch.jit.ScriptModule):
         self.return_quant_tensor = return_quant_tensor
         self.weight_config = weight_config
         self.activation_config = activation_config
+        self.norm_scale_out_config = norm_scale_out_config
+        self.norm_scale_hidden_config = norm_scale_hidden_config
+        if recurrent_quant_config is None:
+            self.recurrent_quant_config = norm_scale_out_config
+        else:
+            self.recurrent_quant_config = recurrent_quant_config
 
         weight_ci = nn.Parameter(torch.randn(input_size, hidden_size), requires_grad=True)
         weight_fi = nn.Parameter(torch.randn(input_size, hidden_size), requires_grad=True)
@@ -150,16 +156,20 @@ class QuantLSTMLayer(torch.jit.ScriptModule):
         self.bias_a = nn.Parameter(torch.randn(hidden_size), requires_grad=True)
         self.bias_o = nn.Parameter(torch.randn(hidden_size), requires_grad=True)
 
-
         self.reverse_input = reverse_input
         self.batch_first = batch_first
         self.hidden_size = hidden_size
         self.reset_parameters()
 
-        self.weight_config['weight_scaling_shape'] = SCALING_SCALAR_SHAPE
-        self.weight_config['weight_stats_input_view_shape_impl'] = StatsInputViewShapeImpl.OVER_TENSOR
         self.weight_config['weight_scaling_stats_input_concat_dim'] = 0
-        self.weight_config['weight_scaling_stats_reduce_dim'] = None
+        if self.weight_config.get('weight_scaling_per_output_channel', False):
+            self.weight_config['weight_stats_input_view_shape_impl'] = StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS
+            self.weight_config['weight_scaling_shape'] = self.per_output_channel_broadcastable_shape()
+            self.weight_config['weight_scaling_stats_reduce_dim'] = 0
+        else:
+            self.weight_config['weight_scaling_shape'] = SCALING_SCALAR_SHAPE
+            self.weight_config['weight_stats_input_view_shape_impl'] = StatsInputViewShapeImpl.OVER_TENSOR
+            self.weight_config['weight_scaling_stats_reduce_dim'] = None
 
         self.weight_proxy_i = self.configure_weight([weight_ci, weight_ch], self.weight_config)
         self.weight_proxy_f = self.configure_weight([weight_fi, weight_fh], self.weight_config)
@@ -171,13 +181,10 @@ class QuantLSTMLayer(torch.jit.ScriptModule):
         self.quant_sigmoid_o = self.configure_activation(self.activation_config, QuantSigmoid)
         self.quant_tanh_c = self.configure_activation(self.activation_config, QuantTanh)
         self.quant_tanh_h = self.configure_activation(self.activation_config, QuantTanh)
-        self.normalize_hidden_state = self.configure_activation(norm_scale_hidden_config, QuantHardTanh)
 
-        self.out_quant = self.configure_activation(norm_scale_out_config, QuantHardTanh)
-        if recurrent_quant_config is None:
-            self.rec_quant = self.configure_activation(norm_scale_out_config, QuantHardTanh)
-        else:
-            self.rec_quant = self.configure_activation(recurrent_quant_config, QuantHardTanh)
+        self.normalize_hidden_state = self.configure_activation(self.norm_scale_hidden_config, QuantIdentity)
+        self.out_quant = self.configure_activation(self.norm_scale_out_config, QuantIdentity)
+        self.rec_quant = self.configure_activation(self.recurrent_quant_config, QuantIdentity)
 
         if self.weight_config.get('weight_quant_type', 'QuantType.FP') == 'QuantType.FP' and compute_output_bit_width:
             raise Exception("Computing output bit width requires enabling quantization")
@@ -189,6 +196,13 @@ class QuantLSTMLayer(torch.jit.ScriptModule):
         stdv = 1.0 / math.sqrt(self.hidden_size)
         for weight in self.parameters():
             torch.nn.init.uniform_(weight, -stdv, stdv)
+
+    def per_output_channel_broadcastable_shape(self):
+        output_dim = 1
+        per_channel_size = [1] * len(self.weight_ci.size())
+        per_channel_size[output_dim] = self.hidden_size
+        per_channel_size = tuple(per_channel_size)
+        return per_channel_size
 
     @torch.jit.script_method
     def forward_cycle(self, inputs, state, quant_weight_ih, quant_weight_hh, zhws):
@@ -204,9 +218,9 @@ class QuantLSTMLayer(torch.jit.ScriptModule):
 
         hx, cx = state
         outputs = torch.jit.annotate(List[Tensor], [])
-        hx = self.out_quant(hx, zhws)[0]
+        hx = self.rec_quant(hx, zhws)[0]
         for i in range(end):
-            input_quant = self.out_quant(inputs[index], zhws)[0]
+            input_quant = self.rec_quant(inputs[index], zhws)[0]
             output, state = self.forward_iteration(input_quant, hx, cx, quant_weight_ih, quant_weight_hh, zhws)
             index = index + step
 
@@ -374,11 +388,15 @@ class QuantLSTMLayer(torch.jit.ScriptModule):
                                                         min_val=activation_config.get('min_val', min_val),
                                                         max_val=activation_config.get('max_val', max_val),
                                                         signed=activation_config.get('signed', signed),
-                                                        per_channel_broadcastable_shape=None,
-                                                        scaling_per_channel=False,
+                                                        per_channel_broadcastable_shape=activation_config.get(
+                                                            'per_channel_broadcastable_shape',
+                                                            None),
+                                                        scaling_per_channel=activation_config.get('scaling_per_channel',
+                                                                                                  False),
                                                         scaling_override=activation_config.get('scaling_override',
                                                                                                None),
-                                                        scaling_impl_type=ScalingImplType.CONST,
+                                                        scaling_impl_type=activation_config.get('scaling_impl_type',
+                                                                                                ScalingImplType.CONST),
                                                         scaling_stats_sigma=activation_config.get('scaling_stats_sigma',
                                                                                                   2.0),
                                                         scaling_stats_op=activation_config.get('scaling_stats_op',
@@ -394,6 +412,20 @@ class QuantLSTMLayer(torch.jit.ScriptModule):
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
                               missing_keys, unexpected_keys, error_msgs):
+
+        activations = [['normalize_hidden_state', self.norm_scale_hidden_config],
+                       ['out_quant', self.norm_scale_out_config],
+                       ['rec_quant', self.recurrent_quant_config]]
+
+        stats_key = 'tensor_quant.scaling_impl.runtime_stats.running_stats'
+
+        for couple in activations:
+            activation_type = couple[1].get('scaling_impl_type', ScalingImplType.CONST)
+            name = '.'.join([prefix, couple[0]]) if prefix is not '' else couple[0]
+            name = '.'.join([name, stats_key])
+            if (name in state_dict) and activation_type == ScalingImplType.PARAMETER:
+                raise Exception("Switching from STATS to PARAMETER in activations is not supported")
+
         dict_to_change = dict()
         for k, v in state_dict.items():
             if k.startswith(prefix):

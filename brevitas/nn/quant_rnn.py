@@ -102,7 +102,7 @@ def reverse(lst):
     # start = len(lst) - 1
     end = len(lst)
     step = -1
-    index = len(lst)-1
+    index = len(lst) - 1
 
     for i in range(end):
         out += [lst[index]]
@@ -122,6 +122,7 @@ class QuantRNNLayer(torch.jit.ScriptModule):
         self.return_quant_tensor = return_quant_tensor
         self.weight_config = weight_config
         self.activation_config = activation_config
+        self.norm_scale_input_config = norm_scale_input_config
 
         weight_ri = nn.Parameter(torch.randn(input_size, hidden_size), requires_grad=True)
         weight_rh = nn.Parameter(torch.randn(hidden_size, hidden_size), requires_grad=True)
@@ -135,10 +136,15 @@ class QuantRNNLayer(torch.jit.ScriptModule):
         self.batch_first = batch_first
         self.reset_parameters()
 
-        self.weight_config['weight_scaling_shape'] = SCALING_SCALAR_SHAPE
-        self.weight_config['weight_stats_input_view_shape_impl'] = StatsInputViewShapeImpl.OVER_TENSOR
         self.weight_config['weight_scaling_stats_input_concat_dim'] = 0
-        self.weight_config['weight_scaling_stats_reduce_dim'] = None
+        if self.weight_config.get('weight_scaling_per_output_channel', False):
+            self.weight_config['weight_stats_input_view_shape_impl'] = StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS
+            self.weight_config['weight_scaling_shape'] = self.per_output_channel_broadcastable_shape()
+            self.weight_config['weight_scaling_stats_reduce_dim'] = 0
+        else:
+            self.weight_config['weight_scaling_shape'] = SCALING_SCALAR_SHAPE
+            self.weight_config['weight_stats_input_view_shape_impl'] = StatsInputViewShapeImpl.OVER_TENSOR
+            self.weight_config['weight_scaling_stats_reduce_dim'] = None
 
         self.weight_proxy = self.configure_weight([self.weight_ri, self.weight_rh], self.weight_config)
 
@@ -311,11 +317,15 @@ class QuantRNNLayer(torch.jit.ScriptModule):
                                                         min_val=activation_config.get('min_val', min_val),
                                                         max_val=activation_config.get('max_val', max_val),
                                                         signed=activation_config.get('signed', signed),
-                                                        per_channel_broadcastable_shape=None,
-                                                        scaling_per_channel=False,
+                                                        per_channel_broadcastable_shape=activation_config.get(
+                                                            'per_channel_broadcastable_shape',
+                                                            None),
+                                                        scaling_per_channel=activation_config.get('scaling_per_channel',
+                                                                                                  False),
                                                         scaling_override=activation_config.get('scaling_override',
                                                                                                None),
-                                                        scaling_impl_type=ScalingImplType.CONST,
+                                                        scaling_impl_type=activation_config.get('scaling_impl_type',
+                                                                                                ScalingImplType.CONST),
                                                         scaling_stats_sigma=activation_config.get('scaling_stats_sigma',
                                                                                                   2.0),
                                                         scaling_stats_op=activation_config.get('scaling_stats_op',
@@ -331,6 +341,14 @@ class QuantRNNLayer(torch.jit.ScriptModule):
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
                               missing_keys, unexpected_keys, error_msgs):
+
+        stats_key = 'tensor_quant.scaling_impl.runtime_stats.running_stats'
+        activation_type = self.norm_scale_input_config.get('scaling_impl_type', ScalingImplType.CONST)
+        name = '.'.join([prefix, 'quant_input']) if prefix is not '' else 'quant_input'
+        name = '.'.join([name, stats_key])
+        if (name in state_dict) and activation_type == ScalingImplType.PARAMETER:
+            raise Exception("Switching from STATS to PARAMETER in activations is not supported")
+
         dict_to_change = dict()
         for k, v in state_dict.items():
             if k.startswith(prefix):
