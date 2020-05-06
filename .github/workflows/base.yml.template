@@ -1,10 +1,10 @@
-name: &{name}
+, dev0.3name: &{name}
 
 on:
   push:
-    branches: [ master, infra, dev ]
+    branches: [ master, infra, dev, dev0.3 ]
   pull_request:
-    branches: [ master, infra, dev ]
+    branches: [ master, infra, dev, dev0.3 ]
 
 jobs:
   build:
