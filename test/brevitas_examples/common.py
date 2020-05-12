@@ -7,16 +7,6 @@ from functools import partial
 from brevitas.nn.quant_activation import QuantActivation
 from brevitas.nn.quant_layer import QuantLayer
 
-weights = {
-    'integer_values': [],
-    'scale_factor': [],
-    'output_tensor': []
-}
-activations = {
-    'output_integers': [],
-    'scale_factor': []
-}
-
 full_dictionary = {}
 
 mnist_label_sample = [(7, 0), (2, 1), (1, 2), (0, 3), (4, 4), (9, 7), (5, 8), (6, 11), (3, 18), (8, 61)]
@@ -33,16 +23,15 @@ def mnist_datapath():
 def mnist_datapath_fixture():
     return mnist_datapath()
 
-def set_and_evaluate_hooks(model, data_loader, dataset ):
+def set_and_evaluate_hooks_mnist(model, data_loader):
     hooks = []
     for name, module in model.named_modules():
         a = register_hook(module, name)
         if a is not None:
             hooks.append(a)
-    print("Ciao")
+
     model.eval()
-    if dataset == 'mnist':
-        samples = mnist_label_sample
+    samples = mnist_label_sample
     with torch.no_grad():
         for label, sample in samples:
             x, y = data_loader[sample]

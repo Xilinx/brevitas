@@ -1,5 +1,5 @@
 import logging
-from common import mnist_datapath, set_and_evaluate_hooks
+from common import mnist_datapath, set_and_evaluate_hooks_mnist
 import pytest
 import torch
 from brevitas_examples.bnn_pynq.models import model_with_cfg
@@ -30,7 +30,7 @@ def test_bnn_pynq_fc_integration_tests(model, weight_bit_width, act_bit_width, m
                      download=True,
                      transform=transform_to_tensor)
     model, cfg = model_with_cfg(network, pretrained=True)
-    hooks, full_dictionary = set_and_evaluate_hooks(model, test_set, 'mnist')
+    hooks, full_dictionary = set_and_evaluate_hooks_mnist(model, test_set)
 
     result = True
     for key in keys:
@@ -71,7 +71,6 @@ def generate_file():
         hooks, full_dictionary = set_and_evaluate_hooks(model, test_set, 'mnist')
         filename = network + "_integration_tests"
         np.savez(filename, **full_dictionary)
-        print("Fine")
 
 
 if __name__ == '__main__':
