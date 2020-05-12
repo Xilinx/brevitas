@@ -1,5 +1,5 @@
 import logging
-from common import mnist_datapath, set_and_evaluate_hooks_mnist
+from common import mnist_datapath_fixture, set_and_evaluate_hooks_mnist, mnist_datapath
 import pytest
 import torch
 from brevitas_examples.bnn_pynq.models import model_with_cfg
