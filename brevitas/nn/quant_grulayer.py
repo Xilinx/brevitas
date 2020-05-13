@@ -235,8 +235,8 @@ class QuantGRULayer(torch.jit.ScriptModule):
                    self.norm_scale_newgate(rgate * gates_nh, zhws)[0]
         ngate = self.quant_tanh(gates_ni, zhws)[0]
 
-        state = self.norm_scale_out(state, zhws)[0] - ngate
-        hy = ngate + self.norm_scale_out(cgate * state, zhws)[0]
+        state = self.norm_scale_out(state, zhws)[0] - self.norm_scale_out(ngate, zhws)[0]
+        hy = self.norm_scale_out(ngate, zhws)[0] + self.norm_scale_out(cgate * state, zhws)[0]
 
         return hy, hy
 
