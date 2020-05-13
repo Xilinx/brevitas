@@ -124,10 +124,7 @@ class QuantLSTMLayer(torch.jit.ScriptModule):
         self.activation_config = activation_config
         self.norm_scale_out_config = norm_scale_out_config
         self.norm_scale_hidden_config = norm_scale_hidden_config
-        if recurrent_quant_config is None:
-            self.recurrent_quant_config = norm_scale_out_config
-        else:
-            self.recurrent_quant_config = recurrent_quant_config
+        self.recurrent_quant_config = recurrent_quant_config
 
         weight_ci = nn.Parameter(torch.randn(input_size, hidden_size), requires_grad=True)
         weight_fi = nn.Parameter(torch.randn(input_size, hidden_size), requires_grad=True)
@@ -188,7 +185,10 @@ class QuantLSTMLayer(torch.jit.ScriptModule):
 
         self.normalize_hidden_state = self.configure_activation(self.norm_scale_hidden_config, QuantIdentity)
         self.out_quant = self.configure_activation(self.norm_scale_out_config, QuantIdentity)
-        self.rec_quant = self.configure_activation(self.recurrent_quant_config, QuantIdentity)
+        if recurrent_quant_config is None:
+            self.rec_quant = self.out_quant
+        else:
+            self.rec_quant = self.configure_activation(self.recurrent_quant_config, QuantIdentity)
 
         if self.weight_config.get('weight_quant_type', 'QuantType.FP') == 'QuantType.FP' and compute_output_bit_width:
             raise Exception("Computing output bit width requires enabling quantization")
@@ -249,8 +249,7 @@ class QuantLSTMLayer(torch.jit.ScriptModule):
         cellgate = self.quant_tanh_c(cellgate, zhws)[0]
         outgate = self.quant_sigmoid_o(outgate, zhws)[0]
 
-        cx = self.normalize_hidden_state(cx, zhws)[0]
-        cy = (forgetgate * cx) + (cgate * cellgate)
+        cy = self.normalize_hidden_state(forgetgate * cx, zhws)[0] + self.normalize_hidden_state(cgate * cellgate)[0]
         hy = outgate * self.quant_tanh_h(cy, zhws)[0]
         hy1 = self.out_quant(hy, zhws)[0]
         hy2 = self.rec_quant(hy, zhws)[0]
