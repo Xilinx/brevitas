@@ -31,41 +31,50 @@
 import pytest
 
 import numpy as np
-import onnx.numpy_helper as nph
 import torch
 import finn.core.onnx_exec as oxe
 from finn.core.modelwrapper import ModelWrapper
 from finn.transformation.fold_constants import FoldConstants
 from finn.transformation.infer_shapes import InferShapes
-from finn.util.basic import make_build_dir
+from finn.transformation.general import GiveUniqueNodeNames
+from finn.transformation.double_to_single_float import DoubleToSingleFloat
 
 import brevitas.onnx as bo
 from brevitas_examples.bnn_pynq.models import model_with_cfg
 
-INPUT_SIZE = (1, 1, 28, 28)
+FC_INPUT_SIZE = (1, 1, 28, 28)
+CNV_INPUT_SIZE = (1, 3, 32, 32)
 
-# activation: None or DataType
+MIN_INP_VAL = 0.0
+MAX_INP_VAL = 1.0
+
+MAX_WBITS = 2
+MAX_ABITS = 2
+
+ATOL = 1e-3
+
+
 @pytest.mark.parametrize("size", ["TFC", "SFC", "LFC"])
 # weight bits
-@pytest.mark.parametrize("wbits", [1, 2])
+@pytest.mark.parametrize("wbits", [1, MAX_WBITS])
 # act bits
-@pytest.mark.parametrize("abits", [1, 2])
+@pytest.mark.parametrize("abits", [1, MAX_ABITS])
 # Pretrained
 @pytest.mark.parametrize("pretrained", [True, False])
 def test_brevitas_fc_onnx_export_and_exec(size, wbits, abits, pretrained):
     if size == "LFC" and wbits == 2 and abits == 2:
-        pytest.skip("No LFC_W2A2 present.")
+        pytest.skip(f"No LFC_{MAX_WBITS}W{MAX_ABITS}A present.")
     if wbits > abits:
         pytest.skip("No wbits > abits cases.")
-    nname = "%s_%dW%dA" % (size, wbits, abits)
-    finn_onnx = "%s.onnx" % nname
+    nname = f"{size}_{wbits}W{abits}A"
+    finn_onnx = nname + ".onnx"
     fc, _ = model_with_cfg(nname.lower(), pretrained=pretrained)
-    bo.export_finn_onnx(fc, INPUT_SIZE, finn_onnx)
+    bo.export_finn_onnx(fc, FC_INPUT_SIZE, finn_onnx)
     model = ModelWrapper(finn_onnx)
     model = model.transform(InferShapes())
     model = model.transform(FoldConstants())
     # load a random test vector
-    input_tensor = np.random.uniform(0.0, 1.0, size=INPUT_SIZE).astype(np.float32)
+    input_tensor = np.random.uniform(MIN_INP_VAL, MAX_INP_VAL, size=FC_INPUT_SIZE).astype(np.float32)
     # run using FINN-based execution
     input_dict = {"0": input_tensor}
     output_dict = oxe.execute_onnx(model, input_dict)
@@ -74,4 +83,35 @@ def test_brevitas_fc_onnx_export_and_exec(size, wbits, abits, pretrained):
     input_tensor = torch.from_numpy(input_tensor).float()
     # do forward pass in PyTorch/Brevitas
     expected = fc.forward(input_tensor).detach().numpy()
-    assert np.isclose(produced, expected, atol=1e-3).all()
+    assert np.isclose(produced, expected, atol=ATOL).all()
+
+
+# weight bits
+@pytest.mark.parametrize("wbits", [1, MAX_WBITS])
+# act bits
+@pytest.mark.parametrize("abits", [1, MAX_ABITS])
+# Pretrained
+@pytest.mark.parametrize("pretrained", [True, False])
+def test_brevitas_cnv_onnx_export_and_exec(wbits, abits, pretrained):
+    if wbits > abits:
+        pytest.skip("No wbits > abits cases.")
+    nname = f"CNV_{wbits}W{abits}A"
+    finn_onnx = nname + ".onnx"
+    fc, _ = model_with_cfg(nname.lower(), pretrained=pretrained)
+    bo.export_finn_onnx(fc, CNV_INPUT_SIZE, finn_onnx)
+    model = ModelWrapper(finn_onnx)
+    model = model.transform(GiveUniqueNodeNames())
+    model = model.transform(DoubleToSingleFloat())
+    model = model.transform(InferShapes())
+    model = model.transform(FoldConstants())
+    # load a random test vector
+    input_tensor = np.random.uniform(MIN_INP_VAL, MAX_INP_VAL, size=CNV_INPUT_SIZE).astype(np.float32)
+    # run using FINN-based execution
+    input_dict = {"0": input_tensor}
+    output_dict = oxe.execute_onnx(model, input_dict)
+    produced = output_dict[list(output_dict.keys())[0]]
+    # run using PyTorch/Brevitas
+    input_tensor = torch.from_numpy(input_tensor).float()
+    # do forward pass in PyTorch/Brevitas
+    expected = fc.forward(input_tensor).detach().numpy()
+    assert np.isclose(produced, expected, atol=ATOL).all()
