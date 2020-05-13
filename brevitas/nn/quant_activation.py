@@ -385,6 +385,11 @@ class QuantHardTanh(QuantActivation):
             ia["return_quant_tensor"] == False
             ):
             if ia["bit_width"] == 1 and ia["quant_type"] == QuantType.BINARY:
+                if ia["scaling_impl_type"] != ScalingImplType.CONST:
+                    print("WARNING: BIPOLAR activation with " + 
+                        "scaling_impl_type != ScalingImplType.CONST." +
+                        " Exported BIPOLAR activations only support [-1,+1] as outputs."+
+                        " Scale parameter must be 1")
                 return "BIPOLAR"
             elif ia["quant_type"] == QuantType.INT:
                 # note: even though this particular config is intx (signed)
@@ -438,6 +443,8 @@ class QuantHardTanh(QuantActivation):
 
             self.export_act_bias = torch.tensor(-0.5).type(torch.FloatTensor)
             self.export_act_scale = self.quant_act_scale().type(torch.FloatTensor).detach() 
+            assert self.export_act_scale == 1, ("Unsupported BIPOLAR activation with scale parameter != 1" +
+                        " Exported BIPOLAR activations only support [-1,+1] as outputs")
             self.export_act_scale *= 2 
 
             self.export_thres = torch.empty([1, 1])
