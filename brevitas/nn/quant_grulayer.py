@@ -347,9 +347,12 @@ class QuantGRULayer(torch.jit.ScriptModule):
         min_val = -1
         if activation_func == QuantTanh:
             activation_impl = nn.Tanh()
+            activation_config['min_val'] = -1.0
+            activation_config['max_val'] = 1.0
         elif activation_func == QuantSigmoid:
             activation_impl = nn.Sigmoid()
-            min_val = 0
+            activation_config['min_val'] = 0.0
+            activation_config['max_val'] = 1.0
             signed = False
         else:
             activation_impl = nn.Identity()
