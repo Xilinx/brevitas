@@ -1,4 +1,5 @@
 bitstring
-onnx
+onnx==1.6.0; sys_platform == 'linux'
+onnx; sys_platform != 'linux'
 onnxruntime
 finn @ git+https://github.com/Xilinx/finn@dev#egg=finn
