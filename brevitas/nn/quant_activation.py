@@ -181,7 +181,6 @@ class QuantReLU(QuantActivation):
                     raise Exception("Unsupported bitwidth for export")
         elif(
             ia["bit_width_impl_type"] == BitWidthImplType.CONST and
-            ia["scaling_per_channel"] == True and
             ia["float_to_int_impl_type"] == FloatToIntImplType.ROUND and
             ia["scaling_stats_sigma"] == 2.0 and
             ia["scaling_stats_op"] == StatsOp.MEAN_LEARN_SIGMA_STD and
