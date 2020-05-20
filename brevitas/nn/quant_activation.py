@@ -231,13 +231,22 @@ class QuantReLU(QuantActivation):
             for t in range(n_thresholds):
                 self.export_thres[0][t] = min_thres + step * t
         else:
-            channels = len(self.export_act_scale.flatten())
-            step = torch.abs(self.export_act_scale).flatten()
-            self.export_thres = torch.empty([channels, n_thresholds])
-            min_thres = step/2
-            for c in range(channels):
-                for t in range(n_thresholds):
-                    self.export_thres[c][t] = min_thres[c] + step[c] * t
+            if ia["scaling_per_channel"] is True:
+                channels = ia["per_channel_broadcastable_shape"][1]
+                step = torch.abs(self.export_act_scale).flatten()
+                self.export_thres = torch.empty([channels, n_thresholds])
+                min_thres = step/2
+                for c in range(channels):
+                    for t in range(n_thresholds):
+                        self.export_thres[c][t] = min_thres[c] + step[c] * t
+            else:
+                channels = ia["per_channel_broadcastable_shape"][1]
+                step = torch.abs(self.export_act_scale).flatten()
+                self.export_thres = torch.empty([channels, n_thresholds])
+                min_thres = step/2
+                for c in range(channels):
+                    for t in range(n_thresholds):
+                        self.export_thres[c][t] = min_thres + step * t
 
 
     def forward(self, input):
