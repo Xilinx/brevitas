@@ -85,26 +85,44 @@ class QuantAvgPool2d(QuantLayer, AvgPool2d):
                                                  explicit_rescaling=explicit_rescaling,
                                                  override_pretrained_bit_width=False)
 
+        self.output_scale = None
+        self.shift_value = 0
+
+    @QuantLayer.export_mode.setter
+    def export_mode(self, value):
+        self._export_mode = value
+        shift_value = self.shift_value
+        in_shape = self.export_in_shape
+        self.shift_tensor = torch.ones((in_shape), dtype=torch.int32)
+        self.shift_tensor.new_full((in_shape), shift_value)
+
+
     def forward(self, input):
+        import pdb; pdb.set_trace()
         if self.export_mode:
-            input_shape = []
-            for i in range(len(input.shape)):
-                input_shape.append(input.shape[i].item())
-            shift = 6
-            output_shape = (1, 1024, 1, 1)
             return QuantAvgPool2dPlaceholderFunction.apply(
-                input, tuple(input_shape), output_shape, self.kernel_size, self.stride, self.quant_type, shift
+                input,
+                self.export_out_shape,
+                self.output_scale,
+                self.export_out_bit_width,
+                self.kernel_size,
+                self.stride,
+                self.shift_tensor,
             )
         else:
             input_tensor, input_scale, input_bit_width = self.unpack_input(input)
+            import pdb; pdb.set_trace()
             x = super(QuantAvgPool2d, self).forward(input_tensor)
             if self.quant_type != QuantType.FP:
                 x = x * (self.kernel_size * self.kernel_size)  # remove scaling introduced by average
-                output_bit_width = self.max_output_bit_width(input_bit_width)
-                x, output_scale, output_bit_width = self.accumulator_quant(x, input_scale, output_bit_width)
-                return pack_quant_tensor(x, output_scale, output_bit_width)
+                max_output_bit_width = self.max_output_bit_width(input_bit_width)
+                x, output_scale, output_bit_width = self.accumulator_quant(x, input_scale, max_output_bit_width)
+                self.output_scale = output_scale
+                self.shift_value = max_output_bit_width - output_bit_width
+                import pdb; pdb.set_trace()
+                return self.pack_output(x, output_scale, output_bit_width)
             else:
-                return pack_quant_tensor(x, input_scale, input_bit_width)
+                return self.pack_output(x, input_scale, input_bit_width)
 
     def max_output_bit_width(self, input_bit_width):
         max_uint_input = max_uint(bit_width=input_bit_width, narrow_range=False)
