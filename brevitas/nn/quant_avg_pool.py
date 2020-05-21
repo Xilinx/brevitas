@@ -49,6 +49,7 @@ from brevitas.core.quant import QuantType
 from brevitas.function.ops_ste import ceil_ste
 from brevitas.function.ops import max_uint
 from brevitas.nn.quant_layer import QuantLayer
+from brevitas.onnx.onnx_custom_ops import QuantAvgPool2dPlaceholderFunction
 from brevitas.proxy.runtime_quant import TruncQuantProxy
 from brevitas.quant_tensor import pack_quant_tensor
 
@@ -85,15 +86,25 @@ class QuantAvgPool2d(QuantLayer, AvgPool2d):
                                                  override_pretrained_bit_width=False)
 
     def forward(self, input):
-        input_tensor, input_scale, input_bit_width = self.unpack_input(input)
-        x = super(QuantAvgPool2d, self).forward(input_tensor)
-        if self.quant_type != QuantType.FP:
-            x = x * (self.kernel_size * self.kernel_size)  # remove scaling introduced by average
-            output_bit_width = self.max_output_bit_width(input_bit_width)
-            x, output_scale, output_bit_width = self.accumulator_quant(x, input_scale, output_bit_width)
-            return pack_quant_tensor(x, output_scale, output_bit_width)
+        if self.export_mode:
+            input_shape = []
+            for i in range(len(input.shape)):
+                input_shape.append(input.shape[i].item())
+            shift = 6
+            output_shape = (1, 1024, 1, 1)
+            return QuantAvgPool2dPlaceholderFunction.apply(
+                input, tuple(input_shape), output_shape, self.kernel_size, self.stride, self.quant_type, shift
+            )
         else:
-            return pack_quant_tensor(x, input_scale, input_bit_width)
+            input_tensor, input_scale, input_bit_width = self.unpack_input(input)
+            x = super(QuantAvgPool2d, self).forward(input_tensor)
+            if self.quant_type != QuantType.FP:
+                x = x * (self.kernel_size * self.kernel_size)  # remove scaling introduced by average
+                output_bit_width = self.max_output_bit_width(input_bit_width)
+                x, output_scale, output_bit_width = self.accumulator_quant(x, input_scale, output_bit_width)
+                return pack_quant_tensor(x, output_scale, output_bit_width)
+            else:
+                return pack_quant_tensor(x, input_scale, input_bit_width)
 
     def max_output_bit_width(self, input_bit_width):
         max_uint_input = max_uint(bit_width=input_bit_width, narrow_range=False)
