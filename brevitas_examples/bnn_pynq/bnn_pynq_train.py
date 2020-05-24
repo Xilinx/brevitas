@@ -25,7 +25,7 @@ import os
 import sys
 
 import torch
-from .trainer import Trainer
+from brevitas_examples.bnn_pynq.trainer import Trainer
 
 # Pytorch precision
 torch.set_printoptions(precision=10)
