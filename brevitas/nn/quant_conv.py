@@ -194,7 +194,6 @@ class QuantConv2d(QuantLayer, Conv2d):
         # alternatively, create specialized subclasses and only provide export
         # flows for those.
         ia = self.init_args
-        import pdb; pdb.set_trace()
         if (
             ia["bias"] == False and
             ia["weight_quant_type"] == QuantType.BINARY and
