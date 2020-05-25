@@ -194,6 +194,7 @@ class QuantConv2d(QuantLayer, Conv2d):
         # alternatively, create specialized subclasses and only provide export
         # flows for those.
         ia = self.init_args
+        import pdb; pdb.set_trace()
         if (
             ia["bias"] == False and
             ia["weight_quant_type"] == QuantType.BINARY and
@@ -304,8 +305,8 @@ class QuantConv2d(QuantLayer, Conv2d):
             return QuantizedConv2dPlaceholderFunction.apply(
                 input, self.export_int_weight, export_scale,
                 export_qnt_type, self.export_out_shape, export_pads,
-                export_strides, export_bias, list(self.kernel_size)
-                )
+                export_strides, export_bias, list(self.kernel_size),
+                self.groups)
         else:
             output_scale = None
             output_bit_width = None
