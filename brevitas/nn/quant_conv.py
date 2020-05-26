@@ -304,8 +304,8 @@ class QuantConv2d(QuantLayer, Conv2d):
             return QuantizedConv2dPlaceholderFunction.apply(
                 input, self.export_int_weight, export_scale,
                 export_qnt_type, self.export_out_shape, export_pads,
-                export_strides, export_bias, list(self.kernel_size)
-                )
+                export_strides, export_bias, list(self.kernel_size),
+                self.groups)
         else:
             output_scale = None
             output_bit_width = None
