@@ -74,8 +74,9 @@ runtime_quant_type_options = [(QuantType.BINARY), (QuantType.INT)]
 def test_weight_quant_proxy_scaling_nobt(bit_width, scaling_impl_type, scaling_stats_op, scaling_impl_op):
     # Const for this suite of tests
     bit_width_impl = BitWidthImplType.CONST
+    bit_width = torch.tensor(bit_width, dtype=torch.float)
     quant_type = QuantType.INT
-    inp = torch.randn(SHAPE)
+    inp = torch.nn.Parameter(torch.randn(SHAPE))
     reduce_dim = None if scaling_stats_op is not StatsOp.MAX_AVE else 0
 
     obj = WeightQuantProxy(tracked_parameter_list_init=inp,
@@ -123,7 +124,9 @@ def test_weight_quant_proxy_scaling_bt(scaling_impl_type, scaling_stats_op, scal
     if scaling_impl_type is ScalingImplType.PARAMETER_FROM_STATS:
         pytest.xfail("Not supported")
     bit_width_impl = BitWidthImplType.CONST
-    inp = torch.randn(SHAPE)
+    inp = torch.nn.Parameter(torch.randn(SHAPE))
+    bit_width = torch.tensor(bit_width, dtype=torch.float)
+
     reduce_dim = None if scaling_stats_op is not StatsOp.MAX_AVE else 0
 
     obj = WeightQuantProxy(tracked_parameter_list_init=inp,
@@ -159,9 +162,9 @@ def test_weight_quant_proxy_scaling_bt(scaling_impl_type, scaling_stats_op, scal
 def test_weight_quant_proxy_scaling_const_nobt(bit_width, scaling_impl_type):
     # Const for this suite of tests
     bit_width_impl = BitWidthImplType.CONST
+    bit_width = torch.tensor(bit_width, dtype=torch.float)
     quant_type = QuantType.INT
-    inp = torch.randn(SHAPE)
-
+    inp = torch.nn.Parameter(torch.randn(SHAPE))
     obj = WeightQuantProxy(tracked_parameter_list_init=inp,
                            bit_width=bit_width,
                            quant_type=quant_type,
@@ -195,8 +198,8 @@ def test_weight_quant_proxy_scaling_const_nobt(bit_width, scaling_impl_type):
 def test_weight_quant_proxy_scaling_const_bt(quant_type, bit_width, scaling_impl_type):
     # Const for this suite of tests
     bit_width_impl = BitWidthImplType.CONST
-    inp = torch.randn(SHAPE)
-
+    inp = torch.nn.Parameter(torch.randn(SHAPE))
+    bit_width = torch.tensor(bit_width, dtype=torch.float)
     obj = WeightQuantProxy(tracked_parameter_list_init=inp,
                            bit_width=bit_width,
                            quant_type=quant_type,
@@ -231,8 +234,8 @@ def test_weight_quant_proxy_bit_width_impl(bit_width_impl, bit_width, expected_i
     # Const for this suite of tests
     scaling_impl_type = ScalingImplType.CONST
     quant_type = QuantType.INT
-    inp = torch.randn(SHAPE)
-
+    bit_width = torch.tensor(bit_width, dtype=torch.float)
+    inp = torch.nn.Parameter(torch.randn(SHAPE))
     obj = WeightQuantProxy(tracked_parameter_list_init=inp,
                            bit_width=bit_width,
                            quant_type=quant_type,
@@ -267,6 +270,7 @@ def test_runtime_proxy_stats(scaling_impl_type, bit_width, quant_type):
     scaling_stats_op = StatsOp.MAX
     if quant_type is QuantType.BINARY:
         bit_width = 1
+    bit_width = torch.tensor(bit_width, dtype=torch.float)
 
     obj = ActivationQuantProxy(activation_impl=torch.nn.Identity(),
                                bit_width=bit_width,
@@ -310,6 +314,7 @@ def test_runtime_proxy_stats(scaling_stats_op, scaling_impl_op, scaling_impl_typ
     bit_width_impl = BitWidthImplType.CONST
     if quant_type is QuantType.BINARY:
         bit_width = 1
+    bit_width = torch.tensor(bit_width, dtype=torch.float)
 
     obj = ActivationQuantProxy(activation_impl=torch.nn.Identity(),
                                bit_width=bit_width,
@@ -350,6 +355,7 @@ def test_runtime_proxy_stats(bit_width_impl, expected_impl, bit_width):
     scaling_impl_type = ScalingImplType.CONST
     scaling_stats_op = StatsOp.MAX
     quant_type = QuantType.INT
+    bit_width = torch.tensor(bit_width, dtype=torch.float)
 
     obj = ActivationQuantProxy(activation_impl=torch.nn.Identity(),
                                bit_width=bit_width,
