@@ -19,8 +19,8 @@ from brevitas.core.function_wrapper import TensorClamp, TensorClampSte, Identity
 # Constants
 OUTCHANNEL = 20
 SCALING_MIN_VAL = 0.0
-MIN_BIT_WIDTH = 3
-MAX_BIT_WIDTH = 8
+MIN_BIT_WIDTH = torch.tensor(3.0, dtype=torch.float)
+MAX_BIT_WIDTH = torch.tensor(8.0, dtype=torch.float)
 SHAPE = (1, 10, 5, 5)
 
 # Situational Constants
