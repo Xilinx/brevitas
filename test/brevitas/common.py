@@ -29,7 +29,8 @@ def combine_conditions(*decs):
 # Set Constants
 RTOL = 0
 ATOL = 1e-23
-
+MIN_BIT_WIDTH=1
+MAX_BIT_WIDTH=8
 FP_BIT_WIDTH = 32
 
 # Define custom type of floating point generator.
