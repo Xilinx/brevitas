@@ -71,7 +71,6 @@ def tensor_clamp_(x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor)
     return x
 
 
-@torch.jit.script
 def identity(x: torch.Tensor) -> torch.Tensor:
     """ Identity function
 
