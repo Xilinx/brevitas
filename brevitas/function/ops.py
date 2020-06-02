@@ -70,7 +70,7 @@ def tensor_clamp_(x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor)
     torch.max(x, min_val, out=x)
     return x
 
-@torch.jit.ignore
+@torch.jit.ignore  # Can't be jitted since it takes as input both tensors or int values
 def identity(x: torch.Tensor) -> torch.Tensor:
     """ Identity function
 

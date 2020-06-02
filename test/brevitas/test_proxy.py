@@ -6,11 +6,11 @@ from brevitas.core.scaling import StandaloneScaling, RuntimeStatsScaling, Affine
 from brevitas.core.stats import AbsAve, AbsMax, AbsMaxAve
 from brevitas.core.restrict_val import FloatToIntImplType
 from brevitas.core.bit_width import BitWidthImplType, BitWidthConst, BitWidthParameter
-from brevitas.core.quant import QuantType
+from brevitas.core.quant import QuantType, PrescaledRestrictIntQuant, PrescaledRestrictIntQuantWithInputBitWidth
 from brevitas.core.restrict_val import RestrictValueType
 import pytest
 from brevitas.core.stats import StatsOp
-from brevitas.proxy.parameter_quant import WeightQuantProxy
+from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy
 from brevitas.proxy.runtime_quant import ActivationQuantProxy
 import torch
 from torch.nn import Parameter
@@ -383,3 +383,32 @@ def test_runtime_proxy_stats(bit_width_impl, expected_impl, bit_width):
                                scaling_stats_sigma=SCALING_STATS_SIGMA)
 
     assert isinstance(obj.fused_activation_quant_proxy.tensor_quant.msb_clamp_bit_width_impl, expected_impl)
+
+
+@given(bit_width=bit_width_st)
+def test_bias_quant_proxy_external_bitwidth(bit_width):
+    quant_type = QuantType.INT
+    scale_factor = torch.tensor(1.0)
+    inp = torch.nn.Parameter(torch.randn(SHAPE))
+    obj = BiasQuantProxy(quant_type=quant_type,
+                         narrow_range=NARROW_RANGE,
+                         bit_width=bit_width)
+    _, _, input_bit_width = obj(inp, scale_factor, input_bit_width=None)
+
+    assert isinstance(obj.tensor_quant, PrescaledRestrictIntQuant)
+    assert input_bit_width == bit_width
+
+@given(bit_width=bit_width_st)
+def test_bias_quant_proxy_input_bitwidth(bit_width):
+    quant_type = QuantType.INT
+    inp = torch.nn.Parameter(torch.randn(SHAPE))
+    scale_factor = torch.tensor(1.0)
+    bit_width = torch.tensor(bit_width, dtype=torch.float)
+    obj = BiasQuantProxy(quant_type=quant_type,
+                         narrow_range=NARROW_RANGE,
+                         bit_width=None)
+    _, _, input_bit_width = obj(inp, scale_factor, bit_width)
+
+    assert isinstance(obj.tensor_quant, PrescaledRestrictIntQuantWithInputBitWidth)
+    assert input_bit_width == bit_width
+
