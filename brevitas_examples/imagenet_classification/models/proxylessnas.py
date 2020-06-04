@@ -23,7 +23,6 @@ SOFTWARE.
 __all__ = ['quant_proxylessnas_mobile14']
 
 import torch.nn as nn
-from brevitas.quant_tensor import pack_quant_tensor
 
 from .common import *
 
@@ -276,9 +275,9 @@ class ProxylessNAS(nn.Module):
 
     def forward(self, x):
         x = self.features(x)
-        x, scale, bit_width = self.final_pool(x)
+        x = self.final_pool(x)
         x = x.view(x.size(0), -1)
-        x = self.output(pack_quant_tensor(x, scale, bit_width))
+        x = self.output(x)
         return x
 
 
