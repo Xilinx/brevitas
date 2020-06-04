@@ -57,6 +57,7 @@ class QuantLayer(object):
         # .forward with an appropriately-sized input at least once before export
         self.export_in_shape = None
         self.export_out_shape = None
+        self.export_out_bit_width = None
 
     @property
     def export_mode(self):
@@ -79,6 +80,8 @@ class QuantLayer(object):
                     output_scale,
                     output_bit_width):
         self.export_out_shape = output.shape
+        self.export_out_bit_width = output_bit_width
+
         if self.return_quant_tensor:
             return QuantTensor(tensor=output, scale=output_scale, bit_width=output_bit_width)
         else:

@@ -1,5 +1,6 @@
 import torch
 from torch.autograd import Function
+from brevitas.quant_tensor import pack_quant_tensor
 
 class QuantizedLinearPlaceholderFunction(Function):
     @staticmethod
@@ -73,3 +74,20 @@ class QuantReLUPlaceholderFunction(Function):
     @staticmethod
     def forward(ctx, input, qnt_type, thres, bias, scale):
         return input.clamp(0)
+
+class QuantAvgPool2dPlaceholderFunction(Function):
+    @staticmethod
+    def symbolic(g, input, out_shape, out_scale, out_bit_width, kernel, stride, shift_tensor):
+        import pdb; pdb.set_trace()
+        ret = g.op('AveragePool', input, kernel_dim_i = kernel,
+            stride_dim_i = stride, quant_type_s = quant_type)
+        ret = g.op('Cast', ret, to_s = "TensorProto.UINT32")
+        ret = g.op('BitShift', ret, shift_tensor, direction_s="RIGHT")
+        if scale is not None:
+            ret = g.op('Mul', ret, out_scale)
+        return ret
+
+    @staticmethod
+    def forward(ctx, input, out_shape, out_scale, out_bit_width, kernel, stride, shift_tensor):
+        out_tensor = torch.empty(out_shape, dtype = torch.float)
+        return pack_quant_tensor(out_tensor, out_scale, out_bit_width)
