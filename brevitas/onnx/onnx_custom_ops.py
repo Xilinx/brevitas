@@ -58,7 +58,7 @@ class QuantizedHardTanhPlaceholderFunction(Function):
     def forward(ctx, input, qnt_type, thres, bias, scale):
         return input.clamp(0)
 
-# Do we need a separate Place holder for this? 
+# Do we need a separate Place holder for this?
 # Use QuantizedHardTanhPlaceholderFunction?
 # keeping same interface
 class QuantReLUPlaceholderFunction(Function):
@@ -73,3 +73,17 @@ class QuantReLUPlaceholderFunction(Function):
     @staticmethod
     def forward(ctx, input, qnt_type, thres, bias, scale):
         return input.clamp(0)
+
+
+class QuantAvgPool2dPlaceholderFunction(Function):
+    @staticmethod
+    def symbolic(g, input, out_shape, kernel, stride, signed, ibits, obits):
+        ret = g.op('QuantAvgPool2d', input, kernel_i = kernel,
+            stride_i = stride, signed_i = signed, ibits_i = ibits,
+            obits_i = obits
+        )
+        return ret
+
+    @staticmethod
+    def forward(ctx, input, out_shape, kernel, stride, signed, ibits, obits):
+        return torch.empty(out_shape, dtype = torch.float)
