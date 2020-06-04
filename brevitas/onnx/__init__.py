@@ -76,18 +76,28 @@ def _move_domain_attributes_into_domain(model):
                 n.attribute.remove(a)
     return model
 
-def export_finn_onnx(module, input_shape, export_path, torch_onnx_kwargs = {}):
-    """Export given module with Brevitas layers to FINN-ONNX with some cleanup."""
+def export_finn_onnx(module, input_shape, export_path, input_t = None,
+    torch_onnx_kwargs = {}):
+    """Export given module with Brevitas layers to FINN-ONNX with some cleanup.
+    * input_shape : tuple describing the shape of network input e.g. (1, 1, 28, 28)
+    * export_path : ONNX filename to export to
+    * input_t : if specified, do an initial forward pass with this value. this
+                may be necessary for QuantTensor caching.
+    * torch_onnx_kwargs : will be passed as kwargs to torch.onnx.export
+    """
     if onnx is None or opt is None:
         raise ModuleNotFoundError("Installation of ONNX is required.")
 
     with torch.no_grad():
         # TODO maybe consider a deepcopy of the module first?
         module = module.eval()
-        input_t = torch.empty(input_shape, dtype=torch.float)
+        if input_t is None:
+            input_t = torch.empty(input_shape, dtype=torch.float)
         # do a forward pass with the dummy input to e.g. store per-layer input
         # and output shapes
         output_t = module.forward(input_t)
+        # override any given input_t to make sure it's a standard PyTorch tensor
+        input_t = torch.empty(input_shape, dtype=torch.float)
         # enable export mode and call export
         _prepare_for_finn_onnx_export(module, enable_export = True)
         torch.onnx.export(module, input_t, export_path, **torch_onnx_kwargs)
