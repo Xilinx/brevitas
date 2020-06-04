@@ -31,8 +31,6 @@ __all__ = ['quant_mobilenet_v1']
 from torch import nn
 from torch.nn import Sequential
 
-from brevitas.quant_tensor import pack_quant_tensor
-
 from .common import *
 
 
@@ -149,10 +147,10 @@ class MobileNet(nn.Module):
                                         weight_scaling_per_output_channel=False)
 
     def forward(self, x):
-        quant_tensor = self.features(x)
-        x, scale, bit_width = self.final_pool(quant_tensor)
+        x = self.features(x)
+        x = self.final_pool(x)
         x = x.view(x.size(0), -1)
-        out = self.output(pack_quant_tensor(x, scale, bit_width))
+        out = self.output(x)
         return out
 
 
