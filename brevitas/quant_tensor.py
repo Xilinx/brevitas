@@ -61,6 +61,13 @@ class QuantTensor(namedtuple("QuantTensor", ["tensor", "scale", "bit_width"])):
         if not torch.allclose(self.scale, other.scale):
             raise Exception("Scalign factors are different")
 
+    def view(self, *args, **kwargs):
+        output = pack_quant_tensor(self.tensor.view(*args, **kwargs), self.scale, self.bit_width)
+        return output
+
+    def size(self, *args, **kwargs):
+        return self.tensor.size(*args, **kwargs)
+
     # Reference: https://docs.python.org/3/reference/datamodel.html#emulating-numeric-types
 
     def __neg__(self):
