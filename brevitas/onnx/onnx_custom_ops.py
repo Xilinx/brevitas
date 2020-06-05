@@ -78,9 +78,9 @@ class QuantReLUPlaceholderFunction(Function):
 class QuantAvgPool2dPlaceholderFunction(Function):
     @staticmethod
     def symbolic(g, input, out_shape, kernel, stride, signed, ibits, obits):
-        ret = g.op('QuantAvgPool2d', input, kernel_i = kernel,
-            stride_i = stride, signed_i = signed, ibits_i = ibits,
-            obits_i = obits
+        ret = g.op('QuantAvgPool2d', input, domain_s = "finn",
+            kernel_i = kernel, stride_i = stride, signed_i = signed,
+            ibits_i = ibits, obits_i = obits
         )
         return ret
 
