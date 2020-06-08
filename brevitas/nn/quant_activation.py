@@ -179,6 +179,34 @@ class QuantReLU(QuantActivation):
                     return "UINT%d" % ia["bit_width"]
                 else:
                     raise Exception("Unsupported bitwidth for export")
+        elif(
+            ia["bit_width_impl_type"] == BitWidthImplType.CONST and
+            ia["float_to_int_impl_type"] == FloatToIntImplType.ROUND and
+            ia["scaling_stats_sigma"] == 2.0 and
+            ia["scaling_stats_op"] == StatsOp.MEAN_LEARN_SIGMA_STD and
+            ia["scaling_stats_buffer_momentum"] == 0.1 and
+            ia["scaling_stats_permute_dims"] == (1, 0, 2, 3) and
+            len(ia["per_channel_broadcastable_shape"]) == 4 and
+            ia["per_channel_broadcastable_shape"][0] == 1 and
+            ia["per_channel_broadcastable_shape"][2] == 1 and
+            ia["per_channel_broadcastable_shape"][3] == 1 and
+            ia["min_overall_bit_width"] == 2 and
+            ia["max_overall_bit_width"] == None and
+            ia["bit_width_impl_override"] == None and
+            ia["restrict_bit_width_type"] == RestrictValueType.INT and
+            ia["override_pretrained_bit_width"] == False and
+            ia["return_quant_tensor"] == True
+            ):
+            if ia["bit_width"] == 1 and ia["quant_type"] == QuantType.BINARY:
+                raise Exception("export_mode: BIPOLAR activation type unsupported by ReLu")
+                #return "BIPOLAR"
+            elif ia["quant_type"] == QuantType.INT:
+                bw = ia["bit_width"]
+                if bw in [1,2,4,8,16]:
+                    return "UINT%d" % ia["bit_width"]
+                else:
+                    raise Exception("Unsupported bitwidth for export")
+
         else:
             raise Exception("Unsupported config combination for export")
 
@@ -195,11 +223,30 @@ class QuantReLU(QuantActivation):
         self.export_act_bias = None
         n_distinct_values = 2 ** ia["bit_width"]
         n_thresholds = n_distinct_values - 1
-        step = torch.abs(self.export_act_scale)
-        self.export_thres = torch.empty([1, n_thresholds])
-        min_thres = step/2 
-        for t in range(n_thresholds):
-            self.export_thres[0][t] = min_thres + step * t
+        if ia["per_channel_broadcastable_shape"] is None:
+            channels = 1
+            step = torch.abs(self.export_act_scale) 
+            self.export_thres = torch.empty([channels, n_thresholds])
+            min_thres = step/2
+            for t in range(n_thresholds):
+                self.export_thres[0][t] = min_thres + step * t
+        else:
+            if ia["scaling_per_channel"] is True:
+                channels = ia["per_channel_broadcastable_shape"][1]
+                step = torch.abs(self.export_act_scale).flatten()
+                self.export_thres = torch.empty([channels, n_thresholds])
+                min_thres = step/2
+                for c in range(channels):
+                    for t in range(n_thresholds):
+                        self.export_thres[c][t] = min_thres[c] + step[c] * t
+            else:
+                channels = ia["per_channel_broadcastable_shape"][1]
+                step = torch.abs(self.export_act_scale).flatten()
+                self.export_thres = torch.empty([channels, n_thresholds])
+                min_thres = step/2
+                for c in range(channels):
+                    for t in range(n_thresholds):
+                        self.export_thres[c][t] = min_thres + step * t
 
 
     def forward(self, input):
