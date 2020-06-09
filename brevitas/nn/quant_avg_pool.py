@@ -98,7 +98,7 @@ class QuantAvgPool2d(QuantLayer, AvgPool2d):
             x = QuantAvgPool2dPlaceholderFunction.apply(
                 input_tensor, self.export_out_shape, self.kernel_size,
                 self.stride, self.signed, self.export_ibits,
-                self.export_obits
+                self.export_obits, self.export_in_scale
             )
             # scale & bitwidth not propagated during export
             return x
