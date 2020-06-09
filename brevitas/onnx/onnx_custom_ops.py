@@ -77,13 +77,13 @@ class QuantReLUPlaceholderFunction(Function):
 
 class QuantAvgPool2dPlaceholderFunction(Function):
     @staticmethod
-    def symbolic(g, input, out_shape, kernel, stride, signed, ibits, obits):
-        ret = g.op('QuantAvgPool2d', input, domain_s = "finn",
+    def symbolic(g, input, out_shape, kernel, stride, signed, ibits, obits, scale):
+        ret = g.op('QuantAvgPool2d', input, scale, domain_s = "finn",
             kernel_i = kernel, stride_i = stride, signed_i = signed,
             ibits_i = ibits, obits_i = obits
         )
         return ret
 
     @staticmethod
-    def forward(ctx, input, out_shape, kernel, stride, signed, ibits, obits):
+    def forward(ctx, input, out_shape, kernel, stride, signed, ibits, obits, scale):
         return torch.empty(out_shape, dtype = torch.float)
