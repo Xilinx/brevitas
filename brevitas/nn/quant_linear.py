@@ -124,7 +124,7 @@ class QuantLinear(QuantLayer, Linear):
             self.weight_quant = weight_quant_override
             self.weight_quant.add_tracked_tensor(self.weight)
         else:
-            weight_scaling_stats_input_concat_dim = 1
+            weight_scaling_stats_input_concat_dim = 0
             if weight_scaling_per_output_channel:
                 weight_stats_input_view_shape_impl = StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS
                 weight_scaling_shape = (self.out_features, 1)
@@ -197,10 +197,7 @@ class QuantLinear(QuantLayer, Linear):
             ia["weight_restrict_bit_width_type"] == RestrictValueType.INT and
             ia["weight_min_overall_bit_width"] == 2 and
             ia["weight_max_overall_bit_width"] == None and
-            ia["weight_override_pretrained_bit_width"] == False and
-            ia["compute_output_scale"] == False and
-            ia["compute_output_bit_width"] == False and
-            ia["return_quant_tensor"] == False
+            ia["weight_override_pretrained_bit_width"] == False
         ):
             return "INT%d" % ia["weight_bit_width"]
         else:

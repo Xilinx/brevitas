@@ -51,6 +51,7 @@ from brevitas.function.ops import max_uint
 from brevitas.nn.quant_layer import QuantLayer
 from brevitas.proxy.runtime_quant import TruncQuantProxy
 from brevitas.quant_tensor import pack_quant_tensor
+from brevitas.onnx.onnx_custom_ops import QuantAvgPool2dPlaceholderFunction
 
 
 class QuantAvgPool2d(QuantLayer, AvgPool2d):
@@ -84,16 +85,32 @@ class QuantAvgPool2d(QuantLayer, AvgPool2d):
                                                  explicit_rescaling=explicit_rescaling,
                                                  override_pretrained_bit_width=False)
 
+    @QuantLayer.export_mode.setter
+    def export_mode(self, value):
+        self._export_mode = value
+        self.export_signed = 1 if self.signed else 0
+        self.export_ibits = int(self.export_in_bit_width.detach().item())
+        self.export_obits = int(self.export_out_bit_width.detach().item())
+
     def forward(self, input):
         input_tensor, input_scale, input_bit_width = self.unpack_input(input)
-        x = super(QuantAvgPool2d, self).forward(input_tensor)
-        if self.quant_type != QuantType.FP:
-            x = x * (self.kernel_size * self.kernel_size)  # remove scaling introduced by average
-            output_bit_width = self.max_output_bit_width(input_bit_width)
-            x, output_scale, output_bit_width = self.accumulator_quant(x, input_scale, output_bit_width)
-            return pack_quant_tensor(x, output_scale, output_bit_width)
+        if self.export_mode:
+            x = QuantAvgPool2dPlaceholderFunction.apply(
+                input_tensor, self.export_out_shape, self.kernel_size,
+                self.stride, self.signed, self.export_ibits,
+                self.export_obits, self.export_in_scale
+            )
+            # scale & bitwidth not propagated during export
+            return x
         else:
-            return pack_quant_tensor(x, input_scale, input_bit_width)
+            x = super(QuantAvgPool2d, self).forward(input_tensor)
+            if self.quant_type != QuantType.FP:
+                x = x * (self.kernel_size * self.kernel_size)  # remove scaling introduced by average
+                output_bit_width = self.max_output_bit_width(input_bit_width)
+                x, output_scale, output_bit_width = self.accumulator_quant(x, input_scale, output_bit_width)
+                return self.pack_output(x, output_scale, output_bit_width)
+            else:
+                return self.pack_output(x, input_scale, input_bit_width)
 
     def max_output_bit_width(self, input_bit_width):
         max_uint_input = max_uint(bit_width=input_bit_width, narrow_range=False)
