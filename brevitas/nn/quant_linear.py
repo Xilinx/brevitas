@@ -197,10 +197,7 @@ class QuantLinear(QuantLayer, Linear):
             ia["weight_restrict_bit_width_type"] == RestrictValueType.INT and
             ia["weight_min_overall_bit_width"] == 2 and
             ia["weight_max_overall_bit_width"] == None and
-            ia["weight_override_pretrained_bit_width"] == False and
-            ia["compute_output_scale"] == False and
-            ia["compute_output_bit_width"] == False and
-            ia["return_quant_tensor"] == False
+            ia["weight_override_pretrained_bit_width"] == False
         ):
             return "INT%d" % ia["weight_bit_width"]
         else:
