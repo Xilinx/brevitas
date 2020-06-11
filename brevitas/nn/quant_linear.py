@@ -212,8 +212,30 @@ class QuantLinear(QuantLayer, Linear):
         # if so this workaround prepare_for_export is not necessary.
         self.export_int_weight = torch.t(self.int_weight.type(torch.FloatTensor)).detach()
         self.export_quant_weight_scale = torch.t(self.quant_weight_scale.type(torch.FloatTensor)).detach()
+        self.export_input_node_scale = None
+
+        self.export_output_node_scale = self.export_quant_weight_scale
+        if self.compute_output_scale:
+            self.export_input_node_scale = self.export_in_scale.type(torch.FloatTensor).detach().view(-1)[0]
+            self.export_output_node_scale = self.export_out_scale.type(torch.FloatTensor).detach().view(-1)
+            if len(self.export_output_node_scale) == 1:
+                self.export_output_node_scale = self.export_output_node_scale[0]
+
+
+
         if self.bias is not None:
-            self.export_bias = torch.t(self.bias.type(torch.FloatTensor)).detach()
+            if self.export_out_scale is not None:
+                quant_bias, _, bias_bit_width = self.bias_quant(self.bias, 
+                            self.export_out_scale, self.export_out_bit_width)
+   
+                self.export_bias = torch.t(quant_bias.type(torch.FloatTensor)).detach()
+                self.export_bias /= self.export_output_node_scale
+                self.export_bias = torch.round(self.export_bias)
+            else:
+                self.export_bias = torch.t(self.bias.type(torch.FloatTensor)).detach()
+                # divide by scale as add is before mult
+                self.export_bias /= self.export_output_node_scale
+
         else:
             self.export_bias = None
 
@@ -242,8 +264,9 @@ class QuantLinear(QuantLayer, Linear):
         if self.export_mode:
             export_qnt_type = self.get_exportable_quantization_type()
             ret = QuantizedLinearPlaceholderFunction.apply(
-                input, self.export_int_weight, self.export_quant_weight_scale,
-                export_qnt_type, self.out_features, self.export_bias
+                input, self.export_int_weight, self.export_output_node_scale,
+                export_qnt_type, self.out_features, self.export_bias,
+                self.export_input_node_scale
                 )
             return ret
         else:
