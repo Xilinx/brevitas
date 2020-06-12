@@ -8,3 +8,4 @@ torch-stft
 sox
 tqdm
 soundfile
+numba<=0.49.1
