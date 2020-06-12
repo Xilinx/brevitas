@@ -240,8 +240,9 @@ class QuantLinear(QuantLayer, Linear):
             self.export_bias = None
 
         # export input quant type if available
-        ibw = int(self.export_in_bit_width.item())
+        ibw = self.export_in_bit_width
         if ibw is not None:
+            ibw = int(ibw.item())
             if ibw in [2,4,8,16,32]:
                 self.export_in_quant_type = "INT%d" % ibw
             else:
