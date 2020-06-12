@@ -239,6 +239,17 @@ class QuantLinear(QuantLayer, Linear):
         else:
             self.export_bias = None
 
+        # export input quant type if available
+        ibw = int(self.export_in_bit_width.item())
+        if ibw is not None:
+            if ibw in [2,4,8,16,32]:
+                self.export_in_quant_type = "INT%d" % ibw
+            else:
+                raise Exception("Unsupported input bitwidth for export")
+        else:
+            self.export_in_quant_type = ibw
+
+
     @property
     def int_weight(self):
         if isinstance(self.weight_quant.tensor_quant, IdentityQuant):
@@ -266,7 +277,7 @@ class QuantLinear(QuantLayer, Linear):
             ret = QuantizedLinearPlaceholderFunction.apply(
                 input, self.export_int_weight, self.export_output_node_scale,
                 export_qnt_type, self.out_features, self.export_bias,
-                self.export_input_node_scale
+                self.export_input_node_scale, self.export_in_quant_type
                 )
             return ret
         else:

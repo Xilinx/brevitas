@@ -3,10 +3,13 @@ from torch.autograd import Function
 
 class QuantizedLinearPlaceholderFunction(Function):
     @staticmethod
-    def symbolic(g, x, Wt, scale_factor, qnt_type, out_features, bias,in_scale):
+    def symbolic(g, x, Wt, scale_factor, w_qnt_type, out_features, bias, in_scale, in_qnt_type):
         if in_scale is not None:
-            x = g.op('Div', x, in_scale)
-        ret = g.op('MatMul', x, Wt, weight_qnt_s = qnt_type)
+            if in_qnt_type is not None:
+                x = g.op('Div', x, in_scale, activation_qnt_s = in_qnt_type)
+            else:
+                x = g.op('Div', x, in_scale)
+        ret = g.op('MatMul', x, Wt, weight_qnt_s = w_qnt_type)
         if bias is not None:
             ret = g.op('Add', ret, bias)
         if scale_factor is not None:
@@ -16,7 +19,7 @@ class QuantizedLinearPlaceholderFunction(Function):
         return ret
 
     @staticmethod
-    def forward(ctx, x, Wt, scale_factor, qnt_type, out_features, bias,in_scale):
+    def forward(ctx, x, Wt, scale_factor, w_qnt_type, out_features, bias, in_scale, in_qnt_type):
         return torch.empty(1, out_features, dtype = torch.float)
 
 class QuantizedConv2dPlaceholderFunction(Function):
