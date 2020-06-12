@@ -85,6 +85,19 @@ class QuantAvgPool2d(QuantLayer, AvgPool2d):
                                                  explicit_rescaling=explicit_rescaling,
                                                  override_pretrained_bit_width=False)
 
+    def get_exportable_quantization_type(self):
+        if self.quant_type == QuantType.INT:
+            bw = self.export_ibits
+            if bw in [2,4,8,16,32]:
+                if self.signed is False:
+                    return "UINT%d" % bw
+                else:
+                    return "INT%d" % bw
+            else:
+                raise Exception("Unsupported bitwidth for export")
+        else:
+            raise Exception("Unsupported QuantType for export")
+
     @QuantLayer.export_mode.setter
     def export_mode(self, value):
         self._export_mode = value
@@ -98,7 +111,8 @@ class QuantAvgPool2d(QuantLayer, AvgPool2d):
             x = QuantAvgPool2dPlaceholderFunction.apply(
                 input_tensor, self.export_out_shape, self.kernel_size,
                 self.stride, self.signed, self.export_ibits,
-                self.export_obits, self.export_in_scale
+                self.export_obits, self.export_in_scale,
+                self.get_exportable_quantization_type()
             )
             # scale & bitwidth not propagated during export
             return x
