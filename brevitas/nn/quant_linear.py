@@ -239,6 +239,7 @@ class QuantLinear(QuantLayer, Linear):
         else:
             self.export_bias = None
 
+
         # export input quant type if available
         ibw = self.export_in_bit_width
         if ibw is not None:
@@ -249,6 +250,7 @@ class QuantLinear(QuantLayer, Linear):
                 raise Exception("Unsupported input bitwidth for export")
         else:
             self.export_in_quant_type = ibw
+
 
 
     @property
