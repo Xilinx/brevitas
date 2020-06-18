@@ -14,17 +14,22 @@ except ImportError:
 from brevitas.function.ops_ste import ceil_ste
 from brevitas.function.ops import max_uint
 from .quant_layer import QuantLayer
-
+from typing import Tuple
 
 class HadamardClassifier(QuantLayer, nn.Module):
 
     def __init__(self,
                  in_channels,
                  out_channels,
+                 scaling_shape: Tuple[int, ...],
                  fixed_scale=False,
+                 flipped_signed=False,
                  compute_output_scale: bool = False,
                  compute_output_bit_width: bool = False,
-                 return_quant_tensor: bool = False):
+                 return_quant_tensor: bool = False,
+                 track_running_norm: bool = False,
+                 momentum_norm: float = 0.1,
+                 ):
         QuantLayer.__init__(self,
                             compute_output_scale=compute_output_scale,
                             compute_output_bit_width=compute_output_bit_width,
@@ -40,18 +45,40 @@ class HadamardClassifier(QuantLayer, nn.Module):
         self.register_buffer('proj', mat)
         init_scale = 1. / math.sqrt(self.out_channels)
         if fixed_scale:
-            self.register_buffer('scale', torch.tensor(init_scale))
+            self.register_buffer('scale', torch.full(scaling_shape, init_scale))
         else:
-            self.scale = nn.Parameter(torch.tensor(init_scale))
+            self.scale = nn.Parameter(torch.full(scaling_shape, init_scale))
+        if flipped_signed:
+            self.sign = -1
+        else:
+            self.sign = 1
+        if len(scaling_shape) > 1:
+            self.p_norm = 2
+            self.dim_norm = -1
+        else:
+            self.p_norm = 'fro'
+            self.dim_norm = None
+
+        self.track_running_norm = track_running_norm
+        self.momentum_norm = momentum_norm
+        if self.track_running_norm:
+            self.register_buffer('running_norm', torch.zeros(scaling_shape))
+
         self.eps = 1e-8
 
     def forward(self, x):
         output_scale = None
         output_bit_width = None
         x, input_scale, input_bit_width = self.unpack_input(x)
-        norm = x.norm(p='fro', keepdim=True) + self.eps
-        x = x / norm
-        out = - self.scale * nn.functional.linear(x, self.proj[:self.out_channels, :self.in_channels])
+        norm = x.norm(p=self.p_norm, dim=self.dim_norm, keepdim=True) + self.eps
+        if self.track_running_norm and self.training:
+            self.running_norm = (1 - self.momentum_norm) * self.running_norm + self.momentum_norm * norm.detach()
+
+        if not self.training and self.track_running_norm:
+            x = x / self.running_norm
+        else:
+            x = x / norm
+        out = self.sign * self.scale * nn.functional.linear(x, self.proj[:self.out_channels, :self.in_channels])
         if self.compute_output_scale:
             output_scale = input_scale * self.scale / norm
         if self.compute_output_bit_width:
