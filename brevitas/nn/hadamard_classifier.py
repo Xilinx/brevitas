@@ -23,7 +23,7 @@ class HadamardClassifier(QuantLayer, nn.Module):
                  in_channels,
                  out_channels,
                  fixed_scale=False,
-                 flipped_signed=False,
+                 flipped_signed=True,
                  compute_output_scale: bool = False,
                  scaling_per_output_channel: bool = True,
                  compute_output_bit_width: bool = False,
