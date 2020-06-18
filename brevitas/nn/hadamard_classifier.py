@@ -15,7 +15,6 @@ except ImportError:
 from brevitas.function.ops_ste import ceil_ste
 from brevitas.function.ops import max_uint
 from .quant_layer import QuantLayer
-from typing import Tuple
 
 class HadamardClassifier(QuantLayer, nn.Module):
 
@@ -25,7 +24,7 @@ class HadamardClassifier(QuantLayer, nn.Module):
                  fixed_scale=False,
                  flipped_signed=True,
                  compute_output_scale: bool = False,
-                 scaling_per_output_channel: bool = True,
+                 scaling_per_output_channel: bool = False,
                  compute_output_bit_width: bool = False,
                  return_quant_tensor: bool = False,
                  track_running_norm: bool = False,
