@@ -335,7 +335,7 @@ class TruncQuantProxy(QuantProxy):
                                                                       override_pretrained=override_pretrained_bit_width)
             tensor_clamp_impl = TensorClamp()
             float_to_int_impl = RestrictValue(restrict_value_type=RestrictValueType.INT,
-                                              float_to_int_impl_type=FloatToIntImplType.FLOOR,
+                                              float_to_int_impl_type=FloatToIntImplType.ROUND_TOWARDS_ZERO,
                                               min_val=None)
             msb_clamp_bit_width_impl = IdentityBitWidth()
             self.tensor_quant = PrescaledRestrictIntQuantWithInputBitWidth(narrow_range=False,

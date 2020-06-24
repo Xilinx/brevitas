@@ -2,9 +2,9 @@ name: Test develop install
 
 on:
   push:
-    branches: [ master, infra, dev, feature/finn_onnx_export ]
+    branches: [ master, infra, dev, feature/finn_onnx_export, test_qntavgpool2d ]
   pull_request:
-    branches: [ master, infra, dev, feature/finn_onnx_export ]
+    branches: [ master, infra, dev, feature/finn_onnx_export, test_qntavgpool2d ]
 
 jobs:
   build:
