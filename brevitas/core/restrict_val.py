@@ -46,7 +46,7 @@ import torch
 from torch.nn import Sequential
 
 from brevitas.utils.python_utils import AutoName
-from .function_wrapper import RoundSte, CeilSte, RoundTowardsZeroSte, Identity, PowerOfTwo, LogTwo, FloorSte, ClampMin
+from .function_wrapper import RoundSte, CeilSte, RoundToZeroSte, Identity, PowerOfTwo, LogTwo, FloorSte, ClampMin
 from brevitas.function.ops import identity
 
 class RestrictValueType(AutoName):
@@ -60,7 +60,7 @@ class FloatToIntImplType(AutoName):
     ROUND = auto()
     CEIL = auto()
     FLOOR = auto()
-    ROUND_TOWARDS_ZERO = auto()
+    ROUND_TO_ZERO = auto()
 
 
 class RestrictValueOpImplType(AutoName):
@@ -83,8 +83,8 @@ class RestrictValue(torch.jit.ScriptModule):
             float_to_int_impl = CeilSte()
         elif float_to_int_impl_type == FloatToIntImplType.FLOOR:
             float_to_int_impl = FloorSte()
-        elif float_to_int_impl_type == FloatToIntImplType.ROUND_TOWARDS_ZERO:
-            float_to_int_impl = RoundTowardsZeroSte()
+        elif float_to_int_impl_type == FloatToIntImplType.ROUND_TO_ZERO:
+            float_to_int_impl = RoundToZeroSte()
         else:
             raise Exception("Float to int impl type {} not supported for restrict value"
                             .format(str(float_to_int_impl_type)))
