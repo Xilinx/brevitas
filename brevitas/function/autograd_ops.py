@@ -60,6 +60,20 @@ class scalar_clamp_ste_fn(torch.autograd.Function):
         """
         return grad_y, None, None
 
+class round_towards_zero_ste_fn(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, x: torch.Tensor):
+        """
+        """
+        y = torch.sign(x) * torch.floor(torch.abs(x))
+        return y
+
+    @staticmethod
+    def backward(ctx, grad_y):
+        """
+        """
+        return grad_y, None, None
+
 
 class tensor_clamp_ste_fn(torch.autograd.Function):
     """ Autograd function that implements tensor_clamp with a straight through estimator
