@@ -38,7 +38,8 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from brevitas.function.ops_ste import round_ste, tensor_clamp_ste, ceil_ste, floor_ste, round_towards_zero_ste
+from brevitas.function.ops_ste import round_ste, tensor_clamp_ste, ceil_ste, floor_ste
+from brevitas.function.ops import round_to_zero_ste
 from brevitas.function.shape import *
 from brevitas.function import tensor_clamp, identity
 
@@ -69,13 +70,13 @@ class FloorSte(torch.jit.ScriptModule):
     def forward(self, x: torch.Tensor):
         return floor_ste(x)
 
-class RoundTowardsZeroSte(torch.jit.ScriptModule):
+class RoundToZeroSte(torch.jit.ScriptModule):
     def __init__(self) -> None:
-        super(RoundTowardsZeroSte, self).__init__()
+        super(RoundToZeroSte, self).__init__()
 
     @torch.jit.script_method
     def forward(self, x: torch.Tensor):
-        return round_towards_zero_ste(x)
+        return round_to_zero_ste(x)
 
 
 class CeilSte(torch.jit.ScriptModule):
