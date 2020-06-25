@@ -335,7 +335,7 @@ class TruncQuantProxy(QuantProxy):
                                                                       override_pretrained=override_pretrained_bit_width)
             tensor_clamp_impl = TensorClamp()
             float_to_int_impl = RestrictValue(restrict_value_type=RestrictValueType.INT,
-                                              float_to_int_impl_type=FloatToIntImplType.ROUND_TO_ZERO,
+                                              float_to_int_impl_type=FloatToIntImplType.FLOOR,
                                               min_val=None)
             msb_clamp_bit_width_impl = IdentityBitWidth()
             self.tensor_quant = PrescaledRestrictIntQuantWithInputBitWidth(narrow_range=False,
@@ -352,7 +352,13 @@ class TruncQuantProxy(QuantProxy):
         trunc_bit_width = self.lsb_trunc_bit_width_impl(input_bit_width, self.zero_hw_sentinel)
         trunc_scale = 2.0 ** trunc_bit_width
         output_scale = trunc_scale * input_scale
-        x, output_scale, input_bit_width = self.tensor_quant(x, output_scale, input_bit_width, self.zero_hw_sentinel)
+        if self.training:
+            x, output_scale, input_bit_width = self.tensor_quant(x, output_scale, input_bit_width, self.zero_hw_sentinel)
+        else: # avoid fp errors at inference time
+            x = round_ste(x / input_scale)
+            x = x / trunc_scale
+            x = self.tensor_quant.int_quant.float_to_int_impl(x)
+            x = x * output_scale
         if self.explicit_rescaling:
             x = x / trunc_scale  # rescaling is explicit, so the truncation scale stays with x rather with output_scale
             output_scale = output_scale / trunc_scale
