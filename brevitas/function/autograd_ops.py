@@ -60,6 +60,7 @@ class scalar_clamp_ste_fn(torch.autograd.Function):
         """
         return grad_y, None, None
 
+
 class round_to_zero_ste_fn(torch.autograd.Function):
     @staticmethod
     def forward(ctx, x: torch.Tensor):
