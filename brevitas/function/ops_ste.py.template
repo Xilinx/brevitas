@@ -237,3 +237,8 @@ def ternary_sign_ste(x: torch.Tensor) -> torch.Tensor:
 
     """
     return ${function_prefix}ternary_sign_ste${function_suffix}(x)
+
+
+${torch_jit_template}
+def round_to_zero_ste(x:torch.Tensor) -> torch.Tensor:
+    return ${function_prefix}round_to_zero_ste${function_suffix}(x)

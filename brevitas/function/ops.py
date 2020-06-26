@@ -39,7 +39,6 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import torch
-from brevitas.function.autograd_ops import round_to_zero_ste_fn
 
 @torch.jit.script
 def tensor_clamp(x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor) -> torch.Tensor:
@@ -70,9 +69,6 @@ def tensor_clamp_(x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor)
     torch.max(x, min_val, out=x)
     return x
 
-@torch.jit.ignore
-def round_to_zero_ste(x: torch.Tensor) -> torch.Tensor:
-    return round_to_zero_ste_fn.apply(x)
 
 @torch.jit.script
 def identity(x: torch.Tensor) -> torch.Tensor:

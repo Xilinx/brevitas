@@ -51,4 +51,5 @@ static auto registry =
     .op("brevitas::binary_sign_ste", &binary_sign_ste)
     .op("brevitas::ternary_sign_ste", &ternary_sign_ste)
     .op("brevitas::ceil_ste", &ceil_ste)
-    .op("brevitas::floor_ste", &floor_ste);
+    .op("brevitas::floor_ste", &floor_ste)
+    .op("brevitas::round_to_zero", &round_to_zero);
