@@ -50,6 +50,7 @@ from brevitas.function.ops import min_int, max_int
 from brevitas.utils.python_utils import AutoName
 from .restrict_val import RestrictValue, RestrictValueType, FloatToIntImplType, RestrictValueOpImplType
 from .stats import StatsOp, StatsInputViewShapeImpl, ParameterListStats, RuntimeStats
+from .utils import StatelessBuffer
 
 SCALING_SCALAR_SHAPE = ()
 
@@ -65,7 +66,6 @@ class ScalingImplType(AutoName):
 
 
 class StandaloneScaling(torch.jit.ScriptModule):
-    __constants__ = ['const_value']
 
     def __init__(self,
                  scaling_init: torch.Tensor,
@@ -95,16 +95,16 @@ class StandaloneScaling(torch.jit.ScriptModule):
             self.const_value = None
         elif not is_parameter and scaling_init.dim() == 0:  # for fixed scalar scaling
             self.learned_value = None
-            self.const_value = scaling_init.item()
+            self.const_value = StatelessBuffer(scaling_init)
         else:
             raise Exception("Problem with init of standalone scaling from value {}".format(str(scaling_init)))
 
     @torch.jit.script_method
-    def forward(self, zero_hw_sentinel: torch.Tensor) -> torch.Tensor:
-        if self.const_value is not None:
-            value = self.const_value + zero_hw_sentinel
-        else:
+    def forward(self, ignored: torch.Tensor) -> torch.Tensor:
+        if self.learned_value is not None:
             value = self.learned_value
+        else:
+            value = self.const_value()
         value = self.restrict_value(value)
         return value
 
@@ -145,7 +145,6 @@ class AffineRescaling(torch.jit.ScriptModule):
 
 
 class StatsScaling(torch.jit.ScriptModule):
-    __constants__ = ['const_affine_weight', 'const_affine_bias']
 
     def __init__(self,
                  stats_op: StatsOp,
@@ -246,7 +245,7 @@ class ParameterStatsScaling(torch.jit.ScriptModule):
                                                stats_output_shape=stats_output_shape)
 
     @torch.jit.script_method
-    def forward(self, zero_hw_sentinel: torch.Tensor):
+    def forward(self, ignored: torch.Tensor):
         stats = self.parameter_list_stats()
         return self.stats_scaling_impl(stats)
 
