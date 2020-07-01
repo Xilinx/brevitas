@@ -78,7 +78,7 @@ class QuantActivation(QuantLayer, Module):
         scaling_impl = self.act_quant_proxy.fused_activation_quant_proxy.tensor_quant.scaling_impl
         current_status = scaling_impl.training
         scaling_impl.eval()
-        _, out, _ = self.act_quant_proxy()
+        _, out, _ = self.act_quant_proxy(self.act_quant_proxy._zero_hw_sentinel())
         scaling_impl.train(current_status)
         return out
 
