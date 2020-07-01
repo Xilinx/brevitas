@@ -93,24 +93,8 @@ class QuantReLU(QuantActivation):
     def __init__(self,
                  bit_width: int,
                  max_val: float,
-                 quant_type: QuantType = QuantType.FP,
-                 float_to_int_impl_type: FloatToIntImplType = FloatToIntImplType.ROUND,
-                 scaling_impl_type: ScalingImplType = ScalingImplType.PARAMETER,
-                 scaling_override: Optional[Module] = None,
-                 scaling_per_channel: bool = False,
-                 scaling_min_val: Optional[float] = SCALING_MIN_VAL,
-                 scaling_stats_sigma = 2.0,
-                 scaling_stats_op = StatsOp.MEAN_LEARN_SIGMA_STD,
-                 scaling_stats_buffer_momentum = 0.1,
-                 scaling_stats_permute_dims = (1, 0, 2, 3),
-                 per_channel_broadcastable_shape: Optional[Tuple[int, ...]] = None,
-                 min_overall_bit_width: Optional[int] = 2,
-                 max_overall_bit_width: Optional[int] = None,
-                 bit_width_impl_override: Union[BitWidthParameter] = None,
-                 bit_width_impl_type: BitWidthImplType = BitWidthImplType.CONST,
-                 restrict_bit_width_type: RestrictValueType = RestrictValueType.INT,
-                 restrict_scaling_type: RestrictValueType = RestrictValueType.LOG_FP,
-                 override_pretrained_bit_width: bool = False,
+                 quant_type: QuantType,
+                 quant_config: QuantActivationConfig = QuantActivationConfig(),
                  return_quant_tensor: bool = False):
         super(QuantReLU, self).__init__(return_quant_tensor=return_quant_tensor)
         activation_impl = nn.ReLU()
@@ -121,23 +105,7 @@ class QuantReLU(QuantActivation):
                                                     scaling_override=scaling_override,
                                                     min_val=0.0,
                                                     max_val=max_val,
-                                                    quant_type=quant_type,
-                                                    float_to_int_impl_type=float_to_int_impl_type,
-                                                    scaling_impl_type=scaling_impl_type,
-                                                    scaling_per_channel=scaling_per_channel,
-                                                    scaling_min_val=scaling_min_val,
-                                                    per_channel_broadcastable_shape=per_channel_broadcastable_shape,
-                                                    min_overall_bit_width=min_overall_bit_width,
-                                                    max_overall_bit_width=max_overall_bit_width,
-                                                    bit_width_impl_override=bit_width_impl_override,
-                                                    bit_width_impl_type=bit_width_impl_type,
-                                                    restrict_bit_width_type=restrict_bit_width_type,
-                                                    restrict_scaling_type=restrict_scaling_type,
-                                                    override_pretrained_bit_width=override_pretrained_bit_width,
-                                                    scaling_stats_sigma=scaling_stats_sigma,
-                                                    scaling_stats_permute_dims=scaling_stats_permute_dims,
-                                                    scaling_stats_op=scaling_stats_op,
-                                                    scaling_stats_buffer_momentum=scaling_stats_buffer_momentum)
+                                                    quant_type=quant_type)
 
 
 class QuantSigmoid(QuantActivation):

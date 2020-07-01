@@ -38,11 +38,72 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta
+from dataclasses import dataclass, field
+from typing import Optional, Union, Tuple
+
+from brevitas.core.bit_width import BitWidthImplType
+from brevitas.core.quant import QuantType
+from brevitas.core.stats import StatsOp
+from brevitas.core.restrict_val import RestrictValueType
+from brevitas.core.scaling import ScalingImplType, StatsInputViewShapeImpl
 from brevitas.quant_tensor import QuantTensor
 
 
 SCALING_MIN_VAL = 2.0 ** (-16)
+
+
+@dataclass
+class QuantConfig(metaclass=ABCMeta):
+    float_to_int_impl_type: FloatToIntImplType = FloatToIntImplType.ROUND
+    scaling_impl_type: ScalingImplType = ScalingImplType.PARAMETER
+    scaling_override: Optional[Module] = None
+    scaling_per_channel: bool = False
+    scaling_min_val: Optional[float] = SCALING_MIN_VAL
+    scaling_stats_sigma: float
+    scaling_stats_op: StatsOp
+    scaling_stats_buffer_momentum = 0.1
+    scaling_stats_permute_dims = (1, 0, 2, 3)
+    per_channel_broadcastable_shape: Optional[Tuple[int, ...]] = None
+    min_overall_bit_width: Optional[int] = 2
+    max_overall_bit_width: Optional[int] = None
+    bit_width_impl_override: Union[BitWidthParameter] = None
+    bit_width_impl_type: BitWidthImplType = BitWidthImplType.CONST
+    restrict_bit_width_type: RestrictValueType = RestrictValueType.INT
+    restrict_scaling_type: RestrictValueType = RestrictValueType.LOG_FP
+    override_pretrained_bit_width: bool = False
+
+
+@dataclass
+class QuantActivationConfig(QuantConfig):
+    scaling_stats_sigma = 2.0
+    scaling_stats_op = StatsOp.MEAN_LEARN_SIGMA_STD
+
+
+@dataclass
+class WeightQuantConfig:
+    narrow_range: bool = False
+    bit_width_impl_override: Union[BitWidthParameter] = None
+    bit_width_impl_type: BitWidthImplType = BitWidthImplType.CONST
+    restrict_bit_width_type: RestrictValueType = RestrictValueType.INT
+    bit_width: int = 32
+    min_overall_bit_width: Optional[int] = 2
+    max_overall_bit_width: Optional[int] = None
+    scaling_override: Optional[Module] = None
+    scaling_impl_type: ScalingImplType = ScalingImplType.STATS
+    scaling_const: Optional[float] = None
+    scaling_stats_op: StatsOp = StatsOp.MAX
+    scaling_per_output_channel: bool = False
+    scaling_min_val: float = SCALING_MIN_VAL
+    ternary_threshold: float = 0.5
+    restrict_scaling_type: RestrictValueType = RestrictValueType.LOG_FP
+    scaling_stats_sigma: float = 3.0
+    override_pretrained_bit_width: bool = False
+
+
+@dataclass
+class BiasQuantConfig:
+    narrow_range: bool = False
 
 
 class QuantLayer(object):

@@ -55,7 +55,7 @@ from brevitas.function.ops_ste import ceil_ste
 from brevitas.function.ops import max_uint
 from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy, WeightReg
 from brevitas import docstrings
-from .quant_layer import QuantLayer, SCALING_MIN_VAL
+from .quant_layer import QuantLayer, WeightQuantConfig, BiasQuantConfig
 
 __all__ = ['QuantLinear']
 
@@ -69,43 +69,32 @@ class QuantLinear(QuantLayer, Linear):
 
         %(weight_quant_proxy.parameters_with_prefix)s
     """
-    def __init__(self,
-                 in_features: int,
-                 out_features: int,
-                 bias: bool,
-                 bias_quant_type: QuantType = QuantType.FP,
-                 bias_narrow_range: bool = False,
-                 bias_bit_width: int = None,
-                 weight_quant_override: WeightQuantProxy = None,
-                 weight_quant_type: QuantType = QuantType.FP,
-                 weight_narrow_range: bool = False,
-                 weight_bit_width_impl_override: Union[BitWidthParameter, BitWidthConst] = None,
-                 weight_bit_width_impl_type: BitWidthImplType = BitWidthImplType.CONST,
-                 weight_restrict_bit_width_type: RestrictValueType = RestrictValueType.INT,
-                 weight_bit_width: int = 32,
-                 weight_min_overall_bit_width: Optional[int] = 2,
-                 weight_max_overall_bit_width: Optional[int] = None,
-                 weight_scaling_override: Optional[Module] = None,
-                 weight_scaling_impl_type: ScalingImplType = ScalingImplType.STATS,
-                 weight_scaling_const: Optional[float] = None,
-                 weight_scaling_stats_op: StatsOp = StatsOp.MAX,
-                 weight_scaling_per_output_channel: bool = False,
-                 weight_scaling_min_val: float = SCALING_MIN_VAL,
-                 weight_ternary_threshold: float = 0.5,
-                 weight_restrict_scaling_type: RestrictValueType = RestrictValueType.LOG_FP,
-                 weight_scaling_stats_sigma: float = 3.0,
-                 weight_override_pretrained_bit_width: bool = False,
-                 compute_output_scale: bool = False,
-                 compute_output_bit_width: bool = False,
-                 return_quant_tensor: bool = False) -> None:
-        QuantLayer.__init__(self,
-                            compute_output_scale=compute_output_scale,
-                            compute_output_bit_width=compute_output_bit_width,
-                            return_quant_tensor=return_quant_tensor)
-        Linear.__init__(self,
-                        in_features=in_features,
-                        out_features=out_features,
-                        bias=bias)
+    def __init__(
+            self,
+            in_features: int,
+            out_features: int,
+            bias: bool,
+            weight_bit_width: int = 8,
+            weight_quant_type: QuantType = QuantType.INT,
+            weight_quant_config: WeightQuantConfig = WeightQuantConfig(),
+            weight_quant_override: WeightQuantProxy = None,
+            bias_bit_width: int = None,
+            bias_quant_type: QuantType = QuantType.FP,
+            bias_quant_config: BiasQuantConfig = BiasQuantConfig(),
+            compute_output_scale: bool = False,
+            compute_output_bit_width: bool = False,
+            return_quant_tensor: bool = False) -> None:
+        QuantLayer.__init__(
+            self,
+            compute_output_scale=compute_output_scale,
+            compute_output_bit_width=compute_output_bit_width,
+            return_quant_tensor=return_quant_tensor)
+        Linear.__init__(
+            self,
+            in_features=in_features,
+            out_features=out_features,
+            bias=bias)
+
         if weight_quant_type == QuantType.FP and compute_output_bit_width:
             raise Exception("Computing output bit width requires enabling quantization")
         if bias_quant_type != QuantType.FP and not (compute_output_scale and compute_output_bit_width):
@@ -119,7 +108,7 @@ class QuantLinear(QuantLayer, Linear):
             self.weight_quant.add_tracked_tensor(self.weight)
         else:
             weight_scaling_stats_input_concat_dim = 0
-            if weight_scaling_per_output_channel:
+            if weight_quant_config.scaling_per_output_channel:
                 weight_stats_input_view_shape_impl = StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS
                 weight_scaling_shape = (self.out_features, 1)
                 weight_scaling_stats_reduce_dim = 1
@@ -128,35 +117,23 @@ class QuantLinear(QuantLayer, Linear):
                 weight_scaling_shape = SCALING_SCALAR_SHAPE
                 weight_scaling_stats_reduce_dim = None
 
-            if weight_scaling_stats_op == StatsOp.MAX_AVE:
+            if weight_quant_config.scaling_stats_op == StatsOp.MAX_AVE:
                 weight_stats_input_view_shape_impl = StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS
                 weight_scaling_stats_reduce_dim = 1
 
-            self.weight_quant = WeightQuantProxy(bit_width=weight_bit_width,
-                                                 quant_type=weight_quant_type,
-                                                 narrow_range=weight_narrow_range,
-                                                 scaling_override=weight_scaling_override,
-                                                 restrict_scaling_type=weight_restrict_scaling_type,
-                                                 scaling_const=weight_scaling_const,
-                                                 scaling_stats_op=weight_scaling_stats_op,
-                                                 scaling_impl_type=weight_scaling_impl_type,
-                                                 scaling_stats_reduce_dim=weight_scaling_stats_reduce_dim,
-                                                 scaling_shape=weight_scaling_shape,
-                                                 bit_width_impl_type=weight_bit_width_impl_type,
-                                                 bit_width_impl_override=weight_bit_width_impl_override,
-                                                 restrict_bit_width_type=weight_restrict_bit_width_type,
-                                                 min_overall_bit_width=weight_min_overall_bit_width,
-                                                 max_overall_bit_width=weight_max_overall_bit_width,
-                                                 tracked_parameter_list_init=self.weight,
-                                                 ternary_threshold=weight_ternary_threshold,
-                                                 scaling_stats_input_view_shape_impl=weight_stats_input_view_shape_impl,
-                                                 scaling_stats_input_concat_dim=weight_scaling_stats_input_concat_dim,
-                                                 scaling_stats_sigma=weight_scaling_stats_sigma,
-                                                 scaling_min_val=weight_scaling_min_val,
-                                                 override_pretrained_bit_width=weight_override_pretrained_bit_width)
-        self.bias_quant = BiasQuantProxy(quant_type=bias_quant_type,
-                                         narrow_range=bias_narrow_range,
-                                         bit_width=bias_bit_width)
+            self.weight_quant = WeightQuantProxy(
+                bit_width=weight_bit_width,
+                quant_type=weight_quant_type,
+                weight_quant_config=weight_quant_config,
+                scaling_stats_reduce_dim=weight_scaling_stats_reduce_dim,
+                scaling_shape=weight_scaling_shape,
+                tracked_parameter_list_init=self.weight,
+                scaling_stats_input_view_shape_impl=weight_stats_input_view_shape_impl,
+                scaling_stats_input_concat_dim=weight_scaling_stats_input_concat_dim)
+        self.bias_quant = BiasQuantProxy(
+            quant_type=bias_quant_type,
+            bit_width=bias_bit_width,
+            bias_quant_config=bias_quant_config)
 
     @property
     def int_weight(self):
