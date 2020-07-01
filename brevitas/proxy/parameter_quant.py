@@ -398,7 +398,7 @@ class BiasQuantProxy(ParameterQuantProxy):
                                               float_to_int_impl_type=FloatToIntImplType.ROUND,
                                               min_val=None)
             if bit_width is not None:
-                bit_width_impl = BitWidthConst(bit_width, restrict_bit_width_type=RestrictValueType.INT)
+                bit_width_impl = BitWidthConst(bit_width)
                 self.tensor_quant = PrescaledRestrictIntQuant(narrow_range=narrow_range,
                                                               signed=True,
                                                               tensor_clamp_impl=tensor_clamp_impl,
