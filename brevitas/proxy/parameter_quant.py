@@ -55,7 +55,7 @@ from brevitas.core.quant import QuantType, BinaryQuant, TernaryQuant, RescalingI
 from brevitas.core.quant import PrescaledRestrictIntQuant, PrescaledRestrictIntQuantWithInputBitWidth
 from brevitas.core.restrict_val import RestrictValueType, FloatToIntImplType, RestrictValue
 from brevitas.core.scaling import ScalingImplType, ParameterStatsScaling, StatsInputViewShapeImpl, IntScaling
-from brevitas.core.scaling import StandaloneScaling, SCALING_SCALAR_SHAPE
+from brevitas.core.scaling import ConstScaling, ParameterScaling, SCALING_SCALAR_SHAPE
 from brevitas.function.ops_ste import round_ste
 from brevitas.core.stats import StatsOp
 from brevitas import config
@@ -146,10 +146,9 @@ def _weight_quant_init_impl(bit_width: Optional[int],
                 if quant_type == QuantType.BINARY or quant_type == QuantType.TERNARY:
                     raise Exception("Parameter from stats scaling is currently not supported for binary/ternary")
                 scaling_init = stats_scaling().detach()
-                scaling_impl = StandaloneScaling(scaling_init=scaling_init,
+                scaling_impl = ParameterScaling(scaling_init=scaling_init,
                                                  parameter_shape=scaling_shape,
                                                  restrict_scaling_type=restrict_scaling_type,
-                                                 is_parameter=True,
                                                  scaling_min_val=scaling_min_val)
             else:
                 scaling_impl = stats_scaling
@@ -162,11 +161,9 @@ def _weight_quant_init_impl(bit_width: Optional[int],
                     scaling_const += math.sqrt(2.0 / two_dim_param.shape[1])
                 scaling_const /= len(tracked_parameter_list)
             scaling_init = torch.tensor(scaling_const)
-            scaling_impl = StandaloneScaling(scaling_init=scaling_init,
-                                             parameter_shape=SCALING_SCALAR_SHAPE,
-                                             restrict_scaling_type=restrict_scaling_type,
-                                             is_parameter=False,
-                                             scaling_min_val=None)
+            scaling_impl = ConstScaling(scaling_init=scaling_init,
+                                        restrict_scaling_type=restrict_scaling_type,
+                                        scaling_min_val=None)
         else:
             raise Exception("Scaling type {} not supported for weight quantization"
                             .format(str(scaling_impl_type)))

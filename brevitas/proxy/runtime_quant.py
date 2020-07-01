@@ -52,7 +52,7 @@ from brevitas.core.quant import RescalingIntQuant, IdentityQuant
 from brevitas.function.ops_ste import round_ste
 from brevitas.core.restrict_val import RestrictValueType, RestrictValue, FloatToIntImplType, RestrictValueOpImplType
 from brevitas.core.scaling import RuntimeStatsScaling, SCALING_SCALAR_SHAPE, StatsInputViewShapeImpl
-from brevitas.core.scaling import ScalingImplType, StandaloneScaling, IntScaling
+from brevitas.core.scaling import ScalingImplType, ConstScaling, ParameterScaling, IntScaling
 from brevitas.core.stats import StatsOp
 
 from .quant_proxy import QuantProxy
@@ -129,11 +129,15 @@ class ActivationQuantProxy(QuantProxy):
 
             elif scaling_impl_type == ScalingImplType.CONST or scaling_impl_type == ScalingImplType.PARAMETER:
                 scaling_init = RescalingIntQuant.scaling_init_from_min_max(min_val, max_val)
-                scaling_impl = StandaloneScaling(is_parameter=scaling_impl_type == ScalingImplType.PARAMETER,
-                                                 parameter_shape=scaling_shape,
-                                                 restrict_scaling_type=restrict_scaling_type,
-                                                 scaling_init=scaling_init,
-                                                 scaling_min_val=scaling_min_val)
+                if scaling_impl_type == ScalingImplType.PARAMETER:
+                    scaling_impl = ParameterScaling(parameter_shape=scaling_shape,
+                                                    restrict_scaling_type=restrict_scaling_type,
+                                                    scaling_init=scaling_init,
+                                                    scaling_min_val=scaling_min_val)
+                else:
+                    scaling_impl = ConstScaling(restrict_scaling_type=restrict_scaling_type,
+                                                scaling_init=scaling_init,
+                                                scaling_min_val=scaling_min_val)
 
             elif scaling_impl_type == ScalingImplType.STATS or scaling_impl_type == ScalingImplType.AFFINE_STATS:
 
@@ -224,7 +228,7 @@ class ActivationQuantProxy(QuantProxy):
         scaling_impl_key = prefix + 'fused_activation_quant_proxy.tensor_quant.scaling_impl'
         runtime_stats_key = scaling_impl_key + '.runtime_stats'
         running_stats_key = scaling_impl_key + '.runtime_stats.running_stats'
-        scaling_parameter_key = scaling_impl_key + '.learned_value'
+        scaling_parameter_key = scaling_impl_key + '.value'
         scaling_affine_weight_key = prefix + '.stats_scaling_impl.affine_rescaling.affine_weight'
         scaling_affine_bias_key = prefix + '.stats_scaling_impl.affine_rescaling.affine_bias'
 
