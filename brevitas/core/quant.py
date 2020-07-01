@@ -116,7 +116,6 @@ class BinaryQuant(torch.jit.ScriptModule):
             bit_width is the bit_width of the quantization.
 
     """
-    __constants__ = ['bit_width']
 
     def __init__(self, scaling_impl: Module):
         super(BinaryQuant, self).__init__()
@@ -171,7 +170,6 @@ class ClampedBinaryQuant(torch.jit.ScriptModule):
             bit_width is the bit_width of the quantization.
 
     """
-    __constants__ = ['bit_width']
 
     def __init__(self, scaling_impl: Module):
         super(ClampedBinaryQuant, self).__init__()
