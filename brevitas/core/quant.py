@@ -231,7 +231,7 @@ class TernaryQuant(torch.jit.ScriptModule):
             scale is the scale factor;
             bit_width is the bit_width of the quantization.
     """
-    __constants__ = ['threshold', 'bit_width']
+    __constants__ = ['threshold']
 
     def __init__(self, scaling_impl: Module, threshold: float):
         super(TernaryQuant, self).__init__()
