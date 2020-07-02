@@ -53,7 +53,6 @@ from common import ATOL, RTOL
 from common import check_expected_pyt_120_fail, check_mock_jit_pyt_l140_fail, check_mock_jit_pyt_ge140_fail
 from common import combine_conditions
 from unittest.mock import Mock
-from brevitas.core import ZERO_HW_SENTINEL_VALUE
 import pytest
 
 # Constants
@@ -70,7 +69,7 @@ def perform_test_binary(binary_type, inp, scaling):
     scaling_impl_mock.return_value = torch.tensor(scaling)
 
     obj = binary_type(scaling_impl_mock)
-    output, _, _ = obj(inp, torch.tensor(ZERO_HW_SENTINEL_VALUE))
+    output, _, _ = obj(inp)
     expected_output = torch.tensor([-1 * scaling, 1 * scaling])
 
     # Check that output values match one of the possible values in expected_output
@@ -136,7 +135,7 @@ def test_of_TernaryQuant(x, threshold, scale):
     scale_impl_mock.return_value = torch.tensor(scale)
 
     obj = TernaryQuant(scale_impl_mock, threshold)
-    output, _, _ = obj(value, torch.tensor(ZERO_HW_SENTINEL_VALUE))
+    output, _, _ = obj(value)
     expected_output = torch.tensor([-1 * scale, 1 * scale, 0])
 
     check_admissible_values(output, expected_output)
@@ -214,11 +213,11 @@ def test_PrescaledRestrictIntQuantWithInputBitWidth(x, narrow_range, signed, sca
                                                      msb_clamp_bit_width_impl=msb_clamp_bitwidth_mock,
                                                      float_to_int_impl=float_to_int_impl_mock)
 
-    output, scale, bit_width = obj(value, scale, bit_width, torch.tensor(ZERO_HW_SENTINEL_VALUE))
+    output, scale, bit_width = obj(value, scale, bit_width)
 
     expected_IntQuant = IntQuant(signed=signed, narrow_range=narrow_range, tensor_clamp_impl=tensor_clamp_impl,
                                  float_to_int_impl=float_to_int_impl_mock)
-    expected_output = expected_IntQuant(scale, torch.tensor(ZERO_HW_SENTINEL_VALUE) + 1, bit_width, value)
+    expected_output = expected_IntQuant(scale, torch.tensor(1.0), bit_width, value)
 
     assert torch.allclose(expected_output, output, RTOL, ATOL)
 
@@ -249,11 +248,11 @@ def test_PrescaledRestrictIntQuanth(x, narrow_range, signed, scale, bit_width):
                                     msb_clamp_bit_width_impl=msb_clamp_bitwidth_mock,
                                     float_to_int_impl=float_to_int_impl_mock)
 
-    output, scale, bit_width = obj(value, scale, torch.tensor(ZERO_HW_SENTINEL_VALUE))
+    output, scale, bit_width = obj(value, scale)
 
     expected_IntQuant = IntQuant(signed=signed, narrow_range=narrow_range, tensor_clamp_impl=tensor_clamp_impl,
                                  float_to_int_impl=float_to_int_impl_mock)
-    expected_output = expected_IntQuant(scale, torch.tensor(ZERO_HW_SENTINEL_VALUE) + 1, bit_width, value)
+    expected_output = expected_IntQuant(scale, torch.tensor(1.0), bit_width, value)
 
     assert torch.allclose(expected_output, output, RTOL, ATOL)
 
@@ -288,14 +287,13 @@ def test_RescalingIntQuant(x, narrow_range, signed, scale, int_scale, bit_width)
     scaling_impl.return_value = scale
 
     obj = RescalingIntQuant(narrow_range=narrow_range, signed=signed,
-                            runtime=True,
                             tensor_clamp_impl=tensor_clamp_impl,
                             float_to_int_impl=float_to_int_impl_mock,
                             int_scaling_impl=int_scaling_impl_mock,
                             msb_clamp_bit_width_impl=msb_clamp_bitwidth_mock,
                             scaling_impl=scaling_impl)
 
-    output, scale_out, bit_width = obj(value, torch.tensor(ZERO_HW_SENTINEL_VALUE))
+    output, scale_out, bit_width = obj(value)
 
     expected_IntQuant = IntQuant(signed=signed, narrow_range=narrow_range, tensor_clamp_impl=tensor_clamp_impl,
                                  float_to_int_impl=float_to_int_impl_mock)
