@@ -216,8 +216,7 @@ class QuantConvTranspose1d(QuantLayer, ConvTranspose1d):
         """
         if isinstance(self.weight_quant.tensor_quant, IdentityQuant):
             raise Exception("Can't generate scaling factor without quantization enabled")
-        zero_hw_sentinel = self.weight_quant.zero_hw_sentinel
-        _, scale, _ = self.weight_quant.tensor_quant(self.weight, zero_hw_sentinel)
+        _, scale, _ = self.weight_quant.tensor_quant(self.weight)
         return scale
 
     def forward(self, input, output_size=None):

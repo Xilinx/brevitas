@@ -49,6 +49,9 @@ from brevitas.utils.python_utils import AutoName
 from brevitas.function.ops import tensor_clamp, min_int, max_int, max_uint
 from brevitas.function.ops_ste import tensor_clamp_ste, binary_sign_ste, ternary_sign_ste
 
+from .bit_width import BitWidthConst
+from .utils import StatelessBuffer
+
 
 __all__ = ['QuantType', 'BinaryQuant', 'TernaryQuant', 'RescalingIntQuant',
            'PrescaledRestrictIntQuant']
@@ -63,11 +66,15 @@ class QuantType(AutoName):
 
 class IdentityQuant(torch.jit.ScriptModule):
     """ Placeholder Class that returns the input without performing any operation. The scale and bit_width output
-    arguments are set to zero_hw_sentinel (0).
+    arguments are set to 0.
     """
+    def __init__(self, scaling_impl: Module):
+        super(IdentityQuant, self).__init__()
+        self.zero = StatelessBuffer(torch.tensor(0.0))
+
     @torch.jit.script_method
-    def forward(self, x: Tensor, zero_hw_sentinel: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
-        return x, zero_hw_sentinel, zero_hw_sentinel
+    def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
+        return x, self.zero(), self.zero()
 
 
 class BinaryQuant(torch.jit.ScriptModule):
@@ -90,7 +97,7 @@ class BinaryQuant(torch.jit.ScriptModule):
 
     Methods
     -------
-    forward(x, zero_hw_sentinel)
+    forward(x)
         Perform the binary quantization using :func:`~brevitas.function.ops_ste.binary_sign_ste`. After that, the
         result is converted to floating point through the scale factor.
         The scale factor is determined by the attribute `scaling_impl`.
@@ -99,9 +106,6 @@ class BinaryQuant(torch.jit.ScriptModule):
         ----------
         x: Tensor
             Input tensor that will be quantized
-        zero_hw_sentinel: Tensor
-            Constant buffer required to move stateless (as in, not part of the model's state_dict) constant values
-            to the appropriate device and converting them to Tensor
 
         Returns
         -------
@@ -112,18 +116,17 @@ class BinaryQuant(torch.jit.ScriptModule):
             bit_width is the bit_width of the quantization.
 
     """
-    __constants__ = ['bit_width']
 
     def __init__(self, scaling_impl: Module):
         super(BinaryQuant, self).__init__()
         self.scaling_impl = scaling_impl
-        self.bit_width = 1
+        self.bit_width = BitWidthConst(1)
 
     @torch.jit.script_method
-    def forward(self, x: Tensor, zero_hw_sentinel: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
-        scale = self.scaling_impl(zero_hw_sentinel)
+    def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
+        scale = self.scaling_impl(x)
         y = binary_sign_ste(x) * scale
-        return y, scale, zero_hw_sentinel + self.bit_width
+        return y, scale, self.bit_width()
 
 
 class ClampedBinaryQuant(torch.jit.ScriptModule):
@@ -148,7 +151,7 @@ class ClampedBinaryQuant(torch.jit.ScriptModule):
 
     Methods
     -------
-    forward(x, zero_hw_sentinel)
+    forward(x)
         Perform the binary quantization using :func:`~brevitas.function.ops_ste.binary_sign_ste`. After that, the
         result is converted to floating point through the scale factor.
         The scale factor is determined by the attribute `scaling_impl`.
@@ -157,9 +160,6 @@ class ClampedBinaryQuant(torch.jit.ScriptModule):
         ----------
         x: Tensor
             Input tensor that will be quantized
-        zero_hw_sentinel: Tensor
-            Constant buffer required to move stateless (as in, not part of the model's state_dict) constant values
-            to the appropriate device and converting them to Tensor
 
         Returns
         -------
@@ -170,19 +170,18 @@ class ClampedBinaryQuant(torch.jit.ScriptModule):
             bit_width is the bit_width of the quantization.
 
     """
-    __constants__ = ['bit_width']
 
     def __init__(self, scaling_impl: Module):
         super(ClampedBinaryQuant, self).__init__()
         self.scaling_impl = scaling_impl
-        self.bit_width = 1
+        self.bit_width = BitWidthConst(1)
 
     @torch.jit.script_method
-    def forward(self, x: Tensor, zero_hw_sentinel: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
-        scale = self.scaling_impl(zero_hw_sentinel)
+    def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
+        scale = self.scaling_impl(x)
         y = tensor_clamp(x, - scale, scale)
         y = binary_sign_ste(y) * scale
-        return y, scale, zero_hw_sentinel + self.bit_width
+        return y, scale, self.bit_width()
 
 
 class TernaryQuant(torch.jit.ScriptModule):
@@ -214,7 +213,7 @@ class TernaryQuant(torch.jit.ScriptModule):
 
     Methods
     -------
-    forward(x, zero_hw_sentinel)
+    forward(x)
         Perform the ternary quantization using :func:`~brevitas.function.ops_ste.ternary_sign_ste`. After that, the
         result is converted to floating point through the scale factor.
         The scale factor is determined by the attribute `scaling_impl`.
@@ -223,9 +222,6 @@ class TernaryQuant(torch.jit.ScriptModule):
         ----------
         x: Tensor
             Input tensor that will be quantized
-        zero_hw_sentinel: Tensor
-            Constant buffer required to move stateless (as in, not part of the model's state_dict) constant values
-            to the appropriate device and converting them to Tensor
 
         Returns
         -------
@@ -235,21 +231,21 @@ class TernaryQuant(torch.jit.ScriptModule):
             scale is the scale factor;
             bit_width is the bit_width of the quantization.
     """
-    __constants__ = ['threshold', 'bit_width']
+    __constants__ = ['threshold']
 
     def __init__(self, scaling_impl: Module, threshold: float):
         super(TernaryQuant, self).__init__()
         self.scaling_impl = scaling_impl
         self.threshold = threshold
-        self.bit_width = 2
+        self.bit_width = BitWidthConst(2)
 
     @torch.jit.script_method
-    def forward(self, x: Tensor, zero_hw_sentinel: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
-        scale = self.scaling_impl(zero_hw_sentinel)
+    def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
+        scale = self.scaling_impl(x)
         mask = x.abs().ge(self.threshold * scale)
         y = mask.float() * ternary_sign_ste(x)
         y = y * scale
-        return y, scale, zero_hw_sentinel + self.bit_width
+        return y, scale, self.bit_width()
 
 
 class PrescaledRestrictIntQuantWithInputBitWidth(torch.jit.ScriptModule):
@@ -287,7 +283,7 @@ class PrescaledRestrictIntQuantWithInputBitWidth(torch.jit.ScriptModule):
 
     Methods
     -------
-    forward(x, scale, input_bit_width, zero_hw_sentinel)
+    forward(x, scale, input_bit_width)
         After determining internally the bit_width value, it calls IntQuant to perform the quantization of the input
 
         Parameters
@@ -298,9 +294,6 @@ class PrescaledRestrictIntQuantWithInputBitWidth(torch.jit.ScriptModule):
             Scale factor that regulates the conversion between integer and floating point version of the input tensor
         input_bit_width
             Bit_width that, going in `msb_clamp_bit_with`, is used to determine the bit_width for the quantization
-        zero_hw_sentinel: Tensor
-            Constant buffer required to move stateless (as in, not part of the model's state_dict) constant values
-            to the appropriate device and converting them to Tensor
 
         Returns
         -------
@@ -322,16 +315,16 @@ class PrescaledRestrictIntQuantWithInputBitWidth(torch.jit.ScriptModule):
                                   tensor_clamp_impl=tensor_clamp_impl,
                                   float_to_int_impl=float_to_int_impl)
         self.msb_clamp_bit_width_impl = msb_clamp_bit_width_impl
+        self.int_scale = StatelessBuffer(torch.tensor(1.0))
 
     @torch.jit.script_method
     def forward(self,
                 x: Tensor,
                 scale: Tensor,
-                input_bit_width: Tensor,
-                zero_hw_sentinel: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
+                input_bit_width: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
 
-        msb_clamp_bit_width = self.msb_clamp_bit_width_impl(input_bit_width, zero_hw_sentinel)
-        y = self.int_quant(scale, zero_hw_sentinel + 1, msb_clamp_bit_width, x)
+        msb_clamp_bit_width = self.msb_clamp_bit_width_impl(input_bit_width)
+        y = self.int_quant(scale, self.int_scale(), msb_clamp_bit_width, x)
         return y, scale, msb_clamp_bit_width
 
 
@@ -370,7 +363,7 @@ class PrescaledRestrictIntQuant(torch.jit.ScriptModule):
 
     Methods
     -------
-    forward(x, scale, zero_hw_sentinel)
+    forward(x, scale)
         After determining internally the bit_width value, it calls IntQuant to perform the quantization of the input
 
         Parameters
@@ -379,9 +372,6 @@ class PrescaledRestrictIntQuant(torch.jit.ScriptModule):
             Input tensor that will be quantized
         scale: Tensor
             Scale factor that regulates the conversion between integer and floating point version of the input tensor
-        zero_hw_sentinel: Tensor
-            Constant buffer required to move stateless (as in, not part of the model's state_dict) constant values
-            to the appropriate device and converting them to Tensor
 
         Returns
         -------
@@ -403,14 +393,15 @@ class PrescaledRestrictIntQuant(torch.jit.ScriptModule):
                                   tensor_clamp_impl=tensor_clamp_impl,
                                   float_to_int_impl=float_to_int_impl)
         self.msb_clamp_bit_width_impl = msb_clamp_bit_width_impl
+        self.int_scale = StatelessBuffer(torch.tensor(1.0))
+
 
     @torch.jit.script_method
     def forward(self,
                 x: Tensor,
-                scale: Tensor,
-                zero_hw_sentinel: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
-        msb_clamp_bit_width = self.msb_clamp_bit_width_impl(zero_hw_sentinel)
-        y = self.int_quant(scale, zero_hw_sentinel + 1, msb_clamp_bit_width, x)
+                scale: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
+        msb_clamp_bit_width = self.msb_clamp_bit_width_impl()
+        y = self.int_quant(scale, self.int_scale(), msb_clamp_bit_width, x)
         return y, scale, msb_clamp_bit_width
 
 
@@ -418,7 +409,7 @@ class IdentityPrescaledIntQuant(torch.jit.ScriptModule):
     """ Placeholder Class that returns the input without performing any operation.
     """
     @torch.jit.script_method
-    def forward(self, x, input_scale, input_bit_width, zero_hw_sentinel) -> Tuple[Tensor, Tensor, Tensor]:
+    def forward(self, x, input_scale, input_bit_width) -> Tuple[Tensor, Tensor, Tensor]:
         return x, input_scale, input_bit_width
 
 
@@ -429,7 +420,6 @@ class RescalingIntQuant(torch.jit.ScriptModule):
     The modules tensor_clamp_impl and float_to_int_impl, and the booleans `signed` and `narrow_range` are required by
     `IntQuant` to perform the quantization.
 
-    The `runtime` boolean is required to determine how to compute the scale factor.
     The `int_scaling_impl` module is required to  determine int_scale.
 
     In order to perform the actual quantization, it is required to determine the following values: scale, int_scale,
@@ -453,8 +443,6 @@ class RescalingIntQuant(torch.jit.ScriptModule):
     ----------
     int_quant: Module
        Module that performs the actual quantization
-    runtime: Bool
-        Value that determines how the scaling factor is computed in `scaling_impl`
     scaling_impl: Module
         Module that is responsible for the computation of the scale factor
     int_scaling_impl: Module
@@ -464,7 +452,7 @@ class RescalingIntQuant(torch.jit.ScriptModule):
 
     Methods
     -------
-    forward(x, zero_hw_sentinel)
+    forward(x)
         After determining internally the bit_width value, the scale factor, and the int_scale factor
         the method calls IntQuant to perform the quantization of the input.
 
@@ -472,9 +460,6 @@ class RescalingIntQuant(torch.jit.ScriptModule):
         ----------
         x: Tensor
             Input tensor that will be quantized
-        zero_hw_sentinel: Tensor
-            Constant buffer required to move stateless (as in, not part of the model's state_dict) constant values
-            to the appropriate device and converting them to Tensor
 
         Returns
         -------
@@ -484,11 +469,8 @@ class RescalingIntQuant(torch.jit.ScriptModule):
             scale is the scale factor;
             bit_width is the bit_width of the quantization.
     """
-    __constants__ = ['runtime']
-
     def __init__(self,
                  narrow_range: bool,
-                 runtime: bool,
                  signed: bool,
                  scaling_impl: Module,
                  int_scaling_impl: Module,
@@ -500,7 +482,6 @@ class RescalingIntQuant(torch.jit.ScriptModule):
                                   narrow_range=narrow_range,
                                   tensor_clamp_impl=tensor_clamp_impl,
                                   float_to_int_impl=float_to_int_impl)
-        self.runtime = runtime
         self.scaling_impl = scaling_impl
         self.int_scaling_impl = int_scaling_impl
         self.msb_clamp_bit_width_impl = msb_clamp_bit_width_impl
@@ -526,13 +507,9 @@ class RescalingIntQuant(torch.jit.ScriptModule):
 
     @torch.jit.script_method
     def forward(self,
-                x: Tensor,
-                zero_hw_sentinel: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
-        msb_clamp_bit_width = self.msb_clamp_bit_width_impl(zero_hw_sentinel)
-        if self.runtime:
-            scale = self.scaling_impl(x)
-        else:
-            scale = self.scaling_impl(zero_hw_sentinel)
+                x: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
+        msb_clamp_bit_width = self.msb_clamp_bit_width_impl()
+        scale = self.scaling_impl(x)
         int_scale = self.int_scaling_impl(msb_clamp_bit_width)
         y = self.int_quant(scale, int_scale, msb_clamp_bit_width, x)
         output_bit_width = msb_clamp_bit_width
