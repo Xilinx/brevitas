@@ -124,7 +124,7 @@ class BinaryQuant(torch.jit.ScriptModule):
 
     @torch.jit.script_method
     def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
-        scale = self.scaling_impl()
+        scale = self.scaling_impl(x)
         y = binary_sign_ste(x) * scale
         return y, scale, self.bit_width()
 
@@ -178,7 +178,7 @@ class ClampedBinaryQuant(torch.jit.ScriptModule):
 
     @torch.jit.script_method
     def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
-        scale = self.scaling_impl()
+        scale = self.scaling_impl(x)
         y = tensor_clamp(x, - scale, scale)
         y = binary_sign_ste(y) * scale
         return y, scale, self.bit_width()
@@ -241,7 +241,7 @@ class TernaryQuant(torch.jit.ScriptModule):
 
     @torch.jit.script_method
     def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
-        scale = self.scaling_impl()
+        scale = self.scaling_impl(x)
         mask = x.abs().ge(self.threshold * scale)
         y = mask.float() * ternary_sign_ste(x)
         y = y * scale
