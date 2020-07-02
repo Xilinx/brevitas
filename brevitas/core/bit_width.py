@@ -247,9 +247,9 @@ class LsbTruncParameterBitWidth(torch.jit.ScriptModule):
     @torch.jit.script_method
     def forward(self, input_bit_width: Tensor) -> Tensor:
         bit_width_to_remove = self.bit_width_to_remove_impl()
-        min_bit_width_to_remove = input_bit_width - self.max_overall_bit_width
-        max_bit_width_to_remove = input_bit_width - self.min_overall_bit_width
+        min_bit_width_to_remove = input_bit_width - self.max_overall_bit_width()
+        max_bit_width_to_remove = input_bit_width - self.min_overall_bit_width()
         bit_width_to_remove = tensor_clamp(bit_width_to_remove,      # pass gradient to boundaries
-                                           min_bit_width_to_remove(),  # since input_bit_width is possibly learned
-                                           max_bit_width_to_remove())
+                                           min_bit_width_to_remove,  # since input_bit_width is possibly learned
+                                           max_bit_width_to_remove)
         return bit_width_to_remove
