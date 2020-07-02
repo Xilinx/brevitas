@@ -133,7 +133,7 @@ class ConstScaling(torch.jit.ScriptModule):
 
     @torch.jit.script_method
     def forward(self, placeholder: torch.Tensor) -> torch.Tensor:
-        value = self.restrict_value(self.value)
+        value = self.restrict_value(self.value())
         return value
 
 
