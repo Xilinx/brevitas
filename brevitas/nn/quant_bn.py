@@ -8,7 +8,7 @@ from brevitas.core.quant import QuantType
 from brevitas.core.restrict_val import RestrictValueType
 from brevitas.core.scaling import ScalingImplType
 from brevitas.core.stats import StatsOp
-from brevitas.nn.quant_layer import SCALING_MIN_VAL
+from brevitas.nn.config import SCALING_MIN_VAL
 from .quant_scale_bias import QuantScaleBias
 
 

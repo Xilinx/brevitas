@@ -66,15 +66,15 @@ class QuantType(AutoName):
 
 class IdentityQuant(torch.jit.ScriptModule):
     """ Placeholder Class that returns the input without performing any operation. The scale and bit_width output
-    arguments are set to 0.
+    arguments are set to -1.
     """
-    def __init__(self, scaling_impl: Module):
+    def __init__(self):
         super(IdentityQuant, self).__init__()
-        self.zero = StatelessBuffer(torch.tensor(0.0))
+        self.minus_one = StatelessBuffer(torch.tensor(-1))
 
     @torch.jit.script_method
     def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
-        return x, self.zero(), self.zero()
+        return x, self.minus_one(), self.minus_one()
 
 
 class BinaryQuant(torch.jit.ScriptModule):

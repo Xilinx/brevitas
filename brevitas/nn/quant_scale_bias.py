@@ -8,9 +8,8 @@ from brevitas.core.quant import QuantType
 from brevitas.core.restrict_val import RestrictValueType
 from brevitas.core.scaling import ScalingImplType, SCALING_SCALAR_SHAPE
 from brevitas.core.stats import StatsInputViewShapeImpl, StatsOp
-from brevitas.nn.quant_layer import SCALING_MIN_VAL
+from brevitas.nn.config import SCALING_MIN_VAL
 from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy
-from brevitas.proxy.runtime_quant import OVER_BATCH_OVER_CHANNELS_4D_SHAPE
 from .quant_layer import QuantLayer
 
 __all__ = ['ScaleBias', 'QuantScaleBias']

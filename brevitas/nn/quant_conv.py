@@ -57,10 +57,11 @@ from brevitas.core.scaling import ScalingImplType, SCALING_SCALAR_SHAPE
 from brevitas.core.stats import StatsInputViewShapeImpl, StatsOp
 from brevitas.function.ops import max_uint
 from brevitas.function.ops_ste import ceil_ste
-from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy, WeightReg
+from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy
 from brevitas.utils.python_utils import AutoName
 from brevitas.nn.quant_bn import mul_add_from_bn
-from brevitas.nn.quant_layer import QuantLayer, SCALING_MIN_VAL
+from brevitas.nn.quant_layer import QuantLayer
+from brevitas.nn.config import SCALING_MIN_VAL
 from brevitas import docstrings
 
 __all__ = ['QuantConv2d']
@@ -135,7 +136,6 @@ class QuantConv2d(QuantLayer, Conv2d):
 
         self.per_elem_ops = 2 * self.kernel_size[0] * self.kernel_size[1] * (in_channels // groups)
         self.padding_type = padding_type
-        self.weight_reg = WeightReg()
 
         if weight_quant_override is not None:
             self.weight_quant = weight_quant_override

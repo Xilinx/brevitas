@@ -54,29 +54,15 @@ from brevitas.core.quant import IdentityQuant
 from brevitas.core.quant import QuantType, BinaryQuant, TernaryQuant, RescalingIntQuant
 from brevitas.core.quant import PrescaledRestrictIntQuant, PrescaledRestrictIntQuantWithInputBitWidth
 from brevitas.core.restrict_val import RestrictValueType, FloatToIntImplType, RestrictValue
-from brevitas.core.scaling import ScalingImplType, ParameterStatsScaling, StatsInputViewShapeImpl, IntScaling
-from brevitas.core.scaling import ConstScaling, ParameterScaling, SCALING_SCALAR_SHAPE
+from brevitas.core.scaling import ScalingImplType, ParameterStatsScaling, IntScaling
+from brevitas.core.scaling import ConstScaling, ParameterScaling
 from brevitas.function.ops_ste import round_ste
-from brevitas import config
 from brevitas import docstrings
-from brevitas.proxy.runtime_quant import OVER_BATCH_OVER_CHANNELS_4D_SHAPE
-from brevitas.nn.quant_layer import BiasQuantConfig, WeightQuantConfig
+from brevitas.nn.config import BiasQuantConfig, WeightQuantConfig
 
 from .quant_proxy import QuantProxy
 
 __all__ = ['WeightQuantProxy', 'BiasQuantProxy']
-
-
-
-
-class WeightReg(nn.Module):
-
-    def __init__(self):
-        super(WeightReg, self).__init__()
-        pass
-
-    def forward(self, weight):
-        return weight + 0
 
 
 class ParameterQuantProxy(QuantProxy):
@@ -96,47 +82,43 @@ class ParameterQuantProxy(QuantProxy):
 
 
 def _scaling_impl_init(
-        weight_quant_config: WeightQuantConfig,
-        scaling_stats_reduce_dim: Optional[int],
-        scaling_shape: Tuple[int, ...],
-        scaling_stats_input_view_shape_impl: StatsInputViewShapeImpl,
-        scaling_stats_input_concat_dim: int,
+        wqc: WeightQuantConfig,
         tracked_parameter_list: List[torch.nn.Parameter]):
 
-    if scaling_impl_type != ScalingImplType.OVERRIDE and scaling_override is not None:
+    if wqc.scaling_impl_type != ScalingImplType.OVERRIDE and wqc.scaling_override is not None:
         raise Exception("Overriding scaling requires to set ScalingImplType to OVERRIDE explicitly.")
-    if scaling_impl_type == ScalingImplType.OVERRIDE and scaling_override is None:
+    if wqc.scaling_impl_type == ScalingImplType.OVERRIDE and wqc.scaling_override is None:
         raise Exception("Overriding scaling requires to pass a scaling impl module.")
 
-    if scaling_impl_type == ScalingImplType.OVERRIDE and scaling_override is not None:
-        scaling_impl = scaling_override
+    if wqc.scaling_impl_type == ScalingImplType.OVERRIDE and wqc.scaling_override is not None:
+        scaling_impl = wqc.scaling_override
 
-    elif scaling_impl_type == ScalingImplType.STATS \
-            or scaling_impl_type == ScalingImplType.AFFINE_STATS \
-            or scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS:
-        stats_scaling = ParameterStatsScaling(stats_op=scaling_stats_op,
-                                              restrict_scaling_type=restrict_scaling_type,
+    elif wqc.scaling_impl_type == ScalingImplType.STATS \
+            or wqc.scaling_impl_type == ScalingImplType.AFFINE_STATS \
+            or wqc.scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS:
+        stats_scaling = ParameterStatsScaling(stats_op=wqc.scaling_stats_op,
+                                              restrict_scaling_type=wqc.restrict_scaling_type,
                                               tracked_parameter_list=tracked_parameter_list,
-                                              stats_input_view_shape_impl=scaling_stats_input_view_shape_impl,
-                                              stats_input_concat_dim=scaling_stats_input_concat_dim,
-                                              sigma=scaling_stats_sigma,
-                                              scaling_min_val=scaling_min_val,
-                                              stats_reduce_dim=scaling_stats_reduce_dim,
-                                              stats_output_shape=scaling_shape,
-                                              affine=scaling_impl_type == ScalingImplType.AFFINE_STATS)
-        if scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS:
-            if quant_type == QuantType.BINARY or quant_type == QuantType.TERNARY:
+                                              stats_input_view_shape_impl=wqc.scaling_stats_input_view_shape_impl,
+                                              stats_input_concat_dim=wqc.scaling_stats_input_concat_dim,
+                                              sigma=wqc.scaling_stats_sigma,
+                                              scaling_min_val=wqc.scaling_min_val,
+                                              stats_reduce_dim=wqc.scaling_stats_reduce_dim,
+                                              stats_output_shape=wqc.scaling_shape,
+                                              affine=wqc.scaling_impl_type == ScalingImplType.AFFINE_STATS)
+        if wqc.scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS:
+            if wqc.quant_type == QuantType.BINARY or wqc.quant_type == QuantType.TERNARY:
                 raise Exception("Parameter from stats scaling is currently not supported for binary/ternary")
             scaling_init = stats_scaling().detach()
             scaling_impl = ParameterScaling(scaling_init=scaling_init,
-                                             parameter_shape=scaling_shape,
-                                             restrict_scaling_type=restrict_scaling_type,
-                                             scaling_min_val=scaling_min_val)
+                                             parameter_shape=wqc.scaling_shape,
+                                             restrict_scaling_type=wqc.restrict_scaling_type,
+                                             scaling_min_val=wqc.scaling_min_val)
         else:
             scaling_impl = stats_scaling
 
-    elif scaling_impl_type == ScalingImplType.CONST or scaling_impl_type == ScalingImplType.HE:
-        if scaling_impl_type == ScalingImplType.HE:
+    elif wqc.scaling_impl_type == ScalingImplType.CONST or wqc.scaling_impl_type == ScalingImplType.HE:
+        if wqc.scaling_impl_type == ScalingImplType.HE:
             scaling_const = 0.0
             for param in tracked_parameter_list:  # takes average of He scaling over parameter list
                 two_dim_param = param.view(param.shape[0], -1)
@@ -144,200 +126,106 @@ def _scaling_impl_init(
             scaling_const /= len(tracked_parameter_list)
         scaling_init = torch.tensor(scaling_const)
         scaling_impl = ConstScaling(scaling_init=scaling_init,
-                                         restrict_scaling_type=restrict_scaling_type,
+                                         restrict_scaling_type=wqc.restrict_scaling_type,
                                          scaling_min_val=None)
     else:
         raise Exception("Scaling type {} not supported for weight quantization"
-                        .format(str(scaling_impl_type)))
+                        .format(str(wqc.scaling_impl_type)))
     return scaling_impl
 
 
-def _bit_width_impl_init(weight_quant_config):
-    if bit_width_impl_override is None:
-        if (bit_width_impl_type is None
-                or bit_width is None
-                or restrict_bit_width_type is None):
-            raise Exception("Bit width is not defined properly")
-
-        if bit_width_impl_type == BitWidthImplType.CONST:
-            assert restrict_bit_width_type == RestrictValueType.INT
-            bit_width_impl = BitWidthConst(bit_width)
-        elif bit_width_impl_type == BitWidthImplType.PARAMETER:
-            bit_width_impl = BitWidthParameter(bit_width_init=bit_width,
-                                               restrict_bit_width_type=restrict_bit_width_type,
-                                               min_overall_bit_width=min_overall_bit_width,
-                                               max_overall_bit_width=max_overall_bit_width,
-                                               override_pretrained=override_pretrained_bit_width)
-        else:
-            raise Exception("Bit width type {} not supported for weight quantization."
-                            .format(str(bit_width_impl_type)))
+def _bit_width_impl_init(wqc: WeightQuantConfig):
+    if wqc.bit_width_impl_override is not None:
+        bit_width_impl = wqc.bit_width_impl_override
+    elif wqc.bit_width_impl_type == BitWidthImplType.CONST:
+            assert wqc.restrict_bit_width_type == RestrictValueType.INT
+            bit_width_impl = BitWidthConst(wqc.bit_width)
+    elif wqc.bit_width_impl_type == BitWidthImplType.PARAMETER:
+            bit_width_impl = BitWidthParameter(
+                bit_width_init=wqc.bit_width,
+                restrict_bit_width_type=wqc.restrict_bit_width_type,
+                min_overall_bit_width=wqc.min_overall_bit_width,
+                max_overall_bit_width=wqc.max_overall_bit_width,
+                override_pretrained=wqc.override_pretrained_bit_width)
     else:
-        bit_width_impl = bit_width_impl_override
+        raise Exception("Bit width type {} not supported for weight quantization."
+                        .format(str(wqc.bit_width_impl_type)))
+    return bit_width_impl
 
 
 def _tensor_quant_init(
-        bit_width: Optional[int],
-        quant_type: QuantType,
-        weight_quant_config: WeightQuantConfig,
-        scaling_stats_reduce_dim: Optional[int],
-        scaling_shape: Tuple[int, ...],
-        scaling_stats_input_view_shape_impl: StatsInputViewShapeImpl,
-        scaling_stats_input_concat_dim: int,
+        wqc: WeightQuantConfig,
         tracked_parameter_list: List[torch.nn.Parameter]):
 
-    if quant_type == QuantType.FP:
+    if wqc.quant_type == QuantType.FP:
         tensor_quant = IdentityQuant()
     else:
-        scaling_impl = _scaling_impl_init()
+        scaling_impl = _scaling_impl_init(wqc, tracked_parameter_list)
 
-        if bit_width == 1 and quant_type == QuantType.BINARY:
+        if wqc.bit_width == 1 and wqc.quant_type == QuantType.BINARY:
             tensor_quant = BinaryQuant(scaling_impl=scaling_impl)
 
-        elif bit_width == 2 and quant_type == QuantType.TERNARY:
-            tensor_quant = TernaryQuant(scaling_impl=scaling_impl, threshold=ternary_threshold)
+        elif wqc.bit_width == 2 and wqc.quant_type == QuantType.TERNARY:
+            tensor_quant = TernaryQuant(scaling_impl=scaling_impl, threshold=wqc.ternary_threshold)
 
-        elif bit_width >= 2 and quant_type == QuantType.INT:
-            bit_width_impl = _bit_width_impl_init(weight_quant_config)
+        elif wqc.bit_width >= 2 and wqc.quant_type == QuantType.INT:
+            bit_width_impl = _bit_width_impl_init(wqc)
 
-            if bit_width_impl_type == BitWidthImplType.PARAMETER or \
-                    bit_width_impl_type == BitWidthImplType.CONST and \
-                    scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS:
+            if wqc.bit_width_impl_type == BitWidthImplType.PARAMETER or \
+                    wqc.bit_width_impl_type == BitWidthImplType.CONST and \
+                    wqc.scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS:
                 tensor_clamp_impl = TensorClamp()
             else:
                 tensor_clamp_impl = TensorClampSte()
 
-            float_to_int_impl = RestrictValue(restrict_value_type=RestrictValueType.INT,
-                                              float_to_int_impl_type=FloatToIntImplType.ROUND,
-                                              min_val=None)
-            int_scaling_impl = IntScaling(narrow_range,
-                                          signed=True,
-                                          restrict_scaling_type=restrict_scaling_type)
-            tensor_quant = RescalingIntQuant(narrow_range=narrow_range,
-                                             signed=True,
-                                             scaling_impl=scaling_impl,
-                                             int_scaling_impl=int_scaling_impl,
-                                             tensor_clamp_impl=tensor_clamp_impl,
-                                             msb_clamp_bit_width_impl=bit_width_impl,
-                                             float_to_int_impl=float_to_int_impl)
+            float_to_int_impl = RestrictValue(
+                restrict_value_type=RestrictValueType.INT,
+                float_to_int_impl_type=FloatToIntImplType.ROUND,
+                min_val=None)
+            int_scaling_impl = IntScaling(
+                wqc.narrow_range,
+                signed=True,
+                restrict_scaling_type=wqc.restrict_scaling_type)
+            tensor_quant = RescalingIntQuant(
+                narrow_range=wqc.narrow_range,
+                signed=True,
+                scaling_impl=scaling_impl,
+                int_scaling_impl=int_scaling_impl,
+                tensor_clamp_impl=tensor_clamp_impl,
+                msb_clamp_bit_width_impl=bit_width_impl,
+                float_to_int_impl=float_to_int_impl)
         else:
             raise Exception('Unsupported weight quantization: {} bit width, {} quantization.'
-                            .format(bit_width, str(quant_type)))
+                            .format(wqc.bit_width, str(wqc.quant_type)))
     return tensor_quant
 
 
 @docstrings.get_sectionsf('weight_quant_proxy')
 class WeightQuantProxy(ParameterQuantProxy):
-    """
-
-    Parameters
-    ----------
-
-    bit_width
-        The bit-width at which weights are quantized to. If `bit_width_impl_type` is set to ``PARAMETER``, this value is
-        used for initialization. If `quant_type` is set to ``FP``, this value is ignored.
-    quant_type
-        Type of quantization. If set to ``FP``, no quantization is performed.
-    narrow_range
-        Restrict range of quantized values to a symmetrical interval around 0. For example, given `bit_width` set to
-        8 and quant_type set to ``INT``, if `narrow_range` is set to ``True``, the range of quantized values is in
-        ``[-127, 127]``; If set to ``False``, it's in ``[-128,127]``.
-    restrict_scaling_type
-        Type of restriction imposed on the values of the scaling factor of the quantized weights.
-    scaling_const
-        If `scaling_impl_type` is set to ``CONST``, this value is used as the scaling factor across all relevant
-        dimensions. Ignored otherwise.
-    scaling_stats_op
-        Type of statistical operation performed for scaling, if required. If `scaling_impl_type` is set to ``STATS`` or
-        ``AFFINE_STATS``, the operation is part of the compute graph and back-propagated through. If `scaling_impl_type`
-        is set to ``PARAMETER_FROM_STATS``, the operation is used only for computing the initialization of the
-        parameter, possibly across some dimensions. Ignored otherwise.
-    scaling_impl_type
-        Type of strategy adopted for scaling the quantized weights.
-    scaling_stats_reduce_dim
-        Dimension within the shape determined by `scaling_stats_input_view_shape_impl` along which `scaling_stats_op` is
-        applied. If set to ``None``, scaling is assumed to be over the whole tensor. Ignored whenever `scaling_stats_op`
-        is ignored.
-    scaling_shape
-        Shape of the scaling factor tensor. This is required to be broadcastable w.r.t. the weight tensor to scale.
-    scaling_min_val
-        Minimum value that the scaling factors can reach. This has precedence over anything else, including
-        `scaling_const` when `scaling_impl_type` is set to ``CONST``. Useful in case of numerical instabilities.
-        If set to None, no minimum is imposed.
-    bit_width_impl_type
-        Type of strategy adopted for precision at which the weights are quantized to when `quant_type` is set to
-        ``INT``. Ignored otherwise.
-    restrict_bit_width_type
-        If `bit_width_impl_type` is set to ``PARAMETER`` and `quant_type` is set to ``INT``, this value constraints or
-        relax the bit-width value that can be learned. Ignored otherwise.
-    min_overall_bit_width
-        If `bit_width_impl_type` is set to ``PARAMETER`` and `quant_type` is set to ``INT``, this value imposes a lower
-        bound on the learned value. Ignored otherwise.
-    max_overall_bit_width
-        If `bit_width_impl_type` is set to ``PARAMETER`` and `quant_type` is set to ``INT``, this value imposes an upper
-        bound on the learned value. Ignored otherwise.
-    tracked_parameter_list_init
-        Pytorch Parameter of which statistics are computed when `scaling_impl_type` is set to ``STATS``,
-        ``AFFINE_STATS`` or ``PARAMETER_FROM_STATS``. This value initializes the list of parameters that are
-        concatenated together when computing statistics.
-    bit_width_impl_override
-        Override the bit-width implementation with an implementation defined elsewhere. Accepts BitWidthConst or
-        BitWidthParameter type of Modules. Useful for sharing the same learned bit-width between different layers.
-    scaling_stats_input_view_shape_impl
-        When `scaling_impl_type` is set to ``STATS``, ``AFFINE_STATS`` or ``PARAMETER_FROM_STATS``,
-        this Module reshapes each tracked parameter before concatenating them together and computing their statistics.
-    scaling_stats_input_concat_dim
-        When `scaling_impl_type` is set to ``STATS``, ``AFFINE_STATS`` or ``PARAMETER_FROM_STATS``,
-        this value defines the dimension along which the tracked parameters are concated after
-        `scaling_stats_input_view_shape_impl` is called, but before statistics are taken.
-    ternary_threshold
-        Value to be used as a threshold when `quant_type` is set to ``TERNARY``. Ignored otherwise.
-    scaling_stats_sigma
-        Value to be used as sigma if `scaling_impl_type` is set to ``STATS``, ``AFFINE_STATS`` or
-        ``PARAMETER_FROM_STATS`` and `scaling_stats_op` is set to ``AVE_SIGMA_STD`` or ``AVE_LEARN_SIGMA_STD``.
-        Ignored otherwise. When `scaling_impl_type` is set to ``STATS`` or ``AFFINE_STATS``, and
-        `scaling_stats_op` is set to ``AVE_LEARN_SIGMA_STD``, the value is used for initialization.
-    override_pretrained_bit_width
-        If set to ``True``, when loading a pre-trained model that includes a learned bit-width, the pre-trained value
-        is ignored and replaced by the value specified by ``bit-width``.
-    """
 
     def __init__(
             self,
-            bit_width: Optional[int],
-            quant_type: QuantType,
-            scaling_stats_reduce_dim: Optional[int],
-            scaling_shape: Tuple[int, ...],
-            scaling_min_val: Optional[float],
-            tracked_parameter_list_init: torch.nn.Parameter,
-            scaling_stats_input_view_shape_impl: nn.Module,
-            scaling_stats_input_concat_dim: int) -> None:
+            weight_quant_config: WeightQuantConfig,
+            tracked_parameter_list_init: torch.nn.Parameter) -> None:
         super(WeightQuantProxy, self).__init__()
-        self.lazy_tensor_quant_init = partial(
-            _tensor_quant_init,
-            bit_width=bit_width,
-            quant_type=quant_type,
-            scaling_stats_reduce_dim=scaling_stats_reduce_dim,
-            scaling_shape=scaling_shape,
-            scaling_min_val=scaling_min_val,
-            scaling_stats_input_view_shape_impl=scaling_stats_input_view_shape_impl,
-            scaling_stats_input_concat_dim=scaling_stats_input_concat_dim)
+        self.weight_quant_config = weight_quant_config
         self._tracked_parameter_list = [tracked_parameter_list_init]
-        self.scale_output_shape = OVER_BATCH_OVER_CHANNELS_4D_SHAPE
-        self.re_init_tensor_quant()
+        self.init_tensor_quant()
 
-    def re_init_tensor_quant(self):
-        self.tensor_quant = self.lazy_tensor_quant_init(tracked_parameter_list=self._tracked_parameter_list)
+    def init_tensor_quant(self):
+        self.tensor_quant = _tensor_quant_init(
+            self.weight_quant_config, self._tracked_parameter_list)
 
     def add_tracked_parameter(self, x: torch.nn.Parameter) -> None:
         self._tracked_parameter_list.append(x)
         if not isinstance(self.tensor_quant, IdentityQuant):
             del self.tensor_quant
-            self.re_init_tensor_quant()
+            self.init_tensor_quant()
 
     def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         out, scale, bit_width = self.tensor_quant(x)
-        reshaped_scale = scale.view(self.scale_output_shape)
-        return out, reshaped_scale, bit_width
+        scale = scale.view(self.weight_quant_config.returned_scale_shape)
+        return out, scale, bit_width
 
     def int_weight(self, x: torch.Tensor):
         quant_weight, scale, _ = self.tensor_quant(x)
@@ -346,33 +234,29 @@ class WeightQuantProxy(ParameterQuantProxy):
         quant_weight = quant_weight.int()
         return quant_weight
 
-    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
-                              missing_keys, unexpected_keys, error_msgs):
-        super(WeightQuantProxy, self)._load_from_state_dict(state_dict, prefix, local_metadata, strict,
-            missing_keys, unexpected_keys, error_msgs)
-        if config.REINIT_WEIGHT_QUANT_ON_LOAD:
-            self.re_init_tensor_quant()
+    def _load_from_state_dict(
+            self, state_dict, prefix, metadata, strict, missing_keys, unexpected_keys, error_msgs):
+        super(WeightQuantProxy, self)._load_from_state_dict(
+            state_dict, prefix, metadata, strict, missing_keys, unexpected_keys, error_msgs)
+        self.init_tensor_quant()
 
 
 class BiasQuantProxy(ParameterQuantProxy):
 
-    def __init__(self,
-                 quant_type: QuantType,
-                 bit_width: Optional[int],
-                 bias_quant_config: BiasQuantConfig) -> None:
+    def __init__(self, bias_quant_config: BiasQuantConfig) -> None:
         super(BiasQuantProxy, self).__init__()
-        self.scale_output_shape = OVER_BATCH_OVER_CHANNELS_4D_SHAPE
+        bqc = bias_quant_config
 
-        if quant_type == QuantType.FP:
+        if bqc.quant_type == QuantType.FP:
             self.tensor_quant = None
-        elif quant_type == QuantType.INT:
+        elif bqc.quant_type == QuantType.INT:
             tensor_clamp_impl = TensorClamp()
             float_to_int_impl = RestrictValue(
                 restrict_value_type=RestrictValueType.INT,
                 float_to_int_impl_type=FloatToIntImplType.ROUND,
                 min_val=None)
-            if bit_width is not None:
-                bit_width_impl = BitWidthConst(bit_width)
+            if bqc.bit_width is not None:
+                bit_width_impl = BitWidthConst(bqc.bit_width)
                 self.tensor_quant = PrescaledRestrictIntQuant(
                     narrow_range=bias_quant_config.narrow_range,
                     signed=True,
@@ -391,12 +275,13 @@ class BiasQuantProxy(ParameterQuantProxy):
                 self.requires_input_bit_width = True
         else:
             raise Exception('Quantization type {} not supported for bias quant.'
-                            .format(str(quant_type)))
+                            .format(str(bqc.quant_type)))
 
-    def forward(self,
-                x: Tensor,
-                input_scale: Tensor,
-                input_bit_width: Optional[Tensor]) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[torch.Tensor]]:
+    def forward(
+            self,
+            x: Tensor,
+            input_scale: Tensor,
+            input_bit_width: Optional[Tensor]) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[torch.Tensor]]:
         if self.tensor_quant is not None:
 
             if input_scale is None:

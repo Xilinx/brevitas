@@ -38,152 +38,77 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from typing import Optional, Union
+from typing import Optional, Union, Type
 
-import math
 import torch
-from torch.nn import Linear, Module
+from torch.nn import Linear, Module, Identity
 from torch.nn.functional import linear
 
-from brevitas.core.bit_width import BitWidthParameter, BitWidthConst, BitWidthImplType
-from brevitas.core.quant import QuantType, IdentityQuant
-from brevitas.core.restrict_val import RestrictValueType
-from brevitas.core.scaling import ScalingImplType, SCALING_SCALAR_SHAPE
-from brevitas.core.stats import StatsInputViewShapeImpl
-from brevitas.core.stats import StatsOp
 from brevitas.function.ops_ste import ceil_ste
 from brevitas.function.ops import max_uint
-from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy, WeightReg
-from brevitas import docstrings
-from .quant_layer import QuantLayer, WeightQuantConfig, BiasQuantConfig
+from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy
+from brevitas.proxy.runtime_quant import ActivationQuantProxy
+from .quant_layer import QuantWeightBiasOutputLayer, OVER_BATCH_OVER_CHANNELS_4D_SHAPE
+from .config import WeightQuantConfig, BiasQuantConfig, ActQuantConfig
 
 __all__ = ['QuantLinear']
 
 
-@docstrings.dedent
-class QuantLinear(QuantLayer, Linear):
-    """
+class QuantLinear(QuantWeightBiasOutputLayer, Linear):
 
-        Parameters
-        ----------
-
-        %(weight_quant_proxy.parameters_with_prefix)s
-    """
     def __init__(
             self,
             in_features: int,
             out_features: int,
             bias: bool,
-            weight_bit_width: int = 8,
-            weight_quant_type: QuantType = QuantType.INT,
-            weight_quant_config: WeightQuantConfig = WeightQuantConfig(),
-            weight_quant_override: WeightQuantProxy = None,
-            bias_bit_width: int = None,
-            bias_quant_type: QuantType = QuantType.FP,
-            bias_quant_config: BiasQuantConfig = BiasQuantConfig(),
-            compute_output_scale: bool = False,
-            compute_output_bit_width: bool = False,
-            return_quant_tensor: bool = False) -> None:
-        QuantLayer.__init__(
+            weight_quant_config_type: Type[WeightQuantConfig] = WeightQuantConfig,
+            bias_quant_config_type: Type[BiasQuantConfig] = BiasQuantConfig,
+            output_quant_config_type: Type[ActQuantConfig] = ActQuantConfig,
+            weight_quant_type: Type[Module] = WeightQuantProxy,
+            bias_quant_type: Type[Module] = BiasQuantProxy,
+            output_quant_type: Type[Module] = ActivationQuantProxy,
+            weight_quant_config_prefix: str = 'weight_',
+            bias_quant_config_prefix: str = 'bias_',
+            output_quant_config_prefix: str = 'output_',
+            weight_quant_override: Module = None,
+            output_quant_override: Module = None,
+            return_quant_tensor: bool = False,
+            **kwargs) -> None:
+        Linear.__init__(self, in_features, out_features, bias)
+        QuantWeightBiasOutputLayer.__init__(
             self,
-            compute_output_scale=compute_output_scale,
-            compute_output_bit_width=compute_output_bit_width,
-            return_quant_tensor=return_quant_tensor)
-        Linear.__init__(
-            self,
-            in_features=in_features,
-            out_features=out_features,
-            bias=bias)
-
-        if weight_quant_type == QuantType.FP and compute_output_bit_width:
-            raise Exception("Computing output bit width requires enabling quantization")
-        if bias_quant_type != QuantType.FP and not (compute_output_scale and compute_output_bit_width):
-            raise Exception("Quantizing bias requires to compute output scale and output bit width")
-
-        self.per_elem_ops = 2 * in_features
-        self.weight_reg = WeightReg()
-
-        if weight_quant_override is not None:
-            self.weight_quant = weight_quant_override
-            self.weight_quant.add_tracked_tensor(self.weight)
-        else:
-            weight_scaling_stats_input_concat_dim = 0
-            if weight_quant_config.scaling_per_output_channel:
-                weight_stats_input_view_shape_impl = StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS
-                weight_scaling_shape = (self.out_features, 1)
-                weight_scaling_stats_reduce_dim = 1
-            else:
-                weight_stats_input_view_shape_impl = StatsInputViewShapeImpl.OVER_TENSOR
-                weight_scaling_shape = SCALING_SCALAR_SHAPE
-                weight_scaling_stats_reduce_dim = None
-
-            if weight_quant_config.scaling_stats_op == StatsOp.MAX_AVE:
-                weight_stats_input_view_shape_impl = StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS
-                weight_scaling_stats_reduce_dim = 1
-
-            self.weight_quant = WeightQuantProxy(
-                bit_width=weight_bit_width,
-                quant_type=weight_quant_type,
-                weight_quant_config=weight_quant_config,
-                scaling_stats_reduce_dim=weight_scaling_stats_reduce_dim,
-                scaling_shape=weight_scaling_shape,
-                tracked_parameter_list_init=self.weight,
-                scaling_stats_input_view_shape_impl=weight_stats_input_view_shape_impl,
-                scaling_stats_input_concat_dim=weight_scaling_stats_input_concat_dim)
-        self.bias_quant = BiasQuantProxy(
-            quant_type=bias_quant_type,
-            bit_width=bias_bit_width,
-            bias_quant_config=bias_quant_config)
+            weight_quant_override=weight_quant_override,
+            weight_quant_config_type=weight_quant_config_type,
+            weight_quant_config_prefix=weight_quant_config_prefix,
+            weight_quant_type=weight_quant_type,
+            weight=self.weight,
+            bias_quant_config_type=bias_quant_config_type,
+            bias_quant_config_prefix=bias_quant_config_prefix,
+            bias_quant_type=bias_quant_type,
+            output_quant_override=output_quant_override,
+            output_quant_config_type=output_quant_config_type,
+            output_quant_config_prefix=output_quant_config_prefix,
+            output_quant_type=output_quant_type,
+            return_quant_tensor=return_quant_tensor,
+            **kwargs)
 
     @property
-    def int_weight(self):
-        if isinstance(self.weight_quant.tensor_quant, IdentityQuant):
-            raise Exception("Can't generate int weight without quantization enabled")
-        return self.weight_quant.int_weight(self.weight)
+    def output_channel_dim(self):
+        return 0
 
     @property
-    def quant_weight_scale(self):
-        """
+    def out_channels(self):
+        return self.out_features
 
-        Returns scale factor of the quantized weights with scalar () shape or (self.out_channels, 1)
-        shape depending on whether scaling is per layer or per-channel.
-        -------
+    @property
+    def returned_scale_shape(self):
+        return OVER_BATCH_OVER_CHANNELS_4D_SHAPE
 
-        """
-        if isinstance(self.weight_quant.tensor_quant, IdentityQuant):
-            raise Exception("Can't generate scaling factor without quantization enabled")
-        _, scale, _ = self.weight_quant.tensor_quant(self.weight)
-        return scale
+    def inner_forward_impl(self, x, quant_weight, quant_bias):
+        output = linear(x, quant_weight, quant_bias)
+        return output
 
-    def forward(self, input):
-        output_scale = None
-        output_bit_width = None
-        bias_bit_width = None
-
-        input, input_scale, input_bit_width = self.unpack_input(input)
-
-        quant_weight, quant_weight_scale, quant_weight_bit_width = self.weight_quant(self.weight)
-        quant_weight = self.weight_reg(quant_weight)
-
-        if self.compute_output_bit_width:
-            assert input_bit_width is not None
-            output_bit_width = self.max_output_bit_width(input_bit_width, quant_weight_bit_width)
-        if self.compute_output_scale:
-            assert input_scale is not None
-            output_scale = input_scale * quant_weight_scale
-
-        if self.bias is not None:
-            quant_bias, _, bias_bit_width = self.bias_quant(self.bias, output_scale, output_bit_width)
-            output = linear(input, quant_weight, quant_bias)
-        else:
-            output = linear(input, quant_weight, None)
-
-        if self.compute_output_bit_width and bias_bit_width is not None:
-            output_bit_width = torch.where(bias_bit_width > output_bit_width, bias_bit_width, output_bit_width)
-            output_bit_width = output_bit_width + 1
-        return self.pack_output(output, output_scale, output_bit_width)
-
-    def max_output_bit_width(self, input_bit_width, weight_bit_width):
+    def max_acc_bit_width(self, input_bit_width, weight_bit_width):
         max_input_val = max_uint(bit_width=input_bit_width, narrow_range=False)
         max_fc_val = self.weight_quant.tensor_quant.int_quant.max_uint(weight_bit_width)
         max_output_val = max_input_val * max_fc_val * self.in_features

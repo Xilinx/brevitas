@@ -58,9 +58,10 @@ from brevitas.core.scaling import ScalingImplType, SCALING_SCALAR_SHAPE
 from brevitas.core.stats import StatsInputViewShapeImpl, StatsOp
 from brevitas.function.ops import max_uint
 from brevitas.function.ops_ste import ceil_ste
-from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy, WeightReg
+from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy
 from brevitas.utils.python_utils import AutoName
-from brevitas.nn.quant_layer import QuantLayer, SCALING_MIN_VAL
+from brevitas.nn.quant_layer import QuantLayer
+from brevitas.nn.config import SCALING_MIN_VAL
 from brevitas import docstrings
 
 __all__ = ['QuantConvTranspose1d']

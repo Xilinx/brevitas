@@ -51,17 +51,16 @@ from brevitas.core.stats import StatsOp
 from brevitas.core.restrict_val import RestrictValueType, FloatToIntImplType
 from brevitas.core.scaling import ScalingImplType, StatsInputViewShapeImpl
 from brevitas.proxy.runtime_quant import ActivationQuantProxy
-from .quant_layer import QuantLayer, SCALING_MIN_VAL
+
+from .quant_layer import QuantLayer, ActQuantConfig
+from .config import SCALING_MIN_VAL
 
 
 class QuantActivation(QuantLayer, Module):
     __metaclass__ = ABCMeta
 
     def __init__(self, return_quant_tensor):
-        QuantLayer.__init__(self,
-                            compute_output_scale=True,
-                            compute_output_bit_width=True,
-                            return_quant_tensor=return_quant_tensor)
+        QuantLayer.__init__(self, return_quant_tensor=return_quant_tensor)
         Module.__init__(self)
 
     @property
@@ -91,10 +90,8 @@ class QuantActivation(QuantLayer, Module):
 class QuantReLU(QuantActivation):
 
     def __init__(self,
-                 bit_width: int,
                  max_val: float,
-                 quant_type: QuantType,
-                 quant_config: QuantActivationConfig = QuantActivationConfig(),
+                 output_quant_config: ActQuantConfig = ActQuantConfig(),
                  return_quant_tensor: bool = False):
         super(QuantReLU, self).__init__(return_quant_tensor=return_quant_tensor)
         activation_impl = nn.ReLU()
