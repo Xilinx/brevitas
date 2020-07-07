@@ -50,7 +50,6 @@ from brevitas.core.stats import StatsOp, StatsInputViewShapeImpl
 from brevitas.core.restrict_val import RestrictValueType, FloatToIntImplType
 from brevitas.core.scaling import ScalingImplType, SCALING_SCALAR_SHAPE
 
-
 SCALING_MIN_VAL = 2.0 ** (-16)
 
 

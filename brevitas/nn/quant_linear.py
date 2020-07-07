@@ -38,18 +38,20 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from typing import Optional, Union, Type
+from dataclasses import dataclass
+from typing import Union, Type, Optional
 
 import torch
-from torch.nn import Linear, Module, Identity
+from torch.nn import Linear
 from torch.nn.functional import linear
 
 from brevitas.function.ops_ste import ceil_ste
 from brevitas.function.ops import max_uint
-from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy
-from brevitas.proxy.runtime_quant import ActivationQuantProxy
+
+from brevitas.proxy import WeightQuantProxy, BiasQuantProxy, ActivationQuantProxy
+from brevitas.proxy.spec import WeightQuantSpec, BiasQuantSpec, OutputQuantSpec
+
 from .quant_layer import QuantWeightBiasOutputLayer, OVER_BATCH_OVER_CHANNELS_4D_SHAPE
-from .config import WeightQuantConfig, BiasQuantConfig, ActQuantConfig
 
 __all__ = ['QuantLinear']
 
@@ -61,34 +63,18 @@ class QuantLinear(QuantWeightBiasOutputLayer, Linear):
             in_features: int,
             out_features: int,
             bias: bool,
-            weight_quant_config_type: Type[WeightQuantConfig] = WeightQuantConfig,
-            bias_quant_config_type: Type[BiasQuantConfig] = BiasQuantConfig,
-            output_quant_config_type: Type[ActQuantConfig] = ActQuantConfig,
-            weight_quant_type: Type[Module] = WeightQuantProxy,
-            bias_quant_type: Type[Module] = BiasQuantProxy,
-            output_quant_type: Type[Module] = ActivationQuantProxy,
-            weight_quant_config_prefix: str = 'weight_',
-            bias_quant_config_prefix: str = 'bias_',
-            output_quant_config_prefix: str = 'output_',
-            weight_quant_override: Module = None,
-            output_quant_override: Module = None,
+            weight_quant: Union[WeightQuantProxy, WeightQuantSpec] = WeightQuantSpec(),
+            bias_quant: Union[BiasQuantProxy, BiasQuantSpec] = BiasQuantSpec(),
+            output_quant: Union[ActivationQuantProxy, OutputQuantSpec] = OutputQuantSpec(),
             return_quant_tensor: bool = False,
             **kwargs) -> None:
         Linear.__init__(self, in_features, out_features, bias)
         QuantWeightBiasOutputLayer.__init__(
             self,
-            weight_quant_override=weight_quant_override,
-            weight_quant_config_type=weight_quant_config_type,
-            weight_quant_config_prefix=weight_quant_config_prefix,
-            weight_quant_type=weight_quant_type,
             weight=self.weight,
-            bias_quant_config_type=bias_quant_config_type,
-            bias_quant_config_prefix=bias_quant_config_prefix,
-            bias_quant_type=bias_quant_type,
-            output_quant_override=output_quant_override,
-            output_quant_config_type=output_quant_config_type,
-            output_quant_config_prefix=output_quant_config_prefix,
-            output_quant_type=output_quant_type,
+            weight_quant=weight_quant,
+            bias_quant=bias_quant,
+            output_quant=output_quant,
             return_quant_tensor=return_quant_tensor,
             **kwargs)
 

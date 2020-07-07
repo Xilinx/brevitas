@@ -40,11 +40,9 @@
 
 from enum import auto
 from typing import Union, Optional, Tuple
-import re
 
 import math
 import torch
-import docrep
 from torch.nn import Conv2d, Module
 from torch.nn import functional as F
 from torch.nn.functional import conv2d
@@ -61,7 +59,7 @@ from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy
 from brevitas.utils.python_utils import AutoName
 from brevitas.nn.quant_bn import mul_add_from_bn
 from brevitas.nn.quant_layer import QuantLayer
-from brevitas.nn.config import SCALING_MIN_VAL
+from brevitas.proxy.config import SCALING_MIN_VAL
 from brevitas import docstrings
 
 __all__ = ['QuantConv2d']

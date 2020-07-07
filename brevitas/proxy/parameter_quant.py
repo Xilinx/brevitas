@@ -39,13 +39,11 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 from abc import ABCMeta
-from functools import partial
-from typing import Tuple, Optional, Union, List
-import re
+from typing import Tuple, Optional, List
 
 import math
 import torch
-from torch import nn, Tensor
+from torch import Tensor
 
 
 from brevitas.core.bit_width import BitWidthConst, BitWidthParameter, BitWidthImplType, IdentityBitWidth
@@ -58,9 +56,9 @@ from brevitas.core.scaling import ScalingImplType, ParameterStatsScaling, IntSca
 from brevitas.core.scaling import ConstScaling, ParameterScaling
 from brevitas.function.ops_ste import round_ste
 from brevitas import docstrings
-from brevitas.nn.config import BiasQuantConfig, WeightQuantConfig
 
 from .quant_proxy import QuantProxy
+from .config import WeightQuantConfig, BiasQuantConfig
 
 __all__ = ['WeightQuantProxy', 'BiasQuantProxy']
 

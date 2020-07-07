@@ -8,7 +8,7 @@ from brevitas.core.quant import QuantType
 from brevitas.core.restrict_val import RestrictValueType
 from brevitas.core.scaling import ScalingImplType, SCALING_SCALAR_SHAPE
 from brevitas.core.stats import StatsInputViewShapeImpl, StatsOp
-from brevitas.nn.config import SCALING_MIN_VAL
+from brevitas.proxy.config import SCALING_MIN_VAL
 from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy
 from .quant_layer import QuantLayer
 

@@ -49,11 +49,11 @@ from brevitas.core.function_wrapper import Identity, ConstScalarClamp
 from brevitas.core.quant import QuantType, IdentityQuant
 from brevitas.core.stats import StatsOp
 from brevitas.core.restrict_val import RestrictValueType, FloatToIntImplType
-from brevitas.core.scaling import ScalingImplType, StatsInputViewShapeImpl
+from brevitas.core.scaling import ScalingImplType
 from brevitas.proxy.runtime_quant import ActivationQuantProxy
 
 from .quant_layer import QuantLayer, ActQuantConfig
-from .config import SCALING_MIN_VAL
+from brevitas.proxy.config import SCALING_MIN_VAL
 
 
 class QuantActivation(QuantLayer, Module):

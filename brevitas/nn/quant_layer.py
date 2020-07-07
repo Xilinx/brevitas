@@ -40,17 +40,18 @@
 
 from abc import ABCMeta, abstractmethod
 from typing import Optional, Type, Union
+from dataclasses import dataclass
 
 import torch
 from torch import Tensor
-from torch.nn import Identity, Module
+from torch.nn import Identity
 
 from brevitas.quant_tensor import QuantTensor
 from brevitas.core.quant import IdentityQuant
-from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy
-from brevitas.proxy.runtime_quant import ActivationQuantProxy
-
-from .config import ActQuantConfig, WeightQuantConfig, BiasQuantConfig
+from brevitas.proxy import WeightQuantProxy, BiasQuantProxy, ActivationQuantProxy
+from brevitas.proxy.config import ActQuantConfig, WeightQuantConfig, BiasQuantConfig
+from brevitas.proxy.spec import OutputQuantSpec, WeightQuantSpec, BiasQuantSpec
+from brevitas.proxy.spec import OutputQuantConfigSpec, WeightQuantConfigSpec, BiasQuantConfigSpec
 
 OVER_BATCH_OVER_CHANNELS_4D_SHAPE = (1, -1, 1, 1)
 
@@ -92,19 +93,23 @@ class QuantWeightMixin(object):
 
     def __init__(
             self,
-            weight_quant_config_type: Type[WeightQuantConfig],
-            weight_quant_override: Module,
-            weight_quant_type: Type[WeightQuantProxy],
+            weight_quant,
             weight: torch.nn.Parameter,
-            config_prefix: str,
             **kwargs):
-        if weight_quant_override is not None:
-            self.weight_quant = weight_quant_override
+        if isinstance(weight_quant, WeightQuantProxy):
+            self.weight_quant = weight_quant
             self.weight_quant.add_tracked_tensor(weight)
+        elif isinstance(weight_quant, WeightQuantSpec):
+            if isinstance(weight_quant.config, WeightQuantConfig):
+                wqc = weight_quant.config
+            elif isinstance(weight_quant.config, WeightQuantConfigSpec):
+                wqc_kwargs = filter_kwargs(weight_quant.config.prefix, kwargs)
+                wqc = weight_quant.config.type(weight_layer=self, **wqc_kwargs)
+            else:
+                raise RuntimeError
+            self.weight_quant = weight_quant.type(wqc, tracked_parameter_list_init=weight)
         else:
-            wqc_kwargs = filter_kwargs(config_prefix, kwargs)
-            wqc = weight_quant_config_type(weight_layer=self, **wqc_kwargs)
-            self.weight_quant = weight_quant_type(wqc, tracked_parameter_list_init=weight)
+            raise RuntimeError
 
     @property
     @abstractmethod
@@ -133,13 +138,21 @@ class QuantBiasMixin(object):
 
     def __init__(
             self,
-            bias_quant_config_type: Type[BiasQuantConfig],
-            bias_quant_type: Type[BiasQuantProxy],
-            config_prefix: str,
+            bias_quant,
             **kwargs):
-        bqc_kwargs = filter_kwargs(config_prefix, kwargs)
-        bqc = bias_quant_config_type(bias_layer=self, **bqc_kwargs)
-        self.bias_quant = bias_quant_type(bqc)
+        if isinstance(bias_quant, BiasQuantProxy):
+            self.bias_quant = bias_quant
+        elif isinstance(bias_quant, BiasQuantSpec):
+            if isinstance(bias_quant.config, BiasQuantConfig):
+                bqc = bias_quant.config
+            elif isinstance(bias_quant.config, BiasQuantConfigSpec):
+                bqc_kwargs = filter_kwargs(bias_quant.config.prefix, kwargs)
+                bqc = bias_quant.config.type(bias_layer=self, **bqc_kwargs)
+            else:
+                raise RuntimeError
+            self.bias_quant = bias_quant.type(bqc)
+        else:
+            raise RuntimeError
 
 
 class QuantOutputMixin(object):
@@ -147,17 +160,21 @@ class QuantOutputMixin(object):
 
     def __init__(
             self,
-            output_quant_config_type: Type[ActQuantConfig],
-            output_quant_override: Module,
-            output_quant_type: Type[ActivationQuantProxy],
-            config_prefix: str,
+            output_quant: Union[ActivationQuantProxy, OutputQuantSpec],
             **kwargs):
-        if output_quant_override is not None:
-             self.output_quant = output_quant_override
+        if isinstance(output_quant, ActivationQuantProxy):
+            self.output_quant = output_quant
+        elif isinstance(output_quant, OutputQuantSpec):
+            if isinstance(output_quant.config, ActQuantConfig):
+                oqc = output_quant.config
+            elif isinstance(output_quant.config, OutputQuantConfigSpec):
+                oqc_kwargs = filter_kwargs(output_quant.config.prefix, kwargs)
+                oqc = output_quant.config.type(layer=self, **oqc_kwargs)
+            else:
+                raise RuntimeError
+            self.output_quant = output_quant.type(Identity(), oqc)
         else:
-            oqc_kwargs = filter_kwargs(config_prefix, kwargs)
-            oqc = output_quant_config_type(layer=self, **oqc_kwargs)
-            self.output_quant = output_quant_type(Identity(), oqc)
+            raise RuntimeError
 
 
 class QuantWeightBiasOutputLayer(QuantOutputMixin, QuantBiasMixin, QuantWeightMixin, QuantLayer):
@@ -166,43 +183,15 @@ class QuantWeightBiasOutputLayer(QuantOutputMixin, QuantBiasMixin, QuantWeightMi
     def __init__(
             self,
             weight,
-            weight_quant_override: WeightQuantProxy,
-            output_quant_override: ActivationQuantProxy,
-            weight_quant_type: Type[WeightQuantProxy],
-            bias_quant_type: Type[BiasQuantProxy],
-            output_quant_type: Type[ActivationQuantProxy],
-            weight_quant_config_type: Type[WeightQuantConfig],
-            bias_quant_config_type: Type[BiasQuantConfig],
-            output_quant_config_type: Type[ActQuantConfig],
-            weight_quant_config_prefix: str,
-            bias_quant_config_prefix: str,
-            output_quant_config_prefix: str,
+            weight_quant: Union[WeightQuantProxy, WeightQuantSpec],
+            bias_quant: Union[BiasQuantProxy, BiasQuantSpec],
+            output_quant: Union[ActivationQuantProxy, OutputQuantSpec],
             return_quant_tensor: bool,
             **kwargs):
-        QuantLayer.__init__(
-            self,
-            return_quant_tensor)
-        QuantWeightMixin.__init__(
-            self,
-            weight_quant_config_type,
-            weight_quant_override,
-            weight_quant_type,
-            weight,
-            weight_quant_config_prefix,
-            **kwargs)
-        QuantBiasMixin.__init__(
-            self,
-            bias_quant_config_type,
-            bias_quant_type,
-            bias_quant_config_prefix,
-            **kwargs)
-        QuantOutputMixin.__init__(
-            self,
-            output_quant_config_type,
-            output_quant_override,
-            output_quant_type,
-            output_quant_config_prefix,
-            **kwargs)
+        QuantLayer.__init__(self, return_quant_tensor)
+        QuantWeightMixin.__init__(self, weight_quant, weight, **kwargs)
+        QuantBiasMixin.__init__(self, bias_quant, **kwargs)
+        QuantOutputMixin.__init__(self, output_quant, **kwargs)
 
     @abstractmethod
     def max_acc_bit_width(self, input_bit_width: Tensor, quant_weight_bit_width: Tensor):
@@ -235,6 +224,8 @@ class QuantWeightBiasOutputLayer(QuantOutputMixin, QuantBiasMixin, QuantWeightMi
             output_bit_width = torch.where(
                 bias_bit_width > output_bit_width, bias_bit_width, output_bit_width)
             output_bit_width = output_bit_width + 1
+
+        output, output_scale, output_bit_width = self.output_quant(output, output_scale, output_bit_width)
         return self.pack_output(output, output_scale, output_bit_width)
 
 

@@ -38,7 +38,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from typing import Optional, Tuple
+from typing import Optional
 
 import torch
 from torch.nn import Module
@@ -51,10 +51,9 @@ from brevitas.core.quant import QuantType, IdentityPrescaledIntQuant
 from brevitas.core.quant import RescalingIntQuant, IdentityQuant
 from brevitas.function.ops_ste import round_ste
 from brevitas.core.restrict_val import RestrictValueType, RestrictValue, FloatToIntImplType, RestrictValueOpImplType
-from brevitas.core.scaling import RuntimeStatsScaling, SCALING_SCALAR_SHAPE, StatsInputViewShapeImpl
+from brevitas.core.scaling import RuntimeStatsScaling, SCALING_SCALAR_SHAPE
 from brevitas.core.scaling import ScalingImplType, ConstScaling, ParameterScaling, IntScaling
-from brevitas.core.stats import StatsOp
-from brevitas.nn.config import ActQuantConfig
+from brevitas.proxy.config import ActQuantConfig
 
 from .quant_proxy import QuantProxy
 
@@ -123,6 +122,7 @@ def _scaling_impl_init(aqc: ActQuantConfig):
 
 
 def _tensor_quant_init(aqc: ActQuantConfig):
+
     if not aqc.signed and aqc.min_val != 0.0:
         raise Exception("Min val has to be 0.0 when quantization is unsigned.")
     if aqc.scaling_per_channel and aqc.per_channel_broadcastable_shape is None:
