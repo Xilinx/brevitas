@@ -38,89 +38,89 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from enum import auto
-from typing import Callable, Union, Optional
 import math
 
 import torch
-from torch.nn import Sequential
+from torch import Tensor
+from torch.nn import Module
 
-from brevitas.utils.python_utils import AutoName
-from .function_wrapper import RoundSte, CeilSte, Identity, PowerOfTwo, LogTwo, FloorSte, ClampMin
-from brevitas.function.ops import identity
-
-class RestrictValueType(AutoName):
-    FP = auto()
-    LOG_FP = auto()
-    INT = auto()
-    POWER_OF_TWO = auto()
+from .function_wrapper import Identity, PowerOfTwo, LogTwo
 
 
-class FloatToIntImplType(AutoName):
-    ROUND = auto()
-    CEIL = auto()
-    FLOOR = auto()
+class FloatRestrictValue(torch.jit.ScriptModule):
 
+    def __init__(self) -> None:
+        super(FloatRestrictValue, self).__init__()
 
-class RestrictValueOpImplType(AutoName):
-    MATH = auto()
-    TORCH_FN = auto()
-    TORCH_MODULE = auto()
+    def restrict_init_float(self, x: float) -> float:
+        return x
 
+    def restrict_init_tensor(self, x: Tensor) -> Tensor:
+        return x
 
-class RestrictValue(torch.jit.ScriptModule):
-
-    def __init__(self,
-                 restrict_value_type: RestrictValueType,
-                 float_to_int_impl_type: FloatToIntImplType,
-                 min_val: Optional[float]) -> None:
-        super(RestrictValue, self).__init__()
-
-        if float_to_int_impl_type == FloatToIntImplType.ROUND:
-            float_to_int_impl = RoundSte()
-        elif float_to_int_impl_type == FloatToIntImplType.CEIL:
-            float_to_int_impl = CeilSte()
-        elif float_to_int_impl_type == FloatToIntImplType.FLOOR:
-            float_to_int_impl = FloorSte()
-        else:
-            raise Exception("Float to int impl type {} not supported for restrict value"
-                            .format(str(float_to_int_impl_type)))
-
-        if min_val is not None:
-            clamp_to_min_val = ClampMin(min_val=min_val)
-        else:
-            clamp_to_min_val = Identity()
-
-        if restrict_value_type == RestrictValueType.FP:
-            self.forward_impl = Sequential(Identity(), clamp_to_min_val)
-        elif restrict_value_type == RestrictValueType.LOG_FP:
-            self.forward_impl = Sequential(PowerOfTwo(), clamp_to_min_val)
-        elif restrict_value_type == RestrictValueType.INT:
-            self.forward_impl = Sequential(float_to_int_impl, clamp_to_min_val)
-        elif restrict_value_type == RestrictValueType.POWER_OF_TWO:
-            self.forward_impl = Sequential(float_to_int_impl, PowerOfTwo(), clamp_to_min_val)
-        else:
-            raise Exception("Restrict value type {} not recognized".format(str(restrict_value_type)))
-
-        self.restrict_value_type = restrict_value_type
-
-    @staticmethod
-    def restrict_value_op(restrict_value_type: RestrictValueType, restrict_value_op_impl_type: RestrictValueOpImplType):
-        if restrict_value_type == RestrictValueType.FP or restrict_value_type == RestrictValueType.INT:
-            return identity
-        elif restrict_value_type == RestrictValueType.LOG_FP or restrict_value_type == RestrictValueType.POWER_OF_TWO:
-            if restrict_value_op_impl_type == RestrictValueOpImplType.TORCH_FN:
-                return torch.log2
-            elif restrict_value_op_impl_type == RestrictValueOpImplType.MATH:
-                return math.log2
-            elif restrict_value_op_impl_type == RestrictValueOpImplType.TORCH_MODULE:
-                return LogTwo()
-            else:
-                raise Exception("Type of implementation {} not recognized".format(str(restrict_value_op_impl_type)))
-        else:
-            raise Exception("Restriction of type {} not recognized".format(str(restrict_value_type)))
+    def restrict_init_module(self) -> Module:
+        return Identity()
 
     @torch.jit.script_method
-    def forward(self, value: torch.Tensor) -> torch.Tensor:
-        value = self.forward_impl(value)
-        return value
+    def forward(self, x: torch.Tensor) -> Tensor:
+        return x
+
+
+class LogFloatRestrictValue(torch.jit.ScriptModule):
+
+    def __init__(self):
+        super(LogFloatRestrictValue, self).__init__()
+        self.power_of_two: Module = PowerOfTwo()
+
+    def restrict_init_float(self, x: float):
+        return math.log2(x)
+
+    def restrict_init_tensor(self, x: torch.Tensor):
+        return torch.log2(x)
+
+    def restrict_init_module(self):
+        return LogTwo()
+
+    @torch.jit.script_method
+    def forward(self, x: torch.Tensor):
+        x = self.power_of_two(x)
+        return x
+
+
+class IntRestrictValue(torch.jit.ScriptModule):
+
+    def __init__(self, float_to_int_impl: Module):
+        super(IntRestrictValue, self).__init__()
+        self.float_to_int_impl = float_to_int_impl
+
+    def restrict_init_float(self, x: float):
+        return x
+
+    def restrict_init_tensor(self, x: torch.Tensor):
+        return x
+
+    def restrict_init_module(self):
+        return Identity()
+
+
+class PowerOfTwoRestrictValue(torch.jit.ScriptModule):
+
+    def __init__(self, float_to_int_impl: Module):
+        super(PowerOfTwoRestrictValue, self).__init__()
+        self.float_to_int_impl = float_to_int_impl
+        self.power_of_two: Module = PowerOfTwo()
+
+    def restrict_init_float(self, x: float):
+        return math.log2(x)
+
+    def restrict_init_tensor(self, x: torch.Tensor):
+        return torch.log2(x)
+
+    def restrict_init_module(self):
+        return LogTwo()
+
+    @torch.jit.script_method
+    def forward(self, x: torch.Tensor):
+        x = self.float_to_int_impl(x)
+        x = self.forward_impl(x)
+        return x
