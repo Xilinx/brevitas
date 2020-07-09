@@ -38,13 +38,31 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+from typing import Optional
+
 import math
 
 import torch
 from torch import Tensor
 from torch.nn import Module
 
-from .function_wrapper import Identity, PowerOfTwo, LogTwo
+from .function_wrapper import Identity, PowerOfTwo, LogTwo, ClampMin
+
+
+class _RestrictClampValue(torch.jit.ScriptModule):
+
+    def __init__(self, scaling_min_val: Optional[float], restrict_value_impl: Module):
+        super(_RestrictClampValue, self).__init__()
+        self.restrict_value_impl = restrict_value_impl
+        if scaling_min_val is not None and scaling_min_val != 0:
+            scaling_min_val = restrict_value_impl.restrict_init_float(scaling_min_val)
+            self.clamp_min = ClampMin(scaling_min_val) # TODO: should be STE
+        else:
+            self.clamp_min = Identity()
+
+    def forward(self, x: torch.Tensor):
+        x = self.clamp_min(x)
+        return self.restrict_value_impl(x)
 
 
 class FloatRestrictValue(torch.jit.ScriptModule):
@@ -89,9 +107,9 @@ class LogFloatRestrictValue(torch.jit.ScriptModule):
 
 class IntRestrictValue(torch.jit.ScriptModule):
 
-    def __init__(self, float_to_int_impl: Module):
+    def __init__(self, restrict_value_float_to_int_impl: Module):
         super(IntRestrictValue, self).__init__()
-        self.float_to_int_impl = float_to_int_impl
+        self.float_to_int_impl = restrict_value_float_to_int_impl
 
     def restrict_init_float(self, x: float):
         return x
@@ -105,9 +123,9 @@ class IntRestrictValue(torch.jit.ScriptModule):
 
 class PowerOfTwoRestrictValue(torch.jit.ScriptModule):
 
-    def __init__(self, float_to_int_impl: Module):
+    def __init__(self, restrict_value_float_to_int_impl: Module):
         super(PowerOfTwoRestrictValue, self).__init__()
-        self.float_to_int_impl = float_to_int_impl
+        self.float_to_int_impl = restrict_value_float_to_int_impl
         self.power_of_two: Module = PowerOfTwo()
 
     def restrict_init_float(self, x: float):

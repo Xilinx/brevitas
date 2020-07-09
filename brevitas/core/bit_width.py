@@ -97,8 +97,8 @@ class BitWidthParameter(torch.jit.ScriptModule):
             self,
             bit_width: int,
             min_overall_bit_width: Optional[int],
-            restrict_bit_width: Module,
-            override_pretrained: bool = False) -> None:
+            restrict_bit_width_impl: Module,
+            override_pretrained_bit_width: bool = False) -> None:
         super(BitWidthParameter, self).__init__()
 
         if min_overall_bit_width is None:
@@ -107,13 +107,13 @@ class BitWidthParameter(torch.jit.ScriptModule):
             raise RuntimeError("Int bit width has to be at least {}, instead is {}."
                             .format(MIN_INT_BIT_WIDTH, bit_width))
 
-        bit_width_base = restrict_bit_width.restrict_init_float(min_overall_bit_width)
-        bit_width = restrict_bit_width.restrict_init_float(bit_width)
+        bit_width_base = restrict_bit_width_impl.restrict_init_float(min_overall_bit_width)
+        bit_width = restrict_bit_width_impl.restrict_init_float(bit_width)
         bit_width_offset_init = max(bit_width - bit_width_base, 0.0)
         self.bit_width_offset = Parameter(torch.tensor(float(bit_width_offset_init)))
         self.bit_width_base = bit_width_base
-        self.override_pretrained = override_pretrained
-        self.restrict_bit_width = restrict_bit_width
+        self.override_pretrained = override_pretrained_bit_width
+        self.restrict_bit_width_impl = restrict_bit_width_impl
 
     @torch.jit.script_method
     def forward(self) -> Tensor:
@@ -140,7 +140,7 @@ class RemoveBitwidthParameter(torch.jit.ScriptModule):
             self,
             bit_width_to_remove: int,
             restrict_bit_width_impl: Module,
-            override_pretrained: bool = False):
+            override_pretrained_bit_width: bool = False):
         super(RemoveBitwidthParameter, self).__init__()
 
         if bit_width_to_remove < 0:
@@ -152,7 +152,7 @@ class RemoveBitwidthParameter(torch.jit.ScriptModule):
         self.bit_width_coeff = Parameter(torch.tensor(bit_width_coeff_init))
         self.restrict_bit_width_impl = restrict_bit_width_impl
         self.non_zero_epsilon = NON_ZERO_EPSILON
-        self.override_pretrained = override_pretrained
+        self.override_pretrained = override_pretrained_bit_width
 
     @torch.jit.script_method
     def forward(self) -> Tensor:

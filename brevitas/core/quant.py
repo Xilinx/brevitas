@@ -53,10 +53,6 @@ from .bit_width import BitWidthConst
 from .utils import StatelessBuffer
 
 
-__all__ = ['QuantType', 'BinaryQuant', 'TernaryQuant', 'RescalingIntQuant',
-           'PrescaledRestrictIntQuant']
-
-
 class QuantType(AutoName):
     BINARY = auto()
     TERNARY = auto()
@@ -454,10 +450,10 @@ class PrescaledRestrictIntQuantWithInputBitWidth(torch.jit.ScriptModule):
     """
     def __init__(self,
                  int_quant: Module,
-                 msb_clamp_bit_width_impl: Module):
+                 bit_width_impl: Module):
         super(PrescaledRestrictIntQuantWithInputBitWidth, self).__init__()
         self.int_quant = int_quant
-        self.msb_clamp_bit_width_impl = msb_clamp_bit_width_impl
+        self.msb_clamp_bit_width_impl = bit_width_impl
         self.int_scale = StatelessBuffer(torch.tensor(1.0))
 
     @torch.jit.script_method
@@ -526,10 +522,10 @@ class PrescaledRestrictIntQuant(torch.jit.ScriptModule):
     """
     def __init__(self,
                  int_quant: Module,
-                 msb_clamp_bit_width_impl: Module):
+                 bit_width_impl: Module):
         super(PrescaledRestrictIntQuant, self).__init__()
         self.int_quant = int_quant
-        self.msb_clamp_bit_width_impl = msb_clamp_bit_width_impl
+        self.msb_clamp_bit_width_impl = bit_width_impl
         self.int_scale = StatelessBuffer(torch.tensor(1.0))
 
 
@@ -610,12 +606,12 @@ class RescalingIntQuant(torch.jit.ScriptModule):
                  int_quant: Module,
                  scaling_impl: Module,
                  int_scaling_impl: Module,
-                 msb_clamp_bit_width_impl: Module):
+                 bit_width_impl: Module):
         super(RescalingIntQuant, self).__init__()
         self.int_quant = int_quant
         self.scaling_impl = scaling_impl
         self.int_scaling_impl = int_scaling_impl
-        self.msb_clamp_bit_width_impl = msb_clamp_bit_width_impl
+        self.msb_clamp_bit_width_impl = bit_width_impl
 
     @torch.jit.script_method
     def forward(self,

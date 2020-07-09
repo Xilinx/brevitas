@@ -38,58 +38,65 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from collections import namedtuple
+from dataclasses import dataclass
 
 import torch
+from torch import Tensor
 
-from brevitas.function.ops_ste import round_ste, ceil_ste
+from brevitas.function.ops_ste import ceil_ste
 from brevitas.function.ops import max_uint
 
 
-def pack_quant_tensor(tensor, scale, bit_width):
-    return QuantTensor._make([tensor, scale, bit_width])
-
-
-class QuantTensor(namedtuple("QuantTensor", ["tensor", "scale", "bit_width"])):
+@dataclass
+class QuantTensor:
+    value: Tensor
+    scale: Tensor
+    bit_width: Tensor
+    signed: bool
 
     @staticmethod
     def check_input_type(other):
         if not isinstance(other, QuantTensor):
-            raise Exception("Other tensor is not a QuantTensor")
+            raise RuntimeError("Other tensor is not a QuantTensor")
 
     def check_scaling_factors_same(self, other):
         if not torch.allclose(self.scale, other.scale):
-            raise Exception("Scalign factors are different")
+            raise RuntimeError("Scaling factors are different")
 
     def view(self, *args, **kwargs):
-        output = pack_quant_tensor(self.tensor.view(*args, **kwargs), self.scale, self.bit_width)
+        output = QuantTensor(
+            self.value.view(*args, **kwargs), self.scale, self.bit_width, self.signed)
         return output
 
     def size(self, *args, **kwargs):
-        return self.tensor.size(*args, **kwargs)
+        return self.value.size(*args, **kwargs)
 
     # Reference: https://docs.python.org/3/reference/datamodel.html#emulating-numeric-types
 
     def __neg__(self):
-        return QuantTensor._make([- self.tensor, self.scale, self.bit_width])
+        if self.signed:
+            return QuantTensor(- self.value, self.scale, self.bit_width, self.signed)
+        else:
+            return QuantTensor(- self.value, self.scale, self.bit_width + 1, signed=True)
 
     def __add__(self, other):
         QuantTensor.check_input_type(other)
         self.check_scaling_factors_same(other)
-        output_tensor = self.tensor + other.tensor
+        output_value = self.value + other.value
         output_scale = (self.scale + other.scale) / 2
         max_uint_val = max_uint(narrow_range=False, bit_width=self.bit_width)
         max_uint_val += max_uint(narrow_range=False, bit_width=other.bit_width)
         output_bit_width = ceil_ste(torch.log2(max_uint_val))
-        output = pack_quant_tensor(output_tensor, output_scale, output_bit_width)
+        output_signed = self.signed or other.signed
+        output = QuantTensor(output_value, output_scale, output_bit_width, output_signed)
         return output
 
     def __mul__(self, other):
         QuantTensor.check_input_type(other)
-        output_tensor = self.tensor * other.tensor
+        output_value = self.value * other.value
         output_scale = self.scale * other.scale
         output_bit_width = self.bit_width + other.bit_width
-        output = pack_quant_tensor(output_tensor, output_scale, output_bit_width)
+        output = QuantTensor(output_value, output_scale, output_bit_width)
         return output
 
     def __sub__(self, other):
@@ -97,71 +104,14 @@ class QuantTensor(namedtuple("QuantTensor", ["tensor", "scale", "bit_width"])):
 
     def __truediv__(self, other):
         QuantTensor.check_input_type(other)
-        output_tensor = self.tensor / other.tensor
+        output_tensor = self.value / other.tensor
         output_scale = self.scale / other.scale
         output_bit_width = self.bit_width - other.bit_width
-        output = pack_quant_tensor(output_tensor, output_scale, output_bit_width)
+        output = QuantTensor(output_tensor, output_scale, output_bit_width)
         return output
 
     def __abs__(self):
-        return QuantTensor._make([abs(self.tensor), self.scale, self.bit_width])
+        return QuantTensor(torch.abs(self.tensor), self.scale, self.bit_width, self.signed)
 
     def __pos__(self):
         return self
-
-    def __int__(self):
-        return round_ste(self.tensor / self.scale)
-
-    def __float__(self):
-        return self.tensor
-
-    def __index__(self):
-        raise NotImplementedError
-
-    def __round__(self):
-        raise NotImplementedError
-
-    def __trunc__(self):
-        raise NotImplementedError
-
-    def __floor__(self):
-        raise NotImplementedError
-
-    def __ceil__(self):
-        raise NotImplementedError
-
-    def __complex__(self):
-        raise NotImplementedError
-
-    def __invert__(self):
-        raise NotImplementedError
-
-    def __matmul__(self, other):
-        raise NotImplementedError
-
-    def __floordiv__(self, other):
-        raise NotImplementedError
-
-    def __mod__(self, other):
-        raise NotImplementedError
-
-    def __divmod__(self, other):
-        raise NotImplementedError
-
-    def __pow__(self, other):
-        raise NotImplementedError
-
-    def __lshift__(self, other):
-        raise NotImplementedError
-
-    def __rshift__(self, other):
-        raise NotImplementedError
-
-    def __and__(self, other):
-        raise NotImplementedError
-
-    def __xor__(self, other):
-        raise NotImplementedError
-
-    def __or__(self, other):
-        raise NotImplementedError

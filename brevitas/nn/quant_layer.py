@@ -39,8 +39,8 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 from abc import ABCMeta, abstractmethod
-from typing import Optional, Type, Union
-from dataclasses import dataclass
+from typing import Optional, Type, Union, Callable
+from dependencies import Injector
 
 import torch
 from torch import Tensor
@@ -49,15 +49,9 @@ from torch.nn import Identity
 from brevitas.quant_tensor import QuantTensor
 from brevitas.core.quant import IdentityQuant
 from brevitas.proxy import WeightQuantProxy, BiasQuantProxy, ActivationQuantProxy
-from brevitas.proxy.config import ActQuantConfig, WeightQuantConfig, BiasQuantConfig
-from brevitas.proxy.spec import OutputQuantSpec, WeightQuantSpec, BiasQuantSpec
-from brevitas.proxy.spec import OutputQuantConfigSpec, WeightQuantConfigSpec, BiasQuantConfigSpec
+
 
 OVER_BATCH_OVER_CHANNELS_4D_SHAPE = (1, -1, 1, 1)
-
-
-def filter_kwargs(kwargs_prefix, kwargs: dict):
-    return {k[len(k):]: v for (k, v) in kwargs.items() if k.startswith(kwargs_prefix)}
 
 
 class QuantLayer(object):
@@ -72,15 +66,11 @@ class QuantLayer(object):
         else:
             return input, None, None
 
-    def pack_output(self,
-                    output,
-                    output_scale,
-                    output_bit_width):
+    def pack_output(self, quant_output: QuantTensor):
         if self.return_quant_tensor:
-            return QuantTensor(
-                tensor=output, scale=output_scale, bit_width=output_bit_width)
+            return quant_output
         else:
-            return output
+            return quant_output.tensor
 
     @property
     @abstractmethod
@@ -93,32 +83,36 @@ class QuantWeightMixin(object):
 
     def __init__(
             self,
-            weight_quant,
             weight: torch.nn.Parameter,
+            weight_quant: Optional[Union[WeightQuantProxy, Type[Injector]]],
+            update_inj: Optional[Callable],
             **kwargs):
-        if isinstance(weight_quant, WeightQuantProxy):
+        if weight_quant is None:
+            self.weight_quant = WeightQuantProxy(weight_quant)
+        elif isinstance(weight_quant, WeightQuantProxy):
             self.weight_quant = weight_quant
             self.weight_quant.add_tracked_tensor(weight)
-        elif isinstance(weight_quant, WeightQuantSpec):
-            if isinstance(weight_quant.config, WeightQuantConfig):
-                wqc = weight_quant.config
-            elif isinstance(weight_quant.config, WeightQuantConfigSpec):
-                wqc_kwargs = filter_kwargs(weight_quant.config.prefix, kwargs)
-                wqc = weight_quant.config.type(weight_layer=self, **wqc_kwargs)
-            else:
-                raise RuntimeError
-            self.weight_quant = weight_quant.type(wqc, tracked_parameter_list_init=weight)
+        elif isinstance(weight_quant, Injector):
+            if update_inj is not None:
+                weight_quant = update_inj(weight_layer=self, **kwargs)
+            weight_quant = weight_quant.let(tracked_parameter_list=[weight])
+            self.weight_quant = WeightQuantProxy(weight_quant)
         else:
             raise RuntimeError
 
     @property
     @abstractmethod
-    def output_channel_dim(self):
+    def output_channel_dim(self) -> int:
         pass
 
     @property
     @abstractmethod
-    def out_channels(self):
+    def channelwise_separable(self) -> bool:
+        pass
+
+    @property
+    @abstractmethod
+    def out_channels(self) -> int:
         pass
 
     def int_weight(self):
@@ -147,10 +141,10 @@ class QuantBiasMixin(object):
                 bqc = bias_quant.config
             elif isinstance(bias_quant.config, BiasQuantConfigSpec):
                 bqc_kwargs = filter_kwargs(bias_quant.config.prefix, kwargs)
-                bqc = bias_quant.config.type(bias_layer=self, **bqc_kwargs)
+                bqc = bias_quant.config.impl_type(bias_layer=self, **bqc_kwargs)
             else:
                 raise RuntimeError
-            self.bias_quant = bias_quant.type(bqc)
+            self.bias_quant = bias_quant.impl_type(bqc)
         else:
             raise RuntimeError
 
@@ -169,10 +163,10 @@ class QuantOutputMixin(object):
                 oqc = output_quant.config
             elif isinstance(output_quant.config, OutputQuantConfigSpec):
                 oqc_kwargs = filter_kwargs(output_quant.config.prefix, kwargs)
-                oqc = output_quant.config.type(layer=self, **oqc_kwargs)
+                oqc = output_quant.config.impl_type(layer=self, **oqc_kwargs)
             else:
                 raise RuntimeError
-            self.output_quant = output_quant.type(Identity(), oqc)
+            self.output_quant = output_quant.impl_type(Identity(), oqc)
         else:
             raise RuntimeError
 
@@ -183,15 +177,18 @@ class QuantWeightBiasOutputLayer(QuantOutputMixin, QuantBiasMixin, QuantWeightMi
     def __init__(
             self,
             weight,
-            weight_quant: Union[WeightQuantProxy, WeightQuantSpec],
-            bias_quant: Union[BiasQuantProxy, BiasQuantSpec],
-            output_quant: Union[ActivationQuantProxy, OutputQuantSpec],
+            weight_quant: Union[WeightQuantProxy, Type[Injector]],
+            bias_quant: Union[BiasQuantProxy, Type[Injector]],
+            output_quant: Union[ActivationQuantProxy, Type[Injector]],
+            update_weight_quant_inj: Callable,
+            update_bias_quant_inj: Callable,
+            update_output_quant_inj: Callable,
             return_quant_tensor: bool,
             **kwargs):
         QuantLayer.__init__(self, return_quant_tensor)
-        QuantWeightMixin.__init__(self, weight_quant, weight, **kwargs)
-        QuantBiasMixin.__init__(self, bias_quant, **kwargs)
-        QuantOutputMixin.__init__(self, output_quant, **kwargs)
+        QuantWeightMixin.__init__(self, weight, weight_quant, update_weight_quant_inj, **kwargs)
+        QuantBiasMixin.__init__(self, bias_quant, update_bias_quant_inj, **kwargs)
+        QuantOutputMixin.__init__(self, output_quant, update_output_quant_inj, **kwargs)
 
     @abstractmethod
     def max_acc_bit_width(self, input_bit_width: Tensor, quant_weight_bit_width: Tensor):
@@ -201,32 +198,31 @@ class QuantWeightBiasOutputLayer(QuantOutputMixin, QuantBiasMixin, QuantWeightMi
     def inner_forward_impl(self, x: Tensor, quant_weight: Tensor, quant_bias: Optional[Tensor]):
         pass
 
-    def forward(self, x):
+    def forward(self, input_tensor: Union[Tensor, QuantTensor]):
         output_scale = None
         output_bit_width = None
-        bias_bit_width = None
 
-        input, input_scale, input_bit_width = self.unpack_input(x)
-        quant_weight, quant_weight_scale, quant_weight_bit_width = self.weight_quant(self.weight)
+        quant_input = self.pack_input(input_tensor)
+        quant_weight = self.weight_quant(self.weight)
 
-        if input_bit_width is not None:
-            output_bit_width = self.max_acc_bit_width(input_bit_width, quant_weight_bit_width)
-        if input_scale is not None:
-            output_scale = input_scale * quant_weight_scale
+        if quant_input.bit_width is not None:
+            output_bit_width = self.max_acc_bit_width(quant_input.bit_width, quant_weight.bit_width)
+        if quant_input.scale is not None:
+            output_scale = quant_input.scale * quant_weight.scale
 
         if self.bias is not None:
-            quant_bias, _, bias_bit_width = self.bias_quant(self.bias, output_scale, output_bit_width)
-            output = self.inner_forward_impl(x, quant_weight, quant_bias)
+            quant_bias = self.bias_quant(self.bias, output_scale, output_bit_width)
+            output_tensor = self.inner_forward_impl(quant_input, quant_weight, quant_bias)
+            if quant_bias.bit_width is not None:
+                output_bit_width = torch.where(
+                    quant_bias.bit_width > output_bit_width, quant_bias.bit_width, output_bit_width)
+                output_bit_width = output_bit_width + 1
         else:
-            output = self.inner_forward_impl(x, quant_weight, None)
+            output_tensor = self.inner_forward_impl(quant_input, quant_weight, None)
 
-        if bias_bit_width is not None:
-            output_bit_width = torch.where(
-                bias_bit_width > output_bit_width, bias_bit_width, output_bit_width)
-            output_bit_width = output_bit_width + 1
-
-        output, output_scale, output_bit_width = self.output_quant(output, output_scale, output_bit_width)
-        return self.pack_output(output, output_scale, output_bit_width)
+        quant_output = QuantTensor(output_tensor, output_scale, output_bit_width, signed=True)
+        quant_output = self.output_quant(quant_output)
+        return self.pack_output(quant_output)
 
 
 

@@ -38,8 +38,8 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from dataclasses import dataclass
-from typing import Union, Type, Optional
+from dependencies import Injector
+from typing import Union, Type, Optional, Callable
 
 import torch
 from torch.nn import Linear
@@ -49,9 +49,10 @@ from brevitas.function.ops_ste import ceil_ste
 from brevitas.function.ops import max_uint
 
 from brevitas.proxy import WeightQuantProxy, BiasQuantProxy, ActivationQuantProxy
-from brevitas.proxy.spec import WeightQuantSpec, BiasQuantSpec, OutputQuantSpec
+from brevitas.proxy.config import DefaultWeightQuantInj
 
 from .quant_layer import QuantWeightBiasOutputLayer, OVER_BATCH_OVER_CHANNELS_4D_SHAPE
+from brevitas.quant_tensor import QuantTensor
 
 __all__ = ['QuantLinear']
 
@@ -63,18 +64,24 @@ class QuantLinear(QuantWeightBiasOutputLayer, Linear):
             in_features: int,
             out_features: int,
             bias: bool,
-            weight_quant: Union[WeightQuantProxy, WeightQuantSpec] = WeightQuantSpec(),
-            bias_quant: Union[BiasQuantProxy, BiasQuantSpec] = BiasQuantSpec(),
-            output_quant: Union[ActivationQuantProxy, OutputQuantSpec] = OutputQuantSpec(),
+            weight_quant: Union[WeightQuantProxy, Type[Injector]] = DefaultWeightQuantInj,
+            bias_quant: Union[BiasQuantProxy, Type[Injector]] = None,
+            output_quant: Union[ActivationQuantProxy, Type[Injector]] = None,
+            update_weight_quant_inj: Callable = None,
+            update_bias_quant_inj: Callable = None,
+            update_output_quant_inj: Callable = None,
             return_quant_tensor: bool = False,
             **kwargs) -> None:
         Linear.__init__(self, in_features, out_features, bias)
         QuantWeightBiasOutputLayer.__init__(
             self,
-            weight=self.weight,
-            weight_quant=weight_quant,
-            bias_quant=bias_quant,
-            output_quant=output_quant,
+            self.weight,
+            weight_quant,
+            bias_quant,
+            output_quant,
+            update_weight_quant_inj,
+            update_bias_quant_inj,
+            update_output_quant_inj,
             return_quant_tensor=return_quant_tensor,
             **kwargs)
 
@@ -90,9 +97,14 @@ class QuantLinear(QuantWeightBiasOutputLayer, Linear):
     def returned_scale_shape(self):
         return OVER_BATCH_OVER_CHANNELS_4D_SHAPE
 
-    def inner_forward_impl(self, x, quant_weight, quant_bias):
-        output = linear(x, quant_weight, quant_bias)
-        return output
+    @property
+    def channelwise_separable(self) -> bool:
+        return False
+
+    def inner_forward_impl(
+            self, quant_input: QuantTensor, quant_weight: QuantTensor, quant_bias: QuantTensor):
+        output_tensor = linear(quant_input.value, quant_weight.value, quant_bias.value)
+        return output_tensor
 
     def max_acc_bit_width(self, input_bit_width, weight_bit_width):
         max_input_val = max_uint(bit_width=input_bit_width, narrow_range=False)
