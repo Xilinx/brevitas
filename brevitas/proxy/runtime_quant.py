@@ -43,17 +43,15 @@ from typing import Optional
 import torch
 from torch.nn import Module
 
-from brevitas.core.bit_width import BitWidthImplType, MsbClampParameterBitWidth, BitWidthConst, IdentityBitWidth
-from brevitas.core.bit_width import BitWidthParameter, LsbTruncParameterBitWidth, ZeroLsbTruncBitWidth
+from brevitas.core.bit_width import BitWidthImplType, BitWidthConst, IdentityBitWidth
+from brevitas.core.bit_width import BitWidthParameter, ZeroLsbTruncBitWidth
 from brevitas.core.function_wrapper import TensorClamp
 from brevitas.core.quant import PrescaledRestrictIntQuantWithInputBitWidth, ClampedBinaryQuant
 from brevitas.core.quant import QuantType, IdentityPrescaledIntQuant
 from brevitas.core.quant import RescalingIntQuant, IdentityQuant
 from brevitas.function.ops_ste import round_ste
-from brevitas.core.restrict_val import RestrictValueType, RestrictValue, FloatToIntImplType, RestrictValueOpImplType
 from brevitas.core.scaling import RuntimeStatsScaling, SCALING_SCALAR_SHAPE
-from brevitas.core.scaling import ScalingImplType, ConstScaling, ParameterScaling, IntScaling
-from brevitas.proxy.config import ActQuantConfig
+from brevitas.core.scaling import ScalingImplType, ConstScaling, ParameterScaling
 
 from .quant_proxy import QuantProxy
 
@@ -74,7 +72,7 @@ class FusedActivationQuantProxy(torch.jit.ScriptModule):
         return x, output_scale, output_bit_width
 
 
-def _scaling_impl_init(aqc: ActQuantConfig):
+def _scaling_impl_init(aqc):
     if aqc.scaling_impl_type != ScalingImplType.OVERRIDE and aqc.scaling_override is not None:
         raise Exception(
             "Overriding scaling requires to set ScalingImplType to OVERRIDE explicitly.")
@@ -121,7 +119,7 @@ def _scaling_impl_init(aqc: ActQuantConfig):
     return scaling_impl
 
 
-def _tensor_quant_init(aqc: ActQuantConfig):
+def _tensor_quant_init(aqc):
 
     if not aqc.signed and aqc.min_val != 0.0:
         raise Exception("Min val has to be 0.0 when quantization is unsigned.")
@@ -185,7 +183,7 @@ class ActivationQuantProxy(QuantProxy):
 
     def __init__(self,
                  activation_impl: Module,
-                 activation_quant_config: ActQuantConfig):
+                 activation_quant_config):
         super(ActivationQuantProxy, self).__init__()
         self.activation_quant_config = activation_quant_config
         tensor_quant = _tensor_quant_init(activation_quant_config)

@@ -8,7 +8,7 @@ from brevitas.core.quant import QuantType
 from brevitas.core.restrict_val import RestrictValueType
 from brevitas.core.scaling import ScalingImplType, SCALING_SCALAR_SHAPE
 from brevitas.core.stats import StatsInputViewShapeImpl, StatsOp
-from brevitas.proxy.config import SCALING_MIN_VAL
+#from brevitas.proxy.config import SCALING_MIN_VAL
 from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy
 from .quant_layer import QuantLayer
 
@@ -44,7 +44,7 @@ class QuantScaleBias(QuantLayer, ScaleBias):
                  weight_scaling_per_output_channel: bool = False,
                  weight_restrict_scaling_type: RestrictValueType = RestrictValueType.LOG_FP,
                  weight_scaling_stats_sigma: float = 3.0,
-                 weight_scaling_min_val: float = SCALING_MIN_VAL,
+      #           weight_scaling_min_val: float = SCALING_MIN_VAL,
                  compute_output_scale: bool = False,
                  compute_output_bit_width: bool = False,
                  return_quant_tensor: bool = False):

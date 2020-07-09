@@ -47,7 +47,7 @@ from torch import Tensor
 from torch.nn import Identity
 
 from brevitas.quant_tensor import QuantTensor
-from brevitas.core.quant import IdentityQuant
+from brevitas.core.quant import IdentityQuant, IdentityPrescaledIntQuant
 from brevitas.proxy import WeightQuantProxy, BiasQuantProxy, ActivationQuantProxy
 
 
@@ -86,19 +86,20 @@ class QuantWeightMixin(object):
             weight: torch.nn.Parameter,
             weight_quant: Optional[Union[WeightQuantProxy, Type[Injector]]],
             update_inj: Optional[Callable],
+            prefix: str = 'weight_',
             **kwargs):
         if weight_quant is None:
             self.weight_quant = WeightQuantProxy(weight_quant)
         elif isinstance(weight_quant, WeightQuantProxy):
             self.weight_quant = weight_quant
             self.weight_quant.add_tracked_tensor(weight)
-        elif isinstance(weight_quant, Injector):
-            if update_inj is not None:
-                weight_quant = update_inj(weight_layer=self, **kwargs)
-            weight_quant = weight_quant.let(tracked_parameter_list=[weight])
-            self.weight_quant = WeightQuantProxy(weight_quant)
         else:
-            raise RuntimeError
+            weight_quant_inj = weight_quant
+            if update_inj is not None:
+                weight_quant_inj = update_inj(
+                    weight_layer=self, quant_weight_inj=weight_quant_inj, prefix=prefix, **kwargs)
+            weight_quant_inj = weight_quant_inj.let(tracked_parameter_list=[weight])
+            self.weight_quant = WeightQuantProxy(weight_quant_inj)
 
     @property
     @abstractmethod
@@ -132,21 +133,19 @@ class QuantBiasMixin(object):
 
     def __init__(
             self,
-            bias_quant,
+            bias_quant: Union[BiasQuantProxy, Type[Injector]],
+            update_inj: Callable,
             **kwargs):
-        if isinstance(bias_quant, BiasQuantProxy):
+        if bias_quant is None:
+            self.bias_quant = IdentityPrescaledIntQuant()
+        elif isinstance(bias_quant, BiasQuantProxy):
             self.bias_quant = bias_quant
-        elif isinstance(bias_quant, BiasQuantSpec):
-            if isinstance(bias_quant.config, BiasQuantConfig):
-                bqc = bias_quant.config
-            elif isinstance(bias_quant.config, BiasQuantConfigSpec):
-                bqc_kwargs = filter_kwargs(bias_quant.config.prefix, kwargs)
-                bqc = bias_quant.config.impl_type(bias_layer=self, **bqc_kwargs)
-            else:
-                raise RuntimeError
-            self.bias_quant = bias_quant.impl_type(bqc)
         else:
-            raise RuntimeError
+            bias_quant_inj = bias_quant
+            if update_inj is not None:
+                bias_quant_inj = update_inj(
+                    bias_layer=self, bias_quant_inj=bias_quant_inj, **kwargs)
+            self.bias_quant = BiasQuantProxy(bias_quant_inj)
 
 
 class QuantOutputMixin(object):
@@ -154,21 +153,19 @@ class QuantOutputMixin(object):
 
     def __init__(
             self,
-            output_quant: Union[ActivationQuantProxy, OutputQuantSpec],
+            output_quant: Union[ActivationQuantProxy, Type[Injector]],
+            update_inj: Callable,
             **kwargs):
-        if isinstance(output_quant, ActivationQuantProxy):
+        if output_quant is None:
+            self.output_quant = IdentityQuant()
+        elif isinstance(output_quant, ActivationQuantProxy):
             self.output_quant = output_quant
-        elif isinstance(output_quant, OutputQuantSpec):
-            if isinstance(output_quant.config, ActQuantConfig):
-                oqc = output_quant.config
-            elif isinstance(output_quant.config, OutputQuantConfigSpec):
-                oqc_kwargs = filter_kwargs(output_quant.config.prefix, kwargs)
-                oqc = output_quant.config.impl_type(layer=self, **oqc_kwargs)
-            else:
-                raise RuntimeError
-            self.output_quant = output_quant.impl_type(Identity(), oqc)
         else:
-            raise RuntimeError
+            output_quant_inj = output_quant
+            if update_inj is not None:
+                output_quant_inj = update_inj(
+                    output_layer=self, output_quant_inj=output_quant_inj, **kwargs)
+            self.output_quant = ActivationQuantProxy(Identity(), output_quant_inj)
 
 
 class QuantWeightBiasOutputLayer(QuantOutputMixin, QuantBiasMixin, QuantWeightMixin, QuantLayer):

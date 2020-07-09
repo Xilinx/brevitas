@@ -243,7 +243,7 @@ class WeightQuantProxy(ParameterQuantProxy):
 
 class BiasQuantProxy(ParameterQuantProxy):
 
-    def __init__(self, bias_quant_config: BiasQuantConfig) -> None:
+    def __init__(self, bias_quant_config) -> None:
         super(BiasQuantProxy, self).__init__()
         bqc = bias_quant_config
 

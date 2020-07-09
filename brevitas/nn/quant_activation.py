@@ -52,8 +52,7 @@ from brevitas.core.restrict_val import RestrictValueType, FloatToIntImplType
 from brevitas.core.scaling import ScalingImplType
 from brevitas.proxy.runtime_quant import ActivationQuantProxy
 
-from .quant_layer import QuantLayer, ActQuantConfig
-from brevitas.proxy.config import SCALING_MIN_VAL
+from .quant_layer import QuantLayer
 
 
 class QuantActivation(QuantLayer, Module):
@@ -91,7 +90,7 @@ class QuantReLU(QuantActivation):
 
     def __init__(self,
                  max_val: float,
-                 output_quant_config: ActQuantConfig = ActQuantConfig(),
+                 output_quant_config,
                  return_quant_tensor: bool = False):
         super(QuantReLU, self).__init__(return_quant_tensor=return_quant_tensor)
         activation_impl = nn.ReLU()
@@ -118,7 +117,7 @@ class QuantSigmoid(QuantActivation):
                  bit_width_impl_type: BitWidthImplType = BitWidthImplType.CONST,
                  restrict_bit_width_type: RestrictValueType = RestrictValueType.INT,
                  restrict_scaling_type: RestrictValueType = RestrictValueType.LOG_FP,
-                 scaling_min_val: Optional[float] = SCALING_MIN_VAL,
+                # scaling_min_val: Optional[float],
                  override_pretrained_bit_width: bool = False,
                  return_quant_tensor = False):
         super(QuantSigmoid, self).__init__(return_quant_tensor=return_quant_tensor)
@@ -162,7 +161,7 @@ class QuantTanh(QuantActivation):
                  bit_width_impl_type: BitWidthImplType = BitWidthImplType.CONST,
                  restrict_bit_width_type: RestrictValueType = RestrictValueType.INT,
                  restrict_scaling_type: RestrictValueType = RestrictValueType.LOG_FP,
-                 scaling_min_val: Optional[float] = SCALING_MIN_VAL,
+#                 scaling_min_val: Optional[float] = SCALING_MIN_VAL,
                  override_pretrained_bit_width: bool = False,
                  return_quant_tensor: bool = False):
         super(QuantTanh, self).__init__(return_quant_tensor=return_quant_tensor)
@@ -216,7 +215,7 @@ class QuantHardTanh(QuantActivation):
                  bit_width_impl_type: BitWidthImplType = BitWidthImplType.CONST,
                  restrict_bit_width_type: RestrictValueType = RestrictValueType.INT,
                  restrict_scaling_type: RestrictValueType = RestrictValueType.LOG_FP,
-                 scaling_min_val: Optional[float] = SCALING_MIN_VAL,
+             #    scaling_min_val: Optional[float] = SCALING_MIN_VAL,
                  override_pretrained_bit_width: bool = False,
                  return_quant_tensor: bool = False):
         super(QuantHardTanh, self).__init__(return_quant_tensor=return_quant_tensor)
@@ -273,7 +272,7 @@ class QuantIdentity(QuantActivation):
                  bit_width_impl_type: BitWidthImplType = BitWidthImplType.CONST,
                  restrict_bit_width_type: RestrictValueType = RestrictValueType.INT,
                  restrict_scaling_type: RestrictValueType = RestrictValueType.LOG_FP,
-                 scaling_min_val: Optional[float] = SCALING_MIN_VAL,
+             #    scaling_min_val: Optional[float] = SCALING_MIN_VAL,
                  override_pretrained_bit_width: bool = False,
                  return_quant_tensor: bool = False):
         super(QuantIdentity, self).__init__(return_quant_tensor=return_quant_tensor)

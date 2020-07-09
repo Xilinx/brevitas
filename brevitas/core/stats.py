@@ -121,53 +121,53 @@ class _ViewCatParameterWrapper(torch.jit.ScriptModule):
 
 
 class AbsMax(torch.jit.ScriptModule):
-    __constants__ = ['reduce_dim']
+    __constants__ = ['stats_reduce_dim']
 
-    def __init__(self, reduce_dim: Optional[int]) -> None:
+    def __init__(self, stats_reduce_dim: Optional[int]) -> None:
         super(AbsMax, self).__init__()
-        self.reduce_dim = reduce_dim
+        self.stats_reduce_dim = stats_reduce_dim
 
     @torch.jit.script_method
     def forward(self, x: torch.Tensor):
-        if self.reduce_dim is None:
+        if self.stats_reduce_dim is None:
             return torch.max(torch.abs(x))
         else:
-            return torch.max(torch.abs(x), dim=self.reduce_dim)[0]
+            return torch.max(torch.abs(x), dim=self.stats_reduce_dim)[0]
 
 
 class AbsMaxAve(torch.jit.ScriptModule):
-    __constants__ = ['reduce_dim']
+    __constants__ = ['stats_reduce_dim']
 
-    def __init__(self, reduce_dim: Optional[int]) -> None:
+    def __init__(self, stats_reduce_dim: Optional[int]) -> None:
         super(AbsMaxAve, self).__init__()
-        self.reduce_dim = reduce_dim
+        self.stats_reduce_dim = stats_reduce_dim
 
     @torch.jit.script_method
     def forward(self, x: torch.Tensor):
-        return torch.mean(torch.max(torch.abs(x), dim=self.reduce_dim)[0])
+        return torch.mean(torch.max(torch.abs(x), dim=self.stats_reduce_dim)[0])
 
 
 class AbsAve(torch.jit.ScriptModule):
-    __constants__ = ['reduce_dim']
+    __constants__ = ['stats_reduce_dim']
 
-    def __init__(self, reduce_dim: Optional[int]) -> None:
+    def __init__(self, stats_reduce_dim: Optional[int]) -> None:
         super(AbsAve, self).__init__()
-        self.reduce_dim = reduce_dim
+        self.stats_reduce_dim = stats_reduce_dim
 
     @torch.jit.script_method
     def forward(self, x: torch.Tensor):
-        if self.reduce_dim is None:
+        if self.stats_reduce_dim is None:
             return torch.mean(torch.abs(x))
         else:
-            return torch.mean(torch.abs(x), dim=self.reduce_dim)
+            return torch.mean(torch.abs(x), dim=self.stats_reduce_dim)
 
 
 # class MeanSigmaStd(torch.jit.ScriptModule):
-#     __constants__ = ['reduce_dim', 'output_shape', 'std_dev_epsilon', 'const_sigma']
+#     __constants__ = ['stats_reduce_dim', 'output_shape', 'std_dev_epsilon', 'const_sigma']
 #
-#     def __init__(self, reduce_dim, const_sigma, learned_sigma, output_shape) -> None:
+#     def __init__(self, stats_reduce_dim, const_sigma, learned_sigma, output_shape) -> None:
 #         super(MeanSigmaStd, self).__init__()
-#         self.reduce_dim = reduce_dim
+#         self.stats_reduce_dim = stats_reduce_dim
 #         self.const_sigma = const_sigma
 #         self.learned_sigma = learned_sigma
 #         self.output_shape = output_shape
@@ -176,13 +176,13 @@ class AbsAve(torch.jit.ScriptModule):
 #     @torch.jit.script_method
 #     def forward(self, x: torch.Tensor):
 #         abs_val = torch.abs(x)
-#         if self.reduce_dim is None:
+#         if self.stats_reduce_dim is None:
 #             mean_val = torch.mean(abs_val)
 #             std_val = torch.sqrt(torch.var(abs_val) + self.std_dev_epsilon)
 #         else:
-#             mean_val = torch.mean(torch.abs(x), dim=self.reduce_dim)
+#             mean_val = torch.mean(torch.abs(x), dim=self.stats_reduce_dim)
 #             mean_val = mean_val.view(self.output_shape)
-#             std_val = torch.sqrt(torch.var(abs_val, dim=self.reduce_dim) + self.std_dev_epsilon)
+#             std_val = torch.sqrt(torch.var(abs_val, dim=self.stats_reduce_dim) + self.std_dev_epsilon)
 #             std_val = std_val.view(self.output_shape)
 #         if self.const_sigma is not None:
 #             return mean_val + self.const_sigma * std_val
@@ -198,15 +198,14 @@ class AbsAve(torch.jit.ScriptModule):
 #             missing_keys.remove(sigma_key)
 
 
-class Stats(torch.jit.ScriptModule):
-    __constants__ = ['stats_output_shape',
-                     'stats_reduce_dim']
+class _Stats(torch.jit.ScriptModule):
+    __constants__ = ['stats_output_shape']
 
     def __init__(
             self,
             stats_impl: nn.Module,
             stats_output_shape: Tuple[int, ...]) -> None:
-        super(Stats, self).__init__()
+        super(_Stats, self).__init__()
         self.stats_output_shape = stats_output_shape
         self.stats_impl = stats_impl
 
@@ -234,7 +233,7 @@ class _RuntimeStats(torch.jit.ScriptModule):
 
         self.stats_permute_dims = stats_permute_dims
         self.stats_input_view_shape_impl = stats_input_view_shape_impl()
-        self.stats = Stats(stats_impl, stats_output_shape)
+        self.stats = _Stats(stats_impl, stats_output_shape)
         self.momentum = stats_buffer_momentum
         self.register_buffer('running_stats', torch.full(stats_output_shape, stats_buffer_init))
 
@@ -287,7 +286,7 @@ class _ParameterListStats(torch.jit.ScriptModule):
             self.extra_tracked_params_list = torch.nn.ModuleList(extra_list)
         else:
             self.extra_tracked_params_list = None
-        self.stats = Stats(stats_impl, stats_output_shape)
+        self.stats = _Stats(stats_impl, stats_output_shape)
 
     @torch.jit.script_method
     def forward(self) -> torch.Tensor:

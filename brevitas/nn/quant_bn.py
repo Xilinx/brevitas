@@ -8,7 +8,7 @@ from brevitas.core.quant import QuantType
 from brevitas.core.restrict_val import RestrictValueType
 from brevitas.core.scaling import ScalingImplType
 from brevitas.core.stats import StatsOp
-from brevitas.proxy.config import SCALING_MIN_VAL
+#from brevitas.proxy.config import SCALING_MIN_VAL
 from .quant_scale_bias import QuantScaleBias
 
 
@@ -42,7 +42,7 @@ class BatchNorm2dToQuantScaleBias(QuantScaleBias):
                  weight_scaling_per_output_channel: bool = False,
                  weight_restrict_scaling_type: RestrictValueType = RestrictValueType.LOG_FP,
                  weight_scaling_stats_sigma: float = 3.0,
-                 weight_scaling_min_val: float = SCALING_MIN_VAL,
+          #       weight_scaling_min_val: float = SCALING_MIN_VAL,
                  compute_output_scale: bool = False,
                  compute_output_bit_width: bool = False,
                  return_quant_tensor: bool = False):

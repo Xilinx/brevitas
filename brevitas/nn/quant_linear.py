@@ -49,7 +49,7 @@ from brevitas.function.ops_ste import ceil_ste
 from brevitas.function.ops import max_uint
 
 from brevitas.proxy import WeightQuantProxy, BiasQuantProxy, ActivationQuantProxy
-from brevitas.proxy.config import DefaultWeightQuantInj
+from brevitas.proxy.config import DefaultWeightQuantInj, update_weight_quant_inj
 
 from .quant_layer import QuantWeightBiasOutputLayer, OVER_BATCH_OVER_CHANNELS_4D_SHAPE
 from brevitas.quant_tensor import QuantTensor
@@ -67,7 +67,7 @@ class QuantLinear(QuantWeightBiasOutputLayer, Linear):
             weight_quant: Union[WeightQuantProxy, Type[Injector]] = DefaultWeightQuantInj,
             bias_quant: Union[BiasQuantProxy, Type[Injector]] = None,
             output_quant: Union[ActivationQuantProxy, Type[Injector]] = None,
-            update_weight_quant_inj: Callable = None,
+            update_weight_quant_inj: Callable = update_weight_quant_inj,
             update_bias_quant_inj: Callable = None,
             update_output_quant_inj: Callable = None,
             return_quant_tensor: bool = False,

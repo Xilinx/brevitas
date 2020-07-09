@@ -56,7 +56,7 @@ from brevitas.function.ops_ste import ceil_ste
 from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy
 from brevitas.utils.python_utils import AutoName
 from brevitas.nn.quant_layer import QuantLayer
-from brevitas.proxy.config import SCALING_MIN_VAL
+#from brevitas.proxy.config import SCALING_MIN_VAL
 from brevitas import docstrings
 
 __all__ = ['QuantConvTranspose1d']
@@ -108,7 +108,7 @@ class QuantConvTranspose1d(QuantLayer, ConvTranspose1d):
                  weight_ternary_threshold: float = 0.5,
                  weight_restrict_scaling_type: RestrictValueType = RestrictValueType.LOG_FP,
                  weight_scaling_stats_sigma: float = 3.0,
-                 weight_scaling_min_val: float = SCALING_MIN_VAL,
+     #            weight_scaling_min_val: float = SCALING_MIN_VAL,
                  weight_override_pretrained_bit_width: bool = False,
                  compute_output_scale: bool = False,
                  compute_output_bit_width: bool = False,

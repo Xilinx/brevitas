@@ -38,15 +38,29 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from typing import Optional
-
+from enum import auto
+from typing import Callable, Union, Optional
 import math
 
 import torch
 from torch import Tensor
 from torch.nn import Module
 
+from brevitas.utils.python_utils import AutoName
 from .function_wrapper import Identity, PowerOfTwo, LogTwo, ClampMin
+
+
+class RestrictValueType(AutoName):
+    FP = auto()
+    LOG_FP = auto()
+    INT = auto()
+    POWER_OF_TWO = auto()
+
+
+class FloatToIntImplType(AutoName):
+    ROUND = auto()
+    CEIL = auto()
+    FLOOR = auto()
 
 
 class _RestrictClampValue(torch.jit.ScriptModule):
