@@ -453,7 +453,7 @@ class PrescaledRestrictIntQuantWithInputBitWidth(torch.jit.ScriptModule):
             bit_width is the bit_width of the quantization.
     """
     def __init__(self,
-                 int_quant: IntQuant,
+                 int_quant: Module,
                  msb_clamp_bit_width_impl: Module):
         super(PrescaledRestrictIntQuantWithInputBitWidth, self).__init__()
         self.int_quant = int_quant
@@ -525,7 +525,7 @@ class PrescaledRestrictIntQuant(torch.jit.ScriptModule):
             bit_width is the bit_width of the quantization.
     """
     def __init__(self,
-                 int_quant: IntQuant,
+                 int_quant: Module,
                  msb_clamp_bit_width_impl: Module):
         super(PrescaledRestrictIntQuant, self).__init__()
         self.int_quant = int_quant
@@ -607,7 +607,7 @@ class RescalingIntQuant(torch.jit.ScriptModule):
             bit_width is the bit_width of the quantization.
     """
     def __init__(self,
-                 int_quant: IntQuant,
+                 int_quant: Module,
                  scaling_impl: Module,
                  int_scaling_impl: Module,
                  msb_clamp_bit_width_impl: Module):

@@ -38,14 +38,12 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from typing import Tuple, List
+from typing import Tuple, List, Optional
 
 from torch import nn
 
 import brevitas.config as config
 from brevitas.function.shape import *
-
-__all__ = ['ParameterListStats']
 
 
 STD_DEV_EPSILON = 1e-8
@@ -54,10 +52,10 @@ STD_DEV_EPSILON = 1e-8
 class _ViewParameterWrapper(torch.jit.ScriptModule):
     __constants__ = ['shape']
 
-    def __init__(self, parameter, view_shape_impl):
+    def __init__(self, parameter: nn.Parameter, view_shape_impl: nn.Module):
         super(_ViewParameterWrapper, self).__init__()
         self.parameter = parameter
-        self.shape = view_shape_impl().shape(parameter)
+        self.shape = view_shape_impl.shape(parameter)
 
     @torch.jit.script_method
     def forward(self):
@@ -80,10 +78,10 @@ class _ViewParameterWrapper(torch.jit.ScriptModule):
 class _ViewCatParameterWrapper(torch.jit.ScriptModule):
     __constants__ = ['shape', 'cat_dim']
 
-    def __init__(self, parameter, view_shape_impl, cat_dim):
+    def __init__(self, parameter: nn.Parameter, view_shape_impl: nn.Module, cat_dim: int):
         super(_ViewCatParameterWrapper, self).__init__()
         self.parameter = parameter
-        self.shape = view_shape_impl().shape(parameter)
+        self.shape = view_shape_impl.shape(parameter)
         self.cat_dim = cat_dim
 
     @torch.jit.script_method
@@ -107,7 +105,7 @@ class _ViewCatParameterWrapper(torch.jit.ScriptModule):
 class AbsMax(torch.jit.ScriptModule):
     __constants__ = ['reduce_dim']
 
-    def __init__(self, reduce_dim) -> None:
+    def __init__(self, reduce_dim: Optional[int]) -> None:
         super(AbsMax, self).__init__()
         self.reduce_dim = reduce_dim
 
@@ -122,7 +120,7 @@ class AbsMax(torch.jit.ScriptModule):
 class AbsMaxAve(torch.jit.ScriptModule):
     __constants__ = ['reduce_dim']
 
-    def __init__(self, reduce_dim) -> None:
+    def __init__(self, reduce_dim: Optional[int]) -> None:
         super(AbsMaxAve, self).__init__()
         self.reduce_dim = reduce_dim
 
@@ -134,7 +132,7 @@ class AbsMaxAve(torch.jit.ScriptModule):
 class AbsAve(torch.jit.ScriptModule):
     __constants__ = ['reduce_dim']
 
-    def __init__(self, reduce_dim) -> None:
+    def __init__(self, reduce_dim: Optional[int]) -> None:
         super(AbsAve, self).__init__()
         self.reduce_dim = reduce_dim
 
@@ -186,9 +184,10 @@ class Stats(torch.jit.ScriptModule):
     __constants__ = ['stats_output_shape',
                      'stats_reduce_dim']
 
-    def __init__(self,
-                 stats_impl: nn.Module,
-                 stats_output_shape: Tuple[int, ...]) -> None:
+    def __init__(
+            self,
+            stats_impl: nn.Module,
+            stats_output_shape: Tuple[int, ...]) -> None:
         super(Stats, self).__init__()
         self.stats_output_shape = stats_output_shape
         self.stats_impl = stats_impl
@@ -200,23 +199,24 @@ class Stats(torch.jit.ScriptModule):
         return stats
 
 
-class RuntimeStats(torch.jit.ScriptModule):
+class _RuntimeStats(torch.jit.ScriptModule):
     __constants__ = ['stats_input_concat_dim',
                      'stats_permute_dims',
                      'momentum']
 
-    def __init__(self,
-                 stats: Stats,
-                 stats_input_view_shape_impl: nn.Module,
-                 stats_permute_dims: Tuple[int, ...],
-                 stats_output_shape: Tuple[int, ...],
-                 stats_buffer_momentum: float,
-                 stats_buffer_init: float) -> None:
-        super(RuntimeStats, self).__init__()
+    def __init__(
+            self,
+            stats_impl: nn.Module,
+            stats_output_shape: Tuple[int, ...],
+            stats_input_view_shape_impl: nn.Module,
+            stats_permute_dims: Tuple[int, ...],
+            stats_buffer_init: float,
+            stats_buffer_momentum: float) -> None:
+        super(_RuntimeStats, self).__init__()
 
         self.stats_permute_dims = stats_permute_dims
         self.stats_input_view_shape_impl = stats_input_view_shape_impl()
-        self.stats = stats
+        self.stats = Stats(stats_impl, stats_output_shape)
         self.momentum = stats_buffer_momentum
         self.register_buffer('running_stats', torch.full(stats_output_shape, stats_buffer_init))
 
@@ -235,7 +235,7 @@ class RuntimeStats(torch.jit.ScriptModule):
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
                               missing_keys, unexpected_keys, error_msgs):
-        super(RuntimeStats, self)._load_from_state_dict(state_dict, prefix, local_metadata, strict,
+        super(_RuntimeStats, self)._load_from_state_dict(state_dict, prefix, local_metadata, strict,
             missing_keys, unexpected_keys, error_msgs)
         running_stats_key = prefix + 'running_stats'
         if config.IGNORE_MISSING_KEYS and running_stats_key in missing_keys:
@@ -246,16 +246,18 @@ class RuntimeStats(torch.jit.ScriptModule):
             missing_keys.remove(training_key)
 
 
-class ParameterListStats(torch.jit.ScriptModule):
+class _ParameterListStats(torch.jit.ScriptModule):
     __constants__ = ['stats_input_concat_dim',
                      'extra_tracked_params_list']
 
-    def __init__(self,
-                 stats: Stats,
-                 stats_input_view_shape_impl: nn.Module,
-                 stats_input_concat_dim: int,
-                 tracked_parameter_list: List[torch.nn.Parameter],) -> None:
-        super(ParameterListStats, self).__init__()
+    def __init__(
+            self,
+            stats_impl: nn.Module,
+            stats_output_shape: Tuple[int, ...],
+            stats_input_view_shape_impl: nn.Module,
+            stats_input_concat_dim: int,
+            tracked_parameter_list: List[torch.nn.Parameter]) -> None:
+        super(_ParameterListStats, self).__init__()
 
         self.stats_input_concat_dim = stats_input_concat_dim
         self.first_tracked_param = _ViewParameterWrapper(
@@ -267,7 +269,7 @@ class ParameterListStats(torch.jit.ScriptModule):
             self.extra_tracked_params_list = torch.nn.ModuleList(extra_list)
         else:
             self.extra_tracked_params_list = None
-        self.stats = stats
+        self.stats = Stats(stats_impl, stats_output_shape)
 
     @torch.jit.script_method
     def forward(self) -> torch.Tensor:
