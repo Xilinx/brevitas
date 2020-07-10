@@ -38,6 +38,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+from typing import Optional
 from dataclasses import dataclass
 
 import torch
@@ -50,9 +51,9 @@ from brevitas.function.ops import max_uint
 @dataclass
 class QuantTensor:
     value: Tensor
-    scale: Tensor
-    bit_width: Tensor
-    signed: bool
+    scale: Optional[Tensor]
+    bit_width: Optional[Tensor]
+    signed: Optional[bool]
 
     @staticmethod
     def check_input_type(other):

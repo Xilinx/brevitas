@@ -55,7 +55,8 @@ from .restrict_val import _RestrictClampValue
 SCALING_SCALAR_SHAPE = ()
 SCALING_STATS_REDUCE_DIM = 1
 MOMENTUM = 0.1
-DEFAULT_DISABLED_AFFINE = False
+DEFAULT_AFFINE = False
+DEFAULT_SCALING_MIN_VAL = None
 
 
 class ScalingImplType(AutoName):
@@ -96,10 +97,10 @@ class _StatsScaling(torch.jit.ScriptModule):
 
     def __init__(
             self,
-            scaling_min_val: Optional[float],
             restrict_scaling_impl: Module,
             scaling_shape: Tuple[int, ...],
-            affine_rescaling: bool = DEFAULT_DISABLED_AFFINE) -> None:
+            scaling_min_val: Optional[float] = DEFAULT_SCALING_MIN_VAL,
+            affine_rescaling: bool = DEFAULT_AFFINE) -> None:
         super(_StatsScaling, self).__init__()
 
         if affine_rescaling:
@@ -173,10 +174,10 @@ class RuntimeStatsScaling(torch.jit.ScriptModule):
             scaling_stats_permute_dims: Tuple[int, ...],
             scaling_stats_buffer_init: float,
             scaling_stats_buffer_momentum: float,
-            scaling_min_val: Optional[float],
             restrict_scaling_impl: Module,
             scaling_shape: Tuple[int, ...],
-            affine_rescaling: bool = DEFAULT_DISABLED_AFFINE) -> None:
+            scaling_min_val: Optional[float] = DEFAULT_SCALING_MIN_VAL,
+            affine_rescaling: bool = DEFAULT_AFFINE) -> None:
         super(RuntimeStatsScaling, self).__init__()
 
         self.runtime_stats = _RuntimeStats(
@@ -187,9 +188,9 @@ class RuntimeStatsScaling(torch.jit.ScriptModule):
             scaling_stats_buffer_init,
             scaling_stats_buffer_momentum)
         self.stats_scaling_impl = _StatsScaling(
-            scaling_min_val,
             restrict_scaling_impl,
             scaling_shape,
+            scaling_min_val,
             affine_rescaling)
 
     @torch.jit.script_method
@@ -206,10 +207,10 @@ class ParameterStatsScaling(torch.jit.ScriptModule):
             scaling_stats_input_view_shape_impl: Module,
             scaling_stats_input_concat_dim: int,
             tracked_parameter_list: List[torch.nn.Parameter],
-            scaling_min_val: Optional[float],
             restrict_scaling_impl: Module,
             scaling_shape: Tuple[int, ...],
-            affine_rescaling: bool = DEFAULT_DISABLED_AFFINE) -> None:
+            scaling_min_val: Optional[float] = DEFAULT_SCALING_MIN_VAL,
+            affine_rescaling: bool = DEFAULT_AFFINE) -> None:
         super(ParameterStatsScaling, self).__init__()
         self.parameter_list_stats = _ParameterListStats(
             scaling_stats_impl,
@@ -218,9 +219,9 @@ class ParameterStatsScaling(torch.jit.ScriptModule):
             scaling_stats_input_concat_dim,
             tracked_parameter_list)
         self.stats_scaling_impl = _StatsScaling(
-            scaling_min_val,
             restrict_scaling_impl,
             scaling_shape,
+            scaling_min_val,
             affine_rescaling)
 
     @torch.jit.script_method

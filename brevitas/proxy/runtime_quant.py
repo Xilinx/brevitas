@@ -47,7 +47,7 @@ from brevitas.core.bit_width import BitWidthImplType, BitWidthConst, IdentityBit
 from brevitas.core.bit_width import BitWidthParameter, ZeroLsbTruncBitWidth
 from brevitas.core.function_wrapper import TensorClamp
 from brevitas.core.quant import PrescaledRestrictIntQuantWithInputBitWidth, ClampedBinaryQuant
-from brevitas.core.quant import QuantType, IdentityPrescaledIntQuant
+from brevitas.core.quant import QuantType, IdentityPrescaledQuant
 from brevitas.core.quant import RescalingIntQuant, IdentityQuant
 from brevitas.function.ops_ste import round_ste
 from brevitas.core.scaling import RuntimeStatsScaling, SCALING_SCALAR_SHAPE
@@ -242,7 +242,7 @@ class ClampQuantProxy(QuantProxy):
     def __init__(self,
                  signed: bool,
                  narrow_range: bool,
-                 quant_type: QuantType,
+                 quant_type,#: QuantType,
                  ms_bit_width_to_clamp: int,
                  clamp_at_least_init_val: bool,
                  min_overall_bit_width: Optional[int],

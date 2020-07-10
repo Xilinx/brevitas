@@ -53,32 +53,20 @@ from brevitas.core.stats import *
 from brevitas.core.scaling import ScalingImplType, SCALING_SCALAR_SHAPE
 
 
-class DefaultIntQuant(Injector):
-    tensor_quant = RescalingIntQuant
-    int_quant = IntQuant
-    bit_width_impl = BitWidthConst
-    bit_width = 8
-    int_scaling_impl = FloatIntScaling
-    affine_rescaling = False
-    float_to_int_impl = RoundSte
-
-
-class DefaultIntWeight(DefaultIntQuant):
-    restrict_value_impl = LogFloatRestrictValue
-    scaling_impl = ParameterStatsScaling
-    stats_impl = AbsMax
+class DefaultWeightQuantInjector(Injector):
+    quant_type = 'INT'
+    scaling_impl_type = 'STATS'
+    scaling_stats_op = 'MAX'
+    restrict_scaling_type = 'FP'
+    bit_width_impl_type = 'CONST'
+    scaling_per_output_channel = False
+    narrow_range = True
     signed = True
-    narrow_range = True
+    bit_width = 8
 
 
-class DefaultWeightQuantInj(Injector):
-    tensor_quant = None
-    narrow_range = True
-
-
-class DefaultIntAct(DefaultIntQuant):
-    restrict_value_impl = FloatRestrictValue
-    scaling_impl = ParameterScaling
+class DefaultBiasQuantInjector(Injector):
+    quant_type = 'FP'
 
 
 def filter_kwargs(kwargs_prefix, kwargs: dict):
@@ -99,11 +87,47 @@ def _solve_attr(qwi, value, solved_value, name: str, solved_key: str = None):
     return qwi
 
 
+def _solve_bias_quant_type(qwi):
+    name = 'quant_type'
+    solver = partial(_solve_attr, name=name)
+    qwi = solver(qwi, QuantType.FP, {'tensor_quant': IdentityPrescaledQuant, 'signed': None})
+    if _check_name_value(qwi, name, QuantType.INT):
+        if 'bit_width' in qwi:
+            qwi.let(**{'tensor_quant': PrescaledRestrictIntQuant, 'int_quant': IntQuant})
+        else:
+            qwi.let(**{'tensor_quant': PrescaledRestrictIntQuantWithInputBitWidth,
+                       'int_quant': IntQuant})
+    return qwi
+
+
+def _solve_bit_width_impl_type(qwi):
+    solver = partial(_solve_attr, name='bit_width_impl_type', solved_key='bit_width_impl')
+    qwi = solver(qwi, BitWidthImplType.CONST, BitWidthConst)
+    qwi = solver(qwi, BitWidthImplType.PARAMETER, BitWidthParameter)
+    return qwi
+
+
+def _solve_bias_bit_width_impl_type(qwi):
+    if 'bit_width' in qwi and 'bit_width_impl_type' not in qwi: # retrocomp. TODO deprecate
+        qwi.let(bit_width_impl=BitWidthImplType.CONST)
+    elif 'bit_width' not in qwi and 'bit_width_impl_type' not in qwi:
+        qwi.let(**{'bit_width_impl': IdentityBitWidth, 'requires_input_bit_width': True})
+    qwi = _solve_bit_width_impl_type(qwi)
+    return qwi
+
+
+def _solve_weight_bit_width_impl_type(qwi):
+    if 'bit_width_impl_override' in qwi: #  TODO: deprecate
+        return qwi.let(**{'bit_width_impl': qwi.bit_width_impl_override})
+    qwi = _solve_bit_width_impl_type(qwi)
+    return qwi
+
+
 def _solve_weight_quant_type(qwi):
-    solver = partial(_solve_attr, name='quant_type', solved_key='tensor_quant')
-    qwi = solver(qwi, QuantType.FP, IdentityQuant)
-    qwi = solver(qwi, QuantType.BINARY, BinaryQuant)
-    qwi = solver(qwi, QuantType.TERNARY, TernaryQuant)
+    solver = partial(_solve_attr, name='quant_type')
+    qwi = solver(qwi, QuantType.FP, {'tensor_quant': None})
+    qwi = solver(qwi, QuantType.BINARY, {'tensor_quant': BinaryQuant, 'signed': True})
+    qwi = solver(qwi, QuantType.TERNARY, {'tensor_quant': TernaryQuant, 'signed': True})
     qwi = solver(qwi, QuantType.INT, {'tensor_quant': RescalingIntQuant, 'int_quant': IntQuant})
     return qwi
 
@@ -116,7 +140,7 @@ def _solve_scaling_stats_op(qwi):
     return qwi
 
 
-def _solve_scaling_impl_type(qwi):
+def _solve_weight_scaling_impl_type(qwi):
     solver = partial(_solve_attr, name='scaling_impl_type', solved_key='scaling_impl')
     qwi = solver(qwi, ScalingImplType.PARAMETER_FROM_STATS, ParameterScaling)
     qwi = solver(qwi, ScalingImplType.STATS, ParameterStatsScaling)
@@ -140,15 +164,6 @@ def _solve_restrict_scaling_type(qwi):
     qwi = solver(qwi, RestrictValueType.POWER_OF_TWO,
                  {'restrict_scaling_impl': PowerOfTwoRestrictValue,
                   'int_scaling_impl': PowerOfTwoIntScaling})
-    return qwi
-
-
-def _solve_bit_width_impl_type(qwi):
-    solver = partial(_solve_attr, name='bit_width_impl_type', solved_key='bit_width_impl')
-    if 'bit_width_impl_override' in qwi: #  TODO: deprecate
-        return qwi.let(**{'bit_width_impl': qwi.bit_width_impl_override})
-    qwi = solver(qwi, BitWidthImplType.CONST, BitWidthConst)
-    qwi = solver(qwi, BitWidthImplType.PARAMETER, BitWidthParameter)
     return qwi
 
 
@@ -179,7 +194,7 @@ def _solve_tensor_quant_float_to_int_impl(qwi):
     return qwi
 
 
-def _solve_tensor_clamp_impl(qwi):
+def _solve_weight_tensor_clamp_impl(qwi):
     impl = 'tensor_clamp_impl'
     already_set = impl in qwi
     if not already_set:
@@ -203,8 +218,8 @@ def _solve_scaling_shape(qwi, spoc):
 def _solve_scaling_stats_reduce_dim(qwi, spoc, ma):
     name = 'stats_reduce_dim'
     if name not in qwi:
-        if spoc or ma: qwi = qwi.let(**{name: None})
-        if not (spoc or ma): qwi = qwi.let(**{name: SCALING_STATS_REDUCE_DIM})
+        if spoc or ma: qwi = qwi.let(**{name: SCALING_STATS_REDUCE_DIM})
+        else: qwi = qwi.let(**{name: None})
     return qwi
 
 
@@ -212,7 +227,7 @@ def _solve_scaling_stats_input_view_shape_impl(qwi, spoc, ma):
     name = 'scaling_stats_input_view_shape_impl'
     if name not in qwi:
         if spoc or ma: qwi = qwi.let(**{name: StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS})
-        if not (spoc or ma): qwi = qwi.let(**{name: StatsInputViewShapeImpl.OVER_TENSOR})
+        else: qwi = qwi.let(**{name: StatsInputViewShapeImpl.OVER_TENSOR})
     return qwi
 
 
@@ -233,35 +248,50 @@ def _solve_scaling_init_impl(qwi):
 def _solve_enum_based_quant_weight_api(qwi):
     qwi = _solve_weight_quant_type(qwi)
     qwi = _solve_scaling_stats_op(qwi)
-    qwi = _solve_scaling_impl_type(qwi)
+    qwi = _solve_weight_scaling_impl_type(qwi)
     qwi = _solve_restrict_scaling_type(qwi)
-    qwi = _solve_bit_width_impl_type(qwi)
+    qwi = _solve_weight_bit_width_impl_type(qwi)
     qwi = _solve_tensor_quant_float_to_int_impl(qwi)
     qwi = _solve_restrict_value_float_to_int_impl(qwi)
-    qwi = _solve_tensor_clamp_impl(qwi)
+    qwi = _solve_weight_tensor_clamp_impl(qwi)
     qwi = _solve_scaling_shapes_dims(qwi)
     return qwi
 
 
-def _update_scaling_shape_data_from_weight_layer(qwi, weight_layer):
+def _solve_enum_based_quant_bias_api(qwi):
+    qwi = _solve_bias_quant_type(qwi)
+    qwi = _solve_bias_bit_width_impl_type(qwi)
+    qwi = _solve_tensor_quant_float_to_int_impl(qwi)
+    return qwi
+
+
+def _update_from_weight_layer(qwi, weight_layer):
     per_channel_brodcast_shape = [1] * len(weight_layer.weight.size())
     per_channel_brodcast_shape[weight_layer.output_channel_dim] = weight_layer.out_channels
     qwi = qwi.let(scaling_per_output_channel_shape=tuple(per_channel_brodcast_shape))
     qwi = qwi.let(scaling_stats_input_concat_dim=weight_layer.output_channel_dim)
-    qwi = qwi.let(returned_scale_shape=weight_layer.returned_scale_shape)
     return qwi
 
 
-def update_weight_quant_inj(
+def update_weight_quant_injector(
         weight_layer: Module,
-        quant_weight_inj: Injector,
+        weight_quant_injector: Injector,
         prefix: str,
         **kwargs):
-    qwi = quant_weight_inj.let(**filter_kwargs(prefix, kwargs))
-    qwi = _update_scaling_shape_data_from_weight_layer(qwi, weight_layer)
+    qwi = weight_quant_injector.let(**filter_kwargs(prefix, kwargs))
+    qwi = _update_from_weight_layer(qwi, weight_layer)
     qwi = _solve_enum_based_quant_weight_api(qwi)
     return qwi
 
+
+def update_bias_quant_injector(
+        bias_layer: Module,
+        bias_quant_injector: Injector,
+        prefix: str,
+        **kwargs):
+    qwi = bias_quant_injector.let(**filter_kwargs(prefix, kwargs))
+    qwi = _solve_enum_based_quant_weight_api(qwi)
+    return qwi
 
 
 

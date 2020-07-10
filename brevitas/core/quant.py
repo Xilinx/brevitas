@@ -538,7 +538,7 @@ class PrescaledRestrictIntQuant(torch.jit.ScriptModule):
         return y, scale, msb_clamp_bit_width
 
 
-class IdentityPrescaledIntQuant(torch.jit.ScriptModule):
+class IdentityPrescaledQuant(torch.jit.ScriptModule):
     """ Placeholder Class that returns the input without performing any operation.
     """
     @torch.jit.script_method
