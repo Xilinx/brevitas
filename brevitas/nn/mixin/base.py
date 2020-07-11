@@ -75,6 +75,7 @@ class QuantLayerMixin(object):
             self,
             return_quant_tensor: bool,
             export_mode: bool = False,
+            export_debug_name: Optional[str] = None,
             export_handler: Optional = None,
             cache_inference_quant_inp: bool = False,
             cache_inference_quant_out: bool = False,
@@ -85,8 +86,17 @@ class QuantLayerMixin(object):
         self.cache_inference_quant_out = cache_inference_quant_out
         self.cache_quant_metadata_only = cache_quant_metadata_only
         self._export_mode = export_mode
+        self._export_debug_name = export_debug_name
         self._cached_inp = None
         self._cached_out = None
+
+    @property
+    def export_debug_name(self):
+        return self._export_debug_name
+
+    @export_debug_name.setter
+    def export_debug_name(self, value):
+        self._export_debug_name = value
 
     @property
     @abstractmethod
