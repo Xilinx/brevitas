@@ -115,6 +115,7 @@ class QuantLayerMixin(object):
             raise RuntimeError("Can't enable export mode on a layer without an export handler")
         if value:
             self.export_handler.prepare_for_symbolic_execution(self)
+            self.export_handler.attach_debug_info(self)
         self._export_mode = value
 
     @property
