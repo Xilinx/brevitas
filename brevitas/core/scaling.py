@@ -128,7 +128,7 @@ class ParameterScaling(torch.jit.ScriptModule):
             scaling_min_val: Optional[float] = DEFAULT_SCALING_MIN_VAL) -> None:
         super(ParameterScaling, self).__init__()
 
-        scaling_init = scaling_init_impl().detach()
+        scaling_init = scaling_init.detach()
         self.restrict_clamp_scaling = _RestrictClampValue(scaling_min_val, restrict_scaling_impl)
         scaling_init = restrict_scaling_impl.restrict_init_tensor(scaling_init)
         if scaling_init.dim() == 0:

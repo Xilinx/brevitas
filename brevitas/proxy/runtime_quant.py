@@ -42,7 +42,7 @@ from typing import Optional, Union
 
 import torch
 from torch import Tensor
-from torch.nn import Module
+from torch.nn import Module, Identity
 
 from dependencies import Injector
 
@@ -65,32 +65,56 @@ class FusedActivationQuantProxy(torch.jit.ScriptModule):
         return x, output_scale, output_bit_width
 
 
-class ActivationQuantProxy(QuantProxy):
+class ActQuantProxy(QuantProxy):
 
     def __init__(
             self,
-            activation_impl: Module,
-            activation_quant_injector: Injector):
-        super(ActivationQuantProxy, self).__init__()
-        self.activation_quant_injector = activation_quant_injector
-        tensor_quant = activation_quant_injector.injector
-        if tensor_quant is None:
-            self._quant_enabled = False
-            self.fused_activation_quant_proxy = activation_impl
-        else:
-            self._quant_enabled = True
+            act_quant_injector: Injector):
+        super(ActQuantProxy, self).__init__()
+        tensor_quant = act_quant_injector.tensor_quant
+        act_impl = act_quant_injector.act_impl
+        quant_enabled = tensor_quant is not None
+        act_enabled = act_impl is not None
+        self.act_quant_injector = act_quant_injector
+        if act_enabled and quant_enabled:
             self.fused_activation_quant_proxy = FusedActivationQuantProxy(
-                activation_impl, tensor_quant)
+                act_impl, tensor_quant)
+        elif act_enabled and not quant_enabled:
+            self.fused_activation_quant_proxy = act_impl
+        elif not act_enabled and quant_enabled:
+            self.fused_activation_quant_proxy = FusedActivationQuantProxy(
+                Identity(), tensor_quant)
+        else:
+            self.fused_activation_quant_proxy = None
+
+    def identity_quant(self):
+        return IdentityQuantProxy(self.act_quant_injector.let(act_impl=None))
+
+    def quant_act_scale(self): # TODO
+        # if isinstance(self.act_quant.fused_act_quant_proxy.tensor_quant, IdentityQuant):
+        #     raise Exception("Can't generate scaling factor without quantization enabled")
+        # scaling_impl = self.act_quant_proxy.fused_act_quant_proxy.tensor_quant.scaling_impl
+        # current_status = scaling_impl.training
+        # scaling_impl.eval()
+        # _, out, _ = self.act_quant_proxy(self.act_quant_proxy._zero_hw_sentinel())
+        # scaling_impl.train(current_status)
+        #return out
+        pass
 
     def forward(self, x: Union[Tensor, QuantTensor]):
-        out = self.fused_activation_quant_proxy(x)
-        if self._quant_enabled:
-            return QuantTensor(*out, signed=self.activation_quant_injector.signed)
+        if isinstance(x, QuantTensor) and self.fused_activation_quant_proxy is not None:
+            x = self.fused_activation_quant_proxy(x.value)
         else:
-            return QuantTensor(out)
+            x = self.fused_activation_quant_proxy(x)
+        if isinstance(x, tuple): # quantization happened
+            return QuantTensor(*x, signed=self.activation_quant_injector.signed)
+        elif isinstance(x, QuantTensor):  # x is still the input to the forward, pass it through
+            return x
+        else:  # only activation_impl was called
+            return QuantTensor(x)
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
-                              missing_keys, unexpected_keys, error_msgs):
+                              missing_keys, unexpected_keys, error_msgs): # TODO
 
         # scaling_impl_key = prefix + 'fused_activation_quant_proxy.tensor_quant.scaling_impl'
         # runtime_stats_key = scaling_impl_key + '.runtime_stats'
@@ -129,8 +153,20 @@ class ActivationQuantProxy(QuantProxy):
         #             del state_dict[k]
 
         # Go on with dict restoring
-        super(ActivationQuantProxy, self)._load_from_state_dict(
+        super(ActQuantProxy, self)._load_from_state_dict(
             state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
+
+
+class IdentityQuantProxy(ActQuantProxy):
+
+    def __init__(
+            self,
+            act_quant_injector: Injector):
+        assert act_quant_injector.act_impl is None
+        super(IdentityQuantProxy, self).__init__(act_quant_injector)
+
+    def identity_quant_proxy(self):
+        return self
 
 
 class ClampQuantProxy(QuantProxy):

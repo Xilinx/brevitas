@@ -48,10 +48,10 @@ from torch.nn.functional import linear
 from brevitas.function.ops_ste import ceil_ste
 from brevitas.function.ops import max_uint
 
-from brevitas.proxy import WeightQuantProxy, BiasQuantProxy, ActivationQuantProxy
+from brevitas.proxy import WeightQuantProxy, BiasQuantProxy, ActQuantProxy
 from brevitas.proxy.config import DefaultWeightQuantInjector, update_weight_quant_injector
 from brevitas.proxy.config import update_bias_quant_injector
-from brevitas.proxy.config import update_activation_quant_injector
+from brevitas.proxy.config import update_act_quant_injector
 
 from .quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.quant_tensor import QuantTensor
@@ -68,18 +68,19 @@ class QuantLinear(QuantWBIOL, Linear):
             bias: bool,
             weight_quant: Union[WeightQuantProxy, Type[Injector]] = DefaultWeightQuantInjector,
             bias_quant: Union[BiasQuantProxy, Type[Injector]] = None,
-            input_quant: Union[ActivationQuantProxy, Type[Injector]] = None,
-            output_quant: Union[ActivationQuantProxy, Type[Injector]] = None,
+            input_quant: Union[ActQuantProxy, Type[Injector]] = None,
+            output_quant: Union[ActQuantProxy, Type[Injector]] = None,
             update_weight_quant_injector: Callable = update_weight_quant_injector,
             update_bias_quant_injector: Callable = update_bias_quant_injector,
-            update_input_quant_injector: Callable = update_activation_quant_injector,
-            update_output_quant_injector: Callable = update_activation_quant_injector,
+            update_input_quant_injector: Callable = update_act_quant_injector,
+            update_output_quant_injector: Callable = update_act_quant_injector,
             return_quant_tensor: bool = False,
             **kwargs) -> None:
         Linear.__init__(self, in_features, out_features, bias)
         QuantWBIOL.__init__(
             self,
             self.weight,
+            self.bias,
             weight_quant,
             bias_quant,
             input_quant,

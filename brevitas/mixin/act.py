@@ -38,92 +38,73 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from typing import Callable, Union, Type
+from abc import ABCMeta
+from typing import Type, Union, Callable
+
+from torch.nn import Module
 
 from dependencies import Injector
-from torch import nn
 
-from brevitas.core.function_wrapper import ConstScalarClamp
-from brevitas.proxy.config import update_act_quant_injector
-from .quant_layer import QuantNonLinearActLayer
+from brevitas.proxy.runtime_quant import IdentityQuantProxy, ActQuantProxy
 
+from .base import QuantActMixin
 
-class QuantReLU(QuantNonLinearActLayer):
-
-    def __init__(
-            self,
-            act_quant: Type[Injector],
-            update_injector: Callable = update_act_quant_injector,
-            return_quant_tensor: bool = False,
-            **kwargs):
-        super(QuantReLU, self).__init__(
-            act_impl=nn.ReLU,
-            act_quant=act_quant,
-            update_injector=update_injector,
-            return_quant_tensor=return_quant_tensor,
-            **kwargs)
-
-
-class QuantSigmoid(QuantNonLinearActLayer):
+class QuantInputMixin(QuantActMixin):
+    __metaclass__ = ABCMeta
 
     def __init__(
             self,
-            act_quant: Type[Injector],
-            update_injector: Callable = update_act_quant_injector,
-            return_quant_tensor: bool = False,
+            act_quant: Union[IdentityQuantProxy, Type[Injector]],
+            update_injector: Callable,
             **kwargs):
-        super(QuantSigmoid, self).__init__(
-            act_impl=nn.Sigmoid,
-            act_quant=act_quant,
-            update_injector=update_injector,
-            return_quant_tensor=return_quant_tensor,
+        super().__init__(
+            None,
+            act_quant,
+            update_injector,
+            proxy_impl=IdentityQuantProxy,
+            prefix='input_',
             **kwargs)
 
+    def quant_input_scale(self):
+        return self.act_quant.scale()
 
-class QuantTanh(QuantNonLinearActLayer):
+
+class QuantOutputMixin(QuantActMixin):
+    __metaclass__ = ABCMeta
 
     def __init__(
             self,
-            act_quant: Type[Injector],
-            update_injector: Callable = update_act_quant_injector,
-            return_quant_tensor: bool = False,
+            act_quant: Union[IdentityQuantProxy, Type[Injector]],
+            update_injector: Callable,
             **kwargs):
-        super(QuantTanh, self).__init__(
-            act_impl=nn.Tanh,
-            act_quant=act_quant,
-            update_injector=update_injector,
-            return_quant_tensor=return_quant_tensor,
+        super().__init__(
+            None,
+            act_quant,
+            update_injector,
+            proxy_impl=IdentityQuantProxy,
+            prefix='output_',
             **kwargs)
 
+    def quant_output_scale(self):
+        return self.act_quant.scale()
 
-class QuantHardTanh(QuantNonLinearActLayer):
+
+class QuantNonLinearActMixin(QuantActMixin):
+    __metaclass__ = ABCMeta
 
     def __init__(
             self,
-            act_quant: Type[Injector],
-            update_injector: Callable = update_act_quant_injector,
-            return_quant_tensor: bool = False,
+            act_impl: Module,
+            act_quant: Union[ActQuantProxy, Type[Injector]],
+            update_injector: Callable,
             **kwargs):
-        super(QuantHardTanh, self).__init__(
-            act_impl=ConstScalarClamp,
-            act_quant=act_quant,
-            update_injector=update_injector,
-            return_quant_tensor=return_quant_tensor,
+        super().__init__(
+            act_impl,
+            act_quant,
+            update_injector,
+            proxy_impl=ActQuantProxy,
+            prefix='act_',
             **kwargs)
 
-
-class QuantIdentity(QuantNonLinearActLayer):
-
-    def __init__(
-            self,
-            act_quant: Type[Injector],
-            update_injector: Callable = update_act_quant_injector,
-            return_quant_tensor: bool = False,
-            **kwargs):
-        super(QuantIdentity, self).__init__(
-            act_impl=None,
-            act_quant=act_quant,
-            update_injector=update_injector,
-            return_quant_tensor=return_quant_tensor,
-            **kwargs)
-
+    def quant_act_scale(self):
+        return self.act_quant.scale()
