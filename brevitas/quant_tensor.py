@@ -44,16 +44,41 @@ from dataclasses import dataclass
 import torch
 from torch import Tensor
 
-from brevitas.function.ops_ste import ceil_ste
+from brevitas.function.ops_ste import ceil_ste, round_ste
 from brevitas.function.ops import max_uint
 
 
 @dataclass
 class QuantTensor:
     value: Tensor
-    scale: Optional[Tensor]
-    bit_width: Optional[Tensor]
-    signed: Optional[bool]
+    scale: Optional[Tensor] = None
+    bit_width: Optional[Tensor] = None
+    signed: Optional[bool] = None
+    scaling_per_channel: Optional[bool] = None
+    scaling_power_of_two: Optional[bool] = None
+
+    @property  # TODO deprecate
+    def tensor(self):
+        return self.value
+
+    @property
+    def is_valid(self):
+        return self.scale is not None \
+               and self.bit_width is not None \
+               and self.signed is not None \
+               and self.scaling_per_channel is not None \
+               and self.scaling_power_of_two is not None
+
+    def int(self, float_datatype=False):
+        if self.is_valid:
+            int_value = self.value / self.scale
+            int_value = round_ste(int_value)
+            if float_datatype:
+                return int_value
+            else:
+                return int_value.int()
+        else:
+            raise RuntimeError(f"QuantTensor not well formed, all fields must be set: {self}")
 
     @staticmethod
     def check_input_type(other):

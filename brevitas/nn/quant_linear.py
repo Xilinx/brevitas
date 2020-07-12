@@ -50,15 +50,16 @@ from brevitas.function.ops import max_uint
 
 from brevitas.proxy import WeightQuantProxy, BiasQuantProxy, ActivationQuantProxy
 from brevitas.proxy.config import DefaultWeightQuantInjector, update_weight_quant_injector
-from brevitas.proxy.config import DefaultBiasQuantInjector, update_bias_quant_injector
+from brevitas.proxy.config import update_bias_quant_injector
+from brevitas.proxy.config import update_activation_quant_injector
 
-from .quant_layer import QuantWeightBiasOutputLayer
+from .quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.quant_tensor import QuantTensor
 
 __all__ = ['QuantLinear']
 
 
-class QuantLinear(QuantWeightBiasOutputLayer, Linear):
+class QuantLinear(QuantWBIOL, Linear):
 
     def __init__(
             self,
@@ -66,22 +67,26 @@ class QuantLinear(QuantWeightBiasOutputLayer, Linear):
             out_features: int,
             bias: bool,
             weight_quant: Union[WeightQuantProxy, Type[Injector]] = DefaultWeightQuantInjector,
-            bias_quant: Union[BiasQuantProxy, Type[Injector]] = DefaultBiasQuantInjector,
+            bias_quant: Union[BiasQuantProxy, Type[Injector]] = None,
+            input_quant: Union[ActivationQuantProxy, Type[Injector]] = None,
             output_quant: Union[ActivationQuantProxy, Type[Injector]] = None,
             update_weight_quant_injector: Callable = update_weight_quant_injector,
             update_bias_quant_injector: Callable = update_bias_quant_injector,
-            update_output_quant_injector: Callable = None,
+            update_input_quant_injector: Callable = update_activation_quant_injector,
+            update_output_quant_injector: Callable = update_activation_quant_injector,
             return_quant_tensor: bool = False,
             **kwargs) -> None:
         Linear.__init__(self, in_features, out_features, bias)
-        QuantWeightBiasOutputLayer.__init__(
+        QuantWBIOL.__init__(
             self,
             self.weight,
             weight_quant,
             bias_quant,
+            input_quant,
             output_quant,
             update_weight_quant_injector,
             update_bias_quant_injector,
+            update_input_quant_injector,
             update_output_quant_injector,
             return_quant_tensor=return_quant_tensor,
             **kwargs)

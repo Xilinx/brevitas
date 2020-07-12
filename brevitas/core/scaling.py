@@ -122,10 +122,10 @@ class ParameterScaling(torch.jit.ScriptModule):
 
     def __init__(
             self,
-            scaling_init_impl: Module,
+            scaling_init: torch.Tensor,
             scaling_shape: Tuple[int, ...],
-            scaling_min_val: Optional[float],
-            restrict_scaling_impl: Module) -> None:
+            restrict_scaling_impl: Module,
+            scaling_min_val: Optional[float] = DEFAULT_SCALING_MIN_VAL) -> None:
         super(ParameterScaling, self).__init__()
 
         scaling_init = scaling_init_impl().detach()
@@ -156,9 +156,9 @@ class ParameterScaling(torch.jit.ScriptModule):
 
 class ConstScaling(torch.jit.ScriptModule):
 
-    def __init__(self, scaling_init_impl: Module) -> None:
+    def __init__(self, scaling_init: torch.Tensor) -> None:
         super(ConstScaling, self).__init__()
-        self.value = StatelessBuffer(scaling_init_impl().detach())
+        self.value = StatelessBuffer(scaling_init.detach())
 
     @torch.jit.script_method
     def forward(self, placeholder: torch.Tensor) -> torch.Tensor:
@@ -176,8 +176,8 @@ class RuntimeStatsScaling(torch.jit.ScriptModule):
             scaling_stats_buffer_momentum: float,
             restrict_scaling_impl: Module,
             scaling_shape: Tuple[int, ...],
-            scaling_min_val: Optional[float] = DEFAULT_SCALING_MIN_VAL,
-            affine_rescaling: bool = DEFAULT_AFFINE) -> None:
+            affine_rescaling: bool,
+            scaling_min_val: Optional[float] = DEFAULT_SCALING_MIN_VAL) -> None:
         super(RuntimeStatsScaling, self).__init__()
 
         self.runtime_stats = _RuntimeStats(
@@ -209,8 +209,8 @@ class ParameterStatsScaling(torch.jit.ScriptModule):
             tracked_parameter_list: List[torch.nn.Parameter],
             restrict_scaling_impl: Module,
             scaling_shape: Tuple[int, ...],
-            scaling_min_val: Optional[float] = DEFAULT_SCALING_MIN_VAL,
-            affine_rescaling: bool = DEFAULT_AFFINE) -> None:
+            affine_rescaling: bool,
+            scaling_min_val: Optional[float] = DEFAULT_SCALING_MIN_VAL) -> None:
         super(ParameterStatsScaling, self).__init__()
         self.parameter_list_stats = _ParameterListStats(
             scaling_stats_impl,
@@ -258,5 +258,3 @@ class PowerOfTwoIntScaling(torch.jit.ScriptModule):
     @torch.jit.script_method
     def forward(self, bit_width):
         return max_int(self.signed, bit_width) + 1
-
-

@@ -40,15 +40,15 @@
 
 from abc import ABCMeta, abstractmethod
 from typing import Optional, Type, Union, Callable
-from dependencies import Injector
-
 import torch
 from torch import Tensor
-from torch.nn import Identity
+from torch.nn import Identity, Module
+
+from dependencies import Injector
 
 from brevitas.quant_tensor import QuantTensor
-from brevitas.core.quant import IdentityQuant, IdentityPrescaledQuant
-from brevitas.proxy import WeightQuantProxy, BiasQuantProxy, ActivationQuantProxy
+from brevitas.proxy.parameter_quant import ParameterQuantProxy, WeightQuantProxy, BiasQuantProxy
+from brevitas.proxy.runtime_quant import ActivationQuantProxy
 
 
 def _compute_channel_view_shape(tensor, channel_dim=1):
@@ -63,11 +63,11 @@ class QuantLayer(object):
     def __init__(self, return_quant_tensor):
         self.return_quant_tensor = return_quant_tensor
 
-    def unpack_input(self, input):
-        if isinstance(input, QuantTensor):
-            return input
+    def unpack_input(self, inp):
+        if isinstance(inp, QuantTensor):
+            return inp
         else:
-            return QuantTensor(input, None, None, None)
+            return QuantTensor(inp)
 
     def pack_output(self, quant_output: QuantTensor):
         if self.return_quant_tensor:
@@ -75,13 +75,40 @@ class QuantLayer(object):
         else:
             return quant_output.value
 
-    @property
-    @abstractmethod
-    def output_scale_shape(self):
-        pass
+
+class QuantParameterMixin(object):
+    __metaclass__ = ABCMeta
+
+    def __init__(
+            self,
+            parameter: torch.nn.Parameter,
+            parameter_quant: Optional[Union[ParameterQuantProxy, Type[Injector]]],
+            proxy_impl: Optional[Type[ParameterQuantProxy]],
+            update_injector: Optional[Callable],
+            prefix: str,
+            **kwargs):
+        self.quant_attr_name = prefix + 'quant'
+        if parameter_quant is None:
+            assert proxy_impl is not None
+            none_injector = proxy_impl(Injector.let(tensor_quant=None))
+            setattr(self, self.quant_attr_name, none_injector)
+        elif isinstance(parameter_quant, ParameterQuantProxy):
+            pass
+        else:
+            assert proxy_impl is not None
+            parameter_quant_injector = parameter_quant
+            if update_injector is not None:
+                parameter_quant_injector = update_injector(
+                    parameter_layer=self,
+                    parameter_quant_injector=parameter_quant_injector,
+                    prefix=prefix,
+                    **kwargs)
+            parameter_quant = proxy_impl(parameter_quant_injector)
+        setattr(self, self.quant_attr_name, parameter_quant)
+        getattr(self, self.quant_attr_name).add_tracked_parameter(parameter)
 
 
-class QuantWeightMixin(object):
+class QuantWeightMixin(QuantParameterMixin):
     __metaclass__ = ABCMeta
 
     def __init__(
@@ -89,23 +116,14 @@ class QuantWeightMixin(object):
             weight: torch.nn.Parameter,
             weight_quant: Optional[Union[WeightQuantProxy, Type[Injector]]],
             update_injector: Optional[Callable],
-            prefix: str = 'weight_',
             **kwargs):
-        if weight_quant is None:
-            self.weight_quant = IdentityQuant()
-        elif isinstance(weight_quant, WeightQuantProxy):
-            self.weight_quant = weight_quant
-            self.weight_quant.add_tracked_parameter(weight)
-        else:
-            weight_quant_injector = weight_quant
-            if update_injector is not None:
-                weight_quant_injector = update_injector(
-                    weight_layer=self,
-                    weight_quant_injector=weight_quant_injector,
-                    prefix=prefix,
-                    **kwargs)
-            weight_quant_injector = weight_quant_injector.let(tracked_parameter_list=[weight])
-            self.weight_quant = WeightQuantProxy(weight_quant_injector)
+        super().__init__(
+            parameter=weight,
+            parameter_quant=weight_quant,
+            proxy_impl=WeightQuantProxy,
+            update_injector=update_injector,
+            prefix='weight_',
+            **kwargs)
 
     @property
     @abstractmethod
@@ -122,67 +140,101 @@ class QuantWeightMixin(object):
     def out_channels(self) -> int:
         pass
 
-    def int_weight(self):
-        if isinstance(self.weight_quant.tensor_quant, IdentityQuant):
-            raise Exception("Can't generate int weight without quantization enabled")
-        return self.weight_quant.int_weight(self.weight)
+    def quant_weight(self):
+        return self.weight_quant(self.weight)
+
+    def int_weight(self, float_datatype=False):
+        return self.quant_weight().int(float_datatype)
 
     def quant_weight_scale(self):
-        if isinstance(self.weight_quant.tensor_quant, IdentityQuant):
-            raise Exception("Can't generate scaling factor without quantization enabled")
-        _, scale, _ = self.weight_quant.tensor_quant(self.weight)
+        scale = self.quant_weight().scale
         return scale
 
 
-class QuantBiasMixin(object):
+class QuantBiasMixin(QuantParameterMixin):
     __metaclass__ = ABCMeta
 
     def __init__(
             self,
+            bias,
             bias_quant: Union[BiasQuantProxy, Type[Injector]],
             update_injector: Callable,
-            prefix: str = 'bias_',
             **kwargs):
-        if bias_quant is None:
-            self.bias_quant = IdentityPrescaledQuant()
-        elif isinstance(bias_quant, BiasQuantProxy):
-            self.bias_quant = bias_quant
-        else:
-            bias_quant_injector = bias_quant
-            if update_injector is not None:
-                bias_quant_injector = update_injector(
-                    bias_layer=self,
-                    bias_quant_injector=bias_quant_injector,
-                    prefix=prefix,
-                    **kwargs)
-            self.bias_quant = BiasQuantProxy(bias_quant_injector)
+        super().__init__(
+            parameter=bias,
+            parameter_quant=bias_quant,
+            proxy_impl=BiasQuantProxy,
+            update_injector=update_injector,
+            prefix='bias_',
+            **kwargs)
 
 
-class QuantOutputMixin(object):
+class QuantActivationMixin(object):
     __metaclass__ = ABCMeta
 
     def __init__(
             self,
-            output_quant: Union[ActivationQuantProxy, Type[Injector]],
+            activation_impl: Module,
+            activation_quant: Union[ActivationQuantProxy, Type[Injector]],
             update_injector: Callable,
-            prefix: str = 'output_',
+            prefix: str = 'activation_',
             **kwargs):
-        if output_quant is None:
-            self.output_quant = IdentityQuant()
-        elif isinstance(output_quant, ActivationQuantProxy):
-            self.output_quant = output_quant
+        attr_name = prefix + 'quant'
+        if activation_quant is None:
+            activation_quant_injector = Injector.let(tensor_quant=None)
+            activation_quant = ActivationQuantProxy(activation_impl, activation_quant_injector)
+        elif isinstance(activation_quant, ActivationQuantProxy):
+            pass
         else:
-            output_quant_injector = output_quant
+            activation_quant_injector = activation_quant
             if update_injector is not None:
-                output_quant_injector = update_injector(
-                    output_layer=self,
-                    output_quant_injector=output_quant_injector,
+                activation_quant_injector = update_injector(
+                    activation_layer=self,
+                    activation_quant_injector=activation_quant_injector,
                     prefix=prefix,
                     **kwargs)
-            self.output_quant = ActivationQuantProxy(Identity(), output_quant_injector)
+            activation_quant = ActivationQuantProxy(Identity(), activation_quant_injector)
+        setattr(self, attr_name, activation_quant)
 
 
-class QuantWeightBiasOutputLayer(QuantOutputMixin, QuantBiasMixin, QuantWeightMixin, QuantLayer):
+class QuantInputMixin(QuantActivationMixin):
+    __metaclass__ = ABCMeta
+
+    def __init__(
+            self,
+            activation_quant: Union[ActivationQuantProxy, Type[Injector]],
+            update_injector: Callable,
+            **kwargs):
+        super().__init__(
+            Identity(),
+            activation_quant,
+            update_injector,
+            prefix='input_',
+            **kwargs)
+
+
+class QuantOutputMixin(QuantActivationMixin):
+    __metaclass__ = ABCMeta
+
+    def __init__(
+            self,
+            activation_quant: Union[ActivationQuantProxy, Type[Injector]],
+            update_injector: Callable,
+            **kwargs):
+        super().__init__(
+            Identity(),
+            activation_quant,
+            update_injector,
+            prefix='output_',
+            **kwargs)
+
+
+class QuantWeightBiasInputOutputLayer(
+        QuantOutputMixin,
+        QuantInputMixin,
+        QuantBiasMixin,
+        QuantWeightMixin,
+        QuantLayer):
     __metaclass__ = ABCMeta
 
     def __init__(
@@ -190,15 +242,18 @@ class QuantWeightBiasOutputLayer(QuantOutputMixin, QuantBiasMixin, QuantWeightMi
             weight,
             weight_quant: Union[WeightQuantProxy, Type[Injector]],
             bias_quant: Union[BiasQuantProxy, Type[Injector]],
+            input_quant: Union[ActivationQuantProxy, Type[Injector]],
             output_quant: Union[ActivationQuantProxy, Type[Injector]],
             update_wqi: Callable,
             update_bqi: Callable,
+            update_iqi: Callable,
             update_oqi: Callable,
             return_quant_tensor: bool,
             **kwargs):
         QuantLayer.__init__(self, return_quant_tensor)
         QuantWeightMixin.__init__(self, weight, weight_quant, update_wqi, **kwargs)
         QuantBiasMixin.__init__(self, bias_quant, update_bqi, **kwargs)
+        QuantInputMixin.__init__(self, input_quant, update_iqi, **kwargs)
         QuantOutputMixin.__init__(self, output_quant, update_oqi, **kwargs)
 
     @abstractmethod
@@ -210,17 +265,18 @@ class QuantWeightBiasOutputLayer(QuantOutputMixin, QuantBiasMixin, QuantWeightMi
             self, x: QuantTensor, quant_weight: QuantTensor, quant_bias: Optional[QuantTensor]):
         pass
 
-    def forward(self, input_tensor: Union[Tensor, QuantTensor]):
+    def forward(self, inp: Union[Tensor, QuantTensor]):
         output_scale = None
         output_bit_width = None
 
-        quant_input = self.unpack_input(input_tensor)
+        inp = self.unpack_input(inp)
+        quant_input = self.input_quant(inp)
         quant_weight = self.weight_quant(self.weight)
 
         if quant_input.bit_width is not None:
             output_bit_width = self.max_acc_bit_width(quant_input.bit_width, quant_weight.bit_width)
         if quant_input.scale is not None:
-            output_scale_shape = _compute_channel_view_shape(input_tensor)
+            output_scale_shape = _compute_channel_view_shape(inp)
             output_scale = quant_weight.scale.view(output_scale_shape)
             output_scale = output_scale * quant_input.scale.view(output_scale_shape)
 
@@ -235,7 +291,7 @@ class QuantWeightBiasOutputLayer(QuantOutputMixin, QuantBiasMixin, QuantWeightMi
             output_tensor = self.inner_forward_impl(quant_input, quant_weight, None)
 
         quant_output = QuantTensor(output_tensor, output_scale, output_bit_width, signed=True)
-       # quant_output = self.output_quant(quant_output)
+        quant_output = self.output_quant(quant_output)
         return self.pack_output(quant_output)
 
 

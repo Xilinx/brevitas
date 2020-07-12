@@ -38,14 +38,13 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from abc import ABCMeta
+from abc import ABCMeta, abstractmethod
 from typing import Tuple, Optional, List
 
 import torch
 from torch import Tensor
 from dependencies import Injector
 
-from brevitas.function.ops_ste import round_ste
 from brevitas.quant_tensor import QuantTensor
 
 from .quant_proxy import QuantProxy
@@ -57,17 +56,18 @@ __all__ = ['WeightQuantProxy', 'BiasQuantProxy']
 class ParameterQuantProxy(QuantProxy):
     __metaclass__ = ABCMeta
 
-    @property
-    def tensor_quant(self):
-        return self._tensor_quant
+    def __init__(
+            self,
+            tracker_parameter_list: List[torch.nn.Parameter] = None) -> None:
+        super(ParameterQuantProxy, self).__init__()
+        self.tracked_parameter_list = tracker_parameter_list
 
-    @tensor_quant.setter
-    def tensor_quant(self, tensor_quant):
-        self._tensor_quant = tensor_quant
-
-    @tensor_quant.deleter
-    def tensor_quant(self):
-        del self._tensor_quant
+    @abstractmethod
+    def add_tracked_parameter(self, parameter: torch.nn.Parameter) -> None:
+        if self.tracked_parameter_list is not None:
+            self.tracked_parameter_list.append(parameter)
+        else:
+            self.tracked_parameter_list = [parameter]
 
 
 class WeightQuantProxy(ParameterQuantProxy):
@@ -90,10 +90,7 @@ class WeightQuantProxy(ParameterQuantProxy):
         self.tensor_quant = self.weight_quant_injector.tensor_quant
 
     def add_tracked_parameter(self, weight: torch.nn.Parameter) -> None:
-        if self.tracked_parameter_list is not None:
-            self._tracked_parameter_list.append(weight)
-        else:
-            self.tracked_parameter_list = [weight]
+        super().add_tracked_parameter(weight)
         del self.tensor_quant
         self.init_tensor_quant()
 
@@ -101,15 +98,8 @@ class WeightQuantProxy(ParameterQuantProxy):
         if self.tensor_quant is not None:
             out, scale, bit_width = self.tensor_quant(x)
             return QuantTensor(out, scale, bit_width, signed=self.weight_quant_injector.signed)
-        else:
-            return QuantTensor(x, None, None, None)
-
-    def int_weight(self, x: torch.Tensor):
-        quant_weight, scale, _ = self.tensor_quant(x)
-        quant_weight = quant_weight / scale
-        quant_weight = round_ste(quant_weight)
-        quant_weight = quant_weight.int()
-        return quant_weight
+        else:  # quantization disabled
+            return QuantTensor(x)
 
     def _load_from_state_dict(
             self, state_dict, prefix, metadata, strict, missing_keys, unexpected_keys, error_msgs):
@@ -142,6 +132,9 @@ class BiasQuantProxy(ParameterQuantProxy):
                 out, out_scale, out_bit_width = self.tensor_quant(x, input_scale)
             return QuantTensor(out, out_scale, out_bit_width, self.bias_quant_injector.signed)
         else:
-            return QuantTensor(x, None, None, None)
+            return QuantTensor(x)
+
+    def add_tracked_parameter(self, bias: torch.nn.Parameter) -> None:
+        super().add_tracked_parameter(bias)
 
 

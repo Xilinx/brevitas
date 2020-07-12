@@ -38,29 +38,22 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from typing import Optional
+from typing import Optional, Union
 
 import torch
+from torch import Tensor
 from torch.nn import Module
 
-from brevitas.core.bit_width import BitWidthImplType, BitWidthConst, IdentityBitWidth
-from brevitas.core.bit_width import BitWidthParameter, ZeroLsbTruncBitWidth
-from brevitas.core.function_wrapper import TensorClamp
-from brevitas.core.quant import PrescaledRestrictIntQuantWithInputBitWidth, ClampedBinaryQuant
-from brevitas.core.quant import QuantType, IdentityPrescaledQuant
-from brevitas.core.quant import RescalingIntQuant, IdentityQuant
-from brevitas.function.ops_ste import round_ste
-from brevitas.core.scaling import RuntimeStatsScaling, SCALING_SCALAR_SHAPE
-from brevitas.core.scaling import ScalingImplType, ConstScaling, ParameterScaling
+from dependencies import Injector
+
+from brevitas.quant_tensor import QuantTensor
 
 from .quant_proxy import QuantProxy
 
 
 class FusedActivationQuantProxy(torch.jit.ScriptModule):
 
-    def __init__(self,
-                 activation_impl,
-                 tensor_quant):
+    def __init__(self, activation_impl, tensor_quant):
         super(FusedActivationQuantProxy, self).__init__()
         self.activation_impl = activation_impl
         self.tensor_quant = tensor_quant
@@ -72,169 +65,72 @@ class FusedActivationQuantProxy(torch.jit.ScriptModule):
         return x, output_scale, output_bit_width
 
 
-def _scaling_impl_init(aqc):
-    if aqc.scaling_impl_type != ScalingImplType.OVERRIDE and aqc.scaling_override is not None:
-        raise Exception(
-            "Overriding scaling requires to set ScalingImplType to OVERRIDE explicitly.")
-    if aqc.scaling_impl_type == ScalingImplType.OVERRIDE and aqc.scaling_override is None:
-        raise Exception("Overriding scaling requires to pass a scaling impl module.")
-
-    if aqc.scaling_per_channel:
-        scaling_shape = aqc.per_channel_broadcastable_shape
-    else:
-        scaling_shape = SCALING_SCALAR_SHAPE
-
-    if aqc.scaling_impl_type == ScalingImplType.OVERRIDE and aqc.scaling_override is not None:
-        scaling_impl = aqc.scaling_override
-
-    elif aqc.scaling_impl_type == ScalingImplType.CONST or aqc.scaling_impl_type == ScalingImplType.PARAMETER:
-        scaling_init = RescalingIntQuant.scaling_init_from_min_max(aqc.min_val, aqc.max_val)
-        if aqc.scaling_impl_type == ScalingImplType.PARAMETER:
-            scaling_impl = ParameterScaling(parameter_shape=scaling_shape,
-                                            restrict_scaling_type=aqc.restrict_scaling_type,
-                                            scaling_init=scaling_init,
-                                            scaling_min_val=aqc.scaling_min_val)
-        else:
-            scaling_impl = ConstScaling(restrict_scaling_type=aqc.restrict_scaling_type,
-                                        scaling_init=scaling_init,
-                                        scaling_min_val=aqc.scaling_min_val)
-
-    elif aqc.scaling_impl_type == ScalingImplType.STATS or aqc.scaling_impl_type == ScalingImplType.AFFINE_STATS:
-
-        stats_buffer_init = RescalingIntQuant.scaling_init_from_min_max(aqc.min_val, aqc.max_val).item()
-        scaling_impl = RuntimeStatsScaling(stats_op=aqc.scaling_stats_op,
-                                           restrict_scaling_type=aqc.restrict_scaling_type,
-                                           stats_input_view_shape_impl=aqc.scaling_stats_input_view_shape_impl,
-                                           stats_output_shape=scaling_shape,
-                                           sigma=aqc.scaling_stats_sigma,
-                                           scaling_min_val=aqc.scaling_min_val,
-                                           stats_reduce_dim=aqc.scaling_stats_reduce_dim,
-                                           stats_buffer_momentum=aqc.scaling_stats_buffer_momentum,
-                                           stats_buffer_init=stats_buffer_init,
-                                           stats_permute_dims=aqc.scaling_stats_permute_dims,
-                                           affine=aqc.scaling_impl_type == ScalingImplType.AFFINE_STATS)
-    else:
-        raise Exception("Scaling type {} not supported for int runtime quantization"
-                        .format(str(aqc.scaling_impl_type)))
-    return scaling_impl
-
-
-def _tensor_quant_init(aqc):
-
-    if not aqc.signed and aqc.min_val != 0.0:
-        raise Exception("Min val has to be 0.0 when quantization is unsigned.")
-    if aqc.scaling_per_channel and aqc.per_channel_broadcastable_shape is None:
-        raise Exception("Per channel scaling requires to specify number of channels.")
-
-    if aqc.quant_type == QuantType.FP:
-        tensor_quant = IdentityQuant()
-    else:
-        scaling_impl = _scaling_impl_init(aqc)
-
-        if aqc.quant_type == QuantType.BINARY:
-            if not aqc.signed:
-                raise Exception("Binary activation supports only signed activations")
-            tensor_quant = ClampedBinaryQuant(scaling_impl=scaling_impl)
-
-        elif aqc.quant_type == QuantType.INT:
-
-            if aqc.bit_width_impl_override is None:
-                if aqc.bit_width_impl_type is None or aqc.bit_width is None or aqc.restrict_bit_width_type is None:
-                    raise Exception("Bit width is not defined properly")
-
-                if aqc.bit_width_impl_type == BitWidthImplType.CONST:
-                    tensor_clamp_impl = TensorClamp()  # If it's const, don't pass gradients to clipped values
-                    assert aqc.restrict_bit_width_type == RestrictValueType.INT
-                    msb_clamp_bit_width_impl = BitWidthConst(aqc.bit_width)
-                elif aqc.bit_width_impl_type == BitWidthImplType.PARAMETER:
-                    tensor_clamp_impl = TensorClamp()  # if it's learned, I pass gradients to the bit width
-                    msb_clamp_bit_width_impl = BitWidthParameter(aqc.bit_width,
-                                                                 aqc.min_overall_bit_width,
-                                                                 aqc.max_overall_bit_width,
-                                                                 aqc.restrict_bit_width_type,
-                                                                 aqc.override_pretrained_bit_width)
-                else:
-                    raise Exception("Bit width type {} not supported for weight quantization"
-                                    .format(str(aqc.bit_width_impl_type)))
-            else:
-                msb_clamp_bit_width_impl = aqc.bit_width_impl_override
-                tensor_clamp_impl = TensorClamp()  # if there is an override, it's learned
-
-            float_to_int_impl = RestrictValue(restrict_value_type=RestrictValueType.INT,
-                                              float_to_int_impl_type=aqc.float_to_int_impl_type,
-                                              min_val=None)
-            int_scaling_impl = IntScaling(aqc.narrow_range,
-                                          signed=aqc.signed,
-                                          restrict_scaling_type=aqc.restrict_scaling_type)
-            tensor_quant = RescalingIntQuant(signed=aqc.signed,
-                                             narrow_range=aqc.narrow_range,
-                                             scaling_impl=scaling_impl,
-                                             int_scaling_impl=int_scaling_impl,
-                                             tensor_clamp_impl=tensor_clamp_impl,
-                                             msb_clamp_bit_width_impl=msb_clamp_bit_width_impl,
-                                             float_to_int_impl=float_to_int_impl)
-        else:
-            raise Exception(
-                "Quantization type {} not supported for activations.".format(aqc.quant_type))
-    return tensor_quant
-
-
 class ActivationQuantProxy(QuantProxy):
 
-    def __init__(self,
-                 activation_impl: Module,
-                 activation_quant_config):
+    def __init__(
+            self,
+            activation_impl: Module,
+            activation_quant_injector: Injector):
         super(ActivationQuantProxy, self).__init__()
-        self.activation_quant_config = activation_quant_config
-        tensor_quant = _tensor_quant_init(activation_quant_config)
-        self.fused_activation_quant_proxy = FusedActivationQuantProxy(activation_impl, tensor_quant)
+        self.activation_quant_injector = activation_quant_injector
+        tensor_quant = activation_quant_injector.injector
+        if tensor_quant is None:
+            self._quant_enabled = False
+            self.fused_activation_quant_proxy = activation_impl
+        else:
+            self._quant_enabled = True
+            self.fused_activation_quant_proxy = FusedActivationQuantProxy(
+                activation_impl, tensor_quant)
 
-    def forward(self, x):
-        output, output_scale, output_bit_width = self.fused_activation_quant_proxy(x)
-        return output, output_scale, output_bit_width
+    def forward(self, x: Union[Tensor, QuantTensor]):
+        out = self.fused_activation_quant_proxy(x)
+        if self._quant_enabled:
+            return QuantTensor(*out, signed=self.activation_quant_injector.signed)
+        else:
+            return QuantTensor(out)
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
                               missing_keys, unexpected_keys, error_msgs):
 
-        scaling_impl_key = prefix + 'fused_activation_quant_proxy.tensor_quant.scaling_impl'
-        runtime_stats_key = scaling_impl_key + '.runtime_stats'
-        running_stats_key = scaling_impl_key + '.runtime_stats.running_stats'
-        scaling_parameter_key = scaling_impl_key + '.value'
-        scaling_affine_weight_key = prefix + '.stats_scaling_impl.affine_rescaling.affine_weight'
-        scaling_affine_bias_key = prefix + '.stats_scaling_impl.affine_rescaling.affine_bias'
-
-        if not isinstance(self.fused_activation_quant_proxy.tensor_quant, IdentityQuant) and \
-                self.activation_quant_config.scaling_impl_type == ScalingImplType.PARAMETER:
-            scaling_impl = self.fused_activation_quant_proxy.tensor_quant.scaling_impl
-
-            # If it's retrained directly from statistics, i.e. there isn't a preexisting parameter
-            if running_stats_key in state_dict and not scaling_parameter_key in state_dict:
-                scaling_init = state_dict[running_stats_key]
-                if scaling_affine_weight_key in state_dict:
-                    scaling_init *= state_dict[scaling_affine_weight_key]
-                if scaling_affine_bias_key in state_dict:
-                    scaling_init += state_dict[scaling_affine_bias_key]
-
-                scaling_init = scaling_init.abs()
-
-                # Preprocess scaling init, which is always in FP range, based on current value restrictions
-                restrict_value_type = scaling_impl.restrict_value.restrict_value_type
-                restrict_value_init_op = scaling_impl.restrict_value.restrict_value_op(restrict_value_type,
-                                                                                       RestrictValueOpImplType.TORCH_FN)
-                scaling_init = restrict_value_init_op(scaling_init)
-
-                # Put scaling init in place in the dict for parameter
-                if self.activation_quant_config.scaling_impl_type == ScalingImplType.PARAMETER:
-                    state_dict[scaling_parameter_key] = scaling_init
-
-            # Get rid of statistics after using them or in case there is already a parameter
-            for k in list(state_dict.keys()):
-                if k.startswith(runtime_stats_key):
-                    del state_dict[k]
+        # scaling_impl_key = prefix + 'fused_activation_quant_proxy.tensor_quant.scaling_impl'
+        # runtime_stats_key = scaling_impl_key + '.runtime_stats'
+        # running_stats_key = scaling_impl_key + '.runtime_stats.running_stats'
+        # scaling_parameter_key = scaling_impl_key + '.value'
+        # scaling_affine_weight_key = prefix + '.stats_scaling_impl.affine_rescaling.affine_weight'
+        # scaling_affine_bias_key = prefix + '.stats_scaling_impl.affine_rescaling.affine_bias'
+        #
+        # if not isinstance(self.fused_activation_quant_proxy.tensor_quant, IdentityQuant) and \
+        #         self.activation_quant_config.scaling_impl_type == ScalingImplType.PARAMETER:
+        #     scaling_impl = self.fused_activation_quant_proxy.tensor_quant.scaling_impl
+        #
+        #     # If it's retrained directly from statistics, i.e. there isn't a preexisting parameter
+        #     if running_stats_key in state_dict and not scaling_parameter_key in state_dict:
+        #         scaling_init = state_dict[running_stats_key]
+        #         if scaling_affine_weight_key in state_dict:
+        #             scaling_init *= state_dict[scaling_affine_weight_key]
+        #         if scaling_affine_bias_key in state_dict:
+        #             scaling_init += state_dict[scaling_affine_bias_key]
+        #
+        #         scaling_init = scaling_init.abs()
+        #
+        #         # Preprocess scaling init, which is always in FP range, based on current value restrictions
+        #         restrict_value_type = scaling_impl.restrict_value.restrict_value_type
+        #         restrict_value_init_op = scaling_impl.restrict_value.restrict_value_op(restrict_value_type,
+        #                                                                                RestrictValueOpImplType.TORCH_FN)
+        #         scaling_init = restrict_value_init_op(scaling_init)
+        #
+        #         # Put scaling init in place in the dict for parameter
+        #         if self.activation_quant_config.scaling_impl_type == ScalingImplType.PARAMETER:
+        #             state_dict[scaling_parameter_key] = scaling_init
+        #
+        #     # Get rid of statistics after using them or in case there is already a parameter
+        #     for k in list(state_dict.keys()):
+        #         if k.startswith(runtime_stats_key):
+        #             del state_dict[k]
 
         # Go on with dict restoring
-        super(ActivationQuantProxy, self)._load_from_state_dict(state_dict, prefix, local_metadata, strict,
-                                                                missing_keys, unexpected_keys, error_msgs)
+        super(ActivationQuantProxy, self)._load_from_state_dict(
+            state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
 
 
 class ClampQuantProxy(QuantProxy):
@@ -242,12 +138,12 @@ class ClampQuantProxy(QuantProxy):
     def __init__(self,
                  signed: bool,
                  narrow_range: bool,
-                 quant_type,#: QuantType,
+                 quant_type,
                  ms_bit_width_to_clamp: int,
                  clamp_at_least_init_val: bool,
                  min_overall_bit_width: Optional[int],
                  max_overall_bit_width: Optional[int],
-                 msb_clamp_bit_width_impl_type: BitWidthImplType,
+                 msb_clamp_bit_width_impl_type,
                  override_pretrained_bit_width: bool):
         super(ClampQuantProxy, self).__init__()
 
@@ -283,12 +179,12 @@ class TruncQuantProxy(QuantProxy):
 
     def __init__(self,
                  signed: bool,
-                 quant_type: QuantType,
+                 quant_type,
                  ls_bit_width_to_trunc: int,
                  trunc_at_least_init_val: bool,
                  min_overall_bit_width: Optional[int],
                  max_overall_bit_width: Optional[int],
-                 lsb_trunc_bit_width_impl_type: BitWidthImplType,
+                 lsb_trunc_bit_width_impl_type,
                  explicit_rescaling: bool,
                  override_pretrained_bit_width: bool):
         super(TruncQuantProxy, self).__init__()

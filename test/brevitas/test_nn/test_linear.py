@@ -27,3 +27,9 @@ class TestQuantLinear:
         x = torch.rand(size=(3, INPUT_FEATURES))
         mod(x)
 
+    def test_override(self):
+        mod = QuantLinear(
+            out_features=OUTPUT_FEATURES,
+            in_features=INPUT_FEATURES,
+            bias=True, weight_scaling_impl_type='HE')
+        print(mod.quant_weight_scale())
