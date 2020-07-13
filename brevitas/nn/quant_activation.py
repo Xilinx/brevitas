@@ -38,13 +38,12 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from typing import Callable, Union, Type
+from typing import Callable, Type
 
 from dependencies import Injector
 from torch import nn
 
 from brevitas.core.function_wrapper import ConstScalarClamp
-from brevitas.proxy.config import update_act_quant_injector
 from .quant_layer import QuantNonLinearActLayer
 
 
@@ -53,13 +52,11 @@ class QuantReLU(QuantNonLinearActLayer):
     def __init__(
             self,
             act_quant: Type[Injector],
-            update_injector: Callable = update_act_quant_injector,
             return_quant_tensor: bool = False,
             **kwargs):
         super(QuantReLU, self).__init__(
             act_impl=nn.ReLU,
             act_quant=act_quant,
-            update_injector=update_injector,
             return_quant_tensor=return_quant_tensor,
             **kwargs)
 
@@ -69,13 +66,11 @@ class QuantSigmoid(QuantNonLinearActLayer):
     def __init__(
             self,
             act_quant: Type[Injector],
-            update_injector: Callable = update_act_quant_injector,
             return_quant_tensor: bool = False,
             **kwargs):
         super(QuantSigmoid, self).__init__(
             act_impl=nn.Sigmoid,
             act_quant=act_quant,
-            update_injector=update_injector,
             return_quant_tensor=return_quant_tensor,
             **kwargs)
 
@@ -85,13 +80,11 @@ class QuantTanh(QuantNonLinearActLayer):
     def __init__(
             self,
             act_quant: Type[Injector],
-            update_injector: Callable = update_act_quant_injector,
             return_quant_tensor: bool = False,
             **kwargs):
         super(QuantTanh, self).__init__(
             act_impl=nn.Tanh,
             act_quant=act_quant,
-            update_injector=update_injector,
             return_quant_tensor=return_quant_tensor,
             **kwargs)
 
@@ -101,13 +94,11 @@ class QuantHardTanh(QuantNonLinearActLayer):
     def __init__(
             self,
             act_quant: Type[Injector],
-            update_injector: Callable = update_act_quant_injector,
             return_quant_tensor: bool = False,
             **kwargs):
         super(QuantHardTanh, self).__init__(
             act_impl=ConstScalarClamp,
             act_quant=act_quant,
-            update_injector=update_injector,
             return_quant_tensor=return_quant_tensor,
             **kwargs)
 
@@ -117,13 +108,11 @@ class QuantIdentity(QuantNonLinearActLayer):
     def __init__(
             self,
             act_quant: Type[Injector],
-            update_injector: Callable = update_act_quant_injector,
             return_quant_tensor: bool = False,
             **kwargs):
         super(QuantIdentity, self).__init__(
             act_impl=None,
             act_quant=act_quant,
-            update_injector=update_injector,
             return_quant_tensor=return_quant_tensor,
             **kwargs)
 

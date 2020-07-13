@@ -45,6 +45,7 @@ import torch
 from torch import Tensor
 from dependencies import Injector
 
+from brevitas.function import max_uint
 from brevitas.quant_tensor import QuantTensor
 
 from .quant_proxy import QuantProxy
@@ -56,43 +57,40 @@ __all__ = ['WeightQuantProxy', 'BiasQuantProxy']
 class ParameterQuantProxy(QuantProxy):
     __metaclass__ = ABCMeta
 
-    def __init__(
-            self,
-            tracker_parameter_list: List[torch.nn.Parameter] = None) -> None:
+    def __init__(self, quant_injector: Injector) -> None:
         super(ParameterQuantProxy, self).__init__()
-        self.tracked_parameter_list = tracker_parameter_list
-
-    @abstractmethod
-    def add_tracked_parameter(self, parameter: torch.nn.Parameter) -> None:
-        if self.tracked_parameter_list is not None:
-            self.tracked_parameter_list.append(parameter)
-        else:
-            self.tracked_parameter_list = [parameter]
-
-
-class WeightQuantProxy(ParameterQuantProxy):
-
-    def __init__(
-            self,
-            weight_quant_injector: Injector) -> None:
-        super(WeightQuantProxy, self).__init__()
-        self.weight_quant_injector = weight_quant_injector
-        if 'tracked_parameter_list' in weight_quant_injector:
-            self.tracked_parameter_list = weight_quant_injector.tracked_parameter_list
+        self.quant_injector = quant_injector
+        if 'tracked_parameter_list' in quant_injector:
+            self.tracked_parameter_list = quant_injector.tracked_parameter_list
         else:
             self.tracked_parameter_list = None
         self.init_tensor_quant()
 
     def init_tensor_quant(self):
         if self.tracked_parameter_list is not None:
-            self.weight_quant_injector = self.weight_quant_injector.let(
+            self.quant_injector = self.quant_injector.let(
                 tracked_parameter_list=self.tracked_parameter_list)
-        self.tensor_quant = self.weight_quant_injector.tensor_quant
+        self.tensor_quant = self.quant_injector.tensor_quant
 
-    def add_tracked_parameter(self, weight: torch.nn.Parameter) -> None:
-        super().add_tracked_parameter(weight)
+    def max_uint_value(self, bit_width):
+        return max_uint(self.weight_quant_injector.narrow_range, bit_width)
+
+    def add_tracked_parameter(self, parameter: torch.nn.Parameter) -> None:
+        if self.tracked_parameter_list is not None:
+            self.tracked_parameter_list.append(parameter)
+        else:
+            self.tracked_parameter_list = [parameter]
         del self.tensor_quant
         self.init_tensor_quant()
+
+    def _load_from_state_dict(
+            self, state_dict, prefix, metadata, strict, missing_keys, unexpected_keys, error_msgs):
+        super(ParameterQuantProxy, self)._load_from_state_dict(
+            state_dict, prefix, metadata, strict, missing_keys, unexpected_keys, error_msgs)
+        self.init_tensor_quant()
+
+
+class WeightQuantProxy(ParameterQuantProxy):
 
     def forward(self, x: torch.Tensor) -> QuantTensor:
         if self.tensor_quant is not None:
@@ -101,19 +99,8 @@ class WeightQuantProxy(ParameterQuantProxy):
         else:  # quantization disabled
             return QuantTensor(x)
 
-    def _load_from_state_dict(
-            self, state_dict, prefix, metadata, strict, missing_keys, unexpected_keys, error_msgs):
-        super(WeightQuantProxy, self)._load_from_state_dict(
-            state_dict, prefix, metadata, strict, missing_keys, unexpected_keys, error_msgs)
-        self.init_tensor_quant()
-
 
 class BiasQuantProxy(ParameterQuantProxy):
-
-    def __init__(self, bias_quant_injector) -> None:
-        super(BiasQuantProxy, self).__init__()
-        self.tensor_quant = bias_quant_injector.tensor_quant
-        self.bias_quant_injector = bias_quant_injector
 
     def forward(
             self,
@@ -133,8 +120,4 @@ class BiasQuantProxy(ParameterQuantProxy):
             return QuantTensor(out, out_scale, out_bit_width, self.bias_quant_injector.signed)
         else:
             return QuantTensor(x)
-
-    def add_tracked_parameter(self, bias: torch.nn.Parameter) -> None:
-        super().add_tracked_parameter(bias)
-
 

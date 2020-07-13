@@ -54,13 +54,16 @@ from brevitas.core.stats import *
 from brevitas.core.scaling import ScalingImplType, SCALING_SCALAR_SHAPE
 
 
-class DefaultWeightQuantInjector(Injector):
-    quant_type = 'INT'
+class DefaultWeightScalingInjector(Injector):
     scaling_impl_type = 'STATS'
-    scaling_stats_op = 'MAX'
     restrict_scaling_type = 'FP'
-    bit_width_impl_type = 'CONST'
+    scaling_stats_op = 'MAX'
     scaling_per_output_channel = False
+
+
+class DefaultWeightQuantInjector(DefaultWeightScalingInjector):
+    quant_type = 'INT'
+    bit_width_impl_type = 'CONST'
     narrow_range = True
     signed = True
     bit_width = 8
@@ -167,8 +170,10 @@ def _solve_bit_width_impl_override(qi):
 def _solve_quant_type(qi, binary_quant_impl):
     solver = partial(_solve_attr, name='quant_type')
     qi = solver(qi, QuantType.FP, {'tensor_quant': None})
-    qi = solver(qi, QuantType.BINARY, {'tensor_quant': binary_quant_impl, 'signed': True})
-    qi = solver(qi, QuantType.TERNARY, {'tensor_quant': TernaryQuant, 'signed': True})
+    qi = solver(qi, QuantType.BINARY,
+                {'tensor_quant': binary_quant_impl, 'signed': True, 'narrow_range': False})
+    qi = solver(qi, QuantType.TERNARY,
+                {'tensor_quant': TernaryQuant, 'signed': True, 'narrow_range': True})
     qi = solver(qi, QuantType.INT, {'tensor_quant': RescalingIntQuant, 'int_quant': IntQuant})
     return qi
 
@@ -188,6 +193,8 @@ def _solve_scaling_stats_op(qi):
     qi = solver(qi, StatsOp.MAX, AbsMax)
     qi = solver(qi, StatsOp.MAX_AVE, AbsMaxAve)
     qi = solver(qi, StatsOp.AVE, AbsAve)
+    qi = solver(qi, StatsOp.MEAN_SIGMA_STD, MeanSigmaStd)
+    qi = solver(qi, StatsOp.MEAN_LEARN_SIGMA_STD, MeanLearnedSigmaStd)
     return qi
 
 

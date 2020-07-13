@@ -49,7 +49,9 @@ from brevitas.core.function_wrapper import OverOutputChannelView, OverBatchOverT
 from brevitas.core.function_wrapper import OverBatchOverOutputChannelView, OverTensorView
 from brevitas.utils.python_utils import AutoName
 
-STD_DEV_EPSILON = 1e-8
+from .utils import StatelessBuffer
+
+DEFAULT_STD_DEV_EPSILON = 1e-8
 
 
 class StatsInputViewShapeImpl(object):
@@ -162,40 +164,78 @@ class AbsAve(torch.jit.ScriptModule):
             return torch.mean(torch.abs(x), dim=self.stats_reduce_dim)
 
 
-# class MeanSigmaStd(torch.jit.ScriptModule):
-#     __constants__ = ['stats_reduce_dim', 'output_shape', 'std_dev_epsilon', 'const_sigma']
-#
-#     def __init__(self, stats_reduce_dim, const_sigma, learned_sigma, output_shape) -> None:
-#         super(MeanSigmaStd, self).__init__()
-#         self.stats_reduce_dim = stats_reduce_dim
-#         self.const_sigma = const_sigma
-#         self.learned_sigma = learned_sigma
-#         self.output_shape = output_shape
-#         self.std_dev_epsilon = STD_DEV_EPSILON
-#
-#     @torch.jit.script_method
-#     def forward(self, x: torch.Tensor):
-#         abs_val = torch.abs(x)
-#         if self.stats_reduce_dim is None:
-#             mean_val = torch.mean(abs_val)
-#             std_val = torch.sqrt(torch.var(abs_val) + self.std_dev_epsilon)
-#         else:
-#             mean_val = torch.mean(torch.abs(x), dim=self.stats_reduce_dim)
-#             mean_val = mean_val.view(self.output_shape)
-#             std_val = torch.sqrt(torch.var(abs_val, dim=self.stats_reduce_dim) + self.std_dev_epsilon)
-#             std_val = std_val.view(self.output_shape)
-#         if self.const_sigma is not None:
-#             return mean_val + self.const_sigma * std_val
-#         else:
-#             return mean_val + self.learned_sigma * std_val
-#
-#     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
-#                               missing_keys, unexpected_keys, error_msgs):
-#         super(MeanSigmaStd, self)._load_from_state_dict(state_dict, prefix, local_metadata, strict,
-#             missing_keys, unexpected_keys, error_msgs)
-#         sigma_key = prefix + 'learned_sigma'
-#         if config.IGNORE_MISSING_KEYS and sigma_key in missing_keys:
-#             missing_keys.remove(sigma_key)
+class MeanSigmaStd(torch.jit.ScriptModule):
+
+    def __init__(
+            self,
+            stats_reduce_dim: int,
+            sigma: float,
+            std_dev_epsilon: float = DEFAULT_STD_DEV_EPSILON) -> None:
+        super(MeanSigmaStd, self).__init__()
+        self.impl = _MeanSigmaStdImpl(stats_reduce_dim, std_dev_epsilon)
+        self.sigma = StatelessBuffer(torch.tensor(sigma))
+
+    @torch.jit.script_method
+    def forward(self, x: torch.Tensor):
+        sigma = self.sigma.view(self.sigma.shape)  # trick to get a tensor type
+        out = self.impl(x, sigma)
+        return out
+
+
+class _MeanSigmaStdImpl(torch.jit.ScriptModule):
+    __constants__ = ['stats_reduce_dim', 'output_shape', 'epsilon']
+
+    def __init__(
+            self,
+            stats_reduce_dim: int,
+            std_dev_epsilon: float = DEFAULT_STD_DEV_EPSILON) -> None:
+        super(_MeanSigmaStdImpl, self).__init__()
+        self.stats_reduce_dim = stats_reduce_dim
+        self.epsilon = std_dev_epsilon
+
+    @torch.jit.script_method
+    def forward(self, x: torch.Tensor, sigma: torch.Tensor):
+        abs_val = torch.abs(x)
+        if self.stats_reduce_dim is None:
+            mean_val = torch.mean(abs_val)
+            std_val = torch.sqrt(torch.var(abs_val) + self.std_dev_epsilon)
+        else:
+            mean_val = torch.mean(torch.abs(x), dim=self.stats_reduce_dim)
+            std_val = torch.sqrt(torch.var(abs_val, dim=self.stats_reduce_dim) + self.epsilon)
+            mean_val = mean_val.view(-1)
+            std_val = std_val.view(-1)
+        return mean_val + sigma * std_val
+
+
+class MeanLearnedSigmaStd(torch.jit.ScriptModule):
+
+    def __init__(
+            self,
+            stats_reduce_dim: int,
+            sigma: float,
+            stats_output_shape: Tuple[int, ...],
+            std_dev_epsilon: float = DEFAULT_STD_DEV_EPSILON) -> None:
+        super(MeanLearnedSigmaStd, self).__init__()
+        self.impl = _MeanSigmaStdImpl(stats_reduce_dim, stats_output_shape, std_dev_epsilon)
+        self.sigma = nn.Parameter(sigma)
+
+    @torch.jit.script_method
+    def forward(self, x: torch.Tensor):
+        sigma = self.sigma.view(self.sigma.shape)  # trick to get a tensor type
+        out = self.impl(x, sigma)
+        return out
+
+    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
+                              missing_keys, unexpected_keys, error_msgs):
+        value_key = prefix + 'sigma'
+        retrocomp_value_key = prefix + 'learned_sigma'
+        if retrocomp_value_key in state_dict:  # retrocompatibility
+            state_dict[value_key] = state_dict.pop(retrocomp_value_key)
+        super(MeanLearnedSigmaStd, self)._load_from_state_dict(
+            state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
+        sigma_key = prefix + 'sigma'
+        if config.IGNORE_MISSING_KEYS and sigma_key in missing_keys:
+            missing_keys.remove(sigma_key)
 
 
 class _Stats(torch.jit.ScriptModule):

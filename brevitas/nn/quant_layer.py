@@ -49,47 +49,33 @@ from dependencies import Injector
 from brevitas.quant_tensor import QuantTensor
 from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy
 from brevitas.proxy.runtime_quant import IdentityQuantProxy, ActQuantProxy
+from brevitas.proxy.config import update_weight_quant_injector as default_update_wqi
+from brevitas.proxy.config import update_bias_quant_injector as default_update_bqi
+from brevitas.proxy.config import update_act_quant_injector as default_update_aqi
 from brevitas.mixin import *
 
+from .quant_bn import mul_add_from_bn
 
-def _compute_channel_view_shape(tensor, channel_dim=1):
+
+def _compute_channel_view_shape(tensor: Tensor, channel_dim: int):
     broadcast_shape = [1] * len(tensor.size())
     broadcast_shape[channel_dim] = -1
     return tuple(broadcast_shape)
-
-
-class QuantLayer(object):
-    __metaclass__ = ABCMeta
-
-    def __init__(self, return_quant_tensor):
-        self.return_quant_tensor = return_quant_tensor
-
-    def unpack_input(self, inp):
-        if isinstance(inp, QuantTensor):
-            return inp
-        else:
-            return QuantTensor(inp)
-
-    def pack_output(self, quant_output: QuantTensor):
-        if self.return_quant_tensor:
-            return quant_output
-        else:
-            return quant_output.value
     
 
-class QuantNonLinearActLayer(QuantNonLinearActMixin, QuantLayer, Module):
+class QuantNonLinearActLayer(QuantNonLinearActMixin, QuantLayerMixin, Module):
     __metaclass__ = ABCMeta
 
     def __init__(
             self,
             act_impl: Module,
             act_quant: Union[ActQuantProxy, Type[Injector]],
-            update_injector: Callable,
             return_quant_tensor: bool,
+            update_aqi: Callable = default_update_aqi,
             **kwargs):
         Module.__init__(self)
-        QuantLayer.__init__(self, return_quant_tensor)
-        QuantNonLinearActMixin.__init__(self, act_impl, act_quant, update_injector, **kwargs)
+        QuantLayerMixin.__init__(self, return_quant_tensor)
+        QuantNonLinearActMixin.__init__(self, act_impl, act_quant, update_aqi, **kwargs)
 
     def forward(self, inp: Union[Tensor, QuantTensor]):
         return self.quant_act(inp)
@@ -109,7 +95,7 @@ class QuantWeightBiasInputOutputLayer(
         QuantInputMixin,
         QuantBiasMixin,
         QuantWeightMixin,
-        QuantLayer,
+        QuantLayerMixin,
         Module):
     __metaclass__ = ABCMeta
 
@@ -121,27 +107,50 @@ class QuantWeightBiasInputOutputLayer(
             bias_quant: Union[BiasQuantProxy, Type[Injector]],
             input_quant: Union[IdentityQuantProxy, Type[Injector]],
             output_quant: Union[IdentityQuantProxy, Type[Injector]],
-            update_wqi: Callable,
-            update_bqi: Callable,
-            update_iqi: Callable,
-            update_oqi: Callable,
             return_quant_tensor: bool,
+            update_wqi: Callable = default_update_wqi,
+            update_bqi: Callable = default_update_bqi,
+            update_iqi: Callable = default_update_aqi,
+            update_oqi: Callable = default_update_aqi,
             **kwargs):
         Module.__init__(self)
-        QuantLayer.__init__(self, return_quant_tensor)
+        QuantLayerMixin.__init__(self, return_quant_tensor)
         QuantWeightMixin.__init__(self, weight, weight_quant, update_wqi, **kwargs)
         QuantBiasMixin.__init__(self, bias, bias_quant, update_bqi, **kwargs)
         QuantInputMixin.__init__(self, input_quant, update_iqi, **kwargs)
         QuantOutputMixin.__init__(self, output_quant, update_oqi, **kwargs)
+
+    @property
+    def per_elem_ops(self):  # optional, so not abstract but concrete + error if not overridden
+        raise NotImplementedError
 
     @abstractmethod
     def max_acc_bit_width(self, input_bit_width: Tensor, quant_weight_bit_width: Tensor):
         pass
 
     @abstractmethod
-    def inner_forward_impl(
-            self, x: QuantTensor, quant_weight: QuantTensor, quant_bias: Optional[QuantTensor]):
+    def inner_forward_impl(self, x: Tensor, quant_weight: Tensor, quant_bias: Optional[Tensor]):
         pass
+
+    def merge_bn_in(self, bn, affine_only):
+        if affine_only and not bn.affine:
+            raise RuntimeError("Affine-only merging requires BN to have affine scaling enabled.")
+        else:
+            out = mul_add_from_bn(
+                bn_mean=bn.running_mean,
+                bn_var=bn.running_var,
+                bn_eps=bn.eps,
+                bn_weight=bn.weight.data.clone(),
+                bn_bias=bn.bias.data.clone(),
+                affine_only=affine_only)
+            mul_factor, add_factor = out
+            out_ch_weight_shape = _compute_channel_view_shape(self.weight, self.output_channel_dim)
+            self.weight.data *= mul_factor.view(out_ch_weight_shape)
+            if self.bias is not None:
+                out_ch_bias_shape = _compute_channel_view_shape(self.bias, self.output_channel_dim)
+                self.bias.data += add_factor.view(out_ch_bias_shape)
+            else:
+                self.bias = Parameter(add_factor)
 
     def forward(self, inp: Union[Tensor, QuantTensor]):
         output_scale = None
@@ -149,24 +158,25 @@ class QuantWeightBiasInputOutputLayer(
 
         inp = self.unpack_input(inp)
         quant_input = self.input_quant(inp)
-        quant_weight = self.weight_quant(self.weight)
+        quant_weight = self.quant_weight()
 
         if quant_input.bit_width is not None:
             output_bit_width = self.max_acc_bit_width(quant_input.bit_width, quant_weight.bit_width)
         if quant_input.scale is not None:
-            output_scale_shape = _compute_channel_view_shape(inp)
+            output_scale_shape = _compute_channel_view_shape(inp, channel_dim=1)
             output_scale = quant_weight.scale.view(output_scale_shape)
             output_scale = output_scale * quant_input.scale.view(output_scale_shape)
 
         if self.bias is not None:
             quant_bias = self.bias_quant(self.bias, output_scale, output_bit_width)
-            output_tensor = self.inner_forward_impl(quant_input, quant_weight, quant_bias)
+            output_tensor = self.inner_forward_impl(
+                quant_input.value, quant_weight.value, quant_bias.value)
             if quant_bias.bit_width is not None:
                 output_bit_width = torch.where(
                     quant_bias.bit_width > output_bit_width, quant_bias.bit_width, output_bit_width)
                 output_bit_width = output_bit_width + 1
         else:
-            output_tensor = self.inner_forward_impl(quant_input, quant_weight, None)
+            output_tensor = self.inner_forward_impl(quant_input.value, quant_weight.value, None)
 
         quant_output = QuantTensor(output_tensor, output_scale, output_bit_width, signed=True)
         quant_output = self.output_quant(quant_output)

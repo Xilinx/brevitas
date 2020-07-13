@@ -39,9 +39,10 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 from dependencies import Injector
-from typing import Union, Type, Optional, Callable
+from typing import Union, Type, Optional
 
 import torch
+from torch import Tensor
 from torch.nn import Linear
 from torch.nn.functional import linear
 
@@ -49,12 +50,9 @@ from brevitas.function.ops_ste import ceil_ste
 from brevitas.function.ops import max_uint
 
 from brevitas.proxy import WeightQuantProxy, BiasQuantProxy, ActQuantProxy
-from brevitas.proxy.config import DefaultWeightQuantInjector, update_weight_quant_injector
-from brevitas.proxy.config import update_bias_quant_injector
-from brevitas.proxy.config import update_act_quant_injector
+from brevitas.proxy.config import DefaultWeightQuantInjector
 
 from .quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
-from brevitas.quant_tensor import QuantTensor
 
 __all__ = ['QuantLinear']
 
@@ -70,10 +68,6 @@ class QuantLinear(QuantWBIOL, Linear):
             bias_quant: Union[BiasQuantProxy, Type[Injector]] = None,
             input_quant: Union[ActQuantProxy, Type[Injector]] = None,
             output_quant: Union[ActQuantProxy, Type[Injector]] = None,
-            update_weight_quant_injector: Callable = update_weight_quant_injector,
-            update_bias_quant_injector: Callable = update_bias_quant_injector,
-            update_input_quant_injector: Callable = update_act_quant_injector,
-            update_output_quant_injector: Callable = update_act_quant_injector,
             return_quant_tensor: bool = False,
             **kwargs) -> None:
         Linear.__init__(self, in_features, out_features, bias)
@@ -81,16 +75,16 @@ class QuantLinear(QuantWBIOL, Linear):
             self,
             self.weight,
             self.bias,
-            weight_quant,
-            bias_quant,
-            input_quant,
-            output_quant,
-            update_weight_quant_injector,
-            update_bias_quant_injector,
-            update_input_quant_injector,
-            update_output_quant_injector,
+            weight_quant=weight_quant,
+            bias_quant=bias_quant,
+            input_quant=input_quant,
+            output_quant=output_quant,
             return_quant_tensor=return_quant_tensor,
             **kwargs)
+
+    @property
+    def per_elem_ops(self):
+        return 2 * self.in_features
 
     @property
     def output_channel_dim(self):
@@ -104,14 +98,13 @@ class QuantLinear(QuantWBIOL, Linear):
     def channelwise_separable(self) -> bool:
         return False
 
-    def inner_forward_impl(
-            self, quant_input: QuantTensor, quant_weight: QuantTensor, quant_bias: QuantTensor):
-        output_tensor = linear(quant_input.value, quant_weight.value, quant_bias.value)
+    def inner_forward_impl(self, x: Tensor, quant_weight: Tensor, quant_bias: Optional[Tensor]):
+        output_tensor = linear(x, quant_weight, quant_bias)
         return output_tensor
 
     def max_acc_bit_width(self, input_bit_width, weight_bit_width):
         max_input_val = max_uint(bit_width=input_bit_width, narrow_range=False)
-        max_fc_val = self.weight_quant.tensor_quant.int_quant.max_uint(weight_bit_width)
+        max_fc_val = self.weight_quant.max_uint_value(weight_bit_width)
         max_output_val = max_input_val * max_fc_val * self.in_features
         output_bit_width = ceil_ste(torch.log2(max_output_val))
         return output_bit_width

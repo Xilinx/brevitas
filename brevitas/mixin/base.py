@@ -47,6 +47,26 @@ from dependencies import Injector
 
 from brevitas.proxy.parameter_quant import ParameterQuantProxy
 from brevitas.proxy.runtime_quant import ActQuantProxy
+from brevitas.quant_tensor import QuantTensor
+
+
+class QuantLayerMixin(object):
+    __metaclass__ = ABCMeta
+
+    def __init__(self, return_quant_tensor):
+        self.return_quant_tensor = return_quant_tensor
+
+    def unpack_input(self, inp):
+        if isinstance(inp, QuantTensor):
+            return inp
+        else:
+            return QuantTensor(inp)
+
+    def pack_output(self, quant_output: QuantTensor):
+        if self.return_quant_tensor:
+            return quant_output
+        else:
+            return quant_output.value
 
 
 class QuantParameterMixin(object):

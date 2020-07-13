@@ -42,7 +42,7 @@ from typing import Optional, Union
 
 import torch
 from torch import Tensor
-from torch.nn import Module, Identity
+from torch.nn import Identity
 
 from dependencies import Injector
 
@@ -90,16 +90,12 @@ class ActQuantProxy(QuantProxy):
     def identity_quant(self):
         return IdentityQuantProxy(self.act_quant_injector.let(act_impl=None))
 
-    def quant_act_scale(self): # TODO
-        # if isinstance(self.act_quant.fused_act_quant_proxy.tensor_quant, IdentityQuant):
-        #     raise Exception("Can't generate scaling factor without quantization enabled")
-        # scaling_impl = self.act_quant_proxy.fused_act_quant_proxy.tensor_quant.scaling_impl
-        # current_status = scaling_impl.training
-        # scaling_impl.eval()
-        # _, out, _ = self.act_quant_proxy(self.act_quant_proxy._zero_hw_sentinel())
-        # scaling_impl.train(current_status)
-        #return out
-        pass
+    def quant_act_scale(self):
+        current_status = self.training
+        self.eval()  # get eval time scale
+        _, out, _ = self.__call__(self._zero_hw_sentinel())
+        self.train(current_status)
+        return out
 
     def forward(self, x: Union[Tensor, QuantTensor]):
         if isinstance(x, QuantTensor) and self.fused_activation_quant_proxy is not None:
@@ -113,8 +109,8 @@ class ActQuantProxy(QuantProxy):
         else:  # only activation_impl was called
             return QuantTensor(x)
 
-    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
-                              missing_keys, unexpected_keys, error_msgs): # TODO
+    def _load_from_state_dict(
+            self, state_dict, prefix, metadata, strict, missing_keys, unexpected_keys, error_msgs):
 
         # scaling_impl_key = prefix + 'fused_activation_quant_proxy.tensor_quant.scaling_impl'
         # runtime_stats_key = scaling_impl_key + '.runtime_stats'
@@ -154,7 +150,7 @@ class ActQuantProxy(QuantProxy):
 
         # Go on with dict restoring
         super(ActQuantProxy, self)._load_from_state_dict(
-            state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
+            state_dict, prefix, metadata, strict, missing_keys, unexpected_keys, error_msgs)
 
 
 class IdentityQuantProxy(ActQuantProxy):
