@@ -80,6 +80,7 @@ class QuantParameterMixin(object):
             update_injector: Optional[Callable],
             prefix: str,
             **kwargs):
+
         def update_pqi(pqi):
             if update_injector is not None:
                 return update_injector(self, pqi, prefix, **kwargs)
@@ -145,7 +146,7 @@ class QuantAccMixin(object):
     def __init__(
             self,
             acc_quant: Union[TruncQuantProxy, ClampQuantProxy, Type[Injector]],
-            proxy_impl: Optional[Type[TruncQuantProxy, ClampQuantProxy]],
+            proxy_impl: Optional[Union[Type[TruncQuantProxy], Type[ClampQuantProxy]]],
             update_injector: Callable,
             proxy_prefix: str,
             kwargs_prefix: str,

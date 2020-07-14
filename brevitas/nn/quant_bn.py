@@ -42,24 +42,12 @@
 from typing import Type, Union
 
 from dependencies import Injector
-import torch
 
 import brevitas.config as config
 from brevitas.proxy import WeightQuantProxy, BiasQuantProxy, ActQuantProxy
 from brevitas.proxy.config import DefaultWeightQuantInjector
 from .quant_scale_bias import QuantScaleBias
-
-
-def mul_add_from_bn(bn_mean, bn_var, bn_eps, bn_weight, bn_bias, affine_only):
-    mul_factor = bn_weight
-    add_factor = bn_bias * torch.sqrt(bn_var + bn_eps)
-    add_factor = add_factor - bn_mean * (bn_weight - 1.0)
-    if not affine_only:
-        mul_factor = mul_factor / torch.sqrt(bn_var + bn_eps)
-        add_factor = add_factor - bn_mean
-        add_factor = add_factor / torch.sqrt(bn_var + bn_eps)
-    return mul_factor, add_factor
-
+from .utils import mul_add_from_bn
 
 class BatchNorm2dToQuantScaleBias(QuantScaleBias):
 

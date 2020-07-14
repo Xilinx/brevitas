@@ -60,6 +60,7 @@ class ParameterQuantProxy(QuantProxy):
     def __init__(self, quant_injector: Injector) -> None:
         super(ParameterQuantProxy, self).__init__()
         self.quant_injector = quant_injector
+        self.tensor_quant = None
         if 'tracked_parameter_list' in quant_injector:
             self.tracked_parameter_list = quant_injector.tracked_parameter_list
         else:
@@ -70,7 +71,7 @@ class ParameterQuantProxy(QuantProxy):
         if self.tracked_parameter_list is not None:
             self.quant_injector = self.quant_injector.let(
                 tracked_parameter_list=self.tracked_parameter_list)
-        self.tensor_quant = self.quant_injector.tensor_quant
+            self.tensor_quant = self.quant_injector.tensor_quant
 
     def max_uint_value(self, bit_width):
         return max_uint(self.weight_quant_injector.narrow_range, bit_width)
@@ -80,7 +81,8 @@ class ParameterQuantProxy(QuantProxy):
             self.tracked_parameter_list.append(parameter)
         else:
             self.tracked_parameter_list = [parameter]
-        del self.tensor_quant
+        if self.tensor_quant is not None:
+            del self.tensor_quant
         self.init_tensor_quant()
 
     def _load_from_state_dict(
@@ -95,7 +97,7 @@ class WeightQuantProxy(ParameterQuantProxy):
     def forward(self, x: torch.Tensor) -> QuantTensor:
         if self.tensor_quant is not None:
             out, scale, bit_width = self.tensor_quant(x)
-            return QuantTensor(out, scale, bit_width, signed=self.weight_quant_injector.signed)
+            return QuantTensor(out, scale, bit_width, signed=self.quant_injector.signed)
         else:  # quantization disabled
             return QuantTensor(x)
 
@@ -111,13 +113,13 @@ class BiasQuantProxy(ParameterQuantProxy):
             if input_scale is None:
                 raise RuntimeError("Input scale can't be None when quantizing bias")
             input_scale = input_scale.view(-1)
-            if self.bias_quant_injector.requires_input_bit_width:  # bit width is defined outside
+            if self.quant_injector.requires_input_bit_width:  # bit width is defined outside
                 if input_bit_width is None:
                     raise RuntimeError("Input or predefined bit width required")
                 out, out_scale, out_bit_width = self.tensor_quant(x, input_scale, input_bit_width)
             else:
                 out, out_scale, out_bit_width = self.tensor_quant(x, input_scale)
-            return QuantTensor(out, out_scale, out_bit_width, self.bias_quant_injector.signed)
+            return QuantTensor(out, out_scale, out_bit_width, self.quant_injector.signed)
         else:
             return QuantTensor(x)
 

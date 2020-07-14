@@ -13,22 +13,17 @@ except ImportError:
 
 from brevitas.function.ops_ste import ceil_ste
 from brevitas.function.ops import max_uint
-from .quant_layer import QuantLayer
+from brevitas.mixin.base import QuantLayerMixin
 
 
-class HadamardClassifier(QuantLayer, nn.Module):
+class HadamardClassifier(QuantLayerMixin, nn.Module):
 
     def __init__(self,
                  in_channels,
                  out_channels,
                  fixed_scale=False,
-                 compute_output_scale: bool = False,
-                 compute_output_bit_width: bool = False,
                  return_quant_tensor: bool = False):
-        QuantLayer.__init__(self,
-                            compute_output_scale=compute_output_scale,
-                            compute_output_bit_width=compute_output_bit_width,
-                            return_quant_tensor=return_quant_tensor)
+        QuantLayerMixin.__init__(self, return_quant_tensor=return_quant_tensor)
         nn.Module.__init__(self)
         if hadamard is None:
             raise Exception("Hadamard layer requires scipy to be installed.")

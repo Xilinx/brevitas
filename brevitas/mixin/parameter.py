@@ -40,11 +40,12 @@
 
 from abc import ABCMeta, abstractmethod
 from typing import Optional, Type, Union, Callable
-
 import torch
+
 from dependencies import Injector
 
 from brevitas.proxy.parameter_quant import  WeightQuantProxy, BiasQuantProxy
+
 from .base import QuantParameterMixin
 
 
@@ -57,7 +58,8 @@ class QuantWeightMixin(QuantParameterMixin):
             weight_quant: Optional[Union[WeightQuantProxy, Type[Injector]]],
             update_injector: Optional[Callable],
             **kwargs):
-        super().__init__(
+        QuantParameterMixin.__init__(
+            self,
             parameter=weight,
             parameter_quant=weight_quant,
             proxy_impl=WeightQuantProxy,
@@ -96,11 +98,12 @@ class QuantBiasMixin(QuantParameterMixin):
 
     def __init__(
             self,
-            bias,
+            bias: torch.nn.Parameter,
             bias_quant: Union[BiasQuantProxy, Type[Injector]],
             update_injector: Callable,
             **kwargs):
-        super().__init__(
+        QuantParameterMixin.__init__(
+            self,
             parameter=bias,
             parameter_quant=bias_quant,
             proxy_impl=BiasQuantProxy,

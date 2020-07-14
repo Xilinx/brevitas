@@ -1,3 +1,4 @@
+# Copyright (c) 2019-     Xilinx, Inc              (Giuseppe Franco)
 # Copyright (c) 2018-     Xilinx, Inc              (Alessandro Pappalardo)
 # Copyright (c) 2016-     Facebook, Inc            (Adam Paszke)
 # Copyright (c) 2014-     Facebook, Inc            (Soumith Chintala)
@@ -38,80 +39,15 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from abc import ABCMeta
-from typing import Type, Union, Callable
-
-from torch.nn import Module
-from dependencies import Injector
-
-from brevitas.proxy.runtime_quant import IdentityQuantProxy, ActQuantProxy
-from .base import QuantActMixin, QuantLayerMixin
+import torch
 
 
-class QuantInputMixin(QuantActMixin):
-    __metaclass__ = ABCMeta
-
-    def __init__(
-            self,
-            act_quant: Union[IdentityQuantProxy, Type[Injector]],
-            update_injector: Callable,
-            **kwargs):
-        QuantActMixin.__init__(
-            self,
-            act_impl=None,
-            act_quant=act_quant,
-            update_injector=update_injector,
-            proxy_impl=IdentityQuantProxy,
-            proxy_prefix='input_',
-            kwargs_prefix='input_',
-            **kwargs)
-
-    def quant_input_scale(self):
-        return self.act_quant.scale()
-
-
-class QuantOutputMixin(QuantActMixin):
-    __metaclass__ = ABCMeta
-
-    def __init__(
-            self,
-            act_quant: Union[IdentityQuantProxy, Type[Injector]],
-            update_injector: Callable,
-            **kwargs):
-        QuantActMixin.__init__(
-            self,
-            act_impl=None,
-            act_quant=act_quant,
-            update_injector=update_injector,
-            proxy_impl=IdentityQuantProxy,
-            proxy_prefix='output_',
-            kwargs_prefix='output_',
-            **kwargs)
-
-    def quant_output_scale(self):
-        return self.act_quant.scale()
-
-
-class QuantNonLinearActMixin(QuantActMixin):
-    __metaclass__ = ABCMeta
-
-    def __init__(
-            self,
-            act_impl: Module,
-            act_quant: Union[ActQuantProxy, Type[Injector]],
-            update_injector: Callable,
-            **kwargs):
-        QuantActMixin.__init__(
-            self,
-            act_impl=act_impl,
-            act_quant=act_quant,
-            update_injector=update_injector,
-            proxy_impl=ActQuantProxy,
-            proxy_prefix='',
-            kwargs_prefix='act_',
-            **kwargs)
-
-    def quant_act_scale(self):
-        return self.act_quant.scale()
-
-
+def mul_add_from_bn(bn_mean, bn_var, bn_eps, bn_weight, bn_bias, affine_only):
+    mul_factor = bn_weight
+    add_factor = bn_bias * torch.sqrt(bn_var + bn_eps)
+    add_factor = add_factor - bn_mean * (bn_weight - 1.0)
+    if not affine_only:
+        mul_factor = mul_factor / torch.sqrt(bn_var + bn_eps)
+        add_factor = add_factor - bn_mean
+        add_factor = add_factor / torch.sqrt(bn_var + bn_eps)
+    return mul_factor, add_factor

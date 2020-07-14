@@ -53,7 +53,6 @@ from brevitas.proxy import WeightQuantProxy, BiasQuantProxy, ActQuantProxy
 from brevitas.proxy.config import DefaultWeightQuantInjector
 
 from .quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
-from brevitas.quant_tensor import QuantTensor
 
 __all__ = ['ScaleBias', 'QuantScaleBias']
 

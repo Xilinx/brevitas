@@ -57,7 +57,7 @@ from .quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 __all__ = ['QuantLinear']
 
 
-class QuantLinear(QuantWBIOL, Linear):
+class QuantLinear(Linear, QuantWBIOL):
 
     def __init__(
             self,
@@ -73,8 +73,8 @@ class QuantLinear(QuantWBIOL, Linear):
         Linear.__init__(self, in_features, out_features, bias)
         QuantWBIOL.__init__(
             self,
-            self.weight,
-            self.bias,
+            weight=self.weight,
+            bias=self.bias if bias else None,
             weight_quant=weight_quant,
             bias_quant=bias_quant,
             input_quant=input_quant,

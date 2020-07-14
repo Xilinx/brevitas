@@ -54,7 +54,7 @@ from brevitas.proxy.config import update_bias_quant_injector as default_update_b
 from brevitas.proxy.config import update_act_quant_injector as default_update_aqi
 from brevitas.mixin import *
 
-from .quant_bn import mul_add_from_bn
+from .utils import mul_add_from_bn
 
 
 def _compute_channel_view_shape(tensor: Tensor, channel_dim: int):
@@ -63,7 +63,7 @@ def _compute_channel_view_shape(tensor: Tensor, channel_dim: int):
     return tuple(broadcast_shape)
     
 
-class QuantNonLinearActLayer(QuantNonLinearActMixin, QuantLayerMixin, Module):
+class QuantNonLinearActLayer(QuantNonLinearActMixin, QuantLayerMixin):
     __metaclass__ = ABCMeta
 
     def __init__(
@@ -73,7 +73,6 @@ class QuantNonLinearActLayer(QuantNonLinearActMixin, QuantLayerMixin, Module):
             return_quant_tensor: bool,
             update_aqi: Callable = default_update_aqi,
             **kwargs):
-        Module.__init__(self)
         QuantLayerMixin.__init__(self, return_quant_tensor)
         QuantNonLinearActMixin.__init__(self, act_impl, act_quant, update_aqi, **kwargs)
 
@@ -95,8 +94,7 @@ class QuantWeightBiasInputOutputLayer(
         QuantInputMixin,
         QuantBiasMixin,
         QuantWeightMixin,
-        QuantLayerMixin,
-        Module):
+        QuantLayerMixin):
     __metaclass__ = ABCMeta
 
     def __init__(
@@ -113,7 +111,6 @@ class QuantWeightBiasInputOutputLayer(
             update_iqi: Callable = default_update_aqi,
             update_oqi: Callable = default_update_aqi,
             **kwargs):
-        Module.__init__(self)
         QuantLayerMixin.__init__(self, return_quant_tensor)
         QuantWeightMixin.__init__(self, weight, weight_quant, update_wqi, **kwargs)
         QuantBiasMixin.__init__(self, bias, bias_quant, update_bqi, **kwargs)
