@@ -195,6 +195,7 @@ def _solve_scaling_stats_op(qi):
     qi = solver(qi, StatsOp.AVE, AbsAve)
     qi = solver(qi, StatsOp.MEAN_SIGMA_STD, MeanSigmaStd)
     qi = solver(qi, StatsOp.MEAN_LEARN_SIGMA_STD, MeanLearnedSigmaStd)
+    qi = qi.let(sigma=this.scaling_stats_sigma)
     return qi
 
 
@@ -452,5 +453,82 @@ def update_bias_quant_injector(
     return qi
 
 
+def _solve_bit_width_to_remove_impl(qi, name):
+    key = 'bit_width_to_remove_impl'
+    solver = partial(_solve_attr, name=name, solved_key=key)
+    qi = solver(qi, BitWidthImplType.CONST, BitWidthConst)
+    qi = solver(qi, BitWidthImplType.PARAMETER, RemoveBitwidthParameter)
+    return qi
+
+
+def _solve_trunc_quant_type(qi):
+    solver = partial(_solve_attr, name='quant_type')
+    qi = solver(qi, QuantType.FP, {'tensor_quant': None, 'lsb_trunc_bit_width_impl': None})
+    qi = solver(qi, QuantType.INT,
+                {'tensor_quant': PrescaledRestrictIntQuantWithInputBitWidth,
+                 'bit_width_impl': IdentityBitWidth,
+                 'lsb_trunc_bit_width_impl': LsbTruncBitWidth})
+    return qi
+
+
+def _solve_lsb_trunc_bit_width_impl_type(qi):
+    name = 'lsb_trunc_bit_width_impl_type'
+    qi = _solve_bit_width_to_remove_impl(qi, name)
+    return qi
+
+
+def _solve_enum_based_quant_trunc_api(qi):
+    qi = _solve_trunc_quant_type(qi)
+    qi = _solve_lsb_trunc_bit_width_impl_type(qi)
+    if 'tensor_clamp_impl' not in qi:
+        qi = qi.let(tensor_clamp_impl=TensorClamp)
+    if 'float_to_int_impl' not in qi:
+        qi = qi.let(float_to_int_impl=FloorSte)
+    return qi
+
+
+def update_trunc_quant_injector(
+        trunc_layer: Module,
+        trunc_quant_injector: Injector,
+        prefix: str,
+        **kwargs):
+    qi = trunc_quant_injector.let(**filter_kwargs(prefix, kwargs))
+    qi = _solve_enum_based_quant_trunc_api(qi)
+    return qi
+
+
+def _solve_clamp_quant_type(qi):
+    solver = partial(_solve_attr, name='quant_type')
+    qi = solver(qi, QuantType.FP, {'tensor_quant': None, 'msb_clamp_bit_width_impl': None})
+    qi = solver(qi, QuantType.INT,
+                {'tensor_quant': PrescaledRestrictIntQuantWithInputBitWidth,
+                 'bit_width_impl': MsbClampBitWidth})
+    return qi
+
+
+def _solve_msb_clamp_bit_width_impl_type(qi):
+    name = 'msb_clamp_bit_width_impl_type'
+    qi = _solve_bit_width_to_remove_impl(qi, name)
+    return qi
+
+
+def _solve_enum_based_quant_clamp_api(qi):
+    qi = _solve_clamp_quant_type(qi)
+    qi = _solve_msb_clamp_bit_width_impl_type(qi)
+    if 'tensor_clamp_impl' not in qi:
+        qi = qi.let(tensor_clamp_impl=TensorClamp)
+    if 'float_to_int_impl' not in qi:  # this really shouldn't be up for change
+        qi = qi.let(float_to_int_impl=RoundSte)
+    return qi
+
+
+def update_clamp_quant_injector(
+        clamp_layer: Module,
+        clamp_quant_injector: Injector,
+        prefix: str,
+        **kwargs):
+    qi = clamp_quant_injector.let(**filter_kwargs(prefix, kwargs))
+    qi = _solve_enum_based_quant_clamp_api(qi)
+    return qi
 
 

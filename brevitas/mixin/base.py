@@ -40,13 +40,13 @@
 
 from abc import ABCMeta
 from typing import Optional, Type, Union, Callable
+
 import torch
 from torch.nn import Module
-
 from dependencies import Injector
 
 from brevitas.proxy.parameter_quant import ParameterQuantProxy
-from brevitas.proxy.runtime_quant import ActQuantProxy
+from brevitas.proxy.runtime_quant import ActQuantProxy, TruncQuantProxy, ClampQuantProxy
 from brevitas.quant_tensor import QuantTensor
 
 
@@ -80,25 +80,27 @@ class QuantParameterMixin(object):
             update_injector: Optional[Callable],
             prefix: str,
             **kwargs):
-        self.quant_attr_name = prefix + 'quant'
+        def update_pqi(pqi):
+            if update_injector is not None:
+                return update_injector(self, pqi, prefix, **kwargs)
+            else:
+                return pqi
+
+        proxy_name = prefix + 'quant'
         if parameter_quant is None:
             assert proxy_impl is not None
-            none_injector = proxy_impl(Injector.let(tensor_quant=None))
-            setattr(self, self.quant_attr_name, none_injector)
+            parameter_quant_injector = Injector.let(tensor_quant=None)
+            parameter_quant_injector = update_pqi(parameter_quant_injector)
+            parameter_quant = proxy_impl(parameter_quant_injector)
         elif isinstance(parameter_quant, ParameterQuantProxy):
             pass
         else:
             assert proxy_impl is not None
             parameter_quant_injector = parameter_quant
-            if update_injector is not None:
-                parameter_quant_injector = update_injector(
-                    parameter_layer=self,
-                    parameter_quant_injector=parameter_quant_injector,
-                    prefix=prefix,
-                    **kwargs)
+            parameter_quant_injector = update_pqi(parameter_quant_injector)
             parameter_quant = proxy_impl(parameter_quant_injector)
-        setattr(self, self.quant_attr_name, parameter_quant)
-        getattr(self, self.quant_attr_name).add_tracked_parameter(parameter)
+        setattr(self, proxy_name, parameter_quant)
+        getattr(self, proxy_name).add_tracked_parameter(parameter)
 
 
 class QuantActMixin(object):
@@ -110,34 +112,64 @@ class QuantActMixin(object):
             act_quant: Union[ActQuantProxy, Type[Injector]],
             proxy_impl: Optional[Type[ActQuantProxy]],
             update_injector: Callable,
-            prefix: str,
+            proxy_prefix: str,
+            kwargs_prefix: str,
             **kwargs):
 
         def update_aqi(aqi):
             if update_injector is not None:
-                return update_injector(
-                    act_layer=self,
-                    act_quant_injector=aqi,
-                    prefix=prefix,
-                    **kwargs)
-            else: return aqi
+                # don't pass prefix here for retrocompatibility
+                return update_injector(self, aqi, kwargs_prefix, **kwargs)
+            else:
+                return aqi
 
-        attr_name = prefix + 'quant'
+        proxy_name = proxy_prefix + 'quant'
         if act_quant is None:
             act_quant_injector = Injector.let(tensor_quant=None)
             act_quant_injector = act_quant_injector.let(act_impl=act_impl)
-            act_quant_injector = update_aqi(act_quant_injector)  # act_impl might be updated
+            act_quant_injector = update_aqi(act_quant_injector)
             act_quant = proxy_impl(act_quant_injector)
         elif isinstance(act_quant, proxy_impl):
             pass
         else:
+            assert proxy_impl is not None
             act_quant_injector = act_quant
-            if update_injector is not None:
-                act_quant_injector = update_injector(
-                    act_layer=self,
-                    act_quant_injector=act_quant_injector,
-                    prefix=prefix,
-                    **kwargs)
             act_quant_injector = update_aqi(act_quant_injector)
             act_quant = proxy_impl(act_quant_injector)
-        setattr(self, attr_name, act_quant)
+        setattr(self, proxy_name, act_quant)
+
+
+class QuantAccMixin(object):
+    __metaclass__ = ABCMeta
+
+    def __init__(
+            self,
+            acc_quant: Union[TruncQuantProxy, ClampQuantProxy, Type[Injector]],
+            proxy_impl: Optional[Type[TruncQuantProxy, ClampQuantProxy]],
+            update_injector: Callable,
+            proxy_prefix: str,
+            kwargs_prefix: str,
+            none_inject: dict,
+            **kwargs):
+
+        def update_aqi(aqi):
+            if update_injector is not None:
+                # don't pass prefix here for retrocompatibility
+                return update_injector(self, aqi, kwargs_prefix, **kwargs)
+            else:
+                return aqi
+
+        proxy_name = proxy_prefix + 'quant'
+        if acc_quant is None:
+            assert proxy_impl is not None
+            acc_quant_injector = Injector.let(none_inject)
+            acc_quant_injector = update_aqi(acc_quant_injector)
+            acc_quant = proxy_impl(acc_quant_injector)
+        elif isinstance(acc_quant, proxy_impl):
+            pass
+        else:
+            assert proxy_impl is not None
+            acc_quant_injector = acc_quant
+            acc_quant_injector = update_aqi(acc_quant_injector)
+            acc_quant = proxy_impl(acc_quant_injector)
+        setattr(self, proxy_name, acc_quant)

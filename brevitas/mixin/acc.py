@@ -41,74 +41,43 @@
 from abc import ABCMeta
 from typing import Type, Union, Callable
 
-from torch.nn import Module
 from dependencies import Injector
 
-from brevitas.proxy.runtime_quant import IdentityQuantProxy, ActQuantProxy
-from .base import QuantActMixin, QuantLayerMixin
+from brevitas.proxy.runtime_quant import TruncQuantProxy, ClampQuantProxy
+from .base import QuantLayerMixin, QuantAccMixin
 
 
-class QuantInputMixin(QuantActMixin):
+class QuantTruncMixin(QuantAccMixin):
     __metaclass__ = ABCMeta
 
     def __init__(
             self,
-            act_quant: Union[IdentityQuantProxy, Type[Injector]],
+            acc_quant: Union[TruncQuantProxy, Type[Injector]],
             update_injector: Callable,
             **kwargs):
         super().__init__(
-            None,
-            act_quant,
+            acc_quant,
             update_injector,
-            proxy_impl=IdentityQuantProxy,
-            proxy_prefix='input_',
-            kwargs_prefix='input_',
+            proxy_impl=TruncQuantProxy,
+            kwargs_prefix='',
+            proxy_prefix='trunc_',
+            none_inject={'quant_type': None, 'lsb_trunc_bit_width_impl': None},
             **kwargs)
 
-    def quant_input_scale(self):
-        return self.act_quant.scale()
 
-
-class QuantOutputMixin(QuantActMixin):
+class QuantClampMixin(QuantAccMixin):
     __metaclass__ = ABCMeta
 
     def __init__(
             self,
-            act_quant: Union[IdentityQuantProxy, Type[Injector]],
+            acc_quant: Union[ClampQuantProxy, Type[Injector]],
             update_injector: Callable,
             **kwargs):
         super().__init__(
-            None,
-            act_quant,
+            acc_quant,
             update_injector,
-            proxy_impl=IdentityQuantProxy,
-            proxy_prefix='output_',
-            kwargs_prefix='output_',
+            proxy_impl=ClampQuantProxy,
+            kwargs_prefix='',
+            proxy_prefix='clamp_',
+            none_inject={'quant_type': None},
             **kwargs)
-
-    def quant_output_scale(self):
-        return self.act_quant.scale()
-
-
-class QuantNonLinearActMixin(QuantActMixin):
-    __metaclass__ = ABCMeta
-
-    def __init__(
-            self,
-            act_impl: Module,
-            act_quant: Union[ActQuantProxy, Type[Injector]],
-            update_injector: Callable,
-            **kwargs):
-        super().__init__(
-            act_impl,
-            act_quant,
-            update_injector,
-            proxy_impl=ActQuantProxy,
-            proxy_prefix='',
-            kwargs_prefix='act_',
-            **kwargs)
-
-    def quant_act_scale(self):
-        return self.act_quant.scale()
-
-

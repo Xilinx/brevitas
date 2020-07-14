@@ -38,85 +38,55 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from abc import ABCMeta
+from typing import Callable, Union, Type
 
 from torch.nn import Module
+from dependencies import Injector
 
-from brevitas.core.bit_width import BitWidthImplType
-from brevitas.core.quant import QuantType
-from brevitas.proxy.runtime_quant import ClampQuantProxy, TruncQuantProxy
-from .quant_layer import QuantLayer
-
-
-class QuantAccumulator(QuantLayer, Module):
-    __metaclass__ = ABCMeta
-
-    def __init__(self):
-        QuantLayer.__init__(self,
-                            compute_output_scale=True,
-                            compute_output_bit_width=True,
-                            return_quant_tensor=True)
-        Module.__init__(self)
-
-    @property
-    def acc_quant_proxy(self):
-        return self._act_quant_proxy
-
-    @acc_quant_proxy.setter
-    def acc_quant_proxy(self, act_quant_proxy):
-        self._acc_quant_proxy = act_quant_proxy
-
-    def forward(self, input):
-        tensor, input_scale, input_bit_width = self.unpack_input(input)
-        output, output_scale, output_bit_width = self.acc_quant_proxy(tensor, input_scale, input_bit_width)
-        return self.pack_output(output, output_scale, output_bit_width)
+from brevitas.mixin.base import QuantLayerMixin
+from brevitas.mixin.acc import QuantTruncMixin, QuantClampMixin
+from brevitas.proxy.runtime_quant import TruncQuantProxy
+from brevitas.proxy.config import update_trunc_quant_injector
+from brevitas.quant_tensor import QuantTensor
 
 
-class ClampQuantAccumulator(QuantAccumulator):
+class TruncQuantAccumulator(QuantTruncMixin, QuantLayerMixin, Module):
 
-    def __init__(self,
-                 ms_bit_width_to_clamp: int = 0,
-                 signed: bool = True,
-                 narrow_range: bool = True,
-                 min_overall_bit_width: int = 2,
-                 max_overall_bit_width: int = 32,
-                 quant_type: QuantType = QuantType.INT,
-                 msb_clamp_bit_width_impl_type: BitWidthImplType = BitWidthImplType.CONST,
-                 per_elem_ops: int = None,
-                 clamp_at_least_init_val=False,
-                 override_pretrained_bit_width: bool = False):
-        super(ClampQuantAccumulator, self).__init__()
-        self.per_elem_ops = per_elem_ops
-        self.acc_quant_proxy = ClampQuantProxy(signed=signed,
-                                               narrow_range=narrow_range,
-                                               quant_type=quant_type,
-                                               ms_bit_width_to_clamp=ms_bit_width_to_clamp,
-                                               min_overall_bit_width=min_overall_bit_width,
-                                               max_overall_bit_width=max_overall_bit_width,
-                                               msb_clamp_bit_width_impl_type=msb_clamp_bit_width_impl_type,
-                                               clamp_at_least_init_val=clamp_at_least_init_val,
-                                               override_pretrained_bit_width=override_pretrained_bit_width)
+    def __init__(
+            self,
+            trunc_quant: Union[TruncQuantProxy, Type[Injector]] = None,
+            return_quant_tensor: bool = True,
+            update_injector: Callable = update_trunc_quant_injector,
+            **kwargs):
+        QuantLayerMixin.__init__(self, return_quant_tensor)
+        QuantTruncMixin.__init__(
+            self,
+            trunc_quant=trunc_quant,
+            update_injector=update_injector,
+            **kwargs)
+
+    def forward(self, x: QuantTensor):
+        x = self.unpack_input(x)
+        x = self.trunc_quant(x)
+        return self.pack_output(x)
 
 
-class TruncQuantAccumulator(QuantAccumulator):
+class ClampQuantAccumulator(QuantClampMixin, QuantLayerMixin, Module):
 
-    def __init__(self,
-                 ls_bit_width_to_trunc: int = 0,
-                 signed: bool = True,
-                 min_overall_bit_width: int = 2,
-                 max_overall_bit_width: int = 32,
-                 quant_type: QuantType = QuantType.INT,
-                 lsb_trunc_bit_width_impl_type: BitWidthImplType = BitWidthImplType.CONST,
-                 trunc_at_least_init_val=False,
-                 explicit_rescaling=False,
-                 override_pretrained_bit_width: bool = False):
-        super(TruncQuantAccumulator, self).__init__()
-        self.acc_quant_proxy = TruncQuantProxy(signed=signed,
-                                               quant_type=quant_type,
-                                               ls_bit_width_to_trunc=ls_bit_width_to_trunc,
-                                               min_overall_bit_width=min_overall_bit_width,
-                                               max_overall_bit_width=max_overall_bit_width,
-                                               trunc_at_least_init_val=trunc_at_least_init_val,
-                                               lsb_trunc_bit_width_impl_type=lsb_trunc_bit_width_impl_type,
-                                               override_pretrained_bit_width=override_pretrained_bit_width,
-                                               explicit_rescaling=explicit_rescaling)
+    def __init__(
+            self,
+            trunc_quant: Union[TruncQuantProxy, Type[Injector]] = None,
+            return_quant_tensor: bool = True,
+            update_injector: Callable = update_trunc_quant_injector,
+            **kwargs):
+        QuantLayerMixin.__init__(self, return_quant_tensor)
+        QuantClampMixin.__init__(
+            self,
+            trunc_quant=trunc_quant,
+            update_injector=update_injector,
+            **kwargs)
+
+    def forward(self, x: QuantTensor):
+        x = self.unpack_input(x)
+        x = self.trunc_quant(x)
+        return self.pack_output(x)

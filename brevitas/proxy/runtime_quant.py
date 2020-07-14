@@ -46,6 +46,7 @@ from torch.nn import Identity
 
 from dependencies import Injector
 
+from brevitas.function.ops_ste import round_ste
 from brevitas.quant_tensor import QuantTensor
 
 from .quant_proxy import QuantProxy
@@ -67,9 +68,7 @@ class FusedActivationQuantProxy(torch.jit.ScriptModule):
 
 class ActQuantProxy(QuantProxy):
 
-    def __init__(
-            self,
-            act_quant_injector: Injector):
+    def __init__(self, act_quant_injector: Injector):
         super(ActQuantProxy, self).__init__()
         tensor_quant = act_quant_injector.tensor_quant
         act_impl = act_quant_injector.act_impl
@@ -167,94 +166,40 @@ class IdentityQuantProxy(ActQuantProxy):
 
 class ClampQuantProxy(QuantProxy):
 
-    def __init__(self,
-                 signed: bool,
-                 narrow_range: bool,
-                 quant_type,
-                 ms_bit_width_to_clamp: int,
-                 clamp_at_least_init_val: bool,
-                 min_overall_bit_width: Optional[int],
-                 max_overall_bit_width: Optional[int],
-                 msb_clamp_bit_width_impl_type,
-                 override_pretrained_bit_width: bool):
+    def __init__(self, clamp_quant_injector: Injector):
         super(ClampQuantProxy, self).__init__()
+        self.tensor_quant = clamp_quant_injector.tensor_quant
+        self.clamp_quant_injector = clamp_quant_injector
 
-        if quant_type == QuantType.FP:
-            self.tensor_quant = IdentityPrescaledIntQuant()
-
-        elif quant_type == QuantType.INT:
-            msb_clamp_bit_width_impl = MsbClampParameterBitWidth(ms_bit_width_to_clamp=ms_bit_width_to_clamp,
-                                                                 clamp_at_least_init_val=clamp_at_least_init_val,
-                                                                 min_overall_bit_width=min_overall_bit_width,
-                                                                 max_overall_bit_width=max_overall_bit_width,
-                                                                 bit_width_impl_type=msb_clamp_bit_width_impl_type,
-                                                                 override_pretrained=override_pretrained_bit_width)
-            tensor_clamp_impl = TensorClamp()
-            float_to_int_impl = RestrictValue(restrict_value_type=RestrictValueType.INT,
-                                              float_to_int_impl_type=FloatToIntImplType.ROUND,
-                                              min_val=None)
-            tensor_quant_impl = PrescaledRestrictIntQuantWithInputBitWidth
-            self.tensor_quant = tensor_quant_impl(signed=signed,
-                                                  narrow_range=narrow_range,
-                                                  tensor_clamp_impl=tensor_clamp_impl,
-                                                  float_to_int_impl=float_to_int_impl,
-                                                  msb_clamp_bit_width_impl=msb_clamp_bit_width_impl)
-        else:
-            raise Exception("Quantization type {} not supported for accumulators.".format(quant_type))
-
-    def forward(self, x, input_scale, input_bit_width):
-        x, output_scale, output_bit_width = self.tensor_quant(x, input_scale, input_bit_width)
-        return x, output_scale, output_bit_width
+    def forward(self, x: QuantTensor):
+        if self.tensor_quant is not None:
+            out_value, out_scale, out_bit_width = self.tensor_quant(x.value, x.scale, x.bit_width)
+            signed = self.clamp_quant_injector.signed
+            return QuantTensor(out_value, out_scale, out_bit_width, signed)
+        return x
 
 
 class TruncQuantProxy(QuantProxy):
 
-    def __init__(self,
-                 signed: bool,
-                 quant_type,
-                 ls_bit_width_to_trunc: int,
-                 trunc_at_least_init_val: bool,
-                 min_overall_bit_width: Optional[int],
-                 max_overall_bit_width: Optional[int],
-                 lsb_trunc_bit_width_impl_type,
-                 explicit_rescaling: bool,
-                 override_pretrained_bit_width: bool):
+    def __init__(self, trunc_quant_injector: Injector):
         super(TruncQuantProxy, self).__init__()
-        self.explicit_rescaling = explicit_rescaling
+        self.lsb_trunc_bit_width_impl = trunc_quant_injector.lsb_trunc_bit_width_impl
+        self.tensor_quant = trunc_quant_injector.tensor_quant
+        self.trunc_quant_injector = trunc_quant_injector
+        quant_enabled = self.lsb_trunc_bit_width_impl is not None and self.tensor_quant is not None
+        self.quant_enabled = quant_enabled
 
-        if quant_type == QuantType.FP:
-            self.lsb_trunc_bit_width_impl = ZeroLsbTruncBitWidth()
-            self.tensor_quant = IdentityPrescaledIntQuant()
-
-        elif quant_type == QuantType.INT:
-            self.lsb_trunc_bit_width_impl = LsbTruncParameterBitWidth(ls_bit_width_to_trunc=ls_bit_width_to_trunc,
-                                                                      trunc_at_least_init_val=trunc_at_least_init_val,
-                                                                      min_overall_bit_width=min_overall_bit_width,
-                                                                      max_overall_bit_width=max_overall_bit_width,
-                                                                      bit_width_impl_type=lsb_trunc_bit_width_impl_type,
-                                                                      override_pretrained=override_pretrained_bit_width)
-            tensor_clamp_impl = TensorClamp()
-            float_to_int_impl = RestrictValue(restrict_value_type=RestrictValueType.INT,
-                                              float_to_int_impl_type=FloatToIntImplType.FLOOR,
-                                              min_val=None)
-            msb_clamp_bit_width_impl = IdentityBitWidth()
-            self.tensor_quant = PrescaledRestrictIntQuantWithInputBitWidth(narrow_range=False,
-                                                                           signed=signed,
-                                                                           tensor_clamp_impl=tensor_clamp_impl,
-                                                                           msb_clamp_bit_width_impl=msb_clamp_bit_width_impl,
-                                                                           float_to_int_impl=float_to_int_impl)
-
+    def forward(self, x: QuantTensor):
+        if self.quant_enabled:
+            x = round_ste(x / x.scale) * x.scale.detach()  # clean up fp errors before floor
+            trunc_bit_width = self.lsb_trunc_bit_width_impl(x.bit_width)
+            trunc_scale = 2.0 ** trunc_bit_width
+            output_scale = trunc_scale * x.scale
+            x, output_scale, x_bit_width = self.tensor_quant(x, output_scale, x.bit_width)
+            x = x / trunc_scale
+            output_scale = output_scale / trunc_scale  # output_scale == input_scale
+            output_bit_width = x_bit_width - trunc_bit_width
+            signed = self.trunc_quant_injector.signed
+            return QuantTensor(x, output_scale, output_bit_width, signed)
         else:
-            raise Exception("Quantization type {} not supported for accumulators.".format(quant_type))
-
-    def forward(self, x, input_scale, input_bit_width):
-        x = round_ste(x / input_scale) * input_scale  # clean up fp errors before floor
-        trunc_bit_width = self.lsb_trunc_bit_width_impl(input_bit_width)
-        trunc_scale = 2.0 ** trunc_bit_width
-        output_scale = trunc_scale * input_scale
-        x, output_scale, input_bit_width = self.tensor_quant(x, output_scale, input_bit_width)
-        if self.explicit_rescaling:
-            x = x / trunc_scale  # rescaling is explicit, so the truncation scale stays with x rather with output_scale
-            output_scale = output_scale / trunc_scale
-        output_bit_width = input_bit_width - trunc_bit_width
-        return x, output_scale, output_bit_width
+            return x

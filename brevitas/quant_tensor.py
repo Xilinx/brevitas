@@ -38,6 +38,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+from abc import ABC
 from typing import Optional
 from dataclasses import dataclass
 
@@ -49,25 +50,36 @@ from brevitas.function.ops import max_uint
 
 
 @dataclass
-class QuantTensor:
+class QuantTensorBase(ABC):
     value: Tensor
-    scale: Optional[Tensor] = None
-    bit_width: Optional[Tensor] = None
-    signed: Optional[bool] = None
-    scaling_per_channel: Optional[bool] = None
-    scaling_power_of_two: Optional[bool] = None
 
     @property  # TODO deprecate
     def tensor(self):
         return self.value
 
+    def detach_(self):
+        self.value.detach_()
+
+
+@dataclass
+class QuantTensorMetadata:
+    scale: Optional[Tensor] = None
+    bit_width: Optional[Tensor] = None
+    signed: Optional[bool] = None
+
+    def detach_(self):
+        self.scale.detach_()
+        self.bit_width.detach_()
+
     @property
     def is_valid(self):
         return self.scale is not None \
                and self.bit_width is not None \
-               and self.signed is not None \
-               and self.scaling_per_channel is not None \
-               and self.scaling_power_of_two is not None
+               and self.signed is not None
+
+
+@dataclass
+class QuantTensor(QuantTensorMetadata, QuantTensorBase):
 
     def int(self, float_datatype=False):
         if self.is_valid:
@@ -122,7 +134,8 @@ class QuantTensor:
         output_value = self.value * other.value
         output_scale = self.scale * other.scale
         output_bit_width = self.bit_width + other.bit_width
-        output = QuantTensor(output_value, output_scale, output_bit_width)
+        output_signed = self.signed or other.signed
+        output = QuantTensor(output_value, output_scale, output_bit_width, output_signed)
         return output
 
     def __sub__(self, other):
@@ -133,7 +146,8 @@ class QuantTensor:
         output_tensor = self.value / other.tensor
         output_scale = self.scale / other.scale
         output_bit_width = self.bit_width - other.bit_width
-        output = QuantTensor(output_tensor, output_scale, output_bit_width)
+        output_signed = self.signed or other.signed
+        output = QuantTensor(output_tensor, output_scale, output_bit_width, output_signed)
         return output
 
     def __abs__(self):

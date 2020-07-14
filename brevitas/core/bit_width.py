@@ -133,31 +133,29 @@ class BitWidthParameter(torch.jit.ScriptModule):
 
 
 class RemoveBitwidthParameter(torch.jit.ScriptModule):
-    __constants__ = ['min_overall_bit_width', 'non_zero_epsilon', 'override_pretrained',
-                     'remove_at_least_init_val']
+    __constants__ = ['non_zero_epsilon', 'override_pretrained']
 
     def __init__(
             self,
             bit_width_to_remove: int,
-            restrict_bit_width_impl: Module,
-            override_pretrained_bit_width: bool = False):
+            override_pretrained_bit_width: bool = False,
+            non_zero_epsilon: float = NON_ZERO_EPSILON,
+            remove_zero_bit_width = REMOVE_ZERO_BIT_WIDTH):
         super(RemoveBitwidthParameter, self).__init__()
 
         if bit_width_to_remove < 0:
             raise RuntimeError("Bit width to clamp has to be >= 0.".format(bit_width_to_remove))
         elif bit_width_to_remove == 0:
-            bit_width_coeff_init = 1 / REMOVE_ZERO_BIT_WIDTH
+            bit_width_coeff_init = 1 / remove_zero_bit_width
         else:
             bit_width_coeff_init = 1 / bit_width_to_remove
         self.bit_width_coeff = Parameter(torch.tensor(bit_width_coeff_init))
-        self.restrict_bit_width_impl = restrict_bit_width_impl
-        self.non_zero_epsilon = NON_ZERO_EPSILON
+        self.non_zero_epsilon = non_zero_epsilon
         self.override_pretrained = override_pretrained_bit_width
 
     @torch.jit.script_method
     def forward(self) -> Tensor:
         bit_width_to_remove = 1.0 / (self.non_zero_epsilon + torch.abs(self.bit_width_coeff))
-        bit_width_to_remove = self.restrict_bit_width_impl(bit_width_to_remove)
         return bit_width_to_remove
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
