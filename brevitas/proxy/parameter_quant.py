@@ -77,10 +77,10 @@ class ParameterQuantProxy(QuantProxy):
         return max_uint(self.weight_quant_injector.narrow_range, bit_width)
 
     def add_tracked_parameter(self, parameter: torch.nn.Parameter) -> None:
-        if self.tracked_parameter_list is not None:
+        if self.tracked_parameter_list is None:
+            self.tracked_parameter_list = []
+        if parameter is not None:
             self.tracked_parameter_list.append(parameter)
-        else:
-            self.tracked_parameter_list = [parameter]
         if self.tensor_quant is not None:
             del self.tensor_quant
         self.init_tensor_quant()
