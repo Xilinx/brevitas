@@ -39,19 +39,18 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from dependencies import Injector
 from typing import Union, Type, Optional
 
+from dependencies import Injector
 import torch
 from torch import Tensor
 from torch.nn import Module, Parameter
 
 from brevitas.function.ops_ste import ceil_ste
 from brevitas.function.ops import max_uint
-
 from brevitas.proxy import WeightQuantProxy, BiasQuantProxy, ActQuantProxy
-from brevitas.proxy.config import DefaultWeightQuantInjector
-
+from brevitas.quant_tensor import QuantTensor
+from .quant_layer import DefaultWeightQuantInjector
 from .quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 
 __all__ = ['ScaleBias', 'QuantScaleBias']
@@ -112,6 +111,9 @@ class QuantScaleBias(QuantWBIOL, ScaleBias):
 
     def quant_weight(self):
         return self.weight_quant(self.weight.view(-1, 1))  # TODO check if the view is needed
+
+    def forward(self, inp: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
+        return self.forward_impl(inp)
 
     def inner_forward_impl(self, x: Tensor, quant_weight: Tensor, quant_bias: Optional[Tensor]):
         quant_weight = quant_weight.view(self.runtime_shape)

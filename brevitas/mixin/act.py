@@ -107,8 +107,8 @@ class QuantNonLinearActMixin(QuantActMixin):
             act_quant=act_quant,
             update_injector=update_injector,
             proxy_impl=ActQuantProxy,
-            proxy_prefix='',
-            kwargs_prefix='act_',
+            proxy_prefix='act_',
+            kwargs_prefix='',
             **kwargs)
 
     def quant_act_scale(self):

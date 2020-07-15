@@ -45,7 +45,7 @@ from dependencies import Injector
 
 import brevitas.config as config
 from brevitas.proxy import WeightQuantProxy, BiasQuantProxy, ActQuantProxy
-from brevitas.proxy.config import DefaultWeightQuantInjector
+from .quant_layer import DefaultWeightQuantInjector
 from .quant_scale_bias import QuantScaleBias
 from .utils import mul_add_from_bn
 

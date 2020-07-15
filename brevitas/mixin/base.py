@@ -135,6 +135,8 @@ class QuantActMixin(object):
         else:
             assert proxy_impl is not None
             act_quant_injector = act_quant
+            if 'act_impl' not in act_quant_injector or act_quant_injector.act_impl is None:
+                act_quant_injector = act_quant_injector.let(act_impl=act_impl)
             act_quant_injector = update_aqi(act_quant_injector)
             act_quant = proxy_impl(act_quant_injector)
         setattr(self, proxy_name, act_quant)

@@ -89,20 +89,20 @@ class ActQuantProxy(QuantProxy):
     def identity_quant(self):
         return IdentityQuantProxy(self.act_quant_injector.let(act_impl=None))
 
-    def quant_act_scale(self):
+    def scale(self):
         current_status = self.training
         self.eval()  # get eval time scale
-        _, out, _ = self.__call__(self._zero_hw_sentinel())
+        scale = self.__call__(self._zero_hw_sentinel()).scale
         self.train(current_status)
-        return out
+        return scale
 
     def forward(self, x: Union[Tensor, QuantTensor]):
-        if isinstance(x, QuantTensor) and self.fused_activation_quant_proxy is not None:
-            x = self.fused_activation_quant_proxy(x.value)
-        else:
+        if isinstance(x, QuantTensor):
+            x = x.value
+        if self.fused_activation_quant_proxy is not None:
             x = self.fused_activation_quant_proxy(x)
         if isinstance(x, tuple): # quantization happened
-            return QuantTensor(*x, signed=self.activation_quant_injector.signed)
+            return QuantTensor(*x, signed=self.act_quant_injector.signed)
         elif isinstance(x, QuantTensor):  # x is still the input to the forward, pass it through
             return x
         else:  # only activation_impl was called

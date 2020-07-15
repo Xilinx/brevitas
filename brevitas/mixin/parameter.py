@@ -77,11 +77,6 @@ class QuantWeightMixin(QuantParameterMixin):
     def channelwise_separable(self) -> bool:
         pass
 
-    @property
-    @abstractmethod
-    def out_channels(self) -> int:
-        pass
-
     def quant_weight(self):
         return self.weight_quant(self.weight)
 

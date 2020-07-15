@@ -54,26 +54,15 @@ from brevitas.core.stats import *
 from brevitas.core.scaling import ScalingImplType, SCALING_SCALAR_SHAPE
 
 
-class DefaultWeightScalingInjector(Injector):
-    scaling_impl_type = 'STATS'
-    restrict_scaling_type = 'FP'
-    scaling_stats_op = 'MAX'
-    scaling_per_output_channel = False
-
-
-class DefaultWeightQuantInjector(DefaultWeightScalingInjector):
-    quant_type = 'INT'
-    bit_width_impl_type = 'CONST'
-    narrow_range = True
-    signed = True
-    bit_width = 8
-
-
 class EvaluateScalingInitImpl(Injector):
 
     @value
     def scaling_init(scaling_init_impl):
-        return scaling_init_impl().detach()
+        scaling_init = scaling_init_impl()
+        if isinstance(scaling_init, Tensor):
+            return scaling_init.detach()
+        else:
+            return torch.tensor(scaling_init)
 
 
 class DefaultBiasQuantInjector(Injector):
@@ -108,7 +97,7 @@ class HeScalingInit:
 class MinMaxScalingInit:
 
     def __init__(self, min_val: float, max_val: float):
-        self.scaling_init = max(abs(float(min_val), abs(float(max_val))))
+        self.scaling_init = torch.tensor(max(abs(float(min_val)), abs(float(max_val))))
 
     def __call__(self):
         return self.scaling_init
@@ -337,11 +326,16 @@ def _solve_act_scaling_shapes_dims(qi):
 
 def _solve_weight_scaling_init_impl(qi):
     name = 'scaling_impl_type'
-    qi = qi & EvaluateScalingInitImpl
+    if _check_name_value(qi, name, ScalingImplType.CONST):
+        qi = qi.let(scaling_init=this.scaling_const)
+    if _check_name_value(qi, name, ScalingImplType.PARAMETER):
+        qi = qi.let(scaling_init=this.scaling_const)
     if _check_name_value(qi, name, ScalingImplType.PARAMETER_FROM_STATS):
+        qi = qi & EvaluateScalingInitImpl
         qi = qi.let(scaling_init_impl=ParameterFromStatsScalingInit)
         qi = qi.let(parameter_stats_scaling=ParameterStatsScaling)
     elif _check_name_value(qi, name, ScalingImplType.HE):
+        qi = qi & EvaluateScalingInitImpl
         qi = qi.let(scaling_init_impl=HeScalingInit)
     return qi
 
@@ -409,7 +403,7 @@ def _update_act_impl(qi):
     elif isinstance(qi.act_impl, nn.Tanh) and not min_val_set and not signed_set:
         qi = qi.let({'signed': True, 'min_val': -1.0, 'max_val': 1.0})
     elif isinstance(qi.act_impl, ConstScalarClamp) and not quant_type_fp:
-        qi.act_impl = None
+        qi = qi.let(act_impl=None)
     return qi
 
 

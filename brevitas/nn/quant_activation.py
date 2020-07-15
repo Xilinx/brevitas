@@ -38,79 +38,88 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from typing import Callable, Type
+from typing import Type
 
 from dependencies import Injector
 from torch import nn
 
 from brevitas.core.function_wrapper import ConstScalarClamp
-from .quant_layer import QuantNonLinearActLayer
+from .quant_layer import QuantNonLinearActLayer as QuantNLA
+from .quant_layer import DefaultUnsignedActQuantInjector as DefUnsignedAQI
+from .quant_layer import DefaultSignedActQuantInjector as DefSignedAQI
+from .quant_layer import DefaultUnitaryUnsignedActQuantInjector as DefUnitaryUnsignedAQI
+from .quant_layer import DefaultUnitarySignedActQuantInjector as DefUnitarySignedAQI
 
 
-class QuantReLU(QuantNonLinearActLayer):
+class QuantReLU(QuantNLA):
 
     def __init__(
             self,
-            act_quant: Type[Injector],
+            act_quant: Type[Injector] = DefUnsignedAQI,
             return_quant_tensor: bool = False,
             **kwargs):
-        super(QuantReLU, self).__init__(
+        QuantNLA.__init__(
+            self,
             act_impl=nn.ReLU,
             act_quant=act_quant,
             return_quant_tensor=return_quant_tensor,
             **kwargs)
 
 
-class QuantSigmoid(QuantNonLinearActLayer):
+class QuantSigmoid(QuantNLA):
 
     def __init__(
             self,
-            act_quant: Type[Injector],
+            act_quant: Type[Injector] = DefUnitaryUnsignedAQI,
             return_quant_tensor: bool = False,
             **kwargs):
-        super(QuantSigmoid, self).__init__(
+        QuantNLA.__init__(
+            self,
             act_impl=nn.Sigmoid,
             act_quant=act_quant,
             return_quant_tensor=return_quant_tensor,
             **kwargs)
 
 
-class QuantTanh(QuantNonLinearActLayer):
+class QuantTanh(QuantNLA):
 
     def __init__(
             self,
-            act_quant: Type[Injector],
+            act_quant: Type[Injector] = DefUnitarySignedAQI,
             return_quant_tensor: bool = False,
             **kwargs):
-        super(QuantTanh, self).__init__(
+        QuantNLA.__init__(
+            self,
             act_impl=nn.Tanh,
             act_quant=act_quant,
             return_quant_tensor=return_quant_tensor,
             **kwargs)
 
 
-class QuantHardTanh(QuantNonLinearActLayer):
+class QuantHardTanh(QuantNLA):
 
     def __init__(
             self,
-            act_quant: Type[Injector],
+            act_quant: Type[Injector] = DefUnitarySignedAQI,
             return_quant_tensor: bool = False,
             **kwargs):
-        super(QuantHardTanh, self).__init__(
+        QuantNLA.__init__(
+            self,
             act_impl=ConstScalarClamp,
             act_quant=act_quant,
             return_quant_tensor=return_quant_tensor,
             **kwargs)
 
 
-class QuantIdentity(QuantNonLinearActLayer):
+class QuantIdentity(QuantNLA):
 
     def __init__(
             self,
-            act_quant: Type[Injector],
+            act_quant: Type[Injector] = DefSignedAQI,
             return_quant_tensor: bool = False,
             **kwargs):
-        super(QuantIdentity, self).__init__(
+        QuantNLA.__init__(
+            self,
             act_impl=None,
             act_quant=act_quant,
             return_quant_tensor=return_quant_tensor,

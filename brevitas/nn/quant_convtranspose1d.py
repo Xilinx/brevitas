@@ -50,11 +50,9 @@ from torch.nn.functional import conv_transpose1d
 from brevitas.function.ops import max_uint
 from brevitas.function.ops_ste import ceil_ste
 from brevitas.proxy import WeightQuantProxy, BiasQuantProxy, ActQuantProxy
-from brevitas.proxy.config import DefaultWeightQuantInjector
 from brevitas.quant_tensor import QuantTensor
-
 from .quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
-
+from .quant_layer import DefaultWeightQuantInjector
 
 __all__ = ['QuantConvTranspose1d']
 
@@ -93,8 +91,8 @@ class QuantConvTranspose1d(QuantWBIOL, ConvTranspose1d):
             bias=bias)
         QuantWBIOL.__init__(
             self,
-            self.weight,
-            self.bias,
+            weight=self.weight,
+            bias=self.bias,
             weight_quant=weight_quant,
             bias_quant=bias_quant,
             input_quant=input_quant,
@@ -104,6 +102,10 @@ class QuantConvTranspose1d(QuantWBIOL, ConvTranspose1d):
         self._output_size = None
 
     @property
+    def per_elem_ops(self):
+        raise NotImplementedError
+
+    @property
     def output_channel_dim(self) -> int:
         return 0
 
@@ -111,24 +113,25 @@ class QuantConvTranspose1d(QuantWBIOL, ConvTranspose1d):
     def channelwise_separable(self) -> bool:
         raise NotImplementedError
 
-    def forward(self, inp: Union[Tensor, QuantTensor], output_size=None):
-        self._output_size = output_size  # cache the value temporarely
-        return QuantWBIOL.forward(self, inp)
+    def forward(self, inp: Union[Tensor, QuantTensor], output_size=None) -> Union[Tensor, QuantTensor]:
+        self._output_size = output_size  # cache the value temporarily
+        return self.forward_impl(inp)
+
+    def compute_output_padding(self, inp, output_size):
+        return self._output_padding(
+            inp, output_size, self.stride, self.padding, self.kernel_size)
+
+    def conv_transpose1d_zeros_pad(
+            self, x: Tensor, weight: Tensor, bias: Optional[Tensor], output_padding):
+        out = conv_transpose1d(
+            x, weight, bias, self.stride, self.padding, output_padding, self.groups, self.dilation)
+        return out
 
     def inner_forward_impl(self, x: Tensor, quant_weight: Tensor, quant_bias: Optional[Tensor]):
         if self.padding_mode == 'zeros':
-            output_padding = self._output_padding(
-                x, self._output_size, self.stride, self.padding, self.kernel_size)
+            output_padding = self.compute_output_padding(x, self._output_size)
             self._output_size = None  # set it back to None after consuming it
-            out = conv_transpose1d(
-                x,
-                quant_weight,
-                quant_bias,
-                self.stride,
-                self.padding,
-                output_padding,
-                self.groups,
-                self.dilation)
+            out = self.conv_transpose1d_zeros_pad(x, quant_weight, quant_bias, output_padding)
             return out
         else:
             raise NotImplementedError(f"Padding mode {self.padding_mode} not supported.")

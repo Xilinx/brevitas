@@ -39,7 +39,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 from enum import auto
-from typing import Tuple, Optional, List
+from typing import Tuple, Optional, List, Union
 
 import torch
 from torch.nn import Parameter, Module
@@ -122,13 +122,16 @@ class ParameterScaling(torch.jit.ScriptModule):
 
     def __init__(
             self,
-            scaling_init: torch.Tensor,
+            scaling_init: Union[float, torch.Tensor],
             scaling_shape: Tuple[int, ...],
             restrict_scaling_impl: Module,
             scaling_min_val: Optional[float] = DEFAULT_SCALING_MIN_VAL) -> None:
         super(ParameterScaling, self).__init__()
 
-        scaling_init = scaling_init.detach()
+        if isinstance(scaling_init, torch.Tensor):
+            scaling_init = scaling_init.detach()
+        else:
+            self.value = torch.tensor(scaling_init)
         self.restrict_clamp_scaling = _RestrictClampValue(scaling_min_val, restrict_scaling_impl)
         scaling_init = restrict_scaling_impl.restrict_init_tensor(scaling_init)
         if scaling_init.dim() == 0:
@@ -156,9 +159,12 @@ class ParameterScaling(torch.jit.ScriptModule):
 
 class ConstScaling(torch.jit.ScriptModule):
 
-    def __init__(self, scaling_init: torch.Tensor) -> None:
+    def __init__(self, scaling_init: Union[float, torch.Tensor]) -> None:
         super(ConstScaling, self).__init__()
-        self.value = StatelessBuffer(scaling_init.detach())
+        if isinstance(scaling_init, torch.Tensor):
+            self.value = StatelessBuffer(scaling_init.detach())
+        else:
+            self.value = StatelessBuffer(torch.tensor(scaling_init))
 
     @torch.jit.script_method
     def forward(self, placeholder: torch.Tensor) -> torch.Tensor:

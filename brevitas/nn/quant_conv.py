@@ -51,8 +51,8 @@ from dependencies import Injector
 from brevitas.function.ops import max_uint
 from brevitas.function.ops_ste import ceil_ste
 from brevitas.proxy import WeightQuantProxy, BiasQuantProxy, ActQuantProxy
-from brevitas.proxy.config import DefaultWeightQuantInjector
-
+from brevitas.quant_tensor import QuantTensor
+from .quant_layer import DefaultWeightQuantInjector
 from .quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 
 
@@ -91,8 +91,8 @@ class QuantConv2d(QuantWBIOL, Conv2d):
             padding_mode=padding_mode)  # TODO make retrocomp with PaddingType
         QuantWBIOL.__init__(
             self,
-            self.weight,
-            self.bias,
+            weight=self.weight,
+            bias=self.bias,
             weight_quant=weight_quant,
             bias_quant=bias_quant,
             input_quant=input_quant,
@@ -137,6 +137,9 @@ class QuantConv2d(QuantWBIOL, Conv2d):
             x = F.pad(x, [pad_w // 2, pad_w - pad_w // 2, pad_h // 2, pad_h - pad_h // 2])
         out = F.conv2d(x, weight, bias, self.stride, 0, self.dilation, self.groups)
         return out
+
+    def forward(self, inp: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
+        return self.forward_impl(inp)
 
     def inner_forward_impl(self, x: Tensor, quant_weight: Tensor, quant_bias: Optional[Tensor]):
         if self.padding_mode == 'circular':

@@ -40,11 +40,11 @@
 
 from abc import ABCMeta, abstractmethod
 from typing import Optional, Type, Union, Callable
+
+from dependencies import Injector
 import torch
 from torch import Tensor
 from torch.nn import Module, Parameter
-
-from dependencies import Injector
 
 from brevitas.quant_tensor import QuantTensor
 from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy
@@ -57,27 +57,77 @@ from brevitas.mixin import *
 from .utils import mul_add_from_bn
 
 
+class DefaultWeightScalingInjector(Injector):
+    scaling_impl_type = 'STATS'
+    restrict_scaling_type = 'FP'
+    scaling_stats_op = 'MAX'
+    scaling_per_output_channel = False
+    scaling_min_val = 2.0 ** (-16)
+
+
+class DefaultWeightQuantInjector(DefaultWeightScalingInjector):
+    quant_type = 'INT'
+    bit_width_impl_type = 'CONST'
+    narrow_range = True
+    signed = True
+    bit_width = 8
+
+
+class DefaultActQuantInjector(Injector):
+    quant_type = 'INT'
+    bit_width_impl_type = 'CONST'
+    bit_width = 8
+    scaling_impl_type = 'PARAMETER'
+    restrict_scaling_type = 'LOG_FP'
+    scaling_per_output_channel = False
+    scaling_min_val = 2.0 ** (-16)
+
+
+class DefaultSignedActQuantInjector(DefaultActQuantInjector):
+    signed = True
+    narrow_range = False
+
+
+class DefaultUnsignedActQuantInjector(DefaultActQuantInjector):
+    signed = False
+    narrow_range = False
+    min_val = 0.0
+
+
+class DefaultUnitarySignedActQuantInjector(DefaultSignedActQuantInjector):
+    min_val = -1.0
+    max_val = 1.0
+
+
+class DefaultUnitaryUnsignedActQuantInjector(DefaultUnsignedActQuantInjector):
+    max_val = 1.0
+
+
 def _compute_channel_view_shape(tensor: Tensor, channel_dim: int):
     broadcast_shape = [1] * len(tensor.size())
     broadcast_shape[channel_dim] = -1
     return tuple(broadcast_shape)
     
 
-class QuantNonLinearActLayer(QuantNonLinearActMixin, QuantLayerMixin):
+class QuantNonLinearActLayer(QuantNonLinearActMixin, QuantLayerMixin, Module):
     __metaclass__ = ABCMeta
 
     def __init__(
             self,
-            act_impl: Module,
+            act_impl: Optional[Module],
             act_quant: Union[ActQuantProxy, Type[Injector]],
             return_quant_tensor: bool,
             update_aqi: Callable = default_update_aqi,
             **kwargs):
+        Module.__init__(self)
         QuantLayerMixin.__init__(self, return_quant_tensor)
         QuantNonLinearActMixin.__init__(self, act_impl, act_quant, update_aqi, **kwargs)
 
     def forward(self, inp: Union[Tensor, QuantTensor]):
-        return self.quant_act(inp)
+        inp = self.unpack_input(inp)
+        out = self.act_quant(inp)
+        out = self.pack_output(out)
+        return out
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
                               missing_keys, unexpected_keys, error_msgs):
@@ -149,7 +199,7 @@ class QuantWeightBiasInputOutputLayer(
             else:
                 self.bias = Parameter(add_factor)
 
-    def forward(self, inp: Union[Tensor, QuantTensor]):
+    def forward_impl(self, inp: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
         output_scale = None
         output_bit_width = None
 
