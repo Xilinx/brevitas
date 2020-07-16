@@ -138,7 +138,7 @@ class QuantConv1d(QuantWBIOL, Conv1d):
     def inner_forward_impl(self, x: Tensor, quant_weight: Tensor, quant_bias: Optional[Tensor]):
         if self.padding_type == 'standard':
             return self.conv1d_zeros_pad(x, quant_weight, quant_bias)
-        elif self.padding_mode == 'same':
+        elif self.padding_type == 'same':
             return self.conv1d_same_zeros_pad(x, quant_weight, quant_bias)
         else:
             raise NotImplementedError(f"Padding type {self.padding_type} not supported.")

@@ -77,7 +77,7 @@ class Test1DConv:
                                           weight_quant_type=QuantType.INT,
                                           weight_bit_width=BIT,
                                           bias=False,
-                                          padding_mode='same')
+                                          padding_type='same')
 
         results_float_quantized = Conv1D(input_quant)
         weight_int = Conv1D.int_weight()
