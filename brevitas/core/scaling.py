@@ -77,7 +77,7 @@ class _AffineRescaling(torch.jit.ScriptModule):
         self.affine_bias = Parameter(torch.zeros(scaling_shape))
 
     def forward(self, x):
-        out = x * self.affine_weight + self.affine_bias
+        out = x * self.affine_weight + self.affine_bias  # TODO: take absvals
         out = torch.abs(out)
         return out
 
@@ -112,8 +112,8 @@ class _StatsScaling(torch.jit.ScriptModule):
 
     @torch.jit.script_method
     def forward(self, stats: torch.Tensor) -> torch.Tensor:
+        stats = self.affine_rescaling(stats)  # TODO it should be first prerestrict then affine
         stats = self.restrict_scaling_pre(stats)
-        stats = self.affine_rescaling(stats)
         stats = self.restrict_clamp_scaling(stats)
         return stats
 
