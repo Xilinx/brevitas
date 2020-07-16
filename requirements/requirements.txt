@@ -1,5 +1,5 @@
 torch>=1.1.0
 docrep
 packaging
-dependencies
+dependencies>=2.0.1
 dataclasses
