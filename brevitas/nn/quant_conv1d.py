@@ -72,7 +72,7 @@ class QuantConv1d(QuantWBIOL, Conv1d):
             dilation: Union[int, Tuple[int, int]] = 1,
             groups: int = 1,
             bias: bool = True,
-            padding_mode: str = 'zeros',
+            padding_type: str = 'standard',
             weight_quant: Union[WeightQuantProxy, Type[Injector]] = DefaultWeightQuantInjector,
             bias_quant: Union[BiasQuantProxy, Type[Injector]] = None,
             input_quant: Union[ActQuantProxy, Type[Injector]] = None,
@@ -88,8 +88,7 @@ class QuantConv1d(QuantWBIOL, Conv1d):
             padding=padding,
             dilation=dilation,
             groups=groups,
-            bias=bias,
-            padding_mode=padding_mode)  # TODO make retrocomp with PaddingType
+            bias=bias)
         QuantWBIOL.__init__(
             self,
             weight=self.weight,
@@ -100,6 +99,9 @@ class QuantConv1d(QuantWBIOL, Conv1d):
             output_quant=output_quant,
             return_quant_tensor=return_quant_tensor,
             **kwargs)
+        assert self.padding_mode == 'zeros'
+        assert not (padding_type == 'same' and padding != 0)
+        self.padding_type = padding_type
 
     @property
     def per_elem_ops(self):
@@ -119,13 +121,7 @@ class QuantConv1d(QuantWBIOL, Conv1d):
         out = conv1d(x, weight, bias, self.stride, self.padding, self.dilation, self.groups)
         return out
 
-    def conv1d_circular_pad(self, x: Tensor, weight: Tensor, bias: Optional[Tensor]):
-        expanded_padding = (self.padding[1] + 1) // 2, self.padding[1] // 2
-        x = F.pad(x, expanded_padding, mode='circular')
-        out = conv1d(x, weight, bias, self.stride, 0, self.dilation, self.groups)
-        return out
-
-    def conv1d_same_pad(self, x, weight, bias):
+    def conv1d_same_zeros_pad(self, x, weight, bias):
         ih = x.size()[-1]
         kh = weight.size()[-1]
         sh = self.stride[0]
@@ -140,14 +136,12 @@ class QuantConv1d(QuantWBIOL, Conv1d):
         return self.forward_impl(inp)
 
     def inner_forward_impl(self, x: Tensor, quant_weight: Tensor, quant_bias: Optional[Tensor]):
-        if self.padding_mode == 'circular':
-            return self.conv1d_circular_pad(x, quant_weight, quant_bias)
-        elif self.padding_mode == 'same':
-            return self.conv1d_same_pad(x, quant_weight, quant_bias)
-        elif self.padding_mode == 'zeros':
+        if self.padding_type == 'standard':
             return self.conv1d_zeros_pad(x, quant_weight, quant_bias)
+        elif self.padding_mode == 'same':
+            return self.conv1d_same_zeros_pad(x, quant_weight, quant_bias)
         else:
-            raise NotImplementedError(f"Padding mode {self.padding_mode} not supported.")
+            raise NotImplementedError(f"Padding type {self.padding_type} not supported.")
 
     def max_acc_bit_width(self, input_bit_width, weight_bit_width):
         max_uint_input = max_uint(bit_width=input_bit_width, narrow_range=False)

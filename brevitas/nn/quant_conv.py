@@ -71,7 +71,7 @@ class QuantConv2d(QuantWBIOL, Conv2d):
             dilation: Union[int, Tuple[int, int]] = 1,
             groups: int = 1,
             bias: bool = True,
-            padding_mode: str = 'zeros',
+            padding_type: str ='standard',
             weight_quant: Union[WeightQuantProxy, Type[Injector]] = DefaultWeightQuantInjector,
             bias_quant: Union[BiasQuantProxy, Type[Injector]] = None,
             input_quant: Union[ActQuantProxy, Type[Injector]] = None,
@@ -87,8 +87,7 @@ class QuantConv2d(QuantWBIOL, Conv2d):
             padding=padding,
             dilation=dilation,
             groups=groups,
-            bias=bias,
-            padding_mode=padding_mode)  # TODO make retrocomp with PaddingType
+            bias=bias)
         QuantWBIOL.__init__(
             self,
             weight=self.weight,
@@ -99,6 +98,9 @@ class QuantConv2d(QuantWBIOL, Conv2d):
             output_quant=output_quant,
             return_quant_tensor=return_quant_tensor,
             **kwargs)
+        assert self.padding_mode == 'zeros'
+        assert not (padding_type == 'same' and padding != 0)
+        self.padding_type = padding_type
 
     @property
     def per_elem_ops(self):
@@ -119,14 +121,7 @@ class QuantConv2d(QuantWBIOL, Conv2d):
         out = conv2d(x, weight, bias, self.stride, self.padding, self.dilation, self.groups)
         return out
 
-    def conv2d_circular_pad(self, x: Tensor, weight: Tensor, bias: Optional[Tensor]):
-        expanded_padding = ((self.padding[1] + 1) // 2, self.padding[1] // 2,
-                            (self.padding[0] + 1) // 2, self.padding[0] // 2)
-        x = F.pad(x, expanded_padding, mode='circular')
-        out = conv2d(x, weight, bias, self.stride, 0, self.dilation, self.groups)
-        return out
-
-    def conv2d_same_pad(self, x: Tensor, weight: Tensor, bias: Optional[Tensor]):
+    def conv2d_same_zeros_pad(self, x: Tensor, weight: Tensor, bias: Optional[Tensor]):
         ih, iw = x.size()[-2:]
         kh, kw = weight.size()[-2:]
         sh, sw = self.stride
@@ -142,14 +137,12 @@ class QuantConv2d(QuantWBIOL, Conv2d):
         return self.forward_impl(inp)
 
     def inner_forward_impl(self, x: Tensor, quant_weight: Tensor, quant_bias: Optional[Tensor]):
-        if self.padding_mode == 'circular':
-            return self.conv2d_circular_pad(x, quant_weight, quant_bias)
-        elif self.padding_mode == 'same':
-            return self.conv2d_same_pad(x, quant_weight, quant_bias)
-        elif self.padding_mode == 'zeros':
+        if self.padding_type == 'standard':
             return self.conv2d_zeros_pad(x, quant_weight, quant_bias)
+        elif self.padding_mode == 'same':
+            return self.conv2d_same_zeros_pad(x, quant_weight, quant_bias)
         else:
-            raise RuntimeError(f"Padding mode {self.padding_mode} not supported.")
+            raise RuntimeError(f"Padding type {self.padding_type} not supported.")
 
     def max_acc_bit_width(self, input_bit_width: Tensor, weight_bit_width: Tensor):
         max_uint_input = max_uint(bit_width=input_bit_width, narrow_range=False)

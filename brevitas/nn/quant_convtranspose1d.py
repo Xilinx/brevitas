@@ -67,7 +67,6 @@ class QuantConvTranspose1d(QuantWBIOL, ConvTranspose1d):
             stride: Union[int, Tuple[int]] = 1,
             padding: Union[int, Tuple[int]] = 0,
             output_padding: Union[int, Tuple[int]] = 0,
-            padding_mode: str = 'zeros',
             dilation: Union[int, Tuple[int]] = 1,
             groups: int = 1,
             bias: bool = True,
@@ -85,7 +84,6 @@ class QuantConvTranspose1d(QuantWBIOL, ConvTranspose1d):
             stride=stride,
             padding=padding,
             output_padding=output_padding,
-            padding_mode=padding_mode,
             dilation=dilation,
             groups=groups,
             bias=bias)
