@@ -82,7 +82,7 @@ class Test1DConv:
         results_float_quantized = Conv1D(input_quant)
         weight_int = Conv1D.int_weight()
         bias = Conv1D.bias
-        results_int_quantized = Conv1D.conv1d_zeros_same_pad(input_quant_int, weight_int.float(), bias)
+        results_int_quantized = Conv1D.conv1d_same_zeros_pad(input_quant_int, weight_int.float(), bias)
         totalScale = SCALE * Conv1D.quant_weight_scale()
         result_rescaled = results_int_quantized * totalScale
         assert (torch.allclose(results_float_quantized, result_rescaled, atol= ATOL, rtol= RTOL))
