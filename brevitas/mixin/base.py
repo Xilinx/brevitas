@@ -97,6 +97,7 @@ class QuantParameterMixin(object):
             pass
         else:
             assert proxy_impl is not None
+            assert issubclass(parameter_quant, Injector)
             parameter_quant_injector = parameter_quant
             parameter_quant_injector = update_pqi(parameter_quant_injector)
             parameter_quant = proxy_impl(parameter_quant_injector)
@@ -134,6 +135,7 @@ class QuantActMixin(object):
             pass
         else:
             assert proxy_impl is not None
+            assert issubclass(act_quant, Injector)
             act_quant_injector = act_quant
             if 'act_impl' not in act_quant_injector or act_quant_injector.act_impl is None:
                 act_quant_injector = act_quant_injector.let(act_impl=act_impl)
@@ -172,6 +174,7 @@ class QuantAccMixin(object):
             pass
         else:
             assert proxy_impl is not None
+            assert issubclass(acc_quant, Injector)
             acc_quant_injector = acc_quant
             acc_quant_injector = update_aqi(acc_quant_injector)
             acc_quant = proxy_impl(acc_quant_injector)
