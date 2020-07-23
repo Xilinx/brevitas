@@ -9,6 +9,7 @@ BASE_YML_TEMPLATE = 'base.yml.template'
 PYTEST_YML = 'pytest.yml'
 EXAMPLES_PYTEST_YML = 'examples_pytest.yml'
 DEVELOP_INSTALL_YML = 'develop_install.yml'
+FINN_INTEGRATION_YML = 'finn_integration.yml'
 
 NIX_NEWLINE = '\n'
 
@@ -40,6 +41,12 @@ PYTEST_EXAMPLE_EXCLUDE_LIST_EXTRA = [od([('platform', 'macos-latest'),
                                          ('pytorch_version', '1.5.0'),
                                          ('conda_python_version', '3.6')])]
 
+FINN_INTEGRATION_EXCLUDE_LIST_EXTRA = [od([('pytorch_version', '1.3.0')]),
+                                       od([('pytorch_version', '1.3.1')]),
+                                       od([('pytorch_version', '1.4.0')]),
+                                       od([('platform', 'windows-latest'),
+                                           ('conda_python_version', '3.6')])]
+
 MATRIX = od([('conda_python_version', list(CONDA_PYTHON_VERSIONS)),
              ('pytorch_version', list(PYTORCH_VERSIONS)),
              ('platform', PLATFORM_LIST)])
@@ -61,6 +68,21 @@ EXAMPLES_PYTEST_STEP_LIST = [
         ('run',
          'nox -v -s tests_brevitas_examples_cpu-${{ matrix.conda_python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)')]),
 ]
+
+FINN_INTEGRATION_STEP_LIST = [
+    od([
+        ('name', 'Install protobuf on Ubuntu'),
+        ('shell', 'bash'),
+        ('run',
+         'sudo apt-get install protobuf-compiler libprotoc-dev'),
+        ('if', "startsWith(runner.os, 'Linux') == true")
+    ]),
+    od([
+        ('name', 'Run Nox session for Brevitas-FINN integration'),
+        ('shell', 'bash'),
+        ('run',
+         'nox -v -s tests_brevitas_finn_integration-${{ matrix.conda_python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)')
+    ])]
 
 TEST_INSTALL_DEV_STEP_LIST = [
     od([
@@ -158,7 +180,17 @@ def gen_test_develop_install_yml():
     test_develop_install.gen_yaml(DEVELOP_INSTALL_YML)
 
 
+def gen_test_brevitas_finn_integration():
+    test_finn_integration = Action(
+        'Test Brevitas-FINN integration',
+        EXCLUDE_LIST + FINN_INTEGRATION_EXCLUDE_LIST_EXTRA,
+        MATRIX,
+        FINN_INTEGRATION_STEP_LIST)
+    test_finn_integration.gen_yaml(FINN_INTEGRATION_YML)
+
+
 if __name__ == '__main__':
     gen_pytest_yml()
     gen_examples_pytest_yml()
     gen_test_develop_install_yml()
+    gen_test_brevitas_finn_integration()
