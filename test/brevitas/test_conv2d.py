@@ -18,11 +18,3 @@ class TestQuantLinear:
             in_channels=INPUT_CHANNELS,
             kernel_size=KERNEL_SIZE,
             bias=False)
-
-    def test_trace(self):
-        mod = QuantConv2d(
-            out_channels=OUTPUT_CHANNELS,
-            in_channels=INPUT_CHANNELS,
-            kernel_size=KERNEL_SIZE,
-            bias=False)
-        torch.jit.trace(mod, torch.empty(1, INPUT_CHANNELS, 100, 100))
