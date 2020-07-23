@@ -11,18 +11,22 @@ from gen_github_actions import *
 PYTORCH_CPU_VIRTUAL_PKG = '1.2.0'
 PYTORCH_PILLOW_FIXED = '1.4.0'
 NOX_WIN_NUMPY_VERSION = '1.17.4'  # avoid errors from more recent Numpy called through Nox on Windows
+FINN_NUMPY_VERSION = '1.18.1' # FINN has a strict req on 1.18.0+
 CONDA_PYTHON_IDS = tuple([f'conda_python_{i}' for i in CONDA_PYTHON_VERSIONS])
 PYTORCH_IDS = tuple([f'pytorch_{i}' for i in PYTORCH_VERSIONS])
 JIT_IDS = tuple([f'{i}'.lower() for i in JIT_STATUSES])
 
-def install_pytorch(pytorch, session):
+
+def install_pytorch(pytorch, session, numpy=None):
     is_win = system() == 'Windows'
     is_cpu_virtual = version.parse(pytorch) >= version.parse(PYTORCH_CPU_VIRTUAL_PKG)
     if is_cpu_virtual:
         cmd = ['-c', 'pytorch', f'pytorch=={pytorch}', 'cpuonly']
     else:
         cmd = ['-c', 'pytorch', f'pytorch-cpu=={pytorch}']
-    if is_win:
+    if numpy is not None:
+        cmd += [f'numpy=={numpy}']
+    elif numpy is None and is_win:
         cmd += [f'numpy=={NOX_WIN_NUMPY_VERSION}']
     session.conda_install(*cmd)
 
@@ -91,6 +95,15 @@ def tests_brevitas_examples_install_dev(session, pytorch):
     session.conda_install('scipy')  # For Hadamard example
     session.install('-e', '.[test, tts, stt]')
     session.run('pytest', '-v', 'test/brevitas_examples/test_examples_import.py')
+
+
+@nox.session(venv_backend="conda", python=CONDA_PYTHON_VERSIONS)
+@nox.parametrize("pytorch", PYTORCH_VERSIONS, ids=PYTORCH_IDS)
+def tests_brevitas_finn_integration(session, pytorch):
+    install_pytorch(pytorch, session, FINN_NUMPY_VERSION)
+    session.install('-e', '.[test, finn_integration]')
+    env = {'FINN_INST_NAME': 'finn'}
+    session.run('pytest', '-v', 'test/finn_integration', env=env)
 
 
 @nox.session(python=False)
