@@ -43,18 +43,18 @@ from typing import Callable, Union, Type
 from torch.nn import Module
 from dependencies import Injector
 
-from brevitas.mixin.base import QuantLayerMixin
-from brevitas.mixin.acc import QuantTruncMixin, QuantClampMixin
-from brevitas.proxy.runtime_quant import TruncQuantProxy
+from brevitas.proxy.runtime_quant import AccQuantProxyProtocol
 from brevitas.proxy.config import update_trunc_quant_injector
 from brevitas.quant_tensor import QuantTensor
+from .mixin.base import QuantLayerMixin
+from .mixin.acc import QuantTruncMixin, QuantClampMixin
 
 
 class TruncQuantAccumulator(QuantTruncMixin, QuantLayerMixin, Module):
 
     def __init__(
             self,
-            trunc_quant: Union[TruncQuantProxy, Type[Injector]] = None,
+            trunc_quant: Union[AccQuantProxyProtocol, Type[Injector]] = None,
             return_quant_tensor: bool = True,
             update_injector: Callable = update_trunc_quant_injector,
             **kwargs):
@@ -75,7 +75,7 @@ class ClampQuantAccumulator(QuantClampMixin, QuantLayerMixin, Module):
 
     def __init__(
             self,
-            trunc_quant: Union[TruncQuantProxy, Type[Injector]] = None,
+            trunc_quant: Union[AccQuantProxyProtocol, Type[Injector]] = None,
             return_quant_tensor: bool = True,
             update_injector: Callable = update_trunc_quant_injector,
             **kwargs):

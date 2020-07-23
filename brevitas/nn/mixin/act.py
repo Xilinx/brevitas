@@ -44,8 +44,9 @@ from typing import Type, Union, Callable
 from torch.nn import Module
 from dependencies import Injector
 
-from brevitas.proxy.runtime_quant import IdentityQuantProxy, ActQuantProxy
-from .base import QuantActMixin, QuantLayerMixin
+from brevitas.proxy.runtime_quant import IdentityQuantProxyFromInjector, ActQuantProxyFromInjector
+from brevitas.proxy.runtime_quant import ActQuantProxyProtocol
+from .base import QuantActMixin
 
 
 class QuantInputMixin(QuantActMixin):
@@ -53,7 +54,7 @@ class QuantInputMixin(QuantActMixin):
 
     def __init__(
             self,
-            act_quant: Union[IdentityQuantProxy, Type[Injector]],
+            act_quant: Union[ActQuantProxyProtocol, Type[Injector]],
             update_injector: Callable,
             **kwargs):
         QuantActMixin.__init__(
@@ -61,13 +62,32 @@ class QuantInputMixin(QuantActMixin):
             act_impl=None,
             act_quant=act_quant,
             update_injector=update_injector,
-            proxy_impl=IdentityQuantProxy,
+            proxy_from_injector_impl=IdentityQuantProxyFromInjector,
             proxy_prefix='input_',
             kwargs_prefix='input_',
             **kwargs)
 
+    @property
+    def is_input_quant_enabled(self):
+        return self.input_quant.is_quant_enabled
+
+    @property
+    def is_quant_input_narrow_range(self):
+        assert self.is_input_quant_enabled
+        return self.input_quant.is_narrow_range
+
+    @property
+    def is_quant_input_signed(self):
+        assert self.is_input_quant_enabled
+        return self.input_quant.is_signed
+
     def quant_input_scale(self):
-        return self.act_quant.scale()
+        assert self.is_input_quant_enabled
+        return self.input_quant.scale()
+
+    def quant_input_bit_width(self):
+        assert self.is_input_quant_enabled
+        return self.input_quant.bit_width()
 
 
 class QuantOutputMixin(QuantActMixin):
@@ -75,7 +95,7 @@ class QuantOutputMixin(QuantActMixin):
 
     def __init__(
             self,
-            act_quant: Union[IdentityQuantProxy, Type[Injector]],
+            act_quant: Union[ActQuantProxyProtocol, Type[Injector]],
             update_injector: Callable,
             **kwargs):
         QuantActMixin.__init__(
@@ -83,13 +103,32 @@ class QuantOutputMixin(QuantActMixin):
             act_impl=None,
             act_quant=act_quant,
             update_injector=update_injector,
-            proxy_impl=IdentityQuantProxy,
+            proxy_from_injector_impl=IdentityQuantProxyFromInjector,
             proxy_prefix='output_',
             kwargs_prefix='output_',
             **kwargs)
 
+    @property
+    def is_output_quant_enabled(self):
+        return self.output_quant.is_quant_enabled
+
+    @property
+    def is_quant_output_narrow_range(self):
+        assert self.is_output_quant_enabled
+        return self.output_quant.is_narrow_range
+
+    @property
+    def is_quant_output_signed(self):
+        assert self.is_output_quant_enabled
+        return self.output_quant.is_signed
+
     def quant_output_scale(self):
-        return self.act_quant.scale()
+        assert self.is_output_quant_enabled
+        return self.output_quant.scale()
+
+    def quant_output_bit_width(self):
+        assert self.is_output_quant_enabled
+        return self.output_quant.bit_width()
 
 
 class QuantNonLinearActMixin(QuantActMixin):
@@ -98,7 +137,7 @@ class QuantNonLinearActMixin(QuantActMixin):
     def __init__(
             self,
             act_impl: Module,
-            act_quant: Union[ActQuantProxy, Type[Injector]],
+            act_quant: Union[ActQuantProxyProtocol, Type[Injector]],
             update_injector: Callable,
             **kwargs):
         QuantActMixin.__init__(
@@ -106,12 +145,31 @@ class QuantNonLinearActMixin(QuantActMixin):
             act_impl=act_impl,
             act_quant=act_quant,
             update_injector=update_injector,
-            proxy_impl=ActQuantProxy,
+            proxy_from_injector_impl=ActQuantProxyFromInjector,
             proxy_prefix='act_',
             kwargs_prefix='',
             **kwargs)
 
+    @property
+    def is_act_quant_enabled(self):
+        return self.act_quant.is_quant_enabled
+
+    @property
+    def is_quant_act_narrow_range(self):
+        assert self.is_act_quant_enabled
+        return self.act_quant.is_narrow_range
+
+    @property
+    def is_quant_act_signed(self):
+        assert self.is_act_quant_enabled
+        return self.act_quant.is_signed
+
     def quant_act_scale(self):
+        assert self.is_act_quant_enabled
         return self.act_quant.scale()
+
+    def quant_act_bit_width(self):
+        assert self.is_act_quant_enabled
+        return self.act_quant.bit_width()
 
 

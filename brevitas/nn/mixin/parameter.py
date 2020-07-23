@@ -44,7 +44,8 @@ import torch
 
 from dependencies import Injector
 
-from brevitas.proxy.parameter_quant import  WeightQuantProxy, BiasQuantProxy
+from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector, BiasQuantProxyFromInjector
+from brevitas.proxy.parameter_quant import WeightQuantProxyProtocol, BiasQuantProxyProtocol
 
 from .base import QuantParameterMixin
 
@@ -55,14 +56,14 @@ class QuantWeightMixin(QuantParameterMixin):
     def __init__(
             self,
             weight: torch.nn.Parameter,
-            weight_quant: Optional[Union[WeightQuantProxy, Type[Injector]]],
+            weight_quant: Optional[Union[WeightQuantProxyProtocol, Type[Injector]]],
             update_injector: Optional[Callable],
             **kwargs):
         QuantParameterMixin.__init__(
             self,
             parameter=weight,
             parameter_quant=weight_quant,
-            proxy_impl=WeightQuantProxy,
+            proxy_from_injector_impl=WeightQuantProxyFromInjector,
             update_injector=update_injector,
             prefix='weight_',
             **kwargs)
@@ -73,9 +74,18 @@ class QuantWeightMixin(QuantParameterMixin):
         pass
 
     @property
-    @abstractmethod
-    def channelwise_separable(self) -> bool:
-        pass
+    def is_weight_quant_enabled(self):
+        return self.weight_quant.is_quant_enabled
+
+    @property
+    def is_quant_weight_narrow_range(self):
+        assert self.is_weight_quant_enabled
+        return self.weight_quant.is_narrow_range
+
+    @property
+    def is_quant_weight_signed(self):
+        assert self.is_weight_quant_enabled
+        return self.weight_quant.is_signed
 
     def quant_weight(self):
         return self.weight_quant(self.weight)
@@ -84,8 +94,14 @@ class QuantWeightMixin(QuantParameterMixin):
         return self.quant_weight().int(float_datatype)
 
     def quant_weight_scale(self):
+        assert self.is_weight_quant_enabled
         scale = self.quant_weight().scale
         return scale
+
+    def quant_weight_bit_width(self):
+        assert self.is_weight_quant_enabled
+        bit_width = self.quant_weight().bit_width
+        return bit_width
 
 
 class QuantBiasMixin(QuantParameterMixin):
@@ -94,14 +110,28 @@ class QuantBiasMixin(QuantParameterMixin):
     def __init__(
             self,
             bias: torch.nn.Parameter,
-            bias_quant: Union[BiasQuantProxy, Type[Injector]],
+            bias_quant: Union[BiasQuantProxyProtocol, Type[Injector]],
             update_injector: Callable,
             **kwargs):
         QuantParameterMixin.__init__(
             self,
             parameter=bias,
             parameter_quant=bias_quant,
-            proxy_impl=BiasQuantProxy,
+            proxy_from_injector_impl=BiasQuantProxyFromInjector,
             update_injector=update_injector,
             prefix='bias_',
             **kwargs)
+
+    @property
+    def is_bias_quant_enabled(self):
+        return self.bias_quant.is_quant_enabled
+
+    @property
+    def is_quant_bias_narrow_range(self):
+        assert self.is_bias_quant_enabled
+        return self.weight_quant.is_narrow_range
+
+    @property
+    def is_quant_bias_signed(self):
+        assert self.is_bias_quant_enabled
+        return self.weight_quant.is_signed

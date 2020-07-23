@@ -60,3 +60,7 @@ docsrc/source/_static/
 # Test environments and logs
 .hypothesis/
 .nox/
+
+
+# Auto-gen python files
+brevitas/function/ops_ste.py

@@ -38,31 +38,72 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from abc import ABCMeta
-from typing import Optional, Type, Union, Callable
+from abc import ABCMeta, abstractmethod
+from typing import Optional, Type, Union, Callable, Tuple
 
 import torch
 from torch.nn import Module
 from dependencies import Injector
 
-from brevitas.proxy.parameter_quant import ParameterQuantProxy
-from brevitas.proxy.runtime_quant import ActQuantProxy, TruncQuantProxy, ClampQuantProxy
+from brevitas.proxy.parameter_quant import ParameterQuantProxyFromInjector
+from brevitas.proxy.parameter_quant import ParameterQuantProxyProtocol
+from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector, ActQuantProxyProtocol
+from brevitas.proxy.runtime_quant import AccQuantProxyProtocol
+from brevitas.proxy.runtime_quant import ClampQuantProxyFromInjector, TruncQuantProxyFromInjector
 from brevitas.quant_tensor import QuantTensor
 
 
 class QuantLayerMixin(object):
     __metaclass__ = ABCMeta
 
-    def __init__(self, return_quant_tensor):
+    def __init__(
+            self,
+            return_quant_tensor: bool,
+            export_mode: bool = False,
+            export_handler: Optional = None,
+            cache_inference_input_output: bool = False):
         self.return_quant_tensor = return_quant_tensor
+        self.export_handler = export_handler
+        self.cache_inference_input_output = cache_inference_input_output
+        self._export_mode = export_mode
+        self._cached_inp_quant_tensor = None
+        self._cached_out_quant_tensor = None
+
+    @property
+    @abstractmethod
+    def channelwise_separable(self) -> bool:
+        pass
+
+    @property
+    def export_mode(self):
+        if self._export_mode and self.training:
+            raise RuntimeError("Can't enter export mode during training, only during inference")
+        return self._export_mode
+
+    @export_mode.setter
+    def export_mode(self, value):
+        if value and self.export_handler is None:
+            raise RuntimeError("Can't enable export mode on a layer without an export handler")
+        if value:
+            self.export_handler.prepare_for_symbolic_execution(self)
+        self._export_mode = value
 
     def unpack_input(self, inp):
         if isinstance(inp, QuantTensor):
+            if self.export_mode:
+                raise RuntimeError("QuantTensor I/O can't be used during export.")
+            if not self.training and self.cache_inference_input_output:
+                self._cached_inp_quant_tensor = inp.detach()
             return inp
         else:
-            return QuantTensor(inp)
+            inp = QuantTensor(inp)
+            if not self.training and self.cache_inference_input_output:
+                self._cached_inp_quant_tensor = inp.detach()
+            return inp
 
     def pack_output(self, quant_output: QuantTensor):
+        if not self.training and self.cache_inference_input_output:
+            self._cached_out_quant_tensor = quant_output.detach()
         if self.return_quant_tensor:
             return quant_output
         else:
@@ -75,8 +116,8 @@ class QuantParameterMixin(object):
     def __init__(
             self,
             parameter: torch.nn.Parameter,
-            parameter_quant: Optional[Union[ParameterQuantProxy, Type[Injector]]],
-            proxy_impl: Optional[Type[ParameterQuantProxy]],
+            parameter_quant: Optional[Union[ParameterQuantProxyProtocol, Type[Injector]]],
+            proxy_from_injector_impl: Optional[Type[ParameterQuantProxyFromInjector]],
             update_injector: Optional[Callable],
             prefix: str,
             **kwargs):
@@ -89,18 +130,17 @@ class QuantParameterMixin(object):
 
         proxy_name = prefix + 'quant'
         if parameter_quant is None:
-            assert proxy_impl is not None
+            assert proxy_from_injector_impl is not None
             parameter_quant_injector = Injector.let(tensor_quant=None)
             parameter_quant_injector = update_pqi(parameter_quant_injector)
-            parameter_quant = proxy_impl(parameter_quant_injector)
-        elif isinstance(parameter_quant, ParameterQuantProxy):
-            pass
-        else:
-            assert proxy_impl is not None
-            assert issubclass(parameter_quant, Injector)
+            parameter_quant = proxy_from_injector_impl(parameter_quant_injector)
+        elif issubclass(parameter_quant, Injector):
+            assert proxy_from_injector_impl is not None
             parameter_quant_injector = parameter_quant
             parameter_quant_injector = update_pqi(parameter_quant_injector)
-            parameter_quant = proxy_impl(parameter_quant_injector)
+            parameter_quant = proxy_from_injector_impl(parameter_quant_injector)
+        else:
+            assert isinstance(parameter_quant, ParameterQuantProxyProtocol)
         setattr(self, proxy_name, parameter_quant)
         getattr(self, proxy_name).add_tracked_parameter(parameter)
 
@@ -111,8 +151,8 @@ class QuantActMixin(object):
     def __init__(
             self,
             act_impl: Optional[Module],
-            act_quant: Union[ActQuantProxy, Type[Injector]],
-            proxy_impl: Optional[Type[ActQuantProxy]],
+            act_quant: Union[ActQuantProxyProtocol, Type[Injector]],
+            proxy_from_injector_impl: Optional[Type[ActQuantProxyFromInjector]],
             update_injector: Callable,
             proxy_prefix: str,
             kwargs_prefix: str,
@@ -130,17 +170,16 @@ class QuantActMixin(object):
             act_quant_injector = Injector.let(tensor_quant=None)
             act_quant_injector = act_quant_injector.let(act_impl=act_impl)
             act_quant_injector = update_aqi(act_quant_injector)
-            act_quant = proxy_impl(act_quant_injector)
-        elif isinstance(act_quant, proxy_impl):
-            pass
-        else:
-            assert proxy_impl is not None
-            assert issubclass(act_quant, Injector)
+            act_quant = proxy_from_injector_impl(act_quant_injector)
+        elif issubclass(act_quant, Injector):
+            assert proxy_from_injector_impl is not None
             act_quant_injector = act_quant
             if 'act_impl' not in act_quant_injector or act_quant_injector.act_impl is None:
                 act_quant_injector = act_quant_injector.let(act_impl=act_impl)
             act_quant_injector = update_aqi(act_quant_injector)
-            act_quant = proxy_impl(act_quant_injector)
+            act_quant = proxy_from_injector_impl(act_quant_injector)
+        else:
+            assert isinstance(act_quant, ActQuantProxyProtocol)
         setattr(self, proxy_name, act_quant)
 
 
@@ -149,8 +188,9 @@ class QuantAccMixin(object):
 
     def __init__(
             self,
-            acc_quant: Union[TruncQuantProxy, ClampQuantProxy, Type[Injector]],
-            proxy_impl: Optional[Union[Type[TruncQuantProxy], Type[ClampQuantProxy]]],
+            acc_quant: Union[AccQuantProxyProtocol, Type[Injector]],
+            proxy_from_injector_impl:
+            Optional[Union[Type[ClampQuantProxyFromInjector], Type[TruncQuantProxyFromInjector]]],
             update_injector: Callable,
             proxy_prefix: str,
             kwargs_prefix: str,
@@ -166,16 +206,15 @@ class QuantAccMixin(object):
 
         proxy_name = proxy_prefix + 'quant'
         if acc_quant is None:
-            assert proxy_impl is not None
-            acc_quant_injector = Injector.let(none_inject)
+            assert proxy_from_injector_impl is not None
+            acc_quant_injector = Injector.let(**none_inject)
             acc_quant_injector = update_aqi(acc_quant_injector)
-            acc_quant = proxy_impl(acc_quant_injector)
-        elif isinstance(acc_quant, proxy_impl):
-            pass
-        else:
-            assert proxy_impl is not None
-            assert issubclass(acc_quant, Injector)
+            acc_quant = proxy_from_injector_impl(acc_quant_injector)
+        elif issubclass(acc_quant, Injector):
+            assert proxy_from_injector_impl is not None
             acc_quant_injector = acc_quant
             acc_quant_injector = update_aqi(acc_quant_injector)
-            acc_quant = proxy_impl(acc_quant_injector)
+            acc_quant = proxy_from_injector_impl(acc_quant_injector)
+        else:
+            assert isinstance(acc_quant, AccQuantProxyProtocol)
         setattr(self, proxy_name, acc_quant)

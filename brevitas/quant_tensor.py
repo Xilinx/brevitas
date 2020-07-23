@@ -39,8 +39,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 from abc import ABC
-from typing import Optional
-from dataclasses import dataclass
+from typing import Optional, NamedTuple
 
 import torch
 from torch import Tensor
@@ -49,27 +48,19 @@ from brevitas.function.ops_ste import ceil_ste, round_ste
 from brevitas.function.ops import max_uint
 
 
-@dataclass
-class QuantTensorBase(ABC):
+def pack_quant_tensor(tensor, scale, bit_width, signed=None):  #TODO deprecate
+    return QuantTensor(tensor, scale, bit_width, signed)
+
+
+class QuantTensor(NamedTuple):
     value: Tensor
-
-    @property  # TODO deprecate
-    def tensor(self):
-        return self.value
-
-    def detach_(self):
-        self.value.detach_()
-
-
-@dataclass
-class QuantTensorMetadata:
     scale: Optional[Tensor] = None
     bit_width: Optional[Tensor] = None
     signed: Optional[bool] = None
 
-    def detach_(self):
-        self.scale.detach_()
-        self.bit_width.detach_()
+    @property
+    def tensor(self):
+        return self.value
 
     @property
     def is_valid(self):
@@ -77,9 +68,20 @@ class QuantTensorMetadata:
                and self.bit_width is not None \
                and self.signed is not None
 
+    def set(self, **kwargs):
+        return self._replace(**kwargs)
 
-@dataclass
-class QuantTensor(QuantTensorMetadata, QuantTensorBase):
+    def detach_(self):
+        self.value.detach_()
+        self.scale.detach_()
+        self.bit_width.detach_()
+
+    def detach(self):
+        return QuantTensor(
+            self.value.detach(),
+            self.scale.detach() if self.scale is not None else None,
+            self.bit_width.detach() if self.bit_width is not None else None,
+            self.signed)
 
     def int(self, float_datatype=False):
         if self.is_valid:

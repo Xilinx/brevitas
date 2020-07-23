@@ -42,16 +42,19 @@ from typing import Callable, Union, Type
 import math
 
 import torch
+from torch import Tensor
 from torch.nn import AvgPool2d
 from dependencies import Injector
 
 from brevitas.function.ops_ste import ceil_ste
 from brevitas.function.ops import max_uint
-from brevitas.mixin.base import QuantLayerMixin
-from brevitas.mixin.acc import QuantTruncMixin
-from brevitas.proxy.runtime_quant import TruncQuantProxy
+
+from brevitas.proxy.runtime_quant import AccQuantProxyProtocol
 from brevitas.proxy.config import update_trunc_quant_injector
 from brevitas.quant_tensor import QuantTensor
+from .quant_layer import DefaultTruncQuantInjector as DefaultTruncQI
+from .mixin.base import QuantLayerMixin
+from .mixin.acc import QuantTruncMixin
 
 
 class QuantAvgPool2d(QuantTruncMixin, QuantLayerMixin, AvgPool2d):
@@ -60,28 +63,36 @@ class QuantAvgPool2d(QuantTruncMixin, QuantLayerMixin, AvgPool2d):
             self,
             kernel_size: int,
             stride: int = None,
-            trunc_quant: Union[TruncQuantProxy, Type[Injector]] = None,
+            trunc_quant: Union[AccQuantProxyProtocol, Type[Injector]] = DefaultTruncQI,
             return_quant_tensor: bool = True,
             update_injector: Callable = update_trunc_quant_injector,
             **kwargs):
-        AvgPool2d.__init__(self,
-                           kernel_size=kernel_size,
-                           stride=stride)
+        AvgPool2d.__init__(
+            self,
+            kernel_size=kernel_size,
+            stride=stride)
         QuantLayerMixin.__init__(self, return_quant_tensor)
         QuantTruncMixin.__init__(
             self,
             trunc_quant=trunc_quant,
             update_injector=update_injector,
-            ls_bit_width_to_trunc = math.ceil(math.log2(kernel_size * kernel_size))
+            ls_bit_width_to_trunc=math.ceil(math.log2(kernel_size * kernel_size)),
             **kwargs)
 
-    def forward(self, x: QuantTensor):
+    @property
+    def channelwise_separable(self) -> bool:
+        return True
+
+    def forward(self, x: Union[Tensor, QuantTensor]):
         x = self.unpack_input(x)
-        x.value = super(QuantAvgPool2d, self).forward(x.value)
-        if self.trunc_quant.quant_enabled:
-            assert x.is_valid()  # check input quant tensort is propertly formed
-            x.value = x * (self.kernel_size * self.kernel_size)  # remove scaling introduced by avg
-            x.bit_width = self.max_acc_bit_width(x.bit_width)
+        if self.export_mode:
+            return self.export_handler(x.value)
+        x = x.set(value=super(QuantAvgPool2d, self).forward(x.value))
+        if self.is_trunc_quant_enabled:
+            assert x.is_valid  # check input quant tensor is propertly formed
+            rescaled_value = x.value * (self.kernel_size * self.kernel_size)  # remove avg scaling
+            x = x.set(value=rescaled_value)
+            x = x.set(bit_width=self.max_acc_bit_width(x.bit_width))
             x = self.trunc_quant(x)
         return self.pack_output(x)
 

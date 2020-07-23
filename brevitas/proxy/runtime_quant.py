@@ -39,6 +39,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 from typing import Optional, Union
+from typing_extensions import Protocol, runtime_checkable
 
 import torch
 from torch import Tensor
@@ -49,7 +50,21 @@ from dependencies import Injector
 from brevitas.function.ops_ste import round_ste
 from brevitas.quant_tensor import QuantTensor
 
-from .quant_proxy import QuantProxy
+from .quant_proxy import QuantProxyFromInjector, QuantProxyProtocol
+
+
+@runtime_checkable
+class ActQuantProxyProtocol(QuantProxyProtocol, Protocol):
+
+    def forward(self, x: Union[Tensor, QuantTensor]) -> QuantTensor:
+        ...
+
+
+@runtime_checkable
+class AccQuantProxyProtocol(QuantProxyProtocol, Protocol):
+
+    def forward(self, x: QuantTensor) -> QuantTensor:
+        ...
 
 
 class FusedActivationQuantProxy(torch.jit.ScriptModule):
@@ -66,28 +81,24 @@ class FusedActivationQuantProxy(torch.jit.ScriptModule):
         return x, output_scale, output_bit_width
 
 
-class ActQuantProxy(QuantProxy):
+class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
 
     def __init__(self, act_quant_injector: Injector):
-        super(ActQuantProxy, self).__init__()
+        super(ActQuantProxyFromInjector, self).__init__(act_quant_injector)
         tensor_quant = act_quant_injector.tensor_quant
         act_impl = act_quant_injector.act_impl
-        quant_enabled = tensor_quant is not None
-        act_enabled = act_impl is not None
-        self.act_quant_injector = act_quant_injector
-        if act_enabled and quant_enabled:
+        self.is_quant_enabled = tensor_quant is not None
+        self.is_act_enabled = act_impl is not None
+        if self.is_act_enabled and self.is_quant_enabled:
             self.fused_activation_quant_proxy = FusedActivationQuantProxy(
                 act_impl, tensor_quant)
-        elif act_enabled and not quant_enabled:
+        elif self.is_act_enabled and not self.is_quant_enabled:
             self.fused_activation_quant_proxy = act_impl
-        elif not act_enabled and quant_enabled:
+        elif not self.is_act_enabled and self.is_quant_enabled:
             self.fused_activation_quant_proxy = FusedActivationQuantProxy(
                 Identity(), tensor_quant)
         else:
             self.fused_activation_quant_proxy = None
-
-    def identity_quant(self):
-        return IdentityQuantProxy(self.act_quant_injector.let(act_impl=None))
 
     def scale(self):
         current_status = self.training
@@ -96,17 +107,24 @@ class ActQuantProxy(QuantProxy):
         self.train(current_status)
         return scale
 
-    def forward(self, x: Union[Tensor, QuantTensor]):
+    def bit_width(self):
+        scale = self.__call__(self._zero_hw_sentinel()).bit_width
+        return scale
+
+    def forward(self, x: Union[Tensor, QuantTensor]) -> QuantTensor:
         if isinstance(x, QuantTensor):
             x = x.value
         if self.fused_activation_quant_proxy is not None:
             x = self.fused_activation_quant_proxy(x)
-        if isinstance(x, tuple): # quantization happened
-            return QuantTensor(*x, signed=self.act_quant_injector.signed)
+        if isinstance(x, tuple):  # quantization happened
+            return QuantTensor(*x, signed=self.is_signed)
         elif isinstance(x, QuantTensor):  # x is still the input to the forward, pass it through
             return x
         else:  # only activation_impl was called
             return QuantTensor(x)
+
+    def identity_quant(self):
+        return IdentityQuantProxyFromInjector(self.quant_injector.let(act_impl=None))
 
     def _load_from_state_dict(
             self, state_dict, prefix, metadata, strict, missing_keys, unexpected_keys, error_msgs):
@@ -148,58 +166,74 @@ class ActQuantProxy(QuantProxy):
         #             del state_dict[k]
 
         # Go on with dict restoring
-        super(ActQuantProxy, self)._load_from_state_dict(
+        super(ActQuantProxyFromInjector, self)._load_from_state_dict(
             state_dict, prefix, metadata, strict, missing_keys, unexpected_keys, error_msgs)
 
 
-class IdentityQuantProxy(ActQuantProxy):
+class IdentityQuantProxyFromInjector(ActQuantProxyFromInjector, ActQuantProxyProtocol):
 
     def __init__(
             self,
             act_quant_injector: Injector):
         assert act_quant_injector.act_impl is None
-        super(IdentityQuantProxy, self).__init__(act_quant_injector)
+        super(IdentityQuantProxyFromInjector, self).__init__(act_quant_injector)
 
     def identity_quant_proxy(self):
         return self
 
 
-class ClampQuantProxy(QuantProxy):
+class ClampQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol):
 
     def __init__(self, clamp_quant_injector: Injector):
-        super(ClampQuantProxy, self).__init__()
-        self.tensor_quant = clamp_quant_injector.tensor_quant
-        self.clamp_quant_injector = clamp_quant_injector
+        super(ClampQuantProxyFromInjector, self).__init__(clamp_quant_injector)
+        tensor_quant = clamp_quant_injector.tensor_quant
+        self.is_quant_enabled = tensor_quant is not None
+        self.tensor_quant = tensor_quant
+
+
+    @property
+    def is_narrow_range(self):
+        return NotImplementedError
 
     def forward(self, x: QuantTensor):
-        if self.tensor_quant is not None:
+        if self.is_quant_enabled:
             out_value, out_scale, out_bit_width = self.tensor_quant(x.value, x.scale, x.bit_width)
-            signed = self.clamp_quant_injector.signed
-            return QuantTensor(out_value, out_scale, out_bit_width, signed)
+            return QuantTensor(out_value, out_scale, out_bit_width, self.is_signed)
         return x
 
 
-class TruncQuantProxy(QuantProxy):
+class TruncQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol):
 
     def __init__(self, trunc_quant_injector: Injector):
-        super(TruncQuantProxy, self).__init__()
-        self.lsb_trunc_bit_width_impl = trunc_quant_injector.lsb_trunc_bit_width_impl
-        self.tensor_quant = trunc_quant_injector.tensor_quant
-        self.trunc_quant_injector = trunc_quant_injector
-        quant_enabled = self.lsb_trunc_bit_width_impl is not None and self.tensor_quant is not None
-        self.quant_enabled = quant_enabled
+        super(TruncQuantProxyFromInjector, self).__init__(trunc_quant_injector)
+        lsb_trunc_bit_width_impl = trunc_quant_injector.lsb_trunc_bit_width_impl
+        tensor_quant = trunc_quant_injector.tensor_quant
+        self.is_quant_enabled = lsb_trunc_bit_width_impl is not None and tensor_quant is not None
+        self.lsb_trunc_bit_width_impl = lsb_trunc_bit_width_impl
+        self.tensor_quant = tensor_quant
+
+    @property
+    def is_narrow_range(self):
+        return NotImplementedError
 
     def forward(self, x: QuantTensor):
-        if self.quant_enabled:
-            x = round_ste(x / x.scale) * x.scale.detach()  # clean up fp errors before floor
+        if self.is_quant_enabled:
+            cleaned_up_value = round_ste(x.value / x.scale.detach()) * x.scale.detach()
+            x = x.set(value=cleaned_up_value)  # clean up accumulated floating point errors
             trunc_bit_width = self.lsb_trunc_bit_width_impl(x.bit_width)
             trunc_scale = 2.0 ** trunc_bit_width
             output_scale = trunc_scale * x.scale
-            x, output_scale, x_bit_width = self.tensor_quant(x, output_scale, x.bit_width)
+            if self.training:
+                x, output_scale, x_bit_width = self.tensor_quant(x.value, output_scale, x.bit_width)
+            else:  # avoid fp errors at inference time
+                x_bit_width = x.bit_width
+                x = round_ste(x.value / x.scale)
+                x = x / trunc_scale
+                x = self.tensor_quant.int_quant.float_to_int_impl(x)
+                x = x * output_scale
             x = x / trunc_scale
             output_scale = output_scale / trunc_scale  # output_scale == input_scale
             output_bit_width = x_bit_width - trunc_bit_width
-            signed = self.trunc_quant_injector.signed
-            return QuantTensor(x, output_scale, output_bit_width, signed)
+            return QuantTensor(x, output_scale, output_bit_width, self.is_signed)
         else:
             return x

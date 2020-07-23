@@ -50,9 +50,10 @@ from dependencies import Injector
 
 from brevitas.function.ops import max_uint
 from brevitas.function.ops_ste import ceil_ste
-from brevitas.proxy import WeightQuantProxy, BiasQuantProxy, ActQuantProxy
+from brevitas.proxy.parameter_quant import WeightQuantProxyProtocol, BiasQuantProxyProtocol
+from brevitas.proxy.runtime_quant import ActQuantProxyProtocol
 from brevitas.quant_tensor import QuantTensor
-from .quant_layer import DefaultWeightQuantInjector
+from .quant_layer import DefaultWeightQuantInjector as DefaultWeightQI
 from .quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 
 
@@ -72,10 +73,10 @@ class QuantConv2d(QuantWBIOL, Conv2d):
             groups: int = 1,
             bias: bool = True,
             padding_type: str ='standard',
-            weight_quant: Union[WeightQuantProxy, Type[Injector]] = DefaultWeightQuantInjector,
-            bias_quant: Union[BiasQuantProxy, Type[Injector]] = None,
-            input_quant: Union[ActQuantProxy, Type[Injector]] = None,
-            output_quant: Union[ActQuantProxy, Type[Injector]] = None,
+            weight_quant: Union[WeightQuantProxyProtocol, Type[Injector]] = DefaultWeightQI,
+            bias_quant: Union[BiasQuantProxyProtocol, Type[Injector]] = None,
+            input_quant: Union[ActQuantProxyProtocol, Type[Injector]] = None,
+            output_quant: Union[ActQuantProxyProtocol, Type[Injector]] = None,
             return_quant_tensor: bool = False,
             **kwargs) -> None:
         Conv2d.__init__(

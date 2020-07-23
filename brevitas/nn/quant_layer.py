@@ -47,12 +47,12 @@ from torch import Tensor
 from torch.nn import Module, Parameter
 
 from brevitas.quant_tensor import QuantTensor
-from brevitas.proxy.parameter_quant import WeightQuantProxy, BiasQuantProxy
-from brevitas.proxy.runtime_quant import IdentityQuantProxy, ActQuantProxy
+from brevitas.proxy.parameter_quant import WeightQuantProxyProtocol, BiasQuantProxyProtocol
+from brevitas.proxy.runtime_quant import ActQuantProxyProtocol
 from brevitas.proxy.config import update_weight_quant_injector as default_update_wqi
 from brevitas.proxy.config import update_bias_quant_injector as default_update_bqi
 from brevitas.proxy.config import update_act_quant_injector as default_update_aqi
-from brevitas.mixin import *
+from .mixin import *
 
 from .utils import mul_add_from_bn
 
@@ -81,6 +81,12 @@ class DefaultActQuantInjector(Injector):
     restrict_scaling_type = 'LOG_FP'
     scaling_per_output_channel = False
     scaling_min_val = 2.0 ** (-16)
+
+
+class DefaultTruncQuantInjector(Injector):
+    quant_type = 'INT'
+    lsb_trunc_bit_width_impl_type = 'CONST'
+    narrow_range = False
 
 
 class DefaultSignedActQuantInjector(DefaultActQuantInjector):
@@ -115,7 +121,7 @@ class QuantNonLinearActLayer(QuantNonLinearActMixin, QuantLayerMixin, Module):
     def __init__(
             self,
             act_impl: Optional[Module],
-            act_quant: Union[ActQuantProxy, Type[Injector]],
+            act_quant: Union[ActQuantProxyProtocol, Type[Injector]],
             return_quant_tensor: bool,
             update_aqi: Callable = default_update_aqi,
             **kwargs):
@@ -123,8 +129,14 @@ class QuantNonLinearActLayer(QuantNonLinearActMixin, QuantLayerMixin, Module):
         QuantLayerMixin.__init__(self, return_quant_tensor)
         QuantNonLinearActMixin.__init__(self, act_impl, act_quant, update_aqi, **kwargs)
 
+    @property
+    def channelwise_separable(self) -> bool:
+        return True
+
     def forward(self, inp: Union[Tensor, QuantTensor]):
         inp = self.unpack_input(inp)
+        if self.export_mode:  # shortcut execution through the export impl
+            return self.export_handler(inp.value)
         out = self.act_quant(inp)
         out = self.pack_output(out)
         return out
@@ -151,10 +163,10 @@ class QuantWeightBiasInputOutputLayer(
             self,
             weight: Parameter,
             bias: Parameter,
-            weight_quant: Union[WeightQuantProxy, Type[Injector]],
-            bias_quant: Union[BiasQuantProxy, Type[Injector]],
-            input_quant: Union[IdentityQuantProxy, Type[Injector]],
-            output_quant: Union[IdentityQuantProxy, Type[Injector]],
+            weight_quant: Union[WeightQuantProxyProtocol, Type[Injector]],
+            bias_quant: Union[BiasQuantProxyProtocol, Type[Injector]],
+            input_quant: Union[ActQuantProxyProtocol, Type[Injector]],
+            output_quant: Union[ActQuantProxyProtocol, Type[Injector]],
             return_quant_tensor: bool,
             update_wqi: Callable = default_update_wqi,
             update_bqi: Callable = default_update_bqi,
@@ -168,7 +180,7 @@ class QuantWeightBiasInputOutputLayer(
         QuantOutputMixin.__init__(self, output_quant, update_oqi, **kwargs)
 
     @property
-    def per_elem_ops(self):  # optional, so not abstract but concrete + error if not overridden
+    def per_elem_ops(self):  # optional, so concrete impl + error if not overridden
         raise NotImplementedError
 
     @abstractmethod
@@ -204,6 +216,10 @@ class QuantWeightBiasInputOutputLayer(
         output_bit_width = None
 
         inp = self.unpack_input(inp)
+
+        if self.export_mode:  # shortcut execution through the export impl
+            return self.export_handler(inp.value)
+
         quant_input = self.input_quant(inp)
         quant_weight = self.quant_weight()
 

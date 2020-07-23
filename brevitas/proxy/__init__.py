@@ -1,5 +1,5 @@
-from .parameter_quant import WeightQuantProxy, BiasQuantProxy
-from .runtime_quant import ActQuantProxy, ClampQuantProxy, TruncQuantProxy
+from .parameter_quant import WeightQuantProxyFromInjector
+from .parameter_quant import BiasQuantProxyFromInjector
+from .runtime_quant import ActQuantProxyFromInjector
+from .runtime_quant import ClampQuantProxyFromInjector
 
-# retrocompatibility to avoid breaking imports TODO deprecate
-from .runtime_quant import ActQuantProxy as ActivationQuantProxy

@@ -61,6 +61,7 @@ class FloatToIntImplType(AutoName):
     ROUND = auto()
     CEIL = auto()
     FLOOR = auto()
+    ROUND_TO_ZERO = auto()
 
 
 class _RestrictClampValue(torch.jit.ScriptModule):

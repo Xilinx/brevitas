@@ -13,7 +13,7 @@ except ImportError:
 
 from brevitas.function.ops_ste import ceil_ste
 from brevitas.function.ops import max_uint
-from brevitas.mixin.base import QuantLayerMixin
+from .mixin.base import QuantLayerMixin
 
 
 class HadamardClassifier(QuantLayerMixin, nn.Module):

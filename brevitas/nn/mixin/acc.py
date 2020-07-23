@@ -43,8 +43,9 @@ from typing import Type, Union, Callable
 
 from dependencies import Injector
 
-from brevitas.proxy.runtime_quant import TruncQuantProxy, ClampQuantProxy
-from .base import QuantLayerMixin, QuantAccMixin
+from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector, ClampQuantProxyFromInjector
+from brevitas.proxy.runtime_quant import AccQuantProxyProtocol
+from .base import QuantAccMixin
 
 
 class QuantTruncMixin(QuantAccMixin):
@@ -52,17 +53,31 @@ class QuantTruncMixin(QuantAccMixin):
 
     def __init__(
             self,
-            acc_quant: Union[TruncQuantProxy, Type[Injector]],
+            trunc_quant: Union[AccQuantProxyProtocol, Type[Injector]],
             update_injector: Callable,
             **kwargs):
         super().__init__(
-            acc_quant,
-            update_injector,
-            proxy_impl=TruncQuantProxy,
+            acc_quant=trunc_quant,
+            update_injector=update_injector,
+            proxy_from_injector_impl=TruncQuantProxyFromInjector,
             kwargs_prefix='',
             proxy_prefix='trunc_',
             none_inject={'quant_type': None, 'lsb_trunc_bit_width_impl': None},
             **kwargs)
+
+    @property
+    def is_trunc_quant_enabled(self):
+        return self.trunc_quant.is_quant_enabled
+
+    @property
+    def is_quant_trunc_narrow_range(self):
+        assert self.is_trunc_quant_enabled
+        return self.trunc_quant.is_narrow_range
+
+    @property
+    def is_quant_trunc_signed(self):
+        assert self.is_trunc_quant_enabled
+        return self.trunc_quant.is_signed
 
 
 class QuantClampMixin(QuantAccMixin):
@@ -70,14 +85,28 @@ class QuantClampMixin(QuantAccMixin):
 
     def __init__(
             self,
-            acc_quant: Union[ClampQuantProxy, Type[Injector]],
+            clamp_quant: Union[AccQuantProxyProtocol, Type[Injector]],
             update_injector: Callable,
             **kwargs):
         super().__init__(
-            acc_quant,
-            update_injector,
-            proxy_impl=ClampQuantProxy,
+            acc_quant=clamp_quant,
+            update_injector=update_injector,
+            proxy_from_injector_impl=ClampQuantProxyFromInjector,
             kwargs_prefix='',
             proxy_prefix='clamp_',
             none_inject={'quant_type': None},
             **kwargs)
+
+    @property
+    def is_clamp_quant_enabled(self):
+        return self.clamp_quant.is_quant_enabled
+
+    @property
+    def is_quant_clamp_narrow_range(self):
+        assert self.is_clamp_quant_enabled
+        return self.clamp_quant.is_narrow_range
+
+    @property
+    def is_quant_clamp_signed(self):
+        assert self.is_clamp_quant_enabled
+        return self.clamp_quant.is_signed

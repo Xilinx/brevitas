@@ -43,19 +43,18 @@ from typing import Type
 from dependencies import Injector
 from torch import nn
 
-from brevitas.core.function_wrapper import ConstScalarClamp
 from .quant_layer import QuantNonLinearActLayer as QuantNLA
-from .quant_layer import DefaultUnsignedActQuantInjector as DefUnsignedAQI
-from .quant_layer import DefaultSignedActQuantInjector as DefSignedAQI
-from .quant_layer import DefaultUnitaryUnsignedActQuantInjector as DefUnitaryUnsignedAQI
-from .quant_layer import DefaultUnitarySignedActQuantInjector as DefUnitarySignedAQI
+from .quant_layer import DefaultUnsignedActQuantInjector as DefUnsignedActQI
+from .quant_layer import DefaultSignedActQuantInjector as DefSignedActQI
+from .quant_layer import DefaultUnitaryUnsignedActQuantInjector as DefUnitaryUnsignedActQI
+from .quant_layer import DefaultUnitarySignedActQuantInjector as DefUnitarySignedActQI
 
 
 class QuantReLU(QuantNLA):
 
     def __init__(
             self,
-            act_quant: Type[Injector] = DefUnsignedAQI,
+            act_quant: Type[Injector] = DefUnsignedActQI,
             return_quant_tensor: bool = False,
             **kwargs):
         QuantNLA.__init__(
@@ -70,7 +69,7 @@ class QuantSigmoid(QuantNLA):
 
     def __init__(
             self,
-            act_quant: Type[Injector] = DefUnitaryUnsignedAQI,
+            act_quant: Type[Injector] = DefUnitaryUnsignedActQI,
             return_quant_tensor: bool = False,
             **kwargs):
         QuantNLA.__init__(
@@ -85,7 +84,7 @@ class QuantTanh(QuantNLA):
 
     def __init__(
             self,
-            act_quant: Type[Injector] = DefUnitarySignedAQI,
+            act_quant: Type[Injector] = DefUnitarySignedActQI,
             return_quant_tensor: bool = False,
             **kwargs):
         QuantNLA.__init__(
@@ -100,12 +99,12 @@ class QuantHardTanh(QuantNLA):
 
     def __init__(
             self,
-            act_quant: Type[Injector] = DefUnitarySignedAQI,
+            act_quant: Type[Injector] = DefUnitarySignedActQI,
             return_quant_tensor: bool = False,
             **kwargs):
         QuantNLA.__init__(
             self,
-            act_impl=ConstScalarClamp,
+            act_impl=nn.Hardtanh,
             act_quant=act_quant,
             return_quant_tensor=return_quant_tensor,
             **kwargs)
@@ -115,7 +114,7 @@ class QuantIdentity(QuantNLA):
 
     def __init__(
             self,
-            act_quant: Type[Injector] = DefSignedAQI,
+            act_quant: Type[Injector] = DefSignedActQI,
             return_quant_tensor: bool = False,
             **kwargs):
         QuantNLA.__init__(

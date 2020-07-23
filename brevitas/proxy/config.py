@@ -65,10 +65,6 @@ class EvaluateScalingInitImpl(Injector):
             return torch.tensor(scaling_init)
 
 
-class DefaultBiasQuantInjector(Injector):
-    quant_type = 'FP'
-
-
 class ParameterFromStatsScalingInit:
 
     def __init__(self, parameter_stats_scaling: ParameterStatsScaling):
@@ -402,7 +398,7 @@ def _update_act_impl(qi):
         qi = qi.let(max_val_set=1.0, **unsigned_attrs)
     elif isinstance(qi.act_impl, nn.Tanh) and not min_val_set and not signed_set:
         qi = qi.let({'signed': True, 'min_val': -1.0, 'max_val': 1.0})
-    elif isinstance(qi.act_impl, ConstScalarClamp) and not quant_type_fp:
+    elif isinstance(qi.act_impl, nn.Hardtanh) and not quant_type_fp:
         qi = qi.let(act_impl=None)
     return qi
 
@@ -460,6 +456,7 @@ def _solve_trunc_quant_type(qi):
     qi = solver(qi, QuantType.FP, {'tensor_quant': None, 'lsb_trunc_bit_width_impl': None})
     qi = solver(qi, QuantType.INT,
                 {'tensor_quant': PrescaledRestrictIntQuantWithInputBitWidth,
+                 'int_quant': IntQuant,
                  'bit_width_impl': IdentityBitWidth,
                  'lsb_trunc_bit_width_impl': LsbTruncBitWidth})
     return qi
@@ -468,6 +465,8 @@ def _solve_trunc_quant_type(qi):
 def _solve_lsb_trunc_bit_width_impl_type(qi):
     name = 'lsb_trunc_bit_width_impl_type'
     qi = _solve_bit_width_to_remove_impl(qi, name)
+    if _check_name_value(qi, name, BitWidthImplType.CONST):
+        qi = qi.let(bit_width=this.ls_bit_width_to_trunc)
     return qi
 
 

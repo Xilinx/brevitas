@@ -40,32 +40,63 @@
 
 from abc import ABCMeta, abstractmethod
 from typing import Tuple, Optional, List
+from typing_extensions import Protocol, runtime_checkable
 
 import torch
 from torch import Tensor
+from torch.nn import Module
 from dependencies import Injector
 
 from brevitas.function import max_uint
 from brevitas.quant_tensor import QuantTensor
 
-from .quant_proxy import QuantProxy
+from .quant_proxy import QuantProxyFromInjector, QuantProxyProtocol
 
 
-__all__ = ['WeightQuantProxy', 'BiasQuantProxy']
+__all__ = ['WeightQuantProxyFromInjector',
+           'BiasQuantProxyFromInjector']
 
 
-class ParameterQuantProxy(QuantProxy):
+@runtime_checkable
+class ParameterQuantProxyProtocol(QuantProxyProtocol, Protocol):
+
+    def add_tracked_parameter(self, parameter: torch.nn.Parameter) -> None:
+        ...
+
+
+@runtime_checkable
+class WeightQuantProxyProtocol(ParameterQuantProxyProtocol, Protocol):
+
+    def forward(self, x: torch.Tensor) -> QuantTensor:
+        ...
+
+
+@runtime_checkable
+class BiasQuantProxyProtocol(ParameterQuantProxyProtocol, Protocol):
+
+    def forward(
+            self,
+            x: Tensor,
+            input_scale: Tensor,
+            input_bit_width: Optional[Tensor]) -> QuantTensor:
+        ...
+
+
+class ParameterQuantProxyFromInjector(QuantProxyFromInjector, ParameterQuantProxyProtocol):
     __metaclass__ = ABCMeta
 
     def __init__(self, quant_injector: Injector) -> None:
-        super(ParameterQuantProxy, self).__init__()
-        self.quant_injector = quant_injector
+        super(ParameterQuantProxyFromInjector, self).__init__(quant_injector)
         self.tensor_quant = None
         if 'tracked_parameter_list' in quant_injector:
             self.tracked_parameter_list = quant_injector.tracked_parameter_list
         else:
             self.tracked_parameter_list = None
         self.init_tensor_quant()
+
+    @property
+    def is_quant_enabled(self):
+        return self.tensor_quant is not None
 
     def init_tensor_quant(self):
         if self.tracked_parameter_list is not None:
@@ -74,7 +105,7 @@ class ParameterQuantProxy(QuantProxy):
             self.tensor_quant = self.quant_injector.tensor_quant
 
     def max_uint_value(self, bit_width):
-        return max_uint(self.weight_quant_injector.narrow_range, bit_width)
+        return max_uint(self.is_narrow_range, bit_width)
 
     def add_tracked_parameter(self, parameter: torch.nn.Parameter) -> None:
         if self.tracked_parameter_list is None:
@@ -87,29 +118,29 @@ class ParameterQuantProxy(QuantProxy):
 
     def _load_from_state_dict(
             self, state_dict, prefix, metadata, strict, missing_keys, unexpected_keys, error_msgs):
-        super(ParameterQuantProxy, self)._load_from_state_dict(
+        super(ParameterQuantProxyFromInjector, self)._load_from_state_dict(
             state_dict, prefix, metadata, strict, missing_keys, unexpected_keys, error_msgs)
         self.init_tensor_quant()
 
 
-class WeightQuantProxy(ParameterQuantProxy):
+class WeightQuantProxyFromInjector(ParameterQuantProxyFromInjector, WeightQuantProxyProtocol):
 
     def forward(self, x: torch.Tensor) -> QuantTensor:
-        if self.tensor_quant is not None:
+        if self.is_quant_enabled:
             out, scale, bit_width = self.tensor_quant(x)
-            return QuantTensor(out, scale, bit_width, signed=self.quant_injector.signed)
+            return QuantTensor(out, scale, bit_width, signed=self.is_signed)
         else:  # quantization disabled
             return QuantTensor(x)
 
 
-class BiasQuantProxy(ParameterQuantProxy):
+class BiasQuantProxyFromInjector(ParameterQuantProxyFromInjector, BiasQuantProxyProtocol):
 
     def forward(
             self,
             x: Tensor,
             input_scale: Tensor,
             input_bit_width: Optional[Tensor]) -> QuantTensor:
-        if self.tensor_quant is not None:
+        if self.is_quant_enabled:
             if input_scale is None:
                 raise RuntimeError("Input scale can't be None when quantizing bias")
             input_scale = input_scale.view(-1)
@@ -119,7 +150,7 @@ class BiasQuantProxy(ParameterQuantProxy):
                 out, out_scale, out_bit_width = self.tensor_quant(x, input_scale, input_bit_width)
             else:
                 out, out_scale, out_bit_width = self.tensor_quant(x, input_scale)
-            return QuantTensor(out, out_scale, out_bit_width, self.quant_injector.signed)
+            return QuantTensor(out, out_scale, out_bit_width, self.is_signed)
         else:
             return QuantTensor(x)
 
