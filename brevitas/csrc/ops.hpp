@@ -154,7 +154,7 @@ class TernarySignSteFn : public torch::autograd::Function<TernarySignSteFn> {
    }
 };
 
-class RoundToZeroFn : public torch::autograd::Function<RoundToZeroFn> {
+class RoundToZeroSteFn : public torch::autograd::Function<RoundToZeroSteFn> {
  public:
   static variable_list forward(
     AutogradContext* ctx,
@@ -209,7 +209,7 @@ Tensor scalar_clamp_ste(
  return ScalarClampSteFn::apply(input, min_val, max_val)[0];
 };
 
-Tensor round_to_zero(
+Tensor round_to_zero_ste(
  const Tensor& input){
- return RoundToZeroFn::apply(input)[0];
+ return RoundToZeroSteFn::apply(input)[0];
 };
