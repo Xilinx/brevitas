@@ -152,7 +152,7 @@ class QuantNonLinearActLayer(QuantNonLinearActMixin, QuantLayerMixin, Module):
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
                               missing_keys, unexpected_keys, error_msgs):
-        value_key = 'act_quant'
+        value_key = prefix + 'act_quant'
         retrocomp_value_key = prefix + 'act_quant_proxy'
         if retrocomp_value_key in state_dict:  # retrocompatibility
             state_dict[value_key] = state_dict.pop(retrocomp_value_key)
