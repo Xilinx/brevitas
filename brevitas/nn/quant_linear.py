@@ -53,6 +53,7 @@ from brevitas.proxy.runtime_quant import ActQuantProxyProtocol
 from brevitas.quant_tensor import QuantTensor
 from .quant_layer import DefaultWeightQuantInjector as DefaultWeightQI
 from .quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
+from .quant_layer import DefaultBiasQuantInjector as DefaultBiasQI
 
 __all__ = ['QuantLinear']
 
@@ -65,7 +66,7 @@ class QuantLinear(Linear, QuantWBIOL):
             out_features: int,
             bias: bool,
             weight_quant: Union[WeightQuantProxyProtocol, Type[Injector]] = DefaultWeightQI,
-            bias_quant: Union[BiasQuantProxyProtocol, Type[Injector]] = None,
+            bias_quant: Union[BiasQuantProxyProtocol, Type[Injector]] = DefaultBiasQI,
             input_quant: Union[ActQuantProxyProtocol, Type[Injector]] = None,
             output_quant: Union[ActQuantProxyProtocol, Type[Injector]] = None,
             return_quant_tensor: bool = False,

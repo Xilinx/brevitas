@@ -73,6 +73,11 @@ class DefaultWeightQuantInjector(DefaultWeightScalingInjector):
     bit_width = 8
 
 
+class DefaultBiasQuantInjector(Injector):
+    quant_type = 'FP'
+    narrow_range = False
+
+
 class DefaultActQuantInjector(Injector):
     quant_type = 'INT'
     bit_width_impl_type = 'CONST'
@@ -89,6 +94,7 @@ class DefaultTruncQuantInjector(Injector):
     narrow_range = False
     min_overall_bit_width = 2  # TODO deprecate
     max_overall_bit_width = 32  # TODO deprecate
+    signed = True
 
 
 class DefaultSignedActQuantInjector(DefaultActQuantInjector):

@@ -47,6 +47,7 @@ import brevitas.config as config
 from brevitas.proxy.parameter_quant import WeightQuantProxyProtocol, BiasQuantProxyProtocol
 from brevitas.proxy.runtime_quant import ActQuantProxyProtocol
 from .quant_layer import DefaultWeightQuantInjector as DefaultWeightQI
+from .quant_layer import DefaultBiasQuantInjector as DefaultBiasQI
 from .quant_scale_bias import QuantScaleBias
 from .utils import mul_add_from_bn
 
@@ -58,7 +59,7 @@ class BatchNorm2dToQuantScaleBias(QuantScaleBias):
             num_features,
             eps: float = 1e-5,
             weight_quant: Union[WeightQuantProxyProtocol, Type[Injector]] = DefaultWeightQI,
-            bias_quant: Union[BiasQuantProxyProtocol, Type[Injector]] = None,
+            bias_quant: Union[BiasQuantProxyProtocol, Type[Injector]] = DefaultBiasQI,
             input_quant: Union[ActQuantProxyProtocol, Type[Injector]] = None,
             output_quant: Union[ActQuantProxyProtocol, Type[Injector]] = None,
             return_quant_tensor: bool = False,
