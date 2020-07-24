@@ -76,6 +76,7 @@ class DefaultWeightQuantInjector(DefaultWeightScalingInjector):
 class DefaultBiasQuantInjector(Injector):
     quant_type = 'FP'
     narrow_range = False
+    signed = True
 
 
 class DefaultActQuantInjector(Injector):
