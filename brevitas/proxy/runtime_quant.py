@@ -112,16 +112,16 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
         return scale
 
     def forward(self, x: Union[Tensor, QuantTensor]) -> QuantTensor:
-        if isinstance(x, QuantTensor):
-            x = x.value
-        if self.fused_activation_quant_proxy is not None:
+        if self.is_act_enabled or self.is_quant_enabled:
+            if isinstance(x, QuantTensor):
+                x = x.value
             x = self.fused_activation_quant_proxy(x)
-        if isinstance(x, tuple):  # quantization happened
             return QuantTensor(*x, signed=self.is_signed)
-        elif isinstance(x, QuantTensor):  # x is still the input to the forward, pass it through
-            return x
-        else:  # only activation_impl was called
-            return QuantTensor(x)
+        else:
+            if isinstance(x, QuantTensor):  # passthrough
+                return x
+            else:
+                return QuantTensor(x)
 
     def identity_quant(self):
         return IdentityQuantProxyFromInjector(self.quant_injector.let(act_impl=None))

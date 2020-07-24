@@ -120,13 +120,14 @@ def _solve_attr(qi, value, solved_value, name: str, solved_key: str = None):
 def _solve_bias_quant_type(qi):
     name = 'quant_type'
     solver = partial(_solve_attr, name=name)
-    qi = solver(qi, QuantType.FP, {'tensor_quant': IdentityPrescaledQuant, 'signed': None})
+    qi = solver(qi, QuantType.FP, {'tensor_quant': None})
     if _check_name_value(qi, name, QuantType.INT):
         if 'bit_width' in qi:
-            qi.let(**{'tensor_quant': PrescaledRestrictIntQuant, 'int_quant': IntQuant})
+            qi = qi.let(**{'tensor_quant': PrescaledRestrictIntQuant,
+                           'int_quant': IntQuant})
         else:
-            qi.let(**{'tensor_quant': PrescaledRestrictIntQuantWithInputBitWidth,
-                       'int_quant': IntQuant})
+            qi = qi.let(**{'tensor_quant': PrescaledRestrictIntQuantWithInputBitWidth,
+                           'int_quant': IntQuant})
     return qi
 
 
@@ -139,9 +140,9 @@ def _solve_bit_width_impl_type(qi):
 
 def _solve_bias_bit_width_impl_type(qi):
     if 'bit_width' in qi and 'bit_width_impl_type' not in qi: # retrocomp. TODO deprecate
-        qi.let(bit_width_impl=BitWidthImplType.CONST)
+        qi = qi.let(bit_width_impl=BitWidthImplType.CONST)
     elif 'bit_width' not in qi and 'bit_width_impl_type' not in qi:
-        qi.let(**{'bit_width_impl': IdentityBitWidth, 'requires_input_bit_width': True})
+        qi = qi.let(**{'bit_width_impl': IdentityBitWidth, 'requires_input_bit_width': True})
     qi = _solve_bit_width_impl_type(qi)
     return qi
 
@@ -366,6 +367,8 @@ def _solve_enum_based_quant_bias_api(qi):
     qi = _solve_bias_quant_type(qi)
     qi = _solve_bias_bit_width_impl_type(qi)
     qi = _solve_tensor_quant_float_to_int_impl(qi)
+    if 'tensor_clamp_impl' not in qi:
+        qi = qi.let(tensor_clamp_impl=TensorClamp)
     return qi
 
 
@@ -439,7 +442,7 @@ def update_bias_quant_injector(
         prefix: str,
         **kwargs):
     qi = bias_quant_injector.let(**filter_kwargs(prefix, kwargs))
-    qi = _solve_enum_based_quant_weight_api(qi)
+    qi = _solve_enum_based_quant_bias_api(qi)
     return qi
 
 
