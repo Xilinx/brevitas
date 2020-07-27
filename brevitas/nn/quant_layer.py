@@ -54,7 +54,7 @@ from brevitas.proxy.config import update_bias_quant_injector as default_update_b
 from brevitas.proxy.config import update_act_quant_injector as default_update_aqi
 from .mixin import *
 
-from .utils import mul_add_from_bn
+from .utils import mul_add_from_bn, rename_state_dict
 
 
 class DefaultWeightScalingInjector(Injector):
@@ -187,10 +187,8 @@ class QuantNonLinearActLayer(QuantNonLinearActMixin, QuantLayerMixin, Module):
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
                               missing_keys, unexpected_keys, error_msgs):
-        value_key = prefix + 'act_quant'
-        retrocomp_value_key = prefix + 'act_quant_proxy'
-        if retrocomp_value_key in state_dict:  # retrocompatibility
-            state_dict[value_key] = state_dict.pop(retrocomp_value_key)
+        # for retrocompatibility
+        rename_state_dict(prefix + 'act_quant_proxy', prefix + 'act_quant', state_dict)
         super(QuantNonLinearActLayer, self)._load_from_state_dict(
             state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
 
