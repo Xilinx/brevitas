@@ -64,7 +64,8 @@ class QuantTensor(NamedTuple):
 
     @property
     def is_valid(self):
-        return self.scale is not None \
+        return self.value is not None \
+               and self.scale is not None \
                and self.bit_width is not None \
                and self.signed is not None
 
@@ -78,7 +79,7 @@ class QuantTensor(NamedTuple):
 
     def detach(self):
         return QuantTensor(
-            self.value.detach(),
+            self.value.detach() if self.value is not None else None,
             self.scale.detach() if self.scale is not None else None,
             self.bit_width.detach() if self.bit_width is not None else None,
             self.signed)
@@ -153,7 +154,10 @@ class QuantTensor(NamedTuple):
         return output
 
     def __abs__(self):
-        return QuantTensor(torch.abs(self.tensor), self.scale, self.bit_width, self.signed)
+        if self.signed:
+            return QuantTensor(torch.abs(self.tensor), self.scale, self.bit_width - 1, False)
+        else:
+            return QuantTensor(torch.abs(self.tensor), self.scale, self.bit_width, False)
 
     def __pos__(self):
         return self

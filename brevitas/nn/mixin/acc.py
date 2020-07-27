@@ -39,13 +39,49 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 from abc import ABCMeta
-from typing import Type, Union, Callable
+from typing import Type, Union, Callable, Optional
 
 from dependencies import Injector
 
 from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector, ClampQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import AccQuantProxyProtocol
-from .base import QuantAccMixin
+
+
+class QuantAccMixin(object):
+    __metaclass__ = ABCMeta
+
+    def __init__(
+            self,
+            acc_quant: Union[AccQuantProxyProtocol, Type[Injector]],
+            proxy_from_injector_impl:
+            Optional[Union[Type[ClampQuantProxyFromInjector], Type[TruncQuantProxyFromInjector]]],
+            update_injector: Callable,
+            proxy_prefix: str,
+            kwargs_prefix: str,
+            none_inject: dict,
+            **kwargs):
+
+        def update_aqi(aqi):
+            if update_injector is not None:
+                # don't pass prefix here for retrocompatibility
+                return update_injector(self, aqi, kwargs_prefix, **kwargs)
+            else:
+                return aqi
+
+        proxy_name = proxy_prefix + 'quant'
+        if acc_quant is None:
+            assert proxy_from_injector_impl is not None
+            acc_quant_injector = Injector.let(**none_inject)
+            acc_quant_injector = update_aqi(acc_quant_injector)
+            acc_quant = proxy_from_injector_impl(acc_quant_injector)
+        elif issubclass(acc_quant, Injector):
+            assert proxy_from_injector_impl is not None
+            acc_quant_injector = acc_quant
+            acc_quant_injector = update_aqi(acc_quant_injector)
+            acc_quant = proxy_from_injector_impl(acc_quant_injector)
+        else:
+            assert isinstance(acc_quant, AccQuantProxyProtocol)
+        setattr(self, proxy_name, acc_quant)
 
 
 class QuantTruncMixin(QuantAccMixin):

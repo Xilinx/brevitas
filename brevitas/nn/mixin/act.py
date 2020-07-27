@@ -38,15 +38,52 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from abc import ABCMeta
-from typing import Type, Union, Callable
+from abc import ABCMeta, abstractmethod
+from typing import Type, Union, Callable, Optional
 
 from torch.nn import Module
 from dependencies import Injector
 
 from brevitas.proxy.runtime_quant import IdentityQuantProxyFromInjector, ActQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import ActQuantProxyProtocol
-from .base import QuantActMixin
+
+
+class QuantActMixin(object):
+    __metaclass__ = ABCMeta
+
+    def __init__(
+            self,
+            act_impl: Optional[Module],
+            act_quant: Union[ActQuantProxyProtocol, Type[Injector]],
+            proxy_from_injector_impl: Optional[Type[ActQuantProxyFromInjector]],
+            update_injector: Callable,
+            proxy_prefix: str,
+            kwargs_prefix: str,
+            **kwargs):
+
+        def update_aqi(aqi):
+            if update_injector is not None:
+                # don't pass prefix here for retrocompatibility
+                return update_injector(self, aqi, kwargs_prefix, **kwargs)
+            else:
+                return aqi
+
+        proxy_name = proxy_prefix + 'quant'
+        if act_quant is None:
+            act_quant_injector = Injector.let(tensor_quant=None)
+            act_quant_injector = act_quant_injector.let(act_impl=act_impl)
+            act_quant_injector = update_aqi(act_quant_injector)
+            act_quant = proxy_from_injector_impl(act_quant_injector)
+        elif issubclass(act_quant, Injector):
+            assert proxy_from_injector_impl is not None
+            act_quant_injector = act_quant
+            if 'act_impl' not in act_quant_injector or act_quant_injector.act_impl is None:
+                act_quant_injector = act_quant_injector.let(act_impl=act_impl)
+            act_quant_injector = update_aqi(act_quant_injector)
+            act_quant = proxy_from_injector_impl(act_quant_injector)
+        else:
+            assert isinstance(act_quant, ActQuantProxyProtocol)
+        setattr(self, proxy_name, act_quant)
 
 
 class QuantInputMixin(QuantActMixin):
@@ -72,22 +109,22 @@ class QuantInputMixin(QuantActMixin):
         return self.input_quant.is_quant_enabled
 
     @property
-    def is_quant_input_narrow_range(self):
+    def is_quant_input_narrow_range(self): # TODO make abstract once narrow range can be cached
         assert self.is_input_quant_enabled
         return self.input_quant.is_narrow_range
 
     @property
+    @abstractmethod
     def is_quant_input_signed(self):
-        assert self.is_input_quant_enabled
-        return self.input_quant.is_signed
+        pass
 
+    @abstractmethod
     def quant_input_scale(self):
-        assert self.is_input_quant_enabled
-        return self.input_quant.scale()
+        pass
 
+    @abstractmethod
     def quant_input_bit_width(self):
-        assert self.is_input_quant_enabled
-        return self.input_quant.bit_width()
+        pass
 
 
 class QuantOutputMixin(QuantActMixin):
@@ -113,22 +150,22 @@ class QuantOutputMixin(QuantActMixin):
         return self.output_quant.is_quant_enabled
 
     @property
-    def is_quant_output_narrow_range(self):
+    def is_quant_output_narrow_range(self):  # TODO make abstract once narrow range can be cached
         assert self.is_output_quant_enabled
         return self.output_quant.is_narrow_range
 
     @property
+    @abstractmethod
     def is_quant_output_signed(self):
-        assert self.is_output_quant_enabled
-        return self.output_quant.is_signed
+        pass
 
+    @abstractmethod
     def quant_output_scale(self):
-        assert self.is_output_quant_enabled
-        return self.output_quant.scale()
+        pass
 
+    @abstractmethod
     def quant_output_bit_width(self):
-        assert self.is_output_quant_enabled
-        return self.output_quant.bit_width()
+        pass
 
 
 class QuantNonLinearActMixin(QuantActMixin):
@@ -155,21 +192,21 @@ class QuantNonLinearActMixin(QuantActMixin):
         return self.act_quant.is_quant_enabled
 
     @property
-    def is_quant_act_narrow_range(self):
+    def is_quant_act_narrow_range(self):  # TODO make abstract once narrow range can be cached
         assert self.is_act_quant_enabled
         return self.act_quant.is_narrow_range
 
     @property
+    @abstractmethod
     def is_quant_act_signed(self):
-        assert self.is_act_quant_enabled
-        return self.act_quant.is_signed
+        pass
 
+    @abstractmethod
     def quant_act_scale(self):
-        assert self.is_act_quant_enabled
-        return self.act_quant.scale()
+        pass
 
+    @abstractmethod
     def quant_act_bit_width(self):
-        assert self.is_act_quant_enabled
-        return self.act_quant.bit_width()
+        pass
 
 

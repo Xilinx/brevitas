@@ -43,21 +43,21 @@ from typing import Type
 from dependencies import Injector
 from torch import nn
 
-from .quant_layer import QuantNonLinearActLayer as QuantNLA
+from .quant_layer import QuantNonLinearActLayer as QuantNLAL
 from .quant_layer import DefaultUnsignedActQuantInjector as DefUnsignedActQI
 from .quant_layer import DefaultSignedActQuantInjector as DefSignedActQI
 from .quant_layer import DefaultUnitaryUnsignedActQuantInjector as DefUnitaryUnsignedActQI
 from .quant_layer import DefaultUnitarySignedActQuantInjector as DefUnitarySignedActQI
 
 
-class QuantReLU(QuantNLA):
+class QuantReLU(QuantNLAL):
 
     def __init__(
             self,
             act_quant: Type[Injector] = DefUnsignedActQI,
             return_quant_tensor: bool = False,
             **kwargs):
-        QuantNLA.__init__(
+        QuantNLAL.__init__(
             self,
             act_impl=nn.ReLU,
             act_quant=act_quant,
@@ -65,14 +65,14 @@ class QuantReLU(QuantNLA):
             **kwargs)
 
 
-class QuantSigmoid(QuantNLA):
+class QuantSigmoid(QuantNLAL):
 
     def __init__(
             self,
             act_quant: Type[Injector] = DefUnitaryUnsignedActQI,
             return_quant_tensor: bool = False,
             **kwargs):
-        QuantNLA.__init__(
+        QuantNLAL.__init__(
             self,
             act_impl=nn.Sigmoid,
             act_quant=act_quant,
@@ -80,14 +80,14 @@ class QuantSigmoid(QuantNLA):
             **kwargs)
 
 
-class QuantTanh(QuantNLA):
+class QuantTanh(QuantNLAL):
 
     def __init__(
             self,
             act_quant: Type[Injector] = DefUnitarySignedActQI,
             return_quant_tensor: bool = False,
             **kwargs):
-        QuantNLA.__init__(
+        QuantNLAL.__init__(
             self,
             act_impl=nn.Tanh,
             act_quant=act_quant,
@@ -95,14 +95,14 @@ class QuantTanh(QuantNLA):
             **kwargs)
 
 
-class QuantHardTanh(QuantNLA):
+class QuantHardTanh(QuantNLAL):
 
     def __init__(
             self,
             act_quant: Type[Injector] = DefUnitarySignedActQI,
             return_quant_tensor: bool = False,
             **kwargs):
-        QuantNLA.__init__(
+        QuantNLAL.__init__(
             self,
             act_impl=nn.Hardtanh,
             act_quant=act_quant,
@@ -110,14 +110,14 @@ class QuantHardTanh(QuantNLA):
             **kwargs)
 
 
-class QuantIdentity(QuantNLA):
+class QuantIdentity(QuantNLAL):
 
     def __init__(
             self,
             act_quant: Type[Injector] = DefSignedActQI,
             return_quant_tensor: bool = False,
             **kwargs):
-        QuantNLA.__init__(
+        QuantNLAL.__init__(
             self,
             act_impl=None,
             act_quant=act_quant,

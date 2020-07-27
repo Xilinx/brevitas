@@ -142,6 +142,41 @@ class QuantNonLinearActLayer(QuantNonLinearActMixin, QuantLayerMixin, Module):
     def channelwise_separable(self) -> bool:
         return True
 
+    @property
+    def is_quant_act_signed(self):
+        if self.is_act_quant_enabled:
+            return self.act_quant.is_signed
+        elif self._cached_out is not None:
+            return self._cached_out.signed
+        else:  # raise exception instead of returning None since None would be falsey
+            raise RuntimeError("Enable quant output caching or act quantization")
+
+    @property
+    def is_quant_output_signed(self):  # overrides from QuantLayerMixin
+        return self.is_quant_act_signed
+
+    def quant_act_scale(self):
+        if self.is_act_quant_enabled:
+            return self.act_quant.scale()
+        elif self._cached_out is not None:
+            return self._cached_out.scale
+        else:
+            return None
+
+    def quant_output_scale(self):  # overrides from QuantLayerMixin
+        return self.quant_act_scale()
+
+    def quant_act_bit_width(self):
+        if self.is_act_quant_enabled:
+            return self.act_quant.bit_width()
+        elif self.cache_inference_quant_out:
+            return self._cached_out.bit_width
+        else:
+            return None
+
+    def quant_output_bit_width(self):   # overrides from QuantLayerMixin
+        return self.quant_act_bit_width()
+
     def forward(self, inp: Union[Tensor, QuantTensor]):
         inp = self.unpack_input(inp)
         if self.export_mode:  # shortcut execution through the export impl
@@ -188,17 +223,67 @@ class QuantWeightBiasInputOutputLayer(
         QuantInputMixin.__init__(self, input_quant, update_iqi, **kwargs)
         QuantOutputMixin.__init__(self, output_quant, update_oqi, **kwargs)
 
-    @property
-    def per_elem_ops(self):  # optional, so concrete impl + error if not overridden
-        raise NotImplementedError
+    @abstractmethod
+    def inner_forward_impl(self, x: Tensor, quant_weight: Tensor, quant_bias: Optional[Tensor]):
+        pass
 
     @abstractmethod
     def max_acc_bit_width(self, input_bit_width: Tensor, quant_weight_bit_width: Tensor):
         pass
 
-    @abstractmethod
-    def inner_forward_impl(self, x: Tensor, quant_weight: Tensor, quant_bias: Optional[Tensor]):
-        pass
+    @property
+    def per_elem_ops(self):  # optional, so concrete impl + error if not overridden
+        raise NotImplementedError
+
+    @property
+    def is_quant_input_signed(self) -> Optional[bool]:  # tri-valued logic output
+        if self.is_input_quant_enabled:
+            return self.input_quant.is_signed
+        elif self._cached_inp is not None:
+            return self._cached_inp.signed
+        else:
+            return None
+
+    @property
+    def is_quant_output_signed(self)  -> Optional[bool]:  # tri-valued logic output:
+        if self.is_output_quant_enabled:
+            return self.output_quant.is_signed
+        elif self._cached_out is not None:
+            return self._cached_out.signed
+        else:
+            return None
+
+    def quant_input_scale(self):
+        if self.is_input_quant_enabled:
+            return self.input_quant.scale()
+        elif self._cached_inp is not None:
+            return self._cached_inp.scale
+        else:
+            return None
+
+    def quant_output_scale(self):
+        if self.is_output_quant_enabled:
+            return self.output_quant.scale()
+        elif self._cached_out is not None:
+            return self._cached_out.scale
+        else:
+            return None
+
+    def quant_input_bit_width(self):
+        if self.is_input_quant_enabled:
+            return self.input_quant.bit_width()
+        elif self._cached_inp is not None:
+            return self._cached_inp.bit_width
+        else:
+            return None
+
+    def quant_output_bit_width(self):
+        if self.is_output_quant_enabled:
+            return self.output_quant.bit_width()
+        elif self._cached_out is not None:
+            return self._cached_out.bit_width
+        else:
+            return None
 
     def merge_bn_in(self, bn, affine_only):
         if affine_only and not bn.affine:

@@ -46,8 +46,42 @@ from dependencies import Injector
 
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector, BiasQuantProxyFromInjector
 from brevitas.proxy.parameter_quant import WeightQuantProxyProtocol, BiasQuantProxyProtocol
+from brevitas.proxy.parameter_quant import ParameterQuantProxyFromInjector
+from brevitas.proxy.parameter_quant import ParameterQuantProxyProtocol
 
-from .base import QuantParameterMixin
+class QuantParameterMixin(object):
+    __metaclass__ = ABCMeta
+
+    def __init__(
+            self,
+            parameter: torch.nn.Parameter,
+            parameter_quant: Optional[Union[ParameterQuantProxyProtocol, Type[Injector]]],
+            proxy_from_injector_impl: Optional[Type[ParameterQuantProxyFromInjector]],
+            update_injector: Optional[Callable],
+            prefix: str,
+            **kwargs):
+
+        def update_pqi(pqi):
+            if update_injector is not None:
+                return update_injector(self, pqi, prefix, **kwargs)
+            else:
+                return pqi
+
+        proxy_name = prefix + 'quant'
+        if parameter_quant is None:
+            assert proxy_from_injector_impl is not None
+            parameter_quant_injector = Injector.let(tensor_quant=None)
+            parameter_quant_injector = update_pqi(parameter_quant_injector)
+            parameter_quant = proxy_from_injector_impl(parameter_quant_injector)
+        elif issubclass(parameter_quant, Injector):
+            assert proxy_from_injector_impl is not None
+            parameter_quant_injector = parameter_quant
+            parameter_quant_injector = update_pqi(parameter_quant_injector)
+            parameter_quant = proxy_from_injector_impl(parameter_quant_injector)
+        else:
+            assert isinstance(parameter_quant, ParameterQuantProxyProtocol)
+        setattr(self, proxy_name, parameter_quant)
+        getattr(self, proxy_name).add_tracked_parameter(parameter)
 
 
 class QuantWeightMixin(QuantParameterMixin):
@@ -79,7 +113,7 @@ class QuantWeightMixin(QuantParameterMixin):
 
     @property
     def is_quant_weight_narrow_range(self):
-        assert self.is_weight_quant_enabled
+        assert self.is_weight_quant_enabled, "Weight quantization disabled"
         return self.weight_quant.is_narrow_range
 
     @property
@@ -91,15 +125,16 @@ class QuantWeightMixin(QuantParameterMixin):
         return self.weight_quant(self.weight)
 
     def int_weight(self, float_datatype=False):
+        assert self.is_weight_quant_enabled, "Weight quantization disabled"
         return self.quant_weight().int(float_datatype)
 
     def quant_weight_scale(self):
-        assert self.is_weight_quant_enabled
+        assert self.is_weight_quant_enabled, "Weight quantization disabled"
         scale = self.quant_weight().scale
         return scale
 
     def quant_weight_bit_width(self):
-        assert self.is_weight_quant_enabled
+        assert self.is_weight_quant_enabled, "Weight quantization disabled"
         bit_width = self.quant_weight().bit_width
         return bit_width
 
@@ -128,10 +163,10 @@ class QuantBiasMixin(QuantParameterMixin):
 
     @property
     def is_quant_bias_narrow_range(self):
-        assert self.is_bias_quant_enabled
+        assert self.is_bias_quant_enabled, "Bias quantization disabled"
         return self.weight_quant.is_narrow_range
 
     @property
     def is_quant_bias_signed(self):
-        assert self.is_bias_quant_enabled
+        assert self.is_bias_quant_enabled, "Bias quantization disabled"
         return self.weight_quant.is_signed
