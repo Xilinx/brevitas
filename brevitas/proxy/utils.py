@@ -38,55 +38,32 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from typing import Callable, Union, Type
+from typing import Callable
 
 from torch.nn import Module
-from dependencies import Injector
-
-from brevitas.proxy.runtime_quant import AccQuantProxyProtocol
-from brevitas.proxy.config import update_trunc_quant_injector
-from brevitas.quant_tensor import QuantTensor
-from .mixin.base import QuantLayerMixin
-from .mixin.acc import QuantTruncMixin, QuantClampMixin
 
 
-class TruncQuantAccumulator(QuantTruncMixin, QuantLayerMixin, Module):
+class ConvertRuntimeStatsToParameter:
 
-    def __init__(
-            self,
-            trunc_quant: Union[AccQuantProxyProtocol, Type[Injector]] = None,
-            return_quant_tensor: bool = True,
-            update_injector: Callable = update_trunc_quant_injector,
-            **kwargs):
-        QuantLayerMixin.__init__(self, return_quant_tensor)
-        QuantTruncMixin.__init__(
-            self,
-            trunc_quant=trunc_quant,
-            update_injector=update_injector,
-            **kwargs)
+    def __init__(self, restrict_scaling_impl: Module):
+        self.restrict_scaling_impl = restrict_scaling_impl
+        scaling_impl_postfix = 'fused_activation_quant_proxy.tensor_quant.scaling_impl'
+        self.scaling_impl_postfix = scaling_impl_postfix
+        self.runtime_stats_postfix = scaling_impl_postfix + '.runtime_stats'
+        self.running_stats_postfix = scaling_impl_postfix + '.runtime_stats.running_stats'
+        self.scaling_parameter_postfix = scaling_impl_postfix + '.value'
 
-    def forward(self, x: QuantTensor):
-        x = self.unpack_input(x)
-        x = self.trunc_quant(x)
-        return self.pack_output(x)
-
-
-class ClampQuantAccumulator(QuantClampMixin, QuantLayerMixin, Module):
-
-    def __init__(
-            self,
-            trunc_quant: Union[AccQuantProxyProtocol, Type[Injector]] = None,
-            return_quant_tensor: bool = True,
-            update_injector: Callable = update_trunc_quant_injector,
-            **kwargs):
-        QuantLayerMixin.__init__(self, return_quant_tensor)
-        QuantClampMixin.__init__(
-            self,
-            trunc_quant=trunc_quant,
-            update_injector=update_injector,
-            **kwargs)
-
-    def forward(self, x: QuantTensor):
-        x = self.unpack_input(x)
-        x = self.trunc_quant(x)
-        return self.pack_output(x)
+    def __call__(self, prefix, state_dict):
+        running_stats_key = prefix + self.running_stats_postfix
+        scaling_parameter_key = prefix + self.scaling_parameter_postfix
+        # If it's retrained directly from statistics, i.e. there isn't a preexisting parameter
+        if running_stats_key in state_dict and not scaling_parameter_key in state_dict:
+            scaling_init = state_dict[running_stats_key]
+            scaling_init = scaling_init.abs()
+            # Preprocess scaling init, which is always in FP range, based on current restrictions
+            scaling_init = self.restrict_scaling_impl.restrict_init_tensor(scaling_init)
+            state_dict[scaling_parameter_key] = scaling_init
+        # remove stats from dict
+        for k in list(state_dict.keys()):
+            if k.startswith(prefix + self.runtime_stats_postfix):
+                del state_dict[k]

@@ -61,6 +61,21 @@ class scalar_clamp_ste_fn(torch.autograd.Function):
         return grad_y, None, None
 
 
+class round_to_zero_ste_fn(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, x: torch.Tensor):
+        """
+        """
+        y = torch.sign(x) * torch.floor(torch.abs(x))
+        return y
+
+    @staticmethod
+    def backward(ctx, grad_y):
+        """
+        """
+        return grad_y, None, None
+
+
 class tensor_clamp_ste_fn(torch.autograd.Function):
     """ Autograd function that implements tensor_clamp with a straight through estimator
 
@@ -170,6 +185,26 @@ class round_ste_fn(torch.autograd.Function):
         """
         """
         y = torch.round(x)
+        return y
+    @staticmethod
+    def backward(ctx, grad_y):
+        """
+        """
+        return grad_y
+
+
+class round_to_zero_fn(torch.autograd.Function):
+    """ Autograd function that implements round_to_zero with a straight through estimator
+
+    Look at the documentation of :func:`~brevitas.function.ops_ste.round_to_zero` for further details.
+
+    """
+    @staticmethod
+    def forward(ctx, x: torch.Tensor):
+        """
+        """
+        y = torch.round(x)
+        torch.sign(x) * torch.floor(torch.abs(x))
         return y
     @staticmethod
     def backward(ctx, grad_y):

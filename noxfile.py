@@ -73,7 +73,7 @@ def tests_brevitas_examples_cpu(session, pytorch, jit_status):
     install_torchvision(pytorch, session)  # For CV eval scripts
     session.conda_install('scipy')  # For Hadamard example
     session.install('.[test, tts, stt, vision]')
-    session.run('pytest', 'test/brevitas_examples', '-v')
+    session.run('pytest', 'test/brevitas_examples')
 
 
 @nox.session(venv_backend="conda", python=CONDA_PYTHON_VERSIONS)
@@ -81,7 +81,7 @@ def tests_brevitas_examples_cpu(session, pytorch, jit_status):
 def tests_brevitas_install_dev(session, pytorch):
     install_pytorch(pytorch, session)
     session.install('-e', '.[test]')
-    session.run('pytest', '-v', 'test/brevitas/test_import.py')
+    session.run('pytest', '-v', 'test/brevitas/test_brevitas_import.py')
 
 
 @nox.session(venv_backend="conda", python=CONDA_PYTHON_VERSIONS)
@@ -90,7 +90,7 @@ def tests_brevitas_examples_install_dev(session, pytorch):
     install_pytorch(pytorch, session)
     session.conda_install('scipy')  # For Hadamard example
     session.install('-e', '.[test, tts, stt]')
-    session.run('pytest', '-v', 'test/brevitas_examples/test_import.py')
+    session.run('pytest', '-v', 'test/brevitas_examples/test_examples_import.py')
 
 
 @nox.session(python=False)

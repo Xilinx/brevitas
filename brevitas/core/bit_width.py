@@ -43,13 +43,12 @@ from enum import auto
 
 import torch
 from torch import Tensor
-from torch.nn import Parameter
+from torch.nn import Parameter, Module
 
 import brevitas.config as config
 from brevitas.utils.python_utils import AutoName
 from brevitas.function.ops import tensor_clamp
 from brevitas.function.ops_ste import tensor_clamp_ste
-from .restrict_val import RestrictValueOpImplType, RestrictValueType, RestrictValue, FloatToIntImplType
 from .utils import StatelessBuffer
 
 MIN_INT_BIT_WIDTH = 2
@@ -81,10 +80,10 @@ class ZeroLsbTruncBitWidth(torch.jit.ScriptModule):
 
 class BitWidthConst(torch.jit.ScriptModule):
 
-    def __init__(self, bit_width_init: int) -> None:
+    def __init__(self, bit_width: int) -> None:
         super(BitWidthConst, self).__init__()
-        assert isinstance(bit_width_init, int)
-        self.bit_width = StatelessBuffer(torch.tensor(float(bit_width_init)))
+        assert isinstance(bit_width, int)
+        self.bit_width = StatelessBuffer(torch.tensor(float(bit_width)))
 
     @torch.jit.script_method
     def forward(self) -> Tensor:
@@ -92,41 +91,32 @@ class BitWidthConst(torch.jit.ScriptModule):
 
 
 class BitWidthParameter(torch.jit.ScriptModule):
-    __constants__ = ['bit_width_base', 'max_bit_width', 'override_pretrained']
+    __constants__ = ['bit_width_base', 'override_pretrained']
 
-    def __init__(self,
-                 bit_width_init: int,
-                 min_overall_bit_width: Optional[int],
-                 max_overall_bit_width: Optional[int],
-                 restrict_bit_width_type: RestrictValueType,
-                 override_pretrained: bool) -> None:
+    def __init__(
+            self,
+            bit_width: int,
+            min_overall_bit_width: Optional[int],
+            restrict_bit_width_impl: Module,
+            override_pretrained_bit_width: bool = False) -> None:
         super(BitWidthParameter, self).__init__()
 
         if min_overall_bit_width is None:
             min_overall_bit_width = MIN_INT_BIT_WIDTH
-        if not (restrict_bit_width_type == RestrictValueType.FP
-                or restrict_bit_width_type == RestrictValueType.INT
-                or restrict_bit_width_type == RestrictValueType.POWER_OF_TWO):
-            raise Exception("Restriction on bit width {} not supported".format(restrict_bit_width_type))
-        if bit_width_init < MIN_INT_BIT_WIDTH or min_overall_bit_width < MIN_INT_BIT_WIDTH:
-            raise Exception("Int bit width has to be at least {}, instead is {}."
-                            .format(MIN_INT_BIT_WIDTH, bit_width_init))
+        if bit_width < MIN_INT_BIT_WIDTH or min_overall_bit_width < MIN_INT_BIT_WIDTH:
+            raise RuntimeError("Int bit width has to be at least {}, instead is {}."
+                            .format(MIN_INT_BIT_WIDTH, bit_width))
 
-        self.override_pretrained = override_pretrained
-        bit_width_init_op = RestrictValue.restrict_value_op(restrict_bit_width_type,
-                                                            restrict_value_op_impl_type=RestrictValueOpImplType.MATH)
-        self.restrict_bit_width = RestrictValue(restrict_bit_width_type,
-                                                float_to_int_impl_type=FloatToIntImplType.ROUND,
-                                                min_val=None)
-        self.bit_width_base = bit_width_init_op(min_overall_bit_width)
-        self.max_bit_width = bit_width_init_op(min_overall_bit_width) if max_overall_bit_width is not None else None
-        bit_width_offset_init = max(bit_width_init_op(bit_width_init) - self.bit_width_base, 0.0)
+        bit_width_base = restrict_bit_width_impl.restrict_init_float(min_overall_bit_width)
+        bit_width = restrict_bit_width_impl.restrict_init_float(bit_width)
+        bit_width_offset_init = max(bit_width - bit_width_base, 0.0)
         self.bit_width_offset = Parameter(torch.tensor(float(bit_width_offset_init)))
+        self.bit_width_base = bit_width_base
+        self.override_pretrained = override_pretrained_bit_width
+        self.restrict_bit_width_impl = restrict_bit_width_impl
 
     @torch.jit.script_method
     def forward(self) -> Tensor:
-        if self.max_bit_width is not None:
-            raise Exception("Not implemented yet.")
         bit_width = torch.abs(self.bit_width_offset) + self.bit_width_base
         bit_width = self.restrict_bit_width(bit_width)
         return bit_width
@@ -136,35 +126,36 @@ class BitWidthParameter(torch.jit.ScriptModule):
         bit_width_offset_key = prefix + 'bit_width_offset'
         if self.override_pretrained and bit_width_offset_key in state_dict:
             del state_dict[bit_width_offset_key]
-        super(BitWidthParameter, self)._load_from_state_dict(state_dict, prefix, local_metadata, strict,
-            missing_keys, unexpected_keys, error_msgs)
+        super(BitWidthParameter, self)._load_from_state_dict(
+            state_dict, prefix, local_metadata,strict,missing_keys, unexpected_keys, error_msgs)
         if config.IGNORE_MISSING_KEYS and bit_width_offset_key in missing_keys:
             missing_keys.remove(bit_width_offset_key)
 
 
 class RemoveBitwidthParameter(torch.jit.ScriptModule):
-    __constants__ = ['min_overall_bit_width', 'non_zero_epsilon', 'override_pretrained', 'remove_at_least_init_val']
+    __constants__ = ['non_zero_epsilon', 'override_pretrained']
 
-    def __init__(self, bit_width_to_remove, remove_at_least_init_val, restrict_bit_width_impl, override_pretrained):
+    def __init__(
+            self,
+            bit_width_to_remove: int,
+            override_pretrained_bit_width: bool = False,
+            non_zero_epsilon: float = NON_ZERO_EPSILON,
+            remove_zero_bit_width = REMOVE_ZERO_BIT_WIDTH):
         super(RemoveBitwidthParameter, self).__init__()
 
         if bit_width_to_remove < 0:
-            raise Exception("Bit width to clamp has to be at least 0, instead is {}."
-                            .format(bit_width_to_remove))
+            raise RuntimeError("Bit width to clamp has to be >= 0.".format(bit_width_to_remove))
         elif bit_width_to_remove == 0:
-            bit_width_coeff_init = 1 / REMOVE_ZERO_BIT_WIDTH
+            bit_width_coeff_init = 1 / remove_zero_bit_width
         else:
             bit_width_coeff_init = 1 / bit_width_to_remove
         self.bit_width_coeff = Parameter(torch.tensor(bit_width_coeff_init))
-        self.restrict_bit_width_impl = restrict_bit_width_impl
-        self.non_zero_epsilon = NON_ZERO_EPSILON
-        self.override_pretrained = override_pretrained
-        self.remove_at_least_init_val = remove_at_least_init_val
+        self.non_zero_epsilon = non_zero_epsilon
+        self.override_pretrained = override_pretrained_bit_width
 
     @torch.jit.script_method
     def forward(self) -> Tensor:
         bit_width_to_remove = 1.0 / (self.non_zero_epsilon + torch.abs(self.bit_width_coeff))
-        bit_width_to_remove = self.restrict_bit_width_impl(bit_width_to_remove)
         return bit_width_to_remove
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
@@ -172,84 +163,58 @@ class RemoveBitwidthParameter(torch.jit.ScriptModule):
         bit_width_coeff_key = prefix + 'bit_width_coeff'
         if self.override_pretrained and bit_width_coeff_key in state_dict:
             del state_dict[bit_width_coeff_key]
-        super(RemoveBitwidthParameter, self)._load_from_state_dict(state_dict, prefix, local_metadata, strict,
-                                                                   missing_keys, unexpected_keys, error_msgs)
+        super(RemoveBitwidthParameter, self)._load_from_state_dict(
+            state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
         if config.IGNORE_MISSING_KEYS and bit_width_coeff_key in missing_keys:
             missing_keys.remove(bit_width_coeff_key)
 
 
-class MsbClampParameterBitWidth(torch.jit.ScriptModule):
+class MsbClampBitWidth(torch.jit.ScriptModule):
 
-    def __init__(self,
-                 ms_bit_width_to_clamp: int,
-                 clamp_at_least_init_val: bool,
-                 min_overall_bit_width: int,
-                 max_overall_bit_width: int,
-                 bit_width_impl_type: BitWidthImplType,
-                 override_pretrained: bool) -> None:
-        super(MsbClampParameterBitWidth, self).__init__()
+    def __init__(
+            self,
+            bit_width_to_remove_impl: Module,
+            min_overall_bit_width: int,
+            max_overall_bit_width: int) -> None:
+        super(MsbClampBitWidth, self).__init__()
 
         self.min_overall_bit_width = BitWidthConst(min_overall_bit_width)
         self.max_overall_bit_width = BitWidthConst(max_overall_bit_width)
-
-        if bit_width_impl_type == BitWidthImplType.CONST:
-            self.bit_width_to_remove_impl = BitWidthConst(ms_bit_width_to_clamp)
-        elif bit_width_impl_type == BitWidthImplType.PARAMETER:
-            restrict_bit_width_impl = RestrictValue(RestrictValueType.INT,
-                                                    float_to_int_impl_type=FloatToIntImplType.ROUND,
-                                                    min_val=None)
-            self.bit_width_to_remove_impl = RemoveBitwidthParameter(bit_width_to_remove=ms_bit_width_to_clamp,
-                                                                    remove_at_least_init_val=clamp_at_least_init_val,
-                                                                    restrict_bit_width_impl=restrict_bit_width_impl,
-                                                                    override_pretrained=override_pretrained)
-        else:
-            raise Exception("Bit width implementation type {} not recognized for clamping accumulator."
-                            .format(bit_width_impl_type))
+        self.bit_width_to_remove_impl = bit_width_to_remove_impl
 
     @torch.jit.script_method
     def forward(self, input_bit_width: Tensor) -> Tensor:
         bit_width_to_remove = self.bit_width_to_remove_impl()
         output_bit_width = torch.abs(input_bit_width - bit_width_to_remove)
-        output_bit_width = tensor_clamp_ste(output_bit_width,
-                                            self.min_overall_bit_width(),
-                                            self.max_overall_bit_width()) #todo STE on max only
+        # todo STE on max only
+        output_bit_width = tensor_clamp_ste(
+            output_bit_width,
+            self.min_overall_bit_width(),
+            self.max_overall_bit_width())
         return output_bit_width
 
 
-class LsbTruncParameterBitWidth(torch.jit.ScriptModule):
+class LsbTruncBitWidth(torch.jit.ScriptModule):
 
-    def __init__(self,
-                 ls_bit_width_to_trunc: int,
-                 trunc_at_least_init_val: bool,
-                 min_overall_bit_width: int,
-                 max_overall_bit_width: int,
-                 bit_width_impl_type: BitWidthImplType,
-                 override_pretrained: bool):
-        super(LsbTruncParameterBitWidth, self).__init__()
+    def __init__(
+            self,
+            bit_width_to_remove_impl: Module,
+            min_overall_bit_width: int,
+            max_overall_bit_width: int):
+        super(LsbTruncBitWidth, self).__init__()
 
         self.min_overall_bit_width = BitWidthConst(min_overall_bit_width)
         self.max_overall_bit_width = BitWidthConst(max_overall_bit_width)
-
-        if bit_width_impl_type == BitWidthImplType.CONST:
-            self.bit_width_to_remove_impl = BitWidthConst(ls_bit_width_to_trunc)
-        elif bit_width_impl_type == BitWidthImplType.PARAMETER:
-            restrict_bit_width_impl = RestrictValue(RestrictValueType.INT,
-                                                    float_to_int_impl_type=FloatToIntImplType.ROUND,
-                                                    min_val=None)
-            self.bit_width_to_remove_impl = RemoveBitwidthParameter(bit_width_to_remove=ls_bit_width_to_trunc,
-                                                                    remove_at_least_init_val=trunc_at_least_init_val,
-                                                                    restrict_bit_width_impl=restrict_bit_width_impl,
-                                                                    override_pretrained=override_pretrained)
-        else:
-            raise Exception("Bit width implementation type {} not recognized for truncating accumulator."
-                            .format(bit_width_impl_type))
+        self.bit_width_to_remove_impl = bit_width_to_remove_impl
 
     @torch.jit.script_method
     def forward(self, input_bit_width: Tensor) -> Tensor:
         bit_width_to_remove = self.bit_width_to_remove_impl()
         min_bit_width_to_remove = input_bit_width - self.max_overall_bit_width()
         max_bit_width_to_remove = input_bit_width - self.min_overall_bit_width()
-        bit_width_to_remove = tensor_clamp(bit_width_to_remove,      # pass gradient to boundaries
-                                           min_bit_width_to_remove,  # since input_bit_width is possibly learned
-                                           max_bit_width_to_remove)
+        # pass gradient to boundaries since input_bit_width is possibly learned
+        bit_width_to_remove = tensor_clamp(
+            bit_width_to_remove,
+            min_bit_width_to_remove,
+            max_bit_width_to_remove)
         return bit_width_to_remove

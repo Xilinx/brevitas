@@ -38,64 +38,65 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from typing import Optional
-
+from typing import Callable, Union, Type
 import math
-import torch
-from torch.nn import AvgPool2d
 
-from brevitas.core.bit_width import BitWidthImplType
-from brevitas.core.quant import QuantType
+import torch
+from torch import Tensor
+from torch.nn import AvgPool2d
+from dependencies import Injector
+
 from brevitas.function.ops_ste import ceil_ste
 from brevitas.function.ops import max_uint
-from brevitas.nn.quant_layer import QuantLayer
-from brevitas.proxy.runtime_quant import TruncQuantProxy
-from brevitas.quant_tensor import pack_quant_tensor
+
+from brevitas.proxy.runtime_quant import AccQuantProxyProtocol
+from brevitas.proxy.config import update_trunc_quant_injector
+from brevitas.quant_tensor import QuantTensor
+from .quant_layer import DefaultTruncQuantInjector as DefaultTruncQI
+from .mixin.base import QuantLayerMixin
+from .mixin.acc import QuantTruncMixin
 
 
-class QuantAvgPool2d(QuantLayer, AvgPool2d):
+class QuantAvgPool2d(QuantTruncMixin, QuantLayerMixin, AvgPool2d):
 
-    def __init__(self,
-                 kernel_size: int,
-                 stride: int = None,
-                 signed: bool = True,
-                 min_overall_bit_width: Optional[int] = 2,
-                 max_overall_bit_width: Optional[int] = 32,
-                 quant_type: QuantType = QuantType.FP,
-                 lsb_trunc_bit_width_impl_type = BitWidthImplType.CONST):
-        QuantLayer.__init__(self,
-                            compute_output_scale=True,
-                            compute_output_bit_width=True,
-                            return_quant_tensor=True)
-        AvgPool2d.__init__(self,
-                           kernel_size=kernel_size,
-                           stride=stride)
-        ls_bit_width_to_trunc = math.ceil(math.log2(kernel_size * kernel_size))
-        self.signed = signed
-        self.quant_type = quant_type
-        explicit_rescaling = True  # we are explicitly rescaling as we are replacing the div in avg with trunc
-        self.accumulator_quant = TruncQuantProxy(signed=signed,
-                                                 quant_type=quant_type,
-                                                 trunc_at_least_init_val=True,
-                                                 ls_bit_width_to_trunc=ls_bit_width_to_trunc,
-                                                 min_overall_bit_width=min_overall_bit_width,
-                                                 max_overall_bit_width=max_overall_bit_width,
-                                                 lsb_trunc_bit_width_impl_type=lsb_trunc_bit_width_impl_type,
-                                                 explicit_rescaling=explicit_rescaling,
-                                                 override_pretrained_bit_width=False)
+    def __init__(
+            self,
+            kernel_size: int,
+            stride: int = None,
+            trunc_quant: Union[AccQuantProxyProtocol, Type[Injector]] = DefaultTruncQI,
+            return_quant_tensor: bool = True,
+            update_injector: Callable = update_trunc_quant_injector,
+            **kwargs):
+        AvgPool2d.__init__(
+            self,
+            kernel_size=kernel_size,
+            stride=stride)
+        QuantLayerMixin.__init__(self, return_quant_tensor)
+        QuantTruncMixin.__init__(
+            self,
+            trunc_quant=trunc_quant,
+            update_injector=update_injector,
+            ls_bit_width_to_trunc=math.ceil(math.log2(kernel_size * kernel_size)),
+            **kwargs)
 
-    def forward(self, input):
-        input_tensor, input_scale, input_bit_width = self.unpack_input(input)
-        x = super(QuantAvgPool2d, self).forward(input_tensor)
-        if self.quant_type != QuantType.FP:
-            x = x * (self.kernel_size * self.kernel_size)  # remove scaling introduced by average
-            output_bit_width = self.max_output_bit_width(input_bit_width)
-            x, output_scale, output_bit_width = self.accumulator_quant(x, input_scale, output_bit_width)
-            return pack_quant_tensor(x, output_scale, output_bit_width)
-        else:
-            return pack_quant_tensor(x, input_scale, input_bit_width)
+    @property
+    def channelwise_separable(self) -> bool:
+        return True
 
-    def max_output_bit_width(self, input_bit_width):
+    def forward(self, x: Union[Tensor, QuantTensor]):
+        x = self.unpack_input(x)
+        if self.export_mode:
+            return self.export_handler(x.value)
+        x = x.set(value=super(QuantAvgPool2d, self).forward(x.value))
+        if self.is_trunc_quant_enabled:
+            assert x.is_valid  # check input quant tensor is propertly formed
+            rescaled_value = x.value * (self.kernel_size * self.kernel_size)  # remove avg scaling
+            x = x.set(value=rescaled_value)
+            x = x.set(bit_width=self.max_acc_bit_width(x.bit_width))
+            x = self.trunc_quant(x)
+        return self.pack_output(x)
+
+    def max_acc_bit_width(self, input_bit_width):
         max_uint_input = max_uint(bit_width=input_bit_width, narrow_range=False)
         max_uint_output = max_uint_input * self.kernel_size * self.kernel_size
         max_output_bit_width = ceil_ste(torch.log2(max_uint_output))

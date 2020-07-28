@@ -38,302 +38,89 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from abc import ABCMeta
-from typing import Optional, Union, Tuple
+from typing import Type
 
+from dependencies import Injector
 from torch import nn
-from torch.nn import Module
 
-from brevitas.core.bit_width import BitWidthParameter, BitWidthImplType
-from brevitas.core.function_wrapper import Identity, ConstScalarClamp
-from brevitas.core.quant import QuantType, IdentityQuant
-from brevitas.core.stats import StatsOp
-from brevitas.core.restrict_val import RestrictValueType, FloatToIntImplType
-from brevitas.core.scaling import ScalingImplType, StatsInputViewShapeImpl
-from brevitas.proxy.runtime_quant import ActivationQuantProxy
-from .quant_layer import QuantLayer, SCALING_MIN_VAL
+from .quant_layer import QuantNonLinearActLayer as QuantNLAL
+from .quant_layer import DefaultUnsignedActQuantInjector as DefUnsignedActQI
+from .quant_layer import DefaultSignedActQuantInjector as DefSignedActQI
+from .quant_layer import DefaultUnitaryUnsignedActQuantInjector as DefUnitaryUnsignedActQI
+from .quant_layer import DefaultUnitarySignedActQuantInjector as DefUnitarySignedActQI
 
 
-class QuantActivation(QuantLayer, Module):
-    __metaclass__ = ABCMeta
+class QuantReLU(QuantNLAL):
 
-    def __init__(self, return_quant_tensor):
-        QuantLayer.__init__(self,
-                            compute_output_scale=True,
-                            compute_output_bit_width=True,
-                            return_quant_tensor=return_quant_tensor)
-        Module.__init__(self)
-
-    @property
-    def act_quant_proxy(self):
-        return self._act_quant_proxy
-
-    @act_quant_proxy.setter
-    def act_quant_proxy(self, act_quant_proxy):
-        self._act_quant_proxy = act_quant_proxy
-
-    def quant_act_scale(self):
-        if isinstance(self.act_quant_proxy.fused_activation_quant_proxy.tensor_quant, IdentityQuant):
-            raise Exception("Can't generate scaling factor without quantization enabled")
-        scaling_impl = self.act_quant_proxy.fused_activation_quant_proxy.tensor_quant.scaling_impl
-        current_status = scaling_impl.training
-        scaling_impl.eval()
-        _, out, _ = self.act_quant_proxy(self.act_quant_proxy._zero_hw_sentinel())
-        scaling_impl.train(current_status)
-        return out
-
-    def forward(self, input):
-        tensor, _, _ = self.unpack_input(input)
-        output, output_scale, output_bit_width = self.act_quant_proxy(tensor)
-        return self.pack_output(output, output_scale, output_bit_width)
+    def __init__(
+            self,
+            act_quant: Type[Injector] = DefUnsignedActQI,
+            return_quant_tensor: bool = False,
+            **kwargs):
+        QuantNLAL.__init__(
+            self,
+            act_impl=nn.ReLU,
+            act_quant=act_quant,
+            return_quant_tensor=return_quant_tensor,
+            **kwargs)
 
 
-class QuantReLU(QuantActivation):
+class QuantSigmoid(QuantNLAL):
 
-    def __init__(self,
-                 bit_width: int,
-                 max_val: float,
-                 quant_type: QuantType = QuantType.FP,
-                 float_to_int_impl_type: FloatToIntImplType = FloatToIntImplType.ROUND,
-                 scaling_impl_type: ScalingImplType = ScalingImplType.PARAMETER,
-                 scaling_override: Optional[Module] = None,
-                 scaling_per_channel: bool = False,
-                 scaling_min_val: Optional[float] = SCALING_MIN_VAL,
-                 scaling_stats_sigma = 2.0,
-                 scaling_stats_op = StatsOp.MEAN_LEARN_SIGMA_STD,
-                 scaling_stats_buffer_momentum = 0.1,
-                 scaling_stats_permute_dims = (1, 0, 2, 3),
-                 per_channel_broadcastable_shape: Optional[Tuple[int, ...]] = None,
-                 min_overall_bit_width: Optional[int] = 2,
-                 max_overall_bit_width: Optional[int] = None,
-                 bit_width_impl_override: Union[BitWidthParameter] = None,
-                 bit_width_impl_type: BitWidthImplType = BitWidthImplType.CONST,
-                 restrict_bit_width_type: RestrictValueType = RestrictValueType.INT,
-                 restrict_scaling_type: RestrictValueType = RestrictValueType.LOG_FP,
-                 override_pretrained_bit_width: bool = False,
-                 return_quant_tensor: bool = False):
-        super(QuantReLU, self).__init__(return_quant_tensor=return_quant_tensor)
-        activation_impl = nn.ReLU()
-        self.act_quant_proxy = ActivationQuantProxy(activation_impl=activation_impl,
-                                                    bit_width=bit_width,
-                                                    signed=False,
-                                                    narrow_range=False,
-                                                    scaling_override=scaling_override,
-                                                    min_val=0.0,
-                                                    max_val=max_val,
-                                                    quant_type=quant_type,
-                                                    float_to_int_impl_type=float_to_int_impl_type,
-                                                    scaling_impl_type=scaling_impl_type,
-                                                    scaling_per_channel=scaling_per_channel,
-                                                    scaling_min_val=scaling_min_val,
-                                                    per_channel_broadcastable_shape=per_channel_broadcastable_shape,
-                                                    min_overall_bit_width=min_overall_bit_width,
-                                                    max_overall_bit_width=max_overall_bit_width,
-                                                    bit_width_impl_override=bit_width_impl_override,
-                                                    bit_width_impl_type=bit_width_impl_type,
-                                                    restrict_bit_width_type=restrict_bit_width_type,
-                                                    restrict_scaling_type=restrict_scaling_type,
-                                                    override_pretrained_bit_width=override_pretrained_bit_width,
-                                                    scaling_stats_sigma=scaling_stats_sigma,
-                                                    scaling_stats_permute_dims=scaling_stats_permute_dims,
-                                                    scaling_stats_op=scaling_stats_op,
-                                                    scaling_stats_buffer_momentum=scaling_stats_buffer_momentum)
+    def __init__(
+            self,
+            act_quant: Type[Injector] = DefUnitaryUnsignedActQI,
+            return_quant_tensor: bool = False,
+            **kwargs):
+        QuantNLAL.__init__(
+            self,
+            act_impl=nn.Sigmoid,
+            act_quant=act_quant,
+            return_quant_tensor=return_quant_tensor,
+            **kwargs)
 
 
-class QuantSigmoid(QuantActivation):
+class QuantTanh(QuantNLAL):
 
-    def __init__(self,
-                 bit_width: int,
-                 narrow_range: bool = False,
-                 quant_type: QuantType = QuantType.FP,
-                 float_to_int_impl_type: FloatToIntImplType = FloatToIntImplType.ROUND,
-                 min_overall_bit_width: Optional[int] = 2,
-                 max_overall_bit_width: Optional[int] = None,
-                 bit_width_impl_override: Union[BitWidthParameter] = None,
-                 bit_width_impl_type: BitWidthImplType = BitWidthImplType.CONST,
-                 restrict_bit_width_type: RestrictValueType = RestrictValueType.INT,
-                 restrict_scaling_type: RestrictValueType = RestrictValueType.LOG_FP,
-                 scaling_min_val: Optional[float] = SCALING_MIN_VAL,
-                 override_pretrained_bit_width: bool = False,
-                 return_quant_tensor = False):
-        super(QuantSigmoid, self).__init__(return_quant_tensor=return_quant_tensor)
-        activation_impl = nn.Sigmoid()
-        self.act_quant_proxy = ActivationQuantProxy(activation_impl=activation_impl,
-                                                    bit_width=bit_width,
-                                                    signed=False,
-                                                    narrow_range=narrow_range,
-                                                    scaling_override=None,
-                                                    min_val=0.0,
-                                                    max_val=1.0,
-                                                    quant_type=quant_type,
-                                                    float_to_int_impl_type=float_to_int_impl_type,
-                                                    scaling_impl_type=ScalingImplType.CONST,
-                                                    scaling_per_channel=False,
-                                                    scaling_min_val=scaling_min_val,
-                                                    per_channel_broadcastable_shape=None,
-                                                    min_overall_bit_width=min_overall_bit_width,
-                                                    max_overall_bit_width=max_overall_bit_width,
-                                                    bit_width_impl_override=bit_width_impl_override,
-                                                    bit_width_impl_type=bit_width_impl_type,
-                                                    restrict_bit_width_type=restrict_bit_width_type,
-                                                    restrict_scaling_type=restrict_scaling_type,
-                                                    override_pretrained_bit_width=override_pretrained_bit_width,
-                                                    scaling_stats_sigma=None,
-                                                    scaling_stats_op=None,
-                                                    scaling_stats_buffer_momentum=None,
-                                                    scaling_stats_permute_dims=None)
+    def __init__(
+            self,
+            act_quant: Type[Injector] = DefUnitarySignedActQI,
+            return_quant_tensor: bool = False,
+            **kwargs):
+        QuantNLAL.__init__(
+            self,
+            act_impl=nn.Tanh,
+            act_quant=act_quant,
+            return_quant_tensor=return_quant_tensor,
+            **kwargs)
 
 
-class QuantTanh(QuantActivation):
+class QuantHardTanh(QuantNLAL):
 
-    def __init__(self,
-                 bit_width: int,
-                 narrow_range: bool = False,
-                 quant_type: QuantType = QuantType.FP,
-                 float_to_int_impl_type: FloatToIntImplType = FloatToIntImplType.ROUND,
-                 min_overall_bit_width: Optional[int] = 2,
-                 max_overall_bit_width: Optional[int] = None,
-                 bit_width_impl_override: Union[BitWidthParameter] = None,
-                 bit_width_impl_type: BitWidthImplType = BitWidthImplType.CONST,
-                 restrict_bit_width_type: RestrictValueType = RestrictValueType.INT,
-                 restrict_scaling_type: RestrictValueType = RestrictValueType.LOG_FP,
-                 scaling_min_val: Optional[float] = SCALING_MIN_VAL,
-                 override_pretrained_bit_width: bool = False,
-                 return_quant_tensor: bool = False):
-        super(QuantTanh, self).__init__(return_quant_tensor=return_quant_tensor)
-        activation_impl = nn.Tanh()
-        self.act_quant_proxy = ActivationQuantProxy(activation_impl=activation_impl,
-                                                    bit_width=bit_width,
-                                                    signed=True,
-                                                    narrow_range=narrow_range,
-                                                    scaling_override=None,
-                                                    min_val=-1.0,
-                                                    max_val=1.0,
-                                                    quant_type=quant_type,
-                                                    float_to_int_impl_type=float_to_int_impl_type,
-                                                    scaling_impl_type=ScalingImplType.CONST,
-                                                    scaling_per_channel=False,
-                                                    scaling_min_val=scaling_min_val,
-                                                    per_channel_broadcastable_shape=None,
-                                                    min_overall_bit_width=min_overall_bit_width,
-                                                    max_overall_bit_width=max_overall_bit_width,
-                                                    bit_width_impl_override=bit_width_impl_override,
-                                                    bit_width_impl_type=bit_width_impl_type,
-                                                    restrict_bit_width_type=restrict_bit_width_type,
-                                                    restrict_scaling_type=restrict_scaling_type,
-                                                    override_pretrained_bit_width=override_pretrained_bit_width,
-                                                    scaling_stats_sigma=None,
-                                                    scaling_stats_op=None,
-                                                    scaling_stats_buffer_momentum=None,
-                                                    scaling_stats_permute_dims=None)
+    def __init__(
+            self,
+            act_quant: Type[Injector] = DefUnitarySignedActQI,
+            return_quant_tensor: bool = False,
+            **kwargs):
+        QuantNLAL.__init__(
+            self,
+            act_impl=nn.Hardtanh,
+            act_quant=act_quant,
+            return_quant_tensor=return_quant_tensor,
+            **kwargs)
 
 
-class QuantHardTanh(QuantActivation):
+class QuantIdentity(QuantNLAL):
 
-    def __init__(self,
-                 bit_width: int,
-                 min_val: float = -1.0,
-                 max_val: float = 1.0,
-                 narrow_range: bool = False,
-                 quant_type: QuantType = QuantType.FP,
-                 float_to_int_impl_type: FloatToIntImplType = FloatToIntImplType.ROUND,
-                 scaling_impl_type: ScalingImplType = ScalingImplType.PARAMETER,
-                 scaling_override: Optional[Module] = None,
-                 scaling_per_channel: bool = False,
-                 scaling_stats_sigma: float = 3.0,
-                 scaling_stats_op: StatsOp = StatsOp.MEAN_LEARN_SIGMA_STD,
-                 scaling_stats_buffer_momentum: float = 0.1,
-                 scaling_stats_permute_dims: Tuple = (1, 0, 2, 3),
-                 per_channel_broadcastable_shape: Optional[Tuple[int, ...]] = None,
-                 min_overall_bit_width: Optional[int] = 2,
-                 max_overall_bit_width: Optional[int] = None,
-                 bit_width_impl_override: Union[BitWidthParameter] = None,
-                 bit_width_impl_type: BitWidthImplType = BitWidthImplType.CONST,
-                 restrict_bit_width_type: RestrictValueType = RestrictValueType.INT,
-                 restrict_scaling_type: RestrictValueType = RestrictValueType.LOG_FP,
-                 scaling_min_val: Optional[float] = SCALING_MIN_VAL,
-                 override_pretrained_bit_width: bool = False,
-                 return_quant_tensor: bool = False):
-        super(QuantHardTanh, self).__init__(return_quant_tensor=return_quant_tensor)
-        if quant_type == QuantType.FP:
-            activation_impl = ConstScalarClamp(min_val=min_val, max_val=max_val)
-        else:
-            activation_impl = Identity()
-        self.act_quant_proxy = ActivationQuantProxy(activation_impl=activation_impl,
-                                                    bit_width=bit_width,
-                                                    signed=True,
-                                                    narrow_range=narrow_range,
-                                                    scaling_override=scaling_override,
-                                                    min_val=min_val,
-                                                    max_val=max_val,
-                                                    quant_type=quant_type,
-                                                    float_to_int_impl_type=float_to_int_impl_type,
-                                                    scaling_impl_type=scaling_impl_type,
-                                                    scaling_per_channel=scaling_per_channel,
-                                                    scaling_min_val=scaling_min_val,
-                                                    per_channel_broadcastable_shape=per_channel_broadcastable_shape,
-                                                    min_overall_bit_width=min_overall_bit_width,
-                                                    max_overall_bit_width=max_overall_bit_width,
-                                                    bit_width_impl_override=bit_width_impl_override,
-                                                    bit_width_impl_type=bit_width_impl_type,
-                                                    restrict_bit_width_type=restrict_bit_width_type,
-                                                    restrict_scaling_type=restrict_scaling_type,
-                                                    override_pretrained_bit_width=override_pretrained_bit_width,
-                                                    scaling_stats_sigma=scaling_stats_sigma,
-                                                    scaling_stats_op=scaling_stats_op,
-                                                    scaling_stats_buffer_momentum=scaling_stats_buffer_momentum,
-                                                    scaling_stats_permute_dims=scaling_stats_permute_dims)
+    def __init__(
+            self,
+            act_quant: Type[Injector] = DefSignedActQI,
+            return_quant_tensor: bool = False,
+            **kwargs):
+        QuantNLAL.__init__(
+            self,
+            act_impl=None,
+            act_quant=act_quant,
+            return_quant_tensor=return_quant_tensor,
+            **kwargs)
 
-
-class QuantIdentity(QuantActivation):
-
-    def __init__(self,
-                 bit_width: int,
-                 min_val: float = -1.0,
-                 max_val: float = 1.0,
-                 narrow_range: bool = False,
-                 quant_type: QuantType = QuantType.FP,
-                 float_to_int_impl_type: FloatToIntImplType = FloatToIntImplType.ROUND,
-                 scaling_impl_type: ScalingImplType = ScalingImplType.PARAMETER,
-                 scaling_override: Optional[Module] = None,
-                 scaling_per_channel: bool = False,
-                 scaling_stats_sigma: float = 3.0,
-                 scaling_stats_op: StatsOp = StatsOp.MEAN_LEARN_SIGMA_STD,
-                 scaling_stats_buffer_momentum: float = 0.1,
-                 scaling_stats_permute_dims: Tuple = (1, 0, 2, 3),
-                 per_channel_broadcastable_shape: Optional[Tuple[int, ...]] = None,
-                 min_overall_bit_width: Optional[int] = 2,
-                 max_overall_bit_width: Optional[int] = None,
-                 bit_width_impl_override: Union[BitWidthParameter] = None,
-                 bit_width_impl_type: BitWidthImplType = BitWidthImplType.CONST,
-                 restrict_bit_width_type: RestrictValueType = RestrictValueType.INT,
-                 restrict_scaling_type: RestrictValueType = RestrictValueType.LOG_FP,
-                 scaling_min_val: Optional[float] = SCALING_MIN_VAL,
-                 override_pretrained_bit_width: bool = False,
-                 return_quant_tensor: bool = False):
-        super(QuantIdentity, self).__init__(return_quant_tensor=return_quant_tensor)
-        activation_impl = Identity()
-        self.act_quant_proxy = ActivationQuantProxy(activation_impl=activation_impl,
-                                                    bit_width=bit_width,
-                                                    signed=True,
-                                                    narrow_range=narrow_range,
-                                                    scaling_override=scaling_override,
-                                                    min_val=min_val,
-                                                    max_val=max_val,
-                                                    quant_type=quant_type,
-                                                    float_to_int_impl_type=float_to_int_impl_type,
-                                                    scaling_impl_type=scaling_impl_type,
-                                                    scaling_per_channel=scaling_per_channel,
-                                                    scaling_min_val=scaling_min_val,
-                                                    per_channel_broadcastable_shape=per_channel_broadcastable_shape,
-                                                    min_overall_bit_width=min_overall_bit_width,
-                                                    max_overall_bit_width=max_overall_bit_width,
-                                                    bit_width_impl_override=bit_width_impl_override,
-                                                    bit_width_impl_type=bit_width_impl_type,
-                                                    restrict_bit_width_type=restrict_bit_width_type,
-                                                    restrict_scaling_type=restrict_scaling_type,
-                                                    override_pretrained_bit_width=override_pretrained_bit_width,
-                                                    scaling_stats_sigma=scaling_stats_sigma,
-                                                    scaling_stats_op=scaling_stats_op,
-                                                    scaling_stats_buffer_momentum=scaling_stats_buffer_momentum,
-                                                    scaling_stats_permute_dims=scaling_stats_permute_dims)
