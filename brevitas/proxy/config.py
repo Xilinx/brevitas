@@ -303,6 +303,8 @@ def _solve_scaling_stats_input_view_shape_impl(qi, spoc, ma):
 
 
 def _solve_scaling_shapes_dims(qi, per_channel_shape_attr):
+    if 'scaling_per_channel' in qi: # act
+        qi = qi.let(scaling_per_output_channel=this.scaling_per_channel)
     spoc = _check_name_value(qi, 'scaling_per_output_channel', True)
     ma = _check_name_value(qi, 'scaling_stats_op', StatsOp.MAX_AVE)
     qi = _solve_scaling_shape(qi, spoc, per_channel_shape_attr)
