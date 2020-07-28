@@ -4,8 +4,7 @@ from brevitas.core.quant import QuantType
 from brevitas.core.scaling import ScalingImplType
 from brevitas.core.stats import StatsOp
 from brevitas.nn import QuantReLU
-from brevitas.proxy.utils import ConvertRuntimeStatsToParameter
-from common import check_expected_pyt_120_fail
+from common import check_expected_pyt_110_fail
 
 BIT_WIDTH = 8
 MAX_VAL = 6.0
@@ -14,7 +13,7 @@ RANDOM_ITERS = 32
 
 class TestQuantReLU:
 
-    @check_expected_pyt_120_fail
+    @check_expected_pyt_110_fail
     def test_scaling_stats_to_parameter(self):
 
         stats_act = QuantReLU(bit_width=BIT_WIDTH,
