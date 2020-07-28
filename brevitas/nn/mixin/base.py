@@ -1,0 +1,169 @@
+# Copyright (c) 2018-     Xilinx, Inc              (Alessandro Pappalardo)
+# Copyright (c) 2016-     Facebook, Inc            (Adam Paszke)
+# Copyright (c) 2014-     Facebook, Inc            (Soumith Chintala)
+# Copyright (c) 2011-2014 Idiap Research Institute (Ronan Collobert)
+# Copyright (c) 2012-2014 Deepmind Technologies    (Koray Kavukcuoglu)
+# Copyright (c) 2011-2012 NEC Laboratories America (Koray Kavukcuoglu)
+# Copyright (c) 2011-2013 NYU                      (Clement Farabet)
+# Copyright (c) 2006-2010 NEC Laboratories America (Ronan Collobert, Leon Bottou, Iain Melvin, Jason Weston)
+# Copyright (c) 2006      Idiap Research Institute (Samy Bengio)
+# Copyright (c) 2001-2004 Idiap Research Institute (Ronan Collobert, Samy Bengio, Johnny Mariethoz)
+
+# All rights reserved.
+
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+
+# 1. Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+
+# 2. Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in the
+#    documentation and/or other materials provided with the distribution.
+
+# 3. Neither the names of Xilinx, Facebook, Deepmind Technologies, NYU,
+#    NEC Laboratories America and IDIAP Research Institute nor the names
+#    of its contributors may be used to endorse or promote products derived
+#    from this software without specific prior written permission.
+
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+
+from abc import ABCMeta, abstractmethod
+from typing import Optional, Union
+
+from torch import Tensor
+
+from brevitas.quant_tensor import QuantTensor
+
+
+class _CachedIO:
+
+    def __init__(self, quant_tensor: QuantTensor, metadata_only: bool):
+        self.shape = quant_tensor.value.shape
+        if metadata_only:
+            self.quant_tensor = quant_tensor.set(value=None)
+        else:
+            self.quant_tensor = quant_tensor
+
+    @property
+    def scale(self):
+        return self.quant_tensor.scale
+
+    @property
+    def bit_width(self):
+        return self.quant_tensor.bit_width
+
+    @property
+    def signed(self):
+        return self.quant_tensor.signed
+
+
+class QuantLayerMixin(object):
+    __metaclass__ = ABCMeta
+
+    def __init__(
+            self,
+            return_quant_tensor: bool,
+            export_mode: bool = False,
+            export_handler: Optional = None,
+            cache_inference_quant_inp: bool = False,
+            cache_inference_quant_out: bool = False,
+            cache_quant_metadata_only: bool = True):
+        self.return_quant_tensor = return_quant_tensor
+        self.export_handler = export_handler
+        self.cache_inference_quant_inp = cache_inference_quant_inp
+        self.cache_inference_quant_out = cache_inference_quant_out
+        self.cache_quant_metadata_only = cache_quant_metadata_only
+        self._export_mode = export_mode
+        self._cached_inp = None
+        self._cached_out = None
+
+    @property
+    @abstractmethod
+    def channelwise_separable(self) -> bool:
+        pass
+
+    @property
+    def export_mode(self):
+        if self._export_mode and self.training:
+            raise RuntimeError("Can't enter export mode during training, only during inference")
+        return self._export_mode
+
+    @export_mode.setter
+    def export_mode(self, value):
+        if value and self.export_handler is None:
+            raise RuntimeError("Can't enable export mode on a layer without an export handler")
+        if value:
+            self.export_handler.prepare_for_symbolic_execution(self)
+        self._export_mode = value
+
+    @property
+    def is_quant_input_signed(self) -> Optional[bool]:  # tri-valued logic output
+        if self._cached_inp is not None:
+            return self._cached_inp.signed
+        else:
+            return None
+
+    def quant_input_scale(self):
+        if self._cached_inp is not None:
+            return self._cached_inp.scale
+        else:
+            return None
+
+    def quant_input_bit_width(self):
+        if self._cached_inp is not None:
+            return self._cached_inp.bit_width
+        else:
+            return None
+
+    @property
+    def is_quant_output_signed(self) -> Optional[bool]:  # tri-valued logic output
+        if self._cached_out is not None:
+            return self._cached_out.signed
+        else:
+            return None
+
+    def quant_output_scale(self):
+        if self._cached_out is not None:
+            return self._cached_out.scale
+        else:
+            return None
+
+    def quant_output_bit_width(self):
+        if self._cached_out is not None:
+            return self._cached_out.bit_width
+        else:
+            return None
+
+    def unpack_input(self, inp: Union[Tensor, QuantTensor]):
+        if isinstance(inp, QuantTensor):
+            if self.export_mode:
+                raise RuntimeError("QuantTensor I/O can't be used during export.")
+            if not self.training and self.cache_inference_quant_inp:
+                cached_inp = _CachedIO(inp.detach(), self.cache_quant_metadata_only)
+                self._cached_inp = cached_inp
+            return inp
+        else:
+            inp = QuantTensor(inp)
+            if not self.training and self.cache_inference_quant_inp:
+                cached_inp = _CachedIO(inp.detach(), self.cache_quant_metadata_only)
+                self._cached_inp = cached_inp
+            return inp
+
+    def pack_output(self, quant_output: QuantTensor):
+        if not self.training and self.cache_inference_quant_out:
+            self._cached_out = _CachedIO(quant_output.detach(), self.cache_quant_metadata_only)
+        if self.return_quant_tensor:
+            return quant_output
+        else:
+            return quant_output.value

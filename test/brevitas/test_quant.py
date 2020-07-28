@@ -208,16 +208,15 @@ def test_PrescaledRestrictIntQuantWithInputBitWidth(x, narrow_range, signed, sca
     float_to_int_impl_mock = Mock()
     float_to_int_impl_mock.side_effect = (lambda y: y)
 
-    obj = PrescaledRestrictIntQuantWithInputBitWidth(narrow_range=narrow_range, signed=signed,
-                                                     tensor_clamp_impl=tensor_clamp_impl,
-                                                     msb_clamp_bit_width_impl=msb_clamp_bitwidth_mock,
-                                                     float_to_int_impl=float_to_int_impl_mock)
+    int_quant = IntQuant(signed=signed, narrow_range=narrow_range, tensor_clamp_impl=tensor_clamp_impl,
+                                 float_to_int_impl=float_to_int_impl_mock)
+    obj = PrescaledRestrictIntQuantWithInputBitWidth(bit_width_impl=msb_clamp_bitwidth_mock,
+                                                     int_quant=int_quant)
 
     output, scale, bit_width = obj(value, scale, bit_width)
 
-    expected_IntQuant = IntQuant(signed=signed, narrow_range=narrow_range, tensor_clamp_impl=tensor_clamp_impl,
-                                 float_to_int_impl=float_to_int_impl_mock)
-    expected_output = expected_IntQuant(scale, torch.tensor(1.0), bit_width, value)
+
+    expected_output = int_quant(scale, torch.tensor(1.0), bit_width, value)
 
     assert torch.allclose(expected_output, output, RTOL, ATOL)
 
@@ -242,17 +241,15 @@ def test_PrescaledRestrictIntQuanth(x, narrow_range, signed, scale, bit_width):
     msb_clamp_bitwidth_mock.return_value =bit_width
     float_to_int_impl_mock = Mock()
     float_to_int_impl_mock.side_effect = (lambda y: y)
-
-    obj = PrescaledRestrictIntQuant(narrow_range=narrow_range, signed=signed,
-                                    tensor_clamp_impl=tensor_clamp_impl,
-                                    msb_clamp_bit_width_impl=msb_clamp_bitwidth_mock,
-                                    float_to_int_impl=float_to_int_impl_mock)
+    int_quant = IntQuant(signed=signed, narrow_range=narrow_range, tensor_clamp_impl=tensor_clamp_impl,
+                                 float_to_int_impl=float_to_int_impl_mock)
+    obj = PrescaledRestrictIntQuant(bit_width_impl=msb_clamp_bitwidth_mock,
+                                    int_quant=int_quant)
 
     output, scale, bit_width = obj(value, scale)
 
-    expected_IntQuant = IntQuant(signed=signed, narrow_range=narrow_range, tensor_clamp_impl=tensor_clamp_impl,
-                                 float_to_int_impl=float_to_int_impl_mock)
-    expected_output = expected_IntQuant(scale, torch.tensor(1.0), bit_width, value)
+
+    expected_output = int_quant(scale, torch.tensor(1.0), bit_width, value)
 
     assert torch.allclose(expected_output, output, RTOL, ATOL)
 
@@ -276,7 +273,6 @@ def test_RescalingIntQuant(x, narrow_range, signed, scale, int_scale, bit_width)
     bit_width = torch.tensor(bit_width, dtype=torch.float)
     int_scale = torch.tensor(int_scale, dtype=torch.float)
     tensor_clamp_impl = TensorClamp()
-
     msb_clamp_bitwidth_mock = Mock()
     msb_clamp_bitwidth_mock.return_value = bit_width
     float_to_int_impl_mock = Mock()
@@ -286,18 +282,16 @@ def test_RescalingIntQuant(x, narrow_range, signed, scale, int_scale, bit_width)
     scaling_impl = Mock()
     scaling_impl.return_value = scale
 
-    obj = RescalingIntQuant(narrow_range=narrow_range, signed=signed,
-                            tensor_clamp_impl=tensor_clamp_impl,
-                            float_to_int_impl=float_to_int_impl_mock,
-                            int_scaling_impl=int_scaling_impl_mock,
-                            msb_clamp_bit_width_impl=msb_clamp_bitwidth_mock,
-                            scaling_impl=scaling_impl)
+    int_quant = IntQuant(
+        signed=signed, narrow_range=narrow_range, tensor_clamp_impl=tensor_clamp_impl, float_to_int_impl=float_to_int_impl_mock)
+    obj = RescalingIntQuant(int_scaling_impl=int_scaling_impl_mock,
+                            bit_width_impl=msb_clamp_bitwidth_mock,
+                            scaling_impl=scaling_impl,
+                            int_quant=int_quant)
 
     output, scale_out, bit_width = obj(value)
 
-    expected_IntQuant = IntQuant(signed=signed, narrow_range=narrow_range, tensor_clamp_impl=tensor_clamp_impl,
-                                 float_to_int_impl=float_to_int_impl_mock)
-    expected_output = expected_IntQuant(scale, int_scale, bit_width, value)
+    expected_output = int_quant(scale, int_scale, bit_width, value)
     expected_scale = scale/int_scale
     assert torch.allclose(expected_output, output, RTOL, ATOL)
     assert torch.allclose(expected_scale, scale_out, RTOL, ATOL)

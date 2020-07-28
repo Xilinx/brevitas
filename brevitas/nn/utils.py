@@ -1,3 +1,4 @@
+# Copyright (c) 2019-     Xilinx, Inc              (Giuseppe Franco)
 # Copyright (c) 2018-     Xilinx, Inc              (Alessandro Pappalardo)
 # Copyright (c) 2016-     Facebook, Inc            (Adam Paszke)
 # Copyright (c) 2014-     Facebook, Inc            (Soumith Chintala)
@@ -38,55 +39,15 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from typing import Callable, Union, Type
-
-from torch.nn import Module
-from dependencies import Injector
-
-from brevitas.proxy.runtime_quant import AccQuantProxyProtocol
-from brevitas.proxy.config import update_trunc_quant_injector
-from brevitas.quant_tensor import QuantTensor
-from .mixin.base import QuantLayerMixin
-from .mixin.acc import QuantTruncMixin, QuantClampMixin
+import torch
 
 
-class TruncQuantAccumulator(QuantTruncMixin, QuantLayerMixin, Module):
-
-    def __init__(
-            self,
-            trunc_quant: Union[AccQuantProxyProtocol, Type[Injector]] = None,
-            return_quant_tensor: bool = True,
-            update_injector: Callable = update_trunc_quant_injector,
-            **kwargs):
-        QuantLayerMixin.__init__(self, return_quant_tensor)
-        QuantTruncMixin.__init__(
-            self,
-            trunc_quant=trunc_quant,
-            update_injector=update_injector,
-            **kwargs)
-
-    def forward(self, x: QuantTensor):
-        x = self.unpack_input(x)
-        x = self.trunc_quant(x)
-        return self.pack_output(x)
-
-
-class ClampQuantAccumulator(QuantClampMixin, QuantLayerMixin, Module):
-
-    def __init__(
-            self,
-            trunc_quant: Union[AccQuantProxyProtocol, Type[Injector]] = None,
-            return_quant_tensor: bool = True,
-            update_injector: Callable = update_trunc_quant_injector,
-            **kwargs):
-        QuantLayerMixin.__init__(self, return_quant_tensor)
-        QuantClampMixin.__init__(
-            self,
-            trunc_quant=trunc_quant,
-            update_injector=update_injector,
-            **kwargs)
-
-    def forward(self, x: QuantTensor):
-        x = self.unpack_input(x)
-        x = self.trunc_quant(x)
-        return self.pack_output(x)
+def mul_add_from_bn(bn_mean, bn_var, bn_eps, bn_weight, bn_bias, affine_only):
+    mul_factor = bn_weight
+    add_factor = bn_bias * torch.sqrt(bn_var + bn_eps)
+    add_factor = add_factor - bn_mean * (bn_weight - 1.0)
+    if not affine_only:
+        mul_factor = mul_factor / torch.sqrt(bn_var + bn_eps)
+        add_factor = add_factor - bn_mean
+        add_factor = add_factor / torch.sqrt(bn_var + bn_eps)
+    return mul_factor, add_factor

@@ -1,7 +1,9 @@
 import torch
 import brevitas.nn.quant_conv1d as quant_conv1d
-from generate_quant_input import generate_quant_input
+
 from brevitas.core.quant import QuantType
+
+from generate_quant_input import generate_quant_input
 from common import check_expected_pyt_120_fail
 
 # Quantization parameters
@@ -37,10 +39,10 @@ class Test1DConv:
                                           bias=False)
 
         results_float_quantized = Conv1D(input_quant)
-        weight_int = Conv1D.int_weight
+        weight_int = Conv1D.int_weight()
         bias = Conv1D.bias
-        results_int_quantized = Conv1D.conv1d(input_quant_int, weight_int.float(), bias)
-        totalScale = SCALE * Conv1D.quant_weight_scale
+        results_int_quantized = Conv1D.conv1d_zeros_pad(input_quant_int, weight_int.float(), bias)
+        totalScale = SCALE * Conv1D.quant_weight_scale()
         result_rescaled = results_int_quantized * totalScale
         assert (torch.allclose(results_float_quantized, result_rescaled, atol= ATOL, rtol= RTOL))
 
@@ -57,10 +59,10 @@ class Test1DConv:
                                           bias=False)
 
         results_float_quantized = Conv1D(input_quant)
-        weight_int = Conv1D.int_weight
+        weight_int = Conv1D.int_weight()
         bias = Conv1D.bias
-        results_int_quantized = Conv1D.conv1d(input_quant_int, weight_int.float(), bias)
-        totalScale = SCALE * Conv1D.quant_weight_scale
+        results_int_quantized = Conv1D.conv1d_zeros_pad(input_quant_int, weight_int.float(), bias)
+        totalScale = SCALE * Conv1D.quant_weight_scale()
         result_rescaled = torch.round(results_float_quantized / totalScale)
         assert (torch.allclose(results_int_quantized, result_rescaled, atol=ATOL, rtol=RTOL))
 
@@ -75,13 +77,13 @@ class Test1DConv:
                                           weight_quant_type=QuantType.INT,
                                           weight_bit_width=BIT,
                                           bias=False,
-                                          padding_type=quant_conv1d.PaddingType.SAME)
+                                          padding_type='same')
 
         results_float_quantized = Conv1D(input_quant)
-        weight_int = Conv1D.int_weight
+        weight_int = Conv1D.int_weight()
         bias = Conv1D.bias
-        results_int_quantized = Conv1D.conv1d(input_quant_int, weight_int.float(), bias)
-        totalScale = SCALE * Conv1D.quant_weight_scale
+        results_int_quantized = Conv1D.conv1d_same_zeros_pad(input_quant_int, weight_int.float(), bias)
+        totalScale = SCALE * Conv1D.quant_weight_scale()
         result_rescaled = results_int_quantized * totalScale
         assert (torch.allclose(results_float_quantized, result_rescaled, atol= ATOL, rtol= RTOL))
 
