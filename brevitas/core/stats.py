@@ -267,15 +267,14 @@ class _RuntimeStats(torch.jit.ScriptModule):
             stats_output_shape: Tuple[int, ...],
             stats_input_view_shape_impl: nn.Module,
             stats_permute_dims: Tuple[int, ...],
-            stats_buffer_init: float,
             stats_buffer_momentum: float) -> None:
         super(_RuntimeStats, self).__init__()
-
+        self.first_batch = torch.jit.Attribute(True, bool)
         self.stats_permute_dims = stats_permute_dims
-        self.stats_input_view_shape_impl = stats_input_view_shape_impl()
+        self.stats_input_view_shape_impl = stats_input_view_shape_impl
         self.stats = _Stats(stats_impl, stats_output_shape)
         self.momentum = stats_buffer_momentum
-        self.register_buffer('running_stats', torch.full(stats_output_shape, stats_buffer_init))
+        self.register_buffer('running_stats', torch.full(stats_output_shape, 1.0))
 
     @torch.jit.script_method
     def forward(self, stats_input) -> torch.Tensor:
@@ -284,8 +283,12 @@ class _RuntimeStats(torch.jit.ScriptModule):
                 stats_input = stats_input.permute(*self.stats_permute_dims).contiguous()
             stats_input = self.stats_input_view_shape_impl(stats_input)
             out = self.stats(stats_input)
-            self.running_stats *= (1 - self.momentum)
-            self.running_stats += self.momentum * out.detach()
+            if self.first_batch:
+                self.running_stats *= out.detach()
+                self.first_batch = False
+            else:
+                self.running_stats *= (1 - self.momentum)
+                self.running_stats += self.momentum * out.detach()
         else:
             out = self.running_stats
         return out

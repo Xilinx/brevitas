@@ -52,6 +52,7 @@ from brevitas.core.bit_width import *
 from brevitas.core.quant import QuantType
 from brevitas.core.stats import *
 from brevitas.core.scaling import ScalingImplType, SCALING_SCALAR_SHAPE
+from .utils import ConvertRuntimeStatsToParameter
 
 
 class EvaluateScalingInitImpl(Injector):
@@ -349,6 +350,12 @@ def _solve_act_scaling_init_impl(qi):
     return qi
 
 
+def _solve_act_scaling_conversion(qi):
+    if _check_name_value(qi, 'scaling_impl_type', ScalingImplType.PARAMETER):
+        qi = qi.let(update_state_dict_impl=ConvertRuntimeStatsToParameter)
+    return qi
+
+
 def _solve_enum_based_quant_weight_api(qi):
     qi = _solve_weight_quant_type(qi)
     qi = _solve_scaling_stats_op(qi)
@@ -387,6 +394,7 @@ def _solve_enum_based_quant_act_api(qi):
     qi = _solve_act_scaling_impl_type(qi)
     qi = _solve_act_scaling_shapes_dims(qi)
     qi = _solve_act_scaling_init_impl(qi)
+    qi = _solve_act_scaling_conversion(qi)
     return qi
 
 

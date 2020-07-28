@@ -43,7 +43,7 @@ from typing_extensions import Protocol, runtime_checkable
 
 import torch
 from torch import Tensor
-from torch.nn import Identity
+from torch.nn import Identity, Module
 
 from dependencies import Injector
 
@@ -99,6 +99,10 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
                 Identity(), tensor_quant)
         else:
             self.fused_activation_quant_proxy = None
+        if 'update_state_dict_impl' in act_quant_injector:
+            self.update_state_dict_impl = act_quant_injector.update_state_dict_impl
+        else:
+            self.update_state_dict_impl = None
 
     def scale(self):
         current_status = self.training
@@ -128,44 +132,8 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
 
     def _load_from_state_dict(
             self, state_dict, prefix, metadata, strict, missing_keys, unexpected_keys, error_msgs):
-
-        # scaling_impl_key = prefix + 'fused_activation_quant_proxy.tensor_quant.scaling_impl'
-        # runtime_stats_key = scaling_impl_key + '.runtime_stats'
-        # running_stats_key = scaling_impl_key + '.runtime_stats.running_stats'
-        # scaling_parameter_key = scaling_impl_key + '.value'
-        # scaling_affine_weight_key = prefix + '.stats_scaling_impl.affine_rescaling.affine_weight'
-        # scaling_affine_bias_key = prefix + '.stats_scaling_impl.affine_rescaling.affine_bias'
-        #
-        # if not isinstance(self.fused_activation_quant_proxy.tensor_quant, IdentityQuant) and \
-        #         self.activation_quant_config.scaling_impl_type == ScalingImplType.PARAMETER:
-        #     scaling_impl = self.fused_activation_quant_proxy.tensor_quant.scaling_impl
-        #
-        #     # If it's retrained directly from statistics, i.e. there isn't a preexisting parameter
-        #     if running_stats_key in state_dict and not scaling_parameter_key in state_dict:
-        #         scaling_init = state_dict[running_stats_key]
-        #         if scaling_affine_weight_key in state_dict:
-        #             scaling_init *= state_dict[scaling_affine_weight_key]
-        #         if scaling_affine_bias_key in state_dict:
-        #             scaling_init += state_dict[scaling_affine_bias_key]
-        #
-        #         scaling_init = scaling_init.abs()
-        #
-        #         # Preprocess scaling init, which is always in FP range, based on current value restrictions
-        #         restrict_value_type = scaling_impl.restrict_value.restrict_value_type
-        #         restrict_value_init_op = scaling_impl.restrict_value.restrict_value_op(restrict_value_type,
-        #                                                                                RestrictValueOpImplType.TORCH_FN)
-        #         scaling_init = restrict_value_init_op(scaling_init)
-        #
-        #         # Put scaling init in place in the dict for parameter
-        #         if self.activation_quant_config.scaling_impl_type == ScalingImplType.PARAMETER:
-        #             state_dict[scaling_parameter_key] = scaling_init
-        #
-        #     # Get rid of statistics after using them or in case there is already a parameter
-        #     for k in list(state_dict.keys()):
-        #         if k.startswith(runtime_stats_key):
-        #             del state_dict[k]
-
-        # Go on with dict restoring
+        if self.update_state_dict_impl is not None:
+            self.update_state_dict_impl(prefix, state_dict)
         super(ActQuantProxyFromInjector, self)._load_from_state_dict(
             state_dict, prefix, metadata, strict, missing_keys, unexpected_keys, error_msgs)
 

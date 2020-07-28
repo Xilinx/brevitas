@@ -54,7 +54,7 @@ from .restrict_val import _RestrictClampValue
 
 SCALING_SCALAR_SHAPE = ()
 SCALING_STATS_REDUCE_DIM = 1
-MOMENTUM = 0.1
+DEFAULT_MOMENTUM = 0.1
 DEFAULT_AFFINE = False
 DEFAULT_SCALING_MIN_VAL = None
 
@@ -178,11 +178,10 @@ class RuntimeStatsScaling(torch.jit.ScriptModule):
             scaling_stats_impl: Module,
             scaling_stats_input_view_shape_impl: Module,
             scaling_stats_permute_dims: Tuple[int, ...],
-            scaling_stats_buffer_init: float,
-            scaling_stats_buffer_momentum: float,
             restrict_scaling_impl: Module,
             scaling_shape: Tuple[int, ...],
             affine_rescaling: bool,
+            scaling_stats_buffer_momentum: float = DEFAULT_MOMENTUM,
             scaling_min_val: Optional[float] = DEFAULT_SCALING_MIN_VAL) -> None:
         super(RuntimeStatsScaling, self).__init__()
 
@@ -191,7 +190,6 @@ class RuntimeStatsScaling(torch.jit.ScriptModule):
             scaling_shape,
             scaling_stats_input_view_shape_impl,
             scaling_stats_permute_dims,
-            scaling_stats_buffer_init,
             scaling_stats_buffer_momentum)
         self.stats_scaling_impl = _StatsScaling(
             restrict_scaling_impl,
