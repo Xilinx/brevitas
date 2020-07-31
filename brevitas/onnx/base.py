@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Union, Optional
 from abc import ABC, abstractmethod
 from copy import deepcopy
 
@@ -11,10 +11,10 @@ except ModuleNotFoundError:
 
 import torch
 import torch.onnx
-
 from torch import Tensor
 from torch.nn import Module
 
+from brevitas.quant_tensor import QuantTensor
 from .debug import DebugMarkerFunction
 
 
@@ -23,6 +23,13 @@ def _override_quant_metadata_caching_mode(m: Module, enabled: bool):
         assert not hasattr(m, "cache_quant_metadata_only_backup")
         m.cache_quant_metadata_only_backup = m.cache_quant_metadata_only
         m.cache_quant_metadata_only = enabled
+
+
+def _override_bias_caching_mode(m: Module, enabled: bool):
+    if hasattr(m, 'cache_inference_quant_bias'):
+        assert not hasattr(m, "cache_inference_quant_bias_backup")
+        m.cache_inference_quant_bias_backup = m.cache_inference_quant_bias
+        m.cache_inference_quant_bias = enabled
 
 
 def _override_inp_caching_mode(m: Module, enabled: bool):
@@ -44,6 +51,13 @@ def _restore_quant_metadata_caching_mode(m: Module):
         assert hasattr(m, "cache_quant_metadata_only_backup")
         m.cache_quant_metadata_only = m.cache_quant_metadata_only_backup
         del m.cache_quant_metadata_only_backup
+
+
+def _restore_bias_caching_mode(m: Module):
+    if hasattr(m, "cache_inference_quant_bias"):
+        assert hasattr(m, "cache_inference_quant_bias_backup")
+        m.cache_inference_quant_bias = m.cache_inference_quant_bias_backup
+        del m.cache_inference_quant_bias_backup
 
 
 def _restore_inp_caching_mode(m: Module):
@@ -119,11 +133,13 @@ class BaseManager(ABC):
     def cache_inp_out(cls, module, input_t):
         # force enable caching
         module.apply(lambda m: _override_quant_metadata_caching_mode(m, enabled=True))
+        module.apply(lambda m: _override_bias_caching_mode(m, enabled=True))
         module.apply(lambda m: _override_inp_caching_mode(m, enabled=True))
         module.apply(lambda m: _override_out_caching_mode(m, enabled=True))
         _ = module.forward(input_t)
         # Restore previous caching properties
         module.apply(lambda m: _restore_quant_metadata_caching_mode(m))
+        module.apply(lambda m: _restore_bias_caching_mode(m))
         module.apply(lambda m: _restore_inp_caching_mode(m))
         module.apply(lambda m: _restore_out_caching_mode(m))
 
@@ -133,7 +149,7 @@ class BaseManager(ABC):
             module: Module,
             input_shape: Tuple[int, ...],
             export_path: str,
-            input_t: Tensor = None,
+            input_t: Optional[Union[Tensor, QuantTensor]] = None,
             torch_onnx_kwargs: dict = None):
         """
         * input_shape : tuple describing the shape of network input e.g. (1, 1, 28, 28)
