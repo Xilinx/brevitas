@@ -147,6 +147,7 @@ class QuantBiasMixin(QuantParameterMixin):
             bias: torch.nn.Parameter,
             bias_quant: Union[BiasQuantProxyProtocol, Type[Injector]],
             update_injector: Callable,
+            cache_inference_bias: bool = False,
             **kwargs):
         QuantParameterMixin.__init__(
             self,
@@ -156,6 +157,8 @@ class QuantBiasMixin(QuantParameterMixin):
             update_injector=update_injector,
             prefix='bias_',
             **kwargs)
+        self.cache_inference_quant_bias = cache_inference_bias
+        self._cached_bias = None
 
     @property
     def is_bias_quant_enabled(self):
@@ -164,9 +167,27 @@ class QuantBiasMixin(QuantParameterMixin):
     @property
     def is_quant_bias_narrow_range(self):
         assert self.is_bias_quant_enabled, "Bias quantization disabled"
-        return self.weight_quant.is_narrow_range
+        return self.bias_quant.is_narrow_range
 
     @property
     def is_quant_bias_signed(self):
         assert self.is_bias_quant_enabled, "Bias quantization disabled"
-        return self.weight_quant.is_signed
+        return self.bias_quant.is_signed
+
+    def int_bias(self, float_datatype=False):
+        assert self.is_bias_quant_enabled, "Bias quantization disabled"
+        scale = self.quant_bias_scale()
+        bit_width = self.quant_bias_bit_width()
+        quant_bias = self.bias_quant(self.bias, scale, bit_width)
+        return quant_bias.int(float_datatype=float_datatype)
+
+    def quant_bias_scale(self):
+        assert self.is_bias_quant_enabled, "Bias quantization disabled"
+        assert self._cached_bias is not None, "Quant bias caching disabled"
+        return self._cached_bias.scale
+
+    def quant_bias_bit_width(self):  # more restrictive than it could be
+        assert self.is_bias_quant_enabled, "Bias quantization disabled"
+        assert self._cached_bias is not None, "Quant bias caching disabled"
+        return self._cached_bias.bit_width
+

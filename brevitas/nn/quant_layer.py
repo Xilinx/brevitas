@@ -52,6 +52,7 @@ from brevitas.proxy.runtime_quant import ActQuantProxyProtocol
 from brevitas.proxy.config import update_weight_quant_injector as default_update_wqi
 from brevitas.proxy.config import update_bias_quant_injector as default_update_bqi
 from brevitas.proxy.config import update_act_quant_injector as default_update_aqi
+from .mixin.base import _CachedIO
 from .mixin import *
 
 from .utils import mul_add_from_bn, rename_state_dict_by_prefix
@@ -169,7 +170,7 @@ class QuantNonLinearActLayer(QuantNonLinearActMixin, QuantLayerMixin, Module):
     def quant_act_bit_width(self):
         if self.is_act_quant_enabled:
             return self.act_quant.bit_width()
-        elif self.cache_inference_quant_out:
+        elif self._cached_out is not None:
             return self._cached_out.bit_width
         else:
             return None
@@ -324,8 +325,12 @@ class QuantWeightBiasInputOutputLayer(
 
         if self.bias is not None:
             quant_bias = self.bias_quant(self.bias, output_scale, output_bit_width)
+            if not self.training and self.cache_inference_quant_bias:
+                self._cached_bias = _CachedIO(quant_bias.detach(), metadata_only=False)
+
             output_tensor = self.inner_forward_impl(
                 quant_input.value, quant_weight.value, quant_bias.value)
+
             if quant_bias.bit_width is not None:
                 output_bit_width = torch.where(
                     quant_bias.bit_width > output_bit_width, quant_bias.bit_width, output_bit_width)
