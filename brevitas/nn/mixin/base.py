@@ -79,12 +79,12 @@ class QuantLayerMixin(object):
             export_handler: Optional = None,
             cache_inference_quant_inp: bool = False,
             cache_inference_quant_out: bool = False,
-            cache_quant_metadata_only: bool = True):
+            cache_quant_io_metadata_only: bool = True):
         self.return_quant_tensor = return_quant_tensor
         self.export_handler = export_handler
         self.cache_inference_quant_inp = cache_inference_quant_inp
         self.cache_inference_quant_out = cache_inference_quant_out
-        self.cache_quant_metadata_only = cache_quant_metadata_only
+        self.cache_quant_io_metadata_only = cache_quant_io_metadata_only
         self._export_mode = export_mode
         self._export_debug_name = export_debug_name
         self._cached_inp = None
@@ -161,19 +161,19 @@ class QuantLayerMixin(object):
             if self.export_mode:
                 raise RuntimeError("QuantTensor I/O can't be used during export.")
             if not self.training and self.cache_inference_quant_inp:
-                cached_inp = _CachedIO(inp.detach(), self.cache_quant_metadata_only)
+                cached_inp = _CachedIO(inp.detach(), self.cache_quant_io_metadata_only)
                 self._cached_inp = cached_inp
             return inp
         else:
             inp = QuantTensor(inp)
             if not self.training and self.cache_inference_quant_inp:
-                cached_inp = _CachedIO(inp.detach(), self.cache_quant_metadata_only)
+                cached_inp = _CachedIO(inp.detach(), self.cache_quant_io_metadata_only)
                 self._cached_inp = cached_inp
             return inp
 
     def pack_output(self, quant_output: QuantTensor):
         if not self.training and self.cache_inference_quant_out:
-            self._cached_out = _CachedIO(quant_output.detach(), self.cache_quant_metadata_only)
+            self._cached_out = _CachedIO(quant_output.detach(), self.cache_quant_io_metadata_only)
         if self.return_quant_tensor:
             return quant_output
         else:
