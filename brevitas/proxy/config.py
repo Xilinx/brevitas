@@ -140,8 +140,10 @@ def _solve_bit_width_impl_type(qi):
 
 
 def _solve_bias_bit_width_impl_type(qi):
+    if 'bit_width' in qi:
+        qi = qi.let(requires_input_bit_width=False)
     if 'bit_width' in qi and 'bit_width_impl_type' not in qi: # retrocomp. TODO deprecate
-        qi = qi.let(bit_width_impl=BitWidthImplType.CONST)
+        qi = qi.let(bit_width_impl_type=BitWidthImplType.CONST)
     elif 'bit_width' not in qi and 'bit_width_impl_type' not in qi:
         qi = qi.let(**{'bit_width_impl': IdentityBitWidth, 'requires_input_bit_width': True})
     qi = _solve_bit_width_impl_type(qi)
@@ -406,7 +408,7 @@ def _update_act_impl(qi):
     quant_type_fp = _check_name_value(qi, 'quant_type', QuantType.FP)
     unsigned_attrs = {'min_val': 0.0, 'signed': False}
     if isinstance(qi.act_impl, nn.ReLU) and not min_val_set and not signed_set:
-        qi = qi.let(unsigned_attrs)
+        qi = qi.let(**unsigned_attrs)
     elif isinstance(qi.act_impl, nn.Sigmoid) and not min_val_set and not max_val_set and not signed_set:
         qi = qi.let(max_val_set=1.0, **unsigned_attrs)
     elif isinstance(qi.act_impl, nn.Tanh) and not min_val_set and not signed_set:
