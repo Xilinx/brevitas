@@ -155,5 +155,5 @@ class PowerOfTwoRestrictValue(torch.jit.ScriptModule):
     @torch.jit.script_method
     def forward(self, x: torch.Tensor):
         x = self.float_to_int_impl(x)
-        x = self.forward_impl(x)
+        x = self.power_of_two(x)
         return x
