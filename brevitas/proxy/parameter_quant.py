@@ -73,6 +73,7 @@ class WeightQuantProxyProtocol(ParameterQuantProxyProtocol, Protocol):
 
 @runtime_checkable
 class BiasQuantProxyProtocol(ParameterQuantProxyProtocol, Protocol):
+    requires_input_bit_width: bool
 
     def forward(
             self,
@@ -135,6 +136,10 @@ class WeightQuantProxyFromInjector(ParameterQuantProxyFromInjector, WeightQuantP
 
 class BiasQuantProxyFromInjector(ParameterQuantProxyFromInjector, BiasQuantProxyProtocol):
 
+    @property
+    def requires_input_bit_width(self) -> bool:
+        return self.quant_injector.requires_input_bit_width
+
     def forward(
             self,
             x: Tensor,
@@ -144,7 +149,7 @@ class BiasQuantProxyFromInjector(ParameterQuantProxyFromInjector, BiasQuantProxy
             if input_scale is None:
                 raise RuntimeError("Input scale can't be None when quantizing bias")
             input_scale = input_scale.view(-1)
-            if self.quant_injector.requires_input_bit_width:  # bit width is defined outside
+            if self.requires_input_bit_width:  # bit width is defined outside
                 if input_bit_width is None:
                     raise RuntimeError("Input or predefined bit width required")
                 out, out_scale, out_bit_width = self.tensor_quant(x, input_scale, input_bit_width)
