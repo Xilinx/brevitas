@@ -1,7 +1,7 @@
 from brevitas.onnx.base import BaseManager
 
-from .transforms import move_quant_attributes_into_annotations
-from .transforms import move_domain_attributes_into_domain
+from ..transform import move_domain_attributes_into_domain
+from .transform import move_quant_attributes_into_annotations
 from .handler.parameter import FINNQuantConv2dHandler, FINNQuantLinearHandler
 from .handler.parameter import FINNQuantConv1dHandler
 from .handler.act import FINNQuantHardTanhHandler, FINNQuantReLUHandler
