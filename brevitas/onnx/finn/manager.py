@@ -3,6 +3,7 @@ from brevitas.onnx.base import BaseManager
 from .transforms import move_quant_attributes_into_annotations
 from .transforms import move_domain_attributes_into_domain
 from .handler.parameter import FINNQuantConv2dHandler, FINNQuantLinearHandler
+from .handler.parameter import FINNQuantConv1dHandler
 from .handler.act import FINNQuantHardTanhHandler, FINNQuantReLUHandler
 from .handler.acc import FINNQuantAvgPool2dHandler
 
@@ -11,6 +12,7 @@ class FINNManager(BaseManager):
 
     handlers = [
         FINNQuantLinearHandler,
+        FINNQuantConv1dHandler,
         FINNQuantConv2dHandler,
         FINNQuantReLUHandler,
         FINNQuantHardTanhHandler,
