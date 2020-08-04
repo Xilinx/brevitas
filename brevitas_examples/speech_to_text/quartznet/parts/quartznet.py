@@ -23,7 +23,8 @@ import torch.nn as nn
 from torch import Tensor
 from .common import *
 from brevitas.quant_tensor import QuantTensor
-from brevitas.nn.quant_bn import mul_add_from_bn
+from brevitas.nn import QuantConv1d
+from brevitas.nn.utils import mul_add_from_bn, rename_state_dict_by_postfix
 
 jasper_activations = {
     "hardtanh": nn.Hardtanh,
@@ -82,7 +83,7 @@ class MaskedConv1d(nn.Module):
         self.conv = make_quantconv1d(in_channels, out_channels, kernel_size, bias=bias,
                                      stride=stride, padding=padding, dilation=dilation,
                                      groups=groups, scaling_per_channel=scaling_per_channel, bit_width=bit_width)
-        self.is_depthwise = (in_channels == out_channels) and (in_channels == groups)
+        self.channelwise_separable = (in_channels == out_channels) and (in_channels == groups)
         self.use_mask = use_mask
         self.heads = heads
 
@@ -343,12 +344,15 @@ class JasperBlock(nn.Module):
         for i, l in enumerate(self.mconv):
             if isinstance(l, MaskedConv1d):
                 out, lens = l(out, lens)
-                check_flag = check_flag or l.is_depthwise
-                if l.is_depthwise:
-                    out, scale, bit = self.norm_depthwise[count_norm](out)
-                    count_norm += 1
             else:
                 out = l(out)
+            if isinstance(l, (MaskedConv1d, QuantConv1d)):
+                check_flag = check_flag or l.channelwise_separable
+                if l.channelwise_separable:
+                    out = self.norm_depthwise[count_norm](out)
+                    if isinstance(out, QuantTensor):
+                        out = out.value
+                    count_norm += 1
         if check_flag:
             assert (len(self.norm_depthwise) == count_norm)
 
@@ -373,7 +377,7 @@ class JasperBlock(nn.Module):
                     out = torch.max(out, res_out)
 
         if isinstance(out, QuantTensor):
-            out, scale, bit = out
+            out = out.value
 
         # compute the output
         out = self.mout(out)
@@ -393,6 +397,8 @@ class JasperBlock(nn.Module):
             error_msgs):
         if self.fused_bn:
             self.fuse_bn(state_dict, prefix)
+        if not self.conv_mask:
+            rename_state_dict_by_postfix('conv.weight', 'weight', state_dict)
         super(JasperBlock, self)._load_from_state_dict(
             state_dict,
             prefix,

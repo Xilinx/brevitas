@@ -41,7 +41,7 @@ model_impl = {
 }
 
 
-def model_with_cfg(name, pretrained):
+def model_with_cfg(name, pretrained, export_mode):
     cfg = ConfigParser()
     current_dir = os.path.dirname(os.path.abspath(__file__))
     config_path = os.path.join(current_dir, '..', 'cfg', name + '.ini')
@@ -53,7 +53,7 @@ def model_with_cfg(name, pretrained):
     yaml = YAML(typ="safe")
     with open(topology_path) as f:
         quartnzet_params = yaml.load(f)
-    model = model_impl[arch](cfg, quartnzet_params)
+    model = model_impl[arch](cfg, quartnzet_params, export_mode)
     if pretrained:
         pretrained_encoder_url = cfg.get('MODEL', 'PRETRAINED_ENCODER_URL')
         pretrained_decoder_url = cfg.get('MODEL', 'PRETRAINED_DECODER_URL')
@@ -65,16 +65,16 @@ def model_with_cfg(name, pretrained):
     return model, cfg
 
 
-def quant_quartznet_perchannelscaling_4b(pretrained=True):
-    model, _ = model_with_cfg('quant_quartznet_perchannelscaling_4b', pretrained)
+def quant_quartznet_perchannelscaling_4b(pretrained=True, export_mode=False):
+    model, _ = model_with_cfg('quant_quartznet_perchannelscaling_4b', pretrained, export_mode)
     return model
 
 
-def quant_quartznet_perchannelscaling_8b(pretrained=True):
-    model, _ = model_with_cfg('quant_quartznet_perchannelscaling_8b', pretrained)
+def quant_quartznet_perchannelscaling_8b(pretrained=True, export_mode=False):
+    model, _ = model_with_cfg('quant_quartznet_perchannelscaling_8b', pretrained, export_mode)
     return model
 
 
-def quant_quartznet_pertensorscaling_8b(pretrained=True):
-    model, _ = model_with_cfg('quant_quartznet_pertensorscaling_8b', pretrained)
+def quant_quartznet_pertensorscaling_8b(pretrained=True, export_mode=False):
+    model, _ = model_with_cfg('quant_quartznet_pertensorscaling_8b', pretrained, export_mode)
     return model
