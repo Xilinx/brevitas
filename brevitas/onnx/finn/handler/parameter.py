@@ -4,11 +4,14 @@ from typing import Optional, Union
 import torch
 from torch import Tensor
 
-from brevitas.nn import QuantLinear, QuantConv2d
+from brevitas.nn import QuantLinear, QuantConv2d, QuantConv1d
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from .base import FINNQuantIOHandler
 from ..function.parameter import QuantizedLinearPlaceholderFunction
-from ..function.parameter import QuantizedConv2dPlaceholderFunction
+from ..function.parameter import QuantizedConvNdPlaceholderFunction
+
+
+QuantConvNd = Union[QuantConv1d, QuantConv2d]
 
 
 class FINNQuantWBIOLHandler(FINNQuantIOHandler, ABC):
@@ -72,9 +75,14 @@ class FINNQuantLinearHandler(FINNQuantWBIOLHandler):
 
     def prepare_for_symbolic_execution(self, module):
         self.sanity_check(module)
+        quant_input_scale = self.quant_input_scale(module)
         quant_weight_scale = self.quant_weight_scale(module)
         quant_output_scale = self.quant_output_scale(module)
         quant_output_bit_width_tensor = self.quant_output_bit_width_tensor(module)
+        if quant_output_scale is not None and quant_input_scale is not None:
+            scale_factor = quant_output_scale
+        else:
+            scale_factor = quant_weight_scale
         maybe_quant_bias = self.maybe_quant_bias(
             module,
             quant_weight_scale,
@@ -82,11 +90,11 @@ class FINNQuantLinearHandler(FINNQuantWBIOLHandler):
             quant_output_bit_width_tensor)
         self.symbolic_kwargs = {
             'Wt': self.int_weight(module),
-            'scale_factor': quant_output_scale if quant_output_scale else quant_weight_scale,
+            'scale_factor': scale_factor,
             'w_qnt_type': self.quant_weight_type(module),
             'out_shape': self.quant_output_shape(module),
             'bias': maybe_quant_bias,
-            'in_scale': self.quant_input_scale(module),
+            'in_scale': quant_input_scale,
             'in_qnt_type': self.quant_input_type(module)}
 
     def symbolic_execution(self, inp: Tensor):
@@ -94,19 +102,105 @@ class FINNQuantLinearHandler(FINNQuantWBIOLHandler):
         return ret
 
 
-class FINNQuantConv2dHandler(FINNQuantWBIOLHandler):
-    handled_layer = QuantConv2d
+class FINNQuantConvNdHandler(FINNQuantWBIOLHandler, ABC):
 
     @staticmethod
-    def int_weight(module: QuantConv2d):
+    def int_weight(module: QuantConvNd):
         return module.int_weight(float_datatype=True).detach()
 
     @staticmethod
-    def quant_output_shape(module: QuantConv2d):
+    def quant_output_shape(module: QuantConvNd):
         shape = FINNQuantWBIOLHandler.quant_output_shape(module)
         if shape is None:
-            raise RuntimeError("Caching of output shapes is required to export QuantConv2d")
+            raise RuntimeError("Caching of output shapes is required to export QuantConvNd")
         return shape
+
+    @staticmethod
+    def maybe_quant_bias(
+            module: QuantWBIOL,
+            quant_weight_scale: Tensor,
+            quant_output_scale: Optional[Union[Tensor, float]],
+            quant_bit_width: Optional[Tensor]):
+        quant_bias = FINNQuantWBIOLHandler.maybe_quant_bias(
+            module, quant_weight_scale, quant_output_scale, quant_bit_width)
+        if quant_bias is not None:
+            quant_bias_shape = [1] * len(module.weight.shape)
+            quant_bias_shape[1] = -1 # shape should broadcast with activations along channel dim
+            quant_bias = quant_bias.view(quant_bias_shape)
+        return quant_bias
+
+    def prepare_for_symbolic_execution(self, module: QuantConvNd):
+        self.sanity_check(module)
+        quant_input_scale = self.quant_input_scale(module)
+        quant_weight_scale = self.quant_weight_scale(module)
+        quant_output_scale = self.quant_output_scale(module)
+        quant_output_bit_width_tensor = self.quant_output_bit_width_tensor(module)
+        if quant_output_scale is not None and quant_input_scale is not None:
+            scale_factor = quant_output_scale
+        else:
+            scale_factor = quant_weight_scale
+        maybe_quant_bias = self.maybe_quant_bias(
+            module,
+            quant_weight_scale,
+            quant_output_scale,
+            quant_output_bit_width_tensor)
+        self.symbolic_kwargs = {
+            'W': self.int_weight(module),
+            'scale_factor': scale_factor,
+            'w_qnt_type': self.quant_weight_type(module),
+            'out_shape': self.quant_output_shape(module),
+            'pads': self.padding(module),
+            'strides': self.stride(module),
+            'bias': maybe_quant_bias,
+            'in_scale': quant_input_scale,
+            'in_qnt_type': self.quant_input_type(module),
+            'kernel_shape': list(module.kernel_size),
+            'groups': module.groups,
+            'dilations': self.dilation(module)}
+
+    def symbolic_execution(self, inp: Tensor):
+        ret = QuantizedConvNdPlaceholderFunction.apply(inp, *self.symbolic_kwargs.values())
+        return ret
+
+
+class FINNQuantConv1dHandler(FINNQuantConvNdHandler):
+    handled_layer = QuantConv1d
+
+    @staticmethod
+    def quant_weight_scale(module: QuantConv1d):
+        quant_weight_scale = module.quant_weight_scale().type(torch.FloatTensor).detach()
+        if len(quant_weight_scale.shape) == 3:
+            quant_weight_scale = quant_weight_scale.view(1, -1, 1)
+        return quant_weight_scale
+
+    @staticmethod
+    def padding(module: QuantConv1d):
+        if isinstance(module.padding, int):
+            padding = [module.padding] * 2
+        else:
+            padding = list(module.padding)
+            if len(padding) == 1:
+                return padding + padding
+        return padding
+
+    @staticmethod
+    def stride(module: QuantConv1d):
+        if isinstance(module.stride, int):
+            return [module.stride]
+        else:
+            return list(module.stride)
+
+    @staticmethod
+    def dilation(module):
+        if isinstance(module.dilation, int):
+            return [module.dilation]
+        else:
+            dilation = list(module.dilation)
+            return dilation
+
+
+class FINNQuantConv2dHandler(FINNQuantConvNdHandler):
+    handled_layer = QuantConv2d
 
     @staticmethod
     def quant_weight_scale(module: QuantConv2d):
@@ -124,7 +218,9 @@ class FINNQuantConv2dHandler(FINNQuantWBIOLHandler):
             # assume we have a tuple and symmetric padding
             # [x1_begin, x2_begin...x1_end, x2_end,...],
             # so just duplicate the padding tuple
-            padding = list(module.padding) + list(module.padding)
+            padding = list(module.padding)
+            if len(padding) == 2:
+                padding = padding + padding
         return padding
 
     @staticmethod
@@ -134,20 +230,10 @@ class FINNQuantConv2dHandler(FINNQuantWBIOLHandler):
         else:
             return list(module.stride)
 
-    def prepare_for_symbolic_execution(self, module):
-        self.sanity_check(module)
-        assert module.bias is None, "Biases not supported at the moment"
-        self.symbolic_kwargs = {
-            'W': self.int_weight(module),
-            'scale_factor': self.quant_weight_scale(module),
-            'qnt_type': self.quant_weight_type(module),
-            'out_shape': self.quant_output_shape(module),
-            'pads': self.padding(module),
-            'strides': self.stride(module),
-            'bias': module.bias,
-            'kernel_shape': list(module.kernel_size),
-            'groups': module.groups}
-
-    def symbolic_execution(self, inp: Tensor):
-        ret = QuantizedConv2dPlaceholderFunction.apply(inp, *self.symbolic_kwargs.values())
-        return ret
+    @staticmethod
+    def dilation(module):
+        if isinstance(module.dilation, int):
+            return [module.dilation]
+        else:
+            dilation = list(module.dilation)
+            return dilation
