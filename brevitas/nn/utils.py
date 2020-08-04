@@ -53,11 +53,21 @@ def mul_add_from_bn(bn_mean, bn_var, bn_eps, bn_weight, bn_bias, affine_only):
     return mul_factor, add_factor
 
 
-def rename_state_dict(old_prefix, new_prefix, state_dict):
+def rename_state_dict_by_prefix(old_prefix, new_prefix, state_dict):
     keys_map = {}
     for k in state_dict.keys():
         if k.startswith(old_prefix):
             new_key = new_prefix + k[len(old_prefix):]
+            keys_map[k] = new_key
+    for old_key in keys_map.keys():
+        state_dict[keys_map[old_key]] = state_dict.pop(old_key)
+
+
+def rename_state_dict_by_postfix(old_postfix, new_postfix, state_dict):
+    keys_map = {}
+    for k in state_dict.keys():
+        if k.endswith(old_postfix):
+            new_key = k[:len(k) - len(old_postfix)] + new_postfix
             keys_map[k] = new_key
     for old_key in keys_map.keys():
         state_dict[keys_map[old_key]] = state_dict.pop(old_key)
