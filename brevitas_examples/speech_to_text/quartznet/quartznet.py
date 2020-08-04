@@ -215,13 +215,16 @@ class Quartznet(nn.Module):
         self.greedy_ctc_decoder = greedyctcdecoder
 
     def forward(self, input_tensors):
-        audio_signal_e1, a_sig_length_e1, _, _ = input_tensors
-        processed_signal_e1, p_length_e1 = self.preprocessing(
+        if self.preprocessing is not None:  # with export mode disabled
+            audio_signal_e1, a_sig_length_e1, _, _ = input_tensors
+            processed_signal_e1, p_length_e1 = self.preprocessing(
             input_signal=audio_signal_e1,
             length=a_sig_length_e1)
-        encoded_e1, encoded_len_e1 = self.encoder(
-            audio_signal=processed_signal_e1,
-            length=p_length_e1)
+            encoded_e1, encoded_len_e1 = self.encoder(
+                audio_signal=processed_signal_e1,
+                length=p_length_e1)
+        else:  # with export mode enabled, no preprocessing, no length
+            encoded_e1 = self.encoder(input_tensors)
         log_probs_e1 = self.decoder(encoder_output=encoded_e1)
         predictions_e1 = self.greedy_ctc_decoder(log_probs=log_probs_e1)
         return predictions_e1
@@ -232,7 +235,7 @@ class Quartznet(nn.Module):
         print("Checkpoint restored")
 
 
-def quartznet(cfg, quartzet_params):
+def quartznet(cfg, quartzet_params, export_mode):
 
     outer_bit_width = cfg.getint('QUANT', 'OUTER_LAYERS_BIT_WIDTH')
     inner_bit_width = cfg.getint('QUANT', 'INNER_LAYERS_BIT_WIDTH')
@@ -248,7 +251,11 @@ def quartznet(cfg, quartzet_params):
     feat_in_encoder = quartzet_params["AudioToMelSpectrogramPreprocessor"]["features"]
     feat_in_decoder = quartzet_params["JasperEncoder"]["jasper"][-1]["filters"]
 
-    data_preprocessor = AudioToMelSpectrogramPreprocessor(
+    if export_mode:
+        quartzet_params['JasperEncoder']['conv_mask'] = False  # no conv masking in export mode
+        data_preprocessor = None  # no built in preprocessing in export mode
+    else:
+        data_preprocessor = AudioToMelSpectrogramPreprocessor(
         sample_rate=sample_rate,
         **quartzet_params["AudioToMelSpectrogramPreprocessor"])
 
