@@ -103,7 +103,7 @@ def tests_brevitas_finn_integration(session, pytorch):
     install_pytorch(pytorch, session, FINN_NUMPY_VERSION)
     session.install('-e', '.[test, finn_integration]')
     env = {'FINN_INST_NAME': 'finn'}
-    session.run('pytest', '-v', 'test/finn_integration', env=env)
+    session.run('pytest', '-v', 'test/brevitas_finn_integration', env=env)
 
 
 @nox.session(python=False)
