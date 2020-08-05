@@ -10,8 +10,9 @@ from finn.transformation.general import GiveUniqueNodeNames
 from finn.transformation.general import RemoveStaticGraphInputs
 from finn.transformation.double_to_single_float import DoubleToSingleFloat
 
-from brevitas_examples.speech_to_text import quant_quartznet_perchannelscaling_4b
 from brevitas.onnx import FINNManager
+
+from common_xfail import check_expected_win_nox_fail
 
 
 QUARTZNET_POSTPROCESSED_INPUT_SIZE = (1, 64, 256)  # B, features, sequence
@@ -20,8 +21,12 @@ MAX_INP_VAL = 200.0
 ATOL = 1e-3
 
 
-@pytest.mark.parametrize("pretrained", [True])
+@pytest.mark.parametrize("pretrained", [True, False])
+@check_expected_win_nox_fail
 def test_quartznet_asr_4b(pretrained):
+    # inline import to make xfail work on the import error
+    from brevitas_examples.speech_to_text import quant_quartznet_perchannelscaling_4b
+
     finn_onnx = "quant_quartznet_perchannelscaling_4b.onnx"
     quartznet = quant_quartznet_perchannelscaling_4b(pretrained, export_mode=True)
     FINNManager.export_onnx(quartznet, QUARTZNET_POSTPROCESSED_INPUT_SIZE, finn_onnx)
