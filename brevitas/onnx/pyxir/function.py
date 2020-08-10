@@ -27,15 +27,12 @@ class QuantizedConv2dPlaceholderFunction(Function):
             'Conv', x,
             int_weight,
             int_bias,
-            domain_s="pyxir_dpuv1",
-            input_bit_width_i=input_bit_width,
-            input_scale_i=input_scale,
-            output_bit_width_i=output_bit_width,
-            output_scale_i=output_scale,
-            weight_bit_width_i=weight_bit_width,
-            weight_scale_i=weight_scale,
-            bias_bit_width_i=bias_bit_width,
-            bias_scale_i=bias_scale,
+            domain_s="pyxir",
+            vai_quant_s=['vai_quant_in', 'vai_quant_out', 'vai_quant_weights', 'vai_quant_biases'],
+            vai_quant_in_i=[input_bit_width, input_scale],
+            vai_quant_out_i=[output_bit_width, output_scale],
+            vai_quant_weights_i=[weight_bit_width, weight_scale],
+            vai_quant_biases_i=[bias_bit_width, bias_scale],
             kernel_shape_i=kernel_size,
             pads_i=padding,
             strides_i=stride,
@@ -76,11 +73,10 @@ class QuantizedReLUPlaceholderFunction(Function):
             output_scale):
         ret = g.op(
             'ReLU', x,
-            domain_s="pyxir_dpuv1",
-            input_bit_width_i=input_bit_width,
-            input_scale_i=input_scale,
-            output_bit_width_i=output_bit_width,
-            output_scale_i=output_scale)
+            domain_s="pyxir",
+            vai_quant_s=['vai_quant_in', 'vai_quant_out'],
+            vai_quant_in_i=[input_bit_width, input_scale],
+            vai_quant_out_i=[output_bit_width, output_scale])
         return ret
 
     @staticmethod
@@ -105,11 +101,10 @@ class QuantizedPoolPlaceholderFunction(Function):
             output_scale):
         ret = g.op(
             'Pool', x, int_weight, int_bias,
-            domain_s="pyxir_dpuv1",
-            input_bit_width_i=input_bit_width,
-            input_scale_i=input_scale,
-            output_bit_width_i=output_bit_width,
-            output_scale_i=output_scale)
+            domain_s="pyxir",
+            vai_quant_s=['vai_quant_in', 'vai_quant_out'],
+            vai_quant_in_i=[input_bit_width, input_scale],
+            vai_quant_out_i=[output_bit_width, output_scale])
         return ret
 
     @staticmethod
@@ -135,7 +130,7 @@ class QuantizedEltwisePlaceholderFunction(Function):
             output_scale):
         ret = g.op(
             'Eltwise', x,
-            domain_s="pyxir_dpuv1",
+            domain_s="pyxir",
             input0_bit_width_i=input0_bit_width,
             input0_scale_i=input0_scale,
             input1_bit_width_i=input0_bit_width,
