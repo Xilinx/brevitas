@@ -1,6 +1,6 @@
 from typing import Tuple, Union, Optional
 from abc import ABC, abstractmethod
-from copy import deepcopy
+from packaging import version
 
 try:
     import onnx
@@ -144,6 +144,13 @@ class BaseManager(ABC):
         module.apply(lambda m: _restore_out_caching_mode(m))
 
     @classmethod
+    def solve_keep_initializers_as_inputs(cls, export_kwargs):
+        torch_version = version.parse(torch.__version__)
+        # See https://github.com/pytorch/pytorch/commit/7583519b870e33ee3182f330c1bb8663559697b6
+        if torch_version >= version.parse('1.3.0'):
+            export_kwargs['keep_initializers_as_inputs'] = True
+
+    @classmethod
     def export_onnx(
             cls,
             module: Module,
@@ -159,15 +166,17 @@ class BaseManager(ABC):
         * torch_onnx_kwargs : will be passed as kwargs to torch.onnx.export
         """
 
+        def set_export_handler(m: Module):
+            if hasattr(m, 'export_handler') and m.export_handler is None:
+                handler = cls.handler_from_module(m)
+                m.export_handler = handler()
+
         if onnx is None or opt is None:
             raise ModuleNotFoundError("Installation of ONNX is required.")
         if torch_onnx_kwargs is None:
             torch_onnx_kwargs = {}
 
-        def set_export_handler(m: Module):
-            if hasattr(m, 'export_handler') and m.export_handler is None:
-                handler = cls.handler_from_module(m)
-                m.export_handler = handler()
+        cls.solve_keep_initializers_as_inputs(torch_onnx_kwargs)
 
         with torch.no_grad():
             module = module.eval()
