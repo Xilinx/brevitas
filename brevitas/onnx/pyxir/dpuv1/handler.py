@@ -8,7 +8,7 @@ from torch import Tensor
 from brevitas.nn.quant_layer import QuantLayerMixin
 from brevitas.nn import QuantConv2d, QuantReLU
 from brevitas.onnx.base import BaseHandler
-from .function import QuantizedConv2dPlaceholderFunction, QuantizedReLUPlaceholderFunction
+from ..function import QuantizedConv2dPlaceholderFunction, QuantizedReLUPlaceholderFunction
 
 
 class DPUv1QuantLayerHandler(BaseHandler, ABC):
