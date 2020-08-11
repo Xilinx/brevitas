@@ -166,15 +166,21 @@ class QuantBiasMixin(QuantParameterMixin):
 
     @property
     def is_quant_bias_narrow_range(self):
+        if self.bias is None:
+            return None
         assert self.is_bias_quant_enabled, "Bias quantization disabled"
         return self.bias_quant.is_narrow_range
 
     @property
     def is_quant_bias_signed(self):
+        if self.bias is None:
+            return None
         assert self.is_bias_quant_enabled, "Bias quantization disabled"
         return self.bias_quant.is_signed
 
     def int_bias(self, float_datatype=False):
+        if self.bias is None:
+            return None
         assert self.is_bias_quant_enabled, "Bias quantization disabled"
         scale = self.quant_bias_scale()
         bit_width = self.quant_bias_bit_width()
@@ -182,11 +188,15 @@ class QuantBiasMixin(QuantParameterMixin):
         return quant_bias.int(float_datatype=float_datatype)
 
     def quant_bias_scale(self):
+        if self.bias is None:
+            return None
         assert self.is_bias_quant_enabled, "Bias quantization disabled"
         assert self._cached_bias is not None, "Quant bias caching disabled"
         return self._cached_bias.scale
 
     def quant_bias_bit_width(self):  # more restrictive than it could be
+        if self.bias is None:
+            return None
         assert self.is_bias_quant_enabled, "Bias quantization disabled"
         assert self._cached_bias is not None, "Quant bias caching disabled"
         return self._cached_bias.bit_width

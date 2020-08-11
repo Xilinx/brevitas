@@ -98,17 +98,26 @@ class DPUv1QuantConv2dHandler(DPUv1QuantLayerHandler):
 
     @staticmethod
     def int_bias(module: QuantConv2d):
-        return module.int_bias(float_datatype=False).detach()
+        if module.bias is not None:
+            return module.int_bias(float_datatype=False).detach()
+        else:
+            return None
 
     @staticmethod
     def quant_bias_bit_width(module: QuantConv2d):
-        bit_width = module.quant_bias_bit_width()
-        return DPUv1QuantLayerHandler.validate_8b_bit_width(bit_width)
+        if module.bias is not None:
+            bit_width = module.quant_bias_bit_width()
+            return DPUv1QuantLayerHandler.validate_8b_bit_width(bit_width)
+        else:
+            return None
 
     @staticmethod
     def quant_bias_scale(module: QuantConv2d):
-        scale = module.quant_bias_scale()
-        return DPUv1QuantLayerHandler.neg_scalar_exponent_from_scale(scale)
+        if module.bias is not None:
+            scale = module.quant_bias_scale()
+            return DPUv1QuantLayerHandler.neg_scalar_exponent_from_scale(scale)
+        else:
+            return None
 
     @staticmethod
     def padding(module):
