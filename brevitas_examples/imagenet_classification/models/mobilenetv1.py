@@ -36,8 +36,6 @@ from brevitas.quant_tensor import pack_quant_tensor
 from .common import *
 
 
-FIRST_LAYER_BIT_WIDTH = 8
-
 
 class DwsConvBlock(nn.Module):
     def __init__(self,
@@ -109,6 +107,7 @@ class MobileNet(nn.Module):
     def __init__(self,
                  channels,
                  first_stage_stride,
+                 first_layer_bit_width,
                  bit_width,
                  in_channels=3,
                  num_classes=1000):
@@ -120,7 +119,7 @@ class MobileNet(nn.Module):
                                out_channels=init_block_channels,
                                kernel_size=3,
                                stride=2,
-                               weight_bit_width=FIRST_LAYER_BIT_WIDTH,
+                               weight_bit_width=first_layer_bit_width,
                                activation_scaling_per_channel=True,
                                act_bit_width=bit_width)
         self.features.add_module('init_block', init_block)
@@ -162,13 +161,15 @@ def quant_mobilenet_v1(cfg):
     first_stage_stride = False
     width_scale = float(cfg.get('MODEL', 'WIDTH_SCALE'))
     bit_width = cfg.getint('QUANT', 'BIT_WIDTH')
+    first_layer_bit_width = cfg.getint('QUANT', 'FIRST_LAYER_BIT_WIDTH')
 
     if width_scale != 1.0:
         channels = [[int(cij * width_scale) for cij in ci] for ci in channels]
 
     net = MobileNet(channels=channels,
                     first_stage_stride=first_stage_stride,
-                    bit_width=bit_width)
+                    bit_width=bit_width,
+                    first_layer_bit_width=first_layer_bit_width)
     return net
 
 
