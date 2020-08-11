@@ -157,7 +157,7 @@ class BaseManager(ABC):
             input_shape: Tuple[int, ...],
             export_path: str,
             input_t: Optional[Union[Tensor, QuantTensor]] = None,
-            torch_onnx_kwargs: dict = None):
+            **kwargs):
         """
         * input_shape : tuple describing the shape of network input e.g. (1, 1, 28, 28)
         * export_path : ONNX filename to export to
@@ -173,10 +173,8 @@ class BaseManager(ABC):
 
         if onnx is None or opt is None:
             raise ModuleNotFoundError("Installation of ONNX is required.")
-        if torch_onnx_kwargs is None:
-            torch_onnx_kwargs = {}
 
-        cls.solve_keep_initializers_as_inputs(torch_onnx_kwargs)
+        cls.solve_keep_initializers_as_inputs(kwargs)
 
         with torch.no_grad():
             module = module.eval()
@@ -192,7 +190,7 @@ class BaseManager(ABC):
             # temporarily disable input caching to avoid collectives empty debug values
             module.apply(lambda m: _override_inp_caching_mode(m, enabled=False))
             # perform export pass
-            torch.onnx.export(module, input_t, export_path, **torch_onnx_kwargs)
+            torch.onnx.export(module, input_t, export_path, **kwargs)
             # restore the model to previous properties
             module.apply(lambda m: _restore_inp_caching_mode(m))
             module.apply(lambda m: _set_export_mode(m, enabled=False))
