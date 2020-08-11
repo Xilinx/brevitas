@@ -89,7 +89,7 @@ class QuantizedReLUPlaceholderFunction(Function):
             output_bit_width,
             output_scale):
         ret = g.op(
-            'ReLU', x,
+            'Relu', x,
             domain_s="pyxir",
             vai_quant_s=['vai_quant_in', 'vai_quant_out'],
             vai_quant_in_i=[input_bit_width, input_scale],
