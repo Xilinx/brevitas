@@ -159,8 +159,13 @@ class ParameterScaling(torch.jit.ScriptModule):
 
 class ConstScaling(torch.jit.ScriptModule):
 
-    def __init__(self, scaling_init: Union[float, torch.Tensor]) -> None:
+    def __init__(
+            self,
+            scaling_init: Union[float, torch.Tensor],
+            restrict_scaling_impl: Module,
+            scaling_min_val: Optional[float] = DEFAULT_SCALING_MIN_VAL) -> None:
         super(ConstScaling, self).__init__()
+        self.restrict_clamp_scaling = _RestrictClampValue(scaling_min_val, restrict_scaling_impl)
         if isinstance(scaling_init, torch.Tensor):
             self.value = StatelessBuffer(scaling_init.detach())
         else:
@@ -168,7 +173,7 @@ class ConstScaling(torch.jit.ScriptModule):
 
     @torch.jit.script_method
     def forward(self, placeholder: torch.Tensor) -> torch.Tensor:
-        return self.value()
+        return self.restrict_clamp_scaling(self.value())
 
 
 class RuntimeStatsScaling(torch.jit.ScriptModule):
