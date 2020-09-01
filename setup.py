@@ -180,7 +180,8 @@ setup(name="Brevitas",
           "tts": read_requirements('requirements-tts.txt'),
           "stt": read_requirements('requirements-stt.txt'),
           "vision": read_requirements('requirements-vision.txt'),
-          "finn_integration": read_requirements('requirements-finn-integration.txt')
+          "finn_integration": read_requirements('requirements-finn-integration.txt'),
+          "pyxir_integration": read_requirements('requirements-pyxir-integration.txt')
       },
       packages=find_packages(),
       zip_safe=False,
