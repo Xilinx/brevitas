@@ -10,6 +10,8 @@ PYTEST_YML = 'pytest.yml'
 EXAMPLES_PYTEST_YML = 'examples_pytest.yml'
 DEVELOP_INSTALL_YML = 'develop_install.yml'
 FINN_INTEGRATION_YML = 'finn_integration.yml'
+PYXIR_INTEGRATION_YML = 'pyxir_integration.yml'
+
 
 NIX_NEWLINE = '\n'
 
@@ -82,6 +84,14 @@ FINN_INTEGRATION_STEP_LIST = [
         ('shell', 'bash'),
         ('run',
          'nox -v -s tests_brevitas_finn_integration-${{ matrix.conda_python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)')
+    ])]
+
+PYXIR_INTEGRATION_STEP_LIST = [
+    od([
+        ('name', 'Run Nox session for Brevitas-PyXIR integration'),
+        ('shell', 'bash'),
+        ('run',
+         'nox -v -s tests_brevitas_pyxir_integration-${{ matrix.conda_python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)')
     ])]
 
 TEST_INSTALL_DEV_STEP_LIST = [
@@ -189,8 +199,18 @@ def gen_test_brevitas_finn_integration():
     test_finn_integration.gen_yaml(FINN_INTEGRATION_YML)
 
 
+def gen_test_brevitas_pyxir_integration():
+    test_pyxir_integration = Action(
+        'Test Brevitas-PyXIR integration',
+        EXCLUDE_LIST,
+        MATRIX,
+        PYXIR_INTEGRATION_STEP_LIST)
+    test_pyxir_integration.gen_yaml(PYXIR_INTEGRATION_YML)
+
+
 if __name__ == '__main__':
     gen_pytest_yml()
     gen_examples_pytest_yml()
     gen_test_develop_install_yml()
     gen_test_brevitas_finn_integration()
+    gen_test_brevitas_pyxir_integration()
