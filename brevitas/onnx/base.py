@@ -151,6 +151,12 @@ class BaseManager(ABC):
             export_kwargs['keep_initializers_as_inputs'] = True
 
     @classmethod
+    def solve_enable_onnx_checker(cls, export_kwargs):
+        torch_version = version.parse(torch.__version__)
+        if torch_version >= version.parse('1.5.0'):
+            export_kwargs['enable_onnx_checker'] = False
+
+    @classmethod
     def export_onnx(
             cls,
             module: Module,
@@ -175,6 +181,7 @@ class BaseManager(ABC):
             raise ModuleNotFoundError("Installation of ONNX is required.")
 
         cls.solve_keep_initializers_as_inputs(kwargs)
+        cls.solve_enable_onnx_checker(kwargs)
 
         with torch.no_grad():
             module = module.eval()
