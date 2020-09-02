@@ -6,9 +6,11 @@ import torch
 from torch import Tensor
 
 from brevitas.nn.quant_layer import QuantLayerMixin
-from brevitas.nn import QuantConv2d, QuantReLU
-from brevitas.onnx.base import BaseHandler
+from brevitas.nn import QuantConv2d, QuantReLU, QuantEltwiseAdd, QuantMaxPool2d
+from brevitas.onnx.handler import BaseHandler, Kernel2dApplHandler
 from ..function import QuantizedConv2dPlaceholderFunction, QuantizedReLUPlaceholderFunction
+from ..function import QuantizedEltwiseAddPlaceholderFunction
+from ..function import QuantizedMaxPoolPlaceholderFunction
 
 
 class DPUv1QuantLayerHandler(BaseHandler, ABC):
@@ -56,11 +58,18 @@ class DPUv1QuantLayerHandler(BaseHandler, ABC):
         bit_width = module.quant_output_bit_width()
         return DPUv1QuantLayerHandler.validate_8b_bit_width(bit_width)
 
+    @staticmethod
+    def quant_output_shape(module: QuantConv2d):
+        cached_out = module._cached_out  # TODO add shape property to the module
+        if cached_out is None:
+            raise RuntimeError("Caching of outputs is required to export QuantConv2d")
+        return cached_out.shape
+
 
 class DPUv1QuantReLUHandler(DPUv1QuantLayerHandler):
     handled_layer = QuantReLU
 
-    def prepare_for_symbolic_execution(self, module):
+    def prepare_for_symbolic_execution(self, module: QuantReLU):
         self.symbolic_kwargs = {
             'input_bit_width': self.quant_input_bit_width(module),
             'input_scale': self.quant_input_scale(module),
@@ -72,15 +81,45 @@ class DPUv1QuantReLUHandler(DPUv1QuantLayerHandler):
         return ret
 
 
-class DPUv1QuantConv2dHandler(DPUv1QuantLayerHandler):
-    handled_layer = QuantConv2d
+class DPUv1QuantEltwiseAddHandler(DPUv1QuantLayerHandler):
+    handled_layer = QuantEltwiseAdd
 
-    @staticmethod
-    def quant_output_shape(module: QuantConv2d):
-        cached_out = module._cached_out  # TODO add shape property to the module
-        if cached_out is None:
-            raise RuntimeError("Caching of outputs is required to export QuantConv2d")
-        return cached_out.shape
+    def prepare_for_symbolic_execution(self, module: QuantEltwiseAdd):
+        self.symbolic_kwargs = {
+            'input_bit_width': self.quant_input_bit_width(module),
+            'input_scale': self.quant_input_scale(module),
+            'output_bit_width': self.quant_output_bit_width(module),
+            'output_scale': self.quant_output_scale(module)}
+
+    def symbolic_execution(self, inp: Tensor, other: Tensor):
+        ret = QuantizedEltwiseAddPlaceholderFunction.apply(
+            inp, other, *self.symbolic_kwargs.values())
+        return ret
+
+
+class DPUv1QuantMaxPool2dHandler(DPUv1QuantLayerHandler, Kernel2dApplHandler):
+    handled_layer = QuantMaxPool2d
+
+    def prepare_for_symbolic_execution(self, module: QuantMaxPool2d):
+        self.symbolic_kwargs = {
+            'output_shape': self.quant_output_shape(module),
+            'kernel_shape': module.kernel_size,
+            'pads': self.padding(module),
+            'strides': self.stride(module),
+            'ceil_mode': module.ceil_mode,
+            'dilations': self.dilation(module),
+            'input_bit_width': self.quant_input_bit_width(module),
+            'input_scale': self.quant_input_scale(module),
+            'output_bit_width': self.quant_output_bit_width(module),
+            'output_scale': self.quant_output_scale(module)}
+
+    def symbolic_execution(self, inp: Tensor):
+        ret = QuantizedMaxPoolPlaceholderFunction.apply(inp, *self.symbolic_kwargs.values())
+        return ret
+
+
+class DPUv1QuantConv2dHandler(DPUv1QuantLayerHandler, Kernel2dApplHandler):
+    handled_layer = QuantConv2d
 
     @staticmethod
     def int_weight(module: QuantConv2d):
@@ -94,7 +133,7 @@ class DPUv1QuantConv2dHandler(DPUv1QuantLayerHandler):
     @staticmethod
     def quant_weight_scale(module: QuantConv2d):
         quant_weight_scale = module.quant_weight_scale()
-        return DPUv1QuantConv2dHandler.neg_scalar_exponent_from_scale(quant_weight_scale)
+        return DPUv1QuantLayerHandler.neg_scalar_exponent_from_scale(quant_weight_scale)
 
     @staticmethod
     def int_bias(module: QuantConv2d):
@@ -118,27 +157,6 @@ class DPUv1QuantConv2dHandler(DPUv1QuantLayerHandler):
             return DPUv1QuantLayerHandler.neg_scalar_exponent_from_scale(scale)
         else:
             return None
-
-    @staticmethod
-    def padding(module):
-        if isinstance(module.padding, int):
-            padding = [module.padding] * 4
-        else:
-            padding = list(module.padding) + list(module.padding)
-        return padding
-
-    @staticmethod
-    def stride(module):
-        if isinstance(module.stride, int):
-            return [module.stride] * 2
-        else:
-            return list(module.stride)
-
-    @staticmethod
-    def dilation(module: QuantConv2d):
-        if not module.dilation == (1, 1):
-            raise RuntimeError("Dilation is not supported")
-        return list(module.dilation)
 
     def prepare_for_symbolic_execution(self, module):
         self.symbolic_kwargs = {
