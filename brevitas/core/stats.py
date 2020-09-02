@@ -39,7 +39,6 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 from typing import Tuple, List, Optional
-from enum import auto
 
 from torch import nn
 
@@ -47,9 +46,12 @@ import brevitas.config as config
 from brevitas.function.shape import *
 from brevitas.core.function_wrapper import OverOutputChannelView, OverBatchOverTensorView
 from brevitas.core.function_wrapper import OverBatchOverOutputChannelView, OverTensorView
-from brevitas.utils.python_utils import AutoName
+from brevitas.inject.enum import StatsOp  # noqa retrocompatibility
 
 from .utils import StatelessBuffer
+
+assert StatsOp  # prevent removal of unused import
+
 
 DEFAULT_STD_DEV_EPSILON = 1e-8
 
@@ -59,14 +61,6 @@ class StatsInputViewShapeImpl(object):
     OVER_OUTPUT_CHANNELS = OverOutputChannelView
     OVER_BATCH_OVER_TENSOR = OverBatchOverTensorView
     OVER_BATCH_OVER_OUTPUT_CHANNELS = OverBatchOverOutputChannelView
-
-
-class StatsOp(AutoName):
-    MAX = auto()
-    AVE = auto()
-    MAX_AVE = auto()
-    MEAN_SIGMA_STD = auto()
-    MEAN_LEARN_SIGMA_STD = auto()
 
 
 class _ViewParameterWrapper(torch.jit.ScriptModule):
