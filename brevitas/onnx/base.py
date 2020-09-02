@@ -15,7 +15,6 @@ from torch import Tensor
 from torch.nn import Module
 
 from brevitas.quant_tensor import QuantTensor
-from .debug import DebugMarkerFunction
 
 
 def _override_quant_metadata_caching_mode(m: Module, enabled: bool):
@@ -77,37 +76,6 @@ def _restore_out_caching_mode(m: Module):
 def _set_export_mode(m: Module, enabled: bool):
     if hasattr(m, 'export_mode'):
         m.export_mode = enabled
-
-
-class BaseHandler(Module, ABC):
-
-    def __init__(self):
-        super().__init__()
-        self.symbolic_kwargs = {}
-        self.export_debug_name = None
-        self.debug_input = False
-        self.debug_output = False
-
-    @abstractmethod
-    def prepare_for_symbolic_execution(self, module):
-        pass
-
-    @abstractmethod
-    def symbolic_execution(self, inp: Tensor):
-        pass
-
-    def attach_debug_info(self, m):
-        self.export_debug_name = m.export_debug_name
-        self.debug_input = m.cache_inference_quant_inp and not m.cache_quant_metadata_only
-        self.debug_output = m.cache_inference_quant_out and not m.cache_quant_metadata_only
-
-    def forward(self, inp: Tensor):
-        if self.export_debug_name is not None and self.debug_input:
-            inp = DebugMarkerFunction.apply(inp, self.export_debug_name + '.input')
-        out = self.symbolic_execution(inp)
-        if self.export_debug_name is not None and self.debug_output:
-            out = DebugMarkerFunction.apply(out, self.export_debug_name + '.output')
-        return out
 
 
 class BaseManager(ABC):

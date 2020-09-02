@@ -5,7 +5,7 @@ import torch
 
 from brevitas.nn.mixin.base import QuantLayerMixin
 from brevitas.nn.mixin.act import QuantOutputMixin, QuantInputMixin
-from brevitas.onnx.base import BaseHandler
+from brevitas.onnx.handler import BaseHandler
 
 
 class FINNQuantInputHandler(BaseHandler, ABC):
