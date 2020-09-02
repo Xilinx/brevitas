@@ -52,9 +52,9 @@ from brevitas.function.ops_ste import ceil_ste
 from brevitas.proxy.parameter_quant import WeightQuantProxyProtocol, BiasQuantProxyProtocol
 from brevitas.proxy.runtime_quant import ActQuantProxyProtocol
 from brevitas.quant_tensor import QuantTensor
+from brevitas.inject.defaults import DefaultWeightQuantInjector as DefaultWeightQI
+from brevitas.inject.defaults import DefaultBiasQuantInjector as DefaultBiasQI
 from .quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
-from .quant_layer import DefaultWeightQuantInjector as DefaultWeightQI
-from .quant_layer import DefaultBiasQuantInjector as DefaultBiasQI
 
 __all__ = ['QuantConvTranspose1d']
 

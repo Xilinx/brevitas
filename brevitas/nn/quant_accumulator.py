@@ -44,7 +44,7 @@ from torch.nn import Module
 from dependencies import Injector
 
 from brevitas.proxy.runtime_quant import AccQuantProxyProtocol
-from brevitas.proxy.config import update_trunc_quant_injector
+from brevitas.inject.solver import update_trunc_quant_injector
 from brevitas.quant_tensor import QuantTensor
 from .mixin.base import QuantLayerMixin
 from .mixin.acc import QuantTruncMixin, QuantClampMixin
