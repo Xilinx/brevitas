@@ -3,7 +3,7 @@ import os
 import torch
 from torch import nn
 from dependencies import Injector
-from brevitas.nn import QuantConv2d, QuantReLU
+from brevitas.nn import QuantConv2d, QuantReLU, QuantMaxPool2d, QuantEltwiseAdd
 from brevitas.onnx import export_dpuv1_onnx
 from brevitas.quant_tensor import QuantTensor
 
@@ -98,13 +98,23 @@ class QuantModel(nn.Module):
         self.act3 = QuantReLU(
             act_quant=DPUv1ActQuantInjector,
             return_quant_tensor=False)
+        self.max_pool = QuantMaxPool2d(
+            kernel_size=KERNEL_SIZE,
+            stride=1,
+            return_quant_tensor=True)
+        self.eltwise_add = QuantEltwiseAdd(
+            input_quant=DPUv1OutputQuantInjector,
+            output_quant=DPUv1ActQuantInjector,
+            return_quant_tensor=True)
         self.linear = nn.Linear(FC_IN_SIZE, CHANNELS)
 
     def forward(self, x):
         x = self.conv1(x)
-        x = self.act1(x)
-        x = self.conv2(x)
+        act1 = self.act1(x)
+        x = self.conv2(act1)
         x = self.act2(x)
+        max_pool = self.max_pool(act1)
+        x = self.eltwise_add(x, max_pool)
         x = self.conv3(x)
         x = self.act3(x)
         x = x.view(int(x.size(0)), -1)
@@ -112,7 +122,7 @@ class QuantModel(nn.Module):
         return x
 
 
-def test_simple_export():
+def test_export():
     x = QuantTensor(
         torch.randn(IN_SIZE),
         scale=torch.tensor(2.0 ** (-7)),
@@ -120,7 +130,6 @@ def test_simple_export():
         signed=True)
     mod = QuantModel()
     # Export quantized model to ONNX
-    test_file = os.path.join('.', 'quant_model.onnx')
-    export_dpuv1_onnx(mod, input_shape=IN_SIZE, input_t=x, export_path=test_file,
+    export_dpuv1_onnx(mod, input_shape=IN_SIZE, input_t=x, export_path='quant_model.onnx',
                       input_names=["input_%d" % i for i in range(5)],
                       output_names=["output"])
