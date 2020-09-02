@@ -49,74 +49,13 @@ from torch.nn import Module, Parameter
 from brevitas.quant_tensor import QuantTensor
 from brevitas.proxy.parameter_quant import WeightQuantProxyProtocol, BiasQuantProxyProtocol
 from brevitas.proxy.runtime_quant import ActQuantProxyProtocol
-from brevitas.proxy.config import update_weight_quant_injector as default_update_wqi
-from brevitas.proxy.config import update_bias_quant_injector as default_update_bqi
-from brevitas.proxy.config import update_act_quant_injector as default_update_aqi
+from brevitas.inject.solver import update_weight_quant_injector as default_update_wqi
+from brevitas.inject.solver import update_bias_quant_injector as default_update_bqi
+from brevitas.inject.solver import update_act_quant_injector as default_update_aqi
 from .mixin.base import _CachedIO
 from .mixin import *
 
 from .utils import mul_add_from_bn, rename_state_dict_by_prefix
-
-
-class DefaultWeightScalingInjector(Injector):
-    scaling_impl_type = 'STATS'
-    restrict_scaling_type = 'FP'
-    scaling_stats_op = 'MAX'
-    scaling_per_output_channel = False
-    scaling_min_val = 2.0 ** (-16)
-
-
-class DefaultWeightQuantInjector(DefaultWeightScalingInjector):
-    quant_type = 'INT'
-    bit_width_impl_type = 'CONST'
-    narrow_range = True
-    signed = True
-    bit_width = 8
-
-
-class DefaultBiasQuantInjector(Injector):
-    quant_type = 'FP'
-    narrow_range = False
-    signed = True
-
-
-class DefaultActQuantInjector(Injector):
-    quant_type = 'INT'
-    bit_width_impl_type = 'CONST'
-    bit_width = 8
-    scaling_impl_type = 'PARAMETER'
-    restrict_scaling_type = 'LOG_FP'
-    scaling_per_output_channel = False
-    scaling_min_val = 2.0 ** (-16)
-
-
-class DefaultTruncQuantInjector(Injector):
-    quant_type = 'INT'
-    lsb_trunc_bit_width_impl_type = 'CONST'
-    narrow_range = False
-    min_overall_bit_width = 2  # TODO deprecate
-    max_overall_bit_width = 32  # TODO deprecate
-    signed = True
-
-
-class DefaultSignedActQuantInjector(DefaultActQuantInjector):
-    signed = True
-    narrow_range = False
-
-
-class DefaultUnsignedActQuantInjector(DefaultActQuantInjector):
-    signed = False
-    narrow_range = False
-    min_val = 0.0
-
-
-class DefaultUnitarySignedActQuantInjector(DefaultSignedActQuantInjector):
-    min_val = -1.0
-    max_val = 1.0
-
-
-class DefaultUnitaryUnsignedActQuantInjector(DefaultUnsignedActQuantInjector):
-    max_val = 1.0
 
 
 def _compute_channel_view_shape(tensor: Tensor, channel_dim: int):
@@ -194,45 +133,23 @@ class QuantNonLinearActLayer(QuantNonLinearActMixin, QuantLayerMixin, Module):
             state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
 
 
-class QuantWeightBiasInputOutputLayer(
+class QuantInputOutputLayer(
         QuantOutputMixin,
         QuantInputMixin,
-        QuantBiasMixin,
-        QuantWeightMixin,
         QuantLayerMixin):
     __metaclass__ = ABCMeta
 
     def __init__(
             self,
-            weight: Parameter,
-            bias: Parameter,
-            weight_quant: Union[WeightQuantProxyProtocol, Type[Injector]],
-            bias_quant: Union[BiasQuantProxyProtocol, Type[Injector]],
             input_quant: Union[ActQuantProxyProtocol, Type[Injector]],
             output_quant: Union[ActQuantProxyProtocol, Type[Injector]],
             return_quant_tensor: bool,
-            update_wqi: Callable = default_update_wqi,
-            update_bqi: Callable = default_update_bqi,
-            update_iqi: Callable = default_update_aqi,
-            update_oqi: Callable = default_update_aqi,
+            update_iqi: Callable,
+            update_oqi: Callable,
             **kwargs):
         QuantLayerMixin.__init__(self, return_quant_tensor)
-        QuantWeightMixin.__init__(self, weight, weight_quant, update_wqi, **kwargs)
-        QuantBiasMixin.__init__(self, bias, bias_quant, update_bqi, **kwargs)
         QuantInputMixin.__init__(self, input_quant, update_iqi, **kwargs)
         QuantOutputMixin.__init__(self, output_quant, update_oqi, **kwargs)
-
-    @abstractmethod
-    def inner_forward_impl(self, x: Tensor, quant_weight: Tensor, quant_bias: Optional[Tensor]):
-        pass
-
-    @abstractmethod
-    def max_acc_bit_width(self, input_bit_width: Tensor, quant_weight_bit_width: Tensor):
-        pass
-
-    @property
-    def per_elem_ops(self):  # optional, so concrete impl + error if not overridden
-        raise NotImplementedError
 
     @property
     def is_quant_input_signed(self) -> Optional[bool]:  # tri-valued logic output
@@ -283,6 +200,50 @@ class QuantWeightBiasInputOutputLayer(
             return self._cached_out.bit_width
         else:
             return None
+
+
+class QuantWeightBiasInputOutputLayer(
+        QuantBiasMixin,
+        QuantWeightMixin,
+        QuantInputOutputLayer):
+    __metaclass__ = ABCMeta
+
+    def __init__(
+            self,
+            weight: Parameter,
+            bias: Parameter,
+            weight_quant: Union[WeightQuantProxyProtocol, Type[Injector]],
+            bias_quant: Union[BiasQuantProxyProtocol, Type[Injector]],
+            input_quant: Union[ActQuantProxyProtocol, Type[Injector]],
+            output_quant: Union[ActQuantProxyProtocol, Type[Injector]],
+            return_quant_tensor: bool,
+            update_wqi: Callable = default_update_wqi,
+            update_bqi: Callable = default_update_bqi,
+            update_iqi: Callable = default_update_aqi,
+            update_oqi: Callable = default_update_aqi,
+            **kwargs):
+        QuantInputOutputLayer.__init__(
+            self,
+            input_quant,
+            output_quant,
+            return_quant_tensor,
+            update_iqi,
+            update_oqi,
+            **kwargs)
+        QuantWeightMixin.__init__(self, weight, weight_quant, update_wqi, **kwargs)
+        QuantBiasMixin.__init__(self, bias, bias_quant, update_bqi, **kwargs)
+
+    @abstractmethod
+    def inner_forward_impl(self, x: Tensor, quant_weight: Tensor, quant_bias: Optional[Tensor]):
+        pass
+
+    @abstractmethod
+    def max_acc_bit_width(self, input_bit_width: Tensor, quant_weight_bit_width: Tensor):
+        pass
+
+    @property
+    def per_elem_ops(self):  # optional, so concrete impl + error if not overridden
+        raise NotImplementedError
 
     def merge_bn_in(self, bn, affine_only):
         if affine_only and not bn.affine:

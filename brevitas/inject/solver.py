@@ -52,7 +52,7 @@ from brevitas.core.bit_width import *
 from brevitas.core.quant import QuantType
 from brevitas.core.stats import *
 from brevitas.core.scaling import ScalingImplType, SCALING_SCALAR_SHAPE
-from .utils import ConvertRuntimeStatsToParameter
+from brevitas.proxy.utils import ConvertRuntimeStatsToParameter
 
 
 class EvaluateScalingInitImpl(Injector):
