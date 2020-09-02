@@ -38,9 +38,9 @@ class DPUv1OutputQuantInjector(Injector):
     bit_width_impl_type = 'CONST'
     restrict_scaling_type = 'POWER_OF_TWO'
     scaling_per_output_channel = False
-    scaling_impl_type = 'STATS'
-    scaling_stats_permute_dims = (1, 0, 2, 3)
-    scaling_stats_op = 'MAX'
+    scaling_impl_type = 'CONST'
+    min_val = - 1.0
+    max_val = 1.0
     signed = True
     narrow_range = False
 
