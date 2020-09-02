@@ -8,3 +8,5 @@ from .hadamard_classifier import HadamardClassifier
 from .quant_convtranspose1d import QuantConvTranspose1d
 from .quant_conv1d import QuantConv1d
 from .quant_conv import QuantConv2d
+from .quant_eltwise import QuantEltwiseAdd
+from .quant_max_pool import QuantMaxPool2d, QuantMaxPool1d
