@@ -6,6 +6,7 @@ from torch import Tensor
 
 from brevitas.nn import QuantLinear, QuantConv2d, QuantConv1d
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
+from brevitas.onnx.handler import Kernel2dApplHandler, Kernel1dApplHandler
 from .base import FINNQuantIOHandler
 from ..function.parameter import QuantizedLinearPlaceholderFunction
 from ..function.parameter import QuantizedConvNdPlaceholderFunction
@@ -163,7 +164,7 @@ class FINNQuantConvNdHandler(FINNQuantWBIOLHandler, ABC):
         return ret
 
 
-class FINNQuantConv1dHandler(FINNQuantConvNdHandler):
+class FINNQuantConv1dHandler(FINNQuantConvNdHandler, Kernel1dApplHandler):
     handled_layer = QuantConv1d
 
     @staticmethod
@@ -173,33 +174,8 @@ class FINNQuantConv1dHandler(FINNQuantConvNdHandler):
             quant_weight_scale = quant_weight_scale.view(1, -1, 1)
         return quant_weight_scale
 
-    @staticmethod
-    def padding(module: QuantConv1d):
-        if isinstance(module.padding, int):
-            padding = [module.padding] * 2
-        else:
-            padding = list(module.padding)
-            if len(padding) == 1:
-                return padding + padding
-        return padding
 
-    @staticmethod
-    def stride(module: QuantConv1d):
-        if isinstance(module.stride, int):
-            return [module.stride]
-        else:
-            return list(module.stride)
-
-    @staticmethod
-    def dilation(module):
-        if isinstance(module.dilation, int):
-            return [module.dilation]
-        else:
-            dilation = list(module.dilation)
-            return dilation
-
-
-class FINNQuantConv2dHandler(FINNQuantConvNdHandler):
+class FINNQuantConv2dHandler(FINNQuantConvNdHandler, Kernel2dApplHandler):
     handled_layer = QuantConv2d
 
     @staticmethod
@@ -208,32 +184,3 @@ class FINNQuantConv2dHandler(FINNQuantConvNdHandler):
         if len(quant_weight_scale.shape) == 4:
             quant_weight_scale = quant_weight_scale.view(1, -1, 1, 1)
         return quant_weight_scale
-
-    @staticmethod
-    def padding(module):
-        # onnxruntime expects a 4D padding list
-        if isinstance(module.padding, int):
-            padding = [module.padding] * 4
-        else:
-            # assume we have a tuple and symmetric padding
-            # [x1_begin, x2_begin...x1_end, x2_end,...],
-            # so just duplicate the padding tuple
-            padding = list(module.padding)
-            if len(padding) == 2:
-                padding = padding + padding
-        return padding
-
-    @staticmethod
-    def stride(module):
-        if isinstance(module.stride, int):
-            return [module.stride] * 2
-        else:
-            return list(module.stride)
-
-    @staticmethod
-    def dilation(module):
-        if isinstance(module.dilation, int):
-            return [module.dilation]
-        else:
-            dilation = list(module.dilation)
-            return dilation

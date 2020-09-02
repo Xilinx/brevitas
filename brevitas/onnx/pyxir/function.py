@@ -106,19 +106,29 @@ class QuantizedReLUPlaceholderFunction(Function):
         return x.clamp(0.0)
 
 
-class QuantizedPoolPlaceholderFunction(Function):
+class QuantizedMaxPoolPlaceholderFunction(Function):
 
     @staticmethod
     def symbolic(
-            g, x, int_weight, int_bias,
+            g, x,
             out_shape,
+            kernel_shape,
+            pads,
+            strides,
+            ceil_mode,
+            dilations,
             input_bit_width,
             input_scale,
             output_bit_width,
             output_scale):
         ret = g.op(
-            'Pool', x, int_weight, int_bias,
+            'MaxPool', x,
             domain_s="pyxir",
+            kernel_shape_i=kernel_shape,
+            pads_i=pads,
+            strides_i=strides,
+            dilations_i=dilations,
+            ceil_mode_i=ceil_mode,
             vai_quant_s=['vai_quant_in', 'vai_quant_out'],
             vai_quant_in_i=[input_bit_width, input_scale],
             vai_quant_out_i=[output_bit_width, output_scale])
@@ -128,6 +138,11 @@ class QuantizedPoolPlaceholderFunction(Function):
     def forward(
             ctx, x,
             out_shape,
+            kernel_shape,
+            pads,
+            strides,
+            ceil_mode,
+            dilations,
             input_bit_width,
             input_scale,
             output_bit_width,
@@ -135,33 +150,28 @@ class QuantizedPoolPlaceholderFunction(Function):
         return torch.empty(out_shape, dtype=torch.float)
 
 
-class QuantizedEltwisePlaceholderFunction(Function):
+class QuantizedEltwiseAddPlaceholderFunction(Function):
 
     @staticmethod
     def symbolic(
-            g, x,
-            out_shape,
-            input0_bit_width,
-            input0_scale,
+            g, x, y,
+            input_bit_width,
+            input_scale,
             output_bit_width,
             output_scale):
         ret = g.op(
-            'Eltwise', x,
+            'Add', x, y,
             domain_s="pyxir",
-            input0_bit_width_i=input0_bit_width,
-            input0_scale_i=input0_scale,
-            input1_bit_width_i=input0_bit_width,
-            input1_scale_i=input0_scale,
-            output_bit_width_i=output_bit_width,
-            output_scale_i=output_scale)
+            vai_quant_s=['vai_quant_in', 'vai_quant_out'],
+            vai_quant_in_i=[input_bit_width, input_scale],
+            vai_quant_out_i=[output_bit_width, output_scale])
         return ret
 
     @staticmethod
     def forward(
-            ctx, x,
-            out_shape,
+            ctx, x, y,
             input_bit_width,
             input_scale,
             output_bit_width,
             output_scale):
-        return torch.empty(out_shape, dtype=torch.float)
+        return x + y

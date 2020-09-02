@@ -1,13 +1,16 @@
 from brevitas.onnx.base import BaseManager
 from ...transform import move_domain_attributes_into_domain
 from .handler import DPUv1QuantConv2dHandler, DPUv1QuantReLUHandler
+from .handler import DPUv1QuantEltwiseAddHandler, DPUv1QuantMaxPool2dHandler
 
 
 class DPUv1Manager(BaseManager):
 
     handlers = [
         DPUv1QuantConv2dHandler,
-        DPUv1QuantReLUHandler]
+        DPUv1QuantReLUHandler,
+        DPUv1QuantEltwiseAddHandler,
+        DPUv1QuantMaxPool2dHandler]
 
     model_transforms = [
         move_domain_attributes_into_domain]
