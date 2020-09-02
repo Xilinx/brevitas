@@ -39,26 +39,23 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 from typing import Optional
-from enum import auto
 
 import torch
 from torch import Tensor
 from torch.nn import Parameter, Module
 
 import brevitas.config as config
-from brevitas.utils.python_utils import AutoName
 from brevitas.function.ops import tensor_clamp
 from brevitas.function.ops_ste import tensor_clamp_ste
+from brevitas.inject.enum import BitWidthImplType  # retrocompatibility
 from .utils import StatelessBuffer
+
+assert BitWidthImplType  # prevent removal of unused import
+
 
 MIN_INT_BIT_WIDTH = 2
 NON_ZERO_EPSILON = 1e-6
 REMOVE_ZERO_BIT_WIDTH = 0.1
-
-
-class BitWidthImplType(AutoName):
-    CONST = auto()
-    PARAMETER = auto()
 
 
 class IdentityBitWidth(torch.jit.ScriptModule):

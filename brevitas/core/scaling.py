@@ -38,7 +38,6 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from enum import auto
 from typing import Tuple, Optional, List, Union
 
 import torch
@@ -47,7 +46,8 @@ from torch.nn import Parameter, Module
 import brevitas.config as config
 from brevitas.core.function_wrapper import Identity
 from brevitas.function.ops import min_int, max_int
-from brevitas.utils.python_utils import AutoName
+from brevitas.inject.enum import ScalingImplType  # retrocompatibility
+
 from .stats import _ParameterListStats, _RuntimeStats
 from .utils import StatelessBuffer
 from .restrict_val import _RestrictClampValue
@@ -58,15 +58,7 @@ DEFAULT_MOMENTUM = 0.1
 DEFAULT_AFFINE = False
 DEFAULT_SCALING_MIN_VAL = None
 
-
-class ScalingImplType(AutoName):
-    HE = auto()
-    CONST = auto()
-    STATS = auto()
-    AFFINE_STATS = auto()
-    PARAMETER = auto()
-    PARAMETER_FROM_STATS = auto()
-    OVERRIDE = auto()
+assert ScalingImplType  # prevent removal of unused import
 
 
 class _AffineRescaling(torch.jit.ScriptModule):
