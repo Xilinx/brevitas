@@ -3,7 +3,7 @@ from typing import Tuple
 import torch
 from torch import Tensor
 
-from brevitas.nn import QuantReLU, QuantHardTanh
+from brevitas.nn import QuantReLU, QuantHardTanh, QuantIdentity
 from .base import FINNQuantInputHandler, FINNQuantIOHandler
 from ..function.act import QuantReLUPlaceholderFunction, QuantHardTanhPlaceholderFunction
 
@@ -133,3 +133,8 @@ class FINNQuantHardTanhHandler(FINNQuantInputHandler):
     def symbolic_execution(self, inp: Tensor):
         ret = QuantHardTanhPlaceholderFunction.apply(inp, *self.symbolic_kwargs.values())
         return ret
+
+
+class FINNQuantIdentityHandler(FINNQuantHardTanhHandler):
+    handled_layer = QuantIdentity
+
