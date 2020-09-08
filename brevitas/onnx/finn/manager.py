@@ -4,7 +4,7 @@ from ..transform import move_domain_attributes_into_domain
 from .transform import move_quant_attributes_into_annotations
 from .handler.parameter import FINNQuantConv2dHandler, FINNQuantLinearHandler
 from .handler.parameter import FINNQuantConv1dHandler
-from .handler.act import FINNQuantHardTanhHandler, FINNQuantReLUHandler
+from .handler.act import FINNQuantHardTanhHandler, FINNQuantReLUHandler, FINNQuantIdentityHandler
 from .handler.acc import FINNQuantAvgPool2dHandler
 
 
@@ -15,6 +15,7 @@ class FINNManager(BaseManager):
         FINNQuantConv1dHandler,
         FINNQuantConv2dHandler,
         FINNQuantReLUHandler,
+        FINNQuantIdentityHandler,
         FINNQuantHardTanhHandler,
         FINNQuantAvgPool2dHandler]
 
