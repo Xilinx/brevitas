@@ -22,72 +22,71 @@
 
 import torch
 from torch.nn import Module, ModuleList, BatchNorm2d, MaxPool2d, BatchNorm1d
-from .tensor_norm import TensorNorm
-from .common import get_quant_conv2d, get_quant_linear, get_act_quant, get_quant_type
-from brevitas.nn import QuantConv2d, QuantHardTanh, QuantLinear
 
+from brevitas.nn import QuantConv2d, QuantIdentity, QuantLinear
 from brevitas.core.restrict_val import RestrictValueType
-from brevitas.core.scaling import ScalingImplType
+from .tensor_norm import TensorNorm
+from .common import CommonWeightQuant, CommonActQuant
 
 
-# QuantConv2d configuration
 CNV_OUT_CH_POOL = [(64, False), (64, True), (128, False), (128, True), (256, False), (256, False)]
-
-# Intermediate QuantLinear configuration
-INTERMEDIATE_FC_PER_OUT_CH_SCALING = False
 INTERMEDIATE_FC_FEATURES = [(256, 512), (512, 512)]
-
-# Last QuantLinear configuration
 LAST_FC_IN_FEATURES = 512
 LAST_FC_PER_OUT_CH_SCALING = False
-
-# MaxPool2d configuration
 POOL_SIZE = 2
+KERNEL_SIZE = 3
 
 
 class CNV(Module):
 
-    def __init__(self, num_classes=10, weight_bit_width=None, act_bit_width=None, in_bit_width=None, in_ch=3):
+    def __init__(self, num_classes, weight_bit_width, act_bit_width, in_bit_width, in_ch):
         super(CNV, self).__init__()
 
-        weight_quant_type = get_quant_type(weight_bit_width)
-        act_quant_type = get_quant_type(act_bit_width)
-        in_quant_type = get_quant_type(in_bit_width)
-        max_in_val = 1-2**(-7) # for Q1.7 input format
         self.conv_features = ModuleList()
         self.linear_features = ModuleList()
 
-        self.conv_features.append(QuantHardTanh(bit_width=in_bit_width,
-                                                quant_type=in_quant_type,
-                                                max_val=max_in_val,
-                                                restrict_scaling_type=RestrictValueType.POWER_OF_TWO,
-                                                scaling_impl_type=ScalingImplType.CONST))
+        self.conv_features.append(QuantIdentity( # for Q1.7 input format
+            act_quant=CommonActQuant,
+            bit_width=in_bit_width,
+            min_val=- 1.0,
+            max_val=1.0 - 2.0 ** (-7),
+            narrow_range=False,
+            restrict_scaling_type=RestrictValueType.POWER_OF_TWO))
 
         for out_ch, is_pool_enabled in CNV_OUT_CH_POOL:
-            self.conv_features.append(get_quant_conv2d(in_ch=in_ch,
-                                                       out_ch=out_ch,
-                                                       bit_width=weight_bit_width,
-                                                       quant_type=weight_quant_type))
+            self.conv_features.append(QuantConv2d(
+                kernel_size=KERNEL_SIZE,
+                in_channels=in_ch,
+                out_channels=out_ch,
+                bias=False,
+                weight_quant=CommonWeightQuant,
+                weight_bit_width=weight_bit_width))
             in_ch = out_ch
             self.conv_features.append(BatchNorm2d(in_ch, eps=1e-4))
-            self.conv_features.append(get_act_quant(act_bit_width, act_quant_type))
+            self.conv_features.append(QuantIdentity(
+                act_quant=CommonActQuant,
+                bit_width=act_bit_width))
             if is_pool_enabled:
                 self.conv_features.append(MaxPool2d(kernel_size=2))
 
         for in_features, out_features in INTERMEDIATE_FC_FEATURES:
-            self.linear_features.append(get_quant_linear(in_features=in_features,
-                                                         out_features=out_features,
-                                                         per_out_ch_scaling=INTERMEDIATE_FC_PER_OUT_CH_SCALING,
-                                                         bit_width=weight_bit_width,
-                                                         quant_type=weight_quant_type))
+            self.linear_features.append(QuantLinear(
+                in_features=in_features,
+                out_features=out_features,
+                bias=False,
+                weight_quant=CommonWeightQuant,
+                weight_bit_width=weight_bit_width))
             self.linear_features.append(BatchNorm1d(out_features, eps=1e-4))
-            self.linear_features.append(get_act_quant(act_bit_width, act_quant_type))
-        
-        self.linear_features.append(get_quant_linear(in_features=LAST_FC_IN_FEATURES,
-                                   out_features=num_classes,
-                                   per_out_ch_scaling=LAST_FC_PER_OUT_CH_SCALING,
-                                   bit_width=weight_bit_width,
-                                   quant_type=weight_quant_type))
+            self.linear_features.append(QuantIdentity(
+                act_quant=CommonActQuant,
+                bit_width=act_bit_width))
+
+        self.linear_features.append(QuantLinear(
+            in_features=LAST_FC_IN_FEATURES,
+            out_features=num_classes,
+            bias=False,
+            weight_quant=CommonWeightQuant,
+            weight_bit_width=weight_bit_width))
         self.linear_features.append(TensorNorm())
         
         for m in self.modules():

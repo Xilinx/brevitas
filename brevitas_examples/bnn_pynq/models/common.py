@@ -20,11 +20,44 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+from dependencies import Injector, value
+
 from brevitas.core.bit_width import BitWidthImplType
 from brevitas.core.quant import QuantType
 from brevitas.core.restrict_val import RestrictValueType
 from brevitas.core.scaling import ScalingImplType
+
+
+class CommonQuant(Injector):
+    bit_width_impl_type = BitWidthImplType.CONST
+    scaling_impl_type = ScalingImplType.CONST
+    restrict_scaling_type = RestrictValueType.FP
+    scaling_per_output_channel = False
+    narrow_range = True
+    signed = True
+
+    @value
+    def quant_type(bit_width):
+        if bit_width is None:
+            return QuantType.FP
+        elif bit_width == 1:
+            return QuantType.BINARY
+        else:
+            return QuantType.INT
+
+
+class CommonWeightQuant(CommonQuant):
+    scaling_const = 1.0
+
+
+class CommonActQuant(CommonQuant):
+    min_val = -1.0
+    max_val = 1.0
+
+
+
 from brevitas.nn import QuantConv2d, QuantHardTanh, QuantLinear
+
 
 # Quant common
 BIT_WIDTH_IMPL_TYPE = BitWidthImplType.CONST
@@ -56,7 +89,7 @@ def get_quant_type(bit_width):
         return QuantType.INT
 
 
-def get_act_quant(act_bit_width, act_quant_type):  
+def get_act_quant(act_bit_width, act_quant_type):
     return QuantHardTanh(quant_type=act_quant_type,
                          bit_width=act_bit_width,
                          bit_width_impl_type=BIT_WIDTH_IMPL_TYPE,
@@ -94,3 +127,8 @@ def get_quant_conv2d(in_ch, out_ch, bit_width, quant_type):
                        weight_restrict_scaling_type=SCALING_VALUE_TYPE,
                        weight_bit_width_impl_type=BIT_WIDTH_IMPL_TYPE,
                        bias=BIAS_ENABLED)
+
+
+
+
+
