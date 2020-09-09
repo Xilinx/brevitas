@@ -124,6 +124,11 @@ class IntRestrictValue(torch.jit.ScriptModule):
     def restrict_init_module(self):
         return Identity()
 
+    @torch.jit.script_method
+    def forward(self, x: torch.Tensor):
+        x = self.float_to_int_impl(x)
+        return x
+
 
 class PowerOfTwoRestrictValue(torch.jit.ScriptModule):
 
