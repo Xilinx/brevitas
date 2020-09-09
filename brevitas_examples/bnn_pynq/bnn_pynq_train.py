@@ -101,7 +101,7 @@ class objdict(dict):
             raise AttributeError("No such attribute: " + name)
 
 
-def main(cmd_args):
+def launch(cmd_args):
     args = parse_args(cmd_args)
 
     # Set relative paths relative to current workdir
@@ -130,5 +130,9 @@ def main(cmd_args):
         trainer.train_model()
 
 
+def main():
+    launch(sys.argv[1:])
+
+
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    main()

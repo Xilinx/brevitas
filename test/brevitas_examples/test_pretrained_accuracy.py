@@ -2,7 +2,7 @@ import logging
 from urllib import request
 
 import pytest
-from brevitas_examples.bnn_pynq.bnn_pynq_train import main
+from brevitas_examples.bnn_pynq.bnn_pynq_train import launch
 from brevitas_examples.bnn_pynq.models import get_model_cfg
 
 
@@ -19,7 +19,7 @@ def test_bnn_pynq_pretrained_accuracy(caplog, model, weight_bit_width, act_bit_w
     network = f"{model}_{weight_bit_width}W{act_bit_width}A"
     cfg = get_model_cfg(network)
     eval_log_url = cfg.get('MODEL', 'EVAL_LOG')
-    main(['--pretrained', '--network', network, '--evaluate', '--gpus', 'None'])
+    launch(['--pretrained', '--network', network, '--evaluate', '--gpus', 'None'])
     with request.urlopen(eval_log_url) as r:
         log_list = [l[l.index('Prec@1'):l.index('Prec@5')].rstrip() for l in caplog.text.splitlines()]
         reference_prec_list = [l[l.index('Prec@1'):l.index('Prec@5')].rstrip() for l in r.read().decode('utf-8').splitlines()]
