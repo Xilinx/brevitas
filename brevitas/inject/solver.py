@@ -255,7 +255,7 @@ def _solve_restrict_value_float_to_int_impl(qi):
     impl_type = 'restrict_value_float_to_int_impl_type'
     solver = partial(_solve_attr, name=impl_type, solved_key=impl)
     if not impl in qi and not impl_type in qi:
-        qi = qi.let(**{impl_type: FloatToIntImplType.CEIL})  # TODO: CEIL to ROUND
+        qi = qi.let(**{impl_type: FloatToIntImplType.ROUND})
     qi = _solve_float_to_int_impl(qi, solver)
     return qi
 
