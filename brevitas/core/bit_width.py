@@ -93,8 +93,8 @@ class BitWidthParameter(torch.jit.ScriptModule):
     def __init__(
             self,
             bit_width: int,
-            min_overall_bit_width: Optional[int],
             restrict_bit_width_impl: Module,
+            min_overall_bit_width: Optional[int] = None,
             override_pretrained_bit_width: bool = False) -> None:
         super(BitWidthParameter, self).__init__()
 
@@ -115,7 +115,7 @@ class BitWidthParameter(torch.jit.ScriptModule):
     @torch.jit.script_method
     def forward(self) -> Tensor:
         bit_width = torch.abs(self.bit_width_offset) + self.bit_width_base
-        bit_width = self.restrict_bit_width(bit_width)
+        bit_width = self.restrict_bit_width_impl(bit_width)
         return bit_width
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
