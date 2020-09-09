@@ -233,6 +233,16 @@ def _solve_restrict_scaling_type(qi):
     return qi
 
 
+def _solve_restrict_bit_width_type(qi):
+    solver = partial(
+        _solve_attr, name='restrict_bit_width_type', solved_key='restrict_bit_width_impl')
+    qi = solver(qi, RestrictValueType.FP, FloatRestrictValue)
+    qi = solver(qi, RestrictValueType.LOG_FP, LogFloatRestrictValue)
+    qi = solver(qi, RestrictValueType.INT, IntRestrictValue)
+    qi = solver(qi, RestrictValueType.POWER_OF_TWO, PowerOfTwoRestrictValue)
+    return qi
+
+
 def _solve_float_to_int_impl(qi, solver):
     qi = solver(qi, FloatToIntImplType.ROUND, RoundSte)
     qi = solver(qi, FloatToIntImplType.FLOOR, FloorSte)
@@ -364,6 +374,7 @@ def _solve_enum_based_quant_weight_api(qi):
     qi = _solve_weight_scaling_impl_type(qi)
     qi = _solve_restrict_scaling_type(qi)
     qi = _solve_bit_width_impl_type(qi)
+    qi = _solve_restrict_bit_width_type(qi)
     qi = _solve_bit_width_impl_override(qi)
     qi = _solve_scaling_override(qi)
     qi = _solve_tensor_quant_float_to_int_impl(qi)
@@ -387,6 +398,7 @@ def _solve_enum_based_quant_act_api(qi):
     qi = _solve_act_quant_type(qi)
     qi = _solve_bit_width_impl_override(qi)
     qi = _solve_bit_width_impl_type(qi)
+    qi = _solve_restrict_bit_width_type(qi)
     qi = _solve_tensor_quant_float_to_int_impl(qi)
     qi = _solve_scaling_stats_op(qi)
     qi = _solve_scaling_override(qi)
