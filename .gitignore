@@ -19,6 +19,16 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
+*.eggs
+
+# Datasets
+data
+
+# Exported models
+*.onnx
+
+# Commented out files
+*.bak 
 
 # Installer logs
 pip-log.txt
