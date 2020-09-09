@@ -29,6 +29,7 @@ import torch
 
 from brevitas.nn import QuantIdentity, QuantLinear
 from .common import CommonWeightQuant, CommonActQuant
+from .tensor_norm import TensorNorm
 
 DROPOUT = 0.2
 
@@ -67,7 +68,7 @@ class FC(Module):
                 bias=False,
                 weight_bit_width=weight_bit_width,
                 weight_quant=CommonWeightQuant))
-        self.features.append(BatchNorm1d(num_features=num_classes))
+        self.features.append(TensorNorm())
 
         for m in self.modules():
           if isinstance(m, QuantLinear):
