@@ -18,10 +18,10 @@ from brevitas.quant_tensor import QuantTensor
 
 
 def _override_quant_metadata_caching_mode(m: Module, enabled: bool):
-    if hasattr(m, 'cache_quant_metadata_only'):
-        assert not hasattr(m, "cache_quant_metadata_only_backup")
-        m.cache_quant_metadata_only_backup = m.cache_quant_metadata_only
-        m.cache_quant_metadata_only = enabled
+    if hasattr(m, 'cache_quant_io_metadata_only'):
+        assert not hasattr(m, "cache_quant_io_metadata_only_backup")
+        m.cache_quant_io_metadata_only_backup = m.cache_quant_io_metadata_only
+        m.cache_quant_io_metadata_only = enabled
 
 
 def _override_bias_caching_mode(m: Module, enabled: bool):
@@ -46,10 +46,10 @@ def _override_out_caching_mode(m: Module, enabled: bool):
 
 
 def _restore_quant_metadata_caching_mode(m: Module):
-    if hasattr(m, "cache_quant_metadata_only"):
-        assert hasattr(m, "cache_quant_metadata_only_backup")
-        m.cache_quant_metadata_only = m.cache_quant_metadata_only_backup
-        del m.cache_quant_metadata_only_backup
+    if hasattr(m, "cache_quant_io_metadata_only"):
+        assert hasattr(m, "cache_quant_io_metadata_only_backup")
+        m.cache_quant_io_metadata_only = m.cache_quant_io_metadata_only_backup
+        del m.cache_quant_io_metadata_only_backup
 
 
 def _restore_bias_caching_mode(m: Module):

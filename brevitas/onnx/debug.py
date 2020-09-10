@@ -42,7 +42,7 @@ def enable_debug(module, hook=ONNXDebugHook(), inp=True, out=True, filter_fn=lam
         if hasattr(child_module, "export_debug_name") and filter_fn(child_module):
             child_module.cache_inference_quant_inp = inp
             child_module.cache_inference_quant_out = out
-            child_module.cache_quant_metadata_only = False
+            child_module.cache_quant_io_metadata_only = False
             child_module.export_debug_name = child_name
             child_module.register_forward_hook(hook)
     return hook

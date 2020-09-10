@@ -78,8 +78,8 @@ class BaseHandler(Module, ABC):
 
     def attach_debug_info(self, m):
         self.export_debug_name = m.export_debug_name
-        self.debug_input = m.cache_inference_quant_inp and not m.cache_quant_metadata_only
-        self.debug_output = m.cache_inference_quant_out and not m.cache_quant_metadata_only
+        self.debug_input = m.cache_inference_quant_inp and not m.cache_quant_io_metadata_only
+        self.debug_output = m.cache_inference_quant_out and not m.cache_quant_io_metadata_only
 
     def forward(self, inp: Tensor, **kwargs):
         debug_fn = lambda x, name:  DebugMarkerFunction.apply(x, self.export_debug_name + name)
