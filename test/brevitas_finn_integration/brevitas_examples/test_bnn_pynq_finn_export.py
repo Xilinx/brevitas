@@ -72,6 +72,8 @@ def test_brevitas_fc_onnx_export_and_exec(size, wbits, abits, pretrained):
     fc, _ = model_with_cfg(nname.lower(), pretrained=pretrained)
     FINNManager.export_onnx(fc, FC_INPUT_SIZE, finn_onnx)
     model = ModelWrapper(finn_onnx)
+    model = model.transform(GiveUniqueNodeNames())
+    model = model.transform(DoubleToSingleFloat())
     model = model.transform(InferShapes())
     model = model.transform(FoldConstants())
     model = model.transform(RemoveStaticGraphInputs())
