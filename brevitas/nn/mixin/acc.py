@@ -98,22 +98,12 @@ class QuantTruncMixin(QuantAccMixin):
             proxy_from_injector_impl=TruncQuantProxyFromInjector,
             kwargs_prefix='',
             proxy_prefix='trunc_',
-            none_inject={'quant_type': None, 'lsb_trunc_bit_width_impl': None},
+            none_inject={'quant_type': None},
             **kwargs)
 
     @property
     def is_trunc_quant_enabled(self):
         return self.trunc_quant.is_quant_enabled
-
-    @property
-    def is_quant_trunc_narrow_range(self):
-        assert self.is_trunc_quant_enabled
-        return self.trunc_quant.is_narrow_range
-
-    @property
-    def is_quant_trunc_signed(self):
-        assert self.is_trunc_quant_enabled
-        return self.trunc_quant.is_signed
 
 
 class QuantClampMixin(QuantAccMixin):

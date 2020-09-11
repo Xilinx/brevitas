@@ -46,7 +46,7 @@ from torch.nn import Module
 
 from brevitas.inject.enum import QuantType  # retrocompatbility
 from brevitas.function.ops import tensor_clamp, min_int, max_int, max_uint
-from brevitas.function.ops_ste import tensor_clamp_ste, binary_sign_ste, ternary_sign_ste
+from brevitas.function.ops_ste import round_ste, binary_sign_ste, ternary_sign_ste
 
 from .bit_width import BitWidthConst
 from .utils import StatelessBuffer
@@ -617,3 +617,27 @@ class RescalingIntQuant(torch.jit.ScriptModule):
         output_bit_width = msb_clamp_bit_width
         output_scale = scale / int_scale
         return y, output_scale, output_bit_width
+
+
+class TruncIntQuant(torch.jit.ScriptModule):
+    def __init__(self,
+                 float_to_int_impl: Module,
+                 bit_width_impl: Module):
+        super(TruncIntQuant, self).__init__()
+        self.msb_clamp_bit_width_impl = bit_width_impl
+        self.float_to_int_impl = float_to_int_impl
+
+    @torch.jit.script_method
+    def forward(self,
+                x: Tensor,
+                scale: Tensor,
+                input_bit_width: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
+        x = x / scale
+        x = round_ste(x)  # clean up floating point error
+        output_bit_width = self.msb_clamp_bit_width_impl()
+        trunc_bit_width = input_bit_width - output_bit_width
+        trunc_scale = 2.0 ** trunc_bit_width
+        x = x / trunc_scale
+        x = self.float_to_int_impl(x)
+        x = x * scale
+        return x, scale, output_bit_width

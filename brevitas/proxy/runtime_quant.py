@@ -174,34 +174,13 @@ class TruncQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
 
     def __init__(self, trunc_quant_injector: Injector):
         super(TruncQuantProxyFromInjector, self).__init__(trunc_quant_injector)
-        lsb_trunc_bit_width_impl = trunc_quant_injector.lsb_trunc_bit_width_impl
         tensor_quant = trunc_quant_injector.tensor_quant
-        self.is_quant_enabled = lsb_trunc_bit_width_impl is not None and tensor_quant is not None
-        self.lsb_trunc_bit_width_impl = lsb_trunc_bit_width_impl
+        self.is_quant_enabled = tensor_quant is not None
         self.tensor_quant = tensor_quant
-
-    @property
-    def is_narrow_range(self):
-        return NotImplementedError
 
     def forward(self, x: QuantTensor):
         if self.is_quant_enabled:
-            cleaned_up_value = round_ste(x.value / x.scale.detach()) * x.scale.detach()
-            x = x.set(value=cleaned_up_value)  # clean up accumulated floating point errors
-            trunc_bit_width = self.lsb_trunc_bit_width_impl(x.bit_width)
-            trunc_scale = 2.0 ** trunc_bit_width
-            output_scale = trunc_scale * x.scale
-            if self.training:
-                x, output_scale, x_bit_width = self.tensor_quant(x.value, output_scale, x.bit_width)
-            else:  # avoid fp errors at inference time
-                x_bit_width = x.bit_width
-                x = round_ste(x.value / x.scale)
-                x = x / trunc_scale
-                x = self.tensor_quant.int_quant.float_to_int_impl(x)
-                x = x * output_scale
-            x = x / trunc_scale
-            output_scale = output_scale / trunc_scale  # output_scale == input_scale
-            output_bit_width = x_bit_width - trunc_bit_width
-            return QuantTensor(x, output_scale, output_bit_width, self.is_signed)
+            out_value, out_scale, out_bit_width = self.tensor_quant(x.value, x.scale, x.bit_width)
+            return QuantTensor(out_value, out_scale, out_bit_width, x.signed)
         else:
             return x

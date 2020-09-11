@@ -479,31 +479,24 @@ def _solve_bit_width_to_remove_impl(qi, name):
 
 
 def _solve_trunc_quant_type(qi):
-    solver = partial(_solve_attr, name='quant_type')
-    qi = solver(qi, QuantType.FP, {'tensor_quant': None, 'lsb_trunc_bit_width_impl': None})
-    qi = solver(qi, QuantType.INT,
-                {'tensor_quant': PrescaledRestrictIntQuantWithInputBitWidth,
-                 'int_quant': IntQuant,
-                 'bit_width_impl': IdentityBitWidth,
-                 'lsb_trunc_bit_width_impl': LsbTruncBitWidth})
+    solver = partial(_solve_attr, name='quant_type', solved_key='tensor_quant')
+    qi = solver(qi, QuantType.FP, None)
+    qi = solver(qi, QuantType.INT, TruncIntQuant)
     return qi
 
 
-def _solve_lsb_trunc_bit_width_impl_type(qi):
-    name = 'lsb_trunc_bit_width_impl_type'
-    qi = _solve_bit_width_to_remove_impl(qi, name)
-    if _check_name_value(qi, name, BitWidthImplType.CONST):
-        qi = qi.let(bit_width=this.ls_bit_width_to_trunc)
+def _solve_trunc_float_to_int_impl_type(qi):
+    impl = 'float_to_int_impl'
+    impl_type = 'float_to_int_impl_type'
+    solver = partial(_solve_attr, name=impl_type, solved_key=impl)
+    qi = _solve_float_to_int_impl(qi, solver)
     return qi
 
 
 def _solve_enum_based_quant_trunc_api(qi):
     qi = _solve_trunc_quant_type(qi)
-    qi = _solve_lsb_trunc_bit_width_impl_type(qi)
-    if 'tensor_clamp_impl' not in qi:
-        qi = qi.let(tensor_clamp_impl=TensorClamp)
-    if 'float_to_int_impl' not in qi:
-        qi = qi.let(float_to_int_impl=FloorSte)
+    qi = _solve_bit_width_impl_type(qi)
+    qi = _solve_trunc_float_to_int_impl_type(qi)
     return qi
 
 
