@@ -65,16 +65,6 @@ class IdentityBitWidth(torch.jit.ScriptModule):
         return x
 
 
-class ZeroLsbTruncBitWidth(torch.jit.ScriptModule):
-
-    def __init__(self) -> None:
-        super(ZeroLsbTruncBitWidth, self).__init__()
-        self.zero = StatelessBuffer(torch.tensor(0.0))
-
-    def forward(self, input_bit_width: Tensor) -> Tensor:
-        return self.zero()
-
-
 class BitWidthConst(torch.jit.ScriptModule):
 
     def __init__(self, bit_width: int) -> None:
@@ -191,27 +181,3 @@ class MsbClampBitWidth(torch.jit.ScriptModule):
         return output_bit_width
 
 
-class LsbTruncBitWidth(torch.jit.ScriptModule):
-
-    def __init__(
-            self,
-            bit_width_to_remove_impl: Module,
-            min_overall_bit_width: int,
-            max_overall_bit_width: int):
-        super(LsbTruncBitWidth, self).__init__()
-
-        self.min_overall_bit_width = BitWidthConst(min_overall_bit_width)
-        self.max_overall_bit_width = BitWidthConst(max_overall_bit_width)
-        self.bit_width_to_remove_impl = bit_width_to_remove_impl
-
-    @torch.jit.script_method
-    def forward(self, input_bit_width: Tensor) -> Tensor:
-        bit_width_to_remove = self.bit_width_to_remove_impl()
-        min_bit_width_to_remove = input_bit_width - self.max_overall_bit_width()
-        max_bit_width_to_remove = input_bit_width - self.min_overall_bit_width()
-        # pass gradient to boundaries since input_bit_width is possibly learned
-        bit_width_to_remove = tensor_clamp(
-            bit_width_to_remove,
-            min_bit_width_to_remove,
-            max_bit_width_to_remove)
-        return bit_width_to_remove

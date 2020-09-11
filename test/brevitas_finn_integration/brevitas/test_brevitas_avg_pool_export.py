@@ -23,9 +23,9 @@ export_onnx_path = "test_brevitas_avg_pool_export.onnx"
 
 @pytest.mark.parametrize("kernel_size", [2, 3])
 @pytest.mark.parametrize("stride", [1, 2])
-@pytest.mark.parametrize("signed", [False, True])
+@pytest.mark.parametrize("signed", [True, False])
 @pytest.mark.parametrize("bit_width", [2, 4])
-@pytest.mark.parametrize("input_bit_width", [4, 8, 32])
+@pytest.mark.parametrize("input_bit_width", [4, 8, 16])
 @pytest.mark.parametrize("channels", [2, 4])
 @pytest.mark.parametrize("idim", [7, 8])
 def test_brevitas_avg_pool_export(
@@ -36,11 +36,8 @@ def test_brevitas_avg_pool_export(
     b_avgpool = QuantAvgPool2d(
         kernel_size=kernel_size,
         stride=stride,
-        signed=signed,
-        min_overall_bit_width=bit_width,
-        max_overall_bit_width=bit_width,
-        quant_type=QuantType.INT,
-    )
+        bit_width=bit_width,
+        quant_type=QuantType.INT)
     # call forward pass manually once to cache scale factor and bitwidth
     input_tensor = torch.from_numpy(np.zeros(ishape)).float()
     scale = np.ones((1, channels, 1, 1))
@@ -54,7 +51,7 @@ def test_brevitas_avg_pool_export(
         prefix = "INT"
     else:
         prefix = "UINT"
-    dt_name = prefix + str(input_bit_width // 2)
+    dt_name = prefix + str(input_bit_width)
     dtype = DataType[dt_name]
     model = model.transform(InferShapes())
     model = model.transform(InferDataTypes())

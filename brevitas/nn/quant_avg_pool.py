@@ -75,7 +75,6 @@ class QuantAvgPool2d(QuantTruncMixin, QuantLayerMixin, AvgPool2d):
             self,
             trunc_quant=trunc_quant,
             update_injector=update_injector,
-            ls_bit_width_to_trunc=math.ceil(math.log2(kernel_size * kernel_size)),
             **kwargs)
 
     @property

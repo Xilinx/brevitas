@@ -35,11 +35,9 @@ class DefaultActQuantInjector(Injector):
 
 class DefaultTruncQuantInjector(Injector):
     quant_type = 'INT'
-    lsb_trunc_bit_width_impl_type = 'CONST'
-    narrow_range = False
-    min_overall_bit_width = 2  # TODO deprecate
-    max_overall_bit_width = 32  # TODO deprecate
-    signed = True
+    bit_width_impl_type = 'CONST'
+    float_to_int_impl_type = 'FLOOR'
+    bit_width = 8
 
 
 class DefaultSignedActQuantInjector(DefaultActQuantInjector):
