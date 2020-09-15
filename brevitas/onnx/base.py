@@ -46,29 +46,25 @@ def _override_out_caching_mode(m: Module, enabled: bool):
 
 
 def _restore_quant_metadata_caching_mode(m: Module):
-    if hasattr(m, "cache_quant_io_metadata_only"):
-        assert hasattr(m, "cache_quant_io_metadata_only_backup")
+    if hasattr(m, "cache_quant_io_metadata_only_backup"):
         m.cache_quant_io_metadata_only = m.cache_quant_io_metadata_only_backup
         del m.cache_quant_io_metadata_only_backup
 
 
 def _restore_bias_caching_mode(m: Module):
-    if hasattr(m, "cache_inference_quant_bias"):
-        assert hasattr(m, "cache_inference_quant_bias_backup")
+    if hasattr(m, "cache_inference_quant_bias_backup"):
         m.cache_inference_quant_bias = m.cache_inference_quant_bias_backup
         del m.cache_inference_quant_bias_backup
 
 
 def _restore_inp_caching_mode(m: Module):
     if hasattr(m, "cache_inference_quant_inp_backup"):
-        assert hasattr(m, "cache_inference_quant_inp_backup")
         m.cache_inference_quant_inp = m.cache_inference_quant_inp_backup
         del m.cache_inference_quant_inp_backup
 
 
 def _restore_out_caching_mode(m: Module):
     if hasattr(m, "cache_inference_quant_out_backup"):
-        assert hasattr(m, "cache_inference_quant_out_backup")
         m.cache_inference_quant_out = m.cache_inference_quant_out_backup
         del m.cache_inference_quant_out_backup
 
