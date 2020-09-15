@@ -45,13 +45,15 @@ class FINNQuantInputHandler(BaseHandler, ABC):
     @staticmethod
     def quant_input_type(
             module: QuantLayerMixin,
-            supported_bit_width: Tuple[int, ...] = (2, 4, 8, 16, 32)):
+            supported_int_bit_width_range: Tuple[int, ...] = (2, 33)):
         input_bit_width_tensor = FINNQuantInputHandler.quant_input_bit_width_tensor(module)
         input_signed = FINNQuantInputHandler.quant_input_signed(module)
         if input_bit_width_tensor is not None and input_signed is not None:
             # bit width is a scalar int
             bit_width = int(input_bit_width_tensor.item())
-            if bit_width in list(supported_bit_width):
+            if bit_width == 1 and input_signed:
+                return "BIPOLAR"
+            if bit_width in range(*supported_int_bit_width_range):
                 return f"INT{bit_width}" if input_signed else f"UINT{bit_width}"
             else:
                 raise RuntimeError(f"Unsupported input bit width {bit_width} for export")
