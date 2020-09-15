@@ -14,9 +14,9 @@ class FINNQuantReLUHandler(FINNQuantInputHandler):
     @staticmethod
     def quant_type(
             module: QuantReLU,
-            supported_bit_width: Tuple[int,...] = (2, 4, 8, 16, 32)):
+            supported_int_bit_width_range: Tuple[int,...] = (2, 33)):
         bit_width = int(module.quant_act_bit_width().item())
-        if bit_width in list(supported_bit_width):
+        if bit_width in range(*supported_int_bit_width_range):
             return f"UINT{bit_width}"
         else:
             raise RuntimeError(f"Unsupported input bit width {bit_width} for export")
@@ -58,11 +58,11 @@ class FINNQuantHardTanhHandler(FINNQuantInputHandler):
     @staticmethod
     def quant_type(
             module: QuantHardTanh,
-            supported_bit_width: Tuple[int, ...] = (2, 4, 8, 16)):
+            supported_int_bit_width_range: Tuple[int,...] = (2, 33)):
         bit_width = int(module.quant_act_bit_width().item())
         if bit_width == 1:
             return "BIPOLAR"
-        elif bit_width in list(supported_bit_width):
+        elif bit_width in range(*supported_int_bit_width_range):
             # note: even though this particular config is intx (signed)
             # quantization, we set the export mode for MultiThreshold as
             # UINTX, since the signed bias is added as a separate node
