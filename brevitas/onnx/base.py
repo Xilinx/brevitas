@@ -19,30 +19,30 @@ from brevitas.quant_tensor import QuantTensor
 
 def _override_quant_metadata_caching_mode(m: Module, enabled: bool):
     if hasattr(m, 'cache_quant_io_metadata_only'):
-        assert not hasattr(m, "cache_quant_io_metadata_only_backup")
-        m.cache_quant_io_metadata_only_backup = m.cache_quant_io_metadata_only
-        m.cache_quant_io_metadata_only = enabled
+        if not hasattr(m, "cache_quant_io_metadata_only_backup"):
+            m.cache_quant_io_metadata_only_backup = m.cache_quant_io_metadata_only
+            m.cache_quant_io_metadata_only = enabled
 
 
 def _override_bias_caching_mode(m: Module, enabled: bool):
     if hasattr(m, 'cache_inference_quant_bias'):
-        assert not hasattr(m, "cache_inference_quant_bias_backup")
-        m.cache_inference_quant_bias_backup = m.cache_inference_quant_bias
-        m.cache_inference_quant_bias = enabled
+        if not hasattr(m, "cache_inference_quant_bias_backup"):
+            m.cache_inference_quant_bias_backup = m.cache_inference_quant_bias
+            m.cache_inference_quant_bias = enabled
 
 
 def _override_inp_caching_mode(m: Module, enabled: bool):
     if hasattr(m, 'cache_inference_quant_inp'):
-        assert not hasattr(m, "cache_inference_quant_inp_backup")
-        m.cache_inference_quant_inp_backup = m.cache_inference_quant_inp
-        m.cache_inference_quant_inp = enabled
+        if not hasattr(m, "cache_inference_quant_inp_backup"):
+            m.cache_inference_quant_inp_backup = m.cache_inference_quant_inp
+            m.cache_inference_quant_inp = enabled
 
 
 def _override_out_caching_mode(m: Module, enabled: bool):
     if hasattr(m, 'cache_inference_quant_out'):
-        assert not hasattr(m, "cache_inference_quant_out_backup")
-        m.cache_inference_quant_out_backup = m.cache_inference_quant_out
-        m.cache_inference_quant_out = enabled
+        if not hasattr(m, "cache_inference_quant_out_backup"):
+            m.cache_inference_quant_out_backup = m.cache_inference_quant_out
+            m.cache_inference_quant_out = enabled
 
 
 def _restore_quant_metadata_caching_mode(m: Module):
