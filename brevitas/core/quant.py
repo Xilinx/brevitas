@@ -608,8 +608,7 @@ class RescalingIntQuant(torch.jit.ScriptModule):
         self.msb_clamp_bit_width_impl = bit_width_impl
 
     @torch.jit.script_method
-    def forward(self,
-                x: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
+    def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
         msb_clamp_bit_width = self.msb_clamp_bit_width_impl()
         scale = self.scaling_impl(x)
         int_scale = self.int_scaling_impl(msb_clamp_bit_width)
@@ -617,6 +616,34 @@ class RescalingIntQuant(torch.jit.ScriptModule):
         output_bit_width = msb_clamp_bit_width
         output_scale = scale / int_scale
         return y, output_scale, output_bit_width
+
+
+class DelayedRescalingIntQuant(torch.jit.ScriptModule):
+    def __init__(self,
+                 delay: int,
+                 int_quant: Module,
+                 scaling_impl: Module,
+                 int_scaling_impl: Module,
+                 bit_width_impl: Module):
+        super(DelayedRescalingIntQuant, self).__init__()
+        self.delay = torch.jit.Attribute(delay, int)
+        self.int_quant = int_quant
+        self.scaling_impl = scaling_impl
+        self.int_scaling_impl = int_scaling_impl
+        self.msb_clamp_bit_width_impl = bit_width_impl
+
+    @torch.jit.script_method
+    def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
+        msb_clamp_bit_width = self.msb_clamp_bit_width_impl()
+        scale = self.scaling_impl(x)
+        int_scale = self.int_scaling_impl(msb_clamp_bit_width)
+        if self.delay <= 0:
+            x = self.int_quant(scale, int_scale, msb_clamp_bit_width, x)
+        else:
+            self.delay = self.delay - 1
+        output_bit_width = msb_clamp_bit_width
+        output_scale = scale / int_scale
+        return x, output_scale, output_bit_width
 
 
 class TruncIntQuant(torch.jit.ScriptModule):

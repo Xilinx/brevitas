@@ -61,6 +61,26 @@ class scalar_clamp_ste_fn(torch.autograd.Function):
         return grad_y, None, None
 
 
+class scalar_clamp_min_ste_fn(torch.autograd.Function):
+    """ Autograd function that implements scalar_clamp_min with a straight through estimator
+
+    Look at the documentation of :func:`~brevitas.function.ops_ste.scalar_clamp_min_ste` for further details.
+
+    """
+    @staticmethod
+    def forward(ctx, x: torch.Tensor, min_val: float):
+        """
+        """
+        y = torch.clamp_min(x, min_val)
+        return y
+
+    @staticmethod
+    def backward(ctx, grad_y):
+        """
+        """
+        return grad_y, None
+
+
 class round_to_zero_ste_fn(torch.autograd.Function):
     @staticmethod
     def forward(ctx, x: torch.Tensor):

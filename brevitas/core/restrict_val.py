@@ -47,7 +47,7 @@ from torch.nn import Module
 
 from brevitas.inject.enum import RestrictValueType, FloatToIntImplType  # retrocompatibility
 
-from .function_wrapper import Identity, PowerOfTwo, LogTwo, ClampMin
+from .function_wrapper import Identity, PowerOfTwo, LogTwo, ClampMinSte
 
 assert RestrictValueType  # prevent removal of unused import
 assert FloatToIntImplType
@@ -60,12 +60,12 @@ class _RestrictClampValue(torch.jit.ScriptModule):
         self.restrict_value_impl = restrict_value_impl
         if scaling_min_val is not None and scaling_min_val != 0:
             scaling_min_val = restrict_value_impl.restrict_init_float(scaling_min_val)
-            self.clamp_min = ClampMin(scaling_min_val) # TODO: should be STE
+            self.clamp_min_ste = ClampMinSte(scaling_min_val)
         else:
-            self.clamp_min = Identity()
+            self.clamp_min_ste = Identity()
 
     def forward(self, x: torch.Tensor):
-        x = self.clamp_min(x)
+        x = self.clamp_min_ste(x)
         return self.restrict_value_impl(x)
 
 

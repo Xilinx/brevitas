@@ -48,6 +48,7 @@ static auto registry =
     .op("brevitas::round_ste", &round_ste)
     .op("brevitas::tensor_clamp_ste", &tensor_clamp_ste)
     .op("brevitas::scalar_clamp_ste", &scalar_clamp_ste)
+    .op("brevitas::scalar_clamp_min_ste", &scalar_clamp_min_ste)
     .op("brevitas::binary_sign_ste", &binary_sign_ste)
     .op("brevitas::ternary_sign_ste", &ternary_sign_ste)
     .op("brevitas::ceil_ste", &ceil_ste)

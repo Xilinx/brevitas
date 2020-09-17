@@ -149,6 +149,18 @@ class ClampMin(torch.jit.ScriptModule):
         return x.clamp_min(self.min_val)
 
 
+class ClampMinSte(torch.jit.ScriptModule):
+    __constants__ = ['min_val']
+
+    def __init__(self, min_val: float) -> None:
+        super(ClampMinSte, self).__init__()
+        self.min_val = min_val
+
+    @torch.jit.script_method
+    def forward(self, x: torch.Tensor):
+        return x.clamp_min(self.min_val)
+
+
 class OverTensorView(torch.jit.ScriptModule):
 
     def __init__(self) -> None:

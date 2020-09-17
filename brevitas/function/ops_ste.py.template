@@ -183,6 +183,34 @@ def scalar_clamp_ste(x: torch.Tensor, min_val: float, max_val: float) -> torch.T
 
 
 ${torch_jit_template}
+def scalar_clamp_min_ste(x: torch.Tensor, min_val: float) -> torch.Tensor:
+    """ Perform clamp_min operation with Straight Trough Estimation (STE) of the Gradient
+
+    This operation behaves like an identity on the backward pass.
+    For Pytorch version >= 1.3.0, the STE operator is implemented in C++ using the
+    torch::autograd::Function class and compiled. At execution time, the Just-In-Time (JIT) compiler of Pytorch
+    is used to speed-up the computation.
+    For Pytorch version < 1.3.0, the STE operator is implemented using the
+    torch.autograd.Function class in python, and the JIT cannot be used.
+
+
+    Parameters
+    ----------
+    x : Tensor
+        Tensor on which to apply the clamp operation
+    min_val : Float
+        Scalar containing the minimum value for the clamp operation
+
+    Returns
+    -------
+    Tensor
+        Tensor for which every element of `x` is clamped to `min_val`.
+        When backpropagating through this value, a straight through estimator is applied.
+    """
+    return ${function_prefix}scalar_clamp_min_ste${function_suffix}(x, min_val)
+
+
+${torch_jit_template}
 def binary_sign_ste(x: torch.Tensor) -> torch.Tensor:
     """ Perform binarization with Straight Trough Estimation (STE) of the Gradient
 

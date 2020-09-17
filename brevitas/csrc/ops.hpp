@@ -91,6 +91,25 @@ class ScalarClampSteFn : public torch::autograd::Function<ScalarClampSteFn> {
 };
 
 
+class ScalarClampMinSteFn : public torch::autograd::Function<ScalarClampMinSteFn> {
+ public:
+  static variable_list forward(
+    AutogradContext* ctx,
+    Variable input,
+    const double min_val){
+    Variable output;
+    output = at::clamp_min(input, min_val);
+    return {output};
+   };
+
+   static variable_list backward(
+    AutogradContext* ctx,
+    variable_list grad_output){
+     return {grad_output[0], Variable()};
+   }
+};
+
+
 class CeilSteFn : public torch::autograd::Function<CeilSteFn> {
  public:
   static variable_list forward(
@@ -207,6 +226,12 @@ Tensor scalar_clamp_ste(
  const double min_val,
  const double max_val){
  return ScalarClampSteFn::apply(input, min_val, max_val)[0];
+};
+
+Tensor scalar_clamp_min_ste(
+ const Tensor& input,
+ const double min_val){
+ return ScalarClampMinSteFn::apply(input, min_val)[0];
 };
 
 Tensor round_to_zero_ste(
