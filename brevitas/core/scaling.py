@@ -52,7 +52,6 @@ from .stats import _ParameterListStats, _RuntimeStats, _Stats, SCALAR_SHAPE
 from .utils import StatelessBuffer
 from .restrict_val import _RestrictClampValue
 
-SCALING_SCALAR_SHAPE = ()
 SCALING_STATS_REDUCE_DIM = 1
 DEFAULT_MOMENTUM = 0.1
 DEFAULT_AFFINE = False
