@@ -38,6 +38,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+import math
 from typing import Tuple, List, Optional
 
 from torch import nn
@@ -114,6 +115,30 @@ class _ViewCatParameterWrapper(torch.jit.ScriptModule):
         output_dict = super(_ViewCatParameterWrapper, self).state_dict(dest, prefix, keep_vars)
         del output_dict[prefix + 'parameter']
         return output_dict
+
+
+class AbsPercentile(torch.jit.ScriptModule):
+    __constants__ = ['q', 'stats_reduce_dim']
+
+    def __init__(self, percentile_q: float, stats_reduce_dim: Optional[int]):
+        super(AbsPercentile, self).__init__()
+        assert percentile_q <= 100, "q has to be a percentage"
+        self.q = percentile_q
+        self.stats_reduce_dim = stats_reduce_dim
+
+    def forward(self, x):
+        if self.stats_reduce_dim is None:
+            # k is 1-indexed, so round away from zero
+            k = math.floor(.01 * self.q * x.numel() + 0.5)
+            result = x.abs().view(-1).kthvalue(k).values
+        else:
+            # assuming x is two dimensional, get the other dimension
+            other_dim = abs(self.stats_reduce_dim - 1)
+            dim_slice = torch.narrow(x, dim=other_dim, start=0, length=1)
+            # k is 1-indexed, so round away from zero
+            k = math.floor(.01 * self.q * dim_slice.numel() + 0.5)
+            result = x.abs().kthvalue(k, dim=self.stats_reduce_dim).values
+        return result
 
 
 class AbsMax(torch.jit.ScriptModule):
