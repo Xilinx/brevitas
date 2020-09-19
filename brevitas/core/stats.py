@@ -55,6 +55,7 @@ assert StatsOp  # prevent removal of unused import
 
 
 DEFAULT_STD_DEV_EPSILON = 1e-8
+SCALAR_SHAPE = ()
 
 
 class StatsInputViewShapeImpl(object):

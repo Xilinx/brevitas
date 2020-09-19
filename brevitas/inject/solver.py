@@ -213,6 +213,7 @@ def _solve_act_scaling_impl_type(qi):
     solver = partial(_solve_attr, name='scaling_impl_type', solved_key='scaling_impl')
     qi = solver(qi, ScalingImplType.PARAMETER, ParameterScaling)
     qi = solver(qi, ScalingImplType.CONST, ConstScaling)
+    qi = solver(qi, ScalingImplType.PARAMETER_FROM_STATS, ParameterFromRuntimeStatsScaling)
     qi = solver(qi, ScalingImplType.STATS,
                  {'scaling_impl': RuntimeStatsScaling, 'affine_rescaling': False})
     qi = solver(qi, ScalingImplType.AFFINE_STATS,
