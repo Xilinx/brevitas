@@ -48,7 +48,7 @@ from brevitas.core.function_wrapper import Identity
 from brevitas.function.ops import min_int, max_int
 from brevitas.inject.enum import ScalingImplType  # retrocompatibility
 
-from .stats import _ParameterListStats, _RuntimeStats
+from .stats import _ParameterListStats, _RuntimeStats, _Stats, SCALAR_SHAPE
 from .utils import StatelessBuffer
 from .restrict_val import _RestrictClampValue
 
@@ -182,7 +182,7 @@ class RuntimeStatsScaling(torch.jit.ScriptModule):
             restrict_scaling_impl: Module,
             scaling_shape: Tuple[int, ...],
             affine_rescaling: bool,
-            scaling_stats_buffer_momentum: float = DEFAULT_MOMENTUM,
+            scaling_stats_momentum: float = DEFAULT_MOMENTUM,
             scaling_min_val: Optional[float] = DEFAULT_SCALING_MIN_VAL) -> None:
         super(RuntimeStatsScaling, self).__init__()
 
@@ -191,7 +191,7 @@ class RuntimeStatsScaling(torch.jit.ScriptModule):
             scaling_shape,
             scaling_stats_input_view_shape_impl,
             scaling_stats_permute_dims,
-            scaling_stats_buffer_momentum)
+            scaling_stats_momentum)
         self.stats_scaling_impl = _StatsScaling(
             restrict_scaling_impl,
             scaling_shape,
@@ -233,6 +233,68 @@ class ParameterStatsScaling(torch.jit.ScriptModule):
     def forward(self, ignored: torch.Tensor):
         stats = self.parameter_list_stats()
         return self.stats_scaling_impl(stats)
+
+
+class ParameterFromRuntimeStatsScaling(torch.jit.ScriptModule):
+    __constants__ = ['stats_permute_dims',
+                     'collect_stats_steps',
+                     'momentum']
+
+    def __init__(
+            self,
+            collect_stats_steps: int,
+            restrict_scaling_impl: Module,
+            scaling_stats_impl: Module,
+            scaling_shape: Tuple[int, ...],
+            scaling_stats_input_view_shape_impl: Module,
+            scaling_stats_permute_dims: Optional[Tuple[int, ...]],
+            scaling_stats_momentum: float = DEFAULT_MOMENTUM,
+            scaling_min_val: Optional[float] = DEFAULT_SCALING_MIN_VAL) -> None:
+        super(ParameterFromRuntimeStatsScaling, self).__init__()
+        assert collect_stats_steps > 0, 'Steps should be more than 0'
+        if scaling_shape != SCALAR_SHAPE and scaling_stats_permute_dims is None:
+            raise RuntimeError("Per channel runtime stats require a permute shape")
+        self.collect_stats_steps = collect_stats_steps
+        self.counter: int = torch.jit.Attribute(0, int)
+        self.stats_permute_dims = scaling_stats_permute_dims
+        self.stats_input_view_shape_impl = scaling_stats_input_view_shape_impl
+        self.stats = _Stats(scaling_stats_impl, scaling_shape)
+        self.momentum = scaling_stats_momentum
+        self.value = Parameter(torch.full(scaling_shape, 1.0))
+        self.restrict_clamp_scaling = _RestrictClampValue(scaling_min_val, restrict_scaling_impl)
+        self.restrict_preprocess = restrict_scaling_impl.restrict_init_module()
+
+    @torch.jit.script_method
+    def forward(self, stats_input) -> torch.Tensor:
+        out = self.value
+        if self.training:
+            if self.counter < self.collect_stats_steps:
+                if self.stats_permute_dims is not None:
+                    stats_input = stats_input.permute(*self.stats_permute_dims).contiguous()
+                stats_input = self.stats_input_view_shape_impl(stats_input)
+                stats = self.stats(stats_input)
+                stats = self.restrict_preprocess(stats)
+                if self.counter == 0:
+                    self.value.detach().mul_(stats.detach())
+                else:
+                    self.value.detach().mul_(1 - self.momentum)
+                    self.value.detach().add_(self.momentum * stats.detach())
+                out = stats
+                self.counter = self.counter + 1
+        out = self.restrict_clamp_scaling(out)
+        return out
+
+    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
+                              missing_keys, unexpected_keys, error_msgs):
+        super(ParameterFromRuntimeStatsScaling, self)._load_from_state_dict(
+            state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
+        value_key = prefix + 'value'
+        # Pytorch stores training flag as a buffer with JIT enabled
+        training_key = prefix + 'training'
+        if training_key in missing_keys:
+            missing_keys.remove(training_key)
+        if config.IGNORE_MISSING_KEYS and value_key in missing_keys:
+            missing_keys.remove(value_key)
 
 
 class FloatIntScaling(torch.jit.ScriptModule):
