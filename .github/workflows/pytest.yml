@@ -2,9 +2,9 @@ name: Pytest
 
 on:
   push:
-    branches: [ master, infra, dev, feature/finn_onnx_export ]
+    branches: [ master, dev ]
   pull_request:
-    branches: [ master, infra, dev, feature/finn_onnx_export ]
+    branches: [ master, dev ]
 
 jobs:
   build:
