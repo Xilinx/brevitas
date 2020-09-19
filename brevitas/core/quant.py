@@ -54,6 +54,41 @@ from .utils import StatelessBuffer
 assert QuantType  # prevent removal of unused import
 
 
+class _NoDelay(torch.jit.ScriptModule):
+
+    @torch.jit.script_method
+    def forward(self, x: Tensor, y: Tensor) -> Tensor:
+        return y
+
+
+class _DelayQuant(torch.jit.ScriptModule):
+
+    def __init__(self, quant_delay_steps):
+        super(_DelayQuant, self).__init__()
+        self.quant_delay_steps: int = torch.jit.Attribute(quant_delay_steps, int)
+
+    @torch.jit.script_method
+    def forward(self, x: Tensor, y: Tensor) -> Tensor:
+        if self.quant_delay_steps > 0:
+            self.quant_delay_steps = self.quant_delay_steps - 1
+            return x
+        else:
+            return y
+
+
+class DelayWrapper(torch.jit.ScriptModule):
+
+    def __init__(self, quant_delay_steps: Optional[int]):
+        super(DelayWrapper, self).__init__()
+        if quant_delay_steps is None or quant_delay_steps <= 0:
+            self.delay_impl = _NoDelay()
+        else:
+            self.delay_impl = _DelayQuant(quant_delay_steps)
+
+    def forward(self, x: Tensor, y: Tensor) -> Tensor:
+        return self.delay_impl(x, y)
+
+
 class IdentityQuant(torch.jit.ScriptModule):
     """ Placeholder Class that returns the input without performing any operation. The scale and bit_width output
     arguments are set to -1.
@@ -107,15 +142,17 @@ class BinaryQuant(torch.jit.ScriptModule):
 
     """
 
-    def __init__(self, scaling_impl: Module):
+    def __init__(self, scaling_impl: Module, quant_delay_steps: int = None):
         super(BinaryQuant, self).__init__()
         self.scaling_impl = scaling_impl
         self.bit_width = BitWidthConst(1)
+        self.delay_wrapper = DelayWrapper(quant_delay_steps)
 
     @torch.jit.script_method
     def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
         scale = self.scaling_impl(x)
         y = binary_sign_ste(x) * scale
+        y = self.delay_wrapper(x, y)
         return y, scale, self.bit_width()
 
 
@@ -161,16 +198,18 @@ class ClampedBinaryQuant(torch.jit.ScriptModule):
 
     """
 
-    def __init__(self, scaling_impl: Module):
+    def __init__(self, scaling_impl: Module, quant_delay_steps: int = None):
         super(ClampedBinaryQuant, self).__init__()
         self.scaling_impl = scaling_impl
         self.bit_width = BitWidthConst(1)
+        self.delay_wrapper = DelayWrapper(quant_delay_steps)
 
     @torch.jit.script_method
     def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
         scale = self.scaling_impl(x)
         y = tensor_clamp(x, - scale, scale)
         y = binary_sign_ste(y) * scale
+        y = self.delay_wrapper(x, y)
         return y, scale, self.bit_width()
 
 
@@ -223,11 +262,12 @@ class TernaryQuant(torch.jit.ScriptModule):
     """
     __constants__ = ['threshold']
 
-    def __init__(self, scaling_impl: Module, threshold: float):
+    def __init__(self, scaling_impl: Module, threshold: float, quant_delay_steps: int = None):
         super(TernaryQuant, self).__init__()
         self.scaling_impl = scaling_impl
         self.threshold = threshold
         self.bit_width = BitWidthConst(2)
+        self.delay_wrapper = DelayWrapper(quant_delay_steps)
 
     @torch.jit.script_method
     def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
@@ -235,6 +275,7 @@ class TernaryQuant(torch.jit.ScriptModule):
         mask = x.abs().ge(self.threshold * scale)
         y = mask.float() * ternary_sign_ste(x)
         y = y * scale
+        y = self.delay_wrapper(x, y)
         return y, scale, self.bit_width()
 
 
@@ -339,16 +380,19 @@ class IntQuant(torch.jit.ScriptModule):
     """
     __constants__ = ['signed', 'narrow_range']
 
-    def __init__(self,
-                 narrow_range: bool,
-                 signed: bool,
-                 float_to_int_impl: Module,
-                 tensor_clamp_impl: Module):
+    def __init__(
+            self,
+            narrow_range: bool,
+            signed: bool,
+            float_to_int_impl: Module,
+            tensor_clamp_impl: Module,
+            quant_delay_steps: int = None):
         super(IntQuant, self).__init__()
         self.float_to_int_impl = float_to_int_impl
         self.tensor_clamp_impl = tensor_clamp_impl
         self.signed = signed
         self.narrow_range = narrow_range
+        self.delay_wrapper = DelayWrapper(quant_delay_steps)
 
     def to_int(self,
                scale: Tensor,
@@ -384,6 +428,7 @@ class IntQuant(torch.jit.ScriptModule):
         y_int = self.to_int(scale, int_scale, msb_clamp_bit_width, x)
         y = y_int / int_scale
         y = y * scale
+        y = self.delay_wrapper(x, y)
         return y
 
 
@@ -618,53 +663,29 @@ class RescalingIntQuant(torch.jit.ScriptModule):
         return y, output_scale, output_bit_width
 
 
-class DelayedRescalingIntQuant(torch.jit.ScriptModule):
-    def __init__(self,
-                 delay: int,
-                 int_quant: Module,
-                 scaling_impl: Module,
-                 int_scaling_impl: Module,
-                 bit_width_impl: Module):
-        super(DelayedRescalingIntQuant, self).__init__()
-        self.delay = torch.jit.Attribute(delay, int)
-        self.int_quant = int_quant
-        self.scaling_impl = scaling_impl
-        self.int_scaling_impl = int_scaling_impl
-        self.msb_clamp_bit_width_impl = bit_width_impl
-
-    @torch.jit.script_method
-    def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
-        msb_clamp_bit_width = self.msb_clamp_bit_width_impl()
-        scale = self.scaling_impl(x)
-        int_scale = self.int_scaling_impl(msb_clamp_bit_width)
-        if self.delay <= 0:
-            x = self.int_quant(scale, int_scale, msb_clamp_bit_width, x)
-        else:
-            self.delay = self.delay - 1
-        output_bit_width = msb_clamp_bit_width
-        output_scale = scale / int_scale
-        return x, output_scale, output_bit_width
-
-
 class TruncIntQuant(torch.jit.ScriptModule):
-    def __init__(self,
-                 float_to_int_impl: Module,
-                 bit_width_impl: Module):
+    def __init__(
+            self,
+            float_to_int_impl: Module,
+            bit_width_impl: Module,
+            quant_delay_steps: Optional[int] = None):
         super(TruncIntQuant, self).__init__()
         self.msb_clamp_bit_width_impl = bit_width_impl
         self.float_to_int_impl = float_to_int_impl
+        self.delay_wrapper = DelayWrapper(quant_delay_steps)
 
     @torch.jit.script_method
     def forward(self,
                 x: Tensor,
                 scale: Tensor,
                 input_bit_width: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
-        x = x / scale
-        x = round_ste(x)  # clean up floating point error
+        y = x / scale
+        y = round_ste(y)  # clean up floating point error
         output_bit_width = self.msb_clamp_bit_width_impl()
         trunc_bit_width = input_bit_width - output_bit_width
         trunc_scale = 2.0 ** trunc_bit_width
-        x = x / trunc_scale
-        x = self.float_to_int_impl(x)
-        x = x * scale
-        return x, scale, output_bit_width
+        y = y / trunc_scale
+        y = self.float_to_int_impl(y)
+        y = y * scale
+        y = self.delay_wrapper(x, y)
+        return y, scale, output_bit_width
