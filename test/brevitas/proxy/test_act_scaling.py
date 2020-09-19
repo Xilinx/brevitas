@@ -42,6 +42,7 @@ class TestQuantReLU:
 
         assert(torch.allclose(stats_act.quant_act_scale(), param_act.quant_act_scale()))
 
+    @check_expected_pyt_110_fail
     def test_scaling_parameter_grad(self):
         stats_act = QuantReLU(
             bit_width=BIT_WIDTH,
