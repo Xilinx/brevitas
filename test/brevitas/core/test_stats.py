@@ -1,4 +1,4 @@
-# Copyright (c) 2018-     Xilinx, Inc              (Alessandro Pappalardo)
+# Copyright (c) 2020-     Xilinx, Inc              (Alessandro Pappalardo)
 # Copyright (c) 2016-     Facebook, Inc            (Adam Paszke)
 # Copyright (c) 2014-     Facebook, Inc            (Soumith Chintala)
 # Copyright (c) 2011-2014 Idiap Research Institute (Ronan Collobert)
@@ -38,51 +38,25 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from enum import auto
+import torch
 
-from brevitas.utils.python_utils import AutoName
-
-
-class BitWidthImplType(AutoName):
-    CONST = auto()
-    PARAMETER = auto()
+from brevitas.core.stats import AbsPercentile
 
 
-class QuantType(AutoName):
-    BINARY = auto()
-    TERNARY = auto()
-    INT = auto()
-    FP = auto()
+def test_abs_percentile_per_tensor():
+    values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    for v in values:
+        tensor = torch.Tensor(values)
+        abs_percentile = AbsPercentile(v * 10, None)
+        out = abs_percentile(tensor)
+        assert v == out.item()
 
 
-class RestrictValueType(AutoName):
-    FP = auto()
-    LOG_FP = auto()
-    INT = auto()
-    POWER_OF_TWO = auto()
-
-
-class FloatToIntImplType(AutoName):
-    ROUND = auto()
-    CEIL = auto()
-    FLOOR = auto()
-    ROUND_TO_ZERO = auto()
-
-
-class ScalingImplType(AutoName):
-    HE = auto()
-    CONST = auto()
-    STATS = auto()
-    AFFINE_STATS = auto()
-    PARAMETER = auto()
-    PARAMETER_FROM_STATS = auto()
-    OVERRIDE = auto()
-
-
-class StatsOp(AutoName):
-    MAX = auto()
-    AVE = auto()
-    MAX_AVE = auto()
-    MEAN_SIGMA_STD = auto()
-    MEAN_LEARN_SIGMA_STD = auto()
-    PERCENTILE = auto()
+def test_abs_percentile_per_channel():
+    v = 90
+    values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    tensor = torch.Tensor(values)
+    tensor = tensor.repeat(2, 1)
+    abs_percentile = AbsPercentile(v, stats_reduce_dim=1)
+    out = abs_percentile(tensor)
+    assert out.isclose(torch.Tensor([9, 9])).all().item()
