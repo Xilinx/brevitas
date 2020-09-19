@@ -51,7 +51,7 @@ from brevitas.core.function_wrapper import ConstScalarClamp
 from brevitas.core.bit_width import *
 from brevitas.core.quant import QuantType
 from brevitas.core.stats import *
-from brevitas.core.scaling import ScalingImplType, SCALING_SCALAR_SHAPE
+from brevitas.core.scaling import ScalingImplType, SCALAR_SHAPE
 from brevitas.proxy.utils import ConvertRuntimeStatsToParameter
 
 
@@ -297,7 +297,7 @@ def _solve_scaling_shape(qi, spoc, per_channel_shape_attr):
     name = 'scaling_shape'
     if name not in qi:
         if spoc: qi = qi.let(**{name: per_channel_shape_attr})
-        if not spoc: qi = qi.let(**{name: SCALING_SCALAR_SHAPE})
+        if not spoc: qi = qi.let(**{name: SCALAR_SHAPE})
     return qi
 
 

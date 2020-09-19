@@ -286,9 +286,11 @@ class _RuntimeStats(torch.jit.ScriptModule):
             stats_impl: nn.Module,
             stats_output_shape: Tuple[int, ...],
             stats_input_view_shape_impl: nn.Module,
-            stats_permute_dims: Tuple[int, ...],
+            stats_permute_dims: Optional[Tuple[int, ...]],
             stats_buffer_momentum: float) -> None:
         super(_RuntimeStats, self).__init__()
+        if stats_output_shape != SCALAR_SHAPE and stats_permute_dims is None:
+            raise RuntimeError("Per channel runtime stats require a permute shape")
         self.first_batch = torch.jit.Attribute(True, bool)
         self.stats_permute_dims = stats_permute_dims
         self.stats_input_view_shape_impl = stats_input_view_shape_impl

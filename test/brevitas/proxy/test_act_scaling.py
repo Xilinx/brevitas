@@ -16,12 +16,13 @@ class TestQuantReLU:
     @check_expected_pyt_110_fail
     def test_scaling_stats_to_parameter(self):
 
-        stats_act = QuantReLU(bit_width=BIT_WIDTH,
-                              max_val=MAX_VAL,
-                              quant_type=QuantType.INT,
-                              scaling_impl_type=ScalingImplType.STATS,
-                              scaling_stats_permute_dims=(1, 0, 2, 3),
-                              scaling_stats_op=StatsOp.MAX)
+        stats_act = QuantReLU(
+            bit_width=BIT_WIDTH,
+            max_val=MAX_VAL,
+            quant_type=QuantType.INT,
+            scaling_impl_type=ScalingImplType.STATS,
+            scaling_stats_permute_dims=None,
+            scaling_stats_op=StatsOp.MAX)
         stats_act.train()
         for i in range(RANDOM_ITERS):
             inp = torch.randn([8, 3, 64, 64])
@@ -29,10 +30,11 @@ class TestQuantReLU:
 
         stats_state_dict = stats_act.state_dict()
 
-        param_act = QuantReLU(bit_width=BIT_WIDTH,
-                              max_val=MAX_VAL,
-                              quant_type=QuantType.INT,
-                              scaling_impl_type=ScalingImplType.PARAMETER)
+        param_act = QuantReLU(
+            bit_width=BIT_WIDTH,
+            max_val=MAX_VAL,
+            quant_type=QuantType.INT,
+            scaling_impl_type=ScalingImplType.PARAMETER)
         param_act.load_state_dict(stats_state_dict)
 
         stats_act.eval()
