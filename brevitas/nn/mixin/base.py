@@ -80,6 +80,7 @@ class QuantLayerMixin(object):
             cache_inference_quant_inp: bool = False,
             cache_inference_quant_out: bool = False,
             cache_quant_io_metadata_only: bool = True):
+        self.accept_quant_tensor = True
         self.return_quant_tensor = return_quant_tensor
         self.export_handler = export_handler
         self.cache_inference_quant_inp = cache_inference_quant_inp
