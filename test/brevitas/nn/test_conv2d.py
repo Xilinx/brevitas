@@ -1,4 +1,4 @@
-from torch.nn import Module
+from torch.nn import Module, Conv2d
 from brevitas.nn import QuantConv2d
 from dependencies import Injector
 
@@ -10,7 +10,7 @@ KERNEL_SIZE = (3, 3)
 WEIGHT_BIT_WIDTH = 5
 
 
-class TestQuantLinear:
+class TestQuantConv2d:
 
     def test_module_init(self):
         mod = QuantConv2d(
@@ -18,3 +18,57 @@ class TestQuantLinear:
             in_channels=INPUT_CHANNELS,
             kernel_size=KERNEL_SIZE,
             bias=False)
+
+    def test_fp_quant_module(self):
+        float_mod = Conv2d(
+            out_channels=OUTPUT_CHANNELS,
+            in_channels=INPUT_CHANNELS,
+            kernel_size=KERNEL_SIZE,
+            bias=False)
+        quant_mod = QuantConv2d(
+            out_channels=OUTPUT_CHANNELS,
+            in_channels=INPUT_CHANNELS,
+            kernel_size=KERNEL_SIZE,
+            weight_quant_type='FP',
+            bias=False)
+        quant_mod.load_state_dict(float_mod.state_dict())
+        inp = torch.randn(1, INPUT_CHANNELS, 20, 20)
+        out_float = float_mod(inp)
+        out_quant = quant_mod(inp)
+        assert out_float.isclose(out_quant).all().item()
+
+    def test_none_weight_quant_module(self):
+        float_mod = Conv2d(
+            out_channels=OUTPUT_CHANNELS,
+            in_channels=INPUT_CHANNELS,
+            kernel_size=KERNEL_SIZE,
+            bias=False)
+        quant_mod = QuantConv2d(
+            out_channels=OUTPUT_CHANNELS,
+            in_channels=INPUT_CHANNELS,
+            kernel_size=KERNEL_SIZE,
+            weight_quant=None,
+            bias=False)
+        quant_mod.load_state_dict(float_mod.state_dict())
+        inp = torch.randn(1, INPUT_CHANNELS, 20, 20)
+        out_float = float_mod(inp)
+        out_quant = quant_mod(inp)
+        assert out_float.isclose(out_quant).all().item()
+
+    def test_delayed_quant_module(self):
+        float_mod = Conv2d(
+            out_channels=OUTPUT_CHANNELS,
+            in_channels=INPUT_CHANNELS,
+            kernel_size=KERNEL_SIZE,
+            bias=False)
+        quant_mod = QuantConv2d(
+            out_channels=OUTPUT_CHANNELS,
+            in_channels=INPUT_CHANNELS,
+            kernel_size=KERNEL_SIZE,
+            weight_quant_delay_steps=1,
+            bias=False)
+        quant_mod.load_state_dict(float_mod.state_dict())
+        inp = torch.randn(1, INPUT_CHANNELS, 20, 20)
+        out_float = float_mod(inp)
+        out_quant = quant_mod(inp)
+        assert out_float.isclose(out_quant).all().item()
