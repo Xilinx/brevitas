@@ -213,7 +213,7 @@ class ParameterStatsScaling(torch.jit.ScriptModule):
             tracked_parameter_list: List[torch.nn.Parameter],
             restrict_scaling_impl: Module,
             scaling_shape: Tuple[int, ...],
-            affine_rescaling: bool,
+            affine_rescaling: bool = DEFAULT_AFFINE,
             scaling_min_val: Optional[float] = DEFAULT_SCALING_MIN_VAL) -> None:
         super(ParameterStatsScaling, self).__init__()
         self.parameter_list_stats = _ParameterListStats(
