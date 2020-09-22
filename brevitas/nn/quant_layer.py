@@ -323,46 +323,4 @@ class QuantWeightBiasInputOutputLayer(
         return self.pack_output(quant_output)
 
 
-class QuantEltwiseLayer(QuantInputOutputLayer, Module):
-    __metaclass__ = ABCMeta
-
-    def __init__(
-            self,
-            input_quant: Union[ActQuantProxyProtocol, Type[Injector]],
-            output_quant: Union[ActQuantProxyProtocol, Type[Injector]],
-            return_quant_tensor: bool,
-            update_iqi: Callable = default_update_aqi,
-            update_oqi: Callable = default_update_aqi,
-            **kwargs):
-        Module.__init__(self)
-        QuantInputOutputLayer.__init__(
-            self,
-            input_quant,
-            output_quant,
-            return_quant_tensor,
-            update_iqi,
-            update_oqi,
-            **kwargs)
-
-    @abstractmethod
-    def inner_forward_impl(self, inp: QuantTensor, other: QuantTensor) -> QuantTensor:
-        pass
-
-    @property
-    def channelwise_separable(self) -> bool:
-        return True
-
-    def forward(
-            self,
-            inp: Union[Tensor, QuantTensor],
-            other: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
-        inp = self.unpack_input(inp)
-        other = self.unpack_input(other)
-        if self.export_mode:  # shortcut execution through the export impl
-            return self.export_handler(inp=inp.value, other=other.value)
-        quant_input = self.input_quant(inp)
-        quant_other = self.input_quant(other)
-        output = self.inner_forward_impl(quant_input, quant_other)
-        quant_output = self.output_quant(output)
-        return self.pack_output(quant_output)
 

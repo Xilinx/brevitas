@@ -38,18 +38,20 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from typing import Union, Type
+from typing import Union, Type, List
 
+import torch
+from torch import Tensor
 from torch.nn import Module
 from dependencies import Injector
 
 from brevitas.proxy.runtime_quant import ActQuantProxyProtocol
 from brevitas.quant_tensor import QuantTensor
 from brevitas.inject.defaults import DefaultSignedActQuantInjector as DefaultSignedAQI
-from .quant_layer import QuantEltwiseLayer
+from .quant_layer import QuantInputOutputLayer, default_update_aqi
 
 
-class QuantEltwiseAdd(QuantEltwiseLayer):
+class QuantEltwiseAdd(QuantInputOutputLayer, Module):
 
     def __init__(
             self,
@@ -57,16 +59,68 @@ class QuantEltwiseAdd(QuantEltwiseLayer):
             output_quant: Union[ActQuantProxyProtocol, Type[Injector]] = DefaultSignedAQI,
             return_quant_tensor: bool = False,
             **kwargs) -> None:
-        QuantEltwiseLayer.__init__(
+        Module.__init__(self)
+        QuantInputOutputLayer.__init__(
             self,
-            input_quant=input_quant,
-            output_quant=output_quant,
-            return_quant_tensor=return_quant_tensor,
+            input_quant,
+            output_quant,
+            return_quant_tensor,
+            default_update_aqi,
+            default_update_aqi,
             **kwargs)
 
-    def inner_forward_impl(self, inp: QuantTensor, other: QuantTensor) -> QuantTensor:
-        out = inp + other
-        return out
+    def forward(
+            self,
+            inp: Union[Tensor, QuantTensor],
+            other: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
+        inp = self.unpack_input(inp)
+        other = self.unpack_input(other)
+        if self.export_mode:
+            assert self.cache_quant_io_metadata_only, "Can't cache multiple inputs"
+            return self.export_handler(inp=inp.value, other=other.value)
+        quant_input = self.input_quant(inp)
+        quant_other = self.input_quant(other)
+        # trigger an assert if scale factors and bit widths are None or different
+        output = quant_input + quant_other
+        quant_output = self.output_quant(output)
+        return self.pack_output(quant_output)
+
+
+class QuantCat(QuantInputOutputLayer, Module):
+
+    def __init__(
+            self,
+            input_quant: Union[ActQuantProxyProtocol, Type[Injector]],
+            output_quant: Union[ActQuantProxyProtocol, Type[Injector]],
+            return_quant_tensor: bool,
+            **kwargs):
+        Module.__init__(self)
+        QuantInputOutputLayer.__init__(
+            self,
+            input_quant,
+            output_quant,
+            return_quant_tensor,
+            default_update_aqi,
+            default_update_aqi,
+            **kwargs)
+
+    @property
+    def channelwise_separable(self) -> bool:
+        return True
+
+    def forward(
+            self,
+            tensor_list: Union[List[Tensor], List[QuantTensor]],
+            dim: int = 1) -> Union[Tensor, QuantTensor]:
+        quant_tensor_list = [self.unpack_input(t) for t in tensor_list]
+        # shortcut execution through the export impl during export
+        if self.export_mode:
+            return self.export_handler([qt.value for qt in quant_tensor_list])
+        quant_tensor_list = [self.input_quant(qt) for qt in quant_tensor_list]
+        # trigger an assert if scale factors and bit widths are None or different
+        output = QuantTensor.cat(quant_tensor_list, dim=dim)
+        quant_output = self.output_quant(output)
+        return self.pack_output(quant_output)
 
 
 
