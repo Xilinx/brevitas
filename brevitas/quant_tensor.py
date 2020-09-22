@@ -104,6 +104,14 @@ class QuantTensor(NamedTuple):
         if not torch.allclose(self.scale, other.scale):
             raise RuntimeError("Scaling factors are different")
 
+    def check_bit_width_same(self, other):
+        if not torch.allclose(self.bit_width, other.bit_width):
+            raise RuntimeError("Bit widths are different")
+
+    def check_sign_same(self, other):
+        if not self.signed == other.signed:
+            raise RuntimeError("Signs are different")
+
     def view(self, *args, **kwargs):
         output = QuantTensor(
             self.value.view(*args, **kwargs), self.scale, self.bit_width, self.signed)
@@ -111,6 +119,25 @@ class QuantTensor(NamedTuple):
 
     def size(self, *args, **kwargs):
         return self.value.size(*args, **kwargs)
+
+    def add(self, other):
+        return self + other
+
+    @staticmethod
+    def cat(tensor_list, dim):
+        assert len(tensor_list) >= 2, 'Two or more tensors required for concatenation'
+        first_qt = tensor_list[0]
+        for qt in tensor_list[1:]:
+            QuantTensor.check_input_type(qt)
+            first_qt.check_scaling_factors_same(qt)
+            first_qt.check_bit_width_same(qt)
+            first_qt.check_sign_same(qt)
+        output_value = torch.cat([qt.value for qt in tensor_list], dim=dim)
+        output_scale = sum([qt.scale for qt in tensor_list]) / len(tensor_list)
+        output_bit_width = sum([qt.bit_width for qt in tensor_list]) / len(tensor_list)
+        output_signed = first_qt.signed # they are the same
+        return QuantTensor(output_value, output_scale, output_bit_width, output_signed)
+
 
     # Reference: https://docs.python.org/3/reference/datamodel.html#emulating-numeric-types
 
