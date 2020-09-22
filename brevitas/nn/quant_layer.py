@@ -290,7 +290,8 @@ class QuantWeightBiasInputOutputLayer(
 
         inp = self.unpack_input(inp)
 
-        if self.export_mode:  # shortcut execution through the export impl
+        # shortcut execution through the export impl during export
+        if self.export_mode:
             return self.export_handler(inp.value)
 
         quant_input = self.input_quant(inp)

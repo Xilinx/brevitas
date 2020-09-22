@@ -165,7 +165,7 @@ class QuantConv2d(QuantWBIOL, Conv2d):
             dilation: Union[int, Tuple[int, int]] = 1,
             groups: int = 1,
             bias: bool = True,
-            padding_type: str ='standard',
+            padding_type: str = 'standard',
             weight_quant: Union[WeightQuantProxyProtocol, Type[Injector]] = DefaultWeightQI,
             bias_quant: Union[BiasQuantProxyProtocol, Type[Injector]] = DefaultBiasQI,
             input_quant: Union[ActQuantProxyProtocol, Type[Injector]] = None,
