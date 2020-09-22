@@ -55,8 +55,8 @@ from brevitas.inject.solver import update_act_quant_injector as default_update_a
 from .mixin.base import _CachedIO
 from .mixin import *
 
-from .utils import mul_add_from_bn, rename_state_dict_by_prefix
-
+from .utils import rename_state_dict_by_prefix, compute_channel_view_shape
+from .utils import merge_bn
 
 def _compute_channel_view_shape(tensor: Tensor, channel_dim: int):
     broadcast_shape = [1] * len(tensor.size())
@@ -246,24 +246,7 @@ class QuantWeightBiasInputOutputLayer(
         raise NotImplementedError
 
     def merge_bn_in(self, bn, affine_only):
-        if affine_only and not bn.affine:
-            raise RuntimeError("Affine-only merging requires BN to have affine scaling enabled.")
-        else:
-            out = mul_add_from_bn(
-                bn_mean=bn.running_mean,
-                bn_var=bn.running_var,
-                bn_eps=bn.eps,
-                bn_weight=bn.weight.data.clone(),
-                bn_bias=bn.bias.data.clone(),
-                affine_only=affine_only)
-            mul_factor, add_factor = out
-            out_ch_weight_shape = _compute_channel_view_shape(self.weight, self.output_channel_dim)
-            self.weight.data *= mul_factor.view(out_ch_weight_shape)
-            if self.bias is not None:
-                out_ch_bias_shape = _compute_channel_view_shape(self.bias, self.output_channel_dim)
-                self.bias.data += add_factor.view(out_ch_bias_shape)
-            else:
-                self.bias = Parameter(add_factor)
+        merge_bn(self, bn, affine_only, output_channel_dim=self.output_channel_dim)
 
     def forward_impl(self, inp: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
         output_scale = None
@@ -280,7 +263,7 @@ class QuantWeightBiasInputOutputLayer(
         if quant_input.bit_width is not None:
             output_bit_width = self.max_acc_bit_width(quant_input.bit_width, quant_weight.bit_width)
         if quant_input.scale is not None:
-            output_scale_shape = _compute_channel_view_shape(inp, channel_dim=1)
+            output_scale_shape = compute_channel_view_shape(inp, channel_dim=1)
             output_scale = quant_weight.scale.view(output_scale_shape)
             output_scale = output_scale * quant_input.scale.view(output_scale_shape)
 
