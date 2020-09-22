@@ -11,7 +11,7 @@ class StatelessBuffer(torch.jit.ScriptModule):
         self.register_buffer(VALUE_ATTR_NAME, value)
 
     def forward(self):
-        return self.value
+        return self.value.detach()
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
                               missing_keys, unexpected_keys, error_msgs):
