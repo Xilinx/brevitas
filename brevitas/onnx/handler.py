@@ -33,6 +33,13 @@ class Kernel1dApplHandler(ABC):
             dilation = list(module.dilation)
             return dilation
 
+    @staticmethod
+    def kernel_shape(module):
+        if isinstance(module.kernel_size, int):
+            return [module.kernel_size]
+        else:
+            return list(module.kernel_size)
+
 
 class Kernel2dApplHandler(ABC):
 
@@ -53,10 +60,17 @@ class Kernel2dApplHandler(ABC):
 
     @staticmethod
     def dilation(module):
-        if isinstance(module.stride, int):
-            return [module.stride] * 2
+        if isinstance(module.dilation, int):
+            return [module.dilation] * 2
         else:
             return list(module.dilation)
+
+    @staticmethod
+    def kernel_shape(module):
+        if isinstance(module.kernel_size, int):
+            return [module.kernel_size] * 2
+        else:
+            return list(module.kernel_size)
 
 
 class BaseHandler(Module, ABC):
@@ -91,3 +105,15 @@ class BaseHandler(Module, ABC):
         if self.export_debug_name is not None and self.debug_output:
             out = debug_fn(out, '.output')
         return out
+
+
+class NoOpHandler(BaseHandler):
+
+    def prepare_for_symbolic_execution(self, module):
+        pass
+
+    def symbolic_execution(self, *args, **kwargs):
+        pass
+
+    def forward(self, inp: Tensor, **kwargs):
+        return inp

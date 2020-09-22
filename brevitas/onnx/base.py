@@ -1,3 +1,5 @@
+from unittest.mock import patch
+from inspect import isclass
 from typing import Tuple, Union, Optional
 from abc import ABC, abstractmethod
 from packaging import version
@@ -15,7 +17,7 @@ from torch import Tensor
 from torch.nn import Module
 
 from brevitas.quant_tensor import QuantTensor
-
+from brevitas.utils.jit_utils import jit_trace_patched
 
 def _override_quant_metadata_caching_mode(m: Module, enabled: bool):
     if hasattr(m, 'cache_quant_io_metadata_only'):
@@ -88,6 +90,12 @@ class BaseManager(ABC):
         raise RuntimeError(f"Module {module.__class__} not supported for export.")
 
     @classmethod
+    def set_export_handler(cls, module: Module):
+        if hasattr(module, 'export_handler') and module.export_handler is None:
+            handler = cls.handler_from_module(module)
+            module.export_handler = handler()
+
+    @classmethod
     def apply_model_transforms(cls, model):
         for tranform in cls.model_transforms:
             model = tranform(model)
@@ -121,6 +129,22 @@ class BaseManager(ABC):
             export_kwargs['enable_onnx_checker'] = False
 
     @classmethod
+    def jit_trace(cls, module: Module, input_t: Union[Tensor, QuantTensor]):
+        with torch.no_grad():
+            module = module.eval()
+            module.apply(cls.set_export_handler)
+            # do a forward pass with the dummy input to e.g. store input/output shapes
+            cls.cache_inp_out(module, input_t)
+            # override any given input_t to make sure it's a standard PyTorch tensor
+            input_shape = input_t.shape if isinstance(input_t, Tensor) else input_t.value.shape
+            input_t = torch.empty(input_shape, dtype=torch.float)
+            # enable export mode, this triggers collecting export values into handlers
+            module.apply(lambda m: _set_export_mode(m, enabled=True))
+            traced_model = jit_trace_patched(module, input_t)
+            module.apply(lambda m: _set_export_mode(m, enabled=False))
+            return traced_model
+
+    @classmethod
     def export_onnx(
             cls,
             module: Module,
@@ -136,11 +160,6 @@ class BaseManager(ABC):
         * torch_onnx_kwargs : will be passed as kwargs to torch.onnx.export
         """
 
-        def set_export_handler(m: Module):
-            if hasattr(m, 'export_handler') and m.export_handler is None:
-                handler = cls.handler_from_module(m)
-                m.export_handler = handler()
-
         if onnx is None or opt is None:
             raise ModuleNotFoundError("Installation of ONNX is required.")
 
@@ -149,7 +168,7 @@ class BaseManager(ABC):
 
         with torch.no_grad():
             module = module.eval()
-            module.apply(set_export_handler)
+            module.apply(cls.set_export_handler)
             if input_t is None:
                 input_t = torch.empty(input_shape, dtype=torch.float)
             # do a forward pass with the dummy input to e.g. store input/output shapes
