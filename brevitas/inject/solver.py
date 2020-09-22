@@ -73,7 +73,8 @@ class ParameterFromStatsScalingInit:
         self.ignored = StatelessBuffer(torch.tensor(0.0))
 
     def __call__(self):
-        return self.parameter_stats_scaling(self.ignored)
+        inp = self.ignored()
+        return self.parameter_stats_scaling(inp)
 
 
 class HeScalingInit:
