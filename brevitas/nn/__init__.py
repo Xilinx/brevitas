@@ -7,6 +7,7 @@ from .quant_scale_bias import ScaleBias, QuantScaleBias
 from .hadamard_classifier import HadamardClassifier
 from .quant_convtranspose import QuantConvTranspose1d, QuantConvTranspose2d
 from .quant_conv import QuantConv1d, QuantConv2d
-from .quant_eltwise import QuantEltwiseAdd
+from .quant_eltwise import QuantEltwiseAdd, QuantCat
 from .quant_max_pool import QuantMaxPool1d, QuantMaxPool2d
 from .quant_upsample import QuantUpsample, QuantUpsamplingBilinear2d, QuantUpsamplingNearest2d
+from .quant_max_pool import QuantMaxPool2d, QuantMaxPool1d
