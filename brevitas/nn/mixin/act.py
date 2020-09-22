@@ -54,6 +54,7 @@ class QuantActMixin(object):
     def __init__(
             self,
             act_impl: Optional[Module],
+            passthrough_act: bool,
             act_quant: Union[ActQuantProxyProtocol, Type[Injector]],
             proxy_from_injector_impl: Optional[Type[ActQuantProxyFromInjector]],
             update_injector: Callable,
@@ -71,12 +72,14 @@ class QuantActMixin(object):
         proxy_name = proxy_prefix + 'quant'
         if act_quant is None:
             act_quant_injector = Injector.let(tensor_quant=None)
+            act_quant_injector = act_quant_injector.let(passthrough_act=passthrough_act)
             act_quant_injector = act_quant_injector.let(act_impl=act_impl)
             act_quant_injector = update_aqi(act_quant_injector)
             act_quant = proxy_from_injector_impl(act_quant_injector)
         elif issubclass(act_quant, Injector):
             assert proxy_from_injector_impl is not None
             act_quant_injector = act_quant
+            act_quant_injector = act_quant_injector.let(passthrough_act=passthrough_act)
             if 'act_impl' not in act_quant_injector or act_quant_injector.act_impl is None:
                 act_quant_injector = act_quant_injector.let(act_impl=act_impl)
             act_quant_injector = update_aqi(act_quant_injector)
@@ -97,6 +100,7 @@ class QuantInputMixin(QuantActMixin):
         QuantActMixin.__init__(
             self,
             act_impl=None,
+            passthrough_act=True,
             act_quant=act_quant,
             update_injector=update_injector,
             proxy_from_injector_impl=IdentityQuantProxyFromInjector,
@@ -110,7 +114,6 @@ class QuantInputMixin(QuantActMixin):
 
     @property
     def is_quant_input_narrow_range(self): # TODO make abstract once narrow range can be cached
-        assert self.is_input_quant_enabled
         return self.input_quant.is_narrow_range
 
     @property
@@ -138,6 +141,7 @@ class QuantOutputMixin(QuantActMixin):
         QuantActMixin.__init__(
             self,
             act_impl=None,
+            passthrough_act=True,
             act_quant=act_quant,
             update_injector=update_injector,
             proxy_from_injector_impl=IdentityQuantProxyFromInjector,
@@ -151,7 +155,6 @@ class QuantOutputMixin(QuantActMixin):
 
     @property
     def is_quant_output_narrow_range(self):  # TODO make abstract once narrow range can be cached
-        assert self.is_output_quant_enabled
         return self.output_quant.is_narrow_range
 
     @property
@@ -174,12 +177,14 @@ class QuantNonLinearActMixin(QuantActMixin):
     def __init__(
             self,
             act_impl: Module,
+            passthrough_act: bool,
             act_quant: Union[ActQuantProxyProtocol, Type[Injector]],
             update_injector: Callable,
             **kwargs):
         QuantActMixin.__init__(
             self,
             act_impl=act_impl,
+            passthrough_act=passthrough_act,
             act_quant=act_quant,
             update_injector=update_injector,
             proxy_from_injector_impl=ActQuantProxyFromInjector,
@@ -193,7 +198,6 @@ class QuantNonLinearActMixin(QuantActMixin):
 
     @property
     def is_quant_act_narrow_range(self):  # TODO make abstract once narrow range can be cached
-        assert self.is_act_quant_enabled
         return self.act_quant.is_narrow_range
 
     @property

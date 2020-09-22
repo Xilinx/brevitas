@@ -89,6 +89,7 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
         act_impl = act_quant_injector.act_impl
         self.is_quant_enabled = tensor_quant is not None
         self.is_act_enabled = act_impl is not None
+        self.passthrough_act = act_quant_injector.passthrough_act
         if self.is_act_enabled and self.is_quant_enabled:
             self.fused_activation_quant_proxy = FusedActivationQuantProxy(
                 act_impl, tensor_quant)
@@ -117,10 +118,16 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
 
     def forward(self, x: Union[Tensor, QuantTensor]) -> QuantTensor:
         if self.is_act_enabled or self.is_quant_enabled:
-            if isinstance(x, QuantTensor):
-                x = x.value
-            x = self.fused_activation_quant_proxy(x)
-            return QuantTensor(*x, signed=self.is_signed)
+            y = x
+            if isinstance(y, QuantTensor):
+                y = y.value
+            y = self.fused_activation_quant_proxy(y)
+            if isinstance(y, tuple):
+                return QuantTensor(*y, signed=self.is_signed)
+            elif self.passthrough_act:  # preserve scale/bit/sign even without output quant
+                return QuantTensor(y, x.scale, x.bit_width, x.signed)
+            else:
+                return QuantTensor(y)
         else:
             if isinstance(x, QuantTensor):  # passthrough
                 return x
@@ -157,11 +164,6 @@ class ClampQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
         tensor_quant = clamp_quant_injector.tensor_quant
         self.is_quant_enabled = tensor_quant is not None
         self.tensor_quant = tensor_quant
-
-
-    @property
-    def is_narrow_range(self):
-        return NotImplementedError
 
     def forward(self, x: QuantTensor):
         if self.is_quant_enabled:
