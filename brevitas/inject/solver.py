@@ -185,7 +185,8 @@ def _solve_scaling_stats_op(qi):
     qi = solver(qi, StatsOp.MEAN_SIGMA_STD, MeanSigmaStd)
     qi = solver(qi, StatsOp.MEAN_LEARN_SIGMA_STD, MeanLearnedSigmaStd)
     qi = solver(qi, StatsOp.PERCENTILE, AbsPercentile)
-    qi = qi.let(sigma=this.scaling_stats_sigma)
+    if 'scaling_stats_sigma' in qi:
+        qi = qi.let(sigma=this.scaling_stats_sigma)
     return qi
 
 
