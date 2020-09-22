@@ -38,7 +38,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from typing import Type
+from typing import Type, Union
 
 from dependencies import Injector
 from torch import nn
@@ -47,19 +47,22 @@ from brevitas.inject.defaults import DefaultUnsignedActQuantInjector as DefUnsig
 from brevitas.inject.defaults import DefaultSignedActQuantInjector as DefSignedActQI
 from brevitas.inject.defaults import DefaultUnitaryUnsignedActQuantInjector as DefUnitUnsignedActQI
 from brevitas.inject.defaults import DefaultUnitarySignedActQuantInjector as DefUnitSignedActQI
-from .quant_layer import QuantNonLinearActLayer as QuantNLAL
+from .quant_layer import QuantNonLinearActLayer as QuantNLAL, ActQuantProxyProtocol
 
 
 class QuantReLU(QuantNLAL):
 
     def __init__(
             self,
+            input_quant: Union[ActQuantProxyProtocol, Type[Injector]] = None,
             act_quant: Type[Injector] = DefUnsignedActQI,
             return_quant_tensor: bool = False,
             **kwargs):
         QuantNLAL.__init__(
             self,
             act_impl=nn.ReLU,
+            passthrough_act=True,
+            input_quant=input_quant,
             act_quant=act_quant,
             return_quant_tensor=return_quant_tensor,
             **kwargs)
@@ -69,12 +72,15 @@ class QuantSigmoid(QuantNLAL):
 
     def __init__(
             self,
+            input_quant: Union[ActQuantProxyProtocol, Type[Injector]] = None,
             act_quant: Type[Injector] = DefUnitUnsignedActQI,
             return_quant_tensor: bool = False,
             **kwargs):
         QuantNLAL.__init__(
             self,
             act_impl=nn.Sigmoid,
+            passthrough_act=False,
+            input_quant=input_quant,
             act_quant=act_quant,
             return_quant_tensor=return_quant_tensor,
             **kwargs)
@@ -84,12 +90,15 @@ class QuantTanh(QuantNLAL):
 
     def __init__(
             self,
+            input_quant: Union[ActQuantProxyProtocol, Type[Injector]] = None,
             act_quant: Type[Injector] = DefUnitSignedActQI,
             return_quant_tensor: bool = False,
             **kwargs):
         QuantNLAL.__init__(
             self,
             act_impl=nn.Tanh,
+            passthrough_act=False,
+            input_quant=input_quant,
             act_quant=act_quant,
             return_quant_tensor=return_quant_tensor,
             **kwargs)
@@ -99,12 +108,15 @@ class QuantHardTanh(QuantNLAL):
 
     def __init__(
             self,
+            input_quant: Union[ActQuantProxyProtocol, Type[Injector]] = None,
             act_quant: Type[Injector] = DefUnitSignedActQI,
             return_quant_tensor: bool = False,
             **kwargs):
         QuantNLAL.__init__(
             self,
             act_impl=nn.Hardtanh,
+            passthrough_act=True,
+            input_quant=input_quant,
             act_quant=act_quant,
             return_quant_tensor=return_quant_tensor,
             **kwargs)
@@ -119,7 +131,9 @@ class QuantIdentity(QuantNLAL):
             **kwargs):
         QuantNLAL.__init__(
             self,
+            input_quant=None,
             act_impl=None,
+            passthrough_act=True,
             act_quant=act_quant,
             return_quant_tensor=return_quant_tensor,
             **kwargs)

@@ -58,29 +58,47 @@ from .mixin import *
 from .utils import rename_state_dict_by_prefix, compute_channel_view_shape
 from .utils import merge_bn
 
-def _compute_channel_view_shape(tensor: Tensor, channel_dim: int):
-    broadcast_shape = [1] * len(tensor.size())
-    broadcast_shape[channel_dim] = -1
-    return tuple(broadcast_shape)
-    
 
-class QuantNonLinearActLayer(QuantNonLinearActMixin, QuantLayerMixin, Module):
+class QuantNonLinearActLayer(
+    QuantNonLinearActMixin,
+    QuantInputMixin,
+    QuantLayerMixin,
+    Module):
     __metaclass__ = ABCMeta
 
     def __init__(
             self,
             act_impl: Optional[Module],
+            passthrough_act: bool,
+            input_quant: Union[ActQuantProxyProtocol, Type[Injector]],
             act_quant: Union[ActQuantProxyProtocol, Type[Injector]],
             return_quant_tensor: bool,
+            update_iqi: Callable = default_update_aqi,
             update_aqi: Callable = default_update_aqi,
             **kwargs):
         Module.__init__(self)
         QuantLayerMixin.__init__(self, return_quant_tensor)
-        QuantNonLinearActMixin.__init__(self, act_impl, act_quant, update_aqi, **kwargs)
+        QuantInputMixin.__init__(self, input_quant, update_iqi, **kwargs)
+        QuantNonLinearActMixin.__init__(
+            self,
+            act_impl,
+            passthrough_act,
+            act_quant,
+            update_aqi,
+            **kwargs)
 
     @property
     def channelwise_separable(self) -> bool:
         return True
+
+    @property
+    def is_quant_input_signed(self) -> Optional[bool]:  # tri-valued logic output
+        if self.is_input_quant_enabled:
+            return self.input_quant.is_signed
+        elif self._cached_inp is not None:
+            return self._cached_inp.signed
+        else:
+            return None
 
     @property
     def is_quant_act_signed(self):
@@ -95,6 +113,14 @@ class QuantNonLinearActLayer(QuantNonLinearActMixin, QuantLayerMixin, Module):
     def is_quant_output_signed(self):  # overrides from QuantLayerMixin
         return self.is_quant_act_signed
 
+    def quant_input_scale(self):
+        if self.is_input_quant_enabled:
+            return self.input_quant.scale()
+        elif self._cached_inp is not None:
+            return self._cached_inp.scale
+        else:
+            return None
+
     def quant_act_scale(self):
         if self.is_act_quant_enabled:
             return self.act_quant.scale()
@@ -105,6 +131,14 @@ class QuantNonLinearActLayer(QuantNonLinearActMixin, QuantLayerMixin, Module):
 
     def quant_output_scale(self):  # overrides from QuantLayerMixin
         return self.quant_act_scale()
+
+    def quant_input_bit_width(self):
+        if self.is_input_quant_enabled:
+            return self.input_quant.bit_width()
+        elif self._cached_inp is not None:
+            return self._cached_inp.bit_width
+        else:
+            return None
 
     def quant_act_bit_width(self):
         if self.is_act_quant_enabled:
@@ -119,9 +153,11 @@ class QuantNonLinearActLayer(QuantNonLinearActMixin, QuantLayerMixin, Module):
 
     def forward(self, inp: Union[Tensor, QuantTensor]):
         inp = self.unpack_input(inp)
-        if self.export_mode:  # shortcut execution through the export impl
-            return self.export_handler(inp.value)
-        out = self.act_quant(inp)
+        quant_inp = self.input_quant(inp)
+        # shortcut execution through the export impl during export
+        if self.export_mode:
+            return self.export_handler(quant_inp.value)
+        out = self.act_quant(quant_inp)
         out = self.pack_output(out)
         return out
 
