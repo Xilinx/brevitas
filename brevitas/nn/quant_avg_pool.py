@@ -38,12 +38,13 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from typing import Callable, Union, Type
-import math
+from typing import Callable, Union, Type, Tuple
+from operator import mul
+from functools import reduce
 
 import torch
 from torch import Tensor
-from torch.nn import AvgPool2d
+from torch.nn import AvgPool2d, AdaptiveAvgPool2d
 from dependencies import Injector
 
 from brevitas.function.ops_ste import ceil_ste
@@ -97,5 +98,78 @@ class QuantAvgPool2d(QuantTruncMixin, QuantLayerMixin, AvgPool2d):
     def max_acc_bit_width(self, input_bit_width):
         max_uint_input = max_uint(bit_width=input_bit_width, narrow_range=False)
         max_uint_output = max_uint_input * self.kernel_size * self.kernel_size
+        max_output_bit_width = ceil_ste(torch.log2(max_uint_output))
+        return max_output_bit_width
+
+
+class QuantAdaptiveAvgPool2d(QuantTruncMixin, QuantLayerMixin, AdaptiveAvgPool2d):
+
+    def __init__(
+            self,
+            output_size: Union[int, Tuple[int, int]],
+            trunc_quant: Union[AccQuantProxyProtocol, Type[Injector]] = DefaultTruncQI,
+            return_quant_tensor: bool = True,
+            update_injector: Callable = update_trunc_quant_injector,
+            cache_kernel_size_stride: bool = True,
+            **kwargs):
+        AdaptiveAvgPool2d.__init__(self, output_size=output_size)
+        QuantLayerMixin.__init__(self, return_quant_tensor)
+        QuantTruncMixin.__init__(
+            self,
+            trunc_quant=trunc_quant,
+            update_injector=update_injector,
+            **kwargs)
+        self.cache_kernel_size_stride = cache_kernel_size_stride
+        self._cached_kernel_size = None
+        self._cached_kernel_stride = None
+
+    @property
+    def channelwise_separable(self) -> bool:
+        return True
+
+    @property
+    def padding(self):
+        return 0
+
+    @property
+    def kernel_size(self):
+        return self._cached_kernel_size
+
+    @property
+    def stride(self):
+        return self._cached_kernel_stride
+
+    def compute_kernel_size_stride(self, input_shape, output_shape):
+        kernel_size_list = []
+        stride_list = []
+        for inp, out in zip(input_shape, output_shape):
+            stride = inp // out
+            kernel_size = inp - (out - 1) * stride
+            kernel_size_list.append(kernel_size)
+            stride_list.append(stride)
+        return kernel_size_list, stride_list
+
+    def forward(self, x: Union[Tensor, QuantTensor]):
+        x = self.unpack_input(x)
+        # shortcut execution through the export impl during export
+        if self.export_mode:
+            return self.export_handler(x.value)
+        y = x.set(value=super(QuantAdaptiveAvgPool2d, self).forward(x.value))
+        k_size, stride = self.compute_kernel_size_stride(x.value.shape[2:], y.value.shape[2:])
+        if self.cache_kernel_size_stride:
+            self._cached_kernel_size = k_size
+            self._cached_kernel_stride = stride
+        if self.is_trunc_quant_enabled:
+            assert y.is_valid  # check input quant tensor is propertly formed
+            reduce_size = reduce(mul, k_size, 1)
+            rescaled_value = y.value * reduce_size  # remove avg scaling
+            y = y.set(value=rescaled_value)
+            y = y.set(bit_width=self.max_acc_bit_width(y.bit_width, reduce_size))
+            y = self.trunc_quant(y)
+        return self.pack_output(y)
+
+    def max_acc_bit_width(self, input_bit_width, reduce_size):
+        max_uint_input = max_uint(bit_width=input_bit_width, narrow_range=False)
+        max_uint_output = max_uint_input * reduce_size
         max_output_bit_width = ceil_ste(torch.log2(max_uint_output))
         return max_output_bit_width
