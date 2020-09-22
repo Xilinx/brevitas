@@ -36,13 +36,12 @@ class QuantProxyFromInjector(QuantProxy):
     def __init__(self, quant_injector: Injector) -> None:
         super(QuantProxyFromInjector, self).__init__()
         self.quant_injector = quant_injector
-
-    @property
-    def is_signed(self):
-        return self.quant_injector.signed
-
-    @property
-    def is_narrow_range(self):
-        return self.quant_injector.narrow_range
-
+        if 'signed' in quant_injector:
+            self.is_signed = quant_injector.signed
+        else:
+            self.is_signed = None
+        if 'narrow_range' in quant_injector:
+            self.is_narrow_range = self.quant_injector.narrow_range
+        else:
+            self.is_narrow_range = None
 
