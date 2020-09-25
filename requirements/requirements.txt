@@ -3,3 +3,4 @@ docrep
 packaging
 dependencies==2.0.1
 typing-extensions>=3.7.4
+dataclasses; python_version < '3.7'
