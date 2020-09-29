@@ -11,7 +11,6 @@ import torch
 from torch import Tensor
 
 from brevitas.quant_tensor import QuantTensor
-from .patch import ABOVE_16_PATCHES
 from .trace import Trace, TraceElem
 from .wrapper.scriptmodule import torchscript_wrapper
 from .wrapper.builtin import IntWrapper, StrWrapper, FloatWrapper
@@ -20,9 +19,13 @@ from ..utils import flatten
 
 if version.parse(torch.__version__) > version.parse('1.6.0'):
     from torch.overrides import get_testing_overrides
-else:
+    from .patch import ABOVE_16_PATCHES as PATCHES
+elif version.parse(torch.__version__) == version.parse('1.6.0'):
     from torch._overrides import get_testing_overrides
-
+    from .patch import EQUAL_16_PATCHES as PATCHES
+else:
+    from .backport.signatures import get_testing_overrides
+    from .patch import BELOW_16_PATCHES as PATCHES
 
 TORCH_FN_NAMES = [fn.__name__ for fn in get_testing_overrides().keys()]
 TORCH_FN_OVERRIDE_DICT = get_testing_overrides()
@@ -232,8 +235,8 @@ class Tracer(metaclass=TracerMeta):
         kwargs = {} if kwargs is None else kwargs
         args, kwargs = self.move_torch_args_to_kwargs(fn, args, kwargs)
         args, kwargs = self.repack_args_kwargs(args, kwargs)
-        if 'out' in kwargs and kwargs['out'] is None:
-            del kwargs['out']
+        # get rid of out=None early on since it's often problematic
+        if 'out' in kwargs and kwargs['out'] is None: del kwargs['out']
         out = fn(*args, **kwargs)
         out, inplace = self.update_inplace_output(out, args, kwargs)
         out = self.update_trace(fn, FnType.FUNCTION, args, kwargs, out)
@@ -275,7 +278,7 @@ class Tracer(metaclass=TracerMeta):
     # https://stackoverflow.com/questions/3024925/create-a-with-block-on-several-context-managers
     def _trace_with_patches(self, model):
         with ExitStack() as stack:
-            for mgr in ABOVE_16_PATCHES:
+            for mgr in PATCHES:
                 stack.enter_context(mgr)
             model(self)
 

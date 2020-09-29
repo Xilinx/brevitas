@@ -5,7 +5,6 @@ from enum import auto
 
 from torch.nn import Module, Parameter
 
-from brevitas.quant_tensor import QuantTensor
 from .utils import flatten
 
 
@@ -49,7 +48,8 @@ class Instruction(object):
     output_index: Index
     fn: Union[str, Callable]
     fn_type: FnType
-    input_index_list: List[Index]
+    input_args_index_list: List[Index]
+    input_kwargs_index_dict: Dict[str, Index]
     prefix: str
 
     @property
@@ -64,7 +64,8 @@ class Instruction(object):
     def __str__(self):
         return (f"{[self.output_index]} "
                 f"{self.fn_name} "
-                f"{[i for i in self.input_index_list]} "
+                f"{[i for i in self.input_args_index_list]} "
+                f"{[i for i in self.input_kwargs_index_dict.items()]} "
                 f"{self.prefix}")
 
 
@@ -84,13 +85,15 @@ class CodegenModule(Module):
             max_id = max(
                 max_id,
                 inst.output_index,
-                *[ii.id for ii in inst.input_index_list])
+                *[ii.id for ii in inst.input_args_index_list],
+                *[ii.id for ii in inst.input_kwargs_index_dict.values()])
         return Index(max_id)
 
     def inst_successor_list(self, inst):
         successors = []
         for i in self.schedule:
-            if inst.output_index in i.input_index_list:
+            if inst.output_index in i.input_args_index_list or \
+                    inst.output_index in i.input_kwargs_index_dict.values():
                 successors.append(i)
         return successors
 
@@ -108,18 +111,22 @@ class CodegenModule(Module):
         # set of values needed by future instructions
         index_set_needed = set(flatten(self.output_index_list))
         for inst in current_schedule:
-            index_set_needed.update(flatten(inst.input_index_list))
+            index_set_needed.update(flatten(inst.input_args_index_list))
+            index_set_needed.update(flatten(list(inst.input_kwargs_index_dict.values())))
         for index in list(state.keys()):
             if index not in index_set_needed:
                 del state[index]
 
-    def input_from_state(self, state, index):
+    def input_args_from_state(self, state, index):
         if isinstance(index, list):
-            return [self.input_from_state(state, i) for i in index]
+            return [self.input_args_from_state(state, i) for i in index]
         elif isinstance(index, tuple):
-            return tuple(self.input_from_state(state, i) for i in index)
+            return tuple(self.input_args_from_state(state, i) for i in index)
         else:
             return state[index]
+
+    def input_kwargs_from_state(self, state, index_dict):
+        return {n: self.input_args_from_state(state, i) for n, i in index_dict.items()}
 
     def update_state_from_output(self, state, index, value):
         if isinstance(index, (list, tuple)):
@@ -129,16 +136,18 @@ class CodegenModule(Module):
             state[index] = value
 
     def compute_inst(self, inst: Instruction, state):
-        # get needed args from state, assuming correct ordering has been preserved
-        args = self.input_from_state(state, inst.input_index_list)
+        # get needed args and kwargs from state
+        args = self.input_args_from_state(state, inst.input_args_index_list)
+        kwargs = self.input_kwargs_from_state(state, inst.input_kwargs_index_dict)
         if inst.fn_type == FnType.METHOD:
-            # convention is last arg is the tensor the fn is called on
-            fn = getattr(args.pop(), inst.fn)
-            output_value = fn(*args)
+            obj = kwargs.pop('self')
+            fn = getattr(obj, inst.fn)
+            output_value = fn(*args, **kwargs)
         elif inst.fn_type == FnType.ATTRIBUTE:
-            output_value = getattr(args.pop(), inst.fn)
+            obj = kwargs.pop('self')
+            output_value = getattr(obj, inst.fn)
         else:
-            output_value = inst.fn(*args)
+            output_value = inst.fn(*args, **kwargs)
         return output_value
 
     def model_output_from_state(self, state):
@@ -149,7 +158,7 @@ class CodegenModule(Module):
         else:
             return tuple(sorted_output)
 
-    def forward(self, *args):  # TODO deal with kwargs
+    def forward(self, *args):  # TODO deal with input kwargs
         state: Dict[Index, Any] = {}
         assert len(args) == len(self.input_index_list), "Unexpected number of inputs"
         input_kwargs = {index: val for index, val in zip(self.input_index_list, args)}
