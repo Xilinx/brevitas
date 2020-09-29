@@ -40,12 +40,12 @@
 
 from typing import Union, Type, Optional
 
-from dependencies import Injector
 import torch
 from torch import Tensor
 from torch.nn import Linear
 from torch.nn.functional import linear
 
+from brevitas.inject import BaseInjector as Injector
 from brevitas.function.ops_ste import ceil_ste
 from brevitas.function.ops import max_uint
 from brevitas.proxy.parameter_quant import WeightQuantProxyProtocol, BiasQuantProxyProtocol

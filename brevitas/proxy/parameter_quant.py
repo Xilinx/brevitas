@@ -44,9 +44,8 @@ from typing_extensions import Protocol, runtime_checkable
 
 import torch
 from torch import Tensor
-from torch.nn import Module
-from dependencies import Injector
 
+from brevitas.inject import BaseInjector as Injector
 from brevitas.function import max_uint
 from brevitas.quant_tensor import QuantTensor
 

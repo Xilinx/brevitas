@@ -42,8 +42,7 @@ from abc import ABCMeta, abstractmethod
 from typing import Optional, Type, Union, Callable
 import torch
 
-from dependencies import Injector
-
+from brevitas.inject import BaseInjector as Injector
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector, BiasQuantProxyFromInjector
 from brevitas.proxy.parameter_quant import WeightQuantProxyProtocol, BiasQuantProxyProtocol
 from brevitas.proxy.parameter_quant import ParameterQuantProxyFromInjector

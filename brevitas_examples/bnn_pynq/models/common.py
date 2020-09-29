@@ -20,8 +20,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from dependencies import Injector, value
+from dependencies import value
 
+from brevitas.inject import BaseInjector as Injector
 from brevitas.core.bit_width import BitWidthImplType
 from brevitas.core.quant import QuantType
 from brevitas.core.restrict_val import RestrictValueType

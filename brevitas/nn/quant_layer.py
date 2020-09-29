@@ -41,11 +41,11 @@
 from abc import ABCMeta, abstractmethod
 from typing import Optional, Type, Union, Callable
 
-from dependencies import Injector
 import torch
 from torch import Tensor
 from torch.nn import Module, Parameter
 
+from brevitas.inject import BaseInjector as Injector
 from brevitas.quant_tensor import QuantTensor
 from brevitas.proxy.parameter_quant import WeightQuantProxyProtocol, BiasQuantProxyProtocol
 from brevitas.proxy.runtime_quant import ActQuantProxyProtocol

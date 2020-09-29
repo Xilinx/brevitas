@@ -43,8 +43,8 @@ from typing import Union, Type, List
 import torch
 from torch import Tensor
 from torch.nn import Module
-from dependencies import Injector
 
+from brevitas.inject import BaseInjector as Injector
 from brevitas.proxy.runtime_quant import ActQuantProxyProtocol
 from brevitas.quant_tensor import QuantTensor
 from brevitas.inject.defaults import DefaultSignedActQuantInjector as DefaultSignedAQI

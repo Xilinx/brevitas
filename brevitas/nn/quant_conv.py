@@ -46,8 +46,8 @@ from torch import Tensor
 from torch.nn import Conv1d, Conv2d
 from torch.nn import functional as F
 from torch.nn.functional import conv2d
-from dependencies import Injector
 
+from brevitas.inject import BaseInjector as Injector
 from brevitas.function.ops import max_uint
 from brevitas.function.ops_ste import ceil_ste
 from brevitas.proxy.parameter_quant import WeightQuantProxyProtocol, BiasQuantProxyProtocol

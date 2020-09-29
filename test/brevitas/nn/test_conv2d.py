@@ -1,6 +1,6 @@
 from torch.nn import Module, Conv2d
+
 from brevitas.nn import QuantConv2d
-from dependencies import Injector
 
 import torch
 

@@ -1,7 +1,7 @@
 from torch.nn import Module
 from brevitas.nn import QuantLinear
-from dependencies import Injector
 
+from brevitas.inject import BaseInjector as Injector
 from brevitas.quant_tensor import QuantTensor
 
 import torch

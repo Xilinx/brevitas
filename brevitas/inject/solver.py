@@ -38,21 +38,20 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-
 from functools import partial
-from dependencies import Injector, this, value
+
+from dependencies import this, value
 
 from brevitas.core.quant import *
 from brevitas.core.function_wrapper import RoundSte, CeilSte, FloorSte, TensorClamp, TensorClampSte
 from brevitas.core.scaling import *
 from brevitas.core.restrict_val import *
-from brevitas.core.function_wrapper import ConstScalarClamp
-
 from brevitas.core.bit_width import *
 from brevitas.core.quant import QuantType
 from brevitas.core.stats import *
 from brevitas.core.scaling import ScalingImplType, SCALAR_SHAPE
 from brevitas.proxy.utils import ConvertRuntimeStatsToParameter
+from . import BaseInjector as Injector
 
 
 class EvaluateScalingInitImpl(Injector):

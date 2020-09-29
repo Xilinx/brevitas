@@ -1,23 +1,3 @@
-# Monkey patch Injector to avoid issues with interactive debugging
-# Lack of __len__ magic on Injector breaks the debugger ability to inspect it
-from _dependencies.injector import _InjectorType, __init__, let, injector_doc
-
-
-class _ExtendedInjectorType(_InjectorType):
-
-    def __len__(self):
-        return None
-
-
-Injector = _ExtendedInjectorType(
-    "Injector",
-    (),
-    {"__init__": __init__, "__doc__": injector_doc, "let": classmethod(let)})
-
-
-import _dependencies
-_dependencies.injector.Injector = Injector
-
 import imp
 import os
 import torch
