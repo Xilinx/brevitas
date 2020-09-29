@@ -40,9 +40,9 @@
 
 from typing import Type, Union
 
-from dependencies import Injector
 from torch import nn
 
+from brevitas.inject import BaseInjector as Injector
 from brevitas.inject.defaults import DefaultUnsignedActQuantInjector as DefUnsignedActQI
 from brevitas.inject.defaults import DefaultSignedActQuantInjector as DefSignedActQI
 from brevitas.inject.defaults import DefaultUnitaryUnsignedActQuantInjector as DefUnitUnsignedActQI

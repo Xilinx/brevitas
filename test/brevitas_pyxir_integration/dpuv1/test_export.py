@@ -2,7 +2,8 @@ import os
 
 import torch
 from torch import nn
-from dependencies import Injector
+
+from brevitas.inject import BaseInjector as Injector
 from brevitas.nn import QuantConv2d, QuantReLU, QuantMaxPool2d, QuantEltwiseAdd
 from brevitas.onnx import export_dpuv1_onnx
 from brevitas.quant_tensor import QuantTensor

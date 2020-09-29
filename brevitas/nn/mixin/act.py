@@ -42,7 +42,7 @@ from abc import ABCMeta, abstractmethod
 from typing import Type, Union, Callable, Optional
 
 from torch.nn import Module
-from dependencies import Injector
+from brevitas.inject import BaseInjector as Injector
 
 from brevitas.proxy.runtime_quant import IdentityQuantProxyFromInjector, ActQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import ActQuantProxyProtocol

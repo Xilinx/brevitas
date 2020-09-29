@@ -45,9 +45,8 @@ import torch
 from torch import Tensor
 from torch.nn import Identity, Module
 
-from dependencies import Injector
 
-from brevitas.function.ops_ste import round_ste
+from brevitas.inject import BaseInjector as Injector
 from brevitas.quant_tensor import QuantTensor
 
 from .quant_proxy import QuantProxyFromInjector, QuantProxyProtocol

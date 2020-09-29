@@ -41,8 +41,8 @@
 from typing import Callable, Union, Type
 
 from torch.nn import Module
-from dependencies import Injector
 
+from brevitas.inject import BaseInjector as Injector
 from brevitas.proxy.runtime_quant import AccQuantProxyProtocol
 from brevitas.inject.solver import update_trunc_quant_injector
 from brevitas.quant_tensor import QuantTensor

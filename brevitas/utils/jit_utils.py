@@ -8,7 +8,7 @@ except:
     get_torchscript_modifier = None
 import torch
 from torch.version import __version__
-from dependencies import Injector
+from brevitas.inject import BaseInjector as Injector
 
 PYTORCH_VERSION_THRESHOLD = version.parse('1.1.0')
 

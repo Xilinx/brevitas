@@ -2,8 +2,8 @@ from abc import ABCMeta
 from typing_extensions import Protocol, runtime_checkable
 
 from torch import tensor, nn
-from dependencies import Injector
 
+from brevitas.inject import BaseInjector as Injector
 from brevitas.core.utils import StatelessBuffer
 
 

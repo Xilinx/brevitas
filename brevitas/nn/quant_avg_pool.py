@@ -45,8 +45,8 @@ from functools import reduce
 import torch
 from torch import Tensor
 from torch.nn import AvgPool2d, AdaptiveAvgPool2d
-from dependencies import Injector
 
+from brevitas.inject import BaseInjector as Injector
 from brevitas.function.ops_ste import ceil_ste
 from brevitas.function.ops import max_uint
 from brevitas.proxy.runtime_quant import AccQuantProxyProtocol

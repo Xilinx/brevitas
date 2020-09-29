@@ -1,4 +1,4 @@
-from dependencies import Injector
+from . import BaseInjector as Injector
 
 
 class DefaultWeightScalingInjector(Injector):

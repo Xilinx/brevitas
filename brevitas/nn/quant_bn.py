@@ -41,9 +41,8 @@
 
 from typing import Type, Union
 
-from dependencies import Injector
-
 import brevitas.config as config
+from brevitas.inject import BaseInjector as Injector
 from brevitas.proxy.parameter_quant import WeightQuantProxyProtocol, BiasQuantProxyProtocol
 from brevitas.proxy.runtime_quant import ActQuantProxyProtocol
 from brevitas.inject.defaults import DefaultWeightQuantInjector as DefaultWeightQI

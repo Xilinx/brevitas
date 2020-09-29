@@ -41,7 +41,7 @@
 from abc import ABCMeta
 from typing import Type, Union, Callable, Optional
 
-from dependencies import Injector
+from brevitas.inject import BaseInjector as Injector
 
 from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector, ClampQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import AccQuantProxyProtocol
