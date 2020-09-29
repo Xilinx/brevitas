@@ -19,8 +19,7 @@ MODEL_NAMES = [
     'squeezenet1_0',
     'shufflenet_v2_x0_5',
     'mnasnet0_5',
-    'densenet121',
-    'vgg11_bn']
+    'densenet121']
 
 
 @pytest.mark.parametrize("pretrained", [True, False])
