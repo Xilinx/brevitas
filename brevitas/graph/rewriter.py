@@ -110,16 +110,21 @@ class MergeBatchNorm2d(Rewriter):
     def apply(self, model: CodegenModule):
         for inst in model.schedule:
             if type(inst.fn) == torch.nn.BatchNorm2d:
-                assert len(inst.input_index_list) == 1
-                bn_input_index = inst.input_index_list[0]
+                num_args = len(inst.input_args_index_list)
+                num_kwargs = len(inst.input_kwargs_index_dict.items())
+                assert num_args + num_kwargs == 1
+                try:
+                    bn_input_index = inst.input_args_index_list[0]
+                except:
+                    bn_input_index = list(inst.input_kwargs_index_dict.values())[0]
                 inst.merge_into_predecessor = None
                 inst.fn.merged_inst = []
                 # check that the predecessor doesn't feed into other layers
                 can_merge = True
                 for predecessor in model.schedule:
                     if predecessor.fn is not inst.fn:
-                        for pii in predecessor.input_index_list:
-                            for iii in inst.input_index_list:
+                        for pii in predecessor.input_args_index_list:
+                            for iii in inst.input_args_index_list:
                                 can_merge &= pii != iii
                 # identify predecessor and merge bn into it
                 for predecessor in model.schedule:

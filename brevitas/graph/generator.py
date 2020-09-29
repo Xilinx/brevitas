@@ -87,29 +87,24 @@ class ModuleGenerator(object):
         self._add_module(module, trace_elem.prefix_list, output_model)
         iil = [trace.index_from_val(i) for i in trace_elem.module_input_list]
         module_output_index = trace.index_from_val(trace_elem.module_output)
-        inst = Instruction(module_output_index, module, FnType.MODULE, iil, trace_elem.prefix)
+        inst = Instruction(module_output_index, module, FnType.MODULE, iil, {}, trace_elem.prefix)
         return inst
 
     def _torch_fn_instruction(self, trace_elem: TraceElem):
-        assert not trace_elem.fn_args
-        # remove 'out' from kwargs
-        fn_kwargs_index = trace_elem.fn_kwargs_index
-        if 'out' in trace_elem.fn_kwargs.keys() and trace_elem.fn_kwargs['out'] is None:
-            fn_kwargs_index = copy(fn_kwargs_index)
-            del fn_kwargs_index['out']
+        fn_args = trace_elem.fn_args_index
+        fn_kwargs = trace_elem.fn_kwargs_index
         fn = trace_elem.fn
         fn_type = trace_elem.fn_type
-        input_index_list = list(fn_kwargs_index.values())
         output_index = trace_elem.fn_out_index
-        return Instruction(output_index, fn, fn_type, input_index_list, trace_elem.prefix)
+        return Instruction(output_index, fn, fn_type, fn_args, fn_kwargs, trace_elem.prefix)
 
     def _tensor_fn_instruction(self, trace_elem: TraceElem, trace: Trace):
         fn = trace_elem.fn
         fn_type = trace_elem.fn_type
-        input_index_list = trace_elem.fn_args_index
-        input_index_list += list(trace_elem.fn_kwargs_index.values())
+        fn_args = trace_elem.fn_args_index
+        fn_kwargs = trace_elem.fn_kwargs_index
         output_index = trace_elem.fn_out_index
-        return Instruction(output_index, fn, fn_type, input_index_list, trace_elem.prefix)
+        return Instruction(output_index, fn, fn_type, fn_args, fn_kwargs, trace_elem.prefix)
 
     def _gen_schedule(self, trace: Trace, gen_model: Module):
         schedule = []
@@ -149,7 +144,8 @@ class ModuleGenerator(object):
     # constants are all inputs not computed as outputs, excluding the model input
     def _gen_constants_parameters(self, schedule: List[Instruction], trace: Trace):
         output_index_list = [inst.output_index for inst in schedule]
-        input_index_list = flatten([i for inst in schedule for i in inst.input_index_list])
+        input_index_list = flatten([i for inst in schedule for i in inst.input_args_index_list])
+        input_index_list += flatten([i for inst in schedule for n, i in inst.input_kwargs_index_dict.items()])
         # remove topmost inputs from constants
         const_index_list = [i for i in input_index_list if i not in trace.model_input_index_list]
         # remove values generated as output from constants
