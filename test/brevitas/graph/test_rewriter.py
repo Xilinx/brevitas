@@ -18,7 +18,6 @@ config.IGNORE_MISSING_KEYS = True
 MODELS = [
     'mnasnet0_5',
     'mobilenet_v2',
-    'vgg11_bn',
     'resnet18'
 ]
 

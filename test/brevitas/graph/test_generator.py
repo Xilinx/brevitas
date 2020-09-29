@@ -21,7 +21,6 @@ MODEL_NAMES = [
     'squeezenet1_0',
     'mnasnet0_5',
     'densenet121',
-    'vgg11_bn',
     'resnet18',
     'mobilenet_v2']
 
