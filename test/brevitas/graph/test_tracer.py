@@ -31,15 +31,16 @@ def test_tracer(model_name: str, train: bool, pretrained: bool):
     torch.manual_seed(SEED)
     input = torch.randn(INCEPTION_INPUT_SIZE if model_name == 'inception_v3' else INPUT_SIZE)
     torch.manual_seed(SEED)
-    trace = Tracer(input).trace_model(model)
-    torch.manual_seed(SEED)
-    out = model(input)
-    if isinstance(out, (tuple, list)):
-        assert isinstance(trace.model_output_list, (tuple, list))
-        for reference, o in zip(out, trace.model_output_list):
-            assert o.isclose(reference).all().item()
-    else:
-        assert trace.model_output_list[0].isclose(out).all().item()
+    with torch.no_grad():
+        trace = Tracer(input).trace_model(model)
+        torch.manual_seed(SEED)
+        out = model(input)
+        if isinstance(out, (tuple, list)):
+            assert isinstance(trace.model_output_list, (tuple, list))
+            for reference, o in zip(out, trace.model_output_list):
+                assert o.isclose(reference).all().item()
+        else:
+            assert trace.model_output_list[0].isclose(out).all().item()
 
 
 class UnpackShape(Module):
@@ -119,11 +120,12 @@ MODULES = [
 def test_module(module):
     mod = module()
     x = torch.randn(INPUT_SIZE)
-    out = mod(x)
-    trace = Tracer(x).trace_model(mod)
-    if isinstance(out, (tuple, list)):
-        assert isinstance(trace.model_output_list, (tuple, list))
-        for reference, o in zip(out, trace.model_output_list):
-            assert o.isclose(reference).all().item()
-    else:
-        assert trace.model_output_list[0].isclose(out).all().item()
+    with torch.no_grad():
+        out = mod(x)
+        trace = Tracer(x).trace_model(mod)
+        if isinstance(out, (tuple, list)):
+            assert isinstance(trace.model_output_list, (tuple, list))
+            for reference, o in zip(out, trace.model_output_list):
+                assert o.isclose(reference).all().item()
+        else:
+            assert trace.model_output_list[0].isclose(out).all().item()
