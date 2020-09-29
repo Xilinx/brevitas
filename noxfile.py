@@ -66,8 +66,11 @@ def tests_brevitas_cpu(session, pytorch, jit_status):
     install_pytorch(pytorch, session)
     install_torchvision(pytorch, session)  # For graph mode tests
     session.install( '--upgrade', '.[test]')
-    session.run('pytest', 'test/brevitas', '-v')
-
+    # run graph and not graph tests separately
+    session.run('pytest', 'test/brevitas', '-v', '--ignore', 'test/brevitas/graph')
+    session.run('pytest', 'test/brevitas/graph/test_generator.py', '-v')
+    session.run('pytest', 'test/brevitas/graph/test_tracer.py', '-v')
+    session.run('pytest', 'test/brevitas/graph/test_rewriter.py', '-v')
 
 @nox.session(venv_backend="conda", python=CONDA_PYTHON_VERSIONS)
 @nox.parametrize("pytorch", PYTORCH_VERSIONS, ids=PYTORCH_IDS)
