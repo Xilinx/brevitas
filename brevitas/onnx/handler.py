@@ -77,7 +77,7 @@ class BaseHandler(Module, ABC):
 
     def __init__(self):
         super().__init__()
-        self.symbolic_kwargs = {}
+        self.symbolic_kwargs = None
         self.export_debug_name = None
         self.debug_input = False
         self.debug_output = False

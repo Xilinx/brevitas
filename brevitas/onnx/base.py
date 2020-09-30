@@ -19,6 +19,7 @@ from torch.nn import Module
 from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.jit_utils import jit_trace_patched
 
+
 def _override_quant_metadata_caching_mode(m: Module, enabled: bool):
     if hasattr(m, 'cache_quant_io_metadata_only'):
         if not hasattr(m, "cache_quant_io_metadata_only_backup"):
