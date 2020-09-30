@@ -62,7 +62,6 @@ class CallableWrapper(object):
 class TracerMeta(type):
 
     # Adapted from: https://code.activestate.com/recipes/496741-object-proxying/
-    # __next__ and __iter__ are removed since iterables are always unrolled
     magic_methods = [
         '__abs__', '__add__', '__and__', '__call__', '__cmp__', '__coerce__', '__contains__',
         '__delitem__', '__delslice__', '__div__', '__divmod__', '__eq__', '__float__',

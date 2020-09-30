@@ -1,6 +1,6 @@
+from packaging import version
 import pytest
 import torch
-from torch import Tensor
 from torch import nn
 from torchvision import models
 
@@ -11,15 +11,19 @@ from brevitas.graph.rewriter import MergeBatchNorm2d, DuplicateSharedStatelessMo
 SEED = 123456
 INPUT_SIZE = (1, 3, 224, 224)
 ATOL = 1e-3
+IS_ABOVE_110 = version.parse(torch.__version__) > version.parse("1.1.0")
 
 from brevitas import config
 config.IGNORE_MISSING_KEYS = True
 
 MODELS = [
-    'mnasnet0_5',
     'mobilenet_v2',
     'resnet18'
 ]
+
+if IS_ABOVE_110:
+    MODELS.append('mnasnet0_5')
+
 
 @pytest.mark.parametrize("pretrained", [True, False])
 @pytest.mark.parametrize("model_name", MODELS)
