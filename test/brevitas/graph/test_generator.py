@@ -1,5 +1,5 @@
 import pytest
-
+from packaging import version
 import torch
 from torchvision import models
 
@@ -12,6 +12,7 @@ IMAGENET_SIZE = (1, 3, 224, 224)
 INCEPTION_SIZE = (2, 3, 299, 299)
 LARGER_IMAGE_SIZE = (2, 3, 340, 340)
 MNIST_SIZE = (1, 1, 28, 28)
+IS_ABOVE_110 = version.parse(torch.__version__) > version.parse("1.1.0")
 
 MODEL_NAMES = [
     'shufflenet_v2_x0_5',
@@ -19,10 +20,13 @@ MODEL_NAMES = [
     'inception_v3',
     'alexnet',
     'squeezenet1_0',
-    'mnasnet0_5',
     'densenet121',
     'resnet18',
     'mobilenet_v2']
+
+if IS_ABOVE_110:
+    MODEL_NAMES.append('mnasnet0_5')
+
 
 @pytest.mark.parametrize("pretrained", [True, False])
 @pytest.mark.parametrize("train", [True, False])

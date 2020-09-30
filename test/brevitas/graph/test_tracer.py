@@ -1,3 +1,4 @@
+from packaging import version
 import pytest
 import torch
 from torch import Tensor
@@ -9,6 +10,7 @@ from brevitas.graph.tracer import Tracer
 SEED = 123456
 INPUT_SIZE = (2, 3, 224, 224)
 INCEPTION_INPUT_SIZE = (2, 3, 299, 299)
+IS_ABOVE_110 = version.parse(torch.__version__) > version.parse("1.1.0")
 
 MODEL_NAMES = [
     'resnet18',
@@ -18,8 +20,10 @@ MODEL_NAMES = [
     'alexnet',
     'squeezenet1_0',
     'shufflenet_v2_x0_5',
-    'mnasnet0_5',
     'densenet121']
+
+if IS_ABOVE_110:
+    MODEL_NAMES.append('mnasnet0_5')
 
 
 @pytest.mark.parametrize("pretrained", [True, False])
