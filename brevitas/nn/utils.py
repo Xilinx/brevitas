@@ -48,36 +48,29 @@ def compute_channel_view_shape(tensor: torch.Tensor, channel_dim: int):
     broadcast_shape[channel_dim] = -1
     return tuple(broadcast_shape)
 
-def mul_add_from_bn(bn_mean, bn_var, bn_eps, bn_weight, bn_bias, affine_only):
-    mul_factor = bn_weight
-    add_factor = bn_bias * torch.sqrt(bn_var + bn_eps)
-    add_factor = add_factor - bn_mean * (bn_weight - 1.0)
-    if not affine_only:
-        mul_factor = mul_factor / torch.sqrt(bn_var + bn_eps)
-        add_factor = add_factor - bn_mean
-        add_factor = add_factor / torch.sqrt(bn_var + bn_eps)
+
+def mul_add_from_bn(bn_mean, bn_var, bn_eps, bn_weight, bn_bias):
+    denom = torch.sqrt(bn_var + bn_eps)
+    mul_factor = bn_weight / denom
+    add_factor = - bn_mean * mul_factor + bn_bias
     return mul_factor, add_factor
 
 
-def merge_bn(layer, bn, affine_only, output_channel_dim=0):
-    if affine_only and not bn.affine:
-        raise RuntimeError("Affine-only merging requires BN to have affine scaling enabled.")
+def merge_bn(layer, bn, output_channel_dim=0):
+    out = mul_add_from_bn(
+        bn_mean=bn.running_mean,
+        bn_var=bn.running_var,
+        bn_eps=bn.eps,
+        bn_weight=bn.weight.data.clone(),
+        bn_bias=bn.bias.data.clone())
+    mul_factor, add_factor = out
+    out_ch_weight_shape = compute_channel_view_shape(layer.weight, output_channel_dim)
+    layer.weight.data.mul_(mul_factor.view(out_ch_weight_shape))
+    if layer.bias is not None:
+        out_ch_bias_shape = compute_channel_view_shape(layer.bias, output_channel_dim)
+        layer.bias.data.add_(add_factor.view(out_ch_bias_shape))
     else:
-        out = mul_add_from_bn(
-            bn_mean=bn.running_mean,
-            bn_var=bn.running_var,
-            bn_eps=bn.eps,
-            bn_weight=bn.weight.data.clone(),
-            bn_bias=bn.bias.data.clone(),
-            affine_only=affine_only)
-        mul_factor, add_factor = out
-        out_ch_weight_shape = compute_channel_view_shape(layer.weight, output_channel_dim)
-        layer.weight.data *= mul_factor.view(out_ch_weight_shape)
-        if layer.bias is not None:
-            out_ch_bias_shape = compute_channel_view_shape(layer.bias, output_channel_dim)
-            layer.bias.data += add_factor.view(out_ch_bias_shape)
-        else:
-            layer.bias = Parameter(add_factor)
+        layer.bias = Parameter(add_factor)
 
 
 def rename_state_dict_by_prefix(old_prefix, new_prefix, state_dict):

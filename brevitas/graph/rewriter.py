@@ -130,7 +130,7 @@ class MergeBatchNorm2d(Rewriter):
                 for predecessor in model.schedule:
                     if predecessor.output_index == bn_input_index:
                         if any([type(predecessor.fn) == l for l in self.merge_layers]):
-                            merge_bn(predecessor.fn, inst.fn, affine_only=False)
+                            merge_bn(predecessor.fn, inst.fn)
                             inst.merge_into_predecessor = predecessor
                             inst.fn.merged_inst.append(True)
                         else:
