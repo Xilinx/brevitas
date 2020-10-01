@@ -87,13 +87,14 @@ class BaseManager(ABC):
         for handler in cls.handlers:
             if isinstance(module, handler.handled_layer):
                 return handler
-        raise RuntimeError(f"Module {module.__class__} not supported for export.")
+        if module.requires_export_handler:
+            raise RuntimeError(f"Module {module.__class__} not supported for export.")
+        else:
+            pass
 
     @classmethod
     def set_export_handler(cls, module: Module):
-        if (hasattr(module, 'export_handler')
-                and module.export_handler is None
-                and module.requires_export_handler):
+        if hasattr(module, 'export_handler') and module.export_handler is None:
             handler = cls.handler_from_module(module)
             module.export_handler = handler()
 
