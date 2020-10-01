@@ -17,6 +17,14 @@ PYTORCH_IDS = tuple([f'pytorch_{i}' for i in PYTORCH_VERSIONS])
 JIT_IDS = tuple([f'{i}'.lower() for i in JIT_STATUSES])
 
 
+# This combination has proven to be problematic and without access to
+# a physical system it's tricky to debug
+def is_torchvision_broken(python_version, pytorch_version):
+    return (system() == 'Darwin' and
+            version.parse(python_version) == version.parse('3.6') and
+            version.parse(pytorch_version) == version.parse('1.5'))
+
+
 def install_pytorch(pytorch, session, numpy=None):
     is_win = system() == 'Windows'
     is_cpu_virtual = version.parse(pytorch) >= version.parse(PYTORCH_CPU_VIRTUAL_PKG)
@@ -64,13 +72,15 @@ def dry_run_install_pytorch_deps(python, pytorch, session, deps_only):
 def tests_brevitas_cpu(session, pytorch, jit_status):
     session.env['PYTORCH_JIT'] = '{}'.format(int(jit_status == 'jit_enabled'))
     install_pytorch(pytorch, session)
-    install_torchvision(pytorch, session)  # For graph mode tests
     session.install( '--upgrade', '.[test]')
-    # run graph and not graph tests separately
+    # run non graph tests
     session.run('pytest', 'test/brevitas', '-v', '--ignore', 'test/brevitas/graph')
-    session.run('pytest', 'test/brevitas/graph/test_generator.py', '-v')
-    session.run('pytest', 'test/brevitas/graph/test_tracer.py', '-v')
-    session.run('pytest', 'test/brevitas/graph/test_rewriter.py', '-v')
+    # run graph tests
+    if not is_torchvision_broken(session.python, pytorch):
+        install_torchvision(pytorch, session)
+        session.run('pytest', 'test/brevitas/graph/test_generator.py', '-v')
+        session.run('pytest', 'test/brevitas/graph/test_tracer.py', '-v')
+        session.run('pytest', 'test/brevitas/graph/test_rewriter.py', '-v')
 
 @nox.session(venv_backend="conda", python=CONDA_PYTHON_VERSIONS)
 @nox.parametrize("pytorch", PYTORCH_VERSIONS, ids=PYTORCH_IDS)
