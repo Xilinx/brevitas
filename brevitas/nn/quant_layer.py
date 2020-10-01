@@ -92,6 +92,10 @@ class QuantNonLinearActLayer(
         return True
 
     @property
+    def requires_export_handler(self):
+        return self.is_input_quant_enabled or self.is_act_quant_enabled
+
+    @property
     def is_quant_input_signed(self) -> Optional[bool]:  # tri-valued logic output
         if self.is_input_quant_enabled:
             return self.input_quant.is_signed
@@ -188,6 +192,10 @@ class QuantInputOutputLayer(
         QuantOutputMixin.__init__(self, output_quant, update_oqi, **kwargs)
 
     @property
+    def requires_export_handler(self):
+        return self.is_input_quant_enabled or self.is_output_quant_enabled
+
+    @property
     def is_quant_input_signed(self) -> Optional[bool]:  # tri-valued logic output
         if self.is_input_quant_enabled:
             return self.input_quant.is_signed
@@ -276,6 +284,13 @@ class QuantWeightBiasInputOutputLayer(
     @abstractmethod
     def max_acc_bit_width(self, input_bit_width: Tensor, quant_weight_bit_width: Tensor):
         pass
+
+    @property
+    def requires_export_handler(self):
+        return (self.is_input_quant_enabled
+                or self.is_weight_quant_enabled
+                or self.is_bias_quant_enabled
+                or self.is_output_quant_enabled)
 
     @property
     def per_elem_ops(self):  # optional, so concrete impl + error if not overridden

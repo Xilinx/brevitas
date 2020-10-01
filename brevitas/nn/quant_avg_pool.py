@@ -82,6 +82,10 @@ class QuantAvgPool2d(QuantTruncMixin, QuantLayerMixin, AvgPool2d):
     def channelwise_separable(self) -> bool:
         return True
 
+    @property
+    def requires_export_handler(self):
+        return True
+
     def forward(self, x: Union[Tensor, QuantTensor]):
         x = self.unpack_input(x)
         if self.export_mode:
@@ -125,6 +129,10 @@ class QuantAdaptiveAvgPool2d(QuantTruncMixin, QuantLayerMixin, AdaptiveAvgPool2d
 
     @property
     def channelwise_separable(self) -> bool:
+        return True
+
+    @property
+    def requires_export_handler(self):
         return True
 
     @property

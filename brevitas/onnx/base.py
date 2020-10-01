@@ -91,7 +91,9 @@ class BaseManager(ABC):
 
     @classmethod
     def set_export_handler(cls, module: Module):
-        if hasattr(module, 'export_handler') and module.export_handler is None:
+        if (hasattr(module, 'export_handler')
+                and module.export_handler is None
+                and module.requires_export_handler):
             handler = cls.handler_from_module(module)
             module.export_handler = handler()
 

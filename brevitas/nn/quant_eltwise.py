@@ -69,6 +69,10 @@ class QuantEltwiseAdd(QuantInputOutputLayer, Module):
             default_update_aqi,
             **kwargs)
 
+    @property
+    def channelwise_separable(self) -> bool:
+        return True
+
     def forward(
             self,
             inp: Union[Tensor, QuantTensor],

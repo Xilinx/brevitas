@@ -54,8 +54,15 @@ class QuantDropout(QuantLayerMixin, Dropout):
         Dropout.__init__(self, p=p, inplace=False)
         QuantLayerMixin.__init__(
             self,
-            export_handler=NoOpHandler,
             return_quant_tensor=return_quant_tensor)
+
+    @property
+    def channelwise_separable(self) -> bool:
+        return True
+
+    @property
+    def requires_export_handler(self):
+        return False
 
     def forward(self, x: Union[Tensor, QuantTensor]):
         x = self.unpack_input(x)

@@ -105,6 +105,11 @@ class QuantLayerMixin(object):
         pass
 
     @property
+    @abstractmethod
+    def requires_export_handler(self):
+        pass
+
+    @property
     def export_mode(self):
         if self._export_mode and self.training:
             raise RuntimeError("Can't enter export mode during training, only during inference")

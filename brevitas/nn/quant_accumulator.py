@@ -65,6 +65,14 @@ class TruncQuantAccumulator(QuantTruncMixin, QuantLayerMixin, Module):
             update_injector=update_injector,
             **kwargs)
 
+    @property
+    def channelwise_separable(self) -> bool:
+        return True
+
+    @property
+    def requires_export_handler(self):
+        return True
+
     def forward(self, x: QuantTensor):
         x = self.unpack_input(x)
         x = self.trunc_quant(x)
@@ -85,6 +93,14 @@ class ClampQuantAccumulator(QuantClampMixin, QuantLayerMixin, Module):
             trunc_quant=trunc_quant,
             update_injector=update_injector,
             **kwargs)
+
+    @property
+    def channelwise_separable(self) -> bool:
+        return True
+
+    @property
+    def requires_export_handler(self):
+        return True
 
     def forward(self, x: QuantTensor):
         x = self.unpack_input(x)

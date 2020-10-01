@@ -66,11 +66,17 @@ class QuantMaxPool1d(QuantLayerMixin, MaxPool1d):
             dilation=dilation,
             return_indices=return_indices,
             ceil_mode=ceil_mode)
-        QuantLayerMixin.__init__(self, return_quant_tensor)
+        QuantLayerMixin.__init__(
+            self,
+            return_quant_tensor=return_quant_tensor)
 
     @property
     def channelwise_separable(self) -> bool:
         return True
+
+    @property
+    def requires_export_handler(self):
+        return False
 
     def forward(self, x: Union[Tensor, QuantTensor]):
         x = self.unpack_input(x)
@@ -99,11 +105,17 @@ class QuantMaxPool2d(QuantLayerMixin, MaxPool2d):
             dilation=dilation,
             return_indices=return_indices,
             ceil_mode=ceil_mode)
-        QuantLayerMixin.__init__(self, return_quant_tensor)
+        QuantLayerMixin.__init__(
+            self,
+            return_quant_tensor=return_quant_tensor)
 
     @property
     def channelwise_separable(self) -> bool:
         return True
+
+    @property
+    def requires_export_handler(self):
+        return False
 
     def forward(self, x: Union[Tensor, QuantTensor]):
         x = self.unpack_input(x)

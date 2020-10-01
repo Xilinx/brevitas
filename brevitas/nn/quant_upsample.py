@@ -70,6 +70,10 @@ class QuantUpsample(QuantLayerMixin, Upsample):
     def channelwise_separable(self) -> bool:
         return True
 
+    @property
+    def requires_export_handler(self):
+        return False
+
     def forward(self, x: Union[Tensor, QuantTensor]):
         x = self.unpack_input(x)
         if self.export_mode:
@@ -96,6 +100,10 @@ class QuantUpsamplingBilinear2d(QuantLayerMixin, UpsamplingBilinear2d):
     def channelwise_separable(self) -> bool:
         return True
 
+    @property
+    def requires_export_handler(self):
+        return False
+
     def forward(self, x: Union[Tensor, QuantTensor]):
         x = self.unpack_input(x)
         if self.export_mode:
@@ -120,6 +128,10 @@ class QuantUpsamplingNearest2d(QuantLayerMixin, UpsamplingNearest2d):
     @property
     def channelwise_separable(self) -> bool:
         return True
+
+    @property
+    def requires_export_handler(self):
+        return False
 
     def forward(self, x: Union[Tensor, QuantTensor]):
         x = self.unpack_input(x)
