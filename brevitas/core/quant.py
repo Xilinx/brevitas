@@ -47,6 +47,7 @@ from torch.nn import Module
 from brevitas.inject.enum import QuantType  # retrocompatbility
 from brevitas.function.ops import tensor_clamp, min_int, max_int, max_uint
 from brevitas.function.ops_ste import round_ste, binary_sign_ste, ternary_sign_ste
+from brevitas.utils.jit_utils import script_method_110_disabled
 
 from .bit_width import BitWidthConst
 from .utils import StatelessBuffer
@@ -67,7 +68,7 @@ class _DelayQuant(torch.jit.ScriptModule):
         super(_DelayQuant, self).__init__()
         self.quant_delay_steps: int = torch.jit.Attribute(quant_delay_steps, int)
 
-    @torch.jit.script_method
+    @script_method_110_disabled
     def forward(self, x: Tensor, y: Tensor) -> Tensor:
         if self.quant_delay_steps > 0:
             self.quant_delay_steps = self.quant_delay_steps - 1

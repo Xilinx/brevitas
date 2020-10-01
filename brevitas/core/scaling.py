@@ -47,6 +47,7 @@ import brevitas.config as config
 from brevitas.core.function_wrapper import Identity
 from brevitas.function.ops import min_int, max_int
 from brevitas.inject.enum import ScalingImplType  # retrocompatibility
+from brevitas.utils.jit_utils import script_method_110_disabled
 
 from .stats import _ParameterListStats, _RuntimeStats, _Stats, SCALAR_SHAPE
 from .utils import StatelessBuffer
@@ -263,7 +264,7 @@ class ParameterFromRuntimeStatsScaling(torch.jit.ScriptModule):
         self.restrict_clamp_scaling = _RestrictClampValue(scaling_min_val, restrict_scaling_impl)
         self.restrict_preprocess = restrict_scaling_impl.restrict_init_module()
 
-    @torch.jit.script_method
+    @script_method_110_disabled
     def forward(self, stats_input) -> torch.Tensor:
         out = self.value
         if self.training:
