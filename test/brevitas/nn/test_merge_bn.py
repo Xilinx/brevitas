@@ -1,9 +1,6 @@
-import pytest
 import torch
-from torch import Tensor
-from torchvision import models
 
-from brevitas.nn.utils import merge_bn, mul_add_from_bn
+from brevitas.nn.utils import merge_bn
 
 SEED = 123456
 OUT_CH = 3
