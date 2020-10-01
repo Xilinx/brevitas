@@ -117,9 +117,11 @@ class QuantLayerMixin(object):
 
     @export_mode.setter
     def export_mode(self, value):
-        if value and self.export_handler is None:
+        if value and self.requires_export_handler and self.export_handler is None:
             raise RuntimeError("Can't enable export mode on a layer without an export handler")
-        if value:
+        elif value and not self.requires_export_handler and self.export_handler is None:
+            return  # don't set export mode when it's not required and there is no handler
+        elif value and self.export_handler is not None:
             self.export_handler.prepare_for_symbolic_execution(self)
             self.export_handler.attach_debug_info(self)
         self._export_mode = value
@@ -164,9 +166,8 @@ class QuantLayerMixin(object):
 
     def unpack_input(self, inp: Union[Tensor, QuantTensor]):
         if isinstance(inp, QuantTensor):
-            if self.export_mode:
-                raise RuntimeError("QuantTensor I/O can't be used during export.")
-            if not self.training and self.cache_inference_quant_inp:
+            # don't cache values during export pass
+            if not self.training and not self._export_mode and self.cache_inference_quant_inp:
                 cached_inp = _CachedIO(inp.detach(), self.cache_quant_io_metadata_only)
                 self._cached_inp = cached_inp
             return inp
