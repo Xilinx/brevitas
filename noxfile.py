@@ -72,12 +72,12 @@ def dry_run_install_pytorch_deps(python, pytorch, session, deps_only):
 def tests_brevitas_cpu(session, pytorch, jit_status):
     session.env['PYTORCH_JIT'] = '{}'.format(int(jit_status == 'jit_enabled'))
     install_pytorch(pytorch, session)
+    install_torchvision(pytorch, session)
     session.install( '--upgrade', '.[test]')
     # run non graph tests
     session.run('pytest', 'test/brevitas', '-v', '--ignore', 'test/brevitas/graph')
     # run graph tests
     if not is_torchvision_broken(session.python, pytorch):
-        install_torchvision(pytorch, session)
         session.run('pytest', 'test/brevitas/graph/test_generator.py', '-v')
         session.run('pytest', 'test/brevitas/graph/test_tracer.py', '-v')
         session.run('pytest', 'test/brevitas/graph/test_rewriter.py', '-v')
