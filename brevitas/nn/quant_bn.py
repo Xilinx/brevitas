@@ -88,8 +88,7 @@ class BatchNorm2dToQuantScaleBias(QuantScaleBias):
                 bn_weight=state_dict[weight_key],
                 bn_mean=state_dict[running_mean_key],
                 bn_var=state_dict[running_var_key],
-                bn_eps=self.eps,
-                affine_only=False)
+                bn_eps=self.eps)
             self.weight.data = weight_init
             self.bias.data = bias_init
             del state_dict[bias_key]
