@@ -64,7 +64,6 @@ def dry_run_install_pytorch_deps(python, pytorch, session, deps_only):
 def tests_brevitas_cpu(session, pytorch, jit_status):
     session.env['PYTORCH_JIT'] = '{}'.format(int(jit_status == 'jit_enabled'))
     install_pytorch(pytorch, session)
-    install_torchvision(pytorch, session)  # For graph mode tests
     session.install( '--upgrade', '.[test]')
     # run graph and not graph tests separately
     session.run('pytest', 'test/brevitas', '-v', '--ignore', 'test/brevitas/graph')
@@ -78,8 +77,6 @@ def tests_brevitas_cpu(session, pytorch, jit_status):
 def tests_brevitas_examples_cpu(session, pytorch, jit_status):
     session.env['PYTORCH_JIT'] = '{}'.format(int(jit_status == 'jit_enabled'))
     install_pytorch(pytorch, session)
-    install_torchvision(pytorch, session)  # For CV eval scripts
-    session.conda_install('scipy')  # For Hadamard example
     session.install('--upgrade', '.[test, tts, stt, vision]')
     session.run('pytest', 'test/brevitas_examples')
 
@@ -96,7 +93,6 @@ def tests_brevitas_install_dev(session, pytorch):
 @nox.parametrize("pytorch", PYTORCH_VERSIONS, ids=PYTORCH_IDS)
 def tests_brevitas_examples_install_dev(session, pytorch):
     install_pytorch(pytorch, session)
-    session.conda_install('scipy')  # For Hadamard example
     session.install('--upgrade', '-e', '.[test, tts, stt]')
     session.run('pytest', '-v', 'test/brevitas_examples/test_examples_import.py')
 
