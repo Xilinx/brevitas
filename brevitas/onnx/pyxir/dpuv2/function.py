@@ -4,9 +4,10 @@ from torch.autograd import Function
 from ..function import DPUQuantReLUPlaceholderFunction
 from ..function import DPUQuantEltwiseAddPlaceholderFunction
 from ..function import DPUQuantMaxPoolPlaceholderFunction
-from ..function import DPUQuantAdaptiveAvgPoolPlaceholderFunction
+from ..function import DPUQuantAvgPoolPlaceholderFunction
 from ..function import DPUQuantConv2dPlaceholderFunction
 from ..function import DPUQuantLinearPlaceholderFunction
+
 
 class DPUv2QuantReLUPlaceholderFunction(DPUQuantReLUPlaceholderFunction):
     pass
@@ -16,7 +17,7 @@ class DPUv2QuantEltwiseAddPlaceholderFunction(DPUQuantEltwiseAddPlaceholderFunct
     pass
 
 
-class DPUv2QuantAdaptiveAvgPoolPlaceholderFunction(DPUQuantAdaptiveAvgPoolPlaceholderFunction):
+class DPUv2QuantAvgPoolPlaceholderFunction(DPUQuantAvgPoolPlaceholderFunction):
     pass
 
 

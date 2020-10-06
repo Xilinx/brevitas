@@ -30,7 +30,7 @@ class DPUQuantReLUPlaceholderFunction(Function):
         return x.clamp(0.0)
 
 
-class DPUQuantAdaptiveAvgPoolPlaceholderFunction(Function):
+class DPUQuantAvgPoolPlaceholderFunction(Function):
 
     @staticmethod
     def symbolic(

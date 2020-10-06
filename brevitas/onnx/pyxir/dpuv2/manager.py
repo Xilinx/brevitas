@@ -2,7 +2,7 @@ from brevitas.onnx.base import BaseManager
 from ...transform import move_domain_attributes_into_domain
 from .handler import DPUv2QuantConv2dHandler, DPUv2QuantReLUHandler
 from .handler import DPUv2QuantEltwiseAddHandler, DPUv2QuantMaxPool2dHandler
-from .handler import DPUv2QuantAdaptiveAvgPool2dHandler, DPUv2QuantLinearHandler
+from .handler import DPUv2QuantAvgPool2dHandler, DPUv2QuantLinearHandler
 
 
 class DPUv2Manager(BaseManager):
@@ -11,7 +11,7 @@ class DPUv2Manager(BaseManager):
         DPUv2QuantConv2dHandler,
         DPUv2QuantReLUHandler,
         DPUv2QuantEltwiseAddHandler,
-        DPUv2QuantAdaptiveAvgPool2dHandler,
+        DPUv2QuantAvgPool2dHandler,
         DPUv2QuantLinearHandler,
         DPUv2QuantMaxPool2dHandler]
 

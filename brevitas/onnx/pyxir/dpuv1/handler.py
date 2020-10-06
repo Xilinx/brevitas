@@ -1,9 +1,8 @@
 from torch import Tensor
 
-from brevitas.nn import QuantAdaptiveAvgPool2d
 from ..handler import DPUQuantConv2dHandler
 from ..handler import DPUQuantEltwiseAddHandler
-from ..handler import DPUQuantAdaptiveAvgPool2dHandler
+from ..handler import DPUQuantAvgPool2dHandler
 from ..handler import DPUQuantMaxPool2dHandler
 from ..handler import DPUQuantReLUHandler
 from ..handler import DPUQuantLinearHandler
@@ -12,7 +11,7 @@ from .function import DPUv1QuantConv2dPlaceholderFunction
 from .function import DPUv1QuantReLUPlaceholderFunction
 from .function import DPUv1QuantEltwiseAddPlaceholderFunction
 from .function import DPUv1QuantMaxPoolPlaceholderFunction
-from .function import DPUv1QuantAdaptiveAvgPoolPlaceholderFunction
+from .function import DPUv1QuantAvgPoolPlaceholderFunction
 
 
 class DPUv1QuantReLUHandler(DPUQuantReLUHandler):
@@ -37,11 +36,10 @@ class DPUv1QuantMaxPool2dHandler(DPUQuantMaxPool2dHandler):
         return ret
 
 
-class DPUv1QuantAdaptiveAvgPool2dHandler(DPUQuantAdaptiveAvgPool2dHandler):
-    handled_layer = QuantAdaptiveAvgPool2d
+class DPUv1QuantAvgPool2dHandler(DPUQuantAvgPool2dHandler):
 
     def symbolic_execution(self, inp: Tensor):
-        ret = DPUv1QuantAdaptiveAvgPoolPlaceholderFunction.apply(inp, *self.symbolic_kwargs.values())
+        ret = DPUv1QuantAvgPoolPlaceholderFunction.apply(inp, *self.symbolic_kwargs.values())
         return ret
 
 

@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import Tuple
+from typing import Union
 import math
 
 import torch
@@ -8,7 +8,7 @@ from torch import Tensor
 from brevitas.nn.quant_layer import QuantLayerMixin
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.nn import QuantConv2d, QuantReLU, QuantEltwiseAdd, QuantMaxPool2d, QuantLinear
-from brevitas.nn import QuantAdaptiveAvgPool2d
+from brevitas.nn import QuantAdaptiveAvgPool2d, QuantAvgPool2d
 from brevitas.onnx.handler import BaseHandler, Kernel2dApplHandler
 
 
@@ -104,10 +104,10 @@ class DPUQuantMaxPool2dHandler(DPUQuantLayerHandler, Kernel2dApplHandler, ABC):
             'output_scale': self.quant_output_scale(module)}
 
 
-class DPUQuantAdaptiveAvgPool2dHandler(DPUQuantLayerHandler, Kernel2dApplHandler, ABC):
-    handled_layer = QuantAdaptiveAvgPool2d
+class DPUQuantAvgPool2dHandler(DPUQuantLayerHandler, Kernel2dApplHandler, ABC):
+    handled_layer = (QuantAvgPool2d, QuantAdaptiveAvgPool2d)
 
-    def prepare_for_symbolic_execution(self, module: QuantAdaptiveAvgPool2d):
+    def prepare_for_symbolic_execution(self, module: Union[QuantAvgPool2d, QuantAdaptiveAvgPool2d]):
         self.symbolic_kwargs = {
             'kernel_shape': self.kernel_shape(module),  # from caching
             'strides': self.stride(module),  # from caching
