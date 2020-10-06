@@ -43,10 +43,8 @@ from typing import Type, Union
 from torch import nn
 
 from brevitas.inject import BaseInjector as Injector
-from brevitas.inject.defaults import DefaultUnsignedActQuantInjector as DefUnsignedActQI
-from brevitas.inject.defaults import DefaultSignedActQuantInjector as DefSignedActQI
-from brevitas.inject.defaults import DefaultUnitaryUnsignedActQuantInjector as DefUnitUnsignedActQI
-from brevitas.inject.defaults import DefaultUnitarySignedActQuantInjector as DefUnitSignedActQI
+from brevitas.inject.defaults import Uint8ActPerTensorFloat
+from brevitas.inject.defaults import Int8ActPerTensorFloat
 from .quant_layer import QuantNonLinearActLayer as QuantNLAL, ActQuantProxyProtocol
 
 
@@ -55,7 +53,7 @@ class QuantReLU(QuantNLAL):
     def __init__(
             self,
             input_quant: Union[ActQuantProxyProtocol, Type[Injector]] = None,
-            act_quant: Type[Injector] = DefUnsignedActQI,
+            act_quant: Type[Injector] = Uint8ActPerTensorFloat,
             return_quant_tensor: bool = False,
             **kwargs):
         QuantNLAL.__init__(
@@ -73,7 +71,7 @@ class QuantSigmoid(QuantNLAL):
     def __init__(
             self,
             input_quant: Union[ActQuantProxyProtocol, Type[Injector]] = None,
-            act_quant: Type[Injector] = DefUnitUnsignedActQI,
+            act_quant: Type[Injector] = Uint8ActPerTensorFloat,
             return_quant_tensor: bool = False,
             **kwargs):
         QuantNLAL.__init__(
@@ -91,7 +89,7 @@ class QuantTanh(QuantNLAL):
     def __init__(
             self,
             input_quant: Union[ActQuantProxyProtocol, Type[Injector]] = None,
-            act_quant: Type[Injector] = DefUnitSignedActQI,
+            act_quant: Type[Injector] = Int8ActPerTensorFloat,
             return_quant_tensor: bool = False,
             **kwargs):
         QuantNLAL.__init__(
@@ -109,7 +107,7 @@ class QuantHardTanh(QuantNLAL):
     def __init__(
             self,
             input_quant: Union[ActQuantProxyProtocol, Type[Injector]] = None,
-            act_quant: Type[Injector] = DefUnitSignedActQI,
+            act_quant: Type[Injector] = Int8ActPerTensorFloat,
             return_quant_tensor: bool = False,
             **kwargs):
         QuantNLAL.__init__(
@@ -126,7 +124,7 @@ class QuantIdentity(QuantNLAL):
 
     def __init__(
             self,
-            act_quant: Type[Injector] = DefSignedActQI,
+            act_quant: Type[Injector] = Int8ActPerTensorFloat,
             return_quant_tensor: bool = False,
             **kwargs):
         QuantNLAL.__init__(

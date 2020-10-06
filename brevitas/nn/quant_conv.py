@@ -53,8 +53,8 @@ from brevitas.function.ops_ste import ceil_ste
 from brevitas.proxy.parameter_quant import WeightQuantProxyProtocol, BiasQuantProxyProtocol
 from brevitas.proxy.runtime_quant import ActQuantProxyProtocol
 from brevitas.quant_tensor import QuantTensor
-from brevitas.inject.defaults import DefaultWeightQuantInjector as DefaultWeightQI
-from brevitas.inject.defaults import DefaultBiasQuantInjector as DefaultBiasQI
+from brevitas.inject.defaults import Int8WeightPerTensorFloat
+from brevitas.inject.defaults import FloatBias
 from .quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 
 
@@ -74,8 +74,8 @@ class QuantConv1d(QuantWBIOL, Conv1d):
             groups: int = 1,
             bias: bool = True,
             padding_type: str = 'standard',
-            weight_quant: Union[WeightQuantProxyProtocol, Type[Injector]] = DefaultWeightQI,
-            bias_quant: Union[BiasQuantProxyProtocol, Type[Injector]] = DefaultBiasQI,
+            weight_quant: Union[WeightQuantProxyProtocol, Type[Injector]] = Int8WeightPerTensorFloat,
+            bias_quant: Union[BiasQuantProxyProtocol, Type[Injector]] = FloatBias,
             input_quant: Union[ActQuantProxyProtocol, Type[Injector]] = None,
             output_quant: Union[ActQuantProxyProtocol, Type[Injector]] = None,
             return_quant_tensor: bool = False,
@@ -166,8 +166,8 @@ class QuantConv2d(QuantWBIOL, Conv2d):
             groups: int = 1,
             bias: bool = True,
             padding_type: str = 'standard',
-            weight_quant: Union[WeightQuantProxyProtocol, Type[Injector]] = DefaultWeightQI,
-            bias_quant: Union[BiasQuantProxyProtocol, Type[Injector]] = DefaultBiasQI,
+            weight_quant: Union[WeightQuantProxyProtocol, Type[Injector]] = Int8WeightPerTensorFloat,
+            bias_quant: Union[BiasQuantProxyProtocol, Type[Injector]] = FloatBias,
             input_quant: Union[ActQuantProxyProtocol, Type[Injector]] = None,
             output_quant: Union[ActQuantProxyProtocol, Type[Injector]] = None,
             return_quant_tensor: bool = False,

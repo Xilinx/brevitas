@@ -47,7 +47,7 @@ from torch.nn import Module
 from brevitas.inject import BaseInjector as Injector
 from brevitas.proxy.runtime_quant import ActQuantProxyProtocol
 from brevitas.quant_tensor import QuantTensor
-from brevitas.inject.defaults import DefaultSignedActQuantInjector as DefaultSignedAQI
+from brevitas.inject.defaults import Int8ActPerTensorFloat
 from .quant_layer import QuantInputOutputLayer, default_update_aqi
 
 
@@ -55,8 +55,8 @@ class QuantEltwiseAdd(QuantInputOutputLayer, Module):
 
     def __init__(
             self,
-            input_quant: Union[ActQuantProxyProtocol, Type[Injector]] = DefaultSignedAQI,
-            output_quant: Union[ActQuantProxyProtocol, Type[Injector]] = DefaultSignedAQI,
+            input_quant: Union[ActQuantProxyProtocol, Type[Injector]] = Int8ActPerTensorFloat,
+            output_quant: Union[ActQuantProxyProtocol, Type[Injector]] = Int8ActPerTensorFloat,
             return_quant_tensor: bool = False,
             **kwargs) -> None:
         Module.__init__(self)
