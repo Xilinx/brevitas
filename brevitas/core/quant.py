@@ -70,11 +70,20 @@ class _DelayQuant(torch.jit.ScriptModule):
 
     @script_method_110_disabled
     def forward(self, x: Tensor, y: Tensor) -> Tensor:
-        if self.quant_delay_steps > 0:
+        if self.training and self.quant_delay_steps > 0:
             self.quant_delay_steps = self.quant_delay_steps - 1
             return x
         else:
             return y
+
+    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
+                              missing_keys, unexpected_keys, error_msgs):
+        super(_DelayQuant, self)._load_from_state_dict(
+            state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
+        # Pytorch stores training flag as a buffer with JIT enabled
+        training_key = prefix + 'training'
+        if training_key in missing_keys:
+            missing_keys.remove(training_key)
 
 
 class DelayWrapper(torch.jit.ScriptModule):
