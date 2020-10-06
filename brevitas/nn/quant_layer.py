@@ -68,7 +68,7 @@ class QuantNonLinearActLayer(
 
     def __init__(
             self,
-            act_impl: Optional[Module],
+            act_impl: Optional[Type[Module]],
             passthrough_act: bool,
             input_quant: Union[ActQuantProxyProtocol, Type[Injector]],
             act_quant: Union[ActQuantProxyProtocol, Type[Injector]],

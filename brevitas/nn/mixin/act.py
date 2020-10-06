@@ -53,7 +53,7 @@ class QuantActMixin(object):
 
     def __init__(
             self,
-            act_impl: Optional[Module],
+            act_impl: Optional[Type[Module]],
             passthrough_act: bool,
             act_quant: Union[ActQuantProxyProtocol, Type[Injector]],
             proxy_from_injector_impl: Optional[Type[ActQuantProxyFromInjector]],
@@ -176,7 +176,7 @@ class QuantNonLinearActMixin(QuantActMixin):
 
     def __init__(
             self,
-            act_impl: Module,
+            act_impl: Optional[Type[Module]],
             passthrough_act: bool,
             act_quant: Union[ActQuantProxyProtocol, Type[Injector]],
             update_injector: Callable,
