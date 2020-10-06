@@ -134,17 +134,17 @@ def io_rewriter_list(input_quant, output_quant, return_quant_tensor, excluded, *
     return rewriter_list
 
 
-def rewrite_with_quantization(
+def quantize(
         model: nn.Module,
         input: torch.Tensor,
-        weight_quant,
-        bias_quant,
-        input_quant,
-        output_quant,
-        act_quant,
-        trunc_quant,
-        bn_handling: BatchNormHandling,
-        excluded,
+        weight_quant = Int8WeightPerTensorFloat,
+        input_quant = Int8ActPerTensorFloat,
+        output_quant = Int8ActPerTensorFloat,
+        trunc_quant = TruncTo8bit,
+        bias_quant = Int8Bias,
+        act_quant = None,
+        bn_handling: BatchNormHandling = BatchNormHandling.MERGE_AND_QUANTIZE,
+        excluded: Optional[List] = (),
         **kwargs):
     iq, oq, bq = input_quant, output_quant, bias_quant
     wq, aq, tq = weight_quant, act_quant, trunc_quant
@@ -152,7 +152,6 @@ def rewrite_with_quantization(
         trace = Tracer(input).trace_model(model)
         gen_model = ModuleGenerator().gen_model(trace)
     state_dict = model.state_dict()
-    gen_model.load_state_dict(state_dict)
     gen_model = DuplicateSharedStatelessModule().apply(gen_model)
     for rewriter in wbiol_rewriter_list(iq, wq, bq, oq, True, excluded, **kwargs):
         gen_model = rewriter.apply(gen_model)
@@ -164,6 +163,7 @@ def rewrite_with_quantization(
         gen_model = rewriter.apply(gen_model)
     for rewriter in no_args_rewriter_list(True, excluded):
         gen_model = rewriter.apply(gen_model)
+    gen_model.load_state_dict(state_dict)
     if (bn_handling == BatchNormHandling.MERGE_AND_QUANTIZE
             or bn_handling == BatchNormHandling.MERGE_AND_PRESERVE):
         gen_model = MergeBatchNorm2d().apply(gen_model)
@@ -181,59 +181,4 @@ def rewrite_with_quantization(
         gen_model = rewriter.apply(gen_model)
     gen_model = DisableBreakingReturnQuantTensor().apply(gen_model)
     return gen_model
-
-
-def quantize(
-        model: nn.Module,
-        input: torch.Tensor,
-        per_output_channel: bool = False,
-        power_of_two_scaling: bool = False,
-        weight_bit_width: int = 8,
-        act_bit_width: int = 8,
-        bias_bit_width: int = 16,
-        bn_handling: BatchNormHandling = BatchNormHandling.MERGE_AND_QUANTIZE,
-        collect_stats_steps: int = 100,
-        quant_delay_steps: int = 100,
-        per_tensor_power_of_two_act=Int8ActPerTensorPoT,
-        per_tensor_float_act=Int8ActPerTensorPoT,
-        per_tensor_power_of_two_weight=Int8WeightPerTensorPoT,
-        per_tensor_float_weight=Int8WeightPerTensorFloat,
-        per_channel_power_of_two_weight=Int8WeightPerChannelFloat,
-        per_channel_float_weight=Int8WeightPerChannelFloat,
-        excluded: Optional[List] = ()):
-    if power_of_two_scaling:
-        input_quant = output_quant = per_tensor_power_of_two_act
-    else:
-        input_quant = output_quant = per_tensor_float_act
-    if not per_output_channel and not power_of_two_scaling:
-        weight_quant = per_tensor_float_weight
-    elif per_output_channel and not power_of_two_scaling:
-        weight_quant = per_channel_float_weight
-    elif not per_output_channel and power_of_two_scaling:
-        weight_quant = per_tensor_power_of_two_weight
-    else: # per_channel and power_of_two_scaling
-        weight_quant = per_channel_power_of_two_weight
-    bias_quant = FloatBias.let(bit_width=bias_bit_width).let(quant_type=QuantType.INT)
-    return rewrite_with_quantization(
-        model=model,
-        input=input,
-        weight_quant=weight_quant,
-        bias_quant=bias_quant,
-        input_quant=input_quant,
-        output_quant=output_quant,
-        act_quant=None,
-        trunc_quant=TruncTo8bit,
-        bn_handling=bn_handling,
-        input_bit_width=act_bit_width,
-        output_bit_width=act_bit_width,
-        weight_bit_width=weight_bit_width,
-        trunc_bit_width=act_bit_width,
-        input_quant_delay_steps=quant_delay_steps,
-        output_quant_delay_steps=quant_delay_steps,
-        weight_quant_delay_steps=quant_delay_steps,
-        trunc_quant_delay_steps=quant_delay_steps,
-        output_collect_stats_steps=collect_stats_steps,
-        input_collect_stats_steps=collect_stats_steps,
-        excluded=excluded)
-
 
