@@ -144,8 +144,8 @@ class ModuleGenerator(object):
     # constants are all inputs not computed as outputs, excluding the model input
     def _gen_constants_parameters(self, schedule: List[Instruction], trace: Trace):
         output_index_list = [inst.output_index for inst in schedule]
-        input_index_list = flatten([i for inst in schedule for i in inst.input_args_index_list])
-        input_index_list += flatten([i for inst in schedule for n, i in inst.input_kwargs_index_dict.items()])
+        input_index_list = flatten([i for inst in schedule for i in inst.input_args_list])
+        input_index_list += flatten([i for inst in schedule for n, i in inst.input_kwargs_dict.items()])
         # remove topmost inputs from constants
         const_index_list = [i for i in input_index_list if i not in trace.model_input_index_list]
         # remove values generated as output from constants
@@ -159,13 +159,34 @@ class ModuleGenerator(object):
             raise RuntimeError("Something went wrong")
         return consts, params
 
+    def _solve_consts_params(self, arg, consts, params):
+        if isinstance(arg, list):
+            return [self._solve_consts_params(a, consts, params) for a in arg]
+        elif isinstance(arg, tuple):
+            return tuple(self._solve_consts_params(a, consts, params) for a in arg)
+        elif isinstance(arg, dict):
+            return {k: self._solve_consts_params(v, consts, params) for k, v in arg.items()}
+        elif isinstance(arg, Index):
+            if arg in consts:
+                return consts[arg]
+            elif arg in params:
+                return params[arg]
+            else:
+                return arg
+        else:
+            return arg
+
+    def _apply_consts_params(self, schedule, consts, params):
+        for inst in schedule:
+            inst.input_args_list = self._solve_consts_params(inst.input_args_list, consts, params)
+            inst.input_kwargs_dict = self._solve_consts_params(inst.input_kwargs_dict, consts, params)
+
     def gen_model(self, trace: Trace):
         output_model = CodegenModule()
         schedule = self._gen_schedule(trace, output_model)
-        constants, parameters = self._gen_constants_parameters(schedule, trace)
+        consts, params = self._gen_constants_parameters(schedule, trace)
+        self._apply_consts_params(schedule, consts, params)
         output_model.schedule = schedule
-        output_model.parameters_index_dict = parameters
-        output_model.constants_index_dict = constants
         output_model.input_index_list = trace.model_input_index_list
         output_model.output_index_list = trace.model_output_index_list
         return output_model
