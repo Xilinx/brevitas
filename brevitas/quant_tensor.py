@@ -57,6 +57,7 @@ class QuantTensor(NamedTuple):
     scale: Optional[Tensor] = None
     bit_width: Optional[Tensor] = None
     signed: Optional[bool] = None
+    training: Optional[bool] = None
 
     @property
     def tensor(self):
@@ -101,6 +102,8 @@ class QuantTensor(NamedTuple):
             raise RuntimeError("Other tensor is not a QuantTensor")
 
     def check_scaling_factors_same(self, other):
+        if self.training is not None and self.training:
+            return True
         if not torch.allclose(self.scale, other.scale):
             raise RuntimeError("Scaling factors are different")
 
