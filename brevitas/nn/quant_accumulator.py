@@ -83,14 +83,14 @@ class ClampQuantAccumulator(QuantClampMixin, QuantLayerMixin, Module):
 
     def __init__(
             self,
-            trunc_quant: Union[AccQuantProxyProtocol, Type[Injector]] = None,
+            clamp_quant: Union[AccQuantProxyProtocol, Type[Injector]] = None,
             return_quant_tensor: bool = True,
             update_injector: Callable = update_trunc_quant_injector,
             **kwargs):
         QuantLayerMixin.__init__(self, return_quant_tensor)
         QuantClampMixin.__init__(
             self,
-            trunc_quant=trunc_quant,
+            clamp_quant=clamp_quant,
             update_injector=update_injector,
             **kwargs)
 
