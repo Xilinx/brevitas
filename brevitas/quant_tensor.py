@@ -130,16 +130,20 @@ class QuantTensor(NamedTuple):
     def cat(tensor_list, dim):
         assert len(tensor_list) >= 2, 'Two or more tensors required for concatenation'
         first_qt = tensor_list[0]
-        for qt in tensor_list[1:]:
-            QuantTensor.check_input_type(qt)
-            first_qt.check_scaling_factors_same(qt)
-            first_qt.check_bit_width_same(qt)
-            first_qt.check_sign_same(qt)
-        output_value = torch.cat([qt.value for qt in tensor_list], dim=dim)
-        output_scale = sum([qt.scale for qt in tensor_list]) / len(tensor_list)
-        output_bit_width = sum([qt.bit_width for qt in tensor_list]) / len(tensor_list)
-        output_signed = first_qt.signed # they are the same
-        return QuantTensor(output_value, output_scale, output_bit_width, output_signed)
+        if all([qt.is_valid for qt in tensor_list]):
+            for qt in tensor_list[1:]:
+                QuantTensor.check_input_type(qt)
+                first_qt.check_scaling_factors_same(qt)
+                first_qt.check_bit_width_same(qt)
+                first_qt.check_sign_same(qt)
+            output_value = torch.cat([qt.value for qt in tensor_list], dim=dim)
+            output_scale = sum([qt.scale for qt in tensor_list]) / len(tensor_list)
+            output_bit_width = sum([qt.bit_width for qt in tensor_list]) / len(tensor_list)
+            output_signed = first_qt.signed # they are the same
+            return QuantTensor(output_value, output_scale, output_bit_width, output_signed)
+        else:
+            output_value = torch.cat([qt.value for qt in tensor_list], dim=dim)
+            return QuantTensor(output_value)
 
 
     # Reference: https://docs.python.org/3/reference/datamodel.html#emulating-numeric-types
@@ -152,23 +156,31 @@ class QuantTensor(NamedTuple):
 
     def __add__(self, other):
         QuantTensor.check_input_type(other)
-        self.check_scaling_factors_same(other)
-        output_value = self.value + other.value
-        output_scale = (self.scale + other.scale) / 2
-        max_uint_val = max_uint(narrow_range=False, bit_width=self.bit_width)
-        max_uint_val += max_uint(narrow_range=False, bit_width=other.bit_width)
-        output_bit_width = ceil_ste(torch.log2(max_uint_val))
-        output_signed = self.signed or other.signed
-        output = QuantTensor(output_value, output_scale, output_bit_width, output_signed)
+        if self.is_valid and other.is_valid:
+            self.check_scaling_factors_same(other)
+            output_value = self.value + other.value
+            output_scale = (self.scale + other.scale) / 2
+            max_uint_val = max_uint(narrow_range=False, bit_width=self.bit_width)
+            max_uint_val += max_uint(narrow_range=False, bit_width=other.bit_width)
+            output_bit_width = ceil_ste(torch.log2(max_uint_val))
+            output_signed = self.signed or other.signed
+            output = QuantTensor(output_value, output_scale, output_bit_width, output_signed)
+        else:
+            output_value = self.value + other.value
+            output = QuantTensor(output_value)
         return output
 
     def __mul__(self, other):
         QuantTensor.check_input_type(other)
-        output_value = self.value * other.value
-        output_scale = self.scale * other.scale
-        output_bit_width = self.bit_width + other.bit_width
-        output_signed = self.signed or other.signed
-        output = QuantTensor(output_value, output_scale, output_bit_width, output_signed)
+        if self.is_valid and other.is_valid:
+            output_value = self.value * other.value
+            output_scale = self.scale * other.scale
+            output_bit_width = self.bit_width + other.bit_width
+            output_signed = self.signed or other.signed
+            output = QuantTensor(output_value, output_scale, output_bit_width, output_signed)
+        else:
+            output_value = self.value * other.value
+            output = QuantTensor(output_value)
         return output
 
     def __sub__(self, other):
@@ -176,11 +188,15 @@ class QuantTensor(NamedTuple):
 
     def __truediv__(self, other):
         QuantTensor.check_input_type(other)
-        output_tensor = self.value / other.tensor
-        output_scale = self.scale / other.scale
-        output_bit_width = self.bit_width - other.bit_width
-        output_signed = self.signed or other.signed
-        output = QuantTensor(output_tensor, output_scale, output_bit_width, output_signed)
+        if self.is_valid and other.is_valid:
+            output_tensor = self.value / other.tensor
+            output_scale = self.scale / other.scale
+            output_bit_width = self.bit_width - other.bit_width
+            output_signed = self.signed or other.signed
+            output = QuantTensor(output_tensor, output_scale, output_bit_width, output_signed)
+        else:
+            output_value = self.value / other.value
+            output = QuantTensor(output_value)
         return output
 
     def __abs__(self):
