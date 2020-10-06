@@ -200,7 +200,7 @@ def quantize(
         per_tensor_float_weight=Int8WeightPerTensorFloat,
         per_channel_power_of_two_weight=Int8WeightPerChannelFloat,
         per_channel_float_weight=Int8WeightPerChannelFloat,
-        excluded: Optional[List] = None):
+        excluded: Optional[List] = ()):
     if power_of_two_scaling:
         input_quant = output_quant = per_tensor_power_of_two_act
     else:
