@@ -6,10 +6,14 @@ import torch
 from torch.nn import Module
 from torch.nn import Conv2d, Conv1d, Linear
 
-from brevitas.nn import QuantConv2d, QuantReLU, QuantEltwiseAdd
+from brevitas import nn as qnn
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.nn.utils import merge_bn
 from .module import CodegenModule, _replace_module, Instruction, FnType, _set_module
+
+
+def _signature_keys(module_class):
+    return signature(module_class).parameters.keys()
 
 
 class Rewriter(ABC):
@@ -43,15 +47,14 @@ class ModuleToModuleRewriter(Rewriter, ABC):
 
     def __init__(
             self,
-            old_module_class_list,
+            old_module_class,
             new_module_class,
-            cond=lambda old_module: True, **kwargs):
+            old_module_cond=lambda old_module: True, **kwargs):
         super().__init__()
-        self.old_module_class_list = old_module_class_list
+        self.old_module_class = old_module_class
         self.new_module_class = new_module_class
         self.new_module_kwargs = kwargs
-        self.new_module_signature_keys = signature(new_module_class).parameters.keys()
-        self.cond = cond
+        self.old_module_cond = old_module_cond
 
     def map_origin_vars(self, vars: dict):
         return {k: v is not None if k == 'bias' else v for k, v in vars.items()}
@@ -69,7 +72,8 @@ class ModuleToModuleRewriter(Rewriter, ABC):
         # transforms attribute of original module, e.g. bias Parameter -> bool
         new_kwargs = self.map_origin_vars(new_kwargs)
         # restrict to only values that are in the init of the new module
-        new_kwargs = {k: v for k, v in new_kwargs.items() if k in self.new_module_signature_keys}
+        new_module_signature_keys = _signature_keys(self.new_module_class)
+        new_kwargs = {k: v for k, v in new_kwargs.items() if k in new_module_signature_keys}
         # update with kwargs passed to the rewriter
         new_kwargs.update(self.new_module_kwargs)
         # init the new module
@@ -84,20 +88,20 @@ class ModuleToModuleRewriter(Rewriter, ABC):
     def _rewrite_model(self, model, old_new_module_dict):
         for old_module, new_module in old_new_module_dict.items():
             _replace_module(model, old_module, new_module)
+            new_module.load_state_dict(old_module.state_dict())
 
     def apply(self, model: CodegenModule):
         old_new_module_dict = {}
         for old_module in model.modules():
-            for old_module_class in self.old_module_class_list:
-                # check for equality, not inheritance
-                if type(old_module) == old_module_class and self.cond(old_module):
-                    # init the new module based on the old one
-                    new_module = self._init_new_module(old_module)
-                    # rewrite compute schedule
-                    old_module_use_list = model.module_use_dict()[old_module]
-                    self._rewrite_schedule(old_module_use_list, new_module)
-                    # register modules pair to be replaced
-                    old_new_module_dict[old_module] = new_module
+            # check for equality, not inheritance
+            if type(old_module) == self.old_module_class and self.old_module_cond(old_module):
+                # init the new module based on the old one
+                new_module = self._init_new_module(old_module)
+                # rewrite compute schedule
+                old_module_use_list = model.module_use_dict()[old_module]
+                self._rewrite_schedule(old_module_use_list, new_module)
+                # register modules pair to be replaced
+                old_new_module_dict[old_module] = new_module
         # replace all pairs registered
         self._rewrite_model(model, old_new_module_dict)
         return model
@@ -110,26 +114,26 @@ class MergeBatchNorm2d(Rewriter):
     def apply(self, model: CodegenModule):
         for inst in model.schedule:
             if type(inst.fn) == torch.nn.BatchNorm2d:
-                num_args = len(inst.input_args_index_list)
-                num_kwargs = len(inst.input_kwargs_index_dict.items())
+                num_args = len(inst.input_args_list)
+                num_kwargs = len(inst.input_kwargs_dict.items())
                 assert num_args + num_kwargs == 1
                 try:
-                    bn_input_index = inst.input_args_index_list[0]
+                    bn_input_index = inst.input_args_list[0]
                 except:
-                    bn_input_index = list(inst.input_kwargs_index_dict.values())[0]
+                    bn_input_index = list(inst.input_kwargs_dict.values())[0]
                 inst.merge_into_predecessor = None
                 inst.fn.merged_inst = []
                 # check that the predecessor doesn't feed into other layers
                 can_merge = True
                 for predecessor in model.schedule:
                     if predecessor.fn is not inst.fn:
-                        for pii in predecessor.input_args_index_list:
-                            for iii in inst.input_args_index_list:
+                        for pii in predecessor.input_args_list:
+                            for iii in inst.input_args_list:
                                 can_merge &= pii != iii
                 # identify predecessor and merge bn into it
                 for predecessor in model.schedule:
                     if predecessor.output_index == bn_input_index:
-                        if any([type(predecessor.fn) == l for l in self.merge_layers]):
+                        if any([isinstance(predecessor.fn, l) for l in self.merge_layers]):
                             merge_bn(predecessor.fn, inst.fn)
                             inst.merge_into_predecessor = predecessor
                             inst.fn.merged_inst.append(True)
@@ -179,52 +183,121 @@ class DisableBreakingReturnQuantTensor(Rewriter):
         return model
 
 
-class FnToModuleRewriter(Rewriter, ABC):
+class CallableToModuleRewriter(Rewriter, ABC):
 
-    def __init__(self, old_fn_list, new_module_class, **kwargs):
+    def __init__(
+            self,
+            old_callable,
+            new_module_class,
+            inst_cond=lambda old_inst: True,
+            inst_postprocess=lambda new_inst: new_inst,
+            **kwargs):
         super().__init__()
-        self.old_fn_list = old_fn_list
+        self.old_callable = old_callable
         self.new_module_class = new_module_class
         self.new_module_kwargs = kwargs
+        self.inst_cond = inst_cond
+        self.inst_postprocess = inst_postprocess
 
     @abstractmethod
-    def match_inst(self, inst) -> bool:
+    def match_inst(self, inst):
         pass
+
+    def new_module_prefix(self, inst):
+        module_prefix = inst.prefix + '.' + inst.fn_name
+        module_prefix = module_prefix + str(self.module_id(module_prefix))
+        return module_prefix
+
+    def update_kwargs(self, inst: Instruction):
+        new_module_keys = _signature_keys(self.new_module_class)
+        old_fn_kwargs = inst.input_kwargs_dict
+        extracted = {k: old_fn_kwargs.pop(k) for k in old_fn_kwargs.keys() if k in new_module_keys}
+        self.new_module_kwargs.update(extracted)
+
+    def gen_new_module(self, inst, model):
+        module_prefix = self.new_module_prefix(inst)
+        self.update_kwargs(inst)
+        module = self.new_module_class(**self.new_module_kwargs)
+        _set_module(model, module, module_prefix)
+        return module
+
+    def rewrite_inst(self, inst, model):
+        module = self.gen_new_module(inst, model)
+        inst.fn = module
+        inst.fn_type = FnType.MODULE
+        self.inst_postprocess(inst)
 
     def apply(self, model: CodegenModule) -> CodegenModule:
         for inst in model.schedule:
             if self.match_inst(inst):
-                module_prefix = inst.prefix + '.' + inst.fn_name
-                module_prefix = module_prefix + str(self.module_id(module_prefix))
-                module = self.new_module_class(**self.new_module_kwargs)
-                _set_module(model, module, module_prefix)
-                inst.fn = module
-                inst.fn_type = FnType.MODULE
+                self.rewrite_inst(inst, model)
         return model
 
 
-class TorchFnToModuleRewriter(FnToModuleRewriter):
-
-    def __init__(self, old_torch_fn_list, new_module_class, **kwargs):
-        super().__init__(
-            old_fn_list=old_torch_fn_list,
-            new_module_class=new_module_class,
-            **kwargs)
+class TorchFnToModuleRewriter(CallableToModuleRewriter):
 
     def match_inst(self, inst) -> bool:
-        return inst.fn_type == FnType.TORCH_FN and inst.fn in self.old_fn_list
+        return (self.inst_cond(inst)
+                and inst.fn_type == FnType.FUNCTION
+                and inst.fn == self.old_callable)
 
 
-class TensorFnToModuleRewriter(FnToModuleRewriter):
-
-    def __init__(self, old_tensor_fn_list, new_module_class, **kwargs):
-        super().__init__(
-            old_fn_list=old_tensor_fn_list,
-            new_module_class=new_module_class,
-            **kwargs)
+class TensorMethodToModuleRewriter(CallableToModuleRewriter):
 
     def match_inst(self, inst) -> bool:
-        return inst.fn_type == FnType.TENSOR_FN and inst.fn in self.old_fn_list
+        return (self.inst_cond(inst)
+                and inst.fn_type == FnType.METHOD
+                and inst.fn == self.old_callable)
+
+    def update_kwargs(self, inst: Instruction):
+        super(TensorMethodToModuleRewriter, self).update_kwargs(inst)
+        tensor = inst.input_kwargs_dict.pop('self')
+        inst.input_args_list = [tensor] + inst.input_args_list
+
+
+class MeanToAdaptiveAvgPool2d(TensorMethodToModuleRewriter):
+
+    def __init__(self):
+        super(MeanToAdaptiveAvgPool2d, self).__init__(
+            old_callable='mean',
+            new_module_class=qnn.QuantAdaptiveAvgPool2d,
+            inst_cond=MeanToAdaptiveAvgPool2d.match_mean_cond,
+            inst_postprocess=MeanToAdaptiveAvgPool2d.postprocess_inst,
+            output_size=(1, 1))
+
+    @staticmethod
+    def match_mean_cond(inst):
+        return ([2, 3] in inst.input_args_list
+                or (2, 3) in inst.input_args_list
+                or 'dim' in inst.input_kwargs_dict
+                and (inst.input_kwargs_dict['dim'] == (2, 3)
+                     or inst.input_kwargs_dict['dim'] == [2, 3]))
+
+    @staticmethod
+    def postprocess_inst(inst):
+        if 'dim' in inst.input_kwargs_dict:
+            del inst.input_kwargs_dict['dim']
+        elif (2, 3) in inst.input_args_list:
+            inst.input_args_list.remove((2, 3))
+        elif [2, 3] in inst.input_args_list:
+            inst.input_args_list.remove([2, 3])
+        # TODO this is a hack, a separate view instruction should be generated
+        original_forward = inst.fn.forward
+        def forward_with_view(*args, **kwargs):
+            out = original_forward(*args, **kwargs)
+            return out.view(int(out.size(0)), -1)
+        inst.fn.forward = forward_with_view
+
+
+class InplaceMeanToAdaptiveAvgPool2d(TensorMethodToModuleRewriter):
+
+    def __init__(self):
+        super(InplaceMeanToAdaptiveAvgPool2d, self).__init__(
+            old_callable='mean_',
+            new_module_class=qnn.QuantAdaptiveAvgPool2d,
+            inst_cond=MeanToAdaptiveAvgPool2d.match_mean_cond,
+            inst_postprocess=MeanToAdaptiveAvgPool2d.postprocess_inst,
+            output_size=(1, 1))
 
 
 class RewriterList(Rewriter):
