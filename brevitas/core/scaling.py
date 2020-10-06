@@ -49,14 +49,12 @@ from brevitas.function.ops import min_int, max_int
 from brevitas.inject.enum import ScalingImplType  # retrocompatibility
 from brevitas.utils.jit_utils import script_method_110_disabled
 
-from .stats import _ParameterListStats, _RuntimeStats, _Stats, SCALAR_SHAPE
+from .stats import _ParameterListStats, _RuntimeStats, _Stats, SCALAR_SHAPE, DEFAULT_MOMENTUM
 from .utils import StatelessBuffer
 from .restrict_val import _RestrictClampValue
 
 SCALING_STATS_REDUCE_DIM = 1
-DEFAULT_MOMENTUM = 0.1
-DEFAULT_AFFINE = False
-DEFAULT_SCALING_MIN_VAL = None
+
 
 assert ScalingImplType  # prevent removal of unused import
 
@@ -91,8 +89,8 @@ class _StatsScaling(torch.jit.ScriptModule):
             self,
             restrict_scaling_impl: Module,
             scaling_shape: Tuple[int, ...],
-            scaling_min_val: Optional[float] = DEFAULT_SCALING_MIN_VAL,
-            affine_rescaling: bool = DEFAULT_AFFINE) -> None:
+            scaling_min_val: Optional[float] = None,
+            affine_rescaling: bool = False) -> None:
         super(_StatsScaling, self).__init__()
 
         if affine_rescaling:
@@ -117,7 +115,7 @@ class ParameterScaling(torch.jit.ScriptModule):
             scaling_init: Union[float, torch.Tensor],
             scaling_shape: Tuple[int, ...],
             restrict_scaling_impl: Module,
-            scaling_min_val: Optional[float] = DEFAULT_SCALING_MIN_VAL) -> None:
+            scaling_min_val: Optional[float] = None) -> None:
         super(ParameterScaling, self).__init__()
 
         if isinstance(scaling_init, torch.Tensor):
@@ -183,7 +181,7 @@ class RuntimeStatsScaling(torch.jit.ScriptModule):
             scaling_shape: Tuple[int, ...],
             affine_rescaling: bool,
             scaling_stats_momentum: float = DEFAULT_MOMENTUM,
-            scaling_min_val: Optional[float] = DEFAULT_SCALING_MIN_VAL) -> None:
+            scaling_min_val: Optional[float] = None) -> None:
         super(RuntimeStatsScaling, self).__init__()
 
         self.runtime_stats = _RuntimeStats(
@@ -214,8 +212,8 @@ class ParameterStatsScaling(torch.jit.ScriptModule):
             tracked_parameter_list: List[torch.nn.Parameter],
             restrict_scaling_impl: Module,
             scaling_shape: Tuple[int, ...],
-            affine_rescaling: bool = DEFAULT_AFFINE,
-            scaling_min_val: Optional[float] = DEFAULT_SCALING_MIN_VAL) -> None:
+            affine_rescaling: bool = False,
+            scaling_min_val: Optional[float] = None) -> None:
         super(ParameterStatsScaling, self).__init__()
         self.parameter_list_stats = _ParameterListStats(
             scaling_stats_impl,
@@ -247,9 +245,9 @@ class ParameterFromRuntimeStatsScaling(torch.jit.ScriptModule):
             scaling_stats_impl: Module,
             scaling_shape: Tuple[int, ...],
             scaling_stats_input_view_shape_impl: Module,
-            scaling_stats_permute_dims: Optional[Tuple[int, ...]],
+            scaling_stats_permute_dims: Optional[Tuple[int, ...]] = None,
             scaling_stats_momentum: float = DEFAULT_MOMENTUM,
-            scaling_min_val: Optional[float] = DEFAULT_SCALING_MIN_VAL) -> None:
+            scaling_min_val: Optional[float] = None) -> None:
         super(ParameterFromRuntimeStatsScaling, self).__init__()
         assert collect_stats_steps > 0, 'Steps should be more than 0'
         if scaling_shape != SCALAR_SHAPE and scaling_stats_permute_dims is None:

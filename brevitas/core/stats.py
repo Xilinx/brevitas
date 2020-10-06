@@ -53,7 +53,7 @@ from .utils import StatelessBuffer
 
 assert StatsOp  # prevent removal of unused import
 
-
+DEFAULT_MOMENTUM = 0.1
 DEFAULT_STD_DEV_EPSILON = 1e-8
 SCALAR_SHAPE = ()
 
@@ -286,8 +286,8 @@ class _RuntimeStats(torch.jit.ScriptModule):
             stats_impl: nn.Module,
             stats_output_shape: Tuple[int, ...],
             stats_input_view_shape_impl: nn.Module,
-            stats_permute_dims: Optional[Tuple[int, ...]],
-            stats_buffer_momentum: float) -> None:
+            stats_permute_dims: Optional[Tuple[int, ...]] = None,
+            stats_buffer_momentum: float = DEFAULT_MOMENTUM) -> None:
         super(_RuntimeStats, self).__init__()
         if stats_output_shape != SCALAR_SHAPE and stats_permute_dims is None:
             raise RuntimeError("Per channel runtime stats require a permute shape")
