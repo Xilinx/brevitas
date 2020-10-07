@@ -123,8 +123,11 @@ def _solve_bias_quant_type(qi):
     solver = partial(_solve_attr, name=name)
     qi = solver(qi, QuantType.FP, {'tensor_quant': None})
     if _check_name_value(qi, name, QuantType.INT):
-        if 'bit_width' in qi:
+        if 'bit_width' in qi and 'scaling_impl' not in qi:
             qi = qi.let(**{'tensor_quant': PrescaledRestrictIntQuant,
+                           'int_quant': IntQuant})
+        elif 'bit_width' in qi and 'scaling_impl' in qi:
+            qi = qi.let(**{'tensor_quant': RescalingIntQuant,
                            'int_quant': IntQuant})
         else:
             qi = qi.let(**{'tensor_quant': PrescaledRestrictIntQuantWithInputBitWidth,
@@ -281,6 +284,8 @@ def _solve_weight_tensor_clamp_impl(qi):
             qi = qi.let(**{impl: TensorClamp})
         elif _check_name_value(qi, 'scaling_impl_type', ScalingImplType.PARAMETER_FROM_STATS):
             qi = qi.let(**{impl: TensorClamp})
+        elif _check_name_value(qi, 'scaling_impl_type', ScalingImplType.PARAMETER):
+            qi = qi.let(**{impl: TensorClamp})
         else:
             qi = qi.let(**{impl: TensorClampSte})
     return qi
@@ -389,6 +394,12 @@ def _solve_enum_based_quant_weight_api(qi):
 
 
 def _solve_enum_based_quant_bias_api(qi):
+    qi = _solve_scaling_stats_op(qi)
+    qi = _solve_weight_scaling_impl_type(qi)
+    qi = _solve_restrict_scaling_type(qi)
+    qi = _solve_weight_scaling_shapes_dims(qi)
+    qi = _solve_weight_scaling_init_impl(qi)
+    qi = qi.let(requires_input_scale='scaling_impl' not in qi)
     qi = _solve_bias_quant_type(qi)
     qi = _solve_bias_bit_width_impl_type(qi)
     qi = _solve_tensor_quant_float_to_int_impl(qi)
@@ -452,6 +463,14 @@ def _update_from_weight_layer(qi, weight_layer):
     return qi
 
 
+def _update_from_bias_layer(qi, bias_layer):
+    per_channel_brodcast_shape = [1] * len(bias_layer.bias.size())
+    per_channel_brodcast_shape[bias_layer.output_channel_dim] = bias_layer.out_channels
+    qi = qi.let(scaling_per_output_channel_shape=tuple(per_channel_brodcast_shape))
+    qi = qi.let(scaling_stats_input_concat_dim=bias_layer.output_channel_dim)
+    return qi
+
+
 def update_weight_quant_injector(
         weight_layer: Module,
         weight_quant_injector: Injector,
@@ -469,6 +488,7 @@ def update_bias_quant_injector(
         prefix: str,
         **kwargs):
     qi = bias_quant_injector.let(**filter_kwargs(prefix, kwargs))
+    qi = _update_from_bias_layer(qi, bias_layer)
     qi = _solve_enum_based_quant_bias_api(qi)
     return qi
 

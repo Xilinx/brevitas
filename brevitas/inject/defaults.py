@@ -62,6 +62,18 @@ class FloatBias(Injector):
     signed = True
 
 
+class Int8BiasInternalFloatScaling(Injector):
+    quant_type = QuantType.INT
+    narrow_range = False
+    signed = True
+    bit_width = 8
+    bit_width_impl_type = BitWidthImplType.CONST
+    scaling_impl_type = ScalingImplType.STATS
+    scaling_stats_op = StatsOp.MAX
+    scaling_per_output_channel = False
+    restrict_scaling_type = RestrictValueType.FP
+
+
 class TruncTo8bit(Injector):
     quant_type = QuantType.INT
     bit_width_impl_type = BitWidthImplType.CONST
