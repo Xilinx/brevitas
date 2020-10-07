@@ -1,6 +1,7 @@
 from torch.nn import Module, Conv2d
 
 from brevitas.nn import QuantConv2d
+from brevitas.inject.defaults import Int8BiasInternalFloatScaling
 
 import torch
 
@@ -72,3 +73,14 @@ class TestQuantConv2d:
         out_float = float_mod(inp)
         out_quant = quant_mod(inp)
         assert out_float.isclose(out_quant).all().item()
+
+    def test_internally_scaled_int_bias(self):
+        mod = QuantConv2d(
+            out_channels=OUTPUT_CHANNELS,
+            in_channels=INPUT_CHANNELS,
+            kernel_size=KERNEL_SIZE,
+            weight_quant_delay_steps=1,
+            bias=True,
+            bias_quant=Int8BiasInternalFloatScaling)
+        inp = torch.randn(1, INPUT_CHANNELS, 20, 20)
+        mod(inp)

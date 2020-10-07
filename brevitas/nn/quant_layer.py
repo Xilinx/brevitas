@@ -327,7 +327,7 @@ class QuantWeightBiasInputOutputLayer(
             output_tensor = self.inner_forward_impl(
                 quant_input.value, quant_weight.value, quant_bias.value)
 
-            if quant_bias.bit_width is not None:
+            if quant_bias.bit_width is not None and output_bit_width is not None:
                 output_bit_width = torch.where(
                     quant_bias.bit_width > output_bit_width, quant_bias.bit_width, output_bit_width)
                 output_bit_width = output_bit_width + 1
