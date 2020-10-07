@@ -365,6 +365,9 @@ def _solve_act_scaling_init_impl(qi):
     qi = qi & EvaluateScalingInitImpl
     p = _check_name_value(qi, name, ScalingImplType.PARAMETER)
     c = _check_name_value(qi, name, ScalingImplType.CONST)
+    signed = _check_name_value(qi, 'signed', True)
+    if not signed:
+        qi = qi.let(min_val=0)
     if p or c:
         qi = qi.let(scaling_init_impl=MinMaxScalingInit)
     return qi
