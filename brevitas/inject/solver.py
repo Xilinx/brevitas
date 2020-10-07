@@ -399,6 +399,7 @@ def _solve_enum_based_quant_bias_api(qi):
     qi = _solve_restrict_scaling_type(qi)
     qi = _solve_weight_scaling_shapes_dims(qi)
     qi = _solve_weight_scaling_init_impl(qi)
+    qi = _solve_restrict_value_float_to_int_impl(qi)
     qi = qi.let(requires_input_scale='scaling_impl' not in qi)
     qi = _solve_bias_quant_type(qi)
     qi = _solve_bias_bit_width_impl_type(qi)
