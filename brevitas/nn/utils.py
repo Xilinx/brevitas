@@ -71,6 +71,8 @@ def merge_bn(layer, bn, output_channel_dim=0):
         layer.bias.data.add_(add_factor.view(out_ch_bias_shape))
     else:
         layer.bias = Parameter(add_factor)
+        if hasattr(layer, 'bias_quant') and layer.bias_quant is not None:
+            layer.bias_quant.add_tracked_parameter(layer.bias)
 
 
 def rename_state_dict_by_prefix(old_prefix, new_prefix, state_dict):

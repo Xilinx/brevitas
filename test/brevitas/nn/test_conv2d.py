@@ -1,7 +1,8 @@
-from torch.nn import Module, Conv2d
+from torch.nn import Module, Conv2d, BatchNorm2d
 
 from brevitas.nn import QuantConv2d
 from brevitas.inject.defaults import Int8BiasInternalFloatScaling
+from brevitas.nn.utils import merge_bn
 
 import torch
 
@@ -82,5 +83,18 @@ class TestQuantConv2d:
             weight_quant_delay_steps=1,
             bias=True,
             bias_quant=Int8BiasInternalFloatScaling)
+        inp = torch.randn(1, INPUT_CHANNELS, 20, 20)
+        mod(inp)
+
+    def test_internally_scaled_int_bias_after_bn_merge(self):
+        mod = QuantConv2d(
+            out_channels=OUTPUT_CHANNELS,
+            in_channels=INPUT_CHANNELS,
+            kernel_size=KERNEL_SIZE,
+            weight_quant_delay_steps=1,
+            bias=False,
+            bias_quant=Int8BiasInternalFloatScaling)
+        bn = BatchNorm2d(OUTPUT_CHANNELS)
+        merge_bn(mod, bn)
         inp = torch.randn(1, INPUT_CHANNELS, 20, 20)
         mod(inp)

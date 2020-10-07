@@ -99,7 +99,7 @@ class ParameterQuantProxyFromInjector(QuantProxyFromInjector, ParameterQuantProx
         return self.tensor_quant is not None
 
     def init_tensor_quant(self):
-        if self.tracked_parameter_list is not None:
+        if self.tracked_parameter_list is not None and self.tracked_parameter_list:
             self.quant_injector = self.quant_injector.let(
                 tracked_parameter_list=self.tracked_parameter_list)
             self.tensor_quant = self.quant_injector.tensor_quant
