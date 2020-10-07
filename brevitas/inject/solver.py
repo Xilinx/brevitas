@@ -464,8 +464,7 @@ def _update_from_weight_layer(qi, weight_layer):
 
 
 def _update_from_bias_layer(qi, bias_layer):
-    per_channel_brodcast_shape = [1] * len(bias_layer.bias.size())
-    per_channel_brodcast_shape[bias_layer.output_channel_dim] = bias_layer.out_channels
+    per_channel_brodcast_shape = (bias_layer.out_channels,)
     qi = qi.let(scaling_per_output_channel_shape=tuple(per_channel_brodcast_shape))
     qi = qi.let(scaling_stats_input_concat_dim=bias_layer.output_channel_dim)
     return qi
