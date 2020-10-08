@@ -258,28 +258,34 @@ class ParameterFromRuntimeStatsScaling(torch.jit.ScriptModule):
         self.stats_input_view_shape_impl = scaling_stats_input_view_shape_impl
         self.stats = _Stats(scaling_stats_impl, scaling_shape)
         self.momentum = scaling_stats_momentum
-        self.value = Parameter(torch.full(scaling_shape, 1.0))
+        self.buffer = StatelessBuffer(torch.full(scaling_shape, 1.0))
+        self.value = Parameter(torch.full(scaling_shape, 0.0))
         self.restrict_clamp_scaling = _RestrictClampValue(scaling_min_val, restrict_scaling_impl)
         self.restrict_preprocess = restrict_scaling_impl.restrict_init_module()
 
     @script_method_110_disabled
     def forward(self, stats_input) -> torch.Tensor:
-        out = self.value
         if self.training:
             if self.counter < self.collect_stats_steps:
                 if self.stats_permute_dims is not None:
                     stats_input = stats_input.permute(*self.stats_permute_dims).contiguous()
                 stats_input = self.stats_input_view_shape_impl(stats_input)
                 stats = self.stats(stats_input)
-                stats = self.restrict_preprocess(stats)
                 if self.counter == 0:
-                    self.value.detach().mul_(stats.detach())
+                    self.buffer().mul_(stats.detach())
                 else:
-                    self.value.detach().mul_(1 - self.momentum)
-                    self.value.detach().add_(self.momentum * stats.detach())
-                out = stats
+                    self.buffer().mul_(1 - self.momentum)
+                    self.buffer().add_(self.momentum * stats.detach())
                 self.counter = self.counter + 1
-        out = self.restrict_clamp_scaling(out)
+                return stats
+            elif self.counter == self.collect_stats_steps:
+                init_value = self.restrict_preprocess(self.buffer())
+                self.value.detach().add_(init_value)
+                self.counter = self.counter + 1
+                return self.restrict_clamp_scaling(torch.abs(self.value))
+            else:
+                return self.restrict_clamp_scaling(torch.abs(self.value))
+        out = self.restrict_clamp_scaling(torch.abs(self.value))
         return out
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
