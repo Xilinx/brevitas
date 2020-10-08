@@ -1,5 +1,5 @@
 import inspect
-from mock import patch
+from unittest.mock import patch
 from packaging import version
 
 try:
