@@ -258,10 +258,9 @@ class ParameterFromRuntimeStatsScaling(torch.jit.ScriptModule):
         self.stats_input_view_shape_impl = scaling_stats_input_view_shape_impl
         self.stats = _Stats(scaling_stats_impl, scaling_shape)
         self.momentum = scaling_stats_momentum
-        self.buffer = StatelessBuffer(torch.full(scaling_shape, 1.0))
         self.value = Parameter(torch.full(scaling_shape, 0.0))
         self.restrict_clamp_scaling = _RestrictClampValue(scaling_min_val, restrict_scaling_impl)
-        self.restrict_preprocess = restrict_scaling_impl.restrict_init_module()
+        self.restrict_inplace_preprocess = restrict_scaling_impl.restrict_init_inplace_module()
 
     @script_method_110_disabled
     def forward(self, stats_input) -> torch.Tensor:
@@ -272,15 +271,14 @@ class ParameterFromRuntimeStatsScaling(torch.jit.ScriptModule):
                 stats_input = self.stats_input_view_shape_impl(stats_input)
                 stats = self.stats(stats_input)
                 if self.counter == 0:
-                    self.buffer().mul_(stats.detach())
+                    self.value.detach().mul_(stats.detach())
                 else:
-                    self.buffer().mul_(1 - self.momentum)
-                    self.buffer().add_(self.momentum * stats.detach())
+                    self.value.detach().mul_(1 - self.momentum)
+                    self.value.detach().add_(self.momentum * stats.detach())
                 self.counter = self.counter + 1
                 return stats
             elif self.counter == self.collect_stats_steps:
-                init_value = self.restrict_preprocess(self.buffer())
-                self.value.detach().add_(init_value)
+                self.restrict_inplace_preprocess(self.value.detach())
                 self.counter = self.counter + 1
                 return self.restrict_clamp_scaling(torch.abs(self.value))
             else:
