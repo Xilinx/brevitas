@@ -47,7 +47,7 @@ from torch.nn import Module
 
 from brevitas.inject.enum import RestrictValueType, FloatToIntImplType  # retrocompatibility
 
-from .function_wrapper import Identity, PowerOfTwo, LogTwo, ClampMinSte
+from .function_wrapper import Identity, PowerOfTwo, LogTwo, InplaceLogTwo, ClampMinSte
 
 assert RestrictValueType  # prevent removal of unused import
 assert FloatToIntImplType
@@ -80,7 +80,7 @@ class FloatRestrictValue(torch.jit.ScriptModule):
     def restrict_init_tensor(self, x: Tensor) -> Tensor:
         return x
 
-    def restrict_init_module(self) -> Module:
+    def restrict_init_inplace_module(self):
         return Identity()
 
     @torch.jit.script_method
@@ -103,6 +103,9 @@ class LogFloatRestrictValue(torch.jit.ScriptModule):
     def restrict_init_module(self):
         return LogTwo()
 
+    def restrict_init_inplace_module(self):
+        return InplaceLogTwo()
+
     @torch.jit.script_method
     def forward(self, x: torch.Tensor):
         x = self.power_of_two(x)
@@ -122,6 +125,9 @@ class IntRestrictValue(torch.jit.ScriptModule):
         return x
 
     def restrict_init_module(self):
+        return Identity()
+
+    def restrict_init_inplace_module(self):
         return Identity()
 
     @torch.jit.script_method
@@ -145,6 +151,9 @@ class PowerOfTwoRestrictValue(torch.jit.ScriptModule):
 
     def restrict_init_module(self):
         return LogTwo()
+
+    def restrict_init_inplace_module(self):
+        return InplaceLogTwo()
 
     @torch.jit.script_method
     def forward(self, x: torch.Tensor):

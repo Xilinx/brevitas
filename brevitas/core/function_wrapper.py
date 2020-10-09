@@ -106,6 +106,15 @@ class LogTwo(torch.jit.ScriptModule):
         return torch.log2(x)
 
 
+class InplaceLogTwo(torch.jit.ScriptModule):
+    def __init__(self) -> None:
+        super(InplaceLogTwo, self).__init__()
+
+    @torch.jit.script_method
+    def forward(self, x: torch.Tensor):
+        return x.log2_()
+
+
 class TensorClampSte(torch.jit.ScriptModule):
     def __init__(self) -> None:
         super(TensorClampSte, self).__init__()
