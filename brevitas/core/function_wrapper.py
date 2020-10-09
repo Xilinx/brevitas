@@ -38,102 +38,104 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+import brevitas
+import torch
 from brevitas.function.ops_ste import round_ste, tensor_clamp_ste, ceil_ste, floor_ste, round_to_zero_ste
 from brevitas.function.shape import *
 from brevitas.function import tensor_clamp, identity
 
 
-class Identity(torch.jit.ScriptModule):
+class Identity(brevitas.jit.ScriptModule):
     def __init__(self) -> None:
         super(Identity, self).__init__()
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
         return identity(x)
 
 
-class RoundSte(torch.jit.ScriptModule):
+class RoundSte(brevitas.jit.ScriptModule):
     def __init__(self) -> None:
         super(RoundSte, self).__init__()
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
         return round_ste(x)
 
 
-class FloorSte(torch.jit.ScriptModule):
+class FloorSte(brevitas.jit.ScriptModule):
     def __init__(self) -> None:
         super(FloorSte, self).__init__()
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
         return floor_ste(x)
 
 
-class RoundToZeroSte(torch.jit.ScriptModule):
+class RoundToZeroSte(brevitas.jit.ScriptModule):
     def __init__(self) -> None:
         super(RoundToZeroSte, self).__init__()
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
         return round_to_zero_ste(x)
 
 
-class CeilSte(torch.jit.ScriptModule):
+class CeilSte(brevitas.jit.ScriptModule):
     def __init__(self) -> None:
         super(CeilSte, self).__init__()
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
         return ceil_ste(x)
 
 
-class PowerOfTwo(torch.jit.ScriptModule):
+class PowerOfTwo(brevitas.jit.ScriptModule):
     def __init__(self) -> None:
         super(PowerOfTwo, self).__init__()
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
         return 2.0 ** x
 
 
-class LogTwo(torch.jit.ScriptModule):
+class LogTwo(brevitas.jit.ScriptModule):
     def __init__(self) -> None:
         super(LogTwo, self).__init__()
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
         return torch.log2(x)
 
 
-class InplaceLogTwo(torch.jit.ScriptModule):
+class InplaceLogTwo(brevitas.jit.ScriptModule):
     def __init__(self) -> None:
         super(InplaceLogTwo, self).__init__()
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
         return x.log2_()
 
 
-class TensorClampSte(torch.jit.ScriptModule):
+class TensorClampSte(brevitas.jit.ScriptModule):
     def __init__(self) -> None:
         super(TensorClampSte, self).__init__()
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor):
         return tensor_clamp_ste(x, min_val, max_val)
 
 
-class TensorClamp(torch.jit.ScriptModule):
+class TensorClamp(brevitas.jit.ScriptModule):
     def __init__(self) -> None:
         super(TensorClamp, self).__init__()
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor):
         return tensor_clamp(x, min_val=min_val, max_val=max_val)
 
 
-class ConstScalarClamp(torch.jit.ScriptModule):
+class ConstScalarClamp(brevitas.jit.ScriptModule):
     __constants__ = ['min_val', 'max_val']
 
     def __init__(self, min_val, max_val) -> None:
@@ -141,90 +143,90 @@ class ConstScalarClamp(torch.jit.ScriptModule):
         self.min_val = min_val
         self.max_val = max_val
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
         return torch.clamp(x, min=self.min_val, max=self.max_val)
 
 
-class ClampMin(torch.jit.ScriptModule):
+class ClampMin(brevitas.jit.ScriptModule):
     __constants__ = ['min_val']
 
     def __init__(self, min_val: float) -> None:
         super(ClampMin, self).__init__()
         self.min_val = min_val
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
         return x.clamp_min(self.min_val)
 
 
-class ClampMinSte(torch.jit.ScriptModule):
+class ClampMinSte(brevitas.jit.ScriptModule):
     __constants__ = ['min_val']
 
     def __init__(self, min_val: float) -> None:
         super(ClampMinSte, self).__init__()
         self.min_val = min_val
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
         return x.clamp_min(self.min_val)
 
 
-class OverTensorView(torch.jit.ScriptModule):
+class OverTensorView(brevitas.jit.ScriptModule):
 
     def __init__(self) -> None:
         super(OverTensorView, self).__init__()
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def shape(self, x: torch.Tensor):
         return over_tensor(x)
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
         shape = self.shape(x)
         return x.view(shape)
 
 
-class OverOutputChannelView(torch.jit.ScriptModule):
+class OverOutputChannelView(brevitas.jit.ScriptModule):
 
     def __init__(self) -> None:
         super(OverOutputChannelView, self).__init__()
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def shape(self, x: torch.Tensor):
         return over_output_channels(x)
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
         shape = self.shape(x)
         return x.view(shape)
 
 
-class OverBatchOverTensorView(torch.jit.ScriptModule):
+class OverBatchOverTensorView(brevitas.jit.ScriptModule):
 
     def __init__(self) -> None:
         super(OverBatchOverTensorView, self).__init__()
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def shape(self, x: torch.Tensor):
         return over_batch_over_tensor(x)
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
         shape = self.shape(x)
         return x.view(shape)
 
 
-class OverBatchOverOutputChannelView(torch.jit.ScriptModule):
+class OverBatchOverOutputChannelView(brevitas.jit.ScriptModule):
 
     def __init__(self) -> None:
         super(OverBatchOverOutputChannelView, self).__init__()
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def shape(self, x: torch.Tensor):
         return over_batch_over_output_channels(x)
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
         shape = self.shape(x)
         return x.view(shape)

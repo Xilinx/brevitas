@@ -41,8 +41,10 @@
 import math
 from typing import Tuple, List, Optional
 
+import torch
 from torch import nn
 
+import brevitas
 import brevitas.config as config
 from brevitas.function.shape import *
 from brevitas.core.function_wrapper import OverOutputChannelView, OverBatchOverTensorView
@@ -65,7 +67,7 @@ class StatsInputViewShapeImpl(object):
     OVER_BATCH_OVER_OUTPUT_CHANNELS = OverBatchOverOutputChannelView
 
 
-class _ViewParameterWrapper(torch.jit.ScriptModule):
+class _ViewParameterWrapper(brevitas.jit.ScriptModule):
     __constants__ = ['shape']
 
     def __init__(self, parameter: nn.Parameter, view_shape_impl: nn.Module):
@@ -73,7 +75,7 @@ class _ViewParameterWrapper(torch.jit.ScriptModule):
         self.parameter = parameter
         self.shape = view_shape_impl.shape(parameter)
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self):
         return self.parameter.view(self.shape)
 
@@ -91,7 +93,7 @@ class _ViewParameterWrapper(torch.jit.ScriptModule):
         return output_dict
 
 
-class _ViewCatParameterWrapper(torch.jit.ScriptModule):
+class _ViewCatParameterWrapper(brevitas.jit.ScriptModule):
     __constants__ = ['shape', 'cat_dim']
 
     def __init__(self, parameter: nn.Parameter, view_shape_impl: nn.Module, cat_dim: int):
@@ -100,7 +102,7 @@ class _ViewCatParameterWrapper(torch.jit.ScriptModule):
         self.shape = view_shape_impl.shape(parameter)
         self.cat_dim = cat_dim
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
         return torch.cat([self.parameter.view(self.shape), x], dim=self.cat_dim)
 
@@ -118,7 +120,7 @@ class _ViewCatParameterWrapper(torch.jit.ScriptModule):
         return output_dict
 
 
-class AbsPercentile(torch.jit.ScriptModule):
+class AbsPercentile(brevitas.jit.ScriptModule):
     __constants__ = ['q', 'stats_reduce_dim']
 
     def __init__(self, percentile_q: float, stats_reduce_dim: Optional[int]):
@@ -127,6 +129,7 @@ class AbsPercentile(torch.jit.ScriptModule):
         self.q = percentile_q
         self.stats_reduce_dim = stats_reduce_dim
 
+    @brevitas.jit.script_method
     def forward(self, x):
         if self.stats_reduce_dim is None:
             # k is 1-indexed, so round away from zero
@@ -142,14 +145,14 @@ class AbsPercentile(torch.jit.ScriptModule):
         return result
 
 
-class AbsMax(torch.jit.ScriptModule):
+class AbsMax(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim']
 
     def __init__(self, stats_reduce_dim: Optional[int]) -> None:
         super(AbsMax, self).__init__()
         self.stats_reduce_dim = stats_reduce_dim
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
         if self.stats_reduce_dim is None:
             return torch.max(torch.abs(x))
@@ -157,26 +160,26 @@ class AbsMax(torch.jit.ScriptModule):
             return torch.max(torch.abs(x), dim=self.stats_reduce_dim)[0]
 
 
-class AbsMaxAve(torch.jit.ScriptModule):
+class AbsMaxAve(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim']
 
     def __init__(self, stats_reduce_dim: Optional[int]) -> None:
         super(AbsMaxAve, self).__init__()
         self.stats_reduce_dim = stats_reduce_dim
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
         return torch.mean(torch.max(torch.abs(x), dim=self.stats_reduce_dim)[0])
 
 
-class AbsAve(torch.jit.ScriptModule):
+class AbsAve(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim']
 
     def __init__(self, stats_reduce_dim: Optional[int]) -> None:
         super(AbsAve, self).__init__()
         self.stats_reduce_dim = stats_reduce_dim
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
         if self.stats_reduce_dim is None:
             return torch.mean(torch.abs(x))
@@ -184,7 +187,7 @@ class AbsAve(torch.jit.ScriptModule):
             return torch.mean(torch.abs(x), dim=self.stats_reduce_dim)
 
 
-class MeanSigmaStd(torch.jit.ScriptModule):
+class MeanSigmaStd(brevitas.jit.ScriptModule):
 
     def __init__(
             self,
@@ -195,14 +198,14 @@ class MeanSigmaStd(torch.jit.ScriptModule):
         self.impl = _MeanSigmaStdImpl(stats_reduce_dim, std_dev_epsilon)
         self.sigma = StatelessBuffer(torch.tensor(sigma))
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
         sigma = self.sigma.view(self.sigma.shape)  # trick to get a tensor type
         out = self.impl(x, sigma)
         return out
 
 
-class _MeanSigmaStdImpl(torch.jit.ScriptModule):
+class _MeanSigmaStdImpl(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim', 'output_shape', 'epsilon']
 
     def __init__(
@@ -213,7 +216,7 @@ class _MeanSigmaStdImpl(torch.jit.ScriptModule):
         self.stats_reduce_dim = stats_reduce_dim
         self.epsilon = std_dev_epsilon
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, x: torch.Tensor, sigma: torch.Tensor):
         abs_val = torch.abs(x)
         if self.stats_reduce_dim is None:
@@ -227,7 +230,7 @@ class _MeanSigmaStdImpl(torch.jit.ScriptModule):
         return mean_val + sigma * std_val
 
 
-class MeanLearnedSigmaStd(torch.jit.ScriptModule):
+class MeanLearnedSigmaStd(brevitas.jit.ScriptModule):
 
     def __init__(
             self,
@@ -239,7 +242,7 @@ class MeanLearnedSigmaStd(torch.jit.ScriptModule):
         self.impl = _MeanSigmaStdImpl(stats_reduce_dim, stats_output_shape, std_dev_epsilon)
         self.sigma = nn.Parameter(sigma)
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
         sigma = self.sigma.view(self.sigma.shape)  # trick to get a tensor type
         out = self.impl(x, sigma)
@@ -258,7 +261,7 @@ class MeanLearnedSigmaStd(torch.jit.ScriptModule):
             missing_keys.remove(sigma_key)
 
 
-class _Stats(torch.jit.ScriptModule):
+class _Stats(brevitas.jit.ScriptModule):
     __constants__ = ['stats_output_shape']
 
     def __init__(
@@ -269,14 +272,14 @@ class _Stats(torch.jit.ScriptModule):
         self.stats_output_shape = stats_output_shape
         self.stats_impl = stats_impl
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, input) -> torch.Tensor:
         stats = self.stats_impl(input)
         stats = stats.view(self.stats_output_shape)
         return stats
 
 
-class _RuntimeStats(torch.jit.ScriptModule):
+class _RuntimeStats(brevitas.jit.ScriptModule):
     __constants__ = ['stats_input_concat_dim',
                      'stats_permute_dims',
                      'momentum']
@@ -291,14 +294,14 @@ class _RuntimeStats(torch.jit.ScriptModule):
         super(_RuntimeStats, self).__init__()
         if stats_output_shape != SCALAR_SHAPE and stats_permute_dims is None:
             raise RuntimeError("Per channel runtime stats require a permute shape")
-        self.first_batch = torch.jit.Attribute(True, bool)
+        self.first_batch = brevitas.jit.Attribute(True, bool)
         self.stats_permute_dims = stats_permute_dims
         self.stats_input_view_shape_impl = stats_input_view_shape_impl
         self.stats = _Stats(stats_impl, stats_output_shape)
         self.momentum = stats_buffer_momentum
         self.register_buffer('running_stats', torch.full(stats_output_shape, 1.0))
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method_110_disabled
     def forward(self, stats_input) -> torch.Tensor:
         if self.training:
             if self.stats_permute_dims is not None:
@@ -328,7 +331,7 @@ class _RuntimeStats(torch.jit.ScriptModule):
             missing_keys.remove(training_key)
 
 
-class _ParameterListStats(torch.jit.ScriptModule):
+class _ParameterListStats(brevitas.jit.ScriptModule):
     __constants__ = ['stats_input_concat_dim',
                      'extra_tracked_params_list']
 
@@ -353,7 +356,7 @@ class _ParameterListStats(torch.jit.ScriptModule):
             self.extra_tracked_params_list = None
         self.stats = _Stats(stats_impl, stats_output_shape)
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self) -> torch.Tensor:
         stats_input = self.first_tracked_param()
         if self.extra_tracked_params_list is not None:

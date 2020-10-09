@@ -1,15 +1,17 @@
 import torch
 
+import brevitas
 
 VALUE_ATTR_NAME = 'value'
 
 
-class StatelessBuffer(torch.jit.ScriptModule):
+class StatelessBuffer(brevitas.jit.ScriptModule):
 
     def __init__(self, value: torch.Tensor):
         super(StatelessBuffer, self).__init__()
         self.register_buffer(VALUE_ATTR_NAME, value)
-
+    
+    @brevitas.jit.script_method
     def forward(self):
         return self.value.detach()
 
