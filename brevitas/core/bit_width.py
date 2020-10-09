@@ -44,8 +44,8 @@ import torch
 from torch import Tensor
 from torch.nn import Parameter, Module
 
+import brevitas
 import brevitas.config as config
-from brevitas.function.ops import tensor_clamp
 from brevitas.function.ops_ste import tensor_clamp_ste
 from brevitas.inject.enum import BitWidthImplType  # retrocompatibility
 from .utils import StatelessBuffer
@@ -58,26 +58,26 @@ NON_ZERO_EPSILON = 1e-6
 REMOVE_ZERO_BIT_WIDTH = 0.1
 
 
-class IdentityBitWidth(torch.jit.ScriptModule):
+class IdentityBitWidth(brevitas.jit.ScriptModule):
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, x: Tensor) -> Tensor:
         return x
 
 
-class BitWidthConst(torch.jit.ScriptModule):
+class BitWidthConst(brevitas.jit.ScriptModule):
 
     def __init__(self, bit_width: int) -> None:
         super(BitWidthConst, self).__init__()
         assert isinstance(bit_width, int)
         self.bit_width = StatelessBuffer(torch.tensor(float(bit_width)))
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self) -> Tensor:
         return self.bit_width()
 
 
-class BitWidthParameter(torch.jit.ScriptModule):
+class BitWidthParameter(brevitas.jit.ScriptModule):
     __constants__ = ['bit_width_base', 'override_pretrained']
 
     def __init__(
@@ -102,7 +102,7 @@ class BitWidthParameter(torch.jit.ScriptModule):
         self.override_pretrained = override_pretrained_bit_width
         self.restrict_bit_width_impl = restrict_bit_width_impl
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self) -> Tensor:
         bit_width = torch.abs(self.bit_width_offset) + self.bit_width_base
         bit_width = self.restrict_bit_width_impl(bit_width)
@@ -119,7 +119,7 @@ class BitWidthParameter(torch.jit.ScriptModule):
             missing_keys.remove(bit_width_offset_key)
 
 
-class RemoveBitwidthParameter(torch.jit.ScriptModule):
+class RemoveBitwidthParameter(brevitas.jit.ScriptModule):
     __constants__ = ['non_zero_epsilon', 'override_pretrained']
 
     def __init__(
@@ -140,7 +140,7 @@ class RemoveBitwidthParameter(torch.jit.ScriptModule):
         self.non_zero_epsilon = non_zero_epsilon
         self.override_pretrained = override_pretrained_bit_width
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self) -> Tensor:
         bit_width_to_remove = 1.0 / (self.non_zero_epsilon + torch.abs(self.bit_width_coeff))
         return bit_width_to_remove
@@ -156,7 +156,7 @@ class RemoveBitwidthParameter(torch.jit.ScriptModule):
             missing_keys.remove(bit_width_coeff_key)
 
 
-class MsbClampBitWidth(torch.jit.ScriptModule):
+class MsbClampBitWidth(brevitas.jit.ScriptModule):
 
     def __init__(
             self,
@@ -169,7 +169,7 @@ class MsbClampBitWidth(torch.jit.ScriptModule):
         self.max_overall_bit_width = BitWidthConst(max_overall_bit_width)
         self.bit_width_to_remove_impl = bit_width_to_remove_impl
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, input_bit_width: Tensor) -> Tensor:
         bit_width_to_remove = self.bit_width_to_remove_impl()
         output_bit_width = torch.abs(input_bit_width - bit_width_to_remove)

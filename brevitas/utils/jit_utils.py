@@ -1,6 +1,5 @@
 import inspect
 from unittest.mock import patch
-from packaging import version
 
 try:
     from torch._jit_internal import get_torchscript_modifier
@@ -9,10 +8,9 @@ except:
 
 from torch.jit import script_method
 import torch
-from torch.version import __version__
-from brevitas.inject import BaseInjector as Injector
 
-IS_ABOVE_110 = version.parse(__version__) > version.parse('1.1.0')
+from brevitas.inject import BaseInjector as Injector
+from brevitas.jit import IS_ABOVE_110
 
 
 def _get_modifier_wrapper(fn):
@@ -30,8 +28,3 @@ def jit_trace_patched(*args, **kwargs):
         return torch.jit.trace(*args, **kwargs)
 
 
-def script_method_110_disabled(fn):
-    if not IS_ABOVE_110:
-        return fn
-    else:
-        return script_method(fn)

@@ -40,7 +40,10 @@
 
 import torch
 
-@torch.jit.script
+import brevitas
+
+
+@brevitas.jit.script
 def tensor_clamp(x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor) -> torch.Tensor:
     """
 
@@ -63,14 +66,14 @@ def tensor_clamp(x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor) 
     return out
 
 
-@torch.jit.script
+@brevitas.jit.script
 def tensor_clamp_(x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor) -> torch.Tensor:
     torch.min(x, max_val, out=x)
     torch.max(x, min_val, out=x)
     return x
 
 
-@torch.jit.script
+@brevitas.jit.script
 def identity(x: torch.Tensor) -> torch.Tensor:
     """ Identity function
 
@@ -88,7 +91,7 @@ def identity(x: torch.Tensor) -> torch.Tensor:
     return x
 
 
-@torch.jit.script
+@brevitas.jit.script
 def max_uint(narrow_range: bool, bit_width: torch.Tensor) -> torch.Tensor:
     """ Compute the maximum unsigned integer representable
 
@@ -115,7 +118,7 @@ def max_uint(narrow_range: bool, bit_width: torch.Tensor) -> torch.Tensor:
     return value
 
 
-@torch.jit.script
+@brevitas.jit.script
 def max_int(signed: bool, bit_width: torch.Tensor) -> torch.Tensor:
     """ Compute the maximum integer representable
 
@@ -142,7 +145,7 @@ def max_int(signed: bool, bit_width: torch.Tensor) -> torch.Tensor:
     return value
 
 
-@torch.jit.script
+@brevitas.jit.script
 def min_int(signed: bool, narrow_range: bool, bit_width: torch.Tensor) -> torch.Tensor:
     """ Compute the minimum integer representable
 

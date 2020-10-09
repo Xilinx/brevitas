@@ -45,7 +45,7 @@ import torch
 from torch import Tensor
 from torch.nn import Identity, Module
 
-
+import brevitas
 from brevitas.inject import BaseInjector as Injector
 from brevitas.quant_tensor import QuantTensor
 
@@ -66,14 +66,14 @@ class AccQuantProxyProtocol(QuantProxyProtocol, Protocol):
         ...
 
 
-class FusedActivationQuantProxy(torch.jit.ScriptModule):
+class FusedActivationQuantProxy(brevitas.jit.ScriptModule):
 
     def __init__(self, activation_impl, tensor_quant):
         super(FusedActivationQuantProxy, self).__init__()
         self.activation_impl = activation_impl
         self.tensor_quant = tensor_quant
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, x):
         x = self.activation_impl(x)
         x, output_scale, output_bit_width = self.tensor_quant(x)

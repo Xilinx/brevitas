@@ -44,10 +44,10 @@ import torch
 from torch import Tensor
 from torch.nn import Module
 
+import brevitas
 from brevitas.inject.enum import QuantType  # retrocompatbility
 from brevitas.function.ops import tensor_clamp, min_int, max_int, max_uint
 from brevitas.function.ops_ste import round_ste, binary_sign_ste, ternary_sign_ste
-from brevitas.utils.jit_utils import script_method_110_disabled
 
 from .bit_width import BitWidthConst
 from .utils import StatelessBuffer
@@ -55,20 +55,20 @@ from .utils import StatelessBuffer
 assert QuantType  # prevent removal of unused import
 
 
-class _NoDelay(torch.jit.ScriptModule):
+class _NoDelay(brevitas.jit.ScriptModule):
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, x: Tensor, y: Tensor) -> Tensor:
         return y
 
 
-class _DelayQuant(torch.jit.ScriptModule):
+class _DelayQuant(brevitas.jit.ScriptModule):
 
     def __init__(self, quant_delay_steps):
         super(_DelayQuant, self).__init__()
-        self.quant_delay_steps: int = torch.jit.Attribute(quant_delay_steps, int)
+        self.quant_delay_steps: int = brevitas.jit.Attribute(quant_delay_steps, int)
 
-    @script_method_110_disabled
+    @brevitas.jit.script_method_110_disabled
     def forward(self, x: Tensor, y: Tensor) -> Tensor:
         if self.training and self.quant_delay_steps > 0:
             self.quant_delay_steps = self.quant_delay_steps - 1
@@ -86,7 +86,7 @@ class _DelayQuant(torch.jit.ScriptModule):
             missing_keys.remove(training_key)
 
 
-class DelayWrapper(torch.jit.ScriptModule):
+class DelayWrapper(brevitas.jit.ScriptModule):
 
     def __init__(self, quant_delay_steps: Optional[int]):
         super(DelayWrapper, self).__init__()
@@ -95,11 +95,12 @@ class DelayWrapper(torch.jit.ScriptModule):
         else:
             self.delay_impl = _DelayQuant(quant_delay_steps)
 
+    @brevitas.jit.script_method
     def forward(self, x: Tensor, y: Tensor) -> Tensor:
         return self.delay_impl(x, y)
 
 
-class IdentityQuant(torch.jit.ScriptModule):
+class IdentityQuant(brevitas.jit.ScriptModule):
     """ Placeholder Class that returns the input without performing any operation. The scale and bit_width output
     arguments are set to -1.
     """
@@ -107,12 +108,12 @@ class IdentityQuant(torch.jit.ScriptModule):
         super(IdentityQuant, self).__init__()
         self.minus_one = StatelessBuffer(torch.tensor(-1))
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
         return x, self.minus_one(), self.minus_one()
 
 
-class BinaryQuant(torch.jit.ScriptModule):
+class BinaryQuant(brevitas.jit.ScriptModule):
     """ Class that implement the binary quantization of the input tensor, which is then converted to its floating point
     representation according to the scale factor.
 
@@ -158,7 +159,7 @@ class BinaryQuant(torch.jit.ScriptModule):
         self.bit_width = BitWidthConst(1)
         self.delay_wrapper = DelayWrapper(quant_delay_steps)
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
         scale = self.scaling_impl(x)
         y = binary_sign_ste(x) * scale
@@ -166,7 +167,7 @@ class BinaryQuant(torch.jit.ScriptModule):
         return y, scale, self.bit_width()
 
 
-class ClampedBinaryQuant(torch.jit.ScriptModule):
+class ClampedBinaryQuant(brevitas.jit.ScriptModule):
     """ Class that implement the binary quantization of the input tensor, which is then converted to its floating point
     representation according to the scale factor.
 
@@ -214,7 +215,7 @@ class ClampedBinaryQuant(torch.jit.ScriptModule):
         self.bit_width = BitWidthConst(1)
         self.delay_wrapper = DelayWrapper(quant_delay_steps)
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
         scale = self.scaling_impl(x)
         y = tensor_clamp(x, - scale, scale)
@@ -223,7 +224,7 @@ class ClampedBinaryQuant(torch.jit.ScriptModule):
         return y, scale, self.bit_width()
 
 
-class TernaryQuant(torch.jit.ScriptModule):
+class TernaryQuant(brevitas.jit.ScriptModule):
     """ Class that implement the ternary quantization of the input tensor, which is then converted to its floating point
     representation according to the scale factor.
 
@@ -279,7 +280,7 @@ class TernaryQuant(torch.jit.ScriptModule):
         self.bit_width = BitWidthConst(2)
         self.delay_wrapper = DelayWrapper(quant_delay_steps)
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
         scale = self.scaling_impl(x)
         mask = x.abs().ge(self.threshold * scale)
@@ -289,7 +290,7 @@ class TernaryQuant(torch.jit.ScriptModule):
         return y, scale, self.bit_width()
 
 
-class IntQuant(torch.jit.ScriptModule):
+class IntQuant(brevitas.jit.ScriptModule):
     """ Class that implement the quantization of the input tensor, which is then converted to its floating point
     representation according to the scale factor (i.e. scale/int_scale).
 
@@ -404,6 +405,7 @@ class IntQuant(torch.jit.ScriptModule):
         self.narrow_range = narrow_range
         self.delay_wrapper = DelayWrapper(quant_delay_steps)
 
+    @brevitas.jit.script_method_110_disabled
     def to_int(self,
                scale: Tensor,
                int_scale: Tensor,
@@ -417,19 +419,19 @@ class IntQuant(torch.jit.ScriptModule):
         y = self.float_to_int_impl(y)
         return y
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def min_int(self, bit_width):
         return min_int(self.signed, self.narrow_range, bit_width)
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def max_int(self, bit_width):
         return max_int(self.signed, bit_width)
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def max_uint(self, bit_width):
         return max_uint(self.narrow_range, bit_width)
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self,
                 scale: Tensor,
                 int_scale: Tensor,
@@ -442,7 +444,7 @@ class IntQuant(torch.jit.ScriptModule):
         return y
 
 
-class PrescaledRestrictIntQuantWithInputBitWidth(torch.jit.ScriptModule):
+class PrescaledRestrictIntQuantWithInputBitWidth(brevitas.jit.ScriptModule):
     """ Wrapper around :class:`~brevitas.core.quant.IntQuant`, that is responsible for the actual quantization of the
     input.
 
@@ -505,7 +507,7 @@ class PrescaledRestrictIntQuantWithInputBitWidth(torch.jit.ScriptModule):
         self.msb_clamp_bit_width_impl = bit_width_impl
         self.int_scale = StatelessBuffer(torch.tensor(1.0))
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self,
                 x: Tensor,
                 scale: Tensor,
@@ -516,7 +518,7 @@ class PrescaledRestrictIntQuantWithInputBitWidth(torch.jit.ScriptModule):
         return y, scale, msb_clamp_bit_width
 
 
-class PrescaledRestrictIntQuant(torch.jit.ScriptModule):
+class PrescaledRestrictIntQuant(brevitas.jit.ScriptModule):
     """ Wrapper around :class:`~brevitas.core.quant.IntQuant`, that is responsible for the actual quantization of the
     input.
 
@@ -578,7 +580,7 @@ class PrescaledRestrictIntQuant(torch.jit.ScriptModule):
         self.int_scale = StatelessBuffer(torch.tensor(1.0))
 
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self,
                 x: Tensor,
                 scale: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
@@ -587,15 +589,15 @@ class PrescaledRestrictIntQuant(torch.jit.ScriptModule):
         return y, scale, msb_clamp_bit_width
 
 
-class IdentityPrescaledQuant(torch.jit.ScriptModule):
+class IdentityPrescaledQuant(brevitas.jit.ScriptModule):
     """ Placeholder Class that returns the input without performing any operation.
     """
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, x, input_scale, input_bit_width) -> Tuple[Tensor, Tensor, Tensor]:
         return x, input_scale, input_bit_width
 
 
-class RescalingIntQuant(torch.jit.ScriptModule):
+class RescalingIntQuant(brevitas.jit.ScriptModule):
     """ Wrapper around :class:`~brevitas.core.quant.IntQuant`, that is responsible for the actual quantization of the
     input.
 
@@ -662,7 +664,7 @@ class RescalingIntQuant(torch.jit.ScriptModule):
         self.int_scaling_impl = int_scaling_impl
         self.msb_clamp_bit_width_impl = bit_width_impl
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
         msb_clamp_bit_width = self.msb_clamp_bit_width_impl()
         scale = self.scaling_impl(x)
@@ -673,7 +675,7 @@ class RescalingIntQuant(torch.jit.ScriptModule):
         return y, output_scale, output_bit_width
 
 
-class TruncIntQuant(torch.jit.ScriptModule):
+class TruncIntQuant(brevitas.jit.ScriptModule):
     def __init__(
             self,
             float_to_int_impl: Module,
@@ -684,7 +686,7 @@ class TruncIntQuant(torch.jit.ScriptModule):
         self.float_to_int_impl = float_to_int_impl
         self.delay_wrapper = DelayWrapper(quant_delay_steps)
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self,
                 x: Tensor,
                 scale: Tensor,

@@ -45,6 +45,7 @@ import torch
 from torch import Tensor
 from torch.nn import Module
 
+import brevitas
 from brevitas.inject.enum import RestrictValueType, FloatToIntImplType  # retrocompatibility
 
 from .function_wrapper import Identity, PowerOfTwo, LogTwo, InplaceLogTwo, ClampMinSte
@@ -53,7 +54,7 @@ assert RestrictValueType  # prevent removal of unused import
 assert FloatToIntImplType
 
 
-class _RestrictClampValue(torch.jit.ScriptModule):
+class _RestrictClampValue(brevitas.jit.ScriptModule):
 
     def __init__(self, scaling_min_val: Optional[float], restrict_value_impl: Module):
         super(_RestrictClampValue, self).__init__()
@@ -63,13 +64,14 @@ class _RestrictClampValue(torch.jit.ScriptModule):
             self.clamp_min_ste = ClampMinSte(scaling_min_val)
         else:
             self.clamp_min_ste = Identity()
-
+    
+    @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
         x = self.clamp_min_ste(x)
         return self.restrict_value_impl(x)
 
 
-class FloatRestrictValue(torch.jit.ScriptModule):
+class FloatRestrictValue(brevitas.jit.ScriptModule):
 
     def __init__(self) -> None:
         super(FloatRestrictValue, self).__init__()
@@ -83,12 +85,12 @@ class FloatRestrictValue(torch.jit.ScriptModule):
     def restrict_init_inplace_module(self):
         return Identity()
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, x: torch.Tensor) -> Tensor:
         return x
 
 
-class LogFloatRestrictValue(torch.jit.ScriptModule):
+class LogFloatRestrictValue(brevitas.jit.ScriptModule):
 
     def __init__(self):
         super(LogFloatRestrictValue, self).__init__()
@@ -106,13 +108,13 @@ class LogFloatRestrictValue(torch.jit.ScriptModule):
     def restrict_init_inplace_module(self):
         return InplaceLogTwo()
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
         x = self.power_of_two(x)
         return x
 
 
-class IntRestrictValue(torch.jit.ScriptModule):
+class IntRestrictValue(brevitas.jit.ScriptModule):
 
     def __init__(self, restrict_value_float_to_int_impl: Module):
         super(IntRestrictValue, self).__init__()
@@ -130,13 +132,13 @@ class IntRestrictValue(torch.jit.ScriptModule):
     def restrict_init_inplace_module(self):
         return Identity()
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
         x = self.float_to_int_impl(x)
         return x
 
 
-class PowerOfTwoRestrictValue(torch.jit.ScriptModule):
+class PowerOfTwoRestrictValue(brevitas.jit.ScriptModule):
 
     def __init__(self, restrict_value_float_to_int_impl: Module):
         super(PowerOfTwoRestrictValue, self).__init__()
@@ -155,7 +157,7 @@ class PowerOfTwoRestrictValue(torch.jit.ScriptModule):
     def restrict_init_inplace_module(self):
         return InplaceLogTwo()
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
         x = self.float_to_int_impl(x)
         x = self.power_of_two(x)

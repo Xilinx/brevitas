@@ -43,11 +43,11 @@ from typing import Tuple, Optional, List, Union
 import torch
 from torch.nn import Parameter, Module
 
+import brevitas
 import brevitas.config as config
 from brevitas.core.function_wrapper import Identity
 from brevitas.function.ops import min_int, max_int
 from brevitas.inject.enum import ScalingImplType  # retrocompatibility
-from brevitas.utils.jit_utils import script_method_110_disabled
 
 from .stats import _ParameterListStats, _RuntimeStats, _Stats, SCALAR_SHAPE, DEFAULT_MOMENTUM
 from .utils import StatelessBuffer
@@ -59,13 +59,14 @@ SCALING_STATS_REDUCE_DIM = 1
 assert ScalingImplType  # prevent removal of unused import
 
 
-class _AffineRescaling(torch.jit.ScriptModule):
+class _AffineRescaling(brevitas.jit.ScriptModule):
 
     def __init__(self, scaling_shape):
         super(_AffineRescaling, self).__init__()
         self.affine_weight = Parameter(torch.ones(scaling_shape))
         self.affine_bias = Parameter(torch.zeros(scaling_shape))
 
+    @brevitas.jit.script_method
     def forward(self, x):
         out = x * self.affine_weight + self.affine_bias  # TODO: take absvals
         out = torch.abs(out)
@@ -83,7 +84,7 @@ class _AffineRescaling(torch.jit.ScriptModule):
             missing_keys.remove(affine_bias_key)
 
 
-class _StatsScaling(torch.jit.ScriptModule):
+class _StatsScaling(brevitas.jit.ScriptModule):
 
     def __init__(
             self,
@@ -100,7 +101,7 @@ class _StatsScaling(torch.jit.ScriptModule):
         self.restrict_clamp_scaling = _RestrictClampValue(scaling_min_val, restrict_scaling_impl)
         self.restrict_scaling_pre = restrict_scaling_impl.restrict_init_module()
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, stats: torch.Tensor) -> torch.Tensor:
         stats = self.affine_rescaling(stats)  # TODO it should be first prerestrict then affine
         stats = self.restrict_scaling_pre(stats)
@@ -108,7 +109,7 @@ class _StatsScaling(torch.jit.ScriptModule):
         return stats
 
 
-class ParameterScaling(torch.jit.ScriptModule):
+class ParameterScaling(brevitas.jit.ScriptModule):
 
     def __init__(
             self,
@@ -130,7 +131,7 @@ class ParameterScaling(torch.jit.ScriptModule):
             assert scaling_init.shape == scaling_shape
             self.value = Parameter(scaling_init)
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, placeholder: torch.Tensor) -> torch.Tensor:
         value = self.restrict_clamp_scaling(self.value)
         return value
@@ -147,7 +148,7 @@ class ParameterScaling(torch.jit.ScriptModule):
             missing_keys.remove(value_key)
 
 
-class ConstScaling(torch.jit.ScriptModule):
+class ConstScaling(brevitas.jit.ScriptModule):
 
     def __init__(
             self,
@@ -163,14 +164,14 @@ class ConstScaling(torch.jit.ScriptModule):
             scaling_init = restrict_scaling_impl.restrict_init_float(scaling_init)
             self.value = StatelessBuffer(torch.tensor(scaling_init))
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, placeholder: torch.Tensor) -> torch.Tensor:
         value = self.value()
         restricted_value = self.restrict_clamp_scaling(value)
         return restricted_value
 
 
-class RuntimeStatsScaling(torch.jit.ScriptModule):
+class RuntimeStatsScaling(brevitas.jit.ScriptModule):
 
     def __init__(
             self,
@@ -196,13 +197,13 @@ class RuntimeStatsScaling(torch.jit.ScriptModule):
             scaling_min_val,
             affine_rescaling)
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
         stats = self.runtime_stats(x)
         return self.stats_scaling_impl(stats)
 
 
-class ParameterStatsScaling(torch.jit.ScriptModule):
+class ParameterStatsScaling(brevitas.jit.ScriptModule):
 
     def __init__(
             self,
@@ -227,13 +228,13 @@ class ParameterStatsScaling(torch.jit.ScriptModule):
             scaling_min_val,
             affine_rescaling)
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, ignored: torch.Tensor):
         stats = self.parameter_list_stats()
         return self.stats_scaling_impl(stats)
 
 
-class ParameterFromRuntimeStatsScaling(torch.jit.ScriptModule):
+class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
     __constants__ = ['stats_permute_dims',
                      'collect_stats_steps',
                      'momentum']
@@ -253,7 +254,7 @@ class ParameterFromRuntimeStatsScaling(torch.jit.ScriptModule):
         if scaling_shape != SCALAR_SHAPE and scaling_stats_permute_dims is None:
             raise RuntimeError("Per channel runtime stats require a permute shape")
         self.collect_stats_steps = collect_stats_steps
-        self.counter: int = torch.jit.Attribute(0, int)
+        self.counter: int = brevitas.jit.Attribute(0, int)
         self.stats_permute_dims = scaling_stats_permute_dims
         self.stats_input_view_shape_impl = scaling_stats_input_view_shape_impl
         self.stats = _Stats(scaling_stats_impl, scaling_shape)
@@ -262,7 +263,7 @@ class ParameterFromRuntimeStatsScaling(torch.jit.ScriptModule):
         self.restrict_clamp_scaling = _RestrictClampValue(scaling_min_val, restrict_scaling_impl)
         self.restrict_inplace_preprocess = restrict_scaling_impl.restrict_init_inplace_module()
 
-    @script_method_110_disabled
+    @brevitas.jit.script_method_110_disabled
     def forward(self, stats_input) -> torch.Tensor:
         if self.training:
             if self.counter < self.collect_stats_steps:
@@ -299,7 +300,7 @@ class ParameterFromRuntimeStatsScaling(torch.jit.ScriptModule):
             missing_keys.remove(value_key)
 
 
-class FloatIntScaling(torch.jit.ScriptModule):
+class FloatIntScaling(brevitas.jit.ScriptModule):
     __constants__ = ['signed', 'narrow_range']
 
     def __init__(self, signed, narrow_range):
@@ -309,7 +310,7 @@ class FloatIntScaling(torch.jit.ScriptModule):
         self.signed = signed
         self.narrow_range = narrow_range
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, bit_width):
         if self.signed:
             return - min_int(self.signed, self.narrow_range, bit_width)
@@ -317,13 +318,13 @@ class FloatIntScaling(torch.jit.ScriptModule):
             return max_int(self.signed, bit_width)
 
 
-class PowerOfTwoIntScaling(torch.jit.ScriptModule):
+class PowerOfTwoIntScaling(brevitas.jit.ScriptModule):
     __constants__ = ['signed']
 
     def __init__(self, signed):
         super(PowerOfTwoIntScaling, self).__init__()
         self.signed = signed
 
-    @torch.jit.script_method
+    @brevitas.jit.script_method
     def forward(self, bit_width):
         return max_int(self.signed, bit_width) + 1
