@@ -43,6 +43,10 @@ PYTEST_EXAMPLE_EXCLUDE_LIST_EXTRA = [od([('platform', 'macos-latest'),
                                          ('pytorch_version', '1.5.0'),
                                          ('conda_python_version', '3.6')])]
 
+PYXIR_INTEGRATION_EXCLUDE_LIST_EXTRA = [od([('platform', 'macos-latest'),
+                                            ('pytorch_version', '1.5.0'),
+                                            ('conda_python_version', '3.6')])]
+
 FINN_INTEGRATION_EXCLUDE_LIST_EXTRA = [od([('platform', 'windows-latest'),
                                            ('conda_python_version', '3.6')])]
 
@@ -199,7 +203,7 @@ def gen_test_brevitas_finn_integration():
 def gen_test_brevitas_pyxir_integration():
     test_pyxir_integration = Action(
         'Test Brevitas-PyXIR integration',
-        EXCLUDE_LIST,
+        EXCLUDE_LIST + PYXIR_INTEGRATION_EXCLUDE_LIST_EXTRA,
         MATRIX,
         PYXIR_INTEGRATION_STEP_LIST)
     test_pyxir_integration.gen_yaml(PYXIR_INTEGRATION_YML)
