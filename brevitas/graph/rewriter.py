@@ -211,7 +211,8 @@ class CallableToModuleRewriter(Rewriter, ABC):
     def update_kwargs(self, inst: Instruction):
         new_module_keys = _signature_keys(self.new_module_class)
         old_fn_kwargs = inst.input_kwargs_dict
-        extracted = {k: old_fn_kwargs.pop(k) for k in old_fn_kwargs.keys() if k in new_module_keys}
+        old_fn_kwargs_keys = list(old_fn_kwargs.keys())
+        extracted = {k: old_fn_kwargs.pop(k) for k in old_fn_kwargs_keys if k in new_module_keys}
         self.new_module_kwargs.update(extracted)
 
     def gen_new_module(self, inst, model):
