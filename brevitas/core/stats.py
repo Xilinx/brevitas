@@ -200,7 +200,7 @@ class MeanSigmaStd(brevitas.jit.ScriptModule):
 
     @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
-        sigma = self.sigma.view(self.sigma.shape)  # trick to get a tensor type
+        sigma = self.sigma()
         out = self.impl(x, sigma)
         return out
 
@@ -221,7 +221,7 @@ class _MeanSigmaStdImpl(brevitas.jit.ScriptModule):
         abs_val = torch.abs(x)
         if self.stats_reduce_dim is None:
             mean_val = torch.mean(abs_val)
-            std_val = torch.sqrt(torch.var(abs_val) + self.std_dev_epsilon)
+            std_val = torch.sqrt(torch.var(abs_val) + self.epsilon)
         else:
             mean_val = torch.mean(torch.abs(x), dim=self.stats_reduce_dim)
             std_val = torch.sqrt(torch.var(abs_val, dim=self.stats_reduce_dim) + self.epsilon)
