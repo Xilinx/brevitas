@@ -82,6 +82,9 @@ class FloatRestrictValue(brevitas.jit.ScriptModule):
     def restrict_init_tensor(self, x: Tensor) -> Tensor:
         return x
 
+    def restrict_init_module(self):
+        return Identity()
+
     def restrict_init_inplace_module(self):
         return Identity()
 
