@@ -78,8 +78,8 @@ class QuantMaxPool1d(QuantLayerMixin, MaxPool1d):
     def requires_export_handler(self):
         return False
 
-    def forward(self, x: Union[Tensor, QuantTensor]):
-        x = self.unpack_input(x)
+    def forward(self, input: Union[Tensor, QuantTensor]):
+        x = self.unpack_input(input)
         if self.export_mode:
             return self.export_handler(x.value)
         x = x.set(value=super(MaxPool1d, self).forward(x.value))
@@ -117,8 +117,8 @@ class QuantMaxPool2d(QuantLayerMixin, MaxPool2d):
     def requires_export_handler(self):
         return False
 
-    def forward(self, x: Union[Tensor, QuantTensor]):
-        x = self.unpack_input(x)
+    def forward(self, input: Union[Tensor, QuantTensor]):
+        x = self.unpack_input(input)
         if self.export_mode:
             return self.export_handler(x.value)
         x = x.set(value=super().forward(x.value))

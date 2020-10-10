@@ -64,7 +64,7 @@ class QuantDropout(QuantLayerMixin, Dropout):
     def requires_export_handler(self):
         return False
 
-    def forward(self, x: Union[Tensor, QuantTensor]):
-        x = self.unpack_input(x)
+    def forward(self, input: Union[Tensor, QuantTensor]):
+        x = self.unpack_input(input)
         x = x.set(value=super().forward(x.value))
         return self.pack_output(x)

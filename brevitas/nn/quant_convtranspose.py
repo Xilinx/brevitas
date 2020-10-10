@@ -113,9 +113,9 @@ class QuantConvTranspose1d(QuantWBIOL, ConvTranspose1d):
     def channelwise_separable(self) -> bool:
         raise NotImplementedError
 
-    def forward(self, inp: Union[Tensor, QuantTensor], output_size=None) -> Union[Tensor, QuantTensor]:
+    def forward(self, input: Union[Tensor, QuantTensor], output_size=None) -> Union[Tensor, QuantTensor]:
         self._output_size = output_size  # cache the value temporarily
-        return self.forward_impl(inp)
+        return self.forward_impl(input)
 
     def compute_output_padding(self, inp, output_size):
         return self._output_padding(
@@ -200,9 +200,9 @@ class QuantConvTranspose2d(QuantWBIOL, ConvTranspose2d):
     def channelwise_separable(self) -> bool:
         raise NotImplementedError
 
-    def forward(self, inp: Union[Tensor, QuantTensor], output_size=None) -> Union[Tensor, QuantTensor]:
+    def forward(self, input: Union[Tensor, QuantTensor], output_size=None) -> Union[Tensor, QuantTensor]:
         self._output_size = output_size  # cache the value temporarily
-        return self.forward_impl(inp)
+        return self.forward_impl(input)
 
     def compute_output_padding(self, inp, output_size):
         return self._output_padding(

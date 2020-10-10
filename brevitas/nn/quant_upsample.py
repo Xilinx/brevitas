@@ -74,8 +74,8 @@ class QuantUpsample(QuantLayerMixin, Upsample):
     def requires_export_handler(self):
         return False
 
-    def forward(self, x: Union[Tensor, QuantTensor]):
-        x = self.unpack_input(x)
+    def forward(self, input: Union[Tensor, QuantTensor]):
+        x = self.unpack_input(input)
         if self.export_mode:
             return self.export_handler(x.value)
         y_value = interpolate(x.value, self.size, self.scale_factor, self.mode, self.align_corners)
@@ -104,8 +104,8 @@ class QuantUpsamplingBilinear2d(QuantLayerMixin, UpsamplingBilinear2d):
     def requires_export_handler(self):
         return False
 
-    def forward(self, x: Union[Tensor, QuantTensor]):
-        x = self.unpack_input(x)
+    def forward(self, input: Union[Tensor, QuantTensor]):
+        x = self.unpack_input(input)
         if self.export_mode:
             return self.export_handler(x.value)
         y_value = interpolate(x.value, self.size, self.scale_factor, self.mode, self.align_corners)
@@ -133,8 +133,8 @@ class QuantUpsamplingNearest2d(QuantLayerMixin, UpsamplingNearest2d):
     def requires_export_handler(self):
         return False
 
-    def forward(self, x: Union[Tensor, QuantTensor]):
-        x = self.unpack_input(x)
+    def forward(self, input: Union[Tensor, QuantTensor]):
+        x = self.unpack_input(input)
         if self.export_mode:
             return self.export_handler(x.value)
         y_value = interpolate(x.value, self.size, self.scale_factor, self.mode, self.align_corners)

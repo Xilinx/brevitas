@@ -155,13 +155,13 @@ class QuantNonLinearActLayer(
     def quant_output_bit_width(self):   # overrides from QuantLayerMixin
         return self.quant_act_bit_width()
 
-    def forward(self, inp: Union[Tensor, QuantTensor]):
-        inp = self.unpack_input(inp)
-        quant_inp = self.input_quant(inp)
+    def forward(self, input: Union[Tensor, QuantTensor]):
+        input = self.unpack_input(input)
+        quant_input = self.input_quant(input)
         # shortcut execution through the export impl during export
         if self.export_mode:
-            return self.export_handler(quant_inp.value)
-        out = self.act_quant(quant_inp)
+            return self.export_handler(quant_input.value)
+        out = self.act_quant(quant_input)
         out = self.pack_output(out)
         return out
 

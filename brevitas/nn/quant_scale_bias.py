@@ -67,8 +67,8 @@ class ScaleBias(Module):
         self.bias = Parameter(torch.zeros(num_features)) if bias else None
         self.runtime_shape = runtime_shape
 
-    def forward(self, x):
-        return x * self.weight.view(self.runtime_shape) + self.bias.view(self.runtime_shape)
+    def forward(self, input):
+        return input * self.weight.view(self.runtime_shape) + self.bias.view(self.runtime_shape)
 
 
 class QuantScaleBias(QuantWBIOL, ScaleBias):
@@ -117,10 +117,10 @@ class QuantScaleBias(QuantWBIOL, ScaleBias):
     def forward(self, inp: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
         return self.forward_impl(inp)
 
-    def inner_forward_impl(self, x: Tensor, quant_weight: Tensor, quant_bias: Optional[Tensor]):
+    def inner_forward_impl(self, input: Tensor, quant_weight: Tensor, quant_bias: Optional[Tensor]):
         quant_weight = quant_weight.view(self.runtime_shape)
         quant_bias = quant_bias.view(self.runtime_shape)
-        output_tensor = x * quant_weight + quant_bias
+        output_tensor = input * quant_weight + quant_bias
         return output_tensor
 
     def max_acc_bit_width(self, input_bit_width, weight_bit_width):

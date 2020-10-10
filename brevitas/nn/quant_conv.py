@@ -133,8 +133,8 @@ class QuantConv1d(QuantWBIOL, Conv1d):
         out = F.conv1d(x, weight, bias, self.stride, 0, self.dilation, self.groups)
         return out
 
-    def forward(self, inp: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
-        return self.forward_impl(inp)
+    def forward(self, input: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
+        return self.forward_impl(input)
 
     def inner_forward_impl(self, x: Tensor, quant_weight: Tensor, quant_bias: Optional[Tensor]):
         if self.padding_type == 'standard':
@@ -227,8 +227,8 @@ class QuantConv2d(QuantWBIOL, Conv2d):
         out = F.conv2d(x, weight, bias, self.stride, 0, self.dilation, self.groups)
         return out
 
-    def forward(self, inp: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
-        return self.forward_impl(inp)
+    def forward(self, input: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
+        return self.forward_impl(input)
 
     def inner_forward_impl(self, x: Tensor, quant_weight: Tensor, quant_bias: Optional[Tensor]):
         if self.padding_type == 'standard':
