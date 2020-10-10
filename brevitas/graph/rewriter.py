@@ -7,6 +7,7 @@ from torch.nn import Module
 from torch.nn import Conv2d, Conv1d, Linear
 
 from brevitas import nn as qnn
+from brevitas.quant_tensor import QuantTensor
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.nn.utils import merge_bn
 from .module import CodegenModule, _replace_module, Instruction, FnType, _set_module
@@ -177,8 +178,13 @@ class DisableBreakingReturnQuantTensor(Rewriter):
     def apply(self, model: CodegenModule):
         for inst in model.schedule:
             if hasattr(inst.fn, 'return_quant_tensor') and inst.fn.return_quant_tensor:
-                successors = model.inst_successor_list(inst)
-                if not all([hasattr(s.fn, 'accept_quant_tensor') for s in successors]):
+                s_list = model.inst_successor_list(inst)
+                cond = lambda s: (((s.fn_type == FnType.MODULE or s.fn_type == FnType.SCRIPTMODULE)
+                                   and hasattr(s.fn, 'accept_quant_tensor')
+                                   or (s.fn_type == FnType.ATTRIBUTE or s.fn_type == FnType.METHOD)
+                                   and hasattr(QuantTensor, s.fn))
+                                  and not s.fn_type == FnType.FUNCTION)
+                if not all([cond(s) for s in s_list]):
                     inst.fn.return_quant_tensor = False
         return model
 
