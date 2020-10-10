@@ -86,8 +86,8 @@ class QuantAvgPool2d(QuantTruncMixin, QuantLayerMixin, AvgPool2d):
     def requires_export_handler(self):
         return True
 
-    def forward(self, x: Union[Tensor, QuantTensor]):
-        x = self.unpack_input(x)
+    def forward(self, input: Union[Tensor, QuantTensor]):
+        x = self.unpack_input(input)
         if self.export_mode:
             return self.export_handler(x.value)
         x = x.set(value=super(QuantAvgPool2d, self).forward(x.value))
@@ -157,8 +157,8 @@ class QuantAdaptiveAvgPool2d(QuantTruncMixin, QuantLayerMixin, AdaptiveAvgPool2d
             stride_list.append(stride)
         return kernel_size_list, stride_list
 
-    def forward(self, x: Union[Tensor, QuantTensor]):
-        x = self.unpack_input(x)
+    def forward(self, input: Union[Tensor, QuantTensor]):
+        x = self.unpack_input(input)
         # shortcut execution through the export impl during export
         if self.export_mode:
             return self.export_handler(x.value)

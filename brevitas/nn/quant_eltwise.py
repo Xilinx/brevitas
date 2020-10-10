@@ -75,14 +75,14 @@ class QuantEltwiseAdd(QuantInputOutputLayer, Module):
 
     def forward(
             self,
-            inp: Union[Tensor, QuantTensor],
+            input: Union[Tensor, QuantTensor],
             other: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
-        inp = self.unpack_input(inp)
+        input = self.unpack_input(input)
         other = self.unpack_input(other)
         if self.export_mode:
             assert self.cache_quant_io_metadata_only, "Can't cache multiple inputs"
-            return self.export_handler(inp=inp.value, other=other.value)
-        quant_input = self.input_quant(inp)
+            return self.export_handler(inp=input.value, other=other.value)
+        quant_input = self.input_quant(input)
         quant_other = self.input_quant(other)
         quant_input = quant_input.set(training=self.training)
         quant_other = quant_other.set(training=self.training)
