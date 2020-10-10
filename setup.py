@@ -72,7 +72,7 @@ def apply_template(dest_build, version):
         d = dict(
             function_suffix='',
             function_prefix='torch.ops.brevitas.',
-            torch_jit_template='@brevitas.script')
+            torch_jit_template='@brevitas.jit.script')
     else:
         d = dict(
             function_suffix='_fn.apply',
