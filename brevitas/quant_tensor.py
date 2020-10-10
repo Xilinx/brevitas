@@ -116,12 +116,20 @@ class QuantTensor(NamedTuple):
             raise RuntimeError("Signs are different")
 
     def view(self, *args, **kwargs):
-        output = QuantTensor(
-            self.value.view(*args, **kwargs), self.scale, self.bit_width, self.signed)
-        return output
+        return self.set(value= self.value.view(*args, **kwargs))
+
+    def reshape(self, *args, **kwargs):
+        return self.set(value=self.value.reshape(*args, **kwargs))
+
+    def flatten(self, *args, **kwargs):
+        return self.set(value=self.value.flatten(*args, **kwargs))
 
     def size(self, *args, **kwargs):
         return self.value.size(*args, **kwargs)
+
+    @property
+    def shape(self):
+        return self.value.shape
 
     def add(self, other):
         return self + other
