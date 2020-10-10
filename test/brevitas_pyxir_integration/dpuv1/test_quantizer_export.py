@@ -1,4 +1,6 @@
 import pytest
+from packaging import version
+
 import torch
 from torchvision import models
 
@@ -8,11 +10,15 @@ from brevitas.inject.defaults import *
 from brevitas import config
 config.IGNORE_MISSING_KEYS = True
 
+IS_ABOVE_110 = version.parse(torch.__version__) > version.parse("1.1.0")
+
 MODELS = [
     'resnet18',
-    'mnasnet0_5',
     'mobilenet_v2',
 ]
+
+if IS_ABOVE_110:
+    MODELS.append('mnasnet0_5')
 
 IN_SIZE = (1, 3, 224, 224)
 
