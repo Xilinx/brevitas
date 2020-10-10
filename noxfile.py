@@ -98,6 +98,7 @@ def tests_brevitas_examples_cpu(session, pytorch, jit_status):
 @nox.parametrize("pytorch", PYTORCH_VERSIONS, ids=PYTORCH_IDS)
 def tests_brevitas_install_dev(session, pytorch):
     install_pytorch(pytorch, session)
+    install_torchvision(pytorch, session)
     session.install('--upgrade', '-e', '.[test]')
     session.run('pytest', '-v', 'test/brevitas/test_brevitas_import.py')
 
@@ -106,6 +107,7 @@ def tests_brevitas_install_dev(session, pytorch):
 @nox.parametrize("pytorch", PYTORCH_VERSIONS, ids=PYTORCH_IDS)
 def tests_brevitas_examples_install_dev(session, pytorch):
     install_pytorch(pytorch, session)
+    install_torchvision(pytorch, session)
     session.install('--upgrade', '-e', '.[test, tts, stt]')
     session.run('pytest', '-v', 'test/brevitas_examples/test_examples_import.py')
 
@@ -114,6 +116,7 @@ def tests_brevitas_examples_install_dev(session, pytorch):
 @nox.parametrize("pytorch", PYTORCH_VERSIONS, ids=PYTORCH_IDS)
 def tests_brevitas_finn_integration(session, pytorch):
     install_pytorch(pytorch, session, FINN_NUMPY_VERSION)
+    install_torchvision(pytorch, session)
     session.install('--upgrade', '-e', '.[test, stt, finn_integration]')
     env = {'FINN_INST_NAME': 'finn'}
     session.run('pytest', '-v', 'test/brevitas_finn_integration', env=env)
@@ -123,6 +126,7 @@ def tests_brevitas_finn_integration(session, pytorch):
 @nox.parametrize("pytorch", PYTORCH_VERSIONS, ids=PYTORCH_IDS)
 def tests_brevitas_pyxir_integration(session, pytorch):
     install_pytorch(pytorch, session)
+    install_torchvision(pytorch, session)
     session.install('--upgrade', '-e', '.[test, pyxir_integration]')
     session.run('pytest', '-v', 'test/brevitas_pyxir_integration')
 
