@@ -22,7 +22,7 @@ class FINNQuantReLUHandler(FINNQuantInputHandler):
             raise RuntimeError(f"Unsupported input bit width {bit_width} for export")
 
     @staticmethod
-    def thresholds(module: QuantReLU):
+    def thresholds(module: QuantReLU, extend_tensor_to_channels=True):
         num_distinct_values = 2 ** int(module.quant_act_bit_width().item())
         num_thresholds = num_distinct_values - 1
         flat_scale = module.quant_act_scale().view(-1)
@@ -33,6 +33,11 @@ class FINNQuantReLUHandler(FINNQuantInputHandler):
         for c in range(num_scale_channels):
             for t in range(num_thresholds):
                 thresholds[c][t] = min_threshold[c] + step[c] * t
+        if extend_tensor_to_channels:
+            output_channels = module._cached_inp.shape[1]
+            final_shape = (output_channels, num_thresholds)
+            if thresholds.shape != final_shape:
+                thresholds = thresholds.expand(final_shape)
         return thresholds
 
     @staticmethod
@@ -83,7 +88,7 @@ class FINNQuantHardTanhHandler(FINNQuantInputHandler):
             return torch.tensor(min_non_scaled_val).type(torch.FloatTensor)
 
     @staticmethod
-    def thresholds(module: QuantHardTanh):
+    def thresholds(module: QuantHardTanh, extend_tensor_to_channels=True):
         bit_width = int(module.quant_act_bit_width().item())
         if bit_width != 1:
             if module.is_quant_act_narrow_range:
@@ -106,6 +111,11 @@ class FINNQuantHardTanhHandler(FINNQuantInputHandler):
             for c in range(num_scale_channels):
                 for t in range(num_thresholds):
                     thresholds[c][t] = min_threshold[c] + step[c] * t
+            if extend_tensor_to_channels:
+                output_channels = module._cached_inp.shape[1]
+                final_shape = (output_channels, num_thresholds)
+                if thresholds.shape != final_shape:
+                    thresholds = thresholds.expand(final_shape)
             return thresholds
         else:
             thresholds = torch.empty([1, 1])
