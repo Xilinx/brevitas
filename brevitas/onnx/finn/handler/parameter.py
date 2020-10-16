@@ -32,6 +32,20 @@ class FINNQuantWBIOLHandler(FINNQuantIOHandler, ABC):
             return f"INT{bit_width}"
 
     @staticmethod
+    def function_scaling(
+            module: QuantWBIOL,
+            quant_input_scale,
+            quant_weight_scale,
+            quant_output_scale):
+        # if bias quant is disabled, whether bias is enabled or not, I just need to
+        # pass quant_weight_scale as the function-level scale_factor
+        if not module.is_bias_quant_enabled:
+            in_scale, scale_factor = None, quant_weight_scale
+        else:
+            in_scale, scale_factor = quant_input_scale, quant_output_scale
+        return in_scale, scale_factor
+
+    @staticmethod
     def maybe_quant_bias(
             module: QuantWBIOL,
             quant_weight_scale: Tensor,
@@ -80,22 +94,20 @@ class FINNQuantLinearHandler(FINNQuantWBIOLHandler):
         quant_weight_scale = self.quant_weight_scale(module)
         quant_output_scale = self.quant_output_scale(module)
         quant_output_bit_width_tensor = self.quant_output_bit_width_tensor(module)
-        if quant_output_scale is not None and quant_input_scale is not None:
-            scale_factor = quant_output_scale
-        else:
-            scale_factor = quant_weight_scale
         maybe_quant_bias = self.maybe_quant_bias(
             module,
             quant_weight_scale,
             quant_output_scale,
             quant_output_bit_width_tensor)
+        in_scale, scale_factor = self.function_scaling(
+            module, quant_input_scale, quant_weight_scale, quant_output_scale)
         self.symbolic_kwargs = {
             'Wt': self.int_weight(module),
             'scale_factor': scale_factor,
             'w_qnt_type': self.quant_weight_type(module),
             'out_shape': self.quant_output_shape(module),
             'bias': maybe_quant_bias,
-            'in_scale': quant_input_scale,
+            'in_scale': in_scale,
             'in_qnt_type': self.quant_input_type(module)}
 
     def symbolic_execution(self, inp: Tensor):
@@ -136,15 +148,13 @@ class FINNQuantConvNdHandler(FINNQuantWBIOLHandler, ABC):
         quant_weight_scale = self.quant_weight_scale(module)
         quant_output_scale = self.quant_output_scale(module)
         quant_output_bit_width_tensor = self.quant_output_bit_width_tensor(module)
-        if quant_output_scale is not None and quant_input_scale is not None:
-            scale_factor = quant_output_scale
-        else:
-            scale_factor = quant_weight_scale
         maybe_quant_bias = self.maybe_quant_bias(
             module,
             quant_weight_scale,
             quant_output_scale,
             quant_output_bit_width_tensor)
+        in_scale, scale_factor = self.function_scaling(
+            module, quant_input_scale, quant_weight_scale, quant_output_scale)
         self.symbolic_kwargs = {
             'W': self.int_weight(module),
             'scale_factor': scale_factor,
@@ -153,7 +163,7 @@ class FINNQuantConvNdHandler(FINNQuantWBIOLHandler, ABC):
             'pads': self.padding(module),
             'strides': self.stride(module),
             'bias': maybe_quant_bias,
-            'in_scale': quant_input_scale,
+            'in_scale': in_scale,
             'in_qnt_type': self.quant_input_type(module),
             'kernel_shape': list(module.kernel_size),
             'groups': module.groups,

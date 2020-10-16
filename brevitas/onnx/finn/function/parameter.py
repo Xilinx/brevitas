@@ -29,6 +29,11 @@ class QuantizedConvNdPlaceholderFunction(Function):
     @staticmethod
     def symbolic(
             g, x, W, scale_factor, w_qnt_type, out_shape, pads, strides, bias, in_scale, in_qnt_type, kernel_shape, groups, dilations):
+        if in_scale is not None:
+            if in_qnt_type is not None:
+                x = g.op('Div', x, in_scale, activation_qnt_s = in_qnt_type)
+            else:
+                x = g.op('Div', x, in_scale)
         ret = g.op(
             'Conv', x, W,
             weight_qnt_s=w_qnt_type,
@@ -37,11 +42,6 @@ class QuantizedConvNdPlaceholderFunction(Function):
             strides_i=strides,
             group_i=groups,
             dilations_i=dilations)
-        if in_scale is not None:
-            if in_qnt_type is not None:
-                ret = g.op('Div', x, in_scale, activation_qnt_s = in_qnt_type)
-            else:
-                ret = g.op('Div', x, in_scale)
         if bias is not None:
             ret = g.op('Add', ret, bias)
         if scale_factor is not None:
