@@ -142,8 +142,7 @@ def make_quant_avg_pool(bit_width,
                               quant_type=quant_type,
                               signed=signed,
                               stride=stride,
-                              min_overall_bit_width=bit_width,
-                              max_overall_bit_width=bit_width)
+                              bit_width=bit_width)
 
 
 def make_hadamard_classifier(in_channels,
