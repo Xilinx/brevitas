@@ -157,9 +157,6 @@ class JasperBlock(nn.Module):
         self.conv_mask = conv_mask
         self.separable = separable
         self.residual_mode = residual_mode
-        self.quant_normalization = make_norm_scale(
-            bit_width=bit_width, absolute_act_val=absolute_act_val,
-            scaling_per_channel=activation_other_scaling_per_output_channel)
         self.conv_module_to_merge = []
         inplanes_loop = inplanes
         conv = nn.ModuleList()
@@ -237,8 +234,12 @@ class JasperBlock(nn.Module):
                     bit_width=bit_width,
                     scaling_per_channel=weight_scaling_per_output_channel)))
             self.res = res_list
+            self.quant_normalization = make_norm_scale(
+                bit_width=bit_width, absolute_act_val=absolute_act_val,
+                scaling_per_channel=activation_other_scaling_per_output_channel)
         else:
             self.res = None
+            self.quant_normalization = None
 
         self.mout = nn.Sequential(
             *self._get_act_dropout_layer(
@@ -407,6 +408,13 @@ class JasperBlock(nn.Module):
             missing_keys,
             unexpected_keys,
             error_msgs)
+        # fix pretrained models with declared but unused extra quantization layers
+        extra_k = 'quant_normalization'
+        is_prefix_to_fix = any([prefix == 'encoder.' + p for p in ["0.", "16.", "17."]])
+        if is_prefix_to_fix:
+            for i, k in enumerate(unexpected_keys):
+                if extra_k in k:
+                    del unexpected_keys[i]
 
     def fuse_bn(self, state_dict,
             prefix):
@@ -450,8 +458,7 @@ class JasperBlock(nn.Module):
                         bn_var=state_dict[bn_running_var_key],
                         bn_eps=1e-03,
                         bn_weight=state_dict[bn_weight_key],
-                        bn_bias=state_dict[bn_bias_key],
-                        affine_only=False)
+                        bn_bias=state_dict[bn_bias_key])
                     if isinstance(conv_mod, MaskedConv1d):
                         conv_mod = conv_mod.conv
                     mul_shape = conv_mod.per_output_channel_broadcastable_shape

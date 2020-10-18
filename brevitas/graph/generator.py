@@ -23,6 +23,7 @@ class ModuleGenerator(object):
         self.gen_module_allowlist = list(gen_module_allowlist)
         self.gen_module_blocklist = list(gen_module_blocklist)
         self._generated_allowlist_modules = []
+        self._module_name_id_dict = {}
 
     def _parent_in_gen_allowlist(self, trace_elem):
         # find parent that has to be preserved as-is, if any
@@ -68,10 +69,8 @@ class ModuleGenerator(object):
                 is_already_gen |= c is m
         return is_already_gen
 
-    def _add_module(self, module: Module, prefix_list, model: Module):
+    def _add_module(self, module: Module, module_name, prefix_list, model: Module):
         supermodule = model
-        module_name = prefix_list[-1]
-        prefix_list = prefix_list[:-1]  # exclude module name
         for prefix in prefix_list:
             submodule_names, submodules = zip(*list(supermodule.named_modules()))
             if prefix in submodule_names:
@@ -84,11 +83,19 @@ class ModuleGenerator(object):
 
     def _module_instruction(
             self, module: Module, trace_elem: TraceElem, trace: Trace, output_model: Module):
-        self._add_module(module, trace_elem.prefix_list, output_model)
+        module_name = trace_elem.prefix_list[-1]
+        prefix_list = trace_elem.prefix_list[:-1]  # exclude module name
+        self._add_module(module, module_name, prefix_list, output_model)
         iil = [trace.index_from_val(i) for i in trace_elem.module_input_list]
         module_output_index = trace.index_from_val(trace_elem.module_output)
         inst = Instruction(module_output_index, module, FnType.MODULE, iil, {}, trace_elem.prefix)
         return inst
+
+    def _module_fn_instruction(self, trace_elem: TraceElem, output_model):
+        module = trace_elem.fn
+        module_name = trace_elem.module_fn_name
+        self._add_module(module, module_name, trace_elem.prefix_list, output_model)
+        return self._torch_fn_instruction(trace_elem)
 
     def _torch_fn_instruction(self, trace_elem: TraceElem):
         fn_args = trace_elem.fn_args_index
@@ -129,7 +136,9 @@ class ModuleGenerator(object):
             elif in_allowlist and m_already_gen:
                 continue
             else:
-                if trace_elem.fn_type == FnType.FUNCTION:
+                if trace_elem.fn_type == FnType.MODULE:
+                    inst = self._module_fn_instruction(trace_elem, gen_model)
+                elif trace_elem.fn_type == FnType.FUNCTION:
                     inst = self._torch_fn_instruction(trace_elem)
                 elif trace_elem.fn_type == FnType.METHOD:
                     inst = self._tensor_fn_instruction(trace_elem, trace)
