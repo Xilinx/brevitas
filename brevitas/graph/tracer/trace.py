@@ -1,4 +1,4 @@
-from typing import List, Any, Dict, Callable, Tuple, Union
+from typing import List, Any, Dict, Callable, Tuple, Union, Optional
 from dataclasses import dataclass, field
 
 from torch.nn import Module
@@ -20,6 +20,7 @@ class TraceElem:
     prefix_list: List[str]
     module_input_list: List[Any]
     module_output: Any = None  # set after init
+    module_fn_name: Optional[str] = None
 
     @property
     def fn_name(self):

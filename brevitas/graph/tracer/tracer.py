@@ -9,13 +9,14 @@ from dataclasses import field, dataclass, replace
 
 import torch
 from torch import Tensor
+from torch.nn import Module, Sequential, ModuleList, ModuleDict
 
 from brevitas.quant_tensor import QuantTensor
 from .trace import Trace, TraceElem
 from .wrapper.scriptmodule import torchscript_wrapper
 from .wrapper.builtin import IntWrapper, StrWrapper, FloatWrapper
 from ..module import FnType
-from ..utils import flatten
+from ..utils import flatten, module_class_name
 
 if version.parse(torch.__version__) > version.parse('1.6.0'):
     from torch.overrides import get_testing_overrides
@@ -83,8 +84,9 @@ class TracerMeta(type):
             args, kwargs = tracer.repack_args_kwargs(args, kwargs)
             out = fn(*args, **kwargs)
             kwargs['self'] = tracer.value_
+            out, inplace = tracer.update_inplace_output(out, args, {})
             out = tracer.update_trace(method_name, FnType.METHOD, args, kwargs, out)
-            return tracer.return_output(out)
+            return tracer.epilogue(inplace, out)
 
     def __new__(cls, name, bases, attr):
         new = super(TracerMeta, cls).__new__(cls, name, bases, attr)
@@ -94,12 +96,15 @@ class TracerMeta(type):
         return new
 
 
-@dataclass
 class Tracer(metaclass=TracerMeta):
 
-    value_: Any
-    trace_: Trace = field(default_factory=Trace)
-    namespace_: List = field(default_factory=list)
+    def __init__(self, value_, trace_ = None, namespace_= None):
+        self.value_ = value_
+        self.trace_ = trace_ or Trace()
+        self.namespace_ = namespace_ or []
+        self.hook_handles = []
+        self.preserve_module_allowlist: List = ['torch.nn', 'brevitas.nn', 'timm.models.layers']
+        self.preserve_module_blocklist: List = [Sequential, ModuleList, ModuleDict]
 
     def __bool__(self):
         return self.value_
@@ -112,7 +117,15 @@ class Tracer(metaclass=TracerMeta):
         else:
             kwargs = {'self': self.value_}
             self.update_trace(name, FnType.ATTRIBUTE, [], kwargs, attr)
-            return self.return_output(attr)
+            return self.epilogue(False, attr)
+
+    def trace_module_through(self, module):
+        return (isinstance(module, tuple(self.preserve_module_blocklist))
+                or all([not module_class_name(module).startswith(pma)
+                        for pma in self.preserve_module_allowlist]))
+
+    def is_tracing(self, input_list):
+        return any(isinstance(i, Tracer) for i in flatten(input_list))
 
     def repack_value(self, value):
         if self.trace_.index_from_map(value) is None:
@@ -154,37 +167,34 @@ class Tracer(metaclass=TracerMeta):
             value = [self.repack_value(value)]
         return value
 
-    def return_output(self, output):
-        if isinstance(output, tuple(TYPES_TO_TRACE)):
-            return replace(self, value_=output)
-        else:
-            return output
-
     def epilogue(self, inplace, output):
         if inplace:
             assert not isinstance(output, tuple)  # sanity check
             self.value_ = output
             return self
+        elif isinstance(output, tuple(TYPES_TO_TRACE)):
+            new_tracer = Tracer(trace_=self.trace_, namespace_=self.namespace_, value_=output)
+            return new_tracer
         else:
-            return self.return_output(output)
+            return output
 
     def _register_forward_pre_hooks(self, model: torch.nn.Module):
 
         def enter_namespace(module, input):
-            module_name = None
+            name = None
             if not self.namespace_:  # root module
-                module_name = ''
+                name = ''
             else:
                 supermodule = self.namespace_[-1][0]
                 for name, mod in supermodule.named_modules():
                     # identify current module as a submodule
                     if mod is module:
-                        # get module name as name of the identified submodule
-                        module_name = name.split('.')
                         break
             input_list = self.repack_module_input(input)
-            namespace = (module, module_name, input_list)
+            namespace = (module, name, input_list, input)
             self.namespace_.append(namespace)
+            if not self.trace_module_through(module):
+                return tuple(input_list)
 
         # Identify input to the whole model
         def model_input(module, input):
@@ -194,8 +204,8 @@ class Tracer(metaclass=TracerMeta):
 
         for mod in model.modules():
             if not isinstance(mod, torch.jit.ScriptModule):
-                mod.register_forward_pre_hook(enter_namespace)
-                mod.register_forward_pre_hook(model_input)
+                self.hook_handles.append(mod.register_forward_pre_hook(enter_namespace))
+                self.hook_handles.append(mod.register_forward_pre_hook(model_input))
 
     def _register_forward_hooks(self, model):
 
@@ -207,18 +217,36 @@ class Tracer(metaclass=TracerMeta):
                     if trace_elem.module_output is None:
                         output = self.repack_value(output)
                         trace_elem.module_output = output
-            self.namespace_.pop()
+            namespace = self.namespace_.pop()
+            orig_input = namespace[3]
+            # is_tracins is to check that I'm not in an allowed module inside a blocked module
+            if self.is_tracing(orig_input) and not self.trace_module_through(module):
+                args = namespace[2]
+                module_name = namespace[1]
+                output, inplace = self.update_inplace_output(output, args, {})
+                output = self.update_trace(module, FnType.MODULE, tuple(args), {}, output)
+                self.trace_.trace_elem_list[-1].module_fn_name = module_name
+                if inplace:
+                    assert isinstance(orig_input, tuple) and len(orig_input) == 1
+                    input_tracer = orig_input[0]
+                    # self is the tracer from when the hook was registered, not when the input
+                    # is passed. it doesn't make a difference if the operation is not in place,
+                    # but if the operation is in place i need to update the value_ of the tracer
+                    # that was passed as input
+                    return input_tracer.epilogue(True, output)
+                else:
+                    return self.epilogue(False, output)
 
-        # Identity output of the whole model
+        # Identify output of the whole model
         def model_output(module, input, output):
             if module is model:
-                output = self.repack_model_output(output)
-                self.trace_.model_output_list = output
+                self.trace_.model_output_list = self.repack_model_output(output)
+                return self.repack_value(output)
 
         for mod in model.modules():
             if not isinstance(mod, torch.jit.ScriptModule):
-                mod.register_forward_hook(exit_namespace)
-                mod.register_forward_hook(model_output)
+                self.hook_handles.append(mod.register_forward_hook(exit_namespace))
+                self.hook_handles.append(mod.register_forward_hook(model_output))
 
     def move_torch_args_to_kwargs(self, fn, fn_args, fn_kwargs):
         fn_stub = TORCH_FN_OVERRIDE_DICT[fn]
@@ -242,7 +270,7 @@ class Tracer(metaclass=TracerMeta):
         return self.epilogue(inplace, out)
 
     def update_trace(self, fn, fn_type, fn_args, fn_kwargs, fn_out):
-        modules, m_names, m_inputs = zip(*self.namespace_)
+        modules, m_names, m_inputs, _ = zip(*self.namespace_)
         m_names = flatten(m_names)
         # remove first empty name
         m_names = m_names[1:]
@@ -288,4 +316,6 @@ class Tracer(metaclass=TracerMeta):
         self._register_forward_pre_hooks(model)
         self._register_forward_hooks(model)
         self._trace_with_patches(model)
+        for h in self.hook_handles:
+            h.remove()
         return self.trace_
