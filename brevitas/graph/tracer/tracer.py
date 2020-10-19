@@ -103,7 +103,7 @@ class Tracer(metaclass=TracerMeta):
         self.trace_ = trace_ or Trace()
         self.namespace_ = namespace_ or []
         self.hook_handles = []
-        self.preserve_module_allowlist: List = ['torch.nn', 'brevitas.nn', 'timm.models.layers']
+        self.preserve_module_allowlist: List = ['torch.nn', 'brevitas.nn']
         self.preserve_module_blocklist: List = [Sequential, ModuleList, ModuleDict]
 
     def __bool__(self):
@@ -309,13 +309,15 @@ class Tracer(metaclass=TracerMeta):
                 stack.enter_context(mgr)
             model(self)
 
-    def trace_model(self, model, wrap_torchscript=True):
+    def trace_model(self, model: Module, wrap_torchscript=True):
         model = copy(model)
         if wrap_torchscript:
             torchscript_wrapper(model)
         self._register_forward_pre_hooks(model)
         self._register_forward_hooks(model)
         self._trace_with_patches(model)
+        self.trace_.named_buffers = dict(model.named_buffers())
+        self.trace_.named_params = dict(model.named_parameters())
         for h in self.hook_handles:
             h.remove()
         return self.trace_

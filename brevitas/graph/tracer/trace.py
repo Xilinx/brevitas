@@ -1,7 +1,8 @@
 from typing import List, Any, Dict, Callable, Tuple, Union, Optional
 from dataclasses import dataclass, field
 
-from torch.nn import Module
+from torch import Tensor
+from torch.nn import Module, Parameter
 
 from ..module import Index, FnType
 
@@ -42,6 +43,8 @@ class Trace:
     model_output_list: List[Any] = field(default_factory=list)
     trace_elem_list: List[TraceElem] = field(default_factory=list)
     index_map: Dict[Index, Any] = field(default_factory=dict)
+    named_buffers: Dict[str, Tensor] = None
+    named_params: Dict[str, Parameter] = None
     _index_id = -1
 
     @property
@@ -51,6 +54,26 @@ class Trace:
     @property
     def model_output_index_list(self):
         return self.index_from_val(self.model_output_list)
+
+    def is_buffer(self, tensor):
+        if not isinstance(tensor, Tensor):
+            return False
+        for b in self.named_buffers.values():
+            if tensor is b:
+                return True
+        return False
+
+    def name_from_buffer(self, buffer):
+        for n, b in self.named_buffers.items():
+            if buffer is b:
+                return n
+        return None
+
+    def name_from_param(self, params):
+        for n, p in self.named_params.items():
+            if params is p:
+                return n
+        return None
 
     def index_from_map(self, val):
         for i, v in self.index_map.items():

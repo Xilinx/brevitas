@@ -151,50 +151,112 @@ class ModuleGenerator(object):
         return schedule
 
     # constants are all inputs not computed as outputs, excluding the model input
-    def _gen_constants_parameters(self, schedule: List[Instruction], trace: Trace):
+    def _gen_consts_params_buffers(self, schedule: List[Instruction], trace: Trace):
         output_index_list = [inst.output_index for inst in schedule]
         input_index_list = flatten([i for inst in schedule for i in inst.input_args_list])
         input_index_list += flatten([i for inst in schedule for n, i in inst.input_kwargs_dict.items()])
         # remove topmost inputs from constants
-        const_index_list = [i for i in input_index_list if i not in trace.model_input_index_list]
+        index_list = [i for i in input_index_list if i not in trace.model_input_index_list]
         # remove values generated as output from constants
-        const_index_list = [i for i in const_index_list if i not in output_index_list]
-        # filter out parameters
-        consts = {c: trace.index_map[c] for c in const_index_list if not isinstance(c, Parameter)}
-        params = {c: trace.index_map[c] for c in const_index_list if isinstance(c, Parameter)}
+        index_list = [i for i in index_list if i not in output_index_list]
+        values = {i: trace.index_map[i] for i in index_list}
+        # separate constants from parameters and buffers
+        consts = {i: v for i, v in values.items()
+                  if not isinstance(v, Parameter) and not trace.is_buffer(v)}
+        params = {i: (trace.name_from_param(v), v)
+                  for i, v in values.items() if isinstance(v, Parameter)}
+        buffers = {i: (trace.name_from_buffer(v), v)
+                   for i, v in values.items() if trace.is_buffer(v)}
         # only scalar tensors are accepted as constants, otherwise throw an error
-        consts = {k: v.item() if isinstance(v, Tensor) else v for k, v in consts.items()}
+        consts = {i: v.item() if isinstance(v, Tensor) else v for i, v in consts.items()}
         if None in consts.keys():
             raise RuntimeError("Something went wrong")
-        return consts, params
+        return consts, params, buffers
 
-    def _solve_consts_params(self, arg, consts, params):
-        if isinstance(arg, list):
-            return [self._solve_consts_params(a, consts, params) for a in arg]
-        elif isinstance(arg, tuple):
-            return tuple(self._solve_consts_params(a, consts, params) for a in arg)
-        elif isinstance(arg, dict):
-            return {k: self._solve_consts_params(v, consts, params) for k, v in arg.items()}
-        elif isinstance(arg, Index):
-            if arg in consts:
-                return consts[arg]
-            elif arg in params:
-                return params[arg]
+    def module_from_prefix(self, output_model, prefix):
+        supermodule = output_model
+        prefix_list = prefix.split('.')
+        for p in prefix_list:
+            if p:  # exclude empty prefix
+                if p in supermodule._modules:
+                    supermodule = supermodule._modules[p]
+                else:  # if the module doesn't exist, create it
+                    m = Module()
+                    supermodule._modules[p] = m
+                    supermodule = m
+        return supermodule
+
+    def _solve_inline_values(self, output_model, inst: Instruction, args, consts, buffers, params):
+
+        def recurse(arg):
+            if isinstance(arg, list):
+                return [recurse(a) for a in arg]
+            elif isinstance(arg, tuple):
+                return tuple(recurse(a) for a in arg)
+            elif isinstance(arg, dict):
+                return {k: recurse(v) for k, v in arg.items()}
+            elif isinstance(arg, Index):
+                if arg in buffers:
+                    name, buffer = buffers[arg]
+                    if '.' in name:
+                        final_name = name.split('.')[-1]
+                        assert inst.prefix + '.' + final_name == name  # sanity check
+                        name = final_name
+                    module = self.module_from_prefix(output_model, inst.prefix)
+                    module.register_buffer(name, buffer)
+                    return buffer
+                elif arg in params:
+                    name, param = params[arg]
+                    if '.' in name:
+                        final_name = name.split('.')[-1]
+                        assert inst.prefix + '.' + final_name == name  # sanity check
+                        name = final_name
+                    module = self.module_from_prefix(output_model, inst.prefix)
+                    module.register_parameter(name, param)
+                    return param
+                elif arg in consts:
+                    return consts[arg]
+                else:
+                    return arg
             else:
                 return arg
-        else:
-            return arg
 
-    def _apply_consts_params(self, schedule, consts, params):
+        return recurse(args)
+
+    def _apply_inline_values(self, output_model, schedule, consts, buffers, params):
         for inst in schedule:
-            inst.input_args_list = self._solve_consts_params(inst.input_args_list, consts, params)
-            inst.input_kwargs_dict = self._solve_consts_params(inst.input_kwargs_dict, consts, params)
+            inst.input_args_list = self._solve_inline_values(
+                output_model, inst, inst.input_args_list, consts, buffers, params)
+            inst.input_kwargs_dict = self._solve_inline_values(
+                output_model, inst, inst.input_kwargs_dict, consts, buffers, params)
+
+    # Gen unused params/buffers that are not part of the schedule
+    # but show up in the original state dict
+    # e.g. num_batches_tracked in batch norm
+    def _solve_unused_params_buffers(self, output_model, trace, used_params, used_buffers):
+        used_params_names = [n for i, (n, v) in used_params.items()]
+        used_buffers_names = [n for i, (n, v) in used_buffers.items()]
+        for n, b in trace.named_buffers.items():
+            if n not in used_buffers_names:
+                prefix_list = n.split('.')
+                prefix = '.'.join(prefix_list[:-1]) if len(prefix_list) > 1 else ''
+                name = prefix_list[-1]
+                module = self.module_from_prefix(output_model, prefix)
+                module.register_buffer(name, b)
+        for n, p in trace.named_params.items():
+            if n not in used_params_names:
+                prefix_list = n.split('.')
+                prefix = '.'.join(prefix_list[:-1]) if len(prefix_list) > 1 else ''
+                name = prefix_list[-1]
+                module = self.module_from_prefix(output_model, prefix)
+                module.register_parameter(name, p)
 
     def gen_model(self, trace: Trace):
         output_model = CodegenModule()
         schedule = self._gen_schedule(trace, output_model)
-        consts, params = self._gen_constants_parameters(schedule, trace)
-        self._apply_consts_params(schedule, consts, params)
+        consts, params, buffers = self._gen_consts_params_buffers(schedule, trace)
+        self._apply_inline_values(output_model, schedule, consts, buffers, params)
+        self._solve_unused_params_buffers(output_model, trace, params, buffers)
         output_model.schedule = schedule
         output_model.input_index_list = trace.model_input_index_list
         output_model.output_index_list = trace.model_output_index_list
