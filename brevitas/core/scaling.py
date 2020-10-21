@@ -68,7 +68,7 @@ class _AffineRescaling(brevitas.jit.ScriptModule):
 
     @brevitas.jit.script_method
     def forward(self, x):
-        out = x * self.affine_weight + self.affine_bias  # TODO: take absvals
+        out = x * self.affine_weight + self.affine_bias
         out = torch.abs(out)
         return out
 
@@ -103,8 +103,8 @@ class _StatsScaling(brevitas.jit.ScriptModule):
 
     @brevitas.jit.script_method
     def forward(self, stats: torch.Tensor) -> torch.Tensor:
-        stats = self.affine_rescaling(stats)  # TODO it should be first prerestrict then affine
         stats = self.restrict_scaling_pre(stats)
+        stats = self.affine_rescaling(stats)
         stats = self.restrict_clamp_scaling(stats)
         return stats
 
