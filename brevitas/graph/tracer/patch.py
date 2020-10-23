@@ -84,7 +84,7 @@ def make_below_16_patches():
         params_to_dispatch = [n for n, p in signature.parameters.items() if param_to_dispatch(p)]
         args = str(signature)[1:-1]  # remove ()
         returns = ','.join(params_to_dispatch)
-        dispatcher_source = f"lambda {args}: ({returns})"
+        dispatcher_source = f"lambda {args}: ({returns},)"  # force tuple
         dispatcher = eval(dispatcher_source)
         return dispatcher
 
