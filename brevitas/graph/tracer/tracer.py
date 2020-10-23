@@ -84,7 +84,7 @@ class TracerMeta(type):
             args, kwargs = tracer.repack_args_kwargs(args, kwargs)
             out = fn(*args, **kwargs)
             kwargs['self'] = tracer.value_
-            out, inplace = tracer.update_inplace_output(out, args, {})
+            out, inplace = tracer.update_inplace_output(out, args, kwargs)
             out = tracer.update_trace(method_name, FnType.METHOD, args, kwargs, out)
             return tracer.epilogue(inplace, out)
 
