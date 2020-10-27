@@ -10,7 +10,7 @@ class QuantAvgPool2dPlaceholderFunction(Function):
             input = g.op('Div', input, scale, activation_qnt_s=qnt_type)
         ret = g.op(
             'QuantAvgPool2d', input,
-            domain_s="finn",
+            domain_s="finn.custom_op.general",
             kernel_i=kernel,
             stride_i=stride,
             signed_i=signed,
