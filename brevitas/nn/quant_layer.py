@@ -296,8 +296,8 @@ class QuantWeightBiasInputOutputLayer(
     def per_elem_ops(self):  # optional, so concrete impl + error if not overridden
         raise NotImplementedError
 
-    def merge_bn_in(self, bn, affine_only):
-        merge_bn(self, bn, affine_only, output_channel_dim=self.output_channel_dim)
+    def merge_bn_in(self, bn):
+        merge_bn(self, bn, output_channel_dim=self.output_channel_dim)
 
     def forward_impl(self, inp: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
         output_scale = None
