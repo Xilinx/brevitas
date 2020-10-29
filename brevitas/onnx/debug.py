@@ -8,7 +8,7 @@ class DebugMarkerFunction(Function):
 
     @staticmethod
     def symbolic(g, input, export_debug_name):
-        ret = g.op('DebugMarker', input, export_debug_name_s=export_debug_name, domain_s="finn")
+        ret = g.op('DebugMarker', input, export_debug_name_s=export_debug_name, domain_s="finn.custom_op.general")
         return ret
 
     @staticmethod
