@@ -1,13 +1,20 @@
 import pytest
 import torch
 
-from brevitas.nn import QuantReLU, QuantIdentity
+from brevitas.nn import QuantReLU, QuantIdentity, QuantHardTanh
 from common import check_expected_pyt_110_fail
+
+
+class TestQuantHardTanh:
+
+    def test_module_init_min_max(self):
+        mod = QuantHardTanh(min_val=-1.0, max_val=1.0)
+
 
 class TestQuantReLU:
 
     def test_module_init_default(self):
-        mod = QuantReLU(max_val=6)
+        mod = QuantReLU()
 
     def test_module_init_const_scaling(self):
         mod = QuantReLU(max_val=6, scaling_impl_type='CONST')

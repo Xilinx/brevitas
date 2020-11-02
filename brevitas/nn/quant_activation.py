@@ -44,7 +44,7 @@ from torch import nn
 
 from brevitas.inject import BaseInjector as Injector
 from brevitas.inject.defaults import Uint8ActPerTensorFloat
-from brevitas.inject.defaults import Int8ActPerTensorFloat
+from brevitas.inject.defaults import Int8ActPerTensorFloat, Int8ActPerTensorFloatMinMax
 from .quant_layer import QuantNonLinearActLayer as QuantNLAL, ActQuantProxyProtocol
 
 
@@ -107,7 +107,7 @@ class QuantHardTanh(QuantNLAL):
     def __init__(
             self,
             input_quant: Union[ActQuantProxyProtocol, Type[Injector]] = None,
-            act_quant: Type[Injector] = Int8ActPerTensorFloat,
+            act_quant: Type[Injector] = Int8ActPerTensorFloatMinMax,
             return_quant_tensor: bool = False,
             **kwargs):
         QuantNLAL.__init__(
