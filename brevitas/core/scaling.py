@@ -259,7 +259,7 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
         self.stats_input_view_shape_impl = scaling_stats_input_view_shape_impl
         self.stats = _Stats(scaling_stats_impl, scaling_shape)
         self.momentum = scaling_stats_momentum
-        self.value = Parameter(torch.full(scaling_shape, 0.0))
+        self.value = Parameter(torch.full(scaling_shape, 1.0))
         self.restrict_clamp_scaling = _RestrictClampValue(scaling_min_val, restrict_scaling_impl)
         self.restrict_inplace_preprocess = restrict_scaling_impl.restrict_init_inplace_module()
 
