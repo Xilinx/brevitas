@@ -3,4 +3,5 @@ onnx==1.5.0; python_version < '3.8' or sys_platform == 'linux'
 onnx; python_version >= '3.8' and sys_platform != 'linux'
 onnxruntime==1.4.0
 finn @ git+https://github.com/Xilinx/finn@dev#egg=finn
+finn-base @ git+https://github.com/Xilinx/finn-base@dev#egg=finn-base
 toposort
