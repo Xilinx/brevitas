@@ -38,88 +38,54 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from typing import Tuple, Optional, List, Union
+
+from typing import Tuple, Optional, Union
 
 import torch
+from torch import Tensor
 from torch.nn import Parameter, Module
 
 import brevitas
 import brevitas.config as config
-from brevitas.core.function_wrapper import Identity
-from brevitas.function.ops import min_int, max_int
-from brevitas.inject.enum import ScalingImplType  # retrocompatibility
-
-from .stats import _ParameterListStats, _RuntimeStats, _Stats, SCALAR_SHAPE, DEFAULT_MOMENTUM
-from .utils import StatelessBuffer
-from .restrict_val import _RestrictClampValue
-
-SCALING_STATS_REDUCE_DIM = 1
+from brevitas.core.utils import StatelessBuffer
+from brevitas.core.restrict_val import _RestrictClampValue
+from brevitas.core.stats import _Stats, SCALAR_SHAPE, DEFAULT_MOMENTUM
 
 
-assert ScalingImplType  # prevent removal of unused import
-
-
-class _AffineRescaling(brevitas.jit.ScriptModule):
-
-    def __init__(self, scaling_shape):
-        super(_AffineRescaling, self).__init__()
-        self.affine_weight = Parameter(torch.ones(scaling_shape))
-        self.affine_bias = Parameter(torch.zeros(scaling_shape))
-
-    @brevitas.jit.script_method
-    def forward(self, x):
-        out = x * self.affine_weight + self.affine_bias
-        out = torch.abs(out)
-        return out
-
-    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
-                              missing_keys, unexpected_keys, error_msgs):
-        super(_AffineRescaling, self)._load_from_state_dict(
-            state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
-        affine_weight_key = prefix + 'affine_weight'
-        affine_bias_key = prefix + 'affine_bias'
-        if config.IGNORE_MISSING_KEYS and affine_weight_key in missing_keys:
-            missing_keys.remove(affine_weight_key)
-        if config.IGNORE_MISSING_KEYS and affine_bias_key in missing_keys:
-            missing_keys.remove(affine_bias_key)
-
-
-class _StatsScaling(brevitas.jit.ScriptModule):
+class ConstScaling(brevitas.jit.ScriptModule):
 
     def __init__(
             self,
+            scaling_init: Union[float, Tensor],
             restrict_scaling_impl: Module,
-            scaling_shape: Tuple[int, ...],
-            scaling_min_val: Optional[float] = None,
-            affine_rescaling: bool = False) -> None:
-        super(_StatsScaling, self).__init__()
-
-        if affine_rescaling:
-            self.affine_rescaling = _AffineRescaling(scaling_shape)
-        else:
-            self.affine_rescaling = Identity()
+            scaling_min_val: Optional[float] = None) -> None:
+        super(ConstScaling, self).__init__()
         self.restrict_clamp_scaling = _RestrictClampValue(scaling_min_val, restrict_scaling_impl)
-        self.restrict_scaling_pre = restrict_scaling_impl.restrict_init_module()
+        if isinstance(scaling_init, Tensor):
+            scaling_init = restrict_scaling_impl.restrict_init_tensor(scaling_init)
+            self.value = StatelessBuffer(scaling_init.detach())
+        else:
+            scaling_init = restrict_scaling_impl.restrict_init_float(scaling_init)
+            self.value = StatelessBuffer(torch.tensor(scaling_init))
 
     @brevitas.jit.script_method
-    def forward(self, stats: torch.Tensor) -> torch.Tensor:
-        stats = self.restrict_scaling_pre(stats)
-        stats = self.affine_rescaling(stats)
-        stats = self.restrict_clamp_scaling(stats)
-        return stats
+    def forward(self, placeholder: Tensor) -> Tensor:
+        value = self.value()
+        restricted_value = self.restrict_clamp_scaling(value)
+        return restricted_value
 
 
 class ParameterScaling(brevitas.jit.ScriptModule):
 
     def __init__(
             self,
-            scaling_init: Union[float, torch.Tensor],
+            scaling_init: Union[float, Tensor],
             scaling_shape: Tuple[int, ...],
             restrict_scaling_impl: Module,
             scaling_min_val: Optional[float] = None) -> None:
         super(ParameterScaling, self).__init__()
 
-        if isinstance(scaling_init, torch.Tensor):
+        if isinstance(scaling_init, Tensor):
             scaling_init = scaling_init.detach()
         else:
             self.value = torch.tensor(scaling_init)
@@ -132,7 +98,7 @@ class ParameterScaling(brevitas.jit.ScriptModule):
             self.value = Parameter(scaling_init)
 
     @brevitas.jit.script_method
-    def forward(self, placeholder: torch.Tensor) -> torch.Tensor:
+    def forward(self, placeholder: Tensor) -> Tensor:
         value = self.restrict_clamp_scaling(self.value)
         return value
 
@@ -146,92 +112,6 @@ class ParameterScaling(brevitas.jit.ScriptModule):
             state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
         if config.IGNORE_MISSING_KEYS and value_key in missing_keys:
             missing_keys.remove(value_key)
-
-
-class ConstScaling(brevitas.jit.ScriptModule):
-
-    def __init__(
-            self,
-            scaling_init: Union[float, torch.Tensor],
-            restrict_scaling_impl: Module,
-            scaling_min_val: Optional[float] = None) -> None:
-        super(ConstScaling, self).__init__()
-        self.restrict_clamp_scaling = _RestrictClampValue(scaling_min_val, restrict_scaling_impl)
-        if isinstance(scaling_init, torch.Tensor):
-            scaling_init = restrict_scaling_impl.restrict_init_tensor(scaling_init)
-            self.value = StatelessBuffer(scaling_init.detach())
-        else:
-            scaling_init = restrict_scaling_impl.restrict_init_float(scaling_init)
-            self.value = StatelessBuffer(torch.tensor(scaling_init))
-
-    @brevitas.jit.script_method
-    def forward(self, placeholder: torch.Tensor) -> torch.Tensor:
-        value = self.value()
-        restricted_value = self.restrict_clamp_scaling(value)
-        return restricted_value
-
-
-class RuntimeStatsScaling(brevitas.jit.ScriptModule):
-
-    def __init__(
-            self,
-            scaling_stats_impl: Module,
-            scaling_stats_input_view_shape_impl: Module,
-            scaling_stats_permute_dims: Tuple[int, ...],
-            restrict_scaling_impl: Module,
-            scaling_shape: Tuple[int, ...],
-            affine_rescaling: bool,
-            scaling_stats_momentum: float = DEFAULT_MOMENTUM,
-            scaling_min_val: Optional[float] = None) -> None:
-        super(RuntimeStatsScaling, self).__init__()
-
-        self.runtime_stats = _RuntimeStats(
-            scaling_stats_impl,
-            scaling_shape,
-            scaling_stats_input_view_shape_impl,
-            scaling_stats_permute_dims,
-            scaling_stats_momentum)
-        self.stats_scaling_impl = _StatsScaling(
-            restrict_scaling_impl,
-            scaling_shape,
-            scaling_min_val,
-            affine_rescaling)
-
-    @brevitas.jit.script_method
-    def forward(self, x: torch.Tensor):
-        stats = self.runtime_stats(x)
-        return self.stats_scaling_impl(stats)
-
-
-class ParameterStatsScaling(brevitas.jit.ScriptModule):
-
-    def __init__(
-            self,
-            scaling_stats_impl: Module,
-            scaling_stats_input_view_shape_impl: Module,
-            scaling_stats_input_concat_dim: int,
-            tracked_parameter_list: List[torch.nn.Parameter],
-            restrict_scaling_impl: Module,
-            scaling_shape: Tuple[int, ...],
-            affine_rescaling: bool = False,
-            scaling_min_val: Optional[float] = None) -> None:
-        super(ParameterStatsScaling, self).__init__()
-        self.parameter_list_stats = _ParameterListStats(
-            scaling_stats_impl,
-            scaling_shape,
-            scaling_stats_input_view_shape_impl,
-            scaling_stats_input_concat_dim,
-            tracked_parameter_list)
-        self.stats_scaling_impl = _StatsScaling(
-            restrict_scaling_impl,
-            scaling_shape,
-            scaling_min_val,
-            affine_rescaling)
-
-    @brevitas.jit.script_method
-    def forward(self, ignored: torch.Tensor):
-        stats = self.parameter_list_stats()
-        return self.stats_scaling_impl(stats)
 
 
 class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
@@ -264,7 +144,7 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
         self.restrict_inplace_preprocess = restrict_scaling_impl.restrict_init_inplace_module()
 
     @brevitas.jit.script_method_110_disabled
-    def forward(self, stats_input) -> torch.Tensor:
+    def forward(self, stats_input: Tensor) -> Tensor:
         if self.training:
             if self.counter < self.collect_stats_steps:
                 if self.stats_permute_dims is not None:
@@ -298,33 +178,3 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             missing_keys.remove(training_key)
         if config.IGNORE_MISSING_KEYS and value_key in missing_keys:
             missing_keys.remove(value_key)
-
-
-class FloatIntScaling(brevitas.jit.ScriptModule):
-    __constants__ = ['signed', 'narrow_range']
-
-    def __init__(self, signed, narrow_range):
-        super(FloatIntScaling, self).__init__()
-        if not signed and narrow_range:
-            raise RuntimeError("Can't have signed narrow range quantization")
-        self.signed = signed
-        self.narrow_range = narrow_range
-
-    @brevitas.jit.script_method
-    def forward(self, bit_width):
-        if self.signed:
-            return - min_int(self.signed, self.narrow_range, bit_width)
-        else:
-            return max_int(self.signed, bit_width)
-
-
-class PowerOfTwoIntScaling(brevitas.jit.ScriptModule):
-    __constants__ = ['signed']
-
-    def __init__(self, signed):
-        super(PowerOfTwoIntScaling, self).__init__()
-        self.signed = signed
-
-    @brevitas.jit.script_method
-    def forward(self, bit_width):
-        return max_int(self.signed, bit_width) + 1

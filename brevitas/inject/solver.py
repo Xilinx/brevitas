@@ -38,18 +38,21 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+from typing import List
 from functools import partial
 
 from dependencies import this, value
 
 from brevitas.core.quant import *
 from brevitas.core.function_wrapper import RoundSte, CeilSte, FloorSte, TensorClamp, TensorClampSte
+from brevitas.core.function_wrapper import StatsInputViewShapeImpl
 from brevitas.core.scaling import *
 from brevitas.core.restrict_val import *
 from brevitas.core.bit_width import *
 from brevitas.core.quant import QuantType
 from brevitas.core.stats import *
 from brevitas.core.scaling import ScalingImplType, SCALAR_SHAPE
+from brevitas.core.utils import StatelessBuffer
 from brevitas.proxy.utils import ConvertRuntimeStatsToParameter
 from . import BaseInjector as Injector
 
@@ -67,7 +70,7 @@ class EvaluateScalingInitImpl(Injector):
 
 class ParameterFromStatsScalingInit:
 
-    def __init__(self, parameter_stats_scaling: ParameterStatsScaling):
+    def __init__(self, parameter_stats_scaling: StatsFromParameterScaling):
         self.parameter_stats_scaling = parameter_stats_scaling
         self.ignored = StatelessBuffer(torch.tensor(0.0))
 
@@ -207,9 +210,9 @@ def _solve_weight_scaling_impl_type(qi):
     qi = solver(qi, ScalingImplType.CONST, ConstScaling)
     qi = solver(qi, ScalingImplType.HE, ConstScaling)
     qi = solver(qi, ScalingImplType.STATS,
-                 {'scaling_impl': ParameterStatsScaling, 'affine_rescaling': False})
+                 {'scaling_impl': StatsFromParameterScaling, 'affine_rescaling': False})
     qi = solver(qi, ScalingImplType.AFFINE_STATS,
-                 {'scaling_impl': ParameterStatsScaling, 'affine_rescaling': True})
+                 {'scaling_impl': StatsFromParameterScaling, 'affine_rescaling': True})
     return qi
 
 
@@ -353,7 +356,7 @@ def _solve_weight_scaling_init_impl(qi):
     if _check_name_value(qi, name, ScalingImplType.PARAMETER_FROM_STATS):
         qi = qi & EvaluateScalingInitImpl
         qi = qi.let(scaling_init_impl=ParameterFromStatsScalingInit)
-        qi = qi.let(parameter_stats_scaling=ParameterStatsScaling)
+        qi = qi.let(parameter_stats_scaling=StatsFromParameterScaling)
     elif _check_name_value(qi, name, ScalingImplType.HE):
         qi = qi & EvaluateScalingInitImpl
         qi = qi.let(scaling_init_impl=HeScalingInit)
