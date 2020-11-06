@@ -42,6 +42,7 @@ from typing import List
 from functools import partial
 
 from dependencies import this, value
+from torch import nn
 
 from brevitas.core.quant import *
 from brevitas.core.function_wrapper import RoundSte, CeilSte, FloorSte, TensorClamp, TensorClampSte
