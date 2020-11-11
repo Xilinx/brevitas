@@ -1,14 +1,18 @@
 import os
 import glob
 import warnings
+from packaging import version
 
 import docrep
 from torch.utils import cpp_extension
+import torch
 
 import brevitas.jit as jit
 from brevitas import config
 
 docstrings = docrep.DocstringProcessor()
+
+torch_version = version.parse(torch.__version__)
 
 extensions_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'csrc')
 sources = glob.glob(os.path.join(extensions_dir, '*.cpp'))
