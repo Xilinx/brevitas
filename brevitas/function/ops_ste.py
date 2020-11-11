@@ -47,7 +47,7 @@ if brevitas.NATIVE_STE_BACKEND_LOADED:
     fn_prefix = torch.ops.autograd_ste_ops
     script_flag = brevitas.jit.script
 else:
-    fn_prefix = brevitas.function.autograd_ste_ops
+    from brevitas.function import autograd_ste_ops as fn_prefix
     script_flag = torch.jit.ignore
 
 
