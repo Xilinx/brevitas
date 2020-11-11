@@ -100,6 +100,7 @@ def tests_brevitas_install_dev(session, pytorch):
     install_pytorch(pytorch, session)
     install_torchvision(pytorch, session)
     session.install('--upgrade', '-e', '.[test]')
+    session.env['BREVITAS_VERBOSE'] = '1'
     session.run('pytest', '-v', 'test/brevitas/test_brevitas_import.py')
 
 
