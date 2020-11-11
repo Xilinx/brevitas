@@ -165,10 +165,12 @@ class IntQuant(brevitas.jit.ScriptModule):
     def to_int(self,
                scale: Tensor,
                int_scale: Tensor,
+               zero_point: Tensor,
                msb_clamp_bit_width: Tensor,
                x: Tensor) -> Tensor:
         y = x / scale
         y = y * int_scale
+        y + zero_point
         min_int_val = self.min_int(msb_clamp_bit_width)
         max_int_val = self.max_int(msb_clamp_bit_width)
         y = self.tensor_clamp_impl(y, min_val=min_int_val, max_val=max_int_val)
@@ -191,10 +193,12 @@ class IntQuant(brevitas.jit.ScriptModule):
     def forward(self,
                 scale: Tensor,
                 int_scale: Tensor,
+                zero_point: Tensor,
                 msb_clamp_bit_width: Tensor,
                 x: Tensor) -> Tensor:
-        y_int = self.to_int(scale, int_scale, msb_clamp_bit_width, x)
-        y = y_int / int_scale
+        y_int = self.to_int(scale, int_scale, zero_point, msb_clamp_bit_width, x)
+        y = y_int - zero_point
+        y = y / int_scale
         y = y * scale
         y = self.delay_wrapper(x, y)
         return y

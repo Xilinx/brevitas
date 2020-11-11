@@ -136,6 +136,25 @@ class QuantNonLinearActLayer(
     def quant_output_scale(self):  # overrides from QuantLayerMixin
         return self.quant_act_scale()
 
+    def quant_input_zero_point(self):
+        if self.is_input_quant_enabled:
+            return self.input_quant.zero_point()
+        elif self._cached_inp is not None:
+            return self._cached_inp.zero_point
+        else:
+            return None
+
+    def quant_act_zero_point(self):
+        if self.is_act_quant_enabled:
+            return self.act_quant.zero_point()
+        elif self._cached_out is not None:
+            return self._cached_out.zero_point
+        else:
+            return None
+
+    def quant_output_zero_point(self):  # overrides from QuantLayerMixin
+        return self.quant_act_zero_point()
+
     def quant_input_bit_width(self):
         if self.is_input_quant_enabled:
             return self.input_quant.bit_width()
@@ -226,6 +245,22 @@ class QuantInputOutputLayer(
             return self.output_quant.scale()
         elif self._cached_out is not None:
             return self._cached_out.scale
+        else:
+            return None
+
+    def quant_input_zero_point(self):
+        if self.is_input_quant_enabled:
+            return self.input_quant.zero_point()
+        elif self._cached_inp is not None:
+            return self._cached_inp.zero_point
+        else:
+            return None
+
+    def quant_output_zero_point(self):
+        if self.is_output_quant_enabled:
+            return self.output_quant.zero_point()
+        elif self._cached_out is not None:
+            return self._cached_out.zero_point
         else:
             return None
 

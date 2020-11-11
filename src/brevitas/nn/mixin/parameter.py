@@ -130,6 +130,10 @@ class QuantWeightMixin(QuantParameterMixin):
         scale = self.quant_weight().scale
         return scale
 
+    def quant_weight_zero_point(self):
+        scale = self.quant_weight().zero_point
+        return scale
+
     def quant_weight_bit_width(self):
         bit_width = self.quant_weight().bit_width
         return bit_width
@@ -197,6 +201,11 @@ class QuantBiasMixin(QuantParameterMixin):
             if self.training:
                 warn("Cached quant bias scale is being used in training mode.")
             return self._cached_bias.scale
+
+    def quant_bias_zero_point(self):
+        if self.bias is None:
+            return None
+        return self._cached_bias.zero_point
 
     def quant_bias_bit_width(self):
         if self.bias is None or not self.is_bias_quant_enabled:

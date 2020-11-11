@@ -55,6 +55,7 @@ def pack_quant_tensor(tensor, scale, bit_width, signed=None):  #TODO deprecate
 class QuantTensor(NamedTuple):
     value: Tensor
     scale: Optional[Tensor] = None
+    zero_point: Optional[Tensor] = None
     bit_width: Optional[Tensor] = None
     signed: Optional[bool] = None
     training: Optional[bool] = None
@@ -67,6 +68,7 @@ class QuantTensor(NamedTuple):
     def is_valid(self):
         return self.value is not None \
                and self.scale is not None \
+               and self.zero_point is not None \
                and self.bit_width is not None \
                and self.signed is not None
 
@@ -76,18 +78,21 @@ class QuantTensor(NamedTuple):
     def detach_(self):
         self.value.detach_()
         self.scale.detach_()
+        self.zero_point.detach_()
         self.bit_width.detach_()
 
     def detach(self):
         return QuantTensor(
             self.value.detach() if self.value is not None else None,
             self.scale.detach() if self.scale is not None else None,
+            self.zero_point.detach() if self.scale is not None else None,
             self.bit_width.detach() if self.bit_width is not None else None,
             self.signed)
 
     def int(self, float_datatype=False):
         if self.is_valid:
             int_value = self.value / self.scale
+            int_value = int_value + self.zero_point
             int_value = round_ste(int_value)
             if float_datatype:
                 return int_value
@@ -106,6 +111,12 @@ class QuantTensor(NamedTuple):
             return True
         if not torch.allclose(self.scale, other.scale):
             raise RuntimeError("Scaling factors are different")
+
+    def check_zero_points_same(self, other):
+        if self.training is not None and self.training:
+            return True
+        if not torch.allclose(self.zero_point, other.zero_point):
+            raise RuntimeError("Zero points are different")
 
     def check_bit_width_same(self, other):
         if not torch.allclose(self.bit_width, other.bit_width):
@@ -142,13 +153,16 @@ class QuantTensor(NamedTuple):
             for qt in tensor_list[1:]:
                 QuantTensor.check_input_type(qt)
                 first_qt.check_scaling_factors_same(qt)
+                first_qt.check_scaling_factors_same(qt)
                 first_qt.check_bit_width_same(qt)
                 first_qt.check_sign_same(qt)
             output_value = torch.cat([qt.value for qt in tensor_list], dim=dim)
             output_scale = sum([qt.scale for qt in tensor_list]) / len(tensor_list)
+            output_zero_point = sum([qt.zero_point for qt in tensor_list]) / len(tensor_list)
             output_bit_width = sum([qt.bit_width for qt in tensor_list]) / len(tensor_list)
             output_signed = first_qt.signed # they are the same
-            return QuantTensor(output_value, output_scale, output_bit_width, output_signed)
+            return QuantTensor(
+                output_value, output_scale, output_zero_point, output_bit_width, output_signed)
         else:
             output_value = torch.cat([qt.value for qt in tensor_list], dim=dim)
             return QuantTensor(output_value)
@@ -158,27 +172,32 @@ class QuantTensor(NamedTuple):
 
     def __neg__(self):
         if self.signed:
-            return QuantTensor(- self.value, self.scale, self.bit_width, self.signed)
+            return QuantTensor(
+                - self.value, self.scale, self.zero_point, self.bit_width, self.signed)
         else:
-            return QuantTensor(- self.value, self.scale, self.bit_width + 1, signed=True)
+            return QuantTensor(
+                - self.value, self.scale, self.bit_width + 1, signed=True)
 
     def __add__(self, other):
         QuantTensor.check_input_type(other)
         if self.is_valid and other.is_valid:
             self.check_scaling_factors_same(other)
+            self.check_zero_points_same(other)
             output_value = self.value + other.value
             output_scale = (self.scale + other.scale) / 2
+            output_zero_point = (self.zero_point + other.zero_point) / 2
             max_uint_val = max_uint(narrow_range=False, bit_width=self.bit_width)
             max_uint_val += max_uint(narrow_range=False, bit_width=other.bit_width)
             output_bit_width = ceil_ste(torch.log2(max_uint_val))
             output_signed = self.signed or other.signed
-            output = QuantTensor(output_value, output_scale, output_bit_width, output_signed)
+            output = QuantTensor(
+                output_value, output_scale, output_zero_point, output_bit_width, output_signed)
         else:
             output_value = self.value + other.value
             output = QuantTensor(output_value)
         return output
 
-    def __mul__(self, other):
+    def __mul__(self, other):  # todo zero point
         QuantTensor.check_input_type(other)
         if self.is_valid and other.is_valid:
             output_value = self.value * other.value
@@ -194,7 +213,7 @@ class QuantTensor(NamedTuple):
     def __sub__(self, other):
         return self.__add__(- other)
 
-    def __truediv__(self, other):
+    def __truediv__(self, other):  # todo zero point
         QuantTensor.check_input_type(other)
         if self.is_valid and other.is_valid:
             output_tensor = self.value / other.tensor
@@ -209,9 +228,11 @@ class QuantTensor(NamedTuple):
 
     def __abs__(self):
         if self.signed:
-            return QuantTensor(torch.abs(self.tensor), self.scale, self.bit_width - 1, False)
+            return QuantTensor(
+                torch.abs(self.tensor), self.zero_point, self.scale, self.bit_width - 1, False)
         else:
-            return QuantTensor(torch.abs(self.tensor), self.scale, self.bit_width, False)
+            return QuantTensor(
+                torch.abs(self.tensor), self.zero_point, self.scale, self.bit_width, False)
 
     def __pos__(self):
         return self

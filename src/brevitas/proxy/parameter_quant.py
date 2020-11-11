@@ -127,8 +127,8 @@ class WeightQuantProxyFromInjector(ParameterQuantProxyFromInjector, WeightQuantP
 
     def forward(self, x: torch.Tensor) -> QuantTensor:
         if self.is_quant_enabled:
-            out, scale, bit_width = self.tensor_quant(x)
-            return QuantTensor(out, scale, bit_width, signed=self.is_signed)
+            out, scale, zero_point, bit_width = self.tensor_quant(x)
+            return QuantTensor(out, scale, zero_point, bit_width, signed=self.is_signed)
         else:  # quantization disabled
             return QuantTensor(x)
 
@@ -155,15 +155,15 @@ class BiasQuantProxyFromInjector(ParameterQuantProxyFromInjector, BiasQuantProxy
                 raise RuntimeError("Input bit width required")
             if self.requires_input_scale and self.requires_input_bit_width:
                 input_scale = input_scale.view(-1)
-                out, out_scale, out_bit_width = self.tensor_quant(x, input_scale, input_bit_width)
+                out, out_scale, out_bit_width, out_zp = self.tensor_quant(x, input_scale, input_bit_width)
             elif self.requires_input_scale and not self.requires_input_bit_width:
                 input_scale = input_scale.view(-1)
-                out, out_scale, out_bit_width = self.tensor_quant(x, input_scale)
+                out, out_scale, out_bit_width, out_zp = self.tensor_quant(x, input_scale)
             elif not self.requires_input_scale and not self.requires_input_bit_width:
-                out, out_scale, out_bit_width = self.tensor_quant(x)
+                out, out_scale, out_bit_width, out_zp = self.tensor_quant(x)
             else:
                 raise RuntimeError("Internally defined bit width required")
-            return QuantTensor(out, out_scale, out_bit_width, self.is_signed)
+            return QuantTensor(out, out_scale, out_bit_width, out_zp, self.is_signed)
         else:
             return QuantTensor(x)
 
