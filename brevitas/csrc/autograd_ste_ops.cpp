@@ -25,6 +25,7 @@
 //CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 //OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 //OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 #include <ATen/TensorUtils.h>
 #include <torch/extension.h>
 
@@ -189,52 +190,65 @@ class RoundToZeroSteFn : public torch::autograd::Function<RoundToZeroSteFn> {
 };
 
 
-Tensor ceil_ste(
+Tensor ceil_ste_impl(
  const Tensor& input){
  return CeilSteFn::apply(input)[0];
 };
 
-Tensor floor_ste(
+Tensor floor_ste_impl(
  const Tensor& input){
  return FloorSteFn::apply(input)[0];
 };
 
-Tensor round_ste(
+Tensor round_ste_impl(
  const Tensor& input){
  return RoundSteFn::apply(input)[0];
 };
 
-Tensor binary_sign_ste(
+Tensor binary_sign_ste_impl(
  const Tensor& input){
  return BinarySignSteFn::apply(input)[0];
 };
 
-Tensor ternary_sign_ste(
+Tensor ternary_sign_ste_impl(
  const Tensor& input){
  return TernarySignSteFn::apply(input)[0];
 };
 
-Tensor tensor_clamp_ste(
+Tensor tensor_clamp_ste_impl(
  const Tensor& input,
  const Tensor& min_val,
  const Tensor& max_val){
  return TensorClampSteFn::apply(input, min_val, max_val)[0];
 };
 
-Tensor scalar_clamp_ste(
+Tensor scalar_clamp_ste_impl(
  const Tensor& input,
  const double min_val,
  const double max_val){
  return ScalarClampSteFn::apply(input, min_val, max_val)[0];
 };
 
-Tensor scalar_clamp_min_ste(
+Tensor scalar_clamp_min_ste_impl(
  const Tensor& input,
  const double min_val){
  return ScalarClampMinSteFn::apply(input, min_val)[0];
 };
 
-Tensor round_to_zero_ste(
+Tensor round_to_zero_ste_impl(
  const Tensor& input){
  return RoundToZeroSteFn::apply(input)[0];
 };
+
+TORCH_LIBRARY(autograd_ste_ops, m) {
+    m.def("round_ste_impl", &round_ste_impl);
+    m.def("tensor_clamp_ste_impl", &tensor_clamp_ste_impl);
+    m.def("scalar_clamp_ste_impl", &scalar_clamp_ste_impl);
+    m.def("scalar_clamp_min_ste_impl", &scalar_clamp_min_ste_impl);
+    m.def("binary_sign_ste_impl", &binary_sign_ste_impl);
+    m.def("ternary_sign_ste_impl", &ternary_sign_ste_impl);
+    m.def("ceil_ste_impl", &ceil_ste_impl);
+    m.def("floor_ste_impl", &floor_ste_impl);
+    m.def("round_to_zero_ste_impl", &round_to_zero_ste_impl);
+}
+    

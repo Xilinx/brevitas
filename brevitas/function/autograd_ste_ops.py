@@ -213,7 +213,7 @@ class round_ste_fn(torch.autograd.Function):
         return grad_y
 
 
-class round_to_zero_fn(torch.autograd.Function):
+class round_to_zero_ste_fn(torch.autograd.Function):
     """ Autograd function that implements round_to_zero with a straight through estimator
 
     Look at the documentation of :func:`~brevitas.function.ops_ste.round_to_zero` for further details.
@@ -231,3 +231,14 @@ class round_to_zero_fn(torch.autograd.Function):
         """
         """
         return grad_y
+
+
+round_ste_impl = round_ste_fn.apply
+binary_sign_ste_impl = binary_sign_ste_fn.apply
+ternary_sign_ste_impl = ternary_sign_ste_fn.apply
+floor_ste_impl = floor_ste_fn.apply
+ceil_ste_impl = ceil_ste_fn.apply
+round_to_zero_ste_impl = round_to_zero_ste_fn.apply
+scalar_clamp_min_ste_impl = scalar_clamp_min_ste_fn.apply
+scalar_clamp_ste_impl = scalar_clamp_ste_fn.apply
+tensor_clamp_ste_impl = tensor_clamp_ste_fn.apply

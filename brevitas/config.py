@@ -5,12 +5,12 @@ try:
 except ImportError:
     from torch.jit._state import _enabled
 
+
 def env_to_bool(name, default):
     return bool(strtobool(os.environ.get(name, "{}".format(default))))
 
 
-MIN_TORCH_JITTABLE_VERSION = "1.3.0"
-MAX_TORCH_JITTABLE_VERSION = "1.4.0"
-
 IGNORE_MISSING_KEYS = env_to_bool('BREVITAS_IGNORE_MISSING_KEYS', False)
 JIT_ENABLED = env_to_bool('BREVITAS_JIT', False) and _enabled
+NATIVE_STE_BACKEND = env_to_bool('BREVITAS_NATIVE_STE_BACKEND', True)
+VERBOSE = env_to_bool('BREVITAS_VERBOSE', False)
