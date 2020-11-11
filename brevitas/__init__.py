@@ -14,7 +14,7 @@ extensions_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'csrc'
 sources = glob.glob(os.path.join(extensions_dir, '*.cpp'))
 sources = [os.path.join(extensions_dir, s) for s in sources]
 
-if config.NATIVE_STE_BACKEND:
+if config.NATIVE_STE_BACKEND_ENABLED:
     try:
         cpp_extension.load(
             name='autograd_ste_ops',
