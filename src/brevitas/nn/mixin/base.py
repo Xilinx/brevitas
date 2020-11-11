@@ -60,6 +60,10 @@ class _CachedIO:
         return self.quant_tensor.scale
 
     @property
+    def zero_point(self):
+        return self.quant_tensor.zero_point
+
+    @property
     def bit_width(self):
         return self.quant_tensor.bit_width
 
@@ -139,6 +143,12 @@ class QuantLayerMixin(object):
         else:
             return None
 
+    def quant_input_zero_point(self):
+        if self._cached_inp is not None:
+            return self._cached_inp.zero_point
+        else:
+            return None
+
     def quant_input_bit_width(self):
         if self._cached_inp is not None:
             return self._cached_inp.bit_width
@@ -155,6 +165,12 @@ class QuantLayerMixin(object):
     def quant_output_scale(self):
         if self._cached_out is not None:
             return self._cached_out.scale
+        else:
+            return None
+
+    def quant_output_zero_point(self):
+        if self._cached_out is not None:
+            return self._cached_out.zero_point
         else:
             return None
 

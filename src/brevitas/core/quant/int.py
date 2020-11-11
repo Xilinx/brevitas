@@ -112,16 +112,17 @@ class PrescaledRestrictIntQuantWithInputBitWidth(brevitas.jit.ScriptModule):
         self.int_quant = int_quant
         self.msb_clamp_bit_width_impl = bit_width_impl
         self.int_scale = StatelessBuffer(torch.tensor(1.0))
+        self.zero_point = StatelessBuffer(torch.tensor(0.0))
 
     @brevitas.jit.script_method
     def forward(self,
                 x: Tensor,
                 scale: Tensor,
-                input_bit_width: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
-
+                input_bit_width: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
         msb_clamp_bit_width = self.msb_clamp_bit_width_impl(input_bit_width)
-        y = self.int_quant(scale, self.int_scale(), msb_clamp_bit_width, x)
-        return y, scale, msb_clamp_bit_width
+        zero_point = self.zero_point()
+        y = self.int_quant(scale, self.int_scale(), zero_point, msb_clamp_bit_width, x)
+        return y, scale, zero_point, msb_clamp_bit_width
 
 
 class PrescaledRestrictIntQuant(brevitas.jit.ScriptModule):
@@ -184,15 +185,17 @@ class PrescaledRestrictIntQuant(brevitas.jit.ScriptModule):
         self.int_quant = int_quant
         self.msb_clamp_bit_width_impl = bit_width_impl
         self.int_scale = StatelessBuffer(torch.tensor(1.0))
+        self.zero_point = StatelessBuffer(torch.tensor(0.0))
 
 
     @brevitas.jit.script_method
     def forward(self,
                 x: Tensor,
-                scale: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
+                scale: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
         msb_clamp_bit_width = self.msb_clamp_bit_width_impl()
-        y = self.int_quant(scale, self.int_scale(), msb_clamp_bit_width, x)
-        return y, scale, msb_clamp_bit_width
+        zero_point = self.zero_point()
+        y = self.int_quant(scale, self.int_scale(), zero_point, msb_clamp_bit_width, x)
+        return y, scale, zero_point, msb_clamp_bit_width
 
 
 class RescalingIntQuant(brevitas.jit.ScriptModule):
@@ -255,22 +258,26 @@ class RescalingIntQuant(brevitas.jit.ScriptModule):
                  int_quant: Module,
                  scaling_impl: Module,
                  int_scaling_impl: Module,
+                 zero_point_impl: Module,
                  bit_width_impl: Module):
         super(RescalingIntQuant, self).__init__()
         self.int_quant = int_quant
         self.scaling_impl = scaling_impl
         self.int_scaling_impl = int_scaling_impl
+        self.zero_point_impl = zero_point_impl
         self.msb_clamp_bit_width_impl = bit_width_impl
 
     @brevitas.jit.script_method
-    def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
+    def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
         msb_clamp_bit_width = self.msb_clamp_bit_width_impl()
         scale = self.scaling_impl(x)
         int_scale = self.int_scaling_impl(msb_clamp_bit_width)
-        y = self.int_quant(scale, int_scale, msb_clamp_bit_width, x)
-        output_bit_width = msb_clamp_bit_width
+        zero_point = self.zero_point_impl(x, scale, msb_clamp_bit_width)
+        y = self.int_quant(scale, int_scale, zero_point, msb_clamp_bit_width, x)
         output_scale = scale / int_scale
-        return y, output_scale, output_bit_width
+        output_zero_point = zero_point
+        output_bit_width = msb_clamp_bit_width
+        return y, output_scale, output_zero_point, output_bit_width
 
 
 class TruncIntQuant(brevitas.jit.ScriptModule):
@@ -282,13 +289,14 @@ class TruncIntQuant(brevitas.jit.ScriptModule):
         super(TruncIntQuant, self).__init__()
         self.msb_clamp_bit_width_impl = bit_width_impl
         self.float_to_int_impl = float_to_int_impl
+        self.zero_point_impl = StatelessBuffer(torch.tensor(0.0))
         self.delay_wrapper = DelayWrapper(quant_delay_steps)
 
     @brevitas.jit.script_method
     def forward(self,
                 x: Tensor,
                 scale: Tensor,
-                input_bit_width: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
+                input_bit_width: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
         y = x / scale
         y = round_ste(y)  # clean up floating point error
         output_bit_width = self.msb_clamp_bit_width_impl()
@@ -298,4 +306,4 @@ class TruncIntQuant(brevitas.jit.ScriptModule):
         y = self.float_to_int_impl(y)
         y = y * scale
         y = self.delay_wrapper(x, y)
-        return y, scale, output_bit_width
+        return y, scale, self.zero_point_impl(), output_bit_width

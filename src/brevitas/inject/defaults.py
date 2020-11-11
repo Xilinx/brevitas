@@ -1,6 +1,7 @@
 from . import BaseInjector as Injector
 from .enum import ScalingImplType, StatsOp, RestrictValueType
 from .enum import QuantType, BitWidthImplType, FloatToIntImplType
+from brevitas.core.zero_point import ZeroZeroPoint, ShiftToUnsignedZeroPoint
 
 
 class StatsMaxScaling(Injector):
@@ -24,6 +25,7 @@ class IntQuant(Injector):
     bit_width_impl_type = BitWidthImplType.CONST
     narrow_range = False
     signed = True
+    zero_point_impl = ZeroZeroPoint
 
 
 class NarrowIntQuant(IntQuant):
@@ -32,6 +34,10 @@ class NarrowIntQuant(IntQuant):
 
 class UintQuant(IntQuant):
     signed = False
+
+
+class ShiftedUintQuant(UintQuant):
+    zero_point_impl = ShiftToUnsignedZeroPoint
 
 
 class PerChannelFloatScaling8bit(Injector):
@@ -68,6 +74,8 @@ TruncTo8bit = IntTrunc.let(bit_width=8)
 Int8Bias = IntQuant.let(bit_width=8)
 Int8BiasPerTensorFloatInternalScaling = IntQuant & StatsMaxScaling & PerTensorFloatScaling8bit
 Int8WeightPerTensorFloat = NarrowIntQuant & StatsMaxScaling & PerTensorFloatScaling8bit
+ShiftedUint8WeightPerTensorFloat = ShiftedUintQuant & StatsMaxScaling & PerTensorFloatScaling8bit
 Int8ActPerTensorFloat = IntQuant & ParamFromRuntimePercentileScaling & PerTensorFloatScaling8bit
 Uint8ActPerTensorFloat = UintQuant & ParamFromRuntimePercentileScaling & PerTensorFloatScaling8bit
+ShiftedUint8ActPerTensorFloat = ShiftedUintQuant & ParamFromRuntimePercentileScaling & PerTensorFloatScaling8bit
 Int8ActPerTensorFloatMinMaxInit = IntQuant & ParamMinMaxInitScaling & PerTensorFloatScaling8bit

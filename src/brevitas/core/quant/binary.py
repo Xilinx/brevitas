@@ -40,6 +40,7 @@
 
 from typing import Tuple
 
+import torch
 from torch import Tensor
 from torch.nn import Module
 
@@ -47,6 +48,7 @@ import brevitas
 from brevitas.function.ops import tensor_clamp
 from brevitas.function.ops_ste import binary_sign_ste
 from brevitas.core.bit_width import BitWidthConst
+from brevitas.core.utils import StatelessBuffer
 from .delay import DelayWrapper
 
 
@@ -94,14 +96,15 @@ class BinaryQuant(brevitas.jit.ScriptModule):
         super(BinaryQuant, self).__init__()
         self.scaling_impl = scaling_impl
         self.bit_width = BitWidthConst(1)
+        self.zero_point = StatelessBuffer(torch.tensor(0.0))
         self.delay_wrapper = DelayWrapper(quant_delay_steps)
 
     @brevitas.jit.script_method
-    def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
+    def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
         scale = self.scaling_impl(x)
         y = binary_sign_ste(x) * scale
         y = self.delay_wrapper(x, y)
-        return y, scale, self.bit_width()
+        return y, scale, self.zero_point(), self.bit_width()
 
 
 class ClampedBinaryQuant(brevitas.jit.ScriptModule):
@@ -150,6 +153,7 @@ class ClampedBinaryQuant(brevitas.jit.ScriptModule):
         super(ClampedBinaryQuant, self).__init__()
         self.scaling_impl = scaling_impl
         self.bit_width = BitWidthConst(1)
+        self.zero_point = StatelessBuffer(torch.tensor(0.0))
         self.delay_wrapper = DelayWrapper(quant_delay_steps)
 
     @brevitas.jit.script_method
@@ -158,4 +162,4 @@ class ClampedBinaryQuant(brevitas.jit.ScriptModule):
         y = tensor_clamp(x, - scale, scale)
         y = binary_sign_ste(y) * scale
         y = self.delay_wrapper(x, y)
-        return y, scale, self.bit_width()
+        return y, scale, self.zero_point(), self.bit_width()
