@@ -60,6 +60,28 @@ class IdentityBitWidth(brevitas.jit.ScriptModule):
 
 
 class BitWidthConst(brevitas.jit.ScriptModule):
+    """ 
+    Class that implements constant bit width.
+
+
+    Parameters
+    ----------
+    bit_width: int
+        Number of bits.
+
+    Methods
+    -------
+    forward()
+
+        Returns
+        -------
+        Tensor
+            The bit width wrapper in a scalar torch.tensor.
+    
+    Notes
+    -----
+    The bit width is not part of the Module's state, meaning that it won't be saved in a checkpoint.
+    """
 
     def __init__(self, bit_width: int) -> None:
         super(BitWidthConst, self).__init__()

@@ -38,12 +38,21 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+import torch
+from torch import Tensor
+
 import brevitas
-from brevitas.function.autograd_ops import *
+
+if brevitas.NATIVE_STE_BACKEND_LOADED:
+    fn_prefix = torch.ops.autograd_ste_ops
+    script_flag = brevitas.jit.script
+else:
+    from brevitas.function import autograd_ste_ops as fn_prefix
+    script_flag = torch.jit.ignore
 
 
-${torch_jit_template}
-def round_ste(x: torch.Tensor) -> torch.Tensor:
+@script_flag
+def round_ste(x: Tensor) -> Tensor:
     """ Perform round operation with Straight Trough Estimation (STE) of the Gradient
 
     This operation behaves like an identity on the backward pass.
@@ -66,10 +75,11 @@ def round_ste(x: torch.Tensor) -> torch.Tensor:
         a straight through estimator is applied.
 
     """
-    return ${function_prefix}round_ste${function_suffix}(x)
+    return fn_prefix.round_ste_impl(x)
 
-${torch_jit_template}
-def ceil_ste(x: torch.Tensor) -> torch.Tensor:
+
+@script_flag
+def ceil_ste(x: Tensor) -> Tensor:
     """ Perform ceil operation with Straight Trough Estimation (STE) of the Gradient
 
     This operation behaves like an identity on the backward pass.
@@ -91,11 +101,11 @@ def ceil_ste(x: torch.Tensor) -> torch.Tensor:
         When backpropagating through this value, a straight through estimator is applied.
 
     """
-    return ${function_prefix}ceil_ste${function_suffix}(x)
+    return fn_prefix.ceil_ste_impl(x)
 
 
-${torch_jit_template}
-def floor_ste(x: torch.Tensor) -> torch.Tensor:
+@script_flag
+def floor_ste(x: Tensor) -> Tensor:
     """ Perform floor operation with Straight Trough Estimation (STE) of the Gradient
 
     This operation behaves like an identity on the backward pass.
@@ -117,11 +127,11 @@ def floor_ste(x: torch.Tensor) -> torch.Tensor:
         When backpropagating through this value, a straight through estimator is applied.
 
     """
-    return ${function_prefix}floor_ste${function_suffix}(x)
+    return fn_prefix.floor_ste_impl(x)
 
 
-${torch_jit_template}
-def tensor_clamp_ste(x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor) -> torch.Tensor:
+@script_flag
+def tensor_clamp_ste(x: Tensor, min_val: Tensor, max_val: Tensor) -> Tensor:
     """ Perform tensor-clamp operation with Straight Trough Estimation (STE) of the Gradient
 
     This function accepts two Tensors as `min_val` and `max_val`. These Tensors must have the same shape as
@@ -149,12 +159,12 @@ def tensor_clamp_ste(x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tens
         Tensor for which every element of `x` is clamped between the corresponding minimum and maximum values.
         When backpropagating through this value, a straight through estimator is applied.
     """
-    output = ${function_prefix}tensor_clamp_ste${function_suffix}(x, min_val, max_val)
+    output = fn_prefix.tensor_clamp_ste_impl(x, min_val, max_val)
     return output
 
 
-${torch_jit_template}
-def scalar_clamp_ste(x: torch.Tensor, min_val: float, max_val: float) -> torch.Tensor:
+@script_flag
+def scalar_clamp_ste(x: Tensor, min_val: float, max_val: float) -> Tensor:
     """ Perform clamp operation with Straight Trough Estimation (STE) of the Gradient
 
     This operation behaves like an identity on the backward pass.
@@ -180,11 +190,11 @@ def scalar_clamp_ste(x: torch.Tensor, min_val: float, max_val: float) -> torch.T
         Tensor for which every element of `x` is clamped between `min_val` and `max_val`.
         When backpropagating through this value, a straight through estimator is applied.
     """
-    return ${function_prefix}scalar_clamp_ste${function_suffix}(x, min_val, max_val)
+    return fn_prefix.scalar_clamp_ste_impl(x, min_val, max_val)
 
 
-${torch_jit_template}
-def scalar_clamp_min_ste(x: torch.Tensor, min_val: float) -> torch.Tensor:
+@script_flag
+def scalar_clamp_min_ste(x: Tensor, min_val: float) -> Tensor:
     """ Perform clamp_min operation with Straight Trough Estimation (STE) of the Gradient
 
     This operation behaves like an identity on the backward pass.
@@ -208,11 +218,11 @@ def scalar_clamp_min_ste(x: torch.Tensor, min_val: float) -> torch.Tensor:
         Tensor for which every element of `x` is clamped to `min_val`.
         When backpropagating through this value, a straight through estimator is applied.
     """
-    return ${function_prefix}scalar_clamp_min_ste${function_suffix}(x, min_val)
+    return fn_prefix.scalar_clamp_min_ste_impl(x, min_val)
 
 
-${torch_jit_template}
-def binary_sign_ste(x: torch.Tensor) -> torch.Tensor:
+@script_flag
+def binary_sign_ste(x: Tensor) -> Tensor:
     """ Perform binarization with Straight Trough Estimation (STE) of the Gradient
 
     This operation performs binarization on the input Tensor.
@@ -237,11 +247,11 @@ def binary_sign_ste(x: torch.Tensor) -> torch.Tensor:
         through estimator is applied.
 
     """
-    return ${function_prefix}binary_sign_ste${function_suffix}(x)
+    return fn_prefix.binary_sign_ste_impl(x)
 
 
-${torch_jit_template}
-def ternary_sign_ste(x: torch.Tensor) -> torch.Tensor:
+@script_flag
+def ternary_sign_ste(x: Tensor) -> Tensor:
     """ Perform ternary operator with Straight Trough Estimation (STE) of the Gradient
 
     This operations behaves as the function `sign` of Pytorch.
@@ -265,9 +275,9 @@ def ternary_sign_ste(x: torch.Tensor) -> torch.Tensor:
         a straight through estimator is applied.
 
     """
-    return ${function_prefix}ternary_sign_ste${function_suffix}(x)
+    return fn_prefix.ternary_sign_ste_impl(x)
 
 
-${torch_jit_template}
-def round_to_zero_ste(x:torch.Tensor) -> torch.Tensor:
-    return ${function_prefix}round_to_zero_ste${function_suffix}(x)
+@script_flag
+def round_to_zero_ste(x: Tensor) -> Tensor:
+    return fn_prefix.round_to_zero_ste_impl(x)

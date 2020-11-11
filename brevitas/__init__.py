@@ -1,22 +1,33 @@
-import imp
 import os
-import torch
-import docrep
-from brevitas.config import MIN_TORCH_JITTABLE_VERSION, MAX_TORCH_JITTABLE_VERSION
-import torch
+import glob
+import warnings
 from packaging import version
-import brevitas.jit as jit
 
-torch_version = version.parse(torch.__version__)
-IS_STE_JITTABLE = version.parse(MIN_TORCH_JITTABLE_VERSION) <= torch_version <= version.parse(MAX_TORCH_JITTABLE_VERSION)
+import docrep
+from torch.utils import cpp_extension
+import torch
+
+import brevitas.jit as jit
+from brevitas import config
 
 docstrings = docrep.DocstringProcessor()
 
-# If pytorch version >= 1.3.0, it means that we have the compiled version of the functions that use the
-# Straight-Trough-Estimator. If that is the case, we need to load those operations in torch.ops.
-if IS_STE_JITTABLE:
-    lib_dir = os.path.dirname(__file__)
-    _, path, _ = imp.find_module("_C", [lib_dir])
-    torch.ops.load_library(path)
+torch_version = version.parse(torch.__version__)
 
+extensions_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'csrc')
+sources = glob.glob(os.path.join(extensions_dir, '*.cpp'))
+sources = [os.path.join(extensions_dir, s) for s in sources]
 
+if config.NATIVE_STE_BACKEND_ENABLED:
+    try:
+        cpp_extension.load(
+            name='autograd_ste_ops',
+            sources=sources,
+            is_python_module=False,
+            verbose=config.VERBOSE)
+        NATIVE_STE_BACKEND_LOADED = True
+    except:
+        warnings.warn("Brevitas' native STE backend is enabled but couldn't be loaded")
+        NATIVE_STE_BACKEND_LOADED = False
+else:
+    NATIVE_STE_BACKEND_LOADED = False
