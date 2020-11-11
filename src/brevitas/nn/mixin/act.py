@@ -126,6 +126,10 @@ class QuantInputMixin(QuantActMixin):
         pass
 
     @abstractmethod
+    def quant_input_zero_point(self):
+        pass
+
+    @abstractmethod
     def quant_input_bit_width(self):
         pass
 
@@ -164,6 +168,10 @@ class QuantOutputMixin(QuantActMixin):
 
     @abstractmethod
     def quant_output_scale(self):
+        pass
+
+    @abstractmethod
+    def quant_output_zero_point(self):
         pass
 
     @abstractmethod
@@ -207,6 +215,10 @@ class QuantNonLinearActMixin(QuantActMixin):
 
     @abstractmethod
     def quant_act_scale(self):
+        pass
+
+    @abstractmethod
+    def quant_act_zero_point(self):
         pass
 
     @abstractmethod

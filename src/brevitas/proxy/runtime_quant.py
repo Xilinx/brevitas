@@ -76,8 +76,8 @@ class FusedActivationQuantProxy(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def forward(self, x):
         x = self.activation_impl(x)
-        x, output_scale, output_bit_width = self.tensor_quant(x)
-        return x, output_scale, output_bit_width
+        x, output_scale, output_zp, output_bit_width = self.tensor_quant(x)
+        return x, output_scale, output_zp, output_bit_width
 
 
 class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
@@ -111,6 +111,13 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
         self.train(current_status)
         return scale
 
+    def zero_point(self):
+        current_status = self.training
+        self.eval()  # get eval time zero_point
+        zero_point = self.__call__(self._zero_hw_sentinel()).zero_point
+        self.train(current_status)
+        return zero_point
+
     def bit_width(self):
         scale = self.__call__(self._zero_hw_sentinel()).bit_width
         return scale
@@ -124,7 +131,7 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
             if isinstance(y, tuple):
                 return QuantTensor(*y, signed=self.is_signed)
             elif self.passthrough_act:  # preserve scale/bit/sign even without output quant
-                return QuantTensor(y, x.scale, x.bit_width, x.signed)
+                return QuantTensor(y, x.scale, x.zero_point, x.bit_width, x.signed)
             else:
                 return QuantTensor(y)
         else:
@@ -166,8 +173,9 @@ class ClampQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
 
     def forward(self, x: QuantTensor):
         if self.is_quant_enabled:
-            out_value, out_scale, out_bit_width = self.tensor_quant(x.value, x.scale, x.bit_width)
-            return QuantTensor(out_value, out_scale, out_bit_width, self.is_signed)
+            out_tuple = self.tensor_quant(x.value, x.scale, x.bit_width)
+            out_value, out_scale, out_zp, out_bit_width = out_tuple
+            return QuantTensor(out_value, out_scale, out_zp, out_bit_width, self.is_signed)
         return x
 
 
@@ -181,7 +189,8 @@ class TruncQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
 
     def forward(self, x: QuantTensor):
         if self.is_quant_enabled:
-            out_value, out_scale, out_bit_width = self.tensor_quant(x.value, x.scale, x.bit_width)
-            return QuantTensor(out_value, out_scale, out_bit_width, x.signed)
+            out_tuple = self.tensor_quant(x.value, x.scale, x.bit_width)
+            out_value, out_scale, out_zp, out_bit_width = out_tuple
+            return QuantTensor(out_value, out_scale, out_zp, out_bit_width, x.signed)
         else:
             return x
