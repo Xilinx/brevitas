@@ -32,7 +32,7 @@ class DequantizeLinearFunction(Function):
             input_scale,
             input_zero_point,
             axis):
-        return int_x
+        return int_x.float()
 
 
 class QuantizeLinearFunction(Function):
@@ -62,7 +62,7 @@ class QuantizeLinearFunction(Function):
             output_scale,
             ouput_zero_point,
             axis):
-        return x
+        return x.int()
 
 
 class QLinearConvFunction(Function):
@@ -122,11 +122,11 @@ class QLinearConvFunction(Function):
             ctx, int_x,
             input_scale,
             input_zero_point,
-            weight,
+            int_weight,
             weight_scale,
             weight_zero_point,
             output_scale,
-            ouput_zero_point,
+            output_zero_point,
             bias,
             out_shape,
             kernel_size,
@@ -134,7 +134,7 @@ class QLinearConvFunction(Function):
             stride,
             groups,
             dilation):
-        return torch.empty(out_shape, dtype=torch.float)
+        return torch.empty(out_shape).type(output_zero_point.dtype)
 
 
 class QLinearMatMulFunction(Function):
@@ -149,9 +149,7 @@ class QLinearMatMulFunction(Function):
             weight_zero_point,
             output_scale,
             ouput_zero_point,
-            out_shape,
-            in_features,
-            out_features):
+            out_shape):
         ret = g.op(
             'QLinearMatMul', int_x,
             input_scale,
@@ -160,9 +158,7 @@ class QLinearMatMulFunction(Function):
             weight_scale,
             weight_zero_point,
             output_scale,
-            ouput_zero_point,
-            in_features_i=in_features,
-            out_features_i=out_features)
+            ouput_zero_point)
         return ret
 
     @staticmethod
@@ -174,8 +170,6 @@ class QLinearMatMulFunction(Function):
             weight_scale,
             weight_zero_point,
             output_scale,
-            ouput_zero_point,
-            out_shape,
-            in_features,
-            out_features):
-        return torch.empty(out_shape, dtype=torch.float)
+            output_zero_point,
+            out_shape):
+        return torch.empty(out_shape).type(output_zero_point.dtype)
