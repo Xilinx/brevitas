@@ -17,7 +17,10 @@ class StdONNXQuantWBIOLHandler(StdONNXQuantLayerHandler, ABC):
     @staticmethod
     def int_weight(module: QuantWBIOL):
         int_weight = module.int_weight(float_datatype=False).detach()
-        return int_weight.type(torch.int8)
+        if module.is_quant_weight_signed:
+            return int_weight.type(torch.int8)
+        else:
+            return int_weight.type(torch.uint8)
 
     @staticmethod
     def int_bias(module: QuantWBIOL):
@@ -31,7 +34,6 @@ class StdONNXQuantWBIOLHandler(StdONNXQuantLayerHandler, ABC):
     def validate(cls, module: QuantWBIOL, requires_quant_bias=True):
         assert module.is_weight_quant_enabled
         assert module.is_output_quant_enabled
-        assert module.is_quant_weight_signed
         cls.validate_8b_bit_width(module.quant_weight_bit_width())
         cls.validate_8b_bit_width(module.quant_input_bit_width())
         cls.validate_8b_bit_width(module.quant_output_bit_width())
@@ -59,14 +61,12 @@ class StdONNXQuantLinearHandler(StdONNXQuantWBIOLHandler):
         linear_symbolic_kwargs = {
             'input_scale': module.quant_input_scale(),
             'input_zero_point': cls.quant_input_zero_point(module),
-            'int_weight': cls.int_weight(module),
+            'int_weight': cls.int_weight(module).t(),
             'weight_scale': module.quant_weight_scale(),
             'weight_zero_point': cls.quant_weight_zero_point(module),
             'output_scale': module.quant_output_scale(),
             'output_zero_point': cls.quant_output_zero_point(module),
-            'out_shape': cls.quant_output_shape(module),
-            'in_features': module.in_features,
-            'out_features': module.out_features}
+            'out_shape': cls.quant_output_shape(module)}
         return linear_symbolic_kwargs
 
     def prepare_for_export(self, module: QuantLinear):

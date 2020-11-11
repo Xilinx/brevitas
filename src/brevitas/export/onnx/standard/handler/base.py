@@ -44,13 +44,6 @@ class StdONNXQuantLayerHandler(ONNXBaseHandler, ABC):
         return cached_out.shape
 
     @classmethod
-    def quant_zero_point(cls, is_signed: bool):
-        if is_signed:
-            return torch.tensor(0, dtype=torch.int8)
-        else:
-            return torch.tensor(0, dtype=torch.uint8)
-
-    @classmethod
     def quant_axis(cls, scale):
         for i in scale.shape:
             if i != 1:
@@ -58,16 +51,32 @@ class StdONNXQuantLayerHandler(ONNXBaseHandler, ABC):
         return None
 
     @classmethod
+    def zero_point_with_dtype(cls, signed, zero_point):
+        if not signed:
+            if (zero_point < 0).any():
+                raise RuntimeError("Zero points have to positive under unsigned quantization")
+            return zero_point.type(torch.uint8)
+        else:
+            return zero_point.type(torch.int8)
+
+    @classmethod
     def quant_input_zero_point(cls, module):
-        return cls.quant_zero_point(module.is_quant_input_signed)
+        signed = module.is_quant_input_signed
+        zero_point = module.quant_input_zero_point()
+        return cls.zero_point_with_dtype(signed, zero_point)
 
     @classmethod
     def quant_weight_zero_point(cls, module):
-        return cls.quant_zero_point(module.is_quant_weight_signed)
+        signed = module.is_quant_weight_signed
+        zero_point = module.quant_weight_zero_point()
+        return cls.zero_point_with_dtype(signed, zero_point)
 
     @classmethod
     def quant_output_zero_point(cls, module):
-        return cls.quant_zero_point(module.is_quant_output_signed)
+        signed = module.is_quant_output_signed
+        zero_point = module.quant_output_zero_point()
+        return cls.zero_point_with_dtype(signed, zero_point)
+
 
     @classmethod
     def output_quant_symbolic_kwargs(cls, module):
@@ -99,7 +108,8 @@ class StdONNXQuantLayerHandler(ONNXBaseHandler, ABC):
             assert module._cached_inp.bit_width == 8
             return {
                 'input_scale': module._cached_inp.scale,
-                'input_zero_point': cls.quant_zero_point(module._cached_inp.signed),
+                'input_zero_point': cls.zero_point_with_dtype(
+                    module._cached_inp.signed, module._cached_inp.zero_point),
                 'axis': cls.quant_axis(module._cached_inp.scale)}
         else:
             return None
