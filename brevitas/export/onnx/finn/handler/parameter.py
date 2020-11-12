@@ -6,7 +6,7 @@ from torch import Tensor
 
 from brevitas.nn import QuantLinear, QuantConv2d, QuantConv1d
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
-from brevitas.onnx.handler import Kernel2dApplHandler, Kernel1dApplHandler
+from brevitas.export.onnx.handler import Kernel2dApplHandler, Kernel1dApplHandler
 from .base import FINNQuantIOHandler
 from ..function.parameter import QuantizedLinearPlaceholderFunction
 from ..function.parameter import QuantizedConvNdPlaceholderFunction
