@@ -5,10 +5,10 @@ import torch
 from torch import Tensor
 
 from brevitas.nn import QuantMaxPool1d, QuantMaxPool2d
-from .base import ONNXQuantWrapperHandler
+from .base import StdONNXQuantWrapperHandler
 
 
-class StdONNXQuantMaxPoolNd(ONNXQuantWrapperHandler, ABC):
+class StdONNXQuantMaxPoolNd(StdONNXQuantWrapperHandler, ABC):
 
 
     @classmethod
