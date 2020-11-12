@@ -1,11 +1,11 @@
-from brevitas.onnx.base import BaseManager
+from brevitas.export.onnx.base import ONNXBaseManager
 from ...transform import move_domain_attributes_into_domain
 from .handler import DPUv1QuantConv2dHandler, DPUv1QuantReLUHandler
 from .handler import DPUv1QuantEltwiseAddHandler, DPUv1QuantMaxPool2dHandler
 from .handler import DPUv1QuantAvgPool2dHandler, DPUv1QuantLinearHandler
 
 
-class DPUv1Manager(BaseManager):
+class DPUv1Manager(ONNXBaseManager):
 
     handlers = [
         DPUv1QuantConv2dHandler,

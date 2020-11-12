@@ -73,7 +73,7 @@ class Kernel2dApplHandler(ABC):
             return list(module.kernel_size)
 
 
-class BaseHandler(Module, ABC):
+class ONNXBaseHandler(Module, ABC):
 
     def __init__(self):
         super().__init__()
@@ -83,7 +83,7 @@ class BaseHandler(Module, ABC):
         self.debug_output = False
 
     @abstractmethod
-    def prepare_for_symbolic_execution(self, module):
+    def prepare_for_export(self, module):
         pass
 
     @abstractmethod
@@ -107,9 +107,9 @@ class BaseHandler(Module, ABC):
         return out
 
 
-class NoOpHandler(BaseHandler):
+class NoOpHandler(ONNXBaseHandler):
 
-    def prepare_for_symbolic_execution(self, module):
+    def prepare_for_export(self, module):
         pass
 
     def symbolic_execution(self, *args, **kwargs):

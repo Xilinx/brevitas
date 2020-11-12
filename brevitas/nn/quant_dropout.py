@@ -45,7 +45,6 @@ from torch.nn import Dropout
 
 from brevitas.quant_tensor import QuantTensor
 from .mixin.base import QuantLayerMixin
-from brevitas.onnx.handler import NoOpHandler
 
 
 class QuantDropout(QuantLayerMixin, Dropout):

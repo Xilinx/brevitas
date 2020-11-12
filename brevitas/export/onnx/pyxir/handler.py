@@ -9,10 +9,10 @@ from brevitas.nn.quant_layer import QuantLayerMixin
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.nn import QuantConv2d, QuantReLU, QuantEltwiseAdd, QuantMaxPool2d, QuantLinear
 from brevitas.nn import QuantAdaptiveAvgPool2d, QuantAvgPool2d
-from brevitas.onnx.handler import BaseHandler, Kernel2dApplHandler
+from brevitas.export.onnx.handler import ONNXBaseHandler, Kernel2dApplHandler
 
 
-class DPUQuantLayerHandler(BaseHandler, ABC):
+class DPUQuantLayerHandler(ONNXBaseHandler, ABC):
 
     @staticmethod
     def neg_scalar_exponent_from_scale(scale: Tensor):
@@ -66,7 +66,7 @@ class DPUQuantLayerHandler(BaseHandler, ABC):
 class DPUQuantReLUHandler(DPUQuantLayerHandler, ABC):
     handled_layer = QuantReLU
 
-    def prepare_for_symbolic_execution(self, module: QuantReLU):
+    def prepare_for_export(self, module: QuantReLU):
         self.symbolic_kwargs = {
             'input_bit_width': self.quant_input_bit_width(module),
             'input_scale': self.quant_input_scale(module),
@@ -77,7 +77,7 @@ class DPUQuantReLUHandler(DPUQuantLayerHandler, ABC):
 class DPUQuantEltwiseAddHandler(DPUQuantLayerHandler, ABC):
     handled_layer = QuantEltwiseAdd
 
-    def prepare_for_symbolic_execution(self, module: QuantEltwiseAdd):
+    def prepare_for_export(self, module: QuantEltwiseAdd):
         self.symbolic_kwargs = {
             'other_bit_width': self.quant_input_bit_width(module),
             'other_scale': self.quant_input_scale(module),
@@ -90,7 +90,7 @@ class DPUQuantEltwiseAddHandler(DPUQuantLayerHandler, ABC):
 class DPUQuantMaxPool2dHandler(DPUQuantLayerHandler, Kernel2dApplHandler, ABC):
     handled_layer = QuantMaxPool2d
 
-    def prepare_for_symbolic_execution(self, module: QuantMaxPool2d):
+    def prepare_for_export(self, module: QuantMaxPool2d):
         self.symbolic_kwargs = {
             'output_shape': self.quant_output_shape(module),
             'kernel_shape': self.kernel_shape(module),
@@ -107,7 +107,7 @@ class DPUQuantMaxPool2dHandler(DPUQuantLayerHandler, Kernel2dApplHandler, ABC):
 class DPUQuantAvgPool2dHandler(DPUQuantLayerHandler, Kernel2dApplHandler, ABC):
     handled_layer = (QuantAvgPool2d, QuantAdaptiveAvgPool2d)
 
-    def prepare_for_symbolic_execution(self, module: Union[QuantAvgPool2d, QuantAdaptiveAvgPool2d]):
+    def prepare_for_export(self, module: Union[QuantAvgPool2d, QuantAdaptiveAvgPool2d]):
         self.symbolic_kwargs = {
             'kernel_shape': self.kernel_shape(module),  # from caching
             'strides': self.stride(module),  # from caching
@@ -162,7 +162,7 @@ class DPUQuantWeightBiasHandler(ABC):
 class DPUQuantLinearHandler(DPUQuantLayerHandler, DPUQuantWeightBiasHandler, ABC):
     handled_layer = QuantLinear
 
-    def prepare_for_symbolic_execution(self, module: QuantAdaptiveAvgPool2d):
+    def prepare_for_export(self, module: QuantAdaptiveAvgPool2d):
         self.symbolic_kwargs = {
             'int_weight': self.int_weight(module),
             'int_bias': self.int_bias(module),
@@ -184,7 +184,7 @@ class DPUQuantConv2dHandler(
     ABC):
     handled_layer = QuantConv2d
 
-    def prepare_for_symbolic_execution(self, module):
+    def prepare_for_export(self, module):
         self.symbolic_kwargs = {
             'int_weight': self.int_weight(module),
             'int_bias': self.int_bias(module),
