@@ -5,11 +5,11 @@ import torch
 from torch import Tensor
 
 
-from brevitas.onnx.handler import BaseHandler
+from brevitas.export.onnx.handler import ONNXBaseHandler
 from ..function import QuantizeLinearFunction, DequantizeLinearFunction
 
 
-class ONNXQuantLayerHandler(BaseHandler, ABC):
+class StdONNXQuantLayerHandler(ONNXBaseHandler, ABC):
 
     @abstractmethod
     def op_symbolic_execution(self, inp: Tensor):
@@ -111,14 +111,14 @@ class ONNXQuantLayerHandler(BaseHandler, ABC):
         return ret
 
 
-class ONNXQuantWrapperHandler(ONNXQuantLayerHandler, ABC):
+class StdONNXQuantWrapperHandler(StdONNXQuantLayerHandler, ABC):
 
     @classmethod
     def validate(cls, module):
         cls.validate_8b_bit_width(module.quant_input_bit_width())
         cls.validate_8b_bit_width(module.quant_output_bit_width())
 
-    def prepare_for_symbolic_execution(self, module):
+    def prepare_for_export(self, module):
         self.validate(module)
         op_symbolic_kwargs = self.op_symbolic_kwargs(module)
         input_dequant_symbolic_kwargs = self.input_dequant_symbolic_kwargs(module)

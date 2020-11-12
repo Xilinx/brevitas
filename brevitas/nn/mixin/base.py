@@ -122,7 +122,7 @@ class QuantLayerMixin(object):
         elif value and not self.requires_export_handler and self.export_handler is None:
             return  # don't set export mode when it's not required and there is no handler
         elif value and self.export_handler is not None:
-            self.export_handler.prepare_for_symbolic_execution(self)
+            self.export_handler.prepare_for_export(self)
             self.export_handler.attach_debug_info(self)
         self._export_mode = value
 

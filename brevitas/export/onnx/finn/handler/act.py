@@ -45,7 +45,7 @@ class FINNQuantReLUHandler(FINNQuantInputHandler):
         quant_act_scale = module.quant_act_scale().type(torch.FloatTensor).detach()
         return quant_act_scale
 
-    def prepare_for_symbolic_execution(self, module: QuantReLU):
+    def prepare_for_export(self, module: QuantReLU):
         self.symbolic_kwargs = {
             'qnt_type': self.quant_type(module),
             'thres': self.thresholds(module),
@@ -133,7 +133,7 @@ class FINNQuantHardTanhHandler(FINNQuantInputHandler):
             assert quant_act_scale.flatten().item() == 1.0, "Unsupported BIPOLAR scale != 1"
             return quant_act_scale * 2
 
-    def prepare_for_symbolic_execution(self, module: QuantHardTanh):
+    def prepare_for_export(self, module: QuantHardTanh):
         self.symbolic_kwargs = {
             'qnt_type': self.quant_type(module),
             'thres': self.thresholds(module),

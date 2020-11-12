@@ -1,4 +1,4 @@
-from brevitas.onnx.base import BaseManager
+from brevitas.export.onnx.base import ONNXBaseManager
 
 from ..transform import move_domain_attributes_into_domain
 from .transform import move_quant_attributes_into_annotations
@@ -8,7 +8,7 @@ from .handler.act import FINNQuantHardTanhHandler, FINNQuantReLUHandler, FINNQua
 from .handler.acc import FINNQuantAvgPool2dHandler
 
 
-class FINNManager(BaseManager):
+class FINNManager(ONNXBaseManager):
 
     handlers = [
         FINNQuantLinearHandler,

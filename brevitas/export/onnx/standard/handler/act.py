@@ -7,10 +7,10 @@ from torch import Tensor
 from brevitas.nn import QuantReLU, QuantIdentity, QuantHardTanh, QuantTanh, QuantSigmoid
 from brevitas.nn.quant_layer import QuantNonLinearActLayer as QuantNLAL
 from ..function import QuantizeLinearFunction, DequantizeLinearFunction
-from .base import ONNXQuantLayerHandler
+from .base import StdONNXQuantLayerHandler
 
 
-class ONNXQuantNLALHandler(ONNXQuantLayerHandler, ABC):
+class StdONNXQuantNLALHandler(StdONNXQuantLayerHandler, ABC):
 
     @classmethod
     def validate(cls, module: QuantNLAL):
@@ -21,7 +21,7 @@ class ONNXQuantNLALHandler(ONNXQuantLayerHandler, ABC):
         if act_bit_width is not None:
             cls.validate_8b_bit_width(act_bit_width)
 
-    def prepare_for_symbolic_execution(self, module: QuantNLAL):
+    def prepare_for_export(self, module: QuantNLAL):
         self.validate(module)
         if not module.return_quant_tensor:
             output_dequant_symbolic_kwargs = self.output_dequant_symbolic_kwargs(module)
@@ -65,28 +65,28 @@ class ONNXQuantNLALHandler(ONNXQuantLayerHandler, ABC):
         return out
 
 
-class ONNXQuantReLUHandler(ONNXQuantNLALHandler):
+class StdONNXQuantReLUHandler(StdONNXQuantNLALHandler):
     handled_layer = QuantReLU
 
     def op_symbolic_execution(self, inp: Tensor):
         return torch.relu(inp)
 
 
-class ONNXQuantTanhHandler(ONNXQuantNLALHandler):
+class StdONNXQuantTanhHandler(StdONNXQuantNLALHandler):
     handled_layer = QuantTanh
 
     def op_symbolic_execution(self, inp: Tensor):
         return torch.tanh(inp)
 
 
-class ONNXQuantSigmoidHandler(ONNXQuantNLALHandler):
+class StdONNXQuantSigmoidHandler(StdONNXQuantNLALHandler):
     handled_layer = QuantSigmoid
 
     def op_symbolic_execution(self, inp: Tensor):
         return torch.sigmoid(inp)
 
 
-class ONNXQuantIdentityHandler(ONNXQuantLayerHandler):
+class StdONNXQuantIdentityHandler(StdONNXQuantLayerHandler):
     handled_layer = QuantIdentity
 
     @classmethod
@@ -97,7 +97,7 @@ class ONNXQuantIdentityHandler(ONNXQuantLayerHandler):
         else:
             assert module._cached_out is not None
 
-    def prepare_for_symbolic_execution(self, module: QuantNLAL):
+    def prepare_for_export(self, module: QuantNLAL):
         self.validate(module)
         input_dequant_symbolic_kwargs = self.input_dequant_symbolic_kwargs(module)
         output_quant_symbolic_kwargs = self.output_quant_symbolic_kwargs(module)
@@ -129,5 +129,5 @@ class ONNXQuantIdentityHandler(ONNXQuantLayerHandler):
         return out
 
 
-class ONNXQuantHardTanhHandler(ONNXQuantIdentityHandler):
+class StdONNXQuantHardTanhHandler(StdONNXQuantIdentityHandler):
     handled_layer = QuantHardTanh

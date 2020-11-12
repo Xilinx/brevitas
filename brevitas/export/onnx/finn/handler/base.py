@@ -5,10 +5,10 @@ import torch
 
 from brevitas.nn.mixin.base import QuantLayerMixin
 from brevitas.nn.mixin.act import QuantOutputMixin, QuantInputMixin
-from brevitas.onnx.handler import BaseHandler
+from brevitas.export.onnx.handler import ONNXBaseHandler
 
 
-class FINNQuantInputHandler(BaseHandler, ABC):
+class FINNQuantInputHandler(ONNXBaseHandler, ABC):
 
     @staticmethod
     def quant_input_scale(module: QuantLayerMixin):

@@ -88,7 +88,7 @@ class FINNQuantLinearHandler(FINNQuantWBIOLHandler):
         else:
             return shape
 
-    def prepare_for_symbolic_execution(self, module):
+    def prepare_for_export(self, module):
         self.sanity_check(module)
         quant_input_scale = self.quant_input_scale(module)
         quant_weight_scale = self.quant_weight_scale(module)
@@ -142,7 +142,7 @@ class FINNQuantConvNdHandler(FINNQuantWBIOLHandler, ABC):
             quant_bias = quant_bias.view(quant_bias_shape)
         return quant_bias
 
-    def prepare_for_symbolic_execution(self, module: QuantConvNd):
+    def prepare_for_export(self, module: QuantConvNd):
         self.sanity_check(module)
         quant_input_scale = self.quant_input_scale(module)
         quant_weight_scale = self.quant_weight_scale(module)

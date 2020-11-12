@@ -36,7 +36,7 @@ class FINNQuantAvgPool2dHandler(FINNQuantIOHandler):
             raise RuntimeError("Output sign of QuantAvgPool2d is malformed")
         return int(signed)
 
-    def prepare_for_symbolic_execution(self, module):
+    def prepare_for_export(self, module):
         self.symbolic_kwargs = {
             'out_shape': self.quant_output_shape(module),
             'kernel': module.kernel_size,

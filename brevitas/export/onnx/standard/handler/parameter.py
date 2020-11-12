@@ -6,13 +6,13 @@ from torch import Tensor
 
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.nn import QuantConv2d, QuantConv1d, QuantLinear
-from brevitas.onnx.handler import Kernel2dApplHandler, Kernel1dApplHandler
+from brevitas.export.onnx.handler import Kernel2dApplHandler, Kernel1dApplHandler
 from ..function import QuantizeLinearFunction, DequantizeLinearFunction
 from ..function import QLinearConvFunction, QLinearMatMulFunction
-from .base import ONNXQuantLayerHandler
+from .base import StdONNXQuantLayerHandler
 
 
-class ONNXQuantWBIOLHandler(ONNXQuantLayerHandler, ABC):
+class StdONNXQuantWBIOLHandler(StdONNXQuantLayerHandler, ABC):
 
     @staticmethod
     def int_weight(module: QuantWBIOL):
@@ -51,7 +51,7 @@ class ONNXQuantWBIOLHandler(ONNXQuantLayerHandler, ABC):
         return inp
 
 
-class ONNXQuantLinearHandler(ONNXQuantWBIOLHandler):
+class StdONNXQuantLinearHandler(StdONNXQuantWBIOLHandler):
     handled_layer = QuantLinear
 
     @classmethod
@@ -69,7 +69,7 @@ class ONNXQuantLinearHandler(ONNXQuantWBIOLHandler):
             'out_features': module.out_features}
         return linear_symbolic_kwargs
 
-    def prepare_for_symbolic_execution(self, module: QuantLinear):
+    def prepare_for_export(self, module: QuantLinear):
         self.validate(module, requires_quant_bias=False)
 
         op_symbolic_kwargs = self.op_symbolic_kwargs(module)
@@ -116,7 +116,7 @@ class ONNXQuantLinearHandler(ONNXQuantWBIOLHandler):
         return out
 
 
-class ONNXQuantConvNdHandler(ONNXQuantWBIOLHandler, ABC):
+class StdONNXQuantConvNdHandler(StdONNXQuantWBIOLHandler, ABC):
 
     def op_symbolic_kwargs(self, module: Union[QuantConv1d, QuantConv2d]):
         conv_symbolic_kwargs = {
@@ -136,7 +136,7 @@ class ONNXQuantConvNdHandler(ONNXQuantWBIOLHandler, ABC):
             'dilation': self.dilation(module)}
         return conv_symbolic_kwargs
 
-    def prepare_for_symbolic_execution(self, module: Union[QuantConv1d, QuantConv2d]):
+    def prepare_for_export(self, module: Union[QuantConv1d, QuantConv2d]):
         self.validate(module)
 
         op_symbolic_kwargs = self.op_symbolic_kwargs(module)
@@ -168,9 +168,9 @@ class ONNXQuantConvNdHandler(ONNXQuantWBIOLHandler, ABC):
         return out
 
 
-class ONNXQuantConv2dHandler(ONNXQuantConvNdHandler, Kernel2dApplHandler):
+class StdONNXQuantConv2dHandler(StdONNXQuantConvNdHandler, Kernel2dApplHandler):
     handled_layer = QuantConv2d
 
 
-class ONNXQuantConv1dHandler(ONNXQuantConvNdHandler, Kernel1dApplHandler):
+class StdONNXQuantConv1dHandler(StdONNXQuantConvNdHandler, Kernel1dApplHandler):
     handled_layer = QuantConv1d
