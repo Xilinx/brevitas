@@ -128,6 +128,8 @@ class QuantLayerMixin(object):
         elif value and self.export_handler is not None:
             self.export_handler.prepare_for_export(self)
             self.export_handler.attach_debug_info(self)
+        elif not value and self.export_handler is not None:
+            self.export_handler.reset()
         self._export_mode = value
 
     @property
