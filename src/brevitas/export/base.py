@@ -1,5 +1,5 @@
 from typing import Tuple, Union, Optional
-from abc import ABC
+from abc import ABC, abstractmethod
 from packaging import version
 
 import torch
@@ -65,6 +65,18 @@ def _restore_out_caching_mode(m: Module):
 def _set_export_mode(m: Module, enabled: bool):
     if hasattr(m, 'export_mode'):
         m.export_mode = enabled
+
+
+class BaseHandler(Module, ABC):
+
+    def attach_debug_info(self, module):
+        pass
+
+    def prepare_for_export(self, module):
+        pass
+
+    def reset(self):
+        pass
 
 
 class BaseManager(ABC):

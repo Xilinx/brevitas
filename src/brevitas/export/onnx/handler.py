@@ -4,6 +4,7 @@ from torch import Tensor
 from torch.nn import Module
 
 from .debug import DebugMarkerFunction
+from ..base import BaseHandler
 
 
 class Kernel1dApplHandler(ABC):
@@ -73,7 +74,7 @@ class Kernel2dApplHandler(ABC):
             return list(module.kernel_size)
 
 
-class ONNXBaseHandler(Module, ABC):
+class ONNXBaseHandler(BaseHandler, ABC):
 
     def __init__(self):
         super().__init__()
