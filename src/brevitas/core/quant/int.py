@@ -285,21 +285,23 @@ class TruncIntQuant(brevitas.jit.ScriptModule):
         super(TruncIntQuant, self).__init__()
         self.msb_clamp_bit_width_impl = bit_width_impl
         self.float_to_int_impl = float_to_int_impl
-        self.zero_point_impl = StatelessBuffer(torch.tensor(0.0))
         self.delay_wrapper = DelayWrapper(quant_delay_steps)
 
     @brevitas.jit.script_method
     def forward(self,
                 x: Tensor,
                 scale: Tensor,
+                zero_point: Tensor,
                 input_bit_width: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
         y = x / scale
+        y = y + zero_point
         y = round_ste(y)  # clean up floating point error
         output_bit_width = self.msb_clamp_bit_width_impl()
         trunc_bit_width = input_bit_width - output_bit_width
         trunc_scale = 2.0 ** trunc_bit_width
         y = y / trunc_scale
         y = self.float_to_int_impl(y)
+        y = y - zero_point
         y = y * scale
         y = self.delay_wrapper(x, y)
-        return y, scale, self.zero_point_impl(), output_bit_width
+        return y, scale, zero_point, output_bit_width

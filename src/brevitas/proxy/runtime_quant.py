@@ -130,7 +130,7 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
             y = self.fused_activation_quant_proxy(y)
             if isinstance(y, tuple):
                 return QuantTensor(*y, signed=self.is_signed)
-            elif self.passthrough_act:  # preserve scale/bit/sign even without output quant
+            elif self.passthrough_act:  # preserve scale/zp/bit/sign even without output quant
                 return QuantTensor(y, x.scale, x.zero_point, x.bit_width, x.signed)
             else:
                 return QuantTensor(y)
@@ -189,7 +189,7 @@ class TruncQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
 
     def forward(self, x: QuantTensor):
         if self.is_quant_enabled:
-            out_tuple = self.tensor_quant(x.value, x.scale, x.bit_width)
+            out_tuple = self.tensor_quant(x.value, x.scale, x.zero_point, x.bit_width)
             out_value, out_scale, out_zp, out_bit_width = out_tuple
             return QuantTensor(out_value, out_scale, out_zp, out_bit_width, x.signed)
         else:
