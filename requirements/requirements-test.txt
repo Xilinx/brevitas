@@ -3,3 +3,5 @@ mock
 hypothesis
 scipy
 torchvision
+onnxruntime
+onnx
