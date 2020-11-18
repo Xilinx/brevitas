@@ -27,12 +27,14 @@ from brevitas.core.bit_width import BitWidthImplType
 from brevitas.core.quant import QuantType
 from brevitas.core.restrict_val import RestrictValueType
 from brevitas.core.scaling import ScalingImplType
+from brevitas.core.zero_point import ZeroZeroPoint
 
 
 class CommonQuant(Injector):
     bit_width_impl_type = BitWidthImplType.CONST
     scaling_impl_type = ScalingImplType.CONST
     restrict_scaling_type = RestrictValueType.FP
+    zero_point_impl = ZeroZeroPoint
     scaling_per_output_channel = False
     narrow_range = True
     signed = True
