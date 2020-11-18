@@ -1,18 +1,30 @@
 from . import BaseInjector as Injector
 from .enum import ScalingImplType, StatsOp, RestrictValueType
 from .enum import QuantType, BitWidthImplType, FloatToIntImplType
-from brevitas.core.zero_point import ZeroZeroPoint, ShiftToUnsignedZeroPoint
+from brevitas.core.zero_point import ZeroZeroPoint, MinUintZeroPoint, ShiftIntToUintZeroPoint
+from brevitas.core.stats import AbsMinMax
 
 
-class StatsMaxScaling(Injector):
+class MaxStatsScaling(Injector):
     scaling_impl_type = ScalingImplType.STATS
     scaling_stats_op = StatsOp.MAX
+
+
+class MinMaxStatsScaling(Injector):
+    scaling_impl_type = ScalingImplType.STATS
+    scaling_stats_impl = AbsMinMax
 
 
 class ParamFromRuntimePercentileScaling(Injector):
     scaling_impl_type = ScalingImplType.PARAMETER_FROM_STATS
     scaling_stats_op = StatsOp.PERCENTILE
     percentile_q = 99.999
+    collect_stats_steps = 30
+
+
+class ParamFromRuntimeMinMaxScaling(Injector):
+    scaling_impl_type = ScalingImplType.PARAMETER_FROM_STATS
+    scaling_stats_impl = AbsMinMax
     collect_stats_steps = 30
 
 
@@ -28,16 +40,36 @@ class IntQuant(Injector):
     zero_point_impl = ZeroZeroPoint
 
 
-class NarrowIntQuant(IntQuant):
+class NarrowIntQuant(Injector):
+    quant_type = QuantType.INT
+    bit_width_impl_type = BitWidthImplType.CONST
     narrow_range = True
+    signed = True
+    zero_point_impl = ZeroZeroPoint
 
 
-class UintQuant(IntQuant):
+class UintQuant(Injector):
+    quant_type = QuantType.INT
+    bit_width_impl_type = BitWidthImplType.CONST
+    narrow_range = False
     signed = False
+    zero_point_impl = ZeroZeroPoint
 
 
-class ShiftedUintQuant(UintQuant):
-    zero_point_impl = ShiftToUnsignedZeroPoint
+class ShiftedMinUintQuant(Injector):
+    quant_type = QuantType.INT
+    bit_width_impl_type = BitWidthImplType.CONST
+    narrow_range = False
+    signed = False
+    zero_point_impl = MinUintZeroPoint
+
+
+class ShiftedIntToUintQuant(Injector):
+    quant_type = QuantType.INT
+    bit_width_impl_type = BitWidthImplType.CONST
+    narrow_range = False
+    signed = False
+    zero_point_impl = ShiftIntToUintZeroPoint
 
 
 class PerChannelFloatScaling8bit(Injector):
@@ -72,10 +104,10 @@ class FloatBias(Injector):
 
 TruncTo8bit = IntTrunc.let(bit_width=8)
 Int8Bias = IntQuant.let(bit_width=8)
-Int8BiasPerTensorFloatInternalScaling = IntQuant & StatsMaxScaling & PerTensorFloatScaling8bit
-Int8WeightPerTensorFloat = NarrowIntQuant & StatsMaxScaling & PerTensorFloatScaling8bit
-ShiftedUint8WeightPerTensorFloat = ShiftedUintQuant & StatsMaxScaling & PerTensorFloatScaling8bit
+Int8BiasPerTensorFloatInternalScaling = IntQuant & MaxStatsScaling & PerTensorFloatScaling8bit
+Int8WeightPerTensorFloat = NarrowIntQuant & MaxStatsScaling & PerTensorFloatScaling8bit
+ShiftedUint8WeightPerTensorFloat = ShiftedMinUintQuant & MinMaxStatsScaling & PerTensorFloatScaling8bit
 Int8ActPerTensorFloat = IntQuant & ParamFromRuntimePercentileScaling & PerTensorFloatScaling8bit
 Uint8ActPerTensorFloat = UintQuant & ParamFromRuntimePercentileScaling & PerTensorFloatScaling8bit
-ShiftedUint8ActPerTensorFloat = ShiftedUintQuant & ParamFromRuntimePercentileScaling & PerTensorFloatScaling8bit
+ShiftedUint8ActPerTensorFloat = ShiftedIntToUintQuant & ParamFromRuntimeMinMaxScaling & PerTensorFloatScaling8bit
 Int8ActPerTensorFloatMinMaxInit = IntQuant & ParamMinMaxInitScaling & PerTensorFloatScaling8bit

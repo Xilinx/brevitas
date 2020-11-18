@@ -38,8 +38,11 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+from typing import Optional
+
 import torch
 from torch import Tensor
+from torch.nn import Module
 
 import brevitas
 from brevitas.function.ops import min_int
@@ -57,13 +60,27 @@ class ZeroZeroPoint(brevitas.jit.ScriptModule):
         return self.zero_point()
 
 
-class ShiftToUnsignedZeroPoint(brevitas.jit.ScriptModule):
-    __constants__ = ['narrow_range']
+class MinUintZeroPoint(brevitas.jit.ScriptModule):
+    __constants__ = ['stats_reduce_dim']
 
-    def __init__(self, narrow_range: bool) -> None:
-        super(ShiftToUnsignedZeroPoint, self).__init__()
-        self.narrow_range = narrow_range
+    def __init__(self, float_to_int_impl: Module, stats_reduce_dim: Optional[int]) -> None:
+        super(MinUintZeroPoint, self).__init__()
+        self.float_to_int_impl = float_to_int_impl
+        self.stats_reduce_dim = stats_reduce_dim
+        self.zero = StatelessBuffer(torch.tensor(0.0))
 
     @brevitas.jit.script_method
     def forward(self, x: Tensor, scale: Tensor, bit_width: Tensor) -> Tensor:
-        return - min_int(signed=True, narrow_range=self.narrow_range, bit_width=bit_width)
+        if self.stats_reduce_dim is None:
+            min_val = torch.min(x)
+        else:
+            min_val = torch.min(x, dim=self.stats_reduce_dim)[0]
+        min_val = torch.where(min_val <= self.zero(), min_val, self.zero())
+        return - self.float_to_int_impl(min_val / scale)
+
+
+class ShiftIntToUintZeroPoint(brevitas.jit.ScriptModule):
+
+    @brevitas.jit.script_method
+    def forward(self, x: Tensor, scale: Tensor, bit_width: Tensor) -> Tensor:
+        return - min_int(signed=True, narrow_range=False, bit_width=bit_width)
