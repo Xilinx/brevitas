@@ -300,6 +300,7 @@ class QuantWeightBiasInputOutputLayer(
             update_bqi: Callable = default_update_bqi,
             update_iqi: Callable = default_update_aqi,
             update_oqi: Callable = default_update_aqi,
+            compute_output_zero_point=False,
             **kwargs):
         QuantInputOutputLayer.__init__(
             self,
@@ -311,6 +312,7 @@ class QuantWeightBiasInputOutputLayer(
             **kwargs)
         QuantWeightMixin.__init__(self, weight, weight_quant, update_wqi, **kwargs)
         QuantBiasMixin.__init__(self, bias, bias_quant, update_bqi, **kwargs)
+        self.compute_output_zero_point = compute_output_zero_point
 
     @abstractmethod
     def inner_forward_impl(self, x: Tensor, quant_weight: Tensor, quant_bias: Optional[Tensor]):
@@ -337,6 +339,7 @@ class QuantWeightBiasInputOutputLayer(
     def forward_impl(self, inp: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
         output_scale = None
         output_bit_width = None
+        output_zero_point = None
 
         inp = self.unpack_input(inp)
 
@@ -369,7 +372,18 @@ class QuantWeightBiasInputOutputLayer(
         else:
             output_tensor = self.inner_forward_impl(quant_input.value, quant_weight.value, None)
 
-        quant_output = QuantTensor(output_tensor, output_scale, output_bit_width, signed=True)
+        if self.compute_output_zero_point:
+            if (quant_input.zero_point != 0.0).any() or (quant_weight.zero_point != 0.0).any():
+                raise RuntimeError("Computing zero point of output accumulator not supported yet.")
+            else:
+                output_zero_point = quant_input.zero_point
+
+        quant_output = QuantTensor(
+            value=output_tensor,
+            scale=output_scale,
+            zero_point=output_zero_point,
+            bit_width=output_bit_width,
+            signed=True)
         quant_output = self.output_quant(quant_output)
         return self.pack_output(quant_output)
 
