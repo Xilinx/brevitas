@@ -94,6 +94,23 @@ class AbsMax(brevitas.jit.ScriptModule):
             return torch.max(torch.abs(x), dim=self.stats_reduce_dim)[0]
 
 
+class AbsMinMax(brevitas.jit.ScriptModule):
+    __constants__ = ['stats_reduce_dim']
+
+    def __init__(self, stats_reduce_dim: Optional[int]) -> None:
+        super(AbsMinMax, self).__init__()
+        self.stats_reduce_dim = stats_reduce_dim
+
+    @brevitas.jit.script_method
+    def forward(self, x: torch.Tensor):
+        if self.stats_reduce_dim is None:
+            return torch.abs(torch.max(x) - torch.min(x))
+        else:
+            max_val = torch.max(x, dim=self.stats_reduce_dim)[0]
+            min_val = torch.min(x, dim=self.stats_reduce_dim)[0]
+            return torch.abs(max_val - min_val)
+
+
 class AbsMaxAve(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim']
 

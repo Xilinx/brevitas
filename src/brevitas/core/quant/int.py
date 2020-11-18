@@ -111,7 +111,6 @@ class PrescaledRestrictIntQuantWithInputBitWidth(brevitas.jit.ScriptModule):
         super(PrescaledRestrictIntQuantWithInputBitWidth, self).__init__()
         self.int_quant = int_quant
         self.msb_clamp_bit_width_impl = bit_width_impl
-        self.int_scale = StatelessBuffer(torch.tensor(1.0))
         self.zero_point = StatelessBuffer(torch.tensor(0.0))
 
     @brevitas.jit.script_method
@@ -121,7 +120,7 @@ class PrescaledRestrictIntQuantWithInputBitWidth(brevitas.jit.ScriptModule):
                 input_bit_width: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
         msb_clamp_bit_width = self.msb_clamp_bit_width_impl(input_bit_width)
         zero_point = self.zero_point()
-        y = self.int_quant(scale, self.int_scale(), zero_point, msb_clamp_bit_width, x)
+        y = self.int_quant(scale, zero_point, msb_clamp_bit_width, x)
         return y, scale, zero_point, msb_clamp_bit_width
 
 
@@ -184,7 +183,6 @@ class PrescaledRestrictIntQuant(brevitas.jit.ScriptModule):
         super(PrescaledRestrictIntQuant, self).__init__()
         self.int_quant = int_quant
         self.msb_clamp_bit_width_impl = bit_width_impl
-        self.int_scale = StatelessBuffer(torch.tensor(1.0))
         self.zero_point = StatelessBuffer(torch.tensor(0.0))
 
 
@@ -194,7 +192,7 @@ class PrescaledRestrictIntQuant(brevitas.jit.ScriptModule):
                 scale: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
         msb_clamp_bit_width = self.msb_clamp_bit_width_impl()
         zero_point = self.zero_point()
-        y = self.int_quant(scale, self.int_scale(), zero_point, msb_clamp_bit_width, x)
+        y = self.int_quant(scale, zero_point, msb_clamp_bit_width, x)
         return y, scale, zero_point, msb_clamp_bit_width
 
 
@@ -270,14 +268,12 @@ class RescalingIntQuant(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
         msb_clamp_bit_width = self.msb_clamp_bit_width_impl()
-        scale = self.scaling_impl(x)
+        threshold = self.scaling_impl(x)
         int_scale = self.int_scaling_impl(msb_clamp_bit_width)
+        scale = threshold / int_scale
         zero_point = self.zero_point_impl(x, scale, msb_clamp_bit_width)
-        y = self.int_quant(scale, int_scale, zero_point, msb_clamp_bit_width, x)
-        output_scale = scale / int_scale
-        output_zero_point = zero_point
-        output_bit_width = msb_clamp_bit_width
-        return y, output_scale, output_zero_point, output_bit_width
+        y = self.int_quant(scale, zero_point, msb_clamp_bit_width, x)
+        return y, scale, zero_point, msb_clamp_bit_width
 
 
 class TruncIntQuant(brevitas.jit.ScriptModule):
