@@ -14,7 +14,7 @@ OUT_CH = 4
 IN_CH = 5
 
 
-def gen_linspaced_data(num_samples, min_val=-0.5, max_val=0.5):
+def gen_linspaced_data(num_samples, min_val=-1.0, max_val=1.0):
     return np.linspace(min_val, max_val, num_samples).astype(dtype=np.float32)
 
 
