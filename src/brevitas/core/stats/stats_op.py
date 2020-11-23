@@ -43,6 +43,7 @@ from typing import Optional, Tuple
 import math
 
 import torch
+from torch import Tensor
 from torch.nn import Parameter
 
 import brevitas
@@ -52,6 +53,24 @@ from .stats_wrapper import SCALAR_SHAPE
 
 
 DEFAULT_STD_DEV_EPSILON = 1e-8
+
+
+class NegativeMinOrZero(brevitas.jit.ScriptModule):
+    __constants__ = ['stats_reduce_dim']
+
+    def __init__(self, stats_reduce_dim: Optional[int]) -> None:
+        super(NegativeMinOrZero, self).__init__()
+        self.stats_reduce_dim = stats_reduce_dim
+        self.zero = StatelessBuffer(torch.tensor(0.0))
+
+    @brevitas.jit.script_method
+    def forward(self, x: Tensor) -> Tensor:
+        if self.stats_reduce_dim is None:
+            min_val = torch.min(x)
+        else:
+            min_val = torch.min(x, dim=self.stats_reduce_dim)[0]
+        min_val = torch.where(min_val <= self.zero(), min_val, self.zero())
+        return min_val
 
 
 class AbsPercentile(brevitas.jit.ScriptModule):
@@ -64,7 +83,7 @@ class AbsPercentile(brevitas.jit.ScriptModule):
         self.stats_reduce_dim = stats_reduce_dim
 
     @brevitas.jit.script_method
-    def forward(self, x):
+    def forward(self, x: Tensor):
         if self.stats_reduce_dim is None:
             # k is 1-indexed, so round away from zero
             k = int(math.floor(.01 * self.q * x.numel() + 0.5))
@@ -87,7 +106,7 @@ class AbsMax(brevitas.jit.ScriptModule):
         self.stats_reduce_dim = stats_reduce_dim
 
     @brevitas.jit.script_method
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: Tensor):
         if self.stats_reduce_dim is None:
             return torch.max(torch.abs(x))
         else:
@@ -102,7 +121,7 @@ class AbsMinMax(brevitas.jit.ScriptModule):
         self.stats_reduce_dim = stats_reduce_dim
 
     @brevitas.jit.script_method
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: Tensor):
         if self.stats_reduce_dim is None:
             return torch.abs(torch.max(x) - torch.min(x))
         else:
@@ -119,7 +138,7 @@ class AbsMaxAve(brevitas.jit.ScriptModule):
         self.stats_reduce_dim = stats_reduce_dim
 
     @brevitas.jit.script_method
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: Tensor):
         return torch.mean(torch.max(torch.abs(x), dim=self.stats_reduce_dim)[0])
 
 
@@ -131,7 +150,7 @@ class AbsAve(brevitas.jit.ScriptModule):
         self.stats_reduce_dim = stats_reduce_dim
 
     @brevitas.jit.script_method
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: Tensor):
         if self.stats_reduce_dim is None:
             return torch.mean(torch.abs(x))
         else:
@@ -150,7 +169,7 @@ class MeanSigmaStd(brevitas.jit.ScriptModule):
         self.sigma = StatelessBuffer(torch.tensor(sigma))
 
     @brevitas.jit.script_method
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: Tensor):
         sigma = self.sigma()
         out = self.impl(x, sigma)
         return out
@@ -168,7 +187,7 @@ class _MeanSigmaStdImpl(brevitas.jit.ScriptModule):
         self.epsilon = std_dev_epsilon
 
     @brevitas.jit.script_method
-    def forward(self, x: torch.Tensor, sigma: torch.Tensor):
+    def forward(self, x: Tensor, sigma: Tensor):
         abs_val = torch.abs(x)
         if self.stats_reduce_dim is None:
             mean_val = torch.mean(abs_val)
@@ -197,7 +216,7 @@ class MeanLearnedSigmaStd(brevitas.jit.ScriptModule):
             self.value = Parameter(torch.full(stats_output_shape, sigma))
 
     @brevitas.jit.script_method
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: Tensor):
         sigma = self.sigma.view(self.sigma.shape)  # trick to get a tensor type
         out = self.impl(x, sigma)
         return out
