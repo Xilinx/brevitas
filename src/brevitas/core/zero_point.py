@@ -38,15 +38,17 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from typing import Optional
+from typing import Optional, Tuple
 
 import torch
 from torch import Tensor
-from torch.nn import Module
+from torch.nn import Module, Parameter
 
 import brevitas
+from brevitas import config
 from brevitas.function.ops import min_int
 from .utils import StatelessBuffer
+from brevitas.core.stats import SCALAR_SHAPE, DEFAULT_MOMENTUM, NegativeMinOrZero
 
 
 class ZeroZeroPoint(brevitas.jit.ScriptModule):
@@ -66,17 +68,74 @@ class MinUintZeroPoint(brevitas.jit.ScriptModule):
     def __init__(self, float_to_int_impl: Module, stats_reduce_dim: Optional[int]) -> None:
         super(MinUintZeroPoint, self).__init__()
         self.float_to_int_impl = float_to_int_impl
-        self.stats_reduce_dim = stats_reduce_dim
-        self.zero = StatelessBuffer(torch.tensor(0.0))
+        self.negative_min_or_zero = NegativeMinOrZero(stats_reduce_dim)
 
     @brevitas.jit.script_method
     def forward(self, x: Tensor, scale: Tensor, bit_width: Tensor) -> Tensor:
-        if self.stats_reduce_dim is None:
-            min_val = torch.min(x)
-        else:
-            min_val = torch.min(x, dim=self.stats_reduce_dim)[0]
-        min_val = torch.where(min_val <= self.zero(), min_val, self.zero())
+        min_val = self.negative_min_or_zero(x)
         return - self.float_to_int_impl(min_val / scale)
+
+
+class ParameterFromRuntimeMinZeroPoint(brevitas.jit.ScriptModule):
+    __constants__ = ['stats_permute_dims',
+                     'collect_stats_steps',
+                     'momentum']
+
+    def __init__(
+            self,
+            collect_stats_steps: int,
+            float_to_int_impl: Module,
+            stats_reduce_dim: Optional[int],
+            zero_point_shape: Tuple[int, ...],
+            zero_point_stats_input_view_shape_impl: Module,
+            zero_point_stats_permute_dims: Optional[Tuple[int, ...]] = None,
+            zero_point_stats_momentum: float = DEFAULT_MOMENTUM) -> None:
+        super(ParameterFromRuntimeMinZeroPoint, self).__init__()
+        assert collect_stats_steps > 0, 'Steps should be more than 0'
+        if zero_point_shape != SCALAR_SHAPE and zero_point_stats_permute_dims is None:
+            raise RuntimeError("Per channel runtime stats require a permute shape")
+        self.collect_stats_steps = collect_stats_steps
+        self.counter: int = brevitas.jit.Attribute(0, int)
+        self.stats_permute_dims = zero_point_stats_permute_dims
+        self.stats_input_view_shape_impl = zero_point_stats_input_view_shape_impl
+        self.momentum = zero_point_stats_momentum
+        self.value = Parameter(torch.full(zero_point_shape, 1.0))
+        self.negative_min_or_zero = NegativeMinOrZero(stats_reduce_dim)
+        self.float_to_int_impl = float_to_int_impl
+
+    @brevitas.jit.script_method_110_disabled
+    def forward(self, x: Tensor, scale: Tensor, bit_width: Tensor) -> Tensor:
+        if self.training:
+            if self.counter <= self.collect_stats_steps:
+                if self.zero_point_permute_dims is not None:
+                    x = x.permute(*self.zero_point_permute_dims).contiguous()
+                stats_input = self.zero_point_input_view_shape_impl(x)
+                stats = self.negative_min_or_zero(stats_input)
+                if self.counter == 0:
+                    self.value.detach().mul_(stats.detach())
+                else:
+                    self.value.detach().mul_(1 - self.momentum)
+                    self.value.detach().add_(self.momentum * stats.detach())
+                self.counter = self.counter + 1
+                out = stats
+            else:
+                out = self.value
+        else:
+            out = self.value
+        out = self.float_to_int_impl(out / scale)
+        return out
+
+    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
+                              missing_keys, unexpected_keys, error_msgs):
+        super(ParameterFromRuntimeMinZeroPoint, self)._load_from_state_dict(
+            state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
+        value_key = prefix + 'value'
+        # Pytorch stores training flag as a buffer with JIT enabled
+        training_key = prefix + 'training'
+        if training_key in missing_keys:
+            missing_keys.remove(training_key)
+        if config.IGNORE_MISSING_KEYS and value_key in missing_keys:
+            missing_keys.remove(value_key)
 
 
 class ShiftIntToUintZeroPoint(brevitas.jit.ScriptModule):

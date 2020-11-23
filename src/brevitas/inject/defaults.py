@@ -1,7 +1,10 @@
+from dependencies import this
+
 from . import BaseInjector as Injector
 from .enum import ScalingImplType, StatsOp, RestrictValueType
 from .enum import QuantType, BitWidthImplType, FloatToIntImplType
-from brevitas.core.zero_point import ZeroZeroPoint, MinUintZeroPoint, ShiftIntToUintZeroPoint
+from brevitas.core.zero_point import ZeroZeroPoint, MinUintZeroPoint
+from brevitas.core.zero_point import ParameterFromRuntimeMinZeroPoint
 from brevitas.core.stats import AbsMinMax
 
 
@@ -69,7 +72,9 @@ class ShiftedIntToUintQuant(Injector):
     bit_width_impl_type = BitWidthImplType.CONST
     narrow_range = False
     signed = False
-    zero_point_impl = ShiftIntToUintZeroPoint
+    zero_point_impl = ParameterFromRuntimeMinZeroPoint
+    zero_point_shape = this.scaling_shape
+    zero_point_stats_input_view_shape_impl = this.scaling_stats_input_view_shape_impl
 
 
 class PerChannelFloatScaling8bit(Injector):
