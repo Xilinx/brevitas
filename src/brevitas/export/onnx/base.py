@@ -66,6 +66,7 @@ class ONNXBaseManager(BaseManager, ABC):
         cls.solve_enable_onnx_checker(kwargs)
 
         with torch.no_grad():
+            training_state = module.training
             module = module.eval()
             module.apply(cls.set_export_handler)
             if input_t is None:
@@ -83,6 +84,7 @@ class ONNXBaseManager(BaseManager, ABC):
             # restore the model to previous properties
             module.apply(lambda m: _restore_inp_caching_mode(m))
             module.apply(lambda m: _set_export_mode(m, enabled=False))
+            module.train(training_state)
             # do some cleanup on the exported ONNX model
             model = onnx.load(export_path)
             model = opt.optimize(model, cls.onnx_passes)
