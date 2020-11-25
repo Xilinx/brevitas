@@ -61,14 +61,14 @@ jobs:
       if: startsWith(runner.os, 'Windows') == true
 
     - name: Set pkgs cache paths on Linux/macOS
-      uses: allenevans/set-env@v1.0.0
+      uses: allenevans/set-env@v2.0.1
       with:
         CONDA_PKGS_DIRS: ${{ steps.workspace-path-nix.outputs.path }}/.conda_pkgs_dir
         PYTORCH_PKG_CACHE_PATH: ${{ steps.workspace-path-nix.outputs.path }}/.pytorch_pkg_cache_path
       if: startsWith(runner.os, 'Windows') != true
 
     - name: Set pkgs cache paths on Windows
-      uses: allenevans/set-env@v1.0.0
+      uses: allenevans/set-env@v2.0.1
       with:
         CONDA_PKGS_DIRS: ${{ steps.workspace-path-win.outputs.path }}/.conda_pkgs_dir
         PYTORCH_PKG_CACHE_PATH: ${{ steps.workspace-path-win.outputs.path }}/.pytorch_pkg_cache_path
