@@ -61,8 +61,8 @@ class QuantAvgPool2d(QuantTruncMixin, QuantLayerMixin, AvgPool2d):
 
     def __init__(
             self,
-            kernel_size: int,
-            stride: int = None,
+            kernel_size: Union[int, Tuple[int, int]],
+            stride: Union[int, Tuple[int, int]] = None,
             trunc_quant: Union[AccQuantProxyProtocol, Type[Injector]] = TruncTo8bit,
             return_quant_tensor: bool = True,
             update_injector: Callable = update_trunc_quant_injector,
@@ -86,6 +86,13 @@ class QuantAvgPool2d(QuantTruncMixin, QuantLayerMixin, AvgPool2d):
     def requires_export_handler(self):
         return True
 
+    @property
+    def _avg_scaling(self):
+        if isinstance(self.kernel_size, tuple):
+            return self.kernel_size[0] * self.kernel_size[1]
+        else:
+            return self.kernel_size * self.kernel_size
+
     def forward(self, input: Union[Tensor, QuantTensor]):
         x = self.unpack_input(input)
         if self.export_mode:
@@ -93,7 +100,8 @@ class QuantAvgPool2d(QuantTruncMixin, QuantLayerMixin, AvgPool2d):
         x = x.set(value=super(QuantAvgPool2d, self).forward(x.value))
         if self.is_trunc_quant_enabled:
             assert x.is_valid  # check input quant tensor is propertly formed
-            rescaled_value = x.value * (self.kernel_size * self.kernel_size)  # remove avg scaling
+            # remove avg scaling
+            rescaled_value = x.value * self._avg_scaling
             x = x.set(value=rescaled_value)
             x = x.set(bit_width=self.max_acc_bit_width(x.bit_width))
             x = self.trunc_quant(x)
@@ -101,7 +109,7 @@ class QuantAvgPool2d(QuantTruncMixin, QuantLayerMixin, AvgPool2d):
 
     def max_acc_bit_width(self, input_bit_width):
         max_uint_input = max_uint(bit_width=input_bit_width, narrow_range=False)
-        max_uint_output = max_uint_input * self.kernel_size * self.kernel_size
+        max_uint_output = max_uint_input * self._avg_scaling
         max_output_bit_width = ceil_ste(torch.log2(max_uint_output))
         return max_output_bit_width
 
