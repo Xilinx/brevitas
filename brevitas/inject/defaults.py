@@ -15,7 +15,7 @@ class ParamFromRuntimePercentileScaling(Injector):
     collect_stats_steps = 30
 
 
-class ParamMinMaxScaling(Injector):
+class ParamMinMaxInitScaling(Injector):
     scaling_impl_type = ScalingImplType.PARAMETER
 
 
@@ -70,4 +70,4 @@ Int8BiasPerTensorFloatInternalScaling = IntQuant & StatsMaxScaling & PerTensorFl
 Int8WeightPerTensorFloat = NarrowIntQuant & StatsMaxScaling & PerTensorFloatScaling8bit
 Int8ActPerTensorFloat = IntQuant & ParamFromRuntimePercentileScaling & PerTensorFloatScaling8bit
 Uint8ActPerTensorFloat = UintQuant & ParamFromRuntimePercentileScaling & PerTensorFloatScaling8bit
-Int8ActPerTensorFloatMinMax = IntQuant & ParamMinMaxScaling & PerTensorFloatScaling8bit
+Int8ActPerTensorFloatMinMaxInit = IntQuant & ParamMinMaxInitScaling & PerTensorFloatScaling8bit
