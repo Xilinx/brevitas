@@ -41,11 +41,6 @@
 
 from setuptools import setup, find_packages
 import os
-from distutils.util import convert_path
-
-
-config= {}
-exec(open(convert_path('brevitas/config.py')).read(), config)
 
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -67,10 +62,9 @@ setup(name="Brevitas",
       long_description_content_type="text/markdown",
       author="Alessandro Pappalardo",
       python_requires=">=3.6",
-      setup_requires=read_requirements('requirements-setup.txt'),
       install_requires=read_requirements('requirements.txt'),
       extras_require={
-          "Hadamard": read_requirements('requirements-hadamard.txt'),
+          "hadamard": read_requirements('requirements-hadamard.txt'),
           "test": read_requirements('requirements-test.txt'),
           "tts": read_requirements('requirements-tts.txt'),
           "stt": read_requirements('requirements-stt.txt'),
@@ -78,7 +72,8 @@ setup(name="Brevitas",
           "finn_integration": read_requirements('requirements-finn-integration.txt'),
           "pyxir_integration": read_requirements('requirements-pyxir-integration.txt')
       },
-      packages=find_packages(),
+      packages=find_packages('src'),
+      package_dir={'': 'src'},
       zip_safe=False,
       package_data={
           '': ['*.ini', '*.yaml'],

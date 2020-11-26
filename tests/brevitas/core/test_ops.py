@@ -41,7 +41,7 @@
 from brevitas.function.ops import *
 from brevitas.function.ops_ste import *
 from hypothesis import given
-from common import *
+from tests.brevitas.common import *
 
 MIN_BIT_WIDTH = 1
 MAX_BIT_WIDTH = 8

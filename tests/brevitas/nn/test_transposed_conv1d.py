@@ -1,10 +1,11 @@
 import torch
 from brevitas.nn import QuantConvTranspose1d
-from generate_quant_input import generate_quant_input
 from brevitas.core.quant import QuantType
 import random
 import numpy as np
-from common import check_expected_pyt_120_fail
+from tests.brevitas.generate_quant_input import generate_quant_input
+from tests.common_xfail import check_expected_pyt_120_fail
+
 
 # Quantization parameters
 BIT = 8
