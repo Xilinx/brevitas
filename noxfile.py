@@ -76,12 +76,13 @@ def tests_brevitas_cpu(session, pytorch, jit_status):
     install_torchvision(pytorch, session)
     session.install( '--upgrade', '.[test]')
     # run non graph tests
-    session.run('pytest', 'test/brevitas', '-v', '--ignore', 'test/brevitas/graph')
+    session.run('pytest', 'tests/brevitas', '-v', '--ignore', 'tests/brevitas/graph')
     # run graph tests
     if not is_torchvision_broken(session.python, pytorch):
-        session.run('pytest', 'test/brevitas/graph/test_generator.py', '-v')
-        session.run('pytest', 'test/brevitas/graph/test_tracer.py', '-v')
-        session.run('pytest', 'test/brevitas/graph/test_rewriter.py', '-v')
+        session.run('pytest', 'tests/brevitas/graph/test_generator.py', '-v')
+        session.run('pytest', 'tests/brevitas/graph/test_tracer.py', '-v')
+        session.run('pytest', 'tests/brevitas/graph/test_rewriter.py', '-v')
+
 
 @nox.session(venv_backend="conda", python=CONDA_PYTHON_VERSIONS)
 @nox.parametrize("pytorch", PYTORCH_VERSIONS, ids=PYTORCH_IDS)
@@ -91,7 +92,7 @@ def tests_brevitas_examples_cpu(session, pytorch, jit_status):
     install_pytorch(pytorch, session)
     install_torchvision(pytorch, session)  # For CV eval scripts
     session.install('--upgrade', '.[test, tts, stt, vision]')
-    session.run('pytest', 'test/brevitas_examples')
+    session.run('pytest', 'tests/brevitas_examples')
 
 
 @nox.session(venv_backend="conda", python=CONDA_PYTHON_VERSIONS)
@@ -101,7 +102,7 @@ def tests_brevitas_install_dev(session, pytorch):
     install_torchvision(pytorch, session)
     session.install('--upgrade', '-e', '.[test]')
     session.env['BREVITAS_VERBOSE'] = '1'
-    session.run('pytest', '-v', 'test/brevitas/test_brevitas_import.py')
+    session.run('pytest', '-v', 'tests/brevitas/test_brevitas_import.py')
 
 
 @nox.session(venv_backend="conda", python=CONDA_PYTHON_VERSIONS)
@@ -110,7 +111,7 @@ def tests_brevitas_examples_install_dev(session, pytorch):
     install_pytorch(pytorch, session)
     install_torchvision(pytorch, session)
     session.install('--upgrade', '-e', '.[test, tts, stt]')
-    session.run('pytest', '-v', 'test/brevitas_examples/test_examples_import.py')
+    session.run('pytest', '-v', 'tests/brevitas_examples/test_examples_import.py')
 
 
 @nox.session(venv_backend="conda", python=CONDA_PYTHON_VERSIONS)
@@ -120,7 +121,7 @@ def tests_brevitas_finn_integration(session, pytorch):
     install_torchvision(pytorch, session)
     session.install('--upgrade', '-e', '.[test, stt, finn_integration]')
     env = {'FINN_INST_NAME': 'finn'}
-    session.run('pytest', '-v', 'test/brevitas_finn_integration', env=env)
+    session.run('pytest', '-v', 'tests/brevitas_finn', env=env)
 
 
 @nox.session(venv_backend="conda", python=CONDA_PYTHON_VERSIONS)
@@ -129,7 +130,7 @@ def tests_brevitas_pyxir_integration(session, pytorch):
     install_pytorch(pytorch, session)
     install_torchvision(pytorch, session)
     session.install('--upgrade', '-e', '.[test, pyxir_integration]')
-    session.run('pytest', '-v', 'test/brevitas_pyxir_integration')
+    session.run('pytest', '-v', 'tests/brevitas_pyxir')
 
 
 @nox.session(python=False)

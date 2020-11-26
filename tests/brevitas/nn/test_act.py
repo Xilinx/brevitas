@@ -2,7 +2,7 @@ import pytest
 import torch
 
 from brevitas.nn import QuantReLU, QuantIdentity, QuantHardTanh
-from common import check_expected_pyt_110_fail
+from tests.common_xfail import check_expected_pyt_110_fail
 
 
 class TestQuantHardTanh:

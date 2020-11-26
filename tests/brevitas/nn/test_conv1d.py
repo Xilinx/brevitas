@@ -3,8 +3,8 @@ from brevitas.nn import QuantConv1d
 
 from brevitas.core.quant import QuantType
 
-from generate_quant_input import generate_quant_input
-from common import check_expected_pyt_120_fail
+from tests.brevitas.generate_quant_input import generate_quant_input
+from tests.common_xfail import check_expected_pyt_120_fail
 
 # Quantization parameters
 BIT = 8

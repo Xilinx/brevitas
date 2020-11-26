@@ -12,7 +12,7 @@ from finn.transformation.double_to_single_float import DoubleToSingleFloat
 
 from brevitas.onnx import FINNManager
 
-from common_xfail import check_expected_win_nox_fail
+from tests.common_xfail import check_expected_win_nox_fail
 
 
 QUARTZNET_POSTPROCESSED_INPUT_SIZE = (1, 64, 256)  # B, features, sequence

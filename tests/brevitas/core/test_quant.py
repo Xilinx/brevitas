@@ -48,10 +48,10 @@ from brevitas.function.ops import tensor_clamp
 from brevitas.core.function_wrapper import TensorClamp, RoundSte, FloorSte, CeilSte
 import hypothesis.strategies as st
 from hypothesis import given
-from common import float_st, float_st_nz, two_lists_equal_size, list_float_st, float_st_p
-from common import ATOL, RTOL
-from common import check_expected_pyt_120_fail, check_mock_jit_pyt_l140_fail, check_mock_jit_pyt_ge140_fail
-from common import combine_conditions
+from tests.brevitas.common import float_st, float_st_nz, two_lists_equal_size, list_float_st, float_st_p
+from tests.brevitas.common import ATOL, RTOL
+from tests.brevitas.common import check_expected_pyt_120_fail, check_mock_jit_pyt_l140_fail, check_mock_jit_pyt_ge140_fail
+from tests.brevitas.common import combine_conditions
 from unittest.mock import Mock
 import pytest
 
