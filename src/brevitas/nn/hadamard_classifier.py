@@ -12,7 +12,7 @@ except ImportError:
     hadamard = None
 
 from brevitas.function.ops_ste import ceil_ste
-from brevitas.function.ops import max_uint
+from brevitas.function.ops import max_int
 from .mixin.base import QuantLayerMixin
 
 
@@ -54,7 +54,7 @@ class HadamardClassifier(QuantLayerMixin, nn.Module):
         return self.pack_output(out, output_scale, output_bit_width)
 
     def max_output_bit_width(self, input_bit_width):
-        max_input_val = max_uint(bit_width=input_bit_width, narrow_range=False)
+        max_input_val = max_int(bit_width=input_bit_width, narrow_range=False, signed=False)
         max_output_val = max_input_val * self.in_channels
         output_bit_width = ceil_ste(torch.log2(max_output_val))
         return output_bit_width

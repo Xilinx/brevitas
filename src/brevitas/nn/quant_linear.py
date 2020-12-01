@@ -47,7 +47,7 @@ from torch.nn.functional import linear
 
 from brevitas.inject import BaseInjector as Injector
 from brevitas.function.ops_ste import ceil_ste
-from brevitas.function.ops import max_uint
+from brevitas.function.ops import max_int
 from brevitas.proxy.parameter_quant import WeightQuantProxyProtocol, BiasQuantProxyProtocol
 from brevitas.proxy.runtime_quant import ActQuantProxyProtocol
 from brevitas.quant_tensor import QuantTensor
@@ -107,7 +107,7 @@ class QuantLinear(Linear, QuantWBIOL):
         return output_tensor
 
     def max_acc_bit_width(self, input_bit_width, weight_bit_width):
-        max_input_val = max_uint(bit_width=input_bit_width, narrow_range=False)
+        max_input_val = max_int(bit_width=input_bit_width, signed=False, narrow_range=False)
         max_fc_val = self.weight_quant.max_uint_value(weight_bit_width)
         max_output_val = max_input_val * max_fc_val * self.in_features
         output_bit_width = ceil_ste(torch.log2(max_output_val))
