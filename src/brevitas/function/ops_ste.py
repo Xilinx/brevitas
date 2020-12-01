@@ -38,10 +38,31 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+"""
+Implementation of various functions with a straight-through gradient estimator, dispatched to
+either a native just-in-time compiled backend (when env BREVITAS_JIT=1) or to a torch.autograd.Function
+implemented in :obj:`~brevitas.function.autograd_ste_ops` (when env BREVITAS_JIT=0).
+The native backend is enabled when BREVITAS_JIT is enabled to allow for end-to-end compilation of
+the built-in quantizers, since as of Pytorch 1.7.0 a torch.autograd.Function is not supported by the compiler.
+"""
+
 import torch
 from torch import Tensor
 
 import brevitas
+
+__all__ = [
+    'round_ste',
+    'ceil_ste',
+    'floor_ste',
+    'tensor_clamp_ste',
+    'scalar_clamp_ste',
+    'scalar_clamp_min_ste',
+    'binary_sign_ste',
+    'ternary_sign_ste',
+    'round_to_zero_ste'
+]
+
 
 if brevitas.NATIVE_STE_BACKEND_LOADED:
     fn_prefix = torch.ops.autograd_ste_ops
@@ -53,111 +74,36 @@ else:
 
 @script_flag
 def round_ste(x: Tensor) -> Tensor:
-    """ Perform round operation with Straight Trough Estimation (STE) of the Gradient
-
-    This operation behaves like an identity on the backward pass.
-    For Pytorch version >= 1.3.0, the STE operator is implemented in C++ using the
-    torch::autograd::Function class and compiled. At execution time, the Just-In-Time (JIT) compiler of Pytorch
-    is used to speed-up the computation.
-    For Pytorch version < 1.3.0, the STE operator is implemented using the
-    torch.autograd.Function class in python, and the JIT cannot be used.
-
-
-    Parameters
-    ----------
-    x : Tensor
-        Tensor on which to apply the round operation
-
-    Returns
-    -------
-    Tensor
-        Tensor after applying round operation. When backpropagating through this value,
-        a straight through estimator is applied.
-
+    """
+    Wrapper for either :func:`~brevitas.function.autograd_ste_ops.round_ste_impl` (with env
+    BREVITAS_JIT=0) or its native just-in-time compiled variant (with BREVITAS_JIT=1).
     """
     return fn_prefix.round_ste_impl(x)
 
 
 @script_flag
 def ceil_ste(x: Tensor) -> Tensor:
-    """ Perform ceil operation with Straight Trough Estimation (STE) of the Gradient
-
-    This operation behaves like an identity on the backward pass.
-    For Pytorch version >= 1.3.0, the STE operator is implemented in C++ using the
-    torch::autograd::Function class and compiled. At execution time, the Just-In-Time (JIT) compiler of Pytorch
-    is used to speed-up the computation.
-    For Pytorch version < 1.3.0, the STE operator is implemented using the
-    torch.autograd.Function class in python, and the JIT cannot be used.
-
-    Parameters
-    ----------
-    x : Tensor
-        Tensor on which to apply the ceil operation
-
-    Returns
-    -------
-    Tensor
-        Tensor after applying ceil operation.
-        When backpropagating through this value, a straight through estimator is applied.
-
+    """
+    Wrapper for either :func:`~brevitas.function.autograd_ste_ops.ceil_ste_impl` (with env
+    BREVITAS_JIT=0) or its native just-in-time compiled variant (with BREVITAS_JIT=1).
     """
     return fn_prefix.ceil_ste_impl(x)
 
 
 @script_flag
 def floor_ste(x: Tensor) -> Tensor:
-    """ Perform floor operation with Straight Trough Estimation (STE) of the Gradient
-
-    This operation behaves like an identity on the backward pass.
-    For Pytorch version >= 1.3.0, the STE operator is implemented in C++ using the
-    torch::autograd::Function class and compiled. At execution time, the Just-In-Time (JIT) compiler of Pytorch
-    is used to speed-up the computation.
-    For Pytorch version < 1.3.0, the STE operator is implemented using the
-    torch.autograd.Function class in python, and the JIT cannot be used.
-
-    Parameters
-    ----------
-    x : Tensor
-        Tensor on which to apply the floor operation
-
-    Returns
-    -------
-    Tensor
-        Tensor after applying floor operation.
-        When backpropagating through this value, a straight through estimator is applied.
-
+    """
+    Wrapper for either :func:`~brevitas.function.autograd_ste_ops.floor_ste_impl` (with env
+    BREVITAS_JIT=0) or its native just-in-time compiled variant (with BREVITAS_JIT=1).
     """
     return fn_prefix.floor_ste_impl(x)
 
 
 @script_flag
 def tensor_clamp_ste(x: Tensor, min_val: Tensor, max_val: Tensor) -> Tensor:
-    """ Perform tensor-clamp operation with Straight Trough Estimation (STE) of the Gradient
-
-    This function accepts two Tensors as `min_val` and `max_val`. These Tensors must have the same shape as
-    `x`, so that each element of `x` can be clamped according to the correspondent min_val and max_val.
-    This operation behaves like an identity on the backward pass.
-    For Pytorch version >= 1.3.0, the STE operator is implemented in C++ using the
-    torch::autograd::Function class and compiled. At execution time, the Just-In-Time (JIT) compiler of Pytorch
-    is used to speed-up the computation.
-    For Pytorch version < 1.3.0, the STE operator is implemented using the
-    torch.autograd.Function class in python, and the JIT cannot be used.
-
-
-    Parameters
-    ----------
-    x : Tensor
-        Tensor on which to apply the clamp operation
-    min_val : Tensor
-        Tensor containing the minimum values for the clamp operation. Must have the same shape of `x`
-    max_val : Tensor
-        Tensor containing the maximum values for the clamp operation. Must have the same shape of `x`
-
-    Returns
-    -------
-    Tensor
-        Tensor for which every element of `x` is clamped between the corresponding minimum and maximum values.
-        When backpropagating through this value, a straight through estimator is applied.
+    """
+    Wrapper for either :func:`~brevitas.function.autograd_ste_ops.tensor_clamp_ste_impl` (with env
+    BREVITAS_JIT=0) or its native just-in-time compiled variant (with BREVITAS_JIT=1).
     """
     output = fn_prefix.tensor_clamp_ste_impl(x, min_val, max_val)
     return output
@@ -165,119 +111,44 @@ def tensor_clamp_ste(x: Tensor, min_val: Tensor, max_val: Tensor) -> Tensor:
 
 @script_flag
 def scalar_clamp_ste(x: Tensor, min_val: float, max_val: float) -> Tensor:
-    """ Perform clamp operation with Straight Trough Estimation (STE) of the Gradient
-
-    This operation behaves like an identity on the backward pass.
-    For Pytorch version >= 1.3.0, the STE operator is implemented in C++ using the
-    torch::autograd::Function class and compiled. At execution time, the Just-In-Time (JIT) compiler of Pytorch
-    is used to speed-up the computation.
-    For Pytorch version < 1.3.0, the STE operator is implemented using the
-    torch.autograd.Function class in python, and the JIT cannot be used.
-
-
-    Parameters
-    ----------
-    x : Tensor
-        Tensor on which to apply the clamp operation
-    min_val : Float
-        Scalar containing the minimum value for the clamp operation
-    max_val : Float
-        Scalar containing the maximum value for the clamp operation
-
-    Returns
-    -------
-    Tensor
-        Tensor for which every element of `x` is clamped between `min_val` and `max_val`.
-        When backpropagating through this value, a straight through estimator is applied.
+    """
+    Wrapper for either :func:`~brevitas.function.autograd_ste_ops.scalar_clamp_ste_impl` (with env
+    BREVITAS_JIT=0) or its native just-in-time compiled variant (with BREVITAS_JIT=1).
     """
     return fn_prefix.scalar_clamp_ste_impl(x, min_val, max_val)
 
 
 @script_flag
 def scalar_clamp_min_ste(x: Tensor, min_val: float) -> Tensor:
-    """ Perform clamp_min operation with Straight Trough Estimation (STE) of the Gradient
-
-    This operation behaves like an identity on the backward pass.
-    For Pytorch version >= 1.3.0, the STE operator is implemented in C++ using the
-    torch::autograd::Function class and compiled. At execution time, the Just-In-Time (JIT) compiler of Pytorch
-    is used to speed-up the computation.
-    For Pytorch version < 1.3.0, the STE operator is implemented using the
-    torch.autograd.Function class in python, and the JIT cannot be used.
-
-
-    Parameters
-    ----------
-    x : Tensor
-        Tensor on which to apply the clamp operation
-    min_val : Float
-        Scalar containing the minimum value for the clamp operation
-
-    Returns
-    -------
-    Tensor
-        Tensor for which every element of `x` is clamped to `min_val`.
-        When backpropagating through this value, a straight through estimator is applied.
+    """
+    Wrapper for either :func:`~brevitas.function.autograd_ste_ops.scalar_clamp_min_ste_impl` (with env
+    BREVITAS_JIT=0) or its native just-in-time compiled variant (with BREVITAS_JIT=1).
     """
     return fn_prefix.scalar_clamp_min_ste_impl(x, min_val)
 
 
 @script_flag
 def binary_sign_ste(x: Tensor) -> Tensor:
-    """ Perform binarization with Straight Trough Estimation (STE) of the Gradient
-
-    This operation performs binarization on the input Tensor.
-    The output value will be one for each input value >= 0, otherwise it will be 0.
-    This operation behaves like an identity on the backward pass.
-    For Pytorch version >= 1.3.0, the STE operator is implemented in C++ using the
-    torch::autograd::Function class and compiled. At execution time, the Just-In-Time (JIT) compiler of Pytorch
-    is used to speed-up the computation.
-    For Pytorch version < 1.3.0, the STE operator is implemented using the
-    torch.autograd.Function class in python, and the JIT cannot be used.
-
-
-    Parameters
-    ----------
-    x : Tensor
-        Tensor on which to apply the binarization operation
-
-    Returns
-    -------
-    Tensor
-        Tensor after applying binarization. When backpropagating through this value, a straight
-        through estimator is applied.
-
+    """
+    Wrapper for either :func:`~brevitas.function.autograd_ste_ops.binary_sign_ste_impl` (with env
+    BREVITAS_JIT=0) or its native just-in-time compiled variant (with BREVITAS_JIT=1).
     """
     return fn_prefix.binary_sign_ste_impl(x)
 
 
 @script_flag
 def ternary_sign_ste(x: Tensor) -> Tensor:
-    """ Perform ternary operator with Straight Trough Estimation (STE) of the Gradient
-
-    This operations behaves as the function `sign` of Pytorch.
-    This operation behaves like an identity on the backward pass.
-    For Pytorch version >= 1.3.0, the STE operator is implemented in C++ using the
-    torch::autograd::Function class and compiled. At execution time, the Just-In-Time (JIT) compiler of Pytorch
-    is used to speed-up the computation.
-    For Pytorch version < 1.3.0, the STE operator is implemented using the
-    torch.autograd.Function class in python, and the JIT cannot be used.
-
-
-    Parameters
-    ----------
-    x : Tensor
-        Tensor on which to apply the ternary operation
-
-    Returns
-    -------
-    Tensor
-        Tensor after applying ternary operation. When backpropagating through this value,
-        a straight through estimator is applied.
-
+    """
+    Wrapper for either :func:`~brevitas.function.autograd_ste_ops.ternary_sign_ste_impl` (with env
+    BREVITAS_JIT=0) or its native just-in-time compiled variant (with BREVITAS_JIT=1).
     """
     return fn_prefix.ternary_sign_ste_impl(x)
 
 
 @script_flag
 def round_to_zero_ste(x: Tensor) -> Tensor:
+    """
+    Wrapper for either :func:`~brevitas.function.autograd_ste_ops.round_to_zero_ste_impl` (with env
+    BREVITAS_JIT=0) or its native just-in-time compiled variant (with BREVITAS_JIT=1).
+    """
     return fn_prefix.round_to_zero_ste_impl(x)
