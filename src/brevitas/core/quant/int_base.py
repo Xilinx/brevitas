@@ -42,7 +42,7 @@ from torch import Tensor
 from torch.nn import Module
 
 import brevitas
-from brevitas.function.ops import max_uint, max_int, min_int
+from brevitas.function.ops import max_int, min_int
 from .delay import DelayWrapper
 
 
@@ -181,11 +181,7 @@ class IntQuant(brevitas.jit.ScriptModule):
 
     @brevitas.jit.script_method
     def max_int(self, bit_width):
-        return max_int(self.signed, bit_width)
-
-    @brevitas.jit.script_method
-    def max_uint(self, bit_width):
-        return max_uint(self.narrow_range, bit_width)
+        return max_int(self.signed, self.narrow_range, bit_width)
 
     @brevitas.jit.script_method
     def forward(self,
