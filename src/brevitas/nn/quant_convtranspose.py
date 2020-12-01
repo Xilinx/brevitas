@@ -47,7 +47,7 @@ from torch.nn import ConvTranspose1d, ConvTranspose2d
 from torch.nn.functional import conv_transpose1d, conv_transpose2d
 
 from brevitas.inject import BaseInjector as Injector
-from brevitas.function.ops import max_uint
+from brevitas.function.ops import max_int
 from brevitas.function.ops_ste import ceil_ste
 from brevitas.proxy.parameter_quant import WeightQuantProxyProtocol, BiasQuantProxyProtocol
 from brevitas.proxy.runtime_quant import ActQuantProxyProtocol
@@ -137,7 +137,7 @@ class QuantConvTranspose1d(QuantWBIOL, ConvTranspose1d):
             raise NotImplementedError(f"Padding mode {self.padding_mode} not supported.")
 
     def max_acc_bit_width(self, input_bit_width, weight_bit_width):
-        max_uint_input = max_uint(bit_width=input_bit_width, narrow_range=False)
+        max_uint_input = max_int(bit_width=input_bit_width, signed=False, narrow_range=False)
         max_kernel_val = self.weight_quant.max_uint_value(weight_bit_width)
         group_size = self.out_channels // self.groups
         overlapping_sums = max(round(self.kernel_size[0] / self.stride[0]), 1)
@@ -224,7 +224,7 @@ class QuantConvTranspose2d(QuantWBIOL, ConvTranspose2d):
             raise NotImplementedError(f"Padding mode {self.padding_mode} not supported.")
 
     def max_acc_bit_width(self, input_bit_width, weight_bit_width):
-        max_uint_input = max_uint(bit_width=input_bit_width, narrow_range=False)
+        max_uint_input = max_int(bit_width=input_bit_width, signed=False, narrow_range=False)
         max_kernel_val = self.weight_quant.max_uint_value(weight_bit_width)
         group_size = self.out_channels // self.groups
         overlapping_sums = max(round(self.kernel_size[0] / self.stride[0]), 1)

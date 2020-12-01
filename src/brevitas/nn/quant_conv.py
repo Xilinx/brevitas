@@ -48,7 +48,7 @@ from torch.nn import functional as F
 from torch.nn.functional import conv2d
 
 from brevitas.inject import BaseInjector as Injector
-from brevitas.function.ops import max_uint
+from brevitas.function.ops import max_int
 from brevitas.function.ops_ste import ceil_ste
 from brevitas.proxy.parameter_quant import WeightQuantProxyProtocol, BiasQuantProxyProtocol
 from brevitas.proxy.runtime_quant import ActQuantProxyProtocol
@@ -145,7 +145,7 @@ class QuantConv1d(QuantWBIOL, Conv1d):
             raise NotImplementedError(f"Padding type {self.padding_type} not supported.")
 
     def max_acc_bit_width(self, input_bit_width, weight_bit_width):
-        max_uint_input = max_uint(bit_width=input_bit_width, narrow_range=False)
+        max_uint_input = max_int(bit_width=input_bit_width, signed=False, narrow_range=False)
         max_kernel_val = self.weight_quant.max_uint_value(weight_bit_width)
         group_size = self.out_channels // self.groups
         max_uint_output = max_uint_input * max_kernel_val * self.kernel_size[0] * group_size
@@ -239,7 +239,7 @@ class QuantConv2d(QuantWBIOL, Conv2d):
             raise RuntimeError(f"Padding type {self.padding_type} not supported.")
 
     def max_acc_bit_width(self, input_bit_width: Tensor, weight_bit_width: Tensor):
-        max_uint_input = max_uint(bit_width=input_bit_width, narrow_range=False)
+        max_uint_input = max_int(bit_width=input_bit_width, signed=False, narrow_range=False)
         max_kernel_val = self.weight_quant.max_uint_value(weight_bit_width)
         group_size = self.out_channels // self.groups
         kernel_size = self.kernel_size[0] * self.kernel_size[1]
