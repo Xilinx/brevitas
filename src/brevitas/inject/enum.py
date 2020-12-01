@@ -44,11 +44,17 @@ from brevitas.utils.python_utils import AutoName
 
 
 class BitWidthImplType(AutoName):
+    """
+
+    """
     CONST = auto()
     PARAMETER = auto()
 
 
 class QuantType(AutoName):
+    """
+
+    """
     BINARY = auto()
     TERNARY = auto()
     INT = auto()
@@ -56,6 +62,9 @@ class QuantType(AutoName):
 
 
 class RestrictValueType(AutoName):
+    """
+
+    """
     FP = auto()
     LOG_FP = auto()
     INT = auto()
@@ -63,6 +72,9 @@ class RestrictValueType(AutoName):
 
 
 class FloatToIntImplType(AutoName):
+    """
+
+    """
     ROUND = auto()
     CEIL = auto()
     FLOOR = auto()
@@ -70,6 +82,9 @@ class FloatToIntImplType(AutoName):
 
 
 class ScalingImplType(AutoName):
+    """
+
+    """
     HE = auto()
     CONST = auto()
     STATS = auto()
@@ -80,6 +95,9 @@ class ScalingImplType(AutoName):
 
 
 class StatsOp(AutoName):
+    """
+
+    """
     MAX = auto()
     AVE = auto()
     MAX_AVE = auto()
