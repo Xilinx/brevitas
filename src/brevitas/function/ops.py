@@ -38,28 +38,78 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+"""
+Implementation of various core operations often performed as part of quantization.
+The implemented functions adheres to the restriction imposed by Pytorch 1.1.0's TorchScript compiler.
+"""
+
 import torch
+from torch import Tensor
 
 import brevitas
 
 
 @brevitas.jit.script
-def tensor_clamp(x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor) -> torch.Tensor:
+def binary_sign(x: Tensor) -> Tensor:
     """
+    Computes the 2-valued sign of an input tensor:
+    .. math::
+    \begin{cases}+1 & x \geq 0\\-1 & x < 0\end{cases}
 
-    Parameters
-    ----------
-    x : Tensor
-        Tensor on which to apply the clamp operation
-    min_val : Tensor
-        Tensor containing the minimum values for the clamp operation. Must have the same shape of `x`
-    max_val : Tensor
-        Tensor containing the maximum values for the clamp operation. Must have the same shape of `x`
+    Args:
+        x (Tensor): input tensor.
 
-    Returns
-    -------
-    Tensor
-        Tensor for which every element of `x` is clamped between the corresponding minimum and maximum values.
+    Returns:
+        Tensor: the 2-valued sign tensor of the input tensor.
+
+    Examples:
+        >>> binary_sign(torch.tensor([2.1, -0.3, 0.0]))
+        tensor([ 1., -1.,  1.])
+    """
+    positive_mask = torch.ge(x, 0.0)
+    negative_mask = torch.lt(x, 0.0)
+    y = positive_mask.float() - negative_mask.float()
+    return y
+
+
+@brevitas.jit.script
+def round_to_zero(x: Tensor) -> Tensor:
+    """
+    Compute rounding towards zero.
+
+    Args:
+        x (Tensor): input tensor.
+
+    Returns:
+        Tensor: rounded input tensor.
+
+    Examples:
+        >>> round_to_zero(torch.tensor([-1.5, -0.5, 0.5, 1.5]))
+        tensor([-1., -0.,  0.,  1.])
+    """
+    y = torch.sign(x) * torch.floor(torch.abs(x))
+    return y
+
+
+@brevitas.jit.script
+def tensor_clamp(x: Tensor, min_val: Tensor, max_val: Tensor) -> Tensor:
+    """
+    Generalized clamp function with support for tensors as clamping values.
+
+    Args:
+        x (Tensor): Input on which to apply the clamp operation
+        min_val (Tensor): Minimum values for the clamp operation.
+        max_val (Tensor): Maximum values for the clamp operation.
+
+    Notes:
+        x, min_val, max_val need to be broadcastable.
+
+    Returns:
+        Tensor: Input `x` clamped between the provided minimum and maximum tensors.
+
+    Examples:
+        >>> tensor_clamp(torch.tensor([1.7, -0.5, 0.1]), torch.tensor(0.0), torch.tensor(1.0))
+        tensor([1.0000, 0.0000, 0.1000])
     """
     out = torch.where(x > max_val, max_val, x)
     out = torch.where(out < min_val, min_val, out)
@@ -67,111 +117,85 @@ def tensor_clamp(x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor) 
 
 
 @brevitas.jit.script
-def tensor_clamp_(x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor) -> torch.Tensor:
+def tensor_clamp_(x: Tensor, min_val: Tensor, max_val: Tensor) -> Tensor:
+    """
+    In-place variant of :func:`~brevitas.function.ops.tensor_clamp`.
+    """
     torch.min(x, max_val, out=x)
     torch.max(x, min_val, out=x)
     return x
 
 
 @brevitas.jit.script
-def identity(x: torch.Tensor) -> torch.Tensor:
-    """ Identity function
+def identity(x: Tensor) -> Tensor:
+    """
+    Identity function.
 
-    Parameters
-    ----------
-    x : Tensor
-        Input Tensor
+    Args:
+        x (Tensor): Input Tensor
 
-    Returns
-    -------
-    Tensor
-        Unaltered input tensor
+    Returns:
+        Tensor: THe input tensor x
 
+    Examples:
+        >>> identity(torch.tensor(1.7))
+        tensor(1.7)
     """
     return x
 
 
 @brevitas.jit.script
-def max_uint(narrow_range: bool, bit_width: torch.Tensor) -> torch.Tensor:
-    """ Compute the maximum unsigned integer representable
+def max_int(signed: bool, narrow_range: bool, bit_width: Tensor) -> Tensor:
+    """ Compute the maximum integer representable by a given number of bits.
 
-    The maximum unsigned integer representable depends on the number of bits, and whether the narrow range setting
-    is used. If so, the maximum value represented is decreased by one unit.
+    Args:
+        signed (bool): Indicates whether the represented integer is signed or not.
+        narrow_range (bool): Indicates whether to narrow the maximum unsigned value represented by 1.
+        bit_width (Tensor): Number of bits available for the representation.
 
-    Parameters
-    ----------
-    narrow_range : Bool
-        Flag that indicates whether to decrease the possible maximum value represented
-    bit_width : Tensor
-        Number of bits available for the representation
+    Returns:
+        Tensor: Maximum integer that can be represented according to the input arguments.
 
-    Returns
-    -------
-    Tensor
-        Maximum unsigned integer that can be represented according to the input parameters
-
+    Examples:
+        >>> max_int(signed=True, narrow_range=True, bit_width=torch.tensor(8))
+        tensor(127)
+        >>> max_int(signed=False, narrow_range=True, bit_width=torch.tensor(8))
+        tensor(254)
+        >>> max_int(signed=True, narrow_range=False, bit_width=torch.tensor(8))
+        tensor(127)
+        >>> max_int(signed=False, narrow_range=False, bit_width=torch.tensor(8))
+        tensor(255)
     """
-    if narrow_range:
+    if not signed and not narrow_range:
+        value = (2 ** bit_width) - 1
+    elif not signed and narrow_range:
         value = (2 ** bit_width) - 2
     else:
-        value = (2 ** bit_width) - 1
-    return value
-
-
-@brevitas.jit.script
-def max_int(signed: bool, bit_width: torch.Tensor) -> torch.Tensor:
-    """ Compute the maximum integer representable
-
-    The maximum integer representable depends on the number of bits, and whether the negative numbers are included
-    in the representation. If so, one bit is lost in the computation of the maximum value.
-
-    Parameters
-    ----------
-    signed : Bool
-        Flag that indicates whether negative numbers must be included or not
-    bit_width : Tensor
-        Number of bits available for the representation
-
-    Returns
-    -------
-    Tensor
-        Maximum integer that can be represented according to the input parameters
-
-    """
-    if signed:
         value = (2 ** (bit_width - 1)) - 1
-    else:
-        value = (2 ** bit_width) - 1
     return value
 
 
 @brevitas.jit.script
-def min_int(signed: bool, narrow_range: bool, bit_width: torch.Tensor) -> torch.Tensor:
-    """ Compute the minimum integer representable
+def min_int(signed: bool, narrow_range: bool, bit_width: Tensor) -> Tensor:
+    """ Compute the minimum integer representable by a given number of bits.
 
-    The minimum integer representable depends on the number of bits, whether the negative numbers are included
-    in the representation, and whether the narrow range setting is used.
-    For positive-only number, the minimum value will always be zero.
-    If the sign and narrow range flags are both set, then the representation will be such that there is symmetry
-    between positive and negative values.
-    For example, for 3 bit representation, with sign and narrow range, the
-    values representable are in the range [-3, 3].
-    If the narrow range is not enabled, then the possible values will be in the range [-4, 3].
+    Args:
+        signed (bool): Indicates whether the represented integer is signed or not.
+        narrow_range (bool): Indicates whether to narrow the minimum value represented by 1.
+        bit_width (Tensor): Number of bits available for the representation.
 
-    Parameters
-    ----------
-    signed : Bool
-        Flag that indicates whether negative numbers must be included or not
-    narrow_range : Bool
-        Flag that indicates whether the narrow range setting is enabled or not
-    bit_width : Tensor
-        Number of bits available for the representation
+    Returns:
+        Tensor: Maximum unsigned integer that can be represented according to the input arguments.
 
-    Returns
-    -------
-    Tensor
-        Minimum integer that can be represented according to the input parameters
-
+    Examples:
+        >>> min_int(signed=True, narrow_range=True, bit_width=torch.tensor(8))
+        tensor(-127)
+        >>> min_int(signed=False, narrow_range=True, bit_width=torch.tensor(8))
+        tensor(0)
+        >>> min_int(signed=True, narrow_range=False, bit_width=torch.tensor(8))
+        tensor(-128)
+        >>> min_int(signed=False, narrow_range=False, bit_width=torch.tensor(8))
+        tensor(0)
     """
     if signed and narrow_range:
         value = - (2 ** (bit_width - 1)) + 1
