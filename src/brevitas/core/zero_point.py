@@ -136,6 +136,9 @@ class ParameterFromRuntimeMinZeroPoint(brevitas.jit.ScriptModule):
             missing_keys.remove(training_key)
         if config.IGNORE_MISSING_KEYS and value_key in missing_keys:
             missing_keys.remove(value_key)
+        # disable stats collection when a pretrained value is loaded
+        if value_key not in missing_keys:
+            self.counter = self.collect_stats_steps + 1
 
 
 class ShiftIntToUintZeroPoint(brevitas.jit.ScriptModule):
