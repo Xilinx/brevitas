@@ -57,15 +57,17 @@ class ConstScaling(brevitas.jit.ScriptModule):
     def __init__(
             self,
             scaling_init: Union[float, Tensor],
-            restrict_scaling_impl: Module,
+            restrict_scaling_impl: Optional[Module] = None,
             scaling_min_val: Optional[float] = None) -> None:
         super(ConstScaling, self).__init__()
         self.restrict_clamp_scaling = _RestrictClampValue(scaling_min_val, restrict_scaling_impl)
         if isinstance(scaling_init, Tensor):
-            scaling_init = restrict_scaling_impl.restrict_init_tensor(scaling_init)
+            if restrict_scaling_impl is not None:
+                scaling_init = restrict_scaling_impl.restrict_init_tensor(scaling_init)
             self.value = StatelessBuffer(scaling_init.detach())
         else:
-            scaling_init = restrict_scaling_impl.restrict_init_float(scaling_init)
+            if restrict_scaling_impl is not None:
+                scaling_init = restrict_scaling_impl.restrict_init_float(scaling_init)
             self.value = StatelessBuffer(torch.tensor(scaling_init))
 
     @brevitas.jit.script_method
