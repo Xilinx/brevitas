@@ -45,7 +45,7 @@ import torch
 from torch import Tensor
 
 from brevitas.function.ops_ste import ceil_ste, round_ste
-from brevitas.function.ops import max_uint
+from brevitas.function.ops import max_int
 
 
 def pack_quant_tensor(tensor, scale, bit_width, signed=None):  #TODO deprecate
@@ -186,8 +186,8 @@ class QuantTensor(NamedTuple):
             output_value = self.value + other.value
             output_scale = (self.scale + other.scale) / 2
             output_zero_point = (self.zero_point + other.zero_point) / 2
-            max_uint_val = max_uint(narrow_range=False, bit_width=self.bit_width)
-            max_uint_val += max_uint(narrow_range=False, bit_width=other.bit_width)
+            max_uint_val = max_int(signed=False, narrow_range=False, bit_width=self.bit_width)
+            max_uint_val += max_int(signed=False, narrow_range=False, bit_width=other.bit_width)
             output_bit_width = ceil_ste(torch.log2(max_uint_val))
             output_signed = self.signed or other.signed
             output = QuantTensor(

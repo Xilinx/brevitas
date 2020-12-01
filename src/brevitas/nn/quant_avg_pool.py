@@ -48,7 +48,7 @@ from torch.nn import AvgPool2d, AdaptiveAvgPool2d
 
 from brevitas.inject import BaseInjector as Injector
 from brevitas.function.ops_ste import ceil_ste
-from brevitas.function.ops import max_uint
+from brevitas.function.ops import max_int
 from brevitas.proxy.runtime_quant import AccQuantProxyProtocol
 from brevitas.quant_tensor import QuantTensor
 from brevitas.inject.solver import update_trunc_quant_injector
@@ -108,7 +108,7 @@ class QuantAvgPool2d(QuantTruncMixin, QuantLayerMixin, AvgPool2d):
         return self.pack_output(x)
 
     def max_acc_bit_width(self, input_bit_width):
-        max_uint_input = max_uint(bit_width=input_bit_width, narrow_range=False)
+        max_uint_input = max_int(bit_width=input_bit_width, signed=False, narrow_range=False)
         max_uint_output = max_uint_input * self._avg_scaling
         max_output_bit_width = ceil_ste(torch.log2(max_uint_output))
         return max_output_bit_width
@@ -185,7 +185,7 @@ class QuantAdaptiveAvgPool2d(QuantTruncMixin, QuantLayerMixin, AdaptiveAvgPool2d
         return self.pack_output(y)
 
     def max_acc_bit_width(self, input_bit_width, reduce_size):
-        max_uint_input = max_uint(bit_width=input_bit_width, narrow_range=False)
+        max_uint_input = max_int(bit_width=input_bit_width, signed=False, narrow_range=False)
         max_uint_output = max_uint_input * reduce_size
         max_output_bit_width = ceil_ste(torch.log2(max_uint_output))
         return max_output_bit_width

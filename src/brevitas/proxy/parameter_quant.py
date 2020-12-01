@@ -46,7 +46,7 @@ import torch
 from torch import Tensor
 
 from brevitas.inject import BaseInjector as Injector
-from brevitas.function import max_uint
+from brevitas.function import max_int
 from brevitas.quant_tensor import QuantTensor
 
 from .quant_proxy import QuantProxyFromInjector, QuantProxyProtocol
@@ -105,7 +105,7 @@ class ParameterQuantProxyFromInjector(QuantProxyFromInjector, ParameterQuantProx
             self.tensor_quant = self.quant_injector.tensor_quant
 
     def max_uint_value(self, bit_width):
-        return max_uint(self.is_narrow_range, bit_width)
+        return max_int(True, self.is_narrow_range, bit_width)
 
     def add_tracked_parameter(self, parameter: torch.nn.Parameter) -> None:
         if self.tracked_parameter_list is None:
