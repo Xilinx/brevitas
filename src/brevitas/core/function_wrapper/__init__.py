@@ -1,6 +1,6 @@
 from .clamp import ClampMin, TensorClamp, ConstScalarClamp
 from .misc import LogTwo, InplaceLogTwo, PowerOfTwo, Identity
-from .ops_ste import CeilSte, ClampMinSte, FloorSte, RoundSte, RoundToZeroSte, TensorClampSte
+from .ops_ste import CeilSte, ScalarClampMinSte, FloorSte, RoundSte, RoundToZeroSte, TensorClampSte
 from .shape import OverBatchOverOutputChannelView, OverBatchOverTensorView, OverOutputChannelView
 from .shape import OverTensorView
 

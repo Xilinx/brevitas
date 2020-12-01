@@ -41,9 +41,7 @@
 
 import brevitas
 import torch
-from brevitas.function.ops_ste import round_ste, tensor_clamp_ste, ceil_ste, floor_ste, round_to_zero_ste
-from brevitas.function.shape import *
-from brevitas.function import tensor_clamp, identity
+from brevitas.function.ops_ste import *
 
 
 class RoundSte(brevitas.jit.ScriptModule):
@@ -82,16 +80,16 @@ class CeilSte(brevitas.jit.ScriptModule):
         return ceil_ste(x)
 
 
-class ClampMinSte(brevitas.jit.ScriptModule):
+class ScalarClampMinSte(brevitas.jit.ScriptModule):
     __constants__ = ['min_val']
 
     def __init__(self, min_val: float) -> None:
-        super(ClampMinSte, self).__init__()
+        super(ScalarClampMinSte, self).__init__()
         self.min_val = min_val
 
     @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
-        return x.clamp_min(self.min_val)
+        return scalar_clamp_min_ste(x, self.min_val)
 
 
 class TensorClampSte(brevitas.jit.ScriptModule):
