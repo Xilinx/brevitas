@@ -75,9 +75,7 @@ setup(name="Brevitas",
       packages=find_packages('src'),
       package_dir={'': 'src'},
       zip_safe=False,
-      package_data={
-          '': ['*.ini', '*.yaml'],
-      },
+      include_package_data=True,
       entry_points={
           'console_scripts': [
               'brevitas_bnn_pynq_train = brevitas_examples.bnn_pynq.bnn_pynq_train:main',

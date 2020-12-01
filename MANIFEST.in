@@ -1,0 +1,2 @@
+include src/brevitas/csrc/*.cpp
+recursive-include src/brevitas_examples *.ini *.yaml
