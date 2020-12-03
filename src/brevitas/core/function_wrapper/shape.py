@@ -38,6 +38,10 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+"""
+ScriptModule classes to compute the view of a tensor according to various different criteria.
+"""
+
 import brevitas
 import torch
 from brevitas.function.shape import over_tensor, over_output_channels, over_batch_over_tensor
@@ -45,12 +49,24 @@ from brevitas.function.shape import over_batch_over_output_channels
 
 
 class OverTensorView(brevitas.jit.ScriptModule):
+    """
+    ScriptMoodule to compute the :func:`~brevitas.function.shape.over_tensor` view of an input tensor.
+
+    Examples:
+        >>> view_module = OverTensorView()
+        >>> y = view_module(torch.empty(size=[16, 6, 5, 5]))
+        >>> y.shape
+        torch.Size([2400])
+    """
 
     def __init__(self) -> None:
         super(OverTensorView, self).__init__()
 
     @brevitas.jit.script_method
     def shape(self, x: torch.Tensor):
+        """
+        Wrapper for :func:`~brevitas.function.shape.over_tensor`.
+        """
         return over_tensor(x)
 
     @brevitas.jit.script_method
@@ -60,12 +76,25 @@ class OverTensorView(brevitas.jit.ScriptModule):
 
 
 class OverOutputChannelView(brevitas.jit.ScriptModule):
+    """
+    ScriptMoodule to compute the :func:`~brevitas.function.shape.over_output_channels` view of an
+    input tensor.
+
+    Examples:
+        >>> view_module = OverOutputChannelView()
+        >>> y = view_module(torch.empty(size=[16, 8, 5, 5]))
+        >>> y.shape
+        torch.Size([16, 200])
+    """
 
     def __init__(self) -> None:
         super(OverOutputChannelView, self).__init__()
 
     @brevitas.jit.script_method
     def shape(self, x: torch.Tensor):
+        """
+        Wrapper for :func:`~brevitas.function.shape.over_output_channels`.
+        """
         return over_output_channels(x)
 
     @brevitas.jit.script_method
@@ -75,12 +104,25 @@ class OverOutputChannelView(brevitas.jit.ScriptModule):
 
 
 class OverBatchOverTensorView(brevitas.jit.ScriptModule):
+    """
+    ScriptMoodule to compute the :func:`~brevitas.function.shape.over_batch_over_tensor` view of an
+    input tensor.
+
+    Examples:
+        >>> view_module = OverBatchOverTensorView()
+        >>> y = view_module(torch.empty(size=[8, 10, 5, 5]))
+        >>> y.shape
+        torch.Size([8, 250])
+    """
 
     def __init__(self) -> None:
         super(OverBatchOverTensorView, self).__init__()
 
     @brevitas.jit.script_method
     def shape(self, x: torch.Tensor):
+        """
+        Wrapper for :func:`~brevitas.function.shape.over_batch_over_tensor`.
+        """
         return over_batch_over_tensor(x)
 
     @brevitas.jit.script_method
@@ -90,15 +132,39 @@ class OverBatchOverTensorView(brevitas.jit.ScriptModule):
 
 
 class OverBatchOverOutputChannelView(brevitas.jit.ScriptModule):
+    """
+    ScriptModule to compute the :func:`~brevitas.function.shape.over_batch_over_output_channels`
+    view of an input tensor.
+
+    Examples:
+        >>> view_module = OverBatchOverOutputChannelView()
+        >>> y = view_module(torch.empty(size=[8, 10, 5, 5]))
+        >>> y.shape
+        torch.Size([8, 10, 25])
+    """
 
     def __init__(self) -> None:
         super(OverBatchOverOutputChannelView, self).__init__()
 
     @brevitas.jit.script_method
     def shape(self, x: torch.Tensor):
+        """
+        Wrapper for :func:`~brevitas.function.shape.over_batch_over_output_channels`.
+        """
         return over_batch_over_output_channels(x)
 
     @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
         shape = self.shape(x)
         return x.view(shape)
+
+
+class StatsInputViewShapeImpl(object):
+    """
+    Enum-like object to collect pointers to variants of ScriptModules that perform a view on a tensor.
+    All adhere to the same interface.
+    """
+    OVER_TENSOR = OverTensorView
+    OVER_OUTPUT_CHANNELS = OverOutputChannelView
+    OVER_BATCH_OVER_TENSOR = OverBatchOverTensorView
+    OVER_BATCH_OVER_OUTPUT_CHANNELS = OverBatchOverOutputChannelView

@@ -152,7 +152,7 @@ def _solve_bias_bit_width_impl_type(qi):
     if 'bit_width' in qi and 'bit_width_impl_type' not in qi: # retrocomp. TODO deprecate
         qi = qi.let(bit_width_impl_type=BitWidthImplType.CONST)
     elif 'bit_width' not in qi and 'bit_width_impl_type' not in qi:
-        qi = qi.let(**{'bit_width_impl': IdentityBitWidth, 'requires_input_bit_width': True})
+        qi = qi.let(**{'bit_width_impl': Identity, 'requires_input_bit_width': True})
     qi = _solve_bit_width_impl_type(qi)
     return qi
 

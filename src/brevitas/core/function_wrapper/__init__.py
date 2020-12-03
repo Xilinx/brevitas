@@ -1,12 +1,8 @@
-from .clamp import ClampMin, TensorClamp, ConstScalarClamp
+from .clamp import ClampMin, TensorClamp, ScalarClamp
 from .misc import LogTwo, InplaceLogTwo, PowerOfTwo, Identity
 from .ops_ste import CeilSte, ScalarClampMinSte, FloorSte, RoundSte, RoundToZeroSte, TensorClampSte
 from .shape import OverBatchOverOutputChannelView, OverBatchOverTensorView, OverOutputChannelView
-from .shape import OverTensorView
+from .shape import OverTensorView, StatsInputViewShapeImpl
 
 
-class StatsInputViewShapeImpl(object):
-    OVER_TENSOR = OverTensorView
-    OVER_OUTPUT_CHANNELS = OverOutputChannelView
-    OVER_BATCH_OVER_TENSOR = OverBatchOverTensorView
-    OVER_BATCH_OVER_OUTPUT_CHANNELS = OverBatchOverOutputChannelView
+
