@@ -38,6 +38,9 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+"""
+ScriptModule wrappers of various functions defined in :obj:`~brevitas.function.ops_ste`.
+"""
 
 import brevitas
 import torch
@@ -45,6 +48,10 @@ from brevitas.function.ops_ste import *
 
 
 class RoundSte(brevitas.jit.ScriptModule):
+    """
+    ScriptModule wrapper for :func:`~brevitas.function.ops_ste.round_ste`.
+    """
+
     def __init__(self) -> None:
         super(RoundSte, self).__init__()
 
@@ -54,6 +61,10 @@ class RoundSte(brevitas.jit.ScriptModule):
 
 
 class FloorSte(brevitas.jit.ScriptModule):
+    """
+    ScriptModule wrapper for :func:`~brevitas.function.ops_ste.floor_ste`.
+    """
+
     def __init__(self) -> None:
         super(FloorSte, self).__init__()
 
@@ -63,6 +74,10 @@ class FloorSte(brevitas.jit.ScriptModule):
 
 
 class RoundToZeroSte(brevitas.jit.ScriptModule):
+    """
+    ScriptModule wrapper for :func:`~brevitas.function.ops_ste.round_to_zero_ste`.
+    """
+
     def __init__(self) -> None:
         super(RoundToZeroSte, self).__init__()
 
@@ -72,6 +87,10 @@ class RoundToZeroSte(brevitas.jit.ScriptModule):
 
 
 class CeilSte(brevitas.jit.ScriptModule):
+    """
+    ScriptModule wrapper for :func:`~brevitas.function.ops_ste.ceil_ste`.
+    """
+
     def __init__(self) -> None:
         super(CeilSte, self).__init__()
 
@@ -81,6 +100,10 @@ class CeilSte(brevitas.jit.ScriptModule):
 
 
 class ScalarClampMinSte(brevitas.jit.ScriptModule):
+    """
+    ScriptModule wrapper for :func:`~brevitas.function.ops_ste.scalar_clamp_min_ste`.
+    """
+
     __constants__ = ['min_val']
 
     def __init__(self, min_val: float) -> None:
@@ -93,6 +116,10 @@ class ScalarClampMinSte(brevitas.jit.ScriptModule):
 
 
 class TensorClampSte(brevitas.jit.ScriptModule):
+    """
+    ScriptModule wrapper for :func:`~brevitas.function.ops_ste.tensor_clamp_ste`.
+    """
+
     def __init__(self) -> None:
         super(TensorClampSte, self).__init__()
 
