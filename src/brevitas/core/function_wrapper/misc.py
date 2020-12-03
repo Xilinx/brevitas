@@ -38,45 +38,93 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+"""
+A collection of miscellaneous ScriptModule used in various quantizers.
+"""
+
 import brevitas
 import torch
-from brevitas.function import identity
 
 
 class Identity(brevitas.jit.ScriptModule):
+    """
+    Identity ScriptModule.
+
+    Examples:
+        >>> identity = Identity()
+        >>> x = torch.randn(size=[10,])
+        >>> y = identity(x)
+        >>> y is x
+        True
+    """
+
     def __init__(self) -> None:
         super(Identity, self).__init__()
 
     @brevitas.jit.script_method
-    def forward(self, x: torch.Tensor):
-        return identity(x)
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return x
 
 
 class PowerOfTwo(brevitas.jit.ScriptModule):
+    """
+    ScriptModule implementation of 2.0 ** x.
+
+    Examples:
+        >>> power_of_two = PowerOfTwo()
+        >>> x = torch.tensor(5.0)
+        >>> power_of_two(x)
+        tensor(32.)
+    """
+
     def __init__(self) -> None:
         super(PowerOfTwo, self).__init__()
 
     @brevitas.jit.script_method
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         return 2.0 ** x
 
 
 class LogTwo(brevitas.jit.ScriptModule):
+    """
+    ScriptModule wrapper for :func:`~torch.log2`.
+
+    Examples:
+        >>> log_two = LogTwo()
+        >>> x = torch.tensor(8.0)
+        >>> log_two(x)
+        tensor(3.)
+    """
+
     def __init__(self) -> None:
         super(LogTwo, self).__init__()
 
     @brevitas.jit.script_method
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         return torch.log2(x)
 
 
 class InplaceLogTwo(brevitas.jit.ScriptModule):
+    """
+    ScriptModule wrapper for :func:`~torch.log2_`.
+
+    Examples:
+        >>> inplace_log_two = InplaceLogTwo()
+        >>> x = torch.tensor(8.0)
+        >>> inplace_log_two(x)
+        >>> x
+        tensor(3.)
+
+    Notes:
+        The forward method returns None.
+    """
+
     def __init__(self) -> None:
         super(InplaceLogTwo, self).__init__()
 
     @brevitas.jit.script_method
-    def forward(self, x: torch.Tensor):
-        return x.log2_()
+    def forward(self, x: torch.Tensor) -> None:
+        x.log2_()
 
 
 
