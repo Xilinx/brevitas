@@ -43,11 +43,12 @@ from hypothesis import given
 import pytest
 import mock
 
-from torch import Tensor
+from torch import Tensor, tensor
 from brevitas.function.autograd_ste_ops import *
 
 from tests.brevitas.common import assert_allclose
 from tests.brevitas.hyp_helper import two_float_tensor_random_shape_st
+from tests.brevitas.hyp_helper import scalar_float_tensor_st, scalar_float_nz_tensor_st
 from tests.brevitas.function.hyp_helper import tensor_clamp_ste_min_max_scalar_tensor_test_st
 from tests.brevitas.function.hyp_helper import tensor_clamp_ste_test_st
 from tests.brevitas.function.hyp_helper import scalar_clamp_min_ste_test_st
@@ -66,7 +67,7 @@ class TestElementwiseSte:
         round_ste_impl: 'torch.round',
         ceil_ste_impl: 'torch.ceil',
         floor_ste_impl: 'torch.floor',
-        ternary_sign_ste_impl: 'torch.sign'
+        ternary_sign_ste_impl: 'torch.sign',
     }
 
     STE_IMPL = FWD_IMPL.keys()
@@ -179,6 +180,50 @@ class TestScalarClampMinSte:
         assert_allclose(val_grad, val.grad)
 
 
+class TestAbsBinarySignGrad:
+
+    @given(x=two_float_tensor_random_shape_st())
+    def test_fwd(self, x):
+        """
+        Test that the autograd function is correctly wrapping the forward impl
+        """
+        with mock.patch('torch.abs') as fwd_impl:
+            inp, mocked_output = x
+            fwd_impl.return_value = mocked_output
+            output = abs_binary_sign_grad_impl(inp)
+            assert output is mocked_output
+
+    @given(inp=scalar_float_nz_tensor_st(), grad=scalar_float_tensor_st())
+    def test_bwd_nz(self, inp, grad):
+        """
+        Test that the backward pass matches torch.abs backward for inp != 0
+        """
+        import torch
+
+        inp.requires_grad_(True)
+        output = abs_binary_sign_grad_impl(inp)
+        output.backward(grad)
+        reference_inp = inp.detach().clone().requires_grad_(True)
+        reference_output = torch.abs(reference_inp)
+        reference_output.backward(grad)
+        assert_allclose(inp.grad, reference_inp.grad)
+
+    @given(grad=scalar_float_tensor_st())
+    def test_bwd_zero(self, grad):
+        """
+        Test that the subgradient w.r.t. inp == 0 is 1 and not 0
+        """
+        import torch
+
+        inp = tensor(0.0)
+        inp.requires_grad_(True)
+        output = abs_binary_sign_grad_impl(inp)
+        output.backward(grad)
+        reference_inp = inp.detach().clone().requires_grad_(True)
+        reference_output = torch.abs(reference_inp)
+        reference_output.backward(grad)
+        assert_allclose(inp.grad, grad)
+        assert reference_output == 0.0
 
 
 
