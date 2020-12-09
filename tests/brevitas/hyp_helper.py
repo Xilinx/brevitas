@@ -15,11 +15,16 @@ def float_st() -> SearchStrategy:
     return st.floats(allow_nan=False, allow_infinity=False, width=FP_BIT_WIDTH)
 
 
-def float_nz_st() -> SearchStrategy:
+def float_nz_st(min_val=None, max_val=None) -> SearchStrategy:
     """
     Generate a non zero 32 bit float, excluding NaN and infinity
     """
-    floats = st.floats(allow_nan=False, allow_infinity=False, width=FP_BIT_WIDTH)
+    floats = st.floats(
+        allow_nan=False,
+        allow_infinity=False,
+        width=FP_BIT_WIDTH,
+        min_value=min_val,
+        max_value=max_val)
     nz_floats = floats.filter(lambda x: x != 0.0)
     return nz_floats
 
@@ -72,6 +77,24 @@ def float_tensor_st(draw, shape):
     size = reduce(mul, shape, 1)
     float_list = draw(st.lists(float_st(), min_size=size, max_size=size))
     t = torch.tensor(float_list).view(shape)
+    return t
+
+
+@st.composite
+def scalar_float_tensor_st(draw):
+    """
+    Generate a scalar float tensor.
+    """
+    t = torch.tensor(draw(float_st()))
+    return t
+
+
+@st.composite
+def scalar_float_nz_tensor_st(draw, min_val=None, max_val=None):
+    """
+    Generate a scalar non-zero float tensor.
+    """
+    t = torch.tensor(float(draw(float_nz_st(min_val=min_val, max_val=max_val))))
     return t
 
 
