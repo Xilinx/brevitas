@@ -1,4 +1,6 @@
 pytest
+pytest_cases
+pytest-mock
 mock
 hypothesis
 scipy
