@@ -115,7 +115,7 @@ class BitWidthParameter(brevitas.jit.ScriptModule):
 
     @brevitas.jit.script_method
     def forward(self) -> Tensor:
-        bit_width = torch.abs(self.bit_width_offset) + self.bit_width_base
+        bit_width = abs_binary_sign_grad(self.bit_width_offset) + self.bit_width_base
         bit_width = self.restrict_bit_width_impl(bit_width)
         return bit_width
 
