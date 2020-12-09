@@ -5,9 +5,9 @@ import torch
 import onnxruntime as rt
 import numpy as np
 
-from brevitas.nn import QuantConv2d, QuantReLU, QuantLinear, QuantIdentity, QuantMaxPool2d
-from brevitas.inject.base import Uint8ActPerTensorFloat, Int8WeightPerTensorFloat
-from brevitas.inject.base import ShiftedUint8ActPerTensorFloat, ShiftedUint8WeightPerTensorFloat
+from brevitas.nn import QuantConv2d, QuantLinear, QuantIdentity, QuantMaxPool2d
+from brevitas.inject.defaults import Int8WeightPerTensorFloat
+from brevitas.inject.defaults import ShiftedUint8ActPerTensorFloat, ShiftedUint8WeightPerTensorFloat
 from brevitas.onnx import export_standard_onnx
 
 OUT_CH = 4
