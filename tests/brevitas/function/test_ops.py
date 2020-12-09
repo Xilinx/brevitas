@@ -46,11 +46,8 @@ from torch import tensor
 
 from brevitas.function.ops import *
 
-from tests.brevitas.common import MIN_INT_BIT_WIDTH, MAX_INT_BIT_WIDTH, BOOLS, assert_allclose
+from tests.brevitas.common import INT_BIT_WIDTH_TO_TEST, BOOLS, assert_allclose
 from tests.brevitas.function.hyp_helper import *
-
-
-BIT_WIDTH_TO_TEST = range(MIN_INT_BIT_WIDTH, MAX_INT_BIT_WIDTH + 1)
 
 
 @given(x=tensor_clamp_test_st())
@@ -96,7 +93,7 @@ def test_round_to_zero(x):
     assert_allclose(output, reference)
 
 
-@pytest.mark.parametrize('bit_width', BIT_WIDTH_TO_TEST)
+@pytest.mark.parametrize('bit_width', INT_BIT_WIDTH_TO_TEST)
 def test_narrow_range_unsigned_max_int(bit_width):
     """
     Test that max_int unsigned with narrow range enabled is off by 1 wrt narrow range disabled.
@@ -106,7 +103,7 @@ def test_narrow_range_unsigned_max_int(bit_width):
     assert val_false - val_true == tensor(1)
 
 
-@pytest.mark.parametrize('bit_width', BIT_WIDTH_TO_TEST)
+@pytest.mark.parametrize('bit_width', INT_BIT_WIDTH_TO_TEST)
 def test_narrow_range_signed_max_int(bit_width):
     """
     Test that max_int signed with narrow range enabled is equal to narrow range disabled.
@@ -116,7 +113,7 @@ def test_narrow_range_signed_max_int(bit_width):
     assert val_false == val_true
 
 
-@pytest.mark.parametrize('bit_width', BIT_WIDTH_TO_TEST)
+@pytest.mark.parametrize('bit_width', INT_BIT_WIDTH_TO_TEST)
 def test_narrow_range_signed_min_int(bit_width):
     """
     Test that min_int signed with narrow range enabled is off by 1 wrt narrow range disabled.
@@ -126,7 +123,7 @@ def test_narrow_range_signed_min_int(bit_width):
     assert val_true - val_false == tensor(1)
 
 
-@pytest.mark.parametrize('bit_width', BIT_WIDTH_TO_TEST)
+@pytest.mark.parametrize('bit_width', INT_BIT_WIDTH_TO_TEST)
 def test_unsigned_min_int(bit_width):
     """
     Test that min_int unsigned is always 0 indipendently of narrow_range.
@@ -136,7 +133,7 @@ def test_unsigned_min_int(bit_width):
     assert val_true == val_false == tensor(0)
 
 
-@pytest.mark.parametrize('bit_width', BIT_WIDTH_TO_TEST)
+@pytest.mark.parametrize('bit_width', INT_BIT_WIDTH_TO_TEST)
 def test_narrow_range_signed_symmetric(bit_width):
     """
     Test that narrow_range signed is symmetric around zero.
@@ -148,7 +145,7 @@ def test_narrow_range_signed_symmetric(bit_width):
     assert val_min < tensor(0)
 
 
-@pytest.mark.parametrize('bit_width', BIT_WIDTH_TO_TEST)
+@pytest.mark.parametrize('bit_width', INT_BIT_WIDTH_TO_TEST)
 @pytest.mark.parametrize('signed', BOOLS)
 @pytest.mark.parametrize('narrow_range', BOOLS)
 def test_narrow_range_signed_interval(bit_width, signed, narrow_range):
