@@ -44,7 +44,7 @@ from torch.nn import Module
 
 import brevitas
 from brevitas.function.ops_ste import tensor_clamp_ste
-from ..utils import StatelessBuffer
+from brevitas.core.utils import StatelessBuffer
 
 
 MIN_INT_BIT_WIDTH = 2
@@ -52,41 +52,27 @@ NON_ZERO_EPSILON = 1e-6
 REMOVE_ZERO_BIT_WIDTH = 0.1
 
 
-class IdentityBitWidth(brevitas.jit.ScriptModule):
-
-    @brevitas.jit.script_method
-    def forward(self, x: Tensor) -> Tensor:
-        return x
-
-
 class BitWidthConst(brevitas.jit.ScriptModule):
     """ 
-    Class that implements constant bit width.
+    ScriptModule that returns a constant bit-width wrapped in a float torch.tensor.
 
+    Args:
+        bit_width (int): bit-width value.
 
-    Parameters
-    ----------
-    bit_width: int
-        Number of bits.
-
-    Methods
-    -------
-    forward()
-
-        Returns
-        -------
-        Tensor
-            The bit width wrapper in a scalar torch.tensor.
+    Examples:
+        >>> bit_width = BitWidthConst(8)
+        >>> bit_width()
+        tensor(8.)
     
-    Notes
-    -----
-    The bit width is not part of the Module's state, meaning that it won't be saved in a checkpoint.
+    Notes:
+        The bit-width is not part of the Module's state, meaning that it won't be saved as part of
+        a checkpoint.
     """
 
     def __init__(self, bit_width: int) -> None:
         super(BitWidthConst, self).__init__()
         assert isinstance(bit_width, int)
-        self.bit_width = StatelessBuffer(torch.tensor(float(bit_width)))
+        self.bit_width = StatelessBuffer(torch.tensor(float(int(bit_width))))
 
     @brevitas.jit.script_method
     def forward(self) -> Tensor:
@@ -110,7 +96,6 @@ class MsbClampBitWidth(brevitas.jit.ScriptModule):
     def forward(self, input_bit_width: Tensor) -> Tensor:
         bit_width_to_remove = self.bit_width_to_remove_impl()
         output_bit_width = torch.abs(input_bit_width - bit_width_to_remove)
-        # todo STE on max only
         output_bit_width = tensor_clamp_ste(
             output_bit_width,
             self.min_overall_bit_width(),
