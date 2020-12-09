@@ -59,7 +59,8 @@ __all__ = [
     'round_to_zero_ste_impl',
     'scalar_clamp_min_ste_impl',
     'scalar_clamp_ste_impl',
-    'tensor_clamp_ste_impl'
+    'tensor_clamp_ste_impl',
+    'abs_binary_sign_grad_impl'
 ]
 
 
@@ -324,6 +325,37 @@ class RoundSteFn(Function):
         return grad_y
 
 
+class AbsBinarySignGradFn(Function):
+    """
+        Autograd function that implements torch.abs with a binary-sign backward, in order to have
+        subgradient 1 in 0. Compare with torch.abs' subgradient of 0 in 0.
+
+    Notes:
+        AbsBinarySignGradFn.apply is exported as abs_binary_sign_grad_impl.
+
+    Examples:
+        >>> x = torch.tensor([0.0], requires_grad=True)
+        >>> y = abs_binary_sign_grad_impl(x)
+        >>> y
+        tensor([0.], grad_fn=<AbsBinarySignGradFnBackward>)
+        >>> grad = torch.tensor([0.1])
+        >>> y.backward(grad)
+        >>> x.grad
+        True
+    """
+
+    @staticmethod
+    def forward(ctx, x: Tensor) -> Tensor:
+        ctx.save_for_backward(x)
+        y = torch.abs(x)
+        return y
+
+    @staticmethod
+    def backward(ctx, grad_y: Tensor) -> Tensor:
+        x, = ctx.saved_variables
+        return binary_sign(x) * grad_y
+
+
 round_ste_impl = RoundSteFn.apply
 binary_sign_ste_impl = BinarySignSteFn.apply
 ternary_sign_ste_impl = TernarySignSteFn.apply
@@ -333,3 +365,4 @@ round_to_zero_ste_impl = RoundToZeroSteFn.apply
 scalar_clamp_min_ste_impl = ScalarClampMinSteFn.apply
 scalar_clamp_ste_impl = ScalarClampSteFn.apply
 tensor_clamp_ste_impl = TensorClampSteFn.apply
+abs_binary_sign_grad_impl = AbsBinarySignGradFn.apply
