@@ -42,8 +42,8 @@ import torch
 from hypothesis import settings, HealthCheck
 from hypothesis import seed as set_seed
 
-# Remove Hypothesis check for too slow tests. Some tests requires particular input conditions, and it may take a
-# while to generate the appropriate inputs.
+# Remove Hypothesis check for too slow tests. Some tests requires particular input conditions,
+# and it may take a while to generate the appropriate inputs.
 settings.register_profile("standard", deadline=None, suppress_health_check=[HealthCheck.too_slow])
 settings.load_profile("standard")
 
