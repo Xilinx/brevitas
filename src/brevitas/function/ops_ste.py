@@ -60,7 +60,8 @@ __all__ = [
     'scalar_clamp_min_ste',
     'binary_sign_ste',
     'ternary_sign_ste',
-    'round_to_zero_ste'
+    'round_to_zero_ste',
+    'abs_binary_sign_grad'
 ]
 
 
@@ -152,3 +153,12 @@ def round_to_zero_ste(x: Tensor) -> Tensor:
     BREVITAS_JIT=0) or its native just-in-time compiled variant (with BREVITAS_JIT=1).
     """
     return fn_prefix.round_to_zero_ste_impl(x)
+
+
+@script_flag
+def abs_binary_sign_grad(x: Tensor) -> Tensor:
+    """
+    Wrapper for either :func:`~brevitas.function.autograd_ste_ops.abs_binary_sign_grad_impl` (with env
+    BREVITAS_JIT=0) or its native just-in-time compiled variant (with BREVITAS_JIT=1).
+    """
+    return fn_prefix.abs_binary_sign_grad_impl(x)
