@@ -46,6 +46,9 @@ from torch.nn import Parameter, Module
 
 import brevitas
 import brevitas.config as config
+from brevitas.function import abs_binary_sign_grad
+from brevitas.core.function_wrapper import RoundSte
+from brevitas.core.restrict_val import IntRestrictValue
 
 
 MIN_INT_BIT_WIDTH = 2
@@ -54,29 +57,61 @@ REMOVE_ZERO_BIT_WIDTH = 0.1
 
 
 class BitWidthParameter(brevitas.jit.ScriptModule):
+    """
+    ScriptModule that returns a learnable bit-width wrapped in a float torch.tensor.
+
+    Args:
+        bit_width (int): value to initialize the output learned bit-width.
+        min_bit_width (int): lower bound for the output learned bit-width. Default: 2.
+        restrict_bit_width_impl: restrict the learned bit-width to a subset of values. Default: IntRestrictValue(RoundSte()).
+        override_pretrained_bit_width (bool): ignore pretrained bit-width loaded from a state dict. Default: False.
+
+    Returns:
+        Tensor: bit-width wrapped in a float torch.tensor and backend by a learnable torch.nn.Parameter.
+
+    Raises:
+        RuntimeError: if bit_width < min_bit_width.
+
+    Notes:
+        Set env variable BREVITAS_IGNORE_MISSING_KEYS=1 to avoid errors when retraining
+        from a floating point state dict.
+
+    Examples:
+        >>> bit_width_parameter = BitWidthParameter(8)
+        >>> bit_width_parameter()
+        tensor(8., grad_fn=<RoundSteFnBackward>)
+    """
     __constants__ = ['bit_width_base', 'override_pretrained']
 
     def __init__(
             self,
             bit_width: int,
-            restrict_bit_width_impl: Module,
-            min_overall_bit_width: Optional[int] = None,
+            min_bit_width: int = MIN_INT_BIT_WIDTH,
+            restrict_bit_width_impl: Module = IntRestrictValue(RoundSte()),
             override_pretrained_bit_width: bool = False) -> None:
         super(BitWidthParameter, self).__init__()
 
-        if min_overall_bit_width is None:
-            min_overall_bit_width = MIN_INT_BIT_WIDTH
-        if bit_width < MIN_INT_BIT_WIDTH or min_overall_bit_width < MIN_INT_BIT_WIDTH:
+        if bit_width < MIN_INT_BIT_WIDTH:
             raise RuntimeError("Int bit width has to be at least {}, instead is {}."
                             .format(MIN_INT_BIT_WIDTH, bit_width))
 
-        bit_width_base = restrict_bit_width_impl.restrict_init_float(min_overall_bit_width)
+        if min_bit_width < MIN_INT_BIT_WIDTH:
+            raise RuntimeError("Min int bit width has to be at least {}, instead is {}."
+                            .format(MIN_INT_BIT_WIDTH, min_bit_width))
+
+        if bit_width < min_bit_width:
+            raise RuntimeError("Int bit width has to be at least {}, instead is {}."
+                            .format(min_bit_width, bit_width))
+
+        bit_width = float(int(bit_width))
+        min_bit_width = float(int(min_bit_width))
+        bit_width_base = restrict_bit_width_impl.restrict_init_float(min_bit_width)
         bit_width = restrict_bit_width_impl.restrict_init_float(bit_width)
-        bit_width_offset_init = max(bit_width - bit_width_base, 0.0)
-        self.bit_width_offset = Parameter(torch.tensor(float(bit_width_offset_init)))
+        bit_width_offset_init = bit_width - bit_width_base
+        self.bit_width_offset = Parameter(torch.tensor(bit_width_offset_init))
         self.bit_width_base = bit_width_base
-        self.override_pretrained = override_pretrained_bit_width
         self.restrict_bit_width_impl = restrict_bit_width_impl
+        self.override_pretrained = override_pretrained_bit_width
 
     @brevitas.jit.script_method
     def forward(self) -> Tensor:
