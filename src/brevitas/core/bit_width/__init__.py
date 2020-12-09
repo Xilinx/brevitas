@@ -1,4 +1,4 @@
-from .const import BitWidthConst, IdentityBitWidth, MsbClampBitWidth
+from .const import BitWidthConst, MsbClampBitWidth
 from .parameter import BitWidthParameter, RemoveBitwidthParameter
 
 # retrocompatibility
