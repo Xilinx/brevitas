@@ -144,15 +144,12 @@ class BinarySignSteFn : public torch::autograd::Function<BinarySignSteFn> {
 
 class TernarySignSteFn : public torch::autograd::Function<TernarySignSteFn> {
  public:
-  static variable_list forward(
-    AutogradContext* ctx,
-    Variable input){
-    return{at::sign(input)};
+
+  static variable_list forward(AutogradContext* ctx, Variable input) {
+     return{at::sign(input)};
     };
 
-   static variable_list backward(
-    AutogradContext* ctx,
-    variable_list grad_output){
+   static variable_list backward(AutogradContext* ctx, variable_list grad_output) {
      return {grad_output[0]};
    }
 };
@@ -160,16 +157,28 @@ class TernarySignSteFn : public torch::autograd::Function<TernarySignSteFn> {
 
 class RoundToZeroSteFn : public torch::autograd::Function<RoundToZeroSteFn> {
  public:
-  static variable_list forward(
-    AutogradContext* ctx,
-    Variable input){
-    return {torch::sign(input) * torch::floor(torch::abs(input))};
+
+  static variable_list forward(AutogradContext* ctx, Variable input) {
+     return {torch::sign(input) * torch::floor(torch::abs(input))};
    };
 
-   static variable_list backward(
-    AutogradContext* ctx,
-    variable_list grad_output){
+   static variable_list backward(AutogradContext* ctx, variable_list grad_output) {
      return {grad_output[0]};
+   }
+};
+
+
+class AbsBinarySignGradFn : public torch::autograd::Function<AbsBinarySignGradFn> {
+ public:
+
+  static variable_list forward(AutogradContext* ctx, Variable input) {
+     ctx.save_for_backward(input)
+     return {torch::abs(input)};
+   };
+
+   static variable_list backward(AutogradContext* ctx, variable_list grad_output) {
+     input = ctx.saved_variables()[0]
+     return {BinarySignSteFn::apply(input) * grad_output[0]};
    }
 };
 
@@ -219,6 +228,12 @@ Tensor round_to_zero_ste_impl(const Tensor& input) {
 };
 
 
+Tensor abs_binary_sign_grad_impl(const Tensor& input) {
+ return AbsBinarySignGradFn::apply(input)[0];
+};
+
+
+
 TORCH_LIBRARY(autograd_ste_ops, m) {
     m.def("round_ste_impl", &round_ste_impl);
     m.def("tensor_clamp_ste_impl", &tensor_clamp_ste_impl);
@@ -229,5 +244,6 @@ TORCH_LIBRARY(autograd_ste_ops, m) {
     m.def("ceil_ste_impl", &ceil_ste_impl);
     m.def("floor_ste_impl", &floor_ste_impl);
     m.def("round_to_zero_ste_impl", &round_to_zero_ste_impl);
+    m.def("abs_binary_sign_grad_impl", &abs_binary_sign_grad_impl);
 }
     
