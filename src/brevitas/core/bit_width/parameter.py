@@ -58,7 +58,7 @@ REMOVE_ZERO_BIT_WIDTH = 0.1
 
 class BitWidthParameter(brevitas.jit.ScriptModule):
     """
-    ScriptModule that returns a learnable bit-width wrapped in a float torch.tensor.
+    ScriptModule that returns a learnable bit-width wrapped in a float torch.Tensor.
 
     Args:
         bit_width (int): value to initialize the output learned bit-width.
@@ -72,14 +72,17 @@ class BitWidthParameter(brevitas.jit.ScriptModule):
     Raises:
         RuntimeError: if bit_width < min_bit_width.
 
-    Notes:
-        Set env variable BREVITAS_IGNORE_MISSING_KEYS=1 to avoid errors when retraining
-        from a floating point state dict.
-
     Examples:
         >>> bit_width_parameter = BitWidthParameter(8)
         >>> bit_width_parameter()
         tensor(8., grad_fn=<RoundSteFnBackward>)
+
+    Note:
+        Set env variable BREVITAS_IGNORE_MISSING_KEYS=1 to avoid errors when retraining
+        from a floating point state dict.
+
+    Note:
+        Maps to bit_width_impl_type == BitWidthImplType.PARAMETER == 'PARAMETER' == 'parameter' in higher-level APIs.
     """
     __constants__ = ['bit_width_base', 'override_pretrained']
 
