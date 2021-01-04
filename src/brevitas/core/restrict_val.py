@@ -48,7 +48,8 @@ from torch.nn import Module
 import brevitas
 from brevitas.inject.enum import RestrictValueType, FloatToIntImplType  # retrocompatibility
 
-from .function_wrapper import Identity, PowerOfTwo, LogTwo, InplaceLogTwo, ScalarClampMinSte
+from brevitas.core.function_wrapper import Identity, PowerOfTwo, LogTwo, InplaceLogTwo
+from brevitas.core.function_wrapper import ScalarClampMinSte, RoundSte
 
 assert RestrictValueType  # prevent removal of unused import
 assert FloatToIntImplType
@@ -126,7 +127,7 @@ class LogFloatRestrictValue(brevitas.jit.ScriptModule):
 
 class IntRestrictValue(brevitas.jit.ScriptModule):
 
-    def __init__(self, restrict_value_float_to_int_impl: Module):
+    def __init__(self, restrict_value_float_to_int_impl: Module = RoundSte()):
         super(IntRestrictValue, self).__init__()
         self.float_to_int_impl = restrict_value_float_to_int_impl
 
@@ -150,7 +151,7 @@ class IntRestrictValue(brevitas.jit.ScriptModule):
 
 class PowerOfTwoRestrictValue(brevitas.jit.ScriptModule):
 
-    def __init__(self, restrict_value_float_to_int_impl: Module):
+    def __init__(self, restrict_value_float_to_int_impl: Module = RoundSte()):
         super(PowerOfTwoRestrictValue, self).__init__()
         self.float_to_int_impl = restrict_value_float_to_int_impl
         self.power_of_two: Module = PowerOfTwo()
