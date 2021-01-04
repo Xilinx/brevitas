@@ -63,12 +63,14 @@ class BitWidthConst(brevitas.jit.ScriptModule):
         >>> bit_width = BitWidthConst(8)
         >>> bit_width()
         tensor(8.)
-    
-    Notes:
+
+    Note:
         The bit-width is not part of the Module's state, meaning that it won't be saved as part of
         a checkpoint.
-    """
 
+    Note:
+        Maps to bit_width_impl_type == BitWidthImplType.CONST == 'CONST' == 'const' in higher-level APIs.
+    """
     def __init__(self, bit_width: int) -> None:
         super(BitWidthConst, self).__init__()
         assert isinstance(bit_width, int)
