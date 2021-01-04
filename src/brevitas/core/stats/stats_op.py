@@ -58,7 +58,7 @@ DEFAULT_STD_DEV_EPSILON = 1e-8
 class NegativeMinOrZero(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim']
 
-    def __init__(self, stats_reduce_dim: Optional[int]) -> None:
+    def __init__(self, stats_reduce_dim: Optional[int] = None) -> None:
         super(NegativeMinOrZero, self).__init__()
         self.stats_reduce_dim = stats_reduce_dim
         self.zero = StatelessBuffer(torch.tensor(0.0))
@@ -101,7 +101,7 @@ class AbsPercentile(brevitas.jit.ScriptModule):
 class AbsMax(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim']
 
-    def __init__(self, stats_reduce_dim: Optional[int]) -> None:
+    def __init__(self, stats_reduce_dim: Optional[int] = None) -> None:
         super(AbsMax, self).__init__()
         self.stats_reduce_dim = stats_reduce_dim
 
@@ -116,7 +116,7 @@ class AbsMax(brevitas.jit.ScriptModule):
 class AbsMinMax(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim']
 
-    def __init__(self, stats_reduce_dim: Optional[int]) -> None:
+    def __init__(self, stats_reduce_dim: Optional[int] = None) -> None:
         super(AbsMinMax, self).__init__()
         self.stats_reduce_dim = stats_reduce_dim
 
@@ -133,7 +133,7 @@ class AbsMinMax(brevitas.jit.ScriptModule):
 class AbsMaxAve(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim']
 
-    def __init__(self, stats_reduce_dim: Optional[int]) -> None:
+    def __init__(self, stats_reduce_dim: Optional[int] = None) -> None:
         super(AbsMaxAve, self).__init__()
         self.stats_reduce_dim = stats_reduce_dim
 
@@ -145,7 +145,7 @@ class AbsMaxAve(brevitas.jit.ScriptModule):
 class AbsAve(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim']
 
-    def __init__(self, stats_reduce_dim: Optional[int]) -> None:
+    def __init__(self, stats_reduce_dim: Optional[int] = None) -> None:
         super(AbsAve, self).__init__()
         self.stats_reduce_dim = stats_reduce_dim
 
@@ -180,7 +180,7 @@ class _MeanSigmaStdImpl(brevitas.jit.ScriptModule):
 
     def __init__(
             self,
-            stats_reduce_dim: Optional[int],
+            stats_reduce_dim: Optional[int] = None,
             std_dev_epsilon: float = DEFAULT_STD_DEV_EPSILON) -> None:
         super(_MeanSigmaStdImpl, self).__init__()
         self.stats_reduce_dim = stats_reduce_dim
