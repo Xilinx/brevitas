@@ -38,8 +38,10 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+from warnings import warn
 from abc import ABCMeta, abstractmethod
 from typing import Optional, Type, Union, Callable
+
 import torch
 
 from brevitas.inject import BaseInjector as Injector
@@ -166,25 +168,45 @@ class QuantBiasMixin(QuantParameterMixin):
 
     @property
     def is_quant_bias_signed(self):
-        if self.bias is None:
+        if self.bias is None or not self.is_bias_quant_enabled:
             return None
         return self.bias_quant.is_signed
 
     def int_bias(self, float_datatype=False):
-        if self.bias is None:
+        if self.bias is None or not self.is_bias_quant_enabled:
+            return None
+        quant_bias = self.quant_bias()
+        return quant_bias.int(float_datatype=float_datatype)
+
+    def quant_bias(self):
+        if self.bias is None or not self.is_bias_quant_enabled:
             return None
         scale = self.quant_bias_scale()
         bit_width = self.quant_bias_bit_width()
-        quant_bias = self.bias_quant(self.bias, scale, bit_width)
-        return quant_bias.int(float_datatype=float_datatype)
+        quant_bias = self.bias_quant(self.bias, scale, bit_width)   
+        return quant_bias
 
     def quant_bias_scale(self):
-        if self.bias is None:
+        if self.bias is None or not self.is_bias_quant_enabled:
             return None
-        return self._cached_bias.scale
+        if not self.bias_quant.requires_input_scale and not self.bias_quant.requires_input_bit_width:
+            return self.bias_quant(self.bias).scale
+        else:
+            if self._cached_bias is None:
+                raise RuntimeError("No quant bias cache found, set cache_inference_quant_bias=True and run an inference pass first")
+            if self.training:
+                warn("Cached quant bias scale is being used in training mode.")
+            return self._cached_bias.scale
 
-    def quant_bias_bit_width(self):  # more restrictive than it could be
-        if self.bias is None:
+    def quant_bias_bit_width(self):
+        if self.bias is None or not self.is_bias_quant_enabled:
             return None
-        return self._cached_bias.bit_width
+        if not self.bias_quant.requires_input_scale and not self.bias_quant.requires_input_bit_width:
+            return self.bias_quant(self.bias).bit_width
+        else:
+            if self._cached_bias is None:
+                raise RuntimeError("No quant bias cache found, set cache_inference_quant_bias=True and run an inference pass first")
+            if self.training:
+                warn("Cached quant bias scale is being used in training mode.")
+            return self._cached_bias.bit_width
 

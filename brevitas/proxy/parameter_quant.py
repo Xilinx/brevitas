@@ -77,7 +77,7 @@ class BiasQuantProxyProtocol(ParameterQuantProxyProtocol, Protocol):
     def forward(
             self,
             x: Tensor,
-            input_scale: Tensor,
+            input_scale: Optional[Tensor],
             input_bit_width: Optional[Tensor]) -> QuantTensor:
         ...
 
@@ -146,8 +146,8 @@ class BiasQuantProxyFromInjector(ParameterQuantProxyFromInjector, BiasQuantProxy
     def forward(
             self,
             x: Tensor,
-            input_scale: Tensor,
-            input_bit_width: Optional[Tensor]) -> QuantTensor:
+            input_scale: Optional[Tensor] = None,
+            input_bit_width: Optional[Tensor] = None) -> QuantTensor:
         if self.is_quant_enabled:
             if self.requires_input_scale and input_scale is None:
                 raise RuntimeError("Input scale required")
