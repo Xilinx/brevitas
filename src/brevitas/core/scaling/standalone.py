@@ -53,7 +53,35 @@ from brevitas.core.stats import _Stats, SCALAR_SHAPE, DEFAULT_MOMENTUM
 
 
 class ConstScaling(brevitas.jit.ScriptModule):
+    """
+    ScriptModule implementation of a constant scale factor.
 
+    Args:
+        scaling_init (Union[float, Tensor]): value to use as constant scale factor.
+        restrict_scaling_impl (Module): restrict scaling_init according to some criteria. Default: None
+        scaling_min_val (float): force a lower-bound on scaling_init. Default: None
+
+    Returns:
+        Tensor: scale factor wrapped in a float torch.tensor.
+
+    Examples:
+        >>> scaling_impl = ConstScaling(1.0)
+        >>> scaling_impl(torch.empty(1))
+        tensor(1.)
+        >>> scaling_impl = ConstScaling(1.0, scaling_min_val=3.0)
+        >>> scaling_impl(torch.empty(1))
+        tensor(3.)
+        >>> scaling_impl = ConstScaling(3.0, restrict_scaling_impl=PowerOfTwoRestrictValue())
+        >>> scaling_impl(torch.empty(1))
+        tensor(4.)
+
+    Note:
+        The forward method accepts a single placeholder argument. This is required by (early versions of)
+        TorchScript to be consistent across different scaling implementations.
+
+    Note:
+        Maps to scaling_impl_type == ScalingImplType.CONST == 'CONST' == 'const' in higher-level APIs.
+    """
     def __init__(
             self,
             scaling_init: Union[float, Tensor],
