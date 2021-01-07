@@ -189,6 +189,51 @@ class ParameterScaling(brevitas.jit.ScriptModule):
 
 
 class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
+    """
+    ScriptModule implementation of a learned scale factor initialized from runtime statistics.
+    The implementation works in two phases. During the first phase, statistics are collected in
+    the same fashion as batchnorm, meaning that while the module is in training mode a set of per-batch
+    statistics are computed and returned, while in background an exponential moving average of them
+    is retained and returned in inference mode. During the second phase, the moving average accumulated during the first
+    phase is used to initialize a learned torch.nn.Parameter, and then the behaviour is the same
+    as ParameterScaling.
+
+    Args:
+        collect_stats_steps (int): Number of calls to the forward method in training mode to collect statistics for.
+        scaling_stats_impl (Module): Implementation of the statistics computed during the collection phase.
+        scaling_stats_input_view_shape_impl (Module): Implementation of the view applied to the runtime
+            input during the statistics collection phase. Default: OverBatchOverTensorView().
+        scaling_shape (Tuple[int, ...]): shape of the torch.nn.Parameter used in the second phase. Default: SCALAR_SHAPE.
+        restrict_scaling_impl (Module): restrict the learned scale factor according to some criteria. Default: None
+        scaling_stats_permute_dims: Optional[Tuple[int, ...]]: Permutation to apply to the runtime
+            input before going into scaling_stats_input_view_shape_impl. Default: None
+        scaling_stats_momentum: float = Momentum for the statistics moving average. Default: DEFAULT_MOMENTUM.
+        scaling_min_val (float): force a lower-bound on the learned scale factor. Default: None.
+
+    Returns:
+        Tensor: learned scale factor wrapped in a float torch.tensor.
+
+    Raises:
+        RuntimeError: if scaling_shape != SCALAR_SHAPE and scaling_stats_permute_dims is None
+
+    Examples:
+        >>> scaling_impl = ParameterFromRuntimeStatsScaling(collect_stats_steps=1, scaling_stats_impl=AbsMax())
+        >>> scaling_impl.training
+        True
+        >>> x = torch.arange(-3, 2, 0.1)
+        >>> scaling_impl(x)
+        tensor(3.)
+        >>> scaling_impl(torch.randn_like(x))
+        tensor(3., grad_fn=<AbsBinarySignGradFnBackward>)
+
+    Note:
+        Set env variable BREVITAS_IGNORE_MISSING_KEYS=1 to avoid errors when retraining
+        from a floating point state dict.
+
+    Note:
+        Maps to scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS == 'PARAMETER_FROM_STATS'
+        == 'parameter_from_stats' when applied to runtime values (inputs/outputs/activations) in higher-level APIs.
+    """
     __constants__ = ['stats_permute_dims',
                      'collect_stats_steps',
                      'momentum']
