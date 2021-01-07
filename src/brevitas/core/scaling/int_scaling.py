@@ -60,7 +60,7 @@ class FloatIntScaling(brevitas.jit.ScriptModule):
         if self.signed:
             return - min_int(self.signed, self.narrow_range, bit_width)
         else:
-            return max_int(self.signed, bit_width)
+            return max_int(self.signed, self.narrow_range, bit_width)
 
 
 class PowerOfTwoIntScaling(brevitas.jit.ScriptModule):
@@ -72,4 +72,4 @@ class PowerOfTwoIntScaling(brevitas.jit.ScriptModule):
 
     @brevitas.jit.script_method
     def forward(self, bit_width: Tensor) -> Tensor:
-        return max_int(self.signed, bit_width) + 1
+        return max_int(self.signed, False, bit_width) + 1
