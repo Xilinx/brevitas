@@ -38,7 +38,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-
+import warnings
 from typing import Tuple, Optional, Union
 
 import torch
@@ -106,7 +106,43 @@ class ConstScaling(brevitas.jit.ScriptModule):
 
 
 class ParameterScaling(brevitas.jit.ScriptModule):
+    """
+    ScriptModule implementation of a learned scale factor.
 
+    Args:
+        scaling_init (Union[float, Tensor]): value to initialize the learned scale factor.
+        scaling_shape (Tuple[int, ...]): shape to extend a scalar float or tensor scaling_init. Default: None
+        restrict_scaling_impl (Module): restrict the learned scale factor according to some criteria. Default: None
+        scaling_min_val (float): force a lower-bound on the learned scale factor. Default: None
+
+    Returns:
+        Tensor: learned scale factor wrapped in a float torch.tensor.
+
+    Raises:
+        RuntimeError: if scaling_init is a non-scalar tensor and scaling_shape is != scaling_init.shape.
+
+    Examples:
+        >>> scaling_impl = ParameterScaling(6.0)
+        >>> scaling_impl(torch.empty(1))
+        tensor(6., grad_fn=<AbsBinarySignGradFnBackward>)
+        >>> scaling_impl = ParameterScaling(6.0, scaling_shape=(3,))
+        >>> scaling_impl(torch.empty(1))
+        tensor([6., 6., 6.], grad_fn=<AbsBinarySignGradFnBackward>)
+        >>> scaling_impl = ParameterScaling(6.0, scaling_shape=(3,), restrict_scaling_impl=PowerOfTwoRestrictValue())
+        >>> scaling_impl(torch.empty(1))
+        tensor([8., 8., 8.], grad_fn=<PowBackward1>)
+
+    Note:
+        Set env variable BREVITAS_IGNORE_MISSING_KEYS=1 to avoid errors when retraining
+        from a floating point state dict.
+
+    Note:
+        The forward method accepts a single placeholder argument. This is required by (early versions of)
+        TorchScript to be consistent across different scaling implementations.
+
+    Note:
+        Maps to scaling_impl_type == ScalingImplType.PARAMETER == 'PARAMETER' == 'parameter' in higher-level APIs.
+    """
     def __init__(
             self,
             scaling_init: Union[float, Tensor],
