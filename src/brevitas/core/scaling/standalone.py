@@ -287,10 +287,10 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             elif self.counter == self.collect_stats_steps:
                 self.restrict_inplace_preprocess(self.value.detach())
                 self.counter = self.counter + 1
-                return self.restrict_clamp_scaling(torch.abs(self.value))
+                return self.restrict_clamp_scaling(abs_binary_sign_grad(self.value))
             else:
-                return self.restrict_clamp_scaling(torch.abs(self.value))
-        out = self.restrict_clamp_scaling(torch.abs(self.value))
+                return self.restrict_clamp_scaling(abs_binary_sign_grad(self.value))
+        out = self.restrict_clamp_scaling(abs_binary_sign_grad(self.value))
         return out
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
