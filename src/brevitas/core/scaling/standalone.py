@@ -173,7 +173,7 @@ class ParameterScaling(brevitas.jit.ScriptModule):
 
     @brevitas.jit.script_method
     def forward(self, placeholder: Tensor) -> Tensor:
-        value = self.restrict_clamp_scaling(self.value)
+        value = self.restrict_clamp_scaling(abs_binary_sign_grad(self.value))
         return value
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
