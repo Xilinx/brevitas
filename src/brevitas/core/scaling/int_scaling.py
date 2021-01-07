@@ -50,8 +50,6 @@ class FloatIntScaling(brevitas.jit.ScriptModule):
 
     def __init__(self, signed: bool, narrow_range: bool):
         super(FloatIntScaling, self).__init__()
-        if not signed and narrow_range:
-            raise RuntimeError("Can't have signed narrow range quantization")
         self.signed = signed
         self.narrow_range = narrow_range
 
