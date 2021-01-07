@@ -110,22 +110,27 @@ class ParameterScaling(brevitas.jit.ScriptModule):
     def __init__(
             self,
             scaling_init: Union[float, Tensor],
-            scaling_shape: Tuple[int, ...],
-            restrict_scaling_impl: Module,
+            scaling_shape: Tuple[int, ...] = None,
+            restrict_scaling_impl: Module = None,
             scaling_min_val: Optional[float] = None) -> None:
         super(ParameterScaling, self).__init__()
+
+        if (isinstance(scaling_init, Tensor)
+                and scaling_shape is not None
+                and scaling_init.shape != SCALAR_SHAPE
+                and scaling_init.shape != scaling_shape):
+            raise RuntimeError("scaling_init.shape is non-scalar and != from scaling_shape.")
 
         if isinstance(scaling_init, Tensor):
             scaling_init = scaling_init.detach()
         else:
-            self.value = torch.tensor(scaling_init)
+            scaling_init = torch.tensor(scaling_init)
+        if restrict_scaling_impl is not None:
+            scaling_init = restrict_scaling_impl.restrict_init_tensor(scaling_init)
+        if scaling_init.shape == SCALAR_SHAPE and scaling_shape is not None:
+            scaling_init = torch.full(scaling_shape, scaling_init)
+        self.value = Parameter(scaling_init)
         self.restrict_clamp_scaling = _RestrictClampValue(scaling_min_val, restrict_scaling_impl)
-        scaling_init = restrict_scaling_impl.restrict_init_tensor(scaling_init)
-        if scaling_init.dim() == 0:
-            self.value = Parameter(torch.full(scaling_shape, scaling_init))
-        else:
-            assert scaling_init.shape == scaling_shape
-            self.value = Parameter(scaling_init)
 
     @brevitas.jit.script_method
     def forward(self, placeholder: Tensor) -> Tensor:
