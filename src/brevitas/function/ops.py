@@ -52,9 +52,7 @@ import brevitas
 @brevitas.jit.script
 def binary_sign(x: Tensor) -> Tensor:
     """
-    Computes the 2-valued sign of an input tensor:
-    .. math::
-    \begin{cases}+1 & x \geq 0\\-1 & x < 0\end{cases}
+    Computes the 2-valued sign of an input tensor.
 
     Args:
         x (Tensor): input tensor.
