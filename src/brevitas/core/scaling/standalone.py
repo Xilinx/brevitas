@@ -47,9 +47,12 @@ from torch.nn import Parameter, Module
 
 import brevitas
 import brevitas.config as config
+from brevitas.function import abs_binary_sign_grad
+from brevitas.core.function_wrapper import InplaceNoOp
+from brevitas.core.function_wrapper import OverBatchOverTensorView
 from brevitas.core.utils import StatelessBuffer
-from brevitas.core.restrict_val import _RestrictClampValue
-from brevitas.core.stats import _Stats, SCALAR_SHAPE, DEFAULT_MOMENTUM
+from brevitas.core.restrict_val import _RestrictClampValue, PowerOfTwoRestrictValue
+from brevitas.core.stats import _Stats, SCALAR_SHAPE, DEFAULT_MOMENTUM, AbsMax
 
 
 class ConstScaling(brevitas.jit.ScriptModule):
@@ -194,14 +197,18 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             self,
             collect_stats_steps: int,
             scaling_stats_impl: Module,
-            scaling_shape: Tuple[int, ...],
-            scaling_stats_input_view_shape_impl: Module,
-            restrict_scaling_impl: Module,
+            scaling_stats_input_view_shape_impl: Module = OverBatchOverTensorView(),
+            scaling_shape: Tuple[int, ...] = SCALAR_SHAPE,
+            restrict_scaling_impl: Module = None,
             scaling_stats_permute_dims: Optional[Tuple[int, ...]] = None,
             scaling_stats_momentum: float = DEFAULT_MOMENTUM,
             scaling_min_val: Optional[float] = None) -> None:
         super(ParameterFromRuntimeStatsScaling, self).__init__()
         assert collect_stats_steps > 0, 'Steps should be more than 0'
+        if config.JIT_ENABLED:
+            warnings.warn(
+                'BREVITAS_JIT=1 on ParameterFromRuntimeStatsScaling could result in numerical'
+                'errors. Disabling it is highly recommended unless you know what you are doing.')
         if scaling_shape != SCALAR_SHAPE and scaling_stats_permute_dims is None:
             raise RuntimeError("Per channel runtime stats require a permute shape")
         self.collect_stats_steps = collect_stats_steps
@@ -212,7 +219,10 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
         self.momentum = scaling_stats_momentum
         self.value = Parameter(torch.full(scaling_shape, 1.0))
         self.restrict_clamp_scaling = _RestrictClampValue(scaling_min_val, restrict_scaling_impl)
-        self.restrict_inplace_preprocess = restrict_scaling_impl.restrict_init_inplace_module()
+        if restrict_scaling_impl is not None:
+            self.restrict_inplace_preprocess = restrict_scaling_impl.restrict_init_inplace_module()
+        else:
+            self.restrict_inplace_preprocess = InplaceNoOp()
 
     @brevitas.jit.script_method_110_disabled
     def forward(self, stats_input: Tensor) -> Tensor:
