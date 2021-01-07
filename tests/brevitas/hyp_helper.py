@@ -90,6 +90,15 @@ def scalar_float_tensor_st(draw):
 
 
 @st.composite
+def scalar_float_p_tensor_st(draw):
+    """
+    Generate a positive scalar float tensor.
+    """
+    t = torch.tensor(draw(float_p_st()))
+    return t
+
+
+@st.composite
 def scalar_float_nz_tensor_st(draw, min_val=None, max_val=None):
     """
     Generate a scalar non-zero float tensor.
