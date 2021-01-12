@@ -79,6 +79,16 @@ def float_tensor_st(draw, shape):
     t = torch.tensor(float_list).view(shape)
     return t
 
+@st.composite
+def float_tensor_nz_st(draw, shape):
+    """
+    Generate a non-zero float tensor of hypothesis-picked values of a given shape.
+    """
+    size = reduce(mul, shape, 1)
+    float_list = draw(st.lists(float_nz_st(), min_size=size, max_size=size))
+    t = torch.tensor(float_list).view(shape)
+    return t
+
 
 @st.composite
 def scalar_float_tensor_st(draw):
