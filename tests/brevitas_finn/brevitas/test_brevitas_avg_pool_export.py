@@ -60,7 +60,8 @@ def test_brevitas_avg_pool_export(
     # calculate golden output
     inp = gen_finn_dt_tensor(dtype, ishape)
     input_tensor = torch.from_numpy(inp).float()
-    input_quant_tensor = QuantTensor(input_tensor, output_scale, ibw_tensor, signed)
+    zp = torch.tensor(0.)
+    input_quant_tensor = QuantTensor(input_tensor, output_scale, zp, ibw_tensor, signed)
     b_avgpool.eval()
     expected = b_avgpool.forward(input_quant_tensor).tensor.detach().numpy()
 
@@ -75,7 +76,8 @@ def test_brevitas_avg_pool_export(
     inp_tensor = inp * scale
     input_tensor = torch.from_numpy(inp_tensor).float()
     input_scale = torch.from_numpy(scale).float()
-    input_quant_tensor = QuantTensor(input_tensor, input_scale, ibw_tensor, signed)
+    zp = torch.tensor(0.)
+    input_quant_tensor = QuantTensor(input_tensor, input_scale, zp, ibw_tensor, signed)
     # export again to set the scale values correctly
     bo.export_finn_onnx(b_avgpool, ishape, export_onnx_path, input_t=input_quant_tensor)
     model = ModelWrapper(export_onnx_path)
