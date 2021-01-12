@@ -8,8 +8,8 @@ from tests.brevitas.common import INT_BIT_WIDTH_TO_TEST, BOOLS
 
 
 __all__ = [
-    'bit_width',
-    'min_bit_width',
+    'bit_width_init',
+    'min_bit_width_init',
     'override_pretrained',
     'bit_width_const',
     'bit_width_parameter',
@@ -19,21 +19,21 @@ __all__ = [
 
 
 @pytest_cases.fixture()
-@pytest_cases.parametrize('bit_width_init', INT_BIT_WIDTH_TO_TEST)
-def bit_width(bit_width_init):
+@pytest_cases.parametrize('value', INT_BIT_WIDTH_TO_TEST)
+def bit_width_init(value):
     """
     Integer bit-width value to initialize a bit-width module
     """
-    return bit_width_init
+    return value
 
 
 @pytest_cases.fixture()
-@pytest_cases.parametrize('min_bit_width_init', INT_BIT_WIDTH_TO_TEST)
-def min_bit_width(min_bit_width_init):
+@pytest_cases.parametrize('value', INT_BIT_WIDTH_TO_TEST)
+def min_bit_width_init(value):
     """
     Integer minimum bit-width value to initialize a bit-width module
     """
-    return min_bit_width_init
+    return value
 
 
 @pytest_cases.fixture()
@@ -46,32 +46,32 @@ def override_pretrained(override_pretrained_init):
 
 
 @pytest_cases.fixture()
-def bit_width_const(bit_width):
+def bit_width_const(bit_width_init):
     """
     Constant bit-width module
     """
-    return BitWidthConst(bit_width)
+    return BitWidthConst(bit_width_init)
 
 
 @pytest_cases.fixture()
-def bit_width_parameter_defaults(bit_width):
+def bit_width_parameter_defaults(bit_width_init):
     """
     Learned bit-width with default arguments module
     """
-    module = BitWidthParameter(bit_width)
+    module = BitWidthParameter(bit_width_init)
     return module
 
 
 @pytest_cases.fixture()
-def bit_width_parameter(bit_width, min_bit_width, override_pretrained):
+def bit_width_parameter(bit_width_init, min_bit_width_init, override_pretrained):
     """
     Learned bit-width with default arguments module
     """
-    if bit_width < min_bit_width:
+    if bit_width_init < min_bit_width_init:
         pytest.xfail('bit_width cannot be smaller than min_bit_width')
     module = BitWidthParameter(
-        bit_width,
-        min_bit_width=min_bit_width,
+        bit_width_init,
+        min_bit_width=min_bit_width_init,
         override_pretrained_bit_width=override_pretrained)
     return module
 
