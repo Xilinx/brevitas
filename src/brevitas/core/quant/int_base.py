@@ -43,6 +43,7 @@ from torch.nn import Module
 
 import brevitas
 from brevitas.function.ops import max_int, min_int
+from brevitas.core.function_wrapper import RoundSte, TensorClamp
 from .delay import DelayWrapper
 
 
@@ -151,8 +152,8 @@ class IntQuant(brevitas.jit.ScriptModule):
             self,
             narrow_range: bool,
             signed: bool,
-            float_to_int_impl: Module,
-            tensor_clamp_impl: Module,
+            float_to_int_impl: Module = RoundSte(),
+            tensor_clamp_impl: Module = TensorClamp(),
             quant_delay_steps: int = None):
         super(IntQuant, self).__init__()
         self.float_to_int_impl = float_to_int_impl
