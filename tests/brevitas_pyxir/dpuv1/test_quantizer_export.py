@@ -28,8 +28,8 @@ def test_rewriter_export(model_name: str):
     model = getattr(models, model_name)(pretrained=True)
     model = model.train(True)
     input = torch.randn(IN_SIZE)
-    bias_quant = IntQuant & StatsMaxScaling & PerTensorPoTScaling8bit
-    weight_quant = NarrowIntQuant & StatsMaxScaling & PerTensorPoTScaling8bit
+    bias_quant = IntQuant & MaxStatsScaling & PerTensorPoTScaling8bit
+    weight_quant = NarrowIntQuant & MaxStatsScaling & PerTensorPoTScaling8bit
     io_quant = IntQuant & ParamFromRuntimePercentileScaling & PerTensorPoTScaling8bit
     gen_model = quantize(
         model, input,
