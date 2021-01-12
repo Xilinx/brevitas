@@ -7,6 +7,7 @@ from brevitas.inject import BaseInjector as Injector
 from brevitas.nn import QuantConv2d, QuantReLU, QuantMaxPool2d, QuantEltwiseAdd
 from brevitas.onnx import export_dpuv1_onnx
 from brevitas.quant_tensor import QuantTensor
+from brevitas.core.zero_point import ZeroZeroPoint
 
 KERNEL_SIZE = 3
 CHANNELS = 5
@@ -21,6 +22,7 @@ class DPUv1WeightQuantInjector(Injector):
     restrict_scaling_type = 'POWER_OF_TWO'
     scaling_per_output_channel = False
     scaling_impl_type = 'STATS'
+    zero_point_impl = ZeroZeroPoint
     scaling_stats_op = 'MAX'
     narrow_range = True
     signed = True
@@ -40,6 +42,7 @@ class DPUv1OutputQuantInjector(Injector):
     restrict_scaling_type = 'POWER_OF_TWO'
     scaling_per_output_channel = False
     scaling_impl_type = 'CONST'
+    zero_point_impl = ZeroZeroPoint
     min_val = - 1.0
     max_val = 1.0
     signed = True
@@ -53,6 +56,7 @@ class DPUv1ActQuantInjector(Injector):
     restrict_scaling_type = 'POWER_OF_TWO'
     scaling_per_output_channel = False
     scaling_impl_type = 'CONST'
+    zero_point_impl = ZeroZeroPoint
     min_val = - 6.0
     max_val = 6.0
     signed = True
