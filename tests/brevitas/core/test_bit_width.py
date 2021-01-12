@@ -18,9 +18,9 @@ class TestBitWidthAll:
     Test invariants on all bit-widths variants
     """
 
-    def test_return_value(self, bit_width_all):
+    def test_return_value(self, bit_width_all, bit_width_init):
         bit_width_tensor = bit_width_all()
-        assert bit_width_tensor.dtype == torch.float32
+        assert bit_width_tensor == bit_width_init
 
     def test_return_datatype(self, bit_width_all):
         bit_width_tensor = bit_width_all()
