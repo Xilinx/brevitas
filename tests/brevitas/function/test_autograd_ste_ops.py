@@ -123,8 +123,8 @@ class TestTensorClampSte:
         max_val.requires_grad_(True)
         output = tensor_clamp_ste_impl(val, min_val, max_val)
         output.backward(val_grad, retain_graph=True)
-        assert min_val.grad is None
-        assert max_val.grad is None
+        assert (min_val.grad == tensor(0.)).all()
+        assert (max_val.grad == tensor(0.)).all()
         assert_allclose(val_grad, val.grad)
 
 
