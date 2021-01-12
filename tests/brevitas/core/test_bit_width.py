@@ -44,9 +44,9 @@ class TestBitWidthParameterDefaults:
         bit_width_module = bit_width_parameter_defaults
         assert bit_width_module.bit_width_base == 2
 
-    def test_bit_width_offset(self, bit_width_parameter_defaults, bit_width):
+    def test_bit_width_offset(self, bit_width_parameter_defaults, bit_width_init):
         bit_width_module = bit_width_parameter_defaults
-        assert bit_width_module.bit_width_offset == bit_width - 2
+        assert bit_width_module.bit_width_offset == bit_width_init - 2
 
     def test_override_pretrained(self, bit_width_parameter_defaults):
         bit_width_module = bit_width_parameter_defaults
@@ -56,12 +56,12 @@ class TestBitWidthParameterDefaults:
 class TestBitWidthParameter:
 
     @pytest.mark.xfail(raises=RuntimeError, strict=True)
-    def test_init_fail(self, bit_width, min_bit_width):
+    def test_init_fail(self, bit_width_init, min_bit_width_init):
         """
         Test that BitWidthParameter init fails when bit_width is less than min_bit_width
         """
-        if bit_width < min_bit_width:
-            BitWidthParameter(bit_width, min_bit_width=min_bit_width)
+        if bit_width_init < min_bit_width_init:
+            BitWidthParameter(bit_width_init, min_bit_width=min_bit_width_init)
         else:
             pytest.skip('Skip expected legal cases')
 
@@ -83,16 +83,16 @@ class TestBitWidthParameter:
         assert_allclose(bit_width_parameter.bit_width_offset.grad, bit_width_grad)
         self.clean_up_bwd(bit_width_parameter)
 
-    def test_bit_width_base(self, bit_width_parameter, min_bit_width):
-        assert bit_width_parameter.bit_width_base == min_bit_width
+    def test_bit_width_base(self, bit_width_parameter, min_bit_width_init):
+        assert bit_width_parameter.bit_width_base == min_bit_width_init
 
     def test_bit_width_offset(
-            self, bit_width_parameter: BitWidthParameter, bit_width, min_bit_width):
+            self, bit_width_parameter: BitWidthParameter, bit_width_init, min_bit_width_init):
         """
         Test that bit_width_offset is initialized corrected
         """
-        assert bit_width >= min_bit_width
-        assert bit_width_parameter.bit_width_offset == bit_width - min_bit_width
+        assert bit_width_init >= min_bit_width_init
+        assert bit_width_parameter.bit_width_offset == bit_width_init - min_bit_width_init
 
     def test_override_pretrained(self, bit_width_parameter, override_pretrained):
         assert bit_width_parameter.override_pretrained == override_pretrained
