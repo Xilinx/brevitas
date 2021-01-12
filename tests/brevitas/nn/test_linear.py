@@ -67,5 +67,9 @@ class TestQuantLinearFwd:
             in_features=INPUT_FEATURES,
             bias=True,
             bias_quant_type='INT')
-        x = QuantTensor(torch.rand(size=(3, INPUT_FEATURES)), torch.tensor(1.0), torch.tensor(3))
+        x = QuantTensor(
+            torch.rand(size=(3, INPUT_FEATURES)),
+            torch.tensor(1.0),
+            torch.tensor(0.0),
+            torch.tensor(3))
         assert mod(x) is not None
