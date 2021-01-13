@@ -88,6 +88,11 @@ jobs:
       run: sudo apt-get install -y libsndfile-dev
       if: startsWith(runner.os, 'Linux') == true
 
+    - name: Install libomp on macOS
+      shell: bash
+      run: brew install libomp
+      if: startsWith(runner.os, 'macOS') == true
+
     - name: Setup Conda
       uses: s-weigand/setup-conda@v1
 
