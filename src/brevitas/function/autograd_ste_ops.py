@@ -346,14 +346,14 @@ class AbsBinarySignGradFn(Function):
 
     @staticmethod
     def forward(ctx, x: Tensor) -> Tensor:
-        ctx.save_for_backward(x)
+        ctx.save_for_backward(binary_sign(x).type(torch.int8))  # save some memory
         y = torch.abs(x)
         return y
 
     @staticmethod
     def backward(ctx, grad_y: Tensor) -> Tensor:
-        x, = ctx.saved_variables
-        return binary_sign(x) * grad_y
+        binary_sign, = ctx.saved_tensors
+        return binary_sign.float() * grad_y
 
 
 round_ste_impl = RoundSteFn.apply
