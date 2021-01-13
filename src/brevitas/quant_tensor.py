@@ -85,7 +85,7 @@ class QuantTensor(NamedTuple):
         return QuantTensor(
             self.value.detach() if self.value is not None else None,
             self.scale.detach() if self.scale is not None else None,
-            self.zero_point.detach() if self.scale is not None else None,
+            self.zero_point.detach() if self.zero_point is not None else None,
             self.bit_width.detach() if self.bit_width is not None else None,
             self.signed)
 
