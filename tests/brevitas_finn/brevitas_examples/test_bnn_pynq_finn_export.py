@@ -70,6 +70,7 @@ def test_brevitas_fc_onnx_export_and_exec(size, wbits, abits, pretrained):
     nname = f"{size}_{wbits}W{abits}A"
     finn_onnx = nname + ".onnx"
     fc, _ = model_with_cfg(nname.lower(), pretrained=pretrained)
+    fc.eval()
     FINNManager.export_onnx(fc, FC_INPUT_SIZE, finn_onnx)
     model = ModelWrapper(finn_onnx)
     model = model.transform(GiveUniqueNodeNames())
@@ -101,8 +102,9 @@ def test_brevitas_cnv_onnx_export_and_exec(wbits, abits, pretrained):
         pytest.skip("No wbits > abits cases.")
     nname = f"CNV_{wbits}W{abits}A"
     finn_onnx = nname + ".onnx"
-    fc, _ = model_with_cfg(nname.lower(), pretrained=pretrained)
-    FINNManager.export_onnx(fc, CNV_INPUT_SIZE, finn_onnx)
+    cnv, _ = model_with_cfg(nname.lower(), pretrained=pretrained)
+    cnv.eval()
+    FINNManager.export_onnx(cnv, CNV_INPUT_SIZE, finn_onnx)
     model = ModelWrapper(finn_onnx)
     model = model.transform(GiveUniqueNodeNames())
     model = model.transform(DoubleToSingleFloat())
@@ -118,5 +120,5 @@ def test_brevitas_cnv_onnx_export_and_exec(wbits, abits, pretrained):
     # run using PyTorch/Brevitas
     input_tensor = torch.from_numpy(input_tensor).float()
     # do forward pass in PyTorch/Brevitas
-    expected = fc.forward(input_tensor).detach().numpy()
+    expected = cnv.forward(input_tensor).detach().numpy()
     assert np.isclose(produced, expected, atol=ATOL).all()
