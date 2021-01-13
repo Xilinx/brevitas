@@ -48,10 +48,6 @@ from brevitas.function.ops_ste import ceil_ste, round_ste
 from brevitas.function.ops import max_int
 
 
-def pack_quant_tensor(tensor, scale, bit_width, signed=None):  #TODO deprecate
-    return QuantTensor(tensor, scale, bit_width, signed)
-
-
 class QuantTensor(NamedTuple):
     value: Tensor
     scale: Optional[Tensor] = None
