@@ -14,6 +14,7 @@ import torch.onnx
 from torch import Tensor
 from torch.nn import Module
 
+from brevitas import torch_version
 from brevitas.quant_tensor import QuantTensor
 from ..base import BaseManager, _set_export_mode
 from ..base import _override_inp_caching_mode, _restore_inp_caching_mode
@@ -32,14 +33,12 @@ class ONNXBaseManager(BaseManager, ABC):
 
     @classmethod
     def solve_keep_initializers_as_inputs(cls, export_kwargs):
-        torch_version = version.parse(torch.__version__)
         # See https://github.com/pytorch/pytorch/commit/7583519b870e33ee3182f330c1bb8663559697b6
         if torch_version >= version.parse('1.3.0'):
             export_kwargs['keep_initializers_as_inputs'] = True
 
     @classmethod
     def solve_enable_onnx_checker(cls, export_kwargs):
-        torch_version = version.parse(torch.__version__)
         if torch_version >= version.parse('1.5.0'):
             export_kwargs['enable_onnx_checker'] = False
 

@@ -1,8 +1,10 @@
 from typing import Tuple, Optional, Union
+from packaging import version
 
 from torch import Tensor
 from torch.nn import Module
 
+from brevitas import torch_version
 from brevitas.quant_tensor import QuantTensor
 from brevitas.export.onnx.base import ONNXBaseManager
 
@@ -39,7 +41,8 @@ class StdONNXManager(ONNXBaseManager):
 
     @classmethod
     def solve_enable_onnx_checker(cls, export_kwargs):
-        export_kwargs['enable_onnx_checker'] = True
+        if torch_version >= version.parse('1.5.0'):
+            export_kwargs['enable_onnx_checker'] = True
 
     @classmethod
     def export_onnx(
