@@ -109,7 +109,7 @@ class TernaryQuant(brevitas.jit.ScriptModule):
         self.delay_wrapper = DelayWrapper(quant_delay_steps)
 
     @brevitas.jit.script_method
-    def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
+    def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
         scale = self.scaling_impl(x)
         mask = x.abs().gt(self.threshold * scale)
         y = mask.float() * ternary_sign_ste(x)
