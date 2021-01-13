@@ -29,6 +29,7 @@ def test_quartznet_asr_4b(pretrained):
 
     finn_onnx = "quant_quartznet_perchannelscaling_4b.onnx"
     quartznet = quant_quartznet_perchannelscaling_4b(pretrained, export_mode=True)
+    quartznet.eval()
     FINNManager.export_onnx(quartznet, QUARTZNET_POSTPROCESSED_INPUT_SIZE, finn_onnx)
     model = ModelWrapper(finn_onnx)
     model = model.transform(GiveUniqueNodeNames())
