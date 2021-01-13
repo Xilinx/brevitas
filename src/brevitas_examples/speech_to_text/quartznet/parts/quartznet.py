@@ -361,7 +361,7 @@ class JasperBlock(nn.Module):
         if self.res is not None:
             out = self.quant_normalization(out)
             if self.training:
-                out, scale, bit = out
+                out = out.value
             for i, layer in enumerate(self.res):
                 res_out = xs[i]
                 for j, res_layer in enumerate(layer):
@@ -371,7 +371,7 @@ class JasperBlock(nn.Module):
                         res_out = res_layer(res_out)
                 res_out = self.quant_normalization(res_out)
                 if self.training:
-                    res_out, scale, bit = res_out
+                    res_out = res_out.value
                 if self.residual_mode == 'add':
                     out = out + res_out
                 else:
