@@ -340,7 +340,7 @@ class AbsBinarySignGradFn(Function):
         tensor([0.], grad_fn=<AbsBinarySignGradFnBackward>)
         >>> grad = torch.tensor([0.1])
         >>> y.backward(grad)
-        >>> x.grad
+        >>> (x.grad == grad).all().item()
         True
     """
 
