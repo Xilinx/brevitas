@@ -46,6 +46,7 @@ from torch.nn import Parameter, Module
 import brevitas
 import brevitas.config as config
 from brevitas.core.function_wrapper import Identity
+from brevitas.function.ops_ste import abs_binary_sign_grad
 
 from brevitas.core.stats import _ParameterListStats, _RuntimeStats, DEFAULT_MOMENTUM
 from brevitas.core.restrict_val import _RestrictClampValue
@@ -149,7 +150,7 @@ class _AffineRescaling(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def forward(self, x):
         out = x * self.affine_weight + self.affine_bias
-        out = torch.abs(out)
+        out = abs_binary_sign_grad(out)
         return out
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
