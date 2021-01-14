@@ -252,7 +252,7 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
         assert collect_stats_steps > 0, 'Steps should be more than 0'
         if config.JIT_ENABLED:
             warnings.warn(
-                'BREVITAS_JIT=1 on ParameterFromRuntimeStatsScaling could result in numerical'
+                'BREVITAS_JIT=1 on ParameterFromRuntimeStatsScaling could result in numerical '
                 'errors. Disabling it is highly recommended unless you know what you are doing.')
         if scaling_shape != SCALAR_SHAPE and scaling_stats_permute_dims is None:
             raise RuntimeError("Per channel runtime stats require a permute shape")
