@@ -107,9 +107,9 @@ class ParameterFromRuntimeMinZeroPoint(brevitas.jit.ScriptModule):
     def forward(self, x: Tensor, scale: Tensor, bit_width: Tensor) -> Tensor:
         if self.training:
             if self.counter <= self.collect_stats_steps:
-                if self.zero_point_permute_dims is not None:
-                    x = x.permute(*self.zero_point_permute_dims).contiguous()
-                stats_input = self.zero_point_input_view_shape_impl(x)
+                if self.stats_permute_dims is not None:
+                    x = x.permute(*self.stats_permute_dims).contiguous()
+                stats_input = self.stats_input_view_shape_impl(x)
                 stats = self.negative_min_or_zero(stats_input)
                 if self.counter == 0:
                     self.value.detach().mul_(stats.detach())
@@ -122,7 +122,7 @@ class ParameterFromRuntimeMinZeroPoint(brevitas.jit.ScriptModule):
                 out = self.value
         else:
             out = self.value
-        out = self.float_to_int_impl(out / scale)
+        out = - self.float_to_int_impl(out / scale)
         return out
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
