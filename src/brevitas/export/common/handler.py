@@ -22,7 +22,7 @@ class TypedZeroPointHandler(BaseHandler):
     def zero_point_with_dtype(cls, signed, zero_point):
         if not signed:
             if (zero_point < 0).any():
-                raise RuntimeError("Zero points have to positive under unsigned quantization")
+                raise RuntimeError("Zero points have to be positive under unsigned quantization")
             return zero_point.type(torch.uint8)
         else:
             return zero_point.type(torch.int8)
