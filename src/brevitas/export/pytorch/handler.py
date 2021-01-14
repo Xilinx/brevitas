@@ -72,8 +72,8 @@ class PytorchQuantWBIOLHandler(Validate8BitHandler, TypedZeroPointHandler, BaseH
 
     def prepare_weight_quant(self, module: QuantWBIOL):
         self.validate_8b_bit_width(module.quant_weight_bit_width())
-        scale = module.quant_input_scale()
-        zero_point = self.quant_input_zero_point(module)
+        scale = module.quant_weight_scale()
+        zero_point = self.quant_weight_zero_point(module)
         signed = module.is_quant_weight_signed
         weight = module.weight.view(module.weight.shape)  # Parameter to Tensor
         quant_impl, quant_kwargs = self.gen_quant_impl_kwargs(scale, zero_point, signed)
