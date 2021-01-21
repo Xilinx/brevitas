@@ -149,8 +149,8 @@ class ParameterScaling(brevitas.jit.ScriptModule):
     def __init__(
             self,
             scaling_init: Union[float, Tensor],
-            scaling_shape: Tuple[int, ...] = None,
-            restrict_scaling_impl: Module = None,
+            scaling_shape: Optional[Tuple[int, ...]] = None,
+            restrict_scaling_impl: Optional[Module] = None,
             scaling_min_val: Optional[float] = None) -> None:
         super(ParameterScaling, self).__init__()
 
@@ -244,7 +244,7 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             scaling_stats_impl: Module,
             scaling_stats_input_view_shape_impl: Module = OverBatchOverTensorView(),
             scaling_shape: Tuple[int, ...] = SCALAR_SHAPE,
-            restrict_scaling_impl: Module = None,
+            restrict_scaling_impl: Optional[Module] = None,
             scaling_stats_permute_dims: Optional[Tuple[int, ...]] = None,
             scaling_stats_momentum: float = DEFAULT_MOMENTUM,
             scaling_min_val: Optional[float] = None) -> None:
