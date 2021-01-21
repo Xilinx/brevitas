@@ -6,12 +6,12 @@ import onnxruntime as rt
 import numpy as np
 
 from brevitas.nn import QuantConv2d, QuantLinear, QuantIdentity, QuantMaxPool2d
-from brevitas.inject.defaults import Int8WeightPerTensorFloat
 from brevitas.inject.defaults import ShiftedUint8ActPerTensorFloat, ShiftedUint8WeightPerTensorFloat
 from brevitas.onnx import export_standard_onnx
 
-OUT_CH = 4
-IN_CH = 5
+OUT_CH = 40
+IN_CH = 50
+TOLERANCE = 1.1
 
 
 def gen_linspaced_data(num_samples, min_val=-1.0, max_val=1.0):
@@ -41,7 +41,6 @@ def test_standard_onnx_quant_conv():
     FEATURES = 7
     IN_SIZE = (1, IN_CH, FEATURES, FEATURES)
     KERNEL_SIZE = 3
-    TOLERANCE = 2.1
 
     class Model(torch.nn.Module):
 
@@ -52,18 +51,20 @@ def test_standard_onnx_quant_conv():
                 in_channels=IN_CH,
                 kernel_size=KERNEL_SIZE,
                 bias=False,
-                weight_quant=Int8WeightPerTensorFloat,
+                weight_quant=ShiftedUint8WeightPerTensorFloat,
                 input_quant=ShiftedUint8ActPerTensorFloat,
                 output_quant=ShiftedUint8ActPerTensorFloat,
                 return_quant_tensor=False)
-            self.conv1.weight.data.uniform_(-0.01, 0.01)
+            self.conv1.weight.data.uniform_(-1.0, 1.0)
 
         def forward(self, x):
             return self.conv1(x)
 
     export_name = 'qlinearconv.onnx'
-    inp = gen_linspaced_data(reduce(mul, IN_SIZE)).reshape(IN_SIZE)
-    model = Model().eval()
+    inp = gen_linspaced_data(reduce(mul, IN_SIZE), -1, 1).reshape(IN_SIZE)
+    model = Model()
+    model(torch.from_numpy(inp))  # accumulate scale factors
+    model.eval()
     atol = model.conv1.quant_output_scale().item() * TOLERANCE
     assert is_brevitas_ort_close(model, inp, export_name, atol=atol)
 
@@ -82,7 +83,11 @@ def test_standard_onnx_quant_identity_export():
 
     export_name = 'standard_identity.onnx'
     inp = gen_linspaced_data(reduce(mul, IN_SIZE)).reshape(IN_SIZE)
-    assert is_brevitas_ort_close(Model().eval(), inp, export_name)
+    model = Model()
+    model(torch.from_numpy(inp))  # accumulate scale factors
+    model.eval()
+    atol = model.act.quant_output_scale().item() * TOLERANCE
+    assert is_brevitas_ort_close(model, inp, export_name, atol=atol)
 
 
 def test_standard_onnx_quant_max_pool_export():
@@ -100,12 +105,15 @@ def test_standard_onnx_quant_max_pool_export():
 
     export_name = 'standard_maxpool.onnx'
     inp = gen_linspaced_data(reduce(mul, IN_SIZE)).reshape(IN_SIZE)
-    assert is_brevitas_ort_close(Model().eval(), inp, export_name)
+    model = Model()
+    model(torch.from_numpy(inp))  # accumulate scale factors
+    model.eval()
+    atol = model.act.quant_output_scale().item() * TOLERANCE
+    assert is_brevitas_ort_close(model, inp, export_name, atol=atol)
 
 
 def test_standard_onnx_quant_linear_export():
     IN_SIZE = (IN_CH, IN_CH)
-    TOLERANCE = 1.1
 
     class Model(torch.nn.Module):
 
@@ -126,6 +134,8 @@ def test_standard_onnx_quant_linear_export():
 
     export_name = 'standard_quant_linear.onnx'
     inp = gen_linspaced_data(reduce(mul, IN_SIZE)).reshape(IN_SIZE)
-    model = Model().eval()
+    model = Model()
+    model(torch.from_numpy(inp))  # accumulate scale factors
+    model.eval()
     atol = model.linear.quant_output_scale().item() * TOLERANCE
     assert is_brevitas_ort_close(model, inp, export_name, atol=atol)
