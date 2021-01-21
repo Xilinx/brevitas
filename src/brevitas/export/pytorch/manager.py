@@ -1,23 +1,29 @@
+from typing import Union
+
+from torch import Tensor
 from torch.nn import Module
 
-from brevitas.export.base import BaseManager, _set_export_mode
-from .handler import PytorchQuantConv2dHandler
-from .handler import PytorchQuantConv1dHandler
-from .handler import PytorchQuantLinearHandler
+from brevitas.quant_tensor import QuantTensor
+from brevitas.export.base import BaseManager
+from .handler.parameter import PytorchQuantConv2dHandler
+from .handler.parameter import PytorchQuantConv1dHandler
+from .handler.parameter import PytorchQuantLinearHandler
+from .handler.act import PytorchQuantIdentityHandler
+from .handler.act import PytorchQuantReLUHandler
+from .handler.act import PytorchQuantHardTanhHandler
 
 
 class PytorchQuantManager(BaseManager):
 
     handlers = [
+        PytorchQuantHardTanhHandler,
+        PytorchQuantIdentityHandler,
+        PytorchQuantReLUHandler,
         PytorchQuantConv1dHandler,
         PytorchQuantConv2dHandler,
         PytorchQuantLinearHandler]
 
     @classmethod
-    def export(
-            cls,
-            module: Module):
-        module = module.eval()
-        module.apply(cls.set_export_handler)
-        module.apply(lambda m: _set_export_mode(m, enabled=True))
-        return module
+    def export(cls, module: Module, input_t: Union[Tensor, QuantTensor]):
+        traced_module = cls.jit_trace(module, input_t)
+        return traced_module
