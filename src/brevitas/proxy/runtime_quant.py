@@ -104,16 +104,18 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
         else:
             self.update_state_dict_impl = None
 
-    def scale(self):
+    def scale(self, force_eval=True):
         current_status = self.training
-        self.eval()  # get eval time scale
+        if force_eval:
+            self.eval()
         scale = self.__call__(self._zero_hw_sentinel()).scale
         self.train(current_status)
         return scale
 
-    def zero_point(self):
+    def zero_point(self, force_eval=True):
         current_status = self.training
-        self.eval()  # get eval time zero_point
+        if force_eval:
+            self.eval()
         zero_point = self.__call__(self._zero_hw_sentinel()).zero_point
         self.train(current_status)
         return zero_point
