@@ -54,22 +54,17 @@ class PytorchQuantWBIOLHandler(PytorchQuantLayerHandler):
         self.weight_quant_impl, self.weight_quant_args, self.weight_quant_kwargs = weight_quant_pack
         self.qf_impl, self.qf_kwargs = self.prepare_qf(module)
         _, self.output_quant_kwargs = self.prepare_output_quant(module)
-
         self.return_quant_tensor = module.return_quant_tensor
-
-    def forward_qf(self, q_inp: Tensor, q_weight: Tensor):
-        out = self.qf_impl(q_inp, q_weight, **self.qf_kwargs, **self.output_quant_kwargs)
-        return out
 
     def q_weight(self):
         q_weight = self.weight_quant_impl(*self.weight_quant_args, **self.weight_quant_kwargs)
         return q_weight
 
-    def forward(self, q_inp: Tensor, **kwargs):
+    def forward(self, q_inp: Tensor):
         if self.input_quant_impl is not None:
             q_inp = self.input_quant_impl(q_inp, **self.input_quant_kwargs)
         assert q_inp.is_quantized, 'Input needs to be quantized'
-        q_out = self.forward_qf(q_inp, self.q_weight())
+        q_out = self.qf_impl(q_inp, self.q_weight(), **self.qf_kwargs, **self.output_quant_kwargs)
         if not self.return_quant_tensor:
             q_out = q_out.dequantize()
         return q_out
