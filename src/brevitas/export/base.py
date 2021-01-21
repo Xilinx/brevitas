@@ -118,15 +118,17 @@ class BaseManager(ABC):
     @classmethod
     def jit_trace(cls, module: Module, input_t: Union[Tensor, QuantTensor]):
         with torch.no_grad():
+            training_state = module.training
             module = module.eval()
             module.apply(cls.set_export_handler)
-            # do a forward pass with the dummy input to e.g. store input/output shapes
+            # do a forward pass with the input to e.g. store input/output shapes
             cls.cache_inp_out(module, input_t)
-            # override any given input_t to make sure it's a standard PyTorch tensor
-            input_shape = input_t.shape if isinstance(input_t, Tensor) else input_t.value.shape
-            input_t = torch.empty(input_shape, dtype=torch.float)
+            # unpack quant tensor
+            if isinstance(input_t, QuantTensor):
+                input_t = input_t.value
             # enable export mode, this triggers collecting export values into handlers
             module.apply(lambda m: _set_export_mode(m, enabled=True))
             traced_model = jit_trace_patched(module, input_t)
             module.apply(lambda m: _set_export_mode(m, enabled=False))
+            module.train(training_state)
             return traced_model
