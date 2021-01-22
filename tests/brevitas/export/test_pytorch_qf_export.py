@@ -11,8 +11,6 @@ IN_CH = 40
 TOLERANCE = 1.1
 
 
-# see https://github.com/pytorch/pytorch/projects/17#card-53197198
-@pytest.mark.xfail(strict=True)
 def test_pytorch_quant_linear_export():
     IN_SIZE = (IN_CH, IN_CH)
 
