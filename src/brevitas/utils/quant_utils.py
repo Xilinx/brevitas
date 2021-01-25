@@ -38,15 +38,14 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from brevitas.proxy.parameter_quant import WeightQuantProxy
+from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
 from brevitas.core.quant import RescalingIntQuant
-from brevitas.proxy.runtime_quant import ActivationQuantProxy, FusedActivationQuantProxy
+from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector, FusedActivationQuantProxy
 from brevitas.core.bit_width import BitWidthParameter
-from brevitas.nn.quant_layer import QuantTensor
 
 
 def has_learned_weight_bit_width(module):
-    if isinstance(module, WeightQuantProxy) \
+    if isinstance(module, WeightQuantProxyFromInjector) \
             and isinstance(module.tensor_quant, RescalingIntQuant) \
             and isinstance(module.tensor_quant.msb_clamp_bit_width_impl,
                            BitWidthParameter):
@@ -56,7 +55,7 @@ def has_learned_weight_bit_width(module):
 
 
 def has_learned_activation_bit_width(module):
-    if isinstance(module, ActivationQuantProxy) \
+    if isinstance(module, ActQuantProxyFromInjector) \
             and isinstance(module.fused_activation_quant_proxy, FusedActivationQuantProxy) \
             and isinstance(module.fused_activation_quant_proxy.tensor_quant, RescalingIntQuant) \
             and isinstance(module.fused_activation_quant_proxy.tensor_quant.msb_clamp_bit_width_impl,
