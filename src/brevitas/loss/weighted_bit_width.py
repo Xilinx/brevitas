@@ -10,9 +10,10 @@ from torch import nn
 from brevitas.utils.quant_utils import *
 from brevitas.nn.quant_linear import QuantLinear
 from brevitas.nn.quant_conv import QuantConv2d
-from brevitas.nn.quant_avg_pool import QuantAvgPool2d
+from brevitas.quant_tensor import QuantTensor
 
 MEGA = 10e6
+
 
 class BitWidthWeighted(object):
     __metaclass__ = ABCMeta
@@ -56,10 +57,9 @@ class WeightBitWidthWeightedBySize(BitWidthWeighted):
 
     def register_hooks(self):
 
-        def hook_fn(module, input, output):
-            (quant_weight, output_scale, output_bit_width) = output
-            num_elements = reduce(mul, quant_weight.size(), 1)
-            self.weighted_bit_width_list.append(num_elements * output_bit_width)
+        def hook_fn(module, input, output: QuantTensor):
+            num_elements = reduce(mul, output.value.size(), 1)
+            self.weighted_bit_width_list.append(num_elements * output.bit_width)
             self.tot_num_elements += num_elements
 
         for name, module in self.model.named_modules():
@@ -75,10 +75,9 @@ class ActivationBitWidthWeightedBySize(BitWidthWeighted):
 
     def register_hooks(self):
 
-        def hook_fn(module, input, output):
-            (quant_act, output_scale, output_bit_width) = output
-            num_elements = reduce(mul, quant_act.size()[1:], 1)  # exclude batch size
-            self.weighted_bit_width_list.append(num_elements * output_bit_width)
+        def hook_fn(module, input, output: QuantTensor):
+            num_elements = reduce(mul, output.value.size()[1:], 1)  # exclude batch size
+            self.weighted_bit_width_list.append(num_elements * output.bit_width)
             self.tot_num_elements += num_elements
 
         for name, module in self.model.named_modules():
@@ -96,17 +95,15 @@ class QuantLayerOutputBitWidthWeightedByOps(BitWidthWeighted):
     def register_hooks(self):
 
         def hook_fn(module, input, output):
-            if module.return_quant_tensor:
-                output, output_scale, output_bit_width = output
-            output_size = reduce(mul, output.size()[1:], 1)  # exclude batch size
-            num_mops = output_size * module.per_elem_ops / MEGA
-            self.weighted_bit_width_list.append(output_bit_width * num_mops)
-            self.tot_num_elements += num_mops
+            if isinstance(output, QuantTensor):
+                output_size = reduce(mul, output.size()[1:], 1)  # exclude batch size
+                num_mops = output_size * module.per_elem_ops / MEGA
+                self.weighted_bit_width_list.append(output.bit_width * num_mops)
+                self.tot_num_elements += num_mops
 
         for name, module in self.model.named_modules():
             if isinstance(module, self.layer_types) \
                     and module.return_quant_tensor \
-                    and module.compute_output_bit_width\
                     and module.per_elem_ops is not None:
                 module.register_forward_hook(hook_fn)
 
