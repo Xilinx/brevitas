@@ -48,56 +48,45 @@ import brevitas
 from brevitas.function.ops_ste import ternary_sign_ste
 from brevitas.core.bit_width import BitWidthConst
 from brevitas.core.utils import StatelessBuffer
-from .delay import DelayWrapper
+from brevitas.core.quant.delay import DelayWrapper
 
 
 class TernaryQuant(brevitas.jit.ScriptModule):
-    """ Class that implement the ternary quantization of the input tensor, which is then converted to its floating point
-    representation according to the scale factor.
-
-    The scale factor is determined internally through the scaling_impl module. The threshold is a user-defined value in
-    the range (0,1).
-
-    The quantization is performed in such a way that all input values in the range
-    (-scale*threshold, scale*threshold) are quantized to 0. Values greater than the upper bound are quantized to 'scale'
-    . Values lower than the lower bound are quantized to '-scale'.
-
-    Parameters
-    ----------
-    scaling_impl : Module
-        Module that determines the value of the scale factor
-    threshold: Float
-        User-defined value that determines, together with the scale factor, the range of values that are quantized to 0.
-
-    Attributes
-    ----------
-    scaling_impl : Module
-       Module that determines the value of the scale factor
-    bit_width : Int
-        For binary quantization, the bit_width is constant and fixed to 2
-    threshold: Float
-        User-defined value that determines, together with the scale factor, the range of values that are quantized to 0.
-
-    Methods
-    -------
-    forward(x)
-        Perform the ternary quantization using :func:`~brevitas.function.ops_ste.ternary_sign_ste`. After that, the
-        result is converted to floating point through the scale factor.
-        The scale factor is determined by the attribute `scaling_impl`.
-
-        Parameters
-        ----------
-        x: Tensor
-            Input tensor that will be quantized
-
-        Returns
-        -------
-        Tuple(Tensor, Tensor, Tensor)
-            Tuple with three values where:
-            y is the quantized Tensor;
-            scale is the scale factor;
-            bit_width is the bit_width of the quantization.
     """
+    ScriptModule that implements scaled uniform ternary quantization of an input tensor.
+    Quantization is performed with :func:`~brevitas.function.ops_ste.ternary_sign_ste`.
+
+    Args:
+        scaling_impl (Module): Module that returns a scale factor.
+        threshold (float): Ternarization threshold w.r.t. to the scale factor.
+        quant_delay_steps (int): Number of training steps to delay quantization for. Default: 0
+
+    Returns:
+        Tuple[Tensor, Tensor, Tensor, Tensor]: Quantized output in de-quantized format, scale,
+            zero-point, bit_width.
+
+    Examples:
+        >>> from brevitas.core.scaling import ConstScaling
+        >>> ternary_quant = TernaryQuant(ConstScaling(1.0), 0.5)
+        >>> inp = torch.Tensor([0.04, -0.6, 3.3])
+        >>> out, scale, zero_point, bit_width = ternary_quant(inp)
+        >>> out
+        tensor([ 0., -1.,  1.])
+        >>> scale
+        tensor(1.)
+        >>> zero_point
+        tensor(0.)
+        >>> bit_width
+        tensor(2.)
+
+    Note:
+        Maps to quant_type == QuantType.TERNARY == 'TERNARY' == 'ternary' when applied to in
+        higher-level APIs.
+
+    Note:
+        Set env variable BREVITAS_JIT=1 to enable TorchScript compilation of this module.
+    """
+
     __constants__ = ['threshold']
 
     def __init__(self, scaling_impl: Module, threshold: float, quant_delay_steps: int = None):
