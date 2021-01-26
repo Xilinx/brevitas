@@ -46,7 +46,6 @@ from brevitas.inject import BaseInjector as Injector
 from brevitas.proxy.parameter_quant import WeightQuantProxyProtocol, BiasQuantProxyProtocol
 from brevitas.proxy.runtime_quant import ActQuantProxyProtocol
 from brevitas.inject.defaults import Int8WeightPerTensorFloat
-from brevitas.inject.defaults import FloatBias
 from .quant_scale_bias import QuantScaleBias
 from .utils import mul_add_from_bn
 
@@ -58,7 +57,7 @@ class BatchNorm2dToQuantScaleBias(QuantScaleBias):
             num_features,
             eps: float = 1e-5,
             weight_quant: Union[WeightQuantProxyProtocol, Type[Injector]] = Int8WeightPerTensorFloat,
-            bias_quant: Union[BiasQuantProxyProtocol, Type[Injector]] = FloatBias,
+            bias_quant: Union[BiasQuantProxyProtocol, Type[Injector]] = None,
             input_quant: Union[ActQuantProxyProtocol, Type[Injector]] = None,
             output_quant: Union[ActQuantProxyProtocol, Type[Injector]] = None,
             return_quant_tensor: bool = False,
