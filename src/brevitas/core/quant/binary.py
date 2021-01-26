@@ -49,50 +49,41 @@ from brevitas.function.ops import tensor_clamp
 from brevitas.function.ops_ste import binary_sign_ste
 from brevitas.core.bit_width import BitWidthConst
 from brevitas.core.utils import StatelessBuffer
-from .delay import DelayWrapper
+from brevitas.core.quant.delay import DelayWrapper
 
 
 class BinaryQuant(brevitas.jit.ScriptModule):
-    """ Class that implement the binary quantization of the input tensor, which is then converted to its floating point
-    representation according to the scale factor.
+    """
+    ScriptModule that implements scaled uniform binary quantization of an input tensor.
 
-    The scale factor is determined internally through the scaling_impl module.
+    Args:
+        scaling_impl (Module): Module that returns a scale factor.
+        quant_delay_steps (int): Number of training steps to delay quantization for. Default: 0
 
-    Parameters
-    ----------
-    scaling_impl : Module
-        Module that determines the value of the scale factor
+    Returns:
+        Tuple[Tensor, Tensor, Tensor, Tensor]: Quantized output in de-quantized format, scale,
+            zero-point, bit_width.
 
-    Attributes
-    ----------
-    scaling_impl: Module
-       Module that determines the value of the scale factor
-    bit_width: Int
-        For binary quantization, the bit_width is constant and fixed to 1
+    Examples:
+        >>> from brevitas.core.scaling import ConstScaling
+        >>> binary_quant = BinaryQuant(ConstScaling(0.1))
+        >>> inp = torch.Tensor([0.04, -0.6, 3.3])
+        >>> out, scale, zero_point, bit_width = binary_quant(inp)
+        >>> out
+        tensor([ 0.1000, -0.1000,  0.1000])
+        >>> scale
+        tensor(0.1000)
+        >>> zero_point
+        tensor(0.)
+        >>> bit_width
+        tensor(1.)
 
-    Methods
-    -------
-    forward(x)
-        Perform the binary quantization using :func:`~brevitas.function.ops_ste.binary_sign_ste`. After that, the
-        result is converted to floating point through the scale factor.
-        The scale factor is determined by the attribute `scaling_impl`.
-
-        Parameters
-        ----------
-        x: Tensor
-            Input tensor that will be quantized
-
-        Returns
-        -------
-        Tuple(Tensor, Tensor, Tensor)
-            Tuple with three values where:
-            y is the quantized Tensor;
-            scale is the scale factor;
-            bit_width is the bit_width of the quantization.
-
+    Note:
+        Maps to quant_type == QuantType.BINARY == 'BINARY' == 'binary' when applied to weights
+         in higher-level APIs.
     """
 
-    def __init__(self, scaling_impl: Module, quant_delay_steps: int = None):
+    def __init__(self, scaling_impl: Module, quant_delay_steps: int = 0):
         super(BinaryQuant, self).__init__()
         self.scaling_impl = scaling_impl
         self.bit_width = BitWidthConst(1)
@@ -108,48 +99,43 @@ class BinaryQuant(brevitas.jit.ScriptModule):
 
 
 class ClampedBinaryQuant(brevitas.jit.ScriptModule):
-    """ Class that implement the binary quantization of the input tensor, which is then converted to its floating point
-    representation according to the scale factor.
+    """
+    ScriptModule that implements scaled uniform binary quantization of an input tensor. Before
+    going through quantization, the input tensor is clamped between (- scale, scale), which
+    on the backward pass zeroes gradients corresponding to inputs outside that range.
 
-    Before performing the binarization, the input tensor is clamped in the range of admissible values, determined by the
-    scale factor.
-    The scale factor is determined internally through the scaling_impl module.
+    Args:
+        scaling_impl (Module): Module that returns a scale factor.
+        quant_delay_steps (int): Number of training steps to delay quantization for. Default: 0
 
-    Parameters
-    ----------
-    scaling_impl : Module
-        Module that determines the value of the scale factor
+    Returns:
+        Tuple[Tensor, Tensor, Tensor, Tensor]: Quantized output in de-quantized format, scale,
+            zero-point, bit_width.
 
-    Attributes
-    ----------
-    scaling_impl : Module
-       Module that determines the value of the scale factor
-    bit_width : Int
-        For binary quantization, the bit_width is constant and fixed to 1
+    Examples:
+        >>> from brevitas.core.scaling import ConstScaling
+        >>> binary_quant = ClampedBinaryQuant(ConstScaling(0.1))
+        >>> inp = torch.Tensor([0.04, -0.6, 3.3]).requires_grad_(True)
+        >>> out, scale, zero_point, bit_width = binary_quant(inp)
+        >>> out
+        tensor([ 0.1000, -0.1000,  0.1000], grad_fn=<MulBackward0>)
+        >>> out.backward(torch.Tensor([1.0, 1.0, 1.0]))
+        >>> inp.grad
+        tensor([0.1000, 0.0000, 0.0000])
+        >>> scale
+        tensor(0.1000)
+        >>> zero_point
+        tensor(0.)
+        >>> bit_width
+        tensor(1.)
 
-    Methods
-    -------
-    forward(x)
-        Perform the binary quantization using :func:`~brevitas.function.ops_ste.binary_sign_ste`. After that, the
-        result is converted to floating point through the scale factor.
-        The scale factor is determined by the attribute `scaling_impl`.
-
-        Parameters
-        ----------
-        x: Tensor
-            Input tensor that will be quantized
-
-        Returns
-        -------
-        Tuple(Tensor, Tensor, Tensor)
-            Tuple with three values where:
-            y is the quantized Tensor;
-            scale is the scale factor;
-            bit_width is the bit_width of the quantization.
-
+    Note:
+        Maps to quant_type == QuantType.BINARY == 'BINARY' == 'binary' when applied to activations
+         in higher-level APIs.
     """
 
-    def __init__(self, scaling_impl: Module, quant_delay_steps: int = None):
+
+    def __init__(self, scaling_impl: Module, quant_delay_steps: int = 0):
         super(ClampedBinaryQuant, self).__init__()
         self.scaling_impl = scaling_impl
         self.bit_width = BitWidthConst(1)
