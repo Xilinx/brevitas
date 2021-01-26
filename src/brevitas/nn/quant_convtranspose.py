@@ -53,7 +53,6 @@ from brevitas.proxy.parameter_quant import WeightQuantProxyProtocol, BiasQuantPr
 from brevitas.proxy.runtime_quant import ActQuantProxyProtocol
 from brevitas.quant_tensor import QuantTensor
 from brevitas.inject.defaults import Int8WeightPerTensorFloat
-from brevitas.inject.defaults import FloatBias
 from .quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 
 __all__ = ['QuantConvTranspose1d', 'QuantConvTranspose2d']
@@ -73,7 +72,7 @@ class QuantConvTranspose1d(QuantWBIOL, ConvTranspose1d):
             groups: int = 1,
             bias: bool = True,
             weight_quant: Union[WeightQuantProxyProtocol, Type[Injector]] = Int8WeightPerTensorFloat,
-            bias_quant: Union[BiasQuantProxyProtocol, Type[Injector]] = FloatBias,
+            bias_quant: Union[BiasQuantProxyProtocol, Type[Injector]] = None,
             input_quant: Union[ActQuantProxyProtocol, Type[Injector]] = None,
             output_quant: Union[ActQuantProxyProtocol, Type[Injector]] = None,
             return_quant_tensor: bool = False,
