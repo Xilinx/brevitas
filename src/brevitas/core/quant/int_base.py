@@ -38,114 +38,48 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+import torch
 from torch import Tensor
 from torch.nn import Module
 
 import brevitas
 from brevitas.function.ops import max_int, min_int
 from brevitas.core.function_wrapper import RoundSte, TensorClamp
-from .delay import DelayWrapper
+from brevitas.core.quant.delay import DelayWrapper
 
 
 class IntQuant(brevitas.jit.ScriptModule):
-    """ Class that implement the quantization of the input tensor, which is then converted to its floating point
-    representation according to the scale factor (i.e. scale/int_scale).
-
-    All values required for the quantization are determined externally.
-
-
-    Parameters
-    ----------
-    float_to_int_impl: Module
-        Module that performs the conversion from floating point to integer representation
-    tensor_clamp_impl: Module
-        Module that performs the clamping of the input values for a proper integer representation
-    signed: Bool
-        Bool that determines whether to use signed or unsigned integers.
-    narrow_range: Bool
-        Bool that determines whether to enable or not the narrow range representation.
-
-    Methods
-    -------
-    to_int(scale, int_scale_msb_clamp_bit_width, x)
-        Perform the conversion to integer of the input tensor.
-        After diving by the scale factor (i.e. scale/int_scale), the input tensor is clamped in the range of admissible
-        integer values, and then converted to integer according to the strategy defined by `float_to_int_impl`.
-
-        Parameters
-        ----------
-        x: Tensor
-            Input tensor that will be quantized
-        scale: Tensor
-            Floating point component of the scale factor
-        int_scale: Tensor
-            Integer component of the scale factor
-        msb_clamp_bit_width: Tensor
-            Bit_width to be used for the conversion to integer
-
-    forward(scale, int_scale, msb_clamp_bit_width, x)
-        Perform the quantization of the input tensor. The value is first converted to its integer representation and
-        quantized, then converted to its floating representation multiplying it by the scale factor
-        (i.e. scale/scale_int)
-
-        Parameters
-        ----------
-        x: Tensor
-            Input tensor that will be quantized
-        scale: Tensor
-            Floating point component of the scale factor
-        int_scale: Tensor
-            Integer component of the scale factor
-        msb_clamp_bit_width: Tensor
-            Bit_width to be used for the conversion to integer
-
-        Returns
-        -------
-        Tensor
-            The quantized tensor after its conversion to floating point
-
-    min_int(bit_width)
-        Determines the minimum integer representable according to the values of `signed`, `narrow_range`, and
-        `bit_width`.
-
-        Parameters
-        ----------
-        bit_width: Tensor
-            Number of bits for determining the minimum integer representable
-
-        Returns
-        -------
-        Tensor
-            The minimum integer representable
-
-    max_int(bit_width)
-        Determines the maximum signed integer representable according to the values of `signed`, `narrow_range`, and
-        `bit_width`.
-
-        Parameters
-        ----------
-        bit_width: Tensor
-            Number of bits for determining the maximum integer representable
-
-        Returns
-        -------
-        Tensor
-            The maximum integer representable
-
-    max_uint(bit_width)
-        Determines the maximum unsigned integer representable according to the values of `narrow_range` and
-        `bit_width`.
-
-        Parameters
-        ----------
-        bit_width: Tensor
-            Number of bits for determining the maximum integer representable
-
-        Returns
-        -------
-        Tensor
-            The maximum integer representable
     """
+    ScriptModule that implements scale, shifted, uniform integer quantization of an input tensor,
+    according to an input scale, zero-point and bit-width.
+
+    Args:
+        narrow_range (bool): Flag that determines whether restrict to a narrow range range or not.
+        signed (bool): Flag that determines whether to quantize to a signed range or not.
+        float_to_int_impl (Module): Module that performs the conversion from floating point to
+            integer representation. Default: RoundSte()
+        tensor_clamp_impl (Module): Module that performs clamping. Default: TensorClamp()
+        quant_delay_steps (int): Number of training steps to delay quantization for. Default: 0
+
+    Returns:
+        Tensor: Quantized output in de-quantized format.
+
+    Examples:
+        >>> from brevitas.core.scaling import ConstScaling
+        >>> int_quant = IntQuant(narrow_range=True, signed=True)
+        >>> scale, zero_point, bit_width = torch.tensor(0.01), torch.tensor(0.), torch.tensor(4.)
+        >>> inp = torch.Tensor([0.042, -0.053, 0.31, -0.44])
+        >>> out = int_quant(scale, zero_point, bit_width, inp)
+        >>> out
+        tensor([ 0.0400, -0.0500,  0.0700, -0.0700])
+
+    Note:
+        Maps to quant_type == QuantType.INT == 'INT' == 'int' in higher-level APIs.
+
+    Note:
+        Set env variable BREVITAS_JIT=1 to enable TorchScript compilation of this module.
+    """
+
     __constants__ = ['signed', 'narrow_range']
 
     def __init__(
@@ -154,7 +88,7 @@ class IntQuant(brevitas.jit.ScriptModule):
             signed: bool,
             float_to_int_impl: Module = RoundSte(),
             tensor_clamp_impl: Module = TensorClamp(),
-            quant_delay_steps: int = None):
+            quant_delay_steps: int = 0):
         super(IntQuant, self).__init__()
         self.float_to_int_impl = float_to_int_impl
         self.tensor_clamp_impl = tensor_clamp_impl
@@ -163,15 +97,16 @@ class IntQuant(brevitas.jit.ScriptModule):
         self.delay_wrapper = DelayWrapper(quant_delay_steps)
 
     @brevitas.jit.script_method_110_disabled
-    def to_int(self,
-               scale: Tensor,
-               zero_point: Tensor,
-               msb_clamp_bit_width: Tensor,
-               x: Tensor) -> Tensor:
+    def to_int(
+            self,
+            scale: Tensor,
+            zero_point: Tensor,
+            bit_width: Tensor,
+            x: Tensor) -> Tensor:
         y = x / scale
         y = y + zero_point
-        min_int_val = self.min_int(msb_clamp_bit_width)
-        max_int_val = self.max_int(msb_clamp_bit_width)
+        min_int_val = self.min_int(bit_width)
+        max_int_val = self.max_int(bit_width)
         y = self.tensor_clamp_impl(y, min_val=min_int_val, max_val=max_int_val)
         y = self.float_to_int_impl(y)
         return y
@@ -185,12 +120,13 @@ class IntQuant(brevitas.jit.ScriptModule):
         return max_int(self.signed, self.narrow_range, bit_width)
 
     @brevitas.jit.script_method
-    def forward(self,
-                scale: Tensor,
-                zero_point: Tensor,
-                msb_clamp_bit_width: Tensor,
-                x: Tensor) -> Tensor:
-        y_int = self.to_int(scale, zero_point, msb_clamp_bit_width, x)
+    def forward(
+            self,
+            scale: Tensor,
+            zero_point: Tensor,
+            bit_width: Tensor,
+            x: Tensor) -> Tensor:
+        y_int = self.to_int(scale, zero_point, bit_width, x)
         y = y_int - zero_point
         y = y * scale
         y = self.delay_wrapper(x, y)
