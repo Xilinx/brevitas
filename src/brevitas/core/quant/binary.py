@@ -55,6 +55,7 @@ from brevitas.core.quant.delay import DelayWrapper
 class BinaryQuant(brevitas.jit.ScriptModule):
     """
     ScriptModule that implements scaled uniform binary quantization of an input tensor.
+    Quantization is performed with :func:`~brevitas.function.ops_ste.binary_sign_ste`.
 
     Args:
         scaling_impl (Module): Module that returns a scale factor.
@@ -81,6 +82,9 @@ class BinaryQuant(brevitas.jit.ScriptModule):
     Note:
         Maps to quant_type == QuantType.BINARY == 'BINARY' == 'binary' when applied to weights
          in higher-level APIs.
+
+    Note:
+        Set env variable BREVITAS_JIT=1 to enable TorchScript compilation of this module.
     """
 
     def __init__(self, scaling_impl: Module, quant_delay_steps: int = 0):
@@ -103,6 +107,7 @@ class ClampedBinaryQuant(brevitas.jit.ScriptModule):
     ScriptModule that implements scaled uniform binary quantization of an input tensor. Before
     going through quantization, the input tensor is clamped between (- scale, scale), which
     on the backward pass zeroes gradients corresponding to inputs outside that range.
+    Quantization is performed with :func:`~brevitas.function.ops_ste.binary_sign_ste`.
 
     Args:
         scaling_impl (Module): Module that returns a scale factor.
@@ -132,6 +137,9 @@ class ClampedBinaryQuant(brevitas.jit.ScriptModule):
     Note:
         Maps to quant_type == QuantType.BINARY == 'BINARY' == 'binary' when applied to activations
          in higher-level APIs.
+
+    Note:
+        Set env variable BREVITAS_JIT=1 to enable TorchScript compilation of this module.
     """
 
 

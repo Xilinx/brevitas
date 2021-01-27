@@ -80,8 +80,7 @@ class TernaryQuant(brevitas.jit.ScriptModule):
         tensor(2.)
 
     Note:
-        Maps to quant_type == QuantType.TERNARY == 'TERNARY' == 'ternary' when applied to in
-        higher-level APIs.
+        Maps to quant_type == QuantType.TERNARY == 'TERNARY' == 'ternary' in higher-level APIs.
 
     Note:
         Set env variable BREVITAS_JIT=1 to enable TorchScript compilation of this module.
