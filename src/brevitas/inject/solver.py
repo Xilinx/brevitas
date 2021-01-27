@@ -232,11 +232,11 @@ def _solve_act_scaling_impl_type(qi):
 def _solve_restrict_scaling_type(qi):
     solver = partial(_solve_attr, name='restrict_scaling_type')
     qi = solver(qi, RestrictValueType.FP,
-                 {'restrict_scaling_impl': FloatRestrictValue,
-                  'int_scaling_impl': FloatIntScaling})
+                {'restrict_scaling_impl': FloatRestrictValue,
+                  'int_scaling_impl': IntScaling})
     qi = solver(qi, RestrictValueType.LOG_FP,
-                 {'restrict_scaling_impl': LogFloatRestrictValue,
-                  'int_scaling_impl': FloatIntScaling})
+                {'restrict_scaling_impl': LogFloatRestrictValue,
+                  'int_scaling_impl': IntScaling})
     qi = solver(qi, RestrictValueType.POWER_OF_TWO,
                  {'restrict_scaling_impl': PowerOfTwoRestrictValue,
                   'int_scaling_impl': PowerOfTwoIntScaling})
