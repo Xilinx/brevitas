@@ -45,11 +45,11 @@ import brevitas
 from brevitas.function.ops import min_int, max_int
 
 
-class FloatIntScaling(brevitas.jit.ScriptModule):
+class IntScaling(brevitas.jit.ScriptModule):
     __constants__ = ['signed', 'narrow_range']
 
     def __init__(self, signed: bool, narrow_range: bool):
-        super(FloatIntScaling, self).__init__()
+        super(IntScaling, self).__init__()
         self.signed = signed
         self.narrow_range = narrow_range
 
