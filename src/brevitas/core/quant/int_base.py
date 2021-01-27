@@ -54,7 +54,7 @@ class IntQuant(brevitas.jit.ScriptModule):
     according to an input scale, zero-point and bit-width.
 
     Args:
-        narrow_range (bool): Flag that determines whether restrict to a narrow range range or not.
+        narrow_range (bool): Flag that determines whether restrict quantization to a narrow range or not.
         signed (bool): Flag that determines whether to quantize to a signed range or not.
         float_to_int_impl (Module): Module that performs the conversion from floating point to
             integer representation. Default: RoundSte()

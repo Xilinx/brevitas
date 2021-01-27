@@ -47,63 +47,44 @@ from torch.nn import Module
 import brevitas
 from brevitas.function.ops_ste import round_ste
 from brevitas.core.utils import StatelessBuffer
-from .delay import DelayWrapper
+from brevitas.core.quant.delay import DelayWrapper
 
 
 class PrescaledRestrictIntQuantWithInputBitWidth(brevitas.jit.ScriptModule):
-    """ Wrapper around :class:`~brevitas.core.quant.IntQuant`, that is responsible for the actual quantization of the
-    input.
+    """
+    ScriptModule that wraps around an integer quantization implementation like
+    :class:`~brevitas.core.quant.IntQuant`. Zero-point is set to zero, scale is taken as input,
+    bit-width is computed from an input bit-width.
 
-    The modules tensor_clamp_impl and float_to_int_impl, and the booleans `signed` and `narrow_range` are required by
-    `IntQuant` to perform the quantization.
+     Args:
+        int_quant (Module): Module that implements integer quantization.
+        bit_width_impl (Module): Module that takes the input bit-width in and returns the bit-width
+            to be used for quantization.
 
-    In order to perform the actual quantization, it is required to determine the following values: scale, int_scale,
-    bit_width.
-    Scale is determined externally, int_scale is set to 1, while bit_width is determined internally through
-    msb_clamp_bit_width_impl.
-    Must be noted that there is a name overload and that the actual scale factor is obtained computing scale/int_scale.
+    Returns:
+        Tuple[Tensor, Tensor, Tensor, Tensor]: Quantized output in de-quantized format, scale,
+            zero-point, bit_width.
 
-    Parameters
-    ----------
-    narrow_range: Bool
-        Bool that determines whether to enable or not the narrow range representation.
-    signed: Bool
-        Bool that determines whether to use signed or unsigned integers.
-    tensor_clamp_impl: Module
-        Module that performs the clamping of the input values for a proper integer representation
-    msb_clamp_bit_width_impl: Module
-        Module that determines the bit_width for the integer conversion
-    float_to_int_impl: Module
-        Module that performs the conversion from floating point to integer representation
+    Examples:
+        >>> from brevitas.core.scaling import ConstScaling
+        >>> from brevitas.core.function_wrapper import Identity
+        >>> from brevitas.core.quant import IntQuant
+        >>> int_quant = IntQuant(narrow_range=True, signed=True)
+        >>> int_quant_wrapper = PrescaledRestrictIntQuantWithInputBitWidth(int_quant, Identity())
+        >>> scale, input_bit_width = torch.tensor(0.01), torch.tensor(4.)
+        >>> inp = torch.Tensor([0.042, -0.053, 0.31, -0.44])
+        >>> out, scale, zero_point, bit_width = int_quant_wrapper(inp, scale, input_bit_width)
+        >>> out
+        tensor([ 0.0400, -0.0500,  0.0700, -0.0700])
+        >>> scale
+        tensor(0.0100)
+        >>> zero_point
+        tensor(0.)
+        >>> bit_width
+        tensor(4.)
 
-    Attributes
-    ----------
-    int_quant : Module
-       Module that performs the actual quantization
-    msb_clamp_bit_width_impl : Int
-        Module that determines the bit_width for the integer conversion
-
-    Methods
-    -------
-    forward(x, scale, input_bit_width)
-        After determining internally the bit_width value, it calls IntQuant to perform the quantization of the input
-
-        Parameters
-        ----------
-        x: Tensor
-            Input tensor that will be quantized
-        scale: Tensor
-            Scale factor that regulates the conversion between integer and floating point version of the input tensor
-        input_bit_width
-            Bit_width that, going in `msb_clamp_bit_with`, is used to determine the bit_width for the quantization
-
-        Returns
-        -------
-        Tuple(Tensor, Tensor, Tensor)
-            Tuple with three values where:
-            y is the quantized Tensor;
-            scale is the scale factor;
-            bit_width is the bit_width of the quantization.
+    Note:
+        Set env variable BREVITAS_JIT=1 to enable TorchScript compilation of this module.
     """
     def __init__(self,
                  int_quant: Module,
@@ -118,64 +99,14 @@ class PrescaledRestrictIntQuantWithInputBitWidth(brevitas.jit.ScriptModule):
                 x: Tensor,
                 scale: Tensor,
                 input_bit_width: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
-        msb_clamp_bit_width = self.msb_clamp_bit_width_impl(input_bit_width)
+        bit_width = self.msb_clamp_bit_width_impl(input_bit_width)
         zero_point = self.zero_point()
-        y = self.int_quant(scale, zero_point, msb_clamp_bit_width, x)
-        return y, scale, zero_point, msb_clamp_bit_width
+        y = self.int_quant(scale, zero_point, bit_width, x)
+        return y, scale, zero_point, bit_width
 
 
 class PrescaledRestrictIntQuant(brevitas.jit.ScriptModule):
-    """ Wrapper around :class:`~brevitas.core.quant.IntQuant`, that is responsible for the actual quantization of the
-    input.
-
-    The modules tensor_clamp_impl and float_to_int_impl, and the booleans `signed` and `narrow_range` are required by
-    `IntQuant` to perform the quantization.
-
-    In order to perform the actual quantization, it is required to determine the following values: scale, int_scale,
-    bit_width.
-    Scale is determined externally, int_scale is set to 1, while bit_width is determined internally through
-    msb_clamp_bit_width_impl.
-    Must be noted that there is a name overload and that the actual scale factor is obtained computing scale/int_scale.
-
-    Parameters
-    ----------
-    narrow_range: Bool
-        Bool that determines whether to enable or not the narrow range representation.
-    signed: Bool
-        Bool that determines whether to use signed or unsigned integers.
-    tensor_clamp_impl: Module
-        Module that performs the clamping of the input values for a proper integer representation
-    msb_clamp_bit_width_impl: Module
-        Module that determines the bit_width for the integer conversion
-    float_to_int_impl: Module
-        Module that performs the conversion from floating point to integer representation
-
-    Attributes
-    ----------
-    int_quant: Module
-       Module that performs the actual quantization
-    msb_clamp_bit_width_impl: Int
-        Module that determines the bit_width for the integer conversion
-
-    Methods
-    -------
-    forward(x, scale)
-        After determining internally the bit_width value, it calls IntQuant to perform the quantization of the input
-
-        Parameters
-        ----------
-        x: Tensor
-            Input tensor that will be quantized
-        scale: Tensor
-            Scale factor that regulates the conversion between integer and floating point version of the input tensor
-
-        Returns
-        -------
-        Tuple(Tensor, Tensor, Tensor)
-            Tuple with three values where:
-            y is the quantized Tensor;
-            scale is the scale factor;
-            bit_width is the bit_width of the quantization.
+    """
     """
     def __init__(self,
                  int_quant: Module,
@@ -197,60 +128,52 @@ class PrescaledRestrictIntQuant(brevitas.jit.ScriptModule):
 
 
 class RescalingIntQuant(brevitas.jit.ScriptModule):
-    """ Wrapper around :class:`~brevitas.core.quant.IntQuant`, that is responsible for the actual quantization of the
-    input.
+    """
+    ScriptModule that wraps around an integer quantization implementation like
+    :class:`~brevitas.core.quant.IntQuant`. Scale, zero-point and bit-width are returned from their
+    respective implementations and passed on to the integer quantization implementation.
 
-    The modules tensor_clamp_impl and float_to_int_impl, and the booleans `signed` and `narrow_range` are required by
-    `IntQuant` to perform the quantization.
+     Args:
+        int_quant (Module): Module that implements integer quantization.
+        scaling_impl (Module): Module that takes in the input to quantize and returns a scale factor,
+            here interpreted as threshold on the floating-point range of quantization.
+        int_scaling_impl (Module): Module that takes in a bit-width and returns an integer scale
+            factor, here interpreted as threshold on the integer range of quantization.
+        zero_point_impl (Module): Module that returns an integer zero-point.
+        bit_width_impl (Module): Module that returns a bit-width.
 
-    The `int_scaling_impl` module is required to  determine int_scale.
+    Returns:
+        Tuple[Tensor, Tensor, Tensor, Tensor]: Quantized output in de-quantized format, scale,
+            zero-point, bit_width.
 
-    In order to perform the actual quantization, it is required to determine the following values: scale, int_scale,
-    bit_width. All values are determined internally.
-    Must be noted that there is a name overload and that the actual scale factor is obtained computing scale/int_scale.
+    Examples:
+        >>> from brevitas.core.scaling import ConstScaling
+        >>> from brevitas.core.zero_point import ZeroZeroPoint
+        >>> from brevitas.core.scaling import IntScaling
+        >>> from brevitas.core.quant import IntQuant
+        >>> from brevitas.core.bit_width import BitWidthConst
+        >>> int_quant_wrapper = RescalingIntQuant(
+        ...                         IntQuant(narrow_range=True, signed=True),
+        ...                         ConstScaling(0.1),
+        ...                         IntScaling(signed=True, narrow_range=True),
+        ...                         ZeroZeroPoint(),
+        ...                         BitWidthConst(4))
+        >>> inp = torch.Tensor([0.042, -0.053, 0.31, -0.44])
+        >>> out, scale, zero_point, bit_width = int_quant_wrapper(inp)
+        >>> out
+        tensor([ 0.0429, -0.0571,  0.1000, -0.1000])
+        >>> scale
+        tensor(0.0143)
+        >>> zero_point
+        tensor(0.)
+        >>> bit_width
+        tensor(4.)
 
-    Parameters
-    ----------
-    narrow_range: Bool
-        Bool that determines whether to enable or not the narrow range representation.
-    signed: Bool
-        Bool that determines whether to use signed or unsigned integers.
-    tensor_clamp_impl: Module
-        Module that performs the clamping of the input values for a proper integer representation
-    msb_clamp_bit_width_impl: Module
-        Module that determines the bit_width for the integer conversion
-    float_to_int_impl: Module
-        Module that performs the conversion from floating point to integer representation
+    Note:
+        scale = scaling_impl(x) / int_scaling_impl(bit_width)
 
-    Attributes
-    ----------
-    int_quant: Module
-       Module that performs the actual quantization
-    scaling_impl: Module
-        Module that is responsible for the computation of the scale factor
-    int_scaling_impl: Module
-        Module that is responsible for the computation of the int_scale factor
-    msb_clamp_bit_width_impl: Int
-        Module that determines the bit_width for the integer conversion
-
-    Methods
-    -------
-    forward(x)
-        After determining internally the bit_width value, the scale factor, and the int_scale factor
-        the method calls IntQuant to perform the quantization of the input.
-
-        Parameters
-        ----------
-        x: Tensor
-            Input tensor that will be quantized
-
-        Returns
-        -------
-        Tuple(Tensor, Tensor, Tensor)
-            Tuple with three values where:
-            y is the quantized Tensor;
-            scale is the scale factor;
-            bit_width is the bit_width of the quantization.
+    Note:
+        Set env variable BREVITAS_JIT=1 to enable TorchScript compilation of this module.
     """
     def __init__(self,
                  int_quant: Module,
@@ -267,16 +190,18 @@ class RescalingIntQuant(brevitas.jit.ScriptModule):
 
     @brevitas.jit.script_method
     def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
-        msb_clamp_bit_width = self.msb_clamp_bit_width_impl()
+        bit_width = self.msb_clamp_bit_width_impl()
         threshold = self.scaling_impl(x)
-        int_scale = self.int_scaling_impl(msb_clamp_bit_width)
-        scale = threshold / int_scale
-        zero_point = self.zero_point_impl(x, scale, self.int_quant.min_int(msb_clamp_bit_width))
-        y = self.int_quant(scale, zero_point, msb_clamp_bit_width, x)
-        return y, scale, zero_point, msb_clamp_bit_width
+        int_threshold = self.int_scaling_impl(bit_width)
+        scale = threshold / int_threshold
+        zero_point = self.zero_point_impl(x, scale, self.int_quant.min_int(bit_width))
+        y = self.int_quant(scale, zero_point, bit_width, x)
+        return y, scale, zero_point, bit_width
 
 
 class TruncIntQuant(brevitas.jit.ScriptModule):
+    """
+    """
     def __init__(
             self,
             float_to_int_impl: Module,
