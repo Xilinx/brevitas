@@ -2,23 +2,30 @@ import os
 import glob
 import warnings
 from packaging import version
+from pkg_resources import get_distribution, DistributionNotFound
 
-import docrep
 from torch.utils import cpp_extension
 import torch
 
 import brevitas.jit as jit
 from brevitas import config
 
-docstrings = docrep.DocstringProcessor()
 
+pkg_dir = os.path.dirname(os.path.abspath(__file__))
 torch_version = version.parse(torch.__version__)
 
-extensions_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'csrc')
-sources = glob.glob(os.path.join(extensions_dir, '*.cpp'))
-sources = [os.path.join(extensions_dir, s) for s in sources]
+try:
+    __version__ = get_distribution(__name__).version
+except DistributionNotFound:
+    # package is not installed
+    pass
+
 
 if config.JIT_ENABLED:
+    extensions_dir = os.path.join(pkg_dir, 'csrc')
+    sources = glob.glob(os.path.join(extensions_dir, '*.cpp'))
+    sources = [os.path.join(extensions_dir, s) for s in sources]
+
     try:
         cpp_extension.load(
             name='autograd_ste_ops',

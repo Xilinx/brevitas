@@ -55,8 +55,9 @@ def read_requirements(filename):
     return read(REQUIREMENTS_DIR, filename).splitlines()
 
 
-setup(name="Brevitas",
-      version="0.2.0-alpha",
+setup(name="brevitas",
+      use_scm_version=True,
+      setup_requires=read_requirements('requirements-setup.txt'),
       description="Quantization-aware training in PyTorch",
       long_description=read(PROJECT_ROOT, 'README.md'),
       long_description_content_type="text/markdown",
