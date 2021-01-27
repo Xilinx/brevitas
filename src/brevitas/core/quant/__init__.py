@@ -8,4 +8,3 @@ from .ternary import TernaryQuant
 from .int_base import IntQuant
 from .int import TruncIntQuant, RescalingIntQuant, PrescaledRestrictIntQuant
 from .int import PrescaledRestrictIntQuantWithInputBitWidth
-from .placeholder import IdentityPrescaledQuant, IdentityQuant
