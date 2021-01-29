@@ -73,6 +73,7 @@ class WeightQuantProxyProtocol(ParameterQuantProxyProtocol, Protocol):
 @runtime_checkable
 class BiasQuantProxyProtocol(ParameterQuantProxyProtocol, Protocol):
     requires_input_bit_width: bool
+    requires_input_scale: bool
 
     def forward(
             self,
