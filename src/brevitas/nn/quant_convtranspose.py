@@ -159,7 +159,7 @@ class QuantConvTranspose2d(QuantWBIOL, ConvTranspose2d):
             groups: int = 1,
             bias: bool = True,
             weight_quant: Union[WeightQuantProxyProtocol, Type[Injector]] = Int8WeightPerTensorFloat,
-            bias_quant: Union[BiasQuantProxyProtocol, Type[Injector]] = FloatBias,
+            bias_quant: Union[BiasQuantProxyProtocol, Type[Injector]] = None,
             input_quant: Union[ActQuantProxyProtocol, Type[Injector]] = None,
             output_quant: Union[ActQuantProxyProtocol, Type[Injector]] = None,
             return_quant_tensor: bool = False,
