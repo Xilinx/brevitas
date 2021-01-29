@@ -75,7 +75,7 @@ class QuantAccMixin(object):
             acc_quant_injector = Injector.let(**none_inject)
             acc_quant_injector = update_aqi(acc_quant_injector)
             acc_quant = proxy_from_injector_impl(acc_quant_injector)
-        elif issubclass(acc_quant, Injector):
+        elif isinstance(acc_quant, type) and issubclass(acc_quant, Injector):
             assert proxy_from_injector_impl is not None
             acc_quant_injector = acc_quant
             acc_quant_injector = update_aqi(acc_quant_injector)

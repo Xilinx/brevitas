@@ -76,7 +76,7 @@ class QuantActMixin(object):
             act_quant_injector = act_quant_injector.let(act_impl=act_impl)
             act_quant_injector = update_aqi(act_quant_injector)
             act_quant = proxy_from_injector_impl(act_quant_injector)
-        elif issubclass(act_quant, Injector):
+        elif isinstance(act_quant, type) and issubclass(act_quant, Injector):
             assert proxy_from_injector_impl is not None
             act_quant_injector = act_quant
             act_quant_injector = act_quant_injector.let(passthrough_act=passthrough_act)

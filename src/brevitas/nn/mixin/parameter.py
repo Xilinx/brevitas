@@ -50,6 +50,7 @@ from brevitas.proxy.parameter_quant import WeightQuantProxyProtocol, BiasQuantPr
 from brevitas.proxy.parameter_quant import ParameterQuantProxyFromInjector
 from brevitas.proxy.parameter_quant import ParameterQuantProxyProtocol
 
+
 class QuantParameterMixin(object):
     __metaclass__ = ABCMeta
 
@@ -74,7 +75,7 @@ class QuantParameterMixin(object):
             parameter_quant_injector = Injector.let(tensor_quant=None)
             parameter_quant_injector = update_pqi(parameter_quant_injector)
             parameter_quant = proxy_from_injector_impl(parameter_quant_injector)
-        elif issubclass(parameter_quant, Injector):
+        elif isinstance(parameter_quant, type) and issubclass(parameter_quant, Injector):
             assert proxy_from_injector_impl is not None
             parameter_quant_injector = parameter_quant
             parameter_quant_injector = update_pqi(parameter_quant_injector)
