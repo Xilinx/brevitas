@@ -18,16 +18,16 @@ import os
 import sys
 import brevitas
 import sphinx_rtd_theme
-# sys.path.insert(0, os.path.abspath('../..'))
+
 sys.path.insert(0, os.path.abspath(brevitas.__file__))
 # -- Project information -----------------------------------------------------
 
 project = 'Brevitas'
-copyright = '2019, Alessandro Pappalardo'
+copyright = '2021 - Xilinx, Inc'
 author = 'Alessandro Pappalardo'
 
 # The full version, including alpha/beta/rc tags
-release = '0.2.0-alpha'
+release = brevitas.__version__
 
 
 # -- General configuration ---------------------------------------------------
@@ -36,7 +36,7 @@ release = '0.2.0-alpha'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'm2r',
+    'm2r2',
     'sphinx_rtd_theme',
     'sphinx.ext.autodoc',
     'sphinx.ext.napoleon',
@@ -54,7 +54,7 @@ napoleon_use_param = True
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = []
-autodoc_mock_imports = ['_C']
+autodoc_mock_imports = []
 
 
 # -- Options for HTML output -------------------------------------------------

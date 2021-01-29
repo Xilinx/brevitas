@@ -4,6 +4,14 @@ brevitas.utils package
 Submodules
 ----------
 
+brevitas.utils.jit\_utils module
+--------------------------------
+
+.. automodule:: brevitas.utils.jit_utils
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 brevitas.utils.logging module
 -----------------------------
 
@@ -35,7 +43,6 @@ brevitas.utils.torch\_utils module
    :members:
    :undoc-members:
    :show-inheritance:
-
 
 Module contents
 ---------------

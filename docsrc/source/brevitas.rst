@@ -5,11 +5,18 @@ Subpackages
 -----------
 
 .. toctree::
+   :maxdepth: 4
 
    brevitas.core
+   brevitas.export
    brevitas.function
+   brevitas.graph
+   brevitas.inject
+   brevitas.loss
    brevitas.nn
+   brevitas.onnx
    brevitas.proxy
+   brevitas.quant
    brevitas.utils
 
 Submodules
@@ -23,6 +30,14 @@ brevitas.config module
    :undoc-members:
    :show-inheritance:
 
+brevitas.jit module
+-------------------
+
+.. automodule:: brevitas.jit
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 brevitas.quant\_tensor module
 -----------------------------
 
@@ -30,7 +45,6 @@ brevitas.quant\_tensor module
    :members:
    :undoc-members:
    :show-inheritance:
-
 
 Module contents
 ---------------

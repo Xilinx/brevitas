@@ -1,38 +1,41 @@
 
 
 <!DOCTYPE html>
-<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
-<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8">
+  <meta charset="utf-8" />
   
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   
-  <title>brevitas.core package &mdash; Brevitas 0.2.0-alpha documentation</title>
+  <title>brevitas.core package &mdash; Brevitas 0.2.0b1.dev0+gc32fb31.d20210127 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+
+  
   
 
   
   
-  
+
   
 
   
-  <script type="text/javascript" src="_static/js/modernizr.min.js"></script>
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
   
     
       <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
         <script src="_static/jquery.js"></script>
         <script src="_static/underscore.js"></script>
         <script src="_static/doctools.js"></script>
-        <script src="_static/language_data.js"></script>
     
     <script type="text/javascript" src="_static/js/theme.js"></script>
 
     
-
-  
-  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" /> 
 </head>
@@ -71,6 +74,7 @@
           
         </div>
 
+        
         <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
           
             
@@ -81,13 +85,11 @@
               <!-- Local TOC -->
               <div class="local-toc"><ul>
 <li><a class="reference internal" href="#">brevitas.core package</a><ul>
+<li><a class="reference internal" href="#subpackages">Subpackages</a></li>
 <li><a class="reference internal" href="#submodules">Submodules</a></li>
-<li><a class="reference internal" href="#module-brevitas.core.bit_width">brevitas.core.bit_width module</a></li>
-<li><a class="reference internal" href="#module-brevitas.core.function_wrapper">brevitas.core.function_wrapper module</a></li>
-<li><a class="reference internal" href="#module-brevitas.core.quant">brevitas.core.quant module</a></li>
 <li><a class="reference internal" href="#module-brevitas.core.restrict_val">brevitas.core.restrict_val module</a></li>
-<li><a class="reference internal" href="#module-brevitas.core.scaling">brevitas.core.scaling module</a></li>
-<li><a class="reference internal" href="#module-brevitas.core.stats">brevitas.core.stats module</a></li>
+<li><a class="reference internal" href="#module-brevitas.core.utils">brevitas.core.utils module</a></li>
+<li><a class="reference internal" href="#module-brevitas.core.zero_point">brevitas.core.zero_point module</a></li>
 <li><a class="reference internal" href="#module-brevitas.core">Module contents</a></li>
 </ul>
 </li>
@@ -96,6 +98,7 @@
             
           
         </div>
+        
       </div>
     </nav>
 
@@ -130,18 +133,20 @@
 
 
 
+
+
 <div role="navigation" aria-label="breadcrumbs navigation">
 
   <ul class="wy-breadcrumbs">
     
-      <li><a href="index.html">Docs</a> &raquo;</li>
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
         
       <li>brevitas.core package</li>
     
     
       <li class="wy-breadcrumbs-aside">
         
-            
+          
             <a href="_sources/brevitas.core.rst.txt" rel="nofollow"> View page source</a>
           
         
@@ -157,71 +162,67 @@
             
   <div class="section" id="brevitas-core-package">
 <h1>brevitas.core package<a class="headerlink" href="#brevitas-core-package" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="subpackages">
+<h2>Subpackages<a class="headerlink" href="#subpackages" title="Permalink to this headline">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="brevitas.core.bit_width.html">brevitas.core.bit_width package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.bit_width.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.bit_width.html#module-brevitas.core.bit_width.const">brevitas.core.bit_width.const module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.bit_width.html#module-brevitas.core.bit_width.parameter">brevitas.core.bit_width.parameter module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.bit_width.html#module-brevitas.core.bit_width">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="brevitas.core.function_wrapper.html">brevitas.core.function_wrapper package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.function_wrapper.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.function_wrapper.html#module-brevitas.core.function_wrapper.clamp">brevitas.core.function_wrapper.clamp module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.function_wrapper.html#module-brevitas.core.function_wrapper.misc">brevitas.core.function_wrapper.misc module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.function_wrapper.html#module-brevitas.core.function_wrapper.ops_ste">brevitas.core.function_wrapper.ops_ste module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.function_wrapper.html#module-brevitas.core.function_wrapper.shape">brevitas.core.function_wrapper.shape module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.function_wrapper.html#module-brevitas.core.function_wrapper">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="brevitas.core.quant.html">brevitas.core.quant package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.quant.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.quant.html#module-brevitas.core.quant.binary">brevitas.core.quant.binary module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.quant.html#module-brevitas.core.quant.delay">brevitas.core.quant.delay module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.quant.html#module-brevitas.core.quant.int">brevitas.core.quant.int module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.quant.html#module-brevitas.core.quant.int_base">brevitas.core.quant.int_base module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.quant.html#module-brevitas.core.quant.ternary">brevitas.core.quant.ternary module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.quant.html#module-brevitas.core.quant">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="brevitas.core.scaling.html">brevitas.core.scaling package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.scaling.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.scaling.html#module-brevitas.core.scaling.int_scaling">brevitas.core.scaling.int_scaling module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.scaling.html#module-brevitas.core.scaling.runtime">brevitas.core.scaling.runtime module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.scaling.html#module-brevitas.core.scaling.standalone">brevitas.core.scaling.standalone module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.scaling.html#module-brevitas.core.scaling">Module contents</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="brevitas.core.stats.html">brevitas.core.stats package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.stats.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.stats.html#module-brevitas.core.stats.stats_op">brevitas.core.stats.stats_op module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.stats.html#module-brevitas.core.stats.stats_wrapper">brevitas.core.stats.stats_wrapper module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.stats.html#module-brevitas.core.stats.view_wrapper">brevitas.core.stats.view_wrapper module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="brevitas.core.stats.html#module-brevitas.core.stats">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
 <div class="section" id="submodules">
 <h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
 </div>
-<div class="section" id="module-brevitas.core.bit_width">
-<span id="brevitas-core-bit-width-module"></span><h2>brevitas.core.bit_width module<a class="headerlink" href="#module-brevitas.core.bit_width" title="Permalink to this headline">¶</a></h2>
-<dl class="class">
-<dt id="brevitas.core.bit_width.BitWidthConst">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.bit_width.</code><code class="sig-name descname">BitWidthConst</code><span class="sig-paren">(</span><em class="sig-param">bit_width_init</em>, <em class="sig-param">restrict_bit_width_type</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.bit_width.BitWidthConst" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
-</dd></dl>
-
-<dl class="class">
-<dt id="brevitas.core.bit_width.BitWidthImplType">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.bit_width.</code><code class="sig-name descname">BitWidthImplType</code><a class="headerlink" href="#brevitas.core.bit_width.BitWidthImplType" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="brevitas.utils.html#brevitas.utils.python_utils.AutoName" title="brevitas.utils.python_utils.AutoName"><code class="xref py py-class docutils literal notranslate"><span class="pre">brevitas.utils.python_utils.AutoName</span></code></a></p>
-<p>An enumeration.</p>
-<dl class="attribute">
-<dt id="brevitas.core.bit_width.BitWidthImplType.CONST">
-<code class="sig-name descname">CONST</code><em class="property"> = 'CONST'</em><a class="headerlink" href="#brevitas.core.bit_width.BitWidthImplType.CONST" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="brevitas.core.bit_width.BitWidthImplType.PARAMETER">
-<code class="sig-name descname">PARAMETER</code><em class="property"> = 'PARAMETER'</em><a class="headerlink" href="#brevitas.core.bit_width.BitWidthImplType.PARAMETER" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="brevitas.core.bit_width.BitWidthParameter">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.bit_width.</code><code class="sig-name descname">BitWidthParameter</code><span class="sig-paren">(</span><em class="sig-param">bit_width_init</em>, <em class="sig-param">min_overall_bit_width</em>, <em class="sig-param">max_overall_bit_width</em>, <em class="sig-param">restrict_bit_width_type</em>, <em class="sig-param">override_pretrained</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.bit_width.BitWidthParameter" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
-</dd></dl>
-
-<dl class="class">
-<dt id="brevitas.core.bit_width.IdentityBitWidth">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.bit_width.</code><code class="sig-name descname">IdentityBitWidth</code><span class="sig-paren">(</span><em class="sig-param">optimize=None</em>, <em class="sig-param">_qualified_name=None</em>, <em class="sig-param">_compilation_unit=None</em>, <em class="sig-param">_cpp_module=None</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.bit_width.IdentityBitWidth" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
-</dd></dl>
-
-<dl class="class">
-<dt id="brevitas.core.bit_width.LsbTruncParameterBitWidth">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.bit_width.</code><code class="sig-name descname">LsbTruncParameterBitWidth</code><span class="sig-paren">(</span><em class="sig-param">ls_bit_width_to_trunc</em>, <em class="sig-param">trunc_at_least_init_val</em>, <em class="sig-param">min_overall_bit_width</em>, <em class="sig-param">max_overall_bit_width</em>, <em class="sig-param">bit_width_impl_type</em>, <em class="sig-param">override_pretrained</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.bit_width.LsbTruncParameterBitWidth" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
-</dd></dl>
-
-<dl class="class">
-<dt id="brevitas.core.bit_width.MsbClampParameterBitWidth">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.bit_width.</code><code class="sig-name descname">MsbClampParameterBitWidth</code><span class="sig-paren">(</span><em class="sig-param">ms_bit_width_to_clamp</em>, <em class="sig-param">clamp_at_least_init_val</em>, <em class="sig-param">min_overall_bit_width</em>, <em class="sig-param">max_overall_bit_width</em>, <em class="sig-param">bit_width_impl_type</em>, <em class="sig-param">override_pretrained</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.bit_width.MsbClampParameterBitWidth" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
-</dd></dl>
-
-<dl class="class">
-<dt id="brevitas.core.bit_width.RemoveBitwidthParameter">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.bit_width.</code><code class="sig-name descname">RemoveBitwidthParameter</code><span class="sig-paren">(</span><em class="sig-param">bit_width_to_remove</em>, <em class="sig-param">remove_at_least_init_val</em>, <em class="sig-param">restrict_bit_width_impl</em>, <em class="sig-param">override_pretrained</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.bit_width.RemoveBitwidthParameter" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
-</dd></dl>
-
-<dl class="class">
-<dt id="brevitas.core.bit_width.ZeroLsbTruncBitWidth">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.bit_width.</code><code class="sig-name descname">ZeroLsbTruncBitWidth</code><span class="sig-paren">(</span><em class="sig-param">optimize=None</em>, <em class="sig-param">_qualified_name=None</em>, <em class="sig-param">_compilation_unit=None</em>, <em class="sig-param">_cpp_module=None</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.bit_width.ZeroLsbTruncBitWidth" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
-<dl class="method">
-<dt id="brevitas.core.bit_width.ZeroLsbTruncBitWidth.forward">
-<code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">input_bit_width</em>, <em class="sig-param">zero_hw_sentinel</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.bit_width.ZeroLsbTruncBitWidth.forward" title="Permalink to this definition">¶</a></dt>
+<div class="section" id="module-brevitas.core.restrict_val">
+<span id="brevitas-core-restrict-val-module"></span><h2>brevitas.core.restrict_val module<a class="headerlink" href="#module-brevitas.core.restrict_val" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="brevitas.core.restrict_val.FloatRestrictValue">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.restrict_val.</code><code class="sig-name descname">FloatRestrictValue</code><a class="headerlink" href="#brevitas.core.restrict_val.FloatRestrictValue" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
+<dl class="py method">
+<dt id="brevitas.core.restrict_val.FloatRestrictValue.forward">
+<code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">x</span></em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.restrict_val.FloatRestrictValue.forward" title="Permalink to this definition">¶</a></dt>
 <dd><p>Defines the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">
@@ -231,181 +232,36 @@ this function, one should call the <code class="xref py py-class docutils litera
 instead of this since the former takes care of running the
 registered hooks while the latter silently ignores them.</p>
 </div>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
+</dd>
+</dl>
 </dd></dl>
 
+<dl class="py method">
+<dt id="brevitas.core.restrict_val.FloatRestrictValue.restrict_init_float">
+<code class="sig-name descname">restrict_init_float</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">x</span></em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.restrict_val.FloatRestrictValue.restrict_init_float" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></p>
+</dd>
+</dl>
 </dd></dl>
 
-</div>
-<div class="section" id="module-brevitas.core.function_wrapper">
-<span id="brevitas-core-function-wrapper-module"></span><h2>brevitas.core.function_wrapper module<a class="headerlink" href="#module-brevitas.core.function_wrapper" title="Permalink to this headline">¶</a></h2>
-<dl class="class">
-<dt id="brevitas.core.function_wrapper.CeilSte">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.function_wrapper.</code><code class="sig-name descname">CeilSte</code><a class="headerlink" href="#brevitas.core.function_wrapper.CeilSte" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
-</dd></dl>
-
-<dl class="class">
-<dt id="brevitas.core.function_wrapper.ClampMin">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.function_wrapper.</code><code class="sig-name descname">ClampMin</code><span class="sig-paren">(</span><em class="sig-param">min_val</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.function_wrapper.ClampMin" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
-</dd></dl>
-
-<dl class="class">
-<dt id="brevitas.core.function_wrapper.ConstScalarClamp">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.function_wrapper.</code><code class="sig-name descname">ConstScalarClamp</code><span class="sig-paren">(</span><em class="sig-param">min_val</em>, <em class="sig-param">max_val</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.function_wrapper.ConstScalarClamp" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
-</dd></dl>
-
-<dl class="class">
-<dt id="brevitas.core.function_wrapper.FloorSte">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.function_wrapper.</code><code class="sig-name descname">FloorSte</code><a class="headerlink" href="#brevitas.core.function_wrapper.FloorSte" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
-</dd></dl>
-
-<dl class="class">
-<dt id="brevitas.core.function_wrapper.Identity">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.function_wrapper.</code><code class="sig-name descname">Identity</code><a class="headerlink" href="#brevitas.core.function_wrapper.Identity" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
-</dd></dl>
-
-<dl class="class">
-<dt id="brevitas.core.function_wrapper.LogTwo">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.function_wrapper.</code><code class="sig-name descname">LogTwo</code><a class="headerlink" href="#brevitas.core.function_wrapper.LogTwo" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
-</dd></dl>
-
-<dl class="class">
-<dt id="brevitas.core.function_wrapper.OverBatchOverOutputChannelView">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.function_wrapper.</code><code class="sig-name descname">OverBatchOverOutputChannelView</code><a class="headerlink" href="#brevitas.core.function_wrapper.OverBatchOverOutputChannelView" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
-</dd></dl>
-
-<dl class="class">
-<dt id="brevitas.core.function_wrapper.OverBatchOverTensorView">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.function_wrapper.</code><code class="sig-name descname">OverBatchOverTensorView</code><a class="headerlink" href="#brevitas.core.function_wrapper.OverBatchOverTensorView" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
-</dd></dl>
-
-<dl class="class">
-<dt id="brevitas.core.function_wrapper.OverOutputChannelView">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.function_wrapper.</code><code class="sig-name descname">OverOutputChannelView</code><a class="headerlink" href="#brevitas.core.function_wrapper.OverOutputChannelView" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
-</dd></dl>
-
-<dl class="class">
-<dt id="brevitas.core.function_wrapper.OverTensorView">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.function_wrapper.</code><code class="sig-name descname">OverTensorView</code><a class="headerlink" href="#brevitas.core.function_wrapper.OverTensorView" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
-</dd></dl>
-
-<dl class="class">
-<dt id="brevitas.core.function_wrapper.PowerOfTwo">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.function_wrapper.</code><code class="sig-name descname">PowerOfTwo</code><a class="headerlink" href="#brevitas.core.function_wrapper.PowerOfTwo" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
-</dd></dl>
-
-<dl class="class">
-<dt id="brevitas.core.function_wrapper.RoundSte">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.function_wrapper.</code><code class="sig-name descname">RoundSte</code><a class="headerlink" href="#brevitas.core.function_wrapper.RoundSte" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
-</dd></dl>
-
-<dl class="class">
-<dt id="brevitas.core.function_wrapper.TensorClamp">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.function_wrapper.</code><code class="sig-name descname">TensorClamp</code><a class="headerlink" href="#brevitas.core.function_wrapper.TensorClamp" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
-</dd></dl>
-
-<dl class="class">
-<dt id="brevitas.core.function_wrapper.TensorClampSte">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.function_wrapper.</code><code class="sig-name descname">TensorClampSte</code><a class="headerlink" href="#brevitas.core.function_wrapper.TensorClampSte" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
-</dd></dl>
-
-</div>
-<div class="section" id="module-brevitas.core.quant">
-<span id="brevitas-core-quant-module"></span><h2>brevitas.core.quant module<a class="headerlink" href="#module-brevitas.core.quant" title="Permalink to this headline">¶</a></h2>
-<dl class="class">
-<dt id="brevitas.core.quant.IdentityQuant">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.quant.</code><code class="sig-name descname">IdentityQuant</code><a class="headerlink" href="#brevitas.core.quant.IdentityQuant" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
-<dl class="method">
-<dt id="brevitas.core.quant.IdentityQuant.forward">
-<code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">x</em>, <em class="sig-param">zero_hw_sentinel</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.quant.IdentityQuant.forward" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt id="brevitas.core.restrict_val.FloatRestrictValue.restrict_init_inplace_module">
+<code class="sig-name descname">restrict_init_inplace_module</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.restrict_val.FloatRestrictValue.restrict_init_inplace_module" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-</dd></dl>
-
-<dl class="class">
-<dt id="brevitas.core.quant.ClampedBinaryQuant">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.quant.</code><code class="sig-name descname">ClampedBinaryQuant</code><span class="sig-paren">(</span><em class="sig-param">scaling_impl</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.quant.ClampedBinaryQuant" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
-</dd></dl>
-
-<dl class="class">
-<dt id="brevitas.core.quant.IntQuant">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.quant.</code><code class="sig-name descname">IntQuant</code><span class="sig-paren">(</span><em class="sig-param">narrow_range</em>, <em class="sig-param">signed</em>, <em class="sig-param">float_to_int_impl</em>, <em class="sig-param">tensor_clamp_impl</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.quant.IntQuant" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
-</dd></dl>
-
-<dl class="class">
-<dt id="brevitas.core.quant.PrescaledRestrictIntQuantWithInputBitWidth">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.quant.</code><code class="sig-name descname">PrescaledRestrictIntQuantWithInputBitWidth</code><span class="sig-paren">(</span><em class="sig-param">narrow_range</em>, <em class="sig-param">signed</em>, <em class="sig-param">tensor_clamp_impl</em>, <em class="sig-param">msb_clamp_bit_width_impl</em>, <em class="sig-param">float_to_int_impl</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.quant.PrescaledRestrictIntQuantWithInputBitWidth" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
-</dd></dl>
-
-<dl class="class">
-<dt id="brevitas.core.quant.IdentityPrescaledIntQuant">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.quant.</code><code class="sig-name descname">IdentityPrescaledIntQuant</code><a class="headerlink" href="#brevitas.core.quant.IdentityPrescaledIntQuant" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
-</dd></dl>
-
-<dl class="class">
-<dt id="brevitas.core.quant.QuantType">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.quant.</code><code class="sig-name descname">QuantType</code><a class="headerlink" href="#brevitas.core.quant.QuantType" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="brevitas.utils.html#brevitas.utils.python_utils.AutoName" title="brevitas.utils.python_utils.AutoName"><code class="xref py py-class docutils literal notranslate"><span class="pre">brevitas.utils.python_utils.AutoName</span></code></a></p>
-<p>An enumeration.</p>
-<dl class="attribute">
-<dt id="brevitas.core.quant.QuantType.BINARY">
-<code class="sig-name descname">BINARY</code><em class="property"> = 'BINARY'</em><a class="headerlink" href="#brevitas.core.quant.QuantType.BINARY" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt id="brevitas.core.restrict_val.FloatRestrictValue.restrict_init_module">
+<code class="sig-name descname">restrict_init_module</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.restrict_val.FloatRestrictValue.restrict_init_module" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="brevitas.core.quant.QuantType.FP">
-<code class="sig-name descname">FP</code><em class="property"> = 'FP'</em><a class="headerlink" href="#brevitas.core.quant.QuantType.FP" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="brevitas.core.quant.QuantType.INT">
-<code class="sig-name descname">INT</code><em class="property"> = 'INT'</em><a class="headerlink" href="#brevitas.core.quant.QuantType.INT" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="brevitas.core.quant.QuantType.TERNARY">
-<code class="sig-name descname">TERNARY</code><em class="property"> = 'TERNARY'</em><a class="headerlink" href="#brevitas.core.quant.QuantType.TERNARY" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="brevitas.core.quant.BinaryQuant">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.quant.</code><code class="sig-name descname">BinaryQuant</code><span class="sig-paren">(</span><em class="sig-param">scaling_impl</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.quant.BinaryQuant" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
-</dd></dl>
-
-<dl class="class">
-<dt id="brevitas.core.quant.TernaryQuant">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.quant.</code><code class="sig-name descname">TernaryQuant</code><span class="sig-paren">(</span><em class="sig-param">scaling_impl</em>, <em class="sig-param">threshold</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.quant.TernaryQuant" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
-</dd></dl>
-
-<dl class="class">
-<dt id="brevitas.core.quant.RescalingIntQuant">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.quant.</code><code class="sig-name descname">RescalingIntQuant</code><span class="sig-paren">(</span><em class="sig-param">narrow_range</em>, <em class="sig-param">runtime</em>, <em class="sig-param">signed</em>, <em class="sig-param">scaling_impl</em>, <em class="sig-param">int_scaling_impl</em>, <em class="sig-param">tensor_clamp_impl</em>, <em class="sig-param">msb_clamp_bit_width_impl</em>, <em class="sig-param">float_to_int_impl</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.quant.RescalingIntQuant" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
-<dl class="method">
-<dt id="brevitas.core.quant.RescalingIntQuant.scaling_init_from_min_max">
-<em class="property">static </em><code class="sig-name descname">scaling_init_from_min_max</code><span class="sig-paren">(</span><em class="sig-param">min_val_init</em>, <em class="sig-param">max_val_init</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.quant.RescalingIntQuant.scaling_init_from_min_max" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt id="brevitas.core.restrict_val.FloatRestrictValue.restrict_init_tensor">
+<code class="sig-name descname">restrict_init_tensor</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">x</span></em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.restrict_val.FloatRestrictValue.restrict_init_tensor" title="Permalink to this definition">¶</a></dt>
 <dd><dl class="field-list simple">
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
@@ -413,109 +269,20 @@ registered hooks while the latter silently ignores them.</p>
 </dl>
 </dd></dl>
 
-</dd></dl>
-
-<dl class="class">
-<dt id="brevitas.core.quant.PrescaledRestrictIntQuant">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.quant.</code><code class="sig-name descname">PrescaledRestrictIntQuant</code><span class="sig-paren">(</span><em class="sig-param">narrow_range</em>, <em class="sig-param">signed</em>, <em class="sig-param">tensor_clamp_impl</em>, <em class="sig-param">msb_clamp_bit_width_impl</em>, <em class="sig-param">float_to_int_impl</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.quant.PrescaledRestrictIntQuant" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
-</dd></dl>
-
-</div>
-<div class="section" id="module-brevitas.core.restrict_val">
-<span id="brevitas-core-restrict-val-module"></span><h2>brevitas.core.restrict_val module<a class="headerlink" href="#module-brevitas.core.restrict_val" title="Permalink to this headline">¶</a></h2>
-<dl class="class">
-<dt id="brevitas.core.restrict_val.FloatToIntImplType">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.restrict_val.</code><code class="sig-name descname">FloatToIntImplType</code><a class="headerlink" href="#brevitas.core.restrict_val.FloatToIntImplType" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="brevitas.utils.html#brevitas.utils.python_utils.AutoName" title="brevitas.utils.python_utils.AutoName"><code class="xref py py-class docutils literal notranslate"><span class="pre">brevitas.utils.python_utils.AutoName</span></code></a></p>
-<p>An enumeration.</p>
-<dl class="attribute">
-<dt id="brevitas.core.restrict_val.FloatToIntImplType.CEIL">
-<code class="sig-name descname">CEIL</code><em class="property"> = 'CEIL'</em><a class="headerlink" href="#brevitas.core.restrict_val.FloatToIntImplType.CEIL" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="brevitas.core.restrict_val.FloatToIntImplType.FLOOR">
-<code class="sig-name descname">FLOOR</code><em class="property"> = 'FLOOR'</em><a class="headerlink" href="#brevitas.core.restrict_val.FloatToIntImplType.FLOOR" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="brevitas.core.restrict_val.FloatToIntImplType.ROUND">
-<code class="sig-name descname">ROUND</code><em class="property"> = 'ROUND'</em><a class="headerlink" href="#brevitas.core.restrict_val.FloatToIntImplType.ROUND" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt id="brevitas.core.restrict_val.FloatRestrictValue.training">
+<code class="sig-name descname">training</code><em class="property">: bool</em><a class="headerlink" href="#brevitas.core.restrict_val.FloatRestrictValue.training" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
 
-<dl class="class">
-<dt id="brevitas.core.restrict_val.RestrictValue">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.restrict_val.</code><code class="sig-name descname">RestrictValue</code><span class="sig-paren">(</span><em class="sig-param">restrict_value_type</em>, <em class="sig-param">float_to_int_impl_type</em>, <em class="sig-param">min_val</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.restrict_val.RestrictValue" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
-<dl class="method">
-<dt id="brevitas.core.restrict_val.RestrictValue.restrict_value_op">
-<em class="property">static </em><code class="sig-name descname">restrict_value_op</code><span class="sig-paren">(</span><em class="sig-param">restrict_value_type</em>, <em class="sig-param">restrict_value_op_impl_type</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.restrict_val.RestrictValue.restrict_value_op" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="brevitas.core.restrict_val.RestrictValueOpImplType">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.restrict_val.</code><code class="sig-name descname">RestrictValueOpImplType</code><a class="headerlink" href="#brevitas.core.restrict_val.RestrictValueOpImplType" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="brevitas.utils.html#brevitas.utils.python_utils.AutoName" title="brevitas.utils.python_utils.AutoName"><code class="xref py py-class docutils literal notranslate"><span class="pre">brevitas.utils.python_utils.AutoName</span></code></a></p>
-<p>An enumeration.</p>
-<dl class="attribute">
-<dt id="brevitas.core.restrict_val.RestrictValueOpImplType.MATH">
-<code class="sig-name descname">MATH</code><em class="property"> = 'MATH'</em><a class="headerlink" href="#brevitas.core.restrict_val.RestrictValueOpImplType.MATH" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="brevitas.core.restrict_val.RestrictValueOpImplType.TORCH_FN">
-<code class="sig-name descname">TORCH_FN</code><em class="property"> = 'TORCH_FN'</em><a class="headerlink" href="#brevitas.core.restrict_val.RestrictValueOpImplType.TORCH_FN" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="brevitas.core.restrict_val.RestrictValueOpImplType.TORCH_MODULE">
-<code class="sig-name descname">TORCH_MODULE</code><em class="property"> = 'TORCH_MODULE'</em><a class="headerlink" href="#brevitas.core.restrict_val.RestrictValueOpImplType.TORCH_MODULE" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="brevitas.core.restrict_val.RestrictValueType">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.restrict_val.</code><code class="sig-name descname">RestrictValueType</code><a class="headerlink" href="#brevitas.core.restrict_val.RestrictValueType" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="brevitas.utils.html#brevitas.utils.python_utils.AutoName" title="brevitas.utils.python_utils.AutoName"><code class="xref py py-class docutils literal notranslate"><span class="pre">brevitas.utils.python_utils.AutoName</span></code></a></p>
-<p>An enumeration.</p>
-<dl class="attribute">
-<dt id="brevitas.core.restrict_val.RestrictValueType.FP">
-<code class="sig-name descname">FP</code><em class="property"> = 'FP'</em><a class="headerlink" href="#brevitas.core.restrict_val.RestrictValueType.FP" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="brevitas.core.restrict_val.RestrictValueType.INT">
-<code class="sig-name descname">INT</code><em class="property"> = 'INT'</em><a class="headerlink" href="#brevitas.core.restrict_val.RestrictValueType.INT" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="brevitas.core.restrict_val.RestrictValueType.LOG_FP">
-<code class="sig-name descname">LOG_FP</code><em class="property"> = 'LOG_FP'</em><a class="headerlink" href="#brevitas.core.restrict_val.RestrictValueType.LOG_FP" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="brevitas.core.restrict_val.RestrictValueType.POWER_OF_TWO">
-<code class="sig-name descname">POWER_OF_TWO</code><em class="property"> = 'POWER_OF_TWO'</em><a class="headerlink" href="#brevitas.core.restrict_val.RestrictValueType.POWER_OF_TWO" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-</dd></dl>
-
-</div>
-<div class="section" id="module-brevitas.core.scaling">
-<span id="brevitas-core-scaling-module"></span><h2>brevitas.core.scaling module<a class="headerlink" href="#module-brevitas.core.scaling" title="Permalink to this headline">¶</a></h2>
-<dl class="class">
-<dt id="brevitas.core.scaling.AffineRescaling">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.scaling.</code><code class="sig-name descname">AffineRescaling</code><span class="sig-paren">(</span><em class="sig-param">affine_shape</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.scaling.AffineRescaling" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
-<dl class="method">
-<dt id="brevitas.core.scaling.AffineRescaling.forward">
-<code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param">x</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.scaling.AffineRescaling.forward" title="Permalink to this definition">¶</a></dt>
+<dl class="py class">
+<dt id="brevitas.core.restrict_val.IntRestrictValue">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.restrict_val.</code><code class="sig-name descname">IntRestrictValue</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">restrict_value_float_to_int_impl</span><span class="o">=</span><span class="default_value">RoundSte()</span></em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.restrict_val.IntRestrictValue" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
+<dl class="py method">
+<dt id="brevitas.core.restrict_val.IntRestrictValue.forward">
+<code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">x</span></em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.restrict_val.IntRestrictValue.forward" title="Permalink to this definition">¶</a></dt>
 <dd><p>Defines the computation performed at every call.</p>
 <p>Should be overridden by all subclasses.</p>
 <div class="admonition note">
@@ -527,167 +294,293 @@ registered hooks while the latter silently ignores them.</p>
 </div>
 </dd></dl>
 
-</dd></dl>
-
-<dl class="class">
-<dt id="brevitas.core.scaling.IntScaling">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.scaling.</code><code class="sig-name descname">IntScaling</code><span class="sig-paren">(</span><em class="sig-param">narrow_range</em>, <em class="sig-param">signed</em>, <em class="sig-param">restrict_scaling_type</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.scaling.IntScaling" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
-</dd></dl>
-
-<dl class="class">
-<dt id="brevitas.core.scaling.ParameterStatsScaling">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.scaling.</code><code class="sig-name descname">ParameterStatsScaling</code><span class="sig-paren">(</span><em class="sig-param">stats_op</em>, <em class="sig-param">restrict_scaling_type</em>, <em class="sig-param">stats_input_view_shape_impl</em>, <em class="sig-param">stats_output_shape</em>, <em class="sig-param">stats_input_concat_dim</em>, <em class="sig-param">sigma</em>, <em class="sig-param">scaling_min_val</em>, <em class="sig-param">stats_reduce_dim</em>, <em class="sig-param">tracked_parameter_list</em>, <em class="sig-param">affine</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.scaling.ParameterStatsScaling" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
-</dd></dl>
-
-<dl class="class">
-<dt id="brevitas.core.scaling.PowerOfTwoIntScale">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.scaling.</code><code class="sig-name descname">PowerOfTwoIntScale</code><span class="sig-paren">(</span><em class="sig-param">signed</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.scaling.PowerOfTwoIntScale" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
-</dd></dl>
-
-<dl class="class">
-<dt id="brevitas.core.scaling.RuntimeStatsScaling">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.scaling.</code><code class="sig-name descname">RuntimeStatsScaling</code><span class="sig-paren">(</span><em class="sig-param">stats_op</em>, <em class="sig-param">restrict_scaling_type</em>, <em class="sig-param">stats_input_view_shape_impl</em>, <em class="sig-param">stats_output_shape</em>, <em class="sig-param">sigma</em>, <em class="sig-param">scaling_min_val</em>, <em class="sig-param">stats_reduce_dim</em>, <em class="sig-param">stats_permute_dims</em>, <em class="sig-param">stats_buffer_momentum</em>, <em class="sig-param">stats_buffer_init</em>, <em class="sig-param">affine</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.scaling.RuntimeStatsScaling" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
-</dd></dl>
-
-<dl class="class">
-<dt id="brevitas.core.scaling.ScalingImplType">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.scaling.</code><code class="sig-name descname">ScalingImplType</code><a class="headerlink" href="#brevitas.core.scaling.ScalingImplType" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="brevitas.utils.html#brevitas.utils.python_utils.AutoName" title="brevitas.utils.python_utils.AutoName"><code class="xref py py-class docutils literal notranslate"><span class="pre">brevitas.utils.python_utils.AutoName</span></code></a></p>
-<p>An enumeration.</p>
-<dl class="attribute">
-<dt id="brevitas.core.scaling.ScalingImplType.AFFINE_STATS">
-<code class="sig-name descname">AFFINE_STATS</code><em class="property"> = 'AFFINE_STATS'</em><a class="headerlink" href="#brevitas.core.scaling.ScalingImplType.AFFINE_STATS" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt id="brevitas.core.restrict_val.IntRestrictValue.restrict_init_float">
+<code class="sig-name descname">restrict_init_float</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">x</span></em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.restrict_val.IntRestrictValue.restrict_init_float" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="brevitas.core.scaling.ScalingImplType.CONST">
-<code class="sig-name descname">CONST</code><em class="property"> = 'CONST'</em><a class="headerlink" href="#brevitas.core.scaling.ScalingImplType.CONST" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt id="brevitas.core.restrict_val.IntRestrictValue.restrict_init_inplace_module">
+<code class="sig-name descname">restrict_init_inplace_module</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.restrict_val.IntRestrictValue.restrict_init_inplace_module" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="brevitas.core.scaling.ScalingImplType.HE">
-<code class="sig-name descname">HE</code><em class="property"> = 'HE'</em><a class="headerlink" href="#brevitas.core.scaling.ScalingImplType.HE" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt id="brevitas.core.restrict_val.IntRestrictValue.restrict_init_module">
+<code class="sig-name descname">restrict_init_module</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.restrict_val.IntRestrictValue.restrict_init_module" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="brevitas.core.scaling.ScalingImplType.OVERRIDE">
-<code class="sig-name descname">OVERRIDE</code><em class="property"> = 'OVERRIDE'</em><a class="headerlink" href="#brevitas.core.scaling.ScalingImplType.OVERRIDE" title="Permalink to this definition">¶</a></dt>
+<dl class="py method">
+<dt id="brevitas.core.restrict_val.IntRestrictValue.restrict_init_tensor">
+<code class="sig-name descname">restrict_init_tensor</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">x</span></em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.restrict_val.IntRestrictValue.restrict_init_tensor" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
-<dl class="attribute">
-<dt id="brevitas.core.scaling.ScalingImplType.PARAMETER">
-<code class="sig-name descname">PARAMETER</code><em class="property"> = 'PARAMETER'</em><a class="headerlink" href="#brevitas.core.scaling.ScalingImplType.PARAMETER" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="brevitas.core.scaling.ScalingImplType.PARAMETER_FROM_STATS">
-<code class="sig-name descname">PARAMETER_FROM_STATS</code><em class="property"> = 'PARAMETER_FROM_STATS'</em><a class="headerlink" href="#brevitas.core.scaling.ScalingImplType.PARAMETER_FROM_STATS" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="brevitas.core.scaling.ScalingImplType.STATS">
-<code class="sig-name descname">STATS</code><em class="property"> = 'STATS'</em><a class="headerlink" href="#brevitas.core.scaling.ScalingImplType.STATS" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt id="brevitas.core.restrict_val.IntRestrictValue.training">
+<code class="sig-name descname">training</code><em class="property">: bool</em><a class="headerlink" href="#brevitas.core.restrict_val.IntRestrictValue.training" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
 
-<dl class="class">
-<dt id="brevitas.core.scaling.SignedFpIntScale">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.scaling.</code><code class="sig-name descname">SignedFpIntScale</code><span class="sig-paren">(</span><em class="sig-param">narrow_range</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.scaling.SignedFpIntScale" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
+<dl class="py class">
+<dt id="brevitas.core.restrict_val.LogFloatRestrictValue">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.restrict_val.</code><code class="sig-name descname">LogFloatRestrictValue</code><a class="headerlink" href="#brevitas.core.restrict_val.LogFloatRestrictValue" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
+<dl class="py method">
+<dt id="brevitas.core.restrict_val.LogFloatRestrictValue.forward">
+<code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">x</span></em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.restrict_val.LogFloatRestrictValue.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
 </dd></dl>
 
-<dl class="class">
-<dt id="brevitas.core.scaling.StandaloneScaling">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.scaling.</code><code class="sig-name descname">StandaloneScaling</code><span class="sig-paren">(</span><em class="sig-param">scaling_init</em>, <em class="sig-param">is_parameter</em>, <em class="sig-param">parameter_shape</em>, <em class="sig-param">scaling_min_val</em>, <em class="sig-param">restrict_scaling_type</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.scaling.StandaloneScaling" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
+<dl class="py method">
+<dt id="brevitas.core.restrict_val.LogFloatRestrictValue.restrict_init_float">
+<code class="sig-name descname">restrict_init_float</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">x</span></em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.restrict_val.LogFloatRestrictValue.restrict_init_float" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="brevitas.core.restrict_val.LogFloatRestrictValue.restrict_init_inplace_module">
+<code class="sig-name descname">restrict_init_inplace_module</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.restrict_val.LogFloatRestrictValue.restrict_init_inplace_module" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="brevitas.core.restrict_val.LogFloatRestrictValue.restrict_init_module">
+<code class="sig-name descname">restrict_init_module</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.restrict_val.LogFloatRestrictValue.restrict_init_module" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="brevitas.core.restrict_val.LogFloatRestrictValue.restrict_init_tensor">
+<code class="sig-name descname">restrict_init_tensor</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">x</span></em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.restrict_val.LogFloatRestrictValue.restrict_init_tensor" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt id="brevitas.core.restrict_val.LogFloatRestrictValue.training">
+<code class="sig-name descname">training</code><em class="property">: bool</em><a class="headerlink" href="#brevitas.core.restrict_val.LogFloatRestrictValue.training" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 </dd></dl>
 
-<dl class="class">
-<dt id="brevitas.core.scaling.StatsScaling">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.scaling.</code><code class="sig-name descname">StatsScaling</code><span class="sig-paren">(</span><em class="sig-param">stats_op</em>, <em class="sig-param">restrict_scaling_type</em>, <em class="sig-param">stats_output_shape</em>, <em class="sig-param">scaling_min_val</em>, <em class="sig-param">affine</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.scaling.StatsScaling" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
+<dl class="py class">
+<dt id="brevitas.core.restrict_val.PowerOfTwoRestrictValue">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.restrict_val.</code><code class="sig-name descname">PowerOfTwoRestrictValue</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">restrict_value_float_to_int_impl</span><span class="o">=</span><span class="default_value">RoundSte()</span></em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.restrict_val.PowerOfTwoRestrictValue" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
+<dl class="py method">
+<dt id="brevitas.core.restrict_val.PowerOfTwoRestrictValue.forward">
+<code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">x</span></em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.restrict_val.PowerOfTwoRestrictValue.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
 </dd></dl>
 
-<dl class="class">
-<dt id="brevitas.core.scaling.UnsignedFpIntScale">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.scaling.</code><code class="sig-name descname">UnsignedFpIntScale</code><a class="headerlink" href="#brevitas.core.scaling.UnsignedFpIntScale" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
+<dl class="py method">
+<dt id="brevitas.core.restrict_val.PowerOfTwoRestrictValue.restrict_init_float">
+<code class="sig-name descname">restrict_init_float</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">x</span></em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.restrict_val.PowerOfTwoRestrictValue.restrict_init_float" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="brevitas.core.restrict_val.PowerOfTwoRestrictValue.restrict_init_inplace_module">
+<code class="sig-name descname">restrict_init_inplace_module</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.restrict_val.PowerOfTwoRestrictValue.restrict_init_inplace_module" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="brevitas.core.restrict_val.PowerOfTwoRestrictValue.restrict_init_module">
+<code class="sig-name descname">restrict_init_module</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.restrict_val.PowerOfTwoRestrictValue.restrict_init_module" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="brevitas.core.restrict_val.PowerOfTwoRestrictValue.restrict_init_tensor">
+<code class="sig-name descname">restrict_init_tensor</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">x</span></em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.restrict_val.PowerOfTwoRestrictValue.restrict_init_tensor" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt id="brevitas.core.restrict_val.PowerOfTwoRestrictValue.training">
+<code class="sig-name descname">training</code><em class="property">: bool</em><a class="headerlink" href="#brevitas.core.restrict_val.PowerOfTwoRestrictValue.training" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 </dd></dl>
 
 </div>
-<div class="section" id="module-brevitas.core.stats">
-<span id="brevitas-core-stats-module"></span><h2>brevitas.core.stats module<a class="headerlink" href="#module-brevitas.core.stats" title="Permalink to this headline">¶</a></h2>
-<dl class="class">
-<dt id="brevitas.core.stats.StatsInputViewShapeImpl">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.stats.</code><code class="sig-name descname">StatsInputViewShapeImpl</code><a class="headerlink" href="#brevitas.core.stats.StatsInputViewShapeImpl" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-<dl class="attribute">
-<dt id="brevitas.core.stats.StatsInputViewShapeImpl.OVER_BATCH_OVER_OUTPUT_CHANNELS">
-<code class="sig-name descname">OVER_BATCH_OVER_OUTPUT_CHANNELS</code><a class="headerlink" href="#brevitas.core.stats.StatsInputViewShapeImpl.OVER_BATCH_OVER_OUTPUT_CHANNELS" title="Permalink to this definition">¶</a></dt>
-<dd><p>alias of <a class="reference internal" href="#brevitas.core.function_wrapper.OverBatchOverOutputChannelView" title="brevitas.core.function_wrapper.OverBatchOverOutputChannelView"><code class="xref py py-class docutils literal notranslate"><span class="pre">brevitas.core.function_wrapper.OverBatchOverOutputChannelView</span></code></a></p>
+<div class="section" id="module-brevitas.core.utils">
+<span id="brevitas-core-utils-module"></span><h2>brevitas.core.utils module<a class="headerlink" href="#module-brevitas.core.utils" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="brevitas.core.utils.StatelessBuffer">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.utils.</code><code class="sig-name descname">StatelessBuffer</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">value</span></em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.utils.StatelessBuffer" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
+<dl class="py method">
+<dt id="brevitas.core.utils.StatelessBuffer.forward">
+<code class="sig-name descname">forward</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.utils.StatelessBuffer.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="brevitas.core.stats.StatsInputViewShapeImpl.OVER_BATCH_OVER_TENSOR">
-<code class="sig-name descname">OVER_BATCH_OVER_TENSOR</code><a class="headerlink" href="#brevitas.core.stats.StatsInputViewShapeImpl.OVER_BATCH_OVER_TENSOR" title="Permalink to this definition">¶</a></dt>
-<dd><p>alias of <a class="reference internal" href="#brevitas.core.function_wrapper.OverBatchOverTensorView" title="brevitas.core.function_wrapper.OverBatchOverTensorView"><code class="xref py py-class docutils literal notranslate"><span class="pre">brevitas.core.function_wrapper.OverBatchOverTensorView</span></code></a></p>
+<dl class="py method">
+<dt id="brevitas.core.utils.StatelessBuffer.state_dict">
+<code class="sig-name descname">state_dict</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">destination</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">prefix</span><span class="o">=</span><span class="default_value">''</span></em>, <em class="sig-param"><span class="n">keep_vars</span><span class="o">=</span><span class="default_value">False</span></em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.utils.StatelessBuffer.state_dict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a dictionary containing a whole state of the module.</p>
+<p>Both parameters and persistent buffers (e.g. running averages) are
+included. Keys are corresponding parameter and buffer names.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>a dictionary containing a whole state of the module</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>dict</p>
+</dd>
+</dl>
+<p>Example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">module</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+<span class="go">[&#39;bias&#39;, &#39;weight&#39;]</span>
+</pre></div>
+</div>
 </dd></dl>
 
-<dl class="attribute">
-<dt id="brevitas.core.stats.StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS">
-<code class="sig-name descname">OVER_OUTPUT_CHANNELS</code><a class="headerlink" href="#brevitas.core.stats.StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS" title="Permalink to this definition">¶</a></dt>
-<dd><p>alias of <a class="reference internal" href="#brevitas.core.function_wrapper.OverOutputChannelView" title="brevitas.core.function_wrapper.OverOutputChannelView"><code class="xref py py-class docutils literal notranslate"><span class="pre">brevitas.core.function_wrapper.OverOutputChannelView</span></code></a></p>
-</dd></dl>
-
-<dl class="attribute">
-<dt id="brevitas.core.stats.StatsInputViewShapeImpl.OVER_TENSOR">
-<code class="sig-name descname">OVER_TENSOR</code><a class="headerlink" href="#brevitas.core.stats.StatsInputViewShapeImpl.OVER_TENSOR" title="Permalink to this definition">¶</a></dt>
-<dd><p>alias of <a class="reference internal" href="#brevitas.core.function_wrapper.OverTensorView" title="brevitas.core.function_wrapper.OverTensorView"><code class="xref py py-class docutils literal notranslate"><span class="pre">brevitas.core.function_wrapper.OverTensorView</span></code></a></p>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="class">
-<dt id="brevitas.core.stats.StatsOp">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.stats.</code><code class="sig-name descname">StatsOp</code><a class="headerlink" href="#brevitas.core.stats.StatsOp" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference internal" href="brevitas.utils.html#brevitas.utils.python_utils.AutoName" title="brevitas.utils.python_utils.AutoName"><code class="xref py py-class docutils literal notranslate"><span class="pre">brevitas.utils.python_utils.AutoName</span></code></a></p>
-<p>An enumeration.</p>
-<dl class="attribute">
-<dt id="brevitas.core.stats.StatsOp.AVE">
-<code class="sig-name descname">AVE</code><em class="property"> = 'AVE'</em><a class="headerlink" href="#brevitas.core.stats.StatsOp.AVE" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="brevitas.core.stats.StatsOp.MAX">
-<code class="sig-name descname">MAX</code><em class="property"> = 'MAX'</em><a class="headerlink" href="#brevitas.core.stats.StatsOp.MAX" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="brevitas.core.stats.StatsOp.MAX_AVE">
-<code class="sig-name descname">MAX_AVE</code><em class="property"> = 'MAX_AVE'</em><a class="headerlink" href="#brevitas.core.stats.StatsOp.MAX_AVE" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="brevitas.core.stats.StatsOp.MEAN_LEARN_SIGMA_STD">
-<code class="sig-name descname">MEAN_LEARN_SIGMA_STD</code><em class="property"> = 'MEAN_LEARN_SIGMA_STD'</em><a class="headerlink" href="#brevitas.core.stats.StatsOp.MEAN_LEARN_SIGMA_STD" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="attribute">
-<dt id="brevitas.core.stats.StatsOp.MEAN_SIGMA_STD">
-<code class="sig-name descname">MEAN_SIGMA_STD</code><em class="property"> = 'MEAN_SIGMA_STD'</em><a class="headerlink" href="#brevitas.core.stats.StatsOp.MEAN_SIGMA_STD" title="Permalink to this definition">¶</a></dt>
+<dl class="py attribute">
+<dt id="brevitas.core.utils.StatelessBuffer.training">
+<code class="sig-name descname">training</code><em class="property">: bool</em><a class="headerlink" href="#brevitas.core.utils.StatelessBuffer.training" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
 
-<dl class="class">
-<dt id="brevitas.core.stats.ParameterListStats">
-<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.stats.</code><code class="sig-name descname">ParameterListStats</code><span class="sig-paren">(</span><em class="sig-param">stats_op</em>, <em class="sig-param">stats_input_view_shape_impl</em>, <em class="sig-param">stats_reduce_dim</em>, <em class="sig-param">stats_input_concat_dim</em>, <em class="sig-param">stats_output_shape</em>, <em class="sig-param">tracked_parameter_list</em>, <em class="sig-param">sigma</em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.stats.ParameterListStats" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.jit.ScriptModule</span></code></p>
+</div>
+<div class="section" id="module-brevitas.core.zero_point">
+<span id="brevitas-core-zero-point-module"></span><h2>brevitas.core.zero_point module<a class="headerlink" href="#module-brevitas.core.zero_point" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="brevitas.core.zero_point.MinUintZeroPoint">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.zero_point.</code><code class="sig-name descname">MinUintZeroPoint</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">float_to_int_impl</span></em>, <em class="sig-param"><span class="n">stats_reduce_dim</span></em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.zero_point.MinUintZeroPoint" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
+<dl class="py method">
+<dt id="brevitas.core.zero_point.MinUintZeroPoint.forward">
+<code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">x</span></em>, <em class="sig-param"><span class="n">scale</span></em>, <em class="sig-param"><span class="n">min_int</span></em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.zero_point.MinUintZeroPoint.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="brevitas.core.zero_point.MinUintZeroPoint.training">
+<code class="sig-name descname">training</code><em class="property">: bool</em><a class="headerlink" href="#brevitas.core.zero_point.MinUintZeroPoint.training" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="brevitas.core.zero_point.ParameterFromRuntimeMinZeroPoint">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.zero_point.</code><code class="sig-name descname">ParameterFromRuntimeMinZeroPoint</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">collect_stats_steps</span></em>, <em class="sig-param"><span class="n">float_to_int_impl</span></em>, <em class="sig-param"><span class="n">stats_reduce_dim</span></em>, <em class="sig-param"><span class="n">zero_point_shape</span></em>, <em class="sig-param"><span class="n">zero_point_stats_input_view_shape_impl</span></em>, <em class="sig-param"><span class="n">zero_point_stats_permute_dims</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">zero_point_stats_momentum</span><span class="o">=</span><span class="default_value">0.1</span></em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.zero_point.ParameterFromRuntimeMinZeroPoint" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
+<dl class="py method">
+<dt id="brevitas.core.zero_point.ParameterFromRuntimeMinZeroPoint.forward">
+<code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">x</span></em>, <em class="sig-param"><span class="n">scale</span></em>, <em class="sig-param"><span class="n">min_int</span></em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.zero_point.ParameterFromRuntimeMinZeroPoint.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="brevitas.core.zero_point.ParameterFromRuntimeMinZeroPoint.training">
+<code class="sig-name descname">training</code><em class="property">: bool</em><a class="headerlink" href="#brevitas.core.zero_point.ParameterFromRuntimeMinZeroPoint.training" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="brevitas.core.zero_point.ParameterZeroPoint">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.zero_point.</code><code class="sig-name descname">ParameterZeroPoint</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">zero_point_init</span></em>, <em class="sig-param"><span class="n">float_to_int_impl</span><span class="o">=</span><span class="default_value">RoundSte()</span></em>, <em class="sig-param"><span class="n">zero_point_shape</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.zero_point.ParameterZeroPoint" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
+<dl class="py method">
+<dt id="brevitas.core.zero_point.ParameterZeroPoint.forward">
+<code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">x</span></em>, <em class="sig-param"><span class="n">scale</span></em>, <em class="sig-param"><span class="n">min_int</span></em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.zero_point.ParameterZeroPoint.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="brevitas.core.zero_point.ParameterZeroPoint.training">
+<code class="sig-name descname">training</code><em class="property">: bool</em><a class="headerlink" href="#brevitas.core.zero_point.ParameterZeroPoint.training" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="brevitas.core.zero_point.ZeroZeroPoint">
+<em class="property">class </em><code class="sig-prename descclassname">brevitas.core.zero_point.</code><code class="sig-name descname">ZeroZeroPoint</code><a class="headerlink" href="#brevitas.core.zero_point.ZeroZeroPoint" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
+<dl class="py method">
+<dt id="brevitas.core.zero_point.ZeroZeroPoint.forward">
+<code class="sig-name descname">forward</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">x</span></em>, <em class="sig-param"><span class="n">scale</span></em>, <em class="sig-param"><span class="n">min_int</span></em><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.core.zero_point.ZeroZeroPoint.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="brevitas.core.zero_point.ZeroZeroPoint.training">
+<code class="sig-name descname">training</code><em class="property">: bool</em><a class="headerlink" href="#brevitas.core.zero_point.ZeroZeroPoint.training" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
 </dd></dl>
 
 </div>
@@ -701,20 +594,25 @@ registered hooks while the latter silently ignores them.</p>
            
           </div>
           <footer>
-  
 
   <hr/>
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright 2019, Alessandro Pappalardo
+        &#169; Copyright 2021 - Xilinx, Inc.
 
     </p>
   </div>
-  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+    
+    
+    
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
 
 </footer>
-
         </div>
       </div>
 
@@ -722,7 +620,6 @@ registered hooks while the latter silently ignores them.</p>
 
   </div>
   
-
 
   <script type="text/javascript">
       jQuery(function () {

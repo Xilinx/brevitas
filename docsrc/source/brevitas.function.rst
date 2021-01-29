@@ -4,10 +4,10 @@ brevitas.function package
 Submodules
 ----------
 
-brevitas.function.autograd\_ops module
---------------------------------------
+brevitas.function.autograd\_ste\_ops module
+-------------------------------------------
 
-.. automodule:: brevitas.function.autograd_ops
+.. automodule:: brevitas.function.autograd_ste_ops
    :members:
    :undoc-members:
    :show-inheritance:
@@ -20,13 +20,6 @@ brevitas.function.ops module
    :undoc-members:
    :show-inheritance:
 
-   .. autofunction:: tensor_clamp(x, min_val, max_val)
-   .. autofunction:: max_uint(narrow_range, bit_width)
-   .. autofunction:: max_int(signed, bit_width)
-   .. autofunction:: min_int(signed, narrow_range, bit_width)
-   .. autofunction:: identity(x)
-
-
 brevitas.function.ops\_ste module
 ---------------------------------
 
@@ -35,15 +28,6 @@ brevitas.function.ops\_ste module
    :undoc-members:
    :show-inheritance:
 
-   .. autofunction:: round_ste(x)
-   .. autofunction:: ceil_ste(x)
-   .. autofunction:: floor_ste(x)
-   .. autofunction:: tensor_clamp_ste(x, min_val, max_val)
-   .. autofunction:: scalar_clamp_ste(x, min_val, max_val)
-   .. autofunction:: binary_sign_ste(x)
-   .. autofunction:: ternary_sign_ste(x)
-
-
 brevitas.function.shape module
 ------------------------------
 
@@ -51,7 +35,6 @@ brevitas.function.shape module
    :members:
    :undoc-members:
    :show-inheritance:
-
 
 Module contents
 ---------------

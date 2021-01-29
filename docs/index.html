@@ -1,38 +1,41 @@
 
 
 <!DOCTYPE html>
-<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
-<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8">
+  <meta charset="utf-8" />
   
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   
-  <title>Brevitas &mdash; Brevitas 0.2.0-alpha documentation</title>
+  <title>Brevitas &mdash; Brevitas 0.2.0b1.dev0+gc32fb31.d20210127 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+
+  
   
 
   
   
-  
+
   
 
   
-  <script type="text/javascript" src="_static/js/modernizr.min.js"></script>
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
   
     
       <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
         <script src="_static/jquery.js"></script>
         <script src="_static/underscore.js"></script>
         <script src="_static/doctools.js"></script>
-        <script src="_static/language_data.js"></script>
     
     <script type="text/javascript" src="_static/js/theme.js"></script>
 
     
-
-  
-  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" /> 
 </head>
@@ -71,6 +74,7 @@
           
         </div>
 
+        
         <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
           
             
@@ -82,21 +86,12 @@
               <div class="local-toc"><ul>
 <li><a class="reference internal" href="#">Brevitas</a><ul>
 <li><a class="reference internal" href="#requirements">Requirements</a></li>
-<li><a class="reference internal" href="#introduction">Introduction</a></li>
-<li><a class="reference internal" href="#target-audience">Target audience</a></li>
 <li><a class="reference internal" href="#installation">Installation</a><ul>
 <li><a class="reference internal" href="#installing-from-master">Installing from master</a></li>
-<li><a class="reference internal" href="#dev-install">Dev install</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#features">Features</a></li>
-<li><a class="reference internal" href="#supported-layers">Supported Layers</a></li>
+<li><a class="reference internal" href="#introduction">Introduction</a></li>
 <li><a class="reference internal" href="#getting-started">Getting started</a></li>
-<li><a class="reference internal" href="#pretrained-models">Pretrained models</a></li>
-<li><a class="reference internal" href="#scaling">Scaling</a></li>
-<li><a class="reference internal" href="#precision">Precision</a></li>
-<li><a class="reference internal" href="#code-organization">Code organization</a></li>
-<li><a class="reference internal" href="#a-note-on-the-implementation">A note on the implementation</a></li>
 <li><a class="reference internal" href="#author">Author</a></li>
 </ul>
 </li>
@@ -106,6 +101,7 @@
             
           
         </div>
+        
       </div>
     </nav>
 
@@ -140,18 +136,20 @@
 
 
 
+
+
 <div role="navigation" aria-label="breadcrumbs navigation">
 
   <ul class="wy-breadcrumbs">
     
-      <li><a href="#">Docs</a> &raquo;</li>
+      <li><a href="#" class="icon icon-home"></a> &raquo;</li>
         
       <li>Brevitas</li>
     
     
       <li class="wy-breadcrumbs-aside">
         
-            
+          
             <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
           
         
@@ -169,32 +167,18 @@
 </div>
 <div class="section" id="brevitas">
 <h1>Brevitas<a class="headerlink" href="#brevitas" title="Permalink to this headline">¶</a></h1>
-<a class="reference external image-reference" href="https://github.com/Xilinx/brevitas/workflows/Tests/badge.svg"><img alt="Tests" src="https://github.com/Xilinx/brevitas/workflows/Tests/badge.svg" /></a>
+<a class="reference external image-reference" href="https://gitter.im/xilinx-brevitas/community?utm_source=badge&amp;utm_medium=badge&amp;utm_campaign=pr-badge"><img alt="Gitter" src="https://badges.gitter.im/xilinx-brevitas/community.svg" /></a>
+<a class="reference external image-reference" href="https://github.com/Xilinx/brevitas/workflows/Pytest/badge.svg?branch=master"><img alt="Pytest" src="https://github.com/Xilinx/brevitas/workflows/Pytest/badge.svg?branch=master" /></a>
+<a class="reference external image-reference" href="https://github.com/Xilinx/brevitas/workflows/Examples%20Pytest/badge.svg?branch=master"><img alt="Examples Pytest" src="https://github.com/Xilinx/brevitas/workflows/Examples%20Pytest/badge.svg?branch=master" /></a>
 <a class="reference external image-reference" href="https://zenodo.org/badge/latestdoi/140494324"><img alt="DOI" src="https://zenodo.org/badge/140494324.svg" /></a>
 <p>Brevitas is a Pytorch library for quantization-aware training.</p>
-<p><em>Brevitas is currently under active development and to be considered in alpha stage. APIs might and probably will change. Documentation, examples, and pretrained models will be progressively released.</em></p>
+<p><em>Brevitas is currently under active development and on a rolling release. It should be considered in beta stage. Minor API changes are still planned. Documentation, tests, examples, and pretrained models will be progressively released.</em></p>
 <div class="section" id="requirements">
 <h2>Requirements<a class="headerlink" href="#requirements" title="Permalink to this headline">¶</a></h2>
 <ul class="simple">
-<li><p><a class="reference external" href="https://pytorch.org">Pytorch</a> &gt;= 1.1.0</p></li>
+<li><p>Python &gt;= 3.6</p></li>
+<li><p><a class="reference external" href="https://pytorch.org">Pytorch</a> &gt;= 1.1.0 (minimal), 1.3.1 (suggested)</p></li>
 </ul>
-</div>
-<div class="section" id="introduction">
-<h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
-<p>Brevitas implements a set of building blocks to model a reduced precision hardware data-path at training time.
-While partially biased towards modelling dataflow-style, very low-precision implementations, the building blocks can be parametrized and assembled together to target all sorts of reduced precision hardware.</p>
-<p>The implementations tries to adhere to the following design principles:</p>
-<ul class="simple">
-<li><p>Idiomatic Pytorch, when possible.</p></li>
-<li><p>Modularity first, at the cost of some verbosity.</p></li>
-<li><p>Easily extendible.</p></li>
-</ul>
-</div>
-<div class="section" id="target-audience">
-<h2>Target audience<a class="headerlink" href="#target-audience" title="Permalink to this headline">¶</a></h2>
-<p>Brevitas is mainly targeted at researchers and practicioners in the fields of training for reduced precision inference.</p>
-<p>The implementation is quite rich in options and allows for very fine grained control over the trained model.
-However, compared to other software solutions in this space, the burden of correctly modelling the target data-path is currently placed on the user.</p>
 </div>
 <div class="section" id="installation">
 <h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h2>
@@ -205,74 +189,36 @@ However, compared to other software solutions in this space, the burden of corre
 </pre></div>
 </div>
 </div>
-<div class="section" id="dev-install">
-<h3>Dev install<a class="headerlink" href="#dev-install" title="Permalink to this headline">¶</a></h3>
-<p>Alternatively, you can install a dev copy straight from the cloned repo:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git clone https://github.com/Xilinx/brevitas.git
-<span class="nb">cd</span> brevitas
-pip install -e .
-</pre></div>
 </div>
-</div>
-</div>
-<div class="section" id="features">
-<h2>Features<a class="headerlink" href="#features" title="Permalink to this headline">¶</a></h2>
-<p>Brevitas’ features are organized along the following (mostly) orthogonal axes:</p>
-<ul class="simple">
-<li><p><strong>Quantization type</strong>: binary, ternary, or uniform integer quantization.</p></li>
-<li><p><strong>Target tensor</strong>: weights, activations or accumulators.</p></li>
-<li><p><strong>Scaling</strong>: support for various shapes, learning strategies and constraints.</p></li>
-<li><p><strong>Precision</strong>: constant or learned bit-width.</p></li>
-<li><p><strong>Cost</strong>: model the hardware cost at training-time.</p></li>
-</ul>
-</div>
-<div class="section" id="supported-layers">
-<h2>Supported Layers<a class="headerlink" href="#supported-layers" title="Permalink to this headline">¶</a></h2>
-<p>The following layers and operations are supported out-of-the-box:</p>
-<ul class="simple">
-<li><p>QuantScaleBias</p></li>
-<li><p>QuantLinear</p></li>
-<li><p>QuantConv2d</p></li>
-<li><p>QuantReLU, QuantHardTanh, QuantTanh, QuantSigmoid</p></li>
-<li><p>QuantAvgPool2d</p></li>
-<li><p>BatchNorm2dToQuantScaleBias</p></li>
-<li><p>Element-wise add, concat</p></li>
-<li><p>Saturating integer accumulator</p></li>
-</ul>
-<p>Additional layers can be easily supported using a combination of pre-existing modules.</p>
+<div class="section" id="introduction">
+<h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<p>Brevitas implements a set of building blocks at different levels of abstraction to model a reduced precision hardware data-path at training time.</p>
+<p>Brevitas provides a platform both for researchers interested in implementing new quantization-aware training techinques, as well as for practitioners interested in applying current techniques to their models.</p>
 </div>
 <div class="section" id="getting-started">
 <h2>Getting started<a class="headerlink" href="#getting-started" title="Permalink to this headline">¶</a></h2>
-<p>Here’s how a simple quantized LeNet might look like, starting from a ReLU6 for activations and using default settings for scaling:</p>
+<p>Here’s how a simple 4 bit weights, 8 bit activations LeNet looks like, using default settings for scaling:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">torch.nn</span> <span class="kn">import</span> <span class="n">Module</span>
 <span class="kn">import</span> <span class="nn">torch.nn.functional</span> <span class="k">as</span> <span class="nn">F</span>
-<span class="kn">import</span> <span class="nn">brevitas.nn</span> <span class="k">as</span> <span class="nn">qnn</span>
+<span class="kn">from</span> <span class="nn">brevitas.nn</span> <span class="kn">import</span> <span class="n">QuantIdentity</span><span class="p">,</span> <span class="n">QuantConv2d</span><span class="p">,</span> <span class="n">QuantReLU</span>
 <span class="kn">from</span> <span class="nn">brevitas.core.quant</span> <span class="kn">import</span> <span class="n">QuantType</span>
 
 <span class="k">class</span> <span class="nc">QuantLeNet</span><span class="p">(</span><span class="n">Module</span><span class="p">):</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">QuantLeNet</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">conv1</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span>
-                                     <span class="n">weight_quant_type</span><span class="o">=</span><span class="n">QuantType</span><span class="o">.</span><span class="n">INT</span><span class="p">,</span>
-                                     <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">relu1</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantReLU</span><span class="p">(</span><span class="n">quant_type</span><span class="o">=</span><span class="n">QuantType</span><span class="o">.</span><span class="n">INT</span><span class="p">,</span> <span class="n">bit_width</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">max_val</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">conv2</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span>
-                                     <span class="n">weight_quant_type</span><span class="o">=</span><span class="n">QuantType</span><span class="o">.</span><span class="n">INT</span><span class="p">,</span>
-                                     <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">relu2</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantReLU</span><span class="p">(</span><span class="n">quant_type</span><span class="o">=</span><span class="n">QuantType</span><span class="o">.</span><span class="n">INT</span><span class="p">,</span> <span class="n">bit_width</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">max_val</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">fc1</span>   <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantLinear</span><span class="p">(</span><span class="mi">16</span><span class="o">*</span><span class="mi">5</span><span class="o">*</span><span class="mi">5</span><span class="p">,</span> <span class="mi">120</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-                                     <span class="n">weight_quant_type</span><span class="o">=</span><span class="n">QuantType</span><span class="o">.</span><span class="n">INT</span><span class="p">,</span>
-                                     <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">relu3</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantReLU</span><span class="p">(</span><span class="n">quant_type</span><span class="o">=</span><span class="n">QuantType</span><span class="o">.</span><span class="n">INT</span><span class="p">,</span> <span class="n">bit_width</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">max_val</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">fc2</span>   <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantLinear</span><span class="p">(</span><span class="mi">120</span><span class="p">,</span> <span class="mi">84</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-                                     <span class="n">weight_quant_type</span><span class="o">=</span><span class="n">QuantType</span><span class="o">.</span><span class="n">INT</span><span class="p">,</span>
-                                     <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">relu4</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantReLU</span><span class="p">(</span><span class="n">quant_type</span><span class="o">=</span><span class="n">QuantType</span><span class="o">.</span><span class="n">INT</span><span class="p">,</span> <span class="n">bit_width</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">max_val</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">fc3</span>   <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantLinear</span><span class="p">(</span><span class="mi">84</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-                                     <span class="n">weight_quant_type</span><span class="o">=</span><span class="n">QuantType</span><span class="o">.</span><span class="n">INT</span><span class="p">,</span>
-                                     <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">quant_inp</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">(</span><span class="n">bit_width</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">conv1</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">relu1</span> <span class="o">=</span> <span class="n">QuantReLU</span><span class="p">(</span><span class="n">bit_width</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">conv2</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">relu2</span> <span class="o">=</span> <span class="n">QuantReLU</span><span class="p">(</span><span class="n">bit_width</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc1</span>   <span class="o">=</span> <span class="n">QuantLinear</span><span class="p">(</span><span class="mi">16</span><span class="o">*</span><span class="mi">5</span><span class="o">*</span><span class="mi">5</span><span class="p">,</span> <span class="mi">120</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">relu3</span> <span class="o">=</span> <span class="n">QuantReLU</span><span class="p">(</span><span class="n">bit_width</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc2</span>   <span class="o">=</span> <span class="n">QuantLinear</span><span class="p">(</span><span class="mi">120</span><span class="p">,</span> <span class="mi">84</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">relu4</span> <span class="o">=</span> <span class="n">QuantReLU</span><span class="p">(</span><span class="n">bit_width</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc3</span>   <span class="o">=</span> <span class="n">QuantLinear</span><span class="p">(</span><span class="mi">84</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">inp</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
         <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">relu1</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">conv1</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
         <span class="n">out</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">max_pool2d</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
         <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">relu2</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">conv2</span><span class="p">(</span><span class="n">out</span><span class="p">))</span>
@@ -285,162 +231,9 @@ pip install -e .
 </pre></div>
 </div>
 </div>
-<div class="section" id="pretrained-models">
-<h2>Pretrained models<a class="headerlink" href="#pretrained-models" title="Permalink to this headline">¶</a></h2>
-<p>Below a list of relevant pretrained models available, currently for evaluation only. Look at the <code class="docutils literal notranslate"><span class="pre">examples</span></code> folder for how to verify accuracy. Training scripts will be made available in the near future.</p>
-<table class="docutils align-default">
-<colgroup>
-<col style="width: 10%" />
-<col style="width: 10%" />
-<col style="width: 10%" />
-<col style="width: 10%" />
-<col style="width: 10%" />
-<col style="width: 10%" />
-<col style="width: 10%" />
-<col style="width: 10%" />
-<col style="width: 10%" />
-<col style="width: 10%" />
-</colgroup>
-<thead>
-<tr class="row-odd"><th class="head"><p>Name</p></th>
-<th class="head"><p>Scaling Type</p></th>
-<th class="head"><p>First layer weights</p></th>
-<th class="head"><p>Weights</p></th>
-<th class="head"><p>Activations</p></th>
-<th class="head"><p>Avg pool</p></th>
-<th class="head"><p>Top1</p></th>
-<th class="head"><p>Top5</p></th>
-<th class="head"><p>Pretrained model</p></th>
-<th class="head"><p>Retrained from</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>MobileNet V1</p></td>
-<td><p>Floating-point per channel</p></td>
-<td><p>8 bit</p></td>
-<td><p>4 bit</p></td>
-<td><p>4 bit</p></td>
-<td><p>4 bit</p></td>
-<td><p>71.14</p></td>
-<td><p>90.10</p></td>
-<td><p><a class="reference external" href="https://github.com/Xilinx/brevitas/releases/download/quant_mobilenet_v1_4b-r1/quant_mobilenet_v1_4b-0100a667.pth">Download</a></p></td>
-<td><p><a class="reference external" href="https://github.com/osmr/imgclsmob/tree/master/pytorch">link</a></p></td>
-</tr>
-<tr class="row-odd"><td><p>ProxylessNAS Mobile14 w/ Hadamard classifier</p></td>
-<td><p>Floating-point per channel</p></td>
-<td><p>8 bit</p></td>
-<td><p>4 bit</p></td>
-<td><p>4 bit</p></td>
-<td><p>4 bit</p></td>
-<td><p>73.52</p></td>
-<td><p>91.46</p></td>
-<td><p><a class="reference external" href="https://github.com/Xilinx/brevitas/releases/download/quant_proxylessnas_mobile14_hadamard_4b-r0/quant_proxylessnas_mobile14_hadamard_4b-4acbfa9f.pth">Download</a></p></td>
-<td><p><a class="reference external" href="https://github.com/osmr/imgclsmob/tree/master/pytorch">link</a></p></td>
-</tr>
-<tr class="row-even"><td><p>ProxylessNAS Mobile14</p></td>
-<td><p>Floating-point per channel</p></td>
-<td><p>8 bit</p></td>
-<td><p>4 bit</p></td>
-<td><p>4 bit</p></td>
-<td><p>4 bit</p></td>
-<td><p>74.42</p></td>
-<td><p>92.04</p></td>
-<td><p><a class="reference external" href="https://github.com/Xilinx/brevitas/releases/download/quant_proxylessnas_mobile14_4b-r0/quant_proxylessnas_mobile14_4b-e10882e1.pth">Download</a></p></td>
-<td><p><a class="reference external" href="https://github.com/osmr/imgclsmob/tree/master/pytorch">link</a></p></td>
-</tr>
-<tr class="row-odd"><td><p>ProxylessNAS Mobile14</p></td>
-<td><p>Floating-point per channel</p></td>
-<td><p>8 bit</p></td>
-<td><p>4 bit, 5 bit</p></td>
-<td><p>4 bit, 5 bit</p></td>
-<td><p>4 bit</p></td>
-<td><p>75.01</p></td>
-<td><p>92.33</p></td>
-<td><p><a class="reference external" href="https://github.com/Xilinx/brevitas/releases/download/quant_proxylessnas_mobile14_4b5b-r0/quant_proxylessnas_mobile14_4b5b-2bdf7f8d.pth">Download</a></p></td>
-<td><p><a class="reference external" href="https://github.com/osmr/imgclsmob/tree/master/pytorch">link</a></p></td>
-</tr>
-</tbody>
-</table>
-</div>
-<div class="section" id="scaling">
-<h2>Scaling<a class="headerlink" href="#scaling" title="Permalink to this headline">¶</a></h2>
-<p>Brevitas supports multiple alternative options for scaling factors.</p>
-<p>With respect to the number of dimensions:</p>
-<ul class="simple">
-<li><p>Per tensor or per (output) channel scaling, for both weights and activations.
-For activations, per channel scaling usually makes sense only before a depth-wise separable convolution.</p></li>
-</ul>
-<p>With respect to how they are learned:</p>
-<ul class="simple">
-<li><p>As a standalone Pytorch <em>Parameter</em>, initialized from statistics (for weights) or from user-defined values (for activations).</p></li>
-<li><p>as a statistical function of the full-precision version of the target tensor, possibly along with affine coefficients.
-Various function as supported, such as <em>max(abs(x))</em>, and more can be easily added.
-For activations, learning of this kind is done in the style of batch-norm, i.e. statistics are collected at training-time to use them at inference time.
-In all cases, gradients are allowed to backprop through the defined function for best accuracy results.</p></li>
-</ul>
-<p>Possibly shared between different layers that have to scaled equally:</p>
-<ul class="simple">
-<li><p>By sharing the underlying Parameter, when the scale factor is a learned parameter.</p></li>
-<li><p>By applying the statistical function to a concatenation of the different set of weights involved, when the scale factors are learned as a function of the weights.</p></li>
-</ul>
-<p>Possibly constrained to:</p>
-<ul class="simple">
-<li><p>A standard floating point number, i.e. no restrictions.</p></li>
-<li><p>A floating point power-of-two exponent, i.e. a floating point number learned in log domain.</p></li>
-<li><p>An integer power-of-two value exponent, i.e. rounding the above fp log version to the next integer.</p></li>
-</ul>
-</div>
-<div class="section" id="precision">
-<h2>Precision<a class="headerlink" href="#precision" title="Permalink to this headline">¶</a></h2>
-<p>Brevitas supports both constant and learned precision.</p>
-<p>In an quantization flow leveraging integer uniform quantization, the <em>bit-width</em> (together with the <em>sign</em>) determines the <em>min</em> and <em>max</em> integer values
-used for scaling and clamping. Assuming that an integer bit-width can be modelled as the rounded copy of an underlying floating point value (with a straight-through estimator in the backward pass),
-all the operations involving bit-width are differentiable. As such, the bit-width can a learned parameter,
-without resorting to more complicated approaches leveraging AutoML or Gumbel-Softmax categorical variables.</p>
-<ul class="simple">
-<li><p>For weights and activation:
-Learned bit-width is equal to <em>base_bit_width + round_ste(abs(offset))</em>, where <em>base_bit_width</em> is a constant representing the minimum bit-width to converge to (required to be <em>&gt;= 2</em>) and offset is a learned parameter.</p></li>
-<li><p>For modelling an accumulator saturate to a learned bit width:
-The bit-width of the accumulator (computed by upstream layers) is taken as an input, and a learned negative offset is subtracted from it.
-In order to avoid conflicting with regularization losses that promotes small magnitude of learned parameters, such as weight-decay,
-the offset is implemented with the learned parameter at the denominator, so that smaller values results in reduced overall bit-width.</p></li>
-</ul>
-<p>Additional requirements or relaxations can be put on the resulting bit-width:</p>
-<ul class="simple">
-<li><p>Avoid the rounding step, and learn a floating point bit-width first (with the goal of retrained afterwards).</p></li>
-<li><p>Constrain the bit width to power-of-two values, e.g. 2, 4, 8.</p></li>
-<li><p>Share the learned bit-width between two or more layers, in order to e.g. keep the precision of a Conv2d layer and the precision of its input the same.</p></li>
-</ul>
-</div>
-<div class="section" id="code-organization">
-<h2>Code organization<a class="headerlink" href="#code-organization" title="Permalink to this headline">¶</a></h2>
-<p>The implementation in organized in three different levels, each corresponding to a package:</p>
-<ul class="simple">
-<li><p><strong>core</strong>: contains the implementation of all Brevitas’ quantization routines, leveraging the <em>JIT</em> as much as possible.</p></li>
-<li><p><strong>proxy</strong>: combines the routines implemented in the core in way that makes sense for different target tensors, namely weights, activations and accumulators.</p></li>
-<li><p><strong>nn</strong>: wraps the different proxies in a user-facing API, which can be used as a drop-in replacement for torch.nn modules.</p></li>
-</ul>
-<p>Additionally, the following packages are present:</p>
-<ul class="simple">
-<li><p><strong>function</strong>: implements various support routines.</p></li>
-<li><p><strong>cost</strong>: exposes different loss functions for modelling the hardware cost at training-time or for regularization purposes.</p></li>
-</ul>
-</div>
-<div class="section" id="a-note-on-the-implementation">
-<h2>A note on the implementation<a class="headerlink" href="#a-note-on-the-implementation" title="Permalink to this headline">¶</a></h2>
-<p>Brevitas operates (possibly but not strictly) on a <em>QuantTensor</em>, currently implemented as a <em>NamedTuple</em> because of a lack of support for custom Tensor sub-classes in Pytorch. This might change in the future.</p>
-<p>A QuantTensor propagates the following information:</p>
-<ul class="simple">
-<li><p><strong>quant_tensor</strong>: the quantized tensor, in dequantized representation (i.e. floating-point order of magnitude).</p></li>
-<li><p><strong>scale_factor</strong>: the scale factor implicit in <em>quant_tensor</em>.</p></li>
-<li><p><strong>bit_width</strong>: the precision of <em>quant_tensor</em> in bits.</p></li>
-</ul>
-<p>Propagating scale factors and bit-width along the forward pass allows to model and operate on accumulators, whose bit-width and scale factor depends on the layers contributing to them.
-However, propagating a tuple of values in a forward() call breaks compatibility with certain modules like <em>nn.Sequential</em>, which assumes 1 input and 1 output. As such, operating on a QuantTensor is optional.</p>
-</div>
 <div class="section" id="author">
 <h2>Author<a class="headerlink" href="#author" title="Permalink to this headline">¶</a></h2>
-<p>Alessandro Pappalardo &#64; Xilinx Research Labs.</p>
+<p>Alessandro Pappalardo (&#64;volcacius) &#64; Xilinx Research Labs.</p>
 </div>
 </div>
 <div class="section" id="indices-and-tables">
@@ -457,20 +250,25 @@ However, propagating a tuple of values in a forward() call breaks compatibility 
            
           </div>
           <footer>
-  
 
   <hr/>
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright 2019, Alessandro Pappalardo
+        &#169; Copyright 2021 - Xilinx, Inc.
 
     </p>
   </div>
-  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+    
+    
+    
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
 
 </footer>
-
         </div>
       </div>
 
@@ -478,7 +276,6 @@ However, propagating a tuple of values in a forward() call breaks compatibility 
 
   </div>
   
-
 
   <script type="text/javascript">
       jQuery(function () {
