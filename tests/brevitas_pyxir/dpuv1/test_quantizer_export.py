@@ -6,7 +6,7 @@ from torchvision import models
 
 from brevitas.onnx import export_dpuv2_onnx
 from brevitas.graph.quantizer import quantize, BatchNormHandling
-from brevitas.inject.defaults import *
+from brevitas.quant.base import *
 from brevitas import config
 config.IGNORE_MISSING_KEYS = True
 

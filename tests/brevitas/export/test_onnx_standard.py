@@ -6,7 +6,8 @@ import onnxruntime as rt
 import numpy as np
 
 from brevitas.nn import QuantConv2d, QuantLinear, QuantIdentity, QuantMaxPool2d
-from brevitas.inject.defaults import ShiftedUint8ActPerTensorFloat, ShiftedUint8WeightPerTensorFloat
+from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
+from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
 from brevitas.onnx import export_standard_onnx
 
 OUT_CH = 40

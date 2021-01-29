@@ -2,8 +2,9 @@ import torch
 import pytest
 
 from brevitas.nn import QuantConv2d, QuantLinear, QuantIdentity, QuantReLU, QuantMaxPool2d
-from brevitas.inject.defaults import ShiftedUint8ActPerTensorFloat, Int8WeightPerTensorFloat
-from brevitas.inject.defaults import Uint8ActPerTensorFloat
+from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
+from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
+from brevitas.quant.scaled_int import Uint8ActPerTensorFloat
 from brevitas.export.pytorch.manager import PytorchQuantManager
 
 OUT_CH = 50
