@@ -127,6 +127,7 @@ def _solve_bias_quant_type(qi):
     solver = partial(_solve_attr, name=name)
     qi = solver(qi, QuantType.FP, {'tensor_quant': None})
     if _check_name_value(qi, name, QuantType.INT):
+        qi = qi.let(**{'signed': True, 'narrow_range': False})
         if 'bit_width' in qi and 'scaling_impl' not in qi:
             qi = qi.let(**{'tensor_quant': PrescaledRestrictIntQuant,
                            'int_quant': IntQuant})
