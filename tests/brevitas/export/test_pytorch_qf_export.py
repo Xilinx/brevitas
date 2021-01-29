@@ -13,7 +13,7 @@ TOLERANCE = 1.1
 
 
 def test_pytorch_quant_conv_export():
-    IN_SIZE = (1, 1, IN_CH, IN_CH)
+    IN_SIZE = (2, IN_CH, IN_CH, IN_CH)
     KERNEL_SIZE = (3, 3)
 
     class Model(torch.nn.Module):
