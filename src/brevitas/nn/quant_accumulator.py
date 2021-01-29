@@ -38,7 +38,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from typing import Callable, Union, Type
+from typing import Callable, Union, Type, Optional
 
 from torch.nn import Module
 
@@ -54,7 +54,7 @@ class TruncQuantAccumulator(QuantTruncMixin, QuantLayerMixin, Module):
 
     def __init__(
             self,
-            trunc_quant: Union[AccQuantProxyProtocol, Type[Injector]] = None,
+            trunc_quant: Optional[Union[AccQuantProxyProtocol, Type[Injector]]] = None,
             return_quant_tensor: bool = True,
             update_injector: Callable = update_trunc_quant_injector,
             **kwargs):
@@ -83,7 +83,7 @@ class ClampQuantAccumulator(QuantClampMixin, QuantLayerMixin, Module):
 
     def __init__(
             self,
-            clamp_quant: Union[AccQuantProxyProtocol, Type[Injector]] = None,
+            clamp_quant: Optional[Union[AccQuantProxyProtocol, Type[Injector]]] = None,
             return_quant_tensor: bool = True,
             update_injector: Callable = update_trunc_quant_injector,
             **kwargs):
