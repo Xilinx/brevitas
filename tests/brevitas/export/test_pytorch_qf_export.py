@@ -29,10 +29,10 @@ def test_pytorch_quant_conv_export():
                 input_quant=ShiftedUint8ActPerTensorFloat,
                 output_quant=ShiftedUint8ActPerTensorFloat,
                 return_quant_tensor=False)
-            self.linear.weight.data.uniform_(-0.01, 0.01)
+            self.conv.weight.data.uniform_(-0.01, 0.01)
 
         def forward(self, x):
-            return self.linear(x)
+            return self.conv(x)
 
     inp = torch.randn(IN_SIZE)
     model = Model()
@@ -41,7 +41,7 @@ def test_pytorch_quant_conv_export():
     brevitas_out = model(inp)
     pytorch_qf_model = PytorchQuantManager.export(model, inp)
     pytorch_out = pytorch_qf_model(inp)
-    atol = model.linear.quant_output_scale().item() * TOLERANCE
+    atol = model.conv.quant_output_scale().item() * TOLERANCE
     assert pytorch_out.isclose(brevitas_out, rtol=0.0, atol=atol).all()
 
 
