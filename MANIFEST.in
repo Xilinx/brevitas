@@ -1,2 +1,11 @@
+# The directives below handle building a wheel or installing from a sdist
+# sdist is controlled by setuptools_scm https://github.com/pypa/setuptools_scm/issues/190
+prune docsrc
+prune docs
+prune tests
+prune .github
+exclude .gitignore
+exclude noxfile.py
+exclude pytest.ini
+recursive-include src/brevitas_examples *.ini *.yaml *.md
 include src/brevitas/csrc/*.cpp
-recursive-include src/brevitas_examples *.ini *.yaml
