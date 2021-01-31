@@ -45,9 +45,10 @@ Brevitas implements a set of building blocks at different levels of abstraction 
 Brevitas provides a platform both for researchers interested in implementing new quantization-aware training techinques, as well as for practitioners interested in applying current techniques to their models.
 
 The quantizers currently implemented support variations of uniform affine quantization. Non-uniform quantization is currently not supported.
+
 ## Getting started
 
-Here's how a simple 4 bit weights, 8 bit activations LeNet looks like, using default settings for scaling:
+Here's how a simple 4 bit weights, 8 bit activations LeNet looks like:
 
 
 ```python
@@ -82,6 +83,181 @@ class QuantLeNet(Module):
         return out
 ```
 
+## Basic usage
+
+Brevitas exposes a few built-in quantizers that can be found under `brevitas.quant`. A quantizer
+can be assigned to a `brevitas.nn` layer to perform quantization of some part of it. 
+
+For example, if we look at the source code of `QuantConv2d`, we can see that by default weights are 
+quantized with the `Int8WeightPerTensorFloat`quantizer, which performs 8-bit signed integer 
+quantization with a per-tensor floating-point scale factor, while input, output and bias quantization 
+are disabled. For reference, this a type of weight quantization supported by the ONNX standard.
+
+```python
+from torch.nn import Conv2d
+from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
+
+class QuantConv2d(..., Conv2d):
+    
+    def __init__(
+            self, 
+            ...,
+            weight_quant=Int8WeightPerTensorFloat, 
+            bias_quant=None, 
+            input_quant=None, 
+            output_quant=None)
+```
+
+We can enable quantization of bias, input and output by setting appropriate quantizers, while keeping
+the default weight quantizer:
+```python
+from brevitas.nn import QuantConv2d
+from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
+from brevitas.quant.scaled_int import Int8Bias, Int8ActPerTensorFloat
+
+conv = QuantConv2d(
+    ...,
+    bias_quant=Int8Bias, 
+    input_quant=Int8ActPerTensorFloat, 
+    output_quant=Int8ActPerTensorFloat)
+```
+
+Now let's say we want to set the bit-width of the weights to *4 bits* and enable *per-channel* scale factors. 
+The simplest way is to pass appropriate keyword arguments that override the attributes defined in the 
+default `Int8WeightPerTensorFloat` quantizer:
+
+```python
+from brevitas.nn import QuantConv2d
+from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
+from brevitas.quant.scaled_int import Int8Bias, Int8ActPerTensorFloat
+
+conv = QuantConv2d(
+    ...,
+    weight_bit_width=4,
+    weight_scaling_per_output_channel=True,
+    bias_quant=Int8Bias, 
+    input_quant=Int8ActPerTensorFloat, 
+    output_quant=Int8ActPerTensorFloat)
+```
+
+Any keyword argument with the prefix `weight_` is passed automatically to the quantizer assigned
+to `weight_quant`, and possibly overrides any pre-existing attribute with the same name defined there. 
+The same principle applies to `bias_`, `input_` and `output_`.
+
+When the same arguments are re-used across various layers, it can also be convenient to simply 
+define a new quantizer instead. One way to do so is by inheriting from an existing quantizer:
+
+```python
+from brevitas.nn import QuantConv2d
+from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
+from brevitas.quant.scaled_int import Int8Bias, Int8ActPerTensorFloat
+
+class MyWeightQuant(Int8WeightPerTensorFloat):
+    bit_width = 4
+    scaling_per_output_channel = True
+
+conv1 = QuantConv2d(..., weight_quant=MyWeightQuant)
+conv2 = QuantConv2d(..., weight_quant=MyWeightQuant)
+```
+
+Given a quantizer, it can be difficult at first to see which options are available to modify. The best way
+is to look at how the quantizer is defined. In the case of `Int8WeightPerTensorFloat`,
+we see that it simply inherits from `NarrowIntQuant`, `MaxStatsScaling`, `PerTensorFloatScaling8bit`:
+
+```python
+from brevitas.quant.base import NarrowIntQuant, MaxStatsScaling, PerTensorFloatScaling8bit
+
+class Int8WeightPerTensorFloat(
+    NarrowIntQuant, MaxStatsScaling, PerTensorFloatScaling8bit):
+    pass
+``` 
+
+What that means is that the quantizer is the composition of those three complementary parts, which
+are defined in `brevitas.quant.base` as follows: 
+
+```python
+from brevitas.inject import BaseInjector as Injector
+from brevitas.inject.enum import QuantType, BitWidthImplType, ScalingImplType
+from brevitas.inject.enum import RestrictValueType, StatsOp
+from brevitas.core.zero_point import ZeroZeroPoint
+
+class NarrowIntQuant(Injector):
+    quant_type = QuantType.INT
+    bit_width_impl_type = BitWidthImplType.CONST
+    narrow_range = True
+    signed = True
+    zero_point_impl = ZeroZeroPoint
+
+class MaxStatsScaling(Injector):
+    scaling_impl_type = ScalingImplType.STATS
+    scaling_stats_op = StatsOp.MAX
+
+class PerTensorFloatScaling8bit(Injector):
+    scaling_per_output_channel = False
+    restrict_scaling_type = RestrictValueType.FP
+    bit_width = 8
+``` 
+
+We can see that various attributes of the quantizer come from *enums*. Within Brevitas, enums
+provide an abstraction that hides away various implementation details, while exposing only a simplified 
+interface that can be easily explored through auto-complete or source-code inspection.
+
+For example, let's say that we want to implement a quantizer where the bit-width is a parameter
+learned with backprop starting from an initialization of 4-bits, while the scale factor is also a parameter,
+but it's a floating-point number learned in logarithmic domain,
+initialized based on the maximum value found in the tensor to quantize. It's just a matter
+of switching a few enums:
+
+```python
+from brevitas.inject import BaseInjector as Injector
+from brevitas.inject.enum import QuantType, BitWidthImplType, ScalingImplType
+from brevitas.inject.enum import RestrictValueType, StatsOp
+from brevitas.core.zero_point import ZeroZeroPoint
+from brevitas.nn import QuantConv2d
+
+class MyLearnedWeightQuant(Injector):
+    quant_type = QuantType.INT
+    bit_width_impl_type = BitWidthImplType.PARAMETER  # previously was BitWidthImplType.CONST
+    narrow_range = True
+    signed = True
+    zero_point_impl = ZeroZeroPoint
+    scaling_impl_type = ScalingImplType.PARAMETER_FROM_STATS  # previously was ScalingImplType.STATS
+    scaling_stats_op = StatsOp.MAX
+    scaling_per_output_channel = False
+    restrict_scaling_type = RestrictValueType.LOG_FP  # previously was RestrictValueType.FP
+    bit_width = 4
+
+conv = QuantConv2d(..., weight_quant=MyLearnedWeightQuant)
+``` 
+
+In Brevitas enums are always equal to their string representation in a case-insensitive way.
+So to go back to the initial example of overriding attributes of a quantizer with keyword arguments,
+we could have also wrote `MyLearnedWeightQuant` implicitly by simply overriding a few attributes of the default 
+weight quantizer:
+
+```python
+from brevitas.nn import QuantConv2d
+
+conv = QuantConv2d(
+    ..., 
+    weight_bit_width=4,
+    weight_bit_width_impl_type='parameter', 
+    weight_scaling_impl_type='parameter_from_stats',
+    weight_restrict_scaling_type='log_fp')
+```
+
+Everything that has been said so far applies to quantized activations too, with just a couple of variations.
+For reasons of retro-compatibility with older versions of Brevitas, the output quantizer of an activation layer
+is called `act_quant`, and passing keyword arguments to it doesn't require a prefix. 
+So for example, to set the output of a `QuantReLU` to 4-bits, it's enough to write:
+
+```python
+from brevitas.nn import QuantReLU
+
+act = QuantReLU(bit_width=4)
+```
+
+
 ## Settings
 
 Brevitas exposes a few settings that can be toggled through env variables.
@@ -98,7 +274,8 @@ Brevitas exposes a few settings that can be toggled through env variables.
 ## F.A.Q.
 
 **Q: How can I train X/Y and run it on hardware W/Z? I can't find any documentation.**
-Brevitas is still sparsely documented. Until the situation improves, feel free to open an issue or ask on our gitter channel.
+
+**A:** Brevitas is still sparsely documented. Until the situation improves, feel free to open an issue or ask on our gitter channel.
 
 
 **Q: Training with Brevitas is slow and/or I can't fit the same batch size as with floating-point training. Why? What can I do?**
@@ -115,7 +292,7 @@ To mitigate somewhat the slow-down, try enabling *BREVITAS_JIT* as reported in t
 
 **Q: Inference with Brevitas is slow. I thought the point of QAT was to make my model faster at inference time. What I am doing wrong?**
 
-**A:**: Brevitas is concerned with modelling a reduced precision data-path, it does not provide inference-time acceleration on its own. 
+**A:** Brevitas is concerned with modelling a reduced precision data-path, it does not provide inference-time acceleration on its own. 
 To achieve acceleration, you should export your Brevitas model to a downstream toolchain / backend. 
 
 Brevitas can currently export to:
