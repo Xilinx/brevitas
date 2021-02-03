@@ -196,3 +196,16 @@ class TruncQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
             return QuantTensor(out_value, out_scale, out_zp, out_bit_width, x.signed)
         else:
             return x
+
+    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
+                              missing_keys, unexpected_keys, error_msgs):
+        super(TruncQuantProxyFromInjector, self)._load_from_state_dict(
+            state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
+        # for retrocompatibility with when it wasn't removed and it was called differently
+        zhs = 'zero_hw_sentinel'
+        zhs_key = prefix + zhs
+        zhs_old_prefix_key = '.'.join(prefix.split('.')[:-2]) + '.accumulator_quant.' + zhs
+        if zhs in unexpected_keys:
+            unexpected_keys.remove(zhs_key)
+        if zhs_old_prefix_key in unexpected_keys:
+            unexpected_keys.remove(zhs_old_prefix_key)
