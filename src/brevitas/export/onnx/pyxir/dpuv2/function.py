@@ -1,28 +1,5 @@
-import torch
-from torch.autograd import Function
-
-from ..function import DPUQuantReLUPlaceholderFunction
-from ..function import DPUQuantEltwiseAddPlaceholderFunction
 from ..function import DPUQuantMaxPoolPlaceholderFunction
-from ..function import DPUQuantAvgPoolPlaceholderFunction
 from ..function import DPUQuantConv2dPlaceholderFunction
-from ..function import DPUQuantLinearPlaceholderFunction
-
-
-class DPUv2QuantReLUPlaceholderFunction(DPUQuantReLUPlaceholderFunction):
-    pass
-
-
-class DPUv2QuantEltwiseAddPlaceholderFunction(DPUQuantEltwiseAddPlaceholderFunction):
-    pass
-
-
-class DPUv2QuantAvgPoolPlaceholderFunction(DPUQuantAvgPoolPlaceholderFunction):
-    pass
-
-
-class DPUv2QuantLinearPlaceholderFunction(DPUQuantLinearPlaceholderFunction):
-    pass
 
 
 class DPUv2QuantConv2dPlaceholderFunction(DPUQuantConv2dPlaceholderFunction):

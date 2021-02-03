@@ -10,6 +10,8 @@ from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIO
 from brevitas.nn import QuantConv2d, QuantReLU, QuantEltwiseAdd, QuantMaxPool2d, QuantLinear
 from brevitas.nn import QuantAdaptiveAvgPool2d, QuantAvgPool2d
 from brevitas.export.onnx.handler import ONNXBaseHandler, Kernel2dApplHandler
+from .function import DPUQuantReLUPlaceholderFunction, DPUQuantEltwiseAddPlaceholderFunction
+from .function import DPUQuantAvgPoolPlaceholderFunction, DPUQuantLinearPlaceholderFunction
 
 
 class DPUQuantLayerHandler(ONNXBaseHandler, ABC):
@@ -63,7 +65,7 @@ class DPUQuantLayerHandler(ONNXBaseHandler, ABC):
         return cached_out.shape
 
 
-class DPUQuantReLUHandler(DPUQuantLayerHandler, ABC):
+class DPUQuantReLUHandler(DPUQuantLayerHandler):
     handled_layer = QuantReLU
 
     def prepare_for_export(self, module: QuantReLU):
@@ -73,8 +75,12 @@ class DPUQuantReLUHandler(DPUQuantLayerHandler, ABC):
             'output_bit_width': self.quant_output_bit_width(module),
             'output_scale': self.quant_output_scale(module)}
 
+    def symbolic_execution(self, inp: Tensor):
+        ret = DPUQuantReLUPlaceholderFunction.apply(inp, *self.symbolic_kwargs.values())
+        return ret
 
-class DPUQuantEltwiseAddHandler(DPUQuantLayerHandler, ABC):
+
+class DPUQuantEltwiseAddHandler(DPUQuantLayerHandler):
     handled_layer = QuantEltwiseAdd
 
     def prepare_for_export(self, module: QuantEltwiseAdd):
@@ -85,6 +91,11 @@ class DPUQuantEltwiseAddHandler(DPUQuantLayerHandler, ABC):
             'input_scale': self.quant_input_scale(module),
             'output_bit_width': self.quant_output_bit_width(module),
             'output_scale': self.quant_output_scale(module)}
+
+    def symbolic_execution(self, inp: Tensor, other: Tensor):
+        ret = DPUQuantEltwiseAddPlaceholderFunction.apply(
+            inp, other, *self.symbolic_kwargs.values())
+        return ret
 
 
 class DPUQuantMaxPool2dHandler(DPUQuantLayerHandler, Kernel2dApplHandler, ABC):
@@ -104,7 +115,7 @@ class DPUQuantMaxPool2dHandler(DPUQuantLayerHandler, Kernel2dApplHandler, ABC):
             'output_scale': self.quant_output_scale(module)}
 
 
-class DPUQuantAvgPool2dHandler(DPUQuantLayerHandler, Kernel2dApplHandler, ABC):
+class DPUQuantAvgPool2dHandler(DPUQuantLayerHandler, Kernel2dApplHandler):
     handled_layer = (QuantAvgPool2d, QuantAdaptiveAvgPool2d)
 
     def prepare_for_export(self, module: Union[QuantAvgPool2d, QuantAdaptiveAvgPool2d]):
@@ -117,6 +128,10 @@ class DPUQuantAvgPool2dHandler(DPUQuantLayerHandler, Kernel2dApplHandler, ABC):
             'input_scale': self.quant_input_scale(module),
             'output_bit_width': self.quant_output_bit_width(module),
             'output_scale': self.quant_output_scale(module)}
+
+    def symbolic_execution(self, inp: Tensor):
+        ret = DPUQuantAvgPoolPlaceholderFunction.apply(inp, *self.symbolic_kwargs.values())
+        return ret
         
 
 class DPUQuantWeightBiasHandler(ABC):
@@ -159,7 +174,7 @@ class DPUQuantWeightBiasHandler(ABC):
             return None
 
 
-class DPUQuantLinearHandler(DPUQuantLayerHandler, DPUQuantWeightBiasHandler, ABC):
+class DPUQuantLinearHandler(DPUQuantLayerHandler, DPUQuantWeightBiasHandler):
     handled_layer = QuantLinear
 
     def prepare_for_export(self, module: QuantAdaptiveAvgPool2d):
@@ -175,6 +190,10 @@ class DPUQuantLinearHandler(DPUQuantLayerHandler, DPUQuantWeightBiasHandler, ABC
             'weight_scale': self.quant_weight_scale(module),
             'bias_bit_width': self.quant_bias_bit_width(module),
             'bias_scale': self.quant_bias_scale(module)}
+
+    def symbolic_execution(self, inp: Tensor):
+        ret = DPUQuantLinearPlaceholderFunction.apply(inp, *self.symbolic_kwargs.values())
+        return ret
 
 
 class DPUQuantConv2dHandler(
