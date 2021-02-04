@@ -131,16 +131,17 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
                 y = y.value
             y = self.fused_activation_quant_proxy(y)
             if isinstance(y, tuple):
-                return QuantTensor(*y, signed=self.is_signed)
+                return QuantTensor(*y, signed=self.is_signed, training=self.training)
             elif self.passthrough_act:  # preserve scale/zp/bit/sign even without output quant
-                return QuantTensor(y, x.scale, x.zero_point, x.bit_width, x.signed)
+                return QuantTensor(
+                    y, x.scale, x.zero_point, x.bit_width, x.signed, self.training)
             else:
-                return QuantTensor(y)
+                return QuantTensor(y, training=self.training)
         else:
             if isinstance(x, QuantTensor):  # passthrough
                 return x
             else:
-                return QuantTensor(x)
+                return QuantTensor(x, training=self.training)
 
     def identity_quant(self):
         return IdentityQuantProxyFromInjector(self.quant_injector.let(act_impl=None))
@@ -177,7 +178,8 @@ class ClampQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
         if self.is_quant_enabled:
             out_tuple = self.tensor_quant(x.value, x.scale, x.bit_width)
             out_value, out_scale, out_zp, out_bit_width = out_tuple
-            return QuantTensor(out_value, out_scale, out_zp, out_bit_width, self.is_signed)
+            return QuantTensor(
+                out_value, out_scale, out_zp, out_bit_width, self.is_signed, self.training)
         return x
 
 
@@ -193,7 +195,8 @@ class TruncQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
         if self.is_quant_enabled:
             out_tuple = self.tensor_quant(x.value, x.scale, x.zero_point, x.bit_width)
             out_value, out_scale, out_zp, out_bit_width = out_tuple
-            return QuantTensor(out_value, out_scale, out_zp, out_bit_width, x.signed)
+            return QuantTensor(
+                out_value, out_scale, out_zp, out_bit_width, x.signed, self.training)
         else:
             return x
 
