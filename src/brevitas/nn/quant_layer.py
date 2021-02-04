@@ -338,6 +338,7 @@ class QuantWeightBiasInputOutputLayer(
         output_scale = None
         output_bit_width = None
         output_zero_point = None
+        output_signed = None
 
         inp = self.unpack_input(inp)
 
@@ -354,6 +355,8 @@ class QuantWeightBiasInputOutputLayer(
             output_scale_shape = compute_channel_view_shape(inp, channel_dim=1)
             output_scale = quant_weight.scale.view(output_scale_shape)
             output_scale = output_scale * quant_input.scale.view(output_scale_shape)
+        if quant_input.signed is not None:
+            output_signed = inp.signed or quant_weight.signed
 
         if self.bias is not None:
             quant_bias = self.bias_quant(self.bias, output_scale, output_bit_width)
@@ -381,7 +384,8 @@ class QuantWeightBiasInputOutputLayer(
             scale=output_scale,
             zero_point=output_zero_point,
             bit_width=output_bit_width,
-            signed=True)
+            signed=output_signed,
+            training=self.training)
         quant_output = self.output_quant(quant_output)
         return self.pack_output(quant_output)
 
