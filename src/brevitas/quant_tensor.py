@@ -62,11 +62,11 @@ class QuantTensor(NamedTuple):
 
     @property
     def is_valid(self):
-        return self.value is not None \
-               and self.scale is not None \
-               and self.zero_point is not None \
-               and self.bit_width is not None \
-               and self.signed is not None
+        return (self.value is not None
+                and self.scale is not None
+                and self.zero_point is not None
+                and self.bit_width is not None
+                and self.signed is not None)
 
     def set(self, **kwargs):
         return self._replace(**kwargs)
@@ -79,11 +79,12 @@ class QuantTensor(NamedTuple):
 
     def detach(self):
         return QuantTensor(
-            self.value.detach() if self.value is not None else None,
+            self.value.detach(),
             self.scale.detach() if self.scale is not None else None,
             self.zero_point.detach() if self.zero_point is not None else None,
             self.bit_width.detach() if self.bit_width is not None else None,
-            self.signed)
+            self.signed,
+            self.training)
 
     def int(self, float_datatype=False):
         if self.is_valid:
@@ -98,9 +99,17 @@ class QuantTensor(NamedTuple):
             raise RuntimeError(f"QuantTensor not well formed, all fields must be set: {self}")
 
     @staticmethod
-    def check_input_type(other):
-        if not isinstance(other, QuantTensor):
-            raise RuntimeError("Other tensor is not a QuantTensor")
+    def check_input_type(tensor):
+        if not isinstance(tensor, QuantTensor):
+            raise RuntimeError("Tensor is not a QuantTensor")
+
+    @staticmethod
+    def is_zero_zero_point(tensor):
+        QuantTensor.check_input_type(tensor)
+        if tensor.zero_point is not None:
+            return (tensor.zero_point != 0.).any()
+        else:
+            return None
 
     def check_scaling_factors_same(self, other):
         if self.training is not None and self.training:
@@ -156,23 +165,39 @@ class QuantTensor(NamedTuple):
             output_scale = sum([qt.scale for qt in tensor_list]) / len(tensor_list)
             output_zero_point = sum([qt.zero_point for qt in tensor_list]) / len(tensor_list)
             output_bit_width = sum([qt.bit_width for qt in tensor_list]) / len(tensor_list)
-            output_signed = first_qt.signed # they are the same
+            output_signed = first_qt.signed  # they are the same
+            output_training = any([qt.training for qt in tensor_list])
             return QuantTensor(
-                output_value, output_scale, output_zero_point, output_bit_width, output_signed)
+                value=output_value,
+                scale=output_scale,
+                zero_point=output_zero_point,
+                bit_width=output_bit_width,
+                signed=output_signed,
+                training=output_training)
         else:
             output_value = torch.cat([qt.value for qt in tensor_list], dim=dim)
             return QuantTensor(output_value)
 
-
     # Reference: https://docs.python.org/3/reference/datamodel.html#emulating-numeric-types
 
     def __neg__(self):
+        neg_value = (- self.int(float_datatype=True) - self.zero_point) * self.scale
         if self.signed:
             return QuantTensor(
-                - self.value, self.scale, self.zero_point, self.bit_width, self.signed)
+                value=neg_value,
+                scale=self.scale,
+                zero_point=self.zero_point,
+                bit_width=self.bit_width,
+                signed=self.signed,
+                training=self.training)
         else:
             return QuantTensor(
-                - self.value, self.scale, self.bit_width + 1, signed=True)
+                value=neg_value,
+                scale=self.scale,
+                zero_point=self.zero_point,
+                bit_width=self.bit_width + 1,
+                signed=True,
+                training=self.training)
 
     def __add__(self, other):
         QuantTensor.check_input_type(other)
@@ -186,21 +211,38 @@ class QuantTensor(NamedTuple):
             max_uint_val += max_int(signed=False, narrow_range=False, bit_width=other.bit_width)
             output_bit_width = ceil_ste(torch.log2(max_uint_val))
             output_signed = self.signed or other.signed
+            output_training = self.training or other.training
             output = QuantTensor(
-                output_value, output_scale, output_zero_point, output_bit_width, output_signed)
+                value=output_value,
+                scale=output_scale,
+                zero_point=output_zero_point,
+                bit_width=output_bit_width,
+                signed=output_signed,
+                training=output_training)
         else:
             output_value = self.value + other.value
             output = QuantTensor(output_value)
         return output
 
-    def __mul__(self, other):  # todo zero point
+    def __mul__(self, other):
         QuantTensor.check_input_type(other)
         if self.is_valid and other.is_valid:
             output_value = self.value * other.value
             output_scale = self.scale * other.scale
             output_bit_width = self.bit_width + other.bit_width
             output_signed = self.signed or other.signed
-            output = QuantTensor(output_value, output_scale, output_bit_width, output_signed)
+            output_training = self.training or other.training
+            if self.is_zero_zero_point(self) and self.is_zero_zero_point(other):
+                output_zero_point = self.zero_point * other.zero_point
+            else:
+                output_zero_point = None # TODO non-zero zero point
+            output = QuantTensor(
+                value=output_value,
+                scale=output_scale,
+                zero_point=output_zero_point,
+                bit_width=output_bit_width,
+                signed=output_signed,
+                training=output_training)
         else:
             output_value = self.value * other.value
             output = QuantTensor(output_value)
@@ -209,14 +251,25 @@ class QuantTensor(NamedTuple):
     def __sub__(self, other):
         return self.__add__(- other)
 
-    def __truediv__(self, other):  # todo zero point
+    def __truediv__(self, other):
         QuantTensor.check_input_type(other)
         if self.is_valid and other.is_valid:
             output_tensor = self.value / other.tensor
             output_scale = self.scale / other.scale
             output_bit_width = self.bit_width - other.bit_width
             output_signed = self.signed or other.signed
-            output = QuantTensor(output_tensor, output_scale, output_bit_width, output_signed)
+            output_training = self.training or other.training
+            if self.is_zero_zero_point(self) and self.is_zero_zero_point(other):
+                output_zero_point = self.zero_point / other.zero_point
+            else:
+                output_zero_point = None # TODO non-zero zero point
+            output = QuantTensor(
+                value=output_tensor,
+                scale=output_scale,
+                zero_point=output_zero_point,
+                bit_width=output_bit_width,
+                signed=output_signed,
+                training=output_training)
         else:
             output_value = self.value / other.value
             output = QuantTensor(output_value)
@@ -224,11 +277,16 @@ class QuantTensor(NamedTuple):
 
     def __abs__(self):
         if self.signed:
+            abs_value = (torch.abs(self.int(float_datatype=True)) - self.zero_point) * self.scale
             return QuantTensor(
-                torch.abs(self.tensor), self.zero_point, self.scale, self.bit_width - 1, False)
+                value=abs_value,
+                scale=self.scale,
+                zero_point=self.zero_point,
+                bit_width=self.bit_width - 1,
+                signed=False,
+                training=self.training)
         else:
-            return QuantTensor(
-                torch.abs(self.tensor), self.zero_point, self.scale, self.bit_width, False)
+            return self
 
     def __pos__(self):
         return self
