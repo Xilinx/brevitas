@@ -14,6 +14,7 @@ except ImportError:
 from brevitas.function.ops_ste import ceil_ste
 from brevitas.function.ops import max_int
 from .mixin.base import QuantLayerMixin
+from brevitas.quant_tensor import QuantTensor
 
 
 class HadamardClassifier(QuantLayerMixin, nn.Module):
@@ -40,18 +41,34 @@ class HadamardClassifier(QuantLayerMixin, nn.Module):
             self.scale = nn.Parameter(torch.tensor(init_scale))
         self.eps = 1e-8
 
-    def forward(self, x):
+    def forward(self, inp):
         output_scale = None
+        output_zp = None
         output_bit_width = None
-        x, input_scale, input_bit_width = self.unpack_input(x)
-        norm = x.norm(p='fro', keepdim=True) + self.eps
-        x = x / norm
-        out = - self.scale * nn.functional.linear(x, self.proj[:self.out_channels, :self.in_channels])
-        if self.compute_output_scale:
-            output_scale = input_scale * self.scale / norm
-        if self.compute_output_bit_width:
-            output_bit_width = self.max_output_bit_width(input_bit_width)
-        return self.pack_output(out, output_scale, output_bit_width)
+        inp = self.unpack_input(inp)
+        norm = inp.value.norm(p='fro', keepdim=True) + self.eps
+        out = inp.value / norm
+        out = nn.functional.linear(out, self.proj[:self.out_channels, :self.in_channels])
+        out = - self.scale * out
+        if inp.scale is not None:
+            output_scale = inp.scale * self.scale / norm
+        if inp.bit_width is not None:
+            output_bit_width = self.max_output_bit_width(inp.bit_width)
+        if (self.return_quant_tensor
+                and inp.zero_point is not None
+                and (inp.zero_point != 0.0).any()):
+            raise RuntimeError("Computing zero point of output accumulator not supported yet.")
+        else:
+            output_zp = inp.zero_point
+        out = QuantTensor(
+            value=out,
+            scale=output_scale,
+            zero_point=output_zp,
+            bit_width=output_bit_width,
+            signed=True,
+            training=self.training)
+        return out
+
 
     def max_output_bit_width(self, input_bit_width):
         max_input_val = max_int(bit_width=input_bit_width, narrow_range=False, signed=False)
