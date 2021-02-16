@@ -41,7 +41,7 @@
 
 from dependencies import this
 
-from brevitas.inject import BaseInjector as Injector
+from brevitas.inject import ExtendedInjector
 from brevitas.inject.enum import ScalingImplType, StatsOp, RestrictValueType
 from brevitas.inject.enum import QuantType, BitWidthImplType, FloatToIntImplType
 from brevitas.core.zero_point import ZeroZeroPoint, MinUintZeroPoint
@@ -67,21 +67,21 @@ __all__ = [
 ]
 
 
-class MaxStatsScaling(Injector):
+class MaxStatsScaling(ExtendedInjector):
     """
     """
     scaling_impl_type = ScalingImplType.STATS
     scaling_stats_op = StatsOp.MAX
 
 
-class MinMaxStatsScaling(Injector):
+class MinMaxStatsScaling(ExtendedInjector):
     """
     """
     scaling_impl_type = ScalingImplType.STATS
-    scaling_stats_impl = AbsMinMax
+    scaling_stats_op = StatsOp.MIN_MAX
 
 
-class ParamFromRuntimePercentileScaling(Injector):
+class ParamFromRuntimePercentileScaling(ExtendedInjector):
     """
     """
     scaling_impl_type = ScalingImplType.PARAMETER_FROM_STATS
@@ -90,65 +90,70 @@ class ParamFromRuntimePercentileScaling(Injector):
     collect_stats_steps = 30
 
 
-class ParamFromRuntimeMinMaxScaling(Injector):
+class ParamFromRuntimeMinMaxScaling(ExtendedInjector):
     """
     """
     scaling_impl_type = ScalingImplType.PARAMETER_FROM_STATS
-    scaling_stats_impl = AbsMinMax
+    scaling_stats_op = StatsOp.MIN_MAX
     collect_stats_steps = 30
 
 
-class ParamMinMaxInitScaling(Injector):
+class ParamMinMaxInitScaling(ExtendedInjector):
     """
     """
     scaling_impl_type = ScalingImplType.PARAMETER
 
 
-class IntQuant(Injector):
+class IntQuant(ExtendedInjector):
     """
     """
     quant_type = QuantType.INT
     bit_width_impl_type = BitWidthImplType.CONST
+    float_to_int_impl_type = FloatToIntImplType.ROUND
     narrow_range = False
     signed = True
     zero_point_impl = ZeroZeroPoint
 
 
-class NarrowIntQuant(Injector):
+class NarrowIntQuant(ExtendedInjector):
     """
     """
     quant_type = QuantType.INT
     bit_width_impl_type = BitWidthImplType.CONST
+    float_to_int_impl_type = FloatToIntImplType.ROUND
     narrow_range = True
     signed = True
     zero_point_impl = ZeroZeroPoint
 
 
-class UintQuant(Injector):
+class UintQuant(ExtendedInjector):
     """
     """
     quant_type = QuantType.INT
     bit_width_impl_type = BitWidthImplType.CONST
+    float_to_int_impl_type = FloatToIntImplType.ROUND
     narrow_range = False
     signed = False
     zero_point_impl = ZeroZeroPoint
 
 
-class ShiftedMinUintQuant(Injector):
+class ShiftedMinUintQuant(ExtendedInjector):
     """
     """
     quant_type = QuantType.INT
     bit_width_impl_type = BitWidthImplType.CONST
+    float_to_int_impl_type = FloatToIntImplType.ROUND
     narrow_range = False
     signed = False
     zero_point_impl = MinUintZeroPoint
 
 
-class ShiftedRuntimeMinToUintQuant(Injector):
+class ShiftedRuntimeMinToUintQuant(ExtendedInjector):
     """
     """
     quant_type = QuantType.INT
     bit_width_impl_type = BitWidthImplType.CONST
+    float_to_int_impl_type = FloatToIntImplType.ROUND
     narrow_range = False
     signed = False
     zero_point_impl = ParameterFromRuntimeMinZeroPoint
@@ -156,7 +161,7 @@ class ShiftedRuntimeMinToUintQuant(Injector):
     zero_point_stats_input_view_shape_impl = this.scaling_stats_input_view_shape_impl
 
 
-class PerChannelFloatScaling8bit(Injector):
+class PerChannelFloatScaling8bit(ExtendedInjector):
     """
     """
     scaling_per_output_channel = True
@@ -164,7 +169,7 @@ class PerChannelFloatScaling8bit(Injector):
     bit_width = 8
 
 
-class PerTensorFloatScaling8bit(Injector):
+class PerTensorFloatScaling8bit(ExtendedInjector):
     """
     """
     scaling_per_output_channel = False
@@ -172,7 +177,7 @@ class PerTensorFloatScaling8bit(Injector):
     bit_width = 8
 
 
-class PerTensorPoTScaling8bit(Injector):
+class PerTensorPoTScaling8bit(ExtendedInjector):
     """
     """
     scaling_per_output_channel = False
@@ -180,7 +185,7 @@ class PerTensorPoTScaling8bit(Injector):
     bit_width = 8
 
 
-class IntTrunc(Injector):
+class IntTrunc(ExtendedInjector):
     """
     """
     quant_type = QuantType.INT

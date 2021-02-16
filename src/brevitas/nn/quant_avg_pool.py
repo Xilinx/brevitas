@@ -51,7 +51,6 @@ from brevitas.function.ops_ste import ceil_ste
 from brevitas.function.ops import max_int
 from brevitas.proxy.runtime_quant import AccQuantProxyProtocol
 from brevitas.quant_tensor import QuantTensor
-from brevitas.inject.solver import update_trunc_quant_injector
 from brevitas.inject.defaults import TruncTo8bit
 from .mixin.base import QuantLayerMixin
 from .mixin.acc import QuantTruncMixin
@@ -65,7 +64,6 @@ class QuantAvgPool2d(QuantTruncMixin, QuantLayerMixin, AvgPool2d):
             stride: Union[int, Tuple[int, int]] = None,
             trunc_quant: Union[AccQuantProxyProtocol, Type[Injector]] = TruncTo8bit,
             return_quant_tensor: bool = True,
-            update_injector: Callable = update_trunc_quant_injector,
             **kwargs):
         AvgPool2d.__init__(
             self,
@@ -75,7 +73,6 @@ class QuantAvgPool2d(QuantTruncMixin, QuantLayerMixin, AvgPool2d):
         QuantTruncMixin.__init__(
             self,
             trunc_quant=trunc_quant,
-            update_injector=update_injector,
             **kwargs)
 
     @property
@@ -121,7 +118,6 @@ class QuantAdaptiveAvgPool2d(QuantTruncMixin, QuantLayerMixin, AdaptiveAvgPool2d
             output_size: Union[int, Tuple[int, int]],
             trunc_quant: Union[AccQuantProxyProtocol, Type[Injector]] = TruncTo8bit,
             return_quant_tensor: bool = True,
-            update_injector: Callable = update_trunc_quant_injector,
             cache_kernel_size_stride: bool = True,
             **kwargs):
         AdaptiveAvgPool2d.__init__(self, output_size=output_size)
@@ -129,7 +125,6 @@ class QuantAdaptiveAvgPool2d(QuantTruncMixin, QuantLayerMixin, AdaptiveAvgPool2d
         QuantTruncMixin.__init__(
             self,
             trunc_quant=trunc_quant,
-            update_injector=update_injector,
             **kwargs)
         self.cache_kernel_size_stride = cache_kernel_size_stride
         self._cached_kernel_size = None

@@ -41,6 +41,7 @@
 from warnings import warn
 from abc import ABCMeta, abstractmethod
 from typing import Optional, Type, Union, Callable
+from inspect import isclass
 
 import torch
 
@@ -49,6 +50,8 @@ from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector, BiasQua
 from brevitas.proxy.parameter_quant import WeightQuantProxyProtocol, BiasQuantProxyProtocol
 from brevitas.proxy.parameter_quant import ParameterQuantProxyFromInjector
 from brevitas.proxy.parameter_quant import ParameterQuantProxyProtocol
+
+from .utils import filter_kwargs
 
 
 class QuantParameterMixin(object):
@@ -59,15 +62,12 @@ class QuantParameterMixin(object):
             parameter: torch.nn.Parameter,
             parameter_quant: Optional[Union[ParameterQuantProxyProtocol, Type[Injector]]],
             proxy_from_injector_impl: Optional[Type[ParameterQuantProxyFromInjector]],
-            update_injector: Optional[Callable],
             prefix: str,
             **kwargs):
 
         def update_pqi(pqi):
-            if update_injector is not None:
-                return update_injector(self, pqi, prefix, **kwargs)
-            else:
-                return pqi
+            pqi = pqi.let(module=self)
+            return pqi.let(**filter_kwargs(prefix, kwargs))
 
         proxy_name = prefix + 'quant'
         if parameter_quant is None:
@@ -75,7 +75,7 @@ class QuantParameterMixin(object):
             parameter_quant_injector = Injector.let(tensor_quant=None)
             parameter_quant_injector = update_pqi(parameter_quant_injector)
             parameter_quant = proxy_from_injector_impl(parameter_quant_injector)
-        elif isinstance(parameter_quant, type) and issubclass(parameter_quant, Injector):
+        elif isclass(parameter_quant) and issubclass(parameter_quant, Injector):
             assert proxy_from_injector_impl is not None
             parameter_quant_injector = parameter_quant
             parameter_quant_injector = update_pqi(parameter_quant_injector)
@@ -93,14 +93,12 @@ class QuantWeightMixin(QuantParameterMixin):
             self,
             weight: torch.nn.Parameter,
             weight_quant: Optional[Union[WeightQuantProxyProtocol, Type[Injector]]],
-            update_injector: Optional[Callable],
             **kwargs):
         QuantParameterMixin.__init__(
             self,
             parameter=weight,
             parameter_quant=weight_quant,
             proxy_from_injector_impl=WeightQuantProxyFromInjector,
-            update_injector=update_injector,
             prefix='weight_',
             **kwargs)
 
@@ -147,7 +145,6 @@ class QuantBiasMixin(QuantParameterMixin):
             self,
             bias: torch.nn.Parameter,
             bias_quant: Union[BiasQuantProxyProtocol, Type[Injector]],
-            update_injector: Callable,
             cache_inference_bias: bool = False,
             **kwargs):
         QuantParameterMixin.__init__(
@@ -155,7 +152,6 @@ class QuantBiasMixin(QuantParameterMixin):
             parameter=bias,
             parameter_quant=bias_quant,
             proxy_from_injector_impl=BiasQuantProxyFromInjector,
-            update_injector=update_injector,
             prefix='bias_',
             **kwargs)
         self.cache_inference_quant_bias = cache_inference_bias
@@ -198,7 +194,9 @@ class QuantBiasMixin(QuantParameterMixin):
             return self.bias_quant(self.bias).scale
         else:
             if self._cached_bias is None:
-                raise RuntimeError("No quant bias cache found, set cache_inference_quant_bias=True and run an inference pass first")
+                raise RuntimeError(
+                    "No quant bias cache found, set cache_inference_quant_bias=True and run an "
+                    "inference pass first")
             if self.training:
                 warn("Cached quant bias scale is being used in training mode.")
             return self._cached_bias.scale
@@ -206,7 +204,16 @@ class QuantBiasMixin(QuantParameterMixin):
     def quant_bias_zero_point(self):
         if self.bias is None:
             return None
-        return self._cached_bias.zero_point
+        if not self.bias_quant.requires_input_scale and not self.bias_quant.requires_input_bit_width:
+            return self.bias_quant(self.bias).zero_point
+        else:
+            if self._cached_bias is None:
+                raise RuntimeError(
+                    "No quant bias cache found, set cache_inference_quant_bias=True and run an "
+                    "inference pass first")
+            if self.training:
+                warn("Cached quant bias zero-point is being used in training mode.")
+            return self._cached_bias.bit_width
 
     def quant_bias_bit_width(self):
         if self.bias is None or not self.is_bias_quant_enabled:
@@ -215,8 +222,10 @@ class QuantBiasMixin(QuantParameterMixin):
             return self.bias_quant(self.bias).bit_width
         else:
             if self._cached_bias is None:
-                raise RuntimeError("No quant bias cache found, set cache_inference_quant_bias=True and run an inference pass first")
+                raise RuntimeError(
+                    "No quant bias cache found, set cache_inference_quant_bias=True and run an "
+                    "inference pass first")
             if self.training:
-                warn("Cached quant bias scale is being used in training mode.")
+                warn("Cached quant bias bit-width is being used in training mode.")
             return self._cached_bias.bit_width
 

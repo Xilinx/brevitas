@@ -87,8 +87,17 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
         tensor_quant = act_quant_injector.tensor_quant
         act_impl = act_quant_injector.act_impl
         self.is_quant_enabled = tensor_quant is not None
-        self.is_act_enabled = act_impl is not None
         self.passthrough_act = act_quant_injector.passthrough_act
+        if 'is_act_enabled' in act_quant_injector:
+            self.is_act_enabled = act_quant_injector.is_act_enabled
+        else:
+            self.is_act_enabled = act_impl is not None
+
+        if 'update_state_dict_impl' in act_quant_injector:
+            self.update_state_dict_impl = act_quant_injector.update_state_dict_impl
+        else:
+            self.update_state_dict_impl = None
+
         if self.is_act_enabled and self.is_quant_enabled:
             self.fused_activation_quant_proxy = FusedActivationQuantProxy(
                 act_impl, tensor_quant)
@@ -99,10 +108,7 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
                 Identity(), tensor_quant)
         else:
             self.fused_activation_quant_proxy = None
-        if 'update_state_dict_impl' in act_quant_injector:
-            self.update_state_dict_impl = act_quant_injector.update_state_dict_impl
-        else:
-            self.update_state_dict_impl = None
+
 
     def scale(self, force_eval=True):
         current_status = self.training

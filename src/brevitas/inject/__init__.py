@@ -1,3 +1,5 @@
+import inspect
+
 from _dependencies.injector import Injector
 from _dependencies.injector import _InjectorType, __init__, let, injector_doc
 from _dependencies.checks.circles import _check_circles
@@ -6,11 +8,26 @@ from _dependencies.checks.injector import _check_dunder_name
 from _dependencies.checks.injector import _check_inheritance
 from _dependencies.checks.loops import _check_loops
 from _dependencies.spec import _make_dependency_spec
+from _dependencies.exceptions import DependencyError
+from _dependencies.attributes import _Replace
+from _dependencies.replace import _deep_replace_dependency
+from _dependencies.spec import _make_init_spec
+from dependencies import value  # noqa
+
+
+def _replace_value_class(injector, current_attr, dependency):
+    spec = _make_init_spec(dependency)
+    replaced_dependency = injector.__dependencies__[current_attr]
+    injector.__dependencies__[current_attr] = spec
+    return replaced_dependency
 
 
 class _ExtendedInjectorType(_InjectorType):
-
     """
+    Extended _InjectorType based on dependencies 2.0.1.
+    Fixes issues with interacting debugging.
+    Allows to inject an object instantiated from a class returned from a @value function.
+
     Copyright 2016-2020 Artem Malyshev
 
     Redistribution and use in source and binary forms, with or without
@@ -67,10 +84,80 @@ class _ExtendedInjectorType(_InjectorType):
 
     # Lack of __len__ magic on Injector breaks the debugger ability to inspect it
     def __len__(self):
-        return None
+        return 0
+
+    def __getattr__(cls, attrname):
+        __tracebackhide__ = True
+
+        cache, cached = {"__self__": cls}, {"__self__"}
+        current_attr, attrs_stack = attrname, [attrname]
+        have_default = False
+        replaced_dependencies = {}
+
+        while attrname not in cache:
+
+            spec = cls.__dependencies__.get(current_attr)
+
+            if spec is None:
+                if have_default:
+                    cached.add(current_attr)
+                    current_attr = attrs_stack.pop()
+                    have_default = False
+                    continue
+                if len(attrs_stack) > 1:
+                    message = "{!r} can not resolve attribute {!r} while building {!r}".format(  # noqa: E501
+                        cls.__name__, current_attr, attrs_stack.pop()
+                    )
+                else:
+                    message = "{!r} can not resolve attribute {!r}".format(
+                        cls.__name__, current_attr
+                    )
+                raise DependencyError(message)
+
+            marker, attribute, args, have_defaults = spec
+
+            if set(args).issubset(cached):
+                kwargs = {k: cache[k] for k in args if k in cache}
+
+                try:
+                    dependency = attribute(**kwargs)
+                    if inspect.isclass(dependency) and not current_attr.endswith("_class"):
+                        replaced_dependency = _replace_value_class(cls, current_attr, dependency)
+                        replaced_dependencies[current_attr] = replaced_dependency
+                        _check_loops(cls.__name__, cls.__dependencies__)
+                        _check_circles(cls.__dependencies__)
+                        continue
+                    else:
+                        cache[current_attr] = dependency
+                except _Replace as replace:
+                    _deep_replace_dependency(cls, current_attr, replace)
+                    _check_loops(cls.__name__, cls.__dependencies__)
+                    _check_circles(cls.__dependencies__)
+                    continue
+
+                cached.add(current_attr)
+                current_attr = attrs_stack.pop()
+                have_default = False
+                continue
+
+            for n, arg in enumerate(args, 1):
+                if arg not in cached:
+                    attrs_stack.append(current_attr)
+                    current_attr = arg
+                    have_default = False if n < have_defaults else True
+                    break
+
+        # Restore @value dependencies that returned a class from the result class
+        # to their defining function
+        for attr, dep in replaced_dependencies.items():
+            cls.__dependencies__[attr] = dep
+
+        return cache[attrname]
 
 
-BaseInjector = _ExtendedInjectorType(
+
+ExtendedInjector = _ExtendedInjectorType(
     "Injector",
     (),
     {"__init__": __init__, "__doc__": injector_doc, "let": classmethod(let)})
+BaseInjector = ExtendedInjector # retrocompatibility wrt naming

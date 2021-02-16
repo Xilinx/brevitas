@@ -38,66 +38,75 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from typing import Callable, Union, Type, Optional
 
-from torch.nn import Module
-
-from brevitas.inject import BaseInjector as Injector
-from brevitas.proxy.runtime_quant import AccQuantProxyProtocol
-from brevitas.quant_tensor import QuantTensor
-from .mixin.base import QuantLayerMixin
-from .mixin.acc import QuantTruncMixin, QuantClampMixin
+from brevitas.core.quant import *
+from brevitas.core.quant import QuantType
+from brevitas.quant.solver.common import *
+from brevitas.quant.solver.parameter import *
+from brevitas.inject import ExtendedInjector, value
 
 
-class TruncQuantAccumulator(QuantTruncMixin, QuantLayerMixin, Module):
+__all__ = [
+    'SolveWeightTensorQuantFromEnum',
+    'SolveWeightScalingStatsInputConcatDimFromModule',
+    'SolveWeightScalingPerOutputChannelShapeFromModule',
+    'WeightQuantSolver'
+]
 
-    def __init__(
-            self,
-            trunc_quant: Optional[Union[AccQuantProxyProtocol, Type[Injector]]] = None,
-            return_quant_tensor: bool = True,
-            **kwargs):
-        QuantLayerMixin.__init__(self, return_quant_tensor)
-        QuantTruncMixin.__init__(
-            self,
-            trunc_quant=trunc_quant,
-            **kwargs)
+class SolveWeightTensorQuantFromEnum(SolveIntQuantFromEnum):
 
-    @property
-    def channelwise_separable(self) -> bool:
-        return True
-
-    @property
-    def requires_export_handler(self):
-        return True
-
-    def forward(self, input: QuantTensor):
-        x = self.unpack_input(input)
-        x = self.trunc_quant(x)
-        return self.pack_output(x)
+    @value
+    def tensor_quant(quant_type):
+        if quant_type == QuantType.FP:
+            return None
+        elif quant_type == QuantType.INT:
+            return RescalingIntQuant
+        elif quant_type == QuantType.TERNARY:
+            return TernaryQuant
+        elif quant_type == QuantType.BINARY:
+            return BinaryQuant
+        else:
+            raise RuntimeError(f'{quant_type} not recognized.')
 
 
-class ClampQuantAccumulator(QuantClampMixin, QuantLayerMixin, Module):
+class SolveWeightScalingStatsInputConcatDimFromModule(ExtendedInjector):
 
-    def __init__(
-            self,
-            clamp_quant: Optional[Union[AccQuantProxyProtocol, Type[Injector]]] = None,
-            return_quant_tensor: bool = True,
-            **kwargs):
-        QuantLayerMixin.__init__(self, return_quant_tensor)
-        QuantClampMixin.__init__(
-            self,
-            clamp_quant=clamp_quant,
-            **kwargs)
+    @value
+    def scaling_stats_input_concat_dim(module):
+        return module.output_channel_dim
 
-    @property
-    def channelwise_separable(self) -> bool:
-        return True
 
-    @property
-    def requires_export_handler(self):
-        return True
+class SolveWeightScalingPerOutputChannelShapeFromModule(ExtendedInjector):
 
-    def forward(self, input: QuantTensor):
-        x = self.unpack_input(input)
-        x = self.trunc_quant(x)
-        return self.pack_output(x)
+    @value
+    def scaling_per_output_channel_shape(module):
+        shape = [1] * len(module.weight.size())
+        shape[module.output_channel_dim] = module.out_channels
+        return tuple(shape)
+
+
+class WeightQuantSolver(
+        SolveScalingStatsInputViewShapeImplFromEnum,
+        SolveScalingShape,
+        SolveStatsReduceDimFromEnum,
+        SolveScalingStatsOpFromEnum,
+        SolveBitWidthImplFromEnum,
+        SolveTensorQuantFloatToIntImplFromEnum,
+        SolveRestrictScalingImplFromEnum,
+        SolveRestrictBitWidthImplFromEnum,
+        SolveIntScalingImplFromEnum,
+        SolveParameterScalingImplFromEnum,
+        SolveParameterTensorClampImplFromEnum,
+        SolveParameterScalingInitFromEnum,
+        SolveWeightScalingPerOutputChannelShapeFromModule,
+        SolveWeightScalingStatsInputConcatDimFromModule,
+        SolveWeightTensorQuantFromEnum):
+    """
+    Translate enum and shape directives to weight-specific quantization core modules.
+    It should be placed last in the list of classes a quantizer inherits from,
+    to make sure overrides are correctly captured.
+    """
+    pass
+
+
+

@@ -206,7 +206,7 @@ class TruncIntQuant(brevitas.jit.ScriptModule):
             self,
             float_to_int_impl: Module,
             bit_width_impl: Module,
-            quant_delay_steps: Optional[int] = None):
+            quant_delay_steps: int = 0):
         super(TruncIntQuant, self).__init__()
         self.msb_clamp_bit_width_impl = bit_width_impl
         self.float_to_int_impl = float_to_int_impl

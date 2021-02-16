@@ -40,10 +40,10 @@
 
 from abc import ABCMeta
 from typing import Type, Union, Callable, Optional
+from inspect import isclass
 
 from brevitas.inject import BaseInjector as Injector
-from brevitas.inject.enum import QuantType
-
+from brevitas.nn.mixin.utils import filter_kwargs
 from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector, ClampQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import AccQuantProxyProtocol
 
@@ -56,26 +56,21 @@ class QuantAccMixin(object):
             acc_quant: Union[AccQuantProxyProtocol, Type[Injector]],
             proxy_from_injector_impl:
             Optional[Union[Type[ClampQuantProxyFromInjector], Type[TruncQuantProxyFromInjector]]],
-            update_injector: Callable,
             proxy_prefix: str,
             kwargs_prefix: str,
-            none_inject: dict,
             **kwargs):
 
         def update_aqi(aqi):
-            if update_injector is not None:
-                # don't pass prefix here for retrocompatibility
-                return update_injector(self, aqi, kwargs_prefix, **kwargs)
-            else:
-                return aqi
+            aqi = aqi.let(module=self)
+            return aqi.let(**filter_kwargs(kwargs_prefix, kwargs))
 
         proxy_name = proxy_prefix + 'quant'
         if acc_quant is None:
             assert proxy_from_injector_impl is not None
-            acc_quant_injector = Injector.let(**none_inject)
+            acc_quant_injector = Injector.let(tensor_quant=None)
             acc_quant_injector = update_aqi(acc_quant_injector)
             acc_quant = proxy_from_injector_impl(acc_quant_injector)
-        elif isinstance(acc_quant, type) and issubclass(acc_quant, Injector):
+        elif isclass(acc_quant) and issubclass(acc_quant, Injector):
             assert proxy_from_injector_impl is not None
             acc_quant_injector = acc_quant
             acc_quant_injector = update_aqi(acc_quant_injector)
@@ -91,15 +86,12 @@ class QuantTruncMixin(QuantAccMixin):
     def __init__(
             self,
             trunc_quant: Union[AccQuantProxyProtocol, Type[Injector]],
-            update_injector: Callable,
             **kwargs):
         super().__init__(
             acc_quant=trunc_quant,
-            update_injector=update_injector,
             proxy_from_injector_impl=TruncQuantProxyFromInjector,
             kwargs_prefix='',
             proxy_prefix='trunc_',
-            none_inject={'quant_type': QuantType.FP},
             **kwargs)
 
     @property
@@ -113,15 +105,12 @@ class QuantClampMixin(QuantAccMixin):
     def __init__(
             self,
             clamp_quant: Union[AccQuantProxyProtocol, Type[Injector]],
-            update_injector: Callable,
             **kwargs):
         super().__init__(
             acc_quant=clamp_quant,
-            update_injector=update_injector,
             proxy_from_injector_impl=ClampQuantProxyFromInjector,
             kwargs_prefix='',
             proxy_prefix='clamp_',
-            none_inject={'quant_type': QuantType.FP},
             **kwargs)
 
     @property

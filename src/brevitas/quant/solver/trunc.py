@@ -38,66 +38,37 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from typing import Callable, Union, Type, Optional
 
-from torch.nn import Module
-
-from brevitas.inject import BaseInjector as Injector
-from brevitas.proxy.runtime_quant import AccQuantProxyProtocol
-from brevitas.quant_tensor import QuantTensor
-from .mixin.base import QuantLayerMixin
-from .mixin.acc import QuantTruncMixin, QuantClampMixin
+from brevitas.core.quant import TruncIntQuant
+from brevitas.inject import ExtendedInjector, value
+from brevitas.inject.enum import QuantType
+from brevitas.quant.solver.common import SolveBitWidthImplFromEnum
+from brevitas.quant.solver.common import SolveTensorQuantFloatToIntImplFromEnum
 
 
-class TruncQuantAccumulator(QuantTruncMixin, QuantLayerMixin, Module):
+class SolveTruncTensorQuantFromEnum(ExtendedInjector):
 
-    def __init__(
-            self,
-            trunc_quant: Optional[Union[AccQuantProxyProtocol, Type[Injector]]] = None,
-            return_quant_tensor: bool = True,
-            **kwargs):
-        QuantLayerMixin.__init__(self, return_quant_tensor)
-        QuantTruncMixin.__init__(
-            self,
-            trunc_quant=trunc_quant,
-            **kwargs)
-
-    @property
-    def channelwise_separable(self) -> bool:
-        return True
-
-    @property
-    def requires_export_handler(self):
-        return True
-
-    def forward(self, input: QuantTensor):
-        x = self.unpack_input(input)
-        x = self.trunc_quant(x)
-        return self.pack_output(x)
+    @value
+    def tensor_quant(quant_type):
+        if quant_type == QuantType.FP:
+            return None
+        elif quant_type == QuantType.INT:
+            return TruncIntQuant
+        elif quant_type == QuantType.TERNARY:
+            raise RuntimeError(f'{quant_type} not supported for truncation.')
+        elif quant_type == QuantType.BINARY:
+            raise RuntimeError(f'{quant_type} not supported for truncation.')
+        else:
+            raise RuntimeError(f'{quant_type} not recognized.')
 
 
-class ClampQuantAccumulator(QuantClampMixin, QuantLayerMixin, Module):
-
-    def __init__(
-            self,
-            clamp_quant: Optional[Union[AccQuantProxyProtocol, Type[Injector]]] = None,
-            return_quant_tensor: bool = True,
-            **kwargs):
-        QuantLayerMixin.__init__(self, return_quant_tensor)
-        QuantClampMixin.__init__(
-            self,
-            clamp_quant=clamp_quant,
-            **kwargs)
-
-    @property
-    def channelwise_separable(self) -> bool:
-        return True
-
-    @property
-    def requires_export_handler(self):
-        return True
-
-    def forward(self, input: QuantTensor):
-        x = self.unpack_input(input)
-        x = self.trunc_quant(x)
-        return self.pack_output(x)
+class TruncQuantSolver(
+        SolveBitWidthImplFromEnum,
+        SolveTensorQuantFloatToIntImplFromEnum,
+        SolveTruncTensorQuantFromEnum):
+    """
+    Translate enum directives to truncation-specific quantization core modules.
+    It should be placed last in the list of classes a quantizer inherits from,
+    to make sure overrides are correctly captured.
+    """
+    pass

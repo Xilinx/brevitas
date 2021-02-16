@@ -49,9 +49,6 @@ from brevitas.inject import BaseInjector as Injector
 from brevitas.quant_tensor import QuantTensor
 from brevitas.proxy.parameter_quant import WeightQuantProxyProtocol, BiasQuantProxyProtocol
 from brevitas.proxy.runtime_quant import ActQuantProxyProtocol
-from brevitas.inject.solver import update_weight_quant_injector as default_update_wqi
-from brevitas.inject.solver import update_bias_quant_injector as default_update_bqi
-from brevitas.inject.solver import update_act_quant_injector as default_update_aqi
 from .mixin.base import _CachedIO
 from .mixin import *
 
@@ -73,18 +70,15 @@ class QuantNonLinearActLayer(
             input_quant: Union[ActQuantProxyProtocol, Type[Injector]],
             act_quant: Union[ActQuantProxyProtocol, Type[Injector]],
             return_quant_tensor: bool,
-            update_iqi: Callable = default_update_aqi,
-            update_aqi: Callable = default_update_aqi,
             **kwargs):
         Module.__init__(self)
         QuantLayerMixin.__init__(self, return_quant_tensor)
-        QuantInputMixin.__init__(self, input_quant, update_iqi, **kwargs)
+        QuantInputMixin.__init__(self, input_quant, **kwargs)
         QuantNonLinearActMixin.__init__(
             self,
             act_impl,
             passthrough_act,
             act_quant,
-            update_aqi,
             **kwargs)
 
     @property
@@ -203,12 +197,10 @@ class QuantInputOutputLayer(
             input_quant: Union[ActQuantProxyProtocol, Type[Injector]],
             output_quant: Union[ActQuantProxyProtocol, Type[Injector]],
             return_quant_tensor: bool,
-            update_iqi: Callable,
-            update_oqi: Callable,
             **kwargs):
         QuantLayerMixin.__init__(self, return_quant_tensor)
-        QuantInputMixin.__init__(self, input_quant, update_iqi, **kwargs)
-        QuantOutputMixin.__init__(self, output_quant, update_oqi, **kwargs)
+        QuantInputMixin.__init__(self, input_quant, **kwargs)
+        QuantOutputMixin.__init__(self, output_quant, **kwargs)
 
     @property
     def requires_export_handler(self):
@@ -296,21 +288,15 @@ class QuantWeightBiasInputOutputLayer(
             input_quant: Union[ActQuantProxyProtocol, Type[Injector]],
             output_quant: Union[ActQuantProxyProtocol, Type[Injector]],
             return_quant_tensor: bool,
-            update_wqi: Callable = default_update_wqi,
-            update_bqi: Callable = default_update_bqi,
-            update_iqi: Callable = default_update_aqi,
-            update_oqi: Callable = default_update_aqi,
             **kwargs):
         QuantInputOutputLayer.__init__(
             self,
             input_quant,
             output_quant,
             return_quant_tensor,
-            update_iqi,
-            update_oqi,
             **kwargs)
-        QuantWeightMixin.__init__(self, weight, weight_quant, update_wqi, **kwargs)
-        QuantBiasMixin.__init__(self, bias, bias_quant, update_bqi, **kwargs)
+        QuantWeightMixin.__init__(self, weight, weight_quant, **kwargs)
+        QuantBiasMixin.__init__(self, bias, bias_quant, **kwargs)
 
     @abstractmethod
     def inner_forward_impl(self, x: Tensor, quant_weight: Tensor, quant_bias: Optional[Tensor]):

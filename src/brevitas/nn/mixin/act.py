@@ -40,10 +40,11 @@
 
 from abc import ABCMeta, abstractmethod
 from typing import Type, Union, Callable, Optional
+from inspect import isclass
 
 from torch.nn import Module
 from brevitas.inject import BaseInjector as Injector
-
+from brevitas.nn.mixin.utils import filter_kwargs
 from brevitas.proxy.runtime_quant import IdentityQuantProxyFromInjector, ActQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import ActQuantProxyProtocol
 
@@ -57,17 +58,13 @@ class QuantActMixin(object):
             passthrough_act: bool,
             act_quant: Union[ActQuantProxyProtocol, Type[Injector]],
             proxy_from_injector_impl: Optional[Type[ActQuantProxyFromInjector]],
-            update_injector: Callable,
             proxy_prefix: str,
             kwargs_prefix: str,
             **kwargs):
 
         def update_aqi(aqi):
-            if update_injector is not None:
-                # don't pass prefix here for retrocompatibility
-                return update_injector(self, aqi, kwargs_prefix, **kwargs)
-            else:
-                return aqi
+            aqi = aqi.let(module=self)
+            return aqi.let(**filter_kwargs(kwargs_prefix, kwargs))
 
         proxy_name = proxy_prefix + 'quant'
         if act_quant is None:
@@ -76,7 +73,7 @@ class QuantActMixin(object):
             act_quant_injector = act_quant_injector.let(act_impl=act_impl)
             act_quant_injector = update_aqi(act_quant_injector)
             act_quant = proxy_from_injector_impl(act_quant_injector)
-        elif isinstance(act_quant, type) and issubclass(act_quant, Injector):
+        elif isclass(act_quant) and issubclass(act_quant, Injector):
             assert proxy_from_injector_impl is not None
             act_quant_injector = act_quant
             act_quant_injector = act_quant_injector.let(passthrough_act=passthrough_act)
@@ -95,14 +92,12 @@ class QuantInputMixin(QuantActMixin):
     def __init__(
             self,
             act_quant: Union[ActQuantProxyProtocol, Type[Injector]],
-            update_injector: Callable,
             **kwargs):
         QuantActMixin.__init__(
             self,
             act_impl=None,
             passthrough_act=True,
             act_quant=act_quant,
-            update_injector=update_injector,
             proxy_from_injector_impl=IdentityQuantProxyFromInjector,
             proxy_prefix='input_',
             kwargs_prefix='input_',
@@ -140,14 +135,12 @@ class QuantOutputMixin(QuantActMixin):
     def __init__(
             self,
             act_quant: Union[ActQuantProxyProtocol, Type[Injector]],
-            update_injector: Callable,
             **kwargs):
         QuantActMixin.__init__(
             self,
             act_impl=None,
             passthrough_act=True,
             act_quant=act_quant,
-            update_injector=update_injector,
             proxy_from_injector_impl=IdentityQuantProxyFromInjector,
             proxy_prefix='output_',
             kwargs_prefix='output_',
@@ -187,14 +180,12 @@ class QuantNonLinearActMixin(QuantActMixin):
             act_impl: Optional[Type[Module]],
             passthrough_act: bool,
             act_quant: Union[ActQuantProxyProtocol, Type[Injector]],
-            update_injector: Callable,
             **kwargs):
         QuantActMixin.__init__(
             self,
             act_impl=act_impl,
             passthrough_act=passthrough_act,
             act_quant=act_quant,
-            update_injector=update_injector,
             proxy_from_injector_impl=ActQuantProxyFromInjector,
             proxy_prefix='act_',
             kwargs_prefix='',

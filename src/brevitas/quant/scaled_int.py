@@ -39,7 +39,12 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 
+from brevitas.core.function_wrapper import TensorClamp
 from brevitas.quant.base import *
+from brevitas.quant.solver.weight import WeightQuantSolver
+from brevitas.quant.solver.bias import BiasQuantSolver
+from brevitas.quant.solver.act import ActQuantSolver
+from brevitas.quant.solver.trunc import TruncQuantSolver
 
 
 __all__ = [
@@ -54,7 +59,7 @@ __all__ = [
 
 
 class Int8ActPerTensorFloatMinMaxInit(
-    IntQuant, ParamMinMaxInitScaling, PerTensorFloatScaling8bit):
+    IntQuant, ParamMinMaxInitScaling, PerTensorFloatScaling8bit, ActQuantSolver):
     """
     8-bit per-tensor signed int activations quantizer with learned floating-point scale factor
     initialized from user-defined min and max values.
@@ -70,7 +75,7 @@ class Int8ActPerTensorFloatMinMaxInit(
     pass
 
 
-class Int8Bias(IntQuant):
+class Int8Bias(IntQuant, BiasQuantSolver):
     """
     8-bit signed int bias quantizer with scale factor equal to the scale factor of the accumulator
     the bias is added to, so typically quant_input_scale * quant_weight_scale.
@@ -80,10 +85,13 @@ class Int8Bias(IntQuant):
         >>> fc = QuantLinear(10, 5, bias=True, bias_quant=Int8Bias)
     """
     bit_width = 8
+    tensor_clamp_impl = TensorClamp
+    requires_input_scale = True
+    requires_input_bit_width = False
 
 
 class Int8BiasPerTensorFloatInternalScaling(
-    IntQuant, MaxStatsScaling, PerTensorFloatScaling8bit):
+    IntQuant, MaxStatsScaling, PerTensorFloatScaling8bit, BiasQuantSolver):
     """
     8-bit per-tensor signed int bias quantizer with floating-point scale factor computed from
     backpropagated statistics of the bias tensor.
@@ -92,24 +100,25 @@ class Int8BiasPerTensorFloatInternalScaling(
         >>> from brevitas.nn import QuantLinear
         >>> fc = QuantLinear(10, 5, bias=True, bias_quant=Int8BiasPerTensorFloatInternalScaling)
     """
-    pass
+    requires_input_scale = False
+    requires_input_bit_width = False
 
 
 class Int8WeightPerTensorFloat(
-    NarrowIntQuant, MaxStatsScaling, PerTensorFloatScaling8bit):
+    NarrowIntQuant, MaxStatsScaling, PerTensorFloatScaling8bit, WeightQuantSolver):
     """
     8-bit narrow per-tensor signed int weight quantizer with floating-point scale factor computed
     from backpropagated statistics of the weight tensor.
 
     Examples:
         >>> from brevitas.nn import QuantLinear
-        >>> fc = QuantLinear(10, 5, weight_quant=Int8WeightPerTensorFloat)
+        >>> fc = QuantLinear(10, 5, bias=False, weight_quant=Int8WeightPerTensorFloat)
     """
     pass
 
 
 class Int8ActPerTensorFloat(
-    IntQuant, ParamFromRuntimePercentileScaling, PerTensorFloatScaling8bit):
+    IntQuant, ParamFromRuntimePercentileScaling, PerTensorFloatScaling8bit, ActQuantSolver):
     """
     8-bit per-tensor signed int activations quantizer with learned floating-point scale factor
     initialized from runtime statistics.
@@ -122,7 +131,7 @@ class Int8ActPerTensorFloat(
 
 
 class Uint8ActPerTensorFloat(
-    UintQuant, ParamFromRuntimePercentileScaling, PerTensorFloatScaling8bit):
+    UintQuant, ParamFromRuntimePercentileScaling, PerTensorFloatScaling8bit, ActQuantSolver):
     """
     8-bit per-tensor unsigned int activations quantizer with learned floating-point scale factor
     initialized from runtime statistics.
@@ -134,7 +143,7 @@ class Uint8ActPerTensorFloat(
     pass
 
 
-class TruncTo8bit(IntTrunc):
+class TruncTo8bit(IntTrunc, TruncQuantSolver):
     """
     8-bit signed int truncator that preserves the input scale factor and zero-point.
 

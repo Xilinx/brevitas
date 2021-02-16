@@ -91,7 +91,6 @@ class ScalingImplType(AutoName):
     AFFINE_STATS = auto()
     PARAMETER = auto()
     PARAMETER_FROM_STATS = auto()
-    OVERRIDE = auto()
 
 
 class StatsOp(AutoName):
@@ -104,3 +103,4 @@ class StatsOp(AutoName):
     MEAN_SIGMA_STD = auto()
     MEAN_LEARN_SIGMA_STD = auto()
     PERCENTILE = auto()
+    MIN_MAX = auto()

@@ -40,7 +40,6 @@
 
 from typing import Union, Type, List
 
-import torch
 from torch import Tensor
 from torch.nn import Module
 
@@ -48,7 +47,7 @@ from brevitas.inject import BaseInjector as Injector
 from brevitas.proxy.runtime_quant import ActQuantProxyProtocol
 from brevitas.quant_tensor import QuantTensor
 from brevitas.inject.defaults import Int8ActPerTensorFloat
-from .quant_layer import QuantInputOutputLayer, default_update_aqi
+from .quant_layer import QuantInputOutputLayer
 
 
 class QuantEltwiseAdd(QuantInputOutputLayer, Module):
@@ -65,8 +64,6 @@ class QuantEltwiseAdd(QuantInputOutputLayer, Module):
             input_quant,
             output_quant,
             return_quant_tensor,
-            default_update_aqi,
-            default_update_aqi,
             **kwargs)
 
     @property
@@ -106,8 +103,6 @@ class QuantCat(QuantInputOutputLayer, Module):
             input_quant,
             output_quant,
             return_quant_tensor,
-            default_update_aqi,
-            default_update_aqi,
             **kwargs)
 
     @property
@@ -123,7 +118,6 @@ class QuantCat(QuantInputOutputLayer, Module):
         if self.export_mode:
             return self.export_handler([qt.value for qt in quant_tensor_list])
         quant_tensor_list = [self.input_quant(qt) for qt in quant_tensor_list]
-        quant_tensor_list = [qt.set(training=self.training) for qt in quant_tensor_list]
         # trigger an assert if scale factors and bit widths are None or different
         output = QuantTensor.cat(quant_tensor_list, dim=dim)
         quant_output = self.output_quant(output)
