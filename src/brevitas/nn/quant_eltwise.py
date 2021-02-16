@@ -81,9 +81,6 @@ class QuantEltwiseAdd(QuantInputOutputLayer, Module):
             return self.export_handler(inp=input.value, other=other.value)
         quant_input = self.input_quant(input)
         quant_other = self.input_quant(other)
-        quant_input = quant_input.set(training=self.training)
-        quant_other = quant_other.set(training=self.training)
-        # trigger an assert if scale factors and bit widths are None or different
         output = quant_input + quant_other
         quant_output = self.output_quant(output)
         return self.pack_output(quant_output)
