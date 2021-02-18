@@ -39,8 +39,6 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 
-from dependencies import value, this
-
 from brevitas.core.quant import *
 from brevitas.core.function_wrapper import *
 from brevitas.core.scaling import *
@@ -48,8 +46,8 @@ from brevitas.core.restrict_val import *
 from brevitas.core.bit_width import *
 from brevitas.core.quant import QuantType
 from brevitas.core.stats import *
-from brevitas.core.scaling import ScalingImplType, SCALAR_SHAPE
-from brevitas.inject import ExtendedInjector
+from brevitas.core.scaling import ScalingImplType
+from brevitas.inject import ExtendedInjector, value
 
 
 __all__ = [
@@ -65,7 +63,6 @@ __all__ = [
     'SolveScalingStatsOpFromEnum',
     'SolveBitWidthImplFromEnum',
     'SolveStatsReduceDimFromEnum',
-    'SolveScalingShape',
     'SolveScalingStatsInputViewShapeImplFromEnum'
 ]
 
@@ -197,23 +194,6 @@ class SolveStatsReduceDimFromEnum(ExtendedInjector):
             return SCALING_STATS_REDUCE_DIM
         else:
             return None
-
-
-class SolveScalingShape(ExtendedInjector):
-
-    @value
-    def scaling_per_output_channel(scaling_per_channel):
-        """Alternative syntax"""
-        return scaling_per_channel
-
-    @value
-    def scaling_shape(scaling_per_output_channel):
-        # this pattern of returning this.something allows to resolve scaling_output_channel_shape
-        # only when scaling_per_output_channel is True
-        if scaling_per_output_channel:
-            return this.scaling_per_output_channel_shape
-        else:
-            return SCALAR_SHAPE
 
 
 class SolveScalingStatsInputViewShapeImplFromEnum(ExtendedInjector):

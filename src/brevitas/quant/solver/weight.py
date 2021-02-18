@@ -43,7 +43,7 @@ from brevitas.core.quant import *
 from brevitas.core.quant import QuantType
 from brevitas.quant.solver.common import *
 from brevitas.quant.solver.parameter import *
-from brevitas.inject import ExtendedInjector, value
+from brevitas.inject import ExtendedInjector, value, this
 
 
 __all__ = [
@@ -87,7 +87,6 @@ class SolveWeightScalingPerOutputChannelShapeFromModule(ExtendedInjector):
 
 class WeightQuantSolver(
         SolveScalingStatsInputViewShapeImplFromEnum,
-        SolveScalingShape,
         SolveStatsReduceDimFromEnum,
         SolveScalingStatsOpFromEnum,
         SolveBitWidthImplFromEnum,
@@ -98,6 +97,7 @@ class WeightQuantSolver(
         SolveParameterScalingImplFromEnum,
         SolveParameterTensorClampImplFromEnum,
         SolveParameterScalingInitFromEnum,
+        SolveParameterScalingShape,
         SolveWeightScalingPerOutputChannelShapeFromModule,
         SolveWeightScalingStatsInputConcatDimFromModule,
         SolveWeightTensorQuantFromEnum):

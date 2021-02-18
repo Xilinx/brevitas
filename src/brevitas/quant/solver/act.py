@@ -38,15 +38,14 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-
 import torch
 from torch import Tensor, nn
 from brevitas.core.quant import RescalingIntQuant, TernaryQuant, ClampedBinaryQuant
-from brevitas.core.scaling import ParameterScaling, ConstScaling
+from brevitas.core.scaling import ParameterScaling, ConstScaling, SCALAR_SHAPE
 from brevitas.core.scaling import ParameterFromRuntimeStatsScaling, RuntimeStatsScaling
 from brevitas.proxy.utils import ConvertRuntimeStatsToParameter
 from brevitas.quant.solver.common import *
-from brevitas.inject import ExtendedInjector, value
+from brevitas.inject import ExtendedInjector, value, this
 from brevitas.inject.enum import ScalingImplType, QuantType
 
 
@@ -124,6 +123,18 @@ class SolveActScalingInitFromEnum(ExtendedInjector):
             return None
 
 
+class SolveActScalingShape(ExtendedInjector):
+
+    @value
+    def scaling_shape(scaling_per_channel):
+        # this pattern of returning this.something allows to resolve scaling_output_channel_shape
+        # only when scaling_per_output_channel is True
+        if scaling_per_channel:
+            return this.per_channel_broadcastable_shape
+        else:
+            return SCALAR_SHAPE
+
+
 class SolveActScalingPerOutputChannelShape(ExtendedInjector):
 
     @value
@@ -164,7 +175,7 @@ class ActQuantSolver(
         SolveRestrictScalingImplFromEnum,
         SolveActScalingInitFromEnum,
         SolveStatsReduceDimFromEnum,
-        SolveScalingShape,
+        SolveActScalingShape,
         SolveScalingStatsInputViewShapeImplFromEnum,
         SolveActScalingPerOutputChannelShape,
         SolveUpdateStateDictImplFromEnum,

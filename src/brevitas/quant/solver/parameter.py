@@ -41,7 +41,7 @@
 import math
 from typing import List
 
-from dependencies import value
+from dependencies import value, this
 import torch
 from torch import Tensor
 
@@ -59,7 +59,8 @@ __all__ = [
     'HeScalingInit',
     'SolveParameterTensorClampImplFromEnum',
     'SolveParameterScalingInitFromEnum',
-    'SolveParameterScalingImplFromEnum'
+    'SolveParameterScalingImplFromEnum',
+    'SolveParameterScalingShape'
 ]
 
 
@@ -159,3 +160,15 @@ class SolveParameterScalingImplFromEnum(SolveAffineRescalingFromEnum):
             return StatsFromParameterScaling
         else:
             raise RuntimeError(f"{scaling_impl_type} not recognized.")
+
+
+class SolveParameterScalingShape(ExtendedInjector):
+
+    @value
+    def scaling_shape(scaling_per_output_channel):
+        # this pattern of returning this.something allows to resolve scaling_output_channel_shape
+        # only when scaling_per_output_channel is True
+        if scaling_per_output_channel:
+            return this.scaling_per_output_channel_shape
+        else:
+            return SCALAR_SHAPE

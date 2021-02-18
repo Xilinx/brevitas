@@ -12,7 +12,7 @@ from _dependencies.this import This
 from _dependencies.exceptions import DependencyError
 from _dependencies.attributes import _Replace
 from _dependencies.replace import _deep_replace_dependency
-from dependencies import value  # noqa
+from dependencies import value, this  # noqa
 
 
 def _replace_dependency(injector, current_attr, spec):

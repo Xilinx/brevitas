@@ -100,7 +100,7 @@ class SolveBiasTensorQuantFromEnum(SolveIntQuantFromEnum):
 
 class BiasQuantSolver(
         SolveScalingStatsInputViewShapeImplFromEnum,
-        SolveScalingShape,
+        SolveParameterScalingShape,
         SolveStatsReduceDimFromEnum,
         SolveScalingStatsOpFromEnum,
         SolveBitWidthImplFromEnum,
