@@ -25,6 +25,8 @@ def test_pytorch_quant_conv_export():
                 in_channels=IN_CH,
                 kernel_size=KERNEL_SIZE,
                 bias=False,
+                input_bit_width=7,
+                output_bit_width=7,
                 weight_quant=Int8WeightPerTensorFloat,
                 input_quant=ShiftedUint8ActPerTensorFloat,
                 output_quant=ShiftedUint8ActPerTensorFloat,
@@ -57,6 +59,8 @@ def test_pytorch_quant_linear_export():
                 out_features=OUT_CH,
                 bias=False,
                 weight_quant=Int8WeightPerTensorFloat,
+                input_bit_width=7,
+                output_bit_width=7,
                 input_quant=ShiftedUint8ActPerTensorFloat,
                 output_quant=ShiftedUint8ActPerTensorFloat,
                 return_quant_tensor=False)
@@ -84,6 +88,7 @@ def test_quant_act_export():
         def __init__(self):
             super().__init__()
             self.act1 = QuantIdentity(
+                bit_width=7,
                 act_quant=ShiftedUint8ActPerTensorFloat,
                 return_quant_tensor=True)
             self.act2 = QuantReLU(act_quant=Uint8ActPerTensorFloat)
@@ -111,6 +116,7 @@ def test_quant_max_pool2d_export():
         def __init__(self):
             super().__init__()
             self.act = QuantIdentity(
+                bit_width=7,
                 act_quant=ShiftedUint8ActPerTensorFloat,
                 return_quant_tensor=True)
             self.pool = QuantMaxPool2d(
