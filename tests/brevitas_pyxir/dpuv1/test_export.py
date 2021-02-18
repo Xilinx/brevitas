@@ -3,7 +3,7 @@ import os
 import torch
 from torch import nn
 
-from brevitas.inject import BaseInjector as Injector
+from brevitas.quant.solver import ActQuantSolver, WeightQuantSolver, BiasQuantSolver
 from brevitas.nn import QuantConv2d, QuantReLU, QuantMaxPool2d, QuantEltwiseAdd
 from brevitas.onnx import export_dpuv1_onnx
 from brevitas.quant_tensor import QuantTensor
@@ -15,7 +15,7 @@ IN_SIZE = (1, CHANNELS, 10, 10)
 FC_IN_SIZE = 80
 
 
-class DPUv1WeightQuantInjector(Injector):
+class DPUv1WeightQuantInjector(WeightQuantSolver):
     quant_type = 'INT'
     bit_width = 8
     bit_width_impl_type = 'CONST'
@@ -28,14 +28,14 @@ class DPUv1WeightQuantInjector(Injector):
     signed = True
 
 
-class DPUv1BiasQuantInjector(Injector):
+class DPUv1BiasQuantInjector(BiasQuantSolver):
     quant_type = 'INT'
     bit_width = 8
     narrow_range = True
     signed = True
 
 
-class DPUv1OutputQuantInjector(Injector):
+class DPUv1OutputQuantInjector(ActQuantSolver):
     quant_type = 'INT'
     bit_width = 8
     bit_width_impl_type = 'CONST'
@@ -49,7 +49,7 @@ class DPUv1OutputQuantInjector(Injector):
     narrow_range = False
 
 
-class DPUv1ActQuantInjector(Injector):
+class DPUv1ActQuantInjector(ActQuantSolver):
     quant_type = 'INT'
     bit_width = 8
     bit_width_impl_type = 'CONST'
