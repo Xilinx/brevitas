@@ -7,26 +7,28 @@ from _dependencies.checks.injector import _check_attrs_redefinition
 from _dependencies.checks.injector import _check_dunder_name
 from _dependencies.checks.injector import _check_inheritance
 from _dependencies.checks.loops import _check_loops
-from _dependencies.spec import _make_dependency_spec
+from _dependencies.spec import _make_init_spec, _make_this_spec, _make_dependency_spec
+from _dependencies.this import This
 from _dependencies.exceptions import DependencyError
 from _dependencies.attributes import _Replace
 from _dependencies.replace import _deep_replace_dependency
-from _dependencies.spec import _make_init_spec
 from dependencies import value  # noqa
 
 
-def _replace_value_class(injector, current_attr, dependency):
-    spec = _make_init_spec(dependency)
+def _replace_dependency(injector, current_attr, spec):
     replaced_dependency = injector.__dependencies__[current_attr]
     injector.__dependencies__[current_attr] = spec
+    _check_loops(injector.__name__, injector.__dependencies__)
+    _check_circles(injector.__dependencies__)
     return replaced_dependency
 
 
 class _ExtendedInjectorType(_InjectorType):
     """
     Extended _InjectorType based on dependencies 2.0.1.
-    Fixes issues with interacting debugging.
-    Allows to inject an object instantiated from a class returned from a @value function.
+    - Fixes issues with interacting debugging.
+    - Allows to inject an object instantiated from a class returned from a @value function.
+    - Allows to return this.something from a @value function, to inject stuff conditionally
 
     Copyright 2016-2020 Artem Malyshev
 
@@ -122,10 +124,14 @@ class _ExtendedInjectorType(_InjectorType):
                 try:
                     dependency = attribute(**kwargs)
                     if inspect.isclass(dependency) and not current_attr.endswith("_class"):
-                        replaced_dependency = _replace_value_class(cls, current_attr, dependency)
+                        spec = _make_init_spec(dependency)
+                        replaced_dependency = _replace_dependency(cls, current_attr, spec)
                         replaced_dependencies[current_attr] = replaced_dependency
-                        _check_loops(cls.__name__, cls.__dependencies__)
-                        _check_circles(cls.__dependencies__)
+                        continue
+                    elif isinstance(dependency, This):
+                        spec = _make_this_spec(dependency)
+                        replaced_dependency = _replace_dependency(cls, current_attr, spec)
+                        replaced_dependencies[current_attr] = replaced_dependency
                         continue
                     else:
                         cache[current_attr] = dependency
