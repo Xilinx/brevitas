@@ -48,7 +48,6 @@ class PytorchQuantLayerHandler(Validate8BitHandler, TypedZeroPointHandler, ABC):
 
     @classmethod
     def prepare_input_quant(cls, module):
-        cls.validate_8b_bit_width(module.quant_input_bit_width())
         scale = module.quant_input_scale()
         zero_point = cls.quant_input_zero_point(module)
         signed = module.is_quant_input_signed
@@ -57,7 +56,6 @@ class PytorchQuantLayerHandler(Validate8BitHandler, TypedZeroPointHandler, ABC):
 
     @classmethod
     def prepare_output_quant(cls, module):
-        cls.validate_8b_bit_width(module.quant_output_bit_width())
         scale = module.quant_output_scale()
         zero_point = cls.quant_output_zero_point(module)
         signed = module.is_quant_output_signed
