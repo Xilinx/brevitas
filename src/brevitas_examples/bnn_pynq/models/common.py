@@ -22,7 +22,8 @@
 
 from dependencies import value
 
-from brevitas.inject import BaseInjector as Injector
+from brevitas.inject import ExtendedInjector
+from brevitas.quant.solver import WeightQuantSolver, ActQuantSolver
 from brevitas.core.bit_width import BitWidthImplType
 from brevitas.core.quant import QuantType
 from brevitas.core.restrict_val import RestrictValueType
@@ -30,7 +31,7 @@ from brevitas.core.scaling import ScalingImplType
 from brevitas.core.zero_point import ZeroZeroPoint
 
 
-class CommonQuant(Injector):
+class CommonQuant(ExtendedInjector):
     bit_width_impl_type = BitWidthImplType.CONST
     scaling_impl_type = ScalingImplType.CONST
     restrict_scaling_type = RestrictValueType.FP
@@ -49,10 +50,10 @@ class CommonQuant(Injector):
             return QuantType.INT
 
 
-class CommonWeightQuant(CommonQuant):
+class CommonWeightQuant(CommonQuant, WeightQuantSolver):
     scaling_const = 1.0
 
 
-class CommonActQuant(CommonQuant):
+class CommonActQuant(CommonQuant, ActQuantSolver):
     min_val = -1.0
     max_val = 1.0
