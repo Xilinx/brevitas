@@ -194,7 +194,7 @@ class RescalingIntQuant(brevitas.jit.ScriptModule):
         threshold = self.scaling_impl(x)
         int_threshold = self.int_scaling_impl(bit_width)
         scale = threshold / int_threshold
-        zero_point = self.zero_point_impl(x, scale, self.int_quant.min_int(bit_width))
+        zero_point = self.zero_point_impl(x, scale, bit_width)
         y = self.int_quant(scale, zero_point, bit_width, x)
         return y, scale, zero_point, bit_width
 

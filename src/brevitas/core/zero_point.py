@@ -59,23 +59,32 @@ class ZeroZeroPoint(brevitas.jit.ScriptModule):
         self.zero_point = StatelessBuffer(torch.tensor(0.0))
 
     @brevitas.jit.script_method
-    def forward(self, x: Tensor, scale: Tensor, min_int: Tensor) -> Tensor:
+    def forward(self, x: Tensor, scale: Tensor, bit_width: Tensor) -> Tensor:
         return self.zero_point()
 
 
 class MinUintZeroPoint(brevitas.jit.ScriptModule):
-    __constants__ = ['stats_reduce_dim']
+    __constants__ = ['stats_reduce_dim', 'zero_point_shape']
 
-    def __init__(self, float_to_int_impl: Module, stats_reduce_dim: Optional[int]) -> None:
+    def __init__(
+            self,
+            int_quant: Module,
+            zero_point_stats_input_view_shape_impl: Module,
+            zero_point_shape: Tuple[int, ...],
+            stats_reduce_dim: Optional[int]) -> None:
         super(MinUintZeroPoint, self).__init__()
-        self.float_to_int_impl = float_to_int_impl
+        self.zero_point_shape = zero_point_shape
+        self.int_quant = int_quant
+        self.stats_input_view_shape_impl = zero_point_stats_input_view_shape_impl
         self.negative_min_or_zero = NegativeMinOrZero(stats_reduce_dim)
 
     @brevitas.jit.script_method
-    def forward(self, x: Tensor, scale: Tensor, min_int: Tensor) -> Tensor:
-        min_val = self.negative_min_or_zero(x)
-        out = - self.float_to_int_impl(min_val / scale)
-        out = min_int + out
+    def forward(self, x: Tensor, scale: Tensor, bit_width: Tensor) -> Tensor:
+        stats_input = self.stats_input_view_shape_impl(x)
+        min_val = self.negative_min_or_zero(stats_input)
+        min_val = min_val.view(self.zero_point_shape)
+        min_int = self.int_quant.min_int(bit_width)
+        out = self.int_quant(scale, min_int, bit_width, - min_val)
         return out
 
 
@@ -87,7 +96,7 @@ class ParameterFromRuntimeMinZeroPoint(brevitas.jit.ScriptModule):
     def __init__(
             self,
             collect_stats_steps: int,
-            float_to_int_impl: Module,
+            int_quant: Module,
             stats_reduce_dim: Optional[int],
             zero_point_shape: Tuple[int, ...],
             zero_point_stats_input_view_shape_impl: Module,
@@ -104,10 +113,10 @@ class ParameterFromRuntimeMinZeroPoint(brevitas.jit.ScriptModule):
         self.momentum = zero_point_stats_momentum
         self.value = Parameter(torch.full(zero_point_shape, 0.0))
         self.negative_min_or_zero = NegativeMinOrZero(stats_reduce_dim)
-        self.float_to_int_impl = float_to_int_impl
+        self.int_quant = int_quant
 
     @brevitas.jit.script_method_110_disabled
-    def forward(self, x: Tensor, scale: Tensor, min_int: Tensor) -> Tensor:
+    def forward(self, x: Tensor, scale: Tensor, bit_width: Tensor) -> Tensor:
         if self.training:
             if self.counter <= self.collect_stats_steps:
                 if self.stats_permute_dims is not None:
@@ -126,8 +135,8 @@ class ParameterFromRuntimeMinZeroPoint(brevitas.jit.ScriptModule):
         else:
             out = self.value
         out = abs_binary_sign_grad(out)
-        out = self.float_to_int_impl(out / scale)
-        out = min_int + out
+        min_int = self.int_quant.min_int(bit_width)
+        out = self.int_quant.to_int(scale, min_int, bit_width, out)
         return out
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
@@ -154,7 +163,7 @@ class ParameterZeroPoint(brevitas.jit.ScriptModule):
     def __init__(
             self,
             zero_point_init: Union[float, torch.Tensor],
-            float_to_int_impl: Module = RoundSte(),
+            int_quant: Module,
             zero_point_shape: Tuple[int, ...] = None) -> None:
         super(ParameterZeroPoint, self).__init__()
         if (isinstance(zero_point_init, Tensor)
@@ -170,13 +179,13 @@ class ParameterZeroPoint(brevitas.jit.ScriptModule):
         if zero_point_init.shape == SCALAR_SHAPE and zero_point_shape is not None:
             zero_point_init = torch.full(zero_point_shape, zero_point_init)
         self.value = Parameter(zero_point_init)
-        self.float_to_int_impl = float_to_int_impl
+        self.int_quant = int_quant
 
     @brevitas.jit.script_method_110_disabled
-    def forward(self, x: Tensor, scale: Tensor, min_int: Tensor) -> Tensor:
+    def forward(self, x: Tensor, scale: Tensor, bit_width: Tensor) -> Tensor:
         out = abs_binary_sign_grad(self.value)
-        out = self.float_to_int_impl(out / scale)
-        out = min_int + out
+        min_int = self.int_quant.min_int(bit_width)
+        out = self.int_quant.to_int(scale, bit_width, min_int, out)
         return out
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,

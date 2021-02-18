@@ -46,7 +46,6 @@ from brevitas.inject.enum import ScalingImplType, StatsOp, RestrictValueType
 from brevitas.inject.enum import QuantType, BitWidthImplType, FloatToIntImplType
 from brevitas.core.zero_point import ZeroZeroPoint, MinUintZeroPoint
 from brevitas.core.zero_point import ParameterFromRuntimeMinZeroPoint
-from brevitas.core.stats import AbsMinMax
 
 
 __all__ = [
@@ -146,6 +145,8 @@ class ShiftedMinUintQuant(ExtendedInjector):
     narrow_range = False
     signed = False
     zero_point_impl = MinUintZeroPoint
+    zero_point_shape = this.scaling_shape
+    zero_point_stats_input_view_shape_impl = this.scaling_stats_input_view_shape_impl
 
 
 class ShiftedRuntimeMinToUintQuant(ExtendedInjector):
