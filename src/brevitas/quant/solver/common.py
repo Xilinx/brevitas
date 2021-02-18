@@ -39,7 +39,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 
-from dependencies import value
+from dependencies import value, this
 
 from brevitas.core.quant import *
 from brevitas.core.function_wrapper import *
@@ -203,12 +203,15 @@ class SolveScalingShape(ExtendedInjector):
 
     @value
     def scaling_per_output_channel(scaling_per_channel):
+        """Alternative syntax"""
         return scaling_per_channel
 
     @value
-    def scaling_shape(scaling_per_output_channel, scaling_per_output_channel_shape):
+    def scaling_shape(scaling_per_output_channel):
+        # this pattern of returning this.something allows to resolve scaling_output_channel_shape
+        # only when scaling_per_output_channel is True
         if scaling_per_output_channel:
-            return scaling_per_output_channel_shape
+            return this.scaling_per_output_channel_shape
         else:
             return SCALAR_SHAPE
 

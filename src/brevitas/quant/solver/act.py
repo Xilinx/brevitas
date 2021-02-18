@@ -97,13 +97,6 @@ class SolveActTensorQuantFromEnum(SolveIntQuantFromEnum):
             raise RuntimeError(f'{quant_type} not recognized.')
 
 
-class SolveScalingShape(ExtendedInjector):
-
-    @value
-    def scaling_per_output_channel(scaling_per_channel):
-        return scaling_per_channel
-
-
 class SolveActScalingInitFromEnum(ExtendedInjector):
 
     @value
