@@ -106,7 +106,6 @@ class BiasQuantSolver(
         SolveBitWidthImplFromEnum,
         SolveTensorQuantFloatToIntImplFromEnum,
         SolveRestrictScalingImplFromEnum,
-        SolveRestrictBitWidthImplFromEnum,
         SolveIntScalingImplFromEnum,
         SolveParameterScalingImplFromEnum,
         SolveParameterTensorClampImplFromEnum,
