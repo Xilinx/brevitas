@@ -92,7 +92,6 @@ class WeightQuantSolver(
         SolveBitWidthImplFromEnum,
         SolveTensorQuantFloatToIntImplFromEnum,
         SolveRestrictScalingImplFromEnum,
-        SolveRestrictBitWidthImplFromEnum,
         SolveIntScalingImplFromEnum,
         SolveParameterScalingImplFromEnum,
         SolveParameterTensorClampImplFromEnum,

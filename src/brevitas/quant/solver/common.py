@@ -57,7 +57,6 @@ __all__ = [
     'SolveAffineRescalingFromEnum',
     'SolveIntQuantFromEnum',
     'SolveTensorQuantFloatToIntImplFromEnum',
-    'SolveRestrictBitWidthImplFromEnum',
     'SolveIntScalingImplFromEnum',
     'SolveRestrictScalingImplFromEnum',
     'SolveScalingStatsOpFromEnum',
@@ -177,13 +176,6 @@ class SolveIntScalingImplFromEnum(ExtendedInjector):
             return PowerOfTwoIntScaling
         else:
             raise RuntimeError(f"{restrict_scaling_type} not recognized.")
-
-
-class SolveRestrictBitWidthImplFromEnum(ExtendedInjector):
-
-    @value
-    def restrict_bit_width_impl(restrict_bit_width_type):
-        return solve_restrict_value_impl_from_enum(restrict_bit_width_type)
     
     
 class SolveStatsReduceDimFromEnum(ExtendedInjector):

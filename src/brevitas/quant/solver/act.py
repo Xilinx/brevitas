@@ -174,7 +174,6 @@ class ActQuantSolver(
         SolveActScalingImplFromEnum,
         SolveIntScalingImplFromEnum,
         SolveBitWidthImplFromEnum,
-        SolveRestrictBitWidthImplFromEnum,
         SolveTensorQuantFloatToIntImplFromEnum,
         SolveScalingStatsOpFromEnum,
         SolveRestrictScalingImplFromEnum,
