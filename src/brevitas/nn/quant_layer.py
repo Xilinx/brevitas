@@ -356,7 +356,7 @@ class QuantWeightBiasInputOutputLayer(
                     and (quant_bias.scale is None
                          or (quant_bias.scale is not None
                              and quant_bias.scale.data_ptr() != output_scale.data_ptr()))):
-                output_zero_point = quant_bias.value * output_scale
+                output_zero_point = - quant_bias.value.view(output_scale_shape) / output_scale
 
             if quant_bias.bit_width is not None and output_bit_width is not None:
                 output_bit_width = torch.where(
