@@ -7,7 +7,8 @@ from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIO
 from brevitas.proxy import WeightQuantProxyFromInjector
 from brevitas.proxy import ActQuantProxyFromInjector
 from brevitas.proxy import BiasQuantProxyFromInjector
-from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
+from brevitas.quant.scaled_int import Int8WeightPerTensorFloat, Int8ActPerTensorFloat
+from brevitas.quant.scaled_int import Int8BiasPerTensorFloatInternalScaling, Int8Bias
 
 
 from tests.brevitas.common import BOOLS
@@ -166,3 +167,29 @@ def test_default_wbiol_bias_quant_proxy(default_wbiol_layer: QuantWBIOL):
 
 def test_default_wbiol_quant_injector(default_wbiol_layer: QuantWBIOL):
     assert issubclass(default_wbiol_layer.weight_quant.quant_injector, Int8WeightPerTensorFloat)
+
+
+def test_internally_scaled_bias_zero_point():
+    conv = QuantConv2d(IN_CH, OUTPUT_CH, KERNEL_SIZE, bias=True,
+                input_quant=Int8ActPerTensorFloat,
+                bias_quant=Int8BiasPerTensorFloatInternalScaling,
+                return_quant_tensor=True)
+    out = conv(torch.randn(1, IN_CH, 10, 10))
+    assert (out.zero_point != 0.).all()
+
+
+def test_float_bias_zero_point():
+    conv = QuantConv2d(IN_CH, OUTPUT_CH, KERNEL_SIZE, bias=True,
+                input_quant=Int8ActPerTensorFloat,
+                return_quant_tensor=True)
+    out = conv(torch.randn(1, IN_CH, 10, 10))
+    assert (out.zero_point != 0.).all()
+
+
+def test_externally_scaled_bias_zero_point():
+    conv = QuantConv2d(IN_CH, OUTPUT_CH, KERNEL_SIZE, bias=True,
+                input_quant=Int8ActPerTensorFloat,
+                bias_quant=Int8Bias,
+                return_quant_tensor=True)
+    out = conv(torch.randn(1, IN_CH, 10, 10))
+    assert (out.zero_point == 0.).all()

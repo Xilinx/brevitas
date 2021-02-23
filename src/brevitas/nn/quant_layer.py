@@ -352,6 +352,12 @@ class QuantWeightBiasInputOutputLayer(
             output_tensor = self.inner_forward_impl(
                 quant_input.value, quant_weight.value, quant_bias.value)
 
+            if (output_scale is not None
+                    and (quant_bias.scale is None
+                         or (quant_bias.scale is not None
+                             and quant_bias.scale.data_ptr() != output_scale.data_ptr()))):
+                output_zero_point = quant_bias.value * output_scale
+
             if quant_bias.bit_width is not None and output_bit_width is not None:
                 output_bit_width = torch.where(
                     quant_bias.bit_width > output_bit_width, quant_bias.bit_width, output_bit_width)
@@ -364,7 +370,7 @@ class QuantWeightBiasInputOutputLayer(
                     and ((quant_input.zero_point != 0.0).any()
                          or (quant_weight.zero_point != 0.0).any())):
                 raise RuntimeError("Computing zero point of output accumulator not supported yet.")
-            else:
+            elif quant_input.zero_point is not None and output_zero_point is None:
                 output_zero_point = quant_input.zero_point
 
         quant_output = QuantTensor(
