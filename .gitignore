@@ -70,3 +70,6 @@ docsrc/source/_static/
 # Test environments and logs
 .hypothesis/
 .nox/
+
+# Notebooks
+/notebooks/.ipynb_checkpoints/
