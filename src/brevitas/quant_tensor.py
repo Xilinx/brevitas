@@ -61,12 +61,28 @@ class QuantTensor(NamedTuple):
         return self.value
 
     @property
-    def is_valid(self):
+    def is_not_none(self):
         return (self.value is not None
                 and self.scale is not None
                 and self.zero_point is not None
                 and self.bit_width is not None
                 and self.signed is not None)
+
+    @property
+    def is_valid(self):
+        if self.is_not_none:
+            with torch.no_grad():
+                int_value = (self.value / self.scale) + self.zero_point
+                is_int = torch.isclose(int_value, torch.round(int_value)).all()
+                if self.signed:
+                    is_upper_bounded = (2.0 ** (self.bit_width - 1) - 1 >= int_value).all()
+                    is_lower_bounded = (- 2.0 ** (self.bit_width - 1) <= int_value).all()
+                else:
+                    is_upper_bounded = (2.0 ** (self.bit_width - 1) >= int_value).all()
+                    is_lower_bounded = (0. <= int_value).all()
+                return (is_int & is_upper_bounded & is_lower_bounded).item()
+        else:
+            return False
 
     def set(self, **kwargs):
         return self._replace(**kwargs)
