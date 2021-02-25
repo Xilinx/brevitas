@@ -53,7 +53,9 @@ from .quant_proxy import QuantProxyFromInjector, QuantProxyProtocol
 
 
 __all__ = ['WeightQuantProxyFromInjector',
-           'BiasQuantProxyFromInjector']
+           'BiasQuantProxyFromInjector',
+           'WeightQuantProxyProtocol',
+           'BiasQuantProxyProtocol']
 
 
 @runtime_checkable

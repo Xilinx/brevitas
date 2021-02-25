@@ -51,6 +51,7 @@ __all__ = [
     'Int8Bias',
     'Int8BiasPerTensorFloatInternalScaling',
     'Int8ActPerTensorFloatMinMaxInit',
+    'Uint8ActPerTensorFloatMinMaxInit',
     'Int8ActPerTensorFloat',
     'Int8WeightPerTensorFloat',
     'Uint8ActPerTensorFloat',
