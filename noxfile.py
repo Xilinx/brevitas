@@ -116,6 +116,15 @@ def tests_brevitas_finn_integration(session, pytorch):
 
 @nox.session(venv_backend="conda", python=CONDA_PYTHON_VERSIONS)
 @nox.parametrize("pytorch", PYTORCH_VERSIONS, ids=PYTORCH_IDS)
+def tests_brevitas_ort_integration(session, pytorch):
+    install_pytorch(pytorch, session)
+    install_torchvision(pytorch, session)
+    session.install('--upgrade', '-e', '.[test, ort_integration]')
+    session.run('pytest', '-v', 'tests/brevitas_ort')
+
+
+@nox.session(venv_backend="conda", python=CONDA_PYTHON_VERSIONS)
+@nox.parametrize("pytorch", PYTORCH_VERSIONS, ids=PYTORCH_IDS)
 def tests_brevitas_pyxir_integration(session, pytorch):
     install_pytorch(pytorch, session)
     install_torchvision(pytorch, session)

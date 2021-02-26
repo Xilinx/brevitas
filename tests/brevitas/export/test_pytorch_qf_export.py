@@ -1,5 +1,4 @@
 import torch
-import pytest
 
 from brevitas.nn import QuantConv2d, QuantLinear, QuantIdentity, QuantReLU, QuantMaxPool2d
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat

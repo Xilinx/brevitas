@@ -73,7 +73,8 @@ setup(name="brevitas",
           "stt": read_requirements('requirements-stt.txt'),
           "vision": read_requirements('requirements-vision.txt'),
           "finn_integration": read_requirements('requirements-finn-integration.txt'),
-          "pyxir_integration": read_requirements('requirements-pyxir-integration.txt')
+          "pyxir_integration": read_requirements('requirements-pyxir-integration.txt'),
+          "ort_integration": read_requirements('requirements-ort-integration.txt')
       },
       packages=find_packages('src'),
       package_dir={'': 'src'},
