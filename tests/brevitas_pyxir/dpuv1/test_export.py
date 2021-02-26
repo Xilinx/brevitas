@@ -17,6 +17,7 @@ FC_IN_SIZE = 80
 
 class DPUv1WeightQuantInjector(WeightQuantSolver):
     quant_type = 'INT'
+    float_to_int_impl_type = 'ROUND'
     bit_width = 8
     bit_width_impl_type = 'CONST'
     restrict_scaling_type = 'POWER_OF_TWO'
@@ -30,6 +31,7 @@ class DPUv1WeightQuantInjector(WeightQuantSolver):
 
 class DPUv1BiasQuantInjector(BiasQuantSolver):
     quant_type = 'INT'
+    float_to_int_impl_type = 'ROUND'
     bit_width = 8
     narrow_range = True
     signed = True
@@ -37,6 +39,7 @@ class DPUv1BiasQuantInjector(BiasQuantSolver):
 
 class DPUv1OutputQuantInjector(ActQuantSolver):
     quant_type = 'INT'
+    float_to_int_impl_type = 'ROUND'
     bit_width = 8
     bit_width_impl_type = 'CONST'
     restrict_scaling_type = 'POWER_OF_TWO'
@@ -51,6 +54,7 @@ class DPUv1OutputQuantInjector(ActQuantSolver):
 
 class DPUv1ActQuantInjector(ActQuantSolver):
     quant_type = 'INT'
+    float_to_int_impl_type = 'ROUND'
     bit_width = 8
     bit_width_impl_type = 'CONST'
     restrict_scaling_type = 'POWER_OF_TWO'
