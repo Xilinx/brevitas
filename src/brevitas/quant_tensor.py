@@ -77,12 +77,12 @@ class QuantTensor(NamedTuple):
                 is_int = torch.isclose(int_value, rounded_int_value).all()
                 if self.bit_width >= 2:
                     if self.signed:
-                        is_upper_bounded = (2.0 ** (self.bit_width - 1) - 1 >= int_value).all()
-                        is_lower_bounded = (- 2.0 ** (self.bit_width - 1) <= int_value).all()
+                        is_upper_b = (2.0 ** (self.bit_width - 1) - 1 >= rounded_int_value).all()
+                        is_lower_b = (- 2.0 ** (self.bit_width - 1) <= rounded_int_value).all()
                     else:
-                        is_upper_bounded = (2.0 ** (self.bit_width - 1) >= int_value).all()
-                        is_lower_bounded = (0. <= int_value).all()
-                    return (is_int & is_upper_bounded & is_lower_bounded).item()
+                        is_upper_b = (2.0 ** (self.bit_width - 1) >= rounded_int_value).all()
+                        is_lower_b = (0. <= int_value).all()
+                    return (is_int & is_upper_b & is_lower_b).item()
                 else:  # binary case
                     unique_vals = rounded_int_value.unique(
                         sorted=False, return_counts=False, return_inverse=False)
