@@ -8,21 +8,22 @@ from brevitas.onnx import export_dpuv2_onnx
 from brevitas.graph.quantizer import quantize, BatchNormHandling
 from brevitas.quant.fixed_point import *
 from brevitas import config
+
+from tests.marker import requires_pt_ge
+
 config.IGNORE_MISSING_KEYS = True
 
-IS_ABOVE_110 = version.parse(torch.__version__) > version.parse("1.1.0")
 
 MODELS = [
     'resnet18',
     'mobilenet_v2',
+    'mnasnet0_5'
 ]
-
-if IS_ABOVE_110:
-    MODELS.append('mnasnet0_5')
 
 IN_SIZE = (1, 3, 224, 224)
 
 
+@requires_pt_ge('1.2.0')
 @pytest.mark.parametrize("model_name", MODELS)
 def test_rewriter_export(model_name: str):
     model = getattr(models, model_name)(pretrained=True)

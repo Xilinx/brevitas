@@ -2,7 +2,6 @@ import pytest
 import torch
 
 from brevitas.nn import QuantReLU, QuantIdentity, QuantHardTanh
-from tests.common_xfail import check_expected_pyt_110_fail
 
 
 class TestQuantHardTanh:
@@ -22,7 +21,6 @@ class TestQuantReLU:
 
 class TestQuantDelay:
 
-    @check_expected_pyt_110_fail
     @pytest.mark.parametrize("bw_quant_type", [(4, "INT"), (1, "BINARY"), (2, "TERNARY")])
     def test_quant_identity_delay(self, bw_quant_type):
         DELAY = 10

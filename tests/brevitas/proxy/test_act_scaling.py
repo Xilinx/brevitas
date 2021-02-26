@@ -14,7 +14,6 @@ RANDOM_ITERS = 32
 
 class TestQuantReLU:
 
-    @check_expected_pyt_110_fail
     def test_scaling_stats_to_parameter(self):
 
         stats_act = QuantReLU(
@@ -43,7 +42,6 @@ class TestQuantReLU:
 
         assert(torch.allclose(stats_act.quant_act_scale(), param_act.quant_act_scale()))
 
-    @check_expected_pyt_110_fail
     def test_scaling_parameter_grad(self):
         stats_act = QuantReLU(
             bit_width=BIT_WIDTH,
@@ -60,7 +58,6 @@ class TestQuantReLU:
             scaling_value = tensor_quant.scaling_impl.value
             assert scaling_value.grad is not None
 
-    @check_expected_pyt_110_fail
     def test_scaling_parameter_from_stats(self):
         shape = [8, 3, 64, 64]
         collect_stats_steps = 100

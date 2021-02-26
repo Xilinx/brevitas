@@ -5,7 +5,10 @@ import pytest
 from brevitas_examples.bnn_pynq.bnn_pynq_train import launch
 from brevitas_examples.bnn_pynq.models import get_model_cfg
 
+from tests.marker import requires_pt_lt
 
+
+@requires_pt_lt('1.6.0')
 @pytest.mark.parametrize("model", ["TFC", "SFC", "LFC", "CNV"])
 @pytest.mark.parametrize("weight_bit_width", [1, 2])
 @pytest.mark.parametrize("act_bit_width", [1, 2])
