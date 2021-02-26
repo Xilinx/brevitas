@@ -17,8 +17,8 @@ NIX_NEWLINE = '\n'
 
 # Data shared betwen Nox sessions and Github Actions, formatted as tuples
 CONDA_PYTHON_VERSIONS = ('3.6', '3.7', '3.8')
-PYTORCH_VERSIONS = ('1.1.0', '1.2.0', '1.3.0', '1.3.1', '1.4.0', '1.5.0')
-JIT_STATUSES = ('jit_enabled', 'jit_disabled')
+PYTORCH_VERSIONS = ('1.1.0', '1.2.0', '1.3.1', '1.4.0', '1.5.0', '1.6.0', '1.7.1')
+JIT_STATUSES = ('jit_disabled',)
 
 # Data used only by Github Actions, formatted as lists or lists of oredered dicts
 PLATFORM_LIST = ['windows-latest', 'ubuntu-latest', 'macos-latest']
@@ -28,8 +28,6 @@ EXCLUDE_LIST = [od([('platform', 'macos-latest'),
                 od([('pytorch_version', '1.1.0'),
                     ('conda_python_version', '3.8')]),
                 od([('pytorch_version', '1.2.0'),
-                    ('conda_python_version', '3.8')]),
-                od([('pytorch_version', '1.3.0'),
                     ('conda_python_version', '3.8')]),
                 od([('pytorch_version', '1.3.1'),
                     ('conda_python_version', '3.8')])]
