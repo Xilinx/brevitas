@@ -13,3 +13,9 @@ BOOLS = [True, False]
 def assert_allclose(generated, reference):
     assert torch.allclose(generated, reference, RTOL, ATOL)
 
+
+def assert_zero_or_none(value):
+    if isinstance(value, torch.Tensor):
+        assert (value == torch.tensor(0.)).all()
+    else:
+        assert value is None

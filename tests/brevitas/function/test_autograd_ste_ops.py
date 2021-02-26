@@ -46,7 +46,7 @@ import mock
 from torch import Tensor, tensor
 from brevitas.function.autograd_ste_ops import *
 
-from tests.brevitas.common import assert_allclose
+from tests.brevitas.common import assert_allclose, assert_zero_or_none
 from tests.brevitas.hyp_helper import two_float_tensor_random_shape_st
 from tests.brevitas.hyp_helper import scalar_float_tensor_st, scalar_float_nz_tensor_st
 from tests.brevitas.function.hyp_helper import tensor_clamp_ste_min_max_scalar_tensor_test_st
@@ -123,8 +123,8 @@ class TestTensorClampSte:
         max_val.requires_grad_(True)
         output = tensor_clamp_ste_impl(val, min_val, max_val)
         output.backward(val_grad, retain_graph=True)
-        assert (min_val.grad == tensor(0.)).all()
-        assert (max_val.grad == tensor(0.)).all()
+        assert_zero_or_none(min_val.grad)
+        assert_zero_or_none(max_val.grad)
         assert_allclose(val_grad, val.grad)
 
 
