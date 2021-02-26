@@ -12,7 +12,7 @@ from finn.transformation.double_to_single_float import DoubleToSingleFloat
 
 from brevitas.onnx import FINNManager
 
-from tests.common_xfail import check_expected_win_nox_fail
+from tests.marker import skip_win_nox_numpy
 
 
 QUARTZNET_POSTPROCESSED_INPUT_SIZE = (1, 64, 256)  # B, features, sequence
@@ -21,8 +21,8 @@ MAX_INP_VAL = 200.0
 ATOL = 1e-3
 
 
+@skip_win_nox_numpy
 @pytest.mark.parametrize("pretrained", [True, False])
-@check_expected_win_nox_fail
 def test_quartznet_asr_4b(pretrained):
     # inline import to make xfail work on the import error
     from brevitas_examples.speech_to_text import quant_quartznet_perchannelscaling_4b

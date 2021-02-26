@@ -4,7 +4,6 @@ from brevitas.core.quant import QuantType
 from brevitas.core.scaling import ScalingImplType
 from brevitas.core.stats import StatsOp
 from brevitas.nn import QuantReLU
-from tests.common_xfail import check_expected_pyt_110_fail
 
 
 BIT_WIDTH = 8
