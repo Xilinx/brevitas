@@ -242,8 +242,8 @@ def quartznet(cfg, quartzet_params, export_mode):
     activation_inner_scaling_per_output_channel = cfg.getboolean('ACTIVATIONS', 'INNER_SCALING_PER_CHANNEL')
     activation_other_scaling_per_output_channel = cfg.getboolean('ACTIVATIONS', 'OTHER_SCALING_PER_CHANNEL')
     absolute_act_val = cfg.getint('ACTIVATIONS', 'ABS_ACT_VAL')
-    encoder_weight_scaling_per_output_channel = cfg.get('WEIGHT', 'ENCODER_SCALING_PER_OUTPUT_CHANNEL')
-    decoder_weight_scaling_per_output_channel = cfg.get('WEIGHT', 'DECODER_SCALING_PER_OUTPUT_CHANNEL')
+    encoder_weight_scaling_per_output_channel = cfg.getboolean('WEIGHT', 'ENCODER_SCALING_PER_OUTPUT_CHANNEL')
+    decoder_weight_scaling_per_output_channel = cfg.getboolean('WEIGHT', 'DECODER_SCALING_PER_OUTPUT_CHANNEL')
     fused_bn = cfg.getboolean('QUANT', 'FUSED_BN')
 
     vocab = quartzet_params['labels']
@@ -269,7 +269,7 @@ def quartznet(cfg, quartzet_params, export_mode):
         activation_other_scaling_per_output_channel=activation_other_scaling_per_output_channel,
         fused_bn=fused_bn,
         **quartzet_params["JasperEncoder"])
-    #
+
     decoder = JasperDecoderForCTC(
         feat_in=feat_in_decoder,
         bit_width=outer_bit_width,
