@@ -25,8 +25,8 @@ TORCHVISION_VERSION_DICT = {
     '1.5.0': '0.6.0',
     '1.5.1': '0.6.1',
     '1.6.0': '0.7.0',
-    '1.7.0': '0.8.0',
-    '1.7.1': '0.8.1'
+    '1.7.0': '0.8.1',
+    '1.7.1': '0.8.2'
 }
 
 PARSED_TORCHVISION_VERSION_DICT = {
@@ -54,11 +54,17 @@ def install_pytorch(pytorch, session):
 def install_torchvision(pytorch, session):
     torchvision = PARSED_TORCHVISION_VERSION_DICT[version.parse(pytorch)]
     if not IS_OSX and version.parse(pytorch) > version.parse('1.1.0'):
-        cmd = [f'torchvision=={torchvision}+cpu', '-f', PYTORCH_STABLE_WHEEL_SRC]
+        cmd = [
+            f'torch=={pytorch}+cpu',  # make sure correct pytorch version is kept
+            f'torchvision=={torchvision}+cpu',
+            '-f', PYTORCH_STABLE_WHEEL_SRC]
     elif not IS_OSX and version.parse(pytorch) <= version.parse('1.1.0'):
-        cmd = [f'torchvision=={torchvision}', '-f', PYTORCH_110_CPU_WHEEL_SRC]
+        cmd = [
+            f'torch=={pytorch}',  # make sure correct pytorch version is kept
+            f'torchvision=={torchvision}',
+            '-f', PYTORCH_110_CPU_WHEEL_SRC]
     else:
-        cmd = [f'torchvision=={torchvision}']
+        cmd = [f'torch=={pytorch}', f'torchvision=={torchvision}']
     if version.parse(pytorch) < version.parse(PYTORCH_PILLOW_FIXED):
         cmd += [f'Pillow=={OLDER_PILLOW_VERSION}']
     session.install(*cmd)
