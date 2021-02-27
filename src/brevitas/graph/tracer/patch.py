@@ -17,7 +17,7 @@ def make_above_16_patches():
 
     def above_16_cat(tensors, dim, out=None):
         if not isinstance(tensors, (tuple, list)):
-            tensors = tuple(*tensors)
+            tensors = tuple(tensors)
         if out is not None:
             return original_torch_cat(tensors, dim, out)
         else:
@@ -25,7 +25,7 @@ def make_above_16_patches():
 
     def above_16_stack(tensors, dim, out=None):
         if not isinstance(tensors, (tuple, list)):
-            tensors = tuple(*tensors)
+            tensors = tuple(tensors)
         if out is not None:
             return original_torch_stack(tensors, dim, out)
         else:
