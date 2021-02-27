@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        conda_python_version: ['3.6', '3.7', '3.8']
+        python_version: ['3.6', '3.7', '3.8']
         pytorch_version: ['1.1.0', '1.2.0', '1.3.1', '1.4.0', '1.5.0', '1.6.0', '1.7.1']
         platform: ['windows-latest', 'ubuntu-latest', 'macos-latest']
         jit_status: ['jit_disabled']
@@ -24,13 +24,13 @@ jobs:
             pytorch_version: '1.1.0'
 
           - pytorch_version: '1.1.0'
-            conda_python_version: '3.8'
+            python_version: '3.8'
 
           - pytorch_version: '1.2.0'
-            conda_python_version: '3.8'
+            python_version: '3.8'
 
           - pytorch_version: '1.3.1'
-            conda_python_version: '3.8'
+            python_version: '3.8'
 
           - pytorch_version: '1.1.0'
             jit_status: 'jit_disabled'
@@ -45,40 +45,14 @@ jobs:
     - name: Checkout repo
       uses: actions/checkout@v2
 
-    - name: Get path to workspace on Linux/macOS
-      shell: bash
-      id: workspace-path-nix
-      run: echo "::set-output name=path::"$GITHUB_WORKSPACE
-      if: startsWith(runner.os, 'Windows') != true
-
-    - name: Get path to workspace on Windows
-      shell: bash
-      id: workspace-path-win
-      run: echo "::set-output name=path::"$(realpath -s $GITHUB_WORKSPACE)
-      if: startsWith(runner.os, 'Windows') == true
-
-    - name: Set pkgs cache paths on Linux/macOS
-      uses: allenevans/set-env@v2.0.1
+    - name: Set up Python
+      uses: actions/setup-python@v2
       with:
-        CONDA_PKGS_DIRS: ${{ steps.workspace-path-nix.outputs.path }}/.conda_pkgs_dir
-        PYTORCH_PKG_CACHE_PATH: ${{ steps.workspace-path-nix.outputs.path }}/.pytorch_pkg_cache_path
-      if: startsWith(runner.os, 'Windows') != true
+       python-version: ${{ matrix.python_version }}
 
-    - name: Set pkgs cache paths on Windows
-      uses: allenevans/set-env@v2.0.1
-      with:
-        CONDA_PKGS_DIRS: ${{ steps.workspace-path-win.outputs.path }}/.conda_pkgs_dir
-        PYTORCH_PKG_CACHE_PATH: ${{ steps.workspace-path-win.outputs.path }}/.pytorch_pkg_cache_path
-      if: startsWith(runner.os, 'Windows') == true
-
-    - name: Create pkgs cache dirs
+    - name: Install Nox dependencies
       shell: bash
-      id: cache-dirs
-      run: |
-        echo "::set-output name=conda_pkgs_cache_path::"$CONDA_PKGS_DIRS
-        echo "::set-output name=pytorch_pkg_cache_path::"$PYTORCH_PKG_CACHE_PATH
-        mkdir $CONDA_PKGS_DIRS
-        mkdir $PYTORCH_PKG_CACHE_PATH
+      run: pip install -r requirements/requirements-nox.txt
 
     - name: Install libsndfile on Ubuntu
       shell: bash
@@ -90,68 +64,8 @@ jobs:
       run: brew install libomp
       if: startsWith(runner.os, 'macOS') == true
 
-    - name: Setup Conda
-      uses: s-weigand/setup-conda@v1
-
-    - name: Install Nox dependencies
-      shell: bash
-      run: pip install -r requirements/requirements-nox.txt
-
-    - name: Conda/Python info
-      shell: bash
-      run: |
-        which python
-        conda info
-        conda list
-
-    - name: Conda dry runs for caches hash
-      shell: bash
-      run: |
-        nox --session dry_run_pytorch_only_deps\(conda_python_${{ matrix.conda_python_version }}\,\ pytorch_${{ matrix.pytorch_version }}\) | grep -A999 INSTALLED: > pytorch_only_deps.txt
-        nox --session dry_run_pytorch_no_deps\(conda_python_${{ matrix.conda_python_version }}\,\ pytorch_${{ matrix.pytorch_version }}\) | grep -A999 INSTALLED: > pytorch_no_deps.txt
-        cat pytorch_only_deps.txt
-        cat pytorch_no_deps.txt
-
-    - name: Cache Pytorch deps pkgs
-      uses: actions/cache@v1
-      id: conda-cache
-      with:
-        path: ${{ steps.cache-dirs.outputs.conda_pkgs_cache_path }}
-        key: pytorch-deps-${{ matrix.platform }}-${{ matrix.conda_python_version }}-${{ hashFiles('pytorch_only_deps.txt') }}
-
-    - name: Cache Pytorch pkg
-      uses: actions/cache@v1
-      id: pytorch-cache
-      with:
-        path: ${{ steps.cache-dirs.outputs.pytorch_pkg_cache_path }}
-        key: pytorch-${{ hashFiles('pytorch_no_deps.txt') }}
-
-    - name: Move cached Pytorch pkg to Conda pkgs cache
-      shell: bash
-      run: |
-        cp -R ${{ steps.cache-dirs.outputs.pytorch_pkg_cache_path }}/pytorch* ${{ steps.cache-dirs.outputs.conda_pkgs_cache_path }}/
-        rm -R ${{ steps.cache-dirs.outputs.pytorch_pkg_cache_path }}/pytorch*
-      if: steps.pytorch-cache.outputs.cache-hit == 'true'
-
     - name: Run Nox session for brevitas pytest
       shell: bash
-      run: nox -v -s tests_brevitas_cpu-${{ matrix.conda_python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)
+      run: nox -v -s tests_brevitas_cpu-${{ matrix.python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)
 
 
-
-    - name: Remove tarballs before caching Pytorch deps pkgs
-      shell: bash
-      run: conda clean -t
-      if: steps.conda-cache.outputs.cache-hit != 'true'
-
-    - name: Remove tarballs before caching Pytorch pkgs
-      shell: bash
-      run: conda clean -t
-      if: steps.pytorch-cache.outputs.cache-hit != 'true'
-
-    - name: Move Pytorch pkg to its cache location before caching
-      shell: bash
-      run: |
-        cp -R ${{ steps.cache-dirs.outputs.conda_pkgs_cache_path }}/pytorch* ${{ steps.cache-dirs.outputs.pytorch_pkg_cache_path }}/
-        rm -R ${{ steps.cache-dirs.outputs.conda_pkgs_cache_path }}/pytorch*
-      if: steps.pytorch-cache.outputs.cache-hit != 'true'

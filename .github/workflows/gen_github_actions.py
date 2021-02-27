@@ -17,7 +17,7 @@ ORT_INTEGRATION_YML = 'ort_integration.yml'
 NIX_NEWLINE = '\n'
 
 # Data shared betwen Nox sessions and Github Actions, formatted as tuples
-CONDA_PYTHON_VERSIONS = ('3.6', '3.7', '3.8')
+PYTHON_VERSIONS = ('3.6', '3.7', '3.8')
 PYTORCH_VERSIONS = ('1.1.0', '1.2.0', '1.3.1', '1.4.0', '1.5.0', '1.6.0', '1.7.1')
 JIT_STATUSES = ('jit_disabled',)
 
@@ -27,11 +27,11 @@ PLATFORM_LIST = ['windows-latest', 'ubuntu-latest', 'macos-latest']
 EXCLUDE_LIST = [od([('platform', 'macos-latest'),
                     ('pytorch_version', '1.1.0')]),
                 od([('pytorch_version', '1.1.0'),
-                    ('conda_python_version', '3.8')]),
+                    ('python_version', '3.8')]),
                 od([('pytorch_version', '1.2.0'),
-                    ('conda_python_version', '3.8')]),
+                    ('python_version', '3.8')]),
                 od([('pytorch_version', '1.3.1'),
-                    ('conda_python_version', '3.8')])]
+                    ('python_version', '3.8')])]
 
 PYTEST_EXCLUDE_LIST_EXTRA = [od([('pytorch_version', '1.1.0'),
                                  ('jit_status', 'jit_disabled')]),
@@ -40,16 +40,16 @@ PYTEST_EXCLUDE_LIST_EXTRA = [od([('pytorch_version', '1.1.0'),
 
 PYTEST_EXAMPLE_EXCLUDE_LIST_EXTRA = [od([('platform', 'macos-latest'),
                                          ('pytorch_version', '1.5.0'),
-                                         ('conda_python_version', '3.6')])]
+                                         ('python_version', '3.6')])]
 
 PYXIR_INTEGRATION_EXCLUDE_LIST_EXTRA = [od([('platform', 'macos-latest'),
                                             ('pytorch_version', '1.5.0'),
-                                            ('conda_python_version', '3.6')])]
+                                            ('python_version', '3.6')])]
 
 FINN_INTEGRATION_EXCLUDE_LIST_EXTRA = [od([('platform', 'windows-latest'),
-                                           ('conda_python_version', '3.6')])]
+                                           ('python_version', '3.6')])]
 
-MATRIX = od([('conda_python_version', list(CONDA_PYTHON_VERSIONS)),
+MATRIX = od([('python_version', list(PYTHON_VERSIONS)),
              ('pytorch_version', list(PYTORCH_VERSIONS)),
              ('platform', PLATFORM_LIST)])
 
@@ -60,7 +60,7 @@ PYTEST_STEP_LIST = [
         ('name', 'Run Nox session for brevitas pytest'),
         ('shell', 'bash'),
         ('run',
-         'nox -v -s tests_brevitas_cpu-${{ matrix.conda_python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)')]),
+         'nox -v -s tests_brevitas_cpu-${{ matrix.python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)')]),
 ]
 
 EXAMPLES_PYTEST_STEP_LIST = [
@@ -68,7 +68,7 @@ EXAMPLES_PYTEST_STEP_LIST = [
         ('name', 'Run Nox session for brevitas_examples pytest'),
         ('shell', 'bash'),
         ('run',
-         'nox -v -s tests_brevitas_examples_cpu-${{ matrix.conda_python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)')]),
+         'nox -v -s tests_brevitas_examples_cpu-${{ matrix.python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)')]),
 ]
 
 FINN_INTEGRATION_STEP_LIST = [
@@ -83,7 +83,7 @@ FINN_INTEGRATION_STEP_LIST = [
         ('name', 'Run Nox session for Brevitas-FINN integration'),
         ('shell', 'bash'),
         ('run',
-         'nox -v -s tests_brevitas_finn_integration-${{ matrix.conda_python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)')
+         'nox -v -s tests_brevitas_finn_integration-${{ matrix.python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)')
     ])]
 
 PYXIR_INTEGRATION_STEP_LIST = [
@@ -91,7 +91,7 @@ PYXIR_INTEGRATION_STEP_LIST = [
         ('name', 'Run Nox session for Brevitas-PyXIR integration'),
         ('shell', 'bash'),
         ('run',
-         'nox -v -s tests_brevitas_pyxir_integration-${{ matrix.conda_python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)')
+         'nox -v -s tests_brevitas_pyxir_integration-${{ matrix.python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)')
     ])]
 
 ORT_INTEGRATION_STEP_LIST = [
@@ -99,7 +99,7 @@ ORT_INTEGRATION_STEP_LIST = [
         ('name', 'Run Nox session for Brevitas-ORT integration'),
         ('shell', 'bash'),
         ('run',
-         'nox -v -s tests_brevitas_ort_integration-${{ matrix.conda_python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)')
+         'nox -v -s tests_brevitas_ort_integration-${{ matrix.python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)')
     ])]
 
 TEST_INSTALL_DEV_STEP_LIST = [
@@ -107,12 +107,12 @@ TEST_INSTALL_DEV_STEP_LIST = [
         ('name', 'Run Nox session for testing brevitas develop install and imports'),
         ('shell', 'bash'),
         ('run',
-         'nox -v -s tests_brevitas_install_dev-${{ matrix.conda_python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)')]),
+         'nox -v -s tests_brevitas_install_dev-${{ matrix.python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)')]),
     od([
         ('name', 'Run Nox session for testing brevitas_examples develop install and imports'),
         ('shell', 'bash'),
         ('run',
-         'nox -v -s tests_brevitas_examples_install_dev-${{ matrix.conda_python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)')
+         'nox -v -s tests_brevitas_examples_install_dev-${{ matrix.python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)')
     ])]
 
 # whitespaces to indent generated portions of output yaml
