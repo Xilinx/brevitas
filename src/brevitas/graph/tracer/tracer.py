@@ -11,6 +11,7 @@ import torch
 from torch import Tensor
 from torch.nn import Module, Sequential, ModuleList, ModuleDict
 
+from brevitas import torch_version
 from brevitas.quant_tensor import QuantTensor
 from .trace import Trace, TraceElem
 from .wrapper.scriptmodule import torchscript_wrapper
@@ -18,10 +19,10 @@ from .wrapper.builtin import IntWrapper, StrWrapper, FloatWrapper
 from ..module import FnType
 from ..utils import flatten, module_class_name
 
-if version.parse(torch.__version__) > version.parse('1.6.0'):
+if torch_version > version.parse('1.6'):
     from torch.overrides import get_testing_overrides
     from .patch import ABOVE_16_PATCHES as PATCHES
-elif version.parse(torch.__version__) == version.parse('1.6.0'):
+elif torch_version == version.parse('1.6'):
     from torch._overrides import get_testing_overrides
     from .patch import EQUAL_16_PATCHES as PATCHES
 else:

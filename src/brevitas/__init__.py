@@ -12,7 +12,11 @@ from brevitas import config
 
 
 pkg_dir = os.path.dirname(os.path.abspath(__file__))
-torch_version = version.parse(torch.__version__)
+
+if torch.__version__.endswith('+cpu'):
+    torch_version = version.parse(torch.__version__.rstrip('+cpu'))
+else:
+    torch_version = version.parse(torch.__version__)
 
 try:
     __version__ = get_distribution(__name__).version
