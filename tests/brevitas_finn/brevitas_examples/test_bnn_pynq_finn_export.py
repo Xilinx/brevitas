@@ -40,14 +40,15 @@ from finn.transformation.general import GiveUniqueNodeNames
 from finn.transformation.general import RemoveStaticGraphInputs
 from finn.transformation.double_to_single_float import DoubleToSingleFloat
 
+from brevitas.quant_tensor import QuantTensor
 from brevitas.export import FINNManager
 from brevitas_examples.bnn_pynq.models import model_with_cfg
 
 FC_INPUT_SIZE = (1, 1, 28, 28)
 CNV_INPUT_SIZE = (1, 3, 32, 32)
 
-MIN_INP_VAL = 0.0
-MAX_INP_VAL = 1.0
+MIN_INP_VAL = 0
+MAX_INP_VAL = 255
 
 MAX_WBITS = 2
 MAX_ABITS = 2
@@ -71,23 +72,25 @@ def test_brevitas_fc_onnx_export_and_exec(size, wbits, abits, pretrained):
     finn_onnx = nname + ".onnx"
     fc, _ = model_with_cfg(nname.lower(), pretrained=pretrained)
     fc.eval()
-    FINNManager.export(fc, FC_INPUT_SIZE, finn_onnx)
+    # load a random int test vector
+    input_a = np.random.randint(MIN_INP_VAL, MAX_INP_VAL, size=FC_INPUT_SIZE).astype(np.float32)
+    scale = 1. / 255
+    input_t = torch.from_numpy(input_a * scale)
+    input_qt = QuantTensor(
+        input_t, scale=torch.tensor(scale), bit_width=torch.tensor(8.0), signed=False)
+    FINNManager.export(fc, export_path=finn_onnx, input_t=input_qt)
     model = ModelWrapper(finn_onnx)
     model = model.transform(GiveUniqueNodeNames())
     model = model.transform(DoubleToSingleFloat())
     model = model.transform(InferShapes())
     model = model.transform(FoldConstants())
     model = model.transform(RemoveStaticGraphInputs())
-    # load a random test vector
-    input_tensor = np.random.uniform(MIN_INP_VAL, MAX_INP_VAL, size=FC_INPUT_SIZE).astype(np.float32)
     # run using FINN-based execution
-    input_dict = {"0": input_tensor}
+    input_dict = {"0": input_a}
     output_dict = oxe.execute_onnx(model, input_dict)
     produced = output_dict[list(output_dict.keys())[0]]
-    # run using PyTorch/Brevitas
-    input_tensor = torch.from_numpy(input_tensor).float()
     # do forward pass in PyTorch/Brevitas
-    expected = fc.forward(input_tensor).detach().numpy()
+    expected = fc.forward(input_t).detach().numpy()
     assert np.isclose(produced, expected, atol=ATOL).all()
 
 
@@ -104,21 +107,23 @@ def test_brevitas_cnv_onnx_export_and_exec(wbits, abits, pretrained):
     finn_onnx = nname + ".onnx"
     cnv, _ = model_with_cfg(nname.lower(), pretrained=pretrained)
     cnv.eval()
-    FINNManager.export(cnv, CNV_INPUT_SIZE, finn_onnx)
+    # load a random int test vector
+    input_a = np.random.randint(MIN_INP_VAL, MAX_INP_VAL, size=CNV_INPUT_SIZE).astype(np.float32)
+    scale = 1. / 255
+    input_t = torch.from_numpy(input_a * scale)
+    input_qt = QuantTensor(
+        input_t, scale=torch.tensor(scale), bit_width=torch.tensor(8.0), signed=False)
+    FINNManager.export(cnv, export_path=finn_onnx, input_t=input_qt)
     model = ModelWrapper(finn_onnx)
     model = model.transform(GiveUniqueNodeNames())
     model = model.transform(DoubleToSingleFloat())
     model = model.transform(InferShapes())
     model = model.transform(FoldConstants())
     model = model.transform(RemoveStaticGraphInputs())
-    # load a random test vector
-    input_tensor = np.random.uniform(MIN_INP_VAL, MAX_INP_VAL, size=CNV_INPUT_SIZE).astype(np.float32)
     # run using FINN-based execution
-    input_dict = {"0": input_tensor}
+    input_dict = {"0": input_a}
     output_dict = oxe.execute_onnx(model, input_dict)
     produced = output_dict[list(output_dict.keys())[0]]
-    # run using PyTorch/Brevitas
-    input_tensor = torch.from_numpy(input_tensor).float()
     # do forward pass in PyTorch/Brevitas
-    expected = cnv.forward(input_tensor).detach().numpy()
+    expected = cnv(input_t).detach().numpy()
     assert np.isclose(produced, expected, atol=ATOL).all()
