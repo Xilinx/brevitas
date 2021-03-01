@@ -91,9 +91,9 @@ class ONNXBaseManager(BaseManager, ABC):
                     input_t = torch.empty(input_shape, dtype=torch.float)
                 # do a forward pass with the dummy input to e.g. store input/output shapes
                 cls._cache_inp_out(module, input_t)
-                # override any given input_t to make sure it's a standard PyTorch tensor
-                input_t = torch.empty(input_t.shape, dtype=torch.float)
-                # enable export mode, this triggers collecting export values into handlers
+                # Dequantize QuantTensor, if any
+                if isinstance(input_t, QuantTensor):
+                    input_t = input_t.value                # enable export mode, this triggers collecting export values into handlers
                 module.apply(lambda m: cls.set_export_mode(m, enabled=True))
                 # temporarily disable input caching to avoid collectives empty debug values
                 module.apply(lambda m: _override_inp_caching_mode(m, enabled=False))

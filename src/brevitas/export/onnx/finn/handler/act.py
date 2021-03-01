@@ -6,20 +6,16 @@ from torch import Tensor
 from brevitas.nn import QuantReLU, QuantHardTanh, QuantIdentity
 from .base import FINNQuantInputHandler, FINNQuantIOHandler
 from ..function.act import QuantReLUPlaceholderFunction, QuantHardTanhPlaceholderFunction
-
+from ..utils import finn_datatype
 
 class FINNQuantReLUHandler(FINNQuantInputHandler):
     handled_layer = QuantReLU
 
     @staticmethod
-    def quant_type(
-            module: QuantReLU,
-            supported_int_bit_width_range: Tuple[int,...] = (2, 33)):
-        bit_width = int(module.quant_act_bit_width().item())
-        if bit_width in range(*supported_int_bit_width_range):
-            return f"UINT{bit_width}"
-        else:
-            raise RuntimeError(f"Unsupported input bit width {bit_width} for export")
+    def quant_type(module: QuantReLU):
+        bit_width = module.quant_act_bit_width()
+        signed = module.is_quant_act_signed
+        return finn_datatype(bit_width, signed)
 
     @staticmethod
     def thresholds(module: QuantReLU, extend_tensor_to_channels=True):
@@ -61,19 +57,8 @@ class FINNQuantHardTanhHandler(FINNQuantInputHandler):
     handled_layer = QuantHardTanh
 
     @staticmethod
-    def quant_type(
-            module: QuantHardTanh,
-            supported_int_bit_width_range: Tuple[int,...] = (2, 33)):
-        bit_width = int(module.quant_act_bit_width().item())
-        if bit_width == 1:
-            return "BIPOLAR"
-        elif bit_width in range(*supported_int_bit_width_range):
-            # note: even though this particular config is intx (signed)
-            # quantization, we set the export mode for MultiThreshold as
-            # UINTX, since the signed bias is added as a separate node
-            return f"UINT{bit_width}"
-        else:
-            raise RuntimeError(f"Unsupported input bit width {bit_width} for export")
+    def quant_type(module: QuantHardTanh):
+        return finn_datatype(module.quant_act_bit_width(), module.is_quant_act_signed)
 
     @staticmethod
     def quant_act_bias(module: QuantHardTanh):

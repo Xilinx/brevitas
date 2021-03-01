@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from brevitas.nn.mixin.base import QuantLayerMixin
     from brevitas.nn.mixin.act import QuantOutputMixin
 from brevitas.export.onnx.handler import ONNXBaseHandler
+from ..utils import finn_datatype
 
 
 class FINNQuantInputHandler(ONNXBaseHandler, ABC):
@@ -46,20 +47,11 @@ class FINNQuantInputHandler(ONNXBaseHandler, ABC):
         return None
 
     @staticmethod
-    def quant_input_type(
-            module: QuantLayerMixin,
-            supported_int_bit_width_range: Tuple[int, ...] = (2, 33)):
+    def quant_input_type(module: QuantLayerMixin):
         input_bit_width_tensor = FINNQuantInputHandler.quant_input_bit_width_tensor(module)
         input_signed = FINNQuantInputHandler.quant_input_signed(module)
         if input_bit_width_tensor is not None and input_signed is not None:
-            # bit width is a scalar int
-            bit_width = int(input_bit_width_tensor.item())
-            if bit_width == 1 and input_signed:
-                return "BIPOLAR"
-            if bit_width in range(*supported_int_bit_width_range):
-                return f"INT{bit_width}" if input_signed else f"UINT{bit_width}"
-            else:
-                raise RuntimeError(f"Unsupported input bit width {bit_width} for export")
+            return finn_datatype(input_bit_width_tensor, input_signed)
         else:
             return None
 
