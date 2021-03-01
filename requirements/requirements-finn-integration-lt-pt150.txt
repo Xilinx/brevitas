@@ -1,0 +1,7 @@
+torch<1.5.0
+bitstring
+finn-base
+toposort
+onnx==1.5.0; python_version < '3.8' or sys_platform == 'linux'
+onnx==1.7.0; python_version >= '3.8' and sys_platform != 'linux'
+onnxruntime==1.4.0
