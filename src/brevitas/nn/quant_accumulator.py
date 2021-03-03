@@ -38,7 +38,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from typing import Callable, Union, Type, Optional
+from typing import Optional, Union, Type, Optional
 
 from torch.nn import Module
 
@@ -46,14 +46,14 @@ from brevitas.inject import BaseInjector as Injector
 from brevitas.proxy.runtime_quant import AccQuantProxyProtocol
 from brevitas.quant_tensor import QuantTensor
 from .mixin.base import QuantLayerMixin
-from .mixin.acc import QuantTruncMixin, QuantClampMixin
+from .mixin.acc import QuantTruncMixin, QuantClampMixin, AccQuantType
 
 
 class TruncQuantAccumulator(QuantTruncMixin, QuantLayerMixin, Module):
 
     def __init__(
             self,
-            trunc_quant: Optional[Union[AccQuantProxyProtocol, Type[Injector]]] = None,
+            trunc_quant: Optional[AccQuantType] = None,
             return_quant_tensor: bool = True,
             **kwargs):
         QuantLayerMixin.__init__(self, return_quant_tensor)
@@ -80,7 +80,7 @@ class ClampQuantAccumulator(QuantClampMixin, QuantLayerMixin, Module):
 
     def __init__(
             self,
-            clamp_quant: Optional[Union[AccQuantProxyProtocol, Type[Injector]]] = None,
+            clamp_quant: Optional[AccQuantType] = None,
             return_quant_tensor: bool = True,
             **kwargs):
         QuantLayerMixin.__init__(self, return_quant_tensor)

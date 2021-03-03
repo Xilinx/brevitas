@@ -39,15 +39,13 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from typing import Type, Union
+from typing import Optional
 
 import brevitas.config as config
-from brevitas.inject import BaseInjector as Injector
-from brevitas.proxy.parameter_quant import WeightQuantProxyProtocol, BiasQuantProxyProtocol
-from brevitas.proxy.runtime_quant import ActQuantProxyProtocol
 from brevitas.inject.defaults import Int8WeightPerTensorFloat
 from .quant_scale_bias import QuantScaleBias
 from .utils import mul_add_from_bn
+from .quant_layer import WeightQuantType, BiasQuantType, ActQuantType
 
 
 class BatchNorm2dToQuantScaleBias(QuantScaleBias):
@@ -56,10 +54,10 @@ class BatchNorm2dToQuantScaleBias(QuantScaleBias):
             self,
             num_features,
             eps: float = 1e-5,
-            weight_quant: Union[WeightQuantProxyProtocol, Type[Injector]] = Int8WeightPerTensorFloat,
-            bias_quant: Union[BiasQuantProxyProtocol, Type[Injector]] = None,
-            input_quant: Union[ActQuantProxyProtocol, Type[Injector]] = None,
-            output_quant: Union[ActQuantProxyProtocol, Type[Injector]] = None,
+            weight_quant: Optional[WeightQuantType] = Int8WeightPerTensorFloat,
+            bias_quant: Optional[BiasQuantType] = None,
+            input_quant: Optional[ActQuantType] = None,
+            output_quant: Optional[ActQuantType] = None,
             return_quant_tensor: bool = False,
             **kwargs):
         super(BatchNorm2dToQuantScaleBias, self).__init__(

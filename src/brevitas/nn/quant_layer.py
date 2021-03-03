@@ -45,10 +45,7 @@ import torch
 from torch import Tensor
 from torch.nn import Module, Parameter
 
-from brevitas.inject import BaseInjector as Injector
 from brevitas.quant_tensor import QuantTensor
-from brevitas.proxy.parameter_quant import WeightQuantProxyProtocol, BiasQuantProxyProtocol
-from brevitas.proxy.runtime_quant import ActQuantProxyProtocol
 from .mixin.base import _CachedIO
 from .mixin import *
 
@@ -67,8 +64,8 @@ class QuantNonLinearActLayer(
             self,
             act_impl: Optional[Type[Module]],
             passthrough_act: bool,
-            input_quant: Union[ActQuantProxyProtocol, Type[Injector]],
-            act_quant: Union[ActQuantProxyProtocol, Type[Injector]],
+            input_quant: Optional[ActQuantType],
+            act_quant: Optional[ActQuantType],
             return_quant_tensor: bool,
             **kwargs):
         Module.__init__(self)
@@ -283,10 +280,10 @@ class QuantWeightBiasInputOutputLayer(
             self,
             weight: Parameter,
             bias: Parameter,
-            weight_quant: Union[WeightQuantProxyProtocol, Type[Injector]],
-            bias_quant: Union[BiasQuantProxyProtocol, Type[Injector]],
-            input_quant: Union[ActQuantProxyProtocol, Type[Injector]],
-            output_quant: Union[ActQuantProxyProtocol, Type[Injector]],
+            weight_quant: Optional[WeightQuantType],
+            bias_quant: Optional[BiasQuantType],
+            input_quant: Optional[ActQuantType],
+            output_quant: Optional[ActQuantType],
             return_quant_tensor: bool,
             **kwargs):
         QuantInputOutputLayer.__init__(

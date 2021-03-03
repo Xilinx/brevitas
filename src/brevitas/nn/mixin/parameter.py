@@ -45,7 +45,7 @@ from inspect import isclass
 
 import torch
 
-from brevitas.inject import BaseInjector as Injector
+from brevitas.inject import ExtendedInjector, Injector
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector, BiasQuantProxyFromInjector
 from brevitas.proxy.parameter_quant import WeightQuantProxyProtocol, BiasQuantProxyProtocol
 from brevitas.proxy.parameter_quant import ParameterQuantProxyFromInjector
@@ -54,13 +54,18 @@ from brevitas.proxy.parameter_quant import ParameterQuantProxyProtocol
 from .utils import filter_kwargs
 
 
+ParameterQuantType = Union[ParameterQuantProxyProtocol, Type[Injector], Type[ExtendedInjector]]
+WeightQuantType = Union[WeightQuantProxyProtocol, Type[Injector], Type[ExtendedInjector]]
+BiasQuantType = Union[BiasQuantProxyProtocol, Type[Injector], Type[ExtendedInjector]]
+
+
 class QuantParameterMixin(object):
     __metaclass__ = ABCMeta
 
     def __init__(
             self,
             parameter: torch.nn.Parameter,
-            parameter_quant: Optional[Union[ParameterQuantProxyProtocol, Type[Injector]]],
+            parameter_quant: Optional[ParameterQuantType],
             proxy_from_injector_impl: Optional[Type[ParameterQuantProxyFromInjector]],
             prefix: str,
             **kwargs):
@@ -72,10 +77,10 @@ class QuantParameterMixin(object):
         proxy_name = prefix + 'quant'
         if parameter_quant is None:
             assert proxy_from_injector_impl is not None
-            parameter_quant_injector = Injector.let(tensor_quant=None)
+            parameter_quant_injector = ExtendedInjector.let(tensor_quant=None)
             parameter_quant_injector = update_pqi(parameter_quant_injector)
             parameter_quant = proxy_from_injector_impl(parameter_quant_injector)
-        elif isclass(parameter_quant) and issubclass(parameter_quant, Injector):
+        elif isclass(parameter_quant) and issubclass(parameter_quant, (Injector, ExtendedInjector)):
             assert proxy_from_injector_impl is not None
             parameter_quant_injector = parameter_quant
             parameter_quant_injector = update_pqi(parameter_quant_injector)
@@ -92,7 +97,7 @@ class QuantWeightMixin(QuantParameterMixin):
     def __init__(
             self,
             weight: torch.nn.Parameter,
-            weight_quant: Optional[Union[WeightQuantProxyProtocol, Type[Injector]]],
+            weight_quant: Optional[WeightQuantType],
             **kwargs):
         QuantParameterMixin.__init__(
             self,
@@ -144,7 +149,7 @@ class QuantBiasMixin(QuantParameterMixin):
     def __init__(
             self,
             bias: torch.nn.Parameter,
-            bias_quant: Union[BiasQuantProxyProtocol, Type[Injector]],
+            bias_quant: Optional[BiasQuantType],
             cache_inference_bias: bool = False,
             **kwargs):
         QuantParameterMixin.__init__(

@@ -38,7 +38,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from typing import Callable, Union, Type, Tuple
+from typing import Optional, Union, Type, Tuple
 from operator import mul
 from functools import reduce
 
@@ -53,7 +53,7 @@ from brevitas.proxy.runtime_quant import AccQuantProxyProtocol
 from brevitas.quant_tensor import QuantTensor
 from brevitas.inject.defaults import TruncTo8bit
 from .mixin.base import QuantLayerMixin
-from .mixin.acc import QuantTruncMixin
+from .mixin.acc import QuantTruncMixin, AccQuantType
 
 
 class QuantAvgPool2d(QuantTruncMixin, QuantLayerMixin, AvgPool2d):
@@ -62,7 +62,7 @@ class QuantAvgPool2d(QuantTruncMixin, QuantLayerMixin, AvgPool2d):
             self,
             kernel_size: Union[int, Tuple[int, int]],
             stride: Union[int, Tuple[int, int]] = None,
-            trunc_quant: Union[AccQuantProxyProtocol, Type[Injector]] = TruncTo8bit,
+            trunc_quant: Optional[AccQuantType] = TruncTo8bit,
             return_quant_tensor: bool = True,
             **kwargs):
         AvgPool2d.__init__(
@@ -116,7 +116,7 @@ class QuantAdaptiveAvgPool2d(QuantTruncMixin, QuantLayerMixin, AdaptiveAvgPool2d
     def __init__(
             self,
             output_size: Union[int, Tuple[int, int]],
-            trunc_quant: Union[AccQuantProxyProtocol, Type[Injector]] = TruncTo8bit,
+            trunc_quant: Optional[AccQuantType] = TruncTo8bit,
             return_quant_tensor: bool = True,
             cache_kernel_size_stride: bool = True,
             **kwargs):

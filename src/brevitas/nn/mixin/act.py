@@ -43,10 +43,13 @@ from typing import Type, Union, Callable, Optional
 from inspect import isclass
 
 from torch.nn import Module
-from brevitas.inject import BaseInjector as Injector
+from brevitas.inject import ExtendedInjector, Injector
 from brevitas.nn.mixin.utils import filter_kwargs
 from brevitas.proxy.runtime_quant import IdentityQuantProxyFromInjector, ActQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import ActQuantProxyProtocol
+
+
+ActQuantType = Union[ActQuantProxyProtocol, Type[Injector], Type[ExtendedInjector]]
 
 
 class QuantActMixin(object):
@@ -56,7 +59,7 @@ class QuantActMixin(object):
             self,
             act_impl: Optional[Type[Module]],
             passthrough_act: bool,
-            act_quant: Union[ActQuantProxyProtocol, Type[Injector]],
+            act_quant: Optional[ActQuantType],
             proxy_from_injector_impl: Optional[Type[ActQuantProxyFromInjector]],
             proxy_prefix: str,
             kwargs_prefix: str,
@@ -91,7 +94,7 @@ class QuantInputMixin(QuantActMixin):
 
     def __init__(
             self,
-            act_quant: Union[ActQuantProxyProtocol, Type[Injector]],
+            act_quant: Optional[ActQuantType],
             **kwargs):
         QuantActMixin.__init__(
             self,
@@ -134,7 +137,7 @@ class QuantOutputMixin(QuantActMixin):
 
     def __init__(
             self,
-            act_quant: Union[ActQuantProxyProtocol, Type[Injector]],
+            act_quant: Optional[ActQuantType],
             **kwargs):
         QuantActMixin.__init__(
             self,
@@ -179,7 +182,7 @@ class QuantNonLinearActMixin(QuantActMixin):
             self,
             act_impl: Optional[Type[Module]],
             passthrough_act: bool,
-            act_quant: Union[ActQuantProxyProtocol, Type[Injector]],
+            act_quant: Optional[ActQuantType],
             **kwargs):
         QuantActMixin.__init__(
             self,

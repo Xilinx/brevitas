@@ -54,6 +54,8 @@ from brevitas.proxy.runtime_quant import ActQuantProxyProtocol
 from brevitas.quant_tensor import QuantTensor
 from brevitas.inject.defaults import Int8WeightPerTensorFloat
 from .quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
+from .quant_layer import WeightQuantType, BiasQuantType, ActQuantType
+
 
 __all__ = ['QuantConvTranspose1d', 'QuantConvTranspose2d']
 
@@ -71,10 +73,10 @@ class QuantConvTranspose1d(QuantWBIOL, ConvTranspose1d):
             dilation: int = 1,
             groups: int = 1,
             bias: bool = True,
-            weight_quant: Union[WeightQuantProxyProtocol, Type[Injector]] = Int8WeightPerTensorFloat,
-            bias_quant: Union[BiasQuantProxyProtocol, Type[Injector]] = None,
-            input_quant: Union[ActQuantProxyProtocol, Type[Injector]] = None,
-            output_quant: Union[ActQuantProxyProtocol, Type[Injector]] = None,
+            weight_quant: Optional[WeightQuantType] = Int8WeightPerTensorFloat,
+            bias_quant: Optional[BiasQuantType] = None,
+            input_quant: Optional[ActQuantType] = None,
+            output_quant: Optional[ActQuantType] = None,
             return_quant_tensor: bool = False,
             **kwargs) -> None:
         ConvTranspose1d.__init__(
@@ -158,10 +160,10 @@ class QuantConvTranspose2d(QuantWBIOL, ConvTranspose2d):
             dilation: Union[int, Tuple[int]] = 1,
             groups: int = 1,
             bias: bool = True,
-            weight_quant: Union[WeightQuantProxyProtocol, Type[Injector]] = Int8WeightPerTensorFloat,
-            bias_quant: Union[BiasQuantProxyProtocol, Type[Injector]] = None,
-            input_quant: Union[ActQuantProxyProtocol, Type[Injector]] = None,
-            output_quant: Union[ActQuantProxyProtocol, Type[Injector]] = None,
+            weight_quant: Optional[WeightQuantType] = Int8WeightPerTensorFloat,
+            bias_quant: Optional[BiasQuantType] = None,
+            input_quant: Optional[ActQuantType] = None,
+            output_quant: Optional[ActQuantType] = None,
             return_quant_tensor: bool = False,
             **kwargs) -> None:
         ConvTranspose2d.__init__(
