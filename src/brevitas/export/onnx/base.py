@@ -16,6 +16,7 @@ from torch.nn import Module
 
 from brevitas import torch_version
 from brevitas.quant_tensor import QuantTensor
+from brevitas.utils.jit_utils import onnx_export_patched
 from ..base import BaseManager, _set_export_mode
 from ..base import _override_inp_caching_mode, _restore_inp_caching_mode
 
@@ -79,7 +80,7 @@ class ONNXBaseManager(BaseManager, ABC):
             # temporarily disable input caching to avoid collectives empty debug values
             module.apply(lambda m: _override_inp_caching_mode(m, enabled=False))
             # perform export pass
-            torch.onnx.export(module, input_t, export_path, **kwargs)
+            onnx_export_patched(module, input_t, export_path, **kwargs)
             # restore the model to previous properties
             module.apply(lambda m: _restore_inp_caching_mode(m))
             module.apply(lambda m: _set_export_mode(m, enabled=False))
