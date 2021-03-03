@@ -71,8 +71,6 @@ class QuantLinear(Linear, QuantWBIOL):
         Linear.__init__(self, in_features, out_features, bias)
         QuantWBIOL.__init__(
             self,
-            weight=self.weight,
-            bias=self.bias,
             weight_quant=weight_quant,
             bias_quant=bias_quant,
             input_quant=input_quant,

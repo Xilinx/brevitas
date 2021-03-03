@@ -46,11 +46,8 @@ from torch import Tensor
 from torch.nn import ConvTranspose1d, ConvTranspose2d
 from torch.nn.functional import conv_transpose1d, conv_transpose2d
 
-from brevitas.inject import BaseInjector as Injector
 from brevitas.function.ops import max_int
 from brevitas.function.ops_ste import ceil_ste
-from brevitas.proxy.parameter_quant import WeightQuantProxyProtocol, BiasQuantProxyProtocol
-from brevitas.proxy.runtime_quant import ActQuantProxyProtocol
 from brevitas.quant_tensor import QuantTensor
 from brevitas.inject.defaults import Int8WeightPerTensorFloat
 from .quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
@@ -92,8 +89,6 @@ class QuantConvTranspose1d(QuantWBIOL, ConvTranspose1d):
             bias=bias)
         QuantWBIOL.__init__(
             self,
-            weight=self.weight,
-            bias=self.bias,
             weight_quant=weight_quant,
             bias_quant=bias_quant,
             input_quant=input_quant,
@@ -179,8 +174,6 @@ class QuantConvTranspose2d(QuantWBIOL, ConvTranspose2d):
             bias=bias)
         QuantWBIOL.__init__(
             self,
-            weight=self.weight,
-            bias=self.bias,
             weight_quant=weight_quant,
             bias_quant=bias_quant,
             input_quant=input_quant,

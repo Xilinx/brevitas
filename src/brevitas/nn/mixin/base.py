@@ -38,12 +38,17 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from abc import ABCMeta, abstractmethod
-from typing import Optional, Union
-
 from torch import Tensor
 
+from warnings import warn
+from abc import ABCMeta, abstractmethod
+from typing import Optional, Union
+from inspect import isclass
+
+from brevitas.inject import ExtendedInjector, Injector
 from brevitas.quant_tensor import QuantTensor
+
+from .utils import filter_kwargs
 
 
 class _CachedIO:
@@ -70,6 +75,37 @@ class _CachedIO:
     @property
     def signed(self):
         return self.quant_tensor.signed
+
+
+class QuantProxyMixin(object):
+    __metaclass__ = ABCMeta
+
+
+    def __init__(
+            self,
+            quant,
+            proxy_from_injector_impl,
+            proxy_protocol,
+            proxy_prefix: str,
+            kwargs_prefix: str,
+            **kwargs):
+        proxy_name = proxy_prefix + 'quant'
+        if quant is None:
+            quant_injector = ExtendedInjector.let(tensor_quant=None)
+            quant_injector = quant_injector.let(**filter_kwargs(kwargs_prefix, kwargs))
+            quant = proxy_from_injector_impl(self, quant_injector)
+        elif isclass(quant) and issubclass(quant, (Injector, ExtendedInjector)):
+            quant_injector = quant
+            quant_injector = quant_injector.let(**filter_kwargs(kwargs_prefix, kwargs))
+            quant = proxy_from_injector_impl(self, quant_injector)
+        else:
+            if not isinstance(quant, proxy_protocol):
+                raise RuntimeError(
+                    "The quantizer passed does not adhere to the quantization protocol.")
+            quant.add_tracked_module(self)
+            if kwargs:
+                warn('Keyword arguments are being passed but they not being used.')
+        setattr(self, proxy_name, quant)
 
 
 class QuantLayerMixin(object):

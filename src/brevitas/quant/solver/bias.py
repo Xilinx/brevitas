@@ -57,16 +57,16 @@ __all__ = [
 
 
 class SolveBiasScalingStatsInputConcatDimFromModule(ExtendedInjector):
-
-    @value
-    def scaling_stats_input_concat_dim(module):
-        return 0  # bias has only 1 dimension by definition
+    scaling_stats_input_concat_dim = 0  # bias has only 1 dimension by definition
 
 
 class SolveBiasScalingPerOutputChannelShapeFromModule(ExtendedInjector):
 
     @value
     def scaling_per_output_channel_shape(module):
+        if isinstance(module, list):
+            assert all(m.out_channels == module[0].out_channels for m in module)
+            module = module[0]
         return (module.out_channels,)
 
 

@@ -287,8 +287,6 @@ class QuantWeightBiasInputOutputLayer(
 
     def __init__(
             self,
-            weight: Parameter,
-            bias: Parameter,
             weight_quant: Optional[WeightQuantType],
             bias_quant: Optional[BiasQuantType],
             input_quant: Optional[ActQuantType],
@@ -299,10 +297,11 @@ class QuantWeightBiasInputOutputLayer(
             self,
             input_quant,
             output_quant,
-            return_quant_tensor,
+            tie_input_output_quant=False,
+            return_quant_tensor=return_quant_tensor,
             **kwargs)
-        QuantWeightMixin.__init__(self, weight, weight_quant, **kwargs)
-        QuantBiasMixin.__init__(self, bias, bias_quant, **kwargs)
+        QuantWeightMixin.__init__(self, weight_quant, **kwargs)
+        QuantBiasMixin.__init__(self, bias_quant, **kwargs)
 
     @abstractmethod
     def inner_forward_impl(self, x: Tensor, quant_weight: Tensor, quant_bias: Optional[Tensor]):

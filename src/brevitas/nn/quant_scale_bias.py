@@ -84,8 +84,6 @@ class QuantScaleBias(QuantWBIOL, ScaleBias):
         ScaleBias.__init__(self, num_features, bias)
         QuantWBIOL.__init__(
             self,
-            self.weight,
-            self.bias,
             weight_quant=weight_quant,
             bias_quant=bias_quant,
             input_quant=input_quant,

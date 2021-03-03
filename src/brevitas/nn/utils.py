@@ -42,6 +42,8 @@
 import torch
 from torch.nn import Parameter
 
+from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjector, WeightQuantProxyFromInjector
+
 
 def compute_channel_view_shape(tensor: torch.Tensor, channel_dim: int):
     broadcast_shape = [1] * len(tensor.size())
@@ -71,8 +73,12 @@ def merge_bn(layer, bn, output_channel_dim=0):
         layer.bias.data.add_(add_factor.view(out_ch_bias_shape))
     else:
         layer.bias = Parameter(add_factor)
-        if hasattr(layer, 'bias_quant') and layer.bias_quant is not None:
-            layer.bias_quant.add_tracked_parameter(layer.bias)
+    if (hasattr(layer, 'weight_quant')
+            and isinstance(layer.weight_quant, WeightQuantProxyFromInjector)):
+        layer.weight_quant.init_tensor_quant()
+    if (hasattr(layer, 'bias_quant')
+            and isinstance(layer.bias_quant, BiasQuantProxyFromInjector)):
+        layer.bias_quant.init_tensor_quant()
 
 
 def rename_state_dict_by_prefix(old_prefix, new_prefix, state_dict):

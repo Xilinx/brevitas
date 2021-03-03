@@ -38,72 +38,34 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+from warnings import warn
 from abc import ABCMeta, abstractmethod
-from typing import Type, Union, Callable, Optional
-from inspect import isclass
+from typing import Type, Union, Optional
 
 from torch.nn import Module
 from brevitas.inject import ExtendedInjector, Injector
-from brevitas.nn.mixin.utils import filter_kwargs
-from brevitas.proxy.runtime_quant import IdentityQuantProxyFromInjector, ActQuantProxyFromInjector
+from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import ActQuantProxyProtocol
+
+from .base import QuantProxyMixin
 
 
 ActQuantType = Union[ActQuantProxyProtocol, Type[Injector], Type[ExtendedInjector]]
 
 
-class QuantActMixin(object):
+class QuantInputMixin(QuantProxyMixin):
     __metaclass__ = ABCMeta
 
-    def __init__(
+    def __init__(self, act_quant: Optional[ActQuantType], **kwargs):
+        QuantProxyMixin.__init__(
             self,
-            act_impl: Optional[Type[Module]],
-            passthrough_act: bool,
-            act_quant: Optional[ActQuantType],
-            proxy_from_injector_impl: Optional[Type[ActQuantProxyFromInjector]],
-            proxy_prefix: str,
-            kwargs_prefix: str,
-            **kwargs):
-
-        def update_aqi(aqi):
-            aqi = aqi.let(module=self)
-            return aqi.let(**filter_kwargs(kwargs_prefix, kwargs))
-
-        proxy_name = proxy_prefix + 'quant'
-        if act_quant is None:
-            act_quant_injector = Injector.let(tensor_quant=None)
-            act_quant_injector = act_quant_injector.let(passthrough_act=passthrough_act)
-            act_quant_injector = act_quant_injector.let(act_impl=act_impl)
-            act_quant_injector = update_aqi(act_quant_injector)
-            act_quant = proxy_from_injector_impl(act_quant_injector)
-        elif isclass(act_quant) and issubclass(act_quant, Injector):
-            assert proxy_from_injector_impl is not None
-            act_quant_injector = act_quant
-            act_quant_injector = act_quant_injector.let(passthrough_act=passthrough_act)
-            if 'act_impl' not in act_quant_injector or act_quant_injector.act_impl is None:
-                act_quant_injector = act_quant_injector.let(act_impl=act_impl)
-            act_quant_injector = update_aqi(act_quant_injector)
-            act_quant = proxy_from_injector_impl(act_quant_injector)
-        else:
-            assert isinstance(act_quant, ActQuantProxyProtocol)
-        setattr(self, proxy_name, act_quant)
-
-
-class QuantInputMixin(QuantActMixin):
-    __metaclass__ = ABCMeta
-
-    def __init__(
-            self,
-            act_quant: Optional[ActQuantType],
-            **kwargs):
-        QuantActMixin.__init__(
-            self,
-            act_impl=None,
-            passthrough_act=True,
-            act_quant=act_quant,
-            proxy_from_injector_impl=IdentityQuantProxyFromInjector,
+            quant=act_quant,
+            proxy_from_injector_impl=ActQuantProxyFromInjector,
+            proxy_protocol=ActQuantProxyProtocol,
             proxy_prefix='input_',
             kwargs_prefix='input_',
+            input_act_impl=None,
+            input_passthrough_act=True,
             **kwargs)
 
     @property
@@ -132,21 +94,19 @@ class QuantInputMixin(QuantActMixin):
         pass
 
 
-class QuantOutputMixin(QuantActMixin):
+class QuantOutputMixin(QuantProxyMixin):
     __metaclass__ = ABCMeta
 
-    def __init__(
+    def __init__(self, act_quant: Optional[ActQuantType], **kwargs):
+        QuantProxyMixin.__init__(
             self,
-            act_quant: Optional[ActQuantType],
-            **kwargs):
-        QuantActMixin.__init__(
-            self,
-            act_impl=None,
-            passthrough_act=True,
-            act_quant=act_quant,
-            proxy_from_injector_impl=IdentityQuantProxyFromInjector,
+            quant=act_quant,
+            proxy_from_injector_impl=ActQuantProxyFromInjector,
+            proxy_protocol=ActQuantProxyProtocol,
             proxy_prefix='output_',
             kwargs_prefix='output_',
+            output_act_impl=None,
+            output_passthrough_act=True,
             **kwargs)
 
     @property
@@ -175,7 +135,7 @@ class QuantOutputMixin(QuantActMixin):
         pass
 
 
-class QuantNonLinearActMixin(QuantActMixin):
+class QuantNonLinearActMixin(QuantProxyMixin):
     __metaclass__ = ABCMeta
 
     def __init__(
@@ -184,12 +144,13 @@ class QuantNonLinearActMixin(QuantActMixin):
             passthrough_act: bool,
             act_quant: Optional[ActQuantType],
             **kwargs):
-        QuantActMixin.__init__(
+        QuantProxyMixin.__init__(
             self,
             act_impl=act_impl,
             passthrough_act=passthrough_act,
-            act_quant=act_quant,
+            quant=act_quant,
             proxy_from_injector_impl=ActQuantProxyFromInjector,
+            proxy_protocol=ActQuantProxyProtocol,
             proxy_prefix='act_',
             kwargs_prefix='',
             **kwargs)

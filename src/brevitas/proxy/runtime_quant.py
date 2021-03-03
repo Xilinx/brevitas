@@ -82,19 +82,19 @@ class FusedActivationQuantProxy(brevitas.jit.ScriptModule):
 
 class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
 
-    def __init__(self, act_quant_injector: Injector):
-        super(ActQuantProxyFromInjector, self).__init__(act_quant_injector)
-        tensor_quant = act_quant_injector.tensor_quant
-        act_impl = act_quant_injector.act_impl
+    def init_tensor_quant(self):
+        tensor_quant = self.quant_injector.tensor_quant
+        act_impl = self.quant_injector.act_impl
+        self.passthrough_act = self.quant_injector.passthrough_act
         self.is_quant_enabled = tensor_quant is not None
-        self.passthrough_act = act_quant_injector.passthrough_act
-        if 'is_act_enabled' in act_quant_injector:
-            self.is_act_enabled = act_quant_injector.is_act_enabled
+
+        if 'is_act_enabled' in self.quant_injector:
+            self.is_act_enabled = self.quant_injector.is_act_enabled
         else:
             self.is_act_enabled = act_impl is not None
 
-        if 'update_state_dict_impl' in act_quant_injector:
-            self.update_state_dict_impl = act_quant_injector.update_state_dict_impl
+        if 'update_state_dict_impl' in self.quant_injector:
+            self.update_state_dict_impl = self.quant_injector.update_state_dict_impl
         else:
             self.update_state_dict_impl = None
 
@@ -108,7 +108,6 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
                 Identity(), tensor_quant)
         else:
             self.fused_activation_quant_proxy = None
-
 
     def scale(self, force_eval=True):
         current_status = self.training
@@ -149,9 +148,6 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
             else:
                 return QuantTensor(x, training=self.training)
 
-    def identity_quant(self):
-        return IdentityQuantProxyFromInjector(self.quant_injector.let(act_impl=None))
-
     def _load_from_state_dict(
             self, state_dict, prefix, metadata, strict, missing_keys, unexpected_keys, error_msgs):
         if self.update_state_dict_impl is not None:
@@ -160,25 +156,7 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
             state_dict, prefix, metadata, strict, missing_keys, unexpected_keys, error_msgs)
 
 
-class IdentityQuantProxyFromInjector(ActQuantProxyFromInjector, ActQuantProxyProtocol):
-
-    def __init__(
-            self,
-            act_quant_injector: Injector):
-        assert act_quant_injector.act_impl is None
-        super(IdentityQuantProxyFromInjector, self).__init__(act_quant_injector)
-
-    def identity_quant_proxy(self):
-        return self
-
-
 class ClampQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol):
-
-    def __init__(self, clamp_quant_injector: Injector):
-        super(ClampQuantProxyFromInjector, self).__init__(clamp_quant_injector)
-        tensor_quant = clamp_quant_injector.tensor_quant
-        self.is_quant_enabled = tensor_quant is not None
-        self.tensor_quant = tensor_quant
 
     def forward(self, x: QuantTensor):
         if self.is_quant_enabled:
@@ -190,12 +168,6 @@ class ClampQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
 
 
 class TruncQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol):
-
-    def __init__(self, trunc_quant_injector: Injector):
-        super(TruncQuantProxyFromInjector, self).__init__(trunc_quant_injector)
-        tensor_quant = trunc_quant_injector.tensor_quant
-        self.is_quant_enabled = tensor_quant is not None
-        self.tensor_quant = tensor_quant
 
     def forward(self, x: QuantTensor):
         if self.is_quant_enabled:

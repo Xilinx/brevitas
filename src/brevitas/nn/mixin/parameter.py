@@ -40,71 +40,34 @@
 
 from warnings import warn
 from abc import ABCMeta, abstractmethod
-from typing import Optional, Type, Union, Callable
-from inspect import isclass
+from typing import Optional, Type, Union
 
-import torch
 
 from brevitas.inject import ExtendedInjector, Injector
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector, BiasQuantProxyFromInjector
 from brevitas.proxy.parameter_quant import WeightQuantProxyProtocol, BiasQuantProxyProtocol
-from brevitas.proxy.parameter_quant import ParameterQuantProxyFromInjector
-from brevitas.proxy.parameter_quant import ParameterQuantProxyProtocol
 
-from .utils import filter_kwargs
+from .base import QuantProxyMixin
 
 
-ParameterQuantType = Union[ParameterQuantProxyProtocol, Type[Injector], Type[ExtendedInjector]]
 WeightQuantType = Union[WeightQuantProxyProtocol, Type[Injector], Type[ExtendedInjector]]
 BiasQuantType = Union[BiasQuantProxyProtocol, Type[Injector], Type[ExtendedInjector]]
 
 
-class QuantParameterMixin(object):
+class QuantWeightMixin(QuantProxyMixin):
     __metaclass__ = ABCMeta
 
     def __init__(
             self,
-            parameter: torch.nn.Parameter,
-            parameter_quant: Optional[ParameterQuantType],
-            proxy_from_injector_impl: Optional[Type[ParameterQuantProxyFromInjector]],
-            prefix: str,
-            **kwargs):
-
-        def update_pqi(pqi):
-            pqi = pqi.let(module=self)
-            return pqi.let(**filter_kwargs(prefix, kwargs))
-
-        proxy_name = prefix + 'quant'
-        if parameter_quant is None:
-            assert proxy_from_injector_impl is not None
-            parameter_quant_injector = ExtendedInjector.let(tensor_quant=None)
-            parameter_quant_injector = update_pqi(parameter_quant_injector)
-            parameter_quant = proxy_from_injector_impl(parameter_quant_injector)
-        elif isclass(parameter_quant) and issubclass(parameter_quant, (Injector, ExtendedInjector)):
-            assert proxy_from_injector_impl is not None
-            parameter_quant_injector = parameter_quant
-            parameter_quant_injector = update_pqi(parameter_quant_injector)
-            parameter_quant = proxy_from_injector_impl(parameter_quant_injector)
-        else:
-            assert isinstance(parameter_quant, ParameterQuantProxyProtocol)
-        setattr(self, proxy_name, parameter_quant)
-        getattr(self, proxy_name).add_tracked_parameter(parameter)
-
-
-class QuantWeightMixin(QuantParameterMixin):
-    __metaclass__ = ABCMeta
-
-    def __init__(
-            self,
-            weight: torch.nn.Parameter,
             weight_quant: Optional[WeightQuantType],
             **kwargs):
-        QuantParameterMixin.__init__(
+        QuantProxyMixin.__init__(
             self,
-            parameter=weight,
-            parameter_quant=weight_quant,
+            quant=weight_quant,
             proxy_from_injector_impl=WeightQuantProxyFromInjector,
-            prefix='weight_',
+            proxy_protocol=WeightQuantProxyProtocol,
+            kwargs_prefix='weight_',
+            proxy_prefix='weight_',
             **kwargs)
 
     @property
@@ -143,21 +106,21 @@ class QuantWeightMixin(QuantParameterMixin):
         return bit_width
 
 
-class QuantBiasMixin(QuantParameterMixin):
+class QuantBiasMixin(QuantProxyMixin):
     __metaclass__ = ABCMeta
 
     def __init__(
             self,
-            bias: torch.nn.Parameter,
             bias_quant: Optional[BiasQuantType],
             cache_inference_bias: bool = False,
             **kwargs):
-        QuantParameterMixin.__init__(
+        QuantProxyMixin.__init__(
             self,
-            parameter=bias,
-            parameter_quant=bias_quant,
+            quant=bias_quant,
             proxy_from_injector_impl=BiasQuantProxyFromInjector,
-            prefix='bias_',
+            proxy_protocol=BiasQuantProxyProtocol,
+            kwargs_prefix='bias_',
+            proxy_prefix='bias_',
             **kwargs)
         self.cache_inference_quant_bias = cache_inference_bias
         self._cached_bias = None

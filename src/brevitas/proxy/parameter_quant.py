@@ -59,21 +59,14 @@ __all__ = ['WeightQuantProxyFromInjector',
 
 
 @runtime_checkable
-class ParameterQuantProxyProtocol(QuantProxyProtocol, Protocol):
-
-    def add_tracked_parameter(self, parameter: torch.nn.Parameter) -> None:
-        ...
-
-
-@runtime_checkable
-class WeightQuantProxyProtocol(ParameterQuantProxyProtocol, Protocol):
+class WeightQuantProxyProtocol(QuantProxyProtocol, Protocol):
 
     def forward(self, x: torch.Tensor) -> QuantTensor:
         ...
 
 
 @runtime_checkable
-class BiasQuantProxyProtocol(ParameterQuantProxyProtocol, Protocol):
+class BiasQuantProxyProtocol(QuantProxyProtocol, Protocol):
     requires_input_bit_width: bool
     requires_input_scale: bool
 
@@ -85,48 +78,34 @@ class BiasQuantProxyProtocol(ParameterQuantProxyProtocol, Protocol):
         ...
 
 
-class ParameterQuantProxyFromInjector(QuantProxyFromInjector, ParameterQuantProxyProtocol):
+class ParameterQuantProxyFromInjector(QuantProxyFromInjector):
     __metaclass__ = ABCMeta
 
-    def __init__(self, quant_injector: Injector) -> None:
-        super(ParameterQuantProxyFromInjector, self).__init__(quant_injector)
-        self.tensor_quant = None
-        if 'tracked_parameter_list' in quant_injector:
-            self.tracked_parameter_list = quant_injector.tracked_parameter_list
-        else:
-            self.tracked_parameter_list = None
-        self.init_tensor_quant()
-
     @property
-    def is_quant_enabled(self):
-        return self.tensor_quant is not None
+    @abstractmethod
+    def tracked_parameter_list(self):
+        pass
 
     def init_tensor_quant(self):
-        if self.tracked_parameter_list is not None and self.tracked_parameter_list:
-            self.quant_injector = self.quant_injector.let(
-                tracked_parameter_list=self.tracked_parameter_list)
-            self.tensor_quant = self.quant_injector.tensor_quant
+        # Need to declare them in case super is not called
+        self.tensor_quant = None
+        self.is_quant_enabled = False
+        param_list = self.tracked_parameter_list
+        if param_list:
+            # In the scenario where bias is created after a bn merge, we have at the first
+            # param_list is empty, but after the merge it's populated
+            self.quant_injector = self.quant_injector.let(tracked_parameter_list=param_list)
+            super(ParameterQuantProxyFromInjector, self).init_tensor_quant()
 
     def max_uint_value(self, bit_width):
         return max_int(False, self.is_narrow_range, bit_width)
 
-    def add_tracked_parameter(self, parameter: torch.nn.Parameter) -> None:
-        if self.tracked_parameter_list is None:
-            self.tracked_parameter_list = []
-        if parameter is not None:
-            self.tracked_parameter_list.append(parameter)
-        if self.tensor_quant is not None:
-            del self.tensor_quant
-        self.init_tensor_quant()
-
-    def _load_from_state_dict(
-            self, state_dict, prefix, metadata, strict, missing_keys, unexpected_keys, error_msgs):
-        super(ParameterQuantProxyFromInjector, self)._load_from_state_dict(
-            state_dict, prefix, metadata, strict, missing_keys, unexpected_keys, error_msgs)
-        self.init_tensor_quant()
-
 
 class WeightQuantProxyFromInjector(ParameterQuantProxyFromInjector, WeightQuantProxyProtocol):
+
+    @property
+    def tracked_parameter_list(self):
+        return [m.weight for m in self.tracked_module_list if m.weight is not None]
 
     def forward(self, x: torch.Tensor) -> QuantTensor:
         if self.is_quant_enabled:
@@ -137,6 +116,10 @@ class WeightQuantProxyFromInjector(ParameterQuantProxyFromInjector, WeightQuantP
 
 
 class BiasQuantProxyFromInjector(ParameterQuantProxyFromInjector, BiasQuantProxyProtocol):
+
+    @property
+    def tracked_parameter_list(self):
+        return [m.bias for m in self.tracked_module_list if m.bias is not None]
 
     @property
     def requires_input_bit_width(self) -> bool:
@@ -164,7 +147,8 @@ class BiasQuantProxyFromInjector(ParameterQuantProxyFromInjector, BiasQuantProxy
                 raise RuntimeError("Input bit-width required")
             if self.requires_input_scale and self.requires_input_bit_width:
                 input_scale = input_scale.view(-1)
-                out, out_scale, out_bit_width, out_zp = self.tensor_quant(x, input_scale, input_bit_width)
+                out, out_scale, out_bit_width, out_zp = self.tensor_quant(
+                    x, input_scale, input_bit_width)
             elif self.requires_input_scale and not self.requires_input_bit_width:
                 input_scale = input_scale.view(-1)
                 out, out_scale, out_bit_width, out_zp = self.tensor_quant(x, input_scale)

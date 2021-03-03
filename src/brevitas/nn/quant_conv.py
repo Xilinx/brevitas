@@ -89,8 +89,6 @@ class QuantConv1d(QuantWBIOL, Conv1d):
             bias=bias)
         QuantWBIOL.__init__(
             self,
-            weight=self.weight,
-            bias=self.bias,
             weight_quant=weight_quant,
             bias_quant=bias_quant,
             input_quant=input_quant,
@@ -181,8 +179,6 @@ class QuantConv2d(QuantWBIOL, Conv2d):
             bias=bias)
         QuantWBIOL.__init__(
             self,
-            weight=self.weight,
-            bias=self.bias,
             weight_quant=weight_quant,
             bias_quant=bias_quant,
             input_quant=input_quant,

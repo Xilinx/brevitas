@@ -39,60 +39,25 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 from abc import ABCMeta
-from typing import Type, Union, Callable, Optional
-from inspect import isclass
+from typing import Type, Union, Optional
 
 from brevitas.inject import Injector, ExtendedInjector
-from brevitas.nn.mixin.utils import filter_kwargs
 from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector, ClampQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import AccQuantProxyProtocol
+from .base import QuantProxyMixin
 
 
 AccQuantType = Union[AccQuantProxyProtocol, Type[Injector], Type[ExtendedInjector]]
-ProxyFromInjectorType = Union[Type[ClampQuantProxyFromInjector], Type[TruncQuantProxyFromInjector]]
 
 
-class QuantAccMixin(object):
+class QuantTruncMixin(QuantProxyMixin):
     __metaclass__ = ABCMeta
 
-    def __init__(
-            self,
-            acc_quant: Optional[AccQuantType],
-            proxy_from_injector_impl: Optional[ProxyFromInjectorType],
-            proxy_prefix: str,
-            kwargs_prefix: str,
-            **kwargs):
-
-        def update_aqi(aqi):
-            aqi = aqi.let(module=self)
-            return aqi.let(**filter_kwargs(kwargs_prefix, kwargs))
-
-        proxy_name = proxy_prefix + 'quant'
-        if acc_quant is None:
-            assert proxy_from_injector_impl is not None
-            acc_quant_injector = ExtendedInjector.let(tensor_quant=None)
-            acc_quant_injector = update_aqi(acc_quant_injector)
-            acc_quant = proxy_from_injector_impl(acc_quant_injector)
-        elif isclass(acc_quant) and issubclass(acc_quant, (Injector, ExtendedInjector)):
-            assert proxy_from_injector_impl is not None
-            acc_quant_injector = acc_quant
-            acc_quant_injector = update_aqi(acc_quant_injector)
-            acc_quant = proxy_from_injector_impl(acc_quant_injector)
-        else:
-            assert isinstance(acc_quant, AccQuantProxyProtocol)
-        setattr(self, proxy_name, acc_quant)
-
-
-class QuantTruncMixin(QuantAccMixin):
-    __metaclass__ = ABCMeta
-
-    def __init__(
-            self,
-            trunc_quant: Optional[AccQuantType],
-            **kwargs):
+    def __init__(self, acc_quant: Optional[AccQuantType], **kwargs):
         super().__init__(
-            acc_quant=trunc_quant,
+            quant=acc_quant,
             proxy_from_injector_impl=TruncQuantProxyFromInjector,
+            proxy_protocol=AccQuantProxyProtocol,
             kwargs_prefix='',
             proxy_prefix='trunc_',
             **kwargs)
@@ -102,16 +67,14 @@ class QuantTruncMixin(QuantAccMixin):
         return self.trunc_quant.is_quant_enabled
 
 
-class QuantClampMixin(QuantAccMixin):
+class QuantClampMixin(QuantProxyMixin):
     __metaclass__ = ABCMeta
 
-    def __init__(
-            self,
-            clamp_quant: Optional[AccQuantType],
-            **kwargs):
+    def __init__(self, acc_quant: Optional[AccQuantType], **kwargs):
         super().__init__(
-            acc_quant=clamp_quant,
+            quant=acc_quant,
             proxy_from_injector_impl=ClampQuantProxyFromInjector,
+            proxy_protocol=AccQuantProxyProtocol,
             kwargs_prefix='',
             proxy_prefix='clamp_',
             **kwargs)
