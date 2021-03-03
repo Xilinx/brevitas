@@ -38,24 +38,23 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from typing import Union, Type, List
+from typing import Union, Type, List, Optional
 
 from torch import Tensor
 from torch.nn import Module
 
-from brevitas.inject import BaseInjector as Injector
-from brevitas.proxy.runtime_quant import ActQuantProxyProtocol
 from brevitas.quant_tensor import QuantTensor
 from brevitas.inject.defaults import Int8ActPerTensorFloat
-from .quant_layer import QuantInputOutputLayer
+from .quant_layer import QuantInputOutputLayer, ActQuantType
 
 
 class QuantEltwiseAdd(QuantInputOutputLayer, Module):
 
     def __init__(
             self,
-            input_quant: Union[ActQuantProxyProtocol, Type[Injector]] = Int8ActPerTensorFloat,
-            output_quant: Union[ActQuantProxyProtocol, Type[Injector]] = Int8ActPerTensorFloat,
+            input_quant: Optional[ActQuantType] = Int8ActPerTensorFloat,
+            output_quant: Optional[ActQuantType] = Int8ActPerTensorFloat,
+            tie_input_output_quant = False,
             return_quant_tensor: bool = False,
             **kwargs) -> None:
         Module.__init__(self)
@@ -63,6 +62,7 @@ class QuantEltwiseAdd(QuantInputOutputLayer, Module):
             self,
             input_quant,
             output_quant,
+            tie_input_output_quant,
             return_quant_tensor,
             **kwargs)
 
@@ -90,15 +90,17 @@ class QuantCat(QuantInputOutputLayer, Module):
 
     def __init__(
             self,
-            input_quant: Union[ActQuantProxyProtocol, Type[Injector]],
-            output_quant: Union[ActQuantProxyProtocol, Type[Injector]],
-            return_quant_tensor: bool,
+            input_quant: Optional[ActQuantType] = Int8ActPerTensorFloat,
+            output_quant: Optional[ActQuantType] = Int8ActPerTensorFloat,
+            tie_input_output_quant: bool = False,
+            return_quant_tensor: bool = False,
             **kwargs):
         Module.__init__(self)
         QuantInputOutputLayer.__init__(
             self,
             input_quant,
             output_quant,
+            tie_input_output_quant,
             return_quant_tensor,
             **kwargs)
 

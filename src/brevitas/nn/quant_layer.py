@@ -191,13 +191,22 @@ class QuantInputOutputLayer(
 
     def __init__(
             self,
-            input_quant: Union[ActQuantProxyProtocol, Type[Injector]],
-            output_quant: Union[ActQuantProxyProtocol, Type[Injector]],
+            input_quant: Optional[ActQuantType],
+            output_quant: Optional[ActQuantType],
+            tie_input_output_quant: bool,
             return_quant_tensor: bool,
             **kwargs):
         QuantLayerMixin.__init__(self, return_quant_tensor)
         QuantInputMixin.__init__(self, input_quant, **kwargs)
         QuantOutputMixin.__init__(self, output_quant, **kwargs)
+        # we have to account for quantization being enabled through kwargs
+        if tie_input_output_quant:
+            if self.is_input_quant_enabled and self.is_output_quant_enabled:
+                raise RuntimeError("Enable only input or output quant with tie_input_output=True")
+            if self.is_input_quant_enabled:
+                self.output_quant = self.input_quant
+            if self.is_output_quant_enabled:
+                self.input_quant = self.output_quant
 
     @property
     def requires_export_handler(self):
