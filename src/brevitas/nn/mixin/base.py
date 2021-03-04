@@ -103,7 +103,7 @@ class QuantProxyMixin(object):
                 raise RuntimeError(
                     "The quantizer passed does not adhere to the quantization protocol.")
             quant.add_tracked_module(self)
-            if kwargs:
+            if filter_kwargs(kwargs_prefix, kwargs):
                 warn('Keyword arguments are being passed but they not being used.')
         setattr(self, proxy_name, quant)
 
