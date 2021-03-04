@@ -1,8 +1,10 @@
+from contextlib import ExitStack
+
 import pytest
 import torch
 
 from brevitas_examples.bnn_pynq.models import model_with_cfg
-from brevitas.utils.jit_utils import jit_trace_patched
+from brevitas.utils.jit_utils import jit_patches_generator
 
 FC_INPUT_SIZE = (1, 1, 28, 28)
 CNV_INPUT_SIZE = (1, 3, 32, 32)
@@ -22,7 +24,10 @@ def test_brevitas_fc_jit_trace(size, wbits, abits):
     fc, _ = model_with_cfg(nname.lower(), pretrained=False)
     fc.train(False)
     input_tensor = torch.randn(FC_INPUT_SIZE)
-    traced_model = jit_trace_patched(fc, input_tensor)
+    with ExitStack() as stack:
+        for mgr in jit_patches_generator():
+            stack.enter_context(mgr)
+    traced_model = torch.jit.trace(fc, input_tensor)
     out_traced = traced_model(input_tensor)
     out = fc(input_tensor)
     assert out.isclose(out_traced).all().item()
@@ -37,7 +42,10 @@ def test_brevitas_cnv_jit_trace(wbits, abits):
     cnv, _ = model_with_cfg(nname.lower(), pretrained=False)
     cnv.train(False)
     input_tensor = torch.randn(CNV_INPUT_SIZE)
-    traced_model = jit_trace_patched(cnv, input_tensor)
+    with ExitStack() as stack:
+        for mgr in jit_patches_generator():
+            stack.enter_context(mgr)
+    traced_model = torch.jit.trace(cnv, input_tensor)
     out_traced = traced_model(input_tensor)
     out = cnv(input_tensor)
     assert out.isclose(out_traced).all().item()

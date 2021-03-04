@@ -46,6 +46,7 @@ from torch import Tensor
 
 from brevitas.function.ops_ste import ceil_ste, round_ste
 from brevitas.function.ops import max_int
+from .torch_handler import QUANT_TENSOR_FN_HANDLER
 
 
 class QuantTensor(NamedTuple):
@@ -55,6 +56,18 @@ class QuantTensor(NamedTuple):
     bit_width: Optional[Tensor] = None
     signed: Optional[bool] = None
     training: Optional[bool] = None
+
+    def __torch_function__(self, func, types, args=(), kwargs=None):
+        if kwargs is None:
+            kwargs = {}
+        if (func not in QUANT_TENSOR_FN_HANDLER
+                or not all(issubclass(t, QuantTensor) for t in types)
+                or not (all([t.is_not_none for t in args if isinstance(t, QuantTensor)])
+                        and all([t.is_not_none for t in kwargs.values() if isinstance(t, QuantTensor)]))):
+            args = [a.tensor if hasattr(a, 'tensor') else a for a in args]
+            kwargs = {kk: ka.tensor if hasattr(ka, 'tensor') else ka for kk, ka in kwargs.items()}
+            return func(*args, **kwargs)
+        return QUANT_TENSOR_FN_HANDLER[func](*args, **kwargs)
 
     @property
     def tensor(self):
@@ -87,7 +100,9 @@ class QuantTensor(NamedTuple):
                     unique_vals = rounded_int_value.unique(
                         sorted=False, return_counts=False, return_inverse=False)
                     is_binary = unique_vals.view(-1).size()[0] == 2
-                    return is_int.item() and is_binary
+                    is_signed = (unique_vals < 0.).all().item()
+                    sign_match = is_signed == self.signed
+                    return is_int.item() and is_binary and sign_match
         else:
             return False
 

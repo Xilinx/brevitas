@@ -2,6 +2,7 @@ import warnings
 from typing import Union
 from abc import ABC
 
+import torch
 from torch import Tensor
 
 from brevitas.nn import QuantConv2d, QuantConv1d, QuantLinear
@@ -61,6 +62,10 @@ class PytorchQuantWBIOLHandler(PytorchQuantLayerHandler):
 
     def forward(self, q_inp: Tensor):
         if self.input_quant_impl is not None:
+            # If the input is quantized from a previous layer,
+            # we have to dequant and requant
+            if q_inp.is_quantized:
+                q_inp.dequantize()
             q_inp = self.input_quant_impl(q_inp, **self.input_quant_kwargs)
         assert q_inp.is_quantized, 'Input needs to be quantized'
         q_out = self.qf_impl(q_inp, self.q_weight(), **self.qf_kwargs, **self.output_quant_kwargs)
@@ -77,8 +82,11 @@ class PytorchQuantConvNdHandler(PytorchQuantWBIOLHandler, ABC):
 
     @classmethod
     def prepare_qf_kwargs(self, module: Union[QuantConv1d, QuantConv2d]):
+        bias = module.bias
+        if module.bias is not None:
+            bias = module.bias.detach()
         return {
-            'bias': module.bias,
+            'bias': bias,
             'stride': module.stride,
             'padding': module.padding,
             'dilation': module.dilation,
@@ -91,7 +99,7 @@ class PytorchQuantConv1dHandler(PytorchQuantConvNdHandler):
 
     @classmethod
     def prepare_qf(cls, module: QuantConv1d):
-        return qF.conv1d, cls.prepare_qf_kwargs(module)
+        return torch.nn.quantized.functional.conv1d, cls.prepare_qf_kwargs(module)
 
 
 class PytorchQuantConv2dHandler(PytorchQuantConvNdHandler):
@@ -99,7 +107,7 @@ class PytorchQuantConv2dHandler(PytorchQuantConvNdHandler):
 
     @classmethod
     def prepare_qf(cls, module: QuantConv2d):
-        return qF.conv2d, cls.prepare_qf_kwargs(module)
+        return torch.nn.quantized.functional.conv2d, cls.prepare_qf_kwargs(module)
 
 
 class PytorchQuantLinearHandler(PytorchQuantWBIOLHandler):
@@ -111,6 +119,9 @@ class PytorchQuantLinearHandler(PytorchQuantWBIOLHandler):
 
     @classmethod
     def prepare_qf(cls, module: QuantLinear):
-        return qF.linear, {'bias': module.bias}
+        bias = module.bias
+        if module.bias is not None:
+            bias = module.bias.detach()
+        return torch.nn.quantized.functional.linear, {'bias': bias}
 
 

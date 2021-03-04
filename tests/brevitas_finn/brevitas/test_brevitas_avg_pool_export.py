@@ -10,8 +10,7 @@ from finn.transformation.infer_shapes import InferShapes
 from finn.transformation.infer_datatypes import InferDataTypes
 from finn.util.basic import gen_finn_dt_tensor
 
-import brevitas.onnx as bo
-from brevitas.onnx import FINNManager
+from brevitas.export import FINNManager
 from brevitas.nn import QuantAvgPool2d
 from brevitas.quant_tensor import QuantTensor
 from brevitas.core.quant import QuantType
@@ -79,7 +78,7 @@ def test_brevitas_avg_pool_export(
     zp = torch.tensor(0.)
     input_quant_tensor = QuantTensor(input_tensor, input_scale, zp, ibw_tensor, signed)
     # export again to set the scale values correctly
-    bo.export_finn_onnx(b_avgpool, ishape, export_onnx_path, input_t=input_quant_tensor)
+    FINNManager.export(b_avgpool, ishape, export_onnx_path, input_t=input_quant_tensor)
     model = ModelWrapper(export_onnx_path)
     model = model.transform(InferShapes())
     model = model.transform(InferDataTypes())

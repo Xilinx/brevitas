@@ -18,10 +18,12 @@ from .handler.act import StdONNXQuantTanhHandler
 from .handler.act import StdONNXQuantSigmoidHandler
 from .handler.pool import StdONNXQuantMaxPool1d
 from .handler.pool import StdONNXQuantMaxPool2d
+from . import fn_patch
 from . import OPSET
 
 
 class StdONNXManager(ONNXBaseManager):
+    target_name = 'StdONNX'
 
     handlers = [
         StdONNXQuantConv1dHandler,
@@ -39,6 +41,9 @@ class StdONNXManager(ONNXBaseManager):
         # remove unused graph inputs & initializers
         "eliminate_unused_initializer"]
 
+    trace_patches_generator = fn_patch.gen_trace_patches
+    cache_patches_generator = fn_patch.gen_cache_patches
+
     @classmethod
     def solve_enable_onnx_checker(cls, export_kwargs):
         if torch_version >= version.parse('1.5.0'):
@@ -49,8 +54,11 @@ class StdONNXManager(ONNXBaseManager):
             cls,
             module: Module,
             input_shape: Tuple[int, ...],
-            export_path: str,
+            export_path: Optional[str] = None,
             input_t: Optional[Union[Tensor, QuantTensor]] = None,
             **kwargs):
-        return super().export_onnx(
+        assert not fn_patch._fn_cache
+        output = super().export_onnx(
             module, input_shape, export_path, input_t, opset_version=OPSET, **kwargs)
+        fn_patch._fn_cache = []
+        return output

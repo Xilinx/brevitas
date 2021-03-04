@@ -120,6 +120,8 @@ class QuantMaxPool2d(QuantLayerMixin, MaxPool2d):
     def forward(self, input: Union[Tensor, QuantTensor]):
         x = self.unpack_input(input)
         if self.export_mode:
-            return self.export_handler(x.value)
+            out = self.export_handler(x.value)
+            self._set_global_is_quant_layer(False)
+            return out
         x = x.set(value=super().forward(x.value))
         return self.pack_output(x)

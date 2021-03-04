@@ -5,7 +5,7 @@ from torch import nn
 
 from brevitas.quant.solver import ActQuantSolver, WeightQuantSolver, BiasQuantSolver
 from brevitas.nn import QuantConv2d, QuantReLU, QuantMaxPool2d, QuantEltwiseAdd
-from brevitas.onnx import export_dpuv1_onnx
+from brevitas.export import export_dpuv1_onnx
 from brevitas.quant_tensor import QuantTensor
 from brevitas.core.zero_point import ZeroZeroPoint
 

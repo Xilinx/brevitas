@@ -43,7 +43,7 @@ def test_pytorch_quant_conv_export():
     model(inp)  # collect scale factors
     model.eval()
     brevitas_out = model(inp)
-    pytorch_qf_model = PytorchQuantManager.export(model, inp)
+    pytorch_qf_model = PytorchQuantManager.export(model, input_t=inp)
     pytorch_out = pytorch_qf_model(inp)
     atol = model.conv.quant_output_scale().item() * TOLERANCE
     assert pytorch_out.isclose(brevitas_out, rtol=0.0, atol=atol).all()
@@ -77,7 +77,7 @@ def test_pytorch_quant_linear_export():
     model(inp)  # collect scale factors
     model.eval()
     brevitas_out = model(inp)
-    pytorch_qf_model = PytorchQuantManager.export(model, inp)
+    pytorch_qf_model = PytorchQuantManager.export(model, input_t=inp)
     pytorch_out = pytorch_qf_model(inp)
     atol = model.linear.quant_output_scale().item() * TOLERANCE
     assert pytorch_out.isclose(brevitas_out, rtol=0.0, atol=atol).all()
@@ -105,7 +105,7 @@ def test_quant_act_export():
     model(inp)  # collect scale factors
     model.eval()
     brevitas_out = model(inp)
-    pytorch_qf_model = PytorchQuantManager.export(model, inp)
+    pytorch_qf_model = PytorchQuantManager.export(model, input_t=inp)
     pytorch_out = pytorch_qf_model(inp)
     atol = model.act2.quant_output_scale().item() * TOLERANCE
     assert pytorch_out.isclose(brevitas_out, rtol=0.0, atol=atol).all()
@@ -136,7 +136,42 @@ def test_quant_max_pool2d_export():
     model(inp)  # collect scale factors
     model.eval()
     brevitas_out = model(inp)
-    pytorch_qf_model = PytorchQuantManager.export(model, inp)
+    pytorch_qf_model = PytorchQuantManager.export(model, input_t=inp)
     pytorch_out = pytorch_qf_model(inp)
     atol = model.act.quant_output_scale().item() * TOLERANCE
+    assert pytorch_out.isclose(brevitas_out, rtol=0.0, atol=atol).all()
+
+
+@requires_pt_ge('1.5.0')
+def test_func_quant_max_pool2d_export():
+    IN_SIZE = (1, 1, IN_CH, IN_CH)
+    KERNEL_SIZE = 2
+
+    class Model(torch.nn.Module):
+
+        def __init__(self):
+            super().__init__()
+            self.act1 = QuantIdentity(
+                bit_width=7,
+                act_quant=ShiftedUint8ActPerTensorFloat,
+                return_quant_tensor=True)
+            self.act2 = QuantIdentity(
+                bit_width=7,
+                act_quant=ShiftedUint8ActPerTensorFloat,
+                return_quant_tensor=False)
+
+        def forward(self, x):
+            x = self.act1(x)
+            x = torch.nn.functional.max_pool2d(x, KERNEL_SIZE)
+            x = self.act2(x)
+            return x
+
+    inp = torch.randn(IN_SIZE)
+    model = Model()
+    model(inp)  # collect scale factors
+    model.eval()
+    brevitas_out = model(inp)
+    pytorch_qf_model = PytorchQuantManager.export(model, input_t=inp)
+    pytorch_out = pytorch_qf_model(inp)
+    atol = model.act2.quant_output_scale().item() * TOLERANCE
     assert pytorch_out.isclose(brevitas_out, rtol=0.0, atol=atol).all()
