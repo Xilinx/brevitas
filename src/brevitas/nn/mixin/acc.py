@@ -53,9 +53,9 @@ AccQuantType = Union[AccQuantProxyProtocol, Type[Injector], Type[ExtendedInjecto
 class QuantTruncMixin(QuantProxyMixin):
     __metaclass__ = ABCMeta
 
-    def __init__(self, acc_quant: Optional[AccQuantType], **kwargs):
+    def __init__(self, trunc_quant: Optional[AccQuantType], **kwargs):
         super().__init__(
-            quant=acc_quant,
+            quant=trunc_quant,
             proxy_from_injector_impl=TruncQuantProxyFromInjector,
             proxy_protocol=AccQuantProxyProtocol,
             kwargs_prefix='',
@@ -70,9 +70,9 @@ class QuantTruncMixin(QuantProxyMixin):
 class QuantClampMixin(QuantProxyMixin):
     __metaclass__ = ABCMeta
 
-    def __init__(self, acc_quant: Optional[AccQuantType], **kwargs):
+    def __init__(self, clamp_quant: Optional[AccQuantType], **kwargs):
         super().__init__(
-            quant=acc_quant,
+            quant=clamp_quant,
             proxy_from_injector_impl=ClampQuantProxyFromInjector,
             proxy_protocol=AccQuantProxyProtocol,
             kwargs_prefix='',

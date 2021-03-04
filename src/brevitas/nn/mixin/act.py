@@ -56,10 +56,10 @@ ActQuantType = Union[ActQuantProxyProtocol, Type[Injector], Type[ExtendedInjecto
 class QuantInputMixin(QuantProxyMixin):
     __metaclass__ = ABCMeta
 
-    def __init__(self, act_quant: Optional[ActQuantType], **kwargs):
+    def __init__(self, input_quant: Optional[ActQuantType], **kwargs):
         QuantProxyMixin.__init__(
             self,
-            quant=act_quant,
+            quant=input_quant,
             proxy_from_injector_impl=ActQuantProxyFromInjector,
             proxy_protocol=ActQuantProxyProtocol,
             proxy_prefix='input_',
@@ -97,10 +97,10 @@ class QuantInputMixin(QuantProxyMixin):
 class QuantOutputMixin(QuantProxyMixin):
     __metaclass__ = ABCMeta
 
-    def __init__(self, act_quant: Optional[ActQuantType], **kwargs):
+    def __init__(self, output_quant: Optional[ActQuantType], **kwargs):
         QuantProxyMixin.__init__(
             self,
-            quant=act_quant,
+            quant=output_quant,
             proxy_from_injector_impl=ActQuantProxyFromInjector,
             proxy_protocol=ActQuantProxyProtocol,
             proxy_prefix='output_',
