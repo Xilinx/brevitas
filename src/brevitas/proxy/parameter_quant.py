@@ -45,17 +45,18 @@ from typing_extensions import Protocol, runtime_checkable
 import torch
 from torch import Tensor
 
-from brevitas.inject import BaseInjector as Injector
 from brevitas.function import max_int
 from brevitas.quant_tensor import QuantTensor
 
 from .quant_proxy import QuantProxyFromInjector, QuantProxyProtocol
 
 
-__all__ = ['WeightQuantProxyFromInjector',
-           'BiasQuantProxyFromInjector',
-           'WeightQuantProxyProtocol',
-           'BiasQuantProxyProtocol']
+__all__ = [
+    'WeightQuantProxyFromInjector',
+    'BiasQuantProxyFromInjector',
+    'WeightQuantProxyProtocol',
+    'BiasQuantProxyProtocol'
+]
 
 
 @runtime_checkable
@@ -87,13 +88,9 @@ class ParameterQuantProxyFromInjector(QuantProxyFromInjector):
         pass
 
     def init_tensor_quant(self):
-        # Need to declare them in case super is not called
-        self.tensor_quant = None
-        self.is_quant_enabled = False
         param_list = self.tracked_parameter_list
+        # params might not be there yet, e.g. bias before merging
         if param_list:
-            # In the scenario where bias is created after a bn merge, we have at the first
-            # param_list is empty, but after the merge it's populated
             self.quant_injector = self.quant_injector.let(tracked_parameter_list=param_list)
             super(ParameterQuantProxyFromInjector, self).init_tensor_quant()
 

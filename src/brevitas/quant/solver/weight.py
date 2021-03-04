@@ -73,7 +73,7 @@ class SolveWeightScalingStatsInputConcatDimFromModule(ExtendedInjector):
 
     @value
     def scaling_stats_input_concat_dim(module):
-        if isinstance(module, list):
+        if isinstance(module, tuple):
             assert all(m.output_channel_dim == module[0].output_channel_dim for m in module)
             module = module[0]
         return module.output_channel_dim
@@ -83,7 +83,7 @@ class SolveWeightScalingPerOutputChannelShapeFromModule(ExtendedInjector):
 
     @value
     def scaling_per_output_channel_shape(module):
-        if isinstance(module, list):
+        if isinstance(module, tuple):
             assert all(m.out_channels == module[0].out_channels for m in module)
             module = module[0]
         shape = [1] * len(module.weight.size())

@@ -41,15 +41,39 @@
 from typing import Optional, Union
 from typing_extensions import Protocol, runtime_checkable
 
-import torch
-from torch import Tensor
-from torch.nn import Identity, Module
+from torch import Tensor, nn
+from torch.nn import Identity
 
 import brevitas
-from brevitas.inject import BaseInjector as Injector
 from brevitas.quant_tensor import QuantTensor
 
 from .quant_proxy import QuantProxyFromInjector, QuantProxyProtocol
+
+
+
+__all__ = [
+    'ActQuantProxyProtocol',
+    'AccQuantProxyProtocol',
+    'ActQuantProxyFromInjector',
+    'TruncQuantProxyFromInjector',
+    'ClampQuantProxyFromInjector'
+]
+
+
+def _is_passthrough_act(quant_injector):
+    if 'passthrough_act' in quant_injector:
+        return quant_injector.passthrough_act
+    return False
+
+
+def _is_act_enabled(act_impl, tensor_quant):
+    if act_impl is None:
+        return False
+    # avoid enabling HardTanh when clamping from quantization is already enabled
+    elif isinstance(act_impl, nn.Hardtanh) and tensor_quant is not None:
+        return False
+    else:
+        return True
 
 
 @runtime_checkable
@@ -82,28 +106,21 @@ class FusedActivationQuantProxy(brevitas.jit.ScriptModule):
 
 class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
 
+    def __init__(self, quant_layer, quant_injector):
+        super(ActQuantProxyFromInjector, self).__init__(quant_layer, quant_injector)
+        self.is_passthrough_act = _is_passthrough_act(quant_injector)
+
     def init_tensor_quant(self):
-        tensor_quant = self.quant_injector.tensor_quant
+        super(ActQuantProxyFromInjector, self).init_tensor_quant()
         act_impl = self.quant_injector.act_impl
-        self.passthrough_act = self.quant_injector.passthrough_act
-        self.is_quant_enabled = tensor_quant is not None
-
-        if 'is_act_enabled' in self.quant_injector:
-            self.is_act_enabled = self.quant_injector.is_act_enabled
-        else:
-            self.is_act_enabled = act_impl is not None
-
-        if 'update_state_dict_impl' in self.quant_injector:
-            self.update_state_dict_impl = self.quant_injector.update_state_dict_impl
-        else:
-            self.update_state_dict_impl = None
-
-        if self.is_act_enabled and self.is_quant_enabled:
+        tensor_quant = self.tensor_quant # initialized by super
+        is_act_enabled = _is_act_enabled(act_impl, tensor_quant)
+        if is_act_enabled and self.is_quant_enabled:
             self.fused_activation_quant_proxy = FusedActivationQuantProxy(
                 act_impl, tensor_quant)
-        elif self.is_act_enabled and not self.is_quant_enabled:
+        elif is_act_enabled and not self.is_quant_enabled:
             self.fused_activation_quant_proxy = act_impl
-        elif not self.is_act_enabled and self.is_quant_enabled:
+        elif not is_act_enabled and self.is_quant_enabled:
             self.fused_activation_quant_proxy = FusedActivationQuantProxy(
                 Identity(), tensor_quant)
         else:
@@ -130,7 +147,7 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
         return scale
 
     def forward(self, x: Union[Tensor, QuantTensor]) -> QuantTensor:
-        if self.is_act_enabled or self.is_quant_enabled:
+        if self.fused_activation_quant_proxy is not None:
             y = x
             if isinstance(y, QuantTensor):
                 y = y.value
@@ -147,13 +164,6 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
                 return x
             else:
                 return QuantTensor(x, training=self.training)
-
-    def _load_from_state_dict(
-            self, state_dict, prefix, metadata, strict, missing_keys, unexpected_keys, error_msgs):
-        if self.update_state_dict_impl is not None:
-            self.update_state_dict_impl(prefix, state_dict)
-        super(ActQuantProxyFromInjector, self)._load_from_state_dict(
-            state_dict, prefix, metadata, strict, missing_keys, unexpected_keys, error_msgs)
 
 
 class ClampQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol):

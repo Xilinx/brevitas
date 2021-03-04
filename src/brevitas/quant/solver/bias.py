@@ -64,7 +64,7 @@ class SolveBiasScalingPerOutputChannelShapeFromModule(ExtendedInjector):
 
     @value
     def scaling_per_output_channel_shape(module):
-        if isinstance(module, list):
+        if isinstance(module, tuple):
             assert all(m.out_channels == module[0].out_channels for m in module)
             module = module[0]
         return (module.out_channels,)
