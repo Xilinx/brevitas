@@ -154,7 +154,7 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
             y = self.fused_activation_quant_proxy(y)
             if isinstance(y, tuple):
                 return QuantTensor(*y, signed=self.is_signed, training=self.training)
-            elif self.passthrough_act:  # preserve scale/zp/bit/sign even without output quant
+            elif self.is_passthrough_act:  # preserve scale/zp/bit/sign even without output quant
                 return QuantTensor(
                     y, x.scale, x.zero_point, x.bit_width, x.signed, self.training)
             else:
