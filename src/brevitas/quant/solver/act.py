@@ -151,7 +151,8 @@ class SolveUpdateStateDictImplFromEnum(ExtendedInjector):
 
     @value
     def update_state_dict_impl(scaling_impl_type):
-        if scaling_impl_type == ScalingImplType.PARAMETER:
+        if (scaling_impl_type == ScalingImplType.PARAMETER
+                or scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS):
             return ConvertRuntimeStatsToParameter
         else:
             return None
