@@ -158,18 +158,6 @@ class SolveUpdateStateDictImplFromEnum(ExtendedInjector):
             return None
 
 
-class SolveIsActEnabledFromActImpl(ExtendedInjector):
-
-    @value
-    def is_act_enabled(act_impl, tensor_quant):
-        if act_impl is None:
-            return False
-        elif isinstance(act_impl, nn.Hardtanh) and tensor_quant is not None:
-            return False
-        else:
-            return True
-
-
 class ActQuantSolver(
         SolveActTensorQuantFromEnum,
         SolveActScalingImplFromEnum,
@@ -183,8 +171,7 @@ class ActQuantSolver(
         SolveActScalingShape,
         SolveScalingStatsInputViewShapeImplFromEnum,
         SolveActScalingPerOutputChannelShape,
-        SolveUpdateStateDictImplFromEnum,
-        SolveIsActEnabledFromActImpl):
+        SolveUpdateStateDictImplFromEnum):
     """
     Translate enum directives to activation-specific quantization core modules.
     It should be placed last in the list of classes a quantizer inherits from,
