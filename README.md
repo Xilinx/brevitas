@@ -12,6 +12,7 @@ Brevitas is a Pytorch library for quantization-aware training (QAT).
 **Please note that Brevitas is a research project and not an official Xilinx product.**
 
 ## History
+- *2021/03/01* - Release version 0.3.1, fix bug w/ act initialization from statistics w/ IGNORE_MISSING_KEYS=1.
 - *2021/03/01* - Release version 0.3.0, implements enum and shape solvers within extended dependency injectors. This allows declarative quantizers to be self-contained.
 - *2021/02/04* - Release version 0.2.1, includes various bugfixes of QuantTensor w/ zero-point.
 - *2021/01/30* - First release version 0.2.0 on PyPI.
