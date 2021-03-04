@@ -298,6 +298,10 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
         super(ParameterFromRuntimeStatsScaling, self)._load_from_state_dict(
             state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
         value_key = prefix + 'value'
+        # Retrocompatibility with older ParameterScaling, for when scaling impl is switched over
+        retrocomp_value_key = prefix + 'learned_value'
+        if retrocomp_value_key in state_dict:
+            state_dict[value_key] = state_dict.pop(retrocomp_value_key)
         # Pytorch stores training flag as a buffer with JIT enabled
         training_key = prefix + 'training'
         if training_key in missing_keys:
