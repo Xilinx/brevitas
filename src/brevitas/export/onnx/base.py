@@ -19,9 +19,11 @@ from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.jit_utils import onnx_export_patched
 from ..base import BaseManager, _set_export_mode
 from ..base import _override_inp_caching_mode, _restore_inp_caching_mode
+from .. import ExportContext
 
 
 class ONNXBaseManager(BaseManager, ABC):
+    target_name = None  # 'abstract' variable
 
     model_transforms = []
     onnx_passes = []
@@ -73,18 +75,19 @@ class ONNXBaseManager(BaseManager, ABC):
                 input_t = torch.empty(input_shape, dtype=torch.float)
             # do a forward pass with the dummy input to e.g. store input/output shapes
             cls.cache_inp_out(module, input_t)
-            # override any given input_t to make sure it's a standard PyTorch tensor
-            input_t = torch.empty(input_shape, dtype=torch.float)
-            # enable export mode, this triggers collecting export values into handlers
-            module.apply(lambda m: _set_export_mode(m, enabled=True))
-            # temporarily disable input caching to avoid collectives empty debug values
-            module.apply(lambda m: _override_inp_caching_mode(m, enabled=False))
-            # perform export pass
-            onnx_export_patched(module, input_t, export_path, **kwargs)
-            # restore the model to previous properties
-            module.apply(lambda m: _restore_inp_caching_mode(m))
-            module.apply(lambda m: _set_export_mode(m, enabled=False))
-            module.train(training_state)
+            with ExportContext(cls.target_name):
+                # override any given input_t to make sure it's a standard PyTorch tensor
+                input_t = torch.empty(input_shape, dtype=torch.float)
+                # enable export mode, this triggers collecting export values into handlers
+                module.apply(lambda m: _set_export_mode(m, enabled=True))
+                # temporarily disable input caching to avoid collectives empty debug values
+                module.apply(lambda m: _override_inp_caching_mode(m, enabled=False))
+                # perform export pass
+                onnx_export_patched(module, input_t, export_path, **kwargs)
+                # restore the model to previous properties
+                module.apply(lambda m: _restore_inp_caching_mode(m))
+                module.apply(lambda m: _set_export_mode(m, enabled=False))
+                module.train(training_state)
             # do some cleanup on the exported ONNX model
             model = onnx.load(export_path)
             model = opt.optimize(model, cls.onnx_passes)

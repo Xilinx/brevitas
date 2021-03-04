@@ -81,6 +81,7 @@ class BaseHandler(Module, ABC):
 
 class BaseManager(ABC):
 
+    target_name = None
     handlers = []
 
     @classmethod

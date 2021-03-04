@@ -4,6 +4,7 @@ from torch import Tensor
 from torch.nn import Module
 
 from brevitas.quant_tensor import QuantTensor
+from brevitas.export import ExportContext
 from brevitas.export.base import BaseManager
 from .handler.parameter import PytorchQuantConv2dHandler
 from .handler.parameter import PytorchQuantConv1dHandler
@@ -16,6 +17,7 @@ from .handler import qF
 
 
 class PytorchQuantManager(BaseManager):
+    target_name = 'torch'
 
     handlers = [
         PytorchQuantMaxPool1d,
@@ -31,5 +33,6 @@ class PytorchQuantManager(BaseManager):
     def export(cls, module: Module, input_t: Union[Tensor, QuantTensor]):
         if qF is None:
             raise RuntimeError("torch.nn.quantized.functional cannot be imported.")
-        traced_module = cls.jit_trace(module, input_t)
+        with ExportContext(cls.target_name):
+            traced_module = cls.jit_trace(module, input_t)
         return traced_module

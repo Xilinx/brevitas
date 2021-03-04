@@ -22,6 +22,7 @@ from . import OPSET
 
 
 class StdONNXManager(ONNXBaseManager):
+    target_name = 'StdONNX'
 
     handlers = [
         StdONNXQuantConv1dHandler,

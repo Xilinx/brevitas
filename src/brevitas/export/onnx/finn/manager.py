@@ -9,6 +9,7 @@ from .handler.acc import FINNQuantAvgPool2dHandler
 
 
 class FINNManager(ONNXBaseManager):
+    target_name = 'FINN'
 
     handlers = [
         FINNQuantLinearHandler,
