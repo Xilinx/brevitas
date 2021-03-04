@@ -110,17 +110,26 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
         super(ActQuantProxyFromInjector, self).__init__(quant_layer, quant_injector)
         self.is_passthrough_act = _is_passthrough_act(quant_injector)
 
+    @property
+    def is_quant_enabled(self):
+        return self._is_quant_enabled
+
+    @is_quant_enabled.setter
+    def is_quant_enabled(self, is_quant_enabled):
+        self._is_quant_enabled = is_quant_enabled
+
     def init_tensor_quant(self):
-        super(ActQuantProxyFromInjector, self).init_tensor_quant()
+        tensor_quant = self.quant_injector.tensor_quant
         act_impl = self.quant_injector.act_impl
-        tensor_quant = self.tensor_quant # initialized by super
         is_act_enabled = _is_act_enabled(act_impl, tensor_quant)
-        if is_act_enabled and self.is_quant_enabled:
+        is_quant_enabled = tensor_quant is not None
+        self.is_quant_enabled = is_quant_enabled
+        if is_act_enabled and is_quant_enabled:
             self.fused_activation_quant_proxy = FusedActivationQuantProxy(
                 act_impl, tensor_quant)
-        elif is_act_enabled and not self.is_quant_enabled:
+        elif is_act_enabled and not is_quant_enabled:
             self.fused_activation_quant_proxy = act_impl
-        elif not is_act_enabled and self.is_quant_enabled:
+        elif not is_act_enabled and is_quant_enabled:
             self.fused_activation_quant_proxy = FusedActivationQuantProxy(
                 Identity(), tensor_quant)
         else:
