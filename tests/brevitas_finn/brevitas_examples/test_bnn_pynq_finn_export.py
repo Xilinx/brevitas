@@ -40,7 +40,7 @@ from finn.transformation.general import GiveUniqueNodeNames
 from finn.transformation.general import RemoveStaticGraphInputs
 from finn.transformation.double_to_single_float import DoubleToSingleFloat
 
-from brevitas.onnx import FINNManager
+from brevitas.export import FINNManager
 from brevitas_examples.bnn_pynq.models import model_with_cfg
 
 FC_INPUT_SIZE = (1, 1, 28, 28)
@@ -71,7 +71,7 @@ def test_brevitas_fc_onnx_export_and_exec(size, wbits, abits, pretrained):
     finn_onnx = nname + ".onnx"
     fc, _ = model_with_cfg(nname.lower(), pretrained=pretrained)
     fc.eval()
-    FINNManager.export_onnx(fc, FC_INPUT_SIZE, finn_onnx)
+    FINNManager.export(fc, FC_INPUT_SIZE, finn_onnx)
     model = ModelWrapper(finn_onnx)
     model = model.transform(GiveUniqueNodeNames())
     model = model.transform(DoubleToSingleFloat())
@@ -104,7 +104,7 @@ def test_brevitas_cnv_onnx_export_and_exec(wbits, abits, pretrained):
     finn_onnx = nname + ".onnx"
     cnv, _ = model_with_cfg(nname.lower(), pretrained=pretrained)
     cnv.eval()
-    FINNManager.export_onnx(cnv, CNV_INPUT_SIZE, finn_onnx)
+    FINNManager.export(cnv, CNV_INPUT_SIZE, finn_onnx)
     model = ModelWrapper(finn_onnx)
     model = model.transform(GiveUniqueNodeNames())
     model = model.transform(DoubleToSingleFloat())

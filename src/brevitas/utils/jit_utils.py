@@ -1,17 +1,17 @@
 import inspect
-from unittest.mock import patch
-from functools import partial
 
+import torch
 try:
     from torch._jit_internal import get_torchscript_modifier
 except:
     get_torchscript_modifier = None
 
-import torch
 
 from dependencies import Injector
 from brevitas.inject import ExtendedInjector
 from brevitas.jit import IS_ABOVE_110
+
+from .python_utils import patch
 
 
 def _get_modifier_wrapper(fn):
@@ -21,14 +21,9 @@ def _get_modifier_wrapper(fn):
         return get_torchscript_modifier(fn)
 
 
-def _fn_patched(fn, *args, **kwargs):
-    if IS_ABOVE_110:
-        with patch('torch._jit_internal.get_torchscript_modifier', wraps=_get_modifier_wrapper):
-            return fn(*args, **kwargs)
-    else:
-        return fn(*args, **kwargs)
-
-
-jit_trace_patched = partial(_fn_patched, torch.jit.trace)
-onnx_export_patched = partial(_fn_patched, torch.onnx.export)
+if IS_ABOVE_110:
+    def jit_patches_generator():
+        return [patch(torch._jit_internal, 'get_torchscript_modifier', _get_modifier_wrapper)]
+else:
+    jit_patches_generator = None
 

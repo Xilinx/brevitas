@@ -39,6 +39,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 from enum import Enum
+from contextlib import contextmanager
 
 
 class AutoName(str, Enum):
@@ -50,3 +51,19 @@ class AutoName(str, Enum):
 
     def __eq__(self, other):
         return str(self).lower() == str(other).lower()
+
+
+@contextmanager
+def patch(module, attr, new_value):
+    """
+    Context manager for monkey patching.
+    Each patch can be used only once.
+    with patch(torch, 'add', custom_add):
+        ...
+    """
+    old_value = getattr(module, attr)
+    setattr(module, attr, new_value)
+    try:
+        yield getattr(module, attr)
+    finally:
+        setattr(module, attr, old_value)

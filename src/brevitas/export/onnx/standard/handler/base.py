@@ -1,7 +1,5 @@
-from typing import Union
 from abc import ABC, abstractmethod
 
-import torch
 from torch import Tensor
 
 
@@ -69,14 +67,27 @@ class StdONNXQuantLayerHandler(Validate8BitHandler, TypedZeroPointHandler, ONNXB
     @classmethod
     def input_dequant_symbolic_kwargs(cls, module):
         if module._cached_inp.scale is not None:
-            assert module._cached_inp.bit_width == 8
-            return {
-                'input_scale': module._cached_inp.scale,
-                'input_zero_point': cls.zero_point_with_dtype(
-                    module._cached_inp.signed, module._cached_inp.zero_point),
-                'axis': cls.quant_axis(module._cached_inp.scale)}
+            return cls.dequant_symbolic_kwargs_from_cached_io(module._cached_inp)
         else:
             return None
+
+    @classmethod
+    def dequant_symbolic_kwargs_from_cached_io(cls, cached_io):
+        assert cached_io.bit_width == 8
+        return {
+            'input_scale': cached_io.scale,
+            'input_zero_point': cls.zero_point_with_dtype(
+                cached_io.signed, cached_io.zero_point),
+            'axis': cls.quant_axis(cached_io.scale)}
+
+    @classmethod
+    def quant_symbolic_kwargs_from_cached_io(cls, cached_io):
+        assert cached_io.bit_width == 8
+        return {
+            'output_scale': cached_io.scale,
+            'output_zero_point': cls.zero_point_with_dtype(
+                cached_io.signed, cached_io.zero_point),
+            'axis': cls.quant_axis(cached_io.scale)}
 
     def symbolic_execution(self, inp: Tensor):
         inp = self.input_symbolic_execution(inp)

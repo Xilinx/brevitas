@@ -1,10 +1,11 @@
-from typing import Union
+from typing import Union, Optional, Tuple
 
+import torch
 from torch import Tensor
 from torch.nn import Module
 
 from brevitas.quant_tensor import QuantTensor
-from brevitas.export.base import BaseManager
+from brevitas.export.base import BaseManager, ExportContext
 from .handler.parameter import PytorchQuantConv2dHandler
 from .handler.parameter import PytorchQuantConv1dHandler
 from .handler.parameter import PytorchQuantLinearHandler
@@ -16,6 +17,7 @@ from .handler import qF
 
 
 class PytorchQuantManager(BaseManager):
+    target_name = 'torch'
 
     handlers = [
         PytorchQuantMaxPool1d,
@@ -28,8 +30,22 @@ class PytorchQuantManager(BaseManager):
         PytorchQuantLinearHandler]
 
     @classmethod
-    def export(cls, module: Module, input_t: Union[Tensor, QuantTensor]):
+    def export(
+            cls,
+            module: Module,
+            input_shape: Optional[Tuple[int, ...]] = None,
+            export_path: Optional[str] = None,
+            input_t: Optional[Union[Tensor, QuantTensor]] = None):
         if qF is None:
             raise RuntimeError("torch.nn.quantized.functional cannot be imported.")
-        traced_module = cls.jit_trace(module, input_t)
+        if input_shape is None and input_t is None:
+            raise RuntimeError("Export requires to pass in either input_shape or input_t")
+        if input_shape is not None and input_t is not None:
+            raise RuntimeError("Export accepts either an input shape or an input tensor, not both")
+        if input_t is None and input_shape is not None:
+            input_t = torch.empty(*input_shape)
+        with ExportContext(cls.target_name):
+            traced_module = cls.jit_inference_trace(module, input_t)
+        if export_path is not None:
+            traced_module.save(export_path)
         return traced_module

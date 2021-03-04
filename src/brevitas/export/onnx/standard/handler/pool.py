@@ -4,6 +4,9 @@ from typing import Union
 import torch
 from torch import Tensor
 
+# early import of max_pool to avoid being affected by monkeypatching
+from torch.nn.functional import max_pool1d, max_pool2d
+
 from brevitas.nn import QuantMaxPool1d, QuantMaxPool2d
 from .base import StdONNXQuantWrapperHandler
 
@@ -27,7 +30,7 @@ class StdONNXQuantMaxPool1d(StdONNXQuantMaxPoolNd):
 
     def op_symbolic_execution(self, inp: Tensor):
         op_symbolic_kwargs = self.symbolic_kwargs['op_symbolic_kwargs']
-        return torch.nn.functional.max_pool1d(inp, *op_symbolic_kwargs.values())
+        return max_pool1d(inp, *op_symbolic_kwargs.values())
 
 
 class StdONNXQuantMaxPool2d(StdONNXQuantMaxPoolNd):
@@ -35,4 +38,4 @@ class StdONNXQuantMaxPool2d(StdONNXQuantMaxPoolNd):
 
     def op_symbolic_execution(self, inp: Tensor):
         op_symbolic_kwargs = self.symbolic_kwargs['op_symbolic_kwargs']
-        return torch.nn.functional.max_pool2d(inp, *op_symbolic_kwargs.values())
+        return max_pool2d(inp, *op_symbolic_kwargs.values())
