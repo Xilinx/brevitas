@@ -162,7 +162,9 @@ class QuantAdaptiveAvgPool2d(QuantTruncMixin, QuantLayerMixin, AdaptiveAvgPool2d
         x = self.unpack_input(input)
         # shortcut execution through the export impl during export
         if self.export_mode:
-            return self.export_handler(x.value)
+            out = self.export_handler(x.value)
+            self._set_global_is_quant_layer(False)
+            return out
         y = x.set(value=super(QuantAdaptiveAvgPool2d, self).forward(x.value))
         k_size, stride = self.compute_kernel_size_stride(x.value.shape[2:], y.value.shape[2:])
         if self.cache_kernel_size_stride:

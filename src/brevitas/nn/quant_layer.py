@@ -170,7 +170,9 @@ class QuantNonLinearActLayer(
         quant_input = self.input_quant(input)
         # shortcut execution through the export impl during export
         if self.export_mode:
-            return self.export_handler(quant_input.value)
+            out = self.export_handler(quant_input.value)
+            self._set_global_is_quant_layer(False)
+            return out
         out = self.act_quant(quant_input)
         out = self.pack_output(out)
         return out
@@ -335,7 +337,9 @@ class QuantWeightBiasInputOutputLayer(
 
         # shortcut execution through the export impl during export
         if self.export_mode:
-            return self.export_handler(inp.value)
+            out = self.export_handler(inp.value)
+            self._set_global_is_quant_layer(False)
+            return out
 
         quant_input = self.input_quant(inp)
         quant_weight = self.quant_weight()

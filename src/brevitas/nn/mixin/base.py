@@ -50,6 +50,8 @@ from brevitas.quant_tensor import QuantTensor
 
 from .utils import filter_kwargs
 
+_IS_INSIDE_QUANT_LAYER = False
+
 
 class _CachedIO:
 
@@ -175,6 +177,11 @@ class QuantLayerMixin(object):
         else:
             return None
 
+    def _set_global_is_quant_layer(self, value):
+        global _IS_INSIDE_QUANT_LAYER
+        assert not _IS_INSIDE_QUANT_LAYER == value
+        _IS_INSIDE_QUANT_LAYER = value
+
     def quant_input_scale(self):
         if self._cached_inp is not None:
             return self._cached_inp.scale
@@ -219,6 +226,7 @@ class QuantLayerMixin(object):
             return None
 
     def unpack_input(self, inp: Union[Tensor, QuantTensor]):
+        self._set_global_is_quant_layer(True)
         if isinstance(inp, QuantTensor):
             # don't cache values during export pass
             if not self.training and not self._export_mode and self.cache_inference_quant_inp:
@@ -235,6 +243,7 @@ class QuantLayerMixin(object):
     def pack_output(self, quant_output: QuantTensor):
         if not self.training and self.cache_inference_quant_out:
             self._cached_out = _CachedIO(quant_output.detach(), self.cache_quant_io_metadata_only)
+        self._set_global_is_quant_layer(False)
         if self.return_quant_tensor:
             return quant_output
         else:
