@@ -54,7 +54,7 @@ class StdONNXManager(ONNXBaseManager):
             cls,
             module: Module,
             input_shape: Tuple[int, ...],
-            export_path: str,
+            export_path: Optional[str] = None,
             input_t: Optional[Union[Tensor, QuantTensor]] = None,
             **kwargs):
         return super().export_onnx(
