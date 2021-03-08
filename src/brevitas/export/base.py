@@ -1,13 +1,14 @@
 from typing import Tuple, Union, Optional
 from abc import ABC, abstractmethod
-from packaging import version
+from contextlib import ExitStack
+from io import BytesIO
 
 import torch
 from torch import Tensor
 from torch.nn import Module
 
 from brevitas.quant_tensor import QuantTensor
-from brevitas.utils.jit_utils import jit_trace_patched
+from brevitas.utils.jit_utils import jit_patches_generator
 
 
 def _override_quant_metadata_caching_mode(m: Module, enabled: bool):
@@ -67,6 +68,19 @@ def _set_export_mode(m: Module, enabled: bool):
         m.export_mode = enabled
 
 
+def _force_requires_grad_false(m: Module):
+    backup_dict = {}
+    for n, p in m.named_parameters():
+        backup_dict[n] = p.requires_grad
+        p.requires_grad_(False)
+    return backup_dict
+
+
+def _restore_requires_grad(m: Module, previous_state):
+    for n, p in m.named_parameters():
+        p.requires_grad_(previous_state[n])
+
+
 class BaseHandler(Module, ABC):
 
     def attach_debug_info(self, module):
@@ -83,6 +97,30 @@ class BaseManager(ABC):
 
     target_name = None
     handlers = []
+    base_trace_patches_generator = jit_patches_generator
+    trace_patches_generator = None
+    cache_patches_generator = None
+
+    @classmethod
+    @abstractmethod
+    def export(cls, *args, **kwargs):
+        return
+
+    @classmethod
+    def trace_patches(cls):
+        patches = []
+        if cls.base_trace_patches_generator is not None:
+            patches += cls.base_trace_patches_generator()
+        if cls.trace_patches_generator is not None:
+            patches += cls.trace_patches_generator()
+        return patches
+
+    @classmethod
+    def cache_patches(cls):
+        patches = []
+        if cls.cache_patches_generator is not None:
+            patches += cls.cache_patches_generator()
+        return patches
 
     @classmethod
     def handler_from_module(cls, module: Module):
@@ -109,7 +147,10 @@ class BaseManager(ABC):
         module.apply(lambda m: _override_bias_caching_mode(m, enabled=True))
         module.apply(lambda m: _override_inp_caching_mode(m, enabled=True))
         module.apply(lambda m: _override_out_caching_mode(m, enabled=True))
-        _ = module.forward(input_t)
+        with ExitStack() as stack:
+            for mgr in cls.cache_patches():
+                stack.enter_context(mgr)
+            _ = module.forward(input_t)
         # Restore previous caching properties
         module.apply(lambda m: _restore_quant_metadata_caching_mode(m))
         module.apply(lambda m: _restore_bias_caching_mode(m))
@@ -117,7 +158,7 @@ class BaseManager(ABC):
         module.apply(lambda m: _restore_out_caching_mode(m))
 
     @classmethod
-    def jit_trace(cls, module: Module, input_t: Union[Tensor, QuantTensor]):
+    def jit_inference_trace(cls, module: Module, input_t: Union[Tensor, QuantTensor]):
         with torch.no_grad():
             training_state = module.training
             module = module.eval()
@@ -129,7 +170,22 @@ class BaseManager(ABC):
                 input_t = input_t.value
             # enable export mode, this triggers collecting export values into handlers
             module.apply(lambda m: _set_export_mode(m, enabled=True))
-            traced_model = jit_trace_patched(module, input_t)
+            # force requires_grad to False to let the wrapped model lambda go through tracing
+            requires_grad_backup_dict = _force_requires_grad_false(module)
+            with ExitStack() as stack:
+                for mgr in cls.trace_patches():
+                    stack.enter_context(mgr)
+                # wrapping with a lambda forces inlining during tracing,
+                # converts everything to const and removes unused params/buffers
+                model_fn = lambda *args, **kwargs: module(*args, **kwargs)
+                traced_model = torch.jit.trace(model_fn, input_t)
+            # Hack to clone the function, otherwise restoring requires_grad
+            # on module will break traced_model
+            with BytesIO() as tmp:
+                torch.jit.save(traced_model, tmp)
+                tmp.seek(0)
+                traced_model = torch.jit.load(tmp)
+            _restore_requires_grad(module, requires_grad_backup_dict)
             module.apply(lambda m: _set_export_mode(m, enabled=False))
             module.train(training_state)
             return traced_model

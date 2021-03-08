@@ -22,4 +22,4 @@ def export_standard_onnx(*args, **kwargs):
 
 
 def jit_trace_dpuv1(*args, **kwargs):
-    return DPUv1Manager.jit_trace(*args, **kwargs)
+    return DPUv1Manager.jit_inference_trace(*args, **kwargs)
