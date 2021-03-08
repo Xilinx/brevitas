@@ -36,13 +36,15 @@ class ONNXBaseManager(BaseManager, ABC):
     @classmethod
     def solve_keep_initializers_as_inputs(cls, export_kwargs):
         # See https://github.com/pytorch/pytorch/commit/7583519b870e33ee3182f330c1bb8663559697b6
-        if torch_version >= version.parse('1.3.0'):
-            export_kwargs['keep_initializers_as_inputs'] = True
+        ka = 'keep_initializers_as_inputs'
+        if torch_version >= version.parse('1.3.0') and ka not in export_kwargs:
+            export_kwargs[ka] = True
 
     @classmethod
     def solve_enable_onnx_checker(cls, export_kwargs):
-        if torch_version >= version.parse('1.5.0'):
-            export_kwargs['enable_onnx_checker'] = False
+        ka = 'enable_onnx_checker'
+        if torch_version >= version.parse('1.5.0') and ka not in export_kwargs:
+            export_kwargs[ka] = False
 
     @classmethod
     def export_onnx(
