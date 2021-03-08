@@ -1,6 +1,7 @@
 from typing import Tuple, Union, Optional
 from abc import ABC
 from packaging import version
+from contextlib import ExitStack
 
 try:
     import onnx
@@ -16,14 +17,12 @@ from torch.nn import Module
 
 from brevitas import torch_version
 from brevitas.quant_tensor import QuantTensor
-from brevitas.utils.jit_utils import onnx_export_patched
 from ..base import BaseManager, _set_export_mode
 from ..base import _override_inp_caching_mode, _restore_inp_caching_mode
 from .. import ExportContext
 
 
 class ONNXBaseManager(BaseManager, ABC):
-    target_name = None  # 'abstract' variable
 
     model_transforms = []
     onnx_passes = []
@@ -68,14 +67,14 @@ class ONNXBaseManager(BaseManager, ABC):
         cls.solve_enable_onnx_checker(kwargs)
 
         with torch.no_grad():
-            training_state = module.training
-            module = module.eval()
-            module.apply(cls.set_export_handler)
-            if input_t is None:
-                input_t = torch.empty(input_shape, dtype=torch.float)
-            # do a forward pass with the dummy input to e.g. store input/output shapes
-            cls.cache_inp_out(module, input_t)
             with ExportContext(cls.target_name):
+                training_state = module.training
+                module = module.eval()
+                module.apply(cls.set_export_handler)
+                if input_t is None:
+                    input_t = torch.empty(input_shape, dtype=torch.float)
+                # do a forward pass with the dummy input to e.g. store input/output shapes
+                cls.cache_inp_out(module, input_t)
                 # override any given input_t to make sure it's a standard PyTorch tensor
                 input_t = torch.empty(input_shape, dtype=torch.float)
                 # enable export mode, this triggers collecting export values into handlers
@@ -83,7 +82,10 @@ class ONNXBaseManager(BaseManager, ABC):
                 # temporarily disable input caching to avoid collectives empty debug values
                 module.apply(lambda m: _override_inp_caching_mode(m, enabled=False))
                 # perform export pass
-                onnx_export_patched(module, input_t, export_path, **kwargs)
+                with ExitStack() as stack:
+                    for mgr in cls.trace_patches():
+                        stack.enter_context(mgr)
+                    torch.onnx.export(module, input_t, export_path, **kwargs)
                 # restore the model to previous properties
                 module.apply(lambda m: _restore_inp_caching_mode(m))
                 module.apply(lambda m: _set_export_mode(m, enabled=False))
