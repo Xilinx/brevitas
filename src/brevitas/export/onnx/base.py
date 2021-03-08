@@ -47,11 +47,21 @@ class ONNXBaseManager(BaseManager, ABC):
             export_kwargs[ka] = False
 
     @classmethod
-    def export_onnx(
+    def export(
             cls,
             module: Module,
             input_shape: Tuple[int, ...],
             export_path: str,
+            input_t: Optional[Union[Tensor, QuantTensor]] = None,
+            **kwargs):
+        return cls.export_onnx(module, input_shape, export_path, input_t, **kwargs)
+
+    @classmethod
+    def export_onnx(
+            cls,
+            module: Module,
+            input_shape: Tuple[int, ...],
+            export_path: Optional[str] = None,
             input_t: Optional[Union[Tensor, QuantTensor]] = None,
             **kwargs):
         """
