@@ -93,7 +93,7 @@ class QuantTensor(NamedTuple):
                         is_upper_b = (2.0 ** (self.bit_width - 1) - 1 >= rounded_int_value).all()
                         is_lower_b = (- 2.0 ** (self.bit_width - 1) <= rounded_int_value).all()
                     else:
-                        is_upper_b = (2.0 ** (self.bit_width - 1) >= rounded_int_value).all()
+                        is_upper_b = (2.0 ** self.bit_width - 1 >= rounded_int_value).all()
                         is_lower_b = (0. <= int_value).all()
                     return (is_int & is_upper_b & is_lower_b).item()
                 else:  # binary case
