@@ -96,4 +96,6 @@ class ONNXBaseManager(BaseManager, ABC):
             model = onnx.load(export_path)
             model = opt.optimize(model, cls.onnx_passes)
             model = cls.apply_model_transforms(model)
-            onnx.save(model, export_path)
+            if export_path is not None:
+                onnx.save(model, export_path)
+            return model
