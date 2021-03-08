@@ -18,6 +18,7 @@ from .handler.act import StdONNXQuantTanhHandler
 from .handler.act import StdONNXQuantSigmoidHandler
 from .handler.pool import StdONNXQuantMaxPool1d
 from .handler.pool import StdONNXQuantMaxPool2d
+from .fn_patch import gen_cache_patches, gen_trace_patches
 from . import OPSET
 
 
@@ -39,6 +40,9 @@ class StdONNXManager(ONNXBaseManager):
     onnx_passes = [
         # remove unused graph inputs & initializers
         "eliminate_unused_initializer"]
+
+    trace_patches_generator = gen_trace_patches
+    cache_patches_generator = gen_cache_patches
 
     @classmethod
     def solve_enable_onnx_checker(cls, export_kwargs):
