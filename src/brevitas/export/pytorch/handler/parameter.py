@@ -61,6 +61,10 @@ class PytorchQuantWBIOLHandler(PytorchQuantLayerHandler):
 
     def forward(self, q_inp: Tensor):
         if self.input_quant_impl is not None:
+            # If the input is quantized from a previous layer,
+            # we have to dequant and requant
+            if q_inp.is_quantized:
+                q_inp.dequantize()
             q_inp = self.input_quant_impl(q_inp, **self.input_quant_kwargs)
         assert q_inp.is_quantized, 'Input needs to be quantized'
         q_out = self.qf_impl(q_inp, self.q_weight(), **self.qf_kwargs, **self.output_quant_kwargs)
