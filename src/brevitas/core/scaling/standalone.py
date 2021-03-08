@@ -253,7 +253,8 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
         if config.JIT_ENABLED:
             warnings.warn(
                 'BREVITAS_JIT=1 on ParameterFromRuntimeStatsScaling could result in numerical '
-                'errors. Disabling it is highly recommended unless you know what you are doing.')
+                'errors. Disabling it is highly recommended unless you are resuming from a previous'
+                'quantized checkpoint (not a floating-point one).')
         if scaling_shape != SCALAR_SHAPE and scaling_stats_permute_dims is None:
             raise RuntimeError("Per channel runtime stats require a permute shape")
         self.collect_stats_steps = collect_stats_steps
@@ -292,6 +293,14 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
                 return self.restrict_clamp_scaling(abs_binary_sign_grad(self.value))
         out = self.restrict_clamp_scaling(abs_binary_sign_grad(self.value))
         return out
+
+    def state_dict(self, destination=None, prefix='', keep_vars=False):
+        output_dict = super(ParameterFromRuntimeStatsScaling, self).state_dict(
+            destination, prefix, keep_vars)
+        # Don't save the state dict if we are still in stats collection phase
+        if self.counter < self.collect_stats_steps:
+            del output_dict[prefix + 'value']
+        return output_dict
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
                               missing_keys, unexpected_keys, error_msgs):
