@@ -48,6 +48,7 @@ from brevitas.function.ops_ste import ceil_ste, round_ste
 from brevitas.function.ops import max_int
 from .torch_handler import QUANT_TENSOR_FN_HANDLER
 
+
 class QuantTensor(NamedTuple):
     value: Tensor
     scale: Optional[Tensor] = None
