@@ -1,5 +1,7 @@
-import pytest
+from platform import system
 
+import pytest
+from packaging.version import parse
 import numpy as np
 import torch
 import finn.core.onnx_exec as oxe
@@ -10,14 +12,22 @@ from finn.transformation.general import GiveUniqueNodeNames
 from finn.transformation.general import RemoveStaticGraphInputs
 from finn.transformation.double_to_single_float import DoubleToSingleFloat
 
+from brevitas import torch_version
 from brevitas_examples.imagenet_classification import quant_mobilenet_v1_4b
 from brevitas.onnx import export_finn_onnx
+
+ort_mac_fail = pytest.mark.skipif(
+    torch_version >= parse('1.5.0')
+    and system() == 'Darwin',
+    reason='Issue with ORT and MobileNet export on MacOS on PyTorch >= 1.5.0')
 
 
 INPUT_SIZE = (1, 3, 224, 224)
 ATOL = 1e-3
 SEED = 0
 
+
+@ort_mac_fail
 @pytest.mark.parametrize("pretrained", [True])
 def test_mobilenet_v1_4b(pretrained):
     finn_onnx = "mobilenet_v1_4b.onnx"
