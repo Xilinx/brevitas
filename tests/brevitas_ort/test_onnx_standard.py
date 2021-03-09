@@ -1,24 +1,15 @@
 from operator import mul
 from functools import reduce
-from platform import system
-from packaging.version import parse
 
 import torch
 import onnxruntime as rt
 import numpy as np
-import pytest
 
 from brevitas.nn import QuantConv2d, QuantLinear, QuantIdentity, QuantMaxPool2d
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
 from brevitas.onnx import export_standard_onnx
-from brevitas import torch_version
 
-ort_mac_fail = pytest.mark.skipif(
-    parse(rt.__version__) == parse('1.6.0')
-    and torch_version > parse('1.2.0')
-    and system() == 'Darwin',
-    reason='Issue with ORT 1.7.0 and QLinearMatMul on MacOS')
 
 OUT_CH = 40
 IN_CH = 50
@@ -123,7 +114,6 @@ def test_standard_onnx_quant_max_pool_export():
     assert is_brevitas_ort_close(model, inp, export_name, atol=atol)
 
 
-@ort_mac_fail
 def test_standard_onnx_quant_linear_export():
     IN_SIZE = (IN_CH, IN_CH)
 
