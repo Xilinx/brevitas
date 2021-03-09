@@ -1,5 +1,4 @@
-from typing import Union
-from abc import ABC, abstractmethod
+from abc import ABC
 
 import torch
 from torch import Tensor
@@ -8,6 +7,7 @@ from brevitas.nn import QuantReLU, QuantIdentity, QuantHardTanh
 from brevitas.nn.quant_layer import QuantNonLinearActLayer as QuantNLAL
 
 from .base import PytorchQuantLayerHandler
+from . import qF
 
 
 class PytorchQuantNLALHandler(PytorchQuantLayerHandler, ABC):
@@ -45,7 +45,7 @@ class PytorchQuantReLUHandler(PytorchQuantNLALHandler):
 
     @classmethod
     def prepare_qf(cls, module):
-        return torch.nn.quantized.functional.relu, {}
+        return torch.nn.functional.relu, {}
 
 
 class PytorchQuantIdentityHandler(PytorchQuantNLALHandler):

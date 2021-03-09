@@ -1,10 +1,9 @@
 from abc import ABC
 from typing import Union
 
-import torch.nn.quantized.functional as qF
-
 from brevitas.nn import QuantMaxPool1d, QuantMaxPool2d
 from .base import PytorchQuantLayerHandler
+from . import qF
 
 
 class PytorchQuantMaxPoolNd(PytorchQuantLayerHandler, ABC):

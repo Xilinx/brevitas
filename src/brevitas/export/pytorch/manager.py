@@ -12,6 +12,7 @@ from .handler.act import PytorchQuantIdentityHandler
 from .handler.act import PytorchQuantReLUHandler
 from .handler.act import PytorchQuantHardTanhHandler
 from .handler.pool import PytorchQuantMaxPool1d, PytorchQuantMaxPool2d
+from .handler import qF
 
 
 class PytorchQuantManager(BaseManager):
@@ -28,5 +29,7 @@ class PytorchQuantManager(BaseManager):
 
     @classmethod
     def export(cls, module: Module, input_t: Union[Tensor, QuantTensor]):
+        if qF is None:
+            raise RuntimeError("torch.nn.quantized.functional cannot be imported.")
         traced_module = cls.jit_trace(module, input_t)
         return traced_module

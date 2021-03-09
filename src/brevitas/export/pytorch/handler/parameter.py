@@ -1,15 +1,14 @@
 import warnings
 from typing import Union
-from abc import abstractmethod, ABC
+from abc import ABC
 
-import torch
 from torch import Tensor
-from torch.nn.quantized import functional as qF
 
 from brevitas.nn import QuantConv2d, QuantConv1d, QuantLinear
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 
 from .base import PytorchQuantLayerHandler
+from . import qF
 
 
 class PytorchQuantWBIOLHandler(PytorchQuantLayerHandler):
