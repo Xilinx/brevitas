@@ -1,7 +1,6 @@
 import torch
 
-from brevitas.onnx import enable_debug
-from brevitas.onnx import export_finn_onnx
+from brevitas.export import export_finn_onnx, enable_debug
 from brevitas_examples.bnn_pynq.models import model_with_cfg
 
 REF_MODEL = 'CNV_2W2A'

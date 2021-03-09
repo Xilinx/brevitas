@@ -17,9 +17,8 @@ from torch.nn import Module
 
 from brevitas import torch_version
 from brevitas.quant_tensor import QuantTensor
-from ..base import BaseManager, _set_export_mode
+from ..base import BaseManager, _set_export_mode, ExportContext
 from ..base import _override_inp_caching_mode, _restore_inp_caching_mode
-from .. import ExportContext
 
 
 class ONNXBaseManager(BaseManager, ABC):

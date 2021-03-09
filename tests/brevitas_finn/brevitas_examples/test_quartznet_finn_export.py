@@ -10,7 +10,7 @@ from finn.transformation.general import GiveUniqueNodeNames
 from finn.transformation.general import RemoveStaticGraphInputs
 from finn.transformation.double_to_single_float import DoubleToSingleFloat
 
-from brevitas.onnx import FINNManager
+from brevitas.export import FINNManager
 from brevitas_examples.speech_to_text import quant_quartznet_perchannelscaling_4b
 
 
@@ -25,7 +25,7 @@ def test_quartznet_asr_4b(pretrained):
     finn_onnx = "quant_quartznet_perchannelscaling_4b.onnx"
     quartznet = quant_quartznet_perchannelscaling_4b(pretrained, export_mode=True)
     quartznet.eval()
-    FINNManager.export_onnx(quartznet, QUARTZNET_POSTPROCESSED_INPUT_SIZE, finn_onnx)
+    FINNManager.export(quartznet, QUARTZNET_POSTPROCESSED_INPUT_SIZE, finn_onnx)
     model = ModelWrapper(finn_onnx)
     model = model.transform(GiveUniqueNodeNames())
     model = model.transform(DoubleToSingleFloat())

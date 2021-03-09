@@ -7,8 +7,23 @@ import torch
 from torch import Tensor
 from torch.nn import Module
 
+from brevitas import config
 from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.jit_utils import jit_patches_generator
+
+
+class ExportContext:
+
+    def __init__(self, target):
+        self.target = target
+
+    def __enter__(self):
+        assert config._ONGOING_EXPORT is None
+        config._ONGOING_EXPORT = self.target
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        assert config._ONGOING_EXPORT is not None
+        config._ONGOING_EXPORT = None
 
 
 def _override_quant_metadata_caching_mode(m: Module, enabled: bool):

@@ -4,8 +4,9 @@ from contextlib import ExitStack
 import torch
 import torch.nn.functional as F
 
+from brevitas import config
 from brevitas.quant_tensor import QuantTensor
-from brevitas.nn.mixin.base import _CachedIO, _IS_INSIDE_QUANT_LAYER
+from brevitas.nn.mixin.base import _CachedIO
 from brevitas.utils.python_utils import patch
 
 from .function import QuantizeLinearFunction, DequantizeLinearFunction
@@ -52,7 +53,7 @@ def _cache_fn_dispatcher(fn, input, *args, **kwargs):
             # up during jit tracing as they are replaced by symbolic functions,
             # but the latter will, so we have to account for them in the _fn_cache
             output = fn(input, *args, **kwargs)
-            if not _IS_INSIDE_QUANT_LAYER:
+            if not config._IS_INSIDE_QUANT_LAYER:
                 _fn_cache.append(None)
     return output
 

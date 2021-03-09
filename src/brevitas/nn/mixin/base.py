@@ -45,12 +45,11 @@ from abc import ABCMeta, abstractmethod
 from typing import Optional, Union
 from inspect import isclass
 
+from brevitas import config
 from brevitas.inject import ExtendedInjector, Injector
 from brevitas.quant_tensor import QuantTensor
 
 from .utils import filter_kwargs
-
-_IS_INSIDE_QUANT_LAYER = False
 
 
 class _CachedIO:
@@ -178,9 +177,8 @@ class QuantLayerMixin(object):
             return None
 
     def _set_global_is_quant_layer(self, value):
-        global _IS_INSIDE_QUANT_LAYER
-        assert not _IS_INSIDE_QUANT_LAYER == value
-        _IS_INSIDE_QUANT_LAYER = value
+        assert not config._IS_INSIDE_QUANT_LAYER == value
+        config._IS_INSIDE_QUANT_LAYER = value
 
     def quant_input_scale(self):
         if self._cached_inp is not None:

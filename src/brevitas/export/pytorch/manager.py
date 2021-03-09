@@ -5,8 +5,7 @@ from torch import Tensor
 from torch.nn import Module
 
 from brevitas.quant_tensor import QuantTensor
-from brevitas.export import ExportContext
-from brevitas.export.base import BaseManager
+from brevitas.export.base import BaseManager, ExportContext
 from .handler.parameter import PytorchQuantConv2dHandler
 from .handler.parameter import PytorchQuantConv1dHandler
 from .handler.parameter import PytorchQuantLinearHandler
