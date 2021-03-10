@@ -4,12 +4,22 @@ from contextlib import ExitStack
 from io import BytesIO
 
 import torch
-from torch import Tensor
+from torch import Tensor, nn
 from torch.nn import Module
 
 from brevitas import config
 from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.jit_utils import jit_patches_generator
+
+
+class _JitTraceExportWrapper(nn.Module):
+
+    def __init__(self, model_to_trace):
+        super(_JitTraceExportWrapper, self).__init__()
+        self.fn_to_trace = lambda *args, **kwargs: model_to_trace(*args, **kwargs)
+
+    def forward(self, *args, **kwargs):
+        return self.fn_to_trace(*args, **kwargs)
 
 
 class ExportContext:
@@ -192,8 +202,7 @@ class BaseManager(ABC):
                     stack.enter_context(mgr)
                 # wrapping with a lambda forces inlining during tracing,
                 # converts everything to const and removes unused params/buffers
-                model_fn = lambda *args, **kwargs: module(*args, **kwargs)
-                traced_model = torch.jit.trace(model_fn, input_t)
+                traced_model = torch.jit.trace(_JitTraceExportWrapper(module), input_t)
             # Hack to clone the function, otherwise restoring requires_grad
             # on module will break traced_model
             with BytesIO() as tmp:
