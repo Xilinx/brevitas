@@ -1,7 +1,11 @@
+# -*- coding: future_annotations -*-
+from typing import TYPE_CHECKING
+
 import torch
 from torch.autograd import Function
 
-from brevitas.nn.mixin.base import QuantLayerMixin
+if TYPE_CHECKING:
+    from brevitas.nn.mixin.base import QuantLayerMixin
 
 
 class DebugMarkerFunction(Function):
