@@ -82,25 +82,31 @@ class QuantTensor(NamedTuple):
                 and self.signed is not None)
 
     @property
+    def _pre_round_int_value(self):
+        int_value = self.value / self.scale
+        int_value = int_value + self.zero_point
+        return int_value
+
+    @property
     def is_valid(self):
         if self.is_not_none:
             with torch.no_grad():
-                int_value = (self.value / self.scale) + self.zero_point
-                rounded_int_value = torch.round(int_value)
-                is_int = torch.isclose(int_value, rounded_int_value).all()
+                pre_round_int_value = self._pre_round_int_value
+                rounded_int_value = torch.round(pre_round_int_value)
+                is_int = torch.isclose(pre_round_int_value, rounded_int_value).all()
                 if self.bit_width >= 2:
                     if self.signed:
                         is_upper_b = (2.0 ** (self.bit_width - 1) - 1 >= rounded_int_value).all()
                         is_lower_b = (- 2.0 ** (self.bit_width - 1) <= rounded_int_value).all()
                     else:
                         is_upper_b = (2.0 ** self.bit_width - 1 >= rounded_int_value).all()
-                        is_lower_b = (0. <= int_value).all()
+                        is_lower_b = (0. <= rounded_int_value).all()
                     return (is_int & is_upper_b & is_lower_b).item()
                 else:  # binary case
                     unique_vals = rounded_int_value.unique(
                         sorted=False, return_counts=False, return_inverse=False)
                     is_binary = unique_vals.view(-1).size()[0] == 2
-                    is_signed = (unique_vals < 0.).all().item()
+                    is_signed = (unique_vals < 0.).any().item()
                     sign_match = is_signed == self.signed
                     return is_int.item() and is_binary and sign_match
         else:
@@ -126,15 +132,13 @@ class QuantTensor(NamedTuple):
 
     def int(self, float_datatype=False):
         if self.is_valid:
-            int_value = self.value / self.scale
-            int_value = int_value + self.zero_point
-            int_value = round_ste(int_value)
+            int_value = round_ste(self._pre_round_int_value)
             if float_datatype:
                 return int_value
             else:
                 return int_value.int()
         else:
-            raise RuntimeError(f"QuantTensor not well formed, all fields must be set: {self}")
+            raise RuntimeError(f"QuantTensor not valid.")
 
     @staticmethod
     def check_input_type(tensor):
