@@ -177,6 +177,8 @@ class QuantLayerMixin(object):
             return None
 
     def _set_global_is_quant_layer(self, value):
+        if config._IS_INSIDE_QUANT_LAYER is not None:
+            assert (not config._IS_INSIDE_QUANT_LAYER) == value
         config._IS_INSIDE_QUANT_LAYER = value
 
     def quant_input_scale(self):

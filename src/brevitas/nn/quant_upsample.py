@@ -77,7 +77,9 @@ class QuantUpsample(QuantLayerMixin, Upsample):
     def forward(self, input: Union[Tensor, QuantTensor]):
         x = self.unpack_input(input)
         if self.export_mode:
-            return self.export_handler(x.value)
+            out = self.export_handler(x.value)
+            self._set_global_is_quant_layer(False)
+            return out
         y_value = interpolate(x.value, self.size, self.scale_factor, self.mode, self.align_corners)
         if self.mode != 'nearest':
             # round interpolated values to scale
@@ -107,7 +109,9 @@ class QuantUpsamplingBilinear2d(QuantLayerMixin, UpsamplingBilinear2d):
     def forward(self, input: Union[Tensor, QuantTensor]):
         x = self.unpack_input(input)
         if self.export_mode:
-            return self.export_handler(x.value)
+            out = self.export_handler(x.value)
+            self._set_global_is_quant_layer(False)
+            return out
         y_value = interpolate(x.value, self.size, self.scale_factor, self.mode, self.align_corners)
         # round interpolated values to scale
         assert x.scale is not None, 'Input scale factor required to interpolate correctly'
@@ -136,7 +140,9 @@ class QuantUpsamplingNearest2d(QuantLayerMixin, UpsamplingNearest2d):
     def forward(self, input: Union[Tensor, QuantTensor]):
         x = self.unpack_input(input)
         if self.export_mode:
-            return self.export_handler(x.value)
+            out = self.export_handler(x.value)
+            self._set_global_is_quant_layer(False)
+            return out
         y_value = interpolate(x.value, self.size, self.scale_factor, self.mode, self.align_corners)
         y = x.set(value=y_value)
         return self.pack_output(y)

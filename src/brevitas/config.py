@@ -15,6 +15,6 @@ JIT_ENABLED = env_to_bool('BREVITAS_JIT', False) and _enabled
 VERBOSE = env_to_bool('BREVITAS_VERBOSE', False)
 
 # Internal global variables
-_IS_INSIDE_QUANT_LAYER = False
+_IS_INSIDE_QUANT_LAYER = None
 _ONGOING_EXPORT = None
 
