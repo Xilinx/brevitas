@@ -2,6 +2,7 @@ import warnings
 from typing import Union
 from abc import ABC
 
+import torch
 from torch import Tensor
 
 from brevitas.nn import QuantConv2d, QuantConv1d, QuantLinear
