@@ -1,10 +1,13 @@
+# -*- coding: future_annotations -*-
+
 from abc import ABC
-from typing import Tuple, Union, Optional
+from typing import Tuple, Union, Optional, TYPE_CHECKING
 
 import torch
 
-from brevitas.nn.mixin.base import QuantLayerMixin
-from brevitas.nn.mixin.act import QuantOutputMixin, QuantInputMixin
+if TYPE_CHECKING:
+    from brevitas.nn.mixin.base import QuantLayerMixin
+    from brevitas.nn.mixin.act import QuantOutputMixin
 from brevitas.export.onnx.handler import ONNXBaseHandler
 
 
