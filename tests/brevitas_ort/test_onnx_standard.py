@@ -10,6 +10,8 @@ from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
 from brevitas.export import export_standard_onnx
 
+from tests.marker import requires_pt_ge
+
 
 OUT_CH = 40
 IN_CH = 50
@@ -143,6 +145,7 @@ def test_standard_onnx_quant_linear_export():
     assert is_brevitas_ort_close(model, inp, export_name, atol=atol)
 
 
+@requires_pt_ge('1.5.0')
 def test_functional_max_pool_export():
     IN_SIZE = (1, OUT_CH, IN_CH, IN_CH)
 

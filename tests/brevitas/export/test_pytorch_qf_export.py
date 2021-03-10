@@ -142,6 +142,7 @@ def test_quant_max_pool2d_export():
     assert pytorch_out.isclose(brevitas_out, rtol=0.0, atol=atol).all()
 
 
+@requires_pt_ge('1.5.0')
 def test_func_quant_max_pool2d_export():
     IN_SIZE = (1, 1, IN_CH, IN_CH)
     KERNEL_SIZE = 2
