@@ -44,7 +44,7 @@ class PytorchQuantManager(BaseManager):
             raise RuntimeError("Export accepts either an input shape or an input tensor, not both")
         if input_t is None and input_shape is not None:
             input_t = torch.empty(*input_shape)
-        with ExportContext(cls.target_name):
+        with ExportContext(cls):
             traced_module = cls.jit_inference_trace(module, input_t)
         if export_path is not None:
             traced_module.save(export_path)
