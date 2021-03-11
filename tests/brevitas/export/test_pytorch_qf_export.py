@@ -13,7 +13,9 @@ IN_CH = 40
 TOLERANCE = 1.1
 
 
-@requires_pt_ge('1.2.0')
+@requires_pt_ge('1.2.0', 'Linux')
+@requires_pt_ge('1.5.0', 'Windows')
+@requires_pt_ge('9999', 'Darwin')
 def test_pytorch_quant_conv_export():
     IN_SIZE = (2, IN_CH, IN_CH, IN_CH)
     KERNEL_SIZE = (3, 3)
@@ -49,7 +51,9 @@ def test_pytorch_quant_conv_export():
     assert pytorch_out.isclose(brevitas_out, rtol=0.0, atol=atol).all()
 
 
-@requires_pt_ge('1.2.0')
+@requires_pt_ge('1.2.0', 'Linux')
+@requires_pt_ge('1.5.0', 'Windows')
+@requires_pt_ge('9999', 'Darwin')
 def test_pytorch_quant_linear_export():
     IN_SIZE = (IN_CH, IN_CH)
 
@@ -83,7 +87,9 @@ def test_pytorch_quant_linear_export():
     assert pytorch_out.isclose(brevitas_out, rtol=0.0, atol=atol).all()
 
 
-@requires_pt_ge('1.2.0')
+@requires_pt_ge('1.2.0', 'Linux')
+@requires_pt_ge('1.5.0', 'Windows')
+@requires_pt_ge('9999', 'Darwin')
 def test_quant_act_export():
     IN_SIZE = (IN_CH, IN_CH)
 
@@ -142,7 +148,9 @@ def test_quant_max_pool2d_export():
     assert pytorch_out.isclose(brevitas_out, rtol=0.0, atol=atol).all()
 
 
-@requires_pt_ge('1.5.0')
+@requires_pt_ge('1.5.0', 'Linux')
+@requires_pt_ge('1.5.0', 'Windows')
+@requires_pt_ge('9999', 'Darwin')
 def test_func_quant_max_pool2d_export():
     IN_SIZE = (1, 1, IN_CH, IN_CH)
     KERNEL_SIZE = 2
