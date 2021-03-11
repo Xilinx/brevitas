@@ -74,7 +74,6 @@ def install_torchvision(pytorch, session):
 @nox.parametrize('pytorch', PYTORCH_VERSIONS, ids=PYTORCH_IDS)
 @nox.parametrize('jit_status', JIT_STATUSES, ids=JIT_IDS)
 def tests_brevitas_cpu(session, pytorch, jit_status):
-    session.env['PYTORCH_JIT'] = '{}'.format(int(jit_status == 'jit_enabled'))
     session.env['BREVITAS_JIT'] = '{}'.format(int(jit_status == 'jit_enabled'))
     install_pytorch(pytorch, session)
     install_torchvision(pytorch, session)
