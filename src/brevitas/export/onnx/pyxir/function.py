@@ -8,6 +8,7 @@ class DPUQuantReLUPlaceholderFunction(Function):
     @staticmethod
     def symbolic(
             g, x,
+            output_shape,
             input_bit_width,
             input_scale,
             output_bit_width,
@@ -23,11 +24,12 @@ class DPUQuantReLUPlaceholderFunction(Function):
     @staticmethod
     def forward(
             ctx, x,
+            output_shape,
             input_bit_width,
             input_scale,
             output_bit_width,
             output_scale):
-        return x.clamp(0.0)
+        return x
 
 
 class DPUQuantAvgPoolPlaceholderFunction(Function):
@@ -106,7 +108,7 @@ class DPUQuantEltwiseAddPlaceholderFunction(Function):
             other_scale,
             output_bit_width,
             output_scale):
-        return x + y
+        return x
 
 
 class DPUQuantMaxPoolPlaceholderFunction(Function):
@@ -115,12 +117,12 @@ class DPUQuantMaxPoolPlaceholderFunction(Function):
     @abstractmethod
     def symbolic(
             ctx, x,
-            out_shape,
             kernel_shape,
             pads,
             strides,
             ceil_mode,
             dilations,
+            out_shape,
             input_bit_width,
             input_scale,
             output_bit_width,
@@ -130,12 +132,12 @@ class DPUQuantMaxPoolPlaceholderFunction(Function):
     @staticmethod
     def forward(
             ctx, x,
-            out_shape,
             kernel_shape,
             pads,
             strides,
             ceil_mode,
             dilations,
+            out_shape,
             input_bit_width,
             input_scale,
             output_bit_width,
