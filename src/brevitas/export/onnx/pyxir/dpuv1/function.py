@@ -63,12 +63,12 @@ class DPUv1QuantMaxPoolPlaceholderFunction(DPUQuantMaxPoolPlaceholderFunction):
     @staticmethod
     def symbolic(
             g, x,
-            out_shape,
             kernel_shape,
             pads,
             strides,
             ceil_mode,
             dilations,
+            out_shape,
             input_bit_width,
             input_scale,
             output_bit_width,

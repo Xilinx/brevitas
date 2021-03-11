@@ -2,6 +2,7 @@ from typing import Tuple, Union, Optional
 from abc import ABC, abstractmethod
 from contextlib import ExitStack
 from io import BytesIO
+from functools import partial
 
 import torch
 from torch import Tensor, nn
@@ -10,6 +11,8 @@ from torch.nn import Module
 from brevitas import config
 from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.jit_utils import jit_patches_generator
+from brevitas.nn.mixin.base import _CachedIO
+from brevitas.utils.python_utils import patch
 
 
 class _JitTraceExportWrapper(nn.Module):
@@ -24,16 +27,19 @@ class _JitTraceExportWrapper(nn.Module):
 
 class ExportContext:
 
-    def __init__(self, target):
-        self.target = target
+    def __init__(self, manager_cls):
+        self.target_name = manager_cls.target_name
+        self.cache = manager_cls._fn_cache
 
     def __enter__(self):
         assert config._ONGOING_EXPORT is None
-        config._ONGOING_EXPORT = self.target
+        config._ONGOING_EXPORT = self.target_name
+        assert not self.cache
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
         assert config._ONGOING_EXPORT is not None
         config._ONGOING_EXPORT = None
+        assert not self.cache
 
 
 def _override_quant_metadata_caching_mode(m: Module, enabled: bool):
@@ -122,9 +128,10 @@ class BaseManager(ABC):
 
     target_name = None
     handlers = []
-    base_trace_patches_generator = jit_patches_generator
-    trace_patches_generator = None
-    cache_patches_generator = None
+    _base_trace_patches_generator = jit_patches_generator
+    _fn_to_cache = []
+    _fn_cache = []
+    _cached_io_handler_map = {}
 
     @classmethod
     @abstractmethod
@@ -132,20 +139,63 @@ class BaseManager(ABC):
         return
 
     @classmethod
-    def trace_patches(cls):
+    def _gen_patches(cls, fn_dispatcher):
         patches = []
-        if cls.base_trace_patches_generator is not None:
-            patches += cls.base_trace_patches_generator()
-        if cls.trace_patches_generator is not None:
-            patches += cls.trace_patches_generator()
+        for fn in cls._fn_to_cache:
+            dispatcher = partial(fn_dispatcher, fn)
+            p = patch(torch.nn.functional, fn.__name__, dispatcher)
+            patches.append(p)
         return patches
 
     @classmethod
-    def cache_patches(cls):
+    def _trace_patches(cls):
         patches = []
-        if cls.cache_patches_generator is not None:
-            patches += cls.cache_patches_generator()
+        if cls._base_trace_patches_generator is not None:
+            patches += cls._base_trace_patches_generator()
+        patches += cls._gen_patches(cls._trace_fn_dispatcher)
         return patches
+
+    @classmethod
+    def _cache_patches(cls):
+        return cls._gen_patches(cls._cache_fn_dispatcher)
+
+    @classmethod
+    def _restore_fn_patches(cls):
+        return [patch(torch.nn.functional, fn.__name__, fn) for fn in cls._fn_to_cache]
+
+    @classmethod
+    def _trace_fn_dispatcher(cls, fn, input, *args, **kwargs):
+        # baseline impl
+        cls._fn_to_cache.pop(0)
+        return fn(input, *args, **kwargs)
+
+    @classmethod
+    def _cache_fn_dispatcher(cls, fn, input, *args, **kwargs):
+        with ExitStack() as stack:
+            # disable recursing into this patch
+            for mgr in cls._restore_fn_patches():
+                stack.enter_context(mgr)
+            if isinstance(input, QuantTensor):
+                inp_cache = None
+                out_cache = None
+                if input.is_not_none:
+                    inp_cache = _CachedIO(input, metadata_only=True)
+                output = fn(input, *args, **kwargs)
+                if isinstance(output, QuantTensor) and output.is_not_none:
+                    out_cache = _CachedIO(output, metadata_only=True)
+                cached_io = (inp_cache, out_cache)
+                if fn in cls._cached_io_handler_map:
+                    cached_io = cls._cached_io_handler_map[fn](cached_io)
+                cls._fn_cache.append(cached_io)
+            else:
+                # could be a fn invoked within a quant module on a dequant tensor
+                # or a function invoked on a float tensor. The former won't show
+                # up during jit tracing as they are replaced by symbolic functions,
+                # but the latter will, so we have to account for them in the _fn_cache
+                output = fn(input, *args, **kwargs)
+                if not config._IS_INSIDE_QUANT_LAYER:
+                    cls._fn_cache.append(None)
+        return output
 
     @classmethod
     def handler_from_module(cls, module: Module):
@@ -166,14 +216,14 @@ class BaseManager(ABC):
                 module.export_handler = handler()
 
     @classmethod
-    def cache_inp_out(cls, module, input_t):
+    def _cache_inp_out(cls, module, input_t):
         # force enable caching
         module.apply(lambda m: _override_quant_metadata_caching_mode(m, enabled=True))
         module.apply(lambda m: _override_bias_caching_mode(m, enabled=True))
         module.apply(lambda m: _override_inp_caching_mode(m, enabled=True))
         module.apply(lambda m: _override_out_caching_mode(m, enabled=True))
         with ExitStack() as stack:
-            for mgr in cls.cache_patches():
+            for mgr in cls._cache_patches():
                 stack.enter_context(mgr)
             _ = module.forward(input_t)
         # Restore previous caching properties
@@ -189,7 +239,7 @@ class BaseManager(ABC):
             module = module.eval()
             module.apply(cls.set_export_handler)
             # do a forward pass with the input to e.g. store input/output shapes
-            cls.cache_inp_out(module, input_t)
+            cls._cache_inp_out(module, input_t)
             # unpack quant tensor
             if isinstance(input_t, QuantTensor):
                 input_t = input_t.value
@@ -198,7 +248,7 @@ class BaseManager(ABC):
             # force requires_grad to False to let the wrapped model lambda go through tracing
             requires_grad_backup_dict = _force_requires_grad_false(module)
             with ExitStack() as stack:
-                for mgr in cls.trace_patches():
+                for mgr in cls._trace_patches():
                     stack.enter_context(mgr)
                 # wrapping with a lambda forces inlining during tracing,
                 # converts everything to const and removes unused params/buffers
