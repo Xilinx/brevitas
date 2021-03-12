@@ -23,18 +23,20 @@ class DPUv2QuantConv2dPlaceholderFunction(DPUQuantConv2dPlaceholderFunction):
             stride,
             groups,
             dilation):
-        ret = g.op(
-            'Pad', x,
-            domain_s="pyxir",
-            vai_quant_s=['vai_quant_in', 'vai_quant_out'],
-            vai_quant_in_i=[input_bit_width, input_scale],
-            vai_quant_out_i=[input_bit_width, input_scale],
-            pads_i=padding)
+        if ((isinstance(padding, int) and padding != 0)
+                or (isinstance(padding, (list, tuple)) and any([p != 0 for p in padding]))):
+            x = g.op(
+                'Pad', x,
+                domain_s="pyxir",
+                vai_quant_s=['vai_quant_in', 'vai_quant_out'],
+                vai_quant_in_i=[input_bit_width, input_scale],
+                vai_quant_out_i=[input_bit_width, input_scale],
+                pads_i=padding)
         vai_quant_s = ['vai_quant_in', 'vai_quant_out', 'vai_quant_weights']
         if int_bias is not None:
             vai_quant_s += ['vai_quant_biases']
             ret = g.op(
-                'Conv', ret,
+                'Conv', x,
                 int_weight,
                 int_bias,
                 domain_s="pyxir",
@@ -50,7 +52,7 @@ class DPUv2QuantConv2dPlaceholderFunction(DPUQuantConv2dPlaceholderFunction):
                 dilations_i=dilation)
         else:
             ret = g.op(
-                'Conv', ret,
+                'Conv', x,
                 int_weight,
                 domain_s="pyxir",
                 vai_quant_s=vai_quant_s,
@@ -80,15 +82,17 @@ class DPUv2QuantMaxPoolPlaceholderFunction(DPUQuantMaxPoolPlaceholderFunction):
             input_scale,
             output_bit_width,
             output_scale):
+        if ((isinstance(pads, int) and pads != 0)
+                or (isinstance(pads, (list, tuple)) and any([p != 0 for p in pads]))):
+            x = g.op(
+                'Pad', x,
+                domain_s="pyxir",
+                vai_quant_s=['vai_quant_in', 'vai_quant_out'],
+                vai_quant_in_i=[input_bit_width, input_scale],
+                vai_quant_out_i=[input_bit_width, input_scale],
+                pads_i=pads)
         ret = g.op(
-            'Pad', x,
-            domain_s="pyxir",
-            vai_quant_s=['vai_quant_in', 'vai_quant_out'],
-            vai_quant_in_i=[input_bit_width, input_scale],
-            vai_quant_out_i=[input_bit_width, input_scale],
-            pads_i=pads)
-        ret = g.op(
-            'MaxPool', ret,
+            'MaxPool', x,
             domain_s="pyxir",
             kernel_shape_i=kernel_shape,
             strides_i=strides,
