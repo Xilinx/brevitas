@@ -2,6 +2,7 @@ from typing import Tuple, Union, Optional
 from abc import ABC
 from packaging import version
 from contextlib import ExitStack
+from io import BytesIO
 
 try:
     import onnx
@@ -49,8 +50,8 @@ class ONNXBaseManager(BaseManager, ABC):
     def export(
             cls,
             module: Module,
-            input_shape: Tuple[int, ...],
-            export_path: str,
+            input_shape: Optional[Tuple[int, ...]] = None,
+            export_path: Optional[str] = None,
             input_t: Optional[Union[Tensor, QuantTensor]] = None,
             **kwargs):
         return cls.export_onnx(module, input_shape, export_path, input_t, **kwargs)
@@ -59,7 +60,7 @@ class ONNXBaseManager(BaseManager, ABC):
     def export_onnx(
             cls,
             module: Module,
-            input_shape: Tuple[int, ...],
+            input_shape: Optional[Tuple[int, ...]] = None,
             export_path: Optional[str] = None,
             input_t: Optional[Union[Tensor, QuantTensor]] = None,
             **kwargs):
@@ -73,6 +74,10 @@ class ONNXBaseManager(BaseManager, ABC):
 
         if onnx is None or opt is None:
             raise ModuleNotFoundError("Installation of ONNX is required.")
+        if input_shape is None and input_t is None:
+            raise RuntimeError("Export requires to pass in either input_shape or input_t")
+        if input_shape is not None and input_t is not None:
+            raise RuntimeError("Export accepts either an input shape or an input tensor, not both")
 
         cls.solve_keep_initializers_as_inputs(kwargs)
         cls.solve_enable_onnx_checker(kwargs)
@@ -87,7 +92,7 @@ class ONNXBaseManager(BaseManager, ABC):
                 # do a forward pass with the dummy input to e.g. store input/output shapes
                 cls._cache_inp_out(module, input_t)
                 # override any given input_t to make sure it's a standard PyTorch tensor
-                input_t = torch.empty(input_shape, dtype=torch.float)
+                input_t = torch.empty(input_t.shape, dtype=torch.float)
                 # enable export mode, this triggers collecting export values into handlers
                 module.apply(lambda m: _set_export_mode(m, enabled=True))
                 # temporarily disable input caching to avoid collectives empty debug values
@@ -96,13 +101,20 @@ class ONNXBaseManager(BaseManager, ABC):
                 with ExitStack() as stack:
                     for mgr in cls._trace_patches():
                         stack.enter_context(mgr)
-                    torch.onnx.export(module, input_t, export_path, **kwargs)
+                    if export_path is not None:
+                        torch.onnx.export(module, input_t, export_path, **kwargs)
+                    else:
+                        model_bytes = BytesIO()
+                        torch.onnx.export(module, input_t, model_bytes, **kwargs)
                 # restore the model to previous properties
                 module.apply(lambda m: _restore_inp_caching_mode(m))
                 module.apply(lambda m: _set_export_mode(m, enabled=False))
                 module.train(training_state)
             # do some cleanup on the exported ONNX model
-            model = onnx.load(export_path)
+            if export_path is not None:
+                model = onnx.load(export_path)
+            else:
+                model = onnx.ModelProto.FromString(model_bytes.getvalue())
             model = opt.optimize(model, cls.onnx_passes)
             model = cls.apply_model_transforms(model)
             if export_path is not None:
