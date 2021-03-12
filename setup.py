@@ -48,7 +48,7 @@ REQUIREMENTS_DIR = os.path.join(PROJECT_ROOT, 'requirements')
 
 
 def read(*path):
-    return open(os.path.join(*path)).read()
+    return open(os.path.join(*path), encoding='utf8').read()
 
 
 def read_requirements(filename):
