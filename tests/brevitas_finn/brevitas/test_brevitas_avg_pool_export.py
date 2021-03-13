@@ -42,7 +42,7 @@ def test_brevitas_avg_pool_export(
     output_scale = torch.from_numpy(scale).float()
     zp = torch.tensor(0.)
     input_quant_tensor = QuantTensor(input_tensor, output_scale, zp, ibw_tensor, signed)
-    FINNManager.export_onnx(b_avgpool, ishape, export_onnx_path, input_t=input_quant_tensor)
+    FINNManager.export(b_avgpool, export_path=export_onnx_path, input_t=input_quant_tensor)
     model = ModelWrapper(export_onnx_path)
 
     # determine input FINN datatype
@@ -78,7 +78,7 @@ def test_brevitas_avg_pool_export(
     zp = torch.tensor(0.)
     input_quant_tensor = QuantTensor(input_tensor, input_scale, zp, ibw_tensor, signed)
     # export again to set the scale values correctly
-    FINNManager.export(b_avgpool, ishape, export_onnx_path, input_t=input_quant_tensor)
+    FINNManager.export(b_avgpool, export_path=export_onnx_path, input_t=input_quant_tensor)
     model = ModelWrapper(export_onnx_path)
     model = model.transform(InferShapes())
     model = model.transform(InferDataTypes())
