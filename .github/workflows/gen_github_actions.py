@@ -33,11 +33,6 @@ EXCLUDE_LIST = [od([('platform', 'macos-latest'),
                 od([('pytorch_version', '1.3.1'),
                     ('python_version', '3.8')])]
 
-PYTEST_EXCLUDE_LIST_EXTRA = [od([('pytorch_version', '1.1.0'),
-                                 ('jit_status', 'jit_disabled')]),
-                             od([('pytorch_version', '1.2.0'),
-                                 ('jit_status', 'jit_disabled')])]
-
 PYTEST_EXAMPLE_EXCLUDE_LIST_EXTRA = [od([('platform', 'macos-latest'),
                                          ('pytorch_version', '1.5.0'),
                                          ('python_version', '3.6')])]
@@ -174,7 +169,7 @@ def combine_od_list(od_list):
 def gen_pytest_yml():
     pytest = Action(
         'Pytest',
-        EXCLUDE_LIST + PYTEST_EXCLUDE_LIST_EXTRA,
+        EXCLUDE_LIST,
         combine_od_list([MATRIX, PYTEST_MATRIX_EXTRA]),
         PYTEST_STEP_LIST)
     pytest.gen_yaml(PYTEST_YML)
@@ -183,7 +178,7 @@ def gen_pytest_yml():
 def gen_examples_pytest_yml():
     pytest = Action(
         'Examples Pytest',
-        EXCLUDE_LIST + PYTEST_EXCLUDE_LIST_EXTRA + PYTEST_EXAMPLE_EXCLUDE_LIST_EXTRA,
+        EXCLUDE_LIST + PYTEST_EXAMPLE_EXCLUDE_LIST_EXTRA,
         combine_od_list([MATRIX, PYTEST_MATRIX_EXTRA]),
         EXAMPLES_PYTEST_STEP_LIST)
     pytest.gen_yaml(EXAMPLES_PYTEST_YML)
