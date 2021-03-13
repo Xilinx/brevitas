@@ -1,6 +1,10 @@
 from abc import abstractmethod
+from packaging import version
+
 import torch
 from torch.autograd import Function
+
+from brevitas import torch_version
 
 
 class DPUQuantReLUPlaceholderFunction(Function):
@@ -221,12 +225,23 @@ class DPUQuantLinearPlaceholderFunction(Function):
                 vai_quant_out_i=[output_bit_width, output_scale],
                 vai_quant_weights_i=[weight_bit_width, weight_scale],
                 vai_quant_biases_i=[bias_bit_width, bias_scale])
+        elif int_bias is None and torch_version <= version.parse('1.4.0'):
+            ret = g.op(
+                'Gemm', x,
+                int_weight,
+                torch.tensor(0),  # workaround
+                domain_s="pyxir",
+                transB_i=1,
+                vai_quant_s=vai_quant_s,
+                vai_quant_in_i=[input_bit_width, input_scale],
+                vai_quant_out_i=[output_bit_width, output_scale],
+                vai_quant_weights_i=[weight_bit_width, weight_scale])
         else:
             ret = g.op(
                 'Gemm', x,
                 int_weight,
                 domain_s="pyxir",
-                trans_b_i=1,
+                transB_i=1,
                 vai_quant_s=vai_quant_s,
                 vai_quant_in_i=[input_bit_width, input_scale],
                 vai_quant_out_i=[output_bit_width, output_scale],
