@@ -17,6 +17,7 @@ If you have issues, comments, or are just looking for advices on training quanti
 
 
 ## History
+- *2021/03/15* - Release version 0.4.0, add support for \_\_torch_function\_\_ to QuantTensor.
 - *2021/03/04* - Release version 0.3.1, fix bug w/ act initialization from statistics w/ IGNORE_MISSING_KEYS=1.
 - *2021/03/01* - Release version 0.3.0, implements enum and shape solvers within extended dependency injectors. This allows declarative quantizers to be self-contained.
 - *2021/02/04* - Release version 0.2.1, includes various bugfixes of QuantTensor w/ zero-point.
@@ -71,7 +72,6 @@ For relu and max-pool, we leverage the usual `torch.nn.ReLU` and `torch.nn.funct
 The result is the following: 
 
 ```python
-import torch
 from torch import nn
 from torch.nn import Module
 import torch.nn.functional as F
@@ -117,7 +117,7 @@ In the case of weight quantization, the advantage would be to save space in term
 In order to deploy the model efficiently, we have to export it to an inference framework/toolchain first. 
 
 Being a research training library that informs the development of inference toolchains, Brevitas supports more quantization schems than what can be currently accelerated efficiently by supported inference frameworks. 
-A neural network with 3 bits weights and floating-point activations is one of those scenarios that in practice is currently hard to take advantage. In order to make it practical, we want to quantize activations and biases too.
+A neural network with 3 bits weights and floating-point activations is one of those scenarios that in practice is currently hard to take advantage of. In order to make it practical, we want to quantize activations and biases too.
 
 ### Low-precision integer-only LeNet
 
@@ -296,7 +296,7 @@ traced_pt_lenet = PytorchQuantManager.export(pt_lenet, input_shape=(1, 1, 32, 32
 
 Note how the network was parametrized to reflect a few of the differences between PyTorch quantized inference operators and the standard ONNX opset: 
 - Pytorch doesn't support explicit bias quantization, standard ONNX does. 
-- We pick an 8-bit signed symmetric weights quantizer for PyTorch (which would normally be used by default), while for ONNX we go for an unsigned asymmetric one, since support for it in onnxruntime is more mature. 
+- We pick an 8-bit signed symmetric weights quantizer for PyTorch (the one used by default for weight quantization in Brevitas), while for ONNX we go for an unsigned asymmetric one, since support for it in onnxruntime is more mature. 
 - With the FBGEMM x86 backend (which is enabled by default), PyTorch recommends to use 7-bit activations to avoid overflow.
 
 ### Export to TVM
