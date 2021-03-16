@@ -48,6 +48,7 @@ from brevitas.quant.solver.trunc import TruncQuantSolver
 
 
 __all__ = [
+    'IntBiasExternalBitWidth',
     'Int8Bias',
     'Int8BiasPerTensorFloatInternalScaling',
     'Int8ActPerTensorFloatMinMaxInit',
@@ -90,6 +91,20 @@ class Uint8ActPerTensorFloatMinMaxInit(
     """
     min_val = 0.0
     pass
+
+
+class IntBiasExternalBitWidth(IntQuant, BiasQuantSolver):
+    """
+    Signed int bias quantizer with bit-width and scale factor equal to the bit-width and the scale
+    factor of the accumulator the bias is added to.
+
+    Examples:
+        >>> from brevitas.nn import QuantLinear
+        >>> fc = QuantLinear(10, 5, bias=True, bias_quant=IntBiasExternalBitWidth)
+    """
+    tensor_clamp_impl = TensorClamp
+    requires_input_scale = True
+    requires_input_bit_width = True
 
 
 class Int8Bias(IntQuant, BiasQuantSolver):
