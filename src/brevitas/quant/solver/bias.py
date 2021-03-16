@@ -43,6 +43,7 @@ from brevitas.inject import ExtendedInjector, value
 from brevitas.quant.solver.common import *
 from brevitas.quant.solver.parameter import *
 from brevitas.inject.enum import QuantType
+from brevitas.core.function_wrapper import Identity
 from brevitas.core.quant import RescalingIntQuant, PrescaledRestrictIntQuant
 from brevitas.core.quant import PrescaledRestrictIntQuantWithInputBitWidth
 
@@ -73,8 +74,11 @@ class SolveBiasScalingPerOutputChannelShapeFromModule(ExtendedInjector):
 class SolveBiasBitWidthImplFromEnum(ExtendedInjector):
 
     @value
-    def bit_width_impl(bit_width_impl_type):
-        return solve_bit_width_impl_from_enum(bit_width_impl_type)
+    def bit_width_impl(bit_width_impl_type, requires_input_bit_width):
+        if not requires_input_bit_width:
+            return solve_bit_width_impl_from_enum(bit_width_impl_type)
+        else:
+            return Identity
 
 
 class SolveBiasTensorQuantFromEnum(SolveIntQuantFromEnum):
@@ -88,7 +92,7 @@ class SolveBiasTensorQuantFromEnum(SolveIntQuantFromEnum):
                 return PrescaledRestrictIntQuant
             elif not requires_input_bit_width and not requires_input_scale:
                 return RescalingIntQuant
-            else:  # requires_input_bit_width == False
+            else:  # requires_input_bit_width == True
                 return PrescaledRestrictIntQuantWithInputBitWidth
         elif quant_type == QuantType.TERNARY:
             raise RuntimeError(f'{quant_type} not supported.')
@@ -103,13 +107,13 @@ class BiasQuantSolver(
         SolveParameterScalingShape,
         SolveStatsReduceDimFromEnum,
         SolveScalingStatsOpFromEnum,
-        SolveBitWidthImplFromEnum,
         SolveTensorQuantFloatToIntImplFromEnum,
         SolveRestrictScalingImplFromEnum,
         SolveIntScalingImplFromEnum,
         SolveParameterScalingImplFromEnum,
         SolveParameterTensorClampImplFromEnum,
         SolveParameterScalingInitFromEnum,
+        SolveBiasBitWidthImplFromEnum,
         SolveBiasScalingPerOutputChannelShapeFromModule,
         SolveBiasScalingStatsInputConcatDimFromModule,
         SolveBiasTensorQuantFromEnum):
