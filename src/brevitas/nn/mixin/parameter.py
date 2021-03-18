@@ -148,7 +148,7 @@ class QuantBiasMixin(QuantProxyMixin):
         return quant_bias.int(float_datatype=float_datatype)
 
     def quant_bias(self):
-        if self.bias is None or not self.is_bias_quant_enabled:
+        if self.bias is None:
             return None
         scale = self.quant_bias_scale()
         bit_width = self.quant_bias_bit_width()
