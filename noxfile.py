@@ -7,6 +7,8 @@ import sys
 
 sys.path.append(os.path.join(os.path.dirname(__file__), os.path.join('.', '.github', 'workflows')))
 from gen_github_actions import PYTORCH_VERSIONS, PYTHON_VERSIONS, JIT_STATUSES
+from gen_vitis_ai_actions import PYTORCH_VERSIONS as VITIS_AI_PYTORCH_VERSIONS
+from gen_vitis_ai_actions import PYTHON_VERSIONS as VITIS_AI_PYTHON_VERSIONS
 
 IS_OSX = system() == 'Darwin'
 PYTORCH_STABLE_WHEEL_SRC = 'https://download.pytorch.org/whl/torch_stable.html'
@@ -14,6 +16,7 @@ PYTORCH_110_CPU_WHEEL_SRC = 'https://download.pytorch.org/whl/cpu/torch_stable.h
 PYTORCH_PILLOW_FIXED = '1.4.0'
 OLDER_PILLOW_VERSION = '6.2.0'
 PYTORCH_IDS = tuple([f'pytorch_{i}' for i in PYTORCH_VERSIONS])
+VITIS_AI_PYTORCH_IDS = tuple([f'pytorch_{i}' for i in VITIS_AI_PYTORCH_VERSIONS])
 JIT_IDS = tuple([f'{i}'.lower() for i in JIT_STATUSES])
 
 TORCHVISION_VERSION_DICT = {
@@ -142,5 +145,17 @@ def tests_brevitas_ort_integration(session, pytorch):
 def tests_brevitas_pyxir_integration(session, pytorch):
     install_pytorch(pytorch, session)
     install_torchvision(pytorch, session)
-    session.install('--upgrade', '-e', '.[test, pyxir_integration]')
+    session.install('--upgrade', '-e', '.[test, vitis_ai_integration]')
     session.run('pytest', '-v', 'tests/brevitas_pyxir')
+
+
+@nox.session(python=VITIS_AI_PYTHON_VERSIONS, venv_backend='conda')
+@nox.parametrize('pytorch', VITIS_AI_PYTORCH_VERSIONS, ids=VITIS_AI_PYTORCH_IDS)
+def tests_brevitas_xir_integration(session, pytorch):
+    install_pytorch(pytorch, session)
+    install_torchvision(pytorch, session)
+    session.install('--upgrade', '-e', '.[test, vitis_ai_integration]')
+    # Requires to set a CONDA_CHANNEL_PATH env variable beforehand
+    conda_channel_path = os.environ.get('CONDA_CHANNEL_PATH')
+    session.conda_install('-c', 'file://' + conda_channel_path, 'xir')
+    session.run('pytest', '-v', 'tests/brevitas_xir')

@@ -1,9 +1,10 @@
 from brevitas import config
 from .onnx.finn.manager import FINNManager
 from .onnx.standard.manager import StdONNXManager
-from .onnx.pyxir.dpuv1.manager import DPUv1Manager
-from .onnx.pyxir.dpuv2.manager import DPUv2Manager
-from .onnx.pyxir.manager import PyXIRManager
+from .onnx.vitis_ai.pyxir.dpuv1.manager import DPUv1Manager
+from .onnx.vitis_ai.pyxir.dpuv2.manager import DPUv2Manager
+from .onnx.vitis_ai.pyxir.manager import PyXIRManager
+from .onnx.vitis_ai.xir.manager import XIRManager
 from .onnx.debug import enable_debug
 from .pytorch.manager import PytorchQuantManager
 
