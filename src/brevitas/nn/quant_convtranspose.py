@@ -66,7 +66,7 @@ class QuantConvTranspose1d(QuantWBIOL, ConvTranspose1d):
             kernel_size: int,
             stride: int = 1,
             padding: int = 0,
-            output_padding:int = 0,
+            output_padding: int = 0,
             dilation: int = 1,
             groups: int = 1,
             bias: bool = True,
@@ -107,7 +107,7 @@ class QuantConvTranspose1d(QuantWBIOL, ConvTranspose1d):
 
     @property
     def channelwise_separable(self) -> bool:
-        raise NotImplementedError
+        raise self.groups == self.weight.shape[0]
 
     def forward(self, input: Union[Tensor, QuantTensor], output_size=None) -> Union[Tensor, QuantTensor]:
         self._output_size = output_size  # cache the value temporarily
@@ -192,7 +192,7 @@ class QuantConvTranspose2d(QuantWBIOL, ConvTranspose2d):
 
     @property
     def channelwise_separable(self) -> bool:
-        raise NotImplementedError
+        raise self.groups == self.weight.shape[0]
 
     def forward(self, input: Union[Tensor, QuantTensor], output_size=None) -> Union[Tensor, QuantTensor]:
         self._output_size = output_size  # cache the value temporarily
