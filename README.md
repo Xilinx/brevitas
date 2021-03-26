@@ -175,7 +175,7 @@ Note a couple of things:
 - `torch` operations that are algorithmically invariant to quantization, such as max-pool, can propagate QuantTensor through them without extra changes. This is supported in PyTorch 1.5.0 and later versions.
 - By default `QuantReLU` is *stateful*, so there is a difference between instantiating one `QuantReLU` that is called multiple times, and instantiating multiple `QuantReLU` that are each called once. 
 
-## Dataflow FPGA acceleration with FINN 
+### Dataflow FPGA acceleration with FINN 
 
 The network defined above can be mapped to a low-precision *integer-only* dataflow accelerator implemented on a Xilinx FPGA by exporting it to FINN through a custom ONNX-based representation. We can invoke the FINN export manager to do so: 
 
