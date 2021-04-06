@@ -14,19 +14,13 @@ ORT_INTEGRATION_YML = 'ort_integration.yml'
 
 # Data shared betwen Nox sessions and Github Actions, formatted as tuples
 PYTHON_VERSIONS = ('3.6', '3.7', '3.8')
-PYTORCH_VERSIONS = ('1.1.0', '1.2.0', '1.3.1', '1.4.0', '1.5.0', '1.6.0', '1.7.1')
+PYTORCH_VERSIONS = ('1.3.1', '1.4.0', '1.5.0', '1.6.0', '1.7.1', '1.8.1')
 JIT_STATUSES = ('jit_disabled',)
 
-# Data used only by Github Actions, formatted as lists or lists of oredered dicts
+# Data used only by Github Actions, formatted as lists or lists of ordered dicts
 PLATFORM_LIST = ['windows-latest', 'ubuntu-latest', 'macos-latest']
 
-EXCLUDE_LIST = [od([('platform', 'macos-latest'),
-                    ('pytorch_version', '1.1.0')]),
-                od([('pytorch_version', '1.1.0'),
-                    ('python_version', '3.8')]),
-                od([('pytorch_version', '1.2.0'),
-                    ('python_version', '3.8')]),
-                od([('pytorch_version', '1.3.1'),
+EXCLUDE_LIST = [od([('pytorch_version', '1.3.1'),
                     ('python_version', '3.8')])]
 
 PYTEST_EXAMPLE_EXCLUDE_LIST_EXTRA = [od([('platform', 'macos-latest'),
