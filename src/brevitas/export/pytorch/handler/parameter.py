@@ -33,8 +33,16 @@ class PytorchQuantWBIOLHandler(PytorchQuantLayerHandler):
     def validate(cls, module: QuantWBIOL):
         assert module.is_weight_quant_enabled, 'Weight quantization required'
         assert module.is_output_quant_enabled, 'Output quantization required'
-        if module.is_bias_quant_enabled:
-            warnings.warn('Bias quantization not supported, it will be ignored')
+
+    @classmethod
+    def prepare_bias(cls, module: QuantWBIOL):
+        if module.bias is not None and not module.is_bias_quant_enabled:
+            bias = module.bias.detach()
+        elif module.bias is not None and module.is_bias_quant_enabled:
+            bias = module.quant_bias()
+        else:
+            bias = module.bias
+        return bias
 
     @classmethod
     def prepare_weight_quant(cls, module: QuantWBIOL):
@@ -81,12 +89,9 @@ class PytorchQuantConvNdHandler(PytorchQuantWBIOLHandler, ABC):
         return True
 
     @classmethod
-    def prepare_qf_kwargs(self, module: Union[QuantConv1d, QuantConv2d]):
-        bias = module.bias
-        if module.bias is not None:
-            bias = module.bias.detach()
+    def prepare_qf_kwargs(cls, module: Union[QuantConv1d, QuantConv2d]):
         return {
-            'bias': bias,
+            'bias': cls.prepare_bias(module),
             'stride': module.stride,
             'padding': module.padding,
             'dilation': module.dilation,
@@ -119,9 +124,6 @@ class PytorchQuantLinearHandler(PytorchQuantWBIOLHandler):
 
     @classmethod
     def prepare_qf(cls, module: QuantLinear):
-        bias = module.bias
-        if module.bias is not None:
-            bias = module.bias.detach()
-        return torch.nn.quantized.functional.linear, {'bias': bias}
+        return torch.nn.quantized.functional.linear, {'bias': cls.prepare_bias(module)}
 
 
