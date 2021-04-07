@@ -321,7 +321,6 @@ def get_torch_overrides() -> Dict[Callable, Callable]:
                                                 weight_zero_point, bias: -1,
         torch.feature_alpha_dropout: lambda input, p, train: -1,
         torch.feature_dropout: lambda input, p, train: -1,
-        torch.fft: lambda input, signal_ndim, normalized=False: -1,
         torch.flatten: lambda input, start_dim=0, end_dim=-1: -1,
         torch.flip: lambda input, dims: -1,
         torch.frobenius_norm: lambda input, dim=None, keepdim=False, out=None: -1,
@@ -350,7 +349,6 @@ def get_torch_overrides() -> Dict[Callable, Callable]:
         torch.hardshrink: lambda input, lambd=0.5: -1,
         torch.histc: lambda input, bins=100, min=0, max=0, out=None: -1,
         torch.hspmm: lambda mat1, mat2, out=None: -1,
-        torch.ifft: lambda input, signal_ndim, normalized=False: -1,
         torch.index_add: lambda input, dim, index, source: -1,
         torch.index_copy: lambda input, dim, index, source: -1,
         torch.index_put: lambda input, indices, values, accumulate=False: -1,
@@ -363,8 +361,6 @@ def get_torch_overrides() -> Dict[Callable, Callable]:
                    cudnn_enabled: -1),
         torch.int_repr: lambda input: -1,
         torch.inverse: lambda input, out=None: -1,
-        torch.irfft: lambda input, signal_ndim, normalized=False, onesided=True,
-                            signal_sizes=None: -1,
         torch.is_complex: lambda input: -1,
         torch.is_distributed: lambda input: -1,
         torch.is_floating_point: lambda input: -1,
@@ -465,7 +461,6 @@ def get_torch_overrides() -> Dict[Callable, Callable]:
         torch.renorm: lambda input, p, dim, maxnorm, out=None: -1,
         torch.repeat_interleave: lambda input, dim=None: -1,
         torch.reshape: lambda input, shape: -1,
-        torch.rfft: lambda input, signal_ndim, normalized=False, onesided=True: -1,
         torch.rnn_relu: lambda input, hx, params, has_biases, num_layers, dropout, train,
                                bidirectional, batch_first: -1,
         torch.rnn_relu_cell: lambda input, hx, w_ih, w_hh, b_ih=None, b_hh=None: -1,
@@ -498,9 +493,6 @@ def get_torch_overrides() -> Dict[Callable, Callable]:
         torch.sspaddmm: lambda input, mat1, mat2, beta=1, alpha=1, out=None: -1,
         torch.stack: lambda tensors, dim=0, out=None: -1,
         torch.std: lambda input, dim=None: -1,
-        torch.stft: (
-            lambda input, n_fft, hop_length=None, win_length=None, window=None, center=True,
-                   pad_mode='reflect', normalized=False, onesided=True, return_complex=None: -1),
         torch.sub: lambda input, other, out=None: -1,
         torch.sum: lambda input, dim=None: -1,
         torch.svd: lambda input, some=True, compute_uv=True, out=None: -1,
@@ -528,6 +520,23 @@ def get_torch_overrides() -> Dict[Callable, Callable]:
         torch.zeros_like: lambda input, dtype=None, layout=None, device=None,
                                  requires_grad=False: -1,
     }
+
+    try:
+        ffts = {
+            torch.fft: lambda input, signal_ndim, normalized=False: -1,
+            torch.rfft: lambda input, signal_ndim, normalized=False, onesided=True: -1,
+            torch.ifft: lambda input, signal_ndim, normalized=False: -1,
+            torch.irfft: lambda input, signal_ndim, normalized=False, onesided=True,
+                            signal_sizes=None: -1,
+            torch.stft: (
+                lambda input, n_fft, hop_length=None, win_length=None, window=None, center=True,
+                   pad_mode='reflect', normalized=False, onesided=True, return_complex=None: -1),
+        }
+    # unsupported above 1.8.0
+    except AttributeError:
+        ffts = {}
+
+    ret.update(ffts)
 
     return ret
 
