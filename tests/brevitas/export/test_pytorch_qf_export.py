@@ -4,6 +4,7 @@ from brevitas.nn import QuantConv2d, QuantLinear, QuantIdentity, QuantReLU, Quan
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from brevitas.quant.scaled_int import Uint8ActPerTensorFloat
+from brevitas.quant.scaled_int import IntBiasExternalBitWidth
 from brevitas.export.pytorch.manager import PytorchQuantManager
 
 from tests.marker import requires_pt_ge
@@ -84,6 +85,82 @@ def test_pytorch_quant_linear_export():
     pytorch_qf_model = PytorchQuantManager.export(model, input_t=inp)
     pytorch_out = pytorch_qf_model(inp)
     atol = model.linear.quant_output_scale().item() * TOLERANCE
+    assert pytorch_out.isclose(brevitas_out, rtol=0.0, atol=atol).all()
+
+
+@requires_pt_ge('1.2.0', 'Linux')
+@requires_pt_ge('1.5.0', 'Windows')
+@requires_pt_ge('9999', 'Darwin')
+def test_pytorch_quant_linear_bias_quant_export():
+    IN_SIZE = (IN_CH, IN_CH)
+
+    class Model(torch.nn.Module):
+
+        def __init__(self):
+            super().__init__()
+            self.linear = QuantLinear(
+                in_features=IN_CH,
+                out_features=OUT_CH,
+                bias=True,
+                weight_quant=Int8WeightPerTensorFloat,
+                input_bit_width=7,
+                output_bit_width=7,
+                input_quant=ShiftedUint8ActPerTensorFloat,
+                output_quant=ShiftedUint8ActPerTensorFloat,
+                bias_quant=IntBiasExternalBitWidth,
+                return_quant_tensor=False)
+            self.linear.weight.data.uniform_(-0.01, 0.01)
+
+        def forward(self, x):
+            return self.linear(x)
+
+    inp = torch.randn(IN_SIZE)
+    model = Model()
+    model(inp)  # collect scale factors
+    model.eval()
+    brevitas_out = model(inp)
+    pytorch_qf_model = PytorchQuantManager.export(model, input_t=inp)
+    pytorch_out = pytorch_qf_model(inp)
+    atol = model.linear.quant_output_scale().item() * TOLERANCE
+    assert pytorch_out.isclose(brevitas_out, rtol=0.0, atol=atol).all()
+
+
+@requires_pt_ge('1.2.0', 'Linux')
+@requires_pt_ge('1.5.0', 'Windows')
+@requires_pt_ge('9999', 'Darwin')
+def test_pytorch_quant_conv_bias_quant_export():
+    IN_SIZE = (2, IN_CH, IN_CH, IN_CH)
+    KERNEL_SIZE = (3, 3)
+
+    class Model(torch.nn.Module):
+
+        def __init__(self):
+            super().__init__()
+            self.conv = QuantConv2d(
+                out_channels=OUT_CH,
+                in_channels=IN_CH,
+                kernel_size=KERNEL_SIZE,
+                bias=False,
+                input_bit_width=7,
+                output_bit_width=7,
+                weight_quant=Int8WeightPerTensorFloat,
+                bias_quant=IntBiasExternalBitWidth,
+                input_quant=ShiftedUint8ActPerTensorFloat,
+                output_quant=ShiftedUint8ActPerTensorFloat,
+                return_quant_tensor=False)
+            self.conv.weight.data.uniform_(-0.01, 0.01)
+
+        def forward(self, x):
+            return self.conv(x)
+
+    inp = torch.randn(IN_SIZE)
+    model = Model()
+    model(inp)  # collect scale factors
+    model.eval()
+    brevitas_out = model(inp)
+    pytorch_qf_model = PytorchQuantManager.export(model, input_t=inp)
+    pytorch_out = pytorch_qf_model(inp)
+    atol = model.conv.quant_output_scale().item() * TOLERANCE
     assert pytorch_out.isclose(brevitas_out, rtol=0.0, atol=atol).all()
 
 
