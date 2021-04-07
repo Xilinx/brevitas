@@ -41,11 +41,18 @@ from .models.losses import SqrHingeLoss
 class MirrorMNIST(MNIST):
 
     resources = [
-        ("https://ossci-datasets.s3.amazonaws.com/mnist/train-images-idx3-ubyte.gz", "f68b3c2dcbeaaa9fbdd348bbdeb94873"),
-        ("https://ossci-datasets.s3.amazonaws.com/mnist/train-labels-idx1-ubyte.gz", "d53e105ee54ea40749a09fcbcd1e9432"),
-        ("https://ossci-datasets.s3.amazonaws.com/mnist/t10k-images-idx3-ubyte.gz", "9fb629c4189551a2d022fa330f9573f3"),
-        ("https://ossci-datasets.s3.amazonaws.com/mnist/t10k-labels-idx1-ubyte.gz", "ec29112dd5afa0611ce80d1b7f02629c")
+        ("https://ossci-datasets.s3.amazonaws.com/mnist/train-images-idx3-ubyte.gz",
+         "f68b3c2dcbeaaa9fbdd348bbdeb94873"),
+        ("https://ossci-datasets.s3.amazonaws.com/mnist/train-labels-idx1-ubyte.gz",
+         "d53e105ee54ea40749a09fcbcd1e9432"),
+        ("https://ossci-datasets.s3.amazonaws.com/mnist/t10k-images-idx3-ubyte.gz",
+         "9fb629c4189551a2d022fa330f9573f3"),
+        ("https://ossci-datasets.s3.amazonaws.com/mnist/t10k-labels-idx1-ubyte.gz",
+         "ec29112dd5afa0611ce80d1b7f02629c")
     ]
+
+    # required by torchvision <= 0.4.2
+    urls = [l for l, h in resources]
 
 
 def accuracy(output, target, topk=(1,)):
@@ -71,8 +78,10 @@ class Trainer(object):
 
         # Init arguments
         self.args = args
-        prec_name = "_{}W{}A".format(cfg.getint('QUANT', 'WEIGHT_BIT_WIDTH'), cfg.getint('QUANT', 'ACT_BIT_WIDTH'))
-        experiment_name = '{}{}_{}'.format(args.network, prec_name, datetime.now().strftime('%Y%m%d_%H%M%S'))
+        prec_name = "_{}W{}A".format(cfg.getint('QUANT', 'WEIGHT_BIT_WIDTH'),
+                                     cfg.getint('QUANT', 'ACT_BIT_WIDTH'))
+        experiment_name = '{}{}_{}'.format(args.network, prec_name,
+                                           datetime.now().strftime('%Y%m%d_%H%M%S'))
         self.output_dir_path = os.path.join(args.experiments, experiment_name)
 
         if self.args.resume:
@@ -221,7 +230,6 @@ class Trainer(object):
             epoch_meters = TrainingEpochMeters()
             start_data_loading = time.time()
 
-
             for i, data in enumerate(self.train_loader):
                 (input, target) = data
                 input = input.to(self.device, non_blocking=True)
@@ -229,11 +237,12 @@ class Trainer(object):
 
                 # for hingeloss only
                 if isinstance(self.criterion, SqrHingeLoss):
-                    target=target.unsqueeze(1)
-                    target_onehot = torch.Tensor(target.size(0), self.num_classes).to(self.device, non_blocking=True)
+                    target = target.unsqueeze(1)
+                    target_onehot = torch.Tensor(target.size(0), self.num_classes).to(self.device,
+                                                                                      non_blocking=True)
                     target_onehot.fill_(-1)
                     target_onehot.scatter_(1, target, 1)
-                    target=target.squeeze()
+                    target = target.squeeze()
                     target_var = target_onehot
                 else:
                     target_var = target
@@ -251,7 +260,7 @@ class Trainer(object):
                 loss.backward()
                 self.optimizer.step()
 
-                self.model.clip_weights(-1,1)
+                self.model.clip_weights(-1, 1)
 
                 # measure elapsed time
                 epoch_meters.batch_time.update(time.time() - start_batch)
@@ -261,7 +270,8 @@ class Trainer(object):
                     epoch_meters.losses.update(loss.item(), input.size(0))
                     epoch_meters.top1.update(prec1.item(), input.size(0))
                     epoch_meters.top5.update(prec5.item(), input.size(0))
-                    self.logger.training_batch_cli_log(epoch_meters, epoch, i, len(self.train_loader))
+                    self.logger.training_batch_cli_log(epoch_meters, epoch, i,
+                                                       len(self.train_loader))
 
                 # training batch ends
                 start_data_loading = time.time()
@@ -271,7 +281,7 @@ class Trainer(object):
                 self.scheduler.step(epoch)
             else:
                 # Set the learning rate
-                if epoch%40==0:
+                if epoch % 40 == 0:
                     self.optimizer.param_groups[0]['lr'] *= 0.5
 
             # Perform eval
@@ -303,18 +313,19 @@ class Trainer(object):
 
             input = input.to(self.device, non_blocking=True)
             target = target.to(self.device, non_blocking=True)
-            
+
             # for hingeloss only
-            if isinstance(self.criterion, SqrHingeLoss):        
-                target=target.unsqueeze(1)
-                target_onehot = torch.Tensor(target.size(0), self.num_classes).to(self.device, non_blocking=True)
+            if isinstance(self.criterion, SqrHingeLoss):
+                target = target.unsqueeze(1)
+                target_onehot = torch.Tensor(target.size(0), self.num_classes).to(self.device,
+                                                                                  non_blocking=True)
                 target_onehot.fill_(-1)
                 target_onehot.scatter_(1, target, 1)
-                target=target.squeeze()
+                target = target.squeeze()
                 target_var = target_onehot
             else:
                 target_var = target
-            
+
             # compute output
             output = self.model(input)
 
@@ -322,7 +333,7 @@ class Trainer(object):
             eval_meters.model_time.update(time.time() - end)
             end = time.time()
 
-            #compute loss
+            # compute loss
             loss = self.criterion(output, target_var)
             eval_meters.loss_time.update(time.time() - end)
 
@@ -335,7 +346,7 @@ class Trainer(object):
             eval_meters.top1.update(prec1.item(), input.size(0))
             eval_meters.top5.update(prec5.item(), input.size(0))
 
-            #Eval batch ends
+            # Eval batch ends
             self.logger.eval_batch_cli_log(eval_meters, i, len(self.test_loader))
 
         return eval_meters.top1.avg
