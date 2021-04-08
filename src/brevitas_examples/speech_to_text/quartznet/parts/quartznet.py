@@ -396,10 +396,10 @@ class JasperBlock(nn.Module):
             missing_keys,
             unexpected_keys,
             error_msgs):
-        if self.fused_bn:
-            self.fuse_bn(state_dict, prefix)
         if not self.conv_mask:
             rename_state_dict_by_postfix('conv.weight', 'weight', state_dict)
+        if self.fused_bn:
+            self.fuse_bn(state_dict, prefix)
         super(JasperBlock, self)._load_from_state_dict(
             state_dict,
             prefix,
@@ -435,7 +435,9 @@ class JasperBlock(nn.Module):
                 if name.split('.')[-1] == "running_mean":
                     bn_prefix = '.'.join(prefix_long)
                     module_number = int(prefix_long[-1])
-                    conv_name = prefix_long[:-1] + [str(module_number-1)] + ['conv']
+                    conv_name = prefix_long[:-1] + [str(module_number-1)]
+                    if self.conv_mask:
+                        conv_name = conv_name + ['conv']
                     conv_name = '.'.join(conv_name)
                     conv_mod = self.conv_module_to_merge[index]
                     index = index + 1
