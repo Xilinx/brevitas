@@ -432,15 +432,11 @@ class JasperBlock(nn.Module):
         if flag:
             for name in keys_to_check:
                 prefix_long = name.split('.')[:-1]
-
                 if name.split('.')[-1] == "running_mean":
-                    # print("Found")
                     bn_prefix = '.'.join(prefix_long)
                     module_number = int(prefix_long[-1])
-                    # print(bn_prefix)
                     conv_name = prefix_long[:-1] + [str(module_number-1)] + ['conv']
                     conv_name = '.'.join(conv_name)
-                    # print(conv_name)
                     conv_mod = self.conv_module_to_merge[index]
                     index = index + 1
                     bn_weight_key = '.'.join([bn_prefix, 'weight'])
@@ -461,10 +457,9 @@ class JasperBlock(nn.Module):
                         bn_bias=state_dict[bn_bias_key])
                     if isinstance(conv_mod, MaskedConv1d):
                         conv_mod = conv_mod.conv
-                    mul_shape = conv_mod.per_output_channel_broadcastable_shape
                     conv_weight_key = conv_name + '.weight'
                     conv_bias_key = conv_name + '.bias'
-                    result = state_dict[conv_weight_key] * mul_factor.view(mul_shape)
+                    result = state_dict[conv_weight_key] * mul_factor.view(-1, 1, 1)
 
                     state_dict[conv_weight_key] = result
 
