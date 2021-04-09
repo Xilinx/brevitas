@@ -28,7 +28,8 @@ class _ExtendedInjectorType(_InjectorType):
     Extended _InjectorType based on dependencies 2.0.1.
     - Fixes issues with interacting debugging.
     - Allows to inject an object instantiated from a class returned from a @value function.
-    - Allows to return this.something from a @value function, to inject stuff conditionally
+    - Allows to return this.something from a @value function, to inject stuff conditionally.
+    - Add __signature__ and __text_signature__.
 
     Copyright 2016-2020 Artem Malyshev
 
@@ -62,6 +63,7 @@ class _ExtendedInjectorType(_InjectorType):
             namespace["__dependencies__"] = {}
             namespace["__wrapped__"] = None  # Doctest module compatibility.
             namespace["_subs_tree"] = None  # Typing module compatibility.
+            namespace["__signature__"] = None  # Sphinx compatibility.
             return type.__new__(cls, class_name, bases, namespace)
 
         _check_inheritance(bases, (Injector, BaseInjector))
