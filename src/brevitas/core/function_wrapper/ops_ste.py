@@ -126,3 +126,16 @@ class TensorClampSte(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def forward(self, x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor):
         return tensor_clamp_ste(x, min_val, max_val)
+
+
+class InplaceTensorClampSte(brevitas.jit.ScriptModule):
+    """
+    ScriptModule wrapper for :func:`~brevitas.function.ops_ste.tensor_clamp_ste_`.
+    """
+
+    def __init__(self) -> None:
+        super(InplaceTensorClampSte, self).__init__()
+
+    @brevitas.jit.script_method
+    def forward(self, x: torch.Tensor, min_val: torch.Tensor, max_val: torch.Tensor):
+        return tensor_clamp_ste_(x, min_val, max_val)

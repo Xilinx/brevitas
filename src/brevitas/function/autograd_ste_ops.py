@@ -155,6 +155,39 @@ class TensorClampSteFn(Function):
         return grad_y, None, None
 
 
+class InplaceTensorClampSteFn(Function):
+    """
+    Autograd function that implements tensor_clamp with a straight-through gradient estimator for
+    the gradient of y w.r.t. to x, while the gradient of y w.r.t. to min_val and max_val is always
+    None.
+    See :func:`~brevitas.function.ops.tensor_clamp` for further details.
+
+    Notes:
+        InplaceTensorClampSteFn.apply is exported as tensor_clamp_ste_impl_.
+
+    Examples:
+        >>> x = torch.tensor([1.5, 0.4, -1.5], requires_grad=True)
+        >>> y = tensor_clamp_ste_impl_(x, torch.tensor([-1.0, -0.5, -0.5]), torch.tensor([1.0, 0.5, 0.5]))
+        >>> y
+        tensor([ 1.0000,  0.4000, -0.5000], grad_fn=<InplaceTensorClampSteFnBackward>)
+        >>> (y == x).all().item()
+        True
+        >>> grad = torch.tensor([0.1, -0.1, 0.1])
+        >>> y.backward(grad)
+        >>> (x.grad == grad).all().item()
+        True
+    """
+
+    @staticmethod
+    def forward(ctx, x: Tensor, min_val: Tensor, max_val: Tensor) -> Tensor:
+        y = tensor_clamp_(x, min_val, max_val)
+        return y
+
+    @staticmethod
+    def backward(ctx, grad_y: Tensor) -> Tuple[Tensor, None, None]:
+        return grad_y, None, None
+
+
 class RoundToZeroSteFn(Function):
     """
     Autograd function that implements rounding towards zero with a straight-through gradient estimator.
@@ -365,4 +398,9 @@ round_to_zero_ste_impl = RoundToZeroSteFn.apply
 scalar_clamp_min_ste_impl = ScalarClampMinSteFn.apply
 scalar_clamp_ste_impl = ScalarClampSteFn.apply
 tensor_clamp_ste_impl = TensorClampSteFn.apply
+
+#: Alias for InplaceTensorClampSteFn.apply
+tensor_clamp_ste_impl_ = InplaceTensorClampSteFn.apply
+
+#: Alias for AbsBinarySignGradFn.apply
 abs_binary_sign_grad_impl = AbsBinarySignGradFn.apply

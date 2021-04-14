@@ -68,6 +68,25 @@ class TensorClampSteFn : public torch::autograd::Function<TensorClampSteFn> {
 };
 
 
+class InplaceTensorClampSteFn : public torch::autograd::Function<InplaceTensorClampSteFn> {
+ public:
+
+  static variable_list forward(
+    AutogradContext* ctx,
+    Variable input,
+    Variable min_val,
+    Variable max_val){
+    at::min_out(input, input, max_val);
+    at::max_out(input, input, min_val);
+    return {input};
+  };
+
+  static variable_list backward(AutogradContext* ctx, variable_list grad_output) {
+     return {grad_output[0], Variable(), Variable()};
+  }
+};
+
+
 class ScalarClampSteFn : public torch::autograd::Function<ScalarClampSteFn> {
  public:
 
@@ -208,6 +227,11 @@ Tensor ternary_sign_ste_impl(const Tensor& input) {
 };
 
 
+Tensor tensor_clamp_ste_impl_(const Tensor& input, const Tensor& min_val, const Tensor& max_val) {
+ return InplaceTensorClampSteFn::apply(input, min_val, max_val)[0];
+};
+
+
 Tensor tensor_clamp_ste_impl(const Tensor& input, const Tensor& min_val, const Tensor& max_val) {
  return TensorClampSteFn::apply(input, min_val, max_val)[0];
 };
@@ -237,6 +261,7 @@ Tensor abs_binary_sign_grad_impl(const Tensor& input) {
 TORCH_LIBRARY(autograd_ste_ops, m) {
     m.def("round_ste_impl", &round_ste_impl);
     m.def("tensor_clamp_ste_impl", &tensor_clamp_ste_impl);
+    m.def("tensor_clamp_ste_impl_", &tensor_clamp_ste_impl);
     m.def("scalar_clamp_ste_impl", &scalar_clamp_ste_impl);
     m.def("scalar_clamp_min_ste_impl", &scalar_clamp_min_ste_impl);
     m.def("binary_sign_ste_impl", &binary_sign_ste_impl);

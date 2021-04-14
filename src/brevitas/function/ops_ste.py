@@ -56,6 +56,7 @@ __all__ = [
     'ceil_ste',
     'floor_ste',
     'tensor_clamp_ste',
+    'tensor_clamp_ste_',
     'scalar_clamp_ste',
     'scalar_clamp_min_ste',
     'binary_sign_ste',
@@ -107,6 +108,16 @@ def tensor_clamp_ste(x: Tensor, min_val: Tensor, max_val: Tensor) -> Tensor:
     BREVITAS_JIT=0) or its native just-in-time compiled variant (with BREVITAS_JIT=1).
     """
     output = fn_prefix.tensor_clamp_ste_impl(x, min_val, max_val)
+    return output
+
+
+@script_flag
+def tensor_clamp_ste_(x: Tensor, min_val: Tensor, max_val: Tensor) -> Tensor:
+    """
+    Wrapper for either :func:`~brevitas.function.autograd_ste_ops.tensor_clamp_ste_impl` (with env
+    BREVITAS_JIT=0) or its native just-in-time compiled variant (with BREVITAS_JIT=1).
+    """
+    output = fn_prefix.tensor_clamp_ste_impl_(x, min_val, max_val)
     return output
 
 
