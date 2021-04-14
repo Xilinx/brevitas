@@ -46,7 +46,7 @@ from brevitas.inject.enum import ScalingImplType, StatsOp, RestrictValueType
 from brevitas.inject.enum import QuantType, BitWidthImplType, FloatToIntImplType
 from brevitas.core.zero_point import ZeroZeroPoint, MinUintZeroPoint
 from brevitas.core.zero_point import ParameterFromRuntimeMinZeroPoint
-
+from brevitas.core.quant import ClampedBinaryQuant
 
 __all__ = [
     'MaxStatsScaling',
@@ -62,7 +62,8 @@ __all__ = [
     'PerChannelFloatScaling8bit',
     'PerTensorFloatScaling8bit',
     'PerTensorPoTScaling8bit',
-    'IntTrunc'
+    'IntTrunc',
+    'SignedBinaryClampedConst'
 ]
 
 
@@ -192,6 +193,16 @@ class IntTrunc(ExtendedInjector):
     quant_type = QuantType.INT
     bit_width_impl_type = BitWidthImplType.CONST
     float_to_int_impl_type = FloatToIntImplType.FLOOR
+
+
+class SignedBinaryClampedConst(ExtendedInjector):
+    tensor_quant = ClampedBinaryQuant
+    scaling_impl_type = ScalingImplType.CONST
+    restrict_scaling_type = RestrictValueType.FP
+    float_to_int_impl_type = FloatToIntImplType.ROUND
+    scaling_per_output_channel = False
+    narrow_range = True
+    signed = True
 
 
 
