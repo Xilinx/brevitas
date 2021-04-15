@@ -4,29 +4,29 @@ from brevitas.quant.solver import WeightQuantSolver, ActQuantSolver
 
 
 __all__ = [
-    'SignedBinaryClampedConst',
-    'SignedBinaryActClampedConst'
+    'SignedBinaryWeightPerTensorConst',
+    'SignedBinaryActPerTensorConst'
 ]
 
 
-class SignedBinaryWeightInplaceClampedConst(SignedBinaryClampedConst, WeightQuantSolver):
+class SignedBinaryWeightPerTensorConst(SignedBinaryClampedConst, WeightQuantSolver):
     """
     Signed binary weight quantizer with constant scale factor and inplace clipping to the scale.
 
     Examples:
         >>> from brevitas.nn import QuantLinear
-        >>> fc = QuantLinear(10, 5, bias=False, weight_quant=SignedBinaryWeightInplaceClampedConst)
+        >>> fc = QuantLinear(10, 5, bias=False, weight_quant=SignedBinaryWeightPerTensorConst)
         >>> fc.quant_weight()
     """
     tensor_clamp_impl = InplaceTensorClampSte
     scaling_const = 1.0
 
 
-class SignedBinaryActClampedConst(SignedBinaryClampedConst, ActQuantSolver):
+class SignedBinaryActPerTensorConst(SignedBinaryClampedConst, ActQuantSolver):
     """
     Examples:
         >>> from brevitas.nn import QuantIdentity
-        >>> act = QuantIdentity(act_quant=SignedBinaryActClampedConst)
+        >>> act = QuantIdentity(act_quant=SignedBinaryActPerTensorConst)
     """
     tensor_clamp_impl = TensorClamp
     min_val = -1.0
