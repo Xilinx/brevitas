@@ -205,6 +205,13 @@ class SignedBinaryClampedConst(ExtendedInjector):
     signed = True
 
 
+class PerTensorConstScaling2bit(ExtendedInjector):
+    scaling_impl_type = ScalingImplType.CONST
+    restrict_scaling_type = RestrictValueType.FP
+    scaling_per_output_channel = False
+    bit_width = 2
+
+
 
 
 
