@@ -19,7 +19,7 @@ class SignedBinaryWeightPerTensorConst(SignedBinaryClampedConst, WeightQuantSolv
         >>> fc.quant_weight()
     """
     tensor_clamp_impl = InplaceTensorClampSte
-    scaling_const = 1.0
+    scaling_const = 0.1
 
 
 class SignedBinaryActPerTensorConst(SignedBinaryClampedConst, ActQuantSolver):
