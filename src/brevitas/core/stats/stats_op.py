@@ -133,13 +133,28 @@ class AbsMinMax(brevitas.jit.ScriptModule):
 class AbsMaxAve(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim']
 
-    def __init__(self, stats_reduce_dim: Optional[int] = None) -> None:
+    def __init__(self, stats_reduce_dim: int) -> None:
         super(AbsMaxAve, self).__init__()
         self.stats_reduce_dim = stats_reduce_dim
 
     @brevitas.jit.script_method
     def forward(self, x: Tensor):
         return torch.mean(torch.max(torch.abs(x), dim=self.stats_reduce_dim)[0])
+
+
+class AbsMaxL2(brevitas.jit.ScriptModule):
+    __constants__ = ['stats_reduce_dim']
+
+    def __init__(self, stats_reduce_dim: int) -> None:
+        super(AbsMaxL2, self).__init__()
+        self.stats_reduce_dim = stats_reduce_dim
+
+    @brevitas.jit.script_method
+    def forward(self, x: torch.Tensor):
+        per_channel_max = torch.max(torch.abs(x), dim=self.stats_reduce_dim)[0]
+        out = torch.norm(per_channel_max, p=2)
+        out = out / math.sqrt(per_channel_max.view(-1).shape[0])
+        return out
 
 
 class AbsAve(brevitas.jit.ScriptModule):
