@@ -1,4 +1,6 @@
 from brevitas.quant.base import *
+from brevitas.core.scaling import PowerOfTwoIntScaling
+from brevitas.core.restrict_val import PowerOfTwoRestrictValue
 from brevitas.quant.solver.weight import WeightQuantSolver
 from brevitas.quant.solver.bias import BiasQuantSolver
 from brevitas.quant.solver.act import ActQuantSolver
@@ -64,4 +66,20 @@ class Int8BiasPerTensorFixedPoint(
     """
     requires_input_scale = False
     requires_input_bit_width = False
+
+
+class Int4WeightPerTensorFixedPointDecoupled(WeightPerTensorFloatDecoupledL2Param):
+    """
+    Experimental 4-bit narrow per-tensor signed fixed-point weight quantizer with quantized L2,inf
+    normalization and learned radix point. Suitable for retraining from floating-point
+    depthwise separable weights.
+
+    Examples:
+        >>> from brevitas.nn import QuantConv2d
+        >>> conv = QuantConv2d(4, 4, 3, groups=4, weight_quant=Int4WeightPerTensorFixedPointDecoupled)
+        >>> conv.quant_weight()
+    """
+    bit_width = 4
+    restrict_scaling_impl = PowerOfTwoRestrictValue
+    int_scaling_impl = PowerOfTwoIntScaling
 
