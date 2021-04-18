@@ -38,7 +38,6 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-
 from brevitas.core.function_wrapper import TensorClamp
 from brevitas.quant.base import *
 from brevitas.quant.solver.weight import WeightQuantSolver
@@ -56,7 +55,8 @@ __all__ = [
     'Int8ActPerTensorFloat',
     'Int8WeightPerTensorFloat',
     'Uint8ActPerTensorFloat',
-    'TruncTo8bit'
+    'TruncTo8bit',
+    'Int4WeightPerTensorFloatDecoupled'
 ]
 
 
@@ -184,3 +184,17 @@ class TruncTo8bit(IntTrunc, TruncQuantSolver):
         >>> pool = QuantAvgPool2d(kernel_size=(3, 3), trunc_quant=TruncTo8bit)
     """
     bit_width = 8
+
+
+class Int4WeightPerTensorFloatDecoupled(WeightPerTensorFloatDecoupledL2Param):
+    """
+    Experimental narrow per-tensor signed int weight quantizer with decoupled L2,inf
+    normalization and learned scaling. Especially suited for the challenging scenario of
+    per-tensor low bit-width quantization of depthwise separable weights when retraining from a
+    pretrained floating-point model.
+
+    Examples:
+        >>> from brevitas.nn import QuantConv2d
+        >>> m = QuantConv2d(4, 4, 3, groups=4, weight_quant=Int4WeightPerTensorFloatDecoupled)
+    """
+    bit_width = 4

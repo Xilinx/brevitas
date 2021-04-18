@@ -39,7 +39,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 
-from dependencies import this
+from dependencies import this, value
 
 from brevitas.inject import ExtendedInjector
 from brevitas.inject.enum import ScalingImplType, StatsOp, RestrictValueType
@@ -47,6 +47,18 @@ from brevitas.inject.enum import QuantType, BitWidthImplType, FloatToIntImplType
 from brevitas.core.zero_point import ZeroZeroPoint, MinUintZeroPoint
 from brevitas.core.zero_point import ParameterFromRuntimeMinZeroPoint
 from brevitas.core.quant import ClampedBinaryQuant
+from brevitas.core.scaling import IntScaling, ParameterScaling, StatsFromParameterScaling
+from brevitas.core.scaling import SCALING_STATS_REDUCE_DIM, SCALAR_SHAPE
+from brevitas.core.restrict_val import FloatRestrictValue
+from brevitas.core.stats import AbsMaxL2
+from brevitas.core.bit_width import BitWidthConst
+from brevitas.core.quant.int import DecoupledRescalingIntQuant
+from brevitas.core.quant.int_base import DecoupledIntQuant
+from brevitas.core.function_wrapper import TensorClampSte
+from brevitas.core.function_wrapper import OverOutputChannelView
+from brevitas.quant.solver.parameter import ParameterFromStatsScalingInit
+from brevitas.quant.solver.weight import SolveWeightScalingStatsInputConcatDimFromModule
+
 
 __all__ = [
     'MaxStatsScaling',
@@ -63,7 +75,8 @@ __all__ = [
     'PerTensorFloatScaling8bit',
     'PerTensorPoTScaling8bit',
     'IntTrunc',
-    'SignedBinaryClampedConst'
+    'SignedBinaryClampedConst',
+    'WeightPerTensorFloatDecoupledL2Param'
 ]
 
 
@@ -210,6 +223,36 @@ class PerTensorConstScaling2bit(ExtendedInjector):
     restrict_scaling_type = RestrictValueType.FP
     scaling_per_output_channel = False
     bit_width = 2
+
+
+class WeightPerTensorFloatDecoupledL2Param(SolveWeightScalingStatsInputConcatDimFromModule):
+    """
+    Experimental narrow per-tensor signed int weight quantizer fragment with decoupled L2,inf
+    normalization and learned scaling.
+    """
+
+    @value
+    def scaling_init(scaling_init_impl):
+        return scaling_init_impl()
+
+    tensor_quant = DecoupledRescalingIntQuant
+    decoupled_int_quant = DecoupledIntQuant
+    tensor_clamp_impl = TensorClampSte
+    pre_scaling_impl = StatsFromParameterScaling
+    scaling_stats_impl = AbsMaxL2
+    scaling_stats_input_view_shape_impl = OverOutputChannelView
+    stats_reduce_dim = SCALING_STATS_REDUCE_DIM
+    restrict_scaling_impl = FloatRestrictValue
+    scaling_shape = SCALAR_SHAPE
+    scaling_impl = ParameterScaling
+    scaling_init_impl = ParameterFromStatsScalingInit
+    parameter_stats_scaling_init_impl = this.pre_scaling_impl
+    int_scaling_impl = IntScaling
+    zero_point_impl = ZeroZeroPoint
+    pre_zero_point_impl = ZeroZeroPoint
+    bit_width_impl = BitWidthConst
+    narrow_range = True
+    signed = True
 
 
 
