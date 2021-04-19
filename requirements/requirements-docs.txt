@@ -1,0 +1,5 @@
+pydata-sphinx-theme
+m2r2
+sphinxemoji
+sphinxcontrib-napoleon
+sphinx-autodoc-typehints
