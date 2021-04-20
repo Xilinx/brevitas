@@ -1,5 +1,6 @@
 # Brevitas
 
+![PyPI - Downloads](https://img.shields.io/pypi/dm/brevitas)
 [![Gitter](https://badges.gitter.im/xilinx-brevitas/community.svg)](https://gitter.im/xilinx-brevitas/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 ![Pytest](https://github.com/Xilinx/brevitas/workflows/Pytest/badge.svg?branch=master)
 ![Examples Pytest](https://github.com/Xilinx/brevitas/workflows/Examples%20Pytest/badge.svg?branch=master)
