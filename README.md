@@ -7,6 +7,8 @@
 
 Brevitas is a PyTorch research library for quantization-aware training (QAT).
 
+**Note from the author**: I'll be presenting a poster about Brevitas at the 2021 PyTorch Ecosystem Day. Find me during the morning session at virtual poster B4.
+
 *Brevitas is currently under active development. Documentation, examples, and pretrained models will be progressively released.*
 
 **Please note that Brevitas is a research project and not an official Xilinx product.**
@@ -93,7 +95,6 @@ class QuantWeightLeNet(Module):
         self.fc3   = qnn.QuantLinear(84, 10, bias=False, weight_bit_width=3)
 
     def forward(self, x):
-        out = self.quant_inp(x)
         out = self.relu1(self.conv1(out))
         out = F.max_pool2d(out, 2)
         out = self.relu2(self.conv2(out))
@@ -186,7 +187,7 @@ low_precision_lenet = LowPrecisionLeNet()
 
 # ... training ...
 
-FINNManager.export(low_precision_lenet, input_shape=(1, 1, 32, 32), export_path='finn_lenet.onnx')
+FINNManager.export(low_precision_lenet, input_shape=(1, 3, 32, 32), export_path='finn_lenet.onnx')
 ```
 
 ### A mixed float-integer LeNet
@@ -219,7 +220,7 @@ class MixedFloatQuantLeNet(nn.Module):
         weight_quant = SignedWeightQuant if weight_signed else UnsignedWeightQuant
         
         self.conv1 = qnn.QuantConv2d(
-            1, 6, 5, input_quant=act_quant, weight_quant=weight_quant,
+            3, 6, 5, input_quant=act_quant, weight_quant=weight_quant,
             output_quant=act_quant, bias_quant=bias_quant, return_quant_tensor=True)
         self.relu1 = nn.ReLU()
         self.conv2 = qnn.QuantConv2d(
@@ -264,7 +265,7 @@ onnx_lenet = MixedFloatQuantLeNet()
 
 # ... training ...
 
-StdONNXManager.export(onnx_lenet, input_shape=(1, 1, 32, 32), export_path='onnx_lenet.onnx')
+StdONNXManager.export(onnx_lenet, input_shape=(1, 3, 32, 32), export_path='onnx_lenet.onnx')
 ```
 
 ### Acceleration with onnxruntime
@@ -277,7 +278,7 @@ import numpy as np
 
 sess = rt.InferenceSession('onnx_lenet.onnx')
 input_name = sess.get_inputs()[0].name
-pred_onx = sess.run(None, {input_name: np.random.randn(1, 1, 32, 32)})[0]
+pred_onx = sess.run(None, {input_name: np.random.randn(1, 3, 32, 32)})[0]
 ```
 
 ### Export to PyTorch quantized inference ops
@@ -291,7 +292,7 @@ pt_lenet = MixedFloatQuantLeNet(bias_quant=False, reduced_act_quant=True, signed
 
 # ... training ...
 
-traced_pt_lenet = PytorchQuantManager.export(pt_lenet, input_shape=(1, 1, 32, 32))
+traced_pt_lenet = PytorchQuantManager.export(pt_lenet, input_shape=(1, 3, 32, 32))
 ```
 
 Note how the network was parametrized to reflect a few of the differences between PyTorch quantized inference operators and the standard ONNX opset: 
@@ -332,7 +333,7 @@ class DPULeNet(nn.Module):
     def __init__(self):
         super(DPULeNet, self).__init__()
         self.conv1 = qnn.QuantConv2d(
-            1, 6, 5, input_quant=ActQuant, weight_quant=WeightQuant,
+            3, 6, 5, input_quant=ActQuant, weight_quant=WeightQuant,
             output_quant=ActQuant, bias_quant=BiasQuant, return_quant_tensor=True)
         self.relu1 = nn.ReLU()
         self.conv2 = qnn.QuantConv2d(
@@ -365,8 +366,8 @@ dpu_lenet = DPULeNet()
     
 # ... training ...
 
-DPUv1Manager.export(dpu_lenet, input_shape=(1, 1, 32, 32), export_path='dpuv1_lenet.onnx')
-DPUv2Manager.export(dpu_lenet, input_shape=(1, 1, 32, 32), export_path='dpuv2_lenet.onnx')
+DPUv1Manager.export(dpu_lenet, input_shape=(1, 3, 32, 32), export_path='dpuv1_lenet.onnx')
+DPUv2Manager.export(dpu_lenet, input_shape=(1, 3, 32, 32), export_path='dpuv2_lenet.onnx')
 
 ```
 
