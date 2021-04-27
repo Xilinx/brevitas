@@ -56,7 +56,7 @@ class FINNQuantWBIOLHandler(FINNQuantIOHandler, ABC):
         elif module.bias is not None and not module.is_bias_quant_enabled:
             bias = torch.t(module.bias.type(torch.FloatTensor)).detach()
             # divide by weight scale as add is before mul
-            bias /= quant_weight_scale
+            bias /= quant_weight_scale.reshape(bias.shape)
             return bias
         else:  # bias quant enabled
             assert quant_output_scale, 'Quant bias export requires caching of the output scale'
