@@ -27,9 +27,11 @@ def _is_narrow_range(quant_injector):
 
 
 def _update_state_dict_impl(quant_injector):
-    if 'update_state_dict_impl' in quant_injector:
-        return quant_injector.update_state_dict_impl
-    return None
+    try:
+        impl = quant_injector.update_state_dict_impl
+    except:
+        impl = None
+    return impl
 
 
 @runtime_checkable
