@@ -96,13 +96,13 @@ class ONNXBaseHandler(BaseHandler, ABC):
         self.debug_input = m.cache_inference_quant_inp and not m.cache_quant_io_metadata_only
         self.debug_output = m.cache_inference_quant_out and not m.cache_quant_io_metadata_only
 
-    def forward(self, inp: Tensor, **kwargs):
+    def forward(self, inp: Tensor, *args, **kwargs):
         debug_fn = lambda x, name:  DebugMarkerFunction.apply(x, self.export_debug_name + name)
         if self.export_debug_name is not None and self.debug_input:
             inp = debug_fn(inp, '.input')
             kwargs = {k: debug_fn(t, '.input' + str(i)) for i, (k, t) in enumerate(kwargs.items())
                       if isinstance(t, Tensor)}
-        out = self.symbolic_execution(inp, **kwargs)
+        out = self.symbolic_execution(inp, *args, **kwargs)
         if self.export_debug_name is not None and self.debug_output:
             out = debug_fn(out, '.output')
         return out
