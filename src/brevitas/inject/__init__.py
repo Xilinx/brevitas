@@ -64,6 +64,7 @@ class _ExtendedInjectorType(_InjectorType):
             namespace["__wrapped__"] = None  # Doctest module compatibility.
             namespace["_subs_tree"] = None  # Typing module compatibility.
             namespace["__signature__"] = None  # Sphinx compatibility.
+            namespace["__func__"] = None  # JIT tracing compatibility.
             return type.__new__(cls, class_name, bases, namespace)
 
         _check_inheritance(bases, (Injector, BaseInjector))
