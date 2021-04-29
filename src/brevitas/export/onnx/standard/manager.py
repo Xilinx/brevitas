@@ -8,6 +8,7 @@ from torch.nn import Module
 from brevitas import torch_version
 from brevitas.quant_tensor import QuantTensor
 from brevitas.export.onnx.base import ONNXBaseManager
+from brevitas.export.base import _set_layer_export_handler, _set_layer_export_mode
 
 from .function import QuantizeLinearFunction, DequantizeLinearFunction
 from .handler.base import StdONNXQuantLayerHandler
@@ -76,6 +77,14 @@ class StdONNXManager(ONNXBaseManager):
         else:
             output = fn(input, *args, **kwargs)
         return output
+
+    @classmethod
+    def set_export_mode(cls, module: Module, enabled: bool):
+        _set_layer_export_mode(module, enabled)
+
+    @classmethod
+    def set_export_handler(cls, module: Module):
+        _set_layer_export_handler(cls, module)
 
     @classmethod
     def export_onnx(

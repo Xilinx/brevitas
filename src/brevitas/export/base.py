@@ -11,7 +11,8 @@ from torch.nn import Module
 from brevitas import config
 from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.jit_utils import jit_patches_generator
-from brevitas.nn.mixin.base import _CachedIO
+from brevitas.nn.mixin.base import _CachedIO, QuantLayerMixin
+from brevitas.proxy.quant_proxy import QuantProxyProtocol
 from brevitas.utils.python_utils import patch
 
 
@@ -94,9 +95,35 @@ def _restore_out_caching_mode(m: Module):
         del m.cache_inference_quant_out_backup
 
 
-def _set_export_mode(m: Module, enabled: bool):
-    if hasattr(m, 'export_mode'):
+def _set_layer_export_mode(m: Module, enabled: bool):
+    if isinstance(m, QuantLayerMixin) and hasattr(m, 'export_mode'):
         m.export_mode = enabled
+
+
+def _set_proxy_export_mode(m: Module, enabled: bool):
+    if isinstance(m, QuantProxyProtocol) and hasattr(m, 'export_mode'):
+        m.export_mode = enabled
+
+
+def _set_layer_export_handler(manager_cls, module: Module):
+    if (isinstance(module, QuantLayerMixin)
+            and hasattr(module, 'export_handler')
+            and module.export_handler is None):
+        handler = manager_cls.handler_from_module(module)
+        if handler is None and module.requires_export_handler:
+            raise RuntimeError(f"Module {module.__class__} not supported for export.")
+        elif handler is None and not module.requires_export_handler:
+            pass
+        else:
+            module.export_handler = handler()
+
+
+def _set_proxy_export_handler(manager_cls, module: Module):
+    if (isinstance(module, QuantProxyProtocol)
+            and hasattr(module, 'export_handler')
+            and module.export_handler is None):
+        handler = manager_cls.handler_from_module(module)
+        module.export_handler = handler()
 
 
 def _force_requires_grad_false(m: Module):
@@ -205,15 +232,14 @@ class BaseManager(ABC):
         return None
 
     @classmethod
+    @abstractmethod
+    def set_export_mode(cls, module: Module, enabled: bool):
+        pass
+
+    @classmethod
+    @abstractmethod
     def set_export_handler(cls, module: Module):
-        if hasattr(module, 'export_handler') and module.export_handler is None:
-            handler = cls.handler_from_module(module)
-            if handler is None and module.requires_export_handler:
-                raise RuntimeError(f"Module {module.__class__} not supported for export.")
-            elif handler is None and not module.requires_export_handler:
-                pass
-            else:
-                module.export_handler = handler()
+        pass
 
     @classmethod
     def _cache_inp_out(cls, module, input_t):
@@ -244,7 +270,7 @@ class BaseManager(ABC):
             if isinstance(input_t, QuantTensor):
                 input_t = input_t.value
             # enable export mode, this triggers collecting export values into handlers
-            module.apply(lambda m: _set_export_mode(m, enabled=True))
+            module.apply(lambda m: cls.set_export_mode(m, enabled=True))
             # force requires_grad to False to let the wrapped model lambda go through tracing
             requires_grad_backup_dict = _force_requires_grad_false(module)
             with ExitStack() as stack:
@@ -260,6 +286,6 @@ class BaseManager(ABC):
                 tmp.seek(0)
                 traced_model = torch.jit.load(tmp)
             _restore_requires_grad(module, requires_grad_backup_dict)
-            module.apply(lambda m: _set_export_mode(m, enabled=False))
+            module.apply(lambda m: cls.set_export_mode(m, enabled=False))
             module.train(training_state)
             return traced_model

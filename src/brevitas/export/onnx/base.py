@@ -18,7 +18,7 @@ from torch.nn import Module
 
 from brevitas import torch_version
 from brevitas.quant_tensor import QuantTensor
-from ..base import BaseManager, _set_export_mode, ExportContext
+from ..base import BaseManager, _set_layer_export_mode, ExportContext
 from ..base import _override_inp_caching_mode, _restore_inp_caching_mode
 
 
@@ -94,7 +94,7 @@ class ONNXBaseManager(BaseManager, ABC):
                 # override any given input_t to make sure it's a standard PyTorch tensor
                 input_t = torch.empty(input_t.shape, dtype=torch.float)
                 # enable export mode, this triggers collecting export values into handlers
-                module.apply(lambda m: _set_export_mode(m, enabled=True))
+                module.apply(lambda m: cls.set_export_mode(m, enabled=True))
                 # temporarily disable input caching to avoid collectives empty debug values
                 module.apply(lambda m: _override_inp_caching_mode(m, enabled=False))
                 # perform export pass
@@ -108,7 +108,7 @@ class ONNXBaseManager(BaseManager, ABC):
                         torch.onnx.export(module, input_t, model_bytes, **kwargs)
                 # restore the model to previous properties
                 module.apply(lambda m: _restore_inp_caching_mode(m))
-                module.apply(lambda m: _set_export_mode(m, enabled=False))
+                module.apply(lambda m: cls.set_export_mode(m, enabled=False))
                 module.train(training_state)
             # do some cleanup on the exported ONNX model
             if export_path is not None:

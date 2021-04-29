@@ -1,9 +1,10 @@
 from abc import ABC
 
-from torch.nn import functional as F
+from torch.nn import functional as F, Module
 
 from brevitas.export.onnx.base import ONNXBaseManager
 from brevitas.export.onnx.transform import move_domain_attributes_into_domain
+from brevitas.export.base import _set_layer_export_handler, _set_layer_export_mode
 
 
 def _handler_wrapper(handler, cached_io):
@@ -20,6 +21,14 @@ class VitisAIManager(ONNXBaseManager, ABC):
     _fn_to_cache = [
         F.relu,
         F.max_pool2d]
+
+    @classmethod
+    def set_export_mode(cls, module: Module, enabled: bool):
+        _set_layer_export_mode(module, enabled)
+
+    @classmethod
+    def set_export_handler(cls, module: Module):
+        _set_layer_export_handler(cls, module)
 
     @classmethod
     def _trace_fn_dispatcher(cls, fn, input, *args, **kwargs):
