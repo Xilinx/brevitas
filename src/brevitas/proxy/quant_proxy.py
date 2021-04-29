@@ -45,7 +45,12 @@ class QuantProxyProtocol(Protocol):
 class QuantProxyFromInjector(nn.Module, QuantProxyProtocol):
     __metaclass__ = ABCMeta
 
-    def __init__(self, quant_layer: nn.Module, quant_injector: Injector) -> None:
+    def __init__(
+            self,
+            quant_layer: nn.Module,
+            quant_injector: Injector,
+            export_mode: bool = False,
+            export_handler: Optional[nn.Module] = None) -> None:
         super(QuantProxyFromInjector, self).__init__()
         self.is_signed = _is_signed(quant_injector)
         self.is_narrow_range = _is_narrow_range(quant_injector)
@@ -56,6 +61,24 @@ class QuantProxyFromInjector(nn.Module, QuantProxyProtocol):
         # Use a normal list and not a ModuleList since this is a pointer to parent modules
         self.tracked_module_list = []
         self.add_tracked_module(quant_layer)
+        self.export_handler = export_handler
+        self.export_mode = export_mode
+
+    @property
+    def export_mode(self):
+        if self._export_mode and self.training:
+            raise RuntimeError("Can't enter export mode during training, only during inference")
+        return self._export_mode
+
+    @export_mode.setter
+    def export_mode(self, value):
+        if value and self.export_handler is None:
+            raise RuntimeError("Can't enable export mode on a proxy without an export handler")
+        elif value and self.export_handler is not None:
+            self.export_handler.prepare_for_export(self)
+        elif not value and self.export_handler is not None:
+            self.export_handler.reset()
+        self._export_mode = value
 
     def update_tracked_modules(self):
         """Update the modules tracked by the injector with the modules tracked by the proxy"""
