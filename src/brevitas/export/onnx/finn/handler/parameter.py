@@ -32,6 +32,14 @@ class FINNQuantWBIOLHandler(FINNQuantIOHandler, ABC):
             return f"INT{bit_width}"
 
     @staticmethod
+    def int_weight(module: QuantConvNd):
+        return module.int_weight(float_datatype=True).detach()
+
+    @staticmethod
+    def int_weight_transposed(module: QuantWBIOL):
+        return torch.t(module.int_weight(float_datatype=True)).detach()
+
+    @staticmethod
     def function_scaling(
             module: QuantWBIOL,
             quant_input_scale,
@@ -73,10 +81,6 @@ class FINNQuantLinearHandler(FINNQuantWBIOLHandler):
     handled_layer = QuantLinear
 
     @staticmethod
-    def int_weight(module: QuantWBIOL):
-        return torch.t(module.int_weight(float_datatype=True)).detach()
-
-    @staticmethod
     def quant_weight_scale(module: QuantWBIOL):
         return torch.t(module.quant_weight_scale().type(torch.FloatTensor)).detach()
 
@@ -102,7 +106,7 @@ class FINNQuantLinearHandler(FINNQuantWBIOLHandler):
         in_scale, scale_factor = self.function_scaling(
             module, quant_input_scale, quant_weight_scale, quant_output_scale)
         self.symbolic_kwargs = {
-            'Wt': self.int_weight(module),
+            'Wt': self.int_weight_transposed(module),
             'scale_factor': scale_factor,
             'w_qnt_type': self.quant_weight_type(module),
             'out_shape': self.quant_output_shape(module),
@@ -116,10 +120,6 @@ class FINNQuantLinearHandler(FINNQuantWBIOLHandler):
 
 
 class FINNQuantConvNdHandler(FINNQuantWBIOLHandler, ABC):
-
-    @staticmethod
-    def int_weight(module: QuantConvNd):
-        return module.int_weight(float_datatype=True).detach()
 
     @staticmethod
     def quant_output_shape(module: QuantConvNd):
