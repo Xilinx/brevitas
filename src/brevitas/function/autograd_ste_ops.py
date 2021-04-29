@@ -48,7 +48,7 @@ import torch
 from torch.autograd import Function
 from torch import Tensor
 
-from brevitas.function.ops import tensor_clamp, binary_sign, round_to_zero
+from brevitas.function.ops import tensor_clamp, binary_sign, round_to_zero, tensor_clamp_
 
 __all__ = [
     'round_ste_impl',
@@ -94,6 +94,11 @@ class ScalarClampSteFn(Function):
     def backward(ctx, grad_y: Tensor) -> Tuple[Tensor, None, None]:
         return grad_y, None, None
 
+    @staticmethod
+    def symbolic(g, x: Tensor, min_val: float, max_val: float):
+        y = g.op('Clip', x, torch.tensor(min_val), torch.tensor(max_val))
+        return y
+
 
 class ScalarClampMinSteFn(Function):
     """
@@ -122,6 +127,11 @@ class ScalarClampMinSteFn(Function):
     @staticmethod
     def backward(ctx, grad_y: Tensor) -> Tuple[Tensor, None]:
         return grad_y, None
+
+    @staticmethod
+    def symbolic(g, x: Tensor, min_val: float):
+        y = g.op('Clip', x, torch.tensor(min_val))
+        return y
 
 
 class TensorClampSteFn(Function):
@@ -153,6 +163,14 @@ class TensorClampSteFn(Function):
     @staticmethod
     def backward(ctx, grad_y: Tensor) -> Tuple[Tensor, None, None]:
         return grad_y, None, None
+
+    @staticmethod
+    def symbolic(g, x: Tensor, min_val: Tensor, max_val: Tensor):
+        upper_cond = g.op('Greater', x, max_val)
+        y = g.op('Where', upper_cond, max_val, x)
+        lower_cond = g.op('Less', y, min_val)
+        y = g.op('Where', lower_cond, min_val, y)
+        return y
 
 
 class InplaceTensorClampSteFn(Function):
@@ -187,6 +205,14 @@ class InplaceTensorClampSteFn(Function):
     def backward(ctx, grad_y: Tensor) -> Tuple[Tensor, None, None]:
         return grad_y, None, None
 
+    @staticmethod
+    def symbolic(g, x: Tensor, min_val: Tensor, max_val: Tensor):
+        upper_cond = g.op('Greater', x, max_val)
+        y = g.op('Where', upper_cond, max_val, x)
+        lower_cond = g.op('Less', y, min_val)
+        y = g.op('Where', lower_cond, min_val, y)
+        return y
+
 
 class RoundToZeroSteFn(Function):
     """
@@ -216,6 +242,14 @@ class RoundToZeroSteFn(Function):
     def backward(ctx, grad_y: Tensor) -> Tensor:
         return grad_y
 
+    @staticmethod
+    def symbolic(g, x: Tensor):
+        abs = g.op('Abs', x)
+        sign = g.op('Sign', x)
+        floor = g.op('Floor', abs)
+        y = g.op('Mul', sign, floor)
+        return y
+
 
 class CeilSteFn(Function):
     """ 
@@ -244,6 +278,11 @@ class CeilSteFn(Function):
     def backward(ctx, grad_y: Tensor) -> Tensor:
         return grad_y
 
+    @staticmethod
+    def symbolic(g, x: Tensor):
+        y = g.op('Ceil', x)
+        return y
+
 
 class FloorSteFn(Function):
     """ 
@@ -271,6 +310,11 @@ class FloorSteFn(Function):
     @staticmethod
     def backward(ctx, grad_y: Tensor) -> Tensor:
         return grad_y
+
+    @staticmethod
+    def symbolic(g, x: Tensor):
+        y = g.op('Floor', x)
+        return y
 
 
 class BinarySignSteFn(Function):
@@ -301,6 +345,16 @@ class BinarySignSteFn(Function):
     def backward(ctx, grad_y: Tensor) -> Tensor:
         return grad_y
 
+    @staticmethod
+    def symbolic(g, x: Tensor):
+        # requires ONNX opset >= 12
+        positive_mask = g.op('GreaterOrEqual', x, torch.tensor(0.))
+        negative_mask = g.op('Less', x, torch.tensor(0.))
+        positive_mask = g.op('Cast', positive_mask, to_i=torch.onnx.TensorProtoDataType.FLOAT)
+        negative_mask = g.op('Cast', negative_mask, to_i=torch.onnx.TensorProtoDataType.FLOAT)
+        y = g.op('Sub', positive_mask, negative_mask)
+        return y
+
 
 class TernarySignSteFn(Function):
     """ 
@@ -329,6 +383,11 @@ class TernarySignSteFn(Function):
     def backward(ctx, grad_y: Tensor) -> Tensor:
         return grad_y
 
+    @staticmethod
+    def symbolic(g, x: Tensor):
+        y = g.op('Sign', x)
+        return y
+
 
 class RoundSteFn(Function):
     """
@@ -356,6 +415,12 @@ class RoundSteFn(Function):
     @staticmethod
     def backward(ctx, grad_y: Tensor) -> Tensor:
         return grad_y
+
+    @staticmethod
+    def symbolic(g, x: Tensor):
+        # Requires ONNX opset >= 11
+        y = g.op('Round', x)
+        return y
 
 
 class AbsBinarySignGradFn(Function):
@@ -388,6 +453,10 @@ class AbsBinarySignGradFn(Function):
         binary_sign, = ctx.saved_tensors
         return binary_sign.float() * grad_y
 
+    @staticmethod
+    def symbolic(g, x: Tensor):
+        y = g.op('Abs', x)
+        return y
 
 round_ste_impl = RoundSteFn.apply
 binary_sign_ste_impl = BinarySignSteFn.apply
