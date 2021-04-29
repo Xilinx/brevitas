@@ -49,13 +49,44 @@ from brevitas.function.ops import max_int
 from .torch_handler import QUANT_TENSOR_FN_HANDLER
 
 
-class QuantTensor(NamedTuple):
+class QuantTensorBase(NamedTuple):
     value: Tensor
-    scale: Optional[Tensor] = None
-    zero_point: Optional[Tensor] = None
-    bit_width: Optional[Tensor] = None
-    signed: Optional[bool] = None
-    training: Optional[bool] = None
+    scale: Optional[Tensor]
+    zero_point: Optional[Tensor]
+    bit_width: Optional[Tensor]
+    signed_t: Optional[Tensor]
+    training_t: Optional[Tensor]
+
+
+class QuantTensor(QuantTensorBase):
+
+    def __new__(
+            cls, value, scale=None, zero_point=None, bit_width=None, signed=None, training=None):
+        if scale is not None and not isinstance(scale, torch.Tensor):
+            scale = torch.tensor(scale, dtype=torch.float)
+        if zero_point is not None and not isinstance(zero_point, torch.Tensor):
+            zero_point = torch.tensor(zero_point, dtype=torch.float)
+        if bit_width is not None and not isinstance(bit_width, torch.Tensor):
+            bit_width = torch.tensor(bit_width, dtype=torch.float)
+        if signed is not None:
+            signed = torch.tensor(signed, dtype=torch.bool)
+        if training is not None:
+            training = torch.tensor(training, dtype=torch.bool)
+        return super().__new__(cls, value, scale, zero_point, bit_width, signed, training)
+
+    @property
+    def signed(self):
+        if self.signed_t is not None:
+            return self.signed_t.item()
+        else:
+            return None
+
+    @property
+    def training(self):
+        if self.training_t is not None:
+            return self.training_t.item()
+        else:
+            return None
 
     def __torch_function__(self, func, types, args=(), kwargs=None):
         if kwargs is None:
@@ -63,7 +94,8 @@ class QuantTensor(NamedTuple):
         if (func not in QUANT_TENSOR_FN_HANDLER
                 or not all(issubclass(t, QuantTensor) for t in types)
                 or not (all([t.is_not_none for t in args if isinstance(t, QuantTensor)])
-                        and all([t.is_not_none for t in kwargs.values() if isinstance(t, QuantTensor)]))):
+                        and all([t.is_not_none for t in kwargs.values() if
+                                 isinstance(t, QuantTensor)]))):
             args = [a.tensor if hasattr(a, 'tensor') else a for a in args]
             kwargs = {kk: ka.tensor if hasattr(ka, 'tensor') else ka for kk, ka in kwargs.items()}
             return func(*args, **kwargs)
@@ -174,7 +206,7 @@ class QuantTensor(NamedTuple):
             raise RuntimeError("Signs are different")
 
     def view(self, *args, **kwargs):
-        return self.set(value= self.value.view(*args, **kwargs))
+        return self.set(value=self.value.view(*args, **kwargs))
 
     def reshape(self, *args, **kwargs):
         return self.set(value=self.value.reshape(*args, **kwargs))
@@ -277,7 +309,7 @@ class QuantTensor(NamedTuple):
             if self.is_zero_zero_point(self) and self.is_zero_zero_point(other):
                 output_zero_point = self.zero_point * other.zero_point
             else:
-                output_zero_point = None # TODO non-zero zero point
+                output_zero_point = None  # TODO non-zero zero point
             output = QuantTensor(
                 value=output_value,
                 scale=output_scale,
@@ -304,7 +336,7 @@ class QuantTensor(NamedTuple):
             if self.is_zero_zero_point(self) and self.is_zero_zero_point(other):
                 output_zero_point = self.zero_point / other.zero_point
             else:
-                output_zero_point = None # TODO non-zero zero point
+                output_zero_point = None  # TODO non-zero zero point
             output = QuantTensor(
                 value=output_tensor,
                 scale=output_scale,
