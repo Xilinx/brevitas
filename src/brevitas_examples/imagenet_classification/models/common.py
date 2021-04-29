@@ -3,7 +3,7 @@ from brevitas.core.quant import QuantType
 from brevitas.core.restrict_val import RestrictValueType
 from brevitas.core.scaling import ScalingImplType
 from brevitas.core.stats import StatsOp
-
+from brevitas.quant import IntBias
 
 QUANT_TYPE = QuantType.INT
 SCALING_MIN_VAL = 2e-16
@@ -43,7 +43,7 @@ def make_quant_conv2d(in_channels,
                       weight_restrict_scaling_type=WEIGHT_RESTRICT_SCALING_TYPE,
                       weight_narrow_range=WEIGHT_NARROW_RANGE,
                       weight_scaling_min_val=SCALING_MIN_VAL):
-    bias_quant_type = QUANT_TYPE if enable_bias_quant else QuantType.FP
+    bias_quant = IntBias if enable_bias_quant else None
     return qnn.QuantConv2d(in_channels,
                            out_channels,
                            groups=groups,
@@ -51,9 +51,7 @@ def make_quant_conv2d(in_channels,
                            padding=padding,
                            stride=stride,
                            bias=bias,
-                           bias_quant_type=bias_quant_type,
-                           compute_output_bit_width=bias and enable_bias_quant,
-                           compute_output_scale=bias and enable_bias_quant,
+                           bias_quant=bias_quant,
                            weight_bit_width=bit_width,
                            weight_quant_type=weight_quant_type,
                            weight_scaling_impl_type=weight_scaling_impl_type,
@@ -76,12 +74,10 @@ def make_quant_linear(in_channels,
                       weight_restrict_scaling_type=WEIGHT_RESTRICT_SCALING_TYPE,
                       weight_narrow_range=WEIGHT_NARROW_RANGE,
                       weight_scaling_min_val=SCALING_MIN_VAL):
-    bias_quant_type = QUANT_TYPE if enable_bias_quant else QuantType.FP
+    bias_quant = IntBias if enable_bias_quant else None
     return qnn.QuantLinear(in_channels, out_channels,
                            bias=bias,
-                           bias_quant_type=bias_quant_type,
-                           compute_output_bit_width=bias and enable_bias_quant,
-                           compute_output_scale=bias and enable_bias_quant,
+                           bias_quant=bias_quant,
                            weight_bit_width=bit_width,
                            weight_quant_type=weight_quant_type,
                            weight_scaling_impl_type=weight_scaling_impl_type,
