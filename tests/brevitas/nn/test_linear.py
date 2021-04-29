@@ -1,7 +1,7 @@
 from torch.nn import Module
 from brevitas.nn import QuantLinear
 
-from brevitas.inject import BaseInjector as Injector
+from brevitas.quant import IntBias
 from brevitas.quant_tensor import QuantTensor
 
 import torch
@@ -32,7 +32,7 @@ class TestQuantLinearInit:
             out_features=OUTPUT_FEATURES,
             in_features=INPUT_FEATURES,
             bias=True,
-            bias_quant_type='INT')
+            bias_quant=IntBias)
         assert mod
 
     def test_module_init_scale_impl_type_override(self):
@@ -66,7 +66,7 @@ class TestQuantLinearFwd:
             out_features=OUTPUT_FEATURES,
             in_features=INPUT_FEATURES,
             bias=True,
-            bias_quant_type='INT')
+            bias_quant=IntBias)
         x = QuantTensor(
             torch.rand(size=(3, INPUT_FEATURES)),
             torch.tensor(1.0),
