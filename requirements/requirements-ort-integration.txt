@@ -1,2 +1,2 @@
 onnxruntime
-onnx
+onnx<=1.8.1
