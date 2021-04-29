@@ -4,7 +4,7 @@ from brevitas.nn import QuantConv2d, QuantLinear, QuantIdentity, QuantReLU, Quan
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from brevitas.quant.scaled_int import Uint8ActPerTensorFloat
-from brevitas.quant.scaled_int import IntBiasExternalBitWidth
+from brevitas.quant.scaled_int import Int16Bias
 from brevitas.export.pytorch.manager import PytorchQuantManager
 
 from tests.marker import requires_pt_ge
@@ -107,7 +107,7 @@ def test_pytorch_quant_linear_bias_quant_export():
                 output_bit_width=7,
                 input_quant=ShiftedUint8ActPerTensorFloat,
                 output_quant=ShiftedUint8ActPerTensorFloat,
-                bias_quant=IntBiasExternalBitWidth,
+                bias_quant=Int16Bias,
                 return_quant_tensor=False)
             self.linear.weight.data.uniform_(-0.01, 0.01)
 
@@ -144,7 +144,7 @@ def test_pytorch_quant_conv_bias_quant_export():
                 input_bit_width=7,
                 output_bit_width=7,
                 weight_quant=Int8WeightPerTensorFloat,
-                bias_quant=IntBiasExternalBitWidth,
+                bias_quant=Int16Bias,
                 input_quant=ShiftedUint8ActPerTensorFloat,
                 output_quant=ShiftedUint8ActPerTensorFloat,
                 return_quant_tensor=False)
