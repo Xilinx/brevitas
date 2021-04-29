@@ -82,7 +82,7 @@ def tests_brevitas_cpu(session, pytorch, jit_status):
     session.env['BREVITAS_JIT'] = '{}'.format(int(jit_status == 'jit_enabled'))
     install_pytorch(pytorch, session)
     install_torchvision(pytorch, session)
-    session.install( '--upgrade', '.[test]')
+    session.install( '--upgrade', '.[test, export]')
     # run non graph tests
     session.run('pytest', 'tests/brevitas', '-v', '--ignore', 'tests/brevitas/graph')
     # run graph tests
