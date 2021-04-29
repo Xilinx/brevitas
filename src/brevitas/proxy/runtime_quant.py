@@ -192,6 +192,12 @@ class ClampQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
 
 class TruncQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol):
 
+    def bit_width(self):
+        zhs = self._zero_hw_sentinel()
+        empty_imp = QuantTensor(zhs, zhs, zhs, zhs)
+        bit_width = self.__call__(empty_imp).bit_width
+        return bit_width
+
     def forward(self, x: QuantTensor):
         if self.is_quant_enabled:
             impl = self.export_handler if self.export_mode else self.tensor_quant

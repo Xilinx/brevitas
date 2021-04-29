@@ -104,6 +104,18 @@ class WeightQuantProxyFromInjector(ParameterQuantProxyFromInjector, WeightQuantP
     def tracked_parameter_list(self):
         return [m.weight for m in self.tracked_module_list if m.weight is not None]
 
+    def scale(self):
+        scale = self.__call__(self._zero_hw_sentinel()).scale
+        return scale
+
+    def zero_point(self):
+        zero_point = self.__call__(self._zero_hw_sentinel()).zero_point
+        return zero_point
+
+    def bit_width(self):
+        scale = self.__call__(self._zero_hw_sentinel()).bit_width
+        return scale
+
     def forward(self, x: torch.Tensor) -> QuantTensor:
         if self.is_quant_enabled:
             impl = self.export_handler if self.export_mode else self.tensor_quant
@@ -132,6 +144,25 @@ class BiasQuantProxyFromInjector(ParameterQuantProxyFromInjector, BiasQuantProxy
             return self.quant_injector.requires_input_scale
         else:
             return False
+
+    def scale(self):
+        if self.requires_input_scale:
+            return None
+        zhs = self._zero_hw_sentinel()
+        scale = self.__call__(zhs, zhs, zhs).scale
+        return scale
+
+    def zero_point(self):
+        zhs = self._zero_hw_sentinel()
+        zero_point = self.__call__(zhs, zhs, zhs).zero_point
+        return zero_point
+
+    def bit_width(self):
+        if self.requires_input_bit_width:
+            return None
+        zhs = self._zero_hw_sentinel()
+        bit_width = self.__call__(zhs, zhs, zhs).bit_width
+        return bit_width
 
     def forward(
             self,
