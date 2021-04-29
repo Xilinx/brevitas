@@ -42,8 +42,8 @@ from warnings import warn
 from abc import ABCMeta, abstractmethod
 from typing import Optional, Type, Union
 
-
 from brevitas.inject import ExtendedInjector, Injector
+from brevitas.quant import NoneWeightQuant, NoneBiasQuant
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector, BiasQuantProxyFromInjector
 from brevitas.proxy.parameter_quant import WeightQuantProxyProtocol, BiasQuantProxyProtocol
 
@@ -66,6 +66,7 @@ class QuantWeightMixin(QuantProxyMixin):
             quant=weight_quant,
             proxy_from_injector_impl=WeightQuantProxyFromInjector,
             proxy_protocol=WeightQuantProxyProtocol,
+            none_quant_injector=NoneWeightQuant,
             kwargs_prefix='weight_',
             proxy_prefix='weight_',
             **kwargs)
@@ -119,6 +120,7 @@ class QuantBiasMixin(QuantProxyMixin):
             quant=bias_quant,
             proxy_from_injector_impl=BiasQuantProxyFromInjector,
             proxy_protocol=BiasQuantProxyProtocol,
+            none_quant_injector=NoneBiasQuant,
             kwargs_prefix='bias_',
             proxy_prefix='bias_',
             **kwargs)

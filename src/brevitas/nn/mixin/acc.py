@@ -42,6 +42,7 @@ from abc import ABCMeta
 from typing import Type, Union, Optional
 
 from brevitas.inject import Injector, ExtendedInjector
+from brevitas.quant import NoneClampQuant, NoneTruncQuant
 from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector, ClampQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import AccQuantProxyProtocol
 from .base import QuantProxyMixin
@@ -58,6 +59,7 @@ class QuantTruncMixin(QuantProxyMixin):
             quant=trunc_quant,
             proxy_from_injector_impl=TruncQuantProxyFromInjector,
             proxy_protocol=AccQuantProxyProtocol,
+            none_quant_injector=NoneTruncQuant,
             kwargs_prefix='',
             proxy_prefix='trunc_',
             **kwargs)
@@ -75,6 +77,7 @@ class QuantClampMixin(QuantProxyMixin):
             quant=clamp_quant,
             proxy_from_injector_impl=ClampQuantProxyFromInjector,
             proxy_protocol=AccQuantProxyProtocol,
+            none_quant_injector=NoneClampQuant,
             kwargs_prefix='',
             proxy_prefix='clamp_',
             **kwargs)

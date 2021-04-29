@@ -87,13 +87,13 @@ class QuantProxyMixin(object):
             quant,
             proxy_from_injector_impl,
             proxy_protocol,
+            none_quant_injector,
             proxy_prefix: str,
             kwargs_prefix: str,
             **kwargs):
         proxy_name = proxy_prefix + 'quant'
         if quant is None:
-            quant_injector = ExtendedInjector.let(tensor_quant=None)
-            quant_injector = quant_injector.let(**filter_kwargs(kwargs_prefix, kwargs))
+            quant_injector = none_quant_injector.let(**filter_kwargs(kwargs_prefix, kwargs))
             quant = proxy_from_injector_impl(self, quant_injector)
         elif isclass(quant) and issubclass(quant, (Injector, ExtendedInjector)):
             quant_injector = quant

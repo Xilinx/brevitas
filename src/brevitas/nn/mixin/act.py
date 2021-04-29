@@ -44,6 +44,7 @@ from typing import Type, Union, Optional
 
 from torch.nn import Module
 from brevitas.inject import ExtendedInjector, Injector
+from brevitas.quant import NoneActQuant
 from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import ActQuantProxyProtocol
 
@@ -62,6 +63,7 @@ class QuantInputMixin(QuantProxyMixin):
             quant=input_quant,
             proxy_from_injector_impl=ActQuantProxyFromInjector,
             proxy_protocol=ActQuantProxyProtocol,
+            none_quant_injector=NoneActQuant,
             proxy_prefix='input_',
             kwargs_prefix='input_',
             input_act_impl=None,
@@ -103,6 +105,7 @@ class QuantOutputMixin(QuantProxyMixin):
             quant=output_quant,
             proxy_from_injector_impl=ActQuantProxyFromInjector,
             proxy_protocol=ActQuantProxyProtocol,
+            none_quant_injector=NoneActQuant,
             proxy_prefix='output_',
             kwargs_prefix='output_',
             output_act_impl=None,
@@ -151,6 +154,7 @@ class QuantNonLinearActMixin(QuantProxyMixin):
             quant=act_quant,
             proxy_from_injector_impl=ActQuantProxyFromInjector,
             proxy_protocol=ActQuantProxyProtocol,
+            none_quant_injector=NoneActQuant,
             proxy_prefix='act_',
             kwargs_prefix='',
             **kwargs)
