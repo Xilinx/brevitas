@@ -289,7 +289,7 @@ With the same network definition it's also possible to target [PyTorch's own qua
 ```python
 from brevitas.export import PytorchQuantManager
 
-pt_lenet = MixedFloatQuantLeNet(bias_quant=False, reduced_act_quant=True, signed_weight=True)
+pt_lenet = MixedFloatQuantLeNet(bias_quant=False, reduced_act_quant=True, weight_signed=True)
 
 # ... training ...
 
