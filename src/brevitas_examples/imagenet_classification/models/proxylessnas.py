@@ -24,42 +24,49 @@ __all__ = ['quant_proxylessnas_mobile14']
 
 import torch.nn as nn
 
+from brevitas.nn import QuantConv2d, QuantLinear, HadamardClassifier
+from brevitas.nn import QuantAvgPool2d, QuantReLU, QuantIdentity
+from brevitas.quant import IntBias
+
 from .common import *
 
 
 class ConvBlock(nn.Module):
-    def __init__(self,
-                 in_channels,
-                 out_channels,
-                 kernel_size,
-                 stride,
-                 padding,
-                 weight_bit_width,
-                 act_bit_width,
-                 act_scaling_per_channel,
-                 bias,
-                 groups=1,
-                 bn_eps=1e-5,
-                 shared_act=None,
-                 return_quant_tensor=False):
+    def __init__(
+            self,
+            in_channels,
+            out_channels,
+            kernel_size,
+            stride,
+            padding,
+            weight_bit_width,
+            act_bit_width,
+            act_scaling_per_channel,
+            bias,
+            groups=1,
+            bn_eps=1e-5,
+            shared_act=None,
+            return_quant_tensor=False):
         super(ConvBlock, self).__init__()
 
-        self.conv = make_quant_conv2d(in_channels=in_channels,
-                                      out_channels=out_channels,
-                                      kernel_size=kernel_size,
-                                      stride=stride,
-                                      padding=padding,
-                                      groups=groups,
-                                      bias=bias,
-                                      bit_width=weight_bit_width,
-                                      weight_scaling_per_output_channel=True)
-        self.bn = nn.BatchNorm2d(num_features=out_channels,
-                                 eps=bn_eps)
+        self.conv = QuantConv2d(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            kernel_size=kernel_size,
+            stride=stride,
+            padding=padding,
+            groups=groups,
+            bias=bias,
+            weight_bit_width=weight_bit_width,
+            weight_quant=CommonIntWeightPerChannelQuant)
+        self.bn = nn.BatchNorm2d(num_features=out_channels, eps=bn_eps)
         if shared_act is None:
-            self.activ = make_quant_relu(bit_width=act_bit_width,
-                                         scaling_per_channel=act_scaling_per_channel,
-                                         per_channel_broadcastable_shape=(1, out_channels, 1, 1),
-                                         return_quant_tensor=return_quant_tensor)
+            self.activ = QuantReLU(
+                act_quant=CommonUintActQuant,
+                bit_width=act_bit_width,
+                scaling_per_channel=act_scaling_per_channel,
+                per_channel_broadcastable_shape=(1, out_channels, 1, 1),
+                return_quant_tensor=return_quant_tensor)
         else:
             self.activ = shared_act
 
@@ -71,57 +78,61 @@ class ConvBlock(nn.Module):
 
 
 class ProxylessBlock(nn.Module):
-    def __init__(self,
-                 in_channels,
-                 out_channels,
-                 kernel_size,
-                 stride,
-                 bn_eps,
-                 expansion,
-                 bit_width,
-                 depthwise_bit_width,
-                 shared_act):
+    def __init__(
+            self,
+            in_channels,
+            out_channels,
+            kernel_size,
+            stride,
+            bn_eps,
+            expansion,
+            bit_width,
+            depthwise_bit_width,
+            shared_act):
         super(ProxylessBlock, self).__init__()
         self.use_bc = (expansion > 1)
         mid_channels = in_channels * expansion
 
         if self.use_bc:
-            self.bc_conv = ConvBlock(in_channels=in_channels,
-                                     out_channels=mid_channels,
-                                     kernel_size=1,
-                                     stride=1,
-                                     padding=0,
-                                     groups=1,
-                                     bn_eps=bn_eps,
-                                     act_scaling_per_channel=True,
-                                     weight_bit_width=bit_width,
-                                     bias=False,
-                                     act_bit_width=depthwise_bit_width)
+            self.bc_conv = ConvBlock(
+                in_channels=in_channels,
+                out_channels=mid_channels,
+                kernel_size=1,
+                stride=1,
+                padding=0,
+                groups=1,
+                bn_eps=bn_eps,
+                act_scaling_per_channel=True,
+                weight_bit_width=bit_width,
+                bias=False,
+                act_bit_width=depthwise_bit_width)
 
         padding = (kernel_size - 1) // 2
-        self.dw_conv = ConvBlock(in_channels=mid_channels,
-                                 out_channels=mid_channels,
-                                 kernel_size=kernel_size,
-                                 stride=stride,
-                                 padding=padding,
-                                 groups=mid_channels,
-                                 bn_eps=bn_eps,
-                                 act_scaling_per_channel=False,
-                                 weight_bit_width=depthwise_bit_width,
-                                 act_bit_width=bit_width,
-                                 bias=False)
-        self.pw_conv = ConvBlock(in_channels=mid_channels,
-                                 out_channels=out_channels,
-                                 kernel_size=1,
-                                 stride=1,
-                                 padding=0,
-                                 groups=1,
-                                 bn_eps=bn_eps,
-                                 weight_bit_width=bit_width,
-                                 shared_act=shared_act,
-                                 bias=False,
-                                 act_bit_width=None,
-                                 act_scaling_per_channel=None)
+        self.dw_conv = ConvBlock(
+            in_channels=mid_channels,
+            out_channels=mid_channels,
+            kernel_size=kernel_size,
+            stride=stride,
+            padding=padding,
+            groups=mid_channels,
+            bn_eps=bn_eps,
+            act_scaling_per_channel=False,
+            weight_bit_width=depthwise_bit_width,
+            act_bit_width=bit_width,
+            bias=False)
+        self.pw_conv = ConvBlock(
+            in_channels=mid_channels,
+            out_channels=out_channels,
+            kernel_size=1,
+            stride=1,
+            padding=0,
+            groups=1,
+            bn_eps=bn_eps,
+            weight_bit_width=bit_width,
+            shared_act=shared_act,
+            bias=False,
+            act_bit_width=None,
+            act_scaling_per_channel=None)
 
     def forward(self, x):
         if self.use_bc:
@@ -132,18 +143,19 @@ class ProxylessBlock(nn.Module):
 
 
 class ProxylessUnit(nn.Module):
-    def __init__(self,
-                 in_channels,
-                 out_channels,
-                 kernel_size,
-                 stride,
-                 bn_eps,
-                 expansion,
-                 residual,
-                 shortcut,
-                 bit_width,
-                 depthwise_bit_width,
-                 shared_act):
+    def __init__(
+            self,
+            in_channels,
+            out_channels,
+            kernel_size,
+            stride,
+            bn_eps,
+            expansion,
+            residual,
+            shortcut,
+            bit_width,
+            depthwise_bit_width,
+            shared_act):
         super(ProxylessUnit, self).__init__()
         assert residual or shortcut
         assert shared_act is not None
@@ -151,15 +163,16 @@ class ProxylessUnit(nn.Module):
         self.shortcut = shortcut
 
         if self.residual:
-            self.body = ProxylessBlock(in_channels=in_channels,
-                                       out_channels=out_channels,
-                                       kernel_size=kernel_size,
-                                       stride=stride,
-                                       bn_eps=bn_eps,
-                                       expansion=expansion,
-                                       bit_width=bit_width,
-                                       depthwise_bit_width=depthwise_bit_width,
-                                       shared_act=shared_act)
+            self.body = ProxylessBlock(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                kernel_size=kernel_size,
+                stride=stride,
+                bn_eps=bn_eps,
+                expansion=expansion,
+                bit_width=bit_width,
+                depthwise_bit_width=depthwise_bit_width,
+                shared_act=shared_act)
             self.shared_act = shared_act
 
     def forward(self, x):
@@ -176,35 +189,37 @@ class ProxylessUnit(nn.Module):
 
 
 class ProxylessNAS(nn.Module):
-    def __init__(self,
-                 channels,
-                 init_block_channels,
-                 final_block_channels,
-                 residuals,
-                 shortcuts,
-                 kernel_sizes,
-                 expansions,
-                 bit_width,
-                 depthwise_bit_width,
-                 first_layer_weight_bit_width,
-                 hadamard_classifier,
-                 bn_eps=1e-3,
-                 in_channels=3,
-                 num_classes=1000):
+    def __init__(
+            self,
+            channels,
+            init_block_channels,
+            final_block_channels,
+            residuals,
+            shortcuts,
+            kernel_sizes,
+            expansions,
+            bit_width,
+            depthwise_bit_width,
+            first_layer_weight_bit_width,
+            hadamard_classifier,
+            bn_eps=1e-3,
+            in_channels=3,
+            num_classes=1000):
         super(ProxylessNAS, self).__init__()
         self.features = nn.Sequential()
 
-        init_block = ConvBlock(in_channels=in_channels,
-                               out_channels=init_block_channels,
-                               kernel_size=3,
-                               stride=2,
-                               padding=1,
-                               groups=1,
-                               bn_eps=bn_eps,
-                               act_scaling_per_channel=False,
-                               bias=False,
-                               act_bit_width=bit_width,
-                               weight_bit_width=first_layer_weight_bit_width)
+        init_block = ConvBlock(
+            in_channels=in_channels,
+            out_channels=init_block_channels,
+            kernel_size=3,
+            stride=2,
+            padding=1,
+            groups=1,
+            bn_eps=bn_eps,
+            act_scaling_per_channel=False,
+            bias=False,
+            act_bit_width=bit_width,
+            weight_bit_width=first_layer_weight_bit_width)
         self.features.add_module("init_block", init_block)
 
         in_channels = init_block_channels
@@ -225,53 +240,55 @@ class ProxylessNAS(nn.Module):
                 stride = 2 if (j == 0) and (i != 0) else 1
 
                 if not shortcut:
-                    shared_act = make_quant_hard_tanh(bit_width=bit_width,
-                                                      return_quant_tensor=True)
+                    shared_act = QuantIdentity(
+                        bit_width=bit_width, act_quant=CommonIntActQuant, return_quant_tensor=True)
 
-                unit = ProxylessUnit(in_channels=in_channels,
-                                     out_channels=out_channels,
-                                     kernel_size=kernel_size,
-                                     stride=stride,
-                                     bn_eps=bn_eps,
-                                     expansion=expansion,
-                                     residual=residual,
-                                     shortcut=shortcut,
-                                     bit_width=bit_width,
-                                     depthwise_bit_width=depthwise_bit_width,
-                                     shared_act=shared_act)
+                unit = ProxylessUnit(
+                    in_channels=in_channels,
+                    out_channels=out_channels,
+                    kernel_size=kernel_size,
+                    stride=stride,
+                    bn_eps=bn_eps,
+                    expansion=expansion,
+                    residual=residual,
+                    shortcut=shortcut,
+                    bit_width=bit_width,
+                    depthwise_bit_width=depthwise_bit_width,
+                    shared_act=shared_act)
                 stage.add_module("unit{}".format(j + 1), unit)
                 in_channels = out_channels
 
             self.features.add_module("stage{}".format(i + 1), stage)
 
-        final_block = ConvBlock(in_channels=in_channels,
-                                out_channels=final_block_channels,
-                                kernel_size=1,
-                                stride=1,
-                                padding=0,
-                                groups=1,
-                                bn_eps=bn_eps,
-                                act_scaling_per_channel=False,
-                                act_bit_width=bit_width,
-                                weight_bit_width=bit_width,
-                                bias=False,
-                                return_quant_tensor=True)
+        final_block = ConvBlock(
+            in_channels=in_channels,
+            out_channels=final_block_channels,
+            kernel_size=1,
+            stride=1,
+            padding=0,
+            groups=1,
+            bn_eps=bn_eps,
+            act_scaling_per_channel=False,
+            act_bit_width=bit_width,
+            weight_bit_width=bit_width,
+            bias=False,
+            return_quant_tensor=True)
         self.features.add_module("final_block", final_block)
         in_channels = final_block_channels
-        self.final_pool = make_quant_avg_pool(kernel_size=7,
-                                              stride=1,
-                                              signed=False,
-                                              bit_width=bit_width)
+        self.final_pool = QuantAvgPool2d(kernel_size=7, stride=1, bit_width=bit_width)
         if hadamard_classifier:
-            self.output = make_hadamard_classifier(in_channels=in_channels,
-                                                   out_channels=num_classes)
+            self.output = HadamardClassifier(
+                in_channels=in_channels,
+                out_channels=num_classes,
+                fixed_scale=False)
         else:
-            self.output = make_quant_linear(in_channels=in_channels,
-                                            out_channels=num_classes,
-                                            bias=True,
-                                            enable_bias_quant=True,
-                                            bit_width=bit_width,
-                                            weight_scaling_per_output_channel=False)
+            self.output = QuantLinear(
+                in_features=in_channels,
+                out_features=num_classes,
+                bias=True,
+                bias_quant=IntBias,
+                weight_bit_width=bit_width,
+                weight_quant=CommonIntWeightPerTensorQuant)
 
     def forward(self, x):
         x = self.features(x)
@@ -297,15 +314,16 @@ def quant_proxylessnas_mobile14(cfg):
     depthwise_bit_width = int(cfg.get('QUANT', 'DEPTHWISE_BIT_WIDTH'))
     hadamard_classifier = cfg.getboolean('MODEL', 'HADAMARD_CLASSIFIER')
 
-    net = ProxylessNAS(channels=channels,
-                       init_block_channels=init_block_channels,
-                       final_block_channels=final_block_channels,
-                       residuals=residuals,
-                       shortcuts=shortcuts,
-                       kernel_sizes=kernel_sizes,
-                       expansions=expansions,
-                       bit_width=bit_width,
-                       first_layer_weight_bit_width=first_layer_weight_bit_width,
-                       depthwise_bit_width=depthwise_bit_width,
-                       hadamard_classifier=hadamard_classifier)
+    net = ProxylessNAS(
+        channels=channels,
+        init_block_channels=init_block_channels,
+        final_block_channels=final_block_channels,
+        residuals=residuals,
+        shortcuts=shortcuts,
+        kernel_sizes=kernel_sizes,
+        expansions=expansions,
+        bit_width=bit_width,
+        first_layer_weight_bit_width=first_layer_weight_bit_width,
+        depthwise_bit_width=depthwise_bit_width,
+        hadamard_classifier=hadamard_classifier)
     return net

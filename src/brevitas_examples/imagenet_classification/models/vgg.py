@@ -34,12 +34,31 @@
 
 import torch
 import torch.nn as nn
-from .common import make_quant_conv2d, make_quant_linear, make_quant_relu
+
+from brevitas.nn import QuantConv2d, QuantLinear
+from brevitas.nn import QuantAvgPool2d, QuantReLU, QuantIdentity
+
+from .common import *
 
 __all__ = [
-    'QuantVGG', 'quant_vgg11', 'quant_vgg11_bn', 'quant_vgg13', 'quant_vgg13_bn', 'quant_vgg16', 'quant_vgg16_bn',
-    'quant_vgg19_bn', 'quant_vgg19',
+    'QuantVGG',
+    'quant_vgg11',
+    'quant_vgg11_bn',
+    'quant_vgg13',
+    'quant_vgg13_bn',
+    'quant_vgg16',
+    'quant_vgg16_bn',
+    'quant_vgg19_bn',
+    'quant_vgg19',
 ]
+
+
+cfgs = {
+    'A': [64, 'M', 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],
+    'B': [64, 64, 'M', 128, 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],
+    'D': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 'M', 512, 512, 512, 'M', 512, 512, 512, 'M'],
+    'E': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 256, 'M', 512, 512, 512, 512, 'M', 512, 512, 512, 512, 'M'],
+}
 
 
 class QuantVGG(nn.Module):
@@ -47,16 +66,21 @@ class QuantVGG(nn.Module):
     def __init__(self, cfg, batch_norm, bit_width=8, num_classes=1000):
         super(QuantVGG, self).__init__()
         self.features = make_layers(cfg, batch_norm, bit_width)
-        self.avgpool = nn.AdaptiveAvgPool2d((7, 7))
+        self.avgpool = QuantAvgPool2d(kernel_size=(7, 7), stride=1, bit_width=bit_width)
         self.classifier = nn.Sequential(
-            make_quant_linear(512 * 7 * 7, 4096, bias=True, bit_width=bit_width),
-            make_quant_relu(bit_width),
+            QuantLinear(
+                512 * 7 * 7, 4096, bias=True,
+                weight_quant=CommonIntWeightPerChannelQuant, weight_bit_width=bit_width),
+            QuantReLU(act_quant=CommonUintActQuant, bit_width=bit_width),
             nn.Dropout(),
-            make_quant_linear(4096, 4096, bias=True, bit_width=bit_width),
-            make_quant_relu(bit_width),
+            QuantLinear(
+                4096, 4096, bias=True,
+                weight_quant=CommonIntWeightPerChannelQuant, weight_bit_width=bit_width),
+            QuantReLU(act_quant=CommonUintActQuant, weight_bit_width=bit_width),
             nn.Dropout(),
-            make_quant_linear(4096, num_classes, bias=False, bit_width=bit_width,
-                              weight_scaling_per_output_channel=False),
+            QuantLinear(
+                4096, num_classes, bias=False,
+                weight_quant=CommonIntWeightPerTensorQuant, weight_bit_width=bit_width),
         )
         self._initialize_weights()
 
@@ -88,23 +112,17 @@ def make_layers(cfg, batch_norm, bit_width):
         if v == 'M':
             layers += [nn.MaxPool2d(kernel_size=2, stride=2)]
         else:
-            conv2d = make_quant_conv2d(in_channels, v, kernel_size=3, stride=1, padding=1, groups=1,
-                                       bias=not batch_norm, bit_width=bit_width)
-            act = make_quant_relu(bit_width)
+            conv2d = QuantConv2d(
+                in_channels, v, kernel_size=3, stride=1, padding=1, groups=1, bias=not batch_norm,
+                weight_bit_width=bit_width, weight_quant=CommonIntWeightPerChannelQuant)
+            act = QuantReLU(
+                act_quant=CommonUintActQuant, bit_width=bit_width, return_quant_tensor=True)
             if batch_norm:
                 layers += [conv2d, nn.BatchNorm2d(v), act]
             else:
                 layers += [conv2d, act]
             in_channels = v
     return nn.Sequential(*layers)
-
-
-cfgs = {
-    'A': [64, 'M', 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],
-    'B': [64, 64, 'M', 128, 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],
-    'D': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 'M', 512, 512, 512, 'M', 512, 512, 512, 'M'],
-    'E': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 256, 'M', 512, 512, 512, 512, 'M', 512, 512, 512, 512, 'M'],
-}
 
 
 def _quant_vgg(cfg, batch_norm,  **kwargs):
