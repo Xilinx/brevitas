@@ -275,7 +275,7 @@ class QuantTensor(QuantTensorBase):
 
     def __add__(self, other):
         QuantTensor.check_input_type(other)
-        if self.is_valid and other.is_valid:
+        if self.is_not_none and other.is_not_none:
             self.check_scaling_factors_same(other)
             self.check_zero_points_same(other)
             output_value = self.value + other.value
@@ -300,7 +300,7 @@ class QuantTensor(QuantTensorBase):
 
     def __mul__(self, other):
         QuantTensor.check_input_type(other)
-        if self.is_valid and other.is_valid:
+        if self.is_not_none and other.is_not_none:
             output_value = self.value * other.value
             output_scale = self.scale * other.scale
             output_bit_width = self.bit_width + other.bit_width
@@ -327,7 +327,7 @@ class QuantTensor(QuantTensorBase):
 
     def __truediv__(self, other):
         QuantTensor.check_input_type(other)
-        if self.is_valid and other.is_valid:
+        if self.is_not_none and other.is_not_none:
             output_tensor = self.value / other.tensor
             output_scale = self.scale / other.scale
             output_bit_width = self.bit_width - other.bit_width
