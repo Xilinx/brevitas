@@ -19,6 +19,7 @@ JIT_STATUSES = ('jit_disabled',)
 
 # Data used only by Github Actions, formatted as lists or lists of ordered dicts
 PLATFORM_LIST = ['windows-latest', 'ubuntu-latest', 'macos-latest']
+FINN_PLATFORM_LIST = ['windows-latest', 'ubuntu-latest']
 
 EXCLUDE_LIST = [od([('pytorch_version', '1.3.1'),
                     ('python_version', '3.8')])]
@@ -37,6 +38,10 @@ FINN_INTEGRATION_EXCLUDE_LIST_EXTRA = [od([('platform', 'windows-latest'),
 MATRIX = od([('python_version', list(PYTHON_VERSIONS)),
              ('pytorch_version', list(PYTORCH_VERSIONS)),
              ('platform', PLATFORM_LIST)])
+
+FINN_MATRIX = od([('python_version', list(PYTHON_VERSIONS)),
+                  ('pytorch_version', list(PYTORCH_VERSIONS)),
+                  ('platform', FINN_PLATFORM_LIST)])
 
 PYTEST_MATRIX_EXTRA = od([('jit_status', list(JIT_STATUSES))])
 
@@ -132,7 +137,7 @@ def gen_test_brevitas_finn_integration():
     test_finn_integration = Action(
         'Test Brevitas-FINN integration',
         EXCLUDE_LIST + FINN_INTEGRATION_EXCLUDE_LIST_EXTRA,
-        MATRIX,
+        FINN_MATRIX,
         FINN_INTEGRATION_STEP_LIST)
     test_finn_integration.gen_yaml(BASE_YML_TEMPLATE, FINN_INTEGRATION_YML)
 
