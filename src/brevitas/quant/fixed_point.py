@@ -10,7 +10,7 @@ __all__ = [
     'Int8WeightPerTensorFixedPoint',
     'Int8ActPerTensorFixedPoint',
     'Uint8ActPerTensorFixedPoint',
-    'Int8BiasPerTensorFixedPoint'
+    'Int8BiasPerTensorFixedPointInternalScaling'
 ]
 
 
@@ -54,7 +54,7 @@ class Uint8ActPerTensorFixedPoint(
     pass
 
 
-class Int8BiasPerTensorFixedPoint(
+class Int8BiasPerTensorFixedPointInternalScaling(
     IntQuant, MaxStatsScaling, PerTensorPoTScaling8bit, BiasQuantSolver):
     """
     8-bit per-tensor signed fixed-point bias quantizer with the radix point computed
@@ -62,7 +62,7 @@ class Int8BiasPerTensorFixedPoint(
 
     Examples:
         >>> from brevitas.nn import QuantLinear
-        >>> fc = QuantLinear(10, 5, bias=True, bias_quant=Int8BiasPerTensorFixedPoint)
+        >>> fc = QuantLinear(10, 5, bias=True, bias_quant=Int8BiasPerTensorFixedPointInternalScaling)
     """
     requires_input_scale = False
     requires_input_bit_width = False

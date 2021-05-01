@@ -326,7 +326,7 @@ import torch.nn.functional as F
 import brevitas.nn as qnn
 from brevitas.quant import Int8WeightPerTensorFixedPoint as WeightQuant
 from brevitas.quant import Int8ActPerTensorFixedPoint as ActQuant
-from brevitas.quant import Int8BiasPerTensorFixedPoint as BiasQuant
+from brevitas.quant import Int8BiasPerTensorFixedPointInternalScaling as BiasQuant
 from brevitas.export import DPUv1Manager, DPUv2Manager
 
 
@@ -341,15 +341,15 @@ class DPULeNet(nn.Module):
             6, 16, 5, weight_quant=WeightQuant, output_quant=ActQuant,
             bias_quant=BiasQuant, return_quant_tensor=True)
         self.relu2 = nn.ReLU()
-        self.fc1   = qnn.QuantLinear(
+        self.fc1 = qnn.QuantLinear(
             256, 120, bias=True, weight_quant=WeightQuant,
             bias_quant=BiasQuant, output_quant=ActQuant, return_quant_tensor=True)
         self.relu3 = nn.ReLU()
-        self.fc2   = qnn.QuantLinear(
+        self.fc2 = qnn.QuantLinear(
             120, 84, bias=True, weight_quant=WeightQuant,
             bias_quant=BiasQuant, output_quant=ActQuant, return_quant_tensor=True)
         self.relu4 = nn.ReLU()
-        self.fc3   = qnn.QuantLinear(
+        self.fc3 = qnn.QuantLinear(
             84, 10, bias=False, weight_quant=WeightQuant, output_quant=ActQuant)
 
     def forward(self, x):
@@ -363,8 +363,9 @@ class DPULeNet(nn.Module):
         out = self.fc3(out)
         return out
 
+
 dpu_lenet = DPULeNet()
-    
+
 # ... training ...
 
 DPUv1Manager.export(dpu_lenet, input_shape=(1, 3, 32, 32), export_path='dpuv1_lenet.onnx')

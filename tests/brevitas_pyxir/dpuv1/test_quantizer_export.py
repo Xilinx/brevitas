@@ -34,7 +34,7 @@ def test_rewriter_export(model_name: str):
         weight_quant=Int8WeightPerTensorFixedPoint,
         input_quant=Int8ActPerTensorFixedPoint,
         output_quant=Int8ActPerTensorFixedPoint,
-        bias_quant=Int8BiasPerTensorFixedPoint,
+        bias_quant=Int8BiasPerTensorFixedPointInternalScaling,
         bn_handling=BatchNormHandling.MERGE_AND_QUANTIZE)
     out_file = f'{model_name}.onnx'
     export_dpuv2_onnx(gen_model, input_t=input, export_path=out_file)

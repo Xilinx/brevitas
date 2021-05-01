@@ -7,7 +7,7 @@ import numpy as np
 
 from brevitas.nn import QuantConv2d, QuantLinear, QuantReLU, QuantMaxPool2d, QuantEltwiseAdd
 from brevitas.quant.fixed_point import Int8WeightPerTensorFixedPoint
-from brevitas.quant.fixed_point import Int8ActPerTensorFixedPoint, Int8BiasPerTensorFixedPoint
+from brevitas.quant.fixed_point import Int8ActPerTensorFixedPoint, Int8BiasPerTensorFixedPointInternalScaling
 from brevitas.export import DPUv1Manager, DPUv2Manager
 
 from tests.marker import requires_pt_ge
@@ -99,7 +99,7 @@ def test_dpu_export_onnx_quant_conv_bias(dpu):
                 kernel_size=KERNEL_SIZE,
                 bias=True,
                 weight_quant=Int8WeightPerTensorFixedPoint,
-                bias_quant=Int8BiasPerTensorFixedPoint,
+                bias_quant=Int8BiasPerTensorFixedPointInternalScaling,
                 input_quant=Int8ActPerTensorFixedPoint,
                 output_quant=Int8ActPerTensorFixedPoint,
                 return_quant_tensor=False)
@@ -128,7 +128,7 @@ def test_standard_onnx_quant_linear_bias_export(dpu):
                 out_features=OUT_CH,
                 bias=True,
                 weight_quant=Int8WeightPerTensorFixedPoint,
-                bias_quant=Int8BiasPerTensorFixedPoint,
+                bias_quant=Int8BiasPerTensorFixedPointInternalScaling,
                 input_quant=Int8ActPerTensorFixedPoint,
                 output_quant=Int8ActPerTensorFixedPoint,
                 return_quant_tensor=False)
