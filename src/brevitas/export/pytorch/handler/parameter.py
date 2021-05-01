@@ -39,7 +39,8 @@ class PytorchQuantWBIOLHandler(PytorchQuantLayerHandler):
         if module.bias is not None and not module.is_bias_quant_enabled:
             bias = module.bias.detach()
         elif module.bias is not None and module.is_bias_quant_enabled:
-            bias = module.quant_bias()
+            # export the dequantized value
+            bias = module.quant_bias().value
         else:
             bias = module.bias
         return bias
