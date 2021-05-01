@@ -52,7 +52,7 @@ __all__ = [
     'Int16Bias',
     'Int8BiasPerTensorFloatInternalScaling',
     'Int8ActPerTensorFloatMinMaxInit',
-    'Uint8ActPerTensorFloatMinMaxInit',
+    'Uint8ActPerTensorFloatMaxInit',
     'Int8ActPerTensorFloat',
     'Int8WeightPerTensorFloat',
     'Uint8ActPerTensorFloat',
@@ -78,7 +78,7 @@ class Int8ActPerTensorFloatMinMaxInit(
     pass
 
 
-class Uint8ActPerTensorFloatMinMaxInit(
+class Uint8ActPerTensorFloatMaxInit(
     UintQuant, ParamMinMaxInitScaling, PerTensorFloatScaling8bit, ActQuantSolver):
     """
     8-bit per-tensor unsigned int activations quantizer with learned floating-point scale factor
@@ -86,7 +86,7 @@ class Uint8ActPerTensorFloatMinMaxInit(
 
     Examples:
         >>> from brevitas.nn import QuantHardTanh
-        >>> act = QuantHardTanh(act_quant=Uint8ActPerTensorFloatMinMaxInit, max_val=.5)
+        >>> act = QuantHardTanh(act_quant=Uint8ActPerTensorFloatMaxInit, max_val=.5)
         >>> act.quant_act_scale() * 255
         tensor(0.5000, grad_fn=<MulBackward0>)
     """
