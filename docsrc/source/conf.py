@@ -17,7 +17,6 @@
 import os
 import sys
 import brevitas
-import sphinx_rtd_theme
 
 sys.path.insert(0, os.path.abspath(brevitas.__file__))
 # -- Project information -----------------------------------------------------
@@ -37,10 +36,12 @@ release = brevitas.__version__
 # ones.
 extensions = [
     'm2r2',
-    'sphinx_rtd_theme',
     'sphinx.ext.autodoc',
+    "sphinx.ext.intersphinx",
+    "sphinx.ext.viewcode",
     'sphinx.ext.napoleon',
-    'sphinx_autodoc_typehints'
+    'sphinx_autodoc_typehints',
+    'sphinxemoji.sphinxemoji',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -62,9 +63,16 @@ autodoc_mock_imports = []
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = "sphinx_rtd_theme"
+html_theme = 'pydata_sphinx_theme'
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
+
+
+intersphinx_mapping = {
+    "numpy": ("http://docs.scipy.org/doc/numpy/", None),
+    "python": ("https://docs.python.org/", None),
+    "torch": ("https://pytorch.org/docs/master/", None),
+}
