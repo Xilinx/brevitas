@@ -12,7 +12,7 @@ import torch.utils.data.distributed
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 
-from .models import model_with_cfg
+from brevitas_examples.imagenet_classification.models import model_with_cfg
 
 SEED = 123456
 
@@ -24,6 +24,7 @@ parser.add_argument('--pretrained', action='store_true', help='Load pretrained c
 parser.add_argument('--workers', default=4, type=int, help='number of data loading workers')
 parser.add_argument('--batch-size', default=256, type=int, help='Minibatch size')
 parser.add_argument('--gpu', default=None, type=int, help='GPU id to use.')
+parser.add_argument('--shuffle', action='store_true', help='Shuffle validation data.')
 
 
 def main():
@@ -51,7 +52,7 @@ def main():
             transforms.ToTensor(),
             normalize,
         ])),
-        batch_size=args.batch_size, shuffle=False, num_workers=args.workers, pin_memory=True)
+        batch_size=args.batch_size, shuffle=args.shuffle, num_workers=args.workers, pin_memory=True)
 
     validate(val_loader, model, args)
     return
@@ -118,7 +119,7 @@ def accuracy(output, target, topk=(1,)):
 
         res = []
         for k in topk:
-            correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)
+            correct_k = correct[:k].reshape(-1).float().sum(0, keepdim=True)
             res.append(correct_k.mul(100.0 / batch_size))
         return res
 
