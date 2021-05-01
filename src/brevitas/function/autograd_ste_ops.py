@@ -51,6 +51,17 @@ from torch import Tensor
 from brevitas.function.ops import tensor_clamp, binary_sign, round_to_zero, tensor_clamp_
 
 __all__ = [
+    'ScalarClampSteFn',
+    'ScalarClampMinSteFn',
+    'TensorClampSteFn',
+    'InplaceTensorClampSteFn',
+    'RoundToZeroSteFn',
+    'CeilSteFn',
+    'FloorSteFn',
+    'BinarySignSteFn',
+    'TernarySignSteFn',
+    'RoundSteFn',
+    'AbsBinarySignGradFn',
     'round_ste_impl',
     'binary_sign_ste_impl',
     'ternary_sign_ste_impl',
@@ -60,31 +71,19 @@ __all__ = [
     'scalar_clamp_min_ste_impl',
     'scalar_clamp_ste_impl',
     'tensor_clamp_ste_impl',
-    'abs_binary_sign_grad_impl'
+    'abs_binary_sign_grad_impl',
 ]
 
 
 class ScalarClampSteFn(Function):
     """
-    Autograd function that implements torch.clamp with a straight-through gradient estimator for
-    the gradient of y w.r.t. to x, while the gradient of y w.r.t. to min_val and max_val is always
-    None.
-
-    Notes:
-        ScalarClampSteFn.apply is exported as scalar_clamp_ste_impl.
-
-    Examples:
-        >>> x = torch.tensor([1.5, 0.4, -1.5], requires_grad=True)
-        >>> y = scalar_clamp_ste_impl(x, -1.0, 1.0)
-        >>> y
-        tensor([ 1.0000,  0.4000, -1.0000], grad_fn=<ScalarClampSteFnBackward>)
-        >>> grad = torch.tensor([0.1, -0.1, 0.1])
-        >>> y.backward(grad)
-        >>> (x.grad == grad).all().item()
-        True
-
+    ``ScalarClampSteFn.apply(*args)`` is first aliased to :func:`scalar_clamp_ste_impl(*args)
+    <brevitas.function.autograd_ste_ops.scalar_clamp_ste_impl>` and then wrapped by
+    :func:`~brevitas.function.ops_ste.scalar_clamp_ste` and invoked when env ``BREVITAS_JIT=0``.
+    See :func:`~brevitas.function.ops_ste.scalar_clamp_ste` for details on the interface and
+    examples.
     """
-    
+
     @staticmethod
     def forward(ctx, x: Tensor, min_val: float, max_val: float) -> Tensor:
         y = torch.clamp(x, min_val, max_val)
@@ -102,23 +101,17 @@ class ScalarClampSteFn(Function):
 
 class ScalarClampMinSteFn(Function):
     """
-    Autograd function that implements torch.clamp_min with a straight-through gradient estimator for
-    the gradient of y w.r.t. to x, while the gradient of y w.r.t. to min_val is always None.
+    Autograd function that implements ``torch.clamp_min`` with a straight-through gradient estimator
+    for the gradient of y w.r.t. to x, while the gradient of y w.r.t. to ``min_val`` is always
+    ``None``.
 
-    Notes:
-        TensorClampSteFn.apply is exported as scalar_clamp_min_ste_impl.
-
-    Examples:
-        >>> x = torch.tensor([1.5, 0.4, -1.5], requires_grad=True)
-        >>> y = scalar_clamp_min_ste_impl(x, -1.0)
-        >>> y
-        tensor([ 1.5000,  0.4000, -1.0000], grad_fn=<ScalarClampMinSteFnBackward>)
-        >>> grad = torch.tensor([0.1, -0.1, 0.1])
-        >>> y.backward(grad)
-        >>> (x.grad == grad).all().item()
-        True
+    ``ScalarClampMinSteFn.apply(*args)`` is first aliased to :func:`scalar_clamp_min_ste_impl(*args)
+    <brevitas.function.autograd_ste_ops.scalar_clamp_min_ste_impl>` and then wrapped by
+    :func:`~brevitas.function.ops_ste.scalar_clamp_min_ste` and invoked when env ``BREVITAS_JIT=0``.
+    See :func:`~brevitas.function.ops_ste.scalar_clamp_ste` for details on the interface and
+    examples.
     """
-    
+
     @staticmethod
     def forward(ctx, x: Tensor, min_val: float) -> Tensor:
         y = torch.clamp_min(x, min_val)
@@ -136,23 +129,15 @@ class ScalarClampMinSteFn(Function):
 
 class TensorClampSteFn(Function):
     """ 
-    Autograd function that implements tensor_clamp with a straight-through gradient estimator for
-    the gradient of y w.r.t. to x, while the gradient of y w.r.t. to min_val and max_val is always
-    None.
-    See :func:`~brevitas.function.ops.tensor_clamp` for further details.
+    Autograd function that implements :func:`~brevitas.function.ops.tensor_clamp` with a
+    straight-through gradient estimator for the gradient of y w.r.t. to x, while the gradient of y
+    w.r.t. to min_val and max_val is always None.
 
-    Notes:
-        TensorClampSteFn.apply is exported as tensor_clamp_ste_impl.
-
-    Examples:
-        >>> x = torch.tensor([1.5, 0.4, -1.5], requires_grad=True)
-        >>> y = tensor_clamp_ste_impl(x, torch.tensor([-1.0, -0.5, -0.5]), torch.tensor([1.0, 0.5, 0.5]))
-        >>> y
-        tensor([ 1.0000,  0.4000, -0.5000], grad_fn=<TensorClampSteFnBackward>)
-        >>> grad = torch.tensor([0.1, -0.1, 0.1])
-        >>> y.backward(grad)
-        >>> (x.grad == grad).all().item()
-        True
+    ``TensorClampSteFn.apply(*args)`` is first aliased to :func:`tensor_clamp_ste_impl(*args)
+    <brevitas.function.autograd_ste_ops.tensor_clamp_ste_impl>` and then wrapped by
+    :func:`~brevitas.function.ops_ste.tensor_clamp` when env ``BREVITAS_JIT=0``.
+    See :func:`~brevitas.function.ops_ste.tensor_clamp` for details on the interface and
+    examples.
     """
 
     @staticmethod
@@ -175,25 +160,16 @@ class TensorClampSteFn(Function):
 
 class InplaceTensorClampSteFn(Function):
     """
-    Autograd function that implements tensor_clamp with a straight-through gradient estimator for
-    the gradient of y w.r.t. to x, while the gradient of y w.r.t. to min_val and max_val is always
-    None.
-    See :func:`~brevitas.function.ops.tensor_clamp` for further details.
+    Autograd function that implements :func:`~brevitas.function.ops.tensor_clamp_` with a
+    straight-through gradient estimator for the gradient of y w.r.t. to x, while the gradient of y
+    w.r.t. to min_val and max_val is always None.
 
-    Notes:
-        InplaceTensorClampSteFn.apply is exported as tensor_clamp_ste_impl_.
-
-    Examples:
-        >>> x = torch.tensor([1.5, 0.4, -1.5], requires_grad=True)
-        >>> y = tensor_clamp_ste_impl_(x, torch.tensor([-1.0, -0.5, -0.5]), torch.tensor([1.0, 0.5, 0.5]))
-        >>> y
-        tensor([ 1.0000,  0.4000, -0.5000], grad_fn=<InplaceTensorClampSteFnBackward>)
-        >>> (y == x).all().item()
-        True
-        >>> grad = torch.tensor([0.1, -0.1, 0.1])
-        >>> y.backward(grad)
-        >>> (x.grad == grad).all().item()
-        True
+    ``InplaceTensorClampSteFn.apply(*args)`` is first aliased to
+    :func:`tensor_clamp_ste_impl_(*args)
+    <brevitas.function.autograd_ste_ops.tensor_clamp_ste_impl_>` and then wrapped by
+    :func:`~brevitas.function.ops_ste.tensor_clamp_` when env ``BREVITAS_JIT=0``.
+    See :func:`~brevitas.function.ops_ste.tensor_clamp_` for details on the interface and
+    examples.
     """
 
     @staticmethod
@@ -216,21 +192,14 @@ class InplaceTensorClampSteFn(Function):
 
 class RoundToZeroSteFn(Function):
     """
-    Autograd function that implements rounding towards zero with a straight-through gradient estimator.
-    See :func:`~brevitas.function.ops.round_to_zero` for further details.
+    Autograd function that implements :func:`~brevitas.function.ops.round_to_zero` with a
+    straight-through gradient estimator.
 
-    Notes:
-        RoundToZeroSteFn.apply is exported as round_to_zero_ste_impl.
-
-    Examples:
-        >>> x = torch.tensor([1.7, -1.7], requires_grad=True)
-        >>> y = round_to_zero_ste_impl(x)
-        >>> y
-        tensor([ 1., -1.], grad_fn=<RoundToZeroSteFnBackward>)
-        >>> grad = torch.tensor([0.1, -0.1])
-        >>> y.backward(grad)
-        >>> (x.grad == grad).all().item()
-        True
+    ``RoundToZeroSteFn.apply(*args)`` is first aliased to :func:`round_to_zero_ste_impl(*args)
+    <brevitas.function.autograd_ste_ops.round_to_zero_ste_impl>` and then wrapped by
+    :func:`~brevitas.function.ops_ste.round_to_zero_ste` when env ``BREVITAS_JIT=0``.
+    See :func:`~brevitas.function.ops_ste.round_to_zero_ste` for details on the interface and
+    examples.
     """
 
     @staticmethod
@@ -253,20 +222,13 @@ class RoundToZeroSteFn(Function):
 
 class CeilSteFn(Function):
     """ 
-    Autograd function that implements torch.ceil with a straight-through gradient estimator.
+    Autograd function that implements :func:`torch.ceil` with a straight-through gradient estimator.
 
-    Notes:
-        CeilSteFn.apply is exported as ceil_ste_impl.
-
-    Examples:
-        >>> x = torch.tensor([1.7, -1.7], requires_grad=True)
-        >>> y = ceil_ste_impl(x)
-        >>> y
-        tensor([ 2., -1.], grad_fn=<CeilSteFnBackward>)
-        >>> grad = torch.tensor([0.1, -0.1])
-        >>> y.backward(grad)
-        >>> (x.grad == grad).all().item()
-        True
+    ``CeilSteFn.apply(*args)`` is first aliased to :func:`ceil_ste_impl(*args)
+    <brevitas.function.autograd_ste_ops.ceil_ste_impl>` and then wrapped by
+    :func:`~brevitas.function.ops_ste.ceil_ste` when env ``BREVITAS_JIT=0``.
+    See :func:`~brevitas.function.ops_ste.ceil_ste` for details on the interface and
+    examples.
     """
 
     @staticmethod
@@ -286,20 +248,13 @@ class CeilSteFn(Function):
 
 class FloorSteFn(Function):
     """ 
-    Autograd function that implements torch.floor with a straight-through gradient estimator.
+    Autograd function that implements :func:`torch.floor` with a straight-through gradient estimator.
 
-    Notes:
-        FloorSteFn.apply is exported as floor_ste_impl.
-
-    Examples:
-        >>> x = torch.tensor([1.7, -1.7], requires_grad=True)
-        >>> y = floor_ste_impl(x)
-        >>> y
-        tensor([ 1., -2.], grad_fn=<FloorSteFnBackward>)
-        >>> grad = torch.tensor([0.1, -0.1])
-        >>> y.backward(grad)
-        >>> (x.grad == grad).all().item()
-        True
+    ``FloorSteFn.apply(*args)`` is first aliased to :func:`floor_ste_impl(*args)
+    <brevitas.function.autograd_ste_ops.floor_ste_impl>` and then wrapped by
+    :func:`~brevitas.function.ops_ste.floor_ste` when env ``BREVITAS_JIT=0``.
+    See :func:`~brevitas.function.ops_ste.floor_ste` for details on the interface and
+    examples.
     """
 
     @staticmethod
@@ -319,21 +274,14 @@ class FloorSteFn(Function):
 
 class BinarySignSteFn(Function):
     """ 
-    Autograd function that implements binary_sign with a straight-through gradient estimator.
-    See :func:`~brevitas.function.ops.binary_sign` for further details.
+    Autograd function that implements :func:`~brevitas.function.ops.binary_sign` with a
+    straight-through gradient estimator.
 
-    Notes:
-        BinarySignSteFn.apply is exported as binary_sign_ste_impl.
-
-    Examples:
-        >>> x = torch.tensor([1.7, 0.0, -0.5], requires_grad=True)
-        >>> y = binary_sign_ste_impl(x)
-        >>> y
-        tensor([ 1.,  1., -1.], grad_fn=<BinarySignSteFnBackward>)
-        >>> grad = torch.tensor([0.1, 0.2, -0.1])
-        >>> y.backward(grad)
-        >>> (x.grad == grad).all().item()
-        True
+   ``BinarySignSteFn.apply(*args)`` is first aliased to :func:`binary_sign_ste_impl(*args)
+    <brevitas.function.autograd_ste_ops.binary_sign_ste_impl>` and then wrapped by
+    :func:`~brevitas.function.ops_ste.binary_sign_ste` when env ``BREVITAS_JIT=0``.
+    See :func:`~brevitas.function.ops_ste.binary_sign_ste` for details on the interface and
+    examples.
     """
 
     @staticmethod
@@ -358,20 +306,13 @@ class BinarySignSteFn(Function):
 
 class TernarySignSteFn(Function):
     """ 
-    Autograd function that implements torch.sign with a straight-through gradient estimator.
+    Autograd function that implements :func:`torch.sign` with a straight-through gradient estimator.
 
-    Notes:
-        TernarySignSteFn.apply is exported as ternary_sign_ste_impl.
-
-    Examples:
-        >>> x = torch.tensor([1.7, 0.0, -0.5], requires_grad=True)
-        >>> y = ternary_sign_ste_impl(x)
-        >>> y
-        tensor([ 1.,  0., -1.], grad_fn=<TernarySignSteFnBackward>)
-        >>> grad = torch.tensor([0.1, 0.2, -0.1])
-        >>> y.backward(grad)
-        >>> (x.grad == grad).all().item()
-        True
+    ``TernarySignSteFn.apply(*args)`` is first aliased to :func:`ternary_sign_ste_impl(*args)
+    <brevitas.function.autograd_ste_ops.ternary_sign_ste_impl>` and then wrapped by
+    :func:`~brevitas.function.ops_ste.ternary_sign_ste` when env ``BREVITAS_JIT=0``.
+    See :func:`~brevitas.function.ops_ste.ternary_sign_ste` for details on the interface and
+    examples.
     """
 
     @staticmethod
@@ -391,20 +332,13 @@ class TernarySignSteFn(Function):
 
 class RoundSteFn(Function):
     """
-    Autograd function that implements torch.round with a straight-through gradient estimator.
+    Autograd function that implements :func:`torch.round` with a straight-through gradient
+    estimator.
 
-    Notes:
-        RoundSteFn.apply is exported as round_ste_impl.
-
-    Examples:
-        >>> x = torch.tensor([1.7, -1.7], requires_grad=True)
-        >>> y = round_ste_impl(x)
-        >>> y
-        tensor([ 2., -2.], grad_fn=<RoundSteFnBackward>)
-        >>> grad = torch.tensor([0.1, -0.1])
-        >>> y.backward(grad)
-        >>> (x.grad == grad).all().item()
-        True
+    ``RoundSteFn.apply(*args)`` is first aliased to :func:`round_ste_impl(*args)
+    <brevitas.function.autograd_ste_ops.round_ste_impl>` and then wrapped by
+    :func:`~brevitas.function.ops_ste.round_ste` when env ``BREVITAS_JIT=0``.
+    See :func:`~brevitas.function.ops_ste.round_ste` for details on the interface and examples.
     """
 
     @staticmethod
@@ -425,21 +359,14 @@ class RoundSteFn(Function):
 
 class AbsBinarySignGradFn(Function):
     """
-        Autograd function that implements torch.abs with a binary-sign backward, in order to have
-        subgradient 1 in 0. Compare with torch.abs' subgradient of 0 in 0.
+    Autograd function that implements :func:`torch.abs` with a binary-sign backward, in order to
+    have subgradient 1 in 0. Compare with :func:`torch.abs`' subgradient of 0 in 0.
 
-    Notes:
-        AbsBinarySignGradFn.apply is exported as abs_binary_sign_grad_impl.
-
-    Examples:
-        >>> x = torch.tensor([0.0], requires_grad=True)
-        >>> y = abs_binary_sign_grad_impl(x)
-        >>> y
-        tensor([0.], grad_fn=<AbsBinarySignGradFnBackward>)
-        >>> grad = torch.tensor([0.1])
-        >>> y.backward(grad)
-        >>> (x.grad == grad).all().item()
-        True
+    ``AbsBinarySignGradFn.apply(*args)`` is first aliased to :func:`abs_binary_sign_grad(*args)
+    <brevitas.function.autograd_ste_ops.abs_binary_sign_grad>` and then wrapped by
+    :func:`~brevitas.function.abs_binary_sign_grad` when env ``BREVITAS_JIT=0``.
+    See :func:`~brevitas.function.ops_ste.abs_binary_sign_grad` for details on the interface and
+    examples.
     """
 
     @staticmethod
@@ -458,18 +385,47 @@ class AbsBinarySignGradFn(Function):
         y = g.op('Abs', x)
         return y
 
+
+#: Alias for :class:`RoundSteFn.apply(*args)
+#: <brevitas.function.autograd_ste_ops.RoundSteFn>`
 round_ste_impl = RoundSteFn.apply
+
+#: Alias for :class:`BinarySignSteFn.apply(*args)
+#: <brevitas.function.autograd_ste_ops.BinarySignSteFn>`
 binary_sign_ste_impl = BinarySignSteFn.apply
+
+#: Alias for :class:`TernarySignSteFn.apply(*args)
+#: <brevitas.function.autograd_ste_ops.TernarySignSteFn>`
 ternary_sign_ste_impl = TernarySignSteFn.apply
+
+#: Alias for :class:`FloorSteFn.apply(*args)
+#: <brevitas.function.autograd_ste_ops.FloorSteFn>`
 floor_ste_impl = FloorSteFn.apply
+
+#: Alias for :class:`CeilSteFn.apply(*args)
+#: <brevitas.function.autograd_ste_ops.CeilSteFn>`
 ceil_ste_impl = CeilSteFn.apply
+
+#: Alias for :class:`RoundToZeroSteFn.apply(*args)
+#: <brevitas.function.autograd_ste_ops.RoundToZeroSteFn>`
 round_to_zero_ste_impl = RoundToZeroSteFn.apply
+
+#: Alias for :class:`ScalarClampMinSteFn.apply(*args)
+#: <brevitas.function.autograd_ste_ops.ScalarClampMinSteFn>`
 scalar_clamp_min_ste_impl = ScalarClampMinSteFn.apply
+
+#: Alias for :class:`ScalarClampSteFn.apply(*args)
+#: <brevitas.function.autograd_ste_ops.ScalarClampSteFn>`
 scalar_clamp_ste_impl = ScalarClampSteFn.apply
+
+#: Alias for :class:`TensorClampSteFn.apply(*args)
+#: <brevitas.function.autograd_ste_ops.TensorClampSteFn>`
 tensor_clamp_ste_impl = TensorClampSteFn.apply
 
-#: Alias for InplaceTensorClampSteFn.apply
+#: Alias for :class:`InplaceTensorClampSteFn.apply(*args)
+#: <brevitas.function.autograd_ste_ops.InplaceTensorClampSteFn>`
 tensor_clamp_ste_impl_ = InplaceTensorClampSteFn.apply
 
-#: Alias for AbsBinarySignGradFn.apply
+#: Alias for :class:`AbsBinarySignGradFn.apply(*args)
+#: <brevitas.function.autograd_ste_ops.AbsBinarySignGradFn>`
 abs_binary_sign_grad_impl = AbsBinarySignGradFn.apply

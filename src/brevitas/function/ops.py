@@ -95,15 +95,18 @@ def tensor_clamp(x: Tensor, min_val: Tensor, max_val: Tensor) -> Tensor:
     Generalized clamp function with support for tensors as clamping values.
 
     Args:
-        x (Tensor): Input on which to apply the clamp operation
-        min_val (Tensor): Minimum values for the clamp operation.
-        max_val (Tensor): Maximum values for the clamp operation.
+        x: Input on which to apply the clamp operation
+        min_val: Minimum values for the clamp operation.
+        max_val: Maximum values for the clamp operation.
 
     Notes:
         x, min_val, max_val need to be broadcastable.
 
+    Notes:
+        Differentiable w.r.t. x, min_val, max_val.
+
     Returns:
-        Tensor: Input `x` clamped between the provided minimum and maximum tensors.
+        Input `x` clamped between the provided minimum and maximum tensors.
 
     Examples:
         >>> tensor_clamp(torch.tensor([1.7, -0.5, 0.1]), torch.tensor(0.0), torch.tensor(1.0))
@@ -118,6 +121,7 @@ def tensor_clamp(x: Tensor, min_val: Tensor, max_val: Tensor) -> Tensor:
 def tensor_clamp_(x: Tensor, min_val: Tensor, max_val: Tensor) -> Tensor:
     """
     In-place variant of :func:`~brevitas.function.ops.tensor_clamp`.
+    Not differentiable wrt to any of the inputs.
     """
     torch.min(x, max_val, out=x)
     torch.max(x, min_val, out=x)
