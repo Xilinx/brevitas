@@ -45,7 +45,6 @@ from torch import Tensor
 from torch.nn import Module
 
 import brevitas
-from brevitas.function.ops import tensor_clamp
 from brevitas.function.ops_ste import binary_sign_ste
 from brevitas.core.function_wrapper import TensorClamp
 from brevitas.core.bit_width import BitWidthConst
@@ -63,8 +62,7 @@ class BinaryQuant(brevitas.jit.ScriptModule):
         quant_delay_steps (int): Number of training steps to delay quantization for. Default: 0
 
     Returns:
-        Tuple[Tensor, Tensor, Tensor, Tensor]: Quantized output in de-quantized format, scale,
-            zero-point, bit_width.
+        Tuple[Tensor, Tensor, Tensor, Tensor]: Quantized output in de-quantized format, scale, zero-point, bit_width.
 
     Examples:
         >>> from brevitas.core.scaling import ConstScaling
@@ -81,8 +79,7 @@ class BinaryQuant(brevitas.jit.ScriptModule):
         tensor(1.)
 
     Note:
-        Maps to quant_type == QuantType.BINARY == 'BINARY' == 'binary' when applied to weights
-         in higher-level APIs.
+        Maps to quant_type == QuantType.BINARY == 'BINARY' == 'binary' when applied to weights in higher-level APIs.
 
     Note:
         Set env variable BREVITAS_JIT=1 to enable TorchScript compilation of this module.
@@ -112,11 +109,11 @@ class ClampedBinaryQuant(brevitas.jit.ScriptModule):
 
     Args:
         scaling_impl (Module): Module that returns a scale factor.
+        tensor_clamp_impl (Module): Module that performs tensor-wise clamping. Default TensorClamp()
         quant_delay_steps (int): Number of training steps to delay quantization for. Default: 0
 
     Returns:
-        Tuple[Tensor, Tensor, Tensor, Tensor]: Quantized output in de-quantized format, scale,
-            zero-point, bit_width.
+        Tuple[Tensor, Tensor, Tensor, Tensor]: Quantized output in de-quantized format, scale, zero-point, bit_width.
 
     Examples:
         >>> from brevitas.core.scaling import ConstScaling
