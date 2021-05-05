@@ -173,7 +173,7 @@ class ParameterScaling(brevitas.jit.ScriptModule):
 
     @brevitas.jit.script_method
     def forward(self, placeholder: Tensor) -> Tensor:
-        value = self.restrict_clamp_scaling(abs_binary_sign_grad(self.value))
+        value = abs_binary_sign_grad(self.restrict_clamp_scaling(self.value))
         return value
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
@@ -288,10 +288,10 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             elif self.counter == self.collect_stats_steps:
                 self.restrict_inplace_preprocess(self.value.detach())
                 self.counter = self.counter + 1
-                return self.restrict_clamp_scaling(abs_binary_sign_grad(self.value))
+                return abs_binary_sign_grad(self.restrict_clamp_scaling(self.value))
             else:
-                return self.restrict_clamp_scaling(abs_binary_sign_grad(self.value))
-        out = self.restrict_clamp_scaling(abs_binary_sign_grad(self.value))
+                return abs_binary_sign_grad(self.restrict_clamp_scaling(self.value))
+        out = abs_binary_sign_grad(self.restrict_clamp_scaling(self.value))
         return out
 
     def state_dict(self, destination=None, prefix='', keep_vars=False):
