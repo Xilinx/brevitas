@@ -75,8 +75,9 @@ class _RestrictClampValue(brevitas.jit.ScriptModule):
 
     @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
+        x = self.restrict_value_impl(x)
         x = self.clamp_min_ste(x)
-        return self.restrict_value_impl(x)
+        return x
 
 
 class FloatRestrictValue(brevitas.jit.ScriptModule):
