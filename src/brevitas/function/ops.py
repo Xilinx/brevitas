@@ -113,7 +113,7 @@ def tensor_clamp(x: Tensor, min_val: Tensor, max_val: Tensor) -> Tensor:
         tensor([1.0000, 0.0000, 0.1000])
     """
     out = torch.where(x > max_val, max_val.type_as(x), x)
-    out = torch.where(out < min_val, min_val.type_as(x), out)
+    out = torch.where(out < min_val, min_val.type_as(out), out)
     return out
 
 
