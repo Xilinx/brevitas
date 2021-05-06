@@ -8,8 +8,6 @@
 
 Brevitas is a PyTorch research library for quantization-aware training (QAT).
 
-**Note from the author**: I'll be presenting a poster about Brevitas at the 2021 PyTorch Ecosystem Day. Find me during the morning session at virtual poster B4.
-
 *Brevitas is currently under active development. Documentation, examples, and pretrained models will be progressively released.*
 
 **Please note that Brevitas is a research project and not an official Xilinx product.**
@@ -20,6 +18,7 @@ If you have issues, comments, or are just looking for advices on training quanti
 
 
 ## History
+- *2021/05/06* - Release version 0.5.0, see the [release notes](https://github.com/Xilinx/brevitas/releases/tag/v0.5.0). 
 - *2021/03/15* - Release version 0.4.0, add support for \_\_torch_function\_\_ to QuantTensor.
 - *2021/03/04* - Release version 0.3.1, fix bug w/ act initialization from statistics w/ IGNORE_MISSING_KEYS=1.
 - *2021/03/01* - Release version 0.3.0, implements enum and shape solvers within extended dependency injectors. This allows declarative quantizers to be self-contained.
