@@ -82,7 +82,7 @@ class QuantMaxPool1d(QuantLayerMixin, MaxPool1d):
         x = self.unpack_input(input)
         if self.export_mode:
             return self.export_handler(x.value)
-        x = x.set(value=super(MaxPool1d, self).forward(x.value))
+        x = x.set(value=super().forward(x.value))
         return self.pack_output(x)
 
 
