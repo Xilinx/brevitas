@@ -72,7 +72,7 @@ class OverTensorView(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
         shape = self.shape(x)
-        return x.view(shape)
+        return x.reshape(shape)
 
 
 class OverOutputChannelView(brevitas.jit.ScriptModule):
@@ -100,7 +100,7 @@ class OverOutputChannelView(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
         shape = self.shape(x)
-        return x.view(shape)
+        return x.reshape(shape)
 
 
 class OverBatchOverTensorView(brevitas.jit.ScriptModule):
@@ -128,7 +128,7 @@ class OverBatchOverTensorView(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
         shape = self.shape(x)
-        return x.view(shape)
+        return x.reshape(shape)
 
 
 class OverBatchOverOutputChannelView(brevitas.jit.ScriptModule):
@@ -156,7 +156,7 @@ class OverBatchOverOutputChannelView(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
         shape = self.shape(x)
-        return x.view(shape)
+        return x.reshape(shape)
 
 
 class StatsInputViewShapeImpl(object):
