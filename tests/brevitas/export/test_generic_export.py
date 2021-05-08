@@ -1,7 +1,7 @@
 import torch
 
 from brevitas.nn import QuantConv2d, QuantLinear, QuantAvgPool2d, QuantIdentity, QuantReLU, QuantMaxPool2d
-from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
+from brevitas.quant.scaled_int import Int4WeightPerTensorFloatDecoupled
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat, Int16Bias
 from brevitas.export.onnx.generic.manager import BrevitasONNXManager
 
@@ -38,6 +38,35 @@ def test_generic_quant_linear_export():
     model.eval()
     BrevitasONNXManager.export(
         model, input_t=inp, export_path='./generic_quant_linear.onnx')
+
+
+def test_generic_decoupled_quant_linear_export():
+    IN_SIZE = (2, IN_CH)
+
+    class Model(torch.nn.Module):
+
+        def __init__(self):
+            super().__init__()
+            self.linear = QuantLinear(
+                out_features=OUT_CH,
+                in_features=IN_CH,
+                bias=True,
+                input_quant=Int8ActPerTensorFloat,
+                output_quant=Int8ActPerTensorFloat,
+                weight_quant=Int4WeightPerTensorFloatDecoupled,
+                bias_quant=Int16Bias,
+                return_quant_tensor=False)
+            self.linear.weight.data.uniform_(-0.01, 0.01)
+
+        def forward(self, x):
+            return self.linear(x)
+
+    inp = torch.randn(IN_SIZE)
+    model = Model()
+    model(inp)  # collect scale factors
+    model.eval()
+    BrevitasONNXManager.export(
+        model, input_t=inp, export_path='./generic_decoupled_quant_linear.onnx')
 
 
 def test_generic_quant_conv_export():

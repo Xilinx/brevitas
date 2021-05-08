@@ -58,7 +58,7 @@ from brevitas.core.function_wrapper import TensorClampSte
 from brevitas.core.function_wrapper import OverOutputChannelView
 from brevitas.quant.solver.parameter import ParameterFromStatsScalingInit
 from brevitas.quant.solver.weight import SolveWeightScalingStatsInputConcatDimFromModule
-
+from brevitas.proxy import DecoupledWeightQuantProxyFromInjector
 
 __all__ = [
     'MaxStatsScaling',
@@ -235,6 +235,7 @@ class WeightPerTensorFloatDecoupledL2Param(SolveWeightScalingStatsInputConcatDim
     def scaling_init(scaling_init_impl):
         return scaling_init_impl()
 
+    proxy_class = DecoupledWeightQuantProxyFromInjector
     tensor_quant = DecoupledRescalingIntQuant
     decoupled_int_quant = DecoupledIntQuant
     tensor_clamp_impl = TensorClampSte
