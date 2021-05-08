@@ -61,7 +61,6 @@ class QuantInputMixin(QuantProxyMixin):
         QuantProxyMixin.__init__(
             self,
             quant=input_quant,
-            proxy_from_injector_impl=ActQuantProxyFromInjector,
             proxy_protocol=ActQuantProxyProtocol,
             none_quant_injector=NoneActQuant,
             proxy_prefix='input_',

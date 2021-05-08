@@ -64,7 +64,6 @@ class QuantWeightMixin(QuantProxyMixin):
         QuantProxyMixin.__init__(
             self,
             quant=weight_quant,
-            proxy_from_injector_impl=WeightQuantProxyFromInjector,
             proxy_protocol=WeightQuantProxyProtocol,
             none_quant_injector=NoneWeightQuant,
             kwargs_prefix='weight_',

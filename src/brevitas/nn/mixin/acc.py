@@ -57,7 +57,6 @@ class QuantTruncMixin(QuantProxyMixin):
     def __init__(self, trunc_quant: Optional[AccQuantType], **kwargs):
         super().__init__(
             quant=trunc_quant,
-            proxy_from_injector_impl=TruncQuantProxyFromInjector,
             proxy_protocol=AccQuantProxyProtocol,
             none_quant_injector=NoneTruncQuant,
             kwargs_prefix='',

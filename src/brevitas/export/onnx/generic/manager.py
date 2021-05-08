@@ -5,7 +5,7 @@ from brevitas.export.onnx.transform import move_domain_attributes_into_domain
 from brevitas.export.base import _set_proxy_export_handler, _set_proxy_export_mode
 
 from .handler import ActQuantProxyHandler, BiasQuantProxyHandler, WeightQuantProxyHandler
-from .handler import TruncQuantProxyHandler
+from .handler import TruncQuantProxyHandler, DecoupledWeightQuantProxyHandler
 
 
 class BrevitasONNXManager(ONNXBaseManager):
@@ -24,6 +24,7 @@ class BrevitasONNXManager(ONNXBaseManager):
         ActQuantProxyHandler,
         BiasQuantProxyHandler,
         WeightQuantProxyHandler,
+        DecoupledWeightQuantProxyHandler,
         TruncQuantProxyHandler
     ]
 

@@ -47,6 +47,7 @@ from brevitas.proxy.utils import ConvertRuntimeStatsToParameter
 from brevitas.quant.solver.common import *
 from brevitas.inject import ExtendedInjector, value, this
 from brevitas.inject.enum import ScalingImplType, QuantType
+from brevitas.proxy import ActQuantProxyFromInjector
 
 
 class MinMaxScalingInit:
@@ -177,7 +178,7 @@ class ActQuantSolver(
     It should be placed last in the list of classes a quantizer inherits from,
     to make sure overrides are correctly captured.
     """
-    pass
+    proxy_class = ActQuantProxyFromInjector
 
 
 
