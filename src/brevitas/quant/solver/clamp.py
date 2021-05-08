@@ -38,7 +38,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-
+from brevitas.proxy import ClampQuantProxyFromInjector
 from brevitas.core.quant import PrescaledRestrictIntQuantWithInputBitWidth
 from brevitas.core.bit_width import MsbClampBitWidth, RemoveBitwidthParameter
 from brevitas.core.bit_width import BitWidthImplType, BitWidthConst
@@ -92,4 +92,4 @@ class ClampQuantSolver(
     It should be placed last in the list of classes a quantizer inherits from,
     to make sure overrides are correctly captured.
     """
-    pass
+    proxy_class = ClampQuantProxyFromInjector

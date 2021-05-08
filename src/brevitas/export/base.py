@@ -122,7 +122,7 @@ def _set_proxy_export_handler(manager_cls, module: Module):
     if (isinstance(module, QuantProxyProtocol)
             and hasattr(module, 'export_handler')
             and module.export_handler is None):
-        handler = manager_cls.handler_from_module(module)
+        handler = manager_cls.handler_from_module(module, no_inheritance=True)
         module.export_handler = handler()
 
 
@@ -225,10 +225,14 @@ class BaseManager(ABC):
         return output
 
     @classmethod
-    def handler_from_module(cls, module: Module):
+    def handler_from_module(cls, module: Module, no_inheritance=False):
         for handler in cls.handlers:
-            if isinstance(module, handler.handled_layer):
-                return handler
+            if no_inheritance:
+                if type(module) == handler.handled_layer:
+                    return handler
+            else:
+                if isinstance(module, handler.handled_layer):
+                    return handler
         return None
 
     @classmethod

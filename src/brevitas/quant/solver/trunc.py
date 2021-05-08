@@ -39,6 +39,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 
+from brevitas.proxy import TruncQuantProxyFromInjector
 from brevitas.core.quant import TruncIntQuant
 from brevitas.inject import ExtendedInjector, value
 from brevitas.inject.enum import QuantType
@@ -71,4 +72,4 @@ class TruncQuantSolver(
     It should be placed last in the list of classes a quantizer inherits from,
     to make sure overrides are correctly captured.
     """
-    pass
+    proxy_class = TruncQuantProxyFromInjector

@@ -40,6 +40,7 @@
 
 
 from brevitas.inject import ExtendedInjector, value
+from brevitas.proxy import BiasQuantProxyFromInjector
 from brevitas.quant.solver.common import *
 from brevitas.quant.solver.parameter import *
 from brevitas.inject.enum import QuantType
@@ -122,4 +123,4 @@ class BiasQuantSolver(
     It should be placed last in the list of classes a quantizer inherits from,
     to make sure overrides are correctly captured.
     """
-    pass
+    proxy_class = BiasQuantProxyFromInjector
