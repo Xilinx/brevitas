@@ -41,6 +41,7 @@
 
 from brevitas.core.quant import *
 from brevitas.core.quant import QuantType
+from brevitas.proxy import WeightQuantProxyFromInjector
 from brevitas.quant.solver.common import *
 from brevitas.quant.solver.parameter import *
 from brevitas.inject import ExtendedInjector, value, this
@@ -111,7 +112,7 @@ class WeightQuantSolver(
     It should be placed last in the list of classes a quantizer inherits from,
     to make sure overrides are correctly captured.
     """
-    pass
+    proxy_class = WeightQuantProxyFromInjector
 
 
 

@@ -85,7 +85,6 @@ class QuantProxyMixin(object):
     def __init__(
             self,
             quant,
-            proxy_from_injector_impl,
             proxy_protocol,
             none_quant_injector,
             proxy_prefix: str,
@@ -94,11 +93,11 @@ class QuantProxyMixin(object):
         proxy_name = proxy_prefix + 'quant'
         if quant is None:
             quant_injector = none_quant_injector.let(**filter_kwargs(kwargs_prefix, kwargs))
-            quant = proxy_from_injector_impl(self, quant_injector)
+            quant = quant_injector.proxy_class(self, quant_injector)
         elif isclass(quant) and issubclass(quant, (Injector, ExtendedInjector)):
             quant_injector = quant
             quant_injector = quant_injector.let(**filter_kwargs(kwargs_prefix, kwargs))
-            quant = proxy_from_injector_impl(self, quant_injector)
+            quant = quant_injector.proxy_class(self, quant_injector)
         else:
             if not isinstance(quant, proxy_protocol):
                 raise RuntimeError(
