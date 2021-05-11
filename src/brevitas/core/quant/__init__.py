@@ -5,6 +5,6 @@ assert QuantType
 
 from .binary import ClampedBinaryQuant, BinaryQuant
 from .ternary import TernaryQuant
-from .int_base import IntQuant
+from .int_base import IntQuant, DecoupledIntQuant
 from .int import TruncIntQuant, RescalingIntQuant, PrescaledRestrictIntQuant
 from .int import PrescaledRestrictIntQuantWithInputBitWidth
