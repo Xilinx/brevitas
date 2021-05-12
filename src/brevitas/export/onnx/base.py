@@ -6,7 +6,7 @@ from io import BytesIO
 
 try:
     import onnx
-    import onnx.optimizer as opt
+    import onnxoptimizer as opt
 except ModuleNotFoundError:
     onnx = None
     opt = None
@@ -73,7 +73,7 @@ class ONNXBaseManager(BaseManager, ABC):
         """
 
         if onnx is None or opt is None:
-            raise ModuleNotFoundError("Installation of ONNX is required.")
+            raise ModuleNotFoundError("Installation of onnx and onnxoptimizer is required.")
         if input_shape is None and input_t is None:
             raise RuntimeError("Export requires to pass in either input_shape or input_t")
         if input_shape is not None and input_t is not None:
@@ -93,7 +93,8 @@ class ONNXBaseManager(BaseManager, ABC):
                 cls._cache_inp_out(module, input_t)
                 # Dequantize QuantTensor, if any
                 if isinstance(input_t, QuantTensor):
-                    input_t = input_t.value                # enable export mode, this triggers collecting export values into handlers
+                    input_t = input_t.value
+                # enable export mode, this triggers collecting export values into handlers
                 module.apply(lambda m: cls.set_export_mode(m, enabled=True))
                 # temporarily disable input caching to avoid collectives empty debug values
                 module.apply(lambda m: _override_inp_caching_mode(m, enabled=False))
