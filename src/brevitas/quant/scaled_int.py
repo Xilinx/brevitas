@@ -91,7 +91,6 @@ class Uint8ActPerTensorFloatMaxInit(
         tensor(0.5000, grad_fn=<MulBackward0>)
     """
     min_val = 0.0
-    pass
 
 
 class IntBias(IntQuant, BiasQuantSolver):
@@ -101,7 +100,7 @@ class IntBias(IntQuant, BiasQuantSolver):
 
     Examples:
         >>> from brevitas.nn import QuantLinear
-        >>> fc = QuantLinear(10, 5, bias=True, bias_quant=IntBiasExternalBitWidth)
+        >>> fc = QuantLinear(10, 5, bias=True, bias_quant=IntBias)
     """
     tensor_clamp_impl = TensorClamp
     requires_input_scale = True
