@@ -10,7 +10,6 @@ from brevitas import nn as qnn
 from brevitas.quant_tensor import QuantTensor
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.nn.utils import merge_bn
-from .module import CodegenModule, _replace_module, Instruction, FnType, _set_module
 
 
 def _signature_keys(module_class):

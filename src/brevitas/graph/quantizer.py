@@ -7,8 +7,6 @@ from torch import nn
 
 from brevitas import nn as qnn
 from brevitas.inject.defaults import *
-from .tracer import Tracer
-from .generator import ModuleGenerator
 from .rewriter import TorchFnToModuleRewriter, TensorMethodToModuleRewriter
 from .rewriter import ModuleToModuleRewriter
 from .rewriter import MergeBatchNorm2d, DisableBreakingReturnQuantTensor

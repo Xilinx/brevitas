@@ -3,11 +3,11 @@ import inspect
 
 import torch
 
-from .backport.signatures import get_torch_overrides
-from .backport.signatures import get_nn_functional_overrides
-from .backport.signatures import get_testing_overrides
-from .backport._overrides import torch_function_dispatch
-from .backport._overrides import _implement_torch_function
+from .signatures import get_torch_overrides
+from .signatures import get_nn_functional_overrides
+from .signatures import get_testing_overrides
+from ._overrides import torch_function_dispatch
+from ._overrides import _implement_torch_function
 
 
 def make_above_16_patches():
