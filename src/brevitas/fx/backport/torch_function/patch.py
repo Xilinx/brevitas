@@ -1,14 +1,14 @@
 from unittest import mock
 import inspect
+from packaging import version
 
 import torch
 
 from .signatures import get_torch_overrides
 from .signatures import get_nn_functional_overrides
-from .signatures import get_testing_overrides
 from ._overrides import torch_function_dispatch
 from ._overrides import _implement_torch_function
-
+from .signatures import get_testing_overrides
 
 def make_above_16_patches():
 
@@ -101,6 +101,12 @@ def make_below_16_patches():
     return torch_patches + func_patches
 
 
-ABOVE_16_PATCHES = make_above_16_patches()
-EQUAL_16_PATCHES = make_equal_16_patches()
-BELOW_16_PATCHES = make_equal_16_patches() + make_below_16_patches()
+pt_version = version.parse(torch.__version__)
+if pt_version > version.parse('1.6') and pt_version < version.parse('1.8'):
+    TORCH_FN_PATCHES = make_above_16_patches()
+elif pt_version == version.parse('1.6'):
+    TORCH_FN_PATCHES = make_equal_16_patches()
+elif pt_version < version.parse('1.6'):
+    TORCH_FN_PATCHES = make_equal_16_patches() + make_below_16_patches()
+else:
+    TORCH_FN_PATCHES = []

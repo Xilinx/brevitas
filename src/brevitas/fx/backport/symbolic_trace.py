@@ -1,4 +1,5 @@
 """
+Copyright (c) 2018-     Xilinx                   (Alessandro Pappalardo)
 Copyright (c) 2016-     Facebook, Inc            (Adam Paszke)
 Copyright (c) 2014-     Facebook, Inc            (Soumith Chintala)
 Copyright (c) 2011-2014 Idiap Research Institute (Ronan Collobert)
@@ -38,7 +39,7 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 
-Forked as-is from PyTorch 1.8.1
+Forked from PyTorch 1.8.1
 """
 
 import builtins
@@ -49,6 +50,8 @@ import os
 from types import CodeType, FunctionType, ModuleType
 from typing import Any, Dict, NamedTuple, Optional, Set, Tuple, List, Callable, Union
 from itertools import chain
+from contextlib import ExitStack
+
 import torch
 from torch._C import ScriptObject  # type: ignore
 
@@ -56,6 +59,7 @@ from .node import Argument, map_aggregate
 from .graph import Graph
 from .graph_module import GraphModule
 from .proxy import TracerBase, Proxy
+from .torch_function import TORCH_FN_PATCHES
 
 HAS_VARSTUFF = inspect.CO_VARARGS | inspect.CO_VARKEYWORDS
 
@@ -91,6 +95,7 @@ def _patch_function(fn: FunctionType, nargs: int) -> FunctionType:
     # we can't call this function normally, otherwise it would try to unpack them
     # instead, let's make python think that args and kwargs are normal variables
 
+
 class Tracer(TracerBase):
     """
     ``Tracer`` is the class that implements the symbolic tracing functionality
@@ -123,7 +128,6 @@ class Tracer(TracerBase):
         # Python modules to apply autowrap to at the start, in addition to
         # modules we see while tracing
         self._autowrap_search: List[ModuleType] = list(autowrap_modules)
-
 
     def create_arg(self, a: Any) -> 'Argument':
         """
@@ -629,6 +633,7 @@ def wrap(fn_or_name : Union[str, Callable]):
     _wrapped_fns_to_patch.append((f.f_globals, fn_name))
     return fn_or_name
 
+
 def symbolic_trace(root : Union[torch.nn.Module, Callable], concrete_args: Optional[Dict[str, Any]] = None) -> GraphModule:
     """Symbolic tracing API
 
@@ -645,6 +650,12 @@ def symbolic_trace(root : Union[torch.nn.Module, Callable], concrete_args: Optio
 
     """
     tracer = Tracer()
-    graph = tracer.trace(root, concrete_args)
+    if TORCH_FN_PATCHES:
+        with ExitStack() as stack:
+            for mgr in TORCH_FN_PATCHES:
+                stack.enter_context(mgr)
+                graph = tracer.trace(root, concrete_args)
+    else:
+        graph = tracer.trace(root, concrete_args)
     name = root.__class__.__name__ if isinstance(root, torch.nn.Module) else root.__name__
     return GraphModule(tracer.root, graph, name)

@@ -43,6 +43,8 @@ POSSIBILITY OF SUCH DAMAGE.
 
 from typing import Union, Callable, Optional, Dict, Any, List, Tuple
 from types import CodeType, FunctionType, ModuleType
+from contextlib import ExitStack
+from packaging import version
 import functools
 import inspect
 import builtins
@@ -52,18 +54,32 @@ import math
 import torch
 from torch._C import ScriptObject  # type: ignore
 from torch.nn import Module, Sequential
-from torch.fx import Tracer, Graph, GraphModule, Proxy, Node
-from torch.fx.graph import Target
-from torch.fx.proxy import base_types
-from torch.fx.graph import magic_methods, reflectable_magic_methods
-from torch.fx.symbolic_trace import _orig_module_call
-from torch.fx.symbolic_trace import _orig_module_getattr
-from torch.fx.symbolic_trace import _autowrap_check
-from torch.fx.symbolic_trace import _Patcher, map_aggregate
-from torch.fx.symbolic_trace import _wrapped_fns_to_patch, _wrapped_methods_to_patch
-from torch.fx.symbolic_trace import _find_proxy, _patch_function, HAS_VARSTUFF
 
+from .backport.torch_function import TORCH_FN_PATCHES
 from brevitas.quant_tensor import QuantTensorBase
+
+if version.parse(torch.__version__) < version.parse('1.8'):
+    from .backport.graph_module import GraphModule
+    from .backport.graph import Target, Graph
+    from .backport.proxy import base_types, Proxy, Node
+    from .backport.graph import magic_methods, reflectable_magic_methods
+    from .backport.symbolic_trace import _orig_module_call
+    from .backport.symbolic_trace import _orig_module_getattr
+    from .backport.symbolic_trace import _autowrap_check
+    from .backport.symbolic_trace import _Patcher, map_aggregate
+    from .backport.symbolic_trace import _wrapped_fns_to_patch, _wrapped_methods_to_patch
+    from .backport.symbolic_trace import _find_proxy, _patch_function, HAS_VARSTUFF
+else:
+    from torch.fx import Tracer, Graph, GraphModule, Proxy, Node
+    from torch.fx.graph import Target
+    from torch.fx.proxy import base_types
+    from torch.fx.graph import magic_methods, reflectable_magic_methods
+    from torch.fx.symbolic_trace import _orig_module_call
+    from torch.fx.symbolic_trace import _orig_module_getattr
+    from torch.fx.symbolic_trace import _autowrap_check
+    from torch.fx.symbolic_trace import _Patcher, map_aggregate
+    from torch.fx.symbolic_trace import _wrapped_fns_to_patch, _wrapped_methods_to_patch
+    from torch.fx.symbolic_trace import _find_proxy, _patch_function, HAS_VARSTUFF
 
 
 _UNSET = object()
@@ -489,8 +505,14 @@ def _patch_wrapped_value_functions(patcher : _Patcher):
 
 def concrete_trace(
         root : Union[Module, Callable],
-        concrete_args: Optional[Dict[str, Any]] = None) -> GraphModule:
-    tracer = ValueTracer()
-    graph = tracer.trace(root, concrete_args)
+        concrete_args: Optional[Dict[str, Any]]) -> GraphModule:
+    tracer = Tracer()
+    if TORCH_FN_PATCHES:
+        with ExitStack() as stack:
+            for mgr in TORCH_FN_PATCHES:
+                stack.enter_context(mgr)
+                graph = tracer.trace(root, concrete_args)
+    else:
+        graph = tracer.trace(root, concrete_args)
     name = root.__class__.__name__ if isinstance(root, Module) else root.__name__
     return GraphModule(tracer.root, graph, name)
