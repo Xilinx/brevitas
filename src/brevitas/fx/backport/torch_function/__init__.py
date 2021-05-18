@@ -1,1 +1,1 @@
-from .patch import TORCH_FN_PATCHES
+from .patch import gen_patches

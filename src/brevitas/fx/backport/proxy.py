@@ -49,6 +49,7 @@ import operator
 from .graph import magic_methods, reflectable_magic_methods, Graph
 from typing import Tuple, Dict, Optional, Iterable, Any, Iterator
 from .node import Target, Node, Argument, base_types, map_aggregate
+from .torch_function._overrides import is_tensor_method_or_property
 
 class TracerBase:
     graph: Graph
@@ -217,7 +218,7 @@ class Proxy:
     def __torch_function__(self, orig_method, types, args=None, kwargs=None):
         args = args if args else ()
         kwargs = kwargs if kwargs else {}
-        if torch.overrides.is_tensor_method_or_property(orig_method):
+        if is_tensor_method_or_property(orig_method):
             return self.tracer.create_proxy('call_method', orig_method.__name__, args, kwargs)
         else:
             return self.tracer.create_proxy('call_function', orig_method, args, kwargs,

@@ -43,8 +43,6 @@ Forked as-is from PyTorch 1.8.1
 
 import torch
 import torch.nn as nn
-import torch.overrides
-from torch.nn.modules.module import _addindent
 import linecache
 from typing import Type, Dict, List, Any, Union, Optional
 from .graph import Graph
@@ -55,6 +53,19 @@ import math
 from pathlib import Path
 import os
 import warnings
+
+# Forked from torch/nn/modules/module.py
+def _addindent(s_, numSpaces):
+    s = s_.split('\n')
+    # don't do anything for single-line stuff
+    if len(s) == 1:
+        return s_
+    first = s.pop(0)
+    s = [(numSpaces * ' ') + line for line in s]
+    s = '\n'.join(s)
+    s = first + '\n' + s
+    return s
+
 
 # normal exec loses the source code, however we can patch
 # the linecache module to still recover it.

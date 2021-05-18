@@ -59,7 +59,7 @@ from .node import Argument, map_aggregate
 from .graph import Graph
 from .graph_module import GraphModule
 from .proxy import TracerBase, Proxy
-from .torch_function import TORCH_FN_PATCHES
+from .torch_function import gen_patches
 
 HAS_VARSTUFF = inspect.CO_VARARGS | inspect.CO_VARKEYWORDS
 
@@ -650,11 +650,12 @@ def symbolic_trace(root : Union[torch.nn.Module, Callable], concrete_args: Optio
 
     """
     tracer = Tracer()
-    if TORCH_FN_PATCHES:
+    patches = gen_patches()
+    if patches:
         with ExitStack() as stack:
-            for mgr in TORCH_FN_PATCHES:
-                stack.enter_context(mgr)
-                graph = tracer.trace(root, concrete_args)
+            for patch in patches:
+                stack.enter_context(patch)
+            graph = tracer.trace(root, concrete_args)
     else:
         graph = tracer.trace(root, concrete_args)
     name = root.__class__.__name__ if isinstance(root, torch.nn.Module) else root.__name__

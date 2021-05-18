@@ -42,8 +42,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 
 from typing import Union, Callable, Optional, Dict, Any, List, Tuple
-from types import CodeType, FunctionType, ModuleType
-from contextlib import ExitStack
+from types import FunctionType, ModuleType
 from packaging import version
 import functools
 import inspect
@@ -55,10 +54,15 @@ import torch
 from torch._C import ScriptObject  # type: ignore
 from torch.nn import Module, Sequential
 
-from .backport.torch_function import TORCH_FN_PATCHES
 from brevitas.quant_tensor import QuantTensorBase
 
+if version.parse(torch.__version__) < version.parse('1.6'):
+    from .backport.torch_function._overrides import is_tensor_method_or_property
+else:
+    from torch.overrides import is_tensor_method_or_property
+
 if version.parse(torch.__version__) < version.parse('1.8'):
+    from .backport.symbolic_trace import Tracer
     from .backport.graph_module import GraphModule
     from .backport.graph import Target, Graph
     from .backport.proxy import base_types, Proxy, Node
@@ -66,7 +70,7 @@ if version.parse(torch.__version__) < version.parse('1.8'):
     from .backport.symbolic_trace import _orig_module_call
     from .backport.symbolic_trace import _orig_module_getattr
     from .backport.symbolic_trace import _autowrap_check
-    from .backport.symbolic_trace import _Patcher, map_aggregate
+    from .backport.symbolic_trace import _Patcher, map_aggregate, Tracer
     from .backport.symbolic_trace import _wrapped_fns_to_patch, _wrapped_methods_to_patch
     from .backport.symbolic_trace import _find_proxy, _patch_function, HAS_VARSTUFF
 else:
@@ -125,7 +129,7 @@ class ValueProxy(Proxy):
     def __torch_function__(self, orig_method, types, args=None, kwargs=None):
         args = args if args else ()
         kwargs = kwargs if kwargs else {}
-        if torch.overrides.is_tensor_method_or_property(orig_method):
+        if is_tensor_method_or_property(orig_method):
             value = self.value(*self.tracer.unpack_arg(args), **self.tracer.unpack_arg(kwargs))
             return self.tracer.create_proxy(
                 'call_method', orig_method.__name__, args, kwargs, value=value)
@@ -212,15 +216,6 @@ class ValueTracer(Tracer):
         iterator it ** is suppose to work in your custom tracer.
         """
         return ValueAttribute(obj, 'keys')()
-
-    def is_leaf_module(self, m: Module, module_qualified_name : str) -> bool:
-        is_torch_nn = m.__module__.startswith('torch.nn')
-        is_brevitas_nn = m.__module__.startswith('brevitas.nn')
-        is_brevitas_core = m.__module__.startswith('brevitas.core')
-        is_brevitas_proxy = m.__module__.startswith('brevitas.proxy')
-        is_seq = isinstance(m, Sequential)
-        is_brevitas = is_brevitas_nn or is_brevitas_proxy or is_brevitas_core
-        return is_torch_nn and not is_seq or is_brevitas
 
     def proxy(self, node: Node, value: Any) -> 'Proxy':
         return ValueProxy(node, value, self)
@@ -503,16 +498,3 @@ def _patch_wrapped_value_functions(patcher : _Patcher):
         patcher.patch_method(cls, name, _create_wrapped_value_method(cls, name))
 
 
-def concrete_trace(
-        root : Union[Module, Callable],
-        concrete_args: Optional[Dict[str, Any]]) -> GraphModule:
-    tracer = Tracer()
-    if TORCH_FN_PATCHES:
-        with ExitStack() as stack:
-            for mgr in TORCH_FN_PATCHES:
-                stack.enter_context(mgr)
-                graph = tracer.trace(root, concrete_args)
-    else:
-        graph = tracer.trace(root, concrete_args)
-    name = root.__class__.__name__ if isinstance(root, Module) else root.__name__
-    return GraphModule(tracer.root, graph, name)
