@@ -49,7 +49,7 @@ def symbolic_trace(root, concrete_args = None):
     return _trace_with_backport(Tracer(), root, concrete_args)
 
 
-def value_trace(root, concrete_args):
+def value_trace(root, concrete_args = None):
     return _trace_with_backport(ValueTracer(), root, concrete_args)
 
 
@@ -57,7 +57,7 @@ def brevitas_symbolic_trace(root, concrete_args = None):
     return _trace_with_backport(BrevitasSymbolicTracer(), root, concrete_args)
 
 
-def brevitas_value_trace(root, concrete_args):
+def brevitas_value_trace(root, concrete_args = None):
     return _trace_with_backport(BrevitasValueTracer(), root, concrete_args)
 
 

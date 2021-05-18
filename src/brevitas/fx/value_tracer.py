@@ -90,6 +90,10 @@ _UNSET = object()
 extended_base_types = base_types + (QuantTensorBase,)
 
 
+class UnsetValueException(Exception):
+    pass
+
+
 class ValueProxy(Proxy):
 
     def __init__(self, node: Node, value, tracer = None):
@@ -98,14 +102,30 @@ class ValueProxy(Proxy):
             raise RuntimeError("Value of a proxy can't be a proxy.")
         self.value = value
 
+    @property
+    def value(self):
+        if self._value is _UNSET:
+            raise UnsetValueException
+        return self._value
+
+    @value.setter
+    def value(self, value):
+        self._value = value
+
     def __getattr__(self, k) -> 'ValueAttribute':
         # note: not added to the graph yet, if this is a method call
         # we peephole optimize to the method invocation
-        value = getattr(self.value, k)
+        try:
+            value = getattr(self.value, k)
+        except UnsetValueException:
+            value = _UNSET
         return ValueAttribute(self, k, value)
 
     def __call__(self, *args, **kwargs) -> 'Proxy':
-        value = self.value(*self.unpack_arg(args), **self.tracer.unpack_arg(kwargs))
+        try:
+            value = self.value(*self.unpack_arg(args), **self.tracer.unpack_arg(kwargs))
+        except UnsetValueException:
+            value = _UNSET
         return self.tracer.create_proxy(
             'call_method', '__call__', (self,) + args, kwargs, value=value)
 
@@ -130,11 +150,17 @@ class ValueProxy(Proxy):
         args = args if args else ()
         kwargs = kwargs if kwargs else {}
         if is_tensor_method_or_property(orig_method):
-            value = self.value(*self.tracer.unpack_arg(args), **self.tracer.unpack_arg(kwargs))
+            try:
+                value = self.value(*self.tracer.unpack_arg(args), **self.tracer.unpack_arg(kwargs))
+            except UnsetValueException:
+                value = _UNSET
             return self.tracer.create_proxy(
                 'call_method', orig_method.__name__, args, kwargs, value=value)
         else:
-            value = orig_method(*self.tracer.unpack_arg(args), **self.tracer.unpack_arg(kwargs))
+            try:
+                value = orig_method(*self.tracer.unpack_arg(args), **self.tracer.unpack_arg(kwargs))
+            except UnsetValueException:
+                value = _UNSET
             name = self.tracer.graph._target_to_str(orig_method.__name__)
             return self.tracer.create_proxy(
                 'call_function', orig_method, args, kwargs, name, value=value)
@@ -158,7 +184,10 @@ class ValueAttribute(ValueProxy):
         return self._node
 
     def __call__(self, *args, **kwargs):
-        value = self.value(*self.tracer.unpack_arg(args), **self.tracer.unpack_arg(kwargs))
+        try:
+            value = self.value(*self.tracer.unpack_arg(args), **self.tracer.unpack_arg(kwargs))
+        except UnsetValueException:
+            value = _UNSET
         return self.tracer.create_proxy(
             'call_method', self.attr, (self.root,) + args, kwargs, value=value)
 
@@ -168,7 +197,10 @@ for method in magic_methods:
         def impl(*args, **kwargs):
             tracer = args[0].tracer
             target = getattr(operator, method)
-            value = target(*tracer.unpack_arg(args), **tracer.unpack_arg(kwargs))
+            try:
+                value = target(*tracer.unpack_arg(args), **tracer.unpack_arg(kwargs))
+            except UnsetValueException:
+                value = _UNSET
             return tracer.create_proxy('call_function', target, args, kwargs, value=value)
         impl.__name__ = method
         as_magic = f'__{method}__'
@@ -181,7 +213,10 @@ def _define_reflectable(orig_method_name):
 
     def impl(self, rhs):
         target = getattr(operator, orig_method_name)
-        value = target(self.tracer.unpack_arg(rhs), self.value)
+        try:
+            value = target(self.tracer.unpack_arg(rhs), self.value)
+        except UnsetValueException:
+            value = _UNSET
         return self.tracer.create_proxy('call_function', target, (rhs, self), {}, value=value)
     impl.__name__ = method_name
     impl.__qualname__ = method_name
@@ -199,13 +234,9 @@ class ValueTracer(Tracer):
         self.concrete_mode = False
 
     def to_bool(self, obj: 'Proxy') -> bool:
-        if obj.value is _UNSET:
-            raise RuntimeError("Value of the proxy is unset")
         return obj.value.__bool__()
 
     def iter(self, obj: 'Proxy'):
-        if obj.value is _UNSET:
-            raise RuntimeError("Value of the proxy is unset")
         return self.create_proxy(
             'call_function', iter, (obj,), {}, value=obj.value.__iter__())
 
@@ -307,9 +338,13 @@ class ValueTracer(Tracer):
         if not self.is_leaf_module(m, module_qualified_name):
             return forward(*args, **kwargs)
         else:
-            self.concrete_mode = True
-            value = forward(*self.unpack_arg(args), **self.unpack_arg(kwargs))
-            self.concrete_mode = False
+            try:
+                self.concrete_mode = True
+                value = forward(*self.unpack_arg(args), **self.unpack_arg(kwargs))
+            except UnsetValueException:
+                value = _UNSET
+            finally:
+                self.concrete_mode = False
             return self.create_proxy(
                 'call_module', module_qualified_name, args, kwargs, value=value)
 
@@ -336,18 +371,15 @@ class ValueTracer(Tracer):
             next(names_iter)  # skip self
             args.append(self.root)
 
-        sig = inspect.signature(fn_for_analysis)
-
         def proxy_placeholder(name: str):
-            if name in concrete_args:
+            if concrete_args is not None and name in concrete_args:
                 value = concrete_args[name]
-                default = ()
             else:
-                value = sig.parameters[name]
-                default = (value,)
+                param = inspect.signature(fn_for_analysis).parameters[name]
+                value = _UNSET if param.default is inspect.Parameter.empty else param.default
             type_expr = fn_for_analysis.__annotations__.get(name, None)
             return self.create_proxy(
-                'placeholder', name, default, {}, type_expr=type_expr, value=value)
+                'placeholder', name, (), {}, type_expr=type_expr, value=value)
 
         args.extend(proxy_placeholder(next(names_iter)) for _ in range(skip_arg_idx, total_args))
 
@@ -451,7 +483,10 @@ def _create_wrapped_value_func(orig_fn):
         """
         proxy = _find_proxy(args, kwargs)
         if proxy is not None:
-            value = orig_fn(*proxy.tracer.unpack_arg(args), **proxy.tracer.unpack_arg(kwargs))
+            try:
+                value = orig_fn(*proxy.tracer.unpack_arg(args), **proxy.tracer.unpack_arg(kwargs))
+            except UnsetValueException:
+                value = _UNSET
             return proxy.tracer.create_proxy('call_function', orig_fn, args, kwargs, value=value)
         else:
             value = orig_fn(*args, **kwargs)
@@ -473,7 +508,10 @@ def _create_wrapped_value_method(cls, name):
         """
         proxy = _find_proxy(args, kwargs)
         if proxy is not None:
-            value = orig_fn(*proxy.tracer.unpack_arg(args), **proxy.tracer.unpack_arg(kwargs))
+            try:
+                value = orig_fn(*proxy.tracer.unpack_arg(args), **proxy.tracer.unpack_arg(kwargs))
+            except UnsetValueException:
+                value = _UNSET
             return proxy.tracer.create_proxy('call_method', name, args, kwargs, value=value)
         else:
             value = orig_fn(*args, **kwargs)
