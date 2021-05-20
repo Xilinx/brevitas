@@ -228,7 +228,7 @@ class MixedFloatQuantLeNet(nn.Module):
             bias_quant=bias_quant, return_quant_tensor=True)
         self.relu2 = nn.ReLU()
         self.fc1   = qnn.QuantLinear(
-            256, 120, bias=True, weight_quant=weight_quant,
+            16*5*5, 120, bias=True, weight_quant=weight_quant,
             bias_quant=bias_quant, output_quant=act_quant)
         self.relu3 = nn.ReLU()
         self.fc2   = nn.Linear(120, 84, bias=True)
@@ -341,7 +341,7 @@ class DPULeNet(nn.Module):
             bias_quant=BiasQuant, return_quant_tensor=True)
         self.relu2 = nn.ReLU()
         self.fc1 = qnn.QuantLinear(
-            256, 120, bias=True, weight_quant=WeightQuant,
+            16*5*5, 120, bias=True, weight_quant=WeightQuant,
             bias_quant=BiasQuant, output_quant=ActQuant, return_quant_tensor=True)
         self.relu3 = nn.ReLU()
         self.fc2 = qnn.QuantLinear(
