@@ -10,7 +10,7 @@ from brevitas.export.onnx.handler import Kernel2dApplHandler, Kernel1dApplHandle
 from .base import FINNQuantIOHandler
 from ..function.parameter import QuantizedLinearPlaceholderFunction
 from ..function.parameter import QuantizedConvNdPlaceholderFunction
-
+from ..utils import finn_datatype
 
 QuantConvNd = Union[QuantConv1d, QuantConv2d]
 
@@ -22,14 +22,12 @@ class FINNQuantWBIOLHandler(FINNQuantIOHandler, ABC):
         assert module.is_weight_quant_enabled
         assert not module.is_input_quant_enabled
         assert not module.is_output_quant_enabled
+        if module.is_bias_quant_enabled:
+            assert module.bias_quant.requires_input_scale
 
     @staticmethod
     def quant_weight_type(module: QuantWBIOL):
-        bit_width = int(module.quant_weight_bit_width().item())
-        if bit_width == 1:
-            return "BIPOLAR"
-        else:
-            return f"INT{bit_width}"
+        return finn_datatype(module.quant_weight_bit_width(), module.is_quant_weight_signed)
 
     @staticmethod
     def int_weight(module: QuantConvNd):
@@ -40,44 +38,30 @@ class FINNQuantWBIOLHandler(FINNQuantIOHandler, ABC):
         return torch.t(module.int_weight(float_datatype=True)).detach()
 
     @staticmethod
-    def function_scaling(
-            module: QuantWBIOL,
-            quant_input_scale,
-            quant_weight_scale,
-            quant_output_scale):
-        # if bias quant is disabled, whether bias is enabled or not, I just need to
-        # pass quant_weight_scale as the function-level scale_factor
-        if not module.is_bias_quant_enabled:
-            in_scale, scale_factor = None, quant_weight_scale
+    def maybe_int_bias(module: QuantWBIOL):
+        if module.bias is not None:
+            if module.is_bias_quant_enabled:
+                bias = module.int_bias(float_datatype=True)
+            else:
+                bias = module.bias
+            bias = torch.t(bias).detach()
         else:
-            in_scale, scale_factor = quant_input_scale, quant_output_scale
-        return in_scale, scale_factor
+            bias = None
+        return bias
 
     @staticmethod
-    def maybe_quant_bias(
-            module: QuantWBIOL,
-            quant_weight_scale: Tensor,
-            quant_output_scale: Optional[Union[Tensor, float]],
-            quant_bit_width: Optional[Tensor]):
-        if module.bias is None:
+    def maybe_quant_bias_type(module: QuantWBIOL):
+        if module.is_bias_quant_enabled:
+            return finn_datatype(module.quant_bias_bit_width(), module.is_quant_bias_signed)
+        else:
             return None
-        elif module.bias is not None and not module.is_bias_quant_enabled:
-            bias = torch.t(module.bias.type(torch.FloatTensor)).detach()
-            # account for both scalar tensors and array tensors with 1 elements
-            if len(quant_weight_scale.shape) > 0 and len(quant_weight_scale) > 1:
-                quant_weight_scale = quant_weight_scale.reshape(bias.shape)
-            # divide by weight scale as add is before mul
-            bias /= quant_weight_scale
-            return bias
-        else:  # bias quant enabled
-            assert quant_output_scale, 'Quant bias export requires caching of the output scale'
-            if not isinstance(quant_output_scale, Tensor):  # item might have been called
-                quant_output_scale = torch.tensor(quant_output_scale)
-            quant_bias = module.bias_quant(module.bias, quant_output_scale, quant_bit_width)
-            quant_bias = torch.t(quant_bias.value.type(torch.FloatTensor)).detach()
-            quant_bias /= quant_output_scale
-            quant_bias = torch.round(quant_bias)
-            return quant_bias
+
+    @staticmethod
+    def maybe_quant_bias_scale(module: QuantWBIOL):
+        if module.is_bias_quant_enabled:
+            return module.quant_bias_scale()
+        else:
+            return None
 
 
 class FINNQuantLinearHandler(FINNQuantWBIOLHandler):
@@ -97,25 +81,14 @@ class FINNQuantLinearHandler(FINNQuantWBIOLHandler):
 
     def prepare_for_export(self, module):
         self.sanity_check(module)
-        quant_input_scale = self.quant_input_scale(module)
-        quant_weight_scale = self.quant_weight_scale(module)
-        quant_output_scale = self.quant_output_scale(module)
-        quant_output_bit_width_tensor = self.quant_output_bit_width_tensor(module)
-        maybe_quant_bias = self.maybe_quant_bias(
-            module,
-            quant_weight_scale,
-            quant_output_scale,
-            quant_output_bit_width_tensor)
-        in_scale, scale_factor = self.function_scaling(
-            module, quant_input_scale, quant_weight_scale, quant_output_scale)
         self.symbolic_kwargs = {
             'Wt': self.int_weight_transposed(module),
-            'scale_factor': scale_factor,
+            'w_qnt_scale': self.quant_weight_scale(module),
+            'b_qnt_scale': self.maybe_quant_bias_scale(module),
             'w_qnt_type': self.quant_weight_type(module),
+            'b_qnt_type': self.maybe_quant_bias_type(module),
             'out_shape': self.quant_output_shape(module),
-            'bias': maybe_quant_bias,
-            'in_scale': in_scale,
-            'in_qnt_type': self.quant_input_type(module)}
+            'bias': self.maybe_int_bias(module)}
 
     def symbolic_execution(self, inp: Tensor):
         ret = QuantizedLinearPlaceholderFunction.apply(inp, *self.symbolic_kwargs.values())
@@ -132,42 +105,38 @@ class FINNQuantConvNdHandler(FINNQuantWBIOLHandler, ABC):
         return shape
 
     @staticmethod
-    def maybe_quant_bias(
-            module: QuantWBIOL,
-            quant_weight_scale: Tensor,
-            quant_output_scale: Optional[Union[Tensor, float]],
-            quant_bit_width: Optional[Tensor]):
-        quant_bias = FINNQuantWBIOLHandler.maybe_quant_bias(
-            module, quant_weight_scale, quant_output_scale, quant_bit_width)
-        if quant_bias is not None:
-            quant_bias_shape = [1] * len(module.weight.shape)
-            quant_bias_shape[1] = -1 # shape should broadcast with activations along channel dim
-            quant_bias = quant_bias.view(quant_bias_shape)
-        return quant_bias
+    def maybe_int_bias(module: QuantWBIOL):
+        if module.bias is not None:
+            if module.is_bias_quant_enabled:
+                bias = module.int_bias(float_datatype=True)
+            else:
+                bias = module.bias
+            bias_shape = [1] * len(module.weight.shape)
+            bias_shape[1] = -1
+            # shape should broadcast with activations along channel dim
+            bias = bias.view(bias_shape).detach()
+        else:
+            bias = None
+        return bias
 
     def prepare_for_export(self, module: QuantConvNd):
         self.sanity_check(module)
-        quant_input_scale = self.quant_input_scale(module)
-        quant_weight_scale = self.quant_weight_scale(module)
-        quant_output_scale = self.quant_output_scale(module)
-        quant_output_bit_width_tensor = self.quant_output_bit_width_tensor(module)
-        maybe_quant_bias = self.maybe_quant_bias(
-            module,
-            quant_weight_scale,
-            quant_output_scale,
-            quant_output_bit_width_tensor)
-        in_scale, scale_factor = self.function_scaling(
-            module, quant_input_scale, quant_weight_scale, quant_output_scale)
+        maybe_int_bias = self.maybe_int_bias(module)
+        maybe_quant_bias_scale = self.maybe_quant_bias_scale(module)
+        if (maybe_quant_bias_scale is not None
+                and len(maybe_quant_bias_scale.shape) > 0
+                and len(maybe_quant_bias_scale.view(-1)) > 1):
+            maybe_quant_bias_scale = maybe_quant_bias_scale.view_as(maybe_int_bias)
         self.symbolic_kwargs = {
             'W': self.int_weight(module),
-            'scale_factor': scale_factor,
+            'w_qnt_scale': self.quant_weight_scale(module),
+            'b_qnt_scale': maybe_quant_bias_scale,
             'w_qnt_type': self.quant_weight_type(module),
+            'b_qnt_type': self.maybe_quant_bias_type(module),
             'out_shape': self.quant_output_shape(module),
             'pads': self.padding(module),
             'strides': self.stride(module),
-            'bias': maybe_quant_bias,
-            'in_scale': in_scale,
-            'in_qnt_type': self.quant_input_type(module),
+            'bias': maybe_int_bias,
             'kernel_shape': list(module.kernel_size),
             'groups': module.groups,
             'dilations': self.dilation(module)}
