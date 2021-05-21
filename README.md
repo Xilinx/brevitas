@@ -95,11 +95,11 @@ class QuantWeightLeNet(Module):
         self.fc3   = qnn.QuantLinear(84, 10, bias=False, weight_bit_width=3)
 
     def forward(self, x):
-        out = self.relu1(self.conv1(out))
+        out = self.relu1(self.conv1(x))
         out = F.max_pool2d(out, 2)
         out = self.relu2(self.conv2(out))
         out = F.max_pool2d(out, 2)
-        out = out.reshape(out.reshape[0], -1)
+        out = out.reshape(out.shape[0], -1)
         out = self.relu3(self.fc1(out))
         out = self.relu4(self.fc2(out))
         out = self.fc3(out)
