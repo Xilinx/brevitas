@@ -18,6 +18,7 @@ If you have issues, comments, or are just looking for advices on training quanti
 
 
 ## History
+- *2021/05/24* - Release version 0.5.1, fix a bunch of minor issues. See [release notes](https://github.com/Xilinx/brevitas/releases/tag/v0.5.1).
 - *2021/05/06* - Release version 0.5.0, see the [release notes](https://github.com/Xilinx/brevitas/releases/tag/v0.5.0). 
 - *2021/03/15* - Release version 0.4.0, add support for \_\_torch_function\_\_ to QuantTensor.
 - *2021/03/04* - Release version 0.3.1, fix bug w/ act initialization from statistics w/ IGNORE_MISSING_KEYS=1.
