@@ -3,7 +3,8 @@ from typing import Callable, Optional, Dict, Any, Union
 from contextlib import ExitStack
 from torch.nn import Sequential, Module
 
-from .value_tracer import Graph, GraphModule, ValueTracer, Tracer
+from . import GraphModule, Tracer
+from .value_tracer import ValueTracer
 from .backport.torch_function import gen_patches
 
 
