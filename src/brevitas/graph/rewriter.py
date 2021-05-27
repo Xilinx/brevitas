@@ -287,19 +287,22 @@ class CallableToModuleRewriter(Rewriter, ABC):
         return node_kwargs, module_kwargs
 
     def move_node_args_to_kwargs(self, node: Node):
-        """Move non Node args to kwargs, as long as ordering restrictions allow it"""
+        """Move non Node args to kwargs, as long as we can resolve the fn signature somehow"""
         fn = node.target
         if fn in _TORCH_TESTING_DICT:
             fn = _TORCH_TESTING_DICT[fn]
-        fn_kwargs = getcallargs(fn, *node.args, **node.kwargs)
-        fn_args = []
-        for k, a in list(fn_kwargs.items()):
-            if isinstance(a, Node):
-                fn_args.append(fn_kwargs.pop(k))
-            else:
-                break
-        node.args = immutable_list(fn_args)
-        node.kwargs = immutable_dict(fn_kwargs)
+        try:
+            fn_kwargs = getcallargs(fn, *node.args, **node.kwargs)
+            fn_args = []
+            for k, a in list(fn_kwargs.items()):
+                if isinstance(a, Node):
+                    fn_args.append(fn_kwargs.pop(k))
+                else:
+                    break
+            node.args = immutable_list(fn_args)
+            node.kwargs = immutable_dict(fn_kwargs)
+        except TypeError:
+            pass
 
     def rewrite_node(self, node: Node, graph_model: GraphModule):
         module_name = node.name
