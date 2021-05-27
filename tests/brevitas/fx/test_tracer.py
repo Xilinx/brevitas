@@ -5,46 +5,70 @@ from torch import Tensor
 from torch.nn import Module
 from torchvision import models
 
-from brevitas.graph.tracer import Tracer
+from brevitas.fx import value_trace, symbolic_trace, brevitas_symbolic_trace, brevitas_value_trace
 
 SEED = 123456
 INPUT_SIZE = (2, 3, 224, 224)
 INCEPTION_INPUT_SIZE = (2, 3, 299, 299)
-IS_ABOVE_110 = version.parse(torch.__version__) > version.parse("1.1.0")
 
-MODEL_NAMES = [
+
+TV_MODEL_NAMES = [
     'resnet18',
     'mobilenet_v2',
-    'googlenet',
     'inception_v3',
     'alexnet',
     'squeezenet1_0',
     'shufflenet_v2_x0_5',
+    'mnasnet0_5',
     'densenet121']
-
-if IS_ABOVE_110:
-    MODEL_NAMES.append('mnasnet0_5')
 
 
 @pytest.mark.parametrize("pretrained", [True, False])
 @pytest.mark.parametrize("train", [True, False])
-@pytest.mark.parametrize("model_name", MODEL_NAMES)
-def test_tracer(model_name: str, train: bool, pretrained: bool):
+@pytest.mark.parametrize("model_name", TV_MODEL_NAMES)
+def test_brevitas_value_tracer(model_name: str, train: bool, pretrained: bool):
     model = getattr(models, model_name)(pretrained=pretrained)
     model = model.train(train)
     torch.manual_seed(SEED)
-    input = torch.randn(INCEPTION_INPUT_SIZE if model_name == 'inception_v3' else INPUT_SIZE)
+    inp_size = INCEPTION_INPUT_SIZE if model_name == 'inception_v3' else INPUT_SIZE
+    inp = torch.randn(inp_size)
     torch.manual_seed(SEED)
     with torch.no_grad():
-        trace = Tracer(input).trace_model(model)
+        graph_model = brevitas_value_trace(model, concrete_args={'x': inp})
         torch.manual_seed(SEED)
-        out = model(input)
+        out = model(inp)
+        torch.manual_seed(SEED)
+        graph_out = graph_model(inp)
         if isinstance(out, (tuple, list)):
-            assert isinstance(trace.model_output_list, (tuple, list))
-            for reference, o in zip(out, trace.model_output_list):
+            assert isinstance(graph_out, (tuple, list))
+            for reference, o in zip(out, graph_out):
                 assert o.isclose(reference).all().item()
         else:
-            assert trace.model_output_list[0].isclose(out).all().item()
+            assert graph_out.isclose(out).all().item()
+
+
+@pytest.mark.parametrize("pretrained", [True, False])
+@pytest.mark.parametrize("train", [True, False])
+@pytest.mark.parametrize("model_name", TV_MODEL_NAMES)
+def test_brevitas_symbolic_tracer(model_name: str, train: bool, pretrained: bool):
+    model = getattr(models, model_name)(pretrained=pretrained)
+    model = model.train(train)
+    torch.manual_seed(SEED)
+    inp_size = INCEPTION_INPUT_SIZE if model_name == 'inception_v3' else INPUT_SIZE
+    inp = torch.randn(inp_size)
+    torch.manual_seed(SEED)
+    with torch.no_grad():
+        graph_model = brevitas_symbolic_trace(model)
+        torch.manual_seed(SEED)
+        out = model(inp)
+        torch.manual_seed(SEED)
+        graph_out = graph_model(inp)
+        if isinstance(out, (tuple, list)):
+            assert isinstance(graph_out, (tuple, list))
+            for reference, o in zip(out, graph_out):
+                assert o.isclose(reference).all().item()
+        else:
+            assert graph_out.isclose(out).all().item()
 
 
 class UnpackShape(Module):
@@ -126,10 +150,11 @@ def test_module(module):
     x = torch.randn(INPUT_SIZE)
     with torch.no_grad():
         out = mod(x)
-        trace = Tracer(x).trace_model(mod)
+        graph_model = value_trace(mod, {'x': x})
+        graph_out = graph_model(x)
         if isinstance(out, (tuple, list)):
-            assert isinstance(trace.model_output_list, (tuple, list))
-            for reference, o in zip(out, trace.model_output_list):
+            assert isinstance(graph_out, (tuple, list))
+            for reference, o in zip(out, graph_out):
                 assert o.isclose(reference).all().item()
         else:
-            assert trace.model_output_list[0].isclose(out).all().item()
+            assert graph_out.isclose(out).all().item()
