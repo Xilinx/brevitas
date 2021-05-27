@@ -149,9 +149,9 @@ def test_module(module):
     mod = module()
     x = torch.randn(INPUT_SIZE)
     with torch.no_grad():
-        out = mod(x)
-        graph_model = value_trace(mod, {'x': x})
-        graph_out = graph_model(x)
+        out = mod(x.clone())
+        graph_model = value_trace(mod, {'x': x.clone()})
+        graph_out = graph_model(x.clone())
         if isinstance(out, (tuple, list)):
             assert isinstance(graph_out, (tuple, list))
             for reference, o in zip(out, graph_out):
