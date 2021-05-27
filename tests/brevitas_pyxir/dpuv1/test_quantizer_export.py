@@ -23,7 +23,6 @@ MODELS = [
 IN_SIZE = (1, 3, 224, 224)
 
 
-@requires_pt_ge('1.2.0')
 @pytest.mark.parametrize("model_name", MODELS)
 def test_rewriter_export(model_name: str):
     model = getattr(models, model_name)(pretrained=True)
