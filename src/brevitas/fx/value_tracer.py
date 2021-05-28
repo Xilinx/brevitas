@@ -52,7 +52,7 @@ import math
 try:
     from torch._C import ScriptObject
 except:
-    ScriptObject = object()
+    ScriptObject = None
 
 from torch.nn import Module
 
@@ -390,7 +390,7 @@ class ValueTracer(Tracer):
 
         def collect_tensor_attrs(m: torch.nn.Module, prefix_atoms: List[str]):
             for k, v in m.__dict__.items():
-                if isinstance(v, (torch.Tensor, ScriptObject)):
+                if isinstance(v, tuple(i for i in [torch.Tensor, ScriptObject] if i is not None)):
                     self.tensor_attrs[v] = '.'.join(prefix_atoms + [k])
             for k, v in m.named_children():
                 collect_tensor_attrs(v, prefix_atoms + [k])

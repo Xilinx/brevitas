@@ -56,8 +56,8 @@ import torch
 
 try:
     from torch._C import ScriptObject  # type: ignore
-except:  # fails below 1.4
-    ScriptObject = object()
+except:
+    ScriptObject = None
 
 from .node import Argument, map_aggregate
 from .graph import Graph
@@ -187,7 +187,7 @@ class Tracer(TracerBase):
         # a get_attr to retrieve that tensor. Otherwise, we'll store away the
         # tensor value into a special attribute on the Module s.t. we can
         # retrieve it with a get_attr.
-        if isinstance(a, (torch.Tensor, ScriptObject)):
+        if isinstance(a, tuple(i for i in [torch.Tensor, ScriptObject] if i is not None)):
             qualname : Optional[str] = self.tensor_attrs.get(a)
 
             # Tensor was not found in the Module hierarchy, stow it away in a
