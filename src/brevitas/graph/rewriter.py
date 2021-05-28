@@ -377,6 +377,12 @@ class MeanMethodToAdaptiveAvgPool2d(MethodToModuleRewriter):
         _replace_all_users_except(node, squeeze_node, [squeeze_node, batch_size_node])
 
 
+class AllignScaling(Rewriter):
+
+    def apply(self, model: GraphModule) -> GraphModule:
+        pass
+
+
 class RewriterList(Rewriter):
 
     def __init__(self, rewriter_list):

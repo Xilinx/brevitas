@@ -4,6 +4,7 @@ from packaging import version
 
 import torch
 
+import brevitas
 from brevitas.utils.python_utils import patch
 from .signatures import get_torch_overrides
 from .signatures import get_nn_functional_overrides
@@ -104,7 +105,7 @@ def make_below_16_patches():
 
 
 def gen_patches():
-    pt_version = version.parse(torch.__version__)
+    pt_version = brevitas.torch_version
     if pt_version > version.parse('1.6'):
         return make_above_16_patches()
     elif pt_version == version.parse('1.6'):

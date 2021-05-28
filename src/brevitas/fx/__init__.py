@@ -2,15 +2,18 @@ from packaging import version
 
 import torch
 
-if version.parse(torch.__version__) < version.parse('1.7'):
+from brevitas import torch_version
+
+
+if torch_version < version.parse('1.7'):
     from .backport.torch_function._overrides import is_tensor_method_or_property
     from .backport.torch_function import get_testing_overrides
 else:
     from torch.overrides import is_tensor_method_or_property
     from torch.overrides import get_testing_overrides
 
-if (version.parse(torch.__version__) < version.parse('1.8')
-        or version.parse(torch.__version__) >= version.parse('1.9')):
+if (torch_version < version.parse('1.8')
+        or torch_version >= version.parse('1.9')):
     from .backport.node import map_arg
     from .backport.symbolic_trace import Tracer
     from .backport.graph_module import GraphModule

@@ -1,3 +1,4 @@
+import copy
 from typing import ClassVar, Optional, List
 from inspect import isclass
 from enum import auto
@@ -7,6 +8,7 @@ from packaging import version
 import torch
 from torch import nn
 
+from brevitas import torch_version
 from brevitas import nn as qnn
 from brevitas.inject.defaults import *
 from brevitas.fx import brevitas_value_trace
@@ -148,7 +150,13 @@ def quantize(
         act_quant = None,
         bn_handling: BatchNormHandling = BatchNormHandling.MERGE_AND_QUANTIZE,
         excluded: Optional[List] = (),
+        inplace=False,
         **kwargs):
+    if not inplace:
+        try:
+            model = copy.deepcopy(model)
+        except:
+            raise RuntimeError("Model cannot be deepcopied, enable inplace quantization.")
     iq, oq, bq = input_quant, output_quant, bias_quant
     wq, aq, tq = weight_quant, act_quant, trunc_quant
     with torch.no_grad():
@@ -182,7 +190,7 @@ def quantize(
             return_quant_tensor=True,
             **kwargs)
         graph_model = rewriter.apply(graph_model)
-    if version.parse(torch.__version__) < version.parse('1.5.0'):
+    if torch_version < version.parse('1.5.0'):
         for rewriter in legacy_rewriter_list(True, excluded):
             graph_model = rewriter.apply(graph_model)
     graph_model = DisableBreakingReturnQuantTensor().apply(graph_model)
