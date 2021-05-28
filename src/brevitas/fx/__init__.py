@@ -2,13 +2,12 @@ from packaging import version
 
 import torch
 
-if version.parse(torch.__version__) < version.parse('1.6'):
+if version.parse(torch.__version__) < version.parse('1.7'):
     from .backport.torch_function._overrides import is_tensor_method_or_property
+    from .backport.torch_function import get_testing_overrides
 else:
-    try:
-        from torch.overrides import is_tensor_method_or_property
-    except:
-        from torch._overrides import is_tensor_method_or_property
+    from torch.overrides import is_tensor_method_or_property
+    from torch.overrides import get_testing_overrides
 
 if (version.parse(torch.__version__) < version.parse('1.8')
         or version.parse(torch.__version__) >= version.parse('1.9')):
@@ -25,7 +24,6 @@ if (version.parse(torch.__version__) < version.parse('1.8')
     from .backport.symbolic_trace import _wrapped_fns_to_patch, _wrapped_methods_to_patch
     from .backport.symbolic_trace import _find_proxy, _patch_function, HAS_VARSTUFF
     from .backport.immutable_collections import immutable_dict, immutable_list
-    from .backport.torch_function import get_testing_overrides
 else:
     from torch.fx import map_arg
     from torch.fx import Tracer, Graph, GraphModule, Proxy, Node
@@ -39,7 +37,6 @@ else:
     from torch.fx.symbolic_trace import _wrapped_fns_to_patch, _wrapped_methods_to_patch
     from torch.fx.symbolic_trace import _find_proxy, _patch_function, HAS_VARSTUFF
     from torch.fx.immutable_collections import immutable_dict, immutable_list
-    from torch.overrides import get_testing_overrides
 
 from .brevitas_tracer import value_trace, symbolic_trace
 from .brevitas_tracer import brevitas_symbolic_trace, brevitas_value_trace
