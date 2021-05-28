@@ -52,7 +52,7 @@ def make_equal_16_patches():
                 kwargs['out'] = out
             return _implement_torch_function(original_torch_cat, tensors, [], kwargs)
         else:
-            tensors = tuple(t for t in tensors)
+            tensors = tuple(tensors)
             if out is not None:
                 return cat(tensors, dim, out)
             else:
@@ -65,7 +65,7 @@ def make_equal_16_patches():
                 kwargs['out'] = out
             return _implement_torch_function(original_torch_stack, tensors, [], kwargs)
         else:
-            tensors = tuple(t for t in tensors)
+            tensors = tuple(tensors)
             if out is not None:
                 return stack(tensors, dim, out)
             else:
