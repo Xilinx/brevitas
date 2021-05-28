@@ -8,21 +8,3 @@ def module_class_name(m: torch.nn.Module):
     else:
         full_name = module + '.' + m.__class__.__name__
     return full_name
-
-
-def _inner_flatten(container):
-    for i in container:
-        if isinstance(i, (list, tuple)):
-            for j in _inner_flatten(i):
-                yield j
-        else:
-            yield i
-
-
-def flatten(container):
-    if isinstance(container, list):
-        return list(_inner_flatten(container))
-    elif isinstance(container, tuple):
-        return tuple(_inner_flatten(container))
-    else:
-        return container

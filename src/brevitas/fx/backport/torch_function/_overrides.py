@@ -63,6 +63,9 @@ https://www.numpy.org/neps/nep-0018-array-function-protocol.html
 import functools
 from inspect import getfullargspec, getcallargs
 import collections
+
+from .signatures import get_tensor_overrides
+
 ArgSpec = collections.namedtuple('ArgSpec', 'args varargs keywords defaults')
 
 def getargspec(func):
@@ -171,3 +174,8 @@ def torch_function_dispatch(dispatcher):
         return wrapper
 
     return decorator
+
+
+
+def is_tensor_method_or_property(func) -> bool:
+    return func in get_tensor_overrides() or func.__name__ == "__get__"
