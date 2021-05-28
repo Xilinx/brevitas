@@ -9,7 +9,8 @@ elif version.parse(torch.__version__) == version.parse('1.6'):
 else:
     from torch.overrides import is_tensor_method_or_property
 
-if version.parse(torch.__version__) < version.parse('1.8'):
+if (version.parse(torch.__version__) < version.parse('1.8')
+        or version.parse(torch.__version__) >= version.parse('1.9')):
     from .backport.node import map_arg
     from .backport.symbolic_trace import Tracer
     from .backport.graph_module import GraphModule
