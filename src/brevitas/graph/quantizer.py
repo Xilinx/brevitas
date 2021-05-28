@@ -1,25 +1,30 @@
+import copy
 from typing import ClassVar, Optional, List
 from inspect import isclass
 from enum import auto
+import operator
+from packaging import version
 
 import torch
 from torch import nn
 
+from brevitas import torch_version
 from brevitas import nn as qnn
 from brevitas.inject.defaults import *
-from .tracer import Tracer
-from .generator import ModuleGenerator
-from .rewriter import TorchFnToModuleRewriter, TensorMethodToModuleRewriter
+from brevitas.fx import brevitas_value_trace
+from .rewriter import FnToModuleRewriter
+from .rewriter import MethodToModuleRewriter
 from .rewriter import ModuleToModuleRewriter
-from .rewriter import MergeBatchNorm2d, DisableBreakingReturnQuantTensor
+from .rewriter import MergeBatchNorm2d
 from .rewriter import DuplicateSharedStatelessModule
-from .rewriter import MeanToAdaptiveAvgPool2d, InplaceMeanToAdaptiveAvgPool2d
+from .rewriter import MeanMethodToAdaptiveAvgPool2d
+from .rewriter import DisableBreakingReturnQuantTensor
 from brevitas.utils.python_utils import AutoName
 
 
 _io_map = {
-    '__add__': qnn.QuantEltwiseAdd,  # todo this should be restricted to tensor types only
-    '__iadd__': qnn.QuantEltwiseAdd,
+    operator.add: qnn.QuantEltwiseAdd,  # todo this should be restricted to tensor types only
+    operator.iadd: qnn.QuantEltwiseAdd,
     'add': qnn.QuantEltwiseAdd,
     'add_': qnn.QuantEltwiseAdd,
     torch.add: qnn.QuantEltwiseAdd,
@@ -46,7 +51,7 @@ _act_map = {
     torch.nn.functional.relu_: qnn.QuantReLU,
     torch.nn.functional.relu6: qnn.QuantReLU,
     'relu': qnn.QuantReLU,
-    'relu_': qnn.QuantReLU}  # todo add more functional apis
+    'relu_': qnn.QuantReLU}
 
 
 _trunc_map = {
@@ -70,11 +75,11 @@ _upsample_map = {
 
 def _map_to_rewriter_impl(original):
     if isinstance(original, str):
-        return TensorMethodToModuleRewriter
+        return MethodToModuleRewriter
     elif isclass(original) and issubclass(original, nn.Module):
         return ModuleToModuleRewriter
     elif callable(original):
-        return TorchFnToModuleRewriter
+        return FnToModuleRewriter
     else:
         raise RuntimeError(f"Original {original} type not recognized")
 
@@ -109,21 +114,21 @@ def trunc_rewriter_list(trunc_quant, return_quant_tensor, excluded, **kwargs):
         original, quant, trunc_quant=trunc_quant,
         return_quant_tensor=return_quant_tensor, **kwargs)
         for original, quant in _trunc_map.items() if original not in excluded]
-    if 'mean' not in excluded:
-        rewriter_list.append(MeanToAdaptiveAvgPool2d())
-    if 'mean_' not in excluded:
-        rewriter_list.append(InplaceMeanToAdaptiveAvgPool2d())
     return rewriter_list
 
 
-def no_args_rewriter_list(return_quant_tensor, excluded):
-    wrapper_list = [_map_to_rewriter_impl(original)(
-        original, quant, return_quant_tensor=return_quant_tensor)
-        for original, quant in _wrapper_map.items() if original not in excluded]
+def upsample_rewriter_list(return_quant_tensor, excluded):
     upsample_list = [_map_to_rewriter_impl(original)(
         original, quant, return_quant_tensor=return_quant_tensor)
         for original, quant in _upsample_map.items() if original not in excluded]
-    return wrapper_list + upsample_list
+    return upsample_list
+
+
+def legacy_rewriter_list(return_quant_tensor, excluded):
+    wrapper_list = [_map_to_rewriter_impl(original)(
+        original, quant, return_quant_tensor=return_quant_tensor)
+        for original, quant in _wrapper_map.items() if original not in excluded]
+    return wrapper_list
 
 
 def io_rewriter_list(input_quant, output_quant, return_quant_tensor, excluded, **kwargs):
@@ -145,28 +150,34 @@ def quantize(
         act_quant = None,
         bn_handling: BatchNormHandling = BatchNormHandling.MERGE_AND_QUANTIZE,
         excluded: Optional[List] = (),
+        inplace=False,
         **kwargs):
+    if not inplace:
+        try:
+            model = copy.deepcopy(model)
+        except:
+            raise RuntimeError("Model cannot be deepcopied, enable inplace quantization.")
     iq, oq, bq = input_quant, output_quant, bias_quant
     wq, aq, tq = weight_quant, act_quant, trunc_quant
     with torch.no_grad():
-        trace = Tracer(input).trace_model(model)
-        gen_model = ModuleGenerator().gen_model(trace)
-    state_dict = model.state_dict()
-    gen_model = DuplicateSharedStatelessModule().apply(gen_model)
-    for rewriter in wbiol_rewriter_list(iq, wq, bq, oq, True, excluded, **kwargs):
-        gen_model = rewriter.apply(gen_model)
-    for rewriter in act_rewriter_list(aq, True, excluded, **kwargs):
-        gen_model = rewriter.apply(gen_model)
-    for rewriter in trunc_rewriter_list(tq, True, excluded, **kwargs):
-        gen_model = rewriter.apply(gen_model)
-    for rewriter in io_rewriter_list(iq, oq, True, excluded, **kwargs):
-        gen_model = rewriter.apply(gen_model)
-    for rewriter in no_args_rewriter_list(True, excluded):
-        gen_model = rewriter.apply(gen_model)
-    gen_model.load_state_dict(state_dict)
+        graph_model = brevitas_value_trace(model, {'x': input})
     if (bn_handling == BatchNormHandling.MERGE_AND_QUANTIZE
             or bn_handling == BatchNormHandling.MERGE_AND_PRESERVE):
-        gen_model = MergeBatchNorm2d().apply(gen_model)
+        graph_model = MergeBatchNorm2d().apply(graph_model)
+    state_dict = graph_model.state_dict()
+    graph_model = DuplicateSharedStatelessModule().apply(graph_model)
+    graph_model = MeanMethodToAdaptiveAvgPool2d().apply(graph_model)
+    for rewriter in wbiol_rewriter_list(iq, wq, bq, oq, True, excluded, **kwargs):
+        graph_model = rewriter.apply(graph_model)
+    for rewriter in act_rewriter_list(aq, True, excluded, **kwargs):
+        graph_model = rewriter.apply(graph_model)
+    for rewriter in trunc_rewriter_list(tq, True, excluded, **kwargs):
+        graph_model = rewriter.apply(graph_model)
+    for rewriter in io_rewriter_list(iq, oq, True, excluded, **kwargs):
+        graph_model = rewriter.apply(graph_model)
+    for rewriter in upsample_rewriter_list(True, excluded):
+        graph_model = rewriter.apply(graph_model)
+    graph_model.load_state_dict(state_dict)
     if (bn_handling == BatchNormHandling.QUANTIZE
             or bn_handling == BatchNormHandling.MERGE_AND_QUANTIZE):
         rewriter = ModuleToModuleRewriter(
@@ -178,7 +189,9 @@ def quantize(
             output_quant=output_quant,
             return_quant_tensor=True,
             **kwargs)
-        gen_model = rewriter.apply(gen_model)
-    gen_model = DisableBreakingReturnQuantTensor().apply(gen_model)
-    return gen_model
-
+        graph_model = rewriter.apply(graph_model)
+    if torch_version < version.parse('1.5.0'):
+        for rewriter in legacy_rewriter_list(True, excluded):
+            graph_model = rewriter.apply(graph_model)
+    graph_model = DisableBreakingReturnQuantTensor().apply(graph_model)
+    return graph_model
