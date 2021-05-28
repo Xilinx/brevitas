@@ -5,6 +5,7 @@ from torch import Tensor
 from torch.nn import Module
 from torchvision import models
 
+import brevitas
 from brevitas.fx import value_trace, symbolic_trace, brevitas_symbolic_trace, brevitas_value_trace
 
 SEED = 123456
@@ -15,12 +16,14 @@ INCEPTION_INPUT_SIZE = (2, 3, 299, 299)
 TV_MODEL_NAMES = [
     'resnet18',
     'mobilenet_v2',
-    'inception_v3',
     'alexnet',
     'squeezenet1_0',
     'shufflenet_v2_x0_5',
     'mnasnet0_5',
     'densenet121']
+
+if brevitas.torch_version >= version.parse('1.4'):
+    TV_MODEL_NAMES += ['inception_v3']
 
 
 @pytest.mark.parametrize("pretrained", [True, False])
