@@ -4,10 +4,11 @@ import torch
 
 if version.parse(torch.__version__) < version.parse('1.6'):
     from .backport.torch_function._overrides import is_tensor_method_or_property
-elif version.parse(torch.__version__) == version.parse('1.6'):
-    from torch._overrides import is_tensor_method_or_property
 else:
-    from torch.overrides import is_tensor_method_or_property
+    try:
+        from torch.overrides import is_tensor_method_or_property
+    except:
+        from torch._overrides import is_tensor_method_or_property
 
 if (version.parse(torch.__version__) < version.parse('1.8')
         or version.parse(torch.__version__) >= version.parse('1.9')):
