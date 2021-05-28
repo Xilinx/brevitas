@@ -49,7 +49,11 @@ import builtins
 import operator
 import math
 
-from torch._C import ScriptObject
+try:
+    from torch._C import ScriptObject
+except:
+    ScriptObject = object()
+
 from torch.nn import Module
 
 from brevitas.quant_tensor import QuantTensorBase
