@@ -17,7 +17,7 @@ def make_above_16_patches():
     original_torch_cat = torch.cat
     original_torch_stack = torch.stack
 
-    def above_16_cat(tensors, dim, out=None):
+    def cat(tensors, dim, out=None):
         if not isinstance(tensors, (tuple, list)):
             tensors = tuple(tensors)
         if out is not None:
@@ -25,7 +25,7 @@ def make_above_16_patches():
         else:
             return original_torch_cat(tensors, dim)
 
-    def above_16_stack(tensors, dim, out=None):
+    def stack(tensors, dim, out=None):
         if not isinstance(tensors, (tuple, list)):
             tensors = tuple(tensors)
         if out is not None:
@@ -33,8 +33,8 @@ def make_above_16_patches():
         else:
             return original_torch_stack(tensors, dim)
 
-    above_16_cat_patch = mock.patch('torch.cat', wraps=above_16_cat)
-    above_16_stack_patch = mock.patch('torch.stack', wraps=above_16_stack)
+    above_16_cat_patch = patch(torch, 'cat', cat)
+    above_16_stack_patch = patch(torch, 'stack', stack)
 
     return [above_16_cat_patch, above_16_stack_patch]
 
@@ -44,7 +44,7 @@ def make_equal_16_patches():
     original_torch_cat = torch.cat
     original_torch_stack = torch.stack
 
-    def equal_16_cat(tensors, dim, out=None):
+    def cat(tensors, dim, out=None):
         if isinstance(tensors, (tuple, list)):
             kwargs = {'tensors': tensors, 'dim': dim}
             if out is not None:
@@ -53,11 +53,11 @@ def make_equal_16_patches():
         else:
             tensors = tuple(t for t in tensors)
             if out is not None:
-                return equal_16_cat(tensors, dim, out)
+                return cat(tensors, dim, out)
             else:
-                return equal_16_cat(tensors, dim)
+                return cat(tensors, dim)
 
-    def equal_16_stack(tensors, dim, out=None):
+    def stack(tensors, dim, out=None):
         if isinstance(tensors, (tuple, list)):
             kwargs = {'tensors': tensors, 'dim': dim}
             if out is not None:
@@ -66,12 +66,12 @@ def make_equal_16_patches():
         else:
             tensors = tuple(t for t in tensors)
             if out is not None:
-                return equal_16_stack(tensors, dim, out)
+                return stack(tensors, dim, out)
             else:
-                return equal_16_stack(tensors, dim)
+                return stack(tensors, dim)
 
-    equal_16_cat_patch = mock.patch('torch.cat', wraps=equal_16_cat)
-    equal_16_stack_patch = mock.patch('torch.stack', wraps=equal_16_stack)
+    equal_16_cat_patch = patch(torch, 'cat', cat)
+    equal_16_stack_patch = patch(torch, 'stack', stack)
 
     return [equal_16_cat_patch, equal_16_stack_patch]
 
@@ -105,7 +105,7 @@ def make_below_16_patches():
 
 def gen_patches():
     pt_version = version.parse(torch.__version__)
-    if pt_version > version.parse('1.6') and pt_version < version.parse('1.8'):
+    if pt_version > version.parse('1.6'):
         return make_above_16_patches()
     elif pt_version == version.parse('1.6'):
         return make_equal_16_patches()
