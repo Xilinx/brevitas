@@ -53,7 +53,11 @@ from itertools import chain
 from contextlib import ExitStack
 
 import torch
-from torch._C import ScriptObject  # type: ignore
+
+try:
+    from torch._C import ScriptObject  # type: ignore
+except:  # fails below 1.4
+    ScriptObject = object()
 
 from .node import Argument, map_aggregate
 from .graph import Graph
