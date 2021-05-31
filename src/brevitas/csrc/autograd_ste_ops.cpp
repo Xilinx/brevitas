@@ -57,8 +57,8 @@ class TensorClampSteFn : public torch::autograd::Function<TensorClampSteFn> {
     Variable min_val,
     Variable max_val){
     Variable output;
-    output = at::where(input > max_val, max_val, input);
-    output = at::where(output < min_val, min_val, output);
+    output = at::where(input > max_val, max_val.type_as(input), input);
+    output = at::where(output < min_val, min_val.type_as(output), output);
     return {output};
   };
 
@@ -149,9 +149,9 @@ class BinarySignSteFn : public torch::autograd::Function<BinarySignSteFn> {
  public:
 
   static variable_list forward(AutogradContext* ctx, Variable input) {
-    Variable positive_mask = at::_cast_Float(at::ge(input, 0.0));
-    Variable negative_mask = at::_cast_Float(at::lt(input, 0.0));
-    Variable output = positive_mask - negative_mask;
+    Variable positive_mask = at::ge(input, 0.0);
+    Variable negative_mask = at::lt(input, 0.0);
+    Variable output = positive_mask.type_as(input) - negative_mask.type_as(input);
     return{output};
   };
 
