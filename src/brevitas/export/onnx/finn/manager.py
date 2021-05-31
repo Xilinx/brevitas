@@ -101,7 +101,6 @@ class FINNManager(ONNXBaseManager):
             input_shape: Tuple[int, ...] = None,
             export_path: str = None,
             input_t: Optional[Union[Tensor, QuantTensor]] = None,
-            do_constant_folding=False,
             **kwargs):
         if input_t is not None and isinstance(input_t, QuantTensor):
             if input_t.is_not_none:
@@ -110,10 +109,8 @@ class FINNManager(ONNXBaseManager):
             preprocessing_module = _InputPreprocessingModule(input_t.scale, input_t.zero_point)
             module = Sequential(preprocessing_module, module)
             module.train(training_state)
-        # prevent folding of quantized bias
-        dcf = do_constant_folding
         onnx_model = cls.export_onnx(
-            module, input_shape, export_path, input_t, do_constant_folding=dcf, **kwargs)
+            module, input_shape, export_path, input_t, **kwargs)
         if input_t is not None and isinstance(input_t, QuantTensor):
             bit_width = input_t.bit_width
             signed = input_t.signed
