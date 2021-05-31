@@ -66,7 +66,7 @@ def binary_sign(x: Tensor) -> Tensor:
     """
     positive_mask = torch.ge(x, 0.0)
     negative_mask = torch.lt(x, 0.0)
-    y = positive_mask.float() - negative_mask.float()
+    y = positive_mask.to(x.dtype) - negative_mask.to(x.dtype)
     return y
 
 
