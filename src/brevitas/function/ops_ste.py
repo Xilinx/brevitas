@@ -64,6 +64,7 @@ __all__ = [
     'binary_sign_ste',
     'ternary_sign_ste',
     'round_to_zero_ste',
+    'dpu_round_ste',
     'abs_binary_sign_grad'
 ]
 
@@ -329,6 +330,30 @@ def round_to_zero_ste(x: Tensor) -> Tensor:
         True
     """
     return fn_prefix.round_to_zero_ste_impl(x)
+
+
+@script_flag
+def dpu_round_ste(x: Tensor) -> Tensor:
+    """
+    Function that implements :func:`~brevitas.function.ops.dpu_round` with a straight-through
+    gradient estimator.
+
+    Notes:
+        Wrapper for either :func:`~brevitas.function.autograd_ste_ops.dpu_round_ste_impl` (with
+        env ``BREVITAS_JIT=0``) or its native just-in-time compiled variant (with
+        ``BREVITAS_JIT=1``).
+
+    Examples:
+        >>> x = torch.tensor([1.7, -1.7], requires_grad=True)
+        >>> y = dpu_round_ste(x)
+        >>> y
+        tensor([ 2., -2.], grad_fn=<DPURoundSteFnBackward>)
+        >>> grad = torch.tensor([0.1, -0.1])
+        >>> y.backward(grad)
+        >>> (x.grad == grad).all().item()
+        True
+    """
+    return fn_prefix.dpu_round_ste_impl(x)
 
 
 @script_flag
