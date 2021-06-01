@@ -115,8 +115,8 @@ class ScalarClampMinSteFn : public torch::autograd::Function<ScalarClampMinSteFn
     return {output};
   };
 
-   static variable_list backward(AutogradContext* ctx, variable_list grad_output) {
-     return {grad_output[0], Variable()};
+  static variable_list backward(AutogradContext* ctx, variable_list grad_output) {
+    return {grad_output[0], Variable()};
   }
 };
 
@@ -129,7 +129,7 @@ class CeilSteFn : public torch::autograd::Function<CeilSteFn> {
   };
 
   static variable_list backward(AutogradContext* ctx, variable_list grad_output) {
-     return {grad_output[0]};
+    return {grad_output[0]};
   }
 };
 
@@ -141,7 +141,7 @@ class FloorSteFn : public torch::autograd::Function<FloorSteFn> {
   };
 
   static variable_list backward(AutogradContext* ctx, variable_list grad_output) {
-     return {grad_output[0]};
+    return {grad_output[0]};
   }
 };
 
@@ -156,7 +156,7 @@ class BinarySignSteFn : public torch::autograd::Function<BinarySignSteFn> {
   };
 
   static variable_list backward(AutogradContext* ctx, variable_list grad_output) {
-     return {grad_output[0]};
+    return {grad_output[0]};
   }
 };
 
@@ -165,12 +165,12 @@ class TernarySignSteFn : public torch::autograd::Function<TernarySignSteFn> {
  public:
 
   static variable_list forward(AutogradContext* ctx, Variable input) {
-     return{at::sign(input)};
-    };
+    return{at::sign(input)};
+  };
 
-   static variable_list backward(AutogradContext* ctx, variable_list grad_output) {
-     return {grad_output[0]};
-   }
+  static variable_list backward(AutogradContext* ctx, variable_list grad_output) {
+    return {grad_output[0]};
+  }
 };
 
 
@@ -178,12 +178,28 @@ class RoundToZeroSteFn : public torch::autograd::Function<RoundToZeroSteFn> {
  public:
 
   static variable_list forward(AutogradContext* ctx, Variable input) {
-     return {torch::sign(input) * torch::floor(torch::abs(input))};
-   };
+    return {torch::sign(input) * torch::floor(torch::abs(input))};
+  };
 
-   static variable_list backward(AutogradContext* ctx, variable_list grad_output) {
-     return {grad_output[0]};
-   }
+  static variable_list backward(AutogradContext* ctx, variable_list grad_output) {
+    return {grad_output[0]};
+  }
+};
+
+
+class DPURoundSteFn : public torch::autograd::Function<DPURoundSteFn> {
+ public:
+
+  static variable_list forward(AutogradContext* ctx, Variable input) {
+    Variable output;
+    output = at::where(
+        at::logical_and((x < 0.), (x - torch::floor(x) == 0.5)), torch::ceil(x), torch::round(x));
+    return {output};
+  };
+
+  static variable_list backward(AutogradContext* ctx, variable_list grad_output) {
+    return {grad_output[0]};
+  }
 };
 
 
@@ -191,14 +207,14 @@ class AbsBinarySignGradFn : public torch::autograd::Function<AbsBinarySignGradFn
  public:
 
   static variable_list forward(AutogradContext* ctx, Variable input) {
-     ctx.save_for_backward(input)
-     return {torch::abs(input)};
-   };
+    ctx.save_for_backward(input)
+    return {torch::abs(input)};
+  };
 
-   static variable_list backward(AutogradContext* ctx, variable_list grad_output) {
-     input = ctx.saved_variables()[0]
-     return {BinarySignSteFn::apply(input) * grad_output[0]};
-   }
+  static variable_list backward(AutogradContext* ctx, variable_list grad_output) {
+    input = ctx.saved_variables()[0]
+    return {BinarySignSteFn::apply(input) * grad_output[0]};
+  }
 };
 
 
@@ -214,6 +230,11 @@ Tensor floor_ste_impl(const Tensor& input) {
 
 Tensor round_ste_impl(const Tensor& input) {
  return RoundSteFn::apply(input)[0];
+};
+
+
+Tensor dpu_round_ste_impl(const Tensor& input) {
+ return DPURoundSteFn::apply(input)[0];
 };
 
 
@@ -269,6 +290,7 @@ TORCH_LIBRARY(autograd_ste_ops, m) {
     m.def("ceil_ste_impl", &ceil_ste_impl);
     m.def("floor_ste_impl", &floor_ste_impl);
     m.def("round_to_zero_ste_impl", &round_to_zero_ste_impl);
+    m.def("dpu_round_ste_impl", &dpu_round_ste_impl);
     m.def("abs_binary_sign_grad_impl", &abs_binary_sign_grad_impl);
 }
     

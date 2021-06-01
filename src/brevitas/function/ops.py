@@ -90,6 +90,25 @@ def round_to_zero(x: Tensor) -> Tensor:
 
 
 @brevitas.jit.script
+def dpu_round(x: Tensor) -> Tensor:
+    """
+    Compute DPU rounding.
+
+    Args:
+        x (Tensor): input tensor.
+
+    Returns:
+        Tensor: rounded input tensor.
+
+    Examples:
+        >>> dpu_round(torch.tensor([-1.5, -0.5, 0.5, 1.5]))
+        tensor([-1., -0.,  0.,  2.])
+    """
+    y = torch.where((x < 0.) & (x - torch.floor(x) == 0.5), torch.ceil(x), torch.round(x))
+    return y
+
+
+@brevitas.jit.script
 def tensor_clamp(x: Tensor, min_val: Tensor, max_val: Tensor) -> Tensor:
     """
     Generalized clamp function with support for tensors as clamping values.

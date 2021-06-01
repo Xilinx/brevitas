@@ -48,7 +48,7 @@ import torch
 from torch.autograd import Function
 from torch import Tensor
 
-from brevitas.function.ops import tensor_clamp, binary_sign, round_to_zero, tensor_clamp_
+from brevitas.function.ops import tensor_clamp, binary_sign, round_to_zero, tensor_clamp_, dpu_round
 
 __all__ = [
     'ScalarClampSteFn',
@@ -62,6 +62,7 @@ __all__ = [
     'TernarySignSteFn',
     'RoundSteFn',
     'AbsBinarySignGradFn',
+    'DPURoundSteFn',
     'round_ste_impl',
     'binary_sign_ste_impl',
     'ternary_sign_ste_impl',
@@ -72,6 +73,7 @@ __all__ = [
     'scalar_clamp_ste_impl',
     'tensor_clamp_ste_impl',
     'abs_binary_sign_grad_impl',
+    'dpu_round_ste_impl'
 ]
 
 
@@ -218,6 +220,32 @@ class RoundToZeroSteFn(Function):
         floor = g.op('Floor', abs)
         y = g.op('Mul', sign, floor)
         return y
+
+
+class DPURoundSteFn(Function):
+    """
+    Autograd function that implements :func:`~brevitas.function.ops.dpu_round` with a
+    straight-through gradient estimator.
+
+    ``DPURoundSteFn.apply(*args)`` is first aliased to :func:`dpu_round_ste_impl(*args)
+    <brevitas.function.autograd_ste_ops.dpu_round_ste_impl>` and then wrapped by
+    :func:`~brevitas.function.ops_ste.dpu_round_ste` when env ``BREVITAS_JIT=0``.
+    See :func:`~brevitas.function.ops_ste.dpu_round_ste` for details on the interface and
+    examples.
+    """
+
+    @staticmethod
+    def forward(ctx, x: Tensor) -> Tensor:
+        y = dpu_round(x)
+        return y
+
+    @staticmethod
+    def backward(ctx, grad_y: Tensor) -> Tensor:
+        return grad_y
+
+    @staticmethod
+    def symbolic(g, x: Tensor):
+        raise NotImplementedError
 
 
 class CeilSteFn(Function):
@@ -409,6 +437,10 @@ ceil_ste_impl = CeilSteFn.apply
 #: Alias for :class:`RoundToZeroSteFn.apply(*args)
 #: <brevitas.function.autograd_ste_ops.RoundToZeroSteFn>`
 round_to_zero_ste_impl = RoundToZeroSteFn.apply
+
+#: Alias for :class:`DPURoundSteFn.apply(*args)
+#: <brevitas.function.autograd_ste_ops.DPURoundSteFn>`
+dpu_round_ste_impl = DPURoundSteFn.apply
 
 #: Alias for :class:`ScalarClampMinSteFn.apply(*args)
 #: <brevitas.function.autograd_ste_ops.ScalarClampMinSteFn>`

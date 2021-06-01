@@ -86,6 +86,19 @@ class RoundToZeroSte(brevitas.jit.ScriptModule):
         return round_to_zero_ste(x)
 
 
+class DPURoundSte(brevitas.jit.ScriptModule):
+    """
+    ScriptModule wrapper for :func:`~brevitas.function.ops_ste.dpu_round_ste`.
+    """
+
+    def __init__(self) -> None:
+        super(DPURoundSte, self).__init__()
+
+    @brevitas.jit.script_method
+    def forward(self, x: torch.Tensor):
+        return dpu_round_ste(x)
+
+
 class CeilSte(brevitas.jit.ScriptModule):
     """
     ScriptModule wrapper for :func:`~brevitas.function.ops_ste.ceil_ste`.
