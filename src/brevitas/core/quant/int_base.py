@@ -160,9 +160,6 @@ class DecoupledIntQuant(brevitas.jit.ScriptModule):
         tensor([ 0.0200, -0.0300,  0.0700, -0.0700])
 
     Note:
-        Maps to quant_type == QuantType.INT == 'INT' == 'int' in higher-level APIs.
-
-    Note:
         Set env variable BREVITAS_JIT=1 to enable TorchScript compilation of this module.
     """
 
