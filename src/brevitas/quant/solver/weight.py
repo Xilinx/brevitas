@@ -49,7 +49,7 @@ from brevitas.inject import ExtendedInjector, value, this
 
 __all__ = [
     'SolveWeightTensorQuantFromEnum',
-    'SolveWeightScalingStatsInputConcatDimFromModule',
+    'SolveWeightScalingStatsInputDimsFromModule',
     'SolveWeightScalingPerOutputChannelShapeFromModule',
     'WeightQuantSolver'
 ]
@@ -70,29 +70,54 @@ class SolveWeightTensorQuantFromEnum(SolveIntQuantFromEnum):
             raise RuntimeError(f'{quant_type} not recognized.')
 
 
-class SolveWeightScalingStatsInputConcatDimFromModule(ExtendedInjector):
+class SolveWeightScalingPerOutputChannelShapeFromModule(ExtendedInjector):
 
     @value
-    def scaling_stats_input_concat_dim(module):
+    def out_channels(module):
+        if isinstance(module, tuple):
+            assert all(m.out_channels == module[0].out_channels for m in module)
+            module = module[0]
+        return module.out_channels
+
+    @value
+    def weight_ndims(module):
+        if isinstance(module, tuple):
+            assert all(len(m.weight.size()) == len(module[0].weight.size()) for m in module)
+            module = module[0]
+        return len(module.weight.size())
+
+    @value
+    def scaling_per_output_channel_shape(weight_ndims, output_channel_dim, out_channels):
+        shape = [1] * weight_ndims
+        shape[output_channel_dim] = out_channels
+        return tuple(shape)
+
+
+class SolveWeightScalingStatsInputDimsFromModule(ExtendedInjector):
+
+    # Weights are always permuted and reshaped first such that output channels are dim 0 and the
+    # remaining features are dim 1, along which we concatenate
+    scaling_stats_input_concat_dim = 1
+
+    @value
+    def permute_dims(module, output_channel_dim):
+        if output_channel_dim != 0:
+            dims = list(range(0, len(module.weight.shape)))
+            dims[0], dims[output_channel_dim] = dims[output_channel_dim], dims[0]
+            return tuple(dims)
+        else:
+            return None
+
+    @value
+    def output_channel_dim(module):
         if isinstance(module, tuple):
             assert all(m.output_channel_dim == module[0].output_channel_dim for m in module)
             module = module[0]
         return module.output_channel_dim
 
 
-class SolveWeightScalingPerOutputChannelShapeFromModule(ExtendedInjector):
-
-    @value
-    def scaling_per_output_channel_shape(module):
-        if isinstance(module, tuple):
-            assert all(m.out_channels == module[0].out_channels for m in module)
-            module = module[0]
-        shape = [1] * len(module.weight.size())
-        shape[module.output_channel_dim] = module.out_channels
-        return tuple(shape)
-
-
 class WeightQuantSolver(
+        SolveWeightScalingStatsInputDimsFromModule,
         SolveScalingStatsInputViewShapeImplFromEnum,
         SolveStatsReduceDimFromEnum,
         SolveScalingStatsOpFromEnum,
@@ -105,7 +130,6 @@ class WeightQuantSolver(
         SolveParameterScalingInitFromEnum,
         SolveParameterScalingShape,
         SolveWeightScalingPerOutputChannelShapeFromModule,
-        SolveWeightScalingStatsInputConcatDimFromModule,
         SolveWeightTensorQuantFromEnum):
     """
     Translate enum and shape directives to weight-specific quantization core modules.

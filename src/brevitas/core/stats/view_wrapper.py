@@ -53,11 +53,11 @@ class _ViewParameterWrapper(brevitas.jit.ScriptModule):
     def __init__(self, parameter: Parameter, view_shape_impl: Module) -> None:
         super(_ViewParameterWrapper, self).__init__()
         self.parameter = parameter
-        self.shape = view_shape_impl.shape(parameter)
+        self.view_shape_impl = view_shape_impl
 
     @brevitas.jit.script_method
     def forward(self) -> Tensor:
-        return self.parameter.view(self.shape)
+        return self.view_shape_impl(self.parameter)
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
                               missing_keys, unexpected_keys, error_msgs):
@@ -79,12 +79,12 @@ class _ViewCatParameterWrapper(brevitas.jit.ScriptModule):
     def __init__(self, parameter: Parameter, view_shape_impl: Module, cat_dim: int) -> None:
         super(_ViewCatParameterWrapper, self).__init__()
         self.parameter = parameter
-        self.shape = view_shape_impl.shape(parameter)
+        self.view_shape_impl = view_shape_impl
         self.cat_dim = cat_dim
 
     @brevitas.jit.script_method
     def forward(self, x: Tensor) -> Tensor:
-        return torch.cat([self.parameter.view(self.shape), x], dim=self.cat_dim)
+        return torch.cat([self.view_shape_impl(self.parameter), x], dim=self.cat_dim)
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
                               missing_keys, unexpected_keys, error_msgs):

@@ -81,23 +81,17 @@ class _RuntimeStats(brevitas.jit.ScriptModule):
             stats_impl: nn.Module,
             stats_output_shape: Tuple[int, ...],
             stats_input_view_shape_impl: nn.Module,
-            stats_permute_dims: Optional[Tuple[int, ...]] = None,
             stats_buffer_momentum: float = DEFAULT_MOMENTUM) -> None:
         super(_RuntimeStats, self).__init__()
-        if stats_output_shape != SCALAR_SHAPE and stats_permute_dims is None:
-            raise RuntimeError("Per channel runtime stats require a permute shape")
         self.first_batch = brevitas.jit.Attribute(True, bool)
-        self.stats_permute_dims = stats_permute_dims
         self.stats_input_view_shape_impl = stats_input_view_shape_impl
         self.stats = _Stats(stats_impl, stats_output_shape)
         self.momentum = stats_buffer_momentum
         self.register_buffer('running_stats', torch.full(stats_output_shape, 1.0))
 
-    @brevitas.jit.script_method_110_disabled
+    @brevitas.jit.script_method
     def forward(self, stats_input) -> Tensor:
         if self.training:
-            if self.stats_permute_dims is not None:
-                stats_input = stats_input.permute(*self.stats_permute_dims).contiguous()
             stats_input = self.stats_input_view_shape_impl(stats_input)
             out = self.stats(stats_input)
             if self.first_batch:

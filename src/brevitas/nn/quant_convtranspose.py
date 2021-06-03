@@ -103,11 +103,11 @@ class QuantConvTranspose1d(QuantWBIOL, ConvTranspose1d):
 
     @property
     def output_channel_dim(self) -> int:
-        return 0
+        return 1
 
     @property
     def channelwise_separable(self) -> bool:
-        raise self.groups == self.weight.shape[0]
+        raise self.groups == self.out_channels
 
     def forward(self, input: Union[Tensor, QuantTensor], output_size=None) -> Union[Tensor, QuantTensor]:
         self._output_size = output_size  # cache the value temporarily
@@ -188,11 +188,11 @@ class QuantConvTranspose2d(QuantWBIOL, ConvTranspose2d):
 
     @property
     def output_channel_dim(self) -> int:
-        return 0
+        return 1
 
     @property
     def channelwise_separable(self) -> bool:
-        raise self.groups == self.weight.shape[0]
+        raise self.groups == self.out_channels
 
     def forward(self, input: Union[Tensor, QuantTensor], output_size=None) -> Union[Tensor, QuantTensor]:
         self._output_size = output_size  # cache the value temporarily
