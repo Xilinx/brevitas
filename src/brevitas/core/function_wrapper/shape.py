@@ -42,10 +42,25 @@
 ScriptModule classes to compute the view of a tensor according to various different criteria.
 """
 
-import brevitas
+from typing import Optional, Tuple
+
 import torch
+
+import brevitas
 from brevitas.function.shape import over_tensor, over_output_channels, over_batch_over_tensor
 from brevitas.function.shape import over_batch_over_output_channels
+from brevitas.core.function_wrapper import Identity
+
+
+class PermuteDims(brevitas.jit.ScriptModule):
+
+    def __init__(self, permute_dims: Tuple[int, ...]) -> None:
+        super(PermuteDims, self).__init__()
+        self.permute_dims = permute_dims
+
+    @brevitas.jit.script_method
+    def forward(self, x: torch.Tensor):
+        return x.permute(*self.permute_dims).contiguous()
 
 
 class OverTensorView(brevitas.jit.ScriptModule):
@@ -63,15 +78,8 @@ class OverTensorView(brevitas.jit.ScriptModule):
         super(OverTensorView, self).__init__()
 
     @brevitas.jit.script_method
-    def shape(self, x: torch.Tensor):
-        """
-        Wrapper for :func:`~brevitas.function.shape.over_tensor`.
-        """
-        return over_tensor(x)
-
-    @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
-        shape = self.shape(x)
+        shape = over_tensor(x)
         return x.reshape(shape)
 
 
@@ -81,26 +89,24 @@ class OverOutputChannelView(brevitas.jit.ScriptModule):
     input tensor.
 
     Examples:
-        >>> view_module = OverOutputChannelView()
+        >>> view_module = OverOutputChannelView(permute_dims=None)
         >>> y = view_module(torch.empty(size=[16, 8, 5, 5]))
         >>> y.shape
         torch.Size([16, 200])
     """
 
-    def __init__(self) -> None:
+    def __init__(self, permute_dims: Optional[Tuple[int, ...]]) -> None:
         super(OverOutputChannelView, self).__init__()
-
-    @brevitas.jit.script_method
-    def shape(self, x: torch.Tensor):
-        """
-        Wrapper for :func:`~brevitas.function.shape.over_output_channels`.
-        """
-        return over_output_channels(x)
+        if permute_dims is not None:
+            self.permute_impl = PermuteDims(permute_dims)
+        else:
+            self.permute_impl = Identity()
 
     @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
-        shape = self.shape(x)
-        return x.reshape(shape)
+        y = self.permute_impl(x)
+        shape = over_output_channels(y)
+        return y.reshape(shape)
 
 
 class OverBatchOverTensorView(brevitas.jit.ScriptModule):
@@ -119,15 +125,8 @@ class OverBatchOverTensorView(brevitas.jit.ScriptModule):
         super(OverBatchOverTensorView, self).__init__()
 
     @brevitas.jit.script_method
-    def shape(self, x: torch.Tensor):
-        """
-        Wrapper for :func:`~brevitas.function.shape.over_batch_over_tensor`.
-        """
-        return over_batch_over_tensor(x)
-
-    @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
-        shape = self.shape(x)
+        shape = over_batch_over_tensor(x)
         return x.reshape(shape)
 
 
@@ -147,15 +146,8 @@ class OverBatchOverOutputChannelView(brevitas.jit.ScriptModule):
         super(OverBatchOverOutputChannelView, self).__init__()
 
     @brevitas.jit.script_method
-    def shape(self, x: torch.Tensor):
-        """
-        Wrapper for :func:`~brevitas.function.shape.over_batch_over_output_channels`.
-        """
-        return over_batch_over_output_channels(x)
-
-    @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
-        shape = self.shape(x)
+        shape = over_batch_over_output_channels(x)
         return x.reshape(shape)
 
 

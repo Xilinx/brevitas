@@ -57,7 +57,7 @@ from brevitas.core.quant.int_base import DecoupledIntQuant
 from brevitas.core.function_wrapper import TensorClampSte
 from brevitas.core.function_wrapper import OverOutputChannelView
 from brevitas.quant.solver.parameter import ParameterFromStatsScalingInit
-from brevitas.quant.solver.weight import SolveWeightScalingStatsInputConcatDimFromModule
+from brevitas.quant.solver.weight import SolveWeightScalingStatsInputDimsFromModule
 from brevitas.proxy import DecoupledWeightQuantProxyFromInjector
 
 __all__ = [
@@ -225,7 +225,7 @@ class PerTensorConstScaling2bit(ExtendedInjector):
     bit_width = 2
 
 
-class WeightPerTensorFloatDecoupledL2Param(SolveWeightScalingStatsInputConcatDimFromModule):
+class WeightPerTensorFloatDecoupledL2Param(SolveWeightScalingStatsInputDimsFromModule):
     """
     Experimental narrow per-tensor signed int weight quantizer fragment with decoupled L2,inf
     normalization and learned scaling.

@@ -205,7 +205,6 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             input during the statistics collection phase. Default: OverBatchOverTensorView().
         scaling_shape (Tuple[int, ...]): shape of the torch.nn.Parameter used in the second phase. Default: SCALAR_SHAPE.
         restrict_scaling_impl (Module): restrict the learned scale factor according to some criteria. Default: None
-        scaling_stats_permute_dims: Optional[Tuple[int, ...]]: Permutation to apply to the runtime
             input before going into scaling_stats_input_view_shape_impl. Default: None
         scaling_stats_momentum: float = Momentum for the statistics moving average. Default: DEFAULT_MOMENTUM.
         scaling_min_val (float): force a lower-bound on the learned scale factor. Default: None.
@@ -245,7 +244,6 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             scaling_stats_input_view_shape_impl: Module = OverBatchOverTensorView(),
             scaling_shape: Tuple[int, ...] = SCALAR_SHAPE,
             restrict_scaling_impl: Optional[Module] = None,
-            scaling_stats_permute_dims: Optional[Tuple[int, ...]] = None,
             scaling_stats_momentum: float = DEFAULT_MOMENTUM,
             scaling_min_val: Optional[float] = None) -> None:
         super(ParameterFromRuntimeStatsScaling, self).__init__()
@@ -255,11 +253,8 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
                 'BREVITAS_JIT=1 on ParameterFromRuntimeStatsScaling could result in numerical '
                 'errors. Disabling it is highly recommended unless you are resuming from a previous'
                 'quantized checkpoint (not a floating-point one).')
-        if scaling_shape != SCALAR_SHAPE and scaling_stats_permute_dims is None:
-            raise RuntimeError("Per channel runtime stats require a permute shape")
         self.collect_stats_steps = collect_stats_steps
         self.counter: int = brevitas.jit.Attribute(0, int)
-        self.stats_permute_dims = scaling_stats_permute_dims
         self.stats_input_view_shape_impl = scaling_stats_input_view_shape_impl
         self.stats = _Stats(scaling_stats_impl, scaling_shape)
         self.momentum = scaling_stats_momentum
@@ -270,12 +265,10 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
         else:
             self.restrict_inplace_preprocess = InplaceNoOp()
 
-    @brevitas.jit.script_method_110_disabled
+    @brevitas.jit.script_method
     def forward(self, stats_input: Tensor) -> Tensor:
         if self.training:
             if self.counter < self.collect_stats_steps:
-                if self.stats_permute_dims is not None:
-                    stats_input = stats_input.permute(*self.stats_permute_dims).contiguous()
                 stats_input = self.stats_input_view_shape_impl(stats_input)
                 stats = self.stats(stats_input)
                 if self.counter == 0:

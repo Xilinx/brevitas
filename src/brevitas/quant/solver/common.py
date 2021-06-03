@@ -196,3 +196,8 @@ class SolveScalingStatsInputViewShapeImplFromEnum(ExtendedInjector):
             return StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS
         else:
             return StatsInputViewShapeImpl.OVER_TENSOR
+
+    @value
+    def permute_dims(scaling_stats_permute_dims):
+        # retrocompatibility with older activation per-channel scaling API
+        return scaling_stats_permute_dims

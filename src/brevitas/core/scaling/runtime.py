@@ -117,7 +117,6 @@ class RuntimeStatsScaling(brevitas.jit.ScriptModule):
             restrict_scaling_impl: Module,
             scaling_shape: Tuple[int, ...],
             affine_rescaling: bool,
-            scaling_stats_permute_dims: Optional[Tuple[int, ...]] = None,
             scaling_stats_momentum: float = DEFAULT_MOMENTUM,
             scaling_min_val: Optional[float] = None) -> None:
         super(RuntimeStatsScaling, self).__init__()
@@ -126,7 +125,6 @@ class RuntimeStatsScaling(brevitas.jit.ScriptModule):
             scaling_stats_impl,
             scaling_shape,
             scaling_stats_input_view_shape_impl,
-            scaling_stats_permute_dims,
             scaling_stats_momentum)
         self.stats_scaling_impl = _StatsScaling(
             restrict_scaling_impl,

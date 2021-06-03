@@ -106,8 +106,9 @@ class QuantConv1d(QuantWBIOL, Conv1d):
     @property
     def output_channel_dim(self):
         if self.transposed:
-            raise RuntimeError("Transposed kernels not supported")
-        return 0
+            return 1
+        else:
+            return 0
 
     @property
     def channelwise_separable(self) -> bool:
