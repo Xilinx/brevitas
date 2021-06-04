@@ -134,7 +134,7 @@ class QLinearConvFunction(Function):
             stride,
             groups,
             dilation):
-        return torch.empty(out_shape).type(output_zero_point.dtype)
+        return torch.empty(out_shape, dtype=output_zero_point.dtype, device=int_x.device)
 
 
 class QLinearMatMulFunction(Function):
@@ -172,4 +172,4 @@ class QLinearMatMulFunction(Function):
             output_scale,
             output_zero_point,
             out_shape):
-        return torch.empty(out_shape).type(output_zero_point.dtype)
+        return torch.empty(out_shape, dtype=output_zero_point.dtype, device=int_x.device)

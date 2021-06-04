@@ -88,7 +88,7 @@ class XIRConv2dPlaceholderFunction(Function):
     def forward(
             ctx, x, weight, bias, is_depthwise, kernel_size,
             padding, padding_type, stride, dilation, output_shape):
-        return torch.empty(output_shape)
+        return torch.empty(output_shape, dtype=x.dtype, device=x.device)
 
 
 class XIRConvTranpose2dPlaceholderFunction(Function):
@@ -138,4 +138,4 @@ class XIRConvTranpose2dPlaceholderFunction(Function):
     def forward(
             ctx, x, weight, bias, is_depthwise, kernel_size,
             padding, padding_type, stride, dilation, output_shape):
-        return torch.empty(output_shape)
+        return torch.empty(output_shape, dtype=x.dtype, device=x.device)

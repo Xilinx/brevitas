@@ -81,7 +81,7 @@ class DPUQuantAvgPoolPlaceholderFunction(Function):
             input_scale,
             output_bit_width,
             output_scale):
-        return torch.empty(out_shape, dtype=torch.float)
+        return torch.empty(out_shape, dtype=torch.float, device=x.device)
 
 
 class DPUQuantEltwiseAddPlaceholderFunction(Function):
@@ -146,7 +146,7 @@ class DPUQuantMaxPoolPlaceholderFunction(Function):
             input_scale,
             output_bit_width,
             output_scale):
-        return torch.empty(out_shape, dtype=torch.float)
+        return torch.empty(out_shape, dtype=torch.float, device=x.device)
 
 
 class DPUQuantConv2dPlaceholderFunction(Function):
@@ -192,7 +192,7 @@ class DPUQuantConv2dPlaceholderFunction(Function):
             stride,
             groups,
             dilation):
-        return torch.empty(out_shape, dtype=torch.float)
+        return torch.empty(out_shape, dtype=torch.float, device=x.device)
 
 
 class DPUQuantLinearPlaceholderFunction(Function):
@@ -263,4 +263,4 @@ class DPUQuantLinearPlaceholderFunction(Function):
             weight_scale,
             int_bias_bit_width,
             int_bias_scale):
-        return torch.empty(out_shape, dtype=torch.float)
+        return torch.empty(out_shape, dtype=torch.float, device=x.device)

@@ -21,8 +21,7 @@ class QuantizedLinearPlaceholderFunction(Function):
 
     @staticmethod
     def forward(ctx, x, Wt, w_qnt_scale, b_qnt_scale, w_qnt_type, b_qnt_type, out_shape, bias):
-        return torch.empty(out_shape, dtype = torch.float)
-
+        return torch.empty(out_shape, dtype=torch.float, device=x.device)
 
 class QuantizedConvNdPlaceholderFunction(Function):
 
@@ -52,4 +51,4 @@ class QuantizedConvNdPlaceholderFunction(Function):
     @staticmethod
     def forward(
             ctx, x, W, w_qnt_scale, b_qnt_scale, w_qnt_type, b_qnt_type, out_shape, pads, strides, bias, kernel_shape, groups, dilations):
-        return torch.empty(out_shape, dtype = torch.float)
+        return torch.empty(out_shape, dtype=torch.float, device=x.device)
