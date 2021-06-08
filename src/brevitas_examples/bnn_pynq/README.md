@@ -25,22 +25,22 @@ These pretrained models and training scripts are courtesy of
 
 A few notes on training:
 - An experiments folder at */path/to/experiments* must exist before launching the training.
-- Training is set to 1000 epochs for 1W1A networks, 500 otherwise. 
-- Force-enabling the Pytorch JIT with the env flag PYTORCH_JIT=1 significantly speeds up training.
+- Set training to 1000 epochs for 1W1A networks, 500 otherwise. 
+- Enabling the JIT with the env flag BREVITAS_JIT=1 significantly speeds up training.
 
 To start training a model from scratch, e.g. LFC_1W1A, run:
  ```bash
-PYTORCH_JIT=1 brevitas_bnn_pynq_train --network LFC_1W1A --experiments /path/to/experiments
+BREVITAS_JIT=1 brevitas_bnn_pynq_train --network LFC_1W1A --experiments /path/to/experiments
  ```
 
 ## Evaluate
 
 To evaluate a pretrained model, e.g. LFC_1W1A, run:
  ```bash
-PYTORCH_JIT=1 brevitas_bnn_pynq_train --evaluate --network LFC_1W1A --pretrained
+BREVITAS_JIT=1 brevitas_bnn_pynq_train --evaluate --network LFC_1W1A --pretrained
  ```
 
 To evaluate your own checkpoint, of e.g. LFC_1W1A, run:
  ```bash
-PYTORCH_JIT=1 brevitas_bnn_pynq_train --evaluate --network LFC_1W1A --resume /path/to/checkpoint.tar
+BREVITAS_JIT=1 brevitas_bnn_pynq_train --evaluate --network LFC_1W1A --resume /path/to/checkpoint.tar
  ```
