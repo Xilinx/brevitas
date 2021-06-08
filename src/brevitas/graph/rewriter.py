@@ -11,106 +11,13 @@ from torch.nn import Module
 from brevitas import nn as qnn
 from brevitas.quant_tensor import QuantTensor
 from brevitas.nn.utils import merge_bn
-from brevitas.fx import GraphModule, Graph, Node, map_arg
+from brevitas.fx import GraphModule, Node
 from brevitas.fx import immutable_list, immutable_dict, get_testing_overrides
+
+from brevitas.graph.utils import *
 
 
 _TORCH_TESTING_DICT = get_testing_overrides()
-
-
-def _replace_all_users_except(to_replace: Node, replace_with: 'Node', exceptions=()):
-    """
-    Replace all users of ``to_replace`` with the Node ``replace_with``, except when
-    the user is in exceptions.
-
-    Args:
-        to_replace (Node): The node to replace all uses of.
-        replace_with (Node): The node to replace all uses of ``to_replace`` with.
-        exceptions (List[Node]): The user nodes that should be affected.
-
-    Returns:
-        The list of Nodes on which this change was made.
-    """
-    to_process = list(to_replace.users)
-    for use_node in to_process:
-        def maybe_replace_node(n: Node) -> Node:
-            if n == to_replace and use_node not in exceptions:
-                return replace_with
-            else:
-                return n
-
-        new_args = map_arg(use_node.args, maybe_replace_node)
-        new_kwargs = map_arg(use_node.kwargs, maybe_replace_node)
-        assert isinstance(new_args, tuple)
-        assert isinstance(new_kwargs, dict)
-        use_node._Node__update_args_kwargs(new_args, new_kwargs)
-    return to_process
-
-
-def _signature_keys(module_class):
-    return signature(module_class).parameters.keys()
-
-
-def _is_subseq(seq, subseq):
-    return any(subseq == seq[i:len(subseq) + i] for i in range(len(seq) - len(subseq) + 1))
-
-
-def _get_module_name_and_parent(model, fully_qualified_module_name):
-    supermodule = model
-    prefix_list = fully_qualified_module_name.split('.')
-    module_name = prefix_list[-1]
-    prefix_list = prefix_list[:-1]  # exclude module name
-    for prefix in prefix_list:
-        if prefix:  # exclude empty prefix
-            supermodule = supermodule._modules[prefix]
-    return module_name, supermodule
-
-
-def _set_module(model, module, fully_qualified_module_name):
-    module_name, supermodule = _get_module_name_and_parent(model, fully_qualified_module_name)
-    supermodule._modules[module_name] = module
-
-
-def _get_module(model, fully_qualified_module_name):
-    named_modules = dict(model.named_modules())
-    return named_modules[fully_qualified_module_name]
-
-
-def _del_module(model, fully_qualified_module_name):
-    module_name, supermodule = _get_module_name_and_parent(model, fully_qualified_module_name)
-    del supermodule._modules[module_name]
-
-
-def _name_from_module(model, module):
-    for name, m in model.named_modules():
-        if m is module:
-            return name
-    return None
-
-
-def _replace_module(model, old_module, new_module):
-    name = _name_from_module(model, old_module)
-    _set_module(model, new_module, name)
-
-
-# https://github.com/pytorch/pytorch/blob/v1.8.1/torch/fx/_experimental/fuser.py
-# Works for length 2 patterns with 2 modules
-def _matches_module_pattern(pattern: Iterable, node: Node, modules: Dict[str, Any]):
-    if len(node.args) == 0:
-        return False
-    nodes: Tuple[Any, Node] = (node.args[0], node)
-    for expected_type, current_node in zip(pattern, nodes):
-        if not isinstance(current_node, Node):
-            return False
-        if current_node.op != 'call_module':
-            return False
-        if not isinstance(current_node.target, str):
-            return False
-        if current_node.target not in modules:
-            return False
-        if type(modules[current_node.target]) is not expected_type:
-            return False
-    return True
 
 
 class Rewriter(ABC):
@@ -150,7 +57,7 @@ class ModuleToModuleRewriter(Rewriter, ABC):
         # transforms attribute of original module, e.g. bias Parameter -> bool
         new_kwargs = self._map_origin_vars(new_kwargs)
         # restrict to only values that are in the init of the new module
-        new_module_signature_keys = _signature_keys(self.new_module_class)
+        new_module_signature_keys = signature_keys(self.new_module_class)
         new_kwargs = {k: v for k, v in new_kwargs.items() if k in new_module_signature_keys}
         # update with kwargs passed to the rewriter
         new_kwargs.update(self.new_module_kwargs)
@@ -160,7 +67,7 @@ class ModuleToModuleRewriter(Rewriter, ABC):
 
     def _rewrite_model(self, model, old_new_module_dict):
         for old_module, new_module in old_new_module_dict.items():
-            _replace_module(model, old_module, new_module)
+            replace_module(model, old_module, new_module)
             new_module.load_state_dict(old_module.state_dict())
 
     def apply(self, model: GraphModule):
@@ -201,7 +108,7 @@ class MergeBatchNorm2d(Rewriter):
         named_modules = dict(graph_model.named_modules())
         for pattern in self.patterns:
             for node in graph_model.graph.nodes:
-                if _matches_module_pattern(pattern, node, named_modules):
+                if matches_module_pattern(pattern, node, named_modules):
                     if len(node.args[0].users) > 1:  # Output of layer is used by other nodes
                         continue
                     layer = named_modules[node.args[0].target]
@@ -209,7 +116,7 @@ class MergeBatchNorm2d(Rewriter):
                     merge_bn(layer, bn)
                     node.replace_all_uses_with(node.args[0])
                     graph_model.graph.erase_node(node)
-                    _del_module(graph_model, node.target)
+                    del_module(graph_model, node.target)
         graph_model.recompile()
         graph_model.graph.lint()
         return graph_model
@@ -229,7 +136,7 @@ class DuplicateSharedStatelessModule(Rewriter):
                         if name in dup_mod_dict.keys():
                             dup_mod_dict[name] += 1
                             dup_name = f'{name}_{dup_mod_dict[name]}'
-                            _set_module(graph_model, deepcopy(mod), dup_name)
+                            set_module(graph_model, deepcopy(mod), dup_name)
                             node.target = dup_name
                         else:
                             dup_mod_dict[name] = 0
@@ -242,7 +149,7 @@ class DisableBreakingReturnQuantTensor(Rewriter):
 
     def is_breaking(self, graph_model, user):
         if (user.op == 'call_module'
-                and hasattr(_get_module(graph_model, user.target), 'accept_quant_tensor')):
+                and hasattr(get_module(graph_model, user.target), 'accept_quant_tensor')):
             return False
         if user.op == 'call_method' and hasattr(QuantTensor, user.target):
             return False
@@ -255,7 +162,7 @@ class DisableBreakingReturnQuantTensor(Rewriter):
     def apply(self, graph_model: GraphModule):
         for node in graph_model.graph.nodes:
             if node.op == 'call_module':
-                module = _get_module(graph_model, node.target)
+                module = get_module(graph_model, node.target)
                 if hasattr(module, 'return_quant_tensor') and module.return_quant_tensor:
                     for user in node.users:
                         if self.is_breaking(graph_model, user):
@@ -280,7 +187,7 @@ class CallableToModuleRewriter(Rewriter, ABC):
         pass
 
     def split_kwargs(self, node: Node):
-        new_module_keys = _signature_keys(self.new_module_class)
+        new_module_keys = signature_keys(self.new_module_class)
         node_kwargs = dict(node.kwargs)
         node_kwargs_keys = list(node_kwargs.keys())
         module_kwargs = {k: node_kwargs.pop(k) for k in node_kwargs_keys if k in new_module_keys}
@@ -313,7 +220,7 @@ class CallableToModuleRewriter(Rewriter, ABC):
         node.target = module_name
         node.op = 'call_module'
         node.kwargs = immutable_dict(node_kwargs)
-        _set_module(graph_model, module, module_name)
+        set_module(graph_model, module, module_name)
 
     def apply(self, graph_model: GraphModule) -> GraphModule:
         for node in graph_model.graph.nodes:
@@ -374,7 +281,7 @@ class MeanMethodToAdaptiveAvgPool2d(MethodToModuleRewriter):
         with graph_model.graph.inserting_after(batch_size_node):
             squeeze_node = graph_model.graph.call_method(
                 'reshape', args=(node, (batch_size_node, -1)))
-        _replace_all_users_except(node, squeeze_node, [squeeze_node, batch_size_node])
+        replace_all_users_except(node, squeeze_node, [squeeze_node, batch_size_node])
 
 
 class AllignScaling(Rewriter):
