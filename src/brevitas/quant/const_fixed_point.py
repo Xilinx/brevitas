@@ -83,43 +83,50 @@ def create_fixed_point_quant(bit_width,
     :return: class of fixed point quantizer
     
     # example usage
+    from brevitas import nn as qnn
+
     Q6_2_C = create_fixed_point_quant(bit_width=6, int_width=2, narrow_range=False, signed=True, round_mode='ceil')
     Q6_2_CN = create_fixed_point_quant(bit_width=6, int_width=2, narrow_range=True, signed=True, round_mode='ceil')
     Q8_1_R = create_fixed_point_quant(bit_width=8, int_width=1, narrow_range=False, signed=True, round_mode='round')
     Q8_2_F = create_fixed_point_quant(bit_width=8, int_width=2, narrow_range=False, signed=False, round_mode='floor')
-    
-    # examle layer which use quantizers
-    L_Q6_2_C = brevitas.nn.QuantIdentity(act_quant=Q6_2_C, return_quant_tensor=True)
-    L_Q6_2_CN = brevitas.nn.QuantIdentity(act_quant=Q6_2_CN, return_quant_tensor=True)
-    L_Q8_1_R = brevitas.nn.QuantIdentity(act_quant=Q8_1_R, return_quant_tensor=True)
-    L_Q8_2_F = brevitas.nn.QuantIdentity(act_quant=Q8_2_F, return_quant_tensor=True)
-    
+    Q8_8_F = create_fixed_point_quant(bit_width=8, int_width=8, narrow_range=False, signed=False, round_mode='floor')
+
+    # example layer which use quantizers
+    L_Q6_2_C = qnn.QuantIdentity(act_quant=Q6_2_C, return_quant_tensor=True)
+    L_Q6_2_CN = qnn.QuantIdentity(act_quant=Q6_2_CN, return_quant_tensor=True)
+    L_Q8_1_R = qnn.QuantIdentity(act_quant=Q8_1_R, return_quant_tensor=True)
+    L_Q8_2_F = qnn.QuantIdentity(act_quant=Q8_2_F, return_quant_tensor=True)
+    L_Q8_8_F = qnn.QuantIdentity(act_quant=Q8_8_F, return_quant_tensor=True)
+
     # sample tensor
-    t_in = torch.linspace(-5.0, 5.0, 11)
+    t_in = torch.linspace(-5.0, 11, 11)
     print(t_in)
     print()
-    
+
     # pass the same tensor by different quantizers
-    for L in [L_Q6_2_C, L_Q6_2_CN, L_Q8_1_R, L_Q8_2_F]:
+    for L in [L_Q6_2_C, L_Q6_2_CN, L_Q8_1_R, L_Q8_2_F, L_Q8_8_F]:
         t_out = L(t_in)
         print(t_out)
         print()
     
     # generated output
-    tensor([-5., -4., -3., -2., -1.,  0.,  1.,  2.,  3.,  4.,  5.])
+    tensor([-5.0000, -3.4000, -1.8000, -0.2000,  1.4000,  3.0000,  4.6000,  6.2000,
+             7.8000,  9.4000, 11.0000])
 
-    QuantTensor(value=tensor([-2.0000, -2.0000, -2.0000, -2.0000, -1.0000,  0.0000,  1.0000,  1.9375,
+    QuantTensor(value=tensor([-2.0000, -2.0000, -1.7500, -0.1875,  1.4375,  1.9375,  1.9375,  1.9375,
              1.9375,  1.9375,  1.9375]), scale=tensor([0.0625]), zero_point=tensor(0.), bit_width=tensor(6.), signed_t=tensor(True), training_t=tensor(True))
 
-    QuantTensor(value=tensor([-1.9375, -1.9375, -1.9375, -1.9375, -1.0000,  0.0000,  1.0000,  1.9375,
+    QuantTensor(value=tensor([-1.9375, -1.9375, -1.7500, -0.1875,  1.4375,  1.9375,  1.9375,  1.9375,
              1.9375,  1.9375,  1.9375]), scale=tensor([0.0625]), zero_point=tensor(0.), bit_width=tensor(6.), signed_t=tensor(True), training_t=tensor(True))
 
-    QuantTensor(value=tensor([-1.0000, -1.0000, -1.0000, -1.0000, -1.0000,  0.0000,  0.9922,  0.9922,
+    QuantTensor(value=tensor([-1.0000, -1.0000, -1.0000, -0.2031,  0.9922,  0.9922,  0.9922,  0.9922,
              0.9922,  0.9922,  0.9922]), scale=tensor([0.0078]), zero_point=tensor(0.), bit_width=tensor(8.), signed_t=tensor(True), training_t=tensor(True))
 
-    QuantTensor(value=tensor([0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.9882, 1.9922, 2.9961,
-            3.9843, 4.0000]), scale=tensor([0.0157]), zero_point=tensor(0.), bit_width=tensor(8.), signed_t=tensor(False), training_t=tensor(True))
+    QuantTensor(value=tensor([0.0000, 0.0000, 0.0000, 0.0000, 1.3906, 3.0000, 3.9844, 3.9844, 3.9844,
+            3.9844, 3.9844]), scale=tensor([0.0156]), zero_point=tensor(0.), bit_width=tensor(8.), signed_t=tensor(False), training_t=tensor(True))
 
+    QuantTensor(value=tensor([ 0.,  0.,  0.,  0.,  1.,  3.,  4.,  6.,  7.,  9., 11.]), scale=tensor([1.]), zero_point=tensor(0.), 
+            bit_width=tensor(8.), signed_t=tensor(False), training_t=tensor(True))
     """
     scale = (2**(bit_width-signed)-narrow_range-(1-signed)) / 2**(bit_width-int_width)
     
