@@ -121,7 +121,7 @@ def create_fixed_point_quant(bit_width,
             3.9843, 4.0000]), scale=tensor([0.0157]), zero_point=tensor(0.), bit_width=tensor(8.), signed_t=tensor(False), training_t=tensor(True))
 
     """
-    scale = (2**(bit_width-signed)-narrow_range) / 2**(bit_width-int_width)
+    scale = (2**(bit_width-signed)-narrow_range-(1-signed)) / 2**(bit_width-int_width)
     
     return create_int_quant(scale=scale, 
                             bit_width=bit_width, 
