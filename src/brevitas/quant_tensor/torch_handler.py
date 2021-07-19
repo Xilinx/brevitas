@@ -1,5 +1,6 @@
 import functools
 
+import torch
 import torch.nn.functional as F
 
 
@@ -14,12 +15,22 @@ def implements(torch_function):
     return decorator
 
 
-def quant_invariant_handler(fn, input, *args, **kwargs):
-    out_value = fn(input.value, *args, **kwargs)
-    if input.is_not_none:
-        return input.set(value=out_value)
+def quant_invariant_handler(fn, inp, *args, **kwargs):
+    out_value = fn(inp.value, *args, **kwargs)
+    if inp.is_not_none:
+        return inp.set(value=out_value)
     else:
         return out_value
+
+
+@implements(torch.flatten)
+def flatten_handler(inp, *args, **kwargs):
+    return inp.flatten(*args, **kwargs)
+
+
+@implements(torch.reshape)
+def reshape_handler(inp, *args, **kwargs):
+    return inp.reshape(*args, **kwargs)
 
 
 @implements(F.relu)
