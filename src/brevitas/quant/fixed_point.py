@@ -10,7 +10,8 @@ __all__ = [
     'Int8WeightPerTensorFixedPoint',
     'Int8ActPerTensorFixedPoint',
     'Uint8ActPerTensorFixedPoint',
-    'Int8BiasPerTensorFixedPointInternalScaling'
+    'Int8BiasPerTensorFixedPointInternalScaling',
+    'Uint8ActPerTensorFixedPointMaxInit'
 ]
 
 
@@ -52,6 +53,21 @@ class Uint8ActPerTensorFixedPoint(
         >>> act = QuantReLU(act_quant=Uint8ActPerTensorFixedPoint)
     """
     pass
+
+
+class Uint8ActPerTensorFixedPointMaxInit(
+    UintQuant, ParamMinMaxInitScaling, PerTensorPoTScaling8bit, ActQuantSolver):
+    """
+    8-bit per-tensor unsigned int activations quantizer with learned power-of-two scale factor
+    initialized from a user-defined max val.
+
+    Examples:
+        >>> from brevitas.nn import QuantHardTanh
+        >>> act = QuantHardTanh(act_quant=Uint8ActPerTensorFixedPointMaxInit, max_val=.5)
+        >>> act.quant_act_scale() * 255
+        tensor(0.4980, grad_fn=<MulBackward0>)
+    """
+    min_val = 0.0
 
 
 class Int8BiasPerTensorFixedPointInternalScaling(
