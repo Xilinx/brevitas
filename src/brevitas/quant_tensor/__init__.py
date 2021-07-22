@@ -305,9 +305,11 @@ class QuantTensor(QuantTensorBase):
             output_value = self.value + other.value
             output_scale = (self.scale + other.scale) / 2
             output_zero_point = (self.zero_point + other.zero_point) / 2
-            max_uint_val = max_int(signed=False, narrow_range=False, bit_width=self.bit_width)
-            max_uint_val += max_int(signed=False, narrow_range=False, bit_width=other.bit_width)
-            output_bit_width = ceil_ste(torch.log2(max_uint_val))
+            max_val = max_int(signed=self.signed, narrow_range=False, bit_width=self.bit_width)
+            max_val += max_int(signed=other.signed, narrow_range=False, bit_width=other.bit_width)
+            min_val = min_int(signed=self.signed, narrow_range=False, bit_width=self.bit_width)
+            min_val += min_int(signed=other.signed, narrow_range=False, bit_width=other.bit_width)
+            output_bit_width = ceil_ste(torch.log2(max_val - min_val))
             output_signed = self.signed or other.signed
             output_training = self.training or other.training
             output = QuantTensor(
