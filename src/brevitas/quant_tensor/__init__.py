@@ -45,7 +45,7 @@ import torch
 from torch import Tensor
 
 from brevitas.function.ops_ste import ceil_ste, round_ste
-from brevitas.function.ops import max_int
+from brevitas.function.ops import max_int, min_int
 from .torch_handler import QUANT_TENSOR_FN_HANDLER
 
 
@@ -224,6 +224,20 @@ class QuantTensor(QuantTensorBase):
 
     def flatten(self, *args, **kwargs):
         return self.set(value=self.value.flatten(*args, **kwargs))
+
+    def transpose(self, *args, **kwargs):
+        value = self.value.tranpose(*args, **kwargs)
+        scale = self.scale
+        if scale is not None and len(value.shape) == len(scale.shape):
+            scale = scale.transpose(*args, **kwargs)
+        return self.set(value=value, scale=scale)
+
+    def permute(self, *args, **kwargs):
+        value = self.value.permute(*args, **kwargs)
+        scale = self.scale
+        if scale is not None and len(value.shape) == len(scale.shape):
+            scale = scale.permute(*args, **kwargs)
+        return self.set(value=value, scale=scale)
 
     def size(self, *args, **kwargs):
         return self.value.size(*args, **kwargs)
