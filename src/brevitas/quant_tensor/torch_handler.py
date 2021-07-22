@@ -33,6 +33,23 @@ def reshape_handler(inp, *args, **kwargs):
     return inp.reshape(*args, **kwargs)
 
 
+@implements(torch.transpose)
+def transpose_handler(inp, *args, **kwargs):
+    return inp.transpose(*args, **kwargs)
+
+
+@implements(torch.cat)
+def cat_handler(*args, **kwargs):
+    from brevitas.quant_tensor import QuantTensor
+    return QuantTensor.cat(*args, **kwargs)
+
+
+@implements(F.pad)
+def pad_handler(*args, **kwargs):
+    # TODO check padding value is legal
+    return quant_invariant_handler(F.pad, *args, **kwargs)
+
+
 @implements(F.relu)
 def relu_qt_handler(*args, **kwargs):
     return quant_invariant_handler(F.relu, *args, **kwargs)
