@@ -2,7 +2,7 @@ from .quant_accumulator import ClampQuantAccumulator, TruncQuantAccumulator
 from .quant_activation import QuantReLU, QuantSigmoid, QuantTanh, QuantHardTanh, QuantIdentity
 from .quant_avg_pool import QuantAvgPool2d, QuantAdaptiveAvgPool2d
 from .quant_linear import QuantLinear
-from .quant_bn import BatchNorm2dToQuantScaleBias
+from .quant_bn import BatchNorm1dToQuantScaleBias, BatchNorm2dToQuantScaleBias
 from .quant_scale_bias import ScaleBias, QuantScaleBias
 from .hadamard_classifier import HadamardClassifier
 from .quant_convtranspose import QuantConvTranspose1d, QuantConvTranspose2d

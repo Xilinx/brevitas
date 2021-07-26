@@ -235,18 +235,22 @@ class QuantTensor(QuantTensorBase):
         return self.set(value=self.value.flatten(*args, **kwargs))
 
     def transpose(self, *args, **kwargs):
-        value = self.value.tranpose(*args, **kwargs)
-        scale = self.scale
-        if scale is not None and len(value.shape) == len(scale.shape):
-            scale = scale.transpose(*args, **kwargs)
-        return self.set(value=value, scale=scale)
+        value = self.value.transpose(*args, **kwargs)
+        tensor_meta = {
+            'scale': self.scale, 'zero_point': self.zero_point, 'bit_width': self.bit_width}
+        for k, tm in tensor_meta.items():
+            if tm is not None and len(value.shape) == len(tm.shape):
+                tensor_meta[k] = tm.transpose(*args, **kwargs)
+        return self.set(value=value, **tensor_meta)
 
     def permute(self, *args, **kwargs):
         value = self.value.permute(*args, **kwargs)
-        scale = self.scale
-        if scale is not None and len(value.shape) == len(scale.shape):
-            scale = scale.permute(*args, **kwargs)
-        return self.set(value=value, scale=scale)
+        tensor_meta = {
+            'scale': self.scale, 'zero_point': self.zero_point, 'bit_width': self.bit_width}
+        for k, tm in tensor_meta.items():
+            if tm is not None and len(value.shape) == len(tm.shape):
+                tensor_meta[k] = tm.permute(*args, **kwargs)
+        return self.set(value=value, **tensor_meta)
 
     def size(self, *args, **kwargs):
         return self.value.size(*args, **kwargs)
