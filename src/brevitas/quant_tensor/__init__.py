@@ -173,6 +173,15 @@ class QuantTensor(QuantTensorBase):
             self.signed,
             self.training)
 
+    def contiguous(self):
+        return QuantTensor(
+            self.value.contiguous(),
+            self.scale.contiguous() if self.scale is not None else None,
+            self.zero_point.contiguous() if self.zero_point is not None else None,
+            self.bit_width.contiguous() if self.bit_width is not None else None,
+            self.signed,
+            self.training)
+
     def int(self, float_datatype=False):
         if self.is_valid:
             int_value = round_ste(self._pre_round_int_value)
