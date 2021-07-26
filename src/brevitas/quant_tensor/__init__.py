@@ -260,31 +260,33 @@ class QuantTensor(QuantTensorBase):
 
     @staticmethod
     def cat(tensor_list, dim):
-        assert len(tensor_list) >= 2, 'Two or more tensors required for concatenation'
-        first_qt = tensor_list[0]
-        if all([qt.is_not_none for qt in tensor_list]):
-            for qt in tensor_list[1:]:
-                QuantTensor.check_input_type(qt)
-                first_qt.check_scaling_factors_same(qt)
-                first_qt.check_scaling_factors_same(qt)
-                first_qt.check_bit_width_same(qt)
-                first_qt.check_sign_same(qt)
-            output_value = torch.cat([qt.value for qt in tensor_list], dim=dim)
-            output_scale = sum([qt.scale for qt in tensor_list]) / len(tensor_list)
-            output_zero_point = sum([qt.zero_point for qt in tensor_list]) / len(tensor_list)
-            output_bit_width = sum([qt.bit_width for qt in tensor_list]) / len(tensor_list)
-            output_signed = first_qt.signed  # they are the same
-            output_training = any([qt.training for qt in tensor_list])
-            return QuantTensor(
-                value=output_value,
-                scale=output_scale,
-                zero_point=output_zero_point,
-                bit_width=output_bit_width,
-                signed=output_signed,
-                training=output_training)
+        if len(tensor_list) < 2:
+            return tensor_list[0]
         else:
-            output_value = torch.cat([qt.value for qt in tensor_list], dim=dim)
-            return QuantTensor(output_value)
+            first_qt = tensor_list[0]
+            if all([qt.is_not_none for qt in tensor_list]):
+                for qt in tensor_list[1:]:
+                    QuantTensor.check_input_type(qt)
+                    first_qt.check_scaling_factors_same(qt)
+                    first_qt.check_scaling_factors_same(qt)
+                    first_qt.check_bit_width_same(qt)
+                    first_qt.check_sign_same(qt)
+                output_value = torch.cat([qt.value for qt in tensor_list], dim=dim)
+                output_scale = sum([qt.scale for qt in tensor_list]) / len(tensor_list)
+                output_zero_point = sum([qt.zero_point for qt in tensor_list]) / len(tensor_list)
+                output_bit_width = sum([qt.bit_width for qt in tensor_list]) / len(tensor_list)
+                output_signed = first_qt.signed  # they are the same
+                output_training = any([qt.training for qt in tensor_list])
+                return QuantTensor(
+                    value=output_value,
+                    scale=output_scale,
+                    zero_point=output_zero_point,
+                    bit_width=output_bit_width,
+                    signed=output_signed,
+                    training=output_training)
+            else:
+                output_value = torch.cat([qt.value for qt in tensor_list], dim=dim)
+                return QuantTensor(output_value)
 
     # Reference: https://docs.python.org/3/reference/datamodel.html#emulating-numeric-types
 
