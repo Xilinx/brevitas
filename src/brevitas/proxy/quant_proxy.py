@@ -54,8 +54,6 @@ class QuantProxyFromInjector(nn.Module, QuantProxyProtocol):
             export_mode: bool = False,
             export_handler: Optional[nn.Module] = None) -> None:
         super(QuantProxyFromInjector, self).__init__()
-        self.is_signed = _is_signed(quant_injector)
-        self.is_narrow_range = _is_narrow_range(quant_injector)
         self.update_state_dict_impl = _update_state_dict_impl(quant_injector)
         self.quant_injector = quant_injector
         self._zero_hw_sentinel = StatelessBuffer(tensor(0.0))
@@ -96,6 +94,14 @@ class QuantProxyFromInjector(nn.Module, QuantProxyProtocol):
     @property
     def is_quant_enabled(self):
         return self.tensor_quant is not None
+
+    @property
+    def is_signed(self):
+        return _is_signed(self.quant_injector)
+
+    @property
+    def is_narrow_range(self):
+        return _is_narrow_range(self.quant_injector)
 
     def add_tracked_module(self, module: nn.Module) -> None:
         if module is not None:
