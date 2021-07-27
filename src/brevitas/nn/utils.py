@@ -69,7 +69,7 @@ def merge_bn(layer, bn, output_channel_dim=0):
     out_ch_weight_shape = compute_channel_view_shape(layer.weight, output_channel_dim)
     layer.weight.data.mul_(mul_factor.view(out_ch_weight_shape))
     if layer.bias is not None:
-        out_ch_bias_shape = compute_channel_view_shape(layer.bias, output_channel_dim)
+        out_ch_bias_shape = compute_channel_view_shape(layer.bias, channel_dim=0)
         layer.bias.data.add_(add_factor.view(out_ch_bias_shape))
     else:
         layer.bias = Parameter(add_factor)
