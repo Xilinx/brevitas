@@ -63,6 +63,7 @@ class QuantProxyFromInjector(nn.Module, QuantProxyProtocol):
         self.add_tracked_module(quant_layer)
         self.export_handler = export_handler
         self.export_mode = export_mode
+        self.disable_quant = False
 
     @property
     def export_mode(self):
@@ -93,7 +94,7 @@ class QuantProxyFromInjector(nn.Module, QuantProxyProtocol):
 
     @property
     def is_quant_enabled(self):
-        return self.tensor_quant is not None
+        return not self.disable_quant and self.tensor_quant is not None
 
     @property
     def is_signed(self):
