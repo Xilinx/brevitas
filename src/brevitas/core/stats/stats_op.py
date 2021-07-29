@@ -48,6 +48,7 @@ from torch.nn import Parameter
 
 import brevitas
 from brevitas.core.utils import StatelessBuffer
+from brevitas.function.ops import max_int
 from brevitas import config
 from .stats_wrapper import SCALAR_SHAPE
 
@@ -247,3 +248,77 @@ class MeanLearnedSigmaStd(brevitas.jit.ScriptModule):
         sigma_key = prefix + 'sigma'
         if config.IGNORE_MISSING_KEYS and sigma_key in missing_keys:
             missing_keys.remove(sigma_key)
+
+
+class KLMinimizerThreshold(torch.nn.Module):
+    """
+    Based on:
+    https://github.com/apache/incubator-mxnet/blob/master/python/mxnet/contrib/quantization.py
+    """
+
+    def __init__(self, signed, bit_width_impl, num_bins = 1000 + 1, smoothing_eps=0.0001):
+        super(KLMinimizerThreshold, self).__init__()
+        self.num_bins = num_bins
+        self.smoothing_eps = smoothing_eps
+        self.signed = signed
+        self.bit_width_impl = bit_width_impl
+        self.absmax_impl = AbsMax()
+
+    def smooth_normalize_distribution(self, p, eps):
+        is_zeros = (p == 0).float()
+        n_zeros = is_zeros.sum()
+        n_nonzeros = torch.numel(p) - n_zeros
+        if not n_nonzeros:
+            return None
+        eps1 = eps * n_zeros / n_nonzeros
+        hist = p.float()
+        hist += eps * is_zeros + (-eps1) * n_nonzeros
+        dist = torch.distributions.categorical.Categorical(logits=hist)
+        return dist
+
+    def forward(self, x: Tensor):
+        absmax = self.absmax_impl(x)
+        bit_width = self.bit_width_impl()
+        num_quantized_bins = max_int(self.signed, False, bit_width).int()
+        thresholds = torch.zeros(self.num_bins // 2 + 1 - num_quantized_bins // 2, device=x.device)
+        divergence = torch.zeros_like(thresholds)
+        quantized_bins = torch.zeros(num_quantized_bins, device=x.device)
+        hist = torch.histc(x, bins=self.num_bins, min=-absmax, max=absmax).int()
+        hist_edges = torch.linspace(-absmax, absmax, self.num_bins + 1)
+        for i in range(num_quantized_bins // 2, self.num_bins // 2 + 1):
+            p_bin_idx_start = self.num_bins // 2 - i
+            p_bin_idx_stop = self.num_bins // 2 + i + 1
+            thresholds[i - num_quantized_bins // 2] = hist_edges[p_bin_idx_stop]
+            sliced_nd_hist = hist[p_bin_idx_start:p_bin_idx_stop]
+            p = sliced_nd_hist.clone()
+            left_outlier_count = torch.sum(hist[0:p_bin_idx_start])
+            p[0] += left_outlier_count
+            right_outlier_count = torch.sum(hist[p_bin_idx_stop:])
+            p[-1] += right_outlier_count
+            is_nonzeros = (sliced_nd_hist != 0).float()
+            num_merged_bins = torch.numel(p) // num_quantized_bins
+            for j in range(num_quantized_bins):
+                start = j * num_merged_bins
+                stop = start + num_merged_bins
+                quantized_bins[j] = sliced_nd_hist[start:stop].sum()
+            quantized_bins[-1] += sliced_nd_hist[num_quantized_bins * num_merged_bins:].sum()
+            q = torch.zeros_like(p, dtype=torch.float32, device=x.device)
+            for j in range(num_quantized_bins):
+                start = j * num_merged_bins
+                if j == num_quantized_bins - 1:
+                    stop = -1
+                else:
+                    stop = start + num_merged_bins
+                norm = is_nonzeros[start:stop].sum()
+                if norm != 0:
+                    q[start:stop] = quantized_bins[j] / norm
+            q[sliced_nd_hist == 0] = 0.
+            p = self.smooth_normalize_distribution(p, self.smoothing_eps)
+            q = self.smooth_normalize_distribution(q, self.smoothing_eps)
+            if q is None:
+                divergence[i - num_quantized_bins // 2] = float('inf')
+            else:
+                divergence[i - num_quantized_bins // 2] = torch.distributions.kl.kl_divergence(p, q)
+        min_divergence_idx = torch.argmin(divergence)
+        opt_threshold = thresholds[min_divergence_idx]
+        return opt_threshold
