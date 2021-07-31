@@ -48,11 +48,11 @@ from torch.nn import Parameter, Module
 import brevitas
 import brevitas.config as config
 from brevitas.function import abs_binary_sign_grad
-from brevitas.core.function_wrapper import InplaceNoOp
+from brevitas.core.function_wrapper import Identity
 from brevitas.core.function_wrapper import OverBatchOverTensorView
 from brevitas.core.utils import StatelessBuffer
-from brevitas.core.restrict_val import _RestrictClampValue, PowerOfTwoRestrictValue
-from brevitas.core.stats import _Stats, SCALAR_SHAPE, DEFAULT_MOMENTUM, AbsMax
+from brevitas.core.restrict_val import _RestrictClampValue
+from brevitas.core.stats import _Stats, SCALAR_SHAPE, DEFAULT_MOMENTUM
 
 
 class ConstScaling(brevitas.jit.ScriptModule):
@@ -188,13 +188,30 @@ class ParameterScaling(brevitas.jit.ScriptModule):
             missing_keys.remove(value_key)
 
 
+@torch.jit.ignore
+def _inplace_init_value(value: Tensor, stats: Tensor) -> Tensor:
+    value.mul_(stats)
+    return value
+
+
+@torch.jit.ignore
+def _inplace_update_value(value: Tensor, stats: Tensor, momentum: Optional[float], counter: int, new_counter: int) -> Tensor:
+    if momentum is None:
+        value.mul_(counter / new_counter)
+        value.add_(stats / new_counter)
+    else:
+        value.mul_(1 - momentum)
+        value.add_(momentum * stats)
+    return value
+
+
 class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
     """
     ScriptModule implementation of a learned scale factor initialized from runtime statistics.
     The implementation works in two phases. During the first phase, statistics are collected in
     the same fashion as batchnorm, meaning that while the module is in training mode a set of per-batch
-    statistics are computed and returned, while in background an exponential moving average of them
-    is retained and returned in inference mode. During the second phase, the moving average accumulated during the first
+    statistics are computed and returned, while in background an average of them is retained and returned 
+    in inference mode. During the second phase, the average accumulated during the first
     phase is used to initialize a learned torch.nn.Parameter, and then the behaviour is the same
     as ParameterScaling.
 
@@ -233,9 +250,7 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
         Maps to scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS == 'PARAMETER_FROM_STATS'
         == 'parameter_from_stats' when applied to runtime values (inputs/outputs/activations) in higher-level APIs.
     """
-    __constants__ = ['stats_permute_dims',
-                     'collect_stats_steps',
-                     'momentum']
+    __constants__ = ['collect_stats_steps', 'momentum']
 
     def __init__(
             self,
@@ -244,15 +259,10 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             scaling_stats_input_view_shape_impl: Module = OverBatchOverTensorView(),
             scaling_shape: Tuple[int, ...] = SCALAR_SHAPE,
             restrict_scaling_impl: Optional[Module] = None,
-            scaling_stats_momentum: float = DEFAULT_MOMENTUM,
+            scaling_stats_momentum: Optional[float] = DEFAULT_MOMENTUM,
             scaling_min_val: Optional[float] = None) -> None:
         super(ParameterFromRuntimeStatsScaling, self).__init__()
         assert collect_stats_steps > 0, 'Steps should be more than 0'
-        if config.JIT_ENABLED:
-            warnings.warn(
-                'BREVITAS_JIT=1 on ParameterFromRuntimeStatsScaling could result in numerical '
-                'errors. Disabling it is highly recommended unless you are resuming from a previous'
-                'quantized checkpoint (not a floating-point one).')
         self.collect_stats_steps = collect_stats_steps
         self.counter: int = brevitas.jit.Attribute(0, int)
         self.stats_input_view_shape_impl = scaling_stats_input_view_shape_impl
@@ -262,37 +272,49 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
         self.restrict_clamp_scaling = _RestrictClampValue(scaling_min_val, restrict_scaling_impl)
         if restrict_scaling_impl is not None:
             self.restrict_inplace_preprocess = restrict_scaling_impl.restrict_init_inplace_module()
+            self.restrict_preprocess = restrict_scaling_impl.restrict_init_module()
         else:
-            self.restrict_inplace_preprocess = InplaceNoOp()
+            self.restrict_inplace_preprocess = Identity()
+            self.restrict_preprocess = Identity()
+    
+    @brevitas.jit.script_method
+    def training_forward(self, stats_input: Tensor) -> Tensor:
+        if self.counter < self.collect_stats_steps:
+            stats_input = self.stats_input_view_shape_impl(stats_input)
+            stats = self.stats(stats_input)
+            new_counter = self.counter + 1
+            if self.counter == 0:
+                _inplace_init_value(self.value.detach(), stats.detach())
+            else:
+                _inplace_update_value(self.value.detach(), stats.detach(), self.momentum, self.counter, new_counter)
+            self.counter = new_counter
+            return stats
+        elif self.counter == self.collect_stats_steps:
+            self.restrict_inplace_preprocess(self.value.detach())
+            self.counter = self.counter + 1
+            return abs_binary_sign_grad(self.restrict_clamp_scaling(self.value))
+        else:
+            return abs_binary_sign_grad(self.restrict_clamp_scaling(self.value))
 
     @brevitas.jit.script_method
     def forward(self, stats_input: Tensor) -> Tensor:
         if self.training:
-            if self.counter < self.collect_stats_steps:
-                stats_input = self.stats_input_view_shape_impl(stats_input)
-                stats = self.stats(stats_input)
-                if self.counter == 0:
-                    self.value.detach().mul_(stats.detach())
-                else:
-                    self.value.detach().mul_(1 - self.momentum)
-                    self.value.detach().add_(self.momentum * stats.detach())
-                self.counter = self.counter + 1
-                return stats
-            elif self.counter == self.collect_stats_steps:
-                self.restrict_inplace_preprocess(self.value.detach())
-                self.counter = self.counter + 1
-                return abs_binary_sign_grad(self.restrict_clamp_scaling(self.value))
-            else:
-                return abs_binary_sign_grad(self.restrict_clamp_scaling(self.value))
-        out = abs_binary_sign_grad(self.restrict_clamp_scaling(self.value))
+            return self.training_forward(stats_input)
+        else:
+            out = self.value
+            if self.counter <= self.collect_stats_steps:
+                out = self.restrict_preprocess(out)
+            out = abs_binary_sign_grad(self.restrict_clamp_scaling(out))
         return out
 
     def state_dict(self, destination=None, prefix='', keep_vars=False):
         output_dict = super(ParameterFromRuntimeStatsScaling, self).state_dict(
             destination, prefix, keep_vars)
-        # Don't save the state dict if we are still in stats collection phase
-        if self.counter < self.collect_stats_steps:
+        # Avoid saving the default init value
+        if self.counter == 0:
             del output_dict[prefix + 'value']
+        elif self.counter < self.collect_stats_steps:
+            output_dict[prefix + 'value'] = self.restrict_preprocess(self.value)
         return output_dict
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
