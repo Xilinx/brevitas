@@ -104,9 +104,9 @@ class LogTwo(brevitas.jit.ScriptModule):
         return torch.log2(x)
 
 
-class InplaceLogTwo(brevitas.jit.ScriptModule):
+class InplaceLogTwo(torch.nn.Module):
     """
-    ScriptModule wrapper for :func:`~torch.log2_`.
+    Module wrapper for :func:`~torch.log2_`.
 
     Examples:
         >>> inplace_log_two = InplaceLogTwo()
@@ -115,16 +115,17 @@ class InplaceLogTwo(brevitas.jit.ScriptModule):
         >>> x
         tensor(3.)
 
-    Note:
-        The forward method returns None.
+    Notes:
+        Inplace operations in TorchScript can be problematic, compilation is disabled.
     """
 
     def __init__(self) -> None:
         super(InplaceLogTwo, self).__init__()
 
-    @brevitas.jit.script_method
-    def forward(self, x: torch.Tensor) -> None:
+    @torch.jit.ignore
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         x.log2_()
+        return x
 
 
 
