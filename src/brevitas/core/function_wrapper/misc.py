@@ -46,24 +46,6 @@ import brevitas
 import torch
 
 
-class InplaceNoOp(brevitas.jit.ScriptModule):
-    """
-    ScriptModule in-place no-op placehoder.
-
-    Examples:
-        >>> x = torch.tensor(1.0)
-        >>> no_op = InplaceNoOp()
-        >>> no_op(x)
-    """
-
-    def __init__(self):
-        super(InplaceNoOp, self).__init__()
-
-    @brevitas.jit.script_method
-    def forward(self, x: torch.Tensor) -> None:
-        return None
-
-
 class Identity(brevitas.jit.ScriptModule):
     """
     Identity ScriptModule.
