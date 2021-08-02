@@ -7,7 +7,7 @@ import torch
 
 from brevitas.fx import GraphModule, Node
 from brevitas.graph.utils import get_module
-
+from .base import GraphTransform
 
 EPSILON = 1e-9
 
@@ -101,27 +101,7 @@ def _cross_layer_equalization(srcs, sinks):
         module.weight.data = module.weight.data * torch.reshape(scaling_factors, src_broadcast_size)
 
 
-def _norm(curr_modules, prev_modules):
-    """
-    Tests for the summed norm of the differences between each set of modules
-    being less than the given threshold
-    Takes two dictionaries mapping names to modules, the set of names for each dictionary
-    should be the same, looping over the set of names, for each name take the difference
-    between the associated modules in each dictionary
-    """
-    if curr_modules.keys() != prev_modules.keys():
-        raise ValueError("Keys to the models dicts do not match.")
-
-    summed_norms = torch.tensor(0.)
-    if None in prev_modules.values():
-        return None
-    for name in curr_modules.keys():
-        difference = curr_modules[name].weight.sub(prev_modules[name].weight)
-        summed_norms += torch.norm(difference)
-    return summed_norms
-
-
-def _equalize(model, regions, threshold, max_iterations):
+def _equalize(model, regions, iterations):
     """
     Generalized version of section 4.1 of https://arxiv.org/pdf/1906.04721.pdf
     """
@@ -133,24 +113,12 @@ def _equalize(model, regions, threshold, max_iterations):
         if name in name_set:
             name_to_module[name] = module
             previous_name_to_module[name] = None
-    iteration = 0
-    current_norm = None
-    while True:
-        prev_norm = current_norm
+    for i in range(iterations):
         for region in regions:
             for module_set in region:
                 for module in module_set:
                     previous_name_to_module[module] = copy.deepcopy(name_to_module[module])
             _cross_layer_equalization([name_to_module[n] for n in region[0]], [name_to_module[n] for n in region[1]])
-        current_norm = _norm(name_to_module, previous_name_to_module)
-        iteration += 1
-        if iteration > max_iterations:
-            break
-        if _norm is not None and prev_norm is not None:
-            diff = torch.abs(prev_norm - current_norm)
-            print(diff)
-            if diff < threshold:
-                break
     return model
 
 
@@ -201,7 +169,13 @@ def _extract_regions(graph_model: GraphModule):
     return regions
 
 
-def equalize_graph(graph_model: GraphModule, threshold=1e-4, max_iterations=100):
-    regions = _extract_regions(graph_model)
-    graph_model = _equalize(graph_model, regions, threshold, max_iterations)
-    return graph_model
+class EqualizeGraph(GraphTransform):
+
+    def __init__(self, iterations: int = 10) -> None:
+        super(EqualizeGraph, self).__init__()
+        self.iterations = iterations 
+
+    def apply(self, graph_model: GraphModule):
+        regions = _extract_regions(graph_model)
+        graph_model = _equalize(graph_model, regions, self.iterations)
+        return graph_model
