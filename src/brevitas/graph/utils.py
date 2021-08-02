@@ -83,8 +83,13 @@ def set_module(model, module, fully_qualified_module_name):
 
 
 def get_module(model, fully_qualified_module_name):
-    named_modules = dict(model.named_modules())
-    return named_modules[fully_qualified_module_name]
+    name_atoms = fully_qualified_module_name.split('.')
+    attr_itr = model
+    for i, atom in enumerate(name_atoms):
+        if not hasattr(attr_itr, atom):
+            raise RuntimeError(f"Nonexistent module {'.'.join(name_atoms[:i])}")
+        attr_itr = getattr(attr_itr, atom)
+    return attr_itr
 
 
 def del_module(model, fully_qualified_module_name):
