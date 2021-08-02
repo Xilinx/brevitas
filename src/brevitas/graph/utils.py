@@ -2,8 +2,10 @@ from inspect import signature
 from typing import Tuple, Any, Iterable, Dict
 
 import torch
+from torch import nn
 
 from brevitas.fx import Node, map_arg
+from brevitas import nn as qnn
 
 __all__ = [
     'module_class_name',
@@ -16,8 +18,18 @@ __all__ = [
     'del_module',
     'replace_module',
     'name_from_module',
-    'matches_module_pattern'
+    'matches_module_pattern',
+    'get_output_channels',
+    'get_output_channel_dim'
 ]
+
+
+CONV_TRANSPOSED = [
+    nn.ConvTranspose1d,
+    nn.ConvTranspose2d,
+    nn.ConvTranspose3d,
+    qnn.QuantConvTranspose1d,
+    qnn.QuantConvTranspose2d]
 
 
 def module_class_name(m: torch.nn.Module):
@@ -127,3 +139,18 @@ def matches_module_pattern(pattern: Iterable, node: Node, modules: Dict[str, Any
         if type(modules[current_node.target]) is not expected_type:
             return False
     return True
+
+
+def is_conv_transposed(module):
+    return isinstance(module, tuple(CONV_TRANSPOSED))
+
+
+def get_output_channel_dim(module):
+    if is_conv_transposed(module):
+        return 1
+    else:
+        return 0
+
+
+def get_output_channels(module):
+    return module.weight.shape[get_output_channel_dim(module)]
