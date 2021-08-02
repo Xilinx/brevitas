@@ -177,8 +177,8 @@ class MeanSigmaStd(brevitas.jit.ScriptModule):
 
     def __init__(
             self,
-            stats_reduce_dim: int,
             sigma: float,
+            stats_reduce_dim: Optional[int] = None,
             std_dev_epsilon: float = DEFAULT_STD_DEV_EPSILON) -> None:
         super(MeanSigmaStd, self).__init__()
         self.impl = _MeanSigmaStdImpl(stats_reduce_dim, std_dev_epsilon)
@@ -220,9 +220,9 @@ class MeanLearnedSigmaStd(brevitas.jit.ScriptModule):
 
     def __init__(
             self,
-            stats_reduce_dim: int,
             sigma: float,
             stats_output_shape: Tuple[int, ...],
+            stats_reduce_dim: Optional[int] = None,
             std_dev_epsilon: float = DEFAULT_STD_DEV_EPSILON) -> None:
         super(MeanLearnedSigmaStd, self).__init__()
         self.impl = _MeanSigmaStdImpl(stats_reduce_dim, std_dev_epsilon)
