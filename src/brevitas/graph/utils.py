@@ -7,7 +7,7 @@ from brevitas.fx import Node, map_arg
 
 __all__ = [
     'module_class_name',
-    'replace_all_users_except',
+    'replace_all_uses_except',
     'signature_keys',
     'is_subseq',
     'get_module_name_and_parent',
@@ -29,7 +29,7 @@ def module_class_name(m: torch.nn.Module):
     return full_name
 
 
-def replace_all_users_except(to_replace: Node, replace_with: 'Node', exceptions=()):
+def replace_all_uses_except(to_replace: Node, replace_with: 'Node', exceptions=()):
     """
     Replace all users of ``to_replace`` with the Node ``replace_with``, except when
     the user is in exceptions.
