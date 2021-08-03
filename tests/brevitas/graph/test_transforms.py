@@ -7,11 +7,11 @@ from torch import nn
 from torchvision import models
 
 from brevitas.fx import symbolic_trace
-from brevitas.graph.rewriter import DuplicateSharedStatelessModule
-from brevitas.graph.rewriter import FnToModuleRewriter
-from brevitas.graph.rewriter import MethodToModuleRewriter
-from brevitas.graph.rewriter import MeanMethodToAdaptiveAvgPool2d
-from brevitas.graph.rewriter import MergeBatchNorm2d
+from brevitas.graph import DuplicateSharedStatelessModule
+from brevitas.graph import FnToModule
+from brevitas.graph import MethodToModule
+from brevitas.graph import MeanMethodToAdaptiveAvgPool2d
+from brevitas.graph import MergeBatchNorm
 
 SEED = 123456
 INPUT_SIZE = (1, 3, 224, 224)
@@ -40,7 +40,7 @@ def test_rewriter_merge_bn(model_name: str, pretrained: bool):
         graph_model.train(False)
         torch.manual_seed(SEED)
         out_gen_model = graph_model(inp)
-        graph_model = MergeBatchNorm2d().apply(graph_model)
+        graph_model = MergeBatchNorm().apply(graph_model)
         torch.manual_seed(SEED)
         out_gen_model_bn_fused = graph_model(inp)
         is_close = out_gen_model_bn_fused.isclose(out_gen_model, atol=ATOL).all().item()
@@ -102,7 +102,7 @@ def test_rewriter_add_fn_to_module():
 
     model = TestModel()
     graph_model = symbolic_trace(model)
-    graph_model = FnToModuleRewriter(torch.add, TestModel).apply(graph_model)
+    graph_model = FnToModule(torch.add, TestModel).apply(graph_model)
     assert isinstance(graph_model.add_1, TestModel)
 
 
@@ -115,7 +115,7 @@ def test_rewriter_max_pool_to_module():
 
     model = TestModel()
     graph_model = symbolic_trace(model)
-    graph_model = FnToModuleRewriter(torch.max_pool2d, nn.MaxPool2d).apply(graph_model)
+    graph_model = FnToModule(torch.max_pool2d, nn.MaxPool2d).apply(graph_model)
     inp = torch.randn(2, 10, 10)
     assert isinstance(graph_model.max_pool2d_1, nn.MaxPool2d)
     assert (model(inp) == graph_model(inp)).all().item()
@@ -135,7 +135,7 @@ def test_rewriter_add_method_to_module():
 
     model = TestModel()
     graph_model = symbolic_trace(model)
-    graph_model = MethodToModuleRewriter('add', AddModule).apply(graph_model)
+    graph_model = MethodToModule('add', AddModule).apply(graph_model)
     inp = torch.randn(2, 10, 10)
     assert isinstance(graph_model.add_1, AddModule)
     assert (model(inp) == graph_model(inp)).all().item()
@@ -155,7 +155,7 @@ def test_rewriter_add_magic_to_module():
 
     model = TestModel()
     graph_model = symbolic_trace(model)
-    graph_model = FnToModuleRewriter(operator.add, AddModule).apply(graph_model)
+    graph_model = FnToModule(operator.add, AddModule).apply(graph_model)
     inp = torch.randn(2, 10, 10)
     assert isinstance(graph_model.add_1, AddModule)
     assert (model(inp) == graph_model(inp)).all().item()
