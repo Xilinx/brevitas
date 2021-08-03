@@ -1,7 +1,6 @@
 from functools import partial
 from abc import ABC
 
-import torch
 from torch import nn
 
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
@@ -13,6 +12,13 @@ from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIO
 from brevitas.nn.utils import compute_channel_view_shape
 from brevitas.quant_tensor import QuantTensor
 from .base import Transform
+
+__all__ = [
+    'ClipFloatWeights',
+    'DisableEnableQuantization',
+    'FloatModelInference',
+    'BiasCorrection'
+]
 
 _PARAM_PROXIES = (
     WeightQuantProxyFromInjector,

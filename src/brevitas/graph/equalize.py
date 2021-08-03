@@ -9,6 +9,10 @@ from brevitas.fx import GraphModule, Node
 from brevitas.graph.utils import get_module
 from .base import GraphTransform
 
+__all__ = [
+    'EqualizeGraph'
+]
+
 EPSILON = 1e-9
 
 # layer: (input_axis, output_axis)
