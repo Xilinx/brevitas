@@ -8,6 +8,13 @@ from brevitas.fx import GraphModule, Node, immutable_dict
 from .base import GraphTransform, MethodToModule, FnToModule
 from .utils import set_module, replace_all_uses_except, get_module
 
+__all__ = [
+    'DuplicateSharedStatelessModule',
+    'MeanMethodToAdaptiveAvgPool2d',
+    'TorchFunctionalToModule',
+    'DisableLastReturnQuantTensor'
+]
+
 
 class DuplicateSharedStatelessModule(GraphTransform):
 

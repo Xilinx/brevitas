@@ -12,6 +12,12 @@ from .utils import get_output_channels
 from .utils import get_output_channel_dim
 from .utils import matches_module_pattern
 
+__all__ = [
+    'MoveSplitBatchNormBeforeCat',
+    'MergeBatchNorm',
+    'CollapseConsecutiveConcats'
+]
+
 
 class MoveSplitBatchNormBeforeCat(UntilFixedPointGraphTransform):
 
