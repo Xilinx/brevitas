@@ -313,7 +313,6 @@ def flexml_residual_handler(model):
     def is_converged(model):
 
         for node in model.graph.nodes:
-            print(node.name)
             if (node.op == 'call_function' and node.target in ADD_FNS + [torch.cat]
                     or node.op == 'call_method' and node.target in ADD_METHODS):
                 rewriters = []
