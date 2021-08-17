@@ -47,11 +47,6 @@ from brevitas.function.ops_ste import tensor_clamp_ste
 from brevitas.core.utils import StatelessBuffer
 
 
-MIN_INT_BIT_WIDTH = 2
-NON_ZERO_EPSILON = 1e-6
-REMOVE_ZERO_BIT_WIDTH = 0.1
-
-
 class BitWidthConst(brevitas.jit.ScriptModule):
     """ 
     ScriptModule that returns a constant bit-width wrapped in a float torch.tensor.
