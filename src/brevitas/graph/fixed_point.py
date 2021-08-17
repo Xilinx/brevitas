@@ -66,7 +66,7 @@ class MoveSplitBatchNormBeforeCat(UntilFixedPointGraphTransform):
                                 chunk_bn.bias.data = module.bias.data[start:end]
                                 chunk_bn.running_mean = module.running_mean.data[start:end]
                                 chunk_bn.running_var = module.running_var.data[start:end]
-                                inp_node = cat_node.args[0][i]
+                                inp_node = cat_node.kwargs['tensors'][i]
                                 with graph_model.graph.inserting_after(inp_node):
                                     chunk_bn_node = graph_model.graph.call_module(
                                         chunk_bn_name, args=(inp_node,))
@@ -149,15 +149,21 @@ class CollapseConsecutiveConcats(UntilFixedPointGraphTransform):
                         return False
         return True
 
-    def move_dim_to_kwargs(self, graph_model):
+    def move_args_to_kwargs(self, graph_model):
         for node in graph_model.graph.nodes:
             if node.op == 'call_function' and node.target is torch.cat:
-                if isinstance(node.args[-1], int):
-                    kwargs = dict(node.kwargs)
-                    kwargs['dim'] = node.args[-1]
-                    node.kwargs = immutable_dict(kwargs)
-                    node.args = node.args[:-1]
+                if len(node.args) > 0:
+                    if isinstance(node.args[-1], int):
+                        kwargs = dict(node.kwargs)
+                        kwargs['dim'] = node.args[-1]
+                        node.kwargs = immutable_dict(kwargs)
+                        node.args = node.args[:-1]
+                    if isinstance(node.args[0], (tuple, list)):
+                        kwargs = dict(node.kwargs)
+                        kwargs['tensors'] = node.args[0]
+                        node.kwargs = immutable_dict(kwargs)
+                        node.args = node.args[0:]
 
     def apply(self, graph_model: GraphModule) -> GraphModule:
-        self.move_dim_to_kwargs(graph_model)
+        self.move_args_to_kwargs(graph_model)
         return super(CollapseConsecutiveConcats, self).apply(graph_model)
