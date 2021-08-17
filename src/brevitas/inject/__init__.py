@@ -126,7 +126,9 @@ class _ExtendedInjectorType(_InjectorType):
 
                 try:
                     dependency = attribute(**kwargs)
-                    if inspect.isclass(dependency) and not current_attr.endswith("_class"):
+                    if ('nested' not in marker
+                            and inspect.isclass(dependency)
+                            and not current_attr.endswith("_class")):
                         spec = _make_init_spec(dependency)
                         replaced_dependency = _replace_dependency(cls, current_attr, spec)
                         replaced_dependencies[current_attr] = replaced_dependency
