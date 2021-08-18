@@ -263,24 +263,25 @@ class QuantTensor(QuantTensorBase):
         return self + other
 
     @staticmethod
-    def cat(tensor_list, dim):
-        if len(tensor_list) < 2:
-            return tensor_list[0]
+    def cat(tensors, dim, out=None):
+        if out is not None:
+            raise RuntimeError("Out not supported.")
+        if len(tensors) < 2:
+            return tensors[0]
         else:
-            first_qt = tensor_list[0]
-            if all([qt.is_not_none for qt in tensor_list]):
-                for qt in tensor_list[1:]:
-                    QuantTensor.check_input_type(qt)
+            first_qt = tensors[0]
+            if all([isinstance(qt, QuantTensor) and qt.is_not_none for qt in tensors]):
+                for qt in tensors[1:]:
                     first_qt.check_scaling_factors_same(qt)
                     first_qt.check_scaling_factors_same(qt)
                     first_qt.check_bit_width_same(qt)
                     first_qt.check_sign_same(qt)
-                output_value = torch.cat([qt.value for qt in tensor_list], dim=dim)
-                output_scale = sum([qt.scale for qt in tensor_list]) / len(tensor_list)
-                output_zero_point = sum([qt.zero_point for qt in tensor_list]) / len(tensor_list)
-                output_bit_width = sum([qt.bit_width for qt in tensor_list]) / len(tensor_list)
+                output_value = torch.cat([qt.value for qt in tensors], dim=dim)
+                output_scale = sum([qt.scale for qt in tensors]) / len(tensors)
+                output_zero_point = sum([qt.zero_point for qt in tensors]) / len(tensors)
+                output_bit_width = sum([qt.bit_width for qt in tensors]) / len(tensors)
                 output_signed = first_qt.signed  # they are the same
-                output_training = any([qt.training for qt in tensor_list])
+                output_training = any([qt.training for qt in tensors])
                 return QuantTensor(
                     value=output_value,
                     scale=output_scale,
@@ -289,7 +290,8 @@ class QuantTensor(QuantTensorBase):
                     signed=output_signed,
                     training=output_training)
             else:
-                output_value = torch.cat([qt.value for qt in tensor_list], dim=dim)
+                tensors = [qt.value if isinstance(qt, QuantTensor) else qt for qt in tensors]
+                output_value = torch.cat(tensors, dim=dim)
                 return QuantTensor(output_value)
 
     # Reference: https://docs.python.org/3/reference/datamodel.html#emulating-numeric-types
