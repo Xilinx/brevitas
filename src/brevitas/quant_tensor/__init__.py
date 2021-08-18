@@ -259,6 +259,9 @@ class QuantTensor(QuantTensorBase):
     def shape(self):
         return self.value.shape
 
+    def dim(self):
+        return self.value.dim()
+
     def add(self, other):
         return self + other
 
