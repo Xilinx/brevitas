@@ -53,7 +53,6 @@ class MoveSplitBatchNormBeforeCat(UntilFixedPointGraphTransform):
                     if all([inp_node.op == 'call_module' for inp_node in inp_nodes]):
                         before_mods = [
                             get_module(graph_model, inp_node.target) for inp_node in inp_nodes]
-                        print([type(m) for m in before_mods])
                         if all(isinstance(mod, self.before_modules_types) for mod in before_mods):
                             num_features_list = [get_output_channels(mod) for mod in before_mods]
                             chunk_bn_list = [type(module)(n) for n in num_features_list]
