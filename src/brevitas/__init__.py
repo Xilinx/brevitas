@@ -6,6 +6,7 @@ from pkg_resources import get_distribution, DistributionNotFound
 
 from torch.utils import cpp_extension
 import torch
+from torch import Tensor
 
 import brevitas.jit as jit
 from brevitas import config
@@ -17,6 +18,20 @@ if torch.__version__.endswith('+cpu'):
     torch_version = version.parse(torch.__version__.rstrip('+cpu'))
 else:
     torch_version = version.parse(torch.__version__)
+
+
+if torch_version < version.parse('1.7.0'):
+    from torch._overrides import has_torch_function, handle_torch_function
+    original_cat = torch.cat
+
+    def cat(tensors, dim=0, out=None) -> Tensor:
+        if not torch.jit.is_scripting():
+            if any(type(t) is not Tensor for t in tensors) and has_torch_function(tensors):
+                return handle_torch_function(cat, tensors, tensors=tensors, dim=dim, out=out)
+        return original_cat(tensors, dim=dim, out=out)
+
+    torch.cat = cat
+
 
 try:
     __version__ = get_distribution(__name__).version
