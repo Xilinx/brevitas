@@ -171,3 +171,13 @@ class BiasCorrection(DisableEnableQuantization):
         self.enable_param_quantization(model)
         self.correct_bias(model, inp)
         return model
+
+
+def calibrate(model, images):
+    training_state = model.training
+    model.train()
+    model = FloatModelInference().apply(model, images)
+    model.eval()
+    model = BiasCorrection().apply(model, images)
+    model.train(training_state)
+    pass
