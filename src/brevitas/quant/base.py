@@ -100,7 +100,7 @@ class ParamFromRuntimePercentileScaling(ExtendedInjector):
     scaling_impl_type = ScalingImplType.PARAMETER_FROM_STATS
     scaling_stats_op = StatsOp.PERCENTILE
     percentile_q = 99.999
-    collect_stats_steps = 30
+    collect_stats_steps = 300
 
 
 class ParamFromRuntimeMinMaxScaling(ExtendedInjector):
@@ -108,7 +108,7 @@ class ParamFromRuntimeMinMaxScaling(ExtendedInjector):
     """
     scaling_impl_type = ScalingImplType.PARAMETER_FROM_STATS
     scaling_stats_op = StatsOp.MIN_MAX
-    collect_stats_steps = 30
+    collect_stats_steps = 300
 
 
 class ParamMinMaxInitScaling(ExtendedInjector):
