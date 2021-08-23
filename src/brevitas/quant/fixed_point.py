@@ -1,9 +1,10 @@
-from brevitas.quant.base import *
+from brevitas.core.function_wrapper.ops_ste import CeilSte
 from brevitas.core.scaling import PowerOfTwoIntScaling
 from brevitas.core.restrict_val import PowerOfTwoRestrictValue
 from brevitas.quant.solver.weight import WeightQuantSolver
 from brevitas.quant.solver.bias import BiasQuantSolver
 from brevitas.quant.solver.act import ActQuantSolver
+from brevitas.quant.base import *
 
 
 __all__ = [
@@ -98,4 +99,6 @@ class Int4WeightPerTensorFixedPointDecoupled(WeightPerTensorFloatDecoupledL2Para
     bit_width = 4
     restrict_scaling_impl = PowerOfTwoRestrictValue
     int_scaling_impl = PowerOfTwoIntScaling
+    restrict_value_float_to_int_impl = CeilSte
+
 
