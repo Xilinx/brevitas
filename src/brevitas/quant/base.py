@@ -51,6 +51,7 @@ from brevitas.core.scaling import IntScaling, ParameterScaling, StatsFromParamet
 from brevitas.core.scaling import SCALING_STATS_REDUCE_DIM, SCALAR_SHAPE
 from brevitas.core.restrict_val import FloatRestrictValue
 from brevitas.core.stats import AbsMaxL2
+from brevitas.core.function_wrapper.ops_ste import CeilSte
 from brevitas.core.bit_width import BitWidthConst
 from brevitas.core.quant.int import DecoupledRescalingIntQuant
 from brevitas.core.quant.int_base import DecoupledIntQuant
@@ -198,6 +199,7 @@ class PerTensorPoTScaling8bit(ExtendedInjector):
     scaling_per_output_channel = False
     restrict_scaling_type = RestrictValueType.POWER_OF_TWO
     bit_width = 8
+    restrict_value_float_to_int_impl = CeilSte
 
 
 class IntTrunc(ExtendedInjector):
