@@ -11,7 +11,7 @@ from brevitas.quant import Int8WeightPerTensorFixedPoint
 from brevitas.quant import Int8ActPerTensorFixedPoint
 from brevitas.quant import Uint8ActPerTensorFixedPoint
 from brevitas.quant import Uint8ActPerTensorFixedPointMaxInit
-from brevitas.graph.base import ModuleToModuleByInstance
+from brevitas.graph.base import ModuleToModuleByClass, ModuleToModuleByInstance
 from brevitas.graph.base import ModuleInstanceToModuleInstance
 from brevitas.graph.base import InsertModuleCallAfter
 from brevitas.graph.standardize import TorchFunctionalToModule
@@ -23,7 +23,7 @@ from brevitas.graph.per_input import AvgPoolToDepthwiseConv
 from brevitas.graph.fixed_point import MergeBatchNorm
 from brevitas.graph.fixed_point import MoveSplitBatchNormBeforeCat
 from brevitas.graph.fixed_point import CollapseConsecutiveConcats
-from brevitas.graph.calibrate import ClipFloatWeights
+from brevitas.graph.equalize import EqualizeGraph
 from brevitas.fx import value_trace
 from brevitas.graph.utils import get_module
 
@@ -368,7 +368,7 @@ def flexml_wbiol_handler(model):
     return model
 
 
-def quantize_flexml(model, inp):
+def quantize_flexml(model, inp, equalization_iters = 0):
     ignore_missing_keys_state = config.IGNORE_MISSING_KEYS
     config.IGNORE_MISSING_KEYS = True
     training_state = model.training
@@ -376,13 +376,14 @@ def quantize_flexml(model, inp):
     model = value_trace(model, {'input': inp})
     model = TorchFunctionalToModule().apply(model)
     model = DuplicateSharedStatelessModule().apply(model)
-    model = CollapseConsecutiveConcats().apply(model)
+    model = ModuleToModuleByClass(nn.ReLU6, nn.ReLU).apply(model)
     model = MeanMethodToAdaptiveAvgPool2d().apply(model)
     model = AdaptiveAvgPoolToAvgPool().apply(model, inp)
     model = AvgPoolToDepthwiseConv().apply(model, inp)
+    model = CollapseConsecutiveConcats().apply(model)
     model = MoveSplitBatchNormBeforeCat().apply(model)
     model = MergeBatchNorm().apply(model)
-    model = ClipFloatWeights().apply(model)
+    model = EqualizeGraph(equalization_iters).apply(model)
     model = flexml_inp_placeholder_handler(model)
     model = flexml_act_handler(model)
     model = flexml_add_output_quant_handler(model)
