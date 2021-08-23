@@ -2,6 +2,7 @@ import copy
 from typing import Dict, Any
 import operator
 from random import sample
+from functools import partial
 
 import torch
 
@@ -15,24 +16,29 @@ __all__ = [
 
 EPSILON = 1e-9
 
-# layer: (input_axis, output_axis)
-_supported_layers = {
-    torch.nn.ConvTranspose1d: (0, 1),
-    torch.nn.ConvTranspose2d: (0, 1),
-    torch.nn.Conv1d: (1, 0),
-    torch.nn.Conv2d: (1, 0),
-    torch.nn.Linear: (1, 0)}
+_supported_layers = (
+    torch.nn.ConvTranspose1d,
+    torch.nn.ConvTranspose2d,
+    torch.nn.ConvTranspose3d,
+    torch.nn.Conv1d,
+    torch.nn.Conv2d,
+    torch.nn.Conv3d,
+    torch.nn.Linear)
 
 _scale_invariant_layers = (
     torch.nn.Dropout,
     torch.nn.Dropout2d,
+    torch.nn.Dropout3d,
     torch.nn.ReLU,
     torch.nn.MaxPool1d,
     torch.nn.MaxPool2d,
+    torch.nn.MaxPool3d,
     torch.nn.AvgPool1d,
     torch.nn.AvgPool2d,
+    torch.nn.AvgPool3d,
     torch.nn.AdaptiveAvgPool1d,
-    torch.nn.AdaptiveAvgPool2d)
+    torch.nn.AdaptiveAvgPool2d,
+    torch.nn.AdaptiveAvgPool3d)
 
 _residual_methods = (
     'add',
@@ -47,12 +53,21 @@ _residual_fns = (
     operator.__iadd__
 )
 
+_batch_norm = (
+    torch.nn.BatchNorm1d,
+    torch.nn.BatchNorm2d,
+    torch.nn.BatchNorm3d,
+)
+
 
 def _channel_range(inp):
-    """ finds the range of weights associated with a specific channel"""
-    mins, _ = inp.min(dim=1) # min_over_ndim(input, axis_list)
-    maxs, _ = inp.max(dim=1) # max_over_ndim(input, axis_list)
-    return maxs - mins
+    mins, _ = inp.min(dim=1) 
+    maxs, _ = inp.max(dim=1) 
+    out = maxs - mins
+    # correct corner case where where all weights along a channel have the same value
+    # e.g. when a mean/nn.AvgPool/nn.AdaptiveAvgPool is converted to a depth-wise conv
+    out = torch.where(out == 0., torch.mean(inp, dim=1), out)
+    return out
 
 
 def _get_size(axes):
@@ -60,8 +75,38 @@ def _get_size(axes):
     size = m0.weight.size(axis0)
     for m, axis in axes.items():
         if m.weight.size(axis) != size:
-            raise RuntimeError("Source weights do not have the same output size")
+            raise RuntimeError("Weights sizes don't match")
     return size
+
+
+def _get_input_axis(module):
+    if isinstance(module, torch.nn.Linear):
+        return 1
+    elif isinstance(module, (torch.nn.Conv1d, torch.nn.Conv2d, torch.nn.Conv3d)):
+        if module.groups == 1:
+            return 1
+        elif module.groups == module.out_channels:
+            return 0
+        else:
+            raise RuntimeError("Group convolution not supported")
+    elif isinstance(module, (torch.nn.ConvTranspose1d, torch.nn.ConvTranspose2d, torch.nn.ConvTranspose3d)):
+        if module.groups == 1:
+            return 0
+        elif module.groups == module.out_channels:
+            return 1
+        else:
+            raise RuntimeError("Group convolution not supported")
+    else:
+        raise RuntimeError(f"Module {module} not supported.")
+
+
+def _get_output_axis(module):
+    if isinstance(module, (torch.nn.Linear, torch.nn.Conv1d, torch.nn.Conv2d, torch.nn.Conv3d)):
+        return 0
+    elif isinstance(module, (torch.nn.ConvTranspose1d, torch.nn.ConvTranspose2d, torch.nn.ConvTranpose3d)):
+        return 1
+    else:
+        raise RuntimeError(f"Module {module} not supported.")
 
 
 def _cross_layer_equalization(srcs, sinks):
@@ -72,11 +117,11 @@ def _cross_layer_equalization(srcs, sinks):
     """
     for module_set in [srcs, sinks]:
         for module in module_set:
-            if not isinstance(module, tuple(_supported_layers.keys())):
+            if not isinstance(module, _supported_layers):
                 raise ValueError("module type not supported:", type(module))
 
-    src_axes = {m: v[1] for m in srcs for k, v in _supported_layers.items() if isinstance(m, k)}
-    sink_axes = {m: v[0] for m in sinks for k, v in _supported_layers.items() if isinstance(m, k)}
+    src_axes = {m: _get_output_axis(m) for m in srcs}
+    sink_axes = {m: _get_input_axis(m) for m in sinks}
     src_size = _get_size(src_axes)
     sink_size = _get_size(sink_axes)
 
@@ -88,7 +133,6 @@ def _cross_layer_equalization(srcs, sinks):
     sink_weights = [transpose(m, axis) for m, axis in sink_axes.items()]
     srcs_range = _channel_range(torch.cat([w.reshape(w.size(0), -1) for w in src_weights], 1))
     sinks_range = _channel_range(torch.cat([w.reshape(w.size(0), -1) for w in sink_weights], 1))
-
     sinks_range += EPSILON
     scaling_factors = torch.sqrt(srcs_range / sinks_range)
     inverse_scaling_factors = torch.reciprocal(scaling_factors)
@@ -110,20 +154,28 @@ def _equalize(model, regions, iterations):
     Generalized version of section 4.1 of https://arxiv.org/pdf/1906.04721.pdf
     """
     name_to_module : Dict[str, torch.nn.Module] = {}
-    previous_name_to_module: Dict[str, Any] = {}
     name_set = {name for region in regions for module_set in region for name in module_set}
 
     for name, module in model.named_modules():
         if name in name_set:
             name_to_module[name] = module
-            previous_name_to_module[name] = None
     for i in range(iterations):
         for region in regions:
-            for module_set in region:
-                for module in module_set:
-                    previous_name_to_module[module] = copy.deepcopy(name_to_module[module])
             _cross_layer_equalization([name_to_module[n] for n in region[0]], [name_to_module[n] for n in region[1]])
     return model
+
+
+def _is_supported_module(graph_model, node):
+    return node.op == 'call_module' and isinstance(get_module(graph_model, node.target), _supported_layers)
+
+
+def _is_scale_invariant_module(graph_model, node):
+    return node.op == 'call_module' and isinstance(get_module(graph_model, node.target), _scale_invariant_layers)
+
+
+def _is_reshaping_op(node):
+    return (node.op == 'call_function' and node.target in [torch.flatten, torch.reshape]
+                or node.op == 'call_method' and node.target in ['view', 'reshape', 'flatten'])
 
 
 def walk_region(graph_model: GraphModule, starting_node: Node, history, srcs, sinks, walk_forward):
@@ -136,13 +188,13 @@ def walk_region(graph_model: GraphModule, starting_node: Node, history, srcs, si
             history.add(path)
         else:
             continue
-        if node.op == 'call_module' and isinstance(get_module(graph_model, node.target), tuple(_supported_layers.keys())):
+        if _is_supported_module(graph_model, node):
             if walk_forward:
                 sinks.add(node.target)
             else:
                 srcs.add(node.target)
                 walk_region(graph_model, node, history, srcs, sinks, walk_forward=True)
-        elif node.op == 'call_module' and isinstance(get_module(graph_model, node.target), _scale_invariant_layers):
+        elif _is_scale_invariant_module(graph_model, node):
             if walk_forward:
                 walk_region(graph_model, node, history, srcs, sinks, walk_forward=True)
             else:
@@ -152,6 +204,8 @@ def walk_region(graph_model: GraphModule, starting_node: Node, history, srcs, si
             or node.op == 'call_function' and node.target in _residual_fns):
                 walk_region(graph_model, node, history, srcs, sinks, walk_forward=True)
                 walk_region(graph_model, node, history, srcs, sinks, walk_forward=False)
+        elif _is_reshaping_op(node):
+            walk_region(graph_model, node, history, srcs, sinks, walk_forward=walk_forward)
         else:
             continue
 
@@ -161,7 +215,7 @@ def _extract_regions(graph_model: GraphModule):
     for node in graph_model.graph.nodes:
         if node.op == 'call_module':
             module = get_module(graph_model, node.target)
-            if isinstance(module, tuple(_supported_layers.keys())):
+            if isinstance(module, _supported_layers):
                 srcs, sinks = {node.target}, set()
                 walk_region(graph_model, node, set(), srcs, sinks, walk_forward=True)
                 if sinks:
@@ -175,7 +229,7 @@ def _extract_regions(graph_model: GraphModule):
 
 class EqualizeGraph(GraphTransform):
 
-    def __init__(self, iterations: int = 10) -> None:
+    def __init__(self, iterations) -> None:
         super(EqualizeGraph, self).__init__()
         self.iterations = iterations 
 
