@@ -237,3 +237,75 @@ class EqualizeGraph(GraphTransform):
         regions = _extract_regions(graph_model)
         graph_model = _equalize(graph_model, regions, self.iterations)
         return graph_model
+
+
+class AbsorbBiasByBatchNorm(GraphTransform):
+
+    def __init__(self):
+        super(AbsorbBiasByBatchNorm, self).__init__()
+        self.inp_shape_map = {}
+        self.collect_inp_shape_hooks = []
+
+    def add_to_bias(self, module, tensor):
+        if module.bias is not None:
+            module.bias.data += tensor.view_as(module.bias)
+        else:
+            module.bias = torch.nn.Parameter(tensor)
+
+    def absorb_biases(self, groups):
+        for layer, bn, (next_layer_name, next_layer) in groups:
+            cfactor = bn.running_mean - 3 * torch.sqrt(bn.running_var)
+            zeroes = torch.zeros_like(cfactor).to(cfactor.device)
+            cfactor = torch.where(cfactor > 0., cfactor, zeroes)
+            if (cfactor > 0).any():
+                self.add_to_bias(layer, -cfactor)
+                broadcast_shape = [1] * next_layer.weight.ndim
+                broadcast_shape[1] = cfactor.numel()
+                cfactor = cfactor.view(broadcast_shape)
+                cfactor = cfactor.expand(self.inp_shape_map[next_layer_name])
+                next_layer_cfactor = next_layer(cfactor).transpose(0, 1)
+                next_layer_cfactor = next_layer_cfactor.view(next_layer_cfactor.shape[0], -1)
+                next_layer_cfactor = torch.mean(next_layer_cfactor, dim=1)
+                self.add_to_bias(next_layer, next_layer_cfactor)
+        self.inp_shape_map = {}
+
+    def extract_groups(self, graph_model: GraphModule):
+        groups = []
+        for node in graph_model.graph.nodes:
+            if (_is_supported_module(graph_model, node)
+                and node.next.op == 'call_module'
+                and isinstance(get_module(graph_model, node.next.target), _batch_norm)):
+                node_next = node.next.next
+                while _is_scale_invariant_module(graph_model, node_next) or _is_reshaping_op(node_next):
+                    node_next = node_next.next
+                if _is_supported_module(graph_model, node_next):
+                    group = (
+                        get_module(graph_model, node.target), 
+                        get_module(graph_model, node.next.target), 
+                        (node_next.target, get_module(graph_model, node_next.target)))
+                    groups.append(group)
+        return groups
+
+    def collect_inp_shape_hook(self, module, inp, name):
+        if name in self.inp_shape_map.keys():
+            raise RuntimeError("Module called multiple times, not supported.")
+        if isinstance(inp, tuple):
+            inp = inp[0]
+        self.inp_shape_map[name] = [1] + list(inp.shape[1:])
+
+    def collect_inp_shapes(self, model, inp):
+        for name, module in model.named_modules():
+            if isinstance(module, (_supported_layers)):
+                hook_fn = partial(self.collect_inp_shape_hook, name=name)
+                hook = module.register_forward_pre_hook(hook_fn)
+                self.collect_inp_shape_hooks.append(hook)
+        model(inp)
+        for hook in self.collect_inp_shape_hooks:
+            hook.remove()
+        self.collect_inp_shape_hooks = []
+
+    def apply(self, graph_model: GraphModule, inp):
+        self.collect_inp_shapes(graph_model, inp)
+        groups = self.extract_groups(graph_model)
+        self.absorb_biases(groups)
+        return graph_model
