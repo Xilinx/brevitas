@@ -1,11 +1,9 @@
 import argparse
 import os
 import random
-import configparser
 
 import torch
 import torch.nn.parallel
-import torch.backends.cudnn as cudnn
 import torch.optim
 import torch.utils.data
 import torch.utils.data.distributed
@@ -26,16 +24,17 @@ parser.add_argument('--imagenet-dir', help='path to folder containing Imagenet v
 parser.add_argument('--model', type=str, default='resnet18', help='Name of the torchvision model')
 parser.add_argument('--workers', default=4, type=int, help='number of data loading workers')
 parser.add_argument('--batch-size', default=256, type=int, help='Minibatch size')
+parser.add_argument('--eq-iters', default=0, type=int, help='Number of equalization iterations')
 parser.add_argument('--gpu', default=None, type=int, help='GPU id to use.')
 parser.add_argument('--shuffle', action='store_true', help='Shuffle validation data.')
 
 
-def calibrate(calibration_loader, model, args):
+def calibrate_model(calibration_loader, model, args):
     with torch.no_grad():
         for i, (images, _) in enumerate(calibration_loader):
+            print(f'Calibration iteration {i}')
             if args.gpu is not None:
                 images = images.cuda(args.gpu, non_blocking=True)
-            print(f'Calibration iteration {i}')
             calibrate(model, images)
     return model
 
@@ -112,7 +111,11 @@ def main():
     torch.manual_seed(SEED)
 
     model = getattr(models, args.model)(pretrained=True)
-    model = quantize_flexml(model, torch.randn(2, INPUT_CHANNELS, INPUT_FEATURES, INPUT_FEATURES))
+    
+    # graph quantize the network
+    model = quantize_flexml(
+        model, torch.randn(2, INPUT_CHANNELS, INPUT_FEATURES, INPUT_FEATURES), args.eq_iters)
+
     if args.gpu is not None:
         torch.cuda.set_device(args.gpu)
         model = model.cuda(args.gpu)
@@ -141,9 +144,14 @@ def main():
             normalize,
         ])),
         batch_size=args.batch_size, shuffle=args.shuffle, num_workers=args.workers, pin_memory=True)
-    
-    model = calibrate(calibration_loader, model, args)
-    top1, top5 = validate(val_loader, model, args)
+
+    # Perform calibration on the calibration set
+    model = calibrate_model(calibration_loader, model, args)
+
+    # Compute accuracy on the validation set
+    top1, _ = validate(val_loader, model, args)
+
+    # Export the model to BrevitasONNX
     BrevitasONNXManager.export(
         model.cpu(), 
         input_t=torch.randn(2, INPUT_CHANNELS, INPUT_FEATURES, INPUT_FEATURES), 
