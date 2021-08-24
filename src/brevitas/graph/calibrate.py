@@ -111,12 +111,14 @@ class DisableQuantInference(DisableEnableQuantization):
 
 class BiasCorrection(DisableEnableQuantization):
 
-    def __init__(self):
+    def __init__(self, iterations):
         super(BiasCorrection, self).__init__()
+        self.iterations = iterations
+        self.curr_iter = 0
+        self.correction_map = {}
         self.float_mean_map = {}
         self.collect_float_mean_hooks = []
         self.correct_bias_hooks = []
-        self.correction_enabled = False
 
     def compute_mean(self, inp):
         inp = inp.transpose(0, 1)
@@ -128,15 +130,27 @@ class BiasCorrection(DisableEnableQuantization):
             raise RuntimeError("Module to bias-correct called multiple times, not supported.")
         self.float_mean_map[name] = self.compute_mean(inp)
 
+    def update_correction(self, name, error):
+        if name not in self.correction_map:
+            self.correction_map[name] = error
+        else:
+            self.correction_map[name] += error
+
+    def apply_correction(self, name, parent_module):
+        correction = self.correction_map[name] / self.iterations
+        if parent_module.bias is not None:
+            parent_module.bias.data += correction
+        else:
+            parent_module.bias = nn.Parameter(correction).to(parent_module.weight.device)
+
     def correct_bias_hook(self, module, inp, name, parent_module):
         inp = self.unpack_input(inp)
-        if self.correction_enabled and name in self.float_mean_map.keys():
+        if name in self.float_mean_map.keys():
             quant_mean = self.compute_mean(inp)
             error = self.float_mean_map[name] - quant_mean
-            if parent_module.bias is not None:
-                parent_module.bias.data += error
-            else:
-                parent_module.bias = nn.Parameter(error).to(parent_module.weight.device)
+            self.update_correction(name, error)
+            if self.curr_iter == self.iterations - 1:
+                self.apply_correction(name, parent_module)
             del self.float_mean_map[name]
             inp_broadcast_shape = compute_channel_view_shape(inp, channel_dim=1)
             return inp + error.reshape(inp_broadcast_shape)
@@ -162,6 +176,7 @@ class BiasCorrection(DisableEnableQuantization):
         for hook in self.correct_bias_hooks:
             hook.remove()
         self.correct_bias_hooks = []
+        assert not self.float_mean_map
 
     def apply(self, model, inp):
         self.disable_act_quantization(model)
@@ -170,14 +185,5 @@ class BiasCorrection(DisableEnableQuantization):
         self.enable_act_quantization(model)
         self.enable_param_quantization(model)
         self.correct_bias(model, inp)
+        self.curr_iter += 1
         return model
-
-
-def calibrate(model, images):
-    training_state = model.training
-    model.train()
-    model = FloatModelInference().apply(model, images)
-    model.eval()
-    model = BiasCorrection().apply(model, images)
-    model.train(training_state)
-    pass
