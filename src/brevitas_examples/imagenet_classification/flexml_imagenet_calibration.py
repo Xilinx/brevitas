@@ -17,7 +17,7 @@ except ImportError:
     timm = None
 
 from brevitas.graph.target.flexml import quantize_flexml
-from brevitas.graph.calibrate import calibrate
+from brevitas.graph.calibrate import DisableQuantInference, BiasCorrection
 from brevitas.export.onnx.generic.manager import BrevitasONNXManager
 
 SEED = 123456
@@ -28,7 +28,7 @@ parser = argparse.ArgumentParser(description='PyTorch ImageNet Validation')
 parser.add_argument('--imagenet-dir', help='path to folder containing Imagenet val folder')
 parser.add_argument('--model', type=str, default='resnet18', help='Name of the torchvision model')
 parser.add_argument('--workers', default=4, type=int, help='number of data loading workers')
-parser.add_argument('--batch-size', default=256, type=int, help='Minibatch size')
+parser.add_argument('--batch-size', default=250, type=int, help='Minibatch size')
 parser.add_argument('--eq-iters', default=0, type=int, help='Number of equalization iterations')
 parser.add_argument('--gpu', default=None, type=int, help='GPU id to use.')
 parser.add_argument('--shuffle', action='store_true', help='Shuffle validation data.')
@@ -37,11 +37,19 @@ parser.add_argument('--source', type=str, default='torchvision', help='Source fo
 
 def calibrate_model(calibration_loader, model, args):
     with torch.no_grad():
+        model.train()
         for i, (images, _) in enumerate(calibration_loader):
             print(f'Calibration iteration {i}')
             if args.gpu is not None:
                 images = images.cuda(args.gpu, non_blocking=True)
-            calibrate(model, images)
+                DisableQuantInference().apply(model, images)
+        model.eval()
+        bc = BiasCorrection(iterations=len(calibration_loader))
+        for i, (images, _) in enumerate(calibration_loader):
+            print(f'Bias correction iteration {i}')
+            if args.gpu is not None:
+                images = images.cuda(args.gpu, non_blocking=True)
+                model = bc.apply(model, images)
     return model
 
 
@@ -117,14 +125,14 @@ def main():
     torch.manual_seed(SEED)
 
     if args.source == 'torchvision':
-    model = getattr(models, args.model)(pretrained=True)
+        model = getattr(models, args.model)(pretrained=True)
     elif args.source == 'timm':
         if timm is None:
             raise RuntimeError("timm is not installed, run pip install timm")
         model = timm.create_model(args.model, pretrained=True)
     else:
         raise RuntimeError(f"{args.source} not recognized as source.")
-    
+
     # graph quantize the network
     model = quantize_flexml(
         model, torch.randn(2, INPUT_CHANNELS, INPUT_FEATURES, INPUT_FEATURES), args.eq_iters)
