@@ -16,7 +16,7 @@ from .base import Transform
 __all__ = [
     'ClipFloatWeights',
     'DisableEnableQuantization',
-    'FloatModelInference',
+    'DisableQuantInference',
     'BiasCorrection'
 ]
 
@@ -98,15 +98,15 @@ class DisableEnableQuantization(Transform, ABC):
                 module.disable_quant = False
 
 
-class FloatModelInference(DisableEnableQuantization):
+class DisableQuantInference(DisableEnableQuantization):
 
     def apply(self, model, inp):
         self.disable_act_quantization(model)
         self.disable_param_quantization(model)
-        model(inp)
+        output = model(inp)
         self.enable_act_quantization(model)
         self.enable_param_quantization(model)
-        return model
+        return output
 
 
 class BiasCorrection(DisableEnableQuantization):
