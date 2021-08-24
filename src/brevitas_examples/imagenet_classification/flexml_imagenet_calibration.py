@@ -11,6 +11,11 @@ import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 from torchvision import models
 
+try:
+    import timm
+except ImportError:
+    timm = None
+
 from brevitas.graph.target.flexml import quantize_flexml
 from brevitas.graph.calibrate import calibrate
 from brevitas.export.onnx.generic.manager import BrevitasONNXManager
@@ -27,6 +32,7 @@ parser.add_argument('--batch-size', default=256, type=int, help='Minibatch size'
 parser.add_argument('--eq-iters', default=0, type=int, help='Number of equalization iterations')
 parser.add_argument('--gpu', default=None, type=int, help='GPU id to use.')
 parser.add_argument('--shuffle', action='store_true', help='Shuffle validation data.')
+parser.add_argument('--source', type=str, default='torchvision', help='Source for the model')
 
 
 def calibrate_model(calibration_loader, model, args):
@@ -110,7 +116,14 @@ def main():
     random.seed(SEED)
     torch.manual_seed(SEED)
 
+    if args.source == 'torchvision':
     model = getattr(models, args.model)(pretrained=True)
+    elif args.source == 'timm':
+        if timm is None:
+            raise RuntimeError("timm is not installed, run pip install timm")
+        model = timm.create_model(args.model, pretrained=True)
+    else:
+        raise RuntimeError(f"{args.source} not recognized as source.")
     
     # graph quantize the network
     model = quantize_flexml(
