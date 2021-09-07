@@ -50,6 +50,8 @@ __all__ = [
     'IntBias',
     'Int8Bias',
     'Int16Bias',
+    'Int24Bias',
+    'Int32Bias',
     'Int8BiasPerTensorFloatInternalScaling',
     'Int8ActPerTensorFloatMinMaxInit',
     'Uint8ActPerTensorFloatMaxInit',
@@ -130,6 +132,32 @@ class Int16Bias(IntBias):
         >>> fc = QuantLinear(10, 5, bias=True, bias_quant=Int16Bias)
     """
     bit_width = 16
+    requires_input_bit_width = False
+
+
+class Int24Bias(IntBias):
+    """
+    24-bit signed int bias quantizer with scale factor equal to the scale factor of the accumulator
+    the bias is added to, so typically quant_input_scale * quant_weight_scale.
+
+    Examples:
+        >>> from brevitas.nn import QuantLinear
+        >>> fc = QuantLinear(10, 5, bias=True, bias_quant=Int16Bias)
+    """
+    bit_width = 24
+    requires_input_bit_width = False
+
+
+class Int32Bias(IntBias):
+    """
+    32-bit signed int bias quantizer with scale factor equal to the scale factor of the accumulator
+    the bias is added to, so typically quant_input_scale * quant_weight_scale.
+
+    Examples:
+        >>> from brevitas.nn import QuantLinear
+        >>> fc = QuantLinear(10, 5, bias=True, bias_quant=Int16Bias)
+    """
+    bit_width = 32
     requires_input_bit_width = False
 
 
