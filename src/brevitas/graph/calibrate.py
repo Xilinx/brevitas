@@ -38,6 +38,11 @@ _LAYERS_TO_CLIP = (
     nn.ConvTranspose3d)
 
 
+def finalize_collect_stats(module):
+    if hasattr(module, 'collect_stats_steps') and hasattr(module, 'counter'):
+        module.counter = module.collect_stats_steps
+
+
 class ClipFloatWeights(Transform):
 
     def __init__(self, threshold=15., layers_to_clip=_LAYERS_TO_CLIP) -> None:
