@@ -1,8 +1,11 @@
 import argparse
 import os
 import random
+from copy import deepcopy
+from functools import partial
 
 import torch
+from torch import nn
 import torch.nn.parallel
 import torch.optim
 import torch.utils.data
@@ -16,9 +19,13 @@ try:
 except ImportError:
     timm = None
 
-from brevitas.graph.target.flexml import quantize_flexml
-from brevitas.graph.calibrate import DisableQuantInference, BiasCorrection
+from brevitas.graph.target.flexml import preprocess_flexml, quantize_flexml
+from brevitas.graph.calibrate import finalize_collect_stats
+from brevitas.graph.calibrate import BiasCorrection
+from brevitas.graph.calibrate import DisableQuantInference
 from brevitas.export.onnx.generic.manager import BrevitasONNXManager
+from brevitas.graph.utils import get_module
+from brevitas.fx import GraphModule
 
 SEED = 123456
 INPUT_CHANNELS = 3
@@ -50,7 +57,18 @@ def calibrate_model(calibration_loader, model, args):
             if args.gpu is not None:
                 images = images.cuda(args.gpu, non_blocking=True)
                 model = bc.apply(model, images)
+    model.apply(finalize_collect_stats)
     return model
+
+
+def extract_layers(graph_model: GraphModule):
+    layers = []
+    for node in graph_model.graph.nodes:
+        if node.op == 'call_module':
+            module = get_module(graph_model, node.target)
+            if isinstance(module, (nn.Conv2d, nn.Linear)):
+                layers.append((node.target, module))
+    return layers
 
 
 def validate(val_loader, model, args):
@@ -133,13 +151,15 @@ def main():
     else:
         raise RuntimeError(f"{args.source} not recognized as source.")
 
-    # graph quantize the network
-    model = quantize_flexml(
-        model, torch.randn(2, INPUT_CHANNELS, INPUT_FEATURES, INPUT_FEATURES), args.eq_iters)
+    # preprocess the floating point network 
+    rand_inp = torch.randn(2, INPUT_CHANNELS, INPUT_FEATURES, INPUT_FEATURES)
+    flexml_model = preprocess_flexml(deepcopy(model), equalization_iters=args.eq_iters, input=rand_inp)
 
+    # graph quantize the network
+    flexml_model = quantize_flexml(flexml_model)
     if args.gpu is not None:
         torch.cuda.set_device(args.gpu)
-        model = model.cuda(args.gpu)
+        flexml_model = flexml_model.cuda(args.gpu)
 
     valdir = os.path.join(args.imagenet_dir, 'val')
     calibrationdir = os.path.join(args.imagenet_dir, 'calibration')
@@ -167,10 +187,10 @@ def main():
         batch_size=args.batch_size, shuffle=args.shuffle, num_workers=args.workers, pin_memory=True)
 
     # Perform calibration on the calibration set
-    model = calibrate_model(calibration_loader, model, args)
+    flexml_model = calibrate_model(calibration_loader, flexml_model, args)
 
     # Compute accuracy on the validation set
-    top1, _ = validate(val_loader, model, args)
+    top1, _ = validate(val_loader, flexml_model, args)
 
     # Export the model to BrevitasONNX
     BrevitasONNXManager.export(

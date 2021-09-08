@@ -90,9 +90,9 @@ class PerInputModuleToModuleByHook(PerInputTrasform, ABC):
         self.hook_handlers = []
         self.input_size_map = {}
 
-    def apply(self, model: Module, inp: torch.Tensor):
+    def apply(self, model: Module, *model_args, **model_kwargs):
         self.register_hooks(model)
-        _ = model(inp)
+        model(*model_args, **model_kwargs)
         self.replace_modules(model)
         self.cleanup()
         return model

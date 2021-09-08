@@ -368,28 +368,35 @@ def flexml_wbiol_handler(model):
     return model
 
 
-def quantize_flexml(model, inp, equalization_iters = 0):
-    ignore_missing_keys_state = config.IGNORE_MISSING_KEYS
-    config.IGNORE_MISSING_KEYS = True
+def preprocess_flexml(model, equalization_iters = 0, **model_kwargs):
     training_state = model.training
     model.eval()
-    model = value_trace(model, {'input': inp})
+    model = value_trace(model, model_kwargs)
     model = TorchFunctionalToModule().apply(model)
     model = DuplicateSharedStatelessModule().apply(model)
     model = ModuleToModuleByClass(nn.ReLU6, nn.ReLU).apply(model)
     model = MeanMethodToAdaptiveAvgPool2d().apply(model)
-    model = AdaptiveAvgPoolToAvgPool().apply(model, inp)
-    model = AvgPoolToDepthwiseConv().apply(model, inp)
+    model = AdaptiveAvgPoolToAvgPool().apply(model, *model_kwargs.values())
+    model = AvgPoolToDepthwiseConv().apply(model, *model_kwargs.values())
     model = CollapseConsecutiveConcats().apply(model)
     model = MoveSplitBatchNormBeforeCat().apply(model)
     model = MergeBatchNorm().apply(model)
     model = EqualizeGraph(equalization_iters).apply(model)
-    model = flexml_inp_placeholder_handler(model)
-    model = flexml_act_handler(model)
-    model = flexml_add_output_quant_handler(model)
-    model = flexml_residual_handler(model)
-    model = flexml_wbiol_handler(model)
-    model = DisableLastReturnQuantTensor().apply(model)
     model.train(training_state)
-    config.IGNORE_MISSING_KEYS = ignore_missing_keys_state
     return model
+
+
+def quantize_flexml(graph_model):
+    ignore_missing_keys_state = config.IGNORE_MISSING_KEYS
+    config.IGNORE_MISSING_KEYS = True
+    training_state = graph_model.training
+    graph_model.eval()
+    graph_model = flexml_inp_placeholder_handler(graph_model)
+    graph_model = flexml_act_handler(graph_model)
+    graph_model = flexml_add_output_quant_handler(graph_model)
+    graph_model = flexml_residual_handler(graph_model)
+    graph_model = flexml_wbiol_handler(graph_model)
+    graph_model = DisableLastReturnQuantTensor().apply(graph_model)
+    graph_model.train(training_state)
+    config.IGNORE_MISSING_KEYS = ignore_missing_keys_state
+    return graph_model
