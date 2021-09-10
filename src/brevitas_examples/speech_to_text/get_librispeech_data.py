@@ -108,7 +108,7 @@ def __process_data(data_folder: str, dst_folder: str, manifest_file: str):
                 if not os.path.exists(wav_file):
                     Transformer().build(flac_file, wav_file)
                 # check duration
-                duration = subprocess.check_output("soxi -D {0}".format(wav_file), shell=True)
+                duration = subprocess.check_output("sox --i -D {0}".format(wav_file), shell=True)
 
                 entry = dict()
                 entry['audio_filepath'] = os.path.abspath(wav_file)

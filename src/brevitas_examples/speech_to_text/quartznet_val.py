@@ -1,30 +1,28 @@
 import argparse
 import copy
 import os
-import configparser
 
 from ruamel.yaml import YAML
 import random
 import torch
 
-from .quartznet import AudioToTextDataLayer
-from .quartznet.helpers import word_error_rate, post_process_predictions, \
-    post_process_transcripts
+from brevitas_examples.speech_to_text.quartznet import AudioToTextDataLayer
+from brevitas_examples.speech_to_text.quartznet.helpers import post_process_predictions
+from brevitas_examples.speech_to_text.quartznet.helpers import post_process_transcripts
+from brevitas_examples.speech_to_text.quartznet.helpers import word_error_rate
 import torch.backends.cudnn as cudnn
-import brevitas.config
-from .quartznet import model_with_cfg
+from brevitas_examples.speech_to_text.quartznet import model_with_cfg
 
-brevitas.config.IGNORE_MISSING_KEYS = False
 SEED = 123456
-BATCH_SIZE = 64
 
 
 
 parser = argparse.ArgumentParser(description='Quartznet')
-parser.add_argument("--input-folder", type=str, required=False)
-parser.add_argument("--gpu", type=int)
-parser.add_argument('--pretrained', action='store_true', default=True, help='Load pretrained checkpoint')
+parser.add_argument("--data-json", type=str, required=True)
+parser.add_argument("--gpu", type=int, required=False, help='GPU number')
+parser.add_argument('--pretrained', action='store_true', help='Load pretrained checkpoint')
 parser.add_argument('--model', type=str, default='quant_quartznet_perchannelscaling_4b', help='Name of the model')
+parser.add_argument('--batch-size', default=64, type=int, help='Batch size')
 
 
 def main():
@@ -33,8 +31,7 @@ def main():
 
     args = parser.parse_args()
 
-    model, cfg = model_with_cfg(args.model, args.pretrained)
-
+    model, cfg = model_with_cfg(args.model, args.pretrained, export_mode=False)
     topology_file = cfg.get('MODEL', 'TOPOLOGY_FILE')
     current_dir = os.path.dirname(os.path.abspath(__file__))
     topology_path = os.path.join(current_dir, 'cfg', 'topology', topology_file)
@@ -45,16 +42,15 @@ def main():
     vocab = quartnzet_params['labels']
     sample_rate = quartnzet_params['sample_rate']
 
-    eval_datasets = args.input_folder
     eval_dl_params = copy.deepcopy(quartnzet_params["AudioToTextDataLayer"])
     eval_dl_params.update(quartnzet_params["AudioToTextDataLayer"]["eval"])
     del eval_dl_params["train"]
     del eval_dl_params["eval"]
     data_layer = AudioToTextDataLayer(
-        manifest_filepath=eval_datasets,
+        manifest_filepath=args.data_json,
         sample_rate=sample_rate,
         labels=vocab,
-        batch_size=BATCH_SIZE,
+        batch_size=args.batch_size,
         **eval_dl_params)
 
     N = len(data_layer)
@@ -78,11 +74,12 @@ def main():
 
 
     if args.gpu is not None:
-        torch.cuda.set_device(args.gpu)
         cudnn.benchmark = True
+        torch.cuda.set_device(args.gpu)
         loc = 'cuda:{}'.format(args.gpu)
     else:
         loc = 'cpu'
+    print(f'Running on device: {loc}')
     model.to(loc)
     
     predictions = []
