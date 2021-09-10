@@ -22,7 +22,7 @@ sys.path.insert(0, os.path.abspath(brevitas.__file__))
 # -- Project information -----------------------------------------------------
 
 project = 'Brevitas'
-copyright = '2021 - Xilinx, Inc'
+copyright = '2022 - Xilinx, Inc'
 author = 'Alessandro Pappalardo'
 
 # The full version, including alpha/beta/rc tags
@@ -42,6 +42,10 @@ extensions = [
     'sphinx.ext.napoleon',
     'sphinx_autodoc_typehints',
     'sphinxemoji.sphinxemoji',
+    'nbsphinx',
+    'nbsphinx_link',
+    'sphinx_gallery.load_style',
+    "sphinx.ext.githubpages",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -68,7 +72,11 @@ html_theme = 'pydata_sphinx_theme'
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+html_static_path = []
+
+# Ensure env.metadata[env.docname]['nbsphinx-link-target']
+# points relative to repo root:
+nbsphinx_link_target_root =  os.path.join(os.path.dirname(__file__), '..', '..')
 
 
 intersphinx_mapping = {
