@@ -1,0 +1,652 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>brevitas.function.autograd_ste_ops &#8212; Brevitas 0.6.1.dev24+g02fe33a.d20210910 documentation</title>
+    
+  <link href="../../../_static/css/theme.css" rel="stylesheet" />
+  <link href="../../../_static/css/index.c5995385ac14fb8791e8eb36b4908be2.css" rel="stylesheet" />
+
+    
+  <link rel="stylesheet"
+    href="../../../_static/vendor/fontawesome/5.13.0/css/all.min.css">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="../../../_static/vendor/fontawesome/5.13.0/webfonts/fa-solid-900.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="../../../_static/vendor/fontawesome/5.13.0/webfonts/fa-brands-400.woff2">
+
+    
+      
+
+    
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css" />
+    
+  <link rel="preload" as="script" href="../../../_static/js/index.1c5a1a01449ed65a7b51.js">
+
+    <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+    <script src="../../../_static/jquery.js"></script>
+    <script src="../../../_static/underscore.js"></script>
+    <script src="../../../_static/doctools.js"></script>
+    <link rel="author" title="About these documents" href="../../../about.html" />
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="docsearch:language" content="en" />
+    
+  </head>
+  <body data-spy="scroll" data-target="#bd-toc-nav" data-offset="80">
+    
+    <div class="container-fluid" id="banner"></div>
+
+    
+    <nav class="navbar navbar-light navbar-expand-lg bg-light fixed-top bd-navbar" id="navbar-main"><div class="container-xl">
+
+  <div id="navbar-start">
+    
+    
+<a class="navbar-brand" href="../../../index.html">
+<p class="title">Brevitas</p>
+</a>
+
+    
+  </div>
+
+  <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbar-collapsible" aria-controls="navbar-collapsible" aria-expanded="false" aria-label="Toggle navigation">
+    <span class="navbar-toggler-icon"></span>
+  </button>
+
+  
+  <div id="navbar-collapsible" class="col-lg-9 collapse navbar-collapse">
+    <div id="navbar-center" class="mr-auto">
+      
+      <div class="navbar-center-item">
+        <ul id="navbar-main-elements" class="navbar-nav">
+    <li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="../../../setup.html">
+  Setup
+ </a>
+</li>
+
+<li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="../../../user_guide/index.html">
+  User Guide
+ </a>
+</li>
+
+<li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="../../../api_reference/index.html">
+  API reference
+ </a>
+</li>
+
+<li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="../../../faq.html">
+  FAQ
+ </a>
+</li>
+
+<li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="../../../about.html">
+  About
+ </a>
+</li>
+
+    
+</ul>
+      </div>
+      
+    </div>
+
+    <div id="navbar-end">
+      
+      <div class="navbar-end-item">
+        <ul id="navbar-icon-links" class="navbar-nav" aria-label="Icon Links">
+      </ul>
+      </div>
+      
+    </div>
+  </div>
+</div>
+    </nav>
+    
+
+    <div class="container-xl">
+      <div class="row">
+          
+            
+            <!-- Only show if we have sidebars configured, else just a small margin  -->
+            <div class="col-12 col-md-3 bd-sidebar"><form class="bd-search d-flex align-items-center" action="../../../search.html" method="get">
+  <i class="icon fas fa-search"></i>
+  <input type="search" class="form-control" name="q" id="search-input" placeholder="Search the docs ..." aria-label="Search the docs ..." autocomplete="off" >
+</form><nav class="bd-links" id="bd-docs-nav" aria-label="Main navigation">
+  <div class="bd-toc-item active">
+    
+  </div>
+</nav>
+            </div>
+            
+          
+
+          
+          <div class="d-none d-xl-block col-xl-2 bd-toc">
+            
+          </div>
+          
+
+          
+          
+            
+          
+          <main class="col-12 col-md-9 col-xl-7 py-md-5 pl-md-5 pr-md-4 bd-content" role="main">
+              
+              <div>
+                
+  <h1>Source code for brevitas.function.autograd_ste_ops</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright (c) 2019-     Xilinx, Inc              (Giuseppe Franco)</span>
+<span class="c1"># Copyright (c) 2016-     Facebook, Inc            (Adam Paszke)</span>
+<span class="c1"># Copyright (c) 2014-     Facebook, Inc            (Soumith Chintala)</span>
+<span class="c1"># Copyright (c) 2011-2014 Idiap Research Institute (Ronan Collobert)</span>
+<span class="c1"># Copyright (c) 2012-2014 Deepmind Technologies    (Koray Kavukcuoglu)</span>
+<span class="c1"># Copyright (c) 2011-2012 NEC Laboratories America (Koray Kavukcuoglu)</span>
+<span class="c1"># Copyright (c) 2011-2013 NYU                      (Clement Farabet)</span>
+<span class="c1"># Copyright (c) 2006-2010 NEC Laboratories America (Ronan Collobert, Leon Bottou, Iain Melvin, Jason Weston)</span>
+<span class="c1"># Copyright (c) 2006      Idiap Research Institute (Samy Bengio)</span>
+<span class="c1"># Copyright (c) 2001-2004 Idiap Research Institute (Ronan Collobert, Samy Bengio, Johnny Mariethoz)</span>
+
+<span class="c1"># All rights reserved.</span>
+
+<span class="c1"># Redistribution and use in source and binary forms, with or without</span>
+<span class="c1"># modification, are permitted provided that the following conditions are met:</span>
+
+<span class="c1"># 1. Redistributions of source code must retain the above copyright</span>
+<span class="c1">#    notice, this list of conditions and the following disclaimer.</span>
+
+<span class="c1"># 2. Redistributions in binary form must reproduce the above copyright</span>
+<span class="c1">#    notice, this list of conditions and the following disclaimer in the</span>
+<span class="c1">#    documentation and/or other materials provided with the distribution.</span>
+
+<span class="c1"># 3. Neither the names of Xilinx, Facebook, Deepmind Technologies, NYU,</span>
+<span class="c1">#    NEC Laboratories America and IDIAP Research Institute nor the names</span>
+<span class="c1">#    of its contributors may be used to endorse or promote products derived</span>
+<span class="c1">#    from this software without specific prior written permission.</span>
+
+<span class="c1"># THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS &quot;AS IS&quot;</span>
+<span class="c1"># AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</span>
+<span class="c1"># IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</span>
+<span class="c1"># ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</span>
+<span class="c1"># LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</span>
+<span class="c1"># CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</span>
+<span class="c1"># SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</span>
+<span class="c1"># INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</span>
+<span class="c1"># CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</span>
+<span class="c1"># ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</span>
+<span class="c1"># POSSIBILITY OF SUCH DAMAGE.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Implementation of various torch.autograd.Function with straight-through estimators.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Tuple</span>
+
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">from</span> <span class="nn">torch.autograd</span> <span class="kn">import</span> <span class="n">Function</span>
+<span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">Tensor</span>
+
+<span class="kn">from</span> <span class="nn">brevitas.function.ops</span> <span class="kn">import</span> <span class="n">tensor_clamp</span><span class="p">,</span> <span class="n">binary_sign</span><span class="p">,</span> <span class="n">round_to_zero</span><span class="p">,</span> <span class="n">tensor_clamp_</span><span class="p">,</span> <span class="n">dpu_round</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s1">&#39;ScalarClampSteFn&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;ScalarClampMinSteFn&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;TensorClampSteFn&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;InplaceTensorClampSteFn&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;RoundToZeroSteFn&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;CeilSteFn&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;FloorSteFn&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;BinarySignSteFn&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;TernarySignSteFn&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;RoundSteFn&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;AbsBinarySignGradFn&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;DPURoundSteFn&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;round_ste_impl&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;binary_sign_ste_impl&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;ternary_sign_ste_impl&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;floor_ste_impl&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;ceil_ste_impl&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;round_to_zero_ste_impl&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;scalar_clamp_min_ste_impl&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;scalar_clamp_ste_impl&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;tensor_clamp_ste_impl&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;abs_binary_sign_grad_impl&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;dpu_round_ste_impl&#39;</span>
+<span class="p">]</span>
+
+
+<div class="viewcode-block" id="ScalarClampSteFn"><a class="viewcode-back" href="../../../api_reference/brevitas.function.html#brevitas.function.autograd_ste_ops.ScalarClampSteFn">[docs]</a><span class="k">class</span> <span class="nc">ScalarClampSteFn</span><span class="p">(</span><span class="n">Function</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Autograd function that implements ``torch.clamp`` with a straight-through gradient estimator</span>
+<span class="sd">    for the gradient of y w.r.t. to x, while the gradient of y w.r.t. to ``min_val`` and ``min_val``</span>
+<span class="sd">    are always ``None``.</span>
+
+<span class="sd">    ``ScalarClampSteFn.apply(*args)`` is first aliased to :func:`scalar_clamp_ste_impl(*args)</span>
+<span class="sd">    &lt;brevitas.function.autograd_ste_ops.scalar_clamp_ste_impl&gt;` and then wrapped by</span>
+<span class="sd">    :func:`~brevitas.function.ops_ste.scalar_clamp_ste` and invoked when env ``BREVITAS_JIT=0``.</span>
+<span class="sd">    See :func:`~brevitas.function.ops_ste.scalar_clamp_ste` for details on the interface and</span>
+<span class="sd">    examples.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">min_val</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">max_val</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">clamp</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">min_val</span><span class="p">,</span> <span class="n">max_val</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">y</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">backward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">grad_y</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">grad_y</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">symbolic</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">min_val</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">max_val</span><span class="p">:</span> <span class="nb">float</span><span class="p">):</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">op</span><span class="p">(</span><span class="s1">&#39;Clip&#39;</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">min_val</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">max_val</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">y</span></div>
+
+
+<div class="viewcode-block" id="ScalarClampMinSteFn"><a class="viewcode-back" href="../../../api_reference/brevitas.function.html#brevitas.function.autograd_ste_ops.ScalarClampMinSteFn">[docs]</a><span class="k">class</span> <span class="nc">ScalarClampMinSteFn</span><span class="p">(</span><span class="n">Function</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Autograd function that implements ``torch.clamp_min`` with a straight-through gradient estimator</span>
+<span class="sd">    for the gradient of y w.r.t. to x, while the gradient of y w.r.t. to ``min_val`` is always</span>
+<span class="sd">    ``None``.</span>
+
+<span class="sd">    ``ScalarClampMinSteFn.apply(*args)`` is first aliased to :func:`scalar_clamp_min_ste_impl(*args)</span>
+<span class="sd">    &lt;brevitas.function.autograd_ste_ops.scalar_clamp_min_ste_impl&gt;` and then wrapped by</span>
+<span class="sd">    :func:`~brevitas.function.ops_ste.scalar_clamp_min_ste` and invoked when env ``BREVITAS_JIT=0``.</span>
+<span class="sd">    See :func:`~brevitas.function.ops_ste.scalar_clamp_ste` for details on the interface and</span>
+<span class="sd">    examples.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">min_val</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">clamp_min</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">min_val</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">y</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">backward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">grad_y</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">grad_y</span><span class="p">,</span> <span class="kc">None</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">symbolic</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">min_val</span><span class="p">:</span> <span class="nb">float</span><span class="p">):</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">op</span><span class="p">(</span><span class="s1">&#39;Clip&#39;</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">min_val</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">y</span></div>
+
+
+<div class="viewcode-block" id="TensorClampSteFn"><a class="viewcode-back" href="../../../api_reference/brevitas.function.html#brevitas.function.autograd_ste_ops.TensorClampSteFn">[docs]</a><span class="k">class</span> <span class="nc">TensorClampSteFn</span><span class="p">(</span><span class="n">Function</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; </span>
+<span class="sd">    Autograd function that implements :func:`~brevitas.function.ops.tensor_clamp` with a</span>
+<span class="sd">    straight-through gradient estimator for the gradient of y w.r.t. to x, while the gradient of y</span>
+<span class="sd">    w.r.t. to min_val and max_val is always None.</span>
+
+<span class="sd">    ``TensorClampSteFn.apply(*args)`` is first aliased to :func:`tensor_clamp_ste_impl(*args)</span>
+<span class="sd">    &lt;brevitas.function.autograd_ste_ops.tensor_clamp_ste_impl&gt;` and then wrapped by</span>
+<span class="sd">    :func:`~brevitas.function.ops_ste.tensor_clamp` when env ``BREVITAS_JIT=0``.</span>
+<span class="sd">    See :func:`~brevitas.function.ops_ste.tensor_clamp` for details on the interface and</span>
+<span class="sd">    examples.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">min_val</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">max_val</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">tensor_clamp</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">min_val</span><span class="p">,</span> <span class="n">max_val</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">y</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">backward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">grad_y</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">grad_y</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">symbolic</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">min_val</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">max_val</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
+        <span class="n">upper_cond</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">op</span><span class="p">(</span><span class="s1">&#39;Greater&#39;</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">max_val</span><span class="p">)</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">op</span><span class="p">(</span><span class="s1">&#39;Where&#39;</span><span class="p">,</span> <span class="n">upper_cond</span><span class="p">,</span> <span class="n">max_val</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+        <span class="n">lower_cond</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">op</span><span class="p">(</span><span class="s1">&#39;Less&#39;</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">min_val</span><span class="p">)</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">op</span><span class="p">(</span><span class="s1">&#39;Where&#39;</span><span class="p">,</span> <span class="n">lower_cond</span><span class="p">,</span> <span class="n">min_val</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">y</span></div>
+
+
+<div class="viewcode-block" id="InplaceTensorClampSteFn"><a class="viewcode-back" href="../../../api_reference/brevitas.function.html#brevitas.function.autograd_ste_ops.InplaceTensorClampSteFn">[docs]</a><span class="k">class</span> <span class="nc">InplaceTensorClampSteFn</span><span class="p">(</span><span class="n">Function</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Autograd function that implements :func:`~brevitas.function.ops.tensor_clamp_` with a</span>
+<span class="sd">    straight-through gradient estimator for the gradient of y w.r.t. to x, while the gradient of y</span>
+<span class="sd">    w.r.t. to min_val and max_val is always None.</span>
+
+<span class="sd">    ``InplaceTensorClampSteFn.apply(*args)`` is first aliased to</span>
+<span class="sd">    :func:`tensor_clamp_ste_impl_(*args)</span>
+<span class="sd">    &lt;brevitas.function.autograd_ste_ops.tensor_clamp_ste_impl_&gt;` and then wrapped by</span>
+<span class="sd">    :func:`~brevitas.function.ops_ste.tensor_clamp_` when env ``BREVITAS_JIT=0``.</span>
+<span class="sd">    See :func:`~brevitas.function.ops_ste.tensor_clamp_` for details on the interface and</span>
+<span class="sd">    examples.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">min_val</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">max_val</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">tensor_clamp_</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">min_val</span><span class="p">,</span> <span class="n">max_val</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">y</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">backward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">grad_y</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">grad_y</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">symbolic</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">min_val</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">max_val</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
+        <span class="n">upper_cond</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">op</span><span class="p">(</span><span class="s1">&#39;Greater&#39;</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">max_val</span><span class="p">)</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">op</span><span class="p">(</span><span class="s1">&#39;Where&#39;</span><span class="p">,</span> <span class="n">upper_cond</span><span class="p">,</span> <span class="n">max_val</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+        <span class="n">lower_cond</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">op</span><span class="p">(</span><span class="s1">&#39;Less&#39;</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">min_val</span><span class="p">)</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">op</span><span class="p">(</span><span class="s1">&#39;Where&#39;</span><span class="p">,</span> <span class="n">lower_cond</span><span class="p">,</span> <span class="n">min_val</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">y</span></div>
+
+
+<div class="viewcode-block" id="RoundToZeroSteFn"><a class="viewcode-back" href="../../../api_reference/brevitas.function.html#brevitas.function.autograd_ste_ops.RoundToZeroSteFn">[docs]</a><span class="k">class</span> <span class="nc">RoundToZeroSteFn</span><span class="p">(</span><span class="n">Function</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Autograd function that implements :func:`~brevitas.function.ops.round_to_zero` with a</span>
+<span class="sd">    straight-through gradient estimator.</span>
+
+<span class="sd">    ``RoundToZeroSteFn.apply(*args)`` is first aliased to :func:`round_to_zero_ste_impl(*args)</span>
+<span class="sd">    &lt;brevitas.function.autograd_ste_ops.round_to_zero_ste_impl&gt;` and then wrapped by</span>
+<span class="sd">    :func:`~brevitas.function.ops_ste.round_to_zero_ste` when env ``BREVITAS_JIT=0``.</span>
+<span class="sd">    See :func:`~brevitas.function.ops_ste.round_to_zero_ste` for details on the interface and</span>
+<span class="sd">    examples.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">round_to_zero</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">y</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">backward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">grad_y</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">grad_y</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">symbolic</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
+        <span class="nb">abs</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">op</span><span class="p">(</span><span class="s1">&#39;Abs&#39;</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+        <span class="n">sign</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">op</span><span class="p">(</span><span class="s1">&#39;Sign&#39;</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+        <span class="n">floor</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">op</span><span class="p">(</span><span class="s1">&#39;Floor&#39;</span><span class="p">,</span> <span class="nb">abs</span><span class="p">)</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">op</span><span class="p">(</span><span class="s1">&#39;Mul&#39;</span><span class="p">,</span> <span class="n">sign</span><span class="p">,</span> <span class="n">floor</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">y</span></div>
+
+
+<div class="viewcode-block" id="DPURoundSteFn"><a class="viewcode-back" href="../../../api_reference/brevitas.function.html#brevitas.function.autograd_ste_ops.DPURoundSteFn">[docs]</a><span class="k">class</span> <span class="nc">DPURoundSteFn</span><span class="p">(</span><span class="n">Function</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Autograd function that implements :func:`~brevitas.function.ops.dpu_round` with a</span>
+<span class="sd">    straight-through gradient estimator.</span>
+
+<span class="sd">    ``DPURoundSteFn.apply(*args)`` is first aliased to :func:`dpu_round_ste_impl(*args)</span>
+<span class="sd">    &lt;brevitas.function.autograd_ste_ops.dpu_round_ste_impl&gt;` and then wrapped by</span>
+<span class="sd">    :func:`~brevitas.function.ops_ste.dpu_round_ste` when env ``BREVITAS_JIT=0``.</span>
+<span class="sd">    See :func:`~brevitas.function.ops_ste.dpu_round_ste` for details on the interface and</span>
+<span class="sd">    examples.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">dpu_round</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">y</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">backward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">grad_y</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">grad_y</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">symbolic</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+
+<div class="viewcode-block" id="CeilSteFn"><a class="viewcode-back" href="../../../api_reference/brevitas.function.html#brevitas.function.autograd_ste_ops.CeilSteFn">[docs]</a><span class="k">class</span> <span class="nc">CeilSteFn</span><span class="p">(</span><span class="n">Function</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; </span>
+<span class="sd">    Autograd function that implements :func:`torch.ceil` with a straight-through gradient estimator.</span>
+
+<span class="sd">    ``CeilSteFn.apply(*args)`` is first aliased to :func:`ceil_ste_impl(*args)</span>
+<span class="sd">    &lt;brevitas.function.autograd_ste_ops.ceil_ste_impl&gt;` and then wrapped by</span>
+<span class="sd">    :func:`~brevitas.function.ops_ste.ceil_ste` when env ``BREVITAS_JIT=0``.</span>
+<span class="sd">    See :func:`~brevitas.function.ops_ste.ceil_ste` for details on the interface and</span>
+<span class="sd">    examples.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">y</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">backward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">grad_y</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">grad_y</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">symbolic</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">op</span><span class="p">(</span><span class="s1">&#39;Ceil&#39;</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">y</span></div>
+
+
+<div class="viewcode-block" id="FloorSteFn"><a class="viewcode-back" href="../../../api_reference/brevitas.function.html#brevitas.function.autograd_ste_ops.FloorSteFn">[docs]</a><span class="k">class</span> <span class="nc">FloorSteFn</span><span class="p">(</span><span class="n">Function</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; </span>
+<span class="sd">    Autograd function that implements :func:`torch.floor` with a straight-through gradient estimator.</span>
+
+<span class="sd">    ``FloorSteFn.apply(*args)`` is first aliased to :func:`floor_ste_impl(*args)</span>
+<span class="sd">    &lt;brevitas.function.autograd_ste_ops.floor_ste_impl&gt;` and then wrapped by</span>
+<span class="sd">    :func:`~brevitas.function.ops_ste.floor_ste` when env ``BREVITAS_JIT=0``.</span>
+<span class="sd">    See :func:`~brevitas.function.ops_ste.floor_ste` for details on the interface and</span>
+<span class="sd">    examples.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">y</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">backward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">grad_y</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">grad_y</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">symbolic</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">op</span><span class="p">(</span><span class="s1">&#39;Floor&#39;</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">y</span></div>
+
+
+<div class="viewcode-block" id="BinarySignSteFn"><a class="viewcode-back" href="../../../api_reference/brevitas.function.html#brevitas.function.autograd_ste_ops.BinarySignSteFn">[docs]</a><span class="k">class</span> <span class="nc">BinarySignSteFn</span><span class="p">(</span><span class="n">Function</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; </span>
+<span class="sd">    Autograd function that implements :func:`~brevitas.function.ops.binary_sign` with a</span>
+<span class="sd">    straight-through gradient estimator.</span>
+
+<span class="sd">    ``BinarySignSteFn.apply(*args)`` is first aliased to </span>
+<span class="sd">    :func:`binary_sign_ste_impl(*args)&lt;brevitas.function.autograd_ste_ops.binary_sign_ste_impl&gt;` </span>
+<span class="sd">    and then wrapped by :func:`~brevitas.function.ops_ste.binary_sign_ste` when env ``BREVITAS_JIT=0``.</span>
+<span class="sd">    See :func:`~brevitas.function.ops_ste.binary_sign_ste` for details on the interface and</span>
+<span class="sd">    examples.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">binary_sign</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">y</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">backward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">grad_y</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">grad_y</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">symbolic</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
+        <span class="c1"># requires ONNX opset &gt;= 12</span>
+        <span class="n">positive_mask</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">op</span><span class="p">(</span><span class="s1">&#39;GreaterOrEqual&#39;</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">0.</span><span class="p">))</span>
+        <span class="n">negative_mask</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">op</span><span class="p">(</span><span class="s1">&#39;Less&#39;</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">0.</span><span class="p">))</span>
+        <span class="n">positive_mask</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">op</span><span class="p">(</span><span class="s1">&#39;Cast&#39;</span><span class="p">,</span> <span class="n">positive_mask</span><span class="p">,</span> <span class="n">to_i</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">onnx</span><span class="o">.</span><span class="n">TensorProtoDataType</span><span class="o">.</span><span class="n">FLOAT</span><span class="p">)</span>
+        <span class="n">negative_mask</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">op</span><span class="p">(</span><span class="s1">&#39;Cast&#39;</span><span class="p">,</span> <span class="n">negative_mask</span><span class="p">,</span> <span class="n">to_i</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">onnx</span><span class="o">.</span><span class="n">TensorProtoDataType</span><span class="o">.</span><span class="n">FLOAT</span><span class="p">)</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">op</span><span class="p">(</span><span class="s1">&#39;Sub&#39;</span><span class="p">,</span> <span class="n">positive_mask</span><span class="p">,</span> <span class="n">negative_mask</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">y</span></div>
+
+
+<div class="viewcode-block" id="TernarySignSteFn"><a class="viewcode-back" href="../../../api_reference/brevitas.function.html#brevitas.function.autograd_ste_ops.TernarySignSteFn">[docs]</a><span class="k">class</span> <span class="nc">TernarySignSteFn</span><span class="p">(</span><span class="n">Function</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; </span>
+<span class="sd">    Autograd function that implements :func:`torch.sign` with a straight-through gradient estimator.</span>
+
+<span class="sd">    ``TernarySignSteFn.apply(*args)`` is first aliased to :func:`ternary_sign_ste_impl(*args)</span>
+<span class="sd">    &lt;brevitas.function.autograd_ste_ops.ternary_sign_ste_impl&gt;` and then wrapped by</span>
+<span class="sd">    :func:`~brevitas.function.ops_ste.ternary_sign_ste` when env ``BREVITAS_JIT=0``.</span>
+<span class="sd">    See :func:`~brevitas.function.ops_ste.ternary_sign_ste` for details on the interface and</span>
+<span class="sd">    examples.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">y</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">backward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">grad_y</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">grad_y</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">symbolic</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">op</span><span class="p">(</span><span class="s1">&#39;Sign&#39;</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">y</span></div>
+
+
+<div class="viewcode-block" id="RoundSteFn"><a class="viewcode-back" href="../../../api_reference/brevitas.function.html#brevitas.function.autograd_ste_ops.RoundSteFn">[docs]</a><span class="k">class</span> <span class="nc">RoundSteFn</span><span class="p">(</span><span class="n">Function</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Autograd function that implements :func:`torch.round` with a straight-through gradient</span>
+<span class="sd">    estimator.</span>
+
+<span class="sd">    ``RoundSteFn.apply(*args)`` is first aliased to :func:`round_ste_impl(*args)</span>
+<span class="sd">    &lt;brevitas.function.autograd_ste_ops.round_ste_impl&gt;` and then wrapped by</span>
+<span class="sd">    :func:`~brevitas.function.ops_ste.round_ste` when env ``BREVITAS_JIT=0``.</span>
+<span class="sd">    See :func:`~brevitas.function.ops_ste.round_ste` for details on the interface and examples.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">y</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">backward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">grad_y</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">grad_y</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">symbolic</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
+        <span class="c1"># Requires ONNX opset &gt;= 11</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">op</span><span class="p">(</span><span class="s1">&#39;Round&#39;</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">y</span></div>
+
+
+<div class="viewcode-block" id="AbsBinarySignGradFn"><a class="viewcode-back" href="../../../api_reference/brevitas.function.html#brevitas.function.autograd_ste_ops.AbsBinarySignGradFn">[docs]</a><span class="k">class</span> <span class="nc">AbsBinarySignGradFn</span><span class="p">(</span><span class="n">Function</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Autograd function that implements :func:`torch.abs` with a binary-sign backward, in order to</span>
+<span class="sd">    have subgradient 1 in 0. Compare with :func:`torch.abs`&#39; subgradient of 0 in 0.</span>
+
+<span class="sd">    ``AbsBinarySignGradFn.apply(*args)`` is first aliased to :func:`abs_binary_sign_grad(*args)</span>
+<span class="sd">    &lt;brevitas.function.autograd_ste_ops.abs_binary_sign_grad_impl&gt;` and then wrapped by</span>
+<span class="sd">    :func:`~brevitas.function.ops_ste.abs_binary_sign_grad` when env ``BREVITAS_JIT=0``.</span>
+<span class="sd">    See :func:`~brevitas.function.ops_ste.abs_binary_sign_grad` for details on the interface and</span>
+<span class="sd">    examples.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="n">ctx</span><span class="o">.</span><span class="n">save_for_backward</span><span class="p">(</span><span class="n">binary_sign</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">type</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">int8</span><span class="p">))</span>  <span class="c1"># save some memory</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">y</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">backward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">grad_y</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="n">binary_sign</span><span class="p">,</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">saved_tensors</span>
+        <span class="k">return</span> <span class="n">binary_sign</span><span class="o">.</span><span class="n">float</span><span class="p">()</span> <span class="o">*</span> <span class="n">grad_y</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">symbolic</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">op</span><span class="p">(</span><span class="s1">&#39;Abs&#39;</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">y</span></div>
+
+
+<span class="c1">#: Alias for :class:`RoundSteFn.apply(*args)</span>
+<span class="c1">#: &lt;brevitas.function.autograd_ste_ops.RoundSteFn&gt;`</span>
+<span class="n">round_ste_impl</span> <span class="o">=</span> <span class="n">RoundSteFn</span><span class="o">.</span><span class="n">apply</span>
+
+<span class="c1">#: Alias for :class:`BinarySignSteFn.apply(*args)</span>
+<span class="c1">#: &lt;brevitas.function.autograd_ste_ops.BinarySignSteFn&gt;`</span>
+<span class="n">binary_sign_ste_impl</span> <span class="o">=</span> <span class="n">BinarySignSteFn</span><span class="o">.</span><span class="n">apply</span>
+
+<span class="c1">#: Alias for :class:`TernarySignSteFn.apply(*args)</span>
+<span class="c1">#: &lt;brevitas.function.autograd_ste_ops.TernarySignSteFn&gt;`</span>
+<span class="n">ternary_sign_ste_impl</span> <span class="o">=</span> <span class="n">TernarySignSteFn</span><span class="o">.</span><span class="n">apply</span>
+
+<span class="c1">#: Alias for :class:`FloorSteFn.apply(*args)</span>
+<span class="c1">#: &lt;brevitas.function.autograd_ste_ops.FloorSteFn&gt;`</span>
+<span class="n">floor_ste_impl</span> <span class="o">=</span> <span class="n">FloorSteFn</span><span class="o">.</span><span class="n">apply</span>
+
+<span class="c1">#: Alias for :class:`CeilSteFn.apply(*args)</span>
+<span class="c1">#: &lt;brevitas.function.autograd_ste_ops.CeilSteFn&gt;`</span>
+<span class="n">ceil_ste_impl</span> <span class="o">=</span> <span class="n">CeilSteFn</span><span class="o">.</span><span class="n">apply</span>
+
+<span class="c1">#: Alias for :class:`RoundToZeroSteFn.apply(*args)</span>
+<span class="c1">#: &lt;brevitas.function.autograd_ste_ops.RoundToZeroSteFn&gt;`</span>
+<span class="n">round_to_zero_ste_impl</span> <span class="o">=</span> <span class="n">RoundToZeroSteFn</span><span class="o">.</span><span class="n">apply</span>
+
+<span class="c1">#: Alias for :class:`DPURoundSteFn.apply(*args)</span>
+<span class="c1">#: &lt;brevitas.function.autograd_ste_ops.DPURoundSteFn&gt;`</span>
+<span class="n">dpu_round_ste_impl</span> <span class="o">=</span> <span class="n">DPURoundSteFn</span><span class="o">.</span><span class="n">apply</span>
+
+<span class="c1">#: Alias for :class:`ScalarClampMinSteFn.apply(*args)</span>
+<span class="c1">#: &lt;brevitas.function.autograd_ste_ops.ScalarClampMinSteFn&gt;`</span>
+<span class="n">scalar_clamp_min_ste_impl</span> <span class="o">=</span> <span class="n">ScalarClampMinSteFn</span><span class="o">.</span><span class="n">apply</span>
+
+<span class="c1">#: Alias for :class:`ScalarClampSteFn.apply(*args)</span>
+<span class="c1">#: &lt;brevitas.function.autograd_ste_ops.ScalarClampSteFn&gt;`</span>
+<span class="n">scalar_clamp_ste_impl</span> <span class="o">=</span> <span class="n">ScalarClampSteFn</span><span class="o">.</span><span class="n">apply</span>
+
+<span class="c1">#: Alias for :class:`TensorClampSteFn.apply(*args)</span>
+<span class="c1">#: &lt;brevitas.function.autograd_ste_ops.TensorClampSteFn&gt;`</span>
+<span class="n">tensor_clamp_ste_impl</span> <span class="o">=</span> <span class="n">TensorClampSteFn</span><span class="o">.</span><span class="n">apply</span>
+
+<span class="c1">#: Alias for :class:`InplaceTensorClampSteFn.apply(*args)</span>
+<span class="c1">#: &lt;brevitas.function.autograd_ste_ops.InplaceTensorClampSteFn&gt;`</span>
+<span class="n">tensor_clamp_ste_impl_</span> <span class="o">=</span> <span class="n">InplaceTensorClampSteFn</span><span class="o">.</span><span class="n">apply</span>
+
+<span class="c1">#: Alias for :class:`AbsBinarySignGradFn.apply(*args)</span>
+<span class="c1">#: &lt;brevitas.function.autograd_ste_ops.AbsBinarySignGradFn&gt;`</span>
+<span class="n">abs_binary_sign_grad_impl</span> <span class="o">=</span> <span class="n">AbsBinarySignGradFn</span><span class="o">.</span><span class="n">apply</span>
+</pre></div>
+
+              </div>
+              
+              
+              <div class='prev-next-bottom'>
+                
+
+              </div>
+              
+          </main>
+          
+
+      </div>
+    </div>
+  
+  <script src="../../../_static/js/index.1c5a1a01449ed65a7b51.js"></script>
+
+  <footer class="footer mt-5 mt-md-0">
+  <div class="container">
+    
+    <div class="footer-item">
+      <p class="copyright">
+    &copy; Copyright 2021 - Xilinx, Inc.<br/>
+</p>
+    </div>
+    
+    <div class="footer-item">
+      <p class="sphinx-version">
+Created using <a href="http://sphinx-doc.org/">Sphinx</a> 4.1.2.<br/>
+</p>
+    </div>
+    
+  </div>
+</footer>
+  </body>
+</html>
