@@ -1,14 +1,16 @@
+=============
+Brevitas Docs
+=============
+
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+   :maxdepth: 1
 
+   Setup <setup>
 
-.. mdinclude:: ../../README.md
+   User Guide <user_guide/index>
 
+   API reference <api_reference/index>
 
-Indices and tables
-==================
+   FAQ <faq>
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+   About <about>
