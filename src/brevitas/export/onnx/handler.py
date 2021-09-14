@@ -106,15 +106,3 @@ class ONNXBaseHandler(BaseHandler, ABC):
         if self.export_debug_name is not None and self.debug_output:
             out = debug_fn(out, '.output')
         return out
-
-
-class NoOpHandler(ONNXBaseHandler):
-
-    def prepare_for_export(self, module):
-        pass
-
-    def symbolic_execution(self, *args, **kwargs):
-        pass
-
-    def forward(self, inp: Tensor, **kwargs):
-        return inp
