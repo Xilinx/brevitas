@@ -61,7 +61,7 @@ class FlexMLQuantLeakyReLU(nn.Module):
             self,
             negative_slope,
             alpha_quant=qnn.QuantIdentity(Uint8ActPerTensorFixedPoint, bit_width=16),
-            input_quant=qnn.QuantIdentity(Int8ActPerTensorFixedPoint, bit_width=16),
+            input_quant=qnn.QuantIdentity(Int8ActPerTensorFixedPoint, bit_width=16, scaling_stats_momentum = None),
             output_quant=qnn.QuantIdentity(Int8ActPerTensorFixedPoint, return_quant_tensor=True)):
         super(FlexMLQuantLeakyReLU, self).__init__()
         self.alpha_quant = alpha_quant
