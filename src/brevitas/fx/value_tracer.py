@@ -442,8 +442,7 @@ class ValueTracer(Tracer):
             for module in self._autowrap_search:
                 _autowrap_check(patcher, module.__dict__, self._autowrap_function_ids)
 
-            self.create_node('output', 'output', (self.create_arg(fn(*args)),), {},
-                             type_expr=fn.__annotations__.get('return', None))
+            self.create_node('output', 'output', (self.create_arg(fn(*args)),), {})
 
         return self.graph
 
