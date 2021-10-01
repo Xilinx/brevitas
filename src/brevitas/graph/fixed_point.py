@@ -161,7 +161,7 @@ class CollapseConsecutiveConcats(UntilFixedPointGraphTransform):
                         kwargs = dict(node.kwargs)
                         kwargs['tensors'] = node.args[0]
                         node.kwargs = immutable_dict(kwargs)
-                        node.args = node.args[0:]
+                        node.args = node.args[1:]
 
     def apply(self, graph_model: GraphModule) -> GraphModule:
         self.move_args_to_kwargs(graph_model)
