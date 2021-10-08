@@ -45,15 +45,18 @@ class MoveSplitBatchNormBeforeCat(UntilFixedPointGraphTransform):
         for cat_node in graph_model.graph.nodes:
             if (cat_node.target is torch.cat
                     and len(cat_node.users) == 1
+                    and cat_node.kwargs['dim'] == 1
                     and list(cat_node.users)[0].op == 'call_module'):
                 bn_node = list(cat_node.users)[0]
                 module = get_module(graph_model, bn_node.target)
                 if isinstance(module, (nn.BatchNorm1d, nn.BatchNorm2d)):
                     inp_nodes = cat_node.all_input_nodes
-                    if all([inp_node.op == 'call_module' for inp_node in inp_nodes]):
+                    if all([inp_node.op == 'call_module' 
+                        and len(inp_node.users) == 1 for inp_node in inp_nodes]):
                         before_mods = [
                             get_module(graph_model, inp_node.target) for inp_node in inp_nodes]
                         if all(isinstance(mod, self.before_modules_types) for mod in before_mods):
+                            assert inp_nodes == cat_node.kwargs['tensors']
                             num_features_list = [get_output_channels(mod) for mod in before_mods]
                             chunk_bn_list = [type(module)(n) for n in num_features_list]
                             for i, chunk_bn in enumerate(chunk_bn_list):
@@ -70,12 +73,12 @@ class MoveSplitBatchNormBeforeCat(UntilFixedPointGraphTransform):
                                     chunk_bn_node = graph_model.graph.call_module(
                                         chunk_bn_name, args=(inp_node,))
                                 replace_all_uses_except(inp_node, chunk_bn_node, [chunk_bn_node])
-                                bn_node.replace_all_uses_with(cat_node)
-                                graph_model.graph.erase_node(bn_node)
-                                del_module(graph_model, bn_node.target)
-                                graph_model.graph.lint()
-                                graph_model.recompile()
-                                return False
+                            bn_node.replace_all_uses_with(cat_node)
+                            graph_model.graph.erase_node(bn_node)
+                            del_module(graph_model, bn_node.target)
+                            graph_model.graph.lint()
+                            graph_model.recompile()
+                            return False
         return True
 
 
