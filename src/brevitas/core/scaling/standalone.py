@@ -189,13 +189,13 @@ class ParameterScaling(brevitas.jit.ScriptModule):
 
 
 @torch.jit.ignore
-def _inplace_init_value(value: Tensor, stats: Tensor) -> Tensor:
+def _inplace_init(value: Tensor, stats: Tensor) -> Tensor:
     value.mul_(stats)
     return value
 
 
 @torch.jit.ignore
-def _inplace_update_value(value: Tensor, stats: Tensor, momentum: Optional[float], counter: int, new_counter: int) -> Tensor:
+def _inplace_update(value: Tensor, stats: Tensor, momentum: Optional[float], counter: int, new_counter: int) -> Tensor:
     if momentum is None:
         value.mul_(counter / new_counter)
         value.add_(stats / new_counter)
@@ -268,6 +268,7 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
         self.stats_input_view_shape_impl = scaling_stats_input_view_shape_impl
         self.stats = _Stats(scaling_stats_impl, scaling_shape)
         self.momentum = scaling_stats_momentum
+        self.register_buffer('buffer', torch.full(scaling_shape, 1.0))
         self.value = Parameter(torch.full(scaling_shape, 1.0))
         self.restrict_clamp_scaling = _RestrictClampValue(scaling_min_val, restrict_scaling_impl)
         if restrict_scaling_impl is not None:
@@ -284,13 +285,14 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             stats = self.stats(stats_input)
             new_counter = self.counter + 1
             if self.counter == 0:
-                _inplace_init_value(self.value.detach(), stats.detach())
+                _inplace_init(self.buffer, stats.detach())
             else:
-                _inplace_update_value(self.value.detach(), stats.detach(), self.momentum, self.counter, new_counter)
+                _inplace_update(self.buffer, stats.detach(), self.momentum, self.counter, new_counter)
             self.counter = new_counter
             return stats
         elif self.counter == self.collect_stats_steps:
-            self.restrict_inplace_preprocess(self.value.detach())
+            self.restrict_inplace_preprocess(self.buffer)
+            _inplace_init(self.value.detach(), self.buffer)
             self.counter = self.counter + 1
             return abs_binary_sign_grad(self.restrict_clamp_scaling(self.value))
         else:
@@ -301,20 +303,25 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
         if self.training:
             return self.training_forward(stats_input)
         else:
-            out = self.value
             if self.counter <= self.collect_stats_steps:
+                out = self.buffer
                 out = self.restrict_preprocess(out)
+            else:
+                out = self.value
             out = abs_binary_sign_grad(self.restrict_clamp_scaling(out))
         return out
 
     def state_dict(self, destination=None, prefix='', keep_vars=False):
         output_dict = super(ParameterFromRuntimeStatsScaling, self).state_dict(
-            destination, prefix, keep_vars)
-        # Avoid saving the default init value
+            destination, prefix, keep_vars)        
+        # Avoid saving the buffer
+        del output_dict[prefix + 'buffer']
+        # Avoid saving the init value
         if self.counter == 0:
             del output_dict[prefix + 'value']
-        elif self.counter < self.collect_stats_steps:
-            output_dict[prefix + 'value'] = self.restrict_preprocess(self.value)
+        # Save buffer into value for any non-zero number of collection steps
+        elif self.counter <= self.collect_stats_steps:
+            output_dict[prefix + 'value'] = self.restrict_preprocess(self.buffer)
         return output_dict
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
@@ -322,6 +329,8 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
         super(ParameterFromRuntimeStatsScaling, self)._load_from_state_dict(
             state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
         value_key = prefix + 'value'
+        # Buffer is supposed to be always missing
+        missing_keys.remove(prefix + 'buffer')
         # Retrocompatibility with older ParameterScaling, for when scaling impl is switched over
         retrocomp_value_key = prefix + 'learned_value'
         if retrocomp_value_key in state_dict:
