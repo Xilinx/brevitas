@@ -79,6 +79,7 @@ class FloatToIntImplType(AutoName):
     CEIL = auto()
     FLOOR = auto()
     ROUND_TO_ZERO = auto()
+    DPU = auto()
 
 
 class ScalingImplType(AutoName):
