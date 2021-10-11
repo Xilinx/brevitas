@@ -1,19 +1,24 @@
 from torch.autograd import Function
 
+from . import DOMAIN_STRING
 
-class QuantHardTanhPlaceholderFunction(Function):
+
+class QuantHardTanhFn(Function):
 
     @staticmethod
     def symbolic(g, input, qnt_type, thres, bias, scale):
         if qnt_type == "BIPOLAR":
             return g.op(
                 'MultiThreshold', input, thres,
-                domain_s="finn.custom_op.general",
+                domain_s=DOMAIN_STRING,
                 out_dtype_s=qnt_type,
                 out_scale_f=2.0,
                 out_bias_f=-1.0)
         else:
-            ret = g.op('MultiThreshold', input, thres, domain_s="finn.custom_op.general", out_dtype_s=qnt_type)
+            ret = g.op(
+                'MultiThreshold', input, thres,
+                domain_s=DOMAIN_STRING,
+                out_dtype_s=qnt_type)
             if bias is not None:
                 ret = g.op('Add', ret, bias)
             if scale is not None:
@@ -25,7 +30,7 @@ class QuantHardTanhPlaceholderFunction(Function):
         return input.clamp(0)
 
 
-class QuantReLUPlaceholderFunction(Function):
+class QuantReLUFn(Function):
 
     @staticmethod
     def symbolic(g, input, qnt_type, thres, bias, scale):

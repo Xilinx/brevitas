@@ -2,7 +2,7 @@ import copy
 
 from torch.nn import Module
 
-from ..base import onnx
+from ..manager import onnx
 
 
 def move_quant_attributes_into_annotations(model: Module):

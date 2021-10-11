@@ -37,7 +37,7 @@ def test_generic_quant_linear_export():
     model(inp)  # collect scale factors
     model.eval()
     BrevitasONNXManager.export(
-        model, input_t=inp, export_path='./generic_quant_linear.onnx')
+        model, input_t=inp, export_path='generic_quant_linear.onnx')
 
 
 def test_generic_decoupled_quant_linear_export():
@@ -66,7 +66,7 @@ def test_generic_decoupled_quant_linear_export():
     model(inp)  # collect scale factors
     model.eval()
     BrevitasONNXManager.export(
-        model, input_t=inp, export_path='./generic_decoupled_quant_linear.onnx')
+        model, input_t=inp, export_path='generic_decoupled_quant_linear.onnx')
 
 
 def test_generic_quant_conv_export():
@@ -95,7 +95,7 @@ def test_generic_quant_conv_export():
     model(inp)  # collect scale factors
     model.eval()
     BrevitasONNXManager.export(
-        model, input_t=inp, export_path='./generic_quant_conv.onnx')
+        model, input_t=inp, export_path='generic_quant_conv.onnx')
 
 
 def test_generic_quant_tensor_export():
@@ -123,7 +123,7 @@ def test_generic_quant_tensor_export():
     model(inp)  # collect scale factors
     model.eval()
     BrevitasONNXManager.export(
-        model, input_t=inp, export_path='./generic_quant_tensor.onnx')
+        model, input_t=inp, export_path='generic_quant_tensor.onnx')
 
 
 def test_generic_quant_avgpool_export():
@@ -134,7 +134,7 @@ def test_generic_quant_avgpool_export():
         def __init__(self):
             super().__init__()
             self.inp_quant = QuantIdentity(return_quant_tensor=True)
-            self.pool = QuantAvgPool2d(kernel_size=2)
+            self.pool = QuantAvgPool2d(kernel_size=2, return_quant_tensor=False)
 
         def forward(self, x):
             return self.pool(self.inp_quant(x))
@@ -145,4 +145,16 @@ def test_generic_quant_avgpool_export():
     model(inp)  # collect scale factors
     model.eval()
     BrevitasONNXManager.export(
-         model, input_t=inp, export_path='./generic_quant_avgpool.onnx')
+        model, input_t=inp, export_path='generic_quant_avgpool.onnx')
+
+
+def test_generic_quant_avgpool_export_quant_input():
+    IN_SIZE = (2, OUT_CH, IN_CH, IN_CH)
+    inp = torch.randn(IN_SIZE)
+    inp_quant = QuantIdentity(return_quant_tensor=True)
+    model = QuantAvgPool2d(kernel_size=2, return_quant_tensor=False)
+    inp_quant(inp)  # collect scale factors
+    inp_quant.eval()
+    model.eval()
+    BrevitasONNXManager.export(
+        model, input_t=inp_quant(inp), export_path='generic_quant_avgpool_quant_input.onnx')

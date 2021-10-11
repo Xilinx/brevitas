@@ -7,10 +7,10 @@ from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIO
 from brevitas.nn.quant_layer import QuantNonLinearActLayer as QuantNLAL
 from brevitas.nn import QuantIdentity, QuantReLU
 from brevitas.nn import QuantConvTranspose2d, QuantConv2d, QuantLinear
-from brevitas.export.onnx.handler import Kernel2dApplHandler
-from ..handler import DPUQuantWeightBiasHandler, DPUQuantLayerHandler
-from .function import XIRFixPlaceholderFunction, XIRGemmPlaceholderFunction
-from .function import XIRConv2dPlaceholderFunction, XIRConvTranpose2dPlaceholderFunction
+from brevitas.export.onnx.handler import Kernel2dApplHandlerMixin
+from ..handler import DPUQuantWBIOLHandler, DPUQuantLayerHandler
+from .function import XIRFixFn, XIRGemmFn
+from .function import XIRConv2dFn, XIRConvTranpose2dFn
 
 
 class XIRQuantActHandler(DPUQuantLayerHandler, ABC):
@@ -48,7 +48,7 @@ class XIRQuantActHandler(DPUQuantLayerHandler, ABC):
         if self.act_impl is not None:
             x = self.act_impl(x, *act_kwargs.values())
         if act_quant_kwargs is not None:
-            x = XIRFixPlaceholderFunction.apply(x, *act_quant_kwargs.values())
+            x = XIRFixFn.apply(x, *act_quant_kwargs.values())
         return x
 
 
@@ -74,7 +74,7 @@ class XIRQuantIdentityHandler(XIRQuantActHandler):
         return {}
 
 
-class XIRQuantWBIOLHandler(DPUQuantLayerHandler, DPUQuantWeightBiasHandler, ABC):
+class XIRQuantWBIOLHandler(DPUQuantWBIOLHandler, ABC):
 
     @property
     @abstractmethod
@@ -159,23 +159,23 @@ class XIRQuantWBIOLHandler(DPUQuantLayerHandler, DPUQuantWeightBiasHandler, ABC)
         output_quant_kwargs = self.symbolic_kwargs['output_quant']
         op_kwargs = self.symbolic_kwargs['op']
         if input_quant_kwargs is not None:
-           x = XIRFixPlaceholderFunction.apply(x, *input_quant_kwargs.values())
+           x = XIRFixFn.apply(x, *input_quant_kwargs.values())
         if weight_quant_kwargs is not None:
-            weight = XIRFixPlaceholderFunction.apply(weight, *weight_quant_kwargs.values())
+            weight = XIRFixFn.apply(weight, *weight_quant_kwargs.values())
         if bias is not None and bias_quant_kwargs is not None:
-            bias = XIRFixPlaceholderFunction.apply(bias, *bias_quant_kwargs.values())
+            bias = XIRFixFn.apply(bias, *bias_quant_kwargs.values())
         out = self.op_impl(x, weight, bias, *op_kwargs.values())
         if output_quant_kwargs is not None:
-            out = XIRFixPlaceholderFunction.apply(out, *output_quant_kwargs.values())
+            out = XIRFixFn.apply(out, *output_quant_kwargs.values())
         return out
 
 
-class XIRQuantConv2dHandler(XIRQuantWBIOLHandler, Kernel2dApplHandler):
+class XIRQuantConv2dHandler(XIRQuantWBIOLHandler, Kernel2dApplHandlerMixin):
     handled_layer = QuantConv2d
 
     @property
     def op_impl(self):
-        return XIRConv2dPlaceholderFunction.apply
+        return XIRConv2dFn.apply
 
     @classmethod
     def op_symbolic_kwargs(cls, module: QuantConv2d):
@@ -195,7 +195,7 @@ class XIRQuantConvTranspose2dHandler(XIRQuantWBIOLHandler):
 
     @property
     def op_impl(self):
-        return XIRConvTranpose2dPlaceholderFunction.apply
+        return XIRConvTranpose2dFn.apply
 
     @classmethod
     def op_symbolic_kwargs(cls, module: QuantConvTranspose2d):
@@ -214,7 +214,7 @@ class XIRQuantLinearHandler(XIRQuantWBIOLHandler):
 
     @property
     def op_impl(self):
-        return XIRGemmPlaceholderFunction.apply
+        return XIRGemmFn.apply
 
     @classmethod
     def op_symbolic_kwargs(cls, module: QuantLinear):

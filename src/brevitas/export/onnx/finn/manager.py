@@ -5,8 +5,8 @@ from torch import Tensor
 from torch.nn import Module, Sequential
 from torch.autograd import Function
 
-from brevitas.export.onnx.base import ONNXBaseManager, onnx
-from brevitas.export.base import _set_layer_export_handler, _set_layer_export_mode
+from brevitas.export.onnx.manager import ONNXBaseManager, onnx
+from brevitas.export.manager import _set_layer_export_handler, _set_layer_export_mode
 from brevitas.quant_tensor import QuantTensor
 
 from ..transform import move_domain_attributes_into_domain

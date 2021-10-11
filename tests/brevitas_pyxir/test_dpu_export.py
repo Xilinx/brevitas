@@ -8,7 +8,7 @@ import numpy as np
 from brevitas.nn import QuantConv2d, QuantLinear, QuantReLU, QuantMaxPool2d, QuantEltwiseAdd
 from brevitas.quant.fixed_point import Int8WeightPerTensorFixedPoint
 from brevitas.quant.fixed_point import Int8ActPerTensorFixedPoint, Int8BiasPerTensorFixedPointInternalScaling
-from brevitas.export import DPUv1Manager, DPUv2Manager
+from brevitas.export import PyXIRManager
 
 from tests.marker import requires_pt_ge
 
@@ -16,16 +16,13 @@ from tests.marker import requires_pt_ge
 OUT_CH = 40
 IN_CH = 50
 TOLERANCE = 1.1
-DPUS = ['DPUv1', 'DPUv2']
-MANAGERS_MAP = {'DPUv1': DPUv1Manager, 'DPUv2': DPUv2Manager}
 
 
 def gen_linspaced_data(num_samples, min_val=-1.0, max_val=1.0):
     return np.linspace(min_val, max_val, num_samples).astype(dtype=np.float32)
 
 
-@pytest.mark.parametrize('dpu', DPUS)
-def test_dpu_export_onnx_quant_conv(dpu):
+def test_dpu_export_onnx_quant_conv():
     FEATURES = 7
     IN_SIZE = (1, IN_CH, FEATURES, FEATURES)
     KERNEL_SIZE = 3
@@ -52,11 +49,10 @@ def test_dpu_export_onnx_quant_conv(dpu):
     model = Model()
     model(torch.from_numpy(inp))  # accumulate scale factors
     model.eval()
-    MANAGERS_MAP[dpu].export(model, input_shape=IN_SIZE, export_path=f'{dpu}_conv.onnx')
+    PyXIRManager.export(model, input_shape=IN_SIZE)
 
 
-@pytest.mark.parametrize('dpu', DPUS)
-def test_dpu_export_onnx_quant_linear(dpu):
+def test_dpu_export_onnx_quant_linear():
     IN_SIZE = (IN_CH, IN_CH)
 
     class Model(torch.nn.Module):
@@ -80,11 +76,10 @@ def test_dpu_export_onnx_quant_linear(dpu):
     model = Model()
     model(torch.from_numpy(inp))  # accumulate scale factors
     model.eval()
-    MANAGERS_MAP[dpu].export(model, input_shape=IN_SIZE, export_path=f'{dpu}_linear.onnx')
+    PyXIRManager.export(model, input_shape=IN_SIZE)
 
 
-@pytest.mark.parametrize('dpu', DPUS)
-def test_dpu_export_onnx_quant_conv_bias(dpu):
+def test_dpu_export_onnx_quant_conv_bias():
     FEATURES = 7
     IN_SIZE = (1, IN_CH, FEATURES, FEATURES)
     KERNEL_SIZE = 3
@@ -112,11 +107,10 @@ def test_dpu_export_onnx_quant_conv_bias(dpu):
     model = Model()
     model(torch.from_numpy(inp))  # accumulate scale factors
     model.eval()
-    MANAGERS_MAP[dpu].export(model, input_shape=IN_SIZE, export_path=f'{dpu}_conv_bias.onnx')
+    PyXIRManager.export(model, input_shape=IN_SIZE)
 
 
-@pytest.mark.parametrize('dpu', DPUS)
-def test_standard_onnx_quant_linear_bias_export(dpu):
+def test_standard_onnx_quant_linear_bias_export():
     IN_SIZE = (IN_CH, IN_CH)
 
     class Model(torch.nn.Module):
@@ -141,11 +135,10 @@ def test_standard_onnx_quant_linear_bias_export(dpu):
     model = Model()
     model(torch.from_numpy(inp))  # accumulate scale factors
     model.eval()
-    MANAGERS_MAP[dpu].export(model, input_shape=IN_SIZE, export_path=f'{dpu}_linear_bias.onnx')
+    PyXIRManager.export(model, input_shape=IN_SIZE)
 
 
-@pytest.mark.parametrize('dpu', DPUS)
-def test_dpu_export_onnx_quant_conv_max_pool(dpu):
+def test_dpu_export_onnx_quant_conv_max_pool():
     FEATURES = 7
     IN_SIZE = (1, IN_CH, FEATURES, FEATURES)
     KERNEL_SIZE = 3
@@ -173,12 +166,11 @@ def test_dpu_export_onnx_quant_conv_max_pool(dpu):
     model = Model()
     model(torch.from_numpy(inp))  # accumulate scale factors
     model.eval()
-    MANAGERS_MAP[dpu].export(model, input_shape=IN_SIZE, export_path=f'{dpu}_conv_maxpool.onnx')
+    PyXIRManager.export(model, input_shape=IN_SIZE)
 
 
 @requires_pt_ge('1.5.0')
-@pytest.mark.parametrize('dpu', DPUS)
-def test_dpu_export_onnx_quant_conv_f_max_pool(dpu):
+def test_dpu_export_onnx_quant_conv_f_max_pool():
     FEATURES = 7
     IN_SIZE = (1, IN_CH, FEATURES, FEATURES)
     KERNEL_SIZE = 3
@@ -205,11 +197,10 @@ def test_dpu_export_onnx_quant_conv_f_max_pool(dpu):
     model = Model()
     model(torch.from_numpy(inp))  # accumulate scale factors
     model.eval()
-    MANAGERS_MAP[dpu].export(model, input_shape=IN_SIZE, export_path=f'{dpu}_conv_f_maxpool.onnx')
+    PyXIRManager.export(model, input_shape=IN_SIZE)
 
 
-@pytest.mark.parametrize('dpu', DPUS)
-def test_dpu_export_onnx_quant_conv_relu(dpu):
+def test_dpu_export_onnx_quant_conv_relu():
     FEATURES = 7
     IN_SIZE = (1, IN_CH, FEATURES, FEATURES)
     KERNEL_SIZE = 3
@@ -237,12 +228,11 @@ def test_dpu_export_onnx_quant_conv_relu(dpu):
     model = Model()
     model(torch.from_numpy(inp))  # accumulate scale factors
     model.eval()
-    MANAGERS_MAP[dpu].export(model, input_shape=IN_SIZE, export_path=f'{dpu}_conv_relu.onnx')
+    PyXIRManager.export(model, input_shape=IN_SIZE)
 
 
 @requires_pt_ge('1.5.0')
-@pytest.mark.parametrize('dpu', DPUS)
-def test_dpu_export_onnx_quant_conv_f_relu(dpu):
+def test_dpu_export_onnx_quant_conv_f_relu():
     FEATURES = 7
     IN_SIZE = (1, IN_CH, FEATURES, FEATURES)
     KERNEL_SIZE = 3
@@ -269,11 +259,10 @@ def test_dpu_export_onnx_quant_conv_f_relu(dpu):
     model = Model()
     model(torch.from_numpy(inp))  # accumulate scale factors
     model.eval()
-    MANAGERS_MAP[dpu].export(model, input_shape=IN_SIZE, export_path=f'{dpu}_conv_f_relu.onnx')
+    PyXIRManager.export(model, input_shape=IN_SIZE)
 
 
-@pytest.mark.parametrize('dpu', DPUS)
-def test_dpu_export_onnx_quant_conv_add(dpu):
+def test_dpu_export_onnx_quant_conv_add():
     FEATURES = 7
     IN_SIZE = (1, IN_CH, FEATURES, FEATURES)
     KERNEL_SIZE = 3
@@ -311,4 +300,4 @@ def test_dpu_export_onnx_quant_conv_add(dpu):
     model = Model()
     model(torch.from_numpy(inp))  # accumulate scale factors
     model.eval()
-    MANAGERS_MAP[dpu].export(model, input_shape=IN_SIZE, export_path=f'{dpu}_conv_add.onnx')
+    PyXIRManager.export(model, input_shape=IN_SIZE)

@@ -4,7 +4,7 @@ from packaging import version
 import torch
 from torchvision import models
 
-from brevitas.export import export_dpuv2_onnx
+from brevitas.export import export_pyxir_onnx
 from brevitas.graph.quantizer import quantize, BatchNormHandling
 from brevitas.quant.fixed_point import *
 from brevitas import config
@@ -36,4 +36,4 @@ def test_rewriter_export(model_name: str):
         bias_quant=Int8BiasPerTensorFixedPointInternalScaling,
         bn_handling=BatchNormHandling.MERGE_AND_QUANTIZE)
     out_file = f'{model_name}.onnx'
-    export_dpuv2_onnx(gen_model, input_t=input, export_path=out_file)
+    export_pyxir_onnx(gen_model, input_t=input, export_path=out_file)

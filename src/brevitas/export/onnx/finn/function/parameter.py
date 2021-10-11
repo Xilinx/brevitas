@@ -2,7 +2,7 @@ import torch
 from torch.autograd import Function
 
 
-class QuantizedLinearPlaceholderFunction(Function):
+class QuantizedLinearFn(Function):
 
     @staticmethod
     def symbolic(g, x, Wt, w_qnt_scale, b_qnt_scale, w_qnt_type, b_qnt_type, out_shape, bias):
@@ -23,11 +23,13 @@ class QuantizedLinearPlaceholderFunction(Function):
     def forward(ctx, x, Wt, w_qnt_scale, b_qnt_scale, w_qnt_type, b_qnt_type, out_shape, bias):
         return torch.empty(out_shape, dtype=torch.float, device=x.device)
 
-class QuantizedConvNdPlaceholderFunction(Function):
+
+class QuantizedConvNdFn(Function):
 
     @staticmethod
     def symbolic(
-            g, x, W, w_qnt_scale, b_qnt_scale, w_qnt_type, b_qnt_type, out_shape, pads, strides, bias, kernel_shape, groups, dilations):
+            g, x, W, w_qnt_scale, b_qnt_scale, w_qnt_type, b_qnt_type, out_shape, pads, strides,
+            bias, kernel_shape, groups, dilations):
         ret = g.op(
             'Conv', x, W,
             weight_qnt_s=w_qnt_type,
@@ -50,5 +52,6 @@ class QuantizedConvNdPlaceholderFunction(Function):
 
     @staticmethod
     def forward(
-            ctx, x, W, w_qnt_scale, b_qnt_scale, w_qnt_type, b_qnt_type, out_shape, pads, strides, bias, kernel_shape, groups, dilations):
+            ctx, x, W, w_qnt_scale, b_qnt_scale, w_qnt_type, b_qnt_type, out_shape, pads, strides,
+            bias, kernel_shape, groups, dilations):
         return torch.empty(out_shape, dtype=torch.float, device=x.device)

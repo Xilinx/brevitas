@@ -1,16 +1,15 @@
-from typing import Union
-from abc import ABC, abstractmethod
+from abc import ABC
 
 import torch
 from torch import Tensor
 
 from brevitas.nn import QuantReLU, QuantIdentity, QuantHardTanh, QuantTanh, QuantSigmoid
 from brevitas.nn.quant_layer import QuantNonLinearActLayer as QuantNLAL
-from ..function import QuantizeLinearFunction, DequantizeLinearFunction
-from .base import StdONNXQuantLayerHandler
+from brevitas.export.onnx.standard.function import QuantizeLinearFn, DequantizeLinearFn
+from .base import StdQOpONNXQuantLayerHandler
 
 
-class StdONNXQuantNLALHandler(StdONNXQuantLayerHandler, ABC):
+class StdQOpONNXQuantNLALHandler(StdQOpONNXQuantLayerHandler, ABC):
 
     @classmethod
     def validate(cls, module: QuantNLAL):
@@ -34,7 +33,7 @@ class StdONNXQuantNLALHandler(StdONNXQuantLayerHandler, ABC):
             input_redequant_symbolic_kwargs = {
                 'input_scale': input_quant_symbolic_kwargs['output_scale'],
                 'input_zero_point': input_quant_symbolic_kwargs['output_zero_point'],
-                'axis': input_quant_symbolic_kwargs['axis']}
+                'input_axis': input_quant_symbolic_kwargs['input_axis']}
         else:
             input_redequant_symbolic_kwargs = None
 
@@ -50,43 +49,43 @@ class StdONNXQuantNLALHandler(StdONNXQuantLayerHandler, ABC):
         input_dequant_symbolic_kwargs = self.symbolic_kwargs['input_dequant_symbolic_kwargs']
         input_redequant_symbolic_kwargs = self.symbolic_kwargs['input_redequant_symbolic_kwargs']
         if input_dequant_symbolic_kwargs is not None:
-            inp = DequantizeLinearFunction.apply(inp, *input_dequant_symbolic_kwargs.values())
+            inp = DequantizeLinearFn.apply(inp, *input_dequant_symbolic_kwargs.values())
         if input_quant_symbolic_kwargs is not None:
-            inp = QuantizeLinearFunction.apply(inp, *input_quant_symbolic_kwargs.values())
-            inp = DequantizeLinearFunction.apply(inp, *input_redequant_symbolic_kwargs.values())
+            inp = QuantizeLinearFn.apply(inp, *input_quant_symbolic_kwargs.values())
+            inp = DequantizeLinearFn.apply(inp, *input_redequant_symbolic_kwargs.values())
         return inp
 
     def output_symbolic_execution(self, out: Tensor):
         output_quant_symbolic_kwargs = self.symbolic_kwargs['output_quant_symbolic_kwargs']
         output_dequant_symbolic_kwargs = self.symbolic_kwargs['output_dequant_symbolic_kwargs']
-        out = QuantizeLinearFunction.apply(out, *output_quant_symbolic_kwargs.values())
+        out = QuantizeLinearFn.apply(out, *output_quant_symbolic_kwargs.values())
         if output_dequant_symbolic_kwargs is not None:
-            out = DequantizeLinearFunction.apply(out, *output_dequant_symbolic_kwargs.values())
+            out = DequantizeLinearFn.apply(out, *output_dequant_symbolic_kwargs.values())
         return out
 
 
-class StdONNXQuantReLUHandler(StdONNXQuantNLALHandler):
+class StdQOpONNXQuantReLUHandler(StdQOpONNXQuantNLALHandler):
     handled_layer = QuantReLU
 
     def op_symbolic_execution(self, inp: Tensor):
         return torch.relu(inp)
 
 
-class StdONNXQuantTanhHandler(StdONNXQuantNLALHandler):
+class StdQOpONNXQuantTanhHandler(StdQOpONNXQuantNLALHandler):
     handled_layer = QuantTanh
 
     def op_symbolic_execution(self, inp: Tensor):
         return torch.tanh(inp)
 
 
-class StdONNXQuantSigmoidHandler(StdONNXQuantNLALHandler):
+class StdQOpONNXQuantSigmoidHandler(StdQOpONNXQuantNLALHandler):
     handled_layer = QuantSigmoid
 
     def op_symbolic_execution(self, inp: Tensor):
         return torch.sigmoid(inp)
 
 
-class StdONNXQuantIdentityHandler(StdONNXQuantLayerHandler):
+class StdQOpONNXQuantIdentityHandler(StdQOpONNXQuantLayerHandler):
     handled_layer = QuantIdentity
 
     @classmethod
@@ -122,12 +121,12 @@ class StdONNXQuantIdentityHandler(StdONNXQuantLayerHandler):
         output_quant_symbolic_kwargs = self.symbolic_kwargs['output_quant_symbolic_kwargs']
         output_dequant_symbolic_kwargs = self.symbolic_kwargs['output_dequant_symbolic_kwargs']
         if input_dequant_symbolic_kwargs:
-            out = DequantizeLinearFunction.apply(out, *input_dequant_symbolic_kwargs.values())
-        out = QuantizeLinearFunction.apply(out, *output_quant_symbolic_kwargs.values())
+            out = DequantizeLinearFn.apply(out, *input_dequant_symbolic_kwargs.values())
+        out = QuantizeLinearFn.apply(out, *output_quant_symbolic_kwargs.values())
         if output_dequant_symbolic_kwargs is not None:
-            out = DequantizeLinearFunction.apply(out, *output_dequant_symbolic_kwargs.values())
+            out = DequantizeLinearFn.apply(out, *output_dequant_symbolic_kwargs.values())
         return out
 
 
-class StdONNXQuantHardTanhHandler(StdONNXQuantIdentityHandler):
+class StdQOpONNXQuantHardTanhHandler(StdQOpONNXQuantIdentityHandler):
     handled_layer = QuantHardTanh

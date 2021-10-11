@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 import torch
 from torch import Tensor
-from brevitas.export.common.handler import Validate8BitHandler, TypedZeroPointHandler
+from brevitas.export.handler import BaseHandler, BitWidthHandlerMixin, ZeroPointHandlerMixin
 
 SCALAR_SHAPE = ()
 
@@ -11,7 +11,7 @@ def _is_scalar(x: Tensor):
     return x.shape == SCALAR_SHAPE
 
 
-class PytorchQuantLayerHandler(Validate8BitHandler, TypedZeroPointHandler, ABC):
+class PytorchQuantLayerHandler(BaseHandler, BitWidthHandlerMixin, ZeroPointHandlerMixin, ABC):
 
     @classmethod
     @abstractmethod

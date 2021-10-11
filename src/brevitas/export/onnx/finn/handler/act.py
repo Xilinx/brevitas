@@ -4,9 +4,10 @@ import torch
 from torch import Tensor
 
 from brevitas.nn import QuantReLU, QuantHardTanh, QuantIdentity
-from .base import FINNQuantInputHandler, FINNQuantIOHandler
-from ..function.act import QuantReLUPlaceholderFunction, QuantHardTanhPlaceholderFunction
+from .base import FINNQuantInputHandler
+from ..function.act import QuantReLUFn, QuantHardTanhFn
 from ..utils import finn_datatype
+
 
 class FINNQuantReLUHandler(FINNQuantInputHandler):
     handled_layer = QuantReLU
@@ -49,7 +50,7 @@ class FINNQuantReLUHandler(FINNQuantInputHandler):
             'scale': self.quant_act_scale(module)}
 
     def symbolic_execution(self, inp: Tensor):
-        ret = QuantReLUPlaceholderFunction.apply(inp, *self.symbolic_kwargs.values())
+        ret = QuantReLUFn.apply(inp, *self.symbolic_kwargs.values())
         return ret
 
 
@@ -126,7 +127,7 @@ class FINNQuantHardTanhHandler(FINNQuantInputHandler):
             'scale': self.quant_act_scale(module)}
 
     def symbolic_execution(self, inp: Tensor):
-        ret = QuantHardTanhPlaceholderFunction.apply(inp, *self.symbolic_kwargs.values())
+        ret = QuantHardTanhFn.apply(inp, *self.symbolic_kwargs.values())
         return ret
 
 

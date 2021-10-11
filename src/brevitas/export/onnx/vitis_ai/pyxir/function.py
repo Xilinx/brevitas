@@ -7,7 +7,10 @@ from torch.autograd import Function
 from brevitas import torch_version
 
 
-class DPUQuantReLUPlaceholderFunction(Function):
+DOMAIN_STRING = 'onnx.pyxir'
+
+
+class DPUQuantReLUFn(Function):
 
     @staticmethod
     def symbolic(
@@ -19,7 +22,7 @@ class DPUQuantReLUPlaceholderFunction(Function):
             output_scale):
         ret = g.op(
             'Relu', x,
-            domain_s="pyxir",
+            domain_s=DOMAIN_STRING,
             vai_quant_s=['vai_quant_in', 'vai_quant_out'],
             vai_quant_in_i=[input_bit_width, input_scale],
             vai_quant_out_i=[output_bit_width, output_scale])
@@ -36,7 +39,7 @@ class DPUQuantReLUPlaceholderFunction(Function):
         return x
 
 
-class DPUQuantAvgPoolPlaceholderFunction(Function):
+class DPUQuantAvgPoolFn(Function):
 
     @staticmethod
     def symbolic(
@@ -54,14 +57,14 @@ class DPUQuantAvgPoolPlaceholderFunction(Function):
         if list(out_shape[2:]) == [1, 1]:
             ret = g.op(
                 'GlobalAveragePool', x,
-                domain_s="pyxir",
+                domain_s=DOMAIN_STRING,
                 vai_quant_s=['vai_quant_in', 'vai_quant_out'],
                 vai_quant_in_i=[input_bit_width, input_scale],
                 vai_quant_out_i=[output_bit_width, output_scale])
         else:
             ret = g.op(
                 'AveragePool', x,
-                domain_s="pyxir",
+                domain_s=DOMAIN_STRING,
                 kernel_shape_i=kernel_shape,
                 strides_i=strides,
                 pads_i=pads,
@@ -84,7 +87,7 @@ class DPUQuantAvgPoolPlaceholderFunction(Function):
         return torch.empty(out_shape, dtype=torch.float, device=x.device)
 
 
-class DPUQuantEltwiseAddPlaceholderFunction(Function):
+class DPUQuantEltwiseAddFn(Function):
 
     @staticmethod
     def symbolic(
@@ -97,7 +100,7 @@ class DPUQuantEltwiseAddPlaceholderFunction(Function):
             output_scale):
         ret = g.op(
             'Add', x, y,
-            domain_s="pyxir",
+            domain_s=DOMAIN_STRING,
             vai_quant_s=['vai_quant_in', 'vai_quant_out'],
             vai_quant_in_i=[input_bit_width, input_scale, other_bit_width, other_scale],
             vai_quant_out_i=[output_bit_width, output_scale])
@@ -115,12 +118,11 @@ class DPUQuantEltwiseAddPlaceholderFunction(Function):
         return x
 
 
-class DPUQuantMaxPoolPlaceholderFunction(Function):
+class DPUQuantMaxPoolFn(Function):
 
     @staticmethod
-    @abstractmethod
     def symbolic(
-            ctx, x,
+            g, x,
             kernel_shape,
             pads,
             strides,
@@ -131,7 +133,27 @@ class DPUQuantMaxPoolPlaceholderFunction(Function):
             input_scale,
             output_bit_width,
             output_scale):
-        pass
+        if ((isinstance(pads, int) and pads != 0)
+                or (isinstance(pads, (list, tuple)) and any([p != 0 for p in pads]))):
+            x = g.op(
+                'Pad', x,
+                domain_s=DOMAIN_STRING,
+                vai_quant_s=['vai_quant_in', 'vai_quant_out'],
+                vai_quant_in_i=[input_bit_width, input_scale],
+                vai_quant_out_i=[input_bit_width, input_scale],
+                pads_i=pads)
+        ret = g.op(
+            'MaxPool', x,
+            domain_s=DOMAIN_STRING,
+            kernel_shape_i=kernel_shape,
+            strides_i=strides,
+            auto_pad_s='VALID',
+            dilations_i=dilations,
+            ceil_mode_i=ceil_mode,
+            vai_quant_s=['vai_quant_in', 'vai_quant_out'],
+            vai_quant_in_i=[input_bit_width, input_scale],
+            vai_quant_out_i=[output_bit_width, output_scale])
+        return ret
 
     @staticmethod
     def forward(
@@ -149,10 +171,9 @@ class DPUQuantMaxPoolPlaceholderFunction(Function):
         return torch.empty(out_shape, dtype=torch.float, device=x.device)
 
 
-class DPUQuantConv2dPlaceholderFunction(Function):
+class DPUQuantConv2dFn(Function):
 
     @staticmethod
-    @abstractmethod
     def symbolic(
             g, x,
             int_weight,
@@ -171,7 +192,48 @@ class DPUQuantConv2dPlaceholderFunction(Function):
             stride,
             groups,
             dilation):
-        pass
+        if ((isinstance(padding, int) and padding != 0)
+                or (isinstance(padding, (list, tuple)) and any([p != 0 for p in padding]))):
+            x = g.op(
+                'Pad', x,
+                domain_s=DOMAIN_STRING,
+                vai_quant_s=['vai_quant_in', 'vai_quant_out'],
+                vai_quant_in_i=[input_bit_width, input_scale],
+                vai_quant_out_i=[input_bit_width, input_scale],
+                pads_i=padding)
+        vai_quant_s = ['vai_quant_in', 'vai_quant_out', 'vai_quant_weights']
+        if int_bias is not None:
+            vai_quant_s += ['vai_quant_biases']
+            ret = g.op(
+                'Conv', x,
+                int_weight,
+                int_bias,
+                domain_s=DOMAIN_STRING,
+                vai_quant_s=vai_quant_s,
+                vai_quant_in_i=[input_bit_width, input_scale],
+                vai_quant_out_i=[output_bit_width, output_scale],
+                vai_quant_weights_i=[weight_bit_width, weight_scale],
+                vai_quant_biases_i=[bias_bit_width, bias_scale],
+                kernel_shape_i=kernel_size,
+                strides_i=stride,
+                auto_pad_s='VALID',
+                group_i=groups,
+                dilations_i=dilation)
+        else:
+            ret = g.op(
+                'Conv', x,
+                int_weight,
+                domain_s=DOMAIN_STRING,
+                vai_quant_s=vai_quant_s,
+                vai_quant_in_i=[input_bit_width, input_scale],
+                vai_quant_out_i=[output_bit_width, output_scale],
+                vai_quant_weights_i=[weight_bit_width, weight_scale],
+                kernel_shape_i=kernel_size,
+                strides_i=stride,
+                auto_pad_s='VALID',
+                group_i=groups,
+                dilations_i=dilation)
+        return ret
 
     @staticmethod
     def forward(
@@ -195,7 +257,7 @@ class DPUQuantConv2dPlaceholderFunction(Function):
         return torch.empty(out_shape, dtype=torch.float, device=x.device)
 
 
-class DPUQuantLinearPlaceholderFunction(Function):
+class DPUQuantLinearFn(Function):
 
     @staticmethod
     def symbolic(
@@ -218,7 +280,7 @@ class DPUQuantLinearPlaceholderFunction(Function):
                 'Gemm', x,
                 int_weight,
                 int_bias,
-                domain_s="pyxir",
+                domain_s=DOMAIN_STRING,
                 transB_i=1,
                 vai_quant_s=vai_quant_s,
                 vai_quant_in_i=[input_bit_width, input_scale],
@@ -230,7 +292,7 @@ class DPUQuantLinearPlaceholderFunction(Function):
                 'Gemm', x,
                 int_weight,
                 torch.tensor(0),  # workaround
-                domain_s="pyxir",
+                domain_s=DOMAIN_STRING,
                 transB_i=1,
                 vai_quant_s=vai_quant_s,
                 vai_quant_in_i=[input_bit_width, input_scale],
@@ -240,7 +302,7 @@ class DPUQuantLinearPlaceholderFunction(Function):
             ret = g.op(
                 'Gemm', x,
                 int_weight,
-                domain_s="pyxir",
+                domain_s=DOMAIN_STRING,
                 transB_i=1,
                 vai_quant_s=vai_quant_s,
                 vai_quant_in_i=[input_bit_width, input_scale],
@@ -264,3 +326,4 @@ class DPUQuantLinearPlaceholderFunction(Function):
             int_bias_bit_width,
             int_bias_scale):
         return torch.empty(out_shape, dtype=torch.float, device=x.device)
+

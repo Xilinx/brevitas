@@ -6,7 +6,7 @@ from torch.autograd import Function
 from brevitas import torch_version
 
 
-class XIRFixPlaceholderFunction(Function):
+class XIRFixFn(Function):
 
     @staticmethod
     def symbolic(g, x, bit_width, fix_point, signed):
@@ -23,7 +23,7 @@ class XIRFixPlaceholderFunction(Function):
         return x
 
 
-class XIRGemmPlaceholderFunction(Function):
+class XIRGemmFn(Function):
 
     @staticmethod
     def symbolic(g, x, weight, bias):
@@ -40,7 +40,7 @@ class XIRGemmPlaceholderFunction(Function):
         return torch.nn.functional.linear(x, weight, bias)
 
 
-class XIRConv2dPlaceholderFunction(Function):
+class XIRConv2dFn(Function):
 
     @staticmethod
     def symbolic(
@@ -91,7 +91,7 @@ class XIRConv2dPlaceholderFunction(Function):
         return torch.empty(output_shape, dtype=x.dtype, device=x.device)
 
 
-class XIRConvTranpose2dPlaceholderFunction(Function):
+class XIRConvTranpose2dFn(Function):
 
     @staticmethod
     def symbolic(
