@@ -75,6 +75,8 @@ def solve_float_to_int_impl_from_enum(impl_type):
         return CeilSte
     elif impl_type == FloatToIntImplType.ROUND_TO_ZERO:
         return RoundToZeroSte
+    elif impl_type == FloatToIntImplType.DPU:
+        return DPURoundSte
     else:
         raise Exception(f"{impl_type} not recognized.")
 
