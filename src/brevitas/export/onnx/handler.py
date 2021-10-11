@@ -1,13 +1,18 @@
 from abc import ABC, abstractmethod
 
 from torch import Tensor
-from torch.nn import Module
 
-from .debug import DebugMarkerFunction
-from ..base import BaseHandler
+from brevitas.export.onnx.debug import DebugMarkerFunction
+from brevitas.export.handler import BaseHandler
+
+__all__ = [
+    'Kernel1dApplHandlerMixin',
+    'Kernel2dApplHandlerMixin',
+    'ONNXBaseHandler'
+]
 
 
-class Kernel1dApplHandler(ABC):
+class Kernel1dApplHandlerMixin(ABC):
 
     @staticmethod
     def padding(module):
@@ -42,7 +47,7 @@ class Kernel1dApplHandler(ABC):
             return list(module.kernel_size)
 
 
-class Kernel2dApplHandler(ABC):
+class Kernel2dApplHandlerMixin(ABC):
 
     @staticmethod
     def padding(module):
@@ -90,6 +95,9 @@ class ONNXBaseHandler(BaseHandler, ABC):
     @abstractmethod
     def symbolic_execution(self, *args, **kwargs):
         pass
+
+    def reset(self):
+        self.symbolic_kwargs = None
 
     def attach_debug_info(self, m):
         self.export_debug_name = m.export_debug_name

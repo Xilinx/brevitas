@@ -1,52 +1,70 @@
+import torch
 from torch.autograd import Function
-from brevitas.core.quant import IntQuant, DecoupledIntQuant
+
+from brevitas.function import binary_sign
+from brevitas.core.bit_width import BitWidthConst
+from brevitas.core.quant import IntQuant, TruncIntQuant
+from brevitas.quant.solver.common import solve_float_to_int_impl_from_enum
 
 
-class QuantPlaceholderFunction(Function):
+DOMAIN_STRING = "onnx.brevitas"
+
+
+class BrevitasBinaryQuantFn(Function):
 
     @staticmethod
-    def symbolic(g, x, scale, zero_point, bit_width, narrow_range, signed):
+    def symbolic(g, x, scale, zero_point, bit_width, narrow_range, signed, rounding_mode):
+        ret = g.op(
+            'BipolarQuant',
+            x, scale,
+            domain_s=DOMAIN_STRING)
+        return ret
+
+    @staticmethod
+    def forward(ctx, x, scale, zero_point, bit_width, narrow_range, signed, rounding_mode):
+        y = binary_sign(x) * scale
+        return y
+
+
+
+class BrevitasQuantFn(Function):
+
+    @staticmethod
+    def symbolic(g, x, scale, zero_point, bit_width, narrow_range, signed, rounding_mode):
         ret = g.op(
             'Quant',
             x, scale, zero_point, bit_width,
+            domain_s=DOMAIN_STRING,
+            rounding_mode_s=rounding_mode,
             signed_i=int(signed),
             narrow_i=int(narrow_range))
         return ret
 
     @staticmethod
-    def forward(ctx, x, scale, zero_point, bit_width, narrow_range, signed):
-        quant = IntQuant(narrow_range=narrow_range, signed=signed)
-        x = quant(scale, zero_point, bit_width, x)
-        return x
+    def forward(ctx, x, scale, zero_point, bit_width, narrow_range, signed, rounding_mode):
+        float_to_int_impl = solve_float_to_int_impl_from_enum(rounding_mode)
+        quant = IntQuant(
+            float_to_int_impl=float_to_int_impl(), narrow_range=narrow_range, signed=signed)
+        y = quant(scale, zero_point, bit_width, x)
+        return y
 
 
-class DecoupledQuantPlaceholderFunction(Function):
-
-    @staticmethod
-    def symbolic(g, x, pre_scale, pre_zero_point, scale, zero_point, bit_width, narrow_range, signed):
-        ret = g.op(
-            'DecoupledQuant',
-            x, pre_scale, pre_zero_point, scale, zero_point, bit_width,
-            signed_i=int(signed),
-            narrow_i=int(narrow_range))
-        return ret
+class BrevitasTruncFn(Function):
 
     @staticmethod
-    def forward(ctx, x, pre_scale, pre_zero_point, scale, zero_point, bit_width, narrow_range, signed):
-        quant = DecoupledIntQuant(narrow_range=narrow_range, signed=signed)
-        x = quant(pre_scale, pre_zero_point, scale, zero_point, bit_width, x)
-        return x
-
-
-class TruncPlaceholderFunction(Function):
-
-    @staticmethod
-    def symbolic(g, x, scale, zero_point, bit_width):
+    def symbolic(g, x, scale, zero_point, input_bit_width, output_bit_width, rounding_mode):
         ret = g.op(
             'Trunc',
-            x, scale, zero_point, bit_width)
+            x, scale, zero_point, input_bit_width, output_bit_width,
+            rounding_mode_s=rounding_mode,
+            domain_s=DOMAIN_STRING)
         return ret
 
     @staticmethod
-    def forward(ctx, x, scale, zero_point, bit_width):
-        return x
+    def forward(ctx, x, scale, zero_point, input_bit_width, output_bit_width, rounding_mode):
+        float_to_int_impl = solve_float_to_int_impl_from_enum(rounding_mode)
+        trunc = TruncIntQuant(
+            float_to_int_impl=float_to_int_impl(),
+            bit_width_impl=BitWidthConst(int(output_bit_width)))
+        y_tuple = trunc(x, scale, zero_point, input_bit_width)
+        return y_tuple[0]

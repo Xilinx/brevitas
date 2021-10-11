@@ -6,10 +6,10 @@ from torch import Tensor
 
 from brevitas.nn import QuantLinear, QuantConv2d, QuantConv1d
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
-from brevitas.export.onnx.handler import Kernel2dApplHandler, Kernel1dApplHandler
+from brevitas.export.onnx.handler import Kernel2dApplHandlerMixin, Kernel1dApplHandlerMixin
 from .base import FINNQuantIOHandler
-from ..function.parameter import QuantizedLinearPlaceholderFunction
-from ..function.parameter import QuantizedConvNdPlaceholderFunction
+from ..function.parameter import QuantizedLinearFn
+from ..function.parameter import QuantizedConvNdFn
 from ..utils import finn_datatype
 
 QuantConvNd = Union[QuantConv1d, QuantConv2d]
@@ -18,7 +18,7 @@ QuantConvNd = Union[QuantConv1d, QuantConv2d]
 class FINNQuantWBIOLHandler(FINNQuantIOHandler, ABC):
 
     @staticmethod
-    def sanity_check(module: QuantWBIOL):
+    def validate(module: QuantWBIOL):
         assert module.is_weight_quant_enabled
         assert not module.is_input_quant_enabled
         assert not module.is_output_quant_enabled
@@ -80,7 +80,7 @@ class FINNQuantLinearHandler(FINNQuantWBIOLHandler):
             return shape
 
     def prepare_for_export(self, module):
-        self.sanity_check(module)
+        self.validate(module)
         self.symbolic_kwargs = {
             'Wt': self.int_weight_transposed(module),
             'w_qnt_scale': self.quant_weight_scale(module),
@@ -91,7 +91,7 @@ class FINNQuantLinearHandler(FINNQuantWBIOLHandler):
             'bias': self.maybe_int_bias(module)}
 
     def symbolic_execution(self, inp: Tensor):
-        ret = QuantizedLinearPlaceholderFunction.apply(inp, *self.symbolic_kwargs.values())
+        ret = QuantizedLinearFn.apply(inp, *self.symbolic_kwargs.values())
         return ret
 
 
@@ -120,7 +120,7 @@ class FINNQuantConvNdHandler(FINNQuantWBIOLHandler, ABC):
         return bias
 
     def prepare_for_export(self, module: QuantConvNd):
-        self.sanity_check(module)
+        self.validate(module)
         maybe_int_bias = self.maybe_int_bias(module)
         maybe_quant_bias_scale = self.maybe_quant_bias_scale(module)
         if (maybe_quant_bias_scale is not None
@@ -142,11 +142,11 @@ class FINNQuantConvNdHandler(FINNQuantWBIOLHandler, ABC):
             'dilations': self.dilation(module)}
 
     def symbolic_execution(self, inp: Tensor):
-        ret = QuantizedConvNdPlaceholderFunction.apply(inp, *self.symbolic_kwargs.values())
+        ret = QuantizedConvNdFn.apply(inp, *self.symbolic_kwargs.values())
         return ret
 
 
-class FINNQuantConv1dHandler(FINNQuantConvNdHandler, Kernel1dApplHandler):
+class FINNQuantConv1dHandler(FINNQuantConvNdHandler, Kernel1dApplHandlerMixin):
     handled_layer = QuantConv1d
 
     @staticmethod
@@ -157,7 +157,7 @@ class FINNQuantConv1dHandler(FINNQuantConvNdHandler, Kernel1dApplHandler):
         return quant_weight_scale
 
 
-class FINNQuantConv2dHandler(FINNQuantConvNdHandler, Kernel2dApplHandler):
+class FINNQuantConv2dHandler(FINNQuantConvNdHandler, Kernel2dApplHandlerMixin):
     handled_layer = QuantConv2d
 
     @staticmethod

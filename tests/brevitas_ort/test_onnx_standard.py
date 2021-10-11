@@ -8,7 +8,7 @@ import numpy as np
 from brevitas.nn import QuantConv2d, QuantLinear, QuantIdentity, QuantMaxPool2d
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
-from brevitas.export import export_standard_onnx
+from brevitas.export import export_standard_qop_onnx
 
 from tests.marker import requires_pt_ge
 
@@ -30,7 +30,7 @@ def compute_ort(export_name, np_input):
 
 
 def is_brevitas_ort_close(model, np_input, export_name, atol=None):
-    export_standard_onnx(model, input_shape=np_input.shape, export_path=export_name)
+    export_standard_qop_onnx(model, input_shape=np_input.shape, export_path=export_name)
     brevitas_output = model(torch.from_numpy(np_input))
     ort_output = compute_ort(export_name, np_input)
     ort_output = torch.from_numpy(ort_output)

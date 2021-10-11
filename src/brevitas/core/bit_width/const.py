@@ -74,7 +74,7 @@ class BitWidthConst(brevitas.jit.ScriptModule):
     def __init__(self, bit_width: int) -> None:
         super(BitWidthConst, self).__init__()
         assert isinstance(bit_width, int)
-        self.bit_width = StatelessBuffer(torch.tensor(float(int(bit_width))))
+        self.bit_width = StatelessBuffer(torch.tensor(float(bit_width)))
 
     @brevitas.jit.script_method
     def forward(self) -> Tensor:

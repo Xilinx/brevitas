@@ -139,18 +139,6 @@ def _restore_requires_grad(m: Module, previous_state):
         p.requires_grad_(previous_state[n])
 
 
-class BaseHandler(Module, ABC):
-
-    def attach_debug_info(self, module):
-        pass
-
-    def prepare_for_export(self, module):
-        pass
-
-    def reset(self):
-        pass
-
-
 class BaseManager(ABC):
 
     target_name = None

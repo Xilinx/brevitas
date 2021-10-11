@@ -8,10 +8,10 @@ from torch import Tensor
 from torch.nn.functional import max_pool1d, max_pool2d
 
 from brevitas.nn import QuantMaxPool1d, QuantMaxPool2d
-from .base import StdONNXQuantWrapperHandler
+from .base import StdQOpONNXQuantWrapperHandler
 
 
-class StdONNXQuantMaxPoolNd(StdONNXQuantWrapperHandler, ABC):
+class StdQOpONNXQuantMaxPoolNd(StdQOpONNXQuantWrapperHandler, ABC):
 
 
     @classmethod
@@ -25,7 +25,7 @@ class StdONNXQuantMaxPoolNd(StdONNXQuantWrapperHandler, ABC):
             'return_indices': module.return_indices}
 
 
-class StdONNXQuantMaxPool1d(StdONNXQuantMaxPoolNd):
+class StdQOpONNXQuantMaxPool1d(StdQOpONNXQuantMaxPoolNd):
     handled_layer = QuantMaxPool1d
 
     def op_symbolic_execution(self, inp: Tensor):
@@ -33,7 +33,7 @@ class StdONNXQuantMaxPool1d(StdONNXQuantMaxPoolNd):
         return max_pool1d(inp, *op_symbolic_kwargs.values())
 
 
-class StdONNXQuantMaxPool2d(StdONNXQuantMaxPoolNd):
+class StdQOpONNXQuantMaxPool2d(StdQOpONNXQuantMaxPoolNd):
     handled_layer = QuantMaxPool2d
 
     def op_symbolic_execution(self, inp: Tensor):

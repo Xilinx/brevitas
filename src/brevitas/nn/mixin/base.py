@@ -37,7 +37,7 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-
+import torch.jit
 from torch import Tensor
 
 from warnings import warn
@@ -223,6 +223,13 @@ class QuantLayerMixin(object):
 
     def unpack_input(self, inp: Union[Tensor, QuantTensor]):
         self._set_global_is_quant_layer(True)
+        # Hack to recognize a QuantTensor that has decayed to a tuple
+        # when used as input to tracing (e.g. during ONNX export)
+        if (torch._C._get_tracing_state() is not None
+                and isinstance(inp, tuple)
+                and len(inp) == len(QuantTensor._fields)
+                and all([isinstance(t, Tensor) for t in inp])):
+            inp = QuantTensor(*inp)
         if isinstance(inp, QuantTensor):
             # don't cache values during export pass
             if not self.training and not self._export_mode and self.cache_inference_quant_inp:

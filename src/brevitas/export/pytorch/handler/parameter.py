@@ -9,7 +9,6 @@ from brevitas.nn import QuantConv2d, QuantConv1d, QuantLinear
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 
 from .base import PytorchQuantLayerHandler
-from . import qF
 
 
 class PytorchQuantWBIOLHandler(PytorchQuantLayerHandler):
@@ -47,7 +46,7 @@ class PytorchQuantWBIOLHandler(PytorchQuantLayerHandler):
 
     @classmethod
     def prepare_weight_quant(cls, module: QuantWBIOL):
-        cls.validate_8b_bit_width(module.quant_weight_bit_width())
+        cls.validate_8b_bit_width(module.quant_weight_bit_width(), le_then=True)
         scale = module.quant_weight_scale()
         zero_point = cls.quant_weight_zero_point(module)
         signed = module.is_quant_weight_signed

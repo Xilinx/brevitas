@@ -1,52 +1,39 @@
-from brevitas import config
+from functools import wraps
+
 from .onnx.finn.manager import FINNManager
-from .onnx.standard.manager import StdONNXManager
-from .onnx.vitis_ai.pyxir.dpuv1.manager import DPUv1Manager
-from .onnx.vitis_ai.pyxir.dpuv2.manager import DPUv2Manager
+from .onnx.generic.manager import BrevitasONNXManager
+from .onnx.standard.qoperator.manager import StdQOpONNXManager
 from .onnx.vitis_ai.pyxir.manager import PyXIRManager
 from .onnx.vitis_ai.xir.manager import XIRManager
 from .onnx.debug import enable_debug
 from .pytorch.manager import PytorchQuantManager
 
 
+@wraps(FINNManager.export)
 def export_finn_onnx(*args, **kwargs):
     return FINNManager.export(*args, **kwargs)
 
 
-def export_dpuv1_onnx(*args, **kwargs):
-    return DPUv1Manager.export(*args, **kwargs)
+@wraps(PyXIRManager.export)
+def export_pyxir_onnx(*args, **kwargs):
+    return PyXIRManager.export(*args, **kwargs)
 
 
-def export_dpuv2_onnx(*args, **kwargs):
-    return DPUv2Manager.export(*args, **kwargs)
+@wraps(XIRManager.export)
+def export_xir(*args, **kwargs):
+    return XIRManager.export(*args, **kwargs)
 
 
-def export_standard_onnx(*args, **kwargs):
-    return StdONNXManager.export(*args, **kwargs)
+@wraps(BrevitasONNXManager.export)
+def export_brevitas_onnx(*args, **kwargs):
+    return BrevitasONNXManager.export(*args, **kwargs)
 
 
-def jit_trace_dpuv1(*args, **kwargs):
-    return DPUv1Manager.jit_inference_trace(*args, **kwargs)
+@wraps(StdQOpONNXManager.export)
+def export_standard_qop_onnx(*args, **kwargs):
+    return StdQOpONNXManager.export(*args, **kwargs)
 
 
-def is_ongoing_export():
-    return config._ONGOING_EXPORT is not None
-
-
-def is_ongoing_finn_export():
-    return config._ONGOING_EXPORT == FINNManager.target_name
-
-
-def is_ongoing_stdonnx_export():
-    return config._ONGOING_EXPORT == StdONNXManager.target_name
-
-
-def is_ongoing_pyxir_export():
-    if config._ONGOING_EXPORT is not None:
-        return PyXIRManager.target_name in config._ONGOING_EXPORT
-    else:
-        return False
-
-
-def is_ongoing_pytorch_export():
-    return config._ONGOING_EXPORT == PytorchQuantManager.target_name
+@wraps(PytorchQuantManager.export)
+def export_pytorch_quant(*args, **kwargs):
+    return PytorchQuantManager.export(*args, **kwargs)

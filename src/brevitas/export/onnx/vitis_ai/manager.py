@@ -2,9 +2,9 @@ from abc import ABC
 
 from torch.nn import functional as F, Module
 
-from brevitas.export.onnx.base import ONNXBaseManager
+from brevitas.export.onnx.manager import ONNXBaseManager
 from brevitas.export.onnx.transform import move_domain_attributes_into_domain
-from brevitas.export.base import _set_layer_export_handler, _set_layer_export_mode
+from brevitas.export.manager import _set_layer_export_handler, _set_layer_export_mode
 
 
 def _handler_wrapper(handler, cached_io):

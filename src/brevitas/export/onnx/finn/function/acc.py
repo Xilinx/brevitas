@@ -1,8 +1,10 @@
 import torch
 from torch.autograd import Function
 
+from . import DOMAIN_STRING
 
-class QuantAvgPool2dPlaceholderFunction(Function):
+
+class QuantAvgPool2dFn(Function):
 
     @staticmethod
     def symbolic(g, x, out_shape, kernel, stride, signed, ibits, obits, scale, qnt_type):
@@ -10,7 +12,7 @@ class QuantAvgPool2dPlaceholderFunction(Function):
             x = g.op('Div', x, scale, activation_qnt_s=qnt_type)
         ret = g.op(
             'QuantAvgPool2d', x,
-            domain_s="finn.custom_op.general",
+            domain_s=DOMAIN_STRING,
             kernel_i=kernel,
             stride_i=stride,
             signed_i=signed,

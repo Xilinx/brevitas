@@ -2,7 +2,7 @@ from torch import Tensor
 
 from brevitas.nn import QuantAvgPool2d
 from .base import FINNQuantIOHandler
-from ..function.acc import QuantAvgPool2dPlaceholderFunction
+from ..function.acc import QuantAvgPool2dFn
 
 
 class FINNQuantAvgPool2dHandler(FINNQuantIOHandler):
@@ -48,5 +48,5 @@ class FINNQuantAvgPool2dHandler(FINNQuantIOHandler):
             'qnt_type': self.quant_input_type(module)}
 
     def symbolic_execution(self, inp: Tensor):
-        ret = QuantAvgPool2dPlaceholderFunction.apply(inp, *self.symbolic_kwargs.values())
+        ret = QuantAvgPool2dFn.apply(inp, *self.symbolic_kwargs.values())
         return ret

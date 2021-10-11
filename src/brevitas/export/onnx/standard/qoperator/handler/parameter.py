@@ -6,13 +6,13 @@ from torch import Tensor
 
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.nn import QuantConv2d, QuantConv1d, QuantLinear
-from brevitas.export.onnx.handler import Kernel2dApplHandler, Kernel1dApplHandler
-from ..function import QuantizeLinearFunction, DequantizeLinearFunction
-from ..function import QLinearConvFunction, QLinearMatMulFunction
-from .base import StdONNXQuantLayerHandler
+from brevitas.export.onnx.handler import Kernel2dApplHandlerMixin, Kernel1dApplHandlerMixin
+from brevitas.export.onnx.standard.function import QuantizeLinearFn, DequantizeLinearFn
+from ..function import QLinearConvFn, QLinearMatMulFn
+from .base import StdQOpONNXQuantLayerHandler
 
 
-class StdONNXQuantWBIOLHandler(StdONNXQuantLayerHandler, ABC):
+class StdQOpONNXQuantWBIOLHandler(StdQOpONNXQuantLayerHandler, ABC):
 
     @staticmethod
     def int_weight(module: QuantWBIOL):
@@ -34,7 +34,7 @@ class StdONNXQuantWBIOLHandler(StdONNXQuantLayerHandler, ABC):
     def validate(cls, module: QuantWBIOL, requires_quant_bias=True):
         assert module.is_weight_quant_enabled
         assert module.is_output_quant_enabled
-        cls.validate_8b_bit_width(module.quant_weight_bit_width())
+        cls.validate_8b_bit_width(module.quant_weight_bit_width(), le_then=True)
         cls.validate_8b_bit_width(module.quant_input_bit_width())
         cls.validate_8b_bit_width(module.quant_output_bit_width())
         if module.bias is not None and requires_quant_bias:
@@ -47,13 +47,13 @@ class StdONNXQuantWBIOLHandler(StdONNXQuantLayerHandler, ABC):
         input_dequant_symbolic_kwargs = self.symbolic_kwargs['input_dequant_symbolic_kwargs']
         if input_dequant_symbolic_kwargs is not None:
             assert input_quant_symbolic_kwargs is not None
-            inp = DequantizeLinearFunction.apply(inp, *input_dequant_symbolic_kwargs.values())
+            inp = DequantizeLinearFn.apply(inp, *input_dequant_symbolic_kwargs.values())
         if input_quant_symbolic_kwargs is not None:
-            inp = QuantizeLinearFunction.apply(inp, *input_quant_symbolic_kwargs.values())
+            inp = QuantizeLinearFn.apply(inp, *input_quant_symbolic_kwargs.values())
         return inp
 
 
-class StdONNXQuantLinearHandler(StdONNXQuantWBIOLHandler):
+class StdQOpONNXQuantLinearHandler(StdQOpONNXQuantWBIOLHandler):
     handled_layer = QuantLinear
 
     @classmethod
@@ -66,6 +66,7 @@ class StdONNXQuantLinearHandler(StdONNXQuantWBIOLHandler):
             'weight_zero_point': cls.quant_weight_zero_point(module),
             'output_scale': module.quant_output_scale(),
             'output_zero_point': cls.quant_output_zero_point(module),
+            'output_dtype': cls.torch_8b_dtype(module.is_quant_output_signed),
             'out_shape': cls.quant_output_shape(module)}
         return linear_symbolic_kwargs
 
@@ -100,7 +101,7 @@ class StdONNXQuantLinearHandler(StdONNXQuantWBIOLHandler):
 
     def op_symbolic_execution(self, inp):
         linear_symbolic_kwargs = self.symbolic_kwargs['op_symbolic_kwargs']
-        out = QLinearMatMulFunction.apply(inp, *linear_symbolic_kwargs.values())
+        out = QLinearMatMulFn.apply(inp, *linear_symbolic_kwargs.values())
         return out
 
     def output_symbolic_execution(self, out: Tensor):
@@ -108,15 +109,15 @@ class StdONNXQuantLinearHandler(StdONNXQuantWBIOLHandler):
         output_quant_symbolic_kwargs = self.symbolic_kwargs['output_quant_symbolic_kwargs']
         bias = self.symbolic_kwargs['bias']
         if output_dequant_symbolic_kwargs is not None:
-            out = DequantizeLinearFunction.apply(out, *output_dequant_symbolic_kwargs.values())
+            out = DequantizeLinearFn.apply(out, *output_dequant_symbolic_kwargs.values())
         if bias is not None:
             out = out.add(bias)
         if output_quant_symbolic_kwargs is not None:
-            out = QuantizeLinearFunction.apply(out, *output_quant_symbolic_kwargs.values())
+            out = QuantizeLinearFn.apply(out, *output_quant_symbolic_kwargs.values())
         return out
 
 
-class StdONNXQuantConvNdHandler(StdONNXQuantWBIOLHandler, ABC):
+class StdQOpONNXQuantConvNdHandler(StdQOpONNXQuantWBIOLHandler, ABC):
 
     def op_symbolic_kwargs(self, module: Union[QuantConv1d, QuantConv2d]):
         conv_symbolic_kwargs = {
@@ -127,6 +128,7 @@ class StdONNXQuantConvNdHandler(StdONNXQuantWBIOLHandler, ABC):
             'weight_zero_point': self.quant_weight_zero_point(module),
             'output_scale': module.quant_output_scale(),
             'output_zero_point': self.quant_output_zero_point(module),
+            'output_dtype': self.torch_8b_dtype(module.is_quant_output_signed),
             'int_bias': self.int_bias(module),
             'out_shape': self.quant_output_shape(module),
             'kernel_size': list(module.kernel_size),
@@ -158,19 +160,19 @@ class StdONNXQuantConvNdHandler(StdONNXQuantWBIOLHandler, ABC):
 
     def op_symbolic_execution(self, inp: Tensor):
         conv_symbolic_kwargs = self.symbolic_kwargs['op_symbolic_kwargs']
-        out = QLinearConvFunction.apply(inp, *conv_symbolic_kwargs.values())
+        out = QLinearConvFn.apply(inp, *conv_symbolic_kwargs.values())
         return out
 
     def output_symbolic_execution(self, out: Tensor):
         output_dequant_symbolic_kwargs = self.symbolic_kwargs['output_dequant_symbolic_kwargs']
         if output_dequant_symbolic_kwargs is not None:
-            out = DequantizeLinearFunction.apply(out, *output_dequant_symbolic_kwargs.values())
+            out = DequantizeLinearFn.apply(out, *output_dequant_symbolic_kwargs.values())
         return out
 
 
-class StdONNXQuantConv2dHandler(StdONNXQuantConvNdHandler, Kernel2dApplHandler):
+class StdQOpONNXQuantConv2dHandler(StdQOpONNXQuantConvNdHandler, Kernel2dApplHandlerMixin):
     handled_layer = QuantConv2d
 
 
-class StdONNXQuantConv1dHandler(StdONNXQuantConvNdHandler, Kernel1dApplHandler):
+class StdQOpONNXQuantConv1dHandler(StdQOpONNXQuantConvNdHandler, Kernel1dApplHandlerMixin):
     handled_layer = QuantConv1d

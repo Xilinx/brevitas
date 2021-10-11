@@ -1,15 +1,21 @@
+from typing import Tuple, Union, Optional
 from torch.nn import Module
+from torch import Tensor
 
-from brevitas.export.onnx.base import ONNXBaseManager
+from brevitas.export.onnx.manager import ONNXBaseManager
 from brevitas.export.onnx.transform import move_domain_attributes_into_domain
-from brevitas.export.base import _set_proxy_export_handler, _set_proxy_export_mode
+from brevitas.export.manager import _set_proxy_export_handler, _set_proxy_export_mode
 
-from .handler import ActQuantProxyHandler, BiasQuantProxyHandler, WeightQuantProxyHandler
-from .handler import TruncQuantProxyHandler, DecoupledWeightQuantProxyHandler
+from .handler import BrevitasActQuantProxyHandler
+from .handler import BrevitasBiasQuantProxyHandler
+from .handler import BrevitasWeightQuantProxyHandler
+from .handler import BrevitasTruncQuantProxyHandler
+from .handler import BrevitasDecoupledWeightQuantProxyHandler
 
 
 class BrevitasONNXManager(ONNXBaseManager):
     target_name = 'brevitas'
+    dequantize_tracing_input = False
 
     model_transforms = [
         move_domain_attributes_into_domain]
@@ -21,11 +27,11 @@ class BrevitasONNXManager(ONNXBaseManager):
         "eliminate_unused_initializer"]
 
     handlers = [
-        ActQuantProxyHandler,
-        BiasQuantProxyHandler,
-        WeightQuantProxyHandler,
-        DecoupledWeightQuantProxyHandler,
-        TruncQuantProxyHandler
+        BrevitasActQuantProxyHandler,
+        BrevitasBiasQuantProxyHandler,
+        BrevitasWeightQuantProxyHandler,
+        BrevitasDecoupledWeightQuantProxyHandler,
+        BrevitasTruncQuantProxyHandler
     ]
 
     @classmethod
