@@ -6,7 +6,7 @@ from torch import tensor, nn
 
 from brevitas.inject import BaseInjector as Injector
 from brevitas.core.utils import StatelessBuffer
-
+from brevitas.utils.quant_utils import float_to_int_impl_to_enum
 
 __all__ = [
     'QuantProxyProtocol',
@@ -26,6 +26,18 @@ def _is_narrow_range(quant_injector):
     return None
 
 
+def _rounding_mode(quant_injector):
+    if 'float_to_int_impl_type' in quant_injector:
+        return str(quant_injector.float_to_int_impl_type)
+    elif 'float_to_int_impl' in quant_injector:
+        try:
+            return str(float_to_int_impl_to_enum(quant_injector.float_to_int_impl))
+        except:
+            return None
+    else:
+        return None
+
+
 def _update_state_dict_impl(quant_injector):
     try:
         impl = quant_injector.update_state_dict_impl
@@ -39,6 +51,7 @@ class QuantProxyProtocol(Protocol):
     is_quant_enabled: bool
     is_signed: Optional[bool]
     is_narrow_range: Optional[bool]
+    rounding_mode: Optional[str]
 
     def add_tracked_module(self, module: nn.Module) -> None:
         ...
@@ -103,6 +116,10 @@ class QuantProxyFromInjector(nn.Module, QuantProxyProtocol):
     @property
     def is_narrow_range(self):
         return _is_narrow_range(self.quant_injector)
+
+    @property
+    def rounding_mode(self):
+        return _rounding_mode(self.quant_injector)
 
     def add_tracked_module(self, module: nn.Module) -> None:
         if module is not None:
