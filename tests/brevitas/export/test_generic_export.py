@@ -4,8 +4,9 @@ from brevitas.nn import QuantConv2d, QuantLinear, QuantAvgPool2d, QuantIdentity,
 from brevitas.quant.scaled_int import Int4WeightPerTensorFloatDecoupled
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat, Int16Bias
 from brevitas.export.onnx.generic.manager import BrevitasONNXManager
+from brevitas.export import export_brevitas_onnx, enable_debug
+from brevitas_examples import imagenet_classification
 
-from tests.marker import requires_pt_ge
 
 OUT_CH = 50
 IN_CH = 40
@@ -158,3 +159,13 @@ def test_generic_quant_avgpool_export_quant_input():
     model.eval()
     BrevitasONNXManager.export(
         model, input_t=inp_quant(inp), export_path='generic_quant_avgpool_quant_input.onnx')
+
+
+def test_debug_brevitas_onnx_export():
+    model, cfg = imagenet_classification.model_with_cfg('quant_mobilenet_v1_4b', pretrained=False)
+    model.eval()
+    debug_hook = enable_debug(model, proxy_level=True)
+    input_tensor = torch.randn(1, 3, 224, 224)
+    export_brevitas_onnx(model, input_t=input_tensor, export_path='generic_debug.onnx')
+    model(input_tensor)
+    assert debug_hook.values

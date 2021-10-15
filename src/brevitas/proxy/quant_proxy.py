@@ -76,6 +76,9 @@ class QuantProxyFromInjector(nn.Module, QuantProxyProtocol):
         self.add_tracked_module(quant_layer)
         self.export_handler = export_handler
         self.export_mode = export_mode
+        self.export_debug_name = None
+        self.export_input_debug = False
+        self.export_output_debug = False
         self.disable_quant = False
 
     @property
@@ -90,6 +93,7 @@ class QuantProxyFromInjector(nn.Module, QuantProxyProtocol):
             raise RuntimeError("Can't enable export mode on a proxy without an export handler")
         elif value and self.export_handler is not None:
             self.export_handler.prepare_for_export(self)
+            self.export_handler.attach_debug_info(self)
         elif not value and self.export_handler is not None:
             self.export_handler.reset()
         self._export_mode = value

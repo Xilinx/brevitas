@@ -130,6 +130,8 @@ class QuantLayerMixin(object):
         self._export_debug_name = export_debug_name
         self._cached_inp = None
         self._cached_out = None
+        self.export_input_debug = False
+        self.export_output_debug = False
 
     @property
     def export_debug_name(self):

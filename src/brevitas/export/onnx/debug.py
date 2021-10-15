@@ -1,52 +1,61 @@
 # -*- coding: future_annotations -*-
-from typing import TYPE_CHECKING
 
 import torch
 from torch.autograd import Function
 
-if TYPE_CHECKING:
-    from brevitas.nn.mixin.base import QuantLayerMixin
+from brevitas.nn.mixin.base import QuantLayerMixin
+from brevitas.quant_tensor import QuantTensor
+from brevitas.proxy.quant_proxy import QuantProxyProtocol
 
 
 class DebugMarkerFunction(Function):
 
     @staticmethod
     def symbolic(g, input, export_debug_name):
-        ret = g.op('DebugMarker', input, export_debug_name_s=export_debug_name, domain_s="finn.custom_op.general")
+        ret = g.op(
+            'DebugMarker', input, export_debug_name_s=export_debug_name, domain_s="brevitas.onnx")
         return ret
 
     @staticmethod
     def forward(ctx, input, export_debug_name):
-        return torch.empty(input.shape, dtype=torch.float)
+        return input
 
 
 class ONNXDebugHook(object):
 
-    def __init__(self):
+    def __init__(self, input_enabled, output_enabled):
         self.values = {}
+        self.input_enabled = input_enabled
+        self.output_enabled = output_enabled
 
-    def __call__(self, module: QuantLayerMixin, module_in, module_out):
-        inp = module._cached_inp.quant_tensor.value
-        out = module._cached_out.quant_tensor.value
-        if inp is not None:
-            self.values[module.export_debug_name + ".input"] = inp
-        if out is not None:
-            self.values[module.export_debug_name + ".output"] = out
+    def unpack(self, value):
+        if isinstance(value, tuple) and len(value) == 1:
+            return value[0]
+        else:
+            return value
+
+    def __call__(self, module, module_in, module_out):
+        if self.input_enabled:
+            self.values[module.export_debug_name + ".input"] = self.unpack(module_in)
+        if self.output_enabled:
+            self.values[module.export_debug_name + ".output"] = self.unpack(module_out)
 
     def clear(self):
         self.values = {}
 
 
-def enable_debug(module, hook=ONNXDebugHook(), inp=True, out=True, filter_fn=lambda x: True):
-    """Enable debug and set up given forward hook on all QuantLayer-derived children
-    that return True when passed to filter_fn (always True by default).
-    Debug-enabled nodes will create DebugMarker nodes when exported.
-    """
-    for child_name, child_module in module.named_modules():
-        if hasattr(child_module, "export_debug_name") and filter_fn(child_module):
-            child_module.cache_inference_quant_inp = inp
-            child_module.cache_inference_quant_out = out
-            child_module.cache_quant_io_metadata_only = False
-            child_module.export_debug_name = child_name
-            child_module.register_forward_hook(hook)
+def enable_debug(
+        model,
+        input_enabled=True,
+        output_enabled=True,
+        proxy_level=False):
+    base_filter_class = QuantProxyProtocol if proxy_level else QuantLayerMixin
+    filter_fn = lambda x: isinstance(x, base_filter_class)
+    hook = ONNXDebugHook(input_enabled, output_enabled)
+    for name, module in model.named_modules():
+        if hasattr(module, "export_debug_name") and filter_fn(module):
+            module.export_debug_name = name
+            module.export_input_debug = input_enabled
+            module.export_output_debug = output_enabled
+            module.register_forward_hook(hook)
     return hook
