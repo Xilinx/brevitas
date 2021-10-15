@@ -54,13 +54,14 @@ class BrevitasWeightQuantProxyHandler(BrevitasQuantProxyHandler):
 
     def prepare_for_export(self, module: WeightQuantProxyFromInjector):
         super().prepare_for_export(module)
-        quant_weights = {tm.weight: tm.quant_weight().value for tm in module.tracked_module_list}
+        quant_weights = {
+            tm.weight.data_ptr(): tm.quant_weight().value for tm in module.tracked_module_list}
         self.quant_weights = quant_weights
         # override rounding mode since quantization has been pre-applied
         self.symbolic_kwargs['rounding_mode'] = 'ROUND'
 
     def symbolic_execution(self, x: Tensor):
-        quant_weight = self.quant_weights[x]
+        quant_weight = self.quant_weights[x.data_ptr()]
         return super().symbolic_execution(quant_weight)
 
 
