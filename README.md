@@ -1,6 +1,6 @@
 # Brevitas
 
-![PyPI - Downloads](https://img.shields.io/pypi/dm/brevitas)
+[![Downloads](https://pepy.tech/badge/brevitas)](https://pepy.tech/project/brevitas)
 [![Gitter](https://badges.gitter.im/xilinx-brevitas/community.svg)](https://gitter.im/xilinx-brevitas/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 ![Pytest](https://github.com/Xilinx/brevitas/workflows/Pytest/badge.svg?branch=master)
 ![Examples Pytest](https://github.com/Xilinx/brevitas/workflows/Examples%20Pytest/badge.svg?branch=master)
@@ -30,7 +30,7 @@ If you have issues, comments, or are just looking for advices on training quanti
 ## Requirements
 
 * Python >= 3.6.
-* [Pytorch](https://pytorch.org) >= 1.1.0 (minimal), >= 1.5.0 (suggested).
+* [Pytorch](https://pytorch.org) >= 1.3.1 (minimal), >= 1.5.0 (suggested).
 * Windows, Linux or macOS.
 * GPU training-time acceleration (*Optional* but recommended).
 
@@ -261,13 +261,13 @@ Compared to the previous case, there are a few differences:
 After training, the above network can then be exported to an ONNX representation that complies with the [standard opset](https://github.com/onnx/onnx/blob/master/docs/Operators.md):
 
 ```python
-from brevitas.export import StdONNXManager
+from brevitas.export import StdQOpONNXManager
 
 onnx_lenet = MixedFloatQuantLeNet()
 
 # ... training ...
 
-StdONNXManager.export(onnx_lenet, input_shape=(1, 3, 32, 32), export_path='onnx_lenet.onnx')
+StdQOpONNXManager.export(onnx_lenet, input_shape=(1, 3, 32, 32), export_path='onnx_lenet.onnx')
 ```
 
 ### Acceleration with onnxruntime
@@ -318,7 +318,7 @@ mod, params = relay.frontend.from_pytorch(traced_pt_lenet, input_shapes)
 
 Thanks to their flexibility, Xilinx FPGAs support a variety of neural network hardware implementations. 
 DPUs are a family of fixed-point neural network accelerators officially supported as part of the Vitis-AI toolchain.
-Currently Brevitas supports training for DPUv1 and DPUv2 by leveraging 8-bit fixed-point quantizers and a custom ONNX based export flow that targets PyXIR:
+Currently Brevitas supports training for DPUs by leveraging 8-bit fixed-point quantizers and a custom ONNX based export flow that targets PyXIR:
 
 ```python
 from torch import nn
@@ -328,7 +328,7 @@ import brevitas.nn as qnn
 from brevitas.quant import Int8WeightPerTensorFixedPoint as WeightQuant
 from brevitas.quant import Int8ActPerTensorFixedPoint as ActQuant
 from brevitas.quant import Int8BiasPerTensorFixedPointInternalScaling as BiasQuant
-from brevitas.export import DPUv1Manager, DPUv2Manager
+from brevitas.export import PyXIRManager
 
 
 class DPULeNet(nn.Module):
@@ -369,8 +369,7 @@ dpu_lenet = DPULeNet()
 
 # ... training ...
 
-DPUv1Manager.export(dpu_lenet, input_shape=(1, 3, 32, 32), export_path='dpuv1_lenet.onnx')
-DPUv2Manager.export(dpu_lenet, input_shape=(1, 3, 32, 32), export_path='dpuv2_lenet.onnx')
+PyXIRManager.export(dpu_lenet, input_shape=(1, 3, 32, 32), export_path='pyxir_lenet.onnx')
 
 ```
 
