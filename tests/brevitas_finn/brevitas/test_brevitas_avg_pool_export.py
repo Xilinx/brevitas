@@ -13,7 +13,6 @@ from finn.util.basic import gen_finn_dt_tensor
 from brevitas.export import FINNManager
 from brevitas.nn import QuantAvgPool2d
 from brevitas.quant_tensor import QuantTensor
-from brevitas.core.quant import QuantType
 
 
 export_onnx_path = "test_brevitas_avg_pool_export.onnx"
@@ -45,7 +44,8 @@ def test_brevitas_avg_pool_export(
     input_tensor = torch.from_numpy(input_array * scale_array).float()
     scale_tensor = torch.from_numpy(scale_array).float()
     zp = torch.tensor(0.)
-    input_quant_tensor = QuantTensor(input_tensor, scale_tensor, zp, input_bit_width, signed)
+    input_quant_tensor = QuantTensor(
+        input_tensor, scale_tensor, zp, input_bit_width, signed, training=False)
 
     # export
     FINNManager.export(quant_avgpool, export_path=export_onnx_path, input_t=input_quant_tensor)
