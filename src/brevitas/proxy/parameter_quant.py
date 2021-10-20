@@ -198,15 +198,15 @@ class BiasQuantProxyFromInjector(ParameterQuantProxyFromInjector, BiasQuantProxy
                 raise RuntimeError("Input bit-width required")
             if self.requires_input_scale and self.requires_input_bit_width:
                 input_scale = input_scale.view(-1)
-                out, out_scale, out_bit_width, out_zp = impl(x, input_scale, input_bit_width)
+                out, out_scale, out_zp, out_bit_width = impl(x, input_scale, input_bit_width)
             elif self.requires_input_scale and not self.requires_input_bit_width:
                 input_scale = input_scale.view(-1)
-                out, out_scale, out_bit_width, out_zp = impl(x, input_scale)
+                out, out_scale, out_zp, out_bit_width = impl(x, input_scale)
             elif not self.requires_input_scale and not self.requires_input_bit_width:
-                out, out_scale, out_bit_width, out_zp = impl(x)
+                out, out_scale, out_zp, out_bit_width = impl(x)
             else:
                 raise RuntimeError("Internally defined bit-width required")
-            return QuantTensor(out, out_scale, out_bit_width, out_zp, self.is_signed, self.training)
+            return QuantTensor(out, out_scale, out_zp, out_bit_width, self.is_signed, self.training)
         else:
             return QuantTensor(x, training=self.training)
 
