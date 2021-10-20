@@ -43,15 +43,23 @@ class Action:
             else:
                 repr += f"{name}: {val}" + NIX_NEWLINE
         if indent_first:
-            repr = indent(repr, RELATIVE_INDENT * ' ', predicate=lambda line: not first_line_prefix in line)
+            repr = indent(
+                repr, RELATIVE_INDENT * ' ', predicate=lambda line: not first_line_prefix in line)
         repr += NIX_NEWLINE
         return repr
 
     def gen_yaml(self, base_template_path, output_path):
-        d = {'name': self.name,
-             'exclude': indent(Action.list_of_dicts_str(self.exclude_list, True, True), EXCLUDE_INDENT * ' '),
-             'matrix': indent(Action.dict_str(self.matrix, False, False), MATRIX_INDENT * ' '),
-             'steps': indent(Action.list_of_dicts_str(self.step_list, False, True), STEP_INDENT * ' ')}
+        d = {}
+        d['name'] = self.name
+        d['matrix'] = indent(
+            Action.dict_str(self.matrix, False, False), MATRIX_INDENT * ' ')
+        d['steps'] = indent(
+            Action.list_of_dicts_str(self.step_list, False, True), STEP_INDENT * ' ')
+        if self.exclude_list:
+            d['exclude'] = indent('exclude:\n', MATRIX_INDENT * ' ') + indent(
+                Action.list_of_dicts_str(self.exclude_list, True, True), EXCLUDE_INDENT * ' ')
+        else:
+            d['exclude'] = ''
         template = CustomTemplate(open(base_template_path).read())
         generated_file = template.substitute(d)
         yaml.safe_load(generated_file)  # validate the generated yaml

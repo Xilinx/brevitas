@@ -14,7 +14,6 @@ jobs:
       fail-fast: false
       matrix:
 &{matrix}
-        exclude:
 &{exclude}
 
     steps:
