@@ -14,7 +14,7 @@ ORT_INTEGRATION_YML = 'ort_integration.yml'
 
 # Data shared betwen Nox sessions and Github Actions, formatted as tuples
 PYTHON_VERSIONS = ('3.6', '3.7', '3.8')
-PYTORCH_VERSIONS = ('1.5.1', '1.6.0', '1.7.1', '1.8.1')
+PYTORCH_VERSIONS = ('1.5.1', '1.6.0', '1.7.1', '1.8.1', '1.9.1', '1.10.0')
 JIT_STATUSES = ('jit_disabled',)
 
 # Data used only by Github Actions, formatted as lists or lists of ordered dicts
