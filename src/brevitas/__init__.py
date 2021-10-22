@@ -3,6 +3,7 @@ import glob
 import warnings
 from packaging import version
 from pkg_resources import get_distribution, DistributionNotFound
+from typing import List, Optional
 
 from torch.utils import cpp_extension
 import torch
@@ -24,11 +25,17 @@ if torch_version < version.parse('1.7.0'):
     from torch._overrides import has_torch_function, handle_torch_function
     original_cat = torch.cat
 
-    def cat(tensors, dim=0, out=None) -> Tensor:
+    @torch.jit.ignore
+    def unsupported_jit_cat(tensors, dim):
+        if any(type(t) is not Tensor for t in tensors) and has_torch_function(tensors):
+            return handle_torch_function(cat, tensors, tensors=tensors, dim=dim)
+
+    def cat(
+            tensors: List[Tensor],
+            dim: int = 0) -> Tensor:
         if not torch.jit.is_scripting():
-            if any(type(t) is not Tensor for t in tensors) and has_torch_function(tensors):
-                return handle_torch_function(cat, tensors, tensors=tensors, dim=dim, out=out)
-        return original_cat(tensors, dim=dim, out=out)
+            unsupported_jit_cat(tensors, dim)
+        return original_cat(tensors, dim=dim)
 
     torch.cat = cat
 
