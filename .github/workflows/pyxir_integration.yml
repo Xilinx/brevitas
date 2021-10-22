@@ -14,7 +14,7 @@ jobs:
       fail-fast: false
       matrix:
         python_version: ['3.6', '3.7', '3.8']
-        pytorch_version: ['1.5.0', '1.6.0', '1.7.1', '1.8.1']
+        pytorch_version: ['1.5.1', '1.6.0', '1.7.1', '1.8.1']
         platform: ['windows-latest', 'ubuntu-latest', 'macos-latest']
 
 
