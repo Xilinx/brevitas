@@ -22,7 +22,7 @@ from brevitas import torch_version
 from ..manager import VitisAIManager
 from .handler import XIRQuantLinearHandler, XIRQuantConv2dHandler, XIRQuantConvTranspose2dHandler
 from .handler import XIRQuantReLUHandler, XIRQuantIdentityHandler
-
+from .function import XIRFixFn, XIRGemmFn, XIRConv2dFn, XIRConvTranpose2dFn
 
 _nchw_dim_to_name = {
     0: 'n',
@@ -332,6 +332,13 @@ class XIRManager(VitisAIManager):
     onnx_passes = [
         # remove unused graph inputs & initializers
         "eliminate_unused_initializer"]
+
+    custom_fns = [
+        XIRConv2dFn,
+        XIRConvTranpose2dFn,
+        XIRFixFn,
+        XIRGemmFn
+    ]
 
     @classmethod
     def solve_keep_initializers_as_inputs(cls, export_kwargs):

@@ -27,7 +27,9 @@ class ONNXBaseManager(BaseManager, ABC):
 
     model_transforms = []
     onnx_passes = []
+    custom_fns = []
     dequantize_tracing_input = True
+    custom_opset = 1
 
     @classmethod
     def apply_model_transforms(cls, model):
@@ -49,6 +51,12 @@ class ONNXBaseManager(BaseManager, ABC):
             export_kwargs[ka] = False
 
     @classmethod
+    def register_custom_fns(cls):
+        for fn in cls.custom_fns:
+            torch.onnx.register_custom_op_symbolic(
+                f'{cls.target_name}::{fn.__name__}', fn.symbolic, cls.custom_opset)
+
+    @classmethod
     def export_onnx(
             cls,
             module: Module,
@@ -67,6 +75,7 @@ class ONNXBaseManager(BaseManager, ABC):
 
         cls.solve_keep_initializers_as_inputs(kwargs)
         cls.solve_enable_onnx_checker(kwargs)
+        cls.register_custom_fns()
 
         with torch.no_grad():
             with ExportContext(cls):

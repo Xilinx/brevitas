@@ -15,9 +15,8 @@ class BrevitasBinaryQuantFn(Function):
     @staticmethod
     def symbolic(g, x, scale, zero_point, bit_width, narrow_range, signed, rounding_mode):
         ret = g.op(
-            'BipolarQuant',
-            x, scale,
-            domain_s=DOMAIN_STRING)
+            f'{DOMAIN_STRING}::BipolarQuant',
+            x, scale)
         return ret
 
     @staticmethod
@@ -32,9 +31,8 @@ class BrevitasQuantFn(Function):
     @staticmethod
     def symbolic(g, x, scale, zero_point, bit_width, narrow_range, signed, rounding_mode):
         ret = g.op(
-            'Quant',
+            f'{DOMAIN_STRING}::Quant',
             x, scale, zero_point, bit_width,
-            domain_s=DOMAIN_STRING,
             rounding_mode_s=rounding_mode,
             signed_i=int(signed),
             narrow_i=int(narrow_range))
@@ -54,10 +52,9 @@ class BrevitasTruncFn(Function):
     @staticmethod
     def symbolic(g, x, scale, zero_point, input_bit_width, output_bit_width, rounding_mode):
         ret = g.op(
-            'Trunc',
+            f'{DOMAIN_STRING}::Trunc',
             x, scale, zero_point, input_bit_width, output_bit_width,
-            rounding_mode_s=rounding_mode,
-            domain_s=DOMAIN_STRING)
+            rounding_mode_s=rounding_mode)
         return ret
 
     @staticmethod

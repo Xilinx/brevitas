@@ -21,8 +21,7 @@ class DPUQuantReLUFn(Function):
             output_bit_width,
             output_scale):
         ret = g.op(
-            'Relu', x,
-            domain_s=DOMAIN_STRING,
+            f'{DOMAIN_STRING}::Relu', x,
             vai_quant_s=['vai_quant_in', 'vai_quant_out'],
             vai_quant_in_i=[input_bit_width, input_scale],
             vai_quant_out_i=[output_bit_width, output_scale])
@@ -56,15 +55,13 @@ class DPUQuantAvgPoolFn(Function):
             return x
         if list(out_shape[2:]) == [1, 1]:
             ret = g.op(
-                'GlobalAveragePool', x,
-                domain_s=DOMAIN_STRING,
+                f'{DOMAIN_STRING}::GlobalAveragePool', x,
                 vai_quant_s=['vai_quant_in', 'vai_quant_out'],
                 vai_quant_in_i=[input_bit_width, input_scale],
                 vai_quant_out_i=[output_bit_width, output_scale])
         else:
             ret = g.op(
-                'AveragePool', x,
-                domain_s=DOMAIN_STRING,
+                f'{DOMAIN_STRING}::AveragePool', x,
                 kernel_shape_i=kernel_shape,
                 strides_i=strides,
                 pads_i=pads,
@@ -99,8 +96,7 @@ class DPUQuantEltwiseAddFn(Function):
             output_bit_width,
             output_scale):
         ret = g.op(
-            'Add', x, y,
-            domain_s=DOMAIN_STRING,
+            f'{DOMAIN_STRING}::Add', x, y,
             vai_quant_s=['vai_quant_in', 'vai_quant_out'],
             vai_quant_in_i=[input_bit_width, input_scale, other_bit_width, other_scale],
             vai_quant_out_i=[output_bit_width, output_scale])
@@ -136,15 +132,13 @@ class DPUQuantMaxPoolFn(Function):
         if ((isinstance(pads, int) and pads != 0)
                 or (isinstance(pads, (list, tuple)) and any([p != 0 for p in pads]))):
             x = g.op(
-                'Pad', x,
-                domain_s=DOMAIN_STRING,
+                f'{DOMAIN_STRING}::Pad', x,
                 vai_quant_s=['vai_quant_in', 'vai_quant_out'],
                 vai_quant_in_i=[input_bit_width, input_scale],
                 vai_quant_out_i=[input_bit_width, input_scale],
                 pads_i=pads)
         ret = g.op(
-            'MaxPool', x,
-            domain_s=DOMAIN_STRING,
+            f'{DOMAIN_STRING}::MaxPool', x,
             kernel_shape_i=kernel_shape,
             strides_i=strides,
             auto_pad_s='VALID',
@@ -195,8 +189,7 @@ class DPUQuantConv2dFn(Function):
         if ((isinstance(padding, int) and padding != 0)
                 or (isinstance(padding, (list, tuple)) and any([p != 0 for p in padding]))):
             x = g.op(
-                'Pad', x,
-                domain_s=DOMAIN_STRING,
+                f'{DOMAIN_STRING}::Pad', x,
                 vai_quant_s=['vai_quant_in', 'vai_quant_out'],
                 vai_quant_in_i=[input_bit_width, input_scale],
                 vai_quant_out_i=[input_bit_width, input_scale],
@@ -205,10 +198,9 @@ class DPUQuantConv2dFn(Function):
         if int_bias is not None:
             vai_quant_s += ['vai_quant_biases']
             ret = g.op(
-                'Conv', x,
+                f'{DOMAIN_STRING}::Conv', x,
                 int_weight,
                 int_bias,
-                domain_s=DOMAIN_STRING,
                 vai_quant_s=vai_quant_s,
                 vai_quant_in_i=[input_bit_width, input_scale],
                 vai_quant_out_i=[output_bit_width, output_scale],
@@ -221,9 +213,8 @@ class DPUQuantConv2dFn(Function):
                 dilations_i=dilation)
         else:
             ret = g.op(
-                'Conv', x,
+                f'{DOMAIN_STRING}::Conv', x,
                 int_weight,
-                domain_s=DOMAIN_STRING,
                 vai_quant_s=vai_quant_s,
                 vai_quant_in_i=[input_bit_width, input_scale],
                 vai_quant_out_i=[output_bit_width, output_scale],
@@ -277,10 +268,9 @@ class DPUQuantLinearFn(Function):
         if int_bias is not None:
             vai_quant_s += ['vai_quant_biases']
             ret = g.op(
-                'Gemm', x,
+                f'{DOMAIN_STRING}::Gemm', x,
                 int_weight,
                 int_bias,
-                domain_s=DOMAIN_STRING,
                 transB_i=1,
                 vai_quant_s=vai_quant_s,
                 vai_quant_in_i=[input_bit_width, input_scale],
@@ -289,10 +279,9 @@ class DPUQuantLinearFn(Function):
                 vai_quant_biases_i=[bias_bit_width, bias_scale])
         elif int_bias is None and torch_version <= version.parse('1.4.0'):
             ret = g.op(
-                'Gemm', x,
+                f'{DOMAIN_STRING}::Gemm', x,
                 int_weight,
                 torch.tensor(0),  # workaround
-                domain_s=DOMAIN_STRING,
                 transB_i=1,
                 vai_quant_s=vai_quant_s,
                 vai_quant_in_i=[input_bit_width, input_scale],
@@ -300,9 +289,8 @@ class DPUQuantLinearFn(Function):
                 vai_quant_weights_i=[weight_bit_width, weight_scale])
         else:
             ret = g.op(
-                'Gemm', x,
+                f'{DOMAIN_STRING}::Gemm', x,
                 int_weight,
-                domain_s=DOMAIN_STRING,
                 transB_i=1,
                 vai_quant_s=vai_quant_s,
                 vai_quant_in_i=[input_bit_width, input_scale],

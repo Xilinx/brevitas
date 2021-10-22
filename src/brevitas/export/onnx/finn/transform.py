@@ -5,7 +5,7 @@ from torch.nn import Module
 from ..manager import onnx
 
 
-def move_quant_attributes_into_annotations(model: Module):
+def move_quant_attributes_into_annotations(model):
     """Move quantization info in attributes into quantization_annotation"""
     if onnx is None:
         raise ModuleNotFoundError("Installation of ONNX is required.")
@@ -44,4 +44,13 @@ def move_quant_attributes_into_annotations(model: Module):
                 n.attribute.remove(a)
     return model
 
+
+def restore_domain(model):
+    if onnx is None:
+        raise ModuleNotFoundError("Installation of ONNX is required.")
+    model = copy.deepcopy(model)
+    for n in model.graph.node:
+        if n.op_type in ['MatMul', 'Conv', 'Add', 'Div']:
+            n.domain = ''
+    return model
 

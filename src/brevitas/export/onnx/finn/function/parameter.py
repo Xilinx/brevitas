@@ -1,19 +1,21 @@
 import torch
 from torch.autograd import Function
 
+from . import DOMAIN_STRING
+
 
 class QuantizedLinearFn(Function):
 
     @staticmethod
     def symbolic(g, x, Wt, w_qnt_scale, b_qnt_scale, w_qnt_type, b_qnt_type, out_shape, bias):
-        ret = g.op('MatMul', x, Wt, weight_qnt_s=w_qnt_type)
+        ret = g.op(f'{DOMAIN_STRING}::MatMul', x, Wt, weight_qnt_s=w_qnt_type)
         if w_qnt_scale is not None:
             ret = g.op('Mul', ret, w_qnt_scale)
         if bias is not None:
             if b_qnt_type is not None:
                 assert b_qnt_scale is not None
                 ret = g.op('Div', ret, b_qnt_scale)
-                ret = g.op('Add', ret, bias, bias_qnt_s=b_qnt_type)
+                ret = g.op('{DOMAIN_STRING}::Add', ret, bias, bias_qnt_s=b_qnt_type)
                 ret = g.op('Mul', ret, b_qnt_scale)
             else:
                 ret = g.op('Add', ret, bias)
@@ -31,7 +33,7 @@ class QuantizedConvNdFn(Function):
             g, x, W, w_qnt_scale, b_qnt_scale, w_qnt_type, b_qnt_type, out_shape, pads, strides,
             bias, kernel_shape, groups, dilations):
         ret = g.op(
-            'Conv', x, W,
+            f'{DOMAIN_STRING}::Conv', x, W,
             weight_qnt_s=w_qnt_type,
             kernel_shape_i=kernel_shape,
             pads_i=pads,
@@ -44,7 +46,7 @@ class QuantizedConvNdFn(Function):
             if b_qnt_type is not None:
                 assert b_qnt_scale is not None
                 ret = g.op('Div', ret, b_qnt_scale)
-                ret = g.op('Add', ret, bias, bias_qnt_s=b_qnt_type)
+                ret = g.op('{DOMAIN_STRING}::Add', ret, bias, bias_qnt_s=b_qnt_type)
                 ret = g.op('Mul', ret, b_qnt_scale)
             else:
                 ret = g.op('Add', ret, bias)
