@@ -9,10 +9,9 @@ class QuantAvgPool2dFn(Function):
     @staticmethod
     def symbolic(g, x, out_shape, kernel, stride, signed, ibits, obits, scale, qnt_type):
         if scale is not None:
-            x = g.op('Div', x, scale, activation_qnt_s=qnt_type)
+            x = g.op('{DOMAIN_STRING}::Div', x, scale, activation_qnt_s=qnt_type)
         ret = g.op(
-            'QuantAvgPool2d', x,
-            domain_s=DOMAIN_STRING,
+            f'{DOMAIN_STRING}::QuantAvgPool2d', x,
             kernel_i=kernel,
             stride_i=stride,
             signed_i=signed,

@@ -4,10 +4,11 @@ from functools import partial
 import torch.nn.functional as F
 
 from brevitas.export.onnx.vitis_ai import VitisAIManager
-from brevitas.export.onnx.transform import move_domain_attributes_into_domain
 from .handler import DPUQuantConv2dHandler, DPUQuantMaxPool2dHandler
 from .handler import DPUQuantReLUHandler, DPUQuantEltwiseAddHandler
 from .handler import DPUQuantAvgPool2dHandler, DPUQuantLinearHandler
+from .function import DPUQuantLinearFn, DPUQuantReLUFn, DPUQuantConv2dFn
+from .function import DPUQuantAvgPoolFn, DPUQuantMaxPoolFn, DPUQuantEltwiseAddFn
 
 
 def _handler_wrapper(handler, cached_io):
@@ -18,9 +19,6 @@ def _handler_wrapper(handler, cached_io):
 
 class PyXIRManager(VitisAIManager, ABC):
     target_name = 'PyXIR'
-
-    model_transforms = [
-        move_domain_attributes_into_domain]
 
     onnx_passes = [
         # use initializers instead of Constant nodes for fixed params
@@ -35,6 +33,15 @@ class PyXIRManager(VitisAIManager, ABC):
         DPUQuantLinearHandler,
         DPUQuantConv2dHandler,
         DPUQuantMaxPool2dHandler]
+
+    custom_fns = [
+        DPUQuantEltwiseAddFn,
+        DPUQuantMaxPoolFn,
+        DPUQuantConv2dFn,
+        DPUQuantReLUFn,
+        DPUQuantLinearFn,
+        DPUQuantAvgPoolFn,
+    ]
 
     _cached_io_handler_map = {
         F.relu: partial(_handler_wrapper, DPUQuantReLUHandler),

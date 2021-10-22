@@ -3,7 +3,6 @@ from abc import ABC
 from torch.nn import functional as F, Module
 
 from brevitas.export.onnx.manager import ONNXBaseManager
-from brevitas.export.onnx.transform import move_domain_attributes_into_domain
 from brevitas.export.manager import _set_layer_export_handler, _set_layer_export_mode
 
 
@@ -14,9 +13,6 @@ def _handler_wrapper(handler, cached_io):
 
 
 class VitisAIManager(ONNXBaseManager, ABC):
-
-    model_transforms = [
-        move_domain_attributes_into_domain]
 
     _fn_to_cache = [
         F.relu,
