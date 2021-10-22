@@ -3,7 +3,7 @@ import glob
 import warnings
 from packaging import version
 from pkg_resources import get_distribution, DistributionNotFound
-from typing import List, Union, Tuple, Optional
+from typing import List, Optional
 
 from torch.utils import cpp_extension
 import torch
@@ -33,7 +33,7 @@ if torch_version < version.parse('1.7.0'):
     def cat(
             tensors: List[Tensor],
             dim: int = 0,
-            out: Optional[Tensor] = None) -> Tensor:
+            out = None) -> Tensor:
         if not torch.jit.is_scripting():
             unsupported_jit_cat(tensors, dim, out)
         return original_cat(tensors, dim=dim, out=out)
