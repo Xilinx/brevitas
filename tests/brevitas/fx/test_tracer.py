@@ -2,13 +2,13 @@ import pytest
 import torch
 from torch import Tensor
 from torch.nn import Module
-from torchvision.models.resnet import resnet18
-from torchvision.models.mobilenetv2 import mobilenet_v2
-from torchvision.models.alexnet import alexnet
-from torchvision.models.squeezenet import squeezenet1_0
-from torchvision.models.shufflenetv2 import shufflenet_v2_x0_5
-from torchvision.models.mnasnet import mnasnet0_5
-from torchvision.models.densenet import densenet121
+from torchvision.models import resnet18
+from torchvision.models import mobilenet_v2
+from torchvision.models import alexnet
+from torchvision.models import squeezenet1_0
+from torchvision.models import shufflenet_v2_x0_5
+from torchvision.models import mnasnet0_5
+from torchvision.models import densenet121
 
 from brevitas.fx import value_trace, brevitas_symbolic_trace, brevitas_value_trace
 
