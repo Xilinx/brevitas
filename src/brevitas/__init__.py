@@ -32,8 +32,8 @@ if torch_version < version.parse('1.7.0'):
 
     def cat(
             tensors: Union[Tuple[Tensor, ...], List[Tensor]],
-            dim: Union[str, ellipsis, None]=0,
-            out: Optional[Tensor]=None) -> Tensor:
+            dim: Union[str, int, None] = 0,
+            out: Optional[Tensor] = None) -> Tensor:
         if not torch.jit.is_scripting():
             unsupported_jit_cat(tensors, dim, out)
         return original_cat(tensors, dim=dim, out=out)
