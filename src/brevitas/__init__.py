@@ -26,17 +26,16 @@ if torch_version < version.parse('1.7.0'):
     original_cat = torch.cat
 
     @torch.jit.ignore
-    def unsupported_jit_cat(tensors, dim, out):
+    def unsupported_jit_cat(tensors, dim):
         if any(type(t) is not Tensor for t in tensors) and has_torch_function(tensors):
-            return handle_torch_function(cat, tensors, tensors=tensors, dim=dim, out=out)
+            return handle_torch_function(cat, tensors, tensors=tensors, dim=dim)
 
     def cat(
             tensors: List[Tensor],
-            dim: int = 0,
-            out = None) -> Tensor:
+            dim: int = 0) -> Tensor:
         if not torch.jit.is_scripting():
-            unsupported_jit_cat(tensors, dim, out)
-        return original_cat(tensors, dim=dim, out=out)
+            unsupported_jit_cat(tensors, dim)
+        return original_cat(tensors, dim=dim)
 
     torch.cat = cat
 
