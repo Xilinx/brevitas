@@ -7,7 +7,7 @@ from torch.autograd import Function
 from brevitas import torch_version
 
 
-DOMAIN_STRING = 'onnx.pyxir'
+DOMAIN_STRING = 'pyxir.onnx'
 
 
 class DPUQuantReLUFn(Function):

@@ -5,7 +5,7 @@ from torch.autograd import Function
 
 from brevitas import torch_version
 
-DOMAIN_STRING = 'xir'
+DOMAIN_STRING = 'xir.onnx'
 
 
 class XIRFixFn(Function):
