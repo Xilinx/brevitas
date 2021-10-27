@@ -16,6 +16,20 @@ If you like this project please consider ⭐ this repo, as it is the simplest an
 
 If you have issues, comments, or are just looking for advices on training quantized neural networks, you can open an issue, a discussion, or chat over in our [gitter](https://gitter.im/xilinx-brevitas/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge) channel.
 
+## Cite as
+
+If you adopt Brevitas in a paper, please cite it as:
+```
+@software{brevitas,
+  author       = {Alessandro Pappalardo},
+  title        = {Xilinx/brevitas},
+  year         = {2021},
+  publisher    = {Zenodo},
+  doi          = {10.5281/zenodo.3333552},
+  url          = {https://doi.org/10.5281/zenodo.3333552}
+}
+```
+
 
 ## History
 - *2021/06/04* - Release version 0.6.0, see the [release notes](https://github.com/Xilinx/brevitas/releases/tag/v0.6.0).
@@ -29,8 +43,8 @@ If you have issues, comments, or are just looking for advices on training quanti
 
 ## Requirements
 
-* Python >= 3.6.
-* [Pytorch](https://pytorch.org) >= 1.3.1 (minimal), >= 1.5.0 (suggested).
+* Python >= 3.6 .
+* [Pytorch](https://pytorch.org) >= 1.5.0 .
 * Windows, Linux or macOS.
 * GPU training-time acceleration (*Optional* but recommended).
 
@@ -385,7 +399,6 @@ Brevitas exposes a few settings that can be toggled through env variables.
 
 - **BREVITAS_JIT=1** (*Default: = 0*): Enables compilation of the available built-in quantizers through TorchScript just-in-time compiler, 
   together with a small native .cpp extension for the straight-through estimator functions. This can provide a speed-up and/or memory savings at training time. 
-  Please note that under certain circumstances this has been shown to produce diverging results compared to BREVITAS_JIT=0. Use at your own risk. 
 
 - **BREVITAS_VERBOSE=1** (*Default: = 0*): Enables verbose compilation of the straight-through estimator functions native extension.
 
@@ -396,10 +409,8 @@ Brevitas exposes a few settings that can be toggled through env variables.
 
 **Q: Pytorch supports quantization-aware training. Why should I use Brevitas?**
 
-**A:** Quantization in Pytorch is designed to target two specific CPU backends (FBGEMM and qnnpack). 
-Export to standard ONNX for quantized operators is not supported (only to a custom ONNX based format supported by the Caffe2).
-
-Brevitas is designed as a platform to implement novel quantization algorithms to target a variety of hardware backends adhering to a loose set of assumptions (i.e. uniform affine quantization).
+**A:** Quantization in Pytorch is currently designed to target two specific CPU backends (FBGEMM and qnnpack).
+Brevitas is designed as a platform to target a variety of hardware backends adhering to a loose set of assumptions (i.e. uniform affine quantization), through either existing quantization algorithms, or by implementing new ones.
 
 **Q: How can I train X/Y and run it on hardware W/Z? I can't find any documentation.**
 
@@ -447,14 +458,5 @@ floating-point format at training time, and use at your own risk.
 Alessandro Pappalardo (@volcacius) @ Xilinx Research Labs.
 For private communications, you can reach me at *alessand at name_of_my_employer dot com*.
 
-## Cite as
-```
-@software{brevitas,
-  author       = {Alessandro Pappalardo},
-  title        = {Xilinx/brevitas},
-  publisher    = {Zenodo},
-  doi          = {10.5281/zenodo.3333552},
-  url          = {https://doi.org/10.5281/zenodo.3333552}
-}
-```
+
 
