@@ -18,7 +18,7 @@ If you have issues, comments, or are just looking for advices on training quanti
 
 ## Cite as
 
-If you adopt Brevitas in a paper, please cite it as:
+If you adopt Brevitas in your work, please cite it as:
 ```
 @software{brevitas,
   author       = {Alessandro Pappalardo},
@@ -32,6 +32,7 @@ If you adopt Brevitas in a paper, please cite it as:
 
 
 ## History
+- *2021/10/29* - Release version 0.7.0, see the [release notes](https://github.com/Xilinx/brevitas/releases/tag/v0.7.0).
 - *2021/06/04* - Release version 0.6.0, see the [release notes](https://github.com/Xilinx/brevitas/releases/tag/v0.6.0).
 - *2021/05/24* - Release version 0.5.1, fix a bunch of minor issues. See [release notes](https://github.com/Xilinx/brevitas/releases/tag/v0.5.1).
 - *2021/05/06* - Release version 0.5.0, see the [release notes](https://github.com/Xilinx/brevitas/releases/tag/v0.5.0). 
