@@ -32,6 +32,7 @@ If you adopt Brevitas in your work, please cite it as:
 
 
 ## History
+- *2021/11/03* - Re-release version 0.7.0 (build 1) on PyPI to fix a packaging issue.
 - *2021/10/29* - Release version 0.7.0, see the [release notes](https://github.com/Xilinx/brevitas/releases/tag/v0.7.0).
 - *2021/06/04* - Release version 0.6.0, see the [release notes](https://github.com/Xilinx/brevitas/releases/tag/v0.6.0).
 - *2021/05/24* - Release version 0.5.1, fix a bunch of minor issues. See [release notes](https://github.com/Xilinx/brevitas/releases/tag/v0.5.1).
