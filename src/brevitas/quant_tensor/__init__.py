@@ -201,7 +201,7 @@ class QuantTensor(QuantTensorBase):
     def is_zero_zero_point(tensor):
         QuantTensor.check_input_type(tensor)
         if tensor.zero_point is not None:
-            return (tensor.zero_point != 0.).any()
+            return (tensor.zero_point == 0.).all()
         else:
             return None
 
@@ -361,7 +361,7 @@ class QuantTensor(QuantTensorBase):
             if self.is_zero_zero_point(self) and self.is_zero_zero_point(other):
                 output_zero_point = self.zero_point * other.zero_point
             else:
-                output_zero_point = None  # TODO non-zero zero point
+                raise RuntimeError("Zero-points of mul operands are non-zero, not supported.")
             output = QuantTensor(
                 value=output_value,
                 scale=output_scale,
