@@ -276,7 +276,7 @@ class QuantTensor(QuantTensorBase):
             if all([isinstance(qt, QuantTensor) and qt.is_not_none for qt in tensors]):
                 for qt in tensors[1:]:
                     first_qt.check_scaling_factors_same(qt)
-                    first_qt.check_scaling_factors_same(qt)
+                    first_qt.check_zero_points_same(qt)
                     first_qt.check_bit_width_same(qt)
                     first_qt.check_sign_same(qt)
                 output_value = torch.cat([qt.value for qt in tensors], dim=dim)
