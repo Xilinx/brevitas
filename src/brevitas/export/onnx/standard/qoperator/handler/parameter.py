@@ -40,7 +40,7 @@ class StdQOpONNXQuantWBIOLHandler(StdQOpONNXQuantLayerHandler, ABC):
         if module.bias is not None and requires_quant_bias:
             assert module.is_bias_quant_enabled
             assert module.is_quant_bias_signed
-            cls.validate_8b_bit_width(module.quant_bias_bit_width())
+            cls.validate_32b_bit_width(module.quant_bias_bit_width(), le_then=True)
 
     def input_symbolic_execution(self, inp: Tensor):
         input_quant_symbolic_kwargs = self.symbolic_kwargs['input_quant_symbolic_kwargs']
