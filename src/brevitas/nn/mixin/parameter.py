@@ -105,6 +105,11 @@ class QuantWeightMixin(QuantProxyMixin):
         bit_width = self.quant_weight().bit_width
         return bit_width
 
+    def register_parameter(self, name, value):
+        super(QuantWeightMixin, self).register_parameter(name, value)
+        if hasattr(self, 'weight_quant') and name == 'weight':
+            self.weight_quant.init_tensor_quant()
+
 
 class QuantBiasMixin(QuantProxyMixin):
     __metaclass__ = ABCMeta
@@ -197,4 +202,9 @@ class QuantBiasMixin(QuantProxyMixin):
             if self.training:
                 warn("Cached quant bias bit-width is being used in training mode.")
             return self._cached_bias.bit_width
+
+    def register_parameter(self, name, value):
+       super(QuantBiasMixin, self).register_parameter(name, value)
+       if hasattr(self, 'bias_quant') and name == 'bias':
+            self.bias_quant.init_tensor_quant()
 
