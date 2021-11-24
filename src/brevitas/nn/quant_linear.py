@@ -55,7 +55,7 @@ from .quant_layer import WeightQuantType, BiasQuantType, ActQuantType
 __all__ = ['QuantLinear']
 
 
-class QuantLinear(Linear, QuantWBIOL):
+class QuantLinear(QuantWBIOL, Linear):
 
     def __init__(
             self,
