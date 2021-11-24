@@ -289,6 +289,8 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             else:
                 _inplace_update(self.buffer, stats.detach(), self.momentum, self.counter, new_counter)
             self.counter = new_counter
+            # workaround to avoid find_ununsed_parameter=True in DDP
+            stats = stats + 0. * self.value
             return stats
         elif self.counter == self.collect_stats_steps:
             self.restrict_inplace_preprocess(self.buffer)
