@@ -46,10 +46,18 @@ from torch.nn import Module, Parameter
 
 import brevitas
 from brevitas import config
-from .utils import StatelessBuffer
 from brevitas.core.stats import SCALAR_SHAPE, DEFAULT_MOMENTUM, NegativeMinOrZero
 from brevitas.function import abs_binary_sign_grad
-from brevitas.core.function_wrapper import RoundSte
+
+from .utils import StatelessBuffer, inplace_tensor_add, inplace_momentum_update
+
+
+__all__ = [
+    'ZeroZeroPoint',
+    'MinUintZeroPoint',
+    'ParameterFromRuntimeMinZeroPoint',
+    'ParameterZeroPoint'
+]
 
 
 class ZeroZeroPoint(brevitas.jit.ScriptModule):
@@ -64,7 +72,7 @@ class ZeroZeroPoint(brevitas.jit.ScriptModule):
 
 
 class MinUintZeroPoint(brevitas.jit.ScriptModule):
-    __constants__ = ['stats_reduce_dim', 'zero_point_shape']
+    __constants__ = ['zero_point_shape']
 
     def __init__(
             self,
@@ -101,7 +109,7 @@ class ParameterFromRuntimeMinZeroPoint(brevitas.jit.ScriptModule):
             zero_point_shape: Tuple[int, ...],
             zero_point_stats_input_view_shape_impl: Module,
             zero_point_stats_permute_dims: Optional[Tuple[int, ...]] = None,
-            zero_point_stats_momentum: float = DEFAULT_MOMENTUM) -> None:
+            zero_point_stats_momentum: Optional[float] = DEFAULT_MOMENTUM) -> None:
         super(ParameterFromRuntimeMinZeroPoint, self).__init__()
         assert collect_stats_steps > 0, 'Steps should be more than 0'
         if zero_point_shape != SCALAR_SHAPE and zero_point_stats_permute_dims is None:
@@ -112,28 +120,42 @@ class ParameterFromRuntimeMinZeroPoint(brevitas.jit.ScriptModule):
         self.stats_input_view_shape_impl = zero_point_stats_input_view_shape_impl
         self.momentum = zero_point_stats_momentum
         self.value = Parameter(torch.full(zero_point_shape, 0.0))
+        self.register_buffer('buffer', torch.full(zero_point_shape, 0.0))
         self.negative_min_or_zero = NegativeMinOrZero(stats_reduce_dim)
         self.int_quant = int_quant
 
-    @brevitas.jit.script_method_110_disabled
-    def forward(self, x: Tensor, scale: Tensor, bit_width: Tensor) -> Tensor:
-        if self.training:
-            if self.counter <= self.collect_stats_steps:
-                if self.stats_permute_dims is not None:
-                    x = x.permute(*self.stats_permute_dims).contiguous()
-                stats_input = self.stats_input_view_shape_impl(x)
-                stats = self.negative_min_or_zero(stats_input)
-                if self.counter == 0:
-                    self.value.detach().add_(stats.detach())
-                else:
-                    self.value.detach().mul_(1 - self.momentum)
-                    self.value.detach().add_(self.momentum * stats.detach())
-                self.counter = self.counter + 1
-                out = stats
+    @brevitas.jit.script_method
+    def training_forward(self, x) -> Tensor:
+        if self.counter < self.collect_stats_steps:
+            if self.stats_permute_dims is not None:
+                x = x.permute(*self.stats_permute_dims).contiguous()
+            stats_input = self.stats_input_view_shape_impl(x)
+            stats = self.negative_min_or_zero(stats_input)
+            new_counter = self.counter + 1
+            if self.counter == 0:
+                inplace_tensor_add(self.buffer, stats.detach())
             else:
-                out = self.value
+                inplace_momentum_update(
+                    self.buffer, stats.detach(), self.momentum, self.counter, new_counter)
+            self.counter = new_counter
+            out = stats
+        elif self.counter == self.collect_stats_steps:
+            inplace_tensor_add(self.value.detach(), self.buffer)
+            self.counter = self.counter + 1
+            out = self.value
         else:
             out = self.value
+        return out
+
+    @brevitas.jit.script_method
+    def forward(self, x: Tensor, scale: Tensor, bit_width: Tensor) -> Tensor:
+        if self.training:
+            out = self.training_forward(x)
+        else:
+            if self.counter <= self.collect_stats_steps:
+                out = self.buffer
+            else:
+                out = self.value
         out = abs_binary_sign_grad(out)
         min_int = self.int_quant.min_int(bit_width)
         out = self.int_quant.to_int(scale, min_int, bit_width, out)
@@ -181,7 +203,7 @@ class ParameterZeroPoint(brevitas.jit.ScriptModule):
         self.value = Parameter(zero_point_init)
         self.int_quant = int_quant
 
-    @brevitas.jit.script_method_110_disabled
+    @brevitas.jit.script_method
     def forward(self, x: Tensor, scale: Tensor, bit_width: Tensor) -> Tensor:
         out = abs_binary_sign_grad(self.value)
         min_int = self.int_quant.min_int(bit_width)

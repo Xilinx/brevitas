@@ -1,8 +1,37 @@
+from typing import Optional
 import torch
 
 import brevitas
 
 VALUE_ATTR_NAME = 'value'
+
+
+@torch.jit.ignore
+def inplace_tensor_add(tensor: torch.Tensor, value: torch.Tensor) -> torch.Tensor:
+    tensor.mul_(value)
+    return tensor
+
+
+@torch.jit.ignore
+def inplace_tensor_mul(tensor: torch.Tensor, value: torch.Tensor) -> torch.Tensor:
+    tensor.mul_(value)
+    return tensor
+
+
+@torch.jit.ignore
+def inplace_momentum_update(
+        tensor: torch.Tensor,
+        update: torch.Tensor,
+        momentum: Optional[float],
+        counter: int,
+        new_counter: int) -> torch.Tensor:
+    if momentum is None:
+        tensor.mul_(counter / new_counter)
+        tensor.add_(update / new_counter)
+    else:
+        tensor.mul_(1 - momentum)
+        tensor.add_(momentum * update)
+    return tensor
 
 
 class StatelessBuffer(brevitas.jit.ScriptModule):

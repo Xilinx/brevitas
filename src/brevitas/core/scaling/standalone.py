@@ -50,7 +50,7 @@ import brevitas.config as config
 from brevitas.function import abs_binary_sign_grad
 from brevitas.core.function_wrapper import Identity
 from brevitas.core.function_wrapper import OverBatchOverTensorView
-from brevitas.core.utils import StatelessBuffer
+from brevitas.core.utils import StatelessBuffer, inplace_momentum_update, inplace_tensor_mul
 from brevitas.core.restrict_val import _RestrictClampValue
 from brevitas.core.stats import _Stats, SCALAR_SHAPE, DEFAULT_MOMENTUM
 
@@ -188,23 +188,6 @@ class ParameterScaling(brevitas.jit.ScriptModule):
             missing_keys.remove(value_key)
 
 
-@torch.jit.ignore
-def _inplace_init(value: Tensor, stats: Tensor) -> Tensor:
-    value.mul_(stats)
-    return value
-
-
-@torch.jit.ignore
-def _inplace_update(value: Tensor, stats: Tensor, momentum: Optional[float], counter: int, new_counter: int) -> Tensor:
-    if momentum is None:
-        value.mul_(counter / new_counter)
-        value.add_(stats / new_counter)
-    else:
-        value.mul_(1 - momentum)
-        value.add_(momentum * stats)
-    return value
-
-
 class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
     """
     ScriptModule implementation of a learned scale factor initialized from runtime statistics.
@@ -285,16 +268,17 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             stats = self.stats(stats_input)
             new_counter = self.counter + 1
             if self.counter == 0:
-                _inplace_init(self.buffer, stats.detach())
+                inplace_tensor_mul(self.buffer, stats.detach())
             else:
-                _inplace_update(self.buffer, stats.detach(), self.momentum, self.counter, new_counter)
+                inplace_momentum_update(
+                    self.buffer, stats.detach(), self.momentum, self.counter, new_counter)
             self.counter = new_counter
             # workaround to avoid find_ununsed_parameter=True in DDP
             stats = stats + 0. * self.value
             return stats
         elif self.counter == self.collect_stats_steps:
             self.restrict_inplace_preprocess(self.buffer)
-            _inplace_init(self.value.detach(), self.buffer)
+            inplace_tensor_mul(self.value.detach(), self.buffer)
             self.counter = self.counter + 1
             return abs_binary_sign_grad(self.restrict_clamp_scaling(self.value))
         else:
