@@ -138,7 +138,8 @@ class ParameterFromRuntimeMinZeroPoint(brevitas.jit.ScriptModule):
                 inplace_momentum_update(
                     self.buffer, stats.detach(), self.momentum, self.counter, new_counter)
             self.counter = new_counter
-            out = stats
+            # work around find_unusued_parameters=True in DDP
+            out = stats + 0. * self.value
         elif self.counter == self.collect_stats_steps:
             inplace_tensor_add(self.value.detach(), self.buffer)
             self.counter = self.counter + 1
