@@ -321,10 +321,9 @@ class QuantTensor(QuantTensorBase):
     def __add__(self, other):
         if isinstance(other, QuantTensor) and self.is_not_none and other.is_not_none:
             self.check_scaling_factors_same(other)
-            self.check_zero_points_same(other)
             output_value = self.value + other.value
             output_scale = (self.scale + other.scale) / 2
-            output_zero_point = (self.zero_point + other.zero_point) / 2
+            output_zero_point = self.zero_point + other.zero_point
             max_val = max_int(signed=self.signed, narrow_range=False, bit_width=self.bit_width)
             max_val += max_int(signed=other.signed, narrow_range=False, bit_width=other.bit_width)
             min_val = min_int(signed=self.signed, narrow_range=False, bit_width=self.bit_width)
