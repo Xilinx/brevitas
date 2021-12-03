@@ -109,6 +109,7 @@ class QuantWeightMixin(QuantProxyMixin):
         super(QuantWeightMixin, self).register_parameter(name, value)
         if hasattr(self, 'weight_quant') and name == 'weight':
             self.weight_quant.init_tensor_quant()
+            self.weight_quant.to(self.weight.device)
 
 
 class QuantBiasMixin(QuantProxyMixin):
@@ -207,4 +208,5 @@ class QuantBiasMixin(QuantProxyMixin):
        super(QuantBiasMixin, self).register_parameter(name, value)
        if hasattr(self, 'bias_quant') and name == 'bias':
             self.bias_quant.init_tensor_quant()
+            self.bias_quant.to(self.bias.device)
 
