@@ -58,6 +58,30 @@ class QuantTensorBase(NamedTuple):
     training_t: Optional[Tensor]
 
 
+def _unpack_quant_tensor(input_data):
+    if isinstance(input_data, QuantTensor):
+        return input_data.tensor
+    elif isinstance(input_data, tuple):
+        return tuple([_unpack_quant_tensor(v) for v in input_data])
+    elif isinstance(input_data, list):
+        return [_unpack_quant_tensor(v) for v in input_data]
+    elif isinstance(input_data, dict):
+        return {k: _unpack_quant_tensor(v) for k, v in input_data.items()}
+    else:
+        return input_data
+
+
+def _is_all_nested_not_none(input_data):
+    if isinstance(input_data, QuantTensor):
+        return input_data.is_not_none
+    elif isinstance(input_data, (tuple, list)):
+        return all([_is_all_nested_not_none(v) for v in input_data])
+    elif isinstance(input_data, dict):
+        return all([_is_all_nested_not_none(v) for v in input_data.values()])
+    else:
+        return True
+
+
 class QuantTensor(QuantTensorBase):
 
     def __new__(
@@ -93,11 +117,9 @@ class QuantTensor(QuantTensorBase):
             kwargs = {}
         if (func not in QUANT_TENSOR_FN_HANDLER
                 or not all(issubclass(t, QuantTensor) for t in types)
-                or not (all([t.is_not_none for t in args if isinstance(t, QuantTensor)])
-                        and all([t.is_not_none for t in kwargs.values() if
-                                 isinstance(t, QuantTensor)]))):
-            args = [a.tensor if hasattr(a, 'tensor') else a for a in args]
-            kwargs = {kk: ka.tensor if hasattr(ka, 'tensor') else ka for kk, ka in kwargs.items()}
+                or not (_is_all_nested_not_none(args) and _is_all_nested_not_none(kwargs))):
+            args = _unpack_quant_tensor(args)
+            kwargs = _unpack_quant_tensor(kwargs)
             return func(*args, **kwargs)
         return QUANT_TENSOR_FN_HANDLER[func](*args, **kwargs)
 
