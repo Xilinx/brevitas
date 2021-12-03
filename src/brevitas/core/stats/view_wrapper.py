@@ -48,7 +48,6 @@ from brevitas.core.function_wrapper import StatsInputViewShapeImpl  # retrocomp
 
 
 class _ViewParameterWrapper(brevitas.jit.ScriptModule):
-    __constants__ = ['shape']
 
     def __init__(self, parameter: Parameter, view_shape_impl: Module) -> None:
         super(_ViewParameterWrapper, self).__init__()
@@ -74,7 +73,7 @@ class _ViewParameterWrapper(brevitas.jit.ScriptModule):
 
 
 class _ViewCatParameterWrapper(brevitas.jit.ScriptModule):
-    __constants__ = ['shape', 'cat_dim']
+    __constants__ = ['cat_dim']
 
     def __init__(self, parameter: Parameter, view_shape_impl: Module, cat_dim: int) -> None:
         super(_ViewCatParameterWrapper, self).__init__()
