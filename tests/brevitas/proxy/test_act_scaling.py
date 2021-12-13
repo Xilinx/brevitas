@@ -77,9 +77,9 @@ class TestQuantReLU:
             out = stats_act(inp)
             out.requires_grad_(True)  # i need something to require a grad
             out.sum().backward()
-            assert scaling_value.grad is None
+            assert scaling_value.grad == 0.
         inp = torch.randn(shape)
         out = stats_act(inp)
         out.sum().backward()
-        assert scaling_value.grad is not None
+        assert scaling_value.grad != 0.
 
