@@ -244,6 +244,7 @@ class WeightPerTensorFloatDecoupledL2Param(SolveWeightScalingStatsInputDimsFromM
     pre_scaling_impl = StatsFromParameterScaling
     scaling_stats_impl = AbsMaxL2
     scaling_stats_input_view_shape_impl = OverOutputChannelView
+    scaling_stats_input_concat_dim = 0
     stats_reduce_dim = SCALING_STATS_REDUCE_DIM
     restrict_scaling_impl = FloatRestrictValue
     scaling_shape = SCALAR_SHAPE
