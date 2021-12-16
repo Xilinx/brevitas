@@ -79,8 +79,12 @@ __all__ = [
 
 class ScalarClampSteFn(Function):
     """
+    Autograd function that implements ``torch.clamp`` with a straight-through gradient estimator
+    for the gradient of y w.r.t. to x, while the gradient of y w.r.t. to ``min_val`` and ``min_val``
+    are always ``None``.
+
     ``ScalarClampSteFn.apply(*args)`` is first aliased to :func:`scalar_clamp_ste_impl(*args)
-    <brevitas.function.autograd_ste_ops.scalar_clamp_ste_impl>` and then wrapped by
+    <brevitas.ops.autograd_ste_ops.scalar_clamp_ste_impl>` and then wrapped by
     :func:`~brevitas.function.ops_ste.scalar_clamp_ste` and invoked when env ``BREVITAS_JIT=0``.
     See :func:`~brevitas.function.ops_ste.scalar_clamp_ste` for details on the interface and
     examples.
@@ -108,7 +112,7 @@ class ScalarClampMinSteFn(Function):
     ``None``.
 
     ``ScalarClampMinSteFn.apply(*args)`` is first aliased to :func:`scalar_clamp_min_ste_impl(*args)
-    <brevitas.function.autograd_ste_ops.scalar_clamp_min_ste_impl>` and then wrapped by
+    <brevitas.ops.autograd_ste_ops.scalar_clamp_min_ste_impl>` and then wrapped by
     :func:`~brevitas.function.ops_ste.scalar_clamp_min_ste` and invoked when env ``BREVITAS_JIT=0``.
     See :func:`~brevitas.function.ops_ste.scalar_clamp_ste` for details on the interface and
     examples.
@@ -136,7 +140,7 @@ class TensorClampSteFn(Function):
     w.r.t. to min_val and max_val is always None.
 
     ``TensorClampSteFn.apply(*args)`` is first aliased to :func:`tensor_clamp_ste_impl(*args)
-    <brevitas.function.autograd_ste_ops.tensor_clamp_ste_impl>` and then wrapped by
+    <brevitas.ops.autograd_ste_ops.tensor_clamp_ste_impl>` and then wrapped by
     :func:`~brevitas.function.ops_ste.tensor_clamp` when env ``BREVITAS_JIT=0``.
     See :func:`~brevitas.function.ops_ste.tensor_clamp` for details on the interface and
     examples.
@@ -168,7 +172,7 @@ class InplaceTensorClampSteFn(Function):
 
     ``InplaceTensorClampSteFn.apply(*args)`` is first aliased to
     :func:`tensor_clamp_ste_impl_(*args)
-    <brevitas.function.autograd_ste_ops.tensor_clamp_ste_impl_>` and then wrapped by
+    <brevitas.ops.autograd_ste_ops.tensor_clamp_ste_impl_>` and then wrapped by
     :func:`~brevitas.function.ops_ste.tensor_clamp_` when env ``BREVITAS_JIT=0``.
     See :func:`~brevitas.function.ops_ste.tensor_clamp_` for details on the interface and
     examples.
@@ -198,7 +202,7 @@ class RoundToZeroSteFn(Function):
     straight-through gradient estimator.
 
     ``RoundToZeroSteFn.apply(*args)`` is first aliased to :func:`round_to_zero_ste_impl(*args)
-    <brevitas.function.autograd_ste_ops.round_to_zero_ste_impl>` and then wrapped by
+    <brevitas.ops.autograd_ste_ops.round_to_zero_ste_impl>` and then wrapped by
     :func:`~brevitas.function.ops_ste.round_to_zero_ste` when env ``BREVITAS_JIT=0``.
     See :func:`~brevitas.function.ops_ste.round_to_zero_ste` for details on the interface and
     examples.
@@ -228,7 +232,7 @@ class DPURoundSteFn(Function):
     straight-through gradient estimator.
 
     ``DPURoundSteFn.apply(*args)`` is first aliased to :func:`dpu_round_ste_impl(*args)
-    <brevitas.function.autograd_ste_ops.dpu_round_ste_impl>` and then wrapped by
+    <brevitas.ops.autograd_ste_ops.dpu_round_ste_impl>` and then wrapped by
     :func:`~brevitas.function.ops_ste.dpu_round_ste` when env ``BREVITAS_JIT=0``.
     See :func:`~brevitas.function.ops_ste.dpu_round_ste` for details on the interface and
     examples.
@@ -253,7 +257,7 @@ class CeilSteFn(Function):
     Autograd function that implements :func:`torch.ceil` with a straight-through gradient estimator.
 
     ``CeilSteFn.apply(*args)`` is first aliased to :func:`ceil_ste_impl(*args)
-    <brevitas.function.autograd_ste_ops.ceil_ste_impl>` and then wrapped by
+    <brevitas.ops.autograd_ste_ops.ceil_ste_impl>` and then wrapped by
     :func:`~brevitas.function.ops_ste.ceil_ste` when env ``BREVITAS_JIT=0``.
     See :func:`~brevitas.function.ops_ste.ceil_ste` for details on the interface and
     examples.
@@ -279,7 +283,7 @@ class FloorSteFn(Function):
     Autograd function that implements :func:`torch.floor` with a straight-through gradient estimator.
 
     ``FloorSteFn.apply(*args)`` is first aliased to :func:`floor_ste_impl(*args)
-    <brevitas.function.autograd_ste_ops.floor_ste_impl>` and then wrapped by
+    <brevitas.ops.autograd_ste_ops.floor_ste_impl>` and then wrapped by
     :func:`~brevitas.function.ops_ste.floor_ste` when env ``BREVITAS_JIT=0``.
     See :func:`~brevitas.function.ops_ste.floor_ste` for details on the interface and
     examples.
@@ -305,9 +309,9 @@ class BinarySignSteFn(Function):
     Autograd function that implements :func:`~brevitas.function.ops.binary_sign` with a
     straight-through gradient estimator.
 
-   ``BinarySignSteFn.apply(*args)`` is first aliased to :func:`binary_sign_ste_impl(*args)
-    <brevitas.function.autograd_ste_ops.binary_sign_ste_impl>` and then wrapped by
-    :func:`~brevitas.function.ops_ste.binary_sign_ste` when env ``BREVITAS_JIT=0``.
+    ``BinarySignSteFn.apply(*args)`` is first aliased to 
+    :func:`binary_sign_ste_impl(*args)<brevitas.ops.autograd_ste_ops.binary_sign_ste_impl>` 
+    and then wrapped by :func:`~brevitas.function.ops_ste.binary_sign_ste` when env ``BREVITAS_JIT=0``.
     See :func:`~brevitas.function.ops_ste.binary_sign_ste` for details on the interface and
     examples.
     """
@@ -337,7 +341,7 @@ class TernarySignSteFn(Function):
     Autograd function that implements :func:`torch.sign` with a straight-through gradient estimator.
 
     ``TernarySignSteFn.apply(*args)`` is first aliased to :func:`ternary_sign_ste_impl(*args)
-    <brevitas.function.autograd_ste_ops.ternary_sign_ste_impl>` and then wrapped by
+    <brevitas.ops.autograd_ste_ops.ternary_sign_ste_impl>` and then wrapped by
     :func:`~brevitas.function.ops_ste.ternary_sign_ste` when env ``BREVITAS_JIT=0``.
     See :func:`~brevitas.function.ops_ste.ternary_sign_ste` for details on the interface and
     examples.
@@ -364,7 +368,7 @@ class RoundSteFn(Function):
     estimator.
 
     ``RoundSteFn.apply(*args)`` is first aliased to :func:`round_ste_impl(*args)
-    <brevitas.function.autograd_ste_ops.round_ste_impl>` and then wrapped by
+    <brevitas.ops.autograd_ste_ops.round_ste_impl>` and then wrapped by
     :func:`~brevitas.function.ops_ste.round_ste` when env ``BREVITAS_JIT=0``.
     See :func:`~brevitas.function.ops_ste.round_ste` for details on the interface and examples.
     """
@@ -391,8 +395,8 @@ class AbsBinarySignGradFn(Function):
     have subgradient 1 in 0. Compare with :func:`torch.abs`' subgradient of 0 in 0.
 
     ``AbsBinarySignGradFn.apply(*args)`` is first aliased to :func:`abs_binary_sign_grad(*args)
-    <brevitas.function.autograd_ste_ops.abs_binary_sign_grad>` and then wrapped by
-    :func:`~brevitas.function.abs_binary_sign_grad` when env ``BREVITAS_JIT=0``.
+    <brevitas.ops.autograd_ste_ops.abs_binary_sign_grad_impl>` and then wrapped by
+    :func:`~brevitas.function.ops_ste.abs_binary_sign_grad` when env ``BREVITAS_JIT=0``.
     See :func:`~brevitas.function.ops_ste.abs_binary_sign_grad` for details on the interface and
     examples.
     """
@@ -415,49 +419,49 @@ class AbsBinarySignGradFn(Function):
 
 
 #: Alias for :class:`RoundSteFn.apply(*args)
-#: <brevitas.function.autograd_ste_ops.RoundSteFn>`
+#: <brevitas.ops.autograd_ste_ops.RoundSteFn>`
 round_ste_impl = RoundSteFn.apply
 
 #: Alias for :class:`BinarySignSteFn.apply(*args)
-#: <brevitas.function.autograd_ste_ops.BinarySignSteFn>`
+#: <brevitas.ops.autograd_ste_ops.BinarySignSteFn>`
 binary_sign_ste_impl = BinarySignSteFn.apply
 
 #: Alias for :class:`TernarySignSteFn.apply(*args)
-#: <brevitas.function.autograd_ste_ops.TernarySignSteFn>`
+#: <brevitas.ops.autograd_ste_ops.TernarySignSteFn>`
 ternary_sign_ste_impl = TernarySignSteFn.apply
 
 #: Alias for :class:`FloorSteFn.apply(*args)
-#: <brevitas.function.autograd_ste_ops.FloorSteFn>`
+#: <brevitas.ops.autograd_ste_ops.FloorSteFn>`
 floor_ste_impl = FloorSteFn.apply
 
 #: Alias for :class:`CeilSteFn.apply(*args)
-#: <brevitas.function.autograd_ste_ops.CeilSteFn>`
+#: <brevitas.ops.autograd_ste_ops.CeilSteFn>`
 ceil_ste_impl = CeilSteFn.apply
 
 #: Alias for :class:`RoundToZeroSteFn.apply(*args)
-#: <brevitas.function.autograd_ste_ops.RoundToZeroSteFn>`
+#: <brevitas.ops.autograd_ste_ops.RoundToZeroSteFn>`
 round_to_zero_ste_impl = RoundToZeroSteFn.apply
 
 #: Alias for :class:`DPURoundSteFn.apply(*args)
-#: <brevitas.function.autograd_ste_ops.DPURoundSteFn>`
+#: <brevitas.ops.autograd_ste_ops.DPURoundSteFn>`
 dpu_round_ste_impl = DPURoundSteFn.apply
 
 #: Alias for :class:`ScalarClampMinSteFn.apply(*args)
-#: <brevitas.function.autograd_ste_ops.ScalarClampMinSteFn>`
+#: <brevitas.ops.autograd_ste_ops.ScalarClampMinSteFn>`
 scalar_clamp_min_ste_impl = ScalarClampMinSteFn.apply
 
 #: Alias for :class:`ScalarClampSteFn.apply(*args)
-#: <brevitas.function.autograd_ste_ops.ScalarClampSteFn>`
+#: <brevitas.ops.autograd_ste_ops.ScalarClampSteFn>`
 scalar_clamp_ste_impl = ScalarClampSteFn.apply
 
 #: Alias for :class:`TensorClampSteFn.apply(*args)
-#: <brevitas.function.autograd_ste_ops.TensorClampSteFn>`
+#: <brevitas.ops.autograd_ste_ops.TensorClampSteFn>`
 tensor_clamp_ste_impl = TensorClampSteFn.apply
 
 #: Alias for :class:`InplaceTensorClampSteFn.apply(*args)
-#: <brevitas.function.autograd_ste_ops.InplaceTensorClampSteFn>`
+#: <brevitas.ops.autograd_ste_ops.InplaceTensorClampSteFn>`
 tensor_clamp_ste_impl_ = InplaceTensorClampSteFn.apply
 
 #: Alias for :class:`AbsBinarySignGradFn.apply(*args)
-#: <brevitas.function.autograd_ste_ops.AbsBinarySignGradFn>`
+#: <brevitas.ops.autograd_ste_ops.AbsBinarySignGradFn>`
 abs_binary_sign_grad_impl = AbsBinarySignGradFn.apply
