@@ -68,6 +68,7 @@ setup(name="brevitas",
       install_requires=read_requirements('requirements.txt'),
       extras_require={
           "notebook": read_requirements('requirements-notebook.txt'),
+          "docs": read_requirements("requirements-docs.txt"),
           "export": read_requirements('requirements-export.txt'),
           "hadamard": read_requirements('requirements-hadamard.txt'),
           "test": read_requirements('requirements-test.txt'),
