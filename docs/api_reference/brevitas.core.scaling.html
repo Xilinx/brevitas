@@ -1,0 +1,665 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>brevitas.core.scaling package &#8212; Brevitas 0.6.1.dev24+g02fe33a.d20210910 documentation</title>
+    
+  <link href="../_static/css/theme.css" rel="stylesheet" />
+  <link href="../_static/css/index.c5995385ac14fb8791e8eb36b4908be2.css" rel="stylesheet" />
+
+    
+  <link rel="stylesheet"
+    href="../_static/vendor/fontawesome/5.13.0/css/all.min.css">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="../_static/vendor/fontawesome/5.13.0/webfonts/fa-solid-900.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="../_static/vendor/fontawesome/5.13.0/webfonts/fa-brands-400.woff2">
+
+    
+      
+
+    
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css" />
+    
+  <link rel="preload" as="script" href="../_static/js/index.1c5a1a01449ed65a7b51.js">
+
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <link rel="author" title="About these documents" href="../about.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="brevitas.core.stats package" href="brevitas.core.stats.html" />
+    <link rel="prev" title="brevitas.core.quant package" href="brevitas.core.quant.html" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="docsearch:language" content="en" />
+    
+  </head>
+  <body data-spy="scroll" data-target="#bd-toc-nav" data-offset="80">
+    
+    <div class="container-fluid" id="banner"></div>
+
+    
+    <nav class="navbar navbar-light navbar-expand-lg bg-light fixed-top bd-navbar" id="navbar-main"><div class="container-xl">
+
+  <div id="navbar-start">
+    
+    
+<a class="navbar-brand" href="../index.html">
+<p class="title">Brevitas</p>
+</a>
+
+    
+  </div>
+
+  <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbar-collapsible" aria-controls="navbar-collapsible" aria-expanded="false" aria-label="Toggle navigation">
+    <span class="navbar-toggler-icon"></span>
+  </button>
+
+  
+  <div id="navbar-collapsible" class="col-lg-9 collapse navbar-collapse">
+    <div id="navbar-center" class="mr-auto">
+      
+      <div class="navbar-center-item">
+        <ul id="navbar-main-elements" class="navbar-nav">
+    <li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="../setup.html">
+  Setup
+ </a>
+</li>
+
+<li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="../user_guide/index.html">
+  User Guide
+ </a>
+</li>
+
+<li class="toctree-l1 current active nav-item">
+ <a class="reference internal nav-link" href="index.html">
+  API reference
+ </a>
+</li>
+
+<li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="../faq.html">
+  FAQ
+ </a>
+</li>
+
+<li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="../about.html">
+  About
+ </a>
+</li>
+
+    
+</ul>
+      </div>
+      
+    </div>
+
+    <div id="navbar-end">
+      
+      <div class="navbar-end-item">
+        <ul id="navbar-icon-links" class="navbar-nav" aria-label="Icon Links">
+      </ul>
+      </div>
+      
+    </div>
+  </div>
+</div>
+    </nav>
+    
+
+    <div class="container-xl">
+      <div class="row">
+          
+            
+            <!-- Only show if we have sidebars configured, else just a small margin  -->
+            <div class="col-12 col-md-3 bd-sidebar"><form class="bd-search d-flex align-items-center" action="../search.html" method="get">
+  <i class="icon fas fa-search"></i>
+  <input type="search" class="form-control" name="q" id="search-input" placeholder="Search the docs ..." aria-label="Search the docs ..." autocomplete="off" >
+</form><nav class="bd-links" id="bd-docs-nav" aria-label="Main navigation">
+  <div class="bd-toc-item active">
+    <ul class="current nav bd-sidenav">
+ <li class="toctree-l1">
+  <a class="reference internal" href="brevitas.function.html">
+   brevitas.function package
+  </a>
+ </li>
+ <li class="toctree-l1 current active has-children">
+  <a class="reference internal" href="brevitas.core.html">
+   brevitas.core package
+  </a>
+  <input checked="" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/>
+  <label for="toctree-checkbox-1">
+   <i class="fas fa-chevron-down">
+   </i>
+  </label>
+  <ul class="current">
+   <li class="toctree-l2">
+    <a class="reference internal" href="brevitas.core.bit_width.html">
+     brevitas.core.bit_width package
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="brevitas.core.function_wrapper.html">
+     brevitas.core.function_wrapper package
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="brevitas.core.quant.html">
+     brevitas.core.quant package
+    </a>
+   </li>
+   <li class="toctree-l2 current active">
+    <a class="current reference internal" href="#">
+     brevitas.core.scaling package
+    </a>
+   </li>
+   <li class="toctree-l2">
+    <a class="reference internal" href="brevitas.core.stats.html">
+     brevitas.core.stats package
+    </a>
+   </li>
+  </ul>
+ </li>
+</ul>
+
+  </div>
+</nav>
+            </div>
+            
+          
+
+          
+          <div class="d-none d-xl-block col-xl-2 bd-toc">
+            
+              
+              <div class="toc-item">
+                
+<div class="tocsection onthispage pt-5 pb-3">
+    <i class="fas fa-list"></i> On this page
+</div>
+
+<nav id="bd-toc-nav">
+    <ul class="visible nav section-nav flex-column">
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#submodules">
+   Submodules
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#module-brevitas.core.scaling.int_scaling">
+   brevitas.core.scaling.int_scaling module
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#module-brevitas.core.scaling.runtime">
+   brevitas.core.scaling.runtime module
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#module-brevitas.core.scaling.standalone">
+   brevitas.core.scaling.standalone module
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#module-brevitas.core.scaling">
+   Module contents
+  </a>
+ </li>
+</ul>
+
+</nav>
+              </div>
+              
+              <div class="toc-item">
+                
+              </div>
+              
+            
+          </div>
+          
+
+          
+          
+            
+          
+          <main class="col-12 col-md-9 col-xl-7 py-md-5 pl-md-5 pr-md-4 bd-content" role="main">
+              
+              <div>
+                
+  <div class="section" id="brevitas-core-scaling-package">
+<h1>brevitas.core.scaling package<a class="headerlink" href="#brevitas-core-scaling-package" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-brevitas.core.scaling.int_scaling">
+<span id="brevitas-core-scaling-int-scaling-module"></span><h2>brevitas.core.scaling.int_scaling module<a class="headerlink" href="#module-brevitas.core.scaling.int_scaling" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="brevitas.core.scaling.int_scaling.IntScaling">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">brevitas.core.scaling.int_scaling.</span></span><span class="sig-name descname"><span class="pre">IntScaling</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">signed</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">narrow_range</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/scaling/int_scaling.html#IntScaling"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.scaling.int_scaling.IntScaling" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.core.scaling.int_scaling.IntScaling.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bit_width</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/scaling/int_scaling.html#IntScaling.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.scaling.int_scaling.IntScaling.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (1.10.0a0+git5286f99 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="brevitas.core.scaling.int_scaling.IntScaling.training">
+<span class="sig-name descname"><span class="pre">training</span></span><em class="property"><span class="pre">:</span> <a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><span class="pre">bool</span></a></em><a class="headerlink" href="#brevitas.core.scaling.int_scaling.IntScaling.training" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="brevitas.core.scaling.int_scaling.PowerOfTwoIntScaling">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">brevitas.core.scaling.int_scaling.</span></span><span class="sig-name descname"><span class="pre">PowerOfTwoIntScaling</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">signed</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/scaling/int_scaling.html#PowerOfTwoIntScaling"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.scaling.int_scaling.PowerOfTwoIntScaling" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.core.scaling.int_scaling.PowerOfTwoIntScaling.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">bit_width</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/scaling/int_scaling.html#PowerOfTwoIntScaling.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.scaling.int_scaling.PowerOfTwoIntScaling.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (1.10.0a0+git5286f99 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="brevitas.core.scaling.int_scaling.PowerOfTwoIntScaling.training">
+<span class="sig-name descname"><span class="pre">training</span></span><em class="property"><span class="pre">:</span> <a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><span class="pre">bool</span></a></em><a class="headerlink" href="#brevitas.core.scaling.int_scaling.PowerOfTwoIntScaling.training" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-brevitas.core.scaling.runtime">
+<span id="brevitas-core-scaling-runtime-module"></span><h2>brevitas.core.scaling.runtime module<a class="headerlink" href="#module-brevitas.core.scaling.runtime" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="brevitas.core.scaling.runtime.RuntimeStatsScaling">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">brevitas.core.scaling.runtime.</span></span><span class="sig-name descname"><span class="pre">RuntimeStatsScaling</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">scaling_stats_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_stats_input_view_shape_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restrict_scaling_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_shape</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">affine_rescaling</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_stats_momentum</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_min_val</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/scaling/runtime.html#RuntimeStatsScaling"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.scaling.runtime.RuntimeStatsScaling" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.core.scaling.runtime.RuntimeStatsScaling.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/scaling/runtime.html#RuntimeStatsScaling.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.scaling.runtime.RuntimeStatsScaling.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="brevitas.core.scaling.runtime.RuntimeStatsScaling.training">
+<span class="sig-name descname"><span class="pre">training</span></span><em class="property"><span class="pre">:</span> <a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><span class="pre">bool</span></a></em><a class="headerlink" href="#brevitas.core.scaling.runtime.RuntimeStatsScaling.training" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="brevitas.core.scaling.runtime.StatsFromParameterScaling">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">brevitas.core.scaling.runtime.</span></span><span class="sig-name descname"><span class="pre">StatsFromParameterScaling</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">scaling_stats_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_stats_input_view_shape_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_stats_input_concat_dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tracked_parameter_list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restrict_scaling_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_shape</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">affine_rescaling</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_min_val</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/scaling/runtime.html#StatsFromParameterScaling"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.scaling.runtime.StatsFromParameterScaling" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.core.scaling.runtime.StatsFromParameterScaling.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ignored</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/scaling/runtime.html#StatsFromParameterScaling.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.scaling.runtime.StatsFromParameterScaling.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (1.10.0a0+git5286f99 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="brevitas.core.scaling.runtime.StatsFromParameterScaling.training">
+<span class="sig-name descname"><span class="pre">training</span></span><em class="property"><span class="pre">:</span> <a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><span class="pre">bool</span></a></em><a class="headerlink" href="#brevitas.core.scaling.runtime.StatsFromParameterScaling.training" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-brevitas.core.scaling.standalone">
+<span id="brevitas-core-scaling-standalone-module"></span><h2>brevitas.core.scaling.standalone module<a class="headerlink" href="#module-brevitas.core.scaling.standalone" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="brevitas.core.scaling.standalone.ConstScaling">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">brevitas.core.scaling.standalone.</span></span><span class="sig-name descname"><span class="pre">ConstScaling</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">scaling_init</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restrict_scaling_impl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_min_val</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/scaling/standalone.html#ConstScaling"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.scaling.standalone.ConstScaling" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
+<p>ScriptModule implementation of a constant scale factor.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>scaling_init</strong> (<em>Union</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a><em>, </em><em>Tensor</em><em>]</em>) – value to use as constant scale factor.</p></li>
+<li><p><strong>restrict_scaling_impl</strong> (<em>Module</em>) – restrict scaling_init according to some criteria. Default: None</p></li>
+<li><p><strong>scaling_min_val</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – force a lower-bound on scaling_init. Default: None</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>scale factor wrapped in a float torch.tensor.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Tensor</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">scaling_impl</span> <span class="o">=</span> <span class="n">ConstScaling</span><span class="p">(</span><span class="mf">1.0</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">scaling_impl</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+<span class="go">tensor(1.)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">scaling_impl</span> <span class="o">=</span> <span class="n">ConstScaling</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">scaling_min_val</span><span class="o">=</span><span class="mf">3.0</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">scaling_impl</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+<span class="go">tensor(3.)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">scaling_impl</span> <span class="o">=</span> <span class="n">ConstScaling</span><span class="p">(</span><span class="mf">3.0</span><span class="p">,</span> <span class="n">restrict_scaling_impl</span><span class="o">=</span><span class="n">PowerOfTwoRestrictValue</span><span class="p">())</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">scaling_impl</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+<span class="go">tensor(4.)</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The forward method accepts a single placeholder argument. This is required by (early versions of)
+TorchScript to be consistent across different scaling implementations.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Maps to scaling_impl_type == ScalingImplType.CONST == ‘CONST’ == ‘const’ in higher-level APIs.</p>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.core.scaling.standalone.ConstScaling.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">placeholder</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/scaling/standalone.html#ConstScaling.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.scaling.standalone.ConstScaling.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (1.10.0a0+git5286f99 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="brevitas.core.scaling.standalone.ConstScaling.training">
+<span class="sig-name descname"><span class="pre">training</span></span><em class="property"><span class="pre">:</span> <a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><span class="pre">bool</span></a></em><a class="headerlink" href="#brevitas.core.scaling.standalone.ConstScaling.training" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="brevitas.core.scaling.standalone.ParameterFromRuntimeStatsScaling">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">brevitas.core.scaling.standalone.</span></span><span class="sig-name descname"><span class="pre">ParameterFromRuntimeStatsScaling</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">collect_stats_steps</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_stats_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_stats_input_view_shape_impl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">OverBatchOverTensorView()</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_shape</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">()</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restrict_scaling_impl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_stats_momentum</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_min_val</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/scaling/standalone.html#ParameterFromRuntimeStatsScaling"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.scaling.standalone.ParameterFromRuntimeStatsScaling" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
+<p>ScriptModule implementation of a learned scale factor initialized from runtime statistics.
+The implementation works in two phases. During the first phase, statistics are collected in
+the same fashion as batchnorm, meaning that while the module is in training mode a set of per-batch
+statistics are computed and returned, while in background an average of them is retained and returned
+in inference mode. During the second phase, the average accumulated during the first
+phase is used to initialize a learned torch.nn.Parameter, and then the behaviour is the same
+as ParameterScaling.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>collect_stats_steps</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a>) – Number of calls to the forward method in training mode to collect statistics for.</p></li>
+<li><p><strong>scaling_stats_impl</strong> (<em>Module</em>) – Implementation of the statistics computed during the collection phase.</p></li>
+<li><p><strong>scaling_stats_input_view_shape_impl</strong> (<em>Module</em>) – Implementation of the view applied to the runtime
+input during the statistics collection phase. Default: OverBatchOverTensorView().</p></li>
+<li><p><strong>scaling_shape</strong> (<em>Tuple</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a><em>, </em><em>...</em><em>]</em>) – shape of the torch.nn.Parameter used in the second phase. Default: SCALAR_SHAPE.</p></li>
+<li><p><strong>restrict_scaling_impl</strong> (<em>Module</em>) – restrict the learned scale factor according to some criteria. Default: None
+input before going into scaling_stats_input_view_shape_impl. Default: None</p></li>
+<li><p><strong>scaling_stats_momentum</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>]) – float = Momentum for the statistics moving average. Default: DEFAULT_MOMENTUM.</p></li>
+<li><p><strong>scaling_min_val</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – force a lower-bound on the learned scale factor. Default: None.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>learned scale factor wrapped in a float torch.tensor.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Tensor</p>
+</dd>
+<dt class="field-even">Raises</dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#RuntimeError" title="(in Python v3.9)"><strong>RuntimeError</strong></a> – if scaling_shape != SCALAR_SHAPE and scaling_stats_permute_dims is None</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">scaling_impl</span> <span class="o">=</span> <span class="n">ParameterFromRuntimeStatsScaling</span><span class="p">(</span><span class="n">collect_stats_steps</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">scaling_stats_impl</span><span class="o">=</span><span class="n">AbsMax</span><span class="p">())</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">scaling_impl</span><span class="o">.</span><span class="n">training</span>
+<span class="go">True</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="o">-</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">scaling_impl</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<span class="go">tensor(3.)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">scaling_impl</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn_like</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+<span class="go">tensor(3., grad_fn=&lt;AbsBinarySignGradFnBackward&gt;)</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Set env variable BREVITAS_IGNORE_MISSING_KEYS=1 to avoid errors when retraining
+from a floating point state dict.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Maps to scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS == ‘PARAMETER_FROM_STATS’
+== ‘parameter_from_stats’ when applied to runtime values (inputs/outputs/activations) in higher-level APIs.</p>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.core.scaling.standalone.ParameterFromRuntimeStatsScaling.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">stats_input</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/scaling/standalone.html#ParameterFromRuntimeStatsScaling.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.scaling.standalone.ParameterFromRuntimeStatsScaling.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (1.10.0a0+git5286f99 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.core.scaling.standalone.ParameterFromRuntimeStatsScaling.state_dict">
+<span class="sig-name descname"><span class="pre">state_dict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">destination</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prefix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keep_vars</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/scaling/standalone.html#ParameterFromRuntimeStatsScaling.state_dict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.scaling.standalone.ParameterFromRuntimeStatsScaling.state_dict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a dictionary containing a whole state of the module.</p>
+<p>Both parameters and persistent buffers (e.g. running averages) are
+included. Keys are corresponding parameter and buffer names.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>a dictionary containing a whole state of the module</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.9)">dict</a></p>
+</dd>
+</dl>
+<p>Example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">module</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+<span class="go">[&#39;bias&#39;, &#39;weight&#39;]</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="brevitas.core.scaling.standalone.ParameterFromRuntimeStatsScaling.training">
+<span class="sig-name descname"><span class="pre">training</span></span><em class="property"><span class="pre">:</span> <a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><span class="pre">bool</span></a></em><a class="headerlink" href="#brevitas.core.scaling.standalone.ParameterFromRuntimeStatsScaling.training" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.core.scaling.standalone.ParameterFromRuntimeStatsScaling.training_forward">
+<span class="sig-name descname"><span class="pre">training_forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">stats_input</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/scaling/standalone.html#ParameterFromRuntimeStatsScaling.training_forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.scaling.standalone.ParameterFromRuntimeStatsScaling.training_forward" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (1.10.0a0+git5286f99 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="brevitas.core.scaling.standalone.ParameterScaling">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">brevitas.core.scaling.standalone.</span></span><span class="sig-name descname"><span class="pre">ParameterScaling</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">scaling_init</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_shape</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">restrict_scaling_impl</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scaling_min_val</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/scaling/standalone.html#ParameterScaling"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.scaling.standalone.ParameterScaling" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.modules.module.Module</span></code></p>
+<p>ScriptModule implementation of a learned scale factor.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>scaling_init</strong> (<em>Union</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a><em>, </em><em>Tensor</em><em>]</em>) – value to initialize the learned scale factor.</p></li>
+<li><p><strong>scaling_shape</strong> (<em>Tuple</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><em>int</em></a><em>, </em><em>...</em><em>]</em>) – shape to extend a scalar float or tensor scaling_init. Default: None</p></li>
+<li><p><strong>restrict_scaling_impl</strong> (<em>Module</em>) – restrict the learned scale factor according to some criteria. Default: None</p></li>
+<li><p><strong>scaling_min_val</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><em>float</em></a>) – force a lower-bound on the learned scale factor. Default: None</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>learned scale factor wrapped in a float torch.tensor.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Tensor</p>
+</dd>
+<dt class="field-even">Raises</dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#RuntimeError" title="(in Python v3.9)"><strong>RuntimeError</strong></a> – if scaling_init is a non-scalar tensor and scaling_shape is != scaling_init.shape.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">scaling_impl</span> <span class="o">=</span> <span class="n">ParameterScaling</span><span class="p">(</span><span class="mf">6.0</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">scaling_impl</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+<span class="go">tensor(6., grad_fn=&lt;AbsBinarySignGradFnBackward&gt;)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">scaling_impl</span> <span class="o">=</span> <span class="n">ParameterScaling</span><span class="p">(</span><span class="mf">6.0</span><span class="p">,</span> <span class="n">scaling_shape</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">scaling_impl</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+<span class="go">tensor([6., 6., 6.], grad_fn=&lt;AbsBinarySignGradFnBackward&gt;)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">scaling_impl</span> <span class="o">=</span> <span class="n">ParameterScaling</span><span class="p">(</span><span class="mf">6.0</span><span class="p">,</span> <span class="n">scaling_shape</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,),</span> <span class="n">restrict_scaling_impl</span><span class="o">=</span><span class="n">PowerOfTwoRestrictValue</span><span class="p">())</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">scaling_impl</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+<span class="go">tensor([8., 8., 8.], grad_fn=&lt;PowBackward1&gt;)</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Set env variable BREVITAS_IGNORE_MISSING_KEYS=1 to avoid errors when retraining
+from a floating point state dict.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The forward method accepts a single placeholder argument. This is required by (early versions of)
+TorchScript to be consistent across different scaling implementations.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Maps to scaling_impl_type == ScalingImplType.PARAMETER == ‘PARAMETER’ == ‘parameter’ in higher-level APIs.</p>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.core.scaling.standalone.ParameterScaling.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">placeholder</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/scaling/standalone.html#ParameterScaling.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.scaling.standalone.ParameterScaling.forward" title="Permalink to this definition">¶</a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (1.10.0a0+git5286f99 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="brevitas.core.scaling.standalone.ParameterScaling.training">
+<span class="sig-name descname"><span class="pre">training</span></span><em class="property"><span class="pre">:</span> <a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><span class="pre">bool</span></a></em><a class="headerlink" href="#brevitas.core.scaling.standalone.ParameterScaling.training" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-brevitas.core.scaling">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-brevitas.core.scaling" title="Permalink to this headline">¶</a></h2>
+</div>
+</div>
+
+
+              </div>
+              
+              
+              <div class='prev-next-bottom'>
+                
+    <a class='left-prev' id="prev-link" href="brevitas.core.quant.html" title="previous page">brevitas.core.quant package</a>
+    <a class='right-next' id="next-link" href="brevitas.core.stats.html" title="next page">brevitas.core.stats package</a>
+
+              </div>
+              
+          </main>
+          
+
+      </div>
+    </div>
+  
+  <script src="../_static/js/index.1c5a1a01449ed65a7b51.js"></script>
+
+  <footer class="footer mt-5 mt-md-0">
+  <div class="container">
+    
+    <div class="footer-item">
+      <p class="copyright">
+    &copy; Copyright 2021 - Xilinx, Inc.<br/>
+</p>
+    </div>
+    
+    <div class="footer-item">
+      <p class="sphinx-version">
+Created using <a href="http://sphinx-doc.org/">Sphinx</a> 4.1.2.<br/>
+</p>
+    </div>
+    
+  </div>
+</footer>
+  </body>
+</html>

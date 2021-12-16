@@ -5,7 +5,7 @@ Brevitas Docs
 .. toctree::
    :maxdepth: 1
 
-   Setup <setup>
+   Setup <setup/index>
 
    User Guide <user_guide/index>
 

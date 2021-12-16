@@ -5,14 +5,12 @@ F.A.Q.
 **Q: Pytorch supports quantization-aware training. Why should I use
 Brevitas?**
 
-**A:** Quantization in Pytorch is designed to target two specific CPU
-backends (FBGEMM and qnnpack). Export to standard ONNX for quantized
-operators is not supported (only to a custom ONNX based format supported
-by the Caffe2).
+**A:** Quantization in Pytorch is designed to target specific backends 
+supported by PyTorch itself (currently FBGEMM and qnnpack). 
 
 Brevitas is designed as a platform to implement novel quantization
 algorithms to target a variety of hardware backends adhering to a loose
-set of assumptions (i.e. uniform affine quantization).
+set of assumptions (i.e. uniform affine quantization). 
 
 **Q: How can I train X/Y and run it on hardware W/Z? I can't find any
 documentation.**
@@ -37,32 +35,13 @@ inference time.
 To mitigate somewhat the slow-down, try enabling *BREVITAS_JIT* as
 reported in the *Settings* section.
 
-**Q: Inference with Brevitas is slow. I thought the point of QAT was to
+**Q: Inference with Brevitas is slow. I thought the point of quantization was to
 make my model faster at inference time. What I am doing wrong?**
 
 **A:** Brevitas is concerned with modelling a reduced precision
 data-path, it does not provide inference-time acceleration on its own.
 To achieve acceleration, you should export your Brevitas model to a
-downstream toolchain / backend.
-
-Brevitas can currently export to:
-
--  FINN - for dataflow acceleration on Xilinx FPGAs.
--  PyXIR (*experimental*) - for DPU acceleration on Xilinx FPGAs.
--  Standard ONNX (*experimental*) - for acceleration with e.g.
-   onnxruntime, or any other ONNX-compliant toolchain.
--  Pytorch's *quantized.functional* operators (*experimental*) - for
-   acceleration through Pytorch itself, or any additional downstream
-   toolchains supported by Pytorch (e.g. TVM).
-
-Because Brevitas implements a super-set of layers and datatypes
-supported by various downstream toolchains and hardware platforms, the
-result is that each export flow supports only a certain subset of
-features, in ways that are not necessarely obvious. More examples and
-documentation will be released to illustrate the various restrictions
-imposed by each target platform. As a general note though, currently
-FINN is the only toolchain that supports acceleration of low bit-width
-datatypes.
+downstream toolchain / backend. See the 
 
 **Q: My (C/G/T)PU supports float16 / bfloat16 / bfloat19 training. Can I
 use it to train with Brevitas?**

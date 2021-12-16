@@ -12,18 +12,6 @@ brevitas.function.autograd\_ste\_ops module
    :show-inheritance:
    :exclude-members: forward, backward
 
-Aliases
-'''''''
-
-.. autofunction:: brevitas.function.autograd_ste_ops_aliases.round_ste_impl(*args)
-.. autofunction:: brevitas.function.autograd_ste_ops_aliases.binary_sign_ste_impl(*args)
-.. autofunction:: brevitas.function.autograd_ste_ops_aliases.floor_ste_impl(*args)
-.. autofunction:: brevitas.function.autograd_ste_ops_aliases.ceil_ste_impl(*args)
-.. autofunction:: brevitas.function.autograd_ste_ops_aliases.round_to_zero_ste_impl(*args)
-.. autofunction:: brevitas.function.autograd_ste_ops_aliases.scalar_clamp_min_ste_impl(*args)
-.. autofunction:: brevitas.function.autograd_ste_ops_aliases.scalar_clamp_ste_impl(*args)
-.. autofunction:: brevitas.function.autograd_ste_ops_aliases.tensor_clamp_ste_impl(*args)
-.. autofunction:: brevitas.function.autograd_ste_ops_aliases.abs_binary_sign_grad_impl(*args)
 
 brevitas.function.ops module
 ----------------------------

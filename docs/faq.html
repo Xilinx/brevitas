@@ -1,0 +1,260 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>F.A.Q. &#8212; Brevitas 0.6.1.dev24+g02fe33a.d20210910 documentation</title>
+    
+  <link href="_static/css/theme.css" rel="stylesheet" />
+  <link href="_static/css/index.c5995385ac14fb8791e8eb36b4908be2.css" rel="stylesheet" />
+
+    
+  <link rel="stylesheet"
+    href="_static/vendor/fontawesome/5.13.0/css/all.min.css">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="_static/vendor/fontawesome/5.13.0/webfonts/fa-solid-900.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="_static/vendor/fontawesome/5.13.0/webfonts/fa-brands-400.woff2">
+
+    
+      
+
+    
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css" />
+    
+  <link rel="preload" as="script" href="_static/js/index.1c5a1a01449ed65a7b51.js">
+
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <link rel="author" title="About these documents" href="about.html" />
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="About" href="about.html" />
+    <link rel="prev" title="brevitas.core.stats package" href="api_reference/brevitas.core.stats.html" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="docsearch:language" content="en" />
+    
+  </head>
+  <body data-spy="scroll" data-target="#bd-toc-nav" data-offset="80">
+    
+    <div class="container-fluid" id="banner"></div>
+
+    
+    <nav class="navbar navbar-light navbar-expand-lg bg-light fixed-top bd-navbar" id="navbar-main"><div class="container-xl">
+
+  <div id="navbar-start">
+    
+    
+<a class="navbar-brand" href="index.html">
+<p class="title">Brevitas</p>
+</a>
+
+    
+  </div>
+
+  <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbar-collapsible" aria-controls="navbar-collapsible" aria-expanded="false" aria-label="Toggle navigation">
+    <span class="navbar-toggler-icon"></span>
+  </button>
+
+  
+  <div id="navbar-collapsible" class="col-lg-9 collapse navbar-collapse">
+    <div id="navbar-center" class="mr-auto">
+      
+      <div class="navbar-center-item">
+        <ul id="navbar-main-elements" class="navbar-nav">
+    <li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="setup.html">
+  Setup
+ </a>
+</li>
+
+<li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="user_guide/index.html">
+  User Guide
+ </a>
+</li>
+
+<li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="api_reference/index.html">
+  API reference
+ </a>
+</li>
+
+<li class="toctree-l1 current active nav-item">
+ <a class="current reference internal nav-link" href="#">
+  FAQ
+ </a>
+</li>
+
+<li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="about.html">
+  About
+ </a>
+</li>
+
+    
+</ul>
+      </div>
+      
+    </div>
+
+    <div id="navbar-end">
+      
+      <div class="navbar-end-item">
+        <ul id="navbar-icon-links" class="navbar-nav" aria-label="Icon Links">
+      </ul>
+      </div>
+      
+    </div>
+  </div>
+</div>
+    </nav>
+    
+
+    <div class="container-xl">
+      <div class="row">
+          
+            
+            <!-- Only show if we have sidebars configured, else just a small margin  -->
+            <div class="col-12 col-md-3 bd-sidebar"><form class="bd-search d-flex align-items-center" action="search.html" method="get">
+  <i class="icon fas fa-search"></i>
+  <input type="search" class="form-control" name="q" id="search-input" placeholder="Search the docs ..." aria-label="Search the docs ..." autocomplete="off" >
+</form><nav class="bd-links" id="bd-docs-nav" aria-label="Main navigation">
+  <div class="bd-toc-item active">
+    
+  </div>
+</nav>
+            </div>
+            
+          
+
+          
+          <div class="d-none d-xl-block col-xl-2 bd-toc">
+            
+              
+              <div class="toc-item">
+                
+
+<nav id="bd-toc-nav">
+    
+</nav>
+              </div>
+              
+              <div class="toc-item">
+                
+              </div>
+              
+            
+          </div>
+          
+
+          
+          
+            
+          
+          <main class="col-12 col-md-9 col-xl-7 py-md-5 pl-md-5 pr-md-4 bd-content" role="main">
+              
+              <div>
+                
+  <div class="section" id="f-a-q">
+<h1>F.A.Q.<a class="headerlink" href="#f-a-q" title="Permalink to this headline">¶</a></h1>
+<p><strong>Q: Pytorch supports quantization-aware training. Why should I use
+Brevitas?</strong></p>
+<p><strong>A:</strong> Quantization in Pytorch is designed to target two specific CPU
+backends (FBGEMM and qnnpack). Export to standard ONNX for quantized
+operators is not supported (only to a custom ONNX based format supported
+by the Caffe2).</p>
+<p>Brevitas is designed as a platform to implement novel quantization
+algorithms to target a variety of hardware backends adhering to a loose
+set of assumptions (i.e. uniform affine quantization).</p>
+<p><strong>Q: How can I train X/Y and run it on hardware W/Z? I can’t find any
+documentation.</strong></p>
+<p><strong>A:</strong> Brevitas is still sparsely documented. Until the situation
+improves, feel free to open an issue or ask on our gitter channel.</p>
+<p><strong>Q: Training with Brevitas is slow and/or I can’t fit the same batch
+size as with floating-point training. Why? What can I do?</strong></p>
+<p><strong>A:</strong> Quantization-aware training involves a lot of element-wise
+operations, which carry low arithmetic intensity and contribute to a
+more involved computational graph during backpropragation. As such, it
+typically ends up being slower and more resource-intensive than standard
+floating-point training.</p>
+<p>Brevitas in particular is biased towards greater flexibility, at the
+cost of some training-time effieciency. The general principle is that
+it’s trading off more complexity at training time for more efficiency at
+inference time.</p>
+<p>To mitigate somewhat the slow-down, try enabling <em>BREVITAS_JIT</em> as
+reported in the <em>Settings</em> section.</p>
+<p><strong>Q: Inference with Brevitas is slow. I thought the point of QAT was to
+make my model faster at inference time. What I am doing wrong?</strong></p>
+<p><strong>A:</strong> Brevitas is concerned with modelling a reduced precision
+data-path, it does not provide inference-time acceleration on its own.
+To achieve acceleration, you should export your Brevitas model to a
+downstream toolchain / backend.</p>
+<p>Brevitas can currently export to:</p>
+<ul class="simple">
+<li><p>FINN - for dataflow acceleration on Xilinx FPGAs.</p></li>
+<li><p>PyXIR (<em>experimental</em>) - for DPU acceleration on Xilinx FPGAs.</p></li>
+<li><p>Standard ONNX (<em>experimental</em>) - for acceleration with e.g.
+onnxruntime, or any other ONNX-compliant toolchain.</p></li>
+<li><p>Pytorch’s <em>quantized.functional</em> operators (<em>experimental</em>) - for
+acceleration through Pytorch itself, or any additional downstream
+toolchains supported by Pytorch (e.g. TVM).</p></li>
+</ul>
+<p>Because Brevitas implements a super-set of layers and datatypes
+supported by various downstream toolchains and hardware platforms, the
+result is that each export flow supports only a certain subset of
+features, in ways that are not necessarely obvious. More examples and
+documentation will be released to illustrate the various restrictions
+imposed by each target platform. As a general note though, currently
+FINN is the only toolchain that supports acceleration of low bit-width
+datatypes.</p>
+<p><strong>Q: My (C/G/T)PU supports float16 / bfloat16 / bfloat19 training. Can I
+use it to train with Brevitas?</strong></p>
+<p><strong>A:</strong> Datatypes outside of float32 at training time have not been tested. That includes training on TPU / Pytorch-XLA.
+Do the math in terms of which reduced-precision integers can reasonably fit in a reduced-precision
+floating-point format at training time, and use at your own risk.</p>
+</div>
+
+
+              </div>
+              
+              
+              <div class='prev-next-bottom'>
+                
+    <a class='left-prev' id="prev-link" href="api_reference/brevitas.core.stats.html" title="previous page">brevitas.core.stats package</a>
+    <a class='right-next' id="next-link" href="about.html" title="next page">About</a>
+
+              </div>
+              
+          </main>
+          
+
+      </div>
+    </div>
+  
+  <script src="_static/js/index.1c5a1a01449ed65a7b51.js"></script>
+
+  <footer class="footer mt-5 mt-md-0">
+  <div class="container">
+    
+    <div class="footer-item">
+      <p class="copyright">
+    &copy; Copyright 2021 - Xilinx, Inc.<br/>
+</p>
+    </div>
+    
+    <div class="footer-item">
+      <p class="sphinx-version">
+Created using <a href="http://sphinx-doc.org/">Sphinx</a> 4.1.2.<br/>
+</p>
+    </div>
+    
+  </div>
+</footer>
+  </body>
+</html>
