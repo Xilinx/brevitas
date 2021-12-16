@@ -79,6 +79,10 @@ __all__ = [
 
 class ScalarClampSteFn(Function):
     """
+    Autograd function that implements ``torch.clamp`` with a straight-through gradient estimator
+    for the gradient of y w.r.t. to x, while the gradient of y w.r.t. to ``min_val`` and ``min_val``
+    are always ``None``.
+
     ``ScalarClampSteFn.apply(*args)`` is first aliased to :func:`scalar_clamp_ste_impl(*args)
     <brevitas.function.autograd_ste_ops.scalar_clamp_ste_impl>` and then wrapped by
     :func:`~brevitas.function.ops_ste.scalar_clamp_ste` and invoked when env ``BREVITAS_JIT=0``.
@@ -305,9 +309,9 @@ class BinarySignSteFn(Function):
     Autograd function that implements :func:`~brevitas.function.ops.binary_sign` with a
     straight-through gradient estimator.
 
-   ``BinarySignSteFn.apply(*args)`` is first aliased to :func:`binary_sign_ste_impl(*args)
-    <brevitas.function.autograd_ste_ops.binary_sign_ste_impl>` and then wrapped by
-    :func:`~brevitas.function.ops_ste.binary_sign_ste` when env ``BREVITAS_JIT=0``.
+    ``BinarySignSteFn.apply(*args)`` is first aliased to 
+    :func:`binary_sign_ste_impl(*args)<brevitas.function.autograd_ste_ops.binary_sign_ste_impl>` 
+    and then wrapped by :func:`~brevitas.function.ops_ste.binary_sign_ste` when env ``BREVITAS_JIT=0``.
     See :func:`~brevitas.function.ops_ste.binary_sign_ste` for details on the interface and
     examples.
     """
@@ -391,8 +395,8 @@ class AbsBinarySignGradFn(Function):
     have subgradient 1 in 0. Compare with :func:`torch.abs`' subgradient of 0 in 0.
 
     ``AbsBinarySignGradFn.apply(*args)`` is first aliased to :func:`abs_binary_sign_grad(*args)
-    <brevitas.function.autograd_ste_ops.abs_binary_sign_grad>` and then wrapped by
-    :func:`~brevitas.function.abs_binary_sign_grad` when env ``BREVITAS_JIT=0``.
+    <brevitas.function.autograd_ste_ops.abs_binary_sign_grad_impl>` and then wrapped by
+    :func:`~brevitas.function.ops_ste.abs_binary_sign_grad` when env ``BREVITAS_JIT=0``.
     See :func:`~brevitas.function.ops_ste.abs_binary_sign_grad` for details on the interface and
     examples.
     """
