@@ -127,11 +127,6 @@ class SolveActScalingInitFromEnum(ExtendedInjector):
 class SolveActScalingShape(ExtendedInjector):
 
     @value
-    def scaling_per_output_channel(scaling_per_channel):
-        """Alternative syntax"""
-        return scaling_per_channel
-
-    @value
     def scaling_shape(scaling_per_output_channel):
         # this pattern of returning this.something allows to resolve scaling_output_channel_shape
         # only when scaling_per_output_channel is True
