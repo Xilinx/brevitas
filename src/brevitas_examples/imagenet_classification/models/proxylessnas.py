@@ -64,7 +64,7 @@ class ConvBlock(nn.Module):
             self.activ = QuantReLU(
                 act_quant=CommonUintActQuant,
                 bit_width=act_bit_width,
-                scaling_per_channel=act_scaling_per_channel,
+                scaling_per_output_channel=act_scaling_per_channel,
                 per_channel_broadcastable_shape=(1, out_channels, 1, 1),
                 return_quant_tensor=return_quant_tensor)
         else:
