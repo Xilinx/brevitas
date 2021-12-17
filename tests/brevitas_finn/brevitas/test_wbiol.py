@@ -33,7 +33,7 @@ def test_quant_linear(bias, bias_quant, out_features, in_features, w_bits, chann
     model = ModelWrapper(model)
     model = model.transform(InferShapes())
     # the quantized input tensor passed to FINN should be in integer form
-    int_inp_array = inp_tensor.int(float_datatype=True).numpy()
+    int_inp_array = inp_tensor.int(float_datatype=True).detach().numpy()
     idict = {model.graph.input[0].name: int_inp_array}
     odict = oxe.execute_onnx(model, idict, True)
     produced = odict[model.graph.output[0].name]
@@ -75,7 +75,7 @@ def test_quant_conv2d(
     model = ModelWrapper(model)
     model = model.transform(InferShapes())
     # the quantized input tensor passed to FINN should be in integer form
-    int_inp_array = inp_tensor.int(float_datatype=True).numpy()
+    int_inp_array = inp_tensor.int(float_datatype=True).detach().numpy()
     idict = {model.graph.input[0].name: int_inp_array}
     odict = oxe.execute_onnx(model, idict, True)
     produced = odict[model.graph.output[0].name]
