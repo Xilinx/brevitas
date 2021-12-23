@@ -4,7 +4,7 @@ from typing_extensions import Protocol, runtime_checkable
 
 from torch import tensor, nn
 
-from brevitas.inject import BaseInjector as Injector
+from brevitas.inject import ExtendedInjector
 from brevitas.core.utils import StatelessBuffer
 
 
@@ -45,13 +45,13 @@ class QuantProxyProtocol(Protocol):
 class QuantProxyFromInjector(nn.Module, QuantProxyProtocol):
     __metaclass__ = ABCMeta
 
-    def __init__(self, quant_layer: nn.Module, quant_injector: Injector) -> None:
+    def __init__(self, quant_layer: nn.Module, quant_injector: ExtendedInjector) -> None:
         super(QuantProxyFromInjector, self).__init__()
+        self._zero_hw_sentinel = StatelessBuffer(tensor(0.0))
         self.is_signed = _is_signed(quant_injector)
         self.is_narrow_range = _is_narrow_range(quant_injector)
         self.update_state_dict_impl = _update_state_dict_impl(quant_injector)
         self.quant_injector = quant_injector
-        self._zero_hw_sentinel = StatelessBuffer(tensor(0.0))
         self.tensor_quant = None
         # Use a normal list and not a ModuleList since this is a pointer to parent modules
         self.tracked_module_list = []

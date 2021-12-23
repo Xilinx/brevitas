@@ -43,10 +43,11 @@ from typing import Tuple, Optional, List
 from typing_extensions import Protocol, runtime_checkable
 
 import torch
-from torch import Tensor
+from torch import Tensor, nn
 
 from brevitas.function import max_int
 from brevitas.quant_tensor import QuantTensor
+from brevitas.inject import ExtendedInjector
 
 from .quant_proxy import QuantProxyFromInjector, QuantProxyProtocol
 
@@ -82,10 +83,19 @@ class BiasQuantProxyProtocol(QuantProxyProtocol, Protocol):
 class ParameterQuantProxyFromInjector(QuantProxyFromInjector):
     __metaclass__ = ABCMeta
 
+    def __init__(
+            self,
+            quant_layer: nn.Module,
+            quant_injector: ExtendedInjector,
+            tracked_parameter_names: List[str]):
+        self._tracked_parameter_names = tracked_parameter_names
+        super(ParameterQuantProxyFromInjector, self).__init__(quant_layer, quant_injector)
+
     @property
-    @abstractmethod
     def tracked_parameter_list(self):
-        pass
+        return [
+            getattr(m, n) for n in self._tracked_parameter_names for m in self.tracked_module_list
+            if hasattr(m, n) and getattr(m, n) is not None]
 
     def init_tensor_quant(self):
         param_list = self.tracked_parameter_list
@@ -100,10 +110,6 @@ class ParameterQuantProxyFromInjector(QuantProxyFromInjector):
 
 class WeightQuantProxyFromInjector(ParameterQuantProxyFromInjector, WeightQuantProxyProtocol):
 
-    @property
-    def tracked_parameter_list(self):
-        return [m.weight for m in self.tracked_module_list if m.weight is not None]
-
     def forward(self, x: torch.Tensor) -> QuantTensor:
         if self.is_quant_enabled:
             out, scale, zero_point, bit_width = self.tensor_quant(x)
@@ -113,10 +119,6 @@ class WeightQuantProxyFromInjector(ParameterQuantProxyFromInjector, WeightQuantP
 
 
 class BiasQuantProxyFromInjector(ParameterQuantProxyFromInjector, BiasQuantProxyProtocol):
-
-    @property
-    def tracked_parameter_list(self):
-        return [m.bias for m in self.tracked_module_list if m.bias is not None]
 
     @property
     def requires_input_bit_width(self) -> bool:

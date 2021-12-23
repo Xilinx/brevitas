@@ -66,6 +66,7 @@ class QuantWeightMixin(QuantProxyMixin):
             quant=weight_quant,
             proxy_from_injector_impl=WeightQuantProxyFromInjector,
             proxy_protocol=WeightQuantProxyProtocol,
+            proxy_kwargs={'tracked_parameter_names': ['weight']},
             kwargs_prefix='weight_',
             proxy_prefix='weight_',
             **kwargs)
@@ -119,6 +120,7 @@ class QuantBiasMixin(QuantProxyMixin):
             quant=bias_quant,
             proxy_from_injector_impl=BiasQuantProxyFromInjector,
             proxy_protocol=BiasQuantProxyProtocol,
+            proxy_kwargs={'tracked_parameter_names': ['bias']},
             kwargs_prefix='bias_',
             proxy_prefix='bias_',
             **kwargs)

@@ -87,6 +87,7 @@ class QuantProxyMixin(object):
             quant,
             proxy_from_injector_impl,
             proxy_protocol,
+            proxy_kwargs,
             proxy_prefix: str,
             kwargs_prefix: str,
             **kwargs):
@@ -94,11 +95,11 @@ class QuantProxyMixin(object):
         if quant is None:
             quant_injector = ExtendedInjector.let(tensor_quant=None)
             quant_injector = quant_injector.let(**filter_kwargs(kwargs_prefix, kwargs))
-            quant = proxy_from_injector_impl(self, quant_injector)
+            quant = proxy_from_injector_impl(self, quant_injector, **proxy_kwargs)
         elif isclass(quant) and issubclass(quant, (Injector, ExtendedInjector)):
             quant_injector = quant
             quant_injector = quant_injector.let(**filter_kwargs(kwargs_prefix, kwargs))
-            quant = proxy_from_injector_impl(self, quant_injector)
+            quant = proxy_from_injector_impl(self, quant_injector, **proxy_kwargs)
         else:
             if not isinstance(quant, proxy_protocol):
                 raise RuntimeError(
@@ -241,6 +242,30 @@ class QuantLayerMixin(object):
         if not self.training and self.cache_inference_quant_out:
             self._cached_out = _CachedIO(quant_output.detach(), self.cache_quant_io_metadata_only)
         self._set_global_is_quant_layer(False)
+        if self.return_quant_tensor:
+            return quant_output
+        else:
+            return quant_output.value
+
+
+class QuantRecurrentLayerMixin(object):
+    __metaclass__ = ABCMeta
+
+    def __init__(
+            self,
+            return_quant_tensor: bool):
+        self.accept_quant_tensor = True
+        self.return_quant_tensor = return_quant_tensor
+
+    def unpack_input(self, inp: Union[Tensor, QuantTensor]):
+        self._set_global_is_quant_layer(True)
+        if isinstance(inp, QuantTensor):
+            return inp
+        else:
+            inp = QuantTensor(inp, training=self.training)
+            return inp
+
+    def pack_output(self, quant_output: QuantTensor):
         if self.return_quant_tensor:
             return quant_output
         else:

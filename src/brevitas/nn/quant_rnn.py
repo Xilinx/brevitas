@@ -70,309 +70,144 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from brevitas.core.bit_width import BitWidthImplType
-from brevitas.core.quant import QuantType
-from brevitas.nn import QuantSigmoid, QuantTanh, QuantHardTanh
-import torch.nn as nn
-from brevitas.core.scaling import ScalingImplType, SCALING_SCALAR_SHAPE
-from brevitas.core.stats import StatsInputViewShapeImpl, StatsOp
-from brevitas.proxy.parameter_quant import _weight_quant_init_impl
-from brevitas.proxy.runtime_quant import _activation_quant_init_impl
-from brevitas.core.restrict_val import RestrictValueType, FloatToIntImplType
-from brevitas.quant_tensor import QuantTensor
-from brevitas.core.function_wrapper import ConstScalarClamp
-from brevitas.nn.quant_layer import SCALING_MIN_VAL
-import torch
 import math
-
 from typing import Optional, Tuple, List
-from torch import Tensor
-from brevitas.core import ZERO_HW_SENTINEL_NAME, ZERO_HW_SENTINEL_VALUE
 from collections import OrderedDict
 
-OVER_BATCH_OVER_CHANNELS_SHAPE = (1, -1, 1, 1)
+from torch import Tensor
+import torch.nn as nn
+import torch
 
-__all__ = ['QuantRNNLayer', 'BidirRNNLayer']
+import brevitas
+from brevitas.nn.mixin.base import QuantLayerMixin
+from brevitas.quant import Int8WeightPerTensorFloat, Int8ActPerTensorFloat
+from .quant_recurrent import QuantWeightRMixin, QuantIOMixin, reverse
+from .utils import compute_channel_view_shape
 
-
-@torch.jit.script
-def reverse(lst):
-    # type: (List[Tensor]) -> List[Tensor]
-    out = torch.jit.annotate(List[Tensor], [])
-    # start = len(lst) - 1
-    end = len(lst)
-    step = -1
-    index = len(lst) - 1
-
-    for i in range(end):
-        out += [lst[index]]
-        index = index + step
-    return out
+__all__ = ['QuantRNNLayer', 'BiRNNLayer']
 
 
-class QuantRNNLayer(torch.jit.ScriptModule):
-    __constants__ = ['reverse_input', 'batch_first', 'hidden_size']
+class _QuantRNNCell(brevitas.jit.ScriptModule):
 
-    def __init__(self, input_size, hidden_size, weight_config, activation_config, norm_scale_input_config,
-                 reverse_input=False, compute_output_scale=False, batch_first=False,
-                 compute_output_bit_width=False, return_quant_tensor=False):
+    def __init__(self, io_quant):
+        super(_QuantRNNCell, self).__init__()
+        self.io_quant = io_quant
 
-        super(QuantRNNLayer, self).__init__()
-        self.register_buffer(ZERO_HW_SENTINEL_NAME, torch.tensor(ZERO_HW_SENTINEL_VALUE))
-        self.return_quant_tensor = return_quant_tensor
-        self.weight_config = weight_config
-        self.activation_config = activation_config
-        self.norm_scale_input_config = norm_scale_input_config
+    @brevitas.jit.script_method
+    def forward_iter(
+            self, quant_input_val, quant_state_val, quant_wri_val, quant_wrh_val, quant_br_val):
+        gates_ri = torch.mm(quant_input_val, quant_wri_val)
+        gates_rh = torch.mm(quant_state_val, quant_wrh_val)
+        rgate = (gates_ri + gates_rh) + quant_br_val
+        rgate = torch.tanh(rgate)
+        quant_state = self.io_quant(rgate)
+        return quant_state
 
-        weight_ri = nn.Parameter(torch.randn(input_size, hidden_size), requires_grad=True)
-        weight_rh = nn.Parameter(torch.randn(hidden_size, hidden_size), requires_grad=True)
-
-        self.weight_ri = weight_ri
-        self.weight_rh = weight_rh
-
-        self.bias_r = nn.Parameter(torch.randn(hidden_size), requires_grad=True)
-        self.reverse_input = reverse_input
-        self.hidden_size = hidden_size
-        self.batch_first = batch_first
-        self.reset_parameters()
-
-        self.weight_config['weight_scaling_stats_input_concat_dim'] = 0
-        if self.weight_config.get('weight_scaling_per_output_channel', False):
-            self.weight_config['weight_stats_input_view_shape_impl'] = StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS
-            self.weight_config['weight_scaling_shape'] = self.per_output_channel_broadcastable_shape()
-            self.weight_config['weight_scaling_stats_reduce_dim'] = 0
-        else:
-            self.weight_config['weight_scaling_shape'] = SCALING_SCALAR_SHAPE
-            self.weight_config['weight_stats_input_view_shape_impl'] = StatsInputViewShapeImpl.OVER_TENSOR
-            self.weight_config['weight_scaling_stats_reduce_dim'] = None
-
-        self.weight_proxy = self.configure_weight([self.weight_ri, self.weight_rh], self.weight_config)
-
-        self.quant_tanh = self.configure_activation(self.activation_config, QuantTanh)
-        self.quant_input = self.configure_activation(norm_scale_input_config, QuantHardTanh)
-
-        if self.weight_config.get('weight_quant_type', 'QuantType.FP') == 'QuantType.FP' and compute_output_bit_width:
-            raise Exception("Computing output bit width requires enabling quantization")
-        if self.weight_config.get('bias_quant_type', 'QuantType.FP') != 'QuantType.FP' and not (
-                compute_output_scale and compute_output_bit_width):
-            raise Exception("Quantizing bias requires to compute output scale and output bit width")
-
-    def reset_parameters(self):
-        stdv = 1.0 / math.sqrt(self.hidden_size)
-        for weight in self.parameters():
-            torch.nn.init.uniform_(weight, -stdv, stdv)
-
-    @torch.jit.script_method
-    def forward_cycle(self, inputs, state, quant_weight_ih, quant_weight_hh, zhws):
-        # type: (List[Tensor], Tensor, Tensor, Tensor, Tensor) -> Tuple[List[Tensor], Tensor]
-
+    @brevitas.jit.script_method
+    def forward(self, inputs, state, quant_wri, quant_wrh, quant_br):
         end = len(inputs)
         step = 1
         index = 0
         if self.reverse_input:
             end = len(inputs)
             index = end - 1
-            step = -1
-
+            step = - 1
         outputs = torch.jit.annotate(List[Tensor], [])
-        state = self.quant_input(state, zhws)[0]
+        quant_state = self.io_quant(state)
         for i in range(end):
-            input_quant = self.quant_input(inputs[index], zhws)[0]
-            output, state = self.forward_iteration(input_quant, state, quant_weight_ih, quant_weight_hh, zhws)
+            quant_input = self.io_quant(inputs[index])
+            quant_state = self.forward_iter(
+                quant_input[0], quant_state[0], quant_wri, quant_wrh, quant_br)
             index = index + step
+            outputs += [quant_state]
+        return outputs
 
-            outputs += [output]
 
-        return outputs, state
+class QuantRNNLayer(
+    QuantWeightRMixin,
+    QuantIOMixin,
+    QuantLayerMixin,
+    nn.Module):
+    __constants__ = ['reverse_input', 'batch_first', 'hidden_size']
 
-    @torch.jit.script_method
-    def forward_iteration(self, input, state, quant_weight_ri, quant_weight_rh, zhws):
+    def __init__(
+            self,
+            input_size: int,
+            hidden_size: int,
+            weight_quant = Int8WeightPerTensorFloat,
+            io_quant = Int8ActPerTensorFloat,
+            reverse_input=False,
+            batch_first=False,
+            return_quant_tensor=False,
+            **kwargs):
+        nn.Module.__init__(self)
+        QuantWeightRMixin.__init__(self, weight_quant=weight_quant, **kwargs)
+        QuantIOMixin.__init__(self, io_quant, **kwargs)
+        QuantLayerMixin.__init__(self, return_quant_tensor=return_quant_tensor, **kwargs)
+        self.cell_impl = _QuantRNNCell(self.io_quant)
+        self.weight_ri = nn.Parameter(torch.randn(input_size, hidden_size))
+        self.weight_rh = nn.Parameter(torch.randn(hidden_size, hidden_size))
+        self.bias_r = nn.Parameter(torch.randn(hidden_size))
+        self.reverse_input = reverse_input
+        self.hidden_size = hidden_size
+        self.batch_first = batch_first
+        self.reset_parameters()
 
-        gates_ri = torch.mm(input, quant_weight_ri)
-        gates_rh = torch.mm(state, quant_weight_rh)
+    def reset_parameters(self):
+        stdv = 1.0 / math.sqrt(self.hidden_size)
+        for weight in [self.weight_rh, self.weight_ri]:
+            torch.nn.init.uniform_(weight, -stdv, stdv)
 
-        rgate = (gates_ri + gates_rh) + self.bias_r
-
-        hy = self.quant_tanh(rgate, zhws)[0]
-
-        return hy, hy
-
-    def forward(self, inputs, state=None):
-
-        # Inline unpack input
+    def unpack_inputs_state(self, inputs, state):
         if isinstance(inputs, QuantTensor):
-            inputs = inputs
-        else:
-            inputs, input_scale, input_bit_width = inputs, None, None
-
-        zero_hw_sentinel = getattr(self, 'zero_hw_sentinel')
-
-        quant_weight_ri, quant_weight_ri_scale, quant_weight_ri_bit_width = self.weight_proxy(self.weight_ri,
-                                                                                              zero_hw_sentinel)
-        quant_weight_rh, quant_weight_rh_scale, quant_weight_rh_bit_width = self.weight_proxy(self.weight_rh,
-                                                                                              zero_hw_sentinel)
+            inputs = inputs.value
         if self.batch_first:
             dim = 1
             inputs_unbinded = inputs.unbind(1)
         else:
             dim = 0
             inputs_unbinded = inputs.unbind(0)
-        batch_size = inputs_unbinded[0].shape[0]
-
         if state is None:
-            device = self.weight_ri.device
-            state = torch.zeros(batch_size, self.hidden_size, device=device)
+            batch_size = inputs_unbinded[0].shape[dim]
+            state = torch.zeros(batch_size, self.hidden_size, device=inputs_unbinded[0].device)
+        elif isinstance(state, QuantTensor):
+            state = state.value
+        return inputs, state
 
-        outputs, state = self.forward_cycle(inputs_unbinded, state, quant_weight_ri, quant_weight_rh, zero_hw_sentinel)
+    def forward(self, inp, state=None):
+        output_scale = None
+        output_bit_width = None
+        output_zero_point = None
+        output_signed = None
 
+        inp = self.unpack_input(inp)
+        quant_input = self.io_quant(inp)
+        quant_wri = self.weight_r_quant(self.weight_ri)
+        quant_wrh = self.weight_r_quant(self.weight_rh)
+
+        if quant_input.bit_width is not None:
+            output_bit_width = self.max_acc_bit_width(quant_input.bit_width, quant_weight.bit_width)
+        if quant_input.scale is not None:
+            output_scale_shape = compute_channel_view_shape(inp, channel_dim=1)
+            output_scale = quant_wri.scale.view(output_scale_shape)
+            output_scale = output_scale * quant_input.scale.view(output_scale_shape)
+        if quant_input.signed is not None:
+            output_signed = inp.signed or quant_wri.signed
+
+        quant_br = self.bias_r_quant(self.bias_r, output_scale, output_bit_width)
+
+        inputs, state = self.unpack_inputs_state(quant_input, state)
+
+        outputs = self.cell_impl(inputs, state, quant_wri, quant_wrh, quant_br)
+        # unpack outputs
+        outputs = [o[0] for o in outputs]
         if self.reverse_input:
             return torch.stack(reverse(outputs), dim=dim), outputs[-1]
         else:
             return torch.stack(outputs, dim=dim), outputs[-1]
 
-    def max_output_bit_width(self, input_bit_width, weight_bit_width):
-        raise Exception("Not supported yet")
-
-    def configure_weight(self, weight, weight_config):
-        zero_hw_sentinel = getattr(self, 'zero_hw_sentinel')
-        wqp = _weight_quant_init_impl(bit_width=weight_config.get('weight_bit_width', 8),
-                                      quant_type=weight_config.get('weight_quant_type', 'FP'),
-                                      narrow_range=weight_config.get('weight_narrow_range', True),
-                                      scaling_override=weight_config.get('weight_scaling_override',
-                                                                         None),
-                                      restrict_scaling_type=weight_config.get(
-                                          'weight_restrict_scaling_type', RestrictValueType.LOG_FP),
-                                      scaling_const=weight_config.get('weight_scaling_const', None),
-                                      scaling_stats_op=weight_config.get('weight_scaling_stats_op',
-                                                                         StatsOp.MAX),
-                                      scaling_impl_type=weight_config.get('weight_scaling_impl_type',
-                                                                          ScalingImplType.STATS),
-                                      scaling_stats_reduce_dim=weight_config.get(
-                                          'weight_scaling_stats_reduce_dim', None),
-                                      scaling_shape=weight_config.get('weight_scaling_shape',
-                                                                      SCALING_SCALAR_SHAPE),
-                                      bit_width_impl_type=weight_config.get('weight_bit_width_impl_type',
-                                                                            BitWidthImplType.CONST),
-                                      bit_width_impl_override=weight_config.get(
-                                          'weight_bit_width_impl_override', None),
-                                      restrict_bit_width_type=weight_config.get(
-                                          'weight_restrict_bit_width_type', RestrictValueType.INT),
-                                      min_overall_bit_width=weight_config.get(
-                                          'weight_min_overall_bit_width', 2),
-                                      max_overall_bit_width=weight_config.get(
-                                          'weight_max_overall_bit_width', None),
-                                      ternary_threshold=weight_config.get('weight_ternary_threshold',
-                                                                          0.5),
-                                      scaling_stats_input_view_shape_impl=weight_config.get(
-                                          'weight_stats_input_view_shape_impl',
-                                          StatsInputViewShapeImpl.OVER_TENSOR),
-                                      scaling_stats_input_concat_dim=weight_config.get(
-                                          'weight_scaling_stats_input_concat_dim', 0),
-                                      scaling_stats_sigma=weight_config.get('weight_scaling_stats_sigma',
-                                                                            3.0),
-                                      scaling_min_val=weight_config.get('weight_scaling_min_val',
-                                                                        SCALING_MIN_VAL),
-                                      override_pretrained_bit_width=weight_config.get(
-                                          'weight_override_pretrained_bit_width', False),
-                                      tracked_parameter_list=weight,
-                                      zero_hw_sentinel=zero_hw_sentinel)
-
-        return wqp
-
-    def configure_activation(self, activation_config, activation_func=QuantSigmoid):
-        signed = True
-        max_val = 1
-        min_val = -1
-        if activation_func == QuantTanh:
-            activation_impl = nn.Tanh()
-        elif activation_func == QuantSigmoid:
-            activation_impl = nn.Sigmoid()
-            min_val = 0
-            signed = False
-        else:
-            activation_impl = nn.Identity()
-
-        activation_object = _activation_quant_init_impl(activation_impl=activation_impl,
-                                                        bit_width=activation_config.get('bit_width', 8),
-                                                        narrow_range=activation_config.get('narrow_range', True),
-                                                        quant_type=activation_config.get('quant_type', 'FP'),
-                                                        float_to_int_impl_type=activation_config.get(
-                                                            'float_to_int_impl_type', FloatToIntImplType.ROUND),
-                                                        min_overall_bit_width=activation_config.get(
-                                                            'min_overall_bit_width', 2),
-                                                        max_overall_bit_width=activation_config.get(
-                                                            'max_overall_bit_width', None),
-                                                        bit_width_impl_override=activation_config.get(
-                                                            'bit_width_impl_override', None),
-                                                        bit_width_impl_type=activation_config.get('bit_width_impl_type',
-                                                                                                  BitWidthImplType.CONST),
-                                                        restrict_bit_width_type=activation_config.get(
-                                                            'restrict_bit_width_type', RestrictValueType.INT),
-                                                        restrict_scaling_type=activation_config.get(
-                                                            'restrict_scaling_type', RestrictValueType.LOG_FP),
-                                                        scaling_min_val=activation_config.get('scaling_min_val',
-                                                                                              SCALING_MIN_VAL),
-                                                        override_pretrained_bit_width=activation_config.get(
-                                                            'override_pretrained_bit_width', False),
-                                                        min_val=activation_config.get('min_val', min_val),
-                                                        max_val=activation_config.get('max_val', max_val),
-                                                        signed=activation_config.get('signed', signed),
-                                                        per_channel_broadcastable_shape=activation_config.get(
-                                                            'per_channel_broadcastable_shape',
-                                                            None),
-                                                        scaling_per_channel=activation_config.get('scaling_per_channel',
-                                                                                                  False),
-                                                        scaling_override=activation_config.get('scaling_override',
-                                                                                               None),
-                                                        scaling_impl_type=activation_config.get('scaling_impl_type',
-                                                                                                ScalingImplType.CONST),
-                                                        scaling_stats_sigma=activation_config.get('scaling_stats_sigma',
-                                                                                                  2.0),
-                                                        scaling_stats_op=activation_config.get('scaling_stats_op',
-                                                                                               StatsOp.MAX),
-                                                        scaling_stats_buffer_momentum=activation_config.get(
-                                                            'scaling_stats_buffer_momentum',
-                                                            0.1),
-                                                        scaling_stats_permute_dims=activation_config.get(
-                                                            'scaling_stats_permute_dims',
-                                                            (1, 0, 2, 3)))
-
-        return activation_object
-
-    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
-                              missing_keys, unexpected_keys, error_msgs):
-
-        stats_key = 'tensor_quant.scaling_impl.runtime_stats.running_stats'
-        activation_type = self.norm_scale_input_config.get('scaling_impl_type', ScalingImplType.CONST)
-        name = '.'.join([prefix, 'quant_input']) if prefix is not '' else 'quant_input'
-        name = '.'.join([name, stats_key])
-        if (name in state_dict) and activation_type == ScalingImplType.PARAMETER:
-            raise Exception("Switching from STATS to PARAMETER in activations is not supported")
-
-        dict_to_change = dict()
-        for k, v in state_dict.items():
-            if k.startswith(prefix):
-                dict_to_change[k] = v
-
-        for k in list(state_dict.keys()):
-            if k.startswith(prefix):
-                del state_dict[k]
-
-        dict_changed = self.fix_state_dict(prefix, dict_to_change)
-        for k, v in dict_changed.items():
-            state_dict[k] = v
-        super(QuantRNNLayer, self)._load_from_state_dict(state_dict, prefix, local_metadata, strict,
-                                                         missing_keys, unexpected_keys, error_msgs)
-
-        zero_hw_sentinel_key = prefix + "zero_hw_sentinel"
-
-        if zero_hw_sentinel_key in missing_keys:
-            missing_keys.remove(zero_hw_sentinel_key)
-        if zero_hw_sentinel_key in unexpected_keys:  # for retrocompatibility with when it wasn't removed
-            unexpected_keys.remove(zero_hw_sentinel_key)
-
-    def fix_state_dict(self, prefix, state_dict):
-        newstate = OrderedDict()
+    def _map_state_dict(self, prefix, state_dict):
+        new_state = OrderedDict()
         hidden = self.hidden_size
         bias_r = torch.zeros(hidden)
         prefix_len = len(prefix)
@@ -382,37 +217,59 @@ class QuantRNNLayer(torch.jit.ScriptModule):
             elif name[:prefix_len + 7] == prefix + 'bias_hh':
                 bias_r = bias_r + value
             elif name[:prefix_len + 9] == prefix + 'weight_ih':
-                newstate[prefix + 'weight_ri'] = value.t()
+                new_state[prefix + 'weight_ri'] = value.t()
             elif name[:prefix_len + 9] == prefix + 'weight_hh':
-                newstate[prefix + 'weight_rh'] = value.t()
+                new_state[prefix + 'weight_rh'] = value.t()
             else:
-                newstate[name] = value
+                new_state[name] = value
+        new_state[prefix + 'bias_r'] = bias_r
+        return new_state
 
-        newstate[prefix + 'bias_r'] = bias_r
+    def _load_from_state_dict(
+            self, state_dict, prefix, metadata, strict, missing_keys, unexpected_keys, error_msgs):
+        dict_to_change = dict()
+        for k, v in state_dict.items():
+            if k.startswith(prefix):
+                dict_to_change[k] = v
+        for k in list(state_dict.keys()):
+            if k.startswith(prefix):
+                del state_dict[k]
+        dict_changed = self._map_state_dict(prefix, dict_to_change)
+        for k, v in dict_changed.items():
+            state_dict[k] = v
+        super(QuantRNNLayer, self)._load_from_state_dict(
+            state_dict, prefix, metadata, strict, missing_keys, unexpected_keys, error_msgs)
 
-        return newstate
 
-
-class BidirRNNLayer(nn.Module):
+class BiQuantRNNLayer(nn.Module):
     __constants__ = ['directions']
 
-    def __init__(self, input_size, hidden_size, weight_config, activation_config, norm_scale_input_config,
-                 compute_output_scale=False, compute_output_bit_width=False,
-                 return_quant_tensor=False):
-        super(BidirRNNLayer, self).__init__()
+    def __init__(
+            self,
+            input_size,
+            hidden_size,
+            weight_quant = Int8WeightPerTensorFloat,
+            io_quant = Int8ActPerTensorFloat,
+            return_quant_tensor=False,
+            **kwargs):
+        super(BiQuantRNNLayer, self).__init__()
         self.directions = nn.ModuleList([
-            QuantRNNLayer(input_size=input_size, hidden_size=hidden_size, weight_config=weight_config,
-                          activation_config=activation_config,
-                          norm_scale_input_config=norm_scale_input_config,
-                          reverse_input=False, compute_output_scale=compute_output_scale,
-                          compute_output_bit_width=compute_output_bit_width,
-                          return_quant_tensor=return_quant_tensor),
-            QuantRNNLayer(input_size=input_size, hidden_size=hidden_size, weight_config=weight_config,
-                          activation_config=activation_config,
-                          norm_scale_input_config=norm_scale_input_config,
-                          reverse_input=True, compute_output_scale=compute_output_scale,
-                          compute_output_bit_width=compute_output_bit_width,
-                          return_quant_tensor=return_quant_tensor),
+            QuantRNNLayer(
+                input_size=input_size,
+                hidden_size=hidden_size,
+                weight_quant=weight_quant,
+                io_quant=io_quant,
+                reverse_input=False,
+                return_quant_tensor=return_quant_tensor,
+                **kwargs),
+            QuantRNNLayer(
+                input_size=input_size,
+                hidden_size=hidden_size,
+                weight_quant=weight_quant,
+                io_quant=io_quant,
+                reverse_input=True,
+                return_quant_tensor=return_quant_tensor,
+                **kwargs),
         ])
 
     def forward(self, input, states):

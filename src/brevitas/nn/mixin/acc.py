@@ -58,6 +58,7 @@ class QuantTruncMixin(QuantProxyMixin):
             quant=trunc_quant,
             proxy_from_injector_impl=TruncQuantProxyFromInjector,
             proxy_protocol=AccQuantProxyProtocol,
+            proxy_kwargs={},
             kwargs_prefix='',
             proxy_prefix='trunc_',
             **kwargs)
@@ -75,6 +76,7 @@ class QuantClampMixin(QuantProxyMixin):
             quant=clamp_quant,
             proxy_from_injector_impl=ClampQuantProxyFromInjector,
             proxy_protocol=AccQuantProxyProtocol,
+            proxy_kwargs={},
             kwargs_prefix='',
             proxy_prefix='clamp_',
             **kwargs)
