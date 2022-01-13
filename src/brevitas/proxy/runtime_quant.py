@@ -61,9 +61,14 @@ __all__ = [
 
 
 def _is_passthrough_act(quant_injector):
-    if 'passthrough_act' in quant_injector:
+    if 'act_impl' not in quant_injector:
+        return True
+    elif quant_injector.act_impl is None:
+        return True
+    elif 'passthrough_act' in quant_injector:
         return quant_injector.passthrough_act
-    return False
+    else:
+        return False
 
 
 def _is_act_enabled(act_impl, tensor_quant):
@@ -120,7 +125,10 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
 
     def init_tensor_quant(self):
         tensor_quant = self.quant_injector.tensor_quant
-        act_impl = self.quant_injector.act_impl
+        if 'act_impl' in self.quant_injector:
+            act_impl = self.quant_injector.act_impl 
+        else: 
+            act_impl = None
         is_act_enabled = _is_act_enabled(act_impl, tensor_quant)
         is_quant_enabled = tensor_quant is not None
         self.is_quant_enabled = is_quant_enabled
