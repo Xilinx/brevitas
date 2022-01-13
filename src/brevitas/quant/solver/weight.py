@@ -108,6 +108,9 @@ class SolveWeightScalingStatsInputDimsFromModule(ExtendedInjector):
     @value
     def permute_dims(module, output_channel_dim):
         if output_channel_dim != 0:
+            if isinstance(module, tuple):
+                assert all(len(m.weight.shape) == len(module[0].weight.shape) for m in module)
+                module = module[0]
             dims = list(range(0, len(module.weight.shape)))
             dims[0], dims[output_channel_dim] = dims[output_channel_dim], dims[0]
             return tuple(dims)
