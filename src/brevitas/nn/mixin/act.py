@@ -145,17 +145,21 @@ class QuantNonLinearActMixin(QuantProxyMixin):
             act_impl: Optional[Type[Module]],
             passthrough_act: bool,
             act_quant: Optional[ActQuantType],
+            act_proxy_prefix='act_',
+            act_kwargs_prefix='',
             **kwargs):
+        prefixed_kwargs = {
+            act_kwargs_prefix + 'act_impl': act_impl,
+            act_kwargs_prefix + 'passthrough_act': passthrough_act}
         QuantProxyMixin.__init__(
             self,
-            act_impl=act_impl,
-            passthrough_act=passthrough_act,
             quant=act_quant,
+            proxy_prefix=act_proxy_prefix,
+            kwargs_prefix=act_kwargs_prefix,
             proxy_from_injector_impl=ActQuantProxyFromInjector,
             proxy_protocol=ActQuantProxyProtocol,
             none_quant_injector=NoneActQuant,
-            proxy_prefix='act_',
-            kwargs_prefix='',
+            **prefixed_kwargs,
             **kwargs)
 
     @property
