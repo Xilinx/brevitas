@@ -86,6 +86,7 @@ class MaxStatsScaling(ExtendedInjector):
     """
     scaling_impl_type = ScalingImplType.STATS
     scaling_stats_op = StatsOp.MAX
+    scaling_min_val = 1e-10
 
 
 class MinMaxStatsScaling(ExtendedInjector):
@@ -93,6 +94,7 @@ class MinMaxStatsScaling(ExtendedInjector):
     """
     scaling_impl_type = ScalingImplType.STATS
     scaling_stats_op = StatsOp.MIN_MAX
+    scaling_min_val = 1e-10
 
 
 class ParamFromRuntimePercentileScaling(ExtendedInjector):
@@ -102,6 +104,7 @@ class ParamFromRuntimePercentileScaling(ExtendedInjector):
     scaling_stats_op = StatsOp.PERCENTILE
     percentile_q = 99.999
     collect_stats_steps = 300
+    scaling_min_val = 1e-10
 
 
 class ParamFromRuntimeMinMaxScaling(ExtendedInjector):
@@ -110,6 +113,7 @@ class ParamFromRuntimeMinMaxScaling(ExtendedInjector):
     scaling_impl_type = ScalingImplType.PARAMETER_FROM_STATS
     scaling_stats_op = StatsOp.MIN_MAX
     collect_stats_steps = 300
+    scaling_min_val = 1e-10
 
 
 class ParamMinMaxInitScaling(ExtendedInjector):
