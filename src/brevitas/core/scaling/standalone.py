@@ -275,7 +275,9 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             self.counter = new_counter
             # workaround to avoid find_ununsed_parameter=True in DDP
             stats = stats + 0. * self.value
-            return stats
+            # make sure clipping is called
+            return abs_binary_sign_grad(
+                self.restrict_clamp_scaling(self.restrict_preprocess(stats)))
         elif self.counter == self.collect_stats_steps:
             self.restrict_inplace_preprocess(self.buffer)
             inplace_tensor_mul(self.value.detach(), self.buffer)
