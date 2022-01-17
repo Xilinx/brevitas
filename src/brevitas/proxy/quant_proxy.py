@@ -91,7 +91,7 @@ class QuantProxyFromInjector(nn.Module, QuantProxyProtocol):
     def export_mode(self, value):
         if value and self.export_handler is None:
             raise RuntimeError("Can't enable export mode on a proxy without an export handler")
-        elif value and self.export_handler is not None:
+        elif value and not self._export_mode and self.export_handler is not None:
             self.export_handler.prepare_for_export(self)
             self.export_handler.attach_debug_info(self)
         elif not value and self.export_handler is not None:
