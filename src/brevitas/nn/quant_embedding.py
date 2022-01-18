@@ -68,8 +68,6 @@ class QuantEmbedding(QuantWeightMixin, Embedding):
             sparse: bool = False, 
             _weight: Optional[Tensor] = None,
             weight_quant: WeightQuantType = Int8WeightPerTensorFloat,
-            device = None, 
-            dtype = None,
             return_quant_tensor = False,
             **kwargs) -> None:
         Embedding.__init__(
@@ -81,9 +79,7 @@ class QuantEmbedding(QuantWeightMixin, Embedding):
             norm_type=norm_type,
             scale_grad_by_freq=scale_grad_by_freq,
             sparse=sparse,
-            _weight=_weight,
-            device=device,
-            dtype=dtype)
+            _weight=_weight)
         QuantWeightMixin.__init__(
             self,
             weight_quant=weight_quant,
