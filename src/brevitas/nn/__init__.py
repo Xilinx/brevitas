@@ -11,3 +11,4 @@ from .quant_eltwise import QuantEltwiseAdd, QuantCat
 from .quant_max_pool import QuantMaxPool1d, QuantMaxPool2d
 from .quant_upsample import QuantUpsample, QuantUpsamplingBilinear2d, QuantUpsamplingNearest2d
 from .quant_dropout import QuantDropout
+from .quant_embedding import QuantEmbedding
