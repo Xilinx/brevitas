@@ -32,17 +32,16 @@
 using namespace at;
 using torch::Tensor;
 using torch::autograd::AutogradContext;
-using torch::autograd::Variable;
-using torch::autograd::variable_list;
+using torch::autograd::tensor_list;
 
 class RoundSteFn : public torch::autograd::Function<RoundSteFn> {
  public:
 
-  static variable_list forward(AutogradContext* ctx, Variable input) {
-    return {at::round(input)};
+  static Tensor forward(AutogradContext* ctx, Tensor input) {
+    return at::round(input);
   };
 
-  static variable_list backward(AutogradContext* ctx, variable_list grad_output) {
+  static tensor_list backward(AutogradContext* ctx, tensor_list grad_output) {
      return {grad_output[0]};
   }
 };
@@ -51,19 +50,19 @@ class RoundSteFn : public torch::autograd::Function<RoundSteFn> {
 class TensorClampSteFn : public torch::autograd::Function<TensorClampSteFn> {
  public:
 
-  static variable_list forward(
+  static Tensor forward(
     AutogradContext* ctx,
-    Variable input,
-    Variable min_val,
-    Variable max_val){
-    Variable output;
+    Tensor input,
+    Tensor min_val,
+    Tensor max_val){
+    Tensor output;
     output = at::where(input > max_val, max_val.type_as(input), input);
     output = at::where(output < min_val, min_val.type_as(output), output);
-    return {output};
+    return output;
   };
 
-  static variable_list backward(AutogradContext* ctx, variable_list grad_output) {
-     return {grad_output[0], Variable(), Variable()};
+  static tensor_list backward(AutogradContext* ctx, tensor_list grad_output) {
+     return {grad_output[0], Tensor(), Tensor()};
   }
 };
 
@@ -71,18 +70,18 @@ class TensorClampSteFn : public torch::autograd::Function<TensorClampSteFn> {
 class InplaceTensorClampSteFn : public torch::autograd::Function<InplaceTensorClampSteFn> {
  public:
 
-  static variable_list forward(
+  static Tensor forward(
     AutogradContext* ctx,
-    Variable input,
-    Variable min_val,
-    Variable max_val){
+    Tensor input,
+    Tensor min_val,
+    Tensor max_val){
     at::min_out(input, input, max_val);
     at::max_out(input, input, min_val);
-    return {input};
+    return input;
   };
 
-  static variable_list backward(AutogradContext* ctx, variable_list grad_output) {
-     return {grad_output[0], Variable(), Variable()};
+  static tensor_list backward(AutogradContext* ctx, tensor_list grad_output) {
+     return {grad_output[0], Tensor(), Tensor()};
   }
 };
 
@@ -90,18 +89,18 @@ class InplaceTensorClampSteFn : public torch::autograd::Function<InplaceTensorCl
 class ScalarClampSteFn : public torch::autograd::Function<ScalarClampSteFn> {
  public:
 
-  static variable_list forward(
+  static Tensor forward(
     AutogradContext* ctx,
-    Variable input,
+    Tensor input,
     const double min_val,
     const double max_val){
-    Variable output;
+    Tensor output;
     output = at::clamp(input, min_val, max_val);
-    return {output};
+    return output;
   };
 
-  static variable_list backward(AutogradContext* ctx, variable_list grad_output) {
-     return {grad_output[0], Variable(), Variable()};
+  static tensor_list backward(AutogradContext* ctx, tensor_list grad_output) {
+     return {grad_output[0], Tensor(), Tensor()};
   }
 };
 
@@ -109,14 +108,14 @@ class ScalarClampSteFn : public torch::autograd::Function<ScalarClampSteFn> {
 class ScalarClampMinSteFn : public torch::autograd::Function<ScalarClampMinSteFn> {
  public:
 
-  static variable_list forward(AutogradContext* ctx, Variable input, const double min_val) {
-    Variable output;
+  static Tensor forward(AutogradContext* ctx, Tensor input, const double min_val) {
+    Tensor output;
     output = at::clamp_min(input, min_val);
-    return {output};
+    return output;
   };
 
-  static variable_list backward(AutogradContext* ctx, variable_list grad_output) {
-    return {grad_output[0], Variable()};
+  static tensor_list backward(AutogradContext* ctx, tensor_list grad_output) {
+    return {grad_output[0], Tensor()};
   }
 };
 
@@ -124,11 +123,11 @@ class ScalarClampMinSteFn : public torch::autograd::Function<ScalarClampMinSteFn
 class CeilSteFn : public torch::autograd::Function<CeilSteFn> {
  public:
 
-  static variable_list forward(AutogradContext* ctx, Variable input) {
-    return {torch::ceil(input)};
+  static Tensor forward(AutogradContext* ctx, Tensor input) {
+    return torch::ceil(input);
   };
 
-  static variable_list backward(AutogradContext* ctx, variable_list grad_output) {
+  static tensor_list backward(AutogradContext* ctx, tensor_list grad_output) {
     return {grad_output[0]};
   }
 };
@@ -136,11 +135,11 @@ class CeilSteFn : public torch::autograd::Function<CeilSteFn> {
 class FloorSteFn : public torch::autograd::Function<FloorSteFn> {
  public:
 
-  static variable_list forward(AutogradContext* ctx, Variable input) {
-    return {torch::floor(input)};
+  static Tensor forward(AutogradContext* ctx, Tensor input) {
+    return torch::floor(input);
   };
 
-  static variable_list backward(AutogradContext* ctx, variable_list grad_output) {
+  static tensor_list backward(AutogradContext* ctx, tensor_list grad_output) {
     return {grad_output[0]};
   }
 };
@@ -148,14 +147,14 @@ class FloorSteFn : public torch::autograd::Function<FloorSteFn> {
 class BinarySignSteFn : public torch::autograd::Function<BinarySignSteFn> {
  public:
 
-  static variable_list forward(AutogradContext* ctx, Variable input) {
-    Variable positive_mask = at::ge(input, 0.0);
-    Variable negative_mask = at::lt(input, 0.0);
-    Variable output = positive_mask.type_as(input) - negative_mask.type_as(input);
-    return{output};
+  static Tensor forward(AutogradContext* ctx, Tensor input) {
+    Tensor positive_mask = at::ge(input, 0.0);
+    Tensor negative_mask = at::lt(input, 0.0);
+    Tensor output = positive_mask.type_as(input) - negative_mask.type_as(input);
+    return output;
   };
 
-  static variable_list backward(AutogradContext* ctx, variable_list grad_output) {
+  static tensor_list backward(AutogradContext* ctx, tensor_list grad_output) {
     return {grad_output[0]};
   }
 };
@@ -164,11 +163,11 @@ class BinarySignSteFn : public torch::autograd::Function<BinarySignSteFn> {
 class TernarySignSteFn : public torch::autograd::Function<TernarySignSteFn> {
  public:
 
-  static variable_list forward(AutogradContext* ctx, Variable input) {
-    return{at::sign(input)};
+  static Tensor forward(AutogradContext* ctx, Tensor input) {
+    return at::sign(input);
   };
 
-  static variable_list backward(AutogradContext* ctx, variable_list grad_output) {
+  static tensor_list backward(AutogradContext* ctx, tensor_list grad_output) {
     return {grad_output[0]};
   }
 };
@@ -177,11 +176,11 @@ class TernarySignSteFn : public torch::autograd::Function<TernarySignSteFn> {
 class RoundToZeroSteFn : public torch::autograd::Function<RoundToZeroSteFn> {
  public:
 
-  static variable_list forward(AutogradContext* ctx, Variable input) {
-    return {torch::sign(input) * torch::floor(torch::abs(input))};
+  static Tensor forward(AutogradContext* ctx, Tensor input) {
+    return torch::sign(input) * torch::floor(torch::abs(input));
   };
 
-  static variable_list backward(AutogradContext* ctx, variable_list grad_output) {
+  static tensor_list backward(AutogradContext* ctx, tensor_list grad_output) {
     return {grad_output[0]};
   }
 };
@@ -190,14 +189,14 @@ class RoundToZeroSteFn : public torch::autograd::Function<RoundToZeroSteFn> {
 class DPURoundSteFn : public torch::autograd::Function<DPURoundSteFn> {
  public:
 
-  static variable_list forward(AutogradContext* ctx, Variable input) {
-    Variable output;
+  static Tensor forward(AutogradContext* ctx, Tensor input) {
+    Tensor output;
     output = at::where(
-        at::logical_and((x < 0.), (x - torch::floor(x) == 0.5)), torch::ceil(x), torch::round(x));
-    return {output};
+        at::logical_and((input < 0.), (input - torch::floor(input) == 0.5)), torch::ceil(input), torch::round(input));
+    return output;
   };
 
-  static variable_list backward(AutogradContext* ctx, variable_list grad_output) {
+  static tensor_list backward(AutogradContext* ctx, tensor_list grad_output) {
     return {grad_output[0]};
   }
 };
@@ -206,75 +205,75 @@ class DPURoundSteFn : public torch::autograd::Function<DPURoundSteFn> {
 class AbsBinarySignGradFn : public torch::autograd::Function<AbsBinarySignGradFn> {
  public:
 
-  static variable_list forward(AutogradContext* ctx, Variable input) {
-    ctx.save_for_backward(input)
-    return {torch::abs(input)};
+  static Tensor forward(AutogradContext* ctx, Tensor input) {
+    ctx->save_for_backward({input});
+    return torch::abs(input);
   };
 
-  static variable_list backward(AutogradContext* ctx, variable_list grad_output) {
-    input = ctx.saved_variables()[0]
+  static tensor_list backward(AutogradContext* ctx, tensor_list grad_output) {
+    Tensor input = ctx->get_saved_variables()[0];
     return {BinarySignSteFn::apply(input) * grad_output[0]};
   }
 };
 
 
 Tensor ceil_ste_impl(const Tensor& input) {
- return CeilSteFn::apply(input)[0];
+ return CeilSteFn::apply(input);
 };
 
 
 Tensor floor_ste_impl(const Tensor& input) {
- return FloorSteFn::apply(input)[0];
+ return FloorSteFn::apply(input);
 };
 
 
 Tensor round_ste_impl(const Tensor& input) {
- return RoundSteFn::apply(input)[0];
+ return RoundSteFn::apply(input);
 };
 
 
 Tensor dpu_round_ste_impl(const Tensor& input) {
- return DPURoundSteFn::apply(input)[0];
+ return DPURoundSteFn::apply(input);
 };
 
 
 Tensor binary_sign_ste_impl(const Tensor& input) {
- return BinarySignSteFn::apply(input)[0];
+ return BinarySignSteFn::apply(input);
 };
 
 
 Tensor ternary_sign_ste_impl(const Tensor& input) {
- return TernarySignSteFn::apply(input)[0];
+ return TernarySignSteFn::apply(input);
 };
 
 
 Tensor tensor_clamp_ste_impl_(const Tensor& input, const Tensor& min_val, const Tensor& max_val) {
- return InplaceTensorClampSteFn::apply(input, min_val, max_val)[0];
+ return InplaceTensorClampSteFn::apply(input, min_val, max_val);
 };
 
 
 Tensor tensor_clamp_ste_impl(const Tensor& input, const Tensor& min_val, const Tensor& max_val) {
- return TensorClampSteFn::apply(input, min_val, max_val)[0];
+ return TensorClampSteFn::apply(input, min_val, max_val);
 };
 
 
 Tensor scalar_clamp_ste_impl(const Tensor& input, const double min_val, const double max_val) {
- return ScalarClampSteFn::apply(input, min_val, max_val)[0];
+ return ScalarClampSteFn::apply(input, min_val, max_val);
 };
 
 
 Tensor scalar_clamp_min_ste_impl(const Tensor& input, const double min_val) {
- return ScalarClampMinSteFn::apply(input, min_val)[0];
+ return ScalarClampMinSteFn::apply(input, min_val);
 };
 
 
 Tensor round_to_zero_ste_impl(const Tensor& input) {
- return RoundToZeroSteFn::apply(input)[0];
+ return RoundToZeroSteFn::apply(input);
 };
 
 
 Tensor abs_binary_sign_grad_impl(const Tensor& input) {
- return AbsBinarySignGradFn::apply(input)[0];
+ return AbsBinarySignGradFn::apply(input);
 };
 
 
