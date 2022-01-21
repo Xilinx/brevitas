@@ -44,7 +44,7 @@ import pytest
 import mock
 
 from torch import Tensor, tensor
-from brevitas.function.autograd_ste_ops import *
+from brevitas.ops.autograd_ste_ops import *
 
 from tests.brevitas.common import assert_allclose, assert_zero_or_none
 from tests.brevitas.hyp_helper import two_float_tensor_random_shape_st
@@ -54,9 +54,9 @@ from tests.brevitas.function.hyp_helper import tensor_clamp_ste_test_st
 from tests.brevitas.function.hyp_helper import scalar_clamp_min_ste_test_st
 
 
-# brevitas.function.autograd_ste_ops. and not brevitas.function.ops.
+# brevitas.ops.autograd_ste_ops. and not brevitas.function.ops.
 # in order to mock where it's used, not where it's defined
-MOCK_OPS_PREFIX = 'brevitas.function.autograd_ste_ops.'
+MOCK_OPS_PREFIX = 'brevitas.ops.autograd_ste_ops.'
 
 
 class TestElementwiseSte:
