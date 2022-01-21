@@ -46,7 +46,7 @@ import torch
 
 import brevitas
 from brevitas import config
-from brevitas.function import ops_ste, autograd_ste_ops
+from brevitas.function import ops_ste
 from brevitas.function.ops_ste import *
 
 from tests.brevitas.hyp_helper import two_float_tensor_random_shape_st
@@ -54,7 +54,7 @@ from tests.brevitas.function.hyp_helper import tensor_clamp_ste_test_st
 from tests.brevitas.function.hyp_helper import scalar_clamp_min_ste_test_st
 
 
-AUTOGRAD_OPS_PREFIX = 'brevitas.function.autograd_ste_ops.'
+AUTOGRAD_OPS_PREFIX = 'brevitas.ops.autograd_ste_ops.'
 NATIVE_PREFIX = 'torch.ops.autograd_ste_ops.'
 
 # name of the backend that is wrapped by each function to test
@@ -85,12 +85,12 @@ def test_jit_annotations(prefix: str):
     Test that the annotations to enable/disable the jit are being set correctly
     """
     if prefix == NATIVE_PREFIX:
-        assert ops_ste.fn_prefix == torch.ops.autograd_ste_ops
+        assert ops_ste.fn_prefix == torch
         assert ops_ste.script_flag == brevitas.jit.script
         assert config.JIT_ENABLED
     else:
         assert prefix == AUTOGRAD_OPS_PREFIX
-        assert ops_ste.fn_prefix == autograd_ste_ops
+        assert ops_ste.fn_prefix == brevitas
         assert ops_ste.script_flag == torch.jit.ignore
 
 
