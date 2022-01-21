@@ -65,8 +65,8 @@ if config.JIT_ENABLED:
             is_python_module=False,
             verbose=config.VERBOSE)
         NATIVE_STE_BACKEND_LOADED = True
-    except:
-        warnings.warn("Brevitas' native STE backend is enabled but couldn't be loaded")
+    except Exception as e:
+        warnings.warn(f"Brevitas' native STE backend is enabled but couldn't be loaded. Set env BREVITAS_VERBOSE=1 for more info.")
         NATIVE_STE_BACKEND_LOADED = False
 else:
     NATIVE_STE_BACKEND_LOADED = False
