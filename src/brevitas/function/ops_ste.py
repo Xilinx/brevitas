@@ -70,10 +70,10 @@ __all__ = [
 
 
 if brevitas.NATIVE_STE_BACKEND_LOADED:
-    fn_prefix = torch.ops.autograd_ste_ops
+    fn_prefix = torch 
     script_flag = brevitas.jit.script
 else:
-    from brevitas.function import autograd_ste_ops as fn_prefix
+    fn_prefix = brevitas
     script_flag = torch.jit.ignore
 
 
@@ -96,7 +96,7 @@ def round_ste(x: Tensor) -> Tensor:
         >>> (x.grad == grad).all().item()
         True
     """
-    return fn_prefix.round_ste_impl(x)
+    return fn_prefix.ops.autograd_ste_ops.round_ste_impl(x)
 
 
 @script_flag
@@ -118,7 +118,7 @@ def ceil_ste(x: Tensor) -> Tensor:
         >>> (x.grad == grad).all().item()
         True
     """
-    return fn_prefix.ceil_ste_impl(x)
+    return fn_prefix.ops.autograd_ste_ops.ceil_ste_impl(x)
 
 
 @script_flag
@@ -140,7 +140,7 @@ def floor_ste(x: Tensor) -> Tensor:
         >>> (x.grad == grad).all().item()
         True
     """
-    return fn_prefix.floor_ste_impl(x)
+    return fn_prefix.ops.autograd_ste_ops.floor_ste_impl(x)
 
 
 @script_flag
@@ -165,7 +165,7 @@ def tensor_clamp_ste(x: Tensor, min_val: Tensor, max_val: Tensor) -> Tensor:
         >>> (x.grad == grad).all().item()
         True
     """
-    output = fn_prefix.tensor_clamp_ste_impl(x, min_val, max_val)
+    output = fn_prefix.ops.autograd_ste_ops.tensor_clamp_ste_impl(x, min_val, max_val)
     return output
 
 
@@ -192,7 +192,7 @@ def tensor_clamp_ste_(x: Tensor, min_val: Tensor, max_val: Tensor) -> Tensor:
         >>> (x.grad == grad).all().item()
         True
     """
-    output = fn_prefix.tensor_clamp_ste_impl_(x, min_val, max_val)
+    output = fn_prefix.ops.autograd_ste_ops.tensor_clamp_ste_impl_(x, min_val, max_val)
     return output
 
 
@@ -226,7 +226,7 @@ def scalar_clamp_ste(x: Tensor, min_val: float, max_val: float) -> Tensor:
         >>> (x.grad == grad).all().item()
         True
     """
-    return fn_prefix.scalar_clamp_ste_impl(x, min_val, max_val)
+    return fn_prefix.ops.autograd_ste_ops.scalar_clamp_ste_impl(x, min_val, max_val)
 
 
 @script_flag
@@ -258,7 +258,7 @@ def scalar_clamp_min_ste(x: Tensor, min_val: float) -> Tensor:
         >>> (x.grad == grad).all().item()
         True
     """
-    return fn_prefix.scalar_clamp_min_ste_impl(x, min_val)
+    return fn_prefix.ops.autograd_ste_ops.scalar_clamp_min_ste_impl(x, min_val)
 
 
 @script_flag
@@ -282,7 +282,7 @@ def binary_sign_ste(x: Tensor) -> Tensor:
         >>> (x.grad == grad).all().item()
         True
     """
-    return fn_prefix.binary_sign_ste_impl(x)
+    return fn_prefix.ops.autograd_ste_ops.binary_sign_ste_impl(x)
 
 
 @script_flag
@@ -305,7 +305,7 @@ def ternary_sign_ste(x: Tensor) -> Tensor:
         >>> (x.grad == grad).all().item()
         True
     """
-    return fn_prefix.ternary_sign_ste_impl(x)
+    return fn_prefix.ops.autograd_ste_ops.ternary_sign_ste_impl(x)
 
 
 @script_flag
@@ -329,7 +329,7 @@ def round_to_zero_ste(x: Tensor) -> Tensor:
         >>> (x.grad == grad).all().item()
         True
     """
-    return fn_prefix.round_to_zero_ste_impl(x)
+    return fn_prefix.ops.autograd_ste_ops.round_to_zero_ste_impl(x)
 
 
 @script_flag
@@ -353,7 +353,7 @@ def dpu_round_ste(x: Tensor) -> Tensor:
         >>> (x.grad == grad).all().item()
         True
     """
-    return fn_prefix.dpu_round_ste_impl(x)
+    return fn_prefix.ops.autograd_ste_ops.dpu_round_ste_impl(x)
 
 
 @script_flag
@@ -377,4 +377,4 @@ def abs_binary_sign_grad(x: Tensor) -> Tensor:
         >>> (x.grad == grad).all().item()
         True
     """
-    return fn_prefix.abs_binary_sign_grad_impl(x)
+    return fn_prefix.ops.autograd_ste_ops.abs_binary_sign_grad_impl(x)

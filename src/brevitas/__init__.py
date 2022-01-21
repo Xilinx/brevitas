@@ -9,7 +9,7 @@ from torch.utils import cpp_extension
 import torch
 from torch import Tensor
 
-import brevitas.jit as jit
+from brevitas import jit as jit
 from brevitas import config
 
 
@@ -70,3 +70,5 @@ if config.JIT_ENABLED:
         NATIVE_STE_BACKEND_LOADED = False
 else:
     NATIVE_STE_BACKEND_LOADED = False
+
+from brevitas import ops as ops
