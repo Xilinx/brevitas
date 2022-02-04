@@ -118,8 +118,7 @@ class _RuntimeStats(brevitas.jit.ScriptModule):
 
 
 class _ParameterListStats(brevitas.jit.ScriptModule):
-    __constants__ = ['stats_input_concat_dim',
-                     'extra_tracked_params_list']
+    __constants__ = ['stats_input_concat_dim']
 
     def __init__(
             self,
