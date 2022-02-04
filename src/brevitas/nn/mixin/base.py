@@ -37,17 +37,22 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-import torch.jit
-from torch import Tensor
 
 from warnings import warn
 from abc import ABCMeta, abstractmethod
-from typing import Optional, Union
+from typing import Optional, Union, Tuple
 from inspect import isclass
+import math
+
+import torch.jit
+from torch import Tensor, nn
+from torch.nn.utils.rnn import PackedSequence
 
 from brevitas import config
 from brevitas.inject import ExtendedInjector, Injector
 from brevitas.quant_tensor import QuantTensor
+from brevitas.common import ExportMixin
+from brevitas.nn.utils import compute_channel_view_shape
 
 from .utils import filter_kwargs
 
@@ -106,9 +111,9 @@ class QuantProxyMixin(object):
             if filter_kwargs(kwargs_prefix, kwargs):
                 warn('Keyword arguments are being passed but they not being used.')
         setattr(self, proxy_name, quant)
+        
 
-
-class QuantLayerMixin(object):
+class QuantLayerMixin(ExportMixin):
     __metaclass__ = ABCMeta
 
     def __init__(
@@ -120,55 +125,19 @@ class QuantLayerMixin(object):
             cache_inference_quant_inp: bool = False,
             cache_inference_quant_out: bool = False,
             cache_quant_io_metadata_only: bool = True):
+        ExportMixin.__init__(self)
         self.accept_quant_tensor = True
         self.return_quant_tensor = return_quant_tensor
-        self.export_handler = export_handler
         self.cache_inference_quant_inp = cache_inference_quant_inp
         self.cache_inference_quant_out = cache_inference_quant_out
         self.cache_quant_io_metadata_only = cache_quant_io_metadata_only
-        self._export_mode = export_mode
-        self._export_debug_name = export_debug_name
         self._cached_inp = None
         self._cached_out = None
-        self.export_input_debug = False
-        self.export_output_debug = False
-
-    @property
-    def export_debug_name(self):
-        return self._export_debug_name
-
-    @export_debug_name.setter
-    def export_debug_name(self, value):
-        self._export_debug_name = value
 
     @property
     @abstractmethod
     def channelwise_separable(self) -> bool:
         pass
-
-    @property
-    @abstractmethod
-    def requires_export_handler(self):
-        pass
-
-    @property
-    def export_mode(self):
-        if self._export_mode and self.training:
-            raise RuntimeError("Can't enter export mode during training, only during inference")
-        return self._export_mode
-
-    @export_mode.setter
-    def export_mode(self, value):
-        if value and self.requires_export_handler and self.export_handler is None:
-            raise RuntimeError("Can't enable export mode on a layer without an export handler")
-        elif value and not self.requires_export_handler and self.export_handler is None:
-            return  # don't set export mode when it's not required and there is no handler
-        elif value and self.export_handler is not None:
-            self.export_handler.prepare_for_export(self)
-            self.export_handler.attach_debug_info(self)
-        elif not value and self.export_handler is not None:
-            self.export_handler.reset()
-        self._export_mode = value
 
     @property
     def is_quant_input_signed(self) -> Optional[bool]:  # tri-valued logic output

@@ -7,6 +7,7 @@ from torch import tensor, nn
 from brevitas.inject import BaseInjector as Injector
 from brevitas.core.utils import StatelessBuffer
 from brevitas.utils.quant_utils import float_to_int_impl_to_enum
+from brevitas.common import ExportMixin
 
 __all__ = [
     'QuantProxyProtocol',
@@ -57,16 +58,16 @@ class QuantProxyProtocol(Protocol):
         ...
 
 
-class QuantProxyFromInjector(nn.Module, QuantProxyProtocol):
+class QuantProxyFromInjector(ExportMixin, nn.Module, QuantProxyProtocol):
     __metaclass__ = ABCMeta
 
     def __init__(
             self,
             quant_layer: nn.Module,
-            quant_injector: Injector,
-            export_mode: bool = False,
-            export_handler: Optional[nn.Module] = None) -> None:
-        super(QuantProxyFromInjector, self).__init__()
+            quant_injector: Injector) -> None:
+        ExportMixin.__init__(self)
+        nn.Module.__init__(self)
+        QuantProxyProtocol.__init__(self)
         self.update_state_dict_impl = _update_state_dict_impl(quant_injector)
         self.quant_injector = quant_injector
         self._zero_hw_sentinel = StatelessBuffer(tensor(0.0))
@@ -74,29 +75,11 @@ class QuantProxyFromInjector(nn.Module, QuantProxyProtocol):
         # Use a normal list and not a ModuleList since this is a pointer to parent modules
         self.tracked_module_list = []
         self.add_tracked_module(quant_layer)
-        self.export_handler = export_handler
-        self.export_mode = export_mode
-        self.export_debug_name = None
-        self.export_input_debug = False
-        self.export_output_debug = False
         self.disable_quant = False
 
     @property
-    def export_mode(self):
-        if self._export_mode and self.training:
-            raise RuntimeError("Can't enter export mode during training, only during inference")
-        return self._export_mode
-
-    @export_mode.setter
-    def export_mode(self, value):
-        if value and self.export_handler is None:
-            raise RuntimeError("Can't enable export mode on a proxy without an export handler")
-        elif value and not self._export_mode and self.export_handler is not None:
-            self.export_handler.prepare_for_export(self)
-            self.export_handler.attach_debug_info(self)
-        elif not value and self.export_handler is not None:
-            self.export_handler.reset()
-        self._export_mode = value
+    def requires_export_handler(self):
+        return self.is_quant_enabled
 
     def update_tracked_modules(self):
         """Update the modules tracked by the injector with the modules tracked by the proxy"""
