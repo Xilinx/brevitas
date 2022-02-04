@@ -112,7 +112,8 @@ class FusedActivationQuantProxy(brevitas.jit.ScriptModule):
 class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
 
     def __init__(self, quant_layer, quant_injector):
-        super(ActQuantProxyFromInjector, self).__init__(quant_layer, quant_injector)
+        QuantProxyFromInjector.__init__(self, quant_layer, quant_injector)
+        ActQuantProxyProtocol.__init__(self)
         self.is_passthrough_act = _is_passthrough_act(quant_injector)
 
     @property
