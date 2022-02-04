@@ -83,7 +83,7 @@ class ONNXBaseHandler(BaseHandler, ABC):
 
     def __init__(self):
         super().__init__()
-        self.symbolic_kwargs = None
+        self.symbolic_kwargs = {}
         self.export_debug_name = None
         self.debug_input = False
         self.debug_output = False
@@ -95,9 +95,6 @@ class ONNXBaseHandler(BaseHandler, ABC):
     @abstractmethod
     def symbolic_execution(self, *args, **kwargs):
         pass
-
-    def reset(self):
-        self.symbolic_kwargs = None
 
     def attach_debug_info(self, m):
         self.export_debug_name = m.export_debug_name

@@ -21,9 +21,6 @@ class BaseHandler(Module, ABC):
     def prepare_for_export(self, module):
         pass
 
-    def reset(self):
-        pass
-
 
 class BitWidthHandlerMixin(object):
 
