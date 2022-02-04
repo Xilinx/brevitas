@@ -38,7 +38,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from typing import Optional, Union
+from typing import Optional, Union, Tuple
 from typing_extensions import Protocol, runtime_checkable
 
 from torch import Tensor, nn
@@ -95,6 +95,17 @@ class AccQuantProxyProtocol(QuantProxyProtocol, Protocol):
         ...
 
 
+class _TensorQuantDisabledIdentity(brevitas.jit.ScriptModule):
+
+    def __init__(self, module_to_wrap=None):
+        super(_TensorQuantDisabledIdentity, self).__init__()
+
+    @brevitas.jit.script_method
+    def forward(self, x: Tensor) -> Tuple[
+            Tensor, Optional[Tensor], Optional[Tensor], Optional[Tensor]]:
+        return (x, None, None, None)
+
+
 class FusedActivationQuantProxy(brevitas.jit.ScriptModule):
 
     def __init__(self, activation_impl, tensor_quant):
@@ -137,7 +148,8 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
             self.fused_activation_quant_proxy = FusedActivationQuantProxy(
                 act_impl, tensor_quant)
         elif is_act_enabled and not is_quant_enabled:
-            self.fused_activation_quant_proxy = act_impl
+            self.fused_activation_quant_proxy = FusedActivationQuantProxy(
+                act_impl, _TensorQuantDisabledIdentity())
         elif not is_act_enabled and is_quant_enabled:
             self.fused_activation_quant_proxy = FusedActivationQuantProxy(
                 Identity(), tensor_quant)
