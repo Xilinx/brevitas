@@ -139,6 +139,16 @@ def float_tensor_random_shape_st(draw, min_dims: int = 1, max_dims: int = 4, max
 
 
 @st.composite
+def float_tensor_random_size_st(draw, dims: int = 1, max_size: int = 3):
+    """
+    Generate a float tensor of a fixed number of dimensions each of random size.
+    """
+    shape = draw(random_tensor_shape_st(dims, dims, max_size))
+    t = draw(float_tensor_st(shape))
+    return t
+
+
+@st.composite
 def two_float_tensor_random_shape_st(draw, min_dims=1, max_dims=4, max_size=3):
     """
     Generate a tuple of float tensors of the same random shape.
