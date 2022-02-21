@@ -3,6 +3,7 @@ import operator
 import torch
 from torch import nn
 
+import brevitas
 from brevitas import config
 import brevitas.nn as qnn
 from brevitas.core.utils import StatelessBuffer
@@ -31,6 +32,7 @@ from brevitas.graph.utils import get_module
 ADD_FNS = [torch.add, operator.add, operator.iadd]
 
 ADD_METHODS = ['add', 'add_']
+CAT = brevitas.original_cat
 
 
 QUANT_WBIOL_MAP = {
@@ -104,7 +106,7 @@ def are_inputs_unsigned(model, node, is_unsigned_list):
             else:
                 is_unsigned_list.append(False)
         elif inp_node.op == 'call_function':
-            if inp_node.target in [torch.reshape, torch.flatten, torch.transpose, torch.cat] + ADD_FNS:
+            if inp_node.target in [torch.reshape, torch.flatten, torch.transpose, CAT] + ADD_FNS:
                 are_inputs_unsigned(model, inp_node, is_unsigned_list)
             else:
                 is_unsigned_list.append(False)
@@ -150,7 +152,7 @@ def are_inputs_quantized(model, node, quantized_modules_list, same_sign):
         elif inp_node.op == 'call_function':
             if inp_node.target in [torch.reshape, torch.flatten, torch.transpose]:
                 are_inputs_quantized(model, inp_node, quantized_modules_list, same_sign)
-            elif inp_node.target is torch.cat:
+            elif inp_node.target is CAT:
                 are_inputs_quantized(model, inp_node, quantized_modules_list, True)
             elif inp_node.target in ADD_FNS:
                 are_inputs_quantized(model, inp_node, quantized_modules_list, False)
@@ -221,7 +223,7 @@ def cat_input_handler(model, node, quant_identity_name, quant_identity, rewriter
                 rewriters.append(InsertModuleCallAfter(quant_identity_name, inp_node))
         elif inp_node.op == 'call_function' and inp_node.target in [torch.flatten, torch.reshape, torch.transpose]:
             cat_input_handler(model, inp_node, quant_identity_name, quant_identity, rewriters)
-        elif inp_node.op == 'call_function' and inp_node.target is torch.cat:
+        elif inp_node.op == 'call_function' and inp_node.target is CAT:
             cat_input_handler(model, inp_node, quant_identity_name, quant_identity, rewriters)
         elif inp_node.op == 'call_method' and inp_node.target in ['view', 'reshape', 'flatten', 'transpose']:
             cat_input_handler(model, inp_node, quant_identity_name, quant_identity, rewriters)
@@ -263,7 +265,7 @@ def add_input_handler(model, node, quant_identity_name, quant_identity, rewriter
                 rewriters.append(InsertModuleCallAfter(quant_identity_name, inp_node))
         elif inp_node.op == 'call_function' and inp_node.target in [torch.flatten, torch.reshape, torch.transpose]:
             add_input_handler(model, inp_node, quant_identity_name, quant_identity, rewriters)
-        elif inp_node.op == 'call_function' and inp_node.target is torch.cat:
+        elif inp_node.op == 'call_function' and inp_node.target is CAT:
             cat_input_handler(model, inp_node, quant_identity_name, quant_identity, rewriters)
         elif inp_node.op == 'call_method' and inp_node.target in ['view', 'reshape', 'flatten', 'transpose']:
             add_input_handler(model, inp_node, quant_identity_name, quant_identity, rewriters)
@@ -313,10 +315,10 @@ def flexml_residual_handler(model):
     def is_converged(model):
 
         for node in model.graph.nodes:
-            if (node.op == 'call_function' and node.target in ADD_FNS + [torch.cat]
+            if (node.op == 'call_function' and node.target in ADD_FNS + [CAT]
                     or node.op == 'call_method' and node.target in ADD_METHODS):
                 rewriters = []
-                if node.target is torch.cat:
+                if node.target is CAT:
                     if are_inputs_quantized(model, node, [], True):
                         continue
                     quant_module, quant_module_name = _get_quant_module(model, node)
