@@ -21,9 +21,9 @@ else:
     torch_version = version.parse(torch.__version__)
 
 
+original_cat = torch.cat
 if torch_version < version.parse('1.7.0'):
     from torch._overrides import has_torch_function, handle_torch_function
-    original_cat = torch.cat
 
     @torch.jit.ignore
     def unsupported_jit_cat(tensors, dim):
