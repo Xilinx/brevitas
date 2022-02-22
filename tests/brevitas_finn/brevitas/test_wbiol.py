@@ -59,17 +59,33 @@ def test_quant_conv2d(
     # required to generated quantized inputs, not part of the exported model to test
     quant_inp = QuantIdentity(bit_width=i_bits, return_quant_tensor=True)
     inp_tensor = quant_inp(torch.randn(1, in_channels, in_features, in_features))
-    conv = QuantConv2d(
-        in_channels=in_channels,
-        out_channels=in_channels if dw else out_channels,
-        groups=in_channels if dw else 1,
-        kernel_size=kernel_size,
-        padding=padding,
-        stride=stride,
-        bias=bias,
-        bias_quant=bias_quant,
-        weight_bit_width=w_bits,
-        weight_scaling_per_output_channel=channel_scaling)
+    try:
+        conv = QuantConv2d(
+            in_channels=in_channels,
+#             out_channels=in_channels if dw else out_channels,
+            out_channels=out_channels, # this allows for multi-depthwise, but it needs exception check
+            groups=in_channels if dw else 1,
+            kernel_size=kernel_size,
+            padding=padding,
+            stride=stride,
+            bias=bias,
+            bias_quant=bias_quant,
+            weight_bit_width=w_bits,
+            weight_scaling_per_output_channel=channel_scaling)
+    except Exception as e:
+        # exception should be rised when (multi-)dw is expected and out_channels 
+        # is not multiplication of in_channels
+        dw_groups = out_channels // in_channels
+        dw_out_channels = dw_groups * in_channels  
+        if dw and  dw_out_channels != out_channels:
+            # exception caused by inproper parameters is ok,
+            # but further computation gives an error.
+            # So return without  assertion 
+            return
+        else:
+            # any other exeptions are unknown...
+            assert False
+            
     conv.eval()
     model = bo.export_finn_onnx(conv, input_t=inp_tensor)
     model = ModelWrapper(model)
