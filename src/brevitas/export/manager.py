@@ -113,11 +113,11 @@ def _set_proxy_export_mode(model: Module, enabled: bool):
             m.export_mode = enabled
 
 
-def _set_layer_export_handler(manager_cls, module: Module):
-    if (isinstance(module, QuantLayerMixin)
+def _set_export_handler(manager_cls, module: Module, instance_type, no_inheritance):
+    if (isinstance(module, instance_type)
             and hasattr(module, 'export_handler')
             and module.export_handler is None):
-        handler = manager_cls.handler_from_module(module)
+        handler = manager_cls.handler_from_module(module, no_inheritance)
         if handler is None and module.requires_export_handler:
             raise RuntimeError(f"Module {module.__class__} not supported for export.")
         elif handler is None and not module.requires_export_handler:
@@ -126,20 +126,16 @@ def _set_layer_export_handler(manager_cls, module: Module):
             module.export_handler = handler()
 
 
+def _set_layer_export_handler(manager_cls, module: Module):
+    _set_export_handler(manager_cls, module, QuantLayerMixin, no_inheritance=False)
+
+
 def _set_proxy_export_handler(manager_cls, module: Module):
-    if (isinstance(module, QuantProxyProtocol)
-            and hasattr(module, 'export_handler')
-            and module.export_handler is None):
-        handler = manager_cls.handler_from_module(module, no_inheritance=True)
-        module.export_handler = handler()
+    _set_export_handler(manager_cls, module, QuantProxyProtocol, no_inheritance=True)
 
 
 def _set_recurrent_layer_export_handler(manager_cls, module: Module):
-    if (isinstance(module, QuantRecurrentLayerMixin)
-            and hasattr(module, 'export_handler')
-            and module.export_handler is None):
-        handler = manager_cls.handler_from_module(module, no_inheritance=True)
-        module.export_handler = handler()
+    _set_export_handler(manager_cls, module, QuantRecurrentLayerMixin, no_inheritance=True)
 
 
 def _force_requires_grad_false(m: Module):
