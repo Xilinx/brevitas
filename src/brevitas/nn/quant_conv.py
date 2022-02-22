@@ -112,7 +112,7 @@ class QuantConv1d(QuantWBIOL, Conv1d):
 
     @property
     def channelwise_separable(self) -> bool:
-        return self.groups == self.out_channels
+        return self.groups == self.in_channels
 
     def conv1d_zeros_pad(self, x: Tensor, weight: Tensor, bias: Optional[Tensor]):
         out = F.conv1d(x, weight, bias, self.stride, self.padding, self.dilation, self.groups)
@@ -203,7 +203,7 @@ class QuantConv2d(QuantWBIOL, Conv2d):
 
     @property
     def channelwise_separable(self) -> bool:
-        return self.groups == self.out_channels
+        return self.groups == self.in_channels
 
     def conv2d_zeros_pad(self, x: Tensor, weight: Tensor, bias: Tensor):
         out = conv2d(x, weight, bias, self.stride, self.padding, self.dilation, self.groups)
