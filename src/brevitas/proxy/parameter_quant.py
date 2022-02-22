@@ -113,8 +113,8 @@ class WeightQuantProxyFromInjector(ParameterQuantProxyFromInjector, WeightQuantP
         return zero_point
 
     def bit_width(self):
-        scale = self.__call__(self._zero_hw_sentinel()).bit_width
-        return scale
+        bit_width_ = self.__call__(self._zero_hw_sentinel()).bit_width
+        return bit_width_
 
     def forward(self, x: torch.Tensor) -> QuantTensor:
         if self.is_quant_enabled:
