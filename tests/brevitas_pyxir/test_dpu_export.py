@@ -200,37 +200,6 @@ def test_dpu_export_onnx_quant_conv_f_max_pool():
     PyXIRManager.export(model, input_shape=IN_SIZE)
 
 
-def test_dpu_export_onnx_quant_conv_relu():
-    FEATURES = 7
-    IN_SIZE = (1, IN_CH, FEATURES, FEATURES)
-    KERNEL_SIZE = 3
-
-    class Model(torch.nn.Module):
-
-        def __init__(self):
-            super().__init__()
-            self.conv1 = QuantConv2d(
-                out_channels=OUT_CH,
-                in_channels=IN_CH,
-                kernel_size=KERNEL_SIZE,
-                bias=False,
-                weight_quant=Int8WeightPerTensorFixedPoint,
-                input_quant=Int8ActPerTensorFixedPoint,
-                output_quant=Int8ActPerTensorFixedPoint,
-                return_quant_tensor=True)
-            self.relu = QuantReLU(act_quant=None, return_quant_tensor=False)
-            self.conv1.weight.data.uniform_(-0.01, 0.01)
-
-        def forward(self, x):
-            return self.relu(self.conv1(x))
-
-    inp = gen_linspaced_data(reduce(mul, IN_SIZE), -1, 1).reshape(IN_SIZE)
-    model = Model()
-    model(torch.from_numpy(inp))  # accumulate scale factors
-    model.eval()
-    PyXIRManager.export(model, input_shape=IN_SIZE)
-
-
 @requires_pt_ge('1.5.0')
 def test_dpu_export_onnx_quant_conv_f_relu():
     FEATURES = 7
