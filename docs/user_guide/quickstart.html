@@ -4,11 +4,12 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Getting started &#8212; Brevitas 0.6.1.dev24+g02fe33a.d20210910 documentation</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>Getting started &#8212; Brevitas 0.7.1.dev53+gba13949 documentation</title>
     
-  <link href="../_static/css/theme.css" rel="stylesheet" />
-  <link href="../_static/css/index.c5995385ac14fb8791e8eb36b4908be2.css" rel="stylesheet" />
+  <link href="../_static/css/theme.css" rel="stylesheet">
+  <link href="../_static/css/index.ff1ffe594081f20da1ef19478df9384b.css" rel="stylesheet">
 
     
   <link rel="stylesheet"
@@ -23,21 +24,24 @@
 
     
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
-    <link rel="stylesheet" type="text/css" href="../_static/basic.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/blank.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css" />
     
-  <link rel="preload" as="script" href="../_static/js/index.1c5a1a01449ed65a7b51.js">
+  <link rel="preload" as="script" href="../_static/js/index.be7d3bbb2ef33a8344ce.js">
 
     <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
     <script src="../_static/jquery.js"></script>
     <script src="../_static/underscore.js"></script>
     <script src="../_static/doctools.js"></script>
+    <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
     <link rel="author" title="About these documents" href="../about.html" />
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Export Compatibility" href="export.html" />
-    <link rel="prev" title="User Guide" href="index.html" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="docsearch:language" content="en" />
+    <meta name="docsearch:language" content="None">
+    
+
+    <!-- Google Analytics -->
     
   </head>
   <body data-spy="scroll" data-target="#bd-toc-nav" data-offset="80">
@@ -73,15 +77,27 @@
  </a>
 </li>
 
-<li class="toctree-l1 current active nav-item">
- <a class="reference internal nav-link" href="index.html">
-  User Guide
+<li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="../tutorials/index.html">
+  Tutorials
  </a>
 </li>
 
 <li class="toctree-l1 nav-item">
  <a class="reference internal nav-link" href="../api_reference/index.html">
   API reference
+ </a>
+</li>
+
+<li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="../settings.html">
+  Settings
+ </a>
+</li>
+
+<li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="../architecture.html">
+  Architecture
  </a>
 </li>
 
@@ -126,19 +142,7 @@
   <input type="search" class="form-control" name="q" id="search-input" placeholder="Search the docs ..." aria-label="Search the docs ..." autocomplete="off" >
 </form><nav class="bd-links" id="bd-docs-nav" aria-label="Main navigation">
   <div class="bd-toc-item active">
-    <ul class="current nav bd-sidenav">
- <li class="toctree-l1 current active">
-  <a class="current reference internal" href="#">
-   Getting started
-  </a>
- </li>
- <li class="toctree-l1">
-  <a class="reference internal" href="export.html">
-   Export Compatibility
-  </a>
- </li>
-</ul>
-
+    
   </div>
 </nav>
             </div>
@@ -188,12 +192,12 @@
               
               <div>
                 
-  <div class="section" id="getting-started">
+  <section id="getting-started">
 <h1>Getting started<a class="headerlink" href="#getting-started" title="Permalink to this headline">¶</a></h1>
 <p>Brevitas serves various types of users and end goals. To showcase some
 of Brevitas features, we consider then different scenarios for the
 quantization of a classic neural network, LeNet-5.</p>
-<div class="section" id="weights-only-quantization">
+<section id="weights-only-quantization">
 <h2>Weights-only quantization<a class="headerlink" href="#weights-only-quantization" title="Permalink to this headline">¶</a></h2>
 <p>Let’s say we are interested in assessing how well the model does at <em>3
 bit weights</em> for CIFAR10 classification. For the purpose of this
@@ -266,8 +270,8 @@ frameworks. A neural network with 3 bits weights and floating-point
 activations is one of those scenarios that in practice is currently hard
 to take advantage of. In order to make it practical, we want to quantize
 activations and biases too.</p>
-</div>
-<div class="section" id="low-precision-integer-only-lenet">
+</section>
+<section id="low-precision-integer-only-lenet">
 <h2>Low-precision integer-only LeNet<a class="headerlink" href="#low-precision-integer-only-lenet" title="Permalink to this headline">¶</a></h2>
 <p>We decide to quantize activations to 4 bits and biases to 8 bits. In
 order to do so, we replace <code class="docutils literal notranslate"><span class="pre">torch.nn.ReLU</span></code> with
@@ -322,19 +326,16 @@ result is the following:</p>
 </pre></div>
 </div>
 <p>Note a couple of things:</p>
-</div>
-</div>
+</section>
+</section>
 
 
               </div>
               
               
-              <div class='prev-next-bottom'>
-                
-    <a class='left-prev' id="prev-link" href="index.html" title="previous page">User Guide</a>
-    <a class='right-next' id="next-link" href="export.html" title="next page">Export Compatibility</a>
-
-              </div>
+              <!-- Previous / next buttons -->
+<div class='prev-next-area'>
+</div>
               
           </main>
           
@@ -342,20 +343,19 @@ result is the following:</p>
       </div>
     </div>
   
-  <script src="../_static/js/index.1c5a1a01449ed65a7b51.js"></script>
-
-  <footer class="footer mt-5 mt-md-0">
+  <script src="../_static/js/index.be7d3bbb2ef33a8344ce.js"></script>
+<footer class="footer mt-5 mt-md-0">
   <div class="container">
     
     <div class="footer-item">
       <p class="copyright">
-    &copy; Copyright 2021 - Xilinx, Inc.<br/>
+    &copy; Copyright 2022 - Xilinx, Inc.<br>
 </p>
     </div>
     
     <div class="footer-item">
       <p class="sphinx-version">
-Created using <a href="http://sphinx-doc.org/">Sphinx</a> 4.1.2.<br/>
+Created using <a href="http://sphinx-doc.org/">Sphinx</a> 4.3.2.<br>
 </p>
     </div>
     

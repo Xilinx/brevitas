@@ -4,15 +4,6 @@ brevitas.function package
 Submodules
 ----------
 
-brevitas.function.autograd\_ste\_ops module
--------------------------------------------
-
-.. automodule:: brevitas.function.autograd_ste_ops
-   :members:
-   :show-inheritance:
-   :exclude-members: forward, backward
-
-
 brevitas.function.ops module
 ----------------------------
 
@@ -37,10 +28,4 @@ brevitas.function.shape module
    :undoc-members:
    :show-inheritance:
 
-Module contents
----------------
 
-.. automodule:: brevitas.function
-   :members:
-   :undoc-members:
-   :show-inheritance:

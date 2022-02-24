@@ -1,3 +1,41 @@
+=====
+Setup
+=====
+
+Requirements
+------------
+
+Installation Requirements
+'''''''''''''''''''''''''
+
+-  Python >= 3.6.
+-  `Pytorch`_ >= 1.5.0 .
+-  Windows, Linux or macOS.
+-  GPU training-time acceleration (*optional* but recommended).
+
+
+Installation
+------------
+
+Installing from PyPI
+''''''''''''''''''''
+
+You can install the latest release from PyPI:
+
+.. code:: bash
+
+   pip install brevitas
+
+Installing from Github
+''''''''''''''''''''''
+
+To get the very latest version, you can install directly from GitHub:
+
+.. code:: bash
+
+   pip install git+https://github.com/Xilinx/brevitas.git
+
+
 Optional Training Requirements
 ''''''''''''''''''''''''''''''
 
@@ -23,7 +61,7 @@ By design, inference in Brevitas is slow (slower than a corresponding floating-p
 Efficient quantized inference requires to export a trained quantized model to an inference toolchain that supports that part.
 
 - `FINN`_: for generation of custom FPGA dataflow accelerators.
-- `ONNXRuntime`_: for integration with ONNX-based toolchains.
+- `ONNXRuntime`_: for integration with standard ONNX-based toolchains.
 - `Vitis-AI`_: for integration with XIR and PyXIR based toolchains.
 
 
@@ -31,3 +69,5 @@ Efficient quantized inference requires to export a trained quantized model to an
 .. _FINN: https://xilinx.github.io/finn/
 .. _Vitis-AI: https://github.com/Xilinx/Vitis-AI
 .. _ONNXRuntime: https://github.com/Microsoft/ONNXRuntime
+
+

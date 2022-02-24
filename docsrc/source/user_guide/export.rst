@@ -22,10 +22,4 @@ imposed by each target platform. As a general note though, currently
 FINN is the only toolchain that supports acceleration of low bit-width
 datatypes.
 
-Layer / Toolchain
-_________________
-
-Quantized linear layers
-'''''''''''''''''''''''
-
 

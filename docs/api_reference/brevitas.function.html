@@ -4,11 +4,12 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>brevitas.function package &#8212; Brevitas 0.6.1.dev24+g02fe33a.d20210910 documentation</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>brevitas.function package &#8212; Brevitas 0.7.1.dev53+gba13949 documentation</title>
     
-  <link href="../_static/css/theme.css" rel="stylesheet" />
-  <link href="../_static/css/index.c5995385ac14fb8791e8eb36b4908be2.css" rel="stylesheet" />
+  <link href="../_static/css/theme.css" rel="stylesheet">
+  <link href="../_static/css/index.ff1ffe594081f20da1ef19478df9384b.css" rel="stylesheet">
 
     
   <link rel="stylesheet"
@@ -23,21 +24,26 @@
 
     
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
-    <link rel="stylesheet" type="text/css" href="../_static/basic.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/blank.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css" />
     
-  <link rel="preload" as="script" href="../_static/js/index.1c5a1a01449ed65a7b51.js">
+  <link rel="preload" as="script" href="../_static/js/index.be7d3bbb2ef33a8344ce.js">
 
     <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
     <script src="../_static/jquery.js"></script>
     <script src="../_static/underscore.js"></script>
     <script src="../_static/doctools.js"></script>
+    <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
     <link rel="author" title="About these documents" href="../about.html" />
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="brevitas.core package" href="brevitas.core.html" />
+    <link rel="next" title="brevitas.ops package" href="brevitas.ops.html" />
     <link rel="prev" title="API reference" href="index.html" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="docsearch:language" content="en" />
+    <meta name="docsearch:language" content="None">
+    
+
+    <!-- Google Analytics -->
     
   </head>
   <body data-spy="scroll" data-target="#bd-toc-nav" data-offset="80">
@@ -74,14 +80,32 @@
 </li>
 
 <li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="../user_guide/index.html">
-  User Guide
+ <a class="reference internal nav-link" href="../getting_started.html">
+  Getting Started
+ </a>
+</li>
+
+<li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="../tutorials/index.html">
+  Tutorials
  </a>
 </li>
 
 <li class="toctree-l1 current active nav-item">
  <a class="reference internal nav-link" href="index.html">
   API reference
+ </a>
+</li>
+
+<li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="../settings.html">
+  Settings
+ </a>
+</li>
+
+<li class="toctree-l1 nav-item">
+ <a class="reference internal nav-link" href="../architecture.html">
+  Architecture
  </a>
 </li>
 
@@ -130,6 +154,11 @@
  <li class="toctree-l1 current active">
   <a class="current reference internal" href="#">
    brevitas.function package
+  </a>
+ </li>
+ <li class="toctree-l1">
+  <a class="reference internal" href="brevitas.ops.html">
+   brevitas.ops package
   </a>
  </li>
  <li class="toctree-l1 has-children">
@@ -195,11 +224,6 @@
   </a>
  </li>
  <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#module-brevitas.function.autograd_ste_ops">
-   brevitas.function.autograd_ste_ops module
-  </a>
- </li>
- <li class="toc-h2 nav-item toc-entry">
   <a class="reference internal nav-link" href="#module-brevitas.function.ops">
    brevitas.function.ops module
   </a>
@@ -212,11 +236,6 @@
  <li class="toc-h2 nav-item toc-entry">
   <a class="reference internal nav-link" href="#module-brevitas.function.shape">
    brevitas.function.shape module
-  </a>
- </li>
- <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#module-brevitas.function">
-   Module contents
   </a>
  </li>
 </ul>
@@ -240,228 +259,12 @@
               
               <div>
                 
-  <div class="section" id="brevitas-function-package">
+  <section id="brevitas-function-package">
 <h1>brevitas.function package<a class="headerlink" href="#brevitas-function-package" title="Permalink to this headline">¶</a></h1>
-<div class="section" id="submodules">
+<section id="submodules">
 <h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
-</div>
-<div class="section" id="module-brevitas.function.autograd_ste_ops">
-<span id="brevitas-function-autograd-ste-ops-module"></span><h2>brevitas.function.autograd_ste_ops module<a class="headerlink" href="#module-brevitas.function.autograd_ste_ops" title="Permalink to this headline">¶</a></h2>
-<p>Implementation of various torch.autograd.Function with straight-through estimators.</p>
-<dl class="py class">
-<dt class="sig sig-object py" id="brevitas.function.autograd_ste_ops.AbsBinarySignGradFn">
-<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">brevitas.function.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">AbsBinarySignGradFn</span></span><a class="reference internal" href="../_modules/brevitas/function/autograd_ste_ops.html#AbsBinarySignGradFn"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.autograd_ste_ops.AbsBinarySignGradFn" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.autograd.function.Function</span></code></p>
-<p>Autograd function that implements <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.abs.html#torch.abs" title="(in PyTorch vmaster (1.10.0a0+git5286f99 ))"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.abs()</span></code></a> with a binary-sign backward, in order to
-have subgradient 1 in 0. Compare with <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.abs.html#torch.abs" title="(in PyTorch vmaster (1.10.0a0+git5286f99 ))"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.abs()</span></code></a>’ subgradient of 0 in 0.</p>
-<p><code class="docutils literal notranslate"><span class="pre">AbsBinarySignGradFn.apply(*args)</span></code> is first aliased to <a class="reference internal" href="#brevitas.function.autograd_ste_ops.abs_binary_sign_grad_impl" title="brevitas.function.autograd_ste_ops.abs_binary_sign_grad_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">abs_binary_sign_grad(*args)</span></code></a> and then wrapped by
-<a class="reference internal" href="#brevitas.function.ops_ste.abs_binary_sign_grad" title="brevitas.function.ops_ste.abs_binary_sign_grad"><code class="xref py py-func docutils literal notranslate"><span class="pre">abs_binary_sign_grad()</span></code></a> when env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>.
-See <a class="reference internal" href="#brevitas.function.ops_ste.abs_binary_sign_grad" title="brevitas.function.ops_ste.abs_binary_sign_grad"><code class="xref py py-func docutils literal notranslate"><span class="pre">abs_binary_sign_grad()</span></code></a> for details on the interface and
-examples.</p>
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="brevitas.function.autograd_ste_ops.BinarySignSteFn">
-<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">brevitas.function.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">BinarySignSteFn</span></span><a class="reference internal" href="../_modules/brevitas/function/autograd_ste_ops.html#BinarySignSteFn"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.autograd_ste_ops.BinarySignSteFn" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.autograd.function.Function</span></code></p>
-<p>Autograd function that implements <a class="reference internal" href="#brevitas.function.ops.binary_sign" title="brevitas.function.ops.binary_sign"><code class="xref py py-func docutils literal notranslate"><span class="pre">binary_sign()</span></code></a> with a
-straight-through gradient estimator.</p>
-<p><code class="docutils literal notranslate"><span class="pre">BinarySignSteFn.apply(*args)</span></code> is first aliased to
-<a class="reference internal" href="#brevitas.function.autograd_ste_ops.binary_sign_ste_impl" title="brevitas.function.autograd_ste_ops.binary_sign_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">binary_sign_ste_impl(*args)</span></code></a>
-and then wrapped by <a class="reference internal" href="#brevitas.function.ops_ste.binary_sign_ste" title="brevitas.function.ops_ste.binary_sign_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">binary_sign_ste()</span></code></a> when env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>.
-See <a class="reference internal" href="#brevitas.function.ops_ste.binary_sign_ste" title="brevitas.function.ops_ste.binary_sign_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">binary_sign_ste()</span></code></a> for details on the interface and
-examples.</p>
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="brevitas.function.autograd_ste_ops.CeilSteFn">
-<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">brevitas.function.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">CeilSteFn</span></span><a class="reference internal" href="../_modules/brevitas/function/autograd_ste_ops.html#CeilSteFn"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.autograd_ste_ops.CeilSteFn" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.autograd.function.Function</span></code></p>
-<p>Autograd function that implements <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.ceil.html#torch.ceil" title="(in PyTorch vmaster (1.10.0a0+git5286f99 ))"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.ceil()</span></code></a> with a straight-through gradient estimator.</p>
-<p><code class="docutils literal notranslate"><span class="pre">CeilSteFn.apply(*args)</span></code> is first aliased to <a class="reference internal" href="#brevitas.function.autograd_ste_ops.ceil_ste_impl" title="brevitas.function.autograd_ste_ops.ceil_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">ceil_ste_impl(*args)</span></code></a> and then wrapped by
-<a class="reference internal" href="#brevitas.function.ops_ste.ceil_ste" title="brevitas.function.ops_ste.ceil_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">ceil_ste()</span></code></a> when env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>.
-See <a class="reference internal" href="#brevitas.function.ops_ste.ceil_ste" title="brevitas.function.ops_ste.ceil_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">ceil_ste()</span></code></a> for details on the interface and
-examples.</p>
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="brevitas.function.autograd_ste_ops.DPURoundSteFn">
-<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">brevitas.function.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">DPURoundSteFn</span></span><a class="reference internal" href="../_modules/brevitas/function/autograd_ste_ops.html#DPURoundSteFn"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.autograd_ste_ops.DPURoundSteFn" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.autograd.function.Function</span></code></p>
-<p>Autograd function that implements <a class="reference internal" href="#brevitas.function.ops.dpu_round" title="brevitas.function.ops.dpu_round"><code class="xref py py-func docutils literal notranslate"><span class="pre">dpu_round()</span></code></a> with a
-straight-through gradient estimator.</p>
-<p><code class="docutils literal notranslate"><span class="pre">DPURoundSteFn.apply(*args)</span></code> is first aliased to <a class="reference internal" href="#brevitas.function.autograd_ste_ops.dpu_round_ste_impl" title="brevitas.function.autograd_ste_ops.dpu_round_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">dpu_round_ste_impl(*args)</span></code></a> and then wrapped by
-<a class="reference internal" href="#brevitas.function.ops_ste.dpu_round_ste" title="brevitas.function.ops_ste.dpu_round_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">dpu_round_ste()</span></code></a> when env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>.
-See <a class="reference internal" href="#brevitas.function.ops_ste.dpu_round_ste" title="brevitas.function.ops_ste.dpu_round_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">dpu_round_ste()</span></code></a> for details on the interface and
-examples.</p>
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="brevitas.function.autograd_ste_ops.FloorSteFn">
-<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">brevitas.function.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">FloorSteFn</span></span><a class="reference internal" href="../_modules/brevitas/function/autograd_ste_ops.html#FloorSteFn"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.autograd_ste_ops.FloorSteFn" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.autograd.function.Function</span></code></p>
-<p>Autograd function that implements <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.floor.html#torch.floor" title="(in PyTorch vmaster (1.10.0a0+git5286f99 ))"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.floor()</span></code></a> with a straight-through gradient estimator.</p>
-<p><code class="docutils literal notranslate"><span class="pre">FloorSteFn.apply(*args)</span></code> is first aliased to <a class="reference internal" href="#brevitas.function.autograd_ste_ops.floor_ste_impl" title="brevitas.function.autograd_ste_ops.floor_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">floor_ste_impl(*args)</span></code></a> and then wrapped by
-<a class="reference internal" href="#brevitas.function.ops_ste.floor_ste" title="brevitas.function.ops_ste.floor_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">floor_ste()</span></code></a> when env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>.
-See <a class="reference internal" href="#brevitas.function.ops_ste.floor_ste" title="brevitas.function.ops_ste.floor_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">floor_ste()</span></code></a> for details on the interface and
-examples.</p>
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="brevitas.function.autograd_ste_ops.InplaceTensorClampSteFn">
-<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">brevitas.function.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">InplaceTensorClampSteFn</span></span><a class="reference internal" href="../_modules/brevitas/function/autograd_ste_ops.html#InplaceTensorClampSteFn"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.autograd_ste_ops.InplaceTensorClampSteFn" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.autograd.function.Function</span></code></p>
-<p>Autograd function that implements <a class="reference internal" href="#brevitas.function.ops.tensor_clamp_" title="brevitas.function.ops.tensor_clamp_"><code class="xref py py-func docutils literal notranslate"><span class="pre">tensor_clamp_()</span></code></a> with a
-straight-through gradient estimator for the gradient of y w.r.t. to x, while the gradient of y
-w.r.t. to min_val and max_val is always None.</p>
-<p><code class="docutils literal notranslate"><span class="pre">InplaceTensorClampSteFn.apply(*args)</span></code> is first aliased to
-<code class="xref py py-func docutils literal notranslate"><span class="pre">tensor_clamp_ste_impl_(*args)</span></code> and then wrapped by
-<code class="xref py py-func docutils literal notranslate"><span class="pre">tensor_clamp_()</span></code> when env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>.
-See <code class="xref py py-func docutils literal notranslate"><span class="pre">tensor_clamp_()</span></code> for details on the interface and
-examples.</p>
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="brevitas.function.autograd_ste_ops.RoundSteFn">
-<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">brevitas.function.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">RoundSteFn</span></span><a class="reference internal" href="../_modules/brevitas/function/autograd_ste_ops.html#RoundSteFn"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.autograd_ste_ops.RoundSteFn" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.autograd.function.Function</span></code></p>
-<p>Autograd function that implements <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.round.html#torch.round" title="(in PyTorch vmaster (1.10.0a0+git5286f99 ))"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.round()</span></code></a> with a straight-through gradient
-estimator.</p>
-<p><code class="docutils literal notranslate"><span class="pre">RoundSteFn.apply(*args)</span></code> is first aliased to <a class="reference internal" href="#brevitas.function.autograd_ste_ops.round_ste_impl" title="brevitas.function.autograd_ste_ops.round_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">round_ste_impl(*args)</span></code></a> and then wrapped by
-<a class="reference internal" href="#brevitas.function.ops_ste.round_ste" title="brevitas.function.ops_ste.round_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">round_ste()</span></code></a> when env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>.
-See <a class="reference internal" href="#brevitas.function.ops_ste.round_ste" title="brevitas.function.ops_ste.round_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">round_ste()</span></code></a> for details on the interface and examples.</p>
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="brevitas.function.autograd_ste_ops.RoundToZeroSteFn">
-<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">brevitas.function.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">RoundToZeroSteFn</span></span><a class="reference internal" href="../_modules/brevitas/function/autograd_ste_ops.html#RoundToZeroSteFn"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.autograd_ste_ops.RoundToZeroSteFn" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.autograd.function.Function</span></code></p>
-<p>Autograd function that implements <a class="reference internal" href="#brevitas.function.ops.round_to_zero" title="brevitas.function.ops.round_to_zero"><code class="xref py py-func docutils literal notranslate"><span class="pre">round_to_zero()</span></code></a> with a
-straight-through gradient estimator.</p>
-<p><code class="docutils literal notranslate"><span class="pre">RoundToZeroSteFn.apply(*args)</span></code> is first aliased to <a class="reference internal" href="#brevitas.function.autograd_ste_ops.round_to_zero_ste_impl" title="brevitas.function.autograd_ste_ops.round_to_zero_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">round_to_zero_ste_impl(*args)</span></code></a> and then wrapped by
-<a class="reference internal" href="#brevitas.function.ops_ste.round_to_zero_ste" title="brevitas.function.ops_ste.round_to_zero_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">round_to_zero_ste()</span></code></a> when env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>.
-See <a class="reference internal" href="#brevitas.function.ops_ste.round_to_zero_ste" title="brevitas.function.ops_ste.round_to_zero_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">round_to_zero_ste()</span></code></a> for details on the interface and
-examples.</p>
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="brevitas.function.autograd_ste_ops.ScalarClampMinSteFn">
-<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">brevitas.function.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">ScalarClampMinSteFn</span></span><a class="reference internal" href="../_modules/brevitas/function/autograd_ste_ops.html#ScalarClampMinSteFn"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.autograd_ste_ops.ScalarClampMinSteFn" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.autograd.function.Function</span></code></p>
-<p>Autograd function that implements <code class="docutils literal notranslate"><span class="pre">torch.clamp_min</span></code> with a straight-through gradient estimator
-for the gradient of y w.r.t. to x, while the gradient of y w.r.t. to <code class="docutils literal notranslate"><span class="pre">min_val</span></code> is always
-<code class="docutils literal notranslate"><span class="pre">None</span></code>.</p>
-<p><code class="docutils literal notranslate"><span class="pre">ScalarClampMinSteFn.apply(*args)</span></code> is first aliased to <a class="reference internal" href="#brevitas.function.autograd_ste_ops.scalar_clamp_min_ste_impl" title="brevitas.function.autograd_ste_ops.scalar_clamp_min_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">scalar_clamp_min_ste_impl(*args)</span></code></a> and then wrapped by
-<a class="reference internal" href="#brevitas.function.ops_ste.scalar_clamp_min_ste" title="brevitas.function.ops_ste.scalar_clamp_min_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">scalar_clamp_min_ste()</span></code></a> and invoked when env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>.
-See <a class="reference internal" href="#brevitas.function.ops_ste.scalar_clamp_ste" title="brevitas.function.ops_ste.scalar_clamp_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">scalar_clamp_ste()</span></code></a> for details on the interface and
-examples.</p>
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="brevitas.function.autograd_ste_ops.ScalarClampSteFn">
-<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">brevitas.function.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">ScalarClampSteFn</span></span><a class="reference internal" href="../_modules/brevitas/function/autograd_ste_ops.html#ScalarClampSteFn"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.autograd_ste_ops.ScalarClampSteFn" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.autograd.function.Function</span></code></p>
-<p>Autograd function that implements <code class="docutils literal notranslate"><span class="pre">torch.clamp</span></code> with a straight-through gradient estimator
-for the gradient of y w.r.t. to x, while the gradient of y w.r.t. to <code class="docutils literal notranslate"><span class="pre">min_val</span></code> and <code class="docutils literal notranslate"><span class="pre">min_val</span></code>
-are always <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p>
-<p><code class="docutils literal notranslate"><span class="pre">ScalarClampSteFn.apply(*args)</span></code> is first aliased to <a class="reference internal" href="#brevitas.function.autograd_ste_ops.scalar_clamp_ste_impl" title="brevitas.function.autograd_ste_ops.scalar_clamp_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">scalar_clamp_ste_impl(*args)</span></code></a> and then wrapped by
-<a class="reference internal" href="#brevitas.function.ops_ste.scalar_clamp_ste" title="brevitas.function.ops_ste.scalar_clamp_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">scalar_clamp_ste()</span></code></a> and invoked when env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>.
-See <a class="reference internal" href="#brevitas.function.ops_ste.scalar_clamp_ste" title="brevitas.function.ops_ste.scalar_clamp_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">scalar_clamp_ste()</span></code></a> for details on the interface and
-examples.</p>
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="brevitas.function.autograd_ste_ops.TensorClampSteFn">
-<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">brevitas.function.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">TensorClampSteFn</span></span><a class="reference internal" href="../_modules/brevitas/function/autograd_ste_ops.html#TensorClampSteFn"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.autograd_ste_ops.TensorClampSteFn" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.autograd.function.Function</span></code></p>
-<p>Autograd function that implements <a class="reference internal" href="#brevitas.function.ops.tensor_clamp" title="brevitas.function.ops.tensor_clamp"><code class="xref py py-func docutils literal notranslate"><span class="pre">tensor_clamp()</span></code></a> with a
-straight-through gradient estimator for the gradient of y w.r.t. to x, while the gradient of y
-w.r.t. to min_val and max_val is always None.</p>
-<p><code class="docutils literal notranslate"><span class="pre">TensorClampSteFn.apply(*args)</span></code> is first aliased to <a class="reference internal" href="#brevitas.function.autograd_ste_ops.tensor_clamp_ste_impl" title="brevitas.function.autograd_ste_ops.tensor_clamp_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">tensor_clamp_ste_impl(*args)</span></code></a> and then wrapped by
-<code class="xref py py-func docutils literal notranslate"><span class="pre">tensor_clamp()</span></code> when env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>.
-See <code class="xref py py-func docutils literal notranslate"><span class="pre">tensor_clamp()</span></code> for details on the interface and
-examples.</p>
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="brevitas.function.autograd_ste_ops.TernarySignSteFn">
-<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">brevitas.function.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">TernarySignSteFn</span></span><a class="reference internal" href="../_modules/brevitas/function/autograd_ste_ops.html#TernarySignSteFn"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.autograd_ste_ops.TernarySignSteFn" title="Permalink to this definition">¶</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">torch.autograd.function.Function</span></code></p>
-<p>Autograd function that implements <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.sign.html#torch.sign" title="(in PyTorch vmaster (1.10.0a0+git5286f99 ))"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.sign()</span></code></a> with a straight-through gradient estimator.</p>
-<p><code class="docutils literal notranslate"><span class="pre">TernarySignSteFn.apply(*args)</span></code> is first aliased to <a class="reference internal" href="#brevitas.function.autograd_ste_ops.ternary_sign_ste_impl" title="brevitas.function.autograd_ste_ops.ternary_sign_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">ternary_sign_ste_impl(*args)</span></code></a> and then wrapped by
-<a class="reference internal" href="#brevitas.function.ops_ste.ternary_sign_ste" title="brevitas.function.ops_ste.ternary_sign_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">ternary_sign_ste()</span></code></a> when env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>.
-See <a class="reference internal" href="#brevitas.function.ops_ste.ternary_sign_ste" title="brevitas.function.ops_ste.ternary_sign_ste"><code class="xref py py-func docutils literal notranslate"><span class="pre">ternary_sign_ste()</span></code></a> for details on the interface and
-examples.</p>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="brevitas.function.autograd_ste_ops.abs_binary_sign_grad_impl">
-<span class="sig-prename descclassname"><span class="pre">brevitas.function.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">abs_binary_sign_grad_impl</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.autograd_ste_ops.abs_binary_sign_grad_impl" title="Permalink to this definition">¶</a></dt>
-<dd><p>Alias for <a class="reference internal" href="#brevitas.function.autograd_ste_ops.AbsBinarySignGradFn" title="brevitas.function.autograd_ste_ops.AbsBinarySignGradFn"><code class="xref py py-class docutils literal notranslate"><span class="pre">AbsBinarySignGradFn.apply(*args)</span></code></a></p>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="brevitas.function.autograd_ste_ops.binary_sign_ste_impl">
-<span class="sig-prename descclassname"><span class="pre">brevitas.function.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">binary_sign_ste_impl</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.autograd_ste_ops.binary_sign_ste_impl" title="Permalink to this definition">¶</a></dt>
-<dd><p>Alias for <a class="reference internal" href="#brevitas.function.autograd_ste_ops.BinarySignSteFn" title="brevitas.function.autograd_ste_ops.BinarySignSteFn"><code class="xref py py-class docutils literal notranslate"><span class="pre">BinarySignSteFn.apply(*args)</span></code></a></p>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="brevitas.function.autograd_ste_ops.ceil_ste_impl">
-<span class="sig-prename descclassname"><span class="pre">brevitas.function.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">ceil_ste_impl</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.autograd_ste_ops.ceil_ste_impl" title="Permalink to this definition">¶</a></dt>
-<dd><p>Alias for <a class="reference internal" href="#brevitas.function.autograd_ste_ops.CeilSteFn" title="brevitas.function.autograd_ste_ops.CeilSteFn"><code class="xref py py-class docutils literal notranslate"><span class="pre">CeilSteFn.apply(*args)</span></code></a></p>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="brevitas.function.autograd_ste_ops.dpu_round_ste_impl">
-<span class="sig-prename descclassname"><span class="pre">brevitas.function.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">dpu_round_ste_impl</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.autograd_ste_ops.dpu_round_ste_impl" title="Permalink to this definition">¶</a></dt>
-<dd><p>Alias for <a class="reference internal" href="#brevitas.function.autograd_ste_ops.DPURoundSteFn" title="brevitas.function.autograd_ste_ops.DPURoundSteFn"><code class="xref py py-class docutils literal notranslate"><span class="pre">DPURoundSteFn.apply(*args)</span></code></a></p>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="brevitas.function.autograd_ste_ops.floor_ste_impl">
-<span class="sig-prename descclassname"><span class="pre">brevitas.function.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">floor_ste_impl</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.autograd_ste_ops.floor_ste_impl" title="Permalink to this definition">¶</a></dt>
-<dd><p>Alias for <a class="reference internal" href="#brevitas.function.autograd_ste_ops.FloorSteFn" title="brevitas.function.autograd_ste_ops.FloorSteFn"><code class="xref py py-class docutils literal notranslate"><span class="pre">FloorSteFn.apply(*args)</span></code></a></p>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="brevitas.function.autograd_ste_ops.round_ste_impl">
-<span class="sig-prename descclassname"><span class="pre">brevitas.function.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">round_ste_impl</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.autograd_ste_ops.round_ste_impl" title="Permalink to this definition">¶</a></dt>
-<dd><p>Alias for <a class="reference internal" href="#brevitas.function.autograd_ste_ops.RoundSteFn" title="brevitas.function.autograd_ste_ops.RoundSteFn"><code class="xref py py-class docutils literal notranslate"><span class="pre">RoundSteFn.apply(*args)</span></code></a></p>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="brevitas.function.autograd_ste_ops.round_to_zero_ste_impl">
-<span class="sig-prename descclassname"><span class="pre">brevitas.function.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">round_to_zero_ste_impl</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.autograd_ste_ops.round_to_zero_ste_impl" title="Permalink to this definition">¶</a></dt>
-<dd><p>Alias for <a class="reference internal" href="#brevitas.function.autograd_ste_ops.RoundToZeroSteFn" title="brevitas.function.autograd_ste_ops.RoundToZeroSteFn"><code class="xref py py-class docutils literal notranslate"><span class="pre">RoundToZeroSteFn.apply(*args)</span></code></a></p>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="brevitas.function.autograd_ste_ops.scalar_clamp_min_ste_impl">
-<span class="sig-prename descclassname"><span class="pre">brevitas.function.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">scalar_clamp_min_ste_impl</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.autograd_ste_ops.scalar_clamp_min_ste_impl" title="Permalink to this definition">¶</a></dt>
-<dd><p>Alias for <a class="reference internal" href="#brevitas.function.autograd_ste_ops.ScalarClampMinSteFn" title="brevitas.function.autograd_ste_ops.ScalarClampMinSteFn"><code class="xref py py-class docutils literal notranslate"><span class="pre">ScalarClampMinSteFn.apply(*args)</span></code></a></p>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="brevitas.function.autograd_ste_ops.scalar_clamp_ste_impl">
-<span class="sig-prename descclassname"><span class="pre">brevitas.function.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">scalar_clamp_ste_impl</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.autograd_ste_ops.scalar_clamp_ste_impl" title="Permalink to this definition">¶</a></dt>
-<dd><p>Alias for <a class="reference internal" href="#brevitas.function.autograd_ste_ops.ScalarClampSteFn" title="brevitas.function.autograd_ste_ops.ScalarClampSteFn"><code class="xref py py-class docutils literal notranslate"><span class="pre">ScalarClampSteFn.apply(*args)</span></code></a></p>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="brevitas.function.autograd_ste_ops.tensor_clamp_ste_impl">
-<span class="sig-prename descclassname"><span class="pre">brevitas.function.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">tensor_clamp_ste_impl</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.autograd_ste_ops.tensor_clamp_ste_impl" title="Permalink to this definition">¶</a></dt>
-<dd><p>Alias for <a class="reference internal" href="#brevitas.function.autograd_ste_ops.TensorClampSteFn" title="brevitas.function.autograd_ste_ops.TensorClampSteFn"><code class="xref py py-class docutils literal notranslate"><span class="pre">TensorClampSteFn.apply(*args)</span></code></a></p>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="brevitas.function.autograd_ste_ops.ternary_sign_ste_impl">
-<span class="sig-prename descclassname"><span class="pre">brevitas.function.autograd_ste_ops.</span></span><span class="sig-name descname"><span class="pre">ternary_sign_ste_impl</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#brevitas.function.autograd_ste_ops.ternary_sign_ste_impl" title="Permalink to this definition">¶</a></dt>
-<dd><p>Alias for <a class="reference internal" href="#brevitas.function.autograd_ste_ops.TernarySignSteFn" title="brevitas.function.autograd_ste_ops.TernarySignSteFn"><code class="xref py py-class docutils literal notranslate"><span class="pre">TernarySignSteFn.apply(*args)</span></code></a></p>
-</dd></dl>
-
-</div>
-<div class="section" id="module-brevitas.function.ops">
+</section>
+<section id="module-brevitas.function.ops">
 <span id="brevitas-function-ops-module"></span><h2>brevitas.function.ops module<a class="headerlink" href="#module-brevitas.function.ops" title="Permalink to this headline">¶</a></h2>
 <p>Implementation of various core operations often performed as part of quantization.
 The implemented functions adheres to the restriction imposed by Pytorch 1.1.0’s TorchScript compiler.</p>
@@ -538,8 +341,8 @@ The implemented functions adheres to the restriction imposed by Pytorch 1.1.0’
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>signed</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – Indicates whether the represented integer is signed or not.</p></li>
-<li><p><strong>narrow_range</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – Indicates whether to narrow the maximum unsigned value represented by 1.</p></li>
+<li><p><strong>signed</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.10)"><em>bool</em></a>) – Indicates whether the represented integer is signed or not.</p></li>
+<li><p><strong>narrow_range</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.10)"><em>bool</em></a>) – Indicates whether to narrow the maximum unsigned value represented by 1.</p></li>
 <li><p><strong>bit_width</strong> (<em>Tensor</em>) – Number of bits available for the representation.</p></li>
 </ul>
 </dd>
@@ -570,8 +373,8 @@ The implemented functions adheres to the restriction imposed by Pytorch 1.1.0’
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>signed</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – Indicates whether the represented integer is signed or not.</p></li>
-<li><p><strong>narrow_range</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.9)"><em>bool</em></a>) – Indicates whether to narrow the minimum value represented by 1.</p></li>
+<li><p><strong>signed</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.10)"><em>bool</em></a>) – Indicates whether the represented integer is signed or not.</p></li>
+<li><p><strong>narrow_range</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.10)"><em>bool</em></a>) – Indicates whether to narrow the minimum value represented by 1.</p></li>
 <li><p><strong>bit_width</strong> (<em>Tensor</em>) – Number of bits available for the representation.</p></li>
 </ul>
 </dd>
@@ -624,9 +427,9 @@ The implemented functions adheres to the restriction imposed by Pytorch 1.1.0’
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>x</strong> (<a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (1.10.0a0+git5286f99 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>) – Input on which to apply the clamp operation</p></li>
-<li><p><strong>min_val</strong> (<a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (1.10.0a0+git5286f99 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>) – Minimum values for the clamp operation.</p></li>
-<li><p><strong>max_val</strong> (<a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (1.10.0a0+git5286f99 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>) – Maximum values for the clamp operation.</p></li>
+<li><p><strong>x</strong> (<a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (1.12.0a0+git9d6639a ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>) – Input on which to apply the clamp operation</p></li>
+<li><p><strong>min_val</strong> (<a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (1.12.0a0+git9d6639a ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>) – Minimum values for the clamp operation.</p></li>
+<li><p><strong>max_val</strong> (<a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (1.12.0a0+git9d6639a ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>) – Maximum values for the clamp operation.</p></li>
 </ul>
 </dd>
 </dl>
@@ -636,7 +439,7 @@ The implemented functions adheres to the restriction imposed by Pytorch 1.1.0’
 <p>Differentiable w.r.t. x, min_val, max_val.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (1.10.0a0+git5286f99 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (1.12.0a0+git9d6639a ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
 </dd>
 <dt class="field-even">Returns</dt>
 <dd class="field-even"><p>Input <cite>x</cite> clamped between the provided minimum and maximum tensors.</p>
@@ -656,27 +459,27 @@ The implemented functions adheres to the restriction imposed by Pytorch 1.1.0’
 Not differentiable wrt to any of the inputs.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (1.10.0a0+git5286f99 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (1.12.0a0+git9d6639a ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
-</div>
-<div class="section" id="module-brevitas.function.ops_ste">
+</section>
+<section id="module-brevitas.function.ops_ste">
 <span id="brevitas-function-ops-ste-module"></span><h2>brevitas.function.ops_ste module<a class="headerlink" href="#module-brevitas.function.ops_ste" title="Permalink to this headline">¶</a></h2>
 <p>Implementation of various functions with a straight-through gradient estimators, dispatched to
 either a native just-in-time compiled backend (when env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=1</span></code>) or to an autograd
-Function implemented in <a class="reference internal" href="#module-brevitas.function.autograd_ste_ops" title="brevitas.function.autograd_ste_ops"><code class="xref py py-obj docutils literal notranslate"><span class="pre">autograd_ste_ops</span></code></a> (when env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>).</p>
+Function implemented in <a class="reference internal" href="brevitas.ops.html#module-brevitas.ops.autograd_ste_ops" title="brevitas.ops.autograd_ste_ops"><code class="xref py py-obj docutils literal notranslate"><span class="pre">autograd_ste_ops</span></code></a> (when env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>).</p>
 <p>The native backend is enabled when <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT</span></code> is enabled to allow for end-to-end compilation
 of the built-in quantizers, since as of Pytorch 1.8.1 a torch.autograd.Function is not supported by
 the compiler.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="brevitas.function.ops_ste.abs_binary_sign_grad">
 <span class="sig-prename descclassname"><span class="pre">brevitas.function.ops_ste.</span></span><span class="sig-name descname"><span class="pre">abs_binary_sign_grad</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/function/ops_ste.html#abs_binary_sign_grad"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.ops_ste.abs_binary_sign_grad" title="Permalink to this definition">¶</a></dt>
-<dd><p>Function that implements <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.abs.html#torch.abs" title="(in PyTorch vmaster (1.10.0a0+git5286f99 ))"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.abs()</span></code></a> with a binary-sign backward, in order to
-have subgradient 1 in 0. Compare with <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.abs.html#torch.abs" title="(in PyTorch vmaster (1.10.0a0+git5286f99 ))"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.abs()</span></code></a>’ subgradient of 0 in 0.</p>
+<dd><p>Function that implements <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.abs.html#torch.abs" title="(in PyTorch vmaster (1.12.0a0+git9d6639a ))"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.abs()</span></code></a> with a binary-sign backward, in order to
+have subgradient 1 in 0. Compare with <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.abs.html#torch.abs" title="(in PyTorch vmaster (1.12.0a0+git9d6639a ))"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.abs()</span></code></a>’ subgradient of 0 in 0.</p>
 <p class="rubric">Notes</p>
-<p>Wrapper for either <a class="reference internal" href="#brevitas.function.autograd_ste_ops.abs_binary_sign_grad_impl" title="brevitas.function.autograd_ste_ops.abs_binary_sign_grad_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">abs_binary_sign_grad_impl()</span></code></a>
+<p>Wrapper for either <a class="reference internal" href="brevitas.ops.html#brevitas.ops.autograd_ste_ops.abs_binary_sign_grad_impl" title="brevitas.ops.autograd_ste_ops.abs_binary_sign_grad_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">abs_binary_sign_grad_impl()</span></code></a>
 (with env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>) or its native just-in-time compiled variant (with
 <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=1</span></code>).</p>
 <p class="rubric">Examples</p>
@@ -692,7 +495,7 @@ have subgradient 1 in 0. Compare with <a class="reference external" href="https:
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (1.10.0a0+git5286f99 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (1.12.0a0+git9d6639a ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -703,7 +506,7 @@ have subgradient 1 in 0. Compare with <a class="reference external" href="https:
 <dd><p>Function that implements <a class="reference internal" href="#brevitas.function.ops.binary_sign" title="brevitas.function.ops.binary_sign"><code class="xref py py-func docutils literal notranslate"><span class="pre">binary_sign()</span></code></a> with a straight-through
 gradient estimator.</p>
 <p class="rubric">Notes</p>
-<p>Wrapper for either <a class="reference internal" href="#brevitas.function.autograd_ste_ops.binary_sign_ste_impl" title="brevitas.function.autograd_ste_ops.binary_sign_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">binary_sign_ste_impl()</span></code></a> (with
+<p>Wrapper for either <a class="reference internal" href="brevitas.ops.html#brevitas.ops.autograd_ste_ops.binary_sign_ste_impl" title="brevitas.ops.autograd_ste_ops.binary_sign_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">binary_sign_ste_impl()</span></code></a> (with
 env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>) or its native just-in-time compiled variant (with
 <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=1</span></code>).</p>
 <p class="rubric">Examples</p>
@@ -719,7 +522,7 @@ env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0<
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (1.10.0a0+git5286f99 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (1.12.0a0+git9d6639a ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -727,9 +530,9 @@ env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0<
 <dl class="py function">
 <dt class="sig sig-object py" id="brevitas.function.ops_ste.ceil_ste">
 <span class="sig-prename descclassname"><span class="pre">brevitas.function.ops_ste.</span></span><span class="sig-name descname"><span class="pre">ceil_ste</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/function/ops_ste.html#ceil_ste"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.ops_ste.ceil_ste" title="Permalink to this definition">¶</a></dt>
-<dd><p>Function that implements <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.ceil.html#torch.ceil" title="(in PyTorch vmaster (1.10.0a0+git5286f99 ))"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.ceil()</span></code></a> with a straight-through gradient estimator.</p>
+<dd><p>Function that implements <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.ceil.html#torch.ceil" title="(in PyTorch vmaster (1.12.0a0+git9d6639a ))"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.ceil()</span></code></a> with a straight-through gradient estimator.</p>
 <p class="rubric">Notes</p>
-<p>Wrapper for either <a class="reference internal" href="#brevitas.function.autograd_ste_ops.ceil_ste_impl" title="brevitas.function.autograd_ste_ops.ceil_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">ceil_ste_impl()</span></code></a> (with env
+<p>Wrapper for either <a class="reference internal" href="brevitas.ops.html#brevitas.ops.autograd_ste_ops.ceil_ste_impl" title="brevitas.ops.autograd_ste_ops.ceil_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">ceil_ste_impl()</span></code></a> (with env
 <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>) or its native just-in-time compiled variant (with <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=1</span></code>).</p>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mf">1.7</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.7</span><span class="p">],</span> <span class="n">requires_grad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -744,7 +547,7 @@ env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0<
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (1.10.0a0+git5286f99 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (1.12.0a0+git9d6639a ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -755,7 +558,7 @@ env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0<
 <dd><p>Function that implements <a class="reference internal" href="#brevitas.function.ops.dpu_round" title="brevitas.function.ops.dpu_round"><code class="xref py py-func docutils literal notranslate"><span class="pre">dpu_round()</span></code></a> with a straight-through
 gradient estimator.</p>
 <p class="rubric">Notes</p>
-<p>Wrapper for either <a class="reference internal" href="#brevitas.function.autograd_ste_ops.dpu_round_ste_impl" title="brevitas.function.autograd_ste_ops.dpu_round_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">dpu_round_ste_impl()</span></code></a> (with
+<p>Wrapper for either <a class="reference internal" href="brevitas.ops.html#brevitas.ops.autograd_ste_ops.dpu_round_ste_impl" title="brevitas.ops.autograd_ste_ops.dpu_round_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">dpu_round_ste_impl()</span></code></a> (with
 env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>) or its native just-in-time compiled variant (with
 <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=1</span></code>).</p>
 <p class="rubric">Examples</p>
@@ -771,7 +574,7 @@ env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0<
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (1.10.0a0+git5286f99 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (1.12.0a0+git9d6639a ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -779,9 +582,9 @@ env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0<
 <dl class="py function">
 <dt class="sig sig-object py" id="brevitas.function.ops_ste.floor_ste">
 <span class="sig-prename descclassname"><span class="pre">brevitas.function.ops_ste.</span></span><span class="sig-name descname"><span class="pre">floor_ste</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/function/ops_ste.html#floor_ste"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.ops_ste.floor_ste" title="Permalink to this definition">¶</a></dt>
-<dd><p>Function that implements <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.floor.html#torch.floor" title="(in PyTorch vmaster (1.10.0a0+git5286f99 ))"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.floor()</span></code></a> with a straight-through gradient estimator.</p>
+<dd><p>Function that implements <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.floor.html#torch.floor" title="(in PyTorch vmaster (1.12.0a0+git9d6639a ))"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.floor()</span></code></a> with a straight-through gradient estimator.</p>
 <p class="rubric">Notes</p>
-<p>Wrapper for either <a class="reference internal" href="#brevitas.function.autograd_ste_ops.floor_ste_impl" title="brevitas.function.autograd_ste_ops.floor_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">floor_ste_impl()</span></code></a> (with env
+<p>Wrapper for either <a class="reference internal" href="brevitas.ops.html#brevitas.ops.autograd_ste_ops.floor_ste_impl" title="brevitas.ops.autograd_ste_ops.floor_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">floor_ste_impl()</span></code></a> (with env
 <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>) or its native just-in-time compiled variant (with <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=1</span></code>).</p>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mf">1.7</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.7</span><span class="p">],</span> <span class="n">requires_grad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -796,7 +599,7 @@ env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0<
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (1.10.0a0+git5286f99 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (1.12.0a0+git9d6639a ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -804,9 +607,9 @@ env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0<
 <dl class="py function">
 <dt class="sig sig-object py" id="brevitas.function.ops_ste.round_ste">
 <span class="sig-prename descclassname"><span class="pre">brevitas.function.ops_ste.</span></span><span class="sig-name descname"><span class="pre">round_ste</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/function/ops_ste.html#round_ste"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.ops_ste.round_ste" title="Permalink to this definition">¶</a></dt>
-<dd><p>Function that implements <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.round.html#torch.round" title="(in PyTorch vmaster (1.10.0a0+git5286f99 ))"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.round()</span></code></a> with a straight-through gradient estimator.</p>
+<dd><p>Function that implements <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.round.html#torch.round" title="(in PyTorch vmaster (1.12.0a0+git9d6639a ))"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.round()</span></code></a> with a straight-through gradient estimator.</p>
 <p class="rubric">Notes</p>
-<p>Wrapper for either <a class="reference internal" href="#brevitas.function.autograd_ste_ops.round_ste_impl" title="brevitas.function.autograd_ste_ops.round_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">round_ste_impl()</span></code></a> (with env
+<p>Wrapper for either <a class="reference internal" href="brevitas.ops.html#brevitas.ops.autograd_ste_ops.round_ste_impl" title="brevitas.ops.autograd_ste_ops.round_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">round_ste_impl()</span></code></a> (with env
 <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>) or its native just-in-time compiled variant (with <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=1</span></code>).</p>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([</span><span class="mf">1.7</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.7</span><span class="p">],</span> <span class="n">requires_grad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -821,7 +624,7 @@ env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0<
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (1.10.0a0+git5286f99 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (1.12.0a0+git9d6639a ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -832,7 +635,7 @@ env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0<
 <dd><p>Function that implements <a class="reference internal" href="#brevitas.function.ops.round_to_zero" title="brevitas.function.ops.round_to_zero"><code class="xref py py-func docutils literal notranslate"><span class="pre">round_to_zero()</span></code></a> with a straight-through
 gradient estimator.</p>
 <p class="rubric">Notes</p>
-<p>Wrapper for either <a class="reference internal" href="#brevitas.function.autograd_ste_ops.round_to_zero_ste_impl" title="brevitas.function.autograd_ste_ops.round_to_zero_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">round_to_zero_ste_impl()</span></code></a> (with
+<p>Wrapper for either <a class="reference internal" href="brevitas.ops.html#brevitas.ops.autograd_ste_ops.round_to_zero_ste_impl" title="brevitas.ops.autograd_ste_ops.round_to_zero_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">round_to_zero_ste_impl()</span></code></a> (with
 env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>) or its native just-in-time compiled variant (with
 <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=1</span></code>).</p>
 <p class="rubric">Examples</p>
@@ -848,7 +651,7 @@ env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0<
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (1.10.0a0+git5286f99 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (1.12.0a0+git9d6639a ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -862,8 +665,8 @@ always <code class="docutils literal notranslate"><span class="pre">None</span><
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>x</strong> (<a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (1.10.0a0+git5286f99 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>) – input tensor to clamp.</p></li>
-<li><p><strong>min_val</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – scalar value to use as lower bound for the input tensor.</p></li>
+<li><p><strong>x</strong> (<a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (1.12.0a0+git9d6639a ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>) – input tensor to clamp.</p></li>
+<li><p><strong>min_val</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – scalar value to use as lower bound for the input tensor.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
@@ -874,7 +677,7 @@ always <code class="docutils literal notranslate"><span class="pre">None</span><
 </dd>
 </dl>
 <p class="rubric">Notes</p>
-<p>Wrapper for either <a class="reference internal" href="#brevitas.function.autograd_ste_ops.scalar_clamp_min_ste_impl" title="brevitas.function.autograd_ste_ops.scalar_clamp_min_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">scalar_clamp_min_ste_impl()</span></code></a>
+<p>Wrapper for either <a class="reference internal" href="brevitas.ops.html#brevitas.ops.autograd_ste_ops.scalar_clamp_min_ste_impl" title="brevitas.ops.autograd_ste_ops.scalar_clamp_min_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">scalar_clamp_min_ste_impl()</span></code></a>
 (with env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>) or its C++ just-in-time compiled variant
 (with <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=1</span></code>).</p>
 <p class="rubric">Examples</p>
@@ -893,15 +696,15 @@ always <code class="docutils literal notranslate"><span class="pre">None</span><
 <dl class="py function">
 <dt class="sig sig-object py" id="brevitas.function.ops_ste.scalar_clamp_ste">
 <span class="sig-prename descclassname"><span class="pre">brevitas.function.ops_ste.</span></span><span class="sig-name descname"><span class="pre">scalar_clamp_ste</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_val</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_val</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/function/ops_ste.html#scalar_clamp_ste"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.ops_ste.scalar_clamp_ste" title="Permalink to this definition">¶</a></dt>
-<dd><p>Function that implements <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.clamp.html#torch.clamp" title="(in PyTorch vmaster (1.10.0a0+git5286f99 ))"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.clamp()</span></code></a> with a straight-through gradient estimator
+<dd><p>Function that implements <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.clamp.html#torch.clamp" title="(in PyTorch vmaster (1.12.0a0+git9d6639a ))"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.clamp()</span></code></a> with a straight-through gradient estimator
 for the gradient of the output w.r.t. to <code class="docutils literal notranslate"><span class="pre">x</span></code>, while the gradient of <code class="docutils literal notranslate"><span class="pre">y</span></code> w.r.t. to <code class="docutils literal notranslate"><span class="pre">min_val</span></code>
 and <code class="docutils literal notranslate"><span class="pre">max_val</span></code> is always <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>x</strong> (<a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (1.10.0a0+git5286f99 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>) – input tensor to clamp.</p></li>
-<li><p><strong>min_val</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – scalar value to use as lower bound for the input tensor.</p></li>
-<li><p><strong>max_val</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – scalar value to use as upper bound for the input tensor.</p></li>
+<li><p><strong>x</strong> (<a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (1.12.0a0+git9d6639a ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>) – input tensor to clamp.</p></li>
+<li><p><strong>min_val</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – scalar value to use as lower bound for the input tensor.</p></li>
+<li><p><strong>max_val</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – scalar value to use as upper bound for the input tensor.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
@@ -912,7 +715,7 @@ and <code class="docutils literal notranslate"><span class="pre">max_val</span><
 </dd>
 </dl>
 <p class="rubric">Notes</p>
-<p>Wrapper for either <a class="reference internal" href="#brevitas.function.autograd_ste_ops.scalar_clamp_ste_impl" title="brevitas.function.autograd_ste_ops.scalar_clamp_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">scalar_clamp_ste_impl()</span></code></a>
+<p>Wrapper for either <a class="reference internal" href="brevitas.ops.html#brevitas.ops.autograd_ste_ops.scalar_clamp_ste_impl" title="brevitas.ops.autograd_ste_ops.scalar_clamp_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">scalar_clamp_ste_impl()</span></code></a>
 (with env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>) or its C++ just-in-time compiled variant
 (with <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=1</span></code>).</p>
 <p class="rubric">Examples</p>
@@ -935,7 +738,7 @@ and <code class="docutils literal notranslate"><span class="pre">max_val</span><
 gradient estimator for the gradient of y w.r.t. to x, while the gradient of y w.r.t. to min_val
 and max_val is always None.</p>
 <p class="rubric">Notes</p>
-<p>Wrapper for either <a class="reference internal" href="#brevitas.function.autograd_ste_ops.tensor_clamp_ste_impl" title="brevitas.function.autograd_ste_ops.tensor_clamp_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">tensor_clamp_ste_impl()</span></code></a> (with
+<p>Wrapper for either <a class="reference internal" href="brevitas.ops.html#brevitas.ops.autograd_ste_ops.tensor_clamp_ste_impl" title="brevitas.ops.autograd_ste_ops.tensor_clamp_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">tensor_clamp_ste_impl()</span></code></a> (with
 env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>) or its native just-in-time compiled variant (with
 <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=1</span></code>).</p>
 <p class="rubric">Examples</p>
@@ -951,7 +754,7 @@ env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0<
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (1.10.0a0+git5286f99 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (1.12.0a0+git9d6639a ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -980,7 +783,7 @@ env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0<
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (1.10.0a0+git5286f99 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (1.12.0a0+git9d6639a ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -988,9 +791,9 @@ env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0<
 <dl class="py function">
 <dt class="sig sig-object py" id="brevitas.function.ops_ste.ternary_sign_ste">
 <span class="sig-prename descclassname"><span class="pre">brevitas.function.ops_ste.</span></span><span class="sig-name descname"><span class="pre">ternary_sign_ste</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/function/ops_ste.html#ternary_sign_ste"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.ops_ste.ternary_sign_ste" title="Permalink to this definition">¶</a></dt>
-<dd><p>Function that implements <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.sign.html#torch.sign" title="(in PyTorch vmaster (1.10.0a0+git5286f99 ))"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.sign()</span></code></a> with a straight-through gradient estimator.</p>
+<dd><p>Function that implements <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.sign.html#torch.sign" title="(in PyTorch vmaster (1.12.0a0+git9d6639a ))"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.sign()</span></code></a> with a straight-through gradient estimator.</p>
 <p class="rubric">Notes</p>
-<p>Wrapper for either <a class="reference internal" href="#brevitas.function.autograd_ste_ops.ternary_sign_ste_impl" title="brevitas.function.autograd_ste_ops.ternary_sign_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">ternary_sign_ste_impl()</span></code></a> (with
+<p>Wrapper for either <a class="reference internal" href="brevitas.ops.html#brevitas.ops.autograd_ste_ops.ternary_sign_ste_impl" title="brevitas.ops.autograd_ste_ops.ternary_sign_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">ternary_sign_ste_impl()</span></code></a> (with
 env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>) or its native just-in-time compiled variant (with
 <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=1</span></code>).</p>
 <p class="rubric">Examples</p>
@@ -1006,13 +809,13 @@ env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0<
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (1.10.0a0+git5286f99 ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (1.12.0a0+git9d6639a ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
-</div>
-<div class="section" id="module-brevitas.function.shape">
+</section>
+<section id="module-brevitas.function.shape">
 <span id="brevitas-function-shape-module"></span><h2>brevitas.function.shape module<a class="headerlink" href="#module-brevitas.function.shape" title="Permalink to this headline">¶</a></h2>
 <p>Implementation of various functions to compute shapes that induce flattening along certain
 dimensions of a tensor.</p>
@@ -1046,7 +849,7 @@ at dimension 0 and any other feature at dimension 1.</p>
 <dd class="field-odd"><p><strong>x</strong> (<em>Tensor</em>) – Input tensor with batches at dimension 0.</p>
 </dd>
 <dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>]</p>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>]</p>
 </dd>
 <dt class="field-odd">Returns</dt>
 <dd class="field-odd"><p>A tuple containing the 2-dim shape.</p>
@@ -1068,7 +871,7 @@ at dimension 0 and any other feature at dimension 1.</p>
 x (Tensor): Input tensor with output channels at dimension 0.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.9)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>]</p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.10)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>]</p>
 </dd>
 <dt class="field-even">Returns</dt>
 <dd class="field-even"><p>A tuple containing the 2-dim shape.</p>
@@ -1090,7 +893,7 @@ x (Tensor): Input tensor with output channels at dimension 0.</p>
 <dd class="field-odd"><p><strong>x</strong> (<em>Tensor</em>) – Input tensor.</p>
 </dd>
 <dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.9)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.10)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
 </dd>
 <dt class="field-odd">Returns</dt>
 <dd class="field-odd"><p>The number -1 corresponding to a flat shape.</p>
@@ -1103,22 +906,30 @@ x (Tensor): Input tensor with output channels at dimension 0.</p>
 </div>
 </dd></dl>
 
-</div>
-<div class="section" id="module-brevitas.function">
-<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-brevitas.function" title="Permalink to this headline">¶</a></h2>
-</div>
-</div>
+</section>
+</section>
 
 
               </div>
               
               
-              <div class='prev-next-bottom'>
-                
-    <a class='left-prev' id="prev-link" href="index.html" title="previous page">API reference</a>
-    <a class='right-next' id="next-link" href="brevitas.core.html" title="next page">brevitas.core package</a>
-
-              </div>
+              <!-- Previous / next buttons -->
+<div class='prev-next-area'> 
+    <a class='left-prev' id="prev-link" href="index.html" title="previous page">
+        <i class="fas fa-angle-left"></i>
+        <div class="prev-next-info">
+            <p class="prev-next-subtitle">previous</p>
+            <p class="prev-next-title">API reference</p>
+        </div>
+    </a>
+    <a class='right-next' id="next-link" href="brevitas.ops.html" title="next page">
+    <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">brevitas.ops package</p>
+    </div>
+    <i class="fas fa-angle-right"></i>
+    </a>
+</div>
               
           </main>
           
@@ -1126,20 +937,19 @@ x (Tensor): Input tensor with output channels at dimension 0.</p>
       </div>
     </div>
   
-  <script src="../_static/js/index.1c5a1a01449ed65a7b51.js"></script>
-
-  <footer class="footer mt-5 mt-md-0">
+  <script src="../_static/js/index.be7d3bbb2ef33a8344ce.js"></script>
+<footer class="footer mt-5 mt-md-0">
   <div class="container">
     
     <div class="footer-item">
       <p class="copyright">
-    &copy; Copyright 2021 - Xilinx, Inc.<br/>
+    &copy; Copyright 2022 - Xilinx, Inc.<br>
 </p>
     </div>
     
     <div class="footer-item">
       <p class="sphinx-version">
-Created using <a href="http://sphinx-doc.org/">Sphinx</a> 4.1.2.<br/>
+Created using <a href="http://sphinx-doc.org/">Sphinx</a> 4.3.2.<br>
 </p>
     </div>
     
