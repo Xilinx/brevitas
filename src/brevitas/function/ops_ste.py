@@ -41,7 +41,7 @@
 """
 Implementation of various functions with a straight-through gradient estimators, dispatched to
 either a native just-in-time compiled backend (when env ``BREVITAS_JIT=1``) or to an autograd
-Function implemented in :obj:`~brevitas.function.autograd_ste_ops` (when env ``BREVITAS_JIT=0``).
+Function implemented in :obj:`~brevitas.ops.autograd_ste_ops` (when env ``BREVITAS_JIT=0``).
 
 The native backend is enabled when ``BREVITAS_JIT`` is enabled to allow for end-to-end compilation
 of the built-in quantizers, since as of Pytorch 1.8.1 a torch.autograd.Function is not supported by
@@ -83,7 +83,7 @@ def round_ste(x: Tensor) -> Tensor:
     Function that implements :func:`torch.round` with a straight-through gradient estimator.
 
     Notes:
-        Wrapper for either :func:`~brevitas.function.autograd_ste_ops.round_ste_impl` (with env
+        Wrapper for either :func:`~brevitas.ops.autograd_ste_ops.round_ste_impl` (with env
         ``BREVITAS_JIT=0``) or its native just-in-time compiled variant (with ``BREVITAS_JIT=1``).
 
     Examples:
@@ -105,7 +105,7 @@ def ceil_ste(x: Tensor) -> Tensor:
     Function that implements :func:`torch.ceil` with a straight-through gradient estimator.
 
     Notes:
-        Wrapper for either :func:`~brevitas.function.autograd_ste_ops.ceil_ste_impl` (with env
+        Wrapper for either :func:`~brevitas.ops.autograd_ste_ops.ceil_ste_impl` (with env
         ``BREVITAS_JIT=0``) or its native just-in-time compiled variant (with ``BREVITAS_JIT=1``).
 
     Examples:
@@ -127,7 +127,7 @@ def floor_ste(x: Tensor) -> Tensor:
     Function that implements :func:`torch.floor` with a straight-through gradient estimator.
 
     Notes:
-        Wrapper for either :func:`~brevitas.function.autograd_ste_ops.floor_ste_impl` (with env
+        Wrapper for either :func:`~brevitas.ops.autograd_ste_ops.floor_ste_impl` (with env
         ``BREVITAS_JIT=0``) or its native just-in-time compiled variant (with ``BREVITAS_JIT=1``).
 
     Examples:
@@ -151,7 +151,7 @@ def tensor_clamp_ste(x: Tensor, min_val: Tensor, max_val: Tensor) -> Tensor:
     and max_val is always None.
     
     Notes:
-        Wrapper for either :func:`~brevitas.function.autograd_ste_ops.tensor_clamp_ste_impl` (with 
+        Wrapper for either :func:`~brevitas.ops.autograd_ste_ops.tensor_clamp_ste_impl` (with 
         env ``BREVITAS_JIT=0``) or its native just-in-time compiled variant (with
         ``BREVITAS_JIT=1``).
 
@@ -177,7 +177,7 @@ def tensor_clamp_ste_(x: Tensor, min_val: Tensor, max_val: Tensor) -> Tensor:
     and max_val is always None.
 
     Notes:
-        Wrapper for either :func:`~brevitas.function.autograd_ste_ops.tensor_clamp_ste_impl_` (with
+        Wrapper for either :func:`~brevitas.ops.autograd_ste_ops.tensor_clamp_ste_impl_` (with
         env ``BREVITAS_JIT=0``) or its C++ just-in-time compiled variant (with ``BREVITAS_JIT=1``).
 
     Examples:
@@ -212,7 +212,7 @@ def scalar_clamp_ste(x: Tensor, min_val: float, max_val: float) -> Tensor:
         Tensor: clamped output tensor.
 
     Notes:
-        Wrapper for either :func:`~brevitas.function.autograd_ste_ops.scalar_clamp_ste_impl`
+        Wrapper for either :func:`~brevitas.ops.autograd_ste_ops.scalar_clamp_ste_impl`
         (with env ``BREVITAS_JIT=0``) or its C++ just-in-time compiled variant
         (with ``BREVITAS_JIT=1``).
 
@@ -244,7 +244,7 @@ def scalar_clamp_min_ste(x: Tensor, min_val: float) -> Tensor:
         Tensor: clamped output tensor.
 
     Notes:
-        Wrapper for either :func:`~brevitas.function.autograd_ste_ops.scalar_clamp_min_ste_impl`
+        Wrapper for either :func:`~brevitas.ops.autograd_ste_ops.scalar_clamp_min_ste_impl`
         (with env ``BREVITAS_JIT=0``) or its C++ just-in-time compiled variant
         (with ``BREVITAS_JIT=1``).
 
@@ -268,7 +268,7 @@ def binary_sign_ste(x: Tensor) -> Tensor:
     gradient estimator.
 
     Notes:
-        Wrapper for either :func:`~brevitas.function.autograd_ste_ops.binary_sign_ste_impl` (with
+        Wrapper for either :func:`~brevitas.ops.autograd_ste_ops.binary_sign_ste_impl` (with
         env ``BREVITAS_JIT=0``) or its native just-in-time compiled variant (with
         ``BREVITAS_JIT=1``).
 
@@ -291,7 +291,7 @@ def ternary_sign_ste(x: Tensor) -> Tensor:
     Function that implements :func:`torch.sign` with a straight-through gradient estimator.
 
     Notes:
-        Wrapper for either :func:`~brevitas.function.autograd_ste_ops.ternary_sign_ste_impl` (with
+        Wrapper for either :func:`~brevitas.ops.autograd_ste_ops.ternary_sign_ste_impl` (with
         env ``BREVITAS_JIT=0``) or its native just-in-time compiled variant (with
         ``BREVITAS_JIT=1``).
 
@@ -315,7 +315,7 @@ def round_to_zero_ste(x: Tensor) -> Tensor:
     gradient estimator.
 
     Notes:
-        Wrapper for either :func:`~brevitas.function.autograd_ste_ops.round_to_zero_ste_impl` (with
+        Wrapper for either :func:`~brevitas.ops.autograd_ste_ops.round_to_zero_ste_impl` (with
         env ``BREVITAS_JIT=0``) or its native just-in-time compiled variant (with
         ``BREVITAS_JIT=1``).
 
@@ -339,7 +339,7 @@ def dpu_round_ste(x: Tensor) -> Tensor:
     gradient estimator.
 
     Notes:
-        Wrapper for either :func:`~brevitas.function.autograd_ste_ops.dpu_round_ste_impl` (with
+        Wrapper for either :func:`~brevitas.ops.autograd_ste_ops.dpu_round_ste_impl` (with
         env ``BREVITAS_JIT=0``) or its native just-in-time compiled variant (with
         ``BREVITAS_JIT=1``).
 
@@ -363,7 +363,7 @@ def abs_binary_sign_grad(x: Tensor) -> Tensor:
     have subgradient 1 in 0. Compare with :func:`torch.abs`' subgradient of 0 in 0.
 
     Notes:
-        Wrapper for either :func:`~brevitas.function.autograd_ste_ops.abs_binary_sign_grad_impl`
+        Wrapper for either :func:`~brevitas.ops.autograd_ste_ops.abs_binary_sign_grad_impl`
         (with env ``BREVITAS_JIT=0``) or its native just-in-time compiled variant (with 
         ``BREVITAS_JIT=1``).
 
