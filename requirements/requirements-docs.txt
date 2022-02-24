@@ -3,3 +3,6 @@ m2r2
 sphinxemoji
 sphinxcontrib-napoleon
 sphinx-autodoc-typehints
+nbsphinx
+nbsphinx-link
+sphinx-gallery
