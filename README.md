@@ -61,7 +61,7 @@ pip install brevitas
 
 ## Documentation
 
-Documentation is a work-in-progress. Check out available info at https://brevitas.github.io .
+Documentation is a work-in-progress. Check out available info at https://xilinx.github.io/brevitas .
 
 
 
