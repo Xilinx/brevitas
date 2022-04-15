@@ -60,7 +60,7 @@ class _DelayQuant(brevitas.jit.ScriptModule):
 
     @brevitas.jit.script_method_110_disabled
     def forward(self, x: Tensor, y: Tensor) -> Tensor:
-        if self.training and self.quant_delay_steps > 0:
+        if self.quant_delay_steps > 0:
             self.quant_delay_steps = self.quant_delay_steps - 1
             return x
         else:
