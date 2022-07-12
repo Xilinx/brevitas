@@ -47,7 +47,9 @@ class ONNXBaseManager(BaseManager, ABC):
     @classmethod
     def solve_enable_onnx_checker(cls, export_kwargs):
         ka = 'enable_onnx_checker'
-        if torch_version >= version.parse('1.5.0') and ka not in export_kwargs:
+        if torch_version >= version.parse('1.5.0') \
+            and torch_version <= version.parse('1.10.0') \
+            and ka not in export_kwargs:
             export_kwargs[ka] = False
 
     @classmethod
