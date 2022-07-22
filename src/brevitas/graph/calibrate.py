@@ -146,7 +146,7 @@ class BiasCorrection(DisableEnableQuantization):
         if parent_module.bias is not None:
             parent_module.bias.data += correction
         else:
-            parent_module.bias = nn.Parameter(correction).to(parent_module.weight.device)
+            parent_module.register_parameter('bias', nn.Parameter(correction).to(parent_module.weight.device))
 
     def correct_bias_hook(self, module, inp, name, parent_module):
         inp = self.unpack_input(inp)
