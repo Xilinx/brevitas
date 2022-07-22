@@ -8,6 +8,7 @@ from brevitas.inject import BaseInjector as Injector
 from brevitas.core.utils import StatelessBuffer
 from brevitas.utils.quant_utils import float_to_int_impl_to_enum
 from brevitas.common import ExportMixin
+from brevitas import config
 
 __all__ = [
     'QuantProxyProtocol',
@@ -127,7 +128,8 @@ class QuantProxyFromInjector(ExportMixin, nn.Module, QuantProxyProtocol):
         # so init_tensor_quant takes into account new data from the parent module,
         # but before the state_dict of tensor_quant is loaded, so in case e.g. there is a value
         # for the parameter already, it's not overwritten
-        self.init_tensor_quant()
+        if config.REINIT_ON_STATE_DICT_LOAD:
+            self.init_tensor_quant()
         # for retrocompatibility with when it wasn't removed
         zero_hw_sentinel_key = prefix + 'zero_hw_sentinel'
         if zero_hw_sentinel_key in unexpected_keys:
