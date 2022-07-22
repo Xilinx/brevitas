@@ -70,7 +70,8 @@ class NegativeMinOrZero(brevitas.jit.ScriptModule):
             min_val = torch.min(x)
         else:
             min_val = torch.min(x, dim=self.stats_reduce_dim)[0]
-        min_val = torch.where(min_val <= self.zero(), min_val, self.zero())
+        min_val = torch.where(
+            min_val <= self.zero().to(min_val.dtype), min_val, self.zero().to(min_val.dtype))
         return min_val
 
 
