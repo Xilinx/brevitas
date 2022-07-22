@@ -119,9 +119,6 @@ class QuantLayerMixin(ExportMixin):
     def __init__(
             self,
             return_quant_tensor: bool,
-            export_mode: bool = False,
-            export_debug_name: Optional[str] = None,
-            export_handler: Optional = None,
             cache_inference_quant_inp: bool = False,
             cache_inference_quant_out: bool = False,
             cache_quant_io_metadata_only: bool = True):
