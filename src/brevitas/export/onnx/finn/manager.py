@@ -111,26 +111,31 @@ class FINNManager(ONNXBaseManager):
     def export(
             cls,
             module: Module,
-            input_shape: Tuple[int, ...] = None,
-            export_path: str = None,
-            input_t: Optional[Union[Tensor, QuantTensor]] = None,
-            **kwargs):
-        if input_t is not None and isinstance(input_t, QuantTensor):
-            if input_t.is_not_none:
-                assert input_t.is_valid, 'Input QuantTensor is not properly quantized'
+            args: Optional[Union[Tensor, QuantTensor, Tuple]] = None,
+            export_path: Optional[str] = None,
+            input_shape: Optional[Tuple[int, ...]] = None, # legacy syntax, alternative to args
+            input_t: Optional[Union[Tensor, QuantTensor]] = None,  # legacy syntax, alternative to args
+            disable_warnings=True,
+            **onnx_export_kwargs):
+        if ((input_t is not None and isinstance(input_t, QuantTensor)
+                or args is not None and isinstance(args, QuantTensor))
+                and bool(input_t) != bool(args)):
+            args = args and input_t
+            if args.is_not_none:
+                assert args.is_valid, 'Input QuantTensor is not properly quantized'
             training_state = module.training
-            preprocessing_module = _InputPreprocessingModule(input_t.scale, input_t.zero_point)
+            preprocessing_module = _InputPreprocessingModule(args.scale, args.zero_point)
             module = Sequential(preprocessing_module, module)
             module.train(training_state)
         onnx_model = cls.export_onnx(
-            module, input_shape, export_path, input_t, **kwargs)
-        if input_t is not None and isinstance(input_t, QuantTensor):
-            bit_width = input_t.bit_width
-            signed = input_t.signed
+            module, args, export_path, input_shape, input_t, disable_warnings, **onnx_export_kwargs)
+        if args is not None and isinstance(args, QuantTensor):
+            bit_width = args.bit_width
+            signed = args.signed
             if bit_width is not None and signed is not None:
                 # '0' is the name of the input tensor to the model unless otherwise specified
-                if 'input_names' in kwargs and kwargs['input_names']:
-                    input_name = kwargs['input_names'][0]
+                if 'input_names' in onnx_export_kwargs and onnx_export_kwargs['input_names']:
+                    input_name = onnx_export_kwargs['input_names'][0]
                 else:
                     input_name = '0'
                 set_quant_tensor_datatype(onnx_model, input_name, finn_datatype(bit_width, signed))
