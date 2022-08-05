@@ -21,7 +21,7 @@ from .function import BrevitasTruncFn
 from .function import BrevitasBinaryQuantFn
 
 
-class BrevitasONNXManager(ONNXBaseManager):
+class QONNXManager(ONNXBaseManager):
     target_name = 'brevitas'
     dequantize_tracing_input = False
 
