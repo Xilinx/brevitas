@@ -105,10 +105,10 @@ class DisableEnableQuantization(Transform, ABC):
 
 class DisableQuantInference(DisableEnableQuantization):
 
-    def apply(self, model, inp):
+    def apply(self, model, *model_args, **model_kwargs):
         self.disable_act_quantization(model)
         self.disable_param_quantization(model)
-        output = model(inp)
+        output = model(*model_args, **model_kwargs)
         self.enable_act_quantization(model)
         self.enable_param_quantization(model)
         return output
@@ -160,35 +160,35 @@ class BiasCorrection(DisableEnableQuantization):
             inp_broadcast_shape = compute_channel_view_shape(inp, channel_dim=1)
             return inp + error.reshape(inp_broadcast_shape)
 
-    def collect_float_mean(self, model, inp):
+    def collect_float_mean(self, model, *args, **kwargs):
         for name, module in model.named_modules():
             if isinstance(module, QuantWBIOL):
                 hook_fn = partial(self.collect_float_mean_hook, name=name)
                 hook = module.output_quant.register_forward_pre_hook(hook_fn)
                 self.collect_float_mean_hooks.append(hook)
-        model(inp)
+        model(*args, **kwargs)
         for hook in self.collect_float_mean_hooks:
             hook.remove()
         self.collect_float_mean_hooks = []
 
-    def correct_bias(self, model, inp):
+    def correct_bias(self, model, *args, **kwargs):
         for name, module in model.named_modules():
             if isinstance(module, QuantWBIOL):
                 hook_fn = partial(self.correct_bias_hook, name=name, parent_module=module)
                 hook = module.output_quant.register_forward_pre_hook(hook_fn)
                 self.correct_bias_hooks.append(hook)
-        model(inp)
+        model(*args, **kwargs)
         for hook in self.correct_bias_hooks:
             hook.remove()
         self.correct_bias_hooks = []
         assert not self.float_mean_map
 
-    def apply(self, model, inp):
+    def apply(self, model, *model_args, **model_kwargs):
         self.disable_act_quantization(model)
         self.disable_param_quantization(model)
-        self.collect_float_mean(model, inp)
+        self.collect_float_mean(model, *model_args, **model_kwargs)
         self.enable_act_quantization(model)
         self.enable_param_quantization(model)
-        self.correct_bias(model, inp)
+        self.correct_bias(model, *model_args, **model_kwargs)
         self.curr_iter += 1
         return model
