@@ -246,7 +246,7 @@ class BaseManager(ABC):
         pass
 
     @classmethod
-    def _cache_inp_out(cls, module, input_t):
+    def _cache_inp_out(cls, module, *args, **kwargs):
         # force enable caching
         module.apply(lambda m: _override_quant_metadata_caching_mode(m, enabled=True))
         module.apply(lambda m: _override_bias_caching_mode(m, enabled=True))
@@ -255,7 +255,7 @@ class BaseManager(ABC):
         with ExitStack() as stack:
             for mgr in cls._cache_patches():
                 stack.enter_context(mgr)
-            _ = module.forward(input_t)
+            _ = module.forward(*args, **kwargs)
         # Restore previous caching properties
         module.apply(lambda m: _restore_quant_metadata_caching_mode(m))
         module.apply(lambda m: _restore_bias_caching_mode(m))
