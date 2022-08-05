@@ -21,11 +21,11 @@ from .handler.act import StdQOpONNXQuantTanhHandler
 from .handler.act import StdQOpONNXQuantSigmoidHandler
 from .handler.pool import StdQOpONNXQuantMaxPool1d
 from .handler.pool import StdQOpONNXQuantMaxPool2d
-from .. import OPSET
 from ..function import QuantizeLinearFn, DequantizeLinearFn, IntClipFn
+from ..manager import StdONNXBaseManager
 
 
-class StdQOpONNXManager(ONNXBaseManager):
+class StdQOpONNXManager(StdONNXBaseManager):
     target_name = 'StdQOpONNX'
 
     _fn_to_cache = [
@@ -90,16 +90,3 @@ class StdQOpONNXManager(ONNXBaseManager):
     def set_export_handler(cls, module: Module):
         _set_layer_export_handler(cls, module)
 
-    @classmethod
-    def export_onnx(
-            cls,
-            module: Module,
-            input_shape: Tuple[int, ...] = None,
-            export_path: Optional[str] = None,
-            input_t: Optional[Union[Tensor, QuantTensor]] = None,
-            disable_warnings=True,
-            **kwargs):
-        output = super().export_onnx(
-            module, input_shape, export_path, input_t,
-            disable_warnings=disable_warnings, opset_version=OPSET, **kwargs)
-        return output

@@ -350,11 +350,13 @@ class XIRManager(VitisAIManager):
     def export(
             cls,
             module: Module,
-            input_shape: Optional[Tuple[int, ...]] = None,
+            args: Optional[Union[Tensor, QuantTensor, Tuple]] = None,
             export_path: Optional[str] = None,
-            input_t: Optional[Union[Tensor, QuantTensor]] = None,
+            input_shape: Optional[Tuple[int, ...]] = None,
+            input_t: Optional[Union[Tensor, QuantTensor]] = None,  # legacy syntax, alternative to args
+            disable_warnings: bool = True,
             export_debug_onnx_file: bool = False,
-            **kwargs):
+            **onnx_export_kwargs):
         if xir is None:
             raise ModuleNotFoundError("XIR export flow requires xir to be installed.")
 
@@ -362,7 +364,7 @@ class XIRManager(VitisAIManager):
             onnx_export_path = export_path + '_debug.onnx'
         else:
             onnx_export_path = None
-        model = cls.export_onnx(module, input_shape, onnx_export_path, input_t, **kwargs)
+        model = cls.export_onnx(module, args, onnx_export_path, input_t, input_shape, **onnx_export_kwargs)
         xir_graph = xir.Graph(model.graph.name)
         for inp in model.graph.input:
             shape = _onnx_tensor_shape(inp)

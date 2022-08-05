@@ -1,7 +1,5 @@
-import torch
+from torch.onnx.symbolic_helper import _export_onnx_opset_version
 from torch.autograd import Function
-
-from . import OPSET
 
 
 AXIS_OPSET = 11
@@ -15,7 +13,7 @@ class DequantizeLinearFn(Function):
             input_scale,
             input_zero_point,
             input_axis):
-        if input_axis is not None and OPSET >= AXIS_OPSET:
+        if input_axis is not None and _export_onnx_opset_version >= AXIS_OPSET:
             ret = g.op(
                 'DequantizeLinear', x,
                 input_scale,
