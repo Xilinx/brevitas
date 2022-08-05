@@ -22,7 +22,7 @@ from .handler.act import StdQOpONNXQuantSigmoidHandler
 from .handler.pool import StdQOpONNXQuantMaxPool1d
 from .handler.pool import StdQOpONNXQuantMaxPool2d
 from .. import OPSET
-from ..function import QuantizeLinearFn, DequantizeLinearFn
+from ..function import QuantizeLinearFn, DequantizeLinearFn, IntClipFn
 
 
 class StdQOpONNXManager(ONNXBaseManager):
@@ -72,9 +72,12 @@ class StdQOpONNXManager(ONNXBaseManager):
                 input = DequantizeLinearFn.apply(input, *deq_kwargs.values())
             output = fn(input, *args, **kwargs)
             if cached_out is not None:
-                q_kwargs = StdQOpONNXQuantLayerHandler.quant_symbolic_kwargs_from_cached_io(
+                out_kwargs = StdQOpONNXQuantLayerHandler.quant_symbolic_kwargs_from_cached_io(
                     cached_out)
+                q_kwargs, int_clip_kwargs = out_kwargs
                 output = QuantizeLinearFn.apply(output, *q_kwargs.values())
+                if int_clip_kwargs is not None:
+                    output = IntClipFn.apply(output, *int_clip_kwargs.values())
         else:
             output = fn(input, *args, **kwargs)
         return output

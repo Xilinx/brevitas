@@ -28,7 +28,9 @@ class BitWidthHandlerMixin(object):
     def validate_bit_width(cls, bit_width: Tensor, reference: int, le_then=False):
         if bit_width is None:
             raise RuntimeError("Bit width cannot be None")
-        bit_width = int(bit_width.item())
+        if isinstance(bit_width, torch.Tensor):
+            bit_width = bit_width.item()
+        bit_width = int(bit_width)
         if bit_width > reference:
             raise RuntimeError(f"Bit width {bit_width} is not supported.")
         elif bit_width < reference and not le_then:
