@@ -1,14 +1,16 @@
 from functools import reduce
 from operator import mul
 
+import torch
 from torch import nn
 
 from brevitas.graph.utils import replace_module
+from brevitas.nn import QuantConv1d, QuantConv2d
 from .base import PerInputModuleToModuleByHook
 
 __all__ = [
     'AdaptiveAvgPoolToAvgPool',
-    'AvgPoolToDepthwiseConv'
+    'AvgPoolToQuantDepthwiseConv'
 ]
 
 
@@ -55,10 +57,14 @@ class AdaptiveAvgPoolToAvgPool(PerInputModuleToModuleByHook):
                 replace_module(model, adaptive_avgpool, avgpool)
 
 
-class AvgPoolToDepthwiseConv(PerInputModuleToModuleByHook):
+class AvgPoolToQuantDepthwiseConv(PerInputModuleToModuleByHook):
 
     SUPPORTED_LAYERS = (
         nn.AvgPool1d, nn.AvgPool2d, nn.AvgPool3d)
+
+    def __init__(self, **conv_kwargs):
+        super().__init__()
+        self.conv_kwargs = conv_kwargs
 
     def register_hooks(self, model):
         for module in model.modules():
@@ -76,13 +82,23 @@ class AvgPoolToDepthwiseConv(PerInputModuleToModuleByHook):
                 'out_channels': size[1],
                 'groups': size[1],
                 'bias': False}
+            kwargs.update(**self.conv_kwargs)
             if isinstance(avgpool, nn.AvgPool1d):
-                dw_conv = nn.Conv1d(**kwargs)
+                dw_conv = QuantConv1d(**kwargs)
             elif isinstance(avgpool, nn.AvgPool2d):
-                dw_conv = nn.Conv2d(**kwargs)
+                dw_conv = QuantConv2d(**kwargs)
             else:
                 assert isinstance(avgpool, nn.AvgPool3d)
-                dw_conv = nn.Conv3d(**kwargs)
+                raise RuntimeError("QuantConv3d not supported yet.")
             kernel_value = 1. / reduce(mul, dw_conv.kernel_size)
-            dw_conv.weight.data.fill_(kernel_value)
+            dw_conv.register_parameter('scalar_weight', torch.nn.Parameter(torch.tensor(kernel_value)))
+            weight_shape = dw_conv.weight.shape
+            del dw_conv.weight
+            # Attach property to instance by dynamically subclassing and assigning the subclass to the instance
+            # Reference https://gist.github.com/Wilfred/49b0409c6489f1bdf5a5c98a488b31b5
+            class_name = dw_conv.__class__.__name__ + 'FromAvgPool'
+            child_class = type(
+                class_name, (dw_conv.__class__,),
+                {'weight': property(lambda self: self.scalar_weight.expand(weight_shape))})
+            dw_conv.__class__ = child_class
             replace_module(model, avgpool, dw_conv)
