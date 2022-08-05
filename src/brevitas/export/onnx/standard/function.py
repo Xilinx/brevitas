@@ -37,6 +37,25 @@ class DequantizeLinearFn(Function):
         return int_x.float()
 
 
+class IntClipFn(Function):
+
+    @staticmethod
+    def symbolic(
+            g, int_x,
+            min_int_val,
+            max_int_val):
+        ret = g.op(
+            'Clip', int_x, min_int_val, max_int_val)
+        return ret
+
+    @staticmethod
+    def forward(
+            ctx, int_x,
+            min_int_val,
+            max_int_val):
+        return int_x
+
+
 class QuantizeLinearFn(Function):
 
     @staticmethod

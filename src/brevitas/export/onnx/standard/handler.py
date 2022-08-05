@@ -1,6 +1,8 @@
 from abc import ABC
 
+import torch
 
+from brevitas.function.ops import min_int, max_int
 from brevitas.export.onnx.handler import ONNXBaseHandler
 from brevitas.export.handler import BitWidthHandlerMixin, ZeroPointHandlerMixin
 
@@ -14,3 +16,12 @@ class StdONNXQuantLayerHandler(BitWidthHandlerMixin, ZeroPointHandlerMixin, ONNX
                 return i
         return None
 
+    @classmethod
+    def clip_symbolic_kwargs(cls, narrow, signed, bit_width):
+        if bit_width < 8.:
+            dtype = torch.int8 if signed else torch.uint8
+            return {
+                'int_min_val': min_int(signed, narrow, bit_width).to(dtype),
+                'int_max_val': max_int(signed, narrow, bit_width).to(dtype)}
+        else:
+            return None
