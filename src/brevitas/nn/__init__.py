@@ -12,3 +12,4 @@ from .quant_max_pool import QuantMaxPool1d, QuantMaxPool2d
 from .quant_upsample import QuantUpsample, QuantUpsamplingBilinear2d, QuantUpsamplingNearest2d
 from .quant_dropout import QuantDropout
 from .quant_rnn import QuantRNN, QuantLSTM
+from .target import flexml

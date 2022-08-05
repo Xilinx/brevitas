@@ -6,7 +6,6 @@ from torch import nn
 import brevitas
 from brevitas import config
 import brevitas.nn as qnn
-from brevitas.core.utils import StatelessBuffer
 from brevitas.quant import Int16Bias
 from brevitas.quant import Int8WeightPerTensorFixedPoint
 from brevitas.quant import Int8ActPerTensorFixedPoint
@@ -20,7 +19,7 @@ from brevitas.graph.standardize import DuplicateSharedStatelessModule
 from brevitas.graph.standardize import MeanMethodToAdaptiveAvgPool2d
 from brevitas.graph.standardize import DisableLastReturnQuantTensor
 from brevitas.graph.per_input import AdaptiveAvgPoolToAvgPool
-from brevitas.graph.per_input import AvgPoolToDepthwiseConv
+from brevitas.graph.per_input import AvgPoolToQuantDepthwiseConv
 from brevitas.graph.fixed_point import MergeBatchNorm
 from brevitas.graph.fixed_point import MoveSplitBatchNormBeforeCat
 from brevitas.graph.fixed_point import CollapseConsecutiveConcats
@@ -45,6 +44,11 @@ QUANT_WBIOL_MAP = {
     nn.Linear: qnn.QuantLinear}
 
 
+QUANT_AVGPOOL_MAP = {
+    nn.AvgPool2d: qnn.flexml.FlexMLQuantAvgPool2d
+}
+
+
 SIGN_PRESERVING_MODULES = [
     nn.MaxPool1d,
     nn.MaxPool2d,
@@ -55,29 +59,6 @@ SIGN_PRESERVING_MODULES = [
     nn.AdaptiveAvgPool1d,
     nn.AdaptiveAvgPool2d,
     nn.AdaptiveAvgPool3d]
-
-
-class FlexMLQuantLeakyReLU(nn.Module):
-
-    def __init__(
-            self,
-            negative_slope,
-            alpha_quant=qnn.QuantIdentity(Uint8ActPerTensorFixedPoint, bit_width=16),
-            input_quant=qnn.QuantIdentity(Int8ActPerTensorFixedPoint, bit_width=16, scaling_stats_momentum = None),
-            output_quant=qnn.QuantIdentity(Int8ActPerTensorFixedPoint, return_quant_tensor=True)):
-        super(FlexMLQuantLeakyReLU, self).__init__()
-        self.alpha_quant = alpha_quant
-        self.input_quant = input_quant
-        self.output_quant = output_quant
-        self.negative_slope = StatelessBuffer(torch.tensor(negative_slope))
-
-    def forward(self, inp):
-        quant_inp = self.input_quant(inp)
-        quant_alpha = self.alpha_quant(self.negative_slope())
-        quant_alpha_out = self.input_quant(quant_inp * quant_alpha)
-        out = torch.max(quant_inp, quant_alpha_out)
-        out = self.output_quant(out)
-        return out
 
 
 def flexml_inp_placeholder_handler(model):
@@ -142,7 +123,7 @@ def are_inputs_quantized(model, node, quantized_modules_list, same_sign):
                 if _tensor_quant_in_list(tq, quantized_modules_list, same_sign):
                     continue
                 quantized_modules_list.append(tq)
-            elif isinstance(inp_module, (FlexMLQuantLeakyReLU)):
+            elif isinstance(inp_module, qnn.flexml.FlexMLQuantLeakyReLU):
                 tq = inp_module.output_quant.act_quant.fused_activation_quant_proxy.tensor_quant
                 if _tensor_quant_in_list(tq, quantized_modules_list, same_sign):
                     continue
@@ -180,7 +161,7 @@ def output_quant_handler(model, node, rewriters, is_sign_preserving):
         output_quant = True
         if user.op == 'call_module':
             user_module = get_module(model, user.target)
-            if isinstance(user_module, (qnn.QuantReLU, qnn.QuantIdentity, FlexMLQuantLeakyReLU)):
+            if isinstance(user_module, (qnn.QuantReLU, qnn.QuantIdentity, qnn.flexml.FlexMLQuantLeakyReLU)):
                 output_quant = False
         if output_quant:
             if quant_module_name is None and quant_module is None:
@@ -215,9 +196,9 @@ def cat_input_handler(model, node, quant_identity_name, quant_identity, rewriter
                 rewriter = ModuleInstanceToModuleInstance(
                     module, quant_identity)
                 rewriters.append(rewriter)
-            elif isinstance(module, FlexMLQuantLeakyReLU):
+            elif isinstance(module, qnn.flexml.FlexMLQuantLeakyReLU):
                 rewriter = ModuleToModuleByInstance(
-                    module, FlexMLQuantLeakyReLU, output_quant=quant_identity)
+                    module, qnn.flexml.FlexMLQuantLeakyReLU, output_quant=quant_identity)
                 rewriters.append(rewriter)
             else:
                 rewriters.append(InsertModuleCallAfter(quant_identity_name, inp_node))
@@ -257,9 +238,9 @@ def add_input_handler(model, node, quant_identity_name, quant_identity, rewriter
                         int_scaling_impl=quant_identity.act_quant.fused_activation_quant_proxy.tensor_quant.int_scaling_impl,
                         return_quant_tensor=True)
                     rewriters.append(rewriter)
-            elif isinstance(module, FlexMLQuantLeakyReLU):
+            elif isinstance(module, qnn.flexml.FlexMLQuantLeakyReLU):
                 rewriter = ModuleToModuleByInstance(
-                    module, FlexMLQuantLeakyReLU, output_quant=quant_identity)
+                    module, qnn.flexml.FlexMLQuantLeakyReLU, output_quant=quant_identity)
                 rewriters.append(rewriter)
             else:
                 rewriters.append(InsertModuleCallAfter(quant_identity_name, inp_node))
@@ -291,7 +272,7 @@ def flexml_act_handler(model):
                 rewriters.append(rewriter)
             elif isinstance(module, nn.LeakyReLU):
                 rewriter = ModuleToModuleByInstance(
-                    module, FlexMLQuantLeakyReLU)
+                    module, qnn.flexml.FlexMLQuantLeakyReLU)
                 rewriters.append(rewriter)
     for rewriter in rewriters:
         model = rewriter.apply(model)
@@ -300,11 +281,9 @@ def flexml_act_handler(model):
 
 def _get_quant_module(model, node):
     if are_inputs_unsigned(model, node, []):
-        quant_module = qnn.QuantIdentity(Uint8ActPerTensorFixedPoint,
-                                         return_quant_tensor=True)
+        quant_module = qnn.QuantIdentity(Uint8ActPerTensorFixedPoint, return_quant_tensor=True)
     else:
-        quant_module = qnn.QuantIdentity(Int8ActPerTensorFixedPoint,
-                                         return_quant_tensor=True)
+        quant_module = qnn.QuantIdentity(Int8ActPerTensorFixedPoint, return_quant_tensor=True)
     quant_module_name = node.name + '_quant'
     model.add_module(quant_module_name, quant_module)
     return quant_module, quant_module_name
@@ -370,16 +349,40 @@ def flexml_wbiol_handler(model):
     return model
 
 
-def preprocess_flexml(model, equalization_iters = 0, **model_kwargs):
+def flexml_avgpool_handler(model, *model_args, avgpool_to_depthwise_conv=False, **model_kwargs):
+    rewriters = []
+    for node in model.graph.nodes:
+        if node.op == 'call_module':
+            module = get_module(model, node.target)
+            if isinstance(module, tuple(QUANT_AVGPOOL_MAP.keys())):
+                output_quant_handler(model, node, rewriters, is_sign_preserving=True)
+                if avgpool_to_depthwise_conv:
+                    rewriter = AvgPoolToQuantDepthwiseConv(
+                        weight_quant=Int8WeightPerTensorFixedPoint,
+                        bias_quant=Int16Bias,
+                        return_quant_tensor=True)
+                else:
+                    rewriter = ModuleToModuleByInstance(
+                        module, QUANT_AVGPOOL_MAP[type(module)],
+                        return_quant_tensor=True)
+                rewriters.append(rewriter)
+    for rewriter in rewriters:
+        if isinstance(rewriter, AvgPoolToQuantDepthwiseConv):
+            model = rewriter.apply(model, *model_args, **model_kwargs)
+        else:
+            model = rewriter.apply(model)
+    return model
+
+
+def preprocess_flexml(model, *model_args, equalization_iters = 0, **model_kwargs):
     training_state = model.training
     model.eval()
-    model = value_trace(model, model_kwargs)
+    model = value_trace(model, model_kwargs)  # TODO model args should contribute to value tracing
     model = TorchFunctionalToModule().apply(model)
     model = DuplicateSharedStatelessModule().apply(model)
     model = ModuleToModuleByClass(nn.ReLU6, nn.ReLU).apply(model)
     model = MeanMethodToAdaptiveAvgPool2d().apply(model)
-    model = AdaptiveAvgPoolToAvgPool().apply(model, *model_kwargs.values())
-    model = AvgPoolToDepthwiseConv().apply(model, *model_kwargs.values())
+    model = AdaptiveAvgPoolToAvgPool().apply(model, *model_args, **model_kwargs)
     model = CollapseConsecutiveConcats().apply(model)
     model = MoveSplitBatchNormBeforeCat().apply(model)
     model = MergeBatchNorm().apply(model)
@@ -388,7 +391,7 @@ def preprocess_flexml(model, equalization_iters = 0, **model_kwargs):
     return model
 
 
-def quantize_flexml(graph_model):
+def quantize_flexml(graph_model, *model_args, avgpool_to_depthwise_conv=False, **model_kwargs):
     ignore_missing_keys_state = config.IGNORE_MISSING_KEYS
     config.IGNORE_MISSING_KEYS = True
     training_state = graph_model.training
@@ -398,6 +401,8 @@ def quantize_flexml(graph_model):
     graph_model = flexml_add_output_quant_handler(graph_model)
     graph_model = flexml_residual_handler(graph_model)
     graph_model = flexml_wbiol_handler(graph_model)
+    graph_model = flexml_avgpool_handler(
+        graph_model, *model_args, avgpool_to_depthwise_conv=avgpool_to_depthwise_conv, **model_kwargs)
     graph_model = DisableLastReturnQuantTensor().apply(graph_model)
     graph_model.train(training_state)
     config.IGNORE_MISSING_KEYS = ignore_missing_keys_state
