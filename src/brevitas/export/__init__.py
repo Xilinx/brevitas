@@ -3,6 +3,7 @@ from functools import wraps
 from .onnx.finn.manager import FINNManager
 from .onnx.generic.manager import BrevitasONNXManager
 from .onnx.standard.qoperator.manager import StdQOpONNXManager
+from .onnx.standard.qcdq.manager import StdQCDQONNXManager
 from .onnx.debug import enable_debug
 from .pytorch.manager import PytorchQuantManager
 
@@ -20,6 +21,11 @@ def export_brevitas_onnx(*args, **kwargs):
 @wraps(StdQOpONNXManager.export)
 def export_standard_qop_onnx(*args, **kwargs):
     return StdQOpONNXManager.export(*args, **kwargs)
+
+
+@wraps(StdQCDQONNXManager.export)
+def export_standard_qcdq_onnx(*args, **kwargs):
+    return StdQCDQONNXManager.export(*args, **kwargs)
 
 
 @wraps(PytorchQuantManager.export)
