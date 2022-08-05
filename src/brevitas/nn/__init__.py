@@ -13,4 +13,4 @@ from .quant_upsample import QuantUpsample, QuantUpsamplingBilinear2d, QuantUpsam
 from .quant_dropout import QuantDropout
 from .quant_rnn import QuantRNN, QuantLSTM
 from .quant_embedding import QuantEmbedding
-
+from .target import flexml
