@@ -221,8 +221,12 @@ class TruncQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
 
     def forward(self, x: QuantTensor):
         if self.is_quant_enabled:
-            impl = self.export_handler if self.export_mode else self.tensor_quant
-            out_tuple = impl(x.value, x.scale, x.zero_point, x.bit_width)
+            if self.export_mode:
+                out_tuple = self.export_handler(
+                    x.value, x.scale, x.zero_point, x.bit_width, x.signed)
+            else:
+                out_tuple = self.tensor_quant(
+                    x.value, x.scale, x.zero_point, x.bit_width)
             out_value, out_scale, out_zp, out_bit_width = out_tuple
             return QuantTensor(
                 out_value, out_scale, out_zp, out_bit_width, x.signed, self.training)
