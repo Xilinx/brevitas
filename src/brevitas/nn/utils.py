@@ -58,7 +58,7 @@ def mul_add_from_bn(bn_mean, bn_var, bn_eps, bn_weight, bn_bias):
     return mul_factor, add_factor
 
 
-def merge_bn(layer, bn, output_channel_dim=0):
+def merge_bn(layer, bn, output_channel_dim=0, reinit_weight_quant=False, reinit_bias_quant=False):
     out = mul_add_from_bn(
         bn_mean=bn.running_mean,
         bn_var=bn.running_var,
@@ -73,11 +73,13 @@ def merge_bn(layer, bn, output_channel_dim=0):
         layer.bias.data.mul_(mul_factor.view(out_ch_bias_shape))
         layer.bias.data.add_(add_factor.view(out_ch_bias_shape))
     else:
-        layer.bias = Parameter(add_factor)
-    if (hasattr(layer, 'weight_quant')
+        layer.register_parameter("bias", Parameter(add_factor))
+    if (reinit_weight_quant
+            and hasattr(layer, 'weight_quant')
             and isinstance(layer.weight_quant, WeightQuantProxyFromInjector)):
         layer.weight_quant.init_tensor_quant()
-    if (hasattr(layer, 'bias_quant')
+    if (reinit_bias_quant
+            and hasattr(layer, 'bias_quant')
             and isinstance(layer.bias_quant, BiasQuantProxyFromInjector)):
         layer.bias_quant.init_tensor_quant()
 
