@@ -39,14 +39,19 @@ class AdaptiveAvgPoolToAvgPool(PerInputModuleToModuleByHook):
                 assert isinstance(adaptive_avgpool, nn.AdaptiveAvgPool3d)
                 return (output_size, output_size, output_size)
     
-    def replace_modules(self, model):
+    def replace_modules(self, model, global_avgpool_unit_stride=True):
         for adaptive_avgpool, size in self.input_size_map.items():
             output_size = self.get_adaptive_output_size(adaptive_avgpool)
             input_size = size[-len(output_size):]
             mod = [input_size[i] % output_size[i] for i in range(0, len(output_size))]
             if mod == [0] * len(output_size):
-                k = tuple(int(input_size[i] / output_size[i]) for i in range(0, len(output_size)))
-                kwargs = {'kernel_size': k, 'stride': k}
+                # Reference https://stackoverflow.com/a/63603993/16744139
+                s = tuple(int(input_size[i] / output_size[i]) for i in range(0, len(output_size)))
+                k = tuple(input_size[i] - s[i] * (output_size[i] - 1) for i in range(0, len(output_size)))
+                # Set stride 1 whenever the adaptive avg pool is global 
+                if global_avgpool_unit_stride and all(os == 1 for os in output_size):
+                    s = tuple([1] * len(s))
+                kwargs = {'kernel_size': k, 'stride': s}
                 if isinstance(adaptive_avgpool, nn.AdaptiveAvgPool1d):
                     avgpool = nn.AvgPool1d(**kwargs)
                 elif isinstance(adaptive_avgpool, nn.AdaptiveAvgPool2d):
