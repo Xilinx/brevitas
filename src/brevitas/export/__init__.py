@@ -6,8 +6,8 @@ from .onnx.standard.qoperator.manager import StdQOpONNXManager
 from .onnx.standard.qcdq.manager import StdQCDQONNXManager
 from .onnx.vitis_ai.pyxir.manager import PyXIRManager
 from .onnx.vitis_ai.xir.manager import XIRManager
-from .onnx.debug import enable_debug
 from .pytorch.manager import PytorchQuantManager
+from .onnx.debug import enable_debug
 
 
 @wraps(FINNManager.export)
@@ -26,7 +26,12 @@ def export_xir(*args, **kwargs):
 
 
 @wraps(QONNXManager.export)
-def export_brevitas_onnx(*args, **kwargs):
+def export_qonnx(*args, **kwargs):
+    return QONNXManager.export(*args, **kwargs)
+
+
+@wraps(QONNXManager.export)
+def export_brevitas_onnx(*args, **kwargs):  # alias for qonnx
     return QONNXManager.export(*args, **kwargs)
 
 
