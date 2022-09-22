@@ -67,7 +67,7 @@ class QuantizeLinearFn(Function):
             ouput_zero_point,
             output_dtype,
             output_axis):
-        if output_axis is not None and OPSET >= AXIS_OPSET:
+        if output_axis is not None and export_onnx_opset_version >= AXIS_OPSET:
             ret = g.op(
                 'QuantizeLinear', x,
                 output_scale,
