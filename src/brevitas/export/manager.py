@@ -263,16 +263,16 @@ class BaseManager(ABC):
         module.apply(lambda m: _restore_out_caching_mode(m))
 
     @classmethod
-    def jit_inference_trace(cls, module: Module, input_t: Union[Tensor, QuantTensor]):
+    def jit_inference_trace(cls, module: Module, args: Union[Tensor, QuantTensor, Tuple]):
         with torch.no_grad():
             training_state = module.training
             module = module.eval()
             module.apply(cls.set_export_handler)
             # do a forward pass with the input to e.g. store input/output shapes
-            cls._cache_inp_out(module, input_t)
+            cls._cache_inp_out(module, *args)
             # unpack quant tensor
-            if isinstance(input_t, QuantTensor):
-                input_t = input_t.value
+            if isinstance(args, QuantTensor):
+                args = args.value
             # enable export mode, this triggers collecting export values into handlers
             cls.set_export_mode(module, enabled=True)
             # force requires_grad to False to let the wrapped model lambda go through tracing
@@ -282,7 +282,7 @@ class BaseManager(ABC):
                     stack.enter_context(mgr)
                 # wrapping with a lambda forces inlining during tracing,
                 # converts everything to const and removes unused params/buffers
-                traced_model = torch.jit.trace(_JitTraceExportWrapper(module), input_t)
+                traced_model = torch.jit.trace(_JitTraceExportWrapper(module), args)
             # Hack to clone the function, otherwise restoring requires_grad
             # on module will break traced_model
             with BytesIO() as tmp:
