@@ -24,16 +24,16 @@ class QCDQQuantProxyHandler(StdONNXQuantLayerHandler, ABC):
 
     def quantize_symbolic_kwargs(cls, module):
         return {
-            'scale': module.scale(),
+            'scale': module.scale().view(-1),
             'zero_point': cls.zero_point_with_dtype(module.is_signed, module.zero_point()),
             'dtype': torch.int8 if module.is_signed else torch.uint8,
-            'axis': cls.quant_axis(module.scale())}
+            'axis': cls.quant_axis(module.scale().view(-1))}
 
     def dequantize_symbolic_kwargs(cls, module):
         return {
-            'scale': module.scale(),
+            'scale': module.scale().view(-1),
             'zero_point': cls.zero_point_with_dtype(module.is_signed, module.zero_point()),
-            'axis': cls.quant_axis(module.scale())}
+            'axis': cls.quant_axis(module.scale().view(-1))}
 
     def prepare_for_export(self, module):
         if module.is_quant_enabled:
@@ -72,10 +72,10 @@ class QCDQDecoupledWeightQuantProxyHandler(QCDQWeightQuantProxyHandler):
 
     def quantize_symbolic_kwargs(cls, module):
         return {
-            'scale': module.pre_scale(),
-            'zero_point': cls.zero_point_with_dtype(module.is_signed, module.pre_zero_point()),
+            'scale': module.pre_scale().view(-1),
+            'zero_point': cls.zero_point_with_dtype(module.is_signed, module.pre_zero_point().view(-1)),
             'dtype': torch.int8 if module.is_signed else torch.uint8,
-            'axis': cls.quant_axis(module.pre_scale())}
+            'axis': cls.quant_axis(module.pre_scale().view(-1))}
 
     def symbolic_execution(self, x: Tensor):
         out, scale, zero_point, bit_width = super().symbolic_execution(x)
@@ -104,8 +104,8 @@ class QCDQBiasQuantProxyHandler(StdONNXQuantLayerHandler):
                     tm.quant_bias().int(float_datatype=False) for tm in module.tracked_module_list}
             self.symbolic_kwargs = {
                 'int_biases': int_biases,
-                'scale': module.scale(),
-                'zero_point': module.zero_point(),
+                'scale': module.scale().view(-1),
+                'zero_point': module.zero_point().view(-1),
                 'bit_width': module.bit_width()}
         else:
             self.symbolic_kwargs = None
@@ -123,7 +123,7 @@ class QCDQBiasQuantProxyHandler(StdONNXQuantLayerHandler):
         if input_bit_width is not None:
             bit_width = input_bit_width
         dtype = torch.int32 if int(bit_width.item()) > 8 else torch.int8
-        y = DequantizeLinearFn.apply(int_bias.to(dtype), scale, zero_point, self.quant_axis(scale))
+        y = DequantizeLinearFn.apply(int_bias.to(dtype), scale.view(-1), zero_point.view(-1), self.quant_axis(scale))
         return y, scale, zero_point, bit_width
 
 
@@ -141,9 +141,9 @@ class QCDQTruncQuantProxyHandler(QCDQQuantProxyHandler):
         assert self.symbolic_kwargs is not None, 'Symbolic execution requires quant to be enabled'
         output_bit_width = self.symbolic_kwargs['output_bit_width']
         dtype = torch.int8 if signed else torch.uint8
-        x = QuantizeLinearFn.apply(x, scale, zero_point, dtype, self.quant_axis(scale))
+        x = QuantizeLinearFn.apply(x, scale.view(-1), zero_point.view(-1), dtype, self.quant_axis(scale))
         clip_symbolic_kwargs = self.clip_symbolic_kwargs(signed, False, output_bit_width)
         if clip_symbolic_kwargs is not None:
             x = IntClipFn.apply(x, *clip_symbolic_kwargs.values())
-        x = DequantizeLinearFn.apply(x, scale, zero_point, self.quant_axis(scale))
+        x = DequantizeLinearFn.apply(x, scale.view(-1), zero_point.view(-1), self.quant_axis(scale))
         return x, scale, zero_point, output_bit_width
