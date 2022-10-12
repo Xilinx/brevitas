@@ -104,8 +104,8 @@ class QCDQBiasQuantProxyHandler(StdONNXQuantLayerHandler):
                     tm.quant_bias().int(float_datatype=False) for tm in module.tracked_module_list}
             self.symbolic_kwargs = {
                 'int_biases': int_biases,
-                'scale': module.scale().view(-1),
-                'zero_point': module.zero_point().view(-1),
+                'scale': module.scale(),
+                'zero_point': module.zero_point(),
                 'bit_width': module.bit_width()}
         else:
             self.symbolic_kwargs = None
