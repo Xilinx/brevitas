@@ -1,12 +1,7 @@
 from torch.autograd import Function
-try:
-    from torch.onnx.symbolic_helper import _export_onnx_opset_version
-    export_onnx_opset_version = _export_onnx_opset_version
-except:
-    from torch.onnx._globals import GLOBALS
-    export_onnx_opset_version = GLOBALS.export_onnx_opset_version
+from . import onnx_export_opset
 
-AXIS_OPSET = 11
+AXIS_OPSET = 13
 
 
 class DequantizeLinearFn(Function):
@@ -17,7 +12,11 @@ class DequantizeLinearFn(Function):
             input_scale,
             input_zero_point,
             input_axis):
-        if input_axis is not None and export_onnx_opset_version >= AXIS_OPSET:
+        opset_version = onnx_export_opset()
+        
+        if input_axis is not None and opset_version < AXIS_OPSET:
+            raise RuntimeError('ONNX Opset 13 is required for per-channel quantization')
+        elif input_axis is not None and opset_version >= AXIS_OPSET:
             ret = g.op(
                 'DequantizeLinear', x,
                 input_scale,
@@ -67,7 +66,11 @@ class QuantizeLinearFn(Function):
             ouput_zero_point,
             output_dtype,
             output_axis):
-        if output_axis is not None and export_onnx_opset_version >= AXIS_OPSET:
+        opset_version = onnx_export_opset()
+        
+        if output_axis is not None and opset_version < AXIS_OPSET:
+            raise RuntimeError('ONNX Opset 13 is required for per-channel quantization')
+        elif output_axis is not None and opset_version >= AXIS_OPSET:
             ret = g.op(
                 'QuantizeLinear', x,
                 output_scale,
