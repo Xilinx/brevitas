@@ -57,11 +57,6 @@ class StdQOpONNXManager(StdONNXBaseManager):
         "eliminate_unused_initializer"]
 
     @classmethod
-    def solve_enable_onnx_checker(cls, export_kwargs):
-        if torch_version >= version.parse('1.5.0'):
-            export_kwargs['enable_onnx_checker'] = True
-
-    @classmethod
     def _trace_fn_dispatcher(cls, fn, input, *args, **kwargs):
         cached_io = cls._fn_cache.pop(0)
         if cached_io is not None:
