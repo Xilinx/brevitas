@@ -93,7 +93,8 @@ class _ViewCatParameterWrapper(brevitas.jit.ScriptModule):
         if parameter_key in missing_keys:
             missing_keys.remove(parameter_key)
 
-    def state_dict(self, dest=None, prefix='', keep_vars=False):
-        output_dict = super(_ViewCatParameterWrapper, self).state_dict(dest, prefix, keep_vars)
+    def state_dict(self, destination=None, prefix='', keep_vars=False):
+        output_dict = super(_ViewCatParameterWrapper, self).state_dict(
+            destination, prefix, keep_vars)
         del output_dict[prefix + 'parameter']
         return output_dict
