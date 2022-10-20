@@ -58,10 +58,10 @@ class QCDQQuantProxyHandler(StdONNXQuantLayerHandler, ABC):
         scale = dequantize_symbolic_kwargs['scale']
         zero_point = dequantize_symbolic_kwargs['zero_point']
         bit_width = self.symbolic_kwargs['bit_width']
-        x = QuantizeLinearFn.apply(x, *quantize_symbolic_kwargs.values())
+        x = QuantizeLinearFn.apply(x, *quantize_symbolic_kwargs.values(), bit_width)
         if clip_symbolic_kwargs is not None:
             x = IntClipFn.apply(x, *clip_symbolic_kwargs.values())
-        x = DequantizeLinearFn.apply(x, *dequantize_symbolic_kwargs.values())
+        x = DequantizeLinearFn.apply(x, *dequantize_symbolic_kwargs.values(), bit_width)
         return x, scale, zero_point, bit_width
 
 
@@ -90,7 +90,6 @@ class QCDQDecoupledWeightQuantProxyHandler(QCDQWeightQuantProxyHandler):
 
 class QCDQActQuantProxyHandler(QCDQWeightQuantProxyHandler):
     handled_layer = ActQuantProxyFromInjector
-
 
 class QCDQBiasQuantProxyHandler(StdONNXQuantLayerHandler):
     handled_layer = BiasQuantProxyFromInjector
