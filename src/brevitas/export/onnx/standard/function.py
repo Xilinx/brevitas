@@ -11,7 +11,8 @@ class DequantizeLinearFn(Function):
             g, x,
             input_scale,
             input_zero_point,
-            input_axis):
+            input_axis,
+            input_bit_width=None):
         opset_version = onnx_export_opset()
         
         if input_axis is not None and opset_version < AXIS_OPSET:
@@ -34,7 +35,8 @@ class DequantizeLinearFn(Function):
             ctx, int_x,
             input_scale,
             input_zero_point,
-            input_axis):
+            input_axis,
+            input_bit_width=None):
         return int_x.float()
 
 
@@ -65,7 +67,8 @@ class QuantizeLinearFn(Function):
             output_scale,
             ouput_zero_point,
             output_dtype,
-            output_axis):
+            output_axis,
+            output_bit_width=None):
         opset_version = onnx_export_opset()
         
         if output_axis is not None and opset_version < AXIS_OPSET:
@@ -89,6 +92,7 @@ class QuantizeLinearFn(Function):
             output_scale,
             ouput_zero_point,
             output_dtype,
-            output_axis):
+            output_axis,
+            output_bit_width=None):
         return x.type(output_dtype)
 
