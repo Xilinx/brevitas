@@ -10,6 +10,7 @@ from brevitas.export.onnx.handler import Kernel2dApplHandlerMixin, Kernel1dApplH
 from brevitas.export.onnx.standard.function import QuantizeLinearFn, DequantizeLinearFn, IntClipFn
 from ..function import QLinearConvFn, QLinearMatMulFn
 from .base import StdQOpONNXQuantLayerHandler
+from ...handler import to_0dim_if_scalar
 
 
 class StdQOpONNXQuantWBIOLHandler(StdQOpONNXQuantLayerHandler, ABC):
@@ -102,8 +103,8 @@ class StdQOpONNXQuantConvNdHandler(StdQOpONNXQuantWBIOLHandler, ABC):
             'input_scale': module.quant_input_scale(),
             'input_zero_point': self.quant_input_zero_point(module),
             'int_weight': self.int_weight(module),
-            'weight_scale': module.quant_weight_scale().view(-1),
-            'weight_zero_point': self.quant_weight_zero_point(module).view(-1),
+            'weight_scale': to_0dim_if_scalar(module.quant_weight_scale().view(-1)),
+            'weight_zero_point': to_0dim_if_scalar(self.quant_weight_zero_point(module).view(-1)),
             'output_scale': module.quant_output_scale(),
             'output_zero_point': self.quant_output_zero_point(module),
             'output_dtype': self.torch_8b_dtype(module.is_quant_output_signed),
@@ -139,8 +140,8 @@ class StdQOpONNXQuantLinearHandler(StdQOpONNXQuantWBIOLHandler):
             'input_scale': module.quant_input_scale(),
             'input_zero_point': self.quant_input_zero_point(module),
             'int_weight': self.int_weight(module).view(module.out_features, module.in_features, 1),
-            'weight_scale': module.quant_weight_scale().view(-1),
-            'weight_zero_point': self.quant_weight_zero_point(module).view(-1),
+            'weight_scale': to_0dim_if_scalar(module.quant_weight_scale().view(-1)),
+            'weight_zero_point': to_0dim_if_scalar(self.quant_weight_zero_point(module).view(-1)),
             'output_scale': module.quant_output_scale(),
             'output_zero_point': self.quant_output_zero_point(module),
             'output_dtype': self.torch_8b_dtype(module.is_quant_output_signed),

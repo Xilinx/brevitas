@@ -12,7 +12,7 @@ from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector
 
 
 from ..function import QuantizeLinearFn, DequantizeLinearFn, IntClipFn
-from ..handler import StdONNXQuantLayerHandler
+from ..handler import StdONNXQuantLayerHandler, to_0dim_if_scalar
 
 
 class QCDQQuantProxyHandler(StdONNXQuantLayerHandler, ABC):
@@ -23,18 +23,20 @@ class QCDQQuantProxyHandler(StdONNXQuantLayerHandler, ABC):
         assert module.rounding_mode == 'ROUND', 'Only round to nearest even supported'
 
     def quantize_symbolic_kwargs(cls, module):
-        flat_scale = module.scale().view(-1)
+        flat_scale = to_0dim_if_scalar(module.scale().view(-1))
+        zp =  to_0dim_if_scalar(module.zero_point().view(-1)).expand_as(flat_scale) # Expand_as must go after 0-Dim check
         return {
             'scale': flat_scale,
-            'zero_point': cls.zero_point_with_dtype(module.is_signed, module.zero_point().view(-1).expand_as(flat_scale)),
+            'zero_point': cls.zero_point_with_dtype(module.is_signed,zp),
             'dtype': torch.int8 if module.is_signed else torch.uint8,
             'axis': cls.quant_axis(module.scale())}
 
     def dequantize_symbolic_kwargs(cls, module):
-        flat_scale = module.scale().view(-1)
+        flat_scale = to_0dim_if_scalar(module.scale().view(-1)) 
+        zp = to_0dim_if_scalar(module.zero_point().view(-1)).expand_as(flat_scale)
         return {
             'scale': flat_scale,
-            'zero_point': cls.zero_point_with_dtype(module.is_signed, module.zero_point().expand_as(flat_scale)),
+            'zero_point': cls.zero_point_with_dtype(module.is_signed, zp),
             'axis': cls.quant_axis(module.scale())}
 
     def prepare_for_export(self, module):
@@ -73,10 +75,11 @@ class QCDQDecoupledWeightQuantProxyHandler(QCDQWeightQuantProxyHandler):
     handled_layer = DecoupledWeightQuantProxyFromInjector
 
     def quantize_symbolic_kwargs(cls, module):
-        flat_scale = module.pre_scale().view(-1)
+        flat_scale = to_0dim_ifmod_scalar(module.pre_scale().view(-1))
+        zp = to_0dim_if_scalar(module.pre_zero_point().view(-1)).expand_as(flat_scale)
         return {
             'scale': flat_scale,
-            'zero_point': cls.zero_point_with_dtype(module.is_signed, module.pre_zero_point().view(-1).expand_as(flat_scale)),
+            'zero_point': cls.zero_point_with_dtype(module.is_signed, zp),
             'dtype': torch.int8 if module.is_signed else torch.uint8,
             'axis': cls.quant_axis(module.pre_scale())}
 
@@ -125,9 +128,10 @@ class QCDQBiasQuantProxyHandler(StdONNXQuantLayerHandler):
         if input_bit_width is not None:
             bit_width = input_bit_width
         dtype = torch.int32 if int(bit_width.item()) > 8 else torch.int8
-        flat_scale = scale.view(-1)
+        flat_scale = to_0dim_if_scalar(scale.view(-1))
+        zp = to_0dim_if_scalar(zero_point.view(-1)).expand_as(flat_scale).to(dtype)
         y = DequantizeLinearFn.apply(
-            int_bias.to(dtype), flat_scale, zero_point.view(-1).expand_as(flat_scale).to(dtype), self.quant_axis(scale))
+            int_bias.to(dtype), flat_scale, zp, self.quant_axis(scale))
         return y, scale, zero_point, bit_width
 
 
@@ -145,10 +149,11 @@ class QCDQTruncQuantProxyHandler(QCDQQuantProxyHandler):
         assert self.symbolic_kwargs is not None, 'Symbolic execution requires quant to be enabled'
         output_bit_width = self.symbolic_kwargs['output_bit_width']
         dtype = torch.int8 if signed else torch.uint8
-        flat_scale = scale.view(-1)
-        x = QuantizeLinearFn.apply(x, flat_scale, zero_point.view(-1).expand_as(flat_scale), dtype, self.quant_axis(scale))
+        flat_scale = to_0dim_if_scalar(scale.view(-1))
+        zp = to_0dim_if_scalar(zero_point.view(-1)).expand_as(flat_scale)
+        x = QuantizeLinearFn.apply(x, flat_scale, zp, dtype, self.quant_axis(scale))
         clip_symbolic_kwargs = self.clip_symbolic_kwargs(signed, False, output_bit_width)
         if clip_symbolic_kwargs is not None:
             x = IntClipFn.apply(x, *clip_symbolic_kwargs.values())
-        x = DequantizeLinearFn.apply(x, scale.view(-1), zero_point.view(-1).expand_as(flat_scale), self.quant_axis(scale))
+        x = DequantizeLinearFn.apply(x, scale.view(-1), zp, self.quant_axis(scale))
         return x, scale, zero_point, output_bit_width
