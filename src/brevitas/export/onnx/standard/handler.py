@@ -6,6 +6,10 @@ from brevitas.function.ops import min_int, max_int
 from brevitas.export.onnx.handler import ONNXBaseHandler
 from brevitas.export.handler import BitWidthHandlerMixin, ZeroPointHandlerMixin
 
+def to_0dim_if_scalar(tensor):
+    if len(tensor.shape) == 1 and tensor.shape[0] == 1:
+        tensor = tensor.view(()) # 0-Dim tensor
+    return tensor
 
 class StdONNXQuantLayerHandler(BitWidthHandlerMixin, ZeroPointHandlerMixin, ONNXBaseHandler, ABC):
 
@@ -18,7 +22,7 @@ class StdONNXQuantLayerHandler(BitWidthHandlerMixin, ZeroPointHandlerMixin, ONNX
 
     @classmethod
     def clip_symbolic_kwargs(cls, narrow, signed, bit_width):
-        if bit_width < 8.:
+        if narrow or bit_width < 8.:
             dtype = torch.int8 if signed else torch.uint8
             return {
                 'int_min_val': min_int(signed, narrow, bit_width).to(dtype),
