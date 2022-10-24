@@ -37,13 +37,14 @@ def compute_ort(export_name, np_input):
 
 def is_brevitas_ort_close(model, np_input, export_name, export_type, tolerance=None):
     input_t = torch.from_numpy(np_input)
+    brevitas_output = model(input_t)
     if export_type == 'qop':
         export_standard_qop_onnx(model, input_t, export_path=export_name)
+        brevitas_output = brevitas_output.int(float_datatype=False)
     elif export_type == 'qcdq':
         export_standard_qcdq_onnx(model, input_t, export_path=export_name)
     else:
         raise RuntimeError(f"Export type {export_type} not recognized.")
-    brevitas_output = model(input_t).int(float_datatype=False)
     ort_output = compute_ort(export_name, np_input)
     ort_output = torch.from_numpy(ort_output)
     if (ort_output == 0).all() and (brevitas_output == 0).all(): # make sure we are not comparing 0s
