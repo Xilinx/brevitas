@@ -23,8 +23,8 @@ class QCDQQuantProxyHandler(StdONNXQuantLayerHandler, ABC):
         assert module.rounding_mode == 'ROUND', 'Only round to nearest even supported'
 
     def quantize_symbolic_kwargs(cls, module):
-        flat_scale = to_0dim_if_scalar(module.scale().view(-1))
-        zp =  to_0dim_if_scalar(module.zero_point().view(-1)).expand_as(flat_scale) # Expand_as must go after 0-Dim check
+        flat_scale = to_0dim_if_scalar(module.scale().flatten())
+        zp =  to_0dim_if_scalar(module.zero_point().flatten()).expand_as(flat_scale) # Expand_as must go after 0-Dim check
         return {
             'scale': flat_scale,
             'zero_point': cls.zero_point_with_dtype(module.is_signed,zp),
@@ -32,8 +32,8 @@ class QCDQQuantProxyHandler(StdONNXQuantLayerHandler, ABC):
             'axis': cls.quant_axis(module.scale())}
 
     def dequantize_symbolic_kwargs(cls, module):
-        flat_scale = to_0dim_if_scalar(module.scale().view(-1)) 
-        zp = to_0dim_if_scalar(module.zero_point().view(-1)).expand_as(flat_scale)
+        flat_scale = to_0dim_if_scalar(module.scale().flatten()) 
+        zp = to_0dim_if_scalar(module.zero_point().flatten()).expand_as(flat_scale)
         return {
             'scale': flat_scale,
             'zero_point': cls.zero_point_with_dtype(module.is_signed, zp),
@@ -75,8 +75,8 @@ class QCDQDecoupledWeightQuantProxyHandler(QCDQWeightQuantProxyHandler):
     handled_layer = DecoupledWeightQuantProxyFromInjector
 
     def quantize_symbolic_kwargs(cls, module):
-        flat_scale = to_0dim_ifmod_scalar(module.pre_scale().view(-1))
-        zp = to_0dim_if_scalar(module.pre_zero_point().view(-1)).expand_as(flat_scale)
+        flat_scale = to_0dim_if_scalar(module.pre_scale().flatten())
+        zp = to_0dim_if_scalar(module.pre_zero_point().flatten()).expand_as(flat_scale)
         return {
             'scale': flat_scale,
             'zero_point': cls.zero_point_with_dtype(module.is_signed, zp),
@@ -128,8 +128,8 @@ class QCDQBiasQuantProxyHandler(StdONNXQuantLayerHandler):
         if input_bit_width is not None:
             bit_width = input_bit_width
         dtype = torch.int32 if int(bit_width.item()) > 8 else torch.int8
-        flat_scale = to_0dim_if_scalar(scale.view(-1))
-        zp = to_0dim_if_scalar(zero_point.view(-1)).expand_as(flat_scale).to(dtype)
+        flat_scale = to_0dim_if_scalar(scale.flatten())
+        zp = to_0dim_if_scalar(zero_point.flatten()).expand_as(flat_scale).to(dtype)
         y = DequantizeLinearFn.apply(
             int_bias.to(dtype), flat_scale, zp, self.quant_axis(scale))
         return y, scale, zero_point, bit_width
@@ -149,11 +149,11 @@ class QCDQTruncQuantProxyHandler(QCDQQuantProxyHandler):
         assert self.symbolic_kwargs is not None, 'Symbolic execution requires quant to be enabled'
         output_bit_width = self.symbolic_kwargs['output_bit_width']
         dtype = torch.int8 if signed else torch.uint8
-        flat_scale = to_0dim_if_scalar(scale.view(-1))
-        zp = to_0dim_if_scalar(zero_point.view(-1)).expand_as(flat_scale)
+        flat_scale = to_0dim_if_scalar(scale.flatten())
+        zp = to_0dim_if_scalar(zero_point.flatten()).expand_as(flat_scale)
         x = QuantizeLinearFn.apply(x, flat_scale, zp, dtype, self.quant_axis(scale))
         clip_symbolic_kwargs = self.clip_symbolic_kwargs(signed, False, output_bit_width)
         if clip_symbolic_kwargs is not None:
             x = IntClipFn.apply(x, *clip_symbolic_kwargs.values())
-        x = DequantizeLinearFn.apply(x, scale.view(-1), zp, self.quant_axis(scale))
+        x = DequantizeLinearFn.apply(x, scale.flatten(), zp, self.quant_axis(scale))
         return x, scale, zero_point, output_bit_width
