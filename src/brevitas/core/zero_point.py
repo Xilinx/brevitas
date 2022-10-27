@@ -88,6 +88,7 @@ class MinUintZeroPoint(brevitas.jit.ScriptModule):
 
     @brevitas.jit.script_method
     def forward(self, x: Tensor, scale: Tensor, bit_width: Tensor) -> Tensor:
+        x = x * torch.ones(self.zero_point_shape) # Workaround during export_mode, when the x is a stateless buffer rather then the weights
         stats_input = self.stats_input_view_shape_impl(x)
         min_val = self.negative_min_or_zero(stats_input)
         min_val = min_val.view(self.zero_point_shape)
