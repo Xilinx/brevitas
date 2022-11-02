@@ -47,7 +47,9 @@ class ONNXBaseManager(BaseManager, ABC):
     @classmethod
     def solve_enable_onnx_checker(cls, export_kwargs):
         ka = 'enable_onnx_checker'
-        if torch_version >= version.parse('1.5.0') and ka not in export_kwargs:
+        if torch_version >= version.parse('1.5.0') \
+            and torch_version <= version.parse('1.10.0') \
+            and ka not in export_kwargs:
             export_kwargs[ka] = False
 
     @classmethod
@@ -96,7 +98,7 @@ class ONNXBaseManager(BaseManager, ABC):
                         else:
                             input_t = (input_t,)
                     # enable export mode, this triggers collecting export values into handlers
-                    module.apply(lambda m: cls.set_export_mode(m, enabled=True))
+                    cls.set_export_mode(module, enabled=True)
                     # temporarily disable input caching to avoid collectives empty debug values
                     module.apply(lambda m: _override_inp_caching_mode(m, enabled=False))
                     # perform export pass
@@ -112,7 +114,7 @@ class ONNXBaseManager(BaseManager, ABC):
 
                     # restore the model to previous properties
                     module.apply(lambda m: _restore_inp_caching_mode(m))
-                    module.apply(lambda m: cls.set_export_mode(m, enabled=False))
+                    cls.set_export_mode(module, enabled=False)
                     module.train(training_state)
 
                     # do some cleanup on the exported ONNX model

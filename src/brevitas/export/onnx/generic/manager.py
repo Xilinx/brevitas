@@ -4,13 +4,17 @@ from torch import Tensor
 
 from brevitas.export.onnx.debug import DebugMarkerFunction
 from brevitas.export.onnx.manager import ONNXBaseManager
-from brevitas.export.manager import _set_proxy_export_handler, _set_proxy_export_mode
+from brevitas.export.manager import _set_proxy_export_handler
+from brevitas.export.manager import _set_recurrent_layer_export_handler
+from brevitas.export.manager import _set_proxy_export_mode
+from brevitas.export.manager import _set_recurrent_layer_export_mode
 
 from .handler import BrevitasActQuantProxyHandler
 from .handler import BrevitasBiasQuantProxyHandler
 from .handler import BrevitasWeightQuantProxyHandler
 from .handler import BrevitasTruncQuantProxyHandler
 from .handler import BrevitasDecoupledWeightQuantProxyHandler
+from .handler import BrevitasQuantLSTMLayerHandler
 
 from .function import BrevitasQuantFn
 from .function import BrevitasTruncFn
@@ -32,7 +36,8 @@ class BrevitasONNXManager(ONNXBaseManager):
         BrevitasBiasQuantProxyHandler,
         BrevitasWeightQuantProxyHandler,
         BrevitasDecoupledWeightQuantProxyHandler,
-        BrevitasTruncQuantProxyHandler
+        BrevitasTruncQuantProxyHandler,
+        BrevitasQuantLSTMLayerHandler
     ]
 
     custom_fns = [
@@ -43,11 +48,11 @@ class BrevitasONNXManager(ONNXBaseManager):
     ]
 
     @classmethod
-    def set_export_mode(cls, module: Module, enabled: bool):
-        # proxy level export
-        _set_proxy_export_mode(module, enabled)
+    def set_export_mode(cls, model: Module, enabled: bool):
+        _set_proxy_export_mode(model, enabled)
+        _set_recurrent_layer_export_mode(model, enabled)
 
     @classmethod
     def set_export_handler(cls, module: Module):
-        # proxy level export
         _set_proxy_export_handler(cls, module)
+        _set_recurrent_layer_export_handler(cls, module)

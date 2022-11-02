@@ -229,7 +229,7 @@ class DecoupledRescalingIntQuant(brevitas.jit.ScriptModule):
         scale = threshold / int_threshold
         zero_point = self.zero_point_impl(x, scale, bit_width)
         y = self.decoupled_int_quant(pre_scale, pre_zero_point, scale, zero_point, bit_width, x)
-        return y, pre_scale, pre_zero_point, scale, zero_point, bit_width
+        return y, scale, zero_point, bit_width, pre_scale, pre_zero_point
 
 
 class TruncIntQuant(brevitas.jit.ScriptModule):

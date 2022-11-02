@@ -38,7 +38,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from typing import Optional, Union
+from typing import Optional, Union, Tuple
 from typing_extensions import Protocol, runtime_checkable
 
 from torch import Tensor, nn
@@ -61,9 +61,14 @@ __all__ = [
 
 
 def _is_passthrough_act(quant_injector):
-    if 'passthrough_act' in quant_injector:
+    if 'act_impl' not in quant_injector:
+        return True
+    elif quant_injector.act_impl is None:
+        return True
+    elif 'passthrough_act' in quant_injector:
         return quant_injector.passthrough_act
-    return False
+    else:
+        return False
 
 
 def _is_act_enabled(act_impl, tensor_quant):
@@ -90,6 +95,17 @@ class AccQuantProxyProtocol(QuantProxyProtocol, Protocol):
         ...
 
 
+class _TensorQuantDisabledIdentity(brevitas.jit.ScriptModule):
+
+    def __init__(self, module_to_wrap=None):
+        super(_TensorQuantDisabledIdentity, self).__init__()
+
+    @brevitas.jit.script_method
+    def forward(self, x: Tensor) -> Tuple[
+            Tensor, Optional[Tensor], Optional[Tensor], Optional[Tensor]]:
+        return (x, None, None, None)
+
+
 class FusedActivationQuantProxy(brevitas.jit.ScriptModule):
 
     def __init__(self, activation_impl, tensor_quant):
@@ -107,7 +123,8 @@ class FusedActivationQuantProxy(brevitas.jit.ScriptModule):
 class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
 
     def __init__(self, quant_layer, quant_injector):
-        super(ActQuantProxyFromInjector, self).__init__(quant_layer, quant_injector)
+        QuantProxyFromInjector.__init__(self, quant_layer, quant_injector)
+        ActQuantProxyProtocol.__init__(self)
         self.is_passthrough_act = _is_passthrough_act(quant_injector)
 
     @property
@@ -120,7 +137,10 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
 
     def init_tensor_quant(self):
         tensor_quant = self.quant_injector.tensor_quant
-        act_impl = self.quant_injector.act_impl
+        if 'act_impl' in self.quant_injector:
+            act_impl = self.quant_injector.act_impl 
+        else: 
+            act_impl = None
         is_act_enabled = _is_act_enabled(act_impl, tensor_quant)
         is_quant_enabled = tensor_quant is not None
         self.is_quant_enabled = is_quant_enabled
@@ -128,7 +148,8 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
             self.fused_activation_quant_proxy = FusedActivationQuantProxy(
                 act_impl, tensor_quant)
         elif is_act_enabled and not is_quant_enabled:
-            self.fused_activation_quant_proxy = act_impl
+            self.fused_activation_quant_proxy = FusedActivationQuantProxy(
+                act_impl, _TensorQuantDisabledIdentity())
         elif not is_act_enabled and is_quant_enabled:
             self.fused_activation_quant_proxy = FusedActivationQuantProxy(
                 Identity(), tensor_quant)

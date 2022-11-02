@@ -37,17 +37,22 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-import torch.jit
-from torch import Tensor
 
 from warnings import warn
 from abc import ABCMeta, abstractmethod
-from typing import Optional, Union
+from typing import Optional, Union, Tuple
 from inspect import isclass
+import math
+
+import torch.jit
+from torch import Tensor, nn
+from torch.nn.utils.rnn import PackedSequence
 
 from brevitas import config
 from brevitas.inject import ExtendedInjector, Injector
 from brevitas.quant_tensor import QuantTensor
+from brevitas.common import ExportMixin
+from brevitas.nn.utils import compute_channel_view_shape
 
 from .utils import filter_kwargs
 
@@ -106,69 +111,30 @@ class QuantProxyMixin(object):
             if filter_kwargs(kwargs_prefix, kwargs):
                 warn('Keyword arguments are being passed but they not being used.')
         setattr(self, proxy_name, quant)
+        
 
-
-class QuantLayerMixin(object):
+class QuantLayerMixin(ExportMixin):
     __metaclass__ = ABCMeta
 
     def __init__(
             self,
             return_quant_tensor: bool,
-            export_mode: bool = False,
-            export_debug_name: Optional[str] = None,
-            export_handler: Optional = None,
             cache_inference_quant_inp: bool = False,
             cache_inference_quant_out: bool = False,
             cache_quant_io_metadata_only: bool = True):
+        ExportMixin.__init__(self)
         self.accept_quant_tensor = True
         self.return_quant_tensor = return_quant_tensor
-        self.export_handler = export_handler
         self.cache_inference_quant_inp = cache_inference_quant_inp
         self.cache_inference_quant_out = cache_inference_quant_out
         self.cache_quant_io_metadata_only = cache_quant_io_metadata_only
-        self._export_mode = export_mode
-        self._export_debug_name = export_debug_name
         self._cached_inp = None
         self._cached_out = None
-        self.export_input_debug = False
-        self.export_output_debug = False
-
-    @property
-    def export_debug_name(self):
-        return self._export_debug_name
-
-    @export_debug_name.setter
-    def export_debug_name(self, value):
-        self._export_debug_name = value
 
     @property
     @abstractmethod
     def channelwise_separable(self) -> bool:
         pass
-
-    @property
-    @abstractmethod
-    def requires_export_handler(self):
-        pass
-
-    @property
-    def export_mode(self):
-        if self._export_mode and self.training:
-            raise RuntimeError("Can't enter export mode during training, only during inference")
-        return self._export_mode
-
-    @export_mode.setter
-    def export_mode(self, value):
-        if value and self.requires_export_handler and self.export_handler is None:
-            raise RuntimeError("Can't enable export mode on a layer without an export handler")
-        elif value and not self.requires_export_handler and self.export_handler is None:
-            return  # don't set export mode when it's not required and there is no handler
-        elif value and self.export_handler is not None:
-            self.export_handler.prepare_for_export(self)
-            self.export_handler.attach_debug_info(self)
-        elif not value and self.export_handler is not None:
-            self.export_handler.reset()
-        self._export_mode = value
 
     @property
     def is_quant_input_signed(self) -> Optional[bool]:  # tri-valued logic output
@@ -253,3 +219,172 @@ class QuantLayerMixin(object):
             return quant_output
         else:
             return quant_output.value
+
+
+class QuantRecurrentLayerMixin(ExportMixin):
+    __metaclass__ = ABCMeta
+
+    def __init__(
+            self, 
+            cell: nn.Module,
+            io_quant: nn.Module, 
+            input_size: int,
+            hidden_size: int, 
+            reverse_input: bool, 
+            quantize_output_only: bool, 
+            shared_input_hidden_weights: bool,
+            return_quant_tensor: bool):
+        ExportMixin.__init__(self)
+        self.cell = cell
+        self.io_quant = io_quant
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.reverse_input = reverse_input
+        self.quantize_output_only = quantize_output_only
+        self.shared_input_hidden_weights = shared_input_hidden_weights
+        self.return_quant_tensor = return_quant_tensor
+        self.accept_quant_tensor = True
+        self.fast_mode = True
+        self._fast_cell = None
+
+    @property
+    @abstractmethod
+    def weights_to_share(self):
+        pass
+
+    @property
+    @abstractmethod
+    def quantizers_to_share(self):
+        pass
+
+    @property
+    @abstractmethod
+    def fast_cell(self):
+        pass
+
+    @property
+    def requires_export_handler(self):
+        return True
+
+    def state_dict(self, destination=None, prefix='', keep_vars=False):
+        output_dict = super(QuantRecurrentLayerMixin, self).state_dict(destination, prefix, keep_vars)
+        for key in list(output_dict.keys()):
+            if '_fast_cell' in key:
+                del output_dict[key]
+        return output_dict
+
+    @staticmethod
+    def gate_params_fwd(gate, quant_input):
+        acc_scale = None
+        acc_bit_width = None
+        quant_weight_ih = gate.input_weight()
+        quant_weight_hh = gate.hidden_weight()
+        if quant_input.bit_width is not None:
+            acc_bit_width = None  # TODO
+        if quant_input.scale is not None:
+            acc_scale_shape = compute_channel_view_shape(quant_input.value, channel_dim=1)
+            acc_scale = quant_weight_ih.scale.view(acc_scale_shape)
+            acc_scale = acc_scale * quant_input.scale.view(acc_scale_shape)
+        quant_bias = gate.bias_quant(gate.bias, acc_scale, acc_bit_width)
+        return quant_weight_ih, quant_weight_hh, quant_bias
+
+    def reset_parameters(self) -> None:
+        stdv = 1.0 / math.sqrt(self.hidden_size)
+        for name, weight in self.named_parameters():
+            if 'gate' in name:
+                nn.init.uniform_(weight, -stdv, stdv)
+    
+    def maybe_quantize_input(self, inp):
+        if isinstance(inp, PackedSequence):
+            raise RuntimeError("PackedSequence input currently not supported.")
+        quant_input = inp
+        if not self.quantize_output_only:
+            quant_input = self.io_quant(quant_input)
+        elif not isinstance(inp, QuantTensor):
+            quant_input = QuantTensor(quant_input)
+        return quant_input
+    
+    def maybe_quantize_state(self, inp, state, quant):
+        if state is None:
+            batch_size = inp.size(0) if self.cell.batch_first else inp.size(1)
+            quant_state = torch.zeros(int(batch_size), self.hidden_size, dtype=inp.dtype, device=inp.device)
+            quant_state = QuantTensor(quant_state)
+        else:
+            quant_state = quant(state)
+        return quant_state
+
+    def pack_quant_outputs(self, quant_outputs):
+        # In export mode, quant_outputs has the shape of the output concatenated value
+        if self.export_mode:
+            if self.return_quant_tensor:
+                return QuantTensor(
+                    quant_outputs, 
+                    self.io_quant.scale(), 
+                    self.io_quant.zero_point(), 
+                    self.io_quant.bit_width(), 
+                    self.io_quant.is_signed, 
+                    self.training)
+            else:
+                return quant_outputs
+        seq_dim = 1 if self.cell.batch_first else 0
+        if self.return_quant_tensor:
+            outputs = [QuantTensor(
+                torch.unsqueeze(quant_output[0], dim=seq_dim), 
+                quant_output[1], 
+                quant_output[2], 
+                quant_output[3], 
+                self.io_quant.is_signed, 
+                self.training) for quant_output in quant_outputs]
+        else:
+            outputs = [torch.unsqueeze(o[0], dim=seq_dim) for o in quant_outputs]
+        if self.reverse_input:
+            return torch.cat(list(reversed(outputs)), dim=seq_dim)
+        else:
+            return torch.cat(outputs, dim=seq_dim)
+    
+    def pack_quant_state(self, quant_state, quant):
+        if self.export_mode:
+            if self.return_quant_tensor:
+                quant_state = QuantTensor(
+                    torch.unsqueeze(quant_state, dim=0), 
+                    quant.scale(),
+                    quant.zero_point(),
+                    quant.bit_width(), 
+                    quant.is_signed, 
+                    self.training)
+            else:
+                quant_state = torch.unsqueeze(quant_state, dim=0)
+        else:
+            if self.return_quant_tensor:
+                quant_state = QuantTensor(
+                    torch.unsqueeze(quant_state[0], dim=0), 
+                    quant_state[1], 
+                    quant_state[2], 
+                    quant_state[3], 
+                    quant.is_signed, 
+                    self.training)
+            else:
+                quant_state = torch.unsqueeze(quant_state[0], dim=0)
+        return quant_state
+
+    def _wrap_act_proxy(self, quant_name):
+        
+        class _Wrapper(nn.Module):
+
+            def __init__(self, module_to_wrap=None):
+                super(_Wrapper, self).__init__()
+                if module_to_wrap is None:
+                    module_to_wrap = nn.Identity()
+                self.module_to_wrap = module_to_wrap
+
+            def forward(self, x: torch.Tensor) -> Tuple[
+                    Tensor, Optional[Tensor], Optional[Tensor], Optional[Tensor]]:
+                x = self.module_to_wrap(x)
+                return (x, None, None, None)
+
+        proxy = getattr(self.cell, quant_name)
+        if proxy.fused_activation_quant_proxy is None:
+            proxy = _Wrapper(proxy.fused_activation_quant_proxy)
+        else:
+            proxy = proxy.fused_activation_quant_proxy
+        return proxy

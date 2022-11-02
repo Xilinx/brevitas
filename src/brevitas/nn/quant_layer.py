@@ -96,13 +96,21 @@ class QuantNonLinearActLayer(
             return None
 
     @property
-    def is_quant_act_signed(self):
+    def is_quant_act_signed(self) -> Optional[bool]:  # tri-valued logic output
         if self.is_act_quant_enabled:
             return self.act_quant.is_signed
         elif self._cached_out is not None:
             return self._cached_out.signed
-        else:  # raise exception instead of returning None since None would be falsey
-            raise RuntimeError("Enable quant output caching or act quantization")
+        else:
+            return None
+
+    @property
+    def is_output_quant_enabled(self):
+        return self.is_act_quant_enabled
+
+    @property
+    def is_quant_output_narrow_range(self):
+        return self.is_quant_act_narrow_range
 
     @property
     def is_quant_output_signed(self):  # overrides from QuantLayerMixin

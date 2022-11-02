@@ -9,7 +9,7 @@ from torch.utils import cpp_extension
 import torch
 from torch import Tensor
 
-import brevitas.jit as jit
+from brevitas import jit as jit
 from brevitas import config
 
 
@@ -21,9 +21,9 @@ else:
     torch_version = version.parse(torch.__version__)
 
 
+original_cat = torch.cat
 if torch_version < version.parse('1.7.0'):
     from torch._overrides import has_torch_function, handle_torch_function
-    original_cat = torch.cat
 
     @torch.jit.ignore
     def unsupported_jit_cat(tensors, dim):
@@ -65,8 +65,10 @@ if config.JIT_ENABLED:
             is_python_module=False,
             verbose=config.VERBOSE)
         NATIVE_STE_BACKEND_LOADED = True
-    except:
-        warnings.warn("Brevitas' native STE backend is enabled but couldn't be loaded")
+    except Exception as e:
+        warnings.warn(f"Brevitas' native STE backend is enabled but couldn't be loaded. Set env BREVITAS_VERBOSE=1 for more info.")
         NATIVE_STE_BACKEND_LOADED = False
 else:
     NATIVE_STE_BACKEND_LOADED = False
+
+from brevitas import ops as ops

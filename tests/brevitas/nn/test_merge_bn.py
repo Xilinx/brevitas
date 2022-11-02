@@ -7,7 +7,7 @@ OUT_CH = 3
 IN_CH = 2
 FEATURES = 10
 KERNEL_SIZE = 3
-RTOL = 0.1  # this is quite high but unfortunately necessary
+RTOL = 1e-3
 
 
 def test_merge_bn():

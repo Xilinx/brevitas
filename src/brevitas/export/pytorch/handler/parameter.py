@@ -15,9 +15,6 @@ class PytorchQuantWBIOLHandler(PytorchQuantLayerHandler):
 
     def __init__(self):
         super().__init__()
-        self.reset()
-
-    def reset(self):
         self.qf_impl = None
         self.input_quant_impl = None
         self.weight_quant_impl = None

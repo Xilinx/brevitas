@@ -9,7 +9,7 @@ except ImportError:
 def env_to_bool(name, default):
     return bool(strtobool(os.environ.get(name, "{}".format(default))))
 
-
+REINIT_ON_STATE_DICT_LOAD = env_to_bool('BREVITAS_REINIT_ON_STATE_DICT_LOAD', True)
 IGNORE_MISSING_KEYS = env_to_bool('BREVITAS_IGNORE_MISSING_KEYS', False)
 JIT_ENABLED = env_to_bool('BREVITAS_JIT', False) and _enabled
 VERBOSE = env_to_bool('BREVITAS_VERBOSE', False)
