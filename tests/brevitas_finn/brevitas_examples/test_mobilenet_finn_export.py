@@ -4,13 +4,13 @@ import pytest
 from packaging.version import parse
 import numpy as np
 import torch
-import finn.core.onnx_exec as oxe
-from finn.core.modelwrapper import ModelWrapper
-from finn.transformation.fold_constants import FoldConstants
-from finn.transformation.infer_shapes import InferShapes
-from finn.transformation.general import GiveUniqueNodeNames
-from finn.transformation.general import RemoveStaticGraphInputs
-from finn.transformation.double_to_single_float import DoubleToSingleFloat
+import qonnx.core.onnx_exec as oxe
+from qonnx.core.modelwrapper import ModelWrapper
+from qonnx.transformation.fold_constants import FoldConstants
+from qonnx.transformation.infer_shapes import InferShapes
+from qonnx.transformation.general import GiveUniqueNodeNames
+from qonnx.transformation.general import RemoveStaticGraphInputs
+from qonnx.transformation.double_to_single_float import DoubleToSingleFloat
 
 from brevitas import torch_version
 from brevitas_examples.imagenet_classification import quant_mobilenet_v1_4b

@@ -32,13 +32,13 @@ import pytest
 
 import numpy as np
 import torch
-import finn.core.onnx_exec as oxe
-from finn.core.modelwrapper import ModelWrapper
-from finn.transformation.fold_constants import FoldConstants
-from finn.transformation.infer_shapes import InferShapes
-from finn.transformation.general import GiveUniqueNodeNames
-from finn.transformation.general import RemoveStaticGraphInputs
-from finn.transformation.double_to_single_float import DoubleToSingleFloat
+import qonnx.core.onnx_exec as oxe
+from qonnx.core.modelwrapper import ModelWrapper
+from qonnx.transformation.fold_constants import FoldConstants
+from qonnx.transformation.infer_shapes import InferShapes
+from qonnx.transformation.general import GiveUniqueNodeNames
+from qonnx.transformation.general import RemoveStaticGraphInputs
+from qonnx.transformation.double_to_single_float import DoubleToSingleFloat
 
 from brevitas.quant_tensor import QuantTensor
 from brevitas.export import FINNManager
