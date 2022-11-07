@@ -5,9 +5,9 @@ import torch
 import brevitas.onnx as bo
 from brevitas.nn import QuantLinear, QuantConv2d, QuantIdentity
 from brevitas.quant import Int16Bias
-from finn.core.modelwrapper import ModelWrapper
-import finn.core.onnx_exec as oxe
-from finn.transformation.infer_shapes import InferShapes
+from qonnx.core.modelwrapper import ModelWrapper
+import qonnx.core.onnx_exec as oxe
+from qonnx.transformation.infer_shapes import InferShapes
 
 
 @pytest.mark.parametrize("bias", [True, False])
