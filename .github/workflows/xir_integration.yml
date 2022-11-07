@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python_version: ['3.6', '3.7']
+        python_version: ['3.7']
         pytorch_version: ['1.5.1']
         platform: ['ubuntu-latest']
 
