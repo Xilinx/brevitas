@@ -3,12 +3,12 @@ import os
 import torch
 import numpy as np
 import pytest
-import finn.core.onnx_exec as oxe
-from finn.core.modelwrapper import ModelWrapper
-from finn.core.datatype import DataType
-from finn.transformation.infer_shapes import InferShapes
-from finn.transformation.infer_datatypes import InferDataTypes
-from finn.util.basic import gen_finn_dt_tensor
+import qonnx.core.onnx_exec as oxe
+from qonnx.core.modelwrapper import ModelWrapper
+from qonnx.core.datatype import DataType
+from qonnx.transformation.infer_shapes import InferShapes
+from qonnx.transformation.infer_datatypes import InferDataTypes
+from qonnx.util.basic import gen_finn_dt_tensor
 
 from brevitas.export import FINNManager
 from brevitas.nn import QuantAvgPool2d
