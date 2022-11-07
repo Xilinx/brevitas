@@ -13,7 +13,7 @@ ORT_INTEGRATION_YML = 'ort_integration.yml'
 
 
 # Data shared betwen Nox sessions and Github Actions, formatted as tuples
-PYTHON_VERSIONS = ('3.6', '3.7', '3.8')
+PYTHON_VERSIONS = ('3.7', '3.8')
 PYTORCH_VERSIONS = ('1.5.1', '1.6.0', '1.7.1', '1.8.1', '1.9.1', '1.10.0')
 JIT_STATUSES = ('jit_disabled',)
 
@@ -23,16 +23,6 @@ FINN_PLATFORM_LIST = ['windows-latest', 'ubuntu-latest']
 
 EXCLUDE_LIST = []
 
-PYTEST_EXAMPLE_EXCLUDE_LIST_EXTRA = [od([('platform', 'macos-latest'),
-                                         ('pytorch_version', '1.5.0'),
-                                         ('python_version', '3.6')])]
-
-PYXIR_INTEGRATION_EXCLUDE_LIST_EXTRA = [od([('platform', 'macos-latest'),
-                                            ('pytorch_version', '1.5.0'),
-                                            ('python_version', '3.6')])]
-
-FINN_INTEGRATION_EXCLUDE_LIST_EXTRA = [od([('platform', 'windows-latest'),
-                                           ('python_version', '3.6')])]
 
 MATRIX = od([('python_version', list(PYTHON_VERSIONS)),
              ('pytorch_version', list(PYTORCH_VERSIONS)),
@@ -117,7 +107,7 @@ def gen_pytest_yml():
 def gen_examples_pytest_yml():
     pytest = Action(
         'Examples Pytest',
-        EXCLUDE_LIST + PYTEST_EXAMPLE_EXCLUDE_LIST_EXTRA,
+        EXCLUDE_LIST,
         combine_od_list([MATRIX, PYTEST_MATRIX_EXTRA]),
         EXAMPLES_PYTEST_STEP_LIST)
     pytest.gen_yaml(BASE_YML_TEMPLATE, EXAMPLES_PYTEST_YML)
@@ -135,7 +125,7 @@ def gen_test_develop_install_yml():
 def gen_test_brevitas_finn_integration():
     test_finn_integration = Action(
         'Test Brevitas-FINN integration',
-        EXCLUDE_LIST + FINN_INTEGRATION_EXCLUDE_LIST_EXTRA,
+        EXCLUDE_LIST,
         FINN_MATRIX,
         FINN_INTEGRATION_STEP_LIST)
     test_finn_integration.gen_yaml(BASE_YML_TEMPLATE, FINN_INTEGRATION_YML)
@@ -144,7 +134,7 @@ def gen_test_brevitas_finn_integration():
 def gen_test_brevitas_pyxir_integration():
     test_pyxir_integration = Action(
         'Test Brevitas-PyXIR integration',
-        EXCLUDE_LIST + PYXIR_INTEGRATION_EXCLUDE_LIST_EXTRA,
+        EXCLUDE_LIST,
         MATRIX,
         PYXIR_INTEGRATION_STEP_LIST)
     test_pyxir_integration.gen_yaml(BASE_YML_TEMPLATE, PYXIR_INTEGRATION_YML)

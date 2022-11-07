@@ -8,7 +8,7 @@ XIR_INTEGRATION_YML = 'xir_integration.yml'
 
 
 # Data shared betwen Nox sessions and Github Actions, formatted as tuples
-PYTHON_VERSIONS = ('3.6', '3.7')
+PYTHON_VERSIONS = ('3.7',)
 PYTORCH_VERSIONS = ('1.5.1',)
 
 # Data used only by Github Actions, formatted as lists or lists of oredered dicts
