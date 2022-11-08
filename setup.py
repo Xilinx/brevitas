@@ -77,7 +77,6 @@ setup(name="brevitas",
               read_requirements('requirements-finn-integration-lt-pt150.txt'),
           "finn_integration_ge_pt150":
               read_requirements('requirements-finn-integration-ge-pt150.txt'),
-          "vitis_ai_integration": read_requirements('requirements-vitis-ai-integration.txt'),
           "ort_integration": read_requirements('requirements-ort-integration.txt')
       },
       packages=find_packages('src'),
