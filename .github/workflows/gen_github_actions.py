@@ -8,7 +8,6 @@ PYTEST_YML = 'pytest.yml'
 EXAMPLES_PYTEST_YML = 'examples_pytest.yml'
 DEVELOP_INSTALL_YML = 'develop_install.yml'
 FINN_INTEGRATION_YML = 'finn_integration.yml'
-PYXIR_INTEGRATION_YML = 'pyxir_integration.yml'
 ORT_INTEGRATION_YML = 'ort_integration.yml'
 
 
@@ -131,15 +130,6 @@ def gen_test_brevitas_finn_integration():
     test_finn_integration.gen_yaml(BASE_YML_TEMPLATE, FINN_INTEGRATION_YML)
 
 
-def gen_test_brevitas_pyxir_integration():
-    test_pyxir_integration = Action(
-        'Test Brevitas-PyXIR integration',
-        EXCLUDE_LIST,
-        MATRIX,
-        PYXIR_INTEGRATION_STEP_LIST)
-    test_pyxir_integration.gen_yaml(BASE_YML_TEMPLATE, PYXIR_INTEGRATION_YML)
-
-
 def gen_test_brevitas_ort_integration():
     test_ort_integration = Action(
         'Test Brevitas-ORT integration',
@@ -154,5 +144,4 @@ if __name__ == '__main__':
     gen_examples_pytest_yml()
     gen_test_develop_install_yml()
     gen_test_brevitas_finn_integration()
-    gen_test_brevitas_pyxir_integration()
     gen_test_brevitas_ort_integration()
