@@ -14,7 +14,7 @@ from qonnx.transformation.double_to_single_float import DoubleToSingleFloat
 
 from brevitas import torch_version
 from brevitas_examples.imagenet_classification import quant_mobilenet_v1_4b
-from brevitas.export import FINNManager
+from brevitas.export import export_finn_onnx
 
 ort_mac_fail = pytest.mark.skipif(
     torch_version >= parse('1.5.0')
@@ -40,7 +40,7 @@ def test_mobilenet_v1_4b(pretrained):
     torch_tensor = torch.from_numpy(numpy_tensor).float()
     # do forward pass in PyTorch/Brevitas
     expected = mobilenet(torch_tensor).detach().numpy()
-    FINNManager.export_onnx(mobilenet, INPUT_SIZE, finn_onnx)
+    export_finn_onnx(mobilenet, input_shape=INPUT_SIZE, export_path=finn_onnx)
     model = ModelWrapper(finn_onnx)
     model = model.transform(GiveUniqueNodeNames())
     model = model.transform(DoubleToSingleFloat())

@@ -41,7 +41,7 @@ from qonnx.transformation.general import RemoveStaticGraphInputs
 from qonnx.transformation.double_to_single_float import DoubleToSingleFloat
 
 from brevitas.quant_tensor import QuantTensor
-from brevitas.export import FINNManager
+from brevitas.export import export_finn_onnx
 from brevitas_examples.bnn_pynq.models import model_with_cfg
 
 FC_INPUT_SIZE = (1, 1, 28, 28)
@@ -78,7 +78,7 @@ def test_brevitas_fc_onnx_export_and_exec(size, wbits, abits, pretrained):
     input_t = torch.from_numpy(input_a * scale)
     input_qt = QuantTensor(
         input_t, scale=torch.tensor(scale), bit_width=torch.tensor(8.0), signed=False)
-    FINNManager.export(fc, export_path=finn_onnx, input_t=input_qt)
+    export_finn_onnx(fc, export_path=finn_onnx, input_t=input_qt)
     model = ModelWrapper(finn_onnx)
     model = model.transform(GiveUniqueNodeNames())
     model = model.transform(DoubleToSingleFloat())
@@ -113,7 +113,7 @@ def test_brevitas_cnv_onnx_export_and_exec(wbits, abits, pretrained):
     input_t = torch.from_numpy(input_a * scale)
     input_qt = QuantTensor(
         input_t, scale=torch.tensor(scale), bit_width=torch.tensor(8.0), signed=False)
-    FINNManager.export(cnv, export_path=finn_onnx, input_t=input_qt)
+    export_finn_onnx(cnv, export_path=finn_onnx, input_t=input_qt)
     model = ModelWrapper(finn_onnx)
     model = model.transform(GiveUniqueNodeNames())
     model = model.transform(DoubleToSingleFloat())

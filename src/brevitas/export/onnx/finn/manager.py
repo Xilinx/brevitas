@@ -120,7 +120,10 @@ class FINNManager(ONNXBaseManager):
         if ((input_t is not None and isinstance(input_t, QuantTensor)
                 or args is not None and isinstance(args, QuantTensor))
                 and bool(input_t) != bool(args)):
-            args = args and input_t
+            
+            args = args or input_t # If either one is not None, args will be not None
+            input_t = None # Keep only args as not None
+
             if args.is_not_none:
                 assert args.is_valid, 'Input QuantTensor is not properly quantized'
             training_state = module.training
