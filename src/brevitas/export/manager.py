@@ -269,7 +269,10 @@ class BaseManager(ABC):
             module = module.eval()
             module.apply(cls.set_export_handler)
             # do a forward pass with the input to e.g. store input/output shapes
-            cls._cache_inp_out(module, *args)
+            if isinstance(args, (Tensor, QuantTensor)):
+                cls._cache_inp_out(module, args)
+            else:
+                cls._cache_inp_out(module, *args)
             # unpack quant tensor
             if isinstance(args, QuantTensor):
                 args = args.value
