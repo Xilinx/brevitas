@@ -96,41 +96,38 @@ class MinUintZeroPoint(brevitas.jit.ScriptModule):
         return out
 
 
-class ParameterFromRuntimeMinZeroPoint(brevitas.jit.ScriptModule):
+class ParameterFromRuntimeZeroPoint(brevitas.jit.ScriptModule):
     __constants__ = ['stats_permute_dims',
                      'collect_stats_steps',
+                     'zero_point_shape',
                      'momentum']
 
     def __init__(
             self,
             collect_stats_steps: int,
             int_quant: Module,
-            stats_reduce_dim: Optional[int],
+            zero_point_stats_impl: Optional[int],
             zero_point_shape: Tuple[int, ...],
             zero_point_stats_input_view_shape_impl: Module,
-            zero_point_stats_permute_dims: Optional[Tuple[int, ...]] = None,
             zero_point_stats_momentum: Optional[float] = DEFAULT_MOMENTUM) -> None:
-        super(ParameterFromRuntimeMinZeroPoint, self).__init__()
+        super(ParameterFromRuntimeZeroPoint, self).__init__()
         assert collect_stats_steps > 0, 'Steps should be more than 0'
-        if zero_point_shape != SCALAR_SHAPE and zero_point_stats_permute_dims is None:
-            raise RuntimeError("Per channel runtime stats require a permute shape")
         self.collect_stats_steps = collect_stats_steps
         self.counter: int = brevitas.jit.Attribute(0, int)
-        self.stats_permute_dims = zero_point_stats_permute_dims
+        self.zero_point_shape = zero_point_shape
         self.stats_input_view_shape_impl = zero_point_stats_input_view_shape_impl
         self.momentum = zero_point_stats_momentum
         self.value = Parameter(torch.full(zero_point_shape, 0.0))
         self.register_buffer('buffer', torch.full(zero_point_shape, 0.0))
-        self.negative_min_or_zero = NegativeMinOrZero(stats_reduce_dim)
+        self.zero_point_stats_impl = zero_point_stats_impl
         self.int_quant = int_quant
 
     @brevitas.jit.script_method
     def training_forward(self, x) -> Tensor:
         if self.counter < self.collect_stats_steps:
-            if self.stats_permute_dims is not None:
-                x = x.permute(*self.stats_permute_dims).contiguous()
             stats_input = self.stats_input_view_shape_impl(x)
-            stats = self.negative_min_or_zero(stats_input)
+            stats = self.zero_point_stats_impl(stats_input)
+            stats = stats.view(self.zero_point_shape)
             new_counter = self.counter + 1
             if self.counter == 0:
                 inplace_tensor_add(self.buffer, stats.detach())
@@ -162,11 +159,27 @@ class ParameterFromRuntimeMinZeroPoint(brevitas.jit.ScriptModule):
         out = self.int_quant.to_int(scale, min_int, bit_width, out)
         return out
 
+    def state_dict(self, destination=None, prefix='', keep_vars=False):
+        output_dict = super(ParameterFromRuntimeZeroPoint, self).state_dict(
+            destination, prefix, keep_vars)        
+        # Avoid saving the buffer
+        del output_dict[prefix + 'buffer']
+        # Avoid saving the init value
+        if self.counter == 0:
+            del output_dict[prefix + 'value']
+        # Save buffer into value for any non-zero number of collection steps
+        elif self.counter <= self.collect_stats_steps:
+            output_dict[prefix + 'value'] = self.buffer
+        return output_dict
+
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
                               missing_keys, unexpected_keys, error_msgs):
-        super(ParameterFromRuntimeMinZeroPoint, self)._load_from_state_dict(
+        super(ParameterFromRuntimeZeroPoint, self)._load_from_state_dict(
             state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
         value_key = prefix + 'value'
+        buffer_key = prefix + 'buffer'
+        # Buffer is supposed to be always missing
+        missing_keys.remove(buffer_key)
         # Pytorch stores training flag as a buffer with JIT enabled
         training_key = prefix + 'training'
         if training_key in missing_keys:

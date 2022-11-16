@@ -45,12 +45,12 @@ from brevitas.inject import ExtendedInjector
 from brevitas.inject.enum import ScalingImplType, StatsOp, RestrictValueType
 from brevitas.inject.enum import QuantType, BitWidthImplType, FloatToIntImplType
 from brevitas.core.zero_point import ZeroZeroPoint, MinUintZeroPoint
-from brevitas.core.zero_point import ParameterFromRuntimeMinZeroPoint
+from brevitas.core.zero_point import ParameterFromRuntimeZeroPoint
 from brevitas.core.quant import ClampedBinaryQuant
 from brevitas.core.scaling import IntScaling, ParameterScaling, StatsFromParameterScaling
 from brevitas.core.scaling import SCALING_STATS_REDUCE_DIM, SCALAR_SHAPE
 from brevitas.core.restrict_val import FloatRestrictValue
-from brevitas.core.stats import AbsMax, AbsMaxL2
+from brevitas.core.stats import AbsMax, AbsMaxL2, NegativeMinOrZero
 from brevitas.core.function_wrapper.ops_ste import CeilSte
 from brevitas.core.bit_width import BitWidthConst
 from brevitas.core.quant.int import DecoupledRescalingIntQuant
@@ -179,10 +179,11 @@ class ShiftedRuntimeMinToUintQuant(ExtendedInjector):
     float_to_int_impl_type = FloatToIntImplType.ROUND
     narrow_range = False
     signed = False
-    zero_point_impl = ParameterFromRuntimeMinZeroPoint
+    zero_point_impl = ParameterFromRuntimeZeroPoint
+    zero_point_stats_impl = NegativeMinOrZero
     zero_point_shape = this.scaling_shape
     zero_point_stats_input_view_shape_impl = this.scaling_stats_input_view_shape_impl
-
+    
 
 class PerChannelFloatScaling8bit(ExtendedInjector):
     """
