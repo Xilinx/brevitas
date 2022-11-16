@@ -9,6 +9,7 @@ from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import ClampQuantProxyFromInjector
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
+from brevitas.nn import QuantLinear
 from brevitas.nn.utils import compute_channel_view_shape
 from brevitas.quant_tensor import QuantTensor
 from .base import Transform
@@ -116,24 +117,35 @@ class DisableQuantInference(DisableEnableQuantization):
 
 class BiasCorrection(DisableEnableQuantization):
 
-    def __init__(self, iterations):
+    LAYERS = (QuantWBIOL,)
+
+    def __init__(self, iterations, layers=LAYERS):
         super(BiasCorrection, self).__init__()
         self.iterations = iterations
+        self.layers = layers
         self.curr_iter = 0
         self.correction_map = {}
         self.float_mean_map = {}
         self.collect_float_mean_hooks = []
         self.correct_bias_hooks = []
 
-    def compute_mean(self, inp):
-        inp = inp.transpose(0, 1)
+    def compute_mean(self, inp, transpose_dim):
+        inp = inp.transpose(0, transpose_dim)
         return inp.reshape(inp.shape[0], -1).mean(dim=1).detach()
 
-    def collect_float_mean_hook(self, module, inp, name):
+    def channel_dim(self, inp, module):
+        if len(inp.shape) == 3 and isinstance(module, QuantLinear):
+            channel_dim = 2
+        else:
+            channel_dim = 1
+        return channel_dim
+
+    def collect_float_mean_hook(self, module, inp, name, parent_module):
         inp = self.unpack_input(inp)
         if name in self.float_mean_map.keys():
             raise RuntimeError("Module to bias-correct called multiple times, not supported.")
-        self.float_mean_map[name] = self.compute_mean(inp)
+        transpose_dim = self.channel_dim(inp, parent_module)
+        self.float_mean_map[name] = self.compute_mean(inp, transpose_dim)
 
     def update_correction(self, name, error):
         if name not in self.correction_map:
@@ -151,19 +163,20 @@ class BiasCorrection(DisableEnableQuantization):
     def correct_bias_hook(self, module, inp, name, parent_module):
         inp = self.unpack_input(inp)
         if name in self.float_mean_map.keys():
-            quant_mean = self.compute_mean(inp)
+            transpose_dim = self.channel_dim(inp, parent_module)
+            quant_mean = self.compute_mean(inp, transpose_dim)
             error = self.float_mean_map[name] - quant_mean
             self.update_correction(name, error)
             if self.curr_iter == self.iterations - 1:
                 self.apply_correction(name, parent_module)
             del self.float_mean_map[name]
-            inp_broadcast_shape = compute_channel_view_shape(inp, channel_dim=1)
+            inp_broadcast_shape = compute_channel_view_shape(inp, channel_dim=self.channel_dim(inp, parent_module))
             return inp + error.reshape(inp_broadcast_shape)
 
     def collect_float_mean(self, model, *args, **kwargs):
         for name, module in model.named_modules():
-            if isinstance(module, QuantWBIOL):
-                hook_fn = partial(self.collect_float_mean_hook, name=name)
+            if isinstance(module, self.layers):
+                hook_fn = partial(self.collect_float_mean_hook, name=name, parent_module=module)
                 hook = module.output_quant.register_forward_pre_hook(hook_fn)
                 self.collect_float_mean_hooks.append(hook)
         model(*args, **kwargs)
@@ -173,7 +186,7 @@ class BiasCorrection(DisableEnableQuantization):
 
     def correct_bias(self, model, *args, **kwargs):
         for name, module in model.named_modules():
-            if isinstance(module, QuantWBIOL):
+            if isinstance(module, self.layers):
                 hook_fn = partial(self.correct_bias_hook, name=name, parent_module=module)
                 hook = module.output_quant.register_forward_pre_hook(hook_fn)
                 self.correct_bias_hooks.append(hook)
