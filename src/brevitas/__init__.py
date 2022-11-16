@@ -53,7 +53,8 @@ except DistributionNotFound:
     pass
 
 
-if config.JIT_ENABLED:
+if config.JIT_ENABLED or config.NATIVE_STE_BACKEND_ENABLED:
+    config.NATIVE_STE_BACKEND_ENABLED = True  # for consistency, in case only JIT_ENABLED was true
     extensions_dir = os.path.join(pkg_dir, 'csrc')
     sources = glob.glob(os.path.join(extensions_dir, '*.cpp'))
     sources = [os.path.join(extensions_dir, s) for s in sources]
@@ -66,7 +67,9 @@ if config.JIT_ENABLED:
             verbose=config.VERBOSE)
         NATIVE_STE_BACKEND_LOADED = True
     except Exception as e:
-        warnings.warn(f"Brevitas' native STE backend is enabled but couldn't be loaded. Set env BREVITAS_VERBOSE=1 for more info.")
+        warnings.warn(f"Brevitas' native STE backend is enabled but couldn't be loaded. Exception: {e}.")
+        if not config.VERBOSE:
+            warnings.warn("Set env BREVITAS_VERBOSE=1 for more info.")
         NATIVE_STE_BACKEND_LOADED = False
 else:
     NATIVE_STE_BACKEND_LOADED = False
