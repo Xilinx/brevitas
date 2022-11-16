@@ -63,8 +63,6 @@ class _RestrictClampValue(brevitas.jit.ScriptModule):
             restrict_value_impl: Optional[Module]):
         super(_RestrictClampValue, self).__init__()
         if scaling_min_val is not None and scaling_min_val != 0:
-            if restrict_value_impl is not None:
-                scaling_min_val = restrict_value_impl.restrict_init_float(scaling_min_val)
             self.clamp_min_ste = ScalarClampMinSte(scaling_min_val)
         else:
             self.clamp_min_ste = Identity()
@@ -76,6 +74,41 @@ class _RestrictClampValue(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
         x = self.restrict_value_impl(x)
+        x = self.clamp_min_ste(x)
+        return x
+
+
+class _RestrictValue(brevitas.jit.ScriptModule):
+
+    def __init__(
+            self,
+            restrict_value_impl: Optional[Module]):
+        super(_RestrictValue, self).__init__()
+        if restrict_value_impl is not None:
+            self.restrict_value_impl = restrict_value_impl
+        else:
+            self.restrict_value_impl = Identity()
+
+    @brevitas.jit.script_method
+    def forward(self, x: torch.Tensor):
+        x = self.restrict_value_impl(x)
+        return x
+
+
+class _ClampValue(brevitas.jit.ScriptModule):
+
+    def __init__(
+            self,
+            scaling_min_val: Optional[float]):
+        super(_ClampValue, self).__init__()
+        if scaling_min_val is not None and scaling_min_val != 0:
+            self.clamp_min_ste = ScalarClampMinSte(scaling_min_val)
+        else:
+            self.clamp_min_ste = Identity()
+        self.min_val = scaling_min_val
+
+    @brevitas.jit.script_method
+    def forward(self, x: torch.Tensor):
         x = self.clamp_min_ste(x)
         return x
 

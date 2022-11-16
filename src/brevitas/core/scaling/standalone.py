@@ -51,7 +51,7 @@ from brevitas.function import abs_binary_sign_grad
 from brevitas.core.function_wrapper import Identity
 from brevitas.core.function_wrapper import OverBatchOverTensorView
 from brevitas.core.utils import StatelessBuffer, inplace_momentum_update, inplace_tensor_mul
-from brevitas.core.restrict_val import _RestrictClampValue
+from brevitas.core.restrict_val import _RestrictClampValue, _RestrictValue, _ClampValue
 from brevitas.core.stats import _Stats, SCALAR_SHAPE, DEFAULT_MOMENTUM
 
 
@@ -253,7 +253,8 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
         self.momentum = scaling_stats_momentum
         self.register_buffer('buffer', torch.full(scaling_shape, 1.0))
         self.value = Parameter(torch.full(scaling_shape, 1.0))
-        self.restrict_clamp_scaling = _RestrictClampValue(scaling_min_val, restrict_scaling_impl)
+        self.restrict_scaling = _RestrictValue(restrict_scaling_impl)
+        self.clamp_scaling = _ClampValue(scaling_min_val)
         if restrict_scaling_impl is not None:
             self.restrict_inplace_preprocess = restrict_scaling_impl.restrict_init_inplace_module()
             self.restrict_preprocess = restrict_scaling_impl.restrict_init_module()
@@ -266,25 +267,24 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
         if self.counter < self.collect_stats_steps:
             stats_input = self.stats_input_view_shape_impl(stats_input)
             stats = self.stats(stats_input)
+            # workaround to avoid find_ununsed_parameter=True in DDP
+            stats = stats + 0. * self.value # stats gradient will change from None to 0.
+            clamped_stats = self.clamp_scaling(stats)
             new_counter = self.counter + 1
             if self.counter == 0:
-                inplace_tensor_mul(self.buffer, stats.detach())
+                inplace_tensor_mul(self.buffer, clamped_stats.detach())
             else:
                 inplace_momentum_update(
-                    self.buffer, stats.detach(), self.momentum, self.counter, new_counter)
+                    self.buffer, clamped_stats.detach(), self.momentum, self.counter, new_counter)
             self.counter = new_counter
-            # workaround to avoid find_ununsed_parameter=True in DDP
-            stats = stats + 0. * self.value
-            # make sure clipping is called
-            return abs_binary_sign_grad(
-                self.restrict_clamp_scaling(self.restrict_preprocess(stats)))
+            return abs_binary_sign_grad(clamped_stats)
         elif self.counter == self.collect_stats_steps:
             self.restrict_inplace_preprocess(self.buffer)
             inplace_tensor_mul(self.value.detach(), self.buffer)
             self.counter = self.counter + 1
-            return abs_binary_sign_grad(self.restrict_clamp_scaling(self.value))
+            return abs_binary_sign_grad(self.clamp_scaling(self.restrict_scaling(self.value)))
         else:
-            return abs_binary_sign_grad(self.restrict_clamp_scaling(self.value))
+            return abs_binary_sign_grad(self.clamp_scaling(self.restrict_scaling(self.value)))
 
     @brevitas.jit.script_method
     def forward(self, stats_input: Tensor) -> Tensor:
@@ -296,7 +296,7 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
                 out = self.restrict_preprocess(out)
             else:
                 out = self.value
-            out = abs_binary_sign_grad(self.restrict_clamp_scaling(out))
+            out = abs_binary_sign_grad(self.clamp_scaling(self.restrict_scaling(out)))
         return out
 
     def state_dict(self, destination=None, prefix='', keep_vars=False):
