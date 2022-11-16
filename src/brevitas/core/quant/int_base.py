@@ -107,8 +107,8 @@ class IntQuant(brevitas.jit.ScriptModule):
         y = y + zero_point
         min_int_val = self.min_int(bit_width)
         max_int_val = self.max_int(bit_width)
-        y = self.tensor_clamp_impl(y, min_val=min_int_val, max_val=max_int_val)
         y = self.float_to_int_impl(y)
+        y = self.tensor_clamp_impl(y, min_val=min_int_val, max_val=max_int_val)
         return y
 
     @brevitas.jit.script_method
@@ -190,8 +190,8 @@ class DecoupledIntQuant(brevitas.jit.ScriptModule):
         y = y + pre_zero_point
         min_int_val = self.min_int(bit_width)
         max_int_val = self.max_int(bit_width)
-        y = self.tensor_clamp_impl(y, min_val=min_int_val, max_val=max_int_val)
         y = self.float_to_int_impl(y)
+        y = self.tensor_clamp_impl(y, min_val=min_int_val, max_val=max_int_val)
         return y
 
     @brevitas.jit.script_method
