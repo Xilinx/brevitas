@@ -9,9 +9,10 @@ from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import ClampQuantProxyFromInjector
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
-from brevitas.nn import QuantLinear
+from brevitas.nn import QuantLinear, QuantHardTanh
 from brevitas.nn.utils import compute_channel_view_shape
 from brevitas.quant_tensor import QuantTensor
+import torch.nn.functional as F
 from .base import Transform
 
 __all__ = [
@@ -75,6 +76,13 @@ class DisableEnableQuantization(Transform, ABC):
         inp = self.unpack_input(inp)
         if module.fused_activation_quant_proxy is not None:
             inp = module.fused_activation_quant_proxy.activation_impl(inp)
+        # consider the first module as representative for the activation fn
+        # as this is what would happen with a shared act_quant
+        # this gets called both during (empty) input_quant and act_quant
+        # but for HardTanh it's not an issue
+        if isinstance(module.tracked_module_list[0], QuantHardTanh):
+            inp = F.hardtanh(
+                inp, min_val=module.quant_injector.min_val, max_val=module.quant_injector.max_val)
         return QuantTensor(value=inp, training=module.training)
     
     def disable_act_quantization(self, model):
