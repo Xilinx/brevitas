@@ -98,10 +98,15 @@ class StatsOp(AutoName):
     """
 
     """
+    # One sided statistics over absolute value
+    # Typically adopted for symmetric quantization
     MAX = auto()
     AVE = auto()
     MAX_AVE = auto()
     MEAN_SIGMA_STD = auto()
     MEAN_LEARN_SIGMA_STD = auto()
     PERCENTILE = auto()
+    # Two sided statistics
+    # Typically adopted for asymmetric quantization
     MIN_MAX = auto()
+    PERCENTILE_INTERVAL = auto()

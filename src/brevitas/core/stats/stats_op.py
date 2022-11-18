@@ -78,10 +78,12 @@ class NegativeMinOrZero(brevitas.jit.ScriptModule):
 class AbsPercentile(brevitas.jit.ScriptModule):
     __constants__ = ['q', 'stats_reduce_dim']
 
-    def __init__(self, percentile_q: float, stats_reduce_dim: Optional[int]):
+    def __init__(self, high_percentile_q: float, stats_reduce_dim: Optional[int], percentile_q = None):
         super(AbsPercentile, self).__init__()
-        assert percentile_q <= 100, "q has to be a percentage"
-        self.q = percentile_q
+        if percentile_q is not None:
+            raise RuntimeError("percentile_q is deprecated, please pass high_percentile_q.")
+        assert high_percentile_q <= 100, "q has to be a percentage"
+        self.q = high_percentile_q
         self.stats_reduce_dim = stats_reduce_dim
 
     @brevitas.jit.script_method
