@@ -26,6 +26,10 @@ class StdQCDQONNXQuantProxyHandler(
     def clip_over_integers(self):
         return True
     
+    @property
+    def flatten_dequantize_params(self):
+        return True
+    
     @classmethod    
     def int8_dtype(cls):
         return torch.int8
@@ -67,6 +71,7 @@ class StdQCDQONNXActQuantProxyHandler(
     StdQCDQONNXQuantProxyHandler, QCDQActQuantProxyHandlerMixin):
     pass
 
+
 class StdQCDQONNXBiasQuantProxyHandler(
     ONNXBaseHandler, QCDQBiasQuantProxyHandlerMixin):
     
@@ -81,6 +86,10 @@ class StdQCDQONNXBiasQuantProxyHandler(
     @classmethod    
     def int32_dtype(cls):
         return torch.int32
+    
+    @property
+    def flatten_dequantize_params(self):
+        return True
     
     def dequantize_fn(self, x, scale, zero_point, axis):
         return DequantizeLinearFn.apply(x, scale, zero_point, axis)

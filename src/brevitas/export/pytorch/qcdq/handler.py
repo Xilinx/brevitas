@@ -23,6 +23,10 @@ class TorchQCDQQuantProxyHandler(
     @property
     def clip_over_integers(self):
         return False
+    
+    @property
+    def flatten_dequantize_params(self):
+        return False
 
     @classmethod    
     def int8_dtype(cls):
@@ -43,16 +47,16 @@ class TorchQCDQQuantProxyHandler(
         
     def quantize_fn(self, x, scale, zero_point, dtype, axis, bit_width=None):
         if axis is None:
-            return torch.quantize_per_tensor(x, scale, zero_point, dtype)
+            y = torch.quantize_per_tensor(x, scale, zero_point, dtype)
         else:
-            return torch.quantize_per_channel(x, scale, zero_point, axis, dtype)
+            y = torch.quantize_per_channel(x, scale, zero_point, axis, dtype)
+        return y.int_repr()
     
     def clip_fn(self, x, min_val, max_val):
-        y = torch.where(x > max_val, max_val, x)
-        return torch.where(y < min_val, min_val, y)
+        return torch.clip(x, min_val, max_val)
     
     def dequantize_fn(self, x, scale, zero_point, axis, bit_width=None):
-        return x.dequantize()
+        return (x - zero_point) * scale
     
     def forward(self, *args, **kwargs):
         return self.symbolic_execution(*args, **kwargs)
@@ -78,6 +82,10 @@ class TorchQCDQBiasQuantProxyHandler(
     @classmethod    
     def int32_dtype(cls):
         return torch.qint32
+    
+    @property
+    def flatten_dequantize_params(self):
+        return False
     
     def validate(self, module):
         assert module.is_signed, 'Unsigned bias not supported.'

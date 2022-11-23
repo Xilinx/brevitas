@@ -19,6 +19,11 @@ class DQMixin(ABC):
     def dequantize_fn(self, x, scale, zero_point, axis, bit_width=None):
         pass
     
+    @property
+    @abstractmethod
+    def flatten_dequantize_params(self):
+        pass
+    
     
 class QCDQMixin(DQMixin):
     
@@ -69,12 +74,17 @@ class QCDQQuantProxyHandlerMixin(
             'axis': cls.quant_axis(module.scale())}
 
     def dequantize_symbolic_kwargs(cls, module):
-        flat_scale = to_0dim_if_scalar(module.scale().flatten()) 
-        zp = to_0dim_if_scalar(module.zero_point().flatten()).expand_as(flat_scale)
+        quant_axis = cls.quant_axis(module.scale())
+        if cls.flatten_dequantize_params:
+            scale = to_0dim_if_scalar(module.scale().flatten()) 
+            zp = to_0dim_if_scalar(module.zero_point().flatten()).expand_as(scale)
+        else:
+            scale = module.scale()
+            zp = module.zero_point().expand_as(scale)
         return {
-            'scale': flat_scale,
+            'scale': scale,
             'zero_point': cls.zero_point_with_dtype(module.is_signed, zp),
-            'axis': cls.quant_axis(module.scale())}
+            'axis': quant_axis}
 
     def prepare_for_export(self, module):
         if module.is_quant_enabled:
@@ -173,10 +183,12 @@ class QCDQBiasQuantProxyHandlerMixin(DQMixin, QuantAxisMixin):
         if input_bit_width is not None:
             bit_width = input_bit_width
         dtype = torch.int32 if int(bit_width.item()) > 8 else torch.int8
-        flat_scale = to_0dim_if_scalar(scale.flatten())
-        zp = to_0dim_if_scalar(zero_point.flatten()).expand_as(flat_scale).to(dtype)
+        quant_axis = self.quant_axis(scale)
+        if self.flatten_dequantize_params:
+            scale = to_0dim_if_scalar(scale.flatten())
+            zero_point = to_0dim_if_scalar(zero_point.flatten()).expand_as(scale).to(dtype)
         y = self.dequantize_fn(
-            int_bias.to(dtype), flat_scale, zp, self.quant_axis(scale))
+            int_bias.to(dtype), scale, zero_point, quant_axis)
         return y, scale, zero_point, bit_width
 
 
@@ -200,7 +212,7 @@ class QCDQTruncQuantProxyHandlerMixin(QCDQQuantProxyHandlerMixin):
         clip_symbolic_kwargs = self.clip_symbolic_kwargs(signed, False, output_bit_width)
         if clip_symbolic_kwargs is not None and self.clip_over_integers:
             x = self.clip_fn(x, *clip_symbolic_kwargs.values())
-        x = self.dequantize_fn(x, scale.flatten(), zp, self.quant_axis(scale))
+        x = self.dequantize_fn(x, flat_scale, zp, self.quant_axis(scale))
         if clip_symbolic_kwargs is not None and not self.clip_over_integers:
             x = self.clip_fn(x, *clip_symbolic_kwargs.values())
         return x, scale, zero_point, output_bit_width
