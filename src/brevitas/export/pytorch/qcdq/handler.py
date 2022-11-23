@@ -54,8 +54,8 @@ class TorchQCDQQuantProxyHandler(
     def dequantize_fn(self, x, scale, zero_point, axis, bit_width=None):
         return x.dequantize()
     
-    def forward(self, x):
-        return self.symbolic_execution(x)
+    def forward(self, *args, **kwargs):
+        return self.symbolic_execution(*args, **kwargs)
 
 
 class TorchQCDQWeightQuantProxyHandler(
@@ -79,8 +79,15 @@ class TorchQCDQBiasQuantProxyHandler(
     def int32_dtype(cls):
         return torch.qint32
     
+    def validate(self, module):
+        assert module.is_signed, 'Unsigned bias not supported.'
+        assert module.rounding_mode == 'ROUND', 'Only round to nearest even supported'
+    
     def dequantize_fn(self, x, scale, zero_point, axis):
         return x.dequantize()
+    
+    def forward(self, *args, **kwargs):
+        return self.symbolic_execution(*args, **kwargs)
 
 
 class TorchQCDQTruncQuantProxyHandler(

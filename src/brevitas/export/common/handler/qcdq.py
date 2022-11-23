@@ -1,5 +1,6 @@
 from abc import abstractmethod, ABC
 
+import torch
 from torch import Tensor
 
 from brevitas.proxy import WeightQuantProxyFromInjector
@@ -12,7 +13,19 @@ from brevitas.export.common import to_0dim_if_scalar
 from .base import QuantAxisMixin, ClipMixin, ZeroPointHandlerMixin, BitWidthHandlerMixin
 
 
-class SignedDQMixin(ABC):
+class DQMixin(ABC):
+    
+    @abstractmethod
+    def dequantize_fn(self, x, scale, zero_point, axis, bit_width=None):
+        pass
+    
+    
+class QCDQMixin(DQMixin):
+    
+    @classmethod    
+    @abstractmethod
+    def uint8_dtype(cls):
+        pass
     
     @classmethod    
     @abstractmethod
@@ -22,18 +35,6 @@ class SignedDQMixin(ABC):
     @classmethod    
     @abstractmethod
     def int32_dtype(cls):
-        pass
-    
-    @abstractmethod
-    def dequantize_fn(self, x, scale, zero_point, axis, bit_width=None):
-        pass
-    
-    
-class QCDQMixin(SignedDQMixin):
-    
-    @classmethod    
-    @abstractmethod
-    def uint8_dtype(cls):
         pass
     
     @property
@@ -142,7 +143,7 @@ class QCDQActQuantProxyHandlerMixin(QCDQQuantProxyHandlerMixin):
     handled_layer = ActQuantProxyFromInjector
 
 
-class QCDQBiasQuantProxyHandlerMixin(SignedDQMixin):
+class QCDQBiasQuantProxyHandlerMixin(DQMixin, QuantAxisMixin):
     handled_layer = BiasQuantProxyFromInjector
 
     def prepare_for_export(self, module):
@@ -171,7 +172,7 @@ class QCDQBiasQuantProxyHandlerMixin(SignedDQMixin):
             scale = input_scale
         if input_bit_width is not None:
             bit_width = input_bit_width
-        dtype = self.int32_dtype() if int(bit_width.item()) > 8 else self.int8_dtype()
+        dtype = torch.int32 if int(bit_width.item()) > 8 else torch.int8
         flat_scale = to_0dim_if_scalar(scale.flatten())
         zp = to_0dim_if_scalar(zero_point.flatten()).expand_as(flat_scale).to(dtype)
         y = self.dequantize_fn(
