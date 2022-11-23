@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 import torch
 from torch import Tensor
-from brevitas.export.handler import BaseHandler, BitWidthHandlerMixin, ZeroPointHandlerMixin
+from brevitas.export.common.handler.base import BaseHandler, BitWidthHandlerMixin, ZeroPointHandlerMixin
 
 SCALAR_SHAPE = ()
 

@@ -4,11 +4,12 @@ from brevitas.export.onnx.debug import DebugMarkerFunction
 from brevitas.export.manager import _set_proxy_export_handler
 from brevitas.export.manager import _set_proxy_export_mode
 
-from .handler import QCDQWeightQuantProxyHandler
-from .handler import QCDQBiasQuantProxyHandler
-from .handler import QCDQActQuantProxyHandler
-from .handler import QCDQDecoupledWeightQuantProxyHandler
-from .handler import QCDQTruncQuantProxyHandler
+from .handler import (
+    StdQCDQONNXWeightQuantProxyHandler,
+    StdQCDQONNXBiasQuantProxyHandler,
+    StdQCDQONNXActQuantProxyHandler,
+    StdQCDQONNXDecoupledWeightQuantProxyHandler,
+    StdQCDQONNXTruncQuantProxyHandler)
 
 from ..function import QuantizeLinearFn, DequantizeLinearFn, IntClipFn
 from ..manager import StdONNXBaseManager
@@ -25,11 +26,11 @@ class StdQCDQONNXManager(StdONNXBaseManager):
         "eliminate_unused_initializer"]
 
     handlers = [
-        QCDQWeightQuantProxyHandler,
-        QCDQBiasQuantProxyHandler,
-        QCDQActQuantProxyHandler,
-        QCDQDecoupledWeightQuantProxyHandler,
-        QCDQTruncQuantProxyHandler
+        StdQCDQONNXWeightQuantProxyHandler,
+        StdQCDQONNXBiasQuantProxyHandler,
+        StdQCDQONNXActQuantProxyHandler,
+        StdQCDQONNXDecoupledWeightQuantProxyHandler,
+        StdQCDQONNXTruncQuantProxyHandler
     ]
 
     custom_fns = [

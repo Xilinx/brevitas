@@ -263,7 +263,8 @@ class BaseManager(ABC):
         module.apply(lambda m: _restore_out_caching_mode(m))
 
     @classmethod
-    def jit_inference_trace(cls, module: Module, args: Union[Tensor, QuantTensor, Tuple]):
+    def jit_inference_trace(
+            cls, module: Module, args: Union[Tensor, QuantTensor, Tuple], export_path: str = None):
         with torch.no_grad():
             training_state = module.training
             module = module.eval()
@@ -273,9 +274,6 @@ class BaseManager(ABC):
                 cls._cache_inp_out(module, args)
             else:
                 cls._cache_inp_out(module, *args)
-            # unpack quant tensor
-            if isinstance(args, QuantTensor):
-                args = args.value
             # enable export mode, this triggers collecting export values into handlers
             cls.set_export_mode(module, enabled=True)
             # force requires_grad to False to let the wrapped model lambda go through tracing
@@ -292,6 +290,8 @@ class BaseManager(ABC):
                 torch.jit.save(traced_model, tmp)
                 tmp.seek(0)
                 traced_model = torch.jit.load(tmp)
+            if export_path is not None:
+                traced_model.save(export_path)
             _restore_requires_grad(module, requires_grad_backup_dict)
             cls.set_export_mode(module, enabled=False)
             module.train(training_state)

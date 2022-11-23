@@ -1,10 +1,11 @@
-from abc import ABC
+from abc import abstractmethod, ABC
 import math
 
 import torch
 from torch.nn import Module
 from torch import Tensor
 
+from brevitas.function.ops import min_int, max_int
 
 __all__ = [
     'BaseHandler',
@@ -14,15 +15,50 @@ __all__ = [
 
 
 class BaseHandler(Module, ABC):
+    
+    def __init__(self) -> None:
+        super().__init__()
 
     def attach_debug_info(self, module):
         pass
 
-    def prepare_for_export(self, module):
-        pass
+    # @abstractmethod
+    # def prepare_for_export(self, module):
+    #     pass
+    
+
+class QuantAxisMixin(ABC):
+    
+    @classmethod
+    def quant_axis(cls, scale):
+        for i, s in enumerate(scale.shape):
+            if s != 1:
+                return i
+        return None
+    
+
+class ClipMixin(ABC):
+
+    @classmethod
+    def int_clip_symbolic_kwargs(cls, narrow, signed, bit_width):
+        if narrow or bit_width < 8.:
+            dtype = torch.int8 if signed else torch.uint8
+            return {
+                'min_val': min_int(signed, narrow, bit_width).to(dtype),
+                'max_val': max_int(signed, narrow, bit_width).to(dtype)}
+        else:
+            return None
+        
+    @classmethod
+    def float_clip_symbolic_kwargs(cls, narrow, signed, bit_width, scale, zero_point):
+        symbolic_kwargs = cls.int_clip_symbolic_kwargs(narrow, signed, bit_width)
+        if symbolic_kwargs is not None:
+            symbolic_kwargs['min_val'] = (symbolic_kwargs['min_val'] - zero_point) * scale 
+            symbolic_kwargs['max_val'] = (symbolic_kwargs['max_val'] - zero_point) * scale
+        return symbolic_kwargs
 
 
-class BitWidthHandlerMixin(object):
+class BitWidthHandlerMixin(ABC):
 
     @classmethod
     def validate_bit_width(cls, bit_width: Tensor, reference: int, le_then=False):
@@ -50,7 +86,7 @@ class BitWidthHandlerMixin(object):
         return cls.validate_bit_width(bit_width, 32, le_then)
 
 
-class ScaleHandlerMixin(object):
+class ScaleHandlerMixin(ABC):
 
     @classmethod
     def validate_scalar_scale(cls, scale: Tensor):
@@ -74,7 +110,7 @@ class ScaleHandlerMixin(object):
         return - cls.validate_scalar_int_exponent(scale)
 
 
-class ZeroPointHandlerMixin(object):
+class ZeroPointHandlerMixin(ABC):
 
     @classmethod
     def zero_point_with_dtype(cls, signed, zero_point):
