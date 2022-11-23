@@ -19,7 +19,8 @@ __all__ = [
     'ClipFloatWeights',
     'DisableEnableQuantization',
     'DisableQuantInference',
-    'BiasCorrection'
+    'BiasCorrection',
+    'calibration_mode'
 ]
 
 _PARAM_PROXIES = (
@@ -43,6 +44,21 @@ _LAYERS_TO_CLIP = (
 def finalize_collect_stats(module):
     if hasattr(module, 'collect_stats_steps') and hasattr(module, 'counter'):
         module.counter = module.collect_stats_steps
+
+
+class calibration_mode(object):
+    def __init__(self, model, enabled=True):
+        self.model = model
+        self.current_state = model.training
+        self.disable_quant_inference = DisableQuantInference()
+        self.enabled=enabled
+
+    def __enter__(self):
+        if self.enabled:
+            self.disable_quant_inference.apply(self.model, is_training=True, quantization_enabled=False)
+
+    def __exit__(self, type, value, traceback):
+        self.disable_quant_inference.apply(self.model, is_training=self.current_state, quantization_enabled=True)
 
 
 class ClipFloatWeights(Transform):
@@ -85,42 +101,49 @@ class DisableEnableQuantization(Transform, ABC):
                 inp, min_val=module.quant_injector.min_val, max_val=module.quant_injector.max_val)
         return QuantTensor(value=inp, training=module.training)
     
-    def disable_act_quantization(self, model):
+    def disable_act_quantization(self, model, is_training):
         for module in model.modules():
             if isinstance(module, ActQuantProxyFromInjector):
                 hook = module.register_forward_hook(self.disable_act_quant_hook)
+                module.train(is_training)
                 self.disable_act_quant_hooks.append(hook)
             elif isinstance(module, _ACC_PROXIES):
+                module.train(is_training)
                 module.disable_quant = True
 
-    def disable_param_quantization(self, model):
+    def disable_param_quantization(self, model, is_training):
         for module in model.modules():
             if isinstance(module, _PARAM_PROXIES):
+                module.train(is_training)
                 module.disable_quant = True
     
-    def enable_act_quantization(self, model):
+    def enable_act_quantization(self, model, is_training):
         for module in model.modules():
             if isinstance(module, _ACC_PROXIES):
+                module.train(is_training)
                 module.disable_quant = False
+            elif isinstance(module, ActQuantProxyFromInjector):
+                module.train(is_training)
         for hook in self.disable_act_quant_hooks:
             hook.remove()
         self.disable_act_quant_hooks = []
 
-    def enable_param_quantization(self, model):
+    def enable_param_quantization(self, model, is_training):
         for module in model.modules():
             if isinstance(module, _PARAM_PROXIES):
                 module.disable_quant = False
+                module.train(is_training)
 
 
 class DisableQuantInference(DisableEnableQuantization):
 
-    def apply(self, model, *model_args, **model_kwargs):
-        self.disable_act_quantization(model)
-        self.disable_param_quantization(model)
-        output = model(*model_args, **model_kwargs)
-        self.enable_act_quantization(model)
-        self.enable_param_quantization(model)
-        return output
+    def apply(self, model, is_training, quantization_enabled):
+        if not quantization_enabled:
+            self.disable_act_quantization(model, is_training)
+            self.disable_param_quantization(model, is_training)
+        else:
+            self.enable_act_quantization(model, is_training)
+            self.enable_param_quantization(model, is_training)
 
 
 class BiasCorrection(DisableEnableQuantization):
@@ -205,11 +228,11 @@ class BiasCorrection(DisableEnableQuantization):
         assert not self.float_mean_map
 
     def apply(self, model, *model_args, **model_kwargs):
-        self.disable_act_quantization(model)
-        self.disable_param_quantization(model)
+        self.disable_act_quantization(model, is_training=False)
+        self.disable_param_quantization(model, is_training=False)
         self.collect_float_mean(model, *model_args, **model_kwargs)
-        self.enable_act_quantization(model)
-        self.enable_param_quantization(model)
+        self.enable_act_quantization(model, is_training=False)
+        self.enable_param_quantization(model, is_training=False)
         self.correct_bias(model, *model_args, **model_kwargs)
         self.curr_iter += 1
         return model
