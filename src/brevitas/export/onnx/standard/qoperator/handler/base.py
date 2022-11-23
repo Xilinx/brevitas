@@ -5,10 +5,18 @@ from torch import Tensor
 
 
 from brevitas.export.onnx.standard.function import QuantizeLinearFn, DequantizeLinearFn, IntClipFn
-from brevitas.export.onnx.standard.handler import StdONNXQuantLayerHandler
+from brevitas.export.common.handler.base import (
+    QuantAxisMixin, ScaleHandlerMixin, BitWidthHandlerMixin, ZeroPointHandlerMixin)
+from brevitas.export.onnx.handler import ONNXBaseHandler
 
 
-class StdQOpONNXQuantLayerHandler(StdONNXQuantLayerHandler, ABC):
+class StdQOpONNXQuantLayerHandler(
+    ONNXBaseHandler, 
+    QuantAxisMixin, 
+    ScaleHandlerMixin, 
+    BitWidthHandlerMixin, 
+    ZeroPointHandlerMixin, 
+    ABC):
 
     @abstractmethod
     def op_symbolic_execution(self, inp: Tensor):

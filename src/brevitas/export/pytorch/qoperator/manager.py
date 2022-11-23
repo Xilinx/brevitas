@@ -17,7 +17,7 @@ from .handler.pool import PytorchQuantMaxPool1d, PytorchQuantMaxPool2d
 from .handler import qF
 
 
-class PytorchQuantManager(BaseManager):
+class TorchQOpManager(BaseManager):
     target_name = 'torch'
 
     handlers = [
