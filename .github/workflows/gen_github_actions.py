@@ -23,7 +23,8 @@ FINN_PLATFORM_LIST = ['windows-latest', 'ubuntu-latest']
 
 EXCLUDE_LIST = []
 
-NOTEBOOK_EXCLUDE_LIST = [od([('pytorch_version', ['1.5.1', '1.6.0', '1.7.1'])])]
+NOTEBOOK_EXCLUDE_LIST = [od([('pytorch_version', ['1.5.1', '1.6.0', '1.7.1'])]),
+                         od([('platform', ['macos-latest',])])]
 
 MATRIX = od([('python_version', list(PYTHON_VERSIONS)),
              ('pytorch_version', list(PYTORCH_VERSIONS)),

@@ -22,6 +22,8 @@ jobs:
           - pytorch_version: '1.6.0'
           - pytorch_version: '1.7.1'
 
+          - platform: 'macos-latest'
+
 
 
     steps:
