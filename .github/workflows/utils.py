@@ -27,19 +27,24 @@ class Action:
         self.step_list = step_list
 
     @staticmethod
-    def list_of_dicts_str(list_of_dicts, quote_val, indent_first):
+    def list_of_dicts_str(list_of_dicts, quote_val, indent_first, newline_val=False):
         repr = ''
         for e in list_of_dicts:
-            repr += Action.dict_str(e, quote_val, indent_first)
+            repr += Action.dict_str(e, quote_val, indent_first, newline_val)
         return repr
 
     @staticmethod
-    def dict_str(d, quote_val, indent_first):
+    def dict_str(d, quote_val, indent_first, newline_val=False):
         first_line_prefix = '- ' if indent_first else ''
         repr = first_line_prefix
         for name, val in d.items():
             if quote_val:
                 repr += f"{name}: '{val}'" + NIX_NEWLINE
+            elif newline_val:
+                for i, v in enumerate(val):
+                    repr += f"{name}: '{v}'" + NIX_NEWLINE
+                    if i < len(val)-1:
+                        repr += first_line_prefix
             else:
                 repr += f"{name}: {val}" + NIX_NEWLINE
         if indent_first:
@@ -57,7 +62,7 @@ class Action:
             Action.list_of_dicts_str(self.step_list, False, True), STEP_INDENT * ' ')
         if self.exclude_list:
             d['exclude'] = indent('exclude:\n', MATRIX_INDENT * ' ') + indent(
-                Action.list_of_dicts_str(self.exclude_list, True, True), EXCLUDE_INDENT * ' ')
+                Action.list_of_dicts_str(self.exclude_list, False, True, True), EXCLUDE_INDENT * ' ')
         else:
             d['exclude'] = ''
         template = CustomTemplate(open(base_template_path).read())

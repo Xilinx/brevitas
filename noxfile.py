@@ -139,3 +139,11 @@ def tests_brevitas_ort_integration(session, pytorch):
     install_torchvision(pytorch, session)
     session.install('--upgrade', '-e', '.[test, ort_integration]')
     session.run('pytest', '-v', 'tests/brevitas_ort')
+
+@nox.session(python=PYTHON_VERSIONS)
+@nox.parametrize("pytorch", PYTORCH_VERSIONS, ids=PYTORCH_IDS)
+def tests_brevitas_notebook(session, pytorch):
+    install_pytorch(pytorch, session)
+    install_torchvision(pytorch, session)
+    session.install('--upgrade', '-e', '.[test, ort_integration, notebook]')
+    session.run('pytest', '-v','--nbmake', '--nbmake-kernel=python3', 'notebooks')
