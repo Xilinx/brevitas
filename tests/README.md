@@ -16,12 +16,11 @@ Please feel free to familiriasize with their basic usage before contributing to 
 ### Folder Structure
 The root tests folder structure is based on requirements:
 - brevitas: tests the main functionalities of the library. Only brevitas and the test packages should be needed to run these tests.
-- brevitas_examples: tests different aspects of the tests present in _src\_brevitas\_examples_.
-- brevitas_finn: tests the integration with the finn export-flow.
-- brevitas_ort: tests the brevitas onnx export by comparing results with onnxruntime.
+- brevitas_examples: tests for the quantization examples in _src\_brevitas\_examples_.
+- brevitas_finn: tests for the integration with the finn export-flow.
+- brevitas_ort: tests for the different brevitas onnx exports, leveraging onnxruntime.
 
 In particular, within the _brevitas_ folder, the subfolder structure matches the one in _src\_brevitas_.
-
 A class in _src\_brevitas\_core_ will have its corresponding test in _tests\_brevitas\_core_.
 
 ### Adding New Tests
