@@ -9,6 +9,7 @@ EXAMPLES_PYTEST_YML = 'examples_pytest.yml'
 DEVELOP_INSTALL_YML = 'develop_install.yml'
 FINN_INTEGRATION_YML = 'finn_integration.yml'
 ORT_INTEGRATION_YML = 'ort_integration.yml'
+NOTEBOOK_YML = 'notebook.yml'
 
 
 # Data shared betwen Nox sessions and Github Actions, formatted as tuples
@@ -22,6 +23,8 @@ FINN_PLATFORM_LIST = ['windows-latest', 'ubuntu-latest']
 
 EXCLUDE_LIST = []
 
+NOTEBOOK_EXCLUDE_LIST = [od([('pytorch_version', ['1.5.1', '1.6.0', '1.7.1'])]),
+                         od([('platform', ['macos-latest',])])]
 
 MATRIX = od([('python_version', list(PYTHON_VERSIONS)),
              ('pytorch_version', list(PYTORCH_VERSIONS)),
@@ -93,6 +96,13 @@ TEST_INSTALL_DEV_STEP_LIST = [
          'nox -v -s tests_brevitas_examples_install_dev-${{ matrix.python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)')
     ])]
 
+NOTEBOOK_STEP_LIST = [
+    od([
+        ('name', 'Run Nox session for Notebook execution'),
+        ('shell', 'bash'),
+        ('run',
+         'nox -v -s tests_brevitas_notebook-${{ matrix.python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)')
+    ])]
 
 def gen_pytest_yml():
     pytest = Action(
@@ -138,6 +148,13 @@ def gen_test_brevitas_ort_integration():
         ORT_INTEGRATION_STEP_LIST)
     test_ort_integration.gen_yaml(BASE_YML_TEMPLATE, ORT_INTEGRATION_YML)
 
+def gen_test_brevitas_notebook():
+    tests_brevitas_notebooks = Action(
+        'Test Notebook execution',
+        EXCLUDE_LIST + NOTEBOOK_EXCLUDE_LIST,
+        MATRIX,
+        NOTEBOOK_STEP_LIST)
+    tests_brevitas_notebooks.gen_yaml(BASE_YML_TEMPLATE, NOTEBOOK_YML)
 
 if __name__ == '__main__':
     gen_pytest_yml()
@@ -145,3 +162,4 @@ if __name__ == '__main__':
     gen_test_develop_install_yml()
     gen_test_brevitas_finn_integration()
     gen_test_brevitas_ort_integration()
+    gen_test_brevitas_notebook()
