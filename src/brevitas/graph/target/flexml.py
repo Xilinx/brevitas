@@ -1,402 +1,135 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-import operator
-
-import torch
 from torch import nn
 
-import brevitas
-from brevitas import config
-from brevitas.fx import value_trace
-from brevitas.graph.base import InsertModuleCallAfter
-from brevitas.graph.base import ModuleInstanceToModuleInstance
+from brevitas.fx.brevitas_tracer import symbolic_trace
 from brevitas.graph.base import ModuleToModuleByClass
-from brevitas.graph.base import ModuleToModuleByInstance
 from brevitas.graph.equalize import EqualizeGraph
 from brevitas.graph.fixed_point import CollapseConsecutiveConcats
 from brevitas.graph.fixed_point import MergeBatchNorm
 from brevitas.graph.fixed_point import MoveSplitBatchNormBeforeCat
 from brevitas.graph.per_input import AdaptiveAvgPoolToAvgPool
-from brevitas.graph.per_input import AvgPoolToQuantDepthwiseConv
-from brevitas.graph.standardize import DisableLastReturnQuantTensor
+from brevitas.graph.quantize import quantize
 from brevitas.graph.standardize import DuplicateSharedStatelessModule
 from brevitas.graph.standardize import MeanMethodToAdaptiveAvgPool2d
+from brevitas.graph.standardize import RemoveStochasticModules
 from brevitas.graph.standardize import TorchFunctionalToModule
-from brevitas.graph.utils import get_module
 import brevitas.nn as qnn
 from brevitas.quant import Int8ActPerTensorFixedPoint
 from brevitas.quant import Int8WeightPerTensorFixedPoint
 from brevitas.quant import Int16Bias
 from brevitas.quant import Uint8ActPerTensorFixedPoint
 from brevitas.quant import Uint8ActPerTensorFixedPointMaxInit
+from brevitas.quant.fixed_point import Int8ActPerTensorFixedPointMinMaxInit
 
-ADD_FNS = [torch.add, operator.add, operator.iadd]
+FLEXML_QUANT_AVGPOOL_MAP = {nn.AvgPool2d: qnn.flexml.FlexMLQuantAvgPool2d}
 
-ADD_METHODS = ['add', 'add_']
-CAT = brevitas.original_cat
+FLEXML_QUANT_WBIOL_MAP = {
+    nn.Conv1d: (
+        qnn.QuantConv1d,
+        {
+            'weight_quant': Int8WeightPerTensorFixedPoint,
+            'bias_quant': Int16Bias,
+            'return_quant_tensor': True}),
+    nn.Conv2d: (
+        qnn.QuantConv2d,
+        {
+            'weight_quant': Int8WeightPerTensorFixedPoint,
+            'bias_quant': Int16Bias,
+            'return_quant_tensor': True}),
+    nn.ConvTranspose1d: (
+        qnn.QuantConvTranspose1d,
+        {
+            'weight_quant': Int8WeightPerTensorFixedPoint,
+            'bias_quant': Int16Bias,
+            'return_quant_tensor': True}),
+    nn.ConvTranspose2d: (
+        qnn.QuantConvTranspose2d,
+        {
+            'weight_quant': Int8WeightPerTensorFixedPoint,
+            'bias_quant': Int16Bias,
+            'return_quant_tensor': True}),
+    nn.BatchNorm1d: (
+        qnn.BatchNorm1dToQuantScaleBias,
+        {
+            'weight_quant': Int8WeightPerTensorFixedPoint,
+            'bias_quant': Int16Bias,
+            'return_quant_tensor': True}),
+    nn.BatchNorm2d: (
+        qnn.BatchNorm2dToQuantScaleBias, {
+            'weight_quant': Int8WeightPerTensorFixedPoint, 'return_quant_tensor': True}),
+    nn.Linear: (
+        qnn.QuantLinear, {
+            'weight_quant': Int8WeightPerTensorFixedPoint, 'return_quant_tensor': True})}
 
-QUANT_WBIOL_MAP = {
-    nn.Conv1d: qnn.QuantConv1d,
-    nn.Conv2d: qnn.QuantConv2d,
-    nn.ConvTranspose1d: qnn.QuantConvTranspose1d,
-    nn.ConvTranspose2d: qnn.QuantConvTranspose2d,
-    nn.BatchNorm1d: qnn.BatchNorm1dToQuantScaleBias,
-    nn.BatchNorm2d: qnn.BatchNorm2dToQuantScaleBias,
-    nn.Linear: qnn.QuantLinear}
+FLEXML_UNSIGNED_ACT_TUPLE = (nn.ReLU, nn.ReLU6, nn.Sigmoid, nn.Hardsigmoid)
 
-QUANT_AVGPOOL_MAP = {nn.AvgPool2d: qnn.flexml.FlexMLQuantAvgPool2d}
+FLEXML_QUANT_ACT_MAP = {
+    nn.ReLU:
+        (qnn.QuantReLU, {
+            'act_quant': Uint8ActPerTensorFixedPoint, 'return_quant_tensor': True}),
+    nn.ReLU6: (
+        qnn.QuantReLU, {
+            'act_quant': Uint8ActPerTensorFixedPointMaxInit,
+            'max_val': 6.,
+            'return_quant_tensor': True}),
+    nn.LeakyReLU: (
+        qnn.flexml.FlexMLQuantLeakyReLU,
+        {
+            'alpha_quant':
+                qnn.QuantIdentity(Uint8ActPerTensorFixedPoint, bit_width=16),
+            'input_quant':
+                qnn.QuantIdentity(
+                    Int8ActPerTensorFixedPoint, bit_width=16, scaling_stats_momentum=None),
+            'output_quant':
+                qnn.QuantIdentity(Int8ActPerTensorFixedPoint, return_quant_tensor=True)}),
+    nn.Hardtanh: (
+        qnn.QuantHardTanh,
+        {
+            'act_quant': Int8ActPerTensorFixedPointMinMaxInit,
+            'max_val': lambda module: module.max_val,
+            'min_val': lambda module: module.min_val}),
+    nn.Sigmoid: (
+        qnn.QuantSigmoid, {
+            'act_quant': Uint8ActPerTensorFixedPoint,
+            'return_quant_tensor': True,}),
+    nn.SiLU: (
+        qnn.flexml.FlexMLQuantSwish, {
+            'act_quant': Int8ActPerTensorFixedPoint,
+            'return_quant_tensor': True,}),
+    nn.Hardswish: (
+        qnn.flexml.FlexMLQuantHardswish, {
+            'act_quant': Int8ActPerTensorFixedPoint,
+            'return_quant_tensor': True,}),
+    nn.Hardsigmoid: (
+        qnn.flexml.FlexMLQuantHardsigmoid, {
+            'act_quant': Uint8ActPerTensorFixedPoint,
+            'return_quant_tensor': True,})}
 
-SIGN_PRESERVING_MODULES = [
-    nn.MaxPool1d,
-    nn.MaxPool2d,
-    nn.MaxPool3d,
-    nn.AvgPool1d,
-    nn.AvgPool2d,
-    nn.AvgPool3d,
-    nn.AdaptiveAvgPool1d,
-    nn.AdaptiveAvgPool2d,
-    nn.AdaptiveAvgPool3d]
-
-
-def flexml_inp_placeholder_handler(model):
-    rewriters = []
-    for node in model.graph.nodes:
-        if node.op == 'placeholder':
-            inp_quant = qnn.QuantIdentity(Int8ActPerTensorFixedPoint, return_quant_tensor=True)
-            name = node.name + '_quant'
-            model.add_module(name, inp_quant)
-            rewriters.append(InsertModuleCallAfter(name, node))
-    for rewriter in rewriters:
-        model = rewriter.apply(model)
-    return model
-
-
-def are_inputs_unsigned(model, node, is_unsigned_list):
-    for inp_node in node.all_input_nodes:
-        if inp_node.op == 'call_module':
-            inp_module = get_module(model, inp_node.target)
-            if isinstance(inp_module, (nn.ReLU, nn.ReLU6)):
-                is_unsigned_list.append(True)
-            elif isinstance(inp_module, tuple(SIGN_PRESERVING_MODULES)):
-                are_inputs_unsigned(model, inp_node, is_unsigned_list)
-            elif isinstance(inp_module, (qnn.QuantReLU, qnn.QuantIdentity, qnn.QuantHardTanh)):
-                is_unsigned_list.append(not inp_module.is_quant_act_signed)
-            else:
-                is_unsigned_list.append(False)
-        elif inp_node.op == 'call_function':
-            if inp_node.target in [torch.reshape, torch.flatten, torch.transpose, CAT] + ADD_FNS:
-                are_inputs_unsigned(model, inp_node, is_unsigned_list)
-            else:
-                is_unsigned_list.append(False)
-        elif inp_node.op == 'call_method':
-            if inp_node.target in ['view', 'reshape', 'flatten', 't', 'permute'] + ADD_METHODS:
-                are_inputs_unsigned(model, inp_node, is_unsigned_list)
-            else:
-                is_unsigned_list.append(False)
-    return all(is_unsigned_list)
-
-
-def _tensor_quant_in_list(tensor_quant, module_list, same_sign):
-    for m in module_list:
-        if m is None:
-            continue
-        if same_sign and m is tensor_quant:
-            return True
-        elif not same_sign and m.scaling_impl is tensor_quant.scaling_impl and m.int_scaling_impl is tensor_quant.int_scaling_impl:
-            return True
-    return False
-
-
-def are_inputs_quantized(model, node, quantized_modules_list, same_sign):
-    for inp_node in node.all_input_nodes:
-        if inp_node.op == 'call_module':
-            inp_module = get_module(model, inp_node.target)
-            if isinstance(inp_module, (nn.ReLU, nn.ReLU6)):
-                quantized_modules_list.append(None)
-            elif isinstance(inp_module, tuple(SIGN_PRESERVING_MODULES)):
-                are_inputs_quantized(model, inp_node, quantized_modules_list, same_sign)
-            elif isinstance(inp_module, (qnn.QuantReLU, qnn.QuantIdentity, qnn.QuantHardTanh)):
-                tq = inp_module.act_quant.fused_activation_quant_proxy.tensor_quant
-                if _tensor_quant_in_list(tq, quantized_modules_list, same_sign):
-                    continue
-                quantized_modules_list.append(tq)
-            elif isinstance(inp_module, qnn.flexml.FlexMLQuantLeakyReLU):
-                tq = inp_module.output_quant.act_quant.fused_activation_quant_proxy.tensor_quant
-                if _tensor_quant_in_list(tq, quantized_modules_list, same_sign):
-                    continue
-                quantized_modules_list.append(tq)
-            else:
-                quantized_modules_list.append(None)
-        elif inp_node.op == 'call_function':
-            if inp_node.target in [torch.reshape, torch.flatten, torch.transpose]:
-                are_inputs_quantized(model, inp_node, quantized_modules_list, same_sign)
-            elif inp_node.target is CAT:
-                are_inputs_quantized(model, inp_node, quantized_modules_list, True)
-            elif inp_node.target in ADD_FNS:
-                are_inputs_quantized(model, inp_node, quantized_modules_list, False)
-            else:
-                quantized_modules_list.append(None)
-        elif inp_node.op == 'call_method':
-            if inp_node.target in ['view', 'reshape', 'flatten', 't', 'permute']:
-                are_inputs_quantized(model, inp_node, quantized_modules_list, same_sign)
-            elif inp_node.target in ADD_METHODS:
-                are_inputs_quantized(model, inp_node, quantized_modules_list, False)
-            else:
-                quantized_modules_list.append(None)
-    if None in quantized_modules_list:
-        return False
-    elif len(quantized_modules_list) > 1:
-        return False
-    else:
-        return True
-
-
-def output_quant_handler(model, node, rewriters, is_sign_preserving):
-    quant_module = None
-    quant_module_name = None
-    for user in node.users:
-        output_quant = True
-        if user.op == 'call_module':
-            user_module = get_module(model, user.target)
-            if isinstance(user_module,
-                          (qnn.QuantReLU, qnn.QuantIdentity, qnn.flexml.FlexMLQuantLeakyReLU)):
-                output_quant = False
-        if output_quant:
-            if quant_module_name is None and quant_module is None:
-                if is_sign_preserving and are_inputs_unsigned(model, node, []):
-                    quant_module = qnn.QuantIdentity(
-                        act_quant=Uint8ActPerTensorFixedPoint, return_quant_tensor=True)
-                else:
-                    quant_module = qnn.QuantIdentity(
-                        act_quant=Int8ActPerTensorFixedPoint, return_quant_tensor=True)
-                quant_module_name = node.name + '_output_quant'
-                model.add_module(quant_module_name, quant_module)
-            rewriters.append(InsertModuleCallAfter(quant_module_name, node))
-
-
-def cat_input_handler(model, node, quant_identity_name, quant_identity, rewriters):
-    for inp_node in node.all_input_nodes:
-        if inp_node.op == 'call_module':
-            module = get_module(model, inp_node.target)
-            if isinstance(module, tuple(SIGN_PRESERVING_MODULES)):
-                cat_input_handler(model, inp_node, quant_identity_name, quant_identity, rewriters)
-            elif isinstance(module, qnn.QuantReLU):
-                rewriter = ModuleToModuleByInstance(
-                    module,
-                    qnn.QuantReLU,
-                    # WORKAROUND
-                    # TODO act_quant=quant_identity.act_quant is currently broken
-                    # because it overrides act_impl even though it shouldn't
-                    signed=quant_identity.act_quant.is_signed,
-                    narrow_range=quant_identity.act_quant.is_narrow_range,
-                    tensor_quant=quant_identity.act_quant.fused_activation_quant_proxy.tensor_quant)
-                rewriters.append(rewriter)
-            elif isinstance(module, qnn.QuantIdentity):
-                rewriter = ModuleInstanceToModuleInstance(module, quant_identity)
-                rewriters.append(rewriter)
-            elif isinstance(module, qnn.flexml.FlexMLQuantLeakyReLU):
-                rewriter = ModuleToModuleByInstance(
-                    module, qnn.flexml.FlexMLQuantLeakyReLU, output_quant=quant_identity)
-                rewriters.append(rewriter)
-            else:
-                rewriters.append(InsertModuleCallAfter(quant_identity_name, inp_node))
-        elif inp_node.op == 'call_function' and inp_node.target in [
-                torch.flatten, torch.reshape, torch.transpose]:
-            cat_input_handler(model, inp_node, quant_identity_name, quant_identity, rewriters)
-        elif inp_node.op == 'call_function' and inp_node.target is CAT:
-            cat_input_handler(model, inp_node, quant_identity_name, quant_identity, rewriters)
-        elif inp_node.op == 'call_method' and inp_node.target in [
-                'view', 'reshape', 'flatten', 'transpose']:
-            cat_input_handler(model, inp_node, quant_identity_name, quant_identity, rewriters)
-        else:
-            rewriters.append(InsertModuleCallAfter(quant_identity_name, inp_node))
-
-
-def add_input_handler(model, node, quant_identity_name, quant_identity, rewriters):
-    for inp_node in node.all_input_nodes:
-        if inp_node.op == 'call_module':
-            module = get_module(model, inp_node.target)
-            if isinstance(module, tuple(SIGN_PRESERVING_MODULES)):
-                add_input_handler(model, inp_node, quant_identity_name, quant_identity, rewriters)
-            elif isinstance(module, qnn.QuantReLU):
-                rewriter = ModuleToModuleByInstance(
-                    module,
-                    qnn.QuantReLU,
-                    act_quant=Uint8ActPerTensorFixedPoint,
-                    scaling_impl=quant_identity.act_quant.fused_activation_quant_proxy.tensor_quant
-                    .scaling_impl,
-                    int_scaling_impl=quant_identity.act_quant.fused_activation_quant_proxy
-                    .tensor_quant.int_scaling_impl,
-                    return_quant_tensor=True)
-                rewriters.append(rewriter)
-            elif isinstance(module, qnn.QuantIdentity):
-                if module.is_quant_act_signed == quant_identity.is_quant_act_signed:
-                    rewriters.append(ModuleInstanceToModuleInstance(module, quant_identity))
-                else:
-                    assert not module.is_quant_act_signed and quant_identity.is_quant_act_signed
-                    rewriter = ModuleToModuleByInstance(
-                        module,
-                        qnn.QuantIdentity,
-                        act_quant=Uint8ActPerTensorFixedPoint,
-                        scaling_impl=quant_identity.act_quant.fused_activation_quant_proxy
-                        .tensor_quant.scaling_impl,
-                        int_scaling_impl=quant_identity.act_quant.fused_activation_quant_proxy
-                        .tensor_quant.int_scaling_impl,
-                        return_quant_tensor=True)
-                    rewriters.append(rewriter)
-            elif isinstance(module, qnn.flexml.FlexMLQuantLeakyReLU):
-                rewriter = ModuleToModuleByInstance(
-                    module, qnn.flexml.FlexMLQuantLeakyReLU, output_quant=quant_identity)
-                rewriters.append(rewriter)
-            else:
-                rewriters.append(InsertModuleCallAfter(quant_identity_name, inp_node))
-        elif inp_node.op == 'call_function' and inp_node.target in [
-                torch.flatten, torch.reshape, torch.transpose]:
-            add_input_handler(model, inp_node, quant_identity_name, quant_identity, rewriters)
-        elif inp_node.op == 'call_function' and inp_node.target is CAT:
-            cat_input_handler(model, inp_node, quant_identity_name, quant_identity, rewriters)
-        elif inp_node.op == 'call_method' and inp_node.target in [
-                'view', 'reshape', 'flatten', 'transpose']:
-            add_input_handler(model, inp_node, quant_identity_name, quant_identity, rewriters)
-        else:
-            rewriters.append(InsertModuleCallAfter(quant_identity_name, inp_node))
-
-
-def flexml_act_handler(model):
-    rewriters = []
-    for node in model.graph.nodes:
-        if node.op == 'call_module':
-            module = get_module(model, node.target)
-            if isinstance(module, nn.ReLU):
-                rewriter = ModuleToModuleByInstance(
-                    module,
-                    qnn.QuantReLU,
-                    act_quant=Uint8ActPerTensorFixedPoint,
-                    return_quant_tensor=True)
-                rewriters.append(rewriter)
-            elif isinstance(module, nn.ReLU6):
-                rewriter = ModuleToModuleByInstance(
-                    module,
-                    qnn.QuantReLU,
-                    act_quant=Uint8ActPerTensorFixedPointMaxInit,
-                    max_val=6.,
-                    return_quant_tensor=True)
-                rewriters.append(rewriter)
-            elif isinstance(module, nn.LeakyReLU):
-                rewriter = ModuleToModuleByInstance(module, qnn.flexml.FlexMLQuantLeakyReLU)
-                rewriters.append(rewriter)
-    for rewriter in rewriters:
-        model = rewriter.apply(model)
-    return model
-
-
-def _get_quant_module(model, node):
-    if are_inputs_unsigned(model, node, []):
-        quant_module = qnn.QuantIdentity(Uint8ActPerTensorFixedPoint, return_quant_tensor=True)
-    else:
-        quant_module = qnn.QuantIdentity(Int8ActPerTensorFixedPoint, return_quant_tensor=True)
-    quant_module_name = node.name + '_quant'
-    model.add_module(quant_module_name, quant_module)
-    return quant_module, quant_module_name
-
-
-def flexml_residual_handler(model):
-
-    def is_converged(model):
-
-        for node in model.graph.nodes:
-            if (node.op == 'call_function' and node.target in ADD_FNS + [CAT] or
-                    node.op == 'call_method' and node.target in ADD_METHODS):
-                rewriters = []
-                if node.target is CAT:
-                    if are_inputs_quantized(model, node, [], True):
-                        continue
-                    quant_module, quant_module_name = _get_quant_module(model, node)
-                    cat_input_handler(model, node, quant_module_name, quant_module, rewriters)
-                else:
-                    if are_inputs_quantized(model, node, [], False):
-                        continue
-                    quant_module, quant_module_name = _get_quant_module(model, node)
-                    add_input_handler(model, node, quant_module_name, quant_module, rewriters)
-                for rewriter in rewriters:
-                    model = rewriter.apply(model)
-                model.graph.lint()
-                model.recompile()
-                return False
-        return True
-
-    while not is_converged(model):
-        continue
-
-    return model
-
-
-def flexml_add_output_quant_handler(model):
-    rewriters = []
-    for node in model.graph.nodes:
-        if (node.op == 'call_function' and node.target in ADD_FNS or
-                node.op == 'call_method' and node.target in ADD_METHODS):
-            output_quant_handler(model, node, rewriters, is_sign_preserving=True)
-    for rewriter in rewriters:
-        model = rewriter.apply(model)
-    return model
-
-
-def flexml_wbiol_handler(model):
-    rewriters = []
-    for node in model.graph.nodes:
-        if node.op == 'call_module':
-            module = get_module(model, node.target)
-            if isinstance(module, tuple(QUANT_WBIOL_MAP.keys())):
-                output_quant_handler(model, node, rewriters, is_sign_preserving=False)
-                rewriter = ModuleToModuleByInstance(
-                    module,
-                    QUANT_WBIOL_MAP[type(module)],
-                    weight_quant=Int8WeightPerTensorFixedPoint,
-                    weight_narrow_range=False,
-                    bias_quant=Int16Bias,
-                    return_quant_tensor=True)
-                rewriters.append(rewriter)
-    for rewriter in rewriters:
-        model = rewriter.apply(model)
-    return model
-
-
-def flexml_avgpool_handler(model, *model_args, avgpool_to_depthwise_conv=False, **model_kwargs):
-    rewriters = []
-    for node in model.graph.nodes:
-        if node.op == 'call_module':
-            module = get_module(model, node.target)
-            if isinstance(module, tuple(QUANT_AVGPOOL_MAP.keys())):
-                output_quant_handler(model, node, rewriters, is_sign_preserving=True)
-                if avgpool_to_depthwise_conv:
-                    rewriter = AvgPoolToQuantDepthwiseConv(
-                        weight_quant=Int8WeightPerTensorFixedPoint,
-                        bias_quant=Int16Bias,
-                        return_quant_tensor=True)
-                else:
-                    rewriter = ModuleToModuleByInstance(
-                        module, QUANT_AVGPOOL_MAP[type(module)], return_quant_tensor=True)
-                rewriters.append(rewriter)
-    for rewriter in rewriters:
-        if isinstance(rewriter, AvgPoolToQuantDepthwiseConv):
-            model = rewriter.apply(model, *model_args, **model_kwargs)
-        else:
-            model = rewriter.apply(model)
-    return model
+FLEXML_QUANT_IDENTITY_MAP = {
+    'signed':
+        (qnn.QuantIdentity, {
+            'act_quant': Int8ActPerTensorFixedPoint, 'return_quant_tensor': True}),
+    'unsigned': (
+        qnn.QuantIdentity, {
+            'act_quant': Uint8ActPerTensorFixedPoint, 'return_quant_tensor': True}),}
 
 
 def preprocess_flexml(
         model,
         *model_args,
+        trace_model=True,
         equalization_iters=0,
         merge_bias=True,
+        merge_bn=True,
         bias_shrinkage='vaiq',
+        scale_computation='maxabs',
         **model_kwargs):
     training_state = model.training
     model.eval()
-    model = value_trace(model, model_kwargs)  # TODO model args should contribute to value tracing
+    if trace_model:
+        model = symbolic_trace(model)  # TODO model args should contribute to value tracing
     model = TorchFunctionalToModule().apply(model)
     model = DuplicateSharedStatelessModule().apply(model)
     model = ModuleToModuleByClass(nn.ReLU6, nn.ReLU).apply(model)
@@ -404,29 +137,35 @@ def preprocess_flexml(
     model = AdaptiveAvgPoolToAvgPool().apply(model, *model_args, **model_kwargs)
     model = CollapseConsecutiveConcats().apply(model)
     model = MoveSplitBatchNormBeforeCat().apply(model)
-    model = MergeBatchNorm().apply(model)
+    if merge_bn:
+        model = MergeBatchNorm().apply(model)
+    model = RemoveStochasticModules().apply(model)
     model = EqualizeGraph(
-        equalization_iters, merge_bias=merge_bias, bias_shrinkage=bias_shrinkage).apply(model)
+        equalization_iters,
+        merge_bias=merge_bias,
+        bias_shrinkage=bias_shrinkage,
+        scale_computation=scale_computation).apply(model)
     model.train(training_state)
     return model
 
 
-def quantize_flexml(graph_model, *model_args, avgpool_to_depthwise_conv=False, **model_kwargs):
-    ignore_missing_keys_state = config.IGNORE_MISSING_KEYS
-    config.IGNORE_MISSING_KEYS = True
-    training_state = graph_model.training
-    graph_model.eval()
-    graph_model = flexml_inp_placeholder_handler(graph_model)
-    graph_model = flexml_act_handler(graph_model)
-    graph_model = flexml_add_output_quant_handler(graph_model)
-    graph_model = flexml_residual_handler(graph_model)
-    graph_model = flexml_wbiol_handler(graph_model)
-    graph_model = flexml_avgpool_handler(
+def quantize_flexml(
         graph_model,
         *model_args,
+        avgpool_to_depthwise_conv=False,
+        quant_identity_map=FLEXML_QUANT_IDENTITY_MAP,
+        quant_wbiol_map=FLEXML_QUANT_WBIOL_MAP,
+        quant_act_map=FLEXML_QUANT_ACT_MAP,
+        quant_avg_pool_map=FLEXML_QUANT_AVGPOOL_MAP,
+        unsigned_act_tuple=FLEXML_UNSIGNED_ACT_TUPLE,
+        **model_kwargs):
+    return quantize(
+        graph_model,
+        model_args,
         avgpool_to_depthwise_conv=avgpool_to_depthwise_conv,
-        **model_kwargs)
-    graph_model = DisableLastReturnQuantTensor().apply(graph_model)
-    graph_model.train(training_state)
-    config.IGNORE_MISSING_KEYS = ignore_missing_keys_state
-    return graph_model
+        quant_identity_map=quant_identity_map,
+        quant_wbiol_map=quant_wbiol_map,
+        quant_act_map=quant_act_map,
+        quant_avg_pool_map=quant_avg_pool_map,
+        unsigned_act_tuple=unsigned_act_tuple,
+        model_kwargs=model_kwargs)
