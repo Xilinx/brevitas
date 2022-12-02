@@ -29,6 +29,7 @@
 # Adapted from: https://github.com/Xilinx/finn/blob/master/tests/brevitas/test_brevitas_fc.py
 
 import pytest
+from packaging import version
 
 import numpy as np
 import torch
@@ -40,6 +41,7 @@ from qonnx.transformation.general import GiveUniqueNodeNames
 from qonnx.transformation.general import RemoveStaticGraphInputs
 from qonnx.transformation.double_to_single_float import DoubleToSingleFloat
 
+from brevitas import torch_version
 from brevitas.quant_tensor import QuantTensor
 from brevitas.export import export_finn_onnx
 from brevitas_examples.bnn_pynq.models import model_with_cfg
@@ -78,15 +80,16 @@ def test_brevitas_fc_onnx_export_and_exec(size, wbits, abits, pretrained):
     input_t = torch.from_numpy(input_a * scale)
     input_qt = QuantTensor(
         input_t, scale=torch.tensor(scale), bit_width=torch.tensor(8.0), signed=False)
-    export_finn_onnx(fc, export_path=finn_onnx, input_t=input_qt)
+    export_finn_onnx(fc, export_path=finn_onnx, input_t=input_qt, input_names=['input'])
     model = ModelWrapper(finn_onnx)
     model = model.transform(GiveUniqueNodeNames())
     model = model.transform(DoubleToSingleFloat())
     model = model.transform(InferShapes())
     model = model.transform(FoldConstants())
     model = model.transform(RemoveStaticGraphInputs())
+
     # run using FINN-based execution
-    input_dict = {"0": input_a}
+    input_dict = {'input': input_a}
     output_dict = oxe.execute_onnx(model, input_dict)
     produced = output_dict[list(output_dict.keys())[0]]
     # do forward pass in PyTorch/Brevitas
@@ -113,15 +116,16 @@ def test_brevitas_cnv_onnx_export_and_exec(wbits, abits, pretrained):
     input_t = torch.from_numpy(input_a * scale)
     input_qt = QuantTensor(
         input_t, scale=torch.tensor(scale), bit_width=torch.tensor(8.0), signed=False)
-    export_finn_onnx(cnv, export_path=finn_onnx, input_t=input_qt)
+    export_finn_onnx(cnv, export_path=finn_onnx, input_t=input_qt, input_names=['input'])
     model = ModelWrapper(finn_onnx)
     model = model.transform(GiveUniqueNodeNames())
     model = model.transform(DoubleToSingleFloat())
     model = model.transform(InferShapes())
     model = model.transform(FoldConstants())
     model = model.transform(RemoveStaticGraphInputs())
+    
     # run using FINN-based execution
-    input_dict = {"0": input_a}
+    input_dict = {"input": input_a}
     output_dict = oxe.execute_onnx(model, input_dict)
     produced = output_dict[list(output_dict.keys())[0]]
     # do forward pass in PyTorch/Brevitas
