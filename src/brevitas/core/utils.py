@@ -53,6 +53,7 @@ class StatelessBuffer(brevitas.jit.ScriptModule):
             missing_keys.remove(value_key)
 
     def state_dict(self, destination=None, prefix='', keep_vars=False):
-        output_dict = super(StatelessBuffer, self).state_dict(destination, prefix, keep_vars)
+        output_dict = super(StatelessBuffer, self).state_dict(
+            destination=destination, prefix=prefix, keep_vars=keep_vars)
         del output_dict[prefix + VALUE_ATTR_NAME]
         return output_dict
