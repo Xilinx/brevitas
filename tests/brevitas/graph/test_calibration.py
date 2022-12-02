@@ -12,12 +12,11 @@ def compute_quantile(x, q):
     result = x.abs().view(-1).kthvalue(k).values
     return result
 
-def reference_implementation_scale_factors_po2(x, q=99.999, min_val=torch.tensor(1e-10)):
+def reference_implementation_scale_factors_po2(x, q=99.999, min_val=torch.tensor(1e-10), int_scale=128.):
     quant = compute_quantile(x,q)
     quant = torch.max(min_val, quant)
     quant_float_to_int = torch.ceil(torch.log2(quant)) # Float to Int Implementation for PowerOfTwo scale
     
-    int_scale = 128. # Signed, PowerOfTwo int scale
     scale =  torch.pow(torch.tensor(2.), quant_float_to_int)/int_scale
     
     return scale
@@ -28,7 +27,7 @@ def test_scale_factors_ptq_calibration_po2(inp):
 
         def __init__(self):
             super(TestModel, self).__init__()
-            self.act = qnn.QuantIdentity(Int8ActPerTensorFixedPoint)
+            self.act = qnn.QuantIdentity(act_quant=Int8ActPerTensorFixedPoint)
 
         def forward(self, x):
             return self.act(x)
@@ -52,7 +51,7 @@ def test_calibration_training_state():
 
         def __init__(self):
             super(TestModel, self).__init__()
-            self.act = qnn.QuantIdentity(Int8ActPerTensorFixedPoint)
+            self.act = qnn.QuantIdentity(act_quant=Int8ActPerTensorFixedPoint)
 
         def forward(self, x):
             return self.act(x)

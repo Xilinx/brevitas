@@ -49,8 +49,8 @@ def finalize_collect_stats(module):
 class calibration_mode(object):
     def __init__(self, model, enabled=True):
         self.model = model
-        self.current_state = model.training
-        self.disable_quant_inference = DisableQuantInference()
+        self.previous_training_state = model.training
+        self.disable_quant_inference = DisableEnableQuantization()
         self.enabled=enabled
 
     def __enter__(self):
@@ -58,7 +58,7 @@ class calibration_mode(object):
             self.disable_quant_inference.apply(self.model, is_training=True, quantization_enabled=False)
 
     def __exit__(self, type, value, traceback):
-        self.disable_quant_inference.apply(self.model, is_training=self.current_state, quantization_enabled=True)
+        self.disable_quant_inference.apply(self.model, is_training=self.previous_training_state, quantization_enabled=True)
 
 
 class ClipFloatWeights(Transform):
@@ -75,7 +75,7 @@ class ClipFloatWeights(Transform):
         return model
         
 
-class DisableEnableQuantization(Transform, ABC):
+class DisableEnableQuantization(Transform):
     
     def __init__(self):
         super(DisableEnableQuantization, self).__init__()
@@ -133,9 +133,6 @@ class DisableEnableQuantization(Transform, ABC):
             if isinstance(module, _PARAM_PROXIES):
                 module.disable_quant = False
                 module.train(is_training)
-
-
-class DisableQuantInference(DisableEnableQuantization):
 
     def apply(self, model, is_training, quantization_enabled):
         if not quantization_enabled:
