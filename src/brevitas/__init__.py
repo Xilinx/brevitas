@@ -67,9 +67,14 @@ if config.JIT_ENABLED or config.NATIVE_STE_BACKEND_ENABLED:
             verbose=config.VERBOSE)
         NATIVE_STE_BACKEND_LOADED = True
     except Exception as e:
-        warnings.warn(f"Brevitas' native STE backend is enabled but couldn't be loaded. Exception: {e}.")
-        if not config.VERBOSE:
-            warnings.warn("Set env BREVITAS_VERBOSE=1 for more info.")
+        if config.VERBOSE:
+            # Warnings calls str on the message argument, can't pass an f-string directly
+            error_message = (
+                    f"The Brevitas native STE backend is enabled but couldn't be loaded.\n"
+                    f"Ensure that the \"ninja\" build system is installed (e.g. apt install ninja-build)"
+                    f"\nException: {e}."
+            )
+            warnings.warn(error_message)
         NATIVE_STE_BACKEND_LOADED = False
 else:
     NATIVE_STE_BACKEND_LOADED = False
