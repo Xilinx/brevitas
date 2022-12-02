@@ -18,7 +18,6 @@ from .base import Transform
 __all__ = [
     'ClipFloatWeights',
     'DisableEnableQuantization',
-    'DisableQuantInference',
     'BiasCorrection',
     'calibration_mode'
 ]
