@@ -22,7 +22,7 @@ class TorchQCDQQuantProxyHandler(
 
     @property
     def clip_over_integers(self):
-        return False
+        return True
     
     @property
     def flatten_dequantize_params(self):
