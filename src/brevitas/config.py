@@ -13,7 +13,7 @@ REINIT_ON_STATE_DICT_LOAD = env_to_bool('BREVITAS_REINIT_ON_STATE_DICT_LOAD', Tr
 IGNORE_MISSING_KEYS = env_to_bool('BREVITAS_IGNORE_MISSING_KEYS', False)
 # JIT_ENABLED triggers NATIVE_STE_BACKEND_ENABLED to True, but not the other way around
 JIT_ENABLED = env_to_bool('BREVITAS_JIT', False) and _enabled
-NATIVE_STE_BACKEND_ENABLED = env_to_bool('BREVITAS_NATIVE_STE_BACKEND', True)
+NATIVE_STE_BACKEND_ENABLED = env_to_bool('BREVITAS_NATIVE_STE_BACKEND', False)
 VERBOSE = env_to_bool('BREVITAS_VERBOSE', False)
 
 # Internal global variables
