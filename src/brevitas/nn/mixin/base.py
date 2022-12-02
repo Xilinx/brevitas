@@ -267,7 +267,8 @@ class QuantRecurrentLayerMixin(ExportMixin):
         return True
 
     def state_dict(self, destination=None, prefix='', keep_vars=False):
-        output_dict = super(QuantRecurrentLayerMixin, self).state_dict(destination, prefix, keep_vars)
+        output_dict = super(QuantRecurrentLayerMixin, self).state_dict(
+            destination=destination, prefix=prefix, keep_vars=keep_vars)
         for key in list(output_dict.keys()):
             if '_fast_cell' in key:
                 del output_dict[key]
