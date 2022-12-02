@@ -18,7 +18,7 @@ The root tests folder structure is based on requirements:
 - brevitas: tests for the main functionalities of the library. Only brevitas and the test packages should be needed to run these tests.
 - brevitas_examples: tests for the quantization examples in _src\_brevitas\_examples_.
 - brevitas_finn: tests for the integration with the FINN export-flow.
-- brevitas_ort: tests for the different brevitas onnx exports with standard operators, leveraging onnxruntime.
+- brevitas_ort: tests for the different brevitas ONNX exports with standard operators, leveraging onnxruntime.
 
 In particular, within the _brevitas_ folder, the subfolder structure matches the one in _src\_brevitas_.
 A class in _src\_brevitas\_core_ will have its corresponding test in _tests\_brevitas\_core_.
@@ -30,7 +30,7 @@ When adding or modifying a file in _src\_brevitas_,  check that the correspondin
 
 Generally speaking, there are two main types of tests used for Brevitas. 
 The first type relies heavily on Hypothesis to stress-test desired numerical properties. This is particularly useful for example when investigating the numerical propertities of scale factors or gradients.
-The second group is more focused on other properties of modules and functions. For example, testing that the same quantized module executed in brevitas and in onnxruntime have similar outputs, or veryfing that the export flows work as intended.
+The second group is more focused on other properties of modules and functions. For example, testing that the same quantized module can be in brevitas and in onnxruntime with similar outputs, or veryfing that the export flows work as intended.
 
 #### Numerical-based tests (i.e., Hypothesis-based tests)
 We define a set of pre-configured hypothesis-based strategies that can be used for tests, that can be found in [hyp_helper.py](https://github.com/Xilinx/brevitas/blob/dev/tests/brevitas/hyp_helper.py).
