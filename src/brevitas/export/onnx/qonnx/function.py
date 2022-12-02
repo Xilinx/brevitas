@@ -5,6 +5,7 @@ from brevitas.function import binary_sign
 from brevitas.core.bit_width import BitWidthConst
 from brevitas.core.quant import IntQuant, TruncIntQuant
 from brevitas.quant.solver.common import solve_float_to_int_impl_from_enum
+from brevitas.core.function_wrapper.clamp import TensorClamp
 
 
 DOMAIN_STRING = "onnx.brevitas"
@@ -41,7 +42,7 @@ class BrevitasQuantFn(Function):
     def forward(ctx, x, scale, zero_point, bit_width, narrow_range, signed, rounding_mode):
         float_to_int_impl = solve_float_to_int_impl_from_enum(rounding_mode)
         quant = IntQuant(
-            float_to_int_impl=float_to_int_impl(), narrow_range=narrow_range, signed=signed)
+            float_to_int_impl=float_to_int_impl(),tensor_clamp_impl=TensorClamp(), narrow_range=narrow_range, signed=signed)
         y = quant(scale, zero_point, bit_width, x)
         return y
 
