@@ -5,7 +5,7 @@ from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from brevitas.quant.scaled_int import Uint8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int16Bias
-from brevitas.export import export_pytorch_quant
+from brevitas.export import export_torch_qop
 
 from tests.marker import requires_pt_ge
 
@@ -46,7 +46,7 @@ def test_pytorch_quant_conv_export():
     model(inp)  # collect scale factors
     model.eval()
     brevitas_out = model(inp)
-    pytorch_qf_model = export_pytorch_quant(model, input_t=inp)
+    pytorch_qf_model = export_torch_qop(model, input_t=inp)
     pytorch_out = pytorch_qf_model(inp)
     atol = model.conv.quant_output_scale().item() * TOLERANCE
     assert pytorch_out.isclose(brevitas_out, rtol=0.0, atol=atol).all()
@@ -82,7 +82,7 @@ def test_pytorch_quant_linear_export():
     model(inp)  # collect scale factors
     model.eval()
     brevitas_out = model(inp)
-    pytorch_qf_model = export_pytorch_quant(model, input_t=inp)
+    pytorch_qf_model = export_torch_qop(model, input_t=inp)
     pytorch_out = pytorch_qf_model(inp)
     atol = model.linear.quant_output_scale().item() * TOLERANCE
     assert pytorch_out.isclose(brevitas_out, rtol=0.0, atol=atol).all()
@@ -119,7 +119,7 @@ def test_pytorch_quant_linear_bias_quant_export():
     model(inp)  # collect scale factors
     model.eval()
     brevitas_out = model(inp)
-    pytorch_qf_model = export_pytorch_quant(model, input_t=inp)
+    pytorch_qf_model = export_torch_qop(model, input_t=inp)
     pytorch_out = pytorch_qf_model(inp)
     atol = model.linear.quant_output_scale().item() * TOLERANCE
     assert pytorch_out.isclose(brevitas_out, rtol=0.0, atol=atol).all()
@@ -158,7 +158,7 @@ def test_pytorch_quant_conv_bias_quant_export():
     model(inp)  # collect scale factors
     model.eval()
     brevitas_out = model(inp)
-    pytorch_qf_model = export_pytorch_quant(model, input_t=inp)
+    pytorch_qf_model = export_torch_qop(model, input_t=inp)
     pytorch_out = pytorch_qf_model(inp)
     atol = model.conv.quant_output_scale().item() * TOLERANCE
     assert pytorch_out.isclose(brevitas_out, rtol=0.0, atol=atol).all()
@@ -188,7 +188,7 @@ def test_quant_act_export():
     model(inp)  # collect scale factors
     model.eval()
     brevitas_out = model(inp)
-    pytorch_qf_model = export_pytorch_quant(model, input_t=inp)
+    pytorch_qf_model = export_torch_qop(model, input_t=inp)
     pytorch_out = pytorch_qf_model(inp)
     atol = model.act2.quant_output_scale().item() * TOLERANCE
     assert pytorch_out.isclose(brevitas_out, rtol=0.0, atol=atol).all()
@@ -219,7 +219,7 @@ def test_quant_max_pool2d_export():
     model(inp)  # collect scale factors
     model.eval()
     brevitas_out = model(inp)
-    pytorch_qf_model = export_pytorch_quant(model, input_t=inp)
+    pytorch_qf_model = export_torch_qop(model, input_t=inp)
     pytorch_out = pytorch_qf_model(inp)
     atol = model.act.quant_output_scale().item() * TOLERANCE
     assert pytorch_out.isclose(brevitas_out, rtol=0.0, atol=atol).all()
@@ -256,7 +256,7 @@ def test_func_quant_max_pool2d_export():
     model(inp)  # collect scale factors
     model.eval()
     brevitas_out = model(inp)
-    pytorch_qf_model = export_pytorch_quant(model, input_t=inp)
+    pytorch_qf_model = export_torch_qop(model, input_t=inp)
     pytorch_out = pytorch_qf_model(inp)
     atol = model.act2.quant_output_scale().item() * TOLERANCE
     assert pytorch_out.isclose(brevitas_out, rtol=0.0, atol=atol).all()
