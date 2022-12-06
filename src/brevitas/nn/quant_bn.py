@@ -97,7 +97,7 @@ class BatchNorm1dToQuantScaleBias(_BatchNormToQuantScaleBias):
         super(BatchNorm1dToQuantScaleBias, self).__init__(
             num_features,
             bias=True,
-            runtime_shape=(1, -1),
+            runtime_shape=(1, -1, 1),
             weight_quant=weight_quant,
             bias_quant=bias_quant,
             input_quant=input_quant,
