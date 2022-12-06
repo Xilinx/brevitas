@@ -17,8 +17,8 @@ from brevitas.export import export_torch_qcdq
 
 
 @parametrize_with_cases('model', cases=TorchQuantWBIOLCases.case_quant_wbiol_qcdq)
-@requires_pt_ge('1.8.1')
-def test_ort(model, current_cases):
+@requires_pt_ge('1.9.1')
+def test_pytorch_qcdq_export(model, current_cases):
     cases_generator_func = current_cases['model'][1]
     case_id = get_case_id(cases_generator_func)
     impl = case_id.split('-')[-1] # Inverse list of definition, 'impl' is -1.
