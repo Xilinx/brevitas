@@ -77,19 +77,6 @@ class TorchQCDQActQuantProxyHandler(
 class TorchQCDQBiasQuantProxyHandler(
     QCDQBiasQuantProxyHandlerMixin, BaseHandler):
 
-# class TorchQCDQWeightQuantProxyHandler(
-#     TorchQCDQQuantProxyHandler, QCDQWeightQuantProxyHandlerMixin):
-#     pass
-
-
-# class TorchQCDQActQuantProxyHandler(
-#     TorchQCDQQuantProxyHandler, QCDQActQuantProxyHandlerMixin):
-#     pass
-
-
-# class TorchQCDQBiasQuantProxyHandler(
-#     BaseHandler, QCDQBiasQuantProxyHandlerMixin):
-
     @classmethod    
     def int8_dtype(cls):
         return torch.qint8

@@ -88,7 +88,10 @@ class ONNXBaseHandler(BaseHandler, ABC):
         self.debug_input = False
         self.debug_output = False
 
-
+    @abstractmethod
+    def prepare_for_export(self, module):
+        pass
+    
     @abstractmethod
     def symbolic_execution(self, *args, **kwargs):
         pass
