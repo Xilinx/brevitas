@@ -6,6 +6,7 @@ from torch import Tensor
 from brevitas.function.ops import tensor_clamp_
 from brevitas.export.common.handler.base import BaseHandler
 from brevitas.export.common.handler.qcdq import (
+    QCDQMixin,
     QCDQQuantProxyHandlerMixin,
     QCDQWeightQuantProxyHandlerMixin,
     QCDQBiasQuantProxyHandlerMixin,
@@ -14,7 +15,7 @@ from brevitas.export.common.handler.qcdq import (
 
 
 class TorchQCDQQuantProxyHandler(
-    BaseHandler, QCDQQuantProxyHandlerMixin, ABC):
+    BaseHandler, QCDQMixin, ABC):
     
     def __init__(self) -> None:
         super().__init__()
@@ -62,18 +63,32 @@ class TorchQCDQQuantProxyHandler(
         return self.symbolic_execution(*args, **kwargs)
 
 
+
 class TorchQCDQWeightQuantProxyHandler(
-    TorchQCDQQuantProxyHandler, QCDQWeightQuantProxyHandlerMixin):
+    QCDQWeightQuantProxyHandlerMixin, TorchQCDQQuantProxyHandler):
     pass
 
 
 class TorchQCDQActQuantProxyHandler(
-    TorchQCDQQuantProxyHandler, QCDQActQuantProxyHandlerMixin):
+    QCDQActQuantProxyHandlerMixin, TorchQCDQQuantProxyHandler):
     pass
 
 
 class TorchQCDQBiasQuantProxyHandler(
-    BaseHandler, QCDQBiasQuantProxyHandlerMixin):
+    QCDQBiasQuantProxyHandlerMixin, BaseHandler):
+
+# class TorchQCDQWeightQuantProxyHandler(
+#     TorchQCDQQuantProxyHandler, QCDQWeightQuantProxyHandlerMixin):
+#     pass
+
+
+# class TorchQCDQActQuantProxyHandler(
+#     TorchQCDQQuantProxyHandler, QCDQActQuantProxyHandlerMixin):
+#     pass
+
+
+# class TorchQCDQBiasQuantProxyHandler(
+#     BaseHandler, QCDQBiasQuantProxyHandlerMixin):
 
     @classmethod    
     def int8_dtype(cls):
