@@ -39,6 +39,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 from torch.nn import Sequential
+import copy
 
 
 class TupleSequential(Sequential):
@@ -55,3 +56,14 @@ class TupleSequential(Sequential):
         for mod in modules[1:]:
             out = self.output(mod, out)
         return out
+
+
+def torch_partial_deepcopy(model):
+    """
+    Performs a deepcopy of a torch.nn.Module, except for all the parameters that are instead passed by reference
+    """
+    memo = {}
+    for p in model.parameters():
+        memo[id(p)] = copy.copy(p)  # Shallow copy of parameters
+    model_copy = copy.deepcopy(model, memo)
+    return model_copy
