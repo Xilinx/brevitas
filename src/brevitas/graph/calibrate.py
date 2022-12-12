@@ -218,25 +218,26 @@ class BiasCorrection(DisableEnableQuantization):
             inp_broadcast_shape = compute_channel_view_shape(inp, channel_dim=self.channel_dim(inp, parent_module))
             return inp + error.reshape(inp_broadcast_shape)
 
-    def collect_float_mean(self, model):
+    def register_collect_float_mean_hook(self, model):
         for name, module in model.named_modules():
             if isinstance(module, self.layers):
                 hook_fn = partial(self.collect_float_mean_hook, name=name, parent_module=module)
                 hook = module.output_quant.register_forward_pre_hook(hook_fn)
                 self.collect_float_mean_hooks.append(hook)
 
-    def correct_bias(self, model):
+    def register_correct_bias_hook(self, model):
         for name, module in model.named_modules():
             if isinstance(module, self.layers):
                 hook_fn = partial(self.correct_bias_hook, name=name, parent_module=module)
                 hook = module.output_quant.register_forward_pre_hook(hook_fn)
                 self.correct_bias_hooks.append(hook)
 
-    def float_hooks_cleanup(self):
+    def float_mean_hooks_cleanup(self):
         for hook in self.collect_float_mean_hooks:
             hook.remove()
         self.collect_float_mean_hooks = []
-    def quant_hooks_cleanup(self):
+
+    def correct_bias_hooks_cleanup(self):
         for hook in self.correct_bias_hooks:
             hook.remove()
         self.correct_bias_hooks = []
@@ -244,14 +245,14 @@ class BiasCorrection(DisableEnableQuantization):
     def call_wrapper(self, *args, model, wrapped_call, **kwargs):
         self.disable_act_quantization(model, is_training=False)
         self.disable_param_quantization(model, is_training=False)
-        self.collect_float_mean(model)
+        self.register_collect_float_mean_hook(model)
         wrapped_call(*args, **kwargs)
-        self.float_hooks_cleanup()
+        self.float_mean_hooks_cleanup()
 
         self.enable_act_quantization(model, is_training=False)
         self.enable_param_quantization(model, is_training=False)
-        self.correct_bias(model)
+        self.register_correct_bias_hook(model)
         wrapped_call(*args, **kwargs)
+        self.correct_bias_hooks_cleanup()
 
-        self.quant_hooks_cleanup()
         self.iterations+=1
