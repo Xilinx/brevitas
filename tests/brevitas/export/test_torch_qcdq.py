@@ -2,7 +2,7 @@
 import torch
 
 from .export_cases import TorchQuantWBIOLCases
-from .export_cases import FEATURES, IN_CH
+from .export_cases import FEATURES, IN_CH, TOLERANCE
 from pytest_cases import parametrize_with_cases, get_case_id
 from tests.marker import requires_pt_ge
 from brevitas.export import export_torch_qcdq
@@ -27,8 +27,9 @@ def test_pytorch_qcdq_export(model, current_cases):
     model.eval()
     
     out = model(inp)
-    export_torch_qcdq(model, args=inp, export_path='pytorch_qcdq.ts')
-    pytorch_qcdq_model = torch.load('pytorch_qcdq.ts')
+    export_torch_qcdq(model, args=inp, export_path='pytorch_qcdq.pt')
+    pytorch_qcdq_model = torch.jit.load('pytorch_qcdq.pt')
     torchscript_out = pytorch_qcdq_model(inp)
-    
-    assert torch.allclose(out, torchscript_out)
+    torchscript_out = torchscript_out[0]
+    tolerance = TOLERANCE * out.scale
+    assert torch.allclose(out, torchscript_out, atol=tolerance)

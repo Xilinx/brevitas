@@ -18,6 +18,7 @@ OUT_CH = 16
 IN_CH = 8
 FEATURES = 5
 KERNEL_SIZE = 3 
+TOLERANCE = 1
 
 QUANTIZERS = {
     'asymmetric_float': (ShiftedUint8WeightPerTensorFloat, ShiftedUint8ActPerTensorFloat),
@@ -55,7 +56,7 @@ class TorchQuantWBIOLCases:
                     input_quant=io_quant,
                     output_quant=io_quant,
                     bias_quant=Int32Bias,
-                    return_quant_tensor=False)
+                    return_quant_tensor=True)
                 self.conv.weight.data.uniform_(-0.01, 0.01)
 
             def forward(self, x):
