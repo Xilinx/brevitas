@@ -72,19 +72,24 @@ def test_calibration_training_state():
 
 
 def test_bias_correction():
-    inp = torch.randn(BATCH, IN_CH)
+    # Generate 2 random inputs (i.e., batch_size=2)
+    inp_list = [torch.randn(BATCH, IN_CH),torch.randn(BATCH, IN_CH)] 
     fp_layer = nn.Linear(IN_CH, OUT_CH, bias=False)
 
     quant_layer = qnn.QuantLinear(IN_CH, OUT_CH, bias=False)
     quant_layer.weight.data = fp_layer.weight.data
     fp_layer.eval()
     quant_layer.eval()
-
-    quant_out = quant_layer(inp)
-    quant_fp = fp_layer(inp)
+    
+    error = 0.
+    for inp in inp_list:
+        quant_out = quant_layer(inp)
+        quant_fp = fp_layer(inp)
+        error += quant_fp - quant_out
 
     with bias_correction_mode(quant_layer):
-        quant_layer(inp)
+        for inp in inp_list:
+            quant_layer(inp)
 
     assert quant_layer.bias is not None
-    assert torch.allclose(quant_layer.bias, quant_fp-quant_out)
+    assert torch.allclose(quant_layer.bias, error/len(inp_list))
