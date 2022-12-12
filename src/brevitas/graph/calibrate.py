@@ -18,7 +18,7 @@ from .base import Transform
 __all__ = [
     'ClipFloatWeights',
     'DisableEnableQuantization',
-    'BiasCorrection',
+    'bias_correction_mode',
     'calibration_mode'
 ]
 
@@ -59,6 +59,24 @@ class calibration_mode(object):
     def __exit__(self, type, value, traceback):
         self.model.apply(finalize_collect_stats)
         self.disable_quant_inference.apply(self.model, is_training=self.previous_training_state, quantization_enabled=True)
+
+
+class bias_correction_mode():
+    def __init__(self, model, enabled=True):
+        self.model = model
+        self.call_pointer = self.model.forward
+        self.current_state = model.training
+        self.bias_correction = BiasCorrection()
+        self.enabled=enabled
+
+    def __enter__(self):
+        if self.enabled:
+            call_wrapper = partial(self.bias_correction.call_wrapper, model=self.model, wrapped_call=self.model.forward)
+            self.model.forward = call_wrapper
+
+    def __exit__(self, type, value, traceback):
+        self.bias_correction.apply_correction(self.model)
+        self.model.forward = self.call_pointer
 
 
 class ClipFloatWeights(Transform):
@@ -147,11 +165,10 @@ class BiasCorrection(DisableEnableQuantization):
 
     LAYERS = (QuantWBIOL,)
 
-    def __init__(self, iterations, layers=LAYERS):
+    def __init__(self, layers=LAYERS):
         super(BiasCorrection, self).__init__()
-        self.iterations = iterations
         self.layers = layers
-        self.curr_iter = 0
+        self.iterations = 0
         self.correction_map = {}
         self.float_mean_map = {}
         self.collect_float_mean_hooks = []
@@ -181,12 +198,14 @@ class BiasCorrection(DisableEnableQuantization):
         else:
             self.correction_map[name] += error
 
-    def apply_correction(self, name, parent_module):
-        correction = self.correction_map[name] / self.iterations
-        if parent_module.bias is not None:
-            parent_module.bias.data += correction
-        else:
-            parent_module.register_parameter('bias', nn.Parameter(correction).to(parent_module.weight.device))
+    def apply_correction(self, model):
+        for name, module in model.named_modules():
+            if name in self.correction_map.keys():
+                correction = self.correction_map[name] / self.iterations
+                if module.bias is not None:
+                    module.bias.data += correction
+                else:
+                    module.register_parameter('bias', nn.Parameter(correction).to(module.weight.device))
 
     def correct_bias_hook(self, module, inp, name, parent_module):
         inp = self.unpack_input(inp)
@@ -195,41 +214,44 @@ class BiasCorrection(DisableEnableQuantization):
             quant_mean = self.compute_mean(inp, transpose_dim)
             error = self.float_mean_map[name] - quant_mean
             self.update_correction(name, error)
-            if self.curr_iter == self.iterations - 1:
-                self.apply_correction(name, parent_module)
             del self.float_mean_map[name]
             inp_broadcast_shape = compute_channel_view_shape(inp, channel_dim=self.channel_dim(inp, parent_module))
             return inp + error.reshape(inp_broadcast_shape)
 
-    def collect_float_mean(self, model, *args, **kwargs):
+    def collect_float_mean(self, model):
         for name, module in model.named_modules():
             if isinstance(module, self.layers):
                 hook_fn = partial(self.collect_float_mean_hook, name=name, parent_module=module)
                 hook = module.output_quant.register_forward_pre_hook(hook_fn)
                 self.collect_float_mean_hooks.append(hook)
-        model(*args, **kwargs)
-        for hook in self.collect_float_mean_hooks:
-            hook.remove()
-        self.collect_float_mean_hooks = []
 
-    def correct_bias(self, model, *args, **kwargs):
+    def correct_bias(self, model):
         for name, module in model.named_modules():
             if isinstance(module, self.layers):
                 hook_fn = partial(self.correct_bias_hook, name=name, parent_module=module)
                 hook = module.output_quant.register_forward_pre_hook(hook_fn)
                 self.correct_bias_hooks.append(hook)
-        model(*args, **kwargs)
+
+    def float_hooks_cleanup(self):
+        for hook in self.collect_float_mean_hooks:
+            hook.remove()
+        self.collect_float_mean_hooks = []
+    def quant_hooks_cleanup(self):
         for hook in self.correct_bias_hooks:
             hook.remove()
         self.correct_bias_hooks = []
-        assert not self.float_mean_map
 
-    def apply(self, model, *model_args, **model_kwargs):
+    def call_wrapper(self, *args, model, wrapped_call, **kwargs):
         self.disable_act_quantization(model, is_training=False)
         self.disable_param_quantization(model, is_training=False)
-        self.collect_float_mean(model, *model_args, **model_kwargs)
+        self.collect_float_mean(model)
+        wrapped_call(*args, **kwargs)
+        self.float_hooks_cleanup()
+
         self.enable_act_quantization(model, is_training=False)
         self.enable_param_quantization(model, is_training=False)
-        self.correct_bias(model, *model_args, **model_kwargs)
-        self.curr_iter += 1
-        return model
+        self.correct_bias(model)
+        wrapped_call(*args, **kwargs)
+
+        self.quant_hooks_cleanup()
+        self.iterations+=1
