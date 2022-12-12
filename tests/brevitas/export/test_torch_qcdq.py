@@ -6,7 +6,7 @@ from .export_cases import FEATURES, IN_CH
 from pytest_cases import parametrize_with_cases, get_case_id
 from tests.marker import requires_pt_ge
 from brevitas.export import export_torch_qcdq
-
+import brevitas.nn as qnn
 
 @parametrize_with_cases('model', cases=TorchQuantWBIOLCases.case_quant_wbiol_qcdq)
 @requires_pt_ge('1.9.1')
@@ -21,8 +21,14 @@ def test_pytorch_qcdq_export(model, current_cases):
         in_size = (1, IN_CH, FEATURES)
     else:
         in_size = (1, IN_CH, FEATURES, FEATURES)
-    
+
     inp = torch.randn(in_size)
-    
+    model(inp) # Collect scale factors
     model.eval()
-    pytorch_qf_model = export_torch_qcdq(model, args=inp, export_path='pytorch_qcdq.pth')
+    
+    out = model(inp)
+    export_torch_qcdq(model, args=inp, export_path='pytorch_qcdq.ts')
+    pytorch_qcdq_model = torch.load('pytorch_qcdq.ts')
+    torchscript_out = pytorch_qcdq_model(inp)
+    
+    assert torch.allclose(out, torchscript_out)

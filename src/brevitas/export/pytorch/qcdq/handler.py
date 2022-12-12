@@ -94,7 +94,7 @@ class TorchQCDQBiasQuantProxyHandler(
         assert module.rounding_mode == 'ROUND', 'Only round to nearest even supported'
     
     def dequantize_fn(self, x, scale, zero_point, axis):
-        return x.dequantize()
+        return (x - zero_point) * scale
     
     def forward(self, *args, **kwargs):
         return self.symbolic_execution(*args, **kwargs)
