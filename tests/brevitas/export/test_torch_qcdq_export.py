@@ -1,13 +1,5 @@
 
 import torch
-from operator import mul
-from functools import reduce
-# from brevitas.nn import QuantConv2d, QuantLinear, QuantAvgPool2d, QuantIdentity, QuantReLU, QuantMaxPool2d
-# from brevitas.quant.scaled_int import Int4WeightPerTensorFloatDecoupled
-# from brevitas.quant.scaled_int import Int8ActPerTensorFloat, Int16Bias
-# from brevitas.export import export_standard_qcdq_onnx
-# from brevitas.export import export_brevitas_onnx, enable_debug
-# from brevitas_examples import imagenet_classification
 
 from .export_cases import TorchQuantWBIOLCases
 from .export_cases import FEATURES, IN_CH
@@ -34,4 +26,3 @@ def test_pytorch_qcdq_export(model, current_cases):
     
     model.eval()
     pytorch_qf_model = export_torch_qcdq(model, args=inp, export_path='pytorch_qcdq.pth')
-
