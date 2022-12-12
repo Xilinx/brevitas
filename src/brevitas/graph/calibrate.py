@@ -57,6 +57,7 @@ class calibration_mode(object):
             self.disable_quant_inference.apply(self.model, is_training=True, quantization_enabled=False)
 
     def __exit__(self, type, value, traceback):
+        self.model.apply(finalize_collect_stats)
         self.disable_quant_inference.apply(self.model, is_training=self.previous_training_state, quantization_enabled=True)
 
 

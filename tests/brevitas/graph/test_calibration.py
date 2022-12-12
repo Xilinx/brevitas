@@ -1,7 +1,7 @@
 import torch
 import brevitas.nn as qnn
 import torch.nn as nn
-from brevitas.graph.calibrate import calibration_mode,finalize_collect_stats
+from brevitas.graph.calibrate import calibration_mode
 from brevitas.quant import Int8ActPerTensorFixedPoint
 from tests.brevitas.hyp_helper import float_tensor_random_size_st
 from hypothesis import given
@@ -37,7 +37,6 @@ def test_scale_factors_ptq_calibration_po2(inp):
     with torch.no_grad():
         with calibration_mode(model):
             model(inp)
-    model.apply(finalize_collect_stats)
 
     expected_scale = reference_implementation_scale_factors_po2(inp)
     scale = model.act.quant_act_scale()
