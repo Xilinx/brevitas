@@ -40,6 +40,7 @@
 
 from hypothesis import given
 import pytest
+import warnings
 
 import torch
 from brevitas.nn import QuantRNN, QuantLSTM
@@ -87,6 +88,11 @@ class TestRecurrent:
         assert torch.isclose(out[0], ref_out[0], atol=ATOL).all()
         assert torch.isclose(out[1], ref_out[1], atol=ATOL).all()
 
+        # Test that the brevitas model can be saved/loaded without warning
+        with warnings.catch_warnings(record=True) as wlist:
+            qm.load_state_dict(qm.state_dict())
+            for w in wlist:
+                assert "Positional args are being deprecated" not in str(w.message)
 
     @given(
          inp=float_tensor_random_size_st(dims=3, max_size=3),
@@ -129,6 +135,14 @@ class TestRecurrent:
         assert torch.isclose(out[1][0], ref_out[1][0], atol=ATOL).all()
         # cell states
         assert torch.isclose(out[1][1], ref_out[1][1], atol=ATOL).all()
+
+        # Test that the brevitas model can be saved/loaded without warning
+        # Test that the brevitas model can be saved/loaded without warning
+        with warnings.catch_warnings(record=True) as wlist:
+            qm.load_state_dict(qm.state_dict())
+            for w in wlist:
+                assert "Positional args are being deprecated" not in str(w.message)
+
 
     @pytest.mark.parametrize("batch_first", [True, False])
     @pytest.mark.parametrize("bidirectional", [True, False, 'shared_input_hidden_weights'])
