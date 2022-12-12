@@ -47,14 +47,14 @@ class StdQCDQONNXQuantProxyHandler(
         assert module.bit_width() > 1., 'Binary quant not supported'
         assert module.rounding_mode == 'ROUND', 'Only round to nearest even supported'
 
-    def quantize_fn(self, x, scale, zero_point, dtype, axis, bit_width=None):
-        return QuantizeLinearFn.apply(x, scale, zero_point, dtype, axis, bit_width)
+    def quantize_fn(self, x, scale, zero_point, dtype, axis):
+        return QuantizeLinearFn.apply(x, scale, zero_point, dtype, axis)
     
     def clip_fn(self, x, min_val, max_val):
         return IntClipFn.apply(x, min_val, max_val)
     
-    def dequantize_fn(self, x, scale, zero_point, axis, bit_width=None):
-        return DequantizeLinearFn.apply(x, scale, zero_point, axis, bit_width)
+    def dequantize_fn(self, x, scale, zero_point, axis):
+        return DequantizeLinearFn.apply(x, scale, zero_point, axis)
 
 
 class StdQCDQONNXWeightQuantProxyHandler(

@@ -46,7 +46,7 @@ class TorchQCDQQuantProxyHandler(
         assert module.bit_width() > 1., 'Binary quant not supported'
         assert module.rounding_mode == 'ROUND', 'Only round to nearest even supported'
         
-    def quantize_fn(self, x, scale, zero_point, dtype, axis, bit_width=None):
+    def quantize_fn(self, x, scale, zero_point, dtype, axis):
         if axis is None:
             y = torch.quantize_per_tensor(x, scale, zero_point, dtype)
         else:
@@ -56,7 +56,7 @@ class TorchQCDQQuantProxyHandler(
     def clip_fn(self, x, min_val, max_val):
         return torch.clip(x, min_val, max_val)
     
-    def dequantize_fn(self, x, scale, zero_point, axis, bit_width=None):
+    def dequantize_fn(self, x, scale, zero_point, axis):
         return (x - zero_point) * scale
     
     def forward(self, *args, **kwargs):

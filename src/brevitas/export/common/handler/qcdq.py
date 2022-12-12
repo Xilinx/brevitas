@@ -15,7 +15,7 @@ from .base import QuantAxisMixin, ClipMixin, ZeroPointHandlerMixin, BitWidthHand
 class DQMixin(ABC):
     
     @abstractmethod
-    def dequantize_fn(self, x, scale, zero_point, axis, bit_width=None):
+    def dequantize_fn(self, x, scale, zero_point, axis):
         pass
     
     @property
@@ -47,7 +47,7 @@ class QCDQMixin(DQMixin):
         pass
     
     @abstractmethod
-    def quantize_fn(self, x, scale, zero_point, dtype, axis, bit_width=None):
+    def quantize_fn(self, x, scale, zero_point, dtype, axis):
         pass
     
     @abstractmethod
@@ -116,10 +116,10 @@ class QCDQQuantProxyHandlerMixin(
         zero_point = dequantize_symbolic_kwargs['zero_point']
         bit_width = self.symbolic_kwargs['bit_width']
         assert bit_width > 1 # Fake assert, workaround for bitwidth tracing in activations
-        x = self.quantize_fn(x, *quantize_symbolic_kwargs.values(), bit_width)
+        x = self.quantize_fn(x, *quantize_symbolic_kwargs.values())
         if clip_symbolic_kwargs is not None and self.clip_over_integers:
             x = self.clip_fn(x, *clip_symbolic_kwargs.values())
-        x = self.dequantize_fn(x, *dequantize_symbolic_kwargs.values(), bit_width)
+        x = self.dequantize_fn(x, *dequantize_symbolic_kwargs.values())
         if clip_symbolic_kwargs is not None and not self.clip_over_integers:
             x = self.clip_fn(x, *clip_symbolic_kwargs.values())
         return x, scale, zero_point, bit_width
