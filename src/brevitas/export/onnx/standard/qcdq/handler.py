@@ -58,22 +58,22 @@ class StdQCDQONNXQuantProxyHandler(
 
 
 class StdQCDQONNXWeightQuantProxyHandler(
-    StdQCDQONNXQuantProxyHandler, QCDQWeightQuantProxyHandlerMixin):
+    QCDQWeightQuantProxyHandlerMixin,StdQCDQONNXQuantProxyHandler):
     pass
 
 
 class StdQCDQONNXDecoupledWeightQuantProxyHandler(
-    StdQCDQONNXQuantProxyHandler, QCDQDecoupledWeightQuantProxyHandlerMixin):
+    QCDQDecoupledWeightQuantProxyHandlerMixin, StdQCDQONNXQuantProxyHandler):
     pass
 
 
 class StdQCDQONNXActQuantProxyHandler(
-    StdQCDQONNXQuantProxyHandler, QCDQActQuantProxyHandlerMixin):
+    QCDQActQuantProxyHandlerMixin, StdQCDQONNXQuantProxyHandler):
     pass
 
 
 class StdQCDQONNXBiasQuantProxyHandler(
-    ONNXBaseHandler, QCDQBiasQuantProxyHandlerMixin):
+    QCDQBiasQuantProxyHandlerMixin, ONNXBaseHandler):
     
     def validate(self, module):
         assert module.is_signed, 'Unsigned bias not supported.'
@@ -96,6 +96,6 @@ class StdQCDQONNXBiasQuantProxyHandler(
 
 
 class StdQCDQONNXTruncQuantProxyHandler(
-    StdQCDQONNXQuantProxyHandler, QCDQTruncQuantProxyHandlerMixin):
+    QCDQTruncQuantProxyHandlerMixin, StdQCDQONNXQuantProxyHandler):
     pass
 

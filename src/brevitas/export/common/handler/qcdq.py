@@ -9,7 +9,6 @@ from brevitas.proxy import BiasQuantProxyFromInjector
 from brevitas.proxy import ActQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector
 from brevitas.export.common import to_0dim_if_scalar
-
 from .base import QuantAxisMixin, ClipMixin, ZeroPointHandlerMixin, BitWidthHandlerMixin
 
 
@@ -116,6 +115,7 @@ class QCDQQuantProxyHandlerMixin(
         scale = dequantize_symbolic_kwargs['scale']
         zero_point = dequantize_symbolic_kwargs['zero_point']
         bit_width = self.symbolic_kwargs['bit_width']
+        assert bit_width > 1 # Fake assert, workaround for bitwidth tracing in activations
         x = self.quantize_fn(x, *quantize_symbolic_kwargs.values(), bit_width)
         if clip_symbolic_kwargs is not None and self.clip_over_integers:
             x = self.clip_fn(x, *clip_symbolic_kwargs.values())

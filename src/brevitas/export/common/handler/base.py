@@ -22,9 +22,9 @@ class BaseHandler(Module, ABC):
     def attach_debug_info(self, module):
         pass
 
-    # @abstractmethod
-    # def prepare_for_export(self, module):
-    #     pass
+    @abstractmethod
+    def prepare_for_export(self, module):
+        pass
     
 
 class QuantAxisMixin(ABC):

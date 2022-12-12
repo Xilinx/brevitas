@@ -6,6 +6,7 @@ from torch import Tensor
 from brevitas.function.ops import tensor_clamp_
 from brevitas.export.common.handler.base import BaseHandler
 from brevitas.export.common.handler.qcdq import (
+    QCDQMixin,
     QCDQQuantProxyHandlerMixin,
     QCDQWeightQuantProxyHandlerMixin,
     QCDQBiasQuantProxyHandlerMixin,
@@ -14,7 +15,7 @@ from brevitas.export.common.handler.qcdq import (
 
 
 class TorchQCDQQuantProxyHandler(
-    BaseHandler, QCDQQuantProxyHandlerMixin, ABC):
+    BaseHandler, QCDQMixin, ABC):
     
     def __init__(self) -> None:
         super().__init__()
@@ -62,18 +63,19 @@ class TorchQCDQQuantProxyHandler(
         return self.symbolic_execution(*args, **kwargs)
 
 
+
 class TorchQCDQWeightQuantProxyHandler(
-    TorchQCDQQuantProxyHandler, QCDQWeightQuantProxyHandlerMixin):
+    QCDQWeightQuantProxyHandlerMixin, TorchQCDQQuantProxyHandler):
     pass
 
 
 class TorchQCDQActQuantProxyHandler(
-    TorchQCDQQuantProxyHandler, QCDQActQuantProxyHandlerMixin):
+    QCDQActQuantProxyHandlerMixin, TorchQCDQQuantProxyHandler):
     pass
 
 
 class TorchQCDQBiasQuantProxyHandler(
-    BaseHandler, QCDQBiasQuantProxyHandlerMixin):
+    QCDQBiasQuantProxyHandlerMixin, BaseHandler):
 
     @classmethod    
     def int8_dtype(cls):
@@ -92,7 +94,7 @@ class TorchQCDQBiasQuantProxyHandler(
         assert module.rounding_mode == 'ROUND', 'Only round to nearest even supported'
     
     def dequantize_fn(self, x, scale, zero_point, axis):
-        return x.dequantize()
+        return (x - zero_point) * scale
     
     def forward(self, *args, **kwargs):
         return self.symbolic_execution(*args, **kwargs)
