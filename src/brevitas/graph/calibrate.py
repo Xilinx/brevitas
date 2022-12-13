@@ -68,15 +68,16 @@ class bias_correction_mode():
         self.current_state = model.training
         self.bias_correction = BiasCorrection()
         self.enabled=enabled
+        self.hook = None
 
     def __enter__(self):
         if self.enabled:
-            call_wrapper = partial(self.bias_correction.call_wrapper, model=self.model, wrapped_call=self.model.forward)
-            self.model.forward = call_wrapper
+            self.hook = self.model.register_forward_pre_hook(self.bias_correction.global_forward_pre_hook)
 
     def __exit__(self, type, value, traceback):
         self.bias_correction.apply_correction(self.model)
-        self.model.forward = self.call_pointer
+        if self.hook is not None:
+            self.hook.remove()
 
 
 class ClipFloatWeights(Transform):
@@ -242,17 +243,18 @@ class BiasCorrection(DisableEnableQuantization):
             hook.remove()
         self.correct_bias_hooks = []
 
-    def call_wrapper(self, *args, model, wrapped_call, **kwargs):
+    def global_forward_pre_hook(self, model, inp):
         self.disable_act_quantization(model, is_training=False)
         self.disable_param_quantization(model, is_training=False)
         self.register_collect_float_mean_hook(model)
-        wrapped_call(*args, **kwargs)
+        inp, = inp
+        model.forward(inp) # Required to avoid infinite recursion
         self.float_mean_hooks_cleanup()
 
         self.enable_act_quantization(model, is_training=False)
         self.enable_param_quantization(model, is_training=False)
         self.register_correct_bias_hook(model)
-        wrapped_call(*args, **kwargs)
+        model.forward(inp) # Required to avoid infinite recursion
         self.correct_bias_hooks_cleanup()
 
         self.iterations+=1
