@@ -137,7 +137,6 @@ class TestRecurrent:
         assert torch.isclose(out[1][1], ref_out[1][1], atol=ATOL).all()
 
         # Test that the brevitas model can be saved/loaded without warning
-        # Test that the brevitas model can be saved/loaded without warning
         with warnings.catch_warnings(record=True) as wlist:
             qm.load_state_dict(qm.state_dict())
             for w in wlist:
