@@ -68,16 +68,17 @@ class bias_correction_mode():
         self.current_state = model.training
         self.bias_correction = BiasCorrection()
         self.enabled=enabled
-        self.hook = None
+        self.hook = []
 
     def __enter__(self):
         if self.enabled:
-            self.hook = self.model.register_forward_pre_hook(self.bias_correction.global_forward_pre_hook)
+            self.hook.append(self.model.register_forward_pre_hook(self.bias_correction.global_forward_pre_hook))
+            self.hook.append(self.model.register_forward_hook(self.bias_correction.global_forward_hook))
 
     def __exit__(self, type, value, traceback):
         self.bias_correction.apply_correction(self.model)
-        if self.hook is not None:
-            self.hook.remove()
+        for hook in self.hook:
+            hook.remove()
 
 
 class ClipFloatWeights(Transform):
@@ -250,11 +251,11 @@ class BiasCorrection(DisableEnableQuantization):
         inp, = inp
         model.forward(inp) # Required to avoid infinite recursion
         self.float_mean_hooks_cleanup()
-
         self.enable_act_quantization(model, is_training=False)
         self.enable_param_quantization(model, is_training=False)
         self.register_correct_bias_hook(model)
-        model.forward(inp) # Required to avoid infinite recursion
-        self.correct_bias_hooks_cleanup()
 
+    def global_forward_hook(self, model, inp, output):
+        # Clean-up after forward, to be ready for next input
+        self.correct_bias_hooks_cleanup()
         self.iterations+=1
