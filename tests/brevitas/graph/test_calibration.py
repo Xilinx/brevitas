@@ -6,6 +6,7 @@ from brevitas.quant import Int8ActPerTensorFixedPoint
 from tests.brevitas.hyp_helper import float_tensor_random_size_st
 from hypothesis import given
 import math
+from pytest_cases import fixture
 
 IN_CH = 8
 OUT_CH = 16
@@ -71,25 +72,99 @@ def test_calibration_training_state():
     assert model.training == False
 
 
-def test_bias_correction():
-    # Generate 2 random inputs (i.e., batch_size=2)
-    inp_list = [torch.randn(BATCH, IN_CH),torch.randn(BATCH, IN_CH)] 
-    fp_layer = nn.Linear(IN_CH, OUT_CH, bias=False)
 
-    quant_layer = qnn.QuantLinear(IN_CH, OUT_CH, bias=False)
-    quant_layer.weight.data = fp_layer.weight.data
-    fp_layer.eval()
-    quant_layer.eval()
-    
-    error = 0.
-    for inp in inp_list:
-        quant_out = quant_layer(inp)
-        quant_fp = fp_layer(inp)
-        error += quant_fp - quant_out
+class TestBiasCorrection():
 
-    with bias_correction_mode(quant_layer):
-        for inp in inp_list:
-            quant_layer(inp)
+    @fixture
+    def models(self):
 
-    assert quant_layer.bias is not None
-    assert torch.allclose(quant_layer.bias, error/len(inp_list))
+        class MyModel(nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.module_list = nn.ModuleList([nn.Linear(IN_CH, OUT_CH, bias=False), nn.Linear(OUT_CH, OUT_CH, bias=False)])
+
+            def forward(self, inp):
+                out_0 = self.module_list[0](inp)
+                out_1 = self.module_list[1](out_0)
+                return torch.cat((out_0, out_1))
+
+        class MyQuantModel(nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.module_list = nn.ModuleList([qnn.QuantLinear(IN_CH, OUT_CH, bias=False), qnn.QuantLinear(OUT_CH, OUT_CH, bias=False)])
+
+            def forward(self, inp):
+                out_0 = self.module_list[0](inp)
+                out_1 = self.module_list[1](out_0)
+                return torch.cat((out_0, out_1))
+
+
+        quant_model = MyQuantModel()
+        model = MyModel()
+
+        quant_model.module_list[0].weight.data = model.module_list[0].weight.data
+        quant_model.module_list[1].weight.data = model.module_list[1].weight.data
+        model.eval()
+        quant_model.eval()
+
+        return model, quant_model
+
+    def test_bias_correction_results(self, models):
+        fp_model, quant_model = models
+        num_layers = len(quant_model.module_list)
+
+        # Generate 2 random inputs (i.e., batch_size=2)
+        inp_list = [torch.randn(BATCH, IN_CH),torch.randn(BATCH, IN_CH)]
+        fp_outs = torch.zeros(len(inp_list), num_layers, OUT_CH)
+        quant_outs = torch.zeros(len(inp_list), num_layers, OUT_CH)
+
+        error = torch.zeros(num_layers, OUT_CH)
+
+        # Reference Implementation of bias correction
+        for b, inp in enumerate(inp_list):
+            fp_outs[b,:,:] = fp_model(inp)
+
+            quant_outs[b, 0, :] = quant_model.module_list[0](inp)
+            quant_outs[b, 1, :] = quant_model.module_list[1](fp_outs[b, 0, :]) # The second layer takes as input the "corrected" output
+            error += fp_outs[b] - quant_outs[b]
+
+        with bias_correction_mode(quant_model):
+            for inp in inp_list:
+                quant_model(inp)
+
+        assert quant_model.module_list[0].bias is not None
+        assert quant_model.module_list[1].bias is not None
+        assert torch.allclose(quant_model.module_list[0].bias, error[0]/len(inp_list))
+        assert torch.allclose(quant_model.module_list[1].bias, error[1]/len(inp_list))
+
+    def test_bias_correction_hook(self, models):
+        fp_model, quant_model = models
+        num_layers = len(quant_model.module_list)
+
+        # Generate 2 random inputs (i.e., batch_size=2)
+        inp_list = [torch.randn(BATCH, IN_CH),torch.randn(BATCH, IN_CH)]
+
+        inputs = []
+        outputs = []
+
+        # If the user tries to modify the output with the forward_hook, this will be ignored
+        # because overriden by our own forward_hook
+        def simple_hook(mod, inp, out):
+            inputs.append(*inp)
+            outputs.append(*out)
+
+        fp_outs = torch.zeros(len(inp_list), num_layers, OUT_CH)
+
+
+        for b, inp in enumerate(inp_list):
+            fp_outs[b,:,:] = fp_model(inp)
+
+        quant_model.module_list[1].register_forward_hook(simple_hook) # Register hook on the second layer
+
+        with bias_correction_mode(quant_model):
+            for inp in inp_list:
+                quant_model(inp)
+
+        assert len(outputs) == 2 # Forward hook called only once per input, even though we performed 3 "forwards" per input
+        assert (inputs[0] == fp_outs[0,0,:]).all() # In bias_correction mode, the input to each layer is equal to the FP output of the previous layer
+        assert (inputs[1] == fp_outs[1,0,:]).all() # In bias_correction mode, the input to each layer is equal to the FP output of the previous layer

@@ -45,7 +45,7 @@ def finalize_collect_stats(module):
         module.counter = module.collect_stats_steps
 
 
-class calibration_mode(object):
+class calibration_mode:
     def __init__(self, model, enabled=True):
         self.model = model
         self.previous_training_state = model.training
@@ -61,23 +61,20 @@ class calibration_mode(object):
         self.disable_quant_inference.apply(self.model, is_training=self.previous_training_state, quantization_enabled=True)
 
 
-class bias_correction_mode():
+class bias_correction_mode:
     def __init__(self, model, enabled=True):
         self.model = model
-        self.call_pointer = self.model.forward
-        self.current_state = model.training
-        self.bias_correction = BiasCorrection()
-        self.enabled=enabled
-        self.hook = []
+        self.bias_correction = _BiasCorrection()
+        self.enabled = enabled
+        self.hooks = []
 
     def __enter__(self):
         if self.enabled:
-            self.hook.append(self.model.register_forward_pre_hook(self.bias_correction.global_forward_pre_hook))
-            self.hook.append(self.model.register_forward_hook(self.bias_correction.global_forward_hook))
+            self.bias_correction.register_hook_to_wbiol(self.model, self.hooks)
 
     def __exit__(self, type, value, traceback):
         self.bias_correction.apply_correction(self.model)
-        for hook in self.hook:
+        for hook in self.hooks:
             hook.remove()
 
 
@@ -163,14 +160,14 @@ class DisableEnableQuantization(Transform):
             self.enable_param_quantization(model, is_training)
 
 
-class BiasCorrection(DisableEnableQuantization):
+class _BiasCorrection(DisableEnableQuantization):
 
     LAYERS = (QuantWBIOL,)
 
     def __init__(self, layers=LAYERS):
-        super(BiasCorrection, self).__init__()
+        super(_BiasCorrection, self).__init__()
         self.layers = layers
-        self.iterations = 0
+        self.iterations = {}
         self.correction_map = {}
         self.float_mean_map = {}
         self.collect_float_mean_hooks = []
@@ -203,7 +200,7 @@ class BiasCorrection(DisableEnableQuantization):
     def apply_correction(self, model):
         for name, module in model.named_modules():
             if name in self.correction_map.keys():
-                correction = self.correction_map[name] / self.iterations
+                correction = self.correction_map[name] / self.iterations[name]
                 if module.bias is not None:
                     module.bias.data += correction
                 else:
@@ -220,19 +217,15 @@ class BiasCorrection(DisableEnableQuantization):
             inp_broadcast_shape = compute_channel_view_shape(inp, channel_dim=self.channel_dim(inp, parent_module))
             return inp + error.reshape(inp_broadcast_shape)
 
-    def register_collect_float_mean_hook(self, model):
-        for name, module in model.named_modules():
-            if isinstance(module, self.layers):
-                hook_fn = partial(self.collect_float_mean_hook, name=name, parent_module=module)
-                hook = module.output_quant.register_forward_pre_hook(hook_fn)
-                self.collect_float_mean_hooks.append(hook)
+    def register_collect_float_mean_hook(self, module, name):
+        hook_fn = partial(self.collect_float_mean_hook, name=name, parent_module=module)
+        hook = module.output_quant.register_forward_pre_hook(hook_fn)
+        self.collect_float_mean_hooks.append(hook)
 
-    def register_correct_bias_hook(self, model):
-        for name, module in model.named_modules():
-            if isinstance(module, self.layers):
-                hook_fn = partial(self.correct_bias_hook, name=name, parent_module=module)
-                hook = module.output_quant.register_forward_pre_hook(hook_fn)
-                self.correct_bias_hooks.append(hook)
+    def register_correct_bias_hook(self, module, name):
+        hook_fn = partial(self.correct_bias_hook, name=name, parent_module=module)
+        hook = module.output_quant.register_forward_pre_hook(hook_fn)
+        self.correct_bias_hooks.append(hook)
 
     def float_mean_hooks_cleanup(self):
         for hook in self.collect_float_mean_hooks:
@@ -244,18 +237,37 @@ class BiasCorrection(DisableEnableQuantization):
             hook.remove()
         self.correct_bias_hooks = []
 
-    def global_forward_pre_hook(self, model, inp):
-        self.disable_act_quantization(model, is_training=False)
-        self.disable_param_quantization(model, is_training=False)
-        self.register_collect_float_mean_hook(model)
-        inp, = inp
-        model.forward(inp) # Required to avoid infinite recursion
-        self.float_mean_hooks_cleanup()
-        self.enable_act_quantization(model, is_training=False)
-        self.enable_param_quantization(model, is_training=False)
-        self.register_correct_bias_hook(model)
+    def register_hook_to_wbiol(self, model, hooks):
+        """
+        Forward hooks are registered to the WBIOL layers.
+        In this way, if more hooks are registered to these layers, they will be only called once per module call.
+        We perform two more forwards for each WBIOL, but since we call forward and not __call__, eventual hooks would be skipped.
+        This is a desired behaviour, since these extra forwards are only necessary to compute the bias correction factor.
 
-    def global_forward_hook(self, model, inp, output):
-        # Clean-up after forward, to be ready for next input
-        self.correct_bias_hooks_cleanup()
-        self.iterations+=1
+        If we register a single hook for the entire model, and hooks are added to WBIOL layers,
+        these would be called by our "extra forwards", which is an unexpected behaviours.
+        """
+        for name, module in model.named_modules():
+            if isinstance(module, self.layers):
+                self.iterations[name] = 0
+                hook_fn = partial(self.forward_hook_wbiol, name=name)
+                hooks.append(module.register_forward_hook(hook_fn))
+
+    def forward_hook_wbiol(self, module, inp, output, name):
+        """
+        After each forward, we perform two extra forwards to register FP and Quant outputs
+        and the error between the two.
+
+        We do not return the original Quant output, but its "corrected version", i.e., the FP version
+        """
+        self.disable_act_quantization(module, is_training=False)
+        self.disable_param_quantization(module, is_training=False)
+        self.register_collect_float_mean_hook(module, name)
+        module.forward(*inp) # Required to avoid infinite recursion
+        self.float_mean_hooks_cleanup()
+        self.enable_act_quantization(module, is_training=False)
+        self.enable_param_quantization(module, is_training=False)
+        self.register_correct_bias_hook(module, name)
+        out = module.forward(*inp) # Required to avoid infinite recursion
+        self.iterations[name] += 1
+        return out
