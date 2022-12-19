@@ -76,7 +76,7 @@ class QuantVGG(nn.Module):
             QuantLinear(
                 4096, 4096, bias=True,
                 weight_quant=CommonIntWeightPerChannelQuant, weight_bit_width=bit_width),
-            QuantReLU(act_quant=CommonUintActQuant, weight_bit_width=bit_width),
+            QuantReLU(act_quant=CommonUintActQuant, bit_width=bit_width),
             nn.Dropout(),
             QuantLinear(
                 4096, num_classes, bias=False,
@@ -102,7 +102,8 @@ class QuantVGG(nn.Module):
                 nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.Linear):
                 nn.init.normal_(m.weight, 0, 0.01)
-                nn.init.constant_(m.bias, 0)
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
 
 
 def make_layers(cfg, batch_norm, bit_width):
