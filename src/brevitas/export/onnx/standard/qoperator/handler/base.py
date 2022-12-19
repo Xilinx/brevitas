@@ -5,10 +5,19 @@ from torch import Tensor
 
 
 from brevitas.export.onnx.standard.function import QuantizeLinearFn, DequantizeLinearFn, IntClipFn
-from brevitas.export.onnx.standard.handler import StdONNXQuantLayerHandler
+from brevitas.export.common.handler.base import (
+    QuantAxisMixin, ScaleHandlerMixin, BitWidthHandlerMixin, ZeroPointHandlerMixin, ClipMixin)
+from brevitas.export.onnx.handler import ONNXBaseHandler
 
 
-class StdQOpONNXQuantLayerHandler(StdONNXQuantLayerHandler, ABC):
+class StdQOpONNXQuantLayerHandler(
+    ONNXBaseHandler, 
+    QuantAxisMixin, 
+    ScaleHandlerMixin, 
+    ClipMixin,
+    BitWidthHandlerMixin, 
+    ZeroPointHandlerMixin, 
+    ABC):
 
     @abstractmethod
     def op_symbolic_execution(self, inp: Tensor):
@@ -57,7 +66,7 @@ class StdQOpONNXQuantLayerHandler(StdONNXQuantLayerHandler, ABC):
             narrow = module.is_quant_output_narrow_range
             signed = module.is_quant_output_signed
             bit_width = module.quant_output_bit_width()
-            return cls.clip_symbolic_kwargs(narrow, signed, bit_width)
+            return cls.int_clip_symbolic_kwargs(narrow, signed, bit_width)
         else:
             return None
 
@@ -67,7 +76,7 @@ class StdQOpONNXQuantLayerHandler(StdONNXQuantLayerHandler, ABC):
             narrow = module.is_quant_input_narrow_range
             signed = module.is_quant_input_signed
             bit_width = module.quant_input_bit_width()
-            return cls.clip_symbolic_kwargs(narrow, signed, bit_width)
+            return cls.int_clip_symbolic_kwargs(narrow, signed, bit_width)
         else:
             return None
 

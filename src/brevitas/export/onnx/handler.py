@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from torch import Tensor
 
 from brevitas.export.onnx.debug import DebugMarkerFunction
-from brevitas.export.handler import BaseHandler
+from brevitas.export.common.handler.base import BaseHandler
 
 __all__ = [
     'Kernel1dApplHandlerMixin',
@@ -87,10 +87,6 @@ class ONNXBaseHandler(BaseHandler, ABC):
         self.export_debug_name = None
         self.debug_input = False
         self.debug_output = False
-
-    @abstractmethod
-    def prepare_for_export(self, module):
-        pass
 
     @abstractmethod
     def symbolic_execution(self, *args, **kwargs):

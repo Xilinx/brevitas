@@ -52,6 +52,8 @@ import torch
 from torch import Tensor
 
 import brevitas
+from brevitas.function.ops import dpu_round, tensor_clamp
+from brevitas.function.ops import tensor_clamp_, binary_sign, round_to_zero
 
 __all__ = [
     'round_ste',
@@ -96,6 +98,8 @@ def round_ste(x: Tensor) -> Tensor:
         >>> (x.grad == grad).all().item()
         True
     """
+    if torch._C._get_tracing_state():
+        return torch.round(x)
     return fn_prefix.ops.autograd_ste_ops.round_ste_impl(x)
 
 
@@ -118,6 +122,8 @@ def ceil_ste(x: Tensor) -> Tensor:
         >>> (x.grad == grad).all().item()
         True
     """
+    if torch._C._get_tracing_state():
+        return torch.ceil(x)
     return fn_prefix.ops.autograd_ste_ops.ceil_ste_impl(x)
 
 
@@ -140,6 +146,8 @@ def floor_ste(x: Tensor) -> Tensor:
         >>> (x.grad == grad).all().item()
         True
     """
+    if torch._C._get_tracing_state():
+        return torch.floor(x)
     return fn_prefix.ops.autograd_ste_ops.floor_ste_impl(x)
 
 
@@ -165,6 +173,8 @@ def tensor_clamp_ste(x: Tensor, min_val: Tensor, max_val: Tensor) -> Tensor:
         >>> (x.grad == grad).all().item()
         True
     """
+    if torch._C._get_tracing_state():
+        return tensor_clamp(x, min_val, max_val)
     output = fn_prefix.ops.autograd_ste_ops.tensor_clamp_ste_impl(x, min_val, max_val)
     return output
 
@@ -192,6 +202,8 @@ def tensor_clamp_ste_(x: Tensor, min_val: Tensor, max_val: Tensor) -> Tensor:
         >>> (x.grad == grad).all().item()
         True
     """
+    if torch._C._get_tracing_state():
+        return tensor_clamp_(x, min_val, max_val)
     output = fn_prefix.ops.autograd_ste_ops.tensor_clamp_ste_impl_(x, min_val, max_val)
     return output
 
@@ -226,6 +238,8 @@ def scalar_clamp_ste(x: Tensor, min_val: float, max_val: float) -> Tensor:
         >>> (x.grad == grad).all().item()
         True
     """
+    if torch._C._get_tracing_state():
+        return torch.clamp(x, min_val, max_val)
     return fn_prefix.ops.autograd_ste_ops.scalar_clamp_ste_impl(x, min_val, max_val)
 
 
@@ -258,6 +272,8 @@ def scalar_clamp_min_ste(x: Tensor, min_val: float) -> Tensor:
         >>> (x.grad == grad).all().item()
         True
     """
+    if torch._C._get_tracing_state():
+        return torch.clamp_min(x, min_val)
     return fn_prefix.ops.autograd_ste_ops.scalar_clamp_min_ste_impl(x, min_val)
 
 
@@ -282,6 +298,8 @@ def binary_sign_ste(x: Tensor) -> Tensor:
         >>> (x.grad == grad).all().item()
         True
     """
+    if torch._C._get_tracing_state():
+        return binary_sign(x)
     return fn_prefix.ops.autograd_ste_ops.binary_sign_ste_impl(x)
 
 
@@ -305,6 +323,8 @@ def ternary_sign_ste(x: Tensor) -> Tensor:
         >>> (x.grad == grad).all().item()
         True
     """
+    if torch._C._get_tracing_state():
+        return torch.sign(x)
     return fn_prefix.ops.autograd_ste_ops.ternary_sign_ste_impl(x)
 
 
@@ -329,6 +349,8 @@ def round_to_zero_ste(x: Tensor) -> Tensor:
         >>> (x.grad == grad).all().item()
         True
     """
+    if torch._C._get_tracing_state():
+        return round_to_zero(x)
     return fn_prefix.ops.autograd_ste_ops.round_to_zero_ste_impl(x)
 
 
@@ -353,6 +375,8 @@ def dpu_round_ste(x: Tensor) -> Tensor:
         >>> (x.grad == grad).all().item()
         True
     """
+    if torch._C._get_tracing_state():
+        return dpu_round(x)
     return fn_prefix.ops.autograd_ste_ops.dpu_round_ste_impl(x)
 
 
@@ -377,4 +401,6 @@ def abs_binary_sign_grad(x: Tensor) -> Tensor:
         >>> (x.grad == grad).all().item()
         True
     """
+    if torch._C._get_tracing_state():
+        return torch.abs(x)
     return fn_prefix.ops.autograd_ste_ops.abs_binary_sign_grad_impl(x)

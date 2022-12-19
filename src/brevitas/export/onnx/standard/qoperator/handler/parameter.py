@@ -10,7 +10,7 @@ from brevitas.export.onnx.handler import Kernel2dApplHandlerMixin, Kernel1dApplH
 from brevitas.export.onnx.standard.function import QuantizeLinearFn, DequantizeLinearFn, IntClipFn
 from ..function import QLinearConvFn, QLinearMatMulFn
 from .base import StdQOpONNXQuantLayerHandler
-from ...handler import to_0dim_if_scalar
+from  brevitas.export.common import to_0dim_if_scalar
 
 
 class StdQOpONNXQuantWBIOLHandler(StdQOpONNXQuantLayerHandler, ABC):
