@@ -127,14 +127,15 @@ class MergeBatchNorm(UntilFixedPointGraphTransform):
 
 class CollapseConsecutiveConcats(UntilFixedPointGraphTransform):
 
-    def merge_tensor_args(self, node_to_extract, node_to_merge_in):
-        cat_tensors1 = list(node_to_extract.args[0])
-        cat_tensors2 = node_to_merge_in.args[0]
+    def merge_tensor_kwargs(self, node_to_extract, node_to_merge_in):
+        cat_tensors1 = list(node_to_extract.kwargs['tensors'])
+        cat_tensors2 = node_to_merge_in.kwargs['tensors']
         if not isinstance(cat_tensors2, (list, tuple)):
             cat_tensors2 = [cat_tensors2]
         cat_tensors2 = [t for t in cat_tensors2 if t is not node_to_extract]
-        cat_tensors = immutable_list(cat_tensors1 + cat_tensors2)
-        node_to_merge_in.args = (cat_tensors,)
+        kwargs = dict(node_to_merge_in.kwargs)
+        kwargs['tensors'] = (cat_tensors1 + cat_tensors2)
+        node_to_merge_in.kwargs = immutable_dict(kwargs)
 
     def is_converged(self, graph_model):
         for i, node in enumerate(graph_model.graph.nodes):
