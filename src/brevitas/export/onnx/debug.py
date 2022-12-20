@@ -1,5 +1,3 @@
-# -*- coding: future_annotations -*-
-
 import torch
 from torch.autograd import Function
 

@@ -1,5 +1,4 @@
-# -*- coding: future_annotations -*-
-
+from __future__ import annotations
 from abc import ABC
 from typing import Tuple, Union, Optional, TYPE_CHECKING
 
