@@ -74,10 +74,7 @@ setup(name="brevitas",
           "tts": read_requirements('requirements-tts.txt'),
           "stt": read_requirements('requirements-stt.txt'),
           "vision": read_requirements('requirements-vision.txt'),
-          "finn_integration_lt_pt150":
-              read_requirements('requirements-finn-integration-lt-pt150.txt'),
-          "finn_integration_ge_pt150":
-              read_requirements('requirements-finn-integration-ge-pt150.txt'),
+          "finn_integration": read_requirements('requirements-finn-integration.txt'),
           "ort_integration": read_requirements('requirements-ort-integration.txt')
       },
       packages=find_packages('src'),

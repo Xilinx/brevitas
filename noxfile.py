@@ -127,10 +127,7 @@ def tests_brevitas_examples_install_dev(session, pytorch):
 def tests_brevitas_finn_integration(session, pytorch):
     install_pytorch(pytorch, session)
     install_torchvision(pytorch, session)
-    if version.parse(pytorch) >= version.parse('1.5.0'):
-        session.install('--upgrade', '-e', '.[test, stt, finn_integration_ge_pt150]')
-    else:
-        session.install('--upgrade', '-e', '.[test, stt, finn_integration_lt_pt150]')
+    session.install('--upgrade', '-e', '.[test, stt, finn_integration]')
     env = {'FINN_INST_NAME': 'finn'}
     session.run('pytest', '-v', 'tests/brevitas_finn', env=env)
 
