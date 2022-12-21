@@ -57,6 +57,7 @@ __all__ = [
     'Uint8ActPerTensorFloatMaxInit',
     'Int8ActPerTensorFloat',
     'Int8WeightPerTensorFloat',
+    'Int8WeightPerChannelFloat',
     'Uint8ActPerTensorFloat',
     'TruncTo8bit',
     'Int4WeightPerTensorFloatDecoupled'
@@ -178,12 +179,25 @@ class Int8BiasPerTensorFloatInternalScaling(
 class Int8WeightPerTensorFloat(
     NarrowIntQuant, MaxStatsScaling, PerTensorFloatScaling8bit, WeightQuantSolver):
     """
-    8-bit narrow per-tensor signed int weight quantizer with floating-point scale factor computed
+    8-bit narrow per-tensor signed int weight quantizer with per-tensor floating-point scale factor computed
     from backpropagated statistics of the weight tensor.
 
     Examples:
         >>> from brevitas.nn import QuantLinear
         >>> fc = QuantLinear(10, 5, bias=False, weight_quant=Int8WeightPerTensorFloat)
+    """
+    pass
+
+
+class Int8WeightPerChannelFloat(
+    NarrowIntQuant, MaxStatsScaling, PerChannelFloatScaling8bit, WeightQuantSolver):
+    """
+    8-bit narrow per-tensor signed int weight quantizer with per-channel floating-point scale factor computed
+    from backpropagated statistics of the weight tensor.
+
+    Examples:
+        >>> from brevitas.nn import QuantLinear
+        >>> fc = QuantLinear(10, 5, bias=False, weight_quant=Int8WeightPerChannelFloat)
     """
     pass
 
