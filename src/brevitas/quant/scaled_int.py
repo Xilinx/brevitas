@@ -60,7 +60,8 @@ __all__ = [
     'Int8WeightPerChannelFloat',
     'Uint8ActPerTensorFloat',
     'TruncTo8bit',
-    'Int4WeightPerTensorFloatDecoupled'
+    'Int4WeightPerTensorFloatDecoupled',
+    'Int8WeightPerChannelFloatDecoupled'
 ]
 
 
@@ -251,3 +252,15 @@ class Int4WeightPerTensorFloatDecoupled(WeightPerTensorFloatDecoupledL2Param):
         >>> m = QuantConv2d(4, 4, 3, groups=4, weight_quant=Int4WeightPerTensorFloatDecoupled)
     """
     bit_width = 4
+    
+    
+class Int8WeightPerChannelFloatDecoupled(WeightPerChannelFloatDecoupled):
+    """
+    Experimental narrow per-channel signed int weight quantizer with decoupled Linf
+    normalization and learned scaling. 
+
+    Examples:
+        >>> from brevitas.nn import QuantConv2d
+        >>> m = QuantConv2d(4, 4, 3, weight_quant=Int8WeightPerChannelFloatDecoupled)
+    """
+    bit_width = 8
