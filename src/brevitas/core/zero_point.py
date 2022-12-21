@@ -93,7 +93,7 @@ class MinUintZeroPoint(brevitas.jit.ScriptModule):
         min_val = self.negative_min_or_zero(stats_input)
         min_val = min_val.view(self.zero_point_shape)
         min_int = self.int_quant.min_int(bit_width)
-        out = self.int_quant(scale, min_int, bit_width, - min_val)
+        out = self.int_quant.to_int(scale, min_int, bit_width, - min_val)
         return out
 
 
