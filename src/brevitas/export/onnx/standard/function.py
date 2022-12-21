@@ -1,5 +1,5 @@
 from torch.autograd import Function
-from . import onnx_export_opset
+from brevitas.export.onnx import onnx_export_opset
 
 AXIS_OPSET = 13
 

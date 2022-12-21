@@ -11,6 +11,7 @@ from brevitas.proxy import BiasQuantProxyFromInjector
 from brevitas.proxy import ActQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector
 from brevitas.nn.quant_rnn import _QuantLSTMLayer
+from brevitas.export.onnx import onnx_export_opset
 
 from .function import BrevitasQuantFn
 from .function import BrevitasBinaryQuantFn
@@ -205,8 +206,7 @@ class BrevitasQuantLSTMLayerHandler(ONNXBaseHandler):
                 quant_bias_output, 
                 *self.symbolic_kwargs.values())
         else:
-            from torch.onnx.symbolic_helper import _export_onnx_opset_version
-            if _export_onnx_opset_version < 14:
+            if onnx_export_opset() < 14:
                 raise RuntimeError("Export of float LSTM cell requires at least opset_version=14.")
             # The ONNX standard requires parameters to have shape 
             # weight_i: [num_directions, 4*hidden_size, input_size]
