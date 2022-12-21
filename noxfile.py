@@ -12,6 +12,7 @@ IS_OSX = system() == 'Darwin'
 PYTORCH_STABLE_WHEEL_SRC = 'https://download.pytorch.org/whl/torch_stable.html'
 PYTORCH_IDS = tuple([f'pytorch_{i}' for i in PYTORCH_VERSIONS])
 JIT_IDS = tuple([f'{i}'.lower() for i in JIT_STATUSES])
+LSTM_EXPORT_MIN_PYTORCH = '1.10.1'
 
 TORCHVISION_VERSION_DICT = {
     '1.5.1': '0.6.1',
@@ -119,4 +120,7 @@ def tests_brevitas_notebook(session, pytorch):
     install_pytorch(pytorch, session)
     install_torchvision(pytorch, session)
     session.install('--upgrade', '-e', '.[test, ort_integration, notebook]')
-    session.run('pytest', '-v','--nbmake', '--nbmake-kernel=python3', 'notebooks')
+    if version.parse(pytorch) >= version.parse(LSTM_EXPORT_MIN_PYTORCH):
+        session.run('pytest', '-v','--nbmake', '--nbmake-kernel=python3', 'notebooks')
+    else:
+        session.run('pytest', '-v','--nbmake', '--nbmake-kernel=python3', 'notebooks', '--ignore', 'notebooks/quantized_recurrent.ipynb')   
