@@ -35,7 +35,19 @@ class QuantAxisMixin(ABC):
             if s != 1:
                 return i
         return None
-    
+  
+
+class CMixin(ABC):
+
+    @property
+    @abstractmethod
+    def clip_over_integers(self):
+        pass
+
+    @abstractmethod
+    def clip_fn(self, x, min_val, max_val):
+        pass
+  
 
 class ClipMixin(ABC):
 
@@ -53,8 +65,8 @@ class ClipMixin(ABC):
     def float_clip_symbolic_kwargs(cls, narrow, signed, bit_width, scale, zero_point):
         symbolic_kwargs = cls.int_clip_symbolic_kwargs(narrow, signed, bit_width)
         if symbolic_kwargs is not None:
-            symbolic_kwargs['min_val'] = (symbolic_kwargs['min_val'] - zero_point) * scale 
-            symbolic_kwargs['max_val'] = (symbolic_kwargs['max_val'] - zero_point) * scale
+            symbolic_kwargs['min_val'] = ((symbolic_kwargs['min_val'] - zero_point) * scale).item()
+            symbolic_kwargs['max_val'] = ((symbolic_kwargs['max_val'] - zero_point) * scale).item()
         return symbolic_kwargs
 
 

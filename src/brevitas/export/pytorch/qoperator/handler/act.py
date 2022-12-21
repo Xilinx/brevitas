@@ -20,23 +20,32 @@ class PytorchQuantNLALHandler(PytorchQuantLayerHandler, ABC):
     def validate(cls, module: QuantNLAL):
         assert not module.is_input_quant_enabled, 'Input quantization not supported'
 
+
     def prepare_for_export(self, module: QuantNLAL):
         self.validate(module)
         self.qf_impl, self.qf_kwargs = self.prepare_qf(module)
         if module.is_act_quant_enabled:
             self.output_quant_impl, self.output_quant_kwargs = self.prepare_output_quant(module)
+            self.output_quant_kwargs['clip_symbolic_kwargs'] = self.float_clip_symbolic_kwargs(**self.output_quant_kwargs['clip_kwargs'])
+
         self.return_quant_tensor = module.return_quant_tensor
 
     def forward(self, inp: Tensor, **kwargs):
         q_out = inp
         if self.qf_impl is not None:
             q_out = self.qf_impl(q_out, **self.qf_kwargs)
+
         if self.output_quant_impl is not None:
             if q_out.is_quantized:
                 q_out = q_out.dequantize()
-            q_out = self.output_quant_impl(q_out, **self.output_quant_kwargs)
+
+            q_out = self.output_quant_impl(q_out, **self.output_quant_kwargs['forward_kwargs'])
+            if self.output_quant_kwargs['clip_symbolic_kwargs'] is not None:
+                q_out = self.clip_fn(q_out, **self.output_quant_kwargs['clip_symbolic_kwargs'])
+
         if not self.return_quant_tensor:
             q_out = q_out.dequantize()
+
         return q_out
 
 

@@ -9,9 +9,9 @@ from brevitas.proxy import BiasQuantProxyFromInjector
 from brevitas.proxy import ActQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector
 from brevitas.export.common import to_0dim_if_scalar
-from .base import QuantAxisMixin, ClipMixin, ZeroPointHandlerMixin, BitWidthHandlerMixin
+from .base import QuantAxisMixin, ClipMixin, ZeroPointHandlerMixin, BitWidthHandlerMixin, CMixin
 
-
+    
 class DQMixin(ABC):
     
     @abstractmethod
@@ -24,7 +24,7 @@ class DQMixin(ABC):
         pass
     
     
-class QCDQMixin(DQMixin):
+class QCDQMixin(DQMixin, CMixin):
     
     @classmethod    
     @abstractmethod
@@ -41,19 +41,12 @@ class QCDQMixin(DQMixin):
     def int32_dtype(cls):
         pass
     
-    @property
-    @abstractmethod
-    def clip_over_integers(self):
-        pass
     
     @abstractmethod
     def quantize_fn(self, x, scale, zero_point, dtype, axis):
         pass
     
-    @abstractmethod
-    def clip_fn(self, x, min_val, max_val):
-        pass
-    
+
     @abstractmethod
     def validate(self):
         pass

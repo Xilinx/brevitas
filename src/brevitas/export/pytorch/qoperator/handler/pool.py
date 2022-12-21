@@ -33,9 +33,13 @@ class PytorchQuantMaxPoolNd(PytorchQuantLayerHandler, ABC):
 
     def forward(self, inp):
         out = self.qf_impl(inp, **self.qf_kwargs)
+
         # We are being tolerant here to non quantized tensors
         if out.is_quantized and not self.return_quant_tensor:
             out = out.dequantize()
+
+        # if self.output_quant_kwargs['clip_symbolic_kwargs'] is not None:
+        #     q_out = self.clip_fn(q_out, *self.output_quant_kwargs['clip_symbolic_kwargs'].values())
         return out
 
 
