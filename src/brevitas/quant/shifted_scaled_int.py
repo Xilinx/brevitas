@@ -47,7 +47,8 @@ from brevitas.quant.solver.trunc import TruncQuantSolver
 
 __all__ = [
     'ShiftedUint8ActPerTensorFloat',
-    'ShiftedUint8WeightPerTensorFloat'
+    'ShiftedUint8WeightPerTensorFloat',
+    'ShiftedUint8WeightPerChannelFloat'
 ]
 
 
@@ -74,12 +75,29 @@ class ShiftedUint8WeightPerTensorFloat(
     PerTensorFloatScaling8bit,
     WeightQuantSolver):
     """
-    8-bit per-tensor unsigned int weight quantizer with floating-point scale factor and integer
+    8-bit per-tensor unsigned int weight quantizer with floating-point per-tensor scale factor and integer
     zero point. Both zero-point and scale factors are based on backpropagated statistics of the
     weight tensor.
 
     Examples:
         >>> from brevitas.nn import QuantLinear
         >>> fc = QuantLinear(10, 5, bias=False, weight_quant=ShiftedUint8WeightPerTensorFloat)
+    """
+    pass
+
+
+class ShiftedUint8WeightPerChannelFloat(
+    ShiftedMinUintQuant,
+    MinMaxStatsScaling,
+    PerChannelFloatScaling8bit,
+    WeightQuantSolver):
+    """
+    8-bit per-tensor unsigned int weight quantizer with floating-point per-channel scale factor and integer
+    zero point. Both zero-point and scale factors are based on backpropagated statistics of the
+    weight tensor.
+
+    Examples:
+        >>> from brevitas.nn import QuantLinear
+        >>> fc = QuantLinear(10, 5, bias=False, weight_quant=ShiftedUint8WeightPerChannelFloat)
     """
     pass
