@@ -21,7 +21,8 @@ KERNEL_SIZE = 3
 TOLERANCE = 1
 
 QUANTIZERS = {
-    'asymmetric_float': (ShiftedUint8WeightPerTensorFloat, ShiftedUint8ActPerTensorFloat),
+    'asymmetric_act_float': (Int8WeightPerTensorFloat, ShiftedUint8ActPerTensorFloat),
+    'asymmetric_weight_float': (ShiftedUint8WeightPerTensorFloat, Int8ActPerTensorFloat),
     'symmetric_float': (Int8WeightPerTensorFloat, Int8ActPerTensorFloat),
     'symmetric_fixed_point': (Int8WeightPerTensorFixedPoint, Int8ActPerTensorFixedPoint)}
 QUANT_WBIOL_IMPL = [
