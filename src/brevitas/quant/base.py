@@ -50,7 +50,7 @@ from brevitas.core.quant import ClampedBinaryQuant
 from brevitas.core.scaling import IntScaling, ParameterScaling, StatsFromParameterScaling
 from brevitas.core.scaling import SCALING_STATS_REDUCE_DIM, SCALAR_SHAPE
 from brevitas.core.restrict_val import FloatRestrictValue
-from brevitas.core.stats import AbsMaxL2
+from brevitas.core.stats import AbsMax, AbsMaxL2
 from brevitas.core.function_wrapper.ops_ste import CeilSte
 from brevitas.core.bit_width import BitWidthConst
 from brevitas.core.quant.int import DecoupledRescalingIntQuant
@@ -59,6 +59,8 @@ from brevitas.core.function_wrapper import TensorClampSte
 from brevitas.core.function_wrapper import OverOutputChannelView
 from brevitas.quant.solver.parameter import ParameterFromStatsScalingInit
 from brevitas.quant.solver.weight import SolveWeightScalingStatsInputDimsFromModule
+from brevitas.quant.solver.weight import SolveWeightScalingPerOutputChannelShapeFromModule#
+from brevitas.quant.solver.parameter import SolveParameterScalingShape
 from brevitas.proxy import DecoupledWeightQuantProxyFromInjector
 
 __all__ = [
@@ -77,7 +79,8 @@ __all__ = [
     'PerTensorPoTScaling8bit',
     'IntTrunc',
     'SignedBinaryClampedConst',
-    'WeightPerTensorFloatDecoupledL2Param'
+    'WeightPerTensorFloatDecoupledL2Param',
+    'WeightPerChannelFloatDecoupled'
 ]
 
 
@@ -261,6 +264,40 @@ class WeightPerTensorFloatDecoupledL2Param(SolveWeightScalingStatsInputDimsFromM
     bit_width_impl = BitWidthConst
     narrow_range = True
     signed = True
+    
+    
+class WeightPerChannelFloatDecoupled(
+        SolveWeightScalingStatsInputDimsFromModule,
+        SolveWeightScalingPerOutputChannelShapeFromModule,
+        SolveParameterScalingShape):
+    """
+    Experimental narrow per-channel signed int weight quantizer fragment with decoupled Linf
+    normalization and learned scaling.
+    """
+
+    @value
+    def scaling_init(scaling_init_impl):
+        return scaling_init_impl()
+
+    proxy_class = DecoupledWeightQuantProxyFromInjector
+    tensor_quant = DecoupledRescalingIntQuant
+    decoupled_int_quant = DecoupledIntQuant
+    tensor_clamp_impl = TensorClampSte
+    pre_scaling_impl = StatsFromParameterScaling
+    scaling_stats_impl = AbsMax
+    restrict_scaling_impl = FloatRestrictValue
+    scaling_impl = ParameterScaling
+    scaling_init_impl = ParameterFromStatsScalingInit
+    parameter_stats_scaling_init_impl = this.pre_scaling_impl
+    int_scaling_impl = IntScaling
+    zero_point_impl = ZeroZeroPoint
+    pre_zero_point_impl = ZeroZeroPoint
+    bit_width_impl = BitWidthConst
+    narrow_range = True
+    signed = True
+    scaling_stats_input_view_shape_impl = OverOutputChannelView
+    stats_reduce_dim = SCALING_STATS_REDUCE_DIM
+    scaling_per_output_channel = True
 
 
 
