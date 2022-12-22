@@ -244,8 +244,8 @@ class _BiasCorrection(DisableEnableQuantization):
         We perform two more forwards for each WBIOL, but since we call forward and not __call__, eventual hooks would be skipped.
         This is a desired behaviour, since these extra forwards are only necessary to compute the bias correction factor.
 
-        If we register a single hook for the entire model, and hooks are added to WBIOL layers,
-        these would be called by our "extra forwards", which is an unexpected behaviours.
+        If we registered a single hook for the entire model, and hooks were added to WBIOL layers,
+        these would be called by our "extra forwards", which would be an unexpected behaviours.
         """
         for name, module in model.named_modules():
             if isinstance(module, self.layers):
