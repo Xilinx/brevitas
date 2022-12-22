@@ -25,6 +25,8 @@ FINN_PLATFORM_LIST = ['windows-latest', 'ubuntu-latest']
 STRATEGY_ENDTOEND = od([('fail-fast', 'false'),
                         ('max-parallel', '4')])
 
+STRATEGY = od([('fail-fast', 'false')])
+
 EXCLUDE_LIST = []
 
 NOTEBOOK_EXCLUDE_LIST = [od([('pytorch_version', ['1.5.1', '1.6.0', '1.7.1'])]),
@@ -123,7 +125,8 @@ def gen_pytest_yml():
         'Pytest',
         EXCLUDE_LIST,
         combine_od_list([MATRIX, PYTEST_MATRIX_EXTRA]),
-        PYTEST_STEP_LIST)
+        PYTEST_STEP_LIST,
+        STRATEGY)
     pytest.gen_yaml(BASE_YML_TEMPLATE, PYTEST_YML)
 
 
@@ -132,7 +135,8 @@ def gen_examples_pytest_yml():
         'Examples Pytest',
         EXCLUDE_LIST,
         combine_od_list([MATRIX, PYTEST_MATRIX_EXTRA]),
-        EXAMPLES_PYTEST_STEP_LIST)
+        EXAMPLES_PYTEST_STEP_LIST,
+        STRATEGY)
     pytest.gen_yaml(BASE_YML_TEMPLATE, EXAMPLES_PYTEST_YML)
 
 
@@ -141,7 +145,8 @@ def gen_test_develop_install_yml():
         'Test develop install',
         EXCLUDE_LIST,
         MATRIX,
-        TEST_INSTALL_DEV_STEP_LIST)
+        TEST_INSTALL_DEV_STEP_LIST,
+        STRATEGY)
     test_develop_install.gen_yaml(BASE_YML_TEMPLATE, DEVELOP_INSTALL_YML)
 
 
@@ -150,7 +155,8 @@ def gen_test_brevitas_finn_integration():
         'Test Brevitas-FINN integration',
         EXCLUDE_LIST,
         FINN_MATRIX,
-        FINN_INTEGRATION_STEP_LIST)
+        FINN_INTEGRATION_STEP_LIST,
+        STRATEGY)
     test_finn_integration.gen_yaml(BASE_YML_TEMPLATE, FINN_INTEGRATION_YML)
 
 
@@ -159,7 +165,8 @@ def gen_test_brevitas_ort_integration():
         'Test Brevitas-ORT integration',
         EXCLUDE_LIST,
         MATRIX,
-        ORT_INTEGRATION_STEP_LIST)
+        ORT_INTEGRATION_STEP_LIST,
+        STRATEGY)
     test_ort_integration.gen_yaml(BASE_YML_TEMPLATE, ORT_INTEGRATION_YML)
 
 def gen_test_brevitas_notebook():
@@ -167,7 +174,8 @@ def gen_test_brevitas_notebook():
         'Test Notebook execution',
         EXCLUDE_LIST + NOTEBOOK_EXCLUDE_LIST,
         MATRIX,
-        NOTEBOOK_STEP_LIST)
+        NOTEBOOK_STEP_LIST,
+        STRATEGY)
     tests_brevitas_notebooks.gen_yaml(BASE_YML_TEMPLATE, NOTEBOOK_YML)
 
 def gen_test_brevitas_end_to_end():

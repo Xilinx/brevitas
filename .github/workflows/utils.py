@@ -20,7 +20,7 @@ class CustomTemplate(Template):
 
 class Action:
 
-    def __init__(self, name, exclude_list, matrix, step_list, strategy_params = od([('fail-fast', 'false')])):
+    def __init__(self, name, exclude_list, matrix, step_list, strategy_params):
         self.name = name
         self.exclude_list = exclude_list
         self.matrix = matrix
