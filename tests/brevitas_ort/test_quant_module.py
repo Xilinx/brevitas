@@ -19,7 +19,7 @@ def test_ort(model, export_type, current_cases):
     cases_generator_func = current_cases['model'][1]
     case_id = get_case_id(cases_generator_func)
     impl = case_id.split('-')[-2] # Inverse list of definition, 'export_type' is -1, 'impl' is -2, etc.
-
+    
     if impl in ('QuantConvTranspose1d', 'QuantConvTranspose2d') and export_type == 'qop':
         pytest.skip('Export of ConvTranspose is not supported for QOperation')
 
@@ -34,7 +34,7 @@ def test_ort(model, export_type, current_cases):
 
     model(torch.from_numpy(inp))  # accumulate scale factors
     model.eval()
-    export_name='qcdq_qop_export.onnx'
+    export_name='qcdq_qop_export_{case_id}.onnx'
     assert is_brevitas_ort_close(model, inp, export_name, export_type, tolerance=INT_TOLERANCE, first_output_only=True)
     
     
