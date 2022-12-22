@@ -124,3 +124,11 @@ def tests_brevitas_notebook(session, pytorch):
         session.run('pytest', '-v','--nbmake', '--nbmake-kernel=python3', 'notebooks')
     else:
         session.run('pytest', '-v','--nbmake', '--nbmake-kernel=python3', 'notebooks', '--ignore', 'notebooks/quantized_recurrent.ipynb')   
+
+@nox.session(python=PYTHON_VERSIONS)
+@nox.parametrize("pytorch", PYTORCH_VERSIONS, ids=PYTORCH_IDS)
+def tests_brevitas_end_to_end(session, pytorch):
+    install_pytorch(pytorch, session)
+    install_torchvision(pytorch, session)
+    session.install('--upgrade', '-e', '.[test, ort_integration]')
+    session.run('pytest', '-v', 'tests/brevitas_end_to_end')

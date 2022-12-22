@@ -10,6 +10,7 @@ DEVELOP_INSTALL_YML = 'develop_install.yml'
 FINN_INTEGRATION_YML = 'finn_integration.yml'
 ORT_INTEGRATION_YML = 'ort_integration.yml'
 NOTEBOOK_YML = 'notebook.yml'
+ENDTOEND_YML = 'end_to_end.yml'
 
 
 # Data shared betwen Nox sessions and Github Actions, formatted as tuples
@@ -21,10 +22,15 @@ JIT_STATUSES = ('jit_disabled',)
 PLATFORM_LIST = ['windows-latest', 'ubuntu-latest', 'macos-latest']
 FINN_PLATFORM_LIST = ['windows-latest', 'ubuntu-latest']
 
+STRATEGY_ENDTOEND = od([('fail-fast', 'false'),
+                        ('max-parallel', '4')])
+
 EXCLUDE_LIST = []
 
 NOTEBOOK_EXCLUDE_LIST = [od([('pytorch_version', ['1.5.1', '1.6.0', '1.7.1'])]),
                          od([('platform', ['macos-latest',])])]
+
+END_TO_END_EXCLUDE_LIST = [od([('platform', ['windows-latest',])])]
 
 MATRIX = od([('python_version', list(PYTHON_VERSIONS)),
              ('pytorch_version', list(PYTORCH_VERSIONS)),
@@ -104,6 +110,14 @@ NOTEBOOK_STEP_LIST = [
          'nox -v -s tests_brevitas_notebook-${{ matrix.python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)')
     ])]
 
+ENDTOEND_STEP_LIST = [
+    od([
+        ('name', 'Run Nox session for end-to-end flows'),
+        ('shell', 'bash'),
+        ('run',
+         'nox -v -s tests_brevitas_end_to_end-${{ matrix.python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)')
+    ])]
+
 def gen_pytest_yml():
     pytest = Action(
         'Pytest',
@@ -156,6 +170,15 @@ def gen_test_brevitas_notebook():
         NOTEBOOK_STEP_LIST)
     tests_brevitas_notebooks.gen_yaml(BASE_YML_TEMPLATE, NOTEBOOK_YML)
 
+def gen_test_brevitas_end_to_end():
+    tests_brevitas_end_to_end = Action(
+        'Test End-to-end flows',
+        EXCLUDE_LIST + END_TO_END_EXCLUDE_LIST,
+        MATRIX,
+        ENDTOEND_STEP_LIST,
+        STRATEGY_ENDTOEND)
+    tests_brevitas_end_to_end.gen_yaml(BASE_YML_TEMPLATE, ENDTOEND_YML)
+
 if __name__ == '__main__':
     gen_pytest_yml()
     gen_examples_pytest_yml()
@@ -163,3 +186,5 @@ if __name__ == '__main__':
     gen_test_brevitas_finn_integration()
     gen_test_brevitas_ort_integration()
     gen_test_brevitas_notebook()
+    gen_test_brevitas_end_to_end()
+    

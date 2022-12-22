@@ -20,11 +20,12 @@ class CustomTemplate(Template):
 
 class Action:
 
-    def __init__(self, name, exclude_list, matrix, step_list):
+    def __init__(self, name, exclude_list, matrix, step_list, strategy_params = od([('fail-fast', 'false')])):
         self.name = name
         self.exclude_list = exclude_list
         self.matrix = matrix
         self.step_list = step_list
+        self.strategy_params = strategy_params
 
     @staticmethod
     def list_of_dicts_str(list_of_dicts, quote_val, indent_first, newline_val=False):
@@ -65,6 +66,8 @@ class Action:
                 Action.list_of_dicts_str(self.exclude_list, False, True, True), EXCLUDE_INDENT * ' ')
         else:
             d['exclude'] = ''
+        
+        d['strategy'] = indent(Action.dict_str(self.strategy_params, False, False), 6 * ' ')
         template = CustomTemplate(open(base_template_path).read())
         generated_file = template.substitute(d)
         yaml.safe_load(generated_file)  # validate the generated yaml
