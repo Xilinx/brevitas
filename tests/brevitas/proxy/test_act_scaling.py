@@ -68,7 +68,7 @@ class TestQuantReLU:
             scaling_stats_op=StatsOp.PERCENTILE,
             collect_stats_steps=collect_stats_steps,
             scaling_min_val=None,
-            percentile_q=99.0)
+            high_percentile_q=99.0)
         stats_act.train()
         tensor_quant = stats_act.act_quant.fused_activation_quant_proxy.tensor_quant
         scaling_value = tensor_quant.scaling_impl.value
