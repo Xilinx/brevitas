@@ -23,6 +23,10 @@ class DQMixin(ABC):
     def flatten_dequantize_params(self):
         pass
     
+    def assert_ge_zero(self, *args):
+        for a in args:
+            assert a >= 0.
+    
     
 class QCDQMixin(DQMixin):
     
@@ -106,7 +110,7 @@ class QCDQQuantProxyHandlerMixin(
                     to_0dim_if_scalar(module.zero_point()))
         else:
             self.symbolic_kwargs = None
-
+    
     def symbolic_execution(self, x: Tensor):
         assert self.symbolic_kwargs is not None, 'Symbolic execution requires quant to be enabled'
         quantize_symbolic_kwargs = self.symbolic_kwargs['quantize_symbolic_kwargs']
@@ -115,7 +119,9 @@ class QCDQQuantProxyHandlerMixin(
         scale = dequantize_symbolic_kwargs['scale']
         zero_point = dequantize_symbolic_kwargs['zero_point']
         bit_width = self.symbolic_kwargs['bit_width']
-        assert bit_width > 1 # Fake assert, workaround for bitwidth tracing in activations
+        # Workaround to trick the tracer into believing all return values are used
+        self.assert_ge_zero(scale, zero_point, bit_width)
+
         x = self.quantize_fn(x, *quantize_symbolic_kwargs.values())
         if clip_symbolic_kwargs is not None and self.clip_over_integers:
             x = self.clip_fn(x, *clip_symbolic_kwargs.values())
@@ -178,10 +184,14 @@ class QCDQBiasQuantProxyHandlerMixin(DQMixin, QuantAxisMixin):
         zero_point = self.symbolic_kwargs['zero_point']
         assert scale is not None or input_scale is not None, 'Input scale required for bias export'
         assert bit_width is not None or input_bit_width is not None, 'Input bit width required for bias export'
+
         if input_scale is not None:
             scale = input_scale
         if input_bit_width is not None:
             bit_width = input_bit_width
+        # Workaround to trick the tracer into believing all return values are used
+        self.assert_ge_zero(scale, zero_point, bit_width)
+
         dtype = torch.int32 if int(bit_width.item()) > 8 else torch.int8
         quant_axis = self.quant_axis(scale)
         if self.flatten_dequantize_params:

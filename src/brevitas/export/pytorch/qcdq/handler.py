@@ -51,13 +51,13 @@ class TorchQCDQQuantProxyHandler(
             y = torch.quantize_per_tensor(x, scale, zero_point, dtype)
         else:
             y = torch.quantize_per_channel(x, scale, zero_point, axis, dtype)
-        return y.int_repr().type(torch.int)
+        return y
     
     def clip_fn(self, x, min_val, max_val):
-        return torch.clip(x, min_val, max_val)
+        return torch.clamp(x, min_val, max_val)
     
     def dequantize_fn(self, x, scale, zero_point, axis):
-        return (x - zero_point) * scale
+        return x.dequantize()
     
     def forward(self, *args, **kwargs):
         return self.symbolic_execution(*args, **kwargs)
@@ -94,7 +94,7 @@ class TorchQCDQBiasQuantProxyHandler(
         assert module.rounding_mode == 'ROUND', 'Only round to nearest even supported'
     
     def dequantize_fn(self, x, scale, zero_point, axis):
-        return (x - zero_point) * scale
+        return x.dequantize()
     
     def forward(self, *args, **kwargs):
         return self.symbolic_execution(*args, **kwargs)

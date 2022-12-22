@@ -44,8 +44,8 @@ class ClipMixin(ABC):
         if narrow or bit_width < 8.:
             dtype = torch.int8 if signed else torch.uint8
             return {
-                'min_val': min_int(signed, narrow, bit_width).to(dtype),
-                'max_val': max_int(signed, narrow, bit_width).to(dtype)}
+                'min_val': min_int(signed, narrow, bit_width).to(dtype).item(),
+                'max_val': max_int(signed, narrow, bit_width).to(dtype).item()}
         else:
             return None
         
