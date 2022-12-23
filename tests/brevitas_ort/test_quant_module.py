@@ -39,12 +39,17 @@ def test_ort(model, export_type, current_cases):
     
     
 @parametrize_with_cases('model', cases=QuantRecurrentCases)
+@pytest.mark.parametrize('export_type', ['qcdq_opset14', 'qonnx_opset14'])
 @requires_pt_ge('1.10')
-def test_ort_float_lstm(model, current_cases):
+def test_ort_lstm(model, export_type, current_cases):
     cases_generator_func = current_cases['model'][1]
     case_id = get_case_id(cases_generator_func)
+    
+    if 'quant' in case_id and export_type == 'qonnx_opset14':
+        pytest.skip('Execution of quantized LSTM not supported out of the box for QONNX IR + ORT (requires qonnx lib).')    
+
     in_size = (FEATURES, 1, IN_CH) # seq, batch, in_size
     inp = gen_linspaced_data(reduce(mul, in_size)).reshape(in_size)
     model.eval()
     export_name = f'lstm_export_{case_id}.onnx'
-    assert is_brevitas_ort_close(model, inp, export_name, 'qonnx_opset14', tolerance=FLOAT_TOLERANCE)
+    assert is_brevitas_ort_close(model, inp, export_name, export_type, tolerance=FLOAT_TOLERANCE)
