@@ -3,7 +3,6 @@ from torch import nn
 
 from brevitas.quant.scaled_int import Int32Bias
 from .common import *
-SEED = 123456
 
 
 class QuantWBIOLCases:
@@ -16,7 +15,10 @@ class QuantWBIOLCases:
     @parametrize('quantizers', QUANTIZERS.values(), ids=list(QUANTIZERS.keys()))
     def case_quant_wbiol(
             self, impl, input_bit_width, weight_bit_width, output_bit_width, per_channel, quantizers, request):
-        set_case_id(request.node.callspec.id, QuantWBIOLCases.case_quant_wbiol) # Change the case_id based on current value of Parameters
+        
+        # Change the case_id based on current value of Parameters
+        set_case_id(request.node.callspec.id, QuantWBIOLCases.case_quant_wbiol) 
+        
         weight_quant, io_quant = quantizers
         if impl is QuantLinear:
             layer_kwargs = {
@@ -50,7 +52,43 @@ class QuantWBIOLCases:
                 return self.conv(x)
 
         torch.random.manual_seed(SEED)
+        module = Model()
+        return module
+    
+    
+class QuantRecurrentCases:
 
+    @parametrize('bidirectional', [True, False])
+    @parametrize('cifg', [True, False])
+    @parametrize('num_layers', [1, 2])
+    def case_float_lstm(self, bidirectional, cifg, num_layers, request):
+        
+        # Change the case_id based on current value of Parameters
+        set_case_id(request.node.callspec.id, QuantRecurrentCases.case_float_lstm)
+        
+        class Model(nn.Module):
+
+            def __init__(self):
+                super().__init__()
+                self.lstm = QuantLSTM(
+                    input_size=IN_CH,
+                    hidden_size=OUT_CH,
+                    weight_quant=None,
+                    bias_quant=None,
+                    io_quant=None,
+                    gate_acc_quant=None,
+                    sigmoid_quant=None,
+                    tanh_quant=None,
+                    cell_state_quant=None,
+                    batch_first=False, # ort doesn't support batch_first=True (layout = 1)
+                    num_layers=num_layers,
+                    bidirectional=bidirectional,
+                    coupled_input_forget_gates=cifg)
+
+            def forward(self, x):
+                return self.lstm(x)
+
+        torch.random.manual_seed(SEED)
         module = Model()
         return module
 
