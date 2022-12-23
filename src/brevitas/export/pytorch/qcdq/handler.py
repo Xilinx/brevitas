@@ -12,6 +12,7 @@ from brevitas.export.common.handler.qcdq import (
     QCDQBiasQuantProxyHandlerMixin,
     QCDQActQuantProxyHandlerMixin,
     QCDQTruncQuantProxyHandlerMixin)
+from brevitas.function.ops import min_int, max_int
 
 
 class TorchQCDQQuantProxyHandler(
@@ -66,12 +67,27 @@ class TorchQCDQQuantProxyHandler(
 
 class TorchQCDQWeightQuantProxyHandler(
     QCDQWeightQuantProxyHandlerMixin, TorchQCDQQuantProxyHandler):
-    pass
+    
+    @classmethod
+    def int_clip_symbolic_kwargs(cls, narrow, signed, bit_width):
+        clip_args = super(TorchQCDQWeightQuantProxyHandler, cls).int_clip_symbolic_kwargs(narrow, signed, bit_width)
+        if clip_args is not None:
+            clip_args['min_val'] = clip_args['min_val'].item()
+            clip_args['max_val'] = clip_args['max_val'].item()
+        return clip_args
+
+        
 
 
 class TorchQCDQActQuantProxyHandler(
     QCDQActQuantProxyHandlerMixin, TorchQCDQQuantProxyHandler):
-    pass
+    @classmethod
+    def int_clip_symbolic_kwargs(cls, narrow, signed, bit_width):
+        clip_args = super(TorchQCDQActQuantProxyHandler, cls).int_clip_symbolic_kwargs(narrow, signed, bit_width)
+        if clip_args is not None:
+            clip_args['min_val'] = clip_args['min_val'].item()
+            clip_args['max_val'] = clip_args['max_val'].item()
+        return clip_args
 
 
 class TorchQCDQBiasQuantProxyHandler(
@@ -97,6 +113,7 @@ class TorchQCDQBiasQuantProxyHandler(
         return x.dequantize()
     
     def quantize_fn(self, x, scale, zero_point, dtype, axis):
+        x = x.value # x is a QuantTensor
         if axis is None:
             y = torch.quantize_per_tensor(x, scale, zero_point, dtype)
         else:

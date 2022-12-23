@@ -91,6 +91,10 @@ class StdQCDQONNXBiasQuantProxyHandler(
     def flatten_dequantize_params(self):
         return True
     
+    def quantize_fn(self, x, scale, zero_point, qdtype, axis):
+        dtype = torch.int32 if qdtype==torch.qint32 else torch.int8
+        return x.int(float_datatype=False).type(dtype)
+    
     def dequantize_fn(self, x, scale, zero_point, axis):
         return DequantizeLinearFn.apply(x, scale, zero_point, axis)
 

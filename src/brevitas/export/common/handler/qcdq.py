@@ -25,7 +25,7 @@ class DQMixin(ABC):
     
     def assert_ge_zero(self, *args):
         for a in args:
-            assert a >= 0.
+            assert (a >= 0.).all()
     
     
 class QCDQMixin(DQMixin):
@@ -65,6 +65,7 @@ class QCDQMixin(DQMixin):
 
 class QCDQQuantProxyHandlerMixin(
     QuantAxisMixin, ClipMixin, ZeroPointHandlerMixin, BitWidthHandlerMixin, QCDQMixin, ABC):
+    
 
     def quantize_symbolic_kwargs(cls, module):
         flat_scale = to_0dim_if_scalar(module.scale().flatten())
@@ -167,7 +168,7 @@ class QCDQBiasQuantProxyHandlerMixin(DQMixin, QuantAxisMixin):
             self.validate(module)
             biases = {
                 tm.bias.data_ptr():
-                    tm.quant_bias().value for tm in module.tracked_module_list}
+                    tm.quant_bias() for tm in module.tracked_module_list}
             self.symbolic_kwargs = {
                 'biases': biases,
                 'scale': module.scale(),
