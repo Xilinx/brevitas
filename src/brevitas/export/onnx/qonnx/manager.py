@@ -19,6 +19,7 @@ from .handler import BrevitasQuantLSTMLayerHandler
 from .function import BrevitasQuantFn
 from .function import BrevitasTruncFn
 from .function import BrevitasBinaryQuantFn
+from .function import BrevitasQuantLSTMCellFn
 
 
 class QONNXManager(ONNXBaseManager):
@@ -44,7 +45,8 @@ class QONNXManager(ONNXBaseManager):
         DebugMarkerFunction,
         BrevitasQuantFn,
         BrevitasBinaryQuantFn,
-        BrevitasTruncFn
+        BrevitasTruncFn,
+        BrevitasQuantLSTMCellFn
     ]
 
     @classmethod

@@ -76,6 +76,8 @@ def is_brevitas_ort_close(model, np_input, export_name, export_type, tolerance=N
         brevitas_output = brevitas_output.int(float_datatype=False)
     elif export_type == 'qcdq':
         export_standard_qcdq_onnx(model, input_t, export_path=export_name)
+    elif export_type == 'qcdq_opset14':
+        export_standard_qcdq_onnx(model, input_t, opset_version=14, export_path=export_name)
     elif export_type == 'qonnx_opset14':
         export_qonnx(model, input_t, opset_version=14, export_path=export_name)
     else:

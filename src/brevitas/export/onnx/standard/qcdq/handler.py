@@ -4,7 +4,7 @@ from copy import copy
 import torch
 from torch import Tensor
 
-from brevitas.export.onnx.handler import ONNXBaseHandler
+from brevitas.export.onnx.handler import ONNXBaseHandler, QuantLSTMLayerHandler
 from brevitas.export.common.handler.qcdq import (
     QCDQMixin,
     QCDQWeightQuantProxyHandlerMixin,
@@ -98,4 +98,28 @@ class StdQCDQONNXBiasQuantProxyHandler(
 class StdQCDQONNXTruncQuantProxyHandler(
     QCDQTruncQuantProxyHandlerMixin, StdQCDQONNXQuantProxyHandler):
     pass
+
+
+class StdQCDQONNXQuantLSTMLayerHandler(QuantLSTMLayerHandler):
+    
+    def quantized_cell_symbolic_execution(
+        self,
+        quant_input, 
+        quant_hidden_state, 
+        quant_cell_state, 
+        quant_weight_ii,
+        quant_weight_if, 
+        quant_weight_ic, 
+        quant_weight_io, 
+        quant_weight_hi,
+        quant_weight_hf, 
+        quant_weight_hc, 
+        quant_weight_ho, 
+        quant_bias_input,
+        quant_bias_forget,
+        quant_bias_cell,
+        quant_bias_output):
+        raise RuntimeError(
+            "Quantized LSTM cell is not supported for ONNX QCDQ " 
+            "(weights only quantization is). Use export_qonnx.")
 
