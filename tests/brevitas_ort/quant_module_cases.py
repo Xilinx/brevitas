@@ -58,13 +58,19 @@ class QuantWBIOLCases:
     
 class QuantRecurrentCases:
 
-    @parametrize('bidirectional', [True, False])
+    @parametrize('bidirectional', [True, False, 'shared_input_hidden'])
     @parametrize('cifg', [True, False])
     @parametrize('num_layers', [1, 2])
     def case_float_lstm(self, bidirectional, cifg, num_layers, request):
         
         # Change the case_id based on current value of Parameters
         set_case_id(request.node.callspec.id, QuantRecurrentCases.case_float_lstm)
+
+        if bidirectional == 'shared_input_hidden':
+            bidirectional = True
+            shared_input_hidden = True
+        else:
+            shared_input_hidden = False
         
         class Model(nn.Module):
 
@@ -83,6 +89,7 @@ class QuantRecurrentCases:
                     batch_first=False, # ort doesn't support batch_first=True (layout = 1)
                     num_layers=num_layers,
                     bidirectional=bidirectional,
+                    shared_input_hidden_weights=shared_input_hidden,
                     coupled_input_forget_gates=cifg)
 
             def forward(self, x):
@@ -92,7 +99,7 @@ class QuantRecurrentCases:
         module = Model()
         return module
     
-    @parametrize('bidirectional', [True, False])
+    @parametrize('bidirectional', [True, False, 'shared_input_hidden'])
     @parametrize('cifg', [True, False])
     @parametrize('num_layers', [1, 2])
     @parametrize('weight_bit_width', BIT_WIDTHS, ids=[f'w{b}' for b in BIT_WIDTHS])
@@ -104,6 +111,11 @@ class QuantRecurrentCases:
         set_case_id(request.node.callspec.id, QuantRecurrentCases.case_quant_lstm)
         
         weight_quant, _ = quantizers
+        if bidirectional == 'shared_input_hidden':
+            bidirectional = True
+            shared_input_hidden = True
+        else:
+            shared_input_hidden = False
         
         class Model(nn.Module):
 
@@ -124,6 +136,7 @@ class QuantRecurrentCases:
                     batch_first=False, # ort doesn't support batch_first=True (layout = 1)
                     num_layers=num_layers,
                     bidirectional=bidirectional,
+                    shared_input_hidden_weights=shared_input_hidden,
                     coupled_input_forget_gates=cifg)
 
             def forward(self, x):
