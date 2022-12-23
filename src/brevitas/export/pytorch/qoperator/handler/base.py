@@ -33,7 +33,7 @@ class PytorchQuantLayerHandler(BaseHandler, BitWidthHandlerMixin, ZeroPointHandl
         return False
     
     def clip_fn(self, x, min_val, max_val):
-        return torch.clip(x, min_val, max_val)
+        return torch.clamp(x, min_val, max_val)
 
     @classmethod
     def gen_quant_impl_kwargs(

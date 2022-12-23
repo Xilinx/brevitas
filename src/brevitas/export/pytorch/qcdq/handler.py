@@ -54,7 +54,7 @@ class TorchQCDQQuantProxyHandler(
         return y.int_repr()
     
     def clip_fn(self, x, min_val, max_val):
-        return torch.clip(x, min_val, max_val)
+        return torch.clamp(x, min_val, max_val)
     
     def dequantize_fn(self, x, scale, zero_point, axis):
         return (x - zero_point) * scale
