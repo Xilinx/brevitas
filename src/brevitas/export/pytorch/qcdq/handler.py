@@ -96,6 +96,13 @@ class TorchQCDQBiasQuantProxyHandler(
     def dequantize_fn(self, x, scale, zero_point, axis):
         return x.dequantize()
     
+    def quantize_fn(self, x, scale, zero_point, dtype, axis):
+        if axis is None:
+            y = torch.quantize_per_tensor(x, scale, zero_point, dtype)
+        else:
+            y = torch.quantize_per_channel(x, scale, zero_point, axis, dtype)
+        return y
+    
     def forward(self, *args, **kwargs):
         return self.symbolic_execution(*args, **kwargs)
 

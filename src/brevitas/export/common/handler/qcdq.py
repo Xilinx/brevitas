@@ -165,11 +165,11 @@ class QCDQBiasQuantProxyHandlerMixin(DQMixin, QuantAxisMixin):
     def prepare_for_export(self, module):
         if module.is_quant_enabled:
             self.validate(module)
-            int_biases = {
+            biases = {
                 tm.bias.data_ptr():
-                    tm.quant_bias().int(float_datatype=False) for tm in module.tracked_module_list}
+                    tm.quant_bias().value for tm in module.tracked_module_list}
             self.symbolic_kwargs = {
-                'int_biases': int_biases,
+                'biases': biases,
                 'scale': module.scale(),
                 'zero_point': module.zero_point(),
                 'bit_width': module.bit_width()}
@@ -178,7 +178,7 @@ class QCDQBiasQuantProxyHandlerMixin(DQMixin, QuantAxisMixin):
 
     def symbolic_execution(self, x: Tensor, input_scale=None, input_bit_width=None):
         assert self.symbolic_kwargs is not None, 'Symbolic execution requires quant to be enabled'
-        int_bias = self.symbolic_kwargs['int_biases'][x.data_ptr()]
+        bias = self.symbolic_kwargs['biases'][x.data_ptr()]
         scale = self.symbolic_kwargs['scale']
         bit_width = self.symbolic_kwargs['bit_width']
         zero_point = self.symbolic_kwargs['zero_point']
@@ -193,12 +193,14 @@ class QCDQBiasQuantProxyHandlerMixin(DQMixin, QuantAxisMixin):
         self.assert_ge_zero(scale, zero_point, bit_width)
 
         dtype = torch.int32 if int(bit_width.item()) > 8 else torch.int8
+        qdtype = torch.qint32 if int(bit_width.item()) > 8 else torch.qint8
         quant_axis = self.quant_axis(scale)
+        y = self.quantize_fn(bias, scale, zero_point, qdtype, quant_axis)
         if self.flatten_dequantize_params:
             scale = to_0dim_if_scalar(scale.flatten())
             zero_point = to_0dim_if_scalar(zero_point.flatten()).expand_as(scale).to(dtype)
         y = self.dequantize_fn(
-            int_bias.to(dtype), scale, zero_point, quant_axis)
+            y, scale, zero_point, quant_axis)
         return y, scale, zero_point, bit_width
 
 
