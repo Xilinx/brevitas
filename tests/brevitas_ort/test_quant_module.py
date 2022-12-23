@@ -6,9 +6,11 @@ import pytest
 
 from .common import *
 from pytest_cases import parametrize_with_cases
-from .quant_module_cases import QuantWBIOLCases
+from .quant_module_cases import QuantWBIOLCases, QuantRecurrentCases
 from pytest_cases import parametrize_with_cases, get_case_id
 from tests.marker import requires_pt_ge
+
+
 
 @parametrize_with_cases('model', cases=QuantWBIOLCases)
 @pytest.mark.parametrize('export_type', ['qcdq', 'qop'])
@@ -33,4 +35,16 @@ def test_ort(model, export_type, current_cases):
     model(torch.from_numpy(inp))  # accumulate scale factors
     model.eval()
     export_name='qcdq_qop_export.onnx'
-    assert is_brevitas_ort_close(model, inp, export_name, export_type, tolerance=TOLERANCE)
+    assert is_brevitas_ort_close(model, inp, export_name, export_type, tolerance=INT_TOLERANCE, first_output_only=True)
+    
+    
+@parametrize_with_cases('model', cases=QuantRecurrentCases)
+@requires_pt_ge('1.10')
+def test_ort_float_lstm(model, current_cases):
+    cases_generator_func = current_cases['model'][1]
+    case_id = get_case_id(cases_generator_func)
+    in_size = (FEATURES, 1, IN_CH) # seq, batch, in_size
+    inp = gen_linspaced_data(reduce(mul, in_size)).reshape(in_size)
+    model.eval()
+    export_name = f'lstm_export_{case_id}.onnx'
+    assert is_brevitas_ort_close(model, inp, export_name, 'qonnx_opset14', tolerance=FLOAT_TOLERANCE)
