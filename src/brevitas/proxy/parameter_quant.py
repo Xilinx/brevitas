@@ -105,15 +105,15 @@ class WeightQuantProxyFromInjector(ParameterQuantProxyFromInjector, WeightQuantP
         return [m.weight for m in self.tracked_module_list if m.weight is not None]
 
     def scale(self):
-        scale = self.__call__(self._zero_hw_sentinel()).scale
+        scale = self.__call__(self.tracked_parameter_list[0]).scale
         return scale
 
     def zero_point(self):
-        zero_point = self.__call__(self._zero_hw_sentinel()).zero_point
+        zero_point = self.__call__(self.tracked_parameter_list[0]).zero_point
         return zero_point
 
     def bit_width(self):
-        bit_width_ = self.__call__(self._zero_hw_sentinel()).bit_width
+        bit_width_ = self.__call__(self.tracked_parameter_list[0]).bit_width
         return bit_width_
 
     def forward(self, x: torch.Tensor) -> QuantTensor:
@@ -128,12 +128,12 @@ class WeightQuantProxyFromInjector(ParameterQuantProxyFromInjector, WeightQuantP
 class DecoupledWeightQuantProxyFromInjector(WeightQuantProxyFromInjector):
 
     def pre_scale(self):
-        output_tuple = self.tensor_quant(self._zero_hw_sentinel())
+        output_tuple = self.tensor_quant(self.tracked_parameter_list[0])
         out, scale, zero_point, bit_width, pre_scale, pre_zero_point = output_tuple
         return pre_scale
 
     def pre_zero_point(self):
-        output_tuple = self.tensor_quant(self._zero_hw_sentinel())
+        output_tuple = self.tensor_quant(self.tracked_parameter_list[0])
         out, scale, zero_point, bit_width, pre_scale, pre_zero_point = output_tuple
         return pre_zero_point
 
@@ -170,19 +170,19 @@ class BiasQuantProxyFromInjector(ParameterQuantProxyFromInjector, BiasQuantProxy
         if self.requires_input_scale:
             return None
         zhs = self._zero_hw_sentinel()
-        scale = self.__call__(zhs, zhs, zhs).scale
+        scale = self.__call__(self.tracked_parameter_list[0], zhs, zhs).scale
         return scale
 
     def zero_point(self):
         zhs = self._zero_hw_sentinel()
-        zero_point = self.__call__(zhs, zhs, zhs).zero_point
+        zero_point = self.__call__(self.tracked_parameter_list[0], zhs, zhs).zero_point
         return zero_point
 
     def bit_width(self):
         if self.requires_input_bit_width:
             return None
         zhs = self._zero_hw_sentinel()
-        bit_width = self.__call__(zhs, zhs, zhs).bit_width
+        bit_width = self.__call__(self.tracked_parameter_list[0], zhs, zhs).bit_width
         return bit_width
 
     def forward(
