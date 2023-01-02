@@ -48,6 +48,8 @@ from brevitas.function.ops_ste import ceil_ste, round_ste
 from brevitas.function.ops import max_int, min_int
 from .torch_handler import QUANT_TENSOR_FN_HANDLER
 
+IS_VALID_ATOL = 1e-5
+
 
 class QuantTensorBase(NamedTuple):
     value: Tensor
@@ -147,7 +149,7 @@ class QuantTensor(QuantTensorBase):
             with torch.no_grad():
                 pre_round_int_value = self._pre_round_int_value
                 rounded_int_value = torch.round(pre_round_int_value)
-                is_int = torch.isclose(pre_round_int_value, rounded_int_value).all()
+                is_int = torch.isclose(pre_round_int_value, rounded_int_value, atol=IS_VALID_ATOL).all()
                 if self.bit_width >= 2:
                     if self.signed:
                         is_upper_b = (2.0 ** (self.bit_width - 1) - 1 >= rounded_int_value).all()
