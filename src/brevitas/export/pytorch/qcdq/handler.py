@@ -51,7 +51,7 @@ class TorchQCDQQuantProxyHandler(
             y = torch.quantize_per_tensor(x, scale, zero_point, dtype)
         else:
             y = torch.quantize_per_channel(x, scale, zero_point, axis, dtype)
-        return y.int_repr()
+        return y.int_repr().type(torch.int)
     
     def clip_fn(self, x, min_val, max_val):
         return torch.clip(x, min_val, max_val)
