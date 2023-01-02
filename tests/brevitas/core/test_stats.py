@@ -39,8 +39,10 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import torch
+import math
 
-from brevitas.core.stats import AbsPercentile
+from brevitas.core.stats import AbsPercentile, NegativePercentileOrZero, PercentileInterval
+
 
 
 def test_abs_percentile_per_tensor():
@@ -60,3 +62,47 @@ def test_abs_percentile_per_channel():
     abs_percentile = AbsPercentile(v, stats_reduce_dim=1)
     out = abs_percentile(tensor)
     assert out.isclose(torch.Tensor([9, 9])).all().item()
+    
+
+class TestPercentile:
+    
+    def compute_percentile(self, x, low_q=None, high_q=None):
+        low_p, high_p = None, None
+        if low_q is not None:
+            k = int(math.ceil(.01 * low_q * x.numel()))
+            low_p = x.view(-1).kthvalue(k).values
+        if high_q is not None:
+            k = int(math.floor(.01 * high_q * x.numel() + 0.5))
+            high_p = x.view(-1).kthvalue(k).values          
+        return low_p, high_p
+    
+    def test_negative_percentile(self):
+        values = [-1., -2., 5]
+        values = torch.tensor(values)
+        neg_percentile = NegativePercentileOrZero(0.01)
+        out = neg_percentile(values)
+        
+        expected_out = torch.min(torch.tensor(0.), self.compute_percentile(values, low_q = 0.01)[0])
+        
+        assert torch.allclose(out, expected_out)
+
+    def test_zero_percentile(self):
+        values = [1., 2., 5]
+        values = torch.tensor(values)
+        neg_percentile = NegativePercentileOrZero(0.01)
+        out = neg_percentile(values)
+        
+        expected_out = torch.tensor(0.)
+        
+        assert torch.allclose(out, expected_out)
+
+
+    def test_interval_percentile(self):
+        values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        values = torch.tensor(values)
+        interval_percentile = PercentileInterval(low_percentile_q = 0.01, high_percentile_q = 99.9)
+        out = interval_percentile(values)
+        
+        range = self.compute_percentile(values, low_q = 0.01, high_q = 99.9)
+        expected_out = torch.abs(range[1] - range[0])
+        assert torch.allclose(out, expected_out)
