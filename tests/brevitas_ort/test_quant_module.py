@@ -34,7 +34,7 @@ def test_ort(model, export_type, current_cases):
 
     model(torch.from_numpy(inp))  # accumulate scale factors
     model.eval()
-    export_name='qcdq_qop_export_{case_id}.onnx'
+    export_name=f'qcdq_qop_export_{case_id}.onnx'
     assert is_brevitas_ort_close(model, inp, export_name, export_type, tolerance=INT_TOLERANCE, first_output_only=True)
     
     
