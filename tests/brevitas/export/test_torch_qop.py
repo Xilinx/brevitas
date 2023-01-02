@@ -4,7 +4,7 @@ from brevitas.nn import QuantConv2d, QuantLinear, QuantIdentity, QuantReLU, Quan
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from brevitas.quant.scaled_int import Uint8ActPerTensorFloat
-from brevitas.quant.scaled_int import Int16Bias, Int32Bias
+from brevitas.quant.scaled_int import Int32Bias
 from brevitas.export import export_torch_qop
 
 from tests.marker import requires_pt_ge
@@ -14,8 +14,6 @@ IN_CH = 40
 TOLERANCE = 1.1
 
 
-@requires_pt_ge('1.2.0', 'Linux')
-@requires_pt_ge('1.5.0', 'Windows')
 @requires_pt_ge('9999', 'Darwin')
 def test_pytorch_quant_conv_export():
     IN_SIZE = (2, IN_CH, IN_CH, IN_CH)
@@ -48,7 +46,7 @@ def test_pytorch_quant_conv_export():
     model(inp)  # collect scale factors
     model.eval()
     
-    inp = torch.randn(IN_SIZE)*RANDN_STD + RANDN_MEAN # New input with bigger range
+    inp = torch.randn(IN_SIZE) * RANDN_STD + RANDN_MEAN # New input with bigger range
     
     brevitas_out = model(inp)
     pytorch_qf_model = export_torch_qop(model, input_t=inp)
@@ -57,8 +55,6 @@ def test_pytorch_quant_conv_export():
     assert pytorch_out.isclose(brevitas_out, rtol=0.0, atol=atol).all()
 
 
-@requires_pt_ge('1.2.0', 'Linux')
-@requires_pt_ge('1.5.0', 'Windows')
 @requires_pt_ge('9999', 'Darwin')
 def test_pytorch_quant_linear_export():
     IN_SIZE = (IN_CH, IN_CH)
@@ -89,7 +85,7 @@ def test_pytorch_quant_linear_export():
     model(inp)  # collect scale factors
     model.eval()
 
-    inp = torch.randn(IN_SIZE)*RANDN_STD + RANDN_MEAN # New input with bigger range
+    inp = torch.randn(IN_SIZE) * RANDN_STD + RANDN_MEAN # New input with bigger range
 
     brevitas_out = model(inp)
     pytorch_qf_model = export_torch_qop(model, input_t=inp)
@@ -98,8 +94,6 @@ def test_pytorch_quant_linear_export():
     assert pytorch_out.isclose(brevitas_out, rtol=0.0, atol=atol).all()
 
 
-@requires_pt_ge('1.2.0', 'Linux')
-@requires_pt_ge('1.5.0', 'Windows')
 @requires_pt_ge('9999', 'Darwin')
 def test_pytorch_quant_linear_bias_quant_export():
     IN_SIZE = (IN_CH, IN_CH)
@@ -130,7 +124,7 @@ def test_pytorch_quant_linear_bias_quant_export():
     model = Model()
     model(inp)  # collect scale factors
     model.eval()
-    inp = torch.randn(IN_SIZE)*RANDN_STD + RANDN_MEAN # New input with bigger range
+    inp = torch.randn(IN_SIZE) * RANDN_STD + RANDN_MEAN # New input with bigger range
 
     brevitas_out = model(inp)
     pytorch_qf_model = export_torch_qop(model, input_t=inp)
@@ -139,12 +133,12 @@ def test_pytorch_quant_linear_bias_quant_export():
     assert pytorch_out.isclose(brevitas_out, rtol=0.0, atol=atol).all()
 
 
-@requires_pt_ge('1.2.0', 'Linux')
-@requires_pt_ge('1.5.0', 'Windows')
 @requires_pt_ge('9999', 'Darwin')
 def test_pytorch_quant_conv_bias_quant_export():
     IN_SIZE = (2, IN_CH, IN_CH, IN_CH)
     KERNEL_SIZE = (3, 3)
+    RANDN_MEAN = 1
+    RANDN_STD = 3
 
     class Model(torch.nn.Module):
 
@@ -171,6 +165,8 @@ def test_pytorch_quant_conv_bias_quant_export():
     model = Model()
     model(inp)  # collect scale factors
     model.eval()
+    inp = torch.randn(IN_SIZE) * RANDN_STD + RANDN_MEAN # New input with bigger range
+
     brevitas_out = model(inp)
     pytorch_qf_model = export_torch_qop(model, input_t=inp)
     pytorch_out = pytorch_qf_model(inp)
@@ -178,11 +174,11 @@ def test_pytorch_quant_conv_bias_quant_export():
     assert pytorch_out.isclose(brevitas_out, rtol=0.0, atol=atol).all()
 
 
-@requires_pt_ge('1.2.0', 'Linux')
-@requires_pt_ge('1.5.0', 'Windows')
 @requires_pt_ge('9999', 'Darwin')
 def test_quant_act_export():
     IN_SIZE = (IN_CH, IN_CH)
+    RANDN_MEAN = 1
+    RANDN_STD = 3
 
     class Model(torch.nn.Module):
 
@@ -201,6 +197,8 @@ def test_quant_act_export():
     model = Model()
     model(inp)  # collect scale factors
     model.eval()
+    inp = torch.randn(IN_SIZE) * RANDN_STD + RANDN_MEAN # New input with bigger range
+
     brevitas_out = model(inp)
     pytorch_qf_model = export_torch_qop(model, input_t=inp)
     pytorch_out = pytorch_qf_model(inp)
@@ -208,10 +206,11 @@ def test_quant_act_export():
     assert pytorch_out.isclose(brevitas_out, rtol=0.0, atol=atol).all()
 
 
-@requires_pt_ge('1.2.0')
 def test_quant_max_pool2d_export():
     IN_SIZE = (1, 1, IN_CH, IN_CH)
     KERNEL_SIZE = 3
+    RANDN_MEAN = 1
+    RANDN_STD = 3
 
     class Model(torch.nn.Module):
 
@@ -232,6 +231,8 @@ def test_quant_max_pool2d_export():
     model = Model()
     model(inp)  # collect scale factors
     model.eval()
+    inp = torch.randn(IN_SIZE) * RANDN_STD + RANDN_MEAN # New input with bigger range
+
     brevitas_out = model(inp)
     pytorch_qf_model = export_torch_qop(model, input_t=inp)
     pytorch_out = pytorch_qf_model(inp)
@@ -239,12 +240,12 @@ def test_quant_max_pool2d_export():
     assert pytorch_out.isclose(brevitas_out, rtol=0.0, atol=atol).all()
 
 
-@requires_pt_ge('1.5.0', 'Linux')
-@requires_pt_ge('1.5.0', 'Windows')
 @requires_pt_ge('9999', 'Darwin')
 def test_func_quant_max_pool2d_export():
     IN_SIZE = (1, 1, IN_CH, IN_CH)
     KERNEL_SIZE = 2
+    RANDN_MEAN = 1
+    RANDN_STD = 3
 
     class Model(torch.nn.Module):
 
@@ -269,6 +270,8 @@ def test_func_quant_max_pool2d_export():
     model = Model()
     model(inp)  # collect scale factors
     model.eval()
+    inp = torch.randn(IN_SIZE) * RANDN_STD + RANDN_MEAN # New input with bigger range
+
     brevitas_out = model(inp)
     pytorch_qf_model = export_torch_qop(model, input_t=inp)
     pytorch_out = pytorch_qf_model(inp)
