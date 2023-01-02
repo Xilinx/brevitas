@@ -8,7 +8,7 @@ VALUE_ATTR_NAME = 'value'
 
 @torch.jit.ignore
 def inplace_tensor_add(tensor: torch.Tensor, value: torch.Tensor) -> torch.Tensor:
-    tensor.mul_(value)
+    tensor.add_(value)
     return tensor
 
 
