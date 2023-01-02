@@ -44,7 +44,7 @@ from dependencies import this, value
 from brevitas.inject import ExtendedInjector
 from brevitas.inject.enum import ScalingImplType, StatsOp, RestrictValueType
 from brevitas.inject.enum import QuantType, BitWidthImplType, FloatToIntImplType
-from brevitas.core.zero_point import ZeroZeroPoint, RuntimeZeroPoint
+from brevitas.core.zero_point import ZeroZeroPoint, StatsFromParameterZeroPoint
 from brevitas.core.zero_point import ParameterFromRuntimeZeroPoint
 from brevitas.core.quant import ClampedBinaryQuant
 from brevitas.core.scaling import IntScaling, ParameterScaling, StatsFromParameterScaling
@@ -179,10 +179,12 @@ class ShiftedMinUintQuant(ExtendedInjector):
     float_to_int_impl_type = FloatToIntImplType.ROUND
     narrow_range = False
     signed = False
-    zero_point_impl = RuntimeZeroPoint
+    quantize_zero_point = True
+    zero_point_impl = StatsFromParameterZeroPoint
     zero_point_stats_impl = NegativeMinOrZero
     zero_point_shape = this.scaling_shape
     zero_point_stats_input_view_shape_impl = this.scaling_stats_input_view_shape_impl
+    zero_point_stats_input_concat_dim = this.scaling_stats_input_concat_dim
 
 
 class ShiftedParamFromPercentileUintQuant(ExtendedInjector):
@@ -193,6 +195,7 @@ class ShiftedParamFromPercentileUintQuant(ExtendedInjector):
     float_to_int_impl_type = FloatToIntImplType.ROUND
     narrow_range = False
     signed = False
+    quantize_zero_point = True
     zero_point_impl = ParameterFromRuntimeZeroPoint
     zero_point_stats_impl = NegativePercentileOrZero
     low_percentile_q = 0.001
