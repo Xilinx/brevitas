@@ -29,6 +29,10 @@ class StdQCDQONNXQuantProxyHandler(
     @property
     def clip_over_integers(self):
         return True
+
+    @property
+    def itemize_scalar_params(self):
+        return False
     
     @classmethod    
     def int8_dtype(cls):

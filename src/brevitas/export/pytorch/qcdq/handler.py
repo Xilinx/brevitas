@@ -33,7 +33,7 @@ class TorchQCDQQuantProxyHandler(
     
     @property
     def itemize_scalar_params(self):
-        pass
+        return True
 
     @classmethod    
     def int8_dtype(cls):
