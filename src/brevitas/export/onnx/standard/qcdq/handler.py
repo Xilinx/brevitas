@@ -80,6 +80,10 @@ class StdQCDQONNXBiasQuantProxyHandler(
     DQMixin, QuantAxisMixin, ZeroPointHandlerMixin, ONNXBaseHandler):
     handled_layer = BiasQuantProxyFromInjector
     
+    @property
+    def itemize_scalar_params(self):
+        return False
+    
     def validate(self, module):
         assert module.is_signed, 'Unsigned bias not supported.'
         assert module.rounding_mode == 'ROUND', 'Only round to nearest even supported'
