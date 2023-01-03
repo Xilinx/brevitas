@@ -97,23 +97,25 @@ class TorchQCDQBiasQuantProxyHandler(
     
     def symbolic_execution(self, x, input_scale=None, input_bit_width=None):
         assert self.symbolic_kwargs is not None, 'Symbolic execution requires quant to be enabled'
-        # update symbolic kwargs based on input scale and bit_width
+        # update symbolic kwargs based on whether they are None
+        quant_scale = self.symbolic_kwargs['quantize_symbolic_kwargs']['scale']
+        dequant_scale = self.symbolic_kwargs['dequantize_symbolic_kwargs']['scale']
         quant_zp = self.symbolic_kwargs['quantize_symbolic_kwargs']['zero_point']
         dequant_zp = self.symbolic_kwargs['dequantize_symbolic_kwargs']['zero_point']
-        if input_scale is not None and input_bit_width is not None:
+        bit_width = self.symbolic_kwargs['bit_width']
+        if quant_scale is None and dequant_scale is None and bit_width is None:
             self.symbolic_kwargs['quantize_symbolic_kwargs'] = self.quantize_symbolic_kwargs(
                 input_scale, quant_zp, input_bit_width, is_signed=True)
             self.symbolic_kwargs['dequantize_symbolic_kwargs'] = self.dequantize_symbolic_kwargs(
                 input_scale, dequant_zp, input_bit_width, is_signed=True)
-        elif input_scale is None and input_bit_width is not None:
+        elif quant_scale is not None and dequant_scale is not None and bit_width is None:
             quant_scale = self.symbolic_kwargs['quantize_symbolic_kwargs']['scale']
             dequant_scale = self.symbolic_kwargs['dequantize_symbolic_kwargs']['scale']
             self.symbolic_kwargs['quantize_symbolic_kwargs'] = self.quantize_symbolic_kwargs(
                 quant_scale, quant_zp, input_bit_width, is_signed=True)
             self.symbolic_kwargs['dequantize_symbolic_kwargs'] = self.dequantize_symbolic_kwargs(
                 dequant_scale, dequant_zp, input_bit_width, is_signed=True)
-        elif input_scale is not None and input_bit_width is None:
-            bit_width = self.symbolic_kwargs['bit_width']
+        elif quant_scale is None and dequant_scale is None and bit_width is not None:
             self.symbolic_kwargs['quantize_symbolic_kwargs'] = self.quantize_symbolic_kwargs(
                 input_scale, quant_zp, bit_width, is_signed=True)
             self.symbolic_kwargs['dequantize_symbolic_kwargs'] = self.dequantize_symbolic_kwargs(

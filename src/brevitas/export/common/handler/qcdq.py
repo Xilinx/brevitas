@@ -25,7 +25,10 @@ class DQMixin(ABC):
     
     def assert_ge_zero(self, *args):
         for a in args:
-            assert (a >= 0.).all()
+            bools = a >= 0.
+            if isinstance(bools, torch.Tensor):
+                bools = bools.all()
+            assert bools
     
     
 class QCDQMixin(DQMixin):
@@ -95,10 +98,9 @@ class QCDQQuantProxyHandlerMixin(
         # bit_width can be None for bias quantization
         if bit_width is not None:
             zp = cls.zero_point_with_dtype(is_signed, bit_width, zp)
-        # delay itemization of zp whenever scale is not there yet,
-        # so that the zero_point in the output dict can be passed again
-        # as tensor later on with a defined scale and generate the correct result
-        if scale is not None and cls.itemize_scalar_params:
+        # delay itemization of zp whenever scale or bit_width is not there yet
+        # which requires a second pass through this function
+        if scale is not None and bit_width is not None and cls.itemize_scalar_params:
             scale = to_item_if_0dim(scale)
             zp = to_item_if_0dim(zp)
         dtype = cls.signed_dtype(bit_width, is_signed)
@@ -121,8 +123,9 @@ class QCDQQuantProxyHandlerMixin(
         # scale can be None for bias quantization
         if bit_width is not None:
             zp = cls.zero_point_with_dtype(is_signed, bit_width, zp)
-        # delay itemization of zp whenever scale is not there yet
-        if scale is not None and cls.itemize_scalar_params:
+        # delay itemization of zp whenever scale and bit_width are not there yet
+        # which requires a second pass through this function
+        if scale is not None and bit_width is not None and cls.itemize_scalar_params:
             scale = to_item_if_0dim(scale)
             zp = to_item_if_0dim(zp)
         return {
