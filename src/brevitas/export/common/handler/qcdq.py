@@ -8,7 +8,7 @@ from brevitas.proxy import DecoupledWeightQuantProxyFromInjector
 from brevitas.proxy import BiasQuantProxyFromInjector
 from brevitas.proxy import ActQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector
-from brevitas.export.common import to_0dim_if_scalar
+from brevitas.export.common import to_0dim_if_scalar, to_item_if_0dim
 from .base import QuantAxisMixin, ClipMixin, ZeroPointHandlerMixin, BitWidthHandlerMixin
 
 
@@ -20,7 +20,7 @@ class DQMixin(ABC):
     
     @property
     @abstractmethod
-    def flatten_dequantize_params(self):
+    def itemize_scalar_params(self):
         pass
     
     def assert_ge_zero(self, *args):
@@ -61,43 +61,83 @@ class QCDQMixin(DQMixin):
     @abstractmethod
     def validate(self):
         pass
+    
+    @classmethod    
+    def signed_dtype(cls, bit_width, is_signed):
+        if bit_width is None:
+            return None
+        if is_signed and bit_width <= 8:
+            dtype = cls.int8_dtype()
+        elif not is_signed and bit_width <= 8:
+            dtype = cls.uint8_dtype()
+        elif is_signed and bit_width > 8:
+            dtype = cls.int32_dtype()
+        else:
+            raise RuntimeError("Unsigned quantization > 8b not supported for export, switch to signed.")
+        return dtype
 
 
 class QCDQQuantProxyHandlerMixin(
     QuantAxisMixin, ClipMixin, ZeroPointHandlerMixin, BitWidthHandlerMixin, QCDQMixin, ABC):
     
-
-    def quantize_symbolic_kwargs(cls, module):
-        flat_scale = to_0dim_if_scalar(module.scale().flatten())
-        # expand_as must go after 0-Dim check
-        zp =  to_0dim_if_scalar(module.zero_point().flatten()).expand_as(flat_scale) 
-        return {
-            'scale': flat_scale,
-            'zero_point': cls.zero_point_with_dtype(module.is_signed,zp),
-            'dtype': cls.int8_dtype() if module.is_signed else cls.uint8_dtype(),
-            'axis': cls.quant_axis(module.scale())}
-
-    def dequantize_symbolic_kwargs(cls, module):
-        quant_axis = cls.quant_axis(module.scale())
-        if cls.flatten_dequantize_params:
-            scale = to_0dim_if_scalar(module.scale().flatten()) 
-            zp = to_0dim_if_scalar(module.zero_point().flatten()).expand_as(scale)
+    def quantize_symbolic_kwargs(cls, scale, zero_point, bit_width, is_signed):
+        # compute axis before redefining scale
+        # scale can be None for bias quantization
+        if scale is not None:
+            axis = cls.quant_axis(scale)
+            scale = to_0dim_if_scalar(scale.flatten())
         else:
-            scale = module.scale()
-            zp = module.zero_point().expand_as(scale)
+            axis = None
+        zp = to_0dim_if_scalar(zero_point.flatten())
+        if scale is not None:
+            # expand_as must go after 0-dim check
+            zp = zp.expand_as(scale) 
+        # bit_width can be None for bias quantization
+        if bit_width is not None:
+            zp = cls.zero_point_with_dtype(is_signed, bit_width, zp)
+        # delay itemization of zp whenever scale is not there yet,
+        # so that the zero_point in the output dict can be passed again
+        # as tensor later on with a defined scale and generate the correct result
+        if scale is not None and cls.itemize_scalar_params:
+            scale = to_item_if_0dim(scale)
+            zp = to_item_if_0dim(zp)
+        dtype = cls.signed_dtype(bit_width, is_signed)
         return {
             'scale': scale,
-            'zero_point': cls.zero_point_with_dtype(module.is_signed, zp),
-            'axis': quant_axis}
+            'zero_point': zp,
+            'dtype': dtype,
+            'axis': axis}
+
+    def dequantize_symbolic_kwargs(cls, scale, zero_point, bit_width, is_signed):
+        # scale can be None for bias quantization
+        if scale is not None:
+            axis = cls.quant_axis(scale)
+            scale = to_0dim_if_scalar(scale.flatten()) 
+        else:
+            axis = None
+        zp = to_0dim_if_scalar(zero_point.flatten())
+        if scale is not None:
+            zp = zp.expand_as(scale)
+        # scale can be None for bias quantization
+        if bit_width is not None:
+            zp = cls.zero_point_with_dtype(is_signed, bit_width, zp)
+        # delay itemization of zp whenever scale is not there yet
+        if scale is not None and cls.itemize_scalar_params:
+            scale = to_item_if_0dim(scale)
+            zp = to_item_if_0dim(zp)
+        return {
+            'scale': scale,
+            'zero_point': zp,
+            'axis': axis}
 
     def prepare_for_export(self, module):
         if module.is_quant_enabled:
             self.validate(module)
             self.symbolic_kwargs['bit_width'] = module.bit_width()
             self.symbolic_kwargs['quantize_symbolic_kwargs'] = self.quantize_symbolic_kwargs(
-                module)
+                module.scale(), module.zero_point(), module.bit_width(), module.is_signed)
             self.symbolic_kwargs['dequantize_symbolic_kwargs'] = self.dequantize_symbolic_kwargs(
-                module)
+                module.scale(), module.zero_point(), module.bit_width(), module.is_signed)
             if self.clip_over_integers:
                 self.symbolic_kwargs['clip_symbolic_kwargs'] = self.int_clip_symbolic_kwargs(
                     module.is_narrow_range, module.is_signed, module.bit_width())
@@ -142,9 +182,13 @@ class QCDQDecoupledWeightQuantProxyHandlerMixin(QCDQWeightQuantProxyHandlerMixin
     def quantize_symbolic_kwargs(cls, module):
         flat_scale = to_0dim_if_scalar(module.pre_scale().flatten())
         zp = to_0dim_if_scalar(module.pre_zero_point().flatten()).expand_as(flat_scale)
+        zp = cls.zero_point_with_dtype(module.is_signed, module.bit_width, zp)
+        if cls.itemize_scalar_params:
+            flat_scale = to_item_if_0dim(flat_scale)
+            zp = to_item_if_0dim(zp)
         return {
             'scale': flat_scale,
-            'zero_point': cls.zero_point_with_dtype(module.is_signed, zp),
+            'zero_point': zp,
             'dtype': cls.int8_dtype() if module.is_signed else cls.uint8_dtype(),
             'axis': cls.quant_axis(module.pre_scale())}
 
@@ -158,51 +202,6 @@ class QCDQDecoupledWeightQuantProxyHandlerMixin(QCDQWeightQuantProxyHandlerMixin
 
 class QCDQActQuantProxyHandlerMixin(QCDQQuantProxyHandlerMixin):
     handled_layer = ActQuantProxyFromInjector
-
-
-class QCDQBiasQuantProxyHandlerMixin(DQMixin, QuantAxisMixin):
-    handled_layer = BiasQuantProxyFromInjector
-
-    def prepare_for_export(self, module):
-        if module.is_quant_enabled:
-            self.validate(module)
-            biases = {
-                tm.bias.data_ptr():
-                    tm.quant_bias() for tm in module.tracked_module_list}
-            self.symbolic_kwargs = {
-                'biases': biases,
-                'scale': module.scale(),
-                'zero_point': module.zero_point(),
-                'bit_width': module.bit_width()}
-        else:
-            self.symbolic_kwargs = None
-
-    def symbolic_execution(self, x: Tensor, input_scale=None, input_bit_width=None):
-        assert self.symbolic_kwargs is not None, 'Symbolic execution requires quant to be enabled'
-        bias = self.symbolic_kwargs['biases'][x.data_ptr()]
-        scale = self.symbolic_kwargs['scale']
-        bit_width = self.symbolic_kwargs['bit_width']
-        zero_point = self.symbolic_kwargs['zero_point']
-        assert scale is not None or input_scale is not None, 'Input scale required for bias export'
-        assert bit_width is not None or input_bit_width is not None, 'Input bit width required for bias export'
-
-        if input_scale is not None:
-            scale = input_scale
-        if input_bit_width is not None:
-            bit_width = input_bit_width
-        # Workaround to trick the tracer into believing all return values are used
-        self.assert_ge_zero(scale, zero_point, bit_width)
-
-        dtype = torch.int32 if int(bit_width.item()) > 8 else torch.int8
-        qdtype = torch.qint32 if int(bit_width.item()) > 8 else torch.qint8
-        quant_axis = self.quant_axis(scale)
-        y = self.quantize_fn(bias, scale, zero_point, qdtype, quant_axis)
-        if self.flatten_dequantize_params:
-            scale = to_0dim_if_scalar(scale.flatten())
-            zero_point = to_0dim_if_scalar(zero_point.flatten()).expand_as(scale).to(dtype)
-        y = self.dequantize_fn(
-            y, scale, zero_point, quant_axis)
-        return y, scale, zero_point, bit_width
 
 
 class QCDQTruncQuantProxyHandlerMixin(QCDQQuantProxyHandlerMixin):

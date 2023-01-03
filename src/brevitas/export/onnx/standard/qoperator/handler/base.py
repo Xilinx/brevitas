@@ -111,7 +111,7 @@ class StdQOpONNXQuantLayerHandler(
         return {
             'input_scale': cached_io.scale,
             'input_zero_point': cls.zero_point_with_dtype(
-                cached_io.signed, cached_io.zero_point),
+                cached_io.signed, cached_io.bit_width, cached_io.zero_point),
             'input_axis': cls.quant_axis(cached_io.scale)}
 
     @classmethod
@@ -120,7 +120,7 @@ class StdQOpONNXQuantLayerHandler(
         q_kwargs = {
             'output_scale': cached_io.scale,
             'output_zero_point': cls.zero_point_with_dtype(
-                cached_io.signed, cached_io.zero_point),
+                cached_io.signed, cached_io.bit_width, cached_io.zero_point),
             'output_dtype': cls.torch_8b_dtype(cached_io.signed),
             'output_axis': cls.quant_axis(cached_io.scale)}
         # TODO support narrow caching

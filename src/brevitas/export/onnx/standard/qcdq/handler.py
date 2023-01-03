@@ -4,14 +4,18 @@ from copy import copy
 import torch
 from torch import Tensor
 
+from brevitas.proxy import BiasQuantProxyFromInjector
 from brevitas.export.onnx.handler import ONNXBaseHandler, QuantLSTMLayerHandler
 from brevitas.export.common.handler.qcdq import (
+    DQMixin,
     QCDQMixin,
+    ZeroPointHandlerMixin,
     QCDQWeightQuantProxyHandlerMixin,
     QCDQDecoupledWeightQuantProxyHandlerMixin,
-    QCDQBiasQuantProxyHandlerMixin,
     QCDQActQuantProxyHandlerMixin,
     QCDQTruncQuantProxyHandlerMixin)
+from brevitas.export.common import to_0dim_if_scalar
+from brevitas.export.common.handler.base import QuantAxisMixin
 
 from ..function import QuantizeLinearFn, DequantizeLinearFn, IntClipFn
 
@@ -24,10 +28,6 @@ class StdQCDQONNXQuantProxyHandler(
     
     @property
     def clip_over_integers(self):
-        return True
-    
-    @property
-    def flatten_dequantize_params(self):
         return True
     
     @classmethod    
@@ -58,7 +58,7 @@ class StdQCDQONNXQuantProxyHandler(
 
 
 class StdQCDQONNXWeightQuantProxyHandler(
-    QCDQWeightQuantProxyHandlerMixin,StdQCDQONNXQuantProxyHandler):
+    QCDQWeightQuantProxyHandlerMixin, StdQCDQONNXQuantProxyHandler):
     pass
 
 
@@ -73,7 +73,8 @@ class StdQCDQONNXActQuantProxyHandler(
 
 
 class StdQCDQONNXBiasQuantProxyHandler(
-    QCDQBiasQuantProxyHandlerMixin, ONNXBaseHandler):
+    DQMixin, QuantAxisMixin, ZeroPointHandlerMixin, ONNXBaseHandler):
+    handled_layer = BiasQuantProxyFromInjector
     
     def validate(self, module):
         assert module.is_signed, 'Unsigned bias not supported.'
@@ -87,16 +88,42 @@ class StdQCDQONNXBiasQuantProxyHandler(
     def int32_dtype(cls):
         return torch.int32
     
-    @property
-    def flatten_dequantize_params(self):
-        return True
-    
-    def quantize_fn(self, x, scale, zero_point, qdtype, axis):
-        dtype = torch.int32 if qdtype==torch.qint32 else torch.int8
-        return x.int(float_datatype=False).type(dtype)
-    
     def dequantize_fn(self, x, scale, zero_point, axis):
         return DequantizeLinearFn.apply(x, scale, zero_point, axis)
+    
+    def prepare_for_export(self, module):
+        if module.is_quant_enabled:
+            self.validate(module)
+            int_biases = {
+                tm.bias.data_ptr():
+                    tm.quant_bias().int(float_datatype=False) for tm in module.tracked_module_list}
+            self.symbolic_kwargs = {
+                'int_biases': int_biases,
+                'scale': module.scale(),
+                'zero_point': module.zero_point(),
+                'bit_width': module.bit_width()}
+        else:
+            self.symbolic_kwargs = None
+
+    def symbolic_execution(self, x: Tensor, input_scale=None, input_bit_width=None):
+        assert self.symbolic_kwargs is not None, 'Symbolic execution requires quant to be enabled'
+        int_bias = self.symbolic_kwargs['int_biases'][x.data_ptr()]
+        scale = self.symbolic_kwargs['scale']
+        bit_width = self.symbolic_kwargs['bit_width']
+        zero_point = self.symbolic_kwargs['zero_point']
+        assert scale is not None or input_scale is not None, 'Input scale required for bias export'
+        assert bit_width is not None or input_bit_width is not None, 'Input bit width required for bias export'
+        if input_scale is not None:
+            scale = input_scale
+        if input_bit_width is not None:
+            bit_width = input_bit_width
+        quant_axis = self.quant_axis(scale)
+        scale = to_0dim_if_scalar(scale.flatten())
+        zp = to_0dim_if_scalar(zero_point.flatten()).expand_as(scale)
+        zp = self.zero_point_with_dtype(True, bit_width, zp)  # assume signed is True
+        y = self.dequantize_fn(
+            int_bias.to(zp.dtype), scale, zero_point, quant_axis)
+        return y, scale, zero_point, bit_width
 
 
 class StdQCDQONNXTruncQuantProxyHandler(
