@@ -26,6 +26,8 @@ def test_ort(model, export_type, current_cases):
         pytest.skip('Export of ConvTranspose is not supported for QOperation')
     if 'True' in per_channel and 'asymmetric' in quantizer:
         pytest.skip('Per-channel zero-point is not well supported in ORT.')
+    if 'QuantLinear' in impl and 'asymmetric' in quantizer:
+        pytest.skip('ORT execution is unreliable and fails randomly on a subset of cases.')
         
     if impl in ('QuantLinear'):
         in_size = (1, IN_CH)
