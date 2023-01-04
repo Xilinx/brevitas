@@ -41,8 +41,15 @@ class ClipMixin(ABC):
 
     @classmethod
     def int_clip_symbolic_kwargs(cls, narrow, signed, bit_width):
-        if narrow or bit_width < 8.:
-            dtype = torch.int8 if signed else torch.uint8
+        if narrow or bit_width != 8. and bit_width != 32.:
+            if signed and bit_width < 8.:
+                dtype = torch.int8
+            elif not signed and bit_width < 8.:
+                dtype = torch.uint8
+            elif signed and bit_width < 32.:
+                dtype = torch.int32
+            else:
+                raise RuntimeError(f"Sign {signed} and bit width {bit_width} not supported for export.")
             return {
                 'min_val': min_int(signed, narrow, bit_width).to(dtype),
                 'max_val': max_int(signed, narrow, bit_width).to(dtype)}

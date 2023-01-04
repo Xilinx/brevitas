@@ -1,11 +1,12 @@
+import pytest
 
 import torch
-
-from .export_cases import TorchQuantWBIOLCases
-from .export_cases import FEATURES, IN_CH, TOLERANCE
 from pytest_cases import parametrize_with_cases, get_case_id
 from tests.marker import requires_pt_ge
 from brevitas.export import export_torch_qcdq
+
+from .export_cases import TorchQuantWBIOLCases
+from .export_cases import FEATURES, IN_CH, TOLERANCE
 
 
 @parametrize_with_cases('model', cases=TorchQuantWBIOLCases.case_quant_wbiol_qcdq)
@@ -14,6 +15,15 @@ def test_pytorch_qcdq_export(model, current_cases):
     cases_generator_func = current_cases['model'][1]
     case_id = get_case_id(cases_generator_func)
     impl = case_id.split('-')[-1] # Inverse list of definition, 'impl' is -1.
+    quantizer = case_id.split('-')[-2]
+    input_bit_width = case_id.split('-')[-3]
+    weight_bit_width = case_id.split('-')[-4]
+    output_bit_width = case_id.split('-')[-5]
+    
+    if 'asymmetric_act' in quantizer and ('i10' in input_bit_width or 'o10' in output_bit_width):
+        pytest.skip("Unsigned zero point supported on 8b or less.")
+    if 'asymmetric_weight' in quantizer and 'w10' in weight_bit_width:
+        pytest.skip("Unsigned zero point supported on 8b or less.")
 
     if impl in ('QuantLinear'):
         in_size = (1, IN_CH)

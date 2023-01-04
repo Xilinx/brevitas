@@ -74,7 +74,7 @@ class TorchQCDQWeightQuantProxyHandler(
     
     @classmethod
     def int_clip_symbolic_kwargs(cls, narrow, signed, bit_width):
-        clip_args = super(TorchQCDQWeightQuantProxyHandler, cls).int_clip_symbolic_kwargs(narrow, signed, bit_width)
+        clip_args = super().int_clip_symbolic_kwargs(narrow, signed, bit_width)
         return _itemize_clip_bounds(clip_args)
 
     
@@ -83,13 +83,18 @@ class TorchQCDQActQuantProxyHandler(
     
     @classmethod
     def int_clip_symbolic_kwargs(cls, narrow, signed, bit_width):
-        clip_args = super(TorchQCDQActQuantProxyHandler, cls).int_clip_symbolic_kwargs(narrow, signed, bit_width)
+        clip_args = super().int_clip_symbolic_kwargs(narrow, signed, bit_width)
         return _itemize_clip_bounds(clip_args)
 
 
 class TorchQCDQBiasQuantProxyHandler(
     QCDQQuantProxyHandlerMixin, TorchQCDQQuantProxyHandler):
     handled_layer = BiasQuantProxyFromInjector
+    
+    @classmethod
+    def int_clip_symbolic_kwargs(cls, narrow, signed, bit_width):
+        clip_args = super().int_clip_symbolic_kwargs(narrow, signed, bit_width)
+        return _itemize_clip_bounds(clip_args)
     
     def validate(self, module):
         assert module.is_signed, "Unsigned bias not supported."
@@ -125,4 +130,8 @@ class TorchQCDQBiasQuantProxyHandler(
 
 class TorchQCDQTruncQuantProxyHandler(
     TorchQCDQQuantProxyHandler, QCDQTruncQuantProxyHandlerMixin):
-    pass
+
+    @classmethod
+    def int_clip_symbolic_kwargs(cls, narrow, signed, bit_width):
+        clip_args = super().int_clip_symbolic_kwargs(narrow, signed, bit_width)
+        return _itemize_clip_bounds(clip_args)
