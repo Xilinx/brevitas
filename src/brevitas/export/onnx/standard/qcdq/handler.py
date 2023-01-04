@@ -127,10 +127,10 @@ class StdQCDQONNXBiasQuantProxyHandler(
             bit_width = input_bit_width
         quant_axis = self.quant_axis(scale)
         scale = to_0dim_if_scalar(scale.flatten())
-        zp = to_0dim_if_scalar(zero_point.flatten()).expand_as(scale)
-        zp = self.zero_point_with_dtype(True, bit_width, zp)  # assume signed is True
+        zero_point = to_0dim_if_scalar(zero_point.flatten()).expand_as(scale)
+        zero_point = self.zero_point_with_dtype(True, bit_width, zero_point)  # assume signed is True
         y = self.dequantize_fn(
-            int_bias.to(zp.dtype), scale, zero_point, quant_axis)
+            int_bias.to(zero_point.dtype), scale, zero_point, quant_axis)
         return y, scale, zero_point, bit_width
 
 
