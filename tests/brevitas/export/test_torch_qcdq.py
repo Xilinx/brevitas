@@ -42,7 +42,7 @@ def test_pytorch_qcdq_export(model, current_cases):
     export_path = f'torch_qcdq_{case_id}.pt'
     inp = torch.randn(in_size) * IN_SCALE + IN_MEAN  # redefine inp for testing
     out = model(inp)
-    pytorch_qcdq_model = export_torch_qcdq(model, args=inp, export_path=export_path)
+    pytorch_qcdq_model = export_torch_qcdq(model, args=inp)
     torchscript_out = pytorch_qcdq_model(inp)
     torchscript_out_value = torchscript_out[0]
     tolerance = TOLERANCE * out.scale
