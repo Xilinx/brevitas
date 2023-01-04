@@ -15,7 +15,7 @@ from brevitas.nn import QuantConvTranspose1d, QuantConvTranspose2d
 
 OUT_CH = 16
 IN_CH = 8
-IN_SHIFT = 5
+IN_MEAN = 5
 IN_SCALE = 3
 FEATURES = 5
 KERNEL_SIZE = 3 
