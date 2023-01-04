@@ -145,13 +145,20 @@ class QCDQQuantProxyHandlerMixin(
                 self.symbolic_kwargs['clip_symbolic_kwargs'] = self.int_clip_symbolic_kwargs(
                     module.is_narrow_range, module.is_signed, module.bit_width())
             else:
+                # clip_scale might require a broadcastable shape, while dequant scale might not,
+                # hence we keep them separate 
+                clip_scale = to_0dim_if_scalar(module.scale())
+                clip_zp = to_0dim_if_scalar(module.zero_point())
+                if self.itemize_scalar_params:
+                    clip_scale = to_item_if_0dim(clip_scale)
+                    clip_zp = to_item_if_0dim(clip_zp)
                 self.symbolic_kwargs['clip_symbolic_kwargs'] = self.float_clip_symbolic_kwargs(
                     module.is_narrow_range, 
                     module.is_signed, 
                     module.bit_width(),
                     # preserve broadcastable shape if per-channel, scalar item otherwise
-                    to_item_if_0dim(to_0dim_if_scalar(module.scale())), 
-                    to_item_if_0dim(to_0dim_if_scalar(module.zero_point())))
+                    clip_scale, 
+                    clip_zp)
         else:
             self.symbolic_kwargs = None
     
