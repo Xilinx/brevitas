@@ -25,10 +25,10 @@ def test_pytorch_qcdq_export(model, current_cases):
     inp = torch.randn(in_size)
     model(inp) # Collect scale factors
     model.eval()
-    
+    export_path = f'torch_qcdq_{case_id}.pt'
     out = model(inp)
-    export_torch_qcdq(model, args=inp, export_path='torch_qcdq.pt')
-    pytorch_qcdq_model = torch.jit.load('torch_qcdq.pt')
+    export_torch_qcdq(model, args=inp, export_path=export_path)
+    pytorch_qcdq_model = torch.jit.load(export_path)
     torchscript_out = pytorch_qcdq_model(inp)
     torchscript_out_value = torchscript_out[0]
     tolerance = TOLERANCE * out.scale
