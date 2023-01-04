@@ -46,6 +46,6 @@ def test_pytorch_qcdq_export(model, current_cases):
     torchscript_out = pytorch_qcdq_model(inp)
     torchscript_out_value = torchscript_out[0]
     tolerance = TOLERANCE * out.scale
-    del pytorcch_qcdq_model
+    del pytorch_qcdq_model
     del model
     assert torch.allclose(out, torchscript_out_value, atol=tolerance)

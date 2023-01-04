@@ -290,6 +290,7 @@ class BaseManager(ABC):
                 torch.jit.save(traced_model, tmp)
                 tmp.seek(0)
                 traced_model = torch.jit.load(tmp)
+                del tmp
             if export_path is not None:
                 traced_model.save(export_path)
             _restore_requires_grad(module, requires_grad_backup_dict)
