@@ -19,6 +19,7 @@ class PytorchQuantNLALHandler(PytorchQuantLayerHandler, ABC):
     @classmethod
     def validate(cls, module: QuantNLAL):
         assert not module.is_input_quant_enabled, 'Input quantization not supported'
+        cls.validate_8b_bit_width(module.quant_act_bit_width(), le_then=False)
 
     def prepare_for_export(self, module: QuantNLAL):
         self.validate(module)
