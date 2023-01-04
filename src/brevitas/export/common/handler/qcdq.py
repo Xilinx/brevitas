@@ -149,9 +149,9 @@ class QCDQQuantProxyHandlerMixin(
                     module.is_narrow_range, 
                     module.is_signed, 
                     module.bit_width(),
-                    # preserve broadcastable shape if per-channel, 0-dim otherwise
-                    to_0dim_if_scalar(module.scale()), 
-                    to_0dim_if_scalar(module.zero_point()))
+                    # preserve broadcastable shape if per-channel, scalar item otherwise
+                    to_item_if_0dim(to_0dim_if_scalar(module.scale())), 
+                    to_item_if_0dim(to_0dim_if_scalar(module.zero_point())))
         else:
             self.symbolic_kwargs = None
     
@@ -167,11 +167,9 @@ class QCDQQuantProxyHandlerMixin(
         self.assert_ge_zero(scale, zero_point, bit_width)
 
         x = self.quantize_fn(x, *quantize_symbolic_kwargs.values())
-        if clip_symbolic_kwargs is not None and self.clip_over_integers:
+        if clip_symbolic_kwargs is not None:
             x = self.clip_fn(x, *clip_symbolic_kwargs.values())
         x = self.dequantize_fn(x, *dequantize_symbolic_kwargs.values())
-        if clip_symbolic_kwargs is not None and not self.clip_over_integers:
-            x = self.clip_fn(x, *clip_symbolic_kwargs.values())
         return x, scale, zero_point, bit_width
 
 
@@ -225,9 +223,7 @@ class QCDQTruncQuantProxyHandlerMixin(QCDQQuantProxyHandlerMixin):
         zp = to_0dim_if_scalar(zero_point.flatten()).expand_as(flat_scale)
         x = self.quantize_fn(x, flat_scale, zp, dtype, self.quant_axis(scale))
         clip_symbolic_kwargs = self.clip_symbolic_kwargs(signed, False, output_bit_width)
-        if clip_symbolic_kwargs is not None and self.clip_over_integers:
+        if clip_symbolic_kwargs is not None:
             x = self.clip_fn(x, *clip_symbolic_kwargs.values())
         x = self.dequantize_fn(x, flat_scale, zp, self.quant_axis(scale))
-        if clip_symbolic_kwargs is not None and not self.clip_over_integers:
-            x = self.clip_fn(x, *clip_symbolic_kwargs.values())
         return x, scale, zero_point, output_bit_width

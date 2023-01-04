@@ -29,7 +29,7 @@ class TorchQCDQQuantProxyHandler(
 
     @property
     def clip_over_integers(self):
-        return True
+        return False
     
     @property
     def itemize_scalar_params(self):

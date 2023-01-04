@@ -6,7 +6,7 @@ from tests.marker import requires_pt_ge
 from brevitas.export import export_torch_qcdq
 
 from .export_cases import TorchQuantWBIOLCases
-from .export_cases import FEATURES, IN_CH, TOLERANCE
+from .export_cases import FEATURES, IN_CH, TOLERANCE, IN_SHIFT, IN_SCALE
 
 
 @parametrize_with_cases('model', cases=TorchQuantWBIOLCases.case_quant_wbiol_qcdq)
@@ -36,6 +36,7 @@ def test_pytorch_qcdq_export(model, current_cases):
     model(inp) # Collect scale factors
     model.eval()
     export_path = f'torch_qcdq_{case_id}.pt'
+    inp = torch.randn(in_size) * IN_SCALE + IN_SHIFT  # redefine inp for testing
     out = model(inp)
     export_torch_qcdq(model, args=inp, export_path=export_path)
     pytorch_qcdq_model = torch.jit.load(export_path)
