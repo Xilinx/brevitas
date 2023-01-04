@@ -43,7 +43,9 @@ class PytorchQuantWBIOLHandler(PytorchQuantLayerHandler):
 
     @classmethod
     def prepare_weight_quant(cls, module: QuantWBIOL):
-        cls.validate_8b_bit_width(module.quant_weight_bit_width(), le_then=True)
+        cls.validate_bit_width(module.quant_weight_bit_width(), 7, le_then=True)
+        cls.validate_8b_bit_width(module.quant_input_bit_width(), le_then=False)
+        cls.validate_8b_bit_width(module.quant_output_bit_width(), le_then=False)
         scale = module.quant_weight_scale()
         zero_point = cls.quant_weight_zero_point(module)
         signed = module.is_quant_weight_signed
