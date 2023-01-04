@@ -213,7 +213,12 @@ class QuantTensor(QuantTensorBase):
             if float_datatype:
                 return int_value
             else:
-                return int_value.int()
+                if self.bit_width <= 8. and self.signed_t.item():
+                    return int_value.to(torch.int8)
+                elif self.bit_width <= 8. and not self.signed_t.item():
+                    return int_value.to(torch.uint8)
+                else:
+                    return int_value.to(torch.int32)
         else:
             raise RuntimeError(f"QuantTensor not valid.")
 
