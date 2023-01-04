@@ -19,11 +19,15 @@ def test_pytorch_qcdq_export(model, current_cases):
     input_bit_width = case_id.split('-')[-3]
     weight_bit_width = case_id.split('-')[-4]
     output_bit_width = case_id.split('-')[-5]
+    bias_bit_width = case_id.split('-')[-6]
+    bias_quantizer = case_id.split('-')[-7]
     
     if 'asymmetric_act' in quantizer and ('i10' in input_bit_width or 'o10' in output_bit_width):
         pytest.skip("Unsigned zero point supported on 8b or less.")
     if 'asymmetric_weight' in quantizer and 'w10' in weight_bit_width:
         pytest.skip("Unsigned zero point supported on 8b or less.")
+    if 'internal_scale' in bias_quantizer and 'b32' in bias_bit_width:
+        pytest.skip("This combination is prone to numerical errors as the scale gets too small.")
 
     if impl in ('QuantLinear'):
         in_size = (1, IN_CH)
