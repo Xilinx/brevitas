@@ -124,4 +124,5 @@ def quant_module(
     
     torch.random.manual_seed(SEED)
     module = Model()
-    return module
+    yield module
+    del module
