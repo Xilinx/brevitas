@@ -6,15 +6,6 @@ from brevitas.export import export_torch_qcdq
 from .quant_module_fixture import *
 
 
-def clear_class_registry():
-    # torch.jit.trace leaks memory, this should help
-    # https://github.com/pytorch/pytorch/issues/86537
-    # https://github.com/pytorch/pytorch/issues/35600
-    torch._C._jit_clear_class_registry()
-    torch.jit._recursive.concrete_type_store = torch.jit._recursive.ConcreteTypeStore()
-    torch.jit._state._script_classes.clear()
-
-
 @requires_pt_ge('1.9.1')
 def test_pytorch_qcdq_export(
         quant_module,
@@ -53,5 +44,4 @@ def test_pytorch_qcdq_export(
     torchscript_out_value = torchscript_out[0]
     tolerance = TOLERANCE * out.scale
     del pytorch_qcdq_model
-    clear_class_registry()
     assert torch.allclose(out, torchscript_out_value, atol=tolerance)

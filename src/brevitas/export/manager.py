@@ -14,6 +14,7 @@ from brevitas.utils.jit_utils import jit_patches_generator
 from brevitas.nn.mixin.base import _CachedIO, QuantLayerMixin, QuantRecurrentLayerMixin
 from brevitas.proxy.quant_proxy import QuantProxyProtocol
 from brevitas.utils.python_utils import patch
+from brevitas.utils.jit_utils import clear_class_registry
 
 
 class _JitTraceExportWrapper(nn.Module):
@@ -293,6 +294,8 @@ class BaseManager(ABC):
                 del tmp
             if export_path is not None:
                 traced_model.save(export_path)
+            # helps fight memory leaks caused by torch.jit.trace
+            clear_class_registry()
             _restore_requires_grad(module, requires_grad_backup_dict)
             cls.set_export_mode(module, enabled=False)
             module.train(training_state)
