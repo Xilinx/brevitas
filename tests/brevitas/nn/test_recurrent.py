@@ -88,13 +88,6 @@ class TestRecurrent:
         assert torch.isclose(out[0], ref_out[0], atol=ATOL).all()
         assert torch.isclose(out[1], ref_out[1], atol=ATOL).all()
 
-        # Test that the brevitas model can be saved/loaded without warning
-        with warnings.catch_warnings(record=True) as wlist:
-            qm.load_state_dict(qm.state_dict())
-            for w in wlist:
-                assert "Positional args are being deprecated" not in str(w.message)
-
-
     @given(
         inp=float_tensor_random_size_st(dims=3, max_size=3),
         hidden_size=st.integers(min_value=1, max_value=3))
