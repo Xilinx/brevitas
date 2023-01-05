@@ -6,28 +6,37 @@ from torch import Tensor
 
 from brevitas.export.onnx.handler import ONNXBaseHandler, QuantLSTMLayerHandler
 from brevitas.export.common.handler.qcdq import (
+    DQMixin,
     QCDQMixin,
+    ZeroPointHandlerMixin,
     QCDQWeightQuantProxyHandlerMixin,
     QCDQDecoupledWeightQuantProxyHandlerMixin,
-    QCDQBiasQuantProxyHandlerMixin,
     QCDQActQuantProxyHandlerMixin,
+    QCDQBiasQuantProxyHandlerMixin,
     QCDQTruncQuantProxyHandlerMixin)
+from brevitas.export.common.handler.base import QuantAxisMixin
 
 from ..function import QuantizeLinearFn, DequantizeLinearFn, IntClipFn
 
 
-class StdQCDQONNXQuantProxyHandler(
-    ONNXBaseHandler, QCDQMixin, ABC):
+class StdDQONNXMixin(DQMixin, ABC):
     
-    def __init__(self) -> None:
-        super().__init__()
-    
-    @property
-    def clip_over_integers(self):
-        return True
+    def dequantize_fn(self, x, scale, zero_point, axis):
+        return DequantizeLinearFn.apply(x, scale, zero_point, axis)
     
     @property
     def flatten_dequantize_params(self):
+        return True
+
+    @property
+    def itemize_scalar_params(self):
+        return False
+
+
+class StdQCDQONNXMixin(QCDQMixin, StdDQONNXMixin, ABC):
+    
+    @property
+    def clip_over_integers(self):
         return True
     
     @classmethod    
@@ -52,51 +61,30 @@ class StdQCDQONNXQuantProxyHandler(
     
     def clip_fn(self, x, min_val, max_val):
         return IntClipFn.apply(x, min_val, max_val)
-    
-    def dequantize_fn(self, x, scale, zero_point, axis):
-        return DequantizeLinearFn.apply(x, scale, zero_point, axis)
 
 
 class StdQCDQONNXWeightQuantProxyHandler(
-    QCDQWeightQuantProxyHandlerMixin,StdQCDQONNXQuantProxyHandler):
+    StdQCDQONNXMixin, QCDQWeightQuantProxyHandlerMixin, ONNXBaseHandler):
     pass
 
 
 class StdQCDQONNXDecoupledWeightQuantProxyHandler(
-    QCDQDecoupledWeightQuantProxyHandlerMixin, StdQCDQONNXQuantProxyHandler):
+    StdQCDQONNXMixin, QCDQDecoupledWeightQuantProxyHandlerMixin, ONNXBaseHandler):
     pass
 
 
 class StdQCDQONNXActQuantProxyHandler(
-    QCDQActQuantProxyHandlerMixin, StdQCDQONNXQuantProxyHandler):
+    StdQCDQONNXMixin, QCDQActQuantProxyHandlerMixin, ONNXBaseHandler):
     pass
 
 
 class StdQCDQONNXBiasQuantProxyHandler(
-    QCDQBiasQuantProxyHandlerMixin, ONNXBaseHandler):
-    
-    def validate(self, module):
-        assert module.is_signed, 'Unsigned bias not supported.'
-        assert module.rounding_mode == 'ROUND', 'Only round to nearest even supported'
-        
-    @classmethod    
-    def int8_dtype(cls):
-        return torch.int8
-    
-    @classmethod    
-    def int32_dtype(cls):
-        return torch.int32
-    
-    @property
-    def flatten_dequantize_params(self):
-        return True
-    
-    def dequantize_fn(self, x, scale, zero_point, axis):
-        return DequantizeLinearFn.apply(x, scale, zero_point, axis)
+    StdDQONNXMixin, QCDQBiasQuantProxyHandlerMixin, ONNXBaseHandler):
+    pass
 
 
 class StdQCDQONNXTruncQuantProxyHandler(
-    QCDQTruncQuantProxyHandlerMixin, StdQCDQONNXQuantProxyHandler):
+    StdQCDQONNXMixin, QCDQTruncQuantProxyHandlerMixin, ONNXBaseHandler):
     pass
 
 
