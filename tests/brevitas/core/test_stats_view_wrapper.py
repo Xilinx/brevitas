@@ -7,7 +7,7 @@ from brevitas.core.stats.view_wrapper import _ViewParameterWrapper, _ViewCatPara
 from brevitas.core.stats.stats_op import AbsMax
 
 
-def test_scaling_state_dict():
+def test_scaling_state_dict_viewparameterwrapper():
     class TestModuleStd(nn.Module):
         def __init__(self) -> None:
             super().__init__()
@@ -21,6 +21,7 @@ def test_scaling_state_dict():
         for w in wlist:
             assert "Positional args are being deprecated" not in str(w.message)
 
+def test_scaling_state_dict_viewcatparameterwrapper():
     class TestModuleCat(nn.Module):
         def __init__(self) -> None:
             super().__init__()
