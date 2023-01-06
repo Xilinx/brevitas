@@ -4,8 +4,8 @@ from .onnx.finn.manager import FINNManager
 from .onnx.qonnx.manager import QONNXManager
 from .onnx.standard.qoperator.manager import StdQOpONNXManager
 from .onnx.standard.qcdq.manager import StdQCDQONNXManager
-from .pytorch.qcdq.manager import TorchQCDQManager
-from .pytorch.qoperator.manager import TorchQOpManager
+from .torch.qcdq.manager import TorchQCDQManager
+from .torch.qoperator.manager import TorchQOpManager
 from .onnx.debug import enable_debug
 
 
@@ -25,12 +25,12 @@ def export_qonnx(*args, **kwargs):
 
 
 @wraps(StdQOpONNXManager.export)
-def export_standard_qop_onnx(*args, **kwargs):
+def export_onnx_op(*args, **kwargs):
     return StdQOpONNXManager.export(*args, **kwargs)
 
 
 @wraps(StdQCDQONNXManager.export)
-def export_standard_qcdq_onnx(*args, **kwargs):
+def export_onnx_qcdq(*args, **kwargs):
     return StdQCDQONNXManager.export(*args, **kwargs)
 
 

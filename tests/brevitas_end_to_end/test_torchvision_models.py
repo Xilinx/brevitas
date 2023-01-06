@@ -1,4 +1,4 @@
-from brevitas.export import export_standard_qcdq_onnx, export_torch_qcdq
+from brevitas.export import export_onnx_qcdq, export_torch_qcdq
 import torch
 import os
 from tests.marker import requires_pt_ge
@@ -56,7 +56,7 @@ def test_torchvision_graph_quantization_flexml_qcdq_onnx(torchvision_model):
         pytest.skip('Model not instantiated')
 
     inp =  torch.randn(BATCH, IN_CH, HEIGHT, WIDTH)
-    export_standard_qcdq_onnx(
+    export_onnx_qcdq(
         torchvision_model, args=inp, export_path='model_onnx_qcdq.onnx')
     os.remove('model_onnx_qcdq.onnx')
 
