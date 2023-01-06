@@ -10,8 +10,10 @@ except:
 from dependencies import Injector
 from brevitas.inject import ExtendedInjector
 from brevitas.jit import IS_ABOVE_110
-
 from .python_utils import patch
+
+from brevitas import torch_version
+from packaging import version
 
 
 def _get_modifier_wrapper(fn):
@@ -34,5 +36,5 @@ def clear_class_registry():
     # https://github.com/pytorch/pytorch/issues/35600
     torch._C._jit_clear_class_registry()
     torch.jit._recursive.concrete_type_store = torch.jit._recursive.ConcreteTypeStore()
-    torch.jit._state._script_classes.clear()
-
+    if torch_version >= version.parse('1.7.0'):
+        torch.jit._state._script_classes.clear()
