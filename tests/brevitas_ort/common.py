@@ -11,7 +11,7 @@ from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from brevitas.quant.fixed_point import Int8WeightPerTensorFixedPoint, Int8ActPerTensorFixedPoint
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
-from brevitas.export import export_onnx_op, export_onnx_qcdq, export_qonnx
+from brevitas.export import export_onnx_qop, export_onnx_qcdq, export_qonnx
 
 
 SEED = 123456
@@ -72,7 +72,7 @@ def is_brevitas_ort_close(model, np_input, export_name, export_type, tolerance=N
     brevitas_output = model(input_t)
     
     if export_type == 'qop':
-        export_onnx_op(model, input_t, export_path=export_name)
+        export_onnx_qop(model, input_t, export_path=export_name)
         brevitas_output = brevitas_output.int(float_datatype=False)
     elif export_type == 'qcdq':
         export_onnx_qcdq(model, input_t, export_path=export_name)

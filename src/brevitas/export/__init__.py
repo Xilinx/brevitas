@@ -25,7 +25,7 @@ def export_qonnx(*args, **kwargs):
 
 
 @wraps(StdQOpONNXManager.export)
-def export_onnx_op(*args, **kwargs):
+def export_onnx_qop(*args, **kwargs):
     return StdQOpONNXManager.export(*args, **kwargs)
 
 
