@@ -301,7 +301,7 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
 
     def state_dict(self, destination=None, prefix='', keep_vars=False):
         output_dict = super(ParameterFromRuntimeStatsScaling, self).state_dict(
-            destination, prefix, keep_vars)        
+            destination=destination, prefix=prefix, keep_vars=keep_vars)
         # Avoid saving the buffer
         del output_dict[prefix + 'buffer']
         # Avoid saving the init value

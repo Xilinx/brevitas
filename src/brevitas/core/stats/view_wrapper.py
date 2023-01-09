@@ -67,7 +67,8 @@ class _ViewParameterWrapper(brevitas.jit.ScriptModule):
             missing_keys.remove(parameter_key)
 
     def state_dict(self, destination=None, prefix='', keep_vars=False):
-        output_dict = super(_ViewParameterWrapper, self).state_dict(destination, prefix, keep_vars)
+        output_dict = super(_ViewParameterWrapper, self).state_dict(
+            destination=destination, prefix=prefix, keep_vars=keep_vars)
         del output_dict[prefix + 'parameter']
         return output_dict
 
@@ -95,6 +96,6 @@ class _ViewCatParameterWrapper(brevitas.jit.ScriptModule):
 
     def state_dict(self, destination=None, prefix='', keep_vars=False):
         output_dict = super(_ViewCatParameterWrapper, self).state_dict(
-            destination, prefix, keep_vars)
+            destination=destination, prefix=prefix, keep_vars=keep_vars)
         del output_dict[prefix + 'parameter']
         return output_dict
