@@ -64,7 +64,6 @@ coverage.xml
 docs/_build/
 docs/_sources/
 docsrc/source/_templates/
-docsrc/source/_static/
 
 # Test environments and logs
 .hypothesis/
