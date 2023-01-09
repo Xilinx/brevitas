@@ -6,4 +6,4 @@ sphinxcontrib-napoleon
 sphinx-autodoc-typehints
 nbsphinx
 nbsphinx-link
-sphinx-gallery
+sphinx-gallery==0.10.1
