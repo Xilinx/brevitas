@@ -1,133 +1,202 @@
 
 <!DOCTYPE html>
 
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
 
-    <title>Getting started &#8212; Brevitas 0.7.1.dev53+gba13949 documentation</title>
-    
-  <link href="_static/css/theme.css" rel="stylesheet">
-  <link href="_static/css/index.ff1ffe594081f20da1ef19478df9384b.css" rel="stylesheet">
+    <title>Getting started &#8212; Brevitas 0.7.2.dev139+g0c2e90d documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "light";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=796348d33e8b1d947c94" rel="stylesheet">
+<link href="_static/styles/bootstrap.css?digest=796348d33e8b1d947c94" rel="stylesheet">
+<link href="_static/styles/pydata-sphinx-theme.css?digest=796348d33e8b1d947c94" rel="stylesheet">
 
-    
-  <link rel="stylesheet"
-    href="_static/vendor/fontawesome/5.13.0/css/all.min.css">
-  <link rel="preload" as="font" type="font/woff2" crossorigin
-    href="_static/vendor/fontawesome/5.13.0/webfonts/fa-solid-900.woff2">
-  <link rel="preload" as="font" type="font/woff2" crossorigin
-    href="_static/vendor/fontawesome/5.13.0/webfonts/fa-brands-400.woff2">
+  
+  <link href="_static/vendor/fontawesome/6.1.2/css/all.min.css?digest=796348d33e8b1d947c94" rel="stylesheet">
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.1.2/webfonts/fa-solid-900.woff2">
+<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.1.2/webfonts/fa-brands-400.woff2">
+<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.1.2/webfonts/fa-regular-400.woff2">
 
-    
-      
-
-    
     <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
-    <link rel="stylesheet" type="text/css" href="_static/css/blank.css" />
     <link rel="stylesheet" type="text/css" href="_static/sg_gallery.css" />
-    
-  <link rel="preload" as="script" href="_static/js/index.be7d3bbb2ef33a8344ce.js">
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=796348d33e8b1d947c94">
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=796348d33e8b1d947c94">
 
     <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
     <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
     <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'getting_started';</script>
     <link rel="author" title="About these documents" href="about.html" />
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="Tutorials" href="tutorials/index.html" />
     <link rel="prev" title="Setup" href="setup.html" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="docsearch:language" content="None">
-    
-
-    <!-- Google Analytics -->
-    
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="docsearch:language" content="en">
   </head>
-  <body data-spy="scroll" data-target="#bd-toc-nav" data-offset="80">
-    
-    <div class="container-fluid" id="banner"></div>
+  
+  
+  <body data-spy="scroll" data-target="#bd-toc-nav" data-offset="180" data-default-mode="">
 
-    
-    <nav class="navbar navbar-light navbar-expand-lg bg-light fixed-top bd-navbar" id="navbar-main"><div class="container-xl">
+  
+  
+  <a class="skip-link" href="#main-content">Skip to main content</a>
 
+  
+  <input type="checkbox" class="sidebar-toggle" name="__primary" id="__primary">
+  <label class="overlay overlay-primary" for="__primary"></label>
+
+  
+  <input type="checkbox" class="sidebar-toggle" name="__secondary" id="__secondary">
+  <label class="overlay overlay-secondary" for="__secondary"></label>
+
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+      
+<form class="bd-search d-flex align-items-center" action="search.html" method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search" class="form-control" name="q" id="search-input" placeholder="Search the docs ..." aria-label="Search the docs ..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+    </div>
+  </div>
+
+  
+  <nav class="bd-header navbar navbar-expand-lg bd-navbar" id="navbar-main"><div class="bd-header__inner bd-page-width">
+  <label class="sidebar-toggle primary-toggle" for="__primary">
+      <span class="fa-solid fa-bars"></span>
+  </label>
   <div id="navbar-start">
     
     
-<a class="navbar-brand" href="index.html">
-<p class="title">Brevitas</p>
-</a>
+  
 
+
+<a class="navbar-brand logo" href="index.html">
+
+  
+  
+  
+  
+  
+  
+  
+
+  
+    <img src="_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Logo image">
+    <img src="_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Logo image">
+  
+  
+</a>
     
   </div>
 
-  <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbar-collapsible" aria-controls="navbar-collapsible" aria-expanded="false" aria-label="Toggle navigation">
-    <span class="navbar-toggler-icon"></span>
-  </button>
-
   
-  <div id="navbar-collapsible" class="col-lg-9 collapse navbar-collapse">
+  <div class="col-lg-9 navbar-header-items">
     <div id="navbar-center" class="mr-auto">
       
       <div class="navbar-center-item">
-        <ul id="navbar-main-elements" class="navbar-nav">
-    <li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="setup.html">
-  Setup
- </a>
-</li>
+        <nav class="navbar-nav">
+    <p class="sidebar-header-items__title" role="heading" aria-level="1" aria-label="Site Navigation">
+        Site Navigation
+    </p>
+    <ul id="navbar-main-elements" class="navbar-nav">
+        
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="setup.html">
+                        Setup
+                      </a>
+                    </li>
+                
 
-<li class="toctree-l1 current active nav-item">
- <a class="current reference internal nav-link" href="#">
-  Getting Started
- </a>
-</li>
+                    <li class="nav-item current active">
+                      <a class="nav-link nav-internal" href="#">
+                        Getting Started
+                      </a>
+                    </li>
+                
 
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="tutorials/index.html">
-  Tutorials
- </a>
-</li>
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="tutorials/index.html">
+                        Tutorials
+                      </a>
+                    </li>
+                
 
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="api_reference/index.html">
-  API reference
- </a>
-</li>
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="settings.html">
+                        Settings
+                      </a>
+                    </li>
+                
 
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="settings.html">
-  Settings
- </a>
-</li>
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="api_reference/index.html">
+                        API reference
+                      </a>
+                    </li>
+                
 
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="architecture.html">
-  Architecture
- </a>
-</li>
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="architecture.html">
+                        Architecture
+                      </a>
+                    </li>
+                
 
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="faq.html">
-  FAQ
- </a>
-</li>
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="faq.html">
+                        FAQ
+                      </a>
+                    </li>
+                
 
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="about.html">
-  About
- </a>
-</li>
-
-    
-</ul>
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="about.html">
+                        About
+                      </a>
+                    </li>
+                
+    </ul>
+</nav>
       </div>
       
     </div>
 
     <div id="navbar-end">
+      
+        <div class="navbar-end-item navbar-persistent--container">
+          
+<button class="btn btn-sm navbar-btn search-button search-button__button" title="Search" aria-label="Search" data-toggle="tooltip">
+  <i class="fa-solid fa-magnifying-glass"></i>
+</button>
+        </div>
+      
+      
+      <div class="navbar-end-item">
+        <button class="theme-switch-button btn btn-sm btn-outline-primary navbar-btn rounded-circle" title="light/dark" aria-label="light/dark" data-toggle="tooltip">
+    <span class="theme-switch" data-mode="light"><i class="fa-solid fa-sun"></i></span>
+    <span class="theme-switch" data-mode="dark"><i class="fa-solid fa-moon"></i></span>
+    <span class="theme-switch" data-mode="auto"><i class="fa-solid fa-circle-half-stroke"></i></span>
+</button>
+      </div>
       
       <div class="navbar-end-item">
         <ul id="navbar-icon-links" class="navbar-nav" aria-label="Icon Links">
@@ -136,113 +205,161 @@
       
     </div>
   </div>
+
+
+  
+  
+    <div class="navbar-persistent--mobile">
+<button class="btn btn-sm navbar-btn search-button search-button__button" title="Search" aria-label="Search" data-toggle="tooltip">
+  <i class="fa-solid fa-magnifying-glass"></i>
+</button>
+    </div>
+  
+
+  
+  <label class="sidebar-toggle secondary-toggle" for="__secondary">
+      <span class="fa-solid fa-outdent"></span>
+  </label>
+  
+
 </div>
-    </nav>
+  </nav>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      <div class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+      
+      <div class="navbar-center-item">
+        <nav class="navbar-nav">
+    <p class="sidebar-header-items__title" role="heading" aria-level="1" aria-label="Site Navigation">
+        Site Navigation
+    </p>
+    <ul id="navbar-main-elements" class="navbar-nav">
+        
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="setup.html">
+                        Setup
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item current active">
+                      <a class="nav-link nav-internal" href="#">
+                        Getting Started
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="tutorials/index.html">
+                        Tutorials
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="settings.html">
+                        Settings
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="api_reference/index.html">
+                        API reference
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="architecture.html">
+                        Architecture
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="faq.html">
+                        FAQ
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="about.html">
+                        About
+                      </a>
+                    </li>
+                
+    </ul>
+</nav>
+      </div>
+      
+      </div>
     
 
-    <div class="container-xl">
-      <div class="row">
-          
-            
-            <!-- Only show if we have sidebars configured, else just a small margin  -->
-            <div class="col-12 col-md-3 bd-sidebar"><form class="bd-search d-flex align-items-center" action="search.html" method="get">
-  <i class="icon fas fa-search"></i>
-  <input type="search" class="form-control" name="q" id="search-input" placeholder="Search the docs ..." aria-label="Search the docs ..." autocomplete="off" >
-</form><nav class="bd-links" id="bd-docs-nav" aria-label="Main navigation">
-  <div class="bd-toc-item active">
+    
+    
+    <div class="sidebar-header-items__end">
+      
+      <div class="navbar-end-item">
+        <button class="theme-switch-button btn btn-sm btn-outline-primary navbar-btn rounded-circle" title="light/dark" aria-label="light/dark" data-toggle="tooltip">
+    <span class="theme-switch" data-mode="light"><i class="fa-solid fa-sun"></i></span>
+    <span class="theme-switch" data-mode="dark"><i class="fa-solid fa-moon"></i></span>
+    <span class="theme-switch" data-mode="auto"><i class="fa-solid fa-circle-half-stroke"></i></span>
+</button>
+      </div>
+      
+      <div class="navbar-end-item">
+        <ul id="navbar-icon-links" class="navbar-nav" aria-label="Icon Links">
+      </ul>
+      </div>
+      
+    </div>
     
   </div>
-</nav>
+
+  
+
+  
+  <div class="sidebar-end-items sidebar-primary__section">
+    <div class="sidebar-end-items__item">
+    </div>
+  </div>
+
+  
+  <div id="rtd-footer-container"></div>
+
+      </div>
+      <main id="main-content" class="bd-main">
+        
+        
+        <div class="bd-content">
+          <div class="bd-article-container">
+            
+            <div class="bd-header-article">
+                
             </div>
             
-          
-
-          
-          <div class="d-none d-xl-block col-xl-2 bd-toc">
             
+            <article class="bd-article" role="main">
               
-              <div class="toc-item">
-                
-<div class="tocsection onthispage pt-5 pb-3">
-    <i class="fas fa-list"></i> On this page
-</div>
-
-<nav id="bd-toc-nav">
-    <ul class="visible nav section-nav flex-column">
- <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#weights-only-quantization">
-   Weights-only quantization
-  </a>
- </li>
- <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#low-precision-integer-only-lenet">
-   Low-precision integer-only LeNet
-  </a>
- </li>
- <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#dataflow-fpga-acceleration-with-finn">
-   Dataflow FPGA acceleration with FINN
-  </a>
- </li>
- <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#a-mixed-float-integer-lenet">
-   A mixed float-integer LeNet
-  </a>
- </li>
- <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#export-to-standard-onnx">
-   Export to standard ONNX
-  </a>
- </li>
- <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#acceleration-with-onnxruntime">
-   Acceleration with onnxruntime
-  </a>
- </li>
- <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#export-to-pytorch-quantized-inference-ops">
-   Export to PyTorch quantized inference ops
-  </a>
- </li>
- <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#export-to-tvm">
-   Export to TVM
-  </a>
- </li>
- <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#fixed-point-quantization-for-xilinx-dpus">
-   Fixed-point quantization for Xilinx DPUs
-  </a>
- </li>
-</ul>
-
-</nav>
-              </div>
-              
-              <div class="toc-item">
-                
-              </div>
-              
-            
-          </div>
-          
-
-          
-          
-            
-          
-          <main class="col-12 col-md-9 col-xl-7 py-md-5 pl-md-5 pr-md-4 bd-content" role="main">
-              
-              <div>
-                
   <section id="getting-started">
-<h1>Getting started<a class="headerlink" href="#getting-started" title="Permalink to this headline">¶</a></h1>
+<h1>Getting started<a class="headerlink" href="#getting-started" title="Permalink to this heading">#</a></h1>
 <p>Brevitas serves various types of users and end goals. To showcase some
 of Brevitas features, we consider then different scenarios for the
 quantization of a classic neural network, LeNet-5.</p>
-<section id="weights-only-quantization">
-<h2>Weights-only quantization<a class="headerlink" href="#weights-only-quantization" title="Permalink to this headline">¶</a></h2>
-<p>Let’s say we are interested in assessing how well the model does at <em>3
+<section id="weights-only-quantization-float-activations-and-biases">
+<h2>Weights-only quantization, float activations and biases<a class="headerlink" href="#weights-only-quantization-float-activations-and-biases" title="Permalink to this heading">#</a></h2>
+<p>Let’s say we are interested in assessing how well the model does at <em>4
 bit weights</em> for CIFAR10 classification. For the purpose of this
 tutorial we will skip any detail around how to perform training, as
 training a neural network with Brevitas is no different than training
@@ -251,7 +368,7 @@ any other neural network in PyTorch.</p>
 of</strong> and/or <strong>mixed with</strong> traditional <code class="docutils literal notranslate"><span class="pre">torch.nn</span></code> layers. In this case
 then we import <code class="docutils literal notranslate"><span class="pre">brevitas.nn.QuantConv2d</span></code> and
 <code class="docutils literal notranslate"><span class="pre">brevitas.nn.QuantLinear</span></code> in place of their PyTorch variants, and we
-specify <code class="docutils literal notranslate"><span class="pre">weight_bit_width=3</span></code>. For relu and max-pool, we leverage the
+specify <code class="docutils literal notranslate"><span class="pre">weight_bit_width=4</span></code>. For relu and max-pool, we leverage the
 usual <code class="docutils literal notranslate"><span class="pre">torch.nn.ReLU</span></code> and <code class="docutils literal notranslate"><span class="pre">torch.nn.functional.max_pool2d</span></code>.</p>
 <p>The result is the following:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">nn</span>
@@ -264,18 +381,17 @@ usual <code class="docutils literal notranslate"><span class="pre">torch.nn.ReLU
 <span class="k">class</span> <span class="nc">QuantWeightLeNet</span><span class="p">(</span><span class="n">Module</span><span class="p">):</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">QuantWeightLeNet</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">conv1</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">conv1</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">relu1</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">conv2</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">conv2</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">relu2</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">fc1</span>   <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantLinear</span><span class="p">(</span><span class="mi">16</span><span class="o">*</span><span class="mi">5</span><span class="o">*</span><span class="mi">5</span><span class="p">,</span> <span class="mi">120</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc1</span>   <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantLinear</span><span class="p">(</span><span class="mi">16</span><span class="o">*</span><span class="mi">5</span><span class="o">*</span><span class="mi">5</span><span class="p">,</span> <span class="mi">120</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">relu3</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">fc2</span>   <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantLinear</span><span class="p">(</span><span class="mi">120</span><span class="p">,</span> <span class="mi">84</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc2</span>   <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantLinear</span><span class="p">(</span><span class="mi">120</span><span class="p">,</span> <span class="mi">84</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">relu4</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">fc3</span>   <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantLinear</span><span class="p">(</span><span class="mi">84</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc3</span>   <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantLinear</span><span class="p">(</span><span class="mi">84</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
-        <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">quant_inp</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
         <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">relu1</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">conv1</span><span class="p">(</span><span class="n">out</span><span class="p">))</span>
         <span class="n">out</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">max_pool2d</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
         <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">relu2</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">conv2</span><span class="p">(</span><span class="n">out</span><span class="p">))</span>
@@ -291,37 +407,18 @@ usual <code class="docutils literal notranslate"><span class="pre">torch.nn.ReLU
 <span class="c1"># ... training ...</span>
 </pre></div>
 </div>
-<p>At the end of training the model is going to have a certain train and
-test accuracy. For users interested in simply evaluating how well their
-models do with quantization in the loop, without actually deploying
-them, that might be the end of it.</p>
-<p>For those users that instead are interested in deploying their quantized
-models, the idea obviously would be to actually gain some kind of
-advantage from quantization. In the case of weight quantization, the
-advantage would be to save space in terms of model size. However, if we
-saved the model state with
-<code class="docutils literal notranslate"><span class="pre">torch.save(quant_weight_lenet.state_dict(),</span> <span class="pre">'qw_lenet.pt')</span></code> we would
-notice that it consumes the same amount of memory as its floating-point
-variant. That is because Brevitas is not concerned with deploying
-quantized models efficiently on its own.
-In order to deploy the model efficiently, we have to export it to an
-inference framework/toolchain first.</p>
-<p>Being a research training library that informs the development of
-inference toolchains, Brevitas supports more quantization schems than
-what can be currently accelerated efficiently by supported inference
-frameworks. A neural network with 3 bits weights and floating-point
-activations is one of those scenarios that in practice is currently hard
-to take advantage of. In order to make it practical, we want to quantize
-activations and biases too.</p>
+<p>A neural network with 4 bits weights and floating-point
+activations can provide an advantage in terms of model storage,
+but it doesn’t provide any advantage in terms of compute,
+as the weights need to be converted to float at runtime first.
+In order to make more practical, we want to quantize activations too.</p>
 </section>
-<section id="low-precision-integer-only-lenet">
-<h2>Low-precision integer-only LeNet<a class="headerlink" href="#low-precision-integer-only-lenet" title="Permalink to this headline">¶</a></h2>
-<p>We decide to quantize activations to 4 bits and biases to 8 bits. In
-order to do so, we replace <code class="docutils literal notranslate"><span class="pre">torch.nn.ReLU</span></code> with
-<code class="docutils literal notranslate"><span class="pre">brevitas.nn.QuantReLU</span></code>, specifying <code class="docutils literal notranslate"><span class="pre">bit_width=4</span></code>. For bias
-quantization, we import the 8-bit bias quantizer <code class="docutils literal notranslate"><span class="pre">Int8Bias</span></code> from
-<code class="docutils literal notranslate"><span class="pre">brevitas.quant</span></code> and set it appropriately. Additionally, in order to
-quantize the very first input, we introduce a
+<section id="weights-and-activations-quantization-float-biases">
+<h2>Weights and activations quantization, float biases<a class="headerlink" href="#weights-and-activations-quantization-float-biases" title="Permalink to this heading">#</a></h2>
+<p>We now quantize both weights and activations to 4 bits, while keeping biases in floating-point.
+In order to do so, we replace <code class="docutils literal notranslate"><span class="pre">torch.nn.ReLU</span></code> with
+<code class="docutils literal notranslate"><span class="pre">brevitas.nn.QuantReLU</span></code>, specifying <code class="docutils literal notranslate"><span class="pre">bit_width=4</span></code>.
+Additionally, in order to quantize the very first input, we introduce a
 <code class="docutils literal notranslate"><span class="pre">brevitas.nn.QuantIdentity</span></code> at the beginning of the network. The end
 result is the following:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">torch.nn</span> <span class="kn">import</span> <span class="n">Module</span>
@@ -331,29 +428,19 @@ result is the following:</p>
 <span class="kn">from</span> <span class="nn">brevitas.quant</span> <span class="kn">import</span> <span class="n">Int8Bias</span> <span class="k">as</span> <span class="n">BiasQuant</span>
 
 
-<span class="k">class</span> <span class="nc">LowPrecisionLeNet</span><span class="p">(</span><span class="n">Module</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">QuantWeightActLeNet</span><span class="p">(</span><span class="n">Module</span><span class="p">):</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">LowPrecisionLeNet</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">quant_inp</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantIdentity</span><span class="p">(</span>
-            <span class="n">bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">conv1</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantConv2d</span><span class="p">(</span>
-            <span class="mi">3</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">bias_quant</span><span class="o">=</span><span class="n">BiasQuant</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">relu1</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantReLU</span><span class="p">(</span>
-            <span class="n">bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">conv2</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantConv2d</span><span class="p">(</span>
-            <span class="mi">6</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">bias_quant</span><span class="o">=</span><span class="n">BiasQuant</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">relu2</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantReLU</span><span class="p">(</span>
-            <span class="n">bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">fc1</span>   <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantLinear</span><span class="p">(</span>
-            <span class="mi">16</span><span class="o">*</span><span class="mi">5</span><span class="o">*</span><span class="mi">5</span><span class="p">,</span> <span class="mi">120</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">bias_quant</span><span class="o">=</span><span class="n">BiasQuant</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">relu3</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantReLU</span><span class="p">(</span>
-            <span class="n">bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">fc2</span>   <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantLinear</span><span class="p">(</span>
-            <span class="mi">120</span><span class="p">,</span> <span class="mi">84</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">bias_quant</span><span class="o">=</span><span class="n">BiasQuant</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">relu4</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantReLU</span><span class="p">(</span>
-            <span class="n">bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">fc3</span>   <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantLinear</span><span class="p">(</span>
-            <span class="mi">84</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">quant_inp</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantIdentity</span><span class="p">(</span><span class="n">bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">conv1</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">relu1</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantReLU</span><span class="p">(</span><span class="n">bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">conv2</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">relu2</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantReLU</span><span class="p">(</span><span class="n">bit_width</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc1</span>   <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantLinear</span><span class="p">(</span><span class="mi">16</span><span class="o">*</span><span class="mi">5</span><span class="o">*</span><span class="mi">5</span><span class="p">,</span> <span class="mi">120</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">relu3</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantReLU</span><span class="p">(</span><span class="n">bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc2</span>   <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantLinear</span><span class="p">(</span><span class="mi">120</span><span class="p">,</span> <span class="mi">84</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">relu4</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantReLU</span><span class="p">(</span><span class="n">bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc3</span>   <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantLinear</span><span class="p">(</span><span class="mi">84</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
         <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">quant_inp</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
@@ -366,73 +453,45 @@ result is the following:</p>
         <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">relu4</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fc2</span><span class="p">(</span><span class="n">out</span><span class="p">))</span>
         <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fc3</span><span class="p">(</span><span class="n">out</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">out</span>
+
+<span class="n">quant_weight_act_lenet</span> <span class="o">=</span> <span class="n">QuantWeightActLeNet</span><span class="p">()</span>
+
+<span class="c1"># ... training ...</span>
 </pre></div>
 </div>
 <p>Note a couple of things:</p>
 <ul class="simple">
-<li><p>Compared to the previous scenario, we now set <code class="docutils literal notranslate"><span class="pre">return_quant_tensor=True</span></code> in every quantized layer except the last one to propagate a <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> across them. This informs each receiving layer of how activations have been quantized at the output of its predecessor, which in turns enables more functionalities, such as the kind of bias quantization here implemented.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">torch</span></code> operations that are algorithmically invariant to quantization, such as max-pool, can propagate QuantTensor through them without extra changes. This is supported in PyTorch 1.5.0 and later versions.</p></li>
-<li><p>By default <code class="docutils literal notranslate"><span class="pre">QuantReLU</span></code> is <em>stateful</em>, so there is a difference between instantiating one <code class="docutils literal notranslate"><span class="pre">QuantReLU</span></code> that is called multiple times, and instantiating multiple <cite>QuantReLU</cite> that are each called once.</p></li>
+<li><p>By default <code class="docutils literal notranslate"><span class="pre">QuantReLU</span></code> is <em>stateful</em>, so there is a difference between instantiating one <code class="docutils literal notranslate"><span class="pre">QuantReLU</span></code> that is called multiple times, and instantiating multiple <code class="docutils literal notranslate"><span class="pre">QuantReLU`</span></code> that are each called once.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">QuantReLU</span></code> first computes a relu function, and then quantizes its output. To take advantage of the fact that the output of relu is <code class="docutils literal notranslate"><span class="pre">&gt;=</span> <span class="pre">0</span></code> then, by default <code class="docutils literal notranslate"><span class="pre">QuantReLU</span></code> performs <em>unsigned</em> quantization, meaning in this case its output is <code class="docutils literal notranslate"><span class="pre">int4</span></code> data in <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">15]</span></code>.</p></li>
+<li><p>Quantized data in Brevitas is always represented in <strong>dequantized</strong> format, meaning that is represented within a float tensor. The output of <cite>QuantReLU</cite> then looks like a standard float torch Tensor, but it’s restricted to <em>16 different values</em> (with 4 bits quantization). In order to get a more informative representation of quantized data, we need to set <code class="docutils literal notranslate"><span class="pre">return_quant_tensor=True</span></code>.</p></li>
 </ul>
 </section>
-<section id="dataflow-fpga-acceleration-with-finn">
-<h2>Dataflow FPGA acceleration with FINN<a class="headerlink" href="#dataflow-fpga-acceleration-with-finn" title="Permalink to this headline">¶</a></h2>
-<p>The network defined above can be mapped to a low-precision <em>integer-only</em> dataflow accelerator implemented on a Xilinx FPGA by exporting it to FINN through a custom ONNX-based representation. We can invoke the FINN export manager to do so:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">brevitas.export</span> <span class="kn">import</span> <span class="n">FINNManager</span>
-
-<span class="n">low_precision_lenet</span> <span class="o">=</span> <span class="n">LowPrecisionLeNet</span><span class="p">()</span>
-
-<span class="c1"># ... training ...</span>
-
-<span class="n">FINNManager</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="n">low_precision_lenet</span><span class="p">,</span> <span class="n">input_shape</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span> <span class="n">export_path</span><span class="o">=</span><span class="s1">&#39;finn_lenet.onnx&#39;</span><span class="p">)</span>
-</pre></div>
-</div>
-</section>
-<section id="a-mixed-float-integer-lenet">
-<h2>A mixed float-integer LeNet<a class="headerlink" href="#a-mixed-float-integer-lenet" title="Permalink to this headline">¶</a></h2>
-<p>Brevitas also supports targeting other inference frameworks that support a mixture of floating-point and quantized layers, such as <em>onnxruntime</em> and <em>PyTorch</em> itself.
-In this case then, <code class="docutils literal notranslate"><span class="pre">return_quant_tensor</span></code> clarifies to the export manager whether the output of a layer should be dequantized to floating-point or not.
-Additionally, since for those target platforms low precision acceleration is not yet supported, we target 7-bit and 8-bit quantization:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">nn</span>
+<section id="weights-activations-biases-quantization">
+<h2>Weights, activations, biases quantization<a class="headerlink" href="#weights-activations-biases-quantization" title="Permalink to this heading">#</a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">torch.nn</span> <span class="kn">import</span> <span class="n">Module</span>
 <span class="kn">import</span> <span class="nn">torch.nn.functional</span> <span class="k">as</span> <span class="nn">F</span>
 
 <span class="kn">import</span> <span class="nn">brevitas.nn</span> <span class="k">as</span> <span class="nn">qnn</span>
-<span class="kn">from</span> <span class="nn">brevitas.quant</span> <span class="kn">import</span> <span class="n">Int8WeightPerTensorFloat</span> <span class="k">as</span> <span class="n">SignedWeightQuant</span>
-<span class="kn">from</span> <span class="nn">brevitas.quant</span> <span class="kn">import</span> <span class="n">ShiftedUint8WeightPerTensorFloat</span> <span class="k">as</span> <span class="n">UnsignedWeightQuant</span>
-<span class="kn">from</span> <span class="nn">brevitas.quant</span> <span class="kn">import</span> <span class="n">ShiftedUint8ActPerTensorFloat</span> <span class="k">as</span> <span class="n">ActQuant</span>
-<span class="kn">from</span> <span class="nn">brevitas.quant</span> <span class="kn">import</span> <span class="n">Int8Bias</span> <span class="k">as</span> <span class="n">BiasQuant</span>
+<span class="kn">from</span> <span class="nn">brevitas.quant</span> <span class="kn">import</span> <span class="n">Int32Bias</span>
 
 
-<span class="k">class</span> <span class="nc">ReducedRangeActQuant</span><span class="p">(</span><span class="n">ActQuant</span><span class="p">):</span>
-    <span class="n">bit_width</span> <span class="o">=</span> <span class="mi">7</span>
-
-
-<span class="k">class</span> <span class="nc">MixedFloatQuantLeNet</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bias_quant</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">reduced_act_quant</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">weight_signed</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">(</span><span class="n">MixedFloatQuantLeNet</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
-
-        <span class="n">bias_quant</span>   <span class="o">=</span> <span class="n">BiasQuant</span> <span class="k">if</span> <span class="n">bias_quant</span> <span class="k">else</span> <span class="kc">None</span>
-        <span class="n">act_quant</span>    <span class="o">=</span> <span class="n">ReducedRangeActQuant</span> <span class="k">if</span> <span class="n">reduced_act_quant</span> <span class="k">else</span> <span class="n">ActQuant</span>
-        <span class="n">weight_quant</span> <span class="o">=</span> <span class="n">SignedWeightQuant</span> <span class="k">if</span> <span class="n">weight_signed</span> <span class="k">else</span> <span class="n">UnsignedWeightQuant</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">conv1</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantConv2d</span><span class="p">(</span>
-            <span class="mi">3</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="n">input_quant</span><span class="o">=</span><span class="n">act_quant</span><span class="p">,</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">weight_quant</span><span class="p">,</span>
-            <span class="n">output_quant</span><span class="o">=</span><span class="n">act_quant</span><span class="p">,</span> <span class="n">bias_quant</span><span class="o">=</span><span class="n">bias_quant</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">relu1</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">conv2</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantConv2d</span><span class="p">(</span>
-            <span class="mi">6</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">weight_quant</span><span class="p">,</span> <span class="n">output_quant</span><span class="o">=</span><span class="n">act_quant</span><span class="p">,</span>
-            <span class="n">bias_quant</span><span class="o">=</span><span class="n">bias_quant</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">relu2</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">fc1</span>   <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantLinear</span><span class="p">(</span>
-            <span class="mi">16</span><span class="o">*</span><span class="mi">5</span><span class="o">*</span><span class="mi">5</span><span class="p">,</span> <span class="mi">120</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">weight_quant</span><span class="p">,</span>
-            <span class="n">bias_quant</span><span class="o">=</span><span class="n">bias_quant</span><span class="p">,</span> <span class="n">output_quant</span><span class="o">=</span><span class="n">act_quant</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">relu3</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">fc2</span>   <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">120</span><span class="p">,</span> <span class="mi">84</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">relu4</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">fc3</span>   <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">84</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">QuantWeightActBiasLeNet</span><span class="p">(</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">LowPrecisionLeNet</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">quant_inp</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantIdentity</span><span class="p">(</span><span class="n">bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">conv1</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">bias_quant</span><span class="o">=</span><span class="n">Int32Bias</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">relu1</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantReLU</span><span class="p">(</span><span class="n">bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">conv2</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">bias_quant</span><span class="o">=</span><span class="n">Int32Bias</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">relu2</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantReLU</span><span class="p">(</span><span class="n">bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc1</span>   <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantLinear</span><span class="p">(</span><span class="mi">16</span><span class="o">*</span><span class="mi">5</span><span class="o">*</span><span class="mi">5</span><span class="p">,</span> <span class="mi">120</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">bias_quant</span><span class="o">=</span><span class="n">Int32Bias</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">relu3</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantReLU</span><span class="p">(</span><span class="n">bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc2</span>   <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantLinear</span><span class="p">(</span><span class="mi">120</span><span class="p">,</span> <span class="mi">84</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">bias_quant</span><span class="o">=</span><span class="n">Int32Bias</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">relu4</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantReLU</span><span class="p">(</span><span class="n">bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc3</span>   <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantLinear</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">bias_quant</span><span class="o">=</span><span class="n">Int32Bias</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
-        <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">relu1</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">conv1</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">quant_inp</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">relu1</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">conv1</span><span class="p">(</span><span class="n">out</span><span class="p">))</span>
         <span class="n">out</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">max_pool2d</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
         <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">relu2</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">conv2</span><span class="p">(</span><span class="n">out</span><span class="p">))</span>
         <span class="n">out</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">max_pool2d</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
@@ -441,95 +500,181 @@ Additionally, since for those target platforms low precision acceleration is not
         <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">relu4</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fc2</span><span class="p">(</span><span class="n">out</span><span class="p">))</span>
         <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fc3</span><span class="p">(</span><span class="n">out</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">out</span>
-</pre></div>
-</div>
-<p>Compared to the previous case, there are a few differences:
-- While in the previous example the default <em>scaled integer</em> quantized was being adopted for weights and activations, and only a bit-width was specified, here the network is compeltely parametrized by standalone quantizers taken from <cite>brevitas.quant</cite>. This is to match the quantization schemes supported by the inference frameworks we are targeting.
-- We are defining a 7-bit activation quantizer by inheriting from an existing one and setting <code class="docutils literal notranslate"><span class="pre">bit_width=7</span></code>. This is an alternative but equivalent syntax to setting the attribute as a keyword argument.
-- In this scenario activations are quantized before <em>relu</em> by setting output quantizers on <code class="docutils literal notranslate"><span class="pre">QuantConv2d</span></code> and <code class="docutils literal notranslate"><span class="pre">QuantLinear</span></code>. Again this matches how the frameworks we are targeting work. Because of this, we revert to using standard <cite>torch.nn.ReLU</cite>.</p>
-</section>
-<section id="export-to-standard-onnx">
-<h2>Export to standard ONNX<a class="headerlink" href="#export-to-standard-onnx" title="Permalink to this headline">¶</a></h2>
-<p>After training, the above network can then be exported to an ONNX representation that complies with the [standard opset](<a class="reference external" href="https://github.com/onnx/onnx/blob/master/docs/Operators.md">https://github.com/onnx/onnx/blob/master/docs/Operators.md</a>):</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">brevitas.export</span> <span class="kn">import</span> <span class="n">StdQOpONNXManager</span>
 
-<span class="n">onnx_lenet</span> <span class="o">=</span> <span class="n">MixedFloatQuantLeNet</span><span class="p">()</span>
+<span class="n">quant_weight_act_bias_lenet</span> <span class="o">=</span> <span class="n">QuantWeightActBiasLeNet</span><span class="p">()</span>
 
 <span class="c1"># ... training ...</span>
+</pre></div>
+</div>
+<p>Compared to the previous scenario:
+- We now set <code class="docutils literal notranslate"><span class="pre">return_quant_tensor=True</span></code> in every quantized activations to propagate a <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> to the next layer. This informs each <code class="docutils literal notranslate"><span class="pre">QuantLinear</span></code> or <code class="docutils literal notranslate"><span class="pre">QuantConv2d</span></code> of how the input passed in has been quantized.
+- A <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> is just a tensor-like data structure providing metadata about how a tensor has been quantized, similar to a <cite>torch.qint</cite> dtype, but training friendly. Setting <code class="docutils literal notranslate"><span class="pre">return_quant_tensor=True</span></code> does not affect the way quantization is performed, it only changes the way the output is represented.
+- We enable bias quantization by setting the <cite>Int32Bias</cite> quantizer. What it does is to perform bias quantization with <code class="docutils literal notranslate"><span class="pre">`bias_scale</span> <span class="pre">=</span> <span class="pre">input_scale</span> <span class="pre">*</span> <span class="pre">weight_scale</span></code>, as it commonly done across inference toolchains. This is why we have to set <code class="docutils literal notranslate"><span class="pre">return_quant_tensor=True</span></code>: each layer with <code class="docutils literal notranslate"><span class="pre">Int32Bias</span></code> can read the input scale from the <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> passed in and use for bias quantization.
+- <code class="docutils literal notranslate"><span class="pre">torch</span></code> operations that are algorithmically invariant to quantization, such as <cite>F.max_pool2d</cite>, can propagate QuantTensor through them without extra changes.</p>
+</section>
+<section id="export-to-onnx">
+<h2>Export to ONNX<a class="headerlink" href="#export-to-onnx" title="Permalink to this heading">#</a></h2>
+<p>Brevitas does not perform any low-precision acceleration on its own. For that to happen, the model need to be exported first to an inference toolchain through some intermediate representation like ONNX.
+One popular way to represent 8-bit quantization within ONNX is through the <a class="reference external" href="https://onnxruntime.ai/docs/performance/quantization.html#onnx-quantization-representation-format">QDQ format</a>.
+Brevitas extends <em>QDQ</em> to <strong>QCDQ</strong>, inserting a <cite>Clip</cite> node to represent quantization to <em>&lt;= 8 bits</em>. We can then export all previous defined model to <em>QCDQ</em>.
+The interface of the export function matches the <cite>torch.onnx.export</cite> function, and accepts all its kwargs:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">brevitas.export</span> <span class="kn">import</span> <span class="n">export_onnx_qcdq</span>
 
-<span class="n">StdQOpONNXManager</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="n">onnx_lenet</span><span class="p">,</span> <span class="n">input_shape</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span> <span class="n">export_path</span><span class="o">=</span><span class="s1">&#39;onnx_lenet.onnx&#39;</span><span class="p">)</span>
+<span class="c1"># Weight-only model</span>
+<span class="n">export_onnx_qcdq</span><span class="p">(</span><span class="n">quant_weight_lenet</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span> <span class="n">export_path</span><span class="o">=</span><span class="s1">&#39;4b_weight_lenet.onnx&#39;</span><span class="p">)</span>
+
+<span class="c1"># Weight-activation model</span>
+<span class="n">export_onnx_qcdq</span><span class="p">(</span><span class="n">quant_weight_act_lenet</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span> <span class="n">export_path</span><span class="o">=</span><span class="s1">&#39;4b_weight_act_lenet.onnx&#39;</span><span class="p">)</span>
+
+<span class="c1"># Weight-activation-bias model</span>
+<span class="n">export_onnx_qcdq</span><span class="p">(</span><span class="n">quant_weight_act_bias_lenet</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span> <span class="n">export_path</span><span class="o">=</span><span class="s1">&#39;4b_weight_act_bias_lenet.onnx&#39;</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
-<section id="acceleration-with-onnxruntime">
-<h2>Acceleration with onnxruntime<a class="headerlink" href="#acceleration-with-onnxruntime" title="Permalink to this headline">¶</a></h2>
-<p>The generated output model can then be accelerated through any ONNX-compliant inference framework, such as <em>onnxruntime</em>:</p>
-</section>
-<section id="export-to-pytorch-quantized-inference-ops">
-<h2>Export to PyTorch quantized inference ops<a class="headerlink" href="#export-to-pytorch-quantized-inference-ops" title="Permalink to this headline">¶</a></h2>
-<p>With the same network definition it’s also possible to target [PyTorch’s own quantized inference operators](<a class="reference external" href="https://pytorch.org/docs/stable/torch.nn.quantized.html">https://pytorch.org/docs/stable/torch.nn.quantized.html</a>):</p>
-<p>Note how the network was parametrized to reflect a few of the differences between PyTorch quantized inference operators and the standard ONNX opset:
-- Pytorch doesn’t support explicit bias quantization, standard ONNX does.
-- We pick an 8-bit signed symmetric weights quantizer for PyTorch (the one used by default for weight quantization in Brevitas), while for ONNX we go for an unsigned asymmetric one, since support for it in onnxruntime is more mature.
-- With the FBGEMM x86 backend (which is enabled by default), PyTorch recommends to use 7-bit activations to avoid overflow.</p>
-</section>
-<section id="export-to-tvm">
-<h2>Export to TVM<a class="headerlink" href="#export-to-tvm" title="Permalink to this headline">¶</a></h2>
-<p>The PyTorch export flow generates a TorchScript model, which means that the network can also easily be passed to any external toolchain that supports TorchScript, such as <em>TVM</em>:</p>
-</section>
-<section id="fixed-point-quantization-for-xilinx-dpus">
-<h2>Fixed-point quantization for Xilinx DPUs<a class="headerlink" href="#fixed-point-quantization-for-xilinx-dpus" title="Permalink to this headline">¶</a></h2>
-<p>Thanks to their flexibility, Xilinx FPGAs support a variety of neural network hardware implementations.
-DPUs are a family of fixed-point neural network accelerators officially supported as part of the Vitis-AI toolchain.
-Currently Brevitas supports training for DPUs by leveraging 8-bit fixed-point quantizers and a custom ONNX based export flow that targets PyXIR:</p>
+<section id="where-to-go-from-here">
+<h2>Where to go from here<a class="headerlink" href="#where-to-go-from-here" title="Permalink to this heading">#</a></h2>
+<p>Check out the <a class="reference internal" href="tutorials/index.html"><span class="doc">Tutorials section</span></a> for more information on things like ONNX export, quantized recurrent layers, quantizers, or a more detailed overview of the library in the TVMCon tutorial.</p>
 </section>
 </section>
 
 
-              </div>
+            </article>
+            
+            
+            
+            <footer class="bd-footer-article">
+                <!-- Previous / next buttons -->
+<div class='prev-next-area'>
+  <a class='left-prev' id="prev-link" href="setup.html" title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+          <p class="prev-next-subtitle">previous</p>
+          <p class="prev-next-title">Setup</p>
+      </div>
+  </a>
+  <a class='right-next' id="next-link" href="tutorials/index.html" title="next page">
+  <div class="prev-next-info">
+      <p class="prev-next-subtitle">next</p>
+      <p class="prev-next-title">Tutorials</p>
+  </div>
+  <i class="fa-solid fa-angle-right"></i>
+  </a>
+</div>
+            </footer>
+            
+          </div>
+          
+          
+          
+            <div class="bd-sidebar-secondary bd-toc">
               
-              
-              <!-- Previous / next buttons -->
-<div class='prev-next-area'> 
-    <a class='left-prev' id="prev-link" href="setup.html" title="previous page">
-        <i class="fas fa-angle-left"></i>
-        <div class="prev-next-info">
-            <p class="prev-next-subtitle">previous</p>
-            <p class="prev-next-title">Setup</p>
-        </div>
-    </a>
-    <a class='right-next' id="next-link" href="tutorials/index.html" title="next page">
-    <div class="prev-next-info">
-        <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Tutorials</p>
-    </div>
-    <i class="fas fa-angle-right"></i>
+<div class="toc-item">
+  
+<div class="tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+</div>
+<nav id="bd-toc-nav" class="page-toc">
+    <ul class="visible nav section-nav flex-column">
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#weights-only-quantization-float-activations-and-biases">
+   Weights-only quantization, float activations and biases
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#weights-and-activations-quantization-float-biases">
+   Weights and activations quantization, float biases
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#weights-activations-biases-quantization">
+   Weights, activations, biases quantization
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#export-to-onnx">
+   Export to ONNX
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#where-to-go-from-here">
+   Where to go from here
+  </a>
+ </li>
+</ul>
+
+</nav>
+</div>
+
+<div class="toc-item">
+  
+<div id="searchbox"></div>
+</div>
+
+<div class="toc-item">
+  
+</div>
+
+<div class="toc-item">
+  
+<div class="tocsection sourcelink">
+    <a href="_sources/getting_started.rst.txt">
+        <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
 </div>
-              
-          </main>
-          
 
-      </div>
+</div>
+
+            </div>
+          
+          
+        </div>
+        <footer class="bd-footer-content">
+          <div class="bd-footer-content__inner">
+            
+          </div>
+        </footer>
+        
+      </main>
     </div>
-  
-  <script src="_static/js/index.be7d3bbb2ef33a8344ce.js"></script>
-<footer class="footer mt-5 mt-md-0">
-  <div class="container">
-    
-    <div class="footer-item">
-      <p class="copyright">
-    &copy; Copyright 2022 - Xilinx, Inc.<br>
-</p>
-    </div>
-    
-    <div class="footer-item">
-      <p class="sphinx-version">
-Created using <a href="http://sphinx-doc.org/">Sphinx</a> 4.3.2.<br>
-</p>
-    </div>
-    
   </div>
-</footer>
+
+  
+    
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="_static/scripts/bootstrap.js?digest=796348d33e8b1d947c94"></script>
+<script src="_static/scripts/pydata-sphinx-theme.js?digest=796348d33e8b1d947c94"></script>
+
+  <footer class="bd-footer"><div class="bd-footer__inner container">
+  
+  <div class="footer-item">
+    
+<p class="copyright">
+
+    &copy; Copyright 2023 - Advanced Micro Devices, Inc..<br>
+
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    <p class="theme-version">
+    Built with the
+    <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">
+        PyData Sphinx Theme
+    </a>
+    0.12.0.
+</p>
+  </div>
+  
+  <div class="footer-item">
+    
+<p class="sphinx-version">
+Created using <a href="http://sphinx-doc.org/">Sphinx</a> 5.3.0.<br>
+</p>
+
+  </div>
+  
+</div>
+  </footer>
   </body>
 </html>
