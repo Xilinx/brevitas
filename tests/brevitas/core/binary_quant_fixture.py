@@ -1,3 +1,7 @@
+# Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+
+
 import pytest_cases
 from pytest_cases import fixture_union
 from brevitas.core.quant import BinaryQuant, ClampedBinaryQuant

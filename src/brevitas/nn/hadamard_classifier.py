@@ -1,6 +1,7 @@
-#
+# Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
 # Based on: https://arxiv.org/abs/1801.04540
-#
+
 
 import torch.nn as nn
 import math

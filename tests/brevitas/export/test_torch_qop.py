@@ -1,3 +1,7 @@
+# Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+
+
 import torch
 
 from brevitas.nn import QuantConv2d, QuantLinear, QuantIdentity, QuantReLU, QuantMaxPool2d

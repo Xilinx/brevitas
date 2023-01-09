@@ -1,3 +1,7 @@
+# Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+
+
 from brevitas.quant.base import NarrowIntQuant, PerTensorConstScaling2bit
 from brevitas.core.function_wrapper import TensorClamp, InplaceTensorClampSte
 from brevitas.quant.solver import WeightQuantSolver, ActQuantSolver

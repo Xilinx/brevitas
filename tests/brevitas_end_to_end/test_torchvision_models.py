@@ -1,3 +1,7 @@
+# Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+
+
 from brevitas.export import export_onnx_qcdq, export_torch_qcdq
 import torch
 import os

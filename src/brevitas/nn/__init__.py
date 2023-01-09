@@ -1,3 +1,7 @@
+# Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+
+
 from .quant_accumulator import ClampQuantAccumulator, TruncQuantAccumulator
 from .quant_activation import QuantReLU, QuantSigmoid, QuantTanh, QuantHardTanh, QuantIdentity
 from .quant_avg_pool import QuantAvgPool2d, QuantAdaptiveAvgPool2d
