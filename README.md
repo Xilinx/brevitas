@@ -6,15 +6,13 @@
 ![Examples Pytest](https://github.com/Xilinx/brevitas/workflows/Examples%20Pytest/badge.svg?branch=master)
 [![DOI](https://zenodo.org/badge/140494324.svg)](https://zenodo.org/badge/latestdoi/140494324)
 
-Brevitas is a PyTorch research library for quantization-aware training (QAT).
-
-*Brevitas is currently under active development. Documentation, examples, and pretrained models will be progressively released.*
+Brevitas is a PyTorch library for neural network quantization, with a focus on *quantization-aware training (QAT)*.
 
 **Please note that Brevitas is a research project and not an official Xilinx product.**
 
 If you like this project please consider ⭐ this repo, as it is the simplest and best way to support it. 
 
-If you have issues, comments, or are just looking for advices on training quantized neural networks, you can open an issue, a discussion, or chat over in our [gitter](https://gitter.im/xilinx-brevitas/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge) channel.
+If you have issues, comments, or are just looking for advices on training quantized neural networks, open an issue or a discussion.
 
 ## Cite as
 
@@ -47,8 +45,8 @@ If you adopt Brevitas in your work, please cite it as:
 
 ## Requirements
 
-* Python >= 3.6 .
-* [Pytorch](https://pytorch.org) >= 1.5.0 .
+* Python >= 3.7 .
+* [Pytorch](https://pytorch.org) >= 1.5.1 .
 * Windows, Linux or macOS.
 * GPU training-time acceleration (*Optional* but recommended).
 
@@ -59,9 +57,9 @@ You can install the latest release from PyPI:
 pip install brevitas
 ```
 
-## Documentation
+## Getting started
 
-Documentation is a work-in-progress. Check out available info at https://xilinx.github.io/brevitas .
+Check out available info at https://xilinx.github.io/brevitas/getting_started .
 
 
 
