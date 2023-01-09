@@ -1,3 +1,7 @@
+# Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+
+
 def finn_datatype(bit_width_tensor, signed, supported_int_bit_width_range=(2, 33)):
     bit_width = int(bit_width_tensor.item())
     if bit_width == 1 and signed:
