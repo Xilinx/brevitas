@@ -1,135 +1,204 @@
 
 <!DOCTYPE html>
 
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
 
-    <title>An Overview of Quantized Activations &#8212; Brevitas 0.7.1.dev53+gba13949 documentation</title>
-    
-  <link href="../_static/css/theme.css" rel="stylesheet">
-  <link href="../_static/css/index.ff1ffe594081f20da1ef19478df9384b.css" rel="stylesheet">
+    <title>An Overview of Quantized Activations &#8212; Brevitas 0.7.2.dev139+g0c2e90d documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "light";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=796348d33e8b1d947c94" rel="stylesheet">
+<link href="../_static/styles/bootstrap.css?digest=796348d33e8b1d947c94" rel="stylesheet">
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=796348d33e8b1d947c94" rel="stylesheet">
 
-    
-  <link rel="stylesheet"
-    href="../_static/vendor/fontawesome/5.13.0/css/all.min.css">
-  <link rel="preload" as="font" type="font/woff2" crossorigin
-    href="../_static/vendor/fontawesome/5.13.0/webfonts/fa-solid-900.woff2">
-  <link rel="preload" as="font" type="font/woff2" crossorigin
-    href="../_static/vendor/fontawesome/5.13.0/webfonts/fa-brands-400.woff2">
+  
+  <link href="../_static/vendor/fontawesome/6.1.2/css/all.min.css?digest=796348d33e8b1d947c94" rel="stylesheet">
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.1.2/webfonts/fa-solid-900.woff2">
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.1.2/webfonts/fa-brands-400.woff2">
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.1.2/webfonts/fa-regular-400.woff2">
 
-    
-      
-
-    
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
-    <link rel="stylesheet" type="text/css" href="../_static/css/blank.css" />
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css" />
-    
-  <link rel="preload" as="script" href="../_static/js/index.be7d3bbb2ef33a8344ce.js">
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=796348d33e8b1d947c94">
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=796348d33e8b1d947c94">
 
     <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
     <script src="../_static/jquery.js"></script>
     <script src="../_static/underscore.js"></script>
+    <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script src="../_static/doctools.js"></script>
+    <script src="../_static/sphinx_highlight.js"></script>
     <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
-    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script>window.MathJax = {"tex": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true}, "options": {"ignoreHtmlClass": "tex2jax_ignore|mathjax_ignore|document", "processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'tutorials/quant_activation_overview';</script>
     <link rel="author" title="About these documents" href="../about.html" />
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Anatomy of a Quantizer" href="anatomy_quantizer.html" />
     <link rel="prev" title="An overview of QuantTensor and QuantConv2d" href="quant_tensor_quant_conv2d_overview.html" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="docsearch:language" content="None">
-    
-
-    <!-- Google Analytics -->
-    
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="docsearch:language" content="en">
   </head>
-  <body data-spy="scroll" data-target="#bd-toc-nav" data-offset="80">
-    
-    <div class="container-fluid" id="banner"></div>
+  
+  
+  <body data-spy="scroll" data-target="#bd-toc-nav" data-offset="180" data-default-mode="">
 
-    
-    <nav class="navbar navbar-light navbar-expand-lg bg-light fixed-top bd-navbar" id="navbar-main"><div class="container-xl">
+  
+  
+  <a class="skip-link" href="#main-content">Skip to main content</a>
 
+  
+  <input type="checkbox" class="sidebar-toggle" name="__primary" id="__primary">
+  <label class="overlay overlay-primary" for="__primary"></label>
+
+  
+  <input type="checkbox" class="sidebar-toggle" name="__secondary" id="__secondary">
+  <label class="overlay overlay-secondary" for="__secondary"></label>
+
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+      
+<form class="bd-search d-flex align-items-center" action="../search.html" method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search" class="form-control" name="q" id="search-input" placeholder="Search the docs ..." aria-label="Search the docs ..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+    </div>
+  </div>
+
+  
+  <nav class="bd-header navbar navbar-expand-lg bd-navbar" id="navbar-main"><div class="bd-header__inner bd-page-width">
+  <label class="sidebar-toggle primary-toggle" for="__primary">
+      <span class="fa-solid fa-bars"></span>
+  </label>
   <div id="navbar-start">
     
     
-<a class="navbar-brand" href="../index.html">
-<p class="title">Brevitas</p>
-</a>
+  
 
+
+<a class="navbar-brand logo" href="../index.html">
+
+  
+  
+  
+  
+  
+  
+  
+
+  
+    <img src="../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Logo image">
+    <img src="../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Logo image">
+  
+  
+</a>
     
   </div>
 
-  <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbar-collapsible" aria-controls="navbar-collapsible" aria-expanded="false" aria-label="Toggle navigation">
-    <span class="navbar-toggler-icon"></span>
-  </button>
-
   
-  <div id="navbar-collapsible" class="col-lg-9 collapse navbar-collapse">
+  <div class="col-lg-9 navbar-header-items">
     <div id="navbar-center" class="mr-auto">
       
       <div class="navbar-center-item">
-        <ul id="navbar-main-elements" class="navbar-nav">
-    <li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="../setup.html">
-  Setup
- </a>
-</li>
+        <nav class="navbar-nav">
+    <p class="sidebar-header-items__title" role="heading" aria-level="1" aria-label="Site Navigation">
+        Site Navigation
+    </p>
+    <ul id="navbar-main-elements" class="navbar-nav">
+        
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../setup.html">
+                        Setup
+                      </a>
+                    </li>
+                
 
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="../getting_started.html">
-  Getting Started
- </a>
-</li>
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../getting_started.html">
+                        Getting Started
+                      </a>
+                    </li>
+                
 
-<li class="toctree-l1 current active nav-item">
- <a class="reference internal nav-link" href="index.html">
-  Tutorials
- </a>
-</li>
+                    <li class="nav-item current active">
+                      <a class="nav-link nav-internal" href="index.html">
+                        Tutorials
+                      </a>
+                    </li>
+                
 
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="../api_reference/index.html">
-  API reference
- </a>
-</li>
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../settings.html">
+                        Settings
+                      </a>
+                    </li>
+                
 
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="../settings.html">
-  Settings
- </a>
-</li>
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../api_reference/index.html">
+                        API reference
+                      </a>
+                    </li>
+                
 
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="../architecture.html">
-  Architecture
- </a>
-</li>
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../architecture.html">
+                        Architecture
+                      </a>
+                    </li>
+                
 
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="../faq.html">
-  FAQ
- </a>
-</li>
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../faq.html">
+                        FAQ
+                      </a>
+                    </li>
+                
 
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="../about.html">
-  About
- </a>
-</li>
-
-    
-</ul>
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../about.html">
+                        About
+                      </a>
+                    </li>
+                
+    </ul>
+</nav>
       </div>
       
     </div>
 
     <div id="navbar-end">
+      
+        <div class="navbar-end-item navbar-persistent--container">
+          
+<button class="btn btn-sm navbar-btn search-button search-button__button" title="Search" aria-label="Search" data-toggle="tooltip">
+  <i class="fa-solid fa-magnifying-glass"></i>
+</button>
+        </div>
+      
+      
+      <div class="navbar-end-item">
+        <button class="theme-switch-button btn btn-sm btn-outline-primary navbar-btn rounded-circle" title="light/dark" aria-label="light/dark" data-toggle="tooltip">
+    <span class="theme-switch" data-mode="light"><i class="fa-solid fa-sun"></i></span>
+    <span class="theme-switch" data-mode="dark"><i class="fa-solid fa-moon"></i></span>
+    <span class="theme-switch" data-mode="auto"><i class="fa-solid fa-circle-half-stroke"></i></span>
+</button>
+      </div>
       
       <div class="navbar-end-item">
         <ul id="navbar-icon-links" class="navbar-nav" aria-label="Icon Links">
@@ -138,82 +207,183 @@
       
     </div>
   </div>
+
+
+  
+  
+    <div class="navbar-persistent--mobile">
+<button class="btn btn-sm navbar-btn search-button search-button__button" title="Search" aria-label="Search" data-toggle="tooltip">
+  <i class="fa-solid fa-magnifying-glass"></i>
+</button>
+    </div>
+  
+
+  
+  <label class="sidebar-toggle secondary-toggle" for="__secondary">
+      <span class="fa-solid fa-outdent"></span>
+  </label>
+  
+
 </div>
-    </nav>
+  </nav>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+      
+      <div class="navbar-center-item">
+        <nav class="navbar-nav">
+    <p class="sidebar-header-items__title" role="heading" aria-level="1" aria-label="Site Navigation">
+        Site Navigation
+    </p>
+    <ul id="navbar-main-elements" class="navbar-nav">
+        
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../setup.html">
+                        Setup
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../getting_started.html">
+                        Getting Started
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item current active">
+                      <a class="nav-link nav-internal" href="index.html">
+                        Tutorials
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../settings.html">
+                        Settings
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../api_reference/index.html">
+                        API reference
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../architecture.html">
+                        Architecture
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../faq.html">
+                        FAQ
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../about.html">
+                        About
+                      </a>
+                    </li>
+                
+    </ul>
+</nav>
+      </div>
+      
+      </div>
     
 
-    <div class="container-xl">
-      <div class="row">
-          
-            
-            <!-- Only show if we have sidebars configured, else just a small margin  -->
-            <div class="col-12 col-md-3 bd-sidebar"><form class="bd-search d-flex align-items-center" action="../search.html" method="get">
-  <i class="icon fas fa-search"></i>
-  <input type="search" class="form-control" name="q" id="search-input" placeholder="Search the docs ..." aria-label="Search the docs ..." autocomplete="off" >
-</form><nav class="bd-links" id="bd-docs-nav" aria-label="Main navigation">
-  <div class="bd-toc-item active">
-    <p aria-level="2" class="caption" role="heading">
- <span class="caption-text">
-  Tutorials:
- </span>
-</p>
+    
+    
+    <div class="sidebar-header-items__end">
+      
+      <div class="navbar-end-item">
+        <button class="theme-switch-button btn btn-sm btn-outline-primary navbar-btn rounded-circle" title="light/dark" aria-label="light/dark" data-toggle="tooltip">
+    <span class="theme-switch" data-mode="light"><i class="fa-solid fa-sun"></i></span>
+    <span class="theme-switch" data-mode="dark"><i class="fa-solid fa-moon"></i></span>
+    <span class="theme-switch" data-mode="auto"><i class="fa-solid fa-circle-half-stroke"></i></span>
+</button>
+      </div>
+      
+      <div class="navbar-end-item">
+        <ul id="navbar-icon-links" class="navbar-nav" aria-label="Icon Links">
+      </ul>
+      </div>
+      
+    </div>
+    
+  </div>
+
+  
+  <div class="sidebar-start-items sidebar-primary__section">
+    <div class="sidebar-start-items__item"><nav class="bd-links" id="bd-docs-nav" aria-label="Section navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">
+    Section Navigation
+  </p>
+  <div class="bd-toc-item navbar-nav">
+    <p aria-level="2" class="caption" role="heading"><span class="caption-text">Tutorials:</span></p>
 <ul class="current nav bd-sidenav">
- <li class="toctree-l1">
-  <a class="reference internal" href="tvmcon2021.html">
-   Brevitas TVMCon 2021 tutorial
-  </a>
- </li>
- <li class="toctree-l1">
-  <a class="reference internal" href="quant_tensor_quant_conv2d_overview.html">
-   An overview of QuantTensor and QuantConv2d
-  </a>
- </li>
- <li class="toctree-l1 current active">
-  <a class="current reference internal" href="#">
-   An Overview of Quantized Activations
-  </a>
- </li>
- <li class="toctree-l1">
-  <a class="reference internal" href="anatomy_quantizer.html">
-   Anatomy of a Quantizer
-  </a>
- </li>
+<li class="toctree-l1"><a class="reference internal" href="tvmcon2021.html">Brevitas TVMCon 2021 tutorial</a></li>
+
+
+
+
+
+
+
+
+
+<li class="toctree-l1"><a class="reference internal" href="quant_tensor_quant_conv2d_overview.html">An overview of QuantTensor and QuantConv2d</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">An Overview of Quantized Activations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="anatomy_quantizer.html">Anatomy of a Quantizer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quant_recurrent.html">Quantized RNNs and LSTMs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="onnx_export.html">ONNX Export</a></li>
 </ul>
 
   </div>
 </nav>
+    </div>
+  </div>
+  
+
+  
+  <div class="sidebar-end-items sidebar-primary__section">
+    <div class="sidebar-end-items__item">
+    </div>
+  </div>
+
+  
+  <div id="rtd-footer-container"></div>
+
+      </div>
+      <main id="main-content" class="bd-main">
+        
+        
+        <div class="bd-content">
+          <div class="bd-article-container">
+            
+            <div class="bd-header-article">
+                
             </div>
             
-          
-
-          
-          <div class="d-none d-xl-block col-xl-2 bd-toc">
             
+            <article class="bd-article" role="main">
               
-              <div class="toc-item">
-                
-
-<nav id="bd-toc-nav">
-    
-</nav>
-              </div>
-              
-              <div class="toc-item">
-                
-              </div>
-              
-            
-          </div>
-          
-
-          
-          
-            
-          
-          <main class="col-12 col-md-9 col-xl-7 py-md-5 pl-md-5 pr-md-4 bd-content" role="main">
-              
-              <div>
-                
   
 <style>
 /* CSS for nbsphinx extension */
@@ -424,7 +594,7 @@ div.nboutput.container div.output_area > div[class^='highlight']{
 }
 
 /* hide copybtn icon on prompts (needed for 'sphinx_copybutton') */
-.prompt .copybtn {
+.prompt a.copybtn {
     display: none;
 }
 
@@ -463,7 +633,7 @@ div.rendered_html tbody tr:hover {
 }
 </style>
 <section id="An-Overview-of-Quantized-Activations">
-<h1>An Overview of Quantized Activations<a class="headerlink" href="#An-Overview-of-Quantized-Activations" title="Permalink to this headline">¶</a></h1>
+<h1>An Overview of Quantized Activations<a class="headerlink" href="#An-Overview-of-Quantized-Activations" title="Permalink to this heading">#</a></h1>
 <div class="line-block">
 <div class="line">In this second tutorial, we take a deeper look at quantized activation.</div>
 <div class="line">We were already introduced to quantized activations in the previous tutorial, when we looked at input and output quantization of <code class="docutils literal notranslate"><span class="pre">QuantConv2d</span></code> with the <code class="docutils literal notranslate"><span class="pre">Int8ActPerTensorFloat</span></code> quantizer. The same result can be obtained with different syntax by coupling <code class="docutils literal notranslate"><span class="pre">QuantConv2d</span></code> with <code class="docutils literal notranslate"><span class="pre">QuantIdentity</span></code> layers, which by default uses the <code class="docutils literal notranslate"><span class="pre">Int8ActPerTensorFloat</span></code> quantizer. As an example, we compare - on the <em>same input</em> - the result of <code class="docutils literal notranslate"><span class="pre">QuantConv2d</span></code> with <code class="docutils literal notranslate"><span class="pre">output_quant</span></code> enabled with the result of a
@@ -473,7 +643,8 @@ div.rendered_html tbody tr:hover {
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">torch</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">torch</span>
 <span class="kn">from</span> <span class="nn">brevitas.nn</span> <span class="kn">import</span> <span class="n">QuantConv2d</span><span class="p">,</span> <span class="n">QuantIdentity</span>
 <span class="kn">from</span> <span class="nn">brevitas.quant.scaled_int</span> <span class="kn">import</span> <span class="n">Int8ActPerTensorFloat</span>
 
@@ -508,7 +679,8 @@ True
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 <span class="n">input_output_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span>
     <span class="n">in_channels</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">out_channels</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">kernel_size</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span>
     <span class="n">input_quant</span><span class="o">=</span><span class="n">Int8ActPerTensorFloat</span><span class="p">,</span> <span class="n">output_quant</span><span class="o">=</span><span class="n">Int8ActPerTensorFloat</span><span class="p">)</span>
@@ -542,7 +714,8 @@ True
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">disabled_quant_identity</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">(</span><span class="n">act_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">disabled_quant_identity</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">(</span><span class="n">act_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 <span class="p">(</span><span class="n">inp</span> <span class="o">==</span> <span class="n">disabled_quant_identity</span><span class="p">(</span><span class="n">inp</span><span class="p">))</span><span class="o">.</span><span class="n">all</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -561,7 +734,8 @@ True
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">return_quant_identity</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">(</span><span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">return_quant_identity</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">(</span><span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="n">out_tensor</span> <span class="o">=</span> <span class="n">return_quant_identity</span><span class="p">(</span><span class="n">inp</span><span class="p">)</span>
 <span class="n">out_tensor</span>
 </pre></div>
@@ -590,7 +764,8 @@ QuantTensor(value=tensor([[[[-0.4566, -0.5707, -0.5517,  0.5897,  1.5409],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">out_tensor</span><span class="o">.</span><span class="n">is_valid</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">out_tensor</span><span class="o">.</span><span class="n">is_valid</span>
 </pre></div>
 </div>
 </div>
@@ -608,7 +783,8 @@ True
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">out_torch_tensor</span> <span class="o">=</span> <span class="n">disabled_quant_identity</span><span class="p">(</span><span class="n">out_tensor</span><span class="p">)</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">out_torch_tensor</span> <span class="o">=</span> <span class="n">disabled_quant_identity</span><span class="p">(</span><span class="n">out_tensor</span><span class="p">)</span>
 <span class="n">out_torch_tensor</span>
 </pre></div>
 </div>
@@ -636,7 +812,8 @@ tensor([[[[-0.4566, -0.5707, -0.5517,  0.5897,  1.5409],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">return_disabled_quant_identity</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">(</span><span class="n">act_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">return_disabled_quant_identity</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">(</span><span class="n">act_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="n">identity_out_tensor</span> <span class="o">=</span> <span class="n">return_disabled_quant_identity</span><span class="p">(</span><span class="n">out_tensor</span><span class="p">)</span>
 <span class="n">identity_out_tensor</span>
 </pre></div>
@@ -666,7 +843,8 @@ QuantTensor(value=tensor([[[[-0.4566, -0.5707, -0.5517,  0.5897,  1.5409],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">brevitas.nn</span> <span class="kn">import</span> <span class="n">QuantReLU</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">brevitas.nn</span> <span class="kn">import</span> <span class="n">QuantReLU</span>
 
 <span class="n">return_quant_relu</span> <span class="o">=</span> <span class="n">QuantReLU</span><span class="p">(</span><span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="n">return_quant_relu</span><span class="p">(</span><span class="n">inp</span><span class="p">)</span>
@@ -697,7 +875,8 @@ QuantTensor(value=tensor([[[[0.0000, 0.0000, 0.0000, 0.5974, 1.5402],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">return_disabled_quant_relu</span> <span class="o">=</span> <span class="n">QuantReLU</span><span class="p">(</span><span class="n">act_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">return_disabled_quant_relu</span> <span class="o">=</span> <span class="n">QuantReLU</span><span class="p">(</span><span class="n">act_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="n">relu_out_tensor</span> <span class="o">=</span> <span class="n">return_disabled_quant_relu</span><span class="p">(</span><span class="n">out_tensor</span><span class="p">)</span>
 <span class="n">relu_out_tensor</span><span class="o">.</span><span class="n">is_valid</span>
 </pre></div>
@@ -717,7 +896,8 @@ True
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[10]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">brevitas.nn</span> <span class="kn">import</span> <span class="n">QuantSigmoid</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">brevitas.nn</span> <span class="kn">import</span> <span class="n">QuantSigmoid</span>
 
 <span class="n">return_disabled_quant_sigmoid</span> <span class="o">=</span> <span class="n">QuantSigmoid</span><span class="p">(</span><span class="n">act_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="n">sigmoid_out_tensor</span> <span class="o">=</span> <span class="n">return_disabled_quant_sigmoid</span><span class="p">(</span><span class="n">out_tensor</span><span class="p">)</span>
@@ -748,7 +928,8 @@ QuantTensor(value=tensor([[[[0.3878, 0.3611, 0.3655, 0.6433, 0.8236],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[11]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">sigmoid_out_tensor</span><span class="o">.</span><span class="n">is_valid</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">sigmoid_out_tensor</span><span class="o">.</span><span class="n">is_valid</span>
 </pre></div>
 </div>
 </div>
@@ -767,7 +948,8 @@ the input to <code class="docutils literal notranslate"><span class="pre">QuantR
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[12]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">brevitas.quant.shifted_scaled_int</span> <span class="kn">import</span> <span class="n">ShiftedUint8ActPerTensorFloat</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">brevitas.quant.shifted_scaled_int</span> <span class="kn">import</span> <span class="n">ShiftedUint8ActPerTensorFloat</span>
 
 <span class="n">shifted_quant_identity</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">(</span><span class="n">act_quant</span><span class="o">=</span><span class="n">ShiftedUint8ActPerTensorFloat</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="n">return_disabled_quant_relu</span> <span class="o">=</span> <span class="n">QuantReLU</span><span class="p">(</span><span class="n">act_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -799,7 +981,8 @@ QuantTensor(value=tensor([[[[0.0000, 0.0000, 0.0000, 0.5854, 1.5485],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[13]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 <span class="n">output_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span>
     <span class="n">in_channels</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">out_channels</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">kernel_size</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span> <span class="n">output_quant</span><span class="o">=</span><span class="n">Int8ActPerTensorFloat</span><span class="p">)</span>
 <span class="n">torch</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="n">output_quant_conv</span><span class="p">(</span><span class="n">inp</span><span class="p">))</span>
@@ -830,7 +1013,8 @@ tensor([[[[0.0000, 0.0000, 0.0000],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[14]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 <span class="n">default_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span>
     <span class="n">in_channels</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">out_channels</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">kernel_size</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">))</span>
 <span class="n">default_quant_relu</span> <span class="o">=</span> <span class="n">QuantReLU</span><span class="p">()</span>
@@ -869,7 +1053,8 @@ modes. We can easily observe this behaviour with an example. Let’s first defin
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[15]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">quant_identity</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">(</span><span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">quant_identity</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">(</span><span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="n">inp1</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
 <span class="n">inp2</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
 </pre></div>
@@ -880,7 +1065,8 @@ modes. We can easily observe this behaviour with an example. Let’s first defin
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[16]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">out1_train</span> <span class="o">=</span> <span class="n">quant_identity</span><span class="p">(</span><span class="n">inp1</span><span class="p">)</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">out1_train</span> <span class="o">=</span> <span class="n">quant_identity</span><span class="p">(</span><span class="n">inp1</span><span class="p">)</span>
 <span class="n">out2_train</span> <span class="o">=</span> <span class="n">quant_identity</span><span class="p">(</span><span class="n">inp2</span><span class="p">)</span>
 <span class="n">out1_train</span><span class="o">.</span><span class="n">scale</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">out2_train</span><span class="o">.</span><span class="n">scale</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
 </pre></div>
@@ -899,7 +1085,8 @@ False
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[17]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">quant_identity</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">quant_identity</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
 <span class="n">out1_eval</span> <span class="o">=</span> <span class="n">quant_identity</span><span class="p">(</span><span class="n">inp1</span><span class="p">)</span>
 <span class="n">out2_eval</span> <span class="o">=</span> <span class="n">quant_identity</span><span class="p">(</span><span class="n">inp2</span><span class="p">)</span>
 <span class="n">out1_eval</span><span class="o">.</span><span class="n">scale</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">out2_eval</span><span class="o">.</span><span class="n">scale</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
@@ -920,7 +1107,8 @@ True
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[18]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">brevitas.nn</span> <span class="kn">import</span> <span class="n">QuantHardTanh</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">brevitas.nn</span> <span class="kn">import</span> <span class="n">QuantHardTanh</span>
 
 <span class="n">QuantHardTanh</span><span class="p">()</span>
 </pre></div>
@@ -1004,7 +1192,8 @@ True
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[19]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">quant_hard_tanh</span> <span class="o">=</span> <span class="n">QuantHardTanh</span><span class="p">(</span><span class="n">max_val</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">min_val</span><span class="o">=-</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">quant_hard_tanh</span> <span class="o">=</span> <span class="n">QuantHardTanh</span><span class="p">(</span><span class="n">max_val</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">min_val</span><span class="o">=-</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1013,7 +1202,8 @@ True
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[20]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">out1_train</span> <span class="o">=</span> <span class="n">quant_hard_tanh</span><span class="p">(</span><span class="n">inp1</span><span class="p">)</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">out1_train</span> <span class="o">=</span> <span class="n">quant_hard_tanh</span><span class="p">(</span><span class="n">inp1</span><span class="p">)</span>
 <span class="n">quant_hard_tanh</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
 <span class="n">out2_eval</span> <span class="o">=</span> <span class="n">quant_hard_tanh</span><span class="p">(</span><span class="n">inp2</span><span class="p">)</span>
 <span class="n">out1_train</span><span class="o">.</span><span class="n">scale</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">out2_eval</span><span class="o">.</span><span class="n">scale</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
@@ -1034,50 +1224,106 @@ quantizers are set. So a QuantIdentity with <code class="docutils literal notran
 </section>
 
 
-              </div>
+            </article>
+            
+            
+            
+            <footer class="bd-footer-article">
+                <!-- Previous / next buttons -->
+<div class='prev-next-area'>
+  <a class='left-prev' id="prev-link" href="quant_tensor_quant_conv2d_overview.html" title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+          <p class="prev-next-subtitle">previous</p>
+          <p class="prev-next-title">An overview of QuantTensor and QuantConv2d</p>
+      </div>
+  </a>
+  <a class='right-next' id="next-link" href="anatomy_quantizer.html" title="next page">
+  <div class="prev-next-info">
+      <p class="prev-next-subtitle">next</p>
+      <p class="prev-next-title">Anatomy of a Quantizer</p>
+  </div>
+  <i class="fa-solid fa-angle-right"></i>
+  </a>
+</div>
+            </footer>
+            
+          </div>
+          
+          
+          
+            <div class="bd-sidebar-secondary bd-toc">
               
-              
-              <!-- Previous / next buttons -->
-<div class='prev-next-area'> 
-    <a class='left-prev' id="prev-link" href="quant_tensor_quant_conv2d_overview.html" title="previous page">
-        <i class="fas fa-angle-left"></i>
-        <div class="prev-next-info">
-            <p class="prev-next-subtitle">previous</p>
-            <p class="prev-next-title">An overview of QuantTensor and QuantConv2d</p>
-        </div>
-    </a>
-    <a class='right-next' id="next-link" href="anatomy_quantizer.html" title="next page">
-    <div class="prev-next-info">
-        <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Anatomy of a Quantizer</p>
-    </div>
-    <i class="fas fa-angle-right"></i>
+<div class="toc-item">
+  
+<div id="searchbox"></div>
+</div>
+
+<div class="toc-item">
+  
+</div>
+
+<div class="toc-item">
+  
+<div class="tocsection sourcelink">
+    <a href="../_sources/tutorials/quant_activation_overview.nblink.txt">
+        <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
 </div>
-              
-          </main>
-          
 
-      </div>
+</div>
+
+            </div>
+          
+          
+        </div>
+        <footer class="bd-footer-content">
+          <div class="bd-footer-content__inner">
+            
+          </div>
+        </footer>
+        
+      </main>
     </div>
-  
-  <script src="../_static/js/index.be7d3bbb2ef33a8344ce.js"></script>
-<footer class="footer mt-5 mt-md-0">
-  <div class="container">
-    
-    <div class="footer-item">
-      <p class="copyright">
-    &copy; Copyright 2022 - Xilinx, Inc.<br>
-</p>
-    </div>
-    
-    <div class="footer-item">
-      <p class="sphinx-version">
-Created using <a href="http://sphinx-doc.org/">Sphinx</a> 4.3.2.<br>
-</p>
-    </div>
-    
   </div>
-</footer>
+
+  
+    
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../_static/scripts/bootstrap.js?digest=796348d33e8b1d947c94"></script>
+<script src="../_static/scripts/pydata-sphinx-theme.js?digest=796348d33e8b1d947c94"></script>
+
+  <footer class="bd-footer"><div class="bd-footer__inner container">
+  
+  <div class="footer-item">
+    
+<p class="copyright">
+
+    &copy; Copyright 2023 - Advanced Micro Devices, Inc..<br>
+
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    <p class="theme-version">
+    Built with the
+    <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">
+        PyData Sphinx Theme
+    </a>
+    0.12.0.
+</p>
+  </div>
+  
+  <div class="footer-item">
+    
+<p class="sphinx-version">
+Created using <a href="http://sphinx-doc.org/">Sphinx</a> 5.3.0.<br>
+</p>
+
+  </div>
+  
+</div>
+  </footer>
   </body>
 </html>

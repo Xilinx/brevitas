@@ -1,135 +1,204 @@
 
 <!DOCTYPE html>
 
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
 
-    <title>Anatomy of a Quantizer &#8212; Brevitas 0.7.1.dev53+gba13949 documentation</title>
-    
-  <link href="../_static/css/theme.css" rel="stylesheet">
-  <link href="../_static/css/index.ff1ffe594081f20da1ef19478df9384b.css" rel="stylesheet">
+    <title>Anatomy of a Quantizer &#8212; Brevitas 0.7.2.dev139+g0c2e90d documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "light";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=796348d33e8b1d947c94" rel="stylesheet">
+<link href="../_static/styles/bootstrap.css?digest=796348d33e8b1d947c94" rel="stylesheet">
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=796348d33e8b1d947c94" rel="stylesheet">
 
-    
-  <link rel="stylesheet"
-    href="../_static/vendor/fontawesome/5.13.0/css/all.min.css">
-  <link rel="preload" as="font" type="font/woff2" crossorigin
-    href="../_static/vendor/fontawesome/5.13.0/webfonts/fa-solid-900.woff2">
-  <link rel="preload" as="font" type="font/woff2" crossorigin
-    href="../_static/vendor/fontawesome/5.13.0/webfonts/fa-brands-400.woff2">
+  
+  <link href="../_static/vendor/fontawesome/6.1.2/css/all.min.css?digest=796348d33e8b1d947c94" rel="stylesheet">
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.1.2/webfonts/fa-solid-900.woff2">
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.1.2/webfonts/fa-brands-400.woff2">
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.1.2/webfonts/fa-regular-400.woff2">
 
-    
-      
-
-    
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
-    <link rel="stylesheet" type="text/css" href="../_static/css/blank.css" />
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css" />
-    
-  <link rel="preload" as="script" href="../_static/js/index.be7d3bbb2ef33a8344ce.js">
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=796348d33e8b1d947c94">
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=796348d33e8b1d947c94">
 
     <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
     <script src="../_static/jquery.js"></script>
     <script src="../_static/underscore.js"></script>
+    <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script src="../_static/doctools.js"></script>
+    <script src="../_static/sphinx_highlight.js"></script>
     <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
-    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script>window.MathJax = {"tex": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true}, "options": {"ignoreHtmlClass": "tex2jax_ignore|mathjax_ignore|document", "processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'tutorials/anatomy_quantizer';</script>
     <link rel="author" title="About these documents" href="../about.html" />
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="API reference" href="../api_reference/index.html" />
+    <link rel="next" title="Quantized RNNs and LSTMs" href="quant_recurrent.html" />
     <link rel="prev" title="An Overview of Quantized Activations" href="quant_activation_overview.html" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="docsearch:language" content="None">
-    
-
-    <!-- Google Analytics -->
-    
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="docsearch:language" content="en">
   </head>
-  <body data-spy="scroll" data-target="#bd-toc-nav" data-offset="80">
-    
-    <div class="container-fluid" id="banner"></div>
+  
+  
+  <body data-spy="scroll" data-target="#bd-toc-nav" data-offset="180" data-default-mode="">
 
-    
-    <nav class="navbar navbar-light navbar-expand-lg bg-light fixed-top bd-navbar" id="navbar-main"><div class="container-xl">
+  
+  
+  <a class="skip-link" href="#main-content">Skip to main content</a>
 
+  
+  <input type="checkbox" class="sidebar-toggle" name="__primary" id="__primary">
+  <label class="overlay overlay-primary" for="__primary"></label>
+
+  
+  <input type="checkbox" class="sidebar-toggle" name="__secondary" id="__secondary">
+  <label class="overlay overlay-secondary" for="__secondary"></label>
+
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+      
+<form class="bd-search d-flex align-items-center" action="../search.html" method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search" class="form-control" name="q" id="search-input" placeholder="Search the docs ..." aria-label="Search the docs ..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+    </div>
+  </div>
+
+  
+  <nav class="bd-header navbar navbar-expand-lg bd-navbar" id="navbar-main"><div class="bd-header__inner bd-page-width">
+  <label class="sidebar-toggle primary-toggle" for="__primary">
+      <span class="fa-solid fa-bars"></span>
+  </label>
   <div id="navbar-start">
     
     
-<a class="navbar-brand" href="../index.html">
-<p class="title">Brevitas</p>
-</a>
+  
 
+
+<a class="navbar-brand logo" href="../index.html">
+
+  
+  
+  
+  
+  
+  
+  
+
+  
+    <img src="../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Logo image">
+    <img src="../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Logo image">
+  
+  
+</a>
     
   </div>
 
-  <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbar-collapsible" aria-controls="navbar-collapsible" aria-expanded="false" aria-label="Toggle navigation">
-    <span class="navbar-toggler-icon"></span>
-  </button>
-
   
-  <div id="navbar-collapsible" class="col-lg-9 collapse navbar-collapse">
+  <div class="col-lg-9 navbar-header-items">
     <div id="navbar-center" class="mr-auto">
       
       <div class="navbar-center-item">
-        <ul id="navbar-main-elements" class="navbar-nav">
-    <li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="../setup.html">
-  Setup
- </a>
-</li>
+        <nav class="navbar-nav">
+    <p class="sidebar-header-items__title" role="heading" aria-level="1" aria-label="Site Navigation">
+        Site Navigation
+    </p>
+    <ul id="navbar-main-elements" class="navbar-nav">
+        
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../setup.html">
+                        Setup
+                      </a>
+                    </li>
+                
 
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="../getting_started.html">
-  Getting Started
- </a>
-</li>
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../getting_started.html">
+                        Getting Started
+                      </a>
+                    </li>
+                
 
-<li class="toctree-l1 current active nav-item">
- <a class="reference internal nav-link" href="index.html">
-  Tutorials
- </a>
-</li>
+                    <li class="nav-item current active">
+                      <a class="nav-link nav-internal" href="index.html">
+                        Tutorials
+                      </a>
+                    </li>
+                
 
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="../api_reference/index.html">
-  API reference
- </a>
-</li>
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../settings.html">
+                        Settings
+                      </a>
+                    </li>
+                
 
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="../settings.html">
-  Settings
- </a>
-</li>
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../api_reference/index.html">
+                        API reference
+                      </a>
+                    </li>
+                
 
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="../architecture.html">
-  Architecture
- </a>
-</li>
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../architecture.html">
+                        Architecture
+                      </a>
+                    </li>
+                
 
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="../faq.html">
-  FAQ
- </a>
-</li>
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../faq.html">
+                        FAQ
+                      </a>
+                    </li>
+                
 
-<li class="toctree-l1 nav-item">
- <a class="reference internal nav-link" href="../about.html">
-  About
- </a>
-</li>
-
-    
-</ul>
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../about.html">
+                        About
+                      </a>
+                    </li>
+                
+    </ul>
+</nav>
       </div>
       
     </div>
 
     <div id="navbar-end">
+      
+        <div class="navbar-end-item navbar-persistent--container">
+          
+<button class="btn btn-sm navbar-btn search-button search-button__button" title="Search" aria-label="Search" data-toggle="tooltip">
+  <i class="fa-solid fa-magnifying-glass"></i>
+</button>
+        </div>
+      
+      
+      <div class="navbar-end-item">
+        <button class="theme-switch-button btn btn-sm btn-outline-primary navbar-btn rounded-circle" title="light/dark" aria-label="light/dark" data-toggle="tooltip">
+    <span class="theme-switch" data-mode="light"><i class="fa-solid fa-sun"></i></span>
+    <span class="theme-switch" data-mode="dark"><i class="fa-solid fa-moon"></i></span>
+    <span class="theme-switch" data-mode="auto"><i class="fa-solid fa-circle-half-stroke"></i></span>
+</button>
+      </div>
       
       <div class="navbar-end-item">
         <ul id="navbar-icon-links" class="navbar-nav" aria-label="Icon Links">
@@ -138,161 +207,183 @@
       
     </div>
   </div>
+
+
+  
+  
+    <div class="navbar-persistent--mobile">
+<button class="btn btn-sm navbar-btn search-button search-button__button" title="Search" aria-label="Search" data-toggle="tooltip">
+  <i class="fa-solid fa-magnifying-glass"></i>
+</button>
+    </div>
+  
+
+  
+  <label class="sidebar-toggle secondary-toggle" for="__secondary">
+      <span class="fa-solid fa-outdent"></span>
+  </label>
+  
+
 </div>
-    </nav>
+  </nav>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+      
+      <div class="navbar-center-item">
+        <nav class="navbar-nav">
+    <p class="sidebar-header-items__title" role="heading" aria-level="1" aria-label="Site Navigation">
+        Site Navigation
+    </p>
+    <ul id="navbar-main-elements" class="navbar-nav">
+        
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../setup.html">
+                        Setup
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../getting_started.html">
+                        Getting Started
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item current active">
+                      <a class="nav-link nav-internal" href="index.html">
+                        Tutorials
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../settings.html">
+                        Settings
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../api_reference/index.html">
+                        API reference
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../architecture.html">
+                        Architecture
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../faq.html">
+                        FAQ
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../about.html">
+                        About
+                      </a>
+                    </li>
+                
+    </ul>
+</nav>
+      </div>
+      
+      </div>
     
 
-    <div class="container-xl">
-      <div class="row">
-          
-            
-            <!-- Only show if we have sidebars configured, else just a small margin  -->
-            <div class="col-12 col-md-3 bd-sidebar"><form class="bd-search d-flex align-items-center" action="../search.html" method="get">
-  <i class="icon fas fa-search"></i>
-  <input type="search" class="form-control" name="q" id="search-input" placeholder="Search the docs ..." aria-label="Search the docs ..." autocomplete="off" >
-</form><nav class="bd-links" id="bd-docs-nav" aria-label="Main navigation">
-  <div class="bd-toc-item active">
-    <p aria-level="2" class="caption" role="heading">
- <span class="caption-text">
-  Tutorials:
- </span>
-</p>
+    
+    
+    <div class="sidebar-header-items__end">
+      
+      <div class="navbar-end-item">
+        <button class="theme-switch-button btn btn-sm btn-outline-primary navbar-btn rounded-circle" title="light/dark" aria-label="light/dark" data-toggle="tooltip">
+    <span class="theme-switch" data-mode="light"><i class="fa-solid fa-sun"></i></span>
+    <span class="theme-switch" data-mode="dark"><i class="fa-solid fa-moon"></i></span>
+    <span class="theme-switch" data-mode="auto"><i class="fa-solid fa-circle-half-stroke"></i></span>
+</button>
+      </div>
+      
+      <div class="navbar-end-item">
+        <ul id="navbar-icon-links" class="navbar-nav" aria-label="Icon Links">
+      </ul>
+      </div>
+      
+    </div>
+    
+  </div>
+
+  
+  <div class="sidebar-start-items sidebar-primary__section">
+    <div class="sidebar-start-items__item"><nav class="bd-links" id="bd-docs-nav" aria-label="Section navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">
+    Section Navigation
+  </p>
+  <div class="bd-toc-item navbar-nav">
+    <p aria-level="2" class="caption" role="heading"><span class="caption-text">Tutorials:</span></p>
 <ul class="current nav bd-sidenav">
- <li class="toctree-l1">
-  <a class="reference internal" href="tvmcon2021.html">
-   Brevitas TVMCon 2021 tutorial
-  </a>
- </li>
- <li class="toctree-l1">
-  <a class="reference internal" href="quant_tensor_quant_conv2d_overview.html">
-   An overview of QuantTensor and QuantConv2d
-  </a>
- </li>
- <li class="toctree-l1">
-  <a class="reference internal" href="quant_activation_overview.html">
-   An Overview of Quantized Activations
-  </a>
- </li>
- <li class="toctree-l1 current active">
-  <a class="current reference internal" href="#">
-   Anatomy of a Quantizer
-  </a>
- </li>
+<li class="toctree-l1"><a class="reference internal" href="tvmcon2021.html">Brevitas TVMCon 2021 tutorial</a></li>
+
+
+
+
+
+
+
+
+
+<li class="toctree-l1"><a class="reference internal" href="quant_tensor_quant_conv2d_overview.html">An overview of QuantTensor and QuantConv2d</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quant_activation_overview.html">An Overview of Quantized Activations</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Anatomy of a Quantizer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quant_recurrent.html">Quantized RNNs and LSTMs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="onnx_export.html">ONNX Export</a></li>
 </ul>
 
   </div>
 </nav>
+    </div>
+  </div>
+  
+
+  
+  <div class="sidebar-end-items sidebar-primary__section">
+    <div class="sidebar-end-items__item">
+    </div>
+  </div>
+
+  
+  <div id="rtd-footer-container"></div>
+
+      </div>
+      <main id="main-content" class="bd-main">
+        
+        
+        <div class="bd-content">
+          <div class="bd-article-container">
+            
+            <div class="bd-header-article">
+                
             </div>
             
-          
-
-          
-          <div class="d-none d-xl-block col-xl-2 bd-toc">
             
+            <article class="bd-article" role="main">
               
-              <div class="toc-item">
-                
-<div class="tocsection onthispage pt-5 pb-3">
-    <i class="fas fa-list"></i> On this page
-</div>
-
-<nav id="bd-toc-nav">
-    <ul class="visible nav section-nav flex-column">
- <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#What’s-in-a-Quantizer?">
-   What’s in a Quantizer?
-  </a>
- </li>
- <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#Quantization-with-auto-wiring-Dependency-Injection">
-   Quantization with auto-wiring Dependency Injection
-  </a>
- </li>
- <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#A-Practical-Example:-Binary-Quantization">
-   A Practical Example: Binary Quantization
-  </a>
-  <ul class="nav section-nav flex-column">
-   <li class="toc-h3 nav-item toc-entry">
-    <a class="reference internal nav-link" href="#Manual-Binary-Quantization">
-     Manual Binary Quantization
-    </a>
-   </li>
-   <li class="toc-h3 nav-item toc-entry">
-    <a class="reference internal nav-link" href="#Binary-Quantization-with-an-ExtendedInjector">
-     Binary Quantization with an ExtendedInjector
-    </a>
-   </li>
-  </ul>
- </li>
- <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#Inheritance-and-Composition-of-Quantizers">
-   Inheritance and Composition of Quantizers
-  </a>
- </li>
- <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#Interfacing-a-Quantizer-with-a-Quantized-Layer">
-   Interfacing a Quantizer with a Quantized Layer
-  </a>
- </li>
- <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#Passing-a-custom-quantizer-to-QuantIdentity">
-   Passing a custom quantizer to QuantIdentity
-  </a>
- </li>
- <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#A-Custom-Quantizer-initialized-with-Weight-Statistics">
-   A Custom Quantizer initialized with Weight Statistics
-  </a>
- </li>
- <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#Sharing-a-Quantizer">
-   Sharing a Quantizer
-  </a>
-  <ul class="nav section-nav flex-column">
-   <li class="toc-h3 nav-item toc-entry">
-    <a class="reference internal nav-link" href="#Sharing-a-proxy">
-     Sharing a proxy
-    </a>
-   </li>
-   <li class="toc-h3 nav-item toc-entry">
-    <a class="reference internal nav-link" href="#Sharing-an-instance-of-Activation-Quantization">
-     Sharing an instance of Activation Quantization
-    </a>
-   </li>
-  </ul>
- </li>
- <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#Dealing-with-Weight-Initialization">
-   Dealing with Weight Initialization
-  </a>
- </li>
- <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#Building-a-Custom-Quantization-API">
-   Building a Custom Quantization API
-  </a>
- </li>
-</ul>
-
-</nav>
-              </div>
-              
-              <div class="toc-item">
-                
-              </div>
-              
-            
-          </div>
-          
-
-          
-          
-            
-          
-          <main class="col-12 col-md-9 col-xl-7 py-md-5 pl-md-5 pr-md-4 bd-content" role="main">
-              
-              <div>
-                
   
 <style>
 /* CSS for nbsphinx extension */
@@ -503,7 +594,7 @@ div.nboutput.container div.output_area > div[class^='highlight']{
 }
 
 /* hide copybtn icon on prompts (needed for 'sphinx_copybutton') */
-.prompt .copybtn {
+.prompt a.copybtn {
     display: none;
 }
 
@@ -542,9 +633,9 @@ div.rendered_html tbody tr:hover {
 }
 </style>
 <section id="Anatomy-of-a-Quantizer">
-<h1>Anatomy of a Quantizer<a class="headerlink" href="#Anatomy-of-a-Quantizer" title="Permalink to this headline">¶</a></h1>
+<h1>Anatomy of a Quantizer<a class="headerlink" href="#Anatomy-of-a-Quantizer" title="Permalink to this heading">#</a></h1>
 <section id="What’s-in-a-Quantizer?">
-<h2>What’s in a Quantizer?<a class="headerlink" href="#What’s-in-a-Quantizer?" title="Permalink to this headline">¶</a></h2>
+<h2>What’s in a Quantizer?<a class="headerlink" href="#What’s-in-a-Quantizer?" title="Permalink to this heading">#</a></h2>
 <div class="line-block">
 <div class="line">In a broad sense, a quantizer is anything that implements a quantization technique, and the flexibility of Brevitas means that there are different ways to do so.</div>
 <div class="line">However, to keep our terminology straight, we refer to a quantizer as a specific kind of way to implement quantization, the one preferred and adopted by default. That is, a quantizer is a subclass of a <code class="docutils literal notranslate"><span class="pre">brevitas.inject.ExtendedInjector</span></code> that carries a <code class="docutils literal notranslate"><span class="pre">tensor_quant</span></code> attribute, which points to an instance of a torch <code class="docutils literal notranslate"><span class="pre">Module</span></code> that implements quantization.</div>
@@ -554,7 +645,8 @@ div.rendered_html tbody tr:hover {
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">brevitas.inject</span> <span class="kn">import</span> <span class="n">ExtendedInjector</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">brevitas.inject</span> <span class="kn">import</span> <span class="n">ExtendedInjector</span>
 <span class="kn">from</span> <span class="nn">brevitas.quant.scaled_int</span> <span class="kn">import</span> <span class="n">Int8ActPerTensorFloat</span>
 
 <span class="nb">issubclass</span><span class="p">(</span><span class="n">Int8ActPerTensorFloat</span><span class="p">,</span> <span class="n">ExtendedInjector</span><span class="p">)</span>
@@ -574,7 +666,8 @@ True
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">Int8ActPerTensorFloat</span><span class="o">.</span><span class="n">tensor_quant</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">Int8ActPerTensorFloat</span><span class="o">.</span><span class="n">tensor_quant</span>
 </pre></div>
 </div>
 </div>
@@ -617,7 +710,7 @@ RescalingIntQuant(
 <p>Note how we said <em>subclass</em> and not <em>instance</em>. To understand why that’s the case, we have to understand what an <code class="docutils literal notranslate"><span class="pre">ExtendedInjector</span></code> is and why it’s used in the first place.</p>
 </section>
 <section id="Quantization-with-auto-wiring-Dependency-Injection">
-<h2>Quantization with auto-wiring Dependency Injection<a class="headerlink" href="#Quantization-with-auto-wiring-Dependency-Injection" title="Permalink to this headline">¶</a></h2>
+<h2>Quantization with auto-wiring Dependency Injection<a class="headerlink" href="#Quantization-with-auto-wiring-Dependency-Injection" title="Permalink to this heading">#</a></h2>
 <p>Pytorch has exploded in popularity thanks to its straightforward numpy-like <em>define-by-run</em> execution model. However, when it comes to applying quantization, this style of programming poses a problem.</p>
 <p>Many quantization methods depend on making decisions based on the (in Pytorch terms) <code class="docutils literal notranslate"><span class="pre">state_dict</span></code> of the original floating-point model to finetune with quantization. However, when we instantiate a model in Pytorch we can’t know on the spot if a state_dict is going to be loaded a few lines of code later or not. Yet, because Pytorch is define-by-run, we need our model to work consistently both before and after a <code class="docutils literal notranslate"><span class="pre">state_dict</span></code> is possibly loaded. In a traditional scenario that wouldn’t pose a
 problem. However, with quantization in the loop, the way a quantizer is defined might change before and after a pretrained <code class="docutils literal notranslate"><span class="pre">state_dict</span></code> is loaded.</p>
@@ -629,13 +722,14 @@ general is a lossy process, a TorchScript component cannot simply re-compile its
 <p>In the context of Brevitas, the goal is gather all the modules and hyperparameters that contribute to a quantization implementation such that they can be re-assembled automatically on demand. What comes out of this process is a <code class="docutils literal notranslate"><span class="pre">tensor_quant</span></code> object.</p>
 </section>
 <section id="A-Practical-Example:-Binary-Quantization">
-<h2>A Practical Example: Binary Quantization<a class="headerlink" href="#A-Practical-Example:-Binary-Quantization" title="Permalink to this headline">¶</a></h2>
+<h2>A Practical Example: Binary Quantization<a class="headerlink" href="#A-Practical-Example:-Binary-Quantization" title="Permalink to this heading">#</a></h2>
 <p>To make things practical, let’s look at how we can implement a simple variant of binary quantization. All the components typically used to implement quantization can be found under <code class="docutils literal notranslate"><span class="pre">brevitas.core</span></code>. As mentioned before, Brevitas makes heavy use of TorchScript. In particular, all the components found under <code class="docutils literal notranslate"><span class="pre">brevitas.core</span></code> are implemented as <code class="docutils literal notranslate"><span class="pre">ScriptModule</span></code> that can be assembled together. The core <code class="docutils literal notranslate"><span class="pre">ScriptModule</span></code> that implements binarization can be found under <code class="docutils literal notranslate"><span class="pre">brevitas.core.quant</span></code>:</p>
 <div class="nbinput nblast docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">inspect</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">inspect</span>
 <span class="kn">from</span> <span class="nn">IPython.display</span> <span class="kn">import</span> <span class="n">Markdown</span><span class="p">,</span> <span class="n">display</span>
 
 <span class="k">def</span> <span class="nf">pretty_print_source</span><span class="p">(</span><span class="n">source</span><span class="p">):</span>
@@ -647,7 +741,8 @@ general is a lossy process, a TorchScript component cannot simply re-compile its
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">brevitas.core.quant</span> <span class="kn">import</span> <span class="n">BinaryQuant</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">brevitas.core.quant</span> <span class="kn">import</span> <span class="n">BinaryQuant</span>
 
 <span class="n">source</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">getsource</span><span class="p">(</span><span class="n">BinaryQuant</span><span class="p">)</span>
 <span class="n">pretty_print_source</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
@@ -714,18 +809,20 @@ general is a lossy process, a TorchScript component cannot simply re-compile its
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">brevitas.core.scaling</span> <span class="kn">import</span> <span class="n">ParameterScaling</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">brevitas.core.scaling</span> <span class="kn">import</span> <span class="n">ParameterScaling</span>
 </pre></div>
 </div>
 </div>
 <section id="Manual-Binary-Quantization">
-<h3>Manual Binary Quantization<a class="headerlink" href="#Manual-Binary-Quantization" title="Permalink to this headline">¶</a></h3>
+<h3>Manual Binary Quantization<a class="headerlink" href="#Manual-Binary-Quantization" title="Permalink to this heading">#</a></h3>
 <p>As a first step, we simply instantiate <code class="docutils literal notranslate"><span class="pre">BinaryQuant</span></code> with <code class="docutils literal notranslate"><span class="pre">ParameterScaling</span></code> using <code class="docutils literal notranslate"><span class="pre">scaling_init</span></code> equal <em>0.1</em> and we call it on a random floating-point input tensor:</p>
 <div class="nbinput docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">torch</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">torch</span>
 
 <span class="n">manual_tensor_quant</span> <span class="o">=</span> <span class="n">BinaryQuant</span><span class="p">(</span><span class="n">scaling_impl</span><span class="o">=</span><span class="n">ParameterScaling</span><span class="p">(</span><span class="n">scaling_init</span><span class="o">=</span><span class="mf">0.1</span><span class="p">))</span>
 <span class="n">manual_tensor_quant</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
@@ -750,13 +847,14 @@ general is a lossy process, a TorchScript component cannot simply re-compile its
 <p>Nothing too surprising here, as expected the tensor is binarized with the scale factor we defined. Note however how <code class="docutils literal notranslate"><span class="pre">manual_tensor_quant</span></code> is returning a <code class="docutils literal notranslate"><span class="pre">tuple</span></code> and not a <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code>. This is because support for custom data structures in TorchScript is still quite limited, so <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> are allocated only in Python-world abstractions.</p>
 </section>
 <section id="Binary-Quantization-with-an-ExtendedInjector">
-<h3>Binary Quantization with an ExtendedInjector<a class="headerlink" href="#Binary-Quantization-with-an-ExtendedInjector" title="Permalink to this headline">¶</a></h3>
+<h3>Binary Quantization with an ExtendedInjector<a class="headerlink" href="#Binary-Quantization-with-an-ExtendedInjector" title="Permalink to this heading">#</a></h3>
 <p>Let’s now declare <code class="docutils literal notranslate"><span class="pre">tensor_quant</span></code> through an <code class="docutils literal notranslate"><span class="pre">ExtendedInjector</span></code>:</p>
 <div class="nbinput docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">brevitas.inject</span> <span class="kn">import</span> <span class="n">ExtendedInjector</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">brevitas.inject</span> <span class="kn">import</span> <span class="n">ExtendedInjector</span>
 
 <span class="k">class</span> <span class="nc">MyBinaryQuantizer</span><span class="p">(</span><span class="n">ExtendedInjector</span><span class="p">):</span>
     <span class="n">tensor_quant</span> <span class="o">=</span> <span class="n">BinaryQuant</span>
@@ -787,13 +885,14 @@ general is a lossy process, a TorchScript component cannot simply re-compile its
 </section>
 </section>
 <section id="Inheritance-and-Composition-of-Quantizers">
-<h2>Inheritance and Composition of Quantizers<a class="headerlink" href="#Inheritance-and-Composition-of-Quantizers" title="Permalink to this headline">¶</a></h2>
+<h2>Inheritance and Composition of Quantizers<a class="headerlink" href="#Inheritance-and-Composition-of-Quantizers" title="Permalink to this heading">#</a></h2>
 <p>The advantage of expressing a quantizer through a Python class also means that we can leverage both <em>inheritance</em> and <em>composition</em>. So for example we can inherit from <code class="docutils literal notranslate"><span class="pre">MyBinaryQuantizer</span></code> and override <code class="docutils literal notranslate"><span class="pre">scaling_init</span></code> with a new value:</p>
 <div class="nbinput docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">MyChildBinaryQuantizer</span><span class="p">(</span><span class="n">MyBinaryQuantizer</span><span class="p">):</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="k">class</span> <span class="nc">MyChildBinaryQuantizer</span><span class="p">(</span><span class="n">MyBinaryQuantizer</span><span class="p">):</span>
     <span class="n">scaling_init</span><span class="o">=</span><span class="mf">1.0</span>
 
 <span class="n">child_inj_tensor_quant</span> <span class="o">=</span> <span class="n">MyChildBinaryQuantizer</span><span class="o">.</span><span class="n">tensor_quant</span>
@@ -821,7 +920,8 @@ general is a lossy process, a TorchScript component cannot simply re-compile its
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">MyBinaryImpl</span><span class="p">(</span><span class="n">ExtendedInjector</span><span class="p">):</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="k">class</span> <span class="nc">MyBinaryImpl</span><span class="p">(</span><span class="n">ExtendedInjector</span><span class="p">):</span>
     <span class="n">tensor_quant</span> <span class="o">=</span> <span class="n">BinaryQuant</span>
 
 <span class="k">class</span> <span class="nc">MyScalingImpl</span><span class="p">(</span><span class="n">ExtendedInjector</span><span class="p">):</span>
@@ -853,7 +953,7 @@ general is a lossy process, a TorchScript component cannot simply re-compile its
 </div>
 </section>
 <section id="Interfacing-a-Quantizer-with-a-Quantized-Layer">
-<h2>Interfacing a Quantizer with a Quantized Layer<a class="headerlink" href="#Interfacing-a-Quantizer-with-a-Quantized-Layer" title="Permalink to this headline">¶</a></h2>
+<h2>Interfacing a Quantizer with a Quantized Layer<a class="headerlink" href="#Interfacing-a-Quantizer-with-a-Quantized-Layer" title="Permalink to this heading">#</a></h2>
 <p>Before we can pass the quantizer to a quantized layer such as <code class="docutils literal notranslate"><span class="pre">QuantConv2d</span></code>, we need a last component to define, a proxy. A proxy (found under <code class="docutils literal notranslate"><span class="pre">brevitas.proxy</span></code>) is an <code class="docutils literal notranslate"><span class="pre">nn.Module</span></code> that serve as interface between a quantizer and a quantized layer.</p>
 <p>While a quantizer lives mostly in JIT-land, a proxy lives mostly in Python-land, and as such can afford much more flexibility. Proxies take care of returning a <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> and re-initializing the output of quantizer whenever a new <code class="docutils literal notranslate"><span class="pre">state_dict</span></code> is loaded.</p>
 <p>Proxies are specific to the kind of tensor being quantized, as in weights vs biases vs activations. For convenience, they are declared as part of the quantizer itself under the attribute <code class="docutils literal notranslate"><span class="pre">proxy_class</span></code>. For example, for weights we can use <code class="docutils literal notranslate"><span class="pre">WeightQuantProxyFromInjector</span></code>:</p>
@@ -861,7 +961,8 @@ general is a lossy process, a TorchScript component cannot simply re-compile its
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[10]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">brevitas.proxy</span> <span class="kn">import</span> <span class="n">WeightQuantProxyFromInjector</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">brevitas.proxy</span> <span class="kn">import</span> <span class="n">WeightQuantProxyFromInjector</span>
 
 <span class="k">class</span> <span class="nc">MyBinaryWeightQuantizer</span><span class="p">(</span><span class="n">MyBinaryQuantizer</span><span class="p">):</span>
     <span class="n">proxy_class</span> <span class="o">=</span> <span class="n">WeightQuantProxyFromInjector</span>
@@ -873,7 +974,8 @@ general is a lossy process, a TorchScript component cannot simply re-compile its
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[11]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">brevitas.nn</span> <span class="kn">import</span> <span class="n">QuantConv2d</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">brevitas.nn</span> <span class="kn">import</span> <span class="n">QuantConv2d</span>
 
 <span class="n">binary_weight_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">MyBinaryWeightQuantizer</span><span class="p">)</span>
 <span class="n">quant_weight</span> <span class="o">=</span> <span class="n">binary_weight_quant_conv</span><span class="o">.</span><span class="n">quant_weight</span><span class="p">()</span>
@@ -918,7 +1020,8 @@ QuantTensor(value=tensor([[[[ 0.1000,  0.1000, -0.1000],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[12]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">quant_weight</span><span class="o">.</span><span class="n">is_valid</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">quant_weight</span><span class="o">.</span><span class="n">is_valid</span>
 </pre></div>
 </div>
 </div>
@@ -936,7 +1039,8 @@ False
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[13]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">MySignedBinaryWeightQuantizer</span><span class="p">(</span><span class="n">MyBinaryWeightQuantizer</span><span class="p">):</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="k">class</span> <span class="nc">MySignedBinaryWeightQuantizer</span><span class="p">(</span><span class="n">MyBinaryWeightQuantizer</span><span class="p">):</span>
     <span class="n">signed</span> <span class="o">=</span> <span class="kc">True</span>
 
 <span class="n">binary_weight_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">MySignedBinaryWeightQuantizer</span><span class="p">)</span>
@@ -981,7 +1085,8 @@ QuantTensor(value=tensor([[[[ 0.1000,  0.1000, -0.1000],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[14]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">signed_quant_weight</span><span class="o">.</span><span class="n">is_valid</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">signed_quant_weight</span><span class="o">.</span><span class="n">is_valid</span>
 </pre></div>
 </div>
 </div>
@@ -1000,7 +1105,8 @@ True
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[15]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">small_scale_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">MyBinaryWeightQuantizer</span><span class="p">,</span> <span class="n">weight_signed</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">small_scale_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">MyBinaryWeightQuantizer</span><span class="p">,</span> <span class="n">weight_signed</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="n">small_scale_quant_conv</span><span class="o">.</span><span class="n">quant_weight</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -1041,13 +1147,14 @@ QuantTensor(value=tensor([[[[-0.1000,  0.1000,  0.1000],
 <p>This is the reason why, as it was mentioned in the first tutorial, quantized layers can accept arbitrary keyword arguments. It’s really just a way to support different styles of syntax when defining a quantizer.</p>
 </section>
 <section id="Passing-a-custom-quantizer-to-QuantIdentity">
-<h2>Passing a custom quantizer to QuantIdentity<a class="headerlink" href="#Passing-a-custom-quantizer-to-QuantIdentity" title="Permalink to this headline">¶</a></h2>
+<h2>Passing a custom quantizer to QuantIdentity<a class="headerlink" href="#Passing-a-custom-quantizer-to-QuantIdentity" title="Permalink to this heading">#</a></h2>
 <p>We can do a similar thing with quantized activations:</p>
 <div class="nbinput docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[16]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">brevitas.proxy</span> <span class="kn">import</span> <span class="n">ActQuantProxyFromInjector</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">brevitas.proxy</span> <span class="kn">import</span> <span class="n">ActQuantProxyFromInjector</span>
 <span class="kn">from</span> <span class="nn">brevitas.nn</span> <span class="kn">import</span> <span class="n">QuantIdentity</span>
 
 <span class="k">class</span> <span class="nc">MySignedBinaryActQuantizer</span><span class="p">(</span><span class="n">MyBinaryQuantizer</span><span class="p">):</span>
@@ -1076,7 +1183,8 @@ QuantTensor(value=tensor([[ 0.1000,  0.1000,  0.1000, -0.1000],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[17]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">small_scale_binary_identity</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">(</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">small_scale_binary_identity</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">(</span>
     <span class="n">act_quant</span><span class="o">=</span><span class="n">MySignedBinaryActQuantizer</span><span class="p">,</span> <span class="n">scaling_init</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="n">small_scale_binary_identity</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
 </pre></div>
@@ -1096,14 +1204,15 @@ QuantTensor(value=tensor([[ 0.0010,  0.0010,  0.0010, -0.0010],
 </div>
 </section>
 <section id="A-Custom-Quantizer-initialized-with-Weight-Statistics">
-<h2>A Custom Quantizer initialized with Weight Statistics<a class="headerlink" href="#A-Custom-Quantizer-initialized-with-Weight-Statistics" title="Permalink to this headline">¶</a></h2>
+<h2>A Custom Quantizer initialized with Weight Statistics<a class="headerlink" href="#A-Custom-Quantizer-initialized-with-Weight-Statistics" title="Permalink to this heading">#</a></h2>
 <p>So far we have seen use-cases where an <code class="docutils literal notranslate"><span class="pre">ExtendedInjector</span></code> provides, at best, a different kind of syntax to define a quantizer, without any particular other advantage. Let’s now make things a bit more complicated to show the sort of situations where it really shines.</p>
 <p>Let’s say we want to define a binary weight quantizer where <code class="docutils literal notranslate"><span class="pre">scaling_impl</span></code> is still <code class="docutils literal notranslate"><span class="pre">ParameterScaling</span></code>. However, instead of being user-defined, we want <code class="docutils literal notranslate"><span class="pre">scaling_init</span></code> to be the maximum value found in the weight tensor of the quantized layer. To support this sort of use cases where the quantizer depends on the layer, a quantized layer automatically passes itself to all its quantizers under the name of <code class="docutils literal notranslate"><span class="pre">module</span></code>. With only a few lines of code then, we can achieve our goal:</p>
 <div class="nbinput nblast docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[18]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">brevitas.inject</span> <span class="kn">import</span> <span class="n">value</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">brevitas.inject</span> <span class="kn">import</span> <span class="n">value</span>
 
 <span class="k">class</span> <span class="nc">ParamFromMaxWeightQuantizer</span><span class="p">(</span><span class="n">MySignedBinaryWeightQuantizer</span><span class="p">):</span>
 
@@ -1119,7 +1228,8 @@ QuantTensor(value=tensor([[ 0.0010,  0.0010,  0.0010, -0.0010],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[19]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">param_from_max_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">ParamFromMaxWeightQuantizer</span><span class="p">)</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">param_from_max_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">ParamFromMaxWeightQuantizer</span><span class="p">)</span>
 <span class="n">param_from_max_quant_conv</span><span class="o">.</span><span class="n">quant_weight</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -1161,7 +1271,8 @@ QuantTensor(value=tensor([[[[ 0.1890,  0.1890,  0.1890],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[20]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="p">(</span><span class="n">param_from_max_quant_conv</span><span class="o">.</span><span class="n">quant_weight_scale</span><span class="p">()</span> <span class="o">==</span> <span class="n">param_from_max_quant_conv</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span><span class="o">.</span><span class="n">max</span><span class="p">())</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="p">(</span><span class="n">param_from_max_quant_conv</span><span class="o">.</span><span class="n">quant_weight_scale</span><span class="p">()</span> <span class="o">==</span> <span class="n">param_from_max_quant_conv</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span><span class="o">.</span><span class="n">max</span><span class="p">())</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
 </pre></div>
 </div>
 </div>
@@ -1179,7 +1290,8 @@ True
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[21]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">nn</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">nn</span>
 
 <span class="n">float_conv</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
 <span class="n">float_conv</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
@@ -1200,7 +1312,8 @@ tensor(0.1820, grad_fn=&lt;MaxBackward1&gt;)
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[22]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">param_from_max_quant_conv</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">float_conv</span><span class="o">.</span><span class="n">state_dict</span><span class="p">())</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">param_from_max_quant_conv</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">float_conv</span><span class="o">.</span><span class="n">state_dict</span><span class="p">())</span>
 </pre></div>
 </div>
 </div>
@@ -1230,7 +1343,8 @@ tensor(0.1820, grad_fn=&lt;MaxBackward1&gt;)
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[23]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">brevitas</span> <span class="kn">import</span> <span class="n">config</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">brevitas</span> <span class="kn">import</span> <span class="n">config</span>
 <span class="n">config</span><span class="o">.</span><span class="n">IGNORE_MISSING_KEYS</span> <span class="o">=</span> <span class="kc">True</span>
 
 <span class="n">param_from_max_quant_conv</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">float_conv</span><span class="o">.</span><span class="n">state_dict</span><span class="p">())</span>
@@ -1252,7 +1366,8 @@ tensor(0.1820, grad_fn=&lt;MaxBackward1&gt;)
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[24]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">param_from_max_quant_conv</span><span class="o">.</span><span class="n">quant_weight</span><span class="p">()</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">param_from_max_quant_conv</span><span class="o">.</span><span class="n">quant_weight</span><span class="p">()</span>
 </pre></div>
 </div>
 </div>
@@ -1292,14 +1407,15 @@ QuantTensor(value=tensor([[[[-0.1820,  0.1820, -0.1820],
 <p>What happens internally is that after <code class="docutils literal notranslate"><span class="pre">load_state_dict</span></code> is called on the layer, <code class="docutils literal notranslate"><span class="pre">ParamFromMaxWeightQuantizer.tensor_quant</span></code> gets called again to re-initialize <code class="docutils literal notranslate"><span class="pre">BinaryQuant</span></code>, and in turn <code class="docutils literal notranslate"><span class="pre">ParameterScaling</span></code> is re-initialized with a new <code class="docutils literal notranslate"><span class="pre">scaling_init</span></code> value computed based on the updated <code class="docutils literal notranslate"><span class="pre">module.weight</span></code> tensor. This whole process wouldn’t have been possible without an <code class="docutils literal notranslate"><span class="pre">ExtendedInjector</span></code> behind it.</p>
 </section>
 <section id="Sharing-a-Quantizer">
-<h2>Sharing a Quantizer<a class="headerlink" href="#Sharing-a-Quantizer" title="Permalink to this headline">¶</a></h2>
+<h2>Sharing a Quantizer<a class="headerlink" href="#Sharing-a-Quantizer" title="Permalink to this heading">#</a></h2>
 <p>There are two ways to share a quantizer between multiple layers, with importance differences.</p>
 <p>The first one, which we have seen so far, is to simply pass the same ExtendedInjector to multiple layers. What that does is sharing the same quantization strategy among different layers. Each layer still gets its own instance of the quantization implementation.</p>
 <div class="nbinput docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[25]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">quant_conv1</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">MySignedBinaryWeightQuantizer</span><span class="p">)</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">quant_conv1</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">MySignedBinaryWeightQuantizer</span><span class="p">)</span>
 <span class="n">quant_conv2</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">MySignedBinaryWeightQuantizer</span><span class="p">)</span>
 
 <span class="n">quant_conv1</span><span class="o">.</span><span class="n">weight_quant</span> <span class="ow">is</span> <span class="n">quant_conv2</span><span class="o">.</span><span class="n">weight_quant</span>
@@ -1316,13 +1432,14 @@ False
 </pre></div></div>
 </div>
 <section id="Sharing-a-proxy">
-<h3>Sharing a proxy<a class="headerlink" href="#Sharing-a-proxy" title="Permalink to this headline">¶</a></h3>
+<h3>Sharing a proxy<a class="headerlink" href="#Sharing-a-proxy" title="Permalink to this heading">#</a></h3>
 <p>The second one, which we are introducing now, allows to share the same quantization instance among multiple layers. This is done by simply sharing the proxy wrapping it. This can be useful in those scenarios where, for example, we want different layers to share the same scale factor. The syntax goes as follows:</p>
 <div class="nbinput docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[26]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">quant_conv1</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">MySignedBinaryWeightQuantizer</span><span class="p">)</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">quant_conv1</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">MySignedBinaryWeightQuantizer</span><span class="p">)</span>
 <span class="n">quant_conv2</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">quant_conv1</span><span class="o">.</span><span class="n">weight_quant</span><span class="p">)</span>
 
 <span class="n">quant_conv1</span><span class="o">.</span><span class="n">weight_quant</span> <span class="ow">is</span> <span class="n">quant_conv2</span><span class="o">.</span><span class="n">weight_quant</span>
@@ -1342,7 +1459,8 @@ True
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[27]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="p">(</span><span class="n">quant_conv1</span><span class="o">.</span><span class="n">quant_weight_scale</span><span class="p">()</span> <span class="o">==</span> <span class="n">quant_conv2</span><span class="o">.</span><span class="n">quant_weight_scale</span><span class="p">())</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="p">(</span><span class="n">quant_conv1</span><span class="o">.</span><span class="n">quant_weight_scale</span><span class="p">()</span> <span class="o">==</span> <span class="n">quant_conv2</span><span class="o">.</span><span class="n">quant_weight_scale</span><span class="p">())</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
 </pre></div>
 </div>
 </div>
@@ -1360,7 +1478,8 @@ True
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[28]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">SharedParamFromMeanWeightQuantizer</span><span class="p">(</span><span class="n">MySignedBinaryWeightQuantizer</span><span class="p">):</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="k">class</span> <span class="nc">SharedParamFromMeanWeightQuantizer</span><span class="p">(</span><span class="n">MySignedBinaryWeightQuantizer</span><span class="p">):</span>
 
     <span class="nd">@value</span>
     <span class="k">def</span> <span class="nf">scaling_init</span><span class="p">(</span><span class="n">module</span><span class="p">):</span>
@@ -1391,7 +1510,8 @@ False
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[29]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="p">(</span><span class="n">new_quant_conv1_scale</span> <span class="o">==</span> <span class="n">quant_conv2</span><span class="o">.</span><span class="n">quant_weight_scale</span><span class="p">())</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="p">(</span><span class="n">new_quant_conv1_scale</span> <span class="o">==</span> <span class="n">quant_conv2</span><span class="o">.</span><span class="n">quant_weight_scale</span><span class="p">())</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
 </pre></div>
 </div>
 </div>
@@ -1408,7 +1528,7 @@ True
 <p>We can see in this example how Brevitas works consistently with Pytorch’s eager execution model. When we initialize <code class="docutils literal notranslate"><span class="pre">quant_conv1</span></code> we still don’t know that its weight quantizer is going to be shared with <code class="docutils literal notranslate"><span class="pre">quant_conv2</span></code>, and the semantics of Pytorch impose that <code class="docutils literal notranslate"><span class="pre">quant_conv1</span></code> should work correctly both before and after <code class="docutils literal notranslate"><span class="pre">quant_conv2</span></code> is declared. The way we take advantage of dependency injection allows to do so.</p>
 </section>
 <section id="Sharing-an-instance-of-Activation-Quantization">
-<h3>Sharing an instance of Activation Quantization<a class="headerlink" href="#Sharing-an-instance-of-Activation-Quantization" title="Permalink to this headline">¶</a></h3>
+<h3>Sharing an instance of Activation Quantization<a class="headerlink" href="#Sharing-an-instance-of-Activation-Quantization" title="Permalink to this heading">#</a></h3>
 <p>Sharing an instance of activation quantization is easier because for most scenarios it’s enough to simply share the whole layer itself, e.g. calling the same <code class="docutils literal notranslate"><span class="pre">QuantReLU</span></code> from multiple places in the forward pass.</p>
 <div class="line-block">
 <div class="line">For those scenarios where sharing the whole layer is not possible, there is something important to keep in mind. Instances of activation quantization include (for performance reasons) the implementation of the non-linear activation itself (if any). So, for example, using a <code class="docutils literal notranslate"><span class="pre">QuantReLU.act_quant</span></code> to initialize a <code class="docutils literal notranslate"><span class="pre">QuantConv2d.output_quant</span></code> should be avoided as we would not share not only the quantizer, but also the relu activation function.</div>
@@ -1418,14 +1538,15 @@ True
 </section>
 </section>
 <section id="Dealing-with-Weight-Initialization">
-<h2>Dealing with Weight Initialization<a class="headerlink" href="#Dealing-with-Weight-Initialization" title="Permalink to this headline">¶</a></h2>
+<h2>Dealing with Weight Initialization<a class="headerlink" href="#Dealing-with-Weight-Initialization" title="Permalink to this heading">#</a></h2>
 <p>There is a type of situation that Brevitas cannot deal with automatically. That is, when the initialization of the quantizer depends on the layer to which it is applied (like with the <code class="docutils literal notranslate"><span class="pre">ParamFromMaxWeightQuantizer</span></code> or <code class="docutils literal notranslate"><span class="pre">SharedParamFromMeanWeightQuantizer</span></code> quantizers), but the layer gets modified after it is initialized.</p>
 <p>The typical example is with weight initialization when training from scratch (so rather than loading from a floating-point state_dict):</p>
 <div class="nbinput docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[30]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">quant_conv_w_init</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">ParamFromMaxWeightQuantizer</span><span class="p">)</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">quant_conv_w_init</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">ParamFromMaxWeightQuantizer</span><span class="p">)</span>
 <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">init</span><span class="o">.</span><span class="n">uniform_</span><span class="p">(</span><span class="n">quant_conv_w_init</span><span class="o">.</span><span class="n">weight</span><span class="p">)</span>
 
 <span class="p">(</span><span class="n">quant_conv_w_init</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">==</span> <span class="n">quant_conv_w_init</span><span class="o">.</span><span class="n">quant_weight_scale</span><span class="p">())</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
@@ -1446,7 +1567,8 @@ False
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[31]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">quant_conv_w_init</span><span class="o">.</span><span class="n">weight_quant</span><span class="o">.</span><span class="n">init_tensor_quant</span><span class="p">()</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">quant_conv_w_init</span><span class="o">.</span><span class="n">weight_quant</span><span class="o">.</span><span class="n">init_tensor_quant</span><span class="p">()</span>
 
 <span class="p">(</span><span class="n">quant_conv_w_init</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">==</span> <span class="n">quant_conv_w_init</span><span class="o">.</span><span class="n">quant_weight_scale</span><span class="p">())</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
 </pre></div>
@@ -1464,7 +1586,7 @@ True
 <p><em>Note</em>: because the way weights are initialized is often the same as to how an optimizer performs the weight update step, there are currently no plans to try to perform re-initialization automatically (as it happens e.g. when a <code class="docutils literal notranslate"><span class="pre">state_dict</span></code> is loaded) since it wouldn’t be possible to distinguish between the two scenarios.</p>
 </section>
 <section id="Building-a-Custom-Quantization-API">
-<h2>Building a Custom Quantization API<a class="headerlink" href="#Building-a-Custom-Quantization-API" title="Permalink to this headline">¶</a></h2>
+<h2>Building a Custom Quantization API<a class="headerlink" href="#Building-a-Custom-Quantization-API" title="Permalink to this heading">#</a></h2>
 <p>Finally, let’s go through an even more complicated example. We are going to look at a scenario that illustrates the differences between a standard <code class="docutils literal notranslate"><span class="pre">Injector</span></code> (implemented in the dependencies library) and our <code class="docutils literal notranslate"><span class="pre">ExtendedInjector</span></code> extension.</p>
 <p>Let’s say we want to build two quantizers for respectively weights and activations and build a simple API on top of them. In particular, we want to be able to switch between <code class="docutils literal notranslate"><span class="pre">BinaryQuant</span></code> and <code class="docutils literal notranslate"><span class="pre">ClampedBinaryQuant</span></code> (a variant of binary quantization with clamping), and we want to optionally perform <em>per-channel scaling</em>. To do so, we are going to implement the controlling logic through a hierarchy of ExtendedInjector, leaving two boolean flags exposed as arguments of the quantizers, with the
 idea then that the flags can be set through keyword arguments of the respective quantized layers.</p>
@@ -1473,7 +1595,8 @@ idea then that the flags can be set through keyword arguments of the respective 
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[32]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">brevitas.core.quant</span> <span class="kn">import</span> <span class="n">ClampedBinaryQuant</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">brevitas.core.quant</span> <span class="kn">import</span> <span class="n">ClampedBinaryQuant</span>
 <span class="kn">from</span> <span class="nn">brevitas.proxy</span> <span class="kn">import</span> <span class="n">WeightQuantProxyFromInjector</span><span class="p">,</span> <span class="n">ActQuantProxyFromInjector</span>
 <span class="kn">from</span> <span class="nn">brevitas.inject</span> <span class="kn">import</span> <span class="n">this</span>
 
@@ -1531,7 +1654,8 @@ idea then that the flags can be set through keyword arguments of the respective 
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[33]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">per_channel_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">per_channel_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span>
     <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
     <span class="n">weight_quant</span><span class="o">=</span><span class="n">AdvancedWeightQuantizer</span><span class="p">,</span>
     <span class="n">weight_is_clamped</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
@@ -1580,7 +1704,8 @@ QuantTensor(value=tensor([[[[-0.1841, -0.1841, -0.1841],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[34]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">per_channel_quant_conv</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">float_conv</span><span class="o">.</span><span class="n">state_dict</span><span class="p">())</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">per_channel_quant_conv</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">float_conv</span><span class="o">.</span><span class="n">state_dict</span><span class="p">())</span>
 <span class="n">per_channel_quant_conv</span><span class="o">.</span><span class="n">quant_weight</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -1626,7 +1751,8 @@ QuantTensor(value=tensor([[[[-0.1774,  0.1774, -0.1774],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[35]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">brevitas.nn</span> <span class="kn">import</span> <span class="n">QuantIdentity</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">brevitas.nn</span> <span class="kn">import</span> <span class="n">QuantIdentity</span>
 
 <span class="n">quant_identity</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">(</span>
     <span class="n">act_quant</span><span class="o">=</span><span class="n">AdvancedActQuantizer</span><span class="p">,</span> <span class="n">is_clamped</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">scaling_per_output_channel</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
@@ -1651,7 +1777,8 @@ tensor([[ 0.0100, -0.0100, -0.0100,  0.0100],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[36]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">brevitas.nn</span> <span class="kn">import</span> <span class="n">QuantIdentity</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">brevitas.nn</span> <span class="kn">import</span> <span class="n">QuantIdentity</span>
 
 <span class="n">quant_identity</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">(</span>
     <span class="n">act_quant</span><span class="o">=</span><span class="n">AdvancedActQuantizer</span><span class="p">,</span> <span class="n">is_clamped</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">scaling_per_output_channel</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -1744,7 +1871,8 @@ tensor([[ 0.0100, -0.0100, -0.0100,  0.0100],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[37]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">quant_identity</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">(</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">quant_identity</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">(</span>
     <span class="n">act_quant</span><span class="o">=</span><span class="n">AdvancedActQuantizer</span><span class="p">,</span> <span class="n">is_clamped</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">scaling_per_output_channel</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
     <span class="n">per_channel_broadcastable_shape</span><span class="o">=</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="n">quant_identity</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
@@ -1771,50 +1899,192 @@ QuantTensor(value=tensor([[ 0.0100,  0.0100, -0.0100, -0.0100],
 </section>
 
 
-              </div>
+            </article>
+            
+            
+            
+            <footer class="bd-footer-article">
+                <!-- Previous / next buttons -->
+<div class='prev-next-area'>
+  <a class='left-prev' id="prev-link" href="quant_activation_overview.html" title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+          <p class="prev-next-subtitle">previous</p>
+          <p class="prev-next-title">An Overview of Quantized Activations</p>
+      </div>
+  </a>
+  <a class='right-next' id="next-link" href="quant_recurrent.html" title="next page">
+  <div class="prev-next-info">
+      <p class="prev-next-subtitle">next</p>
+      <p class="prev-next-title">Quantized RNNs and LSTMs</p>
+  </div>
+  <i class="fa-solid fa-angle-right"></i>
+  </a>
+</div>
+            </footer>
+            
+          </div>
+          
+          
+          
+            <div class="bd-sidebar-secondary bd-toc">
               
-              
-              <!-- Previous / next buttons -->
-<div class='prev-next-area'> 
-    <a class='left-prev' id="prev-link" href="quant_activation_overview.html" title="previous page">
-        <i class="fas fa-angle-left"></i>
-        <div class="prev-next-info">
-            <p class="prev-next-subtitle">previous</p>
-            <p class="prev-next-title">An Overview of Quantized Activations</p>
-        </div>
+<div class="toc-item">
+  
+<div class="tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+</div>
+<nav id="bd-toc-nav" class="page-toc">
+    <ul class="visible nav section-nav flex-column">
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#What’s-in-a-Quantizer?">
+   What’s in a Quantizer?
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#Quantization-with-auto-wiring-Dependency-Injection">
+   Quantization with auto-wiring Dependency Injection
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#A-Practical-Example:-Binary-Quantization">
+   A Practical Example: Binary Quantization
+  </a>
+  <ul class="nav section-nav flex-column">
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#Manual-Binary-Quantization">
+     Manual Binary Quantization
     </a>
-    <a class='right-next' id="next-link" href="../api_reference/index.html" title="next page">
-    <div class="prev-next-info">
-        <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">API reference</p>
-    </div>
-    <i class="fas fa-angle-right"></i>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#Binary-Quantization-with-an-ExtendedInjector">
+     Binary Quantization with an ExtendedInjector
+    </a>
+   </li>
+  </ul>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#Inheritance-and-Composition-of-Quantizers">
+   Inheritance and Composition of Quantizers
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#Interfacing-a-Quantizer-with-a-Quantized-Layer">
+   Interfacing a Quantizer with a Quantized Layer
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#Passing-a-custom-quantizer-to-QuantIdentity">
+   Passing a custom quantizer to QuantIdentity
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#A-Custom-Quantizer-initialized-with-Weight-Statistics">
+   A Custom Quantizer initialized with Weight Statistics
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#Sharing-a-Quantizer">
+   Sharing a Quantizer
+  </a>
+  <ul class="nav section-nav flex-column">
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#Sharing-a-proxy">
+     Sharing a proxy
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#Sharing-an-instance-of-Activation-Quantization">
+     Sharing an instance of Activation Quantization
+    </a>
+   </li>
+  </ul>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#Dealing-with-Weight-Initialization">
+   Dealing with Weight Initialization
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#Building-a-Custom-Quantization-API">
+   Building a Custom Quantization API
+  </a>
+ </li>
+</ul>
+
+</nav>
+</div>
+
+<div class="toc-item">
+  
+<div id="searchbox"></div>
+</div>
+
+<div class="toc-item">
+  
+</div>
+
+<div class="toc-item">
+  
+<div class="tocsection sourcelink">
+    <a href="../_sources/tutorials/anatomy_quantizer.nblink.txt">
+        <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
 </div>
-              
-          </main>
-          
 
-      </div>
+</div>
+
+            </div>
+          
+          
+        </div>
+        <footer class="bd-footer-content">
+          <div class="bd-footer-content__inner">
+            
+          </div>
+        </footer>
+        
+      </main>
     </div>
-  
-  <script src="../_static/js/index.be7d3bbb2ef33a8344ce.js"></script>
-<footer class="footer mt-5 mt-md-0">
-  <div class="container">
-    
-    <div class="footer-item">
-      <p class="copyright">
-    &copy; Copyright 2022 - Xilinx, Inc.<br>
-</p>
-    </div>
-    
-    <div class="footer-item">
-      <p class="sphinx-version">
-Created using <a href="http://sphinx-doc.org/">Sphinx</a> 4.3.2.<br>
-</p>
-    </div>
-    
   </div>
-</footer>
+
+  
+    
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../_static/scripts/bootstrap.js?digest=796348d33e8b1d947c94"></script>
+<script src="../_static/scripts/pydata-sphinx-theme.js?digest=796348d33e8b1d947c94"></script>
+
+  <footer class="bd-footer"><div class="bd-footer__inner container">
+  
+  <div class="footer-item">
+    
+<p class="copyright">
+
+    &copy; Copyright 2023 - Advanced Micro Devices, Inc..<br>
+
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    <p class="theme-version">
+    Built with the
+    <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">
+        PyData Sphinx Theme
+    </a>
+    0.12.0.
+</p>
+  </div>
+  
+  <div class="footer-item">
+    
+<p class="sphinx-version">
+Created using <a href="http://sphinx-doc.org/">Sphinx</a> 5.3.0.<br>
+</p>
+
+  </div>
+  
+</div>
+  </footer>
   </body>
 </html>
