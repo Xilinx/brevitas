@@ -8,8 +8,8 @@ Requirements
 Installation Requirements
 '''''''''''''''''''''''''
 
--  Python >= 3.6.
--  `Pytorch`_ >= 1.5.0 .
+-  Python >= 3.7.
+-  `Pytorch`_ >= 1.5.1 .
 -  Windows, Linux or macOS.
 -  GPU training-time acceleration (*optional* but recommended).
 
@@ -44,7 +44,7 @@ Optional Training Requirements
 Brevitas implements a small set of custom ``torch.autograd.Function`` both in Python and in C++.
 
 By default, the Python implementation is adopted.The C++ implementation is there to support end-to-end compilation of a training-time quantizer when the jit is enabled (with the env variable BREVITAS_JIT=1).
-This is because jit compilation of a custom Python ``torch.autograd.Function`` is currently not supported by PyTorch (as of version 1.8.1).
+This is because jit compilation of a custom Python ``torch.autograd.Function`` is currently not supported by PyTorch (as of LTS version 1.8.1).
 
 While end-to-end compilation of a quantizer can provide (very small) benefits in terms of training performances, it's almost never necessary, 
 except for some distributed training scenarios with ``BREVITAS_JIT=1``.
@@ -62,12 +62,10 @@ Efficient quantized inference requires to export a trained quantized model to an
 
 - `FINN`_: for generation of custom FPGA dataflow accelerators.
 - `ONNXRuntime`_: for integration with standard ONNX-based toolchains.
-- `Vitis-AI`_: for integration with XIR and PyXIR based toolchains.
 
 
 .. _Pytorch: https://pytorch.org
 .. _FINN: https://xilinx.github.io/finn/
-.. _Vitis-AI: https://github.com/Xilinx/Vitis-AI
 .. _ONNXRuntime: https://github.com/Microsoft/ONNXRuntime
 
 
