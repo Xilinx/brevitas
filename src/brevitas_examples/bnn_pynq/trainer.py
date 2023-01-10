@@ -1,31 +1,15 @@
-# MIT License
-#
-# Copyright (c) 2019 Xilinx
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
+# Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+
 
 import random
 import os
 import time
 from datetime import datetime
+from packaging.version import parse
 
 import torch
+import torchvision
 import torch.optim as optim
 from torch import nn
 from torch.optim.lr_scheduler import MultiStepLR
@@ -40,19 +24,18 @@ from .models.losses import SqrHingeLoss
 
 class MirrorMNIST(MNIST):
 
-    resources = [
-        ("https://ossci-datasets.s3.amazonaws.com/mnist/train-images-idx3-ubyte.gz",
-         "f68b3c2dcbeaaa9fbdd348bbdeb94873"),
-        ("https://ossci-datasets.s3.amazonaws.com/mnist/train-labels-idx1-ubyte.gz",
-         "d53e105ee54ea40749a09fcbcd1e9432"),
-        ("https://ossci-datasets.s3.amazonaws.com/mnist/t10k-images-idx3-ubyte.gz",
-         "9fb629c4189551a2d022fa330f9573f3"),
-        ("https://ossci-datasets.s3.amazonaws.com/mnist/t10k-labels-idx1-ubyte.gz",
-         "ec29112dd5afa0611ce80d1b7f02629c")
-    ]
+    if parse(torchvision.__version__) < parse('0.9.1'):
 
-    # required by torchvision <= 0.4.2
-    urls = [l for l, h in resources]
+        resources = [
+            ("https://ossci-datasets.s3.amazonaws.com/mnist/train-images-idx3-ubyte.gz",
+            "f68b3c2dcbeaaa9fbdd348bbdeb94873"),
+            ("https://ossci-datasets.s3.amazonaws.com/mnist/train-labels-idx1-ubyte.gz",
+            "d53e105ee54ea40749a09fcbcd1e9432"),
+            ("https://ossci-datasets.s3.amazonaws.com/mnist/t10k-images-idx3-ubyte.gz",
+            "9fb629c4189551a2d022fa330f9573f3"),
+            ("https://ossci-datasets.s3.amazonaws.com/mnist/t10k-labels-idx1-ubyte.gz",
+            "ec29112dd5afa0611ce80d1b7f02629c")
+        ]
 
 
 def accuracy(output, target, topk=(1,)):

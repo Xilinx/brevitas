@@ -1,3 +1,7 @@
+# Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+
+
 from typing import Tuple, Optional, Union
 from packaging import version
 
@@ -21,11 +25,11 @@ from .handler.act import StdQOpONNXQuantTanhHandler
 from .handler.act import StdQOpONNXQuantSigmoidHandler
 from .handler.pool import StdQOpONNXQuantMaxPool1d
 from .handler.pool import StdQOpONNXQuantMaxPool2d
-from .. import OPSET
-from ..function import QuantizeLinearFn, DequantizeLinearFn
+from ..function import QuantizeLinearFn, DequantizeLinearFn, IntClipFn
+from ..manager import StdONNXBaseManager
 
 
-class StdQOpONNXManager(ONNXBaseManager):
+class StdQOpONNXManager(StdONNXBaseManager):
     target_name = 'StdQOpONNX'
 
     _fn_to_cache = [
@@ -57,11 +61,6 @@ class StdQOpONNXManager(ONNXBaseManager):
         "eliminate_unused_initializer"]
 
     @classmethod
-    def solve_enable_onnx_checker(cls, export_kwargs):
-        if torch_version >= version.parse('1.5.0'):
-            export_kwargs['enable_onnx_checker'] = True
-
-    @classmethod
     def _trace_fn_dispatcher(cls, fn, input, *args, **kwargs):
         cached_io = cls._fn_cache.pop(0)
         if cached_io is not None:
@@ -72,9 +71,12 @@ class StdQOpONNXManager(ONNXBaseManager):
                 input = DequantizeLinearFn.apply(input, *deq_kwargs.values())
             output = fn(input, *args, **kwargs)
             if cached_out is not None:
-                q_kwargs = StdQOpONNXQuantLayerHandler.quant_symbolic_kwargs_from_cached_io(
+                out_kwargs = StdQOpONNXQuantLayerHandler.quant_symbolic_kwargs_from_cached_io(
                     cached_out)
+                q_kwargs, int_clip_kwargs = out_kwargs
                 output = QuantizeLinearFn.apply(output, *q_kwargs.values())
+                if int_clip_kwargs is not None:
+                    output = IntClipFn.apply(output, *int_clip_kwargs.values())
         else:
             output = fn(input, *args, **kwargs)
         return output
@@ -87,16 +89,3 @@ class StdQOpONNXManager(ONNXBaseManager):
     def set_export_handler(cls, module: Module):
         _set_layer_export_handler(cls, module)
 
-    @classmethod
-    def export_onnx(
-            cls,
-            module: Module,
-            input_shape: Tuple[int, ...] = None,
-            export_path: Optional[str] = None,
-            input_t: Optional[Union[Tensor, QuantTensor]] = None,
-            disable_warnings=True,
-            **kwargs):
-        output = super().export_onnx(
-            module, input_shape, export_path, input_t,
-            disable_warnings=disable_warnings, opset_version=OPSET, **kwargs)
-        return output

@@ -10,7 +10,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     strategy:
-      fail-fast: false
+&{strategy}
       matrix:
 &{matrix}
 &{exclude}

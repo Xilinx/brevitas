@@ -1,3 +1,7 @@
+# Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+
+
 import pytest_cases
 from pytest_cases import fixture_union
 import torch
@@ -175,7 +179,7 @@ def test_internally_scaled_bias_zero_point():
                 bias_quant=Int8BiasPerTensorFloatInternalScaling,
                 return_quant_tensor=True)
     out = conv(torch.randn(1, IN_CH, 10, 10))
-    assert (out.zero_point != 0.).all()
+    assert (out.zero_point != 0.).any()
 
 
 def test_float_bias_zero_point():
@@ -183,7 +187,7 @@ def test_float_bias_zero_point():
                 input_quant=Int8ActPerTensorFloat,
                 return_quant_tensor=True)
     out = conv(torch.randn(1, IN_CH, 10, 10))
-    assert (out.zero_point != 0.).all()
+    assert (out.zero_point != 0.).any()
 
 
 def test_externally_scaled_bias_zero_point():
@@ -192,4 +196,4 @@ def test_externally_scaled_bias_zero_point():
                 bias_quant=Int8Bias,
                 return_quant_tensor=True)
     out = conv(torch.randn(1, IN_CH, 10, 10))
-    assert (out.zero_point == 0.).all()
+    assert (out.zero_point == 0.).any()

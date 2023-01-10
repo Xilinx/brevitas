@@ -1,44 +1,8 @@
-# Copyright (c) 2018-     Xilinx, Inc              (Alessandro Pappalardo)
-# Copyright (c) 2016-     Facebook, Inc            (Adam Paszke)
-# Copyright (c) 2014-     Facebook, Inc            (Soumith Chintala)
-# Copyright (c) 2011-2014 Idiap Research Institute (Ronan Collobert)
-# Copyright (c) 2012-2014 Deepmind Technologies    (Koray Kavukcuoglu)
-# Copyright (c) 2011-2012 NEC Laboratories America (Koray Kavukcuoglu)
-# Copyright (c) 2011-2013 NYU                      (Clement Farabet)
-# Copyright (c) 2006-2010 NEC Laboratories America (Ronan Collobert, Leon Bottou, Iain Melvin, Jason Weston)
-# Copyright (c) 2006      Idiap Research Institute (Samy Bengio)
-# Copyright (c) 2001-2004 Idiap Research Institute (Ronan Collobert, Samy Bengio, Johnny Mariethoz)
+# Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
 
-# All rights reserved.
 
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-
-# 1. Redistributions of source code must retain the above copyright
-#    notice, this list of conditions and the following disclaimer.
-
-# 2. Redistributions in binary form must reproduce the above copyright
-#    notice, this list of conditions and the following disclaimer in the
-#    documentation and/or other materials provided with the distribution.
-
-# 3. Neither the names of Xilinx, Facebook, Deepmind Technologies, NYU,
-#    NEC Laboratories America and IDIAP Research Institute nor the names
-#    of its contributors may be used to endorse or promote products derived
-#    from this software without specific prior written permission.
-
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
-# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
-
-from typing import Optional, Union
+from typing import Optional, Union, Tuple
 from typing_extensions import Protocol, runtime_checkable
 
 from torch import Tensor, nn
@@ -61,9 +25,14 @@ __all__ = [
 
 
 def _is_passthrough_act(quant_injector):
-    if 'passthrough_act' in quant_injector:
+    if 'act_impl' not in quant_injector:
+        return True
+    elif quant_injector.act_impl is None:
+        return True
+    elif 'passthrough_act' in quant_injector:
         return quant_injector.passthrough_act
-    return False
+    else:
+        return False
 
 
 def _is_act_enabled(act_impl, tensor_quant):
@@ -90,6 +59,17 @@ class AccQuantProxyProtocol(QuantProxyProtocol, Protocol):
         ...
 
 
+class _TensorQuantDisabledIdentity(brevitas.jit.ScriptModule):
+
+    def __init__(self, module_to_wrap=None):
+        super(_TensorQuantDisabledIdentity, self).__init__()
+
+    @brevitas.jit.script_method
+    def forward(self, x: Tensor) -> Tuple[
+            Tensor, Optional[Tensor], Optional[Tensor], Optional[Tensor]]:
+        return (x, None, None, None)
+
+
 class FusedActivationQuantProxy(brevitas.jit.ScriptModule):
 
     def __init__(self, activation_impl, tensor_quant):
@@ -107,7 +87,8 @@ class FusedActivationQuantProxy(brevitas.jit.ScriptModule):
 class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
 
     def __init__(self, quant_layer, quant_injector):
-        super(ActQuantProxyFromInjector, self).__init__(quant_layer, quant_injector)
+        QuantProxyFromInjector.__init__(self, quant_layer, quant_injector)
+        ActQuantProxyProtocol.__init__(self)
         self.is_passthrough_act = _is_passthrough_act(quant_injector)
 
     @property
@@ -120,7 +101,10 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
 
     def init_tensor_quant(self):
         tensor_quant = self.quant_injector.tensor_quant
-        act_impl = self.quant_injector.act_impl
+        if 'act_impl' in self.quant_injector:
+            act_impl = self.quant_injector.act_impl 
+        else: 
+            act_impl = None
         is_act_enabled = _is_act_enabled(act_impl, tensor_quant)
         is_quant_enabled = tensor_quant is not None
         self.is_quant_enabled = is_quant_enabled
@@ -128,7 +112,8 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
             self.fused_activation_quant_proxy = FusedActivationQuantProxy(
                 act_impl, tensor_quant)
         elif is_act_enabled and not is_quant_enabled:
-            self.fused_activation_quant_proxy = act_impl
+            self.fused_activation_quant_proxy = FusedActivationQuantProxy(
+                act_impl, _TensorQuantDisabledIdentity())
         elif not is_act_enabled and is_quant_enabled:
             self.fused_activation_quant_proxy = FusedActivationQuantProxy(
                 Identity(), tensor_quant)
@@ -200,8 +185,12 @@ class TruncQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
 
     def forward(self, x: QuantTensor):
         if self.is_quant_enabled:
-            impl = self.export_handler if self.export_mode else self.tensor_quant
-            out_tuple = impl(x.value, x.scale, x.zero_point, x.bit_width)
+            if self.export_mode:
+                out_tuple = self.export_handler(
+                    x.value, x.scale, x.zero_point, x.bit_width, x.signed)
+            else:
+                out_tuple = self.tensor_quant(
+                    x.value, x.scale, x.zero_point, x.bit_width)
             out_value, out_scale, out_zp, out_bit_width = out_tuple
             return QuantTensor(
                 out_value, out_scale, out_zp, out_bit_width, x.signed, self.training)

@@ -1,9 +1,2 @@
-from packaging import version
-
-from brevitas import torch_version
-
-
-if torch_version >= version.parse('1.3.0'):
-    OPSET = 11
-else:
-    OPSET = 10
+# Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause

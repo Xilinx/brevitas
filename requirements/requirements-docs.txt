@@ -1,5 +1,9 @@
 pydata-sphinx-theme
 m2r2
+sphinx==5.3.0
 sphinxemoji
 sphinxcontrib-napoleon
 sphinx-autodoc-typehints
+nbsphinx
+nbsphinx-link
+sphinx-gallery==0.10.1

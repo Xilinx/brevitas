@@ -103,7 +103,7 @@ class ConvBlock(nn.Module):
             act_quant=CommonUintActQuant,
             bit_width=act_bit_width,
             per_channel_broadcastable_shape=(1, out_channels, 1, 1),
-            scaling_per_channel=activation_scaling_per_channel,
+            scaling_per_output_channel=activation_scaling_per_channel,
             return_quant_tensor=True)
 
     def forward(self, x):

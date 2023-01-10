@@ -1,10 +1,11 @@
-import torch
+# Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+
+
 from torch.autograd import Function
+from brevitas.export.onnx import onnx_export_opset
 
-from . import OPSET
-
-
-AXIS_OPSET = 11
+AXIS_OPSET = 13
 
 
 class DequantizeLinearFn(Function):
@@ -15,7 +16,11 @@ class DequantizeLinearFn(Function):
             input_scale,
             input_zero_point,
             input_axis):
-        if input_axis is not None and OPSET >= AXIS_OPSET:
+        opset_version = onnx_export_opset()
+        
+        if input_axis is not None and opset_version < AXIS_OPSET:
+            raise RuntimeError('ONNX Opset 13 is required for per-channel quantization')
+        elif input_axis is not None and opset_version >= AXIS_OPSET:
             ret = g.op(
                 'DequantizeLinear', x,
                 input_scale,
@@ -37,6 +42,25 @@ class DequantizeLinearFn(Function):
         return int_x.float()
 
 
+class IntClipFn(Function):
+
+    @staticmethod
+    def symbolic(
+            g, int_x,
+            min_int_val,
+            max_int_val):
+        ret = g.op(
+            'Clip', int_x, min_int_val, max_int_val)
+        return ret
+
+    @staticmethod
+    def forward(
+            ctx, int_x,
+            min_int_val,
+            max_int_val):
+        return int_x
+
+
 class QuantizeLinearFn(Function):
 
     @staticmethod
@@ -46,7 +70,11 @@ class QuantizeLinearFn(Function):
             ouput_zero_point,
             output_dtype,
             output_axis):
-        if output_axis is not None and OPSET >= AXIS_OPSET:
+        opset_version = onnx_export_opset()
+        
+        if output_axis is not None and opset_version < AXIS_OPSET:
+            raise RuntimeError('ONNX Opset 13 is required for per-channel quantization')
+        elif output_axis is not None and opset_version >= AXIS_OPSET:
             ret = g.op(
                 'QuantizeLinear', x,
                 output_scale,

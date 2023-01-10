@@ -1,5 +1,8 @@
-# -*- coding: future_annotations -*-
+# Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
 
+
+from __future__ import annotations
 from abc import ABC
 from typing import Tuple, Union, Optional, TYPE_CHECKING
 

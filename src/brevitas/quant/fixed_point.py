@@ -1,3 +1,7 @@
+# Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+
+
 from brevitas.core.function_wrapper.ops_ste import CeilSte
 from brevitas.core.scaling import PowerOfTwoIntScaling
 from brevitas.core.restrict_val import PowerOfTwoRestrictValue

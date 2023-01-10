@@ -1,3 +1,7 @@
+# Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+
+
 from typing import Optional
 import torch
 
@@ -8,7 +12,7 @@ VALUE_ATTR_NAME = 'value'
 
 @torch.jit.ignore
 def inplace_tensor_add(tensor: torch.Tensor, value: torch.Tensor) -> torch.Tensor:
-    tensor.mul_(value)
+    tensor.add_(value)
     return tensor
 
 
@@ -53,6 +57,7 @@ class StatelessBuffer(brevitas.jit.ScriptModule):
             missing_keys.remove(value_key)
 
     def state_dict(self, destination=None, prefix='', keep_vars=False):
-        output_dict = super(StatelessBuffer, self).state_dict(destination, prefix, keep_vars)
+        output_dict = super(StatelessBuffer, self).state_dict(
+            destination=destination, prefix=prefix, keep_vars=keep_vars)
         del output_dict[prefix + VALUE_ATTR_NAME]
         return output_dict

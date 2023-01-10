@@ -1,9 +1,13 @@
+# Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+
+
 import torch
 
 RTOL = 0
 ATOL = 1e-23
 
-FP_BIT_WIDTH = 32
+FP32_BIT_WIDTH = 32
 MIN_INT_BIT_WIDTH = 2
 MAX_INT_BIT_WIDTH = 8
 INT_BIT_WIDTH_TO_TEST = range(MIN_INT_BIT_WIDTH, MAX_INT_BIT_WIDTH + 1)

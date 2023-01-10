@@ -19,6 +19,10 @@ if "%1" == "github" (
     goto end
 )
 
+if "%1" == "livehtml" (
+    sphinx-autobuild %SOURCEDIR% %BUILDDIR% %SPHINXOPTS%
+)
+
 %SPHINXBUILD% >NUL 2>NUL
 if errorlevel 9009 (
 	echo.

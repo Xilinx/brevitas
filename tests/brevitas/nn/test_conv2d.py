@@ -1,3 +1,7 @@
+# Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+
+
 from torch.nn import Module, Conv2d, BatchNorm2d
 
 from brevitas.nn import QuantConv2d

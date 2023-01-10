@@ -1,3 +1,7 @@
+# Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+
+
 import os
 from distutils.util import strtobool
 try:
@@ -9,9 +13,11 @@ except ImportError:
 def env_to_bool(name, default):
     return bool(strtobool(os.environ.get(name, "{}".format(default))))
 
-
+REINIT_ON_STATE_DICT_LOAD = env_to_bool('BREVITAS_REINIT_ON_STATE_DICT_LOAD', True)
 IGNORE_MISSING_KEYS = env_to_bool('BREVITAS_IGNORE_MISSING_KEYS', False)
+# JIT_ENABLED triggers NATIVE_STE_BACKEND_ENABLED to True, but not the other way around
 JIT_ENABLED = env_to_bool('BREVITAS_JIT', False) and _enabled
+NATIVE_STE_BACKEND_ENABLED = env_to_bool('BREVITAS_NATIVE_STE_BACKEND', False)
 VERBOSE = env_to_bool('BREVITAS_VERBOSE', False)
 
 # Internal global variables

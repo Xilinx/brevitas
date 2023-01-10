@@ -1,4 +1,4 @@
-# Copyright (c) 2018-     Xilinx, Inc              (Alessandro Pappalardo)
+# Copyright (c) 2023-     Advanced Micro Devices, Inc. (Alessandro Pappalardo)
 # Copyright (c) 2016-     Facebook, Inc            (Adam Paszke)
 # Copyright (c) 2014-     Facebook, Inc            (Soumith Chintala)
 # Copyright (c) 2011-2014 Idiap Research Institute (Ronan Collobert)

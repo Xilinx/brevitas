@@ -1,20 +1,24 @@
+# Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+
+
 from platform import system
 
 import pytest
 from packaging.version import parse
 import numpy as np
 import torch
-import finn.core.onnx_exec as oxe
-from finn.core.modelwrapper import ModelWrapper
-from finn.transformation.fold_constants import FoldConstants
-from finn.transformation.infer_shapes import InferShapes
-from finn.transformation.general import GiveUniqueNodeNames
-from finn.transformation.general import RemoveStaticGraphInputs
-from finn.transformation.double_to_single_float import DoubleToSingleFloat
+import qonnx.core.onnx_exec as oxe
+from qonnx.core.modelwrapper import ModelWrapper
+from qonnx.transformation.fold_constants import FoldConstants
+from qonnx.transformation.infer_shapes import InferShapes
+from qonnx.transformation.general import GiveUniqueNodeNames
+from qonnx.transformation.general import RemoveStaticGraphInputs
+from qonnx.transformation.double_to_single_float import DoubleToSingleFloat
 
 from brevitas import torch_version
 from brevitas_examples.imagenet_classification import quant_mobilenet_v1_4b
-from brevitas.export import FINNManager
+from brevitas.export import export_finn_onnx
 
 ort_mac_fail = pytest.mark.skipif(
     torch_version >= parse('1.5.0')
@@ -40,7 +44,7 @@ def test_mobilenet_v1_4b(pretrained):
     torch_tensor = torch.from_numpy(numpy_tensor).float()
     # do forward pass in PyTorch/Brevitas
     expected = mobilenet(torch_tensor).detach().numpy()
-    FINNManager.export_onnx(mobilenet, INPUT_SIZE, finn_onnx)
+    export_finn_onnx(mobilenet, input_shape=INPUT_SIZE, export_path=finn_onnx)
     model = ModelWrapper(finn_onnx)
     model = model.transform(GiveUniqueNodeNames())
     model = model.transform(DoubleToSingleFloat())

@@ -1,7 +1,5 @@
-torch>=1.1.0
+torch>=1.5.1
 packaging
 setuptools
-future-annotations
 dependencies==2.0.1
 typing-extensions>=3.7.4
-dataclasses; python_version < '3.7'

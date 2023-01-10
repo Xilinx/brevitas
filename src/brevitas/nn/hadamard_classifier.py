@@ -1,6 +1,7 @@
-#
+# Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
 # Based on: https://arxiv.org/abs/1801.04540
-#
+
 
 import torch.nn as nn
 import math
@@ -77,7 +78,8 @@ class HadamardClassifier(QuantLayerMixin, nn.Module):
         return output_bit_width
 
     def state_dict(self, destination=None, prefix='', keep_vars=False):
-        state_dict = super(HadamardClassifier, self).state_dict(destination, prefix, keep_vars)
+        state_dict = super(HadamardClassifier, self).state_dict(
+            destination=destination, prefix=prefix, keep_vars=keep_vars)
         del state_dict[prefix + 'proj']
         return state_dict
 

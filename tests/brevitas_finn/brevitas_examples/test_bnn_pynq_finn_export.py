@@ -1,47 +1,24 @@
-# Copyright (c) 2020, Xilinx
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-#
-# * Redistributions of source code must retain the above copyright notice, this
-#   list of conditions and the following disclaimer.
-#
-# * Redistributions in binary form must reproduce the above copyright notice,
-#   this list of conditions and the following disclaimer in the documentation
-#   and/or other materials provided with the distribution.
-#
-# * Neither the name of FINN nor the names of its
-#   contributors may be used to endorse or promote products derived from
-#   this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
+# Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
 # Adapted from: https://github.com/Xilinx/finn/blob/master/tests/brevitas/test_brevitas_fc.py
 
+
 import pytest
+from packaging import version
 
 import numpy as np
 import torch
-import finn.core.onnx_exec as oxe
-from finn.core.modelwrapper import ModelWrapper
-from finn.transformation.fold_constants import FoldConstants
-from finn.transformation.infer_shapes import InferShapes
-from finn.transformation.general import GiveUniqueNodeNames
-from finn.transformation.general import RemoveStaticGraphInputs
-from finn.transformation.double_to_single_float import DoubleToSingleFloat
+import qonnx.core.onnx_exec as oxe
+from qonnx.core.modelwrapper import ModelWrapper
+from qonnx.transformation.fold_constants import FoldConstants
+from qonnx.transformation.infer_shapes import InferShapes
+from qonnx.transformation.general import GiveUniqueNodeNames
+from qonnx.transformation.general import RemoveStaticGraphInputs
+from qonnx.transformation.double_to_single_float import DoubleToSingleFloat
 
+from brevitas import torch_version
 from brevitas.quant_tensor import QuantTensor
-from brevitas.export import FINNManager
+from brevitas.export import export_finn_onnx
 from brevitas_examples.bnn_pynq.models import model_with_cfg
 
 FC_INPUT_SIZE = (1, 1, 28, 28)
@@ -78,15 +55,16 @@ def test_brevitas_fc_onnx_export_and_exec(size, wbits, abits, pretrained):
     input_t = torch.from_numpy(input_a * scale)
     input_qt = QuantTensor(
         input_t, scale=torch.tensor(scale), bit_width=torch.tensor(8.0), signed=False)
-    FINNManager.export(fc, export_path=finn_onnx, input_t=input_qt)
+    export_finn_onnx(fc, export_path=finn_onnx, input_t=input_qt, input_names=['input'])
     model = ModelWrapper(finn_onnx)
     model = model.transform(GiveUniqueNodeNames())
     model = model.transform(DoubleToSingleFloat())
     model = model.transform(InferShapes())
     model = model.transform(FoldConstants())
     model = model.transform(RemoveStaticGraphInputs())
+
     # run using FINN-based execution
-    input_dict = {"0": input_a}
+    input_dict = {'input': input_a}
     output_dict = oxe.execute_onnx(model, input_dict)
     produced = output_dict[list(output_dict.keys())[0]]
     # do forward pass in PyTorch/Brevitas
@@ -113,15 +91,16 @@ def test_brevitas_cnv_onnx_export_and_exec(wbits, abits, pretrained):
     input_t = torch.from_numpy(input_a * scale)
     input_qt = QuantTensor(
         input_t, scale=torch.tensor(scale), bit_width=torch.tensor(8.0), signed=False)
-    FINNManager.export(cnv, export_path=finn_onnx, input_t=input_qt)
+    export_finn_onnx(cnv, export_path=finn_onnx, input_t=input_qt, input_names=['input'])
     model = ModelWrapper(finn_onnx)
     model = model.transform(GiveUniqueNodeNames())
     model = model.transform(DoubleToSingleFloat())
     model = model.transform(InferShapes())
     model = model.transform(FoldConstants())
     model = model.transform(RemoveStaticGraphInputs())
+    
     # run using FINN-based execution
-    input_dict = {"0": input_a}
+    input_dict = {"input": input_a}
     output_dict = oxe.execute_onnx(model, input_dict)
     produced = output_dict[list(output_dict.keys())[0]]
     # do forward pass in PyTorch/Brevitas

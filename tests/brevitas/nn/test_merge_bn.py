@@ -1,3 +1,7 @@
+# Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+
+
 import torch
 
 from brevitas.nn.utils import merge_bn
@@ -7,7 +11,7 @@ OUT_CH = 3
 IN_CH = 2
 FEATURES = 10
 KERNEL_SIZE = 3
-RTOL = 0.1  # this is quite high but unfortunately necessary
+RTOL = 1e-3
 
 
 def test_merge_bn():

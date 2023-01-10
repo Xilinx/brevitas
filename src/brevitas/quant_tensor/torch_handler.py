@@ -1,5 +1,10 @@
+# Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+
+
 import functools
 
+import brevitas
 import torch
 import torch.nn.functional as F
 
@@ -38,7 +43,7 @@ def transpose_handler(inp, *args, **kwargs):
     return inp.transpose(*args, **kwargs)
 
 
-@implements(torch.cat)
+@implements(brevitas.original_cat)
 def cat_handler(*args, **kwargs):
     from brevitas.quant_tensor import QuantTensor
     return QuantTensor.cat(*args, **kwargs)

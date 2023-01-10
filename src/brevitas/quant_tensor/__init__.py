@@ -1,42 +1,6 @@
-# Copyright (c) 2018-     Xilinx, Inc              (Alessandro Pappalardo)
-# Copyright (c) 2016-     Facebook, Inc            (Adam Paszke)
-# Copyright (c) 2014-     Facebook, Inc            (Soumith Chintala)
-# Copyright (c) 2011-2014 Idiap Research Institute (Ronan Collobert)
-# Copyright (c) 2012-2014 Deepmind Technologies    (Koray Kavukcuoglu)
-# Copyright (c) 2011-2012 NEC Laboratories America (Koray Kavukcuoglu)
-# Copyright (c) 2011-2013 NYU                      (Clement Farabet)
-# Copyright (c) 2006-2010 NEC Laboratories America (Ronan Collobert, Leon Bottou, Iain Melvin, Jason Weston)
-# Copyright (c) 2006      Idiap Research Institute (Samy Bengio)
-# Copyright (c) 2001-2004 Idiap Research Institute (Ronan Collobert, Samy Bengio, Johnny Mariethoz)
+# Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
 
-# All rights reserved.
-
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-
-# 1. Redistributions of source code must retain the above copyright
-#    notice, this list of conditions and the following disclaimer.
-
-# 2. Redistributions in binary form must reproduce the above copyright
-#    notice, this list of conditions and the following disclaimer in the
-#    documentation and/or other materials provided with the distribution.
-
-# 3. Neither the names of Xilinx, Facebook, Deepmind Technologies, NYU,
-#    NEC Laboratories America and IDIAP Research Institute nor the names
-#    of its contributors may be used to endorse or promote products derived
-#    from this software without specific prior written permission.
-
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
-# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
 
 from abc import ABC
 from typing import Optional, NamedTuple
@@ -47,6 +11,8 @@ from torch import Tensor
 from brevitas.function.ops_ste import ceil_ste, round_ste
 from brevitas.function.ops import max_int, min_int
 from .torch_handler import QUANT_TENSOR_FN_HANDLER
+
+IS_VALID_ATOL = 1e-5
 
 
 class QuantTensorBase(NamedTuple):
@@ -86,15 +52,16 @@ class QuantTensor(QuantTensorBase):
 
     def __new__(
             cls, value, scale=None, zero_point=None, bit_width=None, signed=None, training=None):
+
         if scale is not None and not isinstance(scale, torch.Tensor):
             scale = torch.tensor(scale, dtype=torch.float)
         if zero_point is not None and not isinstance(zero_point, torch.Tensor):
             zero_point = torch.tensor(zero_point, dtype=torch.float)
         if bit_width is not None and not isinstance(bit_width, torch.Tensor):
             bit_width = torch.tensor(bit_width, dtype=torch.float)
-        if signed is not None:
+        if signed is not None and not isinstance(signed, torch.Tensor):
             signed = torch.tensor(signed, dtype=torch.bool)
-        if training is not None:
+        if training is not None and not isinstance(training, torch.Tensor):
             training = torch.tensor(training, dtype=torch.bool)
         return super().__new__(cls, value, scale, zero_point, bit_width, signed, training)
 
@@ -147,7 +114,7 @@ class QuantTensor(QuantTensorBase):
             with torch.no_grad():
                 pre_round_int_value = self._pre_round_int_value
                 rounded_int_value = torch.round(pre_round_int_value)
-                is_int = torch.isclose(pre_round_int_value, rounded_int_value).all()
+                is_int = torch.isclose(pre_round_int_value, rounded_int_value, atol=IS_VALID_ATOL).all()
                 if self.bit_width >= 2:
                     if self.signed:
                         is_upper_b = (2.0 ** (self.bit_width - 1) - 1 >= rounded_int_value).all()
@@ -210,7 +177,12 @@ class QuantTensor(QuantTensorBase):
             if float_datatype:
                 return int_value
             else:
-                return int_value.int()
+                if self.bit_width <= 8. and self.signed_t.item():
+                    return int_value.to(torch.int8)
+                elif self.bit_width <= 8. and not self.signed_t.item():
+                    return int_value.to(torch.uint8)
+                else:
+                    return int_value.to(torch.int32)
         else:
             raise RuntimeError(f"QuantTensor not valid.")
 
