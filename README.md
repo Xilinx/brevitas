@@ -31,6 +31,7 @@ If you adopt Brevitas in your work, please cite it as:
 
 ## History
 
+- *2023/01/10* - Release version 0.8.0, see the [release notes](https://github.com/Xilinx/brevitas/releases/tag/v0.8.0).
 - *2021/12/13* - Release version 0.7.1, fix a bunch of issues. Added TVMCon 2021 tutorial notebook.
 - *2021/11/03* - Re-release version 0.7.0 (build 1) on PyPI to fix a packaging issue.
 - *2021/10/29* - Release version 0.7.0, see the [release notes](https://github.com/Xilinx/brevitas/releases/tag/v0.7.0).
