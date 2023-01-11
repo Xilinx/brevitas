@@ -14,12 +14,9 @@ else:
     from torch.overrides import get_testing_overrides
     from torch.overrides import is_tensor_method_or_property
 
-if (torch_version < version.parse('1.8')
-        or torch_version >= version.parse('1.9')):
-    from .backport.graph import Graph
-    from .backport.graph import magic_methods
-    from .backport.graph import reflectable_magic_methods
-    from .backport.graph import Target
+if torch_version < version.parse('1.8.1'):
+    from .backport.node import map_arg
+    from .backport.symbolic_trace import Tracer
     from .backport.graph_module import GraphModule
     from .backport.immutable_collections import immutable_dict
     from .backport.immutable_collections import immutable_list
@@ -44,13 +41,23 @@ else:
     from torch.fx.graph import Target
     from torch.fx.proxy import base_types
     from torch.fx.graph import magic_methods, reflectable_magic_methods
-    from torch.fx.symbolic_trace import _orig_module_call
-    from torch.fx.symbolic_trace import _orig_module_getattr
-    from torch.fx.symbolic_trace import _autowrap_check
-    from torch.fx.symbolic_trace import _Patcher, map_aggregate
-    from torch.fx.symbolic_trace import _wrapped_fns_to_patch, _wrapped_methods_to_patch
-    from torch.fx.symbolic_trace import _find_proxy, _patch_function, HAS_VARSTUFF
-    from torch.fx.immutable_collections import immutable_dict, immutable_list
+    try:
+        from torch.fx.symbolic_trace import _orig_module_call
+        from torch.fx.symbolic_trace import _orig_module_getattr
+        from torch.fx.symbolic_trace import _autowrap_check
+        from torch.fx.symbolic_trace import _Patcher, map_aggregate
+        from torch.fx.symbolic_trace import _wrapped_fns_to_patch, _wrapped_methods_to_patch
+        from torch.fx.symbolic_trace import _find_proxy, _patch_function, HAS_VARSTUFF
+        from torch.fx.immutable_collections import immutable_dict, immutable_list
+    except ImportError:
+        from torch.fx._symbolic_trace import _orig_module_call
+        from torch.fx._symbolic_trace import _orig_module_getattr
+        from torch.fx._symbolic_trace import _autowrap_check
+        from torch.fx._symbolic_trace import _Patcher, map_aggregate
+        from torch.fx._symbolic_trace import _wrapped_fns_to_patch, _wrapped_methods_to_patch
+        from torch.fx._symbolic_trace import _find_proxy, _patch_function, HAS_VARSTUFF
+        from torch.fx.immutable_collections import immutable_dict, immutable_list
+
 
 from .brevitas_tracer import brevitas_symbolic_trace
 from .brevitas_tracer import brevitas_value_trace
