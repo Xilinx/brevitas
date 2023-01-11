@@ -73,3 +73,15 @@ class SingleArgStatelessBuffer(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def forward(self, placeholder):
         return self.const()
+
+
+class ParameterWrapper(brevitas.jit.ScriptModule):
+
+    def __init__(self, value: torch.Tensor):
+        super(ParameterWrapper, self).__init__()
+        self.register_parameter(VALUE_ATTR_NAME, value)
+
+    @brevitas.jit.script_method
+    def forward(self):
+        return self.value
+

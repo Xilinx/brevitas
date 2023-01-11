@@ -15,6 +15,8 @@ from brevitas.core.stats import _ParameterListStats
 from brevitas.core.stats import _RuntimeStats
 from brevitas.core.stats import DEFAULT_MOMENTUM
 from brevitas.function.ops_ste import abs_binary_sign_grad
+from brevitas.core.utils import StatelessBuffer
+from brevitas.core.utils import ParameterWrapper
 
 
 class StatsFromParameterScaling(brevitas.jit.ScriptModule):
@@ -28,6 +30,7 @@ class StatsFromParameterScaling(brevitas.jit.ScriptModule):
             restrict_scaling_impl: Module,
             scaling_shape: Tuple[int, ...],
             affine_rescaling: bool = False,
+            affine_shift_scale: bool = False,
             scaling_min_val: Optional[float] = None) -> None:
         super(StatsFromParameterScaling, self).__init__()
         self.parameter_list_stats = _ParameterListStats(
@@ -37,7 +40,11 @@ class StatsFromParameterScaling(brevitas.jit.ScriptModule):
             scaling_stats_input_concat_dim,
             tracked_parameter_list)
         self.stats_scaling_impl = _StatsScaling(
-            restrict_scaling_impl, scaling_shape, scaling_min_val, affine_rescaling)
+            restrict_scaling_impl,
+            scaling_shape,
+            scaling_min_val,
+            affine_rescaling,
+            affine_shift_scale)
 
     @brevitas.jit.script_method
     def forward(self, ignored: torch.Tensor) -> torch.Tensor:
@@ -51,12 +58,14 @@ class _StatsScaling(brevitas.jit.ScriptModule):
             self,
             restrict_scaling_impl: Module,
             scaling_shape: Tuple[int, ...],
-            scaling_min_val: Optional[float] = None,
-            affine_rescaling: bool = False) -> None:
+            scaling_min_val: Optional[float],
+            affine_rescaling: bool,
+            affine_shift_scale: bool) -> None:
         super(_StatsScaling, self).__init__()
-
+        if affine_shift_scale and not affine_rescaling:
+            raise RuntimeError("Disabling shifting of the scale requires to enable affine rescaling first.")
         if affine_rescaling:
-            self.affine_rescaling = _AffineRescaling(scaling_shape)
+            self.affine_rescaling = _AffineRescaling(scaling_shape, affine_shift_scale)
         else:
             self.affine_rescaling = Identity()
         self.restrict_clamp_scaling = _RestrictClampValue(scaling_min_val, restrict_scaling_impl)
@@ -78,7 +87,8 @@ class RuntimeStatsScaling(brevitas.jit.ScriptModule):
             scaling_stats_input_view_shape_impl: Module,
             restrict_scaling_impl: Module,
             scaling_shape: Tuple[int, ...],
-            affine_rescaling: bool,
+            affine_rescaling: bool = False,
+            affine_shift_scale: bool = False,
             scaling_stats_momentum: float = DEFAULT_MOMENTUM,
             scaling_min_val: Optional[float] = None) -> None:
         super(RuntimeStatsScaling, self).__init__()
@@ -89,7 +99,11 @@ class RuntimeStatsScaling(brevitas.jit.ScriptModule):
             scaling_stats_input_view_shape_impl,
             scaling_stats_momentum)
         self.stats_scaling_impl = _StatsScaling(
-            restrict_scaling_impl, scaling_shape, scaling_min_val, affine_rescaling)
+            restrict_scaling_impl,
+            scaling_shape,
+            scaling_min_val,
+            affine_rescaling,
+            affine_shift_scale)
 
     @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
@@ -99,14 +113,17 @@ class RuntimeStatsScaling(brevitas.jit.ScriptModule):
 
 class _AffineRescaling(brevitas.jit.ScriptModule):
 
-    def __init__(self, scaling_shape):
+    def __init__(self, scaling_shape, shift_scale):
         super(_AffineRescaling, self).__init__()
         self.affine_weight = Parameter(torch.ones(scaling_shape))
-        self.affine_bias = Parameter(torch.zeros(scaling_shape))
+        if shift_scale:
+            self.affine_bias = ParameterWrapper(torch.zeros(scaling_shape))
+        else:
+            self.affine_bias = StatelessBuffer(torch.tensor(0.))
 
     @brevitas.jit.script_method
     def forward(self, x):
-        out = x * self.affine_weight + self.affine_bias
+        out = x * self.affine_weight + self.affine_bias()
         out = abs_binary_sign_grad(out)
         return out
 
