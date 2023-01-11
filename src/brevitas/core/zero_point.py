@@ -20,7 +20,10 @@ from .utils import inplace_tensor_add
 from .utils import StatelessBuffer
 
 __all__ = [
-    'ZeroZeroPoint', 'MinUintZeroPoint', 'ParameterFromRuntimeMinZeroPoint', 'ParameterZeroPoint']
+    'ZeroZeroPoint',
+    'StatsFromParameterZeroPoint',
+    'ParameterFromRuntimeZeroPoint',
+    'ParameterZeroPoint']
 
 
 class ZeroZeroPoint(brevitas.jit.ScriptModule):
