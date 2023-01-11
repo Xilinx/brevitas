@@ -9,6 +9,8 @@ from torch import Tensor
 
 import brevitas
 import brevitas.config as config
+from brevitas.core.utils import inplace_momentum_update
+from brevitas.core.utils import inplace_tensor_mul
 
 from .view_wrapper import _ViewCatParameterWrapper
 from .view_wrapper import _ViewParameterWrapper
@@ -40,9 +42,9 @@ class _RuntimeStats(brevitas.jit.ScriptModule):
             stats_impl: nn.Module,
             stats_output_shape: Tuple[int, ...],
             stats_input_view_shape_impl: nn.Module,
-            stats_buffer_momentum: float = DEFAULT_MOMENTUM) -> None:
+            stats_buffer_momentum: float) -> None:
         super(_RuntimeStats, self).__init__()
-        self.first_batch = brevitas.jit.Attribute(True, bool)
+        self.counter = brevitas.jit.Attribute(0, int)
         self.stats_input_view_shape_impl = stats_input_view_shape_impl
         self.stats = _Stats(stats_impl, stats_output_shape)
         self.momentum = stats_buffer_momentum
@@ -52,16 +54,17 @@ class _RuntimeStats(brevitas.jit.ScriptModule):
     def forward(self, stats_input) -> Tensor:
         if self.training:
             stats_input = self.stats_input_view_shape_impl(stats_input)
-            out = self.stats(stats_input)
-            if self.first_batch:
-                self.running_stats *= out.detach()
-                self.first_batch = False
+            stats = self.stats(stats_input)
+            new_counter = self.counter + 1
+            if self.counter == 0:
+                inplace_tensor_mul(self.running_stats, stats.detach())
             else:
-                self.running_stats *= (1 - self.momentum)
-                self.running_stats += self.momentum * out.detach()
+                inplace_momentum_update(
+                    self.running_stats, stats.detach(), self.momentum, self.counter, new_counter)
+            self.counter = new_counter
         else:
-            out = self.running_stats
-        return out
+            stats = self.running_stats
+        return stats
 
     def _load_from_state_dict(
             self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
