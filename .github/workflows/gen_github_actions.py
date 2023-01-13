@@ -12,10 +12,13 @@ ORT_INTEGRATION_YML = 'ort_integration.yml'
 NOTEBOOK_YML = 'notebook.yml'
 ENDTOEND_YML = 'end_to_end.yml'
 
+# Reduced Test for PRs, except when a review is requested
+CONDITION= "${{ (contains(fromJson(\'[%PYTORCH_LIST_REDUCED]\'), matrix.pytorch_version ) && github.event_name == \'pull_request\' && matrix.platform == 'ubuntu-latest' )  || (github.event_name != \'pull_request\') || (github.event_name == \'pull_request\' && github.event.action == \'review_requested\')}} "
 
 # Data shared betwen Nox sessions and Github Actions, formatted as tuples
 PYTHON_VERSIONS = ('3.7', '3.8')
 PYTORCH_VERSIONS = ('1.5.1', '1.6.0', '1.7.1', '1.8.1', '1.9.1', '1.10.1', '1.11.0', '1.12.1', '1.13.0')
+PYTORCH_LIST_REDUCED = ["1.5.1", "1.10.1", "1.13.0"]
 JIT_STATUSES = ('jit_disabled',)
 
 # Data used only by Github Actions, formatted as lists or lists of ordered dicts
@@ -47,6 +50,7 @@ PYTEST_MATRIX_EXTRA = od([('jit_status', list(JIT_STATUSES))])
 PYTEST_STEP_LIST = [
     od([
         ('name', 'Run Nox session for brevitas pytest'),
+        ('if', CONDITION.replace('%PYTORCH_LIST_REDUCED', ', '.join(f'"{version}"' for version in PYTORCH_LIST_REDUCED) )),
         ('shell', 'bash'),
         ('run',
          'nox -v -s tests_brevitas_cpu-${{ matrix.python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)')]),
@@ -55,6 +59,7 @@ PYTEST_STEP_LIST = [
 EXAMPLES_PYTEST_STEP_LIST = [
     od([
         ('name', 'Run Nox session for brevitas_examples pytest'),
+        ('if', CONDITION.replace('%PYTORCH_LIST_REDUCED', ', '.join(f'"{version}"' for version in PYTORCH_LIST_REDUCED) )),
         ('shell', 'bash'),
         ('run',
          'nox -v -s tests_brevitas_examples_cpu-${{ matrix.python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)')]),
@@ -63,6 +68,7 @@ EXAMPLES_PYTEST_STEP_LIST = [
 FINN_INTEGRATION_STEP_LIST = [
     od([
         ('name', 'Install protobuf on Ubuntu'),
+        ('if', CONDITION.replace('%PYTORCH_LIST_REDUCED', ', '.join(f'"{version}"' for version in PYTORCH_LIST_REDUCED) )),
         ('shell', 'bash'),
         ('run',
          'sudo apt-get install protobuf-compiler libprotoc-dev'),
@@ -70,6 +76,7 @@ FINN_INTEGRATION_STEP_LIST = [
     ]),
     od([
         ('name', 'Run Nox session for Brevitas-FINN integration'),
+        ('if', CONDITION.replace('%PYTORCH_LIST_REDUCED', ', '.join(f'"{version}"' for version in PYTORCH_LIST_REDUCED) )),
         ('shell', 'bash'),
         ('run',
          'nox -v -s tests_brevitas_finn_integration-${{ matrix.python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)')
@@ -78,6 +85,7 @@ FINN_INTEGRATION_STEP_LIST = [
 PYXIR_INTEGRATION_STEP_LIST = [
     od([
         ('name', 'Run Nox session for Brevitas-PyXIR integration'),
+        ('if', CONDITION.replace('%PYTORCH_LIST_REDUCED', ', '.join(f'"{version}"' for version in PYTORCH_LIST_REDUCED) )),
         ('shell', 'bash'),
         ('run',
          'nox -v -s tests_brevitas_pyxir_integration-${{ matrix.python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)')
@@ -86,6 +94,7 @@ PYXIR_INTEGRATION_STEP_LIST = [
 ORT_INTEGRATION_STEP_LIST = [
     od([
         ('name', 'Run Nox session for Brevitas-ORT integration'),
+        ('if', CONDITION.replace('%PYTORCH_LIST_REDUCED', ', '.join(f'"{version}"' for version in PYTORCH_LIST_REDUCED) )),
         ('shell', 'bash'),
         ('run',
          'nox -v -s tests_brevitas_ort_integration-${{ matrix.python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)')
@@ -94,11 +103,13 @@ ORT_INTEGRATION_STEP_LIST = [
 TEST_INSTALL_DEV_STEP_LIST = [
     od([
         ('name', 'Run Nox session for testing brevitas develop install and imports'),
+        ('if', CONDITION.replace('%PYTORCH_LIST_REDUCED', ', '.join(f'"{version}"' for version in PYTORCH_LIST_REDUCED) )),
         ('shell', 'bash'),
         ('run',
          'nox -v -s tests_brevitas_install_dev-${{ matrix.python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)')]),
     od([
         ('name', 'Run Nox session for testing brevitas_examples develop install and imports'),
+        ('if', CONDITION.replace('%PYTORCH_LIST_REDUCED', ', '.join(f'"{version}"' for version in PYTORCH_LIST_REDUCED) )),
         ('shell', 'bash'),
         ('run',
          'nox -v -s tests_brevitas_examples_install_dev-${{ matrix.python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)')
@@ -107,6 +118,7 @@ TEST_INSTALL_DEV_STEP_LIST = [
 NOTEBOOK_STEP_LIST = [
     od([
         ('name', 'Run Nox session for Notebook execution'),
+        ('if', CONDITION.replace('%PYTORCH_LIST_REDUCED', ', '.join(f'"{version}"' for version in PYTORCH_LIST_REDUCED) )),
         ('shell', 'bash'),
         ('run',
          'nox -v -s tests_brevitas_notebook-${{ matrix.python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)')
@@ -115,6 +127,7 @@ NOTEBOOK_STEP_LIST = [
 ENDTOEND_STEP_LIST = [
     od([
         ('name', 'Run Nox session for end-to-end flows'),
+        ('if', CONDITION.replace('%PYTORCH_LIST_REDUCED', ', '.join(f'"{version}"' for version in PYTORCH_LIST_REDUCED) )),
         ('shell', 'bash'),
         ('run',
          'nox -v -s tests_brevitas_end_to_end-${{ matrix.python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)')
