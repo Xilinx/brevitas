@@ -4,11 +4,15 @@ on:
   push:
     branches: [ master, dev ]
   pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
 
 jobs:
   build:
     runs-on: ${{ matrix.platform }}
-
     strategy:
       fail-fast: false
 
@@ -21,6 +25,7 @@ jobs:
 
 
 
+    if: ${{ !github.event.pull_request.draft }}
     steps:
 
     - name: Checkout repo
