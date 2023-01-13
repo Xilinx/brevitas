@@ -50,7 +50,7 @@ jobs:
       if: startsWith(runner.os, 'macOS') == true
 
     - name: Run Nox session for Brevitas-ORT integration
-      if: (contains(['1.5.1', '1.10.1', '1.13.0'], ${{ matrix.pytorch_version }} && {{github.event.pull_request}} && {{!github.event.pull_request.review_requested}} )
+      if: ${{ (contains(['1.5.1', '1.10.1', '1.13.0'], matrix.pytorch_version ) }}
       shell: bash
       run: nox -v -s tests_brevitas_ort_integration-${{ matrix.python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)
 
