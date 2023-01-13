@@ -1,0 +1,3 @@
+[tool.isort]
+profile = "google"
+line_length = 100

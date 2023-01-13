@@ -1,0 +1,30 @@
+
+default_language_version:
+    python: python3
+
+default_stages: [commit]
+
+repos:
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v4.0.1
+  hooks:
+  - id: trailing-whitespace
+  - id: check-added-large-files
+    args: [--maxkb=5000]
+  - id: check-ast
+  - id: check-json
+  - id: check-merge-conflict
+  - id: check-xml
+  - id: check-yaml
+    args: [--allow-multiple-documents]
+  - id: debug-statements
+  - id: end-of-file-fixer
+  - id: requirements-txt-fixer
+  - id: mixed-line-ending
+    args: ['--fix=no']
+
+-   repo: https://github.com/pycqa/isort
+    rev: 5.10.1
+    hooks:
+    -   id: isort
+        name: isort (python)
