@@ -31,8 +31,9 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."""
 
 import torch
-from .res_stack_brevitas import ResStack
+
 from .common import *
+from .res_stack_brevitas import ResStack
 
 MAX_WAV_VALUE = 32768.0
 
@@ -114,7 +115,7 @@ class Generator(nn.Module):
 
 
 '''
-    to run this, fix 
+    to run this, fix
     from . import ResStack
     into
     from res_stack import ResStack

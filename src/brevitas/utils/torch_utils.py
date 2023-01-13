@@ -2,8 +2,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from torch.nn import Sequential
 import copy
+
+from torch.nn import Sequential
 
 
 class TupleSequential(Sequential):

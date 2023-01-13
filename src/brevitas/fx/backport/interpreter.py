@@ -41,12 +41,17 @@ POSSIBILITY OF SUCH DAMAGE.
 Forked as-is from PyTorch 1.8.1
 """
 
-from .graph_module import GraphModule
+from typing import Any, Dict, Iterator, Optional, Tuple
+
 from .graph import Graph
-from .node import Argument, Node, Target, map_arg
+from .graph_module import GraphModule
+from .node import Argument
+from .node import map_arg
+from .node import Node
+from .node import Target
 from .proxy import Proxy
 from .symbolic_trace import Tracer
-from typing import Any, Dict, Iterator, Optional, Tuple
+
 
 class Interpreter:
     """

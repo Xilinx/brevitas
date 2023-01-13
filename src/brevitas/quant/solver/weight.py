@@ -4,11 +4,12 @@
 
 from brevitas.core.quant import *
 from brevitas.core.quant import QuantType
+from brevitas.inject import ExtendedInjector
+from brevitas.inject import this
+from brevitas.inject import value
 from brevitas.proxy import WeightQuantProxyFromInjector
 from brevitas.quant.solver.common import *
 from brevitas.quant.solver.parameter import *
-from brevitas.inject import ExtendedInjector, value, this
-
 
 __all__ = [
     'SolveWeightTensorQuantFromEnum',
@@ -109,6 +110,3 @@ class WeightQuantSolver(
     to make sure overrides are correctly captured.
     """
     proxy_class = WeightQuantProxyFromInjector
-
-
-

@@ -5,7 +5,8 @@
 import torch
 from torch.nn import Parameter
 
-from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjector, WeightQuantProxyFromInjector
+from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjector
+from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
 
 
 def compute_channel_view_shape(tensor: torch.Tensor, channel_dim: int):

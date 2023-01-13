@@ -28,11 +28,12 @@ CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."""
 
-import brevitas.nn as quant_nn
+import torch.nn as nn
+
 from brevitas.core.quant import QuantType
 from brevitas.core.scaling import ScalingImplType
 from brevitas.core.stats import StatsOp
-import torch.nn as nn
+import brevitas.nn as quant_nn
 
 QUANT_TYPE = QuantType.INT
 QUANT_TYPE_BIAS = QuantType.FP

@@ -1,6 +1,6 @@
 /* Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause
- */ 
+ */
 
 
 #include <ATen/TensorUtils.h>
@@ -269,4 +269,3 @@ TORCH_LIBRARY(autograd_ste_ops, m) {
     m.def("dpu_round_ste_impl", &dpu_round_ste_impl);
     m.def("abs_binary_sign_grad_impl", &abs_binary_sign_grad_impl);
 }
-    

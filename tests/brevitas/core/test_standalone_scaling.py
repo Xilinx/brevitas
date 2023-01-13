@@ -1,8 +1,6 @@
 import warnings
 
-from brevitas.core.scaling import (
-    ParameterFromRuntimeStatsScaling,
-)
+from brevitas.core.scaling import ParameterFromRuntimeStatsScaling
 from brevitas.core.stats.stats_op import AbsMax
 
 

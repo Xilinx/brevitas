@@ -2,21 +2,18 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-import pytest
-import mock
 from hypothesis import given
-
+import mock
+import pytest
 import torch
 
 import brevitas
 from brevitas import config
 from brevitas.function import ops_ste
 from brevitas.function.ops_ste import *
-
-from tests.brevitas.hyp_helper import two_float_tensor_random_shape_st
-from tests.brevitas.function.hyp_helper import tensor_clamp_ste_test_st
 from tests.brevitas.function.hyp_helper import scalar_clamp_min_ste_test_st
-
+from tests.brevitas.function.hyp_helper import tensor_clamp_ste_test_st
+from tests.brevitas.hyp_helper import two_float_tensor_random_shape_st
 
 AUTOGRAD_OPS_PREFIX = 'brevitas.ops.autograd_ste_ops.'
 NATIVE_PREFIX = 'torch.ops.autograd_ste_ops.'

@@ -27,7 +27,7 @@ data
 *.onnx
 
 # Commented out files
-*.bak 
+*.bak
 
 # Installer logs
 pip-log.txt

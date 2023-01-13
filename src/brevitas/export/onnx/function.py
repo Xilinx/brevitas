@@ -11,12 +11,12 @@ class LSTMCellFn(Function):
     @staticmethod
     def symbolic(
             g,
-            inp, 
+            inp,
             weight_i,
             weight_h,
             bias,
             sequence_lens,
-            hidden_state, 
+            hidden_state,
             cell_state,
             direction,
             hidden_size,
@@ -26,12 +26,12 @@ class LSTMCellFn(Function):
             state_dir_axes):
             outputs, hidden_state, cell_state = g.op(
                 f'LSTM',
-                inp, 
-                weight_i, 
-                weight_h, 
+                inp,
+                weight_i,
+                weight_h,
                 bias,
                 sequence_lens,
-                hidden_state, 
+                hidden_state,
                 cell_state,
                 direction_s=direction,
                 hidden_size_i=hidden_size,
@@ -46,12 +46,12 @@ class LSTMCellFn(Function):
     @staticmethod
     def forward(
             ctx,
-            inp, 
+            inp,
             weight_i,
             weight_h,
             bias,
             sequence_lens,
-            hidden_state, 
+            hidden_state,
             cell_state,
             direction,
             hidden_size,

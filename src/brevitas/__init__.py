@@ -2,20 +2,20 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-import os
 import glob
-import warnings
-from packaging import version
-from pkg_resources import get_distribution, DistributionNotFound
+import os
 from typing import List, Optional
+import warnings
 
-from torch.utils import cpp_extension
+from packaging import version
+from pkg_resources import DistributionNotFound
+from pkg_resources import get_distribution
 import torch
 from torch import Tensor
+from torch.utils import cpp_extension
 
-from brevitas import jit as jit
 from brevitas import config
-
+from brevitas import jit as jit
 
 pkg_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -27,7 +27,8 @@ else:
 
 original_cat = torch.cat
 if torch_version < version.parse('1.7.0'):
-    from torch._overrides import has_torch_function, handle_torch_function
+    from torch._overrides import handle_torch_function
+    from torch._overrides import has_torch_function
 
     @torch.jit.ignore
     def unsupported_jit_cat(tensors, dim):

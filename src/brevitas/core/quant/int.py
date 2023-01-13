@@ -9,9 +9,9 @@ from torch import Tensor
 from torch.nn import Module
 
 import brevitas
-from brevitas.function.ops_ste import round_ste
-from brevitas.core.utils import StatelessBuffer
 from brevitas.core.quant.delay import DelayWrapper
+from brevitas.core.utils import StatelessBuffer
+from brevitas.function.ops_ste import round_ste
 
 
 class PrescaledRestrictIntQuantWithInputBitWidth(brevitas.jit.ScriptModule):

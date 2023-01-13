@@ -2,15 +2,18 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
+import math
+
+from hypothesis import given
+from pytest_cases import fixture
 import torch
-import brevitas.nn as qnn
 import torch.nn as nn
-from brevitas.graph.calibrate import calibration_mode, bias_correction_mode
+
+from brevitas.graph.calibrate import bias_correction_mode
+from brevitas.graph.calibrate import calibration_mode
+import brevitas.nn as qnn
 from brevitas.quant import Int8ActPerTensorFixedPoint
 from tests.brevitas.hyp_helper import float_tensor_random_size_st
-from hypothesis import given
-import math
-from pytest_cases import fixture
 
 IN_CH = 8
 OUT_CH = 16
@@ -25,9 +28,9 @@ def reference_implementation_scale_factors_po2(x, q=99.999, min_val=torch.tensor
     quant = compute_quantile(x,q)
     quant = torch.max(min_val, quant)
     quant_float_to_int = torch.ceil(torch.log2(quant)) # Float to Int Implementation for PowerOfTwo scale
-    
+
     scale =  torch.pow(torch.tensor(2.), quant_float_to_int)/int_scale
-    
+
     return scale
 
 
@@ -41,7 +44,7 @@ def test_scale_factors_ptq_calibration_po2(inp):
 
         def forward(self, x):
             return self.act(x)
-        
+
     model = TestModel()
     model.eval()
     with torch.no_grad():
@@ -55,7 +58,7 @@ def test_scale_factors_ptq_calibration_po2(inp):
 
 
 def test_calibration_training_state():
-    
+
     class TestModel(nn.Module):
 
         def __init__(self):
@@ -64,14 +67,14 @@ def test_calibration_training_state():
 
         def forward(self, x):
             return self.act(x)
-        
+
     model = TestModel()
     model.eval()
     with torch.no_grad():
         with calibration_mode(model):
             assert model.act.act_quant.training == True
             assert model.training == False
-    
+
     assert model.act.act_quant.training == False
     assert model.training == False
 

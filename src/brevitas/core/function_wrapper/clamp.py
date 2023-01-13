@@ -7,9 +7,10 @@ ScriptModule wrappers for various variants of clamping.
 """
 
 
-import brevitas
 import torch
 from torch import Tensor
+
+import brevitas
 from brevitas.function import tensor_clamp
 
 

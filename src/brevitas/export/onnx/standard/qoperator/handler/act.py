@@ -3,9 +3,16 @@ from abc import ABC
 import torch
 from torch import Tensor
 
-from brevitas.nn import QuantReLU, QuantIdentity, QuantHardTanh, QuantTanh, QuantSigmoid
+from brevitas.export.onnx.standard.function import DequantizeLinearFn
+from brevitas.export.onnx.standard.function import IntClipFn
+from brevitas.export.onnx.standard.function import QuantizeLinearFn
+from brevitas.nn import QuantHardTanh
+from brevitas.nn import QuantIdentity
+from brevitas.nn import QuantReLU
+from brevitas.nn import QuantSigmoid
+from brevitas.nn import QuantTanh
 from brevitas.nn.quant_layer import QuantNonLinearActLayer as QuantNLAL
-from brevitas.export.onnx.standard.function import QuantizeLinearFn, DequantizeLinearFn, IntClipFn
+
 from .base import StdQOpONNXQuantLayerHandler
 
 

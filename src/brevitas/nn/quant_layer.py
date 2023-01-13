@@ -2,19 +2,22 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from abc import ABCMeta, abstractmethod
-from typing import Optional, Type, Union, Callable
+from abc import ABCMeta
+from abc import abstractmethod
+from typing import Callable, Optional, Type, Union
 
 import torch
 from torch import Tensor
-from torch.nn import Module, Parameter
+from torch.nn import Module
+from torch.nn import Parameter
 
 from brevitas.quant_tensor import QuantTensor
-from .mixin.base import _CachedIO
-from .mixin import *
 
-from .utils import rename_state_dict_by_prefix, compute_channel_view_shape
+from .mixin import *
+from .mixin.base import _CachedIO
+from .utils import compute_channel_view_shape
 from .utils import merge_bn
+from .utils import rename_state_dict_by_prefix
 
 
 class QuantNonLinearActLayer(
@@ -363,6 +366,3 @@ class QuantWeightBiasInputOutputLayer(
             training=self.training)
         quant_output = self.output_quant(quant_output)
         return self.pack_output(quant_output)
-
-
-

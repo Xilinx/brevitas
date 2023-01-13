@@ -5,6 +5,7 @@
 import inspect
 
 import torch
+
 try:
     from torch._jit_internal import get_torchscript_modifier
 except:
@@ -12,12 +13,13 @@ except:
 
 
 from dependencies import Injector
-from brevitas.inject import ExtendedInjector
-from brevitas.jit import IS_ABOVE_110
-from .python_utils import patch
+from packaging import version
 
 from brevitas import torch_version
-from packaging import version
+from brevitas.inject import ExtendedInjector
+from brevitas.jit import IS_ABOVE_110
+
+from .python_utils import patch
 
 
 def _get_modifier_wrapper(fn):

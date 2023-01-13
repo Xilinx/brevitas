@@ -4,13 +4,19 @@
 
 import torch
 
-from brevitas.nn import QuantConv2d, QuantLinear, QuantAvgPool2d, QuantIdentity, QuantReLU, QuantMaxPool2d
-from brevitas.quant.scaled_int import Int4WeightPerTensorFloatDecoupled
-from brevitas.quant.scaled_int import Int8ActPerTensorFloat, Int16Bias
+from brevitas.export import enable_debug
+from brevitas.export import export_brevitas_onnx
 from brevitas.export import export_qonnx
-from brevitas.export import export_brevitas_onnx, enable_debug
+from brevitas.nn import QuantAvgPool2d
+from brevitas.nn import QuantConv2d
+from brevitas.nn import QuantIdentity
+from brevitas.nn import QuantLinear
+from brevitas.nn import QuantMaxPool2d
+from brevitas.nn import QuantReLU
+from brevitas.quant.scaled_int import Int4WeightPerTensorFloatDecoupled
+from brevitas.quant.scaled_int import Int8ActPerTensorFloat
+from brevitas.quant.scaled_int import Int16Bias
 from brevitas_examples import imagenet_classification
-
 
 OUT_CH = 50
 IN_CH = 40

@@ -7,8 +7,8 @@ from contextlib import ExitStack
 import pytest
 import torch
 
-from brevitas_examples.bnn_pynq.models import model_with_cfg
 from brevitas.utils.jit_utils import jit_patches_generator
+from brevitas_examples.bnn_pynq.models import model_with_cfg
 
 FC_INPUT_SIZE = (1, 1, 28, 28)
 CNV_INPUT_SIZE = (1, 3, 32, 32)

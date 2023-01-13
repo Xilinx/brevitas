@@ -3,13 +3,14 @@
 
 
 from inspect import signature
-from typing import Tuple, Any, Iterable, Dict
+from typing import Any, Dict, Iterable, Tuple
 
 import torch
 from torch import nn
 
-from brevitas.fx import Node, map_arg
 from brevitas import nn as qnn
+from brevitas.fx import map_arg
+from brevitas.fx import Node
 
 __all__ = [
     'module_class_name',

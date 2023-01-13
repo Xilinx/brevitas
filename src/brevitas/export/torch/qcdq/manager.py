@@ -9,16 +9,15 @@ from torch.nn import Module
 
 from brevitas.export.manager import _set_proxy_export_handler
 from brevitas.export.manager import _set_proxy_export_mode
-from brevitas.export.manager import BaseManager, ExportContext
+from brevitas.export.manager import BaseManager
+from brevitas.export.manager import ExportContext
+
+from .handler import TorchQCDQActQuantProxyHandler
+from .handler import TorchQCDQBiasQuantProxyHandler
+from .handler import TorchQCDQTruncQuantProxyHandler
+from .handler import TorchQCDQWeightQuantProxyHandler
 
 
-from .handler import (
-    TorchQCDQWeightQuantProxyHandler,
-    TorchQCDQActQuantProxyHandler,
-    TorchQCDQBiasQuantProxyHandler,
-    TorchQCDQTruncQuantProxyHandler)
-     
-        
 class TorchQCDQManager(BaseManager):
     target_name = 'torch'
 

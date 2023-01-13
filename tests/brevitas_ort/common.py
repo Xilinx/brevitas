@@ -2,21 +2,26 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-import pytest
-
-import torch
-import onnxruntime as ort
 import numpy as np
+import onnxruntime as ort
+import pytest
+import torch
 
-from brevitas.nn import QuantLinear, QuantConv1d, QuantConv2d, QuantLSTM
-from brevitas.nn import QuantConvTranspose1d, QuantConvTranspose2d
+from brevitas.export import export_onnx_qcdq
+from brevitas.export import export_onnx_qop
+from brevitas.export import export_qonnx
+from brevitas.nn import QuantConv1d
+from brevitas.nn import QuantConv2d
+from brevitas.nn import QuantConvTranspose1d
+from brevitas.nn import QuantConvTranspose2d
+from brevitas.nn import QuantLinear
+from brevitas.nn import QuantLSTM
+from brevitas.quant.fixed_point import Int8ActPerTensorFixedPoint
+from brevitas.quant.fixed_point import Int8WeightPerTensorFixedPoint
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
-from brevitas.quant.fixed_point import Int8WeightPerTensorFixedPoint, Int8ActPerTensorFixedPoint
-from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
-from brevitas.export import export_onnx_qop, export_onnx_qcdq, export_qonnx
-
+from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
 
 SEED = 123456
 OUT_CH = 16
@@ -69,12 +74,12 @@ def recursive_allclose(ort_output, brevitas_output, tolerance):
         return torch.allclose(brevitas_output, ort_output, atol=tolerance)
     else:
         return (brevitas_output - ort_output == 0).all()
-    
+
 
 def is_brevitas_ort_close(model, np_input, export_name, export_type, tolerance=None, first_output_only=False):
     input_t = torch.from_numpy(np_input)
     brevitas_output = model(input_t)
-    
+
     if export_type == 'qop':
         export_onnx_qop(model, input_t, export_path=export_name)
         brevitas_output = brevitas_output.int(float_datatype=False)
@@ -91,15 +96,15 @@ def is_brevitas_ort_close(model, np_input, export_name, export_type, tolerance=N
         tolerance = tolerance * brevitas_output.scale # Float Output, tolerance is +/- output scale
 
     ort_output = compute_ort(export_name, np_input)
-    
+
     if first_output_only:
         if isinstance(ort_output, tuple):
             ort_output = ort_output[0]
         if isinstance(brevitas_output, tuple):
             brevitas_output = brevitas_output[0]
-    
+
     # make sure we are not comparing 0s
-    if ort_output == 0 and (brevitas_output == 0).all(): 
+    if ort_output == 0 and (brevitas_output == 0).all():
         pytest.skip("Skip testing against all 0s.")
 
     return recursive_allclose(ort_output, brevitas_output, tolerance)

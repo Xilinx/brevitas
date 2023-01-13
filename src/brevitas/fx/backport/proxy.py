@@ -42,14 +42,22 @@ Forked as-is from PyTorch 1.8.1
 """
 
 import dis
-import torch
 import inspect
 import operator
+from typing import Any, Dict, Iterable, Iterator, Optional, Tuple
 
-from .graph import magic_methods, reflectable_magic_methods, Graph
-from typing import Tuple, Dict, Optional, Iterable, Any, Iterator
-from .node import Target, Node, Argument, base_types, map_aggregate
+import torch
+
+from .graph import Graph
+from .graph import magic_methods
+from .graph import reflectable_magic_methods
+from .node import Argument
+from .node import base_types
+from .node import map_aggregate
+from .node import Node
+from .node import Target
 from .torch_function._overrides import is_tensor_method_or_property
+
 
 class TracerBase:
     graph: Graph

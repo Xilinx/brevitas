@@ -63,9 +63,9 @@ instructions in the ``README.md`` in that directory.
 
 
 import functools
-from typing import Dict, Callable
-from packaging import version
+from typing import Callable, Dict
 
+from packaging import version
 import torch
 
 IS_ABOVE_110 = version.parse(torch.__version__) > version.parse("1.1.0")

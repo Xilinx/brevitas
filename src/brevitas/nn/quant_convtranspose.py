@@ -2,22 +2,26 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from typing import Union, Tuple, Type, Optional
-from packaging import version
+from typing import Optional, Tuple, Type, Union
 
+from packaging import version
 import torch
 from torch import Tensor
-from torch.nn import ConvTranspose1d, ConvTranspose2d
-from torch.nn.functional import conv_transpose1d, conv_transpose2d
+from torch.nn import ConvTranspose1d
+from torch.nn import ConvTranspose2d
+from torch.nn.functional import conv_transpose1d
+from torch.nn.functional import conv_transpose2d
 
 from brevitas import torch_version
 from brevitas.function.ops import max_int
 from brevitas.function.ops_ste import ceil_ste
-from brevitas.quant_tensor import QuantTensor
 from brevitas.inject.defaults import Int8WeightPerTensorFloat
-from .quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
-from .quant_layer import WeightQuantType, BiasQuantType, ActQuantType
+from brevitas.quant_tensor import QuantTensor
 
+from .quant_layer import ActQuantType
+from .quant_layer import BiasQuantType
+from .quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
+from .quant_layer import WeightQuantType
 
 __all__ = ['QuantConvTranspose1d', 'QuantConvTranspose2d']
 
@@ -84,7 +88,7 @@ class QuantConvTranspose1d(QuantWBIOL, ConvTranspose1d):
                 inp, output_size, self.stride, self.padding, self.kernel_size, num_spatial_dims=1)
         else:
              return self._output_padding(
-                inp, output_size, self.stride, self.padding, self.kernel_size)      
+                inp, output_size, self.stride, self.padding, self.kernel_size)
 
     def conv_transpose1d_zeros_pad(
             self, x: Tensor, weight: Tensor, bias: Optional[Tensor], output_padding):
@@ -173,7 +177,7 @@ class QuantConvTranspose2d(QuantWBIOL, ConvTranspose2d):
                 inp, output_size, self.stride, self.padding, self.kernel_size, num_spatial_dims=2)
         else:
              return self._output_padding(
-                inp, output_size, self.stride, self.padding, self.kernel_size)           
+                inp, output_size, self.stride, self.padding, self.kernel_size)
 
     def conv_transpose2d_zeros_pad(
             self, x: Tensor, weight: Tensor, bias: Optional[Tensor], output_padding):

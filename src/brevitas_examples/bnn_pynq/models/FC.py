@@ -6,11 +6,17 @@ import ast
 from functools import reduce
 from operator import mul
 
-from torch.nn import Module, ModuleList, BatchNorm1d, Dropout
 import torch
+from torch.nn import BatchNorm1d
+from torch.nn import Dropout
+from torch.nn import Module
+from torch.nn import ModuleList
 
-from brevitas.nn import QuantIdentity, QuantLinear
-from .common import CommonWeightQuant, CommonActQuant
+from brevitas.nn import QuantIdentity
+from brevitas.nn import QuantLinear
+
+from .common import CommonActQuant
+from .common import CommonWeightQuant
 from .tensor_norm import TensorNorm
 
 DROPOUT = 0.2
@@ -60,7 +66,7 @@ class FC(Module):
         for mod in self.features:
             if isinstance(mod, QuantLinear):
                 mod.weight.data.clamp_(min_val, max_val)
-    
+
     def forward(self, x):
         x = x.view(x.shape[0], -1)
         x = 2.0 * x - torch.tensor([1.0], device=x.device)

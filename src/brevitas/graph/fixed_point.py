@@ -5,16 +5,19 @@
 import torch
 from torch import nn
 
+from brevitas.fx import GraphModule
+from brevitas.fx import immutable_dict
+from brevitas.fx import immutable_list
 import brevitas.nn as qnn
-from brevitas.fx import GraphModule, immutable_dict, immutable_list
 from brevitas.nn.utils import merge_bn
+
 from .base import UntilFixedPointGraphTransform
 from .utils import del_module
-from .utils import replace_all_uses_except
 from .utils import get_module
-from .utils import get_output_channels
 from .utils import get_output_channel_dim
+from .utils import get_output_channels
 from .utils import matches_module_pattern
+from .utils import replace_all_uses_except
 
 __all__ = [
     'MoveSplitBatchNormBeforeCat',
@@ -55,7 +58,7 @@ class MoveSplitBatchNormBeforeCat(UntilFixedPointGraphTransform):
                 module = get_module(graph_model, bn_node.target)
                 if isinstance(module, (nn.BatchNorm1d, nn.BatchNorm2d)):
                     inp_nodes = cat_node.all_input_nodes
-                    if all([inp_node.op == 'call_module' 
+                    if all([inp_node.op == 'call_module'
                         and len(inp_node.users) == 1 for inp_node in inp_nodes]):
                         before_mods = [
                             get_module(graph_model, inp_node.target) for inp_node in inp_nodes]

@@ -1,10 +1,9 @@
+from collections import OrderedDict as od
 from functools import reduce
 from string import Template
 from textwrap import indent
-from collections import OrderedDict as od
 
 import yaml
-
 
 NIX_NEWLINE = '\n'
 # whitespaces to indent generated portions of output yaml
@@ -66,7 +65,7 @@ class Action:
                 Action.list_of_dicts_str(self.exclude_list, False, True, True), EXCLUDE_INDENT * ' ')
         else:
             d['exclude'] = ''
-        
+
         d['strategy'] = indent(Action.dict_str(self.strategy_params, False, False), 6 * ' ')
         template = CustomTemplate(open(base_template_path).read())
         generated_file = template.substitute(d)

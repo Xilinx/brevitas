@@ -3,12 +3,15 @@
 
 
 import hypothesis.strategies as st
-
 import torch
 
-from tests.brevitas.hyp_helper import float_st, float_tensor_nz_st
-from tests.brevitas.hyp_helper import float_tensor_st, min_max_tensor_st, random_tensor_shape_st
-from tests.brevitas.hyp_helper import min_max_scalar_tensor_st, float_tensor_random_shape_st
+from tests.brevitas.hyp_helper import float_st
+from tests.brevitas.hyp_helper import float_tensor_nz_st
+from tests.brevitas.hyp_helper import float_tensor_random_shape_st
+from tests.brevitas.hyp_helper import float_tensor_st
+from tests.brevitas.hyp_helper import min_max_scalar_tensor_st
+from tests.brevitas.hyp_helper import min_max_tensor_st
+from tests.brevitas.hyp_helper import random_tensor_shape_st
 
 
 def tensor_clamp_test_st():

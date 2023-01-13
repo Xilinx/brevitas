@@ -11,9 +11,11 @@ from typing import Optional, Tuple
 import torch
 
 import brevitas
-from brevitas.function.shape import over_tensor, over_output_channels, over_batch_over_tensor
-from brevitas.function.shape import over_batch_over_output_channels
 from brevitas.core.function_wrapper import Identity
+from brevitas.function.shape import over_batch_over_output_channels
+from brevitas.function.shape import over_batch_over_tensor
+from brevitas.function.shape import over_output_channels
+from brevitas.function.shape import over_tensor
 
 
 class PermuteDims(brevitas.jit.ScriptModule):

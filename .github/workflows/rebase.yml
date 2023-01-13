@@ -24,4 +24,3 @@ jobs:
     steps:
       - name: Always run
         run: echo "This job is used to prevent the workflow to fail when all other jobs are skipped."
-

@@ -6,10 +6,10 @@ import pytest
 import pytest_cases
 from pytest_cases import fixture_union
 
-from brevitas.core.bit_width import BitWidthConst, BitWidthParameter
-
-from tests.brevitas.common import INT_BIT_WIDTH_TO_TEST, BOOLS
-
+from brevitas.core.bit_width import BitWidthConst
+from brevitas.core.bit_width import BitWidthParameter
+from tests.brevitas.common import BOOLS
+from tests.brevitas.common import INT_BIT_WIDTH_TO_TEST
 
 __all__ = [
     'bit_width_init',

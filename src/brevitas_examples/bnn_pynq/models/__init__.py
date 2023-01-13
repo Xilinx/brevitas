@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-import os
 from configparser import ConfigParser
+import os
 
 import torch
 from torch import hub
@@ -94,5 +94,3 @@ def lfc_1w1a(pretrained=True):
 def lfc_1w2a(pretrained=True):
     model, _ = model_with_cfg('lfc_1w2a', pretrained)
     return model
-
-

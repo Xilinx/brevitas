@@ -2,19 +2,34 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from .quant_accumulator import ClampQuantAccumulator, TruncQuantAccumulator
-from .quant_activation import QuantReLU, QuantSigmoid, QuantTanh, QuantHardTanh, QuantIdentity
-from .quant_avg_pool import QuantAvgPool2d, QuantAdaptiveAvgPool2d
-from .quant_linear import QuantLinear
-from .quant_bn import BatchNorm1dToQuantScaleBias, BatchNorm2dToQuantScaleBias
-from .quant_scale_bias import ScaleBias, QuantScaleBias
 from .hadamard_classifier import HadamardClassifier
-from .quant_convtranspose import QuantConvTranspose1d, QuantConvTranspose2d
-from .quant_conv import QuantConv1d, QuantConv2d
-from .quant_eltwise import QuantEltwiseAdd, QuantCat
-from .quant_max_pool import QuantMaxPool1d, QuantMaxPool2d
-from .quant_upsample import QuantUpsample, QuantUpsamplingBilinear2d, QuantUpsamplingNearest2d
+from .quant_accumulator import ClampQuantAccumulator
+from .quant_accumulator import TruncQuantAccumulator
+from .quant_activation import QuantHardTanh
+from .quant_activation import QuantIdentity
+from .quant_activation import QuantReLU
+from .quant_activation import QuantSigmoid
+from .quant_activation import QuantTanh
+from .quant_avg_pool import QuantAdaptiveAvgPool2d
+from .quant_avg_pool import QuantAvgPool2d
+from .quant_bn import BatchNorm1dToQuantScaleBias
+from .quant_bn import BatchNorm2dToQuantScaleBias
+from .quant_conv import QuantConv1d
+from .quant_conv import QuantConv2d
+from .quant_convtranspose import QuantConvTranspose1d
+from .quant_convtranspose import QuantConvTranspose2d
 from .quant_dropout import QuantDropout
-from .quant_rnn import QuantRNN, QuantLSTM
+from .quant_eltwise import QuantCat
+from .quant_eltwise import QuantEltwiseAdd
 from .quant_embedding import QuantEmbedding
+from .quant_linear import QuantLinear
+from .quant_max_pool import QuantMaxPool1d
+from .quant_max_pool import QuantMaxPool2d
+from .quant_rnn import QuantLSTM
+from .quant_rnn import QuantRNN
+from .quant_scale_bias import QuantScaleBias
+from .quant_scale_bias import ScaleBias
+from .quant_upsample import QuantUpsample
+from .quant_upsample import QuantUpsamplingBilinear2d
+from .quant_upsample import QuantUpsamplingNearest2d
 from .target import flexml

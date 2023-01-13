@@ -2,17 +2,17 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-import warnings
-from typing import Tuple, Union, Optional
 from abc import ABC
-from packaging import version
+from typing import Optional, Tuple, Union
+import warnings
 
-from torch.nn import Module
+from packaging import version
 from torch import Tensor
+from torch.nn import Module
 
 from brevitas import torch_version
-from brevitas.quant_tensor import QuantTensor
 from brevitas.export.onnx.manager import ONNXBaseManager
+from brevitas.quant_tensor import QuantTensor
 
 DEFAULT_OPSET = 13
 
@@ -29,8 +29,8 @@ class StdONNXBaseManager(ONNXBaseManager, ABC):
     @classmethod
     def solve_enable_onnx_checker(cls, export_kwargs):
         ka = 'enable_onnx_checker'
-        if (torch_version >= version.parse('1.5.0') 
-            and torch_version <= version.parse('1.10.0') 
+        if (torch_version >= version.parse('1.5.0')
+            and torch_version <= version.parse('1.10.0')
             and ka not in export_kwargs):
             export_kwargs[ka] = True
 

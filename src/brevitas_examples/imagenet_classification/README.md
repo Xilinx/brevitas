@@ -14,10 +14,10 @@ Below in the table is a list of example pretrained models made available for ref
 
 
 To evaluate a pretrained quantized model on ImageNet:
- 
+
  - Make sure you have Brevitas installed and the ImageNet dataset in a Pytorch friendly format (following this [script](https://raw.githubusercontent.com/soumith/imagenetloader.torch/master/valprep.sh)).
- - Pass the name of the model as an input to the evaluation script. The required checkpoint will be downloaded automatically. 
- 
+ - Pass the name of the model as an input to the evaluation script. The required checkpoint will be downloaded automatically.
+
  For example, for *quant_mobilenet_v1_4b* evaluated on GPU 0:
 
 ```
@@ -42,4 +42,4 @@ The reduced-precision implementation of VGG makes the following assumptions:
 - Floating point per-channel scale factors can be implemented by the target hardware, e.g. using FINN-style thresholds.
 - Biases and batch-norm can be merged into FINN-style thresholds, and as such as left unquantized.
 - Quantizing avg pooling requires to propagate scaling factors along the forward pass, which generates some additional verbosity.
-  To keep things simple, this particular example then leaves avg pooling unquantized. 
+  To keep things simple, this particular example then leaves avg pooling unquantized.

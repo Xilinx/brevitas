@@ -2,17 +2,20 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta
+from abc import abstractmethod
 from typing import Optional
-from typing_extensions import Protocol, runtime_checkable
 
-from torch import tensor, nn
+from torch import nn
+from torch import tensor
+from typing_extensions import Protocol
+from typing_extensions import runtime_checkable
 
-from brevitas.inject import BaseInjector as Injector
-from brevitas.core.utils import StatelessBuffer
-from brevitas.utils.quant_utils import float_to_int_impl_to_enum
-from brevitas.common import ExportMixin
 from brevitas import config
+from brevitas.common import ExportMixin
+from brevitas.core.utils import StatelessBuffer
+from brevitas.inject import BaseInjector as Injector
+from brevitas.utils.quant_utils import float_to_int_impl_to_enum
 
 __all__ = [
     'QuantProxyProtocol',
@@ -138,4 +141,3 @@ class QuantProxyFromInjector(ExportMixin, nn.Module, QuantProxyProtocol):
         zero_hw_sentinel_key = prefix + 'zero_hw_sentinel'
         if zero_hw_sentinel_key in unexpected_keys:
             unexpected_keys.remove(zero_hw_sentinel_key)
-

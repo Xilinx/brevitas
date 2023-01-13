@@ -2,18 +2,19 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from typing import Optional, Union, Tuple
-from typing_extensions import Protocol, runtime_checkable
+from typing import Optional, Tuple, Union
 
-from torch import Tensor, nn
+from torch import nn
+from torch import Tensor
 from torch.nn import Identity
+from typing_extensions import Protocol
+from typing_extensions import runtime_checkable
 
 import brevitas
 from brevitas.quant_tensor import QuantTensor
 
-from .quant_proxy import QuantProxyFromInjector, QuantProxyProtocol
-
-
+from .quant_proxy import QuantProxyFromInjector
+from .quant_proxy import QuantProxyProtocol
 
 __all__ = [
     'ActQuantProxyProtocol',
@@ -102,8 +103,8 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
     def init_tensor_quant(self):
         tensor_quant = self.quant_injector.tensor_quant
         if 'act_impl' in self.quant_injector:
-            act_impl = self.quant_injector.act_impl 
-        else: 
+            act_impl = self.quant_injector.act_impl
+        else:
             act_impl = None
         is_act_enabled = _is_act_enabled(act_impl, tensor_quant)
         is_quant_enabled = tensor_quant is not None

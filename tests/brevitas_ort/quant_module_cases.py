@@ -2,10 +2,12 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from pytest_cases import parametrize, set_case_id
+from pytest_cases import parametrize
+from pytest_cases import set_case_id
 from torch import nn
 
 from brevitas.quant.scaled_int import Int32Bias
+
 from .common import *
 
 
@@ -19,10 +21,10 @@ class QuantWBIOLCases:
     @parametrize('quantizers', QUANTIZERS.values(), ids=list(QUANTIZERS.keys()))
     def case_quant_wbiol(
             self, impl, input_bit_width, weight_bit_width, output_bit_width, per_channel, quantizers, request):
-        
+
         # Change the case_id based on current value of Parameters
-        set_case_id(request.node.callspec.id, QuantWBIOLCases.case_quant_wbiol) 
-        
+        set_case_id(request.node.callspec.id, QuantWBIOLCases.case_quant_wbiol)
+
         weight_quant, io_quant = quantizers
         if impl is QuantLinear:
             layer_kwargs = {
@@ -58,15 +60,15 @@ class QuantWBIOLCases:
         torch.random.manual_seed(SEED)
         module = Model()
         return module
-    
-    
+
+
 class QuantRecurrentCases:
 
     @parametrize('bidirectional', [True, False, 'shared_input_hidden'])
     @parametrize('cifg', [True, False])
     @parametrize('num_layers', [1, 2])
     def case_float_lstm(self, bidirectional, cifg, num_layers, request):
-        
+
         # Change the case_id based on current value of Parameters
         set_case_id(request.node.callspec.id, QuantRecurrentCases.case_float_lstm)
 
@@ -75,7 +77,7 @@ class QuantRecurrentCases:
             shared_input_hidden = True
         else:
             shared_input_hidden = False
-        
+
         class Model(nn.Module):
 
             def __init__(self):
@@ -102,7 +104,7 @@ class QuantRecurrentCases:
         torch.random.manual_seed(SEED)
         module = Model()
         return module
-    
+
     @parametrize('bidirectional', [True, False, 'shared_input_hidden'])
     @parametrize('cifg', [True, False])
     @parametrize('num_layers', [1, 2])
@@ -110,17 +112,17 @@ class QuantRecurrentCases:
     @parametrize('per_channel', [True, False])
     @parametrize('quantizers', QUANTIZERS.values(), ids=list(QUANTIZERS.keys()))
     def case_quant_lstm(self, bidirectional, cifg, num_layers, weight_bit_width, per_channel, quantizers, request):
-        
+
         # Change the case_id based on current value of Parameters
         set_case_id(request.node.callspec.id, QuantRecurrentCases.case_quant_lstm)
-        
+
         weight_quant, _ = quantizers
         if bidirectional == 'shared_input_hidden':
             bidirectional = True
             shared_input_hidden = True
         else:
             shared_input_hidden = False
-        
+
         class Model(nn.Module):
 
             def __init__(self):
@@ -149,5 +151,3 @@ class QuantRecurrentCases:
         torch.random.manual_seed(SEED)
         module = Model()
         return module
-
-

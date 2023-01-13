@@ -4,10 +4,10 @@
 
 import functools
 
-import brevitas
 import torch
 import torch.nn.functional as F
 
+import brevitas
 
 QUANT_TENSOR_FN_HANDLER = {}
 
@@ -118,4 +118,3 @@ def adaptive_max_pool2d_handler(*args, **kwargs):
 @implements(F.adaptive_max_pool3d)
 def adaptive_max_pool3d_handler(*args, **kwargs):
     return quant_invariant_handler(F.adaptive_max_pool3d, *args, **kwargs)
-

@@ -16,8 +16,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .manifest import ManifestEN, ManifestBase
 from .dataset import AudioDataset
 from .features import WaveformFeaturizer
+from .manifest import ManifestBase
+from .manifest import ManifestEN
 
 __all__ = ['ManifestEN', 'ManifestBase', 'AudioDataset', 'WaveformFeaturizer']

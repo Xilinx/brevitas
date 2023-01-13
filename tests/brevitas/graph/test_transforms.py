@@ -13,15 +13,16 @@ from torchvision import models
 from brevitas.fx import symbolic_trace
 from brevitas.graph import DuplicateSharedStatelessModule
 from brevitas.graph import FnToModule
-from brevitas.graph import MethodToModule
 from brevitas.graph import MeanMethodToAdaptiveAvgPool2d
 from brevitas.graph import MergeBatchNorm
+from brevitas.graph import MethodToModule
 
 SEED = 123456
 INPUT_SIZE = (1, 3, 224, 224)
 ATOL = 1e-3
 
 from brevitas import config
+
 config.IGNORE_MISSING_KEYS = True
 
 MODELS = [

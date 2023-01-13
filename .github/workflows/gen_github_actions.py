@@ -1,7 +1,7 @@
 from collections import OrderedDict as od
 
-from utils import Action, combine_od_list
-
+from utils import Action
+from utils import combine_od_list
 
 BASE_YML_TEMPLATE = 'base.yml.template'
 PYTEST_YML = 'pytest.yml'
@@ -208,4 +208,3 @@ if __name__ == '__main__':
     gen_test_brevitas_ort_integration()
     gen_test_brevitas_notebook()
     gen_test_brevitas_end_to_end()
-    

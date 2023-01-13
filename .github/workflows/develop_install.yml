@@ -60,5 +60,3 @@ jobs:
       if: ${{ (contains(fromJson('["1.5.1", "1.10.1", "1.13.0"]'), matrix.pytorch_version ) && github.event_name == 'pull_request' && matrix.platform == 'ubuntu-latest' )  || (github.event_name != 'pull_request') || (github.event_name == 'pull_request' && github.event.action == 'review_requested')}} 
       shell: bash
       run: nox -v -s tests_brevitas_examples_install_dev-${{ matrix.python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)
-
-

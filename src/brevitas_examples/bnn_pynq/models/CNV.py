@@ -3,13 +3,20 @@
 
 
 import torch
-from torch.nn import Module, ModuleList, BatchNorm2d, MaxPool2d, BatchNorm1d
+from torch.nn import BatchNorm1d
+from torch.nn import BatchNorm2d
+from torch.nn import MaxPool2d
+from torch.nn import Module
+from torch.nn import ModuleList
 
-from brevitas.nn import QuantConv2d, QuantIdentity, QuantLinear
 from brevitas.core.restrict_val import RestrictValueType
-from .tensor_norm import TensorNorm
-from .common import CommonWeightQuant, CommonActQuant
+from brevitas.nn import QuantConv2d
+from brevitas.nn import QuantIdentity
+from brevitas.nn import QuantLinear
 
+from .common import CommonActQuant
+from .common import CommonWeightQuant
+from .tensor_norm import TensorNorm
 
 CNV_OUT_CH_POOL = [(64, False), (64, True), (128, False), (128, True), (256, False), (256, False)]
 INTERMEDIATE_FC_FEATURES = [(256, 512), (512, 512)]
@@ -70,7 +77,7 @@ class CNV(Module):
             weight_quant=CommonWeightQuant,
             weight_bit_width=weight_bit_width))
         self.linear_features.append(TensorNorm())
-        
+
         for m in self.modules():
           if isinstance(m, QuantConv2d) or isinstance(m, QuantLinear):
             torch.nn.init.uniform_(m.weight.data, -1, 1)
@@ -106,4 +113,3 @@ def cnv(cfg):
               num_classes=num_classes,
               in_ch=in_channels)
     return net
-

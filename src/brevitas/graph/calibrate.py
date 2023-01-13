@@ -2,21 +2,23 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from functools import partial
 from abc import ABC
+from functools import partial
 
 from torch import nn
-
-from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
-from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjector
-from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector
-from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector
-from brevitas.proxy.runtime_quant import ClampQuantProxyFromInjector
-from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
-from brevitas.nn import QuantLinear, QuantHardTanh
-from brevitas.nn.utils import compute_channel_view_shape
-from brevitas.quant_tensor import QuantTensor
 import torch.nn.functional as F
+
+from brevitas.nn import QuantHardTanh
+from brevitas.nn import QuantLinear
+from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
+from brevitas.nn.utils import compute_channel_view_shape
+from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjector
+from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
+from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector
+from brevitas.proxy.runtime_quant import ClampQuantProxyFromInjector
+from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector
+from brevitas.quant_tensor import QuantTensor
+
 from .base import Transform
 
 __all__ = [
@@ -94,10 +96,10 @@ class ClipFloatWeights(Transform):
             if isinstance(module, self.layers_to_clip):
                 module.weight.data.clamp_(- self.threshold, self.threshold)
         return model
-        
+
 
 class DisableEnableQuantization(Transform):
-    
+
     def __init__(self):
         super(DisableEnableQuantization, self).__init__()
         self.disable_act_quant_hooks = []
@@ -121,7 +123,7 @@ class DisableEnableQuantization(Transform):
             inp = F.hardtanh(
                 inp, min_val=module.quant_injector.min_val, max_val=module.quant_injector.max_val)
         return QuantTensor(value=inp, training=module.training)
-    
+
     def disable_act_quantization(self, model, is_training):
         for module in model.modules():
             if isinstance(module, ActQuantProxyFromInjector):
@@ -137,7 +139,7 @@ class DisableEnableQuantization(Transform):
             if isinstance(module, _PARAM_PROXIES):
                 module.train(is_training)
                 module.disable_quant = True
-    
+
     def enable_act_quantization(self, model, is_training):
         for module in model.modules():
             if isinstance(module, _ACC_PROXIES):

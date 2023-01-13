@@ -2,15 +2,17 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from typing import Tuple, List, Optional
+from typing import List, Optional, Tuple
 
 import torch
-from torch import nn, Tensor
+from torch import nn
+from torch import Tensor
 
 import brevitas
 import brevitas.config as config
-from .view_wrapper import _ViewCatParameterWrapper, _ViewParameterWrapper
 
+from .view_wrapper import _ViewCatParameterWrapper
+from .view_wrapper import _ViewParameterWrapper
 
 DEFAULT_MOMENTUM = 0.1
 SCALAR_SHAPE = ()
@@ -112,6 +114,3 @@ class _ParameterListStats(brevitas.jit.ScriptModule):
                 stats_input = extra_tracked_param(stats_input)
         out = self.stats(stats_input)
         return out
-
-
-

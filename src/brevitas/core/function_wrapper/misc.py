@@ -6,8 +6,9 @@
 A collection of miscellaneous ScriptModule used in various quantizers.
 """
 
-import brevitas
 import torch
+
+import brevitas
 
 
 class Identity(brevitas.jit.ScriptModule):
@@ -90,9 +91,3 @@ class InplaceLogTwo(torch.nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x.log2_()
         return x
-
-
-
-
-
-

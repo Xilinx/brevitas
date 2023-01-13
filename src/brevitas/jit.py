@@ -3,11 +3,9 @@
 
 
 from packaging import version
-
 import torch
 
 from brevitas.config import JIT_ENABLED
-
 
 IS_ABOVE_110 = version.parse(torch.__version__) > version.parse('1.1.0')
 

@@ -2,9 +2,10 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from setuptools import setup, find_packages
 import os
 
+from setuptools import find_packages
+from setuptools import setup
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 REQUIREMENTS_DIR = os.path.join(PROJECT_ROOT, 'requirements')
@@ -56,5 +57,3 @@ setup(name="brevitas",
               'brevitas_melgan_preprocess = brevitas_examples.text_to_speech.preprocess_dataset:main'
           ],
       })
-
-

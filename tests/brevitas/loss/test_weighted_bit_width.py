@@ -3,10 +3,14 @@
 
 
 import torch
+
 from brevitas.inject.defaults import Int8ActPerTensorFloat
-from brevitas.loss import WeightBitWidthWeightedBySize, ActivationBitWidthWeightedBySize
-from brevitas.loss import QuantLayerOutputBitWidthWeightedByOps, MEGA
-from brevitas.nn import QuantIdentity, QuantLinear
+from brevitas.loss import ActivationBitWidthWeightedBySize
+from brevitas.loss import MEGA
+from brevitas.loss import QuantLayerOutputBitWidthWeightedByOps
+from brevitas.loss import WeightBitWidthWeightedBySize
+from brevitas.nn import QuantIdentity
+from brevitas.nn import QuantLinear
 
 
 def test_weight_bit_width_weighted_by_size():

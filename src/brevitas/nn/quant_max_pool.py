@@ -5,9 +5,11 @@
 from typing import Union
 
 from torch import Tensor
-from torch.nn import MaxPool1d, MaxPool2d
+from torch.nn import MaxPool1d
+from torch.nn import MaxPool2d
 
 from brevitas.quant_tensor import QuantTensor
+
 from .mixin.base import QuantLayerMixin
 
 

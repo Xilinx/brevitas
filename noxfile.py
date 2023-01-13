@@ -3,14 +3,16 @@
 
 
 import os
-
-import nox
-from packaging import version
 from platform import system
 import sys
 
+import nox
+from packaging import version
+
 sys.path.append(os.path.join(os.path.dirname(__file__), os.path.join('.', '.github', 'workflows')))
-from gen_github_actions import PYTORCH_VERSIONS, PYTHON_VERSIONS, JIT_STATUSES
+from gen_github_actions import JIT_STATUSES
+from gen_github_actions import PYTHON_VERSIONS
+from gen_github_actions import PYTORCH_VERSIONS
 
 IS_OSX = system() == 'Darwin'
 PYTORCH_STABLE_WHEEL_SRC = 'https://download.pytorch.org/whl/torch_stable.html'
@@ -127,7 +129,7 @@ def tests_brevitas_notebook(session, pytorch):
     if version.parse(pytorch) >= version.parse(LSTM_EXPORT_MIN_PYTORCH):
         session.run('pytest', '-v','--nbmake', '--nbmake-kernel=python3', 'notebooks')
     else:
-        session.run('pytest', '-v','--nbmake', '--nbmake-kernel=python3', 'notebooks', '--ignore', 'notebooks/quantized_recurrent.ipynb')   
+        session.run('pytest', '-v','--nbmake', '--nbmake-kernel=python3', 'notebooks', '--ignore', 'notebooks/quantized_recurrent.ipynb')
 
 @nox.session(python=PYTHON_VERSIONS)
 @nox.parametrize("pytorch", PYTORCH_VERSIONS, ids=PYTORCH_IDS)

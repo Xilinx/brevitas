@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from enum import Enum
 from contextlib import contextmanager
+from enum import Enum
 
 
 class AutoName(str, Enum):

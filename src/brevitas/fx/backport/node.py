@@ -42,9 +42,12 @@ Forked as-is from PyTorch 1.8.1
 """
 
 # Nodes represent a definition of a value in our graph of operators.
-from typing import TYPE_CHECKING, Union, Callable, Any, Tuple, List, Optional, Dict
-from .immutable_collections import immutable_dict, immutable_list
+from typing import Any, Callable, Dict, List, Optional, Tuple, TYPE_CHECKING, Union
+
 import torch
+
+from .immutable_collections import immutable_dict
+from .immutable_collections import immutable_list
 
 if TYPE_CHECKING:
     from .graph import Graph

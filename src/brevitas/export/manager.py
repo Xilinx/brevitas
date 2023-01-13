@@ -2,23 +2,27 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from typing import Tuple, Union, Optional
-from abc import ABC, abstractmethod
+from abc import ABC
+from abc import abstractmethod
 from contextlib import ExitStack
-from io import BytesIO
 from functools import partial
+from io import BytesIO
+from typing import Optional, Tuple, Union
 
 import torch
-from torch import Tensor, nn
+from torch import nn
+from torch import Tensor
 from torch.nn import Module
 
 from brevitas import config
-from brevitas.quant_tensor import QuantTensor
-from brevitas.utils.jit_utils import jit_patches_generator
-from brevitas.nn.mixin.base import _CachedIO, QuantLayerMixin, QuantRecurrentLayerMixin
+from brevitas.nn.mixin.base import _CachedIO
+from brevitas.nn.mixin.base import QuantLayerMixin
+from brevitas.nn.mixin.base import QuantRecurrentLayerMixin
 from brevitas.proxy.quant_proxy import QuantProxyProtocol
-from brevitas.utils.python_utils import patch
+from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.jit_utils import clear_class_registry
+from brevitas.utils.jit_utils import jit_patches_generator
+from brevitas.utils.python_utils import patch
 
 
 class _JitTraceExportWrapper(nn.Module):

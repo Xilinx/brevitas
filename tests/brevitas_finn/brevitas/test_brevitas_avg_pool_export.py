@@ -4,20 +4,19 @@
 
 import os
 
-import torch
 import numpy as np
 import pytest
-import qonnx.core.onnx_exec as oxe
-from qonnx.core.modelwrapper import ModelWrapper
 from qonnx.core.datatype import DataType
-from qonnx.transformation.infer_shapes import InferShapes
+from qonnx.core.modelwrapper import ModelWrapper
+import qonnx.core.onnx_exec as oxe
 from qonnx.transformation.infer_datatypes import InferDataTypes
+from qonnx.transformation.infer_shapes import InferShapes
 from qonnx.util.basic import gen_finn_dt_tensor
+import torch
 
 from brevitas.export import FINNManager
 from brevitas.nn import QuantAvgPool2d
 from brevitas.quant_tensor import QuantTensor
-
 
 export_onnx_path = "test_brevitas_avg_pool_export.onnx"
 
@@ -67,4 +66,3 @@ def test_brevitas_avg_pool_export(
     assert np.isclose(ref_output_array, finn_output).all()
     # cleanup
     os.remove(export_onnx_path)
-

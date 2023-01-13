@@ -2,13 +2,12 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
+import torch
 from torch.nn import Module
-from brevitas.nn import QuantLinear
 
+from brevitas.nn import QuantLinear
 from brevitas.quant import IntBias
 from brevitas.quant_tensor import QuantTensor
-
-import torch
 
 OUTPUT_FEATURES = 10
 INPUT_FEATURES = 5

@@ -2,10 +2,12 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from brevitas.quant.base import NarrowIntQuant, PerTensorConstScaling2bit
-from brevitas.core.function_wrapper import TensorClamp, InplaceTensorClampSte
-from brevitas.quant.solver import WeightQuantSolver, ActQuantSolver
-
+from brevitas.core.function_wrapper import InplaceTensorClampSte
+from brevitas.core.function_wrapper import TensorClamp
+from brevitas.quant.base import NarrowIntQuant
+from brevitas.quant.base import PerTensorConstScaling2bit
+from brevitas.quant.solver import ActQuantSolver
+from brevitas.quant.solver import WeightQuantSolver
 
 __all__ = [
     'SignedTernaryWeightPerTensorConst',

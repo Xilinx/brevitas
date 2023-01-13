@@ -5,9 +5,11 @@
 from abc import ABC
 from typing import Union
 
-from brevitas.nn import QuantMaxPool1d, QuantMaxPool2d
-from .base import PytorchQuantLayerHandler
+from brevitas.nn import QuantMaxPool1d
+from brevitas.nn import QuantMaxPool2d
+
 from . import qF
+from .base import PytorchQuantLayerHandler
 
 
 class PytorchQuantMaxPoolNd(PytorchQuantLayerHandler, ABC):

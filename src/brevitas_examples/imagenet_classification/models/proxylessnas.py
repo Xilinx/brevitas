@@ -24,8 +24,12 @@ __all__ = ['quant_proxylessnas_mobile14']
 
 import torch.nn as nn
 
-from brevitas.nn import QuantConv2d, QuantLinear, HadamardClassifier
-from brevitas.nn import QuantAvgPool2d, QuantReLU, QuantIdentity
+from brevitas.nn import HadamardClassifier
+from brevitas.nn import QuantAvgPool2d
+from brevitas.nn import QuantConv2d
+from brevitas.nn import QuantIdentity
+from brevitas.nn import QuantLinear
+from brevitas.nn import QuantReLU
 from brevitas.quant import IntBias
 
 from .common import *

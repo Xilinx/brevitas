@@ -2,28 +2,28 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from typing import Tuple, Union, Optional
-from torch.nn import Module
-from torch import Tensor
+from typing import Optional, Tuple, Union
 
+from torch import Tensor
+from torch.nn import Module
+
+from brevitas.export.manager import _set_proxy_export_handler
+from brevitas.export.manager import _set_proxy_export_mode
+from brevitas.export.manager import _set_recurrent_layer_export_handler
+from brevitas.export.manager import _set_recurrent_layer_export_mode
 from brevitas.export.onnx.debug import DebugMarkerFunction
 from brevitas.export.onnx.manager import ONNXBaseManager
-from brevitas.export.manager import _set_proxy_export_handler
-from brevitas.export.manager import _set_recurrent_layer_export_handler
-from brevitas.export.manager import _set_proxy_export_mode
-from brevitas.export.manager import _set_recurrent_layer_export_mode
 
+from .function import BrevitasBinaryQuantFn
+from .function import BrevitasQuantFn
+from .function import BrevitasQuantLSTMCellFn
+from .function import BrevitasTruncFn
 from .handler import BrevitasActQuantProxyHandler
 from .handler import BrevitasBiasQuantProxyHandler
-from .handler import BrevitasWeightQuantProxyHandler
-from .handler import BrevitasTruncQuantProxyHandler
 from .handler import BrevitasDecoupledWeightQuantProxyHandler
 from .handler import BrevitasQuantLSTMLayerHandler
-
-from .function import BrevitasQuantFn
-from .function import BrevitasTruncFn
-from .function import BrevitasBinaryQuantFn
-from .function import BrevitasQuantLSTMCellFn
+from .handler import BrevitasTruncQuantProxyHandler
+from .handler import BrevitasWeightQuantProxyHandler
 
 
 class QONNXManager(ONNXBaseManager):

@@ -2,16 +2,16 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from brevitas.core.quant import *
-from brevitas.core.function_wrapper import *
-from brevitas.core.scaling import *
-from brevitas.core.restrict_val import *
 from brevitas.core.bit_width import *
+from brevitas.core.function_wrapper import *
+from brevitas.core.quant import *
 from brevitas.core.quant import QuantType
-from brevitas.core.stats import *
+from brevitas.core.restrict_val import *
+from brevitas.core.scaling import *
 from brevitas.core.scaling import ScalingImplType
-from brevitas.inject import ExtendedInjector, value
-
+from brevitas.core.stats import *
+from brevitas.inject import ExtendedInjector
+from brevitas.inject import value
 
 __all__ = [
     'solve_bit_width_impl_from_enum',
@@ -143,8 +143,8 @@ class SolveIntScalingImplFromEnum(ExtendedInjector):
             return PowerOfTwoIntScaling
         else:
             raise RuntimeError(f"{restrict_scaling_type} not recognized.")
-    
-    
+
+
 class SolveStatsReduceDimFromEnum(ExtendedInjector):
 
     @value

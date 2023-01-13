@@ -3,8 +3,8 @@
 
 
 import pytest_cases
-from brevitas.core.quant import TernaryQuant
 
+from brevitas.core.quant import TernaryQuant
 
 __all__ = [
     'threshold_init',

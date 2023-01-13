@@ -2,17 +2,18 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-import mock
 from hypothesis import given
-
+import mock
 import torch
-from brevitas.core.quant import *
-from brevitas.core.function_wrapper import RoundSte, TensorClamp
 
-from tests.brevitas.hyp_helper import float_tensor_random_shape_st, scalar_float_p_tensor_st
-from tests.brevitas.core.shared_quant_fixture import * # noqa
-from tests.brevitas.core.int_quant_fixture import * # noqa
-from tests.brevitas.core.bit_width_fixture import * # noqa
+from brevitas.core.function_wrapper import RoundSte
+from brevitas.core.function_wrapper import TensorClamp
+from brevitas.core.quant import *
+from tests.brevitas.core.bit_width_fixture import *  # noqa
+from tests.brevitas.core.int_quant_fixture import *  # noqa
+from tests.brevitas.core.shared_quant_fixture import *  # noqa
+from tests.brevitas.hyp_helper import float_tensor_random_shape_st
+from tests.brevitas.hyp_helper import scalar_float_p_tensor_st
 
 
 class TestIntQuantUnit:

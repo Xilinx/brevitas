@@ -2,8 +2,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-import os
 from distutils.util import strtobool
+import os
+
 try:
     from torch.jit import _enabled
 except ImportError:
@@ -23,4 +24,3 @@ VERBOSE = env_to_bool('BREVITAS_VERBOSE', False)
 # Internal global variables
 _IS_INSIDE_QUANT_LAYER = None
 _ONGOING_EXPORT = None
-

@@ -5,8 +5,9 @@
 from torch import Tensor
 
 from brevitas.nn import QuantAvgPool2d
-from .base import FINNQuantIOHandler
+
 from ..function.acc import QuantAvgPool2dFn
+from .base import FINNQuantIOHandler
 
 
 class FINNQuantAvgPool2dHandler(FINNQuantIOHandler):

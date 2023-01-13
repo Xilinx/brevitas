@@ -9,10 +9,14 @@ Implementation of various torch.autograd.Function with straight-through estimato
 from typing import Tuple
 
 import torch
-from torch.autograd import Function
 from torch import Tensor
+from torch.autograd import Function
 
-from brevitas.function.ops import tensor_clamp, binary_sign, round_to_zero, tensor_clamp_, dpu_round
+from brevitas.function.ops import binary_sign
+from brevitas.function.ops import dpu_round
+from brevitas.function.ops import round_to_zero
+from brevitas.function.ops import tensor_clamp
+from brevitas.function.ops import tensor_clamp_
 
 __all__ = [
     'ScalarClampSteFn',
@@ -98,7 +102,7 @@ class ScalarClampMinSteFn(Function):
 
 
 class TensorClampSteFn(Function):
-    """ 
+    """
     Autograd function that implements :func:`~brevitas.function.ops.tensor_clamp` with a
     straight-through gradient estimator for the gradient of y w.r.t. to x, while the gradient of y
     w.r.t. to min_val and max_val is always None.
@@ -217,7 +221,7 @@ class DPURoundSteFn(Function):
 
 
 class CeilSteFn(Function):
-    """ 
+    """
     Autograd function that implements :func:`torch.ceil` with a straight-through gradient estimator.
 
     ``CeilSteFn.apply(*args)`` is first aliased to :func:`ceil_ste_impl(*args)
@@ -243,7 +247,7 @@ class CeilSteFn(Function):
 
 
 class FloorSteFn(Function):
-    """ 
+    """
     Autograd function that implements :func:`torch.floor` with a straight-through gradient estimator.
 
     ``FloorSteFn.apply(*args)`` is first aliased to :func:`floor_ste_impl(*args)
@@ -269,12 +273,12 @@ class FloorSteFn(Function):
 
 
 class BinarySignSteFn(Function):
-    """ 
+    """
     Autograd function that implements :func:`~brevitas.function.ops.binary_sign` with a
     straight-through gradient estimator.
 
-    ``BinarySignSteFn.apply(*args)`` is first aliased to 
-    :func:`binary_sign_ste_impl(*args)<brevitas.ops.autograd_ste_ops.binary_sign_ste_impl>` 
+    ``BinarySignSteFn.apply(*args)`` is first aliased to
+    :func:`binary_sign_ste_impl(*args)<brevitas.ops.autograd_ste_ops.binary_sign_ste_impl>`
     and then wrapped by :func:`~brevitas.function.ops_ste.binary_sign_ste` when env ``BREVITAS_JIT=0``.
     See :func:`~brevitas.function.ops_ste.binary_sign_ste` for details on the interface and
     examples.
@@ -301,7 +305,7 @@ class BinarySignSteFn(Function):
 
 
 class TernarySignSteFn(Function):
-    """ 
+    """
     Autograd function that implements :func:`torch.sign` with a straight-through gradient estimator.
 
     ``TernarySignSteFn.apply(*args)`` is first aliased to :func:`ternary_sign_ste_impl(*args)

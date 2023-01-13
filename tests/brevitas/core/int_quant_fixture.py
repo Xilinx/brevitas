@@ -4,8 +4,8 @@
 
 import pytest_cases
 import torch
-from brevitas.core.quant import IntQuant
 
+from brevitas.core.quant import IntQuant
 from tests.brevitas.common import BOOLS
 
 __all__ = [

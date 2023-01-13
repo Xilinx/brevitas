@@ -3,13 +3,16 @@
 
 
 from abc import ABC
-from typing import Optional, NamedTuple
+from typing import NamedTuple, Optional
 
 import torch
 from torch import Tensor
 
-from brevitas.function.ops_ste import ceil_ste, round_ste
-from brevitas.function.ops import max_int, min_int
+from brevitas.function.ops import max_int
+from brevitas.function.ops import min_int
+from brevitas.function.ops_ste import ceil_ste
+from brevitas.function.ops_ste import round_ste
+
 from .torch_handler import QUANT_TENSOR_FN_HANDLER
 
 IS_VALID_ATOL = 1e-5

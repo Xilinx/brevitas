@@ -35,8 +35,11 @@
 import torch
 import torch.nn as nn
 
-from brevitas.nn import QuantConv2d, QuantLinear
-from brevitas.nn import QuantAvgPool2d, QuantReLU, QuantIdentity
+from brevitas.nn import QuantAvgPool2d
+from brevitas.nn import QuantConv2d
+from brevitas.nn import QuantIdentity
+from brevitas.nn import QuantLinear
+from brevitas.nn import QuantReLU
 
 from .common import *
 

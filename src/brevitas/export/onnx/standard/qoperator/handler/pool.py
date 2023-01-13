@@ -3,11 +3,13 @@ from typing import Union
 
 import torch
 from torch import Tensor
-
 # early import of max_pool to avoid being affected by monkeypatching
-from torch.nn.functional import max_pool1d, max_pool2d
+from torch.nn.functional import max_pool1d
+from torch.nn.functional import max_pool2d
 
-from brevitas.nn import QuantMaxPool1d, QuantMaxPool2d
+from brevitas.nn import QuantMaxPool1d
+from brevitas.nn import QuantMaxPool2d
+
 from .base import StdQOpONNXQuantWrapperHandler
 
 

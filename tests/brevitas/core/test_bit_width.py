@@ -2,19 +2,18 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
+from hypothesis import given
 import pytest
 import pytest_cases
-from hypothesis import given
-
 import torch
-from brevitas.core.bit_width import BitWidthParameter
-from brevitas.core.restrict_val import IntRestrictValue
-from brevitas.core.function_wrapper import RoundSte
-from brevitas import config
 
+from brevitas import config
+from brevitas.core.bit_width import BitWidthParameter
+from brevitas.core.function_wrapper import RoundSte
+from brevitas.core.restrict_val import IntRestrictValue
 from tests.brevitas.common import assert_allclose
-from tests.brevitas.hyp_helper import scalar_float_nz_tensor_st
 from tests.brevitas.core.bit_width_fixture import *  # noqa
+from tests.brevitas.hyp_helper import scalar_float_nz_tensor_st
 
 
 class TestBitWidthAll:

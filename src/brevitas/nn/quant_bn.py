@@ -7,9 +7,12 @@ from typing import Optional
 
 import brevitas.config as config
 from brevitas.inject.defaults import Int8WeightPerTensorFloat
+
+from .quant_layer import ActQuantType
+from .quant_layer import BiasQuantType
+from .quant_layer import WeightQuantType
 from .quant_scale_bias import QuantScaleBias
 from .utils import mul_add_from_bn
-from .quant_layer import WeightQuantType, BiasQuantType, ActQuantType
 
 
 class _BatchNormToQuantScaleBias(QuantScaleBias, ABC):

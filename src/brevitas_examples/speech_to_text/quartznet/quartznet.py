@@ -17,15 +17,17 @@
 # limitations under the License.
 
 
+from typing import Optional
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Optional
 
 from .audio_preprocessing import AudioToMelSpectrogramPreprocessor
-from .parts.quartznet import JasperBlock, init_weights
-from .parts.common import *
 from .greedy_ctc_decoder import GreedyCTCDecoder
+from .parts.common import *
+from .parts.quartznet import init_weights
+from .parts.quartznet import JasperBlock
 
 
 class JasperEncoder(nn.Module):
@@ -281,4 +283,3 @@ def quartznet(cfg, quartzet_params, export_mode):
 
     model = Quartznet(data_preprocessor, encoder, decoder, greedy_decoder)
     return model
-

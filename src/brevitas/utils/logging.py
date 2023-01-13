@@ -2,9 +2,10 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from typing import Dict
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta
+from abc import abstractmethod
 from functools import partial
+from typing import Dict
 
 import torch
 from torch import nn

@@ -43,14 +43,16 @@ Forked from PyTorch 1.8.1
 """
 
 import builtins
+from contextlib import ExitStack
 import functools
 import inspect
+from itertools import chain
 import math
 import os
-from types import CodeType, FunctionType, ModuleType
-from typing import Any, Dict, NamedTuple, Optional, Set, Tuple, List, Callable, Union
-from itertools import chain
-from contextlib import ExitStack
+from types import CodeType
+from types import FunctionType
+from types import ModuleType
+from typing import Any, Callable, Dict, List, NamedTuple, Optional, Set, Tuple, Union
 
 import torch
 
@@ -59,10 +61,12 @@ try:
 except:
     ScriptObject = None
 
-from .node import Argument, map_aggregate
 from .graph import Graph
 from .graph_module import GraphModule
-from .proxy import TracerBase, Proxy
+from .node import Argument
+from .node import map_aggregate
+from .proxy import Proxy
+from .proxy import TracerBase
 from .torch_function import gen_patches
 
 HAS_VARSTUFF = inspect.CO_VARARGS | inspect.CO_VARKEYWORDS

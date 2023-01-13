@@ -1,22 +1,27 @@
-from abc import ABC, abstractmethod
+from abc import ABC
+from abc import abstractmethod
 
 import torch
 from torch import Tensor
 
-
-from brevitas.export.onnx.standard.function import QuantizeLinearFn, DequantizeLinearFn, IntClipFn
-from brevitas.export.common.handler.base import (
-    QuantAxisMixin, ScaleHandlerMixin, BitWidthHandlerMixin, ZeroPointHandlerMixin, ClipMixin)
+from brevitas.export.common.handler.base import BitWidthHandlerMixin
+from brevitas.export.common.handler.base import ClipMixin
+from brevitas.export.common.handler.base import QuantAxisMixin
+from brevitas.export.common.handler.base import ScaleHandlerMixin
+from brevitas.export.common.handler.base import ZeroPointHandlerMixin
 from brevitas.export.onnx.handler import ONNXBaseHandler
+from brevitas.export.onnx.standard.function import DequantizeLinearFn
+from brevitas.export.onnx.standard.function import IntClipFn
+from brevitas.export.onnx.standard.function import QuantizeLinearFn
 
 
 class StdQOpONNXQuantLayerHandler(
-    ONNXBaseHandler, 
-    QuantAxisMixin, 
-    ScaleHandlerMixin, 
+    ONNXBaseHandler,
+    QuantAxisMixin,
+    ScaleHandlerMixin,
     ClipMixin,
-    BitWidthHandlerMixin, 
-    ZeroPointHandlerMixin, 
+    BitWidthHandlerMixin,
+    ZeroPointHandlerMixin,
     ABC):
 
     @abstractmethod
@@ -173,4 +178,3 @@ class StdQOpONNXQuantWrapperHandler(StdQOpONNXQuantLayerHandler, ABC):
             if output_clip_symbolic_kwargs is not None:
                 out = IntClipFn.apply(out, *output_clip_symbolic_kwargs.values())
         return out
-

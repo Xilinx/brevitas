@@ -29,8 +29,10 @@ __all__ = ['AudioPreprocessing',
 
 from abc import abstractmethod
 import math
+
 import torch
 import torch.nn as nn
+
 try:
     import torchaudio
     have_torchaudio = True
@@ -39,7 +41,8 @@ except ModuleNotFoundError:
     print('Could not import torchaudio. Some features might not work.')
 
 from .parts.features import FilterbankFeatures
-from .parts.spectr_augment import SpecAugment, SpecCutout
+from .parts.spectr_augment import SpecAugment
+from .parts.spectr_augment import SpecCutout
 
 
 class AudioPreprocessor(nn.Module):

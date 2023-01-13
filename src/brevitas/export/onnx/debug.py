@@ -6,8 +6,8 @@ import torch
 from torch.autograd import Function
 
 from brevitas.nn.mixin.base import QuantLayerMixin
-from brevitas.quant_tensor import QuantTensor
 from brevitas.proxy.quant_proxy import QuantProxyProtocol
+from brevitas.quant_tensor import QuantTensor
 
 
 class DebugMarkerFunction(Function):

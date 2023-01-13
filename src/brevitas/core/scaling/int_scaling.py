@@ -5,7 +5,8 @@
 from torch import Tensor
 
 import brevitas
-from brevitas.function.ops import min_int, max_int
+from brevitas.function.ops import max_int
+from brevitas.function.ops import min_int
 
 
 class IntScaling(brevitas.jit.ScriptModule):

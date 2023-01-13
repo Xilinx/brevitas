@@ -16,15 +16,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Tuple, Optional, List
+from typing import List, Optional, Tuple
 
 import torch
-import torch.nn as nn
 from torch import Tensor
-from .common import *
-from brevitas.quant_tensor import QuantTensor
+import torch.nn as nn
+
 from brevitas.nn import QuantConv1d
-from brevitas.nn.utils import mul_add_from_bn, rename_state_dict_by_postfix
+from brevitas.nn.utils import mul_add_from_bn
+from brevitas.nn.utils import rename_state_dict_by_postfix
+from brevitas.quant_tensor import QuantTensor
+
+from .common import *
 
 jasper_activations = {
     "hardtanh": nn.Hardtanh,
@@ -483,5 +486,3 @@ class JasperBlock(nn.Module):
             if k in keys_to_delete:
                 del state_dict[k]
         assert len(self.conv_module_to_merge) == index
-
-

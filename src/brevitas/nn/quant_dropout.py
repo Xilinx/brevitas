@@ -8,6 +8,7 @@ from torch import Tensor
 from torch.nn import Dropout
 
 from brevitas.quant_tensor import QuantTensor
+
 from .mixin.base import QuantLayerMixin
 
 

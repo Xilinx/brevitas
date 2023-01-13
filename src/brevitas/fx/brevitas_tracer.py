@@ -2,14 +2,16 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from typing import Callable, Optional, Dict, Any, Union
-
 from contextlib import ExitStack
-from torch.nn import Sequential, Module
+from typing import Any, Callable, Dict, Optional, Union
 
-from . import GraphModule, Tracer
-from .value_tracer import ValueTracer
+from torch.nn import Module
+from torch.nn import Sequential
+
+from . import GraphModule
+from . import Tracer
 from .backport.torch_function import gen_patches
+from .value_tracer import ValueTracer
 
 
 def _is_brevitas_leaf_module(m, fully_qualified_name):
@@ -64,8 +66,3 @@ def brevitas_symbolic_trace(root, concrete_args = None):
 
 def brevitas_value_trace(root, concrete_args = None):
     return _trace_with_backport(BrevitasValueTracer(), root, concrete_args)
-
-
-
-
-
