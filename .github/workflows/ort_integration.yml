@@ -25,7 +25,7 @@ jobs:
 
 
 
-    if: ${{ !github.event.pull_request.draft }} && (contains(['1.5.1', '1.10.1', '1.13.0'], matrix.pytorch_version) && github.event.pull_request && !github.event.pull_request.review_requested)
+    if: ${{ !github.event.pull_request.draft }} && (contains(['1.5.1', '1.10.1', '1.13.0'], matrix.pytorch_version)
     steps:
 
     - name: Checkout repo
