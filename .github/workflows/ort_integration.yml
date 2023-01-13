@@ -9,6 +9,7 @@ on:
       - reopened
       - synchronize
       - ready_for_review
+      - review_requested
 
 jobs:
   build:
@@ -16,7 +17,13 @@ jobs:
     strategy:
       fail-fast: false
 
+      if:  ${{ !github.event.pull_request.review_requested }}
+      matrix:
+        python_version: ['3.7', '3.8']
+        pytorch_version: ['1.5.1', '1.10.1', '1.13.0']
+        platform: ['windows-latest', 'ubuntu-latest', 'macos-latest']
 
+      if:  ${{ github.event.pull_request.review_requested }}
       matrix:
         python_version: ['3.7', '3.8']
         pytorch_version: ['1.5.1', '1.6.0', '1.7.1', '1.8.1', '1.9.1', '1.10.1', '1.11.0', '1.12.1', '1.13.0']
