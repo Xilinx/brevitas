@@ -136,9 +136,11 @@ class CollapseConsecutiveConcats(UntilFixedPointGraphTransform):
         cat_tensors2 = node_to_merge_in.kwargs['tensors']
         if not isinstance(cat_tensors2, (list, tuple)):
             cat_tensors2 = [cat_tensors2]
+        index_for_insertion = cat_tensors2.index(node_to_extract)
         cat_tensors2 = [t for t in cat_tensors2 if t is not node_to_extract]
+        cat_tensors2[index_for_insertion:index_for_insertion] = cat_tensors1
         kwargs = dict(node_to_merge_in.kwargs)
-        kwargs['tensors'] = (cat_tensors1 + cat_tensors2)
+        kwargs['tensors'] = cat_tensors2
         node_to_merge_in.kwargs = immutable_dict(kwargs)
 
     def is_converged(self, graph_model):
