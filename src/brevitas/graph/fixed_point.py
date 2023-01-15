@@ -149,7 +149,7 @@ class CollapseConsecutiveConcats(UntilFixedPointGraphTransform):
                             and inp_node.target is torch.cat
                             and node.kwargs['dim'] == inp_node.kwargs['dim']
                             and len(inp_node.users) == 1):
-                        self.merge_tensor_args(inp_node, node)
+                        self.merge_tensor_kwargs(inp_node, node)
                         graph_model.graph.erase_node(inp_node)
                         graph_model.graph.lint()
                         graph_model.recompile()
