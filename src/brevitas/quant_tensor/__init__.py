@@ -277,11 +277,16 @@ class QuantTensor(QuantTensorBase):
                     first_qt.check_bit_width_same(qt)
                     first_qt.check_sign_same(qt)
                 output_value = torch.cat([qt.value for qt in tensors], dim=dim)
-                output_scale = sum([qt.scale for qt in tensors]) / len(tensors)
-                output_zero_point = sum([qt.zero_point for qt in tensors]) / len(tensors)
-                output_bit_width = sum([qt.bit_width for qt in tensors]) / len(tensors)
-                output_signed = first_qt.signed  # they are the same
                 output_training = any([qt.training for qt in tensors])
+                if output_training:
+                    output_scale = sum([qt.scale for qt in tensors]) / len(tensors)
+                    output_zero_point = sum([qt.zero_point for qt in tensors]) / len(tensors)
+                    output_bit_width = sum([qt.bit_width for qt in tensors]) / len(tensors)
+                else: # at eval time, they are the same
+                    output_scale = first_qt.scale
+                    output_zero_point = first_qt.zero_point
+                    output_bit_width = first_qt.bit_width
+                output_signed = first_qt.signed  # they are the same
                 return QuantTensor(
                     value=output_value,
                     scale=output_scale,
