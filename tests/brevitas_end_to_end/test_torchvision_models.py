@@ -19,7 +19,7 @@ from tests.marker import requires_pt_ge
 BATCH = 1
 HEIGHT, WIDTH = 224, 224
 IN_CH = 3
-MODEL_LIST = ['mobilenet_v2', 'resnet50', 'resnet18', 'mnasnet0_5', 'alexnet', 'googlenet', 'vgg11', 'densenet121', 'deeplabv3_resnet50', 'fcn_resnet50', 'regnet_x_400mf','squeezenet1_0']
+MODEL_LIST = ['mobilenet_v2', 'resnet50', 'resnet18', 'mnasnet0_5', 'alexnet', 'googlenet', 'vgg11', 'densenet121', 'deeplabv3_resnet50', 'fcn_resnet50', 'regnet_x_400mf','squeezenet1_0', 'inception_v3']
 
 class NoDictModel(torch.nn.Module):
 
