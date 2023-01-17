@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
+from collections import OrderedDict
 from copy import deepcopy
 from functools import partial
 import operator
@@ -157,15 +158,13 @@ def _cross_layer_equalization(srcs, sinks, merge_bias=True, bias_shrinkage='vaiq
             if not isinstance(module, _supported_layers):
                 raise ValueError("module type not supported:", type(module))
 
-    src_axes = {m: _get_output_axis(m) for m in srcs}
-    sink_axes = {m: _get_input_axis(m) for m in sinks}
+    # Because of possible concat, we need to preserve the order
+    src_axes = OrderedDict([(m, _get_output_axis(m)) for m in srcs])
+    sink_axes = OrderedDict([(m, _get_input_axis(m)) for m in sinks])
     src_sink = _get_size(src_axes)
     sink_size = _get_size(sink_axes, check_same=True)
 
-    is_concat = torch.sum(src_sink) == sink_size[0]
-
-    # if src_size != sink_size:
-    #     raise RuntimeError("Output channels of sources do not match input channels of sinks")
+    is_concat = torch.sum(src_sink) == sink_size[0] and len(src_sink)>1
 
     transpose = lambda module, axis: module.weight if axis == 0 else module.weight.transpose(0, 1)
     if merge_bias:
@@ -182,12 +181,17 @@ def _cross_layer_equalization(srcs, sinks, merge_bias=True, bias_shrinkage='vaiq
     scaling_factors = torch.sqrt(srcs_range / sinks_range)
     inverse_scaling_factors = torch.reciprocal(scaling_factors)
 
+    start_index = 0
     for module, axis in src_axes.items():
+        channels = module.weight.size(axis)
+        partial_inverse_scaling = inverse_scaling_factors[start_index:start_index+channels]
         if hasattr(module, 'bias') and module.bias is not None:
-            module.bias.data = module.bias.data * inverse_scaling_factors.view_as(module.bias)
+            module.bias.data = module.bias.data * partial_inverse_scaling.view_as(module.bias)
         src_broadcast_size = [1] * module.weight.ndim
         src_broadcast_size[axis] = module.weight.size(axis)
-        module.weight.data = module.weight.data * torch.reshape(inverse_scaling_factors, src_broadcast_size)
+        module.weight.data = module.weight.data * torch.reshape(partial_inverse_scaling, src_broadcast_size)
+        if is_concat:
+            start_index += channels
     for module, axis in sink_axes.items():
         src_broadcast_size = [1] * module.weight.ndim
         src_broadcast_size[axis] = module.weight.size(axis)
@@ -267,8 +271,6 @@ def _extract_regions(graph_model: GraphModule):
                     # each region should appear only once, so to make it hashable
                     # we convert srcs and sinks to ordered lists first, and then to tuples
                     regions.add((tuple(sorted(srcs)), tuple(sorted(sinks))))
-    # for clarity, sort by the of the first source
-    regions = sorted(regions, key=lambda region: region[0][0])
     return regions
 
 
