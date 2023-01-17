@@ -7,7 +7,6 @@ from torch import nn
 
 from brevitas.fx import GraphModule
 from brevitas.fx import immutable_dict
-from brevitas.fx import immutable_list
 import brevitas.nn as qnn
 from brevitas.nn.utils import merge_bn
 

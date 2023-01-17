@@ -2,13 +2,10 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-import copy
-from functools import partial
 from copy import deepcopy
-from typing import Dict, Any
+from functools import partial
 import operator
-from random import sample
-from typing import Any, Dict
+from typing import Dict
 
 import torch
 
@@ -125,10 +122,10 @@ def _combine_weights_bias(m, axis, bias_shrinkage):
     weight = m.weight.data if axis == 0 else m.weight.data.transpose(1,0)
     weight = deepcopy(weight).view(weight.shape[0], -1)
     bias = deepcopy(bias).view(-1, 1)
-    
+
     weight = torch.where(torch.abs(weight) < 1e-8, torch.tensor(1e-8), weight)
     factor = torch.abs(bias)/torch.abs(weight)
-    
+
     # From https://github.com/Xilinx/Vitis-AI/blob/master/src/vai_quantizer/vai_q_pytorch/nndct_shared/optimization/commander.py#L450
     if bias_shrinkage == 'vaiq':
         if torch.abs(bias).max() < 10 and (torch.abs(bias).max()/torch.abs(weight).max() ) < 20:
@@ -164,7 +161,7 @@ def _cross_layer_equalization(srcs, sinks, merge_bias=True, bias_shrinkage='vaiq
     sink_axes = {m: _get_input_axis(m) for m in sinks}
     src_sink = _get_size(src_axes)
     sink_size = _get_size(sink_axes, check_same=True)
-    
+
     is_concat = torch.sum(src_sink) == sink_size[0]
 
     # if src_size != sink_size:
