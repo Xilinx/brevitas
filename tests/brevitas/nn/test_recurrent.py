@@ -2,16 +2,16 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from hypothesis import given
-import pytest
 import warnings
 
-import torch
-from brevitas.nn import QuantRNN, QuantLSTM
-
-from tests.brevitas.hyp_helper import float_tensor_random_size_st
+from hypothesis import given
 import hypothesis.strategies as st
+import pytest
+import torch
 
+from brevitas.nn import QuantLSTM
+from brevitas.nn import QuantRNN
+from tests.brevitas.hyp_helper import float_tensor_random_size_st
 
 ATOL=1e-6
 
@@ -41,7 +41,7 @@ class TestRecurrent:
             weight_quant=None,
             bias_quant=None,
             io_quant=None,
-            gate_acc_quant=None, 
+            gate_acc_quant=None,
             batch_first=batch_first,
             bidirectional=bidirectional,
             num_layers=num_layers,

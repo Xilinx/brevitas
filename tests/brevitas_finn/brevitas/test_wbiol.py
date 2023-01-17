@@ -2,16 +2,20 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-import pytest
 import os
+
 import numpy as np
-import torch
-import brevitas.onnx as bo
-from brevitas.nn import QuantLinear, QuantConv2d, QuantIdentity
-from brevitas.quant import Int16Bias
+import pytest
 from qonnx.core.modelwrapper import ModelWrapper
 import qonnx.core.onnx_exec as oxe
 from qonnx.transformation.infer_shapes import InferShapes
+import torch
+
+from brevitas.nn import QuantConv2d
+from brevitas.nn import QuantIdentity
+from brevitas.nn import QuantLinear
+import brevitas.onnx as bo
+from brevitas.quant import Int16Bias
 
 
 @pytest.mark.parametrize("bias", [True, False])
@@ -77,19 +81,19 @@ def test_quant_conv2d(
             weight_bit_width=w_bits,
             weight_scaling_per_output_channel=channel_scaling)
     except Exception as e:
-        # exception should be rised when (multi-)dw is expected and out_channels 
+        # exception should be rised when (multi-)dw is expected and out_channels
         # is not multiplication of in_channels
         dw_groups = out_channels // in_channels
-        dw_out_channels = dw_groups * in_channels  
+        dw_out_channels = dw_groups * in_channels
         if dw and  dw_out_channels != out_channels:
             # exception caused by inproper parameters is ok,
             # but further computation gives an error.
-            # So return without  assertion 
+            # So return without  assertion
             return
         else:
             # any other exeptions are unknown...
             assert False
-            
+
     conv.eval()
     model = bo.export_finn_onnx(conv, input_t=inp_tensor)
     model = ModelWrapper(model)
@@ -101,5 +105,3 @@ def test_quant_conv2d(
     produced = odict[model.graph.output[0].name]
     expected = conv(inp_tensor).detach().numpy()
     assert np.isclose(produced, expected, atol=1e-3).all()
-
-

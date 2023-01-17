@@ -4,7 +4,9 @@
 
 import pytest_cases
 from pytest_cases import fixture_union
-from brevitas.core.quant import BinaryQuant, ClampedBinaryQuant
+
+from brevitas.core.quant import BinaryQuant
+from brevitas.core.quant import ClampedBinaryQuant
 
 __all__ = [
     'binary_quant',

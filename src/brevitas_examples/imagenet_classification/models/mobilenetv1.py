@@ -31,11 +31,16 @@ __all__ = ['quant_mobilenet_v1']
 from torch import nn
 from torch.nn import Sequential
 
-from brevitas.nn import QuantConv2d, QuantLinear, QuantReLU, QuantAvgPool2d
+from brevitas.nn import QuantAvgPool2d
+from brevitas.nn import QuantConv2d
+from brevitas.nn import QuantLinear
+from brevitas.nn import QuantReLU
 from brevitas.quant import IntBias
 
-from .common import CommonIntActQuant, CommonUintActQuant
-from .common import CommonIntWeightPerChannelQuant, CommonIntWeightPerTensorQuant
+from .common import CommonIntActQuant
+from .common import CommonIntWeightPerChannelQuant
+from .common import CommonIntWeightPerTensorQuant
+from .common import CommonUintActQuant
 
 FIRST_LAYER_BIT_WIDTH = 8
 
@@ -182,6 +187,3 @@ def quant_mobilenet_v1(cfg):
         bit_width=bit_width)
 
     return net
-
-
-

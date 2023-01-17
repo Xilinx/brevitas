@@ -3,19 +3,21 @@
 # Based on: https://arxiv.org/abs/1801.04540
 
 
-import torch.nn as nn
 import math
+
 import torch
+import torch.nn as nn
 
 try:
     from scipy.linalg import hadamard
 except ImportError:
     hadamard = None
 
-from brevitas.function.ops_ste import ceil_ste
 from brevitas.function.ops import max_int
-from .mixin.base import QuantLayerMixin
+from brevitas.function.ops_ste import ceil_ste
 from brevitas.quant_tensor import QuantTensor
+
+from .mixin.base import QuantLayerMixin
 
 
 class HadamardClassifier(QuantLayerMixin, nn.Module):

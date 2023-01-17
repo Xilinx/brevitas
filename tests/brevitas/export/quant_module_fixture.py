@@ -2,27 +2,34 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from pytest_cases import fixture, parametrize, set_case_id
-from torch import nn
+from pytest_cases import fixture
+from pytest_cases import parametrize
+from pytest_cases import set_case_id
 import torch
+from torch import nn
+
+from brevitas.nn import QuantConv1d
+from brevitas.nn import QuantConv2d
+from brevitas.nn import QuantConvTranspose1d
+from brevitas.nn import QuantConvTranspose2d
+from brevitas.nn import QuantLinear
+from brevitas.quant.fixed_point import Int8ActPerTensorFixedPoint
+from brevitas.quant.fixed_point import Int8WeightPerTensorFixedPoint
+from brevitas.quant.scaled_int import Int8ActPerTensorFloat
+from brevitas.quant.scaled_int import Int8BiasPerTensorFloatInternalScaling
+from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
+from brevitas.quant.scaled_int import Int32Bias
+from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
+from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
 
 from ...conftest import SEED
-
-from brevitas.nn import QuantLinear, QuantConv1d, QuantConv2d
-from brevitas.nn import QuantConvTranspose1d, QuantConvTranspose2d
-from brevitas.quant.scaled_int import Int8ActPerTensorFloat
-from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
-from brevitas.quant.scaled_int import Int32Bias, Int8BiasPerTensorFloatInternalScaling
-from brevitas.quant.fixed_point import Int8WeightPerTensorFixedPoint, Int8ActPerTensorFixedPoint
-from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
-from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
 
 OUT_CH = 16
 IN_CH = 8
 IN_MEAN = 5
 IN_SCALE = 3
 FEATURES = 5
-KERNEL_SIZE = 3 
+KERNEL_SIZE = 3
 TOLERANCE = 1
 
 QUANTIZERS = {
@@ -94,7 +101,7 @@ def quant_module(
 
     weight_act_quantizers_name, (weight_quant, io_quant) = weight_act_quantizers
     bias_quantizer_name, (bias_quant,) = bias_quantizer  # pytest needs an iterable
-    
+
     if quant_module_impl == QuantLinear:
         layer_kwargs = {
             'in_features': IN_CH,
@@ -104,7 +111,7 @@ def quant_module(
             'in_channels': IN_CH,
             'out_channels': OUT_CH,
             'kernel_size': KERNEL_SIZE}
-    
+
     class Model(nn.Module):
         def __init__(self):
             super().__init__()
@@ -125,7 +132,7 @@ def quant_module(
 
         def forward(self, x):
             return self.conv(x)
-    
+
     torch.random.manual_seed(SEED)
     module = Model()
     yield module

@@ -2,14 +2,17 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
+from abc import ABC
+from abc import abstractmethod
 from inspect import getcallargs
-from abc import abstractmethod, ABC
 
 import torch
 from torch.nn import Module
 
-from brevitas.fx import GraphModule, Node
-from brevitas.fx import immutable_dict, get_testing_overrides
+from brevitas.fx import get_testing_overrides
+from brevitas.fx import GraphModule
+from brevitas.fx import immutable_dict
+from brevitas.fx import Node
 from brevitas.graph.utils import *
 
 __all__ = [

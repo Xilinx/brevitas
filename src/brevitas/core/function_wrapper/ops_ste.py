@@ -6,8 +6,9 @@
 ScriptModule wrappers of various functions defined in :obj:`~brevitas.function.ops_ste`.
 """
 
-import brevitas
 import torch
+
+import brevitas
 from brevitas.function.ops_ste import *
 
 

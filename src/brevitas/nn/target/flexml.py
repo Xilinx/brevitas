@@ -5,15 +5,14 @@
 from typing import Union
 
 import torch
-from torch import Tensor
 from torch import nn
+from torch import Tensor
 
-import brevitas.nn as qnn
-from brevitas.function.ops_ste import ceil_ste
-from brevitas.function.ops import max_int
-from brevitas.nn.mixin import QuantLayerMixin
 from brevitas.core.utils import StatelessBuffer
-
+from brevitas.function.ops import max_int
+from brevitas.function.ops_ste import ceil_ste
+import brevitas.nn as qnn
+from brevitas.nn.mixin import QuantLayerMixin
 from brevitas.quant import Int8ActPerTensorFixedPoint
 from brevitas.quant import Uint8ActPerTensorFixedPoint
 from brevitas.quant_tensor import QuantTensor

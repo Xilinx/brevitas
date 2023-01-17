@@ -3,12 +3,11 @@
 
 
 from brevitas.inject.enum import QuantType
-
-from brevitas.quant.solver import WeightQuantSolver
-from brevitas.quant.solver import BiasQuantSolver
 from brevitas.quant.solver import ActQuantSolver
-from brevitas.quant.solver import TruncQuantSolver
+from brevitas.quant.solver import BiasQuantSolver
 from brevitas.quant.solver import ClampQuantSolver
+from brevitas.quant.solver import TruncQuantSolver
+from brevitas.quant.solver import WeightQuantSolver
 
 __all__ = [
     'NoneWeightQuant',

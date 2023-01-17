@@ -22,11 +22,14 @@ data layers.
 """
 __all__ = ['AudioToTextDataLayer']
 from functools import partial
+
 import torch
 import torch.nn as nn
 
-from .parts.dataset import (AudioDataset, seq_collate_fn)
+from .parts.dataset import AudioDataset
+from .parts.dataset import seq_collate_fn
 from .parts.features import WaveformFeaturizer
+
 
 def pad_to(x, k=8):
     """Pad int value up to divisor of k.
@@ -168,4 +171,3 @@ transcript_n}
     @property
     def data_iterator(self):
         return self._dataloader
-

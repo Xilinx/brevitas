@@ -3,6 +3,7 @@
 
 
 from torch.autograd import Function
+
 from brevitas.export.onnx import onnx_export_opset
 
 AXIS_OPSET = 13
@@ -17,7 +18,7 @@ class DequantizeLinearFn(Function):
             input_zero_point,
             input_axis):
         opset_version = onnx_export_opset()
-        
+
         if input_axis is not None and opset_version < AXIS_OPSET:
             raise RuntimeError('ONNX Opset 13 is required for per-channel quantization')
         elif input_axis is not None and opset_version >= AXIS_OPSET:
@@ -71,7 +72,7 @@ class QuantizeLinearFn(Function):
             output_dtype,
             output_axis):
         opset_version = onnx_export_opset()
-        
+
         if output_axis is not None and opset_version < AXIS_OPSET:
             raise RuntimeError('ONNX Opset 13 is required for per-channel quantization')
         elif output_axis is not None and opset_version >= AXIS_OPSET:
@@ -95,4 +96,3 @@ class QuantizeLinearFn(Function):
             output_dtype,
             output_axis):
         return x.type(output_dtype)
-

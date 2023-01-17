@@ -41,13 +41,14 @@ POSSIBILITY OF SUCH DAMAGE.
 """
 
 
-from typing import Union, Callable, Optional, Dict, Any, List, Tuple
-from types import FunctionType, ModuleType
+import builtins
 import functools
 import inspect
-import builtins
-import operator
 import math
+import operator
+from types import FunctionType
+from types import ModuleType
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 try:
     from torch._C import ScriptObject
@@ -57,10 +58,16 @@ except:
 from torch.nn import Module
 
 from brevitas.quant_tensor import QuantTensorBase
-from . import _Patcher, _patch_function, _orig_module_call, _orig_module_getattr
-from . import _find_proxy, _wrapped_methods_to_patch, _wrapped_fns_to_patch
-from . import _autowrap_check
+
 from . import *
+from . import _autowrap_check
+from . import _find_proxy
+from . import _orig_module_call
+from . import _orig_module_getattr
+from . import _patch_function
+from . import _Patcher
+from . import _wrapped_fns_to_patch
+from . import _wrapped_methods_to_patch
 
 _UNSET = object()
 extended_base_types = base_types + (QuantTensorBase,)
@@ -509,5 +516,3 @@ def _patch_wrapped_value_functions(patcher : _Patcher):
 
     for cls, name in _wrapped_methods_to_patch:
         patcher.patch_method(cls, name, _create_wrapped_value_method(cls, name))
-
-

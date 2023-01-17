@@ -3,14 +3,14 @@
 
 
 from hypothesis import given
-import pytest
-
 import numpy as np
+import pytest
 from torch import tensor
 
 from brevitas.function.ops import *
-
-from tests.brevitas.common import INT_BIT_WIDTH_TO_TEST, BOOLS, assert_allclose
+from tests.brevitas.common import assert_allclose
+from tests.brevitas.common import BOOLS
+from tests.brevitas.common import INT_BIT_WIDTH_TO_TEST
 from tests.brevitas.function.hyp_helper import *
 
 

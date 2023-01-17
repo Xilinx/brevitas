@@ -2,12 +2,14 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
+from functools import partial
+from functools import reduce
 from operator import mul
-from functools import reduce, partial
 
-from hypothesis.strategies import SearchStrategy
-from hypothesis import settings, HealthCheck
+from hypothesis import HealthCheck
 from hypothesis import seed as set_seed
+from hypothesis import settings
+from hypothesis.strategies import SearchStrategy
 import hypothesis.strategies as st
 import torch
 

@@ -2,14 +2,16 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from typing import Union, Type, List, Optional
+from typing import List, Optional, Type, Union
 
 from torch import Tensor
 from torch.nn import Module
 
-from brevitas.quant_tensor import QuantTensor
 from brevitas.inject.defaults import Int8ActPerTensorFloat
-from .quant_layer import QuantInputOutputLayer, ActQuantType
+from brevitas.quant_tensor import QuantTensor
+
+from .quant_layer import ActQuantType
+from .quant_layer import QuantInputOutputLayer
 
 
 class QuantEltwiseAdd(QuantInputOutputLayer, Module):
@@ -89,6 +91,3 @@ class QuantCat(QuantInputOutputLayer, Module):
         output = QuantTensor.cat(quant_tensor_list, dim=dim)
         quant_output = self.output_quant(output)
         return self.pack_output(quant_output)
-
-
-

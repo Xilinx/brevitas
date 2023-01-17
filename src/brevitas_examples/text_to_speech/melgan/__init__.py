@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-import os
 from configparser import ConfigParser
+import os
 
 from torch import hub
 

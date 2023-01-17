@@ -2,14 +2,16 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-import warnings
-from typing import Union
 from abc import ABC
+from typing import Union
+import warnings
 
 import torch
 from torch import Tensor
 
-from brevitas.nn import QuantConv2d, QuantConv1d, QuantLinear
+from brevitas.nn import QuantConv1d
+from brevitas.nn import QuantConv2d
+from brevitas.nn import QuantLinear
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 
 from .base import PytorchQuantLayerHandler
@@ -128,5 +130,3 @@ class PytorchQuantLinearHandler(PytorchQuantWBIOLHandler):
     @classmethod
     def prepare_qf(cls, module: QuantLinear):
         return torch.nn.quantized.functional.linear, {'bias': cls.prepare_bias(module)}
-
-

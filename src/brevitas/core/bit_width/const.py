@@ -7,12 +7,12 @@ from torch import Tensor
 from torch.nn import Module
 
 import brevitas
-from brevitas.function.ops_ste import tensor_clamp_ste
 from brevitas.core.utils import StatelessBuffer
+from brevitas.function.ops_ste import tensor_clamp_ste
 
 
 class BitWidthConst(brevitas.jit.ScriptModule):
-    """ 
+    """
     ScriptModule that returns a constant bit-width wrapped in a float torch.tensor.
 
     Args:

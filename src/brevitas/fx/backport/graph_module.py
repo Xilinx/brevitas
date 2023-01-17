@@ -41,18 +41,21 @@ POSSIBILITY OF SUCH DAMAGE.
 Forked as-is from PyTorch 1.8.1
 """
 
-import torch
-import torch.nn as nn
-import linecache
-from typing import Type, Dict, List, Any, Union, Optional
-from .graph import Graph
 import copy
+import linecache
+import math
+import os
+from pathlib import Path
 import sys
 import traceback
-import math
-from pathlib import Path
-import os
+from typing import Any, Dict, List, Optional, Type, Union
 import warnings
+
+import torch
+import torch.nn as nn
+
+from .graph import Graph
+
 
 # Forked from torch/nn/modules/module.py
 def _addindent(s_, numSpaces):

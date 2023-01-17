@@ -1,5 +1,7 @@
-torch>=1.5.1
-packaging
-setuptools
+dataclasses; python_version < '3.7'
 dependencies==2.0.1
+packaging
+pre-commit
+setuptools
+torch>=1.5.1
 typing-extensions>=3.7.4

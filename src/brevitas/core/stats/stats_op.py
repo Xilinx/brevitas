@@ -2,19 +2,19 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from typing import Optional, Tuple
 import math
+from typing import Optional, Tuple
 
 import torch
 from torch import Tensor
 from torch.nn import Parameter
 
 import brevitas
+from brevitas import config
 from brevitas.core.utils import StatelessBuffer
 from brevitas.function.ops import max_int
-from brevitas import config
-from .stats_wrapper import SCALAR_SHAPE
 
+from .stats_wrapper import SCALAR_SHAPE
 
 DEFAULT_STD_DEV_EPSILON = 1e-8
 
@@ -64,8 +64,8 @@ class AbsPercentile(brevitas.jit.ScriptModule):
             k = int(math.floor(.01 * self.q * dim_slice.numel() + 0.5))
             result = x.abs().kthvalue(k, dim=self.stats_reduce_dim).values
         return result
-    
-    
+
+
 class NegativePercentileOrZero(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim', 'q']
 
@@ -92,8 +92,8 @@ class NegativePercentileOrZero(brevitas.jit.ScriptModule):
         result = torch.where(
             result <= self.zero().to(result.dtype), result, self.zero().to(result.dtype))
         return result
-    
-    
+
+
 class PercentileInterval(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim', 'low_q', 'high_q']
 

@@ -2,21 +2,23 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from typing import Tuple, Callable
+from typing import Callable, Tuple
+
 from hypothesis import given
-import pytest
 import mock
+import pytest
+from torch import Tensor
+from torch import tensor
 
-from torch import Tensor, tensor
 from brevitas.ops.autograd_ste_ops import *
-
-from tests.brevitas.common import assert_allclose, assert_zero_or_none
-from tests.brevitas.hyp_helper import two_float_tensor_random_shape_st
-from tests.brevitas.hyp_helper import scalar_float_tensor_st, scalar_float_nz_tensor_st
+from tests.brevitas.common import assert_allclose
+from tests.brevitas.common import assert_zero_or_none
+from tests.brevitas.function.hyp_helper import scalar_clamp_min_ste_test_st
 from tests.brevitas.function.hyp_helper import tensor_clamp_ste_min_max_scalar_tensor_test_st
 from tests.brevitas.function.hyp_helper import tensor_clamp_ste_test_st
-from tests.brevitas.function.hyp_helper import scalar_clamp_min_ste_test_st
-
+from tests.brevitas.hyp_helper import scalar_float_nz_tensor_st
+from tests.brevitas.hyp_helper import scalar_float_tensor_st
+from tests.brevitas.hyp_helper import two_float_tensor_random_shape_st
 
 # brevitas.ops.autograd_ste_ops. and not brevitas.function.ops.
 # in order to mock where it's used, not where it's defined
@@ -188,10 +190,3 @@ class TestAbsBinarySignGrad:
         reference_output.backward(grad)
         assert_allclose(inp.grad, grad)
         assert reference_output == 0.0
-
-
-
-
-
-
-

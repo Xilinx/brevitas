@@ -29,11 +29,11 @@ SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
 CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."""
-import torch
-import numpy as np
-from scipy.signal import get_window
 import librosa.util as librosa_util
+import numpy as np
 from scipy.io.wavfile import read
+from scipy.signal import get_window
+import torch
 
 
 def window_sumsquare(window, n_frames, hop_length=200, win_length=800,

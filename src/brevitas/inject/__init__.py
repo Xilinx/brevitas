@@ -4,19 +4,25 @@
 
 import inspect
 
-from _dependencies.injector import Injector
-from _dependencies.injector import _InjectorType, __init__, let, injector_doc
+from _dependencies.attributes import _Replace
 from _dependencies.checks.circles import _check_circles
 from _dependencies.checks.injector import _check_attrs_redefinition
 from _dependencies.checks.injector import _check_dunder_name
 from _dependencies.checks.injector import _check_inheritance
 from _dependencies.checks.loops import _check_loops
-from _dependencies.spec import _make_init_spec, _make_this_spec, _make_dependency_spec
-from _dependencies.this import This
 from _dependencies.exceptions import DependencyError
-from _dependencies.attributes import _Replace
+from _dependencies.injector import __init__
+from _dependencies.injector import _InjectorType
+from _dependencies.injector import Injector
+from _dependencies.injector import injector_doc
+from _dependencies.injector import let
 from _dependencies.replace import _deep_replace_dependency
-from dependencies import value, this  # noqa
+from _dependencies.spec import _make_dependency_spec
+from _dependencies.spec import _make_init_spec
+from _dependencies.spec import _make_this_spec
+from _dependencies.this import This
+from dependencies import this  # noqa
+from dependencies import value
 
 
 def _replace_dependency(injector, current_attr, spec):

@@ -9,28 +9,28 @@ from torch import nn
 
 import brevitas
 from brevitas import config
-import brevitas.nn as qnn
-from brevitas.quant import Int16Bias
-from brevitas.quant import Int8WeightPerTensorFixedPoint
-from brevitas.quant import Int8ActPerTensorFixedPoint
-from brevitas.quant import Uint8ActPerTensorFixedPoint
-from brevitas.quant import Uint8ActPerTensorFixedPointMaxInit
-from brevitas.graph.base import ModuleToModuleByClass, ModuleToModuleByInstance
-from brevitas.graph.base import ModuleInstanceToModuleInstance
+from brevitas.fx import value_trace
 from brevitas.graph.base import InsertModuleCallAfter
-from brevitas.graph.standardize import TorchFunctionalToModule
-from brevitas.graph.standardize import DuplicateSharedStatelessModule
-from brevitas.graph.standardize import MeanMethodToAdaptiveAvgPool2d
-from brevitas.graph.standardize import DisableLastReturnQuantTensor
-from brevitas.graph.per_input import AdaptiveAvgPoolToAvgPool
-from brevitas.graph.per_input import AvgPoolToQuantDepthwiseConv
+from brevitas.graph.base import ModuleInstanceToModuleInstance
+from brevitas.graph.base import ModuleToModuleByClass
+from brevitas.graph.base import ModuleToModuleByInstance
+from brevitas.graph.equalize import EqualizeGraph
+from brevitas.graph.fixed_point import CollapseConsecutiveConcats
 from brevitas.graph.fixed_point import MergeBatchNorm
 from brevitas.graph.fixed_point import MoveSplitBatchNormBeforeCat
-from brevitas.graph.fixed_point import CollapseConsecutiveConcats
-from brevitas.graph.equalize import EqualizeGraph
-from brevitas.fx import value_trace
+from brevitas.graph.per_input import AdaptiveAvgPoolToAvgPool
+from brevitas.graph.per_input import AvgPoolToQuantDepthwiseConv
+from brevitas.graph.standardize import DisableLastReturnQuantTensor
+from brevitas.graph.standardize import DuplicateSharedStatelessModule
+from brevitas.graph.standardize import MeanMethodToAdaptiveAvgPool2d
+from brevitas.graph.standardize import TorchFunctionalToModule
 from brevitas.graph.utils import get_module
-
+import brevitas.nn as qnn
+from brevitas.quant import Int8ActPerTensorFixedPoint
+from brevitas.quant import Int8WeightPerTensorFixedPoint
+from brevitas.quant import Int16Bias
+from brevitas.quant import Uint8ActPerTensorFixedPoint
+from brevitas.quant import Uint8ActPerTensorFixedPointMaxInit
 
 ADD_FNS = [torch.add, operator.add, operator.iadd]
 

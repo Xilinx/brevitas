@@ -4,8 +4,8 @@
 
 import platform
 
-import pytest
 from packaging.version import parse
+import pytest
 
 from brevitas import torch_version
 

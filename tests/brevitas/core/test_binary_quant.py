@@ -7,10 +7,11 @@ import mock
 import torch
 from torch import Tensor
 
-from tests.brevitas.core.shared_quant_fixture import * # noqa
-from tests.brevitas.core.binary_quant_fixture import * # noqa
-from tests.brevitas.hyp_helper import float_tensor_random_shape_st, scalar_float_p_tensor_st
 from tests.brevitas.common import assert_allclose
+from tests.brevitas.core.binary_quant_fixture import *  # noqa
+from tests.brevitas.core.shared_quant_fixture import *  # noqa
+from tests.brevitas.hyp_helper import float_tensor_random_shape_st
+from tests.brevitas.hyp_helper import scalar_float_p_tensor_st
 
 
 def is_binary_output_value_correct(scale: Tensor, output: Tensor):

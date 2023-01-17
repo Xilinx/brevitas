@@ -2,12 +2,15 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from brevitas.proxy import ClampQuantProxyFromInjector
+from brevitas.core.bit_width import BitWidthConst
+from brevitas.core.bit_width import BitWidthImplType
+from brevitas.core.bit_width import MsbClampBitWidth
+from brevitas.core.bit_width import RemoveBitwidthParameter
 from brevitas.core.quant import PrescaledRestrictIntQuantWithInputBitWidth
-from brevitas.core.bit_width import MsbClampBitWidth, RemoveBitwidthParameter
-from brevitas.core.bit_width import BitWidthImplType, BitWidthConst
-from brevitas.inject import ExtendedInjector, value
+from brevitas.inject import ExtendedInjector
+from brevitas.inject import value
 from brevitas.inject.enum import QuantType
+from brevitas.proxy import ClampQuantProxyFromInjector
 
 
 class SolveClampTensorQuantFromEnum(ExtendedInjector):

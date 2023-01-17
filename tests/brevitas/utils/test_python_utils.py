@@ -2,8 +2,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from brevitas.utils.python_utils import AutoName
 from enum import auto
+
+from brevitas.utils.python_utils import AutoName
 
 
 class TestEnum(AutoName):

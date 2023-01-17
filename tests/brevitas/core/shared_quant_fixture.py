@@ -5,7 +5,9 @@
 import pytest_cases
 from pytest_cases import fixture_union
 import torch
-from brevitas.core.scaling import ConstScaling, ParameterScaling
+
+from brevitas.core.scaling import ConstScaling
+from brevitas.core.scaling import ParameterScaling
 
 __all__ = [
     'quant_delay_steps',

@@ -2,20 +2,22 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-import glob
-import tqdm
-import torch
 import argparse
-from scipy.io.wavfile import write
+import glob
 
+from scipy.io.wavfile import write
+import torch
 import torch.backends.cudnn as cudnn
+import tqdm
+
 import brevitas.config
+
 from .melgan import model_with_cfg
 
 brevitas.config.IGNORE_MISSING_KEYS = False
 MAX_WAV_VALUE = 32768.0
-import random
 import os
+import random
 
 SEED = 123456
 

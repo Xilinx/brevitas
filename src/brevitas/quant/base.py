@@ -2,30 +2,41 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from dependencies import this, value
+from dependencies import this
+from dependencies import value
 
-from brevitas.inject import ExtendedInjector
-from brevitas.inject.enum import ScalingImplType, StatsOp, RestrictValueType
-from brevitas.inject.enum import QuantType, BitWidthImplType, FloatToIntImplType
-from brevitas.core.zero_point import ZeroZeroPoint, StatsFromParameterZeroPoint
-from brevitas.core.zero_point import ParameterFromRuntimeZeroPoint
-from brevitas.core.quant import ClampedBinaryQuant
-from brevitas.core.scaling import IntScaling, ParameterScaling, StatsFromParameterScaling
-from brevitas.core.scaling import SCALING_STATS_REDUCE_DIM, SCALAR_SHAPE
-from brevitas.core.restrict_val import FloatRestrictValue
-from brevitas.core.stats import AbsMax, AbsMaxL2
-from brevitas.core.stats import NegativeMinOrZero, NegativePercentileOrZero
-from brevitas.core.function_wrapper.ops_ste import CeilSte
 from brevitas.core.bit_width import BitWidthConst
+from brevitas.core.function_wrapper import OverOutputChannelView
+from brevitas.core.function_wrapper import TensorClampSte
+from brevitas.core.function_wrapper.ops_ste import CeilSte
+from brevitas.core.quant import ClampedBinaryQuant
 from brevitas.core.quant.int import DecoupledRescalingIntQuant
 from brevitas.core.quant.int_base import DecoupledIntQuant
-from brevitas.core.function_wrapper import TensorClampSte
-from brevitas.core.function_wrapper import OverOutputChannelView
-from brevitas.quant.solver.parameter import ParameterFromStatsScalingInit
-from brevitas.quant.solver.weight import SolveWeightScalingStatsInputDimsFromModule
-from brevitas.quant.solver.weight import SolveWeightScalingPerOutputChannelShapeFromModule#
-from brevitas.quant.solver.parameter import SolveParameterScalingShape
+from brevitas.core.restrict_val import FloatRestrictValue
+from brevitas.core.scaling import IntScaling
+from brevitas.core.scaling import ParameterScaling
+from brevitas.core.scaling import SCALAR_SHAPE
+from brevitas.core.scaling import SCALING_STATS_REDUCE_DIM
+from brevitas.core.scaling import StatsFromParameterScaling
+from brevitas.core.stats import AbsMax
+from brevitas.core.stats import AbsMaxL2
+from brevitas.core.stats import NegativeMinOrZero
+from brevitas.core.stats import NegativePercentileOrZero
+from brevitas.core.zero_point import ParameterFromRuntimeZeroPoint
+from brevitas.core.zero_point import StatsFromParameterZeroPoint
+from brevitas.core.zero_point import ZeroZeroPoint
+from brevitas.inject import ExtendedInjector
+from brevitas.inject.enum import BitWidthImplType
+from brevitas.inject.enum import FloatToIntImplType
+from brevitas.inject.enum import QuantType
+from brevitas.inject.enum import RestrictValueType
+from brevitas.inject.enum import ScalingImplType
+from brevitas.inject.enum import StatsOp
 from brevitas.proxy import DecoupledWeightQuantProxyFromInjector
+from brevitas.quant.solver.parameter import ParameterFromStatsScalingInit
+from brevitas.quant.solver.parameter import SolveParameterScalingShape
+from brevitas.quant.solver.weight import SolveWeightScalingPerOutputChannelShapeFromModule
+from brevitas.quant.solver.weight import SolveWeightScalingStatsInputDimsFromModule
 
 __all__ = [
     'MaxStatsScaling',
@@ -82,8 +93,8 @@ class ParamFromRuntimeMinMaxScaling(ExtendedInjector):
     scaling_stats_op = StatsOp.MIN_MAX
     collect_stats_steps = 300
     scaling_min_val = 1e-10
-    
-    
+
+
 class ParamFromRuntimePercentileIntervalScaling(ExtendedInjector):
     """
     """
@@ -164,7 +175,7 @@ class ShiftedParamFromPercentileUintQuant(ExtendedInjector):
     low_percentile_q = 0.001
     zero_point_shape = this.scaling_shape
     zero_point_stats_input_view_shape_impl = this.scaling_stats_input_view_shape_impl
-    
+
 
 class PerChannelFloatScaling8bit(ExtendedInjector):
     """
@@ -246,8 +257,8 @@ class WeightPerTensorFloatDecoupledL2Param(SolveWeightScalingStatsInputDimsFromM
     bit_width_impl = BitWidthConst
     narrow_range = True
     signed = True
-    
-    
+
+
 class WeightPerChannelFloatDecoupled(
         SolveWeightScalingStatsInputDimsFromModule,
         SolveWeightScalingPerOutputChannelShapeFromModule,
@@ -280,9 +291,3 @@ class WeightPerChannelFloatDecoupled(
     scaling_stats_input_view_shape_impl = OverOutputChannelView
     stats_reduce_dim = SCALING_STATS_REDUCE_DIM
     scaling_per_output_channel = True
-
-
-
-
-
-

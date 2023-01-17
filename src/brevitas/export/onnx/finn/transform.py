@@ -57,4 +57,3 @@ def restore_domain(model):
         if n.op_type in ['MatMul', 'Conv', 'Add', 'Div']:
             n.domain = ''
     return model
-

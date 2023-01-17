@@ -2,10 +2,11 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from brevitas.proxy import TruncQuantProxyFromInjector
 from brevitas.core.quant import TruncIntQuant
-from brevitas.inject import ExtendedInjector, value
+from brevitas.inject import ExtendedInjector
+from brevitas.inject import value
 from brevitas.inject.enum import QuantType
+from brevitas.proxy import TruncQuantProxyFromInjector
 from brevitas.quant.solver.common import SolveBitWidthImplFromEnum
 from brevitas.quant.solver.common import SolveTensorQuantFloatToIntImplFromEnum
 

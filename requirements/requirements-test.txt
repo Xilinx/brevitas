@@ -1,7 +1,7 @@
-pytest
-pytest_cases
-pytest-mock
-mock
 hypothesis
+mock
+pytest
+pytest-mock
+pytest_cases
 scipy
 torchvision

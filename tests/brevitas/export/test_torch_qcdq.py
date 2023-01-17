@@ -4,8 +4,9 @@
 
 import pytest
 import torch
-from tests.marker import requires_pt_ge
+
 from brevitas.export import export_torch_qcdq
+from tests.marker import requires_pt_ge
 
 from .quant_module_fixture import *
 

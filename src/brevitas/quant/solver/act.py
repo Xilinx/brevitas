@@ -3,15 +3,25 @@
 
 
 import torch
-from torch import Tensor, nn
-from brevitas.core.quant import RescalingIntQuant, TernaryQuant, ClampedBinaryQuant
-from brevitas.core.scaling import ParameterScaling, ConstScaling, SCALAR_SHAPE
-from brevitas.core.scaling import ParameterFromRuntimeStatsScaling, RuntimeStatsScaling
+from torch import nn
+from torch import Tensor
+
+from brevitas.core.quant import ClampedBinaryQuant
+from brevitas.core.quant import RescalingIntQuant
+from brevitas.core.quant import TernaryQuant
+from brevitas.core.scaling import ConstScaling
+from brevitas.core.scaling import ParameterFromRuntimeStatsScaling
+from brevitas.core.scaling import ParameterScaling
+from brevitas.core.scaling import RuntimeStatsScaling
+from brevitas.core.scaling import SCALAR_SHAPE
+from brevitas.inject import ExtendedInjector
+from brevitas.inject import this
+from brevitas.inject import value
+from brevitas.inject.enum import QuantType
+from brevitas.inject.enum import ScalingImplType
+from brevitas.proxy import ActQuantProxyFromInjector
 from brevitas.proxy.utils import ConvertRuntimeStatsToParameter
 from brevitas.quant.solver.common import *
-from brevitas.inject import ExtendedInjector, value, this
-from brevitas.inject.enum import ScalingImplType, QuantType
-from brevitas.proxy import ActQuantProxyFromInjector
 
 
 class MinMaxScalingInit:
@@ -138,6 +148,3 @@ class ActQuantSolver(
     to make sure overrides are correctly captured.
     """
     proxy_class = ActQuantProxyFromInjector
-
-
-

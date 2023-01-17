@@ -3,8 +3,9 @@
 
 
 from brevitas.core.restrict_val import RestrictValueType
-from brevitas.quant import Uint8ActPerTensorFloatMaxInit, Int8ActPerTensorFloatMinMaxInit
+from brevitas.quant import Int8ActPerTensorFloatMinMaxInit
 from brevitas.quant import Int8WeightPerTensorFloat
+from brevitas.quant import Uint8ActPerTensorFloatMaxInit
 
 
 class CommonIntWeightPerTensorQuant(Int8WeightPerTensorFloat):
@@ -45,8 +46,3 @@ class CommonUintActQuant(Uint8ActPerTensorFloatMaxInit):
     bit_width = None
     max_val = 6.0
     restrict_scaling_type = RestrictValueType.LOG_FP
-
-
-
-
-

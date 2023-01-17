@@ -5,16 +5,21 @@
 import pytest_cases
 from pytest_cases import fixture_union
 import torch
-from brevitas.nn import QuantLinear, QuantConv2d, QuantConv1d
-from brevitas.nn import QuantConvTranspose1d, QuantConvTranspose2d, QuantScaleBias
+
+from brevitas.nn import QuantConv1d
+from brevitas.nn import QuantConv2d
+from brevitas.nn import QuantConvTranspose1d
+from brevitas.nn import QuantConvTranspose2d
+from brevitas.nn import QuantLinear
+from brevitas.nn import QuantScaleBias
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
-from brevitas.proxy import WeightQuantProxyFromInjector
 from brevitas.proxy import ActQuantProxyFromInjector
 from brevitas.proxy import BiasQuantProxyFromInjector
-from brevitas.quant.scaled_int import Int8WeightPerTensorFloat, Int8ActPerTensorFloat
-from brevitas.quant.scaled_int import Int8BiasPerTensorFloatInternalScaling, Int8Bias
-
-
+from brevitas.proxy import WeightQuantProxyFromInjector
+from brevitas.quant.scaled_int import Int8ActPerTensorFloat
+from brevitas.quant.scaled_int import Int8Bias
+from brevitas.quant.scaled_int import Int8BiasPerTensorFloatInternalScaling
+from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from tests.brevitas.common import BOOLS
 
 OUTPUT_CH = 10

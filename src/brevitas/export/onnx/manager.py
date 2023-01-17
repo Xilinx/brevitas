@@ -2,12 +2,13 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from typing import Tuple, Union, Optional
 from abc import ABC
-from packaging import version
 from contextlib import ExitStack
 from io import BytesIO
+from typing import Optional, Tuple, Union
 import warnings
+
+from packaging import version
 
 try:
     import onnx
@@ -17,14 +18,17 @@ except ModuleNotFoundError:
     opt = None
 
 import torch
-import torch.onnx
 from torch import Tensor
 from torch.nn import Module
+import torch.onnx
 
 from brevitas import torch_version
 from brevitas.quant_tensor import QuantTensor
-from ..manager import BaseManager, ExportContext
-from ..manager import _override_inp_caching_mode, _restore_inp_caching_mode
+
+from ..manager import _override_inp_caching_mode
+from ..manager import _restore_inp_caching_mode
+from ..manager import BaseManager
+from ..manager import ExportContext
 
 
 class ONNXBaseManager(BaseManager, ABC):
@@ -51,8 +55,8 @@ class ONNXBaseManager(BaseManager, ABC):
     @classmethod
     def solve_enable_onnx_checker(cls, export_kwargs):
         ka = 'enable_onnx_checker'
-        if (torch_version >= version.parse('1.5.0') 
-            and torch_version <= version.parse('1.10.0') 
+        if (torch_version >= version.parse('1.5.0')
+            and torch_version <= version.parse('1.10.0')
             and ka not in export_kwargs):
             export_kwargs[ka] = False
 

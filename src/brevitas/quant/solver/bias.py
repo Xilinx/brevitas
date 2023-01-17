@@ -2,15 +2,16 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from brevitas.inject import ExtendedInjector, value
+from brevitas.core.function_wrapper import Identity
+from brevitas.core.quant import PrescaledRestrictIntQuant
+from brevitas.core.quant import PrescaledRestrictIntQuantWithInputBitWidth
+from brevitas.core.quant import RescalingIntQuant
+from brevitas.inject import ExtendedInjector
+from brevitas.inject import value
+from brevitas.inject.enum import QuantType
 from brevitas.proxy import BiasQuantProxyFromInjector
 from brevitas.quant.solver.common import *
 from brevitas.quant.solver.parameter import *
-from brevitas.inject.enum import QuantType
-from brevitas.core.function_wrapper import Identity
-from brevitas.core.quant import RescalingIntQuant, PrescaledRestrictIntQuant
-from brevitas.core.quant import PrescaledRestrictIntQuantWithInputBitWidth
-
 
 __all__ = [
     'BiasQuantSolver',

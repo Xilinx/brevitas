@@ -16,8 +16,11 @@ import torch
 from torch import Tensor
 
 import brevitas
-from brevitas.function.ops import dpu_round, tensor_clamp
-from brevitas.function.ops import tensor_clamp_, binary_sign, round_to_zero
+from brevitas.function.ops import binary_sign
+from brevitas.function.ops import dpu_round
+from brevitas.function.ops import round_to_zero
+from brevitas.function.ops import tensor_clamp
+from brevitas.function.ops import tensor_clamp_
 
 __all__ = [
     'round_ste',
@@ -36,7 +39,7 @@ __all__ = [
 
 
 if brevitas.NATIVE_STE_BACKEND_LOADED:
-    fn_prefix = torch 
+    fn_prefix = torch
     script_flag = brevitas.jit.script
 else:
     fn_prefix = brevitas
@@ -121,9 +124,9 @@ def tensor_clamp_ste(x: Tensor, min_val: Tensor, max_val: Tensor) -> Tensor:
     Function that implements :func:`~brevitas.function.ops.tensor_clamp` with a straight-through
     gradient estimator for the gradient of y w.r.t. to x, while the gradient of y w.r.t. to min_val
     and max_val is always None.
-    
+
     Notes:
-        Wrapper for either :func:`~brevitas.ops.autograd_ste_ops.tensor_clamp_ste_impl` (with 
+        Wrapper for either :func:`~brevitas.ops.autograd_ste_ops.tensor_clamp_ste_impl` (with
         env ``BREVITAS_JIT=0``) or its native just-in-time compiled variant (with
         ``BREVITAS_JIT=1``).
 
@@ -352,7 +355,7 @@ def abs_binary_sign_grad(x: Tensor) -> Tensor:
 
     Notes:
         Wrapper for either :func:`~brevitas.ops.autograd_ste_ops.abs_binary_sign_grad_impl`
-        (with env ``BREVITAS_JIT=0``) or its native just-in-time compiled variant (with 
+        (with env ``BREVITAS_JIT=0``) or its native just-in-time compiled variant (with
         ``BREVITAS_JIT=1``).
 
     Examples:

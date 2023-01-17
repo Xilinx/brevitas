@@ -2,20 +2,23 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from typing import Optional, Union, Type, Tuple
-from operator import mul
 from functools import reduce
+from operator import mul
+from typing import Optional, Tuple, Type, Union
 
 import torch
 from torch import Tensor
-from torch.nn import AvgPool2d, AdaptiveAvgPool2d
+from torch.nn import AdaptiveAvgPool2d
+from torch.nn import AvgPool2d
 
-from brevitas.function.ops_ste import ceil_ste
 from brevitas.function.ops import max_int
-from brevitas.quant_tensor import QuantTensor
+from brevitas.function.ops_ste import ceil_ste
 from brevitas.inject.defaults import TruncTo8bit
+from brevitas.quant_tensor import QuantTensor
+
+from .mixin.acc import AccQuantType
+from .mixin.acc import QuantTruncMixin
 from .mixin.base import QuantLayerMixin
-from .mixin.acc import QuantTruncMixin, AccQuantType
 
 
 class QuantAvgPool2d(QuantTruncMixin, QuantLayerMixin, AvgPool2d):

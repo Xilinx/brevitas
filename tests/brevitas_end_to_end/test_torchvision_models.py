@@ -2,18 +2,19 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from brevitas.export import export_onnx_qcdq, export_torch_qcdq
-import torch
 import os
-from tests.marker import requires_pt_ge
+
+from packaging import version
+import pytest
+from pytest_cases import fixture
+from pytest_cases import parametrize
+import torch
 import torchvision.models as modelzoo
 
-from pytest_cases import parametrize, fixture
-import pytest
-from packaging import version
-
 from brevitas import torch_version
-
+from brevitas.export import export_onnx_qcdq
+from brevitas.export import export_torch_qcdq
+from tests.marker import requires_pt_ge
 
 BATCH = 1
 HEIGHT, WIDTH = 224, 224
@@ -33,16 +34,17 @@ class NoDictModel(torch.nn.Module):
 @fixture
 @parametrize('model_name', MODEL_LIST)
 def torchvision_model(model_name):
-    from brevitas.graph.target.flexml import preprocess_flexml, quantize_flexml
+    from brevitas.graph.target.flexml import preprocess_flexml
+    from brevitas.graph.target.flexml import quantize_flexml
 
     inp =  torch.randn(BATCH, IN_CH, HEIGHT, WIDTH)
-    
+
     if torch_version <= version.parse('1.9.1') and model_name == 'regnet_x_400mf':
         return None
 
     # Deeplab and fcn are in a different module, and they have a dict as output which is not suited for torchscript
     if model_name in ('deeplabv3_resnet50', 'fcn_resnet50'):
-        model_fn = getattr(modelzoo.segmentation, model_name)  
+        model_fn = getattr(modelzoo.segmentation, model_name)
         model = NoDictModel(model_fn(pretrained=False, aux_loss=False))
     else:
         model_fn = getattr(modelzoo, model_name)

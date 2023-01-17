@@ -3,19 +3,24 @@
 
 
 def test_import_bnn_pynq():
-    from brevitas_examples.bnn_pynq import (
-        cnv_1w1a, cnv_1w2a, cnv_2w2a,
-        sfc_1w1a, sfc_1w2a, sfc_2w2a,
-        tfc_1w1a, tfc_1w2a, tfc_2w2a,
-        lfc_1w1a, lfc_1w2a)
+    from brevitas_examples.bnn_pynq import cnv_1w1a
+    from brevitas_examples.bnn_pynq import cnv_1w2a
+    from brevitas_examples.bnn_pynq import cnv_2w2a
+    from brevitas_examples.bnn_pynq import lfc_1w1a
+    from brevitas_examples.bnn_pynq import lfc_1w2a
+    from brevitas_examples.bnn_pynq import sfc_1w1a
+    from brevitas_examples.bnn_pynq import sfc_1w2a
+    from brevitas_examples.bnn_pynq import sfc_2w2a
+    from brevitas_examples.bnn_pynq import tfc_1w1a
+    from brevitas_examples.bnn_pynq import tfc_1w2a
+    from brevitas_examples.bnn_pynq import tfc_2w2a
 
 
 def test_import_image_classification():
-    from brevitas_examples.imagenet_classification import (
-        quant_mobilenet_v1_4b,
-        quant_proxylessnas_mobile14_hadamard_4b,
-        quant_proxylessnas_mobile14_4b5b,
-        quant_proxylessnas_mobile14_4b)
+    from brevitas_examples.imagenet_classification import quant_mobilenet_v1_4b
+    from brevitas_examples.imagenet_classification import quant_proxylessnas_mobile14_4b
+    from brevitas_examples.imagenet_classification import quant_proxylessnas_mobile14_4b5b
+    from brevitas_examples.imagenet_classification import quant_proxylessnas_mobile14_hadamard_4b
 
 
 def test_import_tts():
@@ -23,8 +28,6 @@ def test_import_tts():
 
 
 def test_import_stt():
-    from brevitas_examples.speech_to_text import (
-        quant_quartznet_pertensorscaling_8b,
-        quant_quartznet_perchannelscaling_8b,
-        quant_quartznet_perchannelscaling_4b
-    )
+    from brevitas_examples.speech_to_text import quant_quartznet_perchannelscaling_4b
+    from brevitas_examples.speech_to_text import quant_quartznet_perchannelscaling_8b
+    from brevitas_examples.speech_to_text import quant_quartznet_pertensorscaling_8b

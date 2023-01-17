@@ -4,7 +4,8 @@
 
 import torch
 from torch import Tensor
-from torch.nn import Parameter, Module
+from torch.nn import Module
+from torch.nn import Parameter
 
 import brevitas
 from brevitas.core.function_wrapper import StatsInputViewShapeImpl  # retrocomp

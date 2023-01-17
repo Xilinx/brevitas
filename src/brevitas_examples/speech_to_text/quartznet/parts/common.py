@@ -2,11 +2,12 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-import brevitas.nn as quant_nn
 from brevitas.core.quant import QuantType
-from brevitas.core.scaling import ScalingImplType
 from brevitas.core.restrict_val import RestrictValueType
+from brevitas.core.scaling import ScalingImplType
 from brevitas.core.stats import StatsOp
+import brevitas.nn as quant_nn
+
 global ACT_MIN_VAL, ACT_MAX_VAL
 brevitas_activations = {
     "hardtanh": quant_nn.QuantHardTanh,

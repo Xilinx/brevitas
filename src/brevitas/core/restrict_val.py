@@ -2,18 +2,22 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from typing import Callable, Union, Optional
 import math
+from typing import Callable, Optional, Union
 
 import torch
 from torch import Tensor
 from torch.nn import Module
 
 import brevitas
-from brevitas.inject.enum import RestrictValueType, FloatToIntImplType  # retrocompatibility
-
-from brevitas.core.function_wrapper import Identity, PowerOfTwo, LogTwo, InplaceLogTwo
-from brevitas.core.function_wrapper import ScalarClampMinSte, RoundSte
+from brevitas.core.function_wrapper import Identity
+from brevitas.core.function_wrapper import InplaceLogTwo
+from brevitas.core.function_wrapper import LogTwo
+from brevitas.core.function_wrapper import PowerOfTwo
+from brevitas.core.function_wrapper import RoundSte
+from brevitas.core.function_wrapper import ScalarClampMinSte
+from brevitas.inject.enum import FloatToIntImplType  # retrocompatibility
+from brevitas.inject.enum import RestrictValueType
 
 assert RestrictValueType  # prevent removal of unused import
 assert FloatToIntImplType

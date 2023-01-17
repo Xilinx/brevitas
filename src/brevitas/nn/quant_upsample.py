@@ -5,11 +5,14 @@
 from typing import Union
 
 from torch import Tensor
-from torch.nn import Upsample, UpsamplingBilinear2d, UpsamplingNearest2d
+from torch.nn import Upsample
+from torch.nn import UpsamplingBilinear2d
+from torch.nn import UpsamplingNearest2d
 from torch.nn.functional import interpolate
 
 from brevitas.function import round_ste
 from brevitas.quant_tensor import QuantTensor
+
 from .mixin.base import QuantLayerMixin
 
 
@@ -110,5 +113,3 @@ class QuantUpsamplingNearest2d(QuantLayerMixin, UpsamplingNearest2d):
         y_value = interpolate(x.value, self.size, self.scale_factor, self.mode, self.align_corners)
         y = x.set(value=y_value)
         return self.pack_output(y)
-
-

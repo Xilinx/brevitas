@@ -4,11 +4,10 @@
 
 from brevitas.core.function_wrapper import TensorClamp
 from brevitas.quant.base import *
-from brevitas.quant.solver.weight import WeightQuantSolver
-from brevitas.quant.solver.bias import BiasQuantSolver
 from brevitas.quant.solver.act import ActQuantSolver
+from brevitas.quant.solver.bias import BiasQuantSolver
 from brevitas.quant.solver.trunc import TruncQuantSolver
-
+from brevitas.quant.solver.weight import WeightQuantSolver
 
 __all__ = [
     'IntBias',
@@ -216,12 +215,12 @@ class Int4WeightPerTensorFloatDecoupled(WeightPerTensorFloatDecoupledL2Param):
         >>> m = QuantConv2d(4, 4, 3, groups=4, weight_quant=Int4WeightPerTensorFloatDecoupled)
     """
     bit_width = 4
-    
-    
+
+
 class Int8WeightPerChannelFloatDecoupled(WeightPerChannelFloatDecoupled):
     """
     Experimental narrow per-channel signed int weight quantizer with decoupled Linf
-    normalization and learned scaling. 
+    normalization and learned scaling.
 
     Examples:
         >>> from brevitas.nn import QuantConv2d

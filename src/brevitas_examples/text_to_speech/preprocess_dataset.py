@@ -2,16 +2,17 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-import os
-import glob
-import tqdm
-import torch
 import argparse
-import numpy as np
 from configparser import ConfigParser
+import glob
+import os
 
-from .utilities.stft import TacotronSTFT
+import numpy as np
+import torch
+import tqdm
+
 from .utilities.audio_processing import read_wav_np
+from .utilities.stft import TacotronSTFT
 
 
 def preprocess(cfg, args):

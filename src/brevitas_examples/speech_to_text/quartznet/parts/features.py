@@ -24,12 +24,14 @@
 # SOFTWARE.
 
 import math
+
 import librosa
 import torch
 import torch.nn as nn
+from torch_stft import STFT
+
 from .perturb import AudioAugmentor
 from .segment import AudioSegment
-from torch_stft import STFT
 
 CONSTANT = 1e-5
 

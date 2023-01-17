@@ -17,17 +17,17 @@
 # limitations under the License.
 
 
-from .data_layer import (
-        AudioToTextDataLayer)
-from .greedy_ctc_decoder import GreedyCTCDecoder
-from .quartznet import quartznet
-from .losses import CTCLossNM
-from .helpers import *
-
-import os
 from configparser import ConfigParser
+import os
+
 from ruamel.yaml import YAML
 from torch import hub
+
+from .data_layer import AudioToTextDataLayer
+from .greedy_ctc_decoder import GreedyCTCDecoder
+from .helpers import *
+from .losses import CTCLossNM
+from .quartznet import quartznet
 
 __all__ = ['AudioToTextDataLayer',
            'quartznet',

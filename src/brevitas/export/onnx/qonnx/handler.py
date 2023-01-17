@@ -9,17 +9,17 @@ import torch
 from torch import Tensor
 
 from brevitas.export.onnx.handler import ONNXBaseHandler
-from brevitas.proxy import WeightQuantProxyFromInjector
-from brevitas.proxy import DecoupledWeightQuantProxyFromInjector
-from brevitas.proxy import BiasQuantProxyFromInjector
-from brevitas.proxy import ActQuantProxyFromInjector
-from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector
 from brevitas.export.onnx.handler import QuantLSTMLayerHandler
+from brevitas.proxy import ActQuantProxyFromInjector
+from brevitas.proxy import BiasQuantProxyFromInjector
+from brevitas.proxy import DecoupledWeightQuantProxyFromInjector
+from brevitas.proxy import WeightQuantProxyFromInjector
+from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector
 
-from .function import BrevitasQuantFn
 from .function import BrevitasBinaryQuantFn
-from .function import BrevitasTruncFn
+from .function import BrevitasQuantFn
 from .function import BrevitasQuantLSTMCellFn
+from .function import BrevitasTruncFn
 
 
 class BrevitasQuantProxyHandler(ONNXBaseHandler, ABC):
@@ -129,40 +129,38 @@ class BrevitasTruncQuantProxyHandler(ONNXBaseHandler):
 
 
 class BrevitasQuantLSTMLayerHandler(QuantLSTMLayerHandler):
-    
+
     def quantized_cell_symbolic_execution(
         self,
-        quant_input, 
-        quant_hidden_state, 
-        quant_cell_state, 
+        quant_input,
+        quant_hidden_state,
+        quant_cell_state,
         quant_weight_ii,
-        quant_weight_if, 
-        quant_weight_ic, 
-        quant_weight_io, 
+        quant_weight_if,
+        quant_weight_ic,
+        quant_weight_io,
         quant_weight_hi,
-        quant_weight_hf, 
-        quant_weight_hc, 
-        quant_weight_ho, 
+        quant_weight_hf,
+        quant_weight_hc,
+        quant_weight_ho,
         quant_bias_input,
         quant_bias_forget,
         quant_bias_cell,
         quant_bias_output):
         return BrevitasQuantLSTMCellFn.apply(
-            quant_input, 
-            quant_hidden_state, 
-            quant_cell_state, 
+            quant_input,
+            quant_hidden_state,
+            quant_cell_state,
             quant_weight_ii,
-            quant_weight_if, 
-            quant_weight_ic, 
-            quant_weight_io, 
+            quant_weight_if,
+            quant_weight_ic,
+            quant_weight_io,
             quant_weight_hi,
-            quant_weight_hf, 
-            quant_weight_hc, 
-            quant_weight_ho, 
+            quant_weight_hf,
+            quant_weight_hc,
+            quant_weight_ho,
             quant_bias_input,
             quant_bias_forget,
             quant_bias_cell,
-            quant_bias_output, 
+            quant_bias_output,
             *self.symbolic_kwargs.values())
-    
-                

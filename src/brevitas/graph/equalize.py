@@ -3,15 +3,17 @@
 
 
 import copy
-from typing import Dict, Any
+from functools import partial
 import operator
 from random import sample
-from functools import partial
+from typing import Any, Dict
 
 import torch
 
-from brevitas.fx import GraphModule, Node
+from brevitas.fx import GraphModule
+from brevitas.fx import Node
 from brevitas.graph.utils import get_module
+
 from .base import GraphTransform
 
 __all__ = [
@@ -65,8 +67,8 @@ _batch_norm = (
 
 
 def _channel_range(inp):
-    mins, _ = inp.min(dim=1) 
-    maxs, _ = inp.max(dim=1) 
+    mins, _ = inp.min(dim=1)
+    maxs, _ = inp.max(dim=1)
     out = maxs - mins
     # correct corner case where where all weights along a channel have the same value
     # e.g. when a mean/nn.AvgPool/nn.AdaptiveAvgPool is converted to a depth-wise conv
@@ -235,7 +237,7 @@ class EqualizeGraph(GraphTransform):
 
     def __init__(self, iterations) -> None:
         super(EqualizeGraph, self).__init__()
-        self.iterations = iterations 
+        self.iterations = iterations
 
     def apply(self, graph_model: GraphModule):
         regions = _extract_regions(graph_model)
@@ -284,8 +286,8 @@ class AbsorbBiasByBatchNorm(GraphTransform):
                     node_next = node_next.next
                 if _is_supported_module(graph_model, node_next):
                     group = (
-                        get_module(graph_model, node.target), 
-                        get_module(graph_model, node.next.target), 
+                        get_module(graph_model, node.target),
+                        get_module(graph_model, node.next.target),
                         (node_next.target, get_module(graph_model, node_next.target)))
                     groups.append(group)
         return groups

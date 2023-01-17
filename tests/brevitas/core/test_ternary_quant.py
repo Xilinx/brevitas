@@ -2,16 +2,18 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from hypothesis import given, strategies as st
+from hypothesis import given
+from hypothesis import strategies as st
 import mock
 import torch
 from torch import Tensor
-from brevitas.core.quant import TernaryQuant
 
-from tests.brevitas.core.shared_quant_fixture import * # noqa
-from tests.brevitas.core.ternary_quant_fixture import * # noqa
-from tests.brevitas.hyp_helper import float_tensor_random_shape_st, scalar_float_p_tensor_st
+from brevitas.core.quant import TernaryQuant
 from tests.brevitas.common import assert_allclose
+from tests.brevitas.core.shared_quant_fixture import *  # noqa
+from tests.brevitas.core.ternary_quant_fixture import *  # noqa
+from tests.brevitas.hyp_helper import float_tensor_random_shape_st
+from tests.brevitas.hyp_helper import scalar_float_p_tensor_st
 
 
 def is_ternary_output_value_correct(scale: Tensor, output: Tensor):

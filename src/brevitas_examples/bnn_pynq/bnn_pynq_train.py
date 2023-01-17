@@ -7,6 +7,7 @@ import os
 import sys
 
 import torch
+
 from brevitas_examples.bnn_pynq.trainer import Trainer
 
 # Pytorch precision

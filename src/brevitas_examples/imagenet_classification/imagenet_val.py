@@ -3,18 +3,18 @@
 
 
 import argparse
+import configparser
 import os
 import random
-import configparser
 
 import torch
-import torch.nn.parallel
 import torch.backends.cudnn as cudnn
+import torch.nn.parallel
 import torch.optim
 import torch.utils.data
 import torch.utils.data.distributed
-import torchvision.transforms as transforms
 import torchvision.datasets as datasets
+import torchvision.transforms as transforms
 
 from brevitas_examples.imagenet_classification.models import model_with_cfg
 

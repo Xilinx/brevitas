@@ -6,14 +6,14 @@ from typing import Optional
 
 import torch
 from torch import Tensor
-from torch.nn import Parameter, Module
+from torch.nn import Module
+from torch.nn import Parameter
 
 import brevitas
 import brevitas.config as config
-from brevitas.function import abs_binary_sign_grad
 from brevitas.core.function_wrapper import RoundSte
 from brevitas.core.restrict_val import IntRestrictValue
-
+from brevitas.function import abs_binary_sign_grad
 
 MIN_INT_BIT_WIDTH = 2
 NON_ZERO_EPSILON = 1e-6
@@ -132,8 +132,3 @@ class RemoveBitwidthParameter(brevitas.jit.ScriptModule):
             state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
         if config.IGNORE_MISSING_KEYS and bit_width_coeff_key in missing_keys:
             missing_keys.remove(bit_width_coeff_key)
-
-
-
-
-

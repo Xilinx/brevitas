@@ -1,16 +1,24 @@
+from abc import ABC
+from abc import abstractmethod
 from typing import Union
-from abc import ABC, abstractmethod
 
 import torch
 from torch import Tensor
 
+from brevitas.export.common import to_0dim_if_scalar
+from brevitas.export.onnx.handler import Kernel1dApplHandlerMixin
+from brevitas.export.onnx.handler import Kernel2dApplHandlerMixin
+from brevitas.export.onnx.standard.function import DequantizeLinearFn
+from brevitas.export.onnx.standard.function import IntClipFn
+from brevitas.export.onnx.standard.function import QuantizeLinearFn
+from brevitas.nn import QuantConv1d
+from brevitas.nn import QuantConv2d
+from brevitas.nn import QuantLinear
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
-from brevitas.nn import QuantConv2d, QuantConv1d, QuantLinear
-from brevitas.export.onnx.handler import Kernel2dApplHandlerMixin, Kernel1dApplHandlerMixin
-from brevitas.export.onnx.standard.function import QuantizeLinearFn, DequantizeLinearFn, IntClipFn
-from ..function import QLinearConvFn, QLinearMatMulFn
+
+from ..function import QLinearConvFn
+from ..function import QLinearMatMulFn
 from .base import StdQOpONNXQuantLayerHandler
-from  brevitas.export.common import to_0dim_if_scalar
 
 
 class StdQOpONNXQuantWBIOLHandler(StdQOpONNXQuantLayerHandler, ABC):

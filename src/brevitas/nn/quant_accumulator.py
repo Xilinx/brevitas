@@ -2,15 +2,18 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from typing import Optional, Union, Type, Optional
+from typing import Optional, Type, Union
 
 from torch.nn import Module
 
 from brevitas.inject import BaseInjector as Injector
 from brevitas.proxy.runtime_quant import AccQuantProxyProtocol
 from brevitas.quant_tensor import QuantTensor
+
+from .mixin.acc import AccQuantType
+from .mixin.acc import QuantClampMixin
+from .mixin.acc import QuantTruncMixin
 from .mixin.base import QuantLayerMixin
-from .mixin.acc import QuantTruncMixin, QuantClampMixin, AccQuantType
 
 
 class TruncQuantAccumulator(QuantTruncMixin, QuantLayerMixin, Module):

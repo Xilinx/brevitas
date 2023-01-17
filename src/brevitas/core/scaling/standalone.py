@@ -2,21 +2,28 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
+from typing import Optional, Tuple, Union
 import warnings
-from typing import Tuple, Optional, Union
 
 import torch
 from torch import Tensor
-from torch.nn import Parameter, Module
+from torch.nn import Module
+from torch.nn import Parameter
 
 import brevitas
 import brevitas.config as config
-from brevitas.function import abs_binary_sign_grad
 from brevitas.core.function_wrapper import Identity
 from brevitas.core.function_wrapper import OverBatchOverTensorView
-from brevitas.core.utils import StatelessBuffer, inplace_momentum_update, inplace_tensor_mul
-from brevitas.core.restrict_val import _RestrictClampValue, _RestrictValue, _ClampValue
-from brevitas.core.stats import _Stats, SCALAR_SHAPE, DEFAULT_MOMENTUM
+from brevitas.core.restrict_val import _ClampValue
+from brevitas.core.restrict_val import _RestrictClampValue
+from brevitas.core.restrict_val import _RestrictValue
+from brevitas.core.stats import _Stats
+from brevitas.core.stats import DEFAULT_MOMENTUM
+from brevitas.core.stats import SCALAR_SHAPE
+from brevitas.core.utils import inplace_momentum_update
+from brevitas.core.utils import inplace_tensor_mul
+from brevitas.core.utils import StatelessBuffer
+from brevitas.function import abs_binary_sign_grad
 
 
 class ConstScaling(brevitas.jit.ScriptModule):
@@ -157,7 +164,7 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
     ScriptModule implementation of a learned scale factor initialized from runtime statistics.
     The implementation works in two phases. During the first phase, statistics are collected in
     the same fashion as batchnorm, meaning that while the module is in training mode a set of per-batch
-    statistics are computed and returned, while in background an average of them is retained and returned 
+    statistics are computed and returned, while in background an average of them is retained and returned
     in inference mode. During the second phase, the average accumulated during the first
     phase is used to initialize a learned torch.nn.Parameter, and then the behaviour is the same
     as ParameterScaling.
@@ -225,7 +232,7 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
         else:
             self.restrict_inplace_preprocess = Identity()
             self.restrict_preprocess = Identity()
-    
+
     @brevitas.jit.script_method
     def training_forward(self, stats_input: Tensor) -> Tensor:
         if self.counter < self.collect_stats_steps:

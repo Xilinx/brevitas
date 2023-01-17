@@ -2,22 +2,25 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-import random
-import os
-import time
 from datetime import datetime
-from packaging.version import parse
+import os
+import random
+import time
 
+from packaging.version import parse
 import torch
-import torchvision
-import torch.optim as optim
 from torch import nn
+import torch.optim as optim
 from torch.optim.lr_scheduler import MultiStepLR
 from torch.utils.data import DataLoader
+import torchvision
 from torchvision import transforms
-from torchvision.datasets import MNIST, CIFAR10
+from torchvision.datasets import CIFAR10
+from torchvision.datasets import MNIST
 
-from .logger import Logger, TrainingEpochMeters, EvalEpochMeters
+from .logger import EvalEpochMeters
+from .logger import Logger
+from .logger import TrainingEpochMeters
 from .models import model_with_cfg
 from .models.losses import SqrHingeLoss
 

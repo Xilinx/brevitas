@@ -9,7 +9,6 @@ from brevitas.core.scaling import ScalingImplType
 from brevitas.core.stats import StatsOp
 from brevitas.nn import QuantReLU
 
-
 BIT_WIDTH = 8
 MAX_VAL = 6.0
 RANDOM_ITERS = 32
@@ -86,4 +85,3 @@ class TestQuantReLU:
         out = stats_act(inp)
         out.sum().backward()
         assert scaling_value.grad != 0.
-

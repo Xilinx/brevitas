@@ -2,18 +2,20 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from typing import Tuple, Optional, List, Union
+from typing import List, Optional, Tuple, Union
 
 import torch
-from torch.nn import Parameter, Module
+from torch.nn import Module
+from torch.nn import Parameter
 
 import brevitas
 import brevitas.config as config
 from brevitas.core.function_wrapper import Identity
-from brevitas.function.ops_ste import abs_binary_sign_grad
-
-from brevitas.core.stats import _ParameterListStats, _RuntimeStats, DEFAULT_MOMENTUM
 from brevitas.core.restrict_val import _RestrictClampValue
+from brevitas.core.stats import _ParameterListStats
+from brevitas.core.stats import _RuntimeStats
+from brevitas.core.stats import DEFAULT_MOMENTUM
+from brevitas.function.ops_ste import abs_binary_sign_grad
 
 
 class StatsFromParameterScaling(brevitas.jit.ScriptModule):

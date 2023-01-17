@@ -6,9 +6,9 @@ import logging
 from urllib import request
 
 import pytest
+
 from brevitas_examples.bnn_pynq.bnn_pynq_train import launch
 from brevitas_examples.bnn_pynq.models import get_model_cfg
-
 from tests.marker import requires_pt_lt
 
 

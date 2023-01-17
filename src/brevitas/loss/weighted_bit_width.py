@@ -2,19 +2,19 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from typing import List
-from abc import ABCMeta, abstractmethod
-
+from abc import ABCMeta
+from abc import abstractmethod
 from functools import reduce
 from operator import mul
+from typing import List
 
 import torch
 from torch import nn
 
-from brevitas.utils.quant_utils import *
-from brevitas.nn.quant_linear import QuantLinear
 from brevitas.nn.quant_conv import QuantConv2d
+from brevitas.nn.quant_linear import QuantLinear
 from brevitas.quant_tensor import QuantTensor
+from brevitas.utils.quant_utils import *
 
 MEGA = 10e6
 
@@ -110,6 +110,3 @@ class QuantLayerOutputBitWidthWeightedByOps(BitWidthWeighted):
                     and module.return_quant_tensor \
                     and module.per_elem_ops is not None:
                 module.register_forward_hook(hook_fn)
-
-
-

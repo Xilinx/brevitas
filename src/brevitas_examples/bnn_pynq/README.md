@@ -2,7 +2,7 @@
 
 This repo contains training scripts and pretrained models to recreate the LFC and CNV models
 used in the [BNN-PYNQ](https://github.com/Xilinx/BNN-PYNQ) repo using [Brevitas](https://github.com/Xilinx/brevitas).
-These pretrained models and training scripts are courtesy of 
+These pretrained models and training scripts are courtesy of
 [Alessandro Pappalardo](https://github.com/volcacius) and [Ussama Zahid](https://github.com/ussamazahid96).
 
 ## Experiments
@@ -25,7 +25,7 @@ These pretrained models and training scripts are courtesy of
 
 A few notes on training:
 - An experiments folder at */path/to/experiments* must exist before launching the training.
-- Set training to 1000 epochs for 1W1A networks, 500 otherwise. 
+- Set training to 1000 epochs for 1W1A networks, 500 otherwise.
 - Enabling the JIT with the env flag BREVITAS_JIT=1 significantly speeds up training.
 
 To start training a model from scratch, e.g. LFC_1W1A, run:

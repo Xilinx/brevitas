@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from brevitas.core.quant import RescalingIntQuant
 from brevitas.core.bit_width import BitWidthParameter
 from brevitas.core.function_wrapper import *
+from brevitas.core.quant import RescalingIntQuant
 from brevitas.inject.enum import FloatToIntImplType
 
 
@@ -21,7 +21,8 @@ def has_learned_weight_bit_width(module):
 
 
 def has_learned_activation_bit_width(module):
-    from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector, FusedActivationQuantProxy
+    from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector
+    from brevitas.proxy.runtime_quant import FusedActivationQuantProxy
 
     if isinstance(module, ActQuantProxyFromInjector) \
             and isinstance(module.fused_activation_quant_proxy, FusedActivationQuantProxy) \

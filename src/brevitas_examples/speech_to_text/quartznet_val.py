@@ -5,17 +5,17 @@
 import argparse
 import copy
 import os
+import random
 
 from ruamel.yaml import YAML
-import random
 import torch
+import torch.backends.cudnn as cudnn
 
 from brevitas_examples.speech_to_text.quartznet import AudioToTextDataLayer
+from brevitas_examples.speech_to_text.quartznet import model_with_cfg
 from brevitas_examples.speech_to_text.quartznet.helpers import post_process_predictions
 from brevitas_examples.speech_to_text.quartznet.helpers import post_process_transcripts
 from brevitas_examples.speech_to_text.quartznet.helpers import word_error_rate
-import torch.backends.cudnn as cudnn
-from brevitas_examples.speech_to_text.quartznet import model_with_cfg
 
 SEED = 123456
 
@@ -85,7 +85,7 @@ def main():
         loc = 'cpu'
     print(f'Running on device: {loc}')
     model.to(loc)
-    
+
     predictions = []
     transcripts = []
     transcripts_len = []

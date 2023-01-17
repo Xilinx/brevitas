@@ -5,8 +5,8 @@
 import pytest
 from torch import nn
 
-from brevitas.nn import QuantLinear
 from brevitas import config
+from brevitas.nn import QuantLinear
 
 
 def test_parameter_from_stats_update():

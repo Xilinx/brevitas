@@ -7,9 +7,11 @@ from torch import Tensor
 from torch.nn import Module
 
 import brevitas
-from brevitas.function.ops import max_int, min_int
-from brevitas.core.function_wrapper import RoundSte, TensorClamp
+from brevitas.core.function_wrapper import RoundSte
+from brevitas.core.function_wrapper import TensorClamp
 from brevitas.core.quant.delay import DelayWrapper
+from brevitas.function.ops import max_int
+from brevitas.function.ops import min_int
 
 
 class IntQuant(brevitas.jit.ScriptModule):

@@ -3,14 +3,17 @@
 
 
 from abc import ABCMeta
-from typing import Type, Union, Optional
+from typing import Optional, Type, Union
 
-from brevitas.inject import Injector, ExtendedInjector
-from brevitas.quant import NoneClampQuant, NoneTruncQuant
-from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector, ClampQuantProxyFromInjector
+from brevitas.inject import ExtendedInjector
+from brevitas.inject import Injector
 from brevitas.proxy.runtime_quant import AccQuantProxyProtocol
-from .base import QuantProxyMixin
+from brevitas.proxy.runtime_quant import ClampQuantProxyFromInjector
+from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector
+from brevitas.quant import NoneClampQuant
+from brevitas.quant import NoneTruncQuant
 
+from .base import QuantProxyMixin
 
 AccQuantType = Union[AccQuantProxyProtocol, Type[Injector], Type[ExtendedInjector]]
 

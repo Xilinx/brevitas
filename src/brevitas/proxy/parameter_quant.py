@@ -2,18 +2,20 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from abc import ABCMeta, abstractmethod
-from typing import Tuple, Optional, List
-from typing_extensions import Protocol, runtime_checkable
+from abc import ABCMeta
+from abc import abstractmethod
+from typing import List, Optional, Tuple
 
 import torch
 from torch import Tensor
+from typing_extensions import Protocol
+from typing_extensions import runtime_checkable
 
 from brevitas.function import max_int
 from brevitas.quant_tensor import QuantTensor
 
-from .quant_proxy import QuantProxyFromInjector, QuantProxyProtocol
-
+from .quant_proxy import QuantProxyFromInjector
+from .quant_proxy import QuantProxyProtocol
 
 __all__ = [
     'WeightQuantProxyFromInjector',
@@ -173,4 +175,3 @@ class BiasQuantProxyFromInjector(ParameterQuantProxyFromInjector, BiasQuantProxy
             return QuantTensor(out, out_scale, out_zp, out_bit_width, self.is_signed, self.training)
         else:
             return QuantTensor(x, training=self.training)
-

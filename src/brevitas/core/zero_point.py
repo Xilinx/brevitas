@@ -2,19 +2,23 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from typing import Optional, Tuple, Union, List
+from typing import List, Optional, Tuple, Union
 
 import torch
 from torch import Tensor
-from torch.nn import Module, Parameter
+from torch.nn import Module
+from torch.nn import Parameter
 
 import brevitas
 from brevitas import config
-from brevitas.core.stats import SCALAR_SHAPE, DEFAULT_MOMENTUM, _ParameterListStats
+from brevitas.core.stats import _ParameterListStats
+from brevitas.core.stats import DEFAULT_MOMENTUM
+from brevitas.core.stats import SCALAR_SHAPE
 from brevitas.function import abs_binary_sign_grad
 
-from .utils import StatelessBuffer, inplace_tensor_add, inplace_momentum_update
-
+from .utils import inplace_momentum_update
+from .utils import inplace_tensor_add
+from .utils import StatelessBuffer
 
 __all__ = [
     'ZeroZeroPoint',
@@ -52,8 +56,8 @@ class _ScaleShiftZeroPoint(brevitas.jit.ScriptModule):
         else:
             out = zero_point / scale + min_int
         return out
-    
-    
+
+
 class StatsFromParameterZeroPoint(brevitas.jit.ScriptModule):
 
     def __init__(
@@ -147,7 +151,7 @@ class ParameterFromRuntimeZeroPoint(brevitas.jit.ScriptModule):
 
     def state_dict(self, destination=None, prefix='', keep_vars=False):
         output_dict = super(ParameterFromRuntimeZeroPoint, self).state_dict(
-            destination, prefix, keep_vars)        
+            destination, prefix, keep_vars)
         # Avoid saving the buffer
         del output_dict[prefix + 'buffer']
         # Avoid saving the init value
@@ -218,4 +222,3 @@ class ParameterZeroPoint(brevitas.jit.ScriptModule):
         value_key = prefix + 'value'
         if config.IGNORE_MISSING_KEYS and value_key in missing_keys:
             missing_keys.remove(value_key)
-

@@ -4,13 +4,16 @@
 
 import torch
 
-from brevitas.nn import QuantConv2d, QuantLinear, QuantIdentity, QuantReLU, QuantMaxPool2d
-from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
-from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
-from brevitas.quant.scaled_int import Uint8ActPerTensorFloat
-from brevitas.quant.scaled_int import Int16Bias
 from brevitas.export import export_torch_qop
-
+from brevitas.nn import QuantConv2d
+from brevitas.nn import QuantIdentity
+from brevitas.nn import QuantLinear
+from brevitas.nn import QuantMaxPool2d
+from brevitas.nn import QuantReLU
+from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
+from brevitas.quant.scaled_int import Int16Bias
+from brevitas.quant.scaled_int import Uint8ActPerTensorFloat
+from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
 from tests.marker import requires_pt_ge
 
 OUT_CH = 50

@@ -7,10 +7,14 @@ from typing import Tuple
 import torch
 from torch import Tensor
 
-from brevitas.nn import QuantReLU, QuantHardTanh, QuantIdentity
-from .base import FINNQuantInputHandler
-from ..function.act import QuantReLUFn, QuantHardTanhFn
+from brevitas.nn import QuantHardTanh
+from brevitas.nn import QuantIdentity
+from brevitas.nn import QuantReLU
+
+from ..function.act import QuantHardTanhFn
+from ..function.act import QuantReLUFn
 from ..utils import finn_datatype
+from .base import FINNQuantInputHandler
 
 
 class FINNQuantReLUHandler(FINNQuantInputHandler):
@@ -137,4 +141,3 @@ class FINNQuantHardTanhHandler(FINNQuantInputHandler):
 
 class FINNQuantIdentityHandler(FINNQuantHardTanhHandler):
     handled_layer = QuantIdentity
-

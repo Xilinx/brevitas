@@ -2,17 +2,21 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from warnings import warn
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta
+from abc import abstractmethod
 from typing import Optional, Type, Union
+from warnings import warn
 
-from brevitas.inject import ExtendedInjector, Injector
-from brevitas.quant import NoneWeightQuant, NoneBiasQuant
-from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector, BiasQuantProxyFromInjector
-from brevitas.proxy.parameter_quant import WeightQuantProxyProtocol, BiasQuantProxyProtocol
+from brevitas.inject import ExtendedInjector
+from brevitas.inject import Injector
+from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjector
+from brevitas.proxy.parameter_quant import BiasQuantProxyProtocol
+from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
+from brevitas.proxy.parameter_quant import WeightQuantProxyProtocol
+from brevitas.quant import NoneBiasQuant
+from brevitas.quant import NoneWeightQuant
 
 from .base import QuantProxyMixin
-
 
 WeightQuantType = Union[WeightQuantProxyProtocol, Type[Injector], Type[ExtendedInjector]]
 BiasQuantType = Union[BiasQuantProxyProtocol, Type[Injector], Type[ExtendedInjector]]
@@ -123,7 +127,7 @@ class QuantBiasMixin(QuantProxyMixin):
             return None
         scale = self.quant_bias_scale()
         bit_width = self.quant_bias_bit_width()
-        quant_bias = self.bias_quant(self.bias, scale, bit_width)   
+        quant_bias = self.bias_quant(self.bias, scale, bit_width)
         return quant_bias
 
     def quant_bias_scale(self):
@@ -173,4 +177,3 @@ class QuantBiasMixin(QuantProxyMixin):
        if hasattr(self, 'bias_quant') and name == 'bias':
             self.bias_quant.init_tensor_quant()
             self.bias_quant.to(self.bias.device)
-

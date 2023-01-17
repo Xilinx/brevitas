@@ -41,14 +41,19 @@ POSSIBILITY OF SUCH DAMAGE.
 Forked as-is from PyTorch 1.8.1
 """
 
-from .node import Node, Argument, Target, map_arg
-
-from typing import Callable, Any, List, Dict, Optional, Tuple, Set
 import builtins
-import torch
-import types
 import keyword
 import re
+import types
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+
+import torch
+
+from .node import Argument
+from .node import map_arg
+from .node import Node
+from .node import Target
+
 
 def _shadows_builtin_name(name: str) -> bool:
     return name in builtins.__dict__ or name in keyword.kwlist or name in {'inf', 'nan', 'NoneType'}

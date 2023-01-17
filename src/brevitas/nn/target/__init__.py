@@ -2,4 +2,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from .flexml import FlexMLQuantAvgPool2d, FlexMLQuantLeakyReLU
+from .flexml import FlexMLQuantAvgPool2d
+from .flexml import FlexMLQuantLeakyReLU

@@ -9,7 +9,9 @@ import torch
 from torch import nn
 
 from brevitas.graph.utils import replace_module
-from brevitas.nn import QuantConv1d, QuantConv2d
+from brevitas.nn import QuantConv1d
+from brevitas.nn import QuantConv2d
+
 from .base import PerInputModuleToModuleByHook
 
 __all__ = [
@@ -28,7 +30,7 @@ class AdaptiveAvgPoolToAvgPool(PerInputModuleToModuleByHook):
             if isinstance(module, self.SUPPORTED_LAYERS):
                 hook_handler = module.register_forward_pre_hook(self.hook_fn)
                 self.hook_handlers.append(hook_handler)
-    
+
     def get_adaptive_output_size(self, adaptive_avgpool):
         output_size = adaptive_avgpool.output_size
         if isinstance(output_size, tuple):
@@ -42,7 +44,7 @@ class AdaptiveAvgPoolToAvgPool(PerInputModuleToModuleByHook):
             else:
                 assert isinstance(adaptive_avgpool, nn.AdaptiveAvgPool3d)
                 return (output_size, output_size, output_size)
-    
+
     def replace_modules(self, model, global_avgpool_unit_stride=True):
         for adaptive_avgpool, size in self.input_size_map.items():
             output_size = self.get_adaptive_output_size(adaptive_avgpool)
@@ -52,7 +54,7 @@ class AdaptiveAvgPoolToAvgPool(PerInputModuleToModuleByHook):
                 # Reference https://stackoverflow.com/a/63603993/16744139
                 s = tuple(int(input_size[i] / output_size[i]) for i in range(0, len(output_size)))
                 k = tuple(input_size[i] - s[i] * (output_size[i] - 1) for i in range(0, len(output_size)))
-                # Set stride 1 whenever the adaptive avg pool is global 
+                # Set stride 1 whenever the adaptive avg pool is global
                 if global_avgpool_unit_stride and all(os == 1 for os in output_size):
                     s = tuple([1] * len(s))
                 kwargs = {'kernel_size': k, 'stride': s}

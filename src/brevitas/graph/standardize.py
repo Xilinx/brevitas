@@ -8,9 +8,16 @@ from typing import Dict
 from torch import nn
 import torch.nn.functional as F
 
-from brevitas.fx import GraphModule, Node, immutable_dict
-from .base import GraphTransform, MethodToModule, FnToModule
-from .utils import set_module, replace_all_uses_except, get_module
+from brevitas.fx import GraphModule
+from brevitas.fx import immutable_dict
+from brevitas.fx import Node
+
+from .base import FnToModule
+from .base import GraphTransform
+from .base import MethodToModule
+from .utils import get_module
+from .utils import replace_all_uses_except
+from .utils import set_module
 
 __all__ = [
     'DuplicateSharedStatelessModule',

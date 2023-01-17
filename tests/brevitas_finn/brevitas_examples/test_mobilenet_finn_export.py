@@ -4,21 +4,21 @@
 
 from platform import system
 
-import pytest
-from packaging.version import parse
 import numpy as np
-import torch
-import qonnx.core.onnx_exec as oxe
+from packaging.version import parse
+import pytest
 from qonnx.core.modelwrapper import ModelWrapper
+import qonnx.core.onnx_exec as oxe
+from qonnx.transformation.double_to_single_float import DoubleToSingleFloat
 from qonnx.transformation.fold_constants import FoldConstants
-from qonnx.transformation.infer_shapes import InferShapes
 from qonnx.transformation.general import GiveUniqueNodeNames
 from qonnx.transformation.general import RemoveStaticGraphInputs
-from qonnx.transformation.double_to_single_float import DoubleToSingleFloat
+from qonnx.transformation.infer_shapes import InferShapes
+import torch
 
 from brevitas import torch_version
-from brevitas_examples.imagenet_classification import quant_mobilenet_v1_4b
 from brevitas.export import export_finn_onnx
+from brevitas_examples.imagenet_classification import quant_mobilenet_v1_4b
 
 ort_mac_fail = pytest.mark.skipif(
     torch_version >= parse('1.5.0')

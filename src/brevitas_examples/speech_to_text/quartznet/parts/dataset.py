@@ -26,7 +26,8 @@
 import torch
 from torch.utils.data import Dataset
 
-from .manifest import ManifestBase, ManifestEN
+from .manifest import ManifestBase
+from .manifest import ManifestEN
 
 
 def seq_collate_fn(batch, token_pad_value=0):

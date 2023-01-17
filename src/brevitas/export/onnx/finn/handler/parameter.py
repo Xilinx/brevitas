@@ -8,13 +8,17 @@ from typing import Optional, Union
 import torch
 from torch import Tensor
 
-from brevitas.nn import QuantLinear, QuantConv2d, QuantConv1d
+from brevitas.export.onnx.handler import Kernel1dApplHandlerMixin
+from brevitas.export.onnx.handler import Kernel2dApplHandlerMixin
+from brevitas.nn import QuantConv1d
+from brevitas.nn import QuantConv2d
+from brevitas.nn import QuantLinear
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
-from brevitas.export.onnx.handler import Kernel2dApplHandlerMixin, Kernel1dApplHandlerMixin
-from .base import FINNQuantIOHandler
-from ..function.parameter import QuantizedLinearFn
+
 from ..function.parameter import QuantizedConvNdFn
+from ..function.parameter import QuantizedLinearFn
 from ..utils import finn_datatype
+from .base import FINNQuantIOHandler
 
 QuantConvNd = Union[QuantConv1d, QuantConv2d]
 
