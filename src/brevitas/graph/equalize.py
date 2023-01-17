@@ -4,6 +4,8 @@
 
 import copy
 from functools import partial
+from copy import deepcopy
+from typing import Dict, Any
 import operator
 from random import sample
 from typing import Any, Dict
@@ -115,7 +117,36 @@ def _get_output_axis(module):
         raise RuntimeError(f"Module {module} not supported.")
 
 
-def _cross_layer_equalization(srcs, sinks):
+def _combine_weights_bias(m, axis, bias_shrinkage):
+    bias = m.bias.data
+    weight = m.weight.data if axis == 0 else m.weight.data.transpose(1,0)
+    weight = deepcopy(weight).view(weight.shape[0], -1)
+    bias = deepcopy(bias).view(-1, 1)
+    
+    weight = torch.where(torch.abs(weight) < 1e-8, torch.tensor(1e-8), weight)
+    factor = torch.abs(bias)/torch.abs(weight)
+    
+    # From https://github.com/Xilinx/Vitis-AI/blob/master/src/vai_quantizer/vai_q_pytorch/nndct_shared/optimization/commander.py#L450
+    if bias_shrinkage == 'vaiq':
+        if torch.abs(bias).max() < 10 and (torch.abs(bias).max()/torch.abs(weight).max() ) < 20:
+            if torch.median(factor) > 100 or torch.mean(factor) > 1000:
+                shrink_factor = 5
+            else:
+                shrink_factor = 2
+        else:
+            if  torch.median(factor) > 30 or torch.mean(factor) > 500:
+                shrink_factor = 20
+            elif torch.median(factor) > 15 or torch.mean(factor) > 250:
+                shrink_factor = 10
+            else:
+                shrink_factor = 5
+    else:
+        shrink_factor = bias_shrinkage
+    weight_bias = torch.cat([weight, bias/shrink_factor], 1)
+    return weight_bias
+
+
+def _cross_layer_equalization(srcs, sinks, merge_bias=True, bias_shrinkage='vaiq'):
     """
     Given two adjacent tensors', the weights are scaled such that
     the ranges of the first tensors' output channel are equal to the
@@ -135,7 +166,10 @@ def _cross_layer_equalization(srcs, sinks):
         raise RuntimeError("Output channels of sources do not match input channels of sinks")
 
     transpose = lambda module, axis: module.weight if axis == 0 else module.weight.transpose(0, 1)
-    src_weights = [transpose(m, axis) for m, axis in src_axes.items()]
+    if merge_bias:
+        src_weights = [_combine_weights_bias(m, axis, bias_shrinkage) for m, axis in src_axes.items()]
+    else:
+        src_weights = [transpose(m, axis) for m, axis in src_axes.items()]
     sink_weights = [transpose(m, axis) for m, axis in sink_axes.items()]
     srcs_range = _channel_range(torch.cat([w.reshape(w.size(0), -1) for w in src_weights], 1))
     sinks_range = _channel_range(torch.cat([w.reshape(w.size(0), -1) for w in sink_weights], 1))
