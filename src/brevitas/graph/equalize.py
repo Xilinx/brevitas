@@ -53,12 +53,13 @@ _residual_methods = (
     'add_'
 )
 
-_residual_fns = (
+_residual_cat_fns = (
     torch.add,
     operator.add,
     operator.iadd,
     operator.__add__,
-    operator.__iadd__
+    operator.__iadd__,
+    torch.cat
 )
 
 _batch_norm = (
@@ -78,13 +79,15 @@ def _channel_range(inp):
     return out
 
 
-def _get_size(axes):
+def _get_size(axes, check_same=False):
     m0, axis0 = list(axes.items())[0]
     size = m0.weight.size(axis0)
-    for m, axis in axes.items():
-        if m.weight.size(axis) != size:
+    sizes = torch.zeros(len(list(axes.keys())))
+    for i, (m, axis) in enumerate(axes.items()):
+        sizes[i] = m.weight.size(axis)
+        if check_same and sizes[i] != size:
             raise RuntimeError("Weights sizes don't match")
-    return size
+    return sizes
 
 
 def _get_input_axis(module):
@@ -159,11 +162,13 @@ def _cross_layer_equalization(srcs, sinks, merge_bias=True, bias_shrinkage='vaiq
 
     src_axes = {m: _get_output_axis(m) for m in srcs}
     sink_axes = {m: _get_input_axis(m) for m in sinks}
-    src_size = _get_size(src_axes)
-    sink_size = _get_size(sink_axes)
+    src_sink = _get_size(src_axes)
+    sink_size = _get_size(sink_axes, check_same=True)
+    
+    is_concat = torch.sum(src_sink) == sink_size[0]
 
-    if src_size != sink_size:
-        raise RuntimeError("Output channels of sources do not match input channels of sinks")
+    # if src_size != sink_size:
+    #     raise RuntimeError("Output channels of sources do not match input channels of sinks")
 
     transpose = lambda module, axis: module.weight if axis == 0 else module.weight.transpose(0, 1)
     if merge_bias:
@@ -171,7 +176,10 @@ def _cross_layer_equalization(srcs, sinks, merge_bias=True, bias_shrinkage='vaiq
     else:
         src_weights = [transpose(m, axis) for m, axis in src_axes.items()]
     sink_weights = [transpose(m, axis) for m, axis in sink_axes.items()]
-    srcs_range = _channel_range(torch.cat([w.reshape(w.size(0), -1) for w in src_weights], 1))
+    if is_concat:
+        srcs_range = torch.cat([_channel_range(w.reshape(w.size(0), -1))  for w in src_weights],0)
+    else:
+        srcs_range = _channel_range(torch.cat([w.reshape(w.size(0), -1) for w in src_weights], 1))
     sinks_range = _channel_range(torch.cat([w.reshape(w.size(0), -1) for w in sink_weights], 1))
     sinks_range += EPSILON
     scaling_factors = torch.sqrt(srcs_range / sinks_range)
@@ -241,7 +249,7 @@ def walk_region(graph_model: GraphModule, starting_node: Node, history, srcs, si
                 walk_region(graph_model, node, history, srcs, sinks, walk_forward=True)
                 walk_region(graph_model, node, history, srcs, sinks, walk_forward=False)
         elif (node.op == 'call_method' and node.target in _residual_methods
-            or node.op == 'call_function' and node.target in _residual_fns):
+            or node.op == 'call_function' and node.target in _residual_cat_fns):
                 walk_region(graph_model, node, history, srcs, sinks, walk_forward=True)
                 walk_region(graph_model, node, history, srcs, sinks, walk_forward=False)
         elif _is_reshaping_op(node):
