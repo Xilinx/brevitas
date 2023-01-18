@@ -146,7 +146,6 @@ def _combine_weights_bias(m, axis, bias_shrinkage):
     weight_bias = torch.cat([weight, bias/shrink_factor], 1)
     return weight_bias
 
-
 def _cross_layer_equalization(srcs, sinks, merge_bias=True, bias_shrinkage='vaiq'):
     """
     Given two adjacent tensors', the weights are scaled such that
@@ -164,7 +163,8 @@ def _cross_layer_equalization(srcs, sinks, merge_bias=True, bias_shrinkage='vaiq
     src_sink = _get_size(src_axes)
     sink_size = _get_size(sink_axes, check_same=True)
 
-    is_concat = torch.sum(src_sink) == sink_size[0] and len(src_sink)>1
+    is_concat = torch.sum(src_sink) <= sink_size[0] and len(src_sink)>1
+    padding_values = int(sink_size[0] - torch.sum(src_sink))
 
     transpose = lambda module, axis: module.weight if axis == 0 else module.weight.transpose(0, 1)
     if merge_bias:
@@ -178,10 +178,14 @@ def _cross_layer_equalization(srcs, sinks, merge_bias=True, bias_shrinkage='vaiq
         srcs_range = _channel_range(torch.cat([w.reshape(w.size(0), -1) for w in src_weights], 1))
     sinks_range = _channel_range(torch.cat([w.reshape(w.size(0), -1) for w in sink_weights], 1))
     sinks_range += EPSILON
-    scaling_factors = torch.sqrt(srcs_range / sinks_range)
-    inverse_scaling_factors = torch.reciprocal(scaling_factors)
+    if padding_values > 0:
+        scaling_factors = torch.sqrt(srcs_range / sinks_range[:len(srcs_range)])
+        scaling_factors = torch.cat([scaling_factors, torch.ones(padding_values)])
+    else:
+        scaling_factors = torch.sqrt(srcs_range / sinks_range)
 
     start_index = 0
+    inverse_scaling_factors = torch.reciprocal(scaling_factors)
     for module, axis in src_axes.items():
         channels = module.weight.size(axis)
         partial_inverse_scaling = inverse_scaling_factors[start_index:start_index+channels]
@@ -226,8 +230,39 @@ def _is_reshaping_op(node):
     return (node.op == 'call_function' and node.target in [torch.flatten, torch.reshape]
                 or node.op == 'call_method' and node.target in ['view', 'reshape', 'flatten'])
 
+def check_nodes(srcs, name, node, current_idx, graph_model):
+    if _is_supported_module(graph_model, node):
+        if name in srcs and node.target == name:
+            srcs[name] = current_idx[0]
+            current_idx[0] += 1
+            return True
+    else:
+        for input_nodes in node.all_input_nodes:
+            done = check_nodes(srcs, name, input_nodes, current_idx, graph_model)
+            if done:
+                return done
+        return False
 
-def walk_region(graph_model: GraphModule, starting_node: Node, history, srcs, sinks, walk_forward):
+
+def reorder_sources(srcs, node, graph_model):
+    all_input_nodes = node.all_input_nodes
+    current_idx = [0]
+    found = 0
+    list_to_check = list(srcs.keys())
+    while found < len(srcs.keys()):
+        for inner_node in all_input_nodes:
+            done = False
+            for name in list_to_check:
+                done = check_nodes(srcs, name, inner_node, current_idx, graph_model)
+                if done:
+                    found +=1
+                    break
+            if done:
+                list_to_check.remove(name)
+
+
+
+def walk_region(graph_model: GraphModule, starting_node: Node, history, srcs, sinks, walk_forward, seen_concat=None):
     node_list = starting_node.users if walk_forward else starting_node.all_input_nodes
     for node in node_list:
         # we keep a history of how the graph has been walked already, invariant to the direction,
@@ -239,22 +274,47 @@ def walk_region(graph_model: GraphModule, starting_node: Node, history, srcs, si
             continue
         if _is_supported_module(graph_model, node):
             if walk_forward:
-                sinks.add(node.target)
+                if node.target not in sinks:
+                    sinks[node.target] = 0
+                # sinks.add(node.target)
             else:
-                srcs.add(node.target)
-                walk_region(graph_model, node, history, srcs, sinks, walk_forward=True)
+                if node.target not in srcs:
+                    srcs[node.target] = len(srcs.keys())
+                # srcs.add(node.target)
+                walk_region(graph_model, node, history, srcs, sinks, walk_forward=True, seen_concat=seen_concat)
         elif _is_scale_invariant_module(graph_model, node):
             if walk_forward:
-                walk_region(graph_model, node, history, srcs, sinks, walk_forward=True)
+                walk_region(graph_model, node, history, srcs, sinks, walk_forward=True, seen_concat=seen_concat)
             else:
-                walk_region(graph_model, node, history, srcs, sinks, walk_forward=True)
-                walk_region(graph_model, node, history, srcs, sinks, walk_forward=False)
+                walk_region(graph_model, node, history, srcs, sinks, walk_forward=True, seen_concat=seen_concat)
+                walk_region(graph_model, node, history, srcs, sinks, walk_forward=False, seen_concat=seen_concat)
         elif (node.op == 'call_method' and node.target in _residual_methods
             or node.op == 'call_function' and node.target in _residual_cat_fns):
-                walk_region(graph_model, node, history, srcs, sinks, walk_forward=True)
-                walk_region(graph_model, node, history, srcs, sinks, walk_forward=False)
+            if node.target == torch.cat:
+                if seen_concat is not None:
+                    if not walk_forward:
+                        # walk_region(graph_model, node, history, srcs, sinks, walk_forward=False, seen_concat=seen_concat)
+                        reorder_sources(srcs, seen_concat, graph_model)
+
+                        continue
+                        # srcs.update([current_node.target for current_node in node.all_input_nodes if _is_supported_module(graph_model, current_node)])
+                    else:
+                        all_sinks = list(sinks.keys())
+                        for keys in all_sinks:
+                            del sinks[keys]
+                        continue
+                        # reorder_sources(srcs, node, graph_model)
+
+                    # srcs.update(list(seen_concat.users))
+                    # walk_region(graph_model, node, history, srcs, sinks, walk_forward=False, seen_concat=node.target)
+                walk_region(graph_model, node, history, srcs, sinks, walk_forward=True, seen_concat=node)
+                walk_region(graph_model, node, history, srcs, sinks, walk_forward=False, seen_concat=node)
+                reorder_sources(srcs, node, graph_model)
+            else:
+                walk_region(graph_model, node, history, srcs, sinks, walk_forward=True, seen_concat=seen_concat)
+                walk_region(graph_model, node, history, srcs, sinks, walk_forward=False, seen_concat=seen_concat)
         elif _is_reshaping_op(node):
-            walk_region(graph_model, node, history, srcs, sinks, walk_forward=walk_forward)
+            walk_region(graph_model, node, history, srcs, sinks, walk_forward=walk_forward, seen_concat=seen_concat)
         else:
             continue
 
@@ -266,12 +326,20 @@ def _extract_regions(graph_model: GraphModule):
             module = get_module(graph_model, node.target)
             if isinstance(module, _supported_layers):
                 srcs, sinks = {node.target}, set()
+                srcs = {node.target: 0}
+                sinks = dict()
                 walk_region(graph_model, node, set(), srcs, sinks, walk_forward=True)
                 if sinks:
                     # each region should appear only once, so to make it hashable
                     # we convert srcs and sinks to ordered lists first, and then to tuples
-                    regions.add((tuple(sorted(srcs)), tuple(sorted(sinks))))
+                    srcs_ordered = [0] * len(srcs.items())
+                    for v, k in srcs.items():
+                        srcs_ordered[k] = v
+                    regions.add((tuple(srcs_ordered), tuple(sorted(sinks.keys()))))
+                    # regions.add((tuple(srcs), tuple(sinks)))
+    regions = sorted(regions, key=lambda region: region[0][0])
     return regions
+
 
 
 class EqualizeGraph(GraphTransform):
