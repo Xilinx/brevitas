@@ -27,11 +27,13 @@ from brevitas.graph.equalize import _is_supported_module
 SEED = 123456
 
 MODELS = [
+    'shufflenet_v2_x0_5',
+    'densenet121',
     'mobilenet_v2',
     'resnet18',
     'googlenet',
     'inception_v3',
-    'alexnet'
+    'alexnet',
 ]
 
 @pytest.mark.parametrize("model_name", MODELS)
@@ -44,9 +46,9 @@ def test_rewriter_merge_bn(model_name: str):
     torch.manual_seed(SEED)
     inp = torch.randn(16,3,224,224)
 
+    model.eval()
     expected_out = model(inp)
 
-    model.eval()
     model = value_trace(model)
     model = TorchFunctionalToModule().apply(model)
     model = DuplicateSharedStatelessModule().apply(model)

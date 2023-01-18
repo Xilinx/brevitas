@@ -312,7 +312,8 @@ def walk_region(graph_model: GraphModule, starting_node: Node, history, srcs, si
                     # walk_region(graph_model, node, history, srcs, sinks, walk_forward=False, seen_concat=node.target)
                 walk_region(graph_model, node, history, srcs, sinks, walk_forward=True, seen_concat=node)
                 walk_region(graph_model, node, history, srcs, sinks, walk_forward=False, seen_concat=node)
-                reorder_sources(srcs, node, graph_model)
+                if len(sinks) > 0:
+                    reorder_sources(srcs, node, graph_model)
             else:
                 walk_region(graph_model, node, history, srcs, sinks, walk_forward=True, seen_concat=seen_concat)
                 walk_region(graph_model, node, history, srcs, sinks, walk_forward=False, seen_concat=seen_concat)
