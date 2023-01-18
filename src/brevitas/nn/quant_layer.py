@@ -402,7 +402,7 @@ class QuantWeightBiasInputOutputLayer(
         #     output_tensor = self.inner_forward_impl(
         #         quant_input, quant_weight, quant_bias)
         # else:
-        output_tensor = self.inner_forward_impl(quant_input, quant_weight, quant_bias)
+        output_tensor = self.inner_forward_impl(input, quant_weight, quant_bias)
 
         # if quant_input.bit_width is not None:
         #     output_bit_width = self.max_acc_bit_width(quant_input.bit_width, quant_weight.bit_width)
