@@ -390,7 +390,7 @@ def preprocess_flexml(model, *model_args, equalization_iters = 0, **model_kwargs
     model = CollapseConsecutiveConcats().apply(model)
     model = MoveSplitBatchNormBeforeCat().apply(model)
     model = MergeBatchNorm().apply(model)
-    model = EqualizeGraph(equalization_iters).apply(model)
+    model, _ = EqualizeGraph(equalization_iters).apply(model)
     model.train(training_state)
     return model
 

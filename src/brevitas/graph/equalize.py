@@ -163,8 +163,14 @@ def _cross_layer_equalization(srcs, sinks, merge_bias=True, bias_shrinkage='vaiq
     src_sink = _get_size(src_axes)
     sink_size = _get_size(sink_axes, check_same=True)
 
-    is_concat = torch.sum(src_sink) <= sink_size[0] and len(src_sink)>1
-    padding_values = int(sink_size[0] - torch.sum(src_sink))
+    if torch.sum(src_sink) == sink_size[0] and len(src_sink)>1:
+        is_concat = True
+    elif torch.mean(src_sink) == sink_size[0]: # Workaround to check src_sink hve all the same size
+        is_concat = False
+    else:
+        return
+        # raise RuntimeError("Output channels of sources do not match input channels of sinks")
+
 
     transpose = lambda module, axis: module.weight if axis == 0 else module.weight.transpose(0, 1)
     if merge_bias:
@@ -178,11 +184,8 @@ def _cross_layer_equalization(srcs, sinks, merge_bias=True, bias_shrinkage='vaiq
         srcs_range = _channel_range(torch.cat([w.reshape(w.size(0), -1) for w in src_weights], 1))
     sinks_range = _channel_range(torch.cat([w.reshape(w.size(0), -1) for w in sink_weights], 1))
     sinks_range += EPSILON
-    if padding_values > 0:
-        scaling_factors = torch.sqrt(srcs_range / sinks_range[:len(srcs_range)])
-        scaling_factors = torch.cat([scaling_factors, torch.ones(padding_values)])
-    else:
-        scaling_factors = torch.sqrt(srcs_range / sinks_range)
+
+    scaling_factors = torch.sqrt(srcs_range / sinks_range)
 
     start_index = 0
     inverse_scaling_factors = torch.reciprocal(scaling_factors)
@@ -292,17 +295,17 @@ def walk_region(graph_model: GraphModule, starting_node: Node, history, srcs, si
             or node.op == 'call_function' and node.target in _residual_cat_fns):
             if node.target == torch.cat:
                 if seen_concat is not None:
-                    if not walk_forward:
-                        # walk_region(graph_model, node, history, srcs, sinks, walk_forward=False, seen_concat=seen_concat)
-                        reorder_sources(srcs, seen_concat, graph_model)
+                    # if not walk_forward:
+                    #     # walk_region(graph_model, node, history, srcs, sinks, walk_forward=False, seen_concat=seen_concat)
+                    #     reorder_sources(srcs, seen_concat, graph_model)
 
-                        continue
-                        # srcs.update([current_node.target for current_node in node.all_input_nodes if _is_supported_module(graph_model, current_node)])
-                    else:
-                        all_sinks = list(sinks.keys())
-                        for keys in all_sinks:
-                            del sinks[keys]
-                        continue
+                    #     continue
+                    #     # srcs.update([current_node.target for current_node in node.all_input_nodes if _is_supported_module(graph_model, current_node)])
+                    # else:
+                    all_sinks = list(sinks.keys())
+                    for keys in all_sinks:
+                        del sinks[keys]
+                    continue
                         # reorder_sources(srcs, node, graph_model)
 
                     # srcs.update(list(seen_concat.users))
@@ -351,7 +354,7 @@ class EqualizeGraph(GraphTransform):
     def apply(self, graph_model: GraphModule):
         regions = _extract_regions(graph_model)
         graph_model = _equalize(graph_model, regions, self.iterations)
-        return graph_model
+        return graph_model, regions
 
 
 class AbsorbBiasByBatchNorm(GraphTransform):
