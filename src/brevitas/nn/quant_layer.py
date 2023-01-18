@@ -20,6 +20,82 @@ from .utils import merge_bn
 from .utils import rename_state_dict_by_prefix
 
 
+def pre_forward(input, bias, bias_quant, quant_weight, max_acc_bit_widith_impl):
+    output_scale = None
+    output_bit_width = None
+    output_zero_point = None
+    output_signed = None
+    if isinstance(input, QuantTensor):
+        if input.bit_width is not None:
+            output_bit_width = max_acc_bit_widith_impl(input.bit_width, quant_weight.bit_width)
+        if input.scale is not None:
+            output_scale_shape = compute_channel_view_shape(input, channel_dim=1)
+            output_scale = quant_weight.scale.view(output_scale_shape)
+            output_scale = output_scale * input.scale.view(output_scale_shape)
+        if input.signed is not None:
+            output_signed = input.signed or quant_weight.signed
+
+        if bias is not None:
+            quant_bias = bias_quant(bias, output_scale, output_bit_width)
+
+            if (output_scale is not None
+                    and (quant_bias.scale is None
+                         or (quant_bias.scale is not None
+                             and quant_bias.scale.data_ptr() != output_scale.data_ptr()))):
+                output_zero_point = - quant_bias.value.view(output_scale_shape) / output_scale
+
+            if quant_bias.bit_width is not None and output_bit_width is not None:
+                output_bit_width = torch.where(
+                    quant_bias.bit_width > output_bit_width, quant_bias.bit_width, output_bit_width)
+                output_bit_width = output_bit_width + 1
+
+        input_value = input.value
+        metadata = {
+            'input_scale': input.scale,
+            'input_zero_point': input.zero_point,
+            'input_bit_width': input.bit_width,
+            'input_zero_point': input.zero_point,
+            'weight_zero_point': quant_weight.zero_point,
+            'output_signed': output_signed,
+            'output_zero_point': output_zero_point if output_zero_point is not None else input.zero_point,
+            'output_signed': output_signed,
+            'output_scale': output_scale,
+            'output_bit_width': output_bit_width
+        }
+        quant_bias = quant_bias.value if bias is not None else None
+        quant_weight = quant_weight.value
+
+    elif isinstance(input, Tensor):
+
+        if bias_quant.require_input_scale or bias_quant.require_input_bitwidth:
+            raise RuntimeError("Input does not have enough info to quantize bias")
+        # quant_bias = bias_quant(bias)
+        input_value = input
+        metadata = dict(
+
+        )
+        quant_bias = bias
+
+    return input_value, metadata, quant_weight,  quant_bias
+
+def post_forward(output_tensor, metadata, training, return_quant_tensor, is_output_quant_enabled):
+        if return_quant_tensor and not is_output_quant_enabled:
+            if (metadata['input_zero_point'] is not None
+                    and ((metadata['input_zero_point'] != 0.0).any()
+                         or (metadata['weight_zero_point'] != 0.0).any())):
+                raise RuntimeError("Computing zero point of output accumulator not supported yet.")
+            else: #if metadata['input_zero_point'] is not None and metadata['output_zero_point'] is None:
+                output_zero_point = metadata['output_zero_point']
+
+        quant_output = QuantTensor(
+            value=output_tensor,
+            scale=metadata['output_scale'],
+            zero_point=output_zero_point,
+            bit_width=metadata['output_bit_width'],
+            signed=metadata['output_signed'],
+            training=training)
+        return quant_output
+
 class QuantNonLinearActLayer(
     QuantNonLinearActMixin,
     QuantInputMixin,
@@ -303,66 +379,59 @@ class QuantWeightBiasInputOutputLayer(
         merge_bn(self, bn, output_channel_dim=self.output_channel_dim)
 
     def forward_impl(self, inp: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
-        output_scale = None
-        output_bit_width = None
-        output_zero_point = None
-        output_signed = None
+        # output_scale = None
+        # output_bit_width = None
+        # output_zero_point = None
+        # output_signed = None
 
-        inp = self.unpack_input(inp)
+        inp = self.unpack_input(inp) # TODO: Caching based on QuantTensor that has to be moved somewhere
 
         # shortcut execution through the export impl during export
+        # TODO: this has also to be dealt with
         if self.export_mode:
             out = self.export_handler(inp.value)
             self._set_global_is_quant_layer(False)
             return out
-
         quant_input = self.input_quant(inp)
+
         quant_weight = self.quant_weight()
+        input, metadata, quant_weight, quant_bias = pre_forward(quant_input, self.bias, self.bias_quant, quant_weight, self.max_acc_bit_width)
 
-        if quant_input.bit_width is not None:
-            output_bit_width = self.max_acc_bit_width(quant_input.bit_width, quant_weight.bit_width)
-        if quant_input.scale is not None:
-            output_scale_shape = compute_channel_view_shape(inp, channel_dim=1)
-            output_scale = quant_weight.scale.view(output_scale_shape)
-            output_scale = output_scale * quant_input.scale.view(output_scale_shape)
-        if quant_input.signed is not None:
-            output_signed = inp.signed or quant_weight.signed
 
-        if self.bias is not None:
-            quant_bias = self.bias_quant(self.bias, output_scale, output_bit_width)
-            if not self.training and self.cache_inference_quant_bias:
-                self._cached_bias = _CachedIO(quant_bias.detach(), metadata_only=False)
+        # if quant_bias is not None:
+        #     output_tensor = self.inner_forward_impl(
+        #         quant_input, quant_weight, quant_bias)
+        # else:
+        output_tensor = self.inner_forward_impl(quant_input, quant_weight, quant_bias)
 
-            output_tensor = self.inner_forward_impl(
-                quant_input.value, quant_weight.value, quant_bias.value)
+        # if quant_input.bit_width is not None:
+        #     output_bit_width = self.max_acc_bit_width(quant_input.bit_width, quant_weight.bit_width)
+        # if quant_input.scale is not None:
+        #     output_scale_shape = compute_channel_view_shape(inp, channel_dim=1)
+        #     output_scale = quant_weight.scale.view(output_scale_shape)
+        #     output_scale = output_scale * quant_input.scale.view(output_scale_shape)
+        # if quant_input.signed is not None:
+        #     output_signed = inp.signed or quant_weight.signed
 
-            if (output_scale is not None
-                    and (quant_bias.scale is None
-                         or (quant_bias.scale is not None
-                             and quant_bias.scale.data_ptr() != output_scale.data_ptr()))):
-                output_zero_point = - quant_bias.value.view(output_scale_shape) / output_scale
+        # if self.bias is not None:
+        #     quant_bias = self.bias_quant(self.bias, output_scale, output_bit_width)
+        #     if not self.training and self.cache_inference_quant_bias:
+        #         self._cached_bias = _CachedIO(quant_bias.detach(), metadata_only=False)
 
-            if quant_bias.bit_width is not None and output_bit_width is not None:
-                output_bit_width = torch.where(
-                    quant_bias.bit_width > output_bit_width, quant_bias.bit_width, output_bit_width)
-                output_bit_width = output_bit_width + 1
-        else:
-            output_tensor = self.inner_forward_impl(quant_input.value, quant_weight.value, None)
+        #     if (output_scale is not None
+        #             and (quant_bias.scale is None
+        #                  or (quant_bias.scale is not None
+        #                      and quant_bias.scale.data_ptr() != output_scale.data_ptr()))):
+        #         output_zero_point = - quant_bias.value.view(output_scale_shape) / output_scale
 
-        if self.return_quant_tensor and not self.is_output_quant_enabled:
-            if (quant_input.zero_point is not None
-                    and ((quant_input.zero_point != 0.0).any()
-                         or (quant_weight.zero_point != 0.0).any())):
-                raise RuntimeError("Computing zero point of output accumulator not supported yet.")
-            elif quant_input.zero_point is not None and output_zero_point is None:
-                output_zero_point = quant_input.zero_point
+        #     if quant_bias.bit_width is not None and output_bit_width is not None:
+        #         output_bit_width = torch.where(
+        #             quant_bias.bit_width > output_bit_width, quant_bias.bit_width, output_bit_width)
+        #         output_bit_width = output_bit_width + 1
+        # else:
+        #     output_tensor = self.inner_forward_impl(quant_input.value, quant_weight.value, None)
 
-        quant_output = QuantTensor(
-            value=output_tensor,
-            scale=output_scale,
-            zero_point=output_zero_point,
-            bit_width=output_bit_width,
-            signed=output_signed,
-            training=self.training)
-        quant_output = self.output_quant(quant_output)
+        output = post_forward(output_tensor, metadata, self.training, self.return_quant_tensor, self.is_output_quant_enabled)
+
+        quant_output = self.output_quant(output) # TODO: Caching based on QuantTensor that has to be moved somewhere
         return self.pack_output(quant_output)
