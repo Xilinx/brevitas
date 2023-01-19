@@ -57,21 +57,19 @@ def torchvision_model(model_name):
 
 
 @requires_pt_ge('1.8.1')
-def test_torchvision_graph_quantization_flexml_qcdq_onnx(torchvision_model):
+def test_torchvision_graph_quantization_flexml_qcdq_onnx(torchvision_model, request):
     if torchvision_model is None:
         pytest.skip('Model not instantiated')
-
+    test_id = request.node.callspec.id
     inp =  torch.randn(BATCH, IN_CH, HEIGHT, WIDTH)
     export_onnx_qcdq(
-        torchvision_model, args=inp, export_path='model_onnx_qcdq.onnx')
-    os.remove('model_onnx_qcdq.onnx')
+        torchvision_model, args=inp, export_path=test_id +'model_onnx_qcdq.onnx')
 
 @requires_pt_ge('1.9.1')
-def test_torchvision_graph_quantization_flexml_qcdq_torch(torchvision_model):
+def test_torchvision_graph_quantization_flexml_qcdq_torch(torchvision_model, request):
     if torchvision_model is None:
         pytest.skip('Model not instantiated')
-
+    test_id = request.node.callspec.id
     inp =  torch.randn(BATCH, IN_CH, HEIGHT, WIDTH)
     export_torch_qcdq(
-        torchvision_model, args=inp, export_path='model_torch_qcdq.pt')
-    os.remove('model_torch_qcdq.pt')
+        torchvision_model, args=inp, export_path=test_id + 'model_torch_qcdq.pt')
