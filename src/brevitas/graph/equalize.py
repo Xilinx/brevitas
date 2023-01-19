@@ -29,7 +29,10 @@ _supported_layers = (
     torch.nn.Conv1d,
     torch.nn.Conv2d,
     torch.nn.Conv3d,
-    torch.nn.Linear)
+    torch.nn.Linear,
+    torch.nn.BatchNorm1d,
+    torch.nn.BatchNorm2d,
+    torch.nn.BatchNorm3d,)
 
 _scale_invariant_layers = (
     torch.nn.Dropout,
@@ -51,14 +54,15 @@ _residual_methods = (
     'add_'
 )
 
-_residual_cat_fns = (
+_residual_fns = (
     torch.add,
     operator.add,
     operator.iadd,
     operator.__add__,
     operator.__iadd__,
-    torch.cat
 )
+
+_cat_fns = (torch.cat,)
 
 _batch_norm = (
     torch.nn.BatchNorm1d,
@@ -91,6 +95,8 @@ def _get_size(axes, check_same=False):
 def _get_input_axis(module):
     if isinstance(module, torch.nn.Linear):
         return 1
+    elif isinstance(module, (torch.nn.BatchNorm1d, torch.nn.BatchNorm2d, torch.nn.BatchNorm3d)):
+        return 0
     elif isinstance(module, (torch.nn.Conv1d, torch.nn.Conv2d, torch.nn.Conv3d)):
         if module.groups == 1:
             return 1
@@ -110,7 +116,7 @@ def _get_input_axis(module):
 
 
 def _get_output_axis(module):
-    if isinstance(module, (torch.nn.Linear, torch.nn.Conv1d, torch.nn.Conv2d, torch.nn.Conv3d)):
+    if isinstance(module, (torch.nn.Linear, torch.nn.Conv1d, torch.nn.Conv2d, torch.nn.Conv3d, torch.nn.BatchNorm1d, torch.nn.BatchNorm2d, torch.nn.BatchNorm3d)):
         return 0
     elif isinstance(module, (torch.nn.ConvTranspose1d, torch.nn.ConvTranspose2d, torch.nn.ConvTranpose3d)):
         return 1
@@ -119,6 +125,9 @@ def _get_output_axis(module):
 
 
 def _combine_weights_bias(m, axis, bias_shrinkage):
+    if m.bias is None:
+        return m.weight.data
+
     bias = m.bias.data
     weight = m.weight.data if axis == 0 else m.weight.data.transpose(1,0)
     weight = deepcopy(weight).view(weight.shape[0], -1)
@@ -146,7 +155,7 @@ def _combine_weights_bias(m, axis, bias_shrinkage):
     weight_bias = torch.cat([weight, bias/shrink_factor], 1)
     return weight_bias
 
-def _cross_layer_equalization(srcs, sinks, merge_bias=True, bias_shrinkage='vaiq'):
+def _cross_layer_equalization(srcs, sinks, merge_bias, bias_shrinkage):
     """
     Given two adjacent tensors', the weights are scaled such that
     the ranges of the first tensors' output channel are equal to the
@@ -169,8 +178,6 @@ def _cross_layer_equalization(srcs, sinks, merge_bias=True, bias_shrinkage='vaiq
         is_concat = False
     else:
         return
-        # raise RuntimeError("Output channels of sources do not match input channels of sinks")
-
 
     transpose = lambda module, axis: module.weight if axis == 0 else module.weight.transpose(0, 1)
     if merge_bias:
@@ -205,7 +212,7 @@ def _cross_layer_equalization(srcs, sinks, merge_bias=True, bias_shrinkage='vaiq
         module.weight.data = module.weight.data * torch.reshape(scaling_factors, src_broadcast_size)
 
 
-def _equalize(model, regions, iterations):
+def _equalize(model, regions, iterations, merge_bias, bias_shrinkage):
     """
     Generalized version of section 4.1 of https://arxiv.org/pdf/1906.04721.pdf
     """
@@ -217,7 +224,7 @@ def _equalize(model, regions, iterations):
             name_to_module[name] = module
     for i in range(iterations):
         for region in regions:
-            _cross_layer_equalization([name_to_module[n] for n in region[0]], [name_to_module[n] for n in region[1]])
+            _cross_layer_equalization([name_to_module[n] for n in region[0]], [name_to_module[n] for n in region[1]], merge_bias, bias_shrinkage)
     return model
 
 
@@ -240,10 +247,16 @@ def check_nodes(srcs, name, node, current_idx, graph_model):
             current_idx[0] += 1
             return True
     else:
-        for input_nodes in node.all_input_nodes:
-            done = check_nodes(srcs, name, input_nodes, current_idx, graph_model)
-            if done:
-                return done
+        # Check if it's a node through which we would propagate in walk_region
+        # Otherwise the source cannot come from here, so we stop the search
+        if _is_scale_invariant_module(graph_model, node) or \
+        (node.op == 'call_method' and node.target in _residual_methods
+            or node.op == 'call_function' and node.target in _residual_fns) or \
+                node.target in _cat_fns or _is_reshaping_op(node):
+            for input_node in node.all_input_nodes:
+                done = check_nodes(srcs, name, input_node, current_idx, graph_model)
+                if done:
+                    return done
         return False
 
 
@@ -263,7 +276,10 @@ def reorder_sources(srcs, node, graph_model):
             if done:
                 list_to_check.remove(name)
 
-
+def _clear_sinks(sinks):
+    all_sinks = list(sinks.keys())
+    for keys in all_sinks:
+        del sinks[keys]
 
 def walk_region(graph_model: GraphModule, starting_node: Node, history, srcs, sinks, walk_forward, seen_concat=None):
     node_list = starting_node.users if walk_forward else starting_node.all_input_nodes
@@ -279,11 +295,9 @@ def walk_region(graph_model: GraphModule, starting_node: Node, history, srcs, si
             if walk_forward:
                 if node.target not in sinks:
                     sinks[node.target] = 0
-                # sinks.add(node.target)
             else:
                 if node.target not in srcs:
                     srcs[node.target] = len(srcs.keys())
-                # srcs.add(node.target)
                 walk_region(graph_model, node, history, srcs, sinks, walk_forward=True, seen_concat=seen_concat)
         elif _is_scale_invariant_module(graph_model, node):
             if walk_forward:
@@ -292,31 +306,29 @@ def walk_region(graph_model: GraphModule, starting_node: Node, history, srcs, si
                 walk_region(graph_model, node, history, srcs, sinks, walk_forward=True, seen_concat=seen_concat)
                 walk_region(graph_model, node, history, srcs, sinks, walk_forward=False, seen_concat=seen_concat)
         elif (node.op == 'call_method' and node.target in _residual_methods
-            or node.op == 'call_function' and node.target in _residual_cat_fns):
-            if node.target == torch.cat:
-                if seen_concat is not None:
-                    # if not walk_forward:
-                    #     # walk_region(graph_model, node, history, srcs, sinks, walk_forward=False, seen_concat=seen_concat)
-                    #     reorder_sources(srcs, seen_concat, graph_model)
-
-                    #     continue
-                    #     # srcs.update([current_node.target for current_node in node.all_input_nodes if _is_supported_module(graph_model, current_node)])
-                    # else:
-                    all_sinks = list(sinks.keys())
-                    for keys in all_sinks:
-                        del sinks[keys]
-                    continue
-                        # reorder_sources(srcs, node, graph_model)
-
-                    # srcs.update(list(seen_concat.users))
-                    # walk_region(graph_model, node, history, srcs, sinks, walk_forward=False, seen_concat=node.target)
-                walk_region(graph_model, node, history, srcs, sinks, walk_forward=True, seen_concat=node)
-                walk_region(graph_model, node, history, srcs, sinks, walk_forward=False, seen_concat=node)
-                if len(sinks) > 0:
-                    reorder_sources(srcs, node, graph_model)
-            else:
+            or node.op == 'call_function' and node.target in _residual_fns):
                 walk_region(graph_model, node, history, srcs, sinks, walk_forward=True, seen_concat=seen_concat)
                 walk_region(graph_model, node, history, srcs, sinks, walk_forward=False, seen_concat=seen_concat)
+        elif node.target in _cat_fns:
+            if seen_concat is not None:
+                # If we go through another concat, then no equalization should be done.
+                # Removing all the sinks should guarantee that.
+                _clear_sinks(sinks)
+                continue
+            # If this is the first concat we see, we register it while we keep exploring the graph.
+            # NOTE: seen_concat=node is better than seen_concat=True if we decide to support
+            # partial equalization through concats. No difference otherwise.
+
+            # If any of the input to cat has multiple users, we cannot equalize through
+            for n in node.all_input_nodes:
+                if len(n.users)>1:
+                    return
+            walk_region(graph_model, node, history, srcs, sinks, walk_forward=True, seen_concat=node)
+            walk_region(graph_model, node, history, srcs, sinks, walk_forward=False, seen_concat=node)
+
+
+            if len(sinks) > 0:
+                reorder_sources(srcs, node, graph_model)
         elif _is_reshaping_op(node):
             walk_region(graph_model, node, history, srcs, sinks, walk_forward=walk_forward, seen_concat=seen_concat)
         else:
@@ -329,7 +341,6 @@ def _extract_regions(graph_model: GraphModule):
         if node.op == 'call_module':
             module = get_module(graph_model, node.target)
             if isinstance(module, _supported_layers):
-                srcs, sinks = {node.target}, set()
                 srcs = {node.target: 0}
                 sinks = dict()
                 walk_region(graph_model, node, set(), srcs, sinks, walk_forward=True)
@@ -340,7 +351,6 @@ def _extract_regions(graph_model: GraphModule):
                     for v, k in srcs.items():
                         srcs_ordered[k] = v
                     regions.add((tuple(srcs_ordered), tuple(sorted(sinks.keys()))))
-                    # regions.add((tuple(srcs), tuple(sinks)))
     regions = sorted(regions, key=lambda region: region[0][0])
     return regions
 
@@ -348,13 +358,15 @@ def _extract_regions(graph_model: GraphModule):
 
 class EqualizeGraph(GraphTransform):
 
-    def __init__(self, iterations) -> None:
+    def __init__(self, iterations, merge_bias=True, bias_shrinkage='vaiq') -> None:
         super(EqualizeGraph, self).__init__()
         self.iterations = iterations
+        self.merge_bias = merge_bias
+        self.bias_shrinkage = bias_shrinkage
 
     def apply(self, graph_model: GraphModule):
         regions = _extract_regions(graph_model)
-        graph_model = _equalize(graph_model, regions, self.iterations)
+        graph_model = _equalize(graph_model, regions, self.iterations, self.merge_bias, self.bias_shrinkage)
         return graph_model, regions
 
 
