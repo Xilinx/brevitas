@@ -37,9 +37,6 @@ JIT_STATUSES = ('jit_disabled',)
 PLATFORM_LIST = ['windows-latest', 'ubuntu-latest', 'macos-latest']
 FINN_PLATFORM_LIST = ['windows-latest', 'ubuntu-latest']
 
-STRATEGY_ENDTOEND = od([('fail-fast', 'false'),
-                        ('max-parallel', '4')])
-
 STRATEGY = od([('fail-fast', 'false')])
 
 EXCLUDE_LIST = []
@@ -207,11 +204,11 @@ def gen_test_brevitas_end_to_end():
         EXCLUDE_LIST + END_TO_END_EXCLUDE_LIST,
         MATRIX,
         ENDTOEND_STEP_LIST,
-        STRATEGY_ENDTOEND)
+        STRATEGY)
     tests_brevitas_end_to_end.gen_yaml(BASE_YML_TEMPLATE, ENDTOEND_YML)
     tests_brevitas_end_to_end = Action('Test End-to-end flows',
                                        EXCLUDE_LIST + END_TO_END_EXCLUDE_LIST, MATRIX_REDUCED,
-                                       ENDTOEND_STEP_LIST, STRATEGY_ENDTOEND)
+                                       ENDTOEND_STEP_LIST, STRATEGY)
     tests_brevitas_end_to_end.gen_yaml(BASE_YML_REDUCED_TEMPLATE, 'reduced_' + ENDTOEND_YML)
 
 if __name__ == '__main__':

@@ -12,7 +12,6 @@ jobs:
     runs-on: ${{ matrix.platform }}
     strategy:
       fail-fast: false
-      max-parallel: 4
 
 
       matrix:
