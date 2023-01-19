@@ -5,10 +5,6 @@ on:
     branches: [ master, dev ]
   pull_request:
     types:
-      - opened
-      - reopened
-      - synchronize
-      - ready_for_review
       - review_requested
 
 jobs:
@@ -53,6 +49,5 @@ jobs:
       if: startsWith(runner.os, 'macOS') == true
 
     - name: Run Nox session for brevitas_examples pytest
-      if: ${{ (contains(fromJson('["1.5.1", "1.10.1", "1.13.0"]'), matrix.pytorch_version ) && github.event_name == 'pull_request' && matrix.platform == 'ubuntu-latest' )  || (github.event_name != 'pull_request') || (github.event_name == 'pull_request' && github.event.action == 'review_requested')}}
       shell: bash
       run: nox -v -s tests_brevitas_examples_cpu-${{ matrix.python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)
