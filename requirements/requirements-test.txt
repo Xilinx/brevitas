@@ -2,6 +2,7 @@ hypothesis
 mock
 pytest
 pytest-mock
+pytest-xdist
 pytest_cases
 scipy
 torchvision

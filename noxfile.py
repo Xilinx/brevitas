@@ -67,9 +67,9 @@ def tests_brevitas_cpu(session, pytorch, jit_status):
     install_torchvision(pytorch, session)
     session.install( '--upgrade', '.[test, export]')
     # run non graph tests
-    session.run('pytest', 'tests/brevitas', '-v', '--ignore', 'tests/brevitas/graph')
+    session.run('pytest', 'tests/brevitas', '-n', 'auto', '-v', '--ignore', 'tests/brevitas/graph')
     # run graph tests separately
-    session.run('pytest', 'tests/brevitas/graph', '-v')
+    session.run('pytest', 'tests/brevitas/graph','-n', 'auto', '-v')
 
 
 @nox.session(python=PYTHON_VERSIONS)
@@ -80,7 +80,7 @@ def tests_brevitas_examples_cpu(session, pytorch, jit_status):
     install_pytorch(pytorch, session)
     install_torchvision(pytorch, session)  # For CV eval scripts
     session.install('--upgrade', '.[test, tts, stt, vision]')
-    session.run('pytest', 'tests/brevitas_examples')
+    session.run('pytest', '-n', 'auto', 'tests/brevitas_examples')
 
 
 @nox.session(python=PYTHON_VERSIONS)
@@ -90,7 +90,7 @@ def tests_brevitas_install_dev(session, pytorch):
     install_torchvision(pytorch, session)
     session.install('--upgrade', '-e', '.[test]')
     session.env['BREVITAS_VERBOSE'] = '1'
-    session.run('pytest', '-v', 'tests/brevitas/test_brevitas_import.py')
+    session.run('pytest', '-n', 'auto', '-v', 'tests/brevitas/test_brevitas_import.py')
 
 
 @nox.session(python=PYTHON_VERSIONS)
@@ -99,7 +99,7 @@ def tests_brevitas_examples_install_dev(session, pytorch):
     install_pytorch(pytorch, session)
     install_torchvision(pytorch, session)
     session.install('--upgrade', '-e', '.[test, tts, stt]')
-    session.run('pytest', '-v', 'tests/brevitas_examples/test_examples_import.py')
+    session.run('pytest', '-n', 'auto', '-v', 'tests/brevitas_examples/test_examples_import.py')
 
 
 @nox.session(python=PYTHON_VERSIONS)
@@ -109,7 +109,7 @@ def tests_brevitas_finn_integration(session, pytorch):
     install_torchvision(pytorch, session)
     session.install('--upgrade', '-e', '.[test, stt, finn_integration]')
     env = {'FINN_INST_NAME': 'finn'}
-    session.run('pytest', '-v', 'tests/brevitas_finn', env=env)
+    session.run('pytest', '-n', 'auto', '-v', 'tests/brevitas_finn', env=env)
 
 
 @nox.session(python=PYTHON_VERSIONS)
@@ -118,7 +118,7 @@ def tests_brevitas_ort_integration(session, pytorch):
     install_pytorch(pytorch, session)
     install_torchvision(pytorch, session)
     session.install('--upgrade', '-e', '.[test, ort_integration]')
-    session.run('pytest', '-v', 'tests/brevitas_ort')
+    session.run('pytest', '-n', 'auto', '-v', 'tests/brevitas_ort')
 
 @nox.session(python=PYTHON_VERSIONS)
 @nox.parametrize("pytorch", PYTORCH_VERSIONS, ids=PYTORCH_IDS)
@@ -127,9 +127,9 @@ def tests_brevitas_notebook(session, pytorch):
     install_torchvision(pytorch, session)
     session.install('--upgrade', '-e', '.[test, ort_integration, notebook]')
     if version.parse(pytorch) >= version.parse(LSTM_EXPORT_MIN_PYTORCH):
-        session.run('pytest', '-v','--nbmake', '--nbmake-kernel=python3', 'notebooks')
+        session.run('pytest', '-n', 'auto', '-v','--nbmake', '--nbmake-kernel=python3', 'notebooks')
     else:
-        session.run('pytest', '-v','--nbmake', '--nbmake-kernel=python3', 'notebooks', '--ignore', 'notebooks/quantized_recurrent.ipynb')
+        session.run('pytest', '-n', 'auto', '-v','--nbmake', '--nbmake-kernel=python3', 'notebooks', '--ignore', 'notebooks/quantized_recurrent.ipynb')
 
 @nox.session(python=PYTHON_VERSIONS)
 @nox.parametrize("pytorch", PYTORCH_VERSIONS, ids=PYTORCH_IDS)
@@ -137,4 +137,4 @@ def tests_brevitas_end_to_end(session, pytorch):
     install_pytorch(pytorch, session)
     install_torchvision(pytorch, session)
     session.install('--upgrade', '-e', '.[test, ort_integration]')
-    session.run('pytest', '-v', 'tests/brevitas_end_to_end')
+    session.run('pytest', '-n', 'auto', '-v', 'tests/brevitas_end_to_end')
