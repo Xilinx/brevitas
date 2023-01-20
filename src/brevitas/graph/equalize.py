@@ -210,9 +210,10 @@ def _cross_layer_equalization(srcs, sinks, merge_bias, bias_shrinkage):
         src_broadcast_size = [1] * module.weight.ndim
         src_broadcast_size[axis] = module.weight.size(axis)
         module.weight.data = module.weight.data * torch.reshape(scaling_factors, src_broadcast_size)
+    return scaling_factors
 
 
-def _equalize(model, regions, iterations, merge_bias, bias_shrinkage):
+def _equalize(model, regions, iterations, threshold, merge_bias, bias_shrinkage):
     """
     Generalized version of section 4.1 of https://arxiv.org/pdf/1906.04721.pdf
     """
@@ -223,8 +224,16 @@ def _equalize(model, regions, iterations, merge_bias, bias_shrinkage):
         if name in name_set:
             name_to_module[name] = module
     for i in range(iterations):
+        print(f"Equalize iter {i}")
+        scale_factor_max = torch.tensor(0.0)
         for region in regions:
-            _cross_layer_equalization([name_to_module[n] for n in region[0]], [name_to_module[n] for n in region[1]], merge_bias, bias_shrinkage)
+            scale_factors_region = _cross_layer_equalization([name_to_module[n] for n in region[0]], [name_to_module[n] for n in region[1]], merge_bias, bias_shrinkage)
+            scale_factor_region_max = torch.max(torch.abs(1-scale_factors_region))
+            scale_factor_max = torch.max(scale_factor_max, scale_factor_region_max)
+        if threshold is not None:
+            if scale_factor_max < threshold:
+                print("Treshold reached, early stopping")
+                break
     return model
 
 
@@ -359,15 +368,16 @@ def _extract_regions(graph_model: GraphModule):
 
 class EqualizeGraph(GraphTransform):
 
-    def __init__(self, iterations, merge_bias=True, bias_shrinkage='vaiq') -> None:
+    def __init__(self, iterations, threshold=None, merge_bias=True, bias_shrinkage='vaiq') -> None:
         super(EqualizeGraph, self).__init__()
         self.iterations = iterations
+        self.threshold = threshold
         self.merge_bias = merge_bias
         self.bias_shrinkage = bias_shrinkage
 
     def apply(self, graph_model: GraphModule):
         regions = _extract_regions(graph_model)
-        graph_model = _equalize(graph_model, regions, self.iterations, self.merge_bias, self.bias_shrinkage)
+        graph_model = _equalize(graph_model, regions, self.iterations, self.threshold, self.merge_bias, self.bias_shrinkage)
         return graph_model, regions
 
 

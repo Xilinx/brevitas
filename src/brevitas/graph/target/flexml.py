@@ -378,7 +378,7 @@ def flexml_avgpool_handler(model, *model_args, avgpool_to_depthwise_conv=False, 
     return model
 
 
-def preprocess_flexml(model, *model_args, equalization_iters = 0, **model_kwargs):
+def preprocess_flexml(model, *model_args, equalization_iters = 0, equalize_threshold = None, **model_kwargs):
     training_state = model.training
     model.eval()
     model = value_trace(model, model_kwargs)  # TODO model args should contribute to value tracing
@@ -390,7 +390,7 @@ def preprocess_flexml(model, *model_args, equalization_iters = 0, **model_kwargs
     model = CollapseConsecutiveConcats().apply(model)
     model = MoveSplitBatchNormBeforeCat().apply(model)
     model = MergeBatchNorm().apply(model)
-    model, _ = EqualizeGraph(equalization_iters).apply(model)
+    model, _ = EqualizeGraph(equalization_iters, threshold=equalize_threshold).apply(model)
     model.train(training_state)
     return model
 
