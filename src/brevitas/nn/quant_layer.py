@@ -11,6 +11,7 @@ from torch import Tensor
 from torch.nn import Module
 from torch.nn import Parameter
 
+from brevitas import quant_tensor
 from brevitas.quant_tensor import QuantTensor
 
 from .mixin import *
@@ -305,7 +306,7 @@ class QuantWeightBiasInputOutputLayer(
     def forward_impl(self, inp: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
         output_scale = None
         output_bit_width = None
-        output_zero_point = None
+        output_zero_point = torch.tensor(0.)
         output_signed = None
 
         inp = self.unpack_input(inp)
@@ -319,14 +320,19 @@ class QuantWeightBiasInputOutputLayer(
         quant_input = self.input_quant(inp)
         quant_weight = self.quant_weight()
 
-        if quant_input.bit_width is not None:
+        if isinstance(quant_input, Tensor) and self.return_quant_tensor and not self.is_output_quant_enabled:
+            raise RuntimeError("Not enough information to return QuantTensor")
+
+        if isinstance(quant_input, QuantTensor):
             output_bit_width = self.max_acc_bit_width(quant_input.bit_width, quant_weight.bit_width)
-        if quant_input.scale is not None:
             output_scale_shape = compute_channel_view_shape(inp, channel_dim=1)
             output_scale = quant_weight.scale.view(output_scale_shape)
             output_scale = output_scale * quant_input.scale.view(output_scale_shape)
-        if quant_input.signed is not None:
-            output_signed = inp.signed or quant_weight.signed
+            output_signed = quant_input.signed or quant_weight.signed
+
+            value = quant_input.value
+        else:
+            value = quant_input
 
         if self.bias is not None:
             quant_bias = self.bias_quant(self.bias, output_scale, output_bit_width)
@@ -334,7 +340,7 @@ class QuantWeightBiasInputOutputLayer(
                 self._cached_bias = _CachedIO(quant_bias.detach(), metadata_only=False)
 
             output_tensor = self.inner_forward_impl(
-                quant_input.value, quant_weight.value, quant_bias.value)
+                value, quant_weight.value, quant_bias.value)
 
             if (output_scale is not None
                     and (quant_bias.scale is None
@@ -347,7 +353,7 @@ class QuantWeightBiasInputOutputLayer(
                     quant_bias.bit_width > output_bit_width, quant_bias.bit_width, output_bit_width)
                 output_bit_width = output_bit_width + 1
         else:
-            output_tensor = self.inner_forward_impl(quant_input.value, quant_weight.value, None)
+            output_tensor = self.inner_forward_impl(value, quant_weight.value, None)
 
         if self.return_quant_tensor and not self.is_output_quant_enabled:
             if (quant_input.zero_point is not None
@@ -357,12 +363,15 @@ class QuantWeightBiasInputOutputLayer(
             elif quant_input.zero_point is not None and output_zero_point is None:
                 output_zero_point = quant_input.zero_point
 
-        quant_output = QuantTensor(
-            value=output_tensor,
-            scale=output_scale,
-            zero_point=output_zero_point,
-            bit_width=output_bit_width,
-            signed=output_signed,
-            training=self.training)
+        if isinstance(quant_input, QuantTensor):
+            quant_output = QuantTensor(
+                value=output_tensor,
+                scale=output_scale,
+                zero_point=output_zero_point,
+                bit_width=output_bit_width,
+                signed=output_signed,
+                training=self.training)
+        else:
+            quant_output = output_tensor
         quant_output = self.output_quant(quant_output)
         return self.pack_output(quant_output)

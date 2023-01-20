@@ -4,6 +4,7 @@
 
 from abc import ABCMeta
 from abc import abstractmethod
+from audioop import bias
 from inspect import isclass
 import math
 from typing import Optional, Tuple, Union
@@ -26,28 +27,35 @@ from .utils import filter_kwargs
 
 class _CachedIO:
 
-    def __init__(self, quant_tensor: QuantTensor, metadata_only: bool):
-        self.shape = quant_tensor.value.shape
-        if metadata_only:
-            self.quant_tensor = quant_tensor.set(value=None)
-        else:
-            self.quant_tensor = quant_tensor
+    def __init__(self, tensor: Union[QuantTensor, Tensor], metadata_only: bool):
+        self.shape = tensor.shape
 
-    @property
-    def scale(self):
-        return self.quant_tensor.scale
 
-    @property
-    def zero_point(self):
-        return self.quant_tensor.zero_point
+        if isinstance(tensor, QuantTensor):
+            self.tensor = tensor.value
+            for name, value in tensor._asdict().items():
+                self.__setattr__(name, value)
+            if not metadata_only:
+                self.tensor = tensor.value
+        elif not metadata_only:
+            self.tensor = tensor
 
-    @property
-    def bit_width(self):
-        return self.quant_tensor.bit_width
 
-    @property
-    def signed(self):
-        return self.quant_tensor.signed
+    # @property
+    # def scale(self):
+    #     return self.tensor.scale
+
+    # @property
+    # def zero_point(self):
+    #     return self.tensor.zero_point
+
+    # @property
+    # def bit_width(self):
+    #     return self.tensor.bit_width
+
+    # @property
+    # def signed(self):
+    #     return self.tensor.signed
 
 
 class QuantProxyMixin(object):
@@ -172,7 +180,7 @@ class QuantLayerMixin(ExportMixin):
                 self._cached_inp = cached_inp
             return inp
         else:
-            inp = QuantTensor(inp, training=self.training)
+            # inp = QuantTensor(inp, training=self.training)
             if not self.training and self.cache_inference_quant_inp:
                 cached_inp = _CachedIO(inp.detach(), self.cache_quant_io_metadata_only)
                 self._cached_inp = cached_inp
@@ -182,10 +190,11 @@ class QuantLayerMixin(ExportMixin):
         if not self.training and self.cache_inference_quant_out:
             self._cached_out = _CachedIO(quant_output.detach(), self.cache_quant_io_metadata_only)
         self._set_global_is_quant_layer(False)
-        if self.return_quant_tensor:
+        if self.return_quant_tensor and isinstance(quant_output, QuantTensor) or \
+            not (self.return_quant_tensor and isinstance(quant_output, QuantTensor)):
             return quant_output
         else:
-            return quant_output.value
+            raise RuntimeError("Invalid configuration for QuantLayer")
 
 
 class QuantRecurrentLayerMixin(ExportMixin):
@@ -243,17 +252,17 @@ class QuantRecurrentLayerMixin(ExportMixin):
 
     @staticmethod
     def gate_params_fwd(gate, quant_input):
-        acc_scale = None
-        acc_bit_width = None
         quant_weight_ih = gate.input_weight()
         quant_weight_hh = gate.hidden_weight()
-        if quant_input.bit_width is not None:
+        if isinstance(quant_input, QuantTensor):
+            acc_scale = None
             acc_bit_width = None  # TODO
-        if quant_input.scale is not None:
             acc_scale_shape = compute_channel_view_shape(quant_input.value, channel_dim=1)
             acc_scale = quant_weight_ih.scale.view(acc_scale_shape)
             acc_scale = acc_scale * quant_input.scale.view(acc_scale_shape)
-        quant_bias = gate.bias_quant(gate.bias, acc_scale, acc_bit_width)
+            quant_bias = gate.bias_quant(gate.bias, acc_scale, acc_bit_width)
+        else:
+            quant_bias = gate.bias
         return quant_weight_ih, quant_weight_hh, quant_bias
 
     def reset_parameters(self) -> None:
@@ -276,7 +285,7 @@ class QuantRecurrentLayerMixin(ExportMixin):
         if state is None:
             batch_size = inp.size(0) if self.cell.batch_first else inp.size(1)
             quant_state = torch.zeros(int(batch_size), self.hidden_size, dtype=inp.dtype, device=inp.device)
-            quant_state = QuantTensor(quant_state)
+            # quant_state = QuantTensor(quant_state)
         else:
             quant_state = quant(state)
         return quant_state
@@ -295,6 +304,7 @@ class QuantRecurrentLayerMixin(ExportMixin):
             else:
                 return quant_outputs
         seq_dim = 1 if self.cell.batch_first else 0
+
         if self.return_quant_tensor:
             outputs = [QuantTensor(
                 torch.unsqueeze(quant_output[0], dim=seq_dim),

@@ -162,7 +162,7 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
             if isinstance(x, QuantTensor):  # passthrough
                 return x
             else:
-                return QuantTensor(x, training=self.training)
+                return x
 
 
 class ClampQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol):
@@ -180,7 +180,7 @@ class TruncQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
 
     def bit_width(self):
         zhs = self._zero_hw_sentinel()
-        empty_imp = QuantTensor(zhs, zhs, zhs, zhs)
+        empty_imp = QuantTensor(zhs, zhs, zhs, zhs, signed=True, training=self.training)
         bit_width = self.__call__(empty_imp).bit_width
         return bit_width
 

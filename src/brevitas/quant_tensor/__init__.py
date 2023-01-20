@@ -54,33 +54,29 @@ def _is_all_nested_not_none(input_data):
 class QuantTensor(QuantTensorBase):
 
     def __new__(
-            cls, value, scale=None, zero_point=None, bit_width=None, signed=None, training=None):
+            cls, value, scale, zero_point, bit_width, signed, training):
 
-        if scale is not None and not isinstance(scale, torch.Tensor):
+        if not isinstance(scale, torch.Tensor):
             scale = torch.tensor(scale, dtype=torch.float)
-        if zero_point is not None and not isinstance(zero_point, torch.Tensor):
+        if not isinstance(zero_point, torch.Tensor):
             zero_point = torch.tensor(zero_point, dtype=torch.float)
-        if bit_width is not None and not isinstance(bit_width, torch.Tensor):
+        if not isinstance(bit_width, torch.Tensor):
             bit_width = torch.tensor(bit_width, dtype=torch.float)
-        if signed is not None and not isinstance(signed, torch.Tensor):
+        if not isinstance(signed, torch.Tensor):
             signed = torch.tensor(signed, dtype=torch.bool)
-        if training is not None and not isinstance(training, torch.Tensor):
+        if not isinstance(training, torch.Tensor):
             training = torch.tensor(training, dtype=torch.bool)
         return super().__new__(cls, value, scale, zero_point, bit_width, signed, training)
 
     @property
     def signed(self):
-        if self.signed_t is not None:
-            return self.signed_t.item()
-        else:
-            return None
+        return self.signed_t.item()
+
 
     @property
     def training(self):
-        if self.training_t is not None:
-            return self.training_t.item()
-        else:
-            return None
+        return self.training_t.item()
+
 
     def __torch_function__(self, func, types, args=(), kwargs=None):
         if kwargs is None:
@@ -297,7 +293,7 @@ class QuantTensor(QuantTensorBase):
             else:
                 tensors = [qt.value if isinstance(qt, QuantTensor) else qt for qt in tensors]
                 output_value = torch.cat(tensors, dim=dim)
-                return QuantTensor(output_value)
+                return output_value
 
     # Reference: https://docs.python.org/3/reference/datamodel.html#emulating-numeric-types
 

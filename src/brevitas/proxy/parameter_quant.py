@@ -88,7 +88,7 @@ class WeightQuantProxyFromInjector(ParameterQuantProxyFromInjector, WeightQuantP
             out, scale, zero_point, bit_width = impl(x)
             return QuantTensor(out, scale, zero_point, bit_width, self.is_signed, self.training)
         else:  # quantization disabled
-            return QuantTensor(x, training=self.training)
+            return x
 
 
 class DecoupledWeightQuantProxyFromInjector(WeightQuantProxyFromInjector):
@@ -109,7 +109,7 @@ class DecoupledWeightQuantProxyFromInjector(WeightQuantProxyFromInjector):
             out, scale, zero_point, bit_width, pre_scale, pre_zero_point = impl(x)
             return QuantTensor(out, scale, zero_point, bit_width, self.is_signed, self.training)
         else:  # quantization disabled
-            return QuantTensor(x, training=self.training)
+            return x
 
 
 class BiasQuantProxyFromInjector(ParameterQuantProxyFromInjector, BiasQuantProxyProtocol):
@@ -174,4 +174,4 @@ class BiasQuantProxyFromInjector(ParameterQuantProxyFromInjector, BiasQuantProxy
                 raise RuntimeError("Internally defined bit-width required")
             return QuantTensor(out, out_scale, out_zp, out_bit_width, self.is_signed, self.training)
         else:
-            return QuantTensor(x, training=self.training)
+            return x

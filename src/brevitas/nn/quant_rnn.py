@@ -8,6 +8,7 @@ from functools import partial
 import math
 from typing import List, Optional, Tuple
 
+from numpy import isin
 import torch
 from torch import nn
 from torch import Tensor
@@ -392,12 +393,13 @@ class _QuantRNNLayer(QuantRecurrentLayerMixin, nn.Module):
         quant_input = self.maybe_quantize_input(inp)
         quant_weight_ih, quant_weight_hh, quant_bias = self.gate_params_fwd(
             self.gate_params, quant_input)
-        if quant_bias.value is None:
-            quant_bias = torch.tensor(0., device=quant_input.value.device)
+        quant_input_value = quant_input.value if isinstance(quant_input, QuantTensor) else quant_input
+        if quant_bias is None:
+            quant_bias = torch.tensor(0., device=quant_input_value.device)
         else:
-            quant_bias = quant_bias.value
+            quant_bias = quant_bias.value if isinstance(quant_bias, QuantTensor) else quant_bias
         quant_state = self.maybe_quantize_state(
-            quant_input.value, state, self.cell.output_quant)
+            quant_input_value, state, self.cell.output_quant)
         if self.export_mode:
             cell = self.export_handler
         elif self.fast_mode:
@@ -405,10 +407,10 @@ class _QuantRNNLayer(QuantRecurrentLayerMixin, nn.Module):
         else:
             cell = self.cell
         quant_outputs = cell(
-            quant_input.value,
-            quant_state.value,
-            quant_weight_ih.value,
-            quant_weight_hh.value,
+            quant_input_value,
+            quant_state.value if isinstance(quant_state, QuantTensor) else quant_state,
+            quant_weight_ih.value if isinstance(quant_weight_ih, QuantTensor) else quant_weight_ih,
+            quant_weight_hh.value if isinstance(quant_weight_hh, QuantTensor) else quant_weight_hh,
             quant_bias)
         quant_output = self.pack_quant_outputs(quant_outputs)
         quant_state = self.pack_quant_state(quant_outputs[-1], self.cell.output_quant)
@@ -620,19 +622,19 @@ class _QuantLSTMLayer(QuantRecurrentLayerMixin, nn.Module):
             quant_weight_if, quant_weight_hf, quant_bias_forget = self.gate_params_fwd(
                 self.forget_gate_params, quant_input)
         # Handle None bias by setting it 0.
-        if quant_bias_input.value is None:
+        if quant_bias_input is None:
             quant_bias_input = torch.tensor(0., device=quant_input.value.device)
         else:
             quant_bias_input = quant_bias_input.value
-        if quant_bias_forget.value is None:
+        if quant_bias_forget is None:
             quant_bias_forget = torch.tensor(0., device=quant_input.value.device)
         else:
             quant_bias_forget = quant_bias_forget.value
-        if quant_bias_cell.value is None:
+        if quant_bias_cell is None:
             quant_bias_cell = torch.tensor(0., device=quant_input.value.device)
         else:
             quant_bias_cell = quant_bias_cell.value
-        if quant_bias_output.value is None:
+        if quant_bias_output is None:
             quant_bias_output = torch.tensor(0., device=quant_input.value.device)
         else:
             quant_bias_output = quant_bias_output.value
@@ -649,8 +651,8 @@ class _QuantLSTMLayer(QuantRecurrentLayerMixin, nn.Module):
             cell = self.cell
         quant_outputs, quant_hidden_state, quant_cell_state = cell(
             quant_input.value,
-            quant_hidden_state.value,
-            quant_cell_state.value,
+            getattr(quant_hidden_state, 'value', None) or quant_hidden_state,
+            getattr(quant_cell_state, 'value', None) or quant_cell_state,
             quant_weight_ii=quant_weight_ii.value,
             quant_weight_if=quant_weight_if.value,
             quant_weight_ic=quant_weight_ic.value,
