@@ -263,17 +263,17 @@ def check_nodes(srcs, name, node, current_idx, graph_model):
 def reorder_sources(srcs, node, graph_model):
     all_input_nodes = node.all_input_nodes
     current_idx = [0]
-    found = 0
+    srcs_found = 0
     list_to_check = list(srcs.keys())
-    while found < len(srcs.keys()):
+    while srcs_found < len(srcs.keys()):
         for inner_node in all_input_nodes:
             done = False
             for name in list_to_check:
                 done = check_nodes(srcs, name, inner_node, current_idx, graph_model)
                 if done:
-                    found +=1
                     break
             if done:
+                srcs_found +=1
                 list_to_check.remove(name)
 
 def _clear_sinks(sinks):
@@ -320,9 +320,10 @@ def walk_region(graph_model: GraphModule, starting_node: Node, history, srcs, si
             # partial equalization through concats. No difference otherwise.
 
             # If any of the input to cat has multiple users, we cannot equalize through
-            for n in node.all_input_nodes:
-                if len(n.users)>1:
-                    return
+            condition = [len(n.users)>1 for n in node.all_input_nodes]
+            if any(condition):
+                continue
+
             walk_region(graph_model, node, history, srcs, sinks, walk_forward=True, seen_concat=node)
             walk_region(graph_model, node, history, srcs, sinks, walk_forward=False, seen_concat=node)
 
