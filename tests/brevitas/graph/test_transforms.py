@@ -108,7 +108,9 @@ def test_rewriter_add_fn_to_module():
     model = TestModel()
     graph_model = symbolic_trace(model)
     graph_model = FnToModule(torch.add, TestModel).apply(graph_model)
-    assert isinstance(graph_model.add_1, TestModel)
+    # Due to changes in fx after 1.8
+    attr_check = getattr(graph_model, 'add_1', None) or getattr(graph_model, 'add', None)
+    assert isinstance(attr_check, TestModel)
 
 
 def test_rewriter_max_pool_to_module():
@@ -122,7 +124,9 @@ def test_rewriter_max_pool_to_module():
     graph_model = symbolic_trace(model)
     graph_model = FnToModule(torch.max_pool2d, nn.MaxPool2d).apply(graph_model)
     inp = torch.randn(2, 10, 10)
-    assert isinstance(graph_model.max_pool2d_1, nn.MaxPool2d)
+    # Due to changes in fx after 1.8
+    attr_check = getattr(graph_model, 'max_pool2d_1', None) or getattr(graph_model, 'max_pool2d', None)
+    assert isinstance(attr_check, nn.MaxPool2d)
     assert (model(inp) == graph_model(inp)).all().item()
 
 
@@ -142,7 +146,9 @@ def test_rewriter_add_method_to_module():
     graph_model = symbolic_trace(model)
     graph_model = MethodToModule('add', AddModule).apply(graph_model)
     inp = torch.randn(2, 10, 10)
-    assert isinstance(graph_model.add_1, AddModule)
+    # Due to changes in fx after 1.8
+    attr_check = getattr(graph_model, 'add_1', None) or getattr(graph_model, 'add', None)
+    assert isinstance(attr_check, AddModule)
     assert (model(inp) == graph_model(inp)).all().item()
 
 
@@ -162,7 +168,9 @@ def test_rewriter_add_magic_to_module():
     graph_model = symbolic_trace(model)
     graph_model = FnToModule(operator.add, AddModule).apply(graph_model)
     inp = torch.randn(2, 10, 10)
-    assert isinstance(graph_model.add_1, AddModule)
+    # Due to changes in fx after 1.8
+    attr_check = getattr(graph_model, 'add_1', None) or getattr(graph_model, 'add', None)
+    assert isinstance(attr_check, AddModule)
     assert (model(inp) == graph_model(inp)).all().item()
 
 
@@ -177,5 +185,7 @@ def test_rewriter_mean_to_module():
     graph_model = symbolic_trace(model)
     graph_model = MeanMethodToAdaptiveAvgPool2d().apply(graph_model)
     inp = torch.randn(2, 3, 10, 10)
-    assert isinstance(graph_model.mean_1, nn.AdaptiveAvgPool2d)
+    # Due to changes in fx after 1.8
+    attr_check = getattr(graph_model, 'mean_1', None) or getattr(graph_model, 'mean', None)
+    assert isinstance(attr_check, nn.AdaptiveAvgPool2d)
     assert (model(inp) == graph_model(inp)).all().item()
