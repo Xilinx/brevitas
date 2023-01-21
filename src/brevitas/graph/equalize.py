@@ -174,10 +174,11 @@ def _cross_layer_equalization(srcs, sinks, merge_bias, bias_shrinkage):
 
     if torch.sum(src_sink) == sink_size[0] and len(src_sink)>1:
         is_concat = True
-    elif torch.mean(src_sink) == sink_size[0]: # Workaround to check src_sink hve all the same size
+    elif torch.mean(src_sink) == sink_size[0]: # Workaround to check src_sink have all the same size
         is_concat = False
     else:
-        return
+        # Return without equalizing
+        return torch.ones(1)
 
     transpose = lambda module, axis: module.weight if axis == 0 else module.weight.transpose(0, 1)
     if merge_bias:
