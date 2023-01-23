@@ -62,12 +62,11 @@ class QuantAvgPool2d(QuantTruncMixin, QuantLayerMixin, AvgPool2d):
         x_value = _maybe_get_value(x)
         if self.export_mode:
             return self.export_handler(x_value)
-        x = x.set(value=super(QuantAvgPool2d, self).forward(x_value))
-        # x = _maybe_set_value(x, super(QuantAvgPool2d, self).forward(x_value))
+        x = _maybe_set_value(x, super(QuantAvgPool2d, self).forward(x_value))
         if self.is_trunc_quant_enabled:
             assert isinstance(x, QuantTensor)
             # remove avg scaling
-            rescaled_value = x_value * self._avg_scaling
+            rescaled_value = x.value * self._avg_scaling
             x = x.set(value=rescaled_value)
             x = x.set(bit_width=self.max_acc_bit_width(x.bit_width))
             x = self.trunc_quant(x)

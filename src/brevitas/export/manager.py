@@ -15,7 +15,7 @@ from torch import Tensor
 from torch.nn import Module
 
 from brevitas import config
-from brevitas.nn.mixin.base import _CachedIOQuantTensor
+from brevitas.nn.mixin.base import _CachedIO
 from brevitas.nn.mixin.base import QuantLayerMixin
 from brevitas.nn.mixin.base import QuantRecurrentLayerMixin
 from brevitas.proxy.quant_proxy import QuantProxyProtocol
@@ -215,10 +215,10 @@ class BaseManager(ABC):
                 inp_cache = None
                 out_cache = None
                 if input.is_not_none:
-                    inp_cache = _CachedIOQuantTensor(input, metadata_only=True)
+                    inp_cache = _CachedIO(input, metadata_only=True)
                 output = fn(input, *args, **kwargs)
                 if isinstance(output, QuantTensor) and output.is_not_none:
-                    out_cache = _CachedIOQuantTensor(output, metadata_only=True)
+                    out_cache = _CachedIO(output, metadata_only=True)
                 cached_io = (inp_cache, out_cache)
                 if fn in cls._cached_io_handler_map:
                     cached_io = cls._cached_io_handler_map[fn](cached_io)

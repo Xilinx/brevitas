@@ -16,8 +16,7 @@ from brevitas.quant_tensor import _maybe_get_value
 from brevitas.quant_tensor import QuantTensor
 
 from .mixin import *
-from .mixin.base import _CachedIOQuantTensor
-from .mixin.base import _CachedIOTensor
+from .mixin.base import _CachedIO
 from .utils import compute_channel_view_shape
 from .utils import merge_bn
 from .utils import rename_state_dict_by_prefix
@@ -343,8 +342,7 @@ class QuantWeightBiasInputOutputLayer(
             quant_bias_scale = getattr(quant_bias, 'scale', None)
             quant_bias_bitwidth = getattr(quant_bias, 'bit_width', None)
             if not self.training and self.cache_inference_quant_bias:
-                cached_impl = _CachedIOQuantTensor if isinstance(quant_bias, QuantTensor) else _CachedIOTensor
-                self._cached_bias = cached_impl(quant_bias.detach(), metadata_only=False)
+                self._cached_bias = _CachedIO(quant_bias.detach(), metadata_only=False)
 
             output_tensor = self.inner_forward_impl(
                 value, quant_weight_value, quant_bias_value)

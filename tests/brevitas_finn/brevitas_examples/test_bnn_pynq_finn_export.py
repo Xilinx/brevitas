@@ -53,7 +53,7 @@ def test_brevitas_fc_onnx_export_and_exec(size, wbits, abits, pretrained):
     scale = 1. / 255
     input_t = torch.from_numpy(input_a * scale)
     input_qt = QuantTensor(
-        input_t, scale=torch.tensor(scale), bit_width=torch.tensor(8.0), signed=False)
+        input_t, scale=torch.tensor(scale), zero_point = torch.tensor(0.), bit_width=torch.tensor(8.0), signed=False, training=False)
     export_finn_onnx(fc, export_path=finn_onnx, input_t=input_qt, input_names=['input'])
     model = ModelWrapper(finn_onnx)
     model = model.transform(GiveUniqueNodeNames())
@@ -89,7 +89,7 @@ def test_brevitas_cnv_onnx_export_and_exec(wbits, abits, pretrained):
     scale = 1. / 255
     input_t = torch.from_numpy(input_a * scale)
     input_qt = QuantTensor(
-        input_t, scale=torch.tensor(scale), bit_width=torch.tensor(8.0), signed=False)
+        input_t, scale=torch.tensor(scale), bit_width=torch.tensor(8.0), signed=False, zero_point=torch.tensor(0.), training=False)
     export_finn_onnx(cnv, export_path=finn_onnx, input_t=input_qt, input_names=['input'])
     model = ModelWrapper(finn_onnx)
     model = model.transform(GiveUniqueNodeNames())

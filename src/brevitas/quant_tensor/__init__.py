@@ -374,7 +374,7 @@ class QuantTensor(QuantTensorBase):
         elif isinstance(other, QuantTensor):
             output = QuantTensor(self.value * other.value)
         else:
-            output = QuantTensor(self.value * other)
+            output = self.value * other
         return output
 
     def __sub__(self, other):
