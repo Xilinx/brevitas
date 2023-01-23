@@ -9,6 +9,7 @@ from torch.nn import MaxPool1d
 from torch.nn import MaxPool2d
 
 from brevitas.quant_tensor import _maybe_get_value
+from brevitas.quant_tensor import _maybe_set_value
 from brevitas.quant_tensor import QuantTensor
 
 from .mixin.base import QuantLayerMixin
@@ -50,7 +51,7 @@ class QuantMaxPool1d(QuantLayerMixin, MaxPool1d):
         x_value = _maybe_get_value(x)
         if self.export_mode:
             return self.export_handler(x_value)
-        x = super().forward(x_value)
+        x = _maybe_set_value(x, super().forward(x_value))
         return self.pack_output(x)
 
 
@@ -92,5 +93,5 @@ class QuantMaxPool2d(QuantLayerMixin, MaxPool2d):
             out = self.export_handler(x_value)
             self._set_global_is_quant_layer(False)
             return out
-        x = super().forward(x_value)
+        x = _maybe_set_value(x, super().forward(x_value))
         return self.pack_output(x)

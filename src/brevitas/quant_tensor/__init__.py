@@ -29,6 +29,9 @@ class QuantTensorBase(NamedTuple):
 def _maybe_get_value(input):
     return input.value if isinstance(input, QuantTensor) else input
 
+def _maybe_set_value(input, value):
+    return input.set(value=value) if isinstance(input, QuantTensor) else value
+
 def _unpack_quant_tensor(input_data):
     if isinstance(input_data, QuantTensor):
         return input_data.tensor

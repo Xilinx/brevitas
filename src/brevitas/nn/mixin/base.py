@@ -24,38 +24,36 @@ from brevitas.quant_tensor import QuantTensor
 from .utils import filter_kwargs
 
 
-class _CachedIO:
+class _CachedIOQuantTensor:
 
-    def __init__(self, tensor: Union[QuantTensor, Tensor], metadata_only: bool):
-        self.shape = tensor.shape
+    def __init__(self, quant_tensor: QuantTensor, metadata_only: bool):
+        self.shape = quant_tensor.value.shape
+        if metadata_only:
+            self.quant_tensor = quant_tensor.set(value=None)
+        else:
+            self.quant_tensor = quant_tensor
 
+    @property
+    def scale(self):
+        return self.tensor.scale
 
-        if isinstance(tensor, QuantTensor):
-            self.tensor = tensor.value
-            for name, value in tensor._asdict().items():
-                self.__setattr__(name, value)
-            if not metadata_only:
-                self.tensor = tensor.value
-        elif not metadata_only:
-            self.tensor = tensor
+    @property
+    def zero_point(self):
+        return self.tensor.zero_point
 
+    @property
+    def bit_width(self):
+        return self.tensor.bit_width
 
-    # @property
-    # def scale(self):
-    #     return self.tensor.scale
+    @property
+    def signed(self):
+        return self.tensor.signed
 
-    # @property
-    # def zero_point(self):
-    #     return self.tensor.zero_point
-
-    # @property
-    # def bit_width(self):
-    #     return self.tensor.bit_width
-
-    # @property
-    # def signed(self):
-    #     return self.tensor.signed
-
+class _CachedIOTensor:
+    def __init__(self, quant_tensor: Tensor, metadata_only: bool):
+        self.shape = quant_tensor
+        if not metadata_only:
+            self.quant_tensor = quant_tensor
 
 class QuantProxyMixin(object):
     __metaclass__ = ABCMeta
@@ -175,19 +173,20 @@ class QuantLayerMixin(ExportMixin):
         if isinstance(inp, QuantTensor):
             # don't cache values during export pass
             if not self.training and not self._export_mode and self.cache_inference_quant_inp:
-                cached_inp = _CachedIO(inp.detach(), self.cache_quant_io_metadata_only)
+                cached_inp = _CachedIOQuantTensor(inp.detach(), self.cache_quant_io_metadata_only)
                 self._cached_inp = cached_inp
             return inp
         else:
             # inp = QuantTensor(inp, training=self.training)
             if not self.training and self.cache_inference_quant_inp:
-                cached_inp = _CachedIO(inp.detach(), self.cache_quant_io_metadata_only)
+                cached_inp = _CachedIOTensor(inp.detach(), self.cache_quant_io_metadata_only)
                 self._cached_inp = cached_inp
             return inp
 
     def pack_output(self, quant_output: Union[Tensor, QuantTensor]):
         if not self.training and self.cache_inference_quant_out:
-            self._cached_out = _CachedIO(quant_output.detach(), self.cache_quant_io_metadata_only)
+            cached_impl = _CachedIOQuantTensor if isinstance(quant_output, QuantTensor) else _CachedIOTensor
+            self._cached_out = cached_impl(quant_output.detach(), self.cache_quant_io_metadata_only)
         self._set_global_is_quant_layer(False)
         if self.return_quant_tensor and isinstance(quant_output, QuantTensor):
             return quant_output
