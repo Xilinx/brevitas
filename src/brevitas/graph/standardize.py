@@ -117,10 +117,11 @@ class TorchFunctionalToModule(GraphTransform):
 class DisableLastReturnQuantTensor(GraphTransform):
 
     def apply(self, graph_model: GraphModule):
-        for node in graph_model.graph.nodes:
+        for node in reversed(graph_model.graph.nodes):
             if node.op == 'call_module':
                 module = get_module(graph_model, node.target)
-                if hasattr(module, 'return_quant_tensor') and module.return_quant_tensor:
-                    if len(node.users) == 1 and list(node.users)[0].op == 'output':
-                        module.return_quant_tensor = False
+                if len(node.users) == 1 and node.op == 'call_module' and \
+                    hasattr(module, 'return_quant_tensor') and module.return_quant_tensor:
+                    module.return_quant_tensor = False
+                    break
         return graph_model
