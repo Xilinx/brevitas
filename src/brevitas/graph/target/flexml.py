@@ -345,6 +345,7 @@ def flexml_wbiol_handler(model):
                 rewriter = ModuleToModuleByInstance(
                     module, QUANT_WBIOL_MAP[type(module)],
                     weight_quant=Int8WeightPerTensorFixedPoint,
+                    weight_narrow_range=False,
                     bias_quant=Int16Bias,
                     return_quant_tensor=True)
                 rewriters.append(rewriter)
