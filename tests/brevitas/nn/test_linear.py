@@ -74,5 +74,7 @@ class TestQuantLinearFwd:
             torch.rand(size=(3, INPUT_FEATURES)),
             torch.tensor(1.0),
             torch.tensor(0.0),
-            torch.tensor(3))
+            torch.tensor(3),
+            signed=True,
+            training=False)
         assert mod(x) is not None

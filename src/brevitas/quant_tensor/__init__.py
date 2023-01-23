@@ -26,6 +26,8 @@ class QuantTensorBase(NamedTuple):
     signed_t: Optional[Tensor]
     training_t: Optional[Tensor]
 
+def _maybe_get_value(input):
+    return input.value if isinstance(input, QuantTensor) else input
 
 def _unpack_quant_tensor(input_data):
     if isinstance(input_data, QuantTensor):

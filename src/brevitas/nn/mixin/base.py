@@ -4,7 +4,6 @@
 
 from abc import ABCMeta
 from abc import abstractmethod
-from audioop import bias
 from inspect import isclass
 import math
 from typing import Optional, Tuple, Union
@@ -186,12 +185,15 @@ class QuantLayerMixin(ExportMixin):
                 self._cached_inp = cached_inp
             return inp
 
-    def pack_output(self, quant_output: QuantTensor):
+    def pack_output(self, quant_output: Union[Tensor, QuantTensor]):
         if not self.training and self.cache_inference_quant_out:
             self._cached_out = _CachedIO(quant_output.detach(), self.cache_quant_io_metadata_only)
         self._set_global_is_quant_layer(False)
-        if self.return_quant_tensor and isinstance(quant_output, QuantTensor) or \
-            not (self.return_quant_tensor and isinstance(quant_output, QuantTensor)):
+        if self.return_quant_tensor and isinstance(quant_output, QuantTensor):
+            return quant_output
+        elif isinstance(quant_output, QuantTensor) and not self.return_quant_tensor:
+            return quant_output.value
+        elif not self.return_quant_tensor:
             return quant_output
         else:
             raise RuntimeError("Invalid configuration for QuantLayer")

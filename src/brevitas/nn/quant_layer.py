@@ -12,6 +12,7 @@ from torch.nn import Module
 from torch.nn import Parameter
 
 from brevitas import quant_tensor
+from brevitas.quant_tensor import _maybe_get_value
 from brevitas.quant_tensor import QuantTensor
 
 from .mixin import *
@@ -146,7 +147,7 @@ class QuantNonLinearActLayer(
         quant_input = self.input_quant(input)
         # shortcut execution through the export impl during export
         if self.export_mode:
-            out = self.export_handler(quant_input.value)
+            out = self.export_handler(_maybe_get_value(quant_input))
             self._set_global_is_quant_layer(False)
             return out
         out = self.act_quant(quant_input)
@@ -313,12 +314,13 @@ class QuantWeightBiasInputOutputLayer(
 
         # shortcut execution through the export impl during export
         if self.export_mode:
-            out = self.export_handler(inp.value)
+            out = self.export_handler(_maybe_get_value(inp))
             self._set_global_is_quant_layer(False)
             return out
 
         quant_input = self.input_quant(inp)
         quant_weight = self.quant_weight()
+        quant_weight_value = _maybe_get_value(quant_weight)
 
         if isinstance(quant_input, Tensor) and self.return_quant_tensor and not self.is_output_quant_enabled:
             raise RuntimeError("Not enough information to return QuantTensor")
@@ -336,24 +338,27 @@ class QuantWeightBiasInputOutputLayer(
 
         if self.bias is not None:
             quant_bias = self.bias_quant(self.bias, output_scale, output_bit_width)
+            quant_bias_value = _maybe_get_value(quant_bias)
+            quant_bias_scale = getattr(quant_bias, 'scale', None)
+            quant_bias_bitwidth = getattr(quant_bias, 'bit_width', None)
             if not self.training and self.cache_inference_quant_bias:
                 self._cached_bias = _CachedIO(quant_bias.detach(), metadata_only=False)
 
             output_tensor = self.inner_forward_impl(
-                value, quant_weight.value, quant_bias.value)
+                value, quant_weight_value, quant_bias_value)
 
             if (output_scale is not None
-                    and (quant_bias.scale is None
-                         or (quant_bias.scale is not None
-                             and quant_bias.scale.data_ptr() != output_scale.data_ptr()))):
-                output_zero_point = - quant_bias.value.view(output_scale_shape) / output_scale
+                    and (quant_bias_scale is None
+                         or (quant_bias_scale is not None
+                             and quant_bias_scale.data_ptr() != output_scale.data_ptr()))):
+                output_zero_point = - quant_bias_value.view(output_scale_shape) / output_scale
 
-            if quant_bias.bit_width is not None and output_bit_width is not None:
+            if quant_bias_bitwidth is not None and output_bit_width is not None:
                 output_bit_width = torch.where(
-                    quant_bias.bit_width > output_bit_width, quant_bias.bit_width, output_bit_width)
+                    quant_bias_bitwidth > output_bit_width, quant_bias_bitwidth, output_bit_width)
                 output_bit_width = output_bit_width + 1
         else:
-            output_tensor = self.inner_forward_impl(value, quant_weight.value, None)
+            output_tensor = self.inner_forward_impl(value, quant_weight_value, None)
 
         if self.return_quant_tensor and not self.is_output_quant_enabled:
             if (quant_input.zero_point is not None

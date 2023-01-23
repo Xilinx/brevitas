@@ -172,6 +172,7 @@ class BiasQuantProxyFromInjector(ParameterQuantProxyFromInjector, BiasQuantProxy
                 out, out_scale, out_zp, out_bit_width = impl(x)
             else:
                 raise RuntimeError("Internally defined bit-width required")
-            return QuantTensor(out, out_scale, out_zp, out_bit_width, self.is_signed, self.training)
+            out = QuantTensor(out, out_scale, out_zp, out_bit_width, self.is_signed, self.training)
+            return out
         else:
             return x
