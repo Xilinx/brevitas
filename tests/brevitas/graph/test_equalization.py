@@ -4,6 +4,8 @@
 
 import operator
 from statistics import mode
+from tokenize import group
+from turtle import forward
 
 from packaging import version
 import pytest
@@ -25,6 +27,8 @@ from brevitas.graph import TorchFunctionalToModule
 from brevitas.graph.equalize import _is_supported_module
 
 SEED = 123456
+IN_SIZE = (16,3,224,224)
+ATOL = 1e-3
 
 MODELS = [
     'shufflenet_v2_x0_5',
@@ -35,24 +39,21 @@ MODELS = [
     'inception_v3',
     'alexnet',
 ]
-
 @pytest.mark.parametrize("model_name", MODELS)
 def test_rewriter_merge_bn(model_name: str):
     try:
         model = getattr(models, model_name)(pretrained=True, transform_input=False)
     except:
         model = getattr(models, model_name)(pretrained=True)
-    model = model.train(False)
-    torch.manual_seed(SEED)
-    inp = torch.randn(16,3,224,224)
 
+    torch.manual_seed(SEED)
+    inp = torch.randn(IN_SIZE)
     model.eval()
     expected_out = model(inp)
 
     model = value_trace(model)
     model = TorchFunctionalToModule().apply(model)
     model = DuplicateSharedStatelessModule().apply(model)
-    model = ModuleToModuleByClass(nn.ReLU6, nn.ReLU).apply(model)
     model = MeanMethodToAdaptiveAvgPool2d().apply(model)
     model = AdaptiveAvgPoolToAvgPool().apply(model, inp)
     model = CollapseConsecutiveConcats().apply(model)
@@ -75,4 +76,4 @@ def test_rewriter_merge_bn(model_name: str):
 
     print(f"Source coverage {len(srcs)/count}")
     print(f"Sink coverage {len(sinks)/count}")
-    torch.allclose(expected_out, out)
+    assert torch.allclose(expected_out, out, atol=ATOL)
