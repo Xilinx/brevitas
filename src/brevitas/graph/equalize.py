@@ -208,7 +208,9 @@ def _cross_layer_equalization(srcs, sinks, merge_bias, bias_shrinkage):
     sinks_range = _channel_range(torch.cat([w.reshape(w.size(0), -1) for w in sink_weights], 1))
     sinks_range += EPSILON
 
-    scaling_factors = torch.sqrt(srcs_range / sinks_range)
+    # If the ratio is negative, set the scale to 1 (i.e., no-op)
+    scaling_factors = torch.where((srcs_range/sinks_range)>0, torch.sqrt(srcs_range / sinks_range), \
+        torch.tensor(1.).type_as(srcs_range))
 
     start_index = 0
     inverse_scaling_factors = torch.reciprocal(scaling_factors)
@@ -325,7 +327,7 @@ def walk_region(graph_model: GraphModule, starting_node: Node, history, srcs, si
     Recursive algorithm to walk through the graph, to detect all possible sources (srcs) and sinks
     that can be equalized together.
     This method is able to correctly idefinity regions across residual connection, batch norms,
-    concatenations, and scale-invariant operators such as AveragePool or MaxPool.
+    concatenations, and scale-invariant and operators such as AveragePool, MaxPool or ReLU.
     """
     node_list = starting_node.users if walk_forward else starting_node.all_input_nodes
     for node in node_list:
@@ -337,6 +339,8 @@ def walk_region(graph_model: GraphModule, starting_node: Node, history, srcs, si
         else:
             continue
         if _is_supported_module(graph_model, node):
+            # If we find a supported module walking forward, it is a sink, otherwise it is a source.
+            # This can happen when meeting residual or cat nodes.
             if walk_forward:
                 if node.target not in sinks:
                     sinks[node.target] = 0
@@ -352,6 +356,8 @@ def walk_region(graph_model: GraphModule, starting_node: Node, history, srcs, si
                 walk_region(graph_model, node, history, srcs, sinks, walk_forward=False, seen_concat=seen_concat)
         elif (node.op == 'call_method' and node.target in _residual_methods
             or node.op == 'call_function' and node.target in _residual_fns):
+                # If we see a residual add, we need to walk backward to find the other sources to
+                # the add, as well as forward to register the sinks.
                 walk_region(graph_model, node, history, srcs, sinks, walk_forward=True, seen_concat=seen_concat)
                 walk_region(graph_model, node, history, srcs, sinks, walk_forward=False, seen_concat=seen_concat)
         elif node.target in _cat_fns:
@@ -370,7 +376,8 @@ def walk_region(graph_model: GraphModule, starting_node: Node, history, srcs, si
             walk_region(graph_model, node, history, srcs, sinks, walk_forward=True, seen_concat=True)
             walk_region(graph_model, node, history, srcs, sinks, walk_forward=False, seen_concat=True)
 
-
+            # If we have sinks at the end of our search, we have a valid region thus we reorder the
+            # sources
             if len(sinks) > 0:
                 _reorder_sources(srcs, node, graph_model)
         elif _is_reshaping_op(node):

@@ -9,6 +9,8 @@ from turtle import forward
 
 from packaging import version
 import pytest
+import pytest_cases
+from pytest_cases import fixture_union
 import torch
 from torch import nn
 from torchvision import models
@@ -25,6 +27,8 @@ from brevitas.graph import ModuleToModuleByClass
 from brevitas.graph import MoveSplitBatchNormBeforeCat
 from brevitas.graph import TorchFunctionalToModule
 from brevitas.graph.equalize import _is_supported_module
+
+from .equalization_fixtures import *
 
 SEED = 123456
 IN_SIZE = (16,3,224,224)
@@ -76,4 +80,21 @@ def test_rewriter_merge_bn(model_name: str):
 
     print(f"Source coverage {len(srcs)/count}")
     print(f"Sink coverage {len(sinks)/count}")
+    assert torch.allclose(expected_out, out, atol=ATOL)
+
+
+
+
+
+def test_models(all_models):
+    model = all_models()
+    inp = torch.randn(IN_SIZE)
+
+    model.eval()
+    expected_out = model(inp)
+    model = value_trace(model)
+    model, regions = EqualizeGraph(3).apply(model)
+
+    out = model(inp)
+    assert len(regions) > 0
     assert torch.allclose(expected_out, out, atol=ATOL)
