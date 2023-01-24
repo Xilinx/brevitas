@@ -82,6 +82,10 @@ def _channel_range(inp):
 
 
 def _get_size(axes, check_same=False):
+    """
+    Return the sizes of the nn.Modules in axes. If check_same is set to True, it fails if there
+    are different sizes along the module-specific axis.
+    """
     m0, axis0 = list(axes.items())[0]
     size = m0.weight.size(axis0)
     sizes = torch.zeros(len(list(axes.keys())))
@@ -125,6 +129,15 @@ def _get_output_axis(module):
 
 
 def _combine_weights_bias(m, axis, bias_shrinkage):
+    """Combine weights and bias before graph equalizattion
+
+    This method merges the weight and bias sources, so that the resulting equalizer scale factor
+    is influenced also by the magnitude of the bias, the latter mitigated by a shrink factor.
+    This technique avoids that, after the equalization procedure, the bias values become too big,
+    negatively impacting the quantization accuracy.
+    The bias shrinkage factor regulates how much the bias magnitude will affect the subsequence
+    calculation of the scale.
+    """
     if m.bias is None:
         return m.weight.data
 
@@ -133,7 +146,7 @@ def _combine_weights_bias(m, axis, bias_shrinkage):
     weight = deepcopy(weight).view(weight.shape[0], -1)
     bias = deepcopy(bias).view(-1, 1)
 
-    weight = torch.where(torch.abs(weight) < 1e-8, torch.tensor(1e-8), weight)
+    weight = torch.where(torch.abs(weight) < EPSILON, torch.tensor(EPSILON).type_as(weight), weight)
     factor = torch.abs(bias)/torch.abs(weight)
 
     # From https://github.com/Xilinx/Vitis-AI/blob/master/src/vai_quantizer/vai_q_pytorch/nndct_shared/optimization/commander.py#L450
@@ -150,8 +163,10 @@ def _combine_weights_bias(m, axis, bias_shrinkage):
                 shrink_factor = 10
             else:
                 shrink_factor = 5
-    else:
+    elif isinstance(bias_shrinkage, (int,float)):
         shrink_factor = bias_shrinkage
+    else:
+        raise RuntimeError(f"{bias_shrinkage} not supported.")
     weight_bias = torch.cat([weight, bias/shrink_factor], 1)
     return weight_bias
 
@@ -225,15 +240,14 @@ def _equalize(model, regions, iterations, threshold, merge_bias, bias_shrinkage)
         if name in name_set:
             name_to_module[name] = module
     for i in range(iterations):
-        print(f"Equalize iter {i}")
-        scale_factor_max = torch.tensor(0.0)
+        scale_factor_max = None
         for region in regions:
             scale_factors_region = _cross_layer_equalization([name_to_module[n] for n in region[0]], [name_to_module[n] for n in region[1]], merge_bias, bias_shrinkage)
             scale_factor_region_max = torch.max(torch.abs(1-scale_factors_region))
-            scale_factor_max = torch.max(scale_factor_max, scale_factor_region_max)
+            scale_factor_max = torch.max(scale_factor_max, scale_factor_region_max) if \
+                scale_factor_max is not None else scale_factor_region_max
         if threshold is not None:
             if scale_factor_max < threshold:
-                print("Treshold reached, early stopping")
                 break
     return model
 
@@ -250,7 +264,11 @@ def _is_reshaping_op(node):
     return (node.op == 'call_function' and node.target in [torch.flatten, torch.reshape]
                 or node.op == 'call_method' and node.target in ['view', 'reshape', 'flatten'])
 
-def check_nodes(srcs, name, node, current_idx, graph_model):
+def _check_nodes(srcs, name, node, current_idx, graph_model):
+    """
+    Recursive search up the graph, starting from node, until it finds the target node with given
+    name, and updates the srcs dict with the correct index position.
+    """
     if _is_supported_module(graph_model, node):
         if name in srcs and node.target == name:
             srcs[name] = current_idx[0]
@@ -264,13 +282,21 @@ def check_nodes(srcs, name, node, current_idx, graph_model):
             or node.op == 'call_function' and node.target in _residual_fns) or \
                 node.target in _cat_fns or _is_reshaping_op(node):
             for input_node in node.all_input_nodes:
-                done = check_nodes(srcs, name, input_node, current_idx, graph_model)
+                done = _check_nodes(srcs, name, input_node, current_idx, graph_model)
                 if done:
                     return done
         return False
 
 
-def reorder_sources(srcs, node, graph_model):
+def _reorder_sources(srcs, node, graph_model):
+    """Re-order sources of node
+    This function reorders the sources (srcs) of a specific node.
+    When performing Graph Equalization, sources can be discovered and stored in any order.
+    When equalizing through certain operators like concatenation, it is fundamental to reconstruct
+    the original order, so that the channel of the sources are correctly aligned with the ones of
+    the sinks.
+
+    """
     all_input_nodes = node.all_input_nodes
     current_idx = [0]
     srcs_found = 0
@@ -279,7 +305,7 @@ def reorder_sources(srcs, node, graph_model):
         for inner_node in all_input_nodes:
             done = False
             for name in list_to_check:
-                done = check_nodes(srcs, name, inner_node, current_idx, graph_model)
+                done = _check_nodes(srcs, name, inner_node, current_idx, graph_model)
                 if done:
                     break
             if done:
@@ -287,11 +313,20 @@ def reorder_sources(srcs, node, graph_model):
                 list_to_check.remove(name)
 
 def _clear_sinks(sinks):
+    """
+    Delete all the sinks
+    """
     all_sinks = list(sinks.keys())
     for keys in all_sinks:
         del sinks[keys]
 
 def walk_region(graph_model: GraphModule, starting_node: Node, history, srcs, sinks, walk_forward, seen_concat=None):
+    """
+    Recursive algorithm to walk through the graph, to detect all possible sources (srcs) and sinks
+    that can be equalized together.
+    This method is able to correctly idefinity regions across residual connection, batch norms,
+    concatenations, and scale-invariant operators such as AveragePool or MaxPool.
+    """
     node_list = starting_node.users if walk_forward else starting_node.all_input_nodes
     for node in node_list:
         # we keep a history of how the graph has been walked already, invariant to the direction,
@@ -320,26 +355,24 @@ def walk_region(graph_model: GraphModule, starting_node: Node, history, srcs, si
                 walk_region(graph_model, node, history, srcs, sinks, walk_forward=True, seen_concat=seen_concat)
                 walk_region(graph_model, node, history, srcs, sinks, walk_forward=False, seen_concat=seen_concat)
         elif node.target in _cat_fns:
-            if seen_concat is not None:
+            if seen_concat:
                 # If we go through another concat, then no equalization should be done.
                 # Removing all the sinks should guarantee that.
                 _clear_sinks(sinks)
                 continue
-            # If this is the first concat we see, we register it while we keep exploring the graph.
-            # NOTE: seen_concat=node is better than seen_concat=True if we decide to support
-            # partial equalization through concats. No difference otherwise.
 
             # If any of the input to cat has multiple users, we cannot equalize through
             condition = [len(n.users)>1 for n in node.all_input_nodes]
             if any(condition):
                 continue
 
-            walk_region(graph_model, node, history, srcs, sinks, walk_forward=True, seen_concat=node)
-            walk_region(graph_model, node, history, srcs, sinks, walk_forward=False, seen_concat=node)
+            # If this is the first concat we see, we register it while we keep exploring the graph.
+            walk_region(graph_model, node, history, srcs, sinks, walk_forward=True, seen_concat=True)
+            walk_region(graph_model, node, history, srcs, sinks, walk_forward=False, seen_concat=True)
 
 
             if len(sinks) > 0:
-                reorder_sources(srcs, node, graph_model)
+                _reorder_sources(srcs, node, graph_model)
         elif _is_reshaping_op(node):
             walk_region(graph_model, node, history, srcs, sinks, walk_forward=walk_forward, seen_concat=seen_concat)
         else:
@@ -347,6 +380,13 @@ def walk_region(graph_model: GraphModule, starting_node: Node, history, srcs, si
 
 
 def _extract_regions(graph_model: GraphModule):
+    """Find potential regions for Graph Equalization
+    This methods iterates through all possible nodes and define a unique set of regions that will
+    be used for graph equalization.
+    Each region is composed by one or multiple sources, starting from the selected node, and one or
+    multiple sinks. If no sinks are found, then no region is added, and the search moves on to the
+    next node.
+    """
     regions = set()
     for node in graph_model.graph.nodes:
         if node.op == 'call_module':
@@ -356,20 +396,33 @@ def _extract_regions(graph_model: GraphModule):
                 sinks = dict()
                 walk_region(graph_model, node, set(), srcs, sinks, walk_forward=True)
                 if sinks:
-                    # each region should appear only once, so to make it hashable
-                    # we convert srcs and sinks to ordered lists first, and then to tuples
+                    # each region should appear only once, so we convert to tuples
                     srcs_ordered = [0] * len(srcs.items())
                     for v, k in srcs.items():
                         srcs_ordered[k] = v
                     regions.add((tuple(srcs_ordered), tuple(sorted(sinks.keys()))))
+    # for clarity, sort by the of the first source
     regions = sorted(regions, key=lambda region: region[0][0])
     return regions
 
 
 
 class EqualizeGraph(GraphTransform):
+    """
+    Graph transformation that equalizes weights across scale invariant operators.
+    For more information, check https://arxiv.org/pdf/1906.04721.pdf
 
-    def __init__(self, iterations, threshold=None, merge_bias=True, bias_shrinkage='vaiq') -> None:
+    Args:
+        iterations (int): Number of iterations for equalization. Defaults to 10.
+        threshold (float): Minimum value of scale factor changes across regions, under which the
+            equalization procedure is terminated early. Defaults to 0.05.
+        merge_bias (bool): Whether to merge bias into the weight of the source modules when
+            computing the equalizing scale factors.
+        bias_shrinkage (int, float, str): A number indicating the shrink factor for when merging
+            bias and weights, or pass 'vaiq' to use the heuristic defined by Vitis-AI quantizer.
+            Ignored if merge_bias=False.
+    """
+    def __init__(self, iterations=10, threshold=0.05, merge_bias=True, bias_shrinkage='vaiq') -> None:
         super(EqualizeGraph, self).__init__()
         self.iterations = iterations
         self.threshold = threshold
