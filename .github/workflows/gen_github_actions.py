@@ -31,7 +31,7 @@ PYTHON_VERSIONS = ('3.7', '3.8')
 
 PYTORCH_VERSIONS = ('1.5.1', '1.6.0', '1.7.1', '1.8.1', '1.9.1', '1.10.1', '1.11.0', '1.12.1',
                     '1.13.0')
-JIT_STATUSES = ('jit_disabled',)
+JIT_STATUSES = ('jit_disabled', 'jit_enabled')
 
 # Data used only by Github Actions, formatted as lists or lists of ordered dicts
 PLATFORM_LIST = ['windows-latest', 'ubuntu-latest', 'macos-latest']
@@ -39,7 +39,18 @@ FINN_PLATFORM_LIST = ['windows-latest', 'ubuntu-latest']
 
 STRATEGY = od([('fail-fast', 'false')])
 
-EXCLUDE_LIST = []
+EXCLUDE_LIST = [
+    od([('pytorch_version', ['1.5.1', ]),
+         ('jit_status', ['jit_enabled',])]),
+    od([('pytorch_version', ['1.6.0', ]),
+         ('jit_status', ['jit_enabled',])]),
+    od([('pytorch_version', ['1.7.1']),
+        ('jit_status', ['jit_enabled',])]),
+    od([('pytorch_version', ['1.8.1']),
+        ('jit_status', ['jit_enabled',])]),
+    od( [('pytorch_version', ['1.9.1']),
+        ('jit_status', ['jit_enabled',])]),
+    ]
 
 NOTEBOOK_EXCLUDE_LIST = [od([('pytorch_version', ['1.5.1', '1.6.0', '1.7.1'])]),
                          od([('platform', ['macos-latest',])])]
