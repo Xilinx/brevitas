@@ -39,7 +39,8 @@ FINN_PLATFORM_LIST = ['windows-latest', 'ubuntu-latest']
 
 STRATEGY = od([('fail-fast', 'false')])
 
-EXCLUDE_LIST = [
+EXCLUDE_LIST = []
+JIT_EXCLUDE_LIST = [
     od([('pytorch_version', ['1.5.1', ]),
          ('jit_status', ['jit_enabled',])]),
     od([('pytorch_version', ['1.6.0', ]),
@@ -51,7 +52,6 @@ EXCLUDE_LIST = [
     od( [('pytorch_version', ['1.9.1']),
         ('jit_status', ['jit_enabled',])]),
     ]
-
 NOTEBOOK_EXCLUDE_LIST = [od([('pytorch_version', ['1.5.1', '1.6.0', '1.7.1'])]),
                          od([('platform', ['macos-latest',])])]
 
@@ -139,7 +139,7 @@ ENDTOEND_STEP_LIST = [
 def gen_pytest_yml():
     pytest = Action(
         'Pytest',
-        EXCLUDE_LIST,
+        EXCLUDE_LIST + JIT_EXCLUDE_LIST,
         combine_od_list([MATRIX, PYTEST_MATRIX_EXTRA]),
         PYTEST_STEP_LIST,
         STRATEGY)
@@ -151,7 +151,7 @@ def gen_pytest_yml():
 def gen_examples_pytest_yml():
     pytest = Action(
         'Examples Pytest',
-        EXCLUDE_LIST,
+        EXCLUDE_LIST + JIT_EXCLUDE_LIST,
         combine_od_list([MATRIX, PYTEST_MATRIX_EXTRA]),
         EXAMPLES_PYTEST_STEP_LIST,
         STRATEGY)
