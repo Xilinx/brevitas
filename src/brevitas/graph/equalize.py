@@ -81,7 +81,7 @@ def _channel_range(module: torch.nn.Module):
     return out
 
 
-def _get_size(axes: List[torch.nn.Module, int], check_same: bool =False):
+def _get_size(axes: Dict[torch.nn.Module, int], check_same: bool =False):
     """
     Return the sizes of the nn.Modules in axes. If check_same is set to True, it fails if there
     are different sizes along the module-specific axis.
