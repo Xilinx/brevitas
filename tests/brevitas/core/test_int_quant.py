@@ -14,6 +14,7 @@ from tests.brevitas.core.int_quant_fixture import *  # noqa
 from tests.brevitas.core.shared_quant_fixture import *  # noqa
 from tests.brevitas.hyp_helper import float_tensor_random_shape_st
 from tests.brevitas.hyp_helper import scalar_float_p_tensor_st
+from tests.marker import jit_disabled_for_mock
 
 
 class TestIntQuantUnit:
@@ -22,6 +23,7 @@ class TestIntQuantUnit:
         inp=float_tensor_random_shape_st(),
         scale=scalar_float_p_tensor_st(),
         zero_point=scalar_float_p_tensor_st())
+    @jit_disabled_for_mock()
     def test_int_quant_to_int_called_with(
             self, inp, narrow_range, signed, bit_width_init, zero_point, scale):
         float_to_int_impl = mock.Mock(side_effect=lambda x: x)

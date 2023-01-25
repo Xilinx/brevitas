@@ -6,12 +6,14 @@ import pytest
 import torch
 
 from brevitas.export import export_torch_qcdq
+from tests.marker import jit_disabled_for_export
 from tests.marker import requires_pt_ge
 
 from .quant_module_fixture import *
 
 
 @requires_pt_ge('1.9.1')
+@jit_disabled_for_export()
 def test_pytorch_qcdq_export(
         quant_module,
         quant_module_impl,

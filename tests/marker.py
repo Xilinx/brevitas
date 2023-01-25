@@ -7,6 +7,7 @@ import platform
 from packaging.version import parse
 import pytest
 
+from brevitas import config
 from brevitas import torch_version
 
 
@@ -26,5 +27,19 @@ def requires_pt_lt(pt_version: str, system: str = None):
         skip = skip and platform.system() == system
     def skip_wrapper(f):
         return pytest.mark.skipif(skip, reason=f'Requires Pytorch < {pt_version}')(f)
+
+    return skip_wrapper
+
+def jit_disabled_for_export():
+    skip = config.JIT_ENABLED
+    def skip_wrapper(f):
+        return pytest.mark.skipif(skip, reason=f'Export requires JIT to be disabled')(f)
+
+    return skip_wrapper
+
+def jit_disabled_for_mock():
+    skip = config.JIT_ENABLED
+    def skip_wrapper(f):
+        return pytest.mark.skipif(skip, reason=f'Mock requires JIT to be disabled')(f)
 
     return skip_wrapper

@@ -24,7 +24,9 @@ jobs:
 
         exclude:
           - pytorch_version: '1.5.1'
+
           - pytorch_version: '1.6.0'
+
           - pytorch_version: '1.7.1'
 
           - platform: 'macos-latest'
