@@ -131,8 +131,8 @@ def _get_output_axis(module: torch.nn.Module):
 def _combine_weights_bias(module: torch.nn.Module, axis: int, bias_shrinkage: Union[int, float, str]):
     """Combine weights and bias before graph equalizattion
 
-    This method merges the weight and bias sources, so that the resulting equalizer scale factor
-    is influenced also by the magnitude of the bias, the latter mitigated by a shrink factor.
+    This method merges the weight and bias of the sources, so that the resulting equalizer scale factor
+    is influenced also by the magnitude of the bias, mitigated by a shrink factor.
     This technique avoids that, after the equalization procedure, the bias values become too big,
     negatively impacting the quantization accuracy.
     The bias shrinkage factor regulates how much the bias magnitude will affect the subsequence
