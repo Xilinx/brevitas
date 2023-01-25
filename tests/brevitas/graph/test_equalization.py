@@ -34,15 +34,7 @@ SEED = 123456
 IN_SIZE = (16,3,224,224)
 ATOL = 1e-3
 
-MODELS = [
-    'shufflenet_v2_x0_5',
-    'densenet121',
-    'mobilenet_v2',
-    'resnet18',
-    'googlenet',
-    'inception_v3',
-    'alexnet',
-]
+
 @pytest.mark.parametrize("model_name", MODELS)
 def test_rewriter_merge_bn(model_name: str):
     try:

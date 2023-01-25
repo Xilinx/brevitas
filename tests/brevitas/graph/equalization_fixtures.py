@@ -3,6 +3,15 @@ from pytest_cases import fixture_union
 import torch
 import torch.nn as nn
 
+MODELS = [
+    'shufflenet_v2_x0_5',
+    'densenet121',
+    'mobilenet_v2',
+    'resnet18',
+    'googlenet',
+    'inception_v3',
+    'alexnet',
+]
 
 @pytest_cases.fixture
 def bnconv_model():
@@ -46,6 +55,25 @@ def residual_model():
     return ResidualModel
 
 @pytest_cases.fixture
+def srcsinkconflict_model():
+    """
+    In this example, conv_0 is both a src and sink.
+    """
+    class ResidualSrcsAndSinkModel(nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.conv_start = nn.Conv2d(3, 3, kernel_size=1)
+            self.conv = nn.Conv2d(3, 3, kernel_size=1)
+            self.conv_0 = nn.Conv2d(3, 3, kernel_size=1)
+        def forward(self, x):
+            start = self.conv_start(x)
+            x = self.conv_0(start)
+            x = start + x
+            x = self.conv(x)
+            return x
+    return ResidualSrcsAndSinkModel
+
+@pytest_cases.fixture
 def cat_model():
     class CatModel(nn.Module):
         def __init__(self) -> None:
@@ -63,4 +91,4 @@ def cat_model():
 
 
 all_models = fixture_union('all_models', ['bnconv_model', 'convdepthconv_model', 'residual_model',
-                                          'cat_model'])
+                                          'cat_model', 'srcsinkconflict_model'])
