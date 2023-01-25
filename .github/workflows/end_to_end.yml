@@ -21,6 +21,21 @@ jobs:
 
 
         exclude:
+          - pytorch_version: '1.5.1'
+            jit_status: 'jit_disabled'
+
+          - pytorch_version: '1.6.0'
+            jit_status: 'jit_disabled'
+
+          - pytorch_version: '1.7.1'
+            jit_status: 'jit_disabled'
+
+          - pytorch_version: '1.8.1'
+            jit_status: 'jit_disabled'
+
+          - pytorch_version: '1.9.1'
+            jit_status: 'jit_disabled'
+
           - platform: 'windows-latest'
 
 
