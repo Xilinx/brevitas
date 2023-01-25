@@ -6,7 +6,7 @@ from collections import OrderedDict
 from copy import deepcopy
 from functools import partial
 import operator
-from typing import Dict
+from typing import Dict, List, Union
 
 import torch
 
@@ -71,17 +71,17 @@ _batch_norm = (
 )
 
 
-def _channel_range(inp):
-    mins, _ = inp.min(dim=1)
-    maxs, _ = inp.max(dim=1)
+def _channel_range(module: torch.nn.Module):
+    mins, _ = module.min(dim=1)
+    maxs, _ = module.max(dim=1)
     out = maxs - mins
     # correct corner case where where all weights along a channel have the same value
     # e.g. when a mean/nn.AvgPool/nn.AdaptiveAvgPool is converted to a depth-wise conv
-    out = torch.where(out == 0., torch.mean(inp, dim=1), out)
+    out = torch.where(out == 0., torch.mean(module, dim=1), out)
     return out
 
 
-def _get_size(axes, check_same=False):
+def _get_size(axes: List[torch.nn.Module, int], check_same: bool =False):
     """
     Return the sizes of the nn.Modules in axes. If check_same is set to True, it fails if there
     are different sizes along the module-specific axis.
@@ -96,7 +96,7 @@ def _get_size(axes, check_same=False):
     return sizes
 
 
-def _get_input_axis(module):
+def _get_input_axis(module: torch.nn.Module):
     if isinstance(module, torch.nn.Linear):
         return 1
     elif isinstance(module, (torch.nn.BatchNorm1d, torch.nn.BatchNorm2d, torch.nn.BatchNorm3d)):
@@ -119,7 +119,7 @@ def _get_input_axis(module):
         raise RuntimeError(f"Module {module} not supported.")
 
 
-def _get_output_axis(module):
+def _get_output_axis(module: torch.nn.Module):
     if isinstance(module, (torch.nn.Linear, torch.nn.Conv1d, torch.nn.Conv2d, torch.nn.Conv3d, torch.nn.BatchNorm1d, torch.nn.BatchNorm2d, torch.nn.BatchNorm3d)):
         return 0
     elif isinstance(module, (torch.nn.ConvTranspose1d, torch.nn.ConvTranspose2d, torch.nn.ConvTranpose3d)):
@@ -128,7 +128,7 @@ def _get_output_axis(module):
         raise RuntimeError(f"Module {module} not supported.")
 
 
-def _combine_weights_bias(m, axis, bias_shrinkage):
+def _combine_weights_bias(module: torch.nn.Module, axis: int, bias_shrinkage: Union[int, float, str]):
     """Combine weights and bias before graph equalizattion
 
     This method merges the weight and bias sources, so that the resulting equalizer scale factor
@@ -138,11 +138,11 @@ def _combine_weights_bias(m, axis, bias_shrinkage):
     The bias shrinkage factor regulates how much the bias magnitude will affect the subsequence
     calculation of the scale.
     """
-    if m.bias is None:
-        return m.weight.data
+    if module.bias is None:
+        return module.weight.data
 
-    bias = m.bias.data
-    weight = m.weight.data if axis == 0 else m.weight.data.transpose(1,0)
+    bias = module.bias.data
+    weight = module.weight.data if axis == 0 else module.weight.data.transpose(1,0)
     weight = deepcopy(weight).view(weight.shape[0], -1)
     bias = deepcopy(bias).view(-1, 1)
 
@@ -170,7 +170,7 @@ def _combine_weights_bias(m, axis, bias_shrinkage):
     weight_bias = torch.cat([weight, bias/shrink_factor], 1)
     return weight_bias
 
-def _cross_layer_equalization(srcs, sinks, merge_bias, bias_shrinkage):
+def _cross_layer_equalization(srcs: List, sinks: List, merge_bias: bool, bias_shrinkage: Union[int, float, str]):
     """
     Given two adjacent tensors', the weights are scaled such that
     the ranges of the first tensors' output channel are equal to the
@@ -231,12 +231,17 @@ def _cross_layer_equalization(srcs, sinks, merge_bias, bias_shrinkage):
     return scaling_factors
 
 
-def _equalize(model, regions, iterations, threshold, merge_bias, bias_shrinkage):
+def _equalize(model: GraphModule, regions: tuple, iterations: int, threshold: Union[float, None], merge_bias: bool, bias_shrinkage: Union[int, float, str]):
     """
     Generalized version of section 4.1 of https://arxiv.org/pdf/1906.04721.pdf
     """
     name_to_module : Dict[str, torch.nn.Module] = {}
-    name_set = {name for region in regions for module_set in region for name in module_set}
+    # name_set = {name for region in regions for module_set in region for name in module_set}
+    name_set = set()
+    for region in regions:
+        for src_reg in region[0]:
+            name_set.add(src_reg[0])
+        name_set.update(region[1])
 
     for name, module in model.named_modules():
         if name in name_set:
@@ -244,7 +249,13 @@ def _equalize(model, regions, iterations, threshold, merge_bias, bias_shrinkage)
     for i in range(iterations):
         scale_factor_max = None
         for region in regions:
-            scale_factors_region = _cross_layer_equalization([name_to_module[n] for n in region[0]], [name_to_module[n] for n in region[1]], merge_bias, bias_shrinkage)
+
+            # Sources are re-ordered, necessary for equalizing through cat
+            srcs_ordered = [0] * len(region[0])
+            for v, k in region[0]:
+                srcs_ordered[k] = v
+
+            scale_factors_region = _cross_layer_equalization([name_to_module[n] for n in srcs_ordered], [name_to_module[n] for n in region[1]], merge_bias, bias_shrinkage)
             scale_factor_region_max = torch.max(torch.abs(1-scale_factors_region))
             scale_factor_max = torch.max(scale_factor_max, scale_factor_region_max) if \
                 scale_factor_max is not None else scale_factor_region_max
@@ -254,19 +265,19 @@ def _equalize(model, regions, iterations, threshold, merge_bias, bias_shrinkage)
     return model
 
 
-def _is_supported_module(graph_model, node):
+def _is_supported_module(graph_model: GraphModule, node: Node):
     return node.op == 'call_module' and isinstance(get_module(graph_model, node.target), _supported_layers)
 
 
-def _is_scale_invariant_module(graph_model, node):
+def _is_scale_invariant_module(graph_model: GraphModule, node: Node):
     return node.op == 'call_module' and isinstance(get_module(graph_model, node.target), _scale_invariant_layers)
 
 
-def _is_reshaping_op(node):
+def _is_reshaping_op(node: Node):
     return (node.op == 'call_function' and node.target in [torch.flatten, torch.reshape]
                 or node.op == 'call_method' and node.target in ['view', 'reshape', 'flatten'])
 
-def _check_nodes(srcs, name, node, current_idx, graph_model):
+def _check_nodes(srcs: Dict, name: str, node: Node, current_idx: List, graph_model: GraphModule):
     """
     Recursive search up the graph, starting from node, until it finds the target node with given
     name, and updates the srcs dict with the correct index position.
@@ -290,7 +301,7 @@ def _check_nodes(srcs, name, node, current_idx, graph_model):
         return False
 
 
-def _reorder_sources(srcs, node, graph_model):
+def _reorder_sources(srcs: Dict, node: Node, graph_model: GraphModule):
     """Re-order sources of node
     This function reorders the sources (srcs) of a specific node.
     When performing Graph Equalization, sources can be discovered and stored in any order.
@@ -322,7 +333,7 @@ def _clear_sinks(sinks):
     for keys in all_sinks:
         del sinks[keys]
 
-def walk_region(graph_model: GraphModule, starting_node: Node, history, srcs, sinks, walk_forward, seen_concat=None):
+def walk_region(graph_model: GraphModule, starting_node: Node, history, srcs: dict, sinks: dict, walk_forward: bool, seen_concat: bool = False):
     """
     Recursive algorithm to walk through the graph, to detect all possible sources (srcs) and sinks
     that can be equalized together.
@@ -403,11 +414,12 @@ def _extract_regions(graph_model: GraphModule):
                 sinks = dict()
                 walk_region(graph_model, node, set(), srcs, sinks, walk_forward=True)
                 if sinks:
-                    # each region should appear only once, so we convert to tuples
-                    srcs_ordered = [0] * len(srcs.items())
-                    for v, k in srcs.items():
-                        srcs_ordered[k] = v
-                    regions.add((tuple(srcs_ordered), tuple(sorted(sinks.keys()))))
+                    # each region should appear only once, so we convert to sorted tuples
+                    srcs = [(x, pos) for x, pos in srcs.items()]
+                    # srcs_ordered = [0] * len(srcs.items())
+                    # for v, k in srcs.items():
+                    #     srcs_ordered[k] = v
+                    regions.add((tuple(sorted(srcs)), tuple(sorted(sinks.keys()))))
     # for clarity, sort by the of the first source
     regions = sorted(regions, key=lambda region: region[0][0])
     return regions
