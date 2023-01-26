@@ -14,6 +14,7 @@ from tests.brevitas.core.shared_quant_fixture import *  # noqa
 from tests.brevitas.core.ternary_quant_fixture import *  # noqa
 from tests.brevitas.hyp_helper import float_tensor_random_shape_st
 from tests.brevitas.hyp_helper import scalar_float_p_tensor_st
+from tests.marker import requires_jit_disabled
 
 
 def is_ternary_output_value_correct(scale: Tensor, output: Tensor):
@@ -32,6 +33,7 @@ class TestTernaryUnit:
         inp=float_tensor_random_shape_st(),
         scale_init=scalar_float_p_tensor_st(),
         threshold=st.floats(min_value=0.0, max_value=1.0))
+    @requires_jit_disabled() # Mock conflicts with JIT
     def test_ternary_quant(self, inp, scale_init, threshold):
         scaling_impl = mock.Mock(return_value=scale_init)
         ternary_quant = TernaryQuant(scaling_impl, threshold)
