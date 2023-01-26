@@ -144,7 +144,7 @@ def gen_pytest_yml():
         PYTEST_STEP_LIST,
         STRATEGY)
     pytest.gen_yaml(BASE_YML_TEMPLATE, PYTEST_YML)
-    pytest = Action('Pytest', EXCLUDE_LIST, combine_od_list([MATRIX_REDUCED, PYTEST_MATRIX_EXTRA]),
+    pytest = Action('Pytest', EXCLUDE_LIST + JIT_EXCLUDE_LIST, combine_od_list([MATRIX_REDUCED, PYTEST_MATRIX_EXTRA]),
                     PYTEST_STEP_LIST, STRATEGY)
     pytest.gen_yaml(BASE_YML_REDUCED_TEMPLATE, 'reduced_' + PYTEST_YML)
 
@@ -156,7 +156,7 @@ def gen_examples_pytest_yml():
         EXAMPLES_PYTEST_STEP_LIST,
         STRATEGY)
     pytest.gen_yaml(BASE_YML_TEMPLATE, EXAMPLES_PYTEST_YML)
-    pytest = Action('Examples Pytest', EXCLUDE_LIST, combine_od_list([MATRIX_REDUCED, PYTEST_MATRIX_EXTRA]),
+    pytest = Action('Examples Pytest', EXCLUDE_LIST + JIT_EXCLUDE_LIST, combine_od_list([MATRIX_REDUCED, PYTEST_MATRIX_EXTRA]),
                     EXAMPLES_PYTEST_STEP_LIST, STRATEGY)
     pytest.gen_yaml(BASE_YML_REDUCED_TEMPLATE, 'reduced_' + EXAMPLES_PYTEST_YML)
 
