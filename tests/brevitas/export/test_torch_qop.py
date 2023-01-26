@@ -14,7 +14,7 @@ from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from brevitas.quant.scaled_int import Int16Bias
 from brevitas.quant.scaled_int import Uint8ActPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
-from tests.marker import requires_jit_disabled
+from tests.marker import jit_disabled_for_export
 from tests.marker import requires_pt_ge
 
 OUT_CH = 50
@@ -24,7 +24,7 @@ RANDN_MEAN = 1
 RANDN_STD = 3
 
 @requires_pt_ge('9999', 'Darwin')
-@requires_jit_disabled()
+@jit_disabled_for_export()
 def test_pytorch_quant_conv_export():
     IN_SIZE = (2, IN_CH, IN_CH, IN_CH)
     KERNEL_SIZE = (3, 3)
@@ -63,7 +63,7 @@ def test_pytorch_quant_conv_export():
 
 
 @requires_pt_ge('9999', 'Darwin')
-@requires_jit_disabled()
+@jit_disabled_for_export()
 def test_pytorch_quant_linear_export():
     IN_SIZE = (IN_CH, IN_CH)
 
@@ -100,7 +100,7 @@ def test_pytorch_quant_linear_export():
 
 
 @requires_pt_ge('9999', 'Darwin')
-@requires_jit_disabled()
+@jit_disabled_for_export()
 def test_pytorch_quant_linear_bias_quant_export():
     IN_SIZE = (IN_CH, IN_CH)
 
@@ -138,7 +138,7 @@ def test_pytorch_quant_linear_bias_quant_export():
 
 
 @requires_pt_ge('9999', 'Darwin')
-@requires_jit_disabled()
+@jit_disabled_for_export()
 def test_pytorch_quant_conv_bias_quant_export():
     IN_SIZE = (2, IN_CH, IN_CH, IN_CH)
     KERNEL_SIZE = (3, 3)
@@ -178,7 +178,7 @@ def test_pytorch_quant_conv_bias_quant_export():
 
 
 @requires_pt_ge('9999', 'Darwin')
-@requires_jit_disabled()
+@jit_disabled_for_export()
 def test_quant_act_export():
     IN_SIZE = (IN_CH, IN_CH)
 
@@ -206,7 +206,7 @@ def test_quant_act_export():
     atol = model.act2.quant_output_scale().item() * TOLERANCE
     assert pytorch_out.isclose(brevitas_out, rtol=0.0, atol=atol).all()
 
-@requires_jit_disabled()
+@jit_disabled_for_export()
 def test_quant_max_pool2d_export():
     IN_SIZE = (1, 1, IN_CH, IN_CH)
     KERNEL_SIZE = 3
@@ -239,7 +239,7 @@ def test_quant_max_pool2d_export():
 
 
 @requires_pt_ge('9999', 'Darwin')
-@requires_jit_disabled()
+@jit_disabled_for_export()
 def test_func_quant_max_pool2d_export():
     IN_SIZE = (1, 1, IN_CH, IN_CH)
     KERNEL_SIZE = 2

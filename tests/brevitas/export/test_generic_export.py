@@ -17,13 +17,13 @@ from brevitas.quant.scaled_int import Int4WeightPerTensorFloatDecoupled
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int16Bias
 from brevitas_examples import imagenet_classification
-from tests.marker import requires_jit_disabled
+from tests.marker import jit_disabled_for_export
 
 OUT_CH = 50
 IN_CH = 40
 TOLERANCE = 1.1
 
-@requires_jit_disabled()
+@jit_disabled_for_export()
 def test_generic_quant_linear_export():
     IN_SIZE = (2, IN_CH)
 
@@ -51,7 +51,7 @@ def test_generic_quant_linear_export():
     export_qonnx(
         model, inp, export_path='generic_quant_linear.onnx')
 
-@requires_jit_disabled()
+@jit_disabled_for_export()
 def test_generic_decoupled_quant_linear_export():
     IN_SIZE = (2, IN_CH)
 
@@ -80,7 +80,7 @@ def test_generic_decoupled_quant_linear_export():
     export_qonnx(
         model, inp, export_path='generic_decoupled_quant_linear.onnx')
 
-@requires_jit_disabled()
+@jit_disabled_for_export()
 def test_generic_quant_conv_export():
     IN_SIZE = (2, IN_CH, IN_CH, IN_CH)
 
@@ -109,7 +109,7 @@ def test_generic_quant_conv_export():
     export_qonnx(
         model, inp, export_path='generic_quant_conv.onnx')
 
-@requires_jit_disabled()
+@jit_disabled_for_export()
 def test_generic_quant_tensor_export():
     IN_SIZE = (2, IN_CH)
 
@@ -137,7 +137,7 @@ def test_generic_quant_tensor_export():
     export_qonnx(
         model, inp, export_path='generic_quant_tensor.onnx')
 
-@requires_jit_disabled()
+@jit_disabled_for_export()
 def test_generic_quant_avgpool_export():
     IN_SIZE = (2, OUT_CH, IN_CH, IN_CH)
 
@@ -159,7 +159,7 @@ def test_generic_quant_avgpool_export():
     export_qonnx(
         model, inp, export_path='generic_quant_avgpool.onnx')
 
-@requires_jit_disabled()
+@jit_disabled_for_export()
 def test_generic_quant_avgpool_export_quant_input():
     IN_SIZE = (2, OUT_CH, IN_CH, IN_CH)
     inp = torch.randn(IN_SIZE)
@@ -171,7 +171,7 @@ def test_generic_quant_avgpool_export_quant_input():
     export_qonnx(
         model, inp_quant(inp), export_path='generic_quant_avgpool_quant_input.onnx')
 
-@requires_jit_disabled()
+@jit_disabled_for_export()
 def test_debug_brevitas_onnx_export():
     model, cfg = imagenet_classification.model_with_cfg('quant_mobilenet_v1_4b', pretrained=False)
     model.eval()
