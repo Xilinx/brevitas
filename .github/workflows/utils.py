@@ -1,7 +1,9 @@
 from collections import OrderedDict as od
 from functools import reduce
+import itertools
 from string import Template
 from textwrap import indent
+from typing import OrderedDict
 
 import yaml
 
@@ -76,3 +78,20 @@ class Action:
 
 def combine_od_list(od_list):
     return od(reduce(lambda l1, l2: l1 + l2, list(map(lambda d: list(d.items()), od_list))))
+
+def generate_exclusion_list(combinations):
+    """
+    Takes as input a List(first level) of List(second levl) of List[str, List] (options)
+    All options listed together in the second level will be combined
+    All set of options (first level) will be indepentend.
+    """
+    all_ods = []
+    for combination in combinations:
+        values = [el[1] for el in combination]
+        names = [el[0] for el in combination]
+        product = list(itertools.product(*values))
+        new_list = []
+        for p in product:
+            new_list.append(OrderedDict([(name, [value]) for name, value in zip(names, p)]))
+        all_ods.extend(new_list)
+    return all_ods
