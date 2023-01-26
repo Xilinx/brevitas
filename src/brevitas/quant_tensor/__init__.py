@@ -20,16 +20,16 @@ IS_VALID_ATOL = 1e-5
 
 class QuantTensorBase(NamedTuple):
     value: Tensor
-    scale: Optional[Tensor]
-    zero_point: Optional[Tensor]
-    bit_width: Optional[Tensor]
-    signed_t: Optional[Tensor]
-    training_t: Optional[Tensor]
+    scale: Tensor
+    zero_point: Tensor
+    bit_width: Tensor
+    signed_t: Tensor
+    training_t: Tensor
 
-def _maybe_get_value(input):
+def _get_dequantize_tensor(input):
     return input.value if isinstance(input, QuantTensor) else input
 
-def _maybe_set_value(input, value):
+def _set_dequantize_tensor(input, value):
     return input.set(value=value) if isinstance(input, QuantTensor) else value
 
 def _unpack_quant_tensor(input_data):
@@ -54,7 +54,6 @@ def _is_all_nested_not_none(input_data):
         return all([_is_all_nested_not_none(v) for v in input_data.values()])
     else:
         return True
-
 
 class QuantTensor(QuantTensorBase):
 

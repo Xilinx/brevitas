@@ -12,7 +12,7 @@ from torch.nn import Module
 from torch.nn import Parameter
 
 from brevitas import quant_tensor
-from brevitas.quant_tensor import _maybe_get_value
+from brevitas.quant_tensor import _get_dequantize_tensor
 from brevitas.quant_tensor import QuantTensor
 
 from .mixin import *
@@ -147,7 +147,7 @@ class QuantNonLinearActLayer(
         quant_input = self.input_quant(input)
         # shortcut execution through the export impl during export
         if self.export_mode:
-            out = self.export_handler(_maybe_get_value(quant_input))
+            out = self.export_handler(_get_dequantize_tensor(quant_input))
             self._set_global_is_quant_layer(False)
             return out
         out = self.act_quant(quant_input)
@@ -307,20 +307,22 @@ class QuantWeightBiasInputOutputLayer(
     def forward_impl(self, inp: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
         output_scale = None
         output_bit_width = None
-        output_zero_point = torch.tensor(0.)
+        # if return_quant_tensor=True and output_quant_enabled=True, this value might never be
+        # changed so we set it to 0.
+        output_zero_point = 0.
         output_signed = None
 
         inp = self.unpack_input(inp)
 
         # shortcut execution through the export impl during export
         if self.export_mode:
-            out = self.export_handler(_maybe_get_value(inp))
+            out = self.export_handler(_get_dequantize_tensor(inp))
             self._set_global_is_quant_layer(False)
             return out
 
         quant_input = self.input_quant(inp)
         quant_weight = self.quant_weight()
-        quant_weight_value = _maybe_get_value(quant_weight)
+        quant_weight_value = _get_dequantize_tensor(quant_weight)
 
         if isinstance(quant_input, Tensor) and self.return_quant_tensor and not self.is_output_quant_enabled:
             raise RuntimeError("Not enough information to return QuantTensor")
@@ -338,7 +340,7 @@ class QuantWeightBiasInputOutputLayer(
 
         if self.bias is not None:
             quant_bias = self.bias_quant(self.bias, output_scale, output_bit_width)
-            quant_bias_value = _maybe_get_value(quant_bias)
+            quant_bias_value = _get_dequantize_tensor(quant_bias)
             quant_bias_scale = getattr(quant_bias, 'scale', None)
             quant_bias_bitwidth = getattr(quant_bias, 'bit_width', None)
             if not self.training and self.cache_inference_quant_bias:
@@ -368,7 +370,8 @@ class QuantWeightBiasInputOutputLayer(
             elif quant_input.zero_point is not None and output_zero_point is None:
                 output_zero_point = quant_input.zero_point
 
-        if isinstance(quant_input, QuantTensor):
+        # To specify all quant metadata, both input and weight need to be quantized
+        if isinstance(quant_input, QuantTensor) and isinstance(quant_weight, QuantTensor):
             quant_output = QuantTensor(
                 value=output_tensor,
                 scale=output_scale,

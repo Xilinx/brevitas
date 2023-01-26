@@ -141,7 +141,7 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
         scale = self.__call__(self._zero_hw_sentinel()).bit_width
         return scale
 
-    def forward(self, x: Union[Tensor, QuantTensor]) -> QuantTensor:
+    def forward(self, x: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
         if self.fused_activation_quant_proxy is not None:
             y = x
             if isinstance(y, QuantTensor):
@@ -159,9 +159,6 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
             else:
                 return QuantTensor(y, training=self.training)
         else:
-            if isinstance(x, QuantTensor):  # passthrough
-                return x
-            else:
                 return x
 
 

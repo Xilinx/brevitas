@@ -14,8 +14,8 @@ from torch.nn import AvgPool2d
 from brevitas.function.ops import max_int
 from brevitas.function.ops_ste import ceil_ste
 from brevitas.inject.defaults import TruncTo8bit
-from brevitas.quant_tensor import _maybe_get_value
-from brevitas.quant_tensor import _maybe_set_value
+from brevitas.quant_tensor import _get_dequantize_tensor
+from brevitas.quant_tensor import _set_dequantize_tensor
 from brevitas.quant_tensor import QuantTensor
 
 from .mixin.acc import AccQuantType
@@ -59,10 +59,10 @@ class QuantAvgPool2d(QuantTruncMixin, QuantLayerMixin, AvgPool2d):
 
     def forward(self, input: Union[Tensor, QuantTensor]):
         x = self.unpack_input(input)
-        x_value = _maybe_get_value(x)
+        x_value = _get_dequantize_tensor(x)
         if self.export_mode:
             return self.export_handler(x_value)
-        x = _maybe_set_value(x, super(QuantAvgPool2d, self).forward(x_value))
+        x = _set_dequantize_tensor(x, super(QuantAvgPool2d, self).forward(x_value))
         if self.is_trunc_quant_enabled:
             assert isinstance(x, QuantTensor)
             # remove avg scaling
@@ -130,7 +130,7 @@ class QuantAdaptiveAvgPool2d(QuantTruncMixin, QuantLayerMixin, AdaptiveAvgPool2d
 
     def forward(self, input: Union[Tensor, QuantTensor]):
         x = self.unpack_input(input)
-        x_value = _maybe_get_value(x)
+        x_value = _get_dequantize_tensor(x)
         # shortcut execution through the export impl during export
         if self.export_mode:
             out = self.export_handler(x_value)

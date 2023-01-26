@@ -19,7 +19,7 @@ from brevitas.common import ExportMixin
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import Injector
 from brevitas.nn.utils import compute_channel_view_shape
-from brevitas.quant_tensor import _maybe_get_value
+from brevitas.quant_tensor import _get_dequantize_tensor
 from brevitas.quant_tensor import QuantTensor
 
 from .utils import filter_kwargs
@@ -27,7 +27,7 @@ from .utils import filter_kwargs
 
 class _CachedIO:
     def __init__(self, quant_tensor: Union[QuantTensor, Tensor], metadata_only: bool):
-        self.shape = _maybe_get_value(quant_tensor).shape
+        self.shape = _get_dequantize_tensor(quant_tensor).shape
         if metadata_only and isinstance(quant_tensor, QuantTensor):
             self.quant_tensor = quant_tensor.set(value=None)
         else:
@@ -271,8 +271,8 @@ class QuantRecurrentLayerMixin(ExportMixin):
         quant_input = inp
         if not self.quantize_output_only:
             quant_input = self.io_quant(quant_input)
-        elif not isinstance(inp, QuantTensor):
-            quant_input = QuantTensor(quant_input)
+        # elif not isinstance(inp, QuantTensor):
+        #     quant_input = QuantTensor(quant_input)
         return quant_input
 
     def maybe_quantize_state(self, inp, state, quant):

@@ -25,7 +25,7 @@ from brevitas.quant import Int8ActPerTensorFloat
 from brevitas.quant import Int8WeightPerTensorFloat
 from brevitas.quant import Int32Bias
 from brevitas.quant import Uint8ActPerTensorFloat
-from brevitas.quant_tensor import _maybe_get_value
+from brevitas.quant_tensor import _get_dequantize_tensor
 from brevitas.quant_tensor import QuantTensor
 
 QuantTupleShortEnabled = List[
@@ -394,11 +394,11 @@ class _QuantRNNLayer(QuantRecurrentLayerMixin, nn.Module):
         quant_input = self.maybe_quantize_input(inp)
         quant_weight_ih, quant_weight_hh, quant_bias = self.gate_params_fwd(
             self.gate_params, quant_input)
-        quant_input_value = _maybe_get_value(quant_input)
+        quant_input_value = _get_dequantize_tensor(quant_input)
         if quant_bias is None:
             quant_bias = torch.tensor(0., device=quant_input_value.device)
         else:
-            quant_bias = _maybe_get_value(quant_bias)
+            quant_bias = _get_dequantize_tensor(quant_bias)
         quant_state = self.maybe_quantize_state(
             quant_input_value, state, self.cell.output_quant)
         if self.export_mode:
@@ -409,9 +409,9 @@ class _QuantRNNLayer(QuantRecurrentLayerMixin, nn.Module):
             cell = self.cell
         quant_outputs = cell(
             quant_input_value,
-            _maybe_get_value(quant_state),# quant_state.value if isinstance(quant_state, QuantTensor) else quant_state,
-            _maybe_get_value(quant_weight_ih),# quant_weight_ih.value if isinstance(quant_weight_ih, QuantTensor) else quant_weight_ih,
-            _maybe_get_value(quant_weight_hh),  #.value if isinstance(quant_weight_hh, QuantTensor) else quant_weight_hh,
+            _get_dequantize_tensor(quant_state),# quant_state.value if isinstance(quant_state, QuantTensor) else quant_state,
+            _get_dequantize_tensor(quant_weight_ih),# quant_weight_ih.value if isinstance(quant_weight_ih, QuantTensor) else quant_weight_ih,
+            _get_dequantize_tensor(quant_weight_hh),  #.value if isinstance(quant_weight_hh, QuantTensor) else quant_weight_hh,
             quant_bias)
         quant_output = self.pack_quant_outputs(quant_outputs)
         quant_state = self.pack_quant_state(quant_outputs[-1], self.cell.output_quant)
@@ -623,23 +623,23 @@ class _QuantLSTMLayer(QuantRecurrentLayerMixin, nn.Module):
             quant_weight_if, quant_weight_hf, quant_bias_forget = self.gate_params_fwd(
                 self.forget_gate_params, quant_input)
         # Handle None bias by setting it 0.
-        quant_input_value = _maybe_get_value(quant_input)
+        quant_input_value = _get_dequantize_tensor(quant_input)
         if quant_bias_input is None:
             quant_bias_input = torch.tensor(0., device=quant_input.device)
         else:
-            quant_bias_input = _maybe_get_value(quant_bias_input)
+            quant_bias_input = _get_dequantize_tensor(quant_bias_input)
         if quant_bias_forget is None:
             quant_bias_forget = torch.tensor(0., device=quant_input.device)
         else:
-            quant_bias_forget = _maybe_get_value(quant_bias_forget)
+            quant_bias_forget = _get_dequantize_tensor(quant_bias_forget)
         if quant_bias_cell is None:
             quant_bias_cell = torch.tensor(0., device=quant_input.device)
         else:
-            quant_bias_cell = _maybe_get_value(quant_bias_cell)
+            quant_bias_cell = _get_dequantize_tensor(quant_bias_cell)
         if quant_bias_output is None:
             quant_bias_output = torch.tensor(0., device=quant_input.device)
         else:
-            quant_bias_output = _maybe_get_value(quant_bias_output)
+            quant_bias_output = _get_dequantize_tensor(quant_bias_output)
         quant_hidden_state = self.maybe_quantize_state(
             quant_input_value, hidden_state, self.cell.output_quant)
         quant_cell_state = self.maybe_quantize_state(
@@ -653,16 +653,16 @@ class _QuantLSTMLayer(QuantRecurrentLayerMixin, nn.Module):
             cell = self.cell
         quant_outputs, quant_hidden_state, quant_cell_state = cell(
             quant_input_value,
-            _maybe_get_value(quant_hidden_state),
-            _maybe_get_value(quant_cell_state),
-            quant_weight_ii=_maybe_get_value(quant_weight_ii),
-            quant_weight_if=_maybe_get_value(quant_weight_if),
-            quant_weight_ic=_maybe_get_value(quant_weight_ic),
-            quant_weight_io=_maybe_get_value(quant_weight_io),
-            quant_weight_hi=_maybe_get_value(quant_weight_hi),
-            quant_weight_hf=_maybe_get_value(quant_weight_hf),
-            quant_weight_hc=_maybe_get_value(quant_weight_hc),
-            quant_weight_ho=_maybe_get_value(quant_weight_ho),
+            _get_dequantize_tensor(quant_hidden_state),
+            _get_dequantize_tensor(quant_cell_state),
+            quant_weight_ii=_get_dequantize_tensor(quant_weight_ii),
+            quant_weight_if=_get_dequantize_tensor(quant_weight_if),
+            quant_weight_ic=_get_dequantize_tensor(quant_weight_ic),
+            quant_weight_io=_get_dequantize_tensor(quant_weight_io),
+            quant_weight_hi=_get_dequantize_tensor(quant_weight_hi),
+            quant_weight_hf=_get_dequantize_tensor(quant_weight_hf),
+            quant_weight_hc=_get_dequantize_tensor(quant_weight_hc),
+            quant_weight_ho=_get_dequantize_tensor(quant_weight_ho),
             quant_bias_input=quant_bias_input,
             quant_bias_forget=quant_bias_forget,
             quant_bias_cell=quant_bias_cell,
@@ -740,7 +740,7 @@ class QuantRecurrentStackBase(nn.Module):
             layer_input_size = input_size if layer == 0 else hidden_size * self.num_directions
             quantize_output_only = bool(layer)
             # return_quant_tensor is required for bias quantization of internal layers
-            layer_return_quant_tensor = return_quant_tensor or layer < num_layers - 1
+            layer_return_quant_tensor = return_quant_tensor
             directions = []
             left_to_right = layer_impl(
                 input_size=layer_input_size,
