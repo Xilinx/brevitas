@@ -2,6 +2,7 @@ from collections import OrderedDict as od
 
 from utils import Action
 from utils import combine_od_list
+from utils import generate_exclusion_list
 
 BASE_YML_TEMPLATE = 'base.yml.template'
 BASE_YML_REDUCED_TEMPLATE = 'base_reduced.yml.template'
@@ -41,21 +42,15 @@ STRATEGY = od([('fail-fast', 'false')])
 
 EXCLUDE_LIST = []
 
-JIT_EXCLUDE_LIST = [
-    od([('pytorch_version', ['1.5.1', ]),
-         ('jit_status', ['jit_enabled',])]),
-    od([('pytorch_version', ['1.6.0', ]),
-         ('jit_status', ['jit_enabled',])]),
-    od([('pytorch_version', ['1.7.1']),
-        ('jit_status', ['jit_enabled',])]),
-    od([('pytorch_version', ['1.8.1']),
-        ('jit_status', ['jit_enabled',])]),
-    od( [('pytorch_version', ['1.9.1']),
-        ('jit_status', ['jit_enabled',])]),
-    ]
 
-NOTEBOOK_EXCLUDE_LIST = [od([('pytorch_version', ['1.5.1', '1.6.0', '1.7.1'])]),
-                         od([('platform', ['macos-latest',])])]
+JIT_EXCLUDE_LIST = generate_exclusion_list([[
+    ['pytorch_version',['1.5.1', '1.6.0', '1.7.1', '1.8.1', '1.9.1']],
+    ['jit_status', ['jit_enabled', ]]
+        ]])
+
+NOTEBOOK_EXCLUDE_LIST = generate_exclusion_list( [
+    [['pytorch_version',['1.5.1', '1.6.0', '1.7.1']]],
+    [['platform', ['macos-latest',]]]])
 
 END_TO_END_EXCLUDE_LIST = [od([('platform', ['windows-latest',])])]
 
