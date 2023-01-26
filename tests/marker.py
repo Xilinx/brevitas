@@ -30,9 +30,16 @@ def requires_pt_lt(pt_version: str, system: str = None):
 
     return skip_wrapper
 
-def requires_jit_disabled():
+def jit_disabled_for_export():
     skip = config.JIT_ENABLED
     def skip_wrapper(f):
-        return pytest.mark.skipif(skip, reason=f'Requires JIT to be disabled')(f)
+        return pytest.mark.skipif(skip, reason=f'Export requires JIT to be disabled')(f)
+
+    return skip_wrapper
+
+def jit_disabled_for_mock():
+    skip = config.JIT_ENABLED
+    def skip_wrapper(f):
+        return pytest.mark.skipif(skip, reason=f'Mock requires JIT to be disabled')(f)
 
     return skip_wrapper

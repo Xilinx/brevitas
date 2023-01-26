@@ -40,6 +40,7 @@ FINN_PLATFORM_LIST = ['windows-latest', 'ubuntu-latest']
 STRATEGY = od([('fail-fast', 'false')])
 
 EXCLUDE_LIST = []
+
 JIT_EXCLUDE_LIST = [
     od([('pytorch_version', ['1.5.1', ]),
          ('jit_status', ['jit_enabled',])]),
@@ -52,6 +53,7 @@ JIT_EXCLUDE_LIST = [
     od( [('pytorch_version', ['1.9.1']),
         ('jit_status', ['jit_enabled',])]),
     ]
+
 NOTEBOOK_EXCLUDE_LIST = [od([('pytorch_version', ['1.5.1', '1.6.0', '1.7.1'])]),
                          od([('platform', ['macos-latest',])])]
 
