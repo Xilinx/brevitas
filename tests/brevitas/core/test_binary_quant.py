@@ -12,6 +12,7 @@ from tests.brevitas.core.binary_quant_fixture import *  # noqa
 from tests.brevitas.core.shared_quant_fixture import *  # noqa
 from tests.brevitas.hyp_helper import float_tensor_random_shape_st
 from tests.brevitas.hyp_helper import scalar_float_p_tensor_st
+from tests.marker import requires_jit_disabled
 
 
 def is_binary_output_value_correct(scale: Tensor, output: Tensor):
@@ -26,6 +27,7 @@ def is_binary_output_sign_correct(inp: Tensor, output: Tensor):
 class TestBinaryUnit:
 
     @given(inp=float_tensor_random_shape_st(), scale_init=scalar_float_p_tensor_st())
+    @requires_jit_disabled() # Mock conflicts with JIT
     def test_binary_quant(self, binary_quant_impl_all, inp, scale_init):
         scaling_impl = mock.Mock(return_value=scale_init)
         binary_quant = binary_quant_impl_all(scaling_impl)
