@@ -23,6 +23,22 @@ jobs:
         jit_status: ['jit_disabled', 'jit_enabled']
 
 
+        exclude:
+          - pytorch_version: '1.5.1'
+            jit_status: 'jit_enabled'
+
+          - pytorch_version: '1.6.0'
+            jit_status: 'jit_enabled'
+
+          - pytorch_version: '1.7.1'
+            jit_status: 'jit_enabled'
+
+          - pytorch_version: '1.8.1'
+            jit_status: 'jit_enabled'
+
+          - pytorch_version: '1.9.1'
+            jit_status: 'jit_enabled'
+
 
 
     if: ${{ !github.event.pull_request.draft }}
