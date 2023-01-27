@@ -324,10 +324,8 @@ class QuantWeightBiasInputOutputLayer(
         quant_weight = self.quant_weight()
         quant_weight_value = _get_dequantize_tensor(quant_weight)
 
-        if isinstance(quant_input, Tensor) and self.return_quant_tensor and not self.is_output_quant_enabled:
-            raise RuntimeError("Not enough information to return QuantTensor")
 
-        if isinstance(quant_input, QuantTensor):
+        if isinstance(quant_input, QuantTensor) and isinstance(quant_weight, QuantTensor):
             output_bit_width = self.max_acc_bit_width(quant_input.bit_width, quant_weight.bit_width)
             output_scale_shape = compute_channel_view_shape(inp, channel_dim=1)
             output_scale = quant_weight.scale.view(output_scale_shape)
@@ -361,6 +359,9 @@ class QuantWeightBiasInputOutputLayer(
                 output_bit_width = output_bit_width + 1
         else:
             output_tensor = self.inner_forward_impl(value, quant_weight_value, None)
+
+        if isinstance(quant_input, Tensor) and self.return_quant_tensor and not self.is_output_quant_enabled:
+            raise RuntimeError("Not enough information to return QuantTensor")
 
         if self.return_quant_tensor and not self.is_output_quant_enabled:
             if (quant_input.zero_point is not None
