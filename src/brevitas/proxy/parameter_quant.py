@@ -4,7 +4,7 @@
 
 from abc import ABCMeta
 from abc import abstractmethod
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
 import torch
 from torch import Tensor
@@ -82,7 +82,7 @@ class WeightQuantProxyFromInjector(ParameterQuantProxyFromInjector, WeightQuantP
         bit_width_ = self.__call__(self.tracked_parameter_list[0]).bit_width
         return bit_width_
 
-    def forward(self, x: torch.Tensor) -> QuantTensor:
+    def forward(self, x: torch.Tensor) -> Union[QuantTensor, torch.Tensor]:
         if self.is_quant_enabled:
             impl = self.export_handler if self.export_mode else self.tensor_quant
             out, scale, zero_point, bit_width = impl(x)
