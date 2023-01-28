@@ -416,9 +416,6 @@ def _extract_regions(graph_model: GraphModule):
                 if sinks:
                     # each region should appear only once, so we convert to sorted tuples
                     srcs = [(x, pos) for x, pos in srcs.items()]
-                    # srcs_ordered = [0] * len(srcs.items())
-                    # for v, k in srcs.items():
-                    #     srcs_ordered[k] = v
                     regions.add((tuple(sorted(srcs)), tuple(sorted(sinks.keys()))))
     # for clarity, sort by the of the first source
     regions = sorted(regions, key=lambda region: region[0][0])

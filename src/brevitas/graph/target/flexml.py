@@ -378,7 +378,7 @@ def flexml_avgpool_handler(model, *model_args, avgpool_to_depthwise_conv=False, 
     return model
 
 
-def preprocess_flexml(model, *model_args, equalization_iters = 0, equalize_threshold = None, **model_kwargs):
+def preprocess_flexml(model, *model_args, equalization_iters = 30, equalize_threshold = 0.05, **model_kwargs):
     training_state = model.training
     model.eval()
     model = value_trace(model, model_kwargs)  # TODO model args should contribute to value tracing
