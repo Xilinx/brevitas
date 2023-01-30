@@ -51,7 +51,8 @@ def torchvision_model(model_name):
         model = model_fn(pretrained=False)
 
     model.eval()
-    model = preprocess_flexml(model, inp)
+    # Not all models support graph equalization
+    model = preprocess_flexml(model, inp, equalization_iters = 0)
     model = quantize_flexml(model)
     return model
 
