@@ -319,9 +319,9 @@ class QuantWeightBiasInputOutputLayer(
         quant_input = self.input_quant(inp)
         quant_weight = self.quant_weight()
 
-        if quant_input.bit_width is not None:
+        if quant_input.bit_width is not None and quant_weight.bit_width is not None:
             output_bit_width = self.max_acc_bit_width(quant_input.bit_width, quant_weight.bit_width)
-        if quant_input.scale is not None:
+        if quant_input.scale is not None and quant_weight.scale is not None:
             output_scale_shape = compute_channel_view_shape(inp, channel_dim=1)
             output_scale = quant_weight.scale.view(output_scale_shape)
             output_scale = output_scale * quant_input.scale.view(output_scale_shape)
@@ -350,7 +350,7 @@ class QuantWeightBiasInputOutputLayer(
             output_tensor = self.inner_forward_impl(quant_input.value, quant_weight.value, None)
 
         if self.return_quant_tensor and not self.is_output_quant_enabled:
-            if (quant_input.zero_point is not None
+            if (quant_input.zero_point is not None and quant_weight.zero_point is not None
                     and ((quant_input.zero_point != 0.0).any()
                          or (quant_weight.zero_point != 0.0).any())):
                 raise RuntimeError("Computing zero point of output accumulator not supported yet.")

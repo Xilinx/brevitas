@@ -249,7 +249,7 @@ class QuantRecurrentLayerMixin(ExportMixin):
         quant_weight_hh = gate.hidden_weight()
         if quant_input.bit_width is not None:
             acc_bit_width = None  # TODO
-        if quant_input.scale is not None:
+        if quant_input.scale is not None and quant_weight_ih.scale is not None:
             acc_scale_shape = compute_channel_view_shape(quant_input.value, channel_dim=1)
             acc_scale = quant_weight_ih.scale.view(acc_scale_shape)
             acc_scale = acc_scale * quant_input.scale.view(acc_scale_shape)
