@@ -26,6 +26,24 @@ def bnconv_model():
             return x
     return BNConvModel
 
+
+@pytest_cases.fixture
+def convbn_model():
+    class ConvBNModel(nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.conv = nn.Conv2d(3, 128, kernel_size=3)
+            self.bn = nn.BatchNorm2d(128)
+            # Simulate statistics gathering
+            self.bn.running_mean.data = torch.randn_like(self.bn.running_mean.data)
+            self.bn.running_var.data = torch.randn_like(self.bn.running_var.data)
+
+        def forward(self, x):
+            x = self.conv(x)
+            x = self.bn(x)
+            return x
+    return ConvBNModel
+
 @pytest_cases.fixture
 def convdepthconv_model():
     class ConvDepthConvModel(nn.Module):
@@ -91,4 +109,4 @@ def cat_model():
 
 
 all_models = fixture_union('all_models', ['bnconv_model', 'convdepthconv_model', 'residual_model',
-                                          'cat_model', 'srcsinkconflict_model'])
+                                          'cat_model', 'srcsinkconflict_model', 'convbn_model'])
