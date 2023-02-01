@@ -36,7 +36,7 @@ def convbn_model():
             self.bn = nn.BatchNorm2d(128)
             # Simulate statistics gathering
             self.bn.running_mean.data = torch.randn_like(self.bn.running_mean.data)
-            self.bn.running_var.data = torch.randn_like(self.bn.running_var.data)
+            self.bn.running_var.data = torch.abs(torch.randn_like(self.bn.running_var.data))
 
         def forward(self, x):
             x = self.conv(x)
