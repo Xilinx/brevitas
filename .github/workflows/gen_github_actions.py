@@ -42,11 +42,9 @@ STRATEGY = od([('fail-fast', 'false')])
 
 EXCLUDE_LIST = []
 
-
 JIT_EXCLUDE_LIST = generate_exclusion_list([[
     ['pytorch_version',['1.5.1', '1.6.0', '1.7.1', '1.8.1', '1.9.1']],
-    ['jit_status', ['jit_enabled', ]]
-        ]])
+    ['jit_status', ['jit_enabled', ]]]])
 
 NOTEBOOK_EXCLUDE_LIST = generate_exclusion_list( [
     [['pytorch_version',['1.5.1', '1.6.0', '1.7.1']]],
