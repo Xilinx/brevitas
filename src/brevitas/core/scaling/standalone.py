@@ -285,15 +285,16 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
                               missing_keys, unexpected_keys, error_msgs):
-        super(ParameterFromRuntimeStatsScaling, self)._load_from_state_dict(
-            state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
-        value_key = prefix + 'value'
-        # Buffer is supposed to be always missing
-        missing_keys.remove(prefix + 'buffer')
         # Retrocompatibility with older ParameterScaling, for when scaling impl is switched over
+        value_key = prefix + 'value'
         retrocomp_value_key = prefix + 'learned_value'
         if retrocomp_value_key in state_dict:
             state_dict[value_key] = state_dict.pop(retrocomp_value_key)
+
+        super(ParameterFromRuntimeStatsScaling, self)._load_from_state_dict(
+            state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
+        # Buffer is supposed to be always missing
+        missing_keys.remove(prefix + 'buffer')
         # Pytorch stores training flag as a buffer with JIT enabled
         training_key = prefix + 'training'
         if training_key in missing_keys:
