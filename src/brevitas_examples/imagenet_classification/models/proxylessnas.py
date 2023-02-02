@@ -70,6 +70,7 @@ class ConvBlock(nn.Module):
                 bit_width=act_bit_width,
                 scaling_per_output_channel=act_scaling_per_channel,
                 per_channel_broadcastable_shape=(1, out_channels, 1, 1),
+                scaling_stats_permute_dims=(1, 0, 2, 3),
                 return_quant_tensor=return_quant_tensor)
         else:
             self.activ = shared_act
