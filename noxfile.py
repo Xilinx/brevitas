@@ -109,7 +109,7 @@ def tests_brevitas_finn_integration(session, pytorch):
     install_torchvision(pytorch, session)
     session.install('--upgrade', '-e', '.[test, stt, finn_integration]')
     env = {'FINN_INST_NAME': 'finn'}
-    session.run('pytest', '-n', 'auto', '-v', 'tests/brevitas_finn', env=env)
+    session.run('pytest', '-v', 'tests/brevitas_finn', env=env)
 
 
 @nox.session(python=PYTHON_VERSIONS)
@@ -137,4 +137,4 @@ def tests_brevitas_end_to_end(session, pytorch):
     install_pytorch(pytorch, session)
     install_torchvision(pytorch, session)
     session.install('--upgrade', '-e', '.[test, ort_integration]')
-    session.run('pytest', '-n', 'auto', '-v', 'tests/brevitas_end_to_end')
+    session.run('pytest', '-v', 'tests/brevitas_end_to_end')
