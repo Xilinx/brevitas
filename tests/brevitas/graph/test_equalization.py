@@ -22,11 +22,10 @@ from brevitas.graph import CollapseConsecutiveConcats
 from brevitas.graph import DuplicateSharedStatelessModule
 from brevitas.graph import EqualizeGraph
 from brevitas.graph import MeanMethodToAdaptiveAvgPool2d
-from brevitas.graph import MergeBatchNorm
-from brevitas.graph import ModuleToModuleByClass
 from brevitas.graph import MoveSplitBatchNormBeforeCat
 from brevitas.graph import TorchFunctionalToModule
 from brevitas.graph.equalize import _is_supported_module
+from brevitas.graph.target.flexml import preprocess_flexml
 
 from .equalization_fixtures import *
 
@@ -36,7 +35,7 @@ ATOL = 1e-3
 
 
 @pytest.mark.parametrize("model_name", MODELS)
-def test_rewriter_merge_bn(model_name: str):
+def test_equalization_torchvision_models(model_name: str):
     try:
         model = getattr(models, model_name)(pretrained=True, transform_input=False)
     except:
@@ -46,7 +45,6 @@ def test_rewriter_merge_bn(model_name: str):
     inp = torch.randn(IN_SIZE)
     model.eval()
     expected_out = model(inp)
-
     model = value_trace(model)
     model = TorchFunctionalToModule().apply(model)
     model = DuplicateSharedStatelessModule().apply(model)
@@ -54,8 +52,7 @@ def test_rewriter_merge_bn(model_name: str):
     model = AdaptiveAvgPoolToAvgPool().apply(model, inp)
     model = CollapseConsecutiveConcats().apply(model)
     model = MoveSplitBatchNormBeforeCat().apply(model)
-    model = MergeBatchNorm().apply(model)
-    model, regions = EqualizeGraph(1).apply(model)
+    model, regions = EqualizeGraph(3).apply(model)
 
 
     out = model(inp)

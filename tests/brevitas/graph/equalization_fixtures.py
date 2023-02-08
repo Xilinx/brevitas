@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 
 MODELS = [
+    'efficientnet_b0',
     'shufflenet_v2_x0_5',
     'densenet121',
     'mobilenet_v2',
@@ -19,6 +20,8 @@ def bnconv_model():
         def __init__(self) -> None:
             super().__init__()
             self.bn = nn.BatchNorm2d(3)
+            self.bn.running_mean.data = torch.randn_like(self.bn.running_mean.data)
+            self.bn.running_var.data = torch.abs(torch.randn_like(self.bn.running_var.data))
             self.conv = nn.Conv2d(3, 16, kernel_size=3)
         def forward(self, x):
             x = self.bn(x)
