@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
+from inspect import getfullargspec
 import operator
 from statistics import mode
 from tokenize import group
@@ -25,7 +26,7 @@ from brevitas.graph import MeanMethodToAdaptiveAvgPool2d
 from brevitas.graph import MoveSplitBatchNormBeforeCat
 from brevitas.graph import TorchFunctionalToModule
 from brevitas.graph.equalize import _is_supported_module
-from brevitas.graph.target.flexml import preprocess_flexml
+from brevitas.graph.standardize import RemoveStochasticModules
 
 from .equalization_fixtures import *
 
@@ -45,7 +46,10 @@ def test_equalization_torchvision_models(model_name: str):
     inp = torch.randn(IN_SIZE)
     model.eval()
     expected_out = model(inp)
-    model = value_trace(model)
+
+    input_name = getfullargspec(model.forward)[0][0]
+    model = value_trace(model, {input_name: inp})
+    model = RemoveStochasticModules().apply(model)
     model = TorchFunctionalToModule().apply(model)
     model = DuplicateSharedStatelessModule().apply(model)
     model = MeanMethodToAdaptiveAvgPool2d().apply(model)
@@ -70,9 +74,6 @@ def test_equalization_torchvision_models(model_name: str):
     print(f"Source coverage {len(srcs)/count}")
     print(f"Sink coverage {len(sinks)/count}")
     assert torch.allclose(expected_out, out, atol=ATOL)
-
-
-
 
 
 def test_models(all_models):

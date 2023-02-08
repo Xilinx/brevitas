@@ -124,3 +124,19 @@ class DisableLastReturnQuantTensor(GraphTransform):
                     if len(node.users) == 1 and list(node.users)[0].op == 'output':
                         module.return_quant_tensor = False
         return graph_model
+
+class RemoveStochasticModules(GraphTransform):
+    def apply(self, graph_model: GraphModule) -> GraphModule:
+        for node in graph_model.graph.nodes:
+            if 'stochastic_depth' in node.name:
+                previous_nodes = node.all_input_nodes
+                next_node = list(node.users.keys())[0]
+                next_node_args = list(next_node.args)
+                index_for_insertion = next_node_args.index(node)
+                next_node_args = [t for t in next_node_args if t is not node]
+                next_node_args[index_for_insertion:index_for_insertion] = previous_nodes
+                next_node.args = tuple(next_node_args)
+                graph_model.graph.erase_node(node)
+                graph_model.graph.lint()
+                graph_model.recompile()
+        return graph_model
