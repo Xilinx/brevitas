@@ -187,10 +187,6 @@ def _cross_layer_equalization(srcs: List, sinks: List, merge_bias: bool, bias_sh
     src_sink = _get_size(src_axes)
     sink_size = _get_size(sink_axes, check_same=True)
 
-    # Do not equalize if there is a BN as sink
-    for module, axis in sink_axes.items():
-        if isinstance(module, (torch.nn.BatchNorm1d, torch.nn.BatchNorm2d, torch.nn.BatchNorm3d)):
-            return torch.ones(1)
 
     if torch.sum(src_sink) == sink_size[0] and len(src_sink)>1:
         is_concat = True
@@ -232,7 +228,10 @@ def _cross_layer_equalization(srcs: List, sinks: List, merge_bias: bool, bias_sh
     for module, axis in sink_axes.items():
         src_broadcast_size = [1] * module.weight.ndim
         src_broadcast_size[axis] = module.weight.size(axis)
+
         module.weight.data = module.weight.data * torch.reshape(scaling_factors, src_broadcast_size)
+        if isinstance(module, (torch.nn.BatchNorm1d, torch.nn.BatchNorm2d, torch.nn.BatchNorm3d)):
+            module.running_mean.data = module.running_mean.data * torch.reshape(inverse_scaling_factors, src_broadcast_size)
     return scaling_factors
 
 
