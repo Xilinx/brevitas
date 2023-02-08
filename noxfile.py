@@ -66,10 +66,19 @@ def tests_brevitas_cpu(session, pytorch, jit_status):
     install_pytorch(pytorch, session)
     install_torchvision(pytorch, session)
     session.install( '--upgrade', '.[test, export]')
-    # run non graph tests
-    session.run('pytest', 'tests/brevitas', '-n', 'auto', '-v', '--ignore', 'tests/brevitas/graph')
-    # run graph tests separately
-    session.run('pytest', 'tests/brevitas/graph','-n', 'auto', '-v')
+    if jit_status == 'jit_enabled':
+        session.run('pytest', '-k', 'not _full', 'tests/brevitas/nn/test_nn_quantizers.py', '-v')
+        session.run('pytest', 'tests/brevitas', '-n', 'auto', '-v', '--ignore', 'tests/brevitas/graph',
+                    '--ignore', 'tests/brevitas/nn/test_nn_quantizers.py')
+        session.run('pytest', 'tests/brevitas/graph','-n', 'auto', '-v')
+    else:
+        session.run('pytest', '-n', 'auto', '-k', '_full or wbiol', 'tests/brevitas/nn/test_nn_quantizers.py', '-v')
+        # run non graph tests
+        session.run('pytest', 'tests/brevitas', '-n', 'auto', '-v', '--ignore', 'tests/brevitas/graph',
+                    '--ignore', 'tests/brevitas/nn/test_nn_quantizers.py')
+        # run graph tests separately
+        session.run('pytest', 'tests/brevitas/graph','-n', 'auto', '-v')
+
 
 
 @nox.session(python=PYTHON_VERSIONS)
