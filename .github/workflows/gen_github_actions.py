@@ -27,6 +27,8 @@ MATRIX_REDUCED = od([('python_version', list(PYTHON_VERSIONS_REDUCED)), ('pytorc
 FINN_MATRIX_REDUCED = od([('python_version', list(PYTHON_VERSIONS_REDUCED)),
                   ('pytorch_version', list(PYTORCH_LIST_REDUCED)), ('platform', PLATFORM_LIST_REDUCED)])
 
+PYTEST_MATRIX_EXTRA_REDUCED =  od([('jit_status', ['jit_disabled',])])
+
 # Data shared betwen Nox sessions and Github Actions, formatted as tuples
 PYTHON_VERSIONS = ('3.7', '3.8')
 
@@ -139,7 +141,7 @@ def gen_pytest_yml():
         PYTEST_STEP_LIST,
         STRATEGY)
     pytest.gen_yaml(BASE_YML_TEMPLATE, PYTEST_YML)
-    pytest = Action('Pytest', EXCLUDE_LIST + JIT_EXCLUDE_LIST, combine_od_list([MATRIX_REDUCED, PYTEST_MATRIX_EXTRA]),
+    pytest = Action('Pytest', EXCLUDE_LIST, combine_od_list([MATRIX_REDUCED, PYTEST_MATRIX_EXTRA_REDUCED]),
                     PYTEST_STEP_LIST, STRATEGY)
     pytest.gen_yaml(BASE_YML_REDUCED_TEMPLATE, 'reduced_' + PYTEST_YML)
 
@@ -151,7 +153,7 @@ def gen_examples_pytest_yml():
         EXAMPLES_PYTEST_STEP_LIST,
         STRATEGY)
     pytest.gen_yaml(BASE_YML_TEMPLATE, EXAMPLES_PYTEST_YML)
-    pytest = Action('Examples Pytest', EXCLUDE_LIST + JIT_EXCLUDE_LIST, combine_od_list([MATRIX_REDUCED, PYTEST_MATRIX_EXTRA]),
+    pytest = Action('Examples Pytest', EXCLUDE_LIST, combine_od_list([MATRIX_REDUCED, PYTEST_MATRIX_EXTRA_REDUCED]),
                     EXAMPLES_PYTEST_STEP_LIST, STRATEGY)
     pytest.gen_yaml(BASE_YML_REDUCED_TEMPLATE, 'reduced_' + EXAMPLES_PYTEST_YML)
 
