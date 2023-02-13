@@ -320,6 +320,37 @@ class QuantTensor(QuantTensorBase):
                 signed=True,
                 training=self.training)
 
+
+    def to(self, *args, **kwargs):
+        return QuantTensor(
+            self.value.to(*args, **kwargs),
+            self.scale.to(*args, **kwargs) if self.scale is not None else None,
+            self.zero_point.to(*args, **kwargs) if self.zero_point is not None else None,
+            self.bit_width.to(*args, **kwargs) if self.bit_width is not None else None,
+            self.signed,
+            self.training)
+
+
+    def cuda(self, *args, **kwargs):
+        return QuantTensor(
+            self.value.cuda(*args, **kwargs),
+            self.scale.cuda(*args, **kwargs) if self.scale is not None else None,
+            self.zero_point.cuda(*args, **kwargs) if self.zero_point is not None else None,
+            self.bit_width.cuda(*args, **kwargs) if self.bit_width is not None else None,
+            self.signed,
+            self.training)
+
+
+    def cpu(self, *args, **kwargs):
+        return QuantTensor(
+            self.value.cpu(*args, **kwargs),
+            self.scale.cpu(*args, **kwargs) if self.scale is not None else None,
+            self.zero_point.cpu(*args, **kwargs) if self.zero_point is not None else None,
+            self.bit_width.cpu(*args, **kwargs) if self.bit_width is not None else None,
+            self.signed,
+            self.training)
+
+
     def __add__(self, other):
         if isinstance(other, QuantTensor) and self.is_not_none and other.is_not_none:
             self.check_scaling_factors_same(other)
