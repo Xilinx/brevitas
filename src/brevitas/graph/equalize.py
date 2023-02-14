@@ -418,6 +418,8 @@ def _extract_regions(graph_model: GraphModule):
     next node.
     """
     regions = set()
+    # Index-independent set to keep track of regions already added
+    regions_no_index = set()
     for node in graph_model.graph.nodes:
         if node.op == 'call_module':
             module = get_module(graph_model, node.target)
@@ -427,8 +429,14 @@ def _extract_regions(graph_model: GraphModule):
                 walk_region(graph_model, node, set(), srcs, sinks, walk_forward=True)
                 if sinks:
                     # each region should appear only once, so we convert to sorted tuples
-                    srcs = [(x, pos) for x, pos in srcs.items()]
-                    regions.add((tuple(sorted(srcs)), tuple(sorted(sinks.keys()))))
+                    srcs_names = [x for x, _ in srcs.items()]
+                    srcs_sinks_no_index = (tuple(sorted(srcs_names)), tuple(sorted(sinks.keys())))
+                    if srcs_sinks_no_index not in regions_no_index:
+                        regions_no_index.add(srcs_sinks_no_index)
+                        srcs = [(x, pos) for x, pos in srcs.items()]
+                        srcs_sinks_index = (tuple(sorted(srcs)), tuple(sorted(sinks.keys())))
+                        regions.add(srcs_sinks_index)
+
     # for clarity, sort by the of the first source
     regions = sorted(regions, key=lambda region: region[0][0])
     return regions
