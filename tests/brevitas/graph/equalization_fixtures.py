@@ -82,9 +82,6 @@ def srcsinkconflict_model():
 
 @pytest_cases.fixture
 def mul_model():
-    """
-    In this example, conv_0 is both a src and sink.
-    """
     class ResidualSrcsAndSinkModel(nn.Module):
         def __init__(self) -> None:
             super().__init__()
