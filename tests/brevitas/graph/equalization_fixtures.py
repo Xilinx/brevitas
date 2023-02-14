@@ -5,6 +5,47 @@ import torch.nn as nn
 
 
 @pytest_cases.fixture
+def bnconv_model():
+    class BNConvModel(nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.bn = nn.BatchNorm2d(3)
+            # Simulate statistics gathering
+            self.bn.running_mean.data = torch.randn_like(self.bn.running_mean)
+            self.bn.running_var.data = torch.abs(torch.randn_like(self.bn.running_var))
+            # Simulate learned parameters
+            self.bn.weight.data = torch.randn_like(self.bn.weight)
+            self.bn.bias.data = torch.randn_like(self.bn.bias)
+            self.conv = nn.Conv2d(3, 16, kernel_size=3)
+        def forward(self, x):
+            x = self.bn(x)
+            x = self.conv(x)
+            return x
+    return BNConvModel
+
+
+@pytest_cases.fixture
+def convbn_model():
+    class ConvBNModel(nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.conv = nn.Conv2d(3, 128, kernel_size=3)
+            self.bn = nn.BatchNorm2d(128)
+            # Simulate statistics gathering
+            self.bn.running_mean.data = torch.randn_like(self.bn.running_mean)
+            self.bn.running_var.data = torch.abs(torch.randn_like(self.bn.running_var))
+            # Simulate learned parameters
+            self.bn.weight.data = torch.randn_like(self.bn.weight)
+            self.bn.bias.data = torch.randn_like(self.bn.bias)
+
+        def forward(self, x):
+            x = self.conv(x)
+            x = self.bn(x)
+            return x
+    return ConvBNModel
+
+
+@pytest_cases.fixture
 def residual_model():
     class ResidualModel(nn.Module):
         def __init__(self) -> None:
@@ -58,4 +99,5 @@ def mul_model():
             return x
     return ResidualSrcsAndSinkModel
 
-toy_model = fixture_union('toy_model', [ 'residual_model', 'srcsinkconflict_model', 'mul_model'])
+toy_model = fixture_union('toy_model', [ 'residual_model', 'srcsinkconflict_model', 'mul_model',
+                                        'convbn_model', 'bnconv_model'])
