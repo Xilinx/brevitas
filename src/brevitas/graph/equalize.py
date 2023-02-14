@@ -2,9 +2,10 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
+from copy import deepcopy
 from functools import partial
 import operator
-from typing import Dict, List, Set, Tuple, Union
+from typing import Dict, List, Optional, Set, Tuple, Union
 
 import torch
 import torch.nn as nn
@@ -127,7 +128,48 @@ def _get_output_axis(module: nn.Module) -> int:
     else:
         return None
 
-def _cross_layer_equalization(srcs: List[nn.Module], sinks: List[nn.Module]):
+def _combine_weights_bias(weight: nn.parameter.Parameter, bias_shrinkage: Union[float, str], bias: Optional[nn.parameter.Parameter]):
+    """Combine weights and bias before graph equalizattion
+    This method merges the weight and bias of the sources, so that the resulting equalizer scale factor
+    is influenced also by the magnitude of the bias, mitigated by a shrink factor.
+    This technique avoids that, after the equalization procedure, the bias values become too big,
+    negatively impacting the quantization accuracy.
+    The bias shrinkage factor regulates how much the bias magnitude will affect the subsequence
+    calculation of the scale.
+    """
+    if bias is None:
+        return weight.data
+
+    bias = bias.data
+    weight = deepcopy(weight).view(weight.shape[0], -1)
+    bias = deepcopy(bias).view(-1, 1)
+
+    weight = torch.where(torch.abs(weight) < EPSILON, torch.tensor(EPSILON).type_as(weight), weight)
+    factor = torch.abs(bias) / torch.abs(weight)
+
+    # From https://github.com/Xilinx/Vitis-AI/blob/master/src/vai_quantizer/vai_q_pytorch/nndct_shared/optimization/commander.py#L450
+    if bias_shrinkage == 'vaiq':
+        if torch.abs(bias).max() < 10 and (torch.abs(bias).max() / torch.abs(weight).max()) < 20:
+            if torch.median(factor) > 100 or torch.mean(factor) > 1000:
+                shrink_factor = 5.
+            else:
+                shrink_factor = 2.
+        else:
+            if  torch.median(factor) > 30 or torch.mean(factor) > 500:
+                shrink_factor = 20.
+            elif torch.median(factor) > 15 or torch.mean(factor) > 250:
+                shrink_factor = 10.
+            else:
+                shrink_factor = 5.
+    elif isinstance(bias_shrinkage, (int,float)):
+        shrink_factor = bias_shrinkage
+    else:
+        raise RuntimeError(f"{bias_shrinkage} not supported.")
+    weight_bias = torch.cat([weight, bias / shrink_factor], 1)
+    return weight_bias
+
+
+def _cross_layer_equalization(srcs: List[nn.Module], sinks: List[nn.Module], merge_bias: bool, bias_shrinkage: Union[float, str]):
     """
     Given two adjacent tensors', the weights are scaled such that
     the ranges of the first tensors' output channel are equal to the
@@ -156,11 +198,15 @@ def _cross_layer_equalization(srcs: List[nn.Module], sinks: List[nn.Module]):
         return
 
     transpose = lambda module, axis: module.weight if axis == 0 else module.weight.transpose(0, 1)
-    src_weights = [transpose(m, axis) for m, axis in src_axes.items()]
+    if merge_bias:
+        src_weights = [_combine_weights_bias(transpose(m, axis), bias_shrinkage, m.bias) for m, axis in src_axes.items()]
+    else:
+        src_weights = [transpose(m, axis) for m, axis in src_axes.items()]
     sink_weights = [transpose(m, axis) for m, axis in sink_axes.items()]
     srcs_range = _channel_range(torch.cat([w.reshape(w.size(0), -1) for w in src_weights], 1))
     sinks_range = _channel_range(torch.cat([w.reshape(w.size(0), -1) for w in sink_weights], 1))
     sinks_range += EPSILON
+
     scaling_factors = torch.sqrt(srcs_range / sinks_range)
     inverse_scaling_factors = torch.reciprocal(scaling_factors)
 
@@ -179,7 +225,7 @@ def _cross_layer_equalization(srcs: List[nn.Module], sinks: List[nn.Module]):
         module.weight.data = module.weight.data * torch.reshape(scaling_factors, src_broadcast_size)
 
 
-def _equalize(model: GraphModule, regions: Set[Tuple[str]], iterations: int) -> GraphModule:
+def _equalize(model: GraphModule, regions: Set[Tuple[str]], iterations: int, merge_bias: bool, bias_shrinkage: Union[str, float]) -> GraphModule:
     """
     Generalized version of section 4.1 of https://arxiv.org/pdf/1906.04721.pdf
     """
@@ -191,7 +237,7 @@ def _equalize(model: GraphModule, regions: Set[Tuple[str]], iterations: int) -> 
             name_to_module[name] = module
     for i in range(iterations):
         for region in regions:
-            _cross_layer_equalization([name_to_module[n] for n in region[0]], [name_to_module[n] for n in region[1]])
+            _cross_layer_equalization([name_to_module[n] for n in region[0]], [name_to_module[n] for n in region[1]], merge_bias, bias_shrinkage)
     return model
 
 
@@ -263,14 +309,17 @@ def _extract_regions(graph_model: GraphModule) -> Set[Tuple[str]]:
 
 class EqualizeGraph(GraphTransform):
 
-    def __init__(self, iterations: int, return_regions: bool = False) -> None:
+    def __init__(self, iterations: int, return_regions: bool = False,
+                 merge_bias: bool = True, bias_shrinkage: Union[float, str] = 'vaiq') -> None:
         super(EqualizeGraph, self).__init__()
         self.iterations = iterations
         self.return_regions = return_regions
+        self.merge_bias = merge_bias
+        self.bias_shrinkage = bias_shrinkage
 
     def apply(self, graph_model: GraphModule) -> Union[Tuple[GraphModule, Set[Tuple[str]]], GraphModule]:
         regions = _extract_regions(graph_model)
-        graph_model = _equalize(graph_model, regions, self.iterations)
+        graph_model = _equalize(graph_model, regions, self.iterations, self.merge_bias, self.bias_shrinkage)
         if self.return_regions:
             return graph_model, regions
         else:
