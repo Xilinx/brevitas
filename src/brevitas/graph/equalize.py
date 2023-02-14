@@ -36,6 +36,12 @@ _supported_layers = (
     nn.BatchNorm3d,)
 
 _scale_invariant_layers = (
+    torch.mul,
+    torch.multiply,
+    operator.mul,
+    operator.imul,
+    operator.__mul__,
+    operator.__imul__,
     nn.Dropout,
     nn.Dropout2d,
     nn.Dropout3d,
