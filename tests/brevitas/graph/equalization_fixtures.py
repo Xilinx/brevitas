@@ -1,8 +1,19 @@
+# Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+
 import pytest_cases
 from pytest_cases import fixture_union
 import torch
 import torch.nn as nn
 
+MODELS = {
+    'shufflenet_v2_x0_5': [0.8141, 0.8230],
+    'mobilenet_v2': [0.6571, 0.6571],
+    'resnet18': [0.9756, 0.9756],
+    'googlenet': [0.4956, 0.4956],
+    'inception_v3': [0.4973, 0.4973],
+    'alexnet': [0.875, 0.875],
+}
 
 @pytest_cases.fixture
 def bnconv_model():
@@ -22,6 +33,20 @@ def bnconv_model():
             x = self.conv(x)
             return x
     return BNConvModel
+
+
+@pytest_cases.fixture
+def convdepthconv_model():
+    class ConvDepthConvModel(nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.conv = nn.Conv2d(3, 16, kernel_size=3)
+            self.conv_0 = nn.Conv2d(16, 16, kernel_size=1, groups=16)
+        def forward(self, x):
+            x = self.conv(x)
+            x = self.conv_0(x)
+            return x
+    return ConvDepthConvModel
 
 
 @pytest_cases.fixture
@@ -97,4 +122,4 @@ def mul_model():
     return ResidualSrcsAndSinkModel
 
 toy_model = fixture_union('toy_model', [ 'residual_model', 'srcsinkconflict_model', 'mul_model',
-                                        'convbn_model', 'bnconv_model'])
+                                        'convbn_model', 'bnconv_model', 'convdepthconv_model'])
