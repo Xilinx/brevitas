@@ -95,7 +95,7 @@ def _get_size(axes: Dict[nn.Module, int]) -> int:
     size = m0.weight.size(axis0)
     for m, axis in axes.items():
         if m.weight.size(axis) != size:
-            raise RuntimeError("Weights sizes don't match")
+            return None
     return size
 
 
@@ -109,17 +109,13 @@ def _get_input_axis(module: nn.Module) -> int:
             return 1
         elif module.groups == module.out_channels:
             return 0
-        else:
-            raise RuntimeError("Group convolution not supported")
     elif isinstance(module, (nn.ConvTranspose1d, nn.ConvTranspose2d, nn.ConvTranspose3d)):
         if module.groups == 1:
             return 0
         elif module.groups == module.out_channels:
             return 1
-        else:
-            raise RuntimeError("Group convolution not supported")
     else:
-        raise RuntimeError(f"Module {module} not supported.")
+        return None
 
 
 def _get_output_axis(module: nn.Module) -> int:
@@ -129,8 +125,7 @@ def _get_output_axis(module: nn.Module) -> int:
     elif isinstance(module, (nn.ConvTranspose1d, nn.ConvTranspose2d, nn.ConvTranspose3d)):
         return 1
     else:
-        raise RuntimeError(f"Module {module} not supported.")
-
+        return None
 
 def _cross_layer_equalization(srcs: List[nn.Module], sinks: List[nn.Module]):
     """
@@ -141,15 +136,24 @@ def _cross_layer_equalization(srcs: List[nn.Module], sinks: List[nn.Module]):
     for module_set in [srcs, sinks]:
         for module in module_set:
             if not isinstance(module, _supported_layers):
-                raise ValueError("module type not supported:", type(module))
+                return # If module is not supported, do not perform graph equalization
 
     src_axes = {m: _get_output_axis(m) for m in srcs}
     sink_axes = {m: _get_input_axis(m) for m in sinks}
+
+    # Check if any of the axis is None, which means that the module is not supported.
+    # In that case, do not perform graph equalization
+    if None in [*src_axes.values(), *sink_axes.values()]:
+        return
+
     src_size = _get_size(src_axes)
     sink_size = _get_size(sink_axes)
 
-    if src_size != sink_size:
-        raise RuntimeError("Output channels of sources do not match input channels of sinks")
+    # Check if any of the src_size or sink_size is None, which means that the some of the
+    # sources or sinks do not have the same size as the others.
+    # Similarly, exit if source and sink have different different sizes
+    if None in [src_size, sink_size] or src_size != sink_size:
+        return
 
     transpose = lambda module, axis: module.weight if axis == 0 else module.weight.transpose(0, 1)
     src_weights = [transpose(m, axis) for m, axis in src_axes.items()]
