@@ -3,20 +3,11 @@
 
 
 from inspect import getfullargspec
-import operator
-from statistics import mode
-from tokenize import group
-from turtle import forward
 
-from packaging import version
 import pytest
-import pytest_cases
-from pytest_cases import fixture_union
 import torch
-from torch import nn
 from torchvision import models
 
-from brevitas.fx import symbolic_trace
 from brevitas.fx import value_trace
 from brevitas.graph import AdaptiveAvgPoolToAvgPool
 from brevitas.graph import CollapseConsecutiveConcats
@@ -26,7 +17,6 @@ from brevitas.graph import MeanMethodToAdaptiveAvgPool2d
 from brevitas.graph import MoveSplitBatchNormBeforeCat
 from brevitas.graph import TorchFunctionalToModule
 from brevitas.graph.equalize import _is_supported_module
-from brevitas.graph.standardize import RemoveStochasticModules
 
 from .equalization_fixtures import *
 
@@ -39,7 +29,7 @@ ATOL = 1e-3
 def test_equalization_torchvision_models(model_name: str):
     try:
         model = getattr(models, model_name)(pretrained=True, transform_input=False)
-    except:
+    except TypeError:
         model = getattr(models, model_name)(pretrained=True)
 
     torch.manual_seed(SEED)
@@ -49,14 +39,13 @@ def test_equalization_torchvision_models(model_name: str):
 
     input_name = getfullargspec(model.forward)[0][0]
     model = value_trace(model, {input_name: inp})
-    model = RemoveStochasticModules().apply(model)
     model = TorchFunctionalToModule().apply(model)
     model = DuplicateSharedStatelessModule().apply(model)
     model = MeanMethodToAdaptiveAvgPool2d().apply(model)
     model = AdaptiveAvgPoolToAvgPool().apply(model, inp)
     model = CollapseConsecutiveConcats().apply(model)
     model = MoveSplitBatchNormBeforeCat().apply(model)
-    model, regions = EqualizeGraph(3).apply(model)
+    model, regions = EqualizeGraph(3, return_regions=True).apply(model)
 
 
     out = model(inp)
@@ -83,7 +72,7 @@ def test_models(all_models):
     model.eval()
     expected_out = model(inp)
     model = value_trace(model)
-    model, regions = EqualizeGraph(3).apply(model)
+    model, regions = EqualizeGraph(3, return_regions=True).apply(model)
 
     out = model(inp)
     assert len(regions) > 0

@@ -4,7 +4,6 @@ import torch
 import torch.nn as nn
 
 MODELS = [
-    'efficientnet_b0',
     'shufflenet_v2_x0_5',
     'densenet121',
     'mobilenet_v2',

@@ -6,9 +6,10 @@ from collections import OrderedDict
 from copy import deepcopy
 from functools import partial
 import operator
-from typing import Dict, List, Union
+from typing import Dict, List, Optional, Union
 
 import torch
+import torch.nn as nn
 
 from brevitas.fx import GraphModule
 from brevitas.fx import Node
@@ -23,31 +24,31 @@ __all__ = [
 EPSILON = 1e-9
 
 _supported_layers = (
-    torch.nn.ConvTranspose1d,
-    torch.nn.ConvTranspose2d,
-    torch.nn.ConvTranspose3d,
-    torch.nn.Conv1d,
-    torch.nn.Conv2d,
-    torch.nn.Conv3d,
-    torch.nn.Linear,
-    torch.nn.BatchNorm1d,
-    torch.nn.BatchNorm2d,
-    torch.nn.BatchNorm3d,)
+    nn.ConvTranspose1d,
+    nn.ConvTranspose2d,
+    nn.ConvTranspose3d,
+    nn.Conv1d,
+    nn.Conv2d,
+    nn.Conv3d,
+    nn.Linear,
+    nn.BatchNorm1d,
+    nn.BatchNorm2d,
+    nn.BatchNorm3d,)
 
 _scale_invariant_layers = (
-    torch.nn.Dropout,
-    torch.nn.Dropout2d,
-    torch.nn.Dropout3d,
-    torch.nn.ReLU,
-    torch.nn.MaxPool1d,
-    torch.nn.MaxPool2d,
-    torch.nn.MaxPool3d,
-    torch.nn.AvgPool1d,
-    torch.nn.AvgPool2d,
-    torch.nn.AvgPool3d,
-    torch.nn.AdaptiveAvgPool1d,
-    torch.nn.AdaptiveAvgPool2d,
-    torch.nn.AdaptiveAvgPool3d)
+    nn.Dropout,
+    nn.Dropout2d,
+    nn.Dropout3d,
+    nn.ReLU,
+    nn.MaxPool1d,
+    nn.MaxPool2d,
+    nn.MaxPool3d,
+    nn.AvgPool1d,
+    nn.AvgPool2d,
+    nn.AvgPool3d,
+    nn.AdaptiveAvgPool1d,
+    nn.AdaptiveAvgPool2d,
+    nn.AdaptiveAvgPool3d)
 
 _residual_methods = (
     'add',
@@ -65,13 +66,13 @@ _residual_fns = (
 _cat_fns = (torch.cat,)
 
 _batch_norm = (
-    torch.nn.BatchNorm1d,
-    torch.nn.BatchNorm2d,
-    torch.nn.BatchNorm3d,
+    nn.BatchNorm1d,
+    nn.BatchNorm2d,
+    nn.BatchNorm3d,
 )
 
 
-def _channel_range(module: torch.nn.Module):
+def _channel_range(module: torch.Tensor):
     mins, _ = module.min(dim=1)
     maxs, _ = module.max(dim=1)
     out = maxs - mins
@@ -81,34 +82,34 @@ def _channel_range(module: torch.nn.Module):
     return out
 
 
-def _get_size(axes: Dict[torch.nn.Module, int], check_same: bool =False):
+def _get_size(axes: Dict[nn.Module, int], check_same: bool = False):
     """
     Return the sizes of the nn.Modules in axes. If check_same is set to True, it fails if there
     are different sizes along the module-specific axis.
     """
     m0, axis0 = list(axes.items())[0]
     size = m0.weight.size(axis0)
-    sizes = torch.zeros(len(list(axes.keys())))
+    sizes = []#torch.zeros(len(list(axes.keys())))
     for i, (m, axis) in enumerate(axes.items()):
-        sizes[i] = m.weight.size(axis)
+        sizes.append(m.weight.size(axis))
         if check_same and sizes[i] != size:
             raise RuntimeError("Weights sizes don't match")
-    return sizes
+    return tuple(sizes)
 
 
-def _get_input_axis(module: torch.nn.Module):
-    if isinstance(module, torch.nn.Linear):
+def _get_input_axis(module: nn.Module):
+    if isinstance(module, nn.Linear):
         return 1
-    elif isinstance(module, (torch.nn.BatchNorm1d, torch.nn.BatchNorm2d, torch.nn.BatchNorm3d)):
+    elif isinstance(module, (nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d)):
         return 0
-    elif isinstance(module, (torch.nn.Conv1d, torch.nn.Conv2d, torch.nn.Conv3d)):
+    elif isinstance(module, (nn.Conv1d, nn.Conv2d, nn.Conv3d)):
         if module.groups == 1:
             return 1
         elif module.groups == module.out_channels:
             return 0
         else:
             raise RuntimeError("Group convolution not supported")
-    elif isinstance(module, (torch.nn.ConvTranspose1d, torch.nn.ConvTranspose2d, torch.nn.ConvTranspose3d)):
+    elif isinstance(module, (nn.ConvTranspose1d, nn.ConvTranspose2d, nn.ConvTranspose3d)):
         if module.groups == 1:
             return 0
         elif module.groups == module.out_channels:
@@ -119,16 +120,16 @@ def _get_input_axis(module: torch.nn.Module):
         raise RuntimeError(f"Module {module} not supported.")
 
 
-def _get_output_axis(module: torch.nn.Module):
-    if isinstance(module, (torch.nn.Linear, torch.nn.Conv1d, torch.nn.Conv2d, torch.nn.Conv3d, torch.nn.BatchNorm1d, torch.nn.BatchNorm2d, torch.nn.BatchNorm3d)):
+def _get_output_axis(module: nn.Module):
+    if isinstance(module, (nn.Linear, nn.Conv1d, nn.Conv2d, nn.Conv3d, nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d)):
         return 0
-    elif isinstance(module, (torch.nn.ConvTranspose1d, torch.nn.ConvTranspose2d, torch.nn.ConvTranpose3d)):
+    elif isinstance(module, (nn.ConvTranspose1d, nn.ConvTranspose2d, nn.ConvTranpose3d)):
         return 1
     else:
         raise RuntimeError(f"Module {module} not supported.")
 
 
-def _combine_weights_bias(module: torch.nn.Module, axis: int, bias_shrinkage: Union[int, float, str]):
+def _combine_weights_bias(weight: nn.parameter.Parameter, bias_shrinkage: Union[int, float, str], bias: Optional[nn.parameter.Parameter]):
     """Combine weights and bias before graph equalizattion
 
     This method merges the weight and bias of the sources, so that the resulting equalizer scale factor
@@ -138,20 +139,19 @@ def _combine_weights_bias(module: torch.nn.Module, axis: int, bias_shrinkage: Un
     The bias shrinkage factor regulates how much the bias magnitude will affect the subsequence
     calculation of the scale.
     """
-    if module.bias is None:
-        return module.weight.data
+    if bias is None:
+        return weight.data
 
-    bias = module.bias.data
-    weight = module.weight.data if axis == 0 else module.weight.data.transpose(1,0)
+    bias = bias.data
     weight = deepcopy(weight).view(weight.shape[0], -1)
     bias = deepcopy(bias).view(-1, 1)
 
     weight = torch.where(torch.abs(weight) < EPSILON, torch.tensor(EPSILON).type_as(weight), weight)
-    factor = torch.abs(bias)/torch.abs(weight)
+    factor = torch.abs(bias) / torch.abs(weight)
 
     # From https://github.com/Xilinx/Vitis-AI/blob/master/src/vai_quantizer/vai_q_pytorch/nndct_shared/optimization/commander.py#L450
     if bias_shrinkage == 'vaiq':
-        if torch.abs(bias).max() < 10 and (torch.abs(bias).max()/torch.abs(weight).max() ) < 20:
+        if torch.abs(bias).max() < 10 and (torch.abs(bias).max() / torch.abs(weight).max()) < 20:
             if torch.median(factor) > 100 or torch.mean(factor) > 1000:
                 shrink_factor = 5
             else:
@@ -167,14 +167,15 @@ def _combine_weights_bias(module: torch.nn.Module, axis: int, bias_shrinkage: Un
         shrink_factor = bias_shrinkage
     else:
         raise RuntimeError(f"{bias_shrinkage} not supported.")
-    weight_bias = torch.cat([weight, bias/shrink_factor], 1)
+    weight_bias = torch.cat([weight, bias / shrink_factor], 1)
     return weight_bias
 
-def _cross_layer_equalization(srcs: List, sinks: List, merge_bias: bool, bias_shrinkage: Union[int, float, str]):
+def _cross_layer_equalization(srcs: List, sinks: List, merge_bias: bool, bias_shrinkage: Union[int, float, str]) -> torch.Tensor:
     """
     Given two adjacent tensors', the weights are scaled such that
     the ranges of the first tensors' output channel are equal to the
-    ranges of the second tensors' input channel
+    ranges of the second tensors' input channel.
+    The function returns the per-channel rescaling factor for the given set of sources and sinks.
     """
     for module_set in [srcs, sinks]:
         for module in module_set:
@@ -184,21 +185,21 @@ def _cross_layer_equalization(srcs: List, sinks: List, merge_bias: bool, bias_sh
     # Because of possible concat, we need to preserve the order
     src_axes = OrderedDict([(m, _get_output_axis(m)) for m in srcs])
     sink_axes = OrderedDict([(m, _get_input_axis(m)) for m in sinks])
-    src_sink = _get_size(src_axes)
+    src_size = _get_size(src_axes)
     sink_size = _get_size(sink_axes, check_same=True)
 
-
-    if torch.sum(src_sink) == sink_size[0] and len(src_sink)>1:
+    if sum(src_size) == sink_size[0] and len(src_size) > 1:
         is_concat = True
-    elif torch.mean(src_sink) == sink_size[0]: # Workaround to check src_sink have all the same size
+    elif all([size==sink_size[0] for size in src_size]): #torch.mean(src_size) == sink_size[0]:
         is_concat = False
     else:
         # Return without equalizing
-        return torch.ones(1)
+        device = next(srcs[0].parameters()).device
+        return torch.ones(1, dtype=torch.float, device=device)
 
     transpose = lambda module, axis: module.weight if axis == 0 else module.weight.transpose(0, 1)
     if merge_bias:
-        src_weights = [_combine_weights_bias(m, axis, bias_shrinkage) for m, axis in src_axes.items()]
+        src_weights = [_combine_weights_bias(transpose(m, axis), bias_shrinkage, m.bias) for m, axis in src_axes.items()]
     else:
         src_weights = [transpose(m, axis) for m, axis in src_axes.items()]
     sink_weights = [transpose(m, axis) for m, axis in sink_axes.items()]
@@ -210,8 +211,8 @@ def _cross_layer_equalization(srcs: List, sinks: List, merge_bias: bool, bias_sh
     sinks_range += EPSILON
 
     # If the ratio is negative, set the scale to 1 (i.e., no-op)
-    scaling_factors = torch.where((srcs_range/sinks_range)>0, torch.sqrt(srcs_range / sinks_range), \
-        torch.tensor(1.).type_as(srcs_range))
+    ratio = srcs_range / sinks_range
+    scaling_factors = torch.where((ratio) > 0, torch.sqrt(ratio), torch.tensor(1.).type_as(srcs_range))
 
     start_index = 0
     inverse_scaling_factors = torch.reciprocal(scaling_factors)
@@ -230,27 +231,30 @@ def _cross_layer_equalization(srcs: List, sinks: List, merge_bias: bool, bias_sh
         src_broadcast_size[axis] = module.weight.size(axis)
 
         module.weight.data = module.weight.data * torch.reshape(scaling_factors, src_broadcast_size)
-        if isinstance(module, (torch.nn.BatchNorm1d, torch.nn.BatchNorm2d, torch.nn.BatchNorm3d)):
+        if isinstance(module, (nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d)):
             module.running_mean.data = module.running_mean.data * torch.reshape(inverse_scaling_factors, src_broadcast_size)
     return scaling_factors
 
 
-def _equalize(model: GraphModule, regions: tuple, iterations: int, threshold: Union[float, None], merge_bias: bool, bias_shrinkage: Union[int, float, str]):
+def _equalize(model: GraphModule, regions: set, iterations: int, threshold: Union[float, None], merge_bias: bool, bias_shrinkage: Union[int, float, str]):
     """
     Generalized version of section 4.1 of https://arxiv.org/pdf/1906.04721.pdf
     """
-    name_to_module : Dict[str, torch.nn.Module] = {}
-    # name_set = {name for region in regions for module_set in region for name in module_set}
+    name_to_module : Dict[str, nn.Module] = {}
+
+    # Set of all the names of our sources and sinks
     name_set = set()
     for region in regions:
         for src_reg in region[0]:
             name_set.add(src_reg[0])
         name_set.update(region[1])
 
+    # Mapping names of our modules to the respective module instances
     for name, module in model.named_modules():
         if name in name_set:
             name_to_module[name] = module
-    for i in range(iterations):
+
+    for _ in range(iterations):
         scale_factor_max = None
         for region in regions:
 
@@ -260,9 +264,13 @@ def _equalize(model: GraphModule, regions: tuple, iterations: int, threshold: Un
                 srcs_ordered[k] = v
 
             scale_factors_region = _cross_layer_equalization([name_to_module[n] for n in srcs_ordered], [name_to_module[n] for n in region[1]], merge_bias, bias_shrinkage)
-            scale_factor_region_max = torch.max(torch.abs(1-scale_factors_region))
-            scale_factor_max = torch.max(scale_factor_max, scale_factor_region_max) if \
-                scale_factor_max is not None else scale_factor_region_max
+            scale_factor_region_max = torch.max(torch.abs(1 - scale_factors_region))
+
+            if scale_factor_max is not None:
+                scale_factor_max = torch.max(scale_factor_max, scale_factor_region_max)
+            else:
+                scale_factor_max = scale_factor_region_max
+
         if threshold is not None:
             if scale_factor_max < threshold:
                 break
@@ -441,18 +449,25 @@ class EqualizeGraph(GraphTransform):
         bias_shrinkage (int, float, str): A number indicating the shrink factor for when merging
             bias and weights, or pass 'vaiq' to use the heuristic defined by Vitis-AI quantizer.
             Ignored if merge_bias=False.
+        return_regions (bool): Whether or not to return the regions identified for equalization
     """
-    def __init__(self, iterations=10, threshold=0.05, merge_bias=True, bias_shrinkage='vaiq') -> None:
+    def __init__(self, iterations: int = 10, threshold: float = 0.05,
+                 merge_bias: bool = True, bias_shrinkage: Union[int, float, str] = 'vaiq',
+                 return_regions: bool = False) -> None:
         super(EqualizeGraph, self).__init__()
         self.iterations = iterations
         self.threshold = threshold
         self.merge_bias = merge_bias
         self.bias_shrinkage = bias_shrinkage
+        self.return_regions = return_regions
 
     def apply(self, graph_model: GraphModule):
         regions = _extract_regions(graph_model)
         graph_model = _equalize(graph_model, regions, self.iterations, self.threshold, self.merge_bias, self.bias_shrinkage)
-        return graph_model, regions
+        if self.return_regions:
+            return graph_model, regions
+        else:
+            return graph_model
 
 
 class AbsorbBiasByBatchNorm(GraphTransform):
@@ -466,7 +481,7 @@ class AbsorbBiasByBatchNorm(GraphTransform):
         if module.bias is not None:
             module.bias.data += tensor.view_as(module.bias)
         else:
-            module.bias = torch.nn.Parameter(tensor)
+            module.bias = nn.Parameter(tensor)
 
     def absorb_biases(self, groups):
         for layer, bn, (next_layer_name, next_layer) in groups:
