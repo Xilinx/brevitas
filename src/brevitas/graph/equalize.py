@@ -2,11 +2,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-import copy
 from functools import partial
 import operator
-from random import sample
-from typing import Any, Dict
+from typing import Dict
 
 import torch
 
@@ -46,6 +44,14 @@ _scale_invariant_layers = (
     torch.nn.AdaptiveAvgPool2d,
     torch.nn.AdaptiveAvgPool3d)
 
+_scale_invariant_op = (
+    torch.mul,
+    operator.mul,
+    operator.imul,
+    operator.__mul__,
+    operator.__imul__,
+)
+
 _residual_methods = (
     'add',
     'add_'
@@ -71,7 +77,7 @@ def _channel_range(inp):
     maxs, _ = inp.max(dim=1)
     out = maxs - mins
     # correct corner case where where all weights along a channel have the same value
-    # e.g. when a mean/nn.AvgPool/nn.AdaptiveAvgPool is converted to a depth-wise conv
+    # e.g. when a mean/torch.nn.AvgPool/torch.nn.AdaptiveAvgPool is converted to a depth-wise conv
     out = torch.where(out == 0., torch.mean(inp, dim=1), out)
     return out
 
@@ -178,6 +184,8 @@ def _is_supported_module(graph_model, node):
 def _is_scale_invariant_module(graph_model, node):
     return node.op == 'call_module' and isinstance(get_module(graph_model, node.target), _scale_invariant_layers)
 
+def _is_scale_invariant_function(node):
+    return node.op == 'call_function' and node.target in _scale_invariant_op
 
 def _is_reshaping_op(node):
     return (node.op == 'call_function' and node.target in [torch.flatten, torch.reshape]
@@ -200,7 +208,7 @@ def walk_region(graph_model: GraphModule, starting_node: Node, history, srcs, si
             else:
                 srcs.add(node.target)
                 walk_region(graph_model, node, history, srcs, sinks, walk_forward=True)
-        elif _is_scale_invariant_module(graph_model, node):
+        elif _is_scale_invariant_module(graph_model, node) or _is_scale_invariant_function(node):
             if walk_forward:
                 walk_region(graph_model, node, history, srcs, sinks, walk_forward=True)
             else:
@@ -235,14 +243,18 @@ def _extract_regions(graph_model: GraphModule):
 
 class EqualizeGraph(GraphTransform):
 
-    def __init__(self, iterations) -> None:
+    def __init__(self, iterations, return_regions=False) -> None:
         super(EqualizeGraph, self).__init__()
         self.iterations = iterations
+        self.return_regions = return_regions
 
     def apply(self, graph_model: GraphModule):
         regions = _extract_regions(graph_model)
         graph_model = _equalize(graph_model, regions, self.iterations)
-        return graph_model
+        if self.return_regions:
+            return graph_model, regions
+        else:
+            return graph_model
 
 
 class AbsorbBiasByBatchNorm(GraphTransform):
