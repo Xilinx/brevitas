@@ -169,16 +169,20 @@ def _combine_weights_bias(weight: nn.parameter.Parameter, bias_shrinkage: Union[
     return weight_bias
 
 
-def _cross_layer_equalization(srcs: List[nn.Module], sinks: List[nn.Module], merge_bias: bool, bias_shrinkage: Union[float, str]):
+def _cross_layer_equalization(srcs: List[nn.Module], sinks: List[nn.Module], merge_bias: bool, bias_shrinkage: Union[float, str]) -> torch.Tensor:
     """
     Given two adjacent tensors', the weights are scaled such that
     the ranges of the first tensors' output channel are equal to the
     ranges of the second tensors' input channel
     """
+    # Determine device and type of tensors
+    device = next(srcs[0].parameters()).device
+    dtype = next(srcs[0].parameters()).dtype
+
     for module_set in [srcs, sinks]:
         for module in module_set:
             if not isinstance(module, _supported_layers):
-                return # If module is not supported, do not perform graph equalization
+                return torch.tensor(1., dtype=dtype, device=device) # If module is not supported, do not perform graph equalization
 
     src_axes = {m: _get_output_axis(m) for m in srcs}
     sink_axes = {m: _get_input_axis(m) for m in sinks}
@@ -186,7 +190,7 @@ def _cross_layer_equalization(srcs: List[nn.Module], sinks: List[nn.Module], mer
     # Check if any of the axis is None, which means that the module is not supported.
     # In that case, do not perform graph equalization
     if None in [*src_axes.values(), *sink_axes.values()]:
-        return
+        return torch.tensor(1., dtype=dtype, device=device)
 
     src_size = _get_size(src_axes)
     sink_size = _get_size(sink_axes)
@@ -195,7 +199,7 @@ def _cross_layer_equalization(srcs: List[nn.Module], sinks: List[nn.Module], mer
     # sources or sinks do not have the same size as the others.
     # Similarly, exit if source and sink have different different sizes
     if None in [src_size, sink_size] or src_size != sink_size:
-        return
+        return torch.tensor(1., dtype=dtype, device=device)
 
     transpose = lambda module, axis: module.weight if axis == 0 else module.weight.transpose(0, 1)
     if merge_bias:
@@ -223,9 +227,9 @@ def _cross_layer_equalization(srcs: List[nn.Module], sinks: List[nn.Module], mer
             additive_factor = module.running_mean.data * module.weight.data / torch.sqrt(module.running_var.data + module.eps)
             module.bias.data = module.bias.data + additive_factor * (scaling_factors - 1)
         module.weight.data = module.weight.data * torch.reshape(scaling_factors, src_broadcast_size)
+    return scaling_factors
 
-
-def _equalize(model: GraphModule, regions: Set[Tuple[str]], iterations: int, merge_bias: bool, bias_shrinkage: Union[str, float]) -> GraphModule:
+def _equalize(model: GraphModule, regions: Set[Tuple[str]], iterations: int, threshold: float, merge_bias: bool, bias_shrinkage: Union[str, float]) -> GraphModule:
     """
     Generalized version of section 4.1 of https://arxiv.org/pdf/1906.04721.pdf
     """
@@ -236,8 +240,17 @@ def _equalize(model: GraphModule, regions: Set[Tuple[str]], iterations: int, mer
         if name in name_set:
             name_to_module[name] = module
     for i in range(iterations):
+        scale_factor_max = None
         for region in regions:
-            _cross_layer_equalization([name_to_module[n] for n in region[0]], [name_to_module[n] for n in region[1]], merge_bias, bias_shrinkage)
+            scale_factors_region = _cross_layer_equalization([name_to_module[n] for n in region[0]], [name_to_module[n] for n in region[1]], merge_bias, bias_shrinkage)
+
+        scale_factor_region_max = torch.max(torch.abs(1 - scale_factors_region))
+        if scale_factor_max is not None:
+            scale_factor_max = torch.max(scale_factor_max, scale_factor_region_max)
+        else:
+            scale_factor_max = scale_factor_region_max
+        if threshold is not None and scale_factor_max < threshold:
+            break
     return model
 
 
@@ -309,17 +322,19 @@ def _extract_regions(graph_model: GraphModule) -> Set[Tuple[str]]:
 
 class EqualizeGraph(GraphTransform):
 
-    def __init__(self, iterations: int, return_regions: bool = False,
+    def __init__(self, iterations: int = 10, threshold: float = 0.05, return_regions: bool = False,
                  merge_bias: bool = True, bias_shrinkage: Union[float, str] = 'vaiq') -> None:
         super(EqualizeGraph, self).__init__()
         self.iterations = iterations
         self.return_regions = return_regions
         self.merge_bias = merge_bias
         self.bias_shrinkage = bias_shrinkage
+        self.threshold = threshold
 
     def apply(self, graph_model: GraphModule) -> Union[Tuple[GraphModule, Set[Tuple[str]]], GraphModule]:
         regions = _extract_regions(graph_model)
-        graph_model = _equalize(graph_model, regions, self.iterations, self.merge_bias, self.bias_shrinkage)
+        graph_model = _equalize(graph_model, regions, self.iterations, self.threshold,
+                                self.merge_bias, self.bias_shrinkage)
         if self.return_regions:
             return graph_model, regions
         else:
