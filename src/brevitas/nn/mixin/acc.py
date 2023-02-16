@@ -41,7 +41,6 @@ class QuantClampMixin(QuantProxyMixin):
     def __init__(self, clamp_quant: Optional[AccQuantType], **kwargs):
         super().__init__(
             quant=clamp_quant,
-            proxy_from_injector_impl=ClampQuantProxyFromInjector,
             proxy_protocol=AccQuantProxyProtocol,
             none_quant_injector=NoneClampQuant,
             kwargs_prefix='',
