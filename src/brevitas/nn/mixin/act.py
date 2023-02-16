@@ -68,7 +68,6 @@ class QuantOutputMixin(QuantProxyMixin):
         QuantProxyMixin.__init__(
             self,
             quant=output_quant,
-            proxy_from_injector_impl=ActQuantProxyFromInjector,
             proxy_protocol=ActQuantProxyProtocol,
             none_quant_injector=NoneActQuant,
             proxy_prefix='output_',
@@ -122,7 +121,6 @@ class QuantNonLinearActMixin(QuantProxyMixin):
             quant=act_quant,
             proxy_prefix=act_proxy_prefix,
             kwargs_prefix=act_kwargs_prefix,
-            proxy_from_injector_impl=ActQuantProxyFromInjector,
             proxy_protocol=ActQuantProxyProtocol,
             none_quant_injector=NoneActQuant,
             **prefixed_kwargs,
