@@ -91,7 +91,6 @@ class QuantBiasMixin(QuantProxyMixin):
         QuantProxyMixin.__init__(
             self,
             quant=bias_quant,
-            proxy_from_injector_impl=BiasQuantProxyFromInjector,
             proxy_protocol=BiasQuantProxyProtocol,
             none_quant_injector=NoneBiasQuant,
             kwargs_prefix='bias_',
