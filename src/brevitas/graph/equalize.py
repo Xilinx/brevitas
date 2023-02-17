@@ -10,9 +10,12 @@ import torch
 
 from brevitas.fx import GraphModule
 from brevitas.fx import Node
+from brevitas.graph.base import GraphTransform
+from brevitas.graph.calibrate import DisableEnableQuantization
 from brevitas.graph.utils import get_module
-
-from .base import GraphTransform
+import brevitas.nn as qnn
+from brevitas.nn.quant_layer import QuantNonLinearActLayer as QuantNLAL
+from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 
 __all__ = [
     'EqualizeGraph'
@@ -33,7 +36,6 @@ _scale_invariant_layers = (
     torch.nn.Dropout,
     torch.nn.Dropout2d,
     torch.nn.Dropout3d,
-    torch.nn.ReLU,
     torch.nn.MaxPool1d,
     torch.nn.MaxPool2d,
     torch.nn.MaxPool3d,
@@ -51,6 +53,15 @@ _scale_invariant_op = (
     operator.__mul__,
     operator.__imul__,
 )
+_scale_invariant_activations = (
+    torch.nn.ReLU,)
+
+
+_scale_varying_activations = (
+    torch.nn.Sigmoid,
+    torch.nn.Tanh,
+    torch.nn.Hardtanh)
+
 
 _residual_methods = (
     'add',
@@ -71,6 +82,14 @@ _batch_norm = (
     torch.nn.BatchNorm3d,
 )
 
+def dict_name_to_module(model, regions):
+    name_to_module : Dict[str, torch.nn.Module] = {}
+    name_set = {name for region in regions for module_set in region for name in module_set}
+
+    for name, module in model.named_modules():
+        if name in name_set:
+            name_to_module[name] = module
+    return name_to_module
 
 def _channel_range(inp):
     mins, _ = inp.min(dim=1)
@@ -92,7 +111,7 @@ def _get_size(axes):
 
 
 def _get_input_axis(module):
-    if isinstance(module, torch.nn.Linear):
+    if isinstance(module, (torch.nn.Linear)):
         return 1
     elif isinstance(module, (torch.nn.Conv1d, torch.nn.Conv2d, torch.nn.Conv3d)):
         if module.groups == 1:
@@ -165,12 +184,7 @@ def _equalize(model, regions, iterations):
     """
     Generalized version of section 4.1 of https://arxiv.org/pdf/1906.04721.pdf
     """
-    name_to_module : Dict[str, torch.nn.Module] = {}
-    name_set = {name for region in regions for module_set in region for name in module_set}
-
-    for name, module in model.named_modules():
-        if name in name_set:
-            name_to_module[name] = module
+    name_to_module = dict_name_to_module(model, regions)
     for i in range(iterations):
         for region in regions:
             _cross_layer_equalization([name_to_module[n] for n in region[0]], [name_to_module[n] for n in region[1]])
@@ -182,7 +196,13 @@ def _is_supported_module(graph_model, node):
 
 
 def _is_scale_invariant_module(graph_model, node):
-    return node.op == 'call_module' and isinstance(get_module(graph_model, node.target), _scale_invariant_layers)
+    return node.op == 'call_module' and isinstance(get_module(graph_model, node.target), _scale_invariant_layers + _scale_invariant_activations)
+
+def _is_scale_invariant_activation(graph_model, node):
+    return node.op == 'call_module' and isinstance(get_module(graph_model, node.target), _scale_invariant_activations)
+
+def _is_scale_varying_module(graph_model, node):
+    return node.op == 'call_module' and isinstance(get_module(graph_model, node.target), _scale_varying_activations)
 
 def _is_scale_invariant_function(node):
     return node.op == 'call_function' and node.target in _scale_invariant_op
@@ -192,7 +212,7 @@ def _is_reshaping_op(node):
                 or node.op == 'call_method' and node.target in ['view', 'reshape', 'flatten'])
 
 
-def walk_region(graph_model: GraphModule, starting_node: Node, history, srcs, sinks, walk_forward):
+def walk_region(graph_model: GraphModule, starting_node: Node, history, srcs, sinks, acts, walk_forward, scale_varying_layers=False):
     node_list = starting_node.users if walk_forward else starting_node.all_input_nodes
     for node in node_list:
         # we keep a history of how the graph has been walked already, invariant to the direction,
@@ -209,33 +229,44 @@ def walk_region(graph_model: GraphModule, starting_node: Node, history, srcs, si
                 srcs.add(node.target)
                 walk_region(graph_model, node, history, srcs, sinks, walk_forward=True)
         elif _is_scale_invariant_module(graph_model, node) or _is_scale_invariant_function(node):
+            if _is_scale_invariant_activation(graph_model, node):
+                acts.add(node.target)
             if walk_forward:
-                walk_region(graph_model, node, history, srcs, sinks, walk_forward=True)
+                walk_region(graph_model, node, history, srcs, sinks, acts, walk_forward=True, scale_varying_layers=scale_varying_layers)
             else:
-                walk_region(graph_model, node, history, srcs, sinks, walk_forward=True)
-                walk_region(graph_model, node, history, srcs, sinks, walk_forward=False)
+                walk_region(graph_model, node, history, srcs, sinks, acts, walk_forward=True, scale_varying_layers=scale_varying_layers)
+                walk_region(graph_model, node, history, srcs, sinks, acts, walk_forward=False, scale_varying_layers=scale_varying_layers)
         elif (node.op == 'call_method' and node.target in _residual_methods
             or node.op == 'call_function' and node.target in _residual_fns):
-                walk_region(graph_model, node, history, srcs, sinks, walk_forward=True)
-                walk_region(graph_model, node, history, srcs, sinks, walk_forward=False)
+                walk_region(graph_model, node, history, srcs, sinks, acts, walk_forward=True, scale_varying_layers=scale_varying_layers)
+                walk_region(graph_model, node, history, srcs, sinks, acts, walk_forward=False, scale_varying_layers=scale_varying_layers)
         elif _is_reshaping_op(node):
-            walk_region(graph_model, node, history, srcs, sinks, walk_forward=walk_forward)
+            walk_region(graph_model, node, history, srcs, sinks, acts, walk_forward=walk_forward, scale_varying_layers=scale_varying_layers)
+        elif scale_varying_layers and _is_scale_varying_module(graph_model, node):
+            acts.add(node.target)
+            if walk_forward:
+                walk_region(graph_model, node, history, srcs, sinks, acts, walk_forward=True, scale_varying_layers=scale_varying_layers)
+            else:
+                walk_region(graph_model, node, history, srcs, sinks, acts, walk_forward=True, scale_varying_layers=scale_varying_layers)
+                walk_region(graph_model, node, history, srcs, sinks, acts, walk_forward=False, scale_varying_layers=scale_varying_layers)
         else:
             continue
 
 
-def _extract_regions(graph_model: GraphModule):
+def _extract_regions(graph_model: GraphModule, scale_varying_layers=False, return_acts=False):
     regions = set()
     for node in graph_model.graph.nodes:
         if node.op == 'call_module':
             module = get_module(graph_model, node.target)
             if isinstance(module, _supported_layers):
                 srcs, sinks = {node.target}, set()
-                walk_region(graph_model, node, set(), srcs, sinks, walk_forward=True)
+                acts = set()
+                walk_region(graph_model, node, set(), srcs, sinks, acts, walk_forward=True, scale_varying_layers=scale_varying_layers)
                 if sinks:
                     # each region should appear only once, so to make it hashable
                     # we convert srcs and sinks to ordered lists first, and then to tuples
-                    regions.add((tuple(sorted(srcs)), tuple(sorted(sinks))))
+                    if return_acts:
+                        regions.add((tuple(sorted(srcs)), tuple(sorted(sinks)), tuple(sorted(acts))))
     # for clarity, sort by the of the first source
     regions = sorted(regions, key=lambda region: region[0][0])
     return regions
@@ -256,6 +287,81 @@ class EqualizeGraph(GraphTransform):
         else:
             return graph_model
 
+
+class EqualizeActivations(DisableEnableQuantization, GraphTransform):
+    def __init__(self, graph_model, scale_varying_layers=False, alpha=0.5):
+        self.graph_model = graph_model
+        self.regions = _extract_regions(self.graph_model, True, True)
+        self.alpha = alpha
+        self.name_to_module = dict_name_to_module(self.graph_model, self.regions)
+        self.scale_varying_layers = scale_varying_layers
+        self.float_mean_map = {}
+        self.iterations = {}
+        self.hooks = []
+
+    def __enter__(self):
+        for region in self.regions:
+            if len(region[-1]) > 1:
+                print("oh no")
+                continue
+            else:
+                act_name = region[-1][0]
+                act_module = self.name_to_module[act_name]
+
+            hook_fn = partial(self.forward_stats_hook, name=act_name)
+            self.iterations[act_name] = 0
+            self.hooks.append(act_module.register_forward_hook(hook_fn))
+
+    def __exit__(self, type, value, traceback):
+        for region in self.regions:
+            if len(region[-1]) > 1:
+                print("oh no")
+                continue
+            else:
+                act_name = region[-1][0]
+                act_module = self.name_to_module[act_name]
+            acts = [self.name_to_module[act] for act in region[2]]
+            sinks = [self.name_to_module[act] for act in region[1]]
+            srcs = [self.name_to_module[act] for act in region[0]]
+            axis  = _get_input_axis(srcs[0])
+            sink_axes = {m: _get_input_axis(m) for m in sinks}
+            src_axes = {m: _get_output_axis(m) for m in srcs}
+
+            transpose = lambda module, axis: module.weight if axis == 0 else module.transpose(0, 1)
+            act_values = transpose(self.float_mean_map[act_name]/self.iterations[act_name], axis)
+            act_scale = _channel_range(act_values.reshape(act_values.size(0), -1))
+            sink_weights = [transpose(m.weight, axis) for m, axis in sink_axes.items()]
+            weight_scale = _channel_range(torch.cat([w.reshape(w.size(0), -1) for w in sink_weights], 1))
+
+            if weight_scale.shape != act_scale.shape:
+                continue
+
+            scale = weight_scale ** self.alpha / (act_scale ** (1-self.alpha) + EPSILON)
+            inverse_scale = torch.reciprocal(scale)
+            for module, axis in sink_axes.items():
+                src_broadcast_size = [1] * module.weight.ndim
+                src_broadcast_size[axis] = module.weight.size(axis)
+                module.weight.data = module.weight.data * torch.reshape(scale, src_broadcast_size)
+            if act_module in _scale_varying_activations:
+                self.insert_mul_node
+            else:
+                for module, axis in src_axes.items():
+                    if hasattr(module, 'bias') and module.bias is not None:
+                        module.bias.data = module.bias.data * inverse_scale.view_as(module.bias)
+                    src_broadcast_size = [1] * module.weight.ndim
+                    src_broadcast_size[axis] = module.weight.size(axis)
+                    module.weight.data = module.weight.data * torch.reshape(inverse_scale, src_broadcast_size)
+
+
+    def forward_stats_hook(self, module, inp, out, name):
+        self.iterations[name] += 1
+        if name not in self.float_mean_map:
+            self.float_mean_map[name] = out
+        else:
+            self.float_mean_map[name] += out
+
+    def insert_mul_node(graph_model):
+        pass
 
 class AbsorbBiasByBatchNorm(GraphTransform):
 
