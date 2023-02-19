@@ -82,6 +82,23 @@ _batch_norm = (
     torch.nn.BatchNorm3d,
 )
 
+class smooth_quant_mode:
+    def __init__(self, graph_model, alpha, scale_varying_layers, enabled=True) -> None:
+        self.graph_model = graph_model
+        self.regions = _extract_regions(self.graph_model, True, True)
+        self.alpha = alpha
+        self.enabled = enabled
+        self.scale_varying_layers = scale_varying_layers
+        self.graph_act_eq = GraphActivationEqualization(self.graph_model, self.scale_varying_layers)
+
+    def __enter__(self):
+        if self.enabled:
+            self.graph_act_eq.setup()
+
+    def __exit__(self, type, value, traceback):
+        if self.enabled:
+            self.graph_act_eq.equalize(self.alpha)
+
 def dict_name_to_module(model, regions):
     name_to_module : Dict[str, torch.nn.Module] = {}
     name_set = {name for region in regions for module_set in region for name in module_set}
@@ -288,41 +305,41 @@ class EqualizeGraph(GraphTransform):
             return graph_model
 
 
-class EqualizeActivations(DisableEnableQuantization, GraphTransform):
-    def __init__(self, graph_model, scale_varying_layers=False, alpha=0.5):
+class GraphActivationEqualization(DisableEnableQuantization, GraphTransform):
+    def __init__(self, graph_model, scale_varying_layers):
         self.graph_model = graph_model
-        self.regions = _extract_regions(self.graph_model, True, True)
-        self.alpha = alpha
-        self.name_to_module = dict_name_to_module(self.graph_model, self.regions)
-        self.scale_varying_layers = scale_varying_layers
+
         self.float_mean_map = {}
         self.iterations = {}
         self.hooks = []
+        self.regions = None
+        self.regions = _extract_regions(graph_model, scale_varying_layers=scale_varying_layers, return_acts=True)
 
-    def __enter__(self):
+    def setup(self):
+        name_to_module = dict_name_to_module(self.graph_model, self.regions)
         for region in self.regions:
             if len(region[-1]) > 1:
-                print("oh no")
                 continue
             else:
                 act_name = region[-1][0]
-                act_module = self.name_to_module[act_name]
+                act_module = name_to_module[act_name]
 
             hook_fn = partial(self.forward_stats_hook, name=act_name)
             self.iterations[act_name] = 0
             self.hooks.append(act_module.register_forward_hook(hook_fn))
 
-    def __exit__(self, type, value, traceback):
+
+    def equalize(self, alpha):
+        name_to_module = dict_name_to_module(self.graph_model, self.regions)
         for region in self.regions:
             if len(region[-1]) > 1:
-                print("oh no")
                 continue
             else:
                 act_name = region[-1][0]
-                act_module = self.name_to_module[act_name]
-            acts = [self.name_to_module[act] for act in region[2]]
-            sinks = [self.name_to_module[act] for act in region[1]]
-            srcs = [self.name_to_module[act] for act in region[0]]
+                act_module = name_to_module[act_name]
+            acts = [name_to_module[act] for act in region[2]]
+            sinks = [name_to_module[act] for act in region[1]]
+            srcs = [name_to_module[act] for act in region[0]]
             axis  = _get_input_axis(srcs[0])
             sink_axes = {m: _get_input_axis(m) for m in sinks}
             src_axes = {m: _get_output_axis(m) for m in srcs}
@@ -336,14 +353,14 @@ class EqualizeActivations(DisableEnableQuantization, GraphTransform):
             if weight_scale.shape != act_scale.shape:
                 continue
 
-            scale = weight_scale ** self.alpha / (act_scale ** (1-self.alpha) + EPSILON)
+            scale = weight_scale ** alpha / (act_scale ** (1-alpha) + EPSILON)
             inverse_scale = torch.reciprocal(scale)
             for module, axis in sink_axes.items():
                 src_broadcast_size = [1] * module.weight.ndim
                 src_broadcast_size[axis] = module.weight.size(axis)
                 module.weight.data = module.weight.data * torch.reshape(scale, src_broadcast_size)
             if act_module in _scale_varying_activations:
-                self.insert_mul_node
+                self.insert_mul_node()
             else:
                 for module, axis in src_axes.items():
                     if hasattr(module, 'bias') and module.bias is not None:
