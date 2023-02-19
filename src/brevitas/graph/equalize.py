@@ -30,7 +30,8 @@ _supported_layers = (
     torch.nn.Conv1d,
     torch.nn.Conv2d,
     torch.nn.Conv3d,
-    torch.nn.Linear)
+    torch.nn.Linear,
+    QuantWBIOL)
 
 _scale_invariant_layers = (
     torch.nn.Dropout,
@@ -44,7 +45,10 @@ _scale_invariant_layers = (
     torch.nn.AvgPool3d,
     torch.nn.AdaptiveAvgPool1d,
     torch.nn.AdaptiveAvgPool2d,
-    torch.nn.AdaptiveAvgPool3d)
+    torch.nn.AdaptiveAvgPool3d,
+    qnn.QuantAvgPool2d,
+    qnn.QuantMaxPool1d,
+    qnn.QuantMaxPool2d)
 
 _scale_invariant_op = (
     torch.mul,
@@ -54,13 +58,17 @@ _scale_invariant_op = (
     operator.__imul__,
 )
 _scale_invariant_activations = (
-    torch.nn.ReLU,)
+    torch.nn.ReLU,
+    qnn.QuantReLU)
 
 
 _scale_varying_activations = (
     torch.nn.Sigmoid,
     torch.nn.Tanh,
-    torch.nn.Hardtanh)
+    torch.nn.Hardtanh,
+    qnn.QuantSigmoid,
+    qnn.QuantTanh,
+    qnn.QuantHardTanh)
 
 
 _residual_methods = (
@@ -128,16 +136,16 @@ def _get_size(axes):
 
 
 def _get_input_axis(module):
-    if isinstance(module, (torch.nn.Linear)):
+    if isinstance(module, (torch.nn.Linear, qnn.QuantLinear)):
         return 1
-    elif isinstance(module, (torch.nn.Conv1d, torch.nn.Conv2d, torch.nn.Conv3d)):
+    elif isinstance(module, (torch.nn.Conv1d, torch.nn.Conv2d, torch.nn.Conv3d, qnn.QuantConv1d, qnn.QuantConv2d)):
         if module.groups == 1:
             return 1
         elif module.groups == module.out_channels:
             return 0
         else:
             raise RuntimeError("Group convolution not supported")
-    elif isinstance(module, (torch.nn.ConvTranspose1d, torch.nn.ConvTranspose2d, torch.nn.ConvTranspose3d)):
+    elif isinstance(module, (torch.nn.ConvTranspose1d, torch.nn.ConvTranspose2d, torch.nn.ConvTranspose3d, qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d)):
         if module.groups == 1:
             return 0
         elif module.groups == module.out_channels:
@@ -149,9 +157,9 @@ def _get_input_axis(module):
 
 
 def _get_output_axis(module):
-    if isinstance(module, (torch.nn.Linear, torch.nn.Conv1d, torch.nn.Conv2d, torch.nn.Conv3d)):
+    if isinstance(module, (torch.nn.Linear, torch.nn.Conv1d, torch.nn.Conv2d, torch.nn.Conv3d, qnn.QuantLinear, qnn.QuantConv1d, qnn.QuantConv2d)):
         return 0
-    elif isinstance(module, (torch.nn.ConvTranspose1d, torch.nn.ConvTranspose2d, torch.nn.ConvTranpose3d)):
+    elif isinstance(module, (torch.nn.ConvTranspose1d, torch.nn.ConvTranspose2d, torch.nn.ConvTranpose3d, qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d)):
         return 1
     else:
         raise RuntimeError(f"Module {module} not supported.")
@@ -307,6 +315,7 @@ class EqualizeGraph(GraphTransform):
 
 class GraphActivationEqualization(DisableEnableQuantization, GraphTransform):
     def __init__(self, graph_model, scale_varying_layers):
+        super(GraphActivationEqualization, self).__init__()
         self.graph_model = graph_model
 
         self.float_mean_map = {}
@@ -316,6 +325,7 @@ class GraphActivationEqualization(DisableEnableQuantization, GraphTransform):
         self.regions = _extract_regions(graph_model, scale_varying_layers=scale_varying_layers, return_acts=True)
 
     def setup(self):
+        self.disable_act_quantization(self.graph_model, self.graph_model.training)
         name_to_module = dict_name_to_module(self.graph_model, self.regions)
         for region in self.regions:
             if len(region[-1]) > 1:
@@ -353,12 +363,14 @@ class GraphActivationEqualization(DisableEnableQuantization, GraphTransform):
             if weight_scale.shape != act_scale.shape:
                 continue
 
-            scale = weight_scale ** alpha / (act_scale ** (1-alpha) + EPSILON)
+            scale =  (act_scale ** (1-alpha) + EPSILON) / weight_scale ** alpha
             inverse_scale = torch.reciprocal(scale)
             for module, axis in sink_axes.items():
                 src_broadcast_size = [1] * module.weight.ndim
                 src_broadcast_size[axis] = module.weight.size(axis)
                 module.weight.data = module.weight.data * torch.reshape(scale, src_broadcast_size)
+                if isinstance(module, QuantWBIOL):
+                    module.weight_quant.init_tensor_quant()
             if act_module in _scale_varying_activations:
                 self.insert_mul_node()
             else:
@@ -368,14 +380,16 @@ class GraphActivationEqualization(DisableEnableQuantization, GraphTransform):
                     src_broadcast_size = [1] * module.weight.ndim
                     src_broadcast_size[axis] = module.weight.size(axis)
                     module.weight.data = module.weight.data * torch.reshape(inverse_scale, src_broadcast_size)
-
+                    if isinstance(module, QuantWBIOL):
+                        module.weight_quant.init_tensor_quant()
+        self.enable_act_quantization(self.graph_model, self.graph_model.training)
 
     def forward_stats_hook(self, module, inp, out, name):
         self.iterations[name] += 1
         if name not in self.float_mean_map:
-            self.float_mean_map[name] = out
+            self.float_mean_map[name] = torch.sum(out, dim=0, keepdim=True)
         else:
-            self.float_mean_map[name] += out
+            self.float_mean_map[name] += torch.sum(out, dim=0, keepdim=True)
 
     def insert_mul_node(graph_model):
         pass
