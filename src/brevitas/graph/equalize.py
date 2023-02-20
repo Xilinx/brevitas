@@ -258,7 +258,7 @@ def walk_region(graph_model: GraphModule, starting_node: Node, history, srcs, si
                 sinks.add(node.target)
             else:
                 srcs.add(node.target)
-                walk_region(graph_model, node, history, srcs, acts,  sinks, walk_forward=True, scale_varying_layers=scale_varying_layers)
+                walk_region(graph_model, node, history, srcs, sinks, acts, walk_forward=True, scale_varying_layers=scale_varying_layers)
         elif _is_scale_invariant_module(graph_model, node) or _is_scale_invariant_function(node):
             if _is_scale_invariant_activation(graph_model, node):
                 acts.add(node.target)
