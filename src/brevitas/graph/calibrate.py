@@ -4,6 +4,7 @@
 
 from abc import ABC
 from functools import partial
+import sys
 
 from torch import nn
 import torch.nn.functional as F
@@ -46,9 +47,18 @@ _LAYERS_TO_CLIP = (
     nn.ConvTranspose3d)
 
 
+def extend_collect_stats_steps(module):
+    if hasattr(module, 'collect_stats_steps'):
+        # We extend the collect steps in PTQ to match potentially long calibrations
+        module.collect_stats_steps = sys.maxsize
+
+
 def finalize_collect_stats(module):
     if hasattr(module, 'collect_stats_steps') and hasattr(module, 'counter'):
-        module.counter = module.collect_stats_steps
+        # If the counter has already reached collect_stats_steps, we do not want to reset it
+        # otherwise the restrict_preprocess might be applied twice: during calibration
+        # (that happens in training mode) and then when the model is evaluated
+        module.counter = max(module.collect_stats_steps, module.counter)
 
 
 class calibration_mode:
@@ -60,6 +70,7 @@ class calibration_mode:
 
     def __enter__(self):
         if self.enabled:
+            self.model.apply(extend_collect_stats_steps)
             self.disable_quant_inference.apply(self.model, is_training=True, quantization_enabled=False)
 
     def __exit__(self, type, value, traceback):

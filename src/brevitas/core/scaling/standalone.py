@@ -204,7 +204,7 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
         Maps to scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS == 'PARAMETER_FROM_STATS'
         == 'parameter_from_stats' when applied to runtime values (inputs/outputs/activations) in higher-level APIs.
     """
-    __constants__ = ['collect_stats_steps', 'momentum']
+    __constants__ = ['momentum']
 
     def __init__(
             self,
@@ -217,7 +217,7 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             scaling_min_val: Optional[float] = None) -> None:
         super(ParameterFromRuntimeStatsScaling, self).__init__()
         assert collect_stats_steps > 0, 'Steps should be more than 0'
-        self.collect_stats_steps = collect_stats_steps
+        self.collect_stats_steps: int = brevitas.jit.Attribute(collect_stats_steps, int)
         self.counter: int = brevitas.jit.Attribute(0, int)
         self.stats_input_view_shape_impl = scaling_stats_input_view_shape_impl
         self.stats = _Stats(scaling_stats_impl, scaling_shape)
