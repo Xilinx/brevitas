@@ -109,9 +109,10 @@ class smooth_quant_mode:
 
     def __exit__(self, type, value, traceback):
         if self.enabled:
-            self.graph_act_eq.equalize(self.alpha)
+            self.graph_act_eq.equalize_activations(self.alpha)
             self.graph_act_eq.enable_act_quantization(self.graph_model, self.graph_model.training)
             self.graph_act_eq.enable_bias_quantization(self.graph_model, self.graph_model.training)
+            self.graph_act_eq.remove_hooks()
 
 def dict_name_to_module(model, regions):
     name_to_module : Dict[str, torch.nn.Module] = {}
@@ -321,80 +322,82 @@ class EqualizeGraph(GraphTransform):
             return graph_model
 
 
-class GraphActivationEqualization(DisableEnableQuantization, GraphTransform):
+class GraphActivationEqualization(DisableEnableQuantization):
     def __init__(self, graph_model, scale_varying_layers):
         super(GraphActivationEqualization, self).__init__()
         self.graph_model = graph_model
-
         self.float_act_map = {}
-        self.iterations = {}
         self.hooks = []
         self.regions = _extract_regions(graph_model, scale_varying_layers=scale_varying_layers, return_acts=True)
 
     def setup(self):
         name_to_module = dict_name_to_module(self.graph_model, self.regions)
         for region in self.regions:
-            if len(region[-1]) > 1:
+            if len(region[2]) > 1:
                 continue
             else:
-                act_name = region[-1][0]
+                act_name = region[2][0]
                 act_module = name_to_module[act_name]
 
             hook_fn = partial(self.forward_stats_hook, name=act_name)
             self.iterations[act_name] = 0
             self.hooks.append(act_module.register_forward_hook(hook_fn))
 
+    def cross_layer_activation_equalization(self, act_name, act_module, srcs, sinks, alpha):
+        axis  = _get_input_axis(srcs[0])
+        sink_axes = {m: _get_input_axis(m) for m in sinks}
+        src_axes = {m: _get_output_axis(m) for m in srcs}
 
-    def equalize(self, alpha):
-        name_to_module = dict_name_to_module(self.graph_model, self.regions)
-        for region in self.regions:
-            if len(region[-1]) > 1:
-                continue
-            else:
-                act_name = region[-1][0]
-                act_module = name_to_module[act_name]
-            acts = [name_to_module[act] for act in region[2]]
-            sinks = [name_to_module[act] for act in region[1]]
-            srcs = [name_to_module[act] for act in region[0]]
-            axis  = _get_input_axis(srcs[0])
-            sink_axes = {m: _get_input_axis(m) for m in sinks}
-            src_axes = {m: _get_output_axis(m) for m in srcs}
+        transpose = lambda module, axis: module.weight if axis == 0 else module.transpose(0, 1)
+        unpack_weight = lambda module: module.quant_weight().value.data if isinstance(module, QuantWBIOL) else module.weight.data
+        act_values = transpose(self.float_act_map[act_name], axis)
+        act_scale = _channel_range(act_values.reshape(act_values.size(0), -1))
+        sink_weights = [transpose(unpack_weight(m), axis) for m, axis in sink_axes.items()]
+        weight_scale = _channel_range(torch.cat([w.reshape(w.size(0), -1) for w in sink_weights], 1))
 
-            transpose = lambda module, axis: module.weight if axis == 0 else module.transpose(0, 1)
-            unpack_weight = lambda module: module.quant_weight().value.data if isinstance(module, QuantWBIOL) else module.weight.data
-            act_values = transpose(self.float_act_map[act_name], axis)
-            act_scale = _channel_range(act_values.reshape(act_values.size(0), -1))
-            sink_weights = [transpose(unpack_weight(m), axis) for m, axis in sink_axes.items()]
-            weight_scale = _channel_range(torch.cat([w.reshape(w.size(0), -1) for w in sink_weights], 1))
+        if weight_scale.shape != act_scale.shape:
+            return
 
-            if weight_scale.shape != act_scale.shape:
-                continue
+        weight_scale += EPSILON
+        scale =  act_scale ** (1-alpha) / (weight_scale ** alpha)
+        scale += EPSILON
+        inverse_scale = torch.reciprocal(scale)
+        for module, axis in sink_axes.items():
+            src_broadcast_size = [1] * module.weight.ndim
+            src_broadcast_size[axis] = module.weight.size(axis)
+            module.weight.data = module.weight.data * torch.reshape(scale, src_broadcast_size)
+            if isinstance(module, QuantWBIOL):
+                module.weight_quant.init_tensor_quant()
 
-            weight_scale += EPSILON
-            scale =  act_scale ** (1-alpha) / (weight_scale ** alpha)
-            scale += EPSILON
-            inverse_scale = torch.reciprocal(scale)
-            for module, axis in sink_axes.items():
+        if act_module in _scale_varying_activations:
+            self.insert_mul_node(act_module, inverse_scale, self.float_act_map[act_name].shape, axis)
+        else:
+            for module, axis in src_axes.items():
+                if hasattr(module, 'bias') and module.bias is not None:
+                    module.bias.data = module.bias.data * inverse_scale.view_as(module.bias)
                 src_broadcast_size = [1] * module.weight.ndim
                 src_broadcast_size[axis] = module.weight.size(axis)
-                module.weight.data = module.weight.data * torch.reshape(scale, src_broadcast_size)
+                module.weight.data = module.weight.data * torch.reshape(inverse_scale, src_broadcast_size)
                 if isinstance(module, QuantWBIOL):
                     module.weight_quant.init_tensor_quant()
-            if act_module in _scale_varying_activations:
-                self.insert_mul_node(act_module, inverse_scale, self.float_act_map[act_name].shape, axis)
-            else:
-                for module, axis in src_axes.items():
-                    if hasattr(module, 'bias') and module.bias is not None:
-                        module.bias.data = module.bias.data * inverse_scale.view_as(module.bias)
-                    src_broadcast_size = [1] * module.weight.ndim
-                    src_broadcast_size[axis] = module.weight.size(axis)
-                    module.weight.data = module.weight.data * torch.reshape(inverse_scale, src_broadcast_size)
-                    if isinstance(module, QuantWBIOL):
-                        module.weight_quant.init_tensor_quant()
 
+    def equalize_activations(self, alpha):
+        name_to_module = dict_name_to_module(self.graph_model, self.regions)
+        for region in self.regions:
+            if len(region[2]) > 1:
+                continue
+            else:
+                act_name = region[2][0]
+                act_module = name_to_module[act_name]
+            sinks = [name_to_module[act] for act in region[1]]
+            srcs = [name_to_module[act] for act in region[0]]
+            self.cross_layer_activation_equalization(act_name, act_module, srcs, sinks, alpha)
+
+    def remove_hooks(self):
+        for hook in self.hooks:
+            hook.remove()
 
     def forward_stats_hook(self, module, inp, out, name):
-        self.iterations[name] += 1
         if name not in self.float_act_map:
             self.float_act_map[name] = torch.max(out, dim=0, keepdim=True)[0].detach()
         else:
