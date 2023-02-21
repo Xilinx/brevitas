@@ -11,6 +11,7 @@ import torch
 
 from brevitas.nn import QuantLSTM
 from brevitas.nn import QuantRNN
+from brevitas.quant_tensor import QuantTensor
 from tests.brevitas.hyp_helper import float_tensor_random_size_st
 
 ATOL=1e-6
@@ -289,3 +290,41 @@ class TestRecurrent:
             qm.load_state_dict(qm.state_dict())
             for w in wlist:
                 assert "Positional args are being deprecated" not in str(w.message)
+
+
+    @pytest.mark.parametrize("return_quant_tensor", [True, False])
+    @pytest.mark.parametrize("num_layers", [1, 2])
+    @pytest.mark.parametrize("bidirectional", [True, False])
+    @pytest.mark.parametrize("cat_output_cell_states", [True, False])
+    @pytest.mark.parametrize("shared_cell_state_quant", [True, False])
+    @pytest.mark.xfail(reason='TODO: Fix inconsistent return datatypes with num_layers=2, cat_output_cell_states=False, and return_quant_tensor=False')
+    def test_quant_lstm_cell_state(
+        self,
+        return_quant_tensor,
+        num_layers,
+        bidirectional,
+        cat_output_cell_states,
+        shared_cell_state_quant):
+
+        if cat_output_cell_states and not shared_cell_state_quant:
+            pytest.skip("Concatenating cell states requires shared cell quantizers.")
+
+        inp = torch.randn(1, 3, 5)
+        qm = QuantLSTM(inp.size(-1), 8,
+            bidirectional=bidirectional,
+            num_layers=num_layers,
+            return_quant_tensor=return_quant_tensor,
+            cat_output_cell_states=cat_output_cell_states,
+            shared_cell_state_quant=shared_cell_state_quant)
+        out, (h, c) = qm(inp)
+
+        if cat_output_cell_states and (return_quant_tensor or num_layers==2):
+            assert isinstance(c, QuantTensor)
+        elif cat_output_cell_states:
+            assert isinstance(c, torch.Tensor)
+        else:
+            assert isinstance(c, list)
+            if (return_quant_tensor):
+                assert all([isinstance(el, QuantTensor) for el in c])
+            else:
+                assert all([isinstance(el, torch.Tensor) for el in c])
