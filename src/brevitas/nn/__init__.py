@@ -25,6 +25,7 @@ from .quant_embedding import QuantEmbedding
 from .quant_linear import QuantLinear
 from .quant_max_pool import QuantMaxPool1d
 from .quant_max_pool import QuantMaxPool2d
+from .quant_mha import QuantMultiheadAttention
 from .quant_rnn import QuantLSTM
 from .quant_rnn import QuantRNN
 from .quant_scale_bias import QuantScaleBias
