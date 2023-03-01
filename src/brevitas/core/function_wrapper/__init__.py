@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
+from .adaround_impl import AdaRoundHardSigmoid
+from .adaround_impl import AdaRoundSigmoid
 from .clamp import ClampMin
 from .clamp import ScalarClamp
 from .clamp import TensorClamp
@@ -9,6 +11,7 @@ from .misc import Identity
 from .misc import InplaceLogTwo
 from .misc import LogTwo
 from .misc import PowerOfTwo
+from .ops_ste import AdaRoundSte
 from .ops_ste import CeilSte
 from .ops_ste import DPURoundSte
 from .ops_ste import FloorSte

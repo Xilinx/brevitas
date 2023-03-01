@@ -4,6 +4,7 @@
 
 from brevitas.core.bit_width import *
 from brevitas.core.function_wrapper import *
+from brevitas.core.function_wrapper.adaround_impl import *
 from brevitas.core.quant import *
 from brevitas.core.quant import QuantType
 from brevitas.core.restrict_val import *
@@ -12,6 +13,7 @@ from brevitas.core.scaling import ScalingImplType
 from brevitas.core.stats import *
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import value
+from brevitas.inject.enum import AdaRoundImplType
 
 __all__ = [
     'solve_bit_width_impl_from_enum',
@@ -40,6 +42,8 @@ def solve_float_to_int_impl_from_enum(impl_type):
         return RoundToZeroSte
     elif impl_type == FloatToIntImplType.DPU:
         return DPURoundSte
+    elif impl_type == FloatToIntImplType.ADAROUND:
+        return AdaRoundSte
     else:
         raise Exception(f"{impl_type} not recognized.")
 
@@ -129,6 +133,13 @@ class SolveTensorQuantFloatToIntImplFromEnum(ExtendedInjector):
     @value
     def float_to_int_impl(float_to_int_impl_type):
         return solve_float_to_int_impl_from_enum(float_to_int_impl_type)
+
+    @value
+    def adaround_impl(adaround_impl_type):
+        if adaround_impl_type == AdaRoundImplType.SIGMOID:
+            return AdaRoundHardSigmoid
+        if adaround_impl_type == AdaRoundImplType.HARD_SIGMOID:
+            return AdaRoundSigmoid
 
 
 class SolveIntScalingImplFromEnum(ExtendedInjector):

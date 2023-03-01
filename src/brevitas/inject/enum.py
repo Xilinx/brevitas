@@ -44,7 +44,15 @@ class FloatToIntImplType(AutoName):
     FLOOR = auto()
     ROUND_TO_ZERO = auto()
     DPU = auto()
+    ADAROUND = auto()
 
+
+class AdaRoundImplType(AutoName):
+    """
+
+    """
+    HARD_SIGMOID = auto()
+    SIGMOID = auto()
 
 class ScalingImplType(AutoName):
     """

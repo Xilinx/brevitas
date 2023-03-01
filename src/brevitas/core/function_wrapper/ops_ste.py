@@ -6,6 +6,8 @@
 ScriptModule wrappers of various functions defined in :obj:`~brevitas.function.ops_ste`.
 """
 
+from typing import Callable, List
+
 import torch
 
 import brevitas
@@ -37,6 +39,27 @@ class FloorSte(brevitas.jit.ScriptModule):
     def forward(self, x: torch.Tensor):
         return floor_ste(x)
 
+
+class AdaRoundSte(brevitas.jit.ScriptModule):
+    """
+    This Module implements AdaRound representation, where each weight has a learnable parameter
+    that decides if "ceil" or "floor" rounding type has to be used.
+    """
+
+    def __init__(self, tracked_parameter_list: List[torch.nn.Module], adaround_impl: brevitas.jit.ScriptModule) -> None:
+        super(AdaRoundSte, self).__init__()
+        if len(tracked_parameter_list) > 1:
+            raise RuntimeError('AdaRound does not support shared quantizers')
+        self.adaround_impl = adaround_impl
+        self.value = torch.nn.Parameter(torch.full(tracked_parameter_list[0].shape, 0.))
+
+    @brevitas.jit.script_method
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        p = self.adaround_impl(self.value)
+        # In eval mode, performs true quantization, otherwise "soft" quantization
+        if not self.training:
+            p = (p > 0).to(x.dtype)
+        return floor_ste(x) + p
 
 class RoundToZeroSte(brevitas.jit.ScriptModule):
     """
