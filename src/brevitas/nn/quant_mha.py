@@ -44,6 +44,7 @@ import math
 from typing import Optional, Tuple
 import warnings
 
+from packaging import version
 import torch
 from torch import Tensor
 from torch.nn import Module
@@ -53,6 +54,7 @@ from torch.nn.init import constant_
 from torch.nn.init import xavier_normal_
 from torch.nn.init import xavier_uniform_
 
+from brevitas import torch_version
 from brevitas.nn import QuantIdentity
 from brevitas.nn import QuantLinear
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
@@ -152,8 +154,12 @@ class QuantMultiheadAttention(Module):
                 **filter_kwargs('in_proj_'))
             self.in_proj = None
 
+        # Keep compatibility with this regression between 1.6.0 and 1.8.2, where bias is always enabled
+        # https://github.com/pytorch/pytorch/issues/52257
+        out_proj_bias = bias or (version.parse('1.8.2') >= torch_version >= version.parse('1.6.0'))
+
         self.out_proj = QuantLinear(
-            embed_dim, embed_dim, bias=bias,
+            embed_dim, embed_dim, bias=out_proj_bias,
             input_quant=out_proj_input_quant,
             weight_quant=out_proj_weight_quant,
             bias_quant=out_proj_bias_quant,
