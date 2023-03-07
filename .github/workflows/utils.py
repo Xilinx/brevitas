@@ -16,7 +16,7 @@ RELATIVE_INDENT = 2
 
 
 class CustomTemplate(Template):
-    delimiter = '&'
+    delimiter = '%'
 
 
 class Action:

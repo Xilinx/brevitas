@@ -27,7 +27,7 @@ jobs:
 
 
 
-    if: ${{ !github.event.pull_request.draft}} & contains(github.event.comment.html_url, '/run_tests')
+    if: ${{ !github.event.pull_request.draft}} && contains(github.event.comment.html_url, '/run_tests')
     steps:
 
     - name: Checkout repo

@@ -1,4 +1,4 @@
-name: &{name}
+name: %{name}
 
 on:
   pull_request:
@@ -13,10 +13,10 @@ jobs:
   build:
     runs-on: ${{ matrix.platform }}
     strategy:
-&{strategy}
+%{strategy}
       matrix:
-&{matrix}
-&{exclude}
+%{matrix}
+%{exclude}
 
     if: ${{ !github.event.pull_request.draft }}
     steps:
@@ -43,4 +43,4 @@ jobs:
       run: brew install libomp
       if: startsWith(runner.os, 'macOS') == true
 
-&{steps}
+%{steps}
