@@ -6,6 +6,8 @@ on:
   pull_request:
     types:
       - review_requested
+  issue_comment:
+    types: [created, edited, deleted]
 
 jobs:
   build:
@@ -25,7 +27,7 @@ jobs:
 
 
 
-    if: ${{ !github.event.pull_request.draft }}
+    if: ${{ !github.event.pull_request.draft & contains(github.event.comment.html_url, '/run_tests')}}
     steps:
 
     - name: Checkout repo
