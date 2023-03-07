@@ -227,3 +227,46 @@ class TruncIntQuant(brevitas.jit.ScriptModule):
         y = y * scale
         y = self.delay_wrapper(x, y)
         return y, scale, zero_point, output_bit_width
+
+class WeightNormIntQuant(brevitas.jit.ScriptModule):
+    """Weight normalization-based integer quantized for accumulator-
+    aware quantization based on `Quantized Neural Networks for Low-Precision
+    Accumulation with Guaranteed Overflow Avoidance` by I. Colbert,
+    A. Pappalardo, and J. Petri-Koenig."""
+    def __init__(self,
+                 int_quant: Module,
+                 scaling_impl: Module,
+                 zero_point_impl: Module,
+                 bit_width_impl: Module,
+                 stats_reduce_dim: int,
+                 scaling_shape: Tuple[int, ...],
+                 scaling_min_val: float,
+                 scaling_stats_input_view_shape_impl: Module):
+        super(WeightNormIntQuant, self).__init__()
+        self.int_quant = int_quant
+        self.scaling_impl = scaling_impl
+        self.zero_point_impl = zero_point_impl
+        self.msb_clamp_bit_width_impl = bit_width_impl
+
+        self.tensor_reduce_dim = stats_reduce_dim
+        self.tensor_view_impl = scaling_stats_input_view_shape_impl
+        self.tensor_shape = scaling_shape
+        self.tensor_min_val = scaling_min_val
+
+    @brevitas.jit.script_method
+    def normalize(self, inp: Tensor) -> Tensor:
+        denom: Tensor = self.tensor_view_impl(inp)
+        denom = denom.norm(p=1, dim=self.tensor_reduce_dim, keepdim=True)
+        denom = denom.view(self.tensor_shape)
+        return inp / denom.clamp_min(self.tensor_min_val)
+
+    @brevitas.jit.script_method
+    def forward(self, x: Tensor, input_bit_width: Tensor, input_is_signed: bool) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+        # apply weight normalization-based quantization formulation
+        w = self.normalize(x)
+        bit_width = self.msb_clamp_bit_width_impl()
+        # use input bit_width and sign to get norm and scales
+        g, scale = self.scaling_impl(input_bit_width, input_is_signed)
+        zero_point = self.zero_point_impl(g * w, scale, bit_width)
+        y = self.int_quant(scale, zero_point, bit_width, g * w)
+        return y, scale, zero_point, bit_width
