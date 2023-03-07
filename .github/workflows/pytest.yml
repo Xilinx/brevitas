@@ -41,7 +41,7 @@ jobs:
 
 
 
-    if: (!github.event.pull_request.draft) || (github.event.issue.pull_request != '' && contains(github.event.comment.body, '/run_tests') )
+    if: github.event.issue.pull_request != '' && contains(github.event.comment.body, '/run_tests')
     steps:
 
     - name: Checkout repo
