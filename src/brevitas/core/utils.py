@@ -62,3 +62,22 @@ class StatelessBuffer(brevitas.jit.ScriptModule):
             destination=destination, prefix=prefix, keep_vars=keep_vars)
         del output_dict[prefix + VALUE_ATTR_NAME]
         return output_dict
+
+
+class StatefulBuffer(brevitas.jit.ScriptModule):
+
+    def __init__(self, value: torch.Tensor):
+        super(StatefulBuffer, self).__init__()
+        self.register_buffer("value", value)
+    
+    @brevitas.jit.script_method
+    def forward(self):
+        return self.value.detach()
+
+    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
+                              missing_keys: list, unexpected_keys, error_msgs):
+        super(StatefulBuffer, self)._load_from_state_dict(
+            state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
+        value_key = prefix + "value"
+        if value_key in missing_keys:
+            missing_keys.remove(value_key)
