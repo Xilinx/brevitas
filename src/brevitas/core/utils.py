@@ -7,6 +7,7 @@ from typing import Optional
 import torch
 
 import brevitas
+import brevitas.config as config
 
 VALUE_ATTR_NAME = 'value'
 
@@ -79,5 +80,5 @@ class StatefulBuffer(brevitas.jit.ScriptModule):
         super(StatefulBuffer, self)._load_from_state_dict(
             state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
         value_key = prefix + "value"
-        if value_key in missing_keys:
+        if config.IGNORE_MISSING_KEYS and value_key in missing_keys:
             missing_keys.remove(value_key)
