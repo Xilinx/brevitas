@@ -69,7 +69,7 @@ class StatefulBuffer(brevitas.jit.ScriptModule):
     def __init__(self, value: torch.Tensor):
         super(StatefulBuffer, self).__init__()
         self.register_buffer("value", value)
-    
+
     @brevitas.jit.script_method
     def forward(self):
         return self.value.detach()
