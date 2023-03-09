@@ -395,33 +395,22 @@ def _extract_regions(graph_model: GraphModule) -> Set[Tuple[str]]:
 
 class EqualizeGraph(GraphTransform):
 
-    def __init__(
-            self,
-            iterations: int = 10,
-            threshold: float = 0.05,
-            return_regions: bool = False,
-            merge_bias: bool = True,
-            bias_shrinkage: Union[float, str] = 'vaiq',
-            scale_computation: str = 'maxabs') -> None:
+    def __init__(self, iterations: int = 10, threshold: float = 0.05, return_regions: bool = False,
+                 merge_bias: bool = True, bias_shrinkage: Union[float, str] = 'vaiq', scale_computation_type: str = 'maxabs') -> None:
         super(EqualizeGraph, self).__init__()
         self.iterations = iterations
         self.return_regions = return_regions
         self.merge_bias = merge_bias
         self.bias_shrinkage = bias_shrinkage
         self.threshold = threshold
-        self.scale_computation = scale_computation
+        self.scale_computation_type = scale_computation_type
 
     def apply(self,
               graph_model: GraphModule) -> Union[Tuple[GraphModule, Set[Tuple[str]]], GraphModule]:
         regions = _extract_regions(graph_model)
-        graph_model = _equalize(
-            graph_model,
-            regions,
-            self.iterations,
-            self.threshold,
-            self.merge_bias,
-            self.bias_shrinkage,
-            self.scale_computation)
+        if len(regions) > 0:
+            graph_model = _equalize(graph_model, regions, self.iterations, self.threshold,
+                                    self.merge_bias, self.bias_shrinkage, self.scale_computation_type)
         if self.return_regions:
             return graph_model, regions
         else:
