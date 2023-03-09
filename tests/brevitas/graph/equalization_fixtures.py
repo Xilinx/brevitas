@@ -1,12 +1,17 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from packaging import version
+import pytest
 import pytest_cases
 from pytest_cases import fixture_union
 import torch
 import torch.nn as nn
 
+from brevitas import torch_version
+
 MODELS = {
+    'vit_b_32': [0.777, 0.793],
     'shufflenet_v2_x0_5': [0.8141, 0.8230],
     'mobilenet_v2': [0.6571, 0.6571],
     'resnet18': [0.9756, 0.9756],
@@ -14,6 +19,9 @@ MODELS = {
     'inception_v3': [0.4973, 0.4973],
     'alexnet': [0.875, 0.875],}
 
+
+IN_SIZE_CONV = (1, 3, 224, 224)
+IN_SIZE_LINEAR = (1, 224, 3)
 
 @pytest_cases.fixture
 def bnconv_model():
@@ -37,6 +45,54 @@ def bnconv_model():
             return x
 
     return BNConvModel
+
+
+@pytest_cases.fixture
+def linearmha_model():
+    if torch_version < version.parse('1.9.1'):
+        pytest.skip(f"batch_first not supported in MHA with torch version {torch_version}")
+    class LinearMhaModel(nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.linear = nn.Linear(3,24)
+            self.mha = nn.MultiheadAttention(24,3,0.1, bias=True, add_bias_kv=True, batch_first=True)
+        def forward(self, x):
+            x = self.linear(x)
+            x, _ = self.mha(x, x, x)
+            return x
+    return LinearMhaModel
+
+
+@pytest_cases.fixture
+def layernormmha_model():
+    if torch_version < version.parse('1.9.1'):
+        pytest.skip(f"batch_first not supported in MHA with torch version {torch_version}")
+    class LayerNormMhaModel(nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.layernorm = nn.LayerNorm(3)
+            self.mha = nn.MultiheadAttention(3,3,0.1, bias=True, add_bias_kv=True, batch_first=True)
+        def forward(self, x):
+            x = self.layernorm(x)
+            x, _ = self.mha(x, x, x)
+            return x
+    return LayerNormMhaModel
+
+
+@pytest_cases.fixture
+def mhalinear_model():
+    if torch_version < version.parse('1.9.1'):
+        pytest.skip(f"batch_first not supported in MHA with torch version {torch_version}")
+    class MhaLinearModel(nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.mha = nn.MultiheadAttention(3,1,0.1, bias=True, add_bias_kv=True, batch_first=True)
+            self.linear = nn.Linear(3,6)
+        def forward(self, x):
+            x, _ = self.mha(x, x, x)
+            x = self.linear(x)
+            return x
+    return MhaLinearModel
 
 
 @pytest_cases.fixture
@@ -146,12 +202,8 @@ def mul_model():
     return ResidualSrcsAndSinkModel
 
 
-toy_model = fixture_union(
-    'toy_model',
-    [
-        'residual_model',
-        'srcsinkconflict_model',
-        'mul_model',
-        'convbn_model',
-        'bnconv_model',
-        'convdepthconv_model'])
+list_of_fixtures = ['residual_model', 'srcsinkconflict_model', 'mul_model',
+                    'convbn_model', 'bnconv_model', 'convdepthconv_model',
+                    'linearmha_model', 'mhalinear_model', 'layernormmha_model']
+
+toy_model = fixture_union('toy_model', list_of_fixtures, ids=list_of_fixtures)

@@ -14,7 +14,6 @@ from brevitas.graph.equalize import _is_supported_module
 from .equalization_fixtures import *
 
 SEED = 123456
-IN_SIZE = (1, 3, 224, 224)
 ATOL = 1e-3
 
 
@@ -26,9 +25,9 @@ def test_equalization_torchvision_models(model_dict: dict, merge_bias: bool):
     model, coverage = model_dict
 
     if model == 'googlenet' and torch_version == version.parse('1.8.1'):
-        pytest.skip(
-            'Skip because of PyTorch error = AttributeError: \'function\' object has no attribute \'GoogLeNetOutputs\' '
-        )
+        pytest.skip('Skip because of PyTorch error = AttributeError: \'function\' object has no attribute \'GoogLeNetOutputs\' ')
+    if 'vit' in model and torch_version < version.parse('1.13'):
+        pytest.skip(f'ViT supported from torch version 1.13, current torch version is {torch_version}')
 
     try:
         model = getattr(models, model)(pretrained=True, transform_input=False)
@@ -36,7 +35,7 @@ def test_equalization_torchvision_models(model_dict: dict, merge_bias: bool):
         model = getattr(models, model)(pretrained=True)
 
     torch.manual_seed(SEED)
-    inp = torch.randn(IN_SIZE)
+    inp = torch.randn(IN_SIZE_CONV)
     model.eval()
     expected_out = model(inp)
 
@@ -62,9 +61,17 @@ def test_equalization_torchvision_models(model_dict: dict, merge_bias: bool):
 
 
 @pytest.mark.parametrize("merge_bias", [True, False])
-def test_models(toy_model, merge_bias):
-    model = toy_model()
-    inp = torch.randn(IN_SIZE)
+def test_models(toy_model, merge_bias, request):
+    test_id = request.node.callspec.id
+
+    if 'mha' in test_id:
+        in_shape = IN_SIZE_LINEAR
+    else:
+        in_shape = IN_SIZE_CONV
+
+    model_class = toy_model
+    model = model_class()
+    inp = torch.randn(in_shape)
 
     model.eval()
     expected_out = model(inp)
