@@ -5,7 +5,7 @@
 from copy import deepcopy
 from functools import partial
 import operator
-from typing import Dict, List, Optional, Set, Tuple, Union
+from typing import Callable, Dict, List, Optional, Set, Tuple, Union
 
 import torch
 import torch.nn as nn
@@ -76,7 +76,7 @@ _batch_norm = (
     nn.BatchNorm3d,
 )
 
-def _select_scale_computation_fn(scale_computation_type: str):
+def _select_scale_computation_fn(scale_computation_type: str) -> Callable[[torch.Tensor], torch.Tensor]:
     if scale_computation_type == 'maxabs':
         return _channel_maxabs
     elif scale_computation_type == 'range':
