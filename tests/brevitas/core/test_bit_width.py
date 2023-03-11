@@ -6,9 +6,10 @@ from hypothesis import given
 import pytest
 import pytest_cases
 import torch
+import numpy as np
 
 from brevitas import config
-from brevitas.core.bit_width import BitWidthParameter
+from brevitas.core.bit_width import BitWidthParameter, BitWidthStatefulConst
 from brevitas.core.function_wrapper import RoundSte
 from brevitas.core.restrict_val import IntRestrictValue
 from tests.brevitas.common import assert_allclose
@@ -123,3 +124,15 @@ class TestBitWidthParameter:
             assert value == override_value
         else:
             assert value == state_dict_value
+
+
+bit_widths = np.arange(2, 10)
+
+@pytest.mark.parametrize("const_bit_width", bit_widths)
+@pytest.mark.parametrize("param_bit_width", bit_widths)
+def test_stateful_const_to_parameter(const_bit_width: int, param_bit_width: int):
+    """Testing load BitWidthParameter state from saved BitWidthStatefulConst state"""
+    const_bit_width = BitWidthStatefulConst(8)
+    param_bit_width = BitWidthParameter(4)
+    param_bit_width.load_state_dict(const_bit_width.state_dict())
+    assert const_bit_width() == param_bit_width()
