@@ -54,7 +54,7 @@ def solve_bit_width_impl_from_enum(impl_type):
     elif impl_type == BitWidthImplType.PARAMETER:
         return BitWidthParameter
     elif impl_type == BitWidthImplType.STATEFUL_CONST:
-        return StatefulBitWidthConst
+        return BitWidthStatefulConst
     else:
         raise Exception(f"{impl_type} not recognized.")
 

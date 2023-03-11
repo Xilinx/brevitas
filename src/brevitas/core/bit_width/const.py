@@ -41,7 +41,7 @@ class BitWidthConst(brevitas.jit.ScriptModule):
         return self.bit_width()
 
 
-class StatefulBitWidthConst(brevitas.jit.ScriptModule):
+class BitWidthStatefulConst(brevitas.jit.ScriptModule):
     """
     ScriptModule that returns a constant bit-width wrapped in a float torch.tensor but retains the
     bit-width as part of the module state.
@@ -50,13 +50,13 @@ class StatefulBitWidthConst(brevitas.jit.ScriptModule):
         bit_width (int): bit-width value.
 
     Examples:
-        >>> bit_width = StatefulBitWidthConst(8)
+        >>> bit_width = BitWidthStatefulConst(8)
         >>> bit_width()
         tensor(8.)
 
     Note:
-        The StatefulBitWidthConst is a counterpart to BitWidthConst with the difference that the
-        StatefulBitWidthConst retains the bit-width as part of the Module's state. This means that it
+        The BitWidthStatefulConst is a counterpart to BitWidthConst with the difference that the
+        BitWidthStatefulConst retains the bit-width as part of the Module's state. This means that it
         will be saved as part of a checkpoint.
 
     Note:
@@ -64,7 +64,7 @@ class StatefulBitWidthConst(brevitas.jit.ScriptModule):
         'stateful_const' in higher-level APIs.
     """
     def __init__(self, bit_width: int) -> None:
-        super(StatefulBitWidthConst, self).__init__()
+        super(BitWidthStatefulConst, self).__init__()
         assert isinstance(bit_width, int)
         self.register_buffer("bit_width", torch.tensor(float(bit_width)))
 
@@ -74,7 +74,7 @@ class StatefulBitWidthConst(brevitas.jit.ScriptModule):
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
                               missing_keys: list, unexpected_keys, error_msgs):
-        super(StatefulBitWidthConst, self)._load_from_state_dict(
+        super(BitWidthStatefulConst, self)._load_from_state_dict(
             state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
         value_key = prefix + "bit_width"
         if config.IGNORE_MISSING_KEYS and value_key in missing_keys:

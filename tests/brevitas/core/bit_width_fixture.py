@@ -8,7 +8,7 @@ from pytest_cases import fixture_union
 
 from brevitas.core.bit_width import BitWidthConst
 from brevitas.core.bit_width import BitWidthParameter
-from brevitas.core.bit_width import StatefulBitWidthConst
+from brevitas.core.bit_width import BitWidthStatefulConst
 from tests.brevitas.common import BOOLS
 from tests.brevitas.common import INT_BIT_WIDTH_TO_TEST
 
@@ -64,7 +64,7 @@ def stateful_bit_width_const(bit_width_init):
     """
     Constant bit-width module with persistent state
     """
-    module = StatefulBitWidthConst(bit_width_init)
+    module = BitWidthStatefulConst(bit_width_init)
     return module
 
 
