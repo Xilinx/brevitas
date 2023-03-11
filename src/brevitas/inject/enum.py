@@ -13,6 +13,7 @@ class BitWidthImplType(AutoName):
     """
     CONST = auto()
     PARAMETER = auto()
+    STATEFUL_CONST = auto()
 
 
 class QuantType(AutoName):
