@@ -7,6 +7,7 @@ from torch import Tensor
 from torch.nn import Module
 
 import brevitas
+import brevitas.config as config
 from brevitas.core.utils import StatelessBuffer
 from brevitas.function.ops_ste import tensor_clamp_ste
 
@@ -38,6 +39,46 @@ class BitWidthConst(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def forward(self) -> Tensor:
         return self.bit_width()
+
+
+class StatefulBitWidthConst(brevitas.jit.ScriptModule):
+    """
+    ScriptModule that returns a constant bit-width wrapped in a float torch.tensor but retains the
+    bit-width as part of the module state.
+
+    Args:
+        bit_width (int): bit-width value.
+
+    Examples:
+        >>> bit_width = StatefulBitWidthConst(8)
+        >>> bit_width()
+        tensor(8.)
+
+    Note:
+        The StatefulBitWidthConst is a counterpart to BitWidthConst with the difference that the
+        StatefulBitWidthConst retains the bit-width as part of the Module's state. This means that it
+        will be saved as part of a checkpoint.
+
+    Note:
+        Maps to bit_width_impl_type == BitWidthImplType.STATEFUL_CONST == 'STATEFUL_CONST' ==
+        'stateful_const' in higher-level APIs.
+    """
+    def __init__(self, bit_width: int) -> None:
+        super(StatefulBitWidthConst, self).__init__()
+        assert isinstance(bit_width, int)
+        self.register_buffer("bit_width", bit_width)
+
+    @brevitas.jit.script_method
+    def forward(self) -> Tensor:
+        return self.bit_width
+
+    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
+                              missing_keys: list, unexpected_keys, error_msgs):
+        super(StatefulBitWidthConst, self)._load_from_state_dict(
+            state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
+        value_key = prefix + "bit_width"
+        if config.IGNORE_MISSING_KEYS and value_key in missing_keys:
+            missing_keys.remove(value_key)
 
 
 class MsbClampBitWidth(brevitas.jit.ScriptModule):
