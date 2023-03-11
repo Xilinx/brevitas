@@ -8,6 +8,7 @@ import torch
 from torch import Tensor
 from torch.nn import Module
 from torch.nn import Parameter
+from collections import OrderedDict
 
 import brevitas
 import brevitas.config as config
@@ -88,7 +89,17 @@ class BitWidthParameter(brevitas.jit.ScriptModule):
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
                               missing_keys, unexpected_keys, error_msgs):
+        bit_width_const_key = prefix = 'bit_width'
         bit_width_offset_key = prefix + 'bit_width_offset'
+        if bit_width_const_key in state_dict:
+            assert bit_width_offset_key not in state_dict, "both should not be true"
+            state_dict = OrderedDict(
+                [(bit_width_offset_key, v - self.bit_width_base) if k == bit_width_const_key
+                                                                 else (k, v)
+                                                                 for k, v in state_dict.items()]
+            )
+            bit_width_offset_key = bit_width_const_key
+
         if self.override_pretrained and bit_width_offset_key in state_dict:
             del state_dict[bit_width_offset_key]
         super(BitWidthParameter, self)._load_from_state_dict(
