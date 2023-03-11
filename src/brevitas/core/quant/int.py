@@ -228,6 +228,7 @@ class TruncIntQuant(brevitas.jit.ScriptModule):
         y = self.delay_wrapper(x, y)
         return y, scale, zero_point, output_bit_width
 
+
 class WeightNormIntQuant(brevitas.jit.ScriptModule):
     """Weight normalization-based integer quantized for accumulator-
     aware quantization based on `Quantized Neural Networks for Low-Precision
