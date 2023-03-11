@@ -3,13 +3,14 @@
 
 
 from hypothesis import given
+import numpy as np
 import pytest
 import pytest_cases
 import torch
-import numpy as np
 
 from brevitas import config
-from brevitas.core.bit_width import BitWidthParameter, BitWidthStatefulConst
+from brevitas.core.bit_width import BitWidthParameter
+from brevitas.core.bit_width import BitWidthStatefulConst
 from brevitas.core.function_wrapper import RoundSte
 from brevitas.core.restrict_val import IntRestrictValue
 from tests.brevitas.common import assert_allclose
