@@ -17,9 +17,9 @@ __all__ = [
     'min_bit_width_init',
     'override_pretrained',
     'bit_width_const',
+    'bit_width_stateful_const',
     'bit_width_parameter',
     'bit_width_parameter_defaults',
-    'stateful_bit_width_const',
     'bit_width_all'  # noqa
 ]
 
@@ -60,7 +60,7 @@ def bit_width_const(bit_width_init):
 
 
 @pytest_cases.fixture()
-def stateful_bit_width_const(bit_width_init):
+def bit_width_stateful_const(bit_width_init):
     """
     Constant bit-width module with persistent state
     """
@@ -92,4 +92,4 @@ def bit_width_parameter(bit_width_init, min_bit_width_init, override_pretrained)
 
 
 # Union of all variants of bit-width
-fixture_union('bit_width_all', ['bit_width_const', 'bit_width_parameter', 'stateful_bit_width_const'])
+fixture_union('bit_width_all', ['bit_width_const', 'bit_width_parameter', 'bit_width_stateful_const'])
