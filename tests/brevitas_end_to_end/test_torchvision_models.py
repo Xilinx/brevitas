@@ -13,6 +13,7 @@ import torchvision.models as modelzoo
 from brevitas import torch_version
 from brevitas.export import export_onnx_qcdq
 from brevitas.export import export_torch_qcdq
+from brevitas.graph.calibrate import calibration_mode
 from tests.marker import requires_pt_ge
 
 BATCH = 1
@@ -59,14 +60,19 @@ def torchvision_model(model_name):
     # Deeplab and fcn are in a different module, and they have a dict as output which is not suited for torchscript
     if model_name in ('deeplabv3_resnet50', 'fcn_resnet50'):
         model_fn = getattr(modelzoo.segmentation, model_name)
-        model = NoDictModel(model_fn(pretrained=False, aux_loss=False))
+        model = NoDictModel(model_fn(pretrained=True))
+    elif model_name in ('googlenet', 'inception_v3'):
+        model_fn = getattr(modelzoo, model_name)
+        model = model_fn(pretrained=True, transform_input=False)
     else:
         model_fn = getattr(modelzoo, model_name)
-        model = model_fn(pretrained=False)
+        model = model_fn(pretrained=True)
 
     model.eval()
     model = preprocess_flexml(model, inp)
     model = quantize_flexml(model)
+    with calibration_mode(model):
+        model(inp)
     return model
 
 
