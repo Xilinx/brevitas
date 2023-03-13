@@ -126,14 +126,14 @@ class TestBitWidthParameter:
         else:
             assert value == state_dict_value
 
-
-bit_widths = np.arange(2, 10)
-
-@pytest.mark.parametrize("const_bit_width", bit_widths)
-@pytest.mark.parametrize("param_bit_width", bit_widths)
-def test_stateful_const_to_parameter(const_bit_width: int, param_bit_width: int):
-    """Testing load BitWidthParameter state from saved BitWidthStatefulConst state"""
-    const_bit_width = BitWidthStatefulConst(8)
-    param_bit_width = BitWidthParameter(4)
-    param_bit_width.load_state_dict(const_bit_width.state_dict())
-    assert const_bit_width() == param_bit_width()
+    def test_load_from_stateful_const(self, bit_width_parameter, override_pretrained):
+        """
+        Test state dictionary from BitWidthStatefulConst is read correctly
+        """
+        override_value = bit_width_parameter.bit_width_offset
+        bit_width_stateful_const = BitWidthStatefulConst(8)
+        bit_width_parameter.load_state_dict(bit_width_stateful_const.state_dict())
+        if override_pretrained:
+            assert bit_width_parameter.bit_width_offset == override_value
+        else:
+            assert bit_width_stateful_const() == bit_width_parameter()
