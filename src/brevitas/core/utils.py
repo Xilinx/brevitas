@@ -7,7 +7,6 @@ from typing import Optional
 import torch
 
 import brevitas
-import brevitas.config as config
 
 VALUE_ATTR_NAME = 'value'
 
