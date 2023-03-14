@@ -22,8 +22,11 @@ class TestBitWidthAll:
     Test invariants on all bit-widths variants
     """
 
-    def test_return_value(self, bit_width_all, bit_width_init):
+    def test_return_value(self, bit_width_all, bit_width_init, bit_width_init_two):
         bit_width_tensor = bit_width_all()
+        # BitWidthStatefulConst is initialized from bit_width_init_two
+        if isinstance(bit_width_all, BitWidthStatefulConst):
+            bit_width_init = bit_width_init_two
         assert bit_width_tensor == bit_width_init
 
     def test_return_datatype(self, bit_width_all):

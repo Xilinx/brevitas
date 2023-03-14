@@ -14,6 +14,7 @@ from tests.brevitas.common import INT_BIT_WIDTH_TO_TEST
 
 __all__ = [
     'bit_width_init',
+    'bit_width_init_two',
     'min_bit_width_init',
     'override_pretrained',
     'bit_width_const',
@@ -32,6 +33,8 @@ def bit_width_init(value):
     Integer bit-width value to initialize a bit-width module
     """
     return value
+
+bit_width_init_two = bit_width_init
 
 @pytest_cases.fixture()
 @pytest_cases.parametrize('value', INT_BIT_WIDTH_TO_TEST)
@@ -60,11 +63,11 @@ def bit_width_const(bit_width_init):
 
 
 @pytest_cases.fixture()
-def bit_width_stateful_const(bit_width_init):
+def bit_width_stateful_const(bit_width_init_two):
     """
     Constant bit-width module with persistent state
     """
-    module = BitWidthStatefulConst(bit_width_init)
+    module = BitWidthStatefulConst(bit_width_init_two)
     return module
 
 
