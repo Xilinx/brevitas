@@ -5,7 +5,7 @@
 from copy import deepcopy
 from functools import partial
 import operator
-from typing import Dict, List, Optional, Set, Tuple, Union
+from typing import Callable, Dict, List, Optional, Set, Tuple, Union
 
 import torch
 import torch.nn as nn
@@ -76,6 +76,13 @@ _batch_norm = (
     nn.BatchNorm3d,
 )
 
+def _select_scale_computation_fn(scale_computation_type: str) -> Callable[[torch.Tensor], torch.Tensor]:
+    if scale_computation_type == 'maxabs':
+        return _channel_maxabs
+    elif scale_computation_type == 'range':
+        return _channel_range
+    else:
+        raise RuntimeError(f"Scale computation type {scale_computation_type} not supported")
 
 def _channel_range(inp: torch.Tensor) -> torch.Tensor:
     mins, _ = inp.min(dim=1)
@@ -88,6 +95,11 @@ def _channel_range(inp: torch.Tensor) -> torch.Tensor:
     # convert to positive range, in case any of the values are negative,
     # highly likely in cases when there is only one value per channel, such as in Batch Norm
     out = torch.abs(out)
+    return out
+
+
+def _channel_maxabs(inp: torch.Tensor) -> torch.Tensor:
+    out = torch.max(torch.abs(inp), dim=1)[0]
     return out
 
 
@@ -169,7 +181,7 @@ def _combine_weights_bias(weight: nn.parameter.Parameter, bias_shrinkage: Union[
     return weight_bias
 
 
-def _cross_layer_equalization(srcs: List[nn.Module], sinks: List[nn.Module], merge_bias: bool, bias_shrinkage: Union[float, str]) -> torch.Tensor:
+def _cross_layer_equalization(srcs: List[nn.Module], sinks: List[nn.Module], merge_bias: bool, bias_shrinkage: Union[float, str], scale_computation_type: str) -> torch.Tensor:
     """
     Given two adjacent tensors', the weights are scaled such that
     the ranges of the first tensors' output channel are equal to the
@@ -202,13 +214,14 @@ def _cross_layer_equalization(srcs: List[nn.Module], sinks: List[nn.Module], mer
         return torch.tensor(1., dtype=dtype, device=device)
 
     transpose = lambda module, axis: module.weight if axis == 0 else module.weight.transpose(0, 1)
+    scale_fn = _select_scale_computation_fn(scale_computation_type)
     if merge_bias:
         src_weights = [_combine_weights_bias(transpose(m, axis), bias_shrinkage, m.bias) for m, axis in src_axes.items()]
     else:
         src_weights = [transpose(m, axis) for m, axis in src_axes.items()]
     sink_weights = [transpose(m, axis) for m, axis in sink_axes.items()]
-    srcs_range = _channel_range(torch.cat([w.reshape(w.size(0), -1) for w in src_weights], 1))
-    sinks_range = _channel_range(torch.cat([w.reshape(w.size(0), -1) for w in sink_weights], 1))
+    srcs_range = scale_fn(torch.cat([w.reshape(w.size(0), -1) for w in src_weights], 1))
+    sinks_range = scale_fn(torch.cat([w.reshape(w.size(0), -1) for w in sink_weights], 1))
     sinks_range += EPSILON
 
     scaling_factors = torch.sqrt(srcs_range / sinks_range)
@@ -229,7 +242,7 @@ def _cross_layer_equalization(srcs: List[nn.Module], sinks: List[nn.Module], mer
         module.weight.data = module.weight.data * torch.reshape(scaling_factors, src_broadcast_size)
     return scaling_factors
 
-def _equalize(model: GraphModule, regions: Set[Tuple[str]], iterations: int, threshold: float, merge_bias: bool, bias_shrinkage: Union[str, float]) -> GraphModule:
+def _equalize(model: GraphModule, regions: Set[Tuple[str]], iterations: int, threshold: float, merge_bias: bool, bias_shrinkage: Union[str, float], scale_computation_type: str) -> GraphModule:
     """
     Generalized version of section 4.1 of https://arxiv.org/pdf/1906.04721.pdf
     """
@@ -242,7 +255,7 @@ def _equalize(model: GraphModule, regions: Set[Tuple[str]], iterations: int, thr
     for i in range(iterations):
         scale_factor_max = None
         for region in regions:
-            scale_factors_region = _cross_layer_equalization([name_to_module[n] for n in region[0]], [name_to_module[n] for n in region[1]], merge_bias, bias_shrinkage)
+            scale_factors_region = _cross_layer_equalization([name_to_module[n] for n in region[0]], [name_to_module[n] for n in region[1]], merge_bias, bias_shrinkage, scale_computation_type)
 
         scale_factor_region_max = torch.max(torch.abs(1 - scale_factors_region))
         if scale_factor_max is not None:
@@ -323,18 +336,19 @@ def _extract_regions(graph_model: GraphModule) -> Set[Tuple[str]]:
 class EqualizeGraph(GraphTransform):
 
     def __init__(self, iterations: int = 10, threshold: float = 0.05, return_regions: bool = False,
-                 merge_bias: bool = True, bias_shrinkage: Union[float, str] = 'vaiq') -> None:
+                 merge_bias: bool = True, bias_shrinkage: Union[float, str] = 'vaiq', scale_computation: str = 'maxabs') -> None:
         super(EqualizeGraph, self).__init__()
         self.iterations = iterations
         self.return_regions = return_regions
         self.merge_bias = merge_bias
         self.bias_shrinkage = bias_shrinkage
         self.threshold = threshold
+        self.scale_computation = scale_computation
 
     def apply(self, graph_model: GraphModule) -> Union[Tuple[GraphModule, Set[Tuple[str]]], GraphModule]:
         regions = _extract_regions(graph_model)
         graph_model = _equalize(graph_model, regions, self.iterations, self.threshold,
-                                self.merge_bias, self.bias_shrinkage)
+                                self.merge_bias, self.bias_shrinkage, self.scale_computation)
         if self.return_regions:
             return graph_model, regions
         else:
