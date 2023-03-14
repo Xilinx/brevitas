@@ -128,14 +128,19 @@ class TestBitWidthParameter:
         else:
             assert value == state_dict_value
 
-    def test_load_from_stateful_const(self, bit_width_parameter, override_pretrained):
+    def test_load_from_stateful_const(self, bit_width_parameter, bit_width_stateful_const, bit_width_init, min_bit_width_init, bit_width_init_two, override_pretrained):
         """
         Test state dictionary from BitWidthStatefulConst is read correctly
         """
+        if (bit_width_init_two < min_bit_width_init) and not override_pretrained:
+            pytest.xfail('bit_width cannot be smaller than min_bit_width')
         override_value = bit_width_parameter.bit_width_offset
-        bit_width_stateful_const = BitWidthStatefulConst(8)
         bit_width_parameter.load_state_dict(bit_width_stateful_const.state_dict())
+        bit_width_parameter_tensor = bit_width_parameter()
         if override_pretrained:
             assert bit_width_parameter.bit_width_offset == override_value
+            assert bit_width_parameter_tensor == bit_width_init
         else:
-            assert bit_width_stateful_const() == bit_width_parameter()
+            bit_width_stateful_const_tensor = bit_width_stateful_const()
+            assert bit_width_stateful_const_tensor == bit_width_init_two
+            assert bit_width_stateful_const_tensor == bit_width_parameter_tensor
