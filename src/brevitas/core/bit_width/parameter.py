@@ -2,9 +2,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from collections import OrderedDict
-from typing import Optional
-
 import torch
 from torch import Tensor
 from torch.nn import Module
