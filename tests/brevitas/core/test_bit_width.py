@@ -128,7 +128,13 @@ class TestBitWidthParameter:
         else:
             assert value == state_dict_value
 
-    def test_load_from_stateful_const(self, bit_width_parameter, bit_width_stateful_const, bit_width_init, min_bit_width_init, bit_width_init_two, override_pretrained):
+    def test_load_from_stateful_const(self,
+                                      bit_width_parameter,
+                                      bit_width_stateful_const,
+                                      bit_width_init,
+                                      min_bit_width_init,
+                                      bit_width_init_two,
+                                      override_pretrained):
         """
         Test state dictionary from BitWidthStatefulConst is read correctly
         """
