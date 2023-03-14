@@ -20,7 +20,8 @@ __all__ = [
     'bit_width_stateful_const',
     'bit_width_parameter',
     'bit_width_parameter_defaults',
-    'bit_width_all'  # noqa
+    'bit_width_all',  # noqa
+    'bit_width_stateful' # noqa
 ]
 
 
@@ -31,7 +32,6 @@ def bit_width_init(value):
     Integer bit-width value to initialize a bit-width module
     """
     return value
-
 
 @pytest_cases.fixture()
 @pytest_cases.parametrize('value', INT_BIT_WIDTH_TO_TEST)
@@ -93,3 +93,6 @@ def bit_width_parameter(bit_width_init, min_bit_width_init, override_pretrained)
 
 # Union of all variants of bit-width
 fixture_union('bit_width_all', ['bit_width_const', 'bit_width_parameter', 'bit_width_stateful_const'])
+
+# Union of all stateful variants of bit-width
+fixture_union('bit_width_stateful', ['bit_width_parameter', 'bit_width_stateful_const'])

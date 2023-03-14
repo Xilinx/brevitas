@@ -104,12 +104,12 @@ class TestBitWidthParameter:
     @pytest_cases.parametrize(
         'ignore_missing_keys',
         [True, pytest.param(False, marks=pytest.mark.xfail(raises=RuntimeError))])
-    def test_ignore_missing_keys(self, bit_width_parameter, ignore_missing_keys):
+    def test_ignore_missing_keys(self, bit_width_stateful, ignore_missing_keys):
         """
         Test that config.IGNORE_MISSING_KEYS is read correctly
         """
         config.IGNORE_MISSING_KEYS = ignore_missing_keys
-        bit_width_parameter.load_state_dict({})
+        bit_width_stateful.load_state_dict({})
 
     def test_override_pretrained_value(self, bit_width_parameter, override_pretrained):
         """
