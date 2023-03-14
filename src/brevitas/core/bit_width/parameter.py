@@ -92,13 +92,10 @@ class BitWidthParameter(brevitas.jit.ScriptModule):
         bit_width_const_key = prefix + 'bit_width'
         bit_width_offset_key = prefix + 'bit_width_offset'
         if bit_width_const_key in state_dict:
-            assert bit_width_offset_key not in state_dict, "both should not be true"
-            state_dict = OrderedDict(
-                [(bit_width_offset_key, v - self.bit_width_base) if k == bit_width_const_key
-                                                                 else (k, v)
-                                                                 for k, v in state_dict.items()]
-            )
-            bit_width_offset_key = bit_width_const_key
+            assert bit_width_offset_key not in state_dict, "Both should not be true."
+            bit_width = state_dict[bit_width_const_key]
+            state_dict[bit_width_offset_key] = bit_width - self.bit_width_base
+            del state_dict[bit_width_const_key]
 
         if self.override_pretrained and bit_width_offset_key in state_dict:
             del state_dict[bit_width_offset_key]
