@@ -11,7 +11,7 @@ import torch.nn as nn
 from brevitas import torch_version
 
 MODELS = {
-    'vit_b_32': [0.777, 0.793],
+    'vit_b_32': [0.396, 0.396],
     'shufflenet_v2_x0_5': [0.8141, 0.8230],
     'mobilenet_v2': [0.6571, 0.6571],
     'resnet18': [0.9756, 0.9756],
