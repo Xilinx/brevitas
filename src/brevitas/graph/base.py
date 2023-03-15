@@ -13,6 +13,7 @@ from brevitas.fx import GraphModule
 from brevitas.fx import immutable_dict
 from brevitas.fx import Node
 from brevitas.graph.utils import *
+from brevitas.utils.python_utils import islambda
 
 __all__ = [
     'Transform',
@@ -119,6 +120,15 @@ class ModuleToModule(GraphTransform, ABC):
             attrs['bias'] = module.bias
         return attrs
 
+    def _evaluate_new_kwargs(self, new_kwargs, old_module):
+        update_dict = dict()
+        for k, v in self.new_module_kwargs.items():
+            if islambda(v):
+                v = v(old_module)
+            update_dict[k] = v
+        new_kwargs.update(update_dict)
+        return new_kwargs
+
     def _init_new_module(self, old_module: Module):
         # get attributes of original module
         new_kwargs = self._module_attributes(old_module)
@@ -128,7 +138,7 @@ class ModuleToModule(GraphTransform, ABC):
         new_module_signature_keys = signature_keys(self.new_module_class)
         new_kwargs = {k: v for k, v in new_kwargs.items() if k in new_module_signature_keys}
         # update with kwargs passed to the rewriter
-        new_kwargs.update(self.new_module_kwargs)
+        new_kwargs = self._evaluate_new_kwargs(new_kwargs, self.new_module_kwargs)
         # init the new module
         new_module = self.new_module_class(**new_kwargs)
         return new_module
