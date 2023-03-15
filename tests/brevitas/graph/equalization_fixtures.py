@@ -48,14 +48,17 @@ def bnconv_model():
 
 
 @pytest_cases.fixture
-def linearmha_model():
+@pytest_cases.parametrize('bias', [True, False])
+@pytest_cases.parametrize('add_bias_kv', [True, False])
+@pytest_cases.parametrize('batch_first', [True, False])
+def linearmha_model(bias, add_bias_kv, batch_first):
     if torch_version < version.parse('1.9.1'):
         pytest.skip(f"batch_first not supported in MHA with torch version {torch_version}")
     class LinearMhaModel(nn.Module):
         def __init__(self) -> None:
             super().__init__()
             self.linear = nn.Linear(3,24)
-            self.mha = nn.MultiheadAttention(24,3,0.1, bias=True, add_bias_kv=True, batch_first=True)
+            self.mha = nn.MultiheadAttention(24,3,0.1, bias=bias, add_bias_kv=add_bias_kv, batch_first=batch_first)
         def forward(self, x):
             x = self.linear(x)
             x, _ = self.mha(x, x, x)
@@ -64,14 +67,20 @@ def linearmha_model():
 
 
 @pytest_cases.fixture
-def layernormmha_model():
+@pytest_cases.parametrize('bias', [True, False])
+@pytest_cases.parametrize('add_bias_kv', [True, False])
+@pytest_cases.parametrize('batch_first', [True, False])
+def layernormmha_model(bias, add_bias_kv, batch_first):
     if torch_version < version.parse('1.9.1'):
         pytest.skip(f"batch_first not supported in MHA with torch version {torch_version}")
     class LayerNormMhaModel(nn.Module):
         def __init__(self) -> None:
             super().__init__()
             self.layernorm = nn.LayerNorm(3)
-            self.mha = nn.MultiheadAttention(3,3,0.1, bias=True, add_bias_kv=True, batch_first=True)
+            # Simulate learned parameters
+            self.layernorm.weight.data = torch.randn_like(self.layernorm.weight)
+            self.layernorm.bias.data = torch.randn_like(self.layernorm.bias)
+            self.mha = nn.MultiheadAttention(3,3,0.1, bias=bias, add_bias_kv=add_bias_kv, batch_first=batch_first)
         def forward(self, x):
             x = self.layernorm(x)
             x, _ = self.mha(x, x, x)
@@ -80,13 +89,16 @@ def layernormmha_model():
 
 
 @pytest_cases.fixture
-def mhalinear_model():
+@pytest_cases.parametrize('bias', [True, False])
+@pytest_cases.parametrize('add_bias_kv', [True, False])
+@pytest_cases.parametrize('batch_first', [True, False])
+def mhalinear_model(bias, add_bias_kv, batch_first):
     if torch_version < version.parse('1.9.1'):
         pytest.skip(f"batch_first not supported in MHA with torch version {torch_version}")
     class MhaLinearModel(nn.Module):
         def __init__(self) -> None:
             super().__init__()
-            self.mha = nn.MultiheadAttention(3,1,0.1, bias=True, add_bias_kv=True, batch_first=True)
+            self.mha = nn.MultiheadAttention(3,1,0.1, bias=bias, add_bias_kv=add_bias_kv, batch_first=batch_first)
             self.linear = nn.Linear(3,6)
         def forward(self, x):
             x, _ = self.mha(x, x, x)
