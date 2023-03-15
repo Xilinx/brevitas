@@ -299,17 +299,12 @@ def _equalize(
     for i in range(iterations):
         scale_factor_max = None
         for region in regions:
-            scale_factors_region = _cross_layer_equalization([name_to_module[n] for n in region[0]],
-                                                             [name_to_module[n] for n in region[1]],
-                                                             merge_bias,
-                                                             bias_shrinkage,
-                                                             scale_computation_type)
-
-        scale_factor_region_max = torch.max(torch.abs(1 - scale_factors_region))
-        if scale_factor_max is not None:
-            scale_factor_max = torch.max(scale_factor_max, scale_factor_region_max)
-        else:
-            scale_factor_max = scale_factor_region_max
+            scale_factors_region = _cross_layer_equalization([name_to_module[n] for n in region[0]], [name_to_module[n] for n in region[1]], merge_bias, bias_shrinkage, scale_computation_type)
+            scale_factor_region_max = torch.max(torch.abs(1 - scale_factors_region))
+            if scale_factor_max is not None:
+                scale_factor_max = torch.max(scale_factor_max, scale_factor_region_max)
+            else:
+                scale_factor_max = scale_factor_region_max
         if threshold is not None and scale_factor_max < threshold:
             break
     return model
