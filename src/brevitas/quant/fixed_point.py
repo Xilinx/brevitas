@@ -48,10 +48,21 @@ class Int8ActPerTensorFixedPoint(IntQuant,
     pass
 
 
-class Uint8ActPerTensorFixedPoint(UintQuant,
-                                  ParamFromRuntimePercentileScaling,
-                                  PerTensorPoTScaling8bit,
-                                  ActQuantSolver):
+class Int8ActPerTensorFixedPointMinMaxInit(
+    IntQuant, ParamMinMaxInitScaling, PerTensorPoTScaling8bit, ActQuantSolver):
+    """
+    8-bit per-tensor signed int activations fixed-point quantizer with learned radix point
+    initialized from runtime statistics.
+
+    Examples:
+        >>> from brevitas.nn import QuantIdentity
+        >>> act = QuantIdentity(act_quant=Int8ActPerTensorFixedPoint)
+    """
+    pass
+
+
+class Uint8ActPerTensorFixedPoint(
+    UintQuant, ParamFromRuntimePercentileScaling, PerTensorPoTScaling8bit, ActQuantSolver):
     """
     8-bit per-tensor unsigned int activations fixed-point quantizer with learned radix point
     initialized from runtime statistics.
