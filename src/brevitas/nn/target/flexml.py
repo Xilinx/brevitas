@@ -40,6 +40,13 @@ class FlexMLQuantLeakyReLU(nn.Module):
         out = self.output_quant(out)
         return out
 
+    @property
+    def act_quant(self):
+        return self.output_quant.act_quant
+
+    @property
+    def is_quant_act_signed(self):
+        return self.output_quant.is_quant_act_signed
 
 class FlexMLQuantAvgPool2d(QuantLayerMixin, nn.AvgPool2d):
 
