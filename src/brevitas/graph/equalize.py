@@ -325,6 +325,7 @@ def _is_supported_module(graph_model: GraphModule, node: Node) -> bool:
             return True
     return False
 
+
 def _is_scale_invariant_module(graph_model: GraphModule, node: Node) -> bool:
     return node.op == 'call_module' and isinstance(
         get_module(graph_model, node.target), _scale_invariant_layers)
@@ -358,7 +359,10 @@ def walk_region(
             continue
         if _is_supported_module(graph_model, node):
             if walk_forward:
-                sinks.add(node.target)
+                module = get_module(graph_model, node.target)
+                # It is not possible to equalize through LayerNorm as sink
+                if not isinstance(module, nn.LayerNorm):
+                    sinks.add(node.target)
             else:
                 srcs.add(node.target)
                 walk_region(graph_model, node, history, srcs, sinks, walk_forward=True)
