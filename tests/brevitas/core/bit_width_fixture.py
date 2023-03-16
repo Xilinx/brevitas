@@ -62,7 +62,8 @@ def bit_width_const(bit_width_init):
     return BitWidthConst(bit_width_init)
 
 
-@pytest_cases.fixture()
+# Specfying fixture scope to address macos pytest failures
+@pytest_cases.fixture(scope='function')
 def bit_width_stateful_const(bit_width_init_two):
     """
     Constant bit-width module with persistent state
@@ -80,7 +81,7 @@ def bit_width_parameter_defaults(bit_width_init):
     return module
 
 
-@pytest_cases.fixture()
+@pytest_cases.fixture(scope='function')
 def bit_width_parameter(bit_width_init, min_bit_width_init, override_pretrained):
     """
     Learned bit-width with default arguments module
