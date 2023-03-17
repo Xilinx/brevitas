@@ -230,7 +230,7 @@ class TruncIntQuant(brevitas.jit.ScriptModule):
 
 
 class WeightNormIntQuant(brevitas.jit.ScriptModule):
-    """Weight normalization-based integer quantized for accumulator-
+    """Weight normalization-based integer quantizer for accumulator-
     aware quantization based on `Quantized Neural Networks for Low-Precision
     Accumulation with Guaranteed Overflow Avoidance` by I. Colbert,
     A. Pappalardo, and J. Petri-Koenig."""
@@ -254,10 +254,14 @@ class WeightNormIntQuant(brevitas.jit.ScriptModule):
         self.tensor_shape = scaling_shape
         self.tensor_min_val = scaling_min_val
 
+        # TODO - expose this to be user-specified
+        self.tensor_p = 1
+
     @brevitas.jit.script_method
     def normalize(self, inp: Tensor) -> Tensor:
+        """Normalize weights by p-norm"""
         denom: Tensor = self.tensor_view_impl(inp)
-        denom = denom.norm(p=1, dim=self.tensor_reduce_dim, keepdim=True)
+        denom = denom.norm(p=self.tensor_p, dim=self.tensor_reduce_dim, keepdim=True)
         denom = denom.view(self.tensor_shape)
         return inp / denom.clamp_min(self.tensor_min_val)
 
