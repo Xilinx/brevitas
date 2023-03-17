@@ -2,11 +2,12 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
+import copy
+
 from hypothesis import given
 import pytest
 import pytest_cases
 import torch
-import copy
 
 from brevitas import config
 from brevitas.core.bit_width import BitWidthParameter
