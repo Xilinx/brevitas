@@ -1,9 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
-import copy
-
 from hypothesis import given
 import pytest
 import pytest_cases
@@ -17,6 +14,7 @@ from brevitas.core.restrict_val import IntRestrictValue
 from tests.brevitas.common import assert_allclose
 from tests.brevitas.core.bit_width_fixture import *  # noqa
 from tests.brevitas.hyp_helper import scalar_float_nz_tensor_st
+from tests.marker import skip_on_macos_nox
 
 
 class TestBitWidthAll:
@@ -130,6 +128,7 @@ class TestBitWidthParameter:
         else:
             assert value == state_dict_value
 
+    @skip_on_macos_nox
     def test_load_from_stateful_const(self,
                                       bit_width_parameter,
                                       bit_width_stateful_const,
@@ -143,8 +142,6 @@ class TestBitWidthParameter:
         if (bit_width_init_two < min_bit_width_init) and not override_pretrained:
             pytest.xfail('bit_width cannot be smaller than min_bit_width')
         override_value = bit_width_parameter.bit_width_offset
-        bit_width_parameter = copy.deepcopy(bit_width_parameter)
-        bit_width_stateful_const = copy.deepcopy(bit_width_stateful_const)
         bit_width_parameter.load_state_dict(bit_width_stateful_const.state_dict())
         bit_width_parameter_tensor = bit_width_parameter()
         if override_pretrained:
