@@ -78,31 +78,17 @@ class QuantConv1d(QuantWBIOL, Conv1d):
     def channelwise_separable(self) -> bool:
         return self.groups == self.in_channels
 
-    def conv1d_zeros_pad(self, x: Tensor, weight: Tensor, bias: Optional[Tensor]):
-        out = F.conv1d(x, weight, bias, self.stride, self.padding, self.dilation, self.groups)
-        return out
-
-    def conv1d_same_zeros_pad(self, x, weight, bias):
-        ih = x.size()[-1]
-        kh = weight.size()[-1]
-        sh = self.stride[0]
-        oh = math.ceil(ih / sh)
-        pad_h = max((oh - 1) * self.stride[0] + (kh - 1) * self.dilation[0] + 1 - ih, 0)
-        if pad_h > 0:
-            x = F.pad(x, [pad_h // 2, pad_h - pad_h // 2])
-        out = F.conv1d(x, weight, bias, self.stride, 0, self.dilation, self.groups)
-        return out
-
     def forward(self, input: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
         return self.forward_impl(input)
 
     def inner_forward_impl(self, x: Tensor, quant_weight: Tensor, quant_bias: Optional[Tensor]):
-        if self.padding_type == 'standard':
-            return self.conv1d_zeros_pad(x, quant_weight, quant_bias)
-        elif self.padding_type == 'same':
-            return self.conv1d_same_zeros_pad(x, quant_weight, quant_bias)
-        else:
-            raise NotImplementedError(f"Padding type {self.padding_type} not supported.")
+        # Forward-pass implementation directly copied from PyTorch: https://github.com/pytorch/pytorch/blob/16d85160d511f6e0c3b3eda418b133a66d3376dd/torch/nn/modules/conv.py#L305-L310
+        if self.padding_mode != 'zeros':
+            return F.conv1d(F.pad(x, self._reversed_padding_repeated_twice, mode=self.padding_mode),
+                            quant_weight, quant_bias, self.stride,
+                            _single(0), self.dilation, self.groups)
+        return F.conv1d(x, quant_weight, quant_bias, self.stride,
+                        self.padding, self.dilation, self.groups)
 
     def max_acc_bit_width(self, input_bit_width, weight_bit_width):
         max_uint_input = max_int(bit_width=input_bit_width, signed=False, narrow_range=False)
@@ -169,32 +155,17 @@ class QuantConv2d(QuantWBIOL, Conv2d):
     def channelwise_separable(self) -> bool:
         return self.groups == self.in_channels
 
-    def conv2d_zeros_pad(self, x: Tensor, weight: Tensor, bias: Tensor):
-        out = conv2d(x, weight, bias, self.stride, self.padding, self.dilation, self.groups)
-        return out
-
-    def conv2d_same_zeros_pad(self, x: Tensor, weight: Tensor, bias: Optional[Tensor]):
-        ih, iw = x.size()[-2:]
-        kh, kw = weight.size()[-2:]
-        sh, sw = self.stride
-        oh, ow = math.ceil(ih / sh), math.ceil(iw / sw)
-        pad_h = max((oh - 1) * self.stride[0] + (kh - 1) * self.dilation[0] + 1 - ih, 0)
-        pad_w = max((ow - 1) * self.stride[1] + (kw - 1) * self.dilation[1] + 1 - iw, 0)
-        if pad_h > 0 or pad_w > 0:
-            x = F.pad(x, [pad_w // 2, pad_w - pad_w // 2, pad_h // 2, pad_h - pad_h // 2])
-        out = F.conv2d(x, weight, bias, self.stride, 0, self.dilation, self.groups)
-        return out
-
     def forward(self, input: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
         return self.forward_impl(input)
 
     def inner_forward_impl(self, x: Tensor, quant_weight: Tensor, quant_bias: Optional[Tensor]):
-        if self.padding_type == 'standard':
-            return self.conv2d_zeros_pad(x, quant_weight, quant_bias)
-        elif self.padding_type == 'same':
-            return self.conv2d_same_zeros_pad(x, quant_weight, quant_bias)
-        else:
-            raise RuntimeError(f"Padding type {self.padding_type} not supported.")
+        # Forward-pass implementation directly copied from PyTorch: https://github.com/pytorch/pytorch/blob/16d85160d511f6e0c3b3eda418b133a66d3376dd/torch/nn/modules/conv.py#LL455-L460C66
+        if self.padding_mode != 'zeros':
+            return F.conv2d(F.pad(x, self._reversed_padding_repeated_twice, mode=self.padding_mode),
+                            quant_weight, quant_bias, self.stride,
+                            _pair(0), self.dilation, self.groups)
+        return F.conv2d(x, quant_weight, quant_bias, self.stride,
+                        self.padding, self.dilation, self.groups)
 
     def max_acc_bit_width(self, input_bit_width: Tensor, weight_bit_width: Tensor):
         max_uint_input = max_int(bit_width=input_bit_width, signed=False, narrow_range=False)
