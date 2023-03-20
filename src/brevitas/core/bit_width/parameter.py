@@ -2,8 +2,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from typing import Optional
-
 import torch
 from torch import Tensor
 from torch.nn import Module
@@ -88,11 +86,18 @@ class BitWidthParameter(brevitas.jit.ScriptModule):
 
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
                               missing_keys, unexpected_keys, error_msgs):
+        bit_width_const_key = prefix + 'bit_width'
         bit_width_offset_key = prefix + 'bit_width_offset'
+        if bit_width_const_key in state_dict:
+            assert bit_width_offset_key not in state_dict, "Both should not be true."
+            bit_width = state_dict[bit_width_const_key]
+            state_dict[bit_width_offset_key] = bit_width - self.bit_width_base
+            del state_dict[bit_width_const_key]
+
         if self.override_pretrained and bit_width_offset_key in state_dict:
             del state_dict[bit_width_offset_key]
         super(BitWidthParameter, self)._load_from_state_dict(
-            state_dict, prefix, local_metadata,strict,missing_keys, unexpected_keys, error_msgs)
+            state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
         if config.IGNORE_MISSING_KEYS and bit_width_offset_key in missing_keys:
             missing_keys.remove(bit_width_offset_key)
 

@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from hypothesis import given
 import pytest
 import pytest_cases
@@ -9,11 +8,13 @@ import torch
 
 from brevitas import config
 from brevitas.core.bit_width import BitWidthParameter
+from brevitas.core.bit_width import BitWidthStatefulConst
 from brevitas.core.function_wrapper import RoundSte
 from brevitas.core.restrict_val import IntRestrictValue
 from tests.brevitas.common import assert_allclose
 from tests.brevitas.core.bit_width_fixture import *  # noqa
 from tests.brevitas.hyp_helper import scalar_float_nz_tensor_st
+from tests.marker import skip_on_macos_nox
 
 
 class TestBitWidthAll:
@@ -21,8 +22,11 @@ class TestBitWidthAll:
     Test invariants on all bit-widths variants
     """
 
-    def test_return_value(self, bit_width_all, bit_width_init):
+    def test_return_value(self, bit_width_all, bit_width_init, bit_width_init_two):
         bit_width_tensor = bit_width_all()
+        # BitWidthStatefulConst is initialized from bit_width_init_two
+        if isinstance(bit_width_all, BitWidthStatefulConst):
+            bit_width_init = bit_width_init_two
         assert bit_width_tensor == bit_width_init
 
     def test_return_datatype(self, bit_width_all):
@@ -103,12 +107,12 @@ class TestBitWidthParameter:
     @pytest_cases.parametrize(
         'ignore_missing_keys',
         [True, pytest.param(False, marks=pytest.mark.xfail(raises=RuntimeError))])
-    def test_ignore_missing_keys(self, bit_width_parameter, ignore_missing_keys):
+    def test_ignore_missing_keys(self, bit_width_stateful, ignore_missing_keys):
         """
         Test that config.IGNORE_MISSING_KEYS is read correctly
         """
         config.IGNORE_MISSING_KEYS = ignore_missing_keys
-        bit_width_parameter.load_state_dict({})
+        bit_width_stateful.load_state_dict({})
 
     def test_override_pretrained_value(self, bit_width_parameter, override_pretrained):
         """
@@ -123,3 +127,27 @@ class TestBitWidthParameter:
             assert value == override_value
         else:
             assert value == state_dict_value
+
+    @skip_on_macos_nox
+    def test_load_from_stateful_const(self,
+                                      bit_width_parameter,
+                                      bit_width_stateful_const,
+                                      bit_width_init,
+                                      min_bit_width_init,
+                                      bit_width_init_two,
+                                      override_pretrained):
+        """
+        Test state dictionary from BitWidthStatefulConst is read correctly
+        """
+        if (bit_width_init_two < min_bit_width_init) and not override_pretrained:
+            pytest.xfail('bit_width cannot be smaller than min_bit_width')
+        override_value = bit_width_parameter.bit_width_offset
+        bit_width_parameter.load_state_dict(bit_width_stateful_const.state_dict())
+        bit_width_parameter_tensor = bit_width_parameter()
+        if override_pretrained:
+            assert bit_width_parameter.bit_width_offset == override_value
+            assert bit_width_parameter_tensor == bit_width_init
+        else:
+            bit_width_stateful_const_tensor = bit_width_stateful_const()
+            assert bit_width_stateful_const_tensor == bit_width_init_two
+            assert bit_width_stateful_const_tensor == bit_width_parameter_tensor

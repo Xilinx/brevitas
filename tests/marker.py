@@ -43,3 +43,8 @@ def jit_disabled_for_mock():
         return pytest.mark.skipif(skip, reason=f'Mock requires JIT to be disabled')(f)
 
     return skip_wrapper
+
+skip_on_macos_nox = pytest.mark.skipif(
+    platform.system() == "Darwin",
+    reason="Known issue with Nox and MacOS."
+)

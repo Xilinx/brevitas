@@ -7,6 +7,7 @@
 from brevitas.inject.enum import BitWidthImplType
 
 from .const import BitWidthConst
+from .const import BitWidthStatefulConst
 from .const import MsbClampBitWidth
 from .parameter import BitWidthParameter
 from .parameter import RemoveBitwidthParameter

@@ -8,17 +8,21 @@ from pytest_cases import fixture_union
 
 from brevitas.core.bit_width import BitWidthConst
 from brevitas.core.bit_width import BitWidthParameter
+from brevitas.core.bit_width import BitWidthStatefulConst
 from tests.brevitas.common import BOOLS
 from tests.brevitas.common import INT_BIT_WIDTH_TO_TEST
 
 __all__ = [
     'bit_width_init',
+    'bit_width_init_two',
     'min_bit_width_init',
     'override_pretrained',
     'bit_width_const',
+    'bit_width_stateful_const',
     'bit_width_parameter',
     'bit_width_parameter_defaults',
-    'bit_width_all'  # noqa
+    'bit_width_all',  # noqa
+    'bit_width_stateful' # noqa
 ]
 
 
@@ -30,6 +34,7 @@ def bit_width_init(value):
     """
     return value
 
+bit_width_init_two = bit_width_init
 
 @pytest_cases.fixture()
 @pytest_cases.parametrize('value', INT_BIT_WIDTH_TO_TEST)
@@ -57,6 +62,16 @@ def bit_width_const(bit_width_init):
     return BitWidthConst(bit_width_init)
 
 
+# Specfying fixture scope to address macos pytest failures
+@pytest_cases.fixture()
+def bit_width_stateful_const(bit_width_init_two):
+    """
+    Constant bit-width module with persistent state
+    """
+    module = BitWidthStatefulConst(bit_width_init_two)
+    return module
+
+
 @pytest_cases.fixture()
 def bit_width_parameter_defaults(bit_width_init):
     """
@@ -81,4 +96,7 @@ def bit_width_parameter(bit_width_init, min_bit_width_init, override_pretrained)
 
 
 # Union of all variants of bit-width
-fixture_union('bit_width_all', ['bit_width_const', 'bit_width_parameter'])
+fixture_union('bit_width_all', ['bit_width_const', 'bit_width_parameter', 'bit_width_stateful_const'])
+
+# Union of all stateful variants of bit-width
+fixture_union('bit_width_stateful', ['bit_width_parameter', 'bit_width_stateful_const'])
