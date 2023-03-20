@@ -2,14 +2,11 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from typing import Union, Tuple, Type, Optional
-import math
+from typing import Union, Tuple, Optional
 
 import torch
 from torch import Tensor
 from torch.nn import Conv1d, Conv2d
-from torch.nn import functional as F
-from torch.nn.functional import conv2d
 
 from brevitas.function.ops import max_int
 from brevitas.function.ops_ste import ceil_ste
@@ -82,13 +79,7 @@ class QuantConv1d(QuantWBIOL, Conv1d):
         return self.forward_impl(input)
 
     def inner_forward_impl(self, x: Tensor, quant_weight: Tensor, quant_bias: Optional[Tensor]):
-        # Forward-pass implementation directly copied from PyTorch: https://github.com/pytorch/pytorch/blob/16d85160d511f6e0c3b3eda418b133a66d3376dd/torch/nn/modules/conv.py#L305-L310
-        if self.padding_mode != 'zeros':
-            return F.conv1d(F.pad(x, self._reversed_padding_repeated_twice, mode=self.padding_mode),
-                            quant_weight, quant_bias, self.stride,
-                            _single(0), self.dilation, self.groups)
-        return F.conv1d(x, quant_weight, quant_bias, self.stride,
-                        self.padding, self.dilation, self.groups)
+        return self._conv_forward(x, quant_weight, quant_bias)
 
     def max_acc_bit_width(self, input_bit_width, weight_bit_width):
         max_uint_input = max_int(bit_width=input_bit_width, signed=False, narrow_range=False)
@@ -159,13 +150,7 @@ class QuantConv2d(QuantWBIOL, Conv2d):
         return self.forward_impl(input)
 
     def inner_forward_impl(self, x: Tensor, quant_weight: Tensor, quant_bias: Optional[Tensor]):
-        # Forward-pass implementation directly copied from PyTorch: https://github.com/pytorch/pytorch/blob/16d85160d511f6e0c3b3eda418b133a66d3376dd/torch/nn/modules/conv.py#LL455-L460C66
-        if self.padding_mode != 'zeros':
-            return F.conv2d(F.pad(x, self._reversed_padding_repeated_twice, mode=self.padding_mode),
-                            quant_weight, quant_bias, self.stride,
-                            _pair(0), self.dilation, self.groups)
-        return F.conv2d(x, quant_weight, quant_bias, self.stride,
-                        self.padding, self.dilation, self.groups)
+        return self._conv_forward(x, quant_weight, quant_bias)
 
     def max_acc_bit_width(self, input_bit_width: Tensor, weight_bit_width: Tensor):
         max_uint_input = max_int(bit_width=input_bit_width, signed=False, narrow_range=False)
