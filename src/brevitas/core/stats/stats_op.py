@@ -375,7 +375,7 @@ class L2Norm(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim']
 
     def __init__(self, stats_reduce_dim: Optional[int] = None) -> None:
-        super(L1Norm, self).__init__()
+        super(L2Norm, self).__init__()
         self.stats_reduce_dim = stats_reduce_dim
 
     @brevitas.jit.script_method
