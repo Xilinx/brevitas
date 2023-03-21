@@ -313,7 +313,7 @@ class WeightNormPerChannelFloatDecoupled(
     The default quantizer uses the decoupled rescaling integer quantization arithmetic
     where the weight normalization calculation and parameterization are combined with the
     scaling factor to become the pre-clipping scaling factor (i.e., `pre_scale`) and the
-    scaling factor is the post-clipping scaling factor (i.e., `post_scale`). for further
+    scaling factor is the post-clipping scaling factor (i.e., `post_scale`). For further
     details on the arithmetic, see `ParameterPreScalingWeightNorm`. For further details
     on the weight normalization-based quantization technique, see the referenced paper."""
 
