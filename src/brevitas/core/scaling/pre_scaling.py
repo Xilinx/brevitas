@@ -16,6 +16,9 @@ from brevitas.core.stats import SCALAR_SHAPE
 from brevitas.core.stats.stats_wrapper import _Stats
 from brevitas.function import abs_binary_sign_grad
 
+__all__ = [
+    "ParameterPreScalingWeightNorm",
+]
 
 class ParameterPreScalingWeightNorm(brevitas.jit.ScriptModule):
     """
