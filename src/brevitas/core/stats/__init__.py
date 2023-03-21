@@ -12,6 +12,8 @@ from .stats_op import AbsMaxAve
 from .stats_op import AbsMaxL2
 from .stats_op import AbsMinMax
 from .stats_op import AbsPercentile
+from .stats_op import L1Norm
+from .stats_op import L2Norm
 from .stats_op import MeanLearnedSigmaStd
 from .stats_op import MeanSigmaStd
 from .stats_op import NegativeMinOrZero
