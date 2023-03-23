@@ -7,8 +7,13 @@ import pytest_cases
 from pytest_cases import fixture_union
 import torch
 import torch.nn as nn
+from torchvision import models
 
 from brevitas import torch_version
+from brevitas.graph.equalize import _cross_layer_equalization
+
+SEED = 123456
+ATOL = 1e-3
 
 MODELS = {
     'vit_b_32': [0.396, 0.396],
@@ -16,12 +21,54 @@ MODELS = {
     'mobilenet_v2': [0.6571, 0.6571],
     'resnet18': [0.9756, 0.9756],
     'googlenet': [0.4956, 0.4956],
-    'inception_v3': [0.4973, 0.4973],
+    'inception_v3': [0.4948, 0.4948],
     'alexnet': [0.875, 0.875],}
-
 
 IN_SIZE_CONV = (1, 3, 224, 224)
 IN_SIZE_LINEAR = (1, 224, 3)
+
+
+def equalize_test(model, regions, merge_bias, bias_shrinkage, scale_computation_type):
+    name_to_module = {}
+    name_set = {name for region in regions for module_set in region for name in module_set}
+    scale_factors_regions = []
+    for name, module in model.named_modules():
+        if name in name_set:
+            name_to_module[name] = module
+    for i in range(3):
+        for region in regions:
+            scale_factors_region = _cross_layer_equalization([name_to_module[n] for n in region[0]],
+                                                             [name_to_module[n] for n in region[1]],
+                                                             merge_bias,
+                                                             bias_shrinkage,
+                                                             scale_computation_type)
+            if i == 0:
+                scale_factors_regions.append(scale_factors_region)
+    return scale_factors_regions
+
+
+@pytest_cases.fixture
+@pytest_cases.parametrize(
+    "model_dict", [(model_name, coverage) for model_name, coverage in MODELS.items()],
+    ids=[model_name for model_name, _ in MODELS.items()])
+def model_coverage(model_dict: dict):
+    model_name, coverage = model_dict
+
+    if model_name == 'googlenet' and torch_version == version.parse('1.8.1'):
+        pytest.skip(
+            'Skip because of PyTorch error = AttributeError: \'function\' object has no attribute \'GoogLeNetOutputs\' '
+        )
+    if 'vit' in model_name and torch_version < version.parse('1.13'):
+        pytest.skip(
+            f'ViT supported from torch version 1.13, current torch version is {torch_version}')
+
+    kwargs = dict()
+    if model_name in ('inception_v3', 'googlenet'):
+        kwargs['transform_input'] = False
+    model = getattr(models, model_name)(pretrained=True, **kwargs)
+
+    return model, coverage
+
 
 @pytest_cases.fixture
 def bnconv_model():
@@ -54,15 +101,20 @@ def bnconv_model():
 def linearmha_model(bias, add_bias_kv, batch_first):
     if torch_version < version.parse('1.9.1'):
         pytest.skip(f"batch_first not supported in MHA with torch version {torch_version}")
+
     class LinearMhaModel(nn.Module):
+
         def __init__(self) -> None:
             super().__init__()
-            self.linear = nn.Linear(3,24)
-            self.mha = nn.MultiheadAttention(24,3,0.1, bias=bias, add_bias_kv=add_bias_kv, batch_first=batch_first)
+            self.linear = nn.Linear(3, 24)
+            self.mha = nn.MultiheadAttention(
+                24, 3, 0.1, bias=bias, add_bias_kv=add_bias_kv, batch_first=batch_first)
+
         def forward(self, x):
             x = self.linear(x)
             x, _ = self.mha(x, x, x)
             return x
+
     return LinearMhaModel
 
 
@@ -73,18 +125,23 @@ def linearmha_model(bias, add_bias_kv, batch_first):
 def layernormmha_model(bias, add_bias_kv, batch_first):
     if torch_version < version.parse('1.9.1'):
         pytest.skip(f"batch_first not supported in MHA with torch version {torch_version}")
+
     class LayerNormMhaModel(nn.Module):
+
         def __init__(self) -> None:
             super().__init__()
             self.layernorm = nn.LayerNorm(3)
             # Simulate learned parameters
             self.layernorm.weight.data = torch.randn_like(self.layernorm.weight)
             self.layernorm.bias.data = torch.randn_like(self.layernorm.bias)
-            self.mha = nn.MultiheadAttention(3,3,0.1, bias=bias, add_bias_kv=add_bias_kv, batch_first=batch_first)
+            self.mha = nn.MultiheadAttention(
+                3, 3, 0.1, bias=bias, add_bias_kv=add_bias_kv, batch_first=batch_first)
+
         def forward(self, x):
             x = self.layernorm(x)
             x, _ = self.mha(x, x, x)
             return x
+
     return LayerNormMhaModel
 
 
@@ -95,15 +152,20 @@ def layernormmha_model(bias, add_bias_kv, batch_first):
 def mhalinear_model(bias, add_bias_kv, batch_first):
     if torch_version < version.parse('1.9.1'):
         pytest.skip(f"batch_first not supported in MHA with torch version {torch_version}")
+
     class MhaLinearModel(nn.Module):
+
         def __init__(self) -> None:
             super().__init__()
-            self.mha = nn.MultiheadAttention(3,1,0.1, bias=bias, add_bias_kv=add_bias_kv, batch_first=batch_first)
-            self.linear = nn.Linear(3,6)
+            self.mha = nn.MultiheadAttention(
+                3, 1, 0.1, bias=bias, add_bias_kv=add_bias_kv, batch_first=batch_first)
+            self.linear = nn.Linear(3, 6)
+
         def forward(self, x):
             x, _ = self.mha(x, x, x)
             x = self.linear(x)
             return x
+
     return MhaLinearModel
 
 
@@ -214,8 +276,52 @@ def mul_model():
     return ResidualSrcsAndSinkModel
 
 
-list_of_fixtures = ['residual_model', 'srcsinkconflict_model', 'mul_model',
-                    'convbn_model', 'bnconv_model', 'convdepthconv_model',
-                    'linearmha_model', 'mhalinear_model', 'layernormmha_model']
+list_of_fixtures = [
+    'residual_model',
+    'srcsinkconflict_model',
+    'mul_model',
+    'convbn_model',
+    'bnconv_model',
+    'convdepthconv_model',
+    'linearmha_model',
+    'mhalinear_model',
+    'layernormmha_model']
 
 toy_model = fixture_union('toy_model', list_of_fixtures, ids=list_of_fixtures)
+
+RESNET_18_REGIONS = [
+    [('conv1',), ('bn1',)],
+    [('layer4.0.conv2',), ('layer4.0.bn2',)],
+    [('layer2.0.conv2',), ('layer2.0.bn2',)],
+    [('layer3.0.bn1',), ('layer3.0.conv2',)],
+    [('layer4.1.bn1',), ('layer4.1.conv2',)],
+    [('layer1.1.conv1',), ('layer1.1.bn1',)],
+    [('layer3.0.conv2',), ('layer3.0.bn2',)],
+    [('layer2.1.bn1',), ('layer2.1.conv2',)],
+    [('layer2.1.conv2',), ('layer2.1.bn2',)],
+    [('layer3.1.conv1',), ('layer3.1.bn1',)],
+    [('layer3.1.bn1',), ('layer3.1.conv2',)],
+    [('layer4.0.conv1',), ('layer4.0.bn1',)],
+    [('layer3.0.downsample.0',), ('layer3.0.downsample.1',)],
+    [('layer1.0.bn1',), ('layer1.0.conv2',)],
+    [('layer3.0.bn2', 'layer3.0.downsample.1', 'layer3.1.bn2'),
+     ('layer3.1.conv1', 'layer4.0.conv1', 'layer4.0.downsample.0')],
+    [('layer4.1.conv2',), ('layer4.1.bn2',)],
+    [('layer3.0.conv1',), ('layer3.0.bn1',)],
+    [('layer4.0.bn1',), ('layer4.0.conv2',)],
+    [('layer3.1.conv2',), ('layer3.1.bn2',)],
+    [('layer1.0.conv1',), ('layer1.0.bn1',)],
+    [('layer4.0.downsample.0',), ('layer4.0.downsample.1',)],
+    [('layer2.0.bn2', 'layer2.0.downsample.1', 'layer2.1.bn2'),
+     ('layer2.1.conv1', 'layer3.0.conv1', 'layer3.0.downsample.0')],
+    [('layer1.1.bn1',), ('layer1.1.conv2',)],
+    [('layer1.1.conv2',), ('layer1.1.bn2',)],
+    [('layer4.1.conv1',), ('layer4.1.bn1',)],
+    [('layer2.1.conv1',), ('layer2.1.bn1',)],
+    [('bn1', 'layer1.0.bn2', 'layer1.1.bn2'),
+     ('layer1.0.conv1', 'layer1.1.conv1', 'layer2.0.conv1', 'layer2.0.downsample.0')],
+    [('layer2.0.bn1',), ('layer2.0.conv2',)],
+    [('layer2.0.conv1',), ('layer2.0.bn1',)],
+    [('layer4.0.bn2', 'layer4.0.downsample.1', 'layer4.1.bn2'), ('fc', 'layer4.1.conv1')],
+    [('layer2.0.downsample.0',), ('layer2.0.downsample.1',)],
+    [('layer1.0.conv2',), ('layer1.0.bn2',)],]
