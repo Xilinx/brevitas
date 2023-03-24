@@ -222,7 +222,8 @@ class QCDQBiasQuantProxyHandlerMixin(DQMixin, QuantAxisMixin, ZeroPointHandlerMi
     handled_layer = BiasQuantProxyFromInjector
 
     def validate(self, module):
-        assert module.bit_width() > 1., 'Binary quant not supported'
+        if module.bit_width() is not None:
+            assert module.bit_width() > 1., 'Binary quant not supported'
         assert module.is_signed, 'Unsigned bias not supported.'
         assert module.rounding_mode == 'ROUND', 'Only round to nearest even supported.'
 
