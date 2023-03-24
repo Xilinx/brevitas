@@ -121,7 +121,14 @@ class ConvBlock(nn.Module):
 
 class MobileNet(nn.Module):
 
-    def __init__(self, channels, first_stage_stride, bit_width, in_channels=3, num_classes=1000):
+    def __init__(
+            self,
+            channels,
+            first_stage_stride,
+            bit_width,
+            round_average_pool=True,
+            in_channels=3,
+            num_classes=1000):
         super(MobileNet, self).__init__()
         init_block_channels = channels[0][0]
 
@@ -150,7 +157,10 @@ class MobileNet(nn.Module):
                 stage.add_module('unit{}'.format(j + 1), mod)
                 in_channels = out_channels
             self.features.add_module('stage{}'.format(i + 1), stage)
-        self.final_pool = QuantAvgPool2d(kernel_size=7, stride=1, bit_width=bit_width)
+        # Exporting to torch or ONNX qcdq requires round
+        avgpool_float_to_int_impl_type = 'round' if round_average_pool else 'floor'
+        self.final_pool = QuantAvgPool2d(
+            kernel_size=7, stride=1, bit_width=bit_width, float_to_int_impl_type=avgpool_float_to_int_impl_type)
         self.output = QuantLinear(
             in_channels,
             num_classes,
@@ -173,10 +183,15 @@ def quant_mobilenet_v1(cfg):
     first_stage_stride = False
     width_scale = float(cfg.get('MODEL', 'WIDTH_SCALE'))
     bit_width = cfg.getint('QUANT', 'BIT_WIDTH')
+    round_avgpool = cfg.getboolean('QUANT', 'ROUND_AVG_POOL')
 
     if width_scale != 1.0:
         channels = [[int(cij * width_scale) for cij in ci] for ci in channels]
 
-    net = MobileNet(channels=channels, first_stage_stride=first_stage_stride, bit_width=bit_width)
+    net = MobileNet(
+        channels=channels,
+        first_stage_stride=first_stage_stride,
+        round_average_pool=round_avgpool,
+        bit_width=bit_width)
 
     return net
