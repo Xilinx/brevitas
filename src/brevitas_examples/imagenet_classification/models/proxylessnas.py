@@ -211,6 +211,7 @@ class ProxylessNAS(nn.Module):
             depthwise_bit_width,
             first_layer_weight_bit_width,
             hadamard_classifier,
+            round_average_pool=True,
             bn_eps=1e-3,
             in_channels=3,
             num_classes=1000):
@@ -284,7 +285,10 @@ class ProxylessNAS(nn.Module):
             return_quant_tensor=True)
         self.features.add_module("final_block", final_block)
         in_channels = final_block_channels
-        self.final_pool = QuantAvgPool2d(kernel_size=7, stride=1, bit_width=bit_width)
+        # Exporting to torch or ONNX qcdq requires round
+        avgpool_float_to_int_impl_type = 'round' if round_average_pool else 'floor'
+        self.final_pool = QuantAvgPool2d(
+            kernel_size=7, stride=1, bit_width=bit_width, float_to_int_impl_type=avgpool_float_to_int_impl_type)
         if hadamard_classifier:
             self.output = HadamardClassifier(
                 in_channels=in_channels, out_channels=num_classes, fixed_scale=False)
@@ -320,6 +324,7 @@ def quant_proxylessnas_mobile14(cfg):
     first_layer_weight_bit_width = int(cfg.get('QUANT', 'FIRST_LAYER_WEIGHT_BIT_WIDTH'))
     depthwise_bit_width = int(cfg.get('QUANT', 'DEPTHWISE_BIT_WIDTH'))
     hadamard_classifier = cfg.getboolean('MODEL', 'HADAMARD_CLASSIFIER')
+    round_avgpool = cfg.getboolean('QUANT', 'ROUND_AVG_POOL')
 
     net = ProxylessNAS(
         channels=channels,
@@ -332,5 +337,6 @@ def quant_proxylessnas_mobile14(cfg):
         bit_width=bit_width,
         first_layer_weight_bit_width=first_layer_weight_bit_width,
         depthwise_bit_width=depthwise_bit_width,
-        hadamard_classifier=hadamard_classifier)
+        hadamard_classifier=hadamard_classifier,
+        round_average_pool=round_avgpool)
     return net
