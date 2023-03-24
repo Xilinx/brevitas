@@ -62,3 +62,14 @@ class StatelessBuffer(brevitas.jit.ScriptModule):
             destination=destination, prefix=prefix, keep_vars=keep_vars)
         del output_dict[prefix + VALUE_ATTR_NAME]
         return output_dict
+
+
+class SingleArgStatelessBuffer(brevitas.jit.ScriptModule):
+
+    def __init__(self, value: torch.Tensor):
+        super(SingleArgStatelessBuffer, self).__init__()
+        self.const = StatelessBuffer(torch.tensor(value))
+
+    @brevitas.jit.script_method
+    def forward(self, placeholder):
+        return self.const()

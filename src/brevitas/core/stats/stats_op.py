@@ -349,3 +349,39 @@ class KLMinimizerThreshold(torch.nn.Module):
         min_divergence_idx = torch.argmin(divergence)
         opt_threshold = thresholds[min_divergence_idx]
         return opt_threshold
+
+
+class L1Norm(brevitas.jit.ScriptModule):
+    """ScriptModule implementation to collect per-channel L1 normalization stats
+    for weight normalization-based quantization."""
+    __constants__ = ['stats_reduce_dim']
+
+    def __init__(self, stats_reduce_dim: Optional[int] = None) -> None:
+        super(L1Norm, self).__init__()
+        self.stats_reduce_dim = stats_reduce_dim
+
+    @brevitas.jit.script_method
+    def forward(self, x: Tensor):
+        if self.stats_reduce_dim is None:
+            # Need to be able to return the max per-channel L1 norm as a scalar
+            raise NotImplementedError("L1 normalization is not supported per-tensor yet.")
+        else:
+            return x.norm(p=1, dim=self.stats_reduce_dim, keepdim=True)
+
+
+class L2Norm(brevitas.jit.ScriptModule):
+    """ScriptModule implementation to collect per-channel L2 normalization stats
+    for weight normalization-based quantization."""
+    __constants__ = ['stats_reduce_dim']
+
+    def __init__(self, stats_reduce_dim: Optional[int] = None) -> None:
+        super(L2Norm, self).__init__()
+        self.stats_reduce_dim = stats_reduce_dim
+
+    @brevitas.jit.script_method
+    def forward(self, x: Tensor):
+        if self.stats_reduce_dim is None:
+            # Need to be able to return the max per-channel L2 norm as a scalar
+            raise NotImplementedError("L2 normalization is not supported per-tensor yet.")
+        else:
+            return x.norm(p=2, dim=self.stats_reduce_dim, keepdim=True)
