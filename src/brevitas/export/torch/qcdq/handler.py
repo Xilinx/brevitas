@@ -71,7 +71,7 @@ class TorchQCDQMixin(TorchDQMixin, QCDQMixin, ABC):
 
     def validate(self, module):
         assert module.bit_width() > 1., 'Binary quant not supported'
-        assert module.rounding_mode == 'ROUND', 'Only round to nearest even supported'
+        assert module.rounding_mode.upper() == 'ROUND', 'Only round to nearest even supported'
 
     def quantize_fn(self, x, scale, zero_point, dtype, axis):
         if axis is None:

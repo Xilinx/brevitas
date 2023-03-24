@@ -264,7 +264,7 @@ class QCDQBiasQuantProxyHandlerMixin(DQMixin, QuantAxisMixin, ZeroPointHandlerMi
         return y, scale, zero_point, bit_width
 
 
-class QCDQTruncQuantProxyHandlerMixin(QCDQQuantProxyHandlerMixin):
+class QCDQTruncQuantProxyHandlerMixin(QCDQQuantProxyHandlerMixin, ClipMixin):
     handled_layer = TruncQuantProxyFromInjector
 
     def prepare_for_export(self, module: TruncQuantProxyFromInjector):
@@ -278,10 +278,13 @@ class QCDQTruncQuantProxyHandlerMixin(QCDQQuantProxyHandlerMixin):
         assert self.symbolic_kwargs is not None, 'Symbolic execution requires quant to be enabled'
         output_bit_width = self.symbolic_kwargs['output_bit_width']
         dtype = self.int8_dtype() if signed else self.uint8_dtype()
+        trunc_scale = 2.0 ** (input_bit_width - output_bit_width)
+        pre_scale = scale * trunc_scale
+        flat_pre_scale = to_0dim_if_scalar(pre_scale.flatten())
         flat_scale = to_0dim_if_scalar(scale.flatten())
         zp = to_0dim_if_scalar(zero_point.flatten()).expand_as(flat_scale)
-        x = self.quantize_fn(x, flat_scale, zp, dtype, self.quant_axis(scale))
-        clip_symbolic_kwargs = self.clip_symbolic_kwargs(signed, False, output_bit_width)
+        x = self.quantize_fn(x, flat_pre_scale, zp, dtype, self.quant_axis(pre_scale))
+        clip_symbolic_kwargs = self.int_clip_symbolic_kwargs(signed=signed, narrow=False, bit_width=output_bit_width)
         if clip_symbolic_kwargs is not None:
             x = self.clip_fn(x, *clip_symbolic_kwargs.values())
         x = self.dequantize_fn(x, flat_scale, zp, self.quant_axis(scale))
