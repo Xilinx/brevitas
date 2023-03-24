@@ -13,7 +13,7 @@ from .quant_module_fixture import *
 
 @requires_pt_ge('1.9.1')
 @jit_disabled_for_export()
-def test_pytorch_qcdq_export(
+def test_pytorch_qcdq_wbiol_export(
         quant_module,
         quant_module_impl,
         weight_act_quantizers,
@@ -42,6 +42,27 @@ def test_pytorch_qcdq_export(
         in_size = (1, IN_CH, FEATURES, FEATURES)
 
     inp = torch.randn(in_size)
+    quant_module(inp)  # Collect scale factors
+    quant_module.eval()
+    inp = torch.randn(in_size) * IN_SCALE + IN_MEAN  # redefine inp for testing
+    out = quant_module(inp)
+    pytorch_qcdq_model = export_torch_qcdq(quant_module, args=inp)
+    torchscript_out = pytorch_qcdq_model(inp)
+    torchscript_out_value = torchscript_out[0]
+    tolerance = TOLERANCE * out.scale
+    del pytorch_qcdq_model
+    assert torch.allclose(out, torchscript_out_value, atol=tolerance)
+
+
+@requires_pt_ge('1.9.1')
+@jit_disabled_for_export()
+@parametrize('input_signed', [True, False])
+def test_pytorch_qcdq_avgpool_export(input_signed, output_bit_width):
+    in_size = (1, IN_CH, FEATURES, FEATURES)
+    inp = torch.randn(in_size)
+    quant_module = nn.Sequential(
+        QuantIdentity(signed=input_signed, return_quant_tensor=True),
+        QuantAvgPool2d(kernel_size=3, stride=2, float_to_int_impl_type='round'))
     quant_module(inp)  # Collect scale factors
     quant_module.eval()
     inp = torch.randn(in_size) * IN_SCALE + IN_MEAN  # redefine inp for testing

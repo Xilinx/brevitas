@@ -12,6 +12,8 @@ from brevitas.nn import QuantConv2d
 from brevitas.nn import QuantConvTranspose1d
 from brevitas.nn import QuantConvTranspose2d
 from brevitas.nn import QuantLinear
+from brevitas.nn import QuantIdentity
+from brevitas.nn import QuantAvgPool2d
 from brevitas.quant.fixed_point import Int8ActPerTensorFixedPoint
 from brevitas.quant.fixed_point import Int8WeightPerTensorFixedPoint
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
