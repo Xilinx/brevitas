@@ -64,6 +64,28 @@ class QuantWBIOLCases:
         return module
 
 
+class QuantAvgPoolCases:
+
+    @parametrize('output_bit_width', BIT_WIDTHS, ids=[f'o{b}' for b in BIT_WIDTHS])
+    @parametrize('input_signed', [True, False])
+    def case_quant_avgpool(self, input_signed, output_bit_width):
+
+        class Model(nn.Module):
+
+            def __init__(self):
+                super().__init__()
+                self.in_quant = QuantIdentity(signed=input_signed, return_quant_tensor=True)
+                self.quant_avg_pool = QuantAvgPool2d(
+                    kernel_size=3, stride=2, bit_width=output_bit_width, float_to_int_impl_type='round')
+
+            def forward(self, x):
+                return self.quant_avg_pool(self.in_quant(x))
+
+        torch.random.manual_seed(SEED)
+        module = Model()
+        return module
+
+
 class QuantRecurrentCases:
 
     @parametrize('bidirectional', [True, False, 'shared_input_hidden'])
