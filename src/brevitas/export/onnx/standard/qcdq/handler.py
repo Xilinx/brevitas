@@ -34,7 +34,7 @@ class StdDQONNXMixin(DQMixin, ABC):
         return True
 
     @property
-    def itemize_scalar_params(self):
+    def itemize_quantize_scalar_params(self):
         return False
 
 
