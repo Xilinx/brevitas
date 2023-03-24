@@ -14,12 +14,13 @@ from tests.marker import requires_pt_ge
 from .common import *
 from .quant_module_cases import QuantRecurrentCases
 from .quant_module_cases import QuantWBIOLCases
+from .quant_module_cases import QuantAvgPoolCases
 
 
 @parametrize_with_cases('model', cases=QuantWBIOLCases)
 @pytest.mark.parametrize('export_type', ['qcdq', 'qop'])
 @requires_pt_ge('1.8.1')
-def test_ort(model, export_type, current_cases):
+def test_ort_wbiol(model, export_type, current_cases):
     cases_generator_func = current_cases['model'][1]
     case_id = get_case_id(cases_generator_func)
     impl = case_id.split('-')[
@@ -48,6 +49,17 @@ def test_ort(model, export_type, current_cases):
     export_name = f'qcdq_qop_export_{case_id}.onnx'
     assert is_brevitas_ort_close(
         model, inp, export_name, export_type, tolerance=INT_TOLERANCE, first_output_only=True)
+
+
+@parametrize_with_cases('model', cases=QuantAvgPoolCases)
+@requires_pt_ge('1.8.1')
+def test_ort_avgpool(model, current_cases):
+    in_size = (1, IN_CH, FEATURES, FEATURES)
+    inp = gen_linspaced_data(reduce(mul, in_size), -1, 1).reshape(in_size)
+    model(torch.from_numpy(inp))  # accumulate scale factors
+    model.eval()
+    export_name='qcdq_quant_avgpool.onnx'
+    assert is_brevitas_ort_close(model, inp, export_name, 'qcdq', tolerance=INT_TOLERANCE, first_output_only=True)
 
 
 @parametrize_with_cases('model', cases=QuantRecurrentCases)
