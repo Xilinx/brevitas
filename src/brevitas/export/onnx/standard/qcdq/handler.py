@@ -59,7 +59,7 @@ class StdQCDQONNXMixin(QCDQMixin, StdDQONNXMixin, ABC):
     def validate(self, module):
         self.validate_8b_bit_width(module.bit_width(), le_then=True)
         assert module.bit_width() > 1., 'Binary quant not supported'
-        assert module.rounding_mode == 'ROUND', 'Only round to nearest even supported'
+        assert module.rounding_mode.upper() == 'ROUND', 'Only round to nearest even supported'
 
     def quantize_fn(self, x, scale, zero_point, dtype, axis):
         return QuantizeLinearFn.apply(x, scale, zero_point, dtype, axis)
