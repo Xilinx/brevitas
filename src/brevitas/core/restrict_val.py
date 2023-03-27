@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 
-from typing import Callable, Union, Optional
+from typing import Optional
 import math
 
 import torch
@@ -100,6 +100,7 @@ class FloatRestrictValue(brevitas.jit.ScriptModule):
 
 
 class LogFloatRestrictValue(brevitas.jit.ScriptModule):
+    """Same as PowerOfTwoRestrictValue, but now with floats instead of ints"""
 
     def __init__(self):
         super(LogFloatRestrictValue, self).__init__()
