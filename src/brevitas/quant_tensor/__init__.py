@@ -51,7 +51,7 @@ def _is_all_nested_not_none(input_data):
 class QuantTensor(QuantTensorBase):
 
     def __new__(
-            cls, value, scale=None, zero_point=None, bit_width=None, signed=None, training=None):
+            cls, value: Tensor, scale=None, zero_point=None, bit_width=None, signed=None, training=None):
 
         if scale is not None and not isinstance(scale, torch.Tensor):
             scale = torch.tensor(scale, dtype=torch.float)
@@ -79,6 +79,7 @@ class QuantTensor(QuantTensorBase):
         else:
             return None
 
+    @classmethod
     def __torch_function__(self, func, types, args=(), kwargs=None):
         if kwargs is None:
             kwargs = {}
