@@ -410,3 +410,10 @@ class QuantTensor(QuantTensorBase):
 
     def __pos__(self):
         return self
+    
+    def __getitem__(self, indices):
+        if self.scale == None or self.scale.shape == torch.Size([]):
+            return QuantTensor(self.value[indices], self.scale, self.zero_point, self.bit_width, self.signed, self.training)
+        
+        raise RuntimeError("QuantTensor with scale of shape {} is not supported.".format(self.scale.shape))
+    
