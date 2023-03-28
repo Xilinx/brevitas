@@ -79,6 +79,7 @@ class QuantTensor(QuantTensorBase):
         else:
             return None
 
+    @classmethod
     def __torch_function__(self, func, types, args=(), kwargs=None):
         if kwargs is None:
             kwargs = {}
