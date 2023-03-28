@@ -20,6 +20,8 @@ BATCH = 1
 HEIGHT, WIDTH = 224, 224
 IN_CH = 3
 MODEL_LIST = [
+    'efficientnet_b0',
+    'mobilenet_v3_small',
     'mobilenet_v2',
     'resnet50',
     'resnet18',
@@ -55,6 +57,11 @@ def torchvision_model(model_name):
     inp = torch.randn(BATCH, IN_CH, HEIGHT, WIDTH)
 
     if torch_version <= version.parse('1.9.1') and model_name == 'regnet_x_400mf':
+        return None
+
+    # EfficientNet is present since 1.10.1. Mobilenet is not correctly exported before 1.10.1
+    if torch_version < version.parse('1.10.1') and model_name in ('efficientnet_b0',
+                                                                  'mobilenet_v3_small'):
         return None
 
     # Deeplab and fcn are in a different module, and they have a dict as output which is not suited for torchscript
