@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from abc import ABCMeta
 from abc import abstractmethod
 from inspect import isclass
@@ -52,7 +51,6 @@ class _CachedIO:
 
 class QuantProxyMixin(object):
     __metaclass__ = ABCMeta
-
 
     def __init__(
             self,
@@ -160,10 +158,8 @@ class QuantLayerMixin(ExportMixin):
         self._set_global_is_quant_layer(True)
         # Hack to recognize a QuantTensor that has decayed to a tuple
         # when used as input to tracing (e.g. during ONNX export)
-        if (torch._C._get_tracing_state() is not None
-                and isinstance(inp, tuple)
-                and len(inp) == len(QuantTensor._fields)
-                and all([isinstance(t, Tensor) for t in inp])):
+        if (torch._C._get_tracing_state() is not None and isinstance(inp, tuple) and
+                len(inp) == len(QuantTensor._fields) and all([isinstance(t, Tensor) for t in inp])):
             inp = QuantTensor(*inp)
         if isinstance(inp, QuantTensor):
             # don't cache values during export pass
@@ -275,7 +271,8 @@ class QuantRecurrentLayerMixin(ExportMixin):
     def maybe_quantize_state(self, inp, state, quant):
         if state is None:
             batch_size = inp.size(0) if self.cell.batch_first else inp.size(1)
-            quant_state = torch.zeros(int(batch_size), self.hidden_size, dtype=inp.dtype, device=inp.device)
+            quant_state = torch.zeros(
+                int(batch_size), self.hidden_size, dtype=inp.dtype, device=inp.device)
             quant_state = QuantTensor(quant_state)
         else:
             quant_state = quant(state)
@@ -296,13 +293,14 @@ class QuantRecurrentLayerMixin(ExportMixin):
                 return quant_outputs
         seq_dim = 1 if self.cell.batch_first else 0
         if self.return_quant_tensor:
-            outputs = [QuantTensor(
-                torch.unsqueeze(quant_output[0], dim=seq_dim),
-                quant_output[1],
-                quant_output[2],
-                quant_output[3],
-                self.io_quant.is_signed,
-                self.training) for quant_output in quant_outputs]
+            outputs = [
+                QuantTensor(
+                    torch.unsqueeze(quant_output[0], dim=seq_dim),
+                    quant_output[1],
+                    quant_output[2],
+                    quant_output[3],
+                    self.io_quant.is_signed,
+                    self.training) for quant_output in quant_outputs]
         else:
             outputs = [torch.unsqueeze(o[0], dim=seq_dim) for o in quant_outputs]
         if self.reverse_input:
@@ -345,8 +343,9 @@ class QuantRecurrentLayerMixin(ExportMixin):
                     module_to_wrap = nn.Identity()
                 self.module_to_wrap = module_to_wrap
 
-            def forward(self, x: torch.Tensor) -> Tuple[
-                    Tensor, Optional[Tensor], Optional[Tensor], Optional[Tensor]]:
+            def forward(
+                self, x: torch.Tensor
+            ) -> Tuple[Tensor, Optional[Tensor], Optional[Tensor], Optional[Tensor]]:
                 x = self.module_to_wrap(x)
                 return (x, None, None, None)
 

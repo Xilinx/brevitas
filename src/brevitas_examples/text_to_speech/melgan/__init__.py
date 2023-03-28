@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from configparser import ConfigParser
 import os
 
@@ -10,8 +9,7 @@ from torch import hub
 from .melgan import *
 
 model_impl = {
-    'melgan': melgan,
-}
+    'melgan': melgan,}
 
 
 def model_with_cfg(name, pretrained):

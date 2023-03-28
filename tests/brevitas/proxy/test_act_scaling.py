@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import torch
 
 from brevitas.core.quant import QuantType
@@ -42,7 +41,7 @@ class TestQuantReLU:
         stats_act.eval()
         param_act.eval()
 
-        assert(torch.allclose(stats_act.quant_act_scale(), param_act.quant_act_scale()))
+        assert (torch.allclose(stats_act.quant_act_scale(), param_act.quant_act_scale()))
 
     def test_scaling_parameter_grad(self):
         stats_act = QuantReLU(

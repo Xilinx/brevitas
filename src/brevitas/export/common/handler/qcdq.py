@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from abc import ABC
 from abc import abstractmethod
 
@@ -91,12 +90,17 @@ class QCDQMixin(DQMixin):
         elif is_signed and bit_width > 8:
             dtype = cls.int32_dtype()
         else:
-            raise RuntimeError("Unsigned quantization > 8b not supported for export, switch to signed.")
+            raise RuntimeError(
+                "Unsigned quantization > 8b not supported for export, switch to signed.")
         return dtype
 
 
-class QCDQQuantProxyHandlerMixin(
-    QuantAxisMixin, ClipMixin, ZeroPointHandlerMixin, BitWidthHandlerMixin, QCDQMixin, ABC):
+class QCDQQuantProxyHandlerMixin(QuantAxisMixin,
+                                 ClipMixin,
+                                 ZeroPointHandlerMixin,
+                                 BitWidthHandlerMixin,
+                                 QCDQMixin,
+                                 ABC):
 
     def quantize_symbolic_kwargs(cls, scale, zero_point, bit_width, is_signed):
         # compute axis before redefining scale
@@ -119,11 +123,7 @@ class QCDQQuantProxyHandlerMixin(
             scale = to_item_if_0dim(scale)
             zp = to_item_if_0dim(zp)
         dtype = cls.signed_dtype(bit_width, is_signed)
-        return {
-            'scale': scale,
-            'zero_point': zp,
-            'dtype': dtype,
-            'axis': axis}
+        return {'scale': scale, 'zero_point': zp, 'dtype': dtype, 'axis': axis}
 
     def dequantize_symbolic_kwargs(cls, scale, zero_point, bit_width, is_signed):
         # scale can be None for bias quantization
@@ -147,10 +147,7 @@ class QCDQQuantProxyHandlerMixin(
         if scale is not None and bit_width is not None and cls.itemize_scalar_params:
             scale = to_item_if_0dim(scale)
             zp = to_item_if_0dim(zp)
-        return {
-            'scale': scale,
-            'zero_point': zp,
-            'axis': axis}
+        return {'scale': scale, 'zero_point': zp, 'axis': axis}
 
     def prepare_for_export(self, module):
         if module.is_quant_enabled:
@@ -231,8 +228,7 @@ class QCDQActQuantProxyHandlerMixin(QCDQQuantProxyHandlerMixin):
     handled_layer = ActQuantProxyFromInjector
 
 
-class QCDQBiasQuantProxyHandlerMixin(
-    DQMixin, QuantAxisMixin, ZeroPointHandlerMixin):
+class QCDQBiasQuantProxyHandlerMixin(DQMixin, QuantAxisMixin, ZeroPointHandlerMixin):
     handled_layer = BiasQuantProxyFromInjector
 
     def validate(self, module):
@@ -244,8 +240,8 @@ class QCDQBiasQuantProxyHandlerMixin(
         if module.is_quant_enabled:
             self.validate(module)
             int_biases = {
-                tm.bias.data_ptr():
-                    tm.quant_bias().int(float_datatype=False) for tm in module.tracked_module_list}
+                tm.bias.data_ptr(): tm.quant_bias().int(float_datatype=False)
+                for tm in module.tracked_module_list}
             self.symbolic_kwargs = {
                 'int_biases': int_biases,
                 'scale': module.scale(),
@@ -272,12 +268,12 @@ class QCDQBiasQuantProxyHandlerMixin(
             zero_point = zero_point.flatten()
         scale = to_0dim_if_scalar(scale)
         zero_point = to_0dim_if_scalar(zero_point).expand_as(scale)
-        zero_point = self.zero_point_with_dtype(True, bit_width, zero_point)  # assume signed is True
+        zero_point = self.zero_point_with_dtype(
+            True, bit_width, zero_point)  # assume signed is True
         if self.itemize_scalar_params:
             scale = to_item_if_0dim(scale)
             zero_point = to_item_if_0dim(zero_point)
-        y = self.dequantize_fn(
-            int_bias, scale, zero_point, quant_axis)
+        y = self.dequantize_fn(int_bias, scale, zero_point, quant_axis)
         return y, scale, zero_point, bit_width
 
 
@@ -287,11 +283,11 @@ class QCDQTruncQuantProxyHandlerMixin(QCDQQuantProxyHandlerMixin):
     def prepare_for_export(self, module: TruncQuantProxyFromInjector):
         if module.is_quant_enabled:
             self.validate(module)
-            self.symbolic_kwargs = {
-                'output_bit_width': module.bit_width()}
+            self.symbolic_kwargs = {'output_bit_width': module.bit_width()}
 
     def symbolic_execution(
-            self, x: Tensor, scale: Tensor, zero_point: Tensor, input_bit_width: Tensor, signed: Tensor):
+            self, x: Tensor, scale: Tensor, zero_point: Tensor, input_bit_width: Tensor,
+            signed: Tensor):
         assert self.symbolic_kwargs is not None, 'Symbolic execution requires quant to be enabled'
         output_bit_width = self.symbolic_kwargs['output_bit_width']
         dtype = self.int8_dtype() if signed else self.uint8_dtype()

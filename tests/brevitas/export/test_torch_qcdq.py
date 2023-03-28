@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import pytest
 import torch
 
@@ -27,7 +26,8 @@ def test_pytorch_qcdq_export(
     weight_act_quantizers_name, _ = weight_act_quantizers
     bias_quantizer_name, _ = bias_quantizer
 
-    if 'asymmetric_act' in weight_act_quantizers_name and (input_bit_width > 8 or output_bit_width > 8):
+    if 'asymmetric_act' in weight_act_quantizers_name and (input_bit_width > 8 or
+                                                           output_bit_width > 8):
         pytest.skip("Unsigned zero point supported on 8b or less.")
     if 'asymmetric_weight' in weight_act_quantizers_name and weight_bit_width > 8:
         pytest.skip("Unsigned zero point supported on 8b or less.")

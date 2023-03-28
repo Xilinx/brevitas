@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from contextlib import ExitStack
 from typing import Any, Callable, Dict, Optional, Union
 
@@ -25,8 +24,7 @@ def _is_brevitas_leaf_module(m, fully_qualified_name):
 
 
 def _trace_with_backport(
-        tracer: Tracer,
-        root : Union[Module, Callable],
+        tracer: Tracer, root: Union[Module, Callable],
         concrete_args: Optional[Dict[str, Any]]) -> GraphModule:
     patches = gen_patches()
     if patches:
@@ -42,27 +40,27 @@ def _trace_with_backport(
 
 class BrevitasValueTracer(ValueTracer):
 
-    def is_leaf_module(self, m: Module, module_qualified_name : str) -> bool:
+    def is_leaf_module(self, m: Module, module_qualified_name: str) -> bool:
         return _is_brevitas_leaf_module(m, module_qualified_name)
 
 
 class BrevitasSymbolicTracer(Tracer):
 
-    def is_leaf_module(self, m: Module, module_qualified_name : str) -> bool:
+    def is_leaf_module(self, m: Module, module_qualified_name: str) -> bool:
         return _is_brevitas_leaf_module(m, module_qualified_name)
 
 
-def symbolic_trace(root, concrete_args = None):
+def symbolic_trace(root, concrete_args=None):
     return _trace_with_backport(Tracer(), root, concrete_args)
 
 
-def value_trace(root, concrete_args = None):
+def value_trace(root, concrete_args=None):
     return _trace_with_backport(ValueTracer(), root, concrete_args)
 
 
-def brevitas_symbolic_trace(root, concrete_args = None):
+def brevitas_symbolic_trace(root, concrete_args=None):
     return _trace_with_backport(BrevitasSymbolicTracer(), root, concrete_args)
 
 
-def brevitas_value_trace(root, concrete_args = None):
+def brevitas_value_trace(root, concrete_args=None):
     return _trace_with_backport(BrevitasValueTracer(), root, concrete_args)

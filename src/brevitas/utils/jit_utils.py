@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import inspect
 
 import torch
@@ -10,7 +9,6 @@ try:
     from torch._jit_internal import get_torchscript_modifier
 except:
     get_torchscript_modifier = None
-
 
 from dependencies import Injector
 from packaging import version
@@ -30,6 +28,7 @@ def _get_modifier_wrapper(fn):
 
 
 if IS_ABOVE_110:
+
     def jit_patches_generator():
         return [patch(torch._jit_internal, 'get_torchscript_modifier', _get_modifier_wrapper)]
 else:

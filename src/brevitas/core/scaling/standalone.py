@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from typing import Optional, Tuple, Union
 import warnings
 
@@ -56,6 +55,7 @@ class ConstScaling(brevitas.jit.ScriptModule):
     Note:
         Maps to scaling_impl_type == ScalingImplType.CONST == 'CONST' == 'const' in higher-level APIs.
     """
+
     def __init__(
             self,
             scaling_init: Union[float, Tensor],
@@ -117,6 +117,7 @@ class ParameterScaling(brevitas.jit.ScriptModule):
     Note:
         Maps to scaling_impl_type == ScalingImplType.PARAMETER == 'PARAMETER' == 'parameter' in higher-level APIs.
     """
+
     def __init__(
             self,
             scaling_init: Union[float, Tensor],
@@ -125,10 +126,8 @@ class ParameterScaling(brevitas.jit.ScriptModule):
             scaling_min_val: Optional[float] = None) -> None:
         super(ParameterScaling, self).__init__()
 
-        if (isinstance(scaling_init, Tensor)
-                and scaling_shape is not None
-                and scaling_init.shape != SCALAR_SHAPE
-                and scaling_init.shape != scaling_shape):
+        if (isinstance(scaling_init, Tensor) and scaling_shape is not None and
+                scaling_init.shape != SCALAR_SHAPE and scaling_init.shape != scaling_shape):
             raise RuntimeError("scaling_init.shape is non-scalar and != from scaling_shape.")
 
         if isinstance(scaling_init, Tensor):
@@ -147,8 +146,9 @@ class ParameterScaling(brevitas.jit.ScriptModule):
         value = abs_binary_sign_grad(self.restrict_clamp_scaling(self.value))
         return value
 
-    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
-                              missing_keys, unexpected_keys, error_msgs):
+    def _load_from_state_dict(
+            self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
+            error_msgs):
         value_key = prefix + 'value'
         retrocomp_value_key = prefix + 'learned_value'
         if retrocomp_value_key in state_dict:  # retrocompatibility
@@ -239,7 +239,7 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             stats_input = self.stats_input_view_shape_impl(stats_input)
             stats = self.stats(stats_input)
             # workaround to avoid find_ununsed_parameter=True in DDP
-            stats = stats + 0. * self.value # stats gradient will change from None to 0.
+            stats = stats + 0. * self.value  # stats gradient will change from None to 0.
             clamped_stats = self.clamp_scaling(stats)
             new_counter = self.counter + 1
             if self.counter == 0:
@@ -283,8 +283,9 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             output_dict[prefix + 'value'] = self.restrict_preprocess(self.buffer)
         return output_dict
 
-    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
-                              missing_keys, unexpected_keys, error_msgs):
+    def _load_from_state_dict(
+            self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
+            error_msgs):
         # Retrocompatibility with older ParameterScaling, for when scaling impl is switched over
         value_key = prefix + 'value'
         retrocomp_value_key = prefix + 'learned_value'

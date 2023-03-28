@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from inspect import signature
 from typing import Any, Dict, Iterable, Tuple
 
@@ -25,9 +24,7 @@ __all__ = [
     'name_from_module',
     'matches_module_pattern',
     'get_output_channels',
-    'get_output_channel_dim'
-]
-
+    'get_output_channel_dim']
 
 CONV_TRANSPOSED = [
     nn.ConvTranspose1d,
@@ -61,6 +58,7 @@ def replace_all_uses_except(to_replace: Node, replace_with: 'Node', exceptions=(
     """
     to_process = list(to_replace.users)
     for use_node in to_process:
+
         def maybe_replace_node(n: Node) -> Node:
             if n == to_replace and use_node not in exceptions:
                 return replace_with

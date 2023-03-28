@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from brevitas.core.bit_width import BitWidthParameter
 from brevitas.core.function_wrapper import *
 from brevitas.core.quant import RescalingIntQuant

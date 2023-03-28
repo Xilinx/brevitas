@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import torch
 
 from brevitas.export import enable_debug
@@ -22,6 +21,7 @@ from tests.marker import jit_disabled_for_export
 OUT_CH = 50
 IN_CH = 40
 TOLERANCE = 1.1
+
 
 @jit_disabled_for_export()
 def test_generic_quant_linear_export():
@@ -48,8 +48,8 @@ def test_generic_quant_linear_export():
     model = Model()
     model(inp)  # collect scale factors
     model.eval()
-    export_qonnx(
-        model, inp, export_path='generic_quant_linear.onnx')
+    export_qonnx(model, inp, export_path='generic_quant_linear.onnx')
+
 
 @jit_disabled_for_export()
 def test_generic_decoupled_quant_linear_export():
@@ -77,8 +77,8 @@ def test_generic_decoupled_quant_linear_export():
     model = Model()
     model(inp)  # collect scale factors
     model.eval()
-    export_qonnx(
-        model, inp, export_path='generic_decoupled_quant_linear.onnx')
+    export_qonnx(model, inp, export_path='generic_decoupled_quant_linear.onnx')
+
 
 @jit_disabled_for_export()
 def test_generic_quant_conv_export():
@@ -106,8 +106,8 @@ def test_generic_quant_conv_export():
     model = Model()
     model(inp)  # collect scale factors
     model.eval()
-    export_qonnx(
-        model, inp, export_path='generic_quant_conv.onnx')
+    export_qonnx(model, inp, export_path='generic_quant_conv.onnx')
+
 
 @jit_disabled_for_export()
 def test_generic_quant_tensor_export():
@@ -134,8 +134,8 @@ def test_generic_quant_tensor_export():
     model = Model()
     model(inp)  # collect scale factors
     model.eval()
-    export_qonnx(
-        model, inp, export_path='generic_quant_tensor.onnx')
+    export_qonnx(model, inp, export_path='generic_quant_tensor.onnx')
+
 
 @jit_disabled_for_export()
 def test_generic_quant_avgpool_export():
@@ -156,8 +156,8 @@ def test_generic_quant_avgpool_export():
     model = Model()
     model(inp)  # collect scale factors
     model.eval()
-    export_qonnx(
-        model, inp, export_path='generic_quant_avgpool.onnx')
+    export_qonnx(model, inp, export_path='generic_quant_avgpool.onnx')
+
 
 @jit_disabled_for_export()
 def test_generic_quant_avgpool_export_quant_input():
@@ -168,8 +168,8 @@ def test_generic_quant_avgpool_export_quant_input():
     inp_quant(inp)  # collect scale factors
     inp_quant.eval()
     model.eval()
-    export_qonnx(
-        model, inp_quant(inp), export_path='generic_quant_avgpool_quant_input.onnx')
+    export_qonnx(model, inp_quant(inp), export_path='generic_quant_avgpool_quant_input.onnx')
+
 
 @jit_disabled_for_export()
 def test_debug_brevitas_onnx_export():

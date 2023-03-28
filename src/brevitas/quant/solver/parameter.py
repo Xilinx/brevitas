@@ -24,8 +24,7 @@ __all__ = [
     'SolveParameterTensorClampImplFromEnum',
     'SolveParameterScalingInitFromEnum',
     'SolveParameterScalingImplFromEnum',
-    'SolveParameterScalingShape'
-]
+    'SolveParameterScalingShape']
 
 
 class ScalingConstInit:
@@ -61,15 +60,14 @@ class HeScalingInit:
         return torch.tensor(scaling_init)
 
 
-
 class SolveParameterTensorClampImplFromEnum(ExtendedInjector):
 
     @value
     def tensor_clamp_impl(bit_width_impl_type, scaling_impl_type):
-        if (bit_width_impl_type == BitWidthImplType.PARAMETER
-                or scaling_impl_type == ScalingImplType.AFFINE_STATS
-                or scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS
-                or scaling_impl_type == ScalingImplType.PARAMETER):
+        if (bit_width_impl_type == BitWidthImplType.PARAMETER or
+                scaling_impl_type == ScalingImplType.AFFINE_STATS or
+                scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS or
+                scaling_impl_type == ScalingImplType.PARAMETER):
             return TensorClamp
         else:
             return TensorClampSte

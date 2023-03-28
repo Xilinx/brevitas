@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import argparse
 import os
 import sys
@@ -43,9 +42,13 @@ def parse_args(args):
     parser.add_argument("--dry_run", action="store_true", help="Disable output files generation")
     parser.add_argument("--log_freq", type=int, default=10)
     # Execution modes
-    parser.add_argument("--evaluate", dest="evaluate", action="store_true", help="evaluate model on validation set")
-    parser.add_argument("--resume", dest="resume", type=none_or_str,
-                        help="Resume from checkpoint. Overrides --pretrained flag.")
+    parser.add_argument(
+        "--evaluate", dest="evaluate", action="store_true", help="evaluate model on validation set")
+    parser.add_argument(
+        "--resume",
+        dest="resume",
+        type=none_or_str,
+        help="Resume from checkpoint. Overrides --pretrained flag.")
     add_bool_arg(parser, "detect_nan", default=False)
     # Compute resources
     parser.add_argument("--num_workers", default=4, type=int, help="Number of workers")
@@ -56,7 +59,8 @@ def parse_args(args):
     parser.add_argument("--optim", type=none_or_str, default="ADAM", help="Optimizer to use")
     parser.add_argument("--loss", type=none_or_str, default="SqrHinge", help="Loss function to use")
     parser.add_argument("--scheduler", default="FIXED", type=none_or_str, help="LR Scheduler")
-    parser.add_argument("--milestones", type=none_or_str, default='100,150,200,250', help="Scheduler milestones")
+    parser.add_argument(
+        "--milestones", type=none_or_str, default='100,150,200,250', help="Scheduler milestones")
     parser.add_argument("--momentum", default=0.9, type=float, help="Momentum")
     parser.add_argument("--weight_decay", default=0, type=float, help="Weight decay")
     parser.add_argument("--epochs", default=1000, type=int, help="Number of epochs")
@@ -69,6 +73,7 @@ def parse_args(args):
 
 
 class objdict(dict):
+
     def __getattr__(self, name):
         if name in self:
             return self[name]

@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from hypothesis import given
 import numpy as np
 import pytest
@@ -104,7 +103,7 @@ def test_narrow_range_signed_symmetric(bit_width):
     """
     val_min = min_int(signed=True, narrow_range=True, bit_width=tensor(bit_width))
     val_max = max_int(signed=True, narrow_range=True, bit_width=tensor(bit_width))
-    assert val_min == - val_max
+    assert val_min == -val_max
     assert val_max > tensor(0)
     assert val_min < tensor(0)
 

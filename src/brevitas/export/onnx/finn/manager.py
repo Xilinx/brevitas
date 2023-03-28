@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from typing import Optional, Tuple, Union
 
 import torch
@@ -98,17 +97,13 @@ class FINNManager(ONNXBaseManager):
         QuantizedLinearFn,
         QuantReLUFn,
         QuantHardTanhFn,
-        QuantAvgPool2dFn
-    ]
+        QuantAvgPool2dFn]
 
-    model_transforms = [
-        move_quant_attributes_into_annotations,
-        restore_domain]
+    model_transforms = [move_quant_attributes_into_annotations, restore_domain]
 
     onnx_passes = [
         # use initializers instead of Constant nodes for fixed params
-        "extract_constant_to_initializer",
-        # remove unused graph inputs & initializers
+        "extract_constant_to_initializer",  # remove unused graph inputs & initializers
         "eliminate_unused_initializer"]
 
     @classmethod
@@ -125,16 +120,16 @@ class FINNManager(ONNXBaseManager):
             module: Module,
             args: Optional[Union[Tensor, QuantTensor, Tuple]] = None,
             export_path: Optional[str] = None,
-            input_shape: Optional[Tuple[int, ...]] = None, # legacy syntax, alternative to args
-            input_t: Optional[Union[Tensor, QuantTensor]] = None,  # legacy syntax, alternative to args
+            input_shape: Optional[Tuple[int, ...]] = None,  # legacy syntax, alternative to args
+            input_t: Optional[Union[Tensor,
+                                    QuantTensor]] = None,  # legacy syntax, alternative to args
             disable_warnings=True,
             **onnx_export_kwargs):
-        if ((input_t is not None and isinstance(input_t, QuantTensor)
-                or args is not None and isinstance(args, QuantTensor))
-                and bool(input_t) != bool(args)):
+        if ((input_t is not None and isinstance(input_t, QuantTensor) or
+             args is not None and isinstance(args, QuantTensor)) and bool(input_t) != bool(args)):
 
-            args = args or input_t # If either one is not None, args will be not None
-            input_t = None # Keep only args as not None
+            args = args or input_t  # If either one is not None, args will be not None
+            input_t = None  # Keep only args as not None
 
             if args.is_not_none:
                 assert args.is_valid, 'Input QuantTensor is not properly quantized'

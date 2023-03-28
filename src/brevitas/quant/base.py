@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from dependencies import this
 from dependencies import value
 
@@ -62,8 +61,7 @@ __all__ = [
     'SignedBinaryClampedConst',
     'WeightPerTensorFloatDecoupledL2Param',
     'WeightPerChannelFloatDecoupled',
-    'WeightNormPerChannelFloatDecoupled',
-]
+    'WeightNormPerChannelFloatDecoupled',]
 
 
 class MaxStatsScaling(ExtendedInjector):
@@ -265,10 +263,9 @@ class WeightPerTensorFloatDecoupledL2Param(SolveWeightScalingStatsInputDimsFromM
     signed = True
 
 
-class WeightPerChannelFloatDecoupled(
-        SolveWeightScalingStatsInputDimsFromModule,
-        SolveWeightScalingPerOutputChannelShapeFromModule,
-        SolveParameterScalingShape):
+class WeightPerChannelFloatDecoupled(SolveWeightScalingStatsInputDimsFromModule,
+                                     SolveWeightScalingPerOutputChannelShapeFromModule,
+                                     SolveParameterScalingShape):
     """
     Experimental narrow per-channel signed int weight quantizer fragment with decoupled Linf
     normalization and learned scaling.
@@ -299,10 +296,9 @@ class WeightPerChannelFloatDecoupled(
     scaling_per_output_channel = True
 
 
-class WeightNormPerChannelFloatDecoupled(
-        SolveWeightScalingStatsInputDimsFromModule,
-        SolveWeightScalingPerOutputChannelShapeFromModule,
-        SolveParameterScalingShape):
+class WeightNormPerChannelFloatDecoupled(SolveWeightScalingStatsInputDimsFromModule,
+                                         SolveWeightScalingPerOutputChannelShapeFromModule,
+                                         SolveParameterScalingShape):
     """Experimental narrow per-channel weight normalization-based signed integer quantizer
     based on `Quantized Neural Networks for Low-Precision Accumulation with Guaranteed
     Overflow Avoidance` by I. Colbert, A. Pappalardo, and J. Petri-Koenig.
@@ -333,7 +329,7 @@ class WeightNormPerChannelFloatDecoupled(
     pre_scaling_impl = ParameterPreScalingWeightNorm
     restrict_pre_scaling_impl = LogFloatRestrictValue
     normalize_stats_impl = L2Norm
-    pre_scaling_shape = this.scaling_shape # TODO: decouple pre_scaling_shape from scaling_shape
+    pre_scaling_shape = this.scaling_shape  # TODO: decouple pre_scaling_shape from scaling_shape
     int_scaling_impl = SingleArgStatelessBuffer(1.)
     zero_point_impl = ZeroZeroPoint
     pre_zero_point_impl = ZeroZeroPoint

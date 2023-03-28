@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from platform import system
 
 import numpy as np
@@ -21,10 +20,8 @@ from brevitas.export import export_finn_onnx
 from brevitas_examples.imagenet_classification import quant_mobilenet_v1_4b
 
 ort_mac_fail = pytest.mark.skipif(
-    torch_version >= parse('1.5.0')
-    and system() == 'Darwin',
+    torch_version >= parse('1.5.0') and system() == 'Darwin',
     reason='Issue with ORT and MobileNet export on MacOS on PyTorch >= 1.5.0')
-
 
 INPUT_SIZE = (1, 3, 224, 224)
 ATOL = 1e-3

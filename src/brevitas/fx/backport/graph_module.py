@@ -75,6 +75,8 @@ def _addindent(s_, numSpaces):
 # using exec_with_source will add it to our local cache
 # and then tools like TorchScript will be able to get source info.
 _next_id = 0
+
+
 def exec_with_source(src: str, globals: Dict[str, Any]):
     global _next_id
     key = f'<eval_with_key_{_next_id}>'
@@ -82,33 +84,41 @@ def exec_with_source(src: str, globals: Dict[str, Any]):
     _eval_cache[key] = [line + '\n' for line in src.splitlines()]
     exec(compile(src, key, 'exec'), globals)
 
+
 # patch linecache so that any code we exec using exec_with_source
 # works with inspect
-_eval_cache : Dict[str, List[str]] = {}
+_eval_cache: Dict[str, List[str]] = {}
 _orig_getlines = linecache.getlines
+
+
 def patched_getline(*args, **kwargs):
     if args[0] in _eval_cache:
         return _eval_cache[args[0]]
     return _orig_getlines(*args, **kwargs)
+
+
 linecache.getlines = patched_getline
 
-def _forward_from_src(src : str):
+
+def _forward_from_src(src: str):
     # If you add more globals here, remember to add their names to fx.graph._shadows_builtin_name!
-    gbls: Dict[str, Any] = {'inf': math.inf, 'nan': math.nan, 'NoneType' : type(None)}
+    gbls: Dict[str, Any] = {'inf': math.inf, 'nan': math.nan, 'NoneType': type(None)}
     exec_with_source(src, gbls)
     return gbls['forward']
 
 
-def deserialize_graphmodule(body : dict) -> torch.nn.Module:
+def deserialize_graphmodule(body: dict) -> torch.nn.Module:
     """
     Deserialize a GraphModule given the dictionary of the original module,
     using the code to reconstruct the graph. We delete the actual graph before
     saving the dictionary so that changes to the in-memory graph format do not
     get serialized.
     """
+
     # We create a dummy class here because symbolic_trace pulls the forward()
     # function off of the class, rather than the instance
     class CodeOnlyModule(torch.nn.Module):
+
         def __init__(self, body):
             super().__init__()
             self.__dict__ = body
@@ -125,11 +135,13 @@ def deserialize_graphmodule(body : dict) -> torch.nn.Module:
     # we shouldn't trace into any of the submodules, they were not
     # because they were not traced in the original GraphModule
     class KeepModules(Tracer):
+
         def is_leaf_module(self, _: torch.nn.Module, __: str) -> bool:
             return True
 
     com = CodeOnlyModule(body)
     return GraphModule(com, KeepModules().trace(com))
+
 
 # copy an attribute value with qualified name 'target' from 'from_module' to 'to_module'
 # This installs empty Modules where none exist yet if they are subpaths of target
@@ -173,6 +185,7 @@ def _assign_attr(from_obj: Any, to_module: torch.nn.Module, target: str):
 
     setattr(to_module, field, from_obj)
 
+
 class GraphModule(torch.nn.Module):
     """
     GraphModule is an nn.Module generated from an fx.Graph. Graphmodule has a
@@ -187,6 +200,7 @@ class GraphModule(torch.nn.Module):
         code.
 
     """
+
     def __new__(cls: 'Type[GraphModule]', *args, **kwargs):
         # each instance of a graph module needs its own forward method
         # so create a new singleton class for each instance.
@@ -195,9 +209,14 @@ class GraphModule(torch.nn.Module):
 
         class GraphModuleImpl(cls):  # type: ignore
             pass
+
         return super().__new__(GraphModuleImpl)
 
-    def __init__(self, root: Union[torch.nn.Module, Dict[str, Any]], graph: Graph, class_name: str = 'GraphModule'):
+    def __init__(
+            self,
+            root: Union[torch.nn.Module, Dict[str, Any]],
+            graph: Graph,
+            class_name: str = 'GraphModule'):
         """
         Construct a GraphModule.
 
@@ -234,8 +253,9 @@ class GraphModule(torch.nn.Module):
                 if node.op in ['get_attr', 'call_module']:
                     assert isinstance(node.target, str)
                     if node.target not in root:
-                        raise RuntimeError('Node ' + str(node) + ' referenced target ' + node.target +
-                                           ' but that target was not provided in ``root``!')
+                        raise RuntimeError(
+                            'Node ' + str(node) + ' referenced target ' + node.target +
+                            ' but that target was not provided in ``root``!')
                     targets_to_copy.append(node.target)
             # Sort targets in ascending order of the # of atoms.
             # This will ensure that less deeply nested attributes are assigned
@@ -273,7 +293,7 @@ class GraphModule(torch.nn.Module):
         self._graph = g
         self.recompile()
 
-    def to_folder(self, folder: Union[str, os.PathLike], module_name : str = "FxModule"):
+    def to_folder(self, folder: Union[str, os.PathLike], module_name: str = "FxModule"):
         """Dumps out module to ``folder`` with ``module_name`` so that it can be
         imported with ``from <folder> import <module_name>``
 
@@ -297,7 +317,14 @@ class {module_name}(torch.nn.Module):
 """
 
         def _gen_model_repr(module_name: str, module: torch.nn.Module) -> Optional[str]:
-            safe_reprs = [nn.Linear, nn.Conv1d, nn.Conv2d, nn.Conv3d, nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d]
+            safe_reprs = [
+                nn.Linear,
+                nn.Conv1d,
+                nn.Conv2d,
+                nn.Conv3d,
+                nn.BatchNorm1d,
+                nn.BatchNorm2d,
+                nn.BatchNorm3d]
             if type(module) in safe_reprs:
                 return f"{module.__repr__()}"
             else:
@@ -330,8 +357,9 @@ class {module_name}(torch.nn.Module):
         init_file.write_text('from .module import *')
 
         if len(blobified_modules) > 0:
-            warnings.warn("Was not able to save the following children modules as reprs -"
-                          f"saved as pickled files instead: {blobified_modules}")
+            warnings.warn(
+                "Was not able to save the following children modules as reprs -"
+                f"saved as pickled files instead: {blobified_modules}")
 
     @property
     def code(self) -> str:
@@ -365,6 +393,7 @@ class {module_name}(torch.nn.Module):
                 return cls_call(self, *args, **kwargs)
             finally:
                 sys.excepthook = old_excepthook
+
         cls.__call__ = wrapped_call
 
     def __reduce__(self):
@@ -393,6 +422,7 @@ class {module_name}(torch.nn.Module):
     def __str__(self) -> str:
         orig_str = super().__str__()
         return '\n'.join([orig_str, self._code])
+
 
 # workarounds for issues in __torch_function__
 

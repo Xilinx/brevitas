@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from brevitas.core.bit_width import BitWidthConst
 from brevitas.core.bit_width import BitWidthImplType
 from brevitas.core.bit_width import MsbClampBitWidth
@@ -51,9 +50,7 @@ class SolveClampBitWidthImplFromEnum(ExtendedInjector):
             return None
 
 
-class ClampQuantSolver(
-        SolveClampBitWidthImplFromEnum,
-        SolveClampTensorQuantFromEnum):
+class ClampQuantSolver(SolveClampBitWidthImplFromEnum, SolveClampTensorQuantFromEnum):
     """
     Translate enum directives to clamping-specific quantization core modules.
     It should be placed last in the list of classes a quantizer inherits from,

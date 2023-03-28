@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from abc import ABCMeta
 from abc import abstractmethod
 from typing import Optional
@@ -19,8 +18,7 @@ from brevitas.utils.quant_utils import float_to_int_impl_to_enum
 
 __all__ = [
     'QuantProxyProtocol',
-    'QuantProxyFromInjector',
-]
+    'QuantProxyFromInjector',]
 
 
 def _is_signed(quant_injector):
@@ -69,10 +67,7 @@ class QuantProxyProtocol(Protocol):
 class QuantProxyFromInjector(ExportMixin, nn.Module, QuantProxyProtocol):
     __metaclass__ = ABCMeta
 
-    def __init__(
-            self,
-            quant_layer: nn.Module,
-            quant_injector: Injector) -> None:
+    def __init__(self, quant_layer: nn.Module, quant_injector: Injector) -> None:
         ExportMixin.__init__(self)
         nn.Module.__init__(self)
         QuantProxyProtocol.__init__(self)
@@ -124,8 +119,9 @@ class QuantProxyFromInjector(ExportMixin, nn.Module, QuantProxyProtocol):
         else:
             raise RuntimeError("Trying to add None as a parent module.")
 
-    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
-                              missing_keys, unexpected_keys, error_msgs):
+    def _load_from_state_dict(
+            self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
+            error_msgs):
         if self.update_state_dict_impl is not None:
             self.update_state_dict_impl(prefix, state_dict)
         super(QuantProxyFromInjector, self)._load_from_state_dict(

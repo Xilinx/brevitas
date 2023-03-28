@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from functools import reduce
 from operator import mul
 from typing import Optional, Tuple, Type, Union
@@ -30,15 +29,9 @@ class QuantAvgPool2d(QuantTruncMixin, QuantLayerMixin, AvgPool2d):
             trunc_quant: Optional[AccQuantType] = TruncTo8bit,
             return_quant_tensor: bool = True,
             **kwargs):
-        AvgPool2d.__init__(
-            self,
-            kernel_size=kernel_size,
-            stride=stride)
+        AvgPool2d.__init__(self, kernel_size=kernel_size, stride=stride)
         QuantLayerMixin.__init__(self, return_quant_tensor)
-        QuantTruncMixin.__init__(
-            self,
-            trunc_quant=trunc_quant,
-            **kwargs)
+        QuantTruncMixin.__init__(self, trunc_quant=trunc_quant, **kwargs)
 
     @property
     def channelwise_separable(self) -> bool:
@@ -87,10 +80,7 @@ class QuantAdaptiveAvgPool2d(QuantTruncMixin, QuantLayerMixin, AdaptiveAvgPool2d
             **kwargs):
         AdaptiveAvgPool2d.__init__(self, output_size=output_size)
         QuantLayerMixin.__init__(self, return_quant_tensor)
-        QuantTruncMixin.__init__(
-            self,
-            trunc_quant=trunc_quant,
-            **kwargs)
+        QuantTruncMixin.__init__(self, trunc_quant=trunc_quant, **kwargs)
         self.cache_kernel_size_stride = cache_kernel_size_stride
         self._cached_kernel_size = None
         self._cached_kernel_stride = None

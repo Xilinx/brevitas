@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from pytest_cases import fixture
 from pytest_cases import parametrize
 from pytest_cases import set_case_id
@@ -42,7 +41,7 @@ BIAS_QUANTIZERS = {
     'bias_internal_scale': (Int8BiasPerTensorFloatInternalScaling,)}
 QUANT_WBIOL_IMPL = [
     QuantLinear, QuantConv1d, QuantConv2d, QuantConvTranspose1d, QuantConvTranspose2d]
-BIT_WIDTHS = [4, 8, 10] # below 8, equal 8, above 8
+BIT_WIDTHS = [4, 8, 10]  # below 8, equal 8, above 8
 BIAS_BIT_WIDTHS = [8, 16, 32]
 
 
@@ -50,6 +49,7 @@ BIAS_BIT_WIDTHS = [8, 16, 32]
 @parametrize('impl', QUANT_WBIOL_IMPL, ids=[f'{c.__name__}' for c in QUANT_WBIOL_IMPL])
 def quant_module_impl(impl):
     return impl
+
 
 @fixture
 @parametrize('bit_width', BIT_WIDTHS, ids=[f'i{b}' for b in BIT_WIDTHS])
@@ -103,16 +103,12 @@ def quant_module(
     bias_quantizer_name, (bias_quant,) = bias_quantizer  # pytest needs an iterable
 
     if quant_module_impl == QuantLinear:
-        layer_kwargs = {
-            'in_features': IN_CH,
-            'out_features': OUT_CH}
+        layer_kwargs = {'in_features': IN_CH, 'out_features': OUT_CH}
     else:
-        layer_kwargs = {
-            'in_channels': IN_CH,
-            'out_channels': OUT_CH,
-            'kernel_size': KERNEL_SIZE}
+        layer_kwargs = {'in_channels': IN_CH, 'out_channels': OUT_CH, 'kernel_size': KERNEL_SIZE}
 
     class Model(nn.Module):
+
         def __init__(self):
             super().__init__()
             self.conv = quant_module_impl(

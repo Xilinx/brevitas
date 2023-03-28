@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import operator
 
 from packaging import version
@@ -25,11 +24,7 @@ from brevitas import config
 
 config.IGNORE_MISSING_KEYS = True
 
-MODELS = [
-    'mobilenet_v2',
-    'resnet18',
-    'mnasnet0_5'
-]
+MODELS = ['mobilenet_v2', 'resnet18', 'mnasnet0_5']
 
 
 @pytest.mark.parametrize("pretrained", [True, False])
@@ -75,6 +70,7 @@ def test_rewriter_duplicate_shared_relu():
 def test_rewriter_duplicate_nested_shared_relu():
 
     class TestSubModel(nn.Module):
+
         def __init__(self):
             super(TestSubModel, self).__init__()
             self.act = nn.ReLU()
@@ -125,7 +121,8 @@ def test_rewriter_max_pool_to_module():
     graph_model = FnToModule(torch.max_pool2d, nn.MaxPool2d).apply(graph_model)
     inp = torch.randn(2, 10, 10)
     # Due to changes in fx after 1.8
-    attr_check = getattr(graph_model, 'max_pool2d_1', None) or getattr(graph_model, 'max_pool2d', None)
+    attr_check = getattr(graph_model, 'max_pool2d_1', None) or getattr(
+        graph_model, 'max_pool2d', None)
     assert isinstance(attr_check, nn.MaxPool2d)
     assert (model(inp) == graph_model(inp)).all().item()
 

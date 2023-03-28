@@ -42,6 +42,7 @@ def pad_to(x, k=8):
 
     return x + (x % k > 0) * (k - x % k)
 
+
 class AudioToTextDataLayer(nn.Module):
     """Data Layer for general ASR tasks.
 
@@ -101,7 +102,8 @@ transcript_n}
     """
 
     def __init__(
-            self, *,
+            self,
+            *,
             manifest_filepath,
             labels,
             batch_size,
@@ -120,33 +122,32 @@ transcript_n}
             num_workers=4,
             placement='cpu',
             # perturb_config=None,
-            **kwargs
-    ):
+            **kwargs):
         super().__init__()
 
         self._featurizer = WaveformFeaturizer(
             sample_rate=sample_rate, int_values=int_values, augmentor=None)
 
         # Set up dataset
-        dataset_params = {'manifest_filepath': manifest_filepath,
-                          'labels': labels,
-                          'featurizer': self._featurizer,
-                          'max_duration': max_duration,
-                          'min_duration': min_duration,
-                          'normalize': normalize_transcripts,
-                          'trim': trim_silence,
-                          'bos_id': bos_id,
-                          'eos_id': eos_id,
-                          'logger': None,
-                          'load_audio': load_audio}
+        dataset_params = {
+            'manifest_filepath': manifest_filepath,
+            'labels': labels,
+            'featurizer': self._featurizer,
+            'max_duration': max_duration,
+            'min_duration': min_duration,
+            'normalize': normalize_transcripts,
+            'trim': trim_silence,
+            'bos_id': bos_id,
+            'eos_id': eos_id,
+            'logger': None,
+            'load_audio': load_audio}
 
         self._dataset = AudioDataset(**dataset_params)
 
         # Set up data loader
         if placement == 'cuda':
             print('Parallelizing DATALAYER')
-            sampler = torch.utils.data.distributed.DistributedSampler(
-                self._dataset)
+            sampler = torch.utils.data.distributed.DistributedSampler(self._dataset)
         else:
             sampler = None
 
@@ -158,8 +159,7 @@ transcript_n}
             drop_last=drop_last,
             shuffle=shuffle if sampler is None else False,
             sampler=sampler,
-            num_workers=num_workers
-        )
+            num_workers=num_workers)
 
     def __len__(self):
         return len(self._dataset)

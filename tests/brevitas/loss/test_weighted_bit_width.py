@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import torch
 
 from brevitas.inject.defaults import Int8ActPerTensorFloat
@@ -15,8 +14,11 @@ from brevitas.nn import QuantLinear
 
 def test_weight_bit_width_weighted_by_size():
     model = QuantLinear(
-        out_features=6, in_features=5, bias=False,
-        weight_bit_width_impl_type='parameter', weight_bit_width=4)
+        out_features=6,
+        in_features=5,
+        bias=False,
+        weight_bit_width_impl_type='parameter',
+        weight_bit_width=4)
     loss = WeightBitWidthWeightedBySize(model)
     out = model(torch.randn(2, 5, 5))
     assert loss.tot_num_elements == 30
@@ -33,8 +35,11 @@ def test_act_bit_width_weighted_by_size():
 
 def test_output_bit_weighted_by_ops():
     model = QuantLinear(
-        out_features=6, in_features=5, bias=False,
-        input_quant=Int8ActPerTensorFloat, weight_bit_width_impl_type='parameter',
+        out_features=6,
+        in_features=5,
+        bias=False,
+        input_quant=Int8ActPerTensorFloat,
+        weight_bit_width_impl_type='parameter',
         return_quant_tensor=True)
     loss = QuantLayerOutputBitWidthWeightedByOps(model)
     out = model(torch.randn(2, 4, 5))

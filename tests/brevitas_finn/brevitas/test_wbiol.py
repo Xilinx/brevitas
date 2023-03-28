@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import os
 
 import numpy as np
@@ -62,16 +61,27 @@ def test_quant_linear(bias, bias_quant, out_features, in_features, w_bits, chann
 @pytest.mark.parametrize("stride", [1, 2])
 @pytest.mark.parametrize("i_bits", [2, 4])
 def test_quant_conv2d(
-        dw, bias, bias_quant, in_features, in_channels, out_channels, w_bits, channel_scaling,
-        kernel_size, padding, stride, i_bits):
+        dw,
+        bias,
+        bias_quant,
+        in_features,
+        in_channels,
+        out_channels,
+        w_bits,
+        channel_scaling,
+        kernel_size,
+        padding,
+        stride,
+        i_bits):
     # required to generated quantized inputs, not part of the exported model to test
     quant_inp = QuantIdentity(bit_width=i_bits, return_quant_tensor=True)
     inp_tensor = quant_inp(torch.randn(1, in_channels, in_features, in_features))
     try:
         conv = QuantConv2d(
             in_channels=in_channels,
-#             out_channels=in_channels if dw else out_channels,
-            out_channels=out_channels, # this allows for multi-depthwise, but it needs exception check
+            #             out_channels=in_channels if dw else out_channels,
+            out_channels=
+            out_channels,  # this allows for multi-depthwise, but it needs exception check
             groups=in_channels if dw else 1,
             kernel_size=kernel_size,
             padding=padding,
@@ -85,7 +95,7 @@ def test_quant_conv2d(
         # is not multiplication of in_channels
         dw_groups = out_channels // in_channels
         dw_out_channels = dw_groups * in_channels
-        if dw and  dw_out_channels != out_channels:
+        if dw and dw_out_channels != out_channels:
             # exception caused by inproper parameters is ok,
             # but further computation gives an error.
             # So return without  assertion

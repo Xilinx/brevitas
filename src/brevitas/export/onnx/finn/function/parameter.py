@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import torch
 from torch.autograd import Function
 
@@ -34,10 +33,24 @@ class QuantizedConvNdFn(Function):
 
     @staticmethod
     def symbolic(
-            g, x, W, w_qnt_scale, b_qnt_scale, w_qnt_type, b_qnt_type, out_shape, pads, strides,
-            bias, kernel_shape, groups, dilations):
+            g,
+            x,
+            W,
+            w_qnt_scale,
+            b_qnt_scale,
+            w_qnt_type,
+            b_qnt_type,
+            out_shape,
+            pads,
+            strides,
+            bias,
+            kernel_shape,
+            groups,
+            dilations):
         ret = g.op(
-            f'{DOMAIN_STRING}::Conv', x, W,
+            f'{DOMAIN_STRING}::Conv',
+            x,
+            W,
             weight_qnt_s=w_qnt_type,
             kernel_shape_i=kernel_shape,
             pads_i=pads,
@@ -58,6 +71,18 @@ class QuantizedConvNdFn(Function):
 
     @staticmethod
     def forward(
-            ctx, x, W, w_qnt_scale, b_qnt_scale, w_qnt_type, b_qnt_type, out_shape, pads, strides,
-            bias, kernel_shape, groups, dilations):
+            ctx,
+            x,
+            W,
+            w_qnt_scale,
+            b_qnt_scale,
+            w_qnt_type,
+            b_qnt_type,
+            out_shape,
+            pads,
+            strides,
+            bias,
+            kernel_shape,
+            groups,
+            dilations):
         return torch.empty(out_shape, dtype=torch.float, device=x.device)

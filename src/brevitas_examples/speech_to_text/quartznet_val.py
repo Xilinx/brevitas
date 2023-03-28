@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import argparse
 import copy
 import os
@@ -19,13 +18,12 @@ from brevitas_examples.speech_to_text.quartznet.helpers import word_error_rate
 
 SEED = 123456
 
-
-
 parser = argparse.ArgumentParser(description='Quartznet')
 parser.add_argument("--data-json", type=str, required=True)
 parser.add_argument("--gpu", type=int, required=False, help='GPU number')
 parser.add_argument('--pretrained', action='store_true', help='Load pretrained checkpoint')
-parser.add_argument('--model', type=str, default='quant_quartznet_perchannelscaling_4b', help='Name of the model')
+parser.add_argument(
+    '--model', type=str, default='quant_quartznet_perchannelscaling_4b', help='Name of the model')
 parser.add_argument('--batch-size', default=64, type=int, help='Batch size')
 
 
@@ -67,15 +65,11 @@ def main():
     decoder_weights = sum(p.numel() for p in model.decoder.parameters() if p.requires_grad)
 
     print('================================')
-    print(
-        f"Number of parameters in encoder: {encoder_weights}")
-    print(
-        f"Number of parameters in decoder: {decoder_weights}")
-    print(
-        f"Total number of parameters in decoder: "
-        f"{encoder_weights + decoder_weights}")
+    print(f"Number of parameters in encoder: {encoder_weights}")
+    print(f"Number of parameters in decoder: {decoder_weights}")
+    print(f"Total number of parameters in decoder: "
+          f"{encoder_weights + decoder_weights}")
     print('================================')
-
 
     if args.gpu is not None:
         cudnn.benchmark = True
@@ -104,7 +98,7 @@ def main():
         greedy_hypotheses = post_process_predictions(predictions, vocab)
         references = post_process_transcripts(transcripts, transcripts_len, vocab)
         wer = word_error_rate(hypotheses=greedy_hypotheses, references=references)
-        print("Greedy WER {:.2f}%".format(wer*100))
+        print("Greedy WER {:.2f}%".format(wer * 100))
 
 
 if __name__ == '__main__':

@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from functools import reduce
 from operator import mul
 
@@ -23,7 +22,8 @@ from .quant_module_cases import QuantWBIOLCases
 def test_ort(model, export_type, current_cases):
     cases_generator_func = current_cases['model'][1]
     case_id = get_case_id(cases_generator_func)
-    impl = case_id.split('-')[-2] # Inverse list of definition, 'export_type' is -1, 'impl' is -2, etc.
+    impl = case_id.split('-')[
+        -2]  # Inverse list of definition, 'export_type' is -1, 'impl' is -2, etc.
     per_channel = case_id.split('-')[-6]
     quantizer = case_id.split('-')[-7]
 
@@ -45,8 +45,9 @@ def test_ort(model, export_type, current_cases):
 
     model(torch.from_numpy(inp))  # accumulate scale factors
     model.eval()
-    export_name=f'qcdq_qop_export_{case_id}.onnx'
-    assert is_brevitas_ort_close(model, inp, export_name, export_type, tolerance=INT_TOLERANCE, first_output_only=True)
+    export_name = f'qcdq_qop_export_{case_id}.onnx'
+    assert is_brevitas_ort_close(
+        model, inp, export_name, export_type, tolerance=INT_TOLERANCE, first_output_only=True)
 
 
 @parametrize_with_cases('model', cases=QuantRecurrentCases)
@@ -57,9 +58,11 @@ def test_ort_lstm(model, export_type, current_cases):
     case_id = get_case_id(cases_generator_func)
 
     if 'quant' in case_id and export_type == 'qonnx_opset14':
-        pytest.skip('Execution of quantized LSTM not supported out of the box for QONNX IR + ORT (requires qonnx lib).')
+        pytest.skip(
+            'Execution of quantized LSTM not supported out of the box for QONNX IR + ORT (requires qonnx lib).'
+        )
 
-    in_size = (FEATURES, 1, IN_CH) # seq, batch, in_size
+    in_size = (FEATURES, 1, IN_CH)  # seq, batch, in_size
     inp = gen_linspaced_data(reduce(mul, in_size)).reshape(in_size)
     model.eval()
     export_name = f'lstm_export_{case_id}.onnx'

@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from copy import deepcopy
 from functools import partial
 import operator
@@ -16,9 +15,7 @@ from brevitas.graph.utils import get_module
 
 from .base import GraphTransform
 
-__all__ = [
-    'EqualizeGraph'
-]
+__all__ = ['EqualizeGraph']
 
 EPSILON = 1e-9
 
@@ -57,18 +54,9 @@ _scale_invariant_op = (
     operator.__imul__,
 )
 
-_residual_methods = (
-    'add',
-    'add_'
-)
+_residual_methods = ('add', 'add_')
 
-_residual_fns = (
-    torch.add,
-    operator.add,
-    operator.iadd,
-    operator.__add__,
-    operator.__iadd__
-)
+_residual_fns = (torch.add, operator.add, operator.iadd, operator.__add__, operator.__iadd__)
 
 _batch_norm = (
     nn.BatchNorm1d,
@@ -76,13 +64,16 @@ _batch_norm = (
     nn.BatchNorm3d,
 )
 
-def _select_scale_computation_fn(scale_computation_type: str) -> Callable[[torch.Tensor], torch.Tensor]:
+
+def _select_scale_computation_fn(
+        scale_computation_type: str) -> Callable[[torch.Tensor], torch.Tensor]:
     if scale_computation_type == 'maxabs':
         return _channel_maxabs
     elif scale_computation_type == 'range':
         return _channel_range
     else:
         raise RuntimeError(f"Scale computation type {scale_computation_type} not supported")
+
 
 def _channel_range(inp: torch.Tensor) -> torch.Tensor:
     mins, _ = inp.min(dim=1)
@@ -132,15 +123,21 @@ def _get_input_axis(module: nn.Module) -> int:
 
 
 def _get_output_axis(module: nn.Module) -> int:
-    if isinstance(module, (nn.Linear, nn.Conv1d, nn.Conv2d, nn.Conv3d,
-                           nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d)):
+    if isinstance(
+            module,
+        (nn.Linear, nn.Conv1d, nn.Conv2d, nn.Conv3d, nn.BatchNorm1d, nn.BatchNorm2d,
+         nn.BatchNorm3d)):
         return 0
     elif isinstance(module, (nn.ConvTranspose1d, nn.ConvTranspose2d, nn.ConvTranspose3d)):
         return 1
     else:
         return None
 
-def _combine_weights_bias(weight: nn.parameter.Parameter, bias_shrinkage: Union[float, str], bias: Optional[nn.parameter.Parameter]):
+
+def _combine_weights_bias(
+        weight: nn.parameter.Parameter,
+        bias_shrinkage: Union[float, str],
+        bias: Optional[nn.parameter.Parameter]):
     """Combine weights and bias before graph equalizattion
     This method merges the weight and bias of the sources, so that the resulting equalizer scale factor
     is influenced also by the magnitude of the bias, mitigated by a shrink factor.
@@ -167,13 +164,13 @@ def _combine_weights_bias(weight: nn.parameter.Parameter, bias_shrinkage: Union[
             else:
                 shrink_factor = 2.
         else:
-            if  torch.median(factor) > 30 or torch.mean(factor) > 500:
+            if torch.median(factor) > 30 or torch.mean(factor) > 500:
                 shrink_factor = 20.
             elif torch.median(factor) > 15 or torch.mean(factor) > 250:
                 shrink_factor = 10.
             else:
                 shrink_factor = 5.
-    elif isinstance(bias_shrinkage, (int,float)):
+    elif isinstance(bias_shrinkage, (int, float)):
         shrink_factor = bias_shrinkage
     else:
         raise RuntimeError(f"{bias_shrinkage} not supported.")
@@ -181,7 +178,12 @@ def _combine_weights_bias(weight: nn.parameter.Parameter, bias_shrinkage: Union[
     return weight_bias
 
 
-def _cross_layer_equalization(srcs: List[nn.Module], sinks: List[nn.Module], merge_bias: bool, bias_shrinkage: Union[float, str], scale_computation_type: str) -> torch.Tensor:
+def _cross_layer_equalization(
+        srcs: List[nn.Module],
+        sinks: List[nn.Module],
+        merge_bias: bool,
+        bias_shrinkage: Union[float, str],
+        scale_computation_type: str) -> torch.Tensor:
     """
     Given two adjacent tensors', the weights are scaled such that
     the ranges of the first tensors' output channel are equal to the
@@ -194,7 +196,9 @@ def _cross_layer_equalization(srcs: List[nn.Module], sinks: List[nn.Module], mer
     for module_set in [srcs, sinks]:
         for module in module_set:
             if not isinstance(module, _supported_layers):
-                return torch.tensor(1., dtype=dtype, device=device) # If module is not supported, do not perform graph equalization
+                return torch.tensor(
+                    1., dtype=dtype,
+                    device=device)  # If module is not supported, do not perform graph equalization
 
     src_axes = {m: _get_output_axis(m) for m in srcs}
     sink_axes = {m: _get_input_axis(m) for m in sinks}
@@ -216,7 +220,9 @@ def _cross_layer_equalization(srcs: List[nn.Module], sinks: List[nn.Module], mer
     transpose = lambda module, axis: module.weight if axis == 0 else module.weight.transpose(0, 1)
     scale_fn = _select_scale_computation_fn(scale_computation_type)
     if merge_bias:
-        src_weights = [_combine_weights_bias(transpose(m, axis), bias_shrinkage, m.bias) for m, axis in src_axes.items()]
+        src_weights = [
+            _combine_weights_bias(transpose(m, axis), bias_shrinkage, m.bias) for m,
+            axis in src_axes.items()]
     else:
         src_weights = [transpose(m, axis) for m, axis in src_axes.items()]
     sink_weights = [transpose(m, axis) for m, axis in sink_axes.items()]
@@ -232,21 +238,31 @@ def _cross_layer_equalization(srcs: List[nn.Module], sinks: List[nn.Module], mer
             module.bias.data = module.bias.data * inverse_scaling_factors.view_as(module.bias)
         src_broadcast_size = [1] * module.weight.ndim
         src_broadcast_size[axis] = module.weight.size(axis)
-        module.weight.data = module.weight.data * torch.reshape(inverse_scaling_factors, src_broadcast_size)
+        module.weight.data = module.weight.data * torch.reshape(
+            inverse_scaling_factors, src_broadcast_size)
     for module, axis in sink_axes.items():
         src_broadcast_size = [1] * module.weight.ndim
         src_broadcast_size[axis] = module.weight.size(axis)
         if isinstance(module, (torch.nn.BatchNorm1d, torch.nn.BatchNorm2d, torch.nn.BatchNorm3d)):
-            additive_factor = module.running_mean.data * module.weight.data / torch.sqrt(module.running_var.data + module.eps)
+            additive_factor = module.running_mean.data * module.weight.data / torch.sqrt(
+                module.running_var.data + module.eps)
             module.bias.data = module.bias.data + additive_factor * (scaling_factors - 1)
         module.weight.data = module.weight.data * torch.reshape(scaling_factors, src_broadcast_size)
     return scaling_factors
 
-def _equalize(model: GraphModule, regions: Set[Tuple[str]], iterations: int, threshold: float, merge_bias: bool, bias_shrinkage: Union[str, float], scale_computation_type: str) -> GraphModule:
+
+def _equalize(
+        model: GraphModule,
+        regions: Set[Tuple[str]],
+        iterations: int,
+        threshold: float,
+        merge_bias: bool,
+        bias_shrinkage: Union[str, float],
+        scale_computation_type: str) -> GraphModule:
     """
     Generalized version of section 4.1 of https://arxiv.org/pdf/1906.04721.pdf
     """
-    name_to_module : Dict[str, nn.Module] = {}
+    name_to_module: Dict[str, nn.Module] = {}
     name_set = {name for region in regions for module_set in region for name in module_set}
 
     for name, module in model.named_modules():
@@ -255,7 +271,11 @@ def _equalize(model: GraphModule, regions: Set[Tuple[str]], iterations: int, thr
     for i in range(iterations):
         scale_factor_max = None
         for region in regions:
-            scale_factors_region = _cross_layer_equalization([name_to_module[n] for n in region[0]], [name_to_module[n] for n in region[1]], merge_bias, bias_shrinkage, scale_computation_type)
+            scale_factors_region = _cross_layer_equalization([name_to_module[n] for n in region[0]],
+                                                             [name_to_module[n] for n in region[1]],
+                                                             merge_bias,
+                                                             bias_shrinkage,
+                                                             scale_computation_type)
 
         scale_factor_region_max = torch.max(torch.abs(1 - scale_factors_region))
         if scale_factor_max is not None:
@@ -268,11 +288,13 @@ def _equalize(model: GraphModule, regions: Set[Tuple[str]], iterations: int, thr
 
 
 def _is_supported_module(graph_model: GraphModule, node: Node) -> bool:
-    return node.op == 'call_module' and isinstance(get_module(graph_model, node.target), _supported_layers)
+    return node.op == 'call_module' and isinstance(
+        get_module(graph_model, node.target), _supported_layers)
 
 
 def _is_scale_invariant_module(graph_model: GraphModule, node: Node) -> bool:
-    return node.op == 'call_module' and isinstance(get_module(graph_model, node.target), _scale_invariant_layers)
+    return node.op == 'call_module' and isinstance(
+        get_module(graph_model, node.target), _scale_invariant_layers)
 
 
 def _is_scale_invariant_function(node: Node) -> bool:
@@ -280,11 +302,18 @@ def _is_scale_invariant_function(node: Node) -> bool:
 
 
 def _is_reshaping_op(node: Node) -> bool:
-    return (node.op == 'call_function' and node.target in [torch.flatten, torch.reshape]
-                or node.op == 'call_method' and node.target in ['view', 'reshape', 'flatten'])
+    return (
+        node.op == 'call_function' and node.target in [torch.flatten, torch.reshape] or
+        node.op == 'call_method' and node.target in ['view', 'reshape', 'flatten'])
 
 
-def walk_region(graph_model: GraphModule, starting_node: Node, history: Set[Node], srcs: Set[str], sinks: Set[str], walk_forward: bool):
+def walk_region(
+        graph_model: GraphModule,
+        starting_node: Node,
+        history: Set[Node],
+        srcs: Set[str],
+        sinks: Set[str],
+        walk_forward: bool):
     node_list = starting_node.users if walk_forward else starting_node.all_input_nodes
     for node in node_list:
         # we keep a history of how the graph has been walked already, invariant to the direction,
@@ -306,10 +335,10 @@ def walk_region(graph_model: GraphModule, starting_node: Node, history: Set[Node
             else:
                 walk_region(graph_model, node, history, srcs, sinks, walk_forward=True)
                 walk_region(graph_model, node, history, srcs, sinks, walk_forward=False)
-        elif (node.op == 'call_method' and node.target in _residual_methods
-            or node.op == 'call_function' and node.target in _residual_fns):
-                walk_region(graph_model, node, history, srcs, sinks, walk_forward=True)
-                walk_region(graph_model, node, history, srcs, sinks, walk_forward=False)
+        elif (node.op == 'call_method' and node.target in _residual_methods or
+              node.op == 'call_function' and node.target in _residual_fns):
+            walk_region(graph_model, node, history, srcs, sinks, walk_forward=True)
+            walk_region(graph_model, node, history, srcs, sinks, walk_forward=False)
         elif _is_reshaping_op(node):
             walk_region(graph_model, node, history, srcs, sinks, walk_forward=walk_forward)
         else:
@@ -335,8 +364,14 @@ def _extract_regions(graph_model: GraphModule) -> Set[Tuple[str]]:
 
 class EqualizeGraph(GraphTransform):
 
-    def __init__(self, iterations: int = 10, threshold: float = 0.05, return_regions: bool = False,
-                 merge_bias: bool = True, bias_shrinkage: Union[float, str] = 'vaiq', scale_computation: str = 'maxabs') -> None:
+    def __init__(
+            self,
+            iterations: int = 10,
+            threshold: float = 0.05,
+            return_regions: bool = False,
+            merge_bias: bool = True,
+            bias_shrinkage: Union[float, str] = 'vaiq',
+            scale_computation: str = 'maxabs') -> None:
         super(EqualizeGraph, self).__init__()
         self.iterations = iterations
         self.return_regions = return_regions
@@ -345,10 +380,17 @@ class EqualizeGraph(GraphTransform):
         self.threshold = threshold
         self.scale_computation = scale_computation
 
-    def apply(self, graph_model: GraphModule) -> Union[Tuple[GraphModule, Set[Tuple[str]]], GraphModule]:
+    def apply(self,
+              graph_model: GraphModule) -> Union[Tuple[GraphModule, Set[Tuple[str]]], GraphModule]:
         regions = _extract_regions(graph_model)
-        graph_model = _equalize(graph_model, regions, self.iterations, self.threshold,
-                                self.merge_bias, self.bias_shrinkage, self.scale_computation)
+        graph_model = _equalize(
+            graph_model,
+            regions,
+            self.iterations,
+            self.threshold,
+            self.merge_bias,
+            self.bias_shrinkage,
+            self.scale_computation)
         if self.return_regions:
             return graph_model, regions
         else:
@@ -388,11 +430,11 @@ class AbsorbBiasByBatchNorm(GraphTransform):
     def extract_groups(self, graph_model: GraphModule):
         groups = []
         for node in graph_model.graph.nodes:
-            if (_is_supported_module(graph_model, node)
-                and node.next.op == 'call_module'
-                and isinstance(get_module(graph_model, node.next.target), _batch_norm)):
+            if (_is_supported_module(graph_model, node) and node.next.op == 'call_module' and
+                    isinstance(get_module(graph_model, node.next.target), _batch_norm)):
                 node_next = node.next.next
-                while _is_scale_invariant_module(graph_model, node_next) or _is_reshaping_op(node_next):
+                while _is_scale_invariant_module(graph_model,
+                                                 node_next) or _is_reshaping_op(node_next):
                     node_next = node_next.next
                 if _is_supported_module(graph_model, node_next):
                     group = (

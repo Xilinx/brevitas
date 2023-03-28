@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from abc import ABC
 from typing import Optional, Tuple, Union
 import warnings
@@ -29,9 +28,8 @@ class StdONNXBaseManager(ONNXBaseManager, ABC):
     @classmethod
     def solve_enable_onnx_checker(cls, export_kwargs):
         ka = 'enable_onnx_checker'
-        if (torch_version >= version.parse('1.5.0')
-            and torch_version <= version.parse('1.10.0')
-            and ka not in export_kwargs):
+        if (torch_version >= version.parse('1.5.0') and torch_version <= version.parse('1.10.0') and
+                ka not in export_kwargs):
             export_kwargs[ka] = True
 
     @classmethod

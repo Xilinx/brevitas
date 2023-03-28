@@ -35,71 +35,78 @@ KERNEL_SIZE = 3
 LSTM_WEIGHT_QUANTIZER = {
     'None': None,
     'quant_sym': Int8WeightPerTensorFloat,
-    'quant_asym': ShiftedUint8WeightPerTensorFloat,
-}
+    'quant_asym': ShiftedUint8WeightPerTensorFloat,}
 
 WBIOL_WEIGHT_QUANTIZER = {
     'None': None,
     'quant_sym': Int8WeightPerTensorFloat,
     'quant_asym': ShiftedUint8WeightPerTensorFloat,
-    'quant_decoupled': Int8WeightNormL2PerChannelFixedPoint,
-}
+    'quant_decoupled': Int8WeightNormL2PerChannelFixedPoint,}
 
 IO_QUANTIZER = {
     'None': None,
-    'quant_sym': Int8ActPerTensorFloat,
-}
+    'quant_sym': Int8ActPerTensorFloat,}
 
 SIGNED_ACT_QUANTIZER = {
     'None': None,
     'quant_sym': Int8ActPerTensorFloat,
-    'quant_asym': ShiftedUint8ActPerTensorFloat,
-}
+    'quant_asym': ShiftedUint8ActPerTensorFloat,}
 
 UNSIGNED_ACT_QUANTIZER = {
     'None': None,
-    'quant_sym': Uint8ActPerTensorFloat,
-}
+    'quant_sym': Uint8ActPerTensorFloat,}
 
 BIAS_QUANTIZER = {
     'None': None,
     'quant_external': Int16Bias,
-    'quant_internal': Int8BiasPerTensorFloatInternalScaling,
-}
+    'quant_internal': Int8BiasPerTensorFloatInternalScaling,}
 
 QUANT_WBIOL_IMPL = [
     QuantLinear,
     QuantConv1d,
     QuantConv2d,
     QuantConvTranspose1d,
-    QuantConvTranspose2d,
-]
+    QuantConvTranspose2d,]
 
 
-@pytest_cases.parametrize('input_quantized', [True, False], ids=[f'input_quantized${c}' for c in [True, False]])
-@pytest_cases.parametrize('bias_quantizer', BIAS_QUANTIZER.items(), ids=[f'bias_quant${c}' for c, _ in BIAS_QUANTIZER.items()])
-@pytest_cases.parametrize('io_quantizer', IO_QUANTIZER.items(), ids=[f'io_quant${c}' for c, _ in IO_QUANTIZER.items()])
-@pytest_cases.parametrize('weight_quantizer', WBIOL_WEIGHT_QUANTIZER.items(), ids=[f'weight_quant${c}' for c, _ in WBIOL_WEIGHT_QUANTIZER.items()])
-@pytest_cases.parametrize('return_quant_tensor', [True, False], ids=[f'return_quant_tensor${f}' for f in [True, False]])
-@pytest_cases.parametrize('module', QUANT_WBIOL_IMPL, ids=[f'model_type${c.__name__}' for c in QUANT_WBIOL_IMPL])
-@pytest_cases.parametrize('is_training', [True, False], ids=[f'is_training${f}' for f in [True, False]])
-def case_model(weight_quantizer, bias_quantizer, io_quantizer, return_quant_tensor,module, request, input_quantized, is_training):
+@pytest_cases.parametrize(
+    'input_quantized', [True, False], ids=[f'input_quantized${c}' for c in [True, False]])
+@pytest_cases.parametrize(
+    'bias_quantizer',
+    BIAS_QUANTIZER.items(),
+    ids=[f'bias_quant${c}' for c, _ in BIAS_QUANTIZER.items()])
+@pytest_cases.parametrize(
+    'io_quantizer', IO_QUANTIZER.items(), ids=[f'io_quant${c}' for c, _ in IO_QUANTIZER.items()])
+@pytest_cases.parametrize(
+    'weight_quantizer',
+    WBIOL_WEIGHT_QUANTIZER.items(),
+    ids=[f'weight_quant${c}' for c, _ in WBIOL_WEIGHT_QUANTIZER.items()])
+@pytest_cases.parametrize(
+    'return_quant_tensor', [True, False], ids=[f'return_quant_tensor${f}' for f in [True, False]])
+@pytest_cases.parametrize(
+    'module', QUANT_WBIOL_IMPL, ids=[f'model_type${c.__name__}' for c in QUANT_WBIOL_IMPL])
+@pytest_cases.parametrize(
+    'is_training', [True, False], ids=[f'is_training${f}' for f in [True, False]])
+def case_model(
+        weight_quantizer,
+        bias_quantizer,
+        io_quantizer,
+        return_quant_tensor,
+        module,
+        request,
+        input_quantized,
+        is_training):
     set_case_id(request.node.callspec.id, case_model)
-    case_id  = get_case_id(case_model)
+    case_id = get_case_id(case_model)
     _, weight_quantizer = weight_quantizer
     _, bias_quantizer = bias_quantizer
     _, io_quantizer = io_quantizer
 
     impl = case_id.split('-')[2].split('$')[-1]
     if impl == 'QuantLinear':
-        layer_kwargs = {
-            'in_features': IN_CH,
-            'out_features': OUT_CH}
+        layer_kwargs = {'in_features': IN_CH, 'out_features': OUT_CH}
     else:
-        layer_kwargs = {
-            'in_channels': IN_CH,
-            'out_channels': OUT_CH,
-            'kernel_size': KERNEL_SIZE}
+        layer_kwargs = {'in_channels': IN_CH, 'out_channels': OUT_CH, 'kernel_size': KERNEL_SIZE}
 
     class Model(nn.Module):
 
@@ -130,21 +137,42 @@ def case_model(weight_quantizer, bias_quantizer, io_quantizer, return_quant_tens
         in_size = (1, IN_CH, FEATURES, FEATURES)
 
     if input_quantized:
-        quant_inp = QuantTensor(torch.randint(-128, 127, in_size) * 0.128, 0.128, 0., 8., True, is_training)
+        quant_inp = QuantTensor(
+            torch.randint(-128, 127, in_size) * 0.128, 0.128, 0., 8., True, is_training)
     else:
         quant_inp = torch.randn(in_size)
     return module, quant_inp
 
-@pytest_cases.parametrize('io_quantizer', IO_QUANTIZER.items(), ids=[f'io_quant${c}' for c, _ in IO_QUANTIZER.items()])
-@pytest_cases.parametrize('input_quantized', [True, False], ids=[f'input_quantized${c}' for c in [True, False]])
-@pytest_cases.parametrize('bias_quantizer', BIAS_QUANTIZER.items(), ids=[f'bias_quant${c}' for c, _ in BIAS_QUANTIZER.items()])
-@pytest_cases.parametrize('weight_quantizer', LSTM_WEIGHT_QUANTIZER.items(), ids=[f'weight_quant${c}' for c, _ in LSTM_WEIGHT_QUANTIZER.items()])
-@pytest_cases.parametrize('return_quant_tensor', [True, False], ids=[f'return_quant_tensor${f}' for f in [True, False]])
-@pytest_cases.parametrize('bidirectional', [True, False, 'shared_input_hidden'], ids=[f'bidirectional${f}' for f in [True, False, 'shared_input_hidden']])
+
+@pytest_cases.parametrize(
+    'io_quantizer', IO_QUANTIZER.items(), ids=[f'io_quant${c}' for c, _ in IO_QUANTIZER.items()])
+@pytest_cases.parametrize(
+    'input_quantized', [True, False], ids=[f'input_quantized${c}' for c in [True, False]])
+@pytest_cases.parametrize(
+    'bias_quantizer',
+    BIAS_QUANTIZER.items(),
+    ids=[f'bias_quant${c}' for c, _ in BIAS_QUANTIZER.items()])
+@pytest_cases.parametrize(
+    'weight_quantizer',
+    LSTM_WEIGHT_QUANTIZER.items(),
+    ids=[f'weight_quant${c}' for c, _ in LSTM_WEIGHT_QUANTIZER.items()])
+@pytest_cases.parametrize(
+    'return_quant_tensor', [True, False], ids=[f'return_quant_tensor${f}' for f in [True, False]])
+@pytest_cases.parametrize(
+    'bidirectional', [True, False, 'shared_input_hidden'],
+    ids=[f'bidirectional${f}' for f in [True, False, 'shared_input_hidden']])
 @pytest_cases.parametrize('cifg', [True, False])
 @pytest_cases.parametrize('num_layers', [1, 2], ids=[f'num_layers${f}' for f in [1, 2]])
-def case_quant_lstm(weight_quantizer, bias_quantizer, return_quant_tensor, input_quantized, request,
-                    bidirectional, cifg, num_layers,io_quantizer):
+def case_quant_lstm(
+        weight_quantizer,
+        bias_quantizer,
+        return_quant_tensor,
+        input_quantized,
+        request,
+        bidirectional,
+        cifg,
+        num_layers,
+        io_quantizer):
 
     # Change the case_id based on current value of Parameters
     set_case_id(request.node.callspec.id, case_quant_lstm)
@@ -175,7 +203,7 @@ def case_quant_lstm(weight_quantizer, bias_quantizer, return_quant_tensor, input
                 sigmoid_quant=io_quantizer,
                 tanh_quant=io_quantizer,
                 cell_state_quant=io_quantizer,
-                batch_first=False, # ort doesn't support batch_first=True (layout = 1)
+                batch_first=False,  # ort doesn't support batch_first=True (layout = 1)
                 num_layers=num_layers,
                 bidirectional=bidirectional,
                 shared_input_hidden_weights=shared_input_hidden,
@@ -199,18 +227,46 @@ def case_quant_lstm(weight_quantizer, bias_quantizer, return_quant_tensor, input
 
     return module, quant_inp
 
-@pytest_cases.parametrize('io_quantizer', IO_QUANTIZER.items(), ids=[f'io_quant${c}' for c, _ in IO_QUANTIZER.items()])
-@pytest_cases.parametrize('input_quantized', [True, False], ids=[f'input_quantized${c}' for c in [True, False]])
-@pytest_cases.parametrize('bias_quantizer', BIAS_QUANTIZER.items(), ids=[f'bias_quant${c}' for c, _ in BIAS_QUANTIZER.items()])
-@pytest_cases.parametrize('signed_act_quantizer', SIGNED_ACT_QUANTIZER.items(), ids=[f'signed_act${c}' for c, _ in SIGNED_ACT_QUANTIZER.items()])
-@pytest_cases.parametrize('unsigned_act_quantizer', UNSIGNED_ACT_QUANTIZER.items(), ids=[f'unsigned_act${c}' for c, _ in UNSIGNED_ACT_QUANTIZER.items()])
-@pytest_cases.parametrize('weight_quantizer', LSTM_WEIGHT_QUANTIZER.items(), ids=[f'weight_quant${c}' for c, _ in LSTM_WEIGHT_QUANTIZER.items()])
-@pytest_cases.parametrize('return_quant_tensor', [True, False], ids=[f'return_quant_tensor${f}' for f in [True, False]])
-@pytest_cases.parametrize('bidirectional', [True, False, 'shared_input_hidden'], ids=[f'bidirectional${f}' for f in [True, False, 'shared_input_hidden']])
+
+@pytest_cases.parametrize(
+    'io_quantizer', IO_QUANTIZER.items(), ids=[f'io_quant${c}' for c, _ in IO_QUANTIZER.items()])
+@pytest_cases.parametrize(
+    'input_quantized', [True, False], ids=[f'input_quantized${c}' for c in [True, False]])
+@pytest_cases.parametrize(
+    'bias_quantizer',
+    BIAS_QUANTIZER.items(),
+    ids=[f'bias_quant${c}' for c, _ in BIAS_QUANTIZER.items()])
+@pytest_cases.parametrize(
+    'signed_act_quantizer',
+    SIGNED_ACT_QUANTIZER.items(),
+    ids=[f'signed_act${c}' for c, _ in SIGNED_ACT_QUANTIZER.items()])
+@pytest_cases.parametrize(
+    'unsigned_act_quantizer',
+    UNSIGNED_ACT_QUANTIZER.items(),
+    ids=[f'unsigned_act${c}' for c, _ in UNSIGNED_ACT_QUANTIZER.items()])
+@pytest_cases.parametrize(
+    'weight_quantizer',
+    LSTM_WEIGHT_QUANTIZER.items(),
+    ids=[f'weight_quant${c}' for c, _ in LSTM_WEIGHT_QUANTIZER.items()])
+@pytest_cases.parametrize(
+    'return_quant_tensor', [True, False], ids=[f'return_quant_tensor${f}' for f in [True, False]])
+@pytest_cases.parametrize(
+    'bidirectional', [True, False, 'shared_input_hidden'],
+    ids=[f'bidirectional${f}' for f in [True, False, 'shared_input_hidden']])
 @pytest_cases.parametrize('cifg', [True, False])
 @pytest_cases.parametrize('num_layers', [1, 2], ids=[f'num_layers${f}' for f in [1, 2]])
-def case_quant_lstm_full(weight_quantizer, bias_quantizer, return_quant_tensor, input_quantized, request,
-                    bidirectional, cifg, num_layers,io_quantizer, unsigned_act_quantizer, signed_act_quantizer):
+def case_quant_lstm_full(
+        weight_quantizer,
+        bias_quantizer,
+        return_quant_tensor,
+        input_quantized,
+        request,
+        bidirectional,
+        cifg,
+        num_layers,
+        io_quantizer,
+        unsigned_act_quantizer,
+        signed_act_quantizer):
 
     # Change the case_id based on current value of Parameters
     set_case_id(request.node.callspec.id, case_quant_lstm_full)
@@ -228,6 +284,7 @@ def case_quant_lstm_full(weight_quantizer, bias_quantizer, return_quant_tensor, 
 
     if return_quant_tensor and io_quantizer is None:
         pytest.skip("return_quant_tensor cannot be True if no io_quantizer is specified")
+
     class Model(nn.Module):
 
         def __init__(self):
@@ -242,7 +299,7 @@ def case_quant_lstm_full(weight_quantizer, bias_quantizer, return_quant_tensor, 
                 sigmoid_quant=unsigned_act_quantizer,
                 tanh_quant=signed_act_quantizer,
                 cell_state_quant=signed_act_quantizer,
-                batch_first=False, # ort doesn't support batch_first=True (layout = 1)
+                batch_first=False,  # ort doesn't support batch_first=True (layout = 1)
                 num_layers=num_layers,
                 bidirectional=bidirectional,
                 shared_input_hidden_weights=shared_input_hidden,
@@ -267,15 +324,32 @@ def case_quant_lstm_full(weight_quantizer, bias_quantizer, return_quant_tensor, 
     return module, quant_inp
 
 
-@pytest_cases.parametrize('io_quantizer', IO_QUANTIZER.items(), ids=[f'io_quant${c}' for c, _ in IO_QUANTIZER.items()])
-@pytest_cases.parametrize('input_quantized', [True, False], ids=[f'input_quantized${c}' for c in [True, False]])
-@pytest_cases.parametrize('bias_quantizer', BIAS_QUANTIZER.items(), ids=[f'bias_quant${c}' for c, _ in BIAS_QUANTIZER.items()])
-@pytest_cases.parametrize('weight_quantizer', LSTM_WEIGHT_QUANTIZER.items(), ids=[f'weight_quant${c}' for c, _ in LSTM_WEIGHT_QUANTIZER.items()])
-@pytest_cases.parametrize('return_quant_tensor', [True, False], ids=[f'return_quant_tensor${f}' for f in [True, False]])
-@pytest_cases.parametrize('bidirectional', [True, False], ids=[f'bidirectional${f}' for f in [True, False]])
+@pytest_cases.parametrize(
+    'io_quantizer', IO_QUANTIZER.items(), ids=[f'io_quant${c}' for c, _ in IO_QUANTIZER.items()])
+@pytest_cases.parametrize(
+    'input_quantized', [True, False], ids=[f'input_quantized${c}' for c in [True, False]])
+@pytest_cases.parametrize(
+    'bias_quantizer',
+    BIAS_QUANTIZER.items(),
+    ids=[f'bias_quant${c}' for c, _ in BIAS_QUANTIZER.items()])
+@pytest_cases.parametrize(
+    'weight_quantizer',
+    LSTM_WEIGHT_QUANTIZER.items(),
+    ids=[f'weight_quant${c}' for c, _ in LSTM_WEIGHT_QUANTIZER.items()])
+@pytest_cases.parametrize(
+    'return_quant_tensor', [True, False], ids=[f'return_quant_tensor${f}' for f in [True, False]])
+@pytest_cases.parametrize(
+    'bidirectional', [True, False], ids=[f'bidirectional${f}' for f in [True, False]])
 @pytest_cases.parametrize('num_layers', [1, 2], ids=[f'num_layers${f}' for f in [1, 2]])
-def case_quant_rnn(weight_quantizer, bias_quantizer, return_quant_tensor, input_quantized, request,
-                    bidirectional, num_layers,io_quantizer):
+def case_quant_rnn(
+        weight_quantizer,
+        bias_quantizer,
+        return_quant_tensor,
+        input_quantized,
+        request,
+        bidirectional,
+        num_layers,
+        io_quantizer):
 
     # Change the case_id based on current value of Parameters
     set_case_id(request.node.callspec.id, case_quant_rnn)
@@ -285,6 +359,7 @@ def case_quant_rnn(weight_quantizer, bias_quantizer, return_quant_tensor, input_
 
     if return_quant_tensor and io_quantizer is None:
         pytest.skip("return_quant_tensor cannot be True if no io_quantizer is specified")
+
     class Model(nn.Module):
 
         def __init__(self):
@@ -319,17 +394,37 @@ def case_quant_rnn(weight_quantizer, bias_quantizer, return_quant_tensor, input_
     return module, quant_inp
 
 
-
-@pytest_cases.parametrize('io_quantizer', IO_QUANTIZER.items(), ids=[f'io_quant${c}' for c, _ in IO_QUANTIZER.items()])
-@pytest_cases.parametrize('input_quantized', [True, False], ids=[f'input_quantized${c}' for c in [True, False]])
-@pytest_cases.parametrize('bias_quantizer', BIAS_QUANTIZER.items(), ids=[f'bias_quant${c}' for c, _ in BIAS_QUANTIZER.items()])
-@pytest_cases.parametrize('signed_act_quantizer', SIGNED_ACT_QUANTIZER.items(), ids=[f'signed_act${c}' for c, _ in SIGNED_ACT_QUANTIZER.items()])
-@pytest_cases.parametrize('weight_quantizer', LSTM_WEIGHT_QUANTIZER.items(), ids=[f'weight_quant${c}' for c, _ in LSTM_WEIGHT_QUANTIZER.items()])
-@pytest_cases.parametrize('return_quant_tensor', [True, False], ids=[f'return_quant_tensor${f}' for f in [True, False]])
-@pytest_cases.parametrize('bidirectional', [True, False], ids=[f'bidirectional${f}' for f in [True, False]])
+@pytest_cases.parametrize(
+    'io_quantizer', IO_QUANTIZER.items(), ids=[f'io_quant${c}' for c, _ in IO_QUANTIZER.items()])
+@pytest_cases.parametrize(
+    'input_quantized', [True, False], ids=[f'input_quantized${c}' for c in [True, False]])
+@pytest_cases.parametrize(
+    'bias_quantizer',
+    BIAS_QUANTIZER.items(),
+    ids=[f'bias_quant${c}' for c, _ in BIAS_QUANTIZER.items()])
+@pytest_cases.parametrize(
+    'signed_act_quantizer',
+    SIGNED_ACT_QUANTIZER.items(),
+    ids=[f'signed_act${c}' for c, _ in SIGNED_ACT_QUANTIZER.items()])
+@pytest_cases.parametrize(
+    'weight_quantizer',
+    LSTM_WEIGHT_QUANTIZER.items(),
+    ids=[f'weight_quant${c}' for c, _ in LSTM_WEIGHT_QUANTIZER.items()])
+@pytest_cases.parametrize(
+    'return_quant_tensor', [True, False], ids=[f'return_quant_tensor${f}' for f in [True, False]])
+@pytest_cases.parametrize(
+    'bidirectional', [True, False], ids=[f'bidirectional${f}' for f in [True, False]])
 @pytest_cases.parametrize('num_layers', [1, 2], ids=[f'num_layers${f}' for f in [1, 2]])
-def case_quant_rnn_full(weight_quantizer, bias_quantizer, return_quant_tensor, input_quantized, request,
-                    bidirectional, num_layers,io_quantizer, signed_act_quantizer):
+def case_quant_rnn_full(
+        weight_quantizer,
+        bias_quantizer,
+        return_quant_tensor,
+        input_quantized,
+        request,
+        bidirectional,
+        num_layers,
+        io_quantizer,
+        signed_act_quantizer):
 
     # Change the case_id based on current value of Parameters
     set_case_id(request.node.callspec.id, case_quant_rnn_full)
@@ -340,6 +435,7 @@ def case_quant_rnn_full(weight_quantizer, bias_quantizer, return_quant_tensor, i
 
     if return_quant_tensor and io_quantizer is None:
         pytest.skip("return_quant_tensor cannot be True if no io_quantizer is specified")
+
     class Model(nn.Module):
 
         def __init__(self):

@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import pytest
 import torch
 from torch import Tensor
@@ -22,15 +21,8 @@ SEED = 123456
 INPUT_SIZE = (2, 3, 224, 224)
 INCEPTION_INPUT_SIZE = (2, 3, 299, 299)
 
-
 TV_MODELS = [
-    resnet18,
-    mobilenet_v2,
-    alexnet,
-    squeezenet1_0,
-    shufflenet_v2_x0_5,
-    mnasnet0_5,
-    densenet121]
+    resnet18, mobilenet_v2, alexnet, squeezenet1_0, shufflenet_v2_x0_5, mnasnet0_5, densenet121]
 
 
 @pytest.mark.parametrize("pretrained", [True, False])

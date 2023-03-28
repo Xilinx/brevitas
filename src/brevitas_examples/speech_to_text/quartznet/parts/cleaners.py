@@ -29,61 +29,57 @@ ORD_CHECK = re.compile(r'([0-9]+)(st|nd|rd|th)')
 THREE_CHECK = re.compile(r'([0-9]{3})([.,][0-9]{1,2})?([!.?])?$')
 DECIMAL_CHECK = re.compile(r'([.,][0-9]{1,2})$')
 
-ABBREVIATIONS_COMMON = [(re.compile('\\b%s\\.' % x[0]), x[1]) for x in
-                        [
-                            ("ms", "miss"),
-                            ("mrs", "misess"),
-                            ("mr", "mister"),
-                            ("messrs", "messeurs"),
-                            ("dr", "doctor"),
-                            ("drs", "doctors"),
-                            ("st", "saint"),
-                            ("co", "company"),
-                            ("jr", "junior"),
-                            ("sr", "senior"),
-                            ("rev", "reverend"),
-                            ("hon", "honorable"),
-                            ("sgt", "sergeant"),
-                            ("capt", "captain"),
-                            ("maj", "major"),
-                            ("col", "colonel"),
-                            ("lt", "lieutenant"),
-                            ("gen", "general"),
-                            ("prof", "professor"),
-                            ("lb", "pounds"),
-                            ("rep", "representative"),
-                            ("st", "street"),
-                            ("ave", "avenue"),
-                            ("etc", "et cetera"),
-                            ("jan", "january"),
-                            ("feb", "february"),
-                            ("mar", "march"),
-                            ("apr", "april"),
-                            ("jun", "june"),
-                            ("jul", "july"),
-                            ("aug", "august"),
-                            ("sep", "september"),
-                            ("oct", "october"),
-                            ("nov", "november"),
-                            ("dec", "december"),
-                        ]]
+ABBREVIATIONS_COMMON = [(re.compile('\\b%s\\.' % x[0]), x[1]) for x in [
+    ("ms", "miss"),
+    ("mrs", "misess"),
+    ("mr", "mister"),
+    ("messrs", "messeurs"),
+    ("dr", "doctor"),
+    ("drs", "doctors"),
+    ("st", "saint"),
+    ("co", "company"),
+    ("jr", "junior"),
+    ("sr", "senior"),
+    ("rev", "reverend"),
+    ("hon", "honorable"),
+    ("sgt", "sergeant"),
+    ("capt", "captain"),
+    ("maj", "major"),
+    ("col", "colonel"),
+    ("lt", "lieutenant"),
+    ("gen", "general"),
+    ("prof", "professor"),
+    ("lb", "pounds"),
+    ("rep", "representative"),
+    ("st", "street"),
+    ("ave", "avenue"),
+    ("etc", "et cetera"),
+    ("jan", "january"),
+    ("feb", "february"),
+    ("mar", "march"),
+    ("apr", "april"),
+    ("jun", "june"),
+    ("jul", "july"),
+    ("aug", "august"),
+    ("sep", "september"),
+    ("oct", "october"),
+    ("nov", "november"),
+    ("dec", "december"),]]
 
-ABBREVIATIONS_EXPANDED = [(re.compile('\\b%s\\.' % x[0]), x[1]) for x in
-                          [
-                            ("ltd", "limited"),
-                            ("fig", "figure"),
-                            ("figs", "figures"),
-                            ("gent", "gentlemen"),
-                            ("ft", "fort"),
-                            ("esq", "esquire"),
-                            ("prep", "preperation"),
-                            ("bros", "brothers"),
-                            ("ind", "independent"),
-                            ("mme", "madame"),
-                            ("pro", "professional"),
-                            ("vs", "versus"),
-                            ("inc", "include"),
-                          ]]
+ABBREVIATIONS_EXPANDED = [(re.compile('\\b%s\\.' % x[0]), x[1]) for x in [
+    ("ltd", "limited"),
+    ("fig", "figure"),
+    ("figs", "figures"),
+    ("gent", "gentlemen"),
+    ("ft", "fort"),
+    ("esq", "esquire"),
+    ("prep", "preperation"),
+    ("bros", "brothers"),
+    ("ind", "independent"),
+    ("mme", "madame"),
+    ("pro", "professional"),
+    ("vs", "versus"),
+    ("inc", "include"),]]
 
 inflect = inflect.engine()
 
@@ -102,8 +98,9 @@ def clean_text(string, table, punctuation_to_replace):
 
 def warn_common_chars(string):
     if re.search(r'[£€]', string):
-        print("WARNING: Your transcript contains one of '£' or '€' which we do"
-              "not currently handle")
+        print(
+            "WARNING: Your transcript contains one of '£' or '€' which we do"
+            "not currently handle")
 
 
 def clean_numbers(string):
@@ -123,14 +120,13 @@ def clean_abbreviations(string, expanded=False):
 
 def clean_punctuations(string, table, punctuation_to_replace):
     for punc, replacement in punctuation_to_replace.items():
-        string = re.sub('\\{}'.format(punc),
-                        " {} ".format(replacement),
-                        string)
+        string = re.sub('\\{}'.format(punc), " {} ".format(replacement), string)
     string = string.translate(table)
     return string
 
 
 class NumberCleaner():
+
     def __init__(self):
         super().__init__()
         self.reset()
@@ -157,6 +153,7 @@ class NumberCleaner():
             # Check if there are non-numbers
             def convert_to_word(match):
                 return " " + inflect.number_to_words(match.group(0)) + " "
+
             return re.sub(r'[0-9,]+', convert_to_word, whole_num)
 
     def clean(self, match):

@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import math
 
 import torch
@@ -48,7 +47,7 @@ class TestPercentile:
         neg_percentile = NegativePercentileOrZero(0.01)
         out = neg_percentile(values)
 
-        expected_out = torch.min(torch.tensor(0.), self.compute_percentile(values, low_q = 0.01)[0])
+        expected_out = torch.min(torch.tensor(0.), self.compute_percentile(values, low_q=0.01)[0])
 
         assert torch.allclose(out, expected_out)
 
@@ -62,13 +61,12 @@ class TestPercentile:
 
         assert torch.allclose(out, expected_out)
 
-
     def test_interval_percentile(self):
         values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
         values = torch.tensor(values)
-        interval_percentile = PercentileInterval(low_percentile_q = 0.01, high_percentile_q = 99.9)
+        interval_percentile = PercentileInterval(low_percentile_q=0.01, high_percentile_q=99.9)
         out = interval_percentile(values)
 
-        range = self.compute_percentile(values, low_q = 0.01, high_q = 99.9)
+        range = self.compute_percentile(values, low_q=0.01, high_q=99.9)
         expected_out = torch.abs(range[1] - range[0])
         assert torch.allclose(out, expected_out)

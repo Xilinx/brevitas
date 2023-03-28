@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from brevitas.core.function_wrapper.ops_ste import CeilSte
 from brevitas.core.restrict_val import PowerOfTwoRestrictValue
 from brevitas.core.scaling import PowerOfTwoIntScaling
@@ -15,12 +14,13 @@ __all__ = [
     'Int8ActPerTensorFixedPoint',
     'Uint8ActPerTensorFixedPoint',
     'Int8BiasPerTensorFixedPointInternalScaling',
-    'Uint8ActPerTensorFixedPointMaxInit'
-]
+    'Uint8ActPerTensorFixedPointMaxInit']
 
 
-class Int8WeightPerTensorFixedPoint(
-    NarrowIntQuant, MaxStatsScaling, PerTensorPoTScaling8bit, WeightQuantSolver):
+class Int8WeightPerTensorFixedPoint(NarrowIntQuant,
+                                    MaxStatsScaling,
+                                    PerTensorPoTScaling8bit,
+                                    WeightQuantSolver):
     """
     8-bit narrow per-tensor signed fixed-point weight quantizer with the radix point
     computed from backpropagated statistics of the weight tensor.
@@ -33,8 +33,10 @@ class Int8WeightPerTensorFixedPoint(
     pass
 
 
-class Int8ActPerTensorFixedPoint(
-    IntQuant, ParamFromRuntimePercentileScaling, PerTensorPoTScaling8bit, ActQuantSolver):
+class Int8ActPerTensorFixedPoint(IntQuant,
+                                 ParamFromRuntimePercentileScaling,
+                                 PerTensorPoTScaling8bit,
+                                 ActQuantSolver):
     """
     8-bit per-tensor signed int activations fixed-point quantizer with learned radix point
     initialized from runtime statistics.
@@ -46,8 +48,10 @@ class Int8ActPerTensorFixedPoint(
     pass
 
 
-class Uint8ActPerTensorFixedPoint(
-    UintQuant, ParamFromRuntimePercentileScaling, PerTensorPoTScaling8bit, ActQuantSolver):
+class Uint8ActPerTensorFixedPoint(UintQuant,
+                                  ParamFromRuntimePercentileScaling,
+                                  PerTensorPoTScaling8bit,
+                                  ActQuantSolver):
     """
     8-bit per-tensor unsigned int activations fixed-point quantizer with learned radix point
     initialized from runtime statistics.
@@ -59,8 +63,10 @@ class Uint8ActPerTensorFixedPoint(
     pass
 
 
-class Uint8ActPerTensorFixedPointMaxInit(
-    UintQuant, ParamMinMaxInitScaling, PerTensorPoTScaling8bit, ActQuantSolver):
+class Uint8ActPerTensorFixedPointMaxInit(UintQuant,
+                                         ParamMinMaxInitScaling,
+                                         PerTensorPoTScaling8bit,
+                                         ActQuantSolver):
     """
     8-bit per-tensor unsigned int activations quantizer with learned power-of-two scale factor
     initialized from a user-defined max val.
@@ -74,8 +80,10 @@ class Uint8ActPerTensorFixedPointMaxInit(
     min_val = 0.0
 
 
-class Int8BiasPerTensorFixedPointInternalScaling(
-    IntQuant, MaxStatsScaling, PerTensorPoTScaling8bit, BiasQuantSolver):
+class Int8BiasPerTensorFixedPointInternalScaling(IntQuant,
+                                                 MaxStatsScaling,
+                                                 PerTensorPoTScaling8bit,
+                                                 BiasQuantSolver):
     """
     8-bit per-tensor signed fixed-point bias quantizer with the radix point computed
     from backpropagated statistics of the bias tensor.

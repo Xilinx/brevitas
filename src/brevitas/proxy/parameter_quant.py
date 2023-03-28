@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from abc import ABCMeta
 from abc import abstractmethod
 from typing import List, Optional, Tuple
@@ -21,8 +20,7 @@ __all__ = [
     'WeightQuantProxyFromInjector',
     'BiasQuantProxyFromInjector',
     'WeightQuantProxyProtocol',
-    'BiasQuantProxyProtocol'
-]
+    'BiasQuantProxyProtocol']
 
 
 @runtime_checkable
@@ -38,9 +36,7 @@ class BiasQuantProxyProtocol(QuantProxyProtocol, Protocol):
     requires_input_scale: bool
 
     def forward(
-            self,
-            x: Tensor,
-            input_scale: Optional[Tensor],
+            self, x: Tensor, input_scale: Optional[Tensor],
             input_bit_width: Optional[Tensor]) -> QuantTensor:
         ...
 

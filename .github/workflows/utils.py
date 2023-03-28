@@ -45,7 +45,7 @@ class Action:
             elif newline_val:
                 for i, v in enumerate(val):
                     repr += f"{name}: '{v}'" + NIX_NEWLINE
-                    if i < len(val)-1:
+                    if i < len(val) - 1:
                         repr += first_line_prefix
             else:
                 repr += f"{name}: {val}" + NIX_NEWLINE
@@ -58,13 +58,13 @@ class Action:
     def gen_yaml(self, base_template_path, output_path):
         d = {}
         d['name'] = self.name
-        d['matrix'] = indent(
-            Action.dict_str(self.matrix, False, False), MATRIX_INDENT * ' ')
+        d['matrix'] = indent(Action.dict_str(self.matrix, False, False), MATRIX_INDENT * ' ')
         d['steps'] = indent(
             Action.list_of_dicts_str(self.step_list, False, True), STEP_INDENT * ' ')
         if self.exclude_list:
             d['exclude'] = indent('exclude:\n', MATRIX_INDENT * ' ') + indent(
-                Action.list_of_dicts_str(self.exclude_list, False, True, True), EXCLUDE_INDENT * ' ')
+                Action.list_of_dicts_str(self.exclude_list, False, True, True),
+                EXCLUDE_INDENT * ' ')
         else:
             d['exclude'] = ''
 
@@ -78,6 +78,7 @@ class Action:
 
 def combine_od_list(od_list):
     return od(reduce(lambda l1, l2: l1 + l2, list(map(lambda d: list(d.items()), od_list))))
+
 
 def generate_exclusion_list(combinations):
     """

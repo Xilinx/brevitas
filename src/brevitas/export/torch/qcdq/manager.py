@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from typing import Optional, Tuple, Union
 
 from torch import Tensor
@@ -36,11 +35,7 @@ class TorchQCDQManager(BaseManager):
         _set_proxy_export_handler(cls, module)
 
     @classmethod
-    def export(
-            cls,
-            module: Module,
-            args,
-            export_path: Optional[str] = None):
+    def export(cls, module: Module, args, export_path: Optional[str] = None):
         with ExportContext(cls):
             traced_module = cls.jit_inference_trace(module, args, export_path)
         return traced_module

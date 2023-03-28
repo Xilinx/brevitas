@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from hypothesis import given
 from hypothesis import strategies as st
 import mock
@@ -18,13 +17,13 @@ from tests.marker import jit_disabled_for_mock
 
 
 def is_ternary_output_value_correct(scale: Tensor, output: Tensor):
-    return ((output == scale) | (output == 0.0) | (output == - scale)).all()
+    return ((output == scale) | (output == 0.0) | (output == -scale)).all()
 
 
 def is_ternary_output_sign_correct(inp: Tensor, scale_thr: Tensor, output: Tensor):
-    return (((output > torch.tensor(0.0)) & (inp > scale_thr))
-                | ((output == torch.tensor(0.0)) & (inp >= - scale_thr) & (inp <= scale_thr))
-                | ((output < torch.tensor(0.0)) & (inp < - scale_thr))).all()
+    return (((output > torch.tensor(0.0)) & (inp > scale_thr)) |
+            ((output == torch.tensor(0.0)) & (inp >= -scale_thr) &
+             (inp <= scale_thr)) | ((output < torch.tensor(0.0)) & (inp < -scale_thr))).all()
 
 
 class TestTernaryUnit:

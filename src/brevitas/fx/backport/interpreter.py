@@ -103,13 +103,14 @@ class Interpreter:
     Args:
         module (GraphModule): The module to be executed
     """
-    def __init__(self, module : GraphModule):
+
+    def __init__(self, module: GraphModule):
         assert isinstance(module, GraphModule)
         self.module = module
         self.submodules = dict(self.module.named_modules())
-        self.env : Dict[Node, Any] = {}
+        self.env: Dict[Node, Any] = {}
 
-    def run(self, *args, initial_env : Optional[Dict[Node, Any]] = None) -> Any:
+    def run(self, *args, initial_env: Optional[Dict[Node, Any]] = None) -> Any:
         """
         Run `module` via interpretation and return the result.
 
@@ -128,7 +129,7 @@ class Interpreter:
         # Positional function args are consumed left-to-right by
         # `placeholder` nodes. Use an iterator to keep track of
         # position and extract those values.
-        self.args_iter : Iterator[Any] = iter(args)
+        self.args_iter: Iterator[Any] = iter(args)
 
         for node in self.module.graph.nodes:
             if node in self.env:
@@ -144,7 +145,7 @@ class Interpreter:
                 output_val = self.env[node]
                 return output_val
 
-    def run_node(self, n : Node) -> Any:
+    def run_node(self, n: Node) -> Any:
         """
         Run a specific node ``n`` and return the result.
         Calls into placeholder, get_attr, call_function,
@@ -164,7 +165,8 @@ class Interpreter:
 
     # Main Node running APIs
 
-    def placeholder(self, target : 'Target', args : Tuple[Argument, ...], kwargs : Dict[str, Any]) -> Any:
+    def placeholder(
+            self, target: 'Target', args: Tuple[Argument, ...], kwargs: Dict[str, Any]) -> Any:
         """
         Execute a ``placeholder`` node. Note that this is stateful:
         ``Interpreter`` maintains an internal iterator over
@@ -189,7 +191,7 @@ class Interpreter:
         else:
             return next(self.args_iter)
 
-    def get_attr(self, target : 'Target', args : Tuple[Argument, ...], kwargs : Dict[str, Any]) -> Any:
+    def get_attr(self, target: 'Target', args: Tuple[Argument, ...], kwargs: Dict[str, Any]) -> Any:
         """
         Execute a ``get_attr`` node. Will retrieve an attribute
         value from the ``Module`` hierarchy of ``self.module``.
@@ -207,7 +209,8 @@ class Interpreter:
         assert isinstance(target, str)
         return self.fetch_attr(target)
 
-    def call_function(self, target : 'Target', args : Tuple[Argument, ...], kwargs : Dict[str, Any]) -> Any:
+    def call_function(
+            self, target: 'Target', args: Tuple[Argument, ...], kwargs: Dict[str, Any]) -> Any:
         """
         Execute a ``call_function`` node and return the result.
 
@@ -226,7 +229,8 @@ class Interpreter:
         # Execute the function and return the result
         return target(*args, **kwargs)
 
-    def call_method(self, target : 'Target', args : Tuple[Argument, ...], kwargs : Dict[str, Any]) -> Any:
+    def call_method(
+            self, target: 'Target', args: Tuple[Argument, ...], kwargs: Dict[str, Any]) -> Any:
         """
         Execute a ``call_method`` node and return the result.
 
@@ -247,7 +251,8 @@ class Interpreter:
         assert isinstance(target, str)
         return getattr(self_obj, target)(*args_tail, **kwargs)
 
-    def call_module(self, target : 'Target', args : Tuple[Argument, ...], kwargs : Dict[str, Any]) -> Any:
+    def call_module(
+            self, target: 'Target', args: Tuple[Argument, ...], kwargs: Dict[str, Any]) -> Any:
         """
         Execute a ``call_module`` node and return the result.
 
@@ -269,7 +274,7 @@ class Interpreter:
 
         return submod(*args, **kwargs)
 
-    def output(self, target : 'Target', args : Tuple[Argument, ...], kwargs : Dict[str, Any]) -> Any:
+    def output(self, target: 'Target', args: Tuple[Argument, ...], kwargs: Dict[str, Any]) -> Any:
         """
         Execute an ``output`` node. This really just retrieves
         the value referenced by the ``output`` node and returns it.
@@ -288,7 +293,7 @@ class Interpreter:
 
     # Helper methods
 
-    def fetch_attr(self, target : str):
+    def fetch_attr(self, target: str):
         """
         Fetch an attribute from the ``Module`` hierarchy of ``self.module``.
 
@@ -302,11 +307,12 @@ class Interpreter:
         attr_itr = self.module
         for i, atom in enumerate(target_atoms):
             if not hasattr(attr_itr, atom):
-                raise RuntimeError(f"Node referenced nonexistent target {'.'.join(target_atoms[:i])}")
+                raise RuntimeError(
+                    f"Node referenced nonexistent target {'.'.join(target_atoms[:i])}")
             attr_itr = getattr(attr_itr, atom)
         return attr_itr
 
-    def fetch_args_kwargs_from_env(self, n : Node) -> Tuple[Tuple, Dict]:
+    def fetch_args_kwargs_from_env(self, n: Node) -> Tuple[Tuple, Dict]:
         """
         Fetch the concrete values of ``args`` and ``kwargs`` of node ``n``
         from the current execution environment.
@@ -323,7 +329,7 @@ class Interpreter:
         assert isinstance(kwargs, dict)
         return args, kwargs
 
-    def map_nodes_to_values(self, args : Argument, n : Node) -> Argument:
+    def map_nodes_to_values(self, args: Argument, n: Node) -> Argument:
         """
         Recursively descend through ``args`` and look up the concrete value
         for each ``Node`` in the current execution environment.
@@ -333,12 +339,16 @@ class Interpreter:
 
             n (Node): Node to which ``args`` belongs. This is only used for error reporting.
         """
-        def load_arg(n_arg : Node) -> Any:
+
+        def load_arg(n_arg: Node) -> Any:
             if n_arg not in self.env:
-                raise RuntimeError(f'Node {n} referenced nonexistent value {n_arg}! Run Graph.lint() '
-                                   f'to diagnose such issues')
+                raise RuntimeError(
+                    f'Node {n} referenced nonexistent value {n_arg}! Run Graph.lint() '
+                    f'to diagnose such issues')
             return self.env[n_arg]
+
         return map_arg(args, load_arg)
+
 
 class Transformer(Interpreter):
     """
@@ -378,21 +388,25 @@ class Transformer(Interpreter):
     Args:
         module (GraphModule): The ``Module`` to be transformed.
     """
+
     def __init__(self, module):
         super().__init__(module)
         self.new_graph = Graph()
 
         class TransformerTracer(Tracer):
+
             def __init__(self, graph: Graph):
                 super().__init__()
                 self.graph = graph
 
             def is_leaf_module(self, _, __) -> bool:
                 return True
+
         self.tracer = TransformerTracer(self.new_graph)
         self.tracer.root = module
 
-    def placeholder(self, target : 'Target', args : Tuple[Argument, ...], kwargs : Dict[str, Any]) -> Proxy:
+    def placeholder(
+            self, target: 'Target', args: Tuple[Argument, ...], kwargs: Dict[str, Any]) -> Proxy:
         """
         Execute a ``placeholder`` node. In ``Transformer``, this is
         overridden to insert a new ``placeholder`` into the output
@@ -408,7 +422,8 @@ class Transformer(Interpreter):
         assert isinstance(target, str)
         return Proxy(self.new_graph.placeholder(target), self.tracer)
 
-    def get_attr(self, target : 'Target', args : Tuple[Argument, ...], kwargs : Dict[str, Any]) -> Proxy:
+    def get_attr(
+            self, target: 'Target', args: Tuple[Argument, ...], kwargs: Dict[str, Any]) -> Proxy:
         """
         Execute a ``get_attr`` node. In ``Transformer``, this is
         overridden to insert a new ``get_attr`` node into the output
@@ -424,7 +439,8 @@ class Transformer(Interpreter):
         assert isinstance(target, str)
         return Proxy(self.new_graph.get_attr(target), self.tracer)
 
-    def call_module(self, target : 'Target', args : Tuple[Argument, ...], kwargs : Dict[str, Any]) -> Any:
+    def call_module(
+            self, target: 'Target', args: Tuple[Argument, ...], kwargs: Dict[str, Any]) -> Any:
         # Override so that the leaf module policy from `self.tracer` is respected.
         assert isinstance(target, str)
         submod = self.fetch_attr(target)

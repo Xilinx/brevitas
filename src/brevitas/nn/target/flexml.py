@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from typing import Union
 
 import torch
@@ -21,11 +20,12 @@ from brevitas.quant_tensor import QuantTensor
 class FlexMLQuantLeakyReLU(nn.Module):
 
     def __init__(
-            self,
-            negative_slope,
-            alpha_quant=qnn.QuantIdentity(Uint8ActPerTensorFixedPoint, bit_width=16),
-            input_quant=qnn.QuantIdentity(Int8ActPerTensorFixedPoint, bit_width=16, scaling_stats_momentum = None),
-            output_quant=qnn.QuantIdentity(Int8ActPerTensorFixedPoint, return_quant_tensor=True)):
+        self,
+        negative_slope,
+        alpha_quant=qnn.QuantIdentity(Uint8ActPerTensorFixedPoint, bit_width=16),
+        input_quant=qnn.QuantIdentity(
+            Int8ActPerTensorFixedPoint, bit_width=16, scaling_stats_momentum=None),
+        output_quant=qnn.QuantIdentity(Int8ActPerTensorFixedPoint, return_quant_tensor=True)):
         super(FlexMLQuantLeakyReLU, self).__init__()
         self.alpha_quant = alpha_quant
         self.input_quant = input_quant
@@ -51,10 +51,10 @@ class FlexMLQuantAvgPool2d(QuantLayerMixin, nn.AvgPool2d):
     def __init__(
             self,
             kernel_size,
-            stride = None,
-            padding = 0,
-            ceil_mode = False,
-            div_quant = Int16QuantAvgPoolDivQuant,
+            stride=None,
+            padding=0,
+            ceil_mode=False,
+            div_quant=Int16QuantAvgPoolDivQuant,
             return_quant_tensor=True) -> None:
         nn.AvgPool2d.__init__(
             self,

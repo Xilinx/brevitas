@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import argparse
 import configparser
 import os
@@ -19,7 +18,6 @@ import torchvision.transforms as transforms
 from brevitas_examples.imagenet_classification.models import model_with_cfg
 
 SEED = 123456
-
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Validation')
 parser.add_argument('--imagenet-dir', help='path to folder containing Imagenet val folder')
@@ -44,19 +42,27 @@ def main():
         cudnn.benchmark = True
 
     valdir = os.path.join(args.imagenet_dir, 'val')
-    mean = [float(cfg.get('PREPROCESS', 'MEAN_0')), float(cfg.get('PREPROCESS', 'MEAN_1')),
-            float(cfg.get('PREPROCESS', 'MEAN_2'))]
-    std = [float(cfg.get('PREPROCESS', 'STD_0')), float(cfg.get('PREPROCESS', 'STD_1')),
-           float(cfg.get('PREPROCESS', 'STD_2'))]
+    mean = [
+        float(cfg.get('PREPROCESS', 'MEAN_0')),
+        float(cfg.get('PREPROCESS', 'MEAN_1')),
+        float(cfg.get('PREPROCESS', 'MEAN_2'))]
+    std = [
+        float(cfg.get('PREPROCESS', 'STD_0')),
+        float(cfg.get('PREPROCESS', 'STD_1')),
+        float(cfg.get('PREPROCESS', 'STD_2'))]
     normalize = transforms.Normalize(mean=mean, std=std)
     val_loader = torch.utils.data.DataLoader(
-        datasets.ImageFolder(valdir, transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            normalize,
-        ])),
-        batch_size=args.batch_size, shuffle=args.shuffle, num_workers=args.workers, pin_memory=True)
+        datasets.ImageFolder(
+            valdir,
+            transforms.Compose([
+                transforms.Resize(256),
+                transforms.CenterCrop(224),
+                transforms.ToTensor(),
+                normalize,])),
+        batch_size=args.batch_size,
+        shuffle=args.shuffle,
+        num_workers=args.workers,
+        pin_memory=True)
 
     validate(val_loader, model, args)
     return
@@ -67,8 +73,9 @@ def validate(val_loader, model, args):
     top5 = AverageMeter('Acc@5', ':6.2f')
 
     def print_accuracy(top1, top5, prefix=''):
-        print('{}Avg acc@1 {top1.avg:.3f} Avg acc@5 {top5.avg:.3f}'
-              .format(prefix, top1=top1, top5=top5))
+        print(
+            '{}Avg acc@1 {top1.avg:.3f} Avg acc@5 {top5.avg:.3f}'.format(
+                prefix, top1=top1, top5=top5))
 
     model.eval()
     with torch.no_grad():
@@ -89,6 +96,7 @@ def validate(val_loader, model, args):
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
+
     def __init__(self, name, fmt=':f'):
         self.name = name
         self.fmt = fmt

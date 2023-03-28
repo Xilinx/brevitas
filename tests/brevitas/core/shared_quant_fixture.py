@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import pytest_cases
 from pytest_cases import fixture_union
 import torch
@@ -15,7 +14,7 @@ __all__ = [
     'parameter_scaling_impl',
     'standalone_scaling_init',
     'randn_inp',
-    'scaling_impl_all' # noqa
+    'scaling_impl_all'  # noqa
 ]
 
 

@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import torch
 from torch import Tensor
 from torch.nn import Module
@@ -31,6 +30,7 @@ class BitWidthConst(brevitas.jit.ScriptModule):
     Note:
         Maps to bit_width_impl_type == BitWidthImplType.CONST == 'CONST' == 'const' in higher-level APIs.
     """
+
     def __init__(self, bit_width: int) -> None:
         super(BitWidthConst, self).__init__()
         assert isinstance(bit_width, int)
@@ -63,6 +63,7 @@ class BitWidthStatefulConst(brevitas.jit.ScriptModule):
         Maps to bit_width_impl_type == BitWidthImplType.STATEFUL_CONST == 'STATEFUL_CONST' ==
         'stateful_const' in higher-level APIs.
     """
+
     def __init__(self, bit_width: int) -> None:
         super(BitWidthStatefulConst, self).__init__()
         assert isinstance(bit_width, int)
@@ -72,8 +73,15 @@ class BitWidthStatefulConst(brevitas.jit.ScriptModule):
     def forward(self) -> Tensor:
         return self.bit_width
 
-    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
-                              missing_keys: list, unexpected_keys, error_msgs):
+    def _load_from_state_dict(
+            self,
+            state_dict,
+            prefix,
+            local_metadata,
+            strict,
+            missing_keys: list,
+            unexpected_keys,
+            error_msgs):
         super(BitWidthStatefulConst, self)._load_from_state_dict(
             state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
         value_key = prefix + "bit_width"
@@ -99,7 +107,5 @@ class MsbClampBitWidth(brevitas.jit.ScriptModule):
         bit_width_to_remove = self.bit_width_to_remove_impl()
         output_bit_width = torch.abs(input_bit_width - bit_width_to_remove)
         output_bit_width = tensor_clamp_ste(
-            output_bit_width,
-            self.min_overall_bit_width(),
-            self.max_overall_bit_width())
+            output_bit_width, self.min_overall_bit_width(), self.max_overall_bit_width())
         return output_bit_width

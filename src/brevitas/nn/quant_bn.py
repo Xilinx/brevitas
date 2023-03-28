@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from abc import ABC
 from typing import Optional
 
@@ -17,8 +16,9 @@ from .utils import mul_add_from_bn
 
 class _BatchNormToQuantScaleBias(QuantScaleBias, ABC):
 
-    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
-                              missing_keys, unexpected_keys, error_msgs):
+    def _load_from_state_dict(
+            self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
+            error_msgs):
         weight_key = prefix + 'weight'
         bias_key = prefix + 'bias'
         running_mean_key = prefix + 'running_mean'

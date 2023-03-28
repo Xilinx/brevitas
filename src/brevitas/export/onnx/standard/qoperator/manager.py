@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from typing import Optional, Tuple, Union
 
 from packaging import version
@@ -44,8 +43,7 @@ class StdQOpONNXManager(StdONNXBaseManager):
         F.max_pool3d,
         F.adaptive_max_pool1d,
         F.adaptive_max_pool2d,
-        F.adaptive_max_pool3d,
-    ]
+        F.adaptive_max_pool3d,]
 
     handlers = [
         StdQOpONNXQuantConv1dHandler,

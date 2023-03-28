@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from hypothesis import given
 import mock
 import pytest
@@ -25,8 +24,7 @@ ELEMWISE_STE_BACKEND = {
     ternary_sign_ste: 'ternary_sign_ste_impl',
     round_ste: 'round_ste_impl',
     round_to_zero_ste: 'round_to_zero_ste_impl',
-    floor_ste: 'floor_ste_impl',
-}
+    floor_ste: 'floor_ste_impl',}
 
 
 @pytest.fixture()

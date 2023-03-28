@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from brevitas.core.quant import *
 from brevitas.core.quant import QuantType
 from brevitas.inject import ExtendedInjector
@@ -15,8 +14,8 @@ __all__ = [
     'SolveWeightTensorQuantFromEnum',
     'SolveWeightScalingStatsInputDimsFromModule',
     'SolveWeightScalingPerOutputChannelShapeFromModule',
-    'WeightQuantSolver'
-]
+    'WeightQuantSolver']
+
 
 class SolveWeightTensorQuantFromEnum(SolveIntQuantFromEnum):
 
@@ -89,21 +88,20 @@ class SolveWeightScalingStatsInputDimsFromModule(ExtendedInjector):
         return module.output_channel_dim
 
 
-class WeightQuantSolver(
-        SolveWeightScalingStatsInputDimsFromModule,
-        SolveScalingStatsInputViewShapeImplFromEnum,
-        SolveStatsReduceDimFromEnum,
-        SolveScalingStatsOpFromEnum,
-        SolveBitWidthImplFromEnum,
-        SolveTensorQuantFloatToIntImplFromEnum,
-        SolveRestrictScalingImplFromEnum,
-        SolveIntScalingImplFromEnum,
-        SolveParameterScalingImplFromEnum,
-        SolveParameterTensorClampImplFromEnum,
-        SolveParameterScalingInitFromEnum,
-        SolveParameterScalingShape,
-        SolveWeightScalingPerOutputChannelShapeFromModule,
-        SolveWeightTensorQuantFromEnum):
+class WeightQuantSolver(SolveWeightScalingStatsInputDimsFromModule,
+                        SolveScalingStatsInputViewShapeImplFromEnum,
+                        SolveStatsReduceDimFromEnum,
+                        SolveScalingStatsOpFromEnum,
+                        SolveBitWidthImplFromEnum,
+                        SolveTensorQuantFloatToIntImplFromEnum,
+                        SolveRestrictScalingImplFromEnum,
+                        SolveIntScalingImplFromEnum,
+                        SolveParameterScalingImplFromEnum,
+                        SolveParameterTensorClampImplFromEnum,
+                        SolveParameterScalingInitFromEnum,
+                        SolveParameterScalingShape,
+                        SolveWeightScalingPerOutputChannelShapeFromModule,
+                        SolveWeightTensorQuantFromEnum):
     """
     Translate enum and shape directives to weight-specific quantization core modules.
     It should be placed last in the list of classes a quantizer inherits from,

@@ -38,10 +38,8 @@ CONSTANT = 1e-5
 
 def normalize_batch(x, seq_len, normalize_type):
     if normalize_type == "per_feature":
-        x_mean = torch.zeros((seq_len.shape[0], x.shape[1]), dtype=x.dtype,
-                             device=x.device)
-        x_std = torch.zeros((seq_len.shape[0], x.shape[1]), dtype=x.dtype,
-                            device=x.device)
+        x_mean = torch.zeros((seq_len.shape[0], x.shape[1]), dtype=x.dtype, device=x.device)
+        x_std = torch.zeros((seq_len.shape[0], x.shape[1]), dtype=x.dtype, device=x.device)
         for i in range(x.shape[0]):
             x_mean[i, :] = x[i, :, :seq_len[i]].mean(dim=1)
             x_std[i, :] = x[i, :, :seq_len[i]].std(dim=1)
@@ -75,6 +73,7 @@ def splice_frames(x, frame_splicing):
 
 
 class WaveformFeaturizer(object):
+
     def __init__(self, sample_rate=16000, int_values=False, augmentor=None):
         self.augmentor = augmentor if augmentor is not None else \
             AudioAugmentor()
@@ -89,7 +88,9 @@ class WaveformFeaturizer(object):
             file_path,
             target_sr=self.sample_rate,
             int_values=self.int_values,
-            offset=offset, duration=duration, trim=trim)
+            offset=offset,
+            duration=duration,
+            trim=trim)
         return self.process_segment(audio)
 
     def process_segment(self, audio_segment):
@@ -106,27 +107,27 @@ class WaveformFeaturizer(object):
         sample_rate = input_config.get("sample_rate", 16000)
         int_values = input_config.get("int_values", False)
 
-        return cls(sample_rate=sample_rate, int_values=int_values,
-                   augmentor=aa)
+        return cls(sample_rate=sample_rate, int_values=int_values, augmentor=aa)
 
 
 class FeaturizerFactory(object):
+
     def __init__(self):
         pass
 
     @classmethod
     def from_config(cls, input_cfg, perturbation_configs=None):
-        return WaveformFeaturizer.from_config(
-            input_cfg,
-            perturbation_configs=perturbation_configs)
+        return WaveformFeaturizer.from_config(input_cfg, perturbation_configs=perturbation_configs)
 
 
 class FilterbankFeatures(nn.Module):
     """Featurizer that converts wavs to Mel Spectrograms.
     See AudioToMelSpectrogramPreprocessor for args.
     """
+
     def __init__(
-            self, *,
+            self,
+            *,
             sample_rate=16000,
             n_window_size=320,
             n_window_stride=160,
@@ -139,7 +140,7 @@ class FilterbankFeatures(nn.Module):
             highfreq=None,
             log=True,
             log_zero_guard_type="add",
-            log_zero_guard_value=2**-24,
+            log_zero_guard_value=2 ** -24,
             dither=CONSTANT,
             pad_to=16,
             max_duration=16.7,
@@ -147,13 +148,11 @@ class FilterbankFeatures(nn.Module):
             stft_conv=False,
             pad_value=0,
             mag_power=2.,
-            logger=None
-    ):
+            logger=None):
         super(FilterbankFeatures, self).__init__()
-        if (n_window_size is None or n_window_stride is None
-                or not isinstance(n_window_size, int)
-                or not isinstance(n_window_stride, int)
-                or n_window_size <= 0 or n_window_stride <= 0):
+        if (n_window_size is None or n_window_stride is None or
+                not isinstance(n_window_size, int) or not isinstance(n_window_stride, int) or
+                n_window_size <= 0 or n_window_stride <= 0):
             raise ValueError(
                 f"{self} got an invalid value for either n_window_size or "
                 f"n_window_stride. Both must be positive ints.")
@@ -175,14 +174,14 @@ class FilterbankFeatures(nn.Module):
 
             # Create helper class to patch forward func for use with AMP
             class STFTPatch(STFT):
+
                 def __init__(self, *params, **kw_params):
                     super(STFTPatch, self).__init__(*params, **kw_params)
 
                 def forward(self, input_data):
                     return super(STFTPatch, self).transform(input_data)[0]
 
-            self.stft = STFTPatch(self.n_fft, self.hop_length,
-                                  self.win_length, window)
+            self.stft = STFTPatch(self.n_fft, self.hop_length, self.win_length, window)
 
         else:
             print("STFT using torch")
@@ -191,18 +190,17 @@ class FilterbankFeatures(nn.Module):
                 'hamming': torch.hamming_window,
                 'blackman': torch.blackman_window,
                 'bartlett': torch.bartlett_window,
-                'none': None,
-            }
+                'none': None,}
             window_fn = torch_windows.get(window, None)
-            window_tensor = window_fn(self.win_length,
-                                      periodic=False) if window_fn else None
+            window_tensor = window_fn(self.win_length, periodic=False) if window_fn else None
             self.register_buffer("window", window_tensor)
             self.stft = lambda x: torch.stft(
-                            x, n_fft=self.n_fft,
-                            hop_length=self.hop_length,
-                            win_length=self.win_length,
-                            center=True,
-                            window=self.window.to(dtype=torch.float))
+                x,
+                n_fft=self.n_fft,
+                hop_length=self.hop_length,
+                win_length=self.win_length,
+                center=True,
+                window=self.window.to(dtype=torch.float))
 
         self.normalize = normalize
         self.log = log
@@ -214,16 +212,14 @@ class FilterbankFeatures(nn.Module):
         highfreq = highfreq or sample_rate / 2
 
         filterbanks = torch.tensor(
-            librosa.filters.mel(sample_rate, self.n_fft, n_mels=nfilt,
-                                fmin=lowfreq, fmax=highfreq),
+            librosa.filters.mel(sample_rate, self.n_fft, n_mels=nfilt, fmin=lowfreq, fmax=highfreq),
             dtype=torch.float).unsqueeze(0)
         # self.fb = filterbanks
         # self.window = window_tensor
         self.register_buffer("fb", filterbanks)
 
         # Calculate maximum sequence length
-        max_length = self.get_seq_len(
-            torch.tensor(max_duration * sample_rate, dtype=torch.float))
+        max_length = self.get_seq_len(torch.tensor(max_duration * sample_rate, dtype=torch.float))
         max_pad = pad_to - (max_length % pad_to)
         self.max_length = max_length + max_pad
         self.pad_value = pad_value
@@ -268,9 +264,7 @@ class FilterbankFeatures(nn.Module):
 
         # do preemphasis
         if self.preemph is not None:
-            x = torch.cat(
-                (x[:, 0].unsqueeze(1), x[:, 1:] - self.preemph * x[:, :-1]),
-                dim=1)
+            x = torch.cat((x[:, 0].unsqueeze(1), x[:, 1:] - self.preemph * x[:, :-1]), dim=1)
 
         x = self.stft(x)
 
@@ -305,19 +299,15 @@ class FilterbankFeatures(nn.Module):
         max_len = x.size(-1)
         mask = torch.arange(max_len).to(x.device)
         mask = mask.expand(x.size(0), max_len) >= seq_len.unsqueeze(1)
-        x = x.masked_fill(
-            mask.unsqueeze(1).type(torch.bool).to(device=x.device),
-            self.pad_value)
+        x = x.masked_fill(mask.unsqueeze(1).type(torch.bool).to(device=x.device), self.pad_value)
         del mask
         pad_to = self.pad_to
         if not self.training:
             pad_to = 16
         if pad_to == "max":
-            x = nn.functional.pad(x, (0, self.max_length - x.size(-1)),
-                                  value=self.pad_value)
+            x = nn.functional.pad(x, (0, self.max_length - x.size(-1)), value=self.pad_value)
         elif pad_to > 0:
             pad_amt = x.size(-1) % pad_to
             if pad_amt != 0:
-                x = nn.functional.pad(x, (0, pad_to - pad_amt),
-                                      value=self.pad_value)
+                x = nn.functional.pad(x, (0, pad_to - pad_amt), value=self.pad_value)
         return x

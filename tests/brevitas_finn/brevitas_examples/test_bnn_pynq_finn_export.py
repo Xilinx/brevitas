@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Adapted from: https://github.com/Xilinx/finn/blob/master/tests/brevitas/test_brevitas_fc.py
 
-
 import numpy as np
 from packaging import version
 import pytest

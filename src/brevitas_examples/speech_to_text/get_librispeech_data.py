@@ -39,8 +39,7 @@ URLS = {
     'DEV_CLEAN': "http://www.openslr.org/resources/12/dev-clean.tar.gz",
     'DEV_OTHER': "http://www.openslr.org/resources/12/dev-other.tar.gz",
     'TEST_CLEAN': "http://www.openslr.org/resources/12/test-clean.tar.gz",
-    'TEST_OTHER': "http://www.openslr.org/resources/12/test-other.tar.gz",
-}
+    'TEST_OTHER': "http://www.openslr.org/resources/12/test-other.tar.gz",}
 
 
 def __maybe_download_file(destination: str, source: str):
@@ -99,7 +98,7 @@ def __process_data(data_folder: str, dst_folder: str, manifest_file: str):
     for transcripts_file, root in tqdm(files):
         with open(transcripts_file, encoding="utf-8") as fin:
             for line in fin:
-                id, text = line[: line.index(" ")], line[line.index(" ") + 1 :]
+                id, text = line[:line.index(" ")], line[line.index(" ") + 1:]
                 transcript_text = text.lower().strip()
 
                 # Convert FLAC file to WAV
@@ -137,8 +136,14 @@ def main():
         __extract_file(filepath, data_root)
         print("Processing {0}".format(data_set))
         __process_data(
-            os.path.join(os.path.join(data_root, "LibriSpeech"), data_set.replace("_", "-"),),
-            os.path.join(os.path.join(data_root, "LibriSpeech"), data_set.replace("_", "-"),) + "-processed",
+            os.path.join(
+                os.path.join(data_root, "LibriSpeech"),
+                data_set.replace("_", "-"),
+            ),
+            os.path.join(
+                os.path.join(data_root, "LibriSpeech"),
+                data_set.replace("_", "-"),
+            ) + "-processed",
             os.path.join(data_root, data_set + ".json"),
         )
     print('Done!')

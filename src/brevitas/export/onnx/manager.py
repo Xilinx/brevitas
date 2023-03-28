@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from abc import ABC
 from contextlib import ExitStack
 from io import BytesIO
@@ -55,9 +54,8 @@ class ONNXBaseManager(BaseManager, ABC):
     @classmethod
     def solve_enable_onnx_checker(cls, export_kwargs):
         ka = 'enable_onnx_checker'
-        if (torch_version >= version.parse('1.5.0')
-            and torch_version <= version.parse('1.10.0')
-            and ka not in export_kwargs):
+        if (torch_version >= version.parse('1.5.0') and torch_version <= version.parse('1.10.0') and
+                ka not in export_kwargs):
             export_kwargs[ka] = False
 
     @classmethod
@@ -156,8 +154,10 @@ class ONNXBaseManager(BaseManager, ABC):
             module: Module,
             args: Optional[Union[Tensor, QuantTensor, Tuple]] = None,
             export_path: Optional[str] = None,
-            input_shape: Optional[Tuple[int, ...]] = None, # legacy syntax, alternative to args
-            input_t: Optional[Union[Tensor, QuantTensor]] = None,  # legacy syntax, alternative to args
+            input_shape: Optional[Tuple[int, ...]] = None,  # legacy syntax, alternative to args
+            input_t: Optional[Union[Tensor,
+                                    QuantTensor]] = None,  # legacy syntax, alternative to args
             disable_warnings=True,
             **onnx_export_kwargs):
-        return cls.export_onnx(module, args, export_path, input_shape, input_t, disable_warnings, **onnx_export_kwargs)
+        return cls.export_onnx(
+            module, args, export_path, input_shape, input_t, disable_warnings, **onnx_export_kwargs)

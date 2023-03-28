@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from abc import ABC
 from abc import abstractmethod
 from inspect import getcallargs
@@ -28,9 +27,7 @@ __all__ = [
     'ModuleToModuleByInstance',
     'MethodToModule',
     'FnToModule',
-    'CallableToModule'
-]
-
+    'CallableToModule']
 
 _TORCH_TESTING_DICT = get_testing_overrides()
 
@@ -107,10 +104,7 @@ class PerInputModuleToModuleByHook(PerInputTrasform, ABC):
 
 class ModuleToModule(GraphTransform, ABC):
 
-    def __init__(
-            self,
-            new_module_class,
-            **kwargs):
+    def __init__(self, new_module_class, **kwargs):
         super().__init__()
         self.new_module_class = new_module_class
         self.new_module_kwargs = kwargs
@@ -162,10 +156,7 @@ class InsertModuleCallAfter(GraphTransform):
 
 class ModuleInstanceToModuleInstance(Transform):
 
-    def __init__(
-            self,
-            old_module_instance,
-            new_module_instance):
+    def __init__(self, old_module_instance, new_module_instance):
         self.old_module_instance = old_module_instance
         self.new_module_instance = new_module_instance
 
@@ -180,11 +171,7 @@ class ModuleInstanceToModuleInstance(Transform):
 
 class ModuleToModuleByName(ModuleToModule):
 
-    def __init__(
-            self,
-            old_module_name,
-            new_module_class,
-            **kwargs):
+    def __init__(self, old_module_name, new_module_class, **kwargs):
         super().__init__(new_module_class, **kwargs)
         self.old_module_name = old_module_name
 
@@ -200,11 +187,7 @@ class ModuleToModuleByName(ModuleToModule):
 
 class ModuleToModuleByInstance(ModuleToModule):
 
-    def __init__(
-            self,
-            old_module_instance,
-            new_module_class,
-            **kwargs):
+    def __init__(self, old_module_instance, new_module_class, **kwargs):
         super().__init__(new_module_class, **kwargs)
         self.old_module_instance = old_module_instance
 
@@ -220,11 +203,7 @@ class ModuleToModuleByInstance(ModuleToModule):
 
 class ModuleToModuleByClass(ModuleToModule):
 
-    def __init__(
-            self,
-            old_module_class,
-            new_module_class,
-            **kwargs):
+    def __init__(self, old_module_class, new_module_class, **kwargs):
         super().__init__(new_module_class, **kwargs)
         self.old_module_class = old_module_class
 
@@ -245,11 +224,7 @@ class ModuleToModuleByClass(ModuleToModule):
 
 class CallableToModule(GraphTransform, ABC):
 
-    def __init__(
-            self,
-            old_callable,
-            new_module_class,
-            **kwargs):
+    def __init__(self, old_callable, new_module_class, **kwargs):
         super().__init__()
         self.old_callable = old_callable
         self.new_module_class = new_module_class

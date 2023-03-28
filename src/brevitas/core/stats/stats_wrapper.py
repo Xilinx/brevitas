@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from typing import List, Optional, Tuple
 
 import torch
@@ -21,10 +20,7 @@ SCALAR_SHAPE = ()
 class _Stats(brevitas.jit.ScriptModule):
     __constants__ = ['stats_output_shape']
 
-    def __init__(
-            self,
-            stats_impl: nn.Module,
-            stats_output_shape: Tuple[int, ...]) -> None:
+    def __init__(self, stats_impl: nn.Module, stats_output_shape: Tuple[int, ...]) -> None:
         super(_Stats, self).__init__()
         self.stats_output_shape = stats_output_shape
         self.stats_impl = stats_impl
@@ -37,9 +33,7 @@ class _Stats(brevitas.jit.ScriptModule):
 
 
 class _RuntimeStats(brevitas.jit.ScriptModule):
-    __constants__ = ['stats_input_concat_dim',
-                     'stats_permute_dims',
-                     'momentum']
+    __constants__ = ['stats_input_concat_dim', 'stats_permute_dims', 'momentum']
 
     def __init__(
             self,
@@ -69,10 +63,11 @@ class _RuntimeStats(brevitas.jit.ScriptModule):
             out = self.running_stats
         return out
 
-    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
-                              missing_keys, unexpected_keys, error_msgs):
-        super(_RuntimeStats, self)._load_from_state_dict(state_dict, prefix, local_metadata, strict,
-            missing_keys, unexpected_keys, error_msgs)
+    def _load_from_state_dict(
+            self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
+            error_msgs):
+        super(_RuntimeStats, self)._load_from_state_dict(
+            state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
         running_stats_key = prefix + 'running_stats'
         if config.IGNORE_MISSING_KEYS and running_stats_key in missing_keys:
             missing_keys.remove(running_stats_key)
@@ -99,8 +94,9 @@ class _ParameterListStats(brevitas.jit.ScriptModule):
             tracked_parameter_list[0], stats_input_view_shape_impl)
         if len(tracked_parameter_list) > 1:
             extra_list = [
-                _ViewCatParameterWrapper(param, stats_input_view_shape_impl, stats_input_concat_dim)
-                          for param in tracked_parameter_list[1:]]
+                _ViewCatParameterWrapper(
+                    param, stats_input_view_shape_impl, stats_input_concat_dim)
+                for param in tracked_parameter_list[1:]]
             self.extra_tracked_params_list = torch.nn.ModuleList(extra_list)
         else:
             self.extra_tracked_params_list = None
