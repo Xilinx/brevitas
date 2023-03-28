@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import functools
 
 import torch
@@ -13,10 +12,12 @@ QUANT_TENSOR_FN_HANDLER = {}
 
 
 def implements(torch_function):
+
     @functools.wraps(torch_function)
     def decorator(func):
         QUANT_TENSOR_FN_HANDLER[torch_function] = func
         return func
+
     return decorator
 
 

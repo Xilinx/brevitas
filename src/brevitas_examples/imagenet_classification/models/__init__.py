@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from configparser import ConfigParser
 import os
 
@@ -13,8 +12,7 @@ from .vgg import *
 
 model_impl = {
     'quant_mobilenet_v1': quant_mobilenet_v1,
-    'quant_proxylessnas_mobile14': quant_proxylessnas_mobile14
-}
+    'quant_proxylessnas_mobile14': quant_proxylessnas_mobile14}
 
 
 def model_with_cfg(name, pretrained):

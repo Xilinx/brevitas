@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import numpy as np
 import onnxruntime as ort
 import pytest
@@ -41,13 +40,13 @@ QUANT_WBIOL_IMPL = [
 
 def compute_ort(export_name, np_input):
     sess_opt = ort.SessionOptions()
-    sess_opt.use_deterministic_compute=True # Deterministic execution
-    sess_opt.log_severity_level = 0 # Highest verbosity
-    sess_opt.log_verbosity_level = 0 # Highest verbosity
+    sess_opt.use_deterministic_compute = True  # Deterministic execution
+    sess_opt.log_severity_level = 0  # Highest verbosity
+    sess_opt.log_verbosity_level = 0  # Highest verbosity
 
     run_opt = ort.RunOptions()
-    run_opt.log_severity_level = 0 # Highest verbosity
-    run_opt.log_verbosity_level = 0 # Highest verbosity
+    run_opt.log_severity_level = 0  # Highest verbosity
+    run_opt.log_verbosity_level = 0  # Highest verbosity
 
     sess = ort.InferenceSession(export_name, sess_opt)
     input_name = sess.get_inputs()[0].name
@@ -67,7 +66,9 @@ def recursive_allclose(ort_output, brevitas_output, tolerance):
     if isinstance(ort_output, (list, tuple)) or isinstance(brevitas_output, (list, tuple)):
         flat_ort_output = tuple(flatten(ort_output))
         flat_brevitas_output = tuple(flatten(brevitas_output))
-        return all([recursive_allclose(ort_o, brevitas_o, tolerance) for ort_o, brevitas_o in zip(flat_ort_output, flat_brevitas_output)])
+        return all([
+            recursive_allclose(ort_o, brevitas_o, tolerance) for ort_o,
+            brevitas_o in zip(flat_ort_output, flat_brevitas_output)])
     ort_output = torch.from_numpy(ort_output)
     ort_output = ort_output.type_as(brevitas_output)
     if tolerance is not None:
@@ -76,7 +77,8 @@ def recursive_allclose(ort_output, brevitas_output, tolerance):
         return (brevitas_output - ort_output == 0).all()
 
 
-def is_brevitas_ort_close(model, np_input, export_name, export_type, tolerance=None, first_output_only=False):
+def is_brevitas_ort_close(
+        model, np_input, export_name, export_type, tolerance=None, first_output_only=False):
     input_t = torch.from_numpy(np_input)
     brevitas_output = model(input_t)
 
@@ -93,7 +95,7 @@ def is_brevitas_ort_close(model, np_input, export_name, export_type, tolerance=N
         raise RuntimeError(f"Export type {export_type} not recognized.")
 
     if tolerance is not None and export_type == 'qcdq':
-        tolerance = tolerance * brevitas_output.scale # Float Output, tolerance is +/- output scale
+        tolerance = tolerance * brevitas_output.scale  # Float Output, tolerance is +/- output scale
 
     ort_output = compute_ort(export_name, np_input)
 

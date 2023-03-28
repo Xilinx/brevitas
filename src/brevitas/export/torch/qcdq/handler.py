@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from abc import ABC
 
 import torch
@@ -48,8 +47,7 @@ class TorchDQMixin(DQMixin, ABC):
         return True
 
 
-class TorchQCDQMixin(
-    TorchDQMixin, QCDQMixin, ABC):
+class TorchQCDQMixin(TorchDQMixin, QCDQMixin, ABC):
 
     def __init__(self) -> None:
         super().__init__()
@@ -95,8 +93,9 @@ class TorchQCDQHandler(BaseHandler):
         return self.symbolic_execution(*args, **kwargs)
 
 
-class TorchQCDQWeightQuantProxyHandler(
-    TorchQCDQMixin, QCDQWeightQuantProxyHandlerMixin, TorchQCDQHandler):
+class TorchQCDQWeightQuantProxyHandler(TorchQCDQMixin,
+                                       QCDQWeightQuantProxyHandlerMixin,
+                                       TorchQCDQHandler):
 
     @classmethod
     def int_clip_symbolic_kwargs(cls, narrow, signed, bit_width):
@@ -104,8 +103,8 @@ class TorchQCDQWeightQuantProxyHandler(
         return _itemize_clip_bounds(clip_args)
 
 
-class TorchQCDQActQuantProxyHandler(
-    TorchQCDQMixin, QCDQActQuantProxyHandlerMixin, TorchQCDQHandler):
+class TorchQCDQActQuantProxyHandler(TorchQCDQMixin, QCDQActQuantProxyHandlerMixin,
+                                    TorchQCDQHandler):
 
     @classmethod
     def int_clip_symbolic_kwargs(cls, narrow, signed, bit_width):
@@ -113,13 +112,14 @@ class TorchQCDQActQuantProxyHandler(
         return _itemize_clip_bounds(clip_args)
 
 
-class TorchQCDQBiasQuantProxyHandler(
-    TorchDQMixin, QCDQBiasQuantProxyHandlerMixin, TorchQCDQHandler):
+class TorchQCDQBiasQuantProxyHandler(TorchDQMixin, QCDQBiasQuantProxyHandlerMixin,
+                                     TorchQCDQHandler):
     pass
 
 
-class TorchQCDQTruncQuantProxyHandler(
-    TorchQCDQMixin, QCDQTruncQuantProxyHandlerMixin, TorchQCDQHandler):
+class TorchQCDQTruncQuantProxyHandler(TorchQCDQMixin,
+                                      QCDQTruncQuantProxyHandlerMixin,
+                                      TorchQCDQHandler):
 
     @classmethod
     def int_clip_symbolic_kwargs(cls, narrow, signed, bit_width):

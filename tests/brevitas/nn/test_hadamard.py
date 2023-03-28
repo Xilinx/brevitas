@@ -11,6 +11,7 @@ BIT_WIDTH = 5
 
 
 class TestHadamardStateDict:
+
     def test_module_state_dict(self):
         """Check that the Hadamard classifier can save and load state_dict without warning."""
 

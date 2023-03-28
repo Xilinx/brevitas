@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import torch
 from torch.autograd import Function
 
@@ -15,7 +14,8 @@ class QuantAvgPool2dFn(Function):
         if scale is not None:
             x = g.op('{DOMAIN_STRING}::Div', x, scale, activation_qnt_s=qnt_type)
         ret = g.op(
-            f'{DOMAIN_STRING}::QuantAvgPool2d', x,
+            f'{DOMAIN_STRING}::QuantAvgPool2d',
+            x,
             kernel_i=kernel,
             stride_i=stride,
             signed_i=signed,

@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from brevitas.inject.enum import QuantType
 from brevitas.quant.solver import ActQuantSolver
 from brevitas.quant.solver import BiasQuantSolver
@@ -9,13 +8,7 @@ from brevitas.quant.solver import ClampQuantSolver
 from brevitas.quant.solver import TruncQuantSolver
 from brevitas.quant.solver import WeightQuantSolver
 
-__all__ = [
-    'NoneWeightQuant',
-    'NoneActQuant',
-    'NoneBiasQuant',
-    'NoneTruncQuant',
-    'NoneClampQuant'
-]
+__all__ = ['NoneWeightQuant', 'NoneActQuant', 'NoneBiasQuant', 'NoneTruncQuant', 'NoneClampQuant']
 
 
 class NoneWeightQuant(WeightQuantSolver):

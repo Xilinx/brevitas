@@ -15,14 +15,13 @@ from brevitas.export.onnx.standard.function import IntClipFn
 from brevitas.export.onnx.standard.function import QuantizeLinearFn
 
 
-class StdQOpONNXQuantLayerHandler(
-    ONNXBaseHandler,
-    QuantAxisMixin,
-    ScaleHandlerMixin,
-    ClipMixin,
-    BitWidthHandlerMixin,
-    ZeroPointHandlerMixin,
-    ABC):
+class StdQOpONNXQuantLayerHandler(ONNXBaseHandler,
+                                  QuantAxisMixin,
+                                  ScaleHandlerMixin,
+                                  ClipMixin,
+                                  BitWidthHandlerMixin,
+                                  ZeroPointHandlerMixin,
+                                  ABC):
 
     @abstractmethod
     def op_symbolic_execution(self, inp: Tensor):
@@ -114,25 +113,31 @@ class StdQOpONNXQuantLayerHandler(
     def dequant_symbolic_kwargs_from_cached_io(cls, cached_io):
         cls.validate_8b_bit_width(cached_io.bit_width, le_then=True)
         return {
-            'input_scale': cached_io.scale,
-            'input_zero_point': cls.zero_point_with_dtype(
-                cached_io.signed, cached_io.bit_width, cached_io.zero_point),
-            'input_axis': cls.quant_axis(cached_io.scale)}
+            'input_scale':
+                cached_io.scale,
+            'input_zero_point':
+                cls.zero_point_with_dtype(
+                    cached_io.signed, cached_io.bit_width, cached_io.zero_point),
+            'input_axis':
+                cls.quant_axis(cached_io.scale)}
 
     @classmethod
     def quant_symbolic_kwargs_from_cached_io(cls, cached_io):
         cls.validate_8b_bit_width(cached_io.bit_width, le_then=True)
         q_kwargs = {
-            'output_scale': cached_io.scale,
-            'output_zero_point': cls.zero_point_with_dtype(
-                cached_io.signed, cached_io.bit_width, cached_io.zero_point),
-            'output_dtype': cls.torch_8b_dtype(cached_io.signed),
-            'output_axis': cls.quant_axis(cached_io.scale)}
+            'output_scale':
+                cached_io.scale,
+            'output_zero_point':
+                cls.zero_point_with_dtype(
+                    cached_io.signed, cached_io.bit_width, cached_io.zero_point),
+            'output_dtype':
+                cls.torch_8b_dtype(cached_io.signed),
+            'output_axis':
+                cls.quant_axis(cached_io.scale)}
         # TODO support narrow caching
         # Assume narrow is False since we are preventing it everywhere else
         int_clip_kwargs = cls.clip_symbolic_kwargs(False, cached_io.signed, cached_io.bit_width)
         return q_kwargs, int_clip_kwargs
-
 
     def symbolic_execution(self, inp: Tensor):
         inp = self.input_symbolic_execution(inp)

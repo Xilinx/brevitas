@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 """
 Implementation of various torch.autograd.Function with straight-through estimators.
 """
@@ -41,8 +40,7 @@ __all__ = [
     'scalar_clamp_ste_impl',
     'tensor_clamp_ste_impl',
     'abs_binary_sign_grad_impl',
-    'dpu_round_ste_impl'
-]
+    'dpu_round_ste_impl']
 
 
 class ScalarClampSteFn(Function):

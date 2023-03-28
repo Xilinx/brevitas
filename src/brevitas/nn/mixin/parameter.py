@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from abc import ABCMeta
 from abc import abstractmethod
 from typing import Optional, Type, Union
@@ -25,10 +24,7 @@ BiasQuantType = Union[BiasQuantProxyProtocol, Type[Injector], Type[ExtendedInjec
 class QuantWeightMixin(QuantProxyMixin):
     __metaclass__ = ABCMeta
 
-    def __init__(
-            self,
-            weight_quant: Optional[WeightQuantType],
-            **kwargs):
+    def __init__(self, weight_quant: Optional[WeightQuantType], **kwargs):
         QuantProxyMixin.__init__(
             self,
             quant=weight_quant,
@@ -172,7 +168,7 @@ class QuantBiasMixin(QuantProxyMixin):
             return self._cached_bias.bit_width
 
     def register_parameter(self, name, value):
-       super(QuantBiasMixin, self).register_parameter(name, value)
-       if hasattr(self, 'bias_quant') and name == 'bias':
+        super(QuantBiasMixin, self).register_parameter(name, value)
+        if hasattr(self, 'bias_quant') and name == 'bias':
             self.bias_quant.init_tensor_quant()
             self.bias_quant.to(self.bias.device)

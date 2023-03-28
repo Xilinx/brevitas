@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from typing import Optional, Type, Union
 
 import torch
@@ -34,7 +33,7 @@ class QuantEmbedding(QuantWeightMixin, Embedding):
             sparse: bool = False,
             _weight: Optional[Tensor] = None,
             weight_quant: WeightQuantType = Int8WeightPerTensorFloat,
-            return_quant_tensor = False,
+            return_quant_tensor=False,
             **kwargs) -> None:
         Embedding.__init__(
             self,
@@ -46,10 +45,7 @@ class QuantEmbedding(QuantWeightMixin, Embedding):
             scale_grad_by_freq=scale_grad_by_freq,
             sparse=sparse,
             _weight=_weight)
-        QuantWeightMixin.__init__(
-            self,
-            weight_quant=weight_quant,
-            **kwargs)
+        QuantWeightMixin.__init__(self, weight_quant=weight_quant, **kwargs)
         self.accept_quant_tensor = False
         self.return_quant_tensor = return_quant_tensor
 

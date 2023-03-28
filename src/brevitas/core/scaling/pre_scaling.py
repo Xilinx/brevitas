@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from typing import List, Optional, Tuple
 
 import torch
@@ -17,8 +16,8 @@ from brevitas.core.stats.stats_wrapper import _Stats
 from brevitas.function import abs_binary_sign_grad
 
 __all__ = [
-    "ParameterPreScalingWeightNorm",
-]
+    "ParameterPreScalingWeightNorm",]
+
 
 class ParameterPreScalingWeightNorm(brevitas.jit.ScriptModule):
     """
@@ -56,6 +55,7 @@ class ParameterPreScalingWeightNorm(brevitas.jit.ScriptModule):
     Returns:
         Tensor: scaling factor wrapped in a float torch.Tensor.
     """
+
     def __init__(
             self,
             scaling_impl: Module,
@@ -69,7 +69,7 @@ class ParameterPreScalingWeightNorm(brevitas.jit.ScriptModule):
 
         self.stats = _Stats(normalize_stats_impl, pre_scaling_shape)
         self.stats_input_view_shape_impl = scaling_stats_input_view_shape_impl
-        self.scaling_impl = scaling_impl # this is the post-clipping scaling factor
+        self.scaling_impl = scaling_impl  # this is the post-clipping scaling factor
 
         if len(tracked_parameter_list) > 1:
             raise NotImplementedError(
@@ -86,20 +86,22 @@ class ParameterPreScalingWeightNorm(brevitas.jit.ScriptModule):
         if pre_scaling_init.shape == SCALAR_SHAPE and pre_scaling_shape is not None:
             pre_scaling_init = torch.full(pre_scaling_shape, pre_scaling_init)
         self.value = Parameter(pre_scaling_init)
-        self.restrict_clamp_scaling = _RestrictClampValue(pre_scaling_min_val, restrict_pre_scaling_impl)
+        self.restrict_clamp_scaling = _RestrictClampValue(
+            pre_scaling_min_val, restrict_pre_scaling_impl)
 
     @brevitas.jit.script_method
     def forward(self, weights: Tensor) -> Tensor:
         """Takes weights as input and returns the pre-clipping scaling factor"""
         weights = self.stats_input_view_shape_impl(weights)
-        d_w = self.stats(weights) # denominator for weight normalization
-        g = abs_binary_sign_grad(self.restrict_clamp_scaling(self.value)) # g
-        s = self.scaling_impl(weights) # s
+        d_w = self.stats(weights)  # denominator for weight normalization
+        g = abs_binary_sign_grad(self.restrict_clamp_scaling(self.value))  # g
+        s = self.scaling_impl(weights)  # s
         value = (s * d_w) / g
         return value
 
-    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
-                              missing_keys, unexpected_keys, error_msgs):
+    def _load_from_state_dict(
+            self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
+            error_msgs):
         value_key = prefix + 'value'
         retrocomp_value_key = prefix + 'learned_value'
         if retrocomp_value_key in state_dict:  # retrocompatibility

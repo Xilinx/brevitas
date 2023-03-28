@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from torch.nn import Module
 
 from brevitas.export.manager import _set_proxy_export_handler
@@ -29,8 +28,7 @@ class StdQCDQONNXManager(StdONNXBaseManager):
 
     onnx_passes = [
         # use initializers instead of Constant nodes for fixed params
-        "extract_constant_to_initializer",
-        # remove unused graph inputs & initializers
+        "extract_constant_to_initializer",  # remove unused graph inputs & initializers
         "eliminate_unused_initializer"]
 
     handlers = [
@@ -39,16 +37,14 @@ class StdQCDQONNXManager(StdONNXBaseManager):
         StdQCDQONNXActQuantProxyHandler,
         StdQCDQONNXDecoupledWeightQuantProxyHandler,
         StdQCDQONNXTruncQuantProxyHandler,
-        StdQCDQONNXQuantLSTMLayerHandler
-    ]
+        StdQCDQONNXQuantLSTMLayerHandler]
 
     custom_fns = [
         DebugMarkerFunction,
         QuantizeLinearFn,
         DequantizeLinearFn,
         IntClipFn,
-        LSTMCellFn,
-    ]
+        LSTMCellFn,]
 
     @classmethod
     def set_export_mode(cls, model: Module, enabled: bool):

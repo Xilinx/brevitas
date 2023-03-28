@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from torch import Tensor
 
 import brevitas
@@ -20,7 +19,7 @@ class IntScaling(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def forward(self, bit_width: Tensor) -> Tensor:
         if self.signed:
-            return - min_int(self.signed, self.narrow_range, bit_width)
+            return -min_int(self.signed, self.narrow_range, bit_width)
         else:
             return max_int(self.signed, self.narrow_range, bit_width)
 

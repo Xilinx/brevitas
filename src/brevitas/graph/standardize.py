@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from copy import deepcopy
 from typing import Dict
 
@@ -23,8 +22,7 @@ __all__ = [
     'DuplicateSharedStatelessModule',
     'MeanMethodToAdaptiveAvgPool2d',
     'TorchFunctionalToModule',
-    'DisableLastReturnQuantTensor'
-]
+    'DisableLastReturnQuantTensor']
 
 
 class DuplicateSharedStatelessModule(GraphTransform):
@@ -54,17 +52,13 @@ class MeanMethodToAdaptiveAvgPool2d(MethodToModule):
 
     def __init__(self):
         super(MeanMethodToAdaptiveAvgPool2d, self).__init__(
-            old_callable='mean',
-            new_module_class=nn.AdaptiveAvgPool2d,
-            output_size=(1, 1))
+            old_callable='mean', new_module_class=nn.AdaptiveAvgPool2d, output_size=(1, 1))
 
     def match_node(self, node: Node) -> bool:
         spr = super(MeanMethodToAdaptiveAvgPool2d, self).match_node(node)
-        is_adaptive_2d_mean = (
-                (2, 3) in node.args
-                or [2, 3] in node.args
-                or 'dim' in node.kwargs
-                and (node.kwargs['dim'] == (2, 3) or node.kwargs['dim'] == [2, 3]))
+        is_adaptive_2d_mean = ((2, 3) in node.args or [2, 3] in node.args or
+                               'dim' in node.kwargs and
+                               (node.kwargs['dim'] == (2, 3) or node.kwargs['dim'] == [2, 3]))
         return spr and is_adaptive_2d_mean
 
     def move_node_args_to_kwargs(self, node: Node):
@@ -86,23 +80,16 @@ class MeanMethodToAdaptiveAvgPool2d(MethodToModule):
 
 class TorchFunctionalToModule(GraphTransform):
 
-    FN_TO_MODULE_MAP = (
-        (F.relu, nn.ReLU),
-        (F.relu_, nn.ReLU),
-        (F.relu6, nn.ReLU6),
-        (F.hardtanh, nn.Hardtanh),
-        (F.hardtanh_, nn.Hardtanh),
-        (F.leaky_relu, nn.LeakyReLU),
-        (F.leaky_relu_, nn.LeakyReLU),
-        (F.max_pool1d, nn.MaxPool1d),
-        (F.max_pool2d, nn.MaxPool2d),
-        (F.max_pool3d, nn.MaxPool3d),
-        (F.avg_pool1d, nn.AvgPool1d),
-        (F.avg_pool2d, nn.AvgPool2d),
-        (F.avg_pool3d, nn.AvgPool3d),
-        (F.adaptive_avg_pool1d, nn.AdaptiveAvgPool1d),
-        (F.adaptive_avg_pool2d, nn.AdaptiveAvgPool2d),
-        (F.adaptive_avg_pool3d, nn.AdaptiveAvgPool3d))
+    FN_TO_MODULE_MAP = ((F.relu, nn.ReLU), (F.relu_, nn.ReLU), (F.relu6, nn.ReLU6),
+                        (F.hardtanh, nn.Hardtanh), (F.hardtanh_,
+                                                    nn.Hardtanh), (F.leaky_relu, nn.LeakyReLU),
+                        (F.leaky_relu_, nn.LeakyReLU), (F.max_pool1d,
+                                                        nn.MaxPool1d), (F.max_pool2d, nn.MaxPool2d),
+                        (F.max_pool3d, nn.MaxPool3d), (F.avg_pool1d,
+                                                       nn.AvgPool1d), (F.avg_pool2d, nn.AvgPool2d),
+                        (F.avg_pool3d, nn.AvgPool3d), (F.adaptive_avg_pool1d, nn.AdaptiveAvgPool1d),
+                        (F.adaptive_avg_pool2d,
+                         nn.AdaptiveAvgPool2d), (F.adaptive_avg_pool3d, nn.AdaptiveAvgPool3d))
 
     def __init__(self, fn_to_module_map=FN_TO_MODULE_MAP):
         super().__init__()

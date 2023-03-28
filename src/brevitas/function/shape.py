@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 """
 Implementation of various functions to compute shapes that induce flattening along certain
 dimensions of a tensor.
@@ -18,8 +17,7 @@ __all__ = [
     'over_tensor',
     'over_output_channels',
     'over_batch_over_tensor',
-    'over_batch_over_output_channels'
-]
+    'over_batch_over_output_channels']
 
 
 @brevitas.jit.script

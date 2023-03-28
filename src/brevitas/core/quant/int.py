@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from typing import Optional, Tuple
 
 import torch
@@ -50,18 +49,15 @@ class PrescaledRestrictIntQuantWithInputBitWidth(brevitas.jit.ScriptModule):
     Note:
         Set env variable BREVITAS_JIT=1 to enable TorchScript compilation of this module.
     """
-    def __init__(self,
-                 int_quant: Module,
-                 bit_width_impl: Module):
+
+    def __init__(self, int_quant: Module, bit_width_impl: Module):
         super(PrescaledRestrictIntQuantWithInputBitWidth, self).__init__()
         self.int_quant = int_quant
         self.msb_clamp_bit_width_impl = bit_width_impl
         self.zero_point = StatelessBuffer(torch.tensor(0.0))
 
     @brevitas.jit.script_method
-    def forward(self,
-                x: Tensor,
-                scale: Tensor,
+    def forward(self, x: Tensor, scale: Tensor,
                 input_bit_width: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
         bit_width = self.msb_clamp_bit_width_impl(input_bit_width)
         zero_point = self.zero_point()
@@ -72,19 +68,15 @@ class PrescaledRestrictIntQuantWithInputBitWidth(brevitas.jit.ScriptModule):
 class PrescaledRestrictIntQuant(brevitas.jit.ScriptModule):
     """
     """
-    def __init__(self,
-                 int_quant: Module,
-                 bit_width_impl: Module):
+
+    def __init__(self, int_quant: Module, bit_width_impl: Module):
         super(PrescaledRestrictIntQuant, self).__init__()
         self.int_quant = int_quant
         self.msb_clamp_bit_width_impl = bit_width_impl
         self.zero_point = StatelessBuffer(torch.tensor(0.0))
 
-
     @brevitas.jit.script_method
-    def forward(self,
-                x: Tensor,
-                scale: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+    def forward(self, x: Tensor, scale: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
         msb_clamp_bit_width = self.msb_clamp_bit_width_impl()
         zero_point = self.zero_point()
         y = self.int_quant(scale, zero_point, msb_clamp_bit_width, x)
@@ -139,12 +131,14 @@ class RescalingIntQuant(brevitas.jit.ScriptModule):
     Note:
         Set env variable BREVITAS_JIT=1 to enable TorchScript compilation of this module.
     """
-    def __init__(self,
-                 int_quant: Module,
-                 scaling_impl: Module,
-                 int_scaling_impl: Module,
-                 zero_point_impl: Module,
-                 bit_width_impl: Module):
+
+    def __init__(
+            self,
+            int_quant: Module,
+            scaling_impl: Module,
+            int_scaling_impl: Module,
+            zero_point_impl: Module,
+            bit_width_impl: Module):
         super(RescalingIntQuant, self).__init__()
         self.int_quant = int_quant
         self.scaling_impl = scaling_impl
@@ -165,14 +159,15 @@ class RescalingIntQuant(brevitas.jit.ScriptModule):
 
 class DecoupledRescalingIntQuant(brevitas.jit.ScriptModule):
 
-    def __init__(self,
-                 decoupled_int_quant: Module,
-                 pre_scaling_impl: Module,
-                 scaling_impl: Module,
-                 int_scaling_impl: Module,
-                 pre_zero_point_impl: Module,
-                 zero_point_impl: Module,
-                 bit_width_impl: Module):
+    def __init__(
+            self,
+            decoupled_int_quant: Module,
+            pre_scaling_impl: Module,
+            scaling_impl: Module,
+            int_scaling_impl: Module,
+            pre_zero_point_impl: Module,
+            zero_point_impl: Module,
+            bit_width_impl: Module):
         super(DecoupledRescalingIntQuant, self).__init__()
         self.decoupled_int_quant = decoupled_int_quant
         self.pre_scaling_impl = pre_scaling_impl
@@ -199,21 +194,16 @@ class DecoupledRescalingIntQuant(brevitas.jit.ScriptModule):
 class TruncIntQuant(brevitas.jit.ScriptModule):
     """
     """
+
     def __init__(
-            self,
-            float_to_int_impl: Module,
-            bit_width_impl: Module,
-            quant_delay_steps: int = 0):
+            self, float_to_int_impl: Module, bit_width_impl: Module, quant_delay_steps: int = 0):
         super(TruncIntQuant, self).__init__()
         self.msb_clamp_bit_width_impl = bit_width_impl
         self.float_to_int_impl = float_to_int_impl
         self.delay_wrapper = DelayWrapper(quant_delay_steps)
 
     @brevitas.jit.script_method
-    def forward(self,
-                x: Tensor,
-                scale: Tensor,
-                zero_point: Tensor,
+    def forward(self, x: Tensor, scale: Tensor, zero_point: Tensor,
                 input_bit_width: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
         y = x / scale
         y = y + zero_point

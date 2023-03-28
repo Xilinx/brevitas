@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import os
 
 import numpy as np
@@ -29,12 +28,9 @@ export_onnx_path = "test_brevitas_avg_pool_export.onnx"
 @pytest.mark.parametrize("channels", [2, 4])
 @pytest.mark.parametrize("idim", [7, 8])
 def test_brevitas_avg_pool_export(
-    kernel_size, stride, signed, bit_width, input_bit_width, channels, idim, request):
+        kernel_size, stride, signed, bit_width, input_bit_width, channels, idim, request):
 
-    quant_avgpool = QuantAvgPool2d(
-        kernel_size=kernel_size,
-        stride=stride,
-        bit_width=bit_width)
+    quant_avgpool = QuantAvgPool2d(kernel_size=kernel_size, stride=stride, bit_width=bit_width)
     quant_avgpool.eval()
 
     # determine input

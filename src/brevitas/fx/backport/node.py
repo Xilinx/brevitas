@@ -63,8 +63,8 @@ Argument = Optional[Union[
     Dict[str, Any],  # actually Argument
     slice,  # Slice[Argument, Argument, Argument], but slice is not a templated type in typing
     'Node',
-    BaseArgumentTypes
-]]
+    BaseArgumentTypes]]
+
 
 class Node:
     """
@@ -93,12 +93,26 @@ class Node:
     - ``output`` contains the output of the traced function in its ``args[0]`` attribute. This corresponds to the "return" statement
       in the Graph printout.
     """
-    def __init__(self, graph: 'Graph', name: str, op: str, target: 'Target',
-                 args: Tuple['Argument', ...], kwargs: Dict[str, 'Argument'],
-                 type : Optional[Any] = None) -> None:
+
+    def __init__(
+            self,
+            graph: 'Graph',
+            name: str,
+            op: str,
+            target: 'Target',
+            args: Tuple['Argument', ...],
+            kwargs: Dict[str, 'Argument'],
+            type: Optional[Any] = None) -> None:
         self.graph = graph
         self.name = name  # unique name of value being created
-        assert op in ['placeholder', 'call_method', 'call_module', 'call_function', 'get_attr', 'output', 'root']
+        assert op in [
+            'placeholder',
+            'call_method',
+            'call_module',
+            'call_function',
+            'get_attr',
+            'output',
+            'root']
         self.op = op  # the kind of operation = placeholder|call_method|call_module|call_function|get_attr
         if op in ['call_method', 'call_module']:
             assert isinstance(target, str)
@@ -108,15 +122,16 @@ class Node:
         # All `Node`-valued inputs. Key is the Node, value is don't-care.
         # The public API for this is `all_input_nodes`, this private attribute
         # should not be accessed directly.
-        self._input_nodes : Dict[Node, None] = {}
-        self.__update_args_kwargs(map_arg(args, lambda x: x), map_arg(kwargs, lambda x: x))  # type: ignore
+        self._input_nodes: Dict[Node, None] = {}
+        self.__update_args_kwargs(
+            map_arg(args, lambda x: x), map_arg(kwargs, lambda x: x))  # type: ignore
 
         # All of the nodes that use the value produced by this Node
         # Note one user may correspond to several uses, e.g. the node fo ``x + x``
         # would appear once here, but represents two uses.
         #
         # Is a dict to act as an "ordered set". Keys are significant, value dont-care
-        self.users : Dict['Node', None] = {}
+        self.users: Dict['Node', None] = {}
         # Type expression representing the output value of this node.
         # This should contain the same class of Type objects that would appear
         # as type annotations for function inputs/outputs.
@@ -127,7 +142,7 @@ class Node:
         # generated function return type. (Note this is a special case. ``return``
         # does not produce a value, it's more of a notation. Thus, this value
         # describes the type of args[0] in the ``return`` node.
-        self.type : Optional[Any] = type
+        self.type: Optional[Any] = type
         self._prev = self
         self._next = self
         self._erased = False
@@ -199,7 +214,7 @@ class Node:
         return self._args
 
     @args.setter
-    def args(self, a : Tuple[Argument, ...]):
+    def args(self, a: Tuple[Argument, ...]):
         """
         Set the tuple of arguments to this Node. The interpretation of arguments
         depends on the node's opcode. See the ``fx.Graph`` docstring for more
@@ -222,7 +237,7 @@ class Node:
         return self._kwargs
 
     @kwargs.setter
-    def kwargs(self, k : Dict[str, Argument]):
+    def kwargs(self, k: Dict[str, Argument]):
         """
         Set the dict of kwargs to this Node. The interpretation of arguments
         depends on the node's opcode. See the ``fx.Graph`` docstring for more
@@ -246,7 +261,8 @@ class Node:
         """
         return list(self._input_nodes.keys())
 
-    def __update_args_kwargs(self, new_args : Tuple['Argument', ...], new_kwargs : Dict[str, 'Argument']):
+    def __update_args_kwargs(
+            self, new_args: Tuple['Argument', ...], new_kwargs: Dict[str, 'Argument']):
         """
         This API is internal. Do *not* call it directly.
         """
@@ -266,7 +282,7 @@ class Node:
     def __repr__(self) -> str:
         return self.name
 
-    def replace_all_uses_with(self, replace_with : 'Node') -> List['Node']:
+    def replace_all_uses_with(self, replace_with: 'Node') -> List['Node']:
         """
         Replace all uses of ``self`` in the Graph with the Node ``replace_with``.
 
@@ -280,7 +296,8 @@ class Node:
         """
         to_process = list(self.users)
         for use_node in to_process:
-            def maybe_replace_node(n : Node) -> Node:
+
+            def maybe_replace_node(n: Node) -> Node:
                 if n == self:
                     return replace_with
                 else:
@@ -295,9 +312,11 @@ class Node:
         assert len(self.users) == 0
         return to_process
 
+
 def map_arg(a: Argument, fn: Callable[[Node], Argument]) -> Argument:
     """ Apply fn to each Node appearing arg. arg may be a list, tuple, slice, or dict with string keys. """
     return map_aggregate(a, lambda x: fn(x) if isinstance(x, Node) else x)
+
 
 def map_aggregate(a: Argument, fn: Callable[[Argument], Argument]) -> Argument:
     """ Apply fn to each Node appearing arg. arg may be a list, tuple, slice, or dict with string keys. """
@@ -308,6 +327,7 @@ def map_aggregate(a: Argument, fn: Callable[[Argument], Argument]) -> Argument:
     elif isinstance(a, dict):
         return immutable_dict((k, map_aggregate(v, fn)) for k, v in a.items())
     elif isinstance(a, slice):
-        return slice(map_aggregate(a.start, fn), map_aggregate(a.stop, fn), map_aggregate(a.step, fn))
+        return slice(
+            map_aggregate(a.start, fn), map_aggregate(a.stop, fn), map_aggregate(a.step, fn))
     else:
         return fn(a)

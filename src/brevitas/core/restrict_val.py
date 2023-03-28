@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import math
 from typing import Callable, Optional, Union
 
@@ -25,10 +24,7 @@ assert FloatToIntImplType
 
 class _RestrictClampValue(brevitas.jit.ScriptModule):
 
-    def __init__(
-            self,
-            scaling_min_val: Optional[float],
-            restrict_value_impl: Optional[Module]):
+    def __init__(self, scaling_min_val: Optional[float], restrict_value_impl: Optional[Module]):
         super(_RestrictClampValue, self).__init__()
         if scaling_min_val is not None and scaling_min_val != 0:
             self.clamp_min_ste = ScalarClampMinSte(scaling_min_val)
@@ -48,9 +44,7 @@ class _RestrictClampValue(brevitas.jit.ScriptModule):
 
 class _RestrictValue(brevitas.jit.ScriptModule):
 
-    def __init__(
-            self,
-            restrict_value_impl: Optional[Module]):
+    def __init__(self, restrict_value_impl: Optional[Module]):
         super(_RestrictValue, self).__init__()
         if restrict_value_impl is not None:
             self.restrict_value_impl = restrict_value_impl
@@ -65,9 +59,7 @@ class _RestrictValue(brevitas.jit.ScriptModule):
 
 class _ClampValue(brevitas.jit.ScriptModule):
 
-    def __init__(
-            self,
-            scaling_min_val: Optional[float]):
+    def __init__(self, scaling_min_val: Optional[float]):
         super(_ClampValue, self).__init__()
         if scaling_min_val is not None and scaling_min_val != 0:
             self.clamp_min_ste = ScalarClampMinSte(scaling_min_val)

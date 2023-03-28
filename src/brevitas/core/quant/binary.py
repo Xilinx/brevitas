@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from typing import Tuple
 
 import torch
@@ -119,7 +118,7 @@ class ClampedBinaryQuant(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
         scale = self.scaling_impl(x)
-        y = self.tensor_clamp_impl(x, - scale, scale)
+        y = self.tensor_clamp_impl(x, -scale, scale)
         y = binary_sign_ste(y) * scale
         y = self.delay_wrapper(x, y)
         return y, scale, self.zero_point(), self.bit_width()

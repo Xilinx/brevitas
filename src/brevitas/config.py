@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from distutils.util import strtobool
 import os
 
@@ -13,6 +12,7 @@ except ImportError:
 
 def env_to_bool(name, default):
     return bool(strtobool(os.environ.get(name, "{}".format(default))))
+
 
 REINIT_ON_STATE_DICT_LOAD = env_to_bool('BREVITAS_REINIT_ON_STATE_DICT_LOAD', True)
 IGNORE_MISSING_KEYS = env_to_bool('BREVITAS_IGNORE_MISSING_KEYS', False)

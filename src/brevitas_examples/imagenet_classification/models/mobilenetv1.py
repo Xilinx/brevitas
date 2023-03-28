@@ -25,7 +25,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-
 __all__ = ['quant_mobilenet_v1']
 
 from torch import nn
@@ -46,6 +45,7 @@ FIRST_LAYER_BIT_WIDTH = 8
 
 
 class DwsConvBlock(nn.Module):
+
     def __init__(
             self,
             in_channels,
@@ -121,13 +121,7 @@ class ConvBlock(nn.Module):
 
 class MobileNet(nn.Module):
 
-    def __init__(
-            self,
-            channels,
-            first_stage_stride,
-            bit_width,
-            in_channels=3,
-            num_classes=1000):
+    def __init__(self, channels, first_stage_stride, bit_width, in_channels=3, num_classes=1000):
         super(MobileNet, self).__init__()
         init_block_channels = channels[0][0]
 
@@ -158,7 +152,8 @@ class MobileNet(nn.Module):
             self.features.add_module('stage{}'.format(i + 1), stage)
         self.final_pool = QuantAvgPool2d(kernel_size=7, stride=1, bit_width=bit_width)
         self.output = QuantLinear(
-            in_channels, num_classes,
+            in_channels,
+            num_classes,
             bias=True,
             bias_quant=IntBias,
             weight_quant=CommonIntWeightPerTensorQuant,
@@ -182,9 +177,6 @@ def quant_mobilenet_v1(cfg):
     if width_scale != 1.0:
         channels = [[int(cij * width_scale) for cij in ci] for ci in channels]
 
-    net = MobileNet(
-        channels=channels,
-        first_stage_stride=first_stage_stride,
-        bit_width=bit_width)
+    net = MobileNet(channels=channels, first_stage_stride=first_stage_stride, bit_width=bit_width)
 
     return net

@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from abc import ABC
 from abc import abstractmethod
 
@@ -19,8 +18,7 @@ __all__ = [
     'Kernel1dApplHandlerMixin',
     'Kernel2dApplHandlerMixin',
     'ONNXBaseHandler',
-    'QuantLSTMLayerHandler'
-]
+    'QuantLSTMLayerHandler']
 
 
 class Kernel1dApplHandlerMixin(ABC):
@@ -109,7 +107,7 @@ class ONNXBaseHandler(BaseHandler, ABC):
         self.debug_output = m.export_output_debug
 
     def forward(self, inp: Tensor, *args, **kwargs):
-        debug_fn = lambda x, name:  DebugMarkerFunction.apply(x, self.export_debug_name + name)
+        debug_fn = lambda x, name: DebugMarkerFunction.apply(x, self.export_debug_name + name)
         if self.export_debug_name is not None and self.debug_input:
             inp = debug_fn(inp, '.input')
         out = self.symbolic_execution(inp, *args, **kwargs)
@@ -169,22 +167,22 @@ class QuantLSTMLayerHandler(ONNXBaseHandler, ABC):
 
     @abstractmethod
     def quantized_cell_symbolic_execution(
-        self,
-        quant_input,
-        quant_hidden_state,
-        quant_cell_state,
-        quant_weight_ii,
-        quant_weight_if,
-        quant_weight_ic,
-        quant_weight_io,
-        quant_weight_hi,
-        quant_weight_hf,
-        quant_weight_hc,
-        quant_weight_ho,
-        quant_bias_input,
-        quant_bias_forget,
-        quant_bias_cell,
-        quant_bias_output):
+            self,
+            quant_input,
+            quant_hidden_state,
+            quant_cell_state,
+            quant_weight_ii,
+            quant_weight_if,
+            quant_weight_ic,
+            quant_weight_io,
+            quant_weight_hi,
+            quant_weight_hf,
+            quant_weight_hc,
+            quant_weight_ho,
+            quant_bias_input,
+            quant_bias_forget,
+            quant_bias_cell,
+            quant_bias_output):
         pass
 
     def symbolic_execution(
@@ -246,7 +244,8 @@ class QuantLSTMLayerHandler(ONNXBaseHandler, ABC):
             # sSquence_lens is a tensor of dimension batch size with the sequence length
             # of each element in the batch. We don't support variable sequence length yet
             # so they are set all to the same value
-            sequence_lens = torch.empty(quant_hidden_state.size(0), dtype=torch.int32).fill_(seq_len)
+            sequence_lens = torch.empty(
+                quant_hidden_state.size(0), dtype=torch.int32).fill_(seq_len)
             # Initial hidden and cell state have an extra direction dimension and
             #  different shapes depending on whether batch_first is set or not
             quant_hidden_state = quant_hidden_state.unsqueeze(0)

@@ -124,7 +124,8 @@ class QuantMultiheadAttention(Module):
         if self._qkv_same_embed_dim and packed_in_proj:
             self.in_proj = QuantLinear(
                 out_features=3 * embed_dim,
-                in_features=embed_dim, bias=bias,
+                in_features=embed_dim,
+                bias=bias,
                 input_quant=in_proj_input_quant,
                 weight_quant=in_proj_weight_quant,
                 bias_quant=in_proj_bias_quant,
@@ -133,21 +134,24 @@ class QuantMultiheadAttention(Module):
         else:
             self.q_proj = QuantLinear(
                 out_features=embed_dim,
-                in_features=embed_dim, bias=bias,
+                in_features=embed_dim,
+                bias=bias,
                 input_quant=in_proj_input_quant,
                 weight_quant=in_proj_weight_quant,
                 bias_quant=in_proj_bias_quant,
                 **filter_kwargs('in_proj_'))
             self.k_proj = QuantLinear(
                 out_features=embed_dim,
-                in_features=self.kdim, bias=bias,
+                in_features=self.kdim,
+                bias=bias,
                 input_quant=in_proj_input_quant,
                 weight_quant=in_proj_weight_quant,
                 bias_quant=in_proj_bias_quant,
                 **filter_kwargs('in_proj_'))
             self.v_proj = QuantLinear(
                 out_features=embed_dim,
-                in_features=self.vdim, bias=bias,
+                in_features=self.vdim,
+                bias=bias,
                 input_quant=in_proj_input_quant,
                 weight_quant=in_proj_weight_quant,
                 bias_quant=in_proj_bias_quant,
@@ -159,7 +163,9 @@ class QuantMultiheadAttention(Module):
         out_proj_bias = bias or (version.parse('1.8.2') >= torch_version >= version.parse('1.6.0'))
 
         self.out_proj = QuantLinear(
-            embed_dim, embed_dim, bias=out_proj_bias,
+            embed_dim,
+            embed_dim,
+            bias=out_proj_bias,
             input_quant=out_proj_input_quant,
             weight_quant=out_proj_weight_quant,
             bias_quant=out_proj_bias_quant,
@@ -177,12 +183,10 @@ class QuantMultiheadAttention(Module):
             act_quant=softmax_input_quant, **filter_kwargs('softmax_input_'))
         self.attn_output_weights_quant = QuantIdentity(
             act_quant=attn_output_weights_quant, **filter_kwargs('attn_output_weights_'))
-        self.q_scaled_quant = QuantIdentity(
-            act_quant=q_scaled_quant, **filter_kwargs('q_scaled_'))
+        self.q_scaled_quant = QuantIdentity(act_quant=q_scaled_quant, **filter_kwargs('q_scaled_'))
         self.k_transposed_quant = QuantIdentity(
             act_quant=k_transposed_quant, **filter_kwargs('k_transposed_'))
-        self.v_quant = QuantIdentity(
-            act_quant=v_quant, **filter_kwargs('v_'))
+        self.v_quant = QuantIdentity(act_quant=v_quant, **filter_kwargs('v_'))
 
         self.add_zero_attn = add_zero_attn
         self._reset_parameters()
@@ -210,8 +214,14 @@ class QuantMultiheadAttention(Module):
         if self.bias_v is not None:
             xavier_normal_(self.bias_v)
 
-    def mha_shape_check(self, query: Tensor, key: Tensor, value: Tensor,
-                         key_padding_mask: Optional[Tensor], attn_mask: Optional[Tensor], num_heads: int):
+    def mha_shape_check(
+            self,
+            query: Tensor,
+            key: Tensor,
+            value: Tensor,
+            key_padding_mask: Optional[Tensor],
+            attn_mask: Optional[Tensor],
+            num_heads: int):
         # Verifies the expected shape for `query, `key`, `value`, `key_padding_mask` and `attn_mask`
         # and returns if the input is batched or not.
         # Raises an error if `query` is not 2-D (unbatched) or 3-D (batched) tensor.
@@ -253,7 +263,8 @@ class QuantMultiheadAttention(Module):
                         (f"Expected `attn_mask` shape to be {expected_shape} but got {attn_mask.shape}")
         else:
             raise AssertionError(
-                f"query should be unbatched 2D or batched 3D tensor but received {query.dim()}-D query tensor")
+                f"query should be unbatched 2D or batched 3D tensor but received {query.dim()}-D query tensor"
+            )
 
         return is_batched
 
@@ -384,7 +395,8 @@ class QuantMultiheadAttention(Module):
                 q, k, v = self.in_proj(query).chunk(3, dim=-1)
             else:
                 raise RuntimeError(
-                    "Packed in_proj is supported only for self-attention with k is v is q. Set packed_in_proj=False.")
+                    "Packed in_proj is supported only for self-attention with k is v is q. Set packed_in_proj=False."
+                )
         else:
             assert self.q_proj is not None, "use_separate_proj_weight is True but q_proj is None"
             assert self.k_proj is not None, "use_separate_proj_weight is True but k_proj is None"
@@ -395,7 +407,8 @@ class QuantMultiheadAttention(Module):
         if attn_mask is not None:
             if attn_mask.dtype == torch.uint8:
                 warnings.warn(
-                    "Byte tensor for attn_mask in nn.MultiheadAttention is deprecated. Use bool tensor instead.")
+                    "Byte tensor for attn_mask in nn.MultiheadAttention is deprecated. Use bool tensor instead."
+                )
                 attn_mask = attn_mask.to(torch.bool)
             else:
                 assert attn_mask.is_floating_point() or attn_mask.dtype == torch.bool, \
@@ -405,13 +418,15 @@ class QuantMultiheadAttention(Module):
                 correct_2d_size = (tgt_len, src_len)
                 if attn_mask.shape != correct_2d_size:
                     raise RuntimeError(
-                        f"The shape of the 2D attn_mask is {attn_mask.shape}, but should be {correct_2d_size}.")
+                        f"The shape of the 2D attn_mask is {attn_mask.shape}, but should be {correct_2d_size}."
+                    )
                 attn_mask = attn_mask.unsqueeze(0)
             elif attn_mask.dim() == 3:
                 correct_3d_size = (bsz * num_heads, tgt_len, src_len)
                 if attn_mask.shape != correct_3d_size:
                     raise RuntimeError(
-                        f"The shape of the 3D attn_mask is {attn_mask.shape}, but should be {correct_3d_size}.")
+                        f"The shape of the 3D attn_mask is {attn_mask.shape}, but should be {correct_3d_size}."
+                    )
             else:
                 raise RuntimeError(f"attn_mask's dimension {attn_mask.dim()} is not supported")
 
@@ -539,9 +554,15 @@ class QuantMultiheadAttention(Module):
                 attn_output = attn_output.squeeze(1)
             return attn_output, None
 
-    def forward(self, query: Tensor, key: Tensor, value: Tensor, key_padding_mask: Optional[Tensor] = None,
-                need_weights: bool = True, attn_mask: Optional[Tensor] = None,
-                average_attn_weights: bool = True) -> Tuple[Tensor, Optional[Tensor]]:
+    def forward(
+            self,
+            query: Tensor,
+            key: Tensor,
+            value: Tensor,
+            key_padding_mask: Optional[Tensor] = None,
+            need_weights: bool = True,
+            attn_mask: Optional[Tensor] = None,
+            average_attn_weights: bool = True) -> Tuple[Tensor, Optional[Tensor]]:
         r"""
     Args:
         query: Query embeddings of shape :math:`(L, E_q)` for unbatched input, :math:`(L, N, E_q)` when ``batch_first=False``
@@ -626,7 +647,8 @@ class QuantMultiheadAttention(Module):
             return attn_output, attn_output_weights
 
     def _load_from_state_dict(
-            self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs):
+            self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
+            error_msgs):
 
         def set_bias(proj_name, value):
             bias_name = f'{prefix}{proj_name}_proj.bias'

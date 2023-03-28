@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import torch
 from torch.autograd import Function
 
@@ -10,7 +9,8 @@ class QLinearConvFn(Function):
 
     @staticmethod
     def symbolic(
-            g, int_x,
+            g,
+            int_x,
             input_scale,
             input_zero_point,
             int_weight,
@@ -28,7 +28,8 @@ class QLinearConvFn(Function):
             dilation):
         if int_bias is not None:
             ret = g.op(
-                'QLinearConv', int_x,
+                'QLinearConv',
+                int_x,
                 input_scale,
                 input_zero_point,
                 int_weight,
@@ -44,7 +45,8 @@ class QLinearConvFn(Function):
                 dilations_i=dilation)
         else:
             ret = g.op(
-                'QLinearConv', int_x,
+                'QLinearConv',
+                int_x,
                 input_scale,
                 input_zero_point,
                 int_weight,
@@ -61,7 +63,8 @@ class QLinearConvFn(Function):
 
     @staticmethod
     def forward(
-            ctx, int_x,
+            ctx,
+            int_x,
             input_scale,
             input_zero_point,
             int_weight,
@@ -84,7 +87,8 @@ class QLinearMatMulFn(Function):
 
     @staticmethod
     def symbolic(
-            g, int_x,
+            g,
+            int_x,
             input_scale,
             input_zero_point,
             int_weight,
@@ -95,7 +99,8 @@ class QLinearMatMulFn(Function):
             output_dtype,
             out_shape):
         ret = g.op(
-            'QLinearMatMul', int_x,
+            'QLinearMatMul',
+            int_x,
             input_scale,
             input_zero_point,
             int_weight,
@@ -107,7 +112,8 @@ class QLinearMatMulFn(Function):
 
     @staticmethod
     def forward(
-            ctx, int_x,
+            ctx,
+            int_x,
             input_scale,
             input_zero_point,
             int_weight,

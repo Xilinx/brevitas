@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import argparse
 from configparser import ConfigParser
 import glob
@@ -27,13 +26,14 @@ def preprocess(cfg, args):
     segment_length = cfg.getint('AUDIO', 'segment_length')
     pad_short = cfg.getint('AUDIO', 'pad_short')
 
-    stft = TacotronSTFT(filter_length=filter_length,
-                        hop_length=hop_length,
-                        win_length=win_length,
-                        n_mel_channels=n_mel_channels,
-                        sampling_rate=sampling_rate,
-                        mel_fmin=mel_fmin,
-                        mel_fmax=mel_fmax)
+    stft = TacotronSTFT(
+        filter_length=filter_length,
+        hop_length=hop_length,
+        win_length=win_length,
+        n_mel_channels=n_mel_channels,
+        sampling_rate=sampling_rate,
+        mel_fmin=mel_fmin,
+        mel_fmax=mel_fmax)
 
     wav_files = glob.glob(os.path.join(args.data_path, '**', '*.wav'), recursive=True)
 
@@ -44,7 +44,10 @@ def preprocess(cfg, args):
             (sampling_rate, sr, wavpath)
 
         if len(wav) < segment_length + pad_short:
-            wav = np.pad(wav, (0, segment_length + pad_short - len(wav)), mode='constant', constant_values=0.0)
+            wav = np.pad(
+                wav, (0, segment_length + pad_short - len(wav)),
+                mode='constant',
+                constant_values=0.0)
 
         wav = torch.from_numpy(wav).unsqueeze(0)
         mel = stft.mel_spectrogram(wav)
@@ -55,10 +58,9 @@ def preprocess(cfg, args):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-n', '--name', type=str, required=True,
-                        help="name of the model")
-    parser.add_argument('-d', '--data-path', type=str, required=True,
-                        help="root directory of wav files")
+    parser.add_argument('-n', '--name', type=str, required=True, help="name of the model")
+    parser.add_argument(
+        '-d', '--data-path', type=str, required=True, help="root directory of wav files")
     args = parser.parse_args()
     cfg = ConfigParser()
     current_dir = os.path.dirname(os.path.abspath(__file__))

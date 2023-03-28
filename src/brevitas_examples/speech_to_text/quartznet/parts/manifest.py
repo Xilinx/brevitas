@@ -30,17 +30,19 @@ from .cleaners import clean_text
 
 
 class ManifestBase:
-    def __init__(self,
-                 manifest_paths,
-                 labels,
-                 max_duration=None,
-                 min_duration=None,
-                 sort_by_duration=False,
-                 max_utts=0,
-                 blank_index=-1,
-                 unk_index=-1,
-                 normalize=True,
-                 logger=None):
+
+    def __init__(
+            self,
+            manifest_paths,
+            labels,
+            max_duration=None,
+            min_duration=None,
+            sort_by_duration=False,
+            max_utts=0,
+            blank_index=-1,
+            unk_index=-1,
+            normalize=True,
+            logger=None):
         self.min_duration = min_duration
         self.max_duration = max_duration
         self.sort_by_duration = sort_by_duration
@@ -79,30 +81,27 @@ class ManifestBase:
             if not isinstance(text, str):
                 self.logger.warning(
                     "WARNING: Got transcript: {}. It is not a "
-                    "string. Dropping data point".format(text)
-                )
+                    "string. Dropping data point".format(text))
                 filtered_duration += item['duration']
                 continue
             # item['text'] = text
 
             # tokenize transcript text
             item["tokens"] = self.tokenize_transcript(
-                    text, self.labels_map, self.unk_index, self.blank_index)
+                text, self.labels_map, self.unk_index, self.blank_index)
 
             # support files using audio_filename
             if 'audio_filename' in item and 'audio_filepath' not in item:
                 self.logger.warning(
                     "Malformed manifest: The key audio_filepath was not "
-                    "found in the manifest. Using audio_filename instead."
-                )
+                    "found in the manifest. Using audio_filename instead.")
                 item['audio_filepath'] = item['audio_filename']
 
             data.append(item)
             duration += item['duration']
 
             if max_utts > 0 and len(data) >= max_utts:
-                self.logger.info(
-                    'Stop parsing due to max_utts ({})'.format(max_utts))
+                self.logger.info('Stop parsing due to max_utts ({})'.format(max_utts))
                 break
 
         if sort_by_duration:
@@ -173,6 +172,7 @@ class ManifestBase:
 
 
 class ManifestEN(ManifestBase):
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -181,11 +181,7 @@ class ManifestEN(ManifestBase):
         # Punctuation to remove
         punctuation = string.punctuation
         # Define punctuation that will be handled by text cleaner
-        punctuation_to_replace = {
-            "+": "plus",
-            "&": "and",
-            "%": "percent"
-        }
+        punctuation_to_replace = {"+": "plus", "&": "and", "%": "percent"}
         for char in punctuation_to_replace:
             punctuation = punctuation.replace(char, "")
         # We might also want to consider:

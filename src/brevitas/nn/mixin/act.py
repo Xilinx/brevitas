@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from abc import ABCMeta
 from abc import abstractmethod
 from typing import Optional, Type, Union
@@ -40,7 +39,7 @@ class QuantInputMixin(QuantProxyMixin):
         return self.input_quant.is_quant_enabled
 
     @property
-    def is_quant_input_narrow_range(self): # TODO make abstract once narrow range can be cached
+    def is_quant_input_narrow_range(self):  # TODO make abstract once narrow range can be cached
         return self.input_quant.is_narrow_range
 
     @property

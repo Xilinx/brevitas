@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import inspect
 
 from _dependencies.attributes import _Replace
@@ -67,6 +66,7 @@ class _ExtendedInjectorType(_InjectorType):
     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     """
+
     def __new__(cls, class_name, bases, namespace):
 
         if not bases:
@@ -125,8 +125,7 @@ class _ExtendedInjectorType(_InjectorType):
                     )
                 else:
                     message = "{!r} can not resolve attribute {!r}".format(
-                        cls.__name__, current_attr
-                    )
+                        cls.__name__, current_attr)
                 raise DependencyError(message)
 
             marker, attribute, args, have_defaults = spec
@@ -136,9 +135,8 @@ class _ExtendedInjectorType(_InjectorType):
 
                 try:
                     dependency = attribute(**kwargs)
-                    if ('nested' not in marker
-                            and inspect.isclass(dependency)
-                            and not current_attr.endswith("_class")):
+                    if ('nested' not in marker and inspect.isclass(dependency) and
+                            not current_attr.endswith("_class")):
                         spec = _make_init_spec(dependency)
                         replaced_dependency = _replace_dependency(cls, current_attr, spec)
                         replaced_dependencies[current_attr] = replaced_dependency
@@ -176,9 +174,7 @@ class _ExtendedInjectorType(_InjectorType):
         return cache[attrname]
 
 
-
 ExtendedInjector = _ExtendedInjectorType(
-    "Injector",
-    (),
-    {"__init__": __init__, "__doc__": injector_doc, "let": classmethod(let)})
-BaseInjector = ExtendedInjector # retrocompatibility wrt naming
+    "Injector", (), {
+        "__init__": __init__, "__doc__": injector_doc, "let": classmethod(let)})
+BaseInjector = ExtendedInjector  # retrocompatibility wrt naming

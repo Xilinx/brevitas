@@ -16,7 +16,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 from configparser import ConfigParser
 import os
 
@@ -29,16 +28,16 @@ from .helpers import *
 from .losses import CTCLossNM
 from .quartznet import quartznet
 
-__all__ = ['AudioToTextDataLayer',
-           'quartznet',
-           'quant_quartznet_perchannelscaling_4b',
-           'quant_quartznet_perchannelscaling_8b',
-           'quant_quartznet_pertensorscaling_8b']
+__all__ = [
+    'AudioToTextDataLayer',
+    'quartznet',
+    'quant_quartznet_perchannelscaling_4b',
+    'quant_quartznet_perchannelscaling_8b',
+    'quant_quartznet_pertensorscaling_8b']
 
 name = "quarznet_release"
 model_impl = {
-    'quartznet': quartznet,
-}
+    'quartznet': quartznet,}
 
 
 def model_with_cfg(name, pretrained, export_mode):
@@ -59,8 +58,10 @@ def model_with_cfg(name, pretrained, export_mode):
         pretrained_decoder_url = cfg.get('MODEL', 'PRETRAINED_DECODER_URL')
         print("=> Loading encoder checkpoint from:'{}'".format(pretrained_encoder_url))
         print("=> Loading decoder checkpoint from:'{}'".format(pretrained_decoder_url))
-        checkpoint_enc = torch.hub.load_state_dict_from_url(pretrained_encoder_url, progress=True, map_location='cpu')
-        checkpoint_dec = torch.hub.load_state_dict_from_url(pretrained_decoder_url, progress=True, map_location='cpu')
+        checkpoint_enc = torch.hub.load_state_dict_from_url(
+            pretrained_encoder_url, progress=True, map_location='cpu')
+        checkpoint_dec = torch.hub.load_state_dict_from_url(
+            pretrained_decoder_url, progress=True, map_location='cpu')
         model.restore_checkpoints(checkpoint_enc, checkpoint_dec)
     return model, cfg
 

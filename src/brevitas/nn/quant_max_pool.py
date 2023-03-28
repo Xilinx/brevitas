@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from typing import Union
 
 from torch import Tensor
@@ -32,9 +31,7 @@ class QuantMaxPool1d(QuantLayerMixin, MaxPool1d):
             dilation=dilation,
             return_indices=return_indices,
             ceil_mode=ceil_mode)
-        QuantLayerMixin.__init__(
-            self,
-            return_quant_tensor=return_quant_tensor)
+        QuantLayerMixin.__init__(self, return_quant_tensor=return_quant_tensor)
 
     @property
     def channelwise_separable(self) -> bool:
@@ -71,9 +68,7 @@ class QuantMaxPool2d(QuantLayerMixin, MaxPool2d):
             dilation=dilation,
             return_indices=return_indices,
             ceil_mode=ceil_mode)
-        QuantLayerMixin.__init__(
-            self,
-            return_quant_tensor=return_quant_tensor)
+        QuantLayerMixin.__init__(self, return_quant_tensor=return_quant_tensor)
 
     @property
     def channelwise_separable(self) -> bool:

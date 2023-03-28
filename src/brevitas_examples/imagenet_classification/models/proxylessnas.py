@@ -36,6 +36,7 @@ from .common import *
 
 
 class ConvBlock(nn.Module):
+
     def __init__(
             self,
             in_channels,
@@ -83,6 +84,7 @@ class ConvBlock(nn.Module):
 
 
 class ProxylessBlock(nn.Module):
+
     def __init__(
             self,
             in_channels,
@@ -148,6 +150,7 @@ class ProxylessBlock(nn.Module):
 
 
 class ProxylessUnit(nn.Module):
+
     def __init__(
             self,
             in_channels,
@@ -194,6 +197,7 @@ class ProxylessUnit(nn.Module):
 
 
 class ProxylessNAS(nn.Module):
+
     def __init__(
             self,
             channels,
@@ -283,9 +287,7 @@ class ProxylessNAS(nn.Module):
         self.final_pool = QuantAvgPool2d(kernel_size=7, stride=1, bit_width=bit_width)
         if hadamard_classifier:
             self.output = HadamardClassifier(
-                in_channels=in_channels,
-                out_channels=num_classes,
-                fixed_scale=False)
+                in_channels=in_channels, out_channels=num_classes, fixed_scale=False)
         else:
             self.output = QuantLinear(
                 in_features=in_channels,

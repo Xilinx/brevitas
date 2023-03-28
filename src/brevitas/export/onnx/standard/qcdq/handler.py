@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from abc import ABC
 from copy import copy
 
@@ -69,50 +68,55 @@ class StdQCDQONNXMixin(QCDQMixin, StdDQONNXMixin, ABC):
         return IntClipFn.apply(x, min_val, max_val)
 
 
-class StdQCDQONNXWeightQuantProxyHandler(
-    StdQCDQONNXMixin, QCDQWeightQuantProxyHandlerMixin, ONNXBaseHandler):
+class StdQCDQONNXWeightQuantProxyHandler(StdQCDQONNXMixin,
+                                         QCDQWeightQuantProxyHandlerMixin,
+                                         ONNXBaseHandler):
     pass
 
 
-class StdQCDQONNXDecoupledWeightQuantProxyHandler(
-    StdQCDQONNXMixin, QCDQDecoupledWeightQuantProxyHandlerMixin, ONNXBaseHandler):
+class StdQCDQONNXDecoupledWeightQuantProxyHandler(StdQCDQONNXMixin,
+                                                  QCDQDecoupledWeightQuantProxyHandlerMixin,
+                                                  ONNXBaseHandler):
     pass
 
 
-class StdQCDQONNXActQuantProxyHandler(
-    StdQCDQONNXMixin, QCDQActQuantProxyHandlerMixin, ONNXBaseHandler):
+class StdQCDQONNXActQuantProxyHandler(StdQCDQONNXMixin,
+                                      QCDQActQuantProxyHandlerMixin,
+                                      ONNXBaseHandler):
     pass
 
 
-class StdQCDQONNXBiasQuantProxyHandler(
-    StdDQONNXMixin, QCDQBiasQuantProxyHandlerMixin, ONNXBaseHandler):
+class StdQCDQONNXBiasQuantProxyHandler(StdDQONNXMixin,
+                                       QCDQBiasQuantProxyHandlerMixin,
+                                       ONNXBaseHandler):
     pass
 
 
-class StdQCDQONNXTruncQuantProxyHandler(
-    StdQCDQONNXMixin, QCDQTruncQuantProxyHandlerMixin, ONNXBaseHandler):
+class StdQCDQONNXTruncQuantProxyHandler(StdQCDQONNXMixin,
+                                        QCDQTruncQuantProxyHandlerMixin,
+                                        ONNXBaseHandler):
     pass
 
 
 class StdQCDQONNXQuantLSTMLayerHandler(QuantLSTMLayerHandler):
 
     def quantized_cell_symbolic_execution(
-        self,
-        quant_input,
-        quant_hidden_state,
-        quant_cell_state,
-        quant_weight_ii,
-        quant_weight_if,
-        quant_weight_ic,
-        quant_weight_io,
-        quant_weight_hi,
-        quant_weight_hf,
-        quant_weight_hc,
-        quant_weight_ho,
-        quant_bias_input,
-        quant_bias_forget,
-        quant_bias_cell,
-        quant_bias_output):
+            self,
+            quant_input,
+            quant_hidden_state,
+            quant_cell_state,
+            quant_weight_ii,
+            quant_weight_if,
+            quant_weight_ic,
+            quant_weight_io,
+            quant_weight_hi,
+            quant_weight_hf,
+            quant_weight_hc,
+            quant_weight_ho,
+            quant_bias_input,
+            quant_bias_forget,
+            quant_bias_cell,
+            quant_bias_output):
         raise RuntimeError(
             "Quantized LSTM cell is not supported for ONNX QCDQ "
             "(weights only quantization is). Use export_qonnx.")

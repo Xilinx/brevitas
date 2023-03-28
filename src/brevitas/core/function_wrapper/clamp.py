@@ -1,11 +1,9 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 """
 ScriptModule wrappers for various variants of clamping.
 """
-
 
 import torch
 from torch import Tensor

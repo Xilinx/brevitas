@@ -19,17 +19,12 @@ class TestQuantMultiheadAttention:
     @pytest.mark.parametrize("batch_first", [True, False])
     @pytest.mark.parametrize("bias", [True, False])
     @pytest.mark.parametrize("packed_in_proj", [True, False])
-    def test_mha_quant_disabled_fwd(
-            self, batch_first, bias, packed_in_proj):
+    def test_mha_quant_disabled_fwd(self, batch_first, bias, packed_in_proj):
         extra_kwargs = {}
         if torch_version >= version.parse('1.9.1'):
             extra_kwargs['batch_first'] = batch_first
 
-        m = MultiheadAttention(
-            EMBED_DIM,
-            NUM_HEADS,
-            bias=bias,
-            **extra_kwargs)
+        m = MultiheadAttention(EMBED_DIM, NUM_HEADS, bias=bias, **extra_kwargs)
         qm = QuantMultiheadAttention(
             EMBED_DIM,
             NUM_HEADS,

@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from typing import Union
 
 from torch import Tensor
@@ -16,9 +15,7 @@ class QuantDropout(QuantLayerMixin, Dropout):
 
     def __init__(self, p: float = 0.5, return_quant_tensor: bool = True):
         Dropout.__init__(self, p=p, inplace=False)
-        QuantLayerMixin.__init__(
-            self,
-            return_quant_tensor=return_quant_tensor)
+        QuantLayerMixin.__init__(self, return_quant_tensor=return_quant_tensor)
 
     @property
     def channelwise_separable(self) -> bool:

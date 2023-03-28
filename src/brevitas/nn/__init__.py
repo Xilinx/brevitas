@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from .hadamard_classifier import HadamardClassifier
 from .quant_accumulator import ClampQuantAccumulator
 from .quant_accumulator import TruncQuantAccumulator

@@ -15,7 +15,6 @@ from .base import StdQOpONNXQuantWrapperHandler
 
 class StdQOpONNXQuantMaxPoolNd(StdQOpONNXQuantWrapperHandler, ABC):
 
-
     @classmethod
     def op_symbolic_kwargs(cls, module: Union[QuantMaxPool1d, QuantMaxPool2d]):
         return {

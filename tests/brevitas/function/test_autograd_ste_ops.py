@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from typing import Callable, Tuple
 
 from hypothesis import given
@@ -33,8 +32,7 @@ class TestElementwiseSte:
         round_ste_impl: 'torch.round',
         ceil_ste_impl: 'torch.ceil',
         floor_ste_impl: 'torch.floor',
-        ternary_sign_ste_impl: 'torch.sign',
-    }
+        ternary_sign_ste_impl: 'torch.sign',}
 
     STE_IMPL = FWD_IMPL.keys()
     IDS = [fn.__qualname__ for fn in STE_IMPL]

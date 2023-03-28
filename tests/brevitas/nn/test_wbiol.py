@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import pytest_cases
 from pytest_cases import fixture_union
 import torch
@@ -26,12 +25,7 @@ OUTPUT_CH = 10
 IN_CH = 5
 KERNEL_SIZE = 3
 
-QUANT_CONV_VARIANTS = [
-    QuantConv1d,
-    QuantConv2d,
-    QuantConvTranspose1d,
-    QuantConvTranspose2d
-]
+QUANT_CONV_VARIANTS = [QuantConv1d, QuantConv2d, QuantConvTranspose1d, QuantConvTranspose2d]
 
 
 @pytest_cases.fixture()
@@ -48,8 +42,7 @@ def default_wbiol_quant_linear(bias_enabled):
     """
     QuantLinear layer with default quantization settings
     """
-    return QuantLinear(
-        out_features=OUTPUT_CH, in_features=IN_CH, bias=bias_enabled)
+    return QuantLinear(out_features=OUTPUT_CH, in_features=IN_CH, bias=bias_enabled)
 
 
 @pytest_cases.fixture()
@@ -179,26 +172,38 @@ def test_default_wbiol_quant_injector(default_wbiol_layer: QuantWBIOL):
 
 
 def test_internally_scaled_bias_zero_point():
-    conv = QuantConv2d(IN_CH, OUTPUT_CH, KERNEL_SIZE, bias=True,
-                input_quant=Int8ActPerTensorFloat,
-                bias_quant=Int8BiasPerTensorFloatInternalScaling,
-                return_quant_tensor=True)
+    conv = QuantConv2d(
+        IN_CH,
+        OUTPUT_CH,
+        KERNEL_SIZE,
+        bias=True,
+        input_quant=Int8ActPerTensorFloat,
+        bias_quant=Int8BiasPerTensorFloatInternalScaling,
+        return_quant_tensor=True)
     out = conv(torch.randn(1, IN_CH, 10, 10))
     assert (out.zero_point != 0.).any()
 
 
 def test_float_bias_zero_point():
-    conv = QuantConv2d(IN_CH, OUTPUT_CH, KERNEL_SIZE, bias=True,
-                input_quant=Int8ActPerTensorFloat,
-                return_quant_tensor=True)
+    conv = QuantConv2d(
+        IN_CH,
+        OUTPUT_CH,
+        KERNEL_SIZE,
+        bias=True,
+        input_quant=Int8ActPerTensorFloat,
+        return_quant_tensor=True)
     out = conv(torch.randn(1, IN_CH, 10, 10))
     assert (out.zero_point != 0.).any()
 
 
 def test_externally_scaled_bias_zero_point():
-    conv = QuantConv2d(IN_CH, OUTPUT_CH, KERNEL_SIZE, bias=True,
-                input_quant=Int8ActPerTensorFloat,
-                bias_quant=Int8Bias,
-                return_quant_tensor=True)
+    conv = QuantConv2d(
+        IN_CH,
+        OUTPUT_CH,
+        KERNEL_SIZE,
+        bias=True,
+        input_quant=Int8ActPerTensorFloat,
+        bias_quant=Int8Bias,
+        return_quant_tensor=True)
     out = conv(torch.randn(1, IN_CH, 10, 10))
     assert (out.zero_point == 0.).any()

@@ -36,22 +36,33 @@ from .common import *
 
 
 class ResStack(nn.Module):
+
     def __init__(self, channel, bit_width):
         super(ResStack, self).__init__()
         self.scale_norm = make_hardtanh_activation(bit_width=bit_width, return_quant_tensor=True)
         self.layers = nn.ModuleList([
             nn.Sequential(
                 make_leakyRelu_activation(bit_width),
-
-                nn.utils.weight_norm(make_quantconv1d(channel, channel, kernel_size=3, stride=1, padding=3 ** i,
-                                                      dilation=3 ** i, bit_width=bit_width)),
-
+                nn.utils.weight_norm(
+                    make_quantconv1d(
+                        channel,
+                        channel,
+                        kernel_size=3,
+                        stride=1,
+                        padding=3 ** i,
+                        dilation=3 ** i,
+                        bit_width=bit_width)),
                 make_leakyRelu_activation(bit_width),
-                nn.utils.weight_norm(make_quantconv1d(channel, channel, kernel_size=3, stride=1, padding=1,
-                                                      dilation=1, bit_width=bit_width)),
-            )
-            for i in range(3)
-        ])
+                nn.utils.weight_norm(
+                    make_quantconv1d(
+                        channel,
+                        channel,
+                        kernel_size=3,
+                        stride=1,
+                        padding=1,
+                        dilation=1,
+                        bit_width=bit_width)),
+            ) for i in range(3)])
 
     def forward(self, x):
         for layer in self.layers:

@@ -40,7 +40,6 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 """
 
-
 import builtins
 import functools
 import inspect
@@ -79,7 +78,7 @@ class UnsetValueException(Exception):
 
 class ValueProxy(Proxy):
 
-    def __init__(self, node: Node, value, tracer = None):
+    def __init__(self, node: Node, value, tracer=None):
         super(ValueProxy, self).__init__(node, tracer)
         if isinstance(value, Proxy):
             raise RuntimeError("Value of a proxy can't be a proxy.")
@@ -150,6 +149,7 @@ class ValueProxy(Proxy):
 
 
 class ValueAttribute(ValueProxy):
+
     def __init__(self, root: Proxy, attr: str, value: Any):
         self.root = root
         self.attr = attr
@@ -176,7 +176,9 @@ class ValueAttribute(ValueProxy):
 
 
 for method in magic_methods:
+
     def scope(method):
+
         def impl(*args, **kwargs):
             tracer = args[0].tracer
             target = getattr(operator, method)
@@ -185,9 +187,11 @@ for method in magic_methods:
             except UnsetValueException:
                 value = _UNSET
             return tracer.create_proxy('call_function', target, args, kwargs, value=value)
+
         impl.__name__ = method
         as_magic = f'__{method}__'
         setattr(ValueProxy, as_magic, impl)
+
     scope(method)
 
 
@@ -201,6 +205,7 @@ def _define_reflectable(orig_method_name):
         except UnsetValueException:
             value = _UNSET
         return self.tracer.create_proxy('call_function', target, (rhs, self), {}, value=value)
+
     impl.__name__ = method_name
     impl.__qualname__ = method_name
     setattr(ValueProxy, method_name, impl)
@@ -212,7 +217,7 @@ for orig_method_name in reflectable_magic_methods:
 
 class ValueTracer(Tracer):
 
-    def __init__(self, autowrap_modules : Tuple[ModuleType] = (math, )):
+    def __init__(self, autowrap_modules: Tuple[ModuleType] = (math,)):
         super(ValueTracer, self).__init__(autowrap_modules)
         self.concrete_mode = False
 
@@ -220,8 +225,7 @@ class ValueTracer(Tracer):
         return obj.value.__bool__()
 
     def iter(self, obj: 'Proxy'):
-        return self.create_proxy(
-            'call_function', iter, (obj,), {}, value=obj.value.__iter__())
+        return self.create_proxy('call_function', iter, (obj,), {}, value=obj.value.__iter__())
 
     # TODO deal with keys and values
     def keys(self, obj: 'Proxy') -> Any:
@@ -256,6 +260,7 @@ class ValueTracer(Tracer):
                         raise RuntimeError(
                             "Keys for dictionaries used as an argument cannot contain a Node. "
                             "Got key: {k}")
+
                 map_aggregate(k, no_node)
 
                 r[k] = self.unpack_arg(v)
@@ -271,9 +276,15 @@ class ValueTracer(Tracer):
 
         raise NotImplementedError(f"argument of type: {type(a)}")
 
-    def create_proxy(self, kind: str, target: Target, args: Tuple[Any, ...],
-                     kwargs: Dict[str, Any], name: Optional[str] = None,
-                     type_expr : Optional[Any] = None, value: Any = _UNSET):
+    def create_proxy(
+            self,
+            kind: str,
+            target: Target,
+            args: Tuple[Any, ...],
+            kwargs: Dict[str, Any],
+            name: Optional[str] = None,
+            type_expr: Optional[Any] = None,
+            value: Any = _UNSET):
         '''
         Create a Node from the given arguments, then return the Node
         wrapped in a Proxy object.
@@ -290,7 +301,12 @@ class ValueTracer(Tracer):
         node = self.create_node(kind, target, args_, kwargs_, name, type_expr)
         return self.proxy(node, value)
 
-    def call_module(self, m: torch.nn.Module, forward: Callable[..., Any], args : Tuple[Any, ...], kwargs : Dict[str, Any]) -> Any:
+    def call_module(
+            self,
+            m: torch.nn.Module,
+            forward: Callable[..., Any],
+            args: Tuple[Any, ...],
+            kwargs: Dict[str, Any]) -> Any:
         """
         Method that specifies the behavior of this ``Tracer`` when it encounters
         a call to an ``nn.Module`` instance.
@@ -345,7 +361,7 @@ class ValueTracer(Tracer):
         co = fn_for_analysis.__code__
         total_args = co.co_argcount + co.co_kwonlyargcount
         names_iter = iter(co.co_varnames)
-        args : List[Any] = []
+        args: List[Any] = []
         skip_arg_idx = 0
         if is_module:
             if total_args == 0:
@@ -361,8 +377,7 @@ class ValueTracer(Tracer):
                 param = inspect.signature(fn_for_analysis).parameters[name]
                 value = _UNSET if param.default is inspect.Parameter.empty else param.default
             type_expr = fn_for_analysis.__annotations__.get(name, None)
-            return self.create_proxy(
-                'placeholder', name, (), {}, type_expr=type_expr, value=value)
+            return self.create_proxy('placeholder', name, (), {}, type_expr=type_expr, value=value)
 
         args.extend(proxy_placeholder(next(names_iter)) for _ in range(skip_arg_idx, total_args))
 
@@ -407,8 +422,7 @@ class ValueTracer(Tracer):
         assert isinstance(fn, FunctionType)
 
         fn_globals = fn.__globals__  # run before it gets patched
-        fn, args = self.create_args_for_root(
-            fn, isinstance(root, torch.nn.Module), concrete_args)
+        fn, args = self.create_args_for_root(fn, isinstance(root, torch.nn.Module), concrete_args)
 
         parameter_proxy_cache: Dict[str, Proxy] = {}  # Reduce number of get_attr calls
 
@@ -428,11 +442,14 @@ class ValueTracer(Tracer):
 
         @functools.wraps(_orig_module_call)
         def module_call_wrapper(mod, *args, **kwargs):
+
             def forward(*args, **kwargs):
                 return _orig_module_call(mod, *args, **kwargs)
 
-            _autowrap_check(patcher, getattr(getattr(mod, "forward", mod), "__globals__", {}),
-                            self._autowrap_function_ids)
+            _autowrap_check(
+                patcher,
+                getattr(getattr(mod, "forward", mod), "__globals__", {}),
+                self._autowrap_function_ids)
             if self.concrete_mode:
                 return forward(*args, **kwargs)
             else:
@@ -440,10 +457,10 @@ class ValueTracer(Tracer):
 
         with _Patcher() as patcher:
             # allow duplicate patches to support the case of nested calls
-            patcher.patch_method(torch.nn.Module, "__getattr__", module_getattr_wrapper,
-                                 deduplicate=False)
-            patcher.patch_method(torch.nn.Module, "__call__", module_call_wrapper,
-                                 deduplicate=False)
+            patcher.patch_method(
+                torch.nn.Module, "__getattr__", module_getattr_wrapper, deduplicate=False)
+            patcher.patch_method(
+                torch.nn.Module, "__call__", module_call_wrapper, deduplicate=False)
             _patch_wrapped_value_functions(patcher)
             _autowrap_check(patcher, fn_globals, self._autowrap_function_ids)
             for module in self._autowrap_search:
@@ -455,6 +472,7 @@ class ValueTracer(Tracer):
 
 
 def _create_wrapped_value_func(orig_fn):
+
     @functools.wraps(orig_fn)
     def wrapped(*args, **kwargs):
         """
@@ -502,7 +520,7 @@ def _create_wrapped_value_method(cls, name):
     return wrapped
 
 
-def _patch_wrapped_value_functions(patcher : _Patcher):
+def _patch_wrapped_value_functions(patcher: _Patcher):
     """
     Go through ``_wrapped_fn_patch_table`` and, for each frame object, wrap
     the listed global functions in the `_create_wrapped_func` wrapper.

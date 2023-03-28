@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import math
 from typing import Optional, Tuple
 
@@ -41,7 +40,8 @@ class NegativeMinOrZero(brevitas.jit.ScriptModule):
 class AbsPercentile(brevitas.jit.ScriptModule):
     __constants__ = ['q', 'stats_reduce_dim']
 
-    def __init__(self, high_percentile_q: float, stats_reduce_dim: Optional[int], percentile_q = None):
+    def __init__(
+            self, high_percentile_q: float, stats_reduce_dim: Optional[int], percentile_q=None):
         super(AbsPercentile, self).__init__()
         if percentile_q is not None:
             raise RuntimeError("percentile_q is deprecated, please pass high_percentile_q.")
@@ -97,7 +97,11 @@ class NegativePercentileOrZero(brevitas.jit.ScriptModule):
 class PercentileInterval(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim', 'low_q', 'high_q']
 
-    def __init__(self, low_percentile_q, high_percentile_q, stats_reduce_dim: Optional[int] = None) -> None:
+    def __init__(
+            self,
+            low_percentile_q,
+            high_percentile_q,
+            stats_reduce_dim: Optional[int] = None) -> None:
         super(PercentileInterval, self).__init__()
         self.stats_reduce_dim = stats_reduce_dim
         self.low_q = low_percentile_q
@@ -264,8 +268,9 @@ class MeanLearnedSigmaStd(brevitas.jit.ScriptModule):
         out = self.impl(x, sigma)
         return out
 
-    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
-                              missing_keys, unexpected_keys, error_msgs):
+    def _load_from_state_dict(
+            self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
+            error_msgs):
         value_key = prefix + 'sigma'
         retrocomp_value_key = prefix + 'learned_sigma'
         if retrocomp_value_key in state_dict:  # retrocompatibility
@@ -283,7 +288,7 @@ class KLMinimizerThreshold(torch.nn.Module):
     https://github.com/apache/incubator-mxnet/blob/master/python/mxnet/contrib/quantization.py
     """
 
-    def __init__(self, signed, bit_width_impl, num_bins = 1000 + 1, smoothing_eps=0.0001):
+    def __init__(self, signed, bit_width_impl, num_bins=1000 + 1, smoothing_eps=0.0001):
         super(KLMinimizerThreshold, self).__init__()
         self.num_bins = num_bins
         self.smoothing_eps = smoothing_eps

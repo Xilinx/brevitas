@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from abc import ABC
 from abc import abstractmethod
 from contextlib import ExitStack
@@ -123,9 +122,8 @@ def _set_proxy_export_mode(model: Module, enabled: bool):
 
 
 def _set_export_handler(manager_cls, module: Module, instance_type, no_inheritance):
-    if (isinstance(module, instance_type)
-            and hasattr(module, 'export_handler')
-            and module.export_handler is None):
+    if (isinstance(module, instance_type) and hasattr(module, 'export_handler') and
+            module.export_handler is None):
         handler = manager_cls.handler_from_module(module, no_inheritance)
         if handler is None and module.requires_export_handler:
             raise RuntimeError(f"Module {module.__class__} not supported for export.")

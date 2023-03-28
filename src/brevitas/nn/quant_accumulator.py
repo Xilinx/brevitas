@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from typing import Optional, Type, Union
 
 from torch.nn import Module
@@ -24,10 +23,7 @@ class TruncQuantAccumulator(QuantTruncMixin, QuantLayerMixin, Module):
             return_quant_tensor: bool = True,
             **kwargs):
         QuantLayerMixin.__init__(self, return_quant_tensor)
-        QuantTruncMixin.__init__(
-            self,
-            trunc_quant=trunc_quant,
-            **kwargs)
+        QuantTruncMixin.__init__(self, trunc_quant=trunc_quant, **kwargs)
 
     @property
     def channelwise_separable(self) -> bool:
@@ -51,10 +47,7 @@ class ClampQuantAccumulator(QuantClampMixin, QuantLayerMixin, Module):
             return_quant_tensor: bool = True,
             **kwargs):
         QuantLayerMixin.__init__(self, return_quant_tensor)
-        QuantClampMixin.__init__(
-            self,
-            clamp_quant=clamp_quant,
-            **kwargs)
+        QuantClampMixin.__init__(self, clamp_quant=clamp_quant, **kwargs)
 
     @property
     def channelwise_separable(self) -> bool:

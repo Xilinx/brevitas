@@ -39,39 +39,34 @@ MAX_WAV_VALUE = 32768.0
 
 
 class Generator(nn.Module):
+
     def __init__(self, mel_channel, bit_width, last_layer_bit_width):
         super(Generator, self).__init__()
         self.mel_channel = mel_channel
 
         self.generator = nn.Sequential(
-            nn.utils.weight_norm(make_quantconv1d(mel_channel, 512, kernel_size=7, stride=1, padding=3,
-                                                  bit_width=bit_width)),
-
+            nn.utils.weight_norm(
+                make_quantconv1d(
+                    mel_channel, 512, kernel_size=7, stride=1, padding=3, bit_width=bit_width)),
             make_leakyRelu_activation(bit_width=bit_width),
-
-            nn.utils.weight_norm(make_transpconv1d(512, 256, kernel_size=16, stride=8, padding=4,
-                                                   bit_width=bit_width)),
-
+            nn.utils.weight_norm(
+                make_transpconv1d(
+                    512, 256, kernel_size=16, stride=8, padding=4, bit_width=bit_width)),
             ResStack(256, bit_width=bit_width),
-
             make_leakyRelu_activation(bit_width),
-            nn.utils.weight_norm(make_transpconv1d(256, 128, kernel_size=16, stride=8, padding=4,
-                                                   bit_width=bit_width)),
-
+            nn.utils.weight_norm(
+                make_transpconv1d(
+                    256, 128, kernel_size=16, stride=8, padding=4, bit_width=bit_width)),
             ResStack(128, bit_width=bit_width),
-
             make_leakyRelu_activation(bit_width),
-            nn.utils.weight_norm(make_transpconv1d(128, 64, kernel_size=4, stride=2, padding=1,
-                                                   bit_width=bit_width)),
-
+            nn.utils.weight_norm(
+                make_transpconv1d(128, 64, kernel_size=4, stride=2, padding=1,
+                                  bit_width=bit_width)),
             ResStack(64, bit_width=bit_width),
-
             make_leakyRelu_activation(bit_width),
             nn.utils.weight_norm(
                 make_transpconv1d(64, 32, kernel_size=4, stride=2, padding=1, bit_width=bit_width)),
-
             ResStack(32, bit_width=bit_width),
-
             make_leakyRelu_activation(bit_width),
             nn.utils.weight_norm(
                 make_quantconv1d(32, 1, kernel_size=7, stride=1, padding=3, bit_width=bit_width)),

@@ -33,16 +33,13 @@ class CTCLossNM(nn.Module):
 
         # self._blank = self.local_parameters.get('blank', 0)
         self._blank = num_classes
-        self._criterion = nn.CTCLoss(blank=self._blank,
-                                     reduction='none')
+        self._criterion = nn.CTCLoss(blank=self._blank, reduction='none')
 
     def _loss(self, log_probs, targets, input_length, target_length):
         input_length = input_length.long()
         target_length = target_length.long()
         targets = targets.long()
-        loss = self._criterion(log_probs.transpose(1, 0), targets,
-                               input_length,
-                               target_length)
+        loss = self._criterion(log_probs.transpose(1, 0), targets, input_length, target_length)
         # note that this is different from reduction = 'mean'
         # because we are not dividing by target lengths
         loss = torch.mean(loss)

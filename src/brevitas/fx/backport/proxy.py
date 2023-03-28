@@ -62,9 +62,14 @@ from .torch_function._overrides import is_tensor_method_or_property
 class TracerBase:
     graph: Graph
 
-    def create_node(self, kind : str, target : Target,
-                    args : Tuple[Argument, ...], kwargs : Dict[str, Argument], name : Optional[str] = None,
-                    type_expr : Optional[Any] = None) -> Node:
+    def create_node(
+            self,
+            kind: str,
+            target: Target,
+            args: Tuple[Argument, ...],
+            kwargs: Dict[str, Argument],
+            name: Optional[str] = None,
+            type_expr: Optional[Any] = None) -> Node:
         """
         Inserts a graph node given target, args, kwargs, and name.
 
@@ -77,8 +82,14 @@ class TracerBase:
     def proxy(self, node: Node) -> 'Proxy':
         return Proxy(node, self)
 
-    def create_proxy(self, kind: str, target: Target, args: Tuple[Any, ...], kwargs: Dict[str, Any],
-                     name: Optional[str] = None, type_expr : Optional[Any] = None):
+    def create_proxy(
+            self,
+            kind: str,
+            target: Target,
+            args: Tuple[Any, ...],
+            kwargs: Dict[str, Any],
+            name: Optional[str] = None,
+            type_expr: Optional[Any] = None):
         '''
         Create a Node from the given arguments, then return the Node
         wrapped in a Proxy object.
@@ -120,8 +131,10 @@ class TracerBase:
 
                 def no_node(arg):
                     if isinstance(arg, Node):
-                        raise RuntimeError("Keys for dictionaries used as an argument cannot contain a "
-                                           "Node. Got key: {k}")
+                        raise RuntimeError(
+                            "Keys for dictionaries used as an argument cannot contain a "
+                            "Node. Got key: {k}")
+
                 map_aggregate(k, no_node)
 
                 r[k] = self.create_arg(v)
@@ -151,8 +164,10 @@ class TracerBase:
         we don't know the value of the proxy, but a custom tracer can attach more
         information to the graph node using create_node and can choose to return an iterator.
         """
-        raise TraceError('Proxy object cannot be iterated. '
-                         'This can be attempted when used in a for loop or as a *args or **kwargs function argument.')
+        raise TraceError(
+            'Proxy object cannot be iterated. '
+            'This can be attempted when used in a for loop or as a *args or **kwargs function argument.'
+        )
 
     def keys(self, obj: 'Proxy') -> Any:
         """Called when a proxy object is has the keys() method called.
@@ -164,9 +179,11 @@ class TracerBase:
 
 # used in Proxy object when just appending to the graph while not tracing.
 class GraphAppendingTracer(TracerBase):
+
     def __init__(self, graph: Graph):
         super().__init__()
         self.graph = graph
+
 
 class TraceError(ValueError):
     pass
@@ -183,6 +200,7 @@ class Proxy:
     method around a raw ``Node`` so that you can use the overloaded
     operators to add additional things to a ``Graph``.
     """
+
     def __init__(self, node: Node, tracer: 'Optional[TracerBase]' = None):
         if tracer is None:
             # This allows you to create a Proxy object around a raw Node
@@ -219,9 +237,10 @@ class Proxy:
         return self.tracer.keys(self)
 
     def __len__(self):
-        raise RuntimeError("'len' is not supported in symbolic tracing by default. If you want "
-                           "this call to be recorded, please call torch.fx.wrap('len') at "
-                           "module scope")
+        raise RuntimeError(
+            "'len' is not supported in symbolic tracing by default. If you want "
+            "this call to be recorded, please call torch.fx.wrap('len') at "
+            "module scope")
 
     def __torch_function__(self, orig_method, types, args=None, kwargs=None):
         args = args if args else ()
@@ -229,10 +248,16 @@ class Proxy:
         if is_tensor_method_or_property(orig_method):
             return self.tracer.create_proxy('call_method', orig_method.__name__, args, kwargs)
         else:
-            return self.tracer.create_proxy('call_function', orig_method, args, kwargs,
-                                            name=self.tracer.graph._target_to_str(orig_method.__name__))
+            return self.tracer.create_proxy(
+                'call_function',
+                orig_method,
+                args,
+                kwargs,
+                name=self.tracer.graph._target_to_str(orig_method.__name__))
+
 
 class Attribute(Proxy):
+
     def __init__(self, root: Proxy, attr: str):
         self.root = root
         self.attr = attr
@@ -244,22 +269,29 @@ class Attribute(Proxy):
         # the node for attributes is added lazily, since most will just be method calls
         # which do not rely on the getitem call
         if self._node is None:
-            self._node = self.tracer.create_proxy('call_function', getattr, (self.root, self.attr), {}).node
+            self._node = self.tracer.create_proxy(
+                'call_function', getattr, (self.root, self.attr), {}).node
         return self._node
 
     def __call__(self, *args, **kwargs):
         return self.tracer.create_proxy('call_method', self.attr, (self.root,) + args, kwargs)
 
+
 for method in magic_methods:
+
     def scope(method):
+
         def impl(*args, **kwargs):
             tracer = args[0].tracer
             target = getattr(operator, method)
             return tracer.create_proxy('call_function', target, args, kwargs)
+
         impl.__name__ = method
         as_magic = f'__{method}__'
         setattr(Proxy, as_magic, impl)
+
     scope(method)
+
 
 def _define_reflectable(orig_method_name):
     method_name = f'__r{orig_method_name}__'
@@ -267,9 +299,11 @@ def _define_reflectable(orig_method_name):
     def impl(self, rhs):
         target = getattr(operator, orig_method_name)
         return self.tracer.create_proxy('call_function', target, (rhs, self), {})
+
     impl.__name__ = method_name
     impl.__qualname__ = method_name
     setattr(Proxy, method_name, impl)
+
 
 for orig_method_name in reflectable_magic_methods:
     _define_reflectable(orig_method_name)

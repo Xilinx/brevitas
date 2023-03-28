@@ -1,14 +1,14 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from contextlib import contextmanager
 from enum import Enum
 
 
 class AutoName(str, Enum):
+
     def _generate_next_value_(name, start, count, last_values):
-         return name
+        return name
 
     def __str__(self):
         return self.value

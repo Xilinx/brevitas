@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from abc import ABC
 from typing import Optional, Union
 
@@ -131,9 +130,8 @@ class FINNQuantConvNdHandler(FINNQuantWBIOLHandler, ABC):
         self.validate(module)
         maybe_int_bias = self.maybe_int_bias(module)
         maybe_quant_bias_scale = self.maybe_quant_bias_scale(module)
-        if (maybe_quant_bias_scale is not None
-                and len(maybe_quant_bias_scale.shape) > 0
-                and len(maybe_quant_bias_scale.view(-1)) > 1):
+        if (maybe_quant_bias_scale is not None and len(maybe_quant_bias_scale.shape) > 0 and
+                len(maybe_quant_bias_scale.view(-1)) > 1):
             maybe_quant_bias_scale = maybe_quant_bias_scale.view_as(maybe_int_bias)
         self.symbolic_kwargs = {
             'W': self.int_weight(module),

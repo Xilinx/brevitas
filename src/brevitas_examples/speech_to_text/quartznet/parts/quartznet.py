@@ -32,8 +32,7 @@ from .common import *
 jasper_activations = {
     "hardtanh": nn.Hardtanh,
     "relu": nn.ReLU,
-    "selu": nn.SELU,
-}
+    "selu": nn.SELU,}
 
 
 def init_weights(m, mode='xavier_uniform'):
@@ -71,8 +70,20 @@ def get_same_padding(kernel_size, stride, dilation):
 class MaskedConv1d(nn.Module):
     __constants__ = ["use_conv_mask", "real_out_channels", "heads"]
 
-    def __init__(self, in_channels, out_channels, kernel_size, scaling_per_channel, bit_width,
-                 stride=1, padding=0, dilation=1, groups=1, heads=-1, bias=False, use_mask=True):
+    def __init__(
+            self,
+            in_channels,
+            out_channels,
+            kernel_size,
+            scaling_per_channel,
+            bit_width,
+            stride=1,
+            padding=0,
+            dilation=1,
+            groups=1,
+            heads=-1,
+            bias=False,
+            use_mask=True):
         super(MaskedConv1d, self).__init__()
 
         if not (heads == -1 or groups == in_channels):
@@ -83,16 +94,25 @@ class MaskedConv1d(nn.Module):
             in_channels = heads
             out_channels = heads
             groups = heads
-        self.conv = make_quantconv1d(in_channels, out_channels, kernel_size, bias=bias,
-                                     stride=stride, padding=padding, dilation=dilation,
-                                     groups=groups, scaling_per_channel=scaling_per_channel, bit_width=bit_width)
+        self.conv = make_quantconv1d(
+            in_channels,
+            out_channels,
+            kernel_size,
+            bias=bias,
+            stride=stride,
+            padding=padding,
+            dilation=dilation,
+            groups=groups,
+            scaling_per_channel=scaling_per_channel,
+            bit_width=bit_width)
         self.channelwise_separable = (in_channels == out_channels) and (in_channels == groups)
         self.use_mask = use_mask
         self.heads = heads
 
     def get_seq_len(self, lens):
-        return ((lens + 2 * self.conv.padding[0] - self.conv.dilation[0] * (
-                self.conv.kernel_size[0] - 1) - 1) / self.conv.stride[0] + 1)
+        return ((
+            lens + 2 * self.conv.padding[0] - self.conv.dilation[0] *
+            (self.conv.kernel_size[0] - 1) - 1) / self.conv.stride[0] + 1)
 
     def forward(self, x, lens):
         if self.use_mask:
@@ -100,9 +120,7 @@ class MaskedConv1d(nn.Module):
             max_len = x.size(2)
             mask = torch.arange(max_len).to(lens.device) \
                        .expand(len(lens), max_len) >= lens.unsqueeze(1)
-            x = x.masked_fill(
-                mask.unsqueeze(1).to(device=x.device), 0
-            )
+            x = x.masked_fill(mask.unsqueeze(1).to(device=x.device), 0)
             # del mask
             lens = self.get_seq_len(lens)
 
@@ -141,16 +159,32 @@ class GroupShuffle(nn.Module):
 class JasperBlock(nn.Module):
     __constants__ = ["conv_mask", "separable", "residual_mode", "res", "mconv"]
 
-    def __init__(self, inplanes, planes, bit_width,
-                 absolute_act_val,
-                 activation_inner_scaling_per_output_channel, activation_other_scaling_per_output_channel,
-                 weight_scaling_per_output_channel,
-                 repeat=3, kernel_size=11, stride=1,
-                 dilation=1, padding='same', dropout=0.2, activation=None,
-                 residual=True, groups=1, separable=False,
-                 heads=-1, normalization="batch",
-                 norm_groups=1, residual_mode='add',
-                 residual_panes=[], conv_mask=False, fused_bn=False):
+    def __init__(
+            self,
+            inplanes,
+            planes,
+            bit_width,
+            absolute_act_val,
+            activation_inner_scaling_per_output_channel,
+            activation_other_scaling_per_output_channel,
+            weight_scaling_per_output_channel,
+            repeat=3,
+            kernel_size=11,
+            stride=1,
+            dilation=1,
+            padding='same',
+            dropout=0.2,
+            activation=None,
+            residual=True,
+            groups=1,
+            separable=False,
+            heads=-1,
+            normalization="batch",
+            norm_groups=1,
+            residual_mode='add',
+            residual_panes=[],
+            conv_mask=False,
+            fused_bn=False):
         super(JasperBlock, self).__init__()
 
         if padding != "same":
@@ -166,12 +200,46 @@ class JasperBlock(nn.Module):
         self.norm_depthwise = nn.ModuleList()
         for _ in range(repeat - 1):
             if separable:
-                self.norm_depthwise.extend(
-                    [make_norm_scale(bit_width=bit_width,
-                                     absolute_act_val=absolute_act_val,
-                                     scaling_per_channel=activation_other_scaling_per_output_channel)]
-                )
-            conv.extend(self._get_conv_bn_layer(
+                self.norm_depthwise.extend([
+                    make_norm_scale(
+                        bit_width=bit_width,
+                        absolute_act_val=absolute_act_val,
+                        scaling_per_channel=activation_other_scaling_per_output_channel)])
+            conv.extend(
+                self._get_conv_bn_layer(
+                    inplanes_loop,
+                    planes,
+                    kernel_size=kernel_size,
+                    stride=stride,
+                    dilation=dilation,
+                    padding=padding_val,
+                    groups=groups,
+                    heads=heads,
+                    separable=separable,
+                    normalization=normalization,
+                    norm_groups=norm_groups,
+                    bit_width=bit_width,
+                    scaling_per_channel=weight_scaling_per_output_channel))
+
+            conv.extend(
+                self._get_act_dropout_layer(
+                    drop_prob=dropout,
+                    activation=activation,
+                    channels=planes,
+                    bit_width=bit_width,
+                    absolute_act_val=absolute_act_val,
+                    scaling_per_channel=activation_inner_scaling_per_output_channel))
+
+            inplanes_loop = planes
+
+        if separable:
+            self.norm_depthwise.extend([
+                make_norm_scale(
+                    bit_width=bit_width,
+                    absolute_act_val=absolute_act_val,
+                    scaling_per_channel=activation_other_scaling_per_output_channel)])
+        conv.extend(
+            self._get_conv_bn_layer(
                 inplanes_loop,
                 planes,
                 kernel_size=kernel_size,
@@ -186,37 +254,6 @@ class JasperBlock(nn.Module):
                 bit_width=bit_width,
                 scaling_per_channel=weight_scaling_per_output_channel))
 
-            conv.extend(self._get_act_dropout_layer(
-                drop_prob=dropout,
-                activation=activation,
-                channels=planes,
-                bit_width=bit_width,
-                absolute_act_val=absolute_act_val,
-                scaling_per_channel=activation_inner_scaling_per_output_channel))
-
-            inplanes_loop = planes
-
-        if separable:
-            self.norm_depthwise.extend(
-                [make_norm_scale(bit_width=bit_width,
-                                 absolute_act_val=absolute_act_val,
-                                 scaling_per_channel=activation_other_scaling_per_output_channel)]
-            )
-        conv.extend(self._get_conv_bn_layer(
-            inplanes_loop,
-            planes,
-            kernel_size=kernel_size,
-            stride=stride,
-            dilation=dilation,
-            padding=padding_val,
-            groups=groups,
-            heads=heads,
-            separable=separable,
-            normalization=normalization,
-            norm_groups=norm_groups,
-            bit_width=bit_width,
-            scaling_per_channel=weight_scaling_per_output_channel))
-
         self.mconv = conv
 
         res_panes = residual_panes.copy()
@@ -228,17 +265,20 @@ class JasperBlock(nn.Module):
                 res_panes = [inplanes]
                 self.dense_residual = False
             for ip in res_panes:
-                res_list.append(nn.ModuleList(self._get_conv_bn_layer(
-                    ip,
-                    planes,
-                    kernel_size=1,
-                    normalization=normalization,
-                    norm_groups=norm_groups,
-                    bit_width=bit_width,
-                    scaling_per_channel=weight_scaling_per_output_channel)))
+                res_list.append(
+                    nn.ModuleList(
+                        self._get_conv_bn_layer(
+                            ip,
+                            planes,
+                            kernel_size=1,
+                            normalization=normalization,
+                            norm_groups=norm_groups,
+                            bit_width=bit_width,
+                            scaling_per_channel=weight_scaling_per_output_channel)))
             self.res = res_list
             self.quant_normalization = make_norm_scale(
-                bit_width=bit_width, absolute_act_val=absolute_act_val,
+                bit_width=bit_width,
+                absolute_act_val=absolute_act_val,
                 scaling_per_channel=activation_other_scaling_per_output_channel)
         else:
             self.res = None
@@ -251,63 +291,114 @@ class JasperBlock(nn.Module):
                 channels=inplanes_loop,
                 absolute_act_val=absolute_act_val,
                 scaling_per_channel=activation_other_scaling_per_output_channel,
-                bit_width=bit_width)
-        )
+                bit_width=bit_width))
 
-    def _get_conv(self, in_channels, out_channels, bit_width, scaling_per_channel, kernel_size=11,
-                  stride=1, dilation=1, padding=0, bias=False,
-                  groups=1, heads=-1, separable=False):
+    def _get_conv(
+            self,
+            in_channels,
+            out_channels,
+            bit_width,
+            scaling_per_channel,
+            kernel_size=11,
+            stride=1,
+            dilation=1,
+            padding=0,
+            bias=False,
+            groups=1,
+            heads=-1,
+            separable=False):
         use_mask = self.conv_mask
         if use_mask:
-            return MaskedConv1d(in_channels, out_channels, kernel_size,
-                                stride=stride,
-                                dilation=dilation, padding=padding, bias=bias,
-                                groups=groups, heads=heads,
-                                use_mask=use_mask, scaling_per_channel=scaling_per_channel, bit_width=bit_width)
+            return MaskedConv1d(
+                in_channels,
+                out_channels,
+                kernel_size,
+                stride=stride,
+                dilation=dilation,
+                padding=padding,
+                bias=bias,
+                groups=groups,
+                heads=heads,
+                use_mask=use_mask,
+                scaling_per_channel=scaling_per_channel,
+                bit_width=bit_width)
         else:
-            return make_quantconv1d(in_channels, out_channels, kernel_size, stride=stride,
-                                    dilation=dilation, padding=padding, groups=groups, bias=bias,
-                                    scaling_per_channel=scaling_per_channel, bit_width=bit_width)
+            return make_quantconv1d(
+                in_channels,
+                out_channels,
+                kernel_size,
+                stride=stride,
+                dilation=dilation,
+                padding=padding,
+                groups=groups,
+                bias=bias,
+                scaling_per_channel=scaling_per_channel,
+                bit_width=bit_width)
 
-    def _get_conv_bn_layer(self, in_channels, out_channels, bit_width, scaling_per_channel, kernel_size=11,
-                           stride=1, dilation=1, padding=0, bias=False,
-                           groups=1, heads=-1, separable=False,
-                           normalization="batch", norm_groups=1):
+    def _get_conv_bn_layer(
+            self,
+            in_channels,
+            out_channels,
+            bit_width,
+            scaling_per_channel,
+            kernel_size=11,
+            stride=1,
+            dilation=1,
+            padding=0,
+            bias=False,
+            groups=1,
+            heads=-1,
+            separable=False,
+            normalization="batch",
+            norm_groups=1):
         if norm_groups == -1:
             norm_groups = out_channels
 
         if separable:
             layers = [
-                self._get_conv(in_channels,
-                               in_channels,
-                               kernel_size=kernel_size,
-                               stride=stride,
-                               dilation=dilation, padding=padding,
-                               groups=in_channels, heads=heads, bias=bias,
-                               scaling_per_channel=scaling_per_channel, bit_width=bit_width),
-                self._get_conv(in_channels, out_channels, kernel_size=1,
-                               stride=1,
-                               dilation=1, padding=0, groups=groups, bias=bias,
-                               scaling_per_channel=scaling_per_channel, bit_width=bit_width)
-            ]
+                self._get_conv(
+                    in_channels,
+                    in_channels,
+                    kernel_size=kernel_size,
+                    stride=stride,
+                    dilation=dilation,
+                    padding=padding,
+                    groups=in_channels,
+                    heads=heads,
+                    bias=bias,
+                    scaling_per_channel=scaling_per_channel,
+                    bit_width=bit_width),
+                self._get_conv(
+                    in_channels,
+                    out_channels,
+                    kernel_size=1,
+                    stride=1,
+                    dilation=1,
+                    padding=0,
+                    groups=groups,
+                    bias=bias,
+                    scaling_per_channel=scaling_per_channel,
+                    bit_width=bit_width)]
         else:
             layers = [
-                self._get_conv(in_channels, out_channels, kernel_size=kernel_size,
-                               scaling_per_channel=scaling_per_channel, bit_width=bit_width,
-                               stride=stride, bias=bias,
-                               dilation=dilation, padding=padding,
-                               groups=groups)
-            ]
+                self._get_conv(
+                    in_channels,
+                    out_channels,
+                    kernel_size=kernel_size,
+                    scaling_per_channel=scaling_per_channel,
+                    bit_width=bit_width,
+                    stride=stride,
+                    bias=bias,
+                    dilation=dilation,
+                    padding=padding,
+                    groups=groups)]
 
         if normalization == "group":
-            layers.append(nn.GroupNorm(
-                num_groups=norm_groups, num_channels=out_channels))
+            layers.append(nn.GroupNorm(num_groups=norm_groups, num_channels=out_channels))
         elif normalization == "instance":
-            layers.append(nn.GroupNorm(
-                num_groups=out_channels, num_channels=out_channels))
+            layers.append(nn.GroupNorm(num_groups=out_channels, num_channels=out_channels))
         elif normalization == "layer":
-            layers.append(nn.GroupNorm(
-                num_groups=1, num_channels=out_channels))
+            layers.append(nn.GroupNorm(num_groups=1, num_channels=out_channels))
         elif normalization == "batch":
             if self.fused_bn:
                 self.conv_module_to_merge.append(layers[-1])
@@ -323,14 +414,24 @@ class JasperBlock(nn.Module):
             layers.append(GroupShuffle(groups, out_channels))
         return layers
 
-    def _get_act_dropout_layer(self, channels, bit_width, absolute_act_val, scaling_per_channel, drop_prob=0.2, activation=None):
+    def _get_act_dropout_layer(
+            self,
+            channels,
+            bit_width,
+            absolute_act_val,
+            scaling_per_channel,
+            drop_prob=0.2,
+            activation=None):
         if activation is None:
             raise Exception("Activation required")
         layers = [
-            make_jasper_activation(activation, channels, bit_width=bit_width, absolute_act_val=absolute_act_val,
-                                   scaling_per_channel=scaling_per_channel),
-            nn.Dropout(p=drop_prob)
-        ]
+            make_jasper_activation(
+                activation,
+                channels,
+                bit_width=bit_width,
+                absolute_act_val=absolute_act_val,
+                scaling_per_channel=scaling_per_channel),
+            nn.Dropout(p=drop_prob)]
         return layers
 
     def forward(self, input_: Tuple[List[Tensor], Optional[Tensor]]):
@@ -391,26 +492,14 @@ class JasperBlock(nn.Module):
         return [out], lens
 
     def _load_from_state_dict(
-            self,
-            state_dict,
-            prefix,
-            local_metadata,
-            strict,
-            missing_keys,
-            unexpected_keys,
+            self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
             error_msgs):
         if not self.conv_mask:
             rename_state_dict_by_postfix('conv.weight', 'weight', state_dict)
         if self.fused_bn:
             self.fuse_bn(state_dict, prefix)
         super(JasperBlock, self)._load_from_state_dict(
-            state_dict,
-            prefix,
-            local_metadata,
-            strict,
-            missing_keys,
-            unexpected_keys,
-            error_msgs)
+            state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
         # fix pretrained models with declared but unused extra quantization layers
         extra_k = 'quant_normalization'
         is_prefix_to_fix = any([prefix == 'encoder.' + p for p in ["0.", "16.", "17."]])
@@ -419,8 +508,7 @@ class JasperBlock(nn.Module):
                 if extra_k in k:
                     del unexpected_keys[i]
 
-    def fuse_bn(self, state_dict,
-            prefix):
+    def fuse_bn(self, state_dict, prefix):
         index = 0
         flag = False
         keys_to_check = []
@@ -431,14 +519,13 @@ class JasperBlock(nn.Module):
                 if k.split('.')[-1] == 'running_mean':
                     flag = True
 
-
         if flag:
             for name in keys_to_check:
                 prefix_long = name.split('.')[:-1]
                 if name.split('.')[-1] == "running_mean":
                     bn_prefix = '.'.join(prefix_long)
                     module_number = int(prefix_long[-1])
-                    conv_name = prefix_long[:-1] + [str(module_number-1)]
+                    conv_name = prefix_long[:-1] + [str(module_number - 1)]
                     if self.conv_mask:
                         conv_name = conv_name + ['conv']
                     conv_name = '.'.join(conv_name)

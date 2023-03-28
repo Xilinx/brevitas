@@ -28,24 +28,27 @@ def parse_args(args):
         kwargs[k] = v
     return kwargs
 
+
 @pytest_cases.parametrize_with_cases('model_input', cases=case_model)
 def test_quant_wbiol(model_input, current_cases):
     model, input = model_input
 
     cases_generator_func = current_cases['model_input'][1]
     case_id = get_case_id(cases_generator_func)
-    args = case_id.split('-')[1:] # Exclude first argument
+    args = case_id.split('-')[1:]  # Exclude first argument
     kwargs = parse_args(args)
 
     is_input_quanttensor = kwargs['io_quant'] is not None or kwargs['input_quantized']
 
-    if (not is_input_quanttensor or kwargs['weight_quant'] is None) and kwargs['bias_quant'] == 'quant_external':
+    if (not is_input_quanttensor or
+            kwargs['weight_quant'] is None) and kwargs['bias_quant'] == 'quant_external':
         with pytest.raises(RuntimeError, match='Input scale required'):
             output = model(input)
         return
     elif kwargs['weight_quant'] == 'quant_asym' and kwargs['return_quant_tensor'] and kwargs['io_quant'] is None \
         and kwargs['input_quantized']:
-        with pytest.raises(RuntimeError, match='Computing zero point of output accumulator not supported yet.'):
+        with pytest.raises(RuntimeError,
+                           match='Computing zero point of output accumulator not supported yet.'):
             output = model(input)
         return
     else:
@@ -58,14 +61,15 @@ def test_quant_wbiol(model_input, current_cases):
             kwargs['io_quant'] is None:
             assert output.scale is None
             assert output.bit_width is None
-        else: # "Full" QuantTensor
+        else:  # "Full" QuantTensor
             assert output.scale is not None
             assert output.bit_width is not None
     else:
         assert isinstance(output, torch.Tensor)
 
 
-@pytest_cases.parametrize_with_cases('model_input', cases=[case_quant_lstm_full, case_quant_rnn_full])
+@pytest_cases.parametrize_with_cases(
+    'model_input', cases=[case_quant_lstm_full, case_quant_rnn_full])
 def test_quant_lstm_rnn_full(model_input, current_cases):
     model, input = model_input
 
@@ -79,9 +83,9 @@ def test_quant_lstm_rnn_full(model_input, current_cases):
     if (kwargs['bias_quant'] == 'quant_external') and ( \
         (not is_input_quanttensor or kwargs['weight_quant'] is None) or \
         (kwargs['num_layers']> 1 and (kwargs['weight_quant'] is None or kwargs['io_quant'] is None))):
-            with pytest.raises(RuntimeError, match='Input scale required'):
-                output = model(input)
-            return
+        with pytest.raises(RuntimeError, match='Input scale required'):
+            output = model(input)
+        return
     else:
         output = model(input)
     if len(output) == 1:
@@ -89,7 +93,7 @@ def test_quant_lstm_rnn_full(model_input, current_cases):
         h, c = None, None
     elif len(output) == 2:
         if 'quant_lstm' in args[0]:
-            output, (h,c) = output
+            output, (h, c) = output
         else:
             output, h = output
             c = None
@@ -102,14 +106,14 @@ def test_quant_lstm_rnn_full(model_input, current_cases):
             kwargs['io_quant'] is None:
             assert output.scale is None
             assert output.bit_width is None
-        else: # "Full" QuantTensor
+        else:  # "Full" QuantTensor
             assert output.scale is not None
             assert output.bit_width is not None
     else:
         assert isinstance(output, torch.Tensor)
 
     if h is not None:
-        if (return_quant_tensor or kwargs['num_layers']==2) and kwargs['io_quant'] is not None:
+        if (return_quant_tensor or kwargs['num_layers'] == 2) and kwargs['io_quant'] is not None:
             assert isinstance(h, QuantTensor)
         else:
             assert isinstance(h, torch.Tensor)
@@ -147,9 +151,9 @@ def test_quant_lstm_rnn(model_input, current_cases):
     if (kwargs['bias_quant'] == 'quant_external') and ( \
         (not is_input_quanttensor or kwargs['weight_quant'] is None) or \
         (kwargs['num_layers']> 1 and (kwargs['weight_quant'] is None or kwargs['io_quant'] is None))):
-            with pytest.raises(RuntimeError, match='Input scale required'):
-                output = model(input)
-            return
+        with pytest.raises(RuntimeError, match='Input scale required'):
+            output = model(input)
+        return
     else:
         output = model(input)
     if len(output) == 1:
@@ -157,7 +161,7 @@ def test_quant_lstm_rnn(model_input, current_cases):
         h, c = None, None
     elif len(output) == 2:
         if args[0] == 'quant_lstm':
-            output, (h,c) = output
+            output, (h, c) = output
         else:
             output, h = output
             c = None
@@ -170,20 +174,20 @@ def test_quant_lstm_rnn(model_input, current_cases):
             kwargs['io_quant'] is None:
             assert output.scale is None
             assert output.bit_width is None
-        else: # "Full" QuantTensor
+        else:  # "Full" QuantTensor
             assert output.scale is not None
             assert output.bit_width is not None
     else:
         assert isinstance(output, torch.Tensor)
 
     if h is not None:
-        if (return_quant_tensor or kwargs['num_layers']==2) and kwargs['io_quant'] is not None:
+        if (return_quant_tensor or kwargs['num_layers'] == 2) and kwargs['io_quant'] is not None:
             assert isinstance(h, QuantTensor)
         else:
             assert isinstance(h, torch.Tensor)
 
     if c is not None:
-        if (return_quant_tensor or kwargs['num_layers']==2) and kwargs['io_quant'] is not None:
+        if (return_quant_tensor or kwargs['num_layers'] == 2) and kwargs['io_quant'] is not None:
             assert isinstance(c, QuantTensor)
         else:
             assert isinstance(c, torch.Tensor)

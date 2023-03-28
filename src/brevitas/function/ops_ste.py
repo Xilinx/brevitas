@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 """
 Implementation of various functions with a straight-through gradient estimators, dispatched to
 either a native just-in-time compiled backend (when env ``BREVITAS_JIT=1``) or to an autograd
@@ -34,9 +33,7 @@ __all__ = [
     'ternary_sign_ste',
     'round_to_zero_ste',
     'dpu_round_ste',
-    'abs_binary_sign_grad'
-]
-
+    'abs_binary_sign_grad']
 
 if brevitas.NATIVE_STE_BACKEND_LOADED:
     fn_prefix = torch

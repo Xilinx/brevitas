@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from hypothesis import given
 import mock
 import torch
@@ -16,12 +15,12 @@ from tests.marker import jit_disabled_for_mock
 
 
 def is_binary_output_value_correct(scale: Tensor, output: Tensor):
-    return ((output == scale) | (output == - scale)).all()
+    return ((output == scale) | (output == -scale)).all()
 
 
 def is_binary_output_sign_correct(inp: Tensor, output: Tensor):
-    return (((output > torch.tensor(0.0)) & (inp >= torch.tensor(0)))
-                | ((output < torch.tensor(0.0)) & (inp < torch.tensor(0)))).all()
+    return (((output > torch.tensor(0.0)) & (inp >= torch.tensor(0))) |
+            ((output < torch.tensor(0.0)) & (inp < torch.tensor(0)))).all()
 
 
 class TestBinaryUnit:

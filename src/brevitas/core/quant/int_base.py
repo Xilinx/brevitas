@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import torch
 from torch import Tensor
 from torch.nn import Module
@@ -63,12 +62,7 @@ class IntQuant(brevitas.jit.ScriptModule):
         self.delay_wrapper = DelayWrapper(quant_delay_steps)
 
     @brevitas.jit.script_method_110_disabled
-    def to_int(
-            self,
-            scale: Tensor,
-            zero_point: Tensor,
-            bit_width: Tensor,
-            x: Tensor) -> Tensor:
+    def to_int(self, scale: Tensor, zero_point: Tensor, bit_width: Tensor, x: Tensor) -> Tensor:
         y = x / scale
         y = y + zero_point
         min_int_val = self.min_int(bit_width)
@@ -86,12 +80,7 @@ class IntQuant(brevitas.jit.ScriptModule):
         return max_int(self.signed, self.narrow_range, bit_width)
 
     @brevitas.jit.script_method
-    def forward(
-            self,
-            scale: Tensor,
-            zero_point: Tensor,
-            bit_width: Tensor,
-            x: Tensor) -> Tensor:
+    def forward(self, scale: Tensor, zero_point: Tensor, bit_width: Tensor, x: Tensor) -> Tensor:
         y_int = self.to_int(scale, zero_point, bit_width, x)
         y = y_int - zero_point
         y = y * scale
@@ -147,10 +136,7 @@ class DecoupledIntQuant(brevitas.jit.ScriptModule):
 
     @brevitas.jit.script_method_110_disabled
     def to_int(
-            self,
-            pre_scale: Tensor,
-            pre_zero_point: Tensor,
-            bit_width: Tensor,
+            self, pre_scale: Tensor, pre_zero_point: Tensor, bit_width: Tensor,
             x: Tensor) -> Tensor:
         y = x / pre_scale
         y = y + pre_zero_point

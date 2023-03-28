@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from pytest_cases import parametrize
 from pytest_cases import set_case_id
 from torch import nn
@@ -20,21 +19,24 @@ class QuantWBIOLCases:
     @parametrize('per_channel', [True, False])
     @parametrize('quantizers', QUANTIZERS.values(), ids=list(QUANTIZERS.keys()))
     def case_quant_wbiol(
-            self, impl, input_bit_width, weight_bit_width, output_bit_width, per_channel, quantizers, request):
+            self,
+            impl,
+            input_bit_width,
+            weight_bit_width,
+            output_bit_width,
+            per_channel,
+            quantizers,
+            request):
 
         # Change the case_id based on current value of Parameters
         set_case_id(request.node.callspec.id, QuantWBIOLCases.case_quant_wbiol)
 
         weight_quant, io_quant = quantizers
         if impl is QuantLinear:
-            layer_kwargs = {
-                'in_features': IN_CH,
-                'out_features': OUT_CH}
+            layer_kwargs = {'in_features': IN_CH, 'out_features': OUT_CH}
         else:
             layer_kwargs = {
-                'in_channels': IN_CH,
-                'out_channels': OUT_CH,
-                'kernel_size': KERNEL_SIZE}
+                'in_channels': IN_CH, 'out_channels': OUT_CH, 'kernel_size': KERNEL_SIZE}
 
         class Model(nn.Module):
 
@@ -92,7 +94,7 @@ class QuantRecurrentCases:
                     sigmoid_quant=None,
                     tanh_quant=None,
                     cell_state_quant=None,
-                    batch_first=False, # ort doesn't support batch_first=True (layout = 1)
+                    batch_first=False,  # ort doesn't support batch_first=True (layout = 1)
                     num_layers=num_layers,
                     bidirectional=bidirectional,
                     shared_input_hidden_weights=shared_input_hidden,
@@ -111,7 +113,9 @@ class QuantRecurrentCases:
     @parametrize('weight_bit_width', BIT_WIDTHS, ids=[f'w{b}' for b in BIT_WIDTHS])
     @parametrize('per_channel', [True, False])
     @parametrize('quantizers', QUANTIZERS.values(), ids=list(QUANTIZERS.keys()))
-    def case_quant_lstm(self, bidirectional, cifg, num_layers, weight_bit_width, per_channel, quantizers, request):
+    def case_quant_lstm(
+            self, bidirectional, cifg, num_layers, weight_bit_width, per_channel, quantizers,
+            request):
 
         # Change the case_id based on current value of Parameters
         set_case_id(request.node.callspec.id, QuantRecurrentCases.case_quant_lstm)
@@ -139,7 +143,7 @@ class QuantRecurrentCases:
                     sigmoid_quant=None,
                     tanh_quant=None,
                     cell_state_quant=None,
-                    batch_first=False, # ort doesn't support batch_first=True (layout = 1)
+                    batch_first=False,  # ort doesn't support batch_first=True (layout = 1)
                     num_layers=num_layers,
                     bidirectional=bidirectional,
                     shared_input_hidden_weights=shared_input_hidden,

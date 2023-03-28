@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from abc import ABC
 from abc import abstractmethod
 import math
@@ -13,11 +12,7 @@ from torch.nn import Module
 from brevitas.function.ops import max_int
 from brevitas.function.ops import min_int
 
-__all__ = [
-    'BaseHandler',
-    'BitWidthHandlerMixin',
-    'ZeroPointHandlerMixin'
-]
+__all__ = ['BaseHandler', 'BitWidthHandlerMixin', 'ZeroPointHandlerMixin']
 
 
 class BaseHandler(Module, ABC):
@@ -56,7 +51,8 @@ class ClipMixin(ABC):
             elif signed and (bit_width < 32. or narrow and bit_width <= 32.):
                 dtype = torch.int32
             else:
-                raise RuntimeError(f"Sign {signed} and bit width {bit_width} not supported for export.")
+                raise RuntimeError(
+                    f"Sign {signed} and bit width {bit_width} not supported for export.")
             return {
                 'min_val': min_int(signed, narrow, bit_width).to(dtype),
                 'max_val': max_int(signed, narrow, bit_width).to(dtype)}
@@ -121,7 +117,7 @@ class ScaleHandlerMixin(ABC):
 
     @classmethod
     def validate_neg_scalar_int_exponent(cls, scale: Tensor):
-        return - cls.validate_scalar_int_exponent(scale)
+        return -cls.validate_scalar_int_exponent(scale)
 
 
 class ZeroPointHandlerMixin(ABC):

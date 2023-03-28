@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from typing import Optional, Tuple, Type, Union
 
 from packaging import version
@@ -78,7 +77,9 @@ class QuantConvTranspose1d(QuantWBIOL, ConvTranspose1d):
     def channelwise_separable(self) -> bool:
         raise self.groups == self.out_channels
 
-    def forward(self, input: Union[Tensor, QuantTensor], output_size=None) -> Union[Tensor, QuantTensor]:
+    def forward(self,
+                input: Union[Tensor, QuantTensor],
+                output_size=None) -> Union[Tensor, QuantTensor]:
         self._output_size = output_size  # cache the value temporarily
         return self.forward_impl(input)
 
@@ -87,7 +88,7 @@ class QuantConvTranspose1d(QuantWBIOL, ConvTranspose1d):
             return self._output_padding(
                 inp, output_size, self.stride, self.padding, self.kernel_size, num_spatial_dims=1)
         else:
-             return self._output_padding(
+            return self._output_padding(
                 inp, output_size, self.stride, self.padding, self.kernel_size)
 
     def conv_transpose1d_zeros_pad(
@@ -167,7 +168,9 @@ class QuantConvTranspose2d(QuantWBIOL, ConvTranspose2d):
     def channelwise_separable(self) -> bool:
         raise self.groups == self.out_channels
 
-    def forward(self, input: Union[Tensor, QuantTensor], output_size=None) -> Union[Tensor, QuantTensor]:
+    def forward(self,
+                input: Union[Tensor, QuantTensor],
+                output_size=None) -> Union[Tensor, QuantTensor]:
         self._output_size = output_size  # cache the value temporarily
         return self.forward_impl(input)
 
@@ -176,7 +179,7 @@ class QuantConvTranspose2d(QuantWBIOL, ConvTranspose2d):
             return self._output_padding(
                 inp, output_size, self.stride, self.padding, self.kernel_size, num_spatial_dims=2)
         else:
-             return self._output_padding(
+            return self._output_padding(
                 inp, output_size, self.stride, self.padding, self.kernel_size)
 
     def conv_transpose2d_zeros_pad(

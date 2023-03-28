@@ -69,9 +69,11 @@ from .signatures import get_tensor_overrides
 
 ArgSpec = collections.namedtuple('ArgSpec', 'args varargs keywords defaults')
 
+
 def getargspec(func):
     spec = getfullargspec(func)
     return ArgSpec(spec.args, spec.varargs, spec.varkw, spec.defaults)
+
 
 from torch import Tensor
 
@@ -141,8 +143,7 @@ def _get_overloaded_types_and_args(relevant_args):
     return overloaded_types, overloaded_args
 
 
-def _implement_torch_function(
-        implementation, relevant_args, args, kwargs):
+def _implement_torch_function(implementation, relevant_args, args, kwargs):
     # Check for __torch_function__ methods.
     types, overloaded_args = _get_overloaded_types_and_args(relevant_args)
     # Short-cut for common cases: no overload or only Tensor overload
@@ -158,9 +159,9 @@ def _implement_torch_function(
             return result
 
     func_name = '{}.{}'.format(implementation.__module__, implementation.__name__)
-    raise TypeError("no implementation found for '{}' on types that implement "
-                    '__torch_function__: {}'
-                    .format(func_name, list(map(type, overloaded_args))))
+    raise TypeError(
+        "no implementation found for '{}' on types that implement "
+        '__torch_function__: {}'.format(func_name, list(map(type, overloaded_args))))
 
 
 def torch_function_dispatch(dispatcher):
@@ -171,10 +172,10 @@ def torch_function_dispatch(dispatcher):
         def wrapper(*args, **kwargs):
             relevant_args = dispatcher(*args, **kwargs)
             return _implement_torch_function(implementation, relevant_args, args, kwargs)
+
         return wrapper
 
     return decorator
-
 
 
 def is_tensor_method_or_property(func) -> bool:
