@@ -1,7 +1,7 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from typing import Union
+from typing import Optional, Union
 
 import torch
 from torch import nn
@@ -12,6 +12,8 @@ from brevitas.function.ops import max_int
 from brevitas.function.ops_ste import ceil_ste
 import brevitas.nn as qnn
 from brevitas.nn.mixin import QuantLayerMixin
+from brevitas.nn.mixin.act import ActQuantType
+from brevitas.nn.quant_layer import QuantNonLinearActLayer as QuantNLAL
 from brevitas.quant import Int8ActPerTensorFixedPoint
 from brevitas.quant import Uint8ActPerTensorFixedPoint
 from brevitas.quant_tensor import QuantTensor
@@ -47,6 +49,61 @@ class FlexMLQuantLeakyReLU(nn.Module):
     @property
     def is_quant_act_signed(self):
         return self.output_quant.is_quant_act_signed
+
+
+class FlexMLQuantSwish(QuantNLAL):
+
+    def __init__(
+            self,
+            act_quant: Optional[ActQuantType] = Int8ActPerTensorFixedPoint,
+            input_quant: Optional[ActQuantType] = None,
+            return_quant_tensor: bool = False,
+            **kwargs):
+        QuantNLAL.__init__(
+            self,
+            act_impl=nn.SiLU,
+            passthrough_act=False,
+            input_quant=input_quant,
+            act_quant=act_quant,
+            return_quant_tensor=return_quant_tensor,
+            **kwargs)
+
+
+class FlexMLQuantHardsigmoid(QuantNLAL):
+
+    def __init__(
+            self,
+            act_quant: Optional[ActQuantType] = Uint8ActPerTensorFixedPoint,
+            input_quant: Optional[ActQuantType] = None,
+            return_quant_tensor: bool = False,
+            **kwargs):
+        QuantNLAL.__init__(
+            self,
+            act_impl=nn.Hardsigmoid,
+            passthrough_act=False,
+            input_quant=input_quant,
+            act_quant=act_quant,
+            return_quant_tensor=return_quant_tensor,
+            **kwargs)
+
+
+class FlexMLQuantHardswish(QuantNLAL):
+
+    def __init__(
+            self,
+            act_quant: Optional[ActQuantType] = Int8ActPerTensorFixedPoint,
+            input_quant: Optional[ActQuantType] = None,
+            return_quant_tensor: bool = False,
+            **kwargs):
+        QuantNLAL.__init__(
+            self,
+            act_impl=nn.Hardswish,
+            passthrough_act=False,
+            input_quant=input_quant,
+            act_quant=act_quant,
+            return_quant_tensor=return_quant_tensor,
+            **kwargs)
+
 
 class FlexMLQuantAvgPool2d(QuantLayerMixin, nn.AvgPool2d):
 
