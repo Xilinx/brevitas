@@ -78,6 +78,23 @@ class MeanMethodToAdaptiveAvgPool2d(MethodToModule):
         replace_all_uses_except(node, squeeze_node, [squeeze_node, batch_size_node])
 
 
+class RemoveStochasticModules(GraphTransform):
+    def apply(self, graph_model: GraphModule) -> GraphModule:
+        for node in graph_model.graph.nodes:
+            if 'stochastic_depth' in node.name:
+                previous_nodes = node.all_input_nodes
+                next_node = list(node.users.keys())[0]
+                next_node_args = list(next_node.args)
+                index_for_insertion = next_node_args.index(node)
+                next_node_args = [t for t in next_node_args if t is not node]
+                next_node_args[index_for_insertion:index_for_insertion] = previous_nodes
+                next_node.args = tuple(next_node_args)
+                graph_model.graph.erase_node(node)
+                graph_model.graph.lint()
+                graph_model.recompile()
+        return graph_model
+
+
 class TorchFunctionalToModule(GraphTransform):
 
     FN_TO_MODULE_MAP = ((F.relu, nn.ReLU), (F.relu_, nn.ReLU), (F.relu6, nn.ReLU6),
