@@ -410,3 +410,11 @@ class QuantTensor(QuantTensorBase):
 
     def __pos__(self):
         return self
+    
+    def __getitem__(self, indices):
+        # Only allow indexing on QuantTensors with scalar scale
+        if self.scale == None or self.scale.shape == torch.Size([]):
+            return QuantTensor(self.value[indices], self.scale, self.zero_point, self.bit_width, self.signed, self.training)
+
+        # Do not yet support indexing on QuantTensors with scale per channel, as it is not directly clear how to handle this
+        raise RuntimeError("QuantTensor with scale of shape {} is not supported.".format(self.scale.shape))
