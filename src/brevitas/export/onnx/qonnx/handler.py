@@ -95,12 +95,13 @@ class BrevitasDecoupledWeightQuantWithInputProxyHandler(BrevitasQuantProxyHandle
     def __init__(self):
         super().__init__()
         self.extra_kwargs = {}
-        # NOTE: Currently only doesn't support sharing quantizers.
         self.quant_weight = None
 
     def validate(self, module):
+        quant_weight = module.quant_weight()
+        if quant_weight.bit_width == 1:
+            assert quant_weight.zero_point == 0, "Zero-point not supported for binary quant."
         # TODO: add checks for accumulator constraints
-        pass
 
     def prepare_for_export(self, module: DecoupledWeightQuantWithInputProxyFromInjector):
         if module.is_quant_enabled:
