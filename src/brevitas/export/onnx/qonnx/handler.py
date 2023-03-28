@@ -12,6 +12,7 @@ from brevitas.export.onnx.handler import QuantLSTMLayerHandler
 from brevitas.proxy import ActQuantProxyFromInjector
 from brevitas.proxy import BiasQuantProxyFromInjector
 from brevitas.proxy import DecoupledWeightQuantProxyFromInjector
+from brevitas.proxy import DecoupledWeightQuantWithInputProxyFromInjector
 from brevitas.proxy import WeightQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector
 
@@ -86,6 +87,41 @@ class BrevitasDecoupledWeightQuantProxyHandler(BrevitasWeightQuantProxyHandler):
         pre_scale = self.extra_kwargs['pre_scale']
         pre_zero_point = self.extra_kwargs['pre_zero_point']
         return out, pre_scale, pre_zero_point, scale, zero_point, bit_width
+
+
+class BrevitasDecoupledWeightQuantWithInputProxyHandler(BrevitasQuantProxyHandler):
+    handled_layer = DecoupledWeightQuantWithInputProxyFromInjector
+
+    def __init__(self):
+        super().__init__()
+        self.extra_kwargs = {}
+        # NOTE: Currently only doesn't support sharing quantizers.
+        self.quant_weight = None
+
+    def validate(self, module):
+        # TODO: add checks for accumulator constraints
+        pass
+
+    def prepare_for_export(self, module: DecoupledWeightQuantWithInputProxyFromInjector):
+        if module.is_quant_enabled:
+            assert len(module.tracked_module_list) == 1, "Does not currently suport sharing quantizers for export."
+            self.validate(module.tracked_module_list[0])
+            quant_weight = module.tracked_module_list[0].quant_weight()
+            self.quant_weight = quant_weight.value
+            self.symbolic_kwargs = {
+                'scale': quant_weight.scale,
+                'zero_point': quant_weight.zero_point,
+                'bit_width': quant_weight.bit_width,
+                'signed': quant_weight.signed,
+                # narrow_range is not a property of the QuantTensor, take it from the proxy instead
+                'narrow_range': module.is_narrow_range,
+                # override rounding mode since quantization has been pre-applied
+                'rounding_mode': 'ROUND',
+            }
+
+    def symbolic_execution(self, x: Tensor, input_bit_width: Tensor, input_is_signed: Tensor):
+        out, scale, zero_point, bit_width = super().symbolic_execution(x)
+        return out, scale, zero_point, bit_width, None, None
 
 
 class BrevitasActQuantProxyHandler(BrevitasQuantProxyHandler):
