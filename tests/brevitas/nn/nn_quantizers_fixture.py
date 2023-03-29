@@ -19,6 +19,7 @@ from brevitas.nn import QuantLinear
 from brevitas.nn.quant_mha import QuantMultiheadAttention
 from brevitas.nn.quant_rnn import QuantLSTM
 from brevitas.nn.quant_rnn import QuantRNN
+from brevitas.proxy.parameter_quant import DecoupledWeightQuantWithInputProxyFromInjector
 from brevitas.quant.fixed_point import Int8WeightNormL2PerChannelFixedPoint
 from brevitas.quant.fixed_point import Int8AccumulatorAwareWeightQuant
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
@@ -87,7 +88,8 @@ QUANT_WBIOL_IMPL = [
     QuantConv1d,
     QuantConv2d,
     QuantConvTranspose1d,
-    QuantConvTranspose2d,]
+    QuantConvTranspose2d,
+]
 
 
 @pytest_cases.parametrize(
@@ -120,10 +122,13 @@ def case_model(
         input_quantized,
         is_training):
     set_case_id(request.node.callspec.id, case_model)
-    case_id = get_case_id(case_model)
-    _, weight_quantizer = weight_quantizer
+    case_id  = get_case_id(case_model)
+    k, weight_quantizer = weight_quantizer
     _, bias_quantizer = bias_quantizer
     _, io_quantizer = io_quantizer
+
+    if io_quantizer is None and not input_quantized and k == 'quant_a2q':
+        pytest.skip("A2Q uses an input-aware decoupled weight proxy that requires a quantized input tensor.")
 
     impl = case_id.split('-')[2].split('$')[-1]
     # BatchQuant has dimension specific quantizers
