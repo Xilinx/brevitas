@@ -20,6 +20,7 @@ from brevitas.nn.quant_mha import QuantMultiheadAttention
 from brevitas.nn.quant_rnn import QuantLSTM
 from brevitas.nn.quant_rnn import QuantRNN
 from brevitas.quant.fixed_point import Int8WeightNormL2PerChannelFixedPoint
+from brevitas.quant.fixed_point import Int8AccumulatorAwareWeightQuant
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8ActPerTensorFloatBatchQuant1d
 from brevitas.quant.scaled_int import Int8ActPerTensorFloatBatchQuant2d
@@ -48,7 +49,8 @@ WBIOL_WEIGHT_QUANTIZER = {
     'None': None,
     'quant_sym': Int8WeightPerTensorFloat,
     'quant_asym': ShiftedUint8WeightPerTensorFloat,
-    'quant_decoupled': Int8WeightNormL2PerChannelFixedPoint}
+    'quant_decoupled': Int8WeightNormL2PerChannelFixedPoint,
+    'quant_a2q': Int8AccumulatorAwareWeightQuant}
 
 WBIOL_IO_QUANTIZER = {
     'None': None,
