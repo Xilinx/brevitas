@@ -128,3 +128,20 @@ class Int8WeightNormL2PerChannelFixedPoint(WeightNormPerChannelFloatDecoupled):
         >>> conv.quant_weight()
     """
     bit_width = 8
+
+
+class Int8AccumulatorAwareWeightQuant(AccumulatorAwareWeightQuant):
+    """
+    Experimental 8-bit narrow signed accumulator-aware integer quantizer with learned per-channel
+    scaling factors based on `Quantized Neural Networks for Low-Precision Accumulation with Guaranteed
+    Overflow Avoidance` by I.Colbert, A.Pappalardo, and J.Petri-Koenig (https://arxiv.org/abs/2301.13376).
+    The quantizer learns scaling factors in the float domain and learns vector parameter g in the log
+    domain with the round-to-zero rounding function. The norm is clamped according the the specified
+    accumulator bit-width. Suitable for retraining from floating-point depthwise separable weights.
+
+    Examples:
+        >>> from brevitas.nn import QuantConv2d
+        >>> conv = QuantConv2d(4, 4, 3, groups=4, weight_quant=Int8AccumulatorAwareWeightQuant)
+        >>> conv.quant_weight()
+    """
+    bit_width = 8
