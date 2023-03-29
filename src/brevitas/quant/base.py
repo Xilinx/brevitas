@@ -26,6 +26,7 @@ from brevitas.core.scaling import SCALING_STATS_REDUCE_DIM
 from brevitas.core.scaling import StatsFromParameterScaling
 from brevitas.core.stats import AbsMax
 from brevitas.core.stats import AbsMaxL2
+from brevitas.core.stats import L1Norm
 from brevitas.core.stats import L2Norm
 from brevitas.core.stats import NegativeMinOrZero
 from brevitas.core.stats import NegativePercentileOrZero
@@ -67,7 +68,9 @@ __all__ = [
     'WeightPerChannelFloatDecoupled',
     'WeightNormPerChannelFloatDecoupled',
     'BatchQuantStatsScaling1d',
-    'BatchQuantStatsScaling2d']
+    'BatchQuantStatsScaling2d',
+    'AccumulatorAwareWeightQuant'
+]
 
 
 class MaxStatsScaling(ExtendedInjector):
@@ -360,6 +363,7 @@ class WeightNormPerChannelFloatDecoupled(SolveWeightScalingStatsInputDimsFromMod
     stats_reduce_dim = SCALING_STATS_REDUCE_DIM
     scaling_per_output_channel = True
 
+
 class AccumulatorAwareWeightQuant(WeightNormPerChannelFloatDecoupled):
     """Experimental accumulator-aware weight quantizer based on `Quantized Neural Networks
     for Low-Precision Accumulation with Guaranteed Overflow Avoidance` by I. Colbert,
@@ -386,4 +390,5 @@ class AccumulatorAwareWeightQuant(WeightNormPerChannelFloatDecoupled):
     pre_scaling_impl = AccumulatorAwareParameterPreScaling
     pre_scaling_min_val = 1e-8
     accumulator_bit_width = 32 # default maximum accumulator width is 32 bits
+    normalize_stats_impl = L1Norm # required to align with derivations in paper
     float_to_int_impl = RoundToZeroSte # required to ensure no upwards rounding violates constraints
