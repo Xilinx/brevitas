@@ -57,72 +57,42 @@ class BrevitasWeightQuantProxyHandler(BrevitasQuantProxyHandler):
         super().__init__()
         self.quant_weights = None
 
+    def validate(self, bit_width, zero_point):
+        if bit_width == 1:
+            assert zero_point == 0, "Zero-point not supported for binary quant."
+
     def prepare_for_export(self, module: WeightQuantProxyFromInjector):
-        super().prepare_for_export(module)
-        quant_weights = {
-            tm.weight.data_ptr(): tm.quant_weight().value for tm in module.tracked_module_list}
-        self.quant_weights = quant_weights
-        # override rounding mode since quantization has been pre-applied
-        self.symbolic_kwargs['rounding_mode'] = 'ROUND'
+        if module.is_quant_enabled:
+            first_qweight = module.tracked_module_list[0].quant_weight()
+            self.validate(first_qweight.bit_width, first_qweight.zero_point)
+            self.quant_weight_values = {
+                tm.weight.data_ptr(): tm.quant_weight().value for tm in module.tracked_module_list}
+            self.symbolic_kwargs = {
+                'scale': first_qweight.scale,
+                'zero_point': first_qweight.zero_point,
+                'bit_width': first_qweight.bit_width,
+                'signed': first_qweight.signed,
+                # narrow_range is not a property of the QuantTensor, take it from the proxy instead
+                'narrow_range': module.is_narrow_range,
+                # override rounding mode since quantization has been pre-applied
+                'rounding_mode': 'ROUND'}
 
     def symbolic_execution(self, x: Tensor):
-        quant_weight = self.quant_weights[x.data_ptr()]
+        quant_weight = self.quant_weight_values[x.data_ptr()]
         return super().symbolic_execution(quant_weight)
 
 
 class BrevitasDecoupledWeightQuantProxyHandler(BrevitasWeightQuantProxyHandler):
     handled_layer = DecoupledWeightQuantProxyFromInjector
 
-    def __init__(self):
-        super().__init__()
-        self.extra_kwargs = {}
-
-    def prepare_for_export(self, module: DecoupledWeightQuantProxyFromInjector):
-        super().prepare_for_export(module)
-        self.extra_kwargs['pre_scale'] = module.pre_scale()
-        self.extra_kwargs['pre_zero_point'] = module.pre_zero_point()
-
-    def symbolic_execution(self, x: Tensor):
+    def symbolic_execution(self, x: Tensor, *args):  # args supports DecoupledWeightQuantWithInputProxyFromInjector
         out, scale, zero_point, bit_width = super().symbolic_execution(x)
-        pre_scale = self.extra_kwargs['pre_scale']
-        pre_zero_point = self.extra_kwargs['pre_zero_point']
+        pre_scale, pre_zero_point = None, None  # TODO fix retrieval for DecoupledWeightQuantWithInputProxyFromInjector
         return out, pre_scale, pre_zero_point, scale, zero_point, bit_width
 
 
-class BrevitasDecoupledWeightQuantWithInputProxyHandler(BrevitasQuantProxyHandler):
+class BrevitasDecoupledWeightQuantWithInputProxyHandler(BrevitasDecoupledWeightQuantProxyHandler):
     handled_layer = DecoupledWeightQuantWithInputProxyFromInjector
-
-    def __init__(self):
-        super().__init__()
-        self.extra_kwargs = {}
-        self.quant_weight = None
-
-    def validate(self, module):
-        quant_weight = module.quant_weight()
-        if quant_weight.bit_width == 1:
-            assert quant_weight.zero_point == 0, "Zero-point not supported for binary quant."
-        # TODO: add checks for accumulator constraints
-
-    def prepare_for_export(self, module: DecoupledWeightQuantWithInputProxyFromInjector):
-        if module.is_quant_enabled:
-            assert len(module.tracked_module_list) == 1, "Does not currently suport sharing quantizers for export."
-            self.validate(module.tracked_module_list[0])
-            quant_weight = module.tracked_module_list[0].quant_weight()
-            self.quant_weight = quant_weight.value
-            self.symbolic_kwargs = {
-                'scale': quant_weight.scale,
-                'zero_point': quant_weight.zero_point,
-                'bit_width': quant_weight.bit_width,
-                'signed': quant_weight.signed,
-                # narrow_range is not a property of the QuantTensor, take it from the proxy instead
-                'narrow_range': module.is_narrow_range,
-                # override rounding mode since quantization has been pre-applied
-                'rounding_mode': 'ROUND',
-            }
-
-    def symbolic_execution(self, x: Tensor, input_bit_width: Tensor, input_is_signed: Tensor):
-        out, scale, zero_point, bit_width = super().symbolic_execution(x)
-        return out, scale, zero_point, bit_width, None, None
 
 
 class BrevitasActQuantProxyHandler(BrevitasQuantProxyHandler):
