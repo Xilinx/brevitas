@@ -74,7 +74,7 @@ class ParameterPreScalingWeightNorm(brevitas.jit.ScriptModule):
 
         if len(tracked_parameter_list) > 1:
             raise NotImplementedError(
-                "Error: ParameterPreScalingWeightNorm does not support multiple tracked quantizers."
+                "Error: pre-clipping scales do not currently support multiple tracked quantizers."
             )
         assert len(tracked_parameter_list) == 1
 
@@ -156,7 +156,7 @@ class AccumulatorAwareParameterPreScaling(ParameterPreScalingWeightNorm):
             self,
             scaling_impl: Module,
             normalize_stats_impl: Module,
-            accumulator_bit_width_impl: int,
+            accumulator_bit_width_impl: Module,
             scaling_stats_input_view_shape_impl: Module,
             tracked_parameter_list: List[torch.nn.Parameter],
             pre_scaling_shape: Optional[Tuple[int, ...]] = None,
