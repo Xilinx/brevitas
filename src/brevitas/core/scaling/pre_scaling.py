@@ -10,10 +10,10 @@ from torch.nn import Parameter
 
 import brevitas
 import brevitas.config as config
+from brevitas.core.bit_width import BitWidthStatefulConst
 from brevitas.core.restrict_val import _RestrictClampValue
 from brevitas.core.stats import SCALAR_SHAPE
 from brevitas.core.stats.stats_wrapper import _Stats
-from brevitas.core.bit_width import BitWidthStatefulConst
 from brevitas.function import abs_binary_sign_grad
 
 __all__ = [
@@ -164,12 +164,12 @@ class AccumulatorAwareParameterPreScaling(ParameterPreScalingWeightNorm):
             pre_scaling_min_val: Optional[float] = None,
         ) -> None:
         super().__init__(
-            scaling_impl, 
-            normalize_stats_impl, 
-            scaling_stats_input_view_shape_impl, 
-            tracked_parameter_list, 
-            pre_scaling_shape, 
-            restrict_pre_scaling_impl, 
+            scaling_impl,
+            normalize_stats_impl,
+            scaling_stats_input_view_shape_impl,
+            tracked_parameter_list,
+            pre_scaling_shape,
+            restrict_pre_scaling_impl,
             pre_scaling_min_val,
         )
         self.accumulator_bit_width = accumulator_bit_width_impl

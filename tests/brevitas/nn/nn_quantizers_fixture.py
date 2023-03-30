@@ -19,8 +19,8 @@ from brevitas.nn import QuantLinear
 from brevitas.nn.quant_mha import QuantMultiheadAttention
 from brevitas.nn.quant_rnn import QuantLSTM
 from brevitas.nn.quant_rnn import QuantRNN
-from brevitas.quant.fixed_point import Int8WeightNormL2PerChannelFixedPoint
 from brevitas.quant.fixed_point import Int8AccumulatorAwareWeightQuant
+from brevitas.quant.fixed_point import Int8WeightNormL2PerChannelFixedPoint
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8ActPerTensorFloatBatchQuant1d
 from brevitas.quant.scaled_int import Int8ActPerTensorFloatBatchQuant2d

@@ -5,8 +5,8 @@ import pytest_cases
 from pytest_cases import get_case_id
 import torch
 
-from brevitas.quant_tensor import QuantTensor
 from brevitas.nn.utils import calculate_min_accumulator_bit_width
+from brevitas.quant_tensor import QuantTensor
 
 from .nn_quantizers_fixture import case_model_a2q
 

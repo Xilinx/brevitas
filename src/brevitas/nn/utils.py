@@ -1,10 +1,12 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+
+from typing import Optional
+
 import torch
 from torch import Tensor
 from torch.nn import Parameter
-from typing import Optional
 
 from brevitas.function.ops_ste import ceil_ste
 from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjector
@@ -90,7 +92,7 @@ def calculate_min_accumulator_bit_width(
     """Using the closed-form bounds on accumulator bit-width as derived in `Quantized Neural Networks for Low-Precision Accumulation with Guaranteed Overflow
     Avoidance` by I. Colbert, A. Pappalardo, and J. Petri-Koenig. This function returns the minimum accumulator bit-width that can be used without risk of
     overflow. It supports both the data-type bound as well as the weight-level bound.
-    
+
     Args:
         input_bit_width (Tensor): the bit-width of the inputs to the layer.
         input_is_signed (bool): calculate statistics for normalizing weight parameter.
