@@ -294,10 +294,6 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
 
         inp = self.unpack_input(inp)
 
-        # force cache quant_input if the weight quantizer requires knowledge of inputs
-        if self.weight_quant_requires_quant_input:
-            self.cache_inference_quant_inp = True
-
         # shortcut execution through the export impl during export
         if self.export_mode:
             out = self.export_handler(inp.value)
