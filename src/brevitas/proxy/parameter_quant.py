@@ -112,7 +112,6 @@ class DecoupledWeightQuantProxyFromInjector(WeightQuantProxyFromInjector):
             return QuantTensor(x, training=self.training)
 
 
-
 class DecoupledWeightQuantWithInputProxyFromInjector(DecoupledWeightQuantProxyFromInjector):
 
     @property
@@ -134,7 +133,9 @@ class DecoupledWeightQuantWithInputProxyFromInjector(DecoupledWeightQuantProxyFr
     def pre_zero_point(self):
         raise NotImplementedError
 
-    def forward(self, x: torch.Tensor, input_bit_width: torch.Tensor, input_is_signed: bool) -> QuantTensor:
+    def forward(
+            self, x: torch.Tensor, input_bit_width: torch.Tensor,
+            input_is_signed: bool) -> QuantTensor:
         if self.is_quant_enabled:
             impl = self.export_handler if self.export_mode else self.tensor_quant
             out, scale, zero_point, bit_width, pre_scale, pre_zero_point = impl(x, input_bit_width, input_is_signed)

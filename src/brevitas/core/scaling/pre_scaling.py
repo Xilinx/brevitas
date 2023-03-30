@@ -74,8 +74,7 @@ class ParameterPreScalingWeightNorm(brevitas.jit.ScriptModule):
 
         if len(tracked_parameter_list) > 1:
             raise NotImplementedError(
-                "Error: pre-clipping scales do not currently support multiple tracked quantizers."
-            )
+                "Error: pre-clipping scales do not currently support multiple tracked quantizers.")
         assert len(tracked_parameter_list) == 1
 
         # Initialize the weight norm parameter vector from the tracked parameter itself
@@ -152,17 +151,18 @@ class AccumulatorAwareParameterPreScaling(ParameterPreScalingWeightNorm):
     Returns:
         Tensor: scaling factor wrapped in a float torch.Tensor.
     """
+
     def __init__(
-            self,
-            scaling_impl: Module,
-            normalize_stats_impl: Module,
-            accumulator_bit_width_impl: Module,
-            scaling_stats_input_view_shape_impl: Module,
-            tracked_parameter_list: List[torch.nn.Parameter],
-            pre_scaling_shape: Optional[Tuple[int, ...]] = None,
-            restrict_pre_scaling_impl: Optional[Module] = None,
-            pre_scaling_min_val: Optional[float] = None,
-        ) -> None:
+        self,
+        scaling_impl: Module,
+        normalize_stats_impl: Module,
+        accumulator_bit_width_impl: Module,
+        scaling_stats_input_view_shape_impl: Module,
+        tracked_parameter_list: List[torch.nn.Parameter],
+        pre_scaling_shape: Optional[Tuple[int, ...]] = None,
+        restrict_pre_scaling_impl: Optional[Module] = None,
+        pre_scaling_min_val: Optional[float] = None,
+    ) -> None:
         super().__init__(
             scaling_impl,
             normalize_stats_impl,
@@ -181,12 +181,12 @@ class AccumulatorAwareParameterPreScaling(ParameterPreScalingWeightNorm):
         by I.Colbert, A.Pappalardo, and J.Petri-Koenig."""
         assert input_bit_width is not None, "A2Q relies on input bit-width."
         assert input_is_signed is not None, "A2Q relies on input sign."
-        input_is_signed = float(input_is_signed) # 1. if signed else 0.
+        input_is_signed = float(input_is_signed)  # 1. if signed else 0.
         # This is the minimum of the two maximum magnitudes that P could take, which are -2^{P-1}
         # and 2^{P-1}-1. Note that evaluating to -2^{P-1} would mean there is a possibility of overflow
         # on the positive side of this range.
-        max_accumulator_bit_width = self.accumulator_bit_width() # P
-        max_accumulator_mag = pow(2., max_accumulator_bit_width - 1.) - 1. # 2^{P-1}-1
+        max_accumulator_bit_width = self.accumulator_bit_width()  # P
+        max_accumulator_mag = pow(2., max_accumulator_bit_width - 1.) - 1.  # 2^{P-1}-1
         # This is the maximum possible magnitude that the input data could take. When the data is signed,
         # this is 2^{N-1}. When the data is unsigned, this is 2^N - 1. We use a slightly looser bound here
         # to simplify our derivations on the export validation.
@@ -197,10 +197,10 @@ class AccumulatorAwareParameterPreScaling(ParameterPreScalingWeightNorm):
     def forward(self, weights: Tensor, input_bit_width: Tensor, input_is_signed: bool) -> Tensor:
         """Takes weights as input and returns the pre-clipping scaling factor"""
         weights = self.stats_input_view_shape_impl(weights)
-        d_w = self.stats(weights) # denominator for weight normalization
-        s = self.scaling_impl(weights) # s
-        g = abs_binary_sign_grad(self.restrict_clamp_scaling(self.value)) # g
-        T = self.get_upper_bound_on_l1_norm(input_bit_width, input_is_signed) # T / s
+        d_w = self.stats(weights)  # denominator for weight normalization
+        s = self.scaling_impl(weights)  # s
+        g = abs_binary_sign_grad(self.restrict_clamp_scaling(self.value))  # g
+        T = self.get_upper_bound_on_l1_norm(input_bit_width, input_is_signed)  # T / s
         g = torch.clamp_max(g / s, T)
-        value = d_w / g # calculating final pre-clipping scaling factor
+        value = d_w / g  # calculating final pre-clipping scaling factor
         return value

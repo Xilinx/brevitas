@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from typing import Optional
 
 import torch
@@ -126,4 +125,4 @@ def calculate_min_accumulator_bit_width(
     phi = lambda x: torch.log2(1. + pow(2., -x))
     min_bit_width = alpha + phi(alpha) + 1.
     min_bit_width = ceil_ste(min_bit_width)
-    return min_bit_width # returns the minimum accumulator that can be used without risk of overflow
+    return min_bit_width  # returns the minimum accumulator that can be used without risk of overflow

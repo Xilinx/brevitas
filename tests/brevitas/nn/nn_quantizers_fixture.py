@@ -87,28 +87,30 @@ QUANT_WBIOL_IMPL = [
     QuantConv1d,
     QuantConv2d,
     QuantConvTranspose1d,
-    QuantConvTranspose2d,
-]
+    QuantConvTranspose2d,]
 
-ACC_BIT_WIDTHS = [
-    8,
-    9,
-    10,
-    12,
-    16,
-    24,
-    32
-]
+ACC_BIT_WIDTHS = [8, 9, 10, 12, 16, 24, 32]
 
 
-def build_case_model(weight_quantizer, bias_quantizer, io_quantizer, return_quant_tensor, module, case_id, input_quantized, is_training, accumulator_bit_width = 32):
+def build_case_model(
+        weight_quantizer,
+        bias_quantizer,
+        io_quantizer,
+        return_quant_tensor,
+        module,
+        case_id,
+        input_quantized,
+        is_training,
+        accumulator_bit_width=32):
 
     k, weight_quantizer = weight_quantizer
     _, bias_quantizer = bias_quantizer
     _, io_quantizer = io_quantizer
 
     if io_quantizer is None and not input_quantized and k == 'quant_a2q':
-        pytest.skip("A2Q uses an input-aware decoupled weight proxy that requires a quantized input tensor.")
+        pytest.skip(
+            "A2Q uses an input-aware decoupled weight proxy that requires a quantized input tensor."
+        )
 
     impl = case_id.split('-')[2].split('$')[-1]
     # BatchQuant has dimension specific quantizers
@@ -136,8 +138,7 @@ def build_case_model(weight_quantizer, bias_quantizer, io_quantizer, return_quan
                 output_quant=io_quantizer,
                 bias_quant=bias_quantizer,
                 return_quant_tensor=return_quant_tensor,
-                weight_accumulator_bit_width=accumulator_bit_width
-            )
+                weight_accumulator_bit_width=accumulator_bit_width)
             self.conv.weight.data.uniform_(-0.01, 0.01)
 
         def forward(self, x):
@@ -186,26 +187,106 @@ def case_model(weight_quantizer, bias_quantizer, io_quantizer, return_quant_tens
     case_id  = get_case_id(case_model)
     return build_case_model(weight_quantizer, bias_quantizer, io_quantizer, return_quant_tensor, module, case_id, input_quantized, is_training)
 
-@pytest_cases.parametrize('input_quantized', [True, False], ids=[f'input_quantized${c}' for c in [True, False]])
-@pytest_cases.parametrize('bias_quantizer', BIAS_QUANTIZER.items(), ids=[f'bias_quant${c}' for c, _ in BIAS_QUANTIZER.items()])
-@pytest_cases.parametrize('io_quantizer', IO_QUANTIZER.items(), ids=[f'io_quant${c}' for c, _ in IO_QUANTIZER.items()])
-@pytest_cases.parametrize('return_quant_tensor', [True, False], ids=[f'return_quant_tensor${f}' for f in [True, False]])
-@pytest_cases.parametrize('module', QUANT_WBIOL_IMPL, ids=[f'model_type${c.__name__}' for c in QUANT_WBIOL_IMPL])
-@pytest_cases.parametrize('is_training', [True, False], ids=[f'is_training${f}' for f in [True, False]])
-@pytest_cases.parametrize('accumulator_bit_width', ACC_BIT_WIDTHS, ids=[f'accumulator_bit_width${bw}' for bw in ACC_BIT_WIDTHS])
-def case_model_a2q(bias_quantizer, io_quantizer, return_quant_tensor, module, request, input_quantized, is_training, accumulator_bit_width):
+@pytest_cases.parametrize(
+    'input_quantized', [True, False], ids=[f'input_quantized${c}' for c in [True, False]])
+@pytest_cases.parametrize(
+    'bias_quantizer',
+    BIAS_QUANTIZER.items(),
+    ids=[f'bias_quant${c}' for c, _ in BIAS_QUANTIZER.items()])
+@pytest_cases.parametrize(
+    'io_quantizer', IO_QUANTIZER.items(), ids=[f'io_quant${c}' for c, _ in IO_QUANTIZER.items()])
+@pytest_cases.parametrize(
+    'weight_quantizer',
+    WBIOL_WEIGHT_QUANTIZER.items(),
+    ids=[f'weight_quant${c}' for c, _ in WBIOL_WEIGHT_QUANTIZER.items()])
+@pytest_cases.parametrize(
+    'return_quant_tensor', [True, False], ids=[f'return_quant_tensor${f}' for f in [True, False]])
+@pytest_cases.parametrize(
+    'module', QUANT_WBIOL_IMPL, ids=[f'model_type${c.__name__}' for c in QUANT_WBIOL_IMPL])
+@pytest_cases.parametrize(
+    'is_training', [True, False], ids=[f'is_training${f}' for f in [True, False]])
+def case_model(
+        weight_quantizer,
+        bias_quantizer,
+        io_quantizer,
+        return_quant_tensor,
+        module,
+        request,
+        input_quantized,
+        is_training):
+    set_case_id(request.node.callspec.id, case_model)
+    case_id = get_case_id(case_model)
+    return build_case_model(
+        weight_quantizer,
+        bias_quantizer,
+        io_quantizer,
+        return_quant_tensor,
+        module,
+        case_id,
+        input_quantized,
+        is_training)
+
+
+@pytest_cases.parametrize(
+    'input_quantized', [True, False], ids=[f'input_quantized${c}' for c in [True, False]])
+@pytest_cases.parametrize(
+    'bias_quantizer',
+    BIAS_QUANTIZER.items(),
+    ids=[f'bias_quant${c}' for c, _ in BIAS_QUANTIZER.items()])
+@pytest_cases.parametrize(
+    'io_quantizer', IO_QUANTIZER.items(), ids=[f'io_quant${c}' for c, _ in IO_QUANTIZER.items()])
+@pytest_cases.parametrize(
+    'return_quant_tensor', [True, False], ids=[f'return_quant_tensor${f}' for f in [True, False]])
+@pytest_cases.parametrize(
+    'module', QUANT_WBIOL_IMPL, ids=[f'model_type${c.__name__}' for c in QUANT_WBIOL_IMPL])
+@pytest_cases.parametrize(
+    'is_training', [True, False], ids=[f'is_training${f}' for f in [True, False]])
+@pytest_cases.parametrize(
+    'accumulator_bit_width',
+    ACC_BIT_WIDTHS,
+    ids=[f'accumulator_bit_width${bw}' for bw in ACC_BIT_WIDTHS])
+def case_model_a2q(
+        bias_quantizer,
+        io_quantizer,
+        return_quant_tensor,
+        module,
+        request,
+        input_quantized,
+        is_training,
+        accumulator_bit_width):
     set_case_id(request.node.callspec.id, case_model_a2q)
-    case_id  = get_case_id(case_model_a2q)
+    case_id = get_case_id(case_model_a2q)
     # forcing test to only use accumulator-aware weight quantizer
     weight_quantizer = ('quant_a2q', Int8AccumulatorAwareWeightQuant)
-    return build_case_model(weight_quantizer, bias_quantizer, io_quantizer, return_quant_tensor, module, case_id, input_quantized, is_training, accumulator_bit_width=accumulator_bit_width)
+    return build_case_model(
+        weight_quantizer,
+        bias_quantizer,
+        io_quantizer,
+        return_quant_tensor,
+        module,
+        case_id,
+        input_quantized,
+        is_training,
+        accumulator_bit_width=accumulator_bit_width)
 
-@pytest_cases.parametrize('io_quantizer', IO_QUANTIZER.items(), ids=[f'io_quant${c}' for c, _ in IO_QUANTIZER.items()])
-@pytest_cases.parametrize('input_quantized', [True, False], ids=[f'input_quantized${c}' for c in [True, False]])
-@pytest_cases.parametrize('bias_quantizer', BIAS_QUANTIZER.items(), ids=[f'bias_quant${c}' for c, _ in BIAS_QUANTIZER.items()])
-@pytest_cases.parametrize('weight_quantizer', LSTM_WEIGHT_QUANTIZER.items(), ids=[f'weight_quant${c}' for c, _ in LSTM_WEIGHT_QUANTIZER.items()])
-@pytest_cases.parametrize('return_quant_tensor', [True, False], ids=[f'return_quant_tensor${f}' for f in [True, False]])
-@pytest_cases.parametrize('bidirectional', [True, False, 'shared_input_hidden'], ids=[f'bidirectional${f}' for f in [True, False, 'shared_input_hidden']])
+
+@pytest_cases.parametrize(
+    'io_quantizer', IO_QUANTIZER.items(), ids=[f'io_quant${c}' for c, _ in IO_QUANTIZER.items()])
+@pytest_cases.parametrize(
+    'input_quantized', [True, False], ids=[f'input_quantized${c}' for c in [True, False]])
+@pytest_cases.parametrize(
+    'bias_quantizer',
+    BIAS_QUANTIZER.items(),
+    ids=[f'bias_quant${c}' for c, _ in BIAS_QUANTIZER.items()])
+@pytest_cases.parametrize(
+    'weight_quantizer',
+    LSTM_WEIGHT_QUANTIZER.items(),
+    ids=[f'weight_quant${c}' for c, _ in LSTM_WEIGHT_QUANTIZER.items()])
+@pytest_cases.parametrize(
+    'return_quant_tensor', [True, False], ids=[f'return_quant_tensor${f}' for f in [True, False]])
+@pytest_cases.parametrize(
+    'bidirectional', [True, False, 'shared_input_hidden'],
+    ids=[f'bidirectional${f}' for f in [True, False, 'shared_input_hidden']])
 @pytest_cases.parametrize('cifg', [True, False])
 @pytest_cases.parametrize('num_layers', [1, 2], ids=[f'num_layers${f}' for f in [1, 2]])
 def case_quant_lstm(

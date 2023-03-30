@@ -222,15 +222,15 @@ class TruncIntQuant(brevitas.jit.ScriptModule):
 class DecoupledRescalingIntQuantWithInput(DecoupledRescalingIntQuant):
 
     def __init__(
-            self,
-            decoupled_int_quant: Module,
-            pre_scaling_impl: Module,
-            scaling_impl: Module,
-            int_scaling_impl: Module,
-            pre_zero_point_impl: Module,
-            zero_point_impl: Module,
-            bit_width_impl: Module,
-        ):
+        self,
+        decoupled_int_quant: Module,
+        pre_scaling_impl: Module,
+        scaling_impl: Module,
+        int_scaling_impl: Module,
+        pre_zero_point_impl: Module,
+        zero_point_impl: Module,
+        bit_width_impl: Module,
+    ):
         super().__init__(
             decoupled_int_quant,
             pre_scaling_impl,
@@ -243,7 +243,8 @@ class DecoupledRescalingIntQuantWithInput(DecoupledRescalingIntQuant):
         # TODO - check the make sure the pre-scaling module takes the input bit-width and sign
 
     @brevitas.jit.script_method
-    def forward(self, x: Tensor, input_bit_width: Tensor, input_is_signed: bool) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]:
+    def forward(self, x: Tensor, input_bit_width: Tensor,
+                input_is_signed: bool) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]:
         bit_width = self.msb_clamp_bit_width_impl()
         int_threshold = self.int_scaling_impl(bit_width)
         pre_threshold = self.pre_scaling_impl(x, input_bit_width, input_is_signed)

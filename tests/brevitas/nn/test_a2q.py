@@ -24,6 +24,7 @@ def parse_args(args):
         kwargs[k] = v
     return kwargs
 
+
 @pytest_cases.parametrize_with_cases('model_input', cases=case_model_a2q)
 def test_quant_wbiol_a2q(model_input, current_cases):
     """This test verifies that the accumulator-aware weight quantization constraints the l1-norm of
@@ -32,7 +33,7 @@ def test_quant_wbiol_a2q(model_input, current_cases):
 
     cases_generator_func = current_cases['model_input'][1]
     case_id = get_case_id(cases_generator_func)
-    args = case_id.split('-')[1:] # Exclude first argument
+    args = case_id.split('-')[1:]  # Exclude first argument
     kwargs = parse_args(args)
 
     # A2Q needs to have a quantized input, which can be done by input quantizer or returning
@@ -56,30 +57,34 @@ def test_quant_wbiol_a2q(model_input, current_cases):
     if not kwargs['input_quantized']:
         input = QuantTensor(
             input,
-            None, # not used by weight_quant
-            None, # not used by weight_quant
+            None,  # not used by weight_quant
+            None,  # not used by weight_quant
             input_bit_width,
             input_is_signed,
-            None # note used by weight_quant
+            None  # note used by weight_quant
         )
     # the tensor quantizer requires a QuantTensor with specified bit-width and sign
     quant_weight = model.conv.quant_weight(input)
     quant_weight = quant_weight.int().float()
-    if kwargs['model_type'] == 'QuantLinear': # shape = (out_features, in_features)
+    if kwargs['model_type'] == 'QuantLinear':  # shape = (out_features, in_features)
         quant_weight_per_channel_l1_norm = quant_weight.norm(p=1, dim=1)
-    elif kwargs['model_type'] == 'QuantConv1d': # shape = (out_channels, in_channels, kernel_size)
-        quant_weight_per_channel_l1_norm = quant_weight.norm(p=1, dim=(1,2))
-    elif kwargs['model_type'] == 'QuantConv2d': # shape = (out_channels, in_channels, kernel_size, kernel_size)
-        quant_weight_per_channel_l1_norm = quant_weight.norm(p=1, dim=(1,2,3))
-    elif kwargs['model_type'] == 'QuantConvTranspose1d': # shape = (in_channels, out_channels, kernel_size)
-        quant_weight_per_channel_l1_norm = quant_weight.norm(p=1, dim=(0,2))
-    elif kwargs['model_type'] == 'QuantConvTranspose2d': # shape = (in_channels, out_channels, kernel_size)
-        quant_weight_per_channel_l1_norm = quant_weight.norm(p=1, dim=(0,2,3))
+    elif kwargs['model_type'] == 'QuantConv1d':  # shape = (out_channels, in_channels, kernel_size)
+        quant_weight_per_channel_l1_norm = quant_weight.norm(p=1, dim=(1, 2))
+    elif kwargs[
+            'model_type'] == 'QuantConv2d':  # shape = (out_channels, in_channels, kernel_size, kernel_size)
+        quant_weight_per_channel_l1_norm = quant_weight.norm(p=1, dim=(1, 2, 3))
+    elif kwargs[
+            'model_type'] == 'QuantConvTranspose1d':  # shape = (in_channels, out_channels, kernel_size)
+        quant_weight_per_channel_l1_norm = quant_weight.norm(p=1, dim=(0, 2))
+    elif kwargs[
+            'model_type'] == 'QuantConvTranspose2d':  # shape = (in_channels, out_channels, kernel_size)
+        quant_weight_per_channel_l1_norm = quant_weight.norm(p=1, dim=(0, 2, 3))
     else:
         raise NotImplementedError(f"Check for {kwargs['model_type']} is not yet implemented.")
 
     # using the closed-form bounds on accumulator bit-width
-    cur_acc_bit_width = calculate_min_accumulator_bit_width(input_bit_width, input_is_signed, quant_weight_per_channel_l1_norm.max())
+    cur_acc_bit_width = calculate_min_accumulator_bit_width(
+        input_bit_width, input_is_signed, quant_weight_per_channel_l1_norm.max())
     exp_acc_bit_width = kwargs['accumulator_bit_width']
     assert cur_acc_bit_width <= exp_acc_bit_width, \
         f"Model does not satisfy accumulator bit-width bounds. Expected {exp_acc_bit_width}, got {cur_acc_bit_width}"

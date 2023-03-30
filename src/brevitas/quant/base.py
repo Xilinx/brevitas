@@ -389,6 +389,6 @@ class AccumulatorAwareWeightQuant(WeightNormPerChannelFloatDecoupled):
     tensor_quant = DecoupledRescalingIntQuantWithInput
     pre_scaling_impl = AccumulatorAwareParameterPreScaling
     pre_scaling_min_val = 1e-8
-    accumulator_bit_width = 32 # default maximum accumulator width is 32 bits
-    normalize_stats_impl = L1Norm # required to align with derivations in paper
-    float_to_int_impl = RoundToZeroSte # required to ensure no upwards rounding violates constraints
+    accumulator_bit_width = 32  # default maximum accumulator width is 32 bits
+    normalize_stats_impl = L1Norm  # required to align with derivations in paper
+    float_to_int_impl = RoundToZeroSte  # required to ensure no upwards rounding violates constraints
