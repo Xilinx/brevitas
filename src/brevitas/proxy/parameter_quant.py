@@ -119,6 +119,21 @@ class DecoupledWeightQuantWithInputProxyFromInjector(DecoupledWeightQuantProxyFr
     def requires_quant_input(self):
         return True
 
+    def scale(self):
+        raise NotImplementedError
+
+    def zero_point(self):
+        raise NotImplementedError
+
+    def bit_width(self):
+        raise NotImplementedError
+
+    def pre_scale(self):
+        raise NotImplementedError
+
+    def pre_zero_point(self):
+        raise NotImplementedError
+
     def forward(self, x: torch.Tensor, input_bit_width: torch.Tensor, input_is_signed: bool) -> QuantTensor:
         if self.is_quant_enabled:
             impl = self.export_handler if self.export_mode else self.tensor_quant
