@@ -72,9 +72,6 @@ class QuantScaleBias(QuantWBIOL, ScaleBias):
     def channelwise_separable(self) -> bool:
         return True
 
-    def quant_weight(self):
-        return self.weight_quant(self.weight.view(-1, 1))  # TODO check if the view is needed
-
     def forward(self, inp: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
         return self.forward_impl(inp)
 
