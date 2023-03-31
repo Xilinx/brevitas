@@ -38,7 +38,7 @@ class DQMixin(ABC):
 
     @property
     @abstractmethod
-    def itemize_scalar_params(self):
+    def itemize_quantize_scalar_params(self):
         pass
 
     def assert_ge_zero(self, *args):
@@ -119,7 +119,7 @@ class QCDQQuantProxyHandlerMixin(QuantAxisMixin,
             zp = cls.zero_point_with_dtype(is_signed, bit_width, zp)
         # delay itemization of zp whenever scale or bit_width is not there yet
         # which requires a second pass through this function
-        if scale is not None and bit_width is not None and cls.itemize_scalar_params:
+        if scale is not None and bit_width is not None and cls.itemize_quantize_scalar_params:
             scale = to_item_if_0dim(scale)
             zp = to_item_if_0dim(zp)
         dtype = cls.signed_dtype(bit_width, is_signed)
@@ -142,11 +142,6 @@ class QCDQQuantProxyHandlerMixin(QuantAxisMixin,
         # bit_width can be None for bias quantization
         if bit_width is not None:
             zp = cls.zero_point_with_dtype(is_signed, bit_width, zp)
-        # delay itemization of zp whenever scale and bit_width are not there yet
-        # which requires a second pass through this function
-        if scale is not None and bit_width is not None and cls.itemize_scalar_params:
-            scale = to_item_if_0dim(scale)
-            zp = to_item_if_0dim(zp)
         return {'scale': scale, 'zero_point': zp, 'axis': axis}
 
     def prepare_for_export(self, module):
@@ -161,18 +156,13 @@ class QCDQQuantProxyHandlerMixin(QuantAxisMixin,
                 self.symbolic_kwargs['clip_symbolic_kwargs'] = self.int_clip_symbolic_kwargs(
                     module.is_narrow_range, module.is_signed, module.bit_width())
             else:
-                # clip_scale might require a broadcastable shape, while dequant scale might not,
-                # hence we keep them separate
+                # preserve broadcastable shape if per-channel, scalar item otherwise
                 clip_scale = to_0dim_if_scalar(module.scale())
                 clip_zp = to_0dim_if_scalar(module.zero_point())
-                if self.itemize_scalar_params:
-                    clip_scale = to_item_if_0dim(clip_scale)
-                    clip_zp = to_item_if_0dim(clip_zp)
                 self.symbolic_kwargs['clip_symbolic_kwargs'] = self.float_clip_symbolic_kwargs(
                     module.is_narrow_range,
                     module.is_signed,
                     module.bit_width(),
-                    # preserve broadcastable shape if per-channel, scalar item otherwise
                     clip_scale,
                     clip_zp)
         else:
@@ -207,7 +197,7 @@ class QCDQDecoupledWeightQuantProxyHandlerMixin(QCDQWeightQuantProxyHandlerMixin
         flat_scale = to_0dim_if_scalar(module.pre_scale().flatten())
         zp = to_0dim_if_scalar(module.pre_zero_point().flatten()).expand_as(flat_scale)
         zp = cls.zero_point_with_dtype(module.is_signed, module.bit_width, zp)
-        if cls.itemize_scalar_params:
+        if cls.itemize_quantize_scalar_params:
             flat_scale = to_item_if_0dim(flat_scale)
             zp = to_item_if_0dim(zp)
         return {
@@ -270,9 +260,6 @@ class QCDQBiasQuantProxyHandlerMixin(DQMixin, QuantAxisMixin, ZeroPointHandlerMi
         zero_point = to_0dim_if_scalar(zero_point).expand_as(scale)
         zero_point = self.zero_point_with_dtype(
             True, bit_width, zero_point)  # assume signed is True
-        if self.itemize_scalar_params:
-            scale = to_item_if_0dim(scale)
-            zero_point = to_item_if_0dim(zero_point)
         y = self.dequantize_fn(int_bias, scale, zero_point, quant_axis)
         return y, scale, zero_point, bit_width
 

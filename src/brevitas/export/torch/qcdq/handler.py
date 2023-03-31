@@ -43,7 +43,7 @@ class TorchDQMixin(DQMixin, ABC):
         return False
 
     @property
-    def itemize_scalar_params(self):
+    def itemize_quantize_scalar_params(self):
         return True
 
 
