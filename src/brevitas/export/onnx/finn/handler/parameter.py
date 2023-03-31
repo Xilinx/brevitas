@@ -1,20 +1,23 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from abc import ABC
 from typing import Optional, Union
 
 import torch
 from torch import Tensor
 
-from brevitas.nn import QuantLinear, QuantConv2d, QuantConv1d
+from brevitas.export.onnx.handler import Kernel1dApplHandlerMixin
+from brevitas.export.onnx.handler import Kernel2dApplHandlerMixin
+from brevitas.nn import QuantConv1d
+from brevitas.nn import QuantConv2d
+from brevitas.nn import QuantLinear
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
-from brevitas.export.onnx.handler import Kernel2dApplHandlerMixin, Kernel1dApplHandlerMixin
-from .base import FINNQuantIOHandler
-from ..function.parameter import QuantizedLinearFn
+
 from ..function.parameter import QuantizedConvNdFn
+from ..function.parameter import QuantizedLinearFn
 from ..utils import finn_datatype
+from .base import FINNQuantIOHandler
 
 QuantConvNd = Union[QuantConv1d, QuantConv2d]
 
@@ -127,9 +130,8 @@ class FINNQuantConvNdHandler(FINNQuantWBIOLHandler, ABC):
         self.validate(module)
         maybe_int_bias = self.maybe_int_bias(module)
         maybe_quant_bias_scale = self.maybe_quant_bias_scale(module)
-        if (maybe_quant_bias_scale is not None
-                and len(maybe_quant_bias_scale.shape) > 0
-                and len(maybe_quant_bias_scale.view(-1)) > 1):
+        if (maybe_quant_bias_scale is not None and len(maybe_quant_bias_scale.shape) > 0 and
+                len(maybe_quant_bias_scale.view(-1)) > 1):
             maybe_quant_bias_scale = maybe_quant_bias_scale.view_as(maybe_int_bias)
         self.symbolic_kwargs = {
             'W': self.int_weight(module),

@@ -1,27 +1,26 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from typing import Optional, Tuple, Union
 
-from typing import Optional, Union, Tuple
-from typing_extensions import Protocol, runtime_checkable
-
-from torch import Tensor, nn
+from torch import nn
+from torch import Tensor
 from torch.nn import Identity
+from typing_extensions import Protocol
+from typing_extensions import runtime_checkable
 
 import brevitas
 from brevitas.quant_tensor import QuantTensor
 
-from .quant_proxy import QuantProxyFromInjector, QuantProxyProtocol
-
-
+from .quant_proxy import QuantProxyFromInjector
+from .quant_proxy import QuantProxyProtocol
 
 __all__ = [
     'ActQuantProxyProtocol',
     'AccQuantProxyProtocol',
     'ActQuantProxyFromInjector',
     'TruncQuantProxyFromInjector',
-    'ClampQuantProxyFromInjector'
-]
+    'ClampQuantProxyFromInjector']
 
 
 def _is_passthrough_act(quant_injector):
@@ -65,8 +64,8 @@ class _TensorQuantDisabledIdentity(brevitas.jit.ScriptModule):
         super(_TensorQuantDisabledIdentity, self).__init__()
 
     @brevitas.jit.script_method
-    def forward(self, x: Tensor) -> Tuple[
-            Tensor, Optional[Tensor], Optional[Tensor], Optional[Tensor]]:
+    def forward(self,
+                x: Tensor) -> Tuple[Tensor, Optional[Tensor], Optional[Tensor], Optional[Tensor]]:
         return (x, None, None, None)
 
 
@@ -102,21 +101,19 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
     def init_tensor_quant(self):
         tensor_quant = self.quant_injector.tensor_quant
         if 'act_impl' in self.quant_injector:
-            act_impl = self.quant_injector.act_impl 
-        else: 
+            act_impl = self.quant_injector.act_impl
+        else:
             act_impl = None
         is_act_enabled = _is_act_enabled(act_impl, tensor_quant)
         is_quant_enabled = tensor_quant is not None
         self.is_quant_enabled = is_quant_enabled
         if is_act_enabled and is_quant_enabled:
-            self.fused_activation_quant_proxy = FusedActivationQuantProxy(
-                act_impl, tensor_quant)
+            self.fused_activation_quant_proxy = FusedActivationQuantProxy(act_impl, tensor_quant)
         elif is_act_enabled and not is_quant_enabled:
             self.fused_activation_quant_proxy = FusedActivationQuantProxy(
                 act_impl, _TensorQuantDisabledIdentity())
         elif not is_act_enabled and is_quant_enabled:
-            self.fused_activation_quant_proxy = FusedActivationQuantProxy(
-                Identity(), tensor_quant)
+            self.fused_activation_quant_proxy = FusedActivationQuantProxy(Identity(), tensor_quant)
         else:
             self.fused_activation_quant_proxy = None
 
@@ -150,11 +147,14 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
                 y = self.export_handler(y)
             else:
                 y = self.fused_activation_quant_proxy(y)
-            if isinstance(y, tuple):
+            # If y is an empty QuantTensor, we need to check if this is a passthrough proxy,
+            # otherwise return an empty QuantTensor
+            if isinstance(y, tuple) and not any(map(lambda f: f is None, y)):
                 return QuantTensor(*y, signed=self.is_signed, training=self.training)
             elif self.is_passthrough_act:  # preserve scale/zp/bit/sign even without output quant
-                return QuantTensor(
-                    y, x.scale, x.zero_point, x.bit_width, x.signed, self.training)
+                if isinstance(y, tuple):
+                    y = y[0]
+                return QuantTensor(y, x.scale, x.zero_point, x.bit_width, x.signed, self.training)
             else:
                 return QuantTensor(y, training=self.training)
         else:
@@ -189,16 +189,15 @@ class TruncQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
                 out_tuple = self.export_handler(
                     x.value, x.scale, x.zero_point, x.bit_width, x.signed)
             else:
-                out_tuple = self.tensor_quant(
-                    x.value, x.scale, x.zero_point, x.bit_width)
+                out_tuple = self.tensor_quant(x.value, x.scale, x.zero_point, x.bit_width)
             out_value, out_scale, out_zp, out_bit_width = out_tuple
-            return QuantTensor(
-                out_value, out_scale, out_zp, out_bit_width, x.signed, self.training)
+            return QuantTensor(out_value, out_scale, out_zp, out_bit_width, x.signed, self.training)
         else:
             return x
 
-    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
-                              missing_keys, unexpected_keys, error_msgs):
+    def _load_from_state_dict(
+            self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
+            error_msgs):
         super(TruncQuantProxyFromInjector, self)._load_from_state_dict(
             state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
         # for retrocompatibility with when it wasn't removed and it was called differently

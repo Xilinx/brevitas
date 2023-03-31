@@ -1,20 +1,13 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import pytest_cases
 import torch
-from brevitas.core.quant import IntQuant
 
+from brevitas.core.quant import IntQuant
 from tests.brevitas.common import BOOLS
 
-__all__ = [
-    'int_quant',
-    'signed',
-    'narrow_range',
-    'zero_point_init',
-    'arange_int_tensor'
-]
+__all__ = ['int_quant', 'signed', 'narrow_range', 'zero_point_init', 'arange_int_tensor']
 
 
 @pytest_cases.fixture()
@@ -54,10 +47,11 @@ def arange_int_tensor(signed, narrow_range, bit_width_init):
     elif not signed and narrow_range:
         t = torch.arange(0, (2 ** bit_width_init) - 2 + 1)
     elif signed and not narrow_range:
-        t = torch.arange(- (2 ** (bit_width_init - 1)), (2 ** (bit_width_init - 1) - 1) + 1)
+        t = torch.arange(-(2 ** (bit_width_init - 1)), (2 ** (bit_width_init - 1) - 1) + 1)
     else:
-        t = torch.arange(- ((2 ** (bit_width_init - 1)) - 1), (2 ** (bit_width_init - 1) - 1) + 1)
+        t = torch.arange(-((2 ** (bit_width_init - 1)) - 1), (2 ** (bit_width_init - 1) - 1) + 1)
     return t
+
 
 @pytest_cases.fixture()
 def int_quant(float_to_int_impl, tensor_clamp_impl, signed, narrow_range):

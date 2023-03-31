@@ -1,7 +1,7 @@
-soundfile
 librosa
 numpy
-scipy
-tqdm
 pillow
 pyyaml
+scipy
+soundfile
+tqdm

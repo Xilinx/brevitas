@@ -62,17 +62,17 @@ The result is the following:
    # ... training ...
 
 A neural network with 4 bits weights and floating-point
-activations can provide an advantage in terms of model storage, 
-but it doesn't provide any advantage in terms of compute, 
-as the weights need to be converted to float at runtime first. 
-In order to make more practical, we want to quantize activations too. 
+activations can provide an advantage in terms of model storage,
+but it doesn't provide any advantage in terms of compute,
+as the weights need to be converted to float at runtime first.
+In order to make more practical, we want to quantize activations too.
 
 Weights and activations quantization, float biases
 --------------------------------------------------
 
-We now quantize both weights and activations to 4 bits, while keeping biases in floating-point. 
+We now quantize both weights and activations to 4 bits, while keeping biases in floating-point.
 In order to do so, we replace ``torch.nn.ReLU`` with
-``brevitas.nn.QuantReLU``, specifying ``bit_width=4``. 
+``brevitas.nn.QuantReLU``, specifying ``bit_width=4``.
 Additionally, in order to quantize the very first input, we introduce a
 ``brevitas.nn.QuantIdentity`` at the beginning of the network. The end
 result is the following:
@@ -166,7 +166,7 @@ Weights, activations, biases quantization
 
 
 Compared to the previous scenario:
-- We now set ``return_quant_tensor=True`` in every quantized activations to propagate a ``QuantTensor`` to the next layer. This informs each ``QuantLinear`` or ``QuantConv2d`` of how the input passed in has been quantized. 
+- We now set ``return_quant_tensor=True`` in every quantized activations to propagate a ``QuantTensor`` to the next layer. This informs each ``QuantLinear`` or ``QuantConv2d`` of how the input passed in has been quantized.
 - A ``QuantTensor`` is just a tensor-like data structure providing metadata about how a tensor has been quantized, similar to a `torch.qint` dtype, but training friendly. Setting ``return_quant_tensor=True`` does not affect the way quantization is performed, it only changes the way the output is represented.
 - We enable bias quantization by setting the `Int32Bias` quantizer. What it does is to perform bias quantization with ```bias_scale = input_scale * weight_scale``, as it commonly done across inference toolchains. This is why we have to set ``return_quant_tensor=True``: each layer with ``Int32Bias`` can read the input scale from the ``QuantTensor`` passed in and use for bias quantization.
 - ``torch`` operations that are algorithmically invariant to quantization, such as `F.max_pool2d`, can propagate QuantTensor through them without extra changes.
@@ -175,8 +175,8 @@ Export to ONNX
 --------------
 
 Brevitas does not perform any low-precision acceleration on its own. For that to happen, the model need to be exported first to an inference toolchain through some intermediate representation like ONNX.
-One popular way to represent 8-bit quantization within ONNX is through the `QDQ format <https://onnxruntime.ai/docs/performance/quantization.html#onnx-quantization-representation-format>`_. 
-Brevitas extends *QDQ* to **QCDQ**, inserting a `Clip` node to represent quantization to *<= 8 bits*. We can then export all previous defined model to *QCDQ*. 
+One popular way to represent 8-bit quantization within ONNX is through the `QDQ format <https://onnxruntime.ai/docs/performance/quantization.html#onnx-quantization-representation-format>`_.
+Brevitas extends *QDQ* to **QCDQ**, inserting a `Clip` node to represent quantization to *<= 8 bits*. We can then export all previous defined model to *QCDQ*.
 The interface of the export function matches the `torch.onnx.export` function, and accepts all its kwargs:
 
 .. code-block:: python
@@ -196,4 +196,4 @@ The interface of the export function matches the `torch.onnx.export` function, a
 Where to go from here
 ---------------------
 
-Check out the :doc:`Tutorials section </tutorials/index>` for more information on things like ONNX export, quantized recurrent layers, quantizers, or a more detailed overview of the library in the TVMCon tutorial. 
+Check out the :doc:`Tutorials section </tutorials/index>` for more information on things like ONNX export, quantized recurrent layers, quantizers, or a more detailed overview of the library in the TVMCon tutorial.

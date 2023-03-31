@@ -1,13 +1,14 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
+from functools import partial
+from functools import reduce
 from operator import mul
-from functools import reduce, partial
 
-from hypothesis.strategies import SearchStrategy
-from hypothesis import settings, HealthCheck
+from hypothesis import HealthCheck
 from hypothesis import seed as set_seed
+from hypothesis import settings
+from hypothesis.strategies import SearchStrategy
 import hypothesis.strategies as st
 import torch
 
@@ -28,11 +29,7 @@ def float_st(min_val=None, max_val=None, width=FP32_BIT_WIDTH) -> SearchStrategy
     Generate a 32 bit float, excluding NaN and infinity
     """
     return st.floats(
-        allow_nan=False,
-        allow_infinity=False,
-        width=width,
-        min_value=min_val,
-        max_value=max_val)
+        allow_nan=False, allow_infinity=False, width=width, min_value=min_val, max_value=max_val)
 
 
 def float_nz_st(min_val=None, max_val=None, width=FP32_BIT_WIDTH) -> SearchStrategy:
@@ -40,11 +37,7 @@ def float_nz_st(min_val=None, max_val=None, width=FP32_BIT_WIDTH) -> SearchStrat
     Generate a non zero 32 bit float, excluding NaN and infinity
     """
     floats = st.floats(
-        allow_nan=False,
-        allow_infinity=False,
-        width=width,
-        min_value=min_val,
-        max_value=max_val)
+        allow_nan=False, allow_infinity=False, width=width, min_value=min_val, max_value=max_val)
     nz_floats = floats.filter(lambda x: x != 0.0)
     return nz_floats
 
@@ -100,10 +93,12 @@ def float_tensor_st(draw, shape, min_val=None, max_val=None, width=FP32_BIT_WIDT
     Generate a float tensor of hypothesis-picked values of a given shape.
     """
     size = reduce(mul, shape, 1)
-    float_list = draw(st.lists(
-        float_st(min_val=min_val, max_val=max_val, width=width), min_size=size, max_size=size))
+    float_list = draw(
+        st.lists(
+            float_st(min_val=min_val, max_val=max_val, width=width), min_size=size, max_size=size))
     t = torch.tensor(float_list).view(shape)
     return t
+
 
 @st.composite
 def float_tensor_nz_st(draw, shape, min_val=None, max_val=None, width=FP32_BIT_WIDTH):
@@ -111,8 +106,11 @@ def float_tensor_nz_st(draw, shape, min_val=None, max_val=None, width=FP32_BIT_W
     Generate a non-zero float tensor of hypothesis-picked values of a given shape.
     """
     size = reduce(mul, shape, 1)
-    float_list = draw(st.lists(
-        float_nz_st(min_val=min_val, max_val=max_val, width=width), min_size=size, max_size=size))
+    float_list = draw(
+        st.lists(
+            float_nz_st(min_val=min_val, max_val=max_val, width=width),
+            min_size=size,
+            max_size=size))
     t = torch.tensor(float_list).view(shape)
     return t
 
@@ -163,12 +161,7 @@ def float_tensor_random_shape_st(
 
 @st.composite
 def float_tensor_random_size_st(
-        draw,
-        dims: int = 1,
-        max_size: int = 3,
-        min_val=None,
-        max_val=None,
-        width=FP32_BIT_WIDTH):
+        draw, dims: int = 1, max_size: int = 3, min_val=None, max_val=None, width=FP32_BIT_WIDTH):
     """
     Generate a float tensor of a fixed number of dimensions each of random size.
     """
@@ -198,8 +191,7 @@ def min_max_scalar_tensor_st(draw, width=FP32_BIT_WIDTH):
     Generate two scalar tensors such that min_val <= max_val.
     """
     min_val = draw(float_st(width))
-    max_val = draw(
-        st.floats(allow_infinity=False, allow_nan=False, width=width, min_value=min_val))
+    max_val = draw(st.floats(allow_infinity=False, allow_nan=False, width=width, min_value=min_val))
     return torch.tensor(min_val), torch.tensor(max_val)
 
 

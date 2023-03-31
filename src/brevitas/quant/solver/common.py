@@ -1,17 +1,16 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
-from brevitas.core.quant import *
-from brevitas.core.function_wrapper import *
-from brevitas.core.scaling import *
-from brevitas.core.restrict_val import *
 from brevitas.core.bit_width import *
+from brevitas.core.function_wrapper import *
+from brevitas.core.quant import *
 from brevitas.core.quant import QuantType
-from brevitas.core.stats import *
+from brevitas.core.restrict_val import *
+from brevitas.core.scaling import *
 from brevitas.core.scaling import ScalingImplType
-from brevitas.inject import ExtendedInjector, value
-
+from brevitas.core.stats import *
+from brevitas.inject import ExtendedInjector
+from brevitas.inject import value
 
 __all__ = [
     'solve_bit_width_impl_from_enum',
@@ -25,8 +24,7 @@ __all__ = [
     'SolveScalingStatsOpFromEnum',
     'SolveBitWidthImplFromEnum',
     'SolveStatsReduceDimFromEnum',
-    'SolveScalingStatsInputViewShapeImplFromEnum'
-]
+    'SolveScalingStatsInputViewShapeImplFromEnum']
 
 
 def solve_float_to_int_impl_from_enum(impl_type):
@@ -49,6 +47,8 @@ def solve_bit_width_impl_from_enum(impl_type):
         return BitWidthConst
     elif impl_type == BitWidthImplType.PARAMETER:
         return BitWidthParameter
+    elif impl_type == BitWidthImplType.STATEFUL_CONST:
+        return BitWidthStatefulConst
     else:
         raise Exception(f"{impl_type} not recognized.")
 
@@ -143,8 +143,8 @@ class SolveIntScalingImplFromEnum(ExtendedInjector):
             return PowerOfTwoIntScaling
         else:
             raise RuntimeError(f"{restrict_scaling_type} not recognized.")
-    
-    
+
+
 class SolveStatsReduceDimFromEnum(ExtendedInjector):
 
     @value

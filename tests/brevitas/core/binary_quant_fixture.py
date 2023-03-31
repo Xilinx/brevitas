@@ -1,10 +1,11 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import pytest_cases
 from pytest_cases import fixture_union
-from brevitas.core.quant import BinaryQuant, ClampedBinaryQuant
+
+from brevitas.core.quant import BinaryQuant
+from brevitas.core.quant import ClampedBinaryQuant
 
 __all__ = [
     'binary_quant',
@@ -12,8 +13,8 @@ __all__ = [
     'delayed_binary_quant',
     'delayed_clamped_binary_quant',
     'binary_quant_impl_all',
-    'binary_quant_all', # noqa
-    'delayed_binary_quant_all', # noqa
+    'binary_quant_all',  # noqa
+    'delayed_binary_quant_all',  # noqa
 ]
 
 

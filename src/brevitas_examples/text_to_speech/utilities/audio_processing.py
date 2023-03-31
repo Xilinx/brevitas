@@ -29,15 +29,15 @@ SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
 CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."""
-import torch
-import numpy as np
-from scipy.signal import get_window
 import librosa.util as librosa_util
+import numpy as np
 from scipy.io.wavfile import read
+from scipy.signal import get_window
+import torch
 
 
-def window_sumsquare(window, n_frames, hop_length=200, win_length=800,
-                     n_fft=800, dtype=np.float32, norm=None):
+def window_sumsquare(
+        window, n_frames, hop_length=200, win_length=800, n_fft=800, dtype=np.float32, norm=None):
     """
     # from librosa 0.6
     Compute the sum-square envelope of a window function at a given hop length.
@@ -78,7 +78,7 @@ def window_sumsquare(window, n_frames, hop_length=200, win_length=800,
 
     # Compute the squared window at the desired length
     win_sq = get_window(window, win_length, fftbins=True)
-    win_sq = librosa_util.normalize(win_sq, norm=norm)**2
+    win_sq = librosa_util.normalize(win_sq, norm=norm) ** 2
     win_sq = librosa_util.pad_center(win_sq, n_fft)
 
     # Fill the envelope

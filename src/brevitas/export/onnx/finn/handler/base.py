@@ -1,17 +1,19 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from __future__ import annotations
+
 from abc import ABC
-from typing import Tuple, Union, Optional, TYPE_CHECKING
+from typing import Optional, Tuple, TYPE_CHECKING, Union
 
 import torch
 
 if TYPE_CHECKING:
     from brevitas.nn.mixin.base import QuantLayerMixin
     from brevitas.nn.mixin.act import QuantOutputMixin
+
 from brevitas.export.onnx.handler import ONNXBaseHandler
+
 from ..utils import finn_datatype
 
 

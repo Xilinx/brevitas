@@ -1,19 +1,22 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
-from typing import Callable, Union, Optional
 import math
+from typing import Callable, Optional, Union
 
 import torch
 from torch import Tensor
 from torch.nn import Module
 
 import brevitas
-from brevitas.inject.enum import RestrictValueType, FloatToIntImplType  # retrocompatibility
-
-from brevitas.core.function_wrapper import Identity, PowerOfTwo, LogTwo, InplaceLogTwo
-from brevitas.core.function_wrapper import ScalarClampMinSte, RoundSte
+from brevitas.core.function_wrapper import Identity
+from brevitas.core.function_wrapper import InplaceLogTwo
+from brevitas.core.function_wrapper import LogTwo
+from brevitas.core.function_wrapper import PowerOfTwo
+from brevitas.core.function_wrapper import RoundSte
+from brevitas.core.function_wrapper import ScalarClampMinSte
+from brevitas.inject.enum import FloatToIntImplType  # retrocompatibility
+from brevitas.inject.enum import RestrictValueType
 
 assert RestrictValueType  # prevent removal of unused import
 assert FloatToIntImplType
@@ -21,10 +24,7 @@ assert FloatToIntImplType
 
 class _RestrictClampValue(brevitas.jit.ScriptModule):
 
-    def __init__(
-            self,
-            scaling_min_val: Optional[float],
-            restrict_value_impl: Optional[Module]):
+    def __init__(self, scaling_min_val: Optional[float], restrict_value_impl: Optional[Module]):
         super(_RestrictClampValue, self).__init__()
         if scaling_min_val is not None and scaling_min_val != 0:
             self.clamp_min_ste = ScalarClampMinSte(scaling_min_val)
@@ -44,9 +44,7 @@ class _RestrictClampValue(brevitas.jit.ScriptModule):
 
 class _RestrictValue(brevitas.jit.ScriptModule):
 
-    def __init__(
-            self,
-            restrict_value_impl: Optional[Module]):
+    def __init__(self, restrict_value_impl: Optional[Module]):
         super(_RestrictValue, self).__init__()
         if restrict_value_impl is not None:
             self.restrict_value_impl = restrict_value_impl
@@ -61,9 +59,7 @@ class _RestrictValue(brevitas.jit.ScriptModule):
 
 class _ClampValue(brevitas.jit.ScriptModule):
 
-    def __init__(
-            self,
-            scaling_min_val: Optional[float]):
+    def __init__(self, scaling_min_val: Optional[float]):
         super(_ClampValue, self).__init__()
         if scaling_min_val is not None and scaling_min_val != 0:
             self.clamp_min_ste = ScalarClampMinSte(scaling_min_val)

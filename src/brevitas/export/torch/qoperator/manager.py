@@ -1,24 +1,27 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
-from typing import Union, Optional, Tuple
+from typing import Optional, Tuple, Union
 
 import torch
 from torch import Tensor
 from torch.nn import Module
 
+from brevitas.export.manager import _set_layer_export_handler
+from brevitas.export.manager import _set_layer_export_mode
+from brevitas.export.manager import BaseManager
+from brevitas.export.manager import ExportContext
 from brevitas.quant_tensor import QuantTensor
-from brevitas.export.manager import BaseManager, ExportContext
-from brevitas.export.manager import _set_layer_export_handler, _set_layer_export_mode
-from .handler.parameter import PytorchQuantConv2dHandler
-from .handler.parameter import PytorchQuantConv1dHandler
-from .handler.parameter import PytorchQuantLinearHandler
+
+from .handler import qF
+from .handler.act import PytorchQuantHardTanhHandler
 from .handler.act import PytorchQuantIdentityHandler
 from .handler.act import PytorchQuantReLUHandler
-from .handler.act import PytorchQuantHardTanhHandler
-from .handler.pool import PytorchQuantMaxPool1d, PytorchQuantMaxPool2d
-from .handler import qF
+from .handler.parameter import PytorchQuantConv1dHandler
+from .handler.parameter import PytorchQuantConv2dHandler
+from .handler.parameter import PytorchQuantLinearHandler
+from .handler.pool import PytorchQuantMaxPool1d
+from .handler.pool import PytorchQuantMaxPool2d
 
 
 class TorchQOpManager(BaseManager):

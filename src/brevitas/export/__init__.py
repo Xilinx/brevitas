@@ -1,16 +1,15 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from functools import wraps
 
+from .onnx.debug import enable_debug
 from .onnx.finn.manager import FINNManager
 from .onnx.qonnx.manager import QONNXManager
-from .onnx.standard.qoperator.manager import StdQOpONNXManager
 from .onnx.standard.qcdq.manager import StdQCDQONNXManager
+from .onnx.standard.qoperator.manager import StdQOpONNXManager
 from .torch.qcdq.manager import TorchQCDQManager
 from .torch.qoperator.manager import TorchQOpManager
-from .onnx.debug import enable_debug
 
 
 @wraps(FINNManager.export)
@@ -24,7 +23,7 @@ def export_brevitas_onnx(*args, **kwargs):  # alias for qonnx
 
 
 @wraps(QONNXManager.export)
-def export_qonnx(*args, **kwargs):  
+def export_qonnx(*args, **kwargs):
     return QONNXManager.export(*args, **kwargs)
 
 

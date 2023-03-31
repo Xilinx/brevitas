@@ -1,12 +1,15 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
-from abc import ABC, abstractmethod
+from abc import ABC
+from abc import abstractmethod
 
 import torch
 from torch import Tensor
-from brevitas.export.common.handler.base import BaseHandler, BitWidthHandlerMixin, ZeroPointHandlerMixin
+
+from brevitas.export.common.handler.base import BaseHandler
+from brevitas.export.common.handler.base import BitWidthHandlerMixin
+from brevitas.export.common.handler.base import ZeroPointHandlerMixin
 
 SCALAR_SHAPE = ()
 

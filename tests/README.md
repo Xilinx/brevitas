@@ -25,10 +25,10 @@ A class in _src\_brevitas\_core_ will have its corresponding test in _tests\_bre
 
 ### Adding New Tests
 When adding a new test, make sure to respect the folder structure described above.
-When adding or modifying a file in _src\_brevitas_,  check that the corresponding test is adapted (or added, if missing) in the respective test folder. 
+When adding or modifying a file in _src\_brevitas_,  check that the corresponding test is adapted (or added, if missing) in the respective test folder.
 
 
-Generally speaking, there are two main types of tests used for Brevitas. 
+Generally speaking, there are two main types of tests used for Brevitas.
 The first type relies heavily on Hypothesis to stress-test desired numerical properties. This is particularly useful for example when investigating the numerical propertities of scale factors or gradients.
 The second group is more focused on other properties of modules and functions. For example, testing that the same quantized module can be in brevitas and in onnxruntime with similar outputs, or veryfing that the export flows work as intended.
 

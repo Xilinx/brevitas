@@ -1,18 +1,21 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
-from warnings import warn
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta
+from abc import abstractmethod
 from typing import Optional, Type, Union
+from warnings import warn
 
-from brevitas.inject import ExtendedInjector, Injector
-from brevitas.quant import NoneWeightQuant, NoneBiasQuant
-from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector, BiasQuantProxyFromInjector
-from brevitas.proxy.parameter_quant import WeightQuantProxyProtocol, BiasQuantProxyProtocol
+from brevitas.inject import ExtendedInjector
+from brevitas.inject import Injector
+from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjector
+from brevitas.proxy.parameter_quant import BiasQuantProxyProtocol
+from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
+from brevitas.proxy.parameter_quant import WeightQuantProxyProtocol
+from brevitas.quant import NoneBiasQuant
+from brevitas.quant import NoneWeightQuant
 
 from .base import QuantProxyMixin
-
 
 WeightQuantType = Union[WeightQuantProxyProtocol, Type[Injector], Type[ExtendedInjector]]
 BiasQuantType = Union[BiasQuantProxyProtocol, Type[Injector], Type[ExtendedInjector]]
@@ -21,10 +24,7 @@ BiasQuantType = Union[BiasQuantProxyProtocol, Type[Injector], Type[ExtendedInjec
 class QuantWeightMixin(QuantProxyMixin):
     __metaclass__ = ABCMeta
 
-    def __init__(
-            self,
-            weight_quant: Optional[WeightQuantType],
-            **kwargs):
+    def __init__(self, weight_quant: Optional[WeightQuantType], **kwargs):
         QuantProxyMixin.__init__(
             self,
             quant=weight_quant,
@@ -87,7 +87,6 @@ class QuantBiasMixin(QuantProxyMixin):
         QuantProxyMixin.__init__(
             self,
             quant=bias_quant,
-            proxy_from_injector_impl=BiasQuantProxyFromInjector,
             proxy_protocol=BiasQuantProxyProtocol,
             none_quant_injector=NoneBiasQuant,
             kwargs_prefix='bias_',
@@ -123,7 +122,7 @@ class QuantBiasMixin(QuantProxyMixin):
             return None
         scale = self.quant_bias_scale()
         bit_width = self.quant_bias_bit_width()
-        quant_bias = self.bias_quant(self.bias, scale, bit_width)   
+        quant_bias = self.bias_quant(self.bias, scale, bit_width)
         return quant_bias
 
     def quant_bias_scale(self):
@@ -169,8 +168,7 @@ class QuantBiasMixin(QuantProxyMixin):
             return self._cached_bias.bit_width
 
     def register_parameter(self, name, value):
-       super(QuantBiasMixin, self).register_parameter(name, value)
-       if hasattr(self, 'bias_quant') and name == 'bias':
+        super(QuantBiasMixin, self).register_parameter(name, value)
+        if hasattr(self, 'bias_quant') and name == 'bias':
             self.bias_quant.init_tensor_quant()
             self.bias_quant.to(self.bias.device)
-

@@ -18,10 +18,12 @@
 import torch
 import torch.nn as nn
 
+
 class GreedyCTCDecoder(nn.Module):
     """
     Greedy decoder that computes the argmax over a softmax distribution
     """
+
     def __init__(self):
         nn.Module.__init__(self)
 

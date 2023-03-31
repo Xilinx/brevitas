@@ -1,0 +1,46 @@
+name: &{name}
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+
+
+jobs:
+  build:
+    runs-on: ${{ matrix.platform }}
+    strategy:
+&{strategy}
+      matrix:
+&{matrix}
+&{exclude}
+
+    if: ${{ !github.event.pull_request.draft }}
+    steps:
+
+    - name: Checkout repo
+      uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+       python-version: ${{ matrix.python_version }}
+
+    - name: Install Nox dependencies
+      shell: bash
+      run: pip install -r requirements/requirements-nox.txt
+
+    - name: Install libsndfile and libgomp1 on Ubuntu
+      shell: bash
+      run: sudo apt-get install -y libsndfile-dev libgomp1
+      if: startsWith(runner.os, 'Linux') == true
+
+    - name: Install libomp on macOS
+      shell: bash
+      run: brew install libomp
+      if: startsWith(runner.os, 'macOS') == true
+
+&{steps}

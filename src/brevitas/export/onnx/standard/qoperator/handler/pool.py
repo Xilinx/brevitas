@@ -3,16 +3,17 @@ from typing import Union
 
 import torch
 from torch import Tensor
-
 # early import of max_pool to avoid being affected by monkeypatching
-from torch.nn.functional import max_pool1d, max_pool2d
+from torch.nn.functional import max_pool1d
+from torch.nn.functional import max_pool2d
 
-from brevitas.nn import QuantMaxPool1d, QuantMaxPool2d
+from brevitas.nn import QuantMaxPool1d
+from brevitas.nn import QuantMaxPool2d
+
 from .base import StdQOpONNXQuantWrapperHandler
 
 
 class StdQOpONNXQuantMaxPoolNd(StdQOpONNXQuantWrapperHandler, ABC):
-
 
     @classmethod
     def op_symbolic_kwargs(cls, module: Union[QuantMaxPool1d, QuantMaxPool2d]):

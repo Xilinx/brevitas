@@ -1,22 +1,19 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
-import pytest
-
 import numpy as np
-import torch
-import qonnx.core.onnx_exec as oxe
+import pytest
 from qonnx.core.modelwrapper import ModelWrapper
+import qonnx.core.onnx_exec as oxe
+from qonnx.transformation.double_to_single_float import DoubleToSingleFloat
 from qonnx.transformation.fold_constants import FoldConstants
-from qonnx.transformation.infer_shapes import InferShapes
 from qonnx.transformation.general import GiveUniqueNodeNames
 from qonnx.transformation.general import RemoveStaticGraphInputs
-from qonnx.transformation.double_to_single_float import DoubleToSingleFloat
+from qonnx.transformation.infer_shapes import InferShapes
+import torch
 
 from brevitas.export import export_finn_onnx
 from brevitas_examples.speech_to_text import quant_quartznet_perchannelscaling_4b
-
 
 QUARTZNET_POSTPROCESSED_INPUT_SIZE = (1, 64, 256)  # B, features, sequence
 MIN_INP_VAL = 0.0
@@ -29,7 +26,8 @@ def test_quartznet_asr_4b(pretrained):
     finn_onnx = "quant_quartznet_perchannelscaling_4b.onnx"
     quartznet = quant_quartznet_perchannelscaling_4b(pretrained, export_mode=True)
     quartznet.eval()
-    export_finn_onnx(quartznet, input_shape=QUARTZNET_POSTPROCESSED_INPUT_SIZE, export_path=finn_onnx)
+    export_finn_onnx(
+        quartznet, input_shape=QUARTZNET_POSTPROCESSED_INPUT_SIZE, export_path=finn_onnx)
     model = ModelWrapper(finn_onnx)
     model = model.transform(GiveUniqueNodeNames())
     model = model.transform(DoubleToSingleFloat())

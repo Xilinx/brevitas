@@ -19,18 +19,21 @@
 """
 This file contains neural modules responsible for preprocessing audio data.
 """
-__all__ = ['AudioPreprocessing',
-           'AudioPreprocessor',
-           'AudioToMFCCPreprocessor',
-           'AudioToMelSpectrogramPreprocessor',
-           'AudioToSpectrogramPreprocessor',
-           'MultiplyBatch',
-           'SpectrogramAugmentation']
+__all__ = [
+    'AudioPreprocessing',
+    'AudioPreprocessor',
+    'AudioToMFCCPreprocessor',
+    'AudioToMelSpectrogramPreprocessor',
+    'AudioToSpectrogramPreprocessor',
+    'MultiplyBatch',
+    'SpectrogramAugmentation']
 
 from abc import abstractmethod
 import math
+
 import torch
 import torch.nn as nn
+
 try:
     import torchaudio
     have_torchaudio = True
@@ -39,7 +42,8 @@ except ModuleNotFoundError:
     print('Could not import torchaudio. Some features might not work.')
 
 from .parts.features import FilterbankFeatures
-from .parts.spectr_augment import SpecAugment, SpecCutout
+from .parts.spectr_augment import SpecAugment
+from .parts.spectr_augment import SpecCutout
 
 
 class AudioPreprocessor(nn.Module):
@@ -47,6 +51,7 @@ class AudioPreprocessor(nn.Module):
     A base class for Neural Modules that performs audio preprocessing,
     transforming the wav files to features.
     """
+
     def __init__(self, win_length, hop_length, **kwargs):
         super().__init__()
 
@@ -61,8 +66,7 @@ class AudioPreprocessor(nn.Module):
             'blackman': torch.blackman_window,
             'bartlett': torch.bartlett_window,
             'ones': torch.ones,
-            None: torch.ones
-        }
+            None: torch.ones}
 
     @torch.no_grad()
     def forward(self, input_signal, length):
@@ -111,7 +115,8 @@ class AudioToSpectrogramPreprocessor(AudioPreprocessor):
     """
 
     def __init__(
-            self, *,
+            self,
+            *,
             sample_rate=16000,
             window_size=0.02,
             window_stride=0.01,
@@ -120,19 +125,20 @@ class AudioToSpectrogramPreprocessor(AudioPreprocessor):
             n_fft=None,
             window="hann",
             normalized=True,
-            **kwargs
-    ):
+            **kwargs):
         if not have_torchaudio:
             raise ModuleNotFoundError(
                 "torchaudio is not installed but is necessary for "
                 "AudioToSpectrogramPreprocessor. We recommend you try "
                 "building it from source for the PyTorch version you have.")
         if window_size and n_window_size:
-            raise ValueError(f"{self} received both window_size and "
-                             f"n_window_size. Only one should be specified.")
+            raise ValueError(
+                f"{self} received both window_size and "
+                f"n_window_size. Only one should be specified.")
         if window_stride and n_window_stride:
-            raise ValueError(f"{self} received both window_stride and "
-                             f"n_window_stride. Only one should be specified.")
+            raise ValueError(
+                f"{self} received both window_stride and "
+                f"n_window_stride. Only one should be specified.")
         if window_size:
             n_window_size = int(window_size * sample_rate)
         if window_stride:
@@ -159,8 +165,7 @@ class AudioToSpectrogramPreprocessor(AudioPreprocessor):
             win_length=self.win_length,
             hop_length=self.hop_length,
             window_fn=window_fn,
-            normalized=normalized
-        )
+            normalized=normalized)
         self.featurizer.to(self._device)
 
     def get_features(self, input_signal, length):
@@ -231,7 +236,8 @@ class AudioToMelSpectrogramPreprocessor(AudioPreprocessor):
     """
 
     def __init__(
-            self, *,
+            self,
+            *,
             sample_rate=16000,
             window_size=0.02,
             window_stride=0.01,
@@ -246,21 +252,22 @@ class AudioToMelSpectrogramPreprocessor(AudioPreprocessor):
             highfreq=None,
             log=True,
             log_zero_guard_type="add",
-            log_zero_guard_value=2**-24,
+            log_zero_guard_value=2 ** -24,
             dither=1e-5,
             pad_to=16,
             frame_splicing=1,
             stft_conv=False,
             pad_value=0,
             mag_power=2.,
-            **kwargs
-    ):
+            **kwargs):
         if window_size and n_window_size:
-            raise ValueError(f"{self} received both window_size and "
-                             f"n_window_size. Only one should be specified.")
+            raise ValueError(
+                f"{self} received both window_size and "
+                f"n_window_size. Only one should be specified.")
         if window_stride and n_window_stride:
-            raise ValueError(f"{self} received both window_stride and "
-                             f"n_window_stride. Only one should be specified.")
+            raise ValueError(
+                f"{self} received both window_stride and "
+                f"n_window_stride. Only one should be specified.")
         if window_size:
             n_window_size = int(window_size * sample_rate)
         if window_stride:
@@ -288,8 +295,7 @@ class AudioToMelSpectrogramPreprocessor(AudioPreprocessor):
             stft_conv=stft_conv,
             pad_value=pad_value,
             mag_power=mag_power,
-            logger=None
-        )
+            logger=None)
         # self.featurizer.to(self._device)
 
     def get_features(self, input_signal, length):
@@ -341,7 +347,8 @@ class AudioToMFCCPreprocessor(AudioPreprocessor):
     """
 
     def __init__(
-            self, *,
+            self,
+            *,
             sample_rate=16000,
             window_size=0.02,
             window_stride=0.01,
@@ -363,11 +370,13 @@ class AudioToMFCCPreprocessor(AudioPreprocessor):
                 "AudioToMFCCPreprocessor. We recommend you try "
                 "building it from source for the PyTorch version you have.")
         if window_size and n_window_size:
-            raise ValueError(f"{self} received both window_size and "
-                             f"n_window_size. Only one should be specified.")
+            raise ValueError(
+                f"{self} received both window_size and "
+                f"n_window_size. Only one should be specified.")
         if window_stride and n_window_stride:
-            raise ValueError(f"{self} received both window_stride and "
-                             f"n_window_stride. Only one should be specified.")
+            raise ValueError(
+                f"{self} received both window_stride and "
+                f"n_window_stride. Only one should be specified.")
         # Get win_length (n_window_size) and hop_length (n_window_stride)
         if window_size:
             n_window_size = int(window_size * sample_rate)
@@ -402,8 +411,7 @@ class AudioToMFCCPreprocessor(AudioPreprocessor):
             dct_type=dct_type,
             norm=norm,
             log_mels=log,
-            melkwargs=mel_kwargs
-        )
+            melkwargs=mel_kwargs)
         self.featurizer.to(self._device)
 
     def get_features(self, input_signal, length):
@@ -444,7 +452,8 @@ class SpectrogramAugmentation(nn.Module):
     """
 
     def __init__(
-            self, *,
+            self,
+            *,
             freq_masks=0,
             time_masks=0,
             freq_width=10,
@@ -453,17 +462,12 @@ class SpectrogramAugmentation(nn.Module):
             rect_time=5,
             rect_freq=20,
             rng=None,
-            **kwargs
-    ):
+            **kwargs):
         nn.Module.__init__(self)
 
         if rect_masks > 0:
             self.spec_cutout = SpecCutout(
-                rect_masks=rect_masks,
-                rect_time=rect_time,
-                rect_freq=rect_freq,
-                rng=rng
-            )
+                rect_masks=rect_masks, rect_time=rect_time, rect_freq=rect_freq, rng=rng)
             # self.spec_cutout.to(self._device)
         else:
             self.spec_cutout = lambda x: x
@@ -474,8 +478,7 @@ class SpectrogramAugmentation(nn.Module):
                 time_masks=time_masks,
                 freq_width=freq_width,
                 time_width=time_width,
-                rng=rng
-            )
+                rng=rng)
             # self.spec_augment.to(self._device)
         else:
             self.spec_augment = lambda x: x

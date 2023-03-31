@@ -4,17 +4,18 @@
 import math
 from typing import List
 
-from dependencies import value, this
+from dependencies import this
+from dependencies import value
 import torch
 from torch import Tensor
 
-from brevitas.core.function_wrapper import TensorClamp, TensorClampSte
-from brevitas.core.scaling import *
 from brevitas.core.bit_width import *
+from brevitas.core.function_wrapper import TensorClamp
+from brevitas.core.function_wrapper import TensorClampSte
+from brevitas.core.scaling import *
 from brevitas.core.scaling import ScalingImplType
 from brevitas.inject import ExtendedInjector
 from brevitas.quant.solver.common import *
-
 
 __all__ = [
     'ScalingConstInit',
@@ -23,8 +24,7 @@ __all__ = [
     'SolveParameterTensorClampImplFromEnum',
     'SolveParameterScalingInitFromEnum',
     'SolveParameterScalingImplFromEnum',
-    'SolveParameterScalingShape'
-]
+    'SolveParameterScalingShape']
 
 
 class ScalingConstInit:
@@ -60,15 +60,14 @@ class HeScalingInit:
         return torch.tensor(scaling_init)
 
 
-
 class SolveParameterTensorClampImplFromEnum(ExtendedInjector):
 
     @value
     def tensor_clamp_impl(bit_width_impl_type, scaling_impl_type):
-        if (bit_width_impl_type == BitWidthImplType.PARAMETER
-                or scaling_impl_type == ScalingImplType.AFFINE_STATS
-                or scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS
-                or scaling_impl_type == ScalingImplType.PARAMETER):
+        if (bit_width_impl_type == BitWidthImplType.PARAMETER or
+                scaling_impl_type == ScalingImplType.AFFINE_STATS or
+                scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS or
+                scaling_impl_type == ScalingImplType.PARAMETER):
             return TensorClamp
         else:
             return TensorClampSte

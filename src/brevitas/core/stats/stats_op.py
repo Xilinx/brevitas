@@ -1,20 +1,19 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
-from typing import Optional, Tuple
 import math
+from typing import Optional, Tuple
 
 import torch
 from torch import Tensor
 from torch.nn import Parameter
 
 import brevitas
+from brevitas import config
 from brevitas.core.utils import StatelessBuffer
 from brevitas.function.ops import max_int
-from brevitas import config
-from .stats_wrapper import SCALAR_SHAPE
 
+from .stats_wrapper import SCALAR_SHAPE
 
 DEFAULT_STD_DEV_EPSILON = 1e-8
 
@@ -41,7 +40,8 @@ class NegativeMinOrZero(brevitas.jit.ScriptModule):
 class AbsPercentile(brevitas.jit.ScriptModule):
     __constants__ = ['q', 'stats_reduce_dim']
 
-    def __init__(self, high_percentile_q: float, stats_reduce_dim: Optional[int], percentile_q = None):
+    def __init__(
+            self, high_percentile_q: float, stats_reduce_dim: Optional[int], percentile_q=None):
         super(AbsPercentile, self).__init__()
         if percentile_q is not None:
             raise RuntimeError("percentile_q is deprecated, please pass high_percentile_q.")
@@ -64,8 +64,8 @@ class AbsPercentile(brevitas.jit.ScriptModule):
             k = int(math.floor(.01 * self.q * dim_slice.numel() + 0.5))
             result = x.abs().kthvalue(k, dim=self.stats_reduce_dim).values
         return result
-    
-    
+
+
 class NegativePercentileOrZero(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim', 'q']
 
@@ -92,12 +92,16 @@ class NegativePercentileOrZero(brevitas.jit.ScriptModule):
         result = torch.where(
             result <= self.zero().to(result.dtype), result, self.zero().to(result.dtype))
         return result
-    
-    
+
+
 class PercentileInterval(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim', 'low_q', 'high_q']
 
-    def __init__(self, low_percentile_q, high_percentile_q, stats_reduce_dim: Optional[int] = None) -> None:
+    def __init__(
+            self,
+            low_percentile_q,
+            high_percentile_q,
+            stats_reduce_dim: Optional[int] = None) -> None:
         super(PercentileInterval, self).__init__()
         self.stats_reduce_dim = stats_reduce_dim
         self.low_q = low_percentile_q
@@ -264,8 +268,9 @@ class MeanLearnedSigmaStd(brevitas.jit.ScriptModule):
         out = self.impl(x, sigma)
         return out
 
-    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
-                              missing_keys, unexpected_keys, error_msgs):
+    def _load_from_state_dict(
+            self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
+            error_msgs):
         value_key = prefix + 'sigma'
         retrocomp_value_key = prefix + 'learned_sigma'
         if retrocomp_value_key in state_dict:  # retrocompatibility
@@ -283,7 +288,7 @@ class KLMinimizerThreshold(torch.nn.Module):
     https://github.com/apache/incubator-mxnet/blob/master/python/mxnet/contrib/quantization.py
     """
 
-    def __init__(self, signed, bit_width_impl, num_bins = 1000 + 1, smoothing_eps=0.0001):
+    def __init__(self, signed, bit_width_impl, num_bins=1000 + 1, smoothing_eps=0.0001):
         super(KLMinimizerThreshold, self).__init__()
         self.num_bins = num_bins
         self.smoothing_eps = smoothing_eps
@@ -349,3 +354,39 @@ class KLMinimizerThreshold(torch.nn.Module):
         min_divergence_idx = torch.argmin(divergence)
         opt_threshold = thresholds[min_divergence_idx]
         return opt_threshold
+
+
+class L1Norm(brevitas.jit.ScriptModule):
+    """ScriptModule implementation to collect per-channel L1 normalization stats
+    for weight normalization-based quantization."""
+    __constants__ = ['stats_reduce_dim']
+
+    def __init__(self, stats_reduce_dim: Optional[int] = None) -> None:
+        super(L1Norm, self).__init__()
+        self.stats_reduce_dim = stats_reduce_dim
+
+    @brevitas.jit.script_method
+    def forward(self, x: Tensor):
+        if self.stats_reduce_dim is None:
+            # Need to be able to return the max per-channel L1 norm as a scalar
+            raise NotImplementedError("L1 normalization is not supported per-tensor yet.")
+        else:
+            return x.norm(p=1, dim=self.stats_reduce_dim, keepdim=True)
+
+
+class L2Norm(brevitas.jit.ScriptModule):
+    """ScriptModule implementation to collect per-channel L2 normalization stats
+    for weight normalization-based quantization."""
+    __constants__ = ['stats_reduce_dim']
+
+    def __init__(self, stats_reduce_dim: Optional[int] = None) -> None:
+        super(L2Norm, self).__init__()
+        self.stats_reduce_dim = stats_reduce_dim
+
+    @brevitas.jit.script_method
+    def forward(self, x: Tensor):
+        if self.stats_reduce_dim is None:
+            # Need to be able to return the max per-channel L2 norm as a scalar
+            raise NotImplementedError("L2 normalization is not supported per-tensor yet.")
+        else:
+            return x.norm(p=2, dim=self.stats_reduce_dim, keepdim=True)

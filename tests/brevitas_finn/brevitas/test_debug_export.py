@@ -1,10 +1,10 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import torch
 
-from brevitas.export import export_finn_onnx, enable_debug
+from brevitas.export import enable_debug
+from brevitas.export import export_finn_onnx
 from brevitas_examples import bnn_pynq
 
 REF_MODEL = 'CNV_2W2A'

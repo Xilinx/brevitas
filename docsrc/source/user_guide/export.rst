@@ -2,7 +2,7 @@
 Export Compatibility
 ====================
 
-In order to accelerate a quantized model, Brevitas requires to export the model to an inference toolchain. 
+In order to accelerate a quantized model, Brevitas requires to export the model to an inference toolchain.
 Brevitas can currently export to:
 
 -  FINN - for dataflow acceleration on Xilinx FPGAs.
@@ -21,5 +21,3 @@ documentation will be released to illustrate the various restrictions
 imposed by each target platform. As a general note though, currently
 FINN is the only toolchain that supports acceleration of low bit-width
 datatypes.
-
-

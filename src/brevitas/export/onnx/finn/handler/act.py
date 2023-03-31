@@ -1,16 +1,19 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from typing import Tuple
 
 import torch
 from torch import Tensor
 
-from brevitas.nn import QuantReLU, QuantHardTanh, QuantIdentity
-from .base import FINNQuantInputHandler
-from ..function.act import QuantReLUFn, QuantHardTanhFn
+from brevitas.nn import QuantHardTanh
+from brevitas.nn import QuantIdentity
+from brevitas.nn import QuantReLU
+
+from ..function.act import QuantHardTanhFn
+from ..function.act import QuantReLUFn
 from ..utils import finn_datatype
+from .base import FINNQuantInputHandler
 
 
 class FINNQuantReLUHandler(FINNQuantInputHandler):
@@ -72,9 +75,9 @@ class FINNQuantHardTanhHandler(FINNQuantInputHandler):
             return torch.tensor(-0.5).type(torch.FloatTensor)
         else:
             if module.is_quant_act_narrow_range:
-                min_non_scaled_val = - (2 ** (bit_width - 1) - 1)
+                min_non_scaled_val = -(2 ** (bit_width - 1) - 1)
             else:
-                min_non_scaled_val = - 2 ** (bit_width - 1)
+                min_non_scaled_val = -2 ** (bit_width - 1)
             return torch.tensor(min_non_scaled_val).type(torch.FloatTensor)
 
     @staticmethod
@@ -95,7 +98,7 @@ class FINNQuantHardTanhHandler(FINNQuantInputHandler):
             thresholds = torch.empty(num_scale_channels, num_thresholds)
             # compute the value of the smallest threshold, we'll neg-bias all
             # generated thresholds by this much
-            min_threshold = - half_step - step * ((num_thresholds // 2) - 1)
+            min_threshold = -half_step - step * ((num_thresholds // 2) - 1)
             if not module.is_quant_act_narrow_range:
                 min_threshold -= step
             for c in range(num_scale_channels):
@@ -137,4 +140,3 @@ class FINNQuantHardTanhHandler(FINNQuantInputHandler):
 
 class FINNQuantIdentityHandler(FINNQuantHardTanhHandler):
     handled_layer = QuantIdentity
-

@@ -25,22 +25,27 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-
 __all__ = ['quant_mobilenet_v1']
 
 from torch import nn
 from torch.nn import Sequential
 
-from brevitas.nn import QuantConv2d, QuantLinear, QuantReLU, QuantAvgPool2d
+from brevitas.nn import QuantAvgPool2d
+from brevitas.nn import QuantConv2d
+from brevitas.nn import QuantLinear
+from brevitas.nn import QuantReLU
 from brevitas.quant import IntBias
 
-from .common import CommonIntActQuant, CommonUintActQuant
-from .common import CommonIntWeightPerChannelQuant, CommonIntWeightPerTensorQuant
+from .common import CommonIntActQuant
+from .common import CommonIntWeightPerChannelQuant
+from .common import CommonIntWeightPerTensorQuant
+from .common import CommonUintActQuant
 
 FIRST_LAYER_BIT_WIDTH = 8
 
 
 class DwsConvBlock(nn.Module):
+
     def __init__(
             self,
             in_channels,
@@ -103,6 +108,7 @@ class ConvBlock(nn.Module):
             act_quant=CommonUintActQuant,
             bit_width=act_bit_width,
             per_channel_broadcastable_shape=(1, out_channels, 1, 1),
+            scaling_stats_permute_dims=(1, 0, 2, 3),
             scaling_per_output_channel=activation_scaling_per_channel,
             return_quant_tensor=True)
 
@@ -115,13 +121,7 @@ class ConvBlock(nn.Module):
 
 class MobileNet(nn.Module):
 
-    def __init__(
-            self,
-            channels,
-            first_stage_stride,
-            bit_width,
-            in_channels=3,
-            num_classes=1000):
+    def __init__(self, channels, first_stage_stride, bit_width, in_channels=3, num_classes=1000):
         super(MobileNet, self).__init__()
         init_block_channels = channels[0][0]
 
@@ -152,7 +152,8 @@ class MobileNet(nn.Module):
             self.features.add_module('stage{}'.format(i + 1), stage)
         self.final_pool = QuantAvgPool2d(kernel_size=7, stride=1, bit_width=bit_width)
         self.output = QuantLinear(
-            in_channels, num_classes,
+            in_channels,
+            num_classes,
             bias=True,
             bias_quant=IntBias,
             weight_quant=CommonIntWeightPerTensorQuant,
@@ -176,12 +177,6 @@ def quant_mobilenet_v1(cfg):
     if width_scale != 1.0:
         channels = [[int(cij * width_scale) for cij in ci] for ci in channels]
 
-    net = MobileNet(
-        channels=channels,
-        first_stage_stride=first_stage_stride,
-        bit_width=bit_width)
+    net = MobileNet(channels=channels, first_stage_stride=first_stage_stride, bit_width=bit_width)
 
     return net
-
-
-

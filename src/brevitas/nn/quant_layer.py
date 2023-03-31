@@ -1,27 +1,25 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
-from abc import ABCMeta, abstractmethod
-from typing import Optional, Type, Union, Callable
+from abc import ABCMeta
+from abc import abstractmethod
+from typing import Callable, Optional, Type, Union
 
 import torch
 from torch import Tensor
-from torch.nn import Module, Parameter
+from torch.nn import Module
+from torch.nn import Parameter
 
 from brevitas.quant_tensor import QuantTensor
-from .mixin.base import _CachedIO
+
 from .mixin import *
-
-from .utils import rename_state_dict_by_prefix, compute_channel_view_shape
+from .mixin.base import _CachedIO
+from .utils import compute_channel_view_shape
 from .utils import merge_bn
+from .utils import rename_state_dict_by_prefix
 
 
-class QuantNonLinearActLayer(
-    QuantNonLinearActMixin,
-    QuantInputMixin,
-    QuantLayerMixin,
-    Module):
+class QuantNonLinearActLayer(QuantNonLinearActMixin, QuantInputMixin, QuantLayerMixin, Module):
     __metaclass__ = ABCMeta
 
     def __init__(
@@ -35,12 +33,7 @@ class QuantNonLinearActLayer(
         Module.__init__(self)
         QuantLayerMixin.__init__(self, return_quant_tensor)
         QuantInputMixin.__init__(self, input_quant, **kwargs)
-        QuantNonLinearActMixin.__init__(
-            self,
-            act_impl,
-            passthrough_act,
-            act_quant,
-            **kwargs)
+        QuantNonLinearActMixin.__init__(self, act_impl, passthrough_act, act_quant, **kwargs)
 
     @property
     def channelwise_separable(self) -> bool:
@@ -134,7 +127,7 @@ class QuantNonLinearActLayer(
         else:
             return None
 
-    def quant_output_bit_width(self):   # overrides from QuantLayerMixin
+    def quant_output_bit_width(self):  # overrides from QuantLayerMixin
         return self.quant_act_bit_width()
 
     def forward(self, input: Union[Tensor, QuantTensor]):
@@ -149,18 +142,16 @@ class QuantNonLinearActLayer(
         out = self.pack_output(out)
         return out
 
-    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
-                              missing_keys, unexpected_keys, error_msgs):
+    def _load_from_state_dict(
+            self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
+            error_msgs):
         # for retrocompatibility
         rename_state_dict_by_prefix(prefix + 'act_quant_proxy', prefix + 'act_quant', state_dict)
         super(QuantNonLinearActLayer, self)._load_from_state_dict(
             state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
 
 
-class QuantInputOutputLayer(
-        QuantOutputMixin,
-        QuantInputMixin,
-        QuantLayerMixin):
+class QuantInputOutputLayer(QuantOutputMixin, QuantInputMixin, QuantLayerMixin):
     __metaclass__ = ABCMeta
 
     def __init__(
@@ -196,7 +187,7 @@ class QuantInputOutputLayer(
             return None
 
     @property
-    def is_quant_output_signed(self)  -> Optional[bool]:  # tri-valued logic output:
+    def is_quant_output_signed(self) -> Optional[bool]:  # tri-valued logic output:
         if self.is_output_quant_enabled:
             return self.output_quant.is_signed
         elif self._cached_out is not None:
@@ -253,10 +244,7 @@ class QuantInputOutputLayer(
             return None
 
 
-class QuantWeightBiasInputOutputLayer(
-        QuantBiasMixin,
-        QuantWeightMixin,
-        QuantInputOutputLayer):
+class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInputOutputLayer):
     __metaclass__ = ABCMeta
 
     def __init__(
@@ -287,10 +275,9 @@ class QuantWeightBiasInputOutputLayer(
 
     @property
     def requires_export_handler(self):
-        return (self.is_input_quant_enabled
-                or self.is_weight_quant_enabled
-                or self.is_bias_quant_enabled
-                or self.is_output_quant_enabled)
+        return (
+            self.is_input_quant_enabled or self.is_weight_quant_enabled or
+            self.is_bias_quant_enabled or self.is_output_quant_enabled)
 
     @property
     def per_elem_ops(self):  # optional, so concrete impl + error if not overridden
@@ -316,9 +303,9 @@ class QuantWeightBiasInputOutputLayer(
         quant_input = self.input_quant(inp)
         quant_weight = self.quant_weight()
 
-        if quant_input.bit_width is not None:
+        if quant_input.bit_width is not None and quant_weight.bit_width is not None:
             output_bit_width = self.max_acc_bit_width(quant_input.bit_width, quant_weight.bit_width)
-        if quant_input.scale is not None:
+        if quant_input.scale is not None and quant_weight.scale is not None:
             output_scale_shape = compute_channel_view_shape(inp, channel_dim=1)
             output_scale = quant_weight.scale.view(output_scale_shape)
             output_scale = output_scale * quant_input.scale.view(output_scale_shape)
@@ -333,11 +320,11 @@ class QuantWeightBiasInputOutputLayer(
             output_tensor = self.inner_forward_impl(
                 quant_input.value, quant_weight.value, quant_bias.value)
 
-            if (output_scale is not None
-                    and (quant_bias.scale is None
-                         or (quant_bias.scale is not None
-                             and quant_bias.scale.data_ptr() != output_scale.data_ptr()))):
-                output_zero_point = - quant_bias.value.view(output_scale_shape) / output_scale
+            if (output_scale is not None and
+                (quant_bias.scale is None or
+                 (quant_bias.scale is not None and
+                  quant_bias.scale.data_ptr() != output_scale.data_ptr()))):
+                output_zero_point = -quant_bias.value.view(output_scale_shape) / output_scale
 
             if quant_bias.bit_width is not None and output_bit_width is not None:
                 output_bit_width = torch.where(
@@ -347,9 +334,8 @@ class QuantWeightBiasInputOutputLayer(
             output_tensor = self.inner_forward_impl(quant_input.value, quant_weight.value, None)
 
         if self.return_quant_tensor and not self.is_output_quant_enabled:
-            if (quant_input.zero_point is not None
-                    and ((quant_input.zero_point != 0.0).any()
-                         or (quant_weight.zero_point != 0.0).any())):
+            if (quant_input.zero_point is not None and quant_weight.zero_point is not None and
+                ((quant_input.zero_point != 0.0).any() or (quant_weight.zero_point != 0.0).any())):
                 raise RuntimeError("Computing zero point of output accumulator not supported yet.")
             elif quant_input.zero_point is not None and output_zero_point is None:
                 output_zero_point = quant_input.zero_point
@@ -363,6 +349,3 @@ class QuantWeightBiasInputOutputLayer(
             training=self.training)
         quant_output = self.output_quant(quant_output)
         return self.pack_output(quant_output)
-
-
-

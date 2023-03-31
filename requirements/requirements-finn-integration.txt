@@ -1,6 +1,6 @@
 bitstring
-toposort
-qonnx
-onnxruntime
 onnx
 onnxoptimizer
+onnxruntime
+qonnx
+toposort

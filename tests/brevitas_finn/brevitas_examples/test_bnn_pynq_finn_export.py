@@ -2,23 +2,21 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Adapted from: https://github.com/Xilinx/finn/blob/master/tests/brevitas/test_brevitas_fc.py
 
-
-import pytest
-from packaging import version
-
 import numpy as np
-import torch
-import qonnx.core.onnx_exec as oxe
+from packaging import version
+import pytest
 from qonnx.core.modelwrapper import ModelWrapper
+import qonnx.core.onnx_exec as oxe
+from qonnx.transformation.double_to_single_float import DoubleToSingleFloat
 from qonnx.transformation.fold_constants import FoldConstants
-from qonnx.transformation.infer_shapes import InferShapes
 from qonnx.transformation.general import GiveUniqueNodeNames
 from qonnx.transformation.general import RemoveStaticGraphInputs
-from qonnx.transformation.double_to_single_float import DoubleToSingleFloat
+from qonnx.transformation.infer_shapes import InferShapes
+import torch
 
 from brevitas import torch_version
-from brevitas.quant_tensor import QuantTensor
 from brevitas.export import export_finn_onnx
+from brevitas.quant_tensor import QuantTensor
 from brevitas_examples.bnn_pynq.models import model_with_cfg
 
 FC_INPUT_SIZE = (1, 1, 28, 28)
@@ -98,7 +96,7 @@ def test_brevitas_cnv_onnx_export_and_exec(wbits, abits, pretrained):
     model = model.transform(InferShapes())
     model = model.transform(FoldConstants())
     model = model.transform(RemoveStaticGraphInputs())
-    
+
     # run using FINN-based execution
     input_dict = {"input": input_a}
     output_dict = oxe.execute_onnx(model, input_dict)

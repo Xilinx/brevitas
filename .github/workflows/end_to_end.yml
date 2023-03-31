@@ -4,14 +4,14 @@ on:
   push:
     branches: [ master, dev ]
   pull_request:
+    types:
+      - review_requested
 
 jobs:
   build:
     runs-on: ${{ matrix.platform }}
-
     strategy:
       fail-fast: false
-      max-parallel: 4
 
 
       matrix:
@@ -25,6 +25,7 @@ jobs:
 
 
 
+    if: ${{ !github.event.pull_request.draft }}
     steps:
 
     - name: Checkout repo
@@ -52,5 +53,3 @@ jobs:
     - name: Run Nox session for end-to-end flows
       shell: bash
       run: nox -v -s tests_brevitas_end_to_end-${{ matrix.python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)
-
-

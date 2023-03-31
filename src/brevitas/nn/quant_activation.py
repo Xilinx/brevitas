@@ -1,14 +1,16 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from typing import Optional
 
 from torch import nn
 
+from brevitas.inject.defaults import Int8ActPerTensorFloat
+from brevitas.inject.defaults import Int8ActPerTensorFloatMinMaxInit
 from brevitas.inject.defaults import Uint8ActPerTensorFloat
-from brevitas.inject.defaults import Int8ActPerTensorFloat, Int8ActPerTensorFloatMinMaxInit
-from .quant_layer import QuantNonLinearActLayer as QuantNLAL, ActQuantType
+
+from .quant_layer import ActQuantType
+from .quant_layer import QuantNonLinearActLayer as QuantNLAL
 
 
 class QuantReLU(QuantNLAL):
@@ -98,4 +100,3 @@ class QuantIdentity(QuantNLAL):
             act_quant=act_quant,
             return_quant_tensor=return_quant_tensor,
             **kwargs)
-

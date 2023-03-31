@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from typing import Tuple
 
 import torch
@@ -9,10 +8,10 @@ from torch import Tensor
 from torch.nn import Module
 
 import brevitas
-from brevitas.function.ops_ste import ternary_sign_ste
 from brevitas.core.bit_width import BitWidthConst
-from brevitas.core.utils import StatelessBuffer
 from brevitas.core.quant.delay import DelayWrapper
+from brevitas.core.utils import StatelessBuffer
+from brevitas.function.ops_ste import ternary_sign_ste
 
 
 class TernaryQuant(brevitas.jit.ScriptModule):

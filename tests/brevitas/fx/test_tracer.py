@@ -1,34 +1,28 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import pytest
 import torch
 from torch import Tensor
 from torch.nn import Module
-from torchvision.models import resnet18
-from torchvision.models import mobilenet_v2
 from torchvision.models import alexnet
-from torchvision.models import squeezenet1_0
-from torchvision.models import shufflenet_v2_x0_5
-from torchvision.models import mnasnet0_5
 from torchvision.models import densenet121
+from torchvision.models import mnasnet0_5
+from torchvision.models import mobilenet_v2
+from torchvision.models import resnet18
+from torchvision.models import shufflenet_v2_x0_5
+from torchvision.models import squeezenet1_0
 
-from brevitas.fx import value_trace, brevitas_symbolic_trace, brevitas_value_trace
+from brevitas.fx import brevitas_symbolic_trace
+from brevitas.fx import brevitas_value_trace
+from brevitas.fx import value_trace
 
 SEED = 123456
 INPUT_SIZE = (2, 3, 224, 224)
 INCEPTION_INPUT_SIZE = (2, 3, 299, 299)
 
-
 TV_MODELS = [
-    resnet18,
-    mobilenet_v2,
-    alexnet,
-    squeezenet1_0,
-    shufflenet_v2_x0_5,
-    mnasnet0_5,
-    densenet121]
+    resnet18, mobilenet_v2, alexnet, squeezenet1_0, shufflenet_v2_x0_5, mnasnet0_5, densenet121]
 
 
 @pytest.mark.parametrize("pretrained", [True, False])

@@ -1,38 +1,32 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
-from functools import partial
 from abc import ABC
+from functools import partial
+import sys
 
 from torch import nn
-
-from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
-from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjector
-from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector
-from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector
-from brevitas.proxy.runtime_quant import ClampQuantProxyFromInjector
-from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
-from brevitas.nn import QuantLinear, QuantHardTanh
-from brevitas.nn.utils import compute_channel_view_shape
-from brevitas.quant_tensor import QuantTensor
 import torch.nn.functional as F
+
+from brevitas.nn import QuantHardTanh
+from brevitas.nn import QuantLinear
+from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
+from brevitas.nn.utils import compute_channel_view_shape
+from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjector
+from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
+from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector
+from brevitas.proxy.runtime_quant import ClampQuantProxyFromInjector
+from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector
+from brevitas.quant_tensor import QuantTensor
+
 from .base import Transform
 
 __all__ = [
-    'ClipFloatWeights',
-    'DisableEnableQuantization',
-    'bias_correction_mode',
-    'calibration_mode'
-]
+    'ClipFloatWeights', 'DisableEnableQuantization', 'bias_correction_mode', 'calibration_mode']
 
-_PARAM_PROXIES = (
-    WeightQuantProxyFromInjector,
-    BiasQuantProxyFromInjector)
+_PARAM_PROXIES = (WeightQuantProxyFromInjector, BiasQuantProxyFromInjector)
 
-_ACC_PROXIES = (
-    TruncQuantProxyFromInjector,
-    ClampQuantProxyFromInjector)
+_ACC_PROXIES = (TruncQuantProxyFromInjector, ClampQuantProxyFromInjector)
 
 _LAYERS_TO_CLIP = (
     nn.Conv1d,
@@ -44,28 +38,42 @@ _LAYERS_TO_CLIP = (
     nn.ConvTranspose3d)
 
 
+def extend_collect_stats_steps(module):
+    if hasattr(module, 'collect_stats_steps'):
+        # We extend the collect steps in PTQ to match potentially long calibrations
+        module.collect_stats_steps = sys.maxsize
+
+
 def finalize_collect_stats(module):
     if hasattr(module, 'collect_stats_steps') and hasattr(module, 'counter'):
-        module.counter = module.collect_stats_steps
+        # If the counter has already reached collect_stats_steps, we do not want to reset it
+        # otherwise the restrict_preprocess might be applied twice: during calibration
+        # (that happens in training mode) and then when the model is evaluated
+        module.counter = max(module.collect_stats_steps, module.counter)
 
 
 class calibration_mode:
+
     def __init__(self, model, enabled=True):
         self.model = model
         self.previous_training_state = model.training
         self.disable_quant_inference = DisableEnableQuantization()
-        self.enabled=enabled
+        self.enabled = enabled
 
     def __enter__(self):
         if self.enabled:
-            self.disable_quant_inference.apply(self.model, is_training=True, quantization_enabled=False)
+            self.model.apply(extend_collect_stats_steps)
+            self.disable_quant_inference.apply(
+                self.model, is_training=True, quantization_enabled=False)
 
     def __exit__(self, type, value, traceback):
         self.model.apply(finalize_collect_stats)
-        self.disable_quant_inference.apply(self.model, is_training=self.previous_training_state, quantization_enabled=True)
+        self.disable_quant_inference.apply(
+            self.model, is_training=self.previous_training_state, quantization_enabled=True)
 
 
 class bias_correction_mode:
+
     def __init__(self, model, enabled=True):
         self.model = model
         self.bias_correction = _BiasCorrection()
@@ -92,12 +100,12 @@ class ClipFloatWeights(Transform):
     def apply(self, model):
         for module in model.modules():
             if isinstance(module, self.layers_to_clip):
-                module.weight.data.clamp_(- self.threshold, self.threshold)
+                module.weight.data.clamp_(-self.threshold, self.threshold)
         return model
-        
+
 
 class DisableEnableQuantization(Transform):
-    
+
     def __init__(self):
         super(DisableEnableQuantization, self).__init__()
         self.disable_act_quant_hooks = []
@@ -121,7 +129,7 @@ class DisableEnableQuantization(Transform):
             inp = F.hardtanh(
                 inp, min_val=module.quant_injector.min_val, max_val=module.quant_injector.max_val)
         return QuantTensor(value=inp, training=module.training)
-    
+
     def disable_act_quantization(self, model, is_training):
         for module in model.modules():
             if isinstance(module, ActQuantProxyFromInjector):
@@ -137,7 +145,7 @@ class DisableEnableQuantization(Transform):
             if isinstance(module, _PARAM_PROXIES):
                 module.train(is_training)
                 module.disable_quant = True
-    
+
     def enable_act_quantization(self, model, is_training):
         for module in model.modules():
             if isinstance(module, _ACC_PROXIES):
@@ -208,7 +216,8 @@ class _BiasCorrection(DisableEnableQuantization):
                 if module.bias is not None:
                     module.bias.data += correction
                 else:
-                    module.register_parameter('bias', nn.Parameter(correction).to(module.weight.device))
+                    module.register_parameter(
+                        'bias', nn.Parameter(correction).to(module.weight.device))
 
     def correct_bias_hook(self, module, inp, name, parent_module):
         inp = self.unpack_input(inp)
@@ -218,7 +227,8 @@ class _BiasCorrection(DisableEnableQuantization):
             error = self.float_mean_map[name] - quant_mean
             self.update_correction(name, error)
             del self.float_mean_map[name]
-            inp_broadcast_shape = compute_channel_view_shape(inp, channel_dim=self.channel_dim(inp, parent_module))
+            inp_broadcast_shape = compute_channel_view_shape(
+                inp, channel_dim=self.channel_dim(inp, parent_module))
             return inp + error.reshape(inp_broadcast_shape)
 
     def register_collect_float_mean_hook(self, module, name):
@@ -267,11 +277,11 @@ class _BiasCorrection(DisableEnableQuantization):
         self.disable_act_quantization(module, is_training=False)
         self.disable_param_quantization(module, is_training=False)
         self.register_collect_float_mean_hook(module, name)
-        module.forward(*inp) # Required to avoid infinite recursion
+        module.forward(*inp)  # Required to avoid infinite recursion
         self.float_mean_hooks_cleanup()
         self.enable_act_quantization(module, is_training=False)
         self.enable_param_quantization(module, is_training=False)
         self.register_correct_bias_hook(module, name)
-        out = module.forward(*inp) # Required to avoid infinite recursion
+        out = module.forward(*inp)  # Required to avoid infinite recursion
         self.iterations[name] += 1
         return out

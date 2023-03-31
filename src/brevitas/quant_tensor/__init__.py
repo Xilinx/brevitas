@@ -1,15 +1,17 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from abc import ABC
-from typing import Optional, NamedTuple
+from typing import NamedTuple, Optional
 
 import torch
 from torch import Tensor
 
-from brevitas.function.ops_ste import ceil_ste, round_ste
-from brevitas.function.ops import max_int, min_int
+from brevitas.function.ops import max_int
+from brevitas.function.ops import min_int
+from brevitas.function.ops_ste import ceil_ste
+from brevitas.function.ops_ste import round_ste
+
 from .torch_handler import QUANT_TENSOR_FN_HANDLER
 
 IS_VALID_ATOL = 1e-5
@@ -82,9 +84,9 @@ class QuantTensor(QuantTensorBase):
     def __torch_function__(self, func, types, args=(), kwargs=None):
         if kwargs is None:
             kwargs = {}
-        if (func not in QUANT_TENSOR_FN_HANDLER
-                or not all(issubclass(t, QuantTensor) for t in types)
-                or not (_is_all_nested_not_none(args) and _is_all_nested_not_none(kwargs))):
+        if (func not in QUANT_TENSOR_FN_HANDLER or
+                not all(issubclass(t, QuantTensor) for t in types) or
+                not (_is_all_nested_not_none(args) and _is_all_nested_not_none(kwargs))):
             args = _unpack_quant_tensor(args)
             kwargs = _unpack_quant_tensor(kwargs)
             return func(*args, **kwargs)
@@ -96,11 +98,9 @@ class QuantTensor(QuantTensorBase):
 
     @property
     def is_not_none(self):
-        return (self.value is not None
-                and self.scale is not None
-                and self.zero_point is not None
-                and self.bit_width is not None
-                and self.signed is not None)
+        return (
+            self.value is not None and self.scale is not None and self.zero_point is not None and
+            self.bit_width is not None and self.signed is not None)
 
     @property
     def _pre_round_int_value(self):
@@ -114,11 +114,12 @@ class QuantTensor(QuantTensorBase):
             with torch.no_grad():
                 pre_round_int_value = self._pre_round_int_value
                 rounded_int_value = torch.round(pre_round_int_value)
-                is_int = torch.isclose(pre_round_int_value, rounded_int_value, atol=IS_VALID_ATOL).all()
+                is_int = torch.isclose(
+                    pre_round_int_value, rounded_int_value, atol=IS_VALID_ATOL).all()
                 if self.bit_width >= 2:
                     if self.signed:
                         is_upper_b = (2.0 ** (self.bit_width - 1) - 1 >= rounded_int_value).all()
-                        is_lower_b = (- 2.0 ** (self.bit_width - 1) <= rounded_int_value).all()
+                        is_lower_b = (-2.0 ** (self.bit_width - 1) <= rounded_int_value).all()
                     else:
                         is_upper_b = (2.0 ** self.bit_width - 1 >= rounded_int_value).all()
                         is_lower_b = (0. <= rounded_int_value).all()
@@ -274,11 +275,16 @@ class QuantTensor(QuantTensorBase):
                     first_qt.check_bit_width_same(qt)
                     first_qt.check_sign_same(qt)
                 output_value = torch.cat([qt.value for qt in tensors], dim=dim)
-                output_scale = sum([qt.scale for qt in tensors]) / len(tensors)
-                output_zero_point = sum([qt.zero_point for qt in tensors]) / len(tensors)
-                output_bit_width = sum([qt.bit_width for qt in tensors]) / len(tensors)
-                output_signed = first_qt.signed  # they are the same
                 output_training = any([qt.training for qt in tensors])
+                if output_training:
+                    output_scale = sum([qt.scale for qt in tensors]) / len(tensors)
+                    output_zero_point = sum([qt.zero_point for qt in tensors]) / len(tensors)
+                    output_bit_width = sum([qt.bit_width for qt in tensors]) / len(tensors)
+                else:  # at eval time, they are the same
+                    output_scale = first_qt.scale
+                    output_zero_point = first_qt.zero_point
+                    output_bit_width = first_qt.bit_width
+                output_signed = first_qt.signed  # they are the same
                 return QuantTensor(
                     value=output_value,
                     scale=output_scale,
@@ -294,7 +300,7 @@ class QuantTensor(QuantTensorBase):
     # Reference: https://docs.python.org/3/reference/datamodel.html#emulating-numeric-types
 
     def __neg__(self):
-        neg_value = (- self.int(float_datatype=True) - self.zero_point) * self.scale
+        neg_value = (-self.int(float_datatype=True) - self.zero_point) * self.scale
         if self.signed:
             return QuantTensor(
                 value=neg_value,
@@ -311,6 +317,33 @@ class QuantTensor(QuantTensorBase):
                 bit_width=self.bit_width + 1,
                 signed=True,
                 training=self.training)
+
+    def to(self, *args, **kwargs):
+        return QuantTensor(
+            self.value.to(*args, **kwargs),
+            self.scale.to(*args, **kwargs) if self.scale is not None else None,
+            self.zero_point.to(*args, **kwargs) if self.zero_point is not None else None,
+            self.bit_width.to(*args, **kwargs) if self.bit_width is not None else None,
+            self.signed,
+            self.training)
+
+    def cuda(self, *args, **kwargs):
+        return QuantTensor(
+            self.value.cuda(*args, **kwargs),
+            self.scale.cuda(*args, **kwargs) if self.scale is not None else None,
+            self.zero_point.cuda(*args, **kwargs) if self.zero_point is not None else None,
+            self.bit_width.cuda(*args, **kwargs) if self.bit_width is not None else None,
+            self.signed,
+            self.training)
+
+    def cpu(self, *args, **kwargs):
+        return QuantTensor(
+            self.value.cpu(*args, **kwargs),
+            self.scale.cpu(*args, **kwargs) if self.scale is not None else None,
+            self.zero_point.cpu(*args, **kwargs) if self.zero_point is not None else None,
+            self.bit_width.cpu(*args, **kwargs) if self.bit_width is not None else None,
+            self.signed,
+            self.training)
 
     def __add__(self, other):
         if isinstance(other, QuantTensor) and self.is_not_none and other.is_not_none:
@@ -369,7 +402,7 @@ class QuantTensor(QuantTensorBase):
         return output
 
     def __sub__(self, other):
-        return self.__add__(- other)
+        return self.__add__(-other)
 
     def __truediv__(self, other):
         if isinstance(other, QuantTensor) and self.is_not_none and other.is_not_none:

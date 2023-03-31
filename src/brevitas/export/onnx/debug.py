@@ -1,21 +1,19 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import torch
 from torch.autograd import Function
 
 from brevitas.nn.mixin.base import QuantLayerMixin
-from brevitas.quant_tensor import QuantTensor
 from brevitas.proxy.quant_proxy import QuantProxyProtocol
+from brevitas.quant_tensor import QuantTensor
 
 
 class DebugMarkerFunction(Function):
 
     @staticmethod
     def symbolic(g, input, export_debug_name):
-        ret = g.op(
-            'brevitas.onnx::DebugMarker', input, export_debug_name_s=export_debug_name)
+        ret = g.op('brevitas.onnx::DebugMarker', input, export_debug_name_s=export_debug_name)
         return ret
 
     @staticmethod
@@ -46,11 +44,7 @@ class ONNXDebugHook(object):
         self.values = {}
 
 
-def enable_debug(
-        model,
-        input_enabled=True,
-        output_enabled=True,
-        proxy_level=False):
+def enable_debug(model, input_enabled=True, output_enabled=True, proxy_level=False):
     base_filter_class = QuantProxyProtocol if proxy_level else QuantLayerMixin
     filter_fn = lambda x: isinstance(x, base_filter_class)
     hook = ONNXDebugHook(input_enabled, output_enabled)

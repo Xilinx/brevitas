@@ -1,0 +1,32 @@
+name: Pre-Commit Workflow
+
+on:
+  push:
+    branches: [ master, dev ]
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+      - review_requested
+
+jobs:
+  pre_commit:
+    name: pre-commit
+    runs-on: ubuntu-latest
+
+    if: ${{ !github.event.pull_request.draft }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Install Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.7'
+
+    - name: Run pre-commit
+      uses: pre-commit/action@v2.0.3
+      with:
+        extra_args: --verbose --all-files

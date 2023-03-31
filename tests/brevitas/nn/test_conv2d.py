@@ -1,14 +1,14 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
-from torch.nn import Module, Conv2d, BatchNorm2d
-
-from brevitas.nn import QuantConv2d
-from brevitas.inject.defaults import Int8BiasPerTensorFloatInternalScaling
-from brevitas.nn.utils import merge_bn
-
 import torch
+from torch.nn import BatchNorm2d
+from torch.nn import Conv2d
+from torch.nn import Module
+
+from brevitas.inject.defaults import Int8BiasPerTensorFloatInternalScaling
+from brevitas.nn import QuantConv2d
+from brevitas.nn.utils import merge_bn
 
 OUTPUT_CHANNELS = 10
 INPUT_CHANNELS = 5

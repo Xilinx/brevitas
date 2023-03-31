@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from typing import Tuple
 
 import torch
@@ -9,11 +8,11 @@ from torch import Tensor
 from torch.nn import Module
 
 import brevitas
-from brevitas.function.ops_ste import binary_sign_ste
-from brevitas.core.function_wrapper import TensorClamp
 from brevitas.core.bit_width import BitWidthConst
-from brevitas.core.utils import StatelessBuffer
+from brevitas.core.function_wrapper import TensorClamp
 from brevitas.core.quant.delay import DelayWrapper
+from brevitas.core.utils import StatelessBuffer
+from brevitas.function.ops_ste import binary_sign_ste
 
 
 class BinaryQuant(brevitas.jit.ScriptModule):
@@ -119,7 +118,7 @@ class ClampedBinaryQuant(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
         scale = self.scaling_impl(x)
-        y = self.tensor_clamp_impl(x, - scale, scale)
+        y = self.tensor_clamp_impl(x, -scale, scale)
         y = binary_sign_ste(y) * scale
         y = self.delay_wrapper(x, y)
         return y, scale, self.zero_point(), self.bit_width()

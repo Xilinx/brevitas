@@ -1,20 +1,22 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
-from typing import Union, Type, Optional
+from typing import Optional, Type, Union
 
 import torch
 from torch import Tensor
-from torch.nn import Module, Parameter
+from torch.nn import Module
+from torch.nn import Parameter
 
-from brevitas.function.ops_ste import ceil_ste
 from brevitas.function.ops import max_int
-from brevitas.quant_tensor import QuantTensor
+from brevitas.function.ops_ste import ceil_ste
 from brevitas.inject.defaults import Int8WeightPerTensorFloat
-from .quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
-from .quant_layer import WeightQuantType, BiasQuantType, ActQuantType
+from brevitas.quant_tensor import QuantTensor
 
+from .quant_layer import ActQuantType
+from .quant_layer import BiasQuantType
+from .quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
+from .quant_layer import WeightQuantType
 
 __all__ = ['ScaleBias', 'QuantScaleBias']
 
@@ -88,10 +90,3 @@ class QuantScaleBias(QuantWBIOL, ScaleBias):
         max_output_val = max_input_val * max_weight_val
         output_bit_width = ceil_ste(torch.log2(max_output_val))
         return output_bit_width
-
-
-
-
-
-
-

@@ -1,20 +1,20 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from contextlib import ExitStack
 
 import pytest
 import torch
 
-from brevitas_examples.bnn_pynq.models import model_with_cfg
 from brevitas.utils.jit_utils import jit_patches_generator
+from brevitas_examples.bnn_pynq.models import model_with_cfg
 
 FC_INPUT_SIZE = (1, 1, 28, 28)
 CNV_INPUT_SIZE = (1, 3, 32, 32)
 
 MAX_WBITS = 2
 MAX_ABITS = 2
+
 
 @pytest.mark.parametrize("size", ["TFC", "SFC", "LFC"])
 @pytest.mark.parametrize("wbits", [1, MAX_WBITS])

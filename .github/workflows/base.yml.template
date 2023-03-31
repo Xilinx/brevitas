@@ -4,17 +4,19 @@ on:
   push:
     branches: [ master, dev ]
   pull_request:
+    types:
+      - review_requested
 
 jobs:
   build:
     runs-on: ${{ matrix.platform }}
-
     strategy:
 &{strategy}
       matrix:
 &{matrix}
 &{exclude}
 
+    if: ${{ !github.event.pull_request.draft }}
     steps:
 
     - name: Checkout repo

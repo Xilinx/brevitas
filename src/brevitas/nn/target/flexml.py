@@ -1,19 +1,17 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from typing import Union
 
 import torch
-from torch import Tensor
 from torch import nn
+from torch import Tensor
 
-import brevitas.nn as qnn
-from brevitas.function.ops_ste import ceil_ste
-from brevitas.function.ops import max_int
-from brevitas.nn.mixin import QuantLayerMixin
 from brevitas.core.utils import StatelessBuffer
-
+from brevitas.function.ops import max_int
+from brevitas.function.ops_ste import ceil_ste
+import brevitas.nn as qnn
+from brevitas.nn.mixin import QuantLayerMixin
 from brevitas.quant import Int8ActPerTensorFixedPoint
 from brevitas.quant import Uint8ActPerTensorFixedPoint
 from brevitas.quant_tensor import QuantTensor
@@ -22,11 +20,12 @@ from brevitas.quant_tensor import QuantTensor
 class FlexMLQuantLeakyReLU(nn.Module):
 
     def __init__(
-            self,
-            negative_slope,
-            alpha_quant=qnn.QuantIdentity(Uint8ActPerTensorFixedPoint, bit_width=16),
-            input_quant=qnn.QuantIdentity(Int8ActPerTensorFixedPoint, bit_width=16, scaling_stats_momentum = None),
-            output_quant=qnn.QuantIdentity(Int8ActPerTensorFixedPoint, return_quant_tensor=True)):
+        self,
+        negative_slope,
+        alpha_quant=qnn.QuantIdentity(Uint8ActPerTensorFixedPoint, bit_width=16),
+        input_quant=qnn.QuantIdentity(
+            Int8ActPerTensorFixedPoint, bit_width=16, scaling_stats_momentum=None),
+        output_quant=qnn.QuantIdentity(Int8ActPerTensorFixedPoint, return_quant_tensor=True)):
         super(FlexMLQuantLeakyReLU, self).__init__()
         self.alpha_quant = alpha_quant
         self.input_quant = input_quant
@@ -52,10 +51,10 @@ class FlexMLQuantAvgPool2d(QuantLayerMixin, nn.AvgPool2d):
     def __init__(
             self,
             kernel_size,
-            stride = None,
-            padding = 0,
-            ceil_mode = False,
-            div_quant = Int16QuantAvgPoolDivQuant,
+            stride=None,
+            padding=0,
+            ceil_mode=False,
+            div_quant=Int16QuantAvgPoolDivQuant,
             return_quant_tensor=True) -> None:
         nn.AvgPool2d.__init__(
             self,

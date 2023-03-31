@@ -16,16 +16,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Optional
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Optional
 
 from .audio_preprocessing import AudioToMelSpectrogramPreprocessor
-from .parts.quartznet import JasperBlock, init_weights
-from .parts.common import *
 from .greedy_ctc_decoder import GreedyCTCDecoder
+from .parts.common import *
+from .parts.quartznet import init_weights
+from .parts.quartznet import JasperBlock
 
 
 class JasperEncoder(nn.Module):
@@ -87,7 +88,8 @@ class JasperEncoder(nn.Module):
     """
 
     def __init__(
-            self, *,
+            self,
+            *,
             jasper,
             outer_bit_width,
             inner_bit_width,
@@ -104,8 +106,7 @@ class JasperEncoder(nn.Module):
             conv_mask=True,
             frame_splicing=1,
             init_mode='xavier_uniform',
-            **kwargs
-    ):
+            **kwargs):
         nn.Module.__init__(self)
 
         feat_in = feat_in * frame_splicing
@@ -129,30 +130,32 @@ class JasperEncoder(nn.Module):
             separable = lcfg.get('separable', False)
             heads = lcfg.get('heads', -1)
             encoder_layers.append(
-                JasperBlock(feat_in,
-                            lcfg['filters'],
-                            repeat=lcfg['repeat'],
-                            kernel_size=lcfg['kernel'],
-                            stride=lcfg['stride'],
-                            dilation=lcfg['dilation'],
-                            dropout=lcfg['dropout'],
-                            residual=lcfg['residual'],
-                            groups=groups,
-                            fused_bn=fused_bn,
-                            separable=separable,
-                            heads=heads,
-                            residual_mode=residual_mode,
-                            normalization=normalization_mode,
-                            norm_groups=norm_groups,
-                            activation=activation,
-                            residual_panes=dense_res,
-                            conv_mask=conv_mask,
-                            bit_width=bit_width,
-                            absolute_act_val=absolute_act_val,
-                            activation_inner_scaling_per_output_channel=activation_inner_scaling_per_output_channel,
-                            activation_other_scaling_per_output_channel=activation_other_scaling_per_output_channel,
-                            weight_scaling_per_output_channel=weight_scaling_per_output_channel),
-                            )
+                JasperBlock(
+                    feat_in,
+                    lcfg['filters'],
+                    repeat=lcfg['repeat'],
+                    kernel_size=lcfg['kernel'],
+                    stride=lcfg['stride'],
+                    dilation=lcfg['dilation'],
+                    dropout=lcfg['dropout'],
+                    residual=lcfg['residual'],
+                    groups=groups,
+                    fused_bn=fused_bn,
+                    separable=separable,
+                    heads=heads,
+                    residual_mode=residual_mode,
+                    normalization=normalization_mode,
+                    norm_groups=norm_groups,
+                    activation=activation,
+                    residual_panes=dense_res,
+                    conv_mask=conv_mask,
+                    bit_width=bit_width,
+                    absolute_act_val=absolute_act_val,
+                    activation_inner_scaling_per_output_channel=
+                    activation_inner_scaling_per_output_channel,
+                    activation_other_scaling_per_output_channel=
+                    activation_other_scaling_per_output_channel,
+                    weight_scaling_per_output_channel=weight_scaling_per_output_channel),)
             feat_in = lcfg['filters']
 
         self.encoder = nn.Sequential(*encoder_layers)
@@ -184,14 +187,14 @@ class JasperDecoderForCTC(nn.Module):
     """
 
     def __init__(
-            self, *,
+            self,
+            *,
             feat_in,
             num_classes,
             bit_width,
             weight_scaling_per_channel,
             init_mode="xavier_uniform",
-            **kwargs
-    ):
+            **kwargs):
         nn.Module.__init__(self)
 
         self._feat_in = feat_in
@@ -199,15 +202,21 @@ class JasperDecoderForCTC(nn.Module):
         self._num_classes = num_classes + 1
 
         self.decoder_layers = nn.Sequential(
-            make_quantconv1d(self._feat_in, self._num_classes, kernel_size=1,bias=True, bit_width=bit_width,
-                             scaling_per_channel=weight_scaling_per_channel))
+            make_quantconv1d(
+                self._feat_in,
+                self._num_classes,
+                kernel_size=1,
+                bias=True,
+                bit_width=bit_width,
+                scaling_per_channel=weight_scaling_per_channel))
         self.apply(lambda x: init_weights(x, mode=init_mode))
 
     def forward(self, encoder_output):
-        return F.log_softmax(self.decoder_layers(encoder_output).
-                             transpose(1, 2), dim=-1)
+        return F.log_softmax(self.decoder_layers(encoder_output).transpose(1, 2), dim=-1)
+
 
 class Quartznet(nn.Module):
+
     def __init__(self, preprocessing, encoder, decoder, greedyctcdecoder):
         super(Quartznet, self).__init__()
         self.preprocessing = preprocessing
@@ -240,11 +249,15 @@ def quartznet(cfg, quartzet_params, export_mode):
 
     outer_bit_width = cfg.getint('QUANT', 'OUTER_LAYERS_BIT_WIDTH')
     inner_bit_width = cfg.getint('QUANT', 'INNER_LAYERS_BIT_WIDTH')
-    activation_inner_scaling_per_output_channel = cfg.getboolean('ACTIVATIONS', 'INNER_SCALING_PER_CHANNEL')
-    activation_other_scaling_per_output_channel = cfg.getboolean('ACTIVATIONS', 'OTHER_SCALING_PER_CHANNEL')
+    activation_inner_scaling_per_output_channel = cfg.getboolean(
+        'ACTIVATIONS', 'INNER_SCALING_PER_CHANNEL')
+    activation_other_scaling_per_output_channel = cfg.getboolean(
+        'ACTIVATIONS', 'OTHER_SCALING_PER_CHANNEL')
     absolute_act_val = cfg.getint('ACTIVATIONS', 'ABS_ACT_VAL')
-    encoder_weight_scaling_per_output_channel = cfg.getboolean('WEIGHT', 'ENCODER_SCALING_PER_OUTPUT_CHANNEL')
-    decoder_weight_scaling_per_output_channel = cfg.getboolean('WEIGHT', 'DECODER_SCALING_PER_OUTPUT_CHANNEL')
+    encoder_weight_scaling_per_output_channel = cfg.getboolean(
+        'WEIGHT', 'ENCODER_SCALING_PER_OUTPUT_CHANNEL')
+    decoder_weight_scaling_per_output_channel = cfg.getboolean(
+        'WEIGHT', 'DECODER_SCALING_PER_OUTPUT_CHANNEL')
     fused_bn = cfg.getboolean('QUANT', 'FUSED_BN')
 
     vocab = quartzet_params['labels']
@@ -257,8 +270,7 @@ def quartznet(cfg, quartzet_params, export_mode):
         data_preprocessor = None  # no built in preprocessing in export mode
     else:
         data_preprocessor = AudioToMelSpectrogramPreprocessor(
-        sample_rate=sample_rate,
-        **quartzet_params["AudioToMelSpectrogramPreprocessor"])
+            sample_rate=sample_rate, **quartzet_params["AudioToMelSpectrogramPreprocessor"])
 
     encoder = JasperEncoder(
         feat_in=feat_in_encoder,
@@ -281,4 +293,3 @@ def quartznet(cfg, quartzet_params, export_mode):
 
     model = Quartznet(data_preprocessor, encoder, decoder, greedy_decoder)
     return model
-

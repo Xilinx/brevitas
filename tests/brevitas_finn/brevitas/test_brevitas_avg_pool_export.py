@@ -1,23 +1,21 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import os
 
-import torch
 import numpy as np
 import pytest
-import qonnx.core.onnx_exec as oxe
-from qonnx.core.modelwrapper import ModelWrapper
 from qonnx.core.datatype import DataType
-from qonnx.transformation.infer_shapes import InferShapes
+from qonnx.core.modelwrapper import ModelWrapper
+import qonnx.core.onnx_exec as oxe
 from qonnx.transformation.infer_datatypes import InferDataTypes
+from qonnx.transformation.infer_shapes import InferShapes
 from qonnx.util.basic import gen_finn_dt_tensor
+import torch
 
 from brevitas.export import FINNManager
 from brevitas.nn import QuantAvgPool2d
 from brevitas.quant_tensor import QuantTensor
-
 
 export_onnx_path = "test_brevitas_avg_pool_export.onnx"
 
@@ -30,12 +28,9 @@ export_onnx_path = "test_brevitas_avg_pool_export.onnx"
 @pytest.mark.parametrize("channels", [2, 4])
 @pytest.mark.parametrize("idim", [7, 8])
 def test_brevitas_avg_pool_export(
-    kernel_size, stride, signed, bit_width, input_bit_width, channels, idim):
+        kernel_size, stride, signed, bit_width, input_bit_width, channels, idim, request):
 
-    quant_avgpool = QuantAvgPool2d(
-        kernel_size=kernel_size,
-        stride=stride,
-        bit_width=bit_width)
+    quant_avgpool = QuantAvgPool2d(kernel_size=kernel_size, stride=stride, bit_width=bit_width)
     quant_avgpool.eval()
 
     # determine input
@@ -52,8 +47,10 @@ def test_brevitas_avg_pool_export(
         input_tensor, scale_tensor, zp, input_bit_width, signed, training=False)
 
     # export
-    FINNManager.export(quant_avgpool, export_path=export_onnx_path, input_t=input_quant_tensor)
-    model = ModelWrapper(export_onnx_path)
+    test_id = request.node.callspec.id
+    export_path = test_id + '_' + export_onnx_path
+    FINNManager.export(quant_avgpool, export_path=export_path, input_t=input_quant_tensor)
+    model = ModelWrapper(export_path)
     model = model.transform(InferShapes())
     model = model.transform(InferDataTypes())
 
@@ -66,5 +63,4 @@ def test_brevitas_avg_pool_export(
     # compare outputs
     assert np.isclose(ref_output_array, finn_output).all()
     # cleanup
-    os.remove(export_onnx_path)
-
+    os.remove(export_path)

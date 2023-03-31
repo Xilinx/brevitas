@@ -1,22 +1,24 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
-from warnings import warn
-from abc import ABCMeta, abstractmethod
-from typing import Optional, Union, Tuple
+from abc import ABCMeta
+from abc import abstractmethod
 from inspect import isclass
 import math
+from typing import Optional, Tuple, Union
+from warnings import warn
 
+from torch import nn
+from torch import Tensor
 import torch.jit
-from torch import Tensor, nn
 from torch.nn.utils.rnn import PackedSequence
 
 from brevitas import config
-from brevitas.inject import ExtendedInjector, Injector
-from brevitas.quant_tensor import QuantTensor
 from brevitas.common import ExportMixin
+from brevitas.inject import ExtendedInjector
+from brevitas.inject import Injector
 from brevitas.nn.utils import compute_channel_view_shape
+from brevitas.quant_tensor import QuantTensor
 
 from .utils import filter_kwargs
 
@@ -50,7 +52,6 @@ class _CachedIO:
 class QuantProxyMixin(object):
     __metaclass__ = ABCMeta
 
-
     def __init__(
             self,
             quant,
@@ -75,7 +76,7 @@ class QuantProxyMixin(object):
             if filter_kwargs(kwargs_prefix, kwargs):
                 warn('Keyword arguments are being passed but they not being used.')
         setattr(self, proxy_name, quant)
-        
+
 
 class QuantLayerMixin(ExportMixin):
     __metaclass__ = ABCMeta
@@ -157,10 +158,8 @@ class QuantLayerMixin(ExportMixin):
         self._set_global_is_quant_layer(True)
         # Hack to recognize a QuantTensor that has decayed to a tuple
         # when used as input to tracing (e.g. during ONNX export)
-        if (torch._C._get_tracing_state() is not None
-                and isinstance(inp, tuple)
-                and len(inp) == len(QuantTensor._fields)
-                and all([isinstance(t, Tensor) for t in inp])):
+        if (torch._C._get_tracing_state() is not None and isinstance(inp, tuple) and
+                len(inp) == len(QuantTensor._fields) and all([isinstance(t, Tensor) for t in inp])):
             inp = QuantTensor(*inp)
         if isinstance(inp, QuantTensor):
             # don't cache values during export pass
@@ -189,13 +188,13 @@ class QuantRecurrentLayerMixin(ExportMixin):
     __metaclass__ = ABCMeta
 
     def __init__(
-            self, 
+            self,
             cell: nn.Module,
-            io_quant: nn.Module, 
+            io_quant: nn.Module,
             input_size: int,
-            hidden_size: int, 
-            reverse_input: bool, 
-            quantize_output_only: bool, 
+            hidden_size: int,
+            reverse_input: bool,
+            quantize_output_only: bool,
             shared_input_hidden_weights: bool,
             return_quant_tensor: bool):
         ExportMixin.__init__(self)
@@ -246,7 +245,7 @@ class QuantRecurrentLayerMixin(ExportMixin):
         quant_weight_hh = gate.hidden_weight()
         if quant_input.bit_width is not None:
             acc_bit_width = None  # TODO
-        if quant_input.scale is not None:
+        if quant_input.scale is not None and quant_weight_ih.scale is not None:
             acc_scale_shape = compute_channel_view_shape(quant_input.value, channel_dim=1)
             acc_scale = quant_weight_ih.scale.view(acc_scale_shape)
             acc_scale = acc_scale * quant_input.scale.view(acc_scale_shape)
@@ -258,7 +257,7 @@ class QuantRecurrentLayerMixin(ExportMixin):
         for name, weight in self.named_parameters():
             if 'gate' in name:
                 nn.init.uniform_(weight, -stdv, stdv)
-    
+
     def maybe_quantize_input(self, inp):
         if isinstance(inp, PackedSequence):
             raise RuntimeError("PackedSequence input currently not supported.")
@@ -268,11 +267,12 @@ class QuantRecurrentLayerMixin(ExportMixin):
         elif not isinstance(inp, QuantTensor):
             quant_input = QuantTensor(quant_input)
         return quant_input
-    
+
     def maybe_quantize_state(self, inp, state, quant):
         if state is None:
             batch_size = inp.size(0) if self.cell.batch_first else inp.size(1)
-            quant_state = torch.zeros(int(batch_size), self.hidden_size, dtype=inp.dtype, device=inp.device)
+            quant_state = torch.zeros(
+                int(batch_size), self.hidden_size, dtype=inp.dtype, device=inp.device)
             quant_state = QuantTensor(quant_state)
         else:
             quant_state = quant(state)
@@ -283,57 +283,58 @@ class QuantRecurrentLayerMixin(ExportMixin):
         if self.export_mode:
             if self.return_quant_tensor:
                 return QuantTensor(
-                    quant_outputs, 
-                    self.io_quant.scale(), 
-                    self.io_quant.zero_point(), 
-                    self.io_quant.bit_width(), 
-                    self.io_quant.is_signed, 
+                    quant_outputs,
+                    self.io_quant.scale(),
+                    self.io_quant.zero_point(),
+                    self.io_quant.bit_width(),
+                    self.io_quant.is_signed,
                     self.training)
             else:
                 return quant_outputs
         seq_dim = 1 if self.cell.batch_first else 0
         if self.return_quant_tensor:
-            outputs = [QuantTensor(
-                torch.unsqueeze(quant_output[0], dim=seq_dim), 
-                quant_output[1], 
-                quant_output[2], 
-                quant_output[3], 
-                self.io_quant.is_signed, 
-                self.training) for quant_output in quant_outputs]
+            outputs = [
+                QuantTensor(
+                    torch.unsqueeze(quant_output[0], dim=seq_dim),
+                    quant_output[1],
+                    quant_output[2],
+                    quant_output[3],
+                    self.io_quant.is_signed,
+                    self.training) for quant_output in quant_outputs]
         else:
             outputs = [torch.unsqueeze(o[0], dim=seq_dim) for o in quant_outputs]
         if self.reverse_input:
             return torch.cat(list(reversed(outputs)), dim=seq_dim)
         else:
             return torch.cat(outputs, dim=seq_dim)
-    
+
     def pack_quant_state(self, quant_state, quant):
         if self.export_mode:
             if self.return_quant_tensor:
                 quant_state = QuantTensor(
-                    torch.unsqueeze(quant_state, dim=0), 
+                    torch.unsqueeze(quant_state, dim=0),
                     quant.scale(),
                     quant.zero_point(),
-                    quant.bit_width(), 
-                    quant.is_signed, 
+                    quant.bit_width(),
+                    quant.is_signed,
                     self.training)
             else:
                 quant_state = torch.unsqueeze(quant_state, dim=0)
         else:
             if self.return_quant_tensor:
                 quant_state = QuantTensor(
-                    torch.unsqueeze(quant_state[0], dim=0), 
-                    quant_state[1], 
-                    quant_state[2], 
-                    quant_state[3], 
-                    quant.is_signed, 
+                    torch.unsqueeze(quant_state[0], dim=0),
+                    quant_state[1],
+                    quant_state[2],
+                    quant_state[3],
+                    quant.is_signed,
                     self.training)
             else:
                 quant_state = torch.unsqueeze(quant_state[0], dim=0)
         return quant_state
 
     def _wrap_act_proxy(self, quant_name):
-        
+
         class _Wrapper(nn.Module):
 
             def __init__(self, module_to_wrap=None):
@@ -342,8 +343,9 @@ class QuantRecurrentLayerMixin(ExportMixin):
                     module_to_wrap = nn.Identity()
                 self.module_to_wrap = module_to_wrap
 
-            def forward(self, x: torch.Tensor) -> Tuple[
-                    Tensor, Optional[Tensor], Optional[Tensor], Optional[Tensor]]:
+            def forward(
+                self, x: torch.Tensor
+            ) -> Tuple[Tensor, Optional[Tensor], Optional[Tensor], Optional[Tensor]]:
                 x = self.module_to_wrap(x)
                 return (x, None, None, None)
 

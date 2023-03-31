@@ -1,0 +1,39 @@
+
+default_language_version:
+    python: python3
+
+default_stages: [commit]
+
+exclude: 'docs'
+
+repos:
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v4.0.1
+  hooks:
+  - id: trailing-whitespace
+  - id: check-added-large-files
+    args: [--maxkb=5000]
+  - id: check-ast
+  - id: check-json
+  - id: check-merge-conflict
+  - id: check-xml
+  - id: check-yaml
+    args: [--allow-multiple-documents]
+  - id: debug-statements
+  - id: end-of-file-fixer
+  - id: requirements-txt-fixer
+  - id: mixed-line-ending
+
+-   repo: https://github.com/pycqa/isort
+    rev: 5.11.5
+    hooks:
+    -   id: isort
+        name: isort (python)
+
+
+-   repo: https://github.com/pre-commit/mirrors-yapf
+    rev: v0.32.0  # Use the sha / tag you want to point at
+    hooks:
+    - id: yapf
+      args: ["-i"]
+      additional_dependencies: [toml]

@@ -1,19 +1,20 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import pytest
 from torch import nn
 
-from brevitas.nn import QuantLinear
 from brevitas import config
+from brevitas.nn import QuantLinear
 
 
 def test_parameter_from_stats_update():
     config.IGNORE_MISSING_KEYS = True
     linear = nn.Linear(10, 5, bias=False)
     q_linear = QuantLinear(
-        10, 5, bias=False,
+        10,
+        5,
+        bias=False,
         weight_quant_type='binary',
         weight_scaling_impl_type='parameter_from_stats')
     l_max = linear.weight.abs().max()
@@ -29,12 +30,16 @@ def test_parameter_from_stats_update():
 
 def test_parameter_from_stats_state_dict():
     q_linear1 = QuantLinear(
-        10, 5, bias=False,
+        10,
+        5,
+        bias=False,
         weight_quant_type='binary',
         weight_scaling_impl_type='parameter',
         weight_scaling_init=0.1)
     q_linear2 = QuantLinear(
-        10, 5, bias=False,
+        10,
+        5,
+        bias=False,
         weight_quant_type='binary',
         weight_scaling_impl_type='parameter',
         weight_scaling_init=0.001)
