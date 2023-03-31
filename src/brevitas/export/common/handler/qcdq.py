@@ -260,8 +260,7 @@ class QCDQBiasQuantProxyHandlerMixin(DQMixin, QuantAxisMixin, ZeroPointHandlerMi
         zero_point = to_0dim_if_scalar(zero_point).expand_as(scale)
         zero_point = self.zero_point_with_dtype(
             True, bit_width, zero_point)  # assume signed is True
-        y = self.dequantize_fn(
-            int_bias, scale, zero_point, quant_axis)
+        y = self.dequantize_fn(int_bias, scale, zero_point, quant_axis)
         return y, scale, zero_point, bit_width
 
 
