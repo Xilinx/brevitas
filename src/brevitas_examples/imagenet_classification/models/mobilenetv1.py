@@ -30,10 +30,10 @@ __all__ = ['quant_mobilenet_v1']
 from torch import nn
 from torch.nn import Sequential
 
-from brevitas.nn import QuantAvgPool2d
 from brevitas.nn import QuantConv2d
 from brevitas.nn import QuantLinear
 from brevitas.nn import QuantReLU
+from brevitas.nn import TruncAvgPool2d
 from brevitas.quant import IntBias
 
 from .common import CommonIntActQuant
@@ -159,8 +159,11 @@ class MobileNet(nn.Module):
             self.features.add_module('stage{}'.format(i + 1), stage)
         # Exporting to torch or ONNX qcdq requires round
         avgpool_float_to_int_impl_type = 'round' if round_average_pool else 'floor'
-        self.final_pool = QuantAvgPool2d(
-            kernel_size=7, stride=1, bit_width=bit_width, float_to_int_impl_type=avgpool_float_to_int_impl_type)
+        self.final_pool = TruncAvgPool2d(
+            kernel_size=7,
+            stride=1,
+            bit_width=bit_width,
+            float_to_int_impl_type=avgpool_float_to_int_impl_type)
         self.output = QuantLinear(
             in_channels,
             num_classes,

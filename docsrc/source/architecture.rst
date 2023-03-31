@@ -202,7 +202,7 @@ In many real-life scenarios, a user might want to first quantize only certain la
 of certain layers to perform some exploratory analysis in terms of accuracy.
 Correctness w.r.t. the specifics of a target hardware, if any, might not be a concern. To minimize friction with adoption then,
 Brevitas is designed to remain functional as much as possible under partially specified information.
-With the exception of `QuantAvgPool2d`, a `QuantLayer` is not expected to receive a `QuantTensor` as input
+With the exception of `TruncAvgPool2d`, a `QuantLayer` is not expected to receive a `QuantTensor` as input
 (altough doing so enables more scenarios), nor it returns one by default (i.e. `return_quant_tensor=False` by default).
 Specifically, The output of a QuantLayer is always in de-quantized format
 (whether wrapped in a valid or non-valid `QuantTensor` or not).

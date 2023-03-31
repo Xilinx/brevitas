@@ -9,8 +9,8 @@ from .quant_activation import QuantIdentity
 from .quant_activation import QuantReLU
 from .quant_activation import QuantSigmoid
 from .quant_activation import QuantTanh
-from .quant_avg_pool import QuantAdaptiveAvgPool2d
-from .quant_avg_pool import QuantAvgPool2d
+from .quant_avg_pool import TruncAdaptiveAvgPool2d
+from .quant_avg_pool import TruncAvgPool2d
 from .quant_bn import BatchNorm1dToQuantScaleBias
 from .quant_bn import BatchNorm2dToQuantScaleBias
 from .quant_conv import QuantConv1d

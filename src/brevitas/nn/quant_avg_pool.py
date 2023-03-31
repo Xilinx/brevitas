@@ -12,26 +12,31 @@ from torch.nn import AvgPool2d
 
 from brevitas.function.ops import max_int
 from brevitas.function.ops_ste import ceil_ste
-from brevitas.inject.defaults import TruncTo8bit
+from brevitas.inject.defaults import RoundTo8bit
 from brevitas.quant_tensor import QuantTensor
 
 from .mixin.acc import AccQuantType
-from .mixin.acc import QuantTruncMixin
+from .mixin.acc import TruncMixin
 from .mixin.base import QuantLayerMixin
 
 
-class QuantAvgPool2d(QuantTruncMixin, QuantLayerMixin, AvgPool2d):
+class TruncAvgPool2d(TruncMixin, QuantLayerMixin, AvgPool2d):
+    """
+    Quantized AvgPool2d variant that replaces the division step in the average with a right shift
+    to the target bit-width through a rounding or truncation quantizer.
+    Requires a QuantTensor as input and preserves the scale of the input in the output.
+    """
 
     def __init__(
             self,
             kernel_size: Union[int, Tuple[int, int]],
             stride: Union[int, Tuple[int, int]] = None,
-            trunc_quant: Optional[AccQuantType] = TruncTo8bit,
+            trunc_quant: Optional[AccQuantType] = RoundTo8bit,
             return_quant_tensor: bool = True,
             **kwargs):
         AvgPool2d.__init__(self, kernel_size=kernel_size, stride=stride)
         QuantLayerMixin.__init__(self, return_quant_tensor)
-        QuantTruncMixin.__init__(self, trunc_quant=trunc_quant, **kwargs)
+        TruncMixin.__init__(self, trunc_quant=trunc_quant, **kwargs)
 
     @property
     def channelwise_separable(self) -> bool:
@@ -52,7 +57,7 @@ class QuantAvgPool2d(QuantTruncMixin, QuantLayerMixin, AvgPool2d):
         x = self.unpack_input(input)
         if self.export_mode:
             return self.export_handler(x.value)
-        x = x.set(value=super(QuantAvgPool2d, self).forward(x.value))
+        x = x.set(value=super(TruncAvgPool2d, self).forward(x.value))
         if self.is_trunc_quant_enabled:
             assert x.is_not_none  # check input quant tensor is filled with values
             # remove avg scaling
@@ -69,18 +74,23 @@ class QuantAvgPool2d(QuantTruncMixin, QuantLayerMixin, AvgPool2d):
         return max_output_bit_width
 
 
-class QuantAdaptiveAvgPool2d(QuantTruncMixin, QuantLayerMixin, AdaptiveAvgPool2d):
+class TruncAdaptiveAvgPool2d(TruncMixin, QuantLayerMixin, AdaptiveAvgPool2d):
+    """
+    Quantized AdaptiveAvgPool2d variant that replaces the division step in the average with a right shift
+    to the target bit-width through a truncation quantizer.
+    Requires a QuantTensor as input and preserves the scale of the input in the output.
+    """
 
     def __init__(
             self,
             output_size: Union[int, Tuple[int, int]],
-            trunc_quant: Optional[AccQuantType] = TruncTo8bit,
+            trunc_quant: Optional[AccQuantType] = RoundTo8bit,
             return_quant_tensor: bool = True,
             cache_kernel_size_stride: bool = True,
             **kwargs):
         AdaptiveAvgPool2d.__init__(self, output_size=output_size)
         QuantLayerMixin.__init__(self, return_quant_tensor)
-        QuantTruncMixin.__init__(self, trunc_quant=trunc_quant, **kwargs)
+        TruncMixin.__init__(self, trunc_quant=trunc_quant, **kwargs)
         self.cache_kernel_size_stride = cache_kernel_size_stride
         self._cached_kernel_size = None
         self._cached_kernel_stride = None
@@ -122,7 +132,7 @@ class QuantAdaptiveAvgPool2d(QuantTruncMixin, QuantLayerMixin, AdaptiveAvgPool2d
             out = self.export_handler(x.value)
             self._set_global_is_quant_layer(False)
             return out
-        y = x.set(value=super(QuantAdaptiveAvgPool2d, self).forward(x.value))
+        y = x.set(value=super(TruncAdaptiveAvgPool2d, self).forward(x.value))
         k_size, stride = self.compute_kernel_size_stride(x.value.shape[2:], y.value.shape[2:])
         if self.cache_kernel_size_stride:
             self._cached_kernel_size = k_size

@@ -75,8 +75,11 @@ class QuantAvgPoolCases:
             def __init__(self):
                 super().__init__()
                 self.in_quant = QuantIdentity(signed=input_signed, return_quant_tensor=True)
-                self.quant_avg_pool = QuantAvgPool2d(
-                    kernel_size=3, stride=2, bit_width=output_bit_width, float_to_int_impl_type='round')
+                self.quant_avg_pool = TruncAvgPool2d(
+                    kernel_size=3,
+                    stride=2,
+                    bit_width=output_bit_width,
+                    float_to_int_impl_type='round')
 
             def forward(self, x):
                 return self.quant_avg_pool(self.in_quant(x))

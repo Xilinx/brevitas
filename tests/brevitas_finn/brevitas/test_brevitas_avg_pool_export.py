@@ -14,7 +14,7 @@ from qonnx.util.basic import gen_finn_dt_tensor
 import torch
 
 from brevitas.export import FINNManager
-from brevitas.nn import QuantAvgPool2d
+from brevitas.nn import TruncAvgPool2d
 from brevitas.quant_tensor import QuantTensor
 
 export_onnx_path = "test_brevitas_avg_pool_export.onnx"
@@ -30,7 +30,8 @@ export_onnx_path = "test_brevitas_avg_pool_export.onnx"
 def test_brevitas_avg_pool_export(
         kernel_size, stride, signed, bit_width, input_bit_width, channels, idim, request):
 
-    quant_avgpool = QuantAvgPool2d(kernel_size=kernel_size, stride=stride, bit_width=bit_width)
+    quant_avgpool = TruncAvgPool2d(
+        kernel_size=kernel_size, stride=stride, bit_width=bit_width, float_to_int_impl_type='floor')
     quant_avgpool.eval()
 
     # determine input

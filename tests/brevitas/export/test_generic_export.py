@@ -6,12 +6,12 @@ import torch
 from brevitas.export import enable_debug
 from brevitas.export import export_brevitas_onnx
 from brevitas.export import export_qonnx
-from brevitas.nn import QuantAvgPool2d
 from brevitas.nn import QuantConv2d
 from brevitas.nn import QuantIdentity
 from brevitas.nn import QuantLinear
 from brevitas.nn import QuantMaxPool2d
 from brevitas.nn import QuantReLU
+from brevitas.nn import TruncAvgPool2d
 from brevitas.quant.scaled_int import Int4WeightPerTensorFloatDecoupled
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int16Bias
@@ -146,7 +146,7 @@ def test_generic_quant_avgpool_export():
         def __init__(self):
             super().__init__()
             self.inp_quant = QuantIdentity(return_quant_tensor=True)
-            self.pool = QuantAvgPool2d(kernel_size=2, return_quant_tensor=False)
+            self.pool = TruncAvgPool2d(kernel_size=2, return_quant_tensor=False)
 
         def forward(self, x):
             return self.pool(self.inp_quant(x))
@@ -164,7 +164,7 @@ def test_generic_quant_avgpool_export_quant_input():
     IN_SIZE = (2, OUT_CH, IN_CH, IN_CH)
     inp = torch.randn(IN_SIZE)
     inp_quant = QuantIdentity(return_quant_tensor=True)
-    model = QuantAvgPool2d(kernel_size=2, return_quant_tensor=False)
+    model = TruncAvgPool2d(kernel_size=2, return_quant_tensor=False)
     inp_quant(inp)  # collect scale factors
     inp_quant.eval()
     model.eval()

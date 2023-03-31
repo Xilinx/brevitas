@@ -527,7 +527,7 @@ to override the attribute of a quantizer on an individual-layer level.</p>
 of certain layers to perform some exploratory analysis in terms of accuracy.
 Correctness w.r.t. the specifics of a target hardware, if any, might not be a concern. To minimize friction with adoption then,
 Brevitas is designed to remain functional as much as possible under partially specified information.
-With the exception of <cite>QuantAvgPool2d</cite>, a <cite>QuantLayer</cite> is not expected to receive a <cite>QuantTensor</cite> as input
+With the exception of <cite>TruncAvgPool2d</cite>, a <cite>QuantLayer</cite> is not expected to receive a <cite>QuantTensor</cite> as input
 (altough doing so enables more scenarios), nor it returns one by default (i.e. <cite>return_quant_tensor=False</cite> by default).
 Specifically, The output of a QuantLayer is always in de-quantized format
 (whether wrapped in a valid or non-valid <cite>QuantTensor</cite> or not).

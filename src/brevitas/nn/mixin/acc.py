@@ -17,7 +17,7 @@ from .base import QuantProxyMixin
 AccQuantType = Union[AccQuantProxyProtocol, Type[Injector], Type[ExtendedInjector]]
 
 
-class QuantTruncMixin(QuantProxyMixin):
+class TruncMixin(QuantProxyMixin):
     __metaclass__ = ABCMeta
 
     def __init__(self, trunc_quant: Optional[AccQuantType], **kwargs):

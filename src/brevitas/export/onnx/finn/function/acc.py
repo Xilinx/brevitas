@@ -7,7 +7,7 @@ from torch.autograd import Function
 from . import DOMAIN_STRING
 
 
-class QuantAvgPool2dFn(Function):
+class TruncAvgPool2dFn(Function):
 
     @staticmethod
     def symbolic(g, x, out_shape, kernel, stride, signed, ibits, obits, scale, qnt_type):
