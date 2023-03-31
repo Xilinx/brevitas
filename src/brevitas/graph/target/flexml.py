@@ -11,6 +11,7 @@ from brevitas.graph.fixed_point import MergeBatchNorm
 from brevitas.graph.fixed_point import MoveSplitBatchNormBeforeCat
 from brevitas.graph.per_input import AdaptiveAvgPoolToAvgPool
 from brevitas.graph.quantize import quantize
+from brevitas.graph.quantize import UNSIGNED_ACT_TUPLE
 from brevitas.graph.standardize import DuplicateSharedStatelessModule
 from brevitas.graph.standardize import MeanMethodToAdaptiveAvgPool2d
 from brevitas.graph.standardize import RemoveStochasticModules
@@ -23,9 +24,9 @@ from brevitas.quant import Uint8ActPerTensorFixedPoint
 from brevitas.quant import Uint8ActPerTensorFixedPointMaxInit
 from brevitas.quant.fixed_point import Int8ActPerTensorFixedPointMinMaxInit
 
-FLEXML_QUANT_AVGPOOL_MAP = {nn.AvgPool2d: qnn.flexml.FlexMLQuantAvgPool2d}
-
-FLEXML_QUANT_WBIOL_MAP = {
+FLEXML_COMPUTE_LAYER_MAP = {
+    nn.AvgPool2d: (qnn.flexml.FlexMLQuantAvgPool2d, {
+        'return_quant_tensor': True}),
     nn.Conv1d: (
         qnn.QuantConv1d,
         {
@@ -62,8 +63,6 @@ FLEXML_QUANT_WBIOL_MAP = {
     nn.Linear: (
         qnn.QuantLinear, {
             'weight_quant': Int8WeightPerTensorFixedPoint, 'return_quant_tensor': True})}
-
-FLEXML_UNSIGNED_ACT_TUPLE = (nn.ReLU, nn.ReLU6, nn.Sigmoid, nn.Hardsigmoid)
 
 FLEXML_QUANT_ACT_MAP = {
     nn.ReLU:
@@ -120,16 +119,16 @@ def preprocess_flexml(
         model,
         *model_args,
         trace_model=True,
-        equalization_iters=0,
-        merge_bias=True,
+        equalize_iters=0,
+        equalize_merge_bias=True,
         merge_bn=True,
-        bias_shrinkage='vaiq',
-        scale_computation='maxabs',
+        equalize_bias_shrinkage='vaiq',
+        equalize_scale_computation='maxabs',
         **model_kwargs):
     training_state = model.training
     model.eval()
     if trace_model:
-        model = symbolic_trace(model)  # TODO model args should contribute to value tracing
+        model = symbolic_trace(model)
     model = TorchFunctionalToModule().apply(model)
     model = DuplicateSharedStatelessModule().apply(model)
     model = ModuleToModuleByClass(nn.ReLU6, nn.ReLU).apply(model)
@@ -141,31 +140,25 @@ def preprocess_flexml(
         model = MergeBatchNorm().apply(model)
     model = RemoveStochasticModules().apply(model)
     model = EqualizeGraph(
-        equalization_iters,
-        merge_bias=merge_bias,
-        bias_shrinkage=bias_shrinkage,
-        scale_computation=scale_computation).apply(model)
+        iterations=equalize_iters,
+        merge_bias=equalize_merge_bias,
+        bias_shrinkage=equalize_bias_shrinkage,
+        scale_computation_type=equalize_scale_computation).apply(model)
     model.train(training_state)
     return model
 
 
 def quantize_flexml(
         graph_model,
-        *model_args,
-        avgpool_to_depthwise_conv=False,
         quant_identity_map=FLEXML_QUANT_IDENTITY_MAP,
-        quant_wbiol_map=FLEXML_QUANT_WBIOL_MAP,
+        compute_layer_map=FLEXML_COMPUTE_LAYER_MAP,
         quant_act_map=FLEXML_QUANT_ACT_MAP,
-        quant_avg_pool_map=FLEXML_QUANT_AVGPOOL_MAP,
-        unsigned_act_tuple=FLEXML_UNSIGNED_ACT_TUPLE,
-        **model_kwargs):
+        unsigned_act_tuple=UNSIGNED_ACT_TUPLE,
+        requantize_layer_handler_output=True):
     return quantize(
         graph_model,
-        model_args,
-        avgpool_to_depthwise_conv=avgpool_to_depthwise_conv,
         quant_identity_map=quant_identity_map,
-        quant_wbiol_map=quant_wbiol_map,
+        compute_layer_map=compute_layer_map,
         quant_act_map=quant_act_map,
-        quant_avg_pool_map=quant_avg_pool_map,
         unsigned_act_tuple=unsigned_act_tuple,
-        model_kwargs=model_kwargs)
+        requantize_layer_handler_output=requantize_layer_handler_output)
