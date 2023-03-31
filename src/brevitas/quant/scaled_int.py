@@ -24,6 +24,8 @@ __all__ = [
     'TruncTo8bit',
     'Int4WeightPerTensorFloatDecoupled',
     'Int8WeightPerChannelFloatDecoupled',
+    'Uint8ActPerTensorFloatBatchQuant1d',
+    'Int8ActPerTensorFloatBatchQuant1d',
     'Uint8ActPerTensorFloatBatchQuant2d',
     'Int8ActPerTensorFloatBatchQuant2d']
 
@@ -281,5 +283,47 @@ class Int8ActPerTensorFloatBatchQuant2d(IntQuant,
     Examples:
         >>> from brevitas.nn import QuantIdentity
         >>> act = QuantIdentity(act_quant=Int8ActPerTensorFloatBatchQuant2d)
+    """
+    pass
+
+
+class Uint8ActPerTensorFloatBatchQuant1d(UintQuant,
+                                         BatchQuantStatsScaling1d,
+                                         PerTensorFloatScaling8bit,
+                                         ActQuantSolver):
+    """
+    8-bit symmetric per-tensor signed int activations quantizer with affine scale based on s * mean(max_i(abs(x))), s learned,
+    with i the output channel dimension of a 3-d tensor with shape (N, C, Feat).
+    Statistics are accumulated with a true average rather than a moving exponential one.
+    Statistics should be recomputed over calibration data at the end of training, as done in:
+
+    https://proceedings.neurips.cc/paper/2021/hash/08aee6276db142f4b8ac98fb8ee0ed1b-Abstract.html
+    Bai, Haoping, et al. "Batchquant: Quantized-for-all architecture search with robust quantizer."
+    Advances in Neural Information Processing Systems 34 (2021): 1074-1085.
+
+    Examples:
+        >>> from brevitas.nn import QuantReLU
+        >>> act = QuantReLU(act_quant=Uint8ActPerTensorFloatBatchQuant1d)
+    """
+    pass
+
+
+class Int8ActPerTensorFloatBatchQuant1d(IntQuant,
+                                        BatchQuantStatsScaling1d,
+                                        PerTensorFloatScaling8bit,
+                                        ActQuantSolver):
+    """
+    8-bit symmetric per-tensor unsigned int activations quantizer with affine scale based on s * mean(max_i(abs(x))), s learned,
+    with i the output channel dimension of a 3-d tensor with shape (N, C, Feat).
+    Statistics are accumulated with a true average rather than a moving exponential one.
+    Statistics should be recomputed over calibration data at the end of training, as done in:
+
+    https://proceedings.neurips.cc/paper/2021/hash/08aee6276db142f4b8ac98fb8ee0ed1b-Abstract.html
+    Bai, Haoping, et al. "Batchquant: Quantized-for-all architecture search with robust quantizer."
+    Advances in Neural Information Processing Systems 34 (2021): 1074-1085.
+
+    Examples:
+        >>> from brevitas.nn import QuantIdentity
+        >>> act = QuantIdentity(act_quant=Int8ActPerTensorFloatBatchQuant1d)
     """
     pass
