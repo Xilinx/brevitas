@@ -14,9 +14,9 @@ from brevitas.core.restrict_val import _RestrictClampValue
 from brevitas.core.stats import _ParameterListStats
 from brevitas.core.stats import _RuntimeStats
 from brevitas.core.stats import DEFAULT_MOMENTUM
-from brevitas.function.ops_ste import abs_binary_sign_grad
-from brevitas.core.utils import StatelessBuffer
 from brevitas.core.utils import ParameterWrapper
+from brevitas.core.utils import StatelessBuffer
+from brevitas.function.ops_ste import abs_binary_sign_grad
 
 
 class StatsFromParameterScaling(brevitas.jit.ScriptModule):
@@ -63,7 +63,8 @@ class _StatsScaling(brevitas.jit.ScriptModule):
             affine_shift_scale: bool) -> None:
         super(_StatsScaling, self).__init__()
         if affine_shift_scale and not affine_rescaling:
-            raise RuntimeError("Disabling shifting of the scale requires to enable affine rescaling first.")
+            raise RuntimeError(
+                "Disabling shifting of the scale requires to enable affine rescaling first.")
         if affine_rescaling:
             self.affine_rescaling = _AffineRescaling(scaling_shape, affine_shift_scale)
         else:
