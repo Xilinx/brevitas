@@ -12,9 +12,9 @@ import torch
 from tests.marker import requires_pt_ge
 
 from .common import *
+from .quant_module_cases import QuantAvgPoolCases
 from .quant_module_cases import QuantRecurrentCases
 from .quant_module_cases import QuantWBIOLCases
-from .quant_module_cases import QuantAvgPoolCases
 
 
 @parametrize_with_cases('model', cases=QuantWBIOLCases)
@@ -58,8 +58,9 @@ def test_ort_avgpool(model, current_cases):
     inp = gen_linspaced_data(reduce(mul, in_size), -1, 1).reshape(in_size)
     model(torch.from_numpy(inp))  # accumulate scale factors
     model.eval()
-    export_name='qcdq_quant_avgpool.onnx'
-    assert is_brevitas_ort_close(model, inp, export_name, 'qcdq', tolerance=INT_TOLERANCE, first_output_only=True)
+    export_name = 'qcdq_quant_avgpool.onnx'
+    assert is_brevitas_ort_close(
+        model, inp, export_name, 'qcdq', tolerance=INT_TOLERANCE, first_output_only=True)
 
 
 @parametrize_with_cases('model', cases=QuantRecurrentCases)

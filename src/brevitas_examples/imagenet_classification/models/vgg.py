@@ -34,11 +34,11 @@
 import torch
 import torch.nn as nn
 
-from brevitas.nn import QuantAvgPool2d
 from brevitas.nn import QuantConv2d
 from brevitas.nn import QuantIdentity
 from brevitas.nn import QuantLinear
 from brevitas.nn import QuantReLU
+from brevitas.nn import TruncAvgPool2d
 
 from .common import *
 
@@ -86,7 +86,7 @@ class QuantVGG(nn.Module):
     def __init__(self, cfg, batch_norm, bit_width=8, num_classes=1000):
         super(QuantVGG, self).__init__()
         self.features = make_layers(cfg, batch_norm, bit_width)
-        self.avgpool = QuantAvgPool2d(kernel_size=(7, 7), stride=1, bit_width=bit_width)
+        self.avgpool = TruncAvgPool2d(kernel_size=(7, 7), stride=1, bit_width=bit_width)
         self.classifier = nn.Sequential(
             QuantLinear(
                 512 * 7 * 7,

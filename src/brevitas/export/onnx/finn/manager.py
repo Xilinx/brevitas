@@ -16,12 +16,12 @@ from brevitas.export.onnx.manager import onnx
 from brevitas.export.onnx.manager import ONNXBaseManager
 from brevitas.quant_tensor import QuantTensor
 
-from .function.acc import QuantAvgPool2dFn
+from .function.acc import TruncAvgPool2dFn
 from .function.act import QuantHardTanhFn
 from .function.act import QuantReLUFn
 from .function.parameter import QuantizedConvNdFn
 from .function.parameter import QuantizedLinearFn
-from .handler.acc import FINNQuantAvgPool2dHandler
+from .handler.acc import FINNTruncAvgPool2dHandler
 from .handler.act import FINNQuantHardTanhHandler
 from .handler.act import FINNQuantIdentityHandler
 from .handler.act import FINNQuantReLUHandler
@@ -89,7 +89,7 @@ class FINNManager(ONNXBaseManager):
         FINNQuantReLUHandler,
         FINNQuantIdentityHandler,
         FINNQuantHardTanhHandler,
-        FINNQuantAvgPool2dHandler]
+        FINNTruncAvgPool2dHandler]
 
     custom_fns = [
         DebugMarkerFunction,
@@ -97,7 +97,7 @@ class FINNManager(ONNXBaseManager):
         QuantizedLinearFn,
         QuantReLUFn,
         QuantHardTanhFn,
-        QuantAvgPool2dFn]
+        TruncAvgPool2dFn]
 
     model_transforms = [move_quant_attributes_into_annotations, restore_domain]
 

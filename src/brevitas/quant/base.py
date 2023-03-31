@@ -57,7 +57,6 @@ __all__ = [
     'PerChannelFloatScaling8bit',
     'PerTensorFloatScaling8bit',
     'PerTensorPoTScaling8bit',
-    'IntTrunc',
     'SignedBinaryClampedConst',
     'WeightPerTensorFloatDecoupledL2Param',
     'WeightPerChannelFloatDecoupled',
@@ -204,14 +203,6 @@ class PerTensorPoTScaling8bit(ExtendedInjector):
     restrict_scaling_type = RestrictValueType.POWER_OF_TWO
     bit_width = 8
     restrict_value_float_to_int_impl = CeilSte
-
-
-class IntTrunc(ExtendedInjector):
-    """
-    """
-    quant_type = QuantType.INT
-    bit_width_impl_type = BitWidthImplType.CONST
-    float_to_int_impl_type = FloatToIntImplType.FLOOR
 
 
 class SignedBinaryClampedConst(ExtendedInjector):

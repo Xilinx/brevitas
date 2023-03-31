@@ -11,11 +11,11 @@ from brevitas.quant_tensor import QuantTensor
 
 from .mixin.acc import AccQuantType
 from .mixin.acc import QuantClampMixin
-from .mixin.acc import QuantTruncMixin
+from .mixin.acc import TruncMixin
 from .mixin.base import QuantLayerMixin
 
 
-class TruncQuantAccumulator(QuantTruncMixin, QuantLayerMixin, Module):
+class TruncQuantAccumulator(TruncMixin, QuantLayerMixin, Module):
 
     def __init__(
             self,
@@ -23,7 +23,7 @@ class TruncQuantAccumulator(QuantTruncMixin, QuantLayerMixin, Module):
             return_quant_tensor: bool = True,
             **kwargs):
         QuantLayerMixin.__init__(self, return_quant_tensor)
-        QuantTruncMixin.__init__(self, trunc_quant=trunc_quant, **kwargs)
+        TruncMixin.__init__(self, trunc_quant=trunc_quant, **kwargs)
 
     @property
     def channelwise_separable(self) -> bool:

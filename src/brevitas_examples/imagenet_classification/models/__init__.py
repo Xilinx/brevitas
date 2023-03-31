@@ -1,9 +1,9 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from warnings import warn
 from configparser import ConfigParser
 import os
+from warnings import warn
 
 from torch import hub
 
@@ -38,7 +38,9 @@ def quant_mobilenet_v1_4b(pretrained=True):
 
 def quant_mobilenet_v1_4b_round_avgpool(pretrained=False):
     if pretrained:
-        warn("The model was trained with trunc QuantAvgPool rather than round, accuracy will be affected.")
+        warn(
+            "The model was trained with floor TruncAvgPool rather than round,"
+            " accuracy will be affected.")
     model, _ = model_with_cfg('quant_mobilenet_v1_4b_round_avgpool', pretrained)
     return model
 
@@ -50,7 +52,9 @@ def quant_proxylessnas_mobile14_4b(pretrained=True):
 
 def quant_proxylessnas_mobile14_4b_round_avgpool(pretrained=False):
     if pretrained:
-        warn("The model was trained with trunc QuantAvgPool rather than round, accuracy will be affected.")
+        warn(
+            "The model was trained with floor TruncAvgPool rather than round,"
+            " accuracy will be affected.")
     model, _ = model_with_cfg('quant_proxylessnas_mobile14_4b_round_avgpool', pretrained)
     return model
 

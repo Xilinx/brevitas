@@ -285,7 +285,8 @@ class QCDQTruncQuantProxyHandlerMixin(QCDQQuantProxyHandlerMixin, ClipMixin):
         flat_scale = to_0dim_if_scalar(scale.flatten())
         zp = to_0dim_if_scalar(zero_point.flatten()).expand_as(flat_scale)
         x = self.quantize_fn(x, flat_pre_scale, zp, dtype, self.quant_axis(pre_scale))
-        clip_symbolic_kwargs = self.int_clip_symbolic_kwargs(signed=signed, narrow=False, bit_width=output_bit_width)
+        clip_symbolic_kwargs = self.int_clip_symbolic_kwargs(
+            signed=signed, narrow=False, bit_width=output_bit_width)
         if clip_symbolic_kwargs is not None:
             x = self.clip_fn(x, *clip_symbolic_kwargs.values())
         x = self.dequantize_fn(x, flat_scale, zp, self.quant_axis(scale))

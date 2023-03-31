@@ -22,6 +22,7 @@ __all__ = [
     'Int8WeightPerChannelFloat',
     'Uint8ActPerTensorFloat',
     'TruncTo8bit',
+    'RoundTo8bit',
     'Int4WeightPerTensorFloatDecoupled',
     'Int8WeightPerChannelFloatDecoupled']
 
@@ -204,15 +205,32 @@ class Uint8ActPerTensorFloat(UintQuant,
     pass
 
 
-class TruncTo8bit(IntTrunc, TruncQuantSolver):
+class TruncTo8bit(TruncQuantSolver):
     """
     8-bit signed int truncator that preserves the input scale factor and zero-point.
 
     Examples:
-        >>> from brevitas.nn import QuantAvgPool2d
-        >>> pool = QuantAvgPool2d(kernel_size=(3, 3), trunc_quant=TruncTo8bit)
+        >>> from brevitas.nn import TruncAvgPool2d
+        >>> pool = TruncAvgPool2d(kernel_size=(3, 3), trunc_quant=TruncTo8bit)
     """
     bit_width = 8
+    quant_type = 'int'
+    bit_width_impl_type = 'const'
+    float_to_int_impl_type = 'floor'
+
+
+class RoundTo8bit(TruncQuantSolver):
+    """
+    8-bit signed int truncator with rounding that preserves the input scale factor and zero-point.
+
+    Examples:
+        >>> from brevitas.nn import TruncAvgPool2d
+        >>> pool = TruncAvgPool2d(kernel_size=(3, 3), trunc_quant=RoundTo8bit)
+    """
+    bit_width = 8
+    quant_type = 'int'
+    bit_width_impl_type = 'const'
+    float_to_int_impl_type = 'round'
 
 
 class Int4WeightPerTensorFloatDecoupled(WeightPerTensorFloatDecoupledL2Param):

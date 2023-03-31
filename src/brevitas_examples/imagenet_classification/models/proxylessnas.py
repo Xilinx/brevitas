@@ -25,11 +25,11 @@ __all__ = ['quant_proxylessnas_mobile14']
 import torch.nn as nn
 
 from brevitas.nn import HadamardClassifier
-from brevitas.nn import QuantAvgPool2d
 from brevitas.nn import QuantConv2d
 from brevitas.nn import QuantIdentity
 from brevitas.nn import QuantLinear
 from brevitas.nn import QuantReLU
+from brevitas.nn import TruncAvgPool2d
 from brevitas.quant import IntBias
 
 from .common import *
@@ -287,8 +287,11 @@ class ProxylessNAS(nn.Module):
         in_channels = final_block_channels
         # Exporting to torch or ONNX qcdq requires round
         avgpool_float_to_int_impl_type = 'round' if round_average_pool else 'floor'
-        self.final_pool = QuantAvgPool2d(
-            kernel_size=7, stride=1, bit_width=bit_width, float_to_int_impl_type=avgpool_float_to_int_impl_type)
+        self.final_pool = TruncAvgPool2d(
+            kernel_size=7,
+            stride=1,
+            bit_width=bit_width,
+            float_to_int_impl_type=avgpool_float_to_int_impl_type)
         if hadamard_classifier:
             self.output = HadamardClassifier(
                 in_channels=in_channels, out_channels=num_classes, fixed_scale=False)
