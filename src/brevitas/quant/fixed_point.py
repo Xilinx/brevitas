@@ -48,8 +48,10 @@ class Int8ActPerTensorFixedPoint(IntQuant,
     pass
 
 
-class Int8ActPerTensorFixedPointMinMaxInit(
-    IntQuant, ParamMinMaxInitScaling, PerTensorPoTScaling8bit, ActQuantSolver):
+class Int8ActPerTensorFixedPointMinMaxInit(IntQuant,
+                                           ParamMinMaxInitScaling,
+                                           PerTensorPoTScaling8bit,
+                                           ActQuantSolver):
     """
     8-bit per-tensor signed int activations fixed-point quantizer with learned radix point
     initialized from runtime statistics.
@@ -61,8 +63,10 @@ class Int8ActPerTensorFixedPointMinMaxInit(
     pass
 
 
-class Uint8ActPerTensorFixedPoint(
-    UintQuant, ParamFromRuntimePercentileScaling, PerTensorPoTScaling8bit, ActQuantSolver):
+class Uint8ActPerTensorFixedPoint(UintQuant,
+                                  ParamFromRuntimePercentileScaling,
+                                  PerTensorPoTScaling8bit,
+                                  ActQuantSolver):
     """
     8-bit per-tensor unsigned int activations fixed-point quantizer with learned radix point
     initialized from runtime statistics.
