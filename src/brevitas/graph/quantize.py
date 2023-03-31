@@ -13,6 +13,7 @@ from brevitas.graph.fixed_point import CollapseConsecutiveConcats
 from brevitas.graph.fixed_point import MergeBatchNorm
 from brevitas.graph.fixed_point import MoveSplitBatchNormBeforeCat
 from brevitas.graph.per_input import AdaptiveAvgPoolToAvgPool
+from brevitas.graph.quantize_impl import act_handler
 from brevitas.graph.quantize_impl import add_output_quant_handler
 from brevitas.graph.quantize_impl import inp_placeholder_handler
 from brevitas.graph.quantize_impl import layer_handler
@@ -301,7 +302,7 @@ def quantize(
     graph_model.eval()
     graph_model = inp_placeholder_handler(
         graph_model, input_quantizer=quant_identity_map.get('signed', None))
-    graph_model = layer_handler(graph_model, layer_map=quant_act_map, requantize_output=False)
+    graph_model = act_handler(graph_model, layer_map=quant_act_map)
     graph_model = add_output_quant_handler(
         graph_model, quant_identity_map, quant_act_map, unsigned_act_tuple)
     graph_model = layer_handler(
