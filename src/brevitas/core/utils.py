@@ -84,4 +84,3 @@ class ParameterWrapper(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def forward(self):
         return self.value
-
