@@ -27,5 +27,3 @@ brevitas.function.shape module
    :members:
    :undoc-members:
    :show-inheritance:
-
-

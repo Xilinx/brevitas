@@ -1,17 +1,26 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import torch
-from torch import Tensor, nn
-from brevitas.core.quant import RescalingIntQuant, TernaryQuant, ClampedBinaryQuant
-from brevitas.core.scaling import ParameterScaling, ConstScaling, SCALAR_SHAPE
-from brevitas.core.scaling import ParameterFromRuntimeStatsScaling, RuntimeStatsScaling
+from torch import nn
+from torch import Tensor
+
+from brevitas.core.quant import ClampedBinaryQuant
+from brevitas.core.quant import RescalingIntQuant
+from brevitas.core.quant import TernaryQuant
+from brevitas.core.scaling import ConstScaling
+from brevitas.core.scaling import ParameterFromRuntimeStatsScaling
+from brevitas.core.scaling import ParameterScaling
+from brevitas.core.scaling import RuntimeStatsScaling
+from brevitas.core.scaling import SCALAR_SHAPE
+from brevitas.inject import ExtendedInjector
+from brevitas.inject import this
+from brevitas.inject import value
+from brevitas.inject.enum import QuantType
+from brevitas.inject.enum import ScalingImplType
+from brevitas.proxy import ActQuantProxyFromInjector
 from brevitas.proxy.utils import ConvertRuntimeStatsToParameter
 from brevitas.quant.solver.common import *
-from brevitas.inject import ExtendedInjector, value, this
-from brevitas.inject.enum import ScalingImplType, QuantType
-from brevitas.proxy import ActQuantProxyFromInjector
 
 
 class MinMaxScalingInit:
@@ -111,33 +120,29 @@ class SolveUpdateStateDictImplFromEnum(ExtendedInjector):
 
     @value
     def update_state_dict_impl(scaling_impl_type):
-        if (scaling_impl_type == ScalingImplType.PARAMETER
-                or scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS):
+        if (scaling_impl_type == ScalingImplType.PARAMETER or
+                scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS):
             return ConvertRuntimeStatsToParameter
         else:
             return None
 
 
-class ActQuantSolver(
-        SolveActTensorQuantFromEnum,
-        SolveActScalingImplFromEnum,
-        SolveIntScalingImplFromEnum,
-        SolveBitWidthImplFromEnum,
-        SolveTensorQuantFloatToIntImplFromEnum,
-        SolveScalingStatsOpFromEnum,
-        SolveRestrictScalingImplFromEnum,
-        SolveActScalingInitFromEnum,
-        SolveStatsReduceDimFromEnum,
-        SolveActScalingShape,
-        SolveScalingStatsInputViewShapeImplFromEnum,
-        SolveActScalingPerOutputChannelShape,
-        SolveUpdateStateDictImplFromEnum):
+class ActQuantSolver(SolveActTensorQuantFromEnum,
+                     SolveActScalingImplFromEnum,
+                     SolveIntScalingImplFromEnum,
+                     SolveBitWidthImplFromEnum,
+                     SolveTensorQuantFloatToIntImplFromEnum,
+                     SolveScalingStatsOpFromEnum,
+                     SolveRestrictScalingImplFromEnum,
+                     SolveActScalingInitFromEnum,
+                     SolveStatsReduceDimFromEnum,
+                     SolveActScalingShape,
+                     SolveScalingStatsInputViewShapeImplFromEnum,
+                     SolveActScalingPerOutputChannelShape,
+                     SolveUpdateStateDictImplFromEnum):
     """
     Translate enum directives to activation-specific quantization core modules.
     It should be placed last in the list of classes a quantizer inherits from,
     to make sure overrides are correctly captured.
     """
     proxy_class = ActQuantProxyFromInjector
-
-
-

@@ -1,20 +1,21 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
-from brevitas.quant.base import NarrowIntQuant, PerTensorConstScaling2bit
-from brevitas.core.function_wrapper import TensorClamp, InplaceTensorClampSte
-from brevitas.quant.solver import WeightQuantSolver, ActQuantSolver
-
+from brevitas.core.function_wrapper import InplaceTensorClampSte
+from brevitas.core.function_wrapper import TensorClamp
+from brevitas.quant.base import NarrowIntQuant
+from brevitas.quant.base import PerTensorConstScaling2bit
+from brevitas.quant.solver import ActQuantSolver
+from brevitas.quant.solver import WeightQuantSolver
 
 __all__ = [
     'SignedTernaryWeightPerTensorConst',
-    'SignedTernaryActPerTensorConst',
-]
+    'SignedTernaryActPerTensorConst',]
 
 
-class SignedTernaryWeightPerTensorConst(
-    NarrowIntQuant, PerTensorConstScaling2bit, WeightQuantSolver):
+class SignedTernaryWeightPerTensorConst(NarrowIntQuant,
+                                        PerTensorConstScaling2bit,
+                                        WeightQuantSolver):
     """
     Signed ternary weight quantizer with constant scale factor and inplace clipping to the scale.
 
@@ -27,8 +28,7 @@ class SignedTernaryWeightPerTensorConst(
     scaling_const = 0.1
 
 
-class SignedTernaryActPerTensorConst(
-    NarrowIntQuant, PerTensorConstScaling2bit, ActQuantSolver):
+class SignedTernaryActPerTensorConst(NarrowIntQuant, PerTensorConstScaling2bit, ActQuantSolver):
     """
     Examples:
         >>> from brevitas.nn import QuantIdentity

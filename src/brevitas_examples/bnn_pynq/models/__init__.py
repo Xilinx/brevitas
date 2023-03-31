@@ -1,26 +1,33 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
-import os
 from configparser import ConfigParser
+import os
 
 import torch
 from torch import hub
 
-__all__ = ['cnv_1w1a', 'cnv_1w2a', 'cnv_2w2a',
-           'sfc_1w1a', 'sfc_1w2a', 'sfc_2w2a',
-           'tfc_1w1a', 'tfc_1w2a', 'tfc_2w2a',
-           'lfc_1w1a', 'lfc_1w2a',
-           'model_with_cfg']
+__all__ = [
+    'cnv_1w1a',
+    'cnv_1w2a',
+    'cnv_2w2a',
+    'sfc_1w1a',
+    'sfc_1w2a',
+    'sfc_2w2a',
+    'tfc_1w1a',
+    'tfc_1w2a',
+    'tfc_2w2a',
+    'lfc_1w1a',
+    'lfc_1w2a',
+    'model_with_cfg']
 
 from .CNV import cnv
 from .FC import fc
 
 model_impl = {
     'CNV': cnv,
-    'FC': fc,
-}
+    'FC': fc,}
+
 
 def get_model_cfg(name):
     cfg = ConfigParser()
@@ -29,6 +36,7 @@ def get_model_cfg(name):
     assert os.path.exists(config_path)
     cfg.read(config_path)
     return cfg
+
 
 def model_with_cfg(name, pretrained):
     cfg = get_model_cfg(name)
@@ -94,5 +102,3 @@ def lfc_1w1a(pretrained=True):
 def lfc_1w2a(pretrained=True):
     model, _ = model_with_cfg('lfc_1w2a', pretrained)
     return model
-
-

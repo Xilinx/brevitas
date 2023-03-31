@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 """
 ScriptModule classes to compute the view of a tensor according to various different criteria.
 """
@@ -11,9 +10,11 @@ from typing import Optional, Tuple
 import torch
 
 import brevitas
-from brevitas.function.shape import over_tensor, over_output_channels, over_batch_over_tensor
-from brevitas.function.shape import over_batch_over_output_channels
 from brevitas.core.function_wrapper import Identity
+from brevitas.function.shape import over_batch_over_output_channels
+from brevitas.function.shape import over_batch_over_tensor
+from brevitas.function.shape import over_output_channels
+from brevitas.function.shape import over_tensor
 
 
 class PermuteDims(brevitas.jit.ScriptModule):

@@ -1,23 +1,25 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
-from typing import Union, Tuple, Type, Optional
 import math
+from typing import Optional, Tuple, Type, Union
 
 import torch
 from torch import Tensor
-from torch.nn import Conv1d, Conv2d
+from torch.nn import Conv1d
+from torch.nn import Conv2d
 from torch.nn import functional as F
 from torch.nn.functional import conv2d
 
 from brevitas.function.ops import max_int
 from brevitas.function.ops_ste import ceil_ste
-from brevitas.quant_tensor import QuantTensor
 from brevitas.inject.defaults import Int8WeightPerTensorFloat
-from .quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
-from .quant_layer import WeightQuantType, BiasQuantType, ActQuantType
+from brevitas.quant_tensor import QuantTensor
 
+from .quant_layer import ActQuantType
+from .quant_layer import BiasQuantType
+from .quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
+from .quant_layer import WeightQuantType
 
 __all__ = ['QuantConv1d', 'QuantConv2d']
 

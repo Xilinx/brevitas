@@ -1,14 +1,12 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from brevitas.core.function_wrapper import TensorClamp
 from brevitas.quant.base import *
-from brevitas.quant.solver.weight import WeightQuantSolver
-from brevitas.quant.solver.bias import BiasQuantSolver
 from brevitas.quant.solver.act import ActQuantSolver
+from brevitas.quant.solver.bias import BiasQuantSolver
 from brevitas.quant.solver.trunc import TruncQuantSolver
-
+from brevitas.quant.solver.weight import WeightQuantSolver
 
 __all__ = [
     'IntBias',
@@ -25,12 +23,13 @@ __all__ = [
     'Uint8ActPerTensorFloat',
     'TruncTo8bit',
     'Int4WeightPerTensorFloatDecoupled',
-    'Int8WeightPerChannelFloatDecoupled'
-]
+    'Int8WeightPerChannelFloatDecoupled']
 
 
-class Int8ActPerTensorFloatMinMaxInit(
-    IntQuant, ParamMinMaxInitScaling, PerTensorFloatScaling8bit, ActQuantSolver):
+class Int8ActPerTensorFloatMinMaxInit(IntQuant,
+                                      ParamMinMaxInitScaling,
+                                      PerTensorFloatScaling8bit,
+                                      ActQuantSolver):
     """
     8-bit per-tensor signed int activations quantizer with learned floating-point scale factor
     initialized from user-defined min and max values.
@@ -46,8 +45,10 @@ class Int8ActPerTensorFloatMinMaxInit(
     pass
 
 
-class Uint8ActPerTensorFloatMaxInit(
-    UintQuant, ParamMinMaxInitScaling, PerTensorFloatScaling8bit, ActQuantSolver):
+class Uint8ActPerTensorFloatMaxInit(UintQuant,
+                                    ParamMinMaxInitScaling,
+                                    PerTensorFloatScaling8bit,
+                                    ActQuantSolver):
     """
     8-bit per-tensor unsigned int activations quantizer with learned floating-point scale factor
     initialized from a user-defined max val.
@@ -127,8 +128,10 @@ class Int32Bias(IntBias):
     requires_input_bit_width = False
 
 
-class Int8BiasPerTensorFloatInternalScaling(
-    IntQuant, MaxStatsScaling, PerTensorFloatScaling8bit, BiasQuantSolver):
+class Int8BiasPerTensorFloatInternalScaling(IntQuant,
+                                            MaxStatsScaling,
+                                            PerTensorFloatScaling8bit,
+                                            BiasQuantSolver):
     """
     8-bit per-tensor signed int bias quantizer with floating-point scale factor computed from
     backpropagated statistics of the bias tensor.
@@ -141,8 +144,10 @@ class Int8BiasPerTensorFloatInternalScaling(
     requires_input_bit_width = False
 
 
-class Int8WeightPerTensorFloat(
-    NarrowIntQuant, MaxStatsScaling, PerTensorFloatScaling8bit, WeightQuantSolver):
+class Int8WeightPerTensorFloat(NarrowIntQuant,
+                               MaxStatsScaling,
+                               PerTensorFloatScaling8bit,
+                               WeightQuantSolver):
     """
     8-bit narrow per-tensor signed int weight quantizer with per-tensor floating-point scale factor computed
     from backpropagated statistics of the weight tensor.
@@ -154,8 +159,10 @@ class Int8WeightPerTensorFloat(
     pass
 
 
-class Int8WeightPerChannelFloat(
-    NarrowIntQuant, MaxStatsScaling, PerChannelFloatScaling8bit, WeightQuantSolver):
+class Int8WeightPerChannelFloat(NarrowIntQuant,
+                                MaxStatsScaling,
+                                PerChannelFloatScaling8bit,
+                                WeightQuantSolver):
     """
     8-bit narrow per-tensor signed int weight quantizer with per-channel floating-point scale factor computed
     from backpropagated statistics of the weight tensor.
@@ -167,8 +174,10 @@ class Int8WeightPerChannelFloat(
     pass
 
 
-class Int8ActPerTensorFloat(
-    IntQuant, ParamFromRuntimePercentileScaling, PerTensorFloatScaling8bit, ActQuantSolver):
+class Int8ActPerTensorFloat(IntQuant,
+                            ParamFromRuntimePercentileScaling,
+                            PerTensorFloatScaling8bit,
+                            ActQuantSolver):
     """
     8-bit per-tensor signed int activations quantizer with learned floating-point scale factor
     initialized from runtime statistics.
@@ -180,8 +189,10 @@ class Int8ActPerTensorFloat(
     pass
 
 
-class Uint8ActPerTensorFloat(
-    UintQuant, ParamFromRuntimePercentileScaling, PerTensorFloatScaling8bit, ActQuantSolver):
+class Uint8ActPerTensorFloat(UintQuant,
+                             ParamFromRuntimePercentileScaling,
+                             PerTensorFloatScaling8bit,
+                             ActQuantSolver):
     """
     8-bit per-tensor unsigned int activations quantizer with learned floating-point scale factor
     initialized from runtime statistics.
@@ -216,12 +227,12 @@ class Int4WeightPerTensorFloatDecoupled(WeightPerTensorFloatDecoupledL2Param):
         >>> m = QuantConv2d(4, 4, 3, groups=4, weight_quant=Int4WeightPerTensorFloatDecoupled)
     """
     bit_width = 4
-    
-    
+
+
 class Int8WeightPerChannelFloatDecoupled(WeightPerChannelFloatDecoupled):
     """
     Experimental narrow per-channel signed int weight quantizer with decoupled Linf
-    normalization and learned scaling. 
+    normalization and learned scaling.
 
     Examples:
         >>> from brevitas.nn import QuantConv2d

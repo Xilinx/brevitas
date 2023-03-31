@@ -1,13 +1,10 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from packaging import version
-
 import torch
 
 from brevitas.config import JIT_ENABLED
-
 
 IS_ABOVE_110 = version.parse(torch.__version__) > version.parse('1.1.0')
 

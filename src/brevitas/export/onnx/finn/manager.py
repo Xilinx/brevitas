@@ -1,29 +1,36 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
-from typing import Tuple, Union, Optional
+from typing import Optional, Tuple, Union
 
 import torch
 from torch import Tensor
-from torch.nn import Module, Sequential
 from torch.autograd import Function
+from torch.nn import Module
+from torch.nn import Sequential
 
+from brevitas.export.manager import _set_layer_export_handler
+from brevitas.export.manager import _set_layer_export_mode
 from brevitas.export.onnx.debug import DebugMarkerFunction
-from brevitas.export.onnx.manager import ONNXBaseManager, onnx
-from brevitas.export.manager import _set_layer_export_handler, _set_layer_export_mode
+from brevitas.export.onnx.manager import onnx
+from brevitas.export.onnx.manager import ONNXBaseManager
 from brevitas.quant_tensor import QuantTensor
 
+from .function.acc import QuantAvgPool2dFn
+from .function.act import QuantHardTanhFn
+from .function.act import QuantReLUFn
+from .function.parameter import QuantizedConvNdFn
+from .function.parameter import QuantizedLinearFn
+from .handler.acc import FINNQuantAvgPool2dHandler
+from .handler.act import FINNQuantHardTanhHandler
+from .handler.act import FINNQuantIdentityHandler
+from .handler.act import FINNQuantReLUHandler
+from .handler.parameter import FINNQuantConv1dHandler
+from .handler.parameter import FINNQuantConv2dHandler
+from .handler.parameter import FINNQuantLinearHandler
 from .transform import move_quant_attributes_into_annotations
 from .transform import restore_domain
-from .handler.parameter import FINNQuantConv2dHandler, FINNQuantLinearHandler
-from .handler.parameter import FINNQuantConv1dHandler
-from .handler.act import FINNQuantHardTanhHandler, FINNQuantReLUHandler, FINNQuantIdentityHandler
-from .handler.acc import FINNQuantAvgPool2dHandler
 from .utils import finn_datatype
-from .function.acc import QuantAvgPool2dFn
-from .function.act import QuantHardTanhFn, QuantReLUFn
-from .function.parameter import QuantizedLinearFn, QuantizedConvNdFn
 
 
 class _InputQuantTensorFunction(Function):
@@ -90,17 +97,13 @@ class FINNManager(ONNXBaseManager):
         QuantizedLinearFn,
         QuantReLUFn,
         QuantHardTanhFn,
-        QuantAvgPool2dFn
-    ]
+        QuantAvgPool2dFn]
 
-    model_transforms = [
-        move_quant_attributes_into_annotations,
-        restore_domain]
+    model_transforms = [move_quant_attributes_into_annotations, restore_domain]
 
     onnx_passes = [
         # use initializers instead of Constant nodes for fixed params
-        "extract_constant_to_initializer",
-        # remove unused graph inputs & initializers
+        "extract_constant_to_initializer",  # remove unused graph inputs & initializers
         "eliminate_unused_initializer"]
 
     @classmethod
@@ -117,16 +120,16 @@ class FINNManager(ONNXBaseManager):
             module: Module,
             args: Optional[Union[Tensor, QuantTensor, Tuple]] = None,
             export_path: Optional[str] = None,
-            input_shape: Optional[Tuple[int, ...]] = None, # legacy syntax, alternative to args
-            input_t: Optional[Union[Tensor, QuantTensor]] = None,  # legacy syntax, alternative to args
+            input_shape: Optional[Tuple[int, ...]] = None,  # legacy syntax, alternative to args
+            input_t: Optional[Union[Tensor,
+                                    QuantTensor]] = None,  # legacy syntax, alternative to args
             disable_warnings=True,
             **onnx_export_kwargs):
-        if ((input_t is not None and isinstance(input_t, QuantTensor)
-                or args is not None and isinstance(args, QuantTensor))
-                and bool(input_t) != bool(args)):
-            
-            args = args or input_t # If either one is not None, args will be not None
-            input_t = None # Keep only args as not None
+        if ((input_t is not None and isinstance(input_t, QuantTensor) or
+             args is not None and isinstance(args, QuantTensor)) and bool(input_t) != bool(args)):
+
+            args = args or input_t  # If either one is not None, args will be not None
+            input_t = None  # Keep only args as not None
 
             if args.is_not_none:
                 assert args.is_valid, 'Input QuantTensor is not properly quantized'

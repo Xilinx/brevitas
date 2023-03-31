@@ -1,27 +1,26 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from brevitas.core.function_wrapper.ops_ste import CeilSte
-from brevitas.core.scaling import PowerOfTwoIntScaling
 from brevitas.core.restrict_val import PowerOfTwoRestrictValue
-from brevitas.quant.solver.weight import WeightQuantSolver
-from brevitas.quant.solver.bias import BiasQuantSolver
-from brevitas.quant.solver.act import ActQuantSolver
+from brevitas.core.scaling import PowerOfTwoIntScaling
 from brevitas.quant.base import *
-
+from brevitas.quant.solver.act import ActQuantSolver
+from brevitas.quant.solver.bias import BiasQuantSolver
+from brevitas.quant.solver.weight import WeightQuantSolver
 
 __all__ = [
     'Int8WeightPerTensorFixedPoint',
     'Int8ActPerTensorFixedPoint',
     'Uint8ActPerTensorFixedPoint',
     'Int8BiasPerTensorFixedPointInternalScaling',
-    'Uint8ActPerTensorFixedPointMaxInit'
-]
+    'Uint8ActPerTensorFixedPointMaxInit']
 
 
-class Int8WeightPerTensorFixedPoint(
-    NarrowIntQuant, MaxStatsScaling, PerTensorPoTScaling8bit, WeightQuantSolver):
+class Int8WeightPerTensorFixedPoint(NarrowIntQuant,
+                                    MaxStatsScaling,
+                                    PerTensorPoTScaling8bit,
+                                    WeightQuantSolver):
     """
     8-bit narrow per-tensor signed fixed-point weight quantizer with the radix point
     computed from backpropagated statistics of the weight tensor.
@@ -34,8 +33,10 @@ class Int8WeightPerTensorFixedPoint(
     pass
 
 
-class Int8ActPerTensorFixedPoint(
-    IntQuant, ParamFromRuntimePercentileScaling, PerTensorPoTScaling8bit, ActQuantSolver):
+class Int8ActPerTensorFixedPoint(IntQuant,
+                                 ParamFromRuntimePercentileScaling,
+                                 PerTensorPoTScaling8bit,
+                                 ActQuantSolver):
     """
     8-bit per-tensor signed int activations fixed-point quantizer with learned radix point
     initialized from runtime statistics.
@@ -47,8 +48,10 @@ class Int8ActPerTensorFixedPoint(
     pass
 
 
-class Uint8ActPerTensorFixedPoint(
-    UintQuant, ParamFromRuntimePercentileScaling, PerTensorPoTScaling8bit, ActQuantSolver):
+class Uint8ActPerTensorFixedPoint(UintQuant,
+                                  ParamFromRuntimePercentileScaling,
+                                  PerTensorPoTScaling8bit,
+                                  ActQuantSolver):
     """
     8-bit per-tensor unsigned int activations fixed-point quantizer with learned radix point
     initialized from runtime statistics.
@@ -60,8 +63,10 @@ class Uint8ActPerTensorFixedPoint(
     pass
 
 
-class Uint8ActPerTensorFixedPointMaxInit(
-    UintQuant, ParamMinMaxInitScaling, PerTensorPoTScaling8bit, ActQuantSolver):
+class Uint8ActPerTensorFixedPointMaxInit(UintQuant,
+                                         ParamMinMaxInitScaling,
+                                         PerTensorPoTScaling8bit,
+                                         ActQuantSolver):
     """
     8-bit per-tensor unsigned int activations quantizer with learned power-of-two scale factor
     initialized from a user-defined max val.
@@ -75,8 +80,10 @@ class Uint8ActPerTensorFixedPointMaxInit(
     min_val = 0.0
 
 
-class Int8BiasPerTensorFixedPointInternalScaling(
-    IntQuant, MaxStatsScaling, PerTensorPoTScaling8bit, BiasQuantSolver):
+class Int8BiasPerTensorFixedPointInternalScaling(IntQuant,
+                                                 MaxStatsScaling,
+                                                 PerTensorPoTScaling8bit,
+                                                 BiasQuantSolver):
     """
     8-bit per-tensor signed fixed-point bias quantizer with the radix point computed
     from backpropagated statistics of the bias tensor.
@@ -106,3 +113,18 @@ class Int4WeightPerTensorFixedPointDecoupled(WeightPerTensorFloatDecoupledL2Para
     restrict_value_float_to_int_impl = CeilSte
 
 
+class Int8WeightNormL2PerChannelFixedPoint(WeightNormPerChannelFloatDecoupled):
+    """
+    Experimental 8-bit narrow signed integer quantizer with learned per-channel scaling factors
+    and L2 weight normalization based on `Quantized Neural Networks for Low-Precision Accumulation
+    with Guaranteed Overflow Avoidance` by I. Colbert, A. Pappalardo, and J. Petri-Koenig
+    (https://arxiv.org/abs/2301.13376). The quantizer learns scaling factors in the float domain and
+    learns vector parameter g in the log domain with the half-way rounding function. Suitable for
+    retraining from floating-point depthwise separable weights.
+
+    Examples:
+        >>> from brevitas.nn import QuantConv2d
+        >>> conv = QuantConv2d(4, 4, 3, groups=4, weight_quant=Int8WeightNormL2PerChannelFixedPoint)
+        >>> conv.quant_weight()
+    """
+    bit_width = 8

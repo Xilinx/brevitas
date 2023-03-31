@@ -1,21 +1,23 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
-from typing import Optional, Union, Type, Tuple
-from operator import mul
 from functools import reduce
+from operator import mul
+from typing import Optional, Tuple, Type, Union
 
 import torch
 from torch import Tensor
-from torch.nn import AvgPool2d, AdaptiveAvgPool2d
+from torch.nn import AdaptiveAvgPool2d
+from torch.nn import AvgPool2d
 
-from brevitas.function.ops_ste import ceil_ste
 from brevitas.function.ops import max_int
-from brevitas.quant_tensor import QuantTensor
+from brevitas.function.ops_ste import ceil_ste
 from brevitas.inject.defaults import TruncTo8bit
+from brevitas.quant_tensor import QuantTensor
+
+from .mixin.acc import AccQuantType
+from .mixin.acc import QuantTruncMixin
 from .mixin.base import QuantLayerMixin
-from .mixin.acc import QuantTruncMixin, AccQuantType
 
 
 class QuantAvgPool2d(QuantTruncMixin, QuantLayerMixin, AvgPool2d):
@@ -27,15 +29,9 @@ class QuantAvgPool2d(QuantTruncMixin, QuantLayerMixin, AvgPool2d):
             trunc_quant: Optional[AccQuantType] = TruncTo8bit,
             return_quant_tensor: bool = True,
             **kwargs):
-        AvgPool2d.__init__(
-            self,
-            kernel_size=kernel_size,
-            stride=stride)
+        AvgPool2d.__init__(self, kernel_size=kernel_size, stride=stride)
         QuantLayerMixin.__init__(self, return_quant_tensor)
-        QuantTruncMixin.__init__(
-            self,
-            trunc_quant=trunc_quant,
-            **kwargs)
+        QuantTruncMixin.__init__(self, trunc_quant=trunc_quant, **kwargs)
 
     @property
     def channelwise_separable(self) -> bool:
@@ -84,10 +80,7 @@ class QuantAdaptiveAvgPool2d(QuantTruncMixin, QuantLayerMixin, AdaptiveAvgPool2d
             **kwargs):
         AdaptiveAvgPool2d.__init__(self, output_size=output_size)
         QuantLayerMixin.__init__(self, return_quant_tensor)
-        QuantTruncMixin.__init__(
-            self,
-            trunc_quant=trunc_quant,
-            **kwargs)
+        QuantTruncMixin.__init__(self, trunc_quant=trunc_quant, **kwargs)
         self.cache_kernel_size_stride = cache_kernel_size_stride
         self._cached_kernel_size = None
         self._cached_kernel_stride = None

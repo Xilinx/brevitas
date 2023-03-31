@@ -1,15 +1,21 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import torch
-from torch.nn import Module, ModuleList, BatchNorm2d, MaxPool2d, BatchNorm1d
+from torch.nn import BatchNorm1d
+from torch.nn import BatchNorm2d
+from torch.nn import MaxPool2d
+from torch.nn import Module
+from torch.nn import ModuleList
 
-from brevitas.nn import QuantConv2d, QuantIdentity, QuantLinear
 from brevitas.core.restrict_val import RestrictValueType
-from .tensor_norm import TensorNorm
-from .common import CommonWeightQuant, CommonActQuant
+from brevitas.nn import QuantConv2d
+from brevitas.nn import QuantIdentity
+from brevitas.nn import QuantLinear
 
+from .common import CommonActQuant
+from .common import CommonWeightQuant
+from .tensor_norm import TensorNorm
 
 CNV_OUT_CH_POOL = [(64, False), (64, True), (128, False), (128, True), (256, False), (256, False)]
 INTERMEDIATE_FC_FEATURES = [(256, 512), (512, 512)]
@@ -36,45 +42,45 @@ class CNV(Module):
             restrict_scaling_type=RestrictValueType.POWER_OF_TWO))
 
         for out_ch, is_pool_enabled in CNV_OUT_CH_POOL:
-            self.conv_features.append(QuantConv2d(
-                kernel_size=KERNEL_SIZE,
-                in_channels=in_ch,
-                out_channels=out_ch,
-                bias=False,
-                weight_quant=CommonWeightQuant,
-                weight_bit_width=weight_bit_width))
+            self.conv_features.append(
+                QuantConv2d(
+                    kernel_size=KERNEL_SIZE,
+                    in_channels=in_ch,
+                    out_channels=out_ch,
+                    bias=False,
+                    weight_quant=CommonWeightQuant,
+                    weight_bit_width=weight_bit_width))
             in_ch = out_ch
             self.conv_features.append(BatchNorm2d(in_ch, eps=1e-4))
-            self.conv_features.append(QuantIdentity(
-                act_quant=CommonActQuant,
-                bit_width=act_bit_width))
+            self.conv_features.append(
+                QuantIdentity(act_quant=CommonActQuant, bit_width=act_bit_width))
             if is_pool_enabled:
                 self.conv_features.append(MaxPool2d(kernel_size=2))
 
         for in_features, out_features in INTERMEDIATE_FC_FEATURES:
-            self.linear_features.append(QuantLinear(
-                in_features=in_features,
-                out_features=out_features,
+            self.linear_features.append(
+                QuantLinear(
+                    in_features=in_features,
+                    out_features=out_features,
+                    bias=False,
+                    weight_quant=CommonWeightQuant,
+                    weight_bit_width=weight_bit_width))
+            self.linear_features.append(BatchNorm1d(out_features, eps=1e-4))
+            self.linear_features.append(
+                QuantIdentity(act_quant=CommonActQuant, bit_width=act_bit_width))
+
+        self.linear_features.append(
+            QuantLinear(
+                in_features=LAST_FC_IN_FEATURES,
+                out_features=num_classes,
                 bias=False,
                 weight_quant=CommonWeightQuant,
                 weight_bit_width=weight_bit_width))
-            self.linear_features.append(BatchNorm1d(out_features, eps=1e-4))
-            self.linear_features.append(QuantIdentity(
-                act_quant=CommonActQuant,
-                bit_width=act_bit_width))
-
-        self.linear_features.append(QuantLinear(
-            in_features=LAST_FC_IN_FEATURES,
-            out_features=num_classes,
-            bias=False,
-            weight_quant=CommonWeightQuant,
-            weight_bit_width=weight_bit_width))
         self.linear_features.append(TensorNorm())
-        
-        for m in self.modules():
-          if isinstance(m, QuantConv2d) or isinstance(m, QuantLinear):
-            torch.nn.init.uniform_(m.weight.data, -1, 1)
 
+        for m in self.modules():
+            if isinstance(m, QuantConv2d) or isinstance(m, QuantLinear):
+                torch.nn.init.uniform_(m.weight.data, -1, 1)
 
     def clip_weights(self, min_val, max_val):
         for mod in self.conv_features:
@@ -100,10 +106,10 @@ def cnv(cfg):
     in_bit_width = cfg.getint('QUANT', 'IN_BIT_WIDTH')
     num_classes = cfg.getint('MODEL', 'NUM_CLASSES')
     in_channels = cfg.getint('MODEL', 'IN_CHANNELS')
-    net = CNV(weight_bit_width=weight_bit_width,
-              act_bit_width=act_bit_width,
-              in_bit_width=in_bit_width,
-              num_classes=num_classes,
-              in_ch=in_channels)
+    net = CNV(
+        weight_bit_width=weight_bit_width,
+        act_bit_width=act_bit_width,
+        in_bit_width=in_bit_width,
+        num_classes=num_classes,
+        in_ch=in_channels)
     return net
-

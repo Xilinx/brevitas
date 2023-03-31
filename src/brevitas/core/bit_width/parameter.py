@@ -1,19 +1,16 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
-from typing import Optional
-
 import torch
 from torch import Tensor
-from torch.nn import Parameter, Module
+from torch.nn import Module
+from torch.nn import Parameter
 
 import brevitas
 import brevitas.config as config
-from brevitas.function import abs_binary_sign_grad
 from brevitas.core.function_wrapper import RoundSte
 from brevitas.core.restrict_val import IntRestrictValue
-
+from brevitas.function import abs_binary_sign_grad
 
 MIN_INT_BIT_WIDTH = 2
 NON_ZERO_EPSILON = 1e-6
@@ -59,16 +56,19 @@ class BitWidthParameter(brevitas.jit.ScriptModule):
         super(BitWidthParameter, self).__init__()
 
         if bit_width < MIN_INT_BIT_WIDTH:
-            raise RuntimeError("Int bit width has to be at least {}, instead is {}."
-                            .format(MIN_INT_BIT_WIDTH, bit_width))
+            raise RuntimeError(
+                "Int bit width has to be at least {}, instead is {}.".format(
+                    MIN_INT_BIT_WIDTH, bit_width))
 
         if min_bit_width < MIN_INT_BIT_WIDTH:
-            raise RuntimeError("Min int bit width has to be at least {}, instead is {}."
-                            .format(MIN_INT_BIT_WIDTH, min_bit_width))
+            raise RuntimeError(
+                "Min int bit width has to be at least {}, instead is {}.".format(
+                    MIN_INT_BIT_WIDTH, min_bit_width))
 
         if bit_width < min_bit_width:
-            raise RuntimeError("Int bit width has to be at least {}, instead is {}."
-                            .format(min_bit_width, bit_width))
+            raise RuntimeError(
+                "Int bit width has to be at least {}, instead is {}.".format(
+                    min_bit_width, bit_width))
 
         bit_width = float(int(bit_width))
         min_bit_width = float(int(min_bit_width))
@@ -86,13 +86,21 @@ class BitWidthParameter(brevitas.jit.ScriptModule):
         bit_width = self.restrict_bit_width_impl(bit_width)
         return bit_width
 
-    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
-                              missing_keys, unexpected_keys, error_msgs):
+    def _load_from_state_dict(
+            self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
+            error_msgs):
+        bit_width_const_key = prefix + 'bit_width'
         bit_width_offset_key = prefix + 'bit_width_offset'
+        if bit_width_const_key in state_dict:
+            assert bit_width_offset_key not in state_dict, "Both should not be true."
+            bit_width = state_dict[bit_width_const_key]
+            state_dict[bit_width_offset_key] = bit_width - self.bit_width_base
+            del state_dict[bit_width_const_key]
+
         if self.override_pretrained and bit_width_offset_key in state_dict:
             del state_dict[bit_width_offset_key]
         super(BitWidthParameter, self)._load_from_state_dict(
-            state_dict, prefix, local_metadata,strict,missing_keys, unexpected_keys, error_msgs)
+            state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
         if config.IGNORE_MISSING_KEYS and bit_width_offset_key in missing_keys:
             missing_keys.remove(bit_width_offset_key)
 
@@ -105,7 +113,7 @@ class RemoveBitwidthParameter(brevitas.jit.ScriptModule):
             bit_width_to_remove: int,
             override_pretrained_bit_width: bool = False,
             non_zero_epsilon: float = NON_ZERO_EPSILON,
-            remove_zero_bit_width = REMOVE_ZERO_BIT_WIDTH):
+            remove_zero_bit_width=REMOVE_ZERO_BIT_WIDTH):
         super(RemoveBitwidthParameter, self).__init__()
 
         if bit_width_to_remove < 0:
@@ -123,8 +131,9 @@ class RemoveBitwidthParameter(brevitas.jit.ScriptModule):
         bit_width_to_remove = 1.0 / (self.non_zero_epsilon + torch.abs(self.bit_width_coeff))
         return bit_width_to_remove
 
-    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
-                              missing_keys, unexpected_keys, error_msgs):
+    def _load_from_state_dict(
+            self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
+            error_msgs):
         bit_width_coeff_key = prefix + 'bit_width_coeff'
         if self.override_pretrained and bit_width_coeff_key in state_dict:
             del state_dict[bit_width_coeff_key]
@@ -132,8 +141,3 @@ class RemoveBitwidthParameter(brevitas.jit.ScriptModule):
             state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
         if config.IGNORE_MISSING_KEYS and bit_width_coeff_key in missing_keys:
             missing_keys.remove(bit_width_coeff_key)
-
-
-
-
-

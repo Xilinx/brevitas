@@ -2,29 +2,27 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Based on: https://arxiv.org/abs/1801.04540
 
-
-import torch.nn as nn
 import math
+
 import torch
+import torch.nn as nn
 
 try:
     from scipy.linalg import hadamard
 except ImportError:
     hadamard = None
 
-from brevitas.function.ops_ste import ceil_ste
 from brevitas.function.ops import max_int
-from .mixin.base import QuantLayerMixin
+from brevitas.function.ops_ste import ceil_ste
 from brevitas.quant_tensor import QuantTensor
+
+from .mixin.base import QuantLayerMixin
 
 
 class HadamardClassifier(QuantLayerMixin, nn.Module):
 
-    def __init__(self,
-                 in_channels,
-                 out_channels,
-                 fixed_scale=False,
-                 return_quant_tensor: bool = False):
+    def __init__(
+            self, in_channels, out_channels, fixed_scale=False, return_quant_tensor: bool = False):
         QuantLayerMixin.__init__(self, return_quant_tensor=return_quant_tensor)
         nn.Module.__init__(self)
         if hadamard is None:
@@ -50,14 +48,13 @@ class HadamardClassifier(QuantLayerMixin, nn.Module):
         norm = inp.value.norm(p='fro', keepdim=True) + self.eps
         out = inp.value / norm
         out = nn.functional.linear(out, self.proj[:self.out_channels, :self.in_channels])
-        out = - self.scale * out
+        out = -self.scale * out
         if inp.scale is not None:
             output_scale = inp.scale * self.scale / norm
         if inp.bit_width is not None:
             output_bit_width = self.max_output_bit_width(inp.bit_width)
-        if (self.return_quant_tensor
-                and inp.zero_point is not None
-                and (inp.zero_point != 0.0).any()):
+        if (self.return_quant_tensor and inp.zero_point is not None and
+            (inp.zero_point != 0.0).any()):
             raise RuntimeError("Computing zero point of output accumulator not supported yet.")
         else:
             output_zp = inp.zero_point
@@ -69,7 +66,6 @@ class HadamardClassifier(QuantLayerMixin, nn.Module):
             signed=True,
             training=self.training)
         return out
-
 
     def max_output_bit_width(self, input_bit_width):
         max_input_val = max_int(bit_width=input_bit_width, narrow_range=False, signed=False)
@@ -83,10 +79,11 @@ class HadamardClassifier(QuantLayerMixin, nn.Module):
         del state_dict[prefix + 'proj']
         return state_dict
 
-    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
-                              missing_keys, unexpected_keys, error_msgs):
-        super(HadamardClassifier, self)._load_from_state_dict(state_dict, prefix, local_metadata, strict,
-            missing_keys, unexpected_keys, error_msgs)
+    def _load_from_state_dict(
+            self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
+            error_msgs):
+        super(HadamardClassifier, self)._load_from_state_dict(
+            state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
         proj_key = prefix + 'proj'
         if proj_key in missing_keys:
             missing_keys.remove(proj_key)

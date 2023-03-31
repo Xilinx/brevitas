@@ -1,24 +1,23 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
-from brevitas.inject import ExtendedInjector, value
+from brevitas.core.function_wrapper import Identity
+from brevitas.core.quant import PrescaledRestrictIntQuant
+from brevitas.core.quant import PrescaledRestrictIntQuantWithInputBitWidth
+from brevitas.core.quant import RescalingIntQuant
+from brevitas.inject import ExtendedInjector
+from brevitas.inject import value
+from brevitas.inject.enum import QuantType
 from brevitas.proxy import BiasQuantProxyFromInjector
 from brevitas.quant.solver.common import *
 from brevitas.quant.solver.parameter import *
-from brevitas.inject.enum import QuantType
-from brevitas.core.function_wrapper import Identity
-from brevitas.core.quant import RescalingIntQuant, PrescaledRestrictIntQuant
-from brevitas.core.quant import PrescaledRestrictIntQuantWithInputBitWidth
-
 
 __all__ = [
     'BiasQuantSolver',
     'SolveBiasTensorQuantFromEnum',
     'SolveBiasScalingStatsInputConcatDimFromModule',
     'SolveBiasBitWidthImplFromEnum',
-    'SolveBiasScalingPerOutputChannelShapeFromModule'
-]
+    'SolveBiasScalingPerOutputChannelShapeFromModule']
 
 
 class SolveBiasScalingStatsInputConcatDimFromModule(ExtendedInjector):
@@ -66,21 +65,20 @@ class SolveBiasTensorQuantFromEnum(SolveIntQuantFromEnum):
             raise RuntimeError(f'{quant_type} not recognized.')
 
 
-class BiasQuantSolver(
-        SolveScalingStatsInputViewShapeImplFromEnum,
-        SolveParameterScalingShape,
-        SolveStatsReduceDimFromEnum,
-        SolveScalingStatsOpFromEnum,
-        SolveTensorQuantFloatToIntImplFromEnum,
-        SolveRestrictScalingImplFromEnum,
-        SolveIntScalingImplFromEnum,
-        SolveParameterScalingImplFromEnum,
-        SolveParameterTensorClampImplFromEnum,
-        SolveParameterScalingInitFromEnum,
-        SolveBiasBitWidthImplFromEnum,
-        SolveBiasScalingPerOutputChannelShapeFromModule,
-        SolveBiasScalingStatsInputConcatDimFromModule,
-        SolveBiasTensorQuantFromEnum):
+class BiasQuantSolver(SolveScalingStatsInputViewShapeImplFromEnum,
+                      SolveParameterScalingShape,
+                      SolveStatsReduceDimFromEnum,
+                      SolveScalingStatsOpFromEnum,
+                      SolveTensorQuantFloatToIntImplFromEnum,
+                      SolveRestrictScalingImplFromEnum,
+                      SolveIntScalingImplFromEnum,
+                      SolveParameterScalingImplFromEnum,
+                      SolveParameterTensorClampImplFromEnum,
+                      SolveParameterScalingInitFromEnum,
+                      SolveBiasBitWidthImplFromEnum,
+                      SolveBiasScalingPerOutputChannelShapeFromModule,
+                      SolveBiasScalingStatsInputConcatDimFromModule,
+                      SolveBiasTensorQuantFromEnum):
     """
     Translate enum directives to bias-specific quantization core modules.
     It should be placed last in the list of classes a quantizer inherits from,

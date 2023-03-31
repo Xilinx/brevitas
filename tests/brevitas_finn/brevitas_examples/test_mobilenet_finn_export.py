@@ -1,30 +1,27 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from platform import system
 
-import pytest
-from packaging.version import parse
 import numpy as np
-import torch
-import qonnx.core.onnx_exec as oxe
+from packaging.version import parse
+import pytest
 from qonnx.core.modelwrapper import ModelWrapper
+import qonnx.core.onnx_exec as oxe
+from qonnx.transformation.double_to_single_float import DoubleToSingleFloat
 from qonnx.transformation.fold_constants import FoldConstants
-from qonnx.transformation.infer_shapes import InferShapes
 from qonnx.transformation.general import GiveUniqueNodeNames
 from qonnx.transformation.general import RemoveStaticGraphInputs
-from qonnx.transformation.double_to_single_float import DoubleToSingleFloat
+from qonnx.transformation.infer_shapes import InferShapes
+import torch
 
 from brevitas import torch_version
-from brevitas_examples.imagenet_classification import quant_mobilenet_v1_4b
 from brevitas.export import export_finn_onnx
+from brevitas_examples.imagenet_classification import quant_mobilenet_v1_4b
 
 ort_mac_fail = pytest.mark.skipif(
-    torch_version >= parse('1.5.0')
-    and system() == 'Darwin',
+    torch_version >= parse('1.5.0') and system() == 'Darwin',
     reason='Issue with ORT and MobileNet export on MacOS on PyTorch >= 1.5.0')
-
 
 INPUT_SIZE = (1, 3, 224, 224)
 ATOL = 1e-3

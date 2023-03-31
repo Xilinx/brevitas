@@ -1,22 +1,28 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
+from typing import Optional, Tuple, Union
 import warnings
-from typing import Tuple, Optional, Union
 
 import torch
 from torch import Tensor
-from torch.nn import Parameter, Module
+from torch.nn import Module
+from torch.nn import Parameter
 
 import brevitas
 import brevitas.config as config
-from brevitas.function import abs_binary_sign_grad
 from brevitas.core.function_wrapper import Identity
 from brevitas.core.function_wrapper import OverBatchOverTensorView
-from brevitas.core.utils import StatelessBuffer, inplace_momentum_update, inplace_tensor_mul
-from brevitas.core.restrict_val import _RestrictClampValue, _RestrictValue, _ClampValue
-from brevitas.core.stats import _Stats, SCALAR_SHAPE, DEFAULT_MOMENTUM
+from brevitas.core.restrict_val import _ClampValue
+from brevitas.core.restrict_val import _RestrictClampValue
+from brevitas.core.restrict_val import _RestrictValue
+from brevitas.core.stats import _Stats
+from brevitas.core.stats import DEFAULT_MOMENTUM
+from brevitas.core.stats import SCALAR_SHAPE
+from brevitas.core.utils import inplace_momentum_update
+from brevitas.core.utils import inplace_tensor_mul
+from brevitas.core.utils import StatelessBuffer
+from brevitas.function import abs_binary_sign_grad
 
 
 class ConstScaling(brevitas.jit.ScriptModule):
@@ -49,6 +55,7 @@ class ConstScaling(brevitas.jit.ScriptModule):
     Note:
         Maps to scaling_impl_type == ScalingImplType.CONST == 'CONST' == 'const' in higher-level APIs.
     """
+
     def __init__(
             self,
             scaling_init: Union[float, Tensor],
@@ -110,6 +117,7 @@ class ParameterScaling(brevitas.jit.ScriptModule):
     Note:
         Maps to scaling_impl_type == ScalingImplType.PARAMETER == 'PARAMETER' == 'parameter' in higher-level APIs.
     """
+
     def __init__(
             self,
             scaling_init: Union[float, Tensor],
@@ -118,10 +126,8 @@ class ParameterScaling(brevitas.jit.ScriptModule):
             scaling_min_val: Optional[float] = None) -> None:
         super(ParameterScaling, self).__init__()
 
-        if (isinstance(scaling_init, Tensor)
-                and scaling_shape is not None
-                and scaling_init.shape != SCALAR_SHAPE
-                and scaling_init.shape != scaling_shape):
+        if (isinstance(scaling_init, Tensor) and scaling_shape is not None and
+                scaling_init.shape != SCALAR_SHAPE and scaling_init.shape != scaling_shape):
             raise RuntimeError("scaling_init.shape is non-scalar and != from scaling_shape.")
 
         if isinstance(scaling_init, Tensor):
@@ -140,8 +146,9 @@ class ParameterScaling(brevitas.jit.ScriptModule):
         value = abs_binary_sign_grad(self.restrict_clamp_scaling(self.value))
         return value
 
-    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
-                              missing_keys, unexpected_keys, error_msgs):
+    def _load_from_state_dict(
+            self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
+            error_msgs):
         value_key = prefix + 'value'
         retrocomp_value_key = prefix + 'learned_value'
         if retrocomp_value_key in state_dict:  # retrocompatibility
@@ -157,7 +164,7 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
     ScriptModule implementation of a learned scale factor initialized from runtime statistics.
     The implementation works in two phases. During the first phase, statistics are collected in
     the same fashion as batchnorm, meaning that while the module is in training mode a set of per-batch
-    statistics are computed and returned, while in background an average of them is retained and returned 
+    statistics are computed and returned, while in background an average of them is retained and returned
     in inference mode. During the second phase, the average accumulated during the first
     phase is used to initialize a learned torch.nn.Parameter, and then the behaviour is the same
     as ParameterScaling.
@@ -197,7 +204,7 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
         Maps to scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS == 'PARAMETER_FROM_STATS'
         == 'parameter_from_stats' when applied to runtime values (inputs/outputs/activations) in higher-level APIs.
     """
-    __constants__ = ['collect_stats_steps', 'momentum']
+    __constants__ = ['momentum']
 
     def __init__(
             self,
@@ -210,7 +217,7 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             scaling_min_val: Optional[float] = None) -> None:
         super(ParameterFromRuntimeStatsScaling, self).__init__()
         assert collect_stats_steps > 0, 'Steps should be more than 0'
-        self.collect_stats_steps = collect_stats_steps
+        self.collect_stats_steps: int = brevitas.jit.Attribute(collect_stats_steps, int)
         self.counter: int = brevitas.jit.Attribute(0, int)
         self.stats_input_view_shape_impl = scaling_stats_input_view_shape_impl
         self.stats = _Stats(scaling_stats_impl, scaling_shape)
@@ -225,14 +232,14 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
         else:
             self.restrict_inplace_preprocess = Identity()
             self.restrict_preprocess = Identity()
-    
+
     @brevitas.jit.script_method
     def training_forward(self, stats_input: Tensor) -> Tensor:
         if self.counter < self.collect_stats_steps:
             stats_input = self.stats_input_view_shape_impl(stats_input)
             stats = self.stats(stats_input)
             # workaround to avoid find_ununsed_parameter=True in DDP
-            stats = stats + 0. * self.value # stats gradient will change from None to 0.
+            stats = stats + 0. * self.value  # stats gradient will change from None to 0.
             clamped_stats = self.clamp_scaling(stats)
             new_counter = self.counter + 1
             if self.counter == 0:
@@ -276,17 +283,19 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             output_dict[prefix + 'value'] = self.restrict_preprocess(self.buffer)
         return output_dict
 
-    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
-                              missing_keys, unexpected_keys, error_msgs):
-        super(ParameterFromRuntimeStatsScaling, self)._load_from_state_dict(
-            state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
-        value_key = prefix + 'value'
-        # Buffer is supposed to be always missing
-        missing_keys.remove(prefix + 'buffer')
+    def _load_from_state_dict(
+            self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
+            error_msgs):
         # Retrocompatibility with older ParameterScaling, for when scaling impl is switched over
+        value_key = prefix + 'value'
         retrocomp_value_key = prefix + 'learned_value'
         if retrocomp_value_key in state_dict:
             state_dict[value_key] = state_dict.pop(retrocomp_value_key)
+
+        super(ParameterFromRuntimeStatsScaling, self)._load_from_state_dict(
+            state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
+        # Buffer is supposed to be always missing
+        missing_keys.remove(prefix + 'buffer')
         # Pytorch stores training flag as a buffer with JIT enabled
         training_key = prefix + 'training'
         if training_key in missing_keys:

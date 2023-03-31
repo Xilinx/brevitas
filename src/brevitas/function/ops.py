@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 """
 Implementation of various core operations often performed as part of quantization.
 The implemented functions adheres to the restriction imposed by Pytorch 1.1.0's TorchScript compiler.
@@ -183,9 +182,9 @@ def min_int(signed: bool, narrow_range: bool, bit_width: Tensor) -> Tensor:
         tensor(0)
     """
     if signed and narrow_range:
-        value = - (2 ** (bit_width - 1)) + 1
+        value = -(2 ** (bit_width - 1)) + 1
     elif signed and not narrow_range:
-        value = - (2 ** (bit_width - 1))
+        value = -(2 ** (bit_width - 1))
     else:
         value = 0 * bit_width
     return value

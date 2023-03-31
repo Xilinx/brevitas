@@ -1,16 +1,17 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from dependencies import value
 
-from brevitas.inject import ExtendedInjector
-from brevitas.quant.solver import WeightQuantSolver, ActQuantSolver
 from brevitas.core.bit_width import BitWidthImplType
 from brevitas.core.quant import QuantType
-from brevitas.core.restrict_val import RestrictValueType, FloatToIntImplType
+from brevitas.core.restrict_val import FloatToIntImplType
+from brevitas.core.restrict_val import RestrictValueType
 from brevitas.core.scaling import ScalingImplType
 from brevitas.core.zero_point import ZeroZeroPoint
+from brevitas.inject import ExtendedInjector
+from brevitas.quant.solver import ActQuantSolver
+from brevitas.quant.solver import WeightQuantSolver
 
 
 class CommonQuant(ExtendedInjector):

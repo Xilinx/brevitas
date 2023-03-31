@@ -1,20 +1,20 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
-from unittest import mock
 import inspect
-from packaging import version
+from unittest import mock
 
+from packaging import version
 import torch
 
 import brevitas
 from brevitas.utils.python_utils import patch
-from .signatures import get_torch_overrides
-from .signatures import get_nn_functional_overrides
-from ._overrides import torch_function_dispatch
+
 from ._overrides import _implement_torch_function
+from ._overrides import torch_function_dispatch
+from .signatures import get_nn_functional_overrides
 from .signatures import get_testing_overrides
+from .signatures import get_torch_overrides
 
 
 def make_above_16_patches():

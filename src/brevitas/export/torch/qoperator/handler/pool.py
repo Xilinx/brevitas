@@ -1,13 +1,14 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from abc import ABC
 from typing import Union
 
-from brevitas.nn import QuantMaxPool1d, QuantMaxPool2d
-from .base import PytorchQuantLayerHandler
+from brevitas.nn import QuantMaxPool1d
+from brevitas.nn import QuantMaxPool2d
+
 from . import qF
+from .base import PytorchQuantLayerHandler
 
 
 class PytorchQuantMaxPoolNd(PytorchQuantLayerHandler, ABC):

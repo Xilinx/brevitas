@@ -24,14 +24,19 @@ __all__ = ['quant_proxylessnas_mobile14']
 
 import torch.nn as nn
 
-from brevitas.nn import QuantConv2d, QuantLinear, HadamardClassifier
-from brevitas.nn import QuantAvgPool2d, QuantReLU, QuantIdentity
+from brevitas.nn import HadamardClassifier
+from brevitas.nn import QuantAvgPool2d
+from brevitas.nn import QuantConv2d
+from brevitas.nn import QuantIdentity
+from brevitas.nn import QuantLinear
+from brevitas.nn import QuantReLU
 from brevitas.quant import IntBias
 
 from .common import *
 
 
 class ConvBlock(nn.Module):
+
     def __init__(
             self,
             in_channels,
@@ -66,6 +71,7 @@ class ConvBlock(nn.Module):
                 bit_width=act_bit_width,
                 scaling_per_output_channel=act_scaling_per_channel,
                 per_channel_broadcastable_shape=(1, out_channels, 1, 1),
+                scaling_stats_permute_dims=(1, 0, 2, 3),
                 return_quant_tensor=return_quant_tensor)
         else:
             self.activ = shared_act
@@ -78,6 +84,7 @@ class ConvBlock(nn.Module):
 
 
 class ProxylessBlock(nn.Module):
+
     def __init__(
             self,
             in_channels,
@@ -143,6 +150,7 @@ class ProxylessBlock(nn.Module):
 
 
 class ProxylessUnit(nn.Module):
+
     def __init__(
             self,
             in_channels,
@@ -189,6 +197,7 @@ class ProxylessUnit(nn.Module):
 
 
 class ProxylessNAS(nn.Module):
+
     def __init__(
             self,
             channels,
@@ -278,9 +287,7 @@ class ProxylessNAS(nn.Module):
         self.final_pool = QuantAvgPool2d(kernel_size=7, stride=1, bit_width=bit_width)
         if hadamard_classifier:
             self.output = HadamardClassifier(
-                in_channels=in_channels,
-                out_channels=num_classes,
-                fixed_scale=False)
+                in_channels=in_channels, out_channels=num_classes, fixed_scale=False)
         else:
             self.output = QuantLinear(
                 in_features=in_channels,

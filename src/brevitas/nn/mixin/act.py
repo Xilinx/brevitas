@@ -1,19 +1,20 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
+from abc import ABCMeta
+from abc import abstractmethod
+from typing import Optional, Type, Union
 from warnings import warn
-from abc import ABCMeta, abstractmethod
-from typing import Type, Union, Optional
 
 from torch.nn import Module
-from brevitas.inject import ExtendedInjector, Injector
-from brevitas.quant import NoneActQuant
+
+from brevitas.inject import ExtendedInjector
+from brevitas.inject import Injector
 from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import ActQuantProxyProtocol
+from brevitas.quant import NoneActQuant
 
 from .base import QuantProxyMixin
-
 
 ActQuantType = Union[ActQuantProxyProtocol, Type[Injector], Type[ExtendedInjector]]
 
@@ -38,7 +39,7 @@ class QuantInputMixin(QuantProxyMixin):
         return self.input_quant.is_quant_enabled
 
     @property
-    def is_quant_input_narrow_range(self): # TODO make abstract once narrow range can be cached
+    def is_quant_input_narrow_range(self):  # TODO make abstract once narrow range can be cached
         return self.input_quant.is_narrow_range
 
     @property
@@ -66,7 +67,6 @@ class QuantOutputMixin(QuantProxyMixin):
         QuantProxyMixin.__init__(
             self,
             quant=output_quant,
-            proxy_from_injector_impl=ActQuantProxyFromInjector,
             proxy_protocol=ActQuantProxyProtocol,
             none_quant_injector=NoneActQuant,
             proxy_prefix='output_',
@@ -120,7 +120,6 @@ class QuantNonLinearActMixin(QuantProxyMixin):
             quant=act_quant,
             proxy_prefix=act_proxy_prefix,
             kwargs_prefix=act_kwargs_prefix,
-            proxy_from_injector_impl=ActQuantProxyFromInjector,
             proxy_protocol=ActQuantProxyProtocol,
             none_quant_injector=NoneActQuant,
             **prefixed_kwargs,
@@ -150,5 +149,3 @@ class QuantNonLinearActMixin(QuantProxyMixin):
     @abstractmethod
     def quant_act_bit_width(self):
         pass
-
-

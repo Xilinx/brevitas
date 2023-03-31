@@ -1,15 +1,17 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from typing import Union
 
 from torch import Tensor
-from torch.nn import Upsample, UpsamplingBilinear2d, UpsamplingNearest2d
+from torch.nn import Upsample
+from torch.nn import UpsamplingBilinear2d
+from torch.nn import UpsamplingNearest2d
 from torch.nn.functional import interpolate
 
 from brevitas.function import round_ste
 from brevitas.quant_tensor import QuantTensor
+
 from .mixin.base import QuantLayerMixin
 
 
@@ -20,14 +22,10 @@ class QuantUpsample(QuantLayerMixin, Upsample):
             size=None,
             scale_factor=None,
             mode='nearest',
-            align_corners = None,
+            align_corners=None,
             return_quant_tensor: bool = True):
         Upsample.__init__(
-            self,
-            size=size,
-            scale_factor=scale_factor,
-            mode=mode,
-            align_corners=align_corners)
+            self, size=size, scale_factor=scale_factor, mode=mode, align_corners=align_corners)
         QuantLayerMixin.__init__(self, return_quant_tensor)
 
     @property
@@ -56,10 +54,7 @@ class QuantUpsample(QuantLayerMixin, Upsample):
 class QuantUpsamplingBilinear2d(QuantLayerMixin, UpsamplingBilinear2d):
 
     def __init__(self, size=None, scale_factor=None, return_quant_tensor: bool = True):
-        UpsamplingBilinear2d.__init__(
-            self,
-            size=size,
-            scale_factor=scale_factor)
+        UpsamplingBilinear2d.__init__(self, size=size, scale_factor=scale_factor)
         QuantLayerMixin.__init__(self, return_quant_tensor)
 
     @property
@@ -87,10 +82,7 @@ class QuantUpsamplingBilinear2d(QuantLayerMixin, UpsamplingBilinear2d):
 class QuantUpsamplingNearest2d(QuantLayerMixin, UpsamplingNearest2d):
 
     def __init__(self, size=None, scale_factor=None, return_quant_tensor: bool = True):
-        UpsamplingNearest2d.__init__(
-            self,
-            size=size,
-            scale_factor=scale_factor)
+        UpsamplingNearest2d.__init__(self, size=size, scale_factor=scale_factor)
         QuantLayerMixin.__init__(self, return_quant_tensor)
 
     @property
@@ -110,5 +102,3 @@ class QuantUpsamplingNearest2d(QuantLayerMixin, UpsamplingNearest2d):
         y_value = interpolate(x.value, self.size, self.scale_factor, self.mode, self.align_corners)
         y = x.set(value=y_value)
         return self.pack_output(y)
-
-

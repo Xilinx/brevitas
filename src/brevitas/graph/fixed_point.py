@@ -1,26 +1,24 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import torch
 from torch import nn
 
+from brevitas.fx import GraphModule
+from brevitas.fx import immutable_dict
+from brevitas.fx import immutable_list
 import brevitas.nn as qnn
-from brevitas.fx import GraphModule, immutable_dict, immutable_list
 from brevitas.nn.utils import merge_bn
+
 from .base import UntilFixedPointGraphTransform
 from .utils import del_module
-from .utils import replace_all_uses_except
 from .utils import get_module
-from .utils import get_output_channels
 from .utils import get_output_channel_dim
+from .utils import get_output_channels
 from .utils import matches_module_pattern
+from .utils import replace_all_uses_except
 
-__all__ = [
-    'MoveSplitBatchNormBeforeCat',
-    'MergeBatchNorm',
-    'CollapseConsecutiveConcats'
-]
+__all__ = ['MoveSplitBatchNormBeforeCat', 'MergeBatchNorm', 'CollapseConsecutiveConcats']
 
 
 class MoveSplitBatchNormBeforeCat(UntilFixedPointGraphTransform):
@@ -47,16 +45,14 @@ class MoveSplitBatchNormBeforeCat(UntilFixedPointGraphTransform):
 
     def is_converged(self, graph_model: GraphModule) -> bool:
         for cat_node in graph_model.graph.nodes:
-            if (cat_node.target is torch.cat
-                    and len(cat_node.users) == 1
-                    and cat_node.kwargs['dim'] == 1
-                    and list(cat_node.users)[0].op == 'call_module'):
+            if (cat_node.target is torch.cat and len(cat_node.users) == 1 and
+                    cat_node.kwargs['dim'] == 1 and list(cat_node.users)[0].op == 'call_module'):
                 bn_node = list(cat_node.users)[0]
                 module = get_module(graph_model, bn_node.target)
                 if isinstance(module, (nn.BatchNorm1d, nn.BatchNorm2d)):
                     inp_nodes = cat_node.all_input_nodes
-                    if all([inp_node.op == 'call_module' 
-                        and len(inp_node.users) == 1 for inp_node in inp_nodes]):
+                    if all([inp_node.op == 'call_module' and len(inp_node.users) == 1
+                            for inp_node in inp_nodes]):
                         before_mods = [
                             get_module(graph_model, inp_node.target) for inp_node in inp_nodes]
                         if all(isinstance(mod, self.before_modules_types) for mod in before_mods):
@@ -67,7 +63,7 @@ class MoveSplitBatchNormBeforeCat(UntilFixedPointGraphTransform):
                                 chunk_bn_name = f'{bn_node.name}_{i}'
                                 graph_model.add_module(chunk_bn_name, chunk_bn)
                                 start = sum(num_features_list[:i])
-                                end = sum(num_features_list[:i+1])
+                                end = sum(num_features_list[:i + 1])
                                 chunk_bn.weight.data = module.weight.data[start:end]
                                 chunk_bn.bias.data = module.bias.data[start:end]
                                 chunk_bn.running_mean = module.running_mean.data[start:end]
@@ -88,24 +84,17 @@ class MoveSplitBatchNormBeforeCat(UntilFixedPointGraphTransform):
 
 class MergeBatchNorm(UntilFixedPointGraphTransform):
 
-    DEFAULT_PATTERNS = (
-        (nn.BatchNorm1d, nn.BatchNorm1d),
-        (nn.BatchNorm2d, nn.BatchNorm2d),
-        (nn.BatchNorm3d, nn.BatchNorm3d),
-        (nn.Linear, nn.BatchNorm1d),
-        (nn.Conv1d, nn.BatchNorm1d),
-        (nn.Conv2d, nn.BatchNorm2d),
-        (nn.Conv3d, nn.BatchNorm3d),
-        (nn.ConvTranspose1d, nn.BatchNorm1d),
-        (nn.ConvTranspose2d, nn.BatchNorm2d),
-        (nn.ConvTranspose3d, nn.BatchNorm3d),
-        (qnn.BatchNorm1dToQuantScaleBias, nn.BatchNorm1d),
-        (qnn.BatchNorm2dToQuantScaleBias, nn.BatchNorm2d),
-        (qnn.QuantLinear, nn.BatchNorm1d),
-        (qnn.QuantConv1d, nn.BatchNorm1d),
-        (qnn.QuantConv2d, nn.BatchNorm2d),
-        (qnn.QuantConvTranspose1d, nn.BatchNorm1d),
-        (qnn.QuantConvTranspose2d, nn.BatchNorm2d))
+    DEFAULT_PATTERNS = ((nn.BatchNorm1d, nn.BatchNorm1d), (nn.BatchNorm2d, nn.BatchNorm2d),
+                        (nn.BatchNorm3d, nn.BatchNorm3d), (nn.Linear, nn.BatchNorm1d),
+                        (nn.Conv1d, nn.BatchNorm1d), (nn.Conv2d, nn.BatchNorm2d),
+                        (nn.Conv3d, nn.BatchNorm3d), (nn.ConvTranspose1d, nn.BatchNorm1d),
+                        (nn.ConvTranspose2d, nn.BatchNorm2d), (nn.ConvTranspose3d, nn.BatchNorm3d),
+                        (qnn.BatchNorm1dToQuantScaleBias,
+                         nn.BatchNorm1d), (qnn.BatchNorm2dToQuantScaleBias,
+                                           nn.BatchNorm2d), (qnn.QuantLinear, nn.BatchNorm1d),
+                        (qnn.QuantConv1d, nn.BatchNorm1d), (qnn.QuantConv2d, nn.BatchNorm2d),
+                        (qnn.QuantConvTranspose1d,
+                         nn.BatchNorm1d), (qnn.QuantConvTranspose2d, nn.BatchNorm2d))
 
     def __init__(self, patterns=DEFAULT_PATTERNS):
         super(MergeBatchNorm, self).__init__()
@@ -136,20 +125,21 @@ class CollapseConsecutiveConcats(UntilFixedPointGraphTransform):
         cat_tensors2 = node_to_merge_in.kwargs['tensors']
         if not isinstance(cat_tensors2, (list, tuple)):
             cat_tensors2 = [cat_tensors2]
+        index_for_insertion = cat_tensors2.index(node_to_extract)
         cat_tensors2 = [t for t in cat_tensors2 if t is not node_to_extract]
+        cat_tensors2[index_for_insertion:index_for_insertion] = cat_tensors1
         kwargs = dict(node_to_merge_in.kwargs)
-        kwargs['tensors'] = (cat_tensors1 + cat_tensors2)
+        kwargs['tensors'] = cat_tensors2
         node_to_merge_in.kwargs = immutable_dict(kwargs)
 
     def is_converged(self, graph_model):
         for i, node in enumerate(graph_model.graph.nodes):
             if node.op == 'call_function' and node.target is torch.cat:
                 for inp_node in node.all_input_nodes:
-                    if (inp_node.op == 'call_function'
-                            and inp_node.target is torch.cat
-                            and node.kwargs['dim'] == inp_node.kwargs['dim']
-                            and len(inp_node.users) == 1):
-                        self.merge_tensor_args(inp_node, node)
+                    if (inp_node.op == 'call_function' and inp_node.target is torch.cat and
+                            node.kwargs['dim'] == inp_node.kwargs['dim'] and
+                            len(inp_node.users) == 1):
+                        self.merge_tensor_kwargs(inp_node, node)
                         graph_model.graph.erase_node(inp_node)
                         graph_model.graph.lint()
                         graph_model.recompile()

@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from abc import ABC
 from copy import copy
 
@@ -9,17 +8,17 @@ import torch
 from torch import Tensor
 
 from brevitas.export.onnx.handler import ONNXBaseHandler
-from brevitas.proxy import WeightQuantProxyFromInjector
-from brevitas.proxy import DecoupledWeightQuantProxyFromInjector
-from brevitas.proxy import BiasQuantProxyFromInjector
-from brevitas.proxy import ActQuantProxyFromInjector
-from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector
 from brevitas.export.onnx.handler import QuantLSTMLayerHandler
+from brevitas.proxy import ActQuantProxyFromInjector
+from brevitas.proxy import BiasQuantProxyFromInjector
+from brevitas.proxy import DecoupledWeightQuantProxyFromInjector
+from brevitas.proxy import WeightQuantProxyFromInjector
+from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector
 
-from .function import BrevitasQuantFn
 from .function import BrevitasBinaryQuantFn
-from .function import BrevitasTruncFn
+from .function import BrevitasQuantFn
 from .function import BrevitasQuantLSTMCellFn
+from .function import BrevitasTruncFn
 
 
 class BrevitasQuantProxyHandler(ONNXBaseHandler, ABC):
@@ -108,8 +107,7 @@ class BrevitasBiasQuantProxyHandler(BrevitasQuantProxyHandler):
         if bit_width is None:
             assert input_bit_width is not None, 'Input bit_width required for bias export'
             bit_width = input_bit_width
-        y = BrevitasQuantFn.apply(
-            x, scale, zero_point, bit_width, *symbolic_kwargs.values())
+        y = BrevitasQuantFn.apply(x, scale, zero_point, bit_width, *symbolic_kwargs.values())
         return y, scale, zero_point, bit_width
 
 
@@ -118,51 +116,49 @@ class BrevitasTruncQuantProxyHandler(ONNXBaseHandler):
 
     def prepare_for_export(self, module: TruncQuantProxyFromInjector):
         self.symbolic_kwargs = {
-                'output_bit_width': module.bit_width(),
-                'rounding_mode': module.rounding_mode}
+            'output_bit_width': module.bit_width(), 'rounding_mode': module.rounding_mode}
 
     def symbolic_execution(
-            self, x: Tensor, scale: Tensor, zero_point: Tensor, input_bit_width: Tensor, signed: Tensor):
+            self, x: Tensor, scale: Tensor, zero_point: Tensor, input_bit_width: Tensor,
+            signed: Tensor):
         y = BrevitasTruncFn.apply(
             x, scale, zero_point, input_bit_width, *self.symbolic_kwargs.values())
         return y, scale, zero_point, self.symbolic_kwargs['output_bit_width']
 
 
 class BrevitasQuantLSTMLayerHandler(QuantLSTMLayerHandler):
-    
+
     def quantized_cell_symbolic_execution(
-        self,
-        quant_input, 
-        quant_hidden_state, 
-        quant_cell_state, 
-        quant_weight_ii,
-        quant_weight_if, 
-        quant_weight_ic, 
-        quant_weight_io, 
-        quant_weight_hi,
-        quant_weight_hf, 
-        quant_weight_hc, 
-        quant_weight_ho, 
-        quant_bias_input,
-        quant_bias_forget,
-        quant_bias_cell,
-        quant_bias_output):
-        return BrevitasQuantLSTMCellFn.apply(
-            quant_input, 
-            quant_hidden_state, 
-            quant_cell_state, 
+            self,
+            quant_input,
+            quant_hidden_state,
+            quant_cell_state,
             quant_weight_ii,
-            quant_weight_if, 
-            quant_weight_ic, 
-            quant_weight_io, 
+            quant_weight_if,
+            quant_weight_ic,
+            quant_weight_io,
             quant_weight_hi,
-            quant_weight_hf, 
-            quant_weight_hc, 
-            quant_weight_ho, 
+            quant_weight_hf,
+            quant_weight_hc,
+            quant_weight_ho,
             quant_bias_input,
             quant_bias_forget,
             quant_bias_cell,
-            quant_bias_output, 
+            quant_bias_output):
+        return BrevitasQuantLSTMCellFn.apply(
+            quant_input,
+            quant_hidden_state,
+            quant_cell_state,
+            quant_weight_ii,
+            quant_weight_if,
+            quant_weight_ic,
+            quant_weight_io,
+            quant_weight_hi,
+            quant_weight_hf,
+            quant_weight_hc,
+            quant_weight_ho,
+            quant_bias_input,
+            quant_bias_forget,
+            quant_bias_cell,
+            quant_bias_output,
             *self.symbolic_kwargs.values())
-    
-                

@@ -1,15 +1,16 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
-from typing import Union, Type, List, Optional
+from typing import List, Optional, Type, Union
 
 from torch import Tensor
 from torch.nn import Module
 
-from brevitas.quant_tensor import QuantTensor
 from brevitas.inject.defaults import Int8ActPerTensorFloat
-from .quant_layer import QuantInputOutputLayer, ActQuantType
+from brevitas.quant_tensor import QuantTensor
+
+from .quant_layer import ActQuantType
+from .quant_layer import QuantInputOutputLayer
 
 
 class QuantEltwiseAdd(QuantInputOutputLayer, Module):
@@ -18,26 +19,19 @@ class QuantEltwiseAdd(QuantInputOutputLayer, Module):
             self,
             input_quant: Optional[ActQuantType] = Int8ActPerTensorFloat,
             output_quant: Optional[ActQuantType] = Int8ActPerTensorFloat,
-            tie_input_output_quant = False,
+            tie_input_output_quant=False,
             return_quant_tensor: bool = False,
             **kwargs) -> None:
         Module.__init__(self)
         QuantInputOutputLayer.__init__(
-            self,
-            input_quant,
-            output_quant,
-            tie_input_output_quant,
-            return_quant_tensor,
-            **kwargs)
+            self, input_quant, output_quant, tie_input_output_quant, return_quant_tensor, **kwargs)
 
     @property
     def channelwise_separable(self) -> bool:
         return True
 
-    def forward(
-            self,
-            input: Union[Tensor, QuantTensor],
-            other: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
+    def forward(self, input: Union[Tensor, QuantTensor],
+                other: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
         input = self.unpack_input(input)
         other = self.unpack_input(other)
         if self.export_mode:
@@ -63,21 +57,15 @@ class QuantCat(QuantInputOutputLayer, Module):
             **kwargs):
         Module.__init__(self)
         QuantInputOutputLayer.__init__(
-            self,
-            input_quant,
-            output_quant,
-            tie_input_output_quant,
-            return_quant_tensor,
-            **kwargs)
+            self, input_quant, output_quant, tie_input_output_quant, return_quant_tensor, **kwargs)
 
     @property
     def channelwise_separable(self) -> bool:
         return True
 
-    def forward(
-            self,
-            tensor_list: Union[List[Tensor], List[QuantTensor]],
-            dim: int = 1) -> Union[Tensor, QuantTensor]:
+    def forward(self,
+                tensor_list: Union[List[Tensor], List[QuantTensor]],
+                dim: int = 1) -> Union[Tensor, QuantTensor]:
         quant_tensor_list = [self.unpack_input(t) for t in tensor_list]
         # shortcut execution through the export impl during export
         if self.export_mode:
@@ -89,6 +77,3 @@ class QuantCat(QuantInputOutputLayer, Module):
         output = QuantTensor.cat(quant_tensor_list, dim=dim)
         quant_output = self.output_quant(output)
         return self.pack_output(quant_output)
-
-
-

@@ -1,30 +1,32 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from hypothesis import given
 import mock
 import torch
 from torch import Tensor
 
-from tests.brevitas.core.shared_quant_fixture import * # noqa
-from tests.brevitas.core.binary_quant_fixture import * # noqa
-from tests.brevitas.hyp_helper import float_tensor_random_shape_st, scalar_float_p_tensor_st
 from tests.brevitas.common import assert_allclose
+from tests.brevitas.core.binary_quant_fixture import *  # noqa
+from tests.brevitas.core.shared_quant_fixture import *  # noqa
+from tests.brevitas.hyp_helper import float_tensor_random_shape_st
+from tests.brevitas.hyp_helper import scalar_float_p_tensor_st
+from tests.marker import jit_disabled_for_mock
 
 
 def is_binary_output_value_correct(scale: Tensor, output: Tensor):
-    return ((output == scale) | (output == - scale)).all()
+    return ((output == scale) | (output == -scale)).all()
 
 
 def is_binary_output_sign_correct(inp: Tensor, output: Tensor):
-    return (((output > torch.tensor(0.0)) & (inp >= torch.tensor(0)))
-                | ((output < torch.tensor(0.0)) & (inp < torch.tensor(0)))).all()
+    return (((output > torch.tensor(0.0)) & (inp >= torch.tensor(0))) |
+            ((output < torch.tensor(0.0)) & (inp < torch.tensor(0)))).all()
 
 
 class TestBinaryUnit:
 
     @given(inp=float_tensor_random_shape_st(), scale_init=scalar_float_p_tensor_st())
+    @jit_disabled_for_mock()
     def test_binary_quant(self, binary_quant_impl_all, inp, scale_init):
         scaling_impl = mock.Mock(return_value=scale_init)
         binary_quant = binary_quant_impl_all(scaling_impl)

@@ -1,10 +1,10 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import torch
 from torch import Tensor
-from torch.nn import Parameter, Module
+from torch.nn import Module
+from torch.nn import Parameter
 
 import brevitas
 from brevitas.core.function_wrapper import StatsInputViewShapeImpl  # retrocomp
@@ -21,8 +21,9 @@ class _ViewParameterWrapper(brevitas.jit.ScriptModule):
     def forward(self) -> Tensor:
         return self.view_shape_impl(self.parameter)
 
-    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
-                              missing_keys, unexpected_keys, error_msgs):
+    def _load_from_state_dict(
+            self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
+            error_msgs):
         super(_ViewParameterWrapper, self)._load_from_state_dict(
             state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
         parameter_key = prefix + 'parameter'
@@ -49,8 +50,9 @@ class _ViewCatParameterWrapper(brevitas.jit.ScriptModule):
     def forward(self, x: Tensor) -> Tensor:
         return torch.cat([self.view_shape_impl(self.parameter), x], dim=self.cat_dim)
 
-    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
-                              missing_keys, unexpected_keys, error_msgs):
+    def _load_from_state_dict(
+            self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
+            error_msgs):
         super(_ViewCatParameterWrapper, self)._load_from_state_dict(
             state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
         parameter_key = prefix + 'parameter'

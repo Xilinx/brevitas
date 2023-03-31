@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import copy
 
 from torch.nn import Module
@@ -20,9 +19,7 @@ def move_quant_attributes_into_annotations(model):
         value = attribute.s
         if value != 'FLOAT32':
             tq = onnx.StringStringEntryProto(key=qaname, value=attribute.s)
-            ta = onnx.TensorAnnotation(
-                tensor_name=tensor_name,
-                quant_parameter_tensor_names=[tq])
+            ta = onnx.TensorAnnotation(tensor_name=tensor_name, quant_parameter_tensor_names=[tq])
             model.graph.quantization_annotation.append(ta)
 
     for n in model.graph.node:
@@ -57,4 +54,3 @@ def restore_domain(model):
         if n.op_type in ['MatMul', 'Conv', 'Add', 'Div']:
             n.domain = ''
     return model
-

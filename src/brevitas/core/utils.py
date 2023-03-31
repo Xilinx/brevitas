@@ -1,8 +1,8 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from typing import Optional
+
 import torch
 
 import brevitas
@@ -43,13 +43,14 @@ class StatelessBuffer(brevitas.jit.ScriptModule):
     def __init__(self, value: torch.Tensor):
         super(StatelessBuffer, self).__init__()
         self.register_buffer(VALUE_ATTR_NAME, value)
-    
+
     @brevitas.jit.script_method
     def forward(self):
         return self.value.detach()
 
-    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
-                              missing_keys, unexpected_keys, error_msgs):
+    def _load_from_state_dict(
+            self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
+            error_msgs):
         super(StatelessBuffer, self)._load_from_state_dict(
             state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
         value_key = prefix + VALUE_ATTR_NAME
@@ -61,3 +62,14 @@ class StatelessBuffer(brevitas.jit.ScriptModule):
             destination=destination, prefix=prefix, keep_vars=keep_vars)
         del output_dict[prefix + VALUE_ATTR_NAME]
         return output_dict
+
+
+class SingleArgStatelessBuffer(brevitas.jit.ScriptModule):
+
+    def __init__(self, value: torch.Tensor):
+        super(SingleArgStatelessBuffer, self).__init__()
+        self.const = StatelessBuffer(torch.tensor(value))
+
+    @brevitas.jit.script_method
+    def forward(self, placeholder):
+        return self.const()

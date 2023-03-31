@@ -1,22 +1,29 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import torch
 
-from brevitas.nn import QuantConv2d, QuantLinear, QuantAvgPool2d, QuantIdentity, QuantReLU, QuantMaxPool2d
-from brevitas.quant.scaled_int import Int4WeightPerTensorFloatDecoupled
-from brevitas.quant.scaled_int import Int8ActPerTensorFloat, Int16Bias
+from brevitas.export import enable_debug
+from brevitas.export import export_brevitas_onnx
 from brevitas.export import export_qonnx
-from brevitas.export import export_brevitas_onnx, enable_debug
+from brevitas.nn import QuantAvgPool2d
+from brevitas.nn import QuantConv2d
+from brevitas.nn import QuantIdentity
+from brevitas.nn import QuantLinear
+from brevitas.nn import QuantMaxPool2d
+from brevitas.nn import QuantReLU
+from brevitas.quant.scaled_int import Int4WeightPerTensorFloatDecoupled
+from brevitas.quant.scaled_int import Int8ActPerTensorFloat
+from brevitas.quant.scaled_int import Int16Bias
 from brevitas_examples import imagenet_classification
-
+from tests.marker import jit_disabled_for_export
 
 OUT_CH = 50
 IN_CH = 40
 TOLERANCE = 1.1
 
 
+@jit_disabled_for_export()
 def test_generic_quant_linear_export():
     IN_SIZE = (2, IN_CH)
 
@@ -41,10 +48,10 @@ def test_generic_quant_linear_export():
     model = Model()
     model(inp)  # collect scale factors
     model.eval()
-    export_qonnx(
-        model, inp, export_path='generic_quant_linear.onnx')
+    export_qonnx(model, inp, export_path='generic_quant_linear.onnx')
 
 
+@jit_disabled_for_export()
 def test_generic_decoupled_quant_linear_export():
     IN_SIZE = (2, IN_CH)
 
@@ -70,10 +77,10 @@ def test_generic_decoupled_quant_linear_export():
     model = Model()
     model(inp)  # collect scale factors
     model.eval()
-    export_qonnx(
-        model, inp, export_path='generic_decoupled_quant_linear.onnx')
+    export_qonnx(model, inp, export_path='generic_decoupled_quant_linear.onnx')
 
 
+@jit_disabled_for_export()
 def test_generic_quant_conv_export():
     IN_SIZE = (2, IN_CH, IN_CH, IN_CH)
 
@@ -99,10 +106,10 @@ def test_generic_quant_conv_export():
     model = Model()
     model(inp)  # collect scale factors
     model.eval()
-    export_qonnx(
-        model, inp, export_path='generic_quant_conv.onnx')
+    export_qonnx(model, inp, export_path='generic_quant_conv.onnx')
 
 
+@jit_disabled_for_export()
 def test_generic_quant_tensor_export():
     IN_SIZE = (2, IN_CH)
 
@@ -127,10 +134,10 @@ def test_generic_quant_tensor_export():
     model = Model()
     model(inp)  # collect scale factors
     model.eval()
-    export_qonnx(
-        model, inp, export_path='generic_quant_tensor.onnx')
+    export_qonnx(model, inp, export_path='generic_quant_tensor.onnx')
 
 
+@jit_disabled_for_export()
 def test_generic_quant_avgpool_export():
     IN_SIZE = (2, OUT_CH, IN_CH, IN_CH)
 
@@ -149,10 +156,10 @@ def test_generic_quant_avgpool_export():
     model = Model()
     model(inp)  # collect scale factors
     model.eval()
-    export_qonnx(
-        model, inp, export_path='generic_quant_avgpool.onnx')
+    export_qonnx(model, inp, export_path='generic_quant_avgpool.onnx')
 
 
+@jit_disabled_for_export()
 def test_generic_quant_avgpool_export_quant_input():
     IN_SIZE = (2, OUT_CH, IN_CH, IN_CH)
     inp = torch.randn(IN_SIZE)
@@ -161,10 +168,10 @@ def test_generic_quant_avgpool_export_quant_input():
     inp_quant(inp)  # collect scale factors
     inp_quant.eval()
     model.eval()
-    export_qonnx(
-        model, inp_quant(inp), export_path='generic_quant_avgpool_quant_input.onnx')
+    export_qonnx(model, inp_quant(inp), export_path='generic_quant_avgpool_quant_input.onnx')
 
 
+@jit_disabled_for_export()
 def test_debug_brevitas_onnx_export():
     model, cfg = imagenet_classification.model_with_cfg('quant_mobilenet_v1_4b', pretrained=False)
     model.eval()

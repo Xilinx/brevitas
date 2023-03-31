@@ -1,27 +1,26 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
-from typing import Optional, Tuple, Union, List
+from typing import List, Optional, Tuple, Union
 
 import torch
 from torch import Tensor
-from torch.nn import Module, Parameter
+from torch.nn import Module
+from torch.nn import Parameter
 
 import brevitas
 from brevitas import config
-from brevitas.core.stats import SCALAR_SHAPE, DEFAULT_MOMENTUM, _ParameterListStats
+from brevitas.core.stats import _ParameterListStats
+from brevitas.core.stats import DEFAULT_MOMENTUM
+from brevitas.core.stats import SCALAR_SHAPE
 from brevitas.function import abs_binary_sign_grad
 
-from .utils import StatelessBuffer, inplace_tensor_add, inplace_momentum_update
-
+from .utils import inplace_momentum_update
+from .utils import inplace_tensor_add
+from .utils import StatelessBuffer
 
 __all__ = [
-    'ZeroZeroPoint',
-    'MinUintZeroPoint',
-    'ParameterFromRuntimeMinZeroPoint',
-    'ParameterZeroPoint'
-]
+    'ZeroZeroPoint', 'MinUintZeroPoint', 'ParameterFromRuntimeMinZeroPoint', 'ParameterZeroPoint']
 
 
 class ZeroZeroPoint(brevitas.jit.ScriptModule):
@@ -38,8 +37,7 @@ class ZeroZeroPoint(brevitas.jit.ScriptModule):
 class _ScaleShiftZeroPoint(brevitas.jit.ScriptModule):
     __constants__ = ['quantize_zero_point']
 
-    def __init__(
-            self, int_quant: Module, quantize_zero_point: bool) -> None:
+    def __init__(self, int_quant: Module, quantize_zero_point: bool) -> None:
         super(_ScaleShiftZeroPoint, self).__init__()
         self.int_quant = int_quant
         self.quantize_zero_point = quantize_zero_point
@@ -52,8 +50,8 @@ class _ScaleShiftZeroPoint(brevitas.jit.ScriptModule):
         else:
             out = zero_point / scale + min_int
         return out
-    
-    
+
+
 class StatsFromParameterZeroPoint(brevitas.jit.ScriptModule):
 
     def __init__(
@@ -72,20 +70,16 @@ class StatsFromParameterZeroPoint(brevitas.jit.ScriptModule):
             zero_point_stats_input_view_shape_impl,
             zero_point_stats_input_concat_dim,
             tracked_parameter_list)
-        self.scale_shift_zero_point = _ScaleShiftZeroPoint(
-            int_quant, quantize_zero_point)
+        self.scale_shift_zero_point = _ScaleShiftZeroPoint(int_quant, quantize_zero_point)
 
     @brevitas.jit.script_method
     def forward(self, x: Tensor, scale: Tensor, bit_width: Tensor) -> torch.Tensor:
         stats = self.parameter_list_stats()
-        return self.scale_shift_zero_point(- stats, scale, bit_width)
+        return self.scale_shift_zero_point(-stats, scale, bit_width)
 
 
 class ParameterFromRuntimeZeroPoint(brevitas.jit.ScriptModule):
-    __constants__ = ['stats_permute_dims',
-                     'collect_stats_steps',
-                     'zero_point_shape',
-                     'momentum']
+    __constants__ = ['stats_permute_dims', 'collect_stats_steps', 'zero_point_shape', 'momentum']
 
     def __init__(
             self,
@@ -106,8 +100,7 @@ class ParameterFromRuntimeZeroPoint(brevitas.jit.ScriptModule):
         self.value = Parameter(torch.full(zero_point_shape, 0.0))
         self.register_buffer('buffer', torch.full(zero_point_shape, 0.0))
         self.zero_point_stats_impl = zero_point_stats_impl
-        self.scale_shift_zero_point = _ScaleShiftZeroPoint(
-            int_quant, quantize_zero_point)
+        self.scale_shift_zero_point = _ScaleShiftZeroPoint(int_quant, quantize_zero_point)
 
     @brevitas.jit.script_method
     def training_forward(self, x) -> Tensor:
@@ -146,8 +139,8 @@ class ParameterFromRuntimeZeroPoint(brevitas.jit.ScriptModule):
         return out
 
     def state_dict(self, destination=None, prefix='', keep_vars=False):
-        output_dict = super(ParameterFromRuntimeZeroPoint, self).state_dict(
-            destination, prefix, keep_vars)        
+        output_dict = super(ParameterFromRuntimeZeroPoint,
+                            self).state_dict(destination, prefix, keep_vars)
         # Avoid saving the buffer
         del output_dict[prefix + 'buffer']
         # Avoid saving the init value
@@ -158,8 +151,9 @@ class ParameterFromRuntimeZeroPoint(brevitas.jit.ScriptModule):
             output_dict[prefix + 'value'] = self.buffer
         return output_dict
 
-    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
-                              missing_keys, unexpected_keys, error_msgs):
+    def _load_from_state_dict(
+            self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
+            error_msgs):
         super(ParameterFromRuntimeZeroPoint, self)._load_from_state_dict(
             state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
         value_key = prefix + 'value'
@@ -178,9 +172,7 @@ class ParameterFromRuntimeZeroPoint(brevitas.jit.ScriptModule):
 
 
 class ParameterZeroPoint(brevitas.jit.ScriptModule):
-    __constants__ = ['stats_permute_dims',
-                     'collect_stats_steps',
-                     'momentum']
+    __constants__ = ['stats_permute_dims', 'collect_stats_steps', 'momentum']
 
     def __init__(
             self,
@@ -189,10 +181,9 @@ class ParameterZeroPoint(brevitas.jit.ScriptModule):
             quantize_zero_point: bool,
             zero_point_shape: Tuple[int, ...] = None) -> None:
         super(ParameterZeroPoint, self).__init__()
-        if (isinstance(zero_point_init, Tensor)
-                and zero_point_shape is not None
-                and zero_point_init.shape != SCALAR_SHAPE
-                and zero_point_init.shape != zero_point_shape):
+        if (isinstance(zero_point_init, Tensor) and zero_point_shape is not None and
+                zero_point_init.shape != SCALAR_SHAPE and
+                zero_point_init.shape != zero_point_shape):
             raise RuntimeError("zero_point_init.shape is non-scalar and != from zero_point_shape.")
 
         if isinstance(zero_point_init, Tensor):
@@ -202,8 +193,7 @@ class ParameterZeroPoint(brevitas.jit.ScriptModule):
         if zero_point_init.shape == SCALAR_SHAPE and zero_point_shape is not None:
             zero_point_init = torch.full(zero_point_shape, zero_point_init)
         self.value = Parameter(zero_point_init)
-        self.scale_shift_zero_point = _ScaleShiftZeroPoint(
-            int_quant, quantize_zero_point)
+        self.scale_shift_zero_point = _ScaleShiftZeroPoint(int_quant, quantize_zero_point)
 
     @brevitas.jit.script_method
     def forward(self, x: Tensor, scale: Tensor, bit_width: Tensor) -> Tensor:
@@ -211,11 +201,11 @@ class ParameterZeroPoint(brevitas.jit.ScriptModule):
         out = self.scale_shift_zero_point(out, scale, bit_width)
         return out
 
-    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
-                              missing_keys, unexpected_keys, error_msgs):
+    def _load_from_state_dict(
+            self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
+            error_msgs):
         super(ParameterZeroPoint, self)._load_from_state_dict(
             state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
         value_key = prefix + 'value'
         if config.IGNORE_MISSING_KEYS and value_key in missing_keys:
             missing_keys.remove(value_key)
-

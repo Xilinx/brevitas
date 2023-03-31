@@ -1,21 +1,22 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
-import glob
-import tqdm
-import torch
 import argparse
-from scipy.io.wavfile import write
+import glob
 
+from scipy.io.wavfile import write
+import torch
 import torch.backends.cudnn as cudnn
+import tqdm
+
 import brevitas.config
+
 from .melgan import model_with_cfg
 
 brevitas.config.IGNORE_MISSING_KEYS = False
 MAX_WAV_VALUE = 32768.0
-import random
 import os
+import random
 
 SEED = 123456
 
@@ -24,7 +25,8 @@ parser.add_argument('--input-folder', help='path to folder containing the val fo
 parser.add_argument('--workers', default=32, type=int, help='number of data loading workers')
 parser.add_argument('--batch-size', default=16, type=int, help='Minibatch size')
 parser.add_argument('--gpu', default=None, type=int, help='GPU id to use.')
-parser.add_argument('--pretrained', action='store_true', default=True, help='Load pretrained checkpoint')
+parser.add_argument(
+    '--pretrained', action='store_true', default=True, help='Load pretrained checkpoint')
 parser.add_argument('--model', type=str, default='quant_melgan_8b', help='Name of the model')
 
 

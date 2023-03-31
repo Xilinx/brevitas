@@ -16,7 +16,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 from typing import List
 
 
@@ -43,9 +42,7 @@ def __levenshtein(a: List, b: List) -> int:
     return current[n]
 
 
-def word_error_rate(hypotheses: List[str],
-                    references: List[str],
-                    use_cer=False) -> float:
+def word_error_rate(hypotheses: List[str], references: List[str], use_cer=False) -> float:
     """
     Computes Average Word Error rate between two texts represented as
     corresponding lists of string. Hypotheses and references must have same
@@ -64,8 +61,7 @@ def word_error_rate(hypotheses: List[str],
         raise ValueError(
             "In word error rate calculation, hypotheses and reference"
             " lists must have the same number of elements. But I got:"
-            "{0} and {1} correspondingly".format(len(hypotheses),
-                                                 len(references)))
+            "{0} and {1} correspondingly".format(len(hypotheses), len(references)))
     for h, r in zip(hypotheses, references):
         if use_cer:
             h_list = list(h)

@@ -1,11 +1,11 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import torch
 from torch.nn import Parameter
 
-from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjector, WeightQuantProxyFromInjector
+from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjector
+from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
 
 
 def compute_channel_view_shape(tensor: torch.Tensor, channel_dim: int):
@@ -17,7 +17,7 @@ def compute_channel_view_shape(tensor: torch.Tensor, channel_dim: int):
 def mul_add_from_bn(bn_mean, bn_var, bn_eps, bn_weight, bn_bias):
     denom = torch.sqrt(bn_var + bn_eps)
     mul_factor = bn_weight / denom
-    add_factor = - bn_mean * mul_factor + bn_bias
+    add_factor = -bn_mean * mul_factor + bn_bias
     return mul_factor, add_factor
 
 
@@ -37,11 +37,10 @@ def merge_bn(layer, bn, output_channel_dim=0):
         layer.bias.data.add_(add_factor.view(out_ch_bias_shape))
     else:
         layer.bias = Parameter(add_factor)
-    if (hasattr(layer, 'weight_quant')
-            and isinstance(layer.weight_quant, WeightQuantProxyFromInjector)):
+    if (hasattr(layer, 'weight_quant') and
+            isinstance(layer.weight_quant, WeightQuantProxyFromInjector)):
         layer.weight_quant.init_tensor_quant()
-    if (hasattr(layer, 'bias_quant')
-            and isinstance(layer.bias_quant, BiasQuantProxyFromInjector)):
+    if (hasattr(layer, 'bias_quant') and isinstance(layer.bias_quant, BiasQuantProxyFromInjector)):
         layer.bias_quant.init_tensor_quant()
 
 

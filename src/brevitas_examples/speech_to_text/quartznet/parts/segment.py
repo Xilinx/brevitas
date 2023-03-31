@@ -39,8 +39,7 @@ class AudioSegment(object):
     :raises TypeError: If the sample data type is not float or int.
     """
 
-    def __init__(self, samples, sample_rate, target_sr=None, trim=False,
-                 trim_db=60):
+    def __init__(self, samples, sample_rate, target_sr=None, trim=False, trim_db=60):
         """Create audio segment from samples.
         Samples are convert float32 internally, with int scaled to [-1, 1].
         """
@@ -73,9 +72,10 @@ class AudioSegment(object):
 
     def __str__(self):
         """Return human-readable representation of segment."""
-        return ("%s: num_samples=%d, sample_rate=%d, duration=%.2fsec, "
-                "rms=%.2fdB" % (type(self), self.num_samples, self.sample_rate,
-                                self.duration, self.rms_db))
+        return (
+            "%s: num_samples=%d, sample_rate=%d, duration=%.2fsec, "
+            "rms=%.2fdB" %
+            (type(self), self.num_samples, self.sample_rate, self.duration, self.rms_db))
 
     @staticmethod
     def _convert_samples_to_float32(samples):
@@ -94,8 +94,8 @@ class AudioSegment(object):
         return float32_samples
 
     @classmethod
-    def from_file(cls, filename, target_sr=None, int_values=False, offset=0,
-                  duration=0, trim=False):
+    def from_file(
+            cls, filename, target_sr=None, int_values=False, offset=0, duration=0, trim=False):
         """
         Load a file supported by librosa and return as an AudioSegment.
         :param filename: path of file to load
@@ -119,11 +119,7 @@ class AudioSegment(object):
         return cls(samples, sample_rate, target_sr=target_sr, trim=trim)
 
     @classmethod
-    def segment_from_file(cls,
-                          filename,
-                          target_sr=None,
-                          n_segments=0,
-                          trim=False):
+    def segment_from_file(cls, filename, target_sr=None, n_segments=0, trim=False):
         """Grabs n_segments number of samples from filename randomly from the
         file as opposed to at a specified offset.
         """
@@ -171,9 +167,8 @@ class AudioSegment(object):
         `pad_size`
         zeros will be added only to the end.
         """
-        self._samples = np.pad(self._samples,
-                               (pad_size if symmetric else 0, pad_size),
-                               mode='constant')
+        self._samples = np.pad(
+            self._samples, (pad_size if symmetric else 0, pad_size), mode='constant')
 
     def subsegment(self, start_time=None, end_time=None):
         """Cut the AudioSegment between given boundaries.
@@ -196,16 +191,15 @@ class AudioSegment(object):
             raise ValueError("The slice start position (%f s) is out of "
                              "bounds." % start_time)
         if end_time < 0.0:
-            raise ValueError(
-                "The slice end position (%f s) is out of bounds." %
-                end_time)
+            raise ValueError("The slice end position (%f s) is out of bounds." % end_time)
         if start_time > end_time:
-            raise ValueError("The slice start position (%f s) is later than "
-                             "the end position (%f s)." % (
-                                 start_time, end_time))
+            raise ValueError(
+                "The slice start position (%f s) is later than "
+                "the end position (%f s)." % (start_time, end_time))
         if end_time > self.duration:
-            raise ValueError("The slice end position (%f s) is out of bounds "
-                             "(> %f s)" % (end_time, self.duration))
+            raise ValueError(
+                "The slice end position (%f s) is out of bounds "
+                "(> %f s)" % (end_time, self.duration))
         start_sample = int(round(start_time * self._sample_rate))
         end_sample = int(round(end_time * self._sample_rate))
         self._samples = self._samples[start_sample:end_sample]

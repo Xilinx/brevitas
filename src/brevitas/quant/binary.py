@@ -1,16 +1,13 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
+from brevitas.core.function_wrapper import InplaceTensorClampSte
+from brevitas.core.function_wrapper import TensorClamp
 from brevitas.quant.base import SignedBinaryClampedConst
-from brevitas.core.function_wrapper import InplaceTensorClampSte, TensorClamp
-from brevitas.quant.solver import WeightQuantSolver, ActQuantSolver
+from brevitas.quant.solver import ActQuantSolver
+from brevitas.quant.solver import WeightQuantSolver
 
-
-__all__ = [
-    'SignedBinaryWeightPerTensorConst',
-    'SignedBinaryActPerTensorConst'
-]
+__all__ = ['SignedBinaryWeightPerTensorConst', 'SignedBinaryActPerTensorConst']
 
 
 class SignedBinaryWeightPerTensorConst(SignedBinaryClampedConst, WeightQuantSolver):
@@ -35,5 +32,3 @@ class SignedBinaryActPerTensorConst(SignedBinaryClampedConst, ActQuantSolver):
     tensor_clamp_impl = TensorClamp
     min_val = -1.0
     max_val = 1.0
-
-

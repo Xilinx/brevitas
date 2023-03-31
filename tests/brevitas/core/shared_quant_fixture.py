@@ -1,11 +1,12 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import pytest_cases
 from pytest_cases import fixture_union
 import torch
-from brevitas.core.scaling import ConstScaling, ParameterScaling
+
+from brevitas.core.scaling import ConstScaling
+from brevitas.core.scaling import ParameterScaling
 
 __all__ = [
     'quant_delay_steps',
@@ -13,7 +14,7 @@ __all__ = [
     'parameter_scaling_impl',
     'standalone_scaling_init',
     'randn_inp',
-    'scaling_impl_all' # noqa
+    'scaling_impl_all'  # noqa
 ]
 
 

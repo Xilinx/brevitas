@@ -1,9 +1,9 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from enum import auto
 
 from brevitas.utils.python_utils import AutoName
-from enum import auto
 
 
 class TestEnum(AutoName):

@@ -10,7 +10,7 @@ Brevitas is a PyTorch library for neural network quantization, with a focus on *
 
 **Please note that Brevitas is a research project and not an official Xilinx product.**
 
-If you like this project please consider ⭐ this repo, as it is the simplest and best way to support it. 
+If you like this project please consider ⭐ this repo, as it is the simplest and best way to support it.
 
 If you have issues, comments, or are just looking for advices on training quantized neural networks, open an issue or a discussion.
 
@@ -37,7 +37,7 @@ If you adopt Brevitas in your work, please cite it as:
 - *2021/10/29* - Release version 0.7.0, see the [release notes](https://github.com/Xilinx/brevitas/releases/tag/v0.7.0).
 - *2021/06/04* - Release version 0.6.0, see the [release notes](https://github.com/Xilinx/brevitas/releases/tag/v0.6.0).
 - *2021/05/24* - Release version 0.5.1, fix a bunch of minor issues. See [release notes](https://github.com/Xilinx/brevitas/releases/tag/v0.5.1).
-- *2021/05/06* - Release version 0.5.0, see the [release notes](https://github.com/Xilinx/brevitas/releases/tag/v0.5.0). 
+- *2021/05/06* - Release version 0.5.0, see the [release notes](https://github.com/Xilinx/brevitas/releases/tag/v0.5.0).
 - *2021/03/15* - Release version 0.4.0, add support for \_\_torch_function\_\_ to QuantTensor.
 - *2021/03/04* - Release version 0.3.1, fix bug w/ act initialization from statistics w/ IGNORE_MISSING_KEYS=1.
 - *2021/03/01* - Release version 0.3.0, implements enum and shape solvers within extended dependency injectors. This allows declarative quantizers to be self-contained.
@@ -61,9 +61,3 @@ pip install brevitas
 ## Getting started
 
 Check out available info at https://xilinx.github.io/brevitas/getting_started .
-
-
-
-
-
-

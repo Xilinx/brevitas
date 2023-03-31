@@ -1,20 +1,18 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
-import os
 from configparser import ConfigParser
+import os
 
 from torch import hub
 
 from .mobilenetv1 import *
-from .vgg import *
 from .proxylessnas import *
+from .vgg import *
 
 model_impl = {
     'quant_mobilenet_v1': quant_mobilenet_v1,
-    'quant_proxylessnas_mobile14': quant_proxylessnas_mobile14
-}
+    'quant_proxylessnas_mobile14': quant_proxylessnas_mobile14}
 
 
 def model_with_cfg(name, pretrained):

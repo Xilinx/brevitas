@@ -1,10 +1,9 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from hypothesis import given
-from brevitas.function.shape import *
 
+from brevitas.function.shape import *
 from tests.brevitas.hyp_helper import empty_tensor_random_shape_st
 
 

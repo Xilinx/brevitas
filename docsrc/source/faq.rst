@@ -5,12 +5,12 @@ F.A.Q.
 **Q: Pytorch supports quantization-aware training. Why should I use
 Brevitas?**
 
-**A:** Quantization in Pytorch is designed to target specific backends 
-supported by PyTorch itself (currently FBGEMM and qnnpack). 
+**A:** Quantization in Pytorch is designed to target specific backends
+supported by PyTorch itself (currently FBGEMM and qnnpack).
 
 Brevitas is designed as a platform to implement novel quantization
 algorithms to target a variety of hardware backends adhering to a loose
-set of assumptions (i.e. uniform affine quantization). 
+set of assumptions (i.e. uniform affine quantization).
 
 **Q: How can I train X/Y and run it on hardware W/Z? I can't find any
 documentation.**
@@ -41,7 +41,7 @@ make my model faster at inference time. What I am doing wrong?**
 **A:** Brevitas is concerned with modelling a reduced precision
 data-path, it does not provide inference-time acceleration on its own.
 To achieve acceleration, you should export your Brevitas model to a
-downstream toolchain / backend. See the 
+downstream toolchain / backend. See the
 
 **Q: My (C/G/T)PU supports float16 / bfloat16 / bfloat19 training. Can I
 use it to train with Brevitas?**

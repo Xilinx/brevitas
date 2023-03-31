@@ -1,31 +1,46 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from dependencies import this
+from dependencies import value
 
-from dependencies import this, value
-
-from brevitas.inject import ExtendedInjector
-from brevitas.inject.enum import ScalingImplType, StatsOp, RestrictValueType
-from brevitas.inject.enum import QuantType, BitWidthImplType, FloatToIntImplType
-from brevitas.core.zero_point import ZeroZeroPoint, StatsFromParameterZeroPoint
-from brevitas.core.zero_point import ParameterFromRuntimeZeroPoint
-from brevitas.core.quant import ClampedBinaryQuant
-from brevitas.core.scaling import IntScaling, ParameterScaling, StatsFromParameterScaling
-from brevitas.core.scaling import SCALING_STATS_REDUCE_DIM, SCALAR_SHAPE
-from brevitas.core.restrict_val import FloatRestrictValue
-from brevitas.core.stats import AbsMax, AbsMaxL2
-from brevitas.core.stats import NegativeMinOrZero, NegativePercentileOrZero
-from brevitas.core.function_wrapper.ops_ste import CeilSte
 from brevitas.core.bit_width import BitWidthConst
+from brevitas.core.function_wrapper import OverOutputChannelView
+from brevitas.core.function_wrapper import TensorClamp
+from brevitas.core.function_wrapper import TensorClampSte
+from brevitas.core.function_wrapper.ops_ste import CeilSte
+from brevitas.core.quant import ClampedBinaryQuant
 from brevitas.core.quant.int import DecoupledRescalingIntQuant
 from brevitas.core.quant.int_base import DecoupledIntQuant
-from brevitas.core.function_wrapper import TensorClampSte
-from brevitas.core.function_wrapper import OverOutputChannelView
-from brevitas.quant.solver.parameter import ParameterFromStatsScalingInit
-from brevitas.quant.solver.weight import SolveWeightScalingStatsInputDimsFromModule
-from brevitas.quant.solver.weight import SolveWeightScalingPerOutputChannelShapeFromModule#
-from brevitas.quant.solver.parameter import SolveParameterScalingShape
+from brevitas.core.restrict_val import FloatRestrictValue
+from brevitas.core.restrict_val import LogFloatRestrictValue
+from brevitas.core.scaling import IntScaling
+from brevitas.core.scaling import ParameterPreScalingWeightNorm
+from brevitas.core.scaling import ParameterScaling
+from brevitas.core.scaling import SCALAR_SHAPE
+from brevitas.core.scaling import SCALING_STATS_REDUCE_DIM
+from brevitas.core.scaling import StatsFromParameterScaling
+from brevitas.core.stats import AbsMax
+from brevitas.core.stats import AbsMaxL2
+from brevitas.core.stats import L2Norm
+from brevitas.core.stats import NegativeMinOrZero
+from brevitas.core.stats import NegativePercentileOrZero
+from brevitas.core.utils import SingleArgStatelessBuffer
+from brevitas.core.zero_point import ParameterFromRuntimeZeroPoint
+from brevitas.core.zero_point import StatsFromParameterZeroPoint
+from brevitas.core.zero_point import ZeroZeroPoint
+from brevitas.inject import ExtendedInjector
+from brevitas.inject.enum import BitWidthImplType
+from brevitas.inject.enum import FloatToIntImplType
+from brevitas.inject.enum import QuantType
+from brevitas.inject.enum import RestrictValueType
+from brevitas.inject.enum import ScalingImplType
+from brevitas.inject.enum import StatsOp
 from brevitas.proxy import DecoupledWeightQuantProxyFromInjector
+from brevitas.quant.solver.parameter import ParameterFromStatsScalingInit
+from brevitas.quant.solver.parameter import SolveParameterScalingShape
+from brevitas.quant.solver.weight import SolveWeightScalingPerOutputChannelShapeFromModule
+from brevitas.quant.solver.weight import SolveWeightScalingStatsInputDimsFromModule
 
 __all__ = [
     'MaxStatsScaling',
@@ -45,8 +60,8 @@ __all__ = [
     'IntTrunc',
     'SignedBinaryClampedConst',
     'WeightPerTensorFloatDecoupledL2Param',
-    'WeightPerChannelFloatDecoupled'
-]
+    'WeightPerChannelFloatDecoupled',
+    'WeightNormPerChannelFloatDecoupled',]
 
 
 class MaxStatsScaling(ExtendedInjector):
@@ -82,8 +97,8 @@ class ParamFromRuntimeMinMaxScaling(ExtendedInjector):
     scaling_stats_op = StatsOp.MIN_MAX
     collect_stats_steps = 300
     scaling_min_val = 1e-10
-    
-    
+
+
 class ParamFromRuntimePercentileIntervalScaling(ExtendedInjector):
     """
     """
@@ -164,7 +179,7 @@ class ShiftedParamFromPercentileUintQuant(ExtendedInjector):
     low_percentile_q = 0.001
     zero_point_shape = this.scaling_shape
     zero_point_stats_input_view_shape_impl = this.scaling_stats_input_view_shape_impl
-    
+
 
 class PerChannelFloatScaling8bit(ExtendedInjector):
     """
@@ -246,12 +261,11 @@ class WeightPerTensorFloatDecoupledL2Param(SolveWeightScalingStatsInputDimsFromM
     bit_width_impl = BitWidthConst
     narrow_range = True
     signed = True
-    
-    
-class WeightPerChannelFloatDecoupled(
-        SolveWeightScalingStatsInputDimsFromModule,
-        SolveWeightScalingPerOutputChannelShapeFromModule,
-        SolveParameterScalingShape):
+
+
+class WeightPerChannelFloatDecoupled(SolveWeightScalingStatsInputDimsFromModule,
+                                     SolveWeightScalingPerOutputChannelShapeFromModule,
+                                     SolveParameterScalingShape):
     """
     Experimental narrow per-channel signed int weight quantizer fragment with decoupled Linf
     normalization and learned scaling.
@@ -282,7 +296,46 @@ class WeightPerChannelFloatDecoupled(
     scaling_per_output_channel = True
 
 
+class WeightNormPerChannelFloatDecoupled(SolveWeightScalingStatsInputDimsFromModule,
+                                         SolveWeightScalingPerOutputChannelShapeFromModule,
+                                         SolveParameterScalingShape):
+    """Experimental narrow per-channel weight normalization-based signed integer quantizer
+    based on `Quantized Neural Networks for Low-Precision Accumulation with Guaranteed
+    Overflow Avoidance` by I. Colbert, A. Pappalardo, and J. Petri-Koenig.
 
+    The formulation for weight normalization-based quantization is given below:
+        `y = clip(round( (g / s) * (w / norm(w)) )) * s`
 
+    The default quantizer uses the decoupled rescaling integer quantization arithmetic
+    where the weight normalization calculation and parameterization are combined with the
+    scaling factor to become the pre-clipping scaling factor (i.e., `pre_scale`) and the
+    scaling factor is the post-clipping scaling factor (i.e., `post_scale`). For further
+    details on the arithmetic, see `ParameterPreScalingWeightNorm`. For further details
+    on the weight normalization-based quantization technique, see the referenced paper."""
 
+    @value
+    def scaling_init(scaling_init_impl):
+        return scaling_init_impl()
 
+    proxy_class = DecoupledWeightQuantProxyFromInjector
+    tensor_quant = DecoupledRescalingIntQuant
+    decoupled_int_quant = DecoupledIntQuant
+    tensor_clamp_impl = TensorClamp
+    scaling_impl = ParameterScaling
+    restrict_scaling_impl = FloatRestrictValue
+    scaling_stats_impl = AbsMax
+    scaling_init_impl = ParameterFromStatsScalingInit
+    parameter_stats_scaling_init_impl = StatsFromParameterScaling
+    pre_scaling_impl = ParameterPreScalingWeightNorm
+    restrict_pre_scaling_impl = LogFloatRestrictValue
+    normalize_stats_impl = L2Norm
+    pre_scaling_shape = this.scaling_shape  # TODO: decouple pre_scaling_shape from scaling_shape
+    int_scaling_impl = SingleArgStatelessBuffer(1.)
+    zero_point_impl = ZeroZeroPoint
+    pre_zero_point_impl = ZeroZeroPoint
+    bit_width_impl = BitWidthConst
+    narrow_range = True
+    signed = True
+    scaling_stats_input_view_shape_impl = OverOutputChannelView
+    stats_reduce_dim = SCALING_STATS_REDUCE_DIM
+    scaling_per_output_channel = True

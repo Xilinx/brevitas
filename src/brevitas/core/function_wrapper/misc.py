@@ -1,13 +1,13 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 """
 A collection of miscellaneous ScriptModule used in various quantizers.
 """
 
-import brevitas
 import torch
+
+import brevitas
 
 
 class Identity(brevitas.jit.ScriptModule):
@@ -90,9 +90,3 @@ class InplaceLogTwo(torch.nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x.log2_()
         return x
-
-
-
-
-
-

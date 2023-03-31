@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from typing import Optional, Tuple, Union
 
 from torch import Tensor
@@ -9,16 +8,15 @@ from torch.nn import Module
 
 from brevitas.export.manager import _set_proxy_export_handler
 from brevitas.export.manager import _set_proxy_export_mode
-from brevitas.export.manager import BaseManager, ExportContext
+from brevitas.export.manager import BaseManager
+from brevitas.export.manager import ExportContext
+
+from .handler import TorchQCDQActQuantProxyHandler
+from .handler import TorchQCDQBiasQuantProxyHandler
+from .handler import TorchQCDQTruncQuantProxyHandler
+from .handler import TorchQCDQWeightQuantProxyHandler
 
 
-from .handler import (
-    TorchQCDQWeightQuantProxyHandler,
-    TorchQCDQActQuantProxyHandler,
-    TorchQCDQBiasQuantProxyHandler,
-    TorchQCDQTruncQuantProxyHandler)
-     
-        
 class TorchQCDQManager(BaseManager):
     target_name = 'torch'
 
@@ -37,11 +35,7 @@ class TorchQCDQManager(BaseManager):
         _set_proxy_export_handler(cls, module)
 
     @classmethod
-    def export(
-            cls,
-            module: Module,
-            args,
-            export_path: Optional[str] = None):
+    def export(cls, module: Module, args, export_path: Optional[str] = None):
         with ExportContext(cls):
             traced_module = cls.jit_inference_trace(module, args, export_path)
         return traced_module

@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from enum import auto
 
 from brevitas.utils.python_utils import AutoName
@@ -13,6 +12,7 @@ class BitWidthImplType(AutoName):
     """
     CONST = auto()
     PARAMETER = auto()
+    STATEFUL_CONST = auto()
 
 
 class QuantType(AutoName):

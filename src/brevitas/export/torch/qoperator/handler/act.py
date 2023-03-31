@@ -1,17 +1,18 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 from abc import ABC
 
 import torch
 from torch import Tensor
 
-from brevitas.nn import QuantReLU, QuantIdentity, QuantHardTanh
+from brevitas.nn import QuantHardTanh
+from brevitas.nn import QuantIdentity
+from brevitas.nn import QuantReLU
 from brevitas.nn.quant_layer import QuantNonLinearActLayer as QuantNLAL
 
-from .base import PytorchQuantLayerHandler
 from . import qF
+from .base import PytorchQuantLayerHandler
 
 
 class PytorchQuantNLALHandler(PytorchQuantLayerHandler, ABC):

@@ -1,25 +1,22 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
-from abc import abstractmethod, ABC
+from abc import ABC
+from abc import abstractmethod
 import math
 
 import torch
-from torch.nn import Module
 from torch import Tensor
+from torch.nn import Module
 
-from brevitas.function.ops import min_int, max_int
+from brevitas.function.ops import max_int
+from brevitas.function.ops import min_int
 
-__all__ = [
-    'BaseHandler',
-    'BitWidthHandlerMixin',
-    'ZeroPointHandlerMixin'
-]
+__all__ = ['BaseHandler', 'BitWidthHandlerMixin', 'ZeroPointHandlerMixin']
 
 
 class BaseHandler(Module, ABC):
-    
+
     def __init__(self) -> None:
         super().__init__()
 
@@ -29,17 +26,17 @@ class BaseHandler(Module, ABC):
     @abstractmethod
     def prepare_for_export(self, module):
         pass
-    
+
 
 class QuantAxisMixin(ABC):
-    
+
     @classmethod
     def quant_axis(cls, scale):
         for i, s in enumerate(scale.shape):
             if s != 1:
                 return i
         return None
-    
+
 
 class ClipMixin(ABC):
 
@@ -54,18 +51,19 @@ class ClipMixin(ABC):
             elif signed and (bit_width < 32. or narrow and bit_width <= 32.):
                 dtype = torch.int32
             else:
-                raise RuntimeError(f"Sign {signed} and bit width {bit_width} not supported for export.")
+                raise RuntimeError(
+                    f"Sign {signed} and bit width {bit_width} not supported for export.")
             return {
                 'min_val': min_int(signed, narrow, bit_width).to(dtype),
                 'max_val': max_int(signed, narrow, bit_width).to(dtype)}
         else:
             return None
-        
+
     @classmethod
     def float_clip_symbolic_kwargs(cls, narrow, signed, bit_width, scale, zero_point):
         symbolic_kwargs = cls.int_clip_symbolic_kwargs(narrow, signed, bit_width)
         if symbolic_kwargs is not None:
-            symbolic_kwargs['min_val'] = (symbolic_kwargs['min_val'] - zero_point) * scale 
+            symbolic_kwargs['min_val'] = (symbolic_kwargs['min_val'] - zero_point) * scale
             symbolic_kwargs['max_val'] = (symbolic_kwargs['max_val'] - zero_point) * scale
         return symbolic_kwargs
 
@@ -119,7 +117,7 @@ class ScaleHandlerMixin(ABC):
 
     @classmethod
     def validate_neg_scalar_int_exponent(cls, scale: Tensor):
-        return - cls.validate_scalar_int_exponent(scale)
+        return -cls.validate_scalar_int_exponent(scale)
 
 
 class ZeroPointHandlerMixin(ABC):

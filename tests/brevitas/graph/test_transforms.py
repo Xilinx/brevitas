@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
 import operator
 
 from packaging import version
@@ -13,22 +12,19 @@ from torchvision import models
 from brevitas.fx import symbolic_trace
 from brevitas.graph import DuplicateSharedStatelessModule
 from brevitas.graph import FnToModule
-from brevitas.graph import MethodToModule
 from brevitas.graph import MeanMethodToAdaptiveAvgPool2d
 from brevitas.graph import MergeBatchNorm
+from brevitas.graph import MethodToModule
 
 SEED = 123456
 INPUT_SIZE = (1, 3, 224, 224)
 ATOL = 1e-3
 
 from brevitas import config
+
 config.IGNORE_MISSING_KEYS = True
 
-MODELS = [
-    'mobilenet_v2',
-    'resnet18',
-    'mnasnet0_5'
-]
+MODELS = ['mobilenet_v2', 'resnet18', 'mnasnet0_5']
 
 
 @pytest.mark.parametrize("pretrained", [True, False])
@@ -74,6 +70,7 @@ def test_rewriter_duplicate_shared_relu():
 def test_rewriter_duplicate_nested_shared_relu():
 
     class TestSubModel(nn.Module):
+
         def __init__(self):
             super(TestSubModel, self).__init__()
             self.act = nn.ReLU()
@@ -107,7 +104,9 @@ def test_rewriter_add_fn_to_module():
     model = TestModel()
     graph_model = symbolic_trace(model)
     graph_model = FnToModule(torch.add, TestModel).apply(graph_model)
-    assert isinstance(graph_model.add_1, TestModel)
+    # Due to changes in fx after 1.8
+    attr_check = getattr(graph_model, 'add_1', None) or getattr(graph_model, 'add', None)
+    assert isinstance(attr_check, TestModel)
 
 
 def test_rewriter_max_pool_to_module():
@@ -121,7 +120,10 @@ def test_rewriter_max_pool_to_module():
     graph_model = symbolic_trace(model)
     graph_model = FnToModule(torch.max_pool2d, nn.MaxPool2d).apply(graph_model)
     inp = torch.randn(2, 10, 10)
-    assert isinstance(graph_model.max_pool2d_1, nn.MaxPool2d)
+    # Due to changes in fx after 1.8
+    attr_check = getattr(graph_model, 'max_pool2d_1', None) or getattr(
+        graph_model, 'max_pool2d', None)
+    assert isinstance(attr_check, nn.MaxPool2d)
     assert (model(inp) == graph_model(inp)).all().item()
 
 
@@ -141,7 +143,9 @@ def test_rewriter_add_method_to_module():
     graph_model = symbolic_trace(model)
     graph_model = MethodToModule('add', AddModule).apply(graph_model)
     inp = torch.randn(2, 10, 10)
-    assert isinstance(graph_model.add_1, AddModule)
+    # Due to changes in fx after 1.8
+    attr_check = getattr(graph_model, 'add_1', None) or getattr(graph_model, 'add', None)
+    assert isinstance(attr_check, AddModule)
     assert (model(inp) == graph_model(inp)).all().item()
 
 
@@ -161,7 +165,9 @@ def test_rewriter_add_magic_to_module():
     graph_model = symbolic_trace(model)
     graph_model = FnToModule(operator.add, AddModule).apply(graph_model)
     inp = torch.randn(2, 10, 10)
-    assert isinstance(graph_model.add_1, AddModule)
+    # Due to changes in fx after 1.8
+    attr_check = getattr(graph_model, 'add_1', None) or getattr(graph_model, 'add', None)
+    assert isinstance(attr_check, AddModule)
     assert (model(inp) == graph_model(inp)).all().item()
 
 
@@ -176,5 +182,7 @@ def test_rewriter_mean_to_module():
     graph_model = symbolic_trace(model)
     graph_model = MeanMethodToAdaptiveAvgPool2d().apply(graph_model)
     inp = torch.randn(2, 3, 10, 10)
-    assert isinstance(graph_model.mean_1, nn.AdaptiveAvgPool2d)
+    # Due to changes in fx after 1.8
+    attr_check = getattr(graph_model, 'mean_1', None) or getattr(graph_model, 'mean', None)
+    assert isinstance(attr_check, nn.AdaptiveAvgPool2d)
     assert (model(inp) == graph_model(inp)).all().item()

@@ -1,16 +1,18 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-
-from typing import Optional, Union, Type, Optional
+from typing import Optional, Type, Union
 
 from torch.nn import Module
 
 from brevitas.inject import BaseInjector as Injector
 from brevitas.proxy.runtime_quant import AccQuantProxyProtocol
 from brevitas.quant_tensor import QuantTensor
+
+from .mixin.acc import AccQuantType
+from .mixin.acc import QuantClampMixin
+from .mixin.acc import QuantTruncMixin
 from .mixin.base import QuantLayerMixin
-from .mixin.acc import QuantTruncMixin, QuantClampMixin, AccQuantType
 
 
 class TruncQuantAccumulator(QuantTruncMixin, QuantLayerMixin, Module):
@@ -21,10 +23,7 @@ class TruncQuantAccumulator(QuantTruncMixin, QuantLayerMixin, Module):
             return_quant_tensor: bool = True,
             **kwargs):
         QuantLayerMixin.__init__(self, return_quant_tensor)
-        QuantTruncMixin.__init__(
-            self,
-            trunc_quant=trunc_quant,
-            **kwargs)
+        QuantTruncMixin.__init__(self, trunc_quant=trunc_quant, **kwargs)
 
     @property
     def channelwise_separable(self) -> bool:
@@ -48,10 +47,7 @@ class ClampQuantAccumulator(QuantClampMixin, QuantLayerMixin, Module):
             return_quant_tensor: bool = True,
             **kwargs):
         QuantLayerMixin.__init__(self, return_quant_tensor)
-        QuantClampMixin.__init__(
-            self,
-            clamp_quant=clamp_quant,
-            **kwargs)
+        QuantClampMixin.__init__(self, clamp_quant=clamp_quant, **kwargs)
 
     @property
     def channelwise_separable(self) -> bool:

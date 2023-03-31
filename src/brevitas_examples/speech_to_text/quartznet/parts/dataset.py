@@ -26,7 +26,8 @@
 import torch
 from torch.utils.data import Dataset
 
-from .manifest import ManifestBase, ManifestEN
+from .manifest import ManifestBase
+from .manifest import ManifestEN
 
 
 def seq_collate_fn(batch, token_pad_value=0):
@@ -57,8 +58,7 @@ def seq_collate_fn(batch, token_pad_value=0):
         tokens_i_len = tokens_i_len.item()
         if tokens_i_len < max_tokens_len:
             pad = (0, max_tokens_len - tokens_i_len)
-            tokens_i = torch.nn.functional.pad(
-                tokens_i, pad, value=token_pad_value)
+            tokens_i = torch.nn.functional.pad(tokens_i, pad, value=token_pad_value)
         tokens.append(tokens_i)
 
     if has_audio:
@@ -135,6 +135,7 @@ class AudioDataset(Dataset):
         eos_id: Id of end of sequence symbol to append if not None
         load_audio: Boolean flag indicate whether do or not load audio
     """
+
     def __init__(
             self,
             manifest_filepath,
@@ -153,14 +154,16 @@ class AudioDataset(Dataset):
             load_audio=True,
             manifest_class=ManifestEN):
         m_paths = manifest_filepath.split(',')
-        self.manifest = manifest_class(m_paths, labels,
-                                       max_duration=max_duration,
-                                       min_duration=min_duration,
-                                       max_utts=max_utts,
-                                       blank_index=blank_index,
-                                       unk_index=unk_index,
-                                       normalize=normalize,
-                                       logger=logger)
+        self.manifest = manifest_class(
+            m_paths,
+            labels,
+            max_duration=max_duration,
+            min_duration=min_duration,
+            max_utts=max_utts,
+            blank_index=blank_index,
+            unk_index=unk_index,
+            normalize=normalize,
+            logger=logger)
         self.featurizer = featurizer
         self.trim = trim
         self.eos_id = eos_id
@@ -170,18 +173,15 @@ class AudioDataset(Dataset):
             logger.info(
                 "Dataset loaded with {0:.2f} hours. Filtered {1:.2f} "
                 "hours.".format(
-                    self.manifest.duration / 3600,
-                    self.manifest.filtered_duration / 3600))
+                    self.manifest.duration / 3600, self.manifest.filtered_duration / 3600))
 
     def __getitem__(self, index):
         sample = self.manifest[index]
         if self.load_audio:
             duration = sample['duration'] if 'duration' in sample else 0
             offset = sample['offset'] if 'offset' in sample else 0
-            features = self.featurizer.process(sample['audio_filepath'],
-                                               offset=offset,
-                                               duration=duration,
-                                               trim=self.trim)
+            features = self.featurizer.process(
+                sample['audio_filepath'], offset=offset, duration=duration, trim=self.trim)
             f, fl = features, torch.tensor(features.shape[0]).long()
             # f = f / (torch.max(torch.abs(f)) + 1e-5)
         else:

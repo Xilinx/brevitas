@@ -4,7 +4,9 @@
 import pytest
 import torch
 
-from brevitas.nn import QuantReLU, QuantIdentity, QuantHardTanh
+from brevitas.nn import QuantHardTanh
+from brevitas.nn import QuantIdentity
+from brevitas.nn import QuantReLU
 
 
 class TestQuantHardTanh:
