@@ -14,6 +14,10 @@ from brevitas import torch_version
 from brevitas.export import export_onnx_qcdq
 from brevitas.export import export_torch_qcdq
 from brevitas.graph.calibrate import calibration_mode
+from brevitas.graph.quantize import layerwise_quantize
+from brevitas.graph.quantize import quantize
+from brevitas.graph.target.flexml import preprocess_flexml
+from brevitas.graph.target.flexml import quantize_flexml
 from tests.marker import requires_pt_ge
 
 BATCH = 1
@@ -50,13 +54,15 @@ class NoDictModel(torch.nn.Module):
 
 @fixture
 @parametrize('model_name', MODEL_LIST)
-def torchvision_model(model_name):
-    from brevitas.graph.target.flexml import preprocess_flexml
-    from brevitas.graph.target.flexml import quantize_flexml
+@parametrize('quantize_fn', [quantize, quantize_flexml, layerwise_quantize])
+def torchvision_model(model_name, quantize_fn):
 
     inp = torch.randn(BATCH, IN_CH, HEIGHT, WIDTH)
 
     if torch_version <= version.parse('1.9.1') and model_name == 'regnet_x_400mf':
+        return None
+
+    if torch_version < version.parse('1.9.1') and model_name == 'googlenet':
         return None
 
     # EfficientNet is present since 1.10.1. Mobilenet is not correctly exported before 1.10.1
@@ -77,7 +83,7 @@ def torchvision_model(model_name):
 
     model.eval()
     model = preprocess_flexml(model, inp)
-    model = quantize_flexml(model)
+    model = quantize_fn(model)
     with calibration_mode(model):
         model(inp)
     return model
@@ -89,7 +95,7 @@ def test_torchvision_graph_quantization_flexml_qcdq_onnx(torchvision_model, requ
         pytest.skip('Model not instantiated')
     test_id = request.node.callspec.id
     inp = torch.randn(BATCH, IN_CH, HEIGHT, WIDTH)
-    export_onnx_qcdq(torchvision_model, args=inp, export_path=test_id + 'model_onnx_qcdq.onnx')
+    export_onnx_qcdq(torchvision_model, args=inp)
 
 
 @requires_pt_ge('1.9.1')
@@ -98,4 +104,4 @@ def test_torchvision_graph_quantization_flexml_qcdq_torch(torchvision_model, req
         pytest.skip('Model not instantiated')
     test_id = request.node.callspec.id
     inp = torch.randn(BATCH, IN_CH, HEIGHT, WIDTH)
-    export_torch_qcdq(torchvision_model, args=inp, export_path=test_id + 'model_torch_qcdq.pt')
+    export_torch_qcdq(torchvision_model, args=inp)
