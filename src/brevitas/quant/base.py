@@ -62,6 +62,7 @@ __all__ = [
     'WeightPerTensorFloatDecoupledL2Param',
     'WeightPerChannelFloatDecoupled',
     'WeightNormPerChannelFloatDecoupled',
+    'BatchQuantStatsScaling1d',
     'BatchQuantStatsScaling2d']
 
 
@@ -88,6 +89,17 @@ class ParamFromRuntimePercentileScaling(ExtendedInjector):
     scaling_stats_op = StatsOp.PERCENTILE
     high_percentile_q = 99.999
     collect_stats_steps = 300
+    scaling_min_val = 1e-10
+
+
+class BatchQuantStatsScaling1d(ExtendedInjector):
+    """
+    """
+    scaling_impl_type = ScalingImplType.AFFINE_STATS
+    scaling_stats_op = StatsOp.MAX_AVE
+    scaling_stats_momentum = None  # perform a true average rather than exp average
+    affine_shift_scale = False  # max_ave statistics are scaled but not shifted
+    scaling_stats_permute_dims = (1, 0, 2)  # assuming (N, C, F), put channel dimension first
     scaling_min_val = 1e-10
 
 
