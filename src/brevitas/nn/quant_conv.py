@@ -33,7 +33,7 @@ class QuantConv1d(QuantWBIOL, Conv1d):
             dilation: Union[int, Tuple[int, int]] = 1,
             groups: int = 1,
             bias: bool = True,
-            padding_type: str = 'standard',
+            padding_mode: str = 'zeros',
             weight_quant: Optional[WeightQuantType] = Int8WeightPerTensorFloat,
             bias_quant: Optional[BiasQuantType] = None,
             input_quant: Optional[ActQuantType] = None,
@@ -49,7 +49,8 @@ class QuantConv1d(QuantWBIOL, Conv1d):
             padding=padding,
             dilation=dilation,
             groups=groups,
-            bias=bias)
+            bias=bias,
+            padding_mode=padding_mode)
         QuantWBIOL.__init__(
             self,
             weight_quant=weight_quant,
@@ -58,9 +59,6 @@ class QuantConv1d(QuantWBIOL, Conv1d):
             output_quant=output_quant,
             return_quant_tensor=return_quant_tensor,
             **kwargs)
-        assert self.padding_mode == 'zeros'
-        assert not (padding_type == 'same' and padding != 0)
-        self.padding_type = padding_type
 
     @property
     def per_elem_ops(self):
@@ -104,7 +102,7 @@ class QuantConv2d(QuantWBIOL, Conv2d):
             dilation: Union[int, Tuple[int, int]] = 1,
             groups: int = 1,
             bias: bool = True,
-            padding_type: str = 'standard',
+            padding_mode: str = 'zeros',
             weight_quant: Optional[WeightQuantType] = Int8WeightPerTensorFloat,
             bias_quant: Optional[BiasQuantType] = None,
             input_quant: Optional[ActQuantType] = None,
@@ -120,7 +118,8 @@ class QuantConv2d(QuantWBIOL, Conv2d):
             padding=padding,
             dilation=dilation,
             groups=groups,
-            bias=bias)
+            bias=bias,
+            padding_mode=padding_mode)
         QuantWBIOL.__init__(
             self,
             weight_quant=weight_quant,
@@ -129,9 +128,6 @@ class QuantConv2d(QuantWBIOL, Conv2d):
             output_quant=output_quant,
             return_quant_tensor=return_quant_tensor,
             **kwargs)
-        assert self.padding_mode == 'zeros'
-        assert not (padding_type == 'same' and padding != 0)
-        self.padding_type = padding_type
 
     @property
     def per_elem_ops(self):
