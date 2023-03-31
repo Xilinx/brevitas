@@ -18,6 +18,8 @@ from brevitas.nn.quant_rnn import QuantLSTM
 from brevitas.nn.quant_rnn import QuantRNN
 from brevitas.quant.fixed_point import Int8WeightNormL2PerChannelFixedPoint
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
+from brevitas.quant.scaled_int import Int8ActPerTensorFloatBatchQuant1d
+from brevitas.quant.scaled_int import Int8ActPerTensorFloatBatchQuant2d
 from brevitas.quant.scaled_int import Int8BiasPerTensorFloatInternalScaling
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from brevitas.quant.scaled_int import Int16Bias
@@ -43,7 +45,13 @@ WBIOL_WEIGHT_QUANTIZER = {
     'quant_asym': ShiftedUint8WeightPerTensorFloat,
     'quant_decoupled': Int8WeightNormL2PerChannelFixedPoint,}
 
-IO_QUANTIZER = {
+WBIOL_IO_QUANTIZER = {
+    'None': None,
+    'batch_quant': (Int8ActPerTensorFloatBatchQuant1d, Int8ActPerTensorFloatBatchQuant2d),
+    'quant_sym': Int8ActPerTensorFloat,
+    'quant_asym': ShiftedUint8ActPerTensorFloat}
+
+LSTM_IO_QUANTIZER = {
     'None': None,
     'quant_sym': Int8ActPerTensorFloat,}
 
@@ -76,7 +84,9 @@ QUANT_WBIOL_IMPL = [
     BIAS_QUANTIZER.items(),
     ids=[f'bias_quant${c}' for c, _ in BIAS_QUANTIZER.items()])
 @pytest_cases.parametrize(
-    'io_quantizer', IO_QUANTIZER.items(), ids=[f'io_quant${c}' for c, _ in IO_QUANTIZER.items()])
+    'io_quantizer',
+    WBIOL_IO_QUANTIZER.items(),
+    ids=[f'io_quant${c}' for c, _ in WBIOL_IO_QUANTIZER.items()])
 @pytest_cases.parametrize(
     'weight_quantizer',
     WBIOL_WEIGHT_QUANTIZER.items(),
@@ -103,6 +113,14 @@ def case_model(
     _, io_quantizer = io_quantizer
 
     impl = case_id.split('-')[2].split('$')[-1]
+    # BatchQuant has dimension specific quantizers
+    if isinstance(io_quantizer, tuple):
+        if '1d' in impl:
+            io_quantizer = io_quantizer[0]  # select 1d quantizer
+        elif '2d' in impl:
+            io_quantizer = io_quantizer[1]  # select 2d quantizer
+        else:
+            pytest.skip("Combination of layer and quantizer not supported.")
     if impl == 'QuantLinear':
         layer_kwargs = {'in_features': IN_CH, 'out_features': OUT_CH}
     else:
@@ -129,7 +147,7 @@ def case_model(
     module = Model()
     module.train(is_training)
 
-    if impl in ('QuantLinear'):
+    if impl in ('QuantLinear',):
         in_size = (1, IN_CH)
     elif impl in ('QuantConv1d', 'QuantConvTranspose1d'):
         in_size = (1, IN_CH, FEATURES)
@@ -145,7 +163,9 @@ def case_model(
 
 
 @pytest_cases.parametrize(
-    'io_quantizer', IO_QUANTIZER.items(), ids=[f'io_quant${c}' for c, _ in IO_QUANTIZER.items()])
+    'io_quantizer',
+    LSTM_IO_QUANTIZER.items(),
+    ids=[f'io_quant${c}' for c, _ in LSTM_IO_QUANTIZER.items()])
 @pytest_cases.parametrize(
     'input_quantized', [True, False], ids=[f'input_quantized${c}' for c in [True, False]])
 @pytest_cases.parametrize(
@@ -229,7 +249,9 @@ def case_quant_lstm(
 
 
 @pytest_cases.parametrize(
-    'io_quantizer', IO_QUANTIZER.items(), ids=[f'io_quant${c}' for c, _ in IO_QUANTIZER.items()])
+    'io_quantizer',
+    LSTM_IO_QUANTIZER.items(),
+    ids=[f'io_quant${c}' for c, _ in LSTM_IO_QUANTIZER.items()])
 @pytest_cases.parametrize(
     'input_quantized', [True, False], ids=[f'input_quantized${c}' for c in [True, False]])
 @pytest_cases.parametrize(
@@ -325,7 +347,9 @@ def case_quant_lstm_full(
 
 
 @pytest_cases.parametrize(
-    'io_quantizer', IO_QUANTIZER.items(), ids=[f'io_quant${c}' for c, _ in IO_QUANTIZER.items()])
+    'io_quantizer',
+    LSTM_IO_QUANTIZER.items(),
+    ids=[f'io_quant${c}' for c, _ in LSTM_IO_QUANTIZER.items()])
 @pytest_cases.parametrize(
     'input_quantized', [True, False], ids=[f'input_quantized${c}' for c in [True, False]])
 @pytest_cases.parametrize(
@@ -395,7 +419,9 @@ def case_quant_rnn(
 
 
 @pytest_cases.parametrize(
-    'io_quantizer', IO_QUANTIZER.items(), ids=[f'io_quant${c}' for c, _ in IO_QUANTIZER.items()])
+    'io_quantizer',
+    LSTM_IO_QUANTIZER.items(),
+    ids=[f'io_quant${c}' for c, _ in LSTM_IO_QUANTIZER.items()])
 @pytest_cases.parametrize(
     'input_quantized', [True, False], ids=[f'input_quantized${c}' for c in [True, False]])
 @pytest_cases.parametrize(
