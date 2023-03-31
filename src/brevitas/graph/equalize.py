@@ -1,6 +1,8 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+
+from collections import namedtuple
 from copy import deepcopy
 from functools import partial
 import operator
@@ -23,10 +25,12 @@ _supported_layers = (
     nn.ConvTranspose1d,
     nn.ConvTranspose2d,
     nn.ConvTranspose3d,
+    nn.MultiheadAttention,
     nn.Conv1d,
     nn.Conv2d,
     nn.Conv3d,
     nn.Linear,
+    nn.LayerNorm,
     nn.BatchNorm1d,
     nn.BatchNorm2d,
     nn.BatchNorm3d)
@@ -51,8 +55,11 @@ _scale_invariant_op = (
     operator.mul,
     operator.imul,
     operator.__mul__,
-    operator.__imul__,
-)
+    operator.__imul__)
+
+_select_op = (
+    operator.getitem,
+    operator.__getitem__)
 
 _residual_methods = ('add', 'add_')
 
@@ -61,8 +68,11 @@ _residual_fns = (torch.add, operator.add, operator.iadd, operator.__add__, opera
 _batch_norm = (
     nn.BatchNorm1d,
     nn.BatchNorm2d,
-    nn.BatchNorm3d,
-)
+    nn.BatchNorm3d)
+
+
+WeightBiasTuple = namedtuple('WeightBiasTuple', ['weight', 'bias'], defaults=[None])
+
 
 
 def _select_scale_computation_fn(
@@ -103,8 +113,8 @@ def _get_size(axes: Dict[nn.Module, int]) -> int:
     return size
 
 
-def _get_input_axis(module: nn.Module) -> int:
-    if isinstance(module, nn.Linear):
+def _get_input_axis(module: nn.Module) -> Optional[int]:
+    if isinstance(module, (nn.Linear, nn.MultiheadAttention)):
         return 1
     elif isinstance(module, (nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d)):
         return 0
@@ -118,26 +128,32 @@ def _get_input_axis(module: nn.Module) -> int:
             return 0
         elif module.groups == module.out_channels:
             return 1
+    elif isinstance(module, nn.LayerNorm):
+        # We assume normalization happens only along the channel dimension
+        if len(module.weight.shape) == 1:
+            return 0
+        else:
+            return None
     else:
         return None
 
 
-def _get_output_axis(module: nn.Module) -> int:
-    if isinstance(
-            module,
-        (nn.Linear, nn.Conv1d, nn.Conv2d, nn.Conv3d, nn.BatchNorm1d, nn.BatchNorm2d,
-         nn.BatchNorm3d)):
+def _get_output_axis(module: nn.Module) -> Optional[int]:
+    if isinstance(module, (nn.Linear, nn.Conv1d, nn.Conv2d, nn.Conv3d, nn.MultiheadAttention,
+                           nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d)):
         return 0
     elif isinstance(module, (nn.ConvTranspose1d, nn.ConvTranspose2d, nn.ConvTranspose3d)):
         return 1
+    elif isinstance(module, nn.LayerNorm):
+        # We assume normalization happens only along the channel dimension
+        if len(module.weight.shape) == 1:
+            return 0
+        else:
+            return None
     else:
         return None
 
-
-def _combine_weights_bias(
-        weight: nn.parameter.Parameter,
-        bias_shrinkage: Union[float, str],
-        bias: Optional[nn.parameter.Parameter]):
+def _combine_weights_bias(weight: torch.Tensor, bias_shrinkage: Union[float, str], bias: Optional[torch.Tensor]) -> torch.Tensor:
     """Combine weights and bias before graph equalizattion
     This method merges the weight and bias of the sources, so that the resulting equalizer scale factor
     is influenced also by the magnitude of the bias, mitigated by a shrink factor.
@@ -193,15 +209,28 @@ def _cross_layer_equalization(
     device = next(srcs[0].parameters()).device
     dtype = next(srcs[0].parameters()).dtype
 
-    for module_set in [srcs, sinks]:
-        for module in module_set:
-            if not isinstance(module, _supported_layers):
-                return torch.tensor(
-                    1., dtype=dtype,
-                    device=device)  # If module is not supported, do not perform graph equalization
+    src_axes = {}
+    sink_axes = {}
 
-    src_axes = {m: _get_output_axis(m) for m in srcs}
-    sink_axes = {m: _get_input_axis(m) for m in sinks}
+    for i, module in enumerate(srcs):
+        # If module is not supported, do not perform graph equalization
+        if not isinstance(module, _supported_layers):
+            return torch.tensor(1., dtype=dtype, device=device)
+        if isinstance(module, nn.MultiheadAttention):
+            srcs[i] = module.out_proj
+        src_axes[srcs[i]] = _get_output_axis(module)
+
+    for i, module in enumerate(sinks):
+        # If module is not supported, do not perform graph equalization
+        if not isinstance(module, _supported_layers):
+            return torch.tensor(1., dtype=dtype, device=device)
+        # For MultiheadAttention, we support only self-attetion
+        if isinstance(module, nn.MultiheadAttention) and hasattr(sinks[i], 'in_proj_weight'):
+            # For sinks, we only need to modify the weight but not the bias
+            sinks[i] = WeightBiasTuple(module.in_proj_weight)
+        elif isinstance(module, nn.MultiheadAttention) and not hasattr(sinks[i], 'in_proj_weight'):
+            return torch.tensor(1., dtype=dtype, device=device)
+        sink_axes[sinks[i]] = _get_input_axis(module)
 
     # Check if any of the axis is None, which means that the module is not supported.
     # In that case, do not perform graph equalization
@@ -216,7 +245,6 @@ def _cross_layer_equalization(
     # Similarly, exit if source and sink have different different sizes
     if None in [src_size, sink_size] or src_size != sink_size:
         return torch.tensor(1., dtype=dtype, device=device)
-
     transpose = lambda module, axis: module.weight if axis == 0 else module.weight.transpose(0, 1)
     scale_fn = _select_scale_computation_fn(scale_computation_type)
     if merge_bias:
@@ -288,9 +316,14 @@ def _equalize(
 
 
 def _is_supported_module(graph_model: GraphModule, node: Node) -> bool:
-    return node.op == 'call_module' and isinstance(
-        get_module(graph_model, node.target), _supported_layers)
-
+    if node.op == 'call_module':
+        module = get_module(graph_model, node.target)
+        if isinstance(module, _supported_layers):
+            # We support only self-attention
+            if isinstance(module, nn.MultiheadAttention):
+                return all([node.all_input_nodes[0].name == n.name for n in node.all_input_nodes])
+            return True
+    return False
 
 def _is_scale_invariant_module(graph_model: GraphModule, node: Node) -> bool:
     return node.op == 'call_module' and isinstance(
@@ -298,7 +331,7 @@ def _is_scale_invariant_module(graph_model: GraphModule, node: Node) -> bool:
 
 
 def _is_scale_invariant_function(node: Node) -> bool:
-    return node.op == 'call_function' and node.target in _scale_invariant_op
+    return node.op == 'call_function' and node.target in _scale_invariant_op + _select_op
 
 
 def _is_reshaping_op(node: Node) -> bool:
@@ -348,15 +381,13 @@ def walk_region(
 def _extract_regions(graph_model: GraphModule) -> Set[Tuple[str]]:
     regions = set()
     for node in graph_model.graph.nodes:
-        if node.op == 'call_module':
-            module = get_module(graph_model, node.target)
-            if isinstance(module, _supported_layers):
-                srcs, sinks = {node.target}, set()
-                walk_region(graph_model, node, set(), srcs, sinks, walk_forward=True)
-                if sinks:
-                    # each region should appear only once, so to make it hashable
-                    # we convert srcs and sinks to ordered lists first, and then to tuples
-                    regions.add((tuple(sorted(srcs)), tuple(sorted(sinks))))
+        if _is_supported_module(graph_model, node):
+            srcs, sinks = {node.target}, set()
+            walk_region(graph_model, node, set(), srcs, sinks, walk_forward=True)
+            if sinks:
+                # each region should appear only once, so to make it hashable
+                # we convert srcs and sinks to ordered lists first, and then to tuples
+                regions.add((tuple(sorted(srcs)), tuple(sorted(sinks))))
     # for clarity, sort by the of the first source
     regions = sorted(regions, key=lambda region: region[0][0])
     return regions
