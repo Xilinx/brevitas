@@ -79,6 +79,7 @@ class MeanMethodToAdaptiveAvgPool2d(MethodToModule):
 
 
 class RemoveStochasticModules(GraphTransform):
+
     def apply(self, graph_model: GraphModule) -> GraphModule:
         for node in graph_model.graph.nodes:
             if 'stochastic_depth' in node.name:
