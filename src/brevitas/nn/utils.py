@@ -62,3 +62,16 @@ def rename_state_dict_by_postfix(old_postfix, new_postfix, state_dict):
             keys_map[k] = new_key
     for old_key in keys_map.keys():
         state_dict[keys_map[old_key]] = state_dict.pop(old_key)
+
+
+def check_tensors_same_ptr(tensor_list):
+    pointers = []
+    for t in tensor_list:
+        if hasattr(t, 'data_ptr'):
+            ptr = t.data_ptr()
+            pointers.append(ptr)
+        elif hasattr(t, 'value') and hasattr(t.value, 'data_ptr'):
+            pointers.append(t.value.data_ptr())
+        else:
+            return False
+    return all(p == pointers[0] for p in pointers)
