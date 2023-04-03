@@ -56,8 +56,8 @@ NOTEBOOK_EXCLUDE_LIST = generate_exclusion_list([[['pytorch_version', ['1.5.1', 
                                                  [['platform', [
                                                      'macos-latest',]]]])
 
-END_TO_END_EXCLUDE_LIST = [od([('platform', [
-    'windows-latest',])])]
+END_TO_END_EXCLUDE_LIST = generate_exclusion_list([[['platform', [
+    'windows-latest',]]], [['pytorch_version', ['1.5.1', '1.6.0', '1.7.1']]]])
 
 MATRIX = od([('python_version', list(PYTHON_VERSIONS)), ('pytorch_version', list(PYTORCH_VERSIONS)),
              ('platform', PLATFORM_LIST)])
