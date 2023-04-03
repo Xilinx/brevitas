@@ -36,7 +36,7 @@ The result is the following:
    class QuantWeightLeNet(Module):
        def __init__(self):
            super(QuantWeightLeNet, self).__init__()
-           self.conv1 = qnn.QuantConv2d(3, 6, 5, bias=True weight_bit_width=4)
+           self.conv1 = qnn.QuantConv2d(3, 6, 5, bias=True, weight_bit_width=4)
            self.relu1 = nn.ReLU()
            self.conv2 = qnn.QuantConv2d(6, 16, 5, bias=True, weight_bit_width=4)
            self.relu2 = nn.ReLU()
@@ -47,7 +47,7 @@ The result is the following:
            self.fc3   = qnn.QuantLinear(84, 10, bias=True, weight_bit_width=4)
 
        def forward(self, x):
-           out = self.relu1(self.conv1(out))
+           out = self.relu1(self.conv1(x))
            out = F.max_pool2d(out, 2)
            out = self.relu2(self.conv2(out))
            out = F.max_pool2d(out, 2)
@@ -88,7 +88,7 @@ result is the following:
 
    class QuantWeightActLeNet(Module):
        def __init__(self):
-           super(LowPrecisionLeNet, self).__init__()
+           super(QuantWeightActLeNet, self).__init__()
            self.quant_inp = qnn.QuantIdentity(bit_width=4)
            self.conv1 = qnn.QuantConv2d(3, 6, 5, bias=True, weight_bit_width=4)
            self.relu1 = qnn.QuantReLU(bit_width=4)
@@ -146,7 +146,7 @@ Weights, activations, biases quantization
            self.relu3 = qnn.QuantReLU(bit_width=4, return_quant_tensor=True)
            self.fc2   = qnn.QuantLinear(120, 84, bias=True, weight_bit_width=4, bias_quant=Int32Bias)
            self.relu4 = qnn.QuantReLU(bit_width=4, return_quant_tensor=True)
-           self.fc3   = qnn.QuantLinear(4, 10, bias=True, weight_bit_width=4, bias_quant=Int32Bias)
+           self.fc3   = qnn.QuantLinear(84, 10, bias=True, weight_bit_width=4, bias_quant=Int32Bias)
 
        def forward(self, x):
            out = self.quant_inp(x)
@@ -182,6 +182,7 @@ The interface of the export function matches the `torch.onnx.export` function, a
 .. code-block:: python
 
     from brevitas.export import export_onnx_qcdq
+    import torch
 
     # Weight-only model
     export_onnx_qcdq(quant_weight_lenet, torch.randn(1, 3, 32, 32), export_path='4b_weight_lenet.onnx')
