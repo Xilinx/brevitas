@@ -8,6 +8,7 @@ import torch
 
 from brevitas.quant_tensor import QuantTensor
 
+from .nn_quantizers_fixture import case_mha
 from .nn_quantizers_fixture import case_model
 from .nn_quantizers_fixture import case_quant_lstm
 from .nn_quantizers_fixture import case_quant_lstm_full
@@ -191,3 +192,33 @@ def test_quant_lstm_rnn(model_input, current_cases):
             assert isinstance(c, QuantTensor)
         else:
             assert isinstance(c, torch.Tensor)
+
+
+@pytest_cases.parametrize_with_cases('model_input', cases=case_mha)
+def test_quant_mha(model_input, current_cases):
+    model, inp = model_input
+
+    cases_generator_func = current_cases['model_input'][1]
+    case_id = get_case_id(cases_generator_func)
+    args = case_id.split('-')[1:]  # Exclude first argument
+    kwargs = parse_args(args)
+
+    if (kwargs['io_quant'] is None or
+            kwargs['weight_quant'] is None) and kwargs['bias_quant'] == 'quant_external':
+        with pytest.raises(RuntimeError, match='Input scale required'):
+            output, _ = model(inp, inp, inp)
+        return
+
+    output, _ = model(inp, inp, inp)
+
+    if kwargs['return_quant_tensor']:
+        assert isinstance(output, QuantTensor)
+        # Empty QuantTensor
+        if kwargs['io_quant'] is None:
+            assert output.scale is None
+            assert output.bit_width is None
+        else:  # "Full" QuantTensor
+            assert output.scale is not None
+            assert output.bit_width is not None
+    else:
+        assert isinstance(output, torch.Tensor)
