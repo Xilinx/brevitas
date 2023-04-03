@@ -17,6 +17,9 @@ ADD_METHODS = ['add', 'add_']
 CAT = brevitas.original_cat
 
 SIGN_PRESERVING_MODULES = (
+    nn.Dropout,
+    nn.Dropout2d,
+    nn.Dropout3d,
     nn.MaxPool1d,
     nn.MaxPool2d,
     nn.MaxPool3d,
@@ -230,7 +233,8 @@ def recursive_input_handler(
                 else:
                     assert align_output is None, f"align_output {str(align_output)} not supported."
         elif inp_node.op == 'call_function' and inp_node.target in [
-                torch.flatten, torch.reshape, torch.transpose]:
+                torch.flatten, torch.reshape, torch.transpose, operator.getitem,
+                operator.__getitem__]:
             recursive_input_handler(
                 model,
                 inp_node,
@@ -371,14 +375,26 @@ def layer_handler(
             module = get_module(model, node.target)
             if isinstance(module, tuple(layer_map.keys())):
                 if requantize_output:
-                    output_quant_handler(
-                        model,
-                        node,
-                        rewriters,
-                        is_sign_preserving=isinstance(module, SIGN_PRESERVING_MODULES),
-                        quant_identity_map=quant_identity_map,
-                        quant_act_map=quant_act_map,
-                        unsigned_act_tuple=unsigned_act_tuple)
+                    if len(node.users) > 1 and all(['getitem' in n.name for n in node.users]):
+                        for n in node.users:
+                            if len(n.users) > 0:
+                                output_quant_handler(
+                                    model,
+                                    n,
+                                    rewriters,
+                                    is_sign_preserving=isinstance(module, SIGN_PRESERVING_MODULES),
+                                    quant_identity_map=quant_identity_map,
+                                    quant_act_map=quant_act_map,
+                                    unsigned_act_tuple=unsigned_act_tuple)
+                    else:
+                        output_quant_handler(
+                            model,
+                            node,
+                            rewriters,
+                            is_sign_preserving=isinstance(module, SIGN_PRESERVING_MODULES),
+                            quant_identity_map=quant_identity_map,
+                            quant_act_map=quant_act_map,
+                            unsigned_act_tuple=unsigned_act_tuple)
                 if layer_map[type(module)] is not None:
                     quant_module_class, quant_module_kwargs = layer_map[type(module)]
                     # Quantize the input if is not quantized, input_quant is not specified,

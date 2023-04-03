@@ -24,6 +24,19 @@ from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 COMPUTE_LAYER_MAP = {
     nn.AvgPool2d:
         None,
+    nn.MultiheadAttention: (
+        qnn.QuantMultiheadAttention,
+        {
+            'in_proj_weight_quant': Int8WeightPerTensorFloat,
+            'in_proj_bias_quant': Int32Bias,
+            'attn_output_weights_quant': Uint8ActPerTensorFloat,
+            'q_scaled_quant': Int8ActPerTensorFloat,
+            'k_transposed_quant': Int8ActPerTensorFloat,
+            'v_quant': Int8ActPerTensorFloat,
+            'out_proj_input_quant': Int8ActPerTensorFloat,
+            'out_proj_weight_quant': Int8WeightPerTensorFloat,
+            'out_proj_bias_quant': Int32Bias,
+            'return_quant_tensor': True}),
     nn.Conv1d: (
         qnn.QuantConv1d,
         {
@@ -55,6 +68,19 @@ COMPUTE_LAYER_MAP = {
 LAYERWISE_COMPUTE_LAYER_MAP = {
     nn.AvgPool2d:
         None,
+    nn.MultiheadAttention: (
+        qnn.QuantMultiheadAttention,
+        {
+            'in_proj_input_quant': Int8ActPerTensorFloat,
+            'in_proj_weight_quant': Int8WeightPerTensorFloat,
+            'in_proj_bias_quant': Int32Bias,
+            'attn_output_weights_quant': Uint8ActPerTensorFloat,
+            'q_scaled_quant': Int8ActPerTensorFloat,
+            'k_transposed_quant': Int8ActPerTensorFloat,
+            'v_quant': Int8ActPerTensorFloat,
+            'out_proj_input_quant': Int8ActPerTensorFloat,
+            'out_proj_weight_quant': Int8WeightPerTensorFloat,
+            'out_proj_bias_quant': Int32Bias,}),
     nn.Conv1d: (
         qnn.QuantConv1d,
         {

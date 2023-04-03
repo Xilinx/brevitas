@@ -27,6 +27,19 @@ from brevitas.quant.fixed_point import Int8ActPerTensorFixedPointMinMaxInit
 FLEXML_COMPUTE_LAYER_MAP = {
     nn.AvgPool2d: (qnn.flexml.FlexMLQuantAvgPool2d, {
         'return_quant_tensor': True}),
+    nn.MultiheadAttention: (
+        qnn.QuantMultiheadAttention,
+        {
+            'in_proj_weight_quant': Int8WeightPerTensorFixedPoint,
+            'in_proj_bias_quant': Int16Bias,
+            'attn_output_weights_quant': Uint8ActPerTensorFixedPoint,
+            'q_scaled_quant': Int8ActPerTensorFixedPoint,
+            'k_transposed_quant': Int8ActPerTensorFixedPoint,
+            'v_quant': Int8ActPerTensorFixedPoint,
+            'out_proj_input_quant': Int8ActPerTensorFixedPoint,
+            'out_proj_weight_quant': Int8WeightPerTensorFixedPoint,
+            'out_proj_bias_quant': Int16Bias,
+            'return_quant_tensor': True}),
     nn.Conv1d: (
         qnn.QuantConv1d,
         {
