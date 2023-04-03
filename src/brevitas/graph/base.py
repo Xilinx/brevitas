@@ -151,14 +151,16 @@ class ModuleToModule(GraphTransform, ABC):
 
 class InsertModuleCallAfter(GraphTransform):
 
-    def __init__(self, module_name, node):
+    def __init__(self, module_name, node, node_to_exclude=()):
         self.module_name = module_name
         self.node = node
+        self.node_to_exclude = node_to_exclude
 
     def apply(self, graph_model: GraphModule) -> GraphModule:
         with graph_model.graph.inserting_after(self.node):
             quant_identity_node = graph_model.graph.call_module(self.module_name, args=(self.node,))
-        replace_all_uses_except(self.node, quant_identity_node, [quant_identity_node])
+        replace_all_uses_except(
+            self.node, quant_identity_node, [quant_identity_node] + list(self.node_to_exclude))
         graph_model.recompile()
         graph_model.graph.lint()
         return graph_model
