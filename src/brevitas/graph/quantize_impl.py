@@ -353,20 +353,20 @@ def add_output_quant_handler(model, quant_identity_map, quant_act_map, unsigned_
 
 
 def layer_handler(
-        model,
-        layer_map,
-        requantize_output,
-        quant_identity_map=None,
-        quant_act_map=None,
-        unsigned_act_tuple=None):
+    model,
+    layer_map,
+    requantize_output,
+    quant_identity_map=dict(),
+    quant_act_map=dict(),
+    unsigned_act_tuple=dict()):
     """
     Replace FP weight layers with their corresponding quantized version
     """
-    if requantize_output and (quant_identity_map is None or quant_act_map is None or
-                              unsigned_act_tuple is None):
+    if requantize_output and (len(quant_identity_map) == 0 or len(quant_act_map) == 0 or
+                              len(unsigned_act_tuple) == 0):
         raise RuntimeError("Missing information to requantize output")
-    rewriters = []
     for node in model.graph.nodes:
+        rewriters = []
         if node.op == 'call_module':
             module = get_module(model, node.target)
             if isinstance(module, tuple(layer_map.keys())):
@@ -381,9 +381,28 @@ def layer_handler(
                         unsigned_act_tuple=unsigned_act_tuple)
                 if layer_map[type(module)] is not None:
                     quant_module_class, quant_module_kwargs = layer_map[type(module)]
+                    # Quantize the input if is not quantized, input_quant is not specified,
+                    # and the quant_identity_map is provided.
+                    # The last requirement is needed to avoid requantizing the input to activations
+                    if not are_inputs_quantized_and_aligned(
+                            model, node, [], quant_act_map, same_sign=False
+                    ) and not 'input_quant' in quant_module_kwargs and len(quant_identity_map) > 0:
+                        # Define the source node where to add the requantization step
+                        previous_node = node.all_input_nodes[0]
+                        # Exclude all the other possible users
+                        previous_node_users = list(previous_node.users.keys())
+                        previous_node_users.remove(node)
+
+                        act_quant, kwargs_act_quant = quant_identity_map['signed']
+                        inp_quant = act_quant(**kwargs_act_quant)
+                        name = node.name + '_input_quant'
+                        model.add_module(name, inp_quant)
+                        rewriter = InsertModuleCallAfter(
+                            name, previous_node, tuple(previous_node_users))
+                        rewriters.append(rewriter)
                     rewriter = ModuleToModuleByInstance(
                         module, quant_module_class, **quant_module_kwargs)
                     rewriters.append(rewriter)
-    for rewriter in rewriters:
-        model = rewriter.apply(model)
+        for rewriter in rewriters:
+            model = rewriter.apply(model)
     return model
