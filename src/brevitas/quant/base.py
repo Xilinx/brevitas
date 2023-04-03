@@ -69,8 +69,7 @@ __all__ = [
     'WeightNormPerChannelFloatDecoupled',
     'BatchQuantStatsScaling1d',
     'BatchQuantStatsScaling2d',
-    'AccumulatorAwareWeightQuant'
-]
+    'AccumulatorAwareWeightQuant']
 
 
 class MaxStatsScaling(ExtendedInjector):

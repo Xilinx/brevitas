@@ -162,6 +162,7 @@ def build_case_model(
         quant_inp = torch.randn(in_size)
     return module, quant_inp
 
+
 @pytest_cases.parametrize(
     'input_quantized', [True, False], ids=[f'input_quantized${c}' for c in [True, False]])
 @pytest_cases.parametrize(
@@ -172,29 +173,6 @@ def build_case_model(
     'io_quantizer',
     WBIOL_IO_QUANTIZER.items(),
     ids=[f'io_quant${c}' for c, _ in WBIOL_IO_QUANTIZER.items()])
-@pytest_cases.parametrize(
-    'weight_quantizer',
-    WBIOL_WEIGHT_QUANTIZER.items(),
-    ids=[f'weight_quant${c}' for c, _ in WBIOL_WEIGHT_QUANTIZER.items()])
-@pytest_cases.parametrize(
-    'return_quant_tensor', [True, False], ids=[f'return_quant_tensor${f}' for f in [True, False]])
-@pytest_cases.parametrize(
-    'module', QUANT_WBIOL_IMPL, ids=[f'model_type${c.__name__}' for c in QUANT_WBIOL_IMPL])
-@pytest_cases.parametrize(
-    'is_training', [True, False], ids=[f'is_training${f}' for f in [True, False]])
-def case_model(weight_quantizer, bias_quantizer, io_quantizer, return_quant_tensor, module, request, input_quantized, is_training):
-    set_case_id(request.node.callspec.id, case_model)
-    case_id  = get_case_id(case_model)
-    return build_case_model(weight_quantizer, bias_quantizer, io_quantizer, return_quant_tensor, module, case_id, input_quantized, is_training)
-
-@pytest_cases.parametrize(
-    'input_quantized', [True, False], ids=[f'input_quantized${c}' for c in [True, False]])
-@pytest_cases.parametrize(
-    'bias_quantizer',
-    BIAS_QUANTIZER.items(),
-    ids=[f'bias_quant${c}' for c, _ in BIAS_QUANTIZER.items()])
-@pytest_cases.parametrize(
-    'io_quantizer', IO_QUANTIZER.items(), ids=[f'io_quant${c}' for c, _ in IO_QUANTIZER.items()])
 @pytest_cases.parametrize(
     'weight_quantizer',
     WBIOL_WEIGHT_QUANTIZER.items(),
@@ -234,7 +212,9 @@ def case_model(
     BIAS_QUANTIZER.items(),
     ids=[f'bias_quant${c}' for c, _ in BIAS_QUANTIZER.items()])
 @pytest_cases.parametrize(
-    'io_quantizer', IO_QUANTIZER.items(), ids=[f'io_quant${c}' for c, _ in IO_QUANTIZER.items()])
+    'io_quantizer',
+    WBIOL_IO_QUANTIZER.items(),
+    ids=[f'io_quant${c}' for c, _ in WBIOL_IO_QUANTIZER.items()])
 @pytest_cases.parametrize(
     'return_quant_tensor', [True, False], ids=[f'return_quant_tensor${f}' for f in [True, False]])
 @pytest_cases.parametrize(
@@ -271,7 +251,9 @@ def case_model_a2q(
 
 
 @pytest_cases.parametrize(
-    'io_quantizer', IO_QUANTIZER.items(), ids=[f'io_quant${c}' for c, _ in IO_QUANTIZER.items()])
+    'io_quantizer',
+    LSTM_IO_QUANTIZER.items(),
+    ids=[f'io_quant${c}' for c, _ in LSTM_IO_QUANTIZER.items()])
 @pytest_cases.parametrize(
     'input_quantized', [True, False], ids=[f'input_quantized${c}' for c in [True, False]])
 @pytest_cases.parametrize(
