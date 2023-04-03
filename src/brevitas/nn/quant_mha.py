@@ -41,7 +41,7 @@ POSSIBILITY OF SUCH DAMAGE.
 """
 
 import math
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 import warnings
 
 from packaging import version
@@ -57,10 +57,12 @@ from torch.nn.init import xavier_uniform_
 from brevitas import torch_version
 from brevitas.nn import QuantIdentity
 from brevitas.nn import QuantLinear
+from brevitas.nn.utils import check_tensors_same_ptr
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from brevitas.quant.scaled_int import Int32Bias
 from brevitas.quant.scaled_int import Uint8ActPerTensorFloat
+from brevitas.quant_tensor import QuantTensor
 
 
 class QuantMultiheadAttention(Module):
@@ -216,9 +218,9 @@ class QuantMultiheadAttention(Module):
 
     def mha_shape_check(
             self,
-            query: Tensor,
-            key: Tensor,
-            value: Tensor,
+            query: Union[Tensor, QuantTensor],
+            key: Union[Tensor, QuantTensor],
+            value: Union[Tensor, QuantTensor],
             key_padding_mask: Optional[Tensor],
             attn_mask: Optional[Tensor],
             num_heads: int):
@@ -270,9 +272,9 @@ class QuantMultiheadAttention(Module):
 
     def multi_head_attention(
             self,
-            query: Tensor,
-            key: Tensor,
-            value: Tensor,
+            query: Union[Tensor, QuantTensor],
+            key: Union[Tensor, QuantTensor],
+            value: Union[Tensor, QuantTensor],
             embed_dim_to_check: int,
             num_heads: int,
             bias_k: Optional[Tensor],
@@ -390,7 +392,7 @@ class QuantMultiheadAttention(Module):
         # compute in-projection
         #
         if self.in_proj is not None:
-            if key.data_ptr() == value.data_ptr() == query.data_ptr():
+            if check_tensors_same_ptr([key, query, value]):
                 # self-attention
                 q, k, v = self.in_proj(query).chunk(3, dim=-1)
             else:
