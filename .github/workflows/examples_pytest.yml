@@ -37,6 +37,8 @@ jobs:
           - pytorch_version: '1.9.1'
             jit_status: 'jit_enabled'
 
+          - pytorch_version: '1.5.1'
+
 
 
     if: ${{ !github.event.pull_request.draft }}

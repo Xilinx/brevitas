@@ -59,6 +59,9 @@ NOTEBOOK_EXCLUDE_LIST = generate_exclusion_list([[['pytorch_version', ['1.5.1', 
 END_TO_END_EXCLUDE_LIST = [od([('platform', [
     'windows-latest',])])]
 
+EXAMPLES_PYTEST_EXCLUDE_LIST = [od([('pytorch_version', [
+    '1.5.1',])])]
+
 MATRIX = od([('python_version', list(PYTHON_VERSIONS)), ('pytorch_version', list(PYTORCH_VERSIONS)),
              ('platform', PLATFORM_LIST)])
 
@@ -154,14 +157,14 @@ def gen_pytest_yml():
 def gen_examples_pytest_yml():
     pytest = Action(
         'Examples Pytest',
-        EXCLUDE_LIST + JIT_EXCLUDE_LIST,
+        EXCLUDE_LIST + JIT_EXCLUDE_LIST + EXAMPLES_PYTEST_EXCLUDE_LIST,
         combine_od_list([MATRIX, PYTEST_MATRIX_EXTRA]),
         EXAMPLES_PYTEST_STEP_LIST,
         STRATEGY)
     pytest.gen_yaml(BASE_YML_TEMPLATE, EXAMPLES_PYTEST_YML)
     pytest = Action(
         'Examples Pytest',
-        EXCLUDE_LIST,
+        EXCLUDE_LIST + EXAMPLES_PYTEST_EXCLUDE_LIST,
         combine_od_list([MATRIX_REDUCED, PYTEST_MATRIX_EXTRA_REDUCED]),
         EXAMPLES_PYTEST_STEP_LIST,
         STRATEGY)
