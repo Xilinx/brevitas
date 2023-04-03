@@ -1,6 +1,7 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from packaging import version
 import pytest
 import pytest_cases
 from pytest_cases import get_case_id
@@ -8,12 +9,14 @@ from pytest_cases import set_case_id
 import torch
 import torch.nn as nn
 
+from brevitas import torch_version
 from brevitas.nn import QuantConv1d
 from brevitas.nn import QuantConv2d
 from brevitas.nn import QuantConvTranspose1d
 from brevitas.nn import QuantConvTranspose2d
 from brevitas.nn import QuantIdentity
 from brevitas.nn import QuantLinear
+from brevitas.nn.quant_mha import QuantMultiheadAttention
 from brevitas.nn.quant_rnn import QuantLSTM
 from brevitas.nn.quant_rnn import QuantRNN
 from brevitas.quant.fixed_point import Int8WeightNormL2PerChannelFixedPoint
@@ -33,17 +36,19 @@ OUT_CH = 16
 IN_CH = 8
 FEATURES = 5
 KERNEL_SIZE = 3
+EMBED_DIM = 9
+NUM_HEADS = 3
 
 LSTM_WEIGHT_QUANTIZER = {
     'None': None,
     'quant_sym': Int8WeightPerTensorFloat,
-    'quant_asym': ShiftedUint8WeightPerTensorFloat,}
+    'quant_asym': ShiftedUint8WeightPerTensorFloat}
 
 WBIOL_WEIGHT_QUANTIZER = {
     'None': None,
     'quant_sym': Int8WeightPerTensorFloat,
     'quant_asym': ShiftedUint8WeightPerTensorFloat,
-    'quant_decoupled': Int8WeightNormL2PerChannelFixedPoint,}
+    'quant_decoupled': Int8WeightNormL2PerChannelFixedPoint}
 
 WBIOL_IO_QUANTIZER = {
     'None': None,
@@ -54,6 +59,12 @@ WBIOL_IO_QUANTIZER = {
 LSTM_IO_QUANTIZER = {
     'None': None,
     'quant_sym': Int8ActPerTensorFloat,}
+
+MHA_IO_QUANTIZER = {
+    'None': None,
+    'batch_quant': (Int8ActPerTensorFloatBatchQuant1d, Int8ActPerTensorFloat),
+    'quant_sym': Int8ActPerTensorFloat,
+    'quant_asym': ShiftedUint8ActPerTensorFloat}
 
 SIGNED_ACT_QUANTIZER = {
     'None': None,
@@ -485,6 +496,85 @@ def case_quant_rnn_full(
     module = Model()
 
     in_size = (FEATURES, 1, IN_CH)
+    inp = torch.randn(in_size)
+
+    if input_quantized:
+        act = QuantIdentity(return_quant_tensor=True)
+        quant_inp = act(inp)
+    else:
+        quant_inp = inp
+
+    return module, quant_inp
+
+
+@pytest.mark.parametrize("batch_first", [True, False])
+@pytest.mark.parametrize("packed_in_proj", [True, False])
+@pytest_cases.parametrize(
+    'io_quantizer',
+    MHA_IO_QUANTIZER.items(),
+    ids=[f'io_quant${c}' for c, _ in MHA_IO_QUANTIZER.items()])
+@pytest_cases.parametrize(
+    'input_quantized', [True, False], ids=[f'input_quantized${c}' for c in [True, False]])
+@pytest_cases.parametrize(
+    'bias_quantizer',
+    BIAS_QUANTIZER.items(),
+    ids=[f'bias_quant${c}' for c, _ in BIAS_QUANTIZER.items()])
+@pytest_cases.parametrize(
+    'weight_quantizer',
+    WBIOL_WEIGHT_QUANTIZER.items(),
+    ids=[f'weight_quant${c}' for c, _ in WBIOL_WEIGHT_QUANTIZER.items()])
+@pytest_cases.parametrize(
+    'return_quant_tensor', [True, False], ids=[f'return_quant_tensor${f}' for f in [True, False]])
+def case_mha(
+        batch_first,
+        packed_in_proj,
+        weight_quantizer,
+        bias_quantizer,
+        return_quant_tensor,
+        input_quantized,
+        request,
+        io_quantizer):
+    extra_kwargs = {}
+    if torch_version >= version.parse('1.9.1'):
+        extra_kwargs['batch_first'] = batch_first
+
+    # Change the case_id based on current value of Parameters
+    set_case_id(request.node.callspec.id, case_mha)
+    _, weight_quantizer = weight_quantizer
+    _, bias_quantizer = bias_quantizer
+    _, io_quantizer = io_quantizer
+
+    # BatchQuant1d works over 3d input but not 2d, so we have a separate quantizer for out_proj
+    if isinstance(io_quantizer, tuple):
+        io_quantizer, out_proj_io_quantizer = io_quantizer
+        if not batch_first:
+            pytest.skip("BatchQuant requires batch_first=True.")
+    else:
+        out_proj_io_quantizer = io_quantizer
+
+    module = QuantMultiheadAttention(
+        EMBED_DIM,
+        NUM_HEADS,
+        packed_in_proj=packed_in_proj,
+        in_proj_input_quant=io_quantizer,
+        in_proj_weight_quant=weight_quantizer,
+        in_proj_bias_quant=bias_quantizer,
+        softmax_input_quant=io_quantizer,
+        attn_output_weights_quant=io_quantizer,
+        q_scaled_quant=io_quantizer,
+        k_transposed_quant=io_quantizer,
+        v_quant=io_quantizer,
+        out_proj_input_quant=out_proj_io_quantizer,
+        out_proj_weight_quant=weight_quantizer,
+        out_proj_bias_quant=bias_quantizer,
+        out_proj_output_quant=out_proj_io_quantizer,
+        bias=True,
+        return_quant_tensor=return_quant_tensor,
+        **extra_kwargs)
+
+    torch.random.manual_seed(SEED)
+
+    in_size = (2, 5, EMBED_DIM)
     inp = torch.randn(in_size)
 
     if input_quantized:
