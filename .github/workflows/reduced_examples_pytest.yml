@@ -23,6 +23,9 @@ jobs:
         jit_status: ['jit_disabled']
 
 
+        exclude:
+          - pytorch_version: '1.5.1'
+
 
 
     if: ${{ !github.event.pull_request.draft }}
