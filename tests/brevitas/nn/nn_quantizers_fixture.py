@@ -215,24 +215,20 @@ def case_model(
     'accumulator_bit_width',
     ACC_BIT_WIDTHS,
     ids=[f'accumulator_bit_width${bw}' for bw in ACC_BIT_WIDTHS])
-def case_model_a2q(
-        io_quantizer,
-        module,
-        request,
-        accumulator_bit_width):
+def case_model_a2q(io_quantizer, module, request, accumulator_bit_width):
     set_case_id(request.node.callspec.id, case_model_a2q)
     case_id = get_case_id(case_model_a2q)
     # forcing test to only use accumulator-aware weight quantizer
     weight_quantizer = ('quant_a2q', Int8AccumulatorAwareWeightQuant)
     return build_case_model(
         weight_quantizer,
-        ("None",None), # bias_quantizer = None
+        ("None", None),  # bias_quantizer = None
         io_quantizer,
-        True, # return_quant_tensor = True
+        True,  # return_quant_tensor = True
         module,
         case_id,
-        True, # input_quantizer = True
-        True, # is_training = True
+        True,  # input_quantizer = True
+        True,  # is_training = True
         accumulator_bit_width=accumulator_bit_width)
 
 

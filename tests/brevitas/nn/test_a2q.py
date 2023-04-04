@@ -28,7 +28,7 @@ def parse_args(args):
 @pytest_cases.parametrize_with_cases('model_input', cases=case_model_a2q)
 def test_quant_wbiol_a2q(model_input, current_cases):
     """This test only verifies that the accumulator-aware weight quantization constraints the l1-norm of
-    the weights enough use the user-specified accumulator bit-width. Baseline functionality is in the 
+    the weights enough use the user-specified accumulator bit-width. Baseline functionality is in the
     test_nn_quantizers."""
     model, input = model_input
 
@@ -75,4 +75,3 @@ def test_quant_wbiol_a2q(model_input, current_cases):
     exp_acc_bit_width = kwargs['accumulator_bit_width']
     assert cur_acc_bit_width <= exp_acc_bit_width, \
         f"Model does not satisfy accumulator bit-width bounds. Expected {exp_acc_bit_width}, got {cur_acc_bit_width}"
-
