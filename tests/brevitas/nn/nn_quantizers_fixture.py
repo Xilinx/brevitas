@@ -112,7 +112,7 @@ def build_case_model(
             "A2Q uses an input-aware decoupled weight proxy that requires a quantized input tensor."
         )
 
-    impl = case_id.split('-')[2].split('$')[-1]
+    impl = module.__name__
     # BatchQuant has dimension specific quantizers
     if isinstance(io_quantizer, tuple):
         if '1d' in impl:
