@@ -37,6 +37,23 @@ COMPUTE_LAYER_MAP = {
             'out_proj_weight_quant': Int8WeightPerTensorFloat,
             'out_proj_bias_quant': Int32Bias,
             'return_quant_tensor': True}),
+    nn.RNN: (
+        qnn.QuantRNN,
+        {
+            'weight_quant': Int8WeightPerTensorFloat,
+            'bias_quant': Int32Bias,
+            'io_quant': Int8ActPerTensorFloat,
+            'gate_acc_quant': Int8ActPerTensorFloat,}),
+    nn.LSTM: (
+        qnn.QuantLSTM,
+        {
+            'weight_quant': Int8WeightPerTensorFloat,
+            'bias_quant': Int32Bias,
+            'io_quant': Int8ActPerTensorFloat,
+            'gate_acc_quant': Int8ActPerTensorFloat,
+            'sigmoid_quant': Uint8ActPerTensorFloat,
+            'tanh_quant': Int8ActPerTensorFloat,
+            'cell_state_quant': Int8ActPerTensorFloat,}),
     nn.Conv1d: (
         qnn.QuantConv1d,
         {
@@ -81,6 +98,23 @@ LAYERWISE_COMPUTE_LAYER_MAP = {
             'out_proj_input_quant': Int8ActPerTensorFloat,
             'out_proj_weight_quant': Int8WeightPerTensorFloat,
             'out_proj_bias_quant': Int32Bias,}),
+    nn.LSTM: (
+        qnn.QuantLSTM,
+        {
+            'weight_quant': Int8WeightPerTensorFloat,
+            'bias_quant': Int32Bias,
+            'io_quant': Int8ActPerTensorFloat,
+            'gate_acc_quant': Int8ActPerTensorFloat,
+            'sigmoid_quant': Uint8ActPerTensorFloat,
+            'tanh_quant': Int8ActPerTensorFloat,
+            'cell_state_quant': Int8ActPerTensorFloat,}),
+    nn.RNN: (
+        qnn.QuantRNN,
+        {
+            'weight_quant': Int8WeightPerTensorFloat,
+            'bias_quant': Int32Bias,
+            'io_quant': Int8ActPerTensorFloat,
+            'gate_acc_quant': Int8ActPerTensorFloat,}),
     nn.Conv1d: (
         qnn.QuantConv1d,
         {
