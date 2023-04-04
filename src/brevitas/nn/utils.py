@@ -106,6 +106,7 @@ def calculate_min_accumulator_bit_width(
     Example (weight-level bound):
     >> acc_bit_width = calculate_min_accumulator_bit_width(input_bit_width, input_is_signed, weight_max_l1_norm)
     """
+    input_is_signed = float(input_is_signed)
     # if the l1-norm of the weights is specified, then use the weight-level bound
     if weight_max_l1_norm is not None:
         assert isinstance(weight_max_l1_norm, (float, Tensor)), "The l1-norm of the weights needs to be a float or a torch.Tensor instance."

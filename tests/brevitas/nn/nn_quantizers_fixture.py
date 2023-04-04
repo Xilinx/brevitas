@@ -206,52 +206,33 @@ def case_model(
 
 
 @pytest_cases.parametrize(
-    'input_quantized', [True, False], ids=[f'input_quantized${c}' for c in [True, False]])
-@pytest_cases.parametrize(
-    'bias_quantizer',
-    BIAS_QUANTIZER.items(),
-    ids=[f'bias_quant${c}' for c, _ in BIAS_QUANTIZER.items()])
-@pytest_cases.parametrize(
     'io_quantizer',
     WBIOL_IO_QUANTIZER.items(),
     ids=[f'io_quant${c}' for c, _ in WBIOL_IO_QUANTIZER.items()])
 @pytest_cases.parametrize(
-    'return_quant_tensor', [True, False], ids=[f'return_quant_tensor${f}' for f in [True, False]])
-@pytest_cases.parametrize(
     'module', QUANT_WBIOL_IMPL, ids=[f'model_type${c.__name__}' for c in QUANT_WBIOL_IMPL])
-@pytest_cases.parametrize(
-    'is_training', [True, False], ids=[f'is_training${f}' for f in [True, False]])
 @pytest_cases.parametrize(
     'accumulator_bit_width',
     ACC_BIT_WIDTHS,
     ids=[f'accumulator_bit_width${bw}' for bw in ACC_BIT_WIDTHS])
 def case_model_a2q(
-        bias_quantizer,
         io_quantizer,
-        return_quant_tensor,
         module,
         request,
-        input_quantized,
-        is_training,
         accumulator_bit_width):
     set_case_id(request.node.callspec.id, case_model_a2q)
     case_id = get_case_id(case_model_a2q)
     # forcing test to only use accumulator-aware weight quantizer
     weight_quantizer = ('quant_a2q', Int8AccumulatorAwareWeightQuant)
-    io_name, _ = io_quantizer
-    if io_name == 'batch_quant':
-        pytest.skip(
-            "Skipping batch_quant tests with A2Q."
-        )
     return build_case_model(
         weight_quantizer,
-        bias_quantizer,
+        ("None",None), # bias_quantizer = None
         io_quantizer,
-        return_quant_tensor,
+        True, # return_quant_tensor = True
         module,
         case_id,
-        input_quantized,
-        is_training,
+        True, # input_quantizer = True
+        True, # is_training = True
         accumulator_bit_width=accumulator_bit_width)
 
 

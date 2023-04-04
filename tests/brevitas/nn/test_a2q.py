@@ -27,8 +27,9 @@ def parse_args(args):
 
 @pytest_cases.parametrize_with_cases('model_input', cases=case_model_a2q)
 def test_quant_wbiol_a2q(model_input, current_cases):
-    """This test verifies that the accumulator-aware weight quantization constraints the l1-norm of
-    the weights enough use the user-specified accumulator bit-width."""
+    """This test only verifies that the accumulator-aware weight quantization constraints the l1-norm of
+    the weights enough use the user-specified accumulator bit-width. Baseline functionality is in the 
+    test_nn_quantizers."""
     model, input = model_input
 
     cases_generator_func = current_cases['model_input'][1]
@@ -38,33 +39,19 @@ def test_quant_wbiol_a2q(model_input, current_cases):
 
     # A2Q needs to have a quantized input, which can be done by input quantizer or returning
     # a quantized tensor from the preceding layer
-    is_input_quant_tensor = kwargs['io_quant'] is not None or kwargs['input_quantized']
+    is_input_quant_tensor = kwargs['io_quant'] is not None or isinstance(input, QuantTensor)
     assert is_input_quant_tensor, "All A2Q models require quantized inputs."
 
     # testing the forward pass
     output = model(input)
 
     # bit-width and sign need to come from the quant tensor of the preceding layer if no io_quant
-    if kwargs['io_quant'] is None:
-        input_bit_width = input.bit_width
-        input_is_signed = input.signed
-    # else bit-width and sign come from the io_quant
-    else:
-        input_bit_width = model.conv.quant_input_bit_width()
-        input_is_signed = model.conv.is_quant_input_signed
+    quant_input = model.conv.input_quant(input)
+    input_bit_width = quant_input.bit_width
+    input_is_signed = quant_input.signed
 
-    # if the input is not quantized already, the wrap it in a QuantTensor
-    if not kwargs['input_quantized']:
-        input = QuantTensor(
-            input,
-            None,  # not used by weight_quant
-            None,  # not used by weight_quant
-            input_bit_width,
-            input_is_signed,
-            None  # note used by weight_quant
-        )
     # the tensor quantizer requires a QuantTensor with specified bit-width and sign
-    quant_weight = model.conv.quant_weight(input)
+    quant_weight = model.conv.quant_weight(quant_input)
     quant_weight = quant_weight.int().float()
     if kwargs['model_type'] == 'QuantLinear':  # shape = (out_features, in_features)
         quant_weight_per_channel_l1_norm = quant_weight.norm(p=1, dim=1)
@@ -89,10 +76,3 @@ def test_quant_wbiol_a2q(model_input, current_cases):
     assert cur_acc_bit_width <= exp_acc_bit_width, \
         f"Model does not satisfy accumulator bit-width bounds. Expected {exp_acc_bit_width}, got {cur_acc_bit_width}"
 
-    # might as well also check again if the output is a quant tensor if it is specified to be
-    if kwargs['return_quant_tensor']:
-        assert isinstance(output, QuantTensor)
-        assert output.scale is not None
-        assert output.bit_width is not None
-    else:
-        assert isinstance(output, torch.Tensor)
