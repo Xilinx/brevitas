@@ -24,6 +24,7 @@ BATCH = 1
 HEIGHT, WIDTH = 224, 224
 IN_CH = 3
 MODEL_LIST = [
+    'vit_b_32',
     'efficientnet_b0',
     'mobilenet_v3_small',
     'mobilenet_v2',
@@ -69,6 +70,8 @@ def torchvision_model(model_name, quantize_fn):
     if torch_version < version.parse('1.10.1') and model_name in ('efficientnet_b0',
                                                                   'mobilenet_v3_small'):
         return None
+    if torch_version < version.parse('1.11.0') and model_name == 'vit_b_32':
+        return None
 
     # Deeplab and fcn are in a different module, and they have a dict as output which is not suited for torchscript
     if model_name in ('deeplabv3_resnet50', 'fcn_resnet50'):
@@ -93,7 +96,6 @@ def torchvision_model(model_name, quantize_fn):
 def test_torchvision_graph_quantization_flexml_qcdq_onnx(torchvision_model, request):
     if torchvision_model is None:
         pytest.skip('Model not instantiated')
-    test_id = request.node.callspec.id
     inp = torch.randn(BATCH, IN_CH, HEIGHT, WIDTH)
     export_onnx_qcdq(torchvision_model, args=inp)
 
@@ -102,6 +104,5 @@ def test_torchvision_graph_quantization_flexml_qcdq_onnx(torchvision_model, requ
 def test_torchvision_graph_quantization_flexml_qcdq_torch(torchvision_model, request):
     if torchvision_model is None:
         pytest.skip('Model not instantiated')
-    test_id = request.node.callspec.id
     inp = torch.randn(BATCH, IN_CH, HEIGHT, WIDTH)
     export_torch_qcdq(torchvision_model, args=inp)
