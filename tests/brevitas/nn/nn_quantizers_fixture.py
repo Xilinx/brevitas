@@ -238,6 +238,11 @@ def case_model_a2q(
     case_id = get_case_id(case_model_a2q)
     # forcing test to only use accumulator-aware weight quantizer
     weight_quantizer = ('quant_a2q', Int8AccumulatorAwareWeightQuant)
+    io_name, _ = io_quantizer
+    if io_name == 'batch_quant':
+        pytest.skip(
+            "Skipping batch_quant tests with A2Q."
+        )
     return build_case_model(
         weight_quantizer,
         bias_quantizer,
