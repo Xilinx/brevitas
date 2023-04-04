@@ -600,9 +600,14 @@ def case_mha(
 
     # Change the case_id based on current value of Parameters
     set_case_id(request.node.callspec.id, case_mha)
-    _, weight_quantizer = weight_quantizer
+    k, weight_quantizer = weight_quantizer
     _, bias_quantizer = bias_quantizer
     _, io_quantizer = io_quantizer
+
+    if io_quantizer is None and not input_quantized and k == 'quant_a2q':
+        pytest.skip(
+            "A2Q uses an input-aware decoupled weight proxy that requires a quantized input tensor."
+        )
 
     # BatchQuant1d works over 3d input but not 2d, so we have a separate quantizer for out_proj
     if isinstance(io_quantizer, tuple):
