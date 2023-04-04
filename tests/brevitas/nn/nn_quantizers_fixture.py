@@ -604,7 +604,8 @@ def case_mha(
     _, bias_quantizer = bias_quantizer
     _, io_quantizer = io_quantizer
 
-    if io_quantizer is None and not input_quantized and k == 'quant_a2q':
+    if io_quantizer is None and k == 'quant_a2q':
+        # Can't rely on a QuantTensor input for quant_mha at this point
         pytest.skip(
             "A2Q uses an input-aware decoupled weight proxy that requires a quantized input tensor."
         )
