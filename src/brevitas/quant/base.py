@@ -5,15 +5,19 @@ from dependencies import this
 from dependencies import value
 
 from brevitas.core.bit_width import BitWidthConst
+from brevitas.core.bit_width import BitWidthStatefulConst
 from brevitas.core.function_wrapper import OverOutputChannelView
+from brevitas.core.function_wrapper import RoundToZeroSte
 from brevitas.core.function_wrapper import TensorClamp
 from brevitas.core.function_wrapper import TensorClampSte
 from brevitas.core.function_wrapper.ops_ste import CeilSte
 from brevitas.core.quant import ClampedBinaryQuant
 from brevitas.core.quant.int import DecoupledRescalingIntQuant
+from brevitas.core.quant.int import DecoupledRescalingIntQuantWithInput
 from brevitas.core.quant.int_base import DecoupledIntQuant
 from brevitas.core.restrict_val import FloatRestrictValue
 from brevitas.core.restrict_val import LogFloatRestrictValue
+from brevitas.core.scaling import AccumulatorAwareParameterPreScaling
 from brevitas.core.scaling import IntScaling
 from brevitas.core.scaling import ParameterPreScalingWeightNorm
 from brevitas.core.scaling import ParameterScaling
@@ -22,6 +26,7 @@ from brevitas.core.scaling import SCALING_STATS_REDUCE_DIM
 from brevitas.core.scaling import StatsFromParameterScaling
 from brevitas.core.stats import AbsMax
 from brevitas.core.stats import AbsMaxL2
+from brevitas.core.stats import L1Norm
 from brevitas.core.stats import L2Norm
 from brevitas.core.stats import NegativeMinOrZero
 from brevitas.core.stats import NegativePercentileOrZero
@@ -37,6 +42,7 @@ from brevitas.inject.enum import RestrictValueType
 from brevitas.inject.enum import ScalingImplType
 from brevitas.inject.enum import StatsOp
 from brevitas.proxy import DecoupledWeightQuantProxyFromInjector
+from brevitas.proxy import DecoupledWeightQuantWithInputProxyFromInjector
 from brevitas.quant.solver.parameter import ParameterFromStatsScalingInit
 from brevitas.quant.solver.parameter import SolveParameterScalingShape
 from brevitas.quant.solver.weight import SolveWeightScalingPerOutputChannelShapeFromModule
@@ -62,7 +68,8 @@ __all__ = [
     'WeightPerChannelFloatDecoupled',
     'WeightNormPerChannelFloatDecoupled',
     'BatchQuantStatsScaling1d',
-    'BatchQuantStatsScaling2d']
+    'BatchQuantStatsScaling2d',
+    'AccumulatorAwareWeightQuant']
 
 
 class MaxStatsScaling(ExtendedInjector):
@@ -354,3 +361,33 @@ class WeightNormPerChannelFloatDecoupled(SolveWeightScalingStatsInputDimsFromMod
     scaling_stats_input_view_shape_impl = OverOutputChannelView
     stats_reduce_dim = SCALING_STATS_REDUCE_DIM
     scaling_per_output_channel = True
+
+
+class AccumulatorAwareWeightQuant(WeightNormPerChannelFloatDecoupled):
+    """Experimental accumulator-aware weight quantizer based on `Quantized Neural Networks
+    for Low-Precision Accumulation with Guaranteed Overflow Avoidance` by I. Colbert,
+    A. Pappalardo, and J. Petri-Koenig.
+
+    The formulation is based on weight normalization-based quantization as given below:
+        `y = clip(round( (g / s) * (w / norm(w)) )) * s`
+    where `g` is the constrained such that the upper-bound on the l1-norm of the quantized
+    weights satisfies the bounds derived in the referenced paper.
+
+    The default quantizer uses input-aware decoupled rescaling integer quantization arithmetic
+    where the constrained weight normalization calculation and parameterization are combined
+    with the scaling factor to become the pre-clipping scaling factor (i.e., `pre_scale`) an
+    the scaling factor is the post-clipping scaling factor (i.e., `post_scale`). For further
+    details on the arithmetic, see `AccumulatorAwareParameterPreScalingWeightNorm`. For further
+    details on accumulator-aware quantization (A2Q) technique, see the referenced paper."""
+
+    @value
+    def accumulator_bit_width_impl(accumulator_bit_width):
+        return BitWidthStatefulConst(accumulator_bit_width)
+
+    proxy_class = DecoupledWeightQuantWithInputProxyFromInjector
+    tensor_quant = DecoupledRescalingIntQuantWithInput
+    pre_scaling_impl = AccumulatorAwareParameterPreScaling
+    pre_scaling_min_val = 1e-8
+    accumulator_bit_width = 32  # default maximum accumulator width is 32 bits
+    normalize_stats_impl = L1Norm  # required to align with derivations in paper
+    float_to_int_impl = RoundToZeroSte  # required to ensure no upwards rounding violates constraints

@@ -66,6 +66,10 @@ class WeightQuantProxyFromInjector(ParameterQuantProxyFromInjector, WeightQuantP
     def tracked_parameter_list(self):
         return [m.weight for m in self.tracked_module_list if m.weight is not None]
 
+    @property
+    def requires_quant_input(self):
+        return False
+
     def scale(self):
         scale = self.__call__(self.tracked_parameter_list[0]).scale
         return scale
@@ -103,6 +107,38 @@ class DecoupledWeightQuantProxyFromInjector(WeightQuantProxyFromInjector):
         if self.is_quant_enabled:
             impl = self.export_handler if self.export_mode else self.tensor_quant
             out, scale, zero_point, bit_width, pre_scale, pre_zero_point = impl(x)
+            return QuantTensor(out, scale, zero_point, bit_width, self.is_signed, self.training)
+        else:  # quantization disabled
+            return QuantTensor(x, training=self.training)
+
+
+class DecoupledWeightQuantWithInputProxyFromInjector(DecoupledWeightQuantProxyFromInjector):
+
+    @property
+    def requires_quant_input(self):
+        return True
+
+    def scale(self):
+        raise NotImplementedError
+
+    def zero_point(self):
+        raise NotImplementedError
+
+    def bit_width(self):
+        raise NotImplementedError
+
+    def pre_scale(self):
+        raise NotImplementedError
+
+    def pre_zero_point(self):
+        raise NotImplementedError
+
+    def forward(
+            self, x: torch.Tensor, input_bit_width: torch.Tensor,
+            input_is_signed: bool) -> QuantTensor:
+        if self.is_quant_enabled:
+            impl = self.export_handler if self.export_mode else self.tensor_quant
+            out, scale, zero_point, bit_width, pre_scale, pre_zero_point = impl(x, input_bit_width, input_is_signed)
             return QuantTensor(out, scale, zero_point, bit_width, self.is_signed, self.training)
         else:  # quantization disabled
             return QuantTensor(x, training=self.training)

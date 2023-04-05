@@ -14,6 +14,7 @@ from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
 from brevitas.proxy.parameter_quant import WeightQuantProxyProtocol
 from brevitas.quant import NoneBiasQuant
 from brevitas.quant import NoneWeightQuant
+from brevitas.quant_tensor import QuantTensor
 
 from .base import QuantProxyMixin
 
@@ -51,7 +52,21 @@ class QuantWeightMixin(QuantProxyMixin):
     def is_quant_weight_signed(self):
         return self.weight_quant.is_signed
 
-    def quant_weight(self):
+    @property
+    def weight_quant_requires_quant_input(self):
+        return self.weight_quant.requires_quant_input
+
+    def quant_weight(self, quant_input: Optional[QuantTensor] = None):
+        if self.weight_quant_requires_quant_input:
+            if quant_input is None:
+                input_bit_width = self.quant_input_bit_width()
+                input_is_signed = self.is_quant_input_signed
+            else:
+                input_bit_width = quant_input.bit_width
+                input_is_signed = quant_input.signed
+            assert input_bit_width is not None, "Input bit-width needs to be specified."
+            assert input_is_signed is not None, "Input sign needs to be specified."
+            return self.weight_quant(self.weight, input_bit_width, input_is_signed)
         return self.weight_quant(self.weight)
 
     def int_weight(self, float_datatype=False):

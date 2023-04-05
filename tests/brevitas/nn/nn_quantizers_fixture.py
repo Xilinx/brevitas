@@ -19,6 +19,7 @@ from brevitas.nn import QuantLinear
 from brevitas.nn.quant_mha import QuantMultiheadAttention
 from brevitas.nn.quant_rnn import QuantLSTM
 from brevitas.nn.quant_rnn import QuantRNN
+from brevitas.quant.fixed_point import Int8AccumulatorAwareWeightQuant
 from brevitas.quant.fixed_point import Int8WeightNormL2PerChannelFixedPoint
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8ActPerTensorFloatBatchQuant1d
@@ -48,7 +49,8 @@ WBIOL_WEIGHT_QUANTIZER = {
     'None': None,
     'quant_sym': Int8WeightPerTensorFloat,
     'quant_asym': ShiftedUint8WeightPerTensorFloat,
-    'quant_decoupled': Int8WeightNormL2PerChannelFixedPoint}
+    'quant_decoupled': Int8WeightNormL2PerChannelFixedPoint,
+    'quant_a2q': Int8AccumulatorAwareWeightQuant}
 
 WBIOL_IO_QUANTIZER = {
     'None': None,
@@ -87,6 +89,79 @@ QUANT_WBIOL_IMPL = [
     QuantConvTranspose1d,
     QuantConvTranspose2d,]
 
+ACC_BIT_WIDTHS = [8, 9, 10, 12, 16, 24, 32]
+
+
+def build_case_model(
+        weight_quantizer,
+        bias_quantizer,
+        io_quantizer,
+        return_quant_tensor,
+        module,
+        case_id,
+        input_quantized,
+        is_training,
+        accumulator_bit_width=32):
+
+    k, weight_quantizer = weight_quantizer
+    _, bias_quantizer = bias_quantizer
+    _, io_quantizer = io_quantizer
+
+    if io_quantizer is None and not input_quantized and k == 'quant_a2q':
+        pytest.skip(
+            "A2Q uses an input-aware decoupled weight proxy that requires a quantized input tensor."
+        )
+
+    impl = module.__name__
+    # BatchQuant has dimension specific quantizers
+    if isinstance(io_quantizer, tuple):
+        if '1d' in impl:
+            io_quantizer = io_quantizer[0]  # select 1d quantizer
+        elif '2d' in impl:
+            io_quantizer = io_quantizer[1]  # select 2d quantizer
+        else:
+            pytest.skip("Combination of layer and quantizer not supported.")
+    if impl == 'QuantLinear':
+        layer_kwargs = {'in_features': IN_CH, 'out_features': OUT_CH}
+    else:
+        layer_kwargs = {'in_channels': IN_CH, 'out_channels': OUT_CH, 'kernel_size': KERNEL_SIZE}
+
+    class Model(nn.Module):
+
+        def __init__(self):
+            super().__init__()
+            self.conv = module(
+                **layer_kwargs,
+                bias=True,
+                weight_quant=weight_quantizer,
+                input_quant=io_quantizer,
+                output_quant=io_quantizer,
+                bias_quant=bias_quantizer,
+                return_quant_tensor=return_quant_tensor,
+                weight_accumulator_bit_width=accumulator_bit_width)
+            self.conv.weight.data.uniform_(-0.01, 0.01)
+
+        def forward(self, x):
+            return self.conv(x)
+
+    torch.random.manual_seed(SEED)
+    module = Model()
+    module.train(is_training)
+
+    if impl in ('QuantLinear',):
+        in_size = (1, IN_CH)
+    elif impl in ('QuantConv1d', 'QuantConvTranspose1d'):
+        in_size = (1, IN_CH, FEATURES)
+    else:
+        in_size = (1, IN_CH, FEATURES, FEATURES)
+
+    if input_quantized:
+        quant_inp = QuantTensor(
+            torch.randint(-128, 127, in_size) * 0.128, 0.128, 0., 8., True, is_training)
+    else:
+        quant_inp = torch.randn(in_size)
+    return module, quant_inp
+
 
 @pytest_cases.parametrize(
     'input_quantized', [True, False], ids=[f'input_quantized${c}' for c in [True, False]])
@@ -119,58 +194,43 @@ def case_model(
         is_training):
     set_case_id(request.node.callspec.id, case_model)
     case_id = get_case_id(case_model)
-    _, weight_quantizer = weight_quantizer
-    _, bias_quantizer = bias_quantizer
-    _, io_quantizer = io_quantizer
+    return build_case_model(
+        weight_quantizer,
+        bias_quantizer,
+        io_quantizer,
+        return_quant_tensor,
+        module,
+        case_id,
+        input_quantized,
+        is_training)
 
-    impl = case_id.split('-')[2].split('$')[-1]
-    # BatchQuant has dimension specific quantizers
-    if isinstance(io_quantizer, tuple):
-        if '1d' in impl:
-            io_quantizer = io_quantizer[0]  # select 1d quantizer
-        elif '2d' in impl:
-            io_quantizer = io_quantizer[1]  # select 2d quantizer
-        else:
-            pytest.skip("Combination of layer and quantizer not supported.")
-    if impl == 'QuantLinear':
-        layer_kwargs = {'in_features': IN_CH, 'out_features': OUT_CH}
-    else:
-        layer_kwargs = {'in_channels': IN_CH, 'out_channels': OUT_CH, 'kernel_size': KERNEL_SIZE}
 
-    class Model(nn.Module):
-
-        def __init__(self):
-            super().__init__()
-            self.conv = module(
-                **layer_kwargs,
-                bias=True,
-                weight_quant=weight_quantizer,
-                input_quant=io_quantizer,
-                output_quant=io_quantizer,
-                bias_quant=bias_quantizer,
-                return_quant_tensor=return_quant_tensor)
-            self.conv.weight.data.uniform_(-0.01, 0.01)
-
-        def forward(self, x):
-            return self.conv(x)
-
-    torch.random.manual_seed(SEED)
-    module = Model()
-    module.train(is_training)
-
-    if impl in ('QuantLinear',):
-        in_size = (1, IN_CH)
-    elif impl in ('QuantConv1d', 'QuantConvTranspose1d'):
-        in_size = (1, IN_CH, FEATURES)
-    else:
-        in_size = (1, IN_CH, FEATURES, FEATURES)
-
-    if input_quantized:
-        quant_inp = QuantTensor(
-            torch.randint(-128, 127, in_size) * 0.128, 0.128, 0., 8., True, is_training)
-    else:
-        quant_inp = torch.randn(in_size)
-    return module, quant_inp
+@pytest_cases.parametrize(
+    'io_quantizer',
+    WBIOL_IO_QUANTIZER.items(),
+    ids=[f'io_quant${c}' for c, _ in WBIOL_IO_QUANTIZER.items()])
+@pytest_cases.parametrize(
+    'module', QUANT_WBIOL_IMPL, ids=[f'model_type${c.__name__}' for c in QUANT_WBIOL_IMPL])
+@pytest_cases.parametrize(
+    'accumulator_bit_width',
+    ACC_BIT_WIDTHS,
+    ids=[f'accumulator_bit_width${bw}' for bw in ACC_BIT_WIDTHS])
+def case_model_a2q(io_quantizer, module, request, accumulator_bit_width):
+    set_case_id(request.node.callspec.id, case_model_a2q)
+    case_id = get_case_id(case_model_a2q)
+    # forcing test to only use accumulator-aware weight quantizer
+    weight_quantizer = ('quant_a2q', Int8AccumulatorAwareWeightQuant)
+    # reducing coverage by fixing some case parameters
+    return build_case_model(
+        weight_quantizer,
+        ("None", None),  # force bias_quantizer = None (irrelevant)
+        io_quantizer,
+        True,  # force return_quant_tensor = True (irrelevant)
+        module,
+        case_id,
+        True,  # force input_quantized = True (required)
+        True,  # force is_training = True (irrelevant)
+        accumulator_bit_width=accumulator_bit_width)
 
 
 @pytest_cases.parametrize(
@@ -540,9 +600,15 @@ def case_mha(
 
     # Change the case_id based on current value of Parameters
     set_case_id(request.node.callspec.id, case_mha)
-    _, weight_quantizer = weight_quantizer
+    k, weight_quantizer = weight_quantizer
     _, bias_quantizer = bias_quantizer
     _, io_quantizer = io_quantizer
+
+    if io_quantizer is None and k == 'quant_a2q':
+        # Can't rely on a QuantTensor input for quant_mha at this point
+        pytest.skip(
+            "A2Q uses an input-aware decoupled weight proxy that requires a quantized input tensor."
+        )
 
     # BatchQuant1d works over 3d input but not 2d, so we have a separate quantizer for out_proj
     if isinstance(io_quantizer, tuple):

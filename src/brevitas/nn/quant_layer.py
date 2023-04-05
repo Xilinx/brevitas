@@ -301,7 +301,7 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
             return out
 
         quant_input = self.input_quant(inp)
-        quant_weight = self.quant_weight()
+        quant_weight = self.quant_weight(quant_input)
 
         if quant_input.bit_width is not None and quant_weight.bit_width is not None:
             output_bit_width = self.max_acc_bit_width(quant_input.bit_width, quant_weight.bit_width)
