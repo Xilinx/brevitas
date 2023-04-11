@@ -44,6 +44,14 @@ class FloatToIntImplType(AutoName):
     FLOOR = auto()
     ROUND_TO_ZERO = auto()
     DPU = auto()
+    LEARNED_ROUND = auto()
+
+
+class LearnedRoundImplType(AutoName):
+    """
+    """
+    HARD_SIGMOID = auto()
+    SIGMOID = auto()
 
 
 class ScalingImplType(AutoName):
