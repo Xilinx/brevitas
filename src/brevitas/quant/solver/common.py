@@ -3,6 +3,9 @@
 
 from brevitas.core.bit_width import *
 from brevitas.core.function_wrapper import *
+from brevitas.core.function_wrapper.learned_round import LearnedRoundHardSigmoid
+from brevitas.core.function_wrapper.learned_round import LearnedRoundSigmoid
+from brevitas.core.function_wrapper.learned_round import LearnedRoundSte
 from brevitas.core.quant import *
 from brevitas.core.quant import QuantType
 from brevitas.core.restrict_val import *
@@ -11,6 +14,7 @@ from brevitas.core.scaling import ScalingImplType
 from brevitas.core.stats import *
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import value
+from brevitas.inject.enum import LearnedRoundImplType
 
 __all__ = [
     'solve_bit_width_impl_from_enum',
@@ -38,6 +42,8 @@ def solve_float_to_int_impl_from_enum(impl_type):
         return RoundToZeroSte
     elif impl_type == FloatToIntImplType.DPU:
         return DPURoundSte
+    elif impl_type == FloatToIntImplType.LEARNED_ROUND:
+        return LearnedRoundSte
     else:
         raise Exception(f"{impl_type} not recognized.")
 
@@ -122,6 +128,26 @@ class SolveIntQuantFromEnum(ExtendedInjector):
             return IntQuant
         else:
             return None
+
+
+class SolveTensorQuantFloatToIntImplFromEnum(ExtendedInjector):
+
+    @value
+    def float_to_int_impl(float_to_int_impl_type):
+        return solve_float_to_int_impl_from_enum(float_to_int_impl_type)
+
+    @value
+    def learned_round_impl(learned_round_impl_type):
+        if learned_round_impl_type == LearnedRoundImplType.SIGMOID:
+            return LearnedRoundSigmoid
+        if learned_round_impl_type == LearnedRoundImplType.HARD_SIGMOID:
+            return LearnedRoundHardSigmoid
+
+    @value
+    def learned_round_init(tracked_parameter_list):
+        if len(tracked_parameter_list) > 1:
+            raise RuntimeError('LearnedRound does not support shared quantizers')
+        return torch.full(tracked_parameter_list[0].shape, 0.)
 
 
 class SolveTensorQuantFloatToIntImplFromEnum(ExtendedInjector):
