@@ -10,6 +10,7 @@ from brevitas.graph.fixed_point import CollapseConsecutiveConcats
 from brevitas.graph.fixed_point import MergeBatchNorm
 from brevitas.graph.fixed_point import MoveSplitBatchNormBeforeCat
 from brevitas.graph.per_input import AdaptiveAvgPoolToAvgPool
+from brevitas.graph.quantize import preprocess_for_quantize
 from brevitas.graph.quantize import quantize
 from brevitas.graph.quantize import UNSIGNED_ACT_TUPLE
 from brevitas.graph.standardize import DuplicateSharedStatelessModule
@@ -128,35 +129,33 @@ FLEXML_QUANT_IDENTITY_MAP = {
             'act_quant': Uint8ActPerTensorFixedPoint, 'return_quant_tensor': True}),}
 
 
-def preprocess_flexml(
+def preprocess_for_flexml_quantize(
         model,
         *model_args,
         trace_model=True,
+        relu6_to_relu=True,
         equalize_iters=0,
         equalize_merge_bias=True,
         merge_bn=True,
-        equalize_bias_shrinkage='vaiq',
-        equalize_scale_computation='maxabs',
+        equalize_bias_shrinkage: str = 'vaiq',
+        equalize_scale_computation: str = 'maxabs',
         **model_kwargs):
     training_state = model.training
     model.eval()
+
     if trace_model:
         model = symbolic_trace(model)
-    model = TorchFunctionalToModule().apply(model)
-    model = DuplicateSharedStatelessModule().apply(model)
-    model = ModuleToModuleByClass(nn.ReLU6, nn.ReLU).apply(model)
     model = MeanMethodToAdaptiveAvgPool2d().apply(model)
     model = AdaptiveAvgPoolToAvgPool().apply(model, *model_args, **model_kwargs)
-    model = CollapseConsecutiveConcats().apply(model)
-    model = MoveSplitBatchNormBeforeCat().apply(model)
-    if merge_bn:
-        model = MergeBatchNorm().apply(model)
-    model = RemoveStochasticModules().apply(model)
-    model = EqualizeGraph(
-        iterations=equalize_iters,
-        merge_bias=equalize_merge_bias,
-        bias_shrinkage=equalize_bias_shrinkage,
-        scale_computation_type=equalize_scale_computation).apply(model)
+    model = preprocess_for_quantize(
+        model,
+        False,
+        relu6_to_relu,
+        equalize_iters,
+        equalize_merge_bias,
+        merge_bn,
+        equalize_bias_shrinkage,
+        equalize_scale_computation)
     model.train(training_state)
     return model
 
