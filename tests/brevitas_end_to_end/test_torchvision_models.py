@@ -16,7 +16,7 @@ from brevitas.export import export_torch_qcdq
 from brevitas.graph.calibrate import calibration_mode
 from brevitas.graph.quantize import layerwise_quantize
 from brevitas.graph.quantize import quantize
-from brevitas.graph.target.flexml import preprocess_flexml
+from brevitas.graph.target.flexml import preprocess_for_flexml_quantize
 from brevitas.graph.target.flexml import quantize_flexml
 from tests.marker import requires_pt_ge
 
@@ -85,7 +85,7 @@ def torchvision_model(model_name, quantize_fn):
         model = model_fn(pretrained=True)
 
     model.eval()
-    model = preprocess_flexml(model, inp)
+    model = preprocess_for_flexml_quantize(model, inp)
     model = quantize_fn(model)
     with calibration_mode(model):
         model(inp)
