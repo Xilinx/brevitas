@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import argparse
-import configparser
 import os
 import random
 
@@ -16,8 +15,9 @@ import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 
 from brevitas_examples.imagenet_classification.models import model_with_cfg
-
-SEED = 123456
+from brevitas_examples.imagenet_classification.utils import accuracy
+from brevitas_examples.imagenet_classification.utils import AverageMeter
+from brevitas_examples.imagenet_classification.utils import SEED
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Validation')
 parser.add_argument('--imagenet-dir', help='path to folder containing Imagenet val folder')
@@ -92,48 +92,6 @@ def validate(val_loader, model, args):
             print_accuracy(top1, top5, '{}/{}: '.format(i, num_batches))
         print_accuracy(top1, top5, 'Total:')
     return
-
-
-class AverageMeter(object):
-    """Computes and stores the average and current value"""
-
-    def __init__(self, name, fmt=':f'):
-        self.name = name
-        self.fmt = fmt
-        self.reset()
-
-    def reset(self):
-        self.val = 0
-        self.avg = 0
-        self.sum = 0
-        self.count = 0
-
-    def update(self, val, n=1):
-        self.val = val
-        self.sum += val * n
-        self.count += n
-        self.avg = self.sum / self.count
-
-    def __str__(self):
-        fmtstr = '{name} {val' + self.fmt + '} ({avg' + self.fmt + '})'
-        return fmtstr.format(**self.__dict__)
-
-
-def accuracy(output, target, topk=(1,)):
-    """Computes the accuracy over the k top predictions for the specified values of k"""
-    with torch.no_grad():
-        maxk = max(topk)
-        batch_size = target.size(0)
-
-        _, pred = output.topk(maxk, 1, True, True)
-        pred = pred.t()
-        correct = pred.eq(target.view(1, -1).expand_as(pred))
-
-        res = []
-        for k in topk:
-            correct_k = correct[:k].reshape(-1).float().sum(0, keepdim=True)
-            res.append(correct_k.mul(100.0 / batch_size))
-        return res
 
 
 if __name__ == '__main__':
