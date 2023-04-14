@@ -3,17 +3,7 @@
 
 import torchvision
 
-from brevitas import config
 from brevitas_examples.imagenet_classification import models
-
-config.IGNORE_MISSING_KEYS = True
-
-TORCHVISION_TOP1_MAP = {
-    'resnet18': 69.758,
-    'mobilenet_v2': 71.898,
-    'vit_b_32': 75.912,}
-
-IMGCLSMOB_TOP1_MAP = {'quant_mobilenet_v1': 73.390}
 
 
 def get_model_config(model_name):

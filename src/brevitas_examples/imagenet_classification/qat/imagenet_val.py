@@ -18,6 +18,7 @@ from brevitas_examples.imagenet_classification.models import model_with_cfg
 from brevitas_examples.imagenet_classification.utils import accuracy
 from brevitas_examples.imagenet_classification.utils import AverageMeter
 from brevitas_examples.imagenet_classification.utils import SEED
+from brevitas_examples.imagenet_classification.utils import validate
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Validation')
 parser.add_argument('--imagenet-dir', help='path to folder containing Imagenet val folder')
@@ -64,33 +65,7 @@ def main():
         num_workers=args.workers,
         pin_memory=True)
 
-    validate(val_loader, model, args)
-    return
-
-
-def validate(val_loader, model, args):
-    top1 = AverageMeter('Acc@1', ':6.2f')
-    top5 = AverageMeter('Acc@5', ':6.2f')
-
-    def print_accuracy(top1, top5, prefix=''):
-        print(
-            '{}Avg acc@1 {top1.avg:.3f} Avg acc@5 {top5.avg:.3f}'.format(
-                prefix, top1=top1, top5=top5))
-
-    model.eval()
-    with torch.no_grad():
-        num_batches = len(val_loader)
-        for i, (images, target) in enumerate(val_loader):
-            if args.gpu is not None:
-                images = images.cuda(args.gpu, non_blocking=True)
-                target = target.cuda(args.gpu, non_blocking=True)
-            output = model(images)
-            # measure accuracy
-            acc1, acc5 = accuracy(output, target, topk=(1, 5))
-            top1.update(acc1[0], images.size(0))
-            top5.update(acc5[0], images.size(0))
-            print_accuracy(top1, top5, '{}/{}: '.format(i, num_batches))
-        print_accuracy(top1, top5, 'Total:')
+    validate(val_loader, model)
     return
 
 

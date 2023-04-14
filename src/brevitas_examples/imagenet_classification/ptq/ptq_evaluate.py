@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import argparse
+import os
 import random
 import warnings
 
@@ -20,12 +21,12 @@ from brevitas.graph.quantize import preprocess_for_quantize
 from brevitas.graph.target.flexml import preprocess_for_flexml_quantize
 from brevitas_examples.imagenet_classification.ptq.ptq_common import calibrate
 from brevitas_examples.imagenet_classification.ptq.ptq_common import quantize_model
-from brevitas_examples.imagenet_classification.ptq.ptq_common import validate
 from brevitas_examples.imagenet_classification.ptq.utils import add_bool_arg
 from brevitas_examples.imagenet_classification.ptq.utils import get_model_config
 from brevitas_examples.imagenet_classification.ptq.utils import get_torchvision_model
 from brevitas_examples.imagenet_classification.utils import generate_dataloader
 from brevitas_examples.imagenet_classification.utils import SEED
+from brevitas_examples.imagenet_classification.utils import validate
 
 # Ignore warnings about __torch_function__
 warnings.filterwarnings("ignore")
@@ -38,9 +39,9 @@ parser = argparse.ArgumentParser(description='PyTorch ImageNet PTQ Validation')
 parser.add_argument(
     '--calibration-dir',
     required=True,
-    help='path to folder containing Imagenet calibration folder')
+    help='Path to folder containing Imagenet calibration folder')
 parser.add_argument(
-    '--validation-dir', required=True, help='path to folder containing Imagenet validation folder')
+    '--validation-dir', required=True, help='Path to folder containing Imagenet validation folder')
 parser.add_argument(
     '--workers', default=8, type=int, help='Number of data loading workers (default: 8)')
 parser.add_argument(
@@ -53,6 +54,8 @@ parser.add_argument(
     default=256,
     type=int,
     help='Minibatch size for validation (default: 256)')
+parser.add_argument(
+    '--export-dir', default='.', type=str, help='Directory where to store the exported models')
 parser.add_argument('--gpu', default=None, type=int, help='GPU id to use (default: None)')
 parser.add_argument(
     '--calibration-samples', default=1000, type=int, help='Calibration size (default: 1000)')
@@ -73,7 +76,10 @@ parser.add_argument(
     choices=['float32', 'po2'],
     help='Type for scale factors (default: float32)')
 parser.add_argument(
-    '--bit-width', default=8, type=int, help='Weights and activations bit width (default: 8)')
+    '--act-bit-width', default=8, type=int, help='Activations bit width (default: 8)')
+parser.add_argument(
+    '--weight-bit-width', default=8, type=int, help='Weights bit width (default: 8)')
+
 parser.add_argument(
     '--bias-bit-width',
     default='int32',
@@ -95,15 +101,11 @@ parser.add_argument(
     type=float,
     help='Percentile to use for stats of activation quantization (default: 99.999)')
 parser.add_argument(
-    '--export-path-onnx-qcdq',
-    default=None,
-    type=str,
-    help='If specified, path where to export the model in onnx qcdq format')
+    '--export-onnx-qcdq', action='store_true', help='If true, export the model in onnx qcdq format')
 parser.add_argument(
-    '--export-path-torch-qcdq',
-    default=None,
-    type=str,
-    help='If specified, path where to export the model in torch qcdq format (default: none)')
+    '--export-torch-qcdq',
+    action='store_true',
+    help='If true, export the model in torch qcdq format')
 add_bool_arg(
     parser,
     'scaling-per-output-channel',
@@ -116,6 +118,11 @@ add_bool_arg(
     'graph-eq-merge-bias',
     default=True,
     help='Merge bias when performing graph equalization (default: enabled)')
+add_bool_arg(
+    parser,
+    'weight-narrow-range',
+    default=True,
+    help='Narrow range for weight quantization (default: enabled)')
 
 
 def main():
@@ -125,18 +132,35 @@ def main():
     np.random.seed(SEED)
     torch.manual_seed(SEED)
 
+    config = (
+        f"{args.model_name}_"
+        f"{args.target_backend}_"
+        f"{args.scale_factor_type}_"
+        f"a{args.act_bit_width}"
+        f"w{args.weight_bit_width}_"
+        f"{'weight_narrow_range_' if args.weight_narrow_range else ''}"
+        f"{args.bias_bit_width}bias_"
+        f"{'per_channel' if args.scaling_per_output_channel else 'per_tensor'}_"
+        f"{args.act_quant_type}_"
+        f"{'bc_' if args.bias_corr else ''}"
+        f"{args.graph_eq_iterations}geiters_"
+        f"{'mb_' if args.graph_eq_merge_bias else ''}"
+        f"{args.act_quant_percentile}percentile")
+
     print(
-        f"Model {args.model_name} - "
+        f"Model: {args.model_name} - "
         f"Target backend: {args.target_backend} - "
         f"Quantization type: {args.scale_factor_type} - "
-        f"Activation/Weight bit width {args.bit_width} - "
+        f"Activation bit width: {args.act_bit_width} - "
+        f"Weight bit width: {args.weight_bit_width} - "
+        f"Weight narrow range: {args.weight_narrow_range} - "
         f"Bias bit width: {args.bias_bit_width} - "
         f"Per-channel scale factors: {args.scaling_per_output_channel} - "
         f"Activation quant type: {args.act_quant_type} - "
         f"Bias Correction Enabled: {args.bias_corr} - "
         f"Iterations for graph equalization: {args.graph_eq_iterations} - "
         f"Merge bias in graph equalization: {args.graph_eq_merge_bias} - "
-        f"Activation Quant Momentum: {args.act_quant_percentile}")
+        f"Activation Quant Percentile: {args.act_quant_percentile}")
 
     # Get model-specific configurations about input shapes and normalization
     model_config = get_model_config(args.model_name)
@@ -171,8 +195,8 @@ def main():
         model = preprocess_for_flexml_quantize(
             model,
             torch.ones(1, 3, img_shape, img_shape),
-            equalize_iters=args.equalize_iters,
-            equalize_merge_bias=args.equalize_merge_bias)
+            equalize_iters=args.graph_eq_iterations,
+            equalize_merge_bias=args.graph_eq_merge_bias)
     elif args.target_backend == 'generic':
         model = preprocess_for_quantize(
             model,
@@ -185,7 +209,9 @@ def main():
     quant_model = quantize_model(
         model,
         backend=args.target_backend,
-        bit_width=args.bit_width,
+        act_bit_width=args.act_bit_width,
+        weight_bit_width=args.weight_bit_width,
+        weight_narrow_range=args.weight_narrow_range,
         bias_bit_width=args.bias_bit_width,
         scaling_per_output_channel=args.scaling_per_output_channel,
         act_quant_percentile=args.act_quant_percentile,
@@ -206,16 +232,21 @@ def main():
     print("Starting validation")
     validate(val_loader, quant_model)
 
-    # Generate reference input tensor to drive the export process
-    model_config = get_model_config(args.model_name)
-    center_crop_shape = model_config['center_crop_shape']
-    img_shape = center_crop_shape
-    device, dtype = next(model.parameters()).device, next(model.parameters()).dtype
-    ref_input = torch.ones(1, 3, img_shape, img_shape, device=device, dtype=dtype)
-    if args.export_path_onnx_qcdq is not None:
-        export_onnx_qcdq(model, ref_input, args.export_path_onnx_qcdq)
-    if args.export_path_torch_qcdq is not None:
-        export_torch_qcdq(model, ref_input, args.export_path_torch_qcdq)
+    if args.export_onnx_qcdq or args.export_torch_qcdq:
+        # Generate reference input tensor to drive the export process
+        model_config = get_model_config(args.model_name)
+        center_crop_shape = model_config['center_crop_shape']
+        img_shape = center_crop_shape
+        device, dtype = next(model.parameters()).device, next(model.parameters()).dtype
+        ref_input = torch.ones(1, 3, img_shape, img_shape, device=device, dtype=dtype)
+
+        export_name = os.path.join(args.export_dir, config)
+        if args.export_onnx_qcdq:
+            export_name = export_name + '.onnx'
+            export_onnx_qcdq(model, ref_input, export_name)
+        if args.export_torch_qcdq:
+            export_name = export_name + '.pt'
+            export_torch_qcdq(model, ref_input, export_name)
 
 
 if __name__ == '__main__':

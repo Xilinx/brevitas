@@ -16,19 +16,29 @@ import torch.utils.data
 import torch.utils.data.distributed
 
 from brevitas import __version__ as brevitas_version
+from brevitas import config
 from brevitas import torch_version
 from brevitas.graph.quantize import preprocess_for_quantize
 from brevitas.graph.target.flexml import preprocess_for_flexml_quantize
 from brevitas_examples.imagenet_classification.ptq.ptq_common import calibrate
 from brevitas_examples.imagenet_classification.ptq.ptq_common import quantize_model
-from brevitas_examples.imagenet_classification.ptq.ptq_common import validate
 from brevitas_examples.imagenet_classification.ptq.utils import get_model_config
 from brevitas_examples.imagenet_classification.ptq.utils import get_quant_model
 from brevitas_examples.imagenet_classification.ptq.utils import get_torchvision_model
-from brevitas_examples.imagenet_classification.ptq.utils import IMGCLSMOB_TOP1_MAP
-from brevitas_examples.imagenet_classification.ptq.utils import TORCHVISION_TOP1_MAP
 from brevitas_examples.imagenet_classification.utils import generate_dataloader
 from brevitas_examples.imagenet_classification.utils import SEED
+from brevitas_examples.imagenet_classification.utils import validate
+
+config.IGNORE_MISSING_KEYS = True
+
+# Torchvision models with top1 accuracy
+TORCHVISION_TOP1_MAP = {
+    'resnet18': 69.758,
+    'mobilenet_v2': 71.898,
+    'vit_b_32': 75.912,}
+
+# Manually defined quantized model with original floating point accuracy
+IMGCLSMOB_TOP1_MAP = {'quant_mobilenet_v1': 73.390}
 
 # Ignore warnings about __torch_function__
 warnings.filterwarnings("ignore")
@@ -95,8 +105,7 @@ def main():
             'Torch version',
             'Brevitas version'])
 
-    quant_model_df = ptq_quant_models(quant_model_df, args)
-    quant_model_df.to_markdown('RESULTS.md', index=False, mode='a')
+    ptq_quant_models(quant_model_df, args)
 
 
 def ptq_torchvision_models(df, args):
@@ -150,7 +159,7 @@ def ptq_torchvision_models(df, args):
         if graph_eq_iterations == 0 and graph_eq_merge_bias:
             continue
         # For float32 scales, we only test for int32 bias bit width
-        if scale_factor_type == 'float32' and bias_bit_width == 'int16':
+        if target_backend == 'generic' and bias_bit_width == 'int16':
             continue
 
         fp_accuracy = TORCHVISION_TOP1_MAP[model_name]
@@ -201,7 +210,8 @@ def ptq_torchvision_models(df, args):
         quant_model = quantize_model(
             model,
             backend=args.target_backend,
-            bit_width=args.bit_width,
+            act_bit_width=args.bit_width,
+            weight_bit_width=args.bit_width,
             bias_bit_width=args.bias_bit_width,
             scaling_per_output_channel=args.scaling_per_output_channel,
             act_quant_percentile=args.act_quant_percentile,
@@ -248,9 +258,7 @@ def ptq_torchvision_models(df, args):
             torch_version,
             brevitas_version]
         k += 1
-        df.to_markdown('RESULTS.md', index=False, mode='w')
-
-    return df
+        df.to_markdown('RESULTS_TORCHVISION.md', index=False, mode='w')
 
 
 def ptq_quant_models(df, args):
@@ -265,7 +273,6 @@ def ptq_quant_models(df, args):
     for i, (model_name, bit_width, bias_corr) in enumerate(combinations):
         fp_accuracy = IMGCLSMOB_TOP1_MAP[model_name]
 
-        print(f"Model Name {model_name} - Bias Correction {bias_corr}")
         # Get model-specific configurations about input shapes and normalization
         model_config = get_model_config(model_name)
 
@@ -320,8 +327,7 @@ def ptq_quant_models(df, args):
             torch_version,
             brevitas_version]
         k += 1
-
-    return df
+    df.to_markdown('RESULTS_IMGCLSMOB.md', index=False, mode='a')
 
 
 if __name__ == '__main__':

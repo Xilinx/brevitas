@@ -60,6 +60,34 @@ def accuracy(output, target, topk=(1,), stable=False):
         return res
 
 
+def validate(val_loader, model):
+    """
+    Run validation on the desired dataset
+    """
+    top1 = AverageMeter('Acc@1', ':6.2f')
+
+    def print_accuracy(top1, prefix=''):
+        print('{}Avg acc@1 {top1.avg:2.3f}'.format(prefix, top1=top1))
+
+    model.eval()
+    dtype = next(model.parameters()).dtype
+    device = next(model.parameters()).device
+    with torch.no_grad():
+        for i, (images, target) in enumerate(val_loader):
+            target = target.to(device)
+            target = target.to(dtype)
+            images = images.to(device)
+            images = images.to(dtype)
+
+            output = model(images)
+            # measure accuracy
+            acc1, = accuracy(output, target, stable=True)
+            top1.update(acc1[0], images.size(0))
+
+        print_accuracy(top1, 'Total:')
+    return top1.avg.cpu().numpy()
+
+
 def generate_dataset(dir, resize_shape=256, center_crop_shape=224, inception_preprocessing=False):
     if inception_preprocessing:
         normalize = transforms.Normalize(mean=0.5, std=0.5)
