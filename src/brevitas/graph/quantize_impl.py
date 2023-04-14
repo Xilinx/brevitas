@@ -30,6 +30,9 @@ SIGN_PRESERVING_MODULES = (
     nn.AdaptiveAvgPool2d,
     nn.AdaptiveAvgPool3d)
 
+PRECISION_PRESERVING_MODULES = (
+    nn.Dropout, nn.Dropout2d, nn.Dropout3d, nn.MaxPool1d, nn.MaxPool2d, nn.MaxPool3d)
+
 
 def inp_placeholder_handler(model, input_quantizer):
     """
@@ -104,7 +107,7 @@ def are_inputs_quantized_and_aligned(model, node, quantized_modules_list, quant_
             inp_module = get_module(model, inp_node.target)
             if isinstance(inp_module, tuple(quant_act_map.keys())):
                 quantized_modules_list.append(None)
-            elif isinstance(inp_module, tuple(SIGN_PRESERVING_MODULES)):
+            elif isinstance(inp_module, tuple(PRECISION_PRESERVING_MODULES)):
                 are_inputs_quantized_and_aligned(
                     model, inp_node, quantized_modules_list, quant_act_map, same_sign)
             elif hasattr(inp_module, 'act_quant'):
