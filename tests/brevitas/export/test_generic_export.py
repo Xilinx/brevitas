@@ -173,7 +173,7 @@ def test_generic_quant_avgpool_export_quant_input():
 
 @jit_disabled_for_export()
 def test_debug_brevitas_onnx_export():
-    model, cfg = imagenet_classification.model_with_cfg('quant_mobilenet_v1_4b', pretrained=False)
+    model, cfg = imagenet_classification.model_with_cfg('quant_mobilenet_v1_4b')
     model.eval()
     debug_hook = enable_debug(model, proxy_level=True)
     input_tensor = torch.randn(1, 3, 224, 224)

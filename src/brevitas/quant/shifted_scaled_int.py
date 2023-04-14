@@ -8,9 +8,26 @@ from brevitas.quant.solver.trunc import TruncQuantSolver
 from brevitas.quant.solver.weight import WeightQuantSolver
 
 __all__ = [
+    'ShiftedUint8ActPerTensorFixedPoint',
     'ShiftedUint8ActPerTensorFloat',
     'ShiftedUint8WeightPerTensorFloat',
     'ShiftedUint8WeightPerChannelFloat']
+
+
+class ShiftedUint8ActPerTensorFixedPoint(ShiftedParamFromPercentileUintQuant,
+                                         ParamFromRuntimePercentileIntervalScaling,
+                                         PerTensorPoTScaling8bit,
+                                         ActQuantSolver):
+    """
+    8-bit per-tensor unsigned int fixed-point activations quantizer with
+    integer zero point. Both zero-point and scale factors are learned parameters initialized from
+    runtime statistics.
+
+        Examples:
+        >>> from brevitas.nn import QuantReLU
+        >>> act = QuantReLU(act_quant=ShiftedUint8ActPerTensorFixedPoint)
+    """
+    pass
 
 
 class ShiftedUint8ActPerTensorFloat(ShiftedParamFromPercentileUintQuant,
