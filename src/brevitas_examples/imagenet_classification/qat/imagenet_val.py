@@ -35,7 +35,11 @@ def main():
     random.seed(SEED)
     torch.manual_seed(SEED)
 
-    model, cfg = model_with_cfg(args.model, args.pretrained)
+    if args.pretrained:
+        pretrained = 'quant_weights'
+    else:
+        pretrained = None
+    model, cfg = model_with_cfg(args.model, pretrained)
 
     if args.gpu is not None:
         torch.cuda.set_device(args.gpu)
