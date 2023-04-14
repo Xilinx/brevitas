@@ -42,11 +42,12 @@ To run the PTQ Benchmark suite on ImageNet simply make sure you have Brevitas in
 
 For example, to run the script on the GPU 0:
 ```bash
-brevitas_ptq_imagenet_benchmark --calib-dir /path/to/imagenet/calibration/folder --validation-dir /path/to/imagenet/validation/folder --gpu 0
+brevitas_ptq_imagenet_benchmark --calibration-dir /path/to/imagenet/calibration/folder --validation-dir /path/to/imagenet/validation/folder --gpu 0
 ```
-The script requires to specify the calibration folder (`--calib-dir`), from which the calibration samples will be taken (configurable with the `--calibration-samples` argument), and a validation folder (`--valid-dir`).
+The script requires to specify the calibration folder (`--calibration-dir`), from which the calibration samples will be taken (configurable with the `--calibration-samples` argument), and a validation folder (`--valid-dir`).
 
-After launching the script, a `RESULT.md` markdown file will be generated two tables correspoding to the two types of benchmarks flows.
+After launching the script, a `RESULT_TORCHVISION.md` markdown file will be generated with the results on the torchvision models,
+and a `RESULTS_IMGCLSMOB.md` with the results on manually quantized models starting from floating point weights.
 
 
 ## Evaluation flow
@@ -58,14 +59,16 @@ The quantization and export options to specify are the following:
 ```bash
   -h, --help            show this help message and exit
   --calibration-dir CALIBRATION_DIR
-                        path to folder containing Imagenet calibration folder
+                        Path to folder containing Imagenet calibration folder
   --validation-dir VALIDATION_DIR
-                        path to folder containing Imagenet validation folder
+                        Path to folder containing Imagenet validation folder
   --workers WORKERS     Number of data loading workers (default: 8)
   --batch-size-calibration BATCH_SIZE_CALIBRATION
                         Minibatch size for calibration (default: 64)
   --batch-size-validation BATCH_SIZE_VALIDATION
                         Minibatch size for validation (default: 256)
+  --export-dir EXPORT_DIR
+                        Directory where to store the exported models
   --gpu GPU             GPU id to use (default: None)
   --calibration-samples CALIBRATION_SAMPLES
                         Calibration size (default: 1000)
@@ -74,8 +77,6 @@ The quantization and export options to specify are the following:
                         densenet121 | densenet161 | densenet169 | densenet201
                         | efficientnet_b0 | efficientnet_b1 | efficientnet_b2
                         | efficientnet_b3 | efficientnet_b4 | efficientnet_b5
-                        | efficientnet_b6 | efficientnet_b7 |
-                        efficientnet_v2_l | efficientnet_v2_m |
                         efficientnet_v2_s | googlenet | inception_v3 |
                         list_models | maxvit_t | mnasnet0_5 | mnasnet0_75 |
                         mnasnet1_0 | mnasnet1_3 | mobilenet_v2 |
@@ -87,7 +88,6 @@ The quantization and export options to specify are the following:
                         regnet_y_400mf | regnet_y_800mf | regnet_y_8gf |
                         resnet101 | resnet152 | resnet18 | resnet34 | resnet50
                         | resnext101_32x8d | resnext101_64x4d |
-                        resnext50_32x4d | shufflenet_v2_x0_5 |
                         shufflenet_v2_x1_0 | shufflenet_v2_x1_5 |
                         shufflenet_v2_x2_0 | squeezenet1_0 | squeezenet1_1 |
                         swin_b | swin_s | swin_t | swin_v2_b | swin_v2_s |
@@ -99,8 +99,10 @@ The quantization and export options to specify are the following:
                         Backend to target for quantization (default: generic)
   --scale-factor-type {float32,po2}
                         Type for scale factors (default: float32)
-  --bit-width BIT_WIDTH
-                        Weights and activations bit width (default: 8)
+  --act-bit-width ACT_BIT_WIDTH
+                        Activations bit width (default: 8)
+  --weight-bit-width WEIGHT_BIT_WIDTH
+                        Weights bit width (default: 8)
   --bias-bit-width {int32,int16}
                         Bias bit width (default: int32)
   --act-quant-type {symmetric,asymmetric}
@@ -108,13 +110,9 @@ The quantization and export options to specify are the following:
   --graph-eq-iterations GRAPH_EQ_ITERATIONS
                         Numbers of iterations for graph equalization (default: 20)
   --act-quant-percentile ACT_QUANT_PERCENTILE
-                        Percentile to use for stats of activation quantization
-                        (default: 99.999)
-  --export-path-onnx-qcdq EXPORT_PATH_ONNX_QCDQ
-                        If specified, path where to export the model in onnx qcdq format
-  --export-path-torch-qcdq EXPORT_PATH_TORCH_QCDQ
-                        If specified, path where to export the model in torch
-                        qcdq format (default: none)
+                        Percentile to use for stats of activation quantization (default: 99.999)
+  --export-onnx-qcdq    If true, export the model in onnx qcdq format
+  --export-torch-qcdq   If true, export the model in torch qcdq format
   --scaling-per-output-channel
                         Enable Weight scaling per output channel (default: enabled)
   --no-scaling-per-output-channel
@@ -125,14 +123,12 @@ The quantization and export options to specify are the following:
                         Enable Merge bias when performing graph equalization (default: enabled)
   --no-graph-eq-merge-bias
                         Disable Merge bias when performing graph equalization (default: enabled)
+  --weight-narrow-range
+                        Enable Narrow range for weight quantization (default: enabled)
+  --no-weight-narrow-range
+                        Disable Narrow range for weight quantization (default: enabled)
 ```
 
-The script requires to specify the calibration folder (`--calib-dir`), from which the calibration samples will be taken (configurable with the `--calibration-samples` argument), and a validation folder (`--valid-dir`)
-
-For example, to run the script on the GPU 0:
-```bash
-brevitas_ptq_imagenet_evaluate --imagenet-dir /path/to/imagenet --gpu 0 --model-name resnet18 --scale-type po2 --act-quant-type asymmetric --act-quant-percentile 99.999 --export-path-qcdq ./quantized_model.onnx
-```
 
 [<sup>1 </sup>]: https://arxiv.org/abs/1906.04721
 [<sup>2 </sup>]: https://github.com/Xilinx/Vitis-AI/blob/50da04ddae396d10a1545823aca30b3abb24a276/src/vai_quantizer/vai_q_pytorch/nndct_shared/optimization/commander.py#L450
