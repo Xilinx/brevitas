@@ -107,7 +107,9 @@ def are_inputs_quantized_and_aligned(model, node, quantized_modules_list, quant_
             inp_module = get_module(model, inp_node.target)
             if isinstance(inp_module, tuple(quant_act_map.keys())):
                 quantized_modules_list.append(None)
-            elif isinstance(inp_module, tuple(PRECISION_PRESERVING_MODULES)):
+            elif isinstance(inp_module, tuple(PRECISION_PRESERVING_MODULES)) and (
+                    not same_sign or
+                (same_sign and isinstance(inp_module, tuple(SIGN_PRESERVING_MODULES)))):
                 are_inputs_quantized_and_aligned(
                     model, inp_node, quantized_modules_list, quant_act_map, same_sign)
             elif hasattr(inp_module, 'act_quant'):
@@ -198,8 +200,11 @@ def recursive_input_handler(
     for inp_node in node.all_input_nodes:
         if inp_node.op == 'call_module':
             module = get_module(model, inp_node.target)
-            # Sign preserving modules can be safely traversed
-            if isinstance(module, tuple(SIGN_PRESERVING_MODULES)):
+            # Precision preserving modules can be safely traversed
+            # In case align_sign is True, the modules should also be sign preserving
+            if isinstance(module, tuple(PRECISION_PRESERVING_MODULES)) and (
+                    not align_sign or
+                (align_sign and isinstance(module, tuple(SIGN_PRESERVING_MODULES)))):
                 recursive_input_handler(
                     model,
                     inp_node,
