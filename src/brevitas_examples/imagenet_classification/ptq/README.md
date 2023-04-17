@@ -5,13 +5,13 @@ This folder contains an example on how to use Brevitas PTQ flow to quantize torc
 
 We provide two workflows:
 - A benchmark suite that will tests several quantization configurations on few selected models;
-- An export script that, given a model name and a quantization configuration, evaluate its performance and allows to export it to ONNX format.
+- An evaluation script that, given a model name and a quantization configuration, evaluate its performance and allows to export it to ONNX format.
 
 For both these flows, the following options are evaluated:
 - Weights and Activations are quantized to 8 bit;
-- Scale factors can be either Floating Point (FP) or Power of Two (Po2);
+- Scale factors can be either float32 or power of two (po2);
 - Weights' scale factors can be either per-tensor or per-channel;
-- Bias are quantized to int32 values for FP scale factors, int16 or int32 otherwise;
+- Bias are quantized to int32 values for float32 scale factors, int16 or int32 otherwise;
 - Activations quantizer can be symmetric or asymmetric;
 - Three different percentiles can be used for the activations' statistics computation (99.9, 99.99, 99.999).
 
@@ -34,7 +34,7 @@ where we map the torch compute layers and activations with their corresponding q
 Starting from pretrained floating-point torchvision models, Brevitas offers the possibility to automatically obtain the corresponding quantized model leveraging torch.fx transformations.
 For the selected subset of torchvision models, we test several possible combinations of the options described above.
 
-The second type of benchmarks will run pre-defined quantized MobileNet v1, starting from the pre-trained FP weights[<sup>4 </sup>].
+The second type of benchmarks will run pre-defined quantized MobileNet v1, starting from the pre-trained floating point weights[<sup>4 </sup>].
 The pre-defined quantized model uses floating point scale factors, with a mix of per-tensor and per-channel strategies.
 Weights and Activations are quantized at 8 bit.
 
@@ -44,10 +44,13 @@ For example, to run the script on the GPU 0:
 ```bash
 brevitas_ptq_imagenet_benchmark --calibration-dir /path/to/imagenet/calibration/folder --validation-dir /path/to/imagenet/validation/folder --gpu 0
 ```
-The script requires to specify the calibration folder (`--calibration-dir`), from which the calibration samples will be taken (configurable with the `--calibration-samples` argument), and a validation folder (`--valid-dir`).
+The script requires to specify the calibration folder (`--calibration-dir`), from which the calibration samples will be taken (configurable with the `--calibration-samples` argument), and a validation folder (`--validation-dir`).
 
 After launching the script, a `RESULT_TORCHVISION.md` markdown file will be generated with the results on the torchvision models,
 and a `RESULTS_IMGCLSMOB.md` with the results on manually quantized models starting from floating point weights.
+
+In this folder it is possible to find a pre-computed `RESULT_TORCHVISION.md` file with all the ~300 combinations on three different torchvision models,
+as well as the results on the pre-defined quantized Mobilenet V1 (`RESULTS_IMGCLSMOB.md`).
 
 
 ## Evaluation flow
