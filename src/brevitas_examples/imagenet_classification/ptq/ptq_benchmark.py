@@ -78,28 +78,29 @@ def main():
             'Per-channel scale',
             'Activation quantization type',
             'Bias correction',
-            'Graph equalization eters',
+            'Graph equalization iters',
             'Merge Bias in graph equalization',
             'Activation quantization percentile',
-            'Top 1% FP accuracy',
+            'Top 1% floating point accuracy',
             'Top 1% quant accuracy',
-            'FP accuracy - quant accuracy',
-            'Quant accuracy / FP accuracy',
+            'Floating point accuracy - quant accuracy',
+            'Quant accuracy / floating point accuracy',
             'Calibration size',
             'Calibration batch size',
             'Torch version',
             'Brevitas version'])
+    torchvision_best_configs_df = torchvision_df.copy()
 
-    ptq_torchvision_models(torchvision_df, args)
+    ptq_torchvision_models(torchvision_df, torchvision_best_configs_df, args)
 
     quant_model_df = pd.DataFrame(
         columns=[
             'Model',
             'Bias correction',
-            'Top 1% FP accuracy',
-            'Top 1% Quant accuracy',
-            'FP accuracy - Quant accuracy',
-            'Quant accuracy / FP accuracy',
+            'Top 1% floating point accuracy',
+            'Top 1% quant accuracy',
+            'Floating point accuracy - quant accuracy',
+            'Quant accuracy / floating point accuracy',
             'Calibration size',
             'Calibration batch size',
             'Torch version',
@@ -108,7 +109,7 @@ def main():
     ptq_quant_models(quant_model_df, args)
 
 
-def ptq_torchvision_models(df, args):
+def ptq_torchvision_models(df, best_config_df, args):
 
     options = [
         TORCHVISION_TOP1_MAP.keys(),
@@ -126,7 +127,7 @@ def ptq_torchvision_models(df, args):
 
     combinations = list(product(*options))
     k = 0
-
+    best_results_map = {model_name: dict() for model_name in TORCHVISION_TOP1_MAP.keys()}
     for (model_name,
          target_backend,
          scale_factor_type,
@@ -257,8 +258,26 @@ def ptq_torchvision_models(df, args):
             args.batch_size_calibration,
             torch_version,
             brevitas_version]
+
+        hardware_config = '_'.join(
+            str(el) for el in [
+                args.target_backend,
+                args.scale_factor_type,
+                args.bit_width,
+                args.bias_bit_width,
+                args.scaling_per_output_channel,
+                args.act_quant_type])
+        if hardware_config not in best_results_map[args.model_name] or (
+                hardware_config in best_results_map[args.model_name] and
+                top1 > best_results_map[args.model_name][hardware_config]):
+            best_results_map[args.model_name][hardware_config] = top1
+            best_config_df.at[len(best_config_df.index), :] = df.iloc[k]
+
+        best_config_df.sort_values(by=['Model', 'Top 1% quant accuracy'])
+
+        df.to_csv('RESULTS_TORCHVISION.csv', index=False, mode='w')
+        best_config_df.to_csv('RESULTS_TORCHVISION_BEST_CONFIGS.csv', index=False, mode='w')
         k += 1
-        df.to_markdown('RESULTS_TORCHVISION.md', index=False, mode='w')
 
 
 def ptq_quant_models(df, args):
@@ -327,7 +346,7 @@ def ptq_quant_models(df, args):
             torch_version,
             brevitas_version]
         k += 1
-    df.to_markdown('RESULTS_IMGCLSMOB.md', index=False, mode='a')
+    df.to_csv('RESULTS_IMGCLSMOB.csv', index=False, mode='w')
 
 
 if __name__ == '__main__':
