@@ -1,3 +1,0 @@
-| Model              | Bias correction   |   Top 1% FP accuracy |   Top 1% Quant accuracy |   FP accuracy - Quant accuracy |   Quant accuracy / FP accuracy |   Calibration size |   Calibration batch size | Torch version   | Brevitas version                |
-|:-------------------|:------------------|---------------------:|------------------------:|-------------------------------:|-------------------------------:|-------------------:|-------------------------:|:----------------|:--------------------------------|
-| quant_mobilenet_v1 | True              |                73.39 |                  72.704 |                         -0.686 |                          0.991 |               1000 |                       64 | 1.13.1          | 0.8.1.dev98+ge2bdfc04.d20230412 |
