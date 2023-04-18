@@ -144,8 +144,10 @@ class Trainer(object):
         # Loss function
         if args.loss == 'SqrHinge':
             self.criterion = SqrHingeLoss()
-        else:
+        elif args.loss == 'CrossEntropy':
             self.criterion = nn.CrossEntropyLoss()
+        else:
+            raise ValueError(f"{args.loss} not supported.")
         self.criterion = self.criterion.to(device=self.device)
 
         # Init optimizer
@@ -238,7 +240,8 @@ class Trainer(object):
                 loss.backward()
                 self.optimizer.step()
 
-                self.model.clip_weights(-1, 1)
+                if hasattr(self.model, 'clip_weights'):
+                    self.model.clip_weights(-1, 1)
 
                 # measure elapsed time
                 epoch_meters.batch_time.update(time.time() - start_batch)
