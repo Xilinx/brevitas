@@ -72,11 +72,17 @@ FLEXML_COMPUTE_LAYER_MAP = {
             'bias_quant': Int16Bias,
             'return_quant_tensor': True}),
     nn.BatchNorm2d: (
-        qnn.BatchNorm2dToQuantScaleBias, {
-            'weight_quant': Int8WeightPerTensorFixedPoint, 'return_quant_tensor': True}),
+        qnn.BatchNorm2dToQuantScaleBias,
+        {
+            'weight_quant': Int8WeightPerTensorFixedPoint,
+            'bias_quant': Int16Bias,
+            'return_quant_tensor': True}),
     nn.Linear: (
-        qnn.QuantLinear, {
-            'weight_quant': Int8WeightPerTensorFixedPoint, 'return_quant_tensor': True})}
+        qnn.QuantLinear,
+        {
+            'weight_quant': Int8WeightPerTensorFixedPoint,
+            'bias_quant': Int16Bias,
+            'return_quant_tensor': True})}
 
 FLEXML_QUANT_ACT_MAP = {
     nn.ReLU:
@@ -102,7 +108,8 @@ FLEXML_QUANT_ACT_MAP = {
         {
             'act_quant': Int8ActPerTensorFixedPointMinMaxInit,
             'max_val': lambda module: module.max_val,
-            'min_val': lambda module: module.min_val}),
+            'min_val': lambda module: module.min_val,
+            'return_quant_tensor': True}),
     nn.Sigmoid: (
         qnn.QuantSigmoid, {
             'act_quant': Uint8ActPerTensorFixedPoint,
