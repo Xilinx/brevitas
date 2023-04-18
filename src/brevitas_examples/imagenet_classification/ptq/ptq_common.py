@@ -8,6 +8,8 @@ from brevitas.core.function_wrapper.ops_ste import CeilSte
 from brevitas.graph.calibrate import bias_correction_mode
 from brevitas.graph.calibrate import calibration_mode
 from brevitas.graph.quantize import COMPUTE_LAYER_MAP
+from brevitas.graph.quantize import LAYERWISE_COMPUTE_LAYER_MAP
+from brevitas.graph.quantize import layerwise_quantize
 from brevitas.graph.quantize import QUANT_ACT_MAP
 from brevitas.graph.quantize import QUANT_IDENTITY_MAP
 from brevitas.graph.quantize import quantize
@@ -25,12 +27,15 @@ from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
 
 LAYER_MAP = {
     'generic': [COMPUTE_LAYER_MAP, QUANT_ACT_MAP, QUANT_IDENTITY_MAP],
+    'layerwise': [LAYERWISE_COMPUTE_LAYER_MAP],
     'flexml': [FLEXML_COMPUTE_LAYER_MAP, FLEXML_QUANT_ACT_MAP, FLEXML_QUANT_IDENTITY_MAP]}
 
 ASYMMETRIC_ACT_QUANT_MAP = {
-    'generic': ShiftedUint8ActPerTensorFloat, 'flexml': ShiftedUint8ActPerTensorFixedPoint}
+    'generic': ShiftedUint8ActPerTensorFloat,
+    'layerwise': ShiftedUint8ActPerTensorFloat,
+    'flexml': ShiftedUint8ActPerTensorFixedPoint}
 
-QUANTIZE_MAP = {'generic': quantize, 'flexml': quantize_flexml}
+QUANTIZE_MAP = {'layerwise': layerwise_quantize, 'generic': quantize, 'flexml': quantize_flexml}
 
 BIAS_BIT_WIDTH_MAP = {'int32': Int32Bias, 'int16': Int16Bias}
 
@@ -53,7 +58,7 @@ def quantize_model(
     if act_quant_type == 'asymmetric':
         act_quant_asym = ASYMMETRIC_ACT_QUANT_MAP[backend]
 
-    layer_map, act_map, quant_identity_map = update_quant_maps(
+    maps = update_quant_maps(
         LAYER_MAP[backend],
         scale_factor_type=scale_factor_type,
         bias_bit_width=bias_bit_width,
@@ -64,10 +69,13 @@ def quantize_model(
         weight_bit_width=weight_bit_width,
         weight_narrow_range=weight_narrow_range)
 
-    quantize_kwargs = {
-        'quant_identity_map': quant_identity_map,
-        'compute_layer_map': layer_map,
-        'quant_act_map': act_map}
+    if len(maps) == 3:
+        # Generic and flexml requires three mappings for quantization
+        quantize_kwargs = {
+            'compute_layer_map': maps[0], 'quant_act_map': maps[1], 'quant_identity_map': maps[2]}
+    elif len(maps) == 1:
+        # Layerwise requires only the compute layer mapping
+        quantize_kwargs = {'compute_layer_map': maps[0]}
 
     quant_model = quantize_fn(model, **quantize_kwargs)
     return quant_model
@@ -124,11 +132,16 @@ def update_quant_maps(
     for map in maps:
         for k, v in map.items():
             if v is None:
+                # Non quantized layer, continue
                 continue
             if issubclass(v[0], QuantWBIOL):
                 map[k][1].update(weight_kwargs_prefix('weight_'))
+                map[k][1]['bias_quant'] = bias_quant
                 if act_quant_asym is not None:
                     map[k][1]['return_quant_tensor'] = False
+                if 'input_quant' in v[1].keys():
+                    # Add kwargs arguments to input_quant, if present
+                    map[k][1].update(act_kwargs_prefix('input_'))
             elif v[0] == QuantMultiheadAttention:
                 map[k][1].update(weight_kwargs_prefix('in_proj_'))
                 map[k][1].update(weight_kwargs_prefix('out_proj_'))
@@ -137,14 +150,17 @@ def update_quant_maps(
                 map[k][1].update(act_kwargs_prefix('k_transposed_'))
                 map[k][1].update(act_kwargs_prefix('v_'))
                 map[k][1].update(act_kwargs_prefix('out_proj_input_'))
+                map[k][1]['in_proj_bias_quant'] = bias_quant
+                map[k][1]['out_proj_bias_quant'] = bias_quant
                 if act_quant_asym is not None:
                     map[k][1]['return_quant_tensor'] = False
+                if 'in_proj_input_quant' in v[1].keys():
+                    # Add kwargs arguments to input_quant, if present
+                    map[k][1].update(act_kwargs_prefix('in_proj_input_'))
             elif 'act_quant' in v[1].keys():
+                # Add kwargs argument to activation quantizers.
                 v[1].update(act_kwargs_prefix(''))
 
-            for quantizer_arg, quantizer_value in v[1].items():
-                if 'bias_quant' in quantizer_arg:
-                    v[1][quantizer_arg] = bias_quant
     return maps
 
 

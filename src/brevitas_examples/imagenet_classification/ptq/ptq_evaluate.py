@@ -68,7 +68,7 @@ parser.add_argument(
 parser.add_argument(
     '--target-backend',
     default='generic',
-    choices=['generic', 'flexml'],
+    choices=['generic', 'layerwise', 'flexml'],
     help='Backend to target for quantization (default: generic)')
 parser.add_argument(
     '--scale-factor-type',
@@ -197,7 +197,7 @@ def main():
             torch.ones(1, 3, img_shape, img_shape),
             equalize_iters=args.graph_eq_iterations,
             equalize_merge_bias=args.graph_eq_merge_bias)
-    elif args.target_backend == 'generic':
+    elif args.target_backend == 'generic' or args.target_backend == 'layerwise':
         model = preprocess_for_quantize(
             model,
             equalize_iters=args.graph_eq_iterations,
