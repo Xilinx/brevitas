@@ -54,7 +54,8 @@ COMPUTE_LAYER_MAP = {
             'weight_quant': Int8WeightPerTensorFloat,
             'bias_quant': Int32Bias,
             'io_quant': Int8ActPerTensorFloat,
-            'gate_acc_quant': Int8ActPerTensorFloat,}),
+            'gate_acc_quant': Int8ActPerTensorFloat,
+            'return_quant_tensor': True}),
     nn.LSTM: (
         qnn.QuantLSTM,
         {
@@ -64,7 +65,8 @@ COMPUTE_LAYER_MAP = {
             'gate_acc_quant': Int8ActPerTensorFloat,
             'sigmoid_quant': Uint8ActPerTensorFloat,
             'tanh_quant': Int8ActPerTensorFloat,
-            'cell_state_quant': Int8ActPerTensorFloat,}),
+            'cell_state_quant': Int8ActPerTensorFloat,
+            'return_quant_tensor': True}),
     nn.Conv1d: (
         qnn.QuantConv1d,
         {
@@ -89,9 +91,12 @@ COMPUTE_LAYER_MAP = {
             'weight_quant': Int8WeightPerTensorFloat,
             'bias_quant': Int32Bias,
             'return_quant_tensor': True}),
-    nn.Linear:
-        (qnn.QuantLinear, {
-            'weight_quant': Int8WeightPerTensorFloat, 'return_quant_tensor': True})}
+    nn.Linear: (
+        qnn.QuantLinear,
+        {
+            'weight_quant': Int8WeightPerTensorFloat,
+            'bias_quant': Int32Bias,
+            'return_quant_tensor': True})}
 
 LAYERWISE_COMPUTE_LAYER_MAP = {
     nn.AvgPool2d:
@@ -108,7 +113,8 @@ LAYERWISE_COMPUTE_LAYER_MAP = {
             'v_quant': Int8ActPerTensorFloat,
             'out_proj_input_quant': Int8ActPerTensorFloat,
             'out_proj_weight_quant': Int8WeightPerTensorFloat,
-            'out_proj_bias_quant': Int32Bias,}),
+            'out_proj_bias_quant': Int32Bias,
+            'return_quant_tensor': False}),
     nn.LSTM: (
         qnn.QuantLSTM,
         {
@@ -118,14 +124,16 @@ LAYERWISE_COMPUTE_LAYER_MAP = {
             'gate_acc_quant': Int8ActPerTensorFloat,
             'sigmoid_quant': Uint8ActPerTensorFloat,
             'tanh_quant': Int8ActPerTensorFloat,
-            'cell_state_quant': Int8ActPerTensorFloat,}),
+            'cell_state_quant': Int8ActPerTensorFloat,
+            'return_quant_tensor': False}),
     nn.RNN: (
         qnn.QuantRNN,
         {
             'weight_quant': Int8WeightPerTensorFloat,
             'bias_quant': Int32Bias,
             'io_quant': Int8ActPerTensorFloat,
-            'gate_acc_quant': Int8ActPerTensorFloat,}),
+            'gate_acc_quant': Int8ActPerTensorFloat,
+            'return_quant_tensor': False}),
     nn.Conv1d: (
         qnn.QuantConv1d,
         {
@@ -159,6 +167,7 @@ LAYERWISE_COMPUTE_LAYER_MAP = {
         {
             'input_quant': Int8ActPerTensorFloat,
             'weight_quant': Int8WeightPerTensorFloat,
+            'bias_quant': Int32Bias,
             'return_quant_tensor': False})}
 
 UNSIGNED_ACT_TUPLE = (nn.ReLU, nn.ReLU6, nn.Sigmoid, nn.Hardsigmoid)
@@ -175,7 +184,8 @@ QUANT_ACT_MAP = {
         {
             'act_quant': Int8ActPerTensorFloatMinMaxInit,
             'max_val': lambda module: module.max_val,
-            'min_val': lambda module: module.min_val}),
+            'min_val': lambda module: module.min_val,
+            'return_quant_tensor': True}),
     nn.Sigmoid:
         (qnn.QuantSigmoid, {
             'act_quant': Uint8ActPerTensorFloat,
@@ -313,7 +323,7 @@ def layerwise_quantize(graph_model, compute_layer_map=LAYERWISE_COMPUTE_LAYER_MA
     config.IGNORE_MISSING_KEYS = True
     training_state = graph_model.training
     graph_model.eval()
-    graph_model = layer_handler(graph_model, compute_layer_map, requantize_output=False)
+    graph_model = layer_handler(graph_model, layer_map=compute_layer_map, requantize_output=False)
     graph_model.train(training_state)
     config.IGNORE_MISSING_KEYS = ignore_missing_keys_state
     return graph_model
