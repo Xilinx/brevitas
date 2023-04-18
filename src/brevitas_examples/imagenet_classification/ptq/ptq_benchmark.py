@@ -159,8 +159,9 @@ def ptq_torchvision_models(df, best_config_df, args):
         # Merge bias can be enabled only when graph equalization is enabled
         if graph_eq_iterations == 0 and graph_eq_merge_bias:
             continue
-        # For float32 scales, we only test for int32 bias bit width
-        if target_backend == 'generic' and bias_bit_width == 'int16':
+        # For generic and layerwise backend, we only test for int32 bias bit width
+        if (target_backend == 'generic' or
+                target_backend == 'layerwise') and bias_bit_width == 'int16':
             continue
 
         fp_accuracy = TORCHVISION_TOP1_MAP[model_name]
@@ -199,7 +200,7 @@ def ptq_torchvision_models(df, best_config_df, args):
                 torch.ones(1, 3, img_shape, img_shape),
                 equalize_iters=args.graph_eq_iterations,
                 equalize_merge_bias=args.graph_eq_merge_bias)
-        elif args.target_backend == 'generic':
+        elif args.target_backend == 'generic' or args.target_backend == 'layerwise':
             model = preprocess_for_quantize(
                 model,
                 equalize_iters=args.graph_eq_iterations,
