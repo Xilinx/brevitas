@@ -19,21 +19,21 @@ __all__ = [
     'tfc_2w2a',
     'lfc_1w1a',
     'lfc_1w2a',
+    'resnet18_4w4a',
     'model_with_cfg']
 
 from .CNV import cnv
 from .FC import fc
+from .resnet import quant_resnet18
 
-model_impl = {
-    'CNV': cnv,
-    'FC': fc,}
+model_impl = {'CNV': cnv, 'FC': fc, 'RESNET18': quant_resnet18}
 
 
 def get_model_cfg(name):
     cfg = ConfigParser()
     current_dir = os.path.dirname(os.path.abspath(__file__))
     config_path = os.path.join(current_dir, '..', 'cfg', name.lower() + '.ini')
-    assert os.path.exists(config_path)
+    assert os.path.exists(config_path), f"{config_path} not found."
     cfg.read(config_path)
     return cfg
 
@@ -101,4 +101,14 @@ def lfc_1w1a(pretrained=True):
 
 def lfc_1w2a(pretrained=True):
     model, _ = model_with_cfg('lfc_1w2a', pretrained)
+    return model
+
+
+def resnet18_4w4a(pretrained=False):
+    model, _ = model_with_cfg('resnet18_4w4a', pretrained)
+    return model
+
+
+def resnet18_3w3a(pretrained=False):
+    model, _ = model_with_cfg('resnet18_3w3a', pretrained)
     return model
