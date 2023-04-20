@@ -38,7 +38,8 @@ def _rounding_mode(quant_injector):
         return str(quant_injector.float_to_int_impl_type)
     elif 'float_to_int_impl' in quant_injector:
         try:
-            return str(float_to_int_impl_to_enum(quant_injector.float_to_int_impl))
+            impl_type = float_to_int_impl_to_enum(quant_injector.float_to_int_impl)
+            return str(impl_type).upper()
         except:
             return None
     else:
