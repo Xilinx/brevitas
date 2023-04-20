@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from datetime import datetime
+from hashlib import sha256
 import os
 import random
 import time
@@ -134,6 +135,19 @@ class Trainer(object):
             package = torch.load(args.resume, map_location='cpu')
             model_state_dict = package['state_dict']
             model.load_state_dict(model_state_dict, strict=args.strict)
+
+        if args.state_dict_to_pth:
+            state_dict = model.state_dict()
+            name = args.network.lower()
+            path = os.path.join(self.checkpoints_dir_path, name)
+            torch.save(state_dict, path)
+            with open(path, "rb") as f:
+                bytes = f.read()
+                readable_hash = sha256(bytes).hexdigest()[:8]
+            new_path = path + '-' + readable_hash + '.pth'
+            os.rename(path, new_path)
+            self.logger.info("Saving checkpoint model to {}".format(new_path))
+            exit(0)
 
         if args.gpus is not None and len(args.gpus) == 1:
             model = model.to(device=self.device)

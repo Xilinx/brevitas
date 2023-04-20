@@ -104,11 +104,6 @@ def lfc_1w2a(pretrained=True):
     return model
 
 
-def resnet18_4w4a(pretrained=False):
+def resnet18_4w4a(pretrained=True):
     model, _ = model_with_cfg('resnet18_4w4a', pretrained)
-    return model
-
-
-def resnet18_3w3a(pretrained=False):
-    model, _ = model_with_cfg('resnet18_3w3a', pretrained)
     return model
