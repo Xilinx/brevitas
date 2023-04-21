@@ -57,7 +57,8 @@ def are_inputs_unsigned(model, node, is_unsigned_list, quant_act_map, unsigned_a
     for inp_node in node.all_input_nodes:
         if inp_node.op == 'call_module':
             inp_module = get_module(model, inp_node.target)
-            if isinstance(inp_module, tuple(quant_act_map.keys())):
+            if isinstance(inp_module, tuple(quant_act_map.keys())) and isinstance(
+                    inp_module, unsigned_act_tuple):
                 is_unsigned_list.append(True)
             elif isinstance(inp_module, tuple(SIGN_PRESERVING_MODULES)):
                 are_inputs_unsigned(
