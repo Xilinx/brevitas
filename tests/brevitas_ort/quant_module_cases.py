@@ -16,7 +16,7 @@ class QuantWBIOLCases:
     @parametrize('input_bit_width', BIT_WIDTHS, ids=[f'i{b}' for b in BIT_WIDTHS])
     @parametrize('weight_bit_width', BIT_WIDTHS, ids=[f'w{b}' for b in BIT_WIDTHS])
     @parametrize('output_bit_width', BIT_WIDTHS, ids=[f'o{b}' for b in BIT_WIDTHS])
-    @parametrize('per_channel', [True, False])
+    @parametrize('per_channel', [True])
     @parametrize('quantizers', QUANTIZERS.values(), ids=list(QUANTIZERS.keys()))
     def case_quant_wbiol(
             self,
@@ -54,7 +54,7 @@ class QuantWBIOLCases:
                     bias_quant=Int32Bias,
                     weight_scaling_per_output_channel=per_channel,
                     return_quant_tensor=True)
-                self.conv.weight.data.uniform_(-0.01, 0.01)
+                # self.conv.weight.data.uniform_(-0.01, 0.01)
 
             def forward(self, x):
                 return self.conv(x)

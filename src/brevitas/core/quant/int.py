@@ -222,15 +222,14 @@ class TruncIntQuant(brevitas.jit.ScriptModule):
 class DecoupledRescalingIntQuantWithInput(DecoupledRescalingIntQuant):
 
     def __init__(
-        self,
-        decoupled_int_quant: Module,
-        pre_scaling_impl: Module,
-        scaling_impl: Module,
-        int_scaling_impl: Module,
-        pre_zero_point_impl: Module,
-        zero_point_impl: Module,
-        bit_width_impl: Module,
-    ):
+            self,
+            decoupled_int_quant: Module,
+            pre_scaling_impl: Module,
+            scaling_impl: Module,
+            int_scaling_impl: Module,
+            pre_zero_point_impl: Module,
+            zero_point_impl: Module,
+            bit_width_impl: Module):
         super().__init__(
             decoupled_int_quant,
             pre_scaling_impl,
@@ -238,16 +237,41 @@ class DecoupledRescalingIntQuantWithInput(DecoupledRescalingIntQuant):
             int_scaling_impl,
             pre_zero_point_impl,
             zero_point_impl,
-            bit_width_impl,
-        )
+            bit_width_impl)
         # TODO - check the make sure the pre-scaling module takes the input bit-width and sign
+
+    def bit_width(self):
+        return self.msb_clamp_bit_width_impl()
+
+    def pre_scale(self, x, input_bit_width: Tensor, is_input_signed: Tensor):
+        bit_width = self.bit_width()
+        pre_threshold = self.pre_scaling_impl(x, input_bit_width, is_input_signed)
+        int_threshold = self.int_scaling_impl(bit_width)
+        pre_scale = pre_threshold / int_threshold
+        return pre_scale
+
+    def pre_zero_point(self, x: Tensor, input_bit_width: Tensor, is_input_signed: Tensor):
+        bit_width = self.bit_width()
+        pre_scale = self.pre_scale(x, input_bit_width, is_input_signed)
+        pre_zero_point = self.pre_zero_point_impl(x, pre_scale, bit_width)
+        return pre_zero_point
+
+    def scale(self, x: Tensor):
+        bit_width = self.bit_width()
+        threshold = self.scaling_impl(x)
+        int_threshold = self.int_scaling_impl(bit_width)
+        scale = threshold / int_threshold
+        return scale
+
+    def zero_point(self, x: Tensor):
+        return self.zero_point_impl(x, self.scale(x), self.bit_width())
 
     @brevitas.jit.script_method
     def forward(self, x: Tensor, input_bit_width: Tensor,
-                input_is_signed: bool) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]:
-        bit_width = self.msb_clamp_bit_width_impl()
+                is_input_signed: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]:
+        bit_width = self.bit_width()
         int_threshold = self.int_scaling_impl(bit_width)
-        pre_threshold = self.pre_scaling_impl(x, input_bit_width, input_is_signed)
+        pre_threshold = self.pre_scaling_impl(x, input_bit_width, is_input_signed)
         pre_scale = pre_threshold / int_threshold
         pre_zero_point = self.pre_zero_point_impl(x, pre_scale, bit_width)
         threshold = self.scaling_impl(x)

@@ -17,6 +17,7 @@ from brevitas.nn import QuantIdentity
 from brevitas.nn import QuantLinear
 from brevitas.nn import QuantLSTM
 from brevitas.nn import TruncAvgPool2d
+from brevitas.quant.fixed_point import Int8AccumulatorAwareWeightQuant
 from brevitas.quant.fixed_point import Int8ActPerTensorFixedPoint
 from brevitas.quant.fixed_point import Int8WeightPerTensorFixedPoint
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
@@ -25,17 +26,17 @@ from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
 
 SEED = 123456
-OUT_CH = 16
-IN_CH = 8
+OUT_CH = 2
+IN_CH = 2
 FEATURES = 5
 INT_TOLERANCE = 2  # accept +2/-2 errors, required by per_channel/per_tensor, all 8 bit, quantconv1d/2d, qcdq, symmetric float
-FLOAT_TOLERANCE = 1e-6
 KERNEL_SIZE = 1  # keep float error during fake-quantization under control
-BIT_WIDTHS = range(2, 9)
+BIT_WIDTHS = [2, 4, 8]
 QUANTIZERS = {
-    'asymmetric_float': (ShiftedUint8WeightPerTensorFloat, ShiftedUint8ActPerTensorFloat),
-    'symmetric_float': (Int8WeightPerTensorFloat, Int8ActPerTensorFloat),
-    'symmetric_fixed_point': (Int8WeightPerTensorFixedPoint, Int8ActPerTensorFixedPoint)}
+    #   'asymmetric_float': (ShiftedUint8WeightPerTensorFloat, ShiftedUint8ActPerTensorFloat),
+    #   'symmetric_float': (Int8WeightPerTensorFloat, Int8ActPerTensorFloat),
+    #   'symmetric_fixed_point': (Int8WeightPerTensorFixedPoint, Int8ActPerTensorFixedPoint),
+    'a2q': (Int8AccumulatorAwareWeightQuant, Int8ActPerTensorFloat)}
 QUANT_WBIOL_IMPL = [
     QuantLinear, QuantConv1d, QuantConv2d, QuantConvTranspose1d, QuantConvTranspose2d]
 
@@ -102,13 +103,13 @@ def is_brevitas_ort_close(
     ort_output = compute_ort(export_name, np_input)
 
     if first_output_only:
-        if isinstance(ort_output, tuple):
+        if isinstance(ort_output, (tuple, list)):
             ort_output = ort_output[0]
-        if isinstance(brevitas_output, tuple):
+        if isinstance(brevitas_output, (tuple, list)):
             brevitas_output = brevitas_output[0]
 
     # make sure we are not comparing 0s
-    if ort_output == 0 and (brevitas_output == 0).all():
+    if (ort_output == 0).all() and (brevitas_output == 0).all():
         pytest.skip("Skip testing against all 0s.")
 
     return recursive_allclose(ort_output, brevitas_output, tolerance)

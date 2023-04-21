@@ -118,20 +118,20 @@ class DecoupledWeightQuantWithInputProxyFromInjector(DecoupledWeightQuantProxyFr
     def requires_quant_input(self):
         return True
 
-    def scale(self):
-        raise NotImplementedError
+    def scale(self, x):
+        return self.tensor_quant.scale(x)
 
-    def zero_point(self):
-        raise NotImplementedError
+    def zero_point(self, x, input_bit_width, is_input_signed):
+        return self.tensor_quant.zero_point(x, input_bit_width, is_input_signed)
 
     def bit_width(self):
-        raise NotImplementedError
+        return self.tensor_quant.bit_width()
 
-    def pre_scale(self):
-        raise NotImplementedError
+    def pre_scale(self, x, input_bit_width, is_input_signed):
+        return self.tensor_quant.pre_scale(x, input_bit_width, is_input_signed)
 
-    def pre_zero_point(self):
-        raise NotImplementedError
+    def pre_zero_point(self, x, input_bit_width, is_input_signed):
+        return self.tensor_quant.pre_zero_point(x, input_bit_width, is_input_signed)
 
     def forward(
             self, x: torch.Tensor, input_bit_width: torch.Tensor,

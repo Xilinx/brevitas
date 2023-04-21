@@ -12,6 +12,7 @@ from brevitas.export.common import to_item_if_0dim
 from brevitas.proxy import ActQuantProxyFromInjector
 from brevitas.proxy import BiasQuantProxyFromInjector
 from brevitas.proxy import DecoupledWeightQuantProxyFromInjector
+from brevitas.proxy import DecoupledWeightQuantWithInputProxyFromInjector
 from brevitas.proxy import WeightQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector
 
@@ -19,6 +20,16 @@ from .base import BitWidthHandlerMixin
 from .base import ClipMixin
 from .base import QuantAxisMixin
 from .base import ZeroPointHandlerMixin
+
+
+def is_materialized(value):
+    return value is not None and not callable(value)
+
+
+def detach_trace(value):
+    if not isinstance(value, Tensor):
+        return value
+    return torch.tensor(value.cpu().numpy(), device=value.device, dtype=value.dtype)
 
 
 class DQMixin(ABC):
@@ -104,67 +115,77 @@ class QCDQQuantProxyHandlerMixin(QuantAxisMixin,
 
     def quantize_symbolic_kwargs(cls, scale, zero_point, bit_width, is_signed):
         # compute axis before redefining scale
-        # scale can be None for bias quantization
-        if scale is not None:
+        if is_materialized(scale):
             axis = cls.quant_axis(scale)
             scale = to_0dim_if_scalar(scale.flatten())
         else:
             axis = None
-        zp = to_0dim_if_scalar(zero_point.flatten())
-        if scale is not None:
-            # expand_as must go after 0-dim check
-            zp = zp.expand_as(scale)
-        # bit_width can be None for bias quantization
-        if bit_width is not None:
-            zp = cls.zero_point_with_dtype(is_signed, bit_width, zp)
-        # delay itemization of zp whenever scale or bit_width is not there yet
+        if is_materialized(zero_point):
+            zero_point = to_0dim_if_scalar(zero_point.flatten())
+            if is_materialized(scale):
+                # expand_as must go after 0-dim check
+                zero_point = zero_point.expand_as(scale)
+            if is_materialized(bit_width):
+                zero_point = cls.zero_point_with_dtype(is_signed, bit_width, zero_point)
+        # delay itemization of zero-point whenever scale or bit_width is not there yet
         # which requires a second pass through this function
-        if scale is not None and bit_width is not None and cls.itemize_quantize_scalar_params:
+        if (is_materialized(zero_point) and is_materialized(scale) and
+                is_materialized(bit_width) and cls.itemize_quantize_scalar_params):
             scale = to_item_if_0dim(scale)
-            zp = to_item_if_0dim(zp)
+            zero_point = to_item_if_0dim(zero_point)
         dtype = cls.signed_dtype(bit_width, is_signed)
-        return {'scale': scale, 'zero_point': zp, 'dtype': dtype, 'axis': axis}
+        return {'scale': scale, 'zero_point': zero_point, 'dtype': dtype, 'axis': axis}
 
     def dequantize_symbolic_kwargs(cls, scale, zero_point, bit_width, is_signed):
         # scale can be None for bias quantization
-        if scale is not None:
+        if is_materialized(scale):
             axis = cls.quant_axis(scale)
             if cls.flatten_dequantize_params:
                 scale = scale.flatten()
             scale = to_0dim_if_scalar(scale)
         else:
             axis = None
-        if cls.flatten_dequantize_params:
+        if is_materialized(zero_point) and cls.flatten_dequantize_params:
             zero_point = zero_point.flatten()
-        zp = to_0dim_if_scalar(zero_point)
-        if scale is not None:
-            zp = zp.expand_as(scale)
-        # bit_width can be None for bias quantization
-        if bit_width is not None:
-            zp = cls.zero_point_with_dtype(is_signed, bit_width, zp)
-        return {'scale': scale, 'zero_point': zp, 'axis': axis}
+        if is_materialized(zero_point):
+            zero_point = to_0dim_if_scalar(zero_point)
+        if is_materialized(zero_point) and is_materialized(scale):
+            zero_point = zero_point.expand_as(scale)
+        if is_materialized(zero_point) and is_materialized(bit_width):
+            zero_point = cls.zero_point_with_dtype(is_signed, bit_width, zero_point)
+        return {'scale': scale, 'zero_point': zero_point, 'axis': axis}
+
+    def prepare_for_export_impl(
+            self, pre_scale, pre_zero_point, scale, zero_point, bit_width, is_signed,
+            is_narrow_range):
+        self.symbolic_kwargs['bit_width'] = bit_width
+        self.symbolic_kwargs['is_signed'] = is_signed
+        self.symbolic_kwargs['is_narrow_range'] = is_narrow_range
+        self.symbolic_kwargs['quantize_symbolic_kwargs'] = self.quantize_symbolic_kwargs(
+            pre_scale, pre_zero_point, bit_width, is_signed)
+        self.symbolic_kwargs['dequantize_symbolic_kwargs'] = self.dequantize_symbolic_kwargs(
+            scale, zero_point, bit_width, is_signed)
+        if self.clip_over_integers:
+            self.symbolic_kwargs['clip_symbolic_kwargs'] = self.int_clip_symbolic_kwargs(
+                is_narrow_range, is_signed, bit_width)
+        else:
+            # preserve broadcastable shape if per-channel, scalar item otherwise
+            clip_scale = to_0dim_if_scalar(scale)
+            clip_zp = to_0dim_if_scalar(zero_point)
+            self.symbolic_kwargs['clip_symbolic_kwargs'] = self.float_clip_symbolic_kwargs(
+                is_narrow_range, is_signed, bit_width, clip_scale, clip_zp)
 
     def prepare_for_export(self, module):
         if module.is_quant_enabled:
             self.validate(module)
-            self.symbolic_kwargs['bit_width'] = module.bit_width()
-            self.symbolic_kwargs['quantize_symbolic_kwargs'] = self.quantize_symbolic_kwargs(
-                module.scale(), module.zero_point(), module.bit_width(), module.is_signed)
-            self.symbolic_kwargs['dequantize_symbolic_kwargs'] = self.dequantize_symbolic_kwargs(
-                module.scale(), module.zero_point(), module.bit_width(), module.is_signed)
-            if self.clip_over_integers:
-                self.symbolic_kwargs['clip_symbolic_kwargs'] = self.int_clip_symbolic_kwargs(
-                    module.is_narrow_range, module.is_signed, module.bit_width())
-            else:
-                # preserve broadcastable shape if per-channel, scalar item otherwise
-                clip_scale = to_0dim_if_scalar(module.scale())
-                clip_zp = to_0dim_if_scalar(module.zero_point())
-                self.symbolic_kwargs['clip_symbolic_kwargs'] = self.float_clip_symbolic_kwargs(
-                    module.is_narrow_range,
-                    module.is_signed,
-                    module.bit_width(),
-                    clip_scale,
-                    clip_zp)
+            self.prepare_for_export_impl(
+                module.scale(),
+                module.zero_point(),
+                module.scale(),
+                module.zero_point(),
+                module.bit_width(),
+                module.is_signed,
+                module.is_narrow_range)
         else:
             self.symbolic_kwargs = None
 
@@ -178,7 +199,6 @@ class QCDQQuantProxyHandlerMixin(QuantAxisMixin,
         bit_width = self.symbolic_kwargs['bit_width']
         # Workaround to trick the tracer into believing all return values are used
         self.assert_ge_zero(scale, zero_point, bit_width)
-
         x = self.quantize_fn(x, *quantize_symbolic_kwargs.values())
         if clip_symbolic_kwargs is not None:
             x = self.clip_fn(x, *clip_symbolic_kwargs.values())
@@ -193,18 +213,19 @@ class QCDQWeightQuantProxyHandlerMixin(QCDQQuantProxyHandlerMixin):
 class QCDQDecoupledWeightQuantProxyHandlerMixin(QCDQWeightQuantProxyHandlerMixin):
     handled_layer = DecoupledWeightQuantProxyFromInjector
 
-    def quantize_symbolic_kwargs(cls, module):
-        flat_scale = to_0dim_if_scalar(module.pre_scale().flatten())
-        zp = to_0dim_if_scalar(module.pre_zero_point().flatten()).expand_as(flat_scale)
-        zp = cls.zero_point_with_dtype(module.is_signed, module.bit_width, zp)
-        if cls.itemize_quantize_scalar_params:
-            flat_scale = to_item_if_0dim(flat_scale)
-            zp = to_item_if_0dim(zp)
-        return {
-            'scale': flat_scale,
-            'zero_point': zp,
-            'dtype': cls.int8_dtype() if module.is_signed else cls.uint8_dtype(),
-            'axis': cls.quant_axis(module.pre_scale())}
+    def prepare_for_export(self, module):
+        if module.is_quant_enabled:
+            self.validate(module)
+            self.prepare_for_export_impl(
+                module.pre_scale(),
+                module.pre_zero_point(),
+                module.scale(),
+                module.zero_point(),
+                module.bit_width(),
+                module.is_signed,
+                module.is_narrow_range)
+        else:
+            self.symbolic_kwargs = None
 
     def symbolic_execution(self, x: Tensor):
         out, scale, zero_point, bit_width = super().symbolic_execution(x)
@@ -212,6 +233,36 @@ class QCDQDecoupledWeightQuantProxyHandlerMixin(QCDQWeightQuantProxyHandlerMixin
         pre_scale = quantize_symbolic_kwargs['scale']
         pre_zero_point = quantize_symbolic_kwargs['zero_point']
         return out, pre_scale, pre_zero_point, scale, zero_point, bit_width
+
+
+class QCDQDecoupledWeightQuantProxyWithInputHandlerMixin(QCDQDecoupledWeightQuantProxyHandlerMixin):
+    handled_layer = DecoupledWeightQuantWithInputProxyFromInjector
+
+    def prepare_for_export(self, module):
+        self.prepare_for_export_impl(
+            # Pass in impls that can can be called from symbolic_execution
+            module.pre_scale,
+            module.pre_zero_point,
+            module.scale,
+            module.pre_zero_point,
+            module.bit_width(),
+            module.is_signed,
+            module.is_narrow_range)
+
+    def symbolic_execution(self, x: Tensor, input_bit_width: Tensor, is_input_signed: Tensor):
+        quantize_symbolic_kwargs = self.symbolic_kwargs['quantize_symbolic_kwargs']
+        dequantize_symbolic_kwargs = self.symbolic_kwargs['dequantize_symbolic_kwargs']
+        self.prepare_for_export_impl(
+            detach_trace(quantize_symbolic_kwargs['scale'](x, input_bit_width, is_input_signed)),
+            detach_trace(
+                quantize_symbolic_kwargs['zero_point'](x, input_bit_width, is_input_signed)),
+            detach_trace(dequantize_symbolic_kwargs['scale'](x)),
+            detach_trace(
+                dequantize_symbolic_kwargs['zero_point'](x, input_bit_width, is_input_signed)),
+            detach_trace(self.symbolic_kwargs['bit_width']),
+            self.symbolic_kwargs['is_signed'],
+            self.symbolic_kwargs['is_narrow_range'])
+        return super().symbolic_execution(x)
 
 
 class QCDQActQuantProxyHandlerMixin(QCDQQuantProxyHandlerMixin):

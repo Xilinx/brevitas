@@ -17,6 +17,7 @@ from ..manager import StdONNXBaseManager
 from .handler import StdQCDQONNXActQuantProxyHandler
 from .handler import StdQCDQONNXBiasQuantProxyHandler
 from .handler import StdQCDQONNXDecoupledWeightQuantProxyHandler
+from .handler import StdQCDQONNXDecoupledWeightQuantProxyWithInputHandler
 from .handler import StdQCDQONNXQuantLSTMLayerHandler
 from .handler import StdQCDQONNXTruncQuantProxyHandler
 from .handler import StdQCDQONNXWeightQuantProxyHandler
@@ -36,6 +37,7 @@ class StdQCDQONNXManager(StdONNXBaseManager):
         StdQCDQONNXBiasQuantProxyHandler,
         StdQCDQONNXActQuantProxyHandler,
         StdQCDQONNXDecoupledWeightQuantProxyHandler,
+        StdQCDQONNXDecoupledWeightQuantProxyWithInputHandler,
         StdQCDQONNXTruncQuantProxyHandler,
         StdQCDQONNXQuantLSTMLayerHandler]
 

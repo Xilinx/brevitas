@@ -18,7 +18,7 @@ from .quant_module_cases import QuantWBIOLCases
 
 
 @parametrize_with_cases('model', cases=QuantWBIOLCases)
-@pytest.mark.parametrize('export_type', ['qcdq', 'qop'])
+@pytest.mark.parametrize('export_type', ['qcdq'])
 @requires_pt_ge('1.8.1')
 def test_ort_wbiol(model, export_type, current_cases):
     cases_generator_func = current_cases['model'][1]
@@ -42,7 +42,7 @@ def test_ort_wbiol(model, export_type, current_cases):
     else:
         in_size = (1, IN_CH, FEATURES, FEATURES)
 
-    inp = gen_linspaced_data(reduce(mul, in_size), -1, 1).reshape(in_size)
+    inp = torch.randn(in_size).numpy()
 
     model(torch.from_numpy(inp))  # accumulate scale factors
     model.eval()

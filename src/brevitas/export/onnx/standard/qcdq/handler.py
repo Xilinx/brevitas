@@ -12,6 +12,7 @@ from brevitas.export.common.handler.qcdq import DQMixin
 from brevitas.export.common.handler.qcdq import QCDQActQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQBiasQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQDecoupledWeightQuantProxyHandlerMixin
+from brevitas.export.common.handler.qcdq import QCDQDecoupledWeightQuantProxyWithInputHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQMixin
 from brevitas.export.common.handler.qcdq import QCDQTruncQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQWeightQuantProxyHandlerMixin
@@ -78,6 +79,13 @@ class StdQCDQONNXDecoupledWeightQuantProxyHandler(StdQCDQONNXMixin,
                                                   QCDQDecoupledWeightQuantProxyHandlerMixin,
                                                   ONNXBaseHandler):
     pass
+
+
+class StdQCDQONNXDecoupledWeightQuantProxyWithInputHandler(
+        StdQCDQONNXMixin, QCDQDecoupledWeightQuantProxyWithInputHandlerMixin, ONNXBaseHandler):
+
+    def validate(self, module):
+        pass
 
 
 class StdQCDQONNXActQuantProxyHandler(StdQCDQONNXMixin,
