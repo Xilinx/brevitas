@@ -6,7 +6,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
 
-    <title>An overview of QuantTensor and QuantConv2d &#8212; Brevitas 0.7.2.dev139+g0c2e90d documentation</title>
+    <title>An overview of QuantTensor and QuantConv2d &#8212; Brevitas 0.9.0 documentation</title>
   
   
   
@@ -644,6 +644,7 @@ principles.</p>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">inspect</span>
 <span class="kn">from</span> <span class="nn">brevitas.nn</span> <span class="kn">import</span> <span class="n">QuantConv2d</span>
+<span class="kn">from</span> <span class="nn">brevitas.nn</span> <span class="kn">import</span> <span class="n">QuantIdentity</span>
 <span class="kn">from</span> <span class="nn">IPython.display</span> <span class="kn">import</span> <span class="n">Markdown</span><span class="p">,</span> <span class="n">display</span>
 
 <span class="k">def</span> <span class="nf">pretty_print_source</span><span class="p">(</span><span class="n">source</span><span class="p">):</span>
@@ -653,6 +654,15 @@ principles.</p>
 <span class="n">pretty_print_source</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
 </pre></div>
 </div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+/home/user/.local/lib/python3.7/site-packages/tqdm/auto.py:22: TqdmWarning: IProgress not found. Please update jupyter and ipywidgets. See https://ipywidgets.readthedocs.io/en/stable/user_install.html
+  from .autonotebook import tqdm as notebook_tqdm
+</pre></div></div>
 </div>
 <div class="nboutput nblast docutils container">
 <div class="prompt empty docutils container">
@@ -757,22 +767,22 @@ Is output quant enabled: False
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-tensor([[[[-0.1007, -0.2631,  0.9119],
-          [ 0.3060,  0.3174,  0.6748],
-          [-0.2179, -0.4119, -0.4807]],
+tensor([[[[-0.2594,  0.5392,  0.5916],
+          [ 0.3493,  0.6813,  0.2499],
+          [ 1.3732,  0.1229, -0.0084]],
 
-         [[ 0.4296,  0.0781, -0.2309],
-          [ 0.3522, -0.6440, -0.5089],
-          [ 0.8133,  0.3387, -0.0395]],
+         [[ 0.0031, -0.1702,  0.1069],
+          [-0.8181, -0.8056,  0.0385],
+          [-0.4738,  0.0589,  0.1278]],
 
-         [[-0.7194,  0.9901,  0.5440],
-          [-1.1865,  1.5809, -1.0971],
-          [-0.7248, -0.1470, -0.0498]]]], grad_fn=&lt;ThnnConv2DBackward&gt;)
+         [[-0.1718, -0.1162, -0.1526],
+          [-0.9903, -0.3541,  0.1645],
+          [ 0.0557, -0.4458, -0.2080]]]], grad_fn=&lt;ThnnConv2DBackward0&gt;)
 </pre></div></div>
 </div>
 <p>In this case we are computing the convolution between an unquantized input tensor and quantized weights, so the output in general is unquantized.</p>
 <p>A QuantConv2d with quantization disabled everywhere behaves like a standard <code class="docutils literal notranslate"><span class="pre">Conv2d</span></code>. Again can easily verify this:</p>
-<div class="nbinput docutils container">
+<div class="nbinput nblast docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
 </pre></div>
 </div>
@@ -786,18 +796,9 @@ tensor([[[[-0.1007, -0.2631,  0.9119],
 <span class="n">float_conv</span> <span class="o">=</span> <span class="n">Conv2d</span><span class="p">(</span>
     <span class="n">in_channels</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">out_channels</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">kernel_size</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 <span class="n">inp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
-<span class="n">torch</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">disabled_quant_conv</span><span class="p">(</span><span class="n">inp</span><span class="p">),</span> <span class="n">float_conv</span><span class="p">(</span><span class="n">inp</span><span class="p">))</span><span class="o">.</span><span class="n">all</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+<span class="k">assert</span> <span class="n">torch</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">disabled_quant_conv</span><span class="p">(</span><span class="n">inp</span><span class="p">),</span> <span class="n">float_conv</span><span class="p">(</span><span class="n">inp</span><span class="p">))</span><span class="o">.</span><span class="n">all</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
 </pre></div>
 </div>
-</div>
-<div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
-</pre></div>
-</div>
-<div class="output_area docutils container">
-<div class="highlight"><pre>
-True
-</pre></div></div>
 </div>
 <div class="line-block">
 <div class="line">As we have just seen, Brevitas allows users as much freedom as possible to experiment with quantization, meaning that computation between quantized and unquantized values is considered legal. This allows users to mix Brevitas layers with Pytorch layers with little restrictions.</div>
@@ -821,36 +822,36 @@ True
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-QuantTensor(value=tensor([[[[-0.1684, -0.0722,  0.1554],
-          [-0.1499, -0.1554, -0.1332],
-          [-0.1665,  0.1388,  0.2220]],
+QuantTensor(value=tensor([[[[-0.0790,  0.0503, -0.0934],
+          [-0.1149, -0.1903, -0.1329],
+          [-0.1813,  0.0108,  0.0593]],
 
-         [[-0.1277,  0.1813, -0.2294],
-          [ 0.0740, -0.0259, -0.1628],
-          [ 0.1425, -0.1906, -0.2109]]],
-
-
-        [[[ 0.0463,  0.2350, -0.1480],
-          [-0.2350,  0.1221, -0.0074],
-          [ 0.1369,  0.0814, -0.0185]],
-
-         [[-0.0648,  0.1684, -0.1517],
-          [ 0.1628,  0.1517,  0.1998],
-          [-0.0130,  0.2257, -0.1221]]],
+         [[ 0.0970, -0.0215, -0.0144],
+          [ 0.2280,  0.1239, -0.0090],
+          [ 0.1957, -0.2011, -0.0108]]],
 
 
-        [[[-0.1758,  0.1166, -0.0592],
-          [ 0.1425, -0.0796, -0.1499],
-          [-0.1832, -0.0278, -0.2294]],
+        [[[-0.0018, -0.1957,  0.1993],
+          [-0.0359,  0.1778, -0.1400],
+          [ 0.0916,  0.1059,  0.2173]],
 
-         [[ 0.2054, -0.0296,  0.1702],
-          [ 0.0185, -0.2294,  0.0426],
-          [ 0.0352,  0.0037, -0.1258]]]], grad_fn=&lt;MulBackward0&gt;), scale=tensor(0.0019, grad_fn=&lt;DivBackward0&gt;), zero_point=tensor(0.), bit_width=tensor(8.), signed_t=tensor(True), training_t=tensor(True))
+         [[-0.1670,  0.1939, -0.2191],
+          [-0.0215,  0.1688, -0.1383],
+          [-0.0449, -0.1185,  0.1742]]],
+
+
+        [[[-0.0808, -0.1652, -0.0233],
+          [-0.0700,  0.0467, -0.0485],
+          [ 0.1059,  0.1418,  0.1077]],
+
+         [[-0.0593,  0.0108,  0.0036],
+          [-0.1508,  0.0808,  0.1616],
+          [ 0.0144, -0.0287, -0.1365]]]], grad_fn=&lt;MulBackward0&gt;), scale=tensor(0.0018, grad_fn=&lt;DivBackward0&gt;), zero_point=tensor(0.), bit_width=tensor(8.), signed_t=tensor(True), training_t=tensor(True))
 </pre></div></div>
 </div>
 <p>Notice how the quantized weights are wrapped in a data structure implemented by Brevitas called <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code>. A <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> is a way to represent an affine quantized tensor with all its metadata, meaning: the <code class="docutils literal notranslate"><span class="pre">value</span></code> of the quantized tensor in <em>dequantized</em> format, <code class="docutils literal notranslate"><span class="pre">scale</span></code>, <code class="docutils literal notranslate"><span class="pre">zero_point</span></code>, <code class="docutils literal notranslate"><span class="pre">bit_width</span></code>, whether the quantized value it’s <code class="docutils literal notranslate"><span class="pre">signed</span></code> or not, and whether the tensor was generated in <code class="docutils literal notranslate"><span class="pre">training</span></code> mode.</p>
 <p>As expected, we have that the quantized value (in dequantized format) can be computer from its integer representation, together with zero-point and scale:</p>
-<div class="nbinput docutils container">
+<div class="nbinput nblast docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
 </pre></div>
 </div>
@@ -859,106 +860,98 @@ QuantTensor(value=tensor([[[[-0.1684, -0.0722,  0.1554],
 <span class="n">zero_point</span> <span class="o">=</span> <span class="n">default_quant_conv</span><span class="o">.</span><span class="n">quant_weight_zero_point</span><span class="p">()</span>
 <span class="n">scale</span> <span class="o">=</span> <span class="n">default_quant_conv</span><span class="o">.</span><span class="n">quant_weight_scale</span><span class="p">()</span>
 <span class="n">quant_weight_manually</span> <span class="o">=</span> <span class="p">(</span><span class="n">int_weight</span> <span class="o">-</span> <span class="n">zero_point</span><span class="p">)</span> <span class="o">*</span> <span class="n">scale</span>
-<span class="n">default_quant_conv</span><span class="o">.</span><span class="n">quant_weight</span><span class="p">()</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">quant_weight_manually</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+
+<span class="k">assert</span> <span class="n">default_quant_conv</span><span class="o">.</span><span class="n">quant_weight</span><span class="p">()</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">quant_weight_manually</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
 </pre></div>
 </div>
-</div>
-<div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
-</pre></div>
-</div>
-<div class="output_area docutils container">
-<div class="highlight"><pre>
-True
-</pre></div></div>
 </div>
 <p>A <em>valid</em> QuantTensor correctly populates all its fields with values <code class="docutils literal notranslate"><span class="pre">!=</span> <span class="pre">None</span></code> and respect the <strong>affine quantization invariant</strong>, i.e. <code class="docutils literal notranslate"><span class="pre">value</span> <span class="pre">/</span> <span class="pre">scale</span> <span class="pre">+</span> <span class="pre">zero_point</span></code> is (accounting for rounding errors) an <em>integer</em> that can be represented within the interval defined by the <code class="docutils literal notranslate"><span class="pre">bit_width</span></code> and <code class="docutils literal notranslate"><span class="pre">signed</span></code> fields of the <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code>. A <em>non-valid</em> one doesn’t. We can observe that the quantized weights are indeed marked as valid:</p>
-<div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
-</pre></div>
-</div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="n">default_quant_conv</span><span class="o">.</span><span class="n">quant_weight</span><span class="p">()</span><span class="o">.</span><span class="n">is_valid</span>
-</pre></div>
-</div>
-</div>
-<div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
-</pre></div>
-</div>
-<div class="output_area docutils container">
-<div class="highlight"><pre>
-True
-</pre></div></div>
-</div>
-<p>Calling <code class="docutils literal notranslate"><span class="pre">is_valid</span></code> is relative expensive, so it should be using sparingly, but there are a few cases where a non-valid QuantTensor might be generated that is important to be aware of. Say we instantiate the layer again, this time with <code class="docutils literal notranslate"><span class="pre">return_quant_tensor=True</span></code>:</p>
 <div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="n">return_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span>
-    <span class="n">in_channels</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">out_channels</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">kernel_size</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span></span><span class="k">assert</span> <span class="n">default_quant_conv</span><span class="o">.</span><span class="n">quant_weight</span><span class="p">()</span><span class="o">.</span><span class="n">is_valid</span>
 </pre></div>
 </div>
 </div>
-<p>We then again pass as input a random floating-point tensor. Because <code class="docutils literal notranslate"><span class="pre">input_quant=None</span></code> and <code class="docutils literal notranslate"><span class="pre">output_quant=None</span></code> (i.e. both input and output quantization are disabled), again as before we are performing a convolution between a quantized and an unquantized tensor, which in general returns an unquantized tensor:</p>
+<p>Calling <code class="docutils literal notranslate"><span class="pre">is_valid</span></code> is relative expensive, so it should be using sparingly, but there are a few cases where a non-valid QuantTensor might be generated that is important to be aware of. Say we have two QuantTensor as output of the same quantized activation, and we want to sum them together:</p>
 <div class="nbinput docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[10]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="n">out_tensor</span> <span class="o">=</span> <span class="n">return_quant_conv</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
+<span></span><span class="kn">from</span> <span class="nn">brevitas.quant_tensor</span> <span class="kn">import</span> <span class="n">QuantTensor</span>
+
+<span class="n">quant_act</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">(</span><span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="n">out_tensor_0</span> <span class="o">=</span> <span class="n">quant_act</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">5</span><span class="p">))</span>
+<span class="n">out_tensor_1</span> <span class="o">=</span> <span class="n">quant_act</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">5</span><span class="p">))</span>
+
+<span class="k">assert</span> <span class="n">out_tensor_0</span><span class="o">.</span><span class="n">is_valid</span>
+<span class="k">assert</span> <span class="n">out_tensor_1</span><span class="o">.</span><span class="n">is_valid</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">out_tensor_0</span><span class="o">.</span><span class="n">scale</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">out_tensor_1</span><span class="o">.</span><span class="n">scale</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+tensor(0.0173, grad_fn=&lt;DivBackward0&gt;)
+tensor(0.0307, grad_fn=&lt;DivBackward0&gt;)
+</pre></div></div>
+</div>
+<p>Both QuantTensor are valid but since the quantized activation is in training mode by default, their scale factors are going to be different. It is important to note that the behaviour is different at evaluation time, where the two scale factors will be the same.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[11]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">out_tensor</span> <span class="o">=</span> <span class="n">out_tensor_0</span> <span class="o">+</span> <span class="n">out_tensor_1</span>
 <span class="n">out_tensor</span>
 </pre></div>
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[10]:
-</pre></div>
-</div>
-<div class="output_area docutils container">
-<div class="highlight"><pre>
-QuantTensor(value=tensor([[[[-0.6238, -0.1567,  0.5639],
-          [-0.3426,  0.0662,  0.6296],
-          [-0.6507,  0.4468, -0.4465]],
-
-         [[ 1.0313,  0.7856, -0.2931],
-          [-0.6213,  0.5228,  0.7288],
-          [ 0.1397,  0.0216,  0.7518]],
-
-         [[ 0.0763, -0.3561, -0.0491],
-          [-0.5127,  0.2945,  0.5501],
-          [-0.2460, -0.0052,  0.0395]]]], grad_fn=&lt;ThnnConv2DBackward&gt;), scale=None, zero_point=None, bit_width=None, signed_t=None, training_t=tensor(True))
-</pre></div></div>
-</div>
-<p>Because we set <code class="docutils literal notranslate"><span class="pre">return_quant_tensor=True</span></code>, we get a <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> as output object. However, we observe that <code class="docutils literal notranslate"><span class="pre">scale</span></code>, <code class="docutils literal notranslate"><span class="pre">zero_point</span></code> and <code class="docutils literal notranslate"><span class="pre">bit_width</span></code> of the output <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> are set to <code class="docutils literal notranslate"><span class="pre">None</span></code>. This is expected since the output tensor is unquantized. In this case then the <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> is really just acting as a wrapper around a <code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code>, and as such is market as non-valid.</p>
-<div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[11]:
-</pre></div>
-</div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="n">out_tensor</span><span class="o">.</span><span class="n">is_valid</span>
-</pre></div>
-</div>
-</div>
-<div class="nboutput nblast docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[11]:
 </pre></div>
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-False
+QuantTensor(value=tensor([[[[ 0.9489, -0.9111, -0.0536,  0.5788,  0.3645],
+          [ 0.3401,  1.4325,  0.6498,  0.6411, -1.4390],
+          [-1.9029,  0.7012,  0.1591,  1.9235,  0.5883],
+          [-2.7258,  2.5330,  0.9165, -0.0820,  3.4148],
+          [-0.3651,  1.0164,  0.9567, -0.2758, -1.1376]],
+
+         [[-0.2414,  2.2111, -1.9124, -2.3814, -0.8805],
+          [ 1.3191, -0.8965, -0.2048, -3.8113,  1.1142],
+          [-0.3381, -0.2238,  1.2661,  0.0068,  0.2567],
+          [ 0.0731, -0.4280,  0.0909,  0.0875, -1.6851],
+          [-0.7744, -1.4127, -0.8143,  1.3557, -0.2802]]]],
+       grad_fn=&lt;AddBackward0&gt;), scale=tensor(0.0240, grad_fn=&lt;DivBackward0&gt;), zero_point=tensor(0.), bit_width=tensor(9.), signed_t=tensor(True), training_t=tensor(True))
 </pre></div></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> implements <code class="docutils literal notranslate"><span class="pre">__torch_function__</span></code> to handle being called from torch functional operators (e.g. ops under <code class="docutils literal notranslate"><span class="pre">torch.nn.functional</span></code>). Passing a QuantTensor to supported ops that are invariant to quantization, e.g. max-pooling, preserve the the validity of a QuantTensor. Example:</p>
-<div class="nbinput docutils container">
+<p>Because we set <code class="docutils literal notranslate"><span class="pre">training</span></code> to <code class="docutils literal notranslate"><span class="pre">True</span></code> for both of them, we are allowed to sum them even if they have different scale factors. The output QuantTensor will have the correct <code class="docutils literal notranslate"><span class="pre">bit_width</span></code>, and a scale which is the average of the two original scale factors. This is done only at training time, in order to propagate gradient information, however the consequence is that the resulting QuantTensor is no longer valid:</p>
+<div class="nbinput nblast docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[12]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="k">assert</span> <span class="ow">not</span> <span class="n">out_tensor</span><span class="o">.</span><span class="n">is_valid</span>
+</pre></div>
+</div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> implements <code class="docutils literal notranslate"><span class="pre">__torch_function__</span></code> to handle being called from torch functional operators (e.g. ops under <code class="docutils literal notranslate"><span class="pre">torch.nn.functional</span></code>). Passing a QuantTensor to supported ops that are invariant to quantization, e.g. max-pooling, preserve the the validity of a QuantTensor. Example:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[108]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">torch</span>
-<span class="kn">from</span> <span class="nn">brevitas.nn</span> <span class="kn">import</span> <span class="n">QuantIdentity</span>
 
 <span class="n">quant_identity</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">(</span><span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="n">quant_tensor</span> <span class="o">=</span> <span class="n">quant_identity</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
@@ -966,34 +959,25 @@ False
 </pre></div>
 </div>
 </div>
-<div class="nboutput docutils container">
-<div class="prompt empty docutils container">
-</div>
-<div class="output_area stderr docutils container">
-<div class="highlight"><pre>
-C:\ProgramData\Miniconda3\envs\pytorch\lib\site-packages\torch\nn\functional.py:718: UserWarning: Named tensors and all their associated APIs are an experimental feature and subject to change. Please do not use them for anything important until they are released as stable. (Triggered internally at  ..\c10/core/TensorImpl.h:1156.)
-  return torch.max_pool2d(input, kernel_size, stride, padding, dilation, ceil_mode)
-</pre></div></div>
-</div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[12]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[108]:
 </pre></div>
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-QuantTensor(value=tensor([[[[ 1.4362,  0.5809],
-          [ 1.0327,  1.9041]],
+QuantTensor(value=tensor([[[[1.5800, 1.0157],
+          [1.4445, 0.8577]],
 
-         [[ 0.5809, -0.1452],
-          [ 1.3878,  2.0494]],
+         [[0.5643, 1.2414],
+          [1.0383, 0.9028]],
 
-         [[ 0.7100,  0.5809],
-          [ 1.1780,  0.9359]]]]), scale=tensor(0.0161), zero_point=tensor(0.), bit_width=tensor(8.), signed_t=tensor(True), training_t=tensor(True))
+         [[0.5191, 0.6546],
+          [2.1442, 0.5868]]]], grad_fn=&lt;MaxPool2DWithIndicesBackward0&gt;), scale=tensor(0.0226, grad_fn=&lt;DivBackward0&gt;), zero_point=tensor(0.), bit_width=tensor(8.), signed_t=tensor(True), training_t=tensor(True))
 </pre></div></div>
 </div>
 <p>For ops that are not invariant to quantization, a <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> decays into a floating-point <code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code>. Example:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[13]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[109]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
@@ -1002,25 +986,25 @@ QuantTensor(value=tensor([[[[ 1.4362,  0.5809],
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[13]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[109]:
 </pre></div>
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-tensor([[[[-0.9023, -0.9424,  0.0805, -0.7936],
-          [ 0.8929, -0.1125,  0.5233, -0.1600],
-          [-0.0645,  0.7750,  0.7181, -0.4366],
-          [-0.7021,  0.1442,  0.9566,  0.3690]],
+tensor([[[[-0.4943, -0.9938, -0.9073,  0.7681],
+          [-0.3262,  0.9186,  0.1786,  0.3659],
+          [ 0.7489,  0.8946, -0.0451, -0.5594],
+          [-0.1346, -0.4943, -0.4770,  0.6951]],
 
-         [[-0.0323, -0.6678, -0.4623, -0.3408],
-          [ 0.5233, -0.8216, -0.1442, -0.1913],
-          [-0.0805,  0.8827,  0.5350, -0.4495],
-          [-0.3550, -0.8676,  0.9347,  0.9674]],
+         [[ 0.0676,  0.5111,  0.4943,  0.8459],
+          [-0.8990, -0.9426,  0.0676, -0.7945],
+          [-0.9220,  0.0676, -0.5594,  0.6321],
+          [-0.0676,  0.7772,  0.7177, -0.4414]],
 
-         [[-0.2221,  0.6107,  0.5233,  0.2676],
-          [-0.9684,  0.4873, -0.4873, -0.7021],
-          [-0.0161,  0.8268,  0.3829, -0.1913],
-          [-0.8216, -0.3120,  0.7333, -0.8163]]]])
+         [[ 0.4770,  0.2220,  0.0676,  0.5747],
+          [-0.0451, -0.6710, -0.4594, -0.3462],
+          [ 0.9729, -0.7177, -0.5896, -0.5276],
+          [-0.0900,  0.8852,  0.5276, -0.4414]]]], grad_fn=&lt;TanhBackward0&gt;)
 </pre></div></div>
 </div>
 </section>
@@ -1028,7 +1012,7 @@ tensor([[[[-0.9023, -0.9424,  0.0805, -0.7936],
 <h2>Input Quantization<a class="headerlink" href="#Input-Quantization" title="Permalink to this heading">#</a></h2>
 <p>We can obtain a valid output <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> by making sure that both input and weight of <code class="docutils literal notranslate"><span class="pre">QuantConv2d</span></code> are quantized. To do so, we can set a quantizer for <code class="docutils literal notranslate"><span class="pre">input_quant</span></code>. In this example we pick a <em>signed 8-bit</em> quantizer with <em>per-tensor floating-point scale factor</em>:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[14]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[110]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
@@ -1043,35 +1027,35 @@ tensor([[[[-0.9023, -0.9424,  0.0805, -0.7936],
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[14]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[110]:
 </pre></div>
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-QuantTensor(value=tensor([[[[-0.1760, -0.3239,  0.8647],
-          [ 0.2300, -0.9457, -0.5969],
-          [-0.1486,  0.2389, -0.1381]],
+QuantTensor(value=tensor([[[[ 0.9693, -0.9431,  0.2459],
+          [ 0.5416,  0.9037, -0.5278],
+          [-0.6207, -1.3578, -0.4815]],
 
-         [[ 0.4634, -0.4049, -0.3049],
-          [-0.0643,  1.0154,  0.6058],
-          [-0.0367, -0.9156,  0.1461]],
+         [[ 0.4551, -1.4065,  0.8889],
+          [-0.3393,  0.0803, -0.1748],
+          [-0.0977,  0.6284, -0.7193]],
 
-         [[ 0.7388,  0.6103,  0.8035],
-          [ 0.3011,  1.0519, -0.2473],
-          [-0.3113, -1.8302,  0.0223]]]], grad_fn=&lt;ThnnConv2DBackward&gt;), scale=tensor([[[[3.8195e-05]]]], grad_fn=&lt;MulBackward0&gt;), zero_point=tensor(0.), bit_width=tensor(21.), signed_t=tensor(True), training_t=tensor(True))
+         [[ 0.3655,  0.7626, -0.2634],
+          [-0.3453,  0.3349,  0.1923],
+          [ 0.5993, -0.9579,  0.3557]]]], grad_fn=&lt;ThnnConv2DBackward0&gt;), scale=tensor([[[[3.2208e-05]]]], grad_fn=&lt;MulBackward0&gt;), zero_point=tensor(0.), bit_width=tensor(21.), signed_t=tensor(True), training_t=tensor(True))
 </pre></div></div>
 </div>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[15]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[111]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="n">out_tensor</span><span class="o">.</span><span class="n">is_valid</span>
+<span></span><span class="k">assert</span> <span class="n">out_tensor</span><span class="o">.</span><span class="n">is_valid</span>
 </pre></div>
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[15]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[111]:
 </pre></div>
 </div>
 <div class="output_area docutils container">
@@ -1084,7 +1068,7 @@ True
 the affine quantization invariant is always respected.</p>
 <p>We could have obtained a similar result by directly passing as input a QuantTensor. In this example we are directly defining a QuantTensor ourselves, but it could also be the output of a previous layer.</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[16]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[112]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
@@ -1107,35 +1091,35 @@ the affine quantization invariant is always respected.</p>
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[16]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[112]:
 </pre></div>
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-QuantTensor(value=tensor([[[[-1.1500e-02, -5.8000e-03, -9.3000e-03,  1.0000e-02,  3.5000e-03],
-          [-6.8000e-03,  1.1500e-02, -1.0600e-02, -1.5000e-03, -1.9000e-03],
+QuantTensor(value=tensor([[[[ 5.7000e-03,  2.5000e-03, -1.2400e-02, -7.2000e-03,  3.7000e-03],
+          [-2.3000e-03,  7.0000e-04, -1.2700e-02,  5.2000e-03,  4.0000e-04],
+          [-7.9000e-03,  9.5000e-03,  6.6000e-03,  5.4000e-03,  2.5000e-03],
+          [ 1.1100e-02,  2.4000e-03,  1.0000e-02, -3.7000e-03,  7.2000e-03],
+          [-1.1500e-02, -5.8000e-03, -9.3000e-03,  1.0000e-02,  3.5000e-03]],
+
+         [[-6.8000e-03,  1.1500e-02, -1.0600e-02, -1.5000e-03, -1.9000e-03],
           [ 2.9000e-03,  9.5000e-03,  7.2000e-03, -3.7000e-03,  7.7000e-03],
           [-2.4000e-03, -8.9000e-03, -1.2000e-02, -8.1000e-03,  7.2000e-03],
-          [-1.1300e-02, -9.7000e-03, -1.0000e-03,  1.0100e-02,  3.8000e-03]],
-
-         [[-1.1900e-02,  6.9000e-03,  8.3000e-03,  1.0000e-04, -6.9000e-03],
-          [ 3.9000e-03, -5.4000e-03,  1.1300e-02, -6.0000e-03,  9.7000e-03],
-          [ 0.0000e+00,  1.0900e-02, -1.0900e-02,  1.1400e-02, -6.4000e-03],
-          [ 9.2000e-03,  7.1000e-03, -6.0000e-04,  9.2000e-03, -8.5000e-03],
-          [ 5.0000e-03,  6.5000e-03, -8.3000e-03, -1.2000e-03,  7.4000e-03]]]]), scale=tensor(1.0000e-04), zero_point=tensor(0.), bit_width=tensor(8.), signed_t=tensor(True), training_t=tensor(True))
+          [-1.1300e-02, -9.7000e-03, -1.0000e-03,  1.0100e-02,  3.8000e-03],
+          [-1.1900e-02,  6.9000e-03,  8.3000e-03,  1.0000e-04, -6.9000e-03]]]]), scale=tensor(1.0000e-04), zero_point=tensor(0.), bit_width=tensor(8.), signed_t=tensor(True), training_t=tensor(True))
 </pre></div></div>
 </div>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[17]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[113]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="n">quant_tensor_input</span><span class="o">.</span><span class="n">is_valid</span>
+<span></span><span class="k">assert</span> <span class="n">quant_tensor_input</span><span class="o">.</span><span class="n">is_valid</span>
 </pre></div>
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[17]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[113]:
 </pre></div>
 </div>
 <div class="output_area docutils container">
@@ -1146,45 +1130,47 @@ True
 <p><strong>Note</strong>: how we are explicitly forcing <code class="docutils literal notranslate"><span class="pre">value</span></code>, <code class="docutils literal notranslate"><span class="pre">scale</span></code>, <code class="docutils literal notranslate"><span class="pre">zero_point</span></code> and <code class="docutils literal notranslate"><span class="pre">bit_width</span></code> to be floating-point <code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code>, as this is expected by Brevitas but it’s currently not enforced automatically at initialization time.</p>
 <p>If we now pass in <code class="docutils literal notranslate"><span class="pre">quant_tensor_input</span></code> to <code class="docutils literal notranslate"><span class="pre">return_quant_conv</span></code>, we will see that indeed the output is a valid 21-bit <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code>:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[18]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[114]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="n">out_tensor</span> <span class="o">=</span> <span class="n">return_quant_conv</span><span class="p">(</span><span class="n">quant_tensor_input</span><span class="p">)</span>
+<span></span><span class="n">return_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span>
+    <span class="n">in_channels</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">out_channels</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">kernel_size</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">out_tensor</span> <span class="o">=</span> <span class="n">return_quant_conv</span><span class="p">(</span><span class="n">quant_tensor_input</span><span class="p">)</span>
 <span class="n">out_tensor</span>
 </pre></div>
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[18]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[114]:
 </pre></div>
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-QuantTensor(value=tensor([[[[ 0.0002, -0.0017, -0.0038],
-          [-0.0020,  0.0038,  0.0001],
-          [ 0.0022,  0.0034, -0.0024]],
+QuantTensor(value=tensor([[[[ 0.0085,  0.0066,  0.0050],
+          [-0.0038, -0.0009, -0.0115],
+          [-0.0055, -0.0037,  0.0009]],
 
-         [[-0.0010, -0.0078,  0.0010],
-          [ 0.0002,  0.0014,  0.0059],
-          [ 0.0050, -0.0020, -0.0069]],
+         [[ 0.0015, -0.0027, -0.0079],
+          [-0.0034, -0.0060,  0.0043],
+          [-0.0008,  0.0052, -0.0033]],
 
-         [[ 0.0006, -0.0071, -0.0012],
-          [-0.0011,  0.0057,  0.0055],
-          [-0.0003,  0.0040, -0.0019]]]], grad_fn=&lt;ThnnConv2DBackward&gt;), scale=tensor([[[[1.7899e-07]]]], grad_fn=&lt;MulBackward0&gt;), zero_point=tensor(0.), bit_width=tensor(21.), signed_t=tensor(True), training_t=tensor(True))
+         [[-0.0015,  0.0082, -0.0038],
+          [-0.0021,  0.0004, -0.0054],
+          [-0.0021, -0.0079,  0.0013]]]], grad_fn=&lt;ThnnConv2DBackward0&gt;), scale=tensor([[[[1.8448e-07]]]], grad_fn=&lt;MulBackward0&gt;), zero_point=tensor(0.), bit_width=tensor(21.), signed_t=tensor(True), training_t=tensor(True))
 </pre></div></div>
 </div>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[19]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[115]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="n">out_tensor</span><span class="o">.</span><span class="n">is_valid</span>
+<span></span><span class="k">assert</span> <span class="n">out_tensor</span><span class="o">.</span><span class="n">is_valid</span>
 </pre></div>
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[19]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[115]:
 </pre></div>
 </div>
 <div class="output_area docutils container">
@@ -1194,7 +1180,7 @@ True
 </div>
 <p>We can also pass in an input <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> to a layer that has <code class="docutils literal notranslate"><span class="pre">input_quant</span></code> enabled. In that case, the input gets re-quantized:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[20]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[116]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
@@ -1203,22 +1189,22 @@ True
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[20]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[116]:
 </pre></div>
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-QuantTensor(value=tensor([[[[ 0.0045, -0.0035, -0.0022],
-          [ 0.0027,  0.0001,  0.0051],
-          [ 0.0030, -0.0050, -0.0006]],
+QuantTensor(value=tensor([[[[-0.0035, -0.0037, -0.0050],
+          [ 0.0010, -0.0051, -0.0027],
+          [-0.0010,  0.0047,  0.0017]],
 
-         [[-0.0079,  0.0035,  0.0032],
-          [-0.0026, -0.0034, -0.0005],
-          [ 0.0022,  0.0095, -0.0014]],
+         [[ 0.0021,  0.0002,  0.0027],
+          [ 0.0028,  0.0002, -0.0044],
+          [ 0.0008, -0.0052, -0.0024]],
 
-         [[-0.0030, -0.0045,  0.0031],
-          [ 0.0038,  0.0023,  0.0054],
-          [ 0.0094,  0.0156, -0.0074]]]], grad_fn=&lt;ThnnConv2DBackward&gt;), scale=tensor([[[[1.7393e-07]]]], grad_fn=&lt;MulBackward0&gt;), zero_point=tensor(0.), bit_width=tensor(21.), signed_t=tensor(True), training_t=tensor(True))
+         [[ 0.0010, -0.0052, -0.0011],
+          [-0.0018,  0.0024,  0.0011],
+          [-0.0001,  0.0039,  0.0035]]]], grad_fn=&lt;ThnnConv2DBackward0&gt;), scale=tensor([[[[1.7410e-07]]]], grad_fn=&lt;MulBackward0&gt;), zero_point=tensor(0.), bit_width=tensor(21.), signed_t=tensor(True), training_t=tensor(True))
 </pre></div></div>
 </div>
 </section>
@@ -1226,7 +1212,7 @@ QuantTensor(value=tensor([[[[ 0.0045, -0.0035, -0.0022],
 <h2>Output Quantization<a class="headerlink" href="#Output-Quantization" title="Permalink to this heading">#</a></h2>
 <p>Let’s now look at would have happened if we instead enabled output quantization:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[21]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[117]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
@@ -1241,35 +1227,35 @@ QuantTensor(value=tensor([[[[ 0.0045, -0.0035, -0.0022],
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[21]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[117]:
 </pre></div>
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-QuantTensor(value=tensor([[[[ 0.1127,  0.7247,  0.4509],
-          [ 0.0805, -0.5153, -0.7569],
-          [-0.0483, -0.9662, -0.1610]],
+QuantTensor(value=tensor([[[[ 0.2111,  0.4060,  0.3654],
+          [-0.7876,  0.8119, -0.9825],
+          [-0.5115,  0.3979, -0.3248]],
 
-         [[ 0.3060,  0.7730, -0.3704],
-          [ 0.1771,  0.5153, -0.0805],
-          [ 0.6925, -0.4831,  1.1272]],
+         [[ 0.3816,  0.0568, -0.0812],
+          [ 1.0312, -0.7876,  0.8038],
+          [-0.3491, -0.4141,  0.0650]],
 
-         [[ 2.0451, -0.8535,  0.1932],
-          [ 0.1610,  1.2239, -0.4670],
-          [-0.7086,  0.6441, -0.9984]]]], grad_fn=&lt;MulBackward0&gt;), scale=tensor(0.0161, grad_fn=&lt;DivBackward0&gt;), zero_point=tensor(0.), bit_width=tensor(8.), signed_t=tensor(True), training_t=tensor(True))
+         [[-0.5846, -0.4222, -0.0731],
+          [-0.7389,  0.5034, -0.2517],
+          [-0.1624, -0.4385,  0.7308]]]], grad_fn=&lt;MulBackward0&gt;), scale=tensor(0.0081, grad_fn=&lt;DivBackward0&gt;), zero_point=tensor(0.), bit_width=tensor(8.), signed_t=tensor(True), training_t=tensor(True))
 </pre></div></div>
 </div>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[22]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[118]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="n">out_tensor</span><span class="o">.</span><span class="n">is_valid</span>
+<span></span><span class="k">assert</span> <span class="n">out_tensor</span><span class="o">.</span><span class="n">is_valid</span>
 </pre></div>
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[22]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[118]:
 </pre></div>
 </div>
 <div class="output_area docutils container">
@@ -1289,7 +1275,7 @@ True
 <p>There is an important scenario where the various options we just saw make a practical difference, and it’s quantization of <em>bias</em>. In many contexts, such as in the ONNX standard opset and in FINN, bias is assumed to be quantized with scale factor equal to <em>input scale</em> weight scale*, which means that we need a valid quantized input somehow. A predefined bias quantizer that reflects that assumption is <code class="docutils literal notranslate"><span class="pre">brevitas.quant.scaled_int.Int8Bias</span></code>. If we simply tried to set it to a <code class="docutils literal notranslate"><span class="pre">QuantConv2d</span></code>
 without any sort of input quantization, we would get an error:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[23]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[119]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
@@ -1307,54 +1293,54 @@ without any sort of input quantization, we would get an error:</p>
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-<span class="ansi-red-intense-fg ansi-bold">---------------------------------------------------------------------------</span>
-<span class="ansi-red-intense-fg ansi-bold">RuntimeError</span>                              Traceback (most recent call last)
-<span class="ansi-green-intense-fg ansi-bold">&lt;ipython-input-23-301e46b56837&gt;</span> in <span class="ansi-cyan-fg">&lt;module&gt;</span>
-<span class="ansi-green-fg">      4</span>     in_channels<span class="ansi-yellow-intense-fg ansi-bold">=</span><span class="ansi-cyan-intense-fg ansi-bold">2</span><span class="ansi-yellow-intense-fg ansi-bold">,</span> out_channels<span class="ansi-yellow-intense-fg ansi-bold">=</span><span class="ansi-cyan-intense-fg ansi-bold">3</span><span class="ansi-yellow-intense-fg ansi-bold">,</span> kernel_size<span class="ansi-yellow-intense-fg ansi-bold">=</span><span class="ansi-yellow-intense-fg ansi-bold">(</span><span class="ansi-cyan-intense-fg ansi-bold">3</span><span class="ansi-yellow-intense-fg ansi-bold">,</span><span class="ansi-cyan-intense-fg ansi-bold">3</span><span class="ansi-yellow-intense-fg ansi-bold">)</span><span class="ansi-yellow-intense-fg ansi-bold">,</span> bias<span class="ansi-yellow-intense-fg ansi-bold">=</span><span class="ansi-green-intense-fg ansi-bold">True</span><span class="ansi-yellow-intense-fg ansi-bold">,</span>
-<span class="ansi-green-fg">      5</span>     bias_quant=Int8Bias, return_quant_tensor=True)
-<span class="ansi-green-intense-fg ansi-bold">----&gt; 6</span><span class="ansi-yellow-intense-fg ansi-bold"> </span>bias_quant_conv<span class="ansi-yellow-intense-fg ansi-bold">(</span>torch<span class="ansi-yellow-intense-fg ansi-bold">.</span>randn<span class="ansi-yellow-intense-fg ansi-bold">(</span><span class="ansi-cyan-intense-fg ansi-bold">1</span><span class="ansi-yellow-intense-fg ansi-bold">,</span> <span class="ansi-cyan-intense-fg ansi-bold">2</span><span class="ansi-yellow-intense-fg ansi-bold">,</span> <span class="ansi-cyan-intense-fg ansi-bold">5</span><span class="ansi-yellow-intense-fg ansi-bold">,</span> <span class="ansi-cyan-intense-fg ansi-bold">5</span><span class="ansi-yellow-intense-fg ansi-bold">)</span><span class="ansi-yellow-intense-fg ansi-bold">)</span>
+<span class="ansi-red-fg">---------------------------------------------------------------------------</span>
+<span class="ansi-red-fg">RuntimeError</span>                              Traceback (most recent call last)
+<span class="ansi-green-fg">/tmp/ipykernel_48365/2280634207.py</span> in <span class="ansi-cyan-fg">&lt;module&gt;</span>
+<span class="ansi-green-intense-fg ansi-bold">      4</span>     in_channels<span class="ansi-blue-fg">=</span><span class="ansi-cyan-fg">2</span><span class="ansi-blue-fg">,</span> out_channels<span class="ansi-blue-fg">=</span><span class="ansi-cyan-fg">3</span><span class="ansi-blue-fg">,</span> kernel_size<span class="ansi-blue-fg">=</span><span class="ansi-blue-fg">(</span><span class="ansi-cyan-fg">3</span><span class="ansi-blue-fg">,</span><span class="ansi-cyan-fg">3</span><span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">,</span> bias<span class="ansi-blue-fg">=</span><span class="ansi-green-fg">True</span><span class="ansi-blue-fg">,</span>
+<span class="ansi-green-intense-fg ansi-bold">      5</span>     bias_quant=Int8Bias, return_quant_tensor=True)
+<span class="ansi-green-fg">----&gt; 6</span><span class="ansi-red-fg"> </span>bias_quant_conv<span class="ansi-blue-fg">(</span>torch<span class="ansi-blue-fg">.</span>randn<span class="ansi-blue-fg">(</span><span class="ansi-cyan-fg">1</span><span class="ansi-blue-fg">,</span> <span class="ansi-cyan-fg">2</span><span class="ansi-blue-fg">,</span> <span class="ansi-cyan-fg">5</span><span class="ansi-blue-fg">,</span> <span class="ansi-cyan-fg">5</span><span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">)</span>
 
-<span class="ansi-green-intense-fg ansi-bold">C:\ProgramData\Miniconda3\envs\pytorch\lib\site-packages\torch\nn\modules\module.py</span> in <span class="ansi-cyan-fg">_call_impl</span><span class="ansi-blue-intense-fg ansi-bold">(self, *input, **kwargs)</span>
-<span class="ansi-green-fg">   1049</span>         if not (self._backward_hooks or self._forward_hooks or self._forward_pre_hooks or _global_backward_hooks
-<span class="ansi-green-fg">   1050</span>                 or _global_forward_hooks or _global_forward_pre_hooks):
-<span class="ansi-green-intense-fg ansi-bold">-&gt; 1051</span><span class="ansi-yellow-intense-fg ansi-bold">             </span><span class="ansi-green-intense-fg ansi-bold">return</span> forward_call<span class="ansi-yellow-intense-fg ansi-bold">(</span><span class="ansi-yellow-intense-fg ansi-bold">*</span>input<span class="ansi-yellow-intense-fg ansi-bold">,</span> <span class="ansi-yellow-intense-fg ansi-bold">**</span>kwargs<span class="ansi-yellow-intense-fg ansi-bold">)</span>
-<span class="ansi-green-fg">   1052</span>         <span class="ansi-red-intense-fg ansi-bold"># Do not call functions when jit is used</span>
-<span class="ansi-green-fg">   1053</span>         full_backward_hooks<span class="ansi-yellow-intense-fg ansi-bold">,</span> non_full_backward_hooks <span class="ansi-yellow-intense-fg ansi-bold">=</span> <span class="ansi-yellow-intense-fg ansi-bold">[</span><span class="ansi-yellow-intense-fg ansi-bold">]</span><span class="ansi-yellow-intense-fg ansi-bold">,</span> <span class="ansi-yellow-intense-fg ansi-bold">[</span><span class="ansi-yellow-intense-fg ansi-bold">]</span>
+<span class="ansi-green-fg">/opt/conda/envs/torch_1.10/lib/python3.7/site-packages/torch/nn/modules/module.py</span> in <span class="ansi-cyan-fg">_call_impl</span><span class="ansi-blue-fg">(self, *input, **kwargs)</span>
+<span class="ansi-green-intense-fg ansi-bold">   1100</span>         if not (self._backward_hooks or self._forward_hooks or self._forward_pre_hooks or _global_backward_hooks
+<span class="ansi-green-intense-fg ansi-bold">   1101</span>                 or _global_forward_hooks or _global_forward_pre_hooks):
+<span class="ansi-green-fg">-&gt; 1102</span><span class="ansi-red-fg">             </span><span class="ansi-green-fg">return</span> forward_call<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">*</span>input<span class="ansi-blue-fg">,</span> <span class="ansi-blue-fg">**</span>kwargs<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">   1103</span>         <span class="ansi-red-fg"># Do not call functions when jit is used</span>
+<span class="ansi-green-intense-fg ansi-bold">   1104</span>         full_backward_hooks<span class="ansi-blue-fg">,</span> non_full_backward_hooks <span class="ansi-blue-fg">=</span> <span class="ansi-blue-fg">[</span><span class="ansi-blue-fg">]</span><span class="ansi-blue-fg">,</span> <span class="ansi-blue-fg">[</span><span class="ansi-blue-fg">]</span>
 
-<span class="ansi-green-intense-fg ansi-bold">c:\brevitas_fx\src\brevitas\nn\quant_conv.py</span> in <span class="ansi-cyan-fg">forward</span><span class="ansi-blue-intense-fg ansi-bold">(self, input)</span>
-<span class="ansi-green-fg">    223</span>
-<span class="ansi-green-fg">    224</span>     <span class="ansi-green-intense-fg ansi-bold">def</span> forward<span class="ansi-yellow-intense-fg ansi-bold">(</span>self<span class="ansi-yellow-intense-fg ansi-bold">,</span> input<span class="ansi-yellow-intense-fg ansi-bold">:</span> Union<span class="ansi-yellow-intense-fg ansi-bold">[</span>Tensor<span class="ansi-yellow-intense-fg ansi-bold">,</span> QuantTensor<span class="ansi-yellow-intense-fg ansi-bold">]</span><span class="ansi-yellow-intense-fg ansi-bold">)</span> <span class="ansi-yellow-intense-fg ansi-bold">-&gt;</span> Union<span class="ansi-yellow-intense-fg ansi-bold">[</span>Tensor<span class="ansi-yellow-intense-fg ansi-bold">,</span> QuantTensor<span class="ansi-yellow-intense-fg ansi-bold">]</span><span class="ansi-yellow-intense-fg ansi-bold">:</span>
-<span class="ansi-green-intense-fg ansi-bold">--&gt; 225</span><span class="ansi-yellow-intense-fg ansi-bold">         </span><span class="ansi-green-intense-fg ansi-bold">return</span> self<span class="ansi-yellow-intense-fg ansi-bold">.</span>forward_impl<span class="ansi-yellow-intense-fg ansi-bold">(</span>input<span class="ansi-yellow-intense-fg ansi-bold">)</span>
-<span class="ansi-green-fg">    226</span>
-<span class="ansi-green-fg">    227</span>     <span class="ansi-green-intense-fg ansi-bold">def</span> inner_forward_impl<span class="ansi-yellow-intense-fg ansi-bold">(</span>self<span class="ansi-yellow-intense-fg ansi-bold">,</span> x<span class="ansi-yellow-intense-fg ansi-bold">:</span> Tensor<span class="ansi-yellow-intense-fg ansi-bold">,</span> quant_weight<span class="ansi-yellow-intense-fg ansi-bold">:</span> Tensor<span class="ansi-yellow-intense-fg ansi-bold">,</span> quant_bias<span class="ansi-yellow-intense-fg ansi-bold">:</span> Optional<span class="ansi-yellow-intense-fg ansi-bold">[</span>Tensor<span class="ansi-yellow-intense-fg ansi-bold">]</span><span class="ansi-yellow-intense-fg ansi-bold">)</span><span class="ansi-yellow-intense-fg ansi-bold">:</span>
+<span class="ansi-green-fg">/workspace/scratch/git/fork_brevitas/src/brevitas/nn/quant_conv.py</span> in <span class="ansi-cyan-fg">forward</span><span class="ansi-blue-fg">(self, input)</span>
+<span class="ansi-green-intense-fg ansi-bold">    190</span>
+<span class="ansi-green-intense-fg ansi-bold">    191</span>     <span class="ansi-green-fg">def</span> forward<span class="ansi-blue-fg">(</span>self<span class="ansi-blue-fg">,</span> input<span class="ansi-blue-fg">:</span> Union<span class="ansi-blue-fg">[</span>Tensor<span class="ansi-blue-fg">,</span> QuantTensor<span class="ansi-blue-fg">]</span><span class="ansi-blue-fg">)</span> <span class="ansi-blue-fg">-&gt;</span> Union<span class="ansi-blue-fg">[</span>Tensor<span class="ansi-blue-fg">,</span> QuantTensor<span class="ansi-blue-fg">]</span><span class="ansi-blue-fg">:</span>
+<span class="ansi-green-fg">--&gt; 192</span><span class="ansi-red-fg">         </span><span class="ansi-green-fg">return</span> self<span class="ansi-blue-fg">.</span>forward_impl<span class="ansi-blue-fg">(</span>input<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    193</span>
+<span class="ansi-green-intense-fg ansi-bold">    194</span>     <span class="ansi-green-fg">def</span> inner_forward_impl<span class="ansi-blue-fg">(</span>self<span class="ansi-blue-fg">,</span> x<span class="ansi-blue-fg">:</span> Tensor<span class="ansi-blue-fg">,</span> quant_weight<span class="ansi-blue-fg">:</span> Tensor<span class="ansi-blue-fg">,</span> quant_bias<span class="ansi-blue-fg">:</span> Optional<span class="ansi-blue-fg">[</span>Tensor<span class="ansi-blue-fg">]</span><span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">:</span>
 
-<span class="ansi-green-intense-fg ansi-bold">c:\brevitas_fx\src\brevitas\nn\quant_layer.py</span> in <span class="ansi-cyan-fg">forward_impl</span><span class="ansi-blue-intense-fg ansi-bold">(self, inp)</span>
-<span class="ansi-green-fg">    355</span>
-<span class="ansi-green-fg">    356</span>         <span class="ansi-green-intense-fg ansi-bold">if</span> self<span class="ansi-yellow-intense-fg ansi-bold">.</span>bias <span class="ansi-green-intense-fg ansi-bold">is</span> <span class="ansi-green-intense-fg ansi-bold">not</span> <span class="ansi-green-intense-fg ansi-bold">None</span><span class="ansi-yellow-intense-fg ansi-bold">:</span>
-<span class="ansi-green-intense-fg ansi-bold">--&gt; 357</span><span class="ansi-yellow-intense-fg ansi-bold">             </span>quant_bias <span class="ansi-yellow-intense-fg ansi-bold">=</span> self<span class="ansi-yellow-intense-fg ansi-bold">.</span>bias_quant<span class="ansi-yellow-intense-fg ansi-bold">(</span>self<span class="ansi-yellow-intense-fg ansi-bold">.</span>bias<span class="ansi-yellow-intense-fg ansi-bold">,</span> output_scale<span class="ansi-yellow-intense-fg ansi-bold">,</span> output_bit_width<span class="ansi-yellow-intense-fg ansi-bold">)</span>
-<span class="ansi-green-fg">    358</span>             <span class="ansi-green-intense-fg ansi-bold">if</span> <span class="ansi-green-intense-fg ansi-bold">not</span> self<span class="ansi-yellow-intense-fg ansi-bold">.</span>training <span class="ansi-green-intense-fg ansi-bold">and</span> self<span class="ansi-yellow-intense-fg ansi-bold">.</span>cache_inference_quant_bias<span class="ansi-yellow-intense-fg ansi-bold">:</span>
-<span class="ansi-green-fg">    359</span>                 self<span class="ansi-yellow-intense-fg ansi-bold">.</span>_cached_bias <span class="ansi-yellow-intense-fg ansi-bold">=</span> _CachedIO<span class="ansi-yellow-intense-fg ansi-bold">(</span>quant_bias<span class="ansi-yellow-intense-fg ansi-bold">.</span>detach<span class="ansi-yellow-intense-fg ansi-bold">(</span><span class="ansi-yellow-intense-fg ansi-bold">)</span><span class="ansi-yellow-intense-fg ansi-bold">,</span> metadata_only<span class="ansi-yellow-intense-fg ansi-bold">=</span><span class="ansi-green-intense-fg ansi-bold">False</span><span class="ansi-yellow-intense-fg ansi-bold">)</span>
+<span class="ansi-green-fg">/workspace/scratch/git/fork_brevitas/src/brevitas/nn/quant_layer.py</span> in <span class="ansi-cyan-fg">forward_impl</span><span class="ansi-blue-fg">(self, inp)</span>
+<span class="ansi-green-intense-fg ansi-bold">    330</span>
+<span class="ansi-green-intense-fg ansi-bold">    331</span>         <span class="ansi-green-fg">if</span> self<span class="ansi-blue-fg">.</span>bias <span class="ansi-green-fg">is</span> <span class="ansi-green-fg">not</span> <span class="ansi-green-fg">None</span><span class="ansi-blue-fg">:</span>
+<span class="ansi-green-fg">--&gt; 332</span><span class="ansi-red-fg">             </span>quant_bias <span class="ansi-blue-fg">=</span> self<span class="ansi-blue-fg">.</span>bias_quant<span class="ansi-blue-fg">(</span>self<span class="ansi-blue-fg">.</span>bias<span class="ansi-blue-fg">,</span> output_scale<span class="ansi-blue-fg">,</span> output_bit_width<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    333</span>             <span class="ansi-green-fg">if</span> <span class="ansi-green-fg">not</span> self<span class="ansi-blue-fg">.</span>training <span class="ansi-green-fg">and</span> self<span class="ansi-blue-fg">.</span>cache_inference_quant_bias<span class="ansi-blue-fg">:</span>
+<span class="ansi-green-intense-fg ansi-bold">    334</span>                 self<span class="ansi-blue-fg">.</span>_cached_bias <span class="ansi-blue-fg">=</span> _CachedIO<span class="ansi-blue-fg">(</span>quant_bias<span class="ansi-blue-fg">.</span>detach<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">,</span> metadata_only<span class="ansi-blue-fg">=</span><span class="ansi-green-fg">False</span><span class="ansi-blue-fg">)</span>
 
-<span class="ansi-green-intense-fg ansi-bold">C:\ProgramData\Miniconda3\envs\pytorch\lib\site-packages\torch\nn\modules\module.py</span> in <span class="ansi-cyan-fg">_call_impl</span><span class="ansi-blue-intense-fg ansi-bold">(self, *input, **kwargs)</span>
-<span class="ansi-green-fg">   1049</span>         if not (self._backward_hooks or self._forward_hooks or self._forward_pre_hooks or _global_backward_hooks
-<span class="ansi-green-fg">   1050</span>                 or _global_forward_hooks or _global_forward_pre_hooks):
-<span class="ansi-green-intense-fg ansi-bold">-&gt; 1051</span><span class="ansi-yellow-intense-fg ansi-bold">             </span><span class="ansi-green-intense-fg ansi-bold">return</span> forward_call<span class="ansi-yellow-intense-fg ansi-bold">(</span><span class="ansi-yellow-intense-fg ansi-bold">*</span>input<span class="ansi-yellow-intense-fg ansi-bold">,</span> <span class="ansi-yellow-intense-fg ansi-bold">**</span>kwargs<span class="ansi-yellow-intense-fg ansi-bold">)</span>
-<span class="ansi-green-fg">   1052</span>         <span class="ansi-red-intense-fg ansi-bold"># Do not call functions when jit is used</span>
-<span class="ansi-green-fg">   1053</span>         full_backward_hooks<span class="ansi-yellow-intense-fg ansi-bold">,</span> non_full_backward_hooks <span class="ansi-yellow-intense-fg ansi-bold">=</span> <span class="ansi-yellow-intense-fg ansi-bold">[</span><span class="ansi-yellow-intense-fg ansi-bold">]</span><span class="ansi-yellow-intense-fg ansi-bold">,</span> <span class="ansi-yellow-intense-fg ansi-bold">[</span><span class="ansi-yellow-intense-fg ansi-bold">]</span>
+<span class="ansi-green-fg">/opt/conda/envs/torch_1.10/lib/python3.7/site-packages/torch/nn/modules/module.py</span> in <span class="ansi-cyan-fg">_call_impl</span><span class="ansi-blue-fg">(self, *input, **kwargs)</span>
+<span class="ansi-green-intense-fg ansi-bold">   1100</span>         if not (self._backward_hooks or self._forward_hooks or self._forward_pre_hooks or _global_backward_hooks
+<span class="ansi-green-intense-fg ansi-bold">   1101</span>                 or _global_forward_hooks or _global_forward_pre_hooks):
+<span class="ansi-green-fg">-&gt; 1102</span><span class="ansi-red-fg">             </span><span class="ansi-green-fg">return</span> forward_call<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">*</span>input<span class="ansi-blue-fg">,</span> <span class="ansi-blue-fg">**</span>kwargs<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">   1103</span>         <span class="ansi-red-fg"># Do not call functions when jit is used</span>
+<span class="ansi-green-intense-fg ansi-bold">   1104</span>         full_backward_hooks<span class="ansi-blue-fg">,</span> non_full_backward_hooks <span class="ansi-blue-fg">=</span> <span class="ansi-blue-fg">[</span><span class="ansi-blue-fg">]</span><span class="ansi-blue-fg">,</span> <span class="ansi-blue-fg">[</span><span class="ansi-blue-fg">]</span>
 
-<span class="ansi-green-intense-fg ansi-bold">c:\brevitas_fx\src\brevitas\proxy\parameter_quant.py</span> in <span class="ansi-cyan-fg">forward</span><span class="ansi-blue-intense-fg ansi-bold">(self, x, input_scale, input_bit_width)</span>
-<span class="ansi-green-fg">    194</span>             impl <span class="ansi-yellow-intense-fg ansi-bold">=</span> self<span class="ansi-yellow-intense-fg ansi-bold">.</span>export_handler <span class="ansi-green-intense-fg ansi-bold">if</span> self<span class="ansi-yellow-intense-fg ansi-bold">.</span>export_mode <span class="ansi-green-intense-fg ansi-bold">else</span> self<span class="ansi-yellow-intense-fg ansi-bold">.</span>tensor_quant
-<span class="ansi-green-fg">    195</span>             <span class="ansi-green-intense-fg ansi-bold">if</span> self<span class="ansi-yellow-intense-fg ansi-bold">.</span>requires_input_scale <span class="ansi-green-intense-fg ansi-bold">and</span> input_scale <span class="ansi-green-intense-fg ansi-bold">is</span> <span class="ansi-green-intense-fg ansi-bold">None</span><span class="ansi-yellow-intense-fg ansi-bold">:</span>
-<span class="ansi-green-intense-fg ansi-bold">--&gt; 196</span><span class="ansi-yellow-intense-fg ansi-bold">                 </span><span class="ansi-green-intense-fg ansi-bold">raise</span> RuntimeError<span class="ansi-yellow-intense-fg ansi-bold">(</span><span class="ansi-blue-intense-fg ansi-bold">&#34;Input scale required&#34;</span><span class="ansi-yellow-intense-fg ansi-bold">)</span>
-<span class="ansi-green-fg">    197</span>             <span class="ansi-green-intense-fg ansi-bold">if</span> self<span class="ansi-yellow-intense-fg ansi-bold">.</span>requires_input_bit_width <span class="ansi-green-intense-fg ansi-bold">and</span> input_bit_width <span class="ansi-green-intense-fg ansi-bold">is</span> <span class="ansi-green-intense-fg ansi-bold">None</span><span class="ansi-yellow-intense-fg ansi-bold">:</span>
-<span class="ansi-green-fg">    198</span>                 <span class="ansi-green-intense-fg ansi-bold">raise</span> RuntimeError<span class="ansi-yellow-intense-fg ansi-bold">(</span><span class="ansi-blue-intense-fg ansi-bold">&#34;Input bit-width required&#34;</span><span class="ansi-yellow-intense-fg ansi-bold">)</span>
+<span class="ansi-green-fg">/workspace/scratch/git/fork_brevitas/src/brevitas/proxy/parameter_quant.py</span> in <span class="ansi-cyan-fg">forward</span><span class="ansi-blue-fg">(self, x, input_scale, input_bit_width)</span>
+<span class="ansi-green-intense-fg ansi-bold">    160</span>             impl <span class="ansi-blue-fg">=</span> self<span class="ansi-blue-fg">.</span>export_handler <span class="ansi-green-fg">if</span> self<span class="ansi-blue-fg">.</span>export_mode <span class="ansi-green-fg">else</span> self<span class="ansi-blue-fg">.</span>tensor_quant
+<span class="ansi-green-intense-fg ansi-bold">    161</span>             <span class="ansi-green-fg">if</span> self<span class="ansi-blue-fg">.</span>requires_input_scale <span class="ansi-green-fg">and</span> input_scale <span class="ansi-green-fg">is</span> <span class="ansi-green-fg">None</span><span class="ansi-blue-fg">:</span>
+<span class="ansi-green-fg">--&gt; 162</span><span class="ansi-red-fg">                 </span><span class="ansi-green-fg">raise</span> RuntimeError<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">&#34;Input scale required&#34;</span><span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    163</span>             <span class="ansi-green-fg">if</span> self<span class="ansi-blue-fg">.</span>requires_input_bit_width <span class="ansi-green-fg">and</span> input_bit_width <span class="ansi-green-fg">is</span> <span class="ansi-green-fg">None</span><span class="ansi-blue-fg">:</span>
+<span class="ansi-green-intense-fg ansi-bold">    164</span>                 <span class="ansi-green-fg">raise</span> RuntimeError<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">&#34;Input bit-width required&#34;</span><span class="ansi-blue-fg">)</span>
 
-<span class="ansi-red-intense-fg ansi-bold">RuntimeError</span>: Input scale required
+<span class="ansi-red-fg">RuntimeError</span>: Input scale required
 </pre></div></div>
 </div>
 <p>We can solve the issue by passing in a valid <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code>, e.g. the <code class="docutils literal notranslate"><span class="pre">quant_tensor_input</span></code> we defined above:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[24]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[120]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
@@ -1363,27 +1349,27 @@ without any sort of input quantization, we would get an error:</p>
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[24]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[120]:
 </pre></div>
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-QuantTensor(value=tensor([[[[-0.0040, -0.0009,  0.0006],
-          [ 0.0053, -0.0011,  0.0011],
-          [ 0.0043,  0.0068,  0.0016]],
+QuantTensor(value=tensor([[[[ 0.0005,  0.0043, -0.0004],
+          [ 0.0005,  0.0106,  0.0012],
+          [ 0.0021,  0.0007, -0.0050]],
 
-         [[ 0.0010,  0.0020,  0.0037],
-          [-0.0032, -0.0055,  0.0034],
-          [ 0.0078, -0.0071,  0.0038]],
+         [[-0.0067, -0.0035, -0.0059],
+          [-0.0050, -0.0015, -0.0039],
+          [ 0.0015,  0.0028, -0.0008]],
 
-         [[ 0.0012, -0.0061,  0.0010],
-          [ 0.0008,  0.0001, -0.0060],
-          [ 0.0030, -0.0052,  0.0061]]]], grad_fn=&lt;ThnnConv2DBackward&gt;), scale=tensor([[[[1.8108e-07]]]], grad_fn=&lt;MulBackward0&gt;), zero_point=tensor(0.), bit_width=tensor(22.), signed_t=tensor(True), training_t=tensor(True))
+         [[-0.0051, -0.0050,  0.0060],
+          [-0.0015,  0.0037,  0.0071],
+          [ 0.0067,  0.0035, -0.0071]]]], grad_fn=&lt;ThnnConv2DBackward0&gt;), scale=tensor([[[[1.8108e-07]]]], grad_fn=&lt;MulBackward0&gt;), zero_point=tensor(0.), bit_width=tensor(22.), signed_t=tensor(True), training_t=tensor(True))
 </pre></div></div>
 </div>
 <p>Or by enabling input quantization and then passing in a float a <code class="docutils literal notranslate"><span class="pre">torch.Tensor</span></code> or a <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code>:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[25]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[121]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
@@ -1395,26 +1381,26 @@ QuantTensor(value=tensor([[[[-0.0040, -0.0009,  0.0006],
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[25]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[121]:
 </pre></div>
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-QuantTensor(value=tensor([[[[-1.1932, -0.3228, -0.4671],
-          [ 0.0132,  0.0988,  0.2729],
-          [-0.8529,  0.4697, -0.5951]],
+QuantTensor(value=tensor([[[[-0.3825,  0.1371,  0.9135],
+          [-0.2016,  0.7495, -0.4071],
+          [-0.0755,  0.5283,  0.2388]],
 
-         [[-0.6967,  0.4200,  0.3516],
-          [ 0.1296, -0.1609, -0.0758],
-          [ 1.2978,  0.0923, -0.1931]],
+         [[ 0.0788, -0.3802, -0.2234],
+          [ 0.8678, -0.5546,  0.4408],
+          [-0.6788,  0.4422,  0.3007]],
 
-         [[-0.6142,  0.8017, -0.1383],
-          [-0.7863,  0.1125, -0.2210],
-          [ 0.3591, -0.5942, -0.1165]]]], grad_fn=&lt;ThnnConv2DBackward&gt;), scale=tensor([[[[4.9213e-05]]]], grad_fn=&lt;MulBackward0&gt;), zero_point=tensor(0.), bit_width=tensor(22.), signed_t=tensor(True), training_t=tensor(True))
+         [[ 0.4412, -0.3205,  1.0033],
+          [-0.0083, -0.3295, -0.2076],
+          [ 0.4417, -0.1046, -0.3493]]]], grad_fn=&lt;ThnnConv2DBackward0&gt;), scale=tensor([[[[3.8610e-05]]]], grad_fn=&lt;MulBackward0&gt;), zero_point=tensor(0.), bit_width=tensor(22.), signed_t=tensor(True), training_t=tensor(True))
 </pre></div></div>
 </div>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[26]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[122]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
@@ -1423,29 +1409,28 @@ QuantTensor(value=tensor([[[[-1.1932, -0.3228, -0.4671],
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[26]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[122]:
 </pre></div>
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-QuantTensor(value=tensor([[[[-5.1220e-03,  5.3110e-03, -1.7256e-03],
-          [-3.5191e-03, -4.1349e-03,  1.1166e-03],
-          [-2.6435e-03, -4.1546e-03,  7.3403e-03]],
+QuantTensor(value=tensor([[[[ 0.0036,  0.0024, -0.0033],
+          [ 0.0050,  0.0080, -0.0014],
+          [-0.0036, -0.0080, -0.0029]],
 
-         [[ 6.7945e-07, -6.7448e-03,  6.8607e-03],
-          [ 2.3195e-04, -2.5737e-03, -5.3764e-03],
-          [ 2.7155e-03,  5.5203e-03, -1.0607e-03]],
+         [[ 0.0083, -0.0093,  0.0048],
+          [ 0.0035,  0.0015, -0.0011],
+          [-0.0003,  0.0067,  0.0013]],
 
-         [[ 4.6902e-03, -6.1470e-03,  5.9844e-03],
-          [ 3.4126e-03, -6.6340e-03,  5.9087e-03],
-          [-4.5733e-03,  3.8523e-03, -3.5290e-03]]]],
-       grad_fn=&lt;ThnnConv2DBackward&gt;), scale=tensor([[[[1.6992e-07]]]], grad_fn=&lt;MulBackward0&gt;), zero_point=tensor(0.), bit_width=tensor(22.), signed_t=tensor(True), training_t=tensor(True))
+         [[-0.0009, -0.0019,  0.0039],
+          [ 0.0010,  0.0056, -0.0037],
+          [ 0.0091, -0.0095,  0.0054]]]], grad_fn=&lt;ThnnConv2DBackward0&gt;), scale=tensor([[[[1.8384e-07]]]], grad_fn=&lt;MulBackward0&gt;), zero_point=tensor(0.), bit_width=tensor(22.), signed_t=tensor(True), training_t=tensor(True))
 </pre></div></div>
 </div>
 <p>Notice how the output <code class="docutils literal notranslate"><span class="pre">bit_width=tensor(22.)</span></code>. This is because, in the worst-case, summing a <em>21-bit</em> integer (the size of the accumulator before bias is added) and an <em>8-bit</em> integer (the size of quantized bias) gives a <em>22-bit</em> integer.</p>
 <p>Let’s try now to enable output quantization instead of input quantization. That wouldn’t have solved the problem with bias quantization, as output quantization is performed after bias is added:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[27]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[123]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
@@ -1461,54 +1446,54 @@ QuantTensor(value=tensor([[[[-5.1220e-03,  5.3110e-03, -1.7256e-03],
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-<span class="ansi-red-intense-fg ansi-bold">---------------------------------------------------------------------------</span>
-<span class="ansi-red-intense-fg ansi-bold">RuntimeError</span>                              Traceback (most recent call last)
-<span class="ansi-green-intense-fg ansi-bold">&lt;ipython-input-27-7b506e3334dc&gt;</span> in <span class="ansi-cyan-fg">&lt;module&gt;</span>
-<span class="ansi-green-fg">      2</span>     in_channels<span class="ansi-yellow-intense-fg ansi-bold">=</span><span class="ansi-cyan-intense-fg ansi-bold">2</span><span class="ansi-yellow-intense-fg ansi-bold">,</span> out_channels<span class="ansi-yellow-intense-fg ansi-bold">=</span><span class="ansi-cyan-intense-fg ansi-bold">3</span><span class="ansi-yellow-intense-fg ansi-bold">,</span> kernel_size<span class="ansi-yellow-intense-fg ansi-bold">=</span><span class="ansi-yellow-intense-fg ansi-bold">(</span><span class="ansi-cyan-intense-fg ansi-bold">3</span><span class="ansi-yellow-intense-fg ansi-bold">,</span><span class="ansi-cyan-intense-fg ansi-bold">3</span><span class="ansi-yellow-intense-fg ansi-bold">)</span><span class="ansi-yellow-intense-fg ansi-bold">,</span> bias<span class="ansi-yellow-intense-fg ansi-bold">=</span><span class="ansi-green-intense-fg ansi-bold">True</span><span class="ansi-yellow-intense-fg ansi-bold">,</span>
-<span class="ansi-green-fg">      3</span>     output_quant=Int8ActPerTensorFloat, bias_quant=Int8Bias, return_quant_tensor=True)
-<span class="ansi-green-intense-fg ansi-bold">----&gt; 4</span><span class="ansi-yellow-intense-fg ansi-bold"> </span>output_bias_quant_conv<span class="ansi-yellow-intense-fg ansi-bold">(</span>torch<span class="ansi-yellow-intense-fg ansi-bold">.</span>randn<span class="ansi-yellow-intense-fg ansi-bold">(</span><span class="ansi-cyan-intense-fg ansi-bold">1</span><span class="ansi-yellow-intense-fg ansi-bold">,</span> <span class="ansi-cyan-intense-fg ansi-bold">2</span><span class="ansi-yellow-intense-fg ansi-bold">,</span> <span class="ansi-cyan-intense-fg ansi-bold">5</span><span class="ansi-yellow-intense-fg ansi-bold">,</span> <span class="ansi-cyan-intense-fg ansi-bold">5</span><span class="ansi-yellow-intense-fg ansi-bold">)</span><span class="ansi-yellow-intense-fg ansi-bold">)</span>
+<span class="ansi-red-fg">---------------------------------------------------------------------------</span>
+<span class="ansi-red-fg">RuntimeError</span>                              Traceback (most recent call last)
+<span class="ansi-green-fg">/tmp/ipykernel_48365/2990591641.py</span> in <span class="ansi-cyan-fg">&lt;module&gt;</span>
+<span class="ansi-green-intense-fg ansi-bold">      2</span>     in_channels<span class="ansi-blue-fg">=</span><span class="ansi-cyan-fg">2</span><span class="ansi-blue-fg">,</span> out_channels<span class="ansi-blue-fg">=</span><span class="ansi-cyan-fg">3</span><span class="ansi-blue-fg">,</span> kernel_size<span class="ansi-blue-fg">=</span><span class="ansi-blue-fg">(</span><span class="ansi-cyan-fg">3</span><span class="ansi-blue-fg">,</span><span class="ansi-cyan-fg">3</span><span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">,</span> bias<span class="ansi-blue-fg">=</span><span class="ansi-green-fg">True</span><span class="ansi-blue-fg">,</span>
+<span class="ansi-green-intense-fg ansi-bold">      3</span>     output_quant=Int8ActPerTensorFloat, bias_quant=Int8Bias, return_quant_tensor=True)
+<span class="ansi-green-fg">----&gt; 4</span><span class="ansi-red-fg"> </span>output_bias_quant_conv<span class="ansi-blue-fg">(</span>torch<span class="ansi-blue-fg">.</span>randn<span class="ansi-blue-fg">(</span><span class="ansi-cyan-fg">1</span><span class="ansi-blue-fg">,</span> <span class="ansi-cyan-fg">2</span><span class="ansi-blue-fg">,</span> <span class="ansi-cyan-fg">5</span><span class="ansi-blue-fg">,</span> <span class="ansi-cyan-fg">5</span><span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">)</span>
 
-<span class="ansi-green-intense-fg ansi-bold">C:\ProgramData\Miniconda3\envs\pytorch\lib\site-packages\torch\nn\modules\module.py</span> in <span class="ansi-cyan-fg">_call_impl</span><span class="ansi-blue-intense-fg ansi-bold">(self, *input, **kwargs)</span>
-<span class="ansi-green-fg">   1049</span>         if not (self._backward_hooks or self._forward_hooks or self._forward_pre_hooks or _global_backward_hooks
-<span class="ansi-green-fg">   1050</span>                 or _global_forward_hooks or _global_forward_pre_hooks):
-<span class="ansi-green-intense-fg ansi-bold">-&gt; 1051</span><span class="ansi-yellow-intense-fg ansi-bold">             </span><span class="ansi-green-intense-fg ansi-bold">return</span> forward_call<span class="ansi-yellow-intense-fg ansi-bold">(</span><span class="ansi-yellow-intense-fg ansi-bold">*</span>input<span class="ansi-yellow-intense-fg ansi-bold">,</span> <span class="ansi-yellow-intense-fg ansi-bold">**</span>kwargs<span class="ansi-yellow-intense-fg ansi-bold">)</span>
-<span class="ansi-green-fg">   1052</span>         <span class="ansi-red-intense-fg ansi-bold"># Do not call functions when jit is used</span>
-<span class="ansi-green-fg">   1053</span>         full_backward_hooks<span class="ansi-yellow-intense-fg ansi-bold">,</span> non_full_backward_hooks <span class="ansi-yellow-intense-fg ansi-bold">=</span> <span class="ansi-yellow-intense-fg ansi-bold">[</span><span class="ansi-yellow-intense-fg ansi-bold">]</span><span class="ansi-yellow-intense-fg ansi-bold">,</span> <span class="ansi-yellow-intense-fg ansi-bold">[</span><span class="ansi-yellow-intense-fg ansi-bold">]</span>
+<span class="ansi-green-fg">/opt/conda/envs/torch_1.10/lib/python3.7/site-packages/torch/nn/modules/module.py</span> in <span class="ansi-cyan-fg">_call_impl</span><span class="ansi-blue-fg">(self, *input, **kwargs)</span>
+<span class="ansi-green-intense-fg ansi-bold">   1100</span>         if not (self._backward_hooks or self._forward_hooks or self._forward_pre_hooks or _global_backward_hooks
+<span class="ansi-green-intense-fg ansi-bold">   1101</span>                 or _global_forward_hooks or _global_forward_pre_hooks):
+<span class="ansi-green-fg">-&gt; 1102</span><span class="ansi-red-fg">             </span><span class="ansi-green-fg">return</span> forward_call<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">*</span>input<span class="ansi-blue-fg">,</span> <span class="ansi-blue-fg">**</span>kwargs<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">   1103</span>         <span class="ansi-red-fg"># Do not call functions when jit is used</span>
+<span class="ansi-green-intense-fg ansi-bold">   1104</span>         full_backward_hooks<span class="ansi-blue-fg">,</span> non_full_backward_hooks <span class="ansi-blue-fg">=</span> <span class="ansi-blue-fg">[</span><span class="ansi-blue-fg">]</span><span class="ansi-blue-fg">,</span> <span class="ansi-blue-fg">[</span><span class="ansi-blue-fg">]</span>
 
-<span class="ansi-green-intense-fg ansi-bold">c:\brevitas_fx\src\brevitas\nn\quant_conv.py</span> in <span class="ansi-cyan-fg">forward</span><span class="ansi-blue-intense-fg ansi-bold">(self, input)</span>
-<span class="ansi-green-fg">    223</span>
-<span class="ansi-green-fg">    224</span>     <span class="ansi-green-intense-fg ansi-bold">def</span> forward<span class="ansi-yellow-intense-fg ansi-bold">(</span>self<span class="ansi-yellow-intense-fg ansi-bold">,</span> input<span class="ansi-yellow-intense-fg ansi-bold">:</span> Union<span class="ansi-yellow-intense-fg ansi-bold">[</span>Tensor<span class="ansi-yellow-intense-fg ansi-bold">,</span> QuantTensor<span class="ansi-yellow-intense-fg ansi-bold">]</span><span class="ansi-yellow-intense-fg ansi-bold">)</span> <span class="ansi-yellow-intense-fg ansi-bold">-&gt;</span> Union<span class="ansi-yellow-intense-fg ansi-bold">[</span>Tensor<span class="ansi-yellow-intense-fg ansi-bold">,</span> QuantTensor<span class="ansi-yellow-intense-fg ansi-bold">]</span><span class="ansi-yellow-intense-fg ansi-bold">:</span>
-<span class="ansi-green-intense-fg ansi-bold">--&gt; 225</span><span class="ansi-yellow-intense-fg ansi-bold">         </span><span class="ansi-green-intense-fg ansi-bold">return</span> self<span class="ansi-yellow-intense-fg ansi-bold">.</span>forward_impl<span class="ansi-yellow-intense-fg ansi-bold">(</span>input<span class="ansi-yellow-intense-fg ansi-bold">)</span>
-<span class="ansi-green-fg">    226</span>
-<span class="ansi-green-fg">    227</span>     <span class="ansi-green-intense-fg ansi-bold">def</span> inner_forward_impl<span class="ansi-yellow-intense-fg ansi-bold">(</span>self<span class="ansi-yellow-intense-fg ansi-bold">,</span> x<span class="ansi-yellow-intense-fg ansi-bold">:</span> Tensor<span class="ansi-yellow-intense-fg ansi-bold">,</span> quant_weight<span class="ansi-yellow-intense-fg ansi-bold">:</span> Tensor<span class="ansi-yellow-intense-fg ansi-bold">,</span> quant_bias<span class="ansi-yellow-intense-fg ansi-bold">:</span> Optional<span class="ansi-yellow-intense-fg ansi-bold">[</span>Tensor<span class="ansi-yellow-intense-fg ansi-bold">]</span><span class="ansi-yellow-intense-fg ansi-bold">)</span><span class="ansi-yellow-intense-fg ansi-bold">:</span>
+<span class="ansi-green-fg">/workspace/scratch/git/fork_brevitas/src/brevitas/nn/quant_conv.py</span> in <span class="ansi-cyan-fg">forward</span><span class="ansi-blue-fg">(self, input)</span>
+<span class="ansi-green-intense-fg ansi-bold">    190</span>
+<span class="ansi-green-intense-fg ansi-bold">    191</span>     <span class="ansi-green-fg">def</span> forward<span class="ansi-blue-fg">(</span>self<span class="ansi-blue-fg">,</span> input<span class="ansi-blue-fg">:</span> Union<span class="ansi-blue-fg">[</span>Tensor<span class="ansi-blue-fg">,</span> QuantTensor<span class="ansi-blue-fg">]</span><span class="ansi-blue-fg">)</span> <span class="ansi-blue-fg">-&gt;</span> Union<span class="ansi-blue-fg">[</span>Tensor<span class="ansi-blue-fg">,</span> QuantTensor<span class="ansi-blue-fg">]</span><span class="ansi-blue-fg">:</span>
+<span class="ansi-green-fg">--&gt; 192</span><span class="ansi-red-fg">         </span><span class="ansi-green-fg">return</span> self<span class="ansi-blue-fg">.</span>forward_impl<span class="ansi-blue-fg">(</span>input<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    193</span>
+<span class="ansi-green-intense-fg ansi-bold">    194</span>     <span class="ansi-green-fg">def</span> inner_forward_impl<span class="ansi-blue-fg">(</span>self<span class="ansi-blue-fg">,</span> x<span class="ansi-blue-fg">:</span> Tensor<span class="ansi-blue-fg">,</span> quant_weight<span class="ansi-blue-fg">:</span> Tensor<span class="ansi-blue-fg">,</span> quant_bias<span class="ansi-blue-fg">:</span> Optional<span class="ansi-blue-fg">[</span>Tensor<span class="ansi-blue-fg">]</span><span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">:</span>
 
-<span class="ansi-green-intense-fg ansi-bold">c:\brevitas_fx\src\brevitas\nn\quant_layer.py</span> in <span class="ansi-cyan-fg">forward_impl</span><span class="ansi-blue-intense-fg ansi-bold">(self, inp)</span>
-<span class="ansi-green-fg">    355</span>
-<span class="ansi-green-fg">    356</span>         <span class="ansi-green-intense-fg ansi-bold">if</span> self<span class="ansi-yellow-intense-fg ansi-bold">.</span>bias <span class="ansi-green-intense-fg ansi-bold">is</span> <span class="ansi-green-intense-fg ansi-bold">not</span> <span class="ansi-green-intense-fg ansi-bold">None</span><span class="ansi-yellow-intense-fg ansi-bold">:</span>
-<span class="ansi-green-intense-fg ansi-bold">--&gt; 357</span><span class="ansi-yellow-intense-fg ansi-bold">             </span>quant_bias <span class="ansi-yellow-intense-fg ansi-bold">=</span> self<span class="ansi-yellow-intense-fg ansi-bold">.</span>bias_quant<span class="ansi-yellow-intense-fg ansi-bold">(</span>self<span class="ansi-yellow-intense-fg ansi-bold">.</span>bias<span class="ansi-yellow-intense-fg ansi-bold">,</span> output_scale<span class="ansi-yellow-intense-fg ansi-bold">,</span> output_bit_width<span class="ansi-yellow-intense-fg ansi-bold">)</span>
-<span class="ansi-green-fg">    358</span>             <span class="ansi-green-intense-fg ansi-bold">if</span> <span class="ansi-green-intense-fg ansi-bold">not</span> self<span class="ansi-yellow-intense-fg ansi-bold">.</span>training <span class="ansi-green-intense-fg ansi-bold">and</span> self<span class="ansi-yellow-intense-fg ansi-bold">.</span>cache_inference_quant_bias<span class="ansi-yellow-intense-fg ansi-bold">:</span>
-<span class="ansi-green-fg">    359</span>                 self<span class="ansi-yellow-intense-fg ansi-bold">.</span>_cached_bias <span class="ansi-yellow-intense-fg ansi-bold">=</span> _CachedIO<span class="ansi-yellow-intense-fg ansi-bold">(</span>quant_bias<span class="ansi-yellow-intense-fg ansi-bold">.</span>detach<span class="ansi-yellow-intense-fg ansi-bold">(</span><span class="ansi-yellow-intense-fg ansi-bold">)</span><span class="ansi-yellow-intense-fg ansi-bold">,</span> metadata_only<span class="ansi-yellow-intense-fg ansi-bold">=</span><span class="ansi-green-intense-fg ansi-bold">False</span><span class="ansi-yellow-intense-fg ansi-bold">)</span>
+<span class="ansi-green-fg">/workspace/scratch/git/fork_brevitas/src/brevitas/nn/quant_layer.py</span> in <span class="ansi-cyan-fg">forward_impl</span><span class="ansi-blue-fg">(self, inp)</span>
+<span class="ansi-green-intense-fg ansi-bold">    330</span>
+<span class="ansi-green-intense-fg ansi-bold">    331</span>         <span class="ansi-green-fg">if</span> self<span class="ansi-blue-fg">.</span>bias <span class="ansi-green-fg">is</span> <span class="ansi-green-fg">not</span> <span class="ansi-green-fg">None</span><span class="ansi-blue-fg">:</span>
+<span class="ansi-green-fg">--&gt; 332</span><span class="ansi-red-fg">             </span>quant_bias <span class="ansi-blue-fg">=</span> self<span class="ansi-blue-fg">.</span>bias_quant<span class="ansi-blue-fg">(</span>self<span class="ansi-blue-fg">.</span>bias<span class="ansi-blue-fg">,</span> output_scale<span class="ansi-blue-fg">,</span> output_bit_width<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    333</span>             <span class="ansi-green-fg">if</span> <span class="ansi-green-fg">not</span> self<span class="ansi-blue-fg">.</span>training <span class="ansi-green-fg">and</span> self<span class="ansi-blue-fg">.</span>cache_inference_quant_bias<span class="ansi-blue-fg">:</span>
+<span class="ansi-green-intense-fg ansi-bold">    334</span>                 self<span class="ansi-blue-fg">.</span>_cached_bias <span class="ansi-blue-fg">=</span> _CachedIO<span class="ansi-blue-fg">(</span>quant_bias<span class="ansi-blue-fg">.</span>detach<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">,</span> metadata_only<span class="ansi-blue-fg">=</span><span class="ansi-green-fg">False</span><span class="ansi-blue-fg">)</span>
 
-<span class="ansi-green-intense-fg ansi-bold">C:\ProgramData\Miniconda3\envs\pytorch\lib\site-packages\torch\nn\modules\module.py</span> in <span class="ansi-cyan-fg">_call_impl</span><span class="ansi-blue-intense-fg ansi-bold">(self, *input, **kwargs)</span>
-<span class="ansi-green-fg">   1049</span>         if not (self._backward_hooks or self._forward_hooks or self._forward_pre_hooks or _global_backward_hooks
-<span class="ansi-green-fg">   1050</span>                 or _global_forward_hooks or _global_forward_pre_hooks):
-<span class="ansi-green-intense-fg ansi-bold">-&gt; 1051</span><span class="ansi-yellow-intense-fg ansi-bold">             </span><span class="ansi-green-intense-fg ansi-bold">return</span> forward_call<span class="ansi-yellow-intense-fg ansi-bold">(</span><span class="ansi-yellow-intense-fg ansi-bold">*</span>input<span class="ansi-yellow-intense-fg ansi-bold">,</span> <span class="ansi-yellow-intense-fg ansi-bold">**</span>kwargs<span class="ansi-yellow-intense-fg ansi-bold">)</span>
-<span class="ansi-green-fg">   1052</span>         <span class="ansi-red-intense-fg ansi-bold"># Do not call functions when jit is used</span>
-<span class="ansi-green-fg">   1053</span>         full_backward_hooks<span class="ansi-yellow-intense-fg ansi-bold">,</span> non_full_backward_hooks <span class="ansi-yellow-intense-fg ansi-bold">=</span> <span class="ansi-yellow-intense-fg ansi-bold">[</span><span class="ansi-yellow-intense-fg ansi-bold">]</span><span class="ansi-yellow-intense-fg ansi-bold">,</span> <span class="ansi-yellow-intense-fg ansi-bold">[</span><span class="ansi-yellow-intense-fg ansi-bold">]</span>
+<span class="ansi-green-fg">/opt/conda/envs/torch_1.10/lib/python3.7/site-packages/torch/nn/modules/module.py</span> in <span class="ansi-cyan-fg">_call_impl</span><span class="ansi-blue-fg">(self, *input, **kwargs)</span>
+<span class="ansi-green-intense-fg ansi-bold">   1100</span>         if not (self._backward_hooks or self._forward_hooks or self._forward_pre_hooks or _global_backward_hooks
+<span class="ansi-green-intense-fg ansi-bold">   1101</span>                 or _global_forward_hooks or _global_forward_pre_hooks):
+<span class="ansi-green-fg">-&gt; 1102</span><span class="ansi-red-fg">             </span><span class="ansi-green-fg">return</span> forward_call<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">*</span>input<span class="ansi-blue-fg">,</span> <span class="ansi-blue-fg">**</span>kwargs<span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">   1103</span>         <span class="ansi-red-fg"># Do not call functions when jit is used</span>
+<span class="ansi-green-intense-fg ansi-bold">   1104</span>         full_backward_hooks<span class="ansi-blue-fg">,</span> non_full_backward_hooks <span class="ansi-blue-fg">=</span> <span class="ansi-blue-fg">[</span><span class="ansi-blue-fg">]</span><span class="ansi-blue-fg">,</span> <span class="ansi-blue-fg">[</span><span class="ansi-blue-fg">]</span>
 
-<span class="ansi-green-intense-fg ansi-bold">c:\brevitas_fx\src\brevitas\proxy\parameter_quant.py</span> in <span class="ansi-cyan-fg">forward</span><span class="ansi-blue-intense-fg ansi-bold">(self, x, input_scale, input_bit_width)</span>
-<span class="ansi-green-fg">    194</span>             impl <span class="ansi-yellow-intense-fg ansi-bold">=</span> self<span class="ansi-yellow-intense-fg ansi-bold">.</span>export_handler <span class="ansi-green-intense-fg ansi-bold">if</span> self<span class="ansi-yellow-intense-fg ansi-bold">.</span>export_mode <span class="ansi-green-intense-fg ansi-bold">else</span> self<span class="ansi-yellow-intense-fg ansi-bold">.</span>tensor_quant
-<span class="ansi-green-fg">    195</span>             <span class="ansi-green-intense-fg ansi-bold">if</span> self<span class="ansi-yellow-intense-fg ansi-bold">.</span>requires_input_scale <span class="ansi-green-intense-fg ansi-bold">and</span> input_scale <span class="ansi-green-intense-fg ansi-bold">is</span> <span class="ansi-green-intense-fg ansi-bold">None</span><span class="ansi-yellow-intense-fg ansi-bold">:</span>
-<span class="ansi-green-intense-fg ansi-bold">--&gt; 196</span><span class="ansi-yellow-intense-fg ansi-bold">                 </span><span class="ansi-green-intense-fg ansi-bold">raise</span> RuntimeError<span class="ansi-yellow-intense-fg ansi-bold">(</span><span class="ansi-blue-intense-fg ansi-bold">&#34;Input scale required&#34;</span><span class="ansi-yellow-intense-fg ansi-bold">)</span>
-<span class="ansi-green-fg">    197</span>             <span class="ansi-green-intense-fg ansi-bold">if</span> self<span class="ansi-yellow-intense-fg ansi-bold">.</span>requires_input_bit_width <span class="ansi-green-intense-fg ansi-bold">and</span> input_bit_width <span class="ansi-green-intense-fg ansi-bold">is</span> <span class="ansi-green-intense-fg ansi-bold">None</span><span class="ansi-yellow-intense-fg ansi-bold">:</span>
-<span class="ansi-green-fg">    198</span>                 <span class="ansi-green-intense-fg ansi-bold">raise</span> RuntimeError<span class="ansi-yellow-intense-fg ansi-bold">(</span><span class="ansi-blue-intense-fg ansi-bold">&#34;Input bit-width required&#34;</span><span class="ansi-yellow-intense-fg ansi-bold">)</span>
+<span class="ansi-green-fg">/workspace/scratch/git/fork_brevitas/src/brevitas/proxy/parameter_quant.py</span> in <span class="ansi-cyan-fg">forward</span><span class="ansi-blue-fg">(self, x, input_scale, input_bit_width)</span>
+<span class="ansi-green-intense-fg ansi-bold">    160</span>             impl <span class="ansi-blue-fg">=</span> self<span class="ansi-blue-fg">.</span>export_handler <span class="ansi-green-fg">if</span> self<span class="ansi-blue-fg">.</span>export_mode <span class="ansi-green-fg">else</span> self<span class="ansi-blue-fg">.</span>tensor_quant
+<span class="ansi-green-intense-fg ansi-bold">    161</span>             <span class="ansi-green-fg">if</span> self<span class="ansi-blue-fg">.</span>requires_input_scale <span class="ansi-green-fg">and</span> input_scale <span class="ansi-green-fg">is</span> <span class="ansi-green-fg">None</span><span class="ansi-blue-fg">:</span>
+<span class="ansi-green-fg">--&gt; 162</span><span class="ansi-red-fg">                 </span><span class="ansi-green-fg">raise</span> RuntimeError<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">&#34;Input scale required&#34;</span><span class="ansi-blue-fg">)</span>
+<span class="ansi-green-intense-fg ansi-bold">    163</span>             <span class="ansi-green-fg">if</span> self<span class="ansi-blue-fg">.</span>requires_input_bit_width <span class="ansi-green-fg">and</span> input_bit_width <span class="ansi-green-fg">is</span> <span class="ansi-green-fg">None</span><span class="ansi-blue-fg">:</span>
+<span class="ansi-green-intense-fg ansi-bold">    164</span>                 <span class="ansi-green-fg">raise</span> RuntimeError<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">&#34;Input bit-width required&#34;</span><span class="ansi-blue-fg">)</span>
 
-<span class="ansi-red-intense-fg ansi-bold">RuntimeError</span>: Input scale required
+<span class="ansi-red-fg">RuntimeError</span>: Input scale required
 </pre></div></div>
 </div>
 <p>Not all scenarios require bias quantization to depend on the scale factor of the input. In those cases, biases can be quantized the same way weights are quantized, and have their own scale factor. In Brevitas, a predefined quantizer that reflects this other scenario is <code class="docutils literal notranslate"><span class="pre">Int8BiasPerTensorFloatInternalScaling</span></code>. In this case then a valid quantized input is not required:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[28]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[124]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
@@ -1516,35 +1501,34 @@ QuantTensor(value=tensor([[[[-5.1220e-03,  5.3110e-03, -1.7256e-03],
 
 <span class="n">bias_internal_scale_quant_conv</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span>
     <span class="n">in_channels</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">out_channels</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">kernel_size</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-    <span class="n">bias_quant</span><span class="o">=</span><span class="n">Int8BiasPerTensorFloatInternalScaling</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">bias_quant</span><span class="o">=</span><span class="n">Int8BiasPerTensorFloatInternalScaling</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 <span class="n">bias_internal_scale_quant_conv</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
 </pre></div>
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[28]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[124]:
 </pre></div>
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-QuantTensor(value=tensor([[[[ 3.9541e-01,  1.0925e-01,  5.7339e-01],
-          [ 2.8455e-01,  2.5993e-01, -6.4358e-01],
-          [-1.5946e-02, -2.6222e-01,  1.1759e+00]],
+tensor([[[[ 0.2152,  0.8346,  0.0746],
+          [-0.0738, -0.5212,  0.1019],
+          [-0.6004,  0.1500, -0.1453]],
 
-         [[ 2.9224e-01, -7.9820e-01,  7.9893e-01],
-          [-1.2683e-01, -5.2149e-01,  5.0705e-01],
-          [-1.2161e+00, -3.3960e-01,  2.7555e-03]],
+         [[-1.1551, -1.3458, -0.1312],
+          [ 0.2502, -0.5267,  0.2412],
+          [-0.3556, -0.3289, -0.2276]],
 
-         [[-5.0872e-02, -2.2190e-01,  4.6538e-04],
-          [-7.2407e-02,  6.3366e-04, -7.2510e-01],
-          [-2.2703e-02, -7.2701e-01,  8.6453e-02]]]],
-       grad_fn=&lt;ThnnConv2DBackward&gt;), scale=None, zero_point=None, bit_width=None, signed_t=None, training_t=tensor(True))
+         [[-0.4599, -0.6094,  0.4682],
+          [-0.5064, -0.6768, -0.6638],
+          [ 0.0066, -0.3581,  0.2359]]]], grad_fn=&lt;ThnnConv2DBackward0&gt;)
 </pre></div></div>
 </div>
 <p>There are a couple of situations to be aware of concerning bias quantization that can lead to changes in the output <code class="docutils literal notranslate"><span class="pre">zero_point</span></code>.</p>
 <p>Let’s consider the scenario where we compute the convolution between a quantized input tensor and quantized weights. In the first case, we then add an <em>unquantized</em> bias on top of the output. In the second one, we add a bias quantized with its own scale factor, e.g. with the <code class="docutils literal notranslate"><span class="pre">Int8BiasPerTensorFloatInternalScaling</span></code> quantizer. In both cases, in order to make sure the output <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> is valid (i.e. the affine quantization invariant is respected), the output <code class="docutils literal notranslate"><span class="pre">zero_point</span></code> becomes non-zero:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[29]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[125]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
@@ -1557,39 +1541,39 @@ QuantTensor(value=tensor([[[[ 3.9541e-01,  1.0925e-01,  5.7339e-01],
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[29]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[125]:
 </pre></div>
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-QuantTensor(value=tensor([[[[-0.2864,  0.0194, -0.5835],
-          [ 0.0089, -0.4669,  0.1854],
-          [-0.6356, -0.1184, -0.4888]],
+QuantTensor(value=tensor([[[[-0.6879, -0.6632, -0.2411],
+          [ 0.2064, -0.7371,  0.3910],
+          [ 0.9533,  0.2994,  0.6546]],
 
-         [[-0.4935,  0.1282, -0.0513],
-          [ 0.2893, -0.4362, -0.8152],
-          [ 0.4719, -0.1783,  0.3152]],
+         [[-0.4684, -0.4495, -0.5021],
+          [ 0.5738,  0.4199, -0.3380],
+          [ 0.6218, -0.0408, -0.8483]],
 
-         [[ 0.1789, -0.2934,  0.2483],
-          [ 0.3184, -0.5840, -0.3555],
-          [-0.5761, -0.1768, -0.8496]]]], grad_fn=&lt;ThnnConv2DBackward&gt;), scale=tensor([[[[3.5363e-05]]]], grad_fn=&lt;MulBackward0&gt;), zero_point=tensor([[[[6285.0532]],
+         [[-0.5625,  0.1837, -1.0575],
+          [-1.2816, -0.4993, -0.3409],
+          [ 0.4556, -1.4269,  0.5369]]]], grad_fn=&lt;ThnnConv2DBackward0&gt;), scale=tensor([[[[3.0975e-05]]]], grad_fn=&lt;MulBackward0&gt;), zero_point=tensor([[[[ 1276.0774]],
 
-         [[ 936.8170]],
+         [[-3152.4585]],
 
-         [[4303.7090]]]], grad_fn=&lt;DivBackward0&gt;), bit_width=tensor(21.), signed_t=tensor(True), training_t=tensor(True))
+         [[ 7320.2324]]]], grad_fn=&lt;DivBackward0&gt;), bit_width=tensor(21.), signed_t=tensor(True), training_t=tensor(True))
 </pre></div></div>
 </div>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[30]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[126]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="n">out_tensor</span><span class="o">.</span><span class="n">is_valid</span>
+<span></span><span class="k">assert</span> <span class="n">out_tensor</span><span class="o">.</span><span class="n">is_valid</span>
 </pre></div>
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[30]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[126]:
 </pre></div>
 </div>
 <div class="output_area docutils container">
@@ -1599,7 +1583,7 @@ True
 </div>
 <p>Finally, an important point about <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code>. With the exception of learned bit-width (which will be the subject of a separate tutorial) and some of the bias quantization scenarios we have just seen, usually returing a <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> is not necessary and can create extra complexity. This is why currently <code class="docutils literal notranslate"><span class="pre">return_quant_tensor</span></code> defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code>. We can easily see it in an example:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[31]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[127]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
@@ -1611,22 +1595,22 @@ True
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[31]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[127]:
 </pre></div>
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-tensor([[[[ 1.0190,  1.2963,  0.0597],
-          [-1.0870, -0.0248,  0.6649],
-          [-0.3103,  0.6573, -0.3369]],
+tensor([[[[ 0.8357,  0.0733,  0.9527],
+          [ 0.1803,  0.2154,  0.7598],
+          [ 1.1121, -0.8728,  1.0039]],
 
-         [[ 0.6602, -0.6170, -0.6805],
-          [-0.4438,  0.9469, -0.5658],
-          [ 0.0269,  1.0239, -0.0896]],
+         [[ 0.7917,  1.0063,  0.6516],
+          [-0.1852, -0.7263,  0.0956],
+          [-0.1876,  0.2747, -0.1617]],
 
-         [[ 1.5136,  0.8112,  0.7560],
-          [-0.4665,  0.2027, -1.1200],
-          [-1.0580,  1.2795, -0.0788]]]], grad_fn=&lt;ThnnConv2DBackward&gt;)
+         [[ 0.8299,  0.9934, -0.3821],
+          [ 0.4865,  0.9309, -0.7924],
+          [-0.4201,  0.2343,  0.1532]]]], grad_fn=&lt;ThnnConv2DBackward0&gt;)
 </pre></div></div>
 </div>
 <p>Altough not obvious, the output is actually implicitly quantized.</p>

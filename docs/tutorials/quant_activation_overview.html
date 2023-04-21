@@ -6,7 +6,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
 
-    <title>An Overview of Quantized Activations &#8212; Brevitas 0.7.2.dev139+g0c2e90d documentation</title>
+    <title>An Overview of Quantized Activations &#8212; Brevitas 0.9.0 documentation</title>
   
   
   
@@ -661,7 +661,7 @@ div.rendered_html tbody tr:hover {
 <span class="n">out_tensor1</span> <span class="o">=</span> <span class="n">output_quant_conv</span><span class="p">(</span><span class="n">inp</span><span class="p">)</span>
 <span class="n">out_tensor2</span> <span class="o">=</span> <span class="n">output_identity_quant</span><span class="p">(</span><span class="n">default_quant_conv</span><span class="p">(</span><span class="n">inp</span><span class="p">))</span>
 
-<span class="n">out_tensor1</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">out_tensor2</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+<span class="k">assert</span> <span class="n">out_tensor1</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">out_tensor2</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
 </pre></div>
 </div>
 </div>
@@ -695,7 +695,7 @@ True
 <span class="n">out_tensor1</span> <span class="o">=</span> <span class="n">input_output_quant_conv</span><span class="p">(</span><span class="n">inp</span><span class="p">)</span>
 <span class="n">out_tensor2</span> <span class="o">=</span> <span class="n">output_identity_quant</span><span class="p">(</span><span class="n">default_quant_conv</span><span class="p">(</span><span class="n">input_identity_quant</span><span class="p">(</span><span class="n">inp</span><span class="p">)))</span>
 
-<span class="n">out_tensor1</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">out_tensor2</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+<span class="k">assert</span> <span class="n">out_tensor1</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">out_tensor2</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
 </pre></div>
 </div>
 </div>
@@ -757,7 +757,8 @@ QuantTensor(value=tensor([[[[-0.4566, -0.5707, -0.5517,  0.5897,  1.5409],
           [ 0.6468, -0.2473, -0.5327,  1.1605,  0.4376],
           [-0.7990, -1.2936, -0.7419, -1.3127, -0.2283],
           [-2.4351, -0.0761,  0.2283,  0.7990, -0.1902],
-          [-0.3615, -1.2175, -0.6278, -0.4566,  1.9214]]]]), scale=tensor(0.0190), zero_point=tensor(0.), bit_width=tensor(8.), signed_t=tensor(True), training_t=tensor(True))
+          [-0.3615, -1.2175, -0.6278, -0.4566,  1.9214]]]],
+       grad_fn=&lt;MulBackward0&gt;), scale=tensor(0.0190, grad_fn=&lt;DivBackward0&gt;), zero_point=tensor(0.), bit_width=tensor(8.), signed_t=tensor(True), training_t=tensor(True))
 </pre></div></div>
 </div>
 <div class="nbinput docutils container">
@@ -765,7 +766,7 @@ QuantTensor(value=tensor([[[[-0.4566, -0.5707, -0.5517,  0.5897,  1.5409],
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="n">out_tensor</span><span class="o">.</span><span class="n">is_valid</span>
+<span></span><span class="k">assert</span> <span class="n">out_tensor</span><span class="o">.</span><span class="n">is_valid</span>
 </pre></div>
 </div>
 </div>
@@ -805,7 +806,8 @@ tensor([[[[-0.4566, -0.5707, -0.5517,  0.5897,  1.5409],
           [ 0.6468, -0.2473, -0.5327,  1.1605,  0.4376],
           [-0.7990, -1.2936, -0.7419, -1.3127, -0.2283],
           [-2.4351, -0.0761,  0.2283,  0.7990, -0.1902],
-          [-0.3615, -1.2175, -0.6278, -0.4566,  1.9214]]]])
+          [-0.3615, -1.2175, -0.6278, -0.4566,  1.9214]]]],
+       grad_fn=&lt;MulBackward0&gt;)
 </pre></div></div>
 </div>
 <div class="nbinput docutils container">
@@ -835,7 +837,8 @@ QuantTensor(value=tensor([[[[-0.4566, -0.5707, -0.5517,  0.5897,  1.5409],
           [ 0.6468, -0.2473, -0.5327,  1.1605,  0.4376],
           [-0.7990, -1.2936, -0.7419, -1.3127, -0.2283],
           [-2.4351, -0.0761,  0.2283,  0.7990, -0.1902],
-          [-0.3615, -1.2175, -0.6278, -0.4566,  1.9214]]]]), scale=tensor(0.0190), zero_point=tensor(0.), bit_width=tensor(8.), signed_t=tensor(True), training_t=tensor(True))
+          [-0.3615, -1.2175, -0.6278, -0.4566,  1.9214]]]],
+       grad_fn=&lt;MulBackward0&gt;), scale=tensor(0.0190, grad_fn=&lt;DivBackward0&gt;), zero_point=tensor(0.), bit_width=tensor(8.), signed_t=tensor(True), training_t=tensor(True))
 </pre></div></div>
 </div>
 <p>Moving on from <code class="docutils literal notranslate"><span class="pre">QuantIdentity</span></code>, let’s take a look at <code class="docutils literal notranslate"><span class="pre">QuantReLU</span></code>. Anything we said so far about <code class="docutils literal notranslate"><span class="pre">QuantIdentity</span></code> also applies to <code class="docutils literal notranslate"><span class="pre">QuantReLU</span></code>. The difference though is that <code class="docutils literal notranslate"><span class="pre">QuantReLU</span></code> implements a ReLU function followed by quantization, while <code class="docutils literal notranslate"><span class="pre">QuantIdentity</span></code> is really just the quantization operator. Additionally, by default <code class="docutils literal notranslate"><span class="pre">QuantReLU</span></code> adopts the <code class="docutils literal notranslate"><span class="pre">Uint8ActPerTensorFloat</span></code>, meaning that the output of quantization is <em>unsigned</em>:</p>
@@ -867,29 +870,23 @@ QuantTensor(value=tensor([[[[0.0000, 0.0000, 0.0000, 0.5974, 1.5402],
           [0.6348, 0.0000, 0.0000, 1.1668, 0.4387],
           [0.0000, 0.0000, 0.0000, 0.0000, 0.0000],
           [0.0000, 0.0000, 0.2334, 0.7935, 0.0000],
-          [0.0000, 0.0000, 0.0000, 0.0000, 1.9230]]]]), scale=tensor(0.0093), zero_point=tensor(0.), bit_width=tensor(8.), signed_t=tensor(False), training_t=tensor(True))
+          [0.0000, 0.0000, 0.0000, 0.0000, 1.9230]]]], grad_fn=&lt;MulBackward0&gt;), scale=tensor(0.0093, grad_fn=&lt;DivBackward0&gt;), zero_point=tensor(0.), bit_width=tensor(8.), signed_t=tensor(False), training_t=tensor(True))
 </pre></div></div>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">QuantReLU</span></code>, like <code class="docutils literal notranslate"><span class="pre">QuantIdentity</span></code>, is also special compared to other non-linear quantized activation layers as it preserves the metadata of an input <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> even when quantization is disabled:</p>
-<div class="nbinput docutils container">
+<div class="nbinput nblast docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
 <span></span><span class="n">return_disabled_quant_relu</span> <span class="o">=</span> <span class="n">QuantReLU</span><span class="p">(</span><span class="n">act_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="n">relu_out_tensor</span> <span class="o">=</span> <span class="n">return_disabled_quant_relu</span><span class="p">(</span><span class="n">out_tensor</span><span class="p">)</span>
-<span class="n">relu_out_tensor</span><span class="o">.</span><span class="n">is_valid</span>
+<span class="k">assert</span> <span class="n">relu_out_tensor</span><span class="o">.</span><span class="n">is_valid</span><span class="o">==</span><span class="kc">True</span>
+<span class="k">assert</span> <span class="n">relu_out_tensor</span><span class="o">.</span><span class="n">scale</span> <span class="o">==</span> <span class="n">out_tensor</span><span class="o">.</span><span class="n">scale</span>
+<span class="k">assert</span> <span class="n">relu_out_tensor</span><span class="o">.</span><span class="n">zero_point</span> <span class="o">==</span> <span class="n">out_tensor</span><span class="o">.</span><span class="n">zero_point</span>
+<span class="k">assert</span> <span class="n">relu_out_tensor</span><span class="o">.</span><span class="n">bit_width</span> <span class="o">==</span> <span class="n">out_tensor</span><span class="o">.</span><span class="n">bit_width</span>
 </pre></div>
 </div>
-</div>
-<div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
-</pre></div>
-</div>
-<div class="output_area docutils container">
-<div class="highlight"><pre>
-True
-</pre></div></div>
 </div>
 <p>That doesn’t apply to other layers like, say, <code class="docutils literal notranslate"><span class="pre">QuantSigmoid</span></code>:</p>
 <div class="nbinput docutils container">
@@ -911,7 +908,7 @@ True
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-QuantTensor(value=tensor([[[[0.3878, 0.3611, 0.3655, 0.6433, 0.8236],
+QuantTensor(value=(tensor([[[[0.3878, 0.3611, 0.3655, 0.6433, 0.8236],
           [0.6257, 0.3567, 0.3611, 0.5474, 0.4810],
           [0.3788, 0.1820, 0.4526, 0.6077, 0.7911],
           [0.1630, 0.8883, 0.8471, 0.9151, 0.2456],
@@ -921,7 +918,8 @@ QuantTensor(value=tensor([[[[0.3878, 0.3611, 0.3655, 0.6433, 0.8236],
           [0.6563, 0.4385, 0.3699, 0.7614, 0.6077],
           [0.3102, 0.2152, 0.3226, 0.2120, 0.4432],
           [0.0805, 0.4810, 0.5568, 0.6898, 0.4526],
-          [0.4106, 0.2284, 0.3480, 0.3878, 0.8723]]]]), scale=None, zero_point=None, bit_width=None, signed_t=None, training_t=tensor(True))
+          [0.4106, 0.2284, 0.3480, 0.3878, 0.8723]]]],
+       grad_fn=&lt;SigmoidBackward0&gt;), None, None, None), scale=None, zero_point=None, bit_width=None, signed_t=None, training_t=tensor(True))
 </pre></div></div>
 </div>
 <div class="nbinput docutils container">
@@ -929,7 +927,7 @@ QuantTensor(value=tensor([[[[0.3878, 0.3611, 0.3655, 0.6433, 0.8236],
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="n">sigmoid_out_tensor</span><span class="o">.</span><span class="n">is_valid</span>
+<span></span><span class="k">assert</span> <span class="ow">not</span> <span class="n">sigmoid_out_tensor</span><span class="o">.</span><span class="n">is_valid</span>
 </pre></div>
 </div>
 </div>
@@ -973,7 +971,7 @@ QuantTensor(value=tensor([[[[0.0000, 0.0000, 0.0000, 0.5854, 1.5485],
           [0.6421, 0.0000, 0.0000, 1.1708, 0.4343],
           [0.0000, 0.0000, 0.0000, 0.0000, 0.0000],
           [0.0000, 0.0000, 0.2266, 0.7931, 0.0000],
-          [0.0000, 0.0000, 0.0000, 0.0000, 1.9262]]]]), scale=tensor(0.0189), zero_point=tensor(129.), bit_width=tensor(8.), signed_t=tensor(False), training_t=tensor(True))
+          [0.0000, 0.0000, 0.0000, 0.0000, 1.9262]]]], grad_fn=&lt;ReluBackward0&gt;), scale=tensor(0.0189, grad_fn=&lt;DivBackward0&gt;), zero_point=tensor(129., grad_fn=&lt;SWhereBackward0&gt;), bit_width=tensor(8.), signed_t=tensor(False), training_t=tensor(True))
 </pre></div></div>
 </div>
 <p>Let’s now consider the very common scenario of a <code class="docutils literal notranslate"><span class="pre">QuantConv2d</span></code> followed by a <code class="docutils literal notranslate"><span class="pre">ReLU</span></code> or <code class="docutils literal notranslate"><span class="pre">QuantReLU</span></code>. In particular, let’s say we have a <code class="docutils literal notranslate"><span class="pre">QuantConv2d</span></code> with output quantization <em>enabled</em> followed by a <code class="docutils literal notranslate"><span class="pre">ReLU</span></code>:</p>
@@ -1068,7 +1066,7 @@ modes. We can easily observe this behaviour with an example. Let’s first defin
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
 <span></span><span class="n">out1_train</span> <span class="o">=</span> <span class="n">quant_identity</span><span class="p">(</span><span class="n">inp1</span><span class="p">)</span>
 <span class="n">out2_train</span> <span class="o">=</span> <span class="n">quant_identity</span><span class="p">(</span><span class="n">inp2</span><span class="p">)</span>
-<span class="n">out1_train</span><span class="o">.</span><span class="n">scale</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">out2_train</span><span class="o">.</span><span class="n">scale</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+<span class="k">assert</span> <span class="ow">not</span> <span class="n">out1_train</span><span class="o">.</span><span class="n">scale</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">out2_train</span><span class="o">.</span><span class="n">scale</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
 </pre></div>
 </div>
 </div>
@@ -1089,7 +1087,7 @@ False
 <span></span><span class="n">quant_identity</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
 <span class="n">out1_eval</span> <span class="o">=</span> <span class="n">quant_identity</span><span class="p">(</span><span class="n">inp1</span><span class="p">)</span>
 <span class="n">out2_eval</span> <span class="o">=</span> <span class="n">quant_identity</span><span class="p">(</span><span class="n">inp2</span><span class="p">)</span>
-<span class="n">out1_eval</span><span class="o">.</span><span class="n">scale</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">out2_eval</span><span class="o">.</span><span class="n">scale</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+<span class="k">assert</span> <span class="n">out1_eval</span><span class="o">.</span><span class="n">scale</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">out2_eval</span><span class="o">.</span><span class="n">scale</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
 </pre></div>
 </div>
 </div>
@@ -1206,7 +1204,7 @@ True
 <span></span><span class="n">out1_train</span> <span class="o">=</span> <span class="n">quant_hard_tanh</span><span class="p">(</span><span class="n">inp1</span><span class="p">)</span>
 <span class="n">quant_hard_tanh</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
 <span class="n">out2_eval</span> <span class="o">=</span> <span class="n">quant_hard_tanh</span><span class="p">(</span><span class="n">inp2</span><span class="p">)</span>
-<span class="n">out1_train</span><span class="o">.</span><span class="n">scale</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">out2_eval</span><span class="o">.</span><span class="n">scale</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+<span class="k">assert</span> <span class="n">out1_train</span><span class="o">.</span><span class="n">scale</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">out2_eval</span><span class="o">.</span><span class="n">scale</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
 </pre></div>
 </div>
 </div>

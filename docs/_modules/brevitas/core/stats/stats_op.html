@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>brevitas.core.stats.stats_op &#8212; Brevitas 0.7.2.dev139+g0c2e90d documentation</title>
+    <title>brevitas.core.stats.stats_op &#8212; Brevitas 0.9.0 documentation</title>
   
   
   
@@ -350,60 +350,22 @@
             <article class="bd-article" role="main">
               
   <h1>Source code for brevitas.core.stats.stats_op</h1><div class="highlight"><pre>
-<span></span><span class="c1"># Copyright (c) 2018-     Xilinx, Inc              (Alessandro Pappalardo)</span>
-<span class="c1"># Copyright (c) 2016-     Facebook, Inc            (Adam Paszke)</span>
-<span class="c1"># Copyright (c) 2014-     Facebook, Inc            (Soumith Chintala)</span>
-<span class="c1"># Copyright (c) 2011-2014 Idiap Research Institute (Ronan Collobert)</span>
-<span class="c1"># Copyright (c) 2012-2014 Deepmind Technologies    (Koray Kavukcuoglu)</span>
-<span class="c1"># Copyright (c) 2011-2012 NEC Laboratories America (Koray Kavukcuoglu)</span>
-<span class="c1"># Copyright (c) 2011-2013 NYU                      (Clement Farabet)</span>
-<span class="c1"># Copyright (c) 2006-2010 NEC Laboratories America (Ronan Collobert, Leon Bottou, Iain Melvin, Jason Weston)</span>
-<span class="c1"># Copyright (c) 2006      Idiap Research Institute (Samy Bengio)</span>
-<span class="c1"># Copyright (c) 2001-2004 Idiap Research Institute (Ronan Collobert, Samy Bengio, Johnny Mariethoz)</span>
+<span></span><span class="c1"># Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.</span>
+<span class="c1"># SPDX-License-Identifier: BSD-3-Clause</span>
 
-<span class="c1"># All rights reserved.</span>
-
-<span class="c1"># Redistribution and use in source and binary forms, with or without</span>
-<span class="c1"># modification, are permitted provided that the following conditions are met:</span>
-
-<span class="c1"># 1. Redistributions of source code must retain the above copyright</span>
-<span class="c1">#    notice, this list of conditions and the following disclaimer.</span>
-
-<span class="c1"># 2. Redistributions in binary form must reproduce the above copyright</span>
-<span class="c1">#    notice, this list of conditions and the following disclaimer in the</span>
-<span class="c1">#    documentation and/or other materials provided with the distribution.</span>
-
-<span class="c1"># 3. Neither the names of Xilinx, Facebook, Deepmind Technologies, NYU,</span>
-<span class="c1">#    NEC Laboratories America and IDIAP Research Institute nor the names</span>
-<span class="c1">#    of its contributors may be used to endorse or promote products derived</span>
-<span class="c1">#    from this software without specific prior written permission.</span>
-
-<span class="c1"># THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS &quot;AS IS&quot;</span>
-<span class="c1"># AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</span>
-<span class="c1"># IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</span>
-<span class="c1"># ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</span>
-<span class="c1"># LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</span>
-<span class="c1"># CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</span>
-<span class="c1"># SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</span>
-<span class="c1"># INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</span>
-<span class="c1"># CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</span>
-<span class="c1"># ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</span>
-<span class="c1"># POSSIBILITY OF SUCH DAMAGE.</span>
-
-
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
 <span class="kn">import</span> <span class="nn">math</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
 
 <span class="kn">import</span> <span class="nn">torch</span>
 <span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">Tensor</span>
 <span class="kn">from</span> <span class="nn">torch.nn</span> <span class="kn">import</span> <span class="n">Parameter</span>
 
 <span class="kn">import</span> <span class="nn">brevitas</span>
+<span class="kn">from</span> <span class="nn">brevitas</span> <span class="kn">import</span> <span class="n">config</span>
 <span class="kn">from</span> <span class="nn">brevitas.core.utils</span> <span class="kn">import</span> <span class="n">StatelessBuffer</span>
 <span class="kn">from</span> <span class="nn">brevitas.function.ops</span> <span class="kn">import</span> <span class="n">max_int</span>
-<span class="kn">from</span> <span class="nn">brevitas</span> <span class="kn">import</span> <span class="n">config</span>
-<span class="kn">from</span> <span class="nn">.stats_wrapper</span> <span class="kn">import</span> <span class="n">SCALAR_SHAPE</span>
 
+<span class="kn">from</span> <span class="nn">.stats_wrapper</span> <span class="kn">import</span> <span class="n">SCALAR_SHAPE</span>
 
 <span class="n">DEFAULT_STD_DEV_EPSILON</span> <span class="o">=</span> <span class="mf">1e-8</span>
 
@@ -430,7 +392,8 @@
 <div class="viewcode-block" id="AbsPercentile"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.AbsPercentile">[docs]</a><span class="k">class</span> <span class="nc">AbsPercentile</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
     <span class="n">__constants__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;q&#39;</span><span class="p">,</span> <span class="s1">&#39;stats_reduce_dim&#39;</span><span class="p">]</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">high_percentile_q</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">stats_reduce_dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="n">percentile_q</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">high_percentile_q</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">stats_reduce_dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="n">percentile_q</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">AbsPercentile</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">percentile_q</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;percentile_q is deprecated, please pass high_percentile_q.&quot;</span><span class="p">)</span>
@@ -453,8 +416,8 @@
             <span class="n">k</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="mf">.01</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">q</span> <span class="o">*</span> <span class="n">dim_slice</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="o">+</span> <span class="mf">0.5</span><span class="p">))</span>
             <span class="n">result</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span><span class="o">.</span><span class="n">kthvalue</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span><span class="p">)</span><span class="o">.</span><span class="n">values</span>
         <span class="k">return</span> <span class="n">result</span></div></div>
-    
-    
+
+
 <div class="viewcode-block" id="NegativePercentileOrZero"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.NegativePercentileOrZero">[docs]</a><span class="k">class</span> <span class="nc">NegativePercentileOrZero</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
     <span class="n">__constants__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;stats_reduce_dim&#39;</span><span class="p">,</span> <span class="s1">&#39;q&#39;</span><span class="p">]</span>
 
@@ -481,12 +444,16 @@
         <span class="n">result</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
             <span class="n">result</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zero</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">dtype</span><span class="p">),</span> <span class="n">result</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">zero</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">dtype</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">result</span></div></div>
-    
-    
+
+
 <div class="viewcode-block" id="PercentileInterval"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.PercentileInterval">[docs]</a><span class="k">class</span> <span class="nc">PercentileInterval</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
     <span class="n">__constants__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;stats_reduce_dim&#39;</span><span class="p">,</span> <span class="s1">&#39;low_q&#39;</span><span class="p">,</span> <span class="s1">&#39;high_q&#39;</span><span class="p">]</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">low_percentile_q</span><span class="p">,</span> <span class="n">high_percentile_q</span><span class="p">,</span> <span class="n">stats_reduce_dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">low_percentile_q</span><span class="p">,</span>
+            <span class="n">high_percentile_q</span><span class="p">,</span>
+            <span class="n">stats_reduce_dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">PercentileInterval</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span> <span class="o">=</span> <span class="n">stats_reduce_dim</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">low_q</span> <span class="o">=</span> <span class="n">low_percentile_q</span>
@@ -653,8 +620,9 @@
         <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">impl</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">sigma</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">out</span></div>
 
-    <span class="k">def</span> <span class="nf">_load_from_state_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state_dict</span><span class="p">,</span> <span class="n">prefix</span><span class="p">,</span> <span class="n">local_metadata</span><span class="p">,</span> <span class="n">strict</span><span class="p">,</span>
-                              <span class="n">missing_keys</span><span class="p">,</span> <span class="n">unexpected_keys</span><span class="p">,</span> <span class="n">error_msgs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_load_from_state_dict</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">state_dict</span><span class="p">,</span> <span class="n">prefix</span><span class="p">,</span> <span class="n">local_metadata</span><span class="p">,</span> <span class="n">strict</span><span class="p">,</span> <span class="n">missing_keys</span><span class="p">,</span> <span class="n">unexpected_keys</span><span class="p">,</span>
+            <span class="n">error_msgs</span><span class="p">):</span>
         <span class="n">value_key</span> <span class="o">=</span> <span class="n">prefix</span> <span class="o">+</span> <span class="s1">&#39;sigma&#39;</span>
         <span class="n">retrocomp_value_key</span> <span class="o">=</span> <span class="n">prefix</span> <span class="o">+</span> <span class="s1">&#39;learned_sigma&#39;</span>
         <span class="k">if</span> <span class="n">retrocomp_value_key</span> <span class="ow">in</span> <span class="n">state_dict</span><span class="p">:</span>  <span class="c1"># retrocompatibility</span>
@@ -672,7 +640,7 @@
 <span class="sd">    https://github.com/apache/incubator-mxnet/blob/master/python/mxnet/contrib/quantization.py</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">signed</span><span class="p">,</span> <span class="n">bit_width_impl</span><span class="p">,</span> <span class="n">num_bins</span> <span class="o">=</span> <span class="mi">1000</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">smoothing_eps</span><span class="o">=</span><span class="mf">0.0001</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">signed</span><span class="p">,</span> <span class="n">bit_width_impl</span><span class="p">,</span> <span class="n">num_bins</span><span class="o">=</span><span class="mi">1000</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">smoothing_eps</span><span class="o">=</span><span class="mf">0.0001</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">KLMinimizerThreshold</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">num_bins</span> <span class="o">=</span> <span class="n">num_bins</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">smoothing_eps</span> <span class="o">=</span> <span class="n">smoothing_eps</span>
@@ -738,6 +706,42 @@
         <span class="n">min_divergence_idx</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">divergence</span><span class="p">)</span>
         <span class="n">opt_threshold</span> <span class="o">=</span> <span class="n">thresholds</span><span class="p">[</span><span class="n">min_divergence_idx</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">opt_threshold</span></div></div>
+
+
+<div class="viewcode-block" id="L1Norm"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.L1Norm">[docs]</a><span class="k">class</span> <span class="nc">L1Norm</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;ScriptModule implementation to collect per-channel L1 normalization stats</span>
+<span class="sd">    for weight normalization-based quantization.&quot;&quot;&quot;</span>
+    <span class="n">__constants__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;stats_reduce_dim&#39;</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stats_reduce_dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">L1Norm</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span> <span class="o">=</span> <span class="n">stats_reduce_dim</span>
+
+<div class="viewcode-block" id="L1Norm.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.L1Norm.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Need to be able to return the max per-channel L1 norm as a scalar</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;L1 normalization is not supported per-tensor yet.&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">x</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">p</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div></div>
+
+
+<div class="viewcode-block" id="L2Norm"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.L2Norm">[docs]</a><span class="k">class</span> <span class="nc">L2Norm</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;ScriptModule implementation to collect per-channel L2 normalization stats</span>
+<span class="sd">    for weight normalization-based quantization.&quot;&quot;&quot;</span>
+    <span class="n">__constants__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;stats_reduce_dim&#39;</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stats_reduce_dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">L2Norm</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span> <span class="o">=</span> <span class="n">stats_reduce_dim</span>
+
+<div class="viewcode-block" id="L2Norm.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.L2Norm.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Need to be able to return the max per-channel L2 norm as a scalar</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;L2 normalization is not supported per-tensor yet.&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">x</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">p</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div></div>
 </pre></div>
 
             </article>

@@ -6,7 +6,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
 
-    <title>ONNX Export &#8212; Brevitas 0.7.2.dev139+g0c2e90d documentation</title>
+    <title>ONNX Export &#8212; Brevitas 0.9.0 documentation</title>
   
   
   
@@ -638,6 +638,15 @@ div.rendered_html tbody tr:hover {
 <h2>Requirements<a class="headerlink" href="#Requirements" title="Permalink to this heading">#</a></h2>
 <p>Brevitas requires Python 3.7+ and PyTorch 1.5.1+ and can be installed from PyPI with <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">brevitas</span></code>.</p>
 <p>For this notebook, you will also need to install <code class="docutils literal notranslate"><span class="pre">onnx</span></code>, <code class="docutils literal notranslate"><span class="pre">onnxruntime</span></code>, <code class="docutils literal notranslate"><span class="pre">onnxoptimizer</span></code> and <code class="docutils literal notranslate"><span class="pre">netron</span></code> (for visualization of ONNX models). For this tutorial, PyTorch 1.8.1+ is required.</p>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="o">%</span><span class="k">pip</span> install netron
+</pre></div>
+</div>
+</div>
 </section>
 <section id="Introduction">
 <h2>Introduction<a class="headerlink" href="#Introduction" title="Permalink to this heading">#</a></h2>
@@ -678,7 +687,7 @@ tensor to bit-width &lt; 8. This is done by Clipping the Int8 tensor coming out 
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">brevitas.nn</span> <span class="k">as</span> <span class="nn">qnn</span>
 <span class="kn">import</span> <span class="nn">torch</span>
-<span class="kn">from</span> <span class="nn">brevitas.export</span> <span class="kn">import</span> <span class="n">export_standard_qcdq_onnx</span>
+<span class="kn">from</span> <span class="nn">brevitas.export</span> <span class="kn">import</span> <span class="n">export_onnx_qcdq</span>
 
 <span class="n">IN_CH</span> <span class="o">=</span> <span class="mi">3</span>
 <span class="n">OUT_CH</span> <span class="o">=</span> <span class="mi">128</span>
@@ -688,7 +697,7 @@ tensor to bit-width &lt; 8. This is done by Clipping the Int8 tensor coming out 
 <span class="n">inp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">BATCH_SIZE</span><span class="p">,</span> <span class="n">IN_CH</span><span class="p">)</span>
 <span class="n">path</span> <span class="o">=</span> <span class="s1">&#39;quant_linear_qcdq.onnx&#39;</span>
 
-<span class="n">exported_model</span> <span class="o">=</span> <span class="n">export_standard_qcdq_onnx</span><span class="p">(</span><span class="n">linear</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="n">inp</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">path</span><span class="p">,</span> <span class="n">opset_version</span><span class="o">=</span><span class="mi">13</span><span class="p">)</span>
+<span class="n">exported_model</span> <span class="o">=</span> <span class="n">export_onnx_qcdq</span><span class="p">(</span><span class="n">linear</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="n">inp</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">path</span><span class="p">,</span> <span class="n">opset_version</span><span class="o">=</span><span class="mi">13</span><span class="p">)</span>
 
 </pre></div>
 </div>
@@ -751,7 +760,7 @@ interval is perfectly symmetric (otherwise, the minimum integer would be -128), 
 <span class="n">inp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">BATCH_SIZE</span><span class="p">,</span> <span class="n">IN_CH</span><span class="p">)</span>
 <span class="n">path</span> <span class="o">=</span> <span class="s1">&#39;quant_model_qcdq.onnx&#39;</span>
 
-<span class="n">exported_model</span> <span class="o">=</span> <span class="n">export_standard_qcdq_onnx</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="n">inp</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">path</span><span class="p">,</span> <span class="n">opset_version</span><span class="o">=</span><span class="mi">13</span><span class="p">)</span>
+<span class="n">exported_model</span> <span class="o">=</span> <span class="n">export_onnx_qcdq</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="n">inp</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">path</span><span class="p">,</span> <span class="n">opset_version</span><span class="o">=</span><span class="mi">13</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -819,7 +828,7 @@ Serving &#39;quant_model_qcdq.onnx&#39; at http://localhost:8083
 <span class="n">inp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">BATCH_SIZE</span><span class="p">,</span> <span class="n">IN_CH</span><span class="p">)</span>
 <span class="n">path</span> <span class="o">=</span> <span class="s1">&#39;quant_model_3b_4b_qcdq.onnx&#39;</span>
 
-<span class="n">exported_model</span> <span class="o">=</span> <span class="n">export_standard_qcdq_onnx</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="n">inp</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">path</span><span class="p">,</span> <span class="n">opset_version</span><span class="o">=</span><span class="mi">13</span><span class="p">)</span>
+<span class="n">exported_model</span> <span class="o">=</span> <span class="n">export_onnx_qcdq</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="n">inp</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">path</span><span class="p">,</span> <span class="n">opset_version</span><span class="o">=</span><span class="mi">13</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -870,7 +879,7 @@ Serving &#39;quant_model_3b_4b_qcdq.onnx&#39; at http://localhost:8084
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
 <span></span><span class="kn">from</span> <span class="nn">brevitas.quant.scaled_int</span> <span class="kn">import</span> <span class="n">Int8ActPerTensorFloat</span><span class="p">,</span> <span class="n">Int32Bias</span>
-<span class="kn">from</span> <span class="nn">brevitas.export</span> <span class="kn">import</span> <span class="n">export_standard_qop_onnx</span>
+<span class="kn">from</span> <span class="nn">brevitas.export</span> <span class="kn">import</span> <span class="n">export_onnx_qop</span>
 
 <span class="n">IN_CH</span> <span class="o">=</span> <span class="mi">3</span>
 <span class="n">IMG_SIZE</span> <span class="o">=</span> <span class="mi">128</span>
@@ -896,7 +905,7 @@ Serving &#39;quant_model_3b_4b_qcdq.onnx&#39; at http://localhost:8084
 <span class="n">model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
 
 
-<span class="n">export_standard_qop_onnx</span><span class="p">(</span>
+<span class="n">export_onnx_qop</span><span class="p">(</span>
     <span class="n">model</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="n">inp</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="s2">&quot;quant_model_qop.onnx&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
@@ -1173,7 +1182,7 @@ Serving &#39;quant_model_qop.onnx&#39; at http://localhost:8085
 <span class="n">inp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">BATCH_SIZE</span><span class="p">,</span> <span class="n">IN_CH</span><span class="p">)</span>
 <span class="n">path</span> <span class="o">=</span> <span class="s1">&#39;quant_model_3b_4b_qcdq.onnx&#39;</span>
 
-<span class="n">exported_model</span> <span class="o">=</span> <span class="n">export_standard_qcdq_onnx</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="n">inp</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">path</span><span class="p">,</span> <span class="n">opset_version</span><span class="o">=</span><span class="mi">13</span><span class="p">)</span>
+<span class="n">exported_model</span> <span class="o">=</span> <span class="n">export_onnx_qcdq</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="n">inp</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">path</span><span class="p">,</span> <span class="n">opset_version</span><span class="o">=</span><span class="mi">13</span><span class="p">)</span>
 
 <span class="n">sess_opt</span> <span class="o">=</span> <span class="n">ort</span><span class="o">.</span><span class="n">SessionOptions</span><span class="p">()</span>
 <span class="n">sess</span> <span class="o">=</span> <span class="n">ort</span><span class="o">.</span><span class="n">InferenceSession</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">sess_opt</span><span class="p">)</span>
@@ -1245,7 +1254,7 @@ Serving &#39;quant_model_qop.onnx&#39; at http://localhost:8085
 <span class="n">inp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">BATCH_SIZE</span><span class="p">,</span> <span class="n">IN_CH</span><span class="p">,</span> <span class="n">IMG_SIZE</span><span class="p">,</span> <span class="n">IMG_SIZE</span><span class="p">)</span>
 <span class="n">path</span> <span class="o">=</span> <span class="s1">&#39;quant_model_qops_4b_4b.onnx&#39;</span>
 
-<span class="n">exported_model</span> <span class="o">=</span> <span class="n">export_standard_qop_onnx</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="n">inp</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">path</span><span class="p">)</span>
+<span class="n">exported_model</span> <span class="o">=</span> <span class="n">export_onnx_qop</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="n">inp</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">path</span><span class="p">)</span>
 
 <span class="n">sess_opt</span> <span class="o">=</span> <span class="n">ort</span><span class="o">.</span><span class="n">SessionOptions</span><span class="p">()</span>
 <span class="n">sess</span> <span class="o">=</span> <span class="n">ort</span><span class="o">.</span><span class="n">InferenceSession</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">sess_opt</span><span class="p">)</span>

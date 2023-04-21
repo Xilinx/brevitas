@@ -1,64 +1,49 @@
 # Post Training Quantization
 
-This folder contains an example on how to use Brevitas PTQ flow to quantize torchvision models, as well as how to calibrate models that use Brevitas quantized modules.
+This folder shows how to use Brevitas PTQ features to quantize torchvision models, as well as how to apply PTQ to models that have been manually defined with Brevitas quantized layers (such as MobileNet V1).
+The flow presented can potentially be adopted as an entry point to QAT for additionally finetuning, especially at lower precisions.
 
 
 We provide two workflows:
-- A benchmark suite that will tests several quantization configurations on few selected models;
-- An evaluation script that, given a model name and a quantization configuration, evaluate its performance and allows to export it to ONNX format.
+- An evaluation script that, given a model name and a quantization configuration, performs PTQ on the model, evaluates its ImageNet top1 accuracy, and optionally exports it to either ONNX or TorchScript QCDQ.
+- A benchmark suite that tests several quantization configurations on a few selected models.
 
-For both these flows, the following options are evaluated:
-- Weights and Activations are quantized to 8 bit;
-- Scale factors can be either float32 or power of two (po2);
-- Weights' scale factors can be either per-tensor or per-channel;
-- Bias are quantized to int32 values for float32 scale factors, int16 or int32 otherwise;
-- Activations quantizer can be symmetric or asymmetric;
-- Three different percentiles can be used for the activations' statistics computation (99.9, 99.99, 99.999).
+Three types of target backend are exposed for programmatic quantization. Different backends dictate different structural policies for how a network should be quantized:
+- `generic`
+  - The number of re-quantization ops is minimized by re-quantizing only when necessary, avoiding consecutive quantization ops if possible.
+  - Adds are quantized with the scale at the input, but allows for different signs.
+  - Concats are quantized to have the same scale, zero-point, sign and bit-width.
+  - Activation quantization is performed earlier rather than later, so e.g. activation functions are quantized at their output.
+  - Activations are quantized to unsigned when possible, even with symmetric quantization.
+- `layerwise` - Quantizes only the input and the weights to compute-heavy layers. Other layers are left unquantized.
+- `flexml` - An internal backend.
+The implementation for programmatic quantization is still experimental and might break on certain input models with certain configurations.
 
-Furthermore, Brevitas supports the following PTQ techniques:
-- Bias Correction[<sup>1 </sup>];
-- Graph Equalization[<sup>1 </sup>];
-- If Graph Equalization is enabled, it  is possible to use the _merge\_bias_ technique.[<sup>2 </sup>] [<sup>3 </sup>].
 
-It must be noted that Brevitas allows the user to define several other parameters, such as:
-- The Bias Quantization type (Internal scaling vs External scaling);
-- The bit width for every compute layer type (including the bias bit width) and for every activation type;
-- The quantization configuration of specific layers (e.g., it is possible to define a different bit width only for the first and last compute layers);
-- Several possible options for computing the scale factors of compute layers and activations.
+For both these flows, the following options are exposed:
+- Bit-width of weight and activations.
+- Scales can be either float32 or power-of-two (po2) numbers.
+- Weights' scale factors can be either per-tensor or per-channel.
+- Biases can be int16 or int32.
+- Activation quantization can be symmetric or asymmetric.
+- Percentiles used for the activations' statistics computation during calibration.
+
+Furthermore, Brevitas additional PTQ techniques can be enabled:
+- Bias correction[<sup>1 </sup>].
+- Graph equalization[<sup>1 </sup>].
+- If Graph equalization is enabled, the _merge\_bias_ technique can be enabled.[<sup>2 </sup>] [<sup>3 </sup>].
+
+
+Internally, when defining a quantized model programmatically, Brevitas leverages `torch.fx` and its `symbolic_trace` functionality, meaning that an input model is required to pass symbolic tracing for it to work.
 
 For more information about what are the currently supported quantized layers in Brevitas, check the [following file](https://github.com/Xilinx/brevitas/blob/dev/src/brevitas/graph/quantize.py),
 where we map the torch compute layers and activations with their corresponding quantized version.
 
-## Benchmark flow
-
-Starting from pretrained floating-point torchvision models, Brevitas offers the possibility to automatically obtain the corresponding quantized model leveraging torch.fx transformations.
-For the selected subset of torchvision models, we test several possible combinations of the options described above.
-
-The second type of benchmarks will run pre-defined quantized MobileNet v1, starting from the pre-trained floating point weights[<sup>4 </sup>].
-The pre-defined quantized model uses floating point scale factors, with a mix of per-tensor and per-channel strategies.
-Weights and Activations are quantized at 8 bit.
-
-To run the PTQ Benchmark suite on ImageNet simply make sure you have Brevitas installed and the ImageNet dataset in a Pytorch friendly format.
-
-For example, to run the script on the GPU 0:
-```bash
-brevitas_ptq_imagenet_benchmark --calibration-dir /path/to/imagenet/calibration/folder --validation-dir /path/to/imagenet/validation/folder --gpu 0
-```
-The script requires to specify the calibration folder (`--calibration-dir`), from which the calibration samples will be taken (configurable with the `--calibration-samples` argument), and a validation folder (`--validation-dir`).
-
-After launching the script, a `RESULT_TORCHVISION.md` markdown file will be generated with the results on the torchvision models,
-and a `RESULTS_IMGCLSMOB.md` with the results on manually quantized models starting from floating point weights.
-
-In this folder it is possible to find a pre-computed `RESULT_TORCHVISION.md` file with all the ~300 combinations on three different torchvision models,
-as well as the results on the pre-defined quantized Mobilenet V1 (`RESULTS_IMGCLSMOB.md`).
-
-
 ## Evaluation flow
 
-This flow allows to manually specify a pre-trained torchvision model to quantize and calibrate with the desired quantization configuration.
-It also gives the possibility to export the model in the ONNX QCDQ format or in torch QCDQ format.
-
-The quantization and export options to specify are the following:
+This flow allows to specify which pre-trained torchvision model to quantize and apply PTQ to with the desired quantization configuration.
+It also gives the possibility to export the model to either ONNX QCDQ format or in torch QCDQ format.
+The quantization and export options to specify are:
 ```bash
   -h, --help            show this help message and exit
   --calibration-dir CALIBRATION_DIR
@@ -131,6 +116,23 @@ The quantization and export options to specify are the following:
   --no-weight-narrow-range
                         Disable Narrow range for weight quantization (default: enabled)
 ```
+
+The script requires to specify the calibration folder (`--calibration-dir`), from which the calibration samples will be taken (configurable with the `--calibration-samples` argument), and a validation folder (`--validation-dir`).
+
+## Benchmark flow
+
+This scripts evaluate a variety of quantization configurations on different models.
+
+For example, to run the script on the GPU 0:
+```bash
+brevitas_ptq_imagenet_benchmark --calibration-dir /path/to/imagenet/calibration/folder --validation-dir /path/to/imagenet/validation/folder --gpu 0
+```
+
+After launching the script, a `RESULT_TORCHVISION.md` markdown file will be generated with the results on the torchvision models,
+and a `RESULTS_IMGCLSMOB.md` with the results on manually quantized models starting from floating point weights.
+
+In this folder it is possible to find a pre-computed `RESULT_TORCHVISION.md` file all combinations evaluated on three different torchvision models (ResNet18, MobileNet V2, ViT B32),
+as well as the results on the hand defined quantized MobileNet V1 (`RESULTS_IMGCLSMOB.md`).
 
 
 [<sup>1 </sup>]: https://arxiv.org/abs/1906.04721

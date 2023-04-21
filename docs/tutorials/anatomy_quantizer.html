@@ -6,7 +6,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
 
-    <title>Anatomy of a Quantizer &#8212; Brevitas 0.7.2.dev139+g0c2e90d documentation</title>
+    <title>Anatomy of a Quantizer &#8212; Brevitas 0.9.0 documentation</title>
   
   
   
@@ -690,9 +690,11 @@ RescalingIntQuant(
     (stats): _Stats(
       (stats_impl): AbsPercentile()
     )
-    (restrict_clamp_scaling): _RestrictClampValue(
-      (clamp_min_ste): Identity()
+    (restrict_scaling): _RestrictValue(
       (restrict_value_impl): FloatRestrictValue()
+    )
+    (clamp_scaling): _ClampValue(
+      (clamp_min_ste): ScalarClampMinSte()
     )
     (restrict_inplace_preprocess): Identity()
     (restrict_preprocess): Identity()
@@ -835,10 +837,10 @@ general is a lossy process, a TorchScript component cannot simply re-compile its
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-(tensor([[-0.1000, -0.1000, -0.1000, -0.1000],
-         [ 0.1000, -0.1000, -0.1000,  0.1000],
-         [ 0.1000,  0.1000,  0.1000,  0.1000],
-         [-0.1000,  0.1000, -0.1000, -0.1000]], grad_fn=&lt;MulBackward0&gt;),
+(tensor([[ 0.1000,  0.1000,  0.1000,  0.1000],
+         [-0.1000, -0.1000,  0.1000,  0.1000],
+         [ 0.1000, -0.1000,  0.1000, -0.1000],
+         [ 0.1000, -0.1000,  0.1000, -0.1000]], grad_fn=&lt;MulBackward0&gt;),
  tensor(0.1000, grad_fn=&lt;AbsBinarySignGradFnBackward&gt;),
  tensor(0.),
  tensor(1.))
@@ -872,10 +874,10 @@ general is a lossy process, a TorchScript component cannot simply re-compile its
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-(tensor([[-0.1000,  0.1000,  0.1000, -0.1000],
-         [ 0.1000, -0.1000, -0.1000,  0.1000],
-         [ 0.1000, -0.1000,  0.1000, -0.1000],
-         [ 0.1000,  0.1000, -0.1000,  0.1000]], grad_fn=&lt;MulBackward0&gt;),
+(tensor([[-0.1000,  0.1000, -0.1000,  0.1000],
+         [ 0.1000,  0.1000, -0.1000, -0.1000],
+         [-0.1000,  0.1000, -0.1000,  0.1000],
+         [-0.1000,  0.1000,  0.1000,  0.1000]], grad_fn=&lt;MulBackward0&gt;),
  tensor(0.1000, grad_fn=&lt;AbsBinarySignGradFnBackward&gt;),
  tensor(0.),
  tensor(1.))
@@ -906,10 +908,10 @@ general is a lossy process, a TorchScript component cannot simply re-compile its
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-(tensor([[ 1., -1., -1.,  1.],
-         [-1., -1., -1.,  1.],
-         [ 1., -1., -1., -1.],
-         [ 1.,  1., -1.,  1.]], grad_fn=&lt;MulBackward0&gt;),
+(tensor([[ 1., -1.,  1.,  1.],
+         [ 1.,  1., -1.,  1.],
+         [ 1.,  1.,  1., -1.],
+         [-1.,  1., -1., -1.]], grad_fn=&lt;MulBackward0&gt;),
  tensor(1., grad_fn=&lt;AbsBinarySignGradFnBackward&gt;),
  tensor(0.),
  tensor(1.))
@@ -942,10 +944,10 @@ general is a lossy process, a TorchScript component cannot simply re-compile its
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-(tensor([[ 0.1000,  0.1000, -0.1000,  0.1000],
-         [-0.1000,  0.1000,  0.1000,  0.1000],
-         [-0.1000, -0.1000,  0.1000,  0.1000],
-         [ 0.1000,  0.1000, -0.1000,  0.1000]], grad_fn=&lt;MulBackward0&gt;),
+(tensor([[ 0.1000, -0.1000, -0.1000, -0.1000],
+         [-0.1000,  0.1000, -0.1000,  0.1000],
+         [ 0.1000, -0.1000,  0.1000,  0.1000],
+         [-0.1000,  0.1000, -0.1000,  0.1000]], grad_fn=&lt;MulBackward0&gt;),
  tensor(0.1000, grad_fn=&lt;AbsBinarySignGradFnBackward&gt;),
  tensor(0.),
  tensor(1.))
@@ -1016,23 +1018,14 @@ QuantTensor(value=tensor([[[[ 0.1000,  0.1000, -0.1000],
 </pre></div></div>
 </div>
 <p>Note however how the <code class="docutils literal notranslate"><span class="pre">QuantTensor</span></code> is not properly formed, as the <code class="docutils literal notranslate"><span class="pre">signed</span></code> attribute is <code class="docutils literal notranslate"><span class="pre">None</span></code>. This means that <code class="docutils literal notranslate"><span class="pre">quant_weight</span></code> is not considered valid, as the affine quantization invariant cannot be computed:</p>
-<div class="nbinput docutils container">
+<div class="nbinput nblast docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[12]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="n">quant_weight</span><span class="o">.</span><span class="n">is_valid</span>
+<span></span><span class="k">assert</span> <span class="ow">not</span> <span class="n">quant_weight</span><span class="o">.</span><span class="n">is_valid</span>
 </pre></div>
 </div>
-</div>
-<div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[12]:
-</pre></div>
-</div>
-<div class="output_area docutils container">
-<div class="highlight"><pre>
-False
-</pre></div></div>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">signed</span></code> is one of those attributes that in the case of binary quantization has to be explicitly defined by the user. The idea is that it informs the proxy on whether the value generated by our quantizer should be considered signed or not. We can do so by simply setting it in the quantizer:</p>
 <div class="nbinput docutils container">
@@ -1081,28 +1074,19 @@ QuantTensor(value=tensor([[[[ 0.1000,  0.1000, -0.1000],
           [-0.1000,  0.1000, -0.1000]]]], grad_fn=&lt;MulBackward0&gt;), scale=tensor(0.1000, grad_fn=&lt;AbsBinarySignGradFnBackward&gt;), zero_point=tensor(0.), bit_width=tensor(1.), signed_t=tensor(True), training_t=tensor(True))
 </pre></div></div>
 </div>
-<div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[14]:
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[15]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="n">signed_quant_weight</span><span class="o">.</span><span class="n">is_valid</span>
+<span></span><span class="k">assert</span> <span class="n">signed_quant_weight</span><span class="o">.</span><span class="n">is_valid</span> <span class="o">==</span> <span class="kc">True</span>
 </pre></div>
 </div>
-</div>
-<div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[14]:
-</pre></div>
-</div>
-<div class="output_area docutils container">
-<div class="highlight"><pre>
-True
-</pre></div></div>
 </div>
 <p>And now the quant weights are valid.</p>
 <p>When we want to add or override an single attribute of a quantizer passed to a layer, defining a whole new quantizer can be too verbose. There is a simpler syntax to achieve the same goal. Let’s say we want to have add the <code class="docutils literal notranslate"><span class="pre">signed</span></code> attribute to <code class="docutils literal notranslate"><span class="pre">MyBinaryQuantizer</span></code>, as we just did. We could have also simply done the following:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[15]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[16]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
@@ -1112,34 +1096,34 @@ True
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[15]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[16]:
 </pre></div>
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-QuantTensor(value=tensor([[[[-0.1000,  0.1000,  0.1000],
+QuantTensor(value=tensor([[[[-0.1000, -0.1000,  0.1000],
           [-0.1000, -0.1000, -0.1000],
-          [ 0.1000,  0.1000,  0.1000]],
+          [ 0.1000, -0.1000,  0.1000]],
 
          [[-0.1000,  0.1000, -0.1000],
-          [ 0.1000,  0.1000,  0.1000],
-          [ 0.1000,  0.1000, -0.1000]],
-
-         [[ 0.1000, -0.1000, -0.1000],
-          [ 0.1000, -0.1000, -0.1000],
-          [ 0.1000,  0.1000,  0.1000]]],
-
-
-        [[[-0.1000,  0.1000,  0.1000],
-          [-0.1000, -0.1000,  0.1000],
+          [-0.1000,  0.1000,  0.1000],
           [ 0.1000, -0.1000, -0.1000]],
 
-         [[ 0.1000,  0.1000, -0.1000],
-          [-0.1000,  0.1000,  0.1000],
+         [[-0.1000,  0.1000, -0.1000],
+          [-0.1000, -0.1000,  0.1000],
+          [-0.1000, -0.1000, -0.1000]]],
+
+
+        [[[-0.1000, -0.1000, -0.1000],
+          [-0.1000, -0.1000, -0.1000],
           [ 0.1000,  0.1000, -0.1000]],
 
+         [[-0.1000, -0.1000,  0.1000],
+          [-0.1000,  0.1000, -0.1000],
+          [ 0.1000, -0.1000,  0.1000]],
+
          [[ 0.1000,  0.1000, -0.1000],
-          [-0.1000,  0.1000,  0.1000],
+          [ 0.1000,  0.1000,  0.1000],
           [ 0.1000, -0.1000,  0.1000]]]], grad_fn=&lt;MulBackward0&gt;), scale=tensor(0.1000, grad_fn=&lt;AbsBinarySignGradFnBackward&gt;), zero_point=tensor(0.), bit_width=tensor(1.), signed_t=tensor(True), training_t=tensor(True))
 </pre></div></div>
 </div>
@@ -1150,7 +1134,7 @@ QuantTensor(value=tensor([[[[-0.1000,  0.1000,  0.1000],
 <h2>Passing a custom quantizer to QuantIdentity<a class="headerlink" href="#Passing-a-custom-quantizer-to-QuantIdentity" title="Permalink to this heading">#</a></h2>
 <p>We can do a similar thing with quantized activations:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[16]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[17]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
@@ -1167,20 +1151,20 @@ QuantTensor(value=tensor([[[[-0.1000,  0.1000,  0.1000],
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[16]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[17]:
 </pre></div>
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-QuantTensor(value=tensor([[ 0.1000,  0.1000,  0.1000, -0.1000],
-        [ 0.1000,  0.1000, -0.1000, -0.1000],
-        [-0.1000, -0.1000, -0.1000, -0.1000],
-        [ 0.1000,  0.1000,  0.1000,  0.1000]], grad_fn=&lt;MulBackward0&gt;), scale=tensor(0.1000, grad_fn=&lt;AbsBinarySignGradFnBackward&gt;), zero_point=tensor(0.), bit_width=tensor(1.), signed_t=tensor(True), training_t=tensor(True))
+QuantTensor(value=tensor([[-0.1000,  0.1000, -0.1000,  0.1000],
+        [ 0.1000,  0.1000,  0.1000,  0.1000],
+        [-0.1000,  0.1000,  0.1000,  0.1000],
+        [-0.1000, -0.1000,  0.1000, -0.1000]], grad_fn=&lt;MulBackward0&gt;), scale=tensor(0.1000, grad_fn=&lt;AbsBinarySignGradFnBackward&gt;), zero_point=tensor(0.), bit_width=tensor(1.), signed_t=tensor(True), training_t=tensor(True))
 </pre></div></div>
 </div>
 <p>So there isn’t really much difference between a quantizer for weights and a quantizer for activations, they are just wrapped by different proxies. Also, with activations a prefix is not required when passing keyword arguments. For example, when can override the existing <code class="docutils literal notranslate"><span class="pre">scaling_init</span></code> defined in <code class="docutils literal notranslate"><span class="pre">MyBinaryQuantizer</span></code> with a new value passed in as a keywork argument:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[17]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[18]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
@@ -1191,15 +1175,15 @@ QuantTensor(value=tensor([[ 0.1000,  0.1000,  0.1000, -0.1000],
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[17]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[18]:
 </pre></div>
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
 QuantTensor(value=tensor([[ 0.0010,  0.0010,  0.0010, -0.0010],
-        [-0.0010,  0.0010, -0.0010,  0.0010],
-        [-0.0010, -0.0010,  0.0010, -0.0010],
-        [-0.0010,  0.0010, -0.0010, -0.0010]], grad_fn=&lt;MulBackward0&gt;), scale=tensor(0.0010, grad_fn=&lt;AbsBinarySignGradFnBackward&gt;), zero_point=tensor(0.), bit_width=tensor(1.), signed_t=tensor(True), training_t=tensor(True))
+        [ 0.0010, -0.0010,  0.0010, -0.0010],
+        [-0.0010, -0.0010, -0.0010, -0.0010],
+        [ 0.0010,  0.0010,  0.0010,  0.0010]], grad_fn=&lt;MulBackward0&gt;), scale=tensor(0.0010, grad_fn=&lt;AbsBinarySignGradFnBackward&gt;), zero_point=tensor(0.), bit_width=tensor(1.), signed_t=tensor(True), training_t=tensor(True))
 </pre></div></div>
 </div>
 </section>
@@ -1208,7 +1192,7 @@ QuantTensor(value=tensor([[ 0.0010,  0.0010,  0.0010, -0.0010],
 <p>So far we have seen use-cases where an <code class="docutils literal notranslate"><span class="pre">ExtendedInjector</span></code> provides, at best, a different kind of syntax to define a quantizer, without any particular other advantage. Let’s now make things a bit more complicated to show the sort of situations where it really shines.</p>
 <p>Let’s say we want to define a binary weight quantizer where <code class="docutils literal notranslate"><span class="pre">scaling_impl</span></code> is still <code class="docutils literal notranslate"><span class="pre">ParameterScaling</span></code>. However, instead of being user-defined, we want <code class="docutils literal notranslate"><span class="pre">scaling_init</span></code> to be the maximum value found in the weight tensor of the quantized layer. To support this sort of use cases where the quantizer depends on the layer, a quantized layer automatically passes itself to all its quantizers under the name of <code class="docutils literal notranslate"><span class="pre">module</span></code>. With only a few lines of code then, we can achieve our goal:</p>
 <div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[18]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[19]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
@@ -1225,7 +1209,7 @@ QuantTensor(value=tensor([[ 0.0010,  0.0010,  0.0010, -0.0010],
 <p>Note how we are leveraging the <code class="docutils literal notranslate"><span class="pre">&#64;value</span></code> <em>decorator</em> to define a function that is executed at <em>dependency-injection (DI) time</em>. This kind of behaviour is similar in spirit to defining a <code class="docutils literal notranslate"><span class="pre">&#64;property</span></code> instead of an <em>attribute</em>, with the difference that a <code class="docutils literal notranslate"><span class="pre">&#64;value</span></code> function can depend on other attributes of the Injector, which are automatically passed in as arguments of the function during DI.</p>
 <p>Let’s now pass the quantizer to a QuantConv2d and retrieve its quantized weights:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[19]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[20]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
@@ -1235,40 +1219,40 @@ QuantTensor(value=tensor([[ 0.0010,  0.0010,  0.0010, -0.0010],
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[19]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[20]:
 </pre></div>
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-QuantTensor(value=tensor([[[[ 0.1890,  0.1890,  0.1890],
-          [ 0.1890,  0.1890, -0.1890],
-          [ 0.1890,  0.1890, -0.1890]],
+QuantTensor(value=tensor([[[[-0.1876, -0.1876, -0.1876],
+          [ 0.1876,  0.1876,  0.1876],
+          [-0.1876, -0.1876,  0.1876]],
 
-         [[ 0.1890,  0.1890, -0.1890],
-          [-0.1890,  0.1890,  0.1890],
-          [ 0.1890, -0.1890,  0.1890]],
+         [[-0.1876, -0.1876,  0.1876],
+          [ 0.1876,  0.1876, -0.1876],
+          [-0.1876,  0.1876,  0.1876]],
 
-         [[ 0.1890,  0.1890, -0.1890],
-          [-0.1890,  0.1890,  0.1890],
-          [-0.1890, -0.1890, -0.1890]]],
+         [[-0.1876, -0.1876, -0.1876],
+          [ 0.1876,  0.1876,  0.1876],
+          [-0.1876,  0.1876, -0.1876]]],
 
 
-        [[[ 0.1890, -0.1890,  0.1890],
-          [ 0.1890, -0.1890,  0.1890],
-          [-0.1890, -0.1890,  0.1890]],
+        [[[-0.1876, -0.1876, -0.1876],
+          [ 0.1876,  0.1876, -0.1876],
+          [ 0.1876, -0.1876, -0.1876]],
 
-         [[-0.1890,  0.1890, -0.1890],
-          [-0.1890, -0.1890, -0.1890],
-          [-0.1890,  0.1890,  0.1890]],
+         [[-0.1876,  0.1876, -0.1876],
+          [ 0.1876, -0.1876, -0.1876],
+          [-0.1876, -0.1876,  0.1876]],
 
-         [[ 0.1890,  0.1890, -0.1890],
-          [ 0.1890,  0.1890,  0.1890],
-          [-0.1890, -0.1890,  0.1890]]]], grad_fn=&lt;MulBackward0&gt;), scale=tensor(0.1890, grad_fn=&lt;AbsBinarySignGradFnBackward&gt;), zero_point=tensor(0.), bit_width=tensor(1.), signed_t=tensor(True), training_t=tensor(True))
+         [[-0.1876,  0.1876,  0.1876],
+          [ 0.1876, -0.1876,  0.1876],
+          [-0.1876, -0.1876, -0.1876]]]], grad_fn=&lt;MulBackward0&gt;), scale=tensor(0.1876, grad_fn=&lt;AbsBinarySignGradFnBackward&gt;), zero_point=tensor(0.), bit_width=tensor(1.), signed_t=tensor(True), training_t=tensor(True))
 </pre></div></div>
 </div>
 <p>Indeed we can verify that <code class="docutils literal notranslate"><span class="pre">quant_weight_scale()</span></code> is equal to <code class="docutils literal notranslate"><span class="pre">weight.abs().max()</span></code>:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[20]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[21]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
@@ -1277,7 +1261,7 @@ QuantTensor(value=tensor([[[[ 0.1890,  0.1890,  0.1890],
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[20]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[21]:
 </pre></div>
 </div>
 <div class="output_area docutils container">
@@ -1287,7 +1271,7 @@ True
 </div>
 <p>Let’s say now that we want to load a pretrained floating-point weight tensor on top of our quantized model. We simuate this scenario by defining a separate <code class="docutils literal notranslate"><span class="pre">nn.Conv2d</span></code> layer with the same weight shape:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[21]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[22]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
@@ -1299,17 +1283,17 @@ True
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[21]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[22]:
 </pre></div>
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-tensor(0.1820, grad_fn=&lt;MaxBackward1&gt;)
+tensor(0.1897, grad_fn=&lt;MaxBackward1&gt;)
 </pre></div></div>
 </div>
 <p>and then we load it on top of <code class="docutils literal notranslate"><span class="pre">param_from_max_quant_conv</span></code>:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[22]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[23]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
@@ -1363,7 +1347,7 @@ tensor(0.1820, grad_fn=&lt;MaxBackward1&gt;)
 <p>Note that we could have also achieve the same goal by setting the <em>env variable</em> <code class="docutils literal notranslate"><span class="pre">BREVITAS_IGNORE_MISSING_KEYS=1</span></code>.</p>
 <p>And now if we take a look at the quantized weights again:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[24]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[25]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
@@ -1372,35 +1356,35 @@ tensor(0.1820, grad_fn=&lt;MaxBackward1&gt;)
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[24]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[25]:
 </pre></div>
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-QuantTensor(value=tensor([[[[-0.1820,  0.1820, -0.1820],
-          [ 0.1820, -0.1820,  0.1820],
-          [-0.1820, -0.1820, -0.1820]],
+QuantTensor(value=tensor([[[[ 0.1897, -0.1897,  0.1897],
+          [-0.1897,  0.1897, -0.1897],
+          [-0.1897,  0.1897, -0.1897]],
 
-         [[ 0.1820,  0.1820,  0.1820],
-          [-0.1820,  0.1820,  0.1820],
-          [-0.1820, -0.1820,  0.1820]],
+         [[-0.1897,  0.1897,  0.1897],
+          [ 0.1897, -0.1897, -0.1897],
+          [ 0.1897, -0.1897,  0.1897]],
 
-         [[ 0.1820, -0.1820,  0.1820],
-          [ 0.1820, -0.1820, -0.1820],
-          [-0.1820, -0.1820, -0.1820]]],
+         [[-0.1897,  0.1897, -0.1897],
+          [-0.1897,  0.1897,  0.1897],
+          [-0.1897,  0.1897,  0.1897]]],
 
 
-        [[[-0.1820, -0.1820,  0.1820],
-          [-0.1820, -0.1820,  0.1820],
-          [ 0.1820, -0.1820,  0.1820]],
+        [[[ 0.1897,  0.1897,  0.1897],
+          [-0.1897,  0.1897, -0.1897],
+          [ 0.1897,  0.1897, -0.1897]],
 
-         [[-0.1820,  0.1820,  0.1820],
-          [ 0.1820,  0.1820,  0.1820],
-          [ 0.1820, -0.1820,  0.1820]],
+         [[ 0.1897, -0.1897, -0.1897],
+          [ 0.1897,  0.1897, -0.1897],
+          [ 0.1897,  0.1897,  0.1897]],
 
-         [[ 0.1820,  0.1820, -0.1820],
-          [ 0.1820, -0.1820,  0.1820],
-          [-0.1820,  0.1820, -0.1820]]]], grad_fn=&lt;MulBackward0&gt;), scale=tensor(0.1820, grad_fn=&lt;AbsBinarySignGradFnBackward&gt;), zero_point=tensor(0.), bit_width=tensor(1.), signed_t=tensor(True), training_t=tensor(True))
+         [[-0.1897,  0.1897, -0.1897],
+          [-0.1897,  0.1897, -0.1897],
+          [ 0.1897,  0.1897,  0.1897]]]], grad_fn=&lt;MulBackward0&gt;), scale=tensor(0.1897, grad_fn=&lt;AbsBinarySignGradFnBackward&gt;), zero_point=tensor(0.), bit_width=tensor(1.), signed_t=tensor(True), training_t=tensor(True))
 </pre></div></div>
 </div>
 <p>We see that, as expected, the scale factor has been updated to the new <code class="docutils literal notranslate"><span class="pre">weight.abs().max()</span></code>.</p>
@@ -1411,7 +1395,7 @@ QuantTensor(value=tensor([[[[-0.1820,  0.1820, -0.1820],
 <p>There are two ways to share a quantizer between multiple layers, with importance differences.</p>
 <p>The first one, which we have seen so far, is to simply pass the same ExtendedInjector to multiple layers. What that does is sharing the same quantization strategy among different layers. Each layer still gets its own instance of the quantization implementation.</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[25]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[26]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
@@ -1423,7 +1407,7 @@ QuantTensor(value=tensor([[[[-0.1820,  0.1820, -0.1820],
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[25]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[26]:
 </pre></div>
 </div>
 <div class="output_area docutils container">
@@ -1442,7 +1426,7 @@ False
 <span></span><span class="n">quant_conv1</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">MySignedBinaryWeightQuantizer</span><span class="p">)</span>
 <span class="n">quant_conv2</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">quant_conv1</span><span class="o">.</span><span class="n">weight_quant</span><span class="p">)</span>
 
-<span class="n">quant_conv1</span><span class="o">.</span><span class="n">weight_quant</span> <span class="ow">is</span> <span class="n">quant_conv2</span><span class="o">.</span><span class="n">weight_quant</span>
+<span class="k">assert</span> <span class="n">quant_conv1</span><span class="o">.</span><span class="n">weight_quant</span> <span class="ow">is</span> <span class="n">quant_conv2</span><span class="o">.</span><span class="n">weight_quant</span>
 </pre></div>
 </div>
 </div>
@@ -1460,17 +1444,21 @@ True
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="p">(</span><span class="n">quant_conv1</span><span class="o">.</span><span class="n">quant_weight_scale</span><span class="p">()</span> <span class="o">==</span> <span class="n">quant_conv2</span><span class="o">.</span><span class="n">quant_weight_scale</span><span class="p">())</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+<span></span><span class="k">assert</span> <span class="p">(</span><span class="n">quant_conv1</span><span class="o">.</span><span class="n">quant_weight_scale</span><span class="p">()</span> <span class="o">==</span> <span class="n">quant_conv2</span><span class="o">.</span><span class="n">quant_weight_scale</span><span class="p">())</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
 </pre></div>
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[27]:
-</pre></div>
+<div class="prompt empty docutils container">
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-True
+<span class="ansi-red-fg">---------------------------------------------------------------------------</span>
+<span class="ansi-red-fg">AssertionError</span>                            Traceback (most recent call last)
+<span class="ansi-green-fg">/tmp/ipykernel_58415/1066539094.py</span> in <span class="ansi-cyan-fg">&lt;module&gt;</span>
+<span class="ansi-green-fg">----&gt; 1</span><span class="ansi-red-fg"> </span><span class="ansi-green-fg">assert</span> <span class="ansi-green-fg">not</span> <span class="ansi-blue-fg">(</span>quant_conv1<span class="ansi-blue-fg">.</span>quant_weight_scale<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">)</span> <span class="ansi-blue-fg">==</span> quant_conv2<span class="ansi-blue-fg">.</span>quant_weight_scale<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">)</span><span class="ansi-blue-fg">.</span>item<span class="ansi-blue-fg">(</span><span class="ansi-blue-fg">)</span>
+
+<span class="ansi-red-fg">AssertionError</span>:
 </pre></div></div>
 </div>
 <p>What happens in background is that the weight quantizer now has access to both <code class="docutils literal notranslate"><span class="pre">quant_conv1</span></code> and <code class="docutils literal notranslate"><span class="pre">quant_conv2</span></code>. So let’s say we want to build a quantizer similar to <code class="docutils literal notranslate"><span class="pre">ParamFromMaxWeightQuantizer</span></code>, but in this case we want the scale factor to be initialized with the average of both weight tensors. When a quantizer has access to multiple parent modules, they are passed in at dependency injection time as a <em>tuple</em> under the same name <code class="docutils literal notranslate"><span class="pre">module</span></code> as before. So we can do the following:</p>
@@ -1493,7 +1481,7 @@ True
 <span class="n">quant_conv2</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">quant_conv1</span><span class="o">.</span><span class="n">weight_quant</span><span class="p">)</span>
 <span class="n">new_quant_conv1_scale</span> <span class="o">=</span> <span class="n">quant_conv1</span><span class="o">.</span><span class="n">quant_weight_scale</span><span class="p">()</span>
 
-<span class="p">(</span><span class="n">old_quant_conv1_scale</span> <span class="o">==</span> <span class="n">new_quant_conv1_scale</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+<span class="k">assert</span> <span class="ow">not</span> <span class="p">(</span><span class="n">old_quant_conv1_scale</span> <span class="o">==</span> <span class="n">new_quant_conv1_scale</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
 </pre></div>
 </div>
 </div>
@@ -1506,23 +1494,14 @@ True
 False
 </pre></div></div>
 </div>
-<div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[29]:
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[31]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="p">(</span><span class="n">new_quant_conv1_scale</span> <span class="o">==</span> <span class="n">quant_conv2</span><span class="o">.</span><span class="n">quant_weight_scale</span><span class="p">())</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+<span></span><span class="k">assert</span> <span class="p">(</span><span class="n">new_quant_conv1_scale</span> <span class="o">==</span> <span class="n">quant_conv2</span><span class="o">.</span><span class="n">quant_weight_scale</span><span class="p">())</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
 </pre></div>
 </div>
-</div>
-<div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[29]:
-</pre></div>
-</div>
-<div class="output_area docutils container">
-<div class="highlight"><pre>
-True
-</pre></div></div>
 </div>
 <p>Note how, when <code class="docutils literal notranslate"><span class="pre">quant_conv2</span></code> is initialized using the <code class="docutils literal notranslate"><span class="pre">weight_quant</span></code> of <code class="docutils literal notranslate"><span class="pre">quant_conv1</span></code>, weight quantization is re-initialized for both layers such that they end up having the same scale.</p>
 <p>We can see in this example how Brevitas works consistently with Pytorch’s eager execution model. When we initialize <code class="docutils literal notranslate"><span class="pre">quant_conv1</span></code> we still don’t know that its weight quantizer is going to be shared with <code class="docutils literal notranslate"><span class="pre">quant_conv2</span></code>, and the semantics of Pytorch impose that <code class="docutils literal notranslate"><span class="pre">quant_conv1</span></code> should work correctly both before and after <code class="docutils literal notranslate"><span class="pre">quant_conv2</span></code> is declared. The way we take advantage of dependency injection allows to do so.</p>
@@ -1541,47 +1520,29 @@ True
 <h2>Dealing with Weight Initialization<a class="headerlink" href="#Dealing-with-Weight-Initialization" title="Permalink to this heading">#</a></h2>
 <p>There is a type of situation that Brevitas cannot deal with automatically. That is, when the initialization of the quantizer depends on the layer to which it is applied (like with the <code class="docutils literal notranslate"><span class="pre">ParamFromMaxWeightQuantizer</span></code> or <code class="docutils literal notranslate"><span class="pre">SharedParamFromMeanWeightQuantizer</span></code> quantizers), but the layer gets modified after it is initialized.</p>
 <p>The typical example is with weight initialization when training from scratch (so rather than loading from a floating-point state_dict):</p>
-<div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[30]:
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[32]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
 <span></span><span class="n">quant_conv_w_init</span> <span class="o">=</span> <span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">ParamFromMaxWeightQuantizer</span><span class="p">)</span>
 <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">init</span><span class="o">.</span><span class="n">uniform_</span><span class="p">(</span><span class="n">quant_conv_w_init</span><span class="o">.</span><span class="n">weight</span><span class="p">)</span>
 
-<span class="p">(</span><span class="n">quant_conv_w_init</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">==</span> <span class="n">quant_conv_w_init</span><span class="o">.</span><span class="n">quant_weight_scale</span><span class="p">())</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+<span class="k">assert</span> <span class="ow">not</span> <span class="p">(</span><span class="n">quant_conv_w_init</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">==</span> <span class="n">quant_conv_w_init</span><span class="o">.</span><span class="n">quant_weight_scale</span><span class="p">())</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
 </pre></div>
 </div>
-</div>
-<div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[30]:
-</pre></div>
-</div>
-<div class="output_area docutils container">
-<div class="highlight"><pre>
-False
-</pre></div></div>
 </div>
 <p>We can see how the scale factor is not initialized correctly anymore. In this case we can simply trigger re-initialization of the weight quantizer manually:</p>
-<div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[31]:
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[33]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
 <span></span><span class="n">quant_conv_w_init</span><span class="o">.</span><span class="n">weight_quant</span><span class="o">.</span><span class="n">init_tensor_quant</span><span class="p">()</span>
 
-<span class="p">(</span><span class="n">quant_conv_w_init</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">==</span> <span class="n">quant_conv_w_init</span><span class="o">.</span><span class="n">quant_weight_scale</span><span class="p">())</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+<span class="k">assert</span> <span class="p">(</span><span class="n">quant_conv_w_init</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">==</span> <span class="n">quant_conv_w_init</span><span class="o">.</span><span class="n">quant_weight_scale</span><span class="p">())</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
 </pre></div>
 </div>
-</div>
-<div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[31]:
-</pre></div>
-</div>
-<div class="output_area docutils container">
-<div class="highlight"><pre>
-True
-</pre></div></div>
 </div>
 <p><em>Note</em>: because the way weights are initialized is often the same as to how an optimizer performs the weight update step, there are currently no plans to try to perform re-initialization automatically (as it happens e.g. when a <code class="docutils literal notranslate"><span class="pre">state_dict</span></code> is loaded) since it wouldn’t be possible to distinguish between the two scenarios.</p>
 </section>
@@ -1651,7 +1612,7 @@ idea then that the flags can be set through keyword arguments of the respective 
 <p>The second one is the special object <code class="docutils literal notranslate"><span class="pre">this</span></code>. <code class="docutils literal notranslate"><span class="pre">this</span></code> is already present in the <em>dependencies</em> library, and it’s used as a way to retrieve attributes of the quantizer from within the quantizer itself. However, normally it wouldn’t be possible to return a reference to <code class="docutils literal notranslate"><span class="pre">this</span></code> from a <code class="docutils literal notranslate"><span class="pre">&#64;value</span></code> function. Again this is something that only a <code class="docutils literal notranslate"><span class="pre">ExtendedInjector</span></code> supports, and it allows to chain different attributes in a way such that the chained values are computed only when necessary.</p>
 <p>Let’s see the quantizers applied to a layer:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[33]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[35]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
@@ -1665,43 +1626,43 @@ idea then that the flags can be set through keyword arguments of the respective 
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[33]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[35]:
 </pre></div>
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-QuantTensor(value=tensor([[[[-0.1841, -0.1841, -0.1841],
-          [-0.1841, -0.1841, -0.1841],
-          [-0.1841,  0.1841,  0.1841]],
+QuantTensor(value=tensor([[[[-0.1842,  0.1842, -0.1842],
+          [-0.1842, -0.1842,  0.1842],
+          [-0.1842, -0.1842,  0.1842]],
 
-         [[ 0.1841, -0.1841,  0.1841],
-          [ 0.1841, -0.1841, -0.1841],
-          [ 0.1841,  0.1841, -0.1841]],
+         [[-0.1842, -0.1842,  0.1842],
+          [ 0.1842, -0.1842,  0.1842],
+          [ 0.1842,  0.1842, -0.1842]],
 
-         [[-0.1841, -0.1841,  0.1841],
-          [ 0.1841, -0.1841,  0.1841],
-          [ 0.1841,  0.1841, -0.1841]]],
-
-
-        [[[ 0.1916, -0.1916,  0.1916],
-          [-0.1916, -0.1916,  0.1916],
-          [ 0.1916, -0.1916, -0.1916]],
-
-         [[-0.1916,  0.1916, -0.1916],
-          [-0.1916, -0.1916,  0.1916],
-          [-0.1916, -0.1916,  0.1916]],
-
-         [[ 0.1916, -0.1916, -0.1916],
-          [-0.1916,  0.1916, -0.1916],
-          [ 0.1916, -0.1916,  0.1916]]]], grad_fn=&lt;MulBackward0&gt;), scale=tensor([[[[0.1841]]],
+         [[-0.1842, -0.1842,  0.1842],
+          [ 0.1842,  0.1842,  0.1842],
+          [-0.1842,  0.1842, -0.1842]]],
 
 
-        [[[0.1916]]]], grad_fn=&lt;AbsBinarySignGradFnBackward&gt;), zero_point=tensor(0.), bit_width=tensor(1.), signed_t=tensor(True), training_t=tensor(True))
+        [[[ 0.1838,  0.1838,  0.1838],
+          [-0.1838, -0.1838, -0.1838],
+          [ 0.1838,  0.1838, -0.1838]],
+
+         [[ 0.1838, -0.1838,  0.1838],
+          [ 0.1838,  0.1838,  0.1838],
+          [-0.1838,  0.1838, -0.1838]],
+
+         [[-0.1838,  0.1838, -0.1838],
+          [ 0.1838, -0.1838, -0.1838],
+          [ 0.1838, -0.1838,  0.1838]]]], grad_fn=&lt;MulBackward0&gt;), scale=tensor([[[[0.1842]]],
+
+
+        [[[0.1838]]]], grad_fn=&lt;AbsBinarySignGradFnBackward&gt;), zero_point=tensor(0.), bit_width=tensor(1.), signed_t=tensor(True), training_t=tensor(True))
 </pre></div></div>
 </div>
 <p>As expected the weight scale is now a vector. Everything we said so far about quantizers still applies, so for example we can load the floating-point state dict we defined before and observe how it triggers an update of the weight scale:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[34]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[36]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
@@ -1711,44 +1672,44 @@ QuantTensor(value=tensor([[[[-0.1841, -0.1841, -0.1841],
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[34]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[36]:
 </pre></div>
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-QuantTensor(value=tensor([[[[-0.1774,  0.1774, -0.1774],
-          [ 0.1774, -0.1774,  0.1774],
-          [-0.1774, -0.1774, -0.1774]],
+QuantTensor(value=tensor([[[[ 0.1875, -0.1875,  0.1875],
+          [-0.1875,  0.1875, -0.1875],
+          [-0.1875,  0.1875, -0.1875]],
 
-         [[ 0.1774,  0.1774,  0.1774],
-          [-0.1774,  0.1774,  0.1774],
-          [-0.1774, -0.1774,  0.1774]],
+         [[-0.1875,  0.1875,  0.1875],
+          [ 0.1875, -0.1875, -0.1875],
+          [ 0.1875, -0.1875,  0.1875]],
 
-         [[ 0.1774, -0.1774,  0.1774],
-          [ 0.1774, -0.1774, -0.1774],
-          [-0.1774, -0.1774, -0.1774]]],
-
-
-        [[[-0.1820, -0.1820,  0.1820],
-          [-0.1820, -0.1820,  0.1820],
-          [ 0.1820, -0.1820,  0.1820]],
-
-         [[-0.1820,  0.1820,  0.1820],
-          [ 0.1820,  0.1820,  0.1820],
-          [ 0.1820, -0.1820,  0.1820]],
-
-         [[ 0.1820,  0.1820, -0.1820],
-          [ 0.1820, -0.1820,  0.1820],
-          [-0.1820,  0.1820, -0.1820]]]], grad_fn=&lt;MulBackward0&gt;), scale=tensor([[[[0.1774]]],
+         [[-0.1875,  0.1875, -0.1875],
+          [-0.1875,  0.1875,  0.1875],
+          [-0.1875,  0.1875,  0.1875]]],
 
 
-        [[[0.1820]]]], grad_fn=&lt;AbsBinarySignGradFnBackward&gt;), zero_point=tensor(0.), bit_width=tensor(1.), signed_t=tensor(True), training_t=tensor(True))
+        [[[ 0.1897,  0.1897,  0.1897],
+          [-0.1897,  0.1897, -0.1897],
+          [ 0.1897,  0.1897, -0.1897]],
+
+         [[ 0.1897, -0.1897, -0.1897],
+          [ 0.1897,  0.1897, -0.1897],
+          [ 0.1897,  0.1897,  0.1897]],
+
+         [[-0.1897,  0.1897, -0.1897],
+          [-0.1897,  0.1897, -0.1897],
+          [ 0.1897,  0.1897,  0.1897]]]], grad_fn=&lt;MulBackward0&gt;), scale=tensor([[[[0.1875]]],
+
+
+        [[[0.1897]]]], grad_fn=&lt;AbsBinarySignGradFnBackward&gt;), zero_point=tensor(0.), bit_width=tensor(1.), signed_t=tensor(True), training_t=tensor(True))
 </pre></div></div>
 </div>
 <p>In this case we have a per-channel quantizer, so the original floating-point weight tensor is now quantized per channel.</p>
 <p>Similarly, we can apply our custom activation quantizer to e.g. a <code class="docutils literal notranslate"><span class="pre">QuantIdentity</span></code> layer:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[35]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[37]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
@@ -1761,15 +1722,15 @@ QuantTensor(value=tensor([[[[-0.1774,  0.1774, -0.1774],
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[35]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[37]:
 </pre></div>
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-tensor([[ 0.0100, -0.0100, -0.0100,  0.0100],
-        [ 0.0100,  0.0100, -0.0100, -0.0100],
-        [ 0.0100, -0.0100,  0.0100, -0.0100],
-        [ 0.0100,  0.0100, -0.0100,  0.0100]], grad_fn=&lt;MulBackward0&gt;)
+tensor([[-0.0100, -0.0100,  0.0100, -0.0100],
+        [-0.0100, -0.0100, -0.0100,  0.0100],
+        [-0.0100,  0.0100,  0.0100,  0.0100],
+        [-0.0100,  0.0100,  0.0100,  0.0100]], grad_fn=&lt;MulBackward0&gt;)
 </pre></div></div>
 </div>
 <p>Note how <code class="docutils literal notranslate"><span class="pre">AdvancedActQuantizer</span></code> doesn’t define a <code class="docutils literal notranslate"><span class="pre">per_channel_broadcastable_shape</span></code>, yet no errors are triggered. This is because <code class="docutils literal notranslate"><span class="pre">this.per_channel_broadcastable_shape</span></code> is required only when <code class="docutils literal notranslate"><span class="pre">scaling_per_output_channel</span></code> is <code class="docutils literal notranslate"><span class="pre">True</span></code>, while in this case <code class="docutils literal notranslate"><span class="pre">scaling_per_output_channel</span></code> is <code class="docutils literal notranslate"><span class="pre">False</span></code>. Let’ try to set it to <code class="docutils literal notranslate"><span class="pre">True</span></code> then:</p>
@@ -1868,7 +1829,7 @@ tensor([[ 0.0100, -0.0100, -0.0100,  0.0100],
 </div>
 <p>As expected we get an error saying that the quantizer cannot resolve <code class="docutils literal notranslate"><span class="pre">per_channel_broadcastable_shape</span></code>. If we pass it in then we can get a per-channel quantizer:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[37]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[39]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
@@ -1880,15 +1841,15 @@ tensor([[ 0.0100, -0.0100, -0.0100,  0.0100],
 </div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[37]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[39]:
 </pre></div>
 </div>
 <div class="output_area docutils container">
 <div class="highlight"><pre>
-QuantTensor(value=tensor([[ 0.0100,  0.0100, -0.0100, -0.0100],
-        [-0.0100,  0.0100, -0.0100,  0.0100],
-        [-0.0100, -0.0100, -0.0100,  0.0100],
-        [-0.0100,  0.0100,  0.0100,  0.0100]], grad_fn=&lt;MulBackward0&gt;), scale=tensor([[0.0100],
+QuantTensor(value=tensor([[-0.0100,  0.0100, -0.0100, -0.0100],
+        [-0.0100,  0.0100, -0.0100, -0.0100],
+        [ 0.0100, -0.0100,  0.0100, -0.0100],
+        [ 0.0100, -0.0100, -0.0100, -0.0100]], grad_fn=&lt;MulBackward0&gt;), scale=tensor([[0.0100],
         [0.0100],
         [0.0100],
         [0.0100]], grad_fn=&lt;AbsBinarySignGradFnBackward&gt;), zero_point=tensor(0.), bit_width=tensor(1.), signed_t=tensor(True), training_t=tensor(True))
