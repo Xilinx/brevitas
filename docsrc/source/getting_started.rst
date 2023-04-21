@@ -2,12 +2,31 @@
 Getting started
 ===============
 
-Brevitas serves various types of users and end goals. To showcase some
-of Brevitas features, we consider then different scenarios for the
-quantization of a classic neural network, LeNet-5.
+Brevitas serves various types of users and end goals. With respect to **defining** quantized models, Brevitas supports two types of user flows:
+
+
+- *By hand*, writing a quantized model using ``brevitas.nn`` quantized layers, possibly by modifying an original PyTorch floating-point model definition.
+- *Programmatically*, by taking a floating-point model as input and automatically deriving a quantized model definition from it according to some user-defined criteria.
+
+Once a quantize model is defined in either way, it can then be used as a starting point for either:
+
+
+- PTQ (Post-Training Quantization), starting from a pretrained floating-point model.
+- QAT (Quantization Aware Training), either training from scratch or finetuning a pretrained floating-point model.
+- PTQ followed by QAT finetuning, to combine the best of both approaches.
+
+PTQ over hand or programmatically defined quantized models
+----------------------------------------------------------
+
+Checkout how it's done for ImageNet classification over torchvision or other hand-defined models with our example scripts `here <https://github.com/Xilinx/brevitas/tree/master/src/brevitas_examples/imagenet_classification/ptq>`_.
+
+
+Defining a quantized model with brevitas.nn layers
+--------------------------------------------------
+We consider quantization of a classic neural network, LeNet-5.
 
 Weights-only quantization, float activations and biases
--------------------------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Let's say we are interested in assessing how well the model does at *4
 bit weights* for CIFAR10 classification. For the purpose of this
@@ -68,7 +87,7 @@ as the weights need to be converted to float at runtime first.
 In order to make more practical, we want to quantize activations too.
 
 Weights and activations quantization, float biases
---------------------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 We now quantize both weights and activations to 4 bits, while keeping biases in floating-point.
 In order to do so, we replace ``torch.nn.ReLU`` with
@@ -115,6 +134,7 @@ result is the following:
    quant_weight_act_lenet = QuantWeightActLeNet()
 
    # ... training ...
+..
 
 Note a couple of things:
 
@@ -123,7 +143,7 @@ Note a couple of things:
 - Quantized data in Brevitas is always represented in **dequantized** format, meaning that is represented within a float tensor. The output of `QuantReLU` then looks like a standard float torch Tensor, but it's restricted to *16 different values* (with 4 bits quantization). In order to get a more informative representation of quantized data, we need to set ``return_quant_tensor=True``.
 
 Weights, activations, biases quantization
------------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: python
 
@@ -163,7 +183,7 @@ Weights, activations, biases quantization
    quant_weight_act_bias_lenet = QuantWeightActBiasLeNet()
 
    # ... training ...
-
+..
 
 Compared to the previous scenario:
 - We now set ``return_quant_tensor=True`` in every quantized activations to propagate a ``QuantTensor`` to the next layer. This informs each ``QuantLinear`` or ``QuantConv2d`` of how the input passed in has been quantized.
@@ -172,7 +192,7 @@ Compared to the previous scenario:
 - ``torch`` operations that are algorithmically invariant to quantization, such as `F.max_pool2d`, can propagate QuantTensor through them without extra changes.
 
 Export to ONNX
---------------
+^^^^^^^^^^^^^^
 
 Brevitas does not perform any low-precision acceleration on its own. For that to happen, the model need to be exported first to an inference toolchain through some intermediate representation like ONNX.
 One popular way to represent 8-bit quantization within ONNX is through the `QDQ format <https://onnxruntime.ai/docs/performance/quantization.html#onnx-quantization-representation-format>`_.
@@ -192,6 +212,8 @@ The interface of the export function matches the `torch.onnx.export` function, a
 
     # Weight-activation-bias model
     export_onnx_qcdq(quant_weight_act_bias_lenet, torch.randn(1, 3, 32, 32), export_path='4b_weight_act_bias_lenet.onnx')
+
+..
 
 
 Where to go from here

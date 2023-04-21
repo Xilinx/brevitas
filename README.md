@@ -6,7 +6,7 @@
 ![Examples Pytest](https://github.com/Xilinx/brevitas/workflows/Examples%20Pytest/badge.svg?branch=master)
 [![DOI](https://zenodo.org/badge/140494324.svg)](https://zenodo.org/badge/latestdoi/140494324)
 
-Brevitas is a PyTorch library for neural network quantization, with a focus on *quantization-aware training (QAT)*.
+Brevitas is a PyTorch library for neural network quantization, with support for both *post-training quantization (PTQ)* and *quantization-aware training (QAT)*.
 
 **Please note that Brevitas is a research project and not an official Xilinx product.**
 
@@ -31,6 +31,7 @@ If you adopt Brevitas in your work, please cite it as:
 
 ## History
 
+- *2023/04/21* - Release version 0.9.0, see the [release notes](https://github.com/Xilinx/brevitas/releases/tag/v0.9.0).
 - *2023/01/10* - Release version 0.8.0, see the [release notes](https://github.com/Xilinx/brevitas/releases/tag/v0.8.0).
 - *2021/12/13* - Release version 0.7.1, fix a bunch of issues. Added TVMCon 2021 tutorial notebook.
 - *2021/11/03* - Re-release version 0.7.0 (build 1) on PyPI to fix a packaging issue.

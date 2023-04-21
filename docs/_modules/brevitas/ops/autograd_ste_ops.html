@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>brevitas.ops.autograd_ste_ops &#8212; Brevitas 0.7.2.dev139+g0c2e90d documentation</title>
+    <title>brevitas.ops.autograd_ste_ops &#8212; Brevitas 0.9.0 documentation</title>
   
   
   
@@ -350,45 +350,8 @@
             <article class="bd-article" role="main">
               
   <h1>Source code for brevitas.ops.autograd_ste_ops</h1><div class="highlight"><pre>
-<span></span><span class="c1"># Copyright (c) 2019-     Xilinx, Inc              (Giuseppe Franco)</span>
-<span class="c1"># Copyright (c) 2016-     Facebook, Inc            (Adam Paszke)</span>
-<span class="c1"># Copyright (c) 2014-     Facebook, Inc            (Soumith Chintala)</span>
-<span class="c1"># Copyright (c) 2011-2014 Idiap Research Institute (Ronan Collobert)</span>
-<span class="c1"># Copyright (c) 2012-2014 Deepmind Technologies    (Koray Kavukcuoglu)</span>
-<span class="c1"># Copyright (c) 2011-2012 NEC Laboratories America (Koray Kavukcuoglu)</span>
-<span class="c1"># Copyright (c) 2011-2013 NYU                      (Clement Farabet)</span>
-<span class="c1"># Copyright (c) 2006-2010 NEC Laboratories America (Ronan Collobert, Leon Bottou, Iain Melvin, Jason Weston)</span>
-<span class="c1"># Copyright (c) 2006      Idiap Research Institute (Samy Bengio)</span>
-<span class="c1"># Copyright (c) 2001-2004 Idiap Research Institute (Ronan Collobert, Samy Bengio, Johnny Mariethoz)</span>
-
-<span class="c1"># All rights reserved.</span>
-
-<span class="c1"># Redistribution and use in source and binary forms, with or without</span>
-<span class="c1"># modification, are permitted provided that the following conditions are met:</span>
-
-<span class="c1"># 1. Redistributions of source code must retain the above copyright</span>
-<span class="c1">#    notice, this list of conditions and the following disclaimer.</span>
-
-<span class="c1"># 2. Redistributions in binary form must reproduce the above copyright</span>
-<span class="c1">#    notice, this list of conditions and the following disclaimer in the</span>
-<span class="c1">#    documentation and/or other materials provided with the distribution.</span>
-
-<span class="c1"># 3. Neither the names of Xilinx, Facebook, Deepmind Technologies, NYU,</span>
-<span class="c1">#    NEC Laboratories America and IDIAP Research Institute nor the names</span>
-<span class="c1">#    of its contributors may be used to endorse or promote products derived</span>
-<span class="c1">#    from this software without specific prior written permission.</span>
-
-<span class="c1"># THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS &quot;AS IS&quot;</span>
-<span class="c1"># AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</span>
-<span class="c1"># IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</span>
-<span class="c1"># ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</span>
-<span class="c1"># LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</span>
-<span class="c1"># CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</span>
-<span class="c1"># SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</span>
-<span class="c1"># INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</span>
-<span class="c1"># CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</span>
-<span class="c1"># ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</span>
-<span class="c1"># POSSIBILITY OF SUCH DAMAGE.</span>
+<span></span><span class="c1"># Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.</span>
+<span class="c1"># SPDX-License-Identifier: BSD-3-Clause</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">Implementation of various torch.autograd.Function with straight-through estimators.</span>
@@ -397,10 +360,14 @@
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Tuple</span>
 
 <span class="kn">import</span> <span class="nn">torch</span>
-<span class="kn">from</span> <span class="nn">torch.autograd</span> <span class="kn">import</span> <span class="n">Function</span>
 <span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">Tensor</span>
+<span class="kn">from</span> <span class="nn">torch.autograd</span> <span class="kn">import</span> <span class="n">Function</span>
 
-<span class="kn">from</span> <span class="nn">brevitas.function.ops</span> <span class="kn">import</span> <span class="n">tensor_clamp</span><span class="p">,</span> <span class="n">binary_sign</span><span class="p">,</span> <span class="n">round_to_zero</span><span class="p">,</span> <span class="n">tensor_clamp_</span><span class="p">,</span> <span class="n">dpu_round</span>
+<span class="kn">from</span> <span class="nn">brevitas.function.ops</span> <span class="kn">import</span> <span class="n">binary_sign</span>
+<span class="kn">from</span> <span class="nn">brevitas.function.ops</span> <span class="kn">import</span> <span class="n">dpu_round</span>
+<span class="kn">from</span> <span class="nn">brevitas.function.ops</span> <span class="kn">import</span> <span class="n">round_to_zero</span>
+<span class="kn">from</span> <span class="nn">brevitas.function.ops</span> <span class="kn">import</span> <span class="n">tensor_clamp</span>
+<span class="kn">from</span> <span class="nn">brevitas.function.ops</span> <span class="kn">import</span> <span class="n">tensor_clamp_</span>
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
     <span class="s1">&#39;ScalarClampSteFn&#39;</span><span class="p">,</span>
@@ -425,8 +392,7 @@
     <span class="s1">&#39;scalar_clamp_ste_impl&#39;</span><span class="p">,</span>
     <span class="s1">&#39;tensor_clamp_ste_impl&#39;</span><span class="p">,</span>
     <span class="s1">&#39;abs_binary_sign_grad_impl&#39;</span><span class="p">,</span>
-    <span class="s1">&#39;dpu_round_ste_impl&#39;</span>
-<span class="p">]</span>
+    <span class="s1">&#39;dpu_round_ste_impl&#39;</span><span class="p">]</span>
 
 
 <div class="viewcode-block" id="ScalarClampSteFn"><a class="viewcode-back" href="../../../api_reference/brevitas.ops.html#brevitas.ops.autograd_ste_ops.ScalarClampSteFn">[docs]</a><span class="k">class</span> <span class="nc">ScalarClampSteFn</span><span class="p">(</span><span class="n">Function</span><span class="p">):</span>
@@ -486,7 +452,7 @@
 
 
 <div class="viewcode-block" id="TensorClampSteFn"><a class="viewcode-back" href="../../../api_reference/brevitas.ops.html#brevitas.ops.autograd_ste_ops.TensorClampSteFn">[docs]</a><span class="k">class</span> <span class="nc">TensorClampSteFn</span><span class="p">(</span><span class="n">Function</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot; </span>
+    <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Autograd function that implements :func:`~brevitas.function.ops.tensor_clamp` with a</span>
 <span class="sd">    straight-through gradient estimator for the gradient of y w.r.t. to x, while the gradient of y</span>
 <span class="sd">    w.r.t. to min_val and max_val is always None.</span>
@@ -605,7 +571,7 @@
 
 
 <div class="viewcode-block" id="CeilSteFn"><a class="viewcode-back" href="../../../api_reference/brevitas.ops.html#brevitas.ops.autograd_ste_ops.CeilSteFn">[docs]</a><span class="k">class</span> <span class="nc">CeilSteFn</span><span class="p">(</span><span class="n">Function</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot; </span>
+    <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Autograd function that implements :func:`torch.ceil` with a straight-through gradient estimator.</span>
 
 <span class="sd">    ``CeilSteFn.apply(*args)`` is first aliased to :func:`ceil_ste_impl(*args)</span>
@@ -631,7 +597,7 @@
 
 
 <div class="viewcode-block" id="FloorSteFn"><a class="viewcode-back" href="../../../api_reference/brevitas.ops.html#brevitas.ops.autograd_ste_ops.FloorSteFn">[docs]</a><span class="k">class</span> <span class="nc">FloorSteFn</span><span class="p">(</span><span class="n">Function</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot; </span>
+    <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Autograd function that implements :func:`torch.floor` with a straight-through gradient estimator.</span>
 
 <span class="sd">    ``FloorSteFn.apply(*args)`` is first aliased to :func:`floor_ste_impl(*args)</span>
@@ -657,12 +623,12 @@
 
 
 <div class="viewcode-block" id="BinarySignSteFn"><a class="viewcode-back" href="../../../api_reference/brevitas.ops.html#brevitas.ops.autograd_ste_ops.BinarySignSteFn">[docs]</a><span class="k">class</span> <span class="nc">BinarySignSteFn</span><span class="p">(</span><span class="n">Function</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot; </span>
+    <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Autograd function that implements :func:`~brevitas.function.ops.binary_sign` with a</span>
 <span class="sd">    straight-through gradient estimator.</span>
 
-<span class="sd">    ``BinarySignSteFn.apply(*args)`` is first aliased to </span>
-<span class="sd">    :func:`binary_sign_ste_impl(*args)&lt;brevitas.ops.autograd_ste_ops.binary_sign_ste_impl&gt;` </span>
+<span class="sd">    ``BinarySignSteFn.apply(*args)`` is first aliased to</span>
+<span class="sd">    :func:`binary_sign_ste_impl(*args)&lt;brevitas.ops.autograd_ste_ops.binary_sign_ste_impl&gt;`</span>
 <span class="sd">    and then wrapped by :func:`~brevitas.function.ops_ste.binary_sign_ste` when env ``BREVITAS_JIT=0``.</span>
 <span class="sd">    See :func:`~brevitas.function.ops_ste.binary_sign_ste` for details on the interface and</span>
 <span class="sd">    examples.</span>
@@ -689,7 +655,7 @@
 
 
 <div class="viewcode-block" id="TernarySignSteFn"><a class="viewcode-back" href="../../../api_reference/brevitas.ops.html#brevitas.ops.autograd_ste_ops.TernarySignSteFn">[docs]</a><span class="k">class</span> <span class="nc">TernarySignSteFn</span><span class="p">(</span><span class="n">Function</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot; </span>
+    <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Autograd function that implements :func:`torch.sign` with a straight-through gradient estimator.</span>
 
 <span class="sd">    ``TernarySignSteFn.apply(*args)`` is first aliased to :func:`ternary_sign_ste_impl(*args)</span>

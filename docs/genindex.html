@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Index &#8212; Brevitas 0.7.2.dev139+g0c2e90d documentation</title>
+    <title>Index &#8212; Brevitas 0.9.0 documentation</title>
   
   
   
@@ -414,6 +414,8 @@
 </li>
       <li><a href="api_reference/brevitas.core.bit_width.html#brevitas.core.bit_width.parameter.BitWidthParameter">BitWidthParameter (class in brevitas.core.bit_width.parameter)</a>
 </li>
+      <li><a href="api_reference/brevitas.core.bit_width.html#brevitas.core.bit_width.const.BitWidthStatefulConst">BitWidthStatefulConst (class in brevitas.core.bit_width.const)</a>
+</li>
       <li>
     brevitas.core
 
@@ -658,12 +660,14 @@
 </li>
       <li><a href="api_reference/brevitas.core.quant.html#brevitas.core.quant.int.DecoupledRescalingIntQuant">DecoupledRescalingIntQuant (class in brevitas.core.quant.int)</a>
 </li>
-      <li><a href="api_reference/brevitas.core.quant.html#brevitas.core.quant.delay.DelayWrapper">DelayWrapper (class in brevitas.core.quant.delay)</a>
+      <li><a href="api_reference/brevitas.core.quant.html#brevitas.core.quant.int.DecoupledRescalingIntQuantWithInput">DecoupledRescalingIntQuantWithInput (class in brevitas.core.quant.int)</a>
 </li>
-      <li><a href="api_reference/brevitas.function.html#brevitas.function.ops.dpu_round">dpu_round() (in module brevitas.function.ops)</a>
+      <li><a href="api_reference/brevitas.core.quant.html#brevitas.core.quant.delay.DelayWrapper">DelayWrapper (class in brevitas.core.quant.delay)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api_reference/brevitas.function.html#brevitas.function.ops.dpu_round">dpu_round() (in module brevitas.function.ops)</a>
+</li>
       <li><a href="api_reference/brevitas.function.html#brevitas.function.ops_ste.dpu_round_ste">dpu_round_ste() (in module brevitas.function.ops_ste)</a>
 </li>
       <li><a href="api_reference/brevitas.ops.html#brevitas.ops.autograd_ste_ops.dpu_round_ste_impl">dpu_round_ste_impl() (in module brevitas.ops.autograd_ste_ops)</a>
@@ -691,6 +695,8 @@
       <li><a href="api_reference/brevitas.core.bit_width.html#brevitas.core.bit_width.const.BitWidthConst.forward">forward() (brevitas.core.bit_width.const.BitWidthConst method)</a>
 
       <ul>
+        <li><a href="api_reference/brevitas.core.bit_width.html#brevitas.core.bit_width.const.BitWidthStatefulConst.forward">(brevitas.core.bit_width.const.BitWidthStatefulConst method)</a>
+</li>
         <li><a href="api_reference/brevitas.core.bit_width.html#brevitas.core.bit_width.const.MsbClampBitWidth.forward">(brevitas.core.bit_width.const.MsbClampBitWidth method)</a>
 </li>
         <li><a href="api_reference/brevitas.core.bit_width.html#brevitas.core.bit_width.parameter.BitWidthParameter.forward">(brevitas.core.bit_width.parameter.BitWidthParameter method)</a>
@@ -745,6 +751,8 @@
 </li>
         <li><a href="api_reference/brevitas.core.quant.html#brevitas.core.quant.int.DecoupledRescalingIntQuant.forward">(brevitas.core.quant.int.DecoupledRescalingIntQuant method)</a>
 </li>
+        <li><a href="api_reference/brevitas.core.quant.html#brevitas.core.quant.int.DecoupledRescalingIntQuantWithInput.forward">(brevitas.core.quant.int.DecoupledRescalingIntQuantWithInput method)</a>
+</li>
         <li><a href="api_reference/brevitas.core.quant.html#brevitas.core.quant.int.PrescaledRestrictIntQuant.forward">(brevitas.core.quant.int.PrescaledRestrictIntQuant method)</a>
 </li>
         <li><a href="api_reference/brevitas.core.quant.html#brevitas.core.quant.int.PrescaledRestrictIntQuantWithInputBitWidth.forward">(brevitas.core.quant.int.PrescaledRestrictIntQuantWithInputBitWidth method)</a>
@@ -795,6 +803,10 @@
 </li>
         <li><a href="api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.KLMinimizerThreshold.forward">(brevitas.core.stats.stats_op.KLMinimizerThreshold method)</a>
 </li>
+        <li><a href="api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.L1Norm.forward">(brevitas.core.stats.stats_op.L1Norm method)</a>
+</li>
+        <li><a href="api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.L2Norm.forward">(brevitas.core.stats.stats_op.L2Norm method)</a>
+</li>
         <li><a href="api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.MeanLearnedSigmaStd.forward">(brevitas.core.stats.stats_op.MeanLearnedSigmaStd method)</a>
 </li>
         <li><a href="api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.MeanSigmaStd.forward">(brevitas.core.stats.stats_op.MeanSigmaStd method)</a>
@@ -805,9 +817,17 @@
 </li>
         <li><a href="api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.PercentileInterval.forward">(brevitas.core.stats.stats_op.PercentileInterval method)</a>
 </li>
+        <li><a href="api_reference/brevitas.core.html#brevitas.core.utils.ParameterWrapper.forward">(brevitas.core.utils.ParameterWrapper method)</a>
+</li>
+        <li><a href="api_reference/brevitas.core.html#brevitas.core.utils.SingleArgStatelessBuffer.forward">(brevitas.core.utils.SingleArgStatelessBuffer method)</a>
+</li>
         <li><a href="api_reference/brevitas.core.html#brevitas.core.utils.StatelessBuffer.forward">(brevitas.core.utils.StatelessBuffer method)</a>
 </li>
+        <li><a href="api_reference/brevitas.core.html#brevitas.core.zero_point.ParameterFromRuntimeZeroPoint.forward">(brevitas.core.zero_point.ParameterFromRuntimeZeroPoint method)</a>
+</li>
         <li><a href="api_reference/brevitas.core.html#brevitas.core.zero_point.ParameterZeroPoint.forward">(brevitas.core.zero_point.ParameterZeroPoint method)</a>
+</li>
+        <li><a href="api_reference/brevitas.core.html#brevitas.core.zero_point.StatsFromParameterZeroPoint.forward">(brevitas.core.zero_point.StatsFromParameterZeroPoint method)</a>
 </li>
         <li><a href="api_reference/brevitas.core.html#brevitas.core.zero_point.ZeroZeroPoint.forward">(brevitas.core.zero_point.ZeroZeroPoint method)</a>
 </li>
@@ -856,10 +876,14 @@
 <h2 id="L">L</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api_reference/brevitas.core.html#brevitas.core.restrict_val.LogFloatRestrictValue">LogFloatRestrictValue (class in brevitas.core.restrict_val)</a>
+      <li><a href="api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.L1Norm">L1Norm (class in brevitas.core.stats.stats_op)</a>
+</li>
+      <li><a href="api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.L2Norm">L2Norm (class in brevitas.core.stats.stats_op)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api_reference/brevitas.core.html#brevitas.core.restrict_val.LogFloatRestrictValue">LogFloatRestrictValue (class in brevitas.core.restrict_val)</a>
+</li>
       <li><a href="api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.misc.LogTwo">LogTwo (class in brevitas.core.function_wrapper.misc)</a>
 </li>
   </ul></td>
@@ -1009,16 +1033,20 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api_reference/brevitas.core.scaling.html#brevitas.core.scaling.standalone.ParameterFromRuntimeStatsScaling">ParameterFromRuntimeStatsScaling (class in brevitas.core.scaling.standalone)</a>
 </li>
+      <li><a href="api_reference/brevitas.core.html#brevitas.core.zero_point.ParameterFromRuntimeZeroPoint">ParameterFromRuntimeZeroPoint (class in brevitas.core.zero_point)</a>
+</li>
       <li><a href="api_reference/brevitas.core.scaling.html#brevitas.core.scaling.standalone.ParameterScaling">ParameterScaling (class in brevitas.core.scaling.standalone)</a>
+</li>
+      <li><a href="api_reference/brevitas.core.html#brevitas.core.utils.ParameterWrapper">ParameterWrapper (class in brevitas.core.utils)</a>
 </li>
       <li><a href="api_reference/brevitas.core.html#brevitas.core.zero_point.ParameterZeroPoint">ParameterZeroPoint (class in brevitas.core.zero_point)</a>
 </li>
       <li><a href="api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.PercentileInterval">PercentileInterval (class in brevitas.core.stats.stats_op)</a>
 </li>
-      <li><a href="api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.shape.PermuteDims">PermuteDims (class in brevitas.core.function_wrapper.shape)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.shape.PermuteDims">PermuteDims (class in brevitas.core.function_wrapper.shape)</a>
+</li>
       <li><a href="api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.misc.PowerOfTwo">PowerOfTwo (class in brevitas.core.function_wrapper.misc)</a>
 </li>
       <li><a href="api_reference/brevitas.core.scaling.html#brevitas.core.scaling.int_scaling.PowerOfTwoIntScaling">PowerOfTwoIntScaling (class in brevitas.core.scaling.int_scaling)</a>
@@ -1121,9 +1149,11 @@
 </li>
       <li><a href="api_reference/brevitas.ops.html#brevitas.ops.autograd_ste_ops.ScalarClampMinSteFn">ScalarClampMinSteFn (class in brevitas.ops.autograd_ste_ops)</a>
 </li>
+      <li><a href="api_reference/brevitas.ops.html#brevitas.ops.autograd_ste_ops.ScalarClampSteFn">ScalarClampSteFn (class in brevitas.ops.autograd_ste_ops)</a>
+</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api_reference/brevitas.ops.html#brevitas.ops.autograd_ste_ops.ScalarClampSteFn">ScalarClampSteFn (class in brevitas.ops.autograd_ste_ops)</a>
+      <li><a href="api_reference/brevitas.core.html#brevitas.core.utils.SingleArgStatelessBuffer">SingleArgStatelessBuffer (class in brevitas.core.utils)</a>
 </li>
       <li><a href="api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.KLMinimizerThreshold.smooth_normalize_distribution">smooth_normalize_distribution() (brevitas.core.stats.stats_op.KLMinimizerThreshold method)</a>
 </li>
@@ -1132,10 +1162,14 @@
       <ul>
         <li><a href="api_reference/brevitas.core.html#brevitas.core.utils.StatelessBuffer.state_dict">(brevitas.core.utils.StatelessBuffer method)</a>
 </li>
+        <li><a href="api_reference/brevitas.core.html#brevitas.core.zero_point.ParameterFromRuntimeZeroPoint.state_dict">(brevitas.core.zero_point.ParameterFromRuntimeZeroPoint method)</a>
+</li>
       </ul></li>
       <li><a href="api_reference/brevitas.core.html#brevitas.core.utils.StatelessBuffer">StatelessBuffer (class in brevitas.core.utils)</a>
 </li>
       <li><a href="api_reference/brevitas.core.scaling.html#brevitas.core.scaling.runtime.StatsFromParameterScaling">StatsFromParameterScaling (class in brevitas.core.scaling.runtime)</a>
+</li>
+      <li><a href="api_reference/brevitas.core.html#brevitas.core.zero_point.StatsFromParameterZeroPoint">StatsFromParameterZeroPoint (class in brevitas.core.zero_point)</a>
 </li>
       <li><a href="api_reference/brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl">StatsInputViewShapeImpl (class in brevitas.core.function_wrapper.shape)</a>
 </li>
@@ -1178,6 +1212,8 @@
       <li><a href="api_reference/brevitas.core.bit_width.html#brevitas.core.bit_width.const.BitWidthConst.training">training (brevitas.core.bit_width.const.BitWidthConst attribute)</a>
 
       <ul>
+        <li><a href="api_reference/brevitas.core.bit_width.html#brevitas.core.bit_width.const.BitWidthStatefulConst.training">(brevitas.core.bit_width.const.BitWidthStatefulConst attribute)</a>
+</li>
         <li><a href="api_reference/brevitas.core.bit_width.html#brevitas.core.bit_width.const.MsbClampBitWidth.training">(brevitas.core.bit_width.const.MsbClampBitWidth attribute)</a>
 </li>
         <li><a href="api_reference/brevitas.core.bit_width.html#brevitas.core.bit_width.parameter.BitWidthParameter.training">(brevitas.core.bit_width.parameter.BitWidthParameter attribute)</a>
@@ -1232,6 +1268,8 @@
 </li>
         <li><a href="api_reference/brevitas.core.quant.html#brevitas.core.quant.int.DecoupledRescalingIntQuant.training">(brevitas.core.quant.int.DecoupledRescalingIntQuant attribute)</a>
 </li>
+        <li><a href="api_reference/brevitas.core.quant.html#brevitas.core.quant.int.DecoupledRescalingIntQuantWithInput.training">(brevitas.core.quant.int.DecoupledRescalingIntQuantWithInput attribute)</a>
+</li>
         <li><a href="api_reference/brevitas.core.quant.html#brevitas.core.quant.int.PrescaledRestrictIntQuant.training">(brevitas.core.quant.int.PrescaledRestrictIntQuant attribute)</a>
 </li>
         <li><a href="api_reference/brevitas.core.quant.html#brevitas.core.quant.int.PrescaledRestrictIntQuantWithInputBitWidth.training">(brevitas.core.quant.int.PrescaledRestrictIntQuantWithInputBitWidth attribute)</a>
@@ -1282,6 +1320,10 @@
 </li>
         <li><a href="api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.KLMinimizerThreshold.training">(brevitas.core.stats.stats_op.KLMinimizerThreshold attribute)</a>
 </li>
+        <li><a href="api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.L1Norm.training">(brevitas.core.stats.stats_op.L1Norm attribute)</a>
+</li>
+        <li><a href="api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.L2Norm.training">(brevitas.core.stats.stats_op.L2Norm attribute)</a>
+</li>
         <li><a href="api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.MeanLearnedSigmaStd.training">(brevitas.core.stats.stats_op.MeanLearnedSigmaStd attribute)</a>
 </li>
         <li><a href="api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.MeanSigmaStd.training">(brevitas.core.stats.stats_op.MeanSigmaStd attribute)</a>
@@ -1292,9 +1334,17 @@
 </li>
         <li><a href="api_reference/brevitas.core.stats.html#brevitas.core.stats.stats_op.PercentileInterval.training">(brevitas.core.stats.stats_op.PercentileInterval attribute)</a>
 </li>
+        <li><a href="api_reference/brevitas.core.html#brevitas.core.utils.ParameterWrapper.training">(brevitas.core.utils.ParameterWrapper attribute)</a>
+</li>
+        <li><a href="api_reference/brevitas.core.html#brevitas.core.utils.SingleArgStatelessBuffer.training">(brevitas.core.utils.SingleArgStatelessBuffer attribute)</a>
+</li>
         <li><a href="api_reference/brevitas.core.html#brevitas.core.utils.StatelessBuffer.training">(brevitas.core.utils.StatelessBuffer attribute)</a>
 </li>
+        <li><a href="api_reference/brevitas.core.html#brevitas.core.zero_point.ParameterFromRuntimeZeroPoint.training">(brevitas.core.zero_point.ParameterFromRuntimeZeroPoint attribute)</a>
+</li>
         <li><a href="api_reference/brevitas.core.html#brevitas.core.zero_point.ParameterZeroPoint.training">(brevitas.core.zero_point.ParameterZeroPoint attribute)</a>
+</li>
+        <li><a href="api_reference/brevitas.core.html#brevitas.core.zero_point.StatsFromParameterZeroPoint.training">(brevitas.core.zero_point.StatsFromParameterZeroPoint attribute)</a>
 </li>
         <li><a href="api_reference/brevitas.core.html#brevitas.core.zero_point.ZeroZeroPoint.training">(brevitas.core.zero_point.ZeroZeroPoint attribute)</a>
 </li>
@@ -1302,7 +1352,11 @@
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api_reference/brevitas.core.scaling.html#brevitas.core.scaling.standalone.ParameterFromRuntimeStatsScaling.training_forward">training_forward() (brevitas.core.scaling.standalone.ParameterFromRuntimeStatsScaling method)</a>
+
+      <ul>
+        <li><a href="api_reference/brevitas.core.html#brevitas.core.zero_point.ParameterFromRuntimeZeroPoint.training_forward">(brevitas.core.zero_point.ParameterFromRuntimeZeroPoint method)</a>
 </li>
+      </ul></li>
       <li><a href="api_reference/brevitas.core.quant.html#brevitas.core.quant.int.TruncIntQuant">TruncIntQuant (class in brevitas.core.quant.int)</a>
 </li>
   </ul></td>

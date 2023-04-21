@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>brevitas.core.quant.int &#8212; Brevitas 0.7.2.dev139+g0c2e90d documentation</title>
+    <title>brevitas.core.quant.int &#8212; Brevitas 0.9.0 documentation</title>
   
   
   
@@ -350,45 +350,8 @@
             <article class="bd-article" role="main">
               
   <h1>Source code for brevitas.core.quant.int</h1><div class="highlight"><pre>
-<span></span><span class="c1"># Copyright (c) 2018-     Xilinx, Inc              (Alessandro Pappalardo)</span>
-<span class="c1"># Copyright (c) 2016-     Facebook, Inc            (Adam Paszke)</span>
-<span class="c1"># Copyright (c) 2014-     Facebook, Inc            (Soumith Chintala)</span>
-<span class="c1"># Copyright (c) 2011-2014 Idiap Research Institute (Ronan Collobert)</span>
-<span class="c1"># Copyright (c) 2012-2014 Deepmind Technologies    (Koray Kavukcuoglu)</span>
-<span class="c1"># Copyright (c) 2011-2012 NEC Laboratories America (Koray Kavukcuoglu)</span>
-<span class="c1"># Copyright (c) 2011-2013 NYU                      (Clement Farabet)</span>
-<span class="c1"># Copyright (c) 2006-2010 NEC Laboratories America (Ronan Collobert, Leon Bottou, Iain Melvin, Jason Weston)</span>
-<span class="c1"># Copyright (c) 2006      Idiap Research Institute (Samy Bengio)</span>
-<span class="c1"># Copyright (c) 2001-2004 Idiap Research Institute (Ronan Collobert, Samy Bengio, Johnny Mariethoz)</span>
-
-<span class="c1"># All rights reserved.</span>
-
-<span class="c1"># Redistribution and use in source and binary forms, with or without</span>
-<span class="c1"># modification, are permitted provided that the following conditions are met:</span>
-
-<span class="c1"># 1. Redistributions of source code must retain the above copyright</span>
-<span class="c1">#    notice, this list of conditions and the following disclaimer.</span>
-
-<span class="c1"># 2. Redistributions in binary form must reproduce the above copyright</span>
-<span class="c1">#    notice, this list of conditions and the following disclaimer in the</span>
-<span class="c1">#    documentation and/or other materials provided with the distribution.</span>
-
-<span class="c1"># 3. Neither the names of Xilinx, Facebook, Deepmind Technologies, NYU,</span>
-<span class="c1">#    NEC Laboratories America and IDIAP Research Institute nor the names</span>
-<span class="c1">#    of its contributors may be used to endorse or promote products derived</span>
-<span class="c1">#    from this software without specific prior written permission.</span>
-
-<span class="c1"># THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS &quot;AS IS&quot;</span>
-<span class="c1"># AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</span>
-<span class="c1"># IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</span>
-<span class="c1"># ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</span>
-<span class="c1"># LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</span>
-<span class="c1"># CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</span>
-<span class="c1"># SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</span>
-<span class="c1"># INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</span>
-<span class="c1"># CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</span>
-<span class="c1"># ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</span>
-<span class="c1"># POSSIBILITY OF SUCH DAMAGE.</span>
+<span></span><span class="c1"># Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.</span>
+<span class="c1"># SPDX-License-Identifier: BSD-3-Clause</span>
 
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span>
 
@@ -397,9 +360,9 @@
 <span class="kn">from</span> <span class="nn">torch.nn</span> <span class="kn">import</span> <span class="n">Module</span>
 
 <span class="kn">import</span> <span class="nn">brevitas</span>
-<span class="kn">from</span> <span class="nn">brevitas.function.ops_ste</span> <span class="kn">import</span> <span class="n">round_ste</span>
-<span class="kn">from</span> <span class="nn">brevitas.core.utils</span> <span class="kn">import</span> <span class="n">StatelessBuffer</span>
 <span class="kn">from</span> <span class="nn">brevitas.core.quant.delay</span> <span class="kn">import</span> <span class="n">DelayWrapper</span>
+<span class="kn">from</span> <span class="nn">brevitas.core.utils</span> <span class="kn">import</span> <span class="n">StatelessBuffer</span>
+<span class="kn">from</span> <span class="nn">brevitas.function.ops_ste</span> <span class="kn">import</span> <span class="n">round_ste</span>
 
 
 <div class="viewcode-block" id="PrescaledRestrictIntQuantWithInputBitWidth"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.quant.html#brevitas.core.quant.int.PrescaledRestrictIntQuantWithInputBitWidth">[docs]</a><span class="k">class</span> <span class="nc">PrescaledRestrictIntQuantWithInputBitWidth</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
@@ -438,18 +401,15 @@
 <span class="sd">    Note:</span>
 <span class="sd">        Set env variable BREVITAS_JIT=1 to enable TorchScript compilation of this module.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
-                 <span class="n">int_quant</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
-                 <span class="n">bit_width_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">int_quant</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span> <span class="n">bit_width_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">PrescaledRestrictIntQuantWithInputBitWidth</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">int_quant</span> <span class="o">=</span> <span class="n">int_quant</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">msb_clamp_bit_width_impl</span> <span class="o">=</span> <span class="n">bit_width_impl</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">zero_point</span> <span class="o">=</span> <span class="n">StatelessBuffer</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">0.0</span><span class="p">))</span>
 
 <div class="viewcode-block" id="PrescaledRestrictIntQuantWithInputBitWidth.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.quant.html#brevitas.core.quant.int.PrescaledRestrictIntQuantWithInputBitWidth.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
-    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
-                <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
-                <span class="n">scale</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">scale</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
                 <span class="n">input_bit_width</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]:</span>
         <span class="n">bit_width</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">msb_clamp_bit_width_impl</span><span class="p">(</span><span class="n">input_bit_width</span><span class="p">)</span>
         <span class="n">zero_point</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zero_point</span><span class="p">()</span>
@@ -460,19 +420,15 @@
 <div class="viewcode-block" id="PrescaledRestrictIntQuant"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.quant.html#brevitas.core.quant.int.PrescaledRestrictIntQuant">[docs]</a><span class="k">class</span> <span class="nc">PrescaledRestrictIntQuant</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
-                 <span class="n">int_quant</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
-                 <span class="n">bit_width_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">int_quant</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span> <span class="n">bit_width_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">PrescaledRestrictIntQuant</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">int_quant</span> <span class="o">=</span> <span class="n">int_quant</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">msb_clamp_bit_width_impl</span> <span class="o">=</span> <span class="n">bit_width_impl</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">zero_point</span> <span class="o">=</span> <span class="n">StatelessBuffer</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="mf">0.0</span><span class="p">))</span>
 
-
 <div class="viewcode-block" id="PrescaledRestrictIntQuant.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.quant.html#brevitas.core.quant.int.PrescaledRestrictIntQuant.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
-    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
-                <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
-                <span class="n">scale</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]:</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">scale</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]:</span>
         <span class="n">msb_clamp_bit_width</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">msb_clamp_bit_width_impl</span><span class="p">()</span>
         <span class="n">zero_point</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zero_point</span><span class="p">()</span>
         <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">int_quant</span><span class="p">(</span><span class="n">scale</span><span class="p">,</span> <span class="n">zero_point</span><span class="p">,</span> <span class="n">msb_clamp_bit_width</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
@@ -527,12 +483,14 @@
 <span class="sd">    Note:</span>
 <span class="sd">        Set env variable BREVITAS_JIT=1 to enable TorchScript compilation of this module.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
-                 <span class="n">int_quant</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
-                 <span class="n">scaling_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
-                 <span class="n">int_scaling_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
-                 <span class="n">zero_point_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
-                 <span class="n">bit_width_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">int_quant</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
+            <span class="n">scaling_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
+            <span class="n">int_scaling_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
+            <span class="n">zero_point_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
+            <span class="n">bit_width_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">RescalingIntQuant</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">int_quant</span> <span class="o">=</span> <span class="n">int_quant</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">scaling_impl</span> <span class="o">=</span> <span class="n">scaling_impl</span>
@@ -553,14 +511,15 @@
 
 <div class="viewcode-block" id="DecoupledRescalingIntQuant"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.quant.html#brevitas.core.quant.int.DecoupledRescalingIntQuant">[docs]</a><span class="k">class</span> <span class="nc">DecoupledRescalingIntQuant</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
-                 <span class="n">decoupled_int_quant</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
-                 <span class="n">pre_scaling_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
-                 <span class="n">scaling_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
-                 <span class="n">int_scaling_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
-                 <span class="n">pre_zero_point_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
-                 <span class="n">zero_point_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
-                 <span class="n">bit_width_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">decoupled_int_quant</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
+            <span class="n">pre_scaling_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
+            <span class="n">scaling_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
+            <span class="n">int_scaling_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
+            <span class="n">pre_zero_point_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
+            <span class="n">zero_point_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
+            <span class="n">bit_width_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">DecoupledRescalingIntQuant</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">decoupled_int_quant</span> <span class="o">=</span> <span class="n">decoupled_int_quant</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">pre_scaling_impl</span> <span class="o">=</span> <span class="n">pre_scaling_impl</span>
@@ -587,21 +546,16 @@
 <div class="viewcode-block" id="TruncIntQuant"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.quant.html#brevitas.core.quant.int.TruncIntQuant">[docs]</a><span class="k">class</span> <span class="nc">TruncIntQuant</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
-            <span class="bp">self</span><span class="p">,</span>
-            <span class="n">float_to_int_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
-            <span class="n">bit_width_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
-            <span class="n">quant_delay_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">):</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">float_to_int_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span> <span class="n">bit_width_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span> <span class="n">quant_delay_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">TruncIntQuant</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">msb_clamp_bit_width_impl</span> <span class="o">=</span> <span class="n">bit_width_impl</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">float_to_int_impl</span> <span class="o">=</span> <span class="n">float_to_int_impl</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">delay_wrapper</span> <span class="o">=</span> <span class="n">DelayWrapper</span><span class="p">(</span><span class="n">quant_delay_steps</span><span class="p">)</span>
 
 <div class="viewcode-block" id="TruncIntQuant.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.quant.html#brevitas.core.quant.int.TruncIntQuant.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
-    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
-                <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
-                <span class="n">scale</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
-                <span class="n">zero_point</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">scale</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">zero_point</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
                 <span class="n">input_bit_width</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]:</span>
         <span class="n">y</span> <span class="o">=</span> <span class="n">x</span> <span class="o">/</span> <span class="n">scale</span>
         <span class="n">y</span> <span class="o">=</span> <span class="n">y</span> <span class="o">+</span> <span class="n">zero_point</span>
@@ -615,6 +569,44 @@
         <span class="n">y</span> <span class="o">=</span> <span class="n">y</span> <span class="o">*</span> <span class="n">scale</span>
         <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">delay_wrapper</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">y</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">zero_point</span><span class="p">,</span> <span class="n">output_bit_width</span></div></div>
+
+
+<div class="viewcode-block" id="DecoupledRescalingIntQuantWithInput"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.quant.html#brevitas.core.quant.int.DecoupledRescalingIntQuantWithInput">[docs]</a><span class="k">class</span> <span class="nc">DecoupledRescalingIntQuantWithInput</span><span class="p">(</span><span class="n">DecoupledRescalingIntQuant</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">decoupled_int_quant</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
+        <span class="n">pre_scaling_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
+        <span class="n">scaling_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
+        <span class="n">int_scaling_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
+        <span class="n">pre_zero_point_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
+        <span class="n">zero_point_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
+        <span class="n">bit_width_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">decoupled_int_quant</span><span class="p">,</span>
+            <span class="n">pre_scaling_impl</span><span class="p">,</span>
+            <span class="n">scaling_impl</span><span class="p">,</span>
+            <span class="n">int_scaling_impl</span><span class="p">,</span>
+            <span class="n">pre_zero_point_impl</span><span class="p">,</span>
+            <span class="n">zero_point_impl</span><span class="p">,</span>
+            <span class="n">bit_width_impl</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="c1"># TODO - check the make sure the pre-scaling module takes the input bit-width and sign</span>
+
+<div class="viewcode-block" id="DecoupledRescalingIntQuantWithInput.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.quant.html#brevitas.core.quant.int.DecoupledRescalingIntQuantWithInput.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">input_bit_width</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+                <span class="n">input_is_signed</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">]:</span>
+        <span class="n">bit_width</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">msb_clamp_bit_width_impl</span><span class="p">()</span>
+        <span class="n">int_threshold</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">int_scaling_impl</span><span class="p">(</span><span class="n">bit_width</span><span class="p">)</span>
+        <span class="n">pre_threshold</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pre_scaling_impl</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">input_bit_width</span><span class="p">,</span> <span class="n">input_is_signed</span><span class="p">)</span>
+        <span class="n">pre_scale</span> <span class="o">=</span> <span class="n">pre_threshold</span> <span class="o">/</span> <span class="n">int_threshold</span>
+        <span class="n">pre_zero_point</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pre_zero_point_impl</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">pre_scale</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">)</span>
+        <span class="n">threshold</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">scaling_impl</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">scale</span> <span class="o">=</span> <span class="n">threshold</span> <span class="o">/</span> <span class="n">int_threshold</span>
+        <span class="n">zero_point</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">zero_point_impl</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">)</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">decoupled_int_quant</span><span class="p">(</span><span class="n">pre_scale</span><span class="p">,</span> <span class="n">pre_zero_point</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">zero_point</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">y</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">zero_point</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">,</span> <span class="n">pre_scale</span><span class="p">,</span> <span class="n">pre_zero_point</span></div></div>
 </pre></div>
 
             </article>

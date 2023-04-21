@@ -6,7 +6,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
 
-    <title>Getting started &#8212; Brevitas 0.7.2.dev139+g0c2e90d documentation</title>
+    <title>Getting started &#8212; Brevitas 0.9.0 documentation</title>
   
   
   
@@ -354,11 +354,26 @@
               
   <section id="getting-started">
 <h1>Getting started<a class="headerlink" href="#getting-started" title="Permalink to this heading">#</a></h1>
-<p>Brevitas serves various types of users and end goals. To showcase some
-of Brevitas features, we consider then different scenarios for the
-quantization of a classic neural network, LeNet-5.</p>
+<p>Brevitas serves various types of users and end goals. With respect to <strong>defining</strong> quantized models, Brevitas supports two types of user flows:</p>
+<ul class="simple">
+<li><p><em>By hand</em>, writing a quantized model using <code class="docutils literal notranslate"><span class="pre">brevitas.nn</span></code> quantized layers, possibly by modifying an original PyTorch floating-point model definition.</p></li>
+<li><p><em>Programmatically</em>, by taking a floating-point model as input and automatically deriving a quantized model definition from it according to some user-defined criteria.</p></li>
+</ul>
+<p>Once a quantize model is defined in either way, it can then be used as a starting point for either:</p>
+<ul class="simple">
+<li><p>PTQ (Post-Training Quantization), starting from a pretrained floating-point model.</p></li>
+<li><p>QAT (Quantization Aware Training), either training from scratch or finetuning a pretrained floating-point model.</p></li>
+<li><p>PTQ followed by QAT finetuning, to combine the best of both approaches.</p></li>
+</ul>
+<section id="ptq-over-hand-or-programmatically-defined-quantized-models">
+<h2>PTQ over hand or programmatically defined quantized models<a class="headerlink" href="#ptq-over-hand-or-programmatically-defined-quantized-models" title="Permalink to this heading">#</a></h2>
+<p>Checkout how it’s done for ImageNet classification over torchvision or other hand-defined models with our example scripts <a class="reference external" href="https://github.com/Xilinx/brevitas/tree/master/src/brevitas_examples/imagenet_classification/ptq">here</a>.</p>
+</section>
+<section id="defining-a-quantized-model-with-brevitas-nn-layers">
+<h2>Defining a quantized model with brevitas.nn layers<a class="headerlink" href="#defining-a-quantized-model-with-brevitas-nn-layers" title="Permalink to this heading">#</a></h2>
+<p>We consider quantization of a classic neural network, LeNet-5.</p>
 <section id="weights-only-quantization-float-activations-and-biases">
-<h2>Weights-only quantization, float activations and biases<a class="headerlink" href="#weights-only-quantization-float-activations-and-biases" title="Permalink to this heading">#</a></h2>
+<h3>Weights-only quantization, float activations and biases<a class="headerlink" href="#weights-only-quantization-float-activations-and-biases" title="Permalink to this heading">#</a></h3>
 <p>Let’s say we are interested in assessing how well the model does at <em>4
 bit weights</em> for CIFAR10 classification. For the purpose of this
 tutorial we will skip any detail around how to perform training, as
@@ -381,7 +396,7 @@ usual <code class="docutils literal notranslate"><span class="pre">torch.nn.ReLU
 <span class="k">class</span> <span class="nc">QuantWeightLeNet</span><span class="p">(</span><span class="n">Module</span><span class="p">):</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">QuantWeightLeNet</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">conv1</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">conv1</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">relu1</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">conv2</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">relu2</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">()</span>
@@ -392,7 +407,7 @@ usual <code class="docutils literal notranslate"><span class="pre">torch.nn.ReLU
         <span class="bp">self</span><span class="o">.</span><span class="n">fc3</span>   <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantLinear</span><span class="p">(</span><span class="mi">84</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
-        <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">relu1</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">conv1</span><span class="p">(</span><span class="n">out</span><span class="p">))</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">relu1</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">conv1</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
         <span class="n">out</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">max_pool2d</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
         <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">relu2</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">conv2</span><span class="p">(</span><span class="n">out</span><span class="p">))</span>
         <span class="n">out</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">max_pool2d</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
@@ -414,7 +429,7 @@ as the weights need to be converted to float at runtime first.
 In order to make more practical, we want to quantize activations too.</p>
 </section>
 <section id="weights-and-activations-quantization-float-biases">
-<h2>Weights and activations quantization, float biases<a class="headerlink" href="#weights-and-activations-quantization-float-biases" title="Permalink to this heading">#</a></h2>
+<h3>Weights and activations quantization, float biases<a class="headerlink" href="#weights-and-activations-quantization-float-biases" title="Permalink to this heading">#</a></h3>
 <p>We now quantize both weights and activations to 4 bits, while keeping biases in floating-point.
 In order to do so, we replace <code class="docutils literal notranslate"><span class="pre">torch.nn.ReLU</span></code> with
 <code class="docutils literal notranslate"><span class="pre">brevitas.nn.QuantReLU</span></code>, specifying <code class="docutils literal notranslate"><span class="pre">bit_width=4</span></code>.
@@ -430,7 +445,7 @@ result is the following:</p>
 
 <span class="k">class</span> <span class="nc">QuantWeightActLeNet</span><span class="p">(</span><span class="n">Module</span><span class="p">):</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">(</span><span class="n">LowPrecisionLeNet</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">QuantWeightActLeNet</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">quant_inp</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantIdentity</span><span class="p">(</span><span class="n">bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">conv1</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantConv2d</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">relu1</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantReLU</span><span class="p">(</span><span class="n">bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
@@ -467,7 +482,7 @@ result is the following:</p>
 </ul>
 </section>
 <section id="weights-activations-biases-quantization">
-<h2>Weights, activations, biases quantization<a class="headerlink" href="#weights-activations-biases-quantization" title="Permalink to this heading">#</a></h2>
+<h3>Weights, activations, biases quantization<a class="headerlink" href="#weights-activations-biases-quantization" title="Permalink to this heading">#</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">torch.nn</span> <span class="kn">import</span> <span class="n">Module</span>
 <span class="kn">import</span> <span class="nn">torch.nn.functional</span> <span class="k">as</span> <span class="nn">F</span>
 
@@ -487,7 +502,7 @@ result is the following:</p>
         <span class="bp">self</span><span class="o">.</span><span class="n">relu3</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantReLU</span><span class="p">(</span><span class="n">bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">fc2</span>   <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantLinear</span><span class="p">(</span><span class="mi">120</span><span class="p">,</span> <span class="mi">84</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">bias_quant</span><span class="o">=</span><span class="n">Int32Bias</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">relu4</span> <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantReLU</span><span class="p">(</span><span class="n">bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">fc3</span>   <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantLinear</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">bias_quant</span><span class="o">=</span><span class="n">Int32Bias</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc3</span>   <span class="o">=</span> <span class="n">qnn</span><span class="o">.</span><span class="n">QuantLinear</span><span class="p">(</span><span class="mi">84</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">bias_quant</span><span class="o">=</span><span class="n">Int32Bias</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
         <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">quant_inp</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
@@ -513,12 +528,13 @@ result is the following:</p>
 - <code class="docutils literal notranslate"><span class="pre">torch</span></code> operations that are algorithmically invariant to quantization, such as <cite>F.max_pool2d</cite>, can propagate QuantTensor through them without extra changes.</p>
 </section>
 <section id="export-to-onnx">
-<h2>Export to ONNX<a class="headerlink" href="#export-to-onnx" title="Permalink to this heading">#</a></h2>
+<h3>Export to ONNX<a class="headerlink" href="#export-to-onnx" title="Permalink to this heading">#</a></h3>
 <p>Brevitas does not perform any low-precision acceleration on its own. For that to happen, the model need to be exported first to an inference toolchain through some intermediate representation like ONNX.
 One popular way to represent 8-bit quantization within ONNX is through the <a class="reference external" href="https://onnxruntime.ai/docs/performance/quantization.html#onnx-quantization-representation-format">QDQ format</a>.
 Brevitas extends <em>QDQ</em> to <strong>QCDQ</strong>, inserting a <cite>Clip</cite> node to represent quantization to <em>&lt;= 8 bits</em>. We can then export all previous defined model to <em>QCDQ</em>.
 The interface of the export function matches the <cite>torch.onnx.export</cite> function, and accepts all its kwargs:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">brevitas.export</span> <span class="kn">import</span> <span class="n">export_onnx_qcdq</span>
+<span class="kn">import</span> <span class="nn">torch</span>
 
 <span class="c1"># Weight-only model</span>
 <span class="n">export_onnx_qcdq</span><span class="p">(</span><span class="n">quant_weight_lenet</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span> <span class="n">export_path</span><span class="o">=</span><span class="s1">&#39;4b_weight_lenet.onnx&#39;</span><span class="p">)</span>
@@ -530,6 +546,7 @@ The interface of the export function matches the <cite>torch.onnx.export</cite> 
 <span class="n">export_onnx_qcdq</span><span class="p">(</span><span class="n">quant_weight_act_bias_lenet</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">),</span> <span class="n">export_path</span><span class="o">=</span><span class="s1">&#39;4b_weight_act_bias_lenet.onnx&#39;</span><span class="p">)</span>
 </pre></div>
 </div>
+</section>
 </section>
 <section id="where-to-go-from-here">
 <h2>Where to go from here<a class="headerlink" href="#where-to-go-from-here" title="Permalink to this heading">#</a></h2>
@@ -576,24 +593,36 @@ The interface of the export function matches the <cite>torch.onnx.export</cite> 
 <nav id="bd-toc-nav" class="page-toc">
     <ul class="visible nav section-nav flex-column">
  <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#weights-only-quantization-float-activations-and-biases">
-   Weights-only quantization, float activations and biases
+  <a class="reference internal nav-link" href="#ptq-over-hand-or-programmatically-defined-quantized-models">
+   PTQ over hand or programmatically defined quantized models
   </a>
  </li>
  <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#weights-and-activations-quantization-float-biases">
-   Weights and activations quantization, float biases
+  <a class="reference internal nav-link" href="#defining-a-quantized-model-with-brevitas-nn-layers">
+   Defining a quantized model with brevitas.nn layers
   </a>
- </li>
- <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#weights-activations-biases-quantization">
-   Weights, activations, biases quantization
-  </a>
- </li>
- <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#export-to-onnx">
-   Export to ONNX
-  </a>
+  <ul class="nav section-nav flex-column">
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#weights-only-quantization-float-activations-and-biases">
+     Weights-only quantization, float activations and biases
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#weights-and-activations-quantization-float-biases">
+     Weights and activations quantization, float biases
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#weights-activations-biases-quantization">
+     Weights, activations, biases quantization
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#export-to-onnx">
+     Export to ONNX
+    </a>
+   </li>
+  </ul>
  </li>
  <li class="toc-h2 nav-item toc-entry">
   <a class="reference internal nav-link" href="#where-to-go-from-here">

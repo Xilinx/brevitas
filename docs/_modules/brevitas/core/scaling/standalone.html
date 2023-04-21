@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>brevitas.core.scaling.standalone &#8212; Brevitas 0.7.2.dev139+g0c2e90d documentation</title>
+    <title>brevitas.core.scaling.standalone &#8212; Brevitas 0.9.0 documentation</title>
   
   
   
@@ -350,61 +350,31 @@
             <article class="bd-article" role="main">
               
   <h1>Source code for brevitas.core.scaling.standalone</h1><div class="highlight"><pre>
-<span></span><span class="c1"># Copyright (c) 2018-     Xilinx, Inc              (Alessandro Pappalardo)</span>
-<span class="c1"># Copyright (c) 2016-     Facebook, Inc            (Adam Paszke)</span>
-<span class="c1"># Copyright (c) 2014-     Facebook, Inc            (Soumith Chintala)</span>
-<span class="c1"># Copyright (c) 2011-2014 Idiap Research Institute (Ronan Collobert)</span>
-<span class="c1"># Copyright (c) 2012-2014 Deepmind Technologies    (Koray Kavukcuoglu)</span>
-<span class="c1"># Copyright (c) 2011-2012 NEC Laboratories America (Koray Kavukcuoglu)</span>
-<span class="c1"># Copyright (c) 2011-2013 NYU                      (Clement Farabet)</span>
-<span class="c1"># Copyright (c) 2006-2010 NEC Laboratories America (Ronan Collobert, Leon Bottou, Iain Melvin, Jason Weston)</span>
-<span class="c1"># Copyright (c) 2006      Idiap Research Institute (Samy Bengio)</span>
-<span class="c1"># Copyright (c) 2001-2004 Idiap Research Institute (Ronan Collobert, Samy Bengio, Johnny Mariethoz)</span>
+<span></span><span class="c1"># Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.</span>
+<span class="c1"># SPDX-License-Identifier: BSD-3-Clause</span>
 
-<span class="c1"># All rights reserved.</span>
-
-<span class="c1"># Redistribution and use in source and binary forms, with or without</span>
-<span class="c1"># modification, are permitted provided that the following conditions are met:</span>
-
-<span class="c1"># 1. Redistributions of source code must retain the above copyright</span>
-<span class="c1">#    notice, this list of conditions and the following disclaimer.</span>
-
-<span class="c1"># 2. Redistributions in binary form must reproduce the above copyright</span>
-<span class="c1">#    notice, this list of conditions and the following disclaimer in the</span>
-<span class="c1">#    documentation and/or other materials provided with the distribution.</span>
-
-<span class="c1"># 3. Neither the names of Xilinx, Facebook, Deepmind Technologies, NYU,</span>
-<span class="c1">#    NEC Laboratories America and IDIAP Research Institute nor the names</span>
-<span class="c1">#    of its contributors may be used to endorse or promote products derived</span>
-<span class="c1">#    from this software without specific prior written permission.</span>
-
-<span class="c1"># THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS &quot;AS IS&quot;</span>
-<span class="c1"># AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</span>
-<span class="c1"># IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</span>
-<span class="c1"># ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</span>
-<span class="c1"># LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</span>
-<span class="c1"># CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</span>
-<span class="c1"># SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</span>
-<span class="c1"># INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</span>
-<span class="c1"># CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</span>
-<span class="c1"># ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</span>
-<span class="c1"># POSSIBILITY OF SUCH DAMAGE.</span>
-
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
 <span class="kn">import</span> <span class="nn">warnings</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
 
 <span class="kn">import</span> <span class="nn">torch</span>
 <span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">Tensor</span>
-<span class="kn">from</span> <span class="nn">torch.nn</span> <span class="kn">import</span> <span class="n">Parameter</span><span class="p">,</span> <span class="n">Module</span>
+<span class="kn">from</span> <span class="nn">torch.nn</span> <span class="kn">import</span> <span class="n">Module</span>
+<span class="kn">from</span> <span class="nn">torch.nn</span> <span class="kn">import</span> <span class="n">Parameter</span>
 
 <span class="kn">import</span> <span class="nn">brevitas</span>
 <span class="kn">import</span> <span class="nn">brevitas.config</span> <span class="k">as</span> <span class="nn">config</span>
-<span class="kn">from</span> <span class="nn">brevitas.function</span> <span class="kn">import</span> <span class="n">abs_binary_sign_grad</span>
 <span class="kn">from</span> <span class="nn">brevitas.core.function_wrapper</span> <span class="kn">import</span> <span class="n">Identity</span>
 <span class="kn">from</span> <span class="nn">brevitas.core.function_wrapper</span> <span class="kn">import</span> <span class="n">OverBatchOverTensorView</span>
-<span class="kn">from</span> <span class="nn">brevitas.core.utils</span> <span class="kn">import</span> <span class="n">StatelessBuffer</span><span class="p">,</span> <span class="n">inplace_momentum_update</span><span class="p">,</span> <span class="n">inplace_tensor_mul</span>
-<span class="kn">from</span> <span class="nn">brevitas.core.restrict_val</span> <span class="kn">import</span> <span class="n">_RestrictClampValue</span><span class="p">,</span> <span class="n">_RestrictValue</span><span class="p">,</span> <span class="n">_ClampValue</span>
-<span class="kn">from</span> <span class="nn">brevitas.core.stats</span> <span class="kn">import</span> <span class="n">_Stats</span><span class="p">,</span> <span class="n">SCALAR_SHAPE</span><span class="p">,</span> <span class="n">DEFAULT_MOMENTUM</span>
+<span class="kn">from</span> <span class="nn">brevitas.core.restrict_val</span> <span class="kn">import</span> <span class="n">_ClampValue</span>
+<span class="kn">from</span> <span class="nn">brevitas.core.restrict_val</span> <span class="kn">import</span> <span class="n">_RestrictClampValue</span>
+<span class="kn">from</span> <span class="nn">brevitas.core.restrict_val</span> <span class="kn">import</span> <span class="n">_RestrictValue</span>
+<span class="kn">from</span> <span class="nn">brevitas.core.stats</span> <span class="kn">import</span> <span class="n">_Stats</span>
+<span class="kn">from</span> <span class="nn">brevitas.core.stats</span> <span class="kn">import</span> <span class="n">DEFAULT_MOMENTUM</span>
+<span class="kn">from</span> <span class="nn">brevitas.core.stats</span> <span class="kn">import</span> <span class="n">SCALAR_SHAPE</span>
+<span class="kn">from</span> <span class="nn">brevitas.core.utils</span> <span class="kn">import</span> <span class="n">inplace_momentum_update</span>
+<span class="kn">from</span> <span class="nn">brevitas.core.utils</span> <span class="kn">import</span> <span class="n">inplace_tensor_mul</span>
+<span class="kn">from</span> <span class="nn">brevitas.core.utils</span> <span class="kn">import</span> <span class="n">StatelessBuffer</span>
+<span class="kn">from</span> <span class="nn">brevitas.function</span> <span class="kn">import</span> <span class="n">abs_binary_sign_grad</span>
 
 
 <div class="viewcode-block" id="ConstScaling"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.scaling.html#brevitas.core.scaling.standalone.ConstScaling">[docs]</a><span class="k">class</span> <span class="nc">ConstScaling</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
@@ -437,6 +407,7 @@
 <span class="sd">    Note:</span>
 <span class="sd">        Maps to scaling_impl_type == ScalingImplType.CONST == &#39;CONST&#39; == &#39;const&#39; in higher-level APIs.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
             <span class="bp">self</span><span class="p">,</span>
             <span class="n">scaling_init</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">],</span>
@@ -498,6 +469,7 @@
 <span class="sd">    Note:</span>
 <span class="sd">        Maps to scaling_impl_type == ScalingImplType.PARAMETER == &#39;PARAMETER&#39; == &#39;parameter&#39; in higher-level APIs.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
             <span class="bp">self</span><span class="p">,</span>
             <span class="n">scaling_init</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">],</span>
@@ -506,10 +478,8 @@
             <span class="n">scaling_min_val</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">ParameterScaling</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
 
-        <span class="k">if</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">scaling_init</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">)</span>
-                <span class="ow">and</span> <span class="n">scaling_shape</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-                <span class="ow">and</span> <span class="n">scaling_init</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">SCALAR_SHAPE</span>
-                <span class="ow">and</span> <span class="n">scaling_init</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">scaling_shape</span><span class="p">):</span>
+        <span class="k">if</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">scaling_init</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">)</span> <span class="ow">and</span> <span class="n">scaling_shape</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span>
+                <span class="n">scaling_init</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">SCALAR_SHAPE</span> <span class="ow">and</span> <span class="n">scaling_init</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">scaling_shape</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;scaling_init.shape is non-scalar and != from scaling_shape.&quot;</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">scaling_init</span><span class="p">,</span> <span class="n">Tensor</span><span class="p">):</span>
@@ -528,8 +498,9 @@
         <span class="n">value</span> <span class="o">=</span> <span class="n">abs_binary_sign_grad</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">restrict_clamp_scaling</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">value</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">value</span></div>
 
-    <span class="k">def</span> <span class="nf">_load_from_state_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state_dict</span><span class="p">,</span> <span class="n">prefix</span><span class="p">,</span> <span class="n">local_metadata</span><span class="p">,</span> <span class="n">strict</span><span class="p">,</span>
-                              <span class="n">missing_keys</span><span class="p">,</span> <span class="n">unexpected_keys</span><span class="p">,</span> <span class="n">error_msgs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_load_from_state_dict</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">state_dict</span><span class="p">,</span> <span class="n">prefix</span><span class="p">,</span> <span class="n">local_metadata</span><span class="p">,</span> <span class="n">strict</span><span class="p">,</span> <span class="n">missing_keys</span><span class="p">,</span> <span class="n">unexpected_keys</span><span class="p">,</span>
+            <span class="n">error_msgs</span><span class="p">):</span>
         <span class="n">value_key</span> <span class="o">=</span> <span class="n">prefix</span> <span class="o">+</span> <span class="s1">&#39;value&#39;</span>
         <span class="n">retrocomp_value_key</span> <span class="o">=</span> <span class="n">prefix</span> <span class="o">+</span> <span class="s1">&#39;learned_value&#39;</span>
         <span class="k">if</span> <span class="n">retrocomp_value_key</span> <span class="ow">in</span> <span class="n">state_dict</span><span class="p">:</span>  <span class="c1"># retrocompatibility</span>
@@ -545,7 +516,7 @@
 <span class="sd">    ScriptModule implementation of a learned scale factor initialized from runtime statistics.</span>
 <span class="sd">    The implementation works in two phases. During the first phase, statistics are collected in</span>
 <span class="sd">    the same fashion as batchnorm, meaning that while the module is in training mode a set of per-batch</span>
-<span class="sd">    statistics are computed and returned, while in background an average of them is retained and returned </span>
+<span class="sd">    statistics are computed and returned, while in background an average of them is retained and returned</span>
 <span class="sd">    in inference mode. During the second phase, the average accumulated during the first</span>
 <span class="sd">    phase is used to initialize a learned torch.nn.Parameter, and then the behaviour is the same</span>
 <span class="sd">    as ParameterScaling.</span>
@@ -585,7 +556,7 @@
 <span class="sd">        Maps to scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS == &#39;PARAMETER_FROM_STATS&#39;</span>
 <span class="sd">        == &#39;parameter_from_stats&#39; when applied to runtime values (inputs/outputs/activations) in higher-level APIs.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">__constants__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;collect_stats_steps&#39;</span><span class="p">,</span> <span class="s1">&#39;momentum&#39;</span><span class="p">]</span>
+    <span class="n">__constants__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;momentum&#39;</span><span class="p">]</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
             <span class="bp">self</span><span class="p">,</span>
@@ -598,7 +569,7 @@
             <span class="n">scaling_min_val</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">ParameterFromRuntimeStatsScaling</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="k">assert</span> <span class="n">collect_stats_steps</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;Steps should be more than 0&#39;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">collect_stats_steps</span> <span class="o">=</span> <span class="n">collect_stats_steps</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">collect_stats_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span><span class="n">collect_stats_steps</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">counter</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">Attribute</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">stats_input_view_shape_impl</span> <span class="o">=</span> <span class="n">scaling_stats_input_view_shape_impl</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">stats</span> <span class="o">=</span> <span class="n">_Stats</span><span class="p">(</span><span class="n">scaling_stats_impl</span><span class="p">,</span> <span class="n">scaling_shape</span><span class="p">)</span>
@@ -613,14 +584,14 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">restrict_inplace_preprocess</span> <span class="o">=</span> <span class="n">Identity</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">restrict_preprocess</span> <span class="o">=</span> <span class="n">Identity</span><span class="p">()</span>
-    
+
 <div class="viewcode-block" id="ParameterFromRuntimeStatsScaling.training_forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.scaling.html#brevitas.core.scaling.standalone.ParameterFromRuntimeStatsScaling.training_forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
     <span class="k">def</span> <span class="nf">training_forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stats_input</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">counter</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">collect_stats_steps</span><span class="p">:</span>
             <span class="n">stats_input</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats_input_view_shape_impl</span><span class="p">(</span><span class="n">stats_input</span><span class="p">)</span>
             <span class="n">stats</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats</span><span class="p">(</span><span class="n">stats_input</span><span class="p">)</span>
             <span class="c1"># workaround to avoid find_ununsed_parameter=True in DDP</span>
-            <span class="n">stats</span> <span class="o">=</span> <span class="n">stats</span> <span class="o">+</span> <span class="mf">0.</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span> <span class="c1"># stats gradient will change from None to 0.</span>
+            <span class="n">stats</span> <span class="o">=</span> <span class="n">stats</span> <span class="o">+</span> <span class="mf">0.</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span>  <span class="c1"># stats gradient will change from None to 0.</span>
             <span class="n">clamped_stats</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">clamp_scaling</span><span class="p">(</span><span class="n">stats</span><span class="p">)</span>
             <span class="n">new_counter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">counter</span> <span class="o">+</span> <span class="mi">1</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">counter</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
@@ -653,7 +624,7 @@
 
 <div class="viewcode-block" id="ParameterFromRuntimeStatsScaling.state_dict"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.scaling.html#brevitas.core.scaling.standalone.ParameterFromRuntimeStatsScaling.state_dict">[docs]</a>    <span class="k">def</span> <span class="nf">state_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">destination</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">keep_vars</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="n">output_dict</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">ParameterFromRuntimeStatsScaling</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">state_dict</span><span class="p">(</span>
-            <span class="n">destination</span><span class="p">,</span> <span class="n">prefix</span><span class="p">,</span> <span class="n">keep_vars</span><span class="p">)</span>        
+            <span class="n">destination</span><span class="o">=</span><span class="n">destination</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="n">prefix</span><span class="p">,</span> <span class="n">keep_vars</span><span class="o">=</span><span class="n">keep_vars</span><span class="p">)</span>
         <span class="c1"># Avoid saving the buffer</span>
         <span class="k">del</span> <span class="n">output_dict</span><span class="p">[</span><span class="n">prefix</span> <span class="o">+</span> <span class="s1">&#39;buffer&#39;</span><span class="p">]</span>
         <span class="c1"># Avoid saving the init value</span>
@@ -664,17 +635,19 @@
             <span class="n">output_dict</span><span class="p">[</span><span class="n">prefix</span> <span class="o">+</span> <span class="s1">&#39;value&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">restrict_preprocess</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">buffer</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">output_dict</span></div>
 
-    <span class="k">def</span> <span class="nf">_load_from_state_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state_dict</span><span class="p">,</span> <span class="n">prefix</span><span class="p">,</span> <span class="n">local_metadata</span><span class="p">,</span> <span class="n">strict</span><span class="p">,</span>
-                              <span class="n">missing_keys</span><span class="p">,</span> <span class="n">unexpected_keys</span><span class="p">,</span> <span class="n">error_msgs</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">(</span><span class="n">ParameterFromRuntimeStatsScaling</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">_load_from_state_dict</span><span class="p">(</span>
-            <span class="n">state_dict</span><span class="p">,</span> <span class="n">prefix</span><span class="p">,</span> <span class="n">local_metadata</span><span class="p">,</span> <span class="n">strict</span><span class="p">,</span> <span class="n">missing_keys</span><span class="p">,</span> <span class="n">unexpected_keys</span><span class="p">,</span> <span class="n">error_msgs</span><span class="p">)</span>
-        <span class="n">value_key</span> <span class="o">=</span> <span class="n">prefix</span> <span class="o">+</span> <span class="s1">&#39;value&#39;</span>
-        <span class="c1"># Buffer is supposed to be always missing</span>
-        <span class="n">missing_keys</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">prefix</span> <span class="o">+</span> <span class="s1">&#39;buffer&#39;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_load_from_state_dict</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">state_dict</span><span class="p">,</span> <span class="n">prefix</span><span class="p">,</span> <span class="n">local_metadata</span><span class="p">,</span> <span class="n">strict</span><span class="p">,</span> <span class="n">missing_keys</span><span class="p">,</span> <span class="n">unexpected_keys</span><span class="p">,</span>
+            <span class="n">error_msgs</span><span class="p">):</span>
         <span class="c1"># Retrocompatibility with older ParameterScaling, for when scaling impl is switched over</span>
+        <span class="n">value_key</span> <span class="o">=</span> <span class="n">prefix</span> <span class="o">+</span> <span class="s1">&#39;value&#39;</span>
         <span class="n">retrocomp_value_key</span> <span class="o">=</span> <span class="n">prefix</span> <span class="o">+</span> <span class="s1">&#39;learned_value&#39;</span>
         <span class="k">if</span> <span class="n">retrocomp_value_key</span> <span class="ow">in</span> <span class="n">state_dict</span><span class="p">:</span>
             <span class="n">state_dict</span><span class="p">[</span><span class="n">value_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">state_dict</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">retrocomp_value_key</span><span class="p">)</span>
+
+        <span class="nb">super</span><span class="p">(</span><span class="n">ParameterFromRuntimeStatsScaling</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">_load_from_state_dict</span><span class="p">(</span>
+            <span class="n">state_dict</span><span class="p">,</span> <span class="n">prefix</span><span class="p">,</span> <span class="n">local_metadata</span><span class="p">,</span> <span class="n">strict</span><span class="p">,</span> <span class="n">missing_keys</span><span class="p">,</span> <span class="n">unexpected_keys</span><span class="p">,</span> <span class="n">error_msgs</span><span class="p">)</span>
+        <span class="c1"># Buffer is supposed to be always missing</span>
+        <span class="n">missing_keys</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">prefix</span> <span class="o">+</span> <span class="s1">&#39;buffer&#39;</span><span class="p">)</span>
         <span class="c1"># Pytorch stores training flag as a buffer with JIT enabled</span>
         <span class="n">training_key</span> <span class="o">=</span> <span class="n">prefix</span> <span class="o">+</span> <span class="s1">&#39;training&#39;</span>
         <span class="k">if</span> <span class="n">training_key</span> <span class="ow">in</span> <span class="n">missing_keys</span><span class="p">:</span>

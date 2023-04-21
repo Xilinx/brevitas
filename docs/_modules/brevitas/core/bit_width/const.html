@@ -5,7 +5,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>brevitas.core.bit_width.const &#8212; Brevitas 0.7.2.dev139+g0c2e90d documentation</title>
+    <title>brevitas.core.bit_width.const &#8212; Brevitas 0.9.0 documentation</title>
   
   
   
@@ -350,57 +350,21 @@
             <article class="bd-article" role="main">
               
   <h1>Source code for brevitas.core.bit_width.const</h1><div class="highlight"><pre>
-<span></span><span class="c1"># Copyright (c) 2018-     Xilinx, Inc              (Alessandro Pappalardo)</span>
-<span class="c1"># Copyright (c) 2016-     Facebook, Inc            (Adam Paszke)</span>
-<span class="c1"># Copyright (c) 2014-     Facebook, Inc            (Soumith Chintala)</span>
-<span class="c1"># Copyright (c) 2011-2014 Idiap Research Institute (Ronan Collobert)</span>
-<span class="c1"># Copyright (c) 2012-2014 Deepmind Technologies    (Koray Kavukcuoglu)</span>
-<span class="c1"># Copyright (c) 2011-2012 NEC Laboratories America (Koray Kavukcuoglu)</span>
-<span class="c1"># Copyright (c) 2011-2013 NYU                      (Clement Farabet)</span>
-<span class="c1"># Copyright (c) 2006-2010 NEC Laboratories America (Ronan Collobert, Leon Bottou, Iain Melvin, Jason Weston)</span>
-<span class="c1"># Copyright (c) 2006      Idiap Research Institute (Samy Bengio)</span>
-<span class="c1"># Copyright (c) 2001-2004 Idiap Research Institute (Ronan Collobert, Samy Bengio, Johnny Mariethoz)</span>
-
-<span class="c1"># All rights reserved.</span>
-
-<span class="c1"># Redistribution and use in source and binary forms, with or without</span>
-<span class="c1"># modification, are permitted provided that the following conditions are met:</span>
-
-<span class="c1"># 1. Redistributions of source code must retain the above copyright</span>
-<span class="c1">#    notice, this list of conditions and the following disclaimer.</span>
-
-<span class="c1"># 2. Redistributions in binary form must reproduce the above copyright</span>
-<span class="c1">#    notice, this list of conditions and the following disclaimer in the</span>
-<span class="c1">#    documentation and/or other materials provided with the distribution.</span>
-
-<span class="c1"># 3. Neither the names of Xilinx, Facebook, Deepmind Technologies, NYU,</span>
-<span class="c1">#    NEC Laboratories America and IDIAP Research Institute nor the names</span>
-<span class="c1">#    of its contributors may be used to endorse or promote products derived</span>
-<span class="c1">#    from this software without specific prior written permission.</span>
-
-<span class="c1"># THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS &quot;AS IS&quot;</span>
-<span class="c1"># AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE</span>
-<span class="c1"># IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE</span>
-<span class="c1"># ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE</span>
-<span class="c1"># LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR</span>
-<span class="c1"># CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF</span>
-<span class="c1"># SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS</span>
-<span class="c1"># INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</span>
-<span class="c1"># CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)</span>
-<span class="c1"># ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE</span>
-<span class="c1"># POSSIBILITY OF SUCH DAMAGE.</span>
+<span></span><span class="c1"># Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.</span>
+<span class="c1"># SPDX-License-Identifier: BSD-3-Clause</span>
 
 <span class="kn">import</span> <span class="nn">torch</span>
 <span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">Tensor</span>
 <span class="kn">from</span> <span class="nn">torch.nn</span> <span class="kn">import</span> <span class="n">Module</span>
 
 <span class="kn">import</span> <span class="nn">brevitas</span>
-<span class="kn">from</span> <span class="nn">brevitas.function.ops_ste</span> <span class="kn">import</span> <span class="n">tensor_clamp_ste</span>
+<span class="kn">import</span> <span class="nn">brevitas.config</span> <span class="k">as</span> <span class="nn">config</span>
 <span class="kn">from</span> <span class="nn">brevitas.core.utils</span> <span class="kn">import</span> <span class="n">StatelessBuffer</span>
+<span class="kn">from</span> <span class="nn">brevitas.function.ops_ste</span> <span class="kn">import</span> <span class="n">tensor_clamp_ste</span>
 
 
 <div class="viewcode-block" id="BitWidthConst"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.bit_width.html#brevitas.core.bit_width.const.BitWidthConst">[docs]</a><span class="k">class</span> <span class="nc">BitWidthConst</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot; </span>
+    <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    ScriptModule that returns a constant bit-width wrapped in a float torch.tensor.</span>
 
 <span class="sd">    Args:</span>
@@ -418,6 +382,7 @@
 <span class="sd">    Note:</span>
 <span class="sd">        Maps to bit_width_impl_type == BitWidthImplType.CONST == &#39;CONST&#39; == &#39;const&#39; in higher-level APIs.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">BitWidthConst</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">bit_width</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span>
@@ -426,6 +391,54 @@
 <div class="viewcode-block" id="BitWidthConst.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.bit_width.html#brevitas.core.bit_width.const.BitWidthConst.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
     <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">bit_width</span><span class="p">()</span></div></div>
+
+
+<div class="viewcode-block" id="BitWidthStatefulConst"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.bit_width.html#brevitas.core.bit_width.const.BitWidthStatefulConst">[docs]</a><span class="k">class</span> <span class="nc">BitWidthStatefulConst</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    ScriptModule that returns a constant bit-width wrapped in a float torch.tensor but retains the</span>
+<span class="sd">    bit-width as part of the module state.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        bit_width (int): bit-width value.</span>
+
+<span class="sd">    Examples:</span>
+<span class="sd">        &gt;&gt;&gt; bit_width = BitWidthStatefulConst(8)</span>
+<span class="sd">        &gt;&gt;&gt; bit_width()</span>
+<span class="sd">        tensor(8.)</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        The BitWidthStatefulConst is a counterpart to BitWidthConst with the difference that the</span>
+<span class="sd">        BitWidthStatefulConst retains the bit-width as part of the Module&#39;s state. This means that it</span>
+<span class="sd">        will be saved as part of a checkpoint.</span>
+
+<span class="sd">    Note:</span>
+<span class="sd">        Maps to bit_width_impl_type == BitWidthImplType.STATEFUL_CONST == &#39;STATEFUL_CONST&#39; ==</span>
+<span class="sd">        &#39;stateful_const&#39; in higher-level APIs.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">BitWidthStatefulConst</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">bit_width</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">&quot;bit_width&quot;</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">bit_width</span><span class="p">)))</span>
+
+<div class="viewcode-block" id="BitWidthStatefulConst.forward"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.bit_width.html#brevitas.core.bit_width.const.BitWidthStatefulConst.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">bit_width</span></div>
+
+    <span class="k">def</span> <span class="nf">_load_from_state_dict</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">state_dict</span><span class="p">,</span>
+            <span class="n">prefix</span><span class="p">,</span>
+            <span class="n">local_metadata</span><span class="p">,</span>
+            <span class="n">strict</span><span class="p">,</span>
+            <span class="n">missing_keys</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
+            <span class="n">unexpected_keys</span><span class="p">,</span>
+            <span class="n">error_msgs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">BitWidthStatefulConst</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">_load_from_state_dict</span><span class="p">(</span>
+            <span class="n">state_dict</span><span class="p">,</span> <span class="n">prefix</span><span class="p">,</span> <span class="n">local_metadata</span><span class="p">,</span> <span class="n">strict</span><span class="p">,</span> <span class="n">missing_keys</span><span class="p">,</span> <span class="n">unexpected_keys</span><span class="p">,</span> <span class="n">error_msgs</span><span class="p">)</span>
+        <span class="n">value_key</span> <span class="o">=</span> <span class="n">prefix</span> <span class="o">+</span> <span class="s2">&quot;bit_width&quot;</span>
+        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">IGNORE_MISSING_KEYS</span> <span class="ow">and</span> <span class="n">value_key</span> <span class="ow">in</span> <span class="n">missing_keys</span><span class="p">:</span>
+            <span class="n">missing_keys</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">value_key</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="MsbClampBitWidth"><a class="viewcode-back" href="../../../../api_reference/brevitas.core.bit_width.html#brevitas.core.bit_width.const.MsbClampBitWidth">[docs]</a><span class="k">class</span> <span class="nc">MsbClampBitWidth</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
@@ -446,9 +459,7 @@
         <span class="n">bit_width_to_remove</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bit_width_to_remove_impl</span><span class="p">()</span>
         <span class="n">output_bit_width</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">input_bit_width</span> <span class="o">-</span> <span class="n">bit_width_to_remove</span><span class="p">)</span>
         <span class="n">output_bit_width</span> <span class="o">=</span> <span class="n">tensor_clamp_ste</span><span class="p">(</span>
-            <span class="n">output_bit_width</span><span class="p">,</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">min_overall_bit_width</span><span class="p">(),</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">max_overall_bit_width</span><span class="p">())</span>
+            <span class="n">output_bit_width</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_overall_bit_width</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_overall_bit_width</span><span class="p">())</span>
         <span class="k">return</span> <span class="n">output_bit_width</span></div></div>
 </pre></div>
 
