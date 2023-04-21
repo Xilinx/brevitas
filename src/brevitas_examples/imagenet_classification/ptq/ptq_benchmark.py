@@ -112,7 +112,7 @@ def ptq_torchvision_models(df, args):
 
     options = [
         TORCHVISION_TOP1_MAP.keys(),
-        ['generic', 'flexml'],  # Target backend
+        ['layerwise', 'generic', 'flexml'],  # Target backend
         ['float32', 'po2'],  # Scale factor type
         [8],  # Act and Weight Bit Width
         ['int32', 'int16'],  # Bias Bit-Width for Po2 scale
