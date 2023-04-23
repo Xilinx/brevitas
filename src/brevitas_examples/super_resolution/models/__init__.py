@@ -6,21 +6,11 @@ import os
 from .espcn import *
 
 model_impl = {
-    'quant_espcn_v1_4b': quant_espcn_v1}
+    'quant_espcn_x3_v1_4b': quant_espcn_x3_v1_4b,
+    'quant_espcn_x3_v2_4b': quant_espcn_x3_v2_4b,
+    'quant_espcn_x3_v3_4b': quant_espcn_x3_v3_4b}
 
 
-def model_with_cfg(name, pretrained):
-    num_channels = 1
-    upscale_factor = 3
-    weight_bit_width = 4
-    act_bit_width = 4
-    model = model_impl[name](
-        num_channels=num_channels,
-        upscale_factor=upscale_factor,
-        weight_bit_width=weight_bit_width,
-        act_bit_width=act_bit_width)
-    return model, None
-
-
-def quant_espcn_v1_4b():
-    print("done")
+def get_model_by_name(name):
+    model = model_impl[name]()
+    return model
