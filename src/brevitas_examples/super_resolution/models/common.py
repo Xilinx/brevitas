@@ -11,6 +11,8 @@ from brevitas.core.restrict_val import RestrictValueType
 from brevitas.quant import Int8ActPerTensorFloat
 from brevitas.quant import Int8WeightPerTensorFloat
 from brevitas.quant import Uint8ActPerTensorFloat
+from brevitas.quant.fixed_point import Int8WeightNormL2PerChannelFixedPoint
+from brevitas.quant.fixed_point import Int8AccumulatorAwareWeightQuant
 
 
 class CommonIntWeightPerTensorQuant(Int8WeightPerTensorFloat):
@@ -89,4 +91,3 @@ class QuantNearestNeighborConvolution(nn.Module):
 
     def __call__(self, inp: Tensor) -> Tensor:
         return self.conv(self.interp(self.input_quant(inp)))
-
