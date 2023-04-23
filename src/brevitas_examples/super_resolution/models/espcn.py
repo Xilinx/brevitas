@@ -4,9 +4,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.init as init
-import torch.nn.functional as F
 from torch import Tensor
-from copy import deepcopy
 
 import brevitas.nn as qnn
 
@@ -14,7 +12,10 @@ from .common import QuantNearestNeighborConvolution
 from .common import CommonUintActQuant
 from .common import CommonIntWeightPerChannelQuant
 
-__all__ = ["quant_espcn_v1"]
+__all__ = [
+    "quant_espcn_x3_v1_4b",
+    "quant_espcn_x3_v2_4b",
+    "quant_espcn_x3_v3_4b"]
 
 IO_BIT_WIDTH = 8
 
@@ -94,7 +95,7 @@ class QuantESPCN(nn.Module):
         self.apply(weight_init)
 
     def forward(self, inp: Tensor):
-        x = F.relu(inp) # Adding for finn-onnx compatability
+        x = torch.relu(inp) # Adding for finn-onnx compatability
         x = self.relu(self.bn1(self.conv1(x)))
         x = self.relu(self.bn2(self.conv2(x)))
         x = self.relu(self.bn3(self.conv3(x)))
@@ -103,11 +104,11 @@ class QuantESPCN(nn.Module):
 
 
 def quant_espcn_v1(
-    num_channels: int = 3,
-    upscale_factor: int = 3,
-    weight_bit_width: int = 4,
-    act_bit_width: int = 4,
-    weight_quant = CommonIntWeightPerChannelQuant) -> QuantESPCN:
+    num_channels: int,
+    upscale_factor: int,
+    weight_bit_width: int,
+    act_bit_width: int,
+    weight_quant) -> QuantESPCN:
     model = QuantESPCN(
         upscale_factor=upscale_factor,
         num_channels=num_channels,
@@ -115,3 +116,21 @@ def quant_espcn_v1(
         act_bit_width=act_bit_width,
         weight_quant=weight_quant)
     return model
+
+
+def quant_espcn_x3_v1_4b():
+    """4-bit integer quantized ESPCN model for BSD300 using common
+    integer weight quantization with per-channel scales"""
+    return quant_espcn_v1(1, 3, 4, 4, CommonIntWeightPerChannelQuant)
+
+
+def quant_espcn_x3_v2_4b():
+    """4-bit integer quantized ESPCN model for BSD300 using integer
+    weight normalization-based quantizer with L2-norm"""
+    return quant_espcn_v1(1, 3, 4, 4, Int8WeightNormL2PerChannelFixedPoint) 
+
+
+def quant_espcn_x3_v3_4b():
+    """4-bit integer quantized ESPCN model for BSD300 using integer
+    accumulator-aware weight quantizer"""
+    return quant_espcn_v1(1, 3, 4, 4, Int8AccumulatorAwareWeightQuant)
