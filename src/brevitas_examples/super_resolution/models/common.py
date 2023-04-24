@@ -15,15 +15,6 @@ from brevitas.quant.fixed_point import Int8WeightNormL2PerChannelFixedPoint
 from brevitas.quant.fixed_point import Int8AccumulatorAwareWeightQuant
 
 
-class CommonIntWeightPerTensorQuant(Int8WeightPerTensorFloat):
-    """
-    Common per-tensor weight quantizer with bit-width set to None so that it's forced to be
-    specified by each layer.
-    """
-    scaling_min_val = 2e-16
-    bit_width = None
-
-
 class CommonIntWeightPerChannelQuant(CommonIntWeightPerTensorQuant):
     """
     Common per-channel weight quantizer with bit-width set to None so that it's forced to be
@@ -37,7 +28,6 @@ class CommonIntActQuant(Int8ActPerTensorFloat):
     Common signed act quantizer with bit-width set to None so that it's forced to be specified by
     each layer.
     """
-    scaling_min_val = 2e-16
     bit_width = None
     restrict_scaling_type = RestrictValueType.LOG_FP
 
@@ -47,7 +37,6 @@ class CommonUintActQuant(Uint8ActPerTensorFloat):
     Common unsigned act quantizer with bit-width set to None so that it's forced to be specified by
     each layer.
     """
-    scaling_min_val = 2e-16
     bit_width = None
     restrict_scaling_type = RestrictValueType.LOG_FP
 
@@ -89,5 +78,5 @@ class QuantNearestNeighborConvolution(nn.Module):
             weight_bit_width=weight_bit_width,
             weight_quant=weight_quant)
 
-    def __call__(self, inp: Tensor) -> Tensor:
+    def forward(self, inp: Tensor) -> Tensor:
         return self.conv(self.interp(self.input_quant(inp)))
