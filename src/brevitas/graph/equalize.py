@@ -173,8 +173,8 @@ def _combine_weights_bias(
         return weight.data
 
     bias = bias.data
-    weight = deepcopy(weight).view(weight.shape[0], -1)
-    bias = deepcopy(bias).view(-1, 1)
+    weight = weight.reshape(weight.shape[0], -1)
+    bias = bias.reshape(-1, 1)
 
     weight = torch.where(torch.abs(weight) < EPSILON, torch.tensor(EPSILON).type_as(weight), weight)
     factor = torch.abs(bias) / torch.abs(weight)
@@ -350,57 +350,74 @@ def _is_reshaping_op(node: Node) -> bool:
         node.op == 'call_method' and node.target in ['view', 'reshape', 'flatten'])
 
 
-def walk_region(
-        graph_model: GraphModule,
-        starting_node: Node,
-        history: Set[Node],
-        srcs: Set[str],
-        sinks: Set[str],
-        walk_forward: bool):
-    node_list = starting_node.users if walk_forward else starting_node.all_input_nodes
+def find_sources(graph_model: GraphModule, starting_node: Node, state):
+    node_list = starting_node.all_input_nodes
     for node in node_list:
         # we keep a history of how the graph has been walked already, invariant to the direction,
         # to avoid getting stuck in a loop
-        path = (starting_node, node) if walk_forward else (node, starting_node)
-        if path not in history:
-            history.add(path)
+        path = (node, starting_node)
+        if path not in state['history']:
+            state['history'].add(path)
         else:
             continue
         if _is_supported_module(graph_model, node):
-            if walk_forward:
-                module = get_module(graph_model, node.target)
-                # It is not possible to equalize through LayerNorm as sink
-                if not isinstance(module, nn.LayerNorm):
-                    sinks.add(node.target)
-            else:
-                srcs.add(node.target)
-                walk_region(graph_model, node, history, srcs, sinks, walk_forward=True)
-        elif _is_scale_invariant_module(graph_model, node) or _is_scale_invariant_function(node):
-            if walk_forward:
-                walk_region(graph_model, node, history, srcs, sinks, walk_forward=True)
-            else:
-                walk_region(graph_model, node, history, srcs, sinks, walk_forward=True)
-                walk_region(graph_model, node, history, srcs, sinks, walk_forward=False)
+            state['srcs'].add(node.target)
+            find_sinks(graph_model, node, state)
+        elif _is_scale_invariant_module(
+                graph_model, node) or _is_scale_invariant_function(node) or _is_reshaping_op(node):
+            find_sources(graph_model, node, state)
+            find_sinks(graph_model, node, state)
         elif (node.op == 'call_method' and node.target in _residual_methods or
               node.op == 'call_function' and node.target in _residual_fns):
-            walk_region(graph_model, node, history, srcs, sinks, walk_forward=True)
-            walk_region(graph_model, node, history, srcs, sinks, walk_forward=False)
-        elif _is_reshaping_op(node):
-            walk_region(graph_model, node, history, srcs, sinks, walk_forward=walk_forward)
+            state = find_sources(graph_model, node, state)
+            state = find_sinks(graph_model, node, state)
+        else:
+            # If we meet an unrecognized op, we add an invalid srcs to stop equalization
+            state['srcs'].add(None)
+    return state
+
+
+def find_sinks(graph_model: GraphModule, starting_node: Node, state) -> Dict:
+    node_list = starting_node.users
+    for node in node_list:
+        # we keep a history of how the graph has been walked already, invariant to the direction,
+        # to avoid getting stuck in a loop
+        path = (starting_node, node)
+        if path not in state['history']:
+            state['history'].add(path)
         else:
             continue
+        if _is_supported_module(graph_model, node):
+            module = get_module(graph_model, node.target)
+            # It is not possible to equalize through LayerNorm as sink
+            if not isinstance(module, nn.LayerNorm):
+                state['sinks'].add(node.target)
+        elif _is_scale_invariant_module(
+                graph_model, node) or _is_scale_invariant_function(node) or _is_reshaping_op(node):
+            state = find_sinks(graph_model, node, state)
+        elif (node.op == 'call_method' and node.target in _residual_methods or
+              node.op == 'call_function' and node.target in _residual_fns):
+            state = find_sinks(graph_model, node, state)
+            state = find_sources(graph_model, node, state)
+        else:
+            # If we meet an unrecognized op, we add an invalid sink to stop equalization
+            state['sinks'].add(None)
+    return state
 
 
 def _extract_regions(graph_model: GraphModule) -> Set[Tuple[str]]:
     regions = set()
     for node in graph_model.graph.nodes:
         if _is_supported_module(graph_model, node):
-            srcs, sinks = {node.target}, set()
-            walk_region(graph_model, node, set(), srcs, sinks, walk_forward=True)
-            if sinks:
+            state = dict()
+            state['srcs'] = {node.target}
+            state['sinks'] = set()
+            state['history'] = set()
+            state = find_sinks(graph_model, node, state)
+            if state['sinks'] and None not in state['sinks'] and None not in state['srcs']:
                 # each region should appear only once, so to make it hashable
                 # we convert srcs and sinks to ordered lists first, and then to tuples
-                regions.add(Region(tuple(sorted(srcs)), tuple(sorted(sinks))))
+                regions.add(Region(tuple(sorted(state['srcs'])), tuple(sorted(state['sinks']))))
     return regions
 
 
