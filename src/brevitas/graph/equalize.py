@@ -350,7 +350,7 @@ def _is_reshaping_op(node: Node) -> bool:
         node.op == 'call_method' and node.target in ['view', 'reshape', 'flatten'])
 
 
-def find_sources(graph_model: GraphModule, starting_node: Node, state):
+def find_srcs(graph_model: GraphModule, starting_node: Node, state) -> Dict[str, Set]:
     node_list = starting_node.all_input_nodes
     for node in node_list:
         # we keep a history of how the graph has been walked already, invariant to the direction,
@@ -365,11 +365,11 @@ def find_sources(graph_model: GraphModule, starting_node: Node, state):
             find_sinks(graph_model, node, state)
         elif _is_scale_invariant_module(
                 graph_model, node) or _is_scale_invariant_function(node) or _is_reshaping_op(node):
-            find_sources(graph_model, node, state)
+            find_srcs(graph_model, node, state)
             find_sinks(graph_model, node, state)
         elif (node.op == 'call_method' and node.target in _residual_methods or
               node.op == 'call_function' and node.target in _residual_fns):
-            state = find_sources(graph_model, node, state)
+            state = find_srcs(graph_model, node, state)
             state = find_sinks(graph_model, node, state)
         else:
             # If we meet an unrecognized op, we add an invalid srcs to stop equalization
@@ -377,11 +377,12 @@ def find_sources(graph_model: GraphModule, starting_node: Node, state):
     return state
 
 
-def find_sinks(graph_model: GraphModule, starting_node: Node, state) -> Dict:
+def find_sinks(graph_model: GraphModule, starting_node: Node, state) -> Dict[str, Set]:
     node_list = starting_node.users
     for node in node_list:
         # we keep a history of how the graph has been walked already, invariant to the direction,
         # to avoid getting stuck in a loop
+        # Note that the path is inverted with respect to find_srcs
         path = (starting_node, node)
         if path not in state['history']:
             state['history'].add(path)
@@ -398,7 +399,7 @@ def find_sinks(graph_model: GraphModule, starting_node: Node, state) -> Dict:
         elif (node.op == 'call_method' and node.target in _residual_methods or
               node.op == 'call_function' and node.target in _residual_fns):
             state = find_sinks(graph_model, node, state)
-            state = find_sources(graph_model, node, state)
+            state = find_srcs(graph_model, node, state)
         else:
             # If we meet an unrecognized op, we add an invalid sink to stop equalization
             state['sinks'].add(None)
