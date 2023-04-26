@@ -39,6 +39,10 @@ Internally, when defining a quantized model programmatically, Brevitas leverages
 For more information about what are the currently supported quantized layers in Brevitas, check the [following file](https://github.com/Xilinx/brevitas/blob/dev/src/brevitas/graph/quantize.py),
 where we map the torch compute layers and activations with their corresponding quantized version.
 
+In this folder it is possible to find a pre-computed `RESULTS_TORCHVISION.csv` file with several quantization combinations evaluated on three different torchvision models (ResNet18, MobileNet V2, ViT B32),
+as well as the results on the hand defined quantized MobileNet V1 (`RESULTS_IMGCLSMOB.csv`).
+Furthemore, for the torchvision models, we provide a `RESULTS_TORCHVISION_BEST_CONFIGS.csv`, where, for each combination of hardware-related features (e.g., support of per-channel scaling factors), we report the best configurations and their results.
+
 ## Evaluation flow
 
 This flow allows to specify which pre-trained torchvision model to quantize and apply PTQ to with the desired quantization configuration.
@@ -119,6 +123,12 @@ The quantization and export options to specify are:
 
 The script requires to specify the calibration folder (`--calibration-dir`), from which the calibration samples will be taken (configurable with the `--calibration-samples` argument), and a validation folder (`--validation-dir`).
 
+For example, to run the script on the GPU 0:
+```bash
+brevitas_ptq_imagenet_val --calibration-dir /path/to/imagenet/calibration/folder --validation-dir /path/to/imagenet/validation/folder --gpu 0
+```
+
+
 ## Benchmark flow
 
 This scripts evaluate a variety of quantization configurations on different models.
@@ -128,11 +138,9 @@ For example, to run the script on the GPU 0:
 brevitas_ptq_imagenet_benchmark --calibration-dir /path/to/imagenet/calibration/folder --validation-dir /path/to/imagenet/validation/folder --gpu 0
 ```
 
-After launching the script, a `RESULT_TORCHVISION.md` markdown file will be generated with the results on the torchvision models,
-and a `RESULTS_IMGCLSMOB.md` with the results on manually quantized models starting from floating point weights.
+After launching the script, a `RESULTS_TORCHVISION.csv` markdown file will be generated with the results on the torchvision models,
+and a `RESULTS_IMGCLSMOB.csv` with the results on manually quantized models starting from floating point weights.
 
-In this folder it is possible to find a pre-computed `RESULT_TORCHVISION.md` file all combinations evaluated on three different torchvision models (ResNet18, MobileNet V2, ViT B32),
-as well as the results on the hand defined quantized MobileNet V1 (`RESULTS_IMGCLSMOB.md`).
 
 
 [<sup>1 </sup>]: https://arxiv.org/abs/1906.04721
