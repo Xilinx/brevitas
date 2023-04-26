@@ -1,5 +1,6 @@
 hypothesis
 mock
+psutil
 pytest
 pytest-mock
 pytest-xdist
