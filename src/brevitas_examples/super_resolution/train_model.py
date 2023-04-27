@@ -2,34 +2,47 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import argparse
-import configparser
+import json
 import os
+import pprint
 import random
-import math
 
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import torchvision.datasets as datasets
-import torchvision.transforms as transforms
-
-from torch.utils.data import DataLoader
-from torch.utils.data.dataset import TensorDataset
 
 from brevitas_examples.super_resolution.models import get_model_by_name
+from brevitas_examples.super_resolution.utils import device
+from brevitas_examples.super_resolution.utils import evaluate_accumulator_bit_widths
+from brevitas_examples.super_resolution.utils import export
+from brevitas_examples.super_resolution.utils import get_bsd300_dataloaders
+from brevitas_examples.super_resolution.utils import train_for_epoch
+from brevitas_examples.super_resolution.utils import validate
 
 SEED = 123456
 
+desc = """Training single-image super resolution models on the BSD300 dataset.
+
+Example:
+>> python train_model.py --data-dir=data/ --model=quant_espcn_x3_finn_a2q_w4a4_14b
+"""
+
 parser = argparse.ArgumentParser(description='PyTorch BSD300 Validation')
-parser.add_argument('--data-dir', help='path to folder containing BSD300 val folder')
-parser.add_argument('--model', type=str, default='quant_espcn_x3_v1_4b', help='Name of the model')
-parser.add_argument('--workers', default=0, type=int, help='number of data loading workers')
+parser.add_argument('--data-dir', help='Path to folder containing BSD300 val folder')
+parser.add_argument(
+    '--save-path', type=str, default='outputs/', help='Save path for exported model')
+parser.add_argument(
+    '--model', type=str, default='quant_espcn_x3_w8a8', help='Name of the model configuration')
+parser.add_argument('--workers', default=0, type=int, help='Number of data loading workers')
 parser.add_argument('--batch-size', default=16, type=int, help='Minibatch size')
-parser.add_argument('--gpu', default=None, type=int, help='GPU id to use.')
 parser.add_argument('--learning-rate', default=1e-3, help='Learning rate')
 parser.add_argument('--upscale-factor', default=3, help='Upscaling factor')
-parser.add_argument('--total-epochs', default=3, help='Total number of training epochs')
+parser.add_argument('--total-epochs', default=30, help='Total number of training epochs')
 parser.add_argument('--weight-decay', default=1e-5, help='Weight decay')
+parser.add_argument('--save-model-io', action='store_true', default=False)
+parser.add_argument('--export-to-qonnx', action='store_true', default=False)
+parser.add_argument('--export-to-qcdq-onnx', action='store_true', default=False)
+parser.add_argument('--export-to-qcdq-torch', action='store_true', default=False)
 
 
 def main():
@@ -37,72 +50,42 @@ def main():
     random.seed(SEED)
     torch.manual_seed(SEED)
 
+    # initialize model, dataset, and training environment
     model = get_model_by_name(args.model)
-
-    if args.gpu is not None:
-        torch.cuda.set_device(args.gpu)
-        model = model.cuda(args.gpu)
-
-    # NOTE - toy dataset to be replaced with bsd300x3
-    transform = transforms.Resize(510 // args.upscale_factor)
-    y = torch.randn(50, 1, 510, 510)
-    x = transform(y)
-    val_dataset = TensorDataset(x, y)
-    train_dataset = TensorDataset(x, y)
-
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=args.batch_size,
-        shuffle=False,
+    model = model.to(device)
+    trainloader, testloader = get_bsd300_dataloaders(
+        args.data_dir,
         num_workers=args.workers,
-        pin_memory=True)
-    
-    train_loader = DataLoader(
-        train_dataset,
         batch_size=args.batch_size,
-        shuffle=True,
-        num_workers=args.workers,
-        pin_memory=True)
-
-    train(train_loader, model, args)
-    validate(val_loader, model, args)
-    export(val_loader, model, args)
-
-
-def train(train_loader, model, args):
+        batch_size_test=1,
+        download=True)
     criterion = nn.MSELoss()
     optimizer = optim.Adam(
-        model.parameters(),
-        lr=args.learning_rate,
-        weight_decay=args.weight_decay)
+        model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
+
+    # train model
     for ep in range(args.total_epochs):
-        for (images, targets) in train_loader:
-            optimizer.zero_grad()
-            outputs = model(images)
-            loss = criterion(outputs, targets)
-            loss.backward()
-            optimizer.step()
+        train_loss = train_for_epoch(trainloader, model, criterion, optimizer, args)
+        test_psnr = validate(testloader, model, args)
+        print(f"[Epoch {ep:03d}] train_loss={train_loss:.4f}, test_psnr={test_psnr:.2f}")
 
+    # save checkpoint
+    os.makedirs(args.save_path, exist_ok=True)
+    torch.save(model.state_dict(), f"{args.save_path}/checkpoint.pth")
+    print(f"Saved model checkpoint to {args.save_path}/checkpoint.pth")
 
-def validate(val_loader, model, args):
-    model.eval()
-    tot_loss = 0.
-    with torch.no_grad():
-        num_batches = len(val_loader)
-        for i, (images, target) in enumerate(val_loader):
-            if args.gpu is not None:
-                images = images.cuda(args.gpu, non_blocking=True)
-                target = target.cuda(args.gpu, non_blocking=True)
-            output = model(images)
-            tot_loss += (output - target).pow(2).sum().item()
-    avg_loss = tot_loss / len(val_loader.dataset)
-    psnr = 10. * math.log10(1. / avg_loss)
-    print(f"Average peak signal-to-noise ratio = {psnr:.3f}")
+    # evaluate accumulator bit widths
+    stats_dict = {
+        'acc_bit_widths': evaluate_accumulator_bit_widths(model),
+        'performance': {
+            'test_psnr': test_psnr, 'train_loss': train_loss}}
+    with open(f"{args.save_path}/stats.json", "w") as outfile:
+        json.dump(stats_dict, outfile, indent=4)
+    pretty_stats_dict = pprint.pformat(stats_dict, sort_dicts=False)
+    print(pretty_stats_dict)
 
-
-def export(val_loader, model, args):
-    # TODO - qonnx export
-    pass
+    # save and export model
+    export(model, testloader, args)
 
 
 if __name__ == '__main__':
