@@ -26,7 +26,7 @@ setup(
     long_description=read(PROJECT_ROOT, 'README.md'),
     long_description_content_type="text/markdown",
     author="Alessandro Pappalardo",
-    author_email="alessand@xilinx.com",
+    author_email="alessand@amd.com",
     url="https://github.com/Xilinx/brevitas",
     python_requires=">=3.7",
     install_requires=read_requirements('requirements.txt'),
