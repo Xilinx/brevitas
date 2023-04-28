@@ -11,7 +11,8 @@ from torch.utils.data import DataLoader
 from brevitas.export import export_onnx_qcdq
 from brevitas.export import export_qonnx
 from brevitas.export import export_torch_qcdq
-from brevitas_examples.super_resolution.utils import device
+
+from .train import device
 
 
 def save_model_io(inp: Tensor, out: Tensor, save_path: str):
