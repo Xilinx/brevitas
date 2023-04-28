@@ -15,11 +15,11 @@ from .common import Int8WeightPerTensorFloat
 from .common import QuantNearestNeighborConvolution
 
 __all__ = [
-    "float_espcn_x3",
-    "quant_espcn_x3_w8a8",
-    "quant_espcn_x3_w4a4",
-    "quant_espcn_x3_finn_a2q_w4a4_14b",
-    "quant_espcn_x3_finn_a2q_w4a4_32b"]
+    "float_espcn",
+    "quant_espcn_w8a8",
+    "quant_espcn_w4a4",
+    "quant_espcn_finn_a2q_w4a4_14b",
+    "quant_espcn_finn_a2q_w4a4_32b"]
 
 IO_BIT_WIDTH = 8
 
@@ -111,21 +111,21 @@ class QuantESPCN(ESPCN):
             weight_quant=weight_quant)
 
 
-def float_espcn_x3() -> ESPCN:
+def float_espcn(upscale_factor: int) -> ESPCN:
     """Floating-point implementation of the efficient sub-pixel convolution network"""
-    return ESPCN(1, 3)
+    return ESPCN(1, upscale_factor)
 
 
-def quant_espcn_x3_w8a8():
+def quant_espcn_w8a8(upscale_factor: int):
     """4-bit integer quantized ESPCN model for BSD300 using common
     integer weight quantization with per-tensor scales"""
-    return QuantESPCN(1, 3, 8, 8, Int8WeightPerTensorFloat)
+    return QuantESPCN(1, upscale_factor, 8, 8, Int8WeightPerTensorFloat)
 
 
-def quant_espcn_x3_w4a4():
+def quant_espcn_w4a4(upscale_factor: int):
     """4-bit integer quantized ESPCN model for BSD300 using common
     integer weight quantization with per-tensor scales"""
-    return QuantESPCN(1, 3, 4, 4, Int8WeightPerTensorFloat)
+    return QuantESPCN(1, upscale_factor, 4, 4, Int8WeightPerTensorFloat)
 
 
 class QuantESPCNV2(nn.Module):
@@ -213,11 +213,11 @@ class QuantESPCNV2(nn.Module):
         return x
 
 
-def quant_espcn_x3_finn_a2q_w4a4_14b():
+def quant_espcn_finn_a2q_w4a4_14b(upcsale_factor: int):
     """4-bit integer quantized FINN-friendly ESPCN model for BSD300 using
     integer accumulator-aware weight quantizer for a 14-bit accumulator"""
     return QuantESPCNV2(
-        upscale_factor=3,
+        upscale_factor=upcsale_factor,
         num_channels=1,
         act_bit_width=4,
         acc_bit_width=14,
@@ -225,11 +225,11 @@ def quant_espcn_x3_finn_a2q_w4a4_14b():
         weight_quant=Int8AccumulatorAwareWeightQuant)
 
 
-def quant_espcn_x3_finn_a2q_w4a4_32b():
+def quant_espcn_finn_a2q_w4a4_32b(upscale_factor: int):
     """4-bit integer quantized FINN-friendly ESPCN model for BSD300 using
     integer accumulator-aware weight quantizer for a 32-bit accumulator"""
     return QuantESPCNV2(
-        upscale_factor=3,
+        upscale_factor=upscale_factor,
         num_channels=1,
         act_bit_width=4,
         acc_bit_width=32,
