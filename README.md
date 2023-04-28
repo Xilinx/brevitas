@@ -41,7 +41,7 @@ If you adopt Brevitas in your work, please cite it as:
 @software{brevitas,
   author       = {Alessandro Pappalardo},
   title        = {Xilinx/brevitas},
-  year         = {2022},
+  year         = {2023},
   publisher    = {Zenodo},
   doi          = {10.5281/zenodo.3333552},
   url          = {https://doi.org/10.5281/zenodo.3333552}
@@ -50,6 +50,7 @@ If you adopt Brevitas in your work, please cite it as:
 
 ## History
 
+- *2023/04/28* - Minor release version 0.9.1, see the [release notes](https://github.com/Xilinx/brevitas/releases/tag/v0.9.1).
 - *2023/04/21* - Release version 0.9.0, see the [release notes](https://github.com/Xilinx/brevitas/releases/tag/v0.9.0).
 - *2023/01/10* - Release version 0.8.0, see the [release notes](https://github.com/Xilinx/brevitas/releases/tag/v0.8.0).
 - *2021/12/13* - Release version 0.7.1, fix a bunch of issues. Added TVMCon 2021 tutorial notebook.
