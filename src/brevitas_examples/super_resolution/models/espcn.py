@@ -132,7 +132,6 @@ class QuantESPCNV2(nn.Module):
     """FINN-Friendly Quantized Efficient Sub-Pixel Convolution Network (ESPCN) as
     proposed in Colbert et al. (2023) - `Quantized Neural Networks for Low-Precision
     Accumulation with Guaranteed Overflow Avoidance`."""
-
     def __init__(
             self,
             upscale_factor: int = 3,
@@ -143,6 +142,8 @@ class QuantESPCNV2(nn.Module):
             weight_quant: WeightQuantType = CommonIntWeightPerChannelQuant):
         super(QuantESPCNV2, self).__init__()
 
+        # Quantizing the input of conv2d layers to unsigned because they
+        # are all preceded by ReLUs, which have non-negative ranges
         self.conv1 = qnn.QuantConv2d(
             in_channels=num_channels,
             out_channels=64,
@@ -178,8 +179,7 @@ class QuantESPCNV2(nn.Module):
             weight_bit_width=weight_bit_width,
             weight_accumulator_bit_width=acc_bit_width,
             weight_quant=weight_quant)
-        # NOTE - not applying accumulator constraint to the final
-        # convolution layer
+        # Not applying accumulator constraint to the final convolution layer
         self.conv4 = QuantNearestNeighborConvolution(
             in_channels=32,
             out_channels=num_channels,
@@ -198,6 +198,8 @@ class QuantESPCNV2(nn.Module):
         self.bn3 = nn.BatchNorm2d(32)
 
         self.relu = nn.ReLU(inplace=True)
+        # Using a QuantReLU here because we need to read out a uint8 image, but FINN
+        # requires a ReLU node to precede an unsigned int quant node
         self.out = qnn.QuantReLU(act_quant=CommonUintActQuant, bit_width=IO_BIT_WIDTH)
 
         self.apply(weight_init)
@@ -213,7 +215,7 @@ class QuantESPCNV2(nn.Module):
 
 def quant_espcn_x3_finn_a2q_w4a4_14b():
     """4-bit integer quantized FINN-friendly ESPCN model for BSD300 using
-    integer accumulator-aware weight quantizer for 14-bit accumulator"""
+    integer accumulator-aware weight quantizer for a 14-bit accumulator"""
     return QuantESPCNV2(
         upscale_factor=3,
         num_channels=1,
@@ -225,7 +227,7 @@ def quant_espcn_x3_finn_a2q_w4a4_14b():
 
 def quant_espcn_x3_finn_a2q_w4a4_32b():
     """4-bit integer quantized FINN-friendly ESPCN model for BSD300 using
-    integer accumulator-aware weight quantizer for 32-bit accumulator"""
+    integer accumulator-aware weight quantizer for a 32-bit accumulator"""
     return QuantESPCNV2(
         upscale_factor=3,
         num_channels=1,
