@@ -96,6 +96,8 @@ class DatasetFromFolder(data.Dataset):
 
 
 def download_bsd300(dest: str = "data", download: bool = False):
+    if not isinstance(dest, str):
+        raise ValueError("Specify dataset directory with --data-dir")
     output_image_dir = os.path.join(dest, "BSDS300/images")
     if not os.path.exists(output_image_dir) and download:
         os.makedirs(dest, exist_ok=True)
