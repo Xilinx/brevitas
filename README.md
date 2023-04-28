@@ -27,7 +27,7 @@ pip install brevitas
 
 ## Getting Started
 
-Brevitas currently offers quantized implementations of the most common PyTorch layers used in DNN under `brevitas.nn`, such as `QuantConv1d`, `QuantConv2d`, `QuantConvTranspose1d`, `QuantConvTranpose2d`, `QuantMultiheadAttention`, `QuantRNN`, `QuantLSTM` etc., for adoption within PTQ and/or QAT.
+Brevitas currently offers quantized implementations of the most common PyTorch layers used in DNN under `brevitas.nn`, such as `QuantConv1d`, `QuantConv2d`, `QuantConvTranspose1d`, `QuantConvTranspose2d`, `QuantMultiheadAttention`, `QuantRNN`, `QuantLSTM` etc., for adoption within PTQ and/or QAT.
 For each one of these layers, quantization of different tensors (inputs, weights, bias, outputs, etc) can be individually tuned according to a wide range of quantization settings.
 
 As a reference for PTQ, Brevitas provides an example user flow for ImageNet classification models under [`brevitas_examples.imagenet_classification.ptq`](https://github.com/Xilinx/brevitas/blob/master/src/brevitas_examples/imagenet_classification/ptq/ptq_evaluate.py) that quantizes an input torchvision model using PTQ under different quantization configurations (e.g. bit-width, granularity of scale, etc). Sample accuracy results are available [here](https://github.com/Xilinx/brevitas/blob/master/src/brevitas_examples/imagenet_classification/ptq/RESULTS_TORCHVISION_BEST_CONFIGS.csv) for a selection of three reference topologies (ResNet18, MobileNet V2, ViT), under a variety of different quantization settings.
