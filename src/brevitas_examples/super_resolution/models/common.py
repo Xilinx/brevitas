@@ -8,12 +8,12 @@ import torch.nn as nn
 
 from brevitas.core.restrict_val import RestrictValueType
 import brevitas.nn as qnn
+from brevitas.nn.quant_layer import WeightQuantType
 from brevitas.quant import Int8ActPerTensorFloat
 from brevitas.quant import Int8WeightPerTensorFloat
 from brevitas.quant import Uint8ActPerTensorFloat
 from brevitas.quant.fixed_point import Int8AccumulatorAwareWeightQuant
 from brevitas.quant.fixed_point import Int8WeightNormL2PerChannelFixedPoint
-from brevitas.nn.quant_layer import WeightQuantType
 
 
 class CommonIntWeightPerChannelQuant(Int8WeightPerTensorFloat):
@@ -63,8 +63,10 @@ class QuantNearestNeighborConvolution(nn.Module):
         act_quant = CommonIntActQuant if signed_act else CommonUintActQuant
 
         self.upscale_factor = upscale_factor
-        self.input_quant = qnn.QuantIdentity(act_quant=act_quant, return_quant_tensor=True, bit_width=act_bit_width)
-        self.interp = qnn.QuantUpsamplingNearest2d(scale_factor=upscale_factor, return_quant_tensor=True)
+        self.input_quant = qnn.QuantIdentity(
+            act_quant=act_quant, return_quant_tensor=True, bit_width=act_bit_width)
+        self.interp = qnn.QuantUpsamplingNearest2d(
+            scale_factor=upscale_factor, return_quant_tensor=True)
         self.conv = qnn.QuantConv2d(
             in_channels=in_channels,
             out_channels=out_channels,
@@ -75,7 +77,7 @@ class QuantNearestNeighborConvolution(nn.Module):
             input_quant=None,
             weight_bit_width=weight_bit_width,
             weight_quant=weight_quant)
-        self.conv.cache_inference_quant_inp = True # needed for post-training evaluation of accumulator bit-width
+        self.conv.cache_inference_quant_inp = True  # needed for post-training evaluation of accumulator bit-width
 
     def forward(self, inp: Tensor) -> Tensor:
         return self.conv(self.interp(self.input_quant(inp)))

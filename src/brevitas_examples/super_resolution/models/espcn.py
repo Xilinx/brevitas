@@ -4,9 +4,9 @@
 import torch
 from torch import Tensor
 import torch.nn as nn
-from brevitas.nn.quant_layer import WeightQuantType
 
 import brevitas.nn as qnn
+from brevitas.nn.quant_layer import WeightQuantType
 
 from .common import CommonIntWeightPerChannelQuant
 from .common import CommonUintActQuant
