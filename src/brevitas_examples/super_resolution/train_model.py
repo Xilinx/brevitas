@@ -51,13 +51,14 @@ def main():
     torch.manual_seed(SEED)
 
     # initialize model, dataset, and training environment
-    model = get_model_by_name(args.model)
+    model = get_model_by_name(args.model, args.upscale_factor)
     model = model.to(device)
     trainloader, testloader = get_bsd300_dataloaders(
         args.data_dir,
         num_workers=args.workers,
         batch_size=args.batch_size,
         batch_size_test=1,
+        upscale_factor=args.upscale_factor,
         download=True)
     criterion = nn.MSELoss()
     optimizer = optim.Adam(
