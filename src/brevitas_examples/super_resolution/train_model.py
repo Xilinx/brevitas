@@ -6,10 +6,10 @@ import json
 import os
 import pprint
 import random
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from hashlib import sha256
 
 from brevitas_examples.super_resolution.models import get_model_by_name
 from brevitas_examples.super_resolution.utils import device
@@ -39,6 +39,8 @@ parser.add_argument('--learning-rate', type=float, default=1e-3, help='Learning 
 parser.add_argument('--upscale-factor', type=int, default=3, help='Upscaling factor')
 parser.add_argument('--total-epochs', type=int, default=30, help='Total number of training epochs')
 parser.add_argument('--weight-decay', type=float, default=1e-5, help='Weight decay')
+parser.add_argument('--eval-acc-bw', action='store_true', default=False)
+parser.add_argument('--save-pth-ckpt', action='store_true', default=False)
 parser.add_argument('--save-model-io', action='store_true', default=False)
 parser.add_argument('--export-to-qonnx', action='store_true', default=False)
 parser.add_argument('--export-to-qcdq-onnx', action='store_true', default=False)
@@ -72,18 +74,26 @@ def main():
 
     # save checkpoint
     os.makedirs(args.save_path, exist_ok=True)
-    torch.save(model.state_dict(), f"{args.save_path}/checkpoint.pth")
-    print(f"Saved model checkpoint to {args.save_path}/checkpoint.pth")
+    if args.save_pth_ckpt:
+        ckpt_path = f"{args.save_path}/{args.model}.pth"
+        torch.save(model.state_dict(), ckpt_path)
+        with open(ckpt_path, "rb") as _file:
+            bytes = _file.read()
+            model_tag = sha256(bytes).hexdigest()[:8]
+        new_ckpt_path = f"{args.save_path}/{args.model}-{model_tag}.pth"
+        os.rename(ckpt_path, new_ckpt_path)
+        print(f"Saved model checkpoint to {new_ckpt_path}")
 
     # evaluate accumulator bit widths
-    stats_dict = {
-        'acc_bit_widths': evaluate_accumulator_bit_widths(model),
-        'performance': {
-            'test_psnr': test_psnr, 'train_loss': train_loss}}
-    with open(f"{args.save_path}/stats.json", "w") as outfile:
-        json.dump(stats_dict, outfile, indent=4)
-    pretty_stats_dict = pprint.pformat(stats_dict, sort_dicts=False)
-    print(pretty_stats_dict)
+    if args.eval_acc_bw:
+        stats_dict = {
+            'acc_bit_widths': evaluate_accumulator_bit_widths(model),
+            'performance': {
+                'test_psnr': test_psnr, 'train_loss': train_loss}}
+        with open(f"{args.save_path}/stats.json", "w") as outfile:
+            json.dump(stats_dict, outfile, indent=4)
+        pretty_stats_dict = pprint.pformat(stats_dict, sort_dicts=False)
+        print(pretty_stats_dict)
 
     # save and export model
     export(model, testloader, args)
