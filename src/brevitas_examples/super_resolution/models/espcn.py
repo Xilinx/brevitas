@@ -4,6 +4,7 @@
 import torch
 from torch import Tensor
 import torch.nn as nn
+from brevitas.nn.quant_layer import WeightQuantType
 
 import brevitas.nn as qnn
 
@@ -62,7 +63,7 @@ class QuantESPCN(ESPCN):
             upscale_factor: int,
             act_bit_width: int,
             weight_bit_width: int,
-            weight_quant):
+            weight_quant: WeightQuantType):
         super().__init__(in_channels, upscale_factor)
         out_channels = in_channels * pow(upscale_factor, 2)
         self.conv1 = qnn.QuantConv2d(
@@ -139,7 +140,7 @@ class QuantESPCNV2(nn.Module):
             weight_bit_width: int = 4,
             act_bit_width: int = 4,
             acc_bit_width: int = 32,
-            weight_quant=CommonIntWeightPerChannelQuant):
+            weight_quant: WeightQuantType = CommonIntWeightPerChannelQuant):
         super(QuantESPCNV2, self).__init__()
 
         self.conv1 = qnn.QuantConv2d(
