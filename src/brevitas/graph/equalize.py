@@ -362,17 +362,18 @@ def find_srcs(graph_model: GraphModule, starting_node: Node, state) -> Dict[str,
             continue
         if _is_supported_module(graph_model, node):
             state['srcs'].add(node.target)
-            find_sinks(graph_model, node, state)
+            # After we found a source, we need to check if it branches into multiple sinks
+            state = find_sinks(graph_model, node, state)
         elif _is_scale_invariant_module(
                 graph_model, node) or _is_scale_invariant_function(node) or _is_reshaping_op(node):
-            find_srcs(graph_model, node, state)
-            find_sinks(graph_model, node, state)
+            state = find_srcs(graph_model, node, state)
+            state = find_sinks(graph_model, node, state)
         elif (node.op == 'call_method' and node.target in _residual_methods or
               node.op == 'call_function' and node.target in _residual_fns):
             state = find_srcs(graph_model, node, state)
             state = find_sinks(graph_model, node, state)
         else:
-            # If we meet an unrecognized op, we add an invalid srcs to stop equalization
+            # If we meet an unrecognized op, we add None to invalidate the region
             state['srcs'].add(None)
     return state
 
@@ -401,7 +402,7 @@ def find_sinks(graph_model: GraphModule, starting_node: Node, state) -> Dict[str
             state = find_sinks(graph_model, node, state)
             state = find_srcs(graph_model, node, state)
         else:
-            # If we meet an unrecognized op, we add an invalid sink to stop equalization
+            # If we meet an unrecognized op, we add None to invalidate the region
             state['sinks'].add(None)
     return state
 
