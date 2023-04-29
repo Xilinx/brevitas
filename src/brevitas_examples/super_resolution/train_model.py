@@ -24,7 +24,7 @@ SEED = 123456
 desc = """Training single-image super resolution models on the BSD300 dataset.
 
 Example:
->> python train_model.py --data-dir=data/ --model=quant_espcn_x3_finn_a2q_w4a4_14b
+>> python train_model.py --data-dir=data/ --model=quant_espcn_finn_a2q_w4a4_14b
 """
 
 parser = argparse.ArgumentParser(description='PyTorch BSD300 Validation')
@@ -32,7 +32,7 @@ parser.add_argument('--data-dir', help='Path to folder containing BSD300 val fol
 parser.add_argument(
     '--save-path', type=str, default='outputs/', help='Save path for exported model')
 parser.add_argument(
-    '--model', type=str, default='quant_espcn_x3_w8a8', help='Name of the model configuration')
+    '--model', type=str, default='quant_espcn_w8a8', help='Name of the model configuration')
 parser.add_argument('--workers', type=int, default=0, help='Number of data loading workers')
 parser.add_argument('--batch-size', type=int, default=16, help='Minibatch size')
 parser.add_argument('--learning-rate', type=float, default=1e-3, help='Learning rate')
@@ -75,12 +75,12 @@ def main():
     # save checkpoint
     os.makedirs(args.save_path, exist_ok=True)
     if args.save_pth_ckpt:
-        ckpt_path = f"{args.save_path}/{args.model}.pth"
+        ckpt_path = f"{args.save_path}/{args.model}_x{args.upscale_factor}.pth"
         torch.save(model.state_dict(), ckpt_path)
         with open(ckpt_path, "rb") as _file:
             bytes = _file.read()
             model_tag = sha256(bytes).hexdigest()[:8]
-        new_ckpt_path = f"{args.save_path}/{args.model}-{model_tag}.pth"
+        new_ckpt_path = f"{args.save_path}/{args.model}_x{args.upscale_factor}-{model_tag}.pth"
         os.rename(ckpt_path, new_ckpt_path)
         print(f"Saved model checkpoint to {new_ckpt_path}")
 
