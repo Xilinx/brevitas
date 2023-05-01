@@ -55,6 +55,7 @@ class QuantNearestNeighborConvolution(nn.Module):
             signed_act: Optional[bool] = False,
             bias: Optional[bool] = True,
             weight_quant: WeightQuantType = CommonIntWeightPerChannelQuant,
+            acc_bit_width: Optional[int] = 32,
             act_bit_width: Optional[int] = 8,
             weight_bit_width: Optional[int] = 8):
         super().__init__()
@@ -65,7 +66,7 @@ class QuantNearestNeighborConvolution(nn.Module):
 
         self.upscale_factor = upscale_factor
         # Need to have the quantization node before the nearest neighbor upsampling node
-        # for FINN compabability since the FINN compiler will streamline the quantization
+        # for FINN compatibility since the FINN compiler will streamline the quantization
         # node with the preceding monotonic activation function. In the case of ESPCN, this
         # is a ReLU. We need to return the QuantTensor though so that the conv2d is aware
         # of the input bit-width for accumulator-aware quantization (A2Q). For more discussion
@@ -82,6 +83,7 @@ class QuantNearestNeighborConvolution(nn.Module):
             stride=stride,
             bias=bias,
             input_quant=None,
+            weight_accumulator_bit_width=acc_bit_width,
             weight_bit_width=weight_bit_width,
             weight_quant=weight_quant)
 
