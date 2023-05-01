@@ -9,6 +9,7 @@ import random
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torch.optim.lr_scheduler as lrs
 from hashlib import sha256
 
 from brevitas_examples.super_resolution.models import get_model_by_name
@@ -37,8 +38,10 @@ parser.add_argument('--workers', type=int, default=0, help='Number of data loadi
 parser.add_argument('--batch-size', type=int, default=16, help='Minibatch size')
 parser.add_argument('--learning-rate', type=float, default=1e-3, help='Learning rate')
 parser.add_argument('--upscale-factor', type=int, default=3, help='Upscaling factor')
-parser.add_argument('--total-epochs', type=int, default=30, help='Total number of training epochs')
-parser.add_argument('--weight-decay', type=float, default=1e-5, help='Weight decay')
+parser.add_argument('--total-epochs', type=int, default=100, help='Total number of training epochs')
+parser.add_argument('--weight-decay', type=float, default=1e-4, help='Weight decay')
+parser.add_argument('--step-size', type=int, default=1)
+parser.add_argument('--gamma', type=float, default=0.98)
 parser.add_argument('--eval-acc-bw', action='store_true', default=False)
 parser.add_argument('--save-pth-ckpt', action='store_true', default=False)
 parser.add_argument('--save-model-io', action='store_true', default=False)
@@ -65,11 +68,13 @@ def main():
     criterion = nn.MSELoss()
     optimizer = optim.Adam(
         model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
+    scheduler = lrs.StepLR(optimizer, step_size=args.step_size, gamma=args.gamma)
 
     # train model
     for ep in range(args.total_epochs):
         train_loss = train_for_epoch(trainloader, model, criterion, optimizer, args)
         test_psnr = validate(testloader, model, args)
+        scheduler.step()
         print(f"[Epoch {ep:03d}] train_loss={train_loss:.4f}, test_psnr={test_psnr:.2f}")
 
     # save checkpoint
