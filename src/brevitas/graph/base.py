@@ -138,7 +138,7 @@ class ModuleToModule(GraphTransform, ABC):
         new_module_signature_keys = signature_keys(self.new_module_class)
         new_kwargs = {k: v for k, v in new_kwargs.items() if k in new_module_signature_keys}
         # update with kwargs passed to the rewriter
-        new_kwargs = self._evaluate_new_kwargs(new_kwargs, self.new_module_kwargs)
+        new_kwargs = self._evaluate_new_kwargs(new_kwargs, old_module)
         # init the new module
         new_module = self.new_module_class(**new_kwargs)
         return new_module
