@@ -50,6 +50,19 @@ parser.add_argument('--export-to-qcdq-onnx', action='store_true', default=False)
 parser.add_argument('--export-to-qcdq-torch', action='store_true', default=False)
 
 
+def filter_params(named_params, decay):
+    decay_params, no_decay_params = [], []
+    for name, param in named_params:
+        # Do not apply weight decay to the bias or any scaling parameters
+        if 'scaling' in name or name.endswith(".bias"): 
+            no_decay_params.append(param)
+        else: 
+            decay_params.append(param)
+    return [
+        {'params': no_decay_params, 'weight_decay': 0.},
+        {'params': decay_params, 'weight_decay': decay}]
+
+
 def main():
     args = parser.parse_args()
     random.seed(SEED)
@@ -67,7 +80,9 @@ def main():
         download=True)
     criterion = nn.MSELoss()
     optimizer = optim.Adam(
-        model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
+        filter_params(model.named_parameters(), args.weight_decay),
+        lr=args.learning_rate,
+        weight_decay=args.weight_decay)
     scheduler = lrs.StepLR(optimizer, step_size=args.step_size, gamma=args.gamma)
 
     # train model
