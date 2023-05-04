@@ -74,6 +74,8 @@ def main():
     # initialize model, dataset, and training environment
     model = get_model_by_name(args.model)
     model = model.to(device)
+    assert model.upscale_factor == args.upscale_factor, \
+        "Mismatch between target upscale factor and specified model"
     trainloader, testloader = get_bsd300_dataloaders(
         args.data_root,
         num_workers=args.workers,

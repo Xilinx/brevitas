@@ -13,7 +13,7 @@ from .common import CommonUintActQuant
 from .common import CommonIntAccumulatorAwareWeightQuant
 from .common import QuantNearestNeighborConvolution
 
-__all__ = ["float_espcn", "quant_espcn", "quant_espcn_a2q", "quant_espcn_base"]
+__all__ = ["float_espcn", "quant_espcn", "quant_espcn_a2q", "quant_espcn_base", "FloatESPCN", "QuantESPCN"]
 
 IO_BIT_WIDTH = 8
 
@@ -34,6 +34,7 @@ class FloatESPCN(nn.Module):
             upscale_factor: int = 3,
             num_channels: int = 1):
         super(FloatESPCN, self).__init__()
+        self.upscale_factor = upscale_factor
 
         self.conv1 = nn.Conv2d(
             in_channels=num_channels,
@@ -102,9 +103,9 @@ class QuantESPCN(FloatESPCN):
             act_bit_width: int = 4,
             acc_bit_width: int = 32,
             weight_quant: WeightQuantType = CommonIntWeightPerChannelQuant):
-        super(QuantESPCN, self).__init__()
+        super(QuantESPCN, self).__init__(upscale_factor=upscale_factor)
 
-        # Quantizing the input of conv2d layers to unsigned because they
+        # Quantizing the activations to all conv2d layers to unsigned because they
         # are all preceded by ReLUs, which have non-negative ranges
 
         # Quantizing input quant conv2d to use 8-bit inputs and weights with
