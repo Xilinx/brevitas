@@ -344,6 +344,8 @@ class WeightNormPerChannelFloatDecoupled(SolveWeightScalingStatsInputDimsFromMod
     decoupled_int_quant = DecoupledIntQuant
     tensor_clamp_impl = TensorClamp
     scaling_impl = ParameterScaling
+    scaling_min_val = 1e-8
+    pre_scaling_min_val = 1e-8
     restrict_scaling_impl = FloatRestrictValue
     scaling_stats_impl = AbsMax
     scaling_init_impl = ParameterFromStatsScalingInit
