@@ -9,7 +9,7 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 def calculate_psnr(gen_image: Tensor, ref_image: Tensor, eps: float = 1e-10):
     dist = (gen_image - ref_image).pow(2).mean()
-    psnr = 10. * torch.log10(1. / dist)
+    psnr = 10. * torch.log10(1. / dist.clamp_min(eps))
     return psnr
 
 
@@ -32,7 +32,7 @@ def train_for_epoch(trainloader, model, criterion, optimizer, args):
 def validate(testloader, model, args):
     model.eval()
     tot_psnr = 0.
-    for i, (images, target) in enumerate(testloader):
+    for _, (images, target) in enumerate(testloader):
         images = images.to(device)
         target = target.to(device)
         output = model(images)
