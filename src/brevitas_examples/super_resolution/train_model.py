@@ -21,7 +21,11 @@ from brevitas_examples.super_resolution.utils import get_bsd300_dataloaders
 from brevitas_examples.super_resolution.utils import train_for_epoch
 from brevitas_examples.super_resolution.utils import validate
 
-SEED = 123456
+random_seed = 123456
+
+random.seed(random_seed)
+np.random.seed(random_seed)
+torch.manual_seed(random_seed)
 
 desc = """Training single-image super resolution models on the BSD300 dataset.
 
@@ -66,9 +70,6 @@ def filter_params(named_params, decay):
 
 def main():
     args = parser.parse_args()
-    random.seed(SEED)
-    np.random.seed(SEED)
-    torch.manual_seed(SEED)
 
     # initialize model, dataset, and training environment
     model = get_model_by_name(args.model)
