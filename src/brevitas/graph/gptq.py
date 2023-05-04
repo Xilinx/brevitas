@@ -2,6 +2,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from functools import partial
 import math
+import warnings
 
 import torch
 import torch.nn as nn
@@ -52,6 +53,10 @@ class gptq_mode():
             self.disable_quant_inference.disable_bias_quantization(
                 self.model, is_training=self.model.training)
         for name, module in self.model.named_modules():
+            if len(module._forward_hooks) > 0 or len(module._forward_pre_hooks):
+                warnings.warn(
+                    f'Hooks detected during setup for GPTQ. '
+                    f'Behaviour might deviate from what expected.')
             if self._is_module_supported(module):
                 gptq = GPTQ(module)
                 hook_fn = partial(gptq.update_batch, name=name, current_layer=self.current_layer)
@@ -204,15 +209,14 @@ def main():
     import torchvision
     from torchvision import datasets
     from torchvision import transforms
+    # warnings.filterwarnings("ignore")
+    from tqdm import tqdm
 
     from brevitas.graph.calibrate import bias_correction_mode
     from brevitas.graph.calibrate import calibration_mode
     from brevitas.graph.quantize import preprocess_for_quantize
     from brevitas.graph.quantize import quantize
     from brevitas_examples.imagenet_classification.utils import validate
-
-    warnings.filterwarnings("ignore")
-    from tqdm import tqdm
     MEAN = [0.485, 0.456, 0.406]
     STD = [0.229, 0.224, 0.225]
 
