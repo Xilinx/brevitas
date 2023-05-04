@@ -1,4 +1,5 @@
 from copy import deepcopy
+from dataclasses import dataclass
 from functools import partial
 import math
 
@@ -7,12 +8,16 @@ import torch.nn as nn
 
 from brevitas.graph.calibrate import DisableEnableQuantization
 from brevitas.inject.enum import ScalingImplType
-from brevitas.inject.enum import StatsOp
 from brevitas.quant_tensor import QuantTensor
 
 
 class StopFwdException(Exception):
     pass
+
+
+@dataclass
+class LayerHandler:
+    layer_name: str = None
 
 
 class gptq_mode():
@@ -25,7 +30,7 @@ class gptq_mode():
         self.hook_dict = dict()
         self.gptq_layers = dict()
         # reference for each layer to update
-        self.current_layer = [None]
+        self.current_layer = LayerHandler()
         self.num_layers = 0
         self.disable_quant_inference = DisableEnableQuantization()
         self.orig_forward = self.model.forward
@@ -64,9 +69,9 @@ class gptq_mode():
                 self.model, is_training=self.model.training)
 
     def update(self):
-        self.gptq_layers[self.current_layer[0]].fasterquant()
-        self.gptq_layers[self.current_layer[0]].free()
-        self.hook_dict[self.current_layer[0]].remove()
+        self.gptq_layers[self.current_layer.layer_name].fasterquant()
+        self.gptq_layers[self.current_layer.layer_name].free()
+        self.hook_dict[self.current_layer.layer_name].remove()
 
     def catch_stopfwd(self, *args, **kwargs):
         try:
@@ -94,7 +99,7 @@ class GPTQ():
         inp = input[0]
         if isinstance(inp, QuantTensor):
             inp = inp.value
-        current_layer[0] = name
+        current_layer.layer_name = name
         if len(inp.shape) == 2:
             inp = inp.unsqueeze(0)
         batch_size = inp.shape[0]
