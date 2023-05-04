@@ -29,25 +29,25 @@ Example:
 """
 
 parser = argparse.ArgumentParser(description='PyTorch BSD300 Validation')
-parser.add_argument('--data-dir', help='Path to folder containing BSD300 val folder')
+parser.add_argument('--data_root', help='Path to folder containing BSD300 val folder')
 parser.add_argument(
-    '--save-path', type=str, default='outputs/', help='Save path for exported model')
+    '--save_path', type=str, default='outputs/', help='Save path for exported model')
 parser.add_argument(
     '--model', type=str, default='quant_espcn_w8a8', help='Name of the model configuration')
 parser.add_argument('--workers', type=int, default=0, help='Number of data loading workers')
-parser.add_argument('--batch-size', type=int, default=16, help='Minibatch size')
-parser.add_argument('--learning-rate', type=float, default=1e-3, help='Learning rate')
-parser.add_argument('--upscale-factor', type=int, default=3, help='Upscaling factor')
-parser.add_argument('--total-epochs', type=int, default=100, help='Total number of training epochs')
-parser.add_argument('--weight-decay', type=float, default=1e-4, help='Weight decay')
-parser.add_argument('--step-size', type=int, default=1)
+parser.add_argument('--batch_size', type=int, default=16, help='Minibatch size')
+parser.add_argument('--learning_rate', type=float, default=1e-3, help='Learning rate')
+parser.add_argument('--upscale_factor', type=int, default=3, help='Upscaling factor')
+parser.add_argument('--total_epochs', type=int, default=100, help='Total number of training epochs')
+parser.add_argument('--weight_decay', type=float, default=1e-4, help='Weight decay')
+parser.add_argument('--step_size', type=int, default=1)
 parser.add_argument('--gamma', type=float, default=0.98)
-parser.add_argument('--eval-acc-bw', action='store_true', default=False)
-parser.add_argument('--save-pth-ckpt', action='store_true', default=False)
-parser.add_argument('--save-model-io', action='store_true', default=False)
-parser.add_argument('--export-to-qonnx', action='store_true', default=False)
-parser.add_argument('--export-to-qcdq-onnx', action='store_true', default=False)
-parser.add_argument('--export-to-qcdq-torch', action='store_true', default=False)
+parser.add_argument('--eval_acc_bw', action='store_true', default=False)
+parser.add_argument('--save_pth_ckpt', action='store_true', default=False)
+parser.add_argument('--save_model_io', action='store_true', default=False)
+parser.add_argument('--export_to_qonnx', action='store_true', default=False)
+parser.add_argument('--export_to_qcdq_onnx', action='store_true', default=False)
+parser.add_argument('--export_to_qcdq_torch', action='store_true', default=False)
 
 
 def filter_params(named_params, decay):
@@ -69,10 +69,10 @@ def main():
     torch.manual_seed(SEED)
 
     # initialize model, dataset, and training environment
-    model = get_model_by_name(args.model, args.upscale_factor)
+    model = get_model_by_name(args.model)
     model = model.to(device)
     trainloader, testloader = get_bsd300_dataloaders(
-        args.data_dir,
+        args.data_root,
         num_workers=args.workers,
         batch_size=args.batch_size,
         batch_size_test=1,
@@ -117,7 +117,6 @@ def main():
 
     # save and export model
     export(model, testloader, args)
-
 
 if __name__ == '__main__':
     main()
