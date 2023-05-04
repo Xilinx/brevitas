@@ -109,8 +109,9 @@ def main():
 
     # evaluate accumulator bit widths
     if args.eval_acc_bw:
+        inp = testloader.dataset[0][0].unsqueeze(0).to(device)
         stats_dict = {
-            'acc_bit_widths': evaluate_accumulator_bit_widths(model),
+            'acc_bit_widths': evaluate_accumulator_bit_widths(model, inp),
             'performance': {
                 'test_psnr': test_psnr, 'train_loss': train_loss}}
         with open(f"{args.save_path}/stats.json", "w") as outfile:
