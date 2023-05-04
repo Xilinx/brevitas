@@ -202,4 +202,6 @@ class AccumulatorAwareParameterPreScaling(ParameterPreScalingWeightNorm):
         T = self.get_upper_bound_on_l1_norm(input_bit_width, input_is_signed)  # T / s
         g = torch.clamp_max(g / s, T)
         value = d_w / g  # calculating final pre-clipping scaling factor
+        # re-apply clamp_min_ste from restrict_scaling_impl to the specified pre_scaling_min_val
+        value = self.restrict_clamp_scaling.clamp_min_ste(value)
         return value
