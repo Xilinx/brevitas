@@ -19,24 +19,24 @@ SEED = 123456
 desc = """Evaluating single-image super resolution models on the BSD300 dataset.
 
 Example:
->> python eval_model.py --data-dir=data --model-path=outputs/model.pth --model=quant_espcn_w8a8 --upscale-factor=2
+>> python eval_model.py --data_root=data --model-path=outputs/model.pth --model=quant_espcn_x2_w8a8_base --upscale-factor=2
 """
 
 parser = argparse.ArgumentParser(description='PyTorch BSD300 Validation')
-parser.add_argument('--data-dir', help='Path to folder containing BSD300 val folder')
-parser.add_argument('--model-path', help='Path to PyTorch checkpoint')
+parser.add_argument('--data_root', help='Path to folder containing BSD300 val folder')
+parser.add_argument('--model_path', help='Path to PyTorch checkpoint')
 parser.add_argument(
-    '--save-path', type=str, default='outputs/', help='Save path for exported model')
+    '--save_path', type=str, default='outputs/', help='Save path for exported model')
 parser.add_argument(
-    '--model', type=str, default='quant_espcn_w8a8', help='Name of the model configuration')
+    '--model', type=str, default='quant_espcn_x2_w8a8_base', help='Name of the model configuration')
 parser.add_argument('--workers', type=int, default=0, help='Number of data loading workers')
-parser.add_argument('--batch-size', type=int, default=16, help='Minibatch size')
-parser.add_argument('--upscale-factor', type=int, default=3, help='Upscaling factor')
-parser.add_argument('--eval-acc-bw', action='store_true', default=False)
-parser.add_argument('--save-model-io', action='store_true', default=False)
-parser.add_argument('--export-to-qonnx', action='store_true', default=False)
-parser.add_argument('--export-to-qcdq-onnx', action='store_true', default=False)
-parser.add_argument('--export-to-qcdq-torch', action='store_true', default=False)
+parser.add_argument('--batch_size', type=int, default=16, help='Minibatch size')
+parser.add_argument('--upscale_factor', type=int, default=3, help='Upscaling factor')
+parser.add_argument('--eval_acc_bw', action='store_true', default=False)
+parser.add_argument('--save_model_io', action='store_true', default=False)
+parser.add_argument('--export_to_qonnx', action='store_true', default=False)
+parser.add_argument('--export_to_qcdq_onnx', action='store_true', default=False)
+parser.add_argument('--export_to_qcdq_torch', action='store_true', default=False)
 
 
 def main():
@@ -45,7 +45,7 @@ def main():
     torch.manual_seed(SEED)
 
     # initialize model, dataset, and training environment
-    model = get_model_by_name(args.model, args.upscale_factor)
+    model = get_model_by_name(args.model)
     model.load_state_dict(torch.load(args.model_path, map_location='cpu'))
     model = model.to(device)
     _, testloader = get_bsd300_dataloaders(
@@ -57,7 +57,7 @@ def main():
         download=True)
 
     test_psnr = validate(testloader, model, args)
-    print(f"[{args.model}_x{args.upscale_factor}] test_psnr={test_psnr:.2f}")
+    print(f"[{args.model}] test_psnr={test_psnr:.2f}")
 
     # evaluate accumulator bit widths
     if args.eval_acc_bw:
