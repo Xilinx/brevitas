@@ -6,6 +6,7 @@ import json
 import os
 import pprint
 import random
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -25,7 +26,7 @@ SEED = 123456
 desc = """Training single-image super resolution models on the BSD300 dataset.
 
 Example:
->> python train_model.py --data-dir=data/ --model=quant_espcn_finn_a2q_w4a4_14b
+>> python train_model.py --data_root=data/ --model=quant_espcn_x2_w8a8_a2q_16b
 """
 
 parser = argparse.ArgumentParser(description='PyTorch BSD300 Validation')
@@ -33,7 +34,7 @@ parser.add_argument('--data_root', help='Path to folder containing BSD300 val fo
 parser.add_argument(
     '--save_path', type=str, default='outputs/', help='Save path for exported model')
 parser.add_argument(
-    '--model', type=str, default='quant_espcn_w8a8', help='Name of the model configuration')
+    '--model', type=str, default='quant_espcn_x2_w8a8_a2q_16b', help='Name of the model configuration')
 parser.add_argument('--workers', type=int, default=0, help='Number of data loading workers')
 parser.add_argument('--batch_size', type=int, default=16, help='Minibatch size')
 parser.add_argument('--learning_rate', type=float, default=1e-3, help='Learning rate')
@@ -66,6 +67,7 @@ def filter_params(named_params, decay):
 def main():
     args = parser.parse_args()
     random.seed(SEED)
+    np.random.seed(SEED)
     torch.manual_seed(SEED)
 
     # initialize model, dataset, and training environment
@@ -95,12 +97,12 @@ def main():
     # save checkpoint
     os.makedirs(args.save_path, exist_ok=True)
     if args.save_pth_ckpt:
-        ckpt_path = f"{args.save_path}/{args.model}_x{args.upscale_factor}.pth"
+        ckpt_path = f"{args.save_path}/{args.model}.pth"
         torch.save(model.state_dict(), ckpt_path)
         with open(ckpt_path, "rb") as _file:
             bytes = _file.read()
             model_tag = sha256(bytes).hexdigest()[:8]
-        new_ckpt_path = f"{args.save_path}/{args.model}_x{args.upscale_factor}-{model_tag}.pth"
+        new_ckpt_path = f"{args.save_path}/{args.model}-{model_tag}.pth"
         os.rename(ckpt_path, new_ckpt_path)
         print(f"Saved model checkpoint to {new_ckpt_path}")
 
