@@ -24,6 +24,11 @@ class CommonIntWeightPerChannelQuant(Int8WeightPerTensorFloat):
     scaling_per_output_channel = True
 
 
+class CommonIntAccumulatorAwareWeightQuant(Int8AccumulatorAwareWeightQuant):
+    pre_scaling_min_val = 1e-8
+    scaling_min_val = 1e-8
+
+
 class CommonIntActQuant(Int8ActPerTensorFloat):
     """
     Common signed act quantizer with bit-width set to None so that it's forced to be specified by
