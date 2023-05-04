@@ -6,6 +6,7 @@ import json
 import pprint
 import random
 import torch
+import numpy as np
 
 from brevitas_examples.super_resolution.models import get_model_by_name
 from brevitas_examples.super_resolution.utils import device
@@ -14,7 +15,11 @@ from brevitas_examples.super_resolution.utils import export
 from brevitas_examples.super_resolution.utils import get_bsd300_dataloaders
 from brevitas_examples.super_resolution.utils import validate
 
-SEED = 123456
+random_seed = 123456
+
+random.seed(random_seed)
+np.random.seed(random_seed)
+torch.manual_seed(random_seed)
 
 desc = """Evaluating single-image super resolution models on the BSD300 dataset.
 
@@ -41,15 +46,13 @@ parser.add_argument('--export_to_qcdq_torch', action='store_true', default=False
 
 def main():
     args = parser.parse_args()
-    random.seed(SEED)
-    torch.manual_seed(SEED)
 
     # initialize model, dataset, and training environment
     model = get_model_by_name(args.model)
     model.load_state_dict(torch.load(args.model_path, map_location='cpu'))
     model = model.to(device)
     _, testloader = get_bsd300_dataloaders(
-        args.data_dir,
+        args.data_root,
         num_workers=args.workers,
         batch_size=args.batch_size,
         batch_size_test=1,
@@ -61,8 +64,9 @@ def main():
 
     # evaluate accumulator bit widths
     if args.eval_acc_bw:
+        inp = testloader.dataset[0][0].unsqueeze(0).to(device)
         stats_dict = {
-            'acc_bit_widths': evaluate_accumulator_bit_widths(model),
+            'acc_bit_widths': evaluate_accumulator_bit_widths(model, inp),
             'test_psnr': test_psnr}
         with open(f"{args.save_path}/stats.json", "w") as outfile:
             json.dump(stats_dict, outfile, indent=4)
