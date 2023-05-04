@@ -8,6 +8,7 @@ import brevitas.nn as qnn
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.nn.utils import calculate_min_accumulator_bit_width
 
+from brevitas_examples.super_resolution.models.espcn import QuantESPCN 
 
 def _calc_min_acc_bit_width(module: QuantWBIOL) -> Tensor:
     # bit-width and sign need to come from the quant tensor of the preceding layer if no io_quant
@@ -28,6 +29,10 @@ def _calc_min_acc_bit_width(module: QuantWBIOL) -> Tensor:
 
 
 def evaluate_accumulator_bit_widths(model: nn.Module):
+    if isinstance(model, QuantESPCN):
+        # Need to cache the quantized input to the final convolution to be able to evaluate the
+        # accumulator bounds since we need the input bit-width, which is specified at runtime.
+        model.conv4.conv.cache_inference_quant_inp = True
     stats = dict()
     for name, module in model.named_modules():
         # ESPCN only has quantized conv2d nodes. Will check for more layer types
