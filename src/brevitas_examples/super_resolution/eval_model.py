@@ -36,7 +36,6 @@ parser.add_argument(
     '--model', type=str, default='quant_espcn_x2_w8a8_base', help='Name of the model configuration')
 parser.add_argument('--workers', type=int, default=0, help='Number of data loading workers')
 parser.add_argument('--batch_size', type=int, default=16, help='Minibatch size')
-parser.add_argument('--upscale_factor', type=int, default=3, help='Upscaling factor')
 parser.add_argument('--eval_acc_bw', action='store_true', default=False)
 parser.add_argument('--save_model_io', action='store_true', default=False)
 parser.add_argument('--export_to_qonnx', action='store_true', default=False)
@@ -56,7 +55,7 @@ def main():
         num_workers=args.workers,
         batch_size=args.batch_size,
         batch_size_test=1,
-        upscale_factor=args.upscale_factor,
+        upscale_factor=model.upscale_factor,
         download=True)
 
     test_psnr = validate(testloader, model, args)

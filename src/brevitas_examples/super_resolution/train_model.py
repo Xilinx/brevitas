@@ -40,9 +40,8 @@ parser.add_argument(
 parser.add_argument(
     '--model', type=str, default='quant_espcn_x2_w8a8_a2q_16b', help='Name of the model configuration')
 parser.add_argument('--workers', type=int, default=0, help='Number of data loading workers')
-parser.add_argument('--batch_size', type=int, default=16, help='Minibatch size')
+parser.add_argument('--batch_size', type=int, default=8, help='Minibatch size')
 parser.add_argument('--learning_rate', type=float, default=1e-3, help='Learning rate')
-parser.add_argument('--upscale_factor', type=int, default=3, help='Upscaling factor')
 parser.add_argument('--total_epochs', type=int, default=100, help='Total number of training epochs')
 parser.add_argument('--weight_decay', type=float, default=1e-4, help='Weight decay')
 parser.add_argument('--step_size', type=int, default=1)
@@ -74,14 +73,12 @@ def main():
     # initialize model, dataset, and training environment
     model = get_model_by_name(args.model)
     model = model.to(device)
-    assert model.upscale_factor == args.upscale_factor, \
-        "Mismatch between target upscale factor and specified model"
     trainloader, testloader = get_bsd300_dataloaders(
         args.data_root,
         num_workers=args.workers,
         batch_size=args.batch_size,
         batch_size_test=1,
-        upscale_factor=args.upscale_factor,
+        upscale_factor=model.upscale_factor,
         download=True)
     criterion = nn.MSELoss()
     optimizer = optim.Adam(
