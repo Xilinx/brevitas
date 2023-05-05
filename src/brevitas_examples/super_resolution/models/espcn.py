@@ -8,12 +8,13 @@ import torch.nn as nn
 import brevitas.nn as qnn
 from brevitas.nn.quant_layer import WeightQuantType
 
+from .common import CommonIntAccumulatorAwareWeightQuant
 from .common import CommonIntWeightPerChannelQuant
 from .common import CommonUintActQuant
-from .common import CommonIntAccumulatorAwareWeightQuant
 from .common import QuantNearestNeighborConvolution
 
-__all__ = ["float_espcn", "quant_espcn", "quant_espcn_a2q", "quant_espcn_base", "FloatESPCN", "QuantESPCN"]
+__all__ = [
+    "float_espcn", "quant_espcn", "quant_espcn_a2q", "quant_espcn_base", "FloatESPCN", "QuantESPCN"]
 
 IO_BIT_WIDTH = 8
 
@@ -29,10 +30,8 @@ class FloatESPCN(nn.Module):
     """Floating-point version of FINN-Friendly Quantized Efficient Sub-Pixel Convolution
     Network (ESPCN) as used in Colbert et al. (2023) - `Quantized Neural Networks for
     Low-Precision Accumulation with Guaranteed Overflow Avoidance`."""
-    def __init__(
-            self,
-            upscale_factor: int = 3,
-            num_channels: int = 1):
+
+    def __init__(self, upscale_factor: int = 3, num_channels: int = 1):
         super(FloatESPCN, self).__init__()
         self.upscale_factor = upscale_factor
 
@@ -44,23 +43,11 @@ class FloatESPCN(nn.Module):
             padding=2,
             bias=True)
         self.conv2 = nn.Conv2d(
-            in_channels=64,
-            out_channels=64,
-            kernel_size=3,
-            stride=1,
-            padding=1,
-            bias=True)
+            in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=1, bias=True)
         self.conv3 = nn.Conv2d(
-            in_channels=64,
-            out_channels=32,
-            kernel_size=3,
-            stride=1,
-            padding=1,
-            bias=True)
+            in_channels=64, out_channels=32, kernel_size=3, stride=1, padding=1, bias=True)
         self.conv4 = nn.Sequential()
-        self.conv4.add_module(
-            "interp",
-            nn.UpsamplingNearest2d(scale_factor=upscale_factor))
+        self.conv4.add_module("interp", nn.UpsamplingNearest2d(scale_factor=upscale_factor))
         self.conv4.add_module(
             "conv",
             nn.Conv2d(
@@ -69,15 +56,14 @@ class FloatESPCN(nn.Module):
                 kernel_size=3,
                 stride=1,
                 padding=1,
-                bias=True)
-        )
+                bias=True))
 
         self.bn1 = nn.BatchNorm2d(64)
         self.bn2 = nn.BatchNorm2d(64)
         self.bn3 = nn.BatchNorm2d(32)
 
         self.relu = nn.ReLU(inplace=True)
-        self.out = nn.ReLU(inplace=True) # To mirror quant version
+        self.out = nn.ReLU(inplace=True)  # To mirror quant version
 
         # Initialize weights
         self.apply(weight_init)
@@ -95,6 +81,7 @@ class QuantESPCN(FloatESPCN):
     """FINN-Friendly Quantized Efficient Sub-Pixel Convolution Network (ESPCN) as
     used in Colbert et al. (2023) - `Quantized Neural Networks for Low-Precision
     Accumulation with Guaranteed Overflow Avoidance`."""
+
     def __init__(
             self,
             upscale_factor: int = 3,
@@ -196,7 +183,8 @@ def quant_espcn(
         weight_quant=weight_quant)
 
 
-def quant_espcn_a2q(upscale_factor: int, weight_bit_width: int, act_bit_width: int, acc_bit_width: int):
+def quant_espcn_a2q(
+        upscale_factor: int, weight_bit_width: int, act_bit_width: int, acc_bit_width: int):
     """Integer-quantized FINN-friendly ESPCN model for BSD300 using
     the accumulator-aware weight quantizer"""
     return QuantESPCN(

@@ -5,8 +5,9 @@ import argparse
 import json
 import pprint
 import random
-import torch
+
 import numpy as np
+import torch
 
 from brevitas_examples.super_resolution.models import get_model_by_name
 from brevitas_examples.super_resolution.utils import device
@@ -65,8 +66,7 @@ def main():
     if args.eval_acc_bw:
         inp = testloader.dataset[0][0].unsqueeze(0).to(device)
         stats_dict = {
-            'acc_bit_widths': evaluate_accumulator_bit_widths(model, inp),
-            'test_psnr': test_psnr}
+            'acc_bit_widths': evaluate_accumulator_bit_widths(model, inp), 'test_psnr': test_psnr}
         with open(f"{args.save_path}/stats.json", "w") as outfile:
             json.dump(stats_dict, outfile, indent=4)
         pretty_stats_dict = pprint.pformat(stats_dict, sort_dicts=False)

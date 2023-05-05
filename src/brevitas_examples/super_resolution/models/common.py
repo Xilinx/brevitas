@@ -49,6 +49,7 @@ class CommonUintActQuant(Uint8ActPerTensorFloat):
 
 class QuantNearestNeighborConvolution(nn.Module):
     """Quantized nearest neighbor resize convolution"""
+
     def __init__(
             self,
             in_channels: int,
