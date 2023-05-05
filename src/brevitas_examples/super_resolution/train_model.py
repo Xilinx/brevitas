@@ -2,16 +2,17 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import argparse
+from hashlib import sha256
 import json
 import os
 import pprint
 import random
+
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.optim.lr_scheduler as lrs
-from hashlib import sha256
 
 from brevitas_examples.super_resolution.models import get_model_by_name
 from brevitas_examples.super_resolution.utils import device
@@ -38,7 +39,10 @@ parser.add_argument('--data_root', help='Path to folder containing BSD300 val fo
 parser.add_argument(
     '--save_path', type=str, default='outputs/', help='Save path for exported model')
 parser.add_argument(
-    '--model', type=str, default='quant_espcn_x2_w8a8_a2q_16b', help='Name of the model configuration')
+    '--model',
+    type=str,
+    default='quant_espcn_x2_w8a8_a2q_16b',
+    help='Name of the model configuration')
 parser.add_argument('--workers', type=int, default=0, help='Number of data loading workers')
 parser.add_argument('--batch_size', type=int, default=8, help='Minibatch size')
 parser.add_argument('--learning_rate', type=float, default=1e-3, help='Learning rate')
@@ -58,13 +62,13 @@ def filter_params(named_params, decay):
     decay_params, no_decay_params = [], []
     for name, param in named_params:
         # Do not apply weight decay to the bias or any scaling parameters
-        if 'scaling' in name or name.endswith(".bias"): 
+        if 'scaling' in name or name.endswith(".bias"):
             no_decay_params.append(param)
-        else: 
+        else:
             decay_params.append(param)
-    return [
-        {'params': no_decay_params, 'weight_decay': 0.},
-        {'params': decay_params, 'weight_decay': decay}]
+    return [{
+        'params': no_decay_params, 'weight_decay': 0.}, {
+            'params': decay_params, 'weight_decay': decay}]
 
 
 def main():
@@ -120,6 +124,7 @@ def main():
 
     # save and export model
     export(model, testloader, args)
+
 
 if __name__ == '__main__':
     main()
