@@ -5,6 +5,7 @@ import math
 import warnings
 
 import torch
+from torch.linalg import LinAlgError
 import torch.nn as nn
 
 from brevitas.graph.calibrate import DisableEnableQuantization
@@ -47,27 +48,27 @@ class gptq_mode():
             return False
 
     def __enter__(self):
-        if self.use_quant_activations:
-            self.disable_quant_inference.disable_act_quantization(
-                self.model, is_training=self.model.training)
-            self.disable_quant_inference.disable_bias_quantization(
-                self.model, is_training=self.model.training)
         for name, module in self.model.named_modules():
             if len(module._forward_hooks) > 0 or len(module._forward_pre_hooks):
                 warnings.warn(
                     f'Hooks detected during setup for GPTQ. '
                     f'Behaviour might deviate from what expected.')
             if self._is_module_supported(module):
-                gptq = GPTQ(module)
-                hook_fn = partial(gptq.update_batch, name=name, current_layer=self.current_layer)
+                gptq = GPTQ(module, name)
+                hook_fn = partial(gptq.update_batch, current_layer=self.current_layer)
                 self.hook_dict[name] = module.register_forward_hook(hook_fn)
                 self.gptq_layers[name] = gptq
+        if not self.use_quant_activations:
+            self.disable_quant_inference.disable_act_quantization(
+                self.model, is_training=self.model.training)
+            self.disable_quant_inference.disable_bias_quantization(
+                self.model, is_training=self.model.training)
         self.num_layers = len(self.gptq_layers)
         return self
 
     def __exit__(self, type, value, traceback):
         self.model.forward = self.orig_forward
-        if self.use_quant_activations:
+        if not self.use_quant_activations:
             self.disable_quant_inference.enable_act_quantization(
                 self.model, is_training=self.model.training)
             self.disable_quant_inference.enable_bias_quantization(
@@ -87,8 +88,9 @@ class gptq_mode():
 
 class GPTQ():
 
-    def __init__(self, layer) -> None:
+    def __init__(self, layer, name) -> None:
         self.layer = layer
+        self.name = name
         self.dev = self.layer.weight.device
         W = layer.weight.data
         self.groups = 1
@@ -100,11 +102,11 @@ class GPTQ():
         self.H = torch.zeros((self.groups, self.columns, self.columns), device=self.dev)
         self.nsamples = 0
 
-    def update_batch(self, module, input, out, name, current_layer):
+    def update_batch(self, module, input, out, current_layer):
         inp = input[0]
         if isinstance(inp, QuantTensor):
             inp = inp.value
-        current_layer.layer_name = name
+        current_layer.layer_name = self.name
         if len(inp.shape) == 2:
             inp = inp.unsqueeze(0)
         batch_size = inp.shape[0]
@@ -146,17 +148,26 @@ class GPTQ():
 
         H = self.H
         del self.H
-        for i in range(self.groups):
-            dead = torch.diag(H[i, :, :]) == 0
-            H[i, dead, dead] = 1
-            W[i, dead] = 0
-            damp = percdamp * torch.mean(torch.diag(H[i, :, :]))
-            diag = torch.arange(self.columns, device=self.dev)
-            H[i, diag, diag] += damp
-            H[i, :, :] = torch.linalg.cholesky(H[i, :, :])
-            H[i, :, :] = torch.cholesky_inverse(H[i, :, :])
-            H[i, :, :] = torch.linalg.cholesky(H[i, :, :], upper=True)
-        Hinv = H
+
+        # Try/Except in case the inverse Hessian cannot be computed
+        try:
+            for i in range(self.groups):
+                dead = torch.diag(H[i, :, :]) == 0
+                H[i, dead, dead] = 1
+                W[i, dead] = 0
+                damp = percdamp * torch.mean(torch.diag(H[i, :, :]))
+                diag = torch.arange(self.columns, device=self.dev)
+                H[i, diag, diag] += damp
+                H[i, :, :] = torch.linalg.cholesky(H[i, :, :])
+                H[i, :, :] = torch.cholesky_inverse(H[i, :, :])
+                H[i, :, :] = torch.linalg.cholesky(H[i, :, :], upper=True)
+            Hinv = H
+        except LinAlgError as e:
+            warnings.warn(
+                f'Failed to compute the inverse of the Hessian for layer {self.name} '
+                f'GPTQ will not be applied. '
+                f'Increasing the number of samples might fix this issue')
+            return
 
         for i1 in range(0, self.columns, blocksize):
             i2 = min(i1 + blocksize, self.columns)
@@ -246,7 +257,7 @@ def main():
     calib_dataset = generate_dataset('/scratch/datasets/imagenet_symlink/calibration')
     calib_dataset = torch.utils.data.Subset(calib_dataset, list(range(1000)))
     calib_loader = torch.utils.data.DataLoader(
-        calib_dataset, batch_size=8, num_workers=10, pin_memory=True, shuffle=False)
+        calib_dataset, batch_size=64, num_workers=10, pin_memory=True, shuffle=False)
     model_no_gptq.cuda()
     model_no_gptq.eval()
     model.cuda()
@@ -272,11 +283,11 @@ def main():
                     model(img)
                 gptq.update()
         with calibration_mode(model):
-            for img, t in calib_loader:
+            for img, t in tqdm(calib_loader):
                 img = img.cuda()
                 model(img)
         with bias_correction_mode(model):
-            for img, t in calib_loader:
+            for img, t in tqdm(calib_loader):
                 img = img.cuda()
                 model(img)
     print("Evaluation of PTQ model with GPTQ")
