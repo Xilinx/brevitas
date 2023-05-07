@@ -171,7 +171,7 @@ def quant_espcn(
         num_channels: int = 1,
         weight_bit_width: int = 8,
         act_bit_width: int = 8,
-        acc_bit_width: int = 8,
+        acc_bit_width: int = 32,
         weight_quant: WeightQuantType = CommonIntWeightPerChannelQuant) -> QuantESPCN:
     """ """
     return QuantESPCN(
