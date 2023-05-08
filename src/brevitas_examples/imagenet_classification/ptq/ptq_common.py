@@ -1,6 +1,8 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from copy import deepcopy
+
 import torch
 import torch.backends.cudnn as cudnn
 from tqdm import tqdm
@@ -59,9 +61,9 @@ def quantize_model(
     act_quant_asym = None
     if act_quant_type == 'asymmetric':
         act_quant_asym = ASYMMETRIC_ACT_QUANT_MAP[backend]
-
+    maps = [deepcopy(quant_map) for quant_map in LAYER_MAP[backend]]
     maps = update_quant_maps(
-        LAYER_MAP[backend],
+        maps,
         scale_factor_type=scale_factor_type,
         bias_bit_width=bias_bit_width,
         scaling_per_output_channel=scaling_per_output_channel,

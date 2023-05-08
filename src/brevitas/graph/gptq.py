@@ -113,24 +113,24 @@ class GPTQ():
         if isinstance(self.layer, nn.Linear):
             if len(inp.shape) == 3:
                 inp = inp.reshape((-1, inp.shape[-1]))
-            inps = inp.t().unsqueeze(0)
+            inp_by_group = inp.t().unsqueeze(0)
         if isinstance(self.layer, nn.Conv2d):
             unfold = nn.Unfold(
                 self.layer.kernel_size,
                 dilation=self.layer.dilation,
                 padding=self.layer.padding,
                 stride=self.layer.stride)
-            inps = list(torch.chunk(inp, self.groups, 1))
-            for i, inp in enumerate(inps):
+            inp_by_group = list(torch.chunk(inp, self.groups, 1))
+            for i, inp in enumerate(inp_by_group):
                 inp = unfold(inp)
                 inp = inp.permute([1, 0, 2])
                 inp = inp.flatten(1)
-                inps[i] = inp
-            inps = torch.stack(inps)
+                inp_by_group[i] = inp
+            inp_by_group = torch.stack(inp_by_group)
         self.H *= self.nsamples / (self.nsamples + batch_size)
         self.nsamples += batch_size
-        inp = math.sqrt(2 / self.nsamples) * inp.float()
-        self.H += inps.bmm(inps.transpose(2, 1))
+        inp_by_group = math.sqrt(2 / self.nsamples) * inp_by_group.float()
+        self.H += inp_by_group.bmm(inp_by_group.transpose(2, 1))
         raise StopFwdException
 
     def fasterquant(self, percdamp=.01):
@@ -220,7 +220,7 @@ def main():
     import torchvision
     from torchvision import datasets
     from torchvision import transforms
-    # warnings.filterwarnings("ignore")
+    warnings.filterwarnings("ignore")
     from tqdm import tqdm
 
     from brevitas.graph.calibrate import bias_correction_mode

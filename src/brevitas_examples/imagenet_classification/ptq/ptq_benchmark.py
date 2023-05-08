@@ -5,7 +5,6 @@ import argparse
 from itertools import product
 import random
 from types import SimpleNamespace
-import warnings
 
 import numpy as np
 import pandas as pd
@@ -43,8 +42,8 @@ OPTIONS = {
     'model_name': TORCHVISION_TOP1_MAP.keys(),
     'target_backend': ['generic', 'layerwise', 'flexml'],  # Target backend
     'scale_factor_type': ['po2', 'float32'],  # Scale factor type
-    'weight_bit_width': [8, 6, 4],  # Act and Weight Bit Width
-    'act_bit_width': [8],
+    'weight_bit_width': [8, 6, 4],  # Weight Bit Width
+    'act_bit_width': [8],  # Act bit width
     'bias_bit_width': ['int32', 'int16'],  # Bias Bit-Width for Po2 scale
     'scaling_per_output_channel': [False, True],  # Scaling Per Output Channel
     'act_quant_type': ['asymmetric', 'symmetric'],  # Act Quant Type
@@ -58,8 +57,8 @@ OPTIONS = {
 OPTIONS_DEFAULT = {
     'target_backend': ['generic'],  # Target backend
     'scale_factor_type': ['float32'],  # Scale factor type
-    'weight_bit_width': [8],  # Act and Weight Bit Width
-    'act_bit_width': [8],
+    'weight_bit_width': [8],  # Weight Bit Width
+    'act_bit_width': [8],  # Act bit width
     'bias_bit_width': ['int32'],  # Bias Bit-Width for Po2 scale
     'scaling_per_output_channel': [True],  # Scaling Per Output Channel
     'act_quant_type': ['symmetric'],  # Act Quant Type
@@ -72,9 +71,6 @@ OPTIONS_DEFAULT = {
 
 # Manually defined quantized model with original floating point accuracy
 IMGCLSMOB_TOP1_MAP = {'quant_mobilenet_v1': 73.390}
-
-# Ignore warnings about __torch_function__
-warnings.filterwarnings("ignore")
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet PTQ Validation')
 parser.add_argument(
