@@ -19,6 +19,7 @@ __all__ = [
 IO_DATA_BIT_WIDTH = 8
 IO_ACC_BIT_WIDTH = 32
 
+
 def weight_init(layer):
     if isinstance(layer, nn.Conv2d):
         nn.init.kaiming_normal_(layer.weight, nn.init.calculate_gain('relu'))
