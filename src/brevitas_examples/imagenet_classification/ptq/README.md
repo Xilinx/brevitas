@@ -34,6 +34,7 @@ Furthermore, Brevitas additional PTQ techniques can be enabled:
 - Bias correction[<sup>1 </sup>].
 - Graph equalization[<sup>1 </sup>].
 - If Graph equalization is enabled, the _merge\_bias_ technique can be enabled.[<sup>2 </sup>] [<sup>3 </sup>].
+- GPTQ [<sup>4 </sup>].
 
 
 Internally, when defining a quantized model programmatically, Brevitas leverages `torch.fx` and its `symbolic_trace` functionality, meaning that an input model is required to pass symbolic tracing for it to work.
@@ -147,6 +148,8 @@ optional arguments:
                         Enable Narrow range for weight quantization (default: enabled)
   --no-weight-narrow-range
                         Disable Narrow range for weight quantization (default: enabled)
+  --gptq                Enable GPTQ (default: enabled)
+  --no-gptq             Disable GPTQ (default: enabled)
 ```
 
 The script requires to specify the calibration folder (`--calibration-dir`), from which the calibration samples will be taken (configurable with the `--calibration-samples` argument), and a validation folder (`--validation-dir`).
@@ -174,4 +177,4 @@ and a `RESULTS_IMGCLSMOB.csv` with the results on manually quantized models star
 [<sup>1 </sup>]: https://arxiv.org/abs/1906.04721
 [<sup>2 </sup>]: https://github.com/Xilinx/Vitis-AI/blob/50da04ddae396d10a1545823aca30b3abb24a276/src/vai_quantizer/vai_q_pytorch/nndct_shared/optimization/commander.py#L450
 [<sup>3 </sup>]: https://github.com/openppl-public/ppq/blob/master/ppq/quantization/algorithm/equalization.py
-[<sup>4 </sup>]: https://github.com/osmr/imgclsmob
+[<sup>4 </sup>]: https://arxiv.org/abs/2210.17323

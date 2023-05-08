@@ -20,8 +20,8 @@ from brevitas import config
 from brevitas import torch_version
 from brevitas.graph.quantize import preprocess_for_quantize
 from brevitas.graph.target.flexml import preprocess_for_flexml_quantize
+from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_gptq
 from brevitas_examples.imagenet_classification.ptq.ptq_common import calibrate
-from brevitas_examples.imagenet_classification.ptq.ptq_common import gptq
 from brevitas_examples.imagenet_classification.ptq.ptq_common import quantize_model
 from brevitas_examples.imagenet_classification.ptq.utils import get_model_config
 from brevitas_examples.imagenet_classification.ptq.utils import get_quant_model
@@ -41,7 +41,7 @@ TORCHVISION_TOP1_MAP = {
 OPTIONS = {
     'model_name': TORCHVISION_TOP1_MAP.keys(),
     'target_backend': ['generic', 'layerwise', 'flexml'],  # Target backend
-    'scale_factor_type': ['po2', 'float32'],  # Scale factor type
+    'scale_factor_type': ['float32', 'po2'],  # Scale factor type
     'weight_bit_width': [8, 6, 4],  # Weight Bit Width
     'act_bit_width': [8],  # Act bit width
     'bias_bit_width': ['int32', 'int16'],  # Bias Bit-Width for Po2 scale
@@ -218,7 +218,7 @@ def ptq_torchvision_models(df, args):
 
         if config_namespace.enable_gptq:
             print("Performing gptq")
-            gptq(calib_loader, model)
+            apply_gptq(calib_loader, quant_model)
 
         # Calibrate the quant_model on the calibration dataloader
         print("Starting calibration")

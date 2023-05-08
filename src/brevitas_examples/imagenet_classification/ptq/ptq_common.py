@@ -190,7 +190,7 @@ def calibrate(calib_loader, model, bias_corr=True):
                     model(images)
 
 
-def gptq(calib_loader, model):
+def apply_gptq(calib_loader, model):
     model.eval()
     dtype = next(model.parameters()).dtype
     device = next(model.parameters()).device
