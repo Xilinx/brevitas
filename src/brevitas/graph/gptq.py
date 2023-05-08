@@ -22,7 +22,25 @@ class LayerHandler:
     layer_name: str = None
 
 
-class gptq_mode():
+class gptq_mode:
+    """
+    Apply GPTQ algorithm https://arxiv.org/abs/2210.17323.
+    Adapted from https://github.com/IST-DASLab/gptq.
+    Args:
+        model (Module): The model to quantize with GPTQ
+        inplace (bool): Wheter to apply GPTQ inplace or perform a deepcopy. Default: True
+        use_quant_activations (bool): Wheter to leave quantize activations enabled while performing
+            GPTQ. Default: False
+
+    Example:
+        >>> with torch.no_grad():
+        >>>     with gptq_mode(model) as gptq:
+        >>>         for i in tqdm(range(gptq.num_layers)):
+        >>>             for img, t in calib_loader:
+        >>>                 img = img.cuda()
+        >>>                 model(img)
+        >>>             gptq.update()
+    """
 
     def __init__(self, model, inplace=True, use_quant_activations=False) -> None:
         if not inplace:
@@ -212,87 +230,3 @@ class GPTQ():
         self.H = None
         self.Losses = None
         self.Trace = None
-
-
-def main():
-    import warnings
-
-    import torchvision
-    from torchvision import datasets
-    from torchvision import transforms
-    warnings.filterwarnings("ignore")
-    from tqdm import tqdm
-
-    from brevitas.graph.calibrate import bias_correction_mode
-    from brevitas.graph.calibrate import calibration_mode
-    from brevitas.graph.quantize import preprocess_for_quantize
-    from brevitas.graph.quantize import quantize
-    from brevitas_examples.imagenet_classification.utils import validate
-    MEAN = [0.485, 0.456, 0.406]
-    STD = [0.229, 0.224, 0.225]
-
-    model = torchvision.models.resnet18(pretrained=True)
-    model.eval()
-    model = preprocess_for_quantize(model, equalize_iters=20)
-    model = quantize(model)
-    model_no_gptq = deepcopy(model)
-
-    def generate_dataset(dir, resize_shape=256, center_crop_shape=224):
-        normalize = transforms.Normalize(mean=MEAN, std=STD)
-
-        dataset = datasets.ImageFolder(
-            dir,
-            transforms.Compose([
-                transforms.Resize(resize_shape),
-                transforms.CenterCrop(center_crop_shape),
-                transforms.ToTensor(),
-                normalize]))
-        return dataset
-
-    valid_dataset = generate_dataset('/scratch/datasets/imagenet_symlink/val')
-    valid_loader = tqdm(
-        torch.utils.data.DataLoader(
-            valid_dataset, batch_size=256, num_workers=10, pin_memory=True, shuffle=False))
-
-    calib_dataset = generate_dataset('/scratch/datasets/imagenet_symlink/calibration')
-    calib_dataset = torch.utils.data.Subset(calib_dataset, list(range(1000)))
-    calib_loader = torch.utils.data.DataLoader(
-        calib_dataset, batch_size=64, num_workers=10, pin_memory=True, shuffle=False)
-    model_no_gptq.cuda()
-    model_no_gptq.eval()
-    model.cuda()
-    model.eval()
-
-    with torch.no_grad():
-        with calibration_mode(model_no_gptq):
-            for img, t in calib_loader:
-                img = img.cuda()
-                model_no_gptq(img)
-        with bias_correction_mode(model_no_gptq):
-            for img, t in calib_loader:
-                img = img.cuda()
-                model_no_gptq(img)
-    print("Evaluation of PTQ model without GPTQ")
-    validate(valid_loader, model_no_gptq)
-
-    with torch.no_grad():
-        with gptq_mode(model) as gptq:
-            for i in tqdm(range(gptq.num_layers)):
-                for img, t in calib_loader:
-                    img = img.cuda()
-                    model(img)
-                gptq.update()
-        with calibration_mode(model):
-            for img, t in tqdm(calib_loader):
-                img = img.cuda()
-                model(img)
-        with bias_correction_mode(model):
-            for img, t in tqdm(calib_loader):
-                img = img.cuda()
-                model(img)
-    print("Evaluation of PTQ model with GPTQ")
-    validate(valid_loader, model)
-
-
-if __name__ == '__main__':
-    main()
