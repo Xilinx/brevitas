@@ -3,6 +3,8 @@
 
 from collections import namedtuple
 from copy import deepcopy
+from dataclasses import dataclass
+from dataclasses import field
 from functools import partial
 import operator
 from typing import Callable, Dict, List, Optional, Set, Tuple, Union
@@ -21,6 +23,8 @@ __all__ = ['EqualizeGraph']
 EPSILON = 1e-9
 
 Region = namedtuple('Region', ['srcs', 'sinks'])
+
+WeightBiasTuple = namedtuple('WeightBiasTuple', ['weight', 'bias'], defaults=[None])
 
 _supported_layers = (
     nn.ConvTranspose1d,
@@ -61,7 +65,12 @@ _residual_fns = (torch.add, operator.add, operator.iadd, operator.__add__, opera
 
 _batch_norm = (nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d)
 
-WeightBiasTuple = namedtuple('WeightBiasTuple', ['weight', 'bias'], defaults=[None])
+
+@dataclass
+class WalkRegionState:
+    srcs: set = field(default_factory=set)
+    sinks: set = field(default_factory=set)
+    history: set = field(default_factory=set)
 
 
 def _select_scale_computation_fn(
@@ -356,26 +365,25 @@ def find_srcs(graph_model: GraphModule, starting_node: Node, state) -> Dict[str,
         # we keep a history of how the graph has been walked already, invariant to the direction,
         # to avoid getting stuck in a loop
         path = (node, starting_node)
-        if path not in state['history']:
-            state['history'].add(path)
+        if path not in state.history:
+            state.history.add(path)
         else:
             continue
         if _is_supported_module(graph_model, node):
-            state['srcs'].add(node.target)
+            state.srcs.add(node.target)
             # After we found a source, we need to check if it branches into multiple sinks
-            state = find_sinks(graph_model, node, state)
+            find_sinks(graph_model, node, state)
         elif _is_scale_invariant_module(
                 graph_model, node) or _is_scale_invariant_function(node) or _is_reshaping_op(node):
-            state = find_srcs(graph_model, node, state)
-            state = find_sinks(graph_model, node, state)
+            find_srcs(graph_model, node, state)
+            find_sinks(graph_model, node, state)
         elif (node.op == 'call_method' and node.target in _residual_methods or
               node.op == 'call_function' and node.target in _residual_fns):
-            state = find_srcs(graph_model, node, state)
-            state = find_sinks(graph_model, node, state)
+            find_srcs(graph_model, node, state)
+            find_sinks(graph_model, node, state)
         else:
             # If we meet an unrecognized op, we add None to invalidate the region
-            state['srcs'].add(None)
-    return state
+            state.srcs.add(None)
 
 
 def find_sinks(graph_model: GraphModule, starting_node: Node, state) -> Dict[str, Set]:
@@ -385,41 +393,37 @@ def find_sinks(graph_model: GraphModule, starting_node: Node, state) -> Dict[str
         # to avoid getting stuck in a loop
         # Note that the path is inverted with respect to find_srcs
         path = (starting_node, node)
-        if path not in state['history']:
-            state['history'].add(path)
+        if path not in state.history:
+            state.history.add(path)
         else:
             continue
         if _is_supported_module(graph_model, node):
             module = get_module(graph_model, node.target)
             # It is not possible to equalize through LayerNorm as sink
             if not isinstance(module, nn.LayerNorm):
-                state['sinks'].add(node.target)
+                state.sinks.add(node.target)
         elif _is_scale_invariant_module(
                 graph_model, node) or _is_scale_invariant_function(node) or _is_reshaping_op(node):
-            state = find_sinks(graph_model, node, state)
+            find_sinks(graph_model, node, state)
         elif (node.op == 'call_method' and node.target in _residual_methods or
               node.op == 'call_function' and node.target in _residual_fns):
-            state = find_sinks(graph_model, node, state)
-            state = find_srcs(graph_model, node, state)
+            find_sinks(graph_model, node, state)
+            find_srcs(graph_model, node, state)
         else:
             # If we meet an unrecognized op, we add None to invalidate the region
-            state['sinks'].add(None)
-    return state
+            state.sinks.add(None)
 
 
 def _extract_regions(graph_model: GraphModule) -> Set[Tuple[str]]:
     regions = set()
     for node in graph_model.graph.nodes:
         if _is_supported_module(graph_model, node):
-            state = dict()
-            state['srcs'] = {node.target}
-            state['sinks'] = set()
-            state['history'] = set()
-            state = find_sinks(graph_model, node, state)
-            if state['sinks'] and None not in state['sinks'] and None not in state['srcs']:
+            state = WalkRegionState(srcs={node.target})
+            find_sinks(graph_model, node, state)
+            if state.sinks and None not in state.sinks and None not in state.srcs:
                 # each region should appear only once, so to make it hashable
                 # we convert srcs and sinks to ordered lists first, and then to tuples
-                regions.add(Region(tuple(sorted(state['srcs'])), tuple(sorted(state['sinks']))))
+                regions.add(Region(tuple(sorted(state.srcs)), tuple(sorted(state.sinks))))
     return regions
 
 
