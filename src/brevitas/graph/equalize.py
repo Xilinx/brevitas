@@ -359,7 +359,8 @@ def _is_reshaping_op(node: Node) -> bool:
         node.op == 'call_method' and node.target in ['view', 'reshape', 'flatten'])
 
 
-def find_srcs(graph_model: GraphModule, starting_node: Node, state) -> Dict[str, Set]:
+def find_srcs(graph_model: GraphModule, starting_node: Node,
+              state: WalkRegionState) -> Dict[str, Set]:
     node_list = starting_node.all_input_nodes
     for node in node_list:
         # we keep a history of how the graph has been walked already, invariant to the direction,
@@ -386,7 +387,8 @@ def find_srcs(graph_model: GraphModule, starting_node: Node, state) -> Dict[str,
             state.srcs.add(None)
 
 
-def find_sinks(graph_model: GraphModule, starting_node: Node, state) -> Dict[str, Set]:
+def find_sinks(graph_model: GraphModule, starting_node: Node,
+               state: WalkRegionState) -> Dict[str, Set]:
     node_list = starting_node.users
     for node in node_list:
         # we keep a history of how the graph has been walked already, invariant to the direction,
