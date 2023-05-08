@@ -15,6 +15,7 @@ from brevitas.graph import FnToModule
 from brevitas.graph import MeanMethodToAdaptiveAvgPool2d
 from brevitas.graph import MergeBatchNorm
 from brevitas.graph import MethodToModule
+from brevitas.graph.base import ModuleToModuleByInstance
 
 SEED = 123456
 INPUT_SIZE = (1, 3, 224, 224)
@@ -186,3 +187,22 @@ def test_rewriter_mean_to_module():
     attr_check = getattr(graph_model, 'mean_1', None) or getattr(graph_model, 'mean', None)
     assert isinstance(attr_check, nn.AdaptiveAvgPool2d)
     assert (model(inp) == graph_model(inp)).all().item()
+
+
+def test_lambda_kwargs():
+
+    class TestModel(nn.Module):
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.conv = nn.Conv2d(3, 16, kernel_size=3)
+
+        def forward(self, x):
+            return self.conv(x)
+
+    model = TestModel()
+    assert model.conv.stride == (1, 1)
+
+    kwargs = {'stride': lambda module: 2 if module.in_channels == 3 else 1}
+    model = ModuleToModuleByInstance(model.conv, nn.Conv2d, **kwargs).apply(model)
+    assert model.conv.stride == (2, 2)
