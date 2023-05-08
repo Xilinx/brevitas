@@ -17,10 +17,10 @@ import torch.optim.lr_scheduler as lrs
 from brevitas_examples.super_resolution.models import get_model_by_name
 from brevitas_examples.super_resolution.utils import device
 from brevitas_examples.super_resolution.utils import evaluate_accumulator_bit_widths
+from brevitas_examples.super_resolution.utils import evaluate_avg_psnr
 from brevitas_examples.super_resolution.utils import export
 from brevitas_examples.super_resolution.utils import get_bsd300_dataloaders
 from brevitas_examples.super_resolution.utils import train_for_epoch
-from brevitas_examples.super_resolution.utils import validate
 
 random_seed = 123456
 
@@ -93,8 +93,8 @@ def main():
 
     # train model
     for ep in range(args.total_epochs):
-        train_loss = train_for_epoch(trainloader, model, criterion, optimizer, args)
-        test_psnr = validate(testloader, model, args)
+        train_loss = train_for_epoch(trainloader, model, criterion, optimizer)
+        test_psnr = evaluate_avg_psnr(testloader, model)
         scheduler.step()
         print(f"[Epoch {ep:03d}] train_loss={train_loss:.4f}, test_psnr={test_psnr:.2f}")
 

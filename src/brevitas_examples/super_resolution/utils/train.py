@@ -7,13 +7,14 @@ from torch import Tensor
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 
-def calculate_psnr(gen_image: Tensor, ref_image: Tensor, eps: float = 1e-10):
-    dist = (gen_image - ref_image).pow(2).mean()
+def calc_average_psnr(ref_images: Tensor, gen_images: Tensor, eps: float = 1e-10) -> Tensor:
+    assert ref_images.shape == gen_images.shape, "Input tensor shapes need to match."
+    dist = (ref_images - gen_images).square().mean(axis=(1, 2, 3))  # assuming NCHW
     psnr = 10. * torch.log10(1. / dist.clamp_min(eps))
-    return psnr
+    return psnr.mean()
 
 
-def train_for_epoch(trainloader, model, criterion, optimizer, args):
+def train_for_epoch(trainloader, model, criterion, optimizer):
     tot_loss = 0.
     for i, (images, targets) in enumerate(trainloader):
         optimizer.zero_grad()
@@ -29,13 +30,13 @@ def train_for_epoch(trainloader, model, criterion, optimizer, args):
 
 
 @torch.no_grad()
-def validate(testloader, model, args):
+def evaluate_avg_psnr(testloader, model):
     model.eval()
     tot_psnr = 0.
     for _, (images, target) in enumerate(testloader):
         images = images.to(device)
         target = target.to(device)
         output = model(images)
-        tot_psnr += calculate_psnr(output, target).item() * images.size(0)
+        tot_psnr += calc_average_psnr(output, target).item() * images.size(0)
     avg_psnr = tot_psnr / len(testloader.dataset)
     return avg_psnr
