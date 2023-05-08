@@ -16,8 +16,8 @@ from .common import QuantNearestNeighborConvolution
 __all__ = [
     "float_espcn", "quant_espcn", "quant_espcn_a2q", "quant_espcn_base", "FloatESPCN", "QuantESPCN"]
 
-IO_BIT_WIDTH = 8
-
+IO_DATA_BIT_WIDTH = 8
+IO_ACC_BIT_WIDTH = 32
 
 def weight_init(layer):
     if isinstance(layer, nn.Conv2d):
@@ -104,10 +104,10 @@ class QuantESPCN(FloatESPCN):
             stride=1,
             padding=2,
             bias=True,
-            input_bit_width=IO_BIT_WIDTH,
+            input_bit_width=IO_DATA_BIT_WIDTH,
             input_quant=CommonUintActQuant,
-            weight_bit_width=IO_BIT_WIDTH,
-            weight_accumulator_bit_width=32,
+            weight_bit_width=IO_DATA_BIT_WIDTH,
+            weight_accumulator_bit_width=IO_ACC_BIT_WIDTH,
             weight_quant=weight_quant)
         self.conv2 = qnn.QuantConv2d(
             in_channels=64,
@@ -144,9 +144,10 @@ class QuantESPCN(FloatESPCN):
             upscale_factor=upscale_factor,
             bias=True,
             signed_act=False,
-            act_bit_width=IO_BIT_WIDTH,
+            act_bit_width=IO_DATA_BIT_WIDTH,
+            acc_bit_width=IO_ACC_BIT_WIDTH,
             weight_quant=weight_quant,
-            weight_bit_width=IO_BIT_WIDTH)
+            weight_bit_width=IO_DATA_BIT_WIDTH)
 
         self.bn1 = nn.BatchNorm2d(64)
         self.bn2 = nn.BatchNorm2d(64)
@@ -155,7 +156,7 @@ class QuantESPCN(FloatESPCN):
         self.relu = nn.ReLU(inplace=True)
         # Using a QuantReLU here because we need to read out a uint8 image, but FINN
         # requires a ReLU node to precede an unsigned int quant node
-        self.out = qnn.QuantReLU(act_quant=CommonUintActQuant, bit_width=IO_BIT_WIDTH)
+        self.out = qnn.QuantReLU(act_quant=CommonUintActQuant, bit_width=IO_DATA_BIT_WIDTH)
 
         # Initialize weights
         self.apply(weight_init)
