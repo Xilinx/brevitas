@@ -74,6 +74,7 @@ class QuantProxyFromInjector(ExportMixin, nn.Module, QuantProxyProtocol):
         QuantProxyProtocol.__init__(self)
         self.update_state_dict_impl = _update_state_dict_impl(quant_injector)
         self.quant_injector = quant_injector
+        self.quant_injector = quant_injector.let(proxy_module=self)
         self._zero_hw_sentinel = StatelessBuffer(tensor(0.0))
         self.tensor_quant = None
         # Use a normal list and not a ModuleList since this is a pointer to parent modules
