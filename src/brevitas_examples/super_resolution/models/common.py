@@ -7,13 +7,13 @@ from torch import Tensor
 import torch.nn as nn
 
 from brevitas.core.restrict_val import RestrictValueType
+from brevitas.core.scaling import ScalingImplType
 import brevitas.nn as qnn
 from brevitas.nn.quant_layer import WeightQuantType
 from brevitas.quant import Int8ActPerTensorFloat
 from brevitas.quant import Int8WeightPerTensorFloat
 from brevitas.quant import Uint8ActPerTensorFloat
 from brevitas.quant.fixed_point import Int8AccumulatorAwareWeightQuant
-from brevitas.quant.fixed_point import Int8WeightNormL2PerChannelFixedPoint
 
 
 class CommonIntWeightPerChannelQuant(Int8WeightPerTensorFloat):
@@ -39,13 +39,18 @@ class CommonIntActQuant(Int8ActPerTensorFloat):
 
 
 class CommonUintActQuant(Uint8ActPerTensorFloat):
-    """
-    Common unsigned act quantizer with bit-width set to None so that it's forced to be specified by
-    each layer.
-    """
+    """Common unsigned act quantizer with bit-width set to None so that it's forced to be 
+    specified by each layer"""
     bit_width = None
     restrict_scaling_type = RestrictValueType.LOG_FP
 
+
+class ConstUint8ActQuant(CommonUintActQuant):
+    """8-bit unsigned integer activation quantizer with constant unit scaling factor, used
+    by the models to quantize outputs into the image space"""
+    scaling_impl_type = ScalingImplType.CONST
+    scaling_init = 1.
+    
 
 class QuantNearestNeighborConvolution(nn.Module):
     """Quantized nearest neighbor resize convolution"""

@@ -11,6 +11,7 @@ from brevitas.nn.quant_layer import WeightQuantType
 from .common import CommonIntAccumulatorAwareWeightQuant
 from .common import CommonIntWeightPerChannelQuant
 from .common import CommonUintActQuant
+from .common import ConstUint8ActQuant
 from .common import QuantNearestNeighborConvolution
 
 __all__ = [
@@ -74,7 +75,8 @@ class FloatESPCN(nn.Module):
         x = self.relu(self.bn1(self.conv1(x)))
         x = self.relu(self.bn2(self.conv2(x)))
         x = self.relu(self.bn3(self.conv3(x)))
-        x = self.out(self.conv4(x))
+        x = self.conv4(x)
+        x = self.out(x)
         return x
 
 
@@ -157,7 +159,7 @@ class QuantESPCN(FloatESPCN):
         self.relu = nn.ReLU(inplace=True)
         # Using a QuantReLU here because we need to read out a uint8 image, but FINN
         # requires a ReLU node to precede an unsigned int quant node
-        self.out = qnn.QuantReLU(act_quant=CommonUintActQuant, bit_width=IO_DATA_BIT_WIDTH)
+        self.out = qnn.QuantReLU(act_quant=ConstUint8ActQuant, bit_width=IO_DATA_BIT_WIDTH)
 
         # Initialize weights
         self.apply(weight_init)
