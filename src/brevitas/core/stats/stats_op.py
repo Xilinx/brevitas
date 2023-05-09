@@ -390,3 +390,70 @@ class L2Norm(brevitas.jit.ScriptModule):
             raise NotImplementedError("L2 normalization is not supported per-tensor yet.")
         else:
             return x.norm(p=2, dim=self.stats_reduce_dim, keepdim=True)
+
+
+def _set_local_loss_mode(module, enabled):
+    for m in module.modules():
+        if hasattr(m, 'local_loss_mode'):
+            m.local_loss_mode = enabled
+
+
+class MSE(torch.nn.Module):
+    # References:
+    # https://github.com/cornell-zhang/dnn-quant-ocs/blob/master/distiller/quantization/clip.py
+    # https://github.com/wimh966/outlier_suppression/blob/main/quant_transformer/quantization/observer.py
+
+    def __init__(self, proxy_module, mse_init_op, stats_reduce_dim: Optional[int] = None, num=100):
+        super(MSE, self).__init__()
+        self.mse_init_op = mse_init_op
+        self.proxy_forward = proxy_module.forward
+        self.set_local_loss_mode = lambda enabled: _set_local_loss_mode(proxy_module, enabled)
+        self.internal_candidate = None
+        self.num = num
+        self.stats_reduce_dim = stats_reduce_dim
+        self.local_loss_mode: bool = False
+
+    def mse_loss_fn(self, x, quant_value):
+        # squeeze is a workaround for ConvTranpose per-channel weights
+        # where broadcasting generates an extra leading dim of size 1
+        loss = torch.nn.functional.mse_loss(x, quant_value.squeeze(), reduction='none')
+        if self.stats_reduce_dim is not None:
+            loss = torch.sum(loss, dim=self.stats_reduce_dim)
+        else:
+            loss = torch.sum(loss)
+        return loss
+
+    def evaluate_loss(self, x, candidate):
+        self.internal_candidate = candidate
+        # Set to local_loss_mode before calling the proxy
+        self.set_local_loss_mode(True)
+        quant_value = self.proxy_forward(x)
+        if isinstance(quant_value, tuple):
+            quant_value = quant_value[0]
+        loss = self.mse_loss_fn(x, quant_value)
+        self.set_local_loss_mode(False)
+        return loss
+
+    def mse_search(self, x):
+        best_loss = torch.tensor(float('inf'), device=x.device, dtype=x.dtype)
+        init = self.mse_init_op(x)
+        base = init / self.num
+        best_candidate = base
+        for i in range(2, self.num + 1):
+            candidate = (base * i).detach()
+            loss = self.evaluate_loss(x, candidate)
+            best_loss = torch.min(loss, best_loss)
+            best_candidate = torch.where(loss < best_loss, candidate, best_candidate)
+        # Save for evaluation by other modules (e.g. zp) invoking local loss mode
+        self.internal_candidate = best_candidate
+        return best_candidate
+
+    def forward(self, x):
+        if not self.local_loss_mode:
+            with torch.no_grad():
+                return self.mse_search(x)
+        else:
+            # This is invoked for the zero-point whenever scale is being optimized first
+            if self.internal_candidate is None:
+                self.internal_candidate = self.mse_init_op(x)
+            return self.internal_candidate

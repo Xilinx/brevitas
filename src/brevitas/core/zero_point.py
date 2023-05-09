@@ -104,6 +104,7 @@ class ParameterFromRuntimeZeroPoint(brevitas.jit.ScriptModule):
         self.register_buffer('buffer', torch.full(zero_point_shape, 0.0))
         self.zero_point_stats_impl = zero_point_stats_impl
         self.scale_shift_zero_point = _ScaleShiftZeroPoint(int_quant, quantize_zero_point)
+        self.local_loss_mode: bool = brevitas.jit.Attribute(False, bool)
 
     @brevitas.jit.script_method
     def training_forward(self, x) -> Tensor:
@@ -111,6 +112,8 @@ class ParameterFromRuntimeZeroPoint(brevitas.jit.ScriptModule):
             stats_input = self.stats_input_view_shape_impl(x)
             stats = self.zero_point_stats_impl(stats_input)
             stats = stats.view(self.zero_point_shape)
+            if self.local_loss_mode:
+                return stats
             new_counter = self.counter + 1
             if self.counter == 0:
                 inplace_tensor_add(self.buffer, stats.detach())
