@@ -15,6 +15,7 @@ from .stats_op import L1Norm
 from .stats_op import L2Norm
 from .stats_op import MeanLearnedSigmaStd
 from .stats_op import MeanSigmaStd
+from .stats_op import MSE
 from .stats_op import NegativeMinOrZero
 from .stats_op import NegativePercentileOrZero
 from .stats_op import PercentileInterval
