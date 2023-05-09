@@ -7,11 +7,11 @@ Code is also provided to demonstrate accumulator-aware quantization (A2Q) as pro
 
 | Name                        | Upscale Factor | Weight quantization | Activation quantization | Peak Signal-to-Noise Ratio |
 |-----------------------------|----------------|---------------------|-------------------------|----------------------------|
-| float_espcn_x2              | x2             | float32             | float32                 | 31.01                      |
-| quant_espcn_x2_w8a8_base    | x2             | int8                | (u)int8                 | 30.49                      |
-| quant_espcn_x2_w8a8_a2q_32b | x2             | int8                | (u)int8                 | 30.54                      |
-| quant_espcn_x2_w8a8_a2q_16b | x2             | int8                | (u)int8                 | 29.19                      |
-| bicubic_interp              | x2             | N/A                 | N/A                     | 28.72                      |
+| float_espcn_x2              | x2             | float32             | float32                 | 30.37                      |
+| quant_espcn_x2_w8a8_base    | x2             | int8                | (u)int8                 | 30.06                      |
+| quant_espcn_x2_w8a8_a2q_32b | x2             | int8                | (u)int8                 | 30.63                      |
+| quant_espcn_x2_w8a8_a2q_16b | x2             | int8                | (u)int8                 | 29.25                      |
+| bicubic_interp              | x2             | N/A                 | N/A                     | 28.71                      |
 
 
 ## Train

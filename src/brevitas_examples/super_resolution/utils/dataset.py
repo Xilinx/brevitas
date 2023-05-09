@@ -72,6 +72,11 @@ def load_img_ycbcr(filepath):
     return y
 
 
+def load_img_rbg(filepath):
+    img = Image.open(filepath).convert('RGB')
+    return img
+
+
 class DatasetFromFolder(data.Dataset):
 
     def __init__(self, image_dir, input_transform=None, target_transform=None):
@@ -83,7 +88,7 @@ class DatasetFromFolder(data.Dataset):
         self.target_transform = target_transform
 
     def __getitem__(self, index):
-        input = load_img_ycbcr(self.image_filenames[index])
+        input = load_img_rbg(self.image_filenames[index])
         target = input.copy()
         if self.input_transform:
             input = self.input_transform(input)
@@ -151,8 +156,8 @@ def get_test_set(upscale_factor: int, root_dir: str, crop_size: int = 256):
 def get_bsd300_dataloaders(
         data_root: str,
         num_workers: int = 0,
-        batch_size: int = 128,
-        batch_size_test: int = None,
+        batch_size: int = 32,
+        batch_size_test: int = 32,
         pin_memory: bool = True,
         upscale_factor: int = 3,
         crop_size: int = 512,
@@ -164,9 +169,9 @@ def get_bsd300_dataloaders(
     Args:
         data_root (str): Root folder containing the BSD300 dataset.
         num_workers (int): Number of workers to use for both dataloaders. Default: 0
-        batch_size (int): Size of batches to use for the training dataloader. Default: 128
+        batch_size (int): Size of batches to use for the training dataloader. Default: 32
         batch_size_test (int): Size of batches to use for the testing dataloader. When
-            None, then batch_size_test = batch_size. Default: None
+            None, then batch_size_test = batch_size. Default: 32
         pin_memory (bool): Whether or not to pin the memory for both dataloaders. Default: True
         upscale_factor (int): The upscale factor for the super resolution task. Default: 3
         crop_size (int): The size to crop images for upscaling. Default 512

@@ -14,7 +14,7 @@ from brevitas_examples.super_resolution.utils import device
 from brevitas_examples.super_resolution.utils import evaluate_accumulator_bit_widths
 from brevitas_examples.super_resolution.utils import export
 from brevitas_examples.super_resolution.utils import get_bsd300_dataloaders
-from brevitas_examples.super_resolution.utils import validate
+from brevitas_examples.super_resolution.utils import evaluate_avg_psnr
 
 random_seed = 123456
 
@@ -55,11 +55,10 @@ def main():
         args.data_root,
         num_workers=args.workers,
         batch_size=args.batch_size,
-        batch_size_test=1,
         upscale_factor=model.upscale_factor,
         download=True)
 
-    test_psnr = validate(testloader, model, args)
+    test_psnr = evaluate_avg_psnr(testloader, model)
     print(f"[{args.model}] test_psnr={test_psnr:.2f}")
 
     # evaluate accumulator bit widths

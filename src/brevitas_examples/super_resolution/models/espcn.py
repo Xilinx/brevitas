@@ -32,7 +32,7 @@ class FloatESPCN(nn.Module):
     Network (ESPCN) as used in Colbert et al. (2023) - `Quantized Neural Networks for
     Low-Precision Accumulation with Guaranteed Overflow Avoidance`."""
 
-    def __init__(self, upscale_factor: int = 3, num_channels: int = 1):
+    def __init__(self, upscale_factor: int = 3, num_channels: int = 3):
         super(FloatESPCN, self).__init__()
         self.upscale_factor = upscale_factor
 
@@ -163,14 +163,14 @@ class QuantESPCN(FloatESPCN):
         self.apply(weight_init)
 
 
-def float_espcn(upscale_factor: int, num_channels: int = 1) -> FloatESPCN:
+def float_espcn(upscale_factor: int, num_channels: int = 3) -> FloatESPCN:
     """ """
     return FloatESPCN(upscale_factor, num_channels=num_channels)
 
 
 def quant_espcn(
         upcsale_factor: int,
-        num_channels: int = 1,
+        num_channels: int = 3,
         weight_bit_width: int = 8,
         act_bit_width: int = 8,
         acc_bit_width: int = 32,
@@ -191,7 +191,6 @@ def quant_espcn_a2q(
     the accumulator-aware weight quantizer"""
     return QuantESPCN(
         upscale_factor=upscale_factor,
-        num_channels=1,
         act_bit_width=act_bit_width,
         acc_bit_width=acc_bit_width,
         weight_bit_width=weight_bit_width,
@@ -203,7 +202,6 @@ def quant_espcn_base(upscale_factor: int, weight_bit_width: int, act_bit_width: 
     a vanilla per-channel weight quantizer"""
     return QuantESPCN(
         upscale_factor=upscale_factor,
-        num_channels=1,
         act_bit_width=act_bit_width,
         weight_bit_width=weight_bit_width,
         weight_quant=CommonIntWeightPerChannelQuant)
