@@ -11,7 +11,9 @@ __all__ = [
     'ShiftedUint8ActPerTensorFixedPoint',
     'ShiftedUint8ActPerTensorFloat',
     'ShiftedUint8WeightPerTensorFloat',
-    'ShiftedUint8WeightPerChannelFloat']
+    'ShiftedUint8WeightPerChannelFloat',
+    'ShiftedUint8ActPerTensorFixedPointMSE',
+    'ShiftedUint8ActPerTensorFloatMSE']
 
 
 class ShiftedUint8ActPerTensorFixedPoint(ShiftedParamFromPercentileUintQuant,
@@ -30,6 +32,21 @@ class ShiftedUint8ActPerTensorFixedPoint(ShiftedParamFromPercentileUintQuant,
     pass
 
 
+class ShiftedUint8ActPerTensorFixedPointMSE(MSEScale,
+                                            MSEZeroPoint,
+                                            ShiftedUint8ActPerTensorFixedPoint):
+    """
+    8-bit per-tensor unsigned int fixed-point activations quantizer with
+    integer zero point. Both zero-point and scale factors are learned parameters initialized from
+    MSE local loss.
+
+        Examples:
+        >>> from brevitas.nn import QuantReLU
+        >>> act = QuantReLU(act_quant=ShiftedUint8ActPerTensorFixedPointMSE)
+    """
+    pass
+
+
 class ShiftedUint8ActPerTensorFloat(ShiftedParamFromPercentileUintQuant,
                                     ParamFromRuntimePercentileIntervalScaling,
                                     PerTensorFloatScaling8bit,
@@ -42,6 +59,19 @@ class ShiftedUint8ActPerTensorFloat(ShiftedParamFromPercentileUintQuant,
         Examples:
         >>> from brevitas.nn import QuantReLU
         >>> act = QuantReLU(act_quant=ShiftedUint8ActPerTensorFloat)
+    """
+    pass
+
+
+class ShiftedUint8ActPerTensorFloatMSE(MSEScale, MSEZeroPoint, ShiftedUint8ActPerTensorFloat):
+    """
+    8-bit per-tensor unsigned int activations quantizer with floating-point scale factor and
+    integer zero point. Both zero-point and scale factors are learned parameters initialized from
+    MSE local loss.
+
+        Examples:
+        >>> from brevitas.nn import QuantReLU
+        >>> act = QuantReLU(act_quant=ShiftedUint8ActPerTensorFloatMSE)
     """
     pass
 
