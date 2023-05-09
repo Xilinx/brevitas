@@ -21,6 +21,8 @@ __all__ = [
     'Int8WeightPerTensorFloat',
     'Int8WeightPerChannelFloat',
     'Uint8ActPerTensorFloat',
+    'Int8ActPerTensorFloatMSE',
+    'Uint8ActPerTensorFloatMSE',
     'TruncTo8bit',
     'RoundTo8bit',
     'Int4WeightPerTensorFloatDecoupled',
@@ -164,6 +166,21 @@ class Int8WeightPerTensorFloat(NarrowIntQuant,
     pass
 
 
+class Int8WeightPerTensorFloatMSE(MSEScale, Int8WeightPerTensorFloat):
+    """
+    8-bit narrow per-tensor signed int weight quantizer with per-channel floating-point scale factor computed
+    from MSE local loss. This quantizer is useful as a starting point to then switch to a learned parameter scale,
+    which currently requires a two-step process:
+
+    Examples:
+        >>> from brevitas.nn import QuantLinear
+        >>> fc = QuantLinear(10, 5, bias=False, weight_quant=Int8WeightPerTensorFloatMSE)
+        >>> fc.weight_quant.quant_injector = fc.weight_quant.quant_injector.let(scaling_impl_type='parameter_from_stats')
+        >>> fc.weight_quant.init_tensor_quant()
+    """
+    pass
+
+
 class Int8WeightPerChannelFloat(NarrowIntQuant,
                                 MaxStatsScaling,
                                 PerChannelFloatScaling8bit,
@@ -175,6 +192,21 @@ class Int8WeightPerChannelFloat(NarrowIntQuant,
     Examples:
         >>> from brevitas.nn import QuantLinear
         >>> fc = QuantLinear(10, 5, bias=False, weight_quant=Int8WeightPerChannelFloat)
+    """
+    pass
+
+
+class Int8WeightPerChannelFloatMSE(MSEScale, Int8WeightPerChannelFloat):
+    """
+    8-bit narrow per-tensor signed int weight quantizer with per-channel floating-point scale factor computed
+    from MSE local loss. This quantizer is useful as a starting point to then switch to a learned parameter scale,
+    which currently requires a two-step process:
+
+    Examples:
+        >>> from brevitas.nn import QuantLinear
+        >>> fc = QuantLinear(10, 5, bias=False, weight_quant=Int8WeightPerChannelFloatMSE)
+        >>> fc.weight_quant.quant_injector = fc.weight_quant.quant_injector.let(scaling_impl_type='parameter_from_stats')
+        >>> fc.weight_quant.init_tensor_quant()
     """
     pass
 
@@ -194,6 +226,18 @@ class Int8ActPerTensorFloat(IntQuant,
     pass
 
 
+class Int8ActPerTensorFloatMSE(MSEScale, Int8ActPerTensorFloat):
+    """
+    8-bit per-tensor signed int activations quantizer with learned floating-point scale factor
+    initialized from MSE local loss.
+
+    Examples:
+        >>> from brevitas.nn import QuantIdentity
+        >>> act = QuantIdentity(act_quant=Int8ActPerTensorFloatMSE)
+    """
+    pass
+
+
 class Uint8ActPerTensorFloat(UintQuant,
                              ParamFromRuntimePercentileScaling,
                              PerTensorFloatScaling8bit,
@@ -205,6 +249,18 @@ class Uint8ActPerTensorFloat(UintQuant,
     Examples:
         >>> from brevitas.nn import QuantReLU
         >>> act = QuantReLU(act_quant=Uint8ActPerTensorFloat)
+    """
+    pass
+
+
+class Uint8ActPerTensorFloatMSE(MSEScale, Uint8ActPerTensorFloat):
+    """
+    8-bit per-tensor unsigned int activations quantizer with learned floating-point scale factor
+    initialized from MSE local loss.
+
+    Examples:
+        >>> from brevitas.nn import QuantReLU
+        >>> act = QuantReLU(act_quant=Uint8ActPerTensorFloatMSE)
     """
     pass
 
