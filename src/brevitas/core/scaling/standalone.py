@@ -226,6 +226,8 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
         self.value = Parameter(torch.full(scaling_shape, 1.0))
         self.restrict_scaling = _RestrictValue(restrict_scaling_impl)
         self.clamp_scaling = _ClampValue(scaling_min_val)
+        self.local_loss_mode: bool = brevitas.jit.Attribute(
+            False, bool)  # required to support MSE eval or variants
         if restrict_scaling_impl is not None:
             self.restrict_inplace_preprocess = restrict_scaling_impl.restrict_init_inplace_module()
             self.restrict_preprocess = restrict_scaling_impl.restrict_init_module()
@@ -242,6 +244,9 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             stats = stats + 0. * self.value  # stats gradient will change from None to 0.
             clamped_stats = self.clamp_scaling(stats)
             new_counter = self.counter + 1
+            # Whenever we are in local loss mode, we don't update the counter nor the buffer
+            if self.local_loss_mode:
+                return abs_binary_sign_grad(clamped_stats)
             if self.counter == 0:
                 inplace_tensor_mul(self.buffer, clamped_stats.detach())
             else:
