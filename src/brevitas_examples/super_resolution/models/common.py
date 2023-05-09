@@ -39,7 +39,7 @@ class CommonIntActQuant(Int8ActPerTensorFloat):
 
 
 class CommonUintActQuant(Uint8ActPerTensorFloat):
-    """Common unsigned act quantizer with bit-width set to None so that it's forced to be 
+    """Common unsigned act quantizer with bit-width set to None so that it's forced to be
     specified by each layer"""
     bit_width = None
     restrict_scaling_type = RestrictValueType.LOG_FP
@@ -50,7 +50,7 @@ class ConstUint8ActQuant(CommonUintActQuant):
     by the models to quantize outputs into the image space"""
     scaling_impl_type = ScalingImplType.CONST
     scaling_init = 1.
-    
+
 
 class QuantNearestNeighborConvolution(nn.Module):
     """Quantized nearest neighbor resize convolution"""
