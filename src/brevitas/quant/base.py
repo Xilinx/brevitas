@@ -26,8 +26,10 @@ from brevitas.core.scaling import SCALING_STATS_REDUCE_DIM
 from brevitas.core.scaling import StatsFromParameterScaling
 from brevitas.core.stats import AbsMax
 from brevitas.core.stats import AbsMaxL2
+from brevitas.core.stats import AbsMinMax
 from brevitas.core.stats import L1Norm
 from brevitas.core.stats import L2Norm
+from brevitas.core.stats import MSE
 from brevitas.core.stats import NegativeMinOrZero
 from brevitas.core.stats import NegativePercentileOrZero
 from brevitas.core.utils import SingleArgStatelessBuffer
@@ -69,7 +71,9 @@ __all__ = [
     'WeightNormPerChannelFloatDecoupled',
     'BatchQuantStatsScaling1d',
     'BatchQuantStatsScaling2d',
-    'AccumulatorAwareWeightQuant']
+    'AccumulatorAwareWeightQuant',
+    'MSEScale',
+    'MSEZeroPoint']
 
 
 class MaxStatsScaling(ExtendedInjector):
@@ -391,3 +395,41 @@ class AccumulatorAwareWeightQuant(WeightNormPerChannelFloatDecoupled):
     accumulator_bit_width = 32  # default maximum accumulator width is 32 bits
     normalize_stats_impl = L1Norm  # required to align with derivations in paper
     float_to_int_impl = RoundToZeroSte  # required to ensure no upwards rounding violates constraints
+
+
+class MSEScaleSubInjector(ExtendedInjector):
+    proxy_module = (this << 1).proxy_module
+    mse_init_op = AbsMax
+    stats_impl = MSE
+    stats_reduce_dim = (this << 1).stats_reduce_dim
+
+
+class MSEZeroPointSubInjector(ExtendedInjector):
+    proxy_module = (this << 1).proxy_module
+    mse_init_op = AbsMinMax
+    stats_impl = MSE
+    stats_reduce_dim = (this << 1).stats_reduce_dim
+
+
+class MSEScale(ExtendedInjector):
+    """
+    We leverage a sub-injector to avoid a name clash between scale and zero-point.
+    """
+
+    mse_scale = MSEScaleSubInjector
+
+    @value
+    def scaling_stats_impl():
+        return this.mse_scale.stats_impl
+
+
+class MSEZeroPoint(ExtendedInjector):
+    """
+    We leverage a sub-injector to avoid a name clash between scale and zero-point.
+    """
+
+    mse_zero_point = MSEZeroPointSubInjector
+
+    @value
+    def zero_point_stats_impl():
+        return this.mse_zero_point.stats_impl
