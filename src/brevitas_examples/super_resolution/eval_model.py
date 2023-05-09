@@ -12,9 +12,9 @@ import torch
 from brevitas_examples.super_resolution.models import get_model_by_name
 from brevitas_examples.super_resolution.utils import device
 from brevitas_examples.super_resolution.utils import evaluate_accumulator_bit_widths
+from brevitas_examples.super_resolution.utils import evaluate_avg_psnr
 from brevitas_examples.super_resolution.utils import export
 from brevitas_examples.super_resolution.utils import get_bsd300_dataloaders
-from brevitas_examples.super_resolution.utils import evaluate_avg_psnr
 
 random_seed = 123456
 
