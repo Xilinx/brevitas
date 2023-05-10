@@ -32,7 +32,7 @@ class ShiftedUint8ActPerTensorFixedPoint(ShiftedParamFromPercentileUintQuant,
     pass
 
 
-class ShiftedUint8ActPerTensorFixedPointMSE(MSEScale,
+class ShiftedUint8ActPerTensorFixedPointMSE(MSEAsymmetricScale,
                                             MSEZeroPoint,
                                             ShiftedUint8ActPerTensorFixedPoint):
     """
@@ -63,7 +63,9 @@ class ShiftedUint8ActPerTensorFloat(ShiftedParamFromPercentileUintQuant,
     pass
 
 
-class ShiftedUint8ActPerTensorFloatMSE(MSEScale, MSEZeroPoint, ShiftedUint8ActPerTensorFloat):
+class ShiftedUint8ActPerTensorFloatMSE(MSEAsymmetricScale,
+                                       MSEZeroPoint,
+                                       ShiftedUint8ActPerTensorFloat):
     """
     8-bit per-tensor unsigned int activations quantizer with floating-point scale factor and
     integer zero point. Both zero-point and scale factors are learned parameters initialized from
