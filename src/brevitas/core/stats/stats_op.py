@@ -436,14 +436,14 @@ class MSE(torch.nn.Module):
 
     def mse_search(self, x):
         best_loss = torch.tensor(float('inf'), device=x.device, dtype=x.dtype)
-        init = self.mse_init_op(x)
+        init = self.mse_init_op(x).detach()
         base = init / self.num
         best_candidate = base
         for i in range(2, self.num + 1):
             candidate = (base * i).detach()
             loss = self.evaluate_loss(x, candidate)
-            best_loss = torch.min(loss, best_loss)
             best_candidate = torch.where(loss < best_loss, candidate, best_candidate)
+            best_loss = torch.min(loss, best_loss)
         # Save for evaluation by other modules (e.g. zp) invoking local loss mode
         self.internal_candidate = best_candidate
         return best_candidate
@@ -455,5 +455,5 @@ class MSE(torch.nn.Module):
         else:
             # This is invoked for the zero-point whenever scale is being optimized first
             if self.internal_candidate is None:
-                self.internal_candidate = self.mse_init_op(x)
+                self.internal_candidate = self.mse_init_op(x).detach()
             return self.internal_candidate
