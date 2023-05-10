@@ -5,12 +5,17 @@ Code is also provided to demonstrate accumulator-aware quantization (A2Q) as pro
 
 ## Experiments
 
-| Name                        | Upscale Factor | Weight quantization | Activation quantization | Peak Signal-to-Noise Ratio |
+All models are trained on the BSD300 dataset to upsample images by 2x.
+Target images are center cropped to 512x512.
+Inputs are then downscaled by 2x and then used to train the model directly in the RGB space.
+Note that this is a difference from many academic works that train only on the Y-channel in YCbCr format.
+
+| Model Name                  | Upscale Factor | Weight quantization | Activation quantization | Peak Signal-to-Noise Ratio |
 |-----------------------------|----------------|---------------------|-------------------------|----------------------------|
 | float_espcn_x2              | x2             | float32             | float32                 | 30.37                      |
 | quant_espcn_x2_w8a8_base    | x2             | int8                | (u)int8                 | 30.16                      |
 | quant_espcn_x2_w8a8_a2q_32b | x2             | int8                | (u)int8                 | 30.80                      |
-| quant_espcn_x2_w8a8_a2q_16b | x2             | int8                | (u)int8                 | 29.25                      |
+| quant_espcn_x2_w8a8_a2q_16b | x2             | int8                | (u)int8                 | 29.38                      |
 | bicubic_interp              | x2             | N/A                 | N/A                     | 28.71                      |
 
 
