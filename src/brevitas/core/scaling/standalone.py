@@ -1,8 +1,7 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from typing import Optional, Tuple, Union
-import warnings
+from typing import List, Optional, Tuple, Union
 
 import torch
 from torch import Tensor
@@ -16,6 +15,8 @@ from brevitas.core.function_wrapper import OverBatchOverTensorView
 from brevitas.core.restrict_val import _ClampValue
 from brevitas.core.restrict_val import _RestrictClampValue
 from brevitas.core.restrict_val import _RestrictValue
+from brevitas.core.scaling.runtime import _StatsScaling
+from brevitas.core.stats import _ParameterListStats
 from brevitas.core.stats import _Stats
 from brevitas.core.stats import DEFAULT_MOMENTUM
 from brevitas.core.stats import SCALAR_SHAPE
@@ -155,6 +156,78 @@ class ParameterScaling(brevitas.jit.ScriptModule):
             state_dict[value_key] = state_dict.pop(retrocomp_value_key)
         super(ParameterScaling, self)._load_from_state_dict(
             state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
+        if config.IGNORE_MISSING_KEYS and value_key in missing_keys:
+            missing_keys.remove(value_key)
+
+
+class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
+    """
+    ScriptModule implementation of a learned scale factor initialized from statistics of a parameter,
+    e.g. weights MSE or AbsMax.
+    """
+
+    def __init__(
+            self,
+            scaling_stats_impl: Module,
+            scaling_stats_input_view_shape_impl: Module,
+            scaling_stats_input_concat_dim: int,
+            tracked_parameter_list: List[torch.nn.Parameter],
+            restrict_scaling_impl: Module,
+            scaling_shape: Tuple[int, ...],
+            scaling_min_val: Optional[float] = None) -> None:
+        super(ParameterFromStatsFromParameterScaling, self).__init__()
+        self.parameter_list_stats = _ParameterListStats(
+            scaling_stats_impl,
+            scaling_shape,
+            scaling_stats_input_view_shape_impl,
+            scaling_stats_input_concat_dim,
+            tracked_parameter_list)
+        self.stats_scaling_impl = _StatsScaling(
+            restrict_scaling_impl, scaling_shape, scaling_min_val, False, False)
+        self.init_done: bool = brevitas.jit.Attribute(False, bool)
+        self.local_loss_mode: bool = brevitas.jit.Attribute(False, bool)
+        if restrict_scaling_impl is not None:
+            self.restrict_inplace_preprocess = restrict_scaling_impl.restrict_init_inplace_module()
+        else:
+            self.restrict_inplace_preprocess = Identity()
+        self.value = Parameter(torch.full(scaling_shape, 1.0))
+
+    @brevitas.jit.script_method
+    def forward(self, ignored: torch.Tensor) -> torch.Tensor:
+        stats = self.parameter_list_stats()
+        # workaround to avoid find_ununsed_parameter=True in DDP
+        stats = stats + 0. * self.value
+        if self.local_loss_mode:
+            return self.stats_scaling_impl(stats)
+        else:
+            if self.init_done:
+                value = abs_binary_sign_grad(
+                    self.stats_scaling_impl.restrict_clamp_scaling(self.value))
+                return value
+            else:
+                stats = self.restrict_inplace_preprocess(stats)
+                inplace_tensor_mul(self.value.detach(), stats)
+                value = abs_binary_sign_grad(
+                    self.stats_scaling_impl.restrict_clamp_scaling(self.value))
+                self.init_done = True
+                return value
+
+    def state_dict(self, destination=None, prefix='', keep_vars=False):
+        output_dict = super(ParameterFromStatsFromParameterScaling, self).state_dict(
+            destination=destination, prefix=prefix, keep_vars=keep_vars)
+        # Avoid saving the init value
+        if not self.init_done:
+            del output_dict[prefix + 'value']
+
+    def _load_from_state_dict(
+            self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
+            error_msgs):
+        super(ParameterFromStatsFromParameterScaling, self)._load_from_state_dict(
+            state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
+        value_key = prefix + 'value'
+        # disable stats collection when a pretrained value is loaded
+        if value_key not in missing_keys:
+            self.init_done = True
         if config.IGNORE_MISSING_KEYS and value_key in missing_keys:
             missing_keys.remove(value_key)
 

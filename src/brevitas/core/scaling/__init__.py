@@ -12,6 +12,7 @@ from .runtime import RuntimeStatsScaling
 from .runtime import StatsFromParameterScaling
 from .standalone import ConstScaling
 from .standalone import ParameterFromRuntimeStatsScaling
+from .standalone import ParameterFromStatsFromParameterScaling
 from .standalone import ParameterScaling
 
 SCALING_STATS_REDUCE_DIM = 1
