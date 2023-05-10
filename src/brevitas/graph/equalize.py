@@ -22,10 +22,6 @@ __all__ = ['EqualizeGraph']
 
 EPSILON = 1e-9
 
-Region = namedtuple('Region', ['srcs', 'sinks'])
-
-WeightBiasTuple = namedtuple('WeightBiasTuple', ['weight', 'bias'], defaults=[None])
-
 _supported_layers = (
     nn.ConvTranspose1d,
     nn.ConvTranspose2d,
@@ -66,10 +62,24 @@ _residual_fns = (torch.add, operator.add, operator.iadd, operator.__add__, opera
 _batch_norm = (nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d)
 
 
+# Required for being hashable
+@dataclass(eq=True, frozen=True)
+class WeightBiasTuple:
+    weight: nn.Module = None
+    bias: nn.Module = None
+
+
+# Required for being hashable
+@dataclass(eq=True, frozen=True)
+class Region:
+    srcs: Tuple = field(default_factory=tuple)
+    sinks: Tuple = field(default_factory=tuple)
+
+
 @dataclass
 class WalkRegionState:
-    srcs: set = field(default_factory=set)
-    sinks: set = field(default_factory=set)
+    srcs: Set = field(default_factory=set)
+    sinks: Set = field(default_factory=set)
     history: set = field(default_factory=set)
 
 
@@ -243,7 +253,7 @@ def _cross_layer_equalization(
         # For MultiheadAttention, we support only self-attetion
         if isinstance(module, nn.MultiheadAttention) and hasattr(sinks[i], 'in_proj_weight'):
             # For sinks, we only need to modify the weight but not the bias
-            sinks[i] = WeightBiasTuple(module.in_proj_weight)
+            sinks[i] = WeightBiasTuple(weight=module.in_proj_weight)
         elif isinstance(module, nn.MultiheadAttention) and not hasattr(sinks[i], 'in_proj_weight'):
             return torch.tensor(1., dtype=dtype, device=device)
         sink_axes[sinks[i]] = _get_input_axis(module)
@@ -310,7 +320,13 @@ def _equalize(
     Generalized version of section 4.1 of https://arxiv.org/pdf/1906.04721.pdf
     """
     name_to_module: Dict[str, nn.Module] = {}
-    name_set = {name for region in regions for module_set in region for name in module_set}
+    name_set = {}
+    for region in regions:
+        for name in region.srcs:
+            name_set.add(name)
+        for name in region.sinks:
+            name_set.add(name)
+    # name_set = {name for region in regions for module_set in region for name in module_set}
 
     for name, module in model.named_modules():
         if name in name_set:
@@ -425,7 +441,9 @@ def _extract_regions(graph_model: GraphModule) -> Set[Tuple[str]]:
             if state.sinks and None not in state.sinks and None not in state.srcs:
                 # each region should appear only once, so to make it hashable
                 # we convert srcs and sinks to ordered lists first, and then to tuples
-                regions.add(Region(tuple(sorted(state.srcs)), tuple(sorted(state.sinks))))
+                srcs = tuple(sorted(state.srcs))
+                sinks = tuple(sorted(state.sinks))
+                regions.add(Region(srcs=srcs, sinks=sinks))
     return regions
 
 
