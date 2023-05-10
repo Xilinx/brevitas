@@ -19,8 +19,8 @@ from brevitas.core.restrict_val import FloatRestrictValue
 from brevitas.core.restrict_val import LogFloatRestrictValue
 from brevitas.core.scaling import AccumulatorAwareParameterPreScaling
 from brevitas.core.scaling import IntScaling
+from brevitas.core.scaling import ParameterFromStatsFromParameterScaling
 from brevitas.core.scaling import ParameterPreScalingWeightNorm
-from brevitas.core.scaling import ParameterScaling
 from brevitas.core.scaling import SCALAR_SHAPE
 from brevitas.core.scaling import SCALING_STATS_REDUCE_DIM
 from brevitas.core.scaling import StatsFromParameterScaling
@@ -45,7 +45,6 @@ from brevitas.inject.enum import ScalingImplType
 from brevitas.inject.enum import StatsOp
 from brevitas.proxy import DecoupledWeightQuantProxyFromInjector
 from brevitas.proxy import DecoupledWeightQuantWithInputProxyFromInjector
-from brevitas.quant.solver.parameter import ParameterFromStatsScalingInit
 from brevitas.quant.solver.parameter import SolveParameterScalingShape
 from brevitas.quant.solver.weight import SolveWeightScalingPerOutputChannelShapeFromModule
 from brevitas.quant.solver.weight import SolveWeightScalingStatsInputDimsFromModule
@@ -72,7 +71,8 @@ __all__ = [
     'BatchQuantStatsScaling1d',
     'BatchQuantStatsScaling2d',
     'AccumulatorAwareWeightQuant',
-    'MSEScale',
+    'MSESymmetricScale',
+    'MSEAsymmetricScale',
     'MSEZeroPoint']
 
 
@@ -263,10 +263,6 @@ class WeightPerTensorFloatDecoupledL2Param(SolveWeightScalingStatsInputDimsFromM
     normalization and learned scaling.
     """
 
-    @value
-    def scaling_init(scaling_init_impl):
-        return scaling_init_impl()
-
     proxy_class = DecoupledWeightQuantProxyFromInjector
     tensor_quant = DecoupledRescalingIntQuant
     decoupled_int_quant = DecoupledIntQuant
@@ -278,9 +274,7 @@ class WeightPerTensorFloatDecoupledL2Param(SolveWeightScalingStatsInputDimsFromM
     stats_reduce_dim = SCALING_STATS_REDUCE_DIM
     restrict_scaling_impl = FloatRestrictValue
     scaling_shape = SCALAR_SHAPE
-    scaling_impl = ParameterScaling
-    scaling_init_impl = ParameterFromStatsScalingInit
-    parameter_stats_scaling_init_impl = this.pre_scaling_impl
+    scaling_impl = ParameterFromStatsFromParameterScaling
     int_scaling_impl = IntScaling
     zero_point_impl = ZeroZeroPoint
     pre_zero_point_impl = ZeroZeroPoint
@@ -297,10 +291,6 @@ class WeightPerChannelFloatDecoupled(SolveWeightScalingStatsInputDimsFromModule,
     normalization and learned scaling.
     """
 
-    @value
-    def scaling_init(scaling_init_impl):
-        return scaling_init_impl()
-
     proxy_class = DecoupledWeightQuantProxyFromInjector
     tensor_quant = DecoupledRescalingIntQuant
     decoupled_int_quant = DecoupledIntQuant
@@ -308,9 +298,7 @@ class WeightPerChannelFloatDecoupled(SolveWeightScalingStatsInputDimsFromModule,
     pre_scaling_impl = StatsFromParameterScaling
     scaling_stats_impl = AbsMax
     restrict_scaling_impl = FloatRestrictValue
-    scaling_impl = ParameterScaling
-    scaling_init_impl = ParameterFromStatsScalingInit
-    parameter_stats_scaling_init_impl = this.pre_scaling_impl
+    scaling_impl = ParameterFromStatsFromParameterScaling
     int_scaling_impl = IntScaling
     zero_point_impl = ZeroZeroPoint
     pre_zero_point_impl = ZeroZeroPoint
@@ -339,21 +327,13 @@ class WeightNormPerChannelFloatDecoupled(SolveWeightScalingStatsInputDimsFromMod
     details on the arithmetic, see `ParameterPreScalingWeightNorm`. For further details
     on the weight normalization-based quantization technique, see the referenced paper."""
 
-    @value
-    def scaling_init(scaling_init_impl):
-        return scaling_init_impl()
-
     proxy_class = DecoupledWeightQuantProxyFromInjector
     tensor_quant = DecoupledRescalingIntQuant
     decoupled_int_quant = DecoupledIntQuant
     tensor_clamp_impl = TensorClamp
-    scaling_impl = ParameterScaling
-    scaling_min_val = 1e-8
-    pre_scaling_min_val = 1e-8
+    scaling_impl = ParameterFromStatsFromParameterScaling
     restrict_scaling_impl = FloatRestrictValue
     scaling_stats_impl = AbsMax
-    scaling_init_impl = ParameterFromStatsScalingInit
-    parameter_stats_scaling_init_impl = StatsFromParameterScaling
     pre_scaling_impl = ParameterPreScalingWeightNorm
     restrict_pre_scaling_impl = LogFloatRestrictValue
     normalize_stats_impl = L2Norm
@@ -367,6 +347,8 @@ class WeightNormPerChannelFloatDecoupled(SolveWeightScalingStatsInputDimsFromMod
     scaling_stats_input_view_shape_impl = OverOutputChannelView
     stats_reduce_dim = SCALING_STATS_REDUCE_DIM
     scaling_per_output_channel = True
+    scaling_min_val = 1e-8
+    pre_scaling_min_val = 1e-8
 
 
 class AccumulatorAwareWeightQuant(WeightNormPerChannelFloatDecoupled):
@@ -399,26 +381,45 @@ class AccumulatorAwareWeightQuant(WeightNormPerChannelFloatDecoupled):
     float_to_int_impl = RoundToZeroSte  # required to ensure no upwards rounding violates constraints
 
 
-class MSEScaleSubInjector(ExtendedInjector):
+class MSESymmetricScaleSubInjector(ExtendedInjector):
     proxy_module = (this << 1).proxy_module
     mse_init_op = AbsMax
     stats_impl = MSE
     stats_reduce_dim = (this << 1).stats_reduce_dim
 
 
-class MSEZeroPointSubInjector(ExtendedInjector):
+class MSEAsymmetricScaleSubInjector(ExtendedInjector):
     proxy_module = (this << 1).proxy_module
     mse_init_op = AbsMinMax
     stats_impl = MSE
     stats_reduce_dim = (this << 1).stats_reduce_dim
 
 
-class MSEScale(ExtendedInjector):
+class MSEZeroPointSubInjector(ExtendedInjector):
+    proxy_module = (this << 1).proxy_module
+    mse_init_op = NegativeMinOrZero
+    stats_impl = MSE
+    stats_reduce_dim = (this << 1).stats_reduce_dim
+
+
+class MSEAsymmetricScale(ExtendedInjector):
     """
     We leverage a sub-injector to avoid a name clash between scale and zero-point.
     """
 
-    mse_scale = MSEScaleSubInjector
+    mse_scale = MSEAsymmetricScaleSubInjector
+
+    @value
+    def scaling_stats_impl():
+        return this.mse_scale.stats_impl
+
+
+class MSESymmetricScale(ExtendedInjector):
+    """
+    We leverage a sub-injector to avoid a name clash between scale and zero-point.
+    """
+
+    mse_scale = MSESymmetricScaleSubInjector
 
     @value
     def scaling_stats_impl():
