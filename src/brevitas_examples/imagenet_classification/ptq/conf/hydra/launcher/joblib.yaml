@@ -1,0 +1,2 @@
+n_jobs: 6
+n_gpus: 3

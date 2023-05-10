@@ -1,0 +1,27 @@
+defaults:
+  - model_name: resnet18
+  - target_backend: generic
+  - scale_factor_type: float32
+  - weight_bit_width: 8b
+  - act_bit_width: 8b
+  - bias_bit_width: 'int32'
+  - scaling_per_output_channel: per_channel
+  - act_quant_type: symmetric
+  - bias_corr: enabled
+  - graph_eq_iterations: enabled
+  - graph_eq_merge_bias: enabled
+  - gptq: enabled
+  - gptq_act_order: disabled
+  - act_quant_percentile: point_999
+
+hydra:
+  sweep:
+    dir: multirun/${now:%Y-%m-%d-%H-%M-%S}
+    subdir: ${hydra.job.num}
+GPU: True
+CALIBRATION_SAMPLES: 1000
+BATCH_SIZE_CALIBRATION: 64
+BATCH_SIZE_VALIDATION: 128
+WORKERS: 5
+CALIBRATION_DIR: /scratch/datasets/imagenet_symlink/calibration
+VALIDATION_DIR: /scratch/datasets/imagenet_symlink/val

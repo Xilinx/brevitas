@@ -1,5 +1,6 @@
 import csv
 
+from joblib.externals.loky.backend.context import LokyContext
 import torch
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
@@ -121,6 +122,10 @@ def generate_dataloader(
     if subset_size is not None:
         dataset = torch.utils.data.Subset(dataset, list(range(subset_size)))
     loader = torch.utils.data.DataLoader(
-        dataset, batch_size=batch_size, num_workers=num_workers, pin_memory=True)
+        dataset,
+        batch_size=batch_size,
+        num_workers=num_workers,
+        pin_memory=True,
+        multiprocessing_context=LokyContext())
 
     return loader
