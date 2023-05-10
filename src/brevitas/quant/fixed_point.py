@@ -33,6 +33,19 @@ class Int8WeightPerTensorFixedPoint(NarrowIntQuant,
     pass
 
 
+class Int8WeightPerTensorFixedPointMSE(MSESymmetricScale, Int8WeightPerTensorFixedPoint):
+    """
+    8-bit narrow per-tensor signed fixed-point weight quantizer with learned radix point
+    initialized from MSE local loss.
+
+    Examples:
+        >>> from brevitas.nn import QuantLinear
+        >>> fc = QuantLinear(10, 5, bias=False, weight_quant=Int8WeightPerTensorFixedPointMSE)
+        >>> fc.quant_weight()
+    """
+    scaling_impl_type = 'parameter_from_stats'
+
+
 class Int8ActPerTensorFixedPoint(IntQuant,
                                  ParamFromRuntimePercentileScaling,
                                  PerTensorPoTScaling8bit,
@@ -48,6 +61,18 @@ class Int8ActPerTensorFixedPoint(IntQuant,
     pass
 
 
+class Int8ActPerTensorFixedPointMSE(MSESymmetricScale, Int8ActPerTensorFixedPoint):
+    """
+    8-bit per-tensor signed int activations fixed-point quantizer with learned radix point
+    initialized from MSE local loss.
+
+    Examples:
+        >>> from brevitas.nn import QuantIdentity
+        >>> act = QuantIdentity(act_quant=Int8ActPerTensorFixedPointMSE)
+    """
+    pass
+
+
 class Int8ActPerTensorFixedPointMinMaxInit(IntQuant,
                                            ParamMinMaxInitScaling,
                                            PerTensorPoTScaling8bit,
@@ -58,7 +83,7 @@ class Int8ActPerTensorFixedPointMinMaxInit(IntQuant,
 
     Examples:
         >>> from brevitas.nn import QuantIdentity
-        >>> act = QuantIdentity(act_quant=Int8ActPerTensorFixedPoint)
+        >>> act = QuantIdentity(act_quant=Int8ActPerTensorFixedPointMinMaxInit, min_val=-0.5, max_val=0.5)
     """
     pass
 
@@ -74,6 +99,18 @@ class Uint8ActPerTensorFixedPoint(UintQuant,
     Examples:
         >>> from brevitas.nn import QuantReLU
         >>> act = QuantReLU(act_quant=Uint8ActPerTensorFixedPoint)
+    """
+    pass
+
+
+class Uint8ActPerTensorFixedPointMSE(MSESymmetricScale, Uint8ActPerTensorFixedPoint):
+    """
+    8-bit per-tensor unsigned int activations fixed-point quantizer with learned radix point
+    initialized from MSE local loss.
+
+    Examples:
+        >>> from brevitas.nn import QuantReLU
+        >>> act = QuantReLU(act_quant=Uint8ActPerTensorFixedPointMSE)
     """
     pass
 

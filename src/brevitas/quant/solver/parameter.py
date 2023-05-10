@@ -19,7 +19,6 @@ from brevitas.quant.solver.common import *
 
 __all__ = [
     'ScalingConstInit',
-    'ParameterFromStatsScalingInit',
     'HeScalingInit',
     'SolveParameterTensorClampImplFromEnum',
     'SolveParameterScalingInitFromEnum',
@@ -34,15 +33,6 @@ class ScalingConstInit:
 
     def __call__(self):
         return self.scaling_const
-
-
-class ParameterFromStatsScalingInit:
-
-    def __init__(self, parameter_stats_scaling_init_impl):
-        self.init_impl = parameter_stats_scaling_init_impl
-
-    def __call__(self):
-        return self.init_impl(torch.tensor(0.0))
 
 
 class HeScalingInit:
@@ -84,20 +74,11 @@ class SolveParameterScalingInitFromEnum(ExtendedInjector):
             return torch.tensor(scaling_init)
 
     @value
-    def parameter_stats_scaling_init_impl(scaling_impl_type):
-        if scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS:
-            return StatsFromParameterScaling
-        else:
-            return None
-
-    @value
     def scaling_init_impl(scaling_impl_type):
         if scaling_impl_type == ScalingImplType.CONST:
             return ScalingConstInit
         elif scaling_impl_type == ScalingImplType.PARAMETER:
             return ScalingConstInit
-        elif scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS:
-            return ParameterFromStatsScalingInit
         elif scaling_impl_type == ScalingImplType.HE:
             return HeScalingInit
         else:
@@ -111,7 +92,7 @@ class SolveParameterScalingImplFromEnum(SolveAffineRescalingFromEnum):
         if scaling_impl_type == ScalingImplType.PARAMETER:
             return ParameterScaling
         elif scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS:
-            return ParameterScaling
+            return ParameterFromStatsFromParameterScaling
         elif scaling_impl_type == ScalingImplType.CONST:
             return ConstScaling
         elif scaling_impl_type == ScalingImplType.HE:
