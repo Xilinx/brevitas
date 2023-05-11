@@ -24,6 +24,8 @@ __all__ = [
     'Uint8ActPerTensorFloat',
     'Int8ActPerTensorFloatMSE',
     'Uint8ActPerTensorFloatMSE',
+    'Int8WeightPerTensorFloatMSE',
+    'Int8WeightPerChannelFloatMSE',
     'TruncTo8bit',
     'RoundTo8bit',
     'Int4WeightPerTensorFloatDecoupled',
@@ -176,7 +178,7 @@ class Int8WeightPerTensorFloatMSE(MSESymmetricScale, Int8WeightPerTensorFloat):
         >>> from brevitas.nn import QuantLinear
         >>> fc = QuantLinear(10, 5, bias=False, weight_quant=Int8WeightPerTensorFloatMSE)
     """
-    scaling_impl_type = 'parameter_from_stats'
+    pass
 
 
 class Int8WeightPerChannelFloat(NarrowIntQuant,
@@ -203,7 +205,7 @@ class Int8WeightPerChannelFloatMSE(MSESymmetricScale, Int8WeightPerChannelFloat)
         >>> from brevitas.nn import QuantLinear
         >>> fc = QuantLinear(10, 5, bias=False, weight_quant=Int8WeightPerChannelFloatMSE)
     """
-    scaling_impl_type = 'parameter_from_stats'
+    pass
 
 
 class Int8ActPerTensorFloat(IntQuant,
