@@ -16,6 +16,7 @@ from brevitas.graph.per_input import AdaptiveAvgPoolToAvgPool
 from brevitas.graph.quantize_impl import add_output_quant_handler
 from brevitas.graph.quantize_impl import inp_placeholder_handler
 from brevitas.graph.quantize_impl import layer_handler
+from brevitas.graph.quantize_impl import layerwise_layer_handler
 from brevitas.graph.quantize_impl import residual_handler
 from brevitas.graph.standardize import DisableLastReturnQuantTensor
 from brevitas.graph.standardize import DuplicateSharedStatelessModule
@@ -323,7 +324,7 @@ def layerwise_quantize(graph_model, compute_layer_map=LAYERWISE_COMPUTE_LAYER_MA
     config.IGNORE_MISSING_KEYS = True
     training_state = graph_model.training
     graph_model.eval()
-    graph_model = layer_handler(graph_model, layer_map=compute_layer_map, requantize_output=False)
+    graph_model = layerwise_layer_handler(graph_model, layer_map=compute_layer_map)
     graph_model.train(training_state)
     config.IGNORE_MISSING_KEYS = ignore_missing_keys_state
     return graph_model

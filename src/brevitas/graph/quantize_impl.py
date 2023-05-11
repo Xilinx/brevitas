@@ -431,3 +431,20 @@ def layer_handler(
         for rewriter in rewriters:
             model = rewriter.apply(model)
     return model
+
+
+def layerwise_layer_handler(model, layer_map):
+    """
+    Replace FP weight layers with their corresponding quantized version
+    """
+    for name, module in model.named_modules():
+        rewriters = []
+        if isinstance(module, tuple(layer_map.keys())):
+            if layer_map[type(module)] is not None:
+                quant_module_class, quant_module_kwargs = layer_map[type(module)]
+                rewriter = ModuleToModuleByInstance(
+                    module, quant_module_class, **quant_module_kwargs)
+                rewriters.append(rewriter)
+    for rewriter in rewriters:
+        model = rewriter.apply(model)
+    return model
