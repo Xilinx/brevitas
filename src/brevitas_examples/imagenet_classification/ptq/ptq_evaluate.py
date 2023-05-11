@@ -19,6 +19,7 @@ from brevitas.export import export_onnx_qcdq
 from brevitas.export import export_torch_qcdq
 from brevitas.graph.quantize import preprocess_for_quantize
 from brevitas.graph.target.flexml import preprocess_for_flexml_quantize
+from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_bias_correction
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_gptq
 from brevitas_examples.imagenet_classification.ptq.ptq_common import calibrate
 from brevitas_examples.imagenet_classification.ptq.ptq_common import quantize_model
@@ -125,6 +126,7 @@ add_bool_arg(
     default=True,
     help='Narrow range for weight quantization (default: enabled)')
 add_bool_arg(parser, 'gptq', default=True, help='GPTQ (default: enabled)')
+add_bool_arg(parser, 'gptq-act-order', default=False, help='GPTQ (default: disabled)')
 
 
 def main():
@@ -141,6 +143,7 @@ def main():
         f"a{args.act_bit_width}"
         f"w{args.weight_bit_width}_"
         f"{'gptq_' if args.gptq else ''}"
+        f"{'gptq_act_order_' if args.gptq_act_order else ''}"
         f"{'weight_narrow_range_' if args.weight_narrow_range else ''}"
         f"{args.bias_bit_width}bias_"
         f"{'per_channel' if args.scaling_per_output_channel else 'per_tensor'}_"
@@ -156,7 +159,8 @@ def main():
         f"Quantization type: {args.scale_factor_type} - "
         f"Activation bit width: {args.act_bit_width} - "
         f"Weight bit width: {args.weight_bit_width} - "
-        f"GPTQ: {args.gtpq} - "
+        f"GPTQ: {args.gptq} - "
+        f"GPTQ Act Order: {args.gptq_act_order} - "
         f"Weight narrow range: {args.weight_narrow_range} - "
         f"Bias bit width: {args.bias_bit_width} - "
         f"Per-channel scale factors: {args.scaling_per_output_channel} - "
@@ -228,13 +232,17 @@ def main():
         quant_model = quant_model.cuda(args.gpu)
         cudnn.benchmark = False
 
-    if args.gptq:
-        print("Performing gptq")
-        apply_gptq(calib_loader, quant_model)
-
     # Calibrate the quant_model on the calibration dataloader
     print("Starting calibration")
-    calibrate(calib_loader, quant_model, args.bias_corr)
+    calibrate(calib_loader, quant_model)
+
+    if args.gptq:
+        print("Performing gptq")
+        apply_gptq(calib_loader, quant_model, args.gptq_act_order)
+
+    if args.bias_corr:
+        print("Applying bias correction")
+        apply_bias_correction(calib_loader, quant_model)
 
     # Validate the quant_model on the validation dataloader
     print("Starting validation")

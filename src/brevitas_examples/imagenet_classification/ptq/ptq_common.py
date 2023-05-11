@@ -22,6 +22,7 @@ from brevitas.graph.target.flexml import FLEXML_QUANT_ACT_MAP
 from brevitas.graph.target.flexml import FLEXML_QUANT_IDENTITY_MAP
 from brevitas.graph.target.flexml import quantize_flexml
 from brevitas.inject.enum import RestrictValueType
+from brevitas.inject.enum import ScalingImplType
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.nn.quant_mha import QuantMultiheadAttention
 from brevitas.quant.scaled_int import Int16Bias
@@ -106,6 +107,7 @@ def update_quant_maps(
         act_kwargs['low_percentile_q'] = 100.0 - act_quant_percentile
 
     weight_kwargs = {
+        'scaling_impl_type': ScalingImplType.PARAMETER_FROM_STATS,
         'scaling_per_output_channel': scaling_per_output_channel,
         'bit_width': weight_bit_width,
         'narrow_range': weight_narrow_range}
@@ -168,7 +170,7 @@ def update_quant_maps(
     return maps
 
 
-def calibrate(calib_loader, model, bias_corr=True):
+def calibrate(calib_loader, model):
     """
     Perform calibration and bias correction, if enabled
     """
@@ -182,23 +184,29 @@ def calibrate(calib_loader, model, bias_corr=True):
                 images = images.to(dtype)
                 model(images)
 
-        if bias_corr:
-            with bias_correction_mode(model):
-                for i, (images, target) in enumerate(tqdm(calib_loader)):
-                    images = images.to(device)
-                    images = images.to(dtype)
-                    model(images)
 
-
-def apply_gptq(calib_loader, model):
+def apply_bias_correction(calib_loader, model):
     model.eval()
     dtype = next(model.parameters()).dtype
     device = next(model.parameters()).device
     with torch.no_grad():
-        with gptq_mode(model) as gptq:
+        with bias_correction_mode(model):
+            for i, (images, target) in enumerate(tqdm(calib_loader)):
+                images = images.to(device)
+                images = images.to(dtype)
+                model(images)
+
+
+def apply_gptq(calib_loader, model, act_order=False):
+    model.eval()
+    dtype = next(model.parameters()).dtype
+    device = next(model.parameters()).device
+    with torch.no_grad():
+        with gptq_mode(model, act_order=act_order) as gptq:
+            gptq_model = gptq.model
             for i in tqdm(range(gptq.num_layers)):
                 for i, (images, target) in enumerate(calib_loader):
                     images = images.to(device)
                     images = images.to(dtype)
-                    model(images)
+                    gptq_model(images)
                 gptq.update()

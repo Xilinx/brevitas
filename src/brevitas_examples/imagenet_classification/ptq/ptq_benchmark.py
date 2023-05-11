@@ -20,6 +20,7 @@ from brevitas import config
 from brevitas import torch_version
 from brevitas.graph.quantize import preprocess_for_quantize
 from brevitas.graph.target.flexml import preprocess_for_flexml_quantize
+from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_bias_correction
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_gptq
 from brevitas_examples.imagenet_classification.ptq.ptq_common import calibrate
 from brevitas_examples.imagenet_classification.ptq.ptq_common import quantize_model
@@ -50,7 +51,8 @@ OPTIONS = {
     'bias_corr': [True],  # Bias Correction
     'graph_eq_iterations': [0, 20],  # Graph Equalization
     'graph_eq_merge_bias': [False, True],  # Merge bias for Graph Equalization
-    'enable_gptq': [False, True],  # Enable/Disable GPTQ
+    'gptq': [False, True],  # Enable/Disable GPTQ
+    'gptq_act_order': [False, True],  # Use act_order euristics for GPTQ
     'act_quant_percentile': [99.9, 99.99, 99.999],  # Activation Quantization Percentile
 }
 
@@ -65,7 +67,8 @@ OPTIONS_DEFAULT = {
     'bias_corr': [True],  # Bias Correction
     'graph_eq_iterations': [20],  # Graph Equalization
     'graph_eq_merge_bias': [True],  # Merge bias for Graph Equalization
-    'enable_gptq': [False],  # Enable/Disable GPTQ
+    'gptq': [False],  # Enable/Disable GPTQ
+    'gptq_act_order': [False],  # Use act_order euristics for GPTQ
     'act_quant_percentile': [99.999],  # Activation Quantization Percentile
 }
 
@@ -154,6 +157,10 @@ def ptq_torchvision_models(df, args):
                 == 'layerwise') and config_namespace.bias_bit_width == 'int16':
             continue
 
+        # If GPTQ is disabled, we do not care about the act_order heuristic
+        if not config_namespace.gptq and config_namespace.gptq_act_order:
+            continue
+
         fp_accuracy = TORCHVISION_TOP1_MAP[config_namespace.model_name]
         # Get model-specific configurations about input shapes and normalization
         model_config = get_model_config(config_namespace.model_name)
@@ -216,13 +223,17 @@ def ptq_torchvision_models(df, args):
             quant_model = quant_model.cuda(args.gpu)
             cudnn.benchmark = False
 
-        if config_namespace.enable_gptq:
-            print("Performing gptq")
-            apply_gptq(calib_loader, quant_model)
-
         # Calibrate the quant_model on the calibration dataloader
         print("Starting calibration")
-        calibrate(calib_loader, quant_model, config_namespace.bias_corr)
+        calibrate(calib_loader, quant_model)
+
+        if config_namespace.gptq:
+            print("Performing gptq")
+            apply_gptq(calib_loader, quant_model, config_namespace.gptq_act_order)
+
+        if config_namespace.bias_corr:
+            print("Applying bias correction")
+            apply_bias_correction(calib_loader, quant_model)
 
         # Validate the quant_model on the validation dataloader
         print("Starting validation")

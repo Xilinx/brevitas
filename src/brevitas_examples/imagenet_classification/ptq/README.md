@@ -45,6 +45,14 @@ where we map the torch compute layers and activations with their corresponding q
 Pre-computed accuracy results for torchvision can be found under `RESULTS_TORCHVISION.csv` with several quantization combinations evaluated on three different torchvision models (ResNet18, MobileNet V2, ViT B32), while results on the hand defined quantized MobileNet V1 can be found under `RESULTS_IMGCLSMOB.csv`.
 Furthemore, for the torchvision models, we provide a `RESULTS_TORCHVISION_BEST_CONFIGS.csv`, where, for each combination of hardware-related features (e.g., support of per-channel scaling factors), we report the best configurations and their results.
 
+## Requirements
+
+To install all the necessary requirements, simply run:
+
+```bash
+pip install brevitas[vision]
+```
+
 ## Evaluation flow
 
 This flow allows to specify which pre-trained torchvision model to quantize and apply PTQ to with the desired quantization configuration.
