@@ -93,7 +93,7 @@ parser.add_argument(
 parser.add_argument('--gpu', default=None, type=int, help='GPU id to use.')
 parser.add_argument('--calibration-samples', default=1000, type=int, help='Calibration size')
 parser.add_argument(
-    '--options-to-exclude', choices=OPTIONS.keys(), nargs="+", help='Calibration size')
+    '--options-to-exclude', choices=OPTIONS.keys(), nargs="+", default=[], help='Calibration size')
 
 
 def main():
