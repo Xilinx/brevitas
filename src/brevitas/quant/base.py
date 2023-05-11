@@ -34,6 +34,7 @@ from brevitas.core.stats import NegativeMinOrZero
 from brevitas.core.stats import NegativePercentileOrZero
 from brevitas.core.utils import SingleArgStatelessBuffer
 from brevitas.core.zero_point import ParameterFromRuntimeZeroPoint
+from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.core.zero_point import StatsFromParameterZeroPoint
 from brevitas.core.zero_point import ZeroZeroPoint
 from brevitas.inject import ExtendedInjector
@@ -73,7 +74,8 @@ __all__ = [
     'AccumulatorAwareWeightQuant',
     'MSESymmetricScale',
     'MSEAsymmetricScale',
-    'MSEZeroPoint']
+    'MSEWeightZeroPoint',
+    'MSEActZeroPoint']
 
 
 class MaxStatsScaling(ExtendedInjector):
@@ -408,6 +410,7 @@ class MSEAsymmetricScale(ExtendedInjector):
     """
 
     mse_scale = MSEAsymmetricScaleSubInjector
+    scaling_impl_type = ScalingImplType.PARAMETER_FROM_STATS
 
     @value
     def scaling_stats_impl():
@@ -420,6 +423,7 @@ class MSESymmetricScale(ExtendedInjector):
     """
 
     mse_scale = MSESymmetricScaleSubInjector
+    scaling_impl_type = ScalingImplType.PARAMETER_FROM_STATS
 
     @value
     def scaling_stats_impl():
@@ -436,3 +440,11 @@ class MSEZeroPoint(ExtendedInjector):
     @value
     def zero_point_stats_impl():
         return this.mse_zero_point.stats_impl
+
+
+class MSEWeightZeroPoint(ExtendedInjector):
+    zero_point_impl = ParameterFromStatsFromParameterZeroPoint
+
+
+class MSEActZeroPoint(ExtendedInjector):
+    zero_point_impl = ParameterFromRuntimeZeroPoint
