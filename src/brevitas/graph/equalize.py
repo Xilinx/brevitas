@@ -320,13 +320,12 @@ def _equalize(
     Generalized version of section 4.1 of https://arxiv.org/pdf/1906.04721.pdf
     """
     name_to_module: Dict[str, nn.Module] = {}
-    name_set = {}
+    name_set = set()
     for region in regions:
         for name in region.srcs:
             name_set.add(name)
         for name in region.sinks:
             name_set.add(name)
-    # name_set = {name for region in regions for module_set in region for name in module_set}
 
     for name, module in model.named_modules():
         if name in name_set:
