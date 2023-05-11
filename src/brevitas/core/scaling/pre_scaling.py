@@ -10,7 +10,6 @@ from torch.nn import Parameter
 
 import brevitas
 import brevitas.config as config
-from brevitas.core.bit_width import BitWidthStatefulConst
 from brevitas.core.restrict_val import _RestrictClampValue
 from brevitas.core.stats import SCALAR_SHAPE
 from brevitas.core.stats.stats_wrapper import _Stats
@@ -203,4 +202,6 @@ class AccumulatorAwareParameterPreScaling(ParameterPreScalingWeightNorm):
         T = self.get_upper_bound_on_l1_norm(input_bit_width, input_is_signed)  # T / s
         g = torch.clamp_max(g / s, T)
         value = d_w / g  # calculating final pre-clipping scaling factor
+        # re-apply clamp_min_ste from restrict_scaling_impl to the specified pre_scaling_min_val
+        value = self.restrict_clamp_scaling.clamp_min_ste(value)
         return value
