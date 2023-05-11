@@ -23,7 +23,8 @@ __all__ = [
     'ZeroZeroPoint',
     'StatsFromParameterZeroPoint',
     'ParameterFromRuntimeZeroPoint',
-    'ParameterZeroPoint']
+    'ParameterZeroPoint',
+    'ParameterFromStatsFromParameterZeroPoint']
 
 
 class ZeroZeroPoint(brevitas.jit.ScriptModule):
@@ -215,3 +216,57 @@ class ParameterZeroPoint(brevitas.jit.ScriptModule):
         value_key = prefix + 'value'
         if config.IGNORE_MISSING_KEYS and value_key in missing_keys:
             missing_keys.remove(value_key)
+
+
+class ParameterFromStatsFromParameterZeroPoint(brevitas.jit.ScriptModule):
+    """
+    ScriptModule implementation of a learned scale factor initialized from statistics of a parameter,
+    e.g. weights MSE or AbsMax.
+    """
+
+    def __init__(
+            self,
+            int_quant: Module,
+            quantize_zero_point: bool,
+            zero_point_stats_input_view_shape_impl: Module,
+            zero_point_stats_input_concat_dim: int,
+            zero_point_stats_impl: Module,
+            zero_point_shape: Tuple[int, ...],
+            tracked_parameter_list: List[torch.nn.Parameter]) -> None:
+        super(ParameterFromStatsFromParameterZeroPoint, self).__init__()
+        self.parameter_list_stats = _ParameterListStats(
+            zero_point_stats_impl,
+            zero_point_shape,
+            zero_point_stats_input_view_shape_impl,
+            zero_point_stats_input_concat_dim,
+            tracked_parameter_list)
+        self.scale_shift_zero_point = _ScaleShiftZeroPoint(int_quant, quantize_zero_point)
+        self.init_done: bool = brevitas.jit.Attribute(False, bool)
+        self.local_loss_mode: bool = brevitas.jit.Attribute(False, bool)
+        self.value = Parameter(torch.full(zero_point_shape, 0.0))
+
+    @brevitas.jit.script_method
+    def forward(self, x: Tensor, scale: Tensor, bit_width: Tensor) -> torch.Tensor:
+        stats = self.parameter_list_stats()
+        # workaround to avoid find_ununsed_parameter=True in DDP
+        stats = stats + 0. * self.value
+        if self.local_loss_mode:
+            return self.scale_shift_zero_point(-stats, scale, bit_width)
+        else:
+            if self.init_done:
+                value = abs_binary_sign_grad(self.value)
+                value = self.scale_shift_zero_point(value, scale, bit_width)
+                return value
+            else:
+                inplace_tensor_add(self.value.detach(), stats)
+                value = abs_binary_sign_grad(self.value)
+                value = self.scale_shift_zero_point(value, scale, bit_width)
+                self.init_done = True
+                return value
+
+    def state_dict(self, destination=None, prefix='', keep_vars=False):
+        output_dict = super(ParameterFromStatsFromParameterZeroPoint, self).state_dict(
+            destination=destination, prefix=prefix, keep_vars=keep_vars)
+        # Avoid saving the init value
+        if not self.init_done:
+            del output_dict[prefix + 'value']
