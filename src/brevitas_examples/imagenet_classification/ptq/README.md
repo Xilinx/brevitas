@@ -158,6 +158,8 @@ optional arguments:
                         Disable Narrow range for weight quantization (default: enabled)
   --gptq                Enable GPTQ (default: enabled)
   --no-gptq             Disable GPTQ (default: enabled)
+  --gptq-act-order      Enable GPTQ Act order heuristic (default: disabled)
+  --no-gptq-act-order   Disable GPTQ Act order heuristic (default: disabled)
 ```
 
 The script requires to specify the calibration folder (`--calibration-dir`), from which the calibration samples will be taken (configurable with the `--calibration-samples` argument), and a validation folder (`--validation-dir`).

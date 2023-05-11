@@ -126,7 +126,8 @@ add_bool_arg(
     default=True,
     help='Narrow range for weight quantization (default: enabled)')
 add_bool_arg(parser, 'gptq', default=True, help='GPTQ (default: enabled)')
-add_bool_arg(parser, 'gptq-act-order', default=False, help='GPTQ (default: disabled)')
+add_bool_arg(
+    parser, 'gptq-act-order', default=False, help='GPTQ Act order heuristic (default: disabled)')
 
 
 def main():
