@@ -144,15 +144,15 @@ class GPTQ():
         self.num_blocks = num_blocks
         self.act_order = act_order
 
-        W = layer.weight.data
-        dev = W.device
+        weight = layer.weight.data
+        dev = weight.device
 
         self.groups = 1
         if isinstance(self.layer, qnn.QuantConv2d):
-            W = W.flatten(1)
+            weight = weight.flatten(1)
             self.groups = self.layer.groups
-        self.rows = W.shape[0]
-        self.columns = W.shape[1]
+        self.rows = weight.shape[0]
+        self.columns = weight.shape[1]
         self.H = torch.zeros((self.groups, self.columns, self.columns), device=dev)
         self.nsamples = 0
 
@@ -207,22 +207,22 @@ class GPTQ():
         raise StopFwdException
 
     def single_layer_update(self, percdamp=.01):
-        W = self.layer.weight.data
-        dev = W.device
-        blocksize = math.ceil(W.shape[1] / self.num_blocks)
+        weight = self.layer.weight.data
+        dev = weight.device
+        blocksize = math.ceil(weight.shape[1] / self.num_blocks)
 
         if isinstance(self.layer, qnn.QuantConv2d):
-            W = W.flatten(1)
+            weight = weight.flatten(1)
 
         permutation_list = []
         if self.groups > 1:
             for i in range(self.groups):
                 dead = torch.diag(self.H[i, :, :]) == 0
                 self.H[i, dead, dead] = 1
-                W[i, dead] = 0
+                weight[i, dead] = 0
                 if self.act_order:
-                    perm = torch.argsort(torch.diag(H[i, :, :]), descending=True)
-                    W = W[i, perm]
+                    perm = torch.argsort(torch.diag(self.H[i, :, :]), descending=True)
+                    weight = weight[i, perm]
                     self.H = self.H[i, perm][i, :, perm]
                 else:
                     # No permutation
@@ -231,10 +231,10 @@ class GPTQ():
         else:
             dead = torch.diag(self.H[0, :, :]) == 0
             self.H[0, dead, dead] = 1
-            W[:, dead] = 0
+            weight[:, dead] = 0
             if self.act_order:
                 perm = torch.argsort(torch.diag(self.H[0, :, :]), descending=True)
-                W = W[:, perm]
+                weight = weight[:, perm]
                 self.H = self.H[:, perm, :][:, :, perm]
             else:
                 # No permutation
@@ -264,12 +264,12 @@ class GPTQ():
             i2 = min(i1 + blocksize, self.columns)
             count = i2 - i1
 
-            W1 = W[:, i1:i2]
-            Err1 = torch.zeros_like(W1)
+            weight1 = weight[:, i1:i2]
+            Err1 = torch.zeros_like(weight1)
             Hinv1 = Hinv[:, i1:i2, i1:i2]
 
             for i in range(count):
-                w = W1[:, i]
+                w = weight1[:, i]
                 d = Hinv1[:, i, i]
                 q = self.get_quant_weights(i, i1, i2, permutation_list)
 
@@ -278,32 +278,32 @@ class GPTQ():
                     # In case of depthwise convs, each weight matrix interacts with only
                     # part of the input values, thus with only one of the hessian matrix
                     for ii in range(self.groups):
-                        W1[ii, i:] -= err1[ii] * Hinv1[ii, i, i:]
+                        weight1[ii, i:] -= err1[ii] * Hinv1[ii, i, i:]
                 else:
-                    W1[:, i:] -= err1.unsqueeze(1).matmul(Hinv1[0, i, i:].unsqueeze(0))
+                    weight1[:, i:] -= err1.unsqueeze(1).matmul(Hinv1[0, i, i:].unsqueeze(0))
                 Err1[:, i] = err1
 
             if self.groups > 1:
                 # In case of depthwise convs, each weight matrix interacts with only
                 # part of the input values, thus with only one of the hessian matrix
                 for ii in range(self.groups):
-                    W[ii:ii + 1, i2:] -= Err1[ii:ii + 1, :].matmul(Hinv[ii, i1:i2, i2:])
+                    weight[ii:ii + 1, i2:] -= Err1[ii:ii + 1, :].matmul(Hinv[ii, i1:i2, i2:])
             else:
-                W[:, i2:] -= Err1.matmul(Hinv[0, i1:i2, i2:])
+                weight[:, i2:] -= Err1.matmul(Hinv[0, i1:i2, i2:])
 
     def get_quant_weights(self, i, i1, i2, permutation_list):
-        Q = self.layer.quant_weight()
+        quant_weight = self.layer.quant_weight()
+        quant_weight = quant_weight.value
         if isinstance(self.layer, qnn.QuantConv2d):
-            Q = Q.flatten(1)
-        Q = Q.value
+            quant_weight = quant_weight.flatten(1)
 
         # Permute quant weight to match the float32 counterpart
         if len(permutation_list) == 1:
-            Q = Q[:, permutation_list[0]]
+            quant_weight = quant_weight[:, permutation_list[0]]
         else:
             for i, perm in enumerate(permutation_list):
-                Q = Q[i, perm]
+                quant_weight = quant_weight[i, perm]
 
-        Q1 = Q[:, i1:i2]
-        q = Q1[:, i]
+        quant_weight1 = quant_weight[:, i1:i2]
+        q = quant_weight1[:, i]
         return q
