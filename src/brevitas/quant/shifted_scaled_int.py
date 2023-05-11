@@ -13,7 +13,9 @@ __all__ = [
     'ShiftedUint8WeightPerTensorFloat',
     'ShiftedUint8WeightPerChannelFloat',
     'ShiftedUint8ActPerTensorFixedPointMSE',
-    'ShiftedUint8ActPerTensorFloatMSE']
+    'ShiftedUint8ActPerTensorFloatMSE',
+    'ShiftedUint8WeightPerTensorFloatMSE',
+    'ShiftedUint8WeightPerChannelFloatMSE']
 
 
 class ShiftedUint8ActPerTensorFixedPoint(ShiftedParamFromPercentileUintQuant,
@@ -33,7 +35,7 @@ class ShiftedUint8ActPerTensorFixedPoint(ShiftedParamFromPercentileUintQuant,
 
 
 class ShiftedUint8ActPerTensorFixedPointMSE(MSEAsymmetricScale,
-                                            MSEZeroPoint,
+                                            MSEActZeroPoint,
                                             ShiftedUint8ActPerTensorFixedPoint):
     """
     8-bit per-tensor unsigned int fixed-point activations quantizer with
@@ -64,7 +66,7 @@ class ShiftedUint8ActPerTensorFloat(ShiftedParamFromPercentileUintQuant,
 
 
 class ShiftedUint8ActPerTensorFloatMSE(MSEAsymmetricScale,
-                                       MSEZeroPoint,
+                                       MSEActZeroPoint,
                                        ShiftedUint8ActPerTensorFloat):
     """
     8-bit per-tensor unsigned int activations quantizer with floating-point scale factor and
@@ -94,6 +96,20 @@ class ShiftedUint8WeightPerTensorFloat(ShiftedMinUintQuant,
     pass
 
 
+class ShiftedUint8WeightPerTensorFloatMSE(MSEAsymmetricScale,
+                                          MSEWeightZeroPoint,
+                                          ShiftedUint8WeightPerTensorFloat):
+    """
+    8-bit per-tensor unsigned int weight quantizer with floating-point per-tensor scale factor and integer
+    zero point. Both zero-point and scale factors are learned parameters initialized from MSE local losses.
+
+    Examples:
+        >>> from brevitas.nn import QuantLinear
+        >>> fc = QuantLinear(10, 5, bias=False, weight_quant=ShiftedUint8WeightPerTensorFloatMSE)
+    """
+    pass
+
+
 class ShiftedUint8WeightPerChannelFloat(ShiftedMinUintQuant,
                                         MinMaxStatsScaling,
                                         PerChannelFloatScaling8bit,
@@ -102,6 +118,20 @@ class ShiftedUint8WeightPerChannelFloat(ShiftedMinUintQuant,
     8-bit per-tensor unsigned int weight quantizer with floating-point per-channel scale factor and integer
     zero point. Both zero-point and scale factors are based on backpropagated statistics of the
     weight tensor.
+
+    Examples:
+        >>> from brevitas.nn import QuantLinear
+        >>> fc = QuantLinear(10, 5, bias=False, weight_quant=ShiftedUint8WeightPerChannelFloat)
+    """
+    pass
+
+
+class ShiftedUint8WeightPerChannelFloatMSE(MSEAsymmetricScale,
+                                           MSEWeightZeroPoint,
+                                           ShiftedUint8WeightPerChannelFloat):
+    """
+    8-bit per-tensor unsigned int weight quantizer with floating-point per-channel scale factor and integer
+    zero point. Both zero-point and scale factors are learned parameters initialized from MSE local losses.
 
     Examples:
         >>> from brevitas.nn import QuantLinear
