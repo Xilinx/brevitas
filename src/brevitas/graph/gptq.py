@@ -138,7 +138,7 @@ class GPTQ():
     limitations under the License.
     """
 
-    def __init__(self, layer, name, num_blocks=4, act_order=True) -> None:
+    def __init__(self, layer, name, num_blocks, act_order) -> None:
         self.layer = layer
         self.name = name
         self.num_blocks = num_blocks
