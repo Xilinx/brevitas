@@ -6,16 +6,15 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 from torch import nn
 
 from brevitas.core.scaling import StatsFromParameterScaling
+from brevitas.core.zero_point import StatsFromParameterZeroPoint
 from brevitas.inject import this
 from brevitas.inject import value
 from brevitas.quant.scaled_int import Int8WeightPerChannelFloat
 
-from .quant_blocks import AbsMaxKeepDim
-from .quant_blocks import ExpandReshapeScalingWrapper
-from .quant_blocks import OverSubChannelBlockView
+from .quant_blocks import *
 
 
-class IntWeightBlockQuant(Int8WeightPerChannelFloat):
+class IntWeightSymmetricBlockQuant(Int8WeightPerChannelFloat):
     """
     Block / vector signed symmetric weight quantizer with float scales.
     We inherit from a per-channel quantizer to re-use some underlying machinery.
@@ -52,3 +51,20 @@ class IntWeightBlockQuant(Int8WeightPerChannelFloat):
     # Set bit_width and block size externally
     bit_width = None
     block_size = None
+
+
+class IntWeightAsymmetricBlockQuant(IntWeightSymmetricBlockQuant):
+    """
+    Block / vector signed asymmetric weight quantizer with float scales and zero-points.
+    """
+    zero_point_input_shape = this.scaling_input_shape
+    reshaped_zero_point_shape = this.reshaped_scaling_shape
+    zero_point_shape = this.scaling_shape
+    expanded_zero_point_shape = this.expanded_scaling_shape
+    zero_point_stats_input_view_shape_impl = this.scaling_stats_input_view_shape_impl
+    zero_point_stats_input_concat_dim = 0
+    zero_point_impl = ExpandReshapeZeroPointWrapper
+    zero_point_stats_impl = NegativeMinOrZeroKeepDim
+    scaling_stats_impl = AbsMinMaxKeepDim
+    wrapped_zero_point_impl = StatsFromParameterZeroPoint
+    quantize_zero_point = False
