@@ -26,6 +26,8 @@ __all__ = [
 
 _PARAM_PROXIES = (WeightQuantProxyFromInjector, BiasQuantProxyFromInjector)
 
+_BIAS_PROXIES = (BiasQuantProxyFromInjector)
+
 _ACC_PROXIES = (TruncQuantProxyFromInjector, ClampQuantProxyFromInjector)
 
 _LAYERS_TO_CLIP = (
@@ -146,6 +148,12 @@ class DisableEnableQuantization(Transform):
                 module.train(is_training)
                 module.disable_quant = True
 
+    def disable_bias_quantization(self, model, is_training):
+        for module in model.modules():
+            if isinstance(module, _BIAS_PROXIES):
+                module.train(is_training)
+                module.disable_quant = True
+
     def enable_act_quantization(self, model, is_training):
         for module in model.modules():
             if isinstance(module, _ACC_PROXIES):
@@ -160,6 +168,12 @@ class DisableEnableQuantization(Transform):
     def enable_param_quantization(self, model, is_training):
         for module in model.modules():
             if isinstance(module, _PARAM_PROXIES):
+                module.disable_quant = False
+                module.train(is_training)
+
+    def enable_bias_quantization(self, model, is_training):
+        for module in model.modules():
+            if isinstance(module, _BIAS_PROXIES):
                 module.disable_quant = False
                 module.train(is_training)
 

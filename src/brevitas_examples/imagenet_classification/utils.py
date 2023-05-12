@@ -3,6 +3,7 @@ import csv
 import torch
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
+from tqdm import tqdm
 
 SEED = 123456
 
@@ -73,7 +74,7 @@ def validate(val_loader, model):
     dtype = next(model.parameters()).dtype
     device = next(model.parameters()).device
     with torch.no_grad():
-        for i, (images, target) in enumerate(val_loader):
+        for i, (images, target) in enumerate(tqdm(val_loader)):
             target = target.to(device)
             target = target.to(dtype)
             images = images.to(device)

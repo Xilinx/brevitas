@@ -4,7 +4,7 @@
 import argparse
 from itertools import product
 import random
-import warnings
+from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
@@ -20,6 +20,8 @@ from brevitas import config
 from brevitas import torch_version
 from brevitas.graph.quantize import preprocess_for_quantize
 from brevitas.graph.target.flexml import preprocess_for_flexml_quantize
+from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_bias_correction
+from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_gptq
 from brevitas_examples.imagenet_classification.ptq.ptq_common import calibrate
 from brevitas_examples.imagenet_classification.ptq.ptq_common import quantize_model
 from brevitas_examples.imagenet_classification.ptq.utils import get_model_config
@@ -37,11 +39,41 @@ TORCHVISION_TOP1_MAP = {
     'mobilenet_v2': 71.898,
     'vit_b_32': 75.912,}
 
+OPTIONS = {
+    'model_name': TORCHVISION_TOP1_MAP.keys(),
+    'target_backend': ['generic', 'layerwise', 'flexml'],  # Target backend
+    'scale_factor_type': ['float32', 'po2'],  # Scale factor type
+    'weight_bit_width': [8, 6, 4],  # Weight Bit Width
+    'act_bit_width': [8],  # Act bit width
+    'bias_bit_width': ['int32', 'int16'],  # Bias Bit-Width for Po2 scale
+    'scaling_per_output_channel': [False, True],  # Scaling Per Output Channel
+    'act_quant_type': ['asymmetric', 'symmetric'],  # Act Quant Type
+    'bias_corr': [True],  # Bias Correction
+    'graph_eq_iterations': [0, 20],  # Graph Equalization
+    'graph_eq_merge_bias': [False, True],  # Merge bias for Graph Equalization
+    'gptq': [False, True],  # Enable/Disable GPTQ
+    'gptq_act_order': [False, True],  # Use act_order euristics for GPTQ
+    'act_quant_percentile': [99.9, 99.99, 99.999],  # Activation Quantization Percentile
+}
+
+OPTIONS_DEFAULT = {
+    'target_backend': ['generic'],  # Target backend
+    'scale_factor_type': ['float32'],  # Scale factor type
+    'weight_bit_width': [8],  # Weight Bit Width
+    'act_bit_width': [8],  # Act bit width
+    'bias_bit_width': ['int32'],  # Bias Bit-Width for Po2 scale
+    'scaling_per_output_channel': [True],  # Scaling Per Output Channel
+    'act_quant_type': ['symmetric'],  # Act Quant Type
+    'bias_corr': [True],  # Bias Correction
+    'graph_eq_iterations': [20],  # Graph Equalization
+    'graph_eq_merge_bias': [True],  # Merge bias for Graph Equalization
+    'gptq': [False],  # Enable/Disable GPTQ
+    'gptq_act_order': [False],  # Use act_order euristics for GPTQ
+    'act_quant_percentile': [99.999],  # Activation Quantization Percentile
+}
+
 # Manually defined quantized model with original floating point accuracy
 IMGCLSMOB_TOP1_MAP = {'quant_mobilenet_v1': 73.390}
-
-# Ignore warnings about __torch_function__
-warnings.filterwarnings("ignore")
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet PTQ Validation')
 parser.add_argument(
@@ -60,6 +92,8 @@ parser.add_argument(
     '--batch-size-validation', default=256, type=int, help='Minibatch size for validation')
 parser.add_argument('--gpu', default=None, type=int, help='GPU id to use.')
 parser.add_argument('--calibration-samples', default=1000, type=int, help='Calibration size')
+parser.add_argument(
+    '--options-to-exclude', choices=OPTIONS.keys(), nargs="+", default=[], help='Calibration size')
 
 
 def main():
@@ -67,20 +101,12 @@ def main():
     random.seed(SEED)
     np.random.seed(SEED)
     torch.manual_seed(SEED)
+    for option in args.options_to_exclude:
+        OPTIONS[option] = OPTIONS_DEFAULT[option]
 
+    options_names = [k.replace('_', ' ').capitalize() for k in OPTIONS.keys()]
     torchvision_df = pd.DataFrame(
-        columns=[
-            'Model',
-            'Target backend',
-            'Scale factor type',
-            'Activations and weights bit width',
-            'Bias bit width',
-            'Per-channel scale',
-            'Activation quantization type',
-            'Bias correction',
-            'Graph equalization iters',
-            'Merge Bias in graph equalization',
-            'Activation quantization percentile',
+        columns=options_names + [
             'Top 1% floating point accuracy',
             'Top 1% quant accuracy',
             'Floating point accuracy - quant accuracy',
@@ -110,61 +136,34 @@ def main():
 
 def ptq_torchvision_models(df, args):
 
-    options = [
-        TORCHVISION_TOP1_MAP.keys(),
-        ['layerwise', 'generic', 'flexml'],  # Target backend
-        ['float32', 'po2'],  # Scale factor type
-        [8],  # Act and Weight Bit Width
-        ['int32', 'int16'],  # Bias Bit-Width for Po2 scale
-        [False, True],  # Scaling Per Output Channel
-        ['asymmetric', 'symmetric'],  # Act Quant Type
-        [True],  # Bias Correction
-        [0, 20],  # Graph Equalization
-        [False, True],  # Merge bias for Graph Equalization
-        [99.9, 99.99, 99.999],  # Activation Quantization Percentile
-    ]
+    combinations = list(product(*OPTIONS.values()))
 
-    combinations = list(product(*options))
     k = 0
-    for (model_name,
-         target_backend,
-         scale_factor_type,
-         bit_width,
-         bias_bit_width,
-         scaling_per_output_channel,
-         act_quant_type,
-         bias_corr,
-         graph_eq_iterations,
-         graph_eq_merge_bias,
-         act_quant_percentile) in combinations:
-
-        args.model_name = model_name
-        args.target_backend = target_backend
-        args.scale_factor_type = scale_factor_type
-        args.bit_width = bit_width
-        args.bias_bit_width = bias_bit_width
-        args.scaling_per_output_channel = scaling_per_output_channel
-        args.act_quant_type = act_quant_type
-        args.bias_corr = bias_corr
-        args.graph_eq_iterations = graph_eq_iterations
-        args.graph_eq_merge_bias = graph_eq_merge_bias
-        args.act_quant_percentile = act_quant_percentile
+    for combination in combinations:
+        config_namespace = SimpleNamespace()
+        for key, value in zip(OPTIONS.keys(), combination):
+            setattr(config_namespace, key, value)
 
         # Flexml supports only per-tensor scale factors, power of two scale factors
-        if target_backend == 'flexml' and (scaling_per_output_channel or
-                                           scale_factor_type == 'float32'):
+        if config_namespace.target_backend == 'flexml' and (
+                config_namespace.scaling_per_output_channel or
+                config_namespace.scale_factor_type == 'float32'):
             continue
         # Merge bias can be enabled only when graph equalization is enabled
-        if graph_eq_iterations == 0 and graph_eq_merge_bias:
+        if config_namespace.graph_eq_iterations == 0 and config_namespace.graph_eq_merge_bias:
             continue
         # For generic and layerwise backend, we only test for int32 bias bit width
-        if (target_backend == 'generic' or
-                target_backend == 'layerwise') and bias_bit_width == 'int16':
+        if (config_namespace.target_backend == 'generic' or config_namespace.target_backend
+                == 'layerwise') and config_namespace.bias_bit_width == 'int16':
             continue
 
-        fp_accuracy = TORCHVISION_TOP1_MAP[model_name]
+        # If GPTQ is disabled, we do not care about the act_order heuristic
+        if not config_namespace.gptq and config_namespace.gptq_act_order:
+            continue
+
+        fp_accuracy = TORCHVISION_TOP1_MAP[config_namespace.model_name]
         # Get model-specific configurations about input shapes and normalization
-        model_config = get_model_config(args.model_name)
+        model_config = get_model_config(config_namespace.model_name)
 
         # Generate calibration and validation dataloaders
         resize_shape = model_config['resize_shape']
@@ -187,36 +186,36 @@ def ptq_torchvision_models(df, args):
             inception_preprocessing=inception_preprocessing)
 
         # Get the model from torchvision
-        model = get_torchvision_model(args.model_name)
+        model = get_torchvision_model(config_namespace.model_name)
 
         # Preprocess the model for quantization
-        if args.target_backend == 'flexml':
+        if config_namespace.target_backend == 'flexml':
             # Flexml requires static shapes, thus representative input is passed in
             img_shape = model_config['center_crop_shape']
             model = preprocess_for_flexml_quantize(
                 model,
                 torch.ones(1, 3, img_shape, img_shape),
-                equalize_iters=args.graph_eq_iterations,
-                equalize_merge_bias=args.graph_eq_merge_bias)
-        elif args.target_backend == 'generic' or args.target_backend == 'layerwise':
+                equalize_iters=config_namespace.graph_eq_iterations,
+                equalize_merge_bias=config_namespace.graph_eq_merge_bias)
+        elif config_namespace.target_backend == 'generic' or config_namespace.target_backend == 'layerwise':
             model = preprocess_for_quantize(
                 model,
-                equalize_iters=args.graph_eq_iterations,
-                equalize_merge_bias=args.graph_eq_merge_bias)
+                equalize_iters=config_namespace.graph_eq_iterations,
+                equalize_merge_bias=config_namespace.graph_eq_merge_bias)
         else:
-            raise RuntimeError(f"{args.target_backend} backend not supported.")
+            raise RuntimeError(f"{config_namespace.target_backend} backend not supported.")
 
         # Define the quantized model
         quant_model = quantize_model(
             model,
-            backend=args.target_backend,
-            act_bit_width=args.bit_width,
-            weight_bit_width=args.bit_width,
-            bias_bit_width=args.bias_bit_width,
-            scaling_per_output_channel=args.scaling_per_output_channel,
-            act_quant_percentile=args.act_quant_percentile,
-            act_quant_type=act_quant_type,
-            scale_factor_type=args.scale_factor_type)
+            backend=config_namespace.target_backend,
+            act_bit_width=config_namespace.act_bit_width,
+            weight_bit_width=config_namespace.weight_bit_width,
+            bias_bit_width=config_namespace.bias_bit_width,
+            scaling_per_output_channel=config_namespace.scaling_per_output_channel,
+            act_quant_percentile=config_namespace.act_quant_percentile,
+            act_quant_type=config_namespace.act_quant_type,
+            scale_factor_type=config_namespace.scale_factor_type)
 
         # If available, use the selected GPU
         if args.gpu is not None:
@@ -226,7 +225,15 @@ def ptq_torchvision_models(df, args):
 
         # Calibrate the quant_model on the calibration dataloader
         print("Starting calibration")
-        calibrate(calib_loader, quant_model, args.bias_corr)
+        calibrate(calib_loader, quant_model)
+
+        if config_namespace.gptq:
+            print("Performing gptq")
+            apply_gptq(calib_loader, quant_model, config_namespace.gptq_act_order)
+
+        if config_namespace.bias_corr:
+            print("Applying bias correction")
+            apply_bias_correction(calib_loader, quant_model)
 
         # Validate the quant_model on the validation dataloader
         print("Starting validation")
@@ -237,18 +244,7 @@ def ptq_torchvision_models(df, args):
         acc_diff = np.around(top1 - fp_accuracy, decimals=3)
         acc_ratio = np.around(top1 / fp_accuracy, decimals=3)
 
-        df.at[k, :] = [
-            model_name,
-            target_backend,
-            scale_factor_type,
-            bit_width,
-            bias_bit_width,
-            scaling_per_output_channel,
-            act_quant_type,
-            bias_corr,
-            graph_eq_iterations,
-            graph_eq_merge_bias,
-            act_quant_percentile,
+        df.at[k, :] = [v for _, v in config_namespace.__dict__.items()] + [
             fp_accuracy,
             top1,
             acc_diff,
@@ -261,16 +257,17 @@ def ptq_torchvision_models(df, args):
         df.to_csv('RESULTS_TORCHVISION.csv', index=False, mode='w')
 
         grouped_df = df.groupby([
-            'Model',
+            'Model name',
             'Target backend',
             'Scale factor type',
-            'Activations and weights bit width',
+            'Weight bit width',
+            'Act bit width',
             'Bias bit width',
-            'Per-channel scale',
-            'Activation quantization type'])
+            'Scaling per output channel',
+            'Act quant type'])
         idx = grouped_df['Top 1% quant accuracy'].transform(max) == df['Top 1% quant accuracy']
         best_config_df = df[idx]
-        best_config_df = best_config_df.sort_values(by=['Model', 'Top 1% quant accuracy'])
+        best_config_df = best_config_df.sort_values(by=['Model name', 'Top 1% quant accuracy'])
         best_config_df.to_csv('RESULTS_TORCHVISION_BEST_CONFIGS.csv', index=False, mode='w')
 
         k += 1
