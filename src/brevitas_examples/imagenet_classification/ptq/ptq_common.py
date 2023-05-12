@@ -1,12 +1,16 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from copy import deepcopy
+
 import torch
 import torch.backends.cudnn as cudnn
+from tqdm import tqdm
 
 from brevitas.core.function_wrapper.ops_ste import CeilSte
 from brevitas.graph.calibrate import bias_correction_mode
 from brevitas.graph.calibrate import calibration_mode
+from brevitas.graph.gptq import gptq_mode
 from brevitas.graph.quantize import COMPUTE_LAYER_MAP
 from brevitas.graph.quantize import LAYERWISE_COMPUTE_LAYER_MAP
 from brevitas.graph.quantize import layerwise_quantize
@@ -18,6 +22,7 @@ from brevitas.graph.target.flexml import FLEXML_QUANT_ACT_MAP
 from brevitas.graph.target.flexml import FLEXML_QUANT_IDENTITY_MAP
 from brevitas.graph.target.flexml import quantize_flexml
 from brevitas.inject.enum import RestrictValueType
+from brevitas.inject.enum import ScalingImplType
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.nn.quant_mha import QuantMultiheadAttention
 from brevitas.quant.scaled_int import Int16Bias
@@ -57,9 +62,9 @@ def quantize_model(
     act_quant_asym = None
     if act_quant_type == 'asymmetric':
         act_quant_asym = ASYMMETRIC_ACT_QUANT_MAP[backend]
-
+    maps = [deepcopy(quant_map) for quant_map in LAYER_MAP[backend]]
     maps = update_quant_maps(
-        LAYER_MAP[backend],
+        maps,
         scale_factor_type=scale_factor_type,
         bias_bit_width=bias_bit_width,
         scaling_per_output_channel=scaling_per_output_channel,
@@ -102,6 +107,7 @@ def update_quant_maps(
         act_kwargs['low_percentile_q'] = 100.0 - act_quant_percentile
 
     weight_kwargs = {
+        'scaling_impl_type': ScalingImplType.PARAMETER_FROM_STATS,
         'scaling_per_output_channel': scaling_per_output_channel,
         'bit_width': weight_bit_width,
         'narrow_range': weight_narrow_range}
@@ -164,7 +170,7 @@ def update_quant_maps(
     return maps
 
 
-def calibrate(calib_loader, model, bias_corr=True):
+def calibrate(calib_loader, model):
     """
     Perform calibration and bias correction, if enabled
     """
@@ -173,14 +179,34 @@ def calibrate(calib_loader, model, bias_corr=True):
     device = next(model.parameters()).device
     with torch.no_grad():
         with calibration_mode(model):
-            for i, (images, target) in enumerate(calib_loader):
+            for i, (images, target) in enumerate(tqdm(calib_loader)):
                 images = images.to(device)
                 images = images.to(dtype)
                 model(images)
 
-        if bias_corr:
-            with bias_correction_mode(model):
+
+def apply_bias_correction(calib_loader, model):
+    model.eval()
+    dtype = next(model.parameters()).dtype
+    device = next(model.parameters()).device
+    with torch.no_grad():
+        with bias_correction_mode(model):
+            for i, (images, target) in enumerate(tqdm(calib_loader)):
+                images = images.to(device)
+                images = images.to(dtype)
+                model(images)
+
+
+def apply_gptq(calib_loader, model, act_order=False):
+    model.eval()
+    dtype = next(model.parameters()).dtype
+    device = next(model.parameters()).device
+    with torch.no_grad():
+        with gptq_mode(model, act_order=act_order) as gptq:
+            gptq_model = gptq.model
+            for i in tqdm(range(gptq.num_layers)):
                 for i, (images, target) in enumerate(calib_loader):
                     images = images.to(device)
                     images = images.to(dtype)
-                    model(images)
+                    gptq_model(images)
+                gptq.update()
