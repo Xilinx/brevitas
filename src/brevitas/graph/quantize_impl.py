@@ -1,6 +1,7 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 import operator
+from typing import Dict, List, Optional
 
 import torch
 import torch.nn as nn
@@ -433,18 +434,33 @@ def layer_handler(
     return model
 
 
-def layerwise_layer_handler(model, layer_map):
+def find_module(
+        model: nn.Module, layer_map: Dict[nn.Module, Optional[Dict]], module_to_replace: List):
+    """
+    Iterate through the model looking at immediate children of every module to look for supported modules.
+    This allows us to stop the search when we meet a top-level module that is supported.
+    Specifically, it allows to map nn.MultiheadAttetion to its quantized counterpart and not its
+    Linear submodules.
+    """
+    if isinstance(model, tuple(layer_map.keys())):
+        module_to_replace.append(model)
+    else:
+        for name, module in model.named_children():
+            find_module(module, layer_map, module_to_replace)
+
+
+def layerwise_layer_handler(model: nn.Module, layer_map: Dict[nn.Module, Optional[Dict]]):
     """
     Replace FP weight layers with their corresponding quantized version
     """
-    for name, module in model.named_modules():
-        rewriters = []
-        if isinstance(module, tuple(layer_map.keys())):
-            if layer_map[type(module)] is not None:
-                quant_module_class, quant_module_kwargs = layer_map[type(module)]
-                rewriter = ModuleToModuleByInstance(
-                    module, quant_module_class, **quant_module_kwargs)
-                rewriters.append(rewriter)
+    module_to_replace = []
+    find_module(model, layer_map, module_to_replace)
+    rewriters = []
+    for module in module_to_replace:
+        if layer_map[type(module)] is not None:
+            quant_module_class, quant_module_kwargs = layer_map[type(module)]
+            rewriter = ModuleToModuleByInstance(module, quant_module_class, **quant_module_kwargs)
+            rewriters.append(rewriter)
     for rewriter in rewriters:
         model = rewriter.apply(model)
     return model
