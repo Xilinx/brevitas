@@ -222,8 +222,8 @@ class GPTQ():
                 weight[i, dead] = 0
                 if self.act_order:
                     perm = torch.argsort(torch.diag(self.H[i, :, :]), descending=True)
-                    weight = weight[i, perm]
-                    self.H = self.H[i, perm][i, :, perm]
+                    weight[i, :] = weight[i, perm]
+                    self.H[i, :, :] = self.H[i, perm, :][:, perm]
                 else:
                     # No permutation
                     perm = list(range(self.H.shape[-1]))
@@ -296,13 +296,12 @@ class GPTQ():
         quant_weight = quant_weight.value
         if isinstance(self.layer, qnn.QuantConv2d):
             quant_weight = quant_weight.flatten(1)
-
         # Permute quant weight to match the float32 counterpart
         if len(permutation_list) == 1:
             quant_weight = quant_weight[:, permutation_list[0]]
         else:
-            for i, perm in enumerate(permutation_list):
-                quant_weight = quant_weight[i, perm]
+            for ii, perm in enumerate(permutation_list):
+                quant_weight[ii, :] = quant_weight[ii, perm]
 
         quant_weight1 = quant_weight[:, i1:i2]
         q = quant_weight1[:, i]
