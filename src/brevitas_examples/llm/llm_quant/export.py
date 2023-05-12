@@ -14,8 +14,11 @@ class WeightBlockQuantProxyHandler(BaseHandler):
         super(WeightBlockQuantProxyHandler, self).__init__()
         self.int_weight = None
         self.scale = None
+        self.zero_point = None
         self.expanded_scaling_shape = None
         self.reshaped_scaling_shape = None
+        self.expanded_zero_point_shape = None
+        self.reshaped_zero_point_shape = None
 
     def prepare_for_export(self, module):
         assert len(module.tracked_module_list) == 1, "Shared quantizers not supported."
@@ -31,13 +34,26 @@ class WeightBlockQuantProxyHandler(BaseHandler):
         self.scale = threshold / int_threshold
         self.expanded_scaling_shape = scaling_impl.expanded_scaling_shape
         self.reshaped_scaling_shape = scaling_impl.reshaped_scaling_shape
+        if (quant_weight.zero_point != 0.).any():
+            zero_point_impl = module.tensor_quant.zero_point_impl
+            self.expanded_zero_point_shape = zero_point_impl.expanded_zero_point_shape
+            self.reshaped_zero_point_shape = zero_point_impl.reshaped_zero_point_shape
+            self.zero_point = zero_point_impl.unexpanded_zero_point(self.scale, bit_width_impl())
 
     def forward(self, x):
         scale = self.scale.expand(self.expanded_scaling_shape).contiguous()
         # contiguous above is to avoid the reshape below being mapped to a unsafe view
         scale = scale.view(self.reshaped_scaling_shape)
-        quant_weight = self.int_weight * scale
-        return quant_weight, scale, None, None
+        int_weight = self.int_weight
+        if self.zero_point is not None:
+            zero_point = self.zero_point.expand(self.expanded_zero_point_shape).contiguous()
+            # contiguous above is to avoid the reshape below being mapped to a unsafe view
+            zero_point = zero_point.view(self.reshaped_zero_point_shape)
+            int_weight = int_weight - zero_point
+        else:
+            zero_point = torch.zeros_like(scale)
+        quant_weight = int_weight * scale
+        return quant_weight, scale, zero_point, None
 
 
 class BlockProxyLevelManager(BaseManager):

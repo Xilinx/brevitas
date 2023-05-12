@@ -51,7 +51,8 @@ from transformers import AutoModelForCausalLM
 
 from brevitas_examples.llm.llm_quant.export import brevitas_block_proxy_export_mode
 from brevitas_examples.llm.llm_quant.quantize import quantize
-from brevitas_examples.llm.llm_quant.quantizers import IntWeightBlockQuant
+from brevitas_examples.llm.llm_quant.quantizers import IntWeightAsymmetricBlockQuant
+from brevitas_examples.llm.llm_quant.quantizers import IntWeightSymmetricBlockQuant
 
 
 class FirstVicunaLayer(torch.nn.Module):
@@ -365,7 +366,11 @@ def get_model(args):
 
     # Define the quantized model
     print("Applying weight quantization..")
-    quantize(vicuna_model.model, IntWeightBlockQuant, args.bit_width, args.block_size)
+    if args.symmetric:
+        weight_quant = IntWeightSymmetricBlockQuant
+    else:
+        weight_quant = IntWeightAsymmetricBlockQuant
+    quantize(vicuna_model.model, weight_quant, args.bit_width, args.block_size)
     print("Weight quantization applied.")
 
     layers0 = [FirstVicunaLayer(layer) for layer in vicuna_model.model.layers]
@@ -380,7 +385,11 @@ def main():
     parser.add_argument('-n', '--name', type=str, help='HF model name.')
     parser.add_argument('-b', '--bit-width', type=int, default=8, help='Weight bit width.')
     parser.add_argument(
-        '-s', '--block-size', type=int, default=128, help='Quantization block size.')
+        '-s', '--block-size', type=int, default=128, help='Weight quantization block size.')
+    parser.add_argument(
+        '--symmetric',
+        action='store_true',
+        help='Enable symmetric weight quantization instead of asymmetric.')
     args = parser.parse_args()
     with torch.no_grad():
         get_model(args)
