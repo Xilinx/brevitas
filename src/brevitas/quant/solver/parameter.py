@@ -14,6 +14,8 @@ from brevitas.core.function_wrapper import TensorClamp
 from brevitas.core.function_wrapper import TensorClampSte
 from brevitas.core.scaling import *
 from brevitas.core.scaling import ScalingImplType
+from brevitas.core.zero_point import *
+from brevitas.core.zero_point import ZeroPointImplType
 from brevitas.inject import ExtendedInjector
 from brevitas.quant.solver.common import *
 
@@ -103,6 +105,18 @@ class SolveParameterScalingImplFromEnum(SolveAffineRescalingFromEnum):
             return StatsFromParameterScaling
         else:
             raise RuntimeError(f"{scaling_impl_type} not recognized.")
+
+
+class SolveParameterZeroPointImplFromEnum(ExtendedInjector):
+
+    @value
+    def zero_point_impl(zero_point_impl_type):
+        if zero_point_impl_type == ZeroPointImplType.ZERO:
+            return ZeroZeroPoint
+        elif zero_point_impl_type == ZeroPointImplType.PARAMETER:
+            return ParameterZeroPoint
+        elif zero_point_impl_type == ZeroPointImplType.PARAMETER_FROM_STATS:
+            return ParameterFromStatsFromParameterZeroPoint
 
 
 class SolveParameterScalingShape(ExtendedInjector):

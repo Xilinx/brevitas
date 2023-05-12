@@ -13,6 +13,10 @@ from brevitas.core.scaling import ParameterFromRuntimeStatsScaling
 from brevitas.core.scaling import ParameterScaling
 from brevitas.core.scaling import RuntimeStatsScaling
 from brevitas.core.scaling import SCALAR_SHAPE
+from brevitas.core.zero_point import ParameterFromRuntimeZeroPoint
+from brevitas.core.zero_point import ParameterZeroPoint
+from brevitas.core.zero_point import ZeroPointImplType
+from brevitas.core.zero_point import ZeroZeroPoint
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import this
 from brevitas.inject import value
@@ -52,6 +56,18 @@ class SolveActScalingImplFromEnum(SolveAffineRescalingFromEnum):
             raise RuntimeError(f"{scaling_impl_type} not supported.")
         else:
             raise RuntimeError(f"{scaling_impl_type} not recognized.")
+
+
+class SolveActZeroPointImplFromEnum(ExtendedInjector):
+
+    @value
+    def zero_point_impl(zero_point_impl_type):
+        if zero_point_impl_type == ZeroPointImplType.ZERO:
+            return ZeroZeroPoint
+        elif zero_point_impl_type == ZeroPointImplType.PARAMETER:
+            return ParameterZeroPoint
+        elif zero_point_impl_type == ZeroPointImplType.PARAMETER_FROM_STATS:
+            return ParameterFromStatsFromParameterZeroPoint
 
 
 class SolveActTensorQuantFromEnum(SolveIntQuantFromEnum):

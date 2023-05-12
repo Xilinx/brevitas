@@ -8,7 +8,7 @@ from brevitas.utils.python_utils import AutoName
 
 class BitWidthImplType(AutoName):
     """
-
+    Bit-width implementation variants
     """
     CONST = auto()
     PARAMETER = auto()
@@ -17,7 +17,7 @@ class BitWidthImplType(AutoName):
 
 class QuantType(AutoName):
     """
-
+    Quantization type
     """
     BINARY = auto()
     TERNARY = auto()
@@ -27,7 +27,7 @@ class QuantType(AutoName):
 
 class RestrictValueType(AutoName):
     """
-
+    Variants for restrictions applied to values like scale
     """
     FP = auto()
     LOG_FP = auto()
@@ -37,7 +37,7 @@ class RestrictValueType(AutoName):
 
 class FloatToIntImplType(AutoName):
     """
-
+    Rounding implementation variants
     """
     ROUND = auto()
     CEIL = auto()
@@ -49,6 +49,7 @@ class FloatToIntImplType(AutoName):
 
 class LearnedRoundImplType(AutoName):
     """
+    Learned rounding implementation variants
     """
     HARD_SIGMOID = auto()
     SIGMOID = auto()
@@ -56,7 +57,7 @@ class LearnedRoundImplType(AutoName):
 
 class ScalingImplType(AutoName):
     """
-
+    Scaling implementation variants
     """
     HE = auto()
     CONST = auto()
@@ -66,9 +67,26 @@ class ScalingImplType(AutoName):
     PARAMETER_FROM_STATS = auto()
 
 
+class ZeroPointImplType(AutoName):
+    """
+    Zero-point implementation variants
+    """
+    ZERO = auto()
+    PARAMETER = auto()
+    PARAMETER_FROM_STATS = auto()
+
+
+class ZeroPointStatsOp(AutoName):
+    """
+    Zero-point stats ops
+    """
+    MIN_OR_ZERO = auto()
+    PERCENTILE_OR_ZERO = auto()
+
+
 class StatsOp(AutoName):
     """
-
+    Scaling stats ops
     """
     # One sided statistics over absolute value
     # Typically adopted for symmetric quantization
