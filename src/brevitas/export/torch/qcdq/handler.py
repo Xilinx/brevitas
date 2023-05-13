@@ -5,17 +5,14 @@ from abc import ABC
 
 import torch
 
-from brevitas.export.common import to_0dim_if_scalar
-from brevitas.export.common import to_item_if_0dim
 from brevitas.export.common.handler.base import BaseHandler
 from brevitas.export.common.handler.qcdq import DQMixin
 from brevitas.export.common.handler.qcdq import QCDQActQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQBiasQuantProxyHandlerMixin
-from brevitas.export.common.handler.qcdq import QCDQMixin
-from brevitas.export.common.handler.qcdq import QCDQQuantProxyHandlerMixin
+from brevitas.export.common.handler.qcdq import QCDQDecoupledWeightQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQTruncQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQWeightQuantProxyHandlerMixin
-from brevitas.proxy import BiasQuantProxyFromInjector
+from brevitas.export.common.handler.qcdq import QMixin
 
 
 def _itemize_clip_bounds(clip_args):
@@ -47,15 +44,17 @@ class TorchDQMixin(DQMixin, ABC):
         return True
 
 
-class TorchQCDQMixin(TorchDQMixin, QCDQMixin, ABC):
+class TorchCDQMixin(TorchDQMixin, ABC):
+
+    def clip_fn(self, x, min_val, max_val):
+        return torch.clamp(x, min_val, max_val)
+
+
+class TorchQCDQMixin(QMixin, TorchCDQMixin, ABC):
 
     def __init__(self) -> None:
         super().__init__()
         self.symbolic_kwargs = {}
-
-    @property
-    def clip_over_integers(self):
-        return True
 
     @classmethod
     def int8_dtype(cls):
@@ -80,12 +79,6 @@ class TorchQCDQMixin(TorchDQMixin, QCDQMixin, ABC):
             y = torch.quantize_per_channel(x, scale, zero_point, axis, dtype)
         return y.int_repr()
 
-    def clip_fn(self, x, min_val, max_val):
-        return torch.clamp(x, min_val, max_val)
-
-    def forward(self, *args, **kwargs):
-        return self.symbolic_execution(*args, **kwargs)
-
 
 class TorchQCDQHandler(BaseHandler):
 
@@ -96,6 +89,16 @@ class TorchQCDQHandler(BaseHandler):
 class TorchQCDQWeightQuantProxyHandler(TorchQCDQMixin,
                                        QCDQWeightQuantProxyHandlerMixin,
                                        TorchQCDQHandler):
+
+    @classmethod
+    def int_clip_symbolic_kwargs(cls, narrow, signed, bit_width):
+        clip_args = super().int_clip_symbolic_kwargs(narrow, signed, bit_width)
+        return _itemize_clip_bounds(clip_args)
+
+
+class StdQCDQONNXDecoupledWeightQuantProxyHandler(TorchCDQMixin,
+                                                  QCDQDecoupledWeightQuantProxyHandlerMixin,
+                                                  TorchQCDQHandler):
 
     @classmethod
     def int_clip_symbolic_kwargs(cls, narrow, signed, bit_width):

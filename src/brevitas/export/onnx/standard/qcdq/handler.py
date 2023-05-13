@@ -2,20 +2,17 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from abc import ABC
-from copy import copy
 
 import torch
-from torch import Tensor
 
-from brevitas.export.common.handler.base import QuantAxisMixin
+from brevitas.export.common.handler.qcdq import CDQMixin
 from brevitas.export.common.handler.qcdq import DQMixin
 from brevitas.export.common.handler.qcdq import QCDQActQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQBiasQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQDecoupledWeightQuantProxyHandlerMixin
-from brevitas.export.common.handler.qcdq import QCDQMixin
 from brevitas.export.common.handler.qcdq import QCDQTruncQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQWeightQuantProxyHandlerMixin
-from brevitas.export.common.handler.qcdq import ZeroPointHandlerMixin
+from brevitas.export.common.handler.qcdq import QMixin
 from brevitas.export.onnx.handler import ONNXBaseHandler
 from brevitas.export.onnx.handler import QuantLSTMLayerHandler
 
@@ -37,12 +34,18 @@ class StdDQONNXMixin(DQMixin, ABC):
     def itemize_quantize_scalar_params(self):
         return False
 
+    def validate(self, module):
+        assert module.bit_width() > 1., 'Binary quant not supported'
+        assert module.rounding_mode.upper() == 'ROUND', 'Only round to nearest even supported'
 
-class StdQCDQONNXMixin(QCDQMixin, StdDQONNXMixin, ABC):
 
-    @property
-    def clip_over_integers(self):
-        return True
+class StdCDQONNXMixin(CDQMixin, StdDQONNXMixin, ABC):
+
+    def clip_fn(self, x, min_val, max_val):
+        return IntClipFn.apply(x, min_val, max_val)
+
+
+class StdQCDQONNXMixin(QMixin, StdCDQONNXMixin, ABC):
 
     @classmethod
     def int8_dtype(cls):
@@ -57,24 +60,21 @@ class StdQCDQONNXMixin(QCDQMixin, StdDQONNXMixin, ABC):
         return torch.int32
 
     def validate(self, module):
+        super().validate(module)
+        # ONNX QuantizeLinear supports only 8b output. Below 8b quantization is supported through clipping.
         self.validate_8b_bit_width(module.bit_width(), le_then=True)
-        assert module.bit_width() > 1., 'Binary quant not supported'
-        assert module.rounding_mode.upper() == 'ROUND', 'Only round to nearest even supported'
 
     def quantize_fn(self, x, scale, zero_point, dtype, axis):
         return QuantizeLinearFn.apply(x, scale, zero_point, dtype, axis)
 
-    def clip_fn(self, x, min_val, max_val):
-        return IntClipFn.apply(x, min_val, max_val)
 
-
-class StdQCDQONNXWeightQuantProxyHandler(StdQCDQONNXMixin,
+class StdQCDQONNXWeightQuantProxyHandler(StdCDQONNXMixin,
                                          QCDQWeightQuantProxyHandlerMixin,
                                          ONNXBaseHandler):
     pass
 
 
-class StdQCDQONNXDecoupledWeightQuantProxyHandler(StdQCDQONNXMixin,
+class StdQCDQONNXDecoupledWeightQuantProxyHandler(StdCDQONNXMixin,
                                                   QCDQDecoupledWeightQuantProxyHandlerMixin,
                                                   ONNXBaseHandler):
     pass
