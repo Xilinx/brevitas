@@ -60,19 +60,19 @@ def input_bit_width(bit_width):
 
 
 @fixture
-@parametrize('bit_width', BIT_WIDTHS, ids=[f'i{b}' for b in BIT_WIDTHS])
+@parametrize('bit_width', BIT_WIDTHS, ids=[f'w{b}' for b in BIT_WIDTHS])
 def weight_bit_width(bit_width):
     return bit_width
 
 
 @fixture
-@parametrize('bit_width', BIT_WIDTHS, ids=[f'i{b}' for b in BIT_WIDTHS])
+@parametrize('bit_width', BIT_WIDTHS, ids=[f'o{b}' for b in BIT_WIDTHS])
 def output_bit_width(bit_width):
     return bit_width
 
 
 @fixture
-@parametrize('bit_width', BIAS_BIT_WIDTHS, ids=[f'i{b}' for b in BIAS_BIT_WIDTHS])
+@parametrize('bit_width', BIAS_BIT_WIDTHS, ids=[f'b{b}' for b in BIAS_BIT_WIDTHS])
 def bias_bit_width(bit_width):
     return bit_width
 
@@ -90,7 +90,7 @@ def bias_quantizer(quantizer):
 
 
 @fixture
-@parametrize('per_channel', [True, False])
+@parametrize('per_channel', [True, False], ids=['per_channel', 'per_tensor'])
 def quant_module(
         quant_module_impl,
         weight_act_quantizers,
@@ -113,7 +113,7 @@ def quant_module(
 
         def __init__(self):
             super().__init__()
-            self.conv = quant_module_impl(
+            self.layer = quant_module_impl(
                 **layer_kwargs,
                 bias=True,
                 weight_quant=weight_quant,
@@ -126,10 +126,9 @@ def quant_module(
                 weight_scaling_per_output_channel=per_channel,
                 bias_quant=bias_quant,
                 return_quant_tensor=True)
-            self.conv.weight.data.uniform_(-0.01, 0.01)
 
         def forward(self, x):
-            return self.conv(x)
+            return self.layer(x)
 
     torch.random.manual_seed(SEED)
     module = Model()
