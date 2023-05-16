@@ -3,6 +3,8 @@
 
 from collections import namedtuple
 from copy import deepcopy
+from dataclasses import dataclass
+from dataclasses import field
 from functools import partial
 import operator
 from typing import Callable, Dict, List, Optional, Set, Tuple, Union
@@ -19,8 +21,6 @@ from .base import GraphTransform
 __all__ = ['EqualizeGraph']
 
 EPSILON = 1e-9
-
-Region = namedtuple('Region', ['srcs', 'sinks'])
 
 _supported_layers = (
     nn.ConvTranspose1d,
@@ -61,7 +61,26 @@ _residual_fns = (torch.add, operator.add, operator.iadd, operator.__add__, opera
 
 _batch_norm = (nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d)
 
-WeightBiasTuple = namedtuple('WeightBiasTuple', ['weight', 'bias'], defaults=[None])
+
+# Required for being hashable
+@dataclass(eq=True, frozen=True)
+class WeightBiasTuple:
+    weight: nn.Module = None
+    bias: nn.Module = None
+
+
+# Required for being hashable
+@dataclass(eq=True, frozen=True)
+class Region:
+    srcs: Tuple = field(default_factory=tuple)
+    sinks: Tuple = field(default_factory=tuple)
+
+
+@dataclass
+class WalkRegionState:
+    srcs: Set = field(default_factory=set)
+    sinks: Set = field(default_factory=set)
+    history: set = field(default_factory=set)
 
 
 def _select_scale_computation_fn(
@@ -173,8 +192,8 @@ def _combine_weights_bias(
         return weight.data
 
     bias = bias.data
-    weight = deepcopy(weight).view(weight.shape[0], -1)
-    bias = deepcopy(bias).view(-1, 1)
+    weight = weight.reshape(weight.shape[0], -1)
+    bias = bias.reshape(-1, 1)
 
     weight = torch.where(torch.abs(weight) < EPSILON, torch.tensor(EPSILON).type_as(weight), weight)
     factor = torch.abs(bias) / torch.abs(weight)
@@ -234,7 +253,7 @@ def _cross_layer_equalization(
         # For MultiheadAttention, we support only self-attetion
         if isinstance(module, nn.MultiheadAttention) and hasattr(sinks[i], 'in_proj_weight'):
             # For sinks, we only need to modify the weight but not the bias
-            sinks[i] = WeightBiasTuple(module.in_proj_weight)
+            sinks[i] = WeightBiasTuple(weight=module.in_proj_weight)
         elif isinstance(module, nn.MultiheadAttention) and not hasattr(sinks[i], 'in_proj_weight'):
             return torch.tensor(1., dtype=dtype, device=device)
         sink_axes[sinks[i]] = _get_input_axis(module)
@@ -301,7 +320,12 @@ def _equalize(
     Generalized version of section 4.1 of https://arxiv.org/pdf/1906.04721.pdf
     """
     name_to_module: Dict[str, nn.Module] = {}
-    name_set = {name for region in regions for module_set in region for name in module_set}
+    name_set = set()
+    for region in regions:
+        for name in region.srcs:
+            name_set.add(name)
+        for name in region.sinks:
+            name_set.add(name)
 
     for name, module in model.named_modules():
         if name in name_set:
@@ -350,57 +374,75 @@ def _is_reshaping_op(node: Node) -> bool:
         node.op == 'call_method' and node.target in ['view', 'reshape', 'flatten'])
 
 
-def walk_region(
-        graph_model: GraphModule,
-        starting_node: Node,
-        history: Set[Node],
-        srcs: Set[str],
-        sinks: Set[str],
-        walk_forward: bool):
-    node_list = starting_node.users if walk_forward else starting_node.all_input_nodes
+def find_srcs(graph_model: GraphModule, starting_node: Node,
+              state: WalkRegionState) -> Dict[str, Set]:
+    node_list = starting_node.all_input_nodes
     for node in node_list:
         # we keep a history of how the graph has been walked already, invariant to the direction,
         # to avoid getting stuck in a loop
-        path = (starting_node, node) if walk_forward else (node, starting_node)
-        if path not in history:
-            history.add(path)
+        path = (node, starting_node)
+        if path not in state.history:
+            state.history.add(path)
         else:
             continue
         if _is_supported_module(graph_model, node):
-            if walk_forward:
-                module = get_module(graph_model, node.target)
-                # It is not possible to equalize through LayerNorm as sink
-                if not isinstance(module, nn.LayerNorm):
-                    sinks.add(node.target)
-            else:
-                srcs.add(node.target)
-                walk_region(graph_model, node, history, srcs, sinks, walk_forward=True)
-        elif _is_scale_invariant_module(graph_model, node) or _is_scale_invariant_function(node):
-            if walk_forward:
-                walk_region(graph_model, node, history, srcs, sinks, walk_forward=True)
-            else:
-                walk_region(graph_model, node, history, srcs, sinks, walk_forward=True)
-                walk_region(graph_model, node, history, srcs, sinks, walk_forward=False)
+            state.srcs.add(node.target)
+            # After we found a source, we need to check if it branches into multiple sinks
+            find_sinks(graph_model, node, state)
+        elif _is_scale_invariant_module(
+                graph_model, node) or _is_scale_invariant_function(node) or _is_reshaping_op(node):
+            find_srcs(graph_model, node, state)
+            find_sinks(graph_model, node, state)
         elif (node.op == 'call_method' and node.target in _residual_methods or
               node.op == 'call_function' and node.target in _residual_fns):
-            walk_region(graph_model, node, history, srcs, sinks, walk_forward=True)
-            walk_region(graph_model, node, history, srcs, sinks, walk_forward=False)
-        elif _is_reshaping_op(node):
-            walk_region(graph_model, node, history, srcs, sinks, walk_forward=walk_forward)
+            find_srcs(graph_model, node, state)
+            find_sinks(graph_model, node, state)
+        else:
+            # If we meet an unrecognized op, we add None to invalidate the region
+            state.srcs.add(None)
+
+
+def find_sinks(graph_model: GraphModule, starting_node: Node,
+               state: WalkRegionState) -> Dict[str, Set]:
+    node_list = starting_node.users
+    for node in node_list:
+        # we keep a history of how the graph has been walked already, invariant to the direction,
+        # to avoid getting stuck in a loop
+        # Note that the path is inverted with respect to find_srcs
+        path = (starting_node, node)
+        if path not in state.history:
+            state.history.add(path)
         else:
             continue
+        if _is_supported_module(graph_model, node):
+            module = get_module(graph_model, node.target)
+            # It is not possible to equalize through LayerNorm as sink
+            if not isinstance(module, nn.LayerNorm):
+                state.sinks.add(node.target)
+        elif _is_scale_invariant_module(
+                graph_model, node) or _is_scale_invariant_function(node) or _is_reshaping_op(node):
+            find_sinks(graph_model, node, state)
+        elif (node.op == 'call_method' and node.target in _residual_methods or
+              node.op == 'call_function' and node.target in _residual_fns):
+            find_sinks(graph_model, node, state)
+            find_srcs(graph_model, node, state)
+        else:
+            # If we meet an unrecognized op, we add None to invalidate the region
+            state.sinks.add(None)
 
 
 def _extract_regions(graph_model: GraphModule) -> Set[Tuple[str]]:
     regions = set()
     for node in graph_model.graph.nodes:
         if _is_supported_module(graph_model, node):
-            srcs, sinks = {node.target}, set()
-            walk_region(graph_model, node, set(), srcs, sinks, walk_forward=True)
-            if sinks:
+            state = WalkRegionState(srcs={node.target})
+            find_sinks(graph_model, node, state)
+            if state.sinks and None not in state.sinks and None not in state.srcs:
                 # each region should appear only once, so to make it hashable
                 # we convert srcs and sinks to ordered lists first, and then to tuples
-                regions.add(Region(tuple(sorted(srcs)), tuple(sorted(sinks))))
+                srcs = tuple(sorted(state.srcs))
+                sinks = tuple(sorted(state.sinks))
+                regions.add(Region(srcs=srcs, sinks=sinks))
     return regions
 
 

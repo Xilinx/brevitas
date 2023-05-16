@@ -32,17 +32,17 @@ def test_resnet18_equalization():
     # Check that equalization is not introducing FP variations
     assert torch.allclose(expected_out, out, atol=ATOL)
 
-    regions = sorted(regions, key=lambda region: region[0][0])
+    regions = sorted(regions, key=lambda region: region.srcs[0])
     resnet_18_regions = sorted(RESNET_18_REGIONS, key=lambda region: region[0][0])
     equalized_layers = set()
-    for region in resnet_18_regions:
-        equalized_layers.update(region[0])
-        equalized_layers.update(region[1])
+    for r in resnet_18_regions:
+        equalized_layers.update(r[0])
+        equalized_layers.update(r[1])
 
     # Check that we found all the expected regions
     for region, expected_region in zip(regions, resnet_18_regions):
-        sources_check = set(region[0]) == set(expected_region[0])
-        sinks_check = set(region[1]) == set(expected_region[1])
+        sources_check = set(region.srcs) == set(expected_region[0])
+        sinks_check = set(region.sinks) == set(expected_region[1])
         assert sources_check
         assert sinks_check
 
@@ -80,8 +80,8 @@ def test_equalization_torchvision_models(model_coverage: tuple, merge_bias: bool
     sinks = set()
     count = 0
     for r in regions:
-        srcs.update(list(r[0]))
-        sinks.update(list(r[1]))
+        srcs.update(list(r.srcs))
+        sinks.update(list(r.sinks))
 
     for n in model.graph.nodes:
         if _is_supported_module(model, n):
