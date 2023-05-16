@@ -234,7 +234,7 @@ class GPTQ():
             weight[:, dead] = 0
             if self.act_order:
                 perm = torch.argsort(torch.diag(self.H[0, :, :]), descending=True)
-                weight = weight[:, perm]
+                weight[:, :] = weight[:, perm]
                 self.H = self.H[:, perm, :][:, :, perm]
             else:
                 # No permutation
@@ -290,6 +290,15 @@ class GPTQ():
                     weight[ii:ii + 1, i2:] -= Err1[ii:ii + 1, :].matmul(Hinv[ii, i1:i2, i2:])
             else:
                 weight[:, i2:] -= Err1.matmul(Hinv[0, i1:i2, i2:])
+
+        if self.act_order:
+            if len(permutation_list) == 1:
+                invperm = torch.argsort(perm)
+                weight[:, :] = weight[:, invperm]
+            else:
+                for ii, perm in enumerate(permutation_list):
+                    invperm = torch.argsort(perm)
+                    weight[ii, :] = weight[ii, invperm]
 
     def get_quant_weights(self, i, i1, i2, permutation_list):
         quant_weight = self.layer.quant_weight()
