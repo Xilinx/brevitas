@@ -111,10 +111,13 @@ class ExpandReshapeZeroPointWrapper(brevitas.jit.ScriptModule):
         self.expanded_zero_point_shape = expanded_zero_point_shape
         self.reshaped_zero_point_shape = reshaped_zero_point_shape
 
-    def unexpanded_zero_point(self, scale, bit_width):
+    def unexpanded_zero_point(self, unexpanded_scale, bit_width):
+        """
+        This is used at export time.
+        """
         zero_point_stats = self.wrapped_zero_point_impl.parameter_list_stats()
         zero_point = self.wrapped_zero_point_impl.scale_shift_zero_point(
-            -zero_point_stats, scale, bit_width)
+            -zero_point_stats, unexpanded_scale, bit_width)
         return zero_point
 
     def forward(self, x: Tensor, scale: Tensor, bit_width: Tensor):
