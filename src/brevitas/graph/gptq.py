@@ -271,7 +271,7 @@ class GPTQ():
             for i in range(count):
                 w = weight1[:, i]
                 d = Hinv1[:, i, i]
-                q = self.get_quant_weights(i, i1, i2, permutation_list)
+                q = self.get_quant_weights(i, i1, i2)
 
                 err1 = (w - q) / d
                 if self.groups > 1:
@@ -300,17 +300,11 @@ class GPTQ():
                     invperm = torch.argsort(perm)
                     weight[ii, :] = weight[ii, invperm]
 
-    def get_quant_weights(self, i, i1, i2, permutation_list):
+    def get_quant_weights(self, i, i1, i2):
         quant_weight = self.layer.quant_weight()
         quant_weight = quant_weight.value
         if isinstance(self.layer, qnn.QuantConv2d):
             quant_weight = quant_weight.flatten(1)
-        # Permute quant weight to match the float32 counterpart
-        if len(permutation_list) == 1:
-            quant_weight = quant_weight[:, permutation_list[0]]
-        else:
-            for ii, perm in enumerate(permutation_list):
-                quant_weight[ii, :] = quant_weight[ii, perm]
 
         quant_weight1 = quant_weight[:, i1:i2]
         q = quant_weight1[:, i]
