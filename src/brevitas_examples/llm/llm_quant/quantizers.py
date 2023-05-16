@@ -53,7 +53,7 @@ class IntWeightSymmetricBlockQuant(Int8WeightPerChannelFloat):
     block_size = None
 
 
-class IntWeightAsymmetricBlockQuant(IntWeightSymmetricBlockQuant):
+class UintWeightAsymmetricBlockQuant(IntWeightSymmetricBlockQuant):
     """
     Block / vector signed asymmetric weight quantizer with float scales and zero-points.
     """
@@ -68,3 +68,4 @@ class IntWeightAsymmetricBlockQuant(IntWeightSymmetricBlockQuant):
     scaling_stats_impl = AbsMinMaxKeepDim
     wrapped_zero_point_impl = StatsFromParameterZeroPoint
     quantize_zero_point = False
+    signed = False

@@ -49,10 +49,12 @@ from torch_mlir import TensorPlaceholder
 from tqdm import tqdm
 from transformers import AutoModelForCausalLM
 
-from brevitas_examples.llm.llm_quant.export import brevitas_block_proxy_export_mode
+from brevitas_examples.llm.llm_quant.export import brevitas_layer_export_mode
+from brevitas_examples.llm.llm_quant.export import brevitas_proxy_export_mode
+from brevitas_examples.llm.llm_quant.make_fx import wrappable_make_fx
 from brevitas_examples.llm.llm_quant.quantize import quantize
-from brevitas_examples.llm.llm_quant.quantizers import IntWeightAsymmetricBlockQuant
 from brevitas_examples.llm.llm_quant.quantizers import IntWeightSymmetricBlockQuant
+from brevitas_examples.llm.llm_quant.quantizers import UintWeightAsymmetricBlockQuant
 
 
 class FirstVicunaLayer(torch.nn.Module):
@@ -137,6 +139,7 @@ def compile_vicuna_layer(
     hidden_states,
     attention_mask,
     position_ids,
+    export_context_manager,
     past_key_value0=None,
     past_key_value1=None,
 ):
@@ -144,41 +147,37 @@ def compile_vicuna_layer(
     attention_mask_placeholder = TensorPlaceholder.like(attention_mask, dynamic_axes=[2, 3])
     position_ids_placeholder = TensorPlaceholder.like(position_ids, dynamic_axes=[1])
 
-    # Enter export mode before make_fx tracing
-    brevitas_block_proxy_export_mode(vicuna_layer, enabled=True)
-
     if past_key_value0 is None and past_key_value1 is None:
-        fx_g = make_fx(
-            vicuna_layer,
-            decomposition_table=get_decompositions([
-                torch.ops.aten.embedding_dense_backward,
-                torch.ops.aten.native_layer_norm_backward,
-                torch.ops.aten.slice_backward,
-                torch.ops.aten.select_backward,
-                torch.ops.aten.norm.ScalarOpt_dim,
-                torch.ops.aten.native_group_norm,
-                torch.ops.aten.upsample_bilinear2d.vec,
-                torch.ops.aten.split.Tensor,
-                torch.ops.aten.split_with_sizes,]),
-        )(hidden_states, attention_mask, position_ids)
+        with export_context_manager(vicuna_layer):
+            fx_g = wrappable_make_fx(
+                vicuna_layer,
+                decomposition_table=get_decompositions([
+                    torch.ops.aten.embedding_dense_backward,
+                    torch.ops.aten.native_layer_norm_backward,
+                    torch.ops.aten.slice_backward,
+                    torch.ops.aten.select_backward,
+                    torch.ops.aten.norm.ScalarOpt_dim,
+                    torch.ops.aten.native_group_norm,
+                    torch.ops.aten.upsample_bilinear2d.vec,
+                    torch.ops.aten.split.Tensor,
+                    torch.ops.aten.split_with_sizes,]),
+            )(hidden_states, attention_mask, position_ids)
 
     else:
-        fx_g = make_fx(
-            vicuna_layer,
-            decomposition_table=get_decompositions([
-                torch.ops.aten.embedding_dense_backward,
-                torch.ops.aten.native_layer_norm_backward,
-                torch.ops.aten.slice_backward,
-                torch.ops.aten.select_backward,
-                torch.ops.aten.norm.ScalarOpt_dim,
-                torch.ops.aten.native_group_norm,
-                torch.ops.aten.upsample_bilinear2d.vec,
-                torch.ops.aten.split.Tensor,
-                torch.ops.aten.split_with_sizes,]),
-        )(hidden_states, attention_mask, position_ids, past_key_value0, past_key_value1)
-
-    # Exit export mode after make_fx tracing
-    brevitas_block_proxy_export_mode(vicuna_layer, enabled=False)
+        with export_context_manager(vicuna_layer):
+            fx_g = wrappable_make_fx(
+                vicuna_layer,
+                decomposition_table=get_decompositions([
+                    torch.ops.aten.embedding_dense_backward,
+                    torch.ops.aten.native_layer_norm_backward,
+                    torch.ops.aten.slice_backward,
+                    torch.ops.aten.select_backward,
+                    torch.ops.aten.norm.ScalarOpt_dim,
+                    torch.ops.aten.native_group_norm,
+                    torch.ops.aten.upsample_bilinear2d.vec,
+                    torch.ops.aten.split.Tensor,
+                    torch.ops.aten.split_with_sizes,]),
+            )(hidden_states, attention_mask, position_ids, past_key_value0, past_key_value1)
 
     def _remove_nones(fx_g: torch.fx.GraphModule) -> List[int]:
         removed_indexes = []
@@ -263,7 +262,7 @@ def compile_vicuna_layer(
     return ts_g
 
 
-def compile_to_vmfb(inputs, layers, is_first=True):
+def compile_to_vmfb(inputs, layers, export_context_manager, is_first=True):
     mlirs = []
     for idx, layer in tqdm(enumerate(layers), desc="Getting mlirs"):
         if is_first:
@@ -287,7 +286,12 @@ def compile_to_vmfb(inputs, layers, is_first=True):
                 pkv1_placeholder = TensorPlaceholder.like(inputs[4], dynamic_axes=[2])
             print(f"Compiling layer {idx} mlir")
             if is_first:
-                ts_g = compile_vicuna_layer(layer, inputs[0], inputs[1], inputs[2])
+                ts_g = compile_vicuna_layer(
+                    layer,
+                    inputs[0],
+                    inputs[1],
+                    inputs[2],
+                    export_context_manager=export_context_manager)
                 module = torch_mlir.compile(
                     ts_g, (hidden_states_placeholder, inputs[1], inputs[2]),
                     torch_mlir.OutputType.LINALG_ON_TENSORS,
@@ -295,7 +299,13 @@ def compile_to_vmfb(inputs, layers, is_first=True):
                     verbose=False)
             else:
                 ts_g = compile_vicuna_layer(
-                    layer, inputs[0], inputs[1], inputs[2], inputs[3], inputs[4])
+                    layer,
+                    inputs[0],
+                    inputs[1],
+                    inputs[2],
+                    inputs[3],
+                    inputs[4],
+                    export_context_manager=export_context_manager)
                 module = torch_mlir.compile(
                     ts_g,
                     (
@@ -369,15 +379,19 @@ def get_model(args):
     if args.symmetric:
         weight_quant = IntWeightSymmetricBlockQuant
     else:
-        weight_quant = IntWeightAsymmetricBlockQuant
+        weight_quant = UintWeightAsymmetricBlockQuant
+    if args.custom_packed_export:
+        export_context_manager = brevitas_layer_export_mode
+    else:
+        export_context_manager = brevitas_proxy_export_mode
     quantize(vicuna_model.model, weight_quant, args.bit_width, args.block_size)
     print("Weight quantization applied.")
 
     layers0 = [FirstVicunaLayer(layer) for layer in vicuna_model.model.layers]
-    mlirs0 = compile_to_vmfb(placeholder_input0, layers0, is_first=True)
+    mlirs0 = compile_to_vmfb(placeholder_input0, layers0, export_context_manager, is_first=True)
 
     layers1 = [SecondVicunaLayer(layer) for layer in vicuna_model.model.layers]
-    mlirs1 = compile_to_vmfb(placeholder_input1, layers1, is_first=False)
+    mlirs1 = compile_to_vmfb(placeholder_input1, layers1, export_context_manager, is_first=False)
 
 
 def main():
@@ -390,6 +404,10 @@ def main():
         '--symmetric',
         action='store_true',
         help='Enable symmetric weight quantization instead of asymmetric.')
+    parser.add_argument(
+        '--custom_packed_export',
+        action='store_true',
+        help='Enable export to a custom mm op with packed weights for int2 and int4.')
     args = parser.parse_args()
     with torch.no_grad():
         get_model(args)
