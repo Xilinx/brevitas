@@ -293,7 +293,7 @@ class GPTQ():
 
         if self.act_order:
             if len(permutation_list) == 1:
-                invperm = torch.argsort(perm)
+                invperm = torch.argsort(permutation_list[0])
                 weight[:, :] = weight[:, invperm]
             else:
                 for ii, perm in enumerate(permutation_list):
