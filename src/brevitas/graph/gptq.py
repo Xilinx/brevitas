@@ -209,10 +209,10 @@ class GPTQ():
     def single_layer_update(self, percdamp=.01):
         weight = self.layer.weight.data
         dev = weight.device
-        blocksize = math.ceil(weight.shape[1] / self.num_blocks)
-
         if isinstance(self.layer, qnn.QuantConv2d):
             weight = weight.flatten(1)
+
+        blocksize = math.ceil(weight.shape[1] / self.num_blocks)
 
         permutation_list = []
         if self.groups > 1:
@@ -222,7 +222,6 @@ class GPTQ():
                 weight[i, dead] = 0
                 if self.act_order:
                     perm = torch.argsort(torch.diag(self.H[i, :, :]), descending=True)
-                    weight[i, :] = weight[i, perm]
                     self.H[i, :, :] = self.H[i, perm, :][:, perm]
                 else:
                     # No permutation
@@ -234,7 +233,6 @@ class GPTQ():
             weight[:, dead] = 0
             if self.act_order:
                 perm = torch.argsort(torch.diag(self.H[0, :, :]), descending=True)
-                weight[:, :] = weight[:, perm]
                 self.H = self.H[:, perm, :][:, :, perm]
             else:
                 # No permutation
@@ -264,14 +262,20 @@ class GPTQ():
             i2 = min(i1 + blocksize, self.columns)
             count = i2 - i1
 
-            weight1 = weight[:, i1:i2]
+            if len(permutation_list) == 1:
+                perm = permutation_list[0]
+                weight1 = weight[:, perm[i1:i2]]
+            else:
+                weight1 = torch.empty(weight.shape[0], count, device=dev)
+                for ii, perm in enumerate(permutation_list):
+                    weight1[ii, :] = weight[ii, perm[i1:i2]]
+
             Err1 = torch.zeros_like(weight1)
             Hinv1 = Hinv[:, i1:i2, i1:i2]
-
             for i in range(count):
                 w = weight1[:, i]
                 d = Hinv1[:, i, i]
-                q = self.get_quant_weights(i, i1, i2)
+                q = self.get_quant_weights(i, i1, i2, permutation_list)
 
                 err1 = (w - q) / d
                 if self.groups > 1:
@@ -283,28 +287,31 @@ class GPTQ():
                     weight1[:, i:] -= err1.unsqueeze(1).matmul(Hinv1[0, i, i:].unsqueeze(0))
                 Err1[:, i] = err1
 
+                # We need to update the original weights
+                weight[:, perm[i1:i2][i:]] = weight1[:, i:]
+
             if self.groups > 1:
                 # In case of depthwise convs, each weight matrix interacts with only
                 # part of the input values, thus with only one of the hessian matrix
-                for ii in range(self.groups):
-                    weight[ii:ii + 1, i2:] -= Err1[ii:ii + 1, :].matmul(Hinv[ii, i1:i2, i2:])
-            else:
-                weight[:, i2:] -= Err1.matmul(Hinv[0, i1:i2, i2:])
-
-        if self.act_order:
-            if len(permutation_list) == 1:
-                invperm = torch.argsort(permutation_list[0])
-                weight[:, :] = weight[:, invperm]
-            else:
                 for ii, perm in enumerate(permutation_list):
-                    invperm = torch.argsort(perm)
-                    weight[ii, :] = weight[ii, invperm]
+                    weight[ii:ii + 1, perm[i2:]] -= Err1[ii:ii + 1, :].matmul(Hinv[ii, i1:i2, i2:])
+            else:
+                perm = permutation_list[0]
+                weight[:, perm[i2:]] -= Err1.matmul(Hinv[0, i1:i2, i2:])
 
-    def get_quant_weights(self, i, i1, i2):
+    def get_quant_weights(self, i, i1, i2, permutation_list):
         quant_weight = self.layer.quant_weight()
         quant_weight = quant_weight.value
         if isinstance(self.layer, qnn.QuantConv2d):
             quant_weight = quant_weight.flatten(1)
+
+        if self.act_order:
+            # If act order is enabled, permute quant weight to match the float32 counterpart
+            if len(permutation_list) == 1:
+                quant_weight = quant_weight[:, permutation_list[0]]
+            else:
+                for ii, perm in enumerate(permutation_list):
+                    quant_weight[ii, :] = quant_weight[ii, perm]
 
         quant_weight1 = quant_weight[:, i1:i2]
         q = quant_weight1[:, i]
