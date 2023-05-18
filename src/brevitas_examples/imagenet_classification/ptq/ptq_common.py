@@ -102,10 +102,6 @@ def update_quant_maps(
 
     act_kwargs = {'bit_width': act_bit_width, 'high_percentile_q': act_quant_percentile}
 
-    if act_quant_asym is not None:
-        act_kwargs['act_quant'] = act_quant_asym
-        act_kwargs['low_percentile_q'] = 100.0 - act_quant_percentile
-
     weight_kwargs = {
         'scaling_impl_type': ScalingImplType.PARAMETER_FROM_STATS,
         'scaling_per_output_channel': scaling_per_output_channel,
@@ -122,12 +118,19 @@ def update_quant_maps(
     act_kwargs.update(scale_factor_dict)
     weight_kwargs.update(scale_factor_dict)
 
+    # In MHA some activations need to be always with symmetric quantizers to avoid costly ops
+    act_kwargs_sym_only = deepcopy(act_kwargs)
+
+    if act_quant_asym is not None:
+        act_kwargs['act_quant'] = act_quant_asym
+        act_kwargs['low_percentile_q'] = 100.0 - act_quant_percentile
+
     def weight_kwargs_prefix(prefix):
         return {prefix + k: v for k, v in weight_kwargs.items()}
 
-    def act_kwargs_prefix(prefix):
+    def act_kwargs_prefix(prefix, kwargs):
         updated_kwargs = {}
-        for k, v in act_kwargs.items():
+        for k, v in kwargs.items():
             key = k
             if prefix != '':
                 key = prefix + key.replace('act_', '')
@@ -147,25 +150,25 @@ def update_quant_maps(
                     map[k][1]['return_quant_tensor'] = False
                 if 'input_quant' in v[1].keys():
                     # Add kwargs arguments to input_quant, if present
-                    map[k][1].update(act_kwargs_prefix('input_'))
+                    map[k][1].update(act_kwargs_prefix('input_', act_kwargs))
             elif v[0] == QuantMultiheadAttention:
-                map[k][1].update(weight_kwargs_prefix('in_proj_'))
-                map[k][1].update(weight_kwargs_prefix('out_proj_'))
-                map[k][1].update(act_kwargs_prefix('attn_output_weights_'))
-                map[k][1].update(act_kwargs_prefix('q_scaled_'))
-                map[k][1].update(act_kwargs_prefix('k_transposed_'))
-                map[k][1].update(act_kwargs_prefix('v_'))
-                map[k][1].update(act_kwargs_prefix('out_proj_input_'))
+                map[k][1].update(weight_kwargs_prefix('in_proj_weight_'))
+                map[k][1].update(weight_kwargs_prefix('out_proj_weight_'))
+                map[k][1].update(act_kwargs_prefix('attn_output_weights_', act_kwargs_sym_only))
+                map[k][1].update(act_kwargs_prefix('q_scaled_', act_kwargs_sym_only))
+                map[k][1].update(act_kwargs_prefix('k_transposed_', act_kwargs_sym_only))
+                map[k][1].update(act_kwargs_prefix('v_', act_kwargs_sym_only))
+                map[k][1].update(act_kwargs_prefix('out_proj_input_', act_kwargs))
                 map[k][1]['in_proj_bias_quant'] = bias_quant
                 map[k][1]['out_proj_bias_quant'] = bias_quant
                 if act_quant_asym is not None:
                     map[k][1]['return_quant_tensor'] = False
                 if 'in_proj_input_quant' in v[1].keys():
                     # Add kwargs arguments to input_quant, if present
-                    map[k][1].update(act_kwargs_prefix('in_proj_input_'))
+                    map[k][1].update(act_kwargs_prefix('in_proj_input_', act_kwargs))
             elif 'act_quant' in v[1].keys():
                 # Add kwargs argument to activation quantizers.
-                v[1].update(act_kwargs_prefix(''))
+                v[1].update(act_kwargs_prefix('', act_kwargs))
 
     return maps
 
