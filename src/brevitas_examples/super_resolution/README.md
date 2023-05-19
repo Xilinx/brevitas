@@ -1,7 +1,7 @@
 # Integer-Quantized Super Resolution Experiments with Brevitas
 
 This directory contains training scripts to demonstrate how to train integer-quantized super resolution models using [Brevitas](https://github.com/Xilinx/brevitas).
-Code is also provided to demonstrate accumulator-aware quantization (A2Q) as proposed in our paper "[Quantized Neural Networks for Low-Precision Accumulation with Guaranteed Overflow Avoidance]"(https://arxiv.org/abs/2301.13376).
+Code is also provided to demonstrate accumulator-aware quantization (A2Q) as proposed in our paper "[Quantized Neural Networks for Low-Precision Accumulation with Guaranteed Overflow Avoidance](https://arxiv.org/abs/2301.13376)".
 
 ## Experiments
 
