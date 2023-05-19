@@ -12,6 +12,7 @@ from brevitas.export.common import to_item_if_0dim
 from brevitas.proxy import ActQuantProxyFromInjector
 from brevitas.proxy import BiasQuantProxyFromInjector
 from brevitas.proxy import DecoupledWeightQuantProxyFromInjector
+from brevitas.proxy import DecoupledWeightQuantWithInputProxyFromInjector
 from brevitas.proxy import WeightQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector
 
@@ -117,12 +118,17 @@ class QCDQWeightQuantProxyHandlerMixin(CDQProxyHandlerMixin, ABC):
             int_weights = {
                 tm.weight.data_ptr(): tm.quant_weight().int(float_datatype=False)
                 for tm in module.tracked_module_list}
+            # Get the first quant weight as representative
+            quant_weight = module.tracked_module_list[0].quant_weight()
             self.symbolic_kwargs['int_weights'] = int_weights
-            self.symbolic_kwargs['bit_width'] = module.bit_width()
+            self.symbolic_kwargs['bit_width'] = quant_weight.bit_width
             self.symbolic_kwargs['clip_symbolic_kwargs'] = self.int_clip_symbolic_kwargs(
-                module.is_narrow_range, module.is_signed, module.bit_width())
+                module.is_narrow_range, module.is_signed, quant_weight.bit_width)
             self.symbolic_kwargs['dequantize_symbolic_kwargs'] = self.dequantize_symbolic_kwargs(
-                module.scale(), module.zero_point(), module.bit_width(), module.is_signed)
+                quant_weight.scale,
+                quant_weight.zero_point,
+                quant_weight.bit_width,
+                module.is_signed)
         else:
             self.symbolic_kwargs = None
 
@@ -149,6 +155,14 @@ class QCDQDecoupledWeightQuantProxyHandlerMixin(QCDQWeightQuantProxyHandlerMixin
         out, scale, zero_point, bit_width = super().symbolic_execution(x)
         # Return post-rounding scale and zero-point in place of pre-rounding as a placeholder
         return out, scale, zero_point, scale, zero_point, bit_width
+
+
+class QCDQDecoupledWeightQuantWithInputProxyHandlerMixin(QCDQDecoupledWeightQuantProxyHandlerMixin,
+                                                         ABC):
+    handled_layer = DecoupledWeightQuantWithInputProxyFromInjector
+
+    def symbolic_execution(self, x: Tensor, input_bit_width: torch.Tensor, input_is_signed: bool):
+        return super().symbolic_execution(x)
 
 
 class QCDQActQuantProxyHandlerMixin(QMixin, CDQProxyHandlerMixin, ABC):
