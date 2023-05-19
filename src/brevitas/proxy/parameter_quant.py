@@ -125,7 +125,7 @@ class DecoupledWeightQuantWithInputProxyFromInjector(DecoupledWeightQuantProxyFr
         raise NotImplementedError
 
     def bit_width(self):
-        raise NotImplementedError
+        return self.tensor_quant.msb_clamp_bit_width_impl()
 
     def pre_scale(self):
         raise NotImplementedError

@@ -17,6 +17,7 @@ from ..manager import StdONNXBaseManager
 from .handler import StdQCDQONNXActQuantProxyHandler
 from .handler import StdQCDQONNXBiasQuantProxyHandler
 from .handler import StdQCDQONNXDecoupledWeightQuantProxyHandler
+from .handler import StdQCDQONNXDecoupledWeightQuantWithInputProxyHandler
 from .handler import StdQCDQONNXQuantLSTMLayerHandler
 from .handler import StdQCDQONNXTruncQuantProxyHandler
 from .handler import StdQCDQONNXWeightQuantProxyHandler
@@ -37,6 +38,7 @@ class StdQCDQONNXManager(StdONNXBaseManager):
         StdQCDQONNXActQuantProxyHandler,
         StdQCDQONNXDecoupledWeightQuantProxyHandler,
         StdQCDQONNXTruncQuantProxyHandler,
+        StdQCDQONNXDecoupledWeightQuantWithInputProxyHandler,
         StdQCDQONNXQuantLSTMLayerHandler]
 
     custom_fns = [

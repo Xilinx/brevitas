@@ -14,6 +14,7 @@ from brevitas.nn import QuantConvTranspose2d
 from brevitas.nn import QuantIdentity
 from brevitas.nn import QuantLinear
 from brevitas.nn import TruncAvgPool2d
+from brevitas.quant.fixed_point import Int8AccumulatorAwareWeightQuant
 from brevitas.quant.fixed_point import Int8ActPerTensorFixedPoint
 from brevitas.quant.fixed_point import Int8WeightPerTensorFixedPoint
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
@@ -37,6 +38,7 @@ QUANTIZERS = {
     'asymmetric_act_float': (Int8WeightPerTensorFloat, ShiftedUint8ActPerTensorFloat),
     'asymmetric_weight_float': (ShiftedUint8WeightPerTensorFloat, Int8ActPerTensorFloat),
     'symmetric_float': (Int8WeightPerTensorFloat, Int8ActPerTensorFloat),
+    'a2q': (Int8AccumulatorAwareWeightQuant, Int8ActPerTensorFloat),
     'symmetric_fixed_point': (Int8WeightPerTensorFixedPoint, Int8ActPerTensorFixedPoint)}
 BIAS_QUANTIZERS = {
     'bias_external_scale': (Int32Bias,),
