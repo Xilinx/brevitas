@@ -34,6 +34,8 @@ def test_ort_wbiol(model, export_type, current_cases):
         pytest.skip('Per-channel zero-point is not well supported in ORT.')
     if 'QuantLinear' in impl and 'asymmetric' in quantizer:
         pytest.skip('ORT execution is unreliable and fails randomly on a subset of cases.')
+    if 'False' in per_channel and 'a2q' in quantizer:
+        pytest.skip('A2Q supports only per-tensor quantization.')
 
     if impl in ('QuantLinear'):
         in_size = (1, IN_CH)

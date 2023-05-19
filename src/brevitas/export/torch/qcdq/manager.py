@@ -13,6 +13,8 @@ from brevitas.export.manager import ExportContext
 
 from .handler import TorchQCDQActQuantProxyHandler
 from .handler import TorchQCDQBiasQuantProxyHandler
+from .handler import TorchQCDQDecoupledWeightQuantProxyHandler
+from .handler import TorchQCDQDecoupledWeightQuantWithInputProxyHandler
 from .handler import TorchQCDQTruncQuantProxyHandler
 from .handler import TorchQCDQWeightQuantProxyHandler
 
@@ -22,6 +24,8 @@ class TorchQCDQManager(BaseManager):
 
     handlers = [
         TorchQCDQWeightQuantProxyHandler,
+        TorchQCDQDecoupledWeightQuantProxyHandler,
+        TorchQCDQDecoupledWeightQuantWithInputProxyHandler,
         TorchQCDQActQuantProxyHandler,
         TorchQCDQBiasQuantProxyHandler,
         TorchQCDQTruncQuantProxyHandler]

@@ -10,6 +10,7 @@ from brevitas.export.common.handler.qcdq import DQMixin
 from brevitas.export.common.handler.qcdq import QCDQActQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQBiasQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQDecoupledWeightQuantProxyHandlerMixin
+from brevitas.export.common.handler.qcdq import QCDQDecoupledWeightQuantWithInputProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQTruncQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQWeightQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QMixin
@@ -36,7 +37,6 @@ class StdDQONNXMixin(DQMixin, ABC):
 
     def validate(self, module):
         assert module.bit_width() > 1., 'Binary quant not supported'
-        assert module.rounding_mode.upper() == 'ROUND', 'Only round to nearest even supported'
 
 
 class StdCDQONNXMixin(CDQMixin, StdDQONNXMixin, ABC):
@@ -61,7 +61,9 @@ class StdQCDQONNXMixin(QMixin, StdCDQONNXMixin, ABC):
 
     def validate(self, module):
         super().validate(module)
-        # ONNX QuantizeLinear supports only 8b output. Below 8b quantization is supported through clipping.
+        # ONNX QuantizeLinear supports only 8b output with round to nearest even.
+        # Below 8b quantization is supported through clipping.
+        assert module.rounding_mode.upper() == 'ROUND', 'Only round to nearest even supported'
         self.validate_8b_bit_width(module.bit_width(), le_then=True)
 
     def quantize_fn(self, x, scale, zero_point, dtype, axis):
@@ -77,6 +79,11 @@ class StdQCDQONNXWeightQuantProxyHandler(StdCDQONNXMixin,
 class StdQCDQONNXDecoupledWeightQuantProxyHandler(StdCDQONNXMixin,
                                                   QCDQDecoupledWeightQuantProxyHandlerMixin,
                                                   ONNXBaseHandler):
+    pass
+
+
+class StdQCDQONNXDecoupledWeightQuantWithInputProxyHandler(
+        StdCDQONNXMixin, QCDQDecoupledWeightQuantWithInputProxyHandlerMixin, ONNXBaseHandler):
     pass
 
 
