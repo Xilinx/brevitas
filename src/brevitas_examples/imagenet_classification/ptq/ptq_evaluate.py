@@ -22,6 +22,7 @@ from brevitas.graph.target.flexml import preprocess_for_flexml_quantize
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_bias_correction
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_gptq
 from brevitas_examples.imagenet_classification.ptq.ptq_common import calibrate
+from brevitas_examples.imagenet_classification.ptq.ptq_common import calibrate_bn
 from brevitas_examples.imagenet_classification.ptq.ptq_common import quantize_model
 from brevitas_examples.imagenet_classification.ptq.utils import add_bool_arg
 from brevitas_examples.imagenet_classification.ptq.utils import get_model_config
@@ -81,7 +82,11 @@ parser.add_argument(
     '--act-bit-width', default=8, type=int, help='Activations bit width (default: 8)')
 parser.add_argument(
     '--weight-bit-width', default=8, type=int, help='Weights bit width (default: 8)')
-
+parser.add_argument(
+    '--layerwise-first-last-bit-width',
+    default=8,
+    type=int,
+    help='Input and weights bit width for first and last layer w/ layerwise backend (default: 8)')
 parser.add_argument(
     '--bias-bit-width',
     default='int32',
@@ -92,6 +97,11 @@ parser.add_argument(
     default='symmetric',
     choices=['symmetric', 'asymmetric'],
     help='Activation quantization type (default: symmetric)')
+parser.add_argument(
+    '--act-quant-calibration-type',
+    default='percentile',
+    choices=['percentile', 'mse'],
+    help='Activation quantization calibration type (default: percentile)')
 parser.add_argument(
     '--graph-eq-iterations',
     default=20,
@@ -128,6 +138,7 @@ add_bool_arg(
 add_bool_arg(parser, 'gptq', default=True, help='GPTQ (default: enabled)')
 add_bool_arg(
     parser, 'gptq-act-order', default=False, help='GPTQ Act order heuristic (default: disabled)')
+add_bool_arg(parser, 'calibrate-bn', default=False, help='Calibrate BN (default: disabled)')
 
 
 def main():
@@ -136,6 +147,11 @@ def main():
     random.seed(SEED)
     np.random.seed(SEED)
     torch.manual_seed(SEED)
+
+    if args.act_quant_calibration_type == 'percentile':
+        act_quant_calib_config = str(args.act_quant_percentile) + 'percentile'
+    else:
+        act_quant_calib_config = args.act_quant_calibration_type
 
     config = (
         f"{args.model_name}_"
@@ -152,7 +168,8 @@ def main():
         f"{'bc_' if args.bias_corr else ''}"
         f"{args.graph_eq_iterations}geiters_"
         f"{'mb_' if args.graph_eq_merge_bias else ''}"
-        f"{args.act_quant_percentile}percentile")
+        f"{act_quant_calib_config}_"
+        f"{'bnc' if args.calibrate_bn else ''}")
 
     print(
         f"Model: {args.model_name} - "
@@ -169,7 +186,8 @@ def main():
         f"Bias Correction Enabled: {args.bias_corr} - "
         f"Iterations for graph equalization: {args.graph_eq_iterations} - "
         f"Merge bias in graph equalization: {args.graph_eq_merge_bias} - "
-        f"Activation Quant Percentile: {args.act_quant_percentile}")
+        f"Activation quant calibration type: {act_quant_calib_config} - "
+        f"Calibrate BN: {args.calibrate_bn}")
 
     # Get model-specific configurations about input shapes and normalization
     model_config = get_model_config(args.model_name)
@@ -205,12 +223,14 @@ def main():
             model,
             torch.ones(1, 3, img_shape, img_shape),
             equalize_iters=args.graph_eq_iterations,
-            equalize_merge_bias=args.graph_eq_merge_bias)
+            equalize_merge_bias=args.graph_eq_merge_bias,
+            merge_bn=not args.calibrate_bn)
     elif args.target_backend == 'generic' or args.target_backend == 'layerwise':
         model = preprocess_for_quantize(
             model,
             equalize_iters=args.graph_eq_iterations,
-            equalize_merge_bias=args.graph_eq_merge_bias)
+            equalize_merge_bias=args.graph_eq_merge_bias,
+            merge_bn=not args.calibrate_bn)
     else:
         raise RuntimeError(f"{args.target_backend} backend not supported.")
 
@@ -218,6 +238,7 @@ def main():
     quant_model = quantize_model(
         model,
         backend=args.target_backend,
+        layerwise_first_last_bit_width=args.layerwise_first_last_bit_width,
         act_bit_width=args.act_bit_width,
         weight_bit_width=args.weight_bit_width,
         weight_narrow_range=args.weight_narrow_range,
@@ -234,19 +255,23 @@ def main():
         cudnn.benchmark = False
 
     # Calibrate the quant_model on the calibration dataloader
-    print("Starting calibration")
+    print("Starting activation calibration:")
     calibrate(calib_loader, quant_model)
 
     if args.gptq:
-        print("Performing gptq")
+        print("Performing GPTQ:")
         apply_gptq(calib_loader, quant_model, args.gptq_act_order)
 
+    if args.calibrate_bn:
+        print("Calibrate BN:")
+        calibrate_bn(calib_loader, quant_model)
+
     if args.bias_corr:
-        print("Applying bias correction")
+        print("Applying bias correction:")
         apply_bias_correction(calib_loader, quant_model)
 
     # Validate the quant_model on the validation dataloader
-    print("Starting validation")
+    print("Starting validation:")
     validate(val_loader, quant_model)
 
     if args.export_onnx_qcdq or args.export_torch_qcdq:
