@@ -213,7 +213,7 @@ def apply_gptq(calib_loader, model, act_order=False):
     dtype = next(model.parameters()).dtype
     device = next(model.parameters()).device
     with torch.no_grad():
-        with gptq_mode(model, act_order=act_order) as gptq:
+        with gptq_mode(model, act_order=act_order, use_quant_activations=False) as gptq:
             gptq_model = gptq.model
             for i in tqdm(range(gptq.num_layers)):
                 for i, (images, target) in enumerate(calib_loader):
