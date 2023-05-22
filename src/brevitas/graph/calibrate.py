@@ -56,11 +56,12 @@ def finalize_collect_stats(module):
 
 class calibration_mode:
 
-    def __init__(self, model, enabled=True):
+    def __init__(self, model, enabled=True, finalize_stats_on_exit=True):
         self.model = model
         self.previous_training_state = model.training
         self.disable_quant_inference = DisableEnableQuantization()
         self.enabled = enabled
+        self.finalize_stats_on_exit = finalize_stats_on_exit
 
     def __enter__(self):
         if self.enabled:
@@ -69,9 +70,11 @@ class calibration_mode:
                 self.model, is_training=True, quantization_enabled=False)
 
     def __exit__(self, type, value, traceback):
-        self.model.apply(finalize_collect_stats)
-        self.disable_quant_inference.apply(
-            self.model, is_training=self.previous_training_state, quantization_enabled=True)
+        if self.enabled:
+            if self.finalize_stats_on_exit:
+                self.model.apply(finalize_collect_stats)
+            self.disable_quant_inference.apply(
+                self.model, is_training=self.previous_training_state, quantization_enabled=True)
 
 
 class bias_correction_mode:
