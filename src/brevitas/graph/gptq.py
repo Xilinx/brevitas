@@ -285,17 +285,17 @@ class GPTQ():
             # len(permutation_list) == self.groups
             if self.groups == 1:
                 perm = permutation_list[0]
-                weight1 = weight[:, perm[i1:i2]]  # This creates a copy
+                weight_block = weight[:, perm[i1:i2]]  # This creates a copy
             else:
                 # For groups > 1, we permute each row independently
-                weight1 = torch.empty(weight.shape[0], count, device=dev)  # [OC, i2-i1]
+                weight_block = torch.empty(weight.shape[0], count, device=dev)  # [OC, i2-i1]
                 for ii, perm in enumerate(permutation_list):
-                    weight1[ii, :] = weight[ii, perm[i1:i2]]  # This creates a copy
+                    weight_block[ii, :] = weight[ii, perm[i1:i2]]  # This creates a copy
 
-            Err1 = torch.zeros_like(weight1)  # [OC, i2-i1]
+            Err1 = torch.zeros_like(weight_block)  # [OC, i2-i1]
             Hinv1 = Hinv[:, i1:i2, i1:i2]
             for i in range(count):
-                w = weight1[:, i]  # [OC]
+                w = weight_block[:, i]  # [OC]
                 d = Hinv1[:, i, i]  # [groups]
                 q = self.get_quant_weights(i, i1, i2, permutation_list)  # [OC]
 
@@ -304,13 +304,13 @@ class GPTQ():
                     # In case of depthwise convs, each weight matrix interacts with only
                     # part of the input values, thus with only one of the hessian matrix
                     for ii in range(self.groups):
-                        weight1[ii, i:] -= err1[ii] * Hinv1[ii, i, i:]
+                        weight_block[ii, i:] -= err1[ii] * Hinv1[ii, i, i:]
                 else:
-                    weight1[:, i:] -= err1.unsqueeze(1).matmul(Hinv1[0, i, i:].unsqueeze(0))
+                    weight_block[:, i:] -= err1.unsqueeze(1).matmul(Hinv1[0, i, i:].unsqueeze(0))
                 Err1[:, i] = err1
 
                 # We need to update the original weights
-                weight[:, perm[i1:i2][i:]] = weight1[:, i:]
+                weight[:, perm[i1:i2][i:]] = weight_block[:, i:]
 
             if self.groups > 1:
                 # In case of depthwise convs, each weight matrix interacts with only
@@ -339,6 +339,6 @@ class GPTQ():
                 for ii, perm in enumerate(permutation_list):
                     quant_weight[ii, :] = quant_weight[ii, perm]
 
-        quant_weight1 = quant_weight[:, i1:i2]
-        q = quant_weight1[:, i]
+        quant_weight_block = quant_weight[:, i1:i2]
+        q = quant_weight_block[:, i]
         return q
