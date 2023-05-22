@@ -86,7 +86,7 @@ class StatsFromParameterZeroPoint(brevitas.jit.ScriptModule):
 
 
 class ParameterFromRuntimeZeroPoint(brevitas.jit.ScriptModule):
-    __constants__ = ['stats_permute_dims', 'collect_stats_steps', 'zero_point_shape', 'momentum']
+    __constants__ = ['stats_permute_dims', 'zero_point_shape', 'momentum']
 
     def __init__(
             self,
@@ -101,7 +101,7 @@ class ParameterFromRuntimeZeroPoint(brevitas.jit.ScriptModule):
             device: Optional[torch.device] = None) -> None:
         super(ParameterFromRuntimeZeroPoint, self).__init__()
         assert collect_stats_steps > 0, 'Steps should be more than 0'
-        self.collect_stats_steps = collect_stats_steps
+        self.collect_stats_steps = brevitas.jit.Attribute(collect_stats_steps, int)
         self.counter: int = brevitas.jit.Attribute(0, int)
         self.zero_point_shape = zero_point_shape
         self.stats_input_view_shape_impl = zero_point_stats_input_view_shape_impl
