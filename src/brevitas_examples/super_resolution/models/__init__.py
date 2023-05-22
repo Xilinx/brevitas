@@ -31,7 +31,7 @@ model_impl = {
 root_url = 'https://github.com/Xilinx/brevitas/releases/download/super_res-r0'
 
 model_url = {
-    'float_espcn_x2': f'{root_url}/float_espcn_x2-758c8fef.pth',
+    'float_espcn_x2': f'{root_url}/float_espcn_x2-2f3821e3.pth',
     'quant_espcn_x2_w8a8_base': f'{root_url}/quant_espcn_x2_w8a8_base-7d54e29c.pth',
     'quant_espcn_x2_w8a8_a2q_32b': f'{root_url}/quant_espcn_x2_w8a8_a2q_32b-0b1f361d.pth',
     'quant_espcn_x2_w8a8_a2q_16b': f'{root_url}/quant_espcn_x2_w8a8_a2q_16b-3c4acd35.pth'}

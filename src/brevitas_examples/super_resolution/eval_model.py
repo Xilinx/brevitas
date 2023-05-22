@@ -30,13 +30,14 @@ Example:
 
 parser = argparse.ArgumentParser(description='PyTorch BSD300 Validation')
 parser.add_argument('--data_root', help='Path to folder containing BSD300 val folder')
-parser.add_argument('--model_path', help='Path to PyTorch checkpoint')
+parser.add_argument('--model_path', default=None, help='Path to PyTorch checkpoint')
 parser.add_argument(
     '--save_path', type=str, default='outputs/', help='Save path for exported model')
 parser.add_argument(
     '--model', type=str, default='quant_espcn_x2_w8a8_base', help='Name of the model configuration')
 parser.add_argument('--workers', type=int, default=0, help='Number of data loading workers')
 parser.add_argument('--batch_size', type=int, default=16, help='Minibatch size')
+parser.add_argument('--use_pretrained', action='store_true', default=False)
 parser.add_argument('--eval_acc_bw', action='store_true', default=False)
 parser.add_argument('--save_model_io', action='store_true', default=False)
 parser.add_argument('--export_to_qonnx', action='store_true', default=False)
@@ -48,8 +49,10 @@ def main():
     args = parser.parse_args()
 
     # initialize model, dataset, and training environment
-    model = get_model_by_name(args.model)
-    model.load_state_dict(torch.load(args.model_path, map_location='cpu'))
+    model = get_model_by_name(args.model, args.use_pretrained)
+    if args.model_path is not None:
+        assert not args.use_pretrained, "Already loading pretrained model."
+        model.load_state_dict(torch.load(args.model_path, map_location='cpu'))
     model = model.to(device)
     _, testloader = get_bsd300_dataloaders(
         args.data_root,
