@@ -153,6 +153,7 @@ class GPTQ():
             weight = weight.flatten(1)
             self.groups = self.layer.groups
 
+        # Number of rows is equal to the output channels (OC)
         self.rows = weight.shape[0]
         self.columns = weight.shape[1]
 
