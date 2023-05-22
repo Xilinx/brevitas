@@ -5,6 +5,7 @@ from abc import ABC
 from functools import partial
 import sys
 
+import torch
 from torch import nn
 import torch.nn.functional as F
 
@@ -38,6 +39,8 @@ _LAYERS_TO_CLIP = (
     nn.ConvTranspose1d,
     nn.ConvTranspose2d,
     nn.ConvTranspose3d)
+
+BN_LAYERS = (nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d)
 
 
 def extend_collect_stats_steps(module):
@@ -282,3 +285,31 @@ class _BiasCorrection(DisableEnableQuantization):
         self.enable_act_quantization(module.output_quant, is_training=False)
         self.iterations[name] += 1
         return out_float
+
+
+class norm_correction_mode:
+
+    def __init__(self, model, enabled=True):
+        self.model = model
+        self.enabled = enabled
+
+    def __enter__(self):
+        if self.enabled:
+            for m in self.model.modules():
+                if isinstance(m, BN_LAYERS):
+                    m.register_buffer("old_running_mean", m.running_mean.clone())
+                    m.register_buffer("old_running_var", m.running_var.clone())
+                    m.reset_running_stats()
+                    m.momentum = None
+                    m.train()
+
+    def __exit__(self, type, value, traceback):
+        if self.enabled:
+            for m in self.model.modules():
+                if isinstance(m, BN_LAYERS):
+                    a = torch.sqrt(m.old_running_var / m.running_var)
+                    b = m.old_running_mean - a * m.running_mean
+                    m.running_var = m.old_running_var.clone() / a
+                    m.running_mean = (m.old_running_mean.clone() - b) / a
+                    del m.old_running_var
+                    del m.old_running_mean
