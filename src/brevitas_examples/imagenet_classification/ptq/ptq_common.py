@@ -10,6 +10,7 @@ from tqdm import tqdm
 from brevitas.core.function_wrapper.ops_ste import CeilSte
 from brevitas.graph.calibrate import bias_correction_mode
 from brevitas.graph.calibrate import calibration_mode
+from brevitas.graph.calibrate import norm_correction_mode
 from brevitas.graph.gptq import gptq_mode
 from brevitas.graph.quantize import COMPUTE_LAYER_MAP
 from brevitas.graph.quantize import LAYERWISE_COMPUTE_LAYER_MAP
@@ -50,6 +51,7 @@ def quantize_model(
         backend,
         act_bit_width,
         weight_bit_width,
+        layerwise_first_last_bit_width,
         bias_bit_width,
         scaling_per_output_channel,
         act_quant_percentile,
@@ -63,6 +65,17 @@ def quantize_model(
     if act_quant_type == 'asymmetric':
         act_quant_asym = ASYMMETRIC_ACT_QUANT_MAP[backend]
     maps = [deepcopy(quant_map) for quant_map in LAYER_MAP[backend]]
+
+    def bit_width_fn(module, other_bit_width):
+        if backend != 'layerwise':
+            return other_bit_width
+        if isinstance(module, torch.nn.Conv2d) and module.in_channels == 3:
+            return layerwise_first_last_bit_width
+        elif isinstance(module, torch.nn.Linear) and module.out_features == 1000:
+            return layerwise_first_last_bit_width
+        else:
+            return other_bit_width
+
     maps = update_quant_maps(
         maps,
         scale_factor_type=scale_factor_type,
@@ -70,8 +83,8 @@ def quantize_model(
         scaling_per_output_channel=scaling_per_output_channel,
         act_quant_percentile=act_quant_percentile,
         act_quant_asym=act_quant_asym,
-        act_bit_width=act_bit_width,
-        weight_bit_width=weight_bit_width,
+        act_bit_width=lambda module: bit_width_fn(module, act_bit_width),
+        weight_bit_width=lambda module: bit_width_fn(module, weight_bit_width),
         weight_narrow_range=weight_narrow_range)
 
     if len(maps) == 3:
@@ -190,6 +203,18 @@ def calibrate(calib_loader, model):
     device = next(model.parameters()).device
     with torch.no_grad():
         with calibration_mode(model):
+            for i, (images, target) in enumerate(tqdm(calib_loader)):
+                images = images.to(device)
+                images = images.to(dtype)
+                model(images)
+
+
+def calibrate_bn(calib_loader, model):
+    model.eval()
+    dtype = next(model.parameters()).dtype
+    device = next(model.parameters()).device
+    with torch.no_grad():
+        with norm_correction_mode(model):
             for i, (images, target) in enumerate(tqdm(calib_loader)):
                 images = images.to(device)
                 images = images.to(dtype)
