@@ -40,7 +40,7 @@ parser.add_argument(
     #required=True, 
     help='Path to folder containing Imagenet validation folder')
 parser.add_argument(
-    '--workers', default=8, type=int, help='Number of data loading workers (default: 8)')
+    '--workers', default=16, type=int, help='Number of data loading workers (default: 16)')
 parser.add_argument(
     '--batch-size-calibration',
     default=64,
@@ -97,7 +97,11 @@ add_bool_arg(
 
 def main():
     args = parser.parse_args()
-
+    
+    # check batch sizes
+    if args.ptq_on_calibration_data:
+        assert args.batch_size_calibration == args.batch_size_validation, "Different batch sizes trigger recompilation."
+    
     # Set randomness
     random.seed(SEED)
     np.random.seed(SEED)
@@ -138,12 +142,13 @@ def main():
 
     # Validate the floating point model 
     # on the validation dataloader
-    print("Starting validation of the float model:")
+    print(f"Starting validation of the float model on {args.validation_subset} samples:")
     validate(val_loader, model)        
     
     # Create the brevitas dynamo backend
     brevitas_dynamo_backend = brevitas_dynamo(
             ptq_iters=len(calib_loader), 
+            ptq_methods=['act_calibration', 'bias_correction'],
             quantization_backend=args.quantization_backend, 
             weight_bit_width=args.weight_bit_width,
             act_bit_width=args.act_bit_width,

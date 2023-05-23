@@ -6,6 +6,7 @@ import os
 import tempfile
 from typing import Any, List
 import warnings 
+from collections import OrderedDict
 
 import torch
 from torch._dynamo.backends.onnxrt import default_provider
@@ -16,6 +17,7 @@ from brevitas.graph.quantize import preprocess_for_quantize
 from brevitas.graph.target.flexml import preprocess_for_flexml_quantize
 from brevitas.graph.calibrate import bias_correction_mode
 from brevitas.graph.calibrate import calibration_mode
+from brevitas.graph.calibrate import finalize_collect_stats
 from brevitas_examples.imagenet_classification.ptq.ptq_common import quantize_model
 
 
@@ -127,6 +129,7 @@ class QuantizeAndCompile(object):
             self, 
             graph_model, 
             ptq_iters, 
+            ptq_methods,
             example_inputs, 
             quantization_backend, 
             compiler_backend,
@@ -138,6 +141,9 @@ class QuantizeAndCompile(object):
             act_quant_type,
             scale_factor_type,
             weight_narrow_range) -> None:
+        assert ptq_iters > len(ptq_methods), "At least 1 batch per PTQ method is required."
+        self.ptq_schedule = OrderedDict({ptq_method: ptq_iters // len(ptq_methods) for ptq_method in ptq_methods})
+        self.ptq_schedule[next(reversed(self.ptq_schedule))] += (ptq_iters % len(ptq_methods))
         device = next(graph_model.parameters()).device
         if quantization_backend == 'generic' or quantization_backend == 'layerwise':
             graph_model = preprocess_for_quantize(graph_model, trace_model=False)
@@ -170,12 +176,29 @@ class QuantizeAndCompile(object):
         self.tmp_dir = tempfile.TemporaryDirectory() 
         self.current_iter = 0
         
+    def act_calibration(self, *args, **kwargs):
+        self.ptq_schedule['act_calibration'] -= 1
+        with calibration_mode(self.graph_model, finalize_stats_on_exit=False):
+            return self.graph_model(*args, **kwargs)
+            
+    def bias_correction(self, *args, **kwargs):
+        self.ptq_schedule['bias_correction'] -= 1
+        with bias_correction_mode(self.graph_model):
+            return self.graph_model(*args, **kwargs) 
+        
     def ptq(self, *args, **kwargs):
         self.current_iter += 1
-        with calibration_mode(self.graph_model, finalize_stats_on_exit=False):
-            self.graph_model(*args, **kwargs)
-        with bias_correction_mode(self.graph_model):
-            return self.graph_model(*args, **kwargs)
+        for ptq_method, iters in self.ptq_schedule.items():
+            if iters == 0:
+                if ptq_method == 'act_calibration':
+                    finalize_collect_stats(self.graph_model)
+                continue
+            if ptq_method == 'act_calibration':
+                return self.act_calibration(*args, **kwargs)
+            elif ptq_method == 'bias_correction':
+                return self.bias_correction(*args, **kwargs)
+            else:
+                raise ValueError(f"Unsupported ptq method {ptq_method}.")
     
     def __call__(self, *args, **kwargs):
         global _DYNAMO_PTQ_MODE
@@ -195,6 +218,7 @@ class QuantizeAndCompile(object):
 
 def brevitas_dynamo(
         ptq_iters, 
+        ptq_methods,
         weight_bit_width=8,
         act_bit_width=8,
         bias_bit_width='int32',
@@ -209,6 +233,7 @@ def brevitas_dynamo(
         qac = QuantizeAndCompile(
             gm, 
             ptq_iters=ptq_iters, 
+            ptq_methods=ptq_methods,
             example_inputs=example_inputs,
             weight_bit_width=weight_bit_width,
             act_bit_width=act_bit_width,
