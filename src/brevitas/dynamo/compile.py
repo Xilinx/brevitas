@@ -18,6 +18,7 @@ from brevitas.graph.target.flexml import preprocess_for_flexml_quantize
 from brevitas.graph.calibrate import bias_correction_mode
 from brevitas.graph.calibrate import calibration_mode
 from brevitas.graph.calibrate import finalize_collect_stats
+from brevitas.graph.gptq import gptq_mode
 from brevitas_examples.imagenet_classification.ptq.ptq_common import quantize_model
 
 
@@ -180,6 +181,15 @@ class QuantizeAndCompile(object):
         self.ptq_schedule['act_calibration'] -= 1
         with calibration_mode(self.graph_model, finalize_stats_on_exit=False):
             return self.graph_model(*args, **kwargs)
+        
+    def gptq(self, *args, **kwargs):
+        self.ptq_schedule['gptq'] -= 1
+        with gptq_mode(self.graph_model, act_order=False) as gptq:
+            gptq_model = gptq.model
+            for i in range(gptq.num_layers):
+                gptq_model(*args, **kwargs)
+                gptq.update()
+        return self.graph_model(*args, **kwargs)
             
     def bias_correction(self, *args, **kwargs):
         self.ptq_schedule['bias_correction'] -= 1
@@ -197,6 +207,8 @@ class QuantizeAndCompile(object):
                 return self.act_calibration(*args, **kwargs)
             elif ptq_method == 'bias_correction':
                 return self.bias_correction(*args, **kwargs)
+            elif ptq_method == 'gptq':
+                return self.gptq(*args, **kwargs)
             else:
                 raise ValueError(f"Unsupported ptq method {ptq_method}.")
     

@@ -148,7 +148,7 @@ def main():
     # Create the brevitas dynamo backend
     brevitas_dynamo_backend = brevitas_dynamo(
             ptq_iters=len(calib_loader), 
-            ptq_methods=['act_calibration', 'bias_correction'],
+            ptq_methods=['act_calibration', 'gptq', 'bias_correction'],
             quantization_backend=args.quantization_backend, 
             weight_bit_width=args.weight_bit_width,
             act_bit_width=args.act_bit_width,
