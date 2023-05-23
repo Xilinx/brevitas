@@ -10,30 +10,34 @@ import numpy as np
 import torch
 import torchvision
 
-from brevitas.dynamo.compile import brevitas_dynamo, brevitas_dynamo_ptq_mode
+from brevitas.dynamo.compile import brevitas_dynamo
 from brevitas_examples.imagenet_classification.ptq.utils import get_model_config
 from brevitas_examples.imagenet_classification.ptq.utils import get_torchvision_model
-from brevitas_examples.imagenet_classification.ptq.ptq_common import calibrate
-from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_bias_correction
 from brevitas_examples.imagenet_classification.utils import generate_dataloader
 from brevitas_examples.imagenet_classification.utils import SEED
 from brevitas_examples.imagenet_classification.utils import validate
+from brevitas_examples.imagenet_classification.ptq.utils import add_bool_arg
+
 
 # Ignore warnings about __torch_function__
 warnings.filterwarnings("ignore")
+
 
 model_names = sorted(
     name for name in torchvision.models.__dict__ if name.islower() and not name.startswith("__") and
     callable(torchvision.models.__dict__[name]) and not name.startswith("get_"))
 
+
 parser = argparse.ArgumentParser(description='PyTorch ImageNet PTQ Validation')
 parser.add_argument(
     '--calibration-dir',
-    required=True,
+    default='/scratch/datasets/imagenet_symlink/val',
+    #required=True,
     help='Path to folder containing Imagenet calibration folder')
 parser.add_argument(
     '--validation-dir', 
-    required=True, 
+    default='/scratch/datasets/imagenet_symlink/val',
+    #required=True, 
     help='Path to folder containing Imagenet validation folder')
 parser.add_argument(
     '--workers', default=8, type=int, help='Number of data loading workers (default: 8)')
@@ -52,7 +56,6 @@ parser.add_argument(
     default=1024,
     type=int,
     help='Subset size for validation (default: 1024)')
-parser.add_argument('--gpu', default=None, type=int, help='GPU id to use (default: None)')
 parser.add_argument(
     '--calibration-samples', default=256, type=int, help='Calibration size (default: 256)')
 parser.add_argument(
@@ -61,13 +64,36 @@ parser.add_argument(
     metavar='ARCH',
     choices=model_names,
     help='model architecture: ' + ' | '.join(model_names) + ' (default: resnet18)')
+parser.add_argument('--gpu', default=None, type=int, help='GPU id to use with PyTorch (default: None)')
 parser.add_argument(
-    '--target-backend',
+    '--quantization-backend',
     default='generic',
     choices=['generic', 'layerwise', 'flexml'],
     help='Backend to target for quantization (default: generic)')
-parser.add_argument('--explicit-ptq', action='store_true', help="Call PTQ explicitly rather than within the dynamo backend")
-
+parser.add_argument(
+    '--compiler-backend',
+    default='onnxrt_cpu',
+    choices=['onnxrt_cpu', 'onnxrt_gpu'],
+    help='Backend to target for quantization (default: generic)')
+parser.add_argument(
+    '--act-bit-width', default=8, type=int, help='Activations bit width (default: 8)')
+parser.add_argument(
+    '--weight-bit-width', default=8, type=int, help='Weights bit width (default: 8)')
+parser.add_argument(
+    '--act-quant-type',
+    default='symmetric',
+    choices=['symmetric', 'asymmetric'],
+    help='Activation quantization type (default: symmetric)')
+add_bool_arg(
+    parser,
+    'scaling-per-output-channel',
+    default=True,
+    help='Weight scaling per output channel (default: enabled)')
+add_bool_arg(
+    parser,
+    'ptq-on-calibration-data',
+    default=True,
+    help='Run PTQ on a separate calibration dataloader (default: enabled)')
 
 def main():
     args = parser.parse_args()
@@ -103,41 +129,35 @@ def main():
 
     # Get the model from torchvision
     model = get_torchvision_model(args.model_name)
+    model.eval()
+    
+    # If available, use the selected GPU for PyTorch execution
+    if args.gpu is not None:
+        torch.cuda.set_device(args.gpu)
+        model = model.cuda(args.gpu)
 
     # Validate the floating point model 
     # on the validation dataloader
     print("Starting validation of the float model:")
     validate(val_loader, model)        
     
-    # API option 1: PTQ is done explicitly by the user, more control, more verbose
-    if args.explicit_ptq:
-        brevitas_dynamo_backend = brevitas_dynamo(quantization_backend='generic', compiler_backend='onnxrt')
-    # API option 2: PTQ is done implicitly with the brevitas_dynamo backend. Less control, less verbose
-    else:
-        brevitas_dynamo_backend = brevitas_dynamo(
-            ptq_iters=len(calib_loader), quantization_backend='generic', compiler_backend='onnxrt')
+    # Create the brevitas dynamo backend
+    brevitas_dynamo_backend = brevitas_dynamo(
+            ptq_iters=len(calib_loader), 
+            quantization_backend=args.quantization_backend, 
+            weight_bit_width=args.weight_bit_width,
+            act_bit_width=args.act_bit_width,
+            act_quant_type=args.act_quant_type,
+            scaling_per_output_channel=args.scaling_per_output_channel,
+            compiler_backend=args.compiler_backend)
         
     # Pass the brevitas backend to torch compile
     model = torch.compile(model, backend=brevitas_dynamo_backend)
     
-    # Performing PTQ, either implicitly or explicitly
-    
-    # API option 1: PTQ is explicit and user controlled, we call a series of specific methods
-    # Here we are calling only activation calibration and bias correction, but we could also do GPTQ, BN correction, etc.
-    if args.explicit_ptq:
-        
-        # As long as we are under the brevitas_dynamo_ptq_mode context manager we delay compilation to the compiler backend
-        # which is ONNXRuntime in this case. The moment we leave the context manager, forward triggers compilation.
-        with brevitas_dynamo_ptq_mode():
-            print("Starting PTQ calibration:")
-            calibrate(calib_loader, model)
-            print("Starting PTQ bias correction:")
-            apply_bias_correction(calib_loader, model)
-    
-    # API option 2: PTQ is implicit and handled by brevitas_dynamo, we only call the model on calib data
+    # Perform PTQ on a standalone calibration dataset. 
     # Internally it's currently calling activation calibration and bias correction
-    else:
-        print("Starting PTQ:")
+    if args.ptq_on_calibration_data:
+        print("Starting PTQ on calibration data:")
         model.eval()
         dtype = next(model.parameters()).dtype
         device = next(model.parameters()).device
@@ -149,7 +169,7 @@ def main():
 
     # Validate the model on the validation dataloader
     # This is running in ONNXRuntime through dynamo
-    print("Starting validation of the quant model:")
+    print("Starting validation of the quant model running in ONNXRuntime through dynamo:")
     validate(val_loader, model)
 
 

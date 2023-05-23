@@ -8,27 +8,31 @@ from typing import Any, List
 import warnings 
 
 import torch
-from torch._dynamo.backends.common import device_from_inputs
 from torch._dynamo.backends.onnxrt import default_provider
 from torch._dynamo.backends.onnxrt import _np_dtype
 
 from brevitas.export import export_onnx_qcdq
-from brevitas.graph.quantize import preprocess_for_quantize, quantize
-from brevitas.graph.target.flexml import preprocess_for_flexml_quantize, quantize_flexml
+from brevitas.graph.quantize import preprocess_for_quantize
+from brevitas.graph.target.flexml import preprocess_for_flexml_quantize
 from brevitas.graph.calibrate import bias_correction_mode
 from brevitas.graph.calibrate import calibration_mode
+from brevitas_examples.imagenet_classification.ptq.ptq_common import quantize_model
 
 
 _DYNAMO_PTQ_MODE = False
 
+ONNXRT_PROVIDERS = {
+    'onnxrt_cpu': ["CPUExecutionProvider"],
+    'onnxrt_gpu': ["CUDAExecutionProvider", "CPUExecutionProvider"]
+}
 
 class brevitas_dynamo_ptq_mode:
     
-    def __init__(self) -> None:
+    def __init__(self, dynamo_module) -> None:
         super().__init__()
+        self.dynamo_module = dynamo_module
     
     def __enter__(self):
-        print("enter")
         global _DYNAMO_PTQ_MODE
         _DYNAMO_PTQ_MODE = True
         
@@ -39,15 +43,14 @@ class brevitas_dynamo_ptq_mode:
 
 class ONNXRTBackend(object):
     
-    def __init__(self) -> None:
+    def __init__(self, device_type) -> None:
         super().__init__()
         self.input_names = None
         self.output_names = None
-    
-    def __call__(self, gm, example_inputs, *, filename, provider=None) -> Any:
+        self.device_type = device_type
+        
+    def __call__(self, gm, example_inputs, *, filename, providers=None) -> Any:
         import onnxruntime  
-
-        device_type = device_from_inputs(example_inputs).type
 
         if not os.path.exists(filename):
             example_outputs = gm(*example_inputs)
@@ -65,10 +68,11 @@ class ONNXRTBackend(object):
                 opset_version=13)
             del example_inputs, example_outputs
 
-        if provider is None:
-            provider = default_provider(device_type)
-        assert provider in onnxruntime.get_available_providers()
-        session = onnxruntime.InferenceSession(filename, providers=[provider])
+        if providers is None:
+            providers = [default_provider(self.device_type)]
+        for provider in providers:
+            assert provider in onnxruntime.get_available_providers()
+        session = onnxruntime.InferenceSession(filename, providers=providers)
         
         def _call(*initial_args):
             binding = session.io_binding()
@@ -110,7 +114,7 @@ class ONNXRTBackend(object):
                     value.data_ptr(),
                 )
             session.run_with_iobinding(binding)
-            if device_type == "cpu":
+            if self.device_type == "cpu":
                 binding.copy_outputs_to_cpu()
             return outputs
 
@@ -119,19 +123,44 @@ class ONNXRTBackend(object):
 
 class QuantizeAndCompile(object):
     
-    def __init__(self, graph_model, ptq_iters, example_inputs, quantization_backend, compiler_backend) -> None:
+    def __init__(
+            self, 
+            graph_model, 
+            ptq_iters, 
+            example_inputs, 
+            quantization_backend, 
+            compiler_backend,
+            weight_bit_width,
+            act_bit_width,
+            bias_bit_width,
+            scaling_per_output_channel,
+            act_quant_percentile,
+            act_quant_type,
+            scale_factor_type,
+            weight_narrow_range) -> None:
         device = next(graph_model.parameters()).device
-        if quantization_backend == 'generic':
+        if quantization_backend == 'generic' or quantization_backend == 'layerwise':
             graph_model = preprocess_for_quantize(graph_model, trace_model=False)
-            graph_model = quantize(graph_model)
         elif quantization_backend == 'flexml':
             graph_model = preprocess_for_flexml_quantize(graph_model, *example_inputs, trace_model=False)
-            graph_model = quantize_flexml(graph_model)  
         else:
             raise ValueError(f"Quantization backend {quantization_backend} not supported.")
+        graph_model = quantize_model(
+            graph_model, 
+            quantization_backend,
+            weight_bit_width=weight_bit_width,
+            act_bit_width=act_bit_width,
+            bias_bit_width=bias_bit_width,
+            scaling_per_output_channel=scaling_per_output_channel,
+            act_quant_percentile=act_quant_percentile,
+            act_quant_type=act_quant_type,
+            scale_factor_type=scale_factor_type,
+            weight_narrow_range=weight_narrow_range)
         graph_model.to(device)  
-        if compiler_backend == 'onnxrt':
-            self.compiler_backend_impl = ONNXRTBackend()
+        if compiler_backend == 'onnxrt_cpu':
+            self.compiler_backend_impl = ONNXRTBackend(device_type='cpu')
+        elif compiler_backend == 'onnxrt_gpu':
+            self.compiler_backend_impl = ONNXRTBackend(device_type='cuda')
         else:
             raise ValueError(f"Compiler backend {self.compiler_backend} not supported.")
         self.compiler_backend = compiler_backend
@@ -154,21 +183,42 @@ class QuantizeAndCompile(object):
             return self.graph_model(*args, **kwargs)
         if self.current_iter < self.ptq_iters:
             return self.ptq(*args, **kwargs)
-        if self.compiler_backend == 'onnxrt':
+        if 'onnxrt' in self.compiler_backend:
             return self.compiler_backend_impl(
                 self.graph_model, 
                 self.example_inputs, 
+                providers=ONNXRT_PROVIDERS[self.compiler_backend],
                 filename=os.path.join(self.tmp_dir.name, 'model.onnx'))(*args, **kwargs)
         else:
             raise ValueError(f"Compiler backend {self.compiler_backend} not supported.")
 
 
-def brevitas_dynamo(ptq_iters=0, quantization_backend='generic', compiler_backend='onnxrt'):
-    def ort(gm: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):
-        return QuantizeAndCompile(
+def brevitas_dynamo(
+        ptq_iters, 
+        weight_bit_width=8,
+        act_bit_width=8,
+        bias_bit_width='int32',
+        scaling_per_output_channel=True,
+        act_quant_percentile=99.999,
+        act_quant_type='symmetric',
+        scale_factor_type='float32',
+        weight_narrow_range=False,
+        quantization_backend='generic', 
+        compiler_backend='onnxrt_cpu'):
+    def compile(gm: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):
+        qac = QuantizeAndCompile(
             gm, 
             ptq_iters=ptq_iters, 
             example_inputs=example_inputs,
+            weight_bit_width=weight_bit_width,
+            act_bit_width=act_bit_width,
+            bias_bit_width=bias_bit_width,
+            scaling_per_output_channel=scaling_per_output_channel,
+            act_quant_percentile=act_quant_percentile,
+            act_quant_type=act_quant_type,
+            scale_factor_type=scale_factor_type,
+            weight_narrow_range=weight_narrow_range,
             quantization_backend=quantization_backend, 
             compiler_backend=compiler_backend)
-    return ort
+        return qac
+    return compile
