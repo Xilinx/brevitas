@@ -99,4 +99,4 @@ def get_next_available_gpu(gpu_id):
                 excludeUUID=[])
 
         gpu_id = next_available_gpu[0]
-        return gpu_id
+    return gpu_id
