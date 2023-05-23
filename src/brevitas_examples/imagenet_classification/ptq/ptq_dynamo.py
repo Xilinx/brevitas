@@ -31,13 +31,11 @@ model_names = sorted(
 parser = argparse.ArgumentParser(description='PyTorch ImageNet PTQ Validation')
 parser.add_argument(
     '--calibration-dir',
-    default='/scratch/datasets/imagenet_symlink/val',
-    #required=True,
+    required=True,
     help='Path to folder containing Imagenet calibration folder')
 parser.add_argument(
     '--validation-dir', 
-    default='/scratch/datasets/imagenet_symlink/val',
-    #required=True, 
+    required=True, 
     help='Path to folder containing Imagenet validation folder')
 parser.add_argument(
     '--workers', default=16, type=int, help='Number of data loading workers (default: 16)')
