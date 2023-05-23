@@ -94,6 +94,11 @@ add_bool_arg(
     'ptq-on-calibration-data',
     default=True,
     help='Run PTQ on a separate calibration dataloader (default: enabled)')
+parser.add_argument(
+    '--graph-eq-iterations',
+    default=20,
+    type=int,
+    help='Numbers of iterations for graph equalization (default: 20)')
 
 def main():
     args = parser.parse_args()
@@ -148,6 +153,7 @@ def main():
     # Create the brevitas dynamo backend
     brevitas_dynamo_backend = brevitas_dynamo(
             ptq_iters=len(calib_loader), 
+            equalization_iters=args.graph_eq_iterations,
             ptq_methods=['act_calibration', 'gptq', 'bias_correction'],
             quantization_backend=args.quantization_backend, 
             weight_bit_width=args.weight_bit_width,

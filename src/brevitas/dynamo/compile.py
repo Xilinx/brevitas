@@ -134,6 +134,7 @@ class QuantizeAndCompile(object):
             example_inputs, 
             quantization_backend, 
             compiler_backend,
+            equalization_iters,
             weight_bit_width,
             act_bit_width,
             bias_bit_width,
@@ -147,9 +148,11 @@ class QuantizeAndCompile(object):
         self.ptq_schedule[next(reversed(self.ptq_schedule))] += (ptq_iters % len(ptq_methods))
         device = next(graph_model.parameters()).device
         if quantization_backend == 'generic' or quantization_backend == 'layerwise':
-            graph_model = preprocess_for_quantize(graph_model, trace_model=False)
+            graph_model = preprocess_for_quantize(
+                graph_model, equalize_iters=equalization_iters, trace_model=False)
         elif quantization_backend == 'flexml':
-            graph_model = preprocess_for_flexml_quantize(graph_model, *example_inputs, trace_model=False)
+            graph_model = preprocess_for_flexml_quantize(
+                graph_model, *example_inputs, equalize_iters=equalization_iters, trace_model=False)
         else:
             raise ValueError(f"Quantization backend {quantization_backend} not supported.")
         graph_model = quantize_model(
@@ -231,6 +234,7 @@ class QuantizeAndCompile(object):
 def brevitas_dynamo(
         ptq_iters, 
         ptq_methods,
+        equalization_iters=20,
         weight_bit_width=8,
         act_bit_width=8,
         bias_bit_width='int32',
@@ -247,6 +251,7 @@ def brevitas_dynamo(
             ptq_iters=ptq_iters, 
             ptq_methods=ptq_methods,
             example_inputs=example_inputs,
+            equalization_iters=equalization_iters,
             weight_bit_width=weight_bit_width,
             act_bit_width=act_bit_width,
             bias_bit_width=bias_bit_width,
