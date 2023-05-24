@@ -7,8 +7,8 @@ from inspect import getcallargs
 
 import torch
 from torch.nn import Module
+from torch.overrides import get_testing_overrides
 
-from brevitas.fx import get_testing_overrides
 from brevitas.fx import GraphModule
 from brevitas.fx import immutable_dict
 from brevitas.fx import Node

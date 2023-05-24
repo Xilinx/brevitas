@@ -38,8 +38,17 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 
-Forked as-is from PyTorch 1.8.1
+Forked as-is from PyTorch 2.0.1
 """
+
+from typing import Any, Dict, List, Tuple
+
+from torch.utils._pytree import _register_pytree_node
+from torch.utils._pytree import Context
+
+from ._compatibility import compatibility
+
+__all__ = ["immutable_list", "immutable_dict"]
 
 _help_mutation = """\
 If you are attempting to modify the kwargs or args of a torch.fx.Node object,
@@ -76,6 +85,31 @@ immutable_list = _create_immutable_container(
         'remove'])
 immutable_list.__reduce__ = lambda self: (immutable_list, (tuple(iter(self)),))
 
+compatibility(is_backward_compatible=True)(immutable_list)
+
 immutable_dict = _create_immutable_container(
     dict, ['__delitem__', '__setitem__', 'clear', 'pop', 'popitem', 'update'])
 immutable_dict.__reduce__ = lambda self: (immutable_dict, (iter(self.items()),))
+compatibility(is_backward_compatible=True)(immutable_dict)
+
+# Register immutable collections for PyTree operations
+
+
+def _immutable_dict_flatten(d: Dict[Any, Any]) -> Tuple[List[Any], Context]:
+    return list(d.values()), list(d.keys())
+
+
+def _immutable_dict_unflatten(values: List[Any], context: Context) -> Dict[Any, Any]:
+    return immutable_dict({key: value for key, value in zip(context, values)})
+
+
+def _immutable_list_flatten(d: List[Any]) -> Tuple[List[Any], Context]:
+    return d, None
+
+
+def _immutable_list_unflatten(values: List[Any], context: Context) -> List[Any]:
+    return immutable_list(values)
+
+
+_register_pytree_node(immutable_dict, _immutable_dict_flatten, _immutable_dict_unflatten)
+_register_pytree_node(immutable_list, _immutable_list_flatten, _immutable_list_unflatten)

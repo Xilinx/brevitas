@@ -9,7 +9,6 @@ from torch.nn import Sequential
 
 from . import GraphModule
 from . import Tracer
-from .backport.torch_function import gen_patches
 from .value_tracer import ValueTracer
 
 
@@ -26,14 +25,7 @@ def _is_brevitas_leaf_module(m, fully_qualified_name):
 def _trace_with_backport(
         tracer: Tracer, root: Union[Module, Callable],
         concrete_args: Optional[Dict[str, Any]]) -> GraphModule:
-    patches = gen_patches()
-    if patches:
-        with ExitStack() as stack:
-            for patch in patches:
-                stack.enter_context(patch)
-            graph = tracer.trace(root, concrete_args)
-    else:
-        graph = tracer.trace(root, concrete_args)
+    graph = tracer.trace(root, concrete_args)
     name = root.__class__.__name__ if isinstance(root, Module) else root.__name__
     return GraphModule(tracer.root, graph, name)
 
