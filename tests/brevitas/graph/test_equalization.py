@@ -7,8 +7,10 @@ import torch
 from torchvision import models
 
 from brevitas.fx import symbolic_trace
+from brevitas.graph.equalize import _batch_norm
 from brevitas.graph.equalize import _extract_regions
 from brevitas.graph.equalize import _is_supported_module
+from brevitas.graph.standardize import TorchFunctionalToModule
 from brevitas.graph.utils import get_module
 
 from .equalization_fixtures import *
@@ -63,6 +65,7 @@ def test_equalization_torchvision_models(model_coverage: tuple, merge_bias: bool
     # The isistance does not work after symbolic trace
     is_alexnet = isinstance(model, models.AlexNet)
     model = symbolic_trace(model)
+    model = TorchFunctionalToModule().apply(model)
 
     expected_out = model(inp)
 
@@ -78,16 +81,20 @@ def test_equalization_torchvision_models(model_coverage: tuple, merge_bias: bool
     out = model(inp)
     srcs = set()
     sinks = set()
-    count = 0
     for r in regions:
         srcs.update(list(r.srcs))
         sinks.update(list(r.sinks))
 
+    count_region_srcs = 0
+    count_region_sinks = 0
     for n in model.graph.nodes:
         if _is_supported_module(model, n):
-            count += 1
-    src_coverage = len(srcs) / count
-    sink_coverage = len(sinks) / count
+            count_region_srcs += 1
+            if not isinstance(get_module(model, n.target), (nn.LayerNorm,) + _batch_norm):
+                count_region_sinks += 1
+
+    src_coverage = len(srcs) / count_region_srcs
+    sink_coverage = len(sinks) / count_region_sinks
     assert src_coverage >= coverage[0]
     assert sink_coverage >= coverage[1]
     assert torch.allclose(expected_out, out, atol=ATOL)

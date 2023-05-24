@@ -16,12 +16,12 @@ SEED = 123456
 ATOL = 1e-3
 
 MODELS = {
-    'vit_b_32': [0.396, 0.396],
-    'shufflenet_v2_x0_5': [0.8141, 0.8230],
-    'mobilenet_v2': [0.6571, 0.6571],
-    'resnet18': [0.9756, 0.9756],
-    'googlenet': [0.4956, 0.4956],
-    'inception_v3': [0.4948, 0.4948],
+    'vit_b_32': [0.396, 0.657],
+    'shufflenet_v2_x0_5': [0.318, 0.649],
+    'mobilenet_v2': [0.161, 0.320],
+    'resnet18': [0.487, 0.952],
+    'googlenet': [0.1826, 0.413],
+    'inception_v3': [0.264, 0.6],
     'alexnet': [0.875, 0.875],}
 
 IN_SIZE_CONV = (1, 3, 224, 224)
@@ -193,30 +193,6 @@ def convdepthconv_model():
 
 
 @pytest_cases.fixture
-def convbn_model():
-
-    class ConvBNModel(nn.Module):
-
-        def __init__(self) -> None:
-            super().__init__()
-            self.conv = nn.Conv2d(3, 128, kernel_size=3)
-            self.bn = nn.BatchNorm2d(128)
-            # Simulate statistics gathering
-            self.bn.running_mean.data = torch.randn_like(self.bn.running_mean)
-            self.bn.running_var.data = torch.abs(torch.randn_like(self.bn.running_var))
-            # Simulate learned parameters
-            self.bn.weight.data = torch.randn_like(self.bn.weight)
-            self.bn.bias.data = torch.randn_like(self.bn.bias)
-
-        def forward(self, x):
-            x = self.conv(x)
-            x = self.bn(x)
-            return x
-
-    return ConvBNModel
-
-
-@pytest_cases.fixture
 def residual_model():
 
     class ResidualModel(nn.Module):
@@ -285,7 +261,6 @@ list_of_fixtures = [
     'residual_model',
     'srcsinkconflict_model',
     'mul_model',
-    'convbn_model',
     'bnconv_model',
     'convdepthconv_model',
     'linearmha_model',
@@ -295,38 +270,18 @@ list_of_fixtures = [
 toy_model = fixture_union('toy_model', list_of_fixtures, ids=list_of_fixtures)
 
 RESNET_18_REGIONS = [
-    [('conv1',), ('bn1',)],
-    [('layer4.0.conv2',), ('layer4.0.bn2',)],
-    [('layer2.0.conv2',), ('layer2.0.bn2',)],
     [('layer3.0.bn1',), ('layer3.0.conv2',)],
     [('layer4.1.bn1',), ('layer4.1.conv2',)],
-    [('layer1.1.conv1',), ('layer1.1.bn1',)],
-    [('layer3.0.conv2',), ('layer3.0.bn2',)],
     [('layer2.1.bn1',), ('layer2.1.conv2',)],
-    [('layer2.1.conv2',), ('layer2.1.bn2',)],
-    [('layer3.1.conv1',), ('layer3.1.bn1',)],
     [('layer3.1.bn1',), ('layer3.1.conv2',)],
-    [('layer4.0.conv1',), ('layer4.0.bn1',)],
-    [('layer3.0.downsample.0',), ('layer3.0.downsample.1',)],
     [('layer1.0.bn1',), ('layer1.0.conv2',)],
     [('layer3.0.bn2', 'layer3.0.downsample.1', 'layer3.1.bn2'),
      ('layer3.1.conv1', 'layer4.0.conv1', 'layer4.0.downsample.0')],
-    [('layer4.1.conv2',), ('layer4.1.bn2',)],
-    [('layer3.0.conv1',), ('layer3.0.bn1',)],
     [('layer4.0.bn1',), ('layer4.0.conv2',)],
-    [('layer3.1.conv2',), ('layer3.1.bn2',)],
-    [('layer1.0.conv1',), ('layer1.0.bn1',)],
-    [('layer4.0.downsample.0',), ('layer4.0.downsample.1',)],
     [('layer2.0.bn2', 'layer2.0.downsample.1', 'layer2.1.bn2'),
      ('layer2.1.conv1', 'layer3.0.conv1', 'layer3.0.downsample.0')],
     [('layer1.1.bn1',), ('layer1.1.conv2',)],
-    [('layer1.1.conv2',), ('layer1.1.bn2',)],
-    [('layer4.1.conv1',), ('layer4.1.bn1',)],
-    [('layer2.1.conv1',), ('layer2.1.bn1',)],
     [('bn1', 'layer1.0.bn2', 'layer1.1.bn2'),
      ('layer1.0.conv1', 'layer1.1.conv1', 'layer2.0.conv1', 'layer2.0.downsample.0')],
     [('layer2.0.bn1',), ('layer2.0.conv2',)],
-    [('layer2.0.conv1',), ('layer2.0.bn1',)],
-    [('layer4.0.bn2', 'layer4.0.downsample.1', 'layer4.1.bn2'), ('fc', 'layer4.1.conv1')],
-    [('layer2.0.downsample.0',), ('layer2.0.downsample.1',)],
-    [('layer1.0.conv2',), ('layer1.0.bn2',)],]
+    [('layer4.0.bn2', 'layer4.0.downsample.1', 'layer4.1.bn2'), ('fc', 'layer4.1.conv1')],]
