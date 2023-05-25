@@ -40,7 +40,13 @@ def matmul_rhs_group_quant(
         rhs_bit_width: int,
         rhs_group_size: int):
     # This is just a placeholder for the actual implementation that provides correct shape/device/dtype
-    return torch.randn(lhs.shape[0], rhs.shape[0], device=lhs.device, dtype=lhs.dtype)
+    if len(lhs.shape) == 3 and len(rhs.shape) == 2:
+        return torch.randn(lhs.shape[0], lhs.shape[1], rhs.shape[0], device=lhs.device, dtype=lhs.dtype)
+    elif len(lhs.shape) == 2 and len(rhs.shape) == 2:
+        return torch.randn(lhs.shape[0], rhs.shape[0], device=lhs.device, dtype=lhs.dtype)
+    else:
+        raise ValueError("Input shapes not supported.")
+    
 
 brevitas_lib = torch.library.Library("brevitas", "DEF")
 brevitas_lib.define(
@@ -50,7 +56,12 @@ brevitas_lib.impl("matmul_rhs_group_quant", matmul_rhs_group_quant)
 
 
 def brevitas〇matmul_rhs_group_quant〡shape(lhs: List[int], rhs: List[int], rhs_scale: List[int], rhs_zero_point: List[int], rhs_bit_width: int, rhs_group_size: int) -> List[int]:
-    return [lhs[0], rhs[0]]
+        if len(lhs) == 3 and len(lhs) == 2:
+            return [lhs[0], lhs[1], rhs[0]]
+        elif len(lhs) == 2 and len(lhs) == 2:
+            return [lhs[0], rhs[0]]
+        else:
+            raise ValueError("Input shapes not supported.")
 
 
 def brevitas〇matmul_rhs_group_quant〡dtype(lhs_rank_dtype: Tuple[int, int], rhs_rank_dtype: Tuple[int, int], rhs_scale_rank_dtype: Tuple[int, int], rhs_zero_point_rank_dtype: Tuple[int, int], rhs_bit_width: int, rhs_group_size: int) -> int:
