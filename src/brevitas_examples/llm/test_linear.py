@@ -3,12 +3,38 @@ import argparse
 import torch
 from torch import nn
 
-from brevitas_examples.llm.llm_quant.export import brevitas_layer_export_mode
-from brevitas_examples.llm.llm_quant.export import brevitas_proxy_export_mode
-from brevitas_examples.llm.llm_quant.make_fx import wrappable_make_fx
+from brevitas.backport.fx._symbolic_trace import wrap
+from brevitas.backport.fx.experimental.proxy_tensor import make_fx
 from brevitas_examples.llm.llm_quant.quantize import quantize
 from brevitas_examples.llm.llm_quant.quantizers import IntWeightSymmetricBlockQuant
 from brevitas_examples.llm.llm_quant.quantizers import UintWeightAsymmetricBlockQuant
+from brevitas_examples.llm.llm_quant.export import LinearWeightBlockQuantHandler
+from brevitas_examples.llm.llm_quant.export import brevitas_proxy_export_mode
+from brevitas_examples.llm.llm_quant.export import brevitas_layer_export_mode
+from brevitas_examples.llm.llm_quant.export import replace_call_fn_target
+from brevitas_examples.llm.llm_quant.export import BlockQuantProxyLevelManager
+from brevitas_examples.llm.llm_quant.export import block_quant_layer_level_manager
+
+
+# Due a tracing issue this annotation needs to be 
+# in the same module (== file) from which make_fx is called  
+# We also can't directly annotate torch.ops.brevitas.matmul_rhs_group_quant
+# and so we trace a placeholder first and then replace it post tracing
+@wrap(visible_to_make_fx=True)
+def matmul_rhs_group_quant_placeholder(*args, **kwargs):
+    return torch.ops.brevitas.matmul_rhs_group_quant(*args, **kwargs)
+
+
+class LinearWeightBlockQuantHandlerFwd(LinearWeightBlockQuantHandler):
+
+    def forward(self, x):
+        # Due a tracing issue the call to this fn needs to be 
+        # in the same module (== file) from which make_fx is called        
+        out = matmul_rhs_group_quant_placeholder(
+            x, self.int_weights, self.scale, self.zero_point, self.bit_width, self.group_size)
+        if self.bias is not None:
+            out = out + self.bias.view(1, -1)
+        return out
 
 
 class Model(nn.Module):
@@ -41,14 +67,24 @@ def quantize_and_export(args):
     # Pick export mode
     if args.custom_packed_export:
         export_context_manager = brevitas_layer_export_mode
+        # we generate an export_class since we need to pass in the handler defined above
+        export_class = block_quant_layer_level_manager(
+            export_handlers=[LinearWeightBlockQuantHandlerFwd])
     else:
         export_context_manager = brevitas_proxy_export_mode
+        export_class = BlockQuantProxyLevelManager
 
     # export with make_fx with support for fx wrap
-    with export_context_manager(model):
-        traced_model = wrappable_make_fx(model)(torch.randn(2, 128))
+    with export_context_manager(model, export_class):
+        traced_model = make_fx(model)(torch.randn(2, 128))
 
-    # Output graph
+    # Replace placeholder for custom op with correct call, if any
+    replace_call_fn_target(
+        traced_model, 
+        src=matmul_rhs_group_quant_placeholder, 
+        target=torch.ops.brevitas.matmul_rhs_group_quant)
+    
+    # print the output graph
     print(traced_model.graph)
 
 
@@ -71,3 +107,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
+    

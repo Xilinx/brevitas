@@ -2,22 +2,19 @@ import functools
 import inspect
 
 from torch import fx
-from torch.fx import wrap
-import torch.fx.experimental.proxy_tensor
-from torch.fx.experimental.proxy_tensor import Any
-from torch.fx.experimental.proxy_tensor import decompose
-from torch.fx.experimental.proxy_tensor import disable_autocast_cache
-from torch.fx.experimental.proxy_tensor import disable_proxy_modes_tracing
-from torch.fx.experimental.proxy_tensor import dispatch_trace
-from torch.fx.experimental.proxy_tensor import enable_python_dispatcher
-from torch.fx.experimental.proxy_tensor import fake_signature
-from torch.fx.experimental.proxy_tensor import FakeTensorMode
-from torch.fx.experimental.proxy_tensor import nullcontext
-from torch.fx.experimental.proxy_tensor import ProxyTorchDispatchMode
-from torch.fx.experimental.proxy_tensor import PythonKeyTracer
-from torch.fx.experimental.proxy_tensor import pytree
-from torch.fx.experimental.proxy_tensor import ShapeEnv
-import torch.utils.cpp_extension
+from brevitas.backport.fx.experimental.proxy_tensor import Any
+from brevitas.backport.fx.experimental.proxy_tensor import decompose
+from brevitas.backport.fx.experimental.proxy_tensor import disable_autocast_cache
+from brevitas.backport.fx.experimental.proxy_tensor import disable_proxy_modes_tracing
+from brevitas.backport.fx.experimental.proxy_tensor import dispatch_trace
+from brevitas.backport.fx.experimental.proxy_tensor import enable_python_dispatcher
+from brevitas.backport.fx.experimental.proxy_tensor import fake_signature
+from brevitas.backport.fx.experimental.proxy_tensor import FakeTensorMode
+from brevitas.backport.fx.experimental.proxy_tensor import nullcontext
+from brevitas.backport.fx.experimental.proxy_tensor import ProxyTorchDispatchMode
+from brevitas.backport.fx.experimental.proxy_tensor import PythonKeyTracer
+from brevitas.backport.fx.experimental.proxy_tensor import pytree
+from brevitas.backport.fx.experimental.proxy_tensor import ShapeEnv
 
 
 def wrappable_make_fx(

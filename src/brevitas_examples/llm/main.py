@@ -43,18 +43,44 @@ from typing import List
 
 import torch
 from torch._decomp import get_decompositions
-from torch.fx.experimental.proxy_tensor import make_fx
 import torch_mlir
 from torch_mlir import TensorPlaceholder
 from tqdm import tqdm
 from transformers import AutoModelForCausalLM
 
-from brevitas_examples.llm.llm_quant.export import brevitas_layer_export_mode
-from brevitas_examples.llm.llm_quant.export import brevitas_proxy_export_mode
-from brevitas_examples.llm.llm_quant.make_fx import wrappable_make_fx
+from brevitas.backport.fx._symbolic_trace import wrap
+from brevitas.backport.fx.experimental.proxy_tensor import make_fx
 from brevitas_examples.llm.llm_quant.quantize import quantize
 from brevitas_examples.llm.llm_quant.quantizers import IntWeightSymmetricBlockQuant
 from brevitas_examples.llm.llm_quant.quantizers import UintWeightAsymmetricBlockQuant
+from brevitas_examples.llm.llm_quant.export import brevitas_layer_export_mode
+from brevitas_examples.llm.llm_quant.export import brevitas_proxy_export_mode
+from brevitas_examples.llm.llm_quant.export import LinearWeightBlockQuantHandler
+from brevitas_examples.llm.llm_quant.export import replace_call_fn_target
+from brevitas_examples.llm.llm_quant.export import BlockQuantProxyLevelManager
+from brevitas_examples.llm.llm_quant.export import block_quant_layer_level_manager
+from brevitas_examples.llm.llm_quant.mlir_custom_mm import brevitas_matmul_rhs_group_quant_library
+
+
+# Due a tracing issue this annotation needs to be 
+# in the same module (== file) from which make_fx is called  
+# We also can't directly annotate torch.ops.brevitas.matmul_rhs_group_quant
+# and so we trace a placeholder first and then replace it post tracing
+@wrap(visible_to_make_fx=True)
+def matmul_rhs_group_quant_placeholder(*args, **kwargs):
+    return torch.ops.brevitas.matmul_rhs_group_quant(*args, **kwargs)
+
+
+class LinearWeightBlockQuantHandlerFwd(LinearWeightBlockQuantHandler):
+
+    def forward(self, x):
+        # Due a tracing issue the call to this fn needs to be 
+        # in the same module (== file) from which make_fx is called        
+        out = matmul_rhs_group_quant_placeholder(
+            x, self.int_weights, self.scale, self.zero_point, self.bit_width, self.group_size)
+        if self.bias is not None:
+            out = out + self.bias.view(1, -1)
+        return out
 
 
 class FirstVicunaLayer(torch.nn.Module):
@@ -140,6 +166,7 @@ def compile_vicuna_layer(
     attention_mask,
     position_ids,
     export_context_manager,
+    export_class,
     past_key_value0=None,
     past_key_value1=None,
 ):
@@ -148,8 +175,8 @@ def compile_vicuna_layer(
     position_ids_placeholder = TensorPlaceholder.like(position_ids, dynamic_axes=[1])
 
     if past_key_value0 is None and past_key_value1 is None:
-        with export_context_manager(vicuna_layer):
-            fx_g = wrappable_make_fx(
+        with export_context_manager(vicuna_layer, export_class):
+            fx_g = make_fx(
                 vicuna_layer,
                 decomposition_table=get_decompositions([
                     torch.ops.aten.embedding_dense_backward,
@@ -164,8 +191,8 @@ def compile_vicuna_layer(
             )(hidden_states, attention_mask, position_ids)
 
     else:
-        with export_context_manager(vicuna_layer):
-            fx_g = wrappable_make_fx(
+        with export_context_manager(vicuna_layer, export_class):
+            fx_g = make_fx(
                 vicuna_layer,
                 decomposition_table=get_decompositions([
                     torch.ops.aten.embedding_dense_backward,
@@ -237,6 +264,11 @@ def compile_vicuna_layer(
         fx_g.graph.lint()
 
     transform_fx(fx_g)
+    replace_call_fn_target(
+        fx_g, 
+        src=matmul_rhs_group_quant_placeholder, 
+        target=torch.ops.brevitas.matmul_rhs_group_quant)
+    
     fx_g.recompile()
     removed_none_indexes = _remove_nones(fx_g)
     was_unwrapped = _unwrap_single_tuple_return(fx_g)
@@ -262,7 +294,7 @@ def compile_vicuna_layer(
     return ts_g
 
 
-def compile_to_vmfb(inputs, layers, export_context_manager, is_first=True):
+def compile_to_vmfb(inputs, layers, export_context_manager, export_class, is_first=True):
     mlirs = []
     for idx, layer in tqdm(enumerate(layers), desc="Getting mlirs"):
         if is_first:
@@ -291,10 +323,13 @@ def compile_to_vmfb(inputs, layers, export_context_manager, is_first=True):
                     inputs[0],
                     inputs[1],
                     inputs[2],
+                    export_class=export_class,
                     export_context_manager=export_context_manager)
                 module = torch_mlir.compile(
                     ts_g, (hidden_states_placeholder, inputs[1], inputs[2]),
-                    torch_mlir.OutputType.LINALG_ON_TENSORS,
+                    output_type="torch",
+                    backend_legal_ops=["brevitas.matmul_rhs_group_quant"],
+                    extra_library=brevitas_matmul_rhs_group_quant_library,
                     use_tracing=False,
                     verbose=False)
             else:
@@ -305,6 +340,7 @@ def compile_to_vmfb(inputs, layers, export_context_manager, is_first=True):
                     inputs[2],
                     inputs[3],
                     inputs[4],
+                    export_class=export_class,
                     export_context_manager=export_context_manager)
                 module = torch_mlir.compile(
                     ts_g,
@@ -314,7 +350,9 @@ def compile_to_vmfb(inputs, layers, export_context_manager, is_first=True):
                         inputs[2],
                         pkv0_placeholder,
                         pkv1_placeholder),
-                    torch_mlir.OutputType.LINALG_ON_TENSORS,
+                    output_type="torch",
+                    backend_legal_ops=["brevitas.matmul_rhs_group_quant"],
+                    extra_library=brevitas_matmul_rhs_group_quant_library,
                     use_tracing=False,
                     verbose=False)
 
@@ -380,18 +418,24 @@ def get_model(args):
         weight_quant = IntWeightSymmetricBlockQuant
     else:
         weight_quant = UintWeightAsymmetricBlockQuant
-    if args.custom_packed_export:
+    if args.no_custom_packed_export:
         export_context_manager = brevitas_layer_export_mode
+        # generate an export_class with the handler declared above
+        export_class = block_quant_layer_level_manager(
+            export_handlers=[LinearWeightBlockQuantHandlerFwd])
     else:
         export_context_manager = brevitas_proxy_export_mode
+        export_class = BlockQuantProxyLevelManager
     quantize(vicuna_model.model, weight_quant, args.bit_width, args.block_size)
     print("Weight quantization applied.")
 
     layers0 = [FirstVicunaLayer(layer) for layer in vicuna_model.model.layers]
-    mlirs0 = compile_to_vmfb(placeholder_input0, layers0, export_context_manager, is_first=True)
+    mlirs0 = compile_to_vmfb(
+        placeholder_input0, layers0, export_context_manager, export_class, is_first=True)
 
     layers1 = [SecondVicunaLayer(layer) for layer in vicuna_model.model.layers]
-    mlirs1 = compile_to_vmfb(placeholder_input1, layers1, export_context_manager, is_first=False)
+    mlirs1 = compile_to_vmfb(
+        placeholder_input1, layers1, export_context_manager, export_class, is_first=False)
 
 
 def main():
@@ -405,9 +449,9 @@ def main():
         action='store_true',
         help='Enable symmetric weight quantization instead of asymmetric.')
     parser.add_argument(
-        '--custom_packed_export',
+        '--no-custom-packed-export',
         action='store_true',
-        help='Enable export to a custom mm op with packed weights for int2 and int4.')
+        help='Disable export to a custom mm op with packed weights for int2 and int4.')
     args = parser.parse_args()
     with torch.no_grad():
         get_model(args)
