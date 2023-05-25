@@ -161,12 +161,12 @@ def write_in_dynamic_inputs1(module, dynamic_input_size):
 
 
 def compile_vicuna_layer(
+    export_context_manager,
+    export_class,
     vicuna_layer,
     hidden_states,
     attention_mask,
     position_ids,
-    export_context_manager,
-    export_class,
     past_key_value0=None,
     past_key_value1=None,
 ):
@@ -319,12 +319,12 @@ def compile_to_vmfb(inputs, layers, export_context_manager, export_class, is_fir
             print(f"Compiling layer {idx} mlir")
             if is_first:
                 ts_g = compile_vicuna_layer(
+                    export_context_manager,
+                    export_class,
                     layer,
                     inputs[0],
                     inputs[1],
-                    inputs[2],
-                    export_class=export_class,
-                    export_context_manager=export_context_manager)
+                    inputs[2])
                 module = torch_mlir.compile(
                     ts_g, (hidden_states_placeholder, inputs[1], inputs[2]),
                     output_type="torch",
@@ -334,14 +334,14 @@ def compile_to_vmfb(inputs, layers, export_context_manager, export_class, is_fir
                     verbose=False)
             else:
                 ts_g = compile_vicuna_layer(
+                    export_context_manager,
+                    export_class,
                     layer,
                     inputs[0],
                     inputs[1],
                     inputs[2],
                     inputs[3],
-                    inputs[4],
-                    export_class=export_class,
-                    export_context_manager=export_context_manager)
+                    inputs[4])
                 module = torch_mlir.compile(
                     ts_g,
                     (
@@ -419,13 +419,13 @@ def get_model(args):
     else:
         weight_quant = UintWeightAsymmetricBlockQuant
     if args.no_custom_packed_export:
+        export_context_manager = brevitas_proxy_export_mode
+        export_class = BlockQuantProxyLevelManager
+    else:
         export_context_manager = brevitas_layer_export_mode
         # generate an export_class with the handler declared above
         export_class = block_quant_layer_level_manager(
             export_handlers=[LinearWeightBlockQuantHandlerFwd])
-    else:
-        export_context_manager = brevitas_proxy_export_mode
-        export_class = BlockQuantProxyLevelManager
     quantize(vicuna_model.model, weight_quant, args.bit_width, args.block_size)
     print("Weight quantization applied.")
 
