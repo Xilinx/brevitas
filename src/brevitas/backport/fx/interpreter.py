@@ -45,8 +45,9 @@ from contextlib import contextmanager
 import inspect
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
-import torch.fx.traceback as fx_traceback
 from torch.hub import tqdm
+
+import brevitas.backport.fx.traceback as fx_traceback
 
 from . import config
 from ._compatibility import compatibility

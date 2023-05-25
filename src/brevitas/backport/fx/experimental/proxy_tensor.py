@@ -39,6 +39,8 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 
 Forked from PyTorch 2.0.1 with import edits to point to backport
++ https://github.com/pytorch/pytorch/blob/7ac68cb648c1e8c5f53efe6696cb06d3c8e9853b/torch/fx/experimental/proxy_tensor.py
+from https://github.com/pytorch/pytorch/pull/94461/files
 """
 
 import contextlib
@@ -55,11 +57,6 @@ import torch
 from torch._dispatch.python import enable_python_dispatcher
 from torch._subclasses import FakeTensor
 from torch._subclasses.fake_tensor import FakeTensorMode
-from torch.fx import GraphModule
-from torch.fx import Proxy
-from torch.fx import Tracer
-import torch.fx as fx
-from torch.fx.passes.shape_prop import _extract_tensor_metadata
 from torch.utils._python_dispatch import _get_current_dispatch_mode
 from torch.utils._python_dispatch import _pop_mode_temporarily
 from torch.utils._python_dispatch import TorchDispatchMode
@@ -68,6 +65,11 @@ import torch.utils._pytree as pytree
 from brevitas.backport import SymBool
 from brevitas.backport import SymFloat
 from brevitas.backport import SymInt
+from brevitas.backport.fx import GraphModule
+from brevitas.backport.fx import Proxy
+from brevitas.backport.fx import Tracer
+import brevitas.backport.fx as fx
+from brevitas.backport.fx.passes.shape_prop import _extract_tensor_metadata
 from brevitas.backport.utils._stats import count
 from brevitas.backport.utils.weak import WeakTensorKeyDictionary
 
@@ -311,6 +313,10 @@ HANDLED_TYPES = (torch.Tensor, torch.nn.Parameter)
 
 
 def proxy_call(proxy_mode, func, args, kwargs):
+    # `__torch_dispatch__` is only called on torch ops, which must subclass `OpOverload`
+    # We treat all other functions as an `external_call`, for instance, a function decorated
+    # with `@torch.fx.wrap`
+    external_call = not isinstance(func, torch._ops.OpOverload)
 
     def can_handle_tensor(x):
         return type(x) in HANDLED_TYPES or has_proxy_slot(x, proxy_mode.tracer)
@@ -320,16 +326,16 @@ def proxy_call(proxy_mode, func, args, kwargs):
     if not pytree.tree_all_only(torch.Tensor, can_handle_tensor, (args, kwargs)):
         return NotImplemented
 
-    if func in CURRENT_DECOMPOSITION_TABLE:
+    if not external_call:
+        if func in CURRENT_DECOMPOSITION_TABLE:
+            with proxy_mode:
+                r = CURRENT_DECOMPOSITION_TABLE[func](*args, **kwargs)
+                if r is not NotImplemented:
+                    return r
         with proxy_mode:
-            r = CURRENT_DECOMPOSITION_TABLE[func](*args, **kwargs)
+            r = func.decompose(*args, **kwargs)
             if r is not NotImplemented:
                 return r
-
-    with proxy_mode:
-        r = func.decompose(*args, **kwargs)
-        if r is not NotImplemented:
-            return r
 
     tracer = proxy_mode.tracer
     f_args, f_kwargs = pytree.tree_map_only(torch.Tensor, fetch_tensor_proxy(tracer), (args, kwargs))
@@ -342,8 +348,7 @@ def proxy_call(proxy_mode, func, args, kwargs):
         # TODO: maybe constant SymInts should also be allowed?  Not sure if
         # this can happen
         and pytree.tree_all_only((SymInt, SymFloat, SymBool), lambda _: False, (args, kwargs)))
-
-    if torch.Tag.data_dependent_output in func.tags:  # type: ignore[attr-defined]
+    if not external_call and torch.Tag.data_dependent_output in func.tags:  # type: ignore[attr-defined]
         # Check if all of the Tensor inputs are constants
         if all_constant:
             const_args, const_kwargs = pytree.tree_map_only(
@@ -403,24 +408,28 @@ def proxy_call(proxy_mode, func, args, kwargs):
     if func is torch.ops.aten.lift_fresh.default:
         func = torch.ops.aten.lift_fresh_copy.default
 
-    proxy_out = proxy_mode.tracer.create_proxy(
-        'call_function',
-        func,
-        proxy_args,
-        proxy_kwargs,
-        name=proxy_mode.tracer.graph._target_to_str(func.overloadpacket.__name__))
+    if external_call:
+        proxy_out = proxy_mode.tracer.create_proxy(
+            'call_function', func, proxy_args, proxy_kwargs, name=func.__name__)
+    else:
+        proxy_out = proxy_mode.tracer.create_proxy(
+            'call_function',
+            func,
+            proxy_args,
+            proxy_kwargs,
+            name=proxy_mode.tracer.graph._target_to_str(func.overloadpacket.__name__))
 
-    # This makes DCE marginally less likely to DCE inplace operations.
-    # It is not strictly necessary
-    # Kind of a hacky way to test if an op is in-place or not
-    if func.overloadpacket.__name__[-1] == "_" and func.overloadpacket.__name__[0] != "_":
-        if isinstance(args[0], List):
-            # e.g., c10d::allreduce_ returns a list of tensors as the first element
-            # in the output.
-            for i, a in enumerate(args[0]):
-                a.proxy = proxy_out[0][i]
-        else:
-            args[0].proxy = proxy_out
+        # This makes DCE marginally less likely to DCE inplace operations.
+        # It is not strictly necessary
+        # Kind of a hacky way to test if an op is in-place or not
+        if func.overloadpacket.__name__[-1] == "_" and func.overloadpacket.__name__[0] != "_":
+            if isinstance(args[0], List):
+                # e.g., c10d::allreduce_ returns a list of tensors as the first element
+                # in the output.
+                for i, a in enumerate(args[0]):
+                    a.proxy = proxy_out[0][i]
+            else:
+                args[0].proxy = proxy_out
 
     out = func(*args, **kwargs)
 
@@ -456,7 +465,8 @@ def proxy_call(proxy_mode, func, args, kwargs):
     if func is torch.ops.aten.lift_fresh_copy.default and out.numel() <= CONSTANT_NUMEL_LIMIT:
         with maybe_disable_fake_tensor_mode():
             constant = args[0].clone()
-    elif (torch.Tag.nondeterministic_seeded not in func.tags  # type: ignore[attr-defined]
+    elif ((external_call or torch.Tag.nondeterministic_seeded not in func.tags
+          )  # type: ignore[attr-defined]
           and all_constant and any_constant and
           pytree.tree_all_only(torch.Tensor, lambda t: t.numel() <= CONSTANT_NUMEL_LIMIT, out)):
         # NB: do NOT include factories as constants
@@ -639,16 +649,11 @@ class ProxySymDispatchMode(SymDispatchMode):
         # We also assume there are no keyword arguments.
         assert not kwargs
         out = func(*args, **kwargs)
+        assert isinstance(out, py_sym_types), f"{func}(*{args}, **{kwargs}) = {out}"
 
-        # If func returned a constant, we don't need to trace; we have
-        # determined that the result is constant (no matter if the inputs
-        # were symbolic) and it is no longer necessary to trace the
-        # computation.  This could occur if func triggered some guards.
-        if isinstance(out, py_sym_types):
-            # Delays tracing out the proxies on this op until we actually need it
-            p_out_thunk = thunkify(self._compute_proxy, func=func, args=args, out=out)
-            set_proxy_slot(out.node, self.tracer, p_out_thunk)
-
+        # Delays tracing out the proxies on this op until we actually need it
+        p_out_thunk = thunkify(self._compute_proxy, func=func, args=args, out=out)
+        set_proxy_slot(out.node, self.tracer, p_out_thunk)
         return out
 
 

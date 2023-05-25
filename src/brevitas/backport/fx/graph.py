@@ -38,7 +38,8 @@ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 
-Forked as-is from PyTorch 2.0.1
+Forked as-is from PyTorch 2.0.1 + https://github.com/pytorch/pytorch/blob/7ac68cb648c1e8c5f53efe6696cb06d3c8e9853b/torch/fx/graph.py
+from https://github.com/pytorch/pytorch/pull/94461/files
 """
 
 import builtins
@@ -57,6 +58,8 @@ import warnings
 
 import torch
 import torch.utils._pytree as pytree
+
+import brevitas
 
 from . import _pytree as fx_pytree
 from ._compatibility import compatibility
@@ -111,7 +114,7 @@ _register_custom_builtin('nan', 'from math import nan', math.nan)
 _register_custom_builtin('NoneType', 'NoneType = type(None)', type(None))
 _register_custom_builtin('torch', 'import torch', torch)
 _register_custom_builtin('device', 'from torch import device', torch.device)
-_register_custom_builtin('fx_pytree', 'import torch.fx._pytree as fx_pytree', fx_pytree)
+_register_custom_builtin('fx_pytree', 'import brevitas.backport.fx._pytree as fx_pytree', fx_pytree)
 _register_custom_builtin('pytree', 'import torch.utils._pytree as pytree', pytree)
 
 
@@ -386,7 +389,7 @@ class CodeGen:
         free_vars: List[str] = []
         body: List[str] = []
         globals_: Dict[str, Any] = {}
-        wrapped_fns: Dict[str, None] = {}
+        wrapped_fns: Dict[str, Any] = {}
 
         # Wrap string in list to pass by reference
         maybe_return_annotation: List[str] = ['']
@@ -548,8 +551,9 @@ class CodeGen:
             if verbose:
                 # override annotation with more detailed information
                 from torch._subclasses.fake_tensor import FakeTensor
-                from torch.fx.experimental.proxy_tensor import py_sym_types
-                from torch.fx.passes.shape_prop import TensorMetadata
+
+                from brevitas.backport.fx.experimental.proxy_tensor import py_sym_types
+                from brevitas.backport.fx.passes.shape_prop import TensorMetadata
 
                 meta_val = node.meta.get('val', node.meta.get('tensor_meta', None))
 
@@ -612,7 +616,7 @@ class CodeGen:
                     f'{repr(node)}{maybe_type_annotation} = {global_name}({_format_args(node.args, node.kwargs)})'
                 )
                 if node.meta.get('is_wrapped', False):
-                    wrapped_fns.setdefault(global_name)
+                    wrapped_fns[global_name] = node.meta.get("visible_to_make_fx")
                 return
             elif node.op == 'call_module':
                 assert isinstance(node.target, str)
@@ -649,8 +653,11 @@ class CodeGen:
             body.append('pass\n')
 
         if len(wrapped_fns) > 0:
-            wrap_name = add_global('wrap', torch.fx.wrap)
-            wrap_stmts = '\n'.join([f'{wrap_name}("{name}")' for name in wrapped_fns])
+            wrap_name = add_global('wrap', brevitas.backport.fx.wrap)
+            wrap_stmts = '\n'.join([
+                f'{wrap_name}("{name}", visible_to_make_fx={visible_to_make_fx is not None})'
+                for name,
+                visible_to_make_fx in wrapped_fns.items()])
         else:
             wrap_stmts = ''
 

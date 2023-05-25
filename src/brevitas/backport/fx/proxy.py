@@ -51,7 +51,8 @@ import traceback
 from typing import Any, Callable, Dict, Iterable, Iterator, Optional, OrderedDict, Tuple
 
 import torch
-import torch.fx.traceback as fx_traceback
+
+import brevitas.backport.fx.traceback as fx_traceback
 
 from ._compatibility import compatibility
 from .graph import Graph

@@ -48,9 +48,10 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple, TYPE_CHECKIN
 import warnings
 
 import torch
-from torch.fx.operator_schemas import ArgsKwargsPair
-from torch.fx.operator_schemas import normalize_function
-from torch.fx.operator_schemas import normalize_module
+
+from brevitas.backport.fx.operator_schemas import ArgsKwargsPair
+from brevitas.backport.fx.operator_schemas import normalize_function
+from brevitas.backport.fx.operator_schemas import normalize_module
 
 from ._compatibility import compatibility
 from .immutable_collections import immutable_dict
