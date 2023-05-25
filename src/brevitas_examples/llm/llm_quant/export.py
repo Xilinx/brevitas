@@ -1,3 +1,4 @@
+from abc import ABC
 from abc import abstractmethod
 from contextlib import contextmanager
 
@@ -5,18 +6,17 @@ import torch
 from torch.nn import Module
 
 from brevitas.export.common.handler.base import BaseHandler
-from brevitas.export.manager import _set_layer_export_handler
-from brevitas.export.manager import _set_layer_export_mode
 from brevitas.export.manager import _set_proxy_export_handler
+from brevitas.export.manager import _set_layer_export_handler
 from brevitas.export.manager import _set_proxy_export_mode
+from brevitas.export.manager import _set_layer_export_mode
 from brevitas.export.manager import BaseManager
 from brevitas.nn import QuantLinear
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
-# Register custom mm op
 from brevitas_examples.llm.llm_quant.mlir_custom_mm import *  # noqa
 
 
-class WeightBlockQuantHandlerBase(BaseHandler):
+class WeightBlockQuantHandlerBase(BaseHandler, ABC):
     handled_layer = WeightQuantProxyFromInjector
 
     def __init__(self):
@@ -96,7 +96,7 @@ class WeightBlockQuantProxyHandler(WeightBlockQuantHandlerBase):
         return quant_weight, scale, zero_point, self.bit_width
 
 
-class LinearWeightBlockQuantHandler(WeightBlockQuantHandlerBase):
+class LinearWeightBlockQuantHandler(WeightBlockQuantHandlerBase, ABC):
     handled_layer = QuantLinear
 
     def __init__(self):
@@ -140,12 +140,9 @@ class LinearWeightBlockQuantHandler(WeightBlockQuantHandlerBase):
         self.bit_width = int(self.bit_width.cpu().item())
         self.int_weights = self.pack_int_weights(self.bit_width, quant_weight.int().detach())
 
-    def forward(self, x):
-        out = torch.ops.brevitas.matmul_rhs_group_quant(
-            x, self.int_weights, self.scale, self.zero_point, self.bit_width, self.group_size)
-        if self.bias is not None:
-            out = out + self.bias.view(1, -1)
-        return out
+    @abstractmethod
+    def forward(self, x):     
+        pass
 
 
 class BlockQuantProxyLevelManager(BaseManager):
@@ -155,38 +152,52 @@ class BlockQuantProxyLevelManager(BaseManager):
     @classmethod
     def set_export_handler(cls, module):
         _set_proxy_export_handler(cls, module)
+        
+        
+def block_quant_layer_level_manager(export_handlers):
+    
+    class BlockQuantLayerLevelManager(BaseManager):
+        handlers = export_handlers
 
+        @classmethod
+        def set_export_handler(cls, module):
+            _set_layer_export_handler(cls, module)
 
-class BlockQuantLayerLevelManager(BaseManager):
-
-    handlers = [LinearWeightBlockQuantHandler]
-
-    @classmethod
-    def set_export_handler(cls, module: Module):
-        _set_layer_export_handler(cls, module)
+    return BlockQuantLayerLevelManager
 
 
 @contextmanager
-def brevitas_proxy_export_mode(model):
+def brevitas_proxy_export_mode(model, export_manager=BlockQuantProxyLevelManager):
     is_training = model.training
     model.eval()
-    model.apply(BlockQuantProxyLevelManager.set_export_handler)
+    model.apply(export_manager.set_export_handler)
     _set_proxy_export_mode(model, enabled=True)
     try:
         yield model
     finally:
         _set_proxy_export_mode(model, enabled=False)
         model.train(is_training)
-
-
+        
+        
 @contextmanager
-def brevitas_layer_export_mode(model):
+def brevitas_layer_export_mode(model, export_manager):
     is_training = model.training
     model.eval()
-    model.apply(BlockQuantLayerLevelManager.set_export_handler)
+    model.apply(export_manager.set_export_handler)
     _set_layer_export_mode(model, enabled=True)
     try:
         yield model
     finally:
         _set_layer_export_mode(model, enabled=False)
         model.train(is_training)
+        
+        
+def replace_call_fn_target(graph_model, src, target):
+    for node in graph_model.graph.nodes:
+        if node.op == "call_function" and node.target is src:
+            node.target = target
+    graph_model.graph.lint()
+    graph_model.recompile()
+
+
+
