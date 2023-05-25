@@ -247,7 +247,7 @@ class GPTQ():
                     self.H[i, :, :] = self.H[i, perm, :][:, perm]
                 else:
                     # No permutation, permutation tensor is a ordered index
-                    perm = torch.tensor(range(self.H.shape[-1]), device=dev, dtype=dtype)
+                    perm = torch.tensor(range(self.H.shape[-1]), device=dev)
                 permutation_list.append(perm)
         else:
             # If a diagonal element on the Hessian is zero, we can set to 0 the corresponding
@@ -264,14 +264,14 @@ class GPTQ():
                 self.H = self.H[:, perm, :][:, :, perm]
             else:
                 # No permutation, permutation tensor is a ordered index
-                perm = torch.tensor(range(self.H.shape[-1]), device=dev, dtype=dtype)
+                perm = torch.tensor(range(self.H.shape[-1]), device=dev)
             permutation_list.append(perm)
 
         # Try/Except in case the inverse Hessian cannot be computed
         try:
             for i in range(self.groups):
                 damp = percdamp * torch.mean(torch.diag(self.H[i, :, :]))
-                diag = torch.arange(self.columns, device=dev, dtype=dtype)
+                diag = torch.arange(self.columns, device=dev)
                 self.H[i, diag, diag] += damp
                 self.H[i, :, :] = torch.linalg.cholesky(self.H[i, :, :])
                 self.H[i, :, :] = torch.cholesky_inverse(self.H[i, :, :])
