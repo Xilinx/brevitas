@@ -445,7 +445,7 @@ def find_module(
     if isinstance(model, tuple(layer_map.keys())):
         module_to_replace.append(model)
     else:
-        for name, module in model.named_children():
+        for module in model.children():
             find_module(module, layer_map, module_to_replace)
 
 

@@ -319,12 +319,12 @@ def quantize(
     return graph_model
 
 
-def layerwise_quantize(graph_model, compute_layer_map=LAYERWISE_COMPUTE_LAYER_MAP):
+def layerwise_quantize(model: nn.Module, compute_layer_map: dict = LAYERWISE_COMPUTE_LAYER_MAP):
     ignore_missing_keys_state = config.IGNORE_MISSING_KEYS
     config.IGNORE_MISSING_KEYS = True
-    training_state = graph_model.training
-    graph_model.eval()
-    graph_model = layerwise_layer_handler(graph_model, layer_map=compute_layer_map)
-    graph_model.train(training_state)
+    training_state = model.training
+    model.eval()
+    model = layerwise_layer_handler(model, layer_map=compute_layer_map)
+    model.train(training_state)
     config.IGNORE_MISSING_KEYS = ignore_missing_keys_state
-    return graph_model
+    return model
