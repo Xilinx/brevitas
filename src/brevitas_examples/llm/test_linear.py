@@ -2,6 +2,7 @@ import argparse
 
 import torch
 from torch import nn
+import torch_mlir
 
 from brevitas.backport.fx._symbolic_trace import wrap
 from brevitas.backport.fx.experimental.proxy_tensor import make_fx
@@ -14,7 +15,7 @@ from brevitas_examples.llm.llm_quant.export import brevitas_layer_export_mode
 from brevitas_examples.llm.llm_quant.export import replace_call_fn_target
 from brevitas_examples.llm.llm_quant.export import BlockQuantProxyLevelManager
 from brevitas_examples.llm.llm_quant.export import block_quant_layer_level_manager
-
+from brevitas_examples.llm.llm_quant.mlir_custom_mm import brevitas_matmul_rhs_group_quant_library
 
 # Due a tracing issue this annotation needs to be 
 # in the same module (== file) from which make_fx is called  
@@ -23,6 +24,7 @@ from brevitas_examples.llm.llm_quant.export import block_quant_layer_level_manag
 @wrap(visible_to_make_fx=True)
 def matmul_rhs_group_quant_placeholder(*args, **kwargs):
     return torch.ops.brevitas.matmul_rhs_group_quant(*args, **kwargs)
+
 
 
 class LinearWeightBlockQuantHandlerFwd(LinearWeightBlockQuantHandler):
@@ -86,6 +88,14 @@ def quantize_and_export(args):
     
     # print the output graph
     print(traced_model.graph)
+    
+    torch_mlir.compile(
+        traced_model, torch.randn(2, 128),
+        output_type="torch",
+        backend_legal_ops=["brevitas.matmul_rhs_group_quant"],
+        extra_library=brevitas_matmul_rhs_group_quant_library,
+        use_tracing=True,
+        verbose=False)
 
 
 def main():
