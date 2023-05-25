@@ -146,14 +146,24 @@ class GPTQ():
 
         weight = layer.weight.data
         dev = weight.device
+        dtype = weight.dtype
 
+        # By default, use groups = 1
         self.groups = 1
         if isinstance(self.layer, qnn.QuantConv2d):
             weight = weight.flatten(1)
             self.groups = self.layer.groups
+
+        # Number of rows is equal to the output channels (OC)
         self.rows = weight.shape[0]
+        # Number of columns is equal to the input channels (IC)
         self.columns = weight.shape[1]
-        self.H = torch.zeros((self.groups, self.columns, self.columns), device=dev)
+
+        # Define how many columns to update in each mini-block
+        self.blocksize = math.ceil(self.columns / self.num_blocks)
+
+        # Initialize Hessian matrix and counter
+        self.H = torch.zeros((self.groups, self.columns, self.columns), device=dev, dtype=dtype)
         self.nsamples = 0
 
     def update_batch(self, module, input, out, current_layer):
@@ -209,36 +219,52 @@ class GPTQ():
     def single_layer_update(self, percdamp=.01):
         weight = self.layer.weight.data
         dev = weight.device
-        blocksize = math.ceil(weight.shape[1] / self.num_blocks)
+        dtype = weight.dtype
 
         if isinstance(self.layer, qnn.QuantConv2d):
             weight = weight.flatten(1)
 
+        # List with permutation tensors for the Hessian and Weight matrix.
+        # If act_order is False, the tensors will be ordered indexes.
+        # For groupwise convolution, we have one tensor per group,
+        # thus len(permutation_list) is always equal to self.groups.
+        # We do not explicity permute the weight matrix, only the Hessian.
         permutation_list = []
         if self.groups > 1:
+            # For groupwise convolution, these operations are groupwise so we iterate
             for i in range(self.groups):
+                # If a diagonal element on the Hessian is zero, we can set to 0 the corresponding
+                # column in the weight matrix.
+                # The diagonal element is set to 1 to avoid division-by-zero
                 dead = torch.diag(self.H[i, :, :]) == 0
                 self.H[i, dead, dead] = 1
+                # If the diagonal of activations is zero, we set the weight to zero
                 weight[i, dead] = 0
                 if self.act_order:
+                    # Re-order Hessian so that weights associated to
+                    # higher magnitude activations are quantized first
                     perm = torch.argsort(torch.diag(self.H[i, :, :]), descending=True)
-                    weight[i, :] = weight[i, perm]
                     self.H[i, :, :] = self.H[i, perm, :][:, perm]
                 else:
-                    # No permutation
-                    perm = list(range(self.H.shape[-1]))
+                    # No permutation, permutation tensor is a ordered index
+                    perm = torch.tensor(range(self.H.shape[-1]), device=dev)
                 permutation_list.append(perm)
         else:
+            # If a diagonal element on the Hessian is zero, we can set to 0 the corresponding
+            # column in the weight matrix.
+            # The diagonal element is set to 1 to avoid division-by-zero
             dead = torch.diag(self.H[0, :, :]) == 0
             self.H[0, dead, dead] = 1
+            # If the diagonal of activations is zero, we set the weight to zero
             weight[:, dead] = 0
             if self.act_order:
+                # Re-order Hessian so that weights associated to
+                # higher magnitude activations are quantized first
                 perm = torch.argsort(torch.diag(self.H[0, :, :]), descending=True)
-                weight = weight[:, perm]
                 self.H = self.H[:, perm, :][:, :, perm]
             else:
-                # No permutation
-                perm = list(range(self.H.shape[-1]))
+                # No permutation, permutation tensor is a ordered index
+                perm = torch.tensor(range(self.H.shape[-1]), device=dev)
             permutation_list.append(perm)
 
         # Try/Except in case the inverse Hessian cannot be computed
@@ -250,7 +276,7 @@ class GPTQ():
                 self.H[i, :, :] = torch.linalg.cholesky(self.H[i, :, :])
                 self.H[i, :, :] = torch.cholesky_inverse(self.H[i, :, :])
                 self.H[i, :, :] = torch.linalg.cholesky(self.H[i, :, :], upper=True)
-            Hinv = self.H
+            h_inv = self.H
         except LinAlgError as e:
             warnings.warn(
                 f'Failed to compute the inverse of the Hessian for layer {self.name} '
@@ -260,49 +286,69 @@ class GPTQ():
         finally:
             del self.H
 
-        for i1 in range(0, self.columns, blocksize):
-            i2 = min(i1 + blocksize, self.columns)
+        for i1 in range(0, self.columns, self.blocksize):
+            i2 = min(i1 + self.blocksize, self.columns)
             count = i2 - i1
 
-            weight1 = weight[:, i1:i2]
-            Err1 = torch.zeros_like(weight1)
-            Hinv1 = Hinv[:, i1:i2, i1:i2]
+            # len(permutation_list) == self.groups
+            if self.groups == 1:
+                perm = permutation_list[0]
+                weight_block = weight[:, perm[i1:i2]]  # This creates a copy
+            else:
+                # For groups > 1, we permute each row independently
+                weight_block = torch.empty(
+                    weight.shape[0], count, device=dev, dtype=dtype)  # [OC, i2-i1]
+                for ii, perm in enumerate(permutation_list):
+                    weight_block[ii, :] = weight[ii, perm[i1:i2]]  # This creates a copy
 
+            error_block = torch.zeros_like(weight_block)  # [OC, i2-i1]
+            h_inv_block = h_inv[:, i1:i2, i1:i2]
             for i in range(count):
-                w = weight1[:, i]
-                d = Hinv1[:, i, i]
-                q = self.get_quant_weights(i, i1, i2, permutation_list)
+                w = weight_block[:, i]  # [OC]
+                d = h_inv_block[:, i, i]  # [groups]
+                q = self.get_quant_weights(i, i1, i2, permutation_list)  # [OC]
 
-                err1 = (w - q) / d
+                error = (w - q) / d  # [OC]
                 if self.groups > 1:
                     # In case of depthwise convs, each weight matrix interacts with only
                     # part of the input values, thus with only one of the hessian matrix
                     for ii in range(self.groups):
-                        weight1[ii, i:] -= err1[ii] * Hinv1[ii, i, i:]
+                        weight_block[ii, i:] -= error[ii] * h_inv_block[ii, i, i:]
                 else:
-                    weight1[:, i:] -= err1.unsqueeze(1).matmul(Hinv1[0, i, i:].unsqueeze(0))
-                Err1[:, i] = err1
+                    weight_block[:, i:] -= error.unsqueeze(1).matmul(
+                        h_inv_block[0, i, i:].unsqueeze(0))
+                error_block[:, i] = error
+
+                # We need to update the original weights
+                weight[:, perm[i1:i2][i:]] = weight_block[:, i:]
 
             if self.groups > 1:
                 # In case of depthwise convs, each weight matrix interacts with only
                 # part of the input values, thus with only one of the hessian matrix
-                for ii in range(self.groups):
-                    weight[ii:ii + 1, i2:] -= Err1[ii:ii + 1, :].matmul(Hinv[ii, i1:i2, i2:])
+                for ii, perm in enumerate(permutation_list):
+                    weight[ii:ii + 1,
+                           perm[i2:]] -= error_block[ii:ii + 1, :].matmul(h_inv[ii, i1:i2, i2:])
             else:
-                weight[:, i2:] -= Err1.matmul(Hinv[0, i1:i2, i2:])
+                perm = permutation_list[0]
+                weight[:, perm[i2:]] -= error_block.matmul(h_inv[0, i1:i2, i2:])
 
     def get_quant_weights(self, i, i1, i2, permutation_list):
+        # We need to recompute quant weights at runtime since our float weights are being updated
         quant_weight = self.layer.quant_weight()
         quant_weight = quant_weight.value
+
         if isinstance(self.layer, qnn.QuantConv2d):
             quant_weight = quant_weight.flatten(1)
-        # Permute quant weight to match the float32 counterpart
-        if len(permutation_list) == 1:
-            quant_weight = quant_weight[:, permutation_list[0]]
-        else:
-            for ii, perm in enumerate(permutation_list):
-                quant_weight[ii, :] = quant_weight[ii, perm]
 
-        quant_weight1 = quant_weight[:, i1:i2]
-        q = quant_weight1[:, i]
+        if self.act_order:
+            # If act order is enabled, permute quant weight to match the float32 counterpart
+            # len(permutation_list) == self.groups
+            if self.groups == 1:
+                quant_weight = quant_weight[:, permutation_list[0]]
+            else:
+                for ii, perm in enumerate(permutation_list):
+                    quant_weight[ii, :] = quant_weight[ii, perm]
+
+        quant_weight_block = quant_weight[:, i1:i2]
+        q = quant_weight_block[:, i]
         return q
