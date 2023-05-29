@@ -6,10 +6,10 @@ import torch
 from torch.nn import Module
 
 from brevitas.export.common.handler.base import BaseHandler
-from brevitas.export.manager import _set_proxy_export_handler
 from brevitas.export.manager import _set_layer_export_handler
-from brevitas.export.manager import _set_proxy_export_mode
 from brevitas.export.manager import _set_layer_export_mode
+from brevitas.export.manager import _set_proxy_export_handler
+from brevitas.export.manager import _set_proxy_export_mode
 from brevitas.export.manager import BaseManager
 from brevitas.nn import QuantLinear
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
@@ -138,10 +138,10 @@ class LinearWeightBlockQuantHandler(WeightBlockQuantHandlerBase, ABC):
             self.zero_point = torch.zeros_like(self.scale)
         self.group_size = module.weight_quant.quant_injector.block_size
         self.bit_width = int(self.bit_width.cpu().item())
-        self.int_weights = self.pack_int_weights(self.bit_width, quant_weight.int().detach())
+        self.int_weight = self.pack_int_weights(self.bit_width, quant_weight.int().detach())
 
     @abstractmethod
-    def forward(self, x):     
+    def forward(self, x):
         pass
 
 
@@ -152,10 +152,10 @@ class BlockQuantProxyLevelManager(BaseManager):
     @classmethod
     def set_export_handler(cls, module):
         _set_proxy_export_handler(cls, module)
-        
-        
+
+
 def block_quant_layer_level_manager(export_handlers):
-    
+
     class BlockQuantLayerLevelManager(BaseManager):
         handlers = export_handlers
 
@@ -177,8 +177,8 @@ def brevitas_proxy_export_mode(model, export_manager=BlockQuantProxyLevelManager
     finally:
         _set_proxy_export_mode(model, enabled=False)
         model.train(is_training)
-        
-        
+
+
 @contextmanager
 def brevitas_layer_export_mode(model, export_manager):
     is_training = model.training
@@ -190,14 +190,11 @@ def brevitas_layer_export_mode(model, export_manager):
     finally:
         _set_layer_export_mode(model, enabled=False)
         model.train(is_training)
-        
-        
+
+
 def replace_call_fn_target(graph_model, src, target):
     for node in graph_model.graph.nodes:
         if node.op == "call_function" and node.target is src:
             node.target = target
     graph_model.graph.lint()
     graph_model.recompile()
-
-
-

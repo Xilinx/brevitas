@@ -50,20 +50,20 @@ from transformers import AutoModelForCausalLM
 
 from brevitas.backport.fx._symbolic_trace import wrap
 from brevitas.backport.fx.experimental.proxy_tensor import make_fx
-from brevitas_examples.llm.llm_quant.quantize import quantize
-from brevitas_examples.llm.llm_quant.quantizers import IntWeightSymmetricBlockQuant
-from brevitas_examples.llm.llm_quant.quantizers import UintWeightAsymmetricBlockQuant
+from brevitas_examples.llm.llm_quant.export import block_quant_layer_level_manager
+from brevitas_examples.llm.llm_quant.export import BlockQuantProxyLevelManager
 from brevitas_examples.llm.llm_quant.export import brevitas_layer_export_mode
 from brevitas_examples.llm.llm_quant.export import brevitas_proxy_export_mode
 from brevitas_examples.llm.llm_quant.export import LinearWeightBlockQuantHandler
 from brevitas_examples.llm.llm_quant.export import replace_call_fn_target
-from brevitas_examples.llm.llm_quant.export import BlockQuantProxyLevelManager
-from brevitas_examples.llm.llm_quant.export import block_quant_layer_level_manager
 from brevitas_examples.llm.llm_quant.mlir_custom_mm import brevitas_matmul_rhs_group_quant_library
+from brevitas_examples.llm.llm_quant.quantize import quantize
+from brevitas_examples.llm.llm_quant.quantizers import IntWeightSymmetricBlockQuant
+from brevitas_examples.llm.llm_quant.quantizers import UintWeightAsymmetricBlockQuant
 
 
-# Due a tracing issue this annotation needs to be 
-# in the same module (== file) from which make_fx is called  
+# Due a tracing issue this annotation needs to be
+# in the same module (== file) from which make_fx is called
 # We also can't directly annotate torch.ops.brevitas.matmul_rhs_group_quant
 # and so we trace a placeholder first and then replace it post tracing
 @wrap(visible_to_make_fx=True)
@@ -74,10 +74,10 @@ def matmul_rhs_group_quant_placeholder(*args, **kwargs):
 class LinearWeightBlockQuantHandlerFwd(LinearWeightBlockQuantHandler):
 
     def forward(self, x):
-        # Due a tracing issue the call to this fn needs to be 
-        # in the same module (== file) from which make_fx is called        
+        # Due a tracing issue the call to this fn needs to be
+        # in the same module (== file) from which make_fx is called
         out = matmul_rhs_group_quant_placeholder(
-            x, self.int_weights, self.scale, self.zero_point, self.bit_width, self.group_size)
+            x, self.int_weight, self.scale, self.zero_point, self.bit_width, self.group_size)
         if self.bias is not None:
             out = out + self.bias.view(1, -1)
         return out
@@ -265,10 +265,10 @@ def compile_vicuna_layer(
 
     transform_fx(fx_g)
     replace_call_fn_target(
-        fx_g, 
-        src=matmul_rhs_group_quant_placeholder, 
+        fx_g,
+        src=matmul_rhs_group_quant_placeholder,
         target=torch.ops.brevitas.matmul_rhs_group_quant)
-    
+
     fx_g.recompile()
     removed_none_indexes = _remove_nones(fx_g)
     was_unwrapped = _unwrap_single_tuple_return(fx_g)
@@ -319,12 +319,7 @@ def compile_to_vmfb(inputs, layers, export_context_manager, export_class, is_fir
             print(f"Compiling layer {idx} mlir")
             if is_first:
                 ts_g = compile_vicuna_layer(
-                    export_context_manager,
-                    export_class,
-                    layer,
-                    inputs[0],
-                    inputs[1],
-                    inputs[2])
+                    export_context_manager, export_class, layer, inputs[0], inputs[1], inputs[2])
                 module = torch_mlir.compile(
                     ts_g, (hidden_states_placeholder, inputs[1], inputs[2]),
                     output_type="torch",
