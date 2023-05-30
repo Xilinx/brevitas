@@ -403,13 +403,20 @@ class MSE(torch.nn.Module):
     # https://github.com/cornell-zhang/dnn-quant-ocs/blob/master/distiller/quantization/clip.py
     # https://github.com/wimh966/outlier_suppression/blob/main/quant_transformer/quantization/observer.py
 
-    def __init__(self, proxy_module, mse_init_op, stats_reduce_dim: Optional[int] = None, num=100):
+    def __init__(
+            self,
+            proxy_module,
+            mse_init_op,
+            stats_reduce_dim: Optional[int] = None,
+            mse_search_method='fibonacci',
+            mse_iters=10):
         super(MSE, self).__init__()
         self.mse_init_op = mse_init_op
         self.proxy_forward = proxy_module.forward
         self.set_local_loss_mode = lambda enabled: _set_local_loss_mode(proxy_module, enabled)
         self.internal_candidate = None
-        self.num = num
+        self.num = mse_iters
+        self.search_method = mse_search_method
         self.stats_reduce_dim = stats_reduce_dim
         self.local_loss_mode: bool = False
 
@@ -434,16 +441,51 @@ class MSE(torch.nn.Module):
         self.set_local_loss_mode(False)
         return loss
 
-    def mse_search(self, x):
+    def mse_grid_search(self, xl, x):
         best_loss = torch.tensor(float('inf'), device=x.device, dtype=x.dtype)
-        init = self.mse_init_op(x).detach()
-        base = init / self.num
-        best_candidate = base
+        best_candidate = xl
         for i in range(2, self.num + 1):
-            candidate = (base * i).detach()
+            candidate = (xl * i).detach()
             loss = self.evaluate_loss(x, candidate)
             best_candidate = torch.where(loss < best_loss, candidate, best_candidate)
             best_loss = torch.min(loss, best_loss)
+        return best_candidate
+
+    def mse_fib_search(self, xl, xr, x):
+
+        def fib_seq(n):
+            if n <= 0:
+                return [0]
+            seq = [0, 1]
+            while len(seq) <= n:
+                next = seq[-1] + seq[-2]
+                seq.append(next)
+            return seq
+
+        # vectorized variant of
+        # https://indrag49.github.io/Numerical-Optimization/solving-one-dimensional-optimization-problems.html#fibonacci-search-method
+        F = fib_seq(self.num)
+        L0 = xr - xl
+        Li = (F[self.num - 2] / F[self.num]) * L0
+        for i in range(2, self.num + 1):
+            x1 = torch.where(Li > L0 / 2, xr - Li, xl + Li)
+            x2 = torch.where(Li > L0 / 2, xl + Li, xr - Li)
+            f1, f2 = self.evaluate_loss(x, x1), self.evaluate_loss(x, x2)
+            xr = torch.where(f1 <= f2, x2, xr)
+            xl = torch.where(f1 >= f2, x1, xl)
+            Li = (F[self.num - i] / F[self.num - (i - 2)]) * torch.where(f1 != f2, L0, xr - xl)
+            L0 = xr - xl
+        return torch.where(f1 <= f2, x1, x2)
+
+    def mse_search(self, x):
+        init = self.mse_init_op(x).detach()
+        base = init / self.num
+        if self.search_method == 'grid':
+            best_candidate = self.mse_grid_search(base, x)
+        elif self.search_method == 'fibonacci':
+            best_candidate = self.mse_fib_search(base, init, x)
+        else:
+            raise ValueError(f"Search method {self.search_method} not supported.")
         # Save for evaluation by other modules (e.g. zp) invoking local loss mode
         self.internal_candidate = best_candidate
         return best_candidate
