@@ -65,6 +65,7 @@ __all__ = [
     'PerChannelFloatScaling8bit',
     'PerTensorFloatScaling8bit',
     'PerTensorPoTScaling8bit',
+    'PerChannelPoTScaling8bit',
     'SignedBinaryClampedConst',
     'WeightPerTensorFloatDecoupledL2Param',
     'WeightPerChannelFloatDecoupled',
@@ -229,6 +230,14 @@ class PerTensorFloatScaling8bit(ExtendedInjector):
     """
     """
     scaling_per_output_channel = False
+    restrict_scaling_type = RestrictValueType.FP
+    bit_width = 8
+
+
+class PerChannelPoTScaling8bit(ExtendedInjector):
+    """
+    """
+    scaling_per_output_channel = True
     restrict_scaling_type = RestrictValueType.FP
     bit_width = 8
 
