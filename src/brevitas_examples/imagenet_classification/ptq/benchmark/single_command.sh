@@ -1,1 +1,1 @@
-python ptq_benchmark_torchvision.py $1 --calibration-dir /scratch/datasets/imagenet_symlink/calibration --validation-dir /scratch/datasets/imagenet_symlink/val --options-to-exclude graph_eq_merge_bias graph_eq_iterations gptq_act_order
+python ptq_benchmark_torchvision.py $1 --calibration-dir /scratch/datasets/imagenet_symlink/calibration --validation-dir /scratch/datasets/imagenet_symlink/val --options-to-exclude graph_eq_merge_bias graph_eq_iterations
