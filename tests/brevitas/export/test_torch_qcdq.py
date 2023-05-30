@@ -17,7 +17,6 @@ def test_torch_qcdq_wbiol_export(
         quant_module,
         quant_module_impl,
         weight_act_quantizers,
-        per_channel,
         input_bit_width,
         weight_bit_width,
         output_bit_width,
@@ -27,12 +26,8 @@ def test_torch_qcdq_wbiol_export(
     weight_act_quantizers_name, _ = weight_act_quantizers
     bias_quantizer_name, _ = bias_quantizer
 
-    if 'asymmetric_act' in weight_act_quantizers_name and (input_bit_width > 8 or
-                                                           output_bit_width > 8):
-        pytest.skip("Unsigned zero point supported on 8b or less.")
-    if 'a2q' in weight_act_quantizers_name and not per_channel:
-        pytest.skip("A2Q supports only per channel quantization.")
-    if 'asymmetric_weight' in weight_act_quantizers_name and weight_bit_width > 8:
+    if 'asymmetric' in weight_act_quantizers_name and (input_bit_width > 8 or output_bit_width > 8
+                                                       or weight_bit_width > 8):
         pytest.skip("Unsigned zero point supported on 8b or less.")
     if 'internal_scale' in bias_quantizer_name and bias_bit_width == 32:
         pytest.skip("This combination is prone to numerical errors as the scale gets too small.")

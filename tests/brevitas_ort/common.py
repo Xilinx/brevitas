@@ -19,10 +19,13 @@ from brevitas.nn import QuantLSTM
 from brevitas.nn import TruncAvgPool2d
 from brevitas.quant.fixed_point import Int8AccumulatorAwareWeightQuant
 from brevitas.quant.fixed_point import Int8ActPerTensorFixedPoint
+from brevitas.quant.fixed_point import Int8WeightPerChannelFixedPoint
 from brevitas.quant.fixed_point import Int8WeightPerTensorFixedPoint
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
+from brevitas.quant.scaled_int import Int8WeightPerChannelFloat
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
+from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
 
 SEED = 123456
@@ -34,10 +37,16 @@ FLOAT_TOLERANCE = 1e-6
 KERNEL_SIZE = 1  # keep float error during fake-quantization under control
 BIT_WIDTHS = range(2, 9)
 QUANTIZERS = {
-    'asymmetric_float': (ShiftedUint8WeightPerTensorFloat, ShiftedUint8ActPerTensorFloat),
-    'symmetric_float': (Int8WeightPerTensorFloat, Int8ActPerTensorFloat),
+    'asymmetric_per_tensor_float':
+        (ShiftedUint8WeightPerTensorFloat, ShiftedUint8ActPerTensorFloat),
+    'symmetric_per_tensor_float': (Int8WeightPerTensorFloat, Int8ActPerTensorFloat),
+    'asymmetric_per_channel_float':
+        (ShiftedUint8WeightPerChannelFloat, ShiftedUint8ActPerTensorFloat),
+    'symmetric_per_channel_float': (Int8WeightPerChannelFloat, Int8ActPerTensorFloat),
     'a2q': (Int8AccumulatorAwareWeightQuant, Int8ActPerTensorFloat),
-    'symmetric_fixed_point': (Int8WeightPerTensorFixedPoint, Int8ActPerTensorFixedPoint)}
+    'symmetric_per_tensor_fixed_point': (Int8WeightPerTensorFixedPoint, Int8ActPerTensorFixedPoint),
+    'symmetric_per_channel_fixed_point':
+        (Int8WeightPerChannelFixedPoint, Int8ActPerTensorFixedPoint)}
 QUANT_WBIOL_IMPL = [
     QuantLinear, QuantConv1d, QuantConv2d, QuantConvTranspose1d, QuantConvTranspose2d]
 
