@@ -14,7 +14,11 @@ __all__ = [
     'Int8ActPerTensorFixedPoint',
     'Uint8ActPerTensorFixedPoint',
     'Int8BiasPerTensorFixedPointInternalScaling',
-    'Uint8ActPerTensorFixedPointMaxInit']
+    'Uint8ActPerTensorFixedPointMaxInit',
+    'Int8WeightPerTensorFixedPointMSE',
+    'Int8WeightPerChannelFixedPointMSE',
+    'Uint8ActPerTensorFixedPointMSE',
+    'Int8ActPerTensorFixedPointMSE']
 
 
 class Int8WeightPerTensorFixedPoint(NarrowIntQuant,
@@ -23,6 +27,22 @@ class Int8WeightPerTensorFixedPoint(NarrowIntQuant,
                                     WeightQuantSolver):
     """
     8-bit narrow per-tensor signed fixed-point weight quantizer with the radix point
+    computed from backpropagated statistics of the weight tensor.
+
+    Examples:
+        >>> from brevitas.nn import QuantLinear
+        >>> fc = QuantLinear(10, 5, bias=False, weight_quant=Int8WeightPerTensorFixedPoint)
+        >>> fc.quant_weight()
+    """
+    pass
+
+
+class Int8WeightPerChannelFixedPoint(NarrowIntQuant,
+                                     MaxStatsScaling,
+                                     PerChannelPoTScaling8bit,
+                                     WeightQuantSolver):
+    """
+    8-bit narrow per-channel signed fixed-point weight quantizer with the radix point
     computed from backpropagated statistics of the weight tensor.
 
     Examples:
@@ -43,7 +63,20 @@ class Int8WeightPerTensorFixedPointMSE(MSESymmetricScale, Int8WeightPerTensorFix
         >>> fc = QuantLinear(10, 5, bias=False, weight_quant=Int8WeightPerTensorFixedPointMSE)
         >>> fc.quant_weight()
     """
-    scaling_impl_type = 'parameter_from_stats'
+    pass
+
+
+class Int8WeightPerChannelFixedPointMSE(MSESymmetricScale, Int8WeightPerChannelFixedPoint):
+    """
+    8-bit narrow per-channel signed fixed-point weight quantizer with learned radix point
+    initialized from MSE local loss.
+
+    Examples:
+        >>> from brevitas.nn import QuantLinear
+        >>> fc = QuantLinear(10, 5, bias=False, weight_quant=Int8WeightPerChannelFixedPointMSE)
+        >>> fc.quant_weight()
+    """
+    pass
 
 
 class Int8ActPerTensorFixedPoint(IntQuant,
