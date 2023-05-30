@@ -16,12 +16,15 @@ from brevitas.nn import QuantLinear
 from brevitas.nn import TruncAvgPool2d
 from brevitas.quant.fixed_point import Int8AccumulatorAwareWeightQuant
 from brevitas.quant.fixed_point import Int8ActPerTensorFixedPoint
+from brevitas.quant.fixed_point import Int8WeightPerChannelFixedPoint
 from brevitas.quant.fixed_point import Int8WeightPerTensorFixedPoint
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8BiasPerTensorFloatInternalScaling
+from brevitas.quant.scaled_int import Int8WeightPerChannelFloat
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from brevitas.quant.scaled_int import Int32Bias
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
+from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
 
 from ...conftest import SEED
@@ -35,11 +38,17 @@ KERNEL_SIZE = 3
 TOLERANCE = 1
 
 QUANTIZERS = {
-    'asymmetric_act_float': (Int8WeightPerTensorFloat, ShiftedUint8ActPerTensorFloat),
-    'asymmetric_weight_float': (ShiftedUint8WeightPerTensorFloat, Int8ActPerTensorFloat),
-    'symmetric_float': (Int8WeightPerTensorFloat, Int8ActPerTensorFloat),
+    'asymmetric_per_tensor_float':
+        (ShiftedUint8WeightPerTensorFloat, ShiftedUint8ActPerTensorFloat),
+    'symmetric_per_tensor_float': (Int8WeightPerTensorFloat, Int8ActPerTensorFloat),
+    'asymmetric_per_channel_float':
+        (ShiftedUint8WeightPerChannelFloat, ShiftedUint8ActPerTensorFloat),
+    'symmetric_per_channel_float': (Int8WeightPerChannelFloat, Int8ActPerTensorFloat),
     'a2q': (Int8AccumulatorAwareWeightQuant, Int8ActPerTensorFloat),
-    'symmetric_fixed_point': (Int8WeightPerTensorFixedPoint, Int8ActPerTensorFixedPoint)}
+    'symmetric_per_tensor_fixed_point': (Int8WeightPerTensorFixedPoint, Int8ActPerTensorFixedPoint),
+    'symmetric_per_channel_fixed_point':
+        (Int8WeightPerChannelFixedPoint, Int8ActPerTensorFixedPoint)}
+
 BIAS_QUANTIZERS = {
     'bias_external_scale': (Int32Bias,),
     'bias_internal_scale': (Int8BiasPerTensorFloatInternalScaling,)}
@@ -92,7 +101,6 @@ def bias_quantizer(quantizer):
 
 
 @fixture
-@parametrize('per_channel', [True, False], ids=['per_channel', 'per_tensor'])
 def quant_module(
         quant_module_impl,
         weight_act_quantizers,
@@ -100,8 +108,7 @@ def quant_module(
         weight_bit_width,
         output_bit_width,
         bias_bit_width,
-        bias_quantizer,
-        per_channel):
+        bias_quantizer):
 
     weight_act_quantizers_name, (weight_quant, io_quant) = weight_act_quantizers
     bias_quantizer_name, (bias_quant,) = bias_quantizer  # pytest needs an iterable
@@ -125,7 +132,6 @@ def quant_module(
                 input_bit_width=input_bit_width,
                 output_bit_width=output_bit_width,
                 bias_bit_width=bias_bit_width,
-                weight_scaling_per_output_channel=per_channel,
                 bias_quant=bias_quant,
                 return_quant_tensor=True)
 
