@@ -210,11 +210,11 @@ class _BiasCorrection(DisableEnableQuantization):
             channel_dim = 1
         return channel_dim
 
-    def collect_float_mean_hook(self, module, inp, name, parent_module):
+    def collect_float_mean(self, module, inp, name):
         inp = self.unpack_input(inp)
         if name in self.float_mean_map.keys():
             raise RuntimeError("Module to bias-correct called multiple times, not supported.")
-        transpose_dim = self.channel_dim(inp, parent_module)
+        transpose_dim = self.channel_dim(inp, module)
         self.float_mean_map[name] = self.compute_mean(inp, transpose_dim)
 
     def update_correction(self, name, error):
@@ -233,37 +233,14 @@ class _BiasCorrection(DisableEnableQuantization):
                     module.register_parameter(
                         'bias', nn.Parameter(correction).to(module.weight.device))
 
-    def correct_bias_hook(self, module, inp, name, parent_module):
+    def compute_correct_bias(self, module, inp, name):
         inp = self.unpack_input(inp)
         if name in self.float_mean_map.keys():
-            transpose_dim = self.channel_dim(inp, parent_module)
+            transpose_dim = self.channel_dim(inp, module)
             quant_mean = self.compute_mean(inp, transpose_dim)
             error = self.float_mean_map[name] - quant_mean
             self.update_correction(name, error)
             del self.float_mean_map[name]
-            inp_broadcast_shape = compute_channel_view_shape(
-                inp, channel_dim=self.channel_dim(inp, parent_module))
-            return inp + error.reshape(inp_broadcast_shape)
-
-    def register_collect_float_mean_hook(self, module, name):
-        hook_fn = partial(self.collect_float_mean_hook, name=name, parent_module=module)
-        hook = module.output_quant.register_forward_pre_hook(hook_fn)
-        self.collect_float_mean_hooks.append(hook)
-
-    def register_correct_bias_hook(self, module, name):
-        hook_fn = partial(self.correct_bias_hook, name=name, parent_module=module)
-        hook = module.output_quant.register_forward_pre_hook(hook_fn)
-        self.correct_bias_hooks.append(hook)
-
-    def float_mean_hooks_cleanup(self):
-        for hook in self.collect_float_mean_hooks:
-            hook.remove()
-        self.collect_float_mean_hooks = []
-
-    def correct_bias_hooks_cleanup(self):
-        for hook in self.correct_bias_hooks:
-            hook.remove()
-        self.correct_bias_hooks = []
 
     def register_hook_to_wbiol(self, model, hooks):
         """
@@ -290,12 +267,11 @@ class _BiasCorrection(DisableEnableQuantization):
         """
         self.disable_act_quantization(module, is_training=False)
         self.disable_param_quantization(module, is_training=False)
-        self.register_collect_float_mean_hook(module, name)
-        module.forward(*inp)  # Required to avoid infinite recursion
-        self.float_mean_hooks_cleanup()
+        out_float = module.forward(*inp)  # Required to avoid infinite recursion
+        self.collect_float_mean(module, out_float, name)
         self.enable_act_quantization(module, is_training=False)
         self.enable_param_quantization(module, is_training=False)
-        self.register_correct_bias_hook(module, name)
-        out = module.forward(*inp)  # Required to avoid infinite recursion
+        out_quant = module.forward(*inp)  # Required to avoid infinite recursion
+        self.compute_correct_bias(module, out_quant, name)
         self.iterations[name] += 1
-        return out
+        return out_float
