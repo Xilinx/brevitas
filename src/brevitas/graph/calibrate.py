@@ -260,10 +260,10 @@ class _BiasCorrection(DisableEnableQuantization):
 
     def forward_hook_wbiol(self, module, inp, output, name):
         """
-        After each forward, we perform two extra forwards to register FP and Quant outputs
+        After each forward, we perform two extra forwards to register float and quant outputs
         and the error between the two.
 
-        We do not return the original Quant output, but its "corrected version", i.e., the FP version
+        We do not return the original quant output, but the float one, to avoid error accumulation
         """
         self.disable_act_quantization(module, is_training=False)
         self.disable_param_quantization(module, is_training=False)
