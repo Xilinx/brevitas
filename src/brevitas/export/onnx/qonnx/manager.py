@@ -20,6 +20,7 @@ from .function import BrevitasTruncFn
 from .handler import BrevitasActQuantProxyHandler
 from .handler import BrevitasBiasQuantProxyHandler
 from .handler import BrevitasDecoupledWeightQuantProxyHandler
+from .handler import BrevitasDecoupledWeightQuantWithInputProxyHandler
 from .handler import BrevitasQuantLSTMLayerHandler
 from .handler import BrevitasTruncQuantProxyHandler
 from .handler import BrevitasWeightQuantProxyHandler
@@ -39,6 +40,7 @@ class QONNXManager(ONNXBaseManager):
         BrevitasBiasQuantProxyHandler,
         BrevitasWeightQuantProxyHandler,
         BrevitasDecoupledWeightQuantProxyHandler,
+        BrevitasDecoupledWeightQuantWithInputProxyHandler,
         BrevitasTruncQuantProxyHandler,
         BrevitasQuantLSTMLayerHandler]
 
