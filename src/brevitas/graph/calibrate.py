@@ -250,7 +250,7 @@ class _BiasCorrection(DisableEnableQuantization):
         This is a desired behaviour, since these extra forwards are only necessary to compute the bias correction factor.
 
         If we registered a single hook for the entire model, and hooks were added to WBIOL layers,
-        these would be called by our "extra forwards", which would be an unexpected behaviours.
+        these would be called by our extra forwards, which would be an unexpected behaviours.
         """
         for name, module in model.named_modules():
             if isinstance(module, self.layers):
@@ -265,13 +265,20 @@ class _BiasCorrection(DisableEnableQuantization):
 
         We do not return the original quant output, but the float one, to avoid error accumulation
         """
+        # Compute float reference
         self.disable_act_quantization(module, is_training=False)
         self.disable_param_quantization(module, is_training=False)
         out_float = module.forward(*inp)  # Required to avoid infinite recursion
         self.collect_float_mean(module, out_float, name)
         self.enable_act_quantization(module, is_training=False)
         self.enable_param_quantization(module, is_training=False)
+
+        # Compute quant output
+        # We need to disable output_quant while out_quant is being computed
+        # or we are going to apply bias correction on post quant values instead of pre quant
+        self.disable_act_quantization(module.output_quant, is_training=False)
         out_quant = module.forward(*inp)  # Required to avoid infinite recursion
         self.compute_correct_bias(module, out_quant, name)
+        self.enable_act_quantization(module.output_quant, is_training=False)
         self.iterations[name] += 1
         return out_float
