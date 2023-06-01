@@ -85,10 +85,13 @@ class BrevitasWeightQuantProxyHandler(BrevitasQuantProxyHandler):
 class BrevitasDecoupledWeightQuantProxyHandler(BrevitasWeightQuantProxyHandler):
     handled_layer = DecoupledWeightQuantProxyFromInjector
 
-    def symbolic_execution(self, x: Tensor, *args):  # args supports DecoupledWeightQuantWithInputProxyFromInjector
+    def symbolic_execution(
+            self, x: Tensor, *args):  # args supports DecoupledWeightQuantWithInputProxyFromInjector
         out, scale, zero_point, bit_width = super().symbolic_execution(x)
-        pre_scale, pre_zero_point = None, None  # TODO fix retrieval for DecoupledWeightQuantWithInputProxyFromInjector
-        return out, pre_scale, pre_zero_point, scale, zero_point, bit_width
+        # TODO fix retrieval for DecoupledWeightQuantWithInputProxyFromInjector
+        # In practice it doesn't make a difference since the pre_* values are unused during export
+        pre_scale, pre_zero_point = scale, zero_point
+        return out, scale, zero_point, bit_width, pre_scale, pre_zero_point
 
 
 class BrevitasDecoupledWeightQuantWithInputProxyHandler(BrevitasDecoupledWeightQuantProxyHandler):
