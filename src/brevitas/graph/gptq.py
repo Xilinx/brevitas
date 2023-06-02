@@ -1,16 +1,22 @@
 from copy import deepcopy
 from dataclasses import dataclass
+from dataclasses import field
 from functools import partial
 import math
+from operator import attrgetter
+from typing import List, Optional, Set
 import warnings
 
 import torch
 from torch.linalg import LinAlgError
-import torch.nn as nn
+import unfoldNd
 
 from brevitas.graph.calibrate import DisableEnableQuantization
 import brevitas.nn as qnn
 from brevitas.quant_tensor import QuantTensor
+
+SUPPORTED_CONV_OP = (
+    qnn.QuantConv2d, qnn.QuantConv1d, qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d)
 
 
 class StopFwdException(Exception):
@@ -19,7 +25,8 @@ class StopFwdException(Exception):
 
 @dataclass
 class LayerHandler:
-    layer_name: str = None
+    layer_names: Set = field(default_factory=set)
+    forward_count: int = 0
 
 
 class gptq_mode:
@@ -46,10 +53,11 @@ class gptq_mode:
     def __init__(
             self,
             model,
-            inplace=True,
-            use_quant_activations=True,
-            num_blocks=4,
-            act_order=False) -> None:
+            group_of_parallel_layers: Optional[List[str]] = None,
+            inplace: bool = True,
+            use_quant_activations: bool = True,
+            num_blocks: int = 100,
+            act_order: bool = False) -> None:
         if not inplace:
             model = deepcopy(model)
         self.model = model
@@ -64,40 +72,68 @@ class gptq_mode:
         self.act_order = act_order
         # How many subblock to use during GPTQ for each layer
         self.num_blocks = num_blocks
+
         self.disable_quant_inference = DisableEnableQuantization()
         self.orig_forward = self.model.forward
         self.model.forward = self.catch_stopfwd
+        self.group_of_parallel_layers = group_of_parallel_layers
 
     def _is_module_supported(self, module):
-        if isinstance(module, qnn.QuantConv2d) and (module.groups == 1 or
-                                                    (module.groups == module.out_channels)):
-            return True
+        if isinstance(module, SUPPORTED_CONV_OP):
+            if (module.groups == 1 or (module.groups == module.out_channels)):
+                return True
+            else:
+                return False
         elif isinstance(module, qnn.QuantLinear):
             return True
         else:
             return False
 
     def __enter__(self):
+        # The user can specify on which layers to apply gptq in parallel.
+        # All the others will be executed sequentially
+        dict_of_layers = {
+            name: [(name, module)] for name,
+            module in self.model.named_modules() if self._is_module_supported(module)}
+        if self.group_of_parallel_layers is not None:
+            for parallel_layers in self.group_of_parallel_layers:
+                for name in parallel_layers:
+                    if name not in dict_of_layers:
+                        raise ValueError(
+                            "The layer {} is not present in the model or it is not supported for GPTQ"
+                            .format(name))
+                    del dict_of_layers[name]
+                names = '_'.join(parallel_layers)
+                dict_of_layers[names] = [
+                    (name, attrgetter(name)(self.model)) for name in parallel_layers]
+
         # Print warning if hooks are attached to any module, since the normal forward flow of the
         # network is highly disrupted during GPTQ
-        for name, module in self.model.named_modules():
-            if len(module._forward_hooks) > 0 or len(module._forward_pre_hooks):
-                warnings.warn(
-                    f'Hooks detected during setup for GPTQ. '
-                    f'Behaviour might deviate from what expected.')
+        for _, parallel_layers in dict_of_layers.items():
+            for name, module in parallel_layers:
+                if len(module._forward_hooks) > 0 or len(module._forward_pre_hooks):
+                    warnings.warn(
+                        f'Hooks detected during setup for GPTQ. '
+                        f'Behaviour might deviate from what expected.')
 
-            # Attach hooks for GPTQ
-            if self._is_module_supported(module):
-                gptq = GPTQ(module, name, num_blocks=self.num_blocks, act_order=self.act_order)
-                hook_fn = partial(gptq.update_batch, current_layer=self.current_layer)
-                self.hook_dict[name] = module.register_forward_hook(hook_fn)
-                self.gptq_layers[name] = gptq
+                # Attach hooks for GPTQ
+                if self._is_module_supported(module):
+                    gptq = GPTQ(
+                        module,
+                        name,
+                        num_blocks=self.num_blocks,
+                        act_order=self.act_order,
+                        parallel_layers=parallel_layers)
+                    hook_fn = partial(gptq.update_batch, current_layer=self.current_layer)
+                    self.hook_dict[name] = module.register_forward_pre_hook(hook_fn)
+                    self.gptq_layers[name] = gptq
         if not self.use_quant_activations:
             self.disable_quant_inference.disable_act_quantization(
                 self.model, is_training=self.model.training)
             self.disable_quant_inference.disable_bias_quantization(
                 self.model, is_training=self.model.training)
-        self.num_layers = len(self.gptq_layers)
+
+        self.num_layers = len(dict_of_layers)
         return self
 
     def __exit__(self, type, value, traceback):
@@ -109,8 +145,10 @@ class gptq_mode:
                 self.model, is_training=self.model.training)
 
     def update(self):
-        self.gptq_layers[self.current_layer.layer_name].single_layer_update()
-        self.hook_dict[self.current_layer.layer_name].remove()
+        for name in self.current_layer.layer_names:
+            self.gptq_layers[name].single_layer_update()
+            self.hook_dict[name].remove()
+        self.current_layer.layer_names.clear()
 
     def catch_stopfwd(self, *args, **kwargs):
         try:
@@ -138,7 +176,7 @@ class GPTQ():
     limitations under the License.
     """
 
-    def __init__(self, layer, name, num_blocks, act_order) -> None:
+    def __init__(self, layer, name, num_blocks, act_order, parallel_layers=1) -> None:
         self.layer = layer
         self.name = name
         self.num_blocks = num_blocks
@@ -146,7 +184,6 @@ class GPTQ():
 
         weight = layer.weight.data
         dev = weight.device
-        dtype = weight.dtype
 
         # By default, use groups = 1
         self.groups = 1
@@ -162,13 +199,16 @@ class GPTQ():
         # Define how many columns to update in each mini-block
         self.blocksize = math.ceil(self.columns / self.num_blocks)
 
-        # Initialize Hessian matrix and counter
-        self.H = torch.zeros((self.groups, self.columns, self.columns), device=dev, dtype=dtype)
+        # Initialize Hessian matrix and counter. We need it in float32 to compute the inverse
+        self.H = torch.zeros((self.groups, self.columns, self.columns),
+                             device=dev,
+                             dtype=torch.float32)
         self.nsamples = 0
+        self.parallel_layers = parallel_layers
 
-    def update_batch(self, module, input, out, current_layer):
+    def update_batch(self, module, input, current_layer):
         # Update reference to current layer
-        current_layer.layer_name = self.name
+        current_layer.layer_names.add(self.name)
 
         # Input is a tuple, so we take first element
         inp = input[0]
@@ -177,22 +217,32 @@ class GPTQ():
             inp = inp.value
 
         # If input is unbatched, add batch_size = 1
-        if len(inp.shape) == 2:
+        if len(inp.shape) == 1:
+            warnings.warn("Found unbatched input, adding batch dimension equal to 1")
             inp = inp.unsqueeze(0)
 
         # Define batch size before re-organizing the input
+        if hasattr(inp, 'names') and 'N' in inp.names:
+            batch_dim = inp.names.index('N')
+            inp = inp.transpose(0, batch_dim)
         batch_size = inp.shape[0]
 
         # Preprocess the input to compute the Hessian
         if isinstance(self.layer, qnn.QuantLinear):
-            if len(inp.shape) == 3:
-                inp = inp.reshape((-1, inp.shape[-1]))
+            if len(inp.shape) > 2:
+                inp = inp.reshape((-1, sum(inp.shape[2:])))
             inp = inp.t()
             # For QuantLinear layer, groups will be 1
             inp_processed = inp.unsqueeze(0)
 
-        if isinstance(self.layer, qnn.QuantConv2d):
-            unfold = nn.Unfold(
+        if isinstance(self.layer, SUPPORTED_CONV_OP):
+            # Pick the correct unfoldNd class
+            if isinstance(self.layer, (qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d)):
+                unfold_impl = unfoldNd.UnfoldTransposeNd
+            else:
+                unfold_impl = unfoldNd.UnfoldNd
+
+            unfold = unfold_impl(
                 self.layer.kernel_size,
                 dilation=self.layer.dilation,
                 padding=self.layer.padding,
@@ -204,7 +254,7 @@ class GPTQ():
             # Preprocess input by group
             for i, inp in enumerate(inp_by_group):
                 inp = unfold(inp)
-                inp = inp.permute([1, 0, 2])
+                inp = inp.transpose([1, 0])
                 inp = inp.flatten(1)
                 inp_processed.append(inp)
             inp_processed = torch.stack(inp_processed)
@@ -212,16 +262,28 @@ class GPTQ():
         # Hessian computation
         self.H *= self.nsamples / (self.nsamples + batch_size)
         self.nsamples += batch_size
-        inp_processed = math.sqrt(2 / self.nsamples) * inp_processed.float()
+        inp_processed = math.sqrt(2 / self.nsamples) * inp_processed.to(torch.float32)
         self.H += inp_processed.bmm(inp_processed.transpose(2, 1))
-        raise StopFwdException
+        # If we are executing GPTQ with group of parallel layers, we keep track of how many forward
+        # we executed. Once we executed as many as the number of parallel_layers, we raise
+        # StopFwdException
+        current_layer.forward_count += 1
+        if current_layer.forward_count == len(self.parallel_layers):
+            current_layer.forward_count = 0
+            raise StopFwdException
 
     def single_layer_update(self, percdamp=.01):
         weight = self.layer.weight.data
         dev = weight.device
+
+        # Store the original dtype of the weights
+        # During computation, everything is converted to float32.
+        # When the weights are updated, we cast everything back to the original dtype
         dtype = weight.dtype
 
-        if isinstance(self.layer, qnn.QuantConv2d):
+        if isinstance(self.layer, SUPPORTED_CONV_OP):
+            if isinstance(self.layer, (qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d)):
+                weight = weight.transpose(1, 0)  # This performs a view
             weight = weight.flatten(1)
 
         # List with permutation tensors for the Hessian and Weight matrix.
@@ -293,13 +355,14 @@ class GPTQ():
             # len(permutation_list) == self.groups
             if self.groups == 1:
                 perm = permutation_list[0]
-                weight_block = weight[:, perm[i1:i2]]  # This creates a copy
+                weight_block = weight[:, perm[i1:i2]].to(torch.float32)  # This creates a copy
             else:
                 # For groups > 1, we permute each row independently
                 weight_block = torch.empty(
-                    weight.shape[0], count, device=dev, dtype=dtype)  # [OC, i2-i1]
+                    weight.shape[0], count, device=dev, dtype=torch.float32)  # [OC, i2-i1]
                 for ii, perm in enumerate(permutation_list):
-                    weight_block[ii, :] = weight[ii, perm[i1:i2]]  # This creates a copy
+                    weight_block[ii, :] = weight[ii, perm[i1:i2]].to(
+                        torch.float32)  # This creates a copy
 
             error_block = torch.zeros_like(weight_block)  # [OC, i2-i1]
             h_inv_block = h_inv[:, i1:i2, i1:i2]
@@ -320,24 +383,27 @@ class GPTQ():
                 error_block[:, i] = error
 
                 # We need to update the original weights
-                weight[:, perm[i1:i2][i:]] = weight_block[:, i:]
+                weight[:, perm[i1:i2][i:]] = weight_block[:, i:].to(dtype)
 
             if self.groups > 1:
                 # In case of depthwise convs, each weight matrix interacts with only
                 # part of the input values, thus with only one of the hessian matrix
                 for ii, perm in enumerate(permutation_list):
                     weight[ii:ii + 1,
-                           perm[i2:]] -= error_block[ii:ii + 1, :].matmul(h_inv[ii, i1:i2, i2:])
+                           perm[i2:]] -= (error_block[ii:ii + 1, :].matmul(h_inv[ii, i1:i2,
+                                                                                 i2:])).to(dtype)
             else:
                 perm = permutation_list[0]
-                weight[:, perm[i2:]] -= error_block.matmul(h_inv[0, i1:i2, i2:])
+                weight[:, perm[i2:]] -= (error_block.matmul(h_inv[0, i1:i2, i2:])).to(dtype)
 
     def get_quant_weights(self, i, i1, i2, permutation_list):
         # We need to recompute quant weights at runtime since our float weights are being updated
         quant_weight = self.layer.quant_weight()
         quant_weight = quant_weight.value
 
-        if isinstance(self.layer, qnn.QuantConv2d):
+        if isinstance(self.layer, SUPPORTED_CONV_OP):
+            if isinstance(self.layer, (qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d)):
+                quant_weight = quant_weight.transpose(1, 0)  # This performs a view
             quant_weight = quant_weight.flatten(1)
 
         if self.act_order:
@@ -351,4 +417,5 @@ class GPTQ():
 
         quant_weight_block = quant_weight[:, i1:i2]
         q = quant_weight_block[:, i]
+
         return q

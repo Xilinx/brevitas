@@ -4,3 +4,4 @@ setuptools
 sympy
 torch>=1.9.1
 typing-extensions>=3.7.4
+unfoldNd
