@@ -56,9 +56,9 @@ brevitas_lib.impl("matmul_rhs_group_quant", matmul_rhs_group_quant)
 
 
 def brevitas〇matmul_rhs_group_quant〡shape(lhs: List[int], rhs: List[int], rhs_scale: List[int], rhs_zero_point: List[int], rhs_bit_width: int, rhs_group_size: int) -> List[int]:
-        if len(lhs) == 3 and len(lhs) == 2:
+        if len(lhs) == 3 and len(rhs) == 2:
             return [lhs[0], lhs[1], rhs[0]]
-        elif len(lhs) == 2 and len(lhs) == 2:
+        elif len(lhs) == 2 and len(rhs) == 2:
             return [lhs[0], rhs[0]]
         else:
             raise ValueError("Input shapes not supported.")
