@@ -14,9 +14,9 @@ from brevitas.quant.scaled_int import Int8WeightPerChannelFloat
 from .quant_blocks import *
 
 
-class IntWeightSymmetricBlockQuant(Int8WeightPerChannelFloat):
+class IntWeightSymmetricGroupQuant(Int8WeightPerChannelFloat):
     """
-    Block / vector signed symmetric weight quantizer with float scales.
+    Block / group / vector signed symmetric weight quantizer with float scales.
     We inherit from a per-channel quantizer to re-use some underlying machinery.
     """
 
@@ -55,9 +55,9 @@ class IntWeightSymmetricBlockQuant(Int8WeightPerChannelFloat):
     block_size = None
 
 
-class ShiftedUintWeightAsymmetricBlockQuant(IntWeightSymmetricBlockQuant):
+class ShiftedUintWeightAsymmetricGroupQuant(IntWeightSymmetricGroupQuant):
     """
-    Block / vector signed asymmetric weight quantizer with float scales and zero-points.
+    Block / group / vector signed asymmetric weight quantizer with float scales and zero-points.
     """
     zero_point_input_shape = this.scaling_input_shape
     reshaped_zero_point_shape = this.reshaped_scaling_shape

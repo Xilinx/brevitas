@@ -26,8 +26,8 @@ from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloatMSE
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloatMSE
-from brevitas_examples.llm.llm_quant.quantizers import IntWeightSymmetricBlockQuant
-from brevitas_examples.llm.llm_quant.quantizers import ShiftedUintWeightAsymmetricBlockQuant
+from brevitas_examples.llm.llm_quant.quantizers import IntWeightSymmetricGroupQuant
+from brevitas_examples.llm.llm_quant.quantizers import ShiftedUintWeightAsymmetricGroupQuant
 
 WEIGHT_QUANT_MAP = {
     'float32': {
@@ -36,8 +36,8 @@ WEIGHT_QUANT_MAP = {
                 'sym': Int8WeightPerTensorFloat, 'asym': ShiftedUint8WeightPerTensorFloat},
             'per_channel': {
                 'sym': Int8WeightPerChannelFloat, 'asym': ShiftedUint8WeightPerChannelFloat},
-            'per_block': {
-                'sym': IntWeightSymmetricBlockQuant, 'asym': ShiftedUintWeightAsymmetricBlockQuant},
+            'per_group': {
+                'sym': IntWeightSymmetricGroupQuant, 'asym': ShiftedUintWeightAsymmetricGroupQuant},
         },
         'mse': {
             'per_tensor': {
@@ -81,12 +81,14 @@ def quantize_model(
         weight_scale_type,
         weight_quant_type,
         weight_quant_granularity,
-        weight_block_size,
+        weight_group_size,
+        quantize_weight_zero_point,
         input_bit_width=None,
         input_scale_type=None,
         input_param_method=None,
         input_quant_type=None,
-        input_quant_granularity=None):
+        input_quant_granularity=None,
+        quantize_input_zero_point=False):
     """
     Replace float layers with quant layers in the target model
     """
@@ -104,11 +106,13 @@ def quantize_model(
         'weight_quant': weight_quant,
         'weight_bit_width': weight_bit_width,
         # weight scale is always converted to a standalone parameter when possible
-        'weight_scale_impl_type': 'parameter_from_stats',  # weight_block_size is ignored if unused
-        'weight_block_size': weight_block_size}
+        'weight_scale_impl_type': 'parameter_from_stats',  # ignored args if unused
+        'weight_block_size': weight_group_size,
+        'weight_quantize_zero_point': quantize_weight_zero_point,
+        'input_quantize_zero_point': quantize_input_zero_point}
     # weight zero-point is always converted to a standalone parameter
-    # This done by default already in the block quantizer
-    if weight_quant_type == 'asym' and weight_quant_granularity != 'per_block':
+    # This done by default already in the group quantizer
+    if weight_quant_type == 'asym' and weight_quant_granularity != 'per_group':
         quant_linear_kwargs['zero_point_impl'] = ParameterFromStatsFromParameterZeroPoint
     layer_map = {nn.Linear: (qnn.QuantLinear, quant_linear_kwargs)}
     layerwise_quantize(model=model, compute_layer_map=layer_map)
