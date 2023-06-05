@@ -14,8 +14,6 @@ from brevitas_examples.llm.llm_quant.export import LinearWeightBlockQuantHandler
 from brevitas_examples.llm.llm_quant.export import replace_call_fn_target
 from brevitas_examples.llm.llm_quant.mlir_custom_mm import brevitas_matmul_rhs_group_quant_library
 from brevitas_examples.llm.llm_quant.quantize import quantize_model
-from brevitas_examples.llm.llm_quant.quantizers import IntWeightSymmetricBlockQuant
-from brevitas_examples.llm.llm_quant.quantizers import UintWeightAsymmetricBlockQuant
 
 
 # Due a tracing issue this annotation needs to be
@@ -53,18 +51,15 @@ def quantize_and_export(args):
     # Init model
     model = Model()
 
-    # Pick weight quantizer
-    if args.symmetric:
-        weight_quant = IntWeightSymmetricBlockQuant
-    else:
-        weight_quant = UintWeightAsymmetricBlockQuant
-
     # Run quantization
     quantize_model(
         model,
-        weight_quant=weight_quant,
-        weight_bit_width=args.bit_width,
-        weight_block_size=args.block_size)
+        weight_quant_type=args.weight_quant_type,
+        weight_bit_width=args.weight_bit_width,
+        weight_group_size=args.weight_group_size,
+        weight_param_method='stats',
+        weight_scale_type='float32',
+        weight_quant_granularity='per_group')
 
     # Run a test forward pass
     model(torch.randn(2, 128))
@@ -103,14 +98,20 @@ def quantize_and_export(args):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Llama-based LLM weight only quantization')
-    parser.add_argument('-b', '--bit-width', type=int, default=8, help='Weight bit width.')
+    parser = argparse.ArgumentParser(
+        description='Export single linear with weight group quant to torch-mlir.')
+    parser.add_argument('--weight-bit-width', type=int, default=8, help='Weight bit width.')
     parser.add_argument(
-        '-s', '--block-size', type=int, default=128, help='Weight quantization block size.')
+        '--weight-quant-type',
+        type=str,
+        default='asym',
+        choices=['sym', 'asym'],
+        help='Weight quantization type.')
     parser.add_argument(
-        '--symmetric',
-        action='store_true',
-        help='Enable symmetric weight quantization instead of asymmetric.')
+        '--weight-group-size',
+        type=int,
+        default=128,
+        help='Group size for group weight quantization.')
     parser.add_argument(
         '--no-custom-packed-export',
         action='store_true',

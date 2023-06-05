@@ -1,13 +1,19 @@
+"""
+Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+"""
+
 from typing import List, Tuple
 
 import torch
-from brevitas.backport.fx._symbolic_trace import wrap
 import torch.utils.cpp_extension
 import torch_mlir
 from torch_mlir.dialects.torch.importer.jit_ir.build_tools.registry import \
     _rename_python_keyword_parameter_name
 from torch_mlir.dialects.torch.importer.jit_ir.build_tools.registry import JitOperator
 from torch_mlir.dialects.torch.importer.jit_ir.build_tools.registry import SIG_ATTR_TYPE
+
+from brevitas.backport.fx._symbolic_trace import wrap
 
 
 def patched_has_value_semantics_function_signature(self):
@@ -41,12 +47,13 @@ def matmul_rhs_group_quant(
         rhs_group_size: int):
     # This is just a placeholder for the actual implementation that provides correct shape/device/dtype
     if len(lhs.shape) == 3 and len(rhs.shape) == 2:
-        return torch.randn(lhs.shape[0], lhs.shape[1], rhs.shape[0], device=lhs.device, dtype=lhs.dtype)
+        return torch.randn(
+            lhs.shape[0], lhs.shape[1], rhs.shape[0], device=lhs.device, dtype=lhs.dtype)
     elif len(lhs.shape) == 2 and len(rhs.shape) == 2:
         return torch.randn(lhs.shape[0], rhs.shape[0], device=lhs.device, dtype=lhs.dtype)
     else:
         raise ValueError("Input shapes not supported.")
-    
+
 
 brevitas_lib = torch.library.Library("brevitas", "DEF")
 brevitas_lib.define(
@@ -55,22 +62,35 @@ brevitas_lib.define(
 brevitas_lib.impl("matmul_rhs_group_quant", matmul_rhs_group_quant)
 
 
-def brevitas〇matmul_rhs_group_quant〡shape(lhs: List[int], rhs: List[int], rhs_scale: List[int], rhs_zero_point: List[int], rhs_bit_width: int, rhs_group_size: int) -> List[int]:
-        if len(lhs) == 3 and len(rhs) == 2:
-            return [lhs[0], lhs[1], rhs[0]]
-        elif len(lhs) == 2 and len(rhs) == 2:
-            return [lhs[0], rhs[0]]
-        else:
-            raise ValueError("Input shapes not supported.")
+def brevitas〇matmul_rhs_group_quant〡shape(
+        lhs: List[int],
+        rhs: List[int],
+        rhs_scale: List[int],
+        rhs_zero_point: List[int],
+        rhs_bit_width: int,
+        rhs_group_size: int) -> List[int]:
+    if len(lhs) == 3 and len(rhs) == 2:
+        return [lhs[0], lhs[1], rhs[0]]
+    elif len(lhs) == 2 and len(rhs) == 2:
+        return [lhs[0], rhs[0]]
+    else:
+        raise ValueError("Input shapes not supported.")
 
 
-def brevitas〇matmul_rhs_group_quant〡dtype(lhs_rank_dtype: Tuple[int, int], rhs_rank_dtype: Tuple[int, int], rhs_scale_rank_dtype: Tuple[int, int], rhs_zero_point_rank_dtype: Tuple[int, int], rhs_bit_width: int, rhs_group_size: int) -> int:
+def brevitas〇matmul_rhs_group_quant〡dtype(
+        lhs_rank_dtype: Tuple[int, int],
+        rhs_rank_dtype: Tuple[int, int],
+        rhs_scale_rank_dtype: Tuple[int, int],
+        rhs_zero_point_rank_dtype: Tuple[int, int],
+        rhs_bit_width: int,
+        rhs_group_size: int) -> int:
     # output dtype is the dtype of the lhs float input
     lhs_rank, lhs_dtype = lhs_rank_dtype
     return lhs_dtype
 
 
-def brevitas〇matmul_rhs_group_quant〡has_value_semantics(lhs, rhs, rhs_scale, rhs_zero_point, rhs_bit_width, rhs_group_size) -> None:
+def brevitas〇matmul_rhs_group_quant〡has_value_semantics(
+        lhs, rhs, rhs_scale, rhs_zero_point, rhs_bit_width, rhs_group_size) -> None:
     return
 
 
