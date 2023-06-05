@@ -6,7 +6,7 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 from torch import nn
 
 from brevitas.core.scaling import StatsFromParameterScaling
-from brevitas.core.zero_point import StatsFromParameterZeroPoint
+from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.inject import this
 from brevitas.inject import value
 from brevitas.quant.scaled_int import Int8WeightPerChannelFloat
@@ -47,13 +47,15 @@ class IntWeightSymmetricBlockQuant(Int8WeightPerChannelFloat):
     scaling_impl = ExpandReshapeScalingWrapper
     wrapped_scaling_impl = StatsFromParameterScaling
     scaling_stats_impl = AbsMaxKeepDim
+    # scale is converted to a parameter right away
+    scaling_impl_type = 'parameter_from_stats'
     stats_reduce_dim = 2
     # Set bit_width and block size externally
     bit_width = None
     block_size = None
 
 
-class UintWeightAsymmetricBlockQuant(IntWeightSymmetricBlockQuant):
+class ShiftedUintWeightAsymmetricBlockQuant(IntWeightSymmetricBlockQuant):
     """
     Block / vector signed asymmetric weight quantizer with float scales and zero-points.
     """
@@ -66,6 +68,7 @@ class UintWeightAsymmetricBlockQuant(IntWeightSymmetricBlockQuant):
     zero_point_impl = ExpandReshapeZeroPointWrapper
     zero_point_stats_impl = NegativeMinOrZeroKeepDim
     scaling_stats_impl = AbsMinMaxKeepDim
-    wrapped_zero_point_impl = StatsFromParameterZeroPoint
+    # zero-point is converted to a parameter right away
+    wrapped_zero_point_impl = ParameterFromStatsFromParameterZeroPoint
     quantize_zero_point = False
     signed = False

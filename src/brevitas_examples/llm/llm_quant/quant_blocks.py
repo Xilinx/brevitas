@@ -102,7 +102,7 @@ class ExpandReshapeScalingWrapper(brevitas.jit.ScriptModule):
 
 
 class ExpandReshapeZeroPointWrapper(brevitas.jit.ScriptModule):
-    __constants__ = ['expanded_scaling_shape', 'reshaped_scaling_shape']
+    __constants__ = ['expanded_zero_point_shape', 'reshaped_zero_point_shape']
 
     def __init__(
             self, wrapped_zero_point_impl, expanded_zero_point_shape, reshaped_zero_point_shape):

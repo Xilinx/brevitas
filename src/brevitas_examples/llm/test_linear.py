@@ -13,7 +13,7 @@ from brevitas_examples.llm.llm_quant.export import brevitas_proxy_export_mode
 from brevitas_examples.llm.llm_quant.export import LinearWeightBlockQuantHandler
 from brevitas_examples.llm.llm_quant.export import replace_call_fn_target
 from brevitas_examples.llm.llm_quant.mlir_custom_mm import brevitas_matmul_rhs_group_quant_library
-from brevitas_examples.llm.llm_quant.quantize import quantize
+from brevitas_examples.llm.llm_quant.quantize import quantize_model
 from brevitas_examples.llm.llm_quant.quantizers import IntWeightSymmetricBlockQuant
 from brevitas_examples.llm.llm_quant.quantizers import UintWeightAsymmetricBlockQuant
 
@@ -60,14 +60,17 @@ def quantize_and_export(args):
         weight_quant = UintWeightAsymmetricBlockQuant
 
     # Run quantization
-    quantize(
-        model, weight_quant, weight_bit_width=args.bit_width, weight_block_size=args.block_size)
+    quantize_model(
+        model,
+        weight_quant=weight_quant,
+        weight_bit_width=args.bit_width,
+        weight_block_size=args.block_size)
 
     # Run a test forward pass
     model(torch.randn(2, 128))
 
     # Pick export mode
-    if args.custom_packed_export:
+    if not args.no_custom_packed_export:
         export_context_manager = brevitas_layer_export_mode
         # we generate an export_class since we need to pass in the handler defined above
         export_class = block_quant_layer_level_manager(
