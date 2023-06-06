@@ -4,6 +4,7 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 """
 
 from torch import nn
+from transformers.models.opt.modeling_opt import OPTAttention
 
 from brevitas import nn as qnn
 from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
@@ -92,27 +93,65 @@ def quantize_model(
     """
     Replace float layers with quant layers in the target model
     """
+    # Retrive base input and weight quantizers
     weight_quant = WEIGHT_QUANT_MAP[weight_scale_type][weight_param_method][
         weight_quant_granularity][weight_quant_type]
     if input_bit_width is not None:
         input_quant = INPUT_QUANT_MAP[input_scale_type][input_param_method][
             input_quant_granularity][input_quant_type]
+        # Some activations in MHA should always be symmetric
+        sym_input_quant = INPUT_QUANT_MAP[input_scale_type][input_param_method][
+            input_quant_granularity]['sym']
     else:
         input_quant = None
+        sym_input_quant = None
 
-    quant_linear_kwargs = {
-        'input_quant': input_quant,
-        'input_bit_width': input_bit_width,
-        'weight_quant': weight_quant,
-        'weight_bit_width': weight_bit_width,
-        # weight scale is always converted to a standalone parameter when possible
-        'weight_scale_impl_type': 'parameter_from_stats',  # ignored args if unused
-        'weight_block_size': weight_group_size,
-        'weight_quantize_zero_point': quantize_weight_zero_point,
-        'input_quantize_zero_point': quantize_input_zero_point}
-    # weight zero-point is always converted to a standalone parameter
-    # This done by default already in the group quantizer
+    # Modify the weight quantizer based on the arguments passed in
+    weight_quant = weight_quant.let(
+        **{
+            'bit_width': weight_bit_width,
+            'block_size': weight_group_size,
+            'quantize_zero_point': quantize_weight_zero_point})
+    # weight scale is converted to a standalone parameter
+    # This is done already by default in the per_group quantizer
+    if weight_quant_granularity != 'per_group':
+        weight_quant = weight_quant.let(weight_scale_impl_type='parameter_from_stats')
+    # weight zero-point is converted to a standalone parameter
+    # This is done already by default in the per_group quantizer
     if weight_quant_type == 'asym' and weight_quant_granularity != 'per_group':
-        quant_linear_kwargs['zero_point_impl'] = ParameterFromStatsFromParameterZeroPoint
-    layer_map = {nn.Linear: (qnn.QuantLinear, quant_linear_kwargs)}
+        weight_quant = weight_quant.let(zero_point_impl=ParameterFromStatsFromParameterZeroPoint)
+
+    # Modify the input quantizers based on the arguments passed in
+    if input_quant is not None:
+        input_quant = input_quant.let(
+            **{
+                'bit_width': input_bit_width, 'quantize_zero_point': quantize_input_zero_point})
+    if sym_input_quant is not None:
+        sym_input_quant = sym_input_quant.let(
+            **{
+                'bit_width': input_bit_width, 'quantize_zero_point': quantize_input_zero_point})
+
+    quant_linear_kwargs = {'input_quant': input_quant, 'weight_quant': weight_quant}
+
+    quant_mha_kwargs = {
+        'in_proj_input_quant': input_quant,
+        'in_proj_weight_quant': weight_quant,
+        'in_proj_bias_quant': None,
+        'softmax_input_quant': None,
+        'attn_output_weights_quant': sym_input_quant,
+        'attn_output_weights_signed': False,
+        'q_scaled_quant': sym_input_quant,
+        'k_transposed_quant': sym_input_quant,
+        'v_quant': sym_input_quant,
+        'out_proj_input_quant': input_quant,
+        'out_proj_weight_quant': weight_quant,
+        'out_proj_bias_quant': None,
+        'out_proj_output_quant': None,
+        'batch_first': True,
+        'packed_in_proj': False}
+
+    layer_map = {
+        nn.modules.linear.NonDynamicallyQuantizableLinear: (qnn.QuantLinear, quant_linear_kwargs),
+        nn.Linear: (qnn.QuantLinear, quant_linear_kwargs),
+        nn.MultiheadAttention: (qnn.QuantMultiheadAttention, quant_mha_kwargs)}
     layerwise_quantize(model=model, compute_layer_map=layer_map)

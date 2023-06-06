@@ -17,6 +17,7 @@ from brevitas_examples.llm.llm_quant.data import get_c4
 from brevitas_examples.llm.llm_quant.equalize import apply_act_equalization
 from brevitas_examples.llm.llm_quant.eval import model_eval
 from brevitas_examples.llm.llm_quant.gptq import apply_gptq
+from brevitas_examples.llm.llm_quant.prepare_for_quantize import replace_mha_with_quantizable_layers
 from brevitas_examples.llm.llm_quant.quantize import quantize_model
 from brevitas_examples.llm.llm_quant.run_utils import get_model_impl
 
@@ -98,6 +99,7 @@ parser.add_argument(
 parser.add_argument('--gptq', action='store_true', help='Apply GPTQ.')
 parser.add_argument('--act-calibration', action='store_true', help='Apply activation calibration.')
 parser.add_argument('--bias-corr', action='store_true', help='Apply bias correction.')
+parser.add_argument('--no-quantize', action='store_true', help='Disable quantization.')
 parser.add_argument(
     '--act-equalization', action='store_true', help='Apply activation equalization (SmoothQuant).')
 parser.add_argument(
@@ -146,8 +148,14 @@ def model_export(model, ref_input, args):
         export_torch_qcdq(model, ref_input, export_path=f"{args.model.replace('/', '-')}.pt")
 
 
+def validate(args):
+    if args.weight_quant_granularity == 'per_group' and args.input_bit_width is not None:
+        raise ValueError("Input quantization with per group weights not supported.")
+
+
 def main():
     args = parser.parse_args()
+    validate(args)
     set_seed(args.seed)
 
     kwargs = {"torch_dtype": torch.float}
@@ -155,6 +163,10 @@ def main():
     model = AutoModelForCausalLM.from_pretrained(args.model, **kwargs)
     print("Model loaded.")
     model.eval()
+
+    print("Replace HF MHA with quantizable variants...")
+    model = replace_mha_with_quantizable_layers(model)
+    print("Replacing done.")
 
     if args.eval or args.act_equalization or args.act_calibration or args.gptq or args.bias_corr:
         print("Data loading...")
@@ -167,23 +179,24 @@ def main():
         apply_act_equalization(model, calibration_loader, args.nsamples)
         print("Act equalization applied.")
 
-    print("Applying model quantization...")
-    quantize_model(
-        get_model_impl(model).layers,
-        weight_quant_type=args.weight_quant_type,
-        weight_bit_width=args.weight_bit_width,
-        weight_param_method=args.weight_param_method,
-        weight_scale_type=args.weight_scale_type,
-        weight_quant_granularity=args.weight_quant_granularity,
-        weight_group_size=args.weight_group_size,
-        quantize_weight_zero_point=args.quantize_weight_zero_point,
-        input_bit_width=args.input_bit_width,
-        input_quant_type=args.input_quant_type,
-        input_param_method=args.input_param_method,
-        input_scale_type=args.input_scale_type,
-        input_quant_granularity=args.input_quant_granularity,
-        quantize_input_zero_point=args.quantize_input_zero_point)
-    print("Model quantization applied.")
+    if not args.no_quantize:
+        print("Applying model quantization...")
+        quantize_model(
+            get_model_impl(model).layers,
+            weight_quant_type=args.weight_quant_type,
+            weight_bit_width=args.weight_bit_width,
+            weight_param_method=args.weight_param_method,
+            weight_scale_type=args.weight_scale_type,
+            weight_quant_granularity=args.weight_quant_granularity,
+            weight_group_size=args.weight_group_size,
+            quantize_weight_zero_point=args.quantize_weight_zero_point,
+            input_bit_width=args.input_bit_width,
+            input_quant_type=args.input_quant_type,
+            input_param_method=args.input_param_method,
+            input_scale_type=args.input_scale_type,
+            input_quant_granularity=args.input_quant_granularity,
+            quantize_input_zero_point=args.quantize_input_zero_point)
+        print("Model quantization applied.")
 
     if args.act_calibration:
         print("Apply act calibration...")
