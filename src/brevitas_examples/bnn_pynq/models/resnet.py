@@ -1,21 +1,26 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from typing import List, Optional, Tuple, Union
+from typing import List
 
-import torch
 from torch import Tensor
 import torch.nn as nn
-import torch.nn.functional as F
 
-from brevitas.export import export_qonnx
 import brevitas.nn as qnn
 from brevitas.quant import TruncTo8bit
 from brevitas.quant_tensor import QuantTensor
+from brevitas.inject.defaults import Int8WeightPerTensorFloat
 
 
 def make_quant_conv2d(
-        in_channels, out_channels, kernel_size, weight_bit_width, stride=1, padding=0, bias=False):
+        in_channels, 
+        out_channels, 
+        kernel_size, 
+        weight_bit_width, 
+        stride=1, 
+        padding=0,
+        bias=False,
+        weight_quant=Int8WeightPerTensorFloat):
     return qnn.QuantConv2d(
         in_channels=in_channels,
         out_channels=out_channels,
@@ -23,6 +28,7 @@ def make_quant_conv2d(
         stride=stride,
         padding=padding,
         bias=bias,
+        weight_quant=weight_quant,
         weight_bit_width=weight_bit_width,
         weight_scaling_per_output_channel=True)
 
@@ -39,10 +45,11 @@ class QuantBasicBlock(nn.Module):
             in_planes,
             planes,
             stride=1,
+            bias=False,
             shared_quant_act=None,
-            weight_bit_width=8,
             act_bit_width=8,
-            bias=False):
+            weight_bit_width=8,
+            weight_quant=Int8WeightPerTensorFloat):
         super(QuantBasicBlock, self).__init__()
         self.conv1 = make_quant_conv2d(
             in_planes,
@@ -51,7 +58,8 @@ class QuantBasicBlock(nn.Module):
             stride=stride,
             padding=1,
             bias=bias,
-            weight_bit_width=weight_bit_width)
+            weight_bit_width=weight_bit_width,
+            weight_quant=weight_quant)
         self.bn1 = nn.BatchNorm2d(planes)
         self.relu1 = qnn.QuantReLU(bit_width=act_bit_width)
         self.conv2 = make_quant_conv2d(
@@ -61,7 +69,8 @@ class QuantBasicBlock(nn.Module):
             stride=1,
             padding=1,
             bias=bias,
-            weight_bit_width=weight_bit_width)
+            weight_bit_width=weight_bit_width,
+            weight_quant=weight_quant)
         self.bn2 = nn.BatchNorm2d(planes)
         self.downsample = nn.Sequential()
         if stride != 1 or in_planes != self.expansion * planes:
@@ -73,7 +82,8 @@ class QuantBasicBlock(nn.Module):
                     stride=stride,
                     padding=0,
                     bias=bias,
-                    weight_bit_width=weight_bit_width),
+                    weight_bit_width=weight_bit_width,
+                    weight_quant=weight_quant),
                 nn.BatchNorm2d(self.expansion * planes),
                 # We add a ReLU activation here because FINN requires the same sign along residual adds
                 qnn.QuantReLU(bit_width=act_bit_width, return_quant_tensor=True))
@@ -107,12 +117,15 @@ class QuantResNet(nn.Module):
             first_maxpool=False,
             zero_init_residual=False,
             num_classes=10,
+            act_bit_width=8,
             weight_bit_width=8,
-            act_bit_width=8):
+            weight_quant=Int8WeightPerTensorFloat,
+            first_layer_weight_quant=Int8WeightPerTensorFloat,
+            last_layer_weight_quant=Int8WeightPerTensorFloat):
         super(QuantResNet, self).__init__()
         self.in_planes = 64
         self.conv1 = make_quant_conv2d(
-            3, 64, kernel_size=3, stride=1, padding=1, weight_bit_width=8)
+            3, 64, kernel_size=3, stride=1, padding=1, weight_bit_width=8, weight_quant=first_layer_weight_quant)
         self.bn1 = nn.BatchNorm2d(64)
         shared_quant_act = qnn.QuantReLU(bit_width=act_bit_width, return_quant_tensor=True)
         self.relu = shared_quant_act
@@ -123,19 +136,19 @@ class QuantResNet(nn.Module):
             self.maxpool = nn.Identity()
 
         self.layer1, shared_quant_act = self._make_layer(
-            block_impl, 64, num_blocks[0], 1, shared_quant_act, weight_bit_width, act_bit_width)
+            block_impl, 64, num_blocks[0], 1, shared_quant_act, weight_bit_width, act_bit_width, weight_quant)
         self.layer2, shared_quant_act = self._make_layer(
-            block_impl, 128, num_blocks[1], 2, shared_quant_act, weight_bit_width, act_bit_width)
+            block_impl, 128, num_blocks[1], 2, shared_quant_act, weight_bit_width, act_bit_width, weight_quant)
         self.layer3, shared_quant_act = self._make_layer(
-            block_impl, 256, num_blocks[2], 2, shared_quant_act, weight_bit_width, act_bit_width)
+            block_impl, 256, num_blocks[2], 2, shared_quant_act, weight_bit_width, act_bit_width, weight_quant)
         self.layer4, _ = self._make_layer(
-            block_impl, 512, num_blocks[3], 2, shared_quant_act, weight_bit_width, act_bit_width)
+            block_impl, 512, num_blocks[3], 2, shared_quant_act, weight_bit_width, act_bit_width, weight_quant)
 
         # Performs truncation to 8b (without rounding), which is supported in FINN
         self.final_pool = qnn.TruncAvgPool2d(kernel_size=4, trunc_quant=TruncTo8bit)
         # Keep last layer at 8b
         self.linear = qnn.QuantLinear(
-            512 * block_impl.expansion, num_classes, weight_bit_width=8, bias=True)
+            512 * block_impl.expansion, num_classes, weight_bit_width=8, bias=True, weight_quant=last_layer_weight_quant)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -158,12 +171,21 @@ class QuantResNet(nn.Module):
             stride,
             shared_quant_act,
             weight_bit_width,
-            act_bit_width):
+            act_bit_width,
+            weight_quant):
         strides = [stride] + [1] * (num_blocks - 1)
         layers = []
         for stride in strides:
             block = block_impl(
-                self.in_planes, planes, stride, shared_quant_act, weight_bit_width, act_bit_width)
+                in_planes=self.in_planes,
+                planes=planes,
+                stride=stride,
+                bias=False,
+                shared_quant_act=shared_quant_act,
+                act_bit_width=act_bit_width,
+                weight_bit_width=weight_bit_width,
+                weight_quant=weight_quant
+            )
             layers.append(block)
             shared_quant_act = layers[-1].relu_out
             self.in_planes = planes * block_impl.expansion
