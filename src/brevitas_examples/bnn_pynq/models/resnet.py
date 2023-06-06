@@ -6,18 +6,18 @@ from typing import List
 from torch import Tensor
 import torch.nn as nn
 
+from brevitas.inject.defaults import Int8WeightPerTensorFloat
 import brevitas.nn as qnn
 from brevitas.quant import TruncTo8bit
 from brevitas.quant_tensor import QuantTensor
-from brevitas.inject.defaults import Int8WeightPerTensorFloat
 
 
 def make_quant_conv2d(
-        in_channels, 
-        out_channels, 
-        kernel_size, 
-        weight_bit_width, 
-        stride=1, 
+        in_channels,
+        out_channels,
+        kernel_size,
+        weight_bit_width,
+        stride=1,
         padding=0,
         bias=False,
         weight_quant=Int8WeightPerTensorFloat):
@@ -125,7 +125,13 @@ class QuantResNet(nn.Module):
         super(QuantResNet, self).__init__()
         self.in_planes = 64
         self.conv1 = make_quant_conv2d(
-            3, 64, kernel_size=3, stride=1, padding=1, weight_bit_width=8, weight_quant=first_layer_weight_quant)
+            3,
+            64,
+            kernel_size=3,
+            stride=1,
+            padding=1,
+            weight_bit_width=8,
+            weight_quant=first_layer_weight_quant)
         self.bn1 = nn.BatchNorm2d(64)
         shared_quant_act = qnn.QuantReLU(bit_width=act_bit_width, return_quant_tensor=True)
         self.relu = shared_quant_act
@@ -148,7 +154,11 @@ class QuantResNet(nn.Module):
         self.final_pool = qnn.TruncAvgPool2d(kernel_size=4, trunc_quant=TruncTo8bit)
         # Keep last layer at 8b
         self.linear = qnn.QuantLinear(
-            512 * block_impl.expansion, num_classes, weight_bit_width=8, bias=True, weight_quant=last_layer_weight_quant)
+            512 * block_impl.expansion,
+            num_classes,
+            weight_bit_width=8,
+            bias=True,
+            weight_quant=last_layer_weight_quant)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -184,8 +194,7 @@ class QuantResNet(nn.Module):
                 shared_quant_act=shared_quant_act,
                 act_bit_width=act_bit_width,
                 weight_bit_width=weight_bit_width,
-                weight_quant=weight_quant
-            )
+                weight_quant=weight_quant)
             layers.append(block)
             shared_quant_act = layers[-1].relu_out
             self.in_planes = planes * block_impl.expansion
