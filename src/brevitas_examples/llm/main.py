@@ -137,14 +137,14 @@ def model_export(model, ref_input, args):
         if args.weight_quant_type == 'asym':
             assert args.quantize_weight_zero_point, "Quantized weight zero point required."
         if args.input_quant_type == 'asym':
-            assert args.quantize_input_zero_point, "Quantized weight zero point required."
+            assert args.quantize_input_zero_point, "Quantized input zero point required."
         export_onnx_qcdq(model, ref_input, export_path=f"{args.model.replace('/', '-')}.onnx")
     elif args.export_target == 'torch_qcdq':
         assert args.weight_quant_granularity != 'per_group', "TorchScript QCDQ export doesn't support group weight quantization."
         if args.weight_quant_type == 'asym':
             assert args.quantize_weight_zero_point, "Quantized weight zero point required."
         if args.input_quant_type == 'asym':
-            assert args.quantize_input_zero_point, "Quantized weight zero point required."
+            assert args.quantize_input_zero_point, "Quantized input zero point required."
         export_torch_qcdq(model, ref_input, export_path=f"{args.model.replace('/', '-')}.pt")
 
 
@@ -219,6 +219,7 @@ def main():
         print(f"C4 perplexity: {ppl}")
 
     if args.export_target:
+        print(f"Export to {args.export_target}")
         model_export(model, calibration_loader[0], args)
 
 
