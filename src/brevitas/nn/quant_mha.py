@@ -709,19 +709,14 @@ class QuantMultiheadAttention(Module):
                     set_weight('v', v_proj)
                 del state_dict[name]
             elif prefix + 'q_proj_weight' in name:
-                assert prefix + 'k_proj_weight' in state_dict.keys(), 'k_proj_weight is missing.'
-                assert prefix + 'v_proj_weight' in state_dict.keys(), 'v_proj_weight is missing.'
                 set_weight('q', value)
                 del state_dict[name]
             elif prefix + 'k_proj_weight' in name:
-                assert prefix + 'q_proj_weight' in state_dict.keys(), 'q_proj_weight is missing.'
-                assert prefix + 'v_proj_weight' in state_dict.keys(), 'v_proj_weight is missing.'
                 set_weight('k', value)
                 del state_dict[name]
             elif prefix + 'v_proj_weight' in name:
-                assert prefix + 'q_proj_weight' in state_dict.keys(), 'q_proj_weight is missing.'
-                assert prefix + 'k_proj_weight' in state_dict.keys(), 'k_proj_weight is missing.'
                 set_weight('v', value)
+                del state_dict[name]
             elif prefix + 'in_proj_bias' in name:
                 if self.in_proj is not None:
                     set_bias('in', value)
