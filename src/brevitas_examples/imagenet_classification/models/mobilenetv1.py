@@ -135,6 +135,8 @@ class MobileNet(nn.Module):
             weight_quant=CommonIntWeightPerChannelQuant,
             first_layer_weight_quant=CommonIntWeightPerChannelQuant,
             last_layer_weight_quant=CommonIntWeightPerTensorQuant,
+            avg_pool_kernel_size=7,
+            first_layer_stride=2,
             in_channels=3,
             num_classes=1000):
         super(MobileNet, self).__init__()
@@ -145,7 +147,7 @@ class MobileNet(nn.Module):
             in_channels=in_channels,
             out_channels=init_block_channels,
             kernel_size=3,
-            stride=2,
+            stride=first_layer_stride,
             weight_bit_width=FIRST_LAYER_BIT_WIDTH,
             weight_quant=first_layer_weight_quant,
             act_bit_width=act_bit_width,
@@ -171,7 +173,7 @@ class MobileNet(nn.Module):
         # Exporting to torch or ONNX qcdq requires round
         avgpool_float_to_int_impl_type = 'round' if round_average_pool else 'floor'
         self.final_pool = TruncAvgPool2d(
-            kernel_size=7,
+            kernel_size=avg_pool_kernel_size,
             stride=1,
             bit_width=act_bit_width,
             float_to_int_impl_type=avgpool_float_to_int_impl_type)
