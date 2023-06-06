@@ -4,7 +4,6 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 """
 
 from torch import nn
-from transformers.models.opt.modeling_opt import OPTAttention
 
 from brevitas import nn as qnn
 from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
@@ -148,10 +147,11 @@ def quantize_model(
         'out_proj_bias_quant': None,
         'out_proj_output_quant': None,
         'batch_first': True,
-        'packed_in_proj': False}
+        # activation equalization requires packed_in_proj
+        # since it supports only self-attention
+        'packed_in_proj': True}
 
     layer_map = {
-        nn.modules.linear.NonDynamicallyQuantizableLinear: (qnn.QuantLinear, quant_linear_kwargs),
         nn.Linear: (qnn.QuantLinear, quant_linear_kwargs),
         nn.MultiheadAttention: (qnn.QuantMultiheadAttention, quant_mha_kwargs)}
     layerwise_quantize(model=model, compute_layer_map=layer_map)
