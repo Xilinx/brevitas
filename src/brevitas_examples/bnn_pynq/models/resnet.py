@@ -72,9 +72,9 @@ class QuantBasicBlock(nn.Module):
             weight_bit_width=weight_bit_width,
             weight_quant=weight_quant)
         self.bn2 = nn.BatchNorm2d(planes)
-        self.shortcut = nn.Sequential()
+        self.downsample = nn.Sequential()
         if stride != 1 or in_planes != self.expansion * planes:
-            self.shortcut = nn.Sequential(
+            self.downsample = nn.Sequential(
                 make_quant_conv2d(
                     in_planes,
                     self.expansion * planes,
@@ -88,7 +88,7 @@ class QuantBasicBlock(nn.Module):
                 # We add a ReLU activation here because FINN requires the same sign along residual adds
                 qnn.QuantReLU(bit_width=act_bit_width, return_quant_tensor=True))
             # Redefine shared_quant_act whenever shortcut is performing downsampling
-            shared_quant_act = self.shortcut[-1]
+            shared_quant_act = self.downsample[-1]
         if shared_quant_act is None:
             shared_quant_act = qnn.QuantReLU(bit_width=act_bit_width, return_quant_tensor=True)
         # We add a ReLU activation here because FINN requires the same sign along residual adds
@@ -98,8 +98,8 @@ class QuantBasicBlock(nn.Module):
     def forward(self, x):
         out = self.relu1(self.bn1(self.conv1(x)))
         out = self.relu2(self.bn2(self.conv2(out)))
-        if len(self.shortcut):
-            x = self.shortcut(x)
+        if len(self.downsample):
+            x = self.downsample(x)
         # Check that the addition is made explicitly among QuantTensor structures
         assert isinstance(out, QuantTensor), "Perform add among QuantTensors"
         assert isinstance(x, QuantTensor), "Perform add among QuantTensors"
