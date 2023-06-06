@@ -36,7 +36,6 @@ from brevitas.nn import QuantReLU
 from brevitas.nn import TruncAvgPool2d
 from brevitas.quant import IntBias
 
-from .common import CommonIntActQuant
 from .common import CommonIntWeightPerChannelQuant
 from .common import CommonIntWeightPerTensorQuant
 from .common import CommonUintActQuant
@@ -51,7 +50,9 @@ class DwsConvBlock(nn.Module):
             in_channels,
             out_channels,
             stride,
-            bit_width,
+            act_bit_width,
+            weight_bit_width,
+            weight_quant,
             pw_activation_scaling_per_channel=False):
         super(DwsConvBlock, self).__init__()
         self.dw_conv = ConvBlock(
@@ -61,15 +62,17 @@ class DwsConvBlock(nn.Module):
             kernel_size=3,
             padding=1,
             stride=stride,
-            weight_bit_width=bit_width,
-            act_bit_width=bit_width)
+            weight_bit_width=weight_bit_width,
+            weight_quant=weight_quant,
+            act_bit_width=act_bit_width)
         self.pw_conv = ConvBlock(
             in_channels=in_channels,
             out_channels=out_channels,
             kernel_size=1,
             padding=0,
-            weight_bit_width=bit_width,
-            act_bit_width=bit_width,
+            weight_bit_width=weight_bit_width,
+            weight_quant=weight_quant,
+            act_bit_width=act_bit_width,
             activation_scaling_per_channel=pw_activation_scaling_per_channel)
 
     def forward(self, x):
@@ -91,6 +94,7 @@ class ConvBlock(nn.Module):
             padding=0,
             groups=1,
             bn_eps=1e-5,
+            weight_quant=CommonIntWeightPerChannelQuant,
             activation_scaling_per_channel=False):
         super(ConvBlock, self).__init__()
         self.conv = QuantConv2d(
@@ -101,7 +105,7 @@ class ConvBlock(nn.Module):
             padding=padding,
             groups=groups,
             bias=False,
-            weight_quant=CommonIntWeightPerChannelQuant,
+            weight_quant=weight_quant,
             weight_bit_width=weight_bit_width)
         self.bn = nn.BatchNorm2d(num_features=out_channels, eps=bn_eps)
         self.activation = QuantReLU(
@@ -125,8 +129,12 @@ class MobileNet(nn.Module):
             self,
             channels,
             first_stage_stride,
-            bit_width,
+            act_bit_width,
+            weight_bit_width,
+            weight_quant,
             round_average_pool=True,
+            first_layer_weight_quant=CommonIntWeightPerChannelQuant,
+            last_layer_weight_quant=CommonIntWeightPerTensorQuant,
             in_channels=3,
             num_classes=1000):
         super(MobileNet, self).__init__()
@@ -139,8 +147,9 @@ class MobileNet(nn.Module):
             kernel_size=3,
             stride=2,
             weight_bit_width=FIRST_LAYER_BIT_WIDTH,
-            activation_scaling_per_channel=True,
-            act_bit_width=bit_width)
+            weight_quant=first_layer_weight_quant,
+            act_bit_width=act_bit_width,
+            activation_scaling_per_channel=True)
         self.features.add_module('init_block', init_block)
         in_channels = init_block_channels
         for i, channels_per_stage in enumerate(channels[1:]):
@@ -152,7 +161,9 @@ class MobileNet(nn.Module):
                     in_channels=in_channels,
                     out_channels=out_channels,
                     stride=stride,
-                    bit_width=bit_width,
+                    act_bit_width=act_bit_width,
+                    weight_bit_width=weight_bit_width,
+                    weight_quant=weight_quant,
                     pw_activation_scaling_per_channel=pw_activation_scaling_per_channel)
                 stage.add_module('unit{}'.format(j + 1), mod)
                 in_channels = out_channels
@@ -162,15 +173,15 @@ class MobileNet(nn.Module):
         self.final_pool = TruncAvgPool2d(
             kernel_size=7,
             stride=1,
-            bit_width=bit_width,
+            bit_width=act_bit_width,
             float_to_int_impl_type=avgpool_float_to_int_impl_type)
         self.output = QuantLinear(
             in_channels,
             num_classes,
             bias=True,
             bias_quant=IntBias,
-            weight_quant=CommonIntWeightPerTensorQuant,
-            weight_bit_width=bit_width)
+            weight_quant=last_layer_weight_quant,
+            weight_bit_width=weight_bit_width)
 
     def forward(self, x):
         x = self.features(x)
@@ -195,6 +206,7 @@ def quant_mobilenet_v1(cfg):
         channels=channels,
         first_stage_stride=first_stage_stride,
         round_average_pool=round_avgpool,
-        bit_width=bit_width)
+        act_bit_width=bit_width,
+        weight_bit_width=bit_width)
 
     return net
