@@ -61,7 +61,7 @@ class QuantBasicBlock(nn.Module):
             weight_bit_width=weight_bit_width,
             weight_quant=weight_quant)
         self.bn1 = nn.BatchNorm2d(planes)
-        self.relu1 = qnn.QuantReLU(bit_width=act_bit_width)
+        self.relu1 = qnn.QuantReLU(bit_width=act_bit_width, return_quant_tensor=True)
         self.conv2 = make_quant_conv2d(
             planes,
             planes,
