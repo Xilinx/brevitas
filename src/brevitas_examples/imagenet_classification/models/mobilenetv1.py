@@ -52,7 +52,7 @@ class DwsConvBlock(nn.Module):
             stride,
             act_bit_width,
             weight_bit_width,
-            weight_quant,
+            weight_quant=CommonIntWeightPerChannelQuant,
             pw_activation_scaling_per_channel=False):
         super(DwsConvBlock, self).__init__()
         self.dw_conv = ConvBlock(
