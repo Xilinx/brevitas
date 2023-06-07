@@ -266,7 +266,12 @@ class TracerBase:
         # the user code during tracing.
         frame = inspect.currentframe()
 
-        pt_files = [
+        files = [
+            'brevitas/fx/brevitas_tracer.py'
+            'brevitas/fx/value_tracer.py'
+            'brevitas/backport/fx/proxy.py',
+            'brevitas/backport/fx/_symbolic_trace.py',
+            'brevitas/backport/fx/experimental/proxy_tensor.py',
             'torch/fx/proxy.py',
             'torch/fx/_symbolic_trace.py',
             'torch/fx/experimental/proxy_tensor.py',
@@ -278,7 +283,7 @@ class TracerBase:
             'torch/_refs/nn/functional/__init__.py']
         while frame:
             frame = frame.f_back
-            if frame and all(not frame.f_code.co_filename.endswith(file) for file in pt_files):
+            if frame and all(not frame.f_code.co_filename.endswith(file) for file in files):
                 break
 
         if not frame:

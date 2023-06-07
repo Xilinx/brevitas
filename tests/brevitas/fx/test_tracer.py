@@ -105,6 +105,14 @@ class CatChunkRolledModule(Module):
         return x
 
 
+class CatChunkUnpackModule(Module):
+
+    def forward(self, x: Tensor):
+        x = x.chunk(2, dim=1)
+        x = torch.cat(tuple(v for v in x), dim=1)
+        return x
+
+
 class InPlaceTorchAddModule(Module):
 
     def forward(self, x: Tensor):
@@ -133,6 +141,25 @@ class TorchAddModule(Module):
         return x
 
 
+class TorchNoneModule(Module):
+
+    def forward(self, x: Tensor):
+        y = x.clone()
+        y = None
+        if y is None:
+            x = torch.add(x, x)
+        return x
+
+
+class TorchCondModule(Module):
+
+    def forward(self, x: Tensor):
+        x.fill_(1.)
+        if (x > 0).all():
+            x = torch.add(x, x)
+        return x
+
+
 MODULES = [
     UnpackShape,
     ReshapeModule,
@@ -141,7 +168,10 @@ MODULES = [
     TorchAddModule,
     PythonAddModule,
     CatChunkUnrolledModule,
-    CatChunkRolledModule]
+    CatChunkRolledModule,
+    CatChunkUnpackModule,
+    TorchNoneModule,
+    TorchCondModule]
 
 
 @pytest.mark.parametrize('module', MODULES)
