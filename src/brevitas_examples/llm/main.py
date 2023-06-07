@@ -121,36 +121,41 @@ def set_seed(seed):
 
 def model_export(model, ref_input, args):
     if args.export_target == 'sharded_torchmlir_group_weight':
-        assert args.weight_quant_granularity == 'per_group', "Sharded torch group export requires per group weight quant."
-        assert args.input_bit_width is None, "Sharded torch group weight export doesn't support input quant."
         from brevitas_examples.llm.llm_quant.sharded_mlir_group_export import \
             sharded_weight_group_export
         sharded_weight_group_export(model, no_custom_packed_export=True)
     elif args.export_target == 'sharded_packed_torchmlir_group_weight':
-        assert args.weight_quant_granularity == 'per_group', "Sharded torch group export requires per group weight quant."
-        assert args.input_bit_width is None, "Sharded packed torch group weight export doesn't support input quant."
         from brevitas_examples.llm.llm_quant.sharded_mlir_group_export import \
             sharded_weight_group_export
         sharded_weight_group_export(model, no_custom_packed_export=False)
     elif args.export_target == 'onnx_qcdq':
+        export_onnx_qcdq(model, ref_input, export_path=f"{args.model.replace('/', '-')}.onnx")
+    elif args.export_target == 'torch_qcdq':
+        export_torch_qcdq(model, ref_input, export_path=f"{args.model.replace('/', '-')}.pt")
+
+
+def validate(args):
+    if args.weight_quant_granularity == 'per_group':
+        assert args.input_bit_width is None, "Input quantization with per group weights not supported."
+        assert not args.quantize_weight_zero_point, "Quantized weight zero point not supported."
+    if args.export_target == 'sharded_torchmlir_group_weight':
+        assert args.weight_quant_granularity == 'per_group', "Sharded torch group export requires per group weight quant."
+        assert args.input_bit_width is None, "Sharded torch group weight export doesn't support input quant."
+    if args.export_target == 'sharded_packed_torchmlir_group_weight':
+        assert args.weight_quant_granularity == 'per_group', "Sharded torch group export requires per group weight quant."
+        assert args.input_bit_width is None, "Sharded packed torch group weight export doesn't support input quant."
+    if not args.no_quantize and args.export_target == 'onnx_qcdq':
         assert args.weight_quant_granularity != 'per_group', "ONNX QCDQ export doesn't support group weight quantization."
         if args.weight_quant_type == 'asym':
             assert args.quantize_weight_zero_point, "Quantized weight zero point required."
         if args.input_quant_type == 'asym':
             assert args.quantize_input_zero_point, "Quantized input zero point required."
-        export_onnx_qcdq(model, ref_input, export_path=f"{args.model.replace('/', '-')}.onnx")
-    elif args.export_target == 'torch_qcdq':
+    if not args.no_quantize and args.export_target == 'torch_qcdq':
         assert args.weight_quant_granularity != 'per_group', "TorchScript QCDQ export doesn't support group weight quantization."
         if args.weight_quant_type == 'asym':
             assert args.quantize_weight_zero_point, "Quantized weight zero point required."
         if args.input_quant_type == 'asym':
             assert args.quantize_input_zero_point, "Quantized input zero point required."
-        export_torch_qcdq(model, ref_input, export_path=f"{args.model.replace('/', '-')}.pt")
-
-
-def validate(args):
-    if args.weight_quant_granularity == 'per_group' and args.input_bit_width is not None:
-        raise ValueError("Input quantization with per group weights not supported.")
 
 
 def main():
@@ -168,7 +173,7 @@ def main():
     model = replace_mha_with_quantizable_layers(model)
     print("Replacing done.")
 
-    if args.eval or args.act_equalization or args.act_calibration or args.gptq or args.bias_corr:
+    if 'qcdq' in args.export_target or args.eval or args.act_equalization or args.act_calibration or args.gptq or args.bias_corr:
         print("Data loading...")
         calibration_loader, val_data = get_c4(
             nsamples=args.nsamples, seed=args.seed, model=args.model, seqlen=args.seqlen)
