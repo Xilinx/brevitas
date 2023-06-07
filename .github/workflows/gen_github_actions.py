@@ -17,7 +17,7 @@ ENDTOEND_YML = 'end_to_end.yml'
 # Reduced Test for PRs, except when a review is requested
 PYTHON_VERSIONS_REDUCED = ('3.8',)
 
-PYTORCH_LIST_REDUCED = ["1.5.1", "1.10.1", "1.13.0"]
+PYTORCH_LIST_REDUCED = ["1.9.1", "1.10.1", "1.13.0"]
 
 PLATFORM_LIST_REDUCED = ['ubuntu-latest']
 
@@ -35,8 +35,7 @@ PYTEST_MATRIX_EXTRA_REDUCED = od([('jit_status', [
 # Data shared betwen Nox sessions and Github Actions, formatted as tuples
 PYTHON_VERSIONS = ('3.7', '3.8')
 
-PYTORCH_VERSIONS = (
-    '1.5.1', '1.6.0', '1.7.1', '1.8.1', '1.9.1', '1.10.1', '1.11.0', '1.12.1', '1.13.0')
+PYTORCH_VERSIONS = ('1.9.1', '1.10.1', '1.11.0', '1.12.1', '1.13.0')
 JIT_STATUSES = ('jit_disabled', 'jit_enabled')
 
 # Data used only by Github Actions, formatted as lists or lists of ordered dicts
@@ -47,20 +46,15 @@ STRATEGY = od([('fail-fast', 'false')])
 
 EXCLUDE_LIST = []
 
-JIT_EXCLUDE_LIST = generate_exclusion_list([[[
-    'pytorch_version', ['1.5.1', '1.6.0', '1.7.1', '1.8.1', '1.9.1']],
+JIT_EXCLUDE_LIST = generate_exclusion_list([[['pytorch_version', ['1.9.1']],
                                              ['jit_status', [
                                                  'jit_enabled',]]]])
 
-NOTEBOOK_EXCLUDE_LIST = generate_exclusion_list([[['pytorch_version', ['1.5.1', '1.6.0', '1.7.1']]],
-                                                 [['platform', [
-                                                     'macos-latest',]]]])
+NOTEBOOK_EXCLUDE_LIST = generate_exclusion_list([[['platform', [
+    'macos-latest',]]]])
 
 END_TO_END_EXCLUDE_LIST = generate_exclusion_list([[['platform', [
-    'windows-latest',]]], [['pytorch_version', ['1.5.1', '1.6.0', '1.7.1']]]])
-
-EXAMPLES_PYTEST_EXCLUDE_LIST = [od([('pytorch_version', [
-    '1.5.1',])])]
+    'windows-latest',]]]])
 
 MATRIX = od([('python_version', list(PYTHON_VERSIONS)), ('pytorch_version', list(PYTORCH_VERSIONS)),
              ('platform', PLATFORM_LIST)])
@@ -157,14 +151,14 @@ def gen_pytest_yml():
 def gen_examples_pytest_yml():
     pytest = Action(
         'Examples Pytest',
-        EXCLUDE_LIST + JIT_EXCLUDE_LIST + EXAMPLES_PYTEST_EXCLUDE_LIST,
+        EXCLUDE_LIST + JIT_EXCLUDE_LIST,
         combine_od_list([MATRIX, PYTEST_MATRIX_EXTRA]),
         EXAMPLES_PYTEST_STEP_LIST,
         STRATEGY)
     pytest.gen_yaml(BASE_YML_TEMPLATE, EXAMPLES_PYTEST_YML)
     pytest = Action(
         'Examples Pytest',
-        EXCLUDE_LIST + EXAMPLES_PYTEST_EXCLUDE_LIST,
+        EXCLUDE_LIST,
         combine_od_list([MATRIX_REDUCED, PYTEST_MATRIX_EXTRA_REDUCED]),
         EXAMPLES_PYTEST_STEP_LIST,
         STRATEGY)
