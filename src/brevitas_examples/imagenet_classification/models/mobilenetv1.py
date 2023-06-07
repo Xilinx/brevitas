@@ -135,6 +135,7 @@ class MobileNet(nn.Module):
             weight_quant=CommonIntWeightPerChannelQuant,
             first_layer_weight_quant=CommonIntWeightPerChannelQuant,
             last_layer_weight_quant=CommonIntWeightPerTensorQuant,
+            last_layer_bit_width=8,
             avg_pool_kernel_size=7,
             first_layer_stride=2,
             in_channels=3,
@@ -175,7 +176,7 @@ class MobileNet(nn.Module):
         self.final_pool = TruncAvgPool2d(
             kernel_size=avg_pool_kernel_size,
             stride=1,
-            bit_width=act_bit_width,
+            bit_width=last_layer_bit_width,
             float_to_int_impl_type=avgpool_float_to_int_impl_type)
         self.output = QuantLinear(
             in_channels,
@@ -183,7 +184,7 @@ class MobileNet(nn.Module):
             bias=True,
             bias_quant=IntBias,
             weight_quant=last_layer_weight_quant,
-            weight_bit_width=weight_bit_width)
+            weight_bit_width=last_layer_bit_width)
 
     def forward(self, x):
         x = self.features(x)
@@ -209,6 +210,7 @@ def quant_mobilenet_v1(cfg):
         first_stage_stride=first_stage_stride,
         round_average_pool=round_avgpool,
         act_bit_width=bit_width,
-        weight_bit_width=bit_width)
+        weight_bit_width=bit_width,
+        last_layer_bit_width=bit_width)
 
     return net
