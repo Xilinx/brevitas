@@ -14,7 +14,7 @@ If you like this project please consider ⭐ this repo, as it is the simplest an
 ## Requirements
 
 * Python >= 3.7 .
-* [Pytorch](https://pytorch.org) >= 1.5.1 .
+* [Pytorch](https://pytorch.org) >= 1.9.1 .
 * Windows, Linux or macOS.
 * GPU training-time acceleration (*Optional* but recommended).
 

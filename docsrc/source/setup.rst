@@ -9,7 +9,7 @@ Installation Requirements
 '''''''''''''''''''''''''
 
 -  Python >= 3.7.
--  `Pytorch`_ >= 1.5.1 .
+-  `Pytorch`_ >= 1.9.1 .
 -  Windows, Linux or macOS.
 -  GPU training-time acceleration (*optional* but recommended).
 
