@@ -172,7 +172,7 @@ class MobileNet(nn.Module):
                 in_channels = out_channels
             self.features.add_module('stage{}'.format(i + 1), stage)
         # Exporting to torch or ONNX qcdq requires round
-        avgpool_float_to_int_impl_type = 'round' if round_average_pool else 'floor'
+        avgpool_float_to_int_impl_type = 'ROUND' if round_average_pool else 'FLOOR'
         self.final_pool = TruncAvgPool2d(
             kernel_size=avg_pool_kernel_size,
             stride=1,
