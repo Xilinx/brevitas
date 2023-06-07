@@ -119,6 +119,7 @@ class QuantResNet(nn.Module):
             num_classes=10,
             act_bit_width=8,
             weight_bit_width=8,
+            round_average_pool=False,
             weight_quant=Int8WeightPerTensorFloat,
             first_layer_weight_quant=Int8WeightPerTensorFloat,
             last_layer_weight_quant=Int8WeightPerTensorFloat):
@@ -151,7 +152,11 @@ class QuantResNet(nn.Module):
             block_impl, 512, num_blocks[3], 2, shared_quant_act, weight_bit_width, act_bit_width, weight_quant)
 
         # Performs truncation to 8b (without rounding), which is supported in FINN
-        self.final_pool = qnn.TruncAvgPool2d(kernel_size=4, trunc_quant=TruncTo8bit)
+        avgpool_float_to_int_impl_type = 'ROUND' if round_average_pool else 'FLOOR'
+        self.final_pool = qnn.TruncAvgPool2d(
+            kernel_size=4,
+            trunc_quant=TruncTo8bit,
+            float_to_int_impl_type=avgpool_float_to_int_impl_type)
         # Keep last layer at 8b
         self.linear = qnn.QuantLinear(
             512 * block_impl.expansion,
