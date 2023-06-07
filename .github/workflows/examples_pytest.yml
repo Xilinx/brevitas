@@ -16,28 +16,14 @@ jobs:
 
       matrix:
         python_version: ['3.7', '3.8']
-        pytorch_version: ['1.5.1', '1.6.0', '1.7.1', '1.8.1', '1.9.1', '1.10.1', '1.11.0', '1.12.1', '1.13.0']
+        pytorch_version: ['1.9.1', '1.10.1', '1.11.0', '1.12.1', '1.13.0']
         platform: ['windows-latest', 'ubuntu-latest', 'macos-latest']
         jit_status: ['jit_disabled', 'jit_enabled']
 
 
         exclude:
-          - pytorch_version: '1.5.1'
-            jit_status: 'jit_enabled'
-
-          - pytorch_version: '1.6.0'
-            jit_status: 'jit_enabled'
-
-          - pytorch_version: '1.7.1'
-            jit_status: 'jit_enabled'
-
-          - pytorch_version: '1.8.1'
-            jit_status: 'jit_enabled'
-
           - pytorch_version: '1.9.1'
             jit_status: 'jit_enabled'
-
-          - pytorch_version: '1.5.1'
 
 
 
