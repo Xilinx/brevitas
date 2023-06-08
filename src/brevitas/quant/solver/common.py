@@ -150,13 +150,6 @@ class SolveTensorQuantFloatToIntImplFromEnum(ExtendedInjector):
         return torch.full(tracked_parameter_list[0].shape, 0.)
 
 
-class SolveTensorQuantFloatToIntImplFromEnum(ExtendedInjector):
-
-    @value
-    def float_to_int_impl(float_to_int_impl_type):
-        return solve_float_to_int_impl_from_enum(float_to_int_impl_type)
-
-
 class SolveIntScalingImplFromEnum(ExtendedInjector):
 
     @value
