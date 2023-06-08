@@ -6,9 +6,9 @@ from typing import List
 from torch import Tensor
 import torch.nn as nn
 
-from brevitas.inject.defaults import Int8WeightPerTensorFloat
 import brevitas.nn as qnn
 from brevitas.quant import TruncTo8bit
+from brevitas.quant import Int8WeightPerChannelFloat
 from brevitas.quant_tensor import QuantTensor
 
 
@@ -17,10 +17,10 @@ def make_quant_conv2d(
         out_channels,
         kernel_size,
         weight_bit_width,
+        weight_quant,
         stride=1,
         padding=0,
-        bias=False,
-        weight_quant=Int8WeightPerTensorFloat):
+        bias=False):
     return qnn.QuantConv2d(
         in_channels=in_channels,
         out_channels=out_channels,
@@ -29,8 +29,7 @@ def make_quant_conv2d(
         padding=padding,
         bias=bias,
         weight_quant=weight_quant,
-        weight_bit_width=weight_bit_width,
-        weight_scaling_per_output_channel=True)
+        weight_bit_width=weight_bit_width)
 
 
 class QuantBasicBlock(nn.Module):
@@ -49,7 +48,7 @@ class QuantBasicBlock(nn.Module):
             shared_quant_act=None,
             act_bit_width=8,
             weight_bit_width=8,
-            weight_quant=Int8WeightPerTensorFloat):
+            weight_quant=Int8WeightPerChannelFloat):
         super(QuantBasicBlock, self).__init__()
         self.conv1 = make_quant_conv2d(
             in_planes,
@@ -120,9 +119,9 @@ class QuantResNet(nn.Module):
             act_bit_width=8,
             weight_bit_width=8,
             round_average_pool=False,
-            weight_quant=Int8WeightPerTensorFloat,
-            first_layer_weight_quant=Int8WeightPerTensorFloat,
-            last_layer_weight_quant=Int8WeightPerTensorFloat):
+            weight_quant=Int8WeightPerChannelFloat,
+            first_layer_weight_quant=Int8WeightPerChannelFloat,
+            last_layer_weight_quant=Int8WeightPerChannelFloat):
         super(QuantResNet, self).__init__()
         self.in_planes = 64
         self.conv1 = make_quant_conv2d(
