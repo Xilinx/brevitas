@@ -36,7 +36,7 @@ INT_TOLERANCE = 2  # accept +2/-2 errors, required by per_channel/per_tensor, al
 FLOAT_TOLERANCE = 1e-6
 KERNEL_SIZE = 1  # keep float error during fake-quantization under control
 BIT_WIDTHS = range(2, 9)
-QUANTIZERS = {
+WBIOL_QUANTIZERS = {
     'asymmetric_per_tensor_float':
         (ShiftedUint8WeightPerTensorFloat, ShiftedUint8ActPerTensorFloat),
     'symmetric_per_tensor_float': (Int8WeightPerTensorFloat, Int8ActPerTensorFloat),
@@ -44,6 +44,16 @@ QUANTIZERS = {
         (ShiftedUint8WeightPerChannelFloat, ShiftedUint8ActPerTensorFloat),
     'symmetric_per_channel_float': (Int8WeightPerChannelFloat, Int8ActPerTensorFloat),
     'a2q': (Int8AccumulatorAwareWeightQuant, Int8ActPerTensorFloat),
+    'symmetric_per_tensor_fixed_point': (Int8WeightPerTensorFixedPoint, Int8ActPerTensorFixedPoint),
+    'symmetric_per_channel_fixed_point':
+        (Int8WeightPerChannelFixedPoint, Int8ActPerTensorFixedPoint)}
+LSTM_QUANTIZERS = {
+    'asymmetric_per_tensor_float':
+        (ShiftedUint8WeightPerTensorFloat, ShiftedUint8ActPerTensorFloat),
+    'symmetric_per_tensor_float': (Int8WeightPerTensorFloat, Int8ActPerTensorFloat),
+    'asymmetric_per_channel_float':
+        (ShiftedUint8WeightPerChannelFloat, ShiftedUint8ActPerTensorFloat),
+    'symmetric_per_channel_float': (Int8WeightPerChannelFloat, Int8ActPerTensorFloat),
     'symmetric_per_tensor_fixed_point': (Int8WeightPerTensorFixedPoint, Int8ActPerTensorFixedPoint),
     'symmetric_per_channel_fixed_point':
         (Int8WeightPerChannelFixedPoint, Int8ActPerTensorFixedPoint)}
