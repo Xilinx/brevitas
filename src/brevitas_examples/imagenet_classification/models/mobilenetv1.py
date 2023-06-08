@@ -45,6 +45,7 @@ FIRST_LAYER_STRIDE = 2
 LAST_LAYER_BIT_WIDTH = 8
 AVG_POOL_KERNEL_SIZE = 7
 
+
 class DwsConvBlock(nn.Module):
 
     def __init__(
