@@ -54,41 +54,64 @@ import warnings
 from torch._C import ScriptObject
 import torch.utils._pytree as pytree
 
-import brevitas.backport.fx as fx
-from brevitas.backport.fx._compatibility import compatibility
-from brevitas.backport.fx._symbolic_trace import _assert_is_none
-from brevitas.backport.fx._symbolic_trace import PH
-from brevitas.backport.fx.graph import _PyTreeCodeGen
-from brevitas.backport.fx.graph import _PyTreeInfo
-from brevitas.backport.fx.proxy import ParameterProxy
-from brevitas.backport.fx.proxy import Scope
-from brevitas.backport.fx.proxy import ScopeContextManager
-import brevitas.backport.fx.traceback as fx_traceback
 from brevitas.quant_tensor import QuantTensorBase
 
 from . import *
+from . import _assert_is_none
 from . import _autowrap_check
 from . import _find_proxy
+from . import _is_fx_tracing_flag
 from . import _orig_module_call
 from . import _orig_module_getattr
 from . import _patch_function
 from . import _Patcher
+from . import _proxyable_classes
+from . import _PyTreeCodeGen
+from . import _PyTreeInfo
 from . import _wrapped_fns_to_patch
 from . import _wrapped_methods_to_patch
+from . import compatibility
+from . import fx
+from . import fx_traceback
+from . import ParameterProxy
+from . import PH
+from . import Scope
+from . import ScopeContextManager
 
 _UNSET = object()
 extended_base_types = base_types + (QuantTensorBase,)
+
+FRAME_FILES = [
+    'fx/brevitas_tracer.py',
+    'fx/value_tracer.py',
+    'fx/proxy.py',
+    'fx/node.py',
+    'fx/_symbolic_trace.py',
+    'fx/experimental/proxy_tensor.py',
+    'fx/graph_module.py',
+    'torch/_ops.py',
+    'torch/_tensor.py',
+    'torch/nn/parameter.py',
+    'torch/nn/modules/module.py',
+    'torch/utils/_python_dispatch.py',
+    'torch/_prims_common/wrappers.py',
+    'torch/_refs/__init__.py',
+    'torch/_refs/nn/functional/__init__.py']
 
 
 class UnsetValueException(Exception):
     pass
 
 
+# https://github.com/python/cpython/issues/56579
+_safe_super = super
+
+
 @compatibility(is_backward_compatible=True)
 class ValueProxy(Proxy):
 
     def __init__(self, node: Node, value, tracer=None):
-        super(ValueProxy, self).__init__(node, tracer)
+        _safe_super(ValueProxy, self).__init__(node, tracer)
         if isinstance(value, Proxy):
             raise RuntimeError("Value of a proxy can't be a proxy.")
         self.value = value
@@ -102,6 +125,21 @@ class ValueProxy(Proxy):
     @value.setter
     def value(self, value):
         self._value = value
+
+    @property
+    def __class__(self):
+        previous_frame = inspect.currentframe().f_back
+        filename = inspect.getframeinfo(previous_frame).filename
+        for f in FRAME_FILES:
+            if f in filename:
+                return type(self)
+        return self.value.__class__
+
+    def __instancecheck__(self, instance: Any) -> bool:
+        return isinstance(instance, type(self))
+
+    def __subclasscheck__(self, subclass: type) -> bool:
+        return issubclass(subclass, type(self))
 
     def __getattr__(self, k) -> 'ValueAttribute':
         # note: not added to the graph yet, if this is a method call
@@ -214,6 +252,15 @@ class ValueAttribute(ValueProxy):
         self._node: Optional[Node] = None
 
     @property
+    def __class__(self):
+        previous_frame = inspect.currentframe().f_back
+        filename = inspect.getframeinfo(previous_frame).filename
+        for f in FRAME_FILES:
+            if f in filename:
+                return type(self)
+        return self.value.__class__
+
+    @property
     def node(self):
         # the node for attributes is added lazily, since most will just be method calls
         # which do not rely on the getitem call
@@ -294,6 +341,123 @@ class ValueTracer(Tracer):
     def proxy(self, node: Node, value: Any) -> 'Proxy':
         return ValueProxy(node, value, self)
 
+    def create_arg(self, a: Any):
+        """
+        A method that lowers the objects seen as arguments during symbolic evaluation
+        into Argument types that can be stored in IR.
+
+        Can be override to support more trace-specific types.
+        """
+        # Tracer implementation below
+
+        # The base tracer is used to construct Graphs when there is no associated
+        # module hierarchy, so it can never create parameter references.
+        # The default tracer adds the ability to refer to parameters when
+        # tracing modules.
+        if isinstance(a, torch.nn.Parameter):
+            for n, p in self.root.named_parameters():
+                if a is p:
+                    return self.create_node("get_attr", n, (), {})
+            raise NameError("parameter is not a member of this module")
+        elif isinstance(a, torch.Tensor):
+            for n_, p_ in self.root.named_buffers():
+                if a is p_:
+                    return self.create_node("get_attr", n_, (), {})
+        elif isinstance(a, torch.nn.Module):
+            for n_, p_ in self.root.named_modules():
+                if a is p_:
+                    return self.create_node("get_attr", n_, (), {})
+        # For NamedTuple instances that appear literally as args, we emit
+        # a node to construct the NamedTuple and use that Node as the argument.
+        # Modified to account for QuantTensor
+        if isinstance(a, tuple) and hasattr(a, "_fields") and not isinstance(extended_base_types):
+            args = tuple(self.create_arg(elem) for elem in a)
+            return self.create_node("call_function", a.__class__, args, {})
+
+        # Tensors do not have a reliable string repr() from which they can be
+        # constructed (and we probably don't want to rely on that, either), so
+        # for any constant Tensor values we encounter, first search for if they
+        # are an attribute of some module in the module hierarchy. If so, emit
+        # a get_attr to retrieve that tensor. Otherwise, we'll store away the
+        # tensor value into a special attribute on the Module s.t. we can
+        # retrieve it with a get_attr.
+        if isinstance(a, (torch.Tensor, ScriptObject)):
+            qualname: Optional[str] = self.tensor_attrs.get(a)
+
+            # Tensor was not found in the Module hierarchy, stow it away in a
+            # special attribute and set the qualname to refer to that
+            if not qualname:
+                i = 0
+                while True:
+                    qualname = f"_tensor_constant{i}"
+                    if not hasattr(self.root, qualname):
+                        break
+                    i += 1
+                self.tensor_attrs[a] = qualname
+                setattr(self.root, qualname, a)
+
+            return self.create_node("get_attr", qualname, (), {})
+
+        if type(a) in _proxyable_classes:
+            # This is an instance of a proxyable class for which we did not
+            # witness its construction. Intern this as a constant attribute
+
+            # TODO: binary search
+            i = 0
+            while True:
+                qualname = f"_{a.__class__.__name__}_constant_{i}"
+                if not hasattr(self.root, qualname):
+                    break
+                i += 1
+            setattr(self.root, qualname, a)
+
+            return self.create_node("get_attr", qualname, (), {})
+
+        # TracerBase implementation below
+        if not isinstance(a, Proxy) and hasattr(a, '__fx_create_arg__'):
+            return a.__fx_create_arg__(self)
+        # aggregates
+        elif isinstance(a, tuple) and hasattr(a,
+                                              '_fields') and not isinstance(a, extended_base_types):
+            # NamedTuple constructors don't seem to like getting a generator
+            # expression as an argument to their constructor, so build this
+            # intermediate tuple and unpack it into the NamedTuple constructor
+            args = tuple(self.create_arg(elem) for elem in a)
+            return type(a)(*args)  # type: ignore[arg-type]
+        elif isinstance(a, (tuple, list)) and not isinstance(a, extended_base_types):
+            return type(a)(self.create_arg(elem) for elem in a)
+        elif isinstance(a, dict):
+            r = {}
+            for k, v in a.items():
+                # Check for invalid dict keys. We do not want a Proxy to appear
+                # anywhere within the key. Since keys can be collection types,
+                # we iterate through the key with map_aggregate
+                k = self.create_arg(k)
+
+                def no_node(arg):
+                    if isinstance(arg, Node):
+                        raise RuntimeError(
+                            "Keys for dictionaries used as an argument cannot contain a "
+                            f"Node. Got key: {k}")
+
+                map_aggregate(k, no_node)
+
+                r[k] = self.create_arg(v)
+            return r
+        elif isinstance(a, slice):
+            return slice(self.create_arg(a.start), self.create_arg(a.stop), self.create_arg(a.step))
+
+        elif isinstance(a, range):
+            return range(self.create_arg(a.start), self.create_arg(a.stop), self.create_arg(a.step))
+
+        if isinstance(a, Proxy):
+            # base case: we unwrap the Proxy object
+            return a.node
+        # modified to check against extended_base_types
+        elif isinstance(a, extended_base_types) or a is None or a is ...:
+            return a
+        raise NotImplementedError(f"argument of type: {type(a)}")
+
     def unpack_arg(self, a: Any):
         """
         This method is based on create_arg but it instead unpacks the value
@@ -371,9 +535,23 @@ class ValueTracer(Tracer):
             proxy = proxy_factory_fn(node, value)
 
         # Optionally set stack trace on the created Node for debugging purposes
-        if fx_traceback.is_stack_trace_overridden():
-            stacks = fx_traceback.format_stack()
-            proxy.node.stack_trace = '\n'.join(reversed(stacks))
+        if fx_traceback.has_preserved_node_meta():
+            current_meta: Dict[str, Any] = fx_traceback.get_current_meta()
+
+            # Explicitly set the stack_trace, nn_module_stack and source_fn on the node.meta
+            # If other meta fields are needed, they can be added here
+            stack_trace = current_meta.get("stack_trace")
+            if stack_trace:
+                proxy.node.stack_trace = stack_trace
+
+            nn_module_stack = current_meta.get("nn_module_stack")
+            if nn_module_stack:
+                proxy.node.meta["nn_module_stack"] = nn_module_stack
+
+            source_fn = current_meta.get("source_fn")
+            if source_fn:
+                proxy.node.meta["source_fn"] = source_fn
+
         elif self.record_stack_traces:
             user_frame = self._find_user_frame()
             if user_frame:
@@ -381,7 +559,6 @@ class ValueTracer(Tracer):
                 summary = traceback.StackSummary.extract(walk_stack_gen)  # type: ignore[arg-type]
                 tb_lines = summary.format()
                 proxy.node.stack_trace = ''.join(tb_lines)
-
         return proxy
 
     def call_module(
@@ -473,7 +650,7 @@ class ValueTracer(Tracer):
 
     # This method will be refactored
     @compatibility(is_backward_compatible=False)
-    def create_args_for_root(self, root_fn, is_module, concrete_args=None):
+    def create_args_for_root(self, root_fn, is_module, concrete_args=None, value_args=None):
         """
         Create ``placeholder`` nodes corresponding to the signature of the ``root``
         Module. This method introspects root's signature and emits those
@@ -500,7 +677,13 @@ class ValueTracer(Tracer):
         sig = inspect.signature(fn_for_analysis)
 
         def proxy_placeholder(name: str):
+            if value_args is not None and name in value_args:
+                value = value_args[name]
+            else:
+                value = _UNSET
+
             if concrete_args is not None and name in concrete_args:
+
                 cnt = 0
 
                 def replace_ph(x):
@@ -508,7 +691,7 @@ class ValueTracer(Tracer):
                     cnt += 1
                     param = sig.parameters[name]
                     default = (() if param.default is inspect.Parameter.empty else (param.default,))
-                    value = _UNSET if param.default is inspect.Parameter.empty else param.default
+
                     out = self.create_proxy(
                         "placeholder", f"{name}_{str(cnt)}", default, {}, value=value)
                     if x == PH:
@@ -536,10 +719,8 @@ class ValueTracer(Tracer):
                 return pytree.tree_map(replace_ph, concrete_args[name])
             if name[0] == "*":
                 default = ()
-                value = _UNSET
             else:
                 param = sig.parameters[name]
-                value = _UNSET if param.default is inspect.Parameter.empty else param.default
                 default = () if param.default is inspect.Parameter.empty else (
                     param.default,)  # type: ignore[assignment]
             return self.create_proxy(
@@ -585,56 +766,12 @@ class ValueTracer(Tracer):
             return flatten_fn, flat_args
         return root_fn, args
 
-    def create_args_for_root_old(self, root_fn, is_module, concrete_args=None):
-        """
-        Create ``placeholder`` nodes corresponding to the signature of the ``root``
-        Module. This method introspects root's signature and emits those
-        nodes accordingly, also supporting ``*args`` and ``**kwargs``.
-        """
-        # In some cases, a function or method has been decorated with a wrapper
-        # defined via ``functools.wraps``. In this case, the outer code object
-        # will likely not contain the actual parameters we care about, so unwrap
-        # the function to get to the innermost callable.
-        fn_for_analysis = inspect.unwrap(root_fn)
-        co = fn_for_analysis.__code__
-        total_args = co.co_argcount + co.co_kwonlyargcount
-        names_iter = iter(co.co_varnames)
-        args: List[Any] = []
-        skip_arg_idx = 0
-        if is_module:
-            if total_args == 0:
-                raise RuntimeError('``self`` argument cannot be part of *args expansion!')
-            skip_arg_idx = 1
-            next(names_iter)  # skip self
-            args.append(self.root)
-
-        def proxy_placeholder(name: str):
-            if concrete_args is not None and name in concrete_args:
-                value = concrete_args[name]
-            else:
-                param = inspect.signature(fn_for_analysis).parameters[name]
-                value = _UNSET if param.default is inspect.Parameter.empty else param.default
-            type_expr = fn_for_analysis.__annotations__.get(name, None)
-            return self.create_proxy('placeholder', name, (), {}, type_expr=type_expr, value=value)
-
-        args.extend(proxy_placeholder(next(names_iter)) for _ in range(skip_arg_idx, total_args))
-
-        # TODO values for *args and **kwargs
-        if co.co_kwonlyargcount > 0 or co.co_flags & HAS_VARSTUFF:
-            # TODO: type annotations for *args and **kwargs
-            if co.co_flags & inspect.CO_VARARGS:
-                args.append(proxy_placeholder('*' + next(names_iter)))
-            if co.co_flags & inspect.CO_VARKEYWORDS:
-                args.append(proxy_placeholder('**' + next(names_iter)))
-            root_fn = _patch_function(root_fn, len(args))
-
-        return root_fn, args
-
     @compatibility(is_backward_compatible=True)
     def trace(
         self,
         root: Union[torch.nn.Module, Callable[..., Any]],
         concrete_args: Optional[Dict[str, Any]] = None,
+        value_args: Optional[Dict[str, Any]] = None,
     ) -> Graph:
         global _is_fx_tracing_flag
         old_is_fx_tracing_flag = _is_fx_tracing_flag
@@ -676,8 +813,7 @@ class ValueTracer(Tracer):
 
             fn_globals = fn.__globals__  # run before it gets patched
             fn, args = self.create_args_for_root(
-                fn, isinstance(root, torch.nn.Module), concrete_args
-            )
+                fn, isinstance(root, torch.nn.Module), concrete_args, value_args)
 
             parameter_proxy_cache: Dict[str, Proxy] = {}  # Reduce number of get_attr calls
 
@@ -730,7 +866,7 @@ class ValueTracer(Tracer):
         return self.graph
 
 
-def _create_wrapped_value_func(orig_fn):
+def _create_wrapped_value_func(orig_fn, visible_to_make_fx=False):
 
     @functools.wraps(orig_fn)
     def wrapped(*args, **kwargs):
@@ -747,9 +883,27 @@ def _create_wrapped_value_func(orig_fn):
             except UnsetValueException:
                 value = _UNSET
             return_proxy = proxy.tracer.create_proxy(
-                'call_function', orig_fn, args, kwargs, value=value)
+                "call_function", orig_fn, args, kwargs, value=value)
             return_proxy.node.meta["is_wrapped"] = True
+            if visible_to_make_fx:
+                return_proxy.node.meta["visible_to_make_fx"] = 1
             return return_proxy
+
+        # Check if we want to trace this function for proxy tensors created via `make_fx`
+        if visible_to_make_fx:
+            # import here to avoid circular imports
+            from proxy_tensor import disable_proxy_modes_tracing
+            from proxy_tensor import get_innermost_proxy_mode
+            from proxy_tensor import proxy_call
+
+            # If there is no input with proxy, see if we are tracing with proxy tensors
+            proxy_mode = get_innermost_proxy_mode()
+            if proxy_mode is not None:
+                # Disable tracing of the interior of the wrapped fn while evaluating
+                with disable_proxy_modes_tracing():
+                    out = proxy_call(proxy_mode, orig_fn, args, kwargs)
+                return out
+
         return orig_fn(*args, **kwargs)
 
     return wrapped
@@ -785,12 +939,12 @@ def _patch_wrapped_value_functions(patcher: _Patcher):
     Go through ``_wrapped_fn_patch_table`` and, for each frame object, wrap
     the listed global functions in the `_create_wrapped_func` wrapper.
     """
-    for frame_dict, name in _wrapped_fns_to_patch:
+    for frame_dict, name, visible_to_make_fx in reversed(_wrapped_fns_to_patch):
         if name not in frame_dict and hasattr(builtins, name):
             orig_fn = getattr(builtins, name)
         else:
             orig_fn = frame_dict[name]
-        patcher.patch(frame_dict, name, _create_wrapped_value_func(orig_fn))
+        patcher.patch(frame_dict, name, _create_wrapped_value_func(orig_fn, visible_to_make_fx))
 
     for cls, name in _wrapped_methods_to_patch:
         patcher.patch_method(cls, name, _create_wrapped_value_method(cls, name))

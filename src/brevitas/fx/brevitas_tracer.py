@@ -22,10 +22,20 @@ def _is_brevitas_leaf_module(m, fully_qualified_name):
     return is_torch_nn and not is_seq or is_brevitas
 
 
-def _trace_with_backport(
+def _symbolic_trace(
         tracer: Tracer, root: Union[Module, Callable],
         concrete_args: Optional[Dict[str, Any]]) -> GraphModule:
     graph = tracer.trace(root, concrete_args)
+    name = root.__class__.__name__ if isinstance(root, Module) else root.__name__
+    return GraphModule(tracer.root, graph, name)
+
+
+def _value_trace(
+        tracer: Tracer,
+        root: Union[Module, Callable],
+        concrete_args: Optional[Dict[str, Any]],
+        value_args: Optional[Dict[str, Any]]) -> GraphModule:
+    graph = tracer.trace(root, concrete_args, value_args)
     name = root.__class__.__name__ if isinstance(root, Module) else root.__name__
     return GraphModule(tracer.root, graph, name)
 
@@ -43,16 +53,16 @@ class BrevitasSymbolicTracer(Tracer):
 
 
 def symbolic_trace(root, concrete_args=None):
-    return _trace_with_backport(Tracer(), root, concrete_args)
+    return _symbolic_trace(Tracer(), root, concrete_args)
 
 
-def value_trace(root, concrete_args=None):
-    return _trace_with_backport(ValueTracer(), root, concrete_args)
+def value_trace(root, concrete_args=None, value_args=None):
+    return _value_trace(ValueTracer(), root, concrete_args, value_args)
 
 
 def brevitas_symbolic_trace(root, concrete_args=None):
-    return _trace_with_backport(BrevitasSymbolicTracer(), root, concrete_args)
+    return _symbolic_trace(BrevitasSymbolicTracer(), root, concrete_args)
 
 
-def brevitas_value_trace(root, concrete_args=None):
-    return _trace_with_backport(BrevitasValueTracer(), root, concrete_args)
+def brevitas_value_trace(root, concrete_args=None, value_args=None):
+    return _value_trace(BrevitasValueTracer(), root, concrete_args, value_args)
