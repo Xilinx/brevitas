@@ -7,8 +7,8 @@ from torch import Tensor
 import torch.nn as nn
 
 import brevitas.nn as qnn
-from brevitas.quant import TruncTo8bit
 from brevitas.quant import Int8WeightPerChannelFloat
+from brevitas.quant import TruncTo8bit
 from brevitas.quant_tensor import QuantTensor
 
 
