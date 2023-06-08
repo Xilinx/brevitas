@@ -16,7 +16,7 @@ class QuantWBIOLCases:
     @parametrize('input_bit_width', BIT_WIDTHS, ids=[f'i{b}' for b in BIT_WIDTHS])
     @parametrize('weight_bit_width', BIT_WIDTHS, ids=[f'w{b}' for b in BIT_WIDTHS])
     @parametrize('output_bit_width', BIT_WIDTHS, ids=[f'o{b}' for b in BIT_WIDTHS])
-    @parametrize('quantizers', QUANTIZERS.values(), ids=list(QUANTIZERS.keys()))
+    @parametrize('quantizers', WBIOL_QUANTIZERS.values(), ids=list(WBIOL_QUANTIZERS.keys()))
     def case_quant_wbiol(
             self, impl, input_bit_width, weight_bit_width, output_bit_width, quantizers, request):
 
@@ -127,7 +127,7 @@ class QuantRecurrentCases:
     @parametrize('cifg', [True, False])
     @parametrize('num_layers', [1, 2])
     @parametrize('weight_bit_width', BIT_WIDTHS, ids=[f'w{b}' for b in BIT_WIDTHS])
-    @parametrize('quantizers', QUANTIZERS.values(), ids=list(QUANTIZERS.keys()))
+    @parametrize('quantizers', LSTM_QUANTIZERS.values(), ids=list(LSTM_QUANTIZERS.keys()))
     def case_quant_lstm(
             self, bidirectional, cifg, num_layers, weight_bit_width, quantizers, request):
 
