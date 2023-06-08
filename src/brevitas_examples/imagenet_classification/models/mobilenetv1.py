@@ -40,11 +40,6 @@ from .common import CommonIntWeightPerChannelQuant
 from .common import CommonIntWeightPerTensorQuant
 from .common import CommonUintActQuant
 
-FIRST_LAYER_BIT_WIDTH = 8
-FIRST_LAYER_STRIDE = 2
-LAST_LAYER_BIT_WIDTH = 8
-AVG_POOL_KERNEL_SIZE = 7
-
 
 class DwsConvBlock(nn.Module):
 
@@ -136,8 +131,12 @@ class MobileNet(nn.Module):
             weight_bit_width,
             round_average_pool=True,
             weight_quant=CommonIntWeightPerChannelQuant,
+            first_layer_bit_width=8,
             first_layer_weight_quant=CommonIntWeightPerChannelQuant,
             last_layer_weight_quant=CommonIntWeightPerTensorQuant,
+            last_layer_bit_width=8,
+            avg_pool_kernel_size=7,
+            first_layer_stride=2,
             in_channels=3,
             num_classes=1000):
         super(MobileNet, self).__init__()
@@ -148,8 +147,8 @@ class MobileNet(nn.Module):
             in_channels=in_channels,
             out_channels=init_block_channels,
             kernel_size=3,
-            stride=FIRST_LAYER_STRIDE,
-            weight_bit_width=FIRST_LAYER_BIT_WIDTH,
+            stride=first_layer_stride,
+            weight_bit_width=first_layer_bit_width,
             weight_quant=first_layer_weight_quant,
             act_bit_width=act_bit_width,
             activation_scaling_per_channel=True)
@@ -174,9 +173,9 @@ class MobileNet(nn.Module):
         # Exporting to torch or ONNX qcdq requires round
         avgpool_float_to_int_impl_type = 'ROUND' if round_average_pool else 'FLOOR'
         self.final_pool = TruncAvgPool2d(
-            kernel_size=AVG_POOL_KERNEL_SIZE,
+            kernel_size=avg_pool_kernel_size,
             stride=1,
-            bit_width=LAST_LAYER_BIT_WIDTH,
+            bit_width=last_layer_bit_width,
             float_to_int_impl_type=avgpool_float_to_int_impl_type)
         self.output = QuantLinear(
             in_channels,
@@ -184,7 +183,7 @@ class MobileNet(nn.Module):
             bias=True,
             bias_quant=IntBias,
             weight_quant=last_layer_weight_quant,
-            weight_bit_width=LAST_LAYER_BIT_WIDTH)
+            weight_bit_width=last_layer_bit_width)
 
     def forward(self, x):
         x = self.features(x)
