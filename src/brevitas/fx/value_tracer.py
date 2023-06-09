@@ -629,7 +629,7 @@ class ValueTracer(Tracer):
                                 else lambda node,
                                 value: ParameterProxy(self, node, n, attr_val))
                         val_proxy = self.create_proxy(
-                            "get_attr", n, (), {}, **kwargs, value=value)  # type: ignore[arg-type]
+                            "get_attr", n, (), {}, **kwargs, value=p)  # type: ignore[arg-type]
                         parameter_proxy_cache[n] = val_proxy
                     return parameter_proxy_cache[n]
             return None
@@ -822,7 +822,10 @@ class ValueTracer(Tracer):
             @functools.wraps(_orig_module_getattr)
             def module_getattr_wrapper(mod, attr):
                 attr_val = _orig_module_getattr(mod, attr)
-                return self.getattr(attr, attr_val, parameter_proxy_cache)
+                if self.concrete_mode:
+                    return attr_val
+                else:
+                    return self.getattr(attr, attr_val, parameter_proxy_cache)
 
             @functools.wraps(_orig_module_call)
             def module_call_wrapper(mod, *args, **kwargs):
@@ -835,7 +838,10 @@ class ValueTracer(Tracer):
                     getattr(getattr(mod, "forward", mod), "__globals__", {}),
                     self._autowrap_function_ids,
                 )
-                return self.call_module(mod, forward, args, kwargs)
+                if self.concrete_mode:
+                    return mod(*args, **kwargs)
+                else:
+                    return self.call_module(mod, forward, args, kwargs)
 
             with _Patcher() as patcher:
                 # allow duplicate patches to support the case of nested calls
