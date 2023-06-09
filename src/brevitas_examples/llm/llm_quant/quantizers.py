@@ -9,6 +9,8 @@ from brevitas.core.scaling import StatsFromParameterScaling
 from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.inject import this
 from brevitas.inject import value
+from brevitas.quant.scaled_int import Int8ActPerTensorFloat
+from brevitas.quant.scaled_int import Int8ActPerTensorFloatMSE
 from brevitas.quant.scaled_int import Int8WeightPerChannelFloat
 
 from .quant_blocks import *
@@ -72,3 +74,11 @@ class ShiftedUintWeightAsymmetricGroupQuant(IntWeightSymmetricGroupQuant):
     wrapped_zero_point_impl = ParameterFromStatsFromParameterZeroPoint
     quantize_zero_point = False
     signed = False
+
+
+class Int8ActPerRowFloat(Int8ActPerTensorFloat):
+    scaling_per_output_channel = True
+
+
+class Int8ActPerRowFloatMSE(Int8ActPerTensorFloatMSE):
+    scaling_per_output_channel = True
