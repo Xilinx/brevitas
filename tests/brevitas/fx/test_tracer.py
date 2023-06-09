@@ -14,8 +14,8 @@ from torchvision.models import shufflenet_v2_x0_5
 from torchvision.models import squeezenet1_0
 
 from brevitas.fx import brevitas_symbolic_trace
-from brevitas.fx import brevitas_value_trace
 from brevitas.fx import value_trace
+from brevitas.quant_tensor import QuantTensor
 
 SEED = 123456
 INPUT_SIZE = (2, 3, 224, 224)
@@ -28,14 +28,17 @@ TV_MODELS = [
 @pytest.mark.parametrize("pretrained", [True, False])
 @pytest.mark.parametrize("train", [True, False])
 @pytest.mark.parametrize("model_impl", TV_MODELS)
-def test_brevitas_value_tracer(model_impl, train: bool, pretrained: bool):
+def test_value_tracer(model_impl, train: bool, pretrained: bool):
     model = model_impl(pretrained=pretrained)
     model = model.train(train)
     torch.manual_seed(SEED)
     inp = torch.randn(INPUT_SIZE)
+    # Use a different input for tracing
+    # to test for baked in values
+    trace_inp = torch.randn(INPUT_SIZE)
     torch.manual_seed(SEED)
     with torch.no_grad():
-        graph_model = brevitas_value_trace(model, concrete_args={'x': inp})
+        graph_model = value_trace(model, value_args={'x': trace_inp})
         torch.manual_seed(SEED)
         out = model(inp)
         torch.manual_seed(SEED)
@@ -151,6 +154,19 @@ class TorchNoneModule(Module):
         return x
 
 
+class TorchNone2Module(Module):
+
+    def fn(self, x, y=None):
+        if y is None:
+            return x + 10
+        else:
+            return x
+
+    def forward(self, x: Tensor):
+        self.fn(x, None)
+        return x
+
+
 class TorchCondModule(Module):
 
     def forward(self, x: Tensor):
@@ -158,6 +174,24 @@ class TorchCondModule(Module):
         if (x > 0).all():
             x = torch.add(x, x)
         return x
+
+
+class TorchIsInstanceModule(Module):
+
+    def forward(self, x: Tensor):
+        print(x.__class__)
+        if isinstance(x, torch.Tensor):
+            x = torch.add(x, x)
+        return x
+
+
+class QuantTensorInputModule(torch.nn.Module):
+
+    def forward(self, x):
+        if isinstance(x, QuantTensor):
+            return x + x
+        else:
+            return x
 
 
 MODULES = [
@@ -171,16 +205,21 @@ MODULES = [
     CatChunkRolledModule,
     CatChunkUnpackModule,
     TorchNoneModule,
+    TorchNone2Module,
+    TorchIsInstanceModule,
     TorchCondModule]
+
+QUANT_TENSOR_MODULES = [QuantTensorInputModule]
 
 
 @pytest.mark.parametrize('module', MODULES)
 def test_module(module):
     mod = module()
     x = torch.randn(INPUT_SIZE)
+    x_trace = torch.randn(INPUT_SIZE)
     with torch.no_grad():
         out = mod(x.clone())
-        graph_model = value_trace(mod, {'x': x.clone()})
+        graph_model = value_trace(mod, value_args={'x': x_trace})
         graph_out = graph_model(x.clone())
         if isinstance(out, (tuple, list)):
             assert isinstance(graph_out, (tuple, list))
@@ -188,3 +227,15 @@ def test_module(module):
                 assert o.isclose(reference).all().item()
         else:
             assert graph_out.isclose(out).all().item()
+
+
+@pytest.mark.parametrize('module', QUANT_TENSOR_MODULES)
+def test_quant_module(module):
+    mod = module()
+    x = QuantTensor(torch.randn(INPUT_SIZE))
+    x_trace = QuantTensor(torch.randn(INPUT_SIZE))
+    with torch.no_grad():
+        out = mod(x)
+        graph_model = value_trace(mod, value_args={'x': x_trace})
+        graph_out = graph_model(x)
+        assert graph_out.value.isclose(out.value).all().item()

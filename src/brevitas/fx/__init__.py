@@ -6,7 +6,8 @@ import torch
 
 from brevitas import torch_version
 
-if torch_version < version.parse('2.0.1'):
+# This needs to be bumped until https://github.com/pytorch/pytorch/pull/94461 gets merged
+if torch_version < version.parse('2.1'):
     import brevitas.backport.fx as fx
     from brevitas.backport.fx._compatibility import compatibility
     from brevitas.backport.fx._symbolic_trace import _assert_is_none
@@ -72,7 +73,7 @@ else:
     import torch.fx.traceback as fx_traceback
     from torch.fx._symbolic_trace import _is_fx_tracing_flag
     from torch.fx._symbolic_trace import _proxyable_classes
-    from torch.fx.experimental.proxy_tensor import proxy_tensor
+    from torch.fx.experimental import proxy_tensor
 
 from .brevitas_tracer import brevitas_symbolic_trace
 from .brevitas_tracer import brevitas_value_trace
