@@ -70,6 +70,8 @@ class QuantWeightMixin(QuantProxyMixin):
             # generate slices for the weight tensor based on the list passed in
             weight_slice_tuple = tuple(
                 slice(*s) if s is not None else slice(s) for s in subtensor_slice_list)
+        else:
+            weight_slice_tuple = slice(None)
         if self.weight_quant_requires_quant_input:
             if self.is_weight_quant_enabled:
                 if quant_input is None:
