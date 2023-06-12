@@ -412,11 +412,13 @@ class MSE(torch.nn.Module):
             self,
             proxy_module,
             mse_init_op,
+            inner_stats_input_view_shape_impl: torch.nn.Module,
             stats_reduce_dim: Optional[int] = None,
             mse_search_method='fibonacci',
             mse_iters=10):
         super(MSE, self).__init__()
         self.mse_init_op = mse_init_op
+        self.input_view_shape_impl = inner_stats_input_view_shape_impl
         self.proxy_forward = proxy_module.forward
         self.set_local_loss_mode = lambda enabled: _set_local_loss_mode(proxy_module, enabled)
         self.internal_candidate = None
@@ -426,10 +428,10 @@ class MSE(torch.nn.Module):
         self.local_loss_mode: bool = False
 
     def mse_loss_fn(self, x, quant_value):
-        # squeeze is a workaround for ConvTranpose per-channel weights
-        # where broadcasting generates an extra leading dim of size 1
-        loss = torch.nn.functional.mse_loss(x, quant_value.squeeze(), reduction='none')
+        loss = torch.nn.functional.mse_loss(x, quant_value, reduction='none')
         if self.stats_reduce_dim is not None:
+            # stats_reduce_dim applies to the permuted and reshaped tensor
+            loss = self.input_view_shape_impl(loss)
             loss = torch.sum(loss, dim=self.stats_reduce_dim)
         else:
             loss = torch.sum(loss)
@@ -483,7 +485,8 @@ class MSE(torch.nn.Module):
         return torch.where(f1 <= f2, x1, x2)
 
     def mse_search(self, x):
-        init = self.mse_init_op(x).detach()
+        x_view = self.input_view_shape_impl(x)
+        init = self.mse_init_op(x_view).detach()
         base = init / self.num
         if self.search_method == 'grid':
             best_candidate = self.mse_grid_search(base, x)
@@ -502,5 +505,6 @@ class MSE(torch.nn.Module):
         else:
             # This is invoked for the zero-point whenever scale is being optimized first
             if self.internal_candidate is None:
+                x = self.input_view_shape_impl(x)
                 self.internal_candidate = self.mse_init_op(x).detach()
             return self.internal_candidate
