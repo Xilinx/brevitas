@@ -42,6 +42,8 @@ class QuantConv1d(QuantWBIOL, Conv1d):
             input_quant: Optional[ActQuantType] = None,
             output_quant: Optional[ActQuantType] = None,
             return_quant_tensor: bool = False,
+            device: Optional[torch.device] = None,
+            dtype: Optional[torch.dtype] = None,
             **kwargs) -> None:
         Conv1d.__init__(
             self,
@@ -52,7 +54,9 @@ class QuantConv1d(QuantWBIOL, Conv1d):
             padding=padding,
             dilation=dilation,
             groups=groups,
-            bias=bias)
+            bias=bias,
+            device=device,
+            dtype=dtype)
         QuantWBIOL.__init__(
             self,
             weight_quant=weight_quant,
@@ -133,6 +137,8 @@ class QuantConv2d(QuantWBIOL, Conv2d):
             input_quant: Optional[ActQuantType] = None,
             output_quant: Optional[ActQuantType] = None,
             return_quant_tensor: bool = False,
+            device: Optional[torch.device] = None,
+            dtype: Optional[torch.dtype] = None,
             **kwargs) -> None:
         Conv2d.__init__(
             self,
@@ -143,7 +149,9 @@ class QuantConv2d(QuantWBIOL, Conv2d):
             padding=padding,
             dilation=dilation,
             groups=groups,
-            bias=bias)
+            bias=bias,
+            device=device,
+            dtype=dtype)
         QuantWBIOL.__init__(
             self,
             weight_quant=weight_quant,
