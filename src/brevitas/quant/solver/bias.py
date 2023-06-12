@@ -78,7 +78,8 @@ class BiasQuantSolver(SolveScalingStatsInputViewShapeImplFromEnum,
                       SolveBiasBitWidthImplFromEnum,
                       SolveBiasScalingPerOutputChannelShapeFromModule,
                       SolveBiasScalingStatsInputConcatDimFromModule,
-                      SolveBiasTensorQuantFromEnum):
+                      SolveBiasTensorQuantFromEnum,
+                      SolveDtypeDeviceFromTrackedParameterList):
     """
     Translate enum directives to bias-specific quantization core modules.
     It should be placed last in the list of classes a quantizer inherits from,

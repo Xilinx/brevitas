@@ -28,7 +28,8 @@ __all__ = [
     'SolveScalingStatsOpFromEnum',
     'SolveBitWidthImplFromEnum',
     'SolveStatsReduceDimFromEnum',
-    'SolveScalingStatsInputViewShapeImplFromEnum']
+    'SolveScalingStatsInputViewShapeImplFromEnum',
+    'SolveDtypeDeviceFromTrackedParameterList']
 
 
 def solve_float_to_int_impl_from_enum(impl_type):
@@ -194,3 +195,20 @@ class SolveScalingStatsInputViewShapeImplFromEnum(ExtendedInjector):
     def permute_dims(scaling_stats_permute_dims):
         # retrocompatibility with older activation per-channel scaling API
         return scaling_stats_permute_dims
+
+
+class SolveDtypeDeviceFromTrackedParameterList(ExtendedInjector):
+
+    @value
+    def dtype(tracked_parameter_list):
+        if len(tracked_parameter_list) > 0:
+            return tracked_parameter_list[0].dtype
+        else:
+            return None
+
+    @value
+    def device(tracked_parameter_list):
+        if len(tracked_parameter_list) > 0:
+            return tracked_parameter_list[0].device
+        else:
+            return None

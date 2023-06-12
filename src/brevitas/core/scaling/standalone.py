@@ -61,17 +61,20 @@ class ConstScaling(brevitas.jit.ScriptModule):
             self,
             scaling_init: Union[float, Tensor],
             restrict_scaling_impl: Optional[Module] = None,
-            scaling_min_val: Optional[float] = None) -> None:
+            scaling_min_val: Optional[float] = None,
+            dtype: Optional[torch.dtype] = None,
+            device: Optional[torch.device] = None) -> None:
         super(ConstScaling, self).__init__()
         self.restrict_clamp_scaling = _RestrictClampValue(scaling_min_val, restrict_scaling_impl)
         if isinstance(scaling_init, Tensor):
+            scaling_init = scaling_init.to(device=device, dtype=dtype)
             if restrict_scaling_impl is not None:
                 scaling_init = restrict_scaling_impl.restrict_init_tensor(scaling_init)
             self.value = StatelessBuffer(scaling_init.detach())
         else:
             if restrict_scaling_impl is not None:
                 scaling_init = restrict_scaling_impl.restrict_init_float(scaling_init)
-            self.value = StatelessBuffer(torch.tensor(scaling_init))
+            self.value = StatelessBuffer(torch.tensor(scaling_init, dtype=dtype, device=device))
 
     @brevitas.jit.script_method
     def forward(self, placeholder: Tensor) -> Tensor:
@@ -124,7 +127,9 @@ class ParameterScaling(brevitas.jit.ScriptModule):
             scaling_init: Union[float, Tensor],
             scaling_shape: Optional[Tuple[int, ...]] = None,
             restrict_scaling_impl: Optional[Module] = None,
-            scaling_min_val: Optional[float] = None) -> None:
+            scaling_min_val: Optional[float] = None,
+            dtype: Optional[torch.dtype] = None,
+            device: Optional[torch.device] = None) -> None:
         super(ParameterScaling, self).__init__()
 
         if (isinstance(scaling_init, Tensor) and scaling_shape is not None and
@@ -132,13 +137,14 @@ class ParameterScaling(brevitas.jit.ScriptModule):
             raise RuntimeError("scaling_init.shape is non-scalar and != from scaling_shape.")
 
         if isinstance(scaling_init, Tensor):
+            scaling_init = scaling_init.to(device=device, dtype=dtype)
             scaling_init = scaling_init.detach()
         else:
-            scaling_init = torch.tensor(scaling_init)
+            scaling_init = torch.tensor(scaling_init, dtype=dtype, device=device)
         if restrict_scaling_impl is not None:
             scaling_init = restrict_scaling_impl.restrict_init_tensor(scaling_init)
         if scaling_init.shape == SCALAR_SHAPE and scaling_shape is not None:
-            scaling_init = torch.full(scaling_shape, scaling_init)
+            scaling_init = torch.full(scaling_shape, scaling_init, dtype=dtype, device=device)
         self.value = Parameter(scaling_init)
         self.restrict_clamp_scaling = _RestrictClampValue(scaling_min_val, restrict_scaling_impl)
 
@@ -174,7 +180,9 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
             tracked_parameter_list: List[torch.nn.Parameter],
             restrict_scaling_impl: Module,
             scaling_shape: Tuple[int, ...],
-            scaling_min_val: Optional[float] = None) -> None:
+            scaling_min_val: Optional[float] = None,
+            dtype: Optional[torch.dtype] = None,
+            device: Optional[torch.device] = None) -> None:
         super(ParameterFromStatsFromParameterScaling, self).__init__()
         self.parameter_list_stats = _ParameterListStats(
             scaling_stats_impl,
@@ -183,14 +191,14 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
             scaling_stats_input_concat_dim,
             tracked_parameter_list)
         self.stats_scaling_impl = _StatsScaling(
-            restrict_scaling_impl, scaling_shape, scaling_min_val, False, False)
+            restrict_scaling_impl, scaling_shape, scaling_min_val, False, False, dtype, device)
         self.init_done: bool = brevitas.jit.Attribute(False, bool)
         self.local_loss_mode: bool = brevitas.jit.Attribute(False, bool)
         if restrict_scaling_impl is not None:
             self.restrict_inplace_preprocess = restrict_scaling_impl.restrict_init_inplace_module()
         else:
             self.restrict_inplace_preprocess = Identity()
-        self.value = Parameter(torch.full(scaling_shape, 1.0))
+        self.value = Parameter(torch.full(scaling_shape, 1.0, dtype=dtype, device=device))
 
     @brevitas.jit.script_method
     def forward(self, ignored: torch.Tensor) -> torch.Tensor:
@@ -287,7 +295,9 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             scaling_shape: Tuple[int, ...] = SCALAR_SHAPE,
             restrict_scaling_impl: Optional[Module] = None,
             scaling_stats_momentum: Optional[float] = DEFAULT_MOMENTUM,
-            scaling_min_val: Optional[float] = None) -> None:
+            scaling_min_val: Optional[float] = None,
+            dtype: Optional[torch.dtype] = None,
+            device: Optional[torch.device] = None) -> None:
         super(ParameterFromRuntimeStatsScaling, self).__init__()
         assert collect_stats_steps > 0, 'Steps should be more than 0'
         self.collect_stats_steps: int = brevitas.jit.Attribute(collect_stats_steps, int)
@@ -295,8 +305,8 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
         self.stats_input_view_shape_impl = scaling_stats_input_view_shape_impl
         self.stats = _Stats(scaling_stats_impl, scaling_shape)
         self.momentum = scaling_stats_momentum
-        self.register_buffer('buffer', torch.full(scaling_shape, 1.0))
-        self.value = Parameter(torch.full(scaling_shape, 1.0))
+        self.register_buffer('buffer', torch.full(scaling_shape, 1.0, dtype=dtype, device=device))
+        self.value = Parameter(torch.full(scaling_shape, 1.0, dtype=dtype, device=device))
         self.restrict_scaling = _RestrictValue(restrict_scaling_impl)
         self.clamp_scaling = _ClampValue(scaling_min_val)
         self.local_loss_mode: bool = brevitas.jit.Attribute(

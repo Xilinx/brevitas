@@ -29,9 +29,12 @@ __all__ = [
 
 class ZeroZeroPoint(brevitas.jit.ScriptModule):
 
-    def __init__(self) -> None:
+    def __init__(
+            self,
+            dtype: Optional[torch.dtype] = None,
+            device: Optional[torch.device] = None) -> None:
         super(ZeroZeroPoint, self).__init__()
-        self.zero_point = StatelessBuffer(torch.tensor(0.0))
+        self.zero_point = StatelessBuffer(torch.tensor(0.0, dtype=dtype, device=device))
 
     @brevitas.jit.script_method
     def forward(self, x: Tensor, scale: Tensor, bit_width: Tensor) -> Tensor:
@@ -93,7 +96,9 @@ class ParameterFromRuntimeZeroPoint(brevitas.jit.ScriptModule):
             zero_point_stats_impl: Optional[int],
             zero_point_shape: Tuple[int, ...],
             zero_point_stats_input_view_shape_impl: Module,
-            zero_point_stats_momentum: Optional[float] = DEFAULT_MOMENTUM) -> None:
+            zero_point_stats_momentum: Optional[float] = DEFAULT_MOMENTUM,
+            dtype: Optional[torch.dtype] = None,
+            device: Optional[torch.device] = None) -> None:
         super(ParameterFromRuntimeZeroPoint, self).__init__()
         assert collect_stats_steps > 0, 'Steps should be more than 0'
         self.collect_stats_steps = collect_stats_steps
@@ -101,8 +106,9 @@ class ParameterFromRuntimeZeroPoint(brevitas.jit.ScriptModule):
         self.zero_point_shape = zero_point_shape
         self.stats_input_view_shape_impl = zero_point_stats_input_view_shape_impl
         self.momentum = zero_point_stats_momentum
-        self.value = Parameter(torch.full(zero_point_shape, 0.0))
-        self.register_buffer('buffer', torch.full(zero_point_shape, 0.0))
+        self.value = Parameter(torch.full(zero_point_shape, 0.0, dtype=dtype, device=device))
+        self.register_buffer(
+            'buffer', torch.full(zero_point_shape, 0.0, dtype=dtype, device=device))
         self.zero_point_stats_impl = zero_point_stats_impl
         self.scale_shift_zero_point = _ScaleShiftZeroPoint(int_quant, quantize_zero_point)
         self.local_loss_mode: bool = brevitas.jit.Attribute(False, bool)
@@ -186,7 +192,9 @@ class ParameterZeroPoint(brevitas.jit.ScriptModule):
             zero_point_init: Union[float, torch.Tensor],
             int_quant: Module,
             quantize_zero_point: bool,
-            zero_point_shape: Tuple[int, ...] = None) -> None:
+            zero_point_shape: Tuple[int, ...] = None,
+            dtype: Optional[torch.dtype] = None,
+            device: Optional[torch.device] = None) -> None:
         super(ParameterZeroPoint, self).__init__()
         if (isinstance(zero_point_init, Tensor) and zero_point_shape is not None and
                 zero_point_init.shape != SCALAR_SHAPE and
@@ -194,11 +202,13 @@ class ParameterZeroPoint(brevitas.jit.ScriptModule):
             raise RuntimeError("zero_point_init.shape is non-scalar and != from zero_point_shape.")
 
         if isinstance(zero_point_init, Tensor):
+            zero_point_init = zero_point_init.to(dtype=dtype, device=device)
             zero_point_init = zero_point_init.detach()
         else:
-            zero_point_init = torch.tensor(zero_point_init)
+            zero_point_init = torch.tensor(zero_point_init, dtype=dtype, device=device)
         if zero_point_init.shape == SCALAR_SHAPE and zero_point_shape is not None:
-            zero_point_init = torch.full(zero_point_shape, zero_point_init)
+            zero_point_init = torch.full(
+                zero_point_shape, zero_point_init, dtype=dtype, device=device)
         self.value = Parameter(zero_point_init)
         self.scale_shift_zero_point = _ScaleShiftZeroPoint(int_quant, quantize_zero_point)
 
@@ -232,7 +242,9 @@ class ParameterFromStatsFromParameterZeroPoint(brevitas.jit.ScriptModule):
             zero_point_stats_input_concat_dim: int,
             zero_point_stats_impl: Module,
             zero_point_shape: Tuple[int, ...],
-            tracked_parameter_list: List[torch.nn.Parameter]) -> None:
+            tracked_parameter_list: List[torch.nn.Parameter],
+            dtype: Optional[torch.dtype] = None,
+            device: Optional[torch.device] = None) -> None:
         super(ParameterFromStatsFromParameterZeroPoint, self).__init__()
         self.parameter_list_stats = _ParameterListStats(
             zero_point_stats_impl,
@@ -243,7 +255,7 @@ class ParameterFromStatsFromParameterZeroPoint(brevitas.jit.ScriptModule):
         self.scale_shift_zero_point = _ScaleShiftZeroPoint(int_quant, quantize_zero_point)
         self.init_done: bool = brevitas.jit.Attribute(False, bool)
         self.local_loss_mode: bool = brevitas.jit.Attribute(False, bool)
-        self.value = Parameter(torch.full(zero_point_shape, 0.0))
+        self.value = Parameter(torch.full(zero_point_shape, 0.0, dtype=dtype, device=device))
 
     @brevitas.jit.script_method
     def forward(self, x: Tensor, scale: Tensor, bit_width: Tensor) -> torch.Tensor:

@@ -1,6 +1,8 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from typing import Optional
+
 import torch
 from torch import Tensor
 from torch.nn import Module
@@ -52,7 +54,9 @@ class BitWidthParameter(brevitas.jit.ScriptModule):
             bit_width: int,
             min_bit_width: int = MIN_INT_BIT_WIDTH,
             restrict_bit_width_impl: Module = IntRestrictValue(RoundSte()),
-            override_pretrained_bit_width: bool = False) -> None:
+            override_pretrained_bit_width: bool = False,
+            dtype: Optional[torch.dtype] = None,
+            device: Optional[torch.device] = None) -> None:
         super(BitWidthParameter, self).__init__()
 
         if bit_width < MIN_INT_BIT_WIDTH:
@@ -75,7 +79,8 @@ class BitWidthParameter(brevitas.jit.ScriptModule):
         bit_width_base = restrict_bit_width_impl.restrict_init_float(min_bit_width)
         bit_width = restrict_bit_width_impl.restrict_init_float(bit_width)
         bit_width_offset_init = bit_width - bit_width_base
-        self.bit_width_offset = Parameter(torch.tensor(bit_width_offset_init))
+        self.bit_width_offset = Parameter(
+            torch.tensor(bit_width_offset_init, dtype=dtype, device=device))
         self.bit_width_base = bit_width_base
         self.restrict_bit_width_impl = restrict_bit_width_impl
         self.override_pretrained = override_pretrained_bit_width
@@ -113,7 +118,9 @@ class RemoveBitwidthParameter(brevitas.jit.ScriptModule):
             bit_width_to_remove: int,
             override_pretrained_bit_width: bool = False,
             non_zero_epsilon: float = NON_ZERO_EPSILON,
-            remove_zero_bit_width=REMOVE_ZERO_BIT_WIDTH):
+            remove_zero_bit_width=REMOVE_ZERO_BIT_WIDTH,
+            dtype: Optional[torch.dtype] = None,
+            device: Optional[torch.device] = None):
         super(RemoveBitwidthParameter, self).__init__()
 
         if bit_width_to_remove < 0:
@@ -122,7 +129,8 @@ class RemoveBitwidthParameter(brevitas.jit.ScriptModule):
             bit_width_coeff_init = 1 / remove_zero_bit_width
         else:
             bit_width_coeff_init = 1 / bit_width_to_remove
-        self.bit_width_coeff = Parameter(torch.tensor(bit_width_coeff_init))
+        self.bit_width_coeff = Parameter(
+            torch.tensor(bit_width_coeff_init, dtype=dtype, device=device))
         self.non_zero_epsilon = non_zero_epsilon
         self.override_pretrained = override_pretrained_bit_width
 

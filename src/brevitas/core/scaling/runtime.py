@@ -31,7 +31,9 @@ class StatsFromParameterScaling(brevitas.jit.ScriptModule):
             scaling_shape: Tuple[int, ...],
             affine_rescaling: bool = False,
             affine_shift_scale: bool = False,
-            scaling_min_val: Optional[float] = None) -> None:
+            scaling_min_val: Optional[float] = None,
+            dtype: Optional[torch.dtype] = None,
+            device: Optional[torch.device] = None) -> None:
         super(StatsFromParameterScaling, self).__init__()
         self.parameter_list_stats = _ParameterListStats(
             scaling_stats_impl,
@@ -44,7 +46,9 @@ class StatsFromParameterScaling(brevitas.jit.ScriptModule):
             scaling_shape,
             scaling_min_val,
             affine_rescaling,
-            affine_shift_scale)
+            affine_shift_scale,
+            dtype,
+            device)
 
     @brevitas.jit.script_method
     def forward(self, ignored: torch.Tensor) -> torch.Tensor:
@@ -60,13 +64,16 @@ class _StatsScaling(brevitas.jit.ScriptModule):
             scaling_shape: Tuple[int, ...],
             scaling_min_val: Optional[float],
             affine_rescaling: bool,
-            affine_shift_scale: bool) -> None:
+            affine_shift_scale: bool,
+            dtype: Optional[torch.dtype],
+            device: Optional[torch.device]) -> None:
         super(_StatsScaling, self).__init__()
         if affine_shift_scale and not affine_rescaling:
             raise RuntimeError(
                 "Disabling shifting of the scale requires to enable affine rescaling first.")
         if affine_rescaling:
-            self.affine_rescaling = _AffineRescaling(scaling_shape, affine_shift_scale)
+            self.affine_rescaling = _AffineRescaling(
+                scaling_shape, affine_shift_scale, dtype, device)
         else:
             self.affine_rescaling = Identity()
         self.restrict_clamp_scaling = _RestrictClampValue(scaling_min_val, restrict_scaling_impl)
@@ -91,7 +98,9 @@ class RuntimeStatsScaling(brevitas.jit.ScriptModule):
             affine_rescaling: bool = False,
             affine_shift_scale: bool = False,
             scaling_stats_momentum: float = DEFAULT_MOMENTUM,
-            scaling_min_val: Optional[float] = None) -> None:
+            scaling_min_val: Optional[float] = None,
+            dtype: Optional[torch.dtype] = None,
+            device: Optional[torch.device] = None) -> None:
         super(RuntimeStatsScaling, self).__init__()
 
         self.runtime_stats = _RuntimeStats(
@@ -104,7 +113,9 @@ class RuntimeStatsScaling(brevitas.jit.ScriptModule):
             scaling_shape,
             scaling_min_val,
             affine_rescaling,
-            affine_shift_scale)
+            affine_shift_scale,
+            dtype,
+            device)
 
     @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
@@ -114,13 +125,19 @@ class RuntimeStatsScaling(brevitas.jit.ScriptModule):
 
 class _AffineRescaling(brevitas.jit.ScriptModule):
 
-    def __init__(self, scaling_shape, shift_scale):
+    def __init__(
+            self,
+            scaling_shape,
+            shift_scale,
+            dtype: Optional[torch.dtype],
+            device: Optional[torch.device]):
         super(_AffineRescaling, self).__init__()
-        self.affine_weight = Parameter(torch.ones(scaling_shape))
+        self.affine_weight = Parameter(torch.ones(scaling_shape, dtype=dtype, device=device))
         if shift_scale:
-            self.affine_bias = ParameterWrapper(torch.zeros(scaling_shape))
+            self.affine_bias = ParameterWrapper(
+                torch.zeros(scaling_shape, dtype=dtype, device=device))
         else:
-            self.affine_bias = StatelessBuffer(torch.tensor(0.))
+            self.affine_bias = StatelessBuffer(torch.tensor(0., dtype=dtype, device=device))
 
     @brevitas.jit.script_method
     def forward(self, x):
