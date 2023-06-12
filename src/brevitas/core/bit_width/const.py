@@ -1,6 +1,8 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from typing import Optional
+
 import torch
 from torch import Tensor
 from torch.nn import Module
@@ -31,10 +33,14 @@ class BitWidthConst(brevitas.jit.ScriptModule):
         Maps to bit_width_impl_type == BitWidthImplType.CONST == 'CONST' == 'const' in higher-level APIs.
     """
 
-    def __init__(self, bit_width: int) -> None:
+    def __init__(
+            self,
+            bit_width: int,
+            dtype: Optional[torch.dtype] = None,
+            device: Optional[torch.device] = None) -> None:
         super(BitWidthConst, self).__init__()
         assert isinstance(bit_width, int)
-        self.bit_width = StatelessBuffer(torch.tensor(float(bit_width)))
+        self.bit_width = StatelessBuffer(torch.tensor(float(bit_width), dtype=dtype, device=device))
 
     @brevitas.jit.script_method
     def forward(self) -> Tensor:
@@ -64,10 +70,15 @@ class BitWidthStatefulConst(brevitas.jit.ScriptModule):
         'stateful_const' in higher-level APIs.
     """
 
-    def __init__(self, bit_width: int) -> None:
+    def __init__(
+            self,
+            bit_width: int,
+            dtype: Optional[torch.dtype] = None,
+            device: Optional[torch.device] = None) -> None:
         super(BitWidthStatefulConst, self).__init__()
         assert isinstance(bit_width, int)
-        self.register_buffer("bit_width", torch.tensor(float(bit_width)))
+        self.register_buffer(
+            "bit_width", torch.tensor(float(bit_width), dtype=dtype, device=device))
 
     @brevitas.jit.script_method
     def forward(self) -> Tensor:

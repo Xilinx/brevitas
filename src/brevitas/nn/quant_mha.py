@@ -108,6 +108,8 @@ class QuantMultiheadAttention(Module):
             out_proj_output_quant=None,
             batch_first=False,
             return_quant_tensor=False,
+            device=None,
+            dtype=None,
             **kwargs) -> None:
         super(QuantMultiheadAttention, self).__init__()
         self.embed_dim = embed_dim
@@ -131,6 +133,8 @@ class QuantMultiheadAttention(Module):
                 input_quant=in_proj_input_quant,
                 weight_quant=in_proj_weight_quant,
                 bias_quant=in_proj_bias_quant,
+                device=device,
+                dtype=dtype,
                 **filter_kwargs('in_proj_'))
             self.q_proj = self.k_proj = self.v_proj = None
         else:
@@ -141,6 +145,8 @@ class QuantMultiheadAttention(Module):
                 input_quant=in_proj_input_quant,
                 weight_quant=in_proj_weight_quant,
                 bias_quant=in_proj_bias_quant,
+                device=device,
+                dtype=dtype,
                 **filter_kwargs('in_proj_'))
             self.k_proj = QuantLinear(
                 out_features=embed_dim,
@@ -149,6 +155,8 @@ class QuantMultiheadAttention(Module):
                 input_quant=in_proj_input_quant,
                 weight_quant=in_proj_weight_quant,
                 bias_quant=in_proj_bias_quant,
+                device=device,
+                dtype=dtype,
                 **filter_kwargs('in_proj_'))
             self.v_proj = QuantLinear(
                 out_features=embed_dim,
@@ -157,6 +165,8 @@ class QuantMultiheadAttention(Module):
                 input_quant=in_proj_input_quant,
                 weight_quant=in_proj_weight_quant,
                 bias_quant=in_proj_bias_quant,
+                device=device,
+                dtype=dtype,
                 **filter_kwargs('in_proj_'))
             self.in_proj = None
 
@@ -173,11 +183,13 @@ class QuantMultiheadAttention(Module):
             bias_quant=out_proj_bias_quant,
             output_quant=out_proj_output_quant,
             return_quant_tensor=return_quant_tensor,
+            device=device,
+            dtype=dtype,
             **filter_kwargs('out_proj_'))
 
         if add_bias_kv:
-            self.bias_k = Parameter(torch.empty((1, 1, embed_dim)))
-            self.bias_v = Parameter(torch.empty((1, 1, embed_dim)))
+            self.bias_k = Parameter(torch.empty((1, 1, embed_dim), device=device, dtype=dtype))
+            self.bias_v = Parameter(torch.empty((1, 1, embed_dim), device=device, dtype=dtype))
         else:
             self.bias_k = self.bias_v = None
 

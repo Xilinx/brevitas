@@ -43,6 +43,8 @@ class QuantConvTranspose1d(QuantWBIOL, ConvTranspose1d):
             input_quant: Optional[ActQuantType] = None,
             output_quant: Optional[ActQuantType] = None,
             return_quant_tensor: bool = False,
+            device: Optional[torch.device] = None,
+            dtype: Optional[torch.dtype] = None,
             **kwargs) -> None:
         ConvTranspose1d.__init__(
             self,
@@ -54,7 +56,9 @@ class QuantConvTranspose1d(QuantWBIOL, ConvTranspose1d):
             output_padding=output_padding,
             dilation=dilation,
             groups=groups,
-            bias=bias)
+            bias=bias,
+            device=device,
+            dtype=dtype)
         QuantWBIOL.__init__(
             self,
             weight_quant=weight_quant,
@@ -134,6 +138,8 @@ class QuantConvTranspose2d(QuantWBIOL, ConvTranspose2d):
             input_quant: Optional[ActQuantType] = None,
             output_quant: Optional[ActQuantType] = None,
             return_quant_tensor: bool = False,
+            device: Optional[torch.device] = None,
+            dtype: Optional[torch.dtype] = None,
             **kwargs) -> None:
         ConvTranspose2d.__init__(
             self,
@@ -145,7 +151,9 @@ class QuantConvTranspose2d(QuantWBIOL, ConvTranspose2d):
             output_padding=output_padding,
             dilation=dilation,
             groups=groups,
-            bias=bias)
+            bias=bias,
+            device=device,
+            dtype=dtype)
         QuantWBIOL.__init__(
             self,
             weight_quant=weight_quant,

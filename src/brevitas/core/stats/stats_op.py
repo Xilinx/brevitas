@@ -210,10 +210,12 @@ class MeanSigmaStd(brevitas.jit.ScriptModule):
             self,
             sigma: float,
             stats_reduce_dim: Optional[int] = None,
-            std_dev_epsilon: float = DEFAULT_STD_DEV_EPSILON) -> None:
+            std_dev_epsilon: float = DEFAULT_STD_DEV_EPSILON,
+            dtype: Optional[torch.dtype] = None,
+            device: Optional[torch.device] = None) -> None:
         super(MeanSigmaStd, self).__init__()
         self.impl = _MeanSigmaStdImpl(stats_reduce_dim, std_dev_epsilon)
-        self.sigma = StatelessBuffer(torch.tensor(sigma))
+        self.sigma = StatelessBuffer(torch.tensor(sigma, dtype=dtype, device=device))
 
     @brevitas.jit.script_method
     def forward(self, x: Tensor):
@@ -254,13 +256,16 @@ class MeanLearnedSigmaStd(brevitas.jit.ScriptModule):
             sigma: float,
             stats_output_shape: Tuple[int, ...],
             stats_reduce_dim: Optional[int] = None,
-            std_dev_epsilon: float = DEFAULT_STD_DEV_EPSILON) -> None:
+            std_dev_epsilon: float = DEFAULT_STD_DEV_EPSILON,
+            dtype: Optional[torch.dtype] = None,
+            device: Optional[torch.device] = None) -> None:
         super(MeanLearnedSigmaStd, self).__init__()
         self.impl = _MeanSigmaStdImpl(stats_reduce_dim, std_dev_epsilon)
         if stats_output_shape == SCALAR_SHAPE:
-            self.value = Parameter(torch.tensor(sigma))
+            self.value = Parameter(torch.tensor(sigma, dtype=dtype, device=device))
         else:
-            self.value = Parameter(torch.full(stats_output_shape, sigma))
+            self.value = Parameter(
+                torch.full(stats_output_shape, sigma, dtype=dtype, device=device))
 
     @brevitas.jit.script_method
     def forward(self, x: Tensor):
