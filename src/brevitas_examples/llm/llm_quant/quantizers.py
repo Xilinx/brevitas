@@ -12,6 +12,8 @@ from brevitas.inject import value
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8ActPerTensorFloatMSE
 from brevitas.quant.scaled_int import Int8WeightPerChannelFloat
+from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
+from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloatMSE
 
 from .quant_blocks import *
 
@@ -81,4 +83,12 @@ class Int8ActPerRowFloat(Int8ActPerTensorFloat):
 
 
 class Int8ActPerRowFloatMSE(Int8ActPerTensorFloatMSE):
+    scaling_per_output_channel = True
+
+
+class ShiftedUint8ActPerRowFloat(ShiftedUint8ActPerTensorFloat):
+    scaling_per_output_channel = True
+
+
+class ShiftedUint8ActPerRowFloatMSE(ShiftedUint8ActPerTensorFloatMSE):
     scaling_per_output_channel = True

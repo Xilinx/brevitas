@@ -26,7 +26,11 @@ from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloatMSE
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloatMSE
+from brevitas_examples.llm.llm_quant.quantizers import Int8ActPerRowFloat
+from brevitas_examples.llm.llm_quant.quantizers import Int8ActPerRowFloatMSE
 from brevitas_examples.llm.llm_quant.quantizers import IntWeightSymmetricGroupQuant
+from brevitas_examples.llm.llm_quant.quantizers import ShiftedUint8ActPerRowFloat
+from brevitas_examples.llm.llm_quant.quantizers import ShiftedUint8ActPerRowFloatMSE
 from brevitas_examples.llm.llm_quant.quantizers import ShiftedUintWeightAsymmetricGroupQuant
 
 WEIGHT_QUANT_MAP = {
@@ -61,10 +65,14 @@ INPUT_QUANT_MAP = {
     'float32': {
         'stats': {
             'per_tensor': {
-                'sym': Int8ActPerTensorFloat, 'asym': ShiftedUint8ActPerTensorFloat},},
+                'sym': Int8ActPerTensorFloat, 'asym': ShiftedUint8ActPerTensorFloat},
+            'per_row': {
+                'sym': Int8ActPerRowFloat, 'asym': ShiftedUint8ActPerRowFloat},},
         'mse': {
             'per_tensor': {
-                'sym': Int8ActPerTensorFloatMSE, 'asym': ShiftedUint8ActPerTensorFloatMSE},},},
+                'sym': Int8ActPerTensorFloatMSE, 'asym': ShiftedUint8ActPerTensorFloatMSE},
+            'per_row': {
+                'sym': Int8ActPerRowFloatMSE, 'asym': ShiftedUint8ActPerRowFloatMSE},},},
     'po2': {
         'stats': {
             'per_tensor': {
@@ -88,7 +96,8 @@ def quantize_model(
         input_param_method=None,
         input_quant_type=None,
         input_quant_granularity=None,
-        quantize_input_zero_point=False):
+        quantize_input_zero_point=False,
+        seqlen=None):
     """
     Replace float layers with quant layers in the target model
     """
@@ -101,9 +110,13 @@ def quantize_model(
         # Some activations in MHA should always be symmetric
         sym_input_quant = INPUT_QUANT_MAP[input_scale_type][input_param_method][
             input_quant_granularity]['sym']
+        # Linear layers with 2d input should always be per tensor
+        per_tensor_input_quant = INPUT_QUANT_MAP[input_scale_type][input_param_method][
+            'per_tensor'][input_quant_type]
     else:
         input_quant = None
         sym_input_quant = None
+        per_tensor_input_quant = None
 
     # Modify the weight quantizer based on the arguments passed in
     weight_quant = weight_quant.let(
@@ -125,24 +138,50 @@ def quantize_model(
         input_quant = input_quant.let(
             **{
                 'bit_width': input_bit_width, 'quantize_zero_point': quantize_input_zero_point})
+        if input_quant_granularity == 'per_row':
+            # QuantMHA internally always uses Seq, B, E
+            input_quant = input_quant.let(
+                **{
+                    'channel_dim': 0,
+                    'per_channel_broadcastable_shape': (seqlen, 1, 1),
+                    'scaling_stats_permute_dims': (0, 1, 2)})
     if sym_input_quant is not None:
         sym_input_quant = sym_input_quant.let(
             **{
                 'bit_width': input_bit_width, 'quantize_zero_point': quantize_input_zero_point})
+        if input_quant_granularity == 'per_row':
+            q_scaled_quant = sym_input_quant.let(
+                **{
+                    'per_channel_broadcastable_shape': (1, seqlen, 1),
+                    'scaling_stats_permute_dims': (1, 0, 2)})
+            k_transposed_quant = sym_input_quant.let(
+                **{
+                    'per_channel_broadcastable_shape': (1, 1, seqlen),
+                    'scaling_stats_permute_dims': (2, 0, 1)})
+            v_quant = q_scaled_quant
+            attn_output_weights_quant = q_scaled_quant
+        else:
+            q_scaled_quant = v_quant = k_transposed_quant = attn_output_weights_quant = sym_input_quant
+    else:
+        q_scaled_quant = v_quant = k_transposed_quant = attn_output_weights_quant = None
+    if per_tensor_input_quant is not None:
+        per_tensor_input_quant = per_tensor_input_quant.let(
+            **{
+                'bit_width': input_bit_width, 'quantize_zero_point': quantize_input_zero_point})
 
-    quant_linear_kwargs = {'input_quant': input_quant, 'weight_quant': weight_quant}
+    quant_linear_kwargs = {'input_quant': per_tensor_input_quant, 'weight_quant': weight_quant}
 
     quant_mha_kwargs = {
         'in_proj_input_quant': input_quant,
         'in_proj_weight_quant': weight_quant,
         'in_proj_bias_quant': None,
         'softmax_input_quant': None,
-        'attn_output_weights_quant': sym_input_quant,
+        'attn_output_weights_quant': attn_output_weights_quant,
         'attn_output_weights_signed': False,
-        'q_scaled_quant': sym_input_quant,
-        'k_transposed_quant': sym_input_quant,
-        'v_quant': sym_input_quant,
-        'out_proj_input_quant': input_quant,
+        'q_scaled_quant': q_scaled_quant,
+        'k_transposed_quant': k_transposed_quant,
+        'v_quant': v_quant,
+        'out_proj_input_quant': per_tensor_input_quant,
         'out_proj_weight_quant': weight_quant,
         'out_proj_bias_quant': None,
         'out_proj_output_quant': None,
