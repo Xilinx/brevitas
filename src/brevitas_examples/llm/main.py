@@ -92,7 +92,7 @@ parser.add_argument(
     '--input-quant-granularity',
     type=str,
     default='per_tensor',
-    choices=['per_tensor'],
+    choices=['per_tensor', 'per_row'],
     help='Granularity for scales/zero-point of inputs. Default: per_tensor.')
 parser.add_argument(
     '--quantize-input-zero-point', action='store_true', help='Quantize input zero-point.')
@@ -135,27 +135,27 @@ def model_export(model, ref_input, args):
 
 
 def validate(args):
-    if args.weight_quant_granularity == 'per_group':
-        assert args.input_bit_width is None, "Input quantization with per group weights not supported."
-        assert not args.quantize_weight_zero_point, "Quantized weight zero point not supported."
-    if args.export_target == 'sharded_torchmlir_group_weight':
-        assert args.weight_quant_granularity == 'per_group', "Sharded torch group export requires per group weight quant."
-        assert args.input_bit_width is None, "Sharded torch group weight export doesn't support input quant."
-    if args.export_target == 'sharded_packed_torchmlir_group_weight':
-        assert args.weight_quant_granularity == 'per_group', "Sharded torch group export requires per group weight quant."
-        assert args.input_bit_width is None, "Sharded packed torch group weight export doesn't support input quant."
-    if not args.no_quantize and args.export_target == 'onnx_qcdq':
-        assert args.weight_quant_granularity != 'per_group', "ONNX QCDQ export doesn't support group weight quantization."
-        if args.weight_quant_type == 'asym':
-            assert args.quantize_weight_zero_point, "Quantized weight zero point required."
-        if args.input_quant_type == 'asym':
-            assert args.quantize_input_zero_point, "Quantized input zero point required."
-    if not args.no_quantize and args.export_target == 'torch_qcdq':
-        assert args.weight_quant_granularity != 'per_group', "TorchScript QCDQ export doesn't support group weight quantization."
-        if args.weight_quant_type == 'asym':
-            assert args.quantize_weight_zero_point, "Quantized weight zero point required."
-        if args.input_quant_type == 'asym':
-            assert args.quantize_input_zero_point, "Quantized input zero point required."
+    if not args.no_quantize:
+        if args.export_target == 'sharded_torchmlir_group_weight':
+            assert args.weight_quant_granularity == 'per_group', "Sharded torch group export requires per group weight quant."
+            assert args.input_bit_width is None, "Sharded torch group weight export doesn't support input quant."
+            assert not args.quantize_weight_zero_point, "Quantized weight zero point not supported."
+        if args.export_target == 'sharded_packed_torchmlir_group_weight':
+            assert args.weight_quant_granularity == 'per_group', "Sharded torch group export requires per group weight quant."
+            assert args.input_bit_width is None, "Sharded packed torch group weight export doesn't support input quant."
+            assert not args.quantize_weight_zero_point, "Quantized weight zero point not supported."
+        if args.export_target == 'onnx_qcdq':
+            assert args.weight_quant_granularity != 'per_group', "ONNX QCDQ export doesn't support group weight quantization."
+            if args.weight_quant_type == 'asym':
+                assert args.quantize_weight_zero_point, "Quantized weight zero point required."
+            if args.input_quant_type == 'asym':
+                assert args.quantize_input_zero_point, "Quantized input zero point required."
+        if args.export_target == 'torch_qcdq':
+            assert args.weight_quant_granularity != 'per_group', "TorchScript QCDQ export doesn't support group weight quantization."
+            if args.weight_quant_type == 'asym':
+                assert args.quantize_weight_zero_point, "Quantized weight zero point required."
+            if args.input_quant_type == 'asym':
+                assert args.quantize_input_zero_point, "Quantized input zero point required."
 
 
 def main():
@@ -169,11 +169,12 @@ def main():
     print("Model loaded.")
     model.eval()
 
-    print("Replace HF MHA with quantizable variants...")
-    model = replace_mha_with_quantizable_layers(model)
-    print("Replacing done.")
+    if args.input_bit_width:
+        print("Replace HF MHA with quantizable variants...")
+        model = replace_mha_with_quantizable_layers(model)
+        print("Replacing done.")
 
-    if 'qcdq' in args.export_target or args.eval or args.act_equalization or args.act_calibration or args.gptq or args.bias_corr:
+    if args.export_target or args.eval or args.act_equalization or args.act_calibration or args.gptq or args.bias_corr:
         print("Data loading...")
         calibration_loader, val_data = get_c4(
             nsamples=args.nsamples, seed=args.seed, model=args.model, seqlen=args.seqlen)
@@ -200,7 +201,8 @@ def main():
             input_param_method=args.input_param_method,
             input_scale_type=args.input_scale_type,
             input_quant_granularity=args.input_quant_granularity,
-            quantize_input_zero_point=args.quantize_input_zero_point)
+            quantize_input_zero_point=args.quantize_input_zero_point,
+            seqlen=args.seqlen)
         print("Model quantization applied.")
 
     if args.act_calibration:
