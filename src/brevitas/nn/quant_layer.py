@@ -273,6 +273,13 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
     def max_acc_bit_width(self, input_bit_width: Tensor, quant_weight_bit_width: Tensor):
         pass
 
+    def quant_output_scale_impl(
+            self, inp: Tensor, quant_input_scale: Tensor, quant_weight_scale: Tensor):
+        output_scale_shape = compute_channel_view_shape(inp, channel_dim=1)
+        output_scale = quant_weight_scale.view(output_scale_shape)
+        output_scale = output_scale * quant_input_scale.view(output_scale_shape)
+        return output_scale
+
     @property
     def requires_export_handler(self):
         return (
@@ -306,9 +313,7 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
         if quant_input.bit_width is not None and quant_weight.bit_width is not None:
             output_bit_width = self.max_acc_bit_width(quant_input.bit_width, quant_weight.bit_width)
         if quant_input.scale is not None and quant_weight.scale is not None:
-            output_scale_shape = compute_channel_view_shape(inp, channel_dim=1)
-            output_scale = quant_weight.scale.view(output_scale_shape)
-            output_scale = output_scale * quant_input.scale.view(output_scale_shape)
+            output_scale = self.quant_output_scale_impl(inp, quant_input.scale, quant_weight.scale)
         if quant_input.signed is not None:
             output_signed = inp.signed or quant_weight.signed
 
@@ -320,11 +325,13 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
             output_tensor = self.inner_forward_impl(
                 quant_input.value, quant_weight.value, quant_bias.value)
 
-            if (output_scale is not None and
+            if (self.return_quant_tensor and output_scale is not None and
                 (quant_bias.scale is None or
                  (quant_bias.scale is not None and
                   quant_bias.scale.data_ptr() != output_scale.data_ptr()))):
-                output_zero_point = -quant_bias.value.view(output_scale_shape) / output_scale
+                output_scale_broadcast_shape = compute_channel_view_shape(inp, channel_dim=1)
+                output_zero_point = -quant_bias.value.view(
+                    output_scale_broadcast_shape) / output_scale
 
             if quant_bias.bit_width is not None and output_bit_width is not None:
                 output_bit_width = torch.where(

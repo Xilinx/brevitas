@@ -69,6 +69,17 @@ class QuantLinear(QuantWBIOL, Linear):
         output_tensor = linear(x, quant_weight, quant_bias)
         return output_tensor
 
+    def quant_output_scale_impl(
+            self, inp: Tensor, quant_input_scale: Tensor, quant_weight_scale: Tensor):
+        if quant_input_scale.shape == ():
+            input_broadcast_shape = tuple([1] * len(inp.size()))
+            quant_input_scale = quant_input_scale.view(input_broadcast_shape)
+        if quant_weight_scale.shape == ():
+            weight_broadcast_shape = tuple([1] * len(self.weight.size()))
+            quant_weight_scale = quant_weight_scale.view(weight_broadcast_shape)
+        quant_output_scale = linear(quant_input_scale, quant_weight_scale)
+        return quant_output_scale
+
     def max_acc_bit_width(self, input_bit_width, weight_bit_width):
         max_input_val = max_int(bit_width=input_bit_width, signed=False, narrow_range=False)
         max_fc_val = self.weight_quant.max_uint_value(weight_bit_width)
