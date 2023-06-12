@@ -22,16 +22,10 @@ class PermuteDims(brevitas.jit.ScriptModule):
     def __init__(self, permute_dims: Tuple[int, ...]) -> None:
         super(PermuteDims, self).__init__()
         self.permute_dims = permute_dims
-        # This is a workaroud to avoid re-computing permute during evaluation of a local loss
-        # like MSE over permuted data such as per channel scaled activations or tranposed conv weights
-        self.local_loss_mode: bool = brevitas.jit.Attribute(False, bool)
 
     @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
-        if not self.local_loss_mode:
-            return x.permute(*self.permute_dims).contiguous()
-        else:
-            return x
+        return x.permute(*self.permute_dims).contiguous()
 
 
 class OverTensorView(brevitas.jit.ScriptModule):

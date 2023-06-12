@@ -3,6 +3,7 @@
 
 from dependencies import this
 from dependencies import value
+from torch import nn
 
 from brevitas.core.bit_width import BitWidthConst
 from brevitas.core.bit_width import BitWidthStatefulConst
@@ -11,6 +12,7 @@ from brevitas.core.function_wrapper import RoundToZeroSte
 from brevitas.core.function_wrapper import TensorClamp
 from brevitas.core.function_wrapper import TensorClampSte
 from brevitas.core.function_wrapper.ops_ste import CeilSte
+from brevitas.core.function_wrapper.shape import StatsInputViewShapeImpl
 from brevitas.core.quant import ClampedBinaryQuant
 from brevitas.core.quant.int import DecoupledRescalingIntQuant
 from brevitas.core.quant.int import DecoupledRescalingIntQuantWithInput
@@ -392,21 +394,37 @@ class AccumulatorAwareWeightQuant(WeightNormPerChannelFloatDecoupled):
     float_to_int_impl = RoundToZeroSte  # required to ensure no upwards rounding violates constraints
 
 
-class MSESymmetricScaleSubInjector(ExtendedInjector):
+class MSESubInjectorBase(ExtendedInjector):
+
+    @value
+    def inner_stats_input_view_shape_impl(per_channel):
+        if per_channel:
+            return StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS
+        else:
+            return StatsInputViewShapeImpl.OVER_TENSOR
+
+    permute_dims = (this << 1).permute_dims
+
+
+class MSESymmetricScaleSubInjector(MSESubInjectorBase):
+    per_channel = (this << 1).scaling_per_output_channel
     proxy_module = (this << 1).proxy_module
     mse_init_op = AbsMax
     stats_impl = MSE
     stats_reduce_dim = (this << 1).stats_reduce_dim
 
 
-class MSEAsymmetricScaleSubInjector(ExtendedInjector):
+class MSEAsymmetricScaleSubInjector(MSESubInjectorBase):
+    per_channel = (this << 1).scaling_per_output_channel
     proxy_module = (this << 1).proxy_module
     mse_init_op = AbsMinMax
     stats_impl = MSE
     stats_reduce_dim = (this << 1).stats_reduce_dim
 
 
-class MSEZeroPointSubInjector(ExtendedInjector):
+class MSEZeroPointSubInjector(MSESubInjectorBase):
+    # zp is per channel when scaling is per channel
+    per_channel = (this << 1).scaling_per_output_channel
     proxy_module = (this << 1).proxy_module
     mse_init_op = NegativeMinOrZero
     stats_impl = MSE
@@ -420,6 +438,7 @@ class MSEAsymmetricScale(ExtendedInjector):
 
     mse_scale = MSEAsymmetricScaleSubInjector
     scaling_impl_type = ScalingImplType.PARAMETER_FROM_STATS
+    scaling_stats_input_view_shape_impl = nn.Identity()
 
     @value
     def scaling_stats_impl():
@@ -433,6 +452,7 @@ class MSESymmetricScale(ExtendedInjector):
 
     mse_scale = MSESymmetricScaleSubInjector
     scaling_impl_type = ScalingImplType.PARAMETER_FROM_STATS
+    scaling_stats_input_view_shape_impl = nn.Identity()
 
     @value
     def scaling_stats_impl():
@@ -445,6 +465,7 @@ class MSEZeroPoint(ExtendedInjector):
     """
 
     mse_zero_point = MSEZeroPointSubInjector
+    zero_point_stats_input_view_shape_impl = nn.Identity()
 
     @value
     def zero_point_stats_impl():
