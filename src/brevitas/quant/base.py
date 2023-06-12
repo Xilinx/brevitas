@@ -451,9 +451,9 @@ class MSEZeroPoint(ExtendedInjector):
         return this.mse_zero_point.stats_impl
 
 
-class MSEWeightZeroPoint(ExtendedInjector):
+class MSEWeightZeroPoint(MSEZeroPoint):
     zero_point_impl = ParameterFromStatsFromParameterZeroPoint
 
 
-class MSEActZeroPoint(ExtendedInjector):
+class MSEActZeroPoint(MSEZeroPoint):
     zero_point_impl = ParameterFromRuntimeZeroPoint
