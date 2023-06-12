@@ -180,7 +180,6 @@ class GPTQ():
 
         weight = layer.weight.data
         dev = weight.device
-        dtype = weight.dtype
 
         # By default, use groups = 1
         self.groups = 1
