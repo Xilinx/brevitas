@@ -16,8 +16,8 @@ IN_CH = 8
 KERNEL_SIZE = 3
 LEARNEDROUND_IMPL = [
     LearnedRoundSigmoid(),  # Sigmoid Implementation
-    LearnedRoundSigmoid(learnedround_temperature=2.),  # Sigmoid + Temperature
-    LearnedRoundHardSigmoid()  # Hard Sigmoid
+    LearnedRoundSigmoid(learned_round_temperature=2.),  # Sigmoid + Temperature
+    LearnedRoundHardSigmoid(),  # Hard Sigmoid
 ]
 
 
@@ -27,7 +27,7 @@ class TestLearnedRound():
     @pytest_cases.parametrize('impl', LEARNEDROUND_IMPL)
     def learnedround_float_to_int_impl(self, impl):
         sample_weight = torch.randn(OUT_CH, IN_CH, KERNEL_SIZE, KERNEL_SIZE)
-        impl = LearnedRoundSte([sample_weight], impl)
+        impl = LearnedRoundSte(impl, torch.full(sample_weight.shape, 0.))
 
         # Simulate learned parameter
         impl.value.data = torch.randn_like(impl.value)
@@ -50,8 +50,8 @@ class TestLearnedRound():
         config.IGNORE_MISSING_KEYS = True
 
         impl, _ = learnedround_float_to_int_impl
-        quant_conv = qnn.QuantConv2d(8, 16, 3, weight_float_to_int_impl=impl)
-        fp_conv = torch.nn.Conv2d(8, 16, 3)
+        quant_conv = qnn.QuantConv2d(IN_CH, OUT_CH, KERNEL_SIZE, weight_float_to_int_impl=impl)
+        fp_conv = torch.nn.Conv2d(IN_CH, OUT_CH, KERNEL_SIZE)
         try:
             quant_conv.load_state_dict(fp_conv.state_dict())
         except RuntimeError as e:
