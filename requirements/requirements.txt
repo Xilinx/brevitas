@@ -2,4 +2,5 @@ dependencies==2.0.1
 packaging
 setuptools
 torch>=1.9.1
+sympy
 typing-extensions>=3.7.4
