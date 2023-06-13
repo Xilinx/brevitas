@@ -25,7 +25,6 @@ if torch_version < version.parse('2.1'):
     from brevitas.backport.fx._symbolic_trace import map_aggregate
     from brevitas.backport.fx._symbolic_trace import PH
     from brevitas.backport.fx._symbolic_trace import Tracer
-    import brevitas.backport.fx.experimental.proxy_tensor as proxy_tensor
     from brevitas.backport.fx.graph import _PyTreeCodeGen
     from brevitas.backport.fx.graph import _PyTreeInfo
     from brevitas.backport.fx.graph import Graph
@@ -73,7 +72,6 @@ else:
     import torch.fx.traceback as fx_traceback
     from torch.fx._symbolic_trace import _is_fx_tracing_flag
     from torch.fx._symbolic_trace import _proxyable_classes
-    from torch.fx.experimental import proxy_tensor
 
 from .brevitas_tracer import brevitas_symbolic_trace
 from .brevitas_tracer import brevitas_value_trace
