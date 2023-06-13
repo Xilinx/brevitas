@@ -270,6 +270,8 @@ class GPTQ():
         dtype = weight.dtype
 
         if isinstance(self.layer, SUPPORTED_CONV_OP):
+            if isinstance(self.layer, (qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d)):
+                weight = weight.transpose(1, 0)  # This performs a view
             weight = weight.flatten(1)
 
         # Weight matrix needs to be casted to float32 to match Hessian dtype.
@@ -394,6 +396,8 @@ class GPTQ():
         quant_weight = quant_weight.value
 
         if isinstance(self.layer, SUPPORTED_CONV_OP):
+            if isinstance(self.layer, (qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d)):
+                quant_weight = quant_weight.transpose(1, 0)  # This performs a view
             quant_weight = quant_weight.flatten(1)
 
         if self.act_order:
