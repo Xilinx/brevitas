@@ -40,6 +40,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 Forked as-is from PyTorch 2.0.1 + https://github.com/pytorch/pytorch/blob/7ac68cb648c1e8c5f53efe6696cb06d3c8e9853b/torch/fx/graph.py
 from https://github.com/pytorch/pytorch/pull/94461/files
+Handle missing torch.complex32 in PyTorch 1.11
 """
 
 import builtins
@@ -251,7 +252,6 @@ dtype_abbrs = {
     torch.float64: 'f64',
     torch.float32: 'f32',
     torch.float16: 'f16',
-    torch.complex32: 'c32',
     torch.complex64: 'c64',
     torch.complex128: 'c128',
     torch.int8: 'i8',
@@ -260,6 +260,10 @@ dtype_abbrs = {
     torch.int64: 'i64',
     torch.bool: 'b8',
     torch.uint8: 'u8',}
+
+# Missing in PyTorch 1.11 
+if hasattr(torch, 'complex32'):
+    dtype_abbrs[torch.complex32] = 'c32'
 
 
 @compatibility(is_backward_compatible=True)
