@@ -98,6 +98,10 @@ class gptq_mode:
         if self.group_of_parallel_layers is not None:
             for parallel_layers in self.group_of_parallel_layers:
                 for name in parallel_layers:
+                    if name not in list_of_layers:
+                        raise ValueError(
+                            "The layer {} is not present in the model or it is not supported for GPTQ"
+                            .format(name))
                     del list_of_layers[name]
                 names = '_'.join(parallel_layers)
                 list_of_layers[names] = [
