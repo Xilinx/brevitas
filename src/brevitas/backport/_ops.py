@@ -39,6 +39,7 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 
 Forked from PyTorch 2.0.1 with modifications to handle dispatch_functorch
+and is_included_in_alias.
 """
 
 import contextlib
@@ -98,8 +99,11 @@ class PyOperatorABC(ABC):
     def name(self):
         pass
 
-
-is_included_in_alias = torch._C._dispatch_is_included_in_alias
+try:
+    is_included_in_alias = torch._C._dispatch_is_included_in_alias
+except AttributeError:
+    def is_included_in_alias(key, candidate):
+        raise RuntimeError("is_included_in_alias not supported.")
 
 DispatchKey = torch._C.DispatchKey
 
