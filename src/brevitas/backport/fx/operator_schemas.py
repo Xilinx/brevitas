@@ -51,8 +51,8 @@ import warnings
 
 import torch
 from torch._jit_internal import boolean_dispatched
-from torch._ops import OpOverload
-from torch._ops import OpOverloadPacket
+from brevitas.backport._ops import OpOverload
+from brevitas.backport._ops import OpOverloadPacket
 
 from ._compatibility import compatibility
 
