@@ -514,8 +514,8 @@ class Proxy:
             if isinstance(a, cls):
                 tracers[a.tracer] = None
 
-        torch.fx.node.map_aggregate(args, find_tracer)
-        torch.fx.node.map_aggregate(kwargs, find_tracer)
+        map_aggregate(args, find_tracer)
+        map_aggregate(kwargs, find_tracer)
 
         if len(tracers) > 1:
             raise RuntimeError(
