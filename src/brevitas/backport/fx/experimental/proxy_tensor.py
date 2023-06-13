@@ -87,7 +87,7 @@ __all__ = [
 aten = torch.ops.aten
 prim = torch.ops.prim
 
-CURRENT_DECOMPOSITION_TABLE: Dict[torch._ops.OpOverload, Callable] = {}
+CURRENT_DECOMPOSITION_TABLE = {}
 
 CONSTANT_NUMEL_LIMIT = 1
 
