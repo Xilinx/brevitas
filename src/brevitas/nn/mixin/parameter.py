@@ -87,7 +87,8 @@ class QuantWeightMixin(QuantProxyMixin):
                 input_is_signed = None
             out = self.weight_quant(
                 self.weight[weight_slice_tuple], input_bit_width, input_is_signed)
-        out = self.weight_quant(self.weight[weight_slice_tuple])
+        else:
+            out = self.weight_quant(self.weight[weight_slice_tuple])
         if subtensor_slice_list is not None:
             # Restore the quantizer behaviour to full tensor quantization
             for m in self.weight_quant.modules():
