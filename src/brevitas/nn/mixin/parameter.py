@@ -3,7 +3,7 @@
 
 from abc import ABCMeta
 from abc import abstractmethod
-from typing import Optional, Type, Union
+from typing import List, Optional, Tuple, Type, Union
 from warnings import warn
 
 from brevitas.inject import ExtendedInjector
@@ -56,7 +56,22 @@ class QuantWeightMixin(QuantProxyMixin):
     def weight_quant_requires_quant_input(self):
         return self.weight_quant.requires_quant_input
 
-    def quant_weight(self, quant_input: Optional[QuantTensor] = None):
+    def quant_weight(
+            self,
+            quant_input: Optional[QuantTensor] = None,
+            subtensor_slice_list: List[Optional[Tuple[int, int]]] = None):
+        if subtensor_slice_list is not None:
+            # prepare the quantizer for a subtensor input, if any modifications are required
+            # we set a list of tuples rather than a list of slices so that it's jit friendly
+            # slices generation is handled by each module internally
+            for m in self.weight_quant.modules():
+                if hasattr(m, 'subtensor_slice_list'):
+                    m.setattr('subtensor_slice_list', subtensor_slice_list)
+            # generate slices for the weight tensor based on the list passed in
+            weight_slice_tuple = tuple(
+                slice(*s) if s is not None else slice(s) for s in subtensor_slice_list)
+        else:
+            weight_slice_tuple = slice(None)
         if self.weight_quant_requires_quant_input:
             if self.is_weight_quant_enabled:
                 if quant_input is None:
@@ -70,8 +85,16 @@ class QuantWeightMixin(QuantProxyMixin):
             else:
                 input_bit_width = None
                 input_is_signed = None
-            return self.weight_quant(self.weight, input_bit_width, input_is_signed)
-        return self.weight_quant(self.weight)
+            out = self.weight_quant(
+                self.weight[weight_slice_tuple], input_bit_width, input_is_signed)
+        else:
+            out = self.weight_quant(self.weight[weight_slice_tuple])
+        if subtensor_slice_list is not None:
+            # Restore the quantizer behaviour to full tensor quantization
+            for m in self.weight_quant.modules():
+                if hasattr(m, 'subtensor_slice_list'):
+                    m.setattr('subtensor_slice_list', None)
+        return out
 
     def int_weight(self, float_datatype=False):
         return self.quant_weight().int(float_datatype)
