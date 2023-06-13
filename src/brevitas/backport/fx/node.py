@@ -85,12 +85,16 @@ Argument = Optional[Union[
     'Node',
     BaseArgumentTypes]]
 
-_side_effectful_functions: Set[Callable] = {
-    torch._assert,
-    torch.ops.profiler._record_function_enter,
-    torch.ops.profiler._record_function_enter_new,
-    torch.ops.profiler._record_function_exit}
-
+try:
+    _side_effectful_functions: Set[Callable] = {
+        torch._assert,
+        torch.ops.profiler._record_function_enter,
+        torch.ops.profiler._record_function_enter_new,
+        torch.ops.profiler._record_function_exit}
+# Handle older version where the profiler fns are not there
+except RuntimeError:
+    _side_effectful_functions: Set[Callable] = {
+        torch._assert}
 
 # this is fixed on master, WAR for 1.5
 def _find_module_of_method(orig_method: Callable[..., Any]) -> str:
@@ -137,6 +141,8 @@ def _get_qualified_name(func: Callable[..., Any]) -> str:
     module = _find_module_of_method(func)
     module = module.replace(
         'torch._ops', 'torch.ops')  # WAR for bug in how torch.ops assigns module
+    module = module.replace(
+        'brevitas.backport._ops', 'brevitas.backport.ops')
     # Fixup segment_reduce mismatch
     if module == "torch" and name == "segment_reduce":
         name = "_" + name
