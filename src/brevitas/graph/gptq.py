@@ -125,7 +125,7 @@ class gptq_mode:
                         act_order=self.act_order,
                         parallel_layers=parallel_layers)
                     hook_fn = partial(gptq.update_batch, current_layer=self.current_layer)
-                    self.hook_dict[name] = module.register_forward_pre_hook(hook_fn)
+                    self.hook_dict[name] = module.register_forward_hook(hook_fn)
                     self.gptq_layers[name] = gptq
         if not self.use_quant_activations:
             self.disable_quant_inference.disable_act_quantization(
@@ -200,11 +200,13 @@ class GPTQ():
         self.blocksize = math.ceil(self.columns / self.num_blocks)
 
         # Initialize Hessian matrix and counter. We need it in float32 to compute the inverse
-        self.H = torch.zeros((self.groups, self.columns, self.columns), device=dev)
+        self.H = torch.zeros((self.groups, self.columns, self.columns),
+                             device=dev,
+                             dtype=torch.float32)
         self.nsamples = 0
         self.parallel_layers = parallel_layers
 
-    def update_batch(self, module, input, current_layer):
+    def update_batch(self, module, input, output, current_layer):
         # Update reference to current layer
         current_layer.layer_names.add(self.name)
 
@@ -215,16 +217,20 @@ class GPTQ():
             inp = inp.value
 
         # If input is unbatched, add batch_size = 1
-        if len(inp.shape) == 2:
+        if len(inp.shape) == 1:
+            warnings.warn("Found unbatched input, adding batch dimension equal to 1")
             inp = inp.unsqueeze(0)
 
         # Define batch size before re-organizing the input
+        if hasattr(inp, 'names') and 'N' in inp.names:
+            batch_dim = inp.names.index('N')
+            inp = inp.transpose(0, batch_dim)
         batch_size = inp.shape[0]
 
         # Preprocess the input to compute the Hessian
         if isinstance(self.layer, qnn.QuantLinear):
-            if len(inp.shape) == 3:
-                inp = inp.reshape((-1, inp.shape[-1]))
+            if len(inp.shape) > 2:
+                inp = inp.reshape((-1, torch.sum(inp.shape[2:])))
             inp = inp.t()
             # For QuantLinear layer, groups will be 1
             inp_processed = inp.unsqueeze(0)
@@ -248,7 +254,7 @@ class GPTQ():
             # Preprocess input by group
             for i, inp in enumerate(inp_by_group):
                 inp = unfold(inp)
-                inp = inp.permute([1, 0])
+                inp = inp.transpose([1, 0])
                 inp = inp.flatten(1)
                 inp_processed.append(inp)
             inp_processed = torch.stack(inp_processed)
@@ -277,11 +283,6 @@ class GPTQ():
             if isinstance(self.layer, (qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d)):
                 weight = weight.transpose(1, 0)  # This performs a view
             weight = weight.flatten(1)
-
-        # Weight matrix needs to be casted to float32 to match Hessian dtype.
-        # Hessian needs to be in float32 since inverse computation might not be supported
-        # with other dtypes (e.g., it fails with float16)
-        weight = weight.float()
 
         # List with permutation tensors for the Hessian and Weight matrix.
         # If act_order is False, the tensors will be ordered indexes.
@@ -352,13 +353,13 @@ class GPTQ():
             # len(permutation_list) == self.groups
             if self.groups == 1:
                 perm = permutation_list[0]
-                weight_block = weight[:, perm[i1:i2]]  # This creates a copy
+                weight_block = weight[:, perm[i1:i2]].float()  # This creates a copy
             else:
                 # For groups > 1, we permute each row independently
                 weight_block = torch.empty(
-                    weight.shape[0], count, device=dev, dtype=dtype)  # [OC, i2-i1]
+                    weight.shape[0], count, device=dev, dtype=torch.float32)  # [OC, i2-i1]
                 for ii, perm in enumerate(permutation_list):
-                    weight_block[ii, :] = weight[ii, perm[i1:i2]]  # This creates a copy
+                    weight_block[ii, :] = weight[ii, perm[i1:i2]].float()  # This creates a copy
 
             error_block = torch.zeros_like(weight_block)  # [OC, i2-i1]
             h_inv_block = h_inv[:, i1:i2, i1:i2]
@@ -379,20 +380,18 @@ class GPTQ():
                 error_block[:, i] = error
 
                 # We need to update the original weights
-                weight[:, perm[i1:i2][i:]] = weight_block[:, i:]
+                weight[:, perm[i1:i2][i:]] = weight_block[:, i:].to(dtype)
 
             if self.groups > 1:
                 # In case of depthwise convs, each weight matrix interacts with only
                 # part of the input values, thus with only one of the hessian matrix
                 for ii, perm in enumerate(permutation_list):
                     weight[ii:ii + 1,
-                           perm[i2:]] -= error_block[ii:ii + 1, :].matmul(h_inv[ii, i1:i2, i2:])
+                           perm[i2:]] -= (error_block[ii:ii + 1, :].matmul(h_inv[ii, i1:i2,
+                                                                                 i2:])).to(dtype)
             else:
                 perm = permutation_list[0]
-                weight[:, perm[i2:]] -= error_block.matmul(h_inv[0, i1:i2, i2:])
-
-            # Restore the original dtype of the weights
-            weight.to(dtype)
+                weight[:, perm[i2:]] -= (error_block.matmul(h_inv[0, i1:i2, i2:])).to(dtype)
 
     def get_quant_weights(self, i, i1, i2, permutation_list):
         # We need to recompute quant weights at runtime since our float weights are being updated
