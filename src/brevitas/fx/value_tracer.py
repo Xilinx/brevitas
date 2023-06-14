@@ -45,6 +45,7 @@ import functools
 import inspect
 import math
 import operator
+import os
 import traceback
 from types import FunctionType
 from types import ModuleType
@@ -133,7 +134,7 @@ class ValueProxy(Proxy):
         previous_frame = inspect.currentframe().f_back
         filename = inspect.getframeinfo(previous_frame).filename
         for f in FRAME_FILES:
-            if f in filename:
+            if os.path.normpath(f) in os.path.normpath(filename):
                 return type(self)
         return self.value.__class__
 
