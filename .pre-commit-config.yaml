@@ -4,7 +4,7 @@ default_language_version:
 
 default_stages: [commit]
 
-exclude: 'docs'
+exclude: '(src/brevitas/backport|docs)'
 
 repos:
 - repo: https://github.com/pre-commit/pre-commit-hooks
