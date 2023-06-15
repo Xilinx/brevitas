@@ -16,6 +16,7 @@ from brevitas.graph.utils import *
 from brevitas.utils.python_utils import islambda
 
 __all__ = [
+    '_evaluate_new_kwargs',
     'Transform',
     'PerInputTrasform',
     'GraphTransform',
@@ -31,6 +32,16 @@ __all__ = [
     'CallableToModule']
 
 _TORCH_TESTING_DICT = get_testing_overrides()
+
+
+def _evaluate_new_kwargs(original_kwargs, new_kwargs, old_module):
+    update_dict = dict()
+    for k, v in original_kwargs.items():
+        if islambda(v):
+            v = v(old_module)
+        update_dict[k] = v
+    new_kwargs.update(update_dict)
+    return new_kwargs
 
 
 class Transform(ABC):
@@ -120,15 +131,6 @@ class ModuleToModule(GraphTransform, ABC):
             attrs['bias'] = module.bias
         return attrs
 
-    def _evaluate_new_kwargs(self, new_kwargs, old_module):
-        update_dict = dict()
-        for k, v in self.new_module_kwargs.items():
-            if islambda(v):
-                v = v(old_module)
-            update_dict[k] = v
-        new_kwargs.update(update_dict)
-        return new_kwargs
-
     def _init_new_module(self, old_module: Module):
         # get attributes of original module
         new_kwargs = self._module_attributes(old_module)
@@ -138,7 +140,7 @@ class ModuleToModule(GraphTransform, ABC):
         new_module_signature_keys = signature_keys(self.new_module_class)
         new_kwargs = {k: v for k, v in new_kwargs.items() if k in new_module_signature_keys}
         # update with kwargs passed to the rewriter
-        new_kwargs = self._evaluate_new_kwargs(new_kwargs, old_module)
+        new_kwargs = _evaluate_new_kwargs(self.new_module_kwargs, new_kwargs, old_module)
         # init the new module
         new_module = self.new_module_class(**new_kwargs)
         return new_module

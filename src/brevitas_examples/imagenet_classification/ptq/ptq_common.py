@@ -51,13 +51,13 @@ def quantize_model(
         backend,
         act_bit_width,
         weight_bit_width,
-        layerwise_first_last_bit_width,
         bias_bit_width,
         scaling_per_output_channel,
         act_quant_percentile,
         act_quant_type,
         scale_factor_type,
-        weight_narrow_range=False):
+        weight_narrow_range=False,
+        layerwise_first_last_bit_width=None):
     # Define what quantize function to use and, based on the given configuration, its arguments
     quantize_fn = QUANTIZE_MAP[backend]
 
@@ -67,7 +67,7 @@ def quantize_model(
     maps = [deepcopy(quant_map) for quant_map in LAYER_MAP[backend]]
 
     def bit_width_fn(module, other_bit_width):
-        if backend != 'layerwise':
+        if backend != 'layerwise' or layerwise_first_last_bit_width is None:
             return other_bit_width
         if isinstance(module, torch.nn.Conv2d) and module.in_channels == 3:
             return layerwise_first_last_bit_width
