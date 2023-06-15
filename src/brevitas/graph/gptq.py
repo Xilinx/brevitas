@@ -92,24 +92,24 @@ class gptq_mode:
     def __enter__(self):
         # The user can specify on which layers to apply gptq in parallel.
         # All the others will be executed sequentially
-        list_of_layers = {
+        dict_of_layers = {
             name: [(name, module)] for name,
             module in self.model.named_modules() if self._is_module_supported(module)}
         if self.group_of_parallel_layers is not None:
             for parallel_layers in self.group_of_parallel_layers:
                 for name in parallel_layers:
-                    if name not in list_of_layers:
+                    if name not in dict_of_layers:
                         raise ValueError(
                             "The layer {} is not present in the model or it is not supported for GPTQ"
                             .format(name))
-                    del list_of_layers[name]
+                    del dict_of_layers[name]
                 names = '_'.join(parallel_layers)
-                list_of_layers[names] = [
+                dict_of_layers[names] = [
                     (name, attrgetter(name)(self.model)) for name in parallel_layers]
 
         # Print warning if hooks are attached to any module, since the normal forward flow of the
         # network is highly disrupted during GPTQ
-        for _, parallel_layers in list_of_layers.items():
+        for _, parallel_layers in dict_of_layers.items():
             for name, module in parallel_layers:
                 if len(module._forward_hooks) > 0 or len(module._forward_pre_hooks):
                     warnings.warn(
@@ -125,7 +125,7 @@ class gptq_mode:
                         act_order=self.act_order,
                         parallel_layers=parallel_layers)
                     hook_fn = partial(gptq.update_batch, current_layer=self.current_layer)
-                    self.hook_dict[name] = module.register_forward_hook(hook_fn)
+                    self.hook_dict[name] = module.register_forward_pre_hook(hook_fn)
                     self.gptq_layers[name] = gptq
         if not self.use_quant_activations:
             self.disable_quant_inference.disable_act_quantization(
@@ -206,7 +206,7 @@ class GPTQ():
         self.nsamples = 0
         self.parallel_layers = parallel_layers
 
-    def update_batch(self, module, input, output, current_layer):
+    def update_batch(self, module, input, current_layer):
         # Update reference to current layer
         current_layer.layer_names.add(self.name)
 
@@ -230,7 +230,7 @@ class GPTQ():
         # Preprocess the input to compute the Hessian
         if isinstance(self.layer, qnn.QuantLinear):
             if len(inp.shape) > 2:
-                inp = inp.reshape((-1, torch.sum(inp.shape[2:])))
+                inp = inp.reshape((-1, sum(inp.shape[2:])))
             inp = inp.t()
             # For QuantLinear layer, groups will be 1
             inp_processed = inp.unsqueeze(0)
@@ -262,7 +262,7 @@ class GPTQ():
         # Hessian computation
         self.H *= self.nsamples / (self.nsamples + batch_size)
         self.nsamples += batch_size
-        inp_processed = math.sqrt(2 / self.nsamples) * inp_processed.float()
+        inp_processed = math.sqrt(2 / self.nsamples) * inp_processed.to(torch.float32)
         self.H += inp_processed.bmm(inp_processed.transpose(2, 1))
         # If we are executing GPTQ with group of parallel layers, we keep track of how many forward
         # we executed. Once we executed as many as the number of parallel_layers, we raise
@@ -277,6 +277,8 @@ class GPTQ():
         dev = weight.device
 
         # Store the original dtype of the weights
+        # During computation, everything is converted to float32.
+        # When the weights are updated, we cast everything back to the original dtype
         dtype = weight.dtype
 
         if isinstance(self.layer, SUPPORTED_CONV_OP):
@@ -353,13 +355,14 @@ class GPTQ():
             # len(permutation_list) == self.groups
             if self.groups == 1:
                 perm = permutation_list[0]
-                weight_block = weight[:, perm[i1:i2]].float()  # This creates a copy
+                weight_block = weight[:, perm[i1:i2]].to(torch.float32)  # This creates a copy
             else:
                 # For groups > 1, we permute each row independently
                 weight_block = torch.empty(
                     weight.shape[0], count, device=dev, dtype=torch.float32)  # [OC, i2-i1]
                 for ii, perm in enumerate(permutation_list):
-                    weight_block[ii, :] = weight[ii, perm[i1:i2]].float()  # This creates a copy
+                    weight_block[ii, :] = weight[ii, perm[i1:i2]].to(
+                        torch.float32)  # This creates a copy
 
             error_block = torch.zeros_like(weight_block)  # [OC, i2-i1]
             h_inv_block = h_inv[:, i1:i2, i1:i2]
