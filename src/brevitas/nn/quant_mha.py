@@ -418,9 +418,13 @@ class QuantMultiheadAttention(Module):
             assert self.q_proj is not None, "use_separate_proj_weight is True but q_proj is None"
             assert self.k_proj is not None, "use_separate_proj_weight is True but k_proj is None"
             assert self.v_proj is not None, "use_separate_proj_weight is True but v_proj is None"
+            # Mark dimensions through named tensors.
             for t in [query, key, value]:
                 t.rename_('L', 'N', 'E')
             q, k, v = self.q_proj(query), self.k_proj(key), self.v_proj(value)
+        # Remove names to avoid errors downstream
+        for t in [q, k, v]:
+            t.rename_(None)
 
         # prep attention mask
         if attn_mask is not None:
@@ -556,6 +560,8 @@ class QuantMultiheadAttention(Module):
         # Set dim names for PTQ algorithms that requires it
         attn_output.rename_('L', 'N', 'E')
         attn_output = self.out_proj(attn_output)
+        # Remove names to avoid errors un unsupported downstream ops
+        attn_output.rename_(None)
         attn_output = attn_output.view(tgt_len, bsz, attn_output.size(1))
 
         if need_weights:
