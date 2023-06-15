@@ -562,7 +562,7 @@ class QuantMultiheadAttention(Module):
         attn_output = self.out_proj(attn_output)
         # Remove names to avoid errors un unsupported downstream ops
         attn_output.rename_(None)
-        attn_output = attn_output.view(tgt_len, bsz, attn_output.size(1))
+        attn_output = attn_output.view(tgt_len, bsz, attn_output.size(-1))
 
         if need_weights:
             # optionally average attention weights over heads
