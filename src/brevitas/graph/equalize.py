@@ -11,7 +11,9 @@ from typing import Callable, Dict, List, Optional, Set, Tuple, Union
 import warnings
 
 import torch
+from torch.fx import GraphModule as TorchGraphModule
 import torch.nn as nn
+import torch.nn.functional as F
 
 from brevitas.fx import GraphModule
 from brevitas.fx import Node
@@ -65,7 +67,16 @@ _select_op = (operator.getitem, operator.__getitem__)
 _scale_invariant_activations = (torch.nn.ReLU,)
 
 _scale_varying_activations = (
-    torch.nn.Sigmoid, torch.nn.Tanh, torch.nn.ReLU6, torch.nn.GELU, torch.nn.SiLU)
+    torch.nn.Sigmoid,
+    torch.nn.Tanh,
+    torch.nn.ReLU6,
+    torch.nn.GELU,
+    torch.nn.SiLU,
+    F.sigmoid,
+    F.tanh,
+    F.relu6,
+    F.gelu,
+    F.silu)
 
 _residual_methods = ('add', 'add_')
 
@@ -110,16 +121,21 @@ def _select_scale_computation_fn(
 
 class activation_equalization_mode:
 
-    def __init__(self, graph_model, alpha, add_mul_node, layerwise=False, enabled=True) -> None:
-        self.graph_model = graph_model
+    def __init__(self, model, alpha, add_mul_node=True, layerwise=True, enabled=True) -> None:
+        self.model = model
         self.alpha = alpha
         self.enabled = enabled
         self.add_mul_node = add_mul_node
         if layerwise:
-            self.add_mul_node = True
-            self.graph_act_eq = LayerwiseActivationEqualization(self.graph_model)
+            if not self.add_mul_node:
+                raise ValueError("Layerwise activation equalization requires add_mul_node")
+            self.graph_act_eq = LayerwiseActivationEqualization(self.model)
         else:
-            self.graph_act_eq = GraphActivationEqualization(self.graph_model, self.add_mul_node)
+            if not isinstance(self.model, (TorchGraphModule, GraphModule)):
+                raise TypeError(
+                    "A Torch FX representation of the model is needed for Graph Activation Equalization"
+                )
+            self.graph_act_eq = GraphActivationEqualization(self.model, self.add_mul_node)
         self.scale_factors = None
 
     def __enter__(self):
@@ -293,8 +309,12 @@ def _combine_weights_bias(
     return weight_bias
 
 
-def transpose(module, axis):
-    shape = list(range(module.weight.ndim))  #list(module.weight.shape)
+def transpose(module: torch.nn.Module, axis: int):
+    """
+    Given a module and an axis, this function re-arranges the module's weights so that the axis and
+    the first dimension are swapped
+    """
+    shape = list(range(module.weight.ndim))
     axis = shape[axis]
     shape.insert(0, axis)
     del shape[axis + 1]
@@ -315,9 +335,15 @@ def _cross_layer_equalization(
     the ranges of the first tensors' output channel are equal to the
     ranges of the second tensors' input channel
     """
+
     # Determine device and type of tensors
     device = next(sinks[0].parameters()).device
     dtype = next(sinks[0].parameters()).dtype
+
+    # If equalization criteria are not met, we return a scalar one to indicate that no equalization
+    # has been performed
+    def _no_equalize():
+        return torch.tensor(1., dtype=dtype, device=device)
 
     src_axes = {}
     sink_axes = {}
@@ -327,7 +353,7 @@ def _cross_layer_equalization(
     for i, module in enumerate(srcs):
         # If module is not supported, do not perform graph equalization
         if not isinstance(module, _supported_layers):
-            return torch.tensor(1., dtype=dtype, device=device)
+            return _no_equalize()
         if isinstance(module, nn.MultiheadAttention):
             srcs[i] = module.out_proj
         src_axes[srcs[i]] = _get_output_axis(module)
@@ -336,18 +362,18 @@ def _cross_layer_equalization(
     for i, module in enumerate(sinks):
         # If module is not supported, do not perform graph equalization
         if not isinstance(module, _supported_layers):
-            return torch.tensor(1., dtype=dtype, device=device)
+            return _no_equalize()
         # For MultiheadAttention, we support only self-attetion
         if isinstance(module, nn.MultiheadAttention) and module.in_proj_weight is not None:
             # For sinks, we only need to modify the weight but not the bias
             sinks[i] = WeightBiasTuple(weight=module.in_proj_weight)
         elif isinstance(module, nn.MultiheadAttention) and module.in_proj_weight is None:
-            return torch.tensor(1., dtype=dtype, device=device)
+            return _no_equalize()
         sink_axes[sinks[i]] = _get_input_axis(module)
         act_sink_axes[sinks[i]] = _get_act_axis(module)
 
     # If act_val is enabled, use source or sink weights to determine the activation channel
-    # For example, if the source is BatchNorm, we need to use the sink information
+    # For example, if the source is BatchNorm, we need to use the information coming from the sinks
     if list_of_act_val is not None:
         list_of_sink_axes = [x for x in list(act_sink_axes.values()) if x is not None]
         list_of_source_axes = [x for x in list(act_sources_axes.values()) if x is not None]
@@ -356,23 +382,23 @@ def _cross_layer_equalization(
         elif len(list_of_source_axes) > 0:
             act_axis = list_of_source_axes[0]
         else:
-            return torch.tensor(1., dtype=dtype, device=device)
+            return _no_equalize()
         # If there is a mismatch in the activation channel (e.g. a transpose/flatten op in between),
         # do not perform equalization
         if any([act_axis != axis for axis in list_of_source_axes + list_of_sink_axes]):
-            return torch.tensor(1., dtype=dtype, device=device)
+            return _no_equalize()
 
     # Check if any of the axis is None, which means that the module is not supported.
     # In that case, do not perform graph equalization
     axes_to_check = [*src_axes.values(), *sink_axes.values()]
     if None in axes_to_check:
-        return torch.tensor(1., dtype=dtype, device=device)
+        return _no_equalize()
 
     # Check if the sink_size is None,
     # which means that the some of the sinks do not have the same size as the others.
     sink_size = _get_size(sink_axes)
     if None in [sink_size]:
-        return torch.tensor(1., dtype=dtype, device=device)
+        return _no_equalize()
 
     scale_fn = _select_scale_computation_fn(scale_computation_type)
     sink_weights = [transpose(m, axis) for m, axis in sink_axes.items()]
@@ -383,18 +409,18 @@ def _cross_layer_equalization(
     # weight equalization
     if list_of_act_val is not None:
         act_shape = list_of_act_val[0].shape
-        # act_val = [WeightBiasTuple(act_val) for act_val in list_of_act_val]
         list_of_act_val = [
             transpose(WeightBiasTuple(act_val), act_axis) for act_val in list_of_act_val]
         srcs_range = scale_fn(
-            torch.cat([act_val.reshape(act_val.size(0), -1) for act_val in list_of_act_val],
-                      1))  # scale_fn(act_val.reshape(act_val.size(0), -1))
+            torch.cat([act_val.reshape(act_val.size(0), -1) for act_val in list_of_act_val], 1))
     else:
         # If we do weight equalization, perform additional check on source size
         src_size = _get_size(src_axes)
         # Exit if source and sink have different different sizes, or if sources contains None
         if src_size != sink_size or None in [src_size]:
-            return torch.tensor(1., dtype=dtype, device=device)
+            warnings.warn(
+                "Detected source and sink with non compatible shapes, equalization is skipped")
+            return _no_equalize()
 
         if merge_bias:
             src_weights = [
@@ -406,7 +432,9 @@ def _cross_layer_equalization(
 
     # If there is a mismatch between srcs and sinks values, exit
     if srcs_range.shape != sinks_range.shape:
-        return torch.tensor(1., dtype=dtype, device=device)
+        warnings.warn(
+            "Detected source and sink with non compatible shapes, equalization is skipped")
+        return _no_equalize()
 
     srcs_range = torch.pow(srcs_range, alpha)
     sinks_range = torch.pow(sinks_range, 1 - alpha)
