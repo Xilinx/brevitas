@@ -254,7 +254,7 @@ class GPTQ():
             # Preprocess input by group
             for i, inp in enumerate(inp_by_group):
                 inp = unfold(inp)
-                inp = inp.transpose([1, 0])
+                inp = inp.transpose(1, 0)
                 inp = inp.flatten(1)
                 inp_processed.append(inp)
             inp_processed = torch.stack(inp_processed)
@@ -398,24 +398,45 @@ class GPTQ():
 
     def get_quant_weights(self, i, i1, i2, permutation_list):
         # We need to recompute quant weights at runtime since our float weights are being updated
-        quant_weight = self.layer.quant_weight()
-        quant_weight = quant_weight.value
 
-        if isinstance(self.layer, SUPPORTED_CONV_OP):
-            if isinstance(self.layer, (qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d)):
-                quant_weight = quant_weight.transpose(1, 0)  # This performs a view
-            quant_weight = quant_weight.flatten(1)
+        # For QuantLinear and for some QuantConvolutional layers, we exploit the possibility
+        # of quantizing only a subset of the entire matrix speeding up the computation of GPTQ
+        if isinstance(self.layer, qnn.QuantLinear):
+            index = permutation_list[0][i1:i2][i]
+            subtensor_slice_list = [None, (index, index + 1)]
+            q = self.layer.quant_weight(subtensor_slice_list=subtensor_slice_list).value  # [OC, 1]
+        elif isinstance(self.layer, SUPPORTED_CONV_OP):
+            # For depthwise and ConvTranspose we fall back to quantizing the entire martix.
+            # For all other cases, we create a mask that represent the slicing we will perform on the weight matrix
+            # and we quantize only the selected dimensions.
+            if self.groups > 1 or (self.groups == 1 and isinstance(
+                    self.layer, (qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d))):
 
-        if self.act_order:
-            # If act order is enabled, permute quant weight to match the float32 counterpart
-            # len(permutation_list) == self.groups
-            if self.groups == 1:
-                quant_weight = quant_weight[:, permutation_list[0]]
+                quant_weight = self.layer.quant_weight()
+                quant_weight = quant_weight.value
+
+                if isinstance(self.layer, (qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d)):
+                    quant_weight = quant_weight.transpose(1, 0)  # This performs a view
+                quant_weight = quant_weight.flatten(1)
+
+                if self.act_order:
+                    for ii, perm in enumerate(permutation_list):
+                        quant_weight[ii, :] = quant_weight[ii, perm]
+
+                quant_weight_block = quant_weight[:, i1:i2]
+                q = quant_weight_block[:, i:i + 1]  # [OC, 1]
             else:
-                for ii, perm in enumerate(permutation_list):
-                    quant_weight[ii, :] = quant_weight[ii, perm]
-
-        quant_weight_block = quant_weight[:, i1:i2]
-        q = quant_weight_block[:, i]
-
+                index = permutation_list[0][i1:i2][i]
+                shapes = self.layer.weight.shape[1:]
+                index_2d_to_nd = []
+                residual_index = index.item()
+                for shape in shapes[::-1]:
+                    index_2d_to_nd.append((residual_index % shape, residual_index % shape + 1))
+                    residual_index = residual_index // shape
+                index_2d_to_nd = index_2d_to_nd[::-1]
+                index_2d_to_nd.insert(0, None)
+                q = self.layer.quant_weight(subtensor_slice_list=index_2d_to_nd).value.flatten(
+                    1)  # [OC, 1]
+        # We need to remove the last dim
+        q = q.squeeze(1)  # [OC]
         return q
