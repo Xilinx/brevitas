@@ -46,7 +46,7 @@ def inp_placeholder_handler(model, input_quantizer):
     for node in model.graph.nodes:
         if node.op == 'placeholder':
             act_quant, kwargs_act_quant = input_quantizer
-            kwargs_act_quant = _evaluate_new_kwargs(kwargs_act_quant, dict(), act_quant)
+            kwargs_act_quant = _evaluate_new_kwargs(kwargs_act_quant, dict(), None)
             inp_quant = act_quant(**kwargs_act_quant)
             name = node.name + '_quant'
             model.add_module(name, inp_quant)
@@ -183,8 +183,7 @@ def output_quant_handler(
                     quant_module_class, quant_module_kwargs = quant_identity_map['unsigned']
                 else:
                     quant_module_class, quant_module_kwargs = quant_identity_map['signed']
-                quant_module_kwargs = _evaluate_new_kwargs(
-                    quant_module_kwargs, dict(), quant_module_class)
+                quant_module_kwargs = _evaluate_new_kwargs(quant_module_kwargs, dict(), None)
                 quant_module = quant_module_class(**quant_module_kwargs)
                 quant_module_name = node.name + '_output_quant'
                 model.add_module(quant_module_name, quant_module)
@@ -293,7 +292,7 @@ def _get_quant_module(model, node, quant_identity_map, quant_act_map, unsigned_a
         quant_module_class, quant_module_kwargs = quant_identity_map['unsigned']
     else:
         quant_module_class, quant_module_kwargs = quant_identity_map['signed']
-    quant_module_kwargs = _evaluate_new_kwargs(quant_module_kwargs, dict(), quant_module_class)
+    quant_module_kwargs = _evaluate_new_kwargs(quant_module_kwargs, dict(), None)
     quant_module = quant_module_class(**quant_module_kwargs)
     quant_module_name = node.name + '_quant'
     model.add_module(quant_module_name, quant_module)
@@ -425,7 +424,7 @@ def layer_handler(
                         previous_node_users.remove(node)
 
                         act_quant, kwargs_act_quant = quant_identity_map['signed']
-                        kwargs_act_quant = _evaluate_new_kwargs(kwargs_act_quant, dict(), act_quant)
+                        kwargs_act_quant = _evaluate_new_kwargs(kwargs_act_quant, dict(), None)
                         inp_quant = act_quant(**kwargs_act_quant)
                         name = node.name + '_input_quant'
                         model.add_module(name, inp_quant)
