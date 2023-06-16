@@ -13,7 +13,6 @@ import warnings
 import torch
 from torch.fx import GraphModule as TorchGraphModule
 import torch.nn as nn
-import torch.nn.functional as F
 
 from brevitas.fx import GraphModule
 from brevitas.fx import Node
@@ -26,7 +25,6 @@ from brevitas.nn.quant_scale_bias import ScaleBias
 
 from .base import GraphTransform
 from .base import InsertModuleCallAfter
-from .base import ModuleToModuleByInstance
 
 __all__ = ['EqualizeGraph']
 
@@ -67,16 +65,7 @@ _select_op = (operator.getitem, operator.__getitem__)
 _scale_invariant_activations = (torch.nn.ReLU,)
 
 _scale_varying_activations = (
-    torch.nn.Sigmoid,
-    torch.nn.Tanh,
-    torch.nn.ReLU6,
-    torch.nn.GELU,
-    torch.nn.SiLU,
-    F.sigmoid,
-    F.tanh,
-    F.relu6,
-    F.gelu,
-    F.silu)
+    torch.nn.Sigmoid, torch.nn.Tanh, torch.nn.ReLU6, torch.nn.GELU, torch.nn.SiLU)
 
 _residual_methods = ('add', 'add_')
 
@@ -107,6 +96,9 @@ class WalkRegionState:
     acts: Set = field(default_factory=set)
     history: set = field(default_factory=set)
     add_mul_node: bool = False
+
+
+_UNSUPPORTED_OP = object()
 
 
 def _select_scale_computation_fn(
@@ -408,7 +400,6 @@ def _cross_layer_equalization(
     # Determine the srcs_range based on where we are performing activation equalization or
     # weight equalization
     if list_of_act_val is not None:
-        act_shape = list_of_act_val[0].shape
         list_of_act_val = [
             transpose(WeightBiasTuple(act_val), act_axis) for act_val in list_of_act_val]
         srcs_range = scale_fn(
@@ -443,8 +434,8 @@ def _cross_layer_equalization(
     inverse_scaling_factors = torch.reciprocal(scaling_factors)
 
     if list_of_act_val is not None and list_of_insert_mul_node_fn is not None:
-        for insert_mul_node_fn in list_of_insert_mul_node_fn:
-            insert_mul_node_fn(inverse_scaling_factors, act_shape, act_axis)
+        for act_val, insert_mul_node_fn in zip(list_of_act_val, list_of_insert_mul_node_fn):
+            insert_mul_node_fn(inverse_scaling_factors, act_val.shape, act_axis)
     if len(src_axes) > 0:
         for module, axis in src_axes.items():
             if hasattr(module, 'bias') and module.bias is not None:
@@ -571,7 +562,7 @@ def find_srcs(graph_model: GraphModule, starting_node: Node,
             find_sinks(graph_model, node, state)
         else:
             # If we meet an unrecognized op, we add None to invalidate the region
-            state.srcs.add(None)
+            state.srcs.add(_UNSUPPORTED_OP)
 
 
 def find_sinks(graph_model: GraphModule, starting_node: Node,
@@ -602,7 +593,7 @@ def find_sinks(graph_model: GraphModule, starting_node: Node,
             find_srcs(graph_model, node, state)
         else:
             # If we meet an unrecognized op, we add None to invalidate the region
-            state.sinks.add(None)
+            state.sinks.add(_UNSUPPORTED_OP)
 
 
 def _extract_regions(
@@ -618,7 +609,7 @@ def _extract_regions(
             if _is_scale_varying_activation(graph_model, node):
                 state.acts.add(node.target)
             find_sinks(graph_model, node, state)
-            if state.sinks and None not in state.sinks and None not in state.srcs:
+            if state.sinks and _UNSUPPORTED_OP not in state.sinks and _UNSUPPORTED_OP not in state.srcs:
                 # each region should appear only once, so to make it hashable
                 # we convert srcs and sinks to ordered lists first, and then to tuples
                 srcs = tuple(sorted(state.srcs))
@@ -674,6 +665,7 @@ class LayerwiseActivationEqualization(GraphTransform):
         super(LayerwiseActivationEqualization, self).__init__()
         self.model = model
         self.float_act_map = {}
+        self.batch_dim_act_map = {}
         self.hooks = []
         self.add_mul_node = True
 
@@ -712,7 +704,8 @@ class LayerwiseActivationEqualization(GraphTransform):
             if self.float_act_map[region] == None:
                 continue
             sinks = region
-            insert_mul_fn = partial(self.insert_mul_node, region=region)
+            insert_mul_fn = partial(
+                self.insert_mul_node, region=region, batch_dim=self.batch_dim_act_map[region])
             scale_factors.append(
                 _cross_layer_equalization([], [sinks],
                                           False,
@@ -743,17 +736,23 @@ class LayerwiseActivationEqualization(GraphTransform):
         else:
             inp = inp[0]
         # Compute stats along the batch dimension
+        batch_dim = 0
+        if hasattr(inp, 'names') and 'N' in inp.names:
+            batch_dim = inp.names.index('N')
+            inp = inp.transpose(0, batch_dim)
+        self.batch_dim_act_map[name] = batch_dim
+
         if name not in self.float_act_map:
             self.float_act_map[name] = self.scale_fn(inp, dim=0)
         else:
             batch_data = torch.cat([self.float_act_map[name].unsqueeze(0), inp], dim=0)
             self.float_act_map[name] = self.scale_fn(batch_data, dim=0)
 
-    def insert_mul_node(self, scale, shape, axis, region):
+    def insert_mul_node(self, scale, shape, axis, region, batch_dim=0):
         broadcastable_shape = [1] * len(shape)
         broadcastable_shape[axis] = shape[axis]
         # Add Batch Dim
-        broadcastable_shape.insert(0, 1)
+        broadcastable_shape.insert(batch_dim, 1)
         mul_factor = ScaleBias(
             num_features=shape[axis], bias=False, runtime_shape=broadcastable_shape)
         mul_factor.weight.data = scale
@@ -769,6 +768,7 @@ class GraphActivationEqualization(GraphTransform):
         super(GraphActivationEqualization, self).__init__()
         self.graph_model = model
         self.float_act_map = {}
+        self.batch_dim_act_map = {}
         self.hooks = []
         self.layerwise = layerwise
         if self.layerwise:
@@ -834,7 +834,10 @@ class GraphActivationEqualization(GraphTransform):
                 for act_name in region.acts:
                     act_node = get_node(self.graph_model, act_name)
                     list_of_insert_mul_node_fn.append(
-                        partial(self.insert_mul_node, act_node=act_node))
+                        partial(
+                            self.insert_mul_node,
+                            act_node=act_node,
+                            batch_dim=self.batch_dim_act_map[act_name]))
             scale_factors.append(
                 _cross_layer_equalization(
                     srcs,
@@ -853,17 +856,23 @@ class GraphActivationEqualization(GraphTransform):
 
     def forward_stats_hook(self, module, inp, out, name):
         # Compute stats along the batch dimension
+        batch_dim = 0
+        if hasattr(inp, 'names') and 'N' in inp.names:
+            batch_dim = inp.names.index('N')
+            inp = inp.transpose(0, batch_dim)
+        self.batch_dim_act_map[name] = batch_dim
+
         if name not in self.float_act_map:
             self.float_act_map[name] = self.scale_fn(out, dim=0)
         else:
             batch_data = torch.cat([self.float_act_map[name].unsqueeze(0), out], dim=0)
             self.float_act_map[name] = self.scale_fn(batch_data, dim=0)
 
-    def insert_mul_node(self, scale, shape, axis, act_node):
+    def insert_mul_node(self, scale, shape, axis, act_node, batch_dim=0):
         broadcastable_shape = [1] * len(shape)
         broadcastable_shape[axis] = shape[axis]
         # Add Batch Dim
-        broadcastable_shape.insert(0, 1)
+        broadcastable_shape.insert(batch_dim, 1)
         mul_factor = ScaleBias(
             num_features=shape[axis], bias=False, runtime_shape=broadcastable_shape)
         mul_factor.weight.data = scale
