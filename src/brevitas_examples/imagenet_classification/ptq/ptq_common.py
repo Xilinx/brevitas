@@ -31,6 +31,9 @@ from brevitas.quant.scaled_int import Int16Bias
 from brevitas.quant.scaled_int import Int32Bias
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFixedPoint
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
+from brevitas_examples.imagenet_classification.ptq.learned_round_utils import \
+    block_wise_learned_round_iterator
+from brevitas_examples.imagenet_classification.ptq.learned_round_utils import split_layers
 
 LAYER_MAP = {
     'generic': [COMPUTE_LAYER_MAP, QUANT_ACT_MAP, QUANT_IDENTITY_MAP],
@@ -68,8 +71,6 @@ def quantize_model(
     maps = [deepcopy(quant_map) for quant_map in LAYER_MAP[backend]]
 
     def bit_width_fn(module, other_bit_width):
-        if backend != 'layerwise':
-            return other_bit_width
         if isinstance(module, torch.nn.Conv2d) and module.in_channels == 3:
             return layerwise_first_last_bit_width
         elif isinstance(module, torch.nn.Linear) and module.out_features == 1000:
@@ -77,6 +78,10 @@ def quantize_model(
         else:
             return other_bit_width
 
+    weight_bit_width_or_lambda = weight_bit_width if backend != 'layerwise' else lambda module: bit_width_fn(
+        module, weight_bit_width)
+    act_bit_width_or_lambda = act_bit_width if backend != 'layerwise' else lambda module: bit_width_fn(
+        module, act_bit_width)
     maps = update_quant_maps(
         maps,
         scale_factor_type=scale_factor_type,
@@ -84,8 +89,8 @@ def quantize_model(
         scaling_per_output_channel=scaling_per_output_channel,
         act_quant_percentile=act_quant_percentile,
         act_quant_asym=act_quant_asym,
-        act_bit_width=lambda module: bit_width_fn(module, act_bit_width),
-        weight_bit_width=lambda module: bit_width_fn(module, weight_bit_width),
+        act_bit_width=act_bit_width_or_lambda,
+        weight_bit_width=weight_bit_width_or_lambda,
         weight_narrow_range=weight_narrow_range)
 
     if len(maps) == 3:
@@ -259,3 +264,39 @@ def apply_gptq(calib_loader, model, act_order=False):
                     images = images.to(dtype)
                     gptq_model(images)
                 gptq.update()
+
+
+def apply_learned_round_learning(
+        model,
+        dataloader,
+        optimizer_class=torch.optim.Adam,
+        epochs=60,
+        optimizer_kwargs={'lr': 1e-1}):
+    blocks = []
+    split_layers(model, blocks)
+    device = next(iter(model.parameters())).device
+    dtype = next(iter(model.parameters())).dtype
+
+    iters = len(dataloader) * epochs
+    print(f"Total Iterations per block {iters}")
+    print(len(blocks))
+
+    for block, get_inp_out, layer_loss, learned_round_module in block_wise_learned_round_iterator(model, blocks, iters=iters):
+        optimizer = optimizer_class(list(learned_round_module.parameters()), **optimizer_kwargs)
+        pbar = tqdm(range(epochs), desc='')
+        for e in pbar:
+            for i, (img, t) in enumerate(dataloader):
+                img = img.to(device)
+                img = img.to(dtype)
+                quant_inp, fp_out = get_inp_out(img)
+                block.train()
+
+                optimizer.zero_grad()
+                quant_out = block(quant_inp)
+                loss, rec_loss, round_loss = layer_loss(quant_out, fp_out)
+
+                loss.backward()
+                optimizer.step()
+                pbar.set_description(
+                    "loss = {:.4f}, rec_loss = {:.4f}, round_loss = {:.4f}".format(
+                        loss, rec_loss, round_loss))
