@@ -400,6 +400,7 @@ def _cross_layer_equalization(
     # Determine the srcs_range based on where we are performing activation equalization or
     # weight equalization
     if list_of_act_val is not None:
+        list_of_act_val_shapes = [act_val.shape for act_val in list_of_act_val]
         list_of_act_val = [
             transpose(WeightBiasTuple(act_val), act_axis) for act_val in list_of_act_val]
         srcs_range = scale_fn(
@@ -434,8 +435,8 @@ def _cross_layer_equalization(
     inverse_scaling_factors = torch.reciprocal(scaling_factors)
 
     if list_of_act_val is not None and list_of_insert_mul_node_fn is not None:
-        for act_val, insert_mul_node_fn in zip(list_of_act_val, list_of_insert_mul_node_fn):
-            insert_mul_node_fn(inverse_scaling_factors, act_val.shape, act_axis)
+        for act_val_shape, insert_mul_node_fn in zip(list_of_act_val_shapes, list_of_insert_mul_node_fn):
+            insert_mul_node_fn(inverse_scaling_factors, act_val_shape, act_axis)
     if len(src_axes) > 0:
         for module, axis in src_axes.items():
             if hasattr(module, 'bias') and module.bias is not None:
