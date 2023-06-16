@@ -26,9 +26,10 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-import numpy as np
+from copy import deepcopy
+import re
+
 import torch
-import torch.nn.functional as F
 
 from brevitas import config
 from brevitas.core.function_wrapper.learned_round import LearnedRoundSte
@@ -36,6 +37,7 @@ from brevitas.graph.calibrate import DisableEnableQuantization
 from brevitas.inject.enum import FloatToIntImplType
 from brevitas.inject.enum import LearnedRoundImplType
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
+from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector
 
 config.IGNORE_MISSING_KEYS = True
 
@@ -59,6 +61,43 @@ class DataSaverHook:
         raise StopFwdException
 
 
+class GetLayerInpOut(DisableEnableQuantization):
+
+    def __init__(self, model: torch.nn.Module, layer: torch.nn.Module, store_output: bool = True):
+        super().__init__()
+        self.model = model
+        self.layer = layer
+        self.store_output = store_output
+        self.data_saver = DataSaverHook(store_output=store_output)
+
+    def __call__(self, model_input):
+        device = next(self.layer.parameters()).device
+        model_input = model_input.to(device)
+        self.model.eval()
+        handle = self.layer.register_forward_hook(self.data_saver)
+        self.disable_param_quantization(self.model, is_training=False)
+        self.disable_act_quantization(self.model, is_training=False)
+        with torch.no_grad():
+            try:
+                _ = self.model(model_input)
+            except StopFwdException:
+                pass
+            out = self.data_saver.output_store.detach()
+
+        self.data_saver.store_output = False
+        self.enable_param_quantization(self.model, is_training=False)
+        self.enable_act_quantization(self.model, is_training=False)
+        with torch.no_grad():
+            try:
+                _ = self.model(model_input)
+            except StopFwdException:
+                pass
+            inp = self.data_saver.input_store[0].detach()
+        handle.remove()
+        self.data_saver.store_output = True
+        return inp, out
+
+
 class LinearTempDecay:
 
     def __init__(self, t_max: int, rel_start_decay: float = 0.2, start_b: int = 10, end_b: int = 2):
@@ -80,7 +119,8 @@ class Loss:
     def __init__(
             self,
             module,
-            learned_round_module,
+            learned_round_modules,
+            rec_loss='mse',
             weight=0.01,
             max_count=1000,
             b_range=(20, 2),
@@ -90,25 +130,28 @@ class Loss:
         self.module = module
         self.loss_start = max_count * warmup
         self.temp_decay = LinearTempDecay(
-            max_count,
-            start_b=b_range[0],
-            end_b=b_range[1],
-            rel_start_decay=warmup + (1.0 - warmup) * decay_start)
+            max_count, start_b=b_range[0], end_b=b_range[1], rel_start_decay=warmup)
         self.iter = 0
-        self.learned_round_module = learned_round_module
+        self.learned_round_modules = learned_round_modules
+        self.rec_loss = rec_loss
 
     def __call__(self, pred, tgt):
         self.iter += 1
 
-        rec_loss = F.mse_loss(pred, tgt, reduction='none').sum(1).mean()
+        if self.rec_loss == 'mse':
+            rec_loss = (pred - tgt).abs().pow(2.).sum(1).mean()
+        else:
+            raise ValueError('Not supported reconstruction loss function: {}'.format(self.rec_loss))
 
         if self.iter < self.loss_start:
             b = self.temp_decay(self.iter)
             round_loss = 0
         else:  # 1 - |(h-0.5)*2|**b
+            round_loss = 0
             b = self.temp_decay(self.iter)
-            round_vals = self.learned_round_module.p_forward()
-            round_loss = self.weight * (1 - ((round_vals - 0.5).abs() * 2).pow(b)).sum()
+            for learned_round_module in self.learned_round_modules:
+                round_vals = learned_round_module.p_forward()
+                round_loss += self.weight * (1 - ((round_vals - 0.5).abs() * 2).pow(b)).sum()
 
         total_loss = rec_loss + round_loss
         return total_loss, rec_loss, round_loss, b
@@ -122,41 +165,66 @@ def find_learned_round_module(module):
 
 
 def insert_learned_round_quantizer(layer, learned_round_zeta=1.1, learned_round_gamma=-0.1):
-    if isinstance(layer, QuantWBIOL):
-        if not find_learned_round_module(layer):
-            floor_weight = torch.floor(layer.weight.data / layer.quant_weight().scale)
-            delta = (layer.weight.data / layer.quant_weight().scale) - floor_weight
-            value = -torch.log((learned_round_zeta - learned_round_gamma) /
-                               (delta - learned_round_gamma) - 1)
-            layer.weight_quant.quant_injector = layer.weight_quant.quant_injector.let(
-                float_to_int_impl_type=FloatToIntImplType.LEARNED_ROUND,
-                learned_round_impl_type=LearnedRoundImplType.HARD_SIGMOID,
-                learned_round_gamma=learned_round_gamma,
-                learned_round_zeta=learned_round_zeta,
-                learned_round_init=value)
-            layer.weight_quant.init_tensor_quant(preserve_state_dict=True)
+    if not find_learned_round_module(layer):
+        floor_weight = torch.floor(layer.weight.data / layer.quant_weight().scale)
+        delta = (layer.weight.data / layer.quant_weight().scale) - floor_weight
+        value = -torch.log((learned_round_zeta - learned_round_gamma) /
+                           (delta - learned_round_gamma) - 1)
+        layer.weight_quant.quant_injector = layer.weight_quant.quant_injector.let(
+            float_to_int_impl_type=FloatToIntImplType.LEARNED_ROUND,
+            learned_round_impl_type=LearnedRoundImplType.HARD_SIGMOID,
+            learned_round_gamma=learned_round_gamma,
+            learned_round_zeta=learned_round_zeta,
+            learned_round_init=value)
+        layer.weight_quant.init_tensor_quant(preserve_state_dict=True)
 
 
-def split_layers(model, layers):
-    for module in model.children():
-        if isinstance(module, QuantWBIOL):
-            layers.append(module)
-        else:
-            split_layers(module, layers)
+def split_layerwise(model, class_type=QuantWBIOL):
+    layers = dict()
+    for name, module in model.named_modules():
+        if isinstance(module, class_type):
+            layers[name] = module
+    return layers
 
 
-def learned_round_iterator(layers, iters=1000):
-    for layer in layers:
-        insert_learned_round_quantizer(layer)
+def split_blockwise(model, block_name):
+    regex_exact_match = re.compile(block_name)
+    regex_starts_with = re.compile(block_name[:-1])
+    blocks = dict()
+    for name, module in model.named_modules():
+        re_match = regex_exact_match.match(name)
+        re_match_starts_with = regex_starts_with.match(name)
+        if re_match:
+            blocks[re_match.string] = module
+        elif not re_match_starts_with and isinstance(module, QuantWBIOL):
+            blocks[name] = module
 
-        for p in layer.parameters():
+    return blocks
+
+
+def blockwise_learned_round_iterator(blocks, iters=1000, learned_round_type='layerwise'):
+    for name, block in blocks.items():
+        for p in block.parameters():
             p.requires_grad = False
 
-        learned_round_module = find_learned_round_module(layer)
-        learned_round_module.value.requires_grad = True
-        layer_loss = Loss(module=layer, learned_round_module=learned_round_module, max_count=iters)
-        yield layer, layer_loss, learned_round_module
-        layer.eval()
+        learned_round_modules = []
+        scale_parameters = []
+        for module in block.modules():
+            if isinstance(module, QuantWBIOL):
+                insert_learned_round_quantizer(module)
+                module = find_learned_round_module(module)
+                module.value.requires_grad = True
+                learned_round_modules.append(module)
+            if isinstance(module, ActQuantProxyFromInjector
+                         ) and learned_round_type == 'block' and not isinstance(block, QuantWBIOL):
+                for p in module.parameters():
+                    p.requires_grad = True
+                    scale_parameters.append(p)
+        block_loss = Loss(
+            module=block, learned_round_modules=learned_round_modules, max_count=iters)
+        yield block, block_loss, learned_round_modules, scale_parameters
+
+        block.eval()
 
 
 def save_inp_out_data(

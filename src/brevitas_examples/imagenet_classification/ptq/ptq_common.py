@@ -9,6 +9,7 @@ from tqdm import tqdm
 
 from brevitas.core.scaling.standalone import ParameterFromStatsFromParameterScaling
 from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
+from brevitas.fx.brevitas_tracer import symbolic_trace
 from brevitas.graph.calibrate import bias_correction_mode
 from brevitas.graph.calibrate import calibration_mode
 from brevitas.graph.calibrate import norm_correction_mode
@@ -18,6 +19,7 @@ from brevitas.graph.quantize import layerwise_quantize
 from brevitas.graph.quantize import quantize
 from brevitas.graph.target.flexml import quantize_flexml
 import brevitas.nn as qnn
+from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.quant.fixed_point import Int8ActPerTensorFixedPoint
 from brevitas.quant.fixed_point import Int8ActPerTensorFixedPointMSE
 from brevitas.quant.fixed_point import Int8WeightPerChannelFixedPoint
@@ -39,9 +41,11 @@ from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloatMSE
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloatMSE
-from brevitas_examples.imagenet_classification.ptq.learned_round_utils import learned_round_iterator
+from brevitas_examples.imagenet_classification.ptq.learned_round_utils import \
+    blockwise_learned_round_iterator
 from brevitas_examples.imagenet_classification.ptq.learned_round_utils import save_inp_out_data
-from brevitas_examples.imagenet_classification.ptq.learned_round_utils import split_layers
+from brevitas_examples.imagenet_classification.ptq.learned_round_utils import split_blockwise
+from brevitas_examples.imagenet_classification.ptq.learned_round_utils import split_layerwise
 
 QUANTIZE_MAP = {'layerwise': layerwise_quantize, 'fx': quantize, 'flexml': quantize_flexml}
 
@@ -337,6 +341,8 @@ def apply_act_equalization(model, calib_loader, layerwise):
     model.eval()
     dtype = next(model.parameters()).dtype
     device = next(model.parameters()).device
+    if not layerwise and not hasattr(model, 'graph'):
+        model = symbolic_trace(model)
     with torch.no_grad():
         with activation_equalization_mode(model, alpha=0.5, layerwise=layerwise):
             for i, (images, target) in enumerate(tqdm(calib_loader)):
@@ -361,29 +367,62 @@ def apply_gptq(calib_loader, model, act_order=False):
 
 
 def apply_learned_round_learning(
-        model, dataloader, optimizer_class=torch.optim.Adam, iters=1000, optimizer_lr=1e-1):
-    layers = []
-    split_layers(model, layers)
-    print(f"Total Iterations per layer {iters}")
-    print(f"Number of layers {len(layers)}")
+        model,
+        dataloader,
+        learned_round_type='layerwise',
+        learned_round_block_name=None,
+        optimizer_class=torch.optim.Adam,
+        iters=2000,
+        optimizer_kwargs={'lr': 1e-3}):
 
-    for layer, layer_loss, learned_round_module in learned_round_iterator(layers, iters=iters):
-        optimizer = optimizer_class(learned_round_module.parameters(), lr=optimizer_lr)
-        _, all_fp_out = save_inp_out_data(model, layer, dataloader, store_inp=False, store_out=True, keep_gpu=True, disable_quant=True)
-        all_quant_inp, _ = save_inp_out_data(model, layer, dataloader, store_inp=True, store_out=True, keep_gpu=True, disable_quant=False)
+    if learned_round_type == 'layerwise':
+        blocks = split_layerwise(model)
+    elif learned_round_type == 'block':
+        assert learned_round_block_name is not None, 'learned_round_block_name is required for blockwise learned rounding'
+        blocks = split_blockwise(model, learned_round_block_name)
+    else:
+        raise ValueError('Learned round strategy not supported')
+    print(blocks.keys())
+    print(len(blocks))
+    print(f"Total Iterations per layer {iters}")
+
+    for block, block_loss, learned_round_modules, scale_parameters in blockwise_learned_round_iterator(blocks, iters=iters, learned_round_type=learned_round_type):
+        _, all_fp_out = save_inp_out_data(model, block, dataloader, store_inp=True, store_out=True, keep_gpu=True, disable_quant=True)
+        all_quant_inp, _ = save_inp_out_data(model, block, dataloader, store_inp=True, store_out=True, keep_gpu=True, disable_quant=False)
+        parameters = []
+        for module in learned_round_modules:
+            parameters.extend(list(module.parameters()))
+
+        if len(scale_parameters) == 0:
+            optimize_act = False
+        else:
+            optimize_act = True
+        optimizer = optimizer_class(parameters, **optimizer_kwargs)
+        if optimize_act:
+            a_optimizer = optimizer_class(scale_parameters, lr=4e-5)
+            a_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+                a_optimizer, T_max=iters, eta_min=0.)
         max_size = len(all_fp_out)
         pbar = tqdm(range(iters), desc='')
         for i in pbar:
             idx = torch.randint(0, max_size, (dataloader.batch_size,))
+
             quant_inp, fp_out = all_quant_inp[idx], all_fp_out[idx]
-            layer.train()
+            for module in block.modules():
+                if isinstance(module, QuantWBIOL):
+                    module.train()
 
             optimizer.zero_grad()
-            quant_out = layer(quant_inp)
-            loss, rec_loss, round_loss, b = layer_loss(quant_out, fp_out)
+            if optimize_act:
+                a_optimizer.zero_grad()
+            quant_out = block(quant_inp)
+            loss, rec_loss, round_loss, b = block_loss(quant_out, fp_out)
 
             loss.backward()
             optimizer.step()
+            if optimize_act:
+                a_optimizer.step()
+                a_scheduler.step()
             pbar.set_description(
-                "loss = {:.4f}, rec_loss = {:.4f}, round_loss = {:.4f}, b = {:.4f}".format(
+                "loss = {:.4f}, rec_loss = {:.4f}, round_loss = {:.4f} - b = {:.4f}".format(
                     loss, rec_loss, round_loss, b))

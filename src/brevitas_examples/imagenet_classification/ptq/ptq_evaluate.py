@@ -148,6 +148,13 @@ parser.add_argument(
     '--export-torch-qcdq',
     action='store_true',
     help='If true, export the model in torch qcdq format')
+parser.add_argument(
+    '--learned-round',
+    default=None,
+    choices=[None, 'layerwise', 'block'],
+    help='Learned round strategy (default: None)')
+parser.add_argument(
+    '--learned-round-block-name', default=None, help='Regex for block name (default: None)')
 add_bool_arg(
     parser,
     'scaling-per-output-channel',
@@ -168,7 +175,6 @@ add_bool_arg(
 add_bool_arg(parser, 'gptq', default=True, help='GPTQ (default: enabled)')
 add_bool_arg(
     parser, 'gptq-act-order', default=False, help='GPTQ Act order heuristic (default: disabled)')
-add_bool_arg(parser, 'learned-round', default=False, help='Learned round (default: disabled)')
 add_bool_arg(parser, 'calibrate-bn', default=False, help='Calibrate BN (default: disabled)')
 
 
@@ -249,8 +255,6 @@ def main():
 
     # Get the model from torchvision
     model = get_torchvision_model(args.model_name)
-
-    # Preprocess the model for quantization
     if args.target_backend == 'flexml':
         # flexml requires static shapes, pass a representative input in
         img_shape = model_config['center_crop_shape']
@@ -261,11 +265,13 @@ def main():
             equalize_merge_bias=args.graph_eq_merge_bias,
             merge_bn=not args.calibrate_bn)
     elif args.target_backend == 'fx' or args.target_backend == 'layerwise':
-        model = preprocess_for_quantize(
+        model_preprocessed = preprocess_for_quantize(
             model,
             equalize_iters=args.graph_eq_iterations,
             equalize_merge_bias=args.graph_eq_merge_bias,
-            merge_bn=not args.calibrate_bn)
+            merge_bn=not args.calibrate_bn and not args.learned_round == 'block')
+        if args.learned_round != 'block':
+            model = model_preprocessed
     else:
         raise RuntimeError(f"{args.target_backend} backend not supported.")
 
@@ -308,8 +314,8 @@ def main():
         apply_learned_round_learning(
             quant_model,
             calib_loader,
-            iters=args.learned_round_iters,
-            optimizer_lr=args.learned_round_lr)
+            learned_round_type=args.learned_round,
+            learned_round_block_name=args.learned_round_block_name)
 
     if args.calibrate_bn:
         print("Calibrate BN:")
