@@ -379,3 +379,39 @@ def apply_gptq(calib_loader, model, act_order=False):
                     images = images.to(dtype)
                     gptq_model(images)
                 gptq.update()
+
+
+def apply_learned_round_learning(
+        model,
+        dataloader,
+        optimizer_class=torch.optim.Adam,
+        epochs=60,
+        optimizer_kwargs={'lr': 1e-1}):
+    blocks = []
+    split_layers(model, blocks)
+    device = next(iter(model.parameters())).device
+    dtype = next(iter(model.parameters())).dtype
+
+    iters = len(dataloader) * epochs
+    print(f"Total Iterations per block {iters}")
+    print(len(blocks))
+
+    for block, get_inp_out, layer_loss, learned_round_module in block_wise_learned_round_iterator(model, blocks, iters=iters):
+        optimizer = optimizer_class(list(learned_round_module.parameters()), **optimizer_kwargs)
+        pbar = tqdm(range(epochs), desc='')
+        for e in pbar:
+            for i, (img, t) in enumerate(dataloader):
+                img = img.to(device)
+                img = img.to(dtype)
+                quant_inp, fp_out = get_inp_out(img)
+                block.train()
+
+                optimizer.zero_grad()
+                quant_out = block(quant_inp)
+                loss, rec_loss, round_loss = layer_loss(quant_out, fp_out)
+
+                loss.backward()
+                optimizer.step()
+                pbar.set_description(
+                    "loss = {:.4f}, rec_loss = {:.4f}, round_loss = {:.4f}".format(
+                        loss, rec_loss, round_loss))

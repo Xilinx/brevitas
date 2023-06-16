@@ -23,6 +23,7 @@ from brevitas.graph.target.flexml import preprocess_for_flexml_quantize
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_act_equalization
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_bias_correction
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_gptq
+from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_learned_round_learning
 from brevitas_examples.imagenet_classification.ptq.ptq_common import calibrate
 from brevitas_examples.imagenet_classification.ptq.ptq_common import calibrate_bn
 from brevitas_examples.imagenet_classification.ptq.ptq_common import quantize_model
@@ -155,6 +156,7 @@ add_bool_arg(
     default=True,
     help='Narrow range for weight quantization (default: enabled)')
 add_bool_arg(parser, 'gptq', default=True, help='GPTQ (default: enabled)')
+add_bool_arg(parser, 'learned-round', default=False, help='Learned round (default: disabled)')
 add_bool_arg(
     parser, 'gptq-act-order', default=False, help='GPTQ Act order heuristic (default: disabled)')
 add_bool_arg(parser, 'calibrate-bn', default=False, help='Calibrate BN (default: disabled)')
@@ -180,6 +182,7 @@ def main():
         f"w{args.weight_bit_width}_"
         f"{'gptq_' if args.gptq else ''}"
         f"{'gptq_act_order_' if args.gptq_act_order else ''}"
+        f"{'learned_round_' if args.learned_round else ''}"
         f"{'weight_narrow_range_' if args.weight_narrow_range else ''}"
         f"{args.bias_bit_width}bias_"
         f"{args.weight_quant_granularity}_"
@@ -199,6 +202,7 @@ def main():
         f"Weight bit width: {args.weight_bit_width} - "
         f"GPTQ: {args.gptq} - "
         f"GPTQ Act Order: {args.gptq_act_order} - "
+        f"Learned Round: {args.learned_round} - "
         f"Weight narrow range: {args.weight_narrow_range} - "
         f"Bias bit width: {args.bias_bit_width} - "
         f"Weight scale factors type: {args.weight_quant_granularity} - "
@@ -288,6 +292,10 @@ def main():
     if args.gptq:
         print("Performing GPTQ:")
         apply_gptq(calib_loader, quant_model, args.gptq_act_order)
+
+    if args.learned_round:
+        print("Applying Learned Round:")
+        apply_learned_round_learning(quant_model, calib_loader)
 
     if args.calibrate_bn:
         print("Calibrate BN:")

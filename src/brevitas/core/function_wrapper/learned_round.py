@@ -5,10 +5,13 @@
 Different implementations for LearnedRound.
 """
 
+from typing import Optional
+
 import torch
 
 import brevitas
 from brevitas import config
+from brevitas.core.utils import SliceTensor
 from brevitas.function.ops_ste import floor_ste
 
 
@@ -56,14 +59,21 @@ class LearnedRoundSte(brevitas.jit.ScriptModule):
     """
 
     def __init__(
-            self, learned_round_impl: torch.nn.Module, learned_round_init: torch.Tensor) -> None:
+            self,
+            learned_round_impl: torch.nn.Module,
+            learned_round_init: torch.Tensor,
+            device: Optional[torch.device] = None,
+            dtype: Optional[torch.dtype] = None) -> None:
         super(LearnedRoundSte, self).__init__()
         self.learned_round_impl = learned_round_impl
+        learned_round_init = learned_round_init.to(device=device, dtype=dtype)
+        self.tensor_slicer = SliceTensor()
         self.value = torch.nn.Parameter(learned_round_init)
 
     @brevitas.jit.script_method
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         p = self.p_forward()
+        p = self.tensor_slicer(p)
         return floor_ste(x) + p.to(x.dtype)
 
     def p_forward(self):

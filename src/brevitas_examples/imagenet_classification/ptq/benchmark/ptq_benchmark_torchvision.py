@@ -25,6 +25,7 @@ from brevitas.graph.target.flexml import preprocess_for_flexml_quantize
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_act_equalization
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_bias_correction
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_gptq
+from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_learned_round_learning
 from brevitas_examples.imagenet_classification.ptq.ptq_common import calibrate
 from brevitas_examples.imagenet_classification.ptq.ptq_common import quantize_model
 from brevitas_examples.imagenet_classification.ptq.utils import get_gpu_index
@@ -56,6 +57,7 @@ OPTIONS = {
     'graph_eq_iterations': [0, 20],  # Graph Equalization
     'graph_eq_merge_bias': [False, True],  # Merge bias for Graph Equalization
     'act_equalization': ['fx', 'layerwise', None],  # Perform Activation Equalization (Smoothquant)
+    'learned_round': [False, True],  # Enable/Disable Learned Round
     'gptq': [False, True],  # Enable/Disable GPTQ
     'gptq_act_order': [False, True],  # Use act_order euristics for GPTQ
     'act_quant_percentile': [99.9, 99.99, 99.999],  # Activation Quantization Percentile
@@ -74,6 +76,7 @@ OPTIONS_DEFAULT = {
     'graph_eq_iterations': [20],  # Graph Equalization
     'graph_eq_merge_bias': [True],  # Merge bias for Graph Equalization
     'act_equalization': [None],  # Perform Activation Equalization (Smoothquant)
+    'learned_round': [False],  # Enable/Disable Learned Round
     'gptq': [True],  # Enable/Disable GPTQ
     'gptq_act_order': [False],  # Use act_order euristics for GPTQ
     'act_quant_percentile': [99.999],  # Activation Quantization Percentile
@@ -228,6 +231,10 @@ def ptq_torchvision_models(df, args):
     if config_namespace.gptq:
         print("Performing gptq")
         apply_gptq(calib_loader, quant_model, config_namespace.gptq_act_order)
+
+    if config_namespace.learned_round:
+        print("Applying Learned Round:")
+        apply_learned_round_learning(quant_model, calib_loader)
 
     if config_namespace.bias_corr:
         print("Applying bias correction")
