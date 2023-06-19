@@ -166,13 +166,14 @@ class QuantLayerMixin(ExportMixin):
             if not self.training and not self._export_mode and self.cache_inference_quant_inp:
                 cached_inp = _CachedIO(inp.detach(), self.cache_quant_io_metadata_only)
                 self._cached_inp = cached_inp
-            return inp
         else:
             inp = QuantTensor(inp, training=self.training)
             if not self.training and self.cache_inference_quant_inp:
                 cached_inp = _CachedIO(inp.detach(), self.cache_quant_io_metadata_only)
                 self._cached_inp = cached_inp
-            return inp
+        # Remove any naming metadata to avoid dowmstream errors
+        inp.value.rename_(None)
+        return inp
 
     def pack_output(self, quant_output: QuantTensor):
         if not self.training and self.cache_inference_quant_out:
