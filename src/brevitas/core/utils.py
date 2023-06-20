@@ -92,6 +92,7 @@ class SliceTensor(brevitas.jit.ScriptModule):
         super().__init__()
         self.subtensor_slice_list = brevitas.jit.Attribute([None], List[Optional[Tuple[int, int]]])
 
+    @brevitas.jit.script_method
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if torch.jit.is_scripting():
             for i, s in enumerate(self.subtensor_slice_list):
