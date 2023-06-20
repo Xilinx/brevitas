@@ -103,7 +103,7 @@ class QuantWeightMixin(QuantProxyMixin):
             # The modules to slice should have been cached already at this point
             assert self._cached_sub_tensor_slice_list_modules is not None, "Missing cache of modules to slice."
             for m in self._cached_sub_tensor_slice_list_modules:
-                m.subtensor_slice_list = None
+                m.subtensor_slice_list = [None]
         return out
 
     def int_weight(self, float_datatype=False):
