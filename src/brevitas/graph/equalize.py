@@ -26,7 +26,7 @@ from brevitas.nn.quant_scale_bias import ScaleBias
 from .base import GraphTransform
 from .base import InsertModuleCallAfter
 
-__all__ = ['EqualizeGraph']
+__all__ = ['GraphActivationEqualization', 'LayerwiseActivationEqualization', 'EqualizeGraph']
 
 EPSILON = 1e-9
 
@@ -244,6 +244,10 @@ def _get_output_axis(module: nn.Module) -> Optional[int]:
 
 
 def _get_act_axis(sink_module: nn.Module) -> Optional[int]:
+    """
+    Given a layer, return activation axis associated to the feature dim.
+    Even though BatchNorm layers are supported, it gives no information about the feature dim.
+    """
     if isinstance(sink_module, (nn.Linear, nn.MultiheadAttention)):
         return -1
     elif isinstance(sink_module,
@@ -304,7 +308,7 @@ def _combine_weights_bias(
 def transpose(module: torch.nn.Module, axis: int):
     """
     Given a module and an axis, this function re-arranges the module's weights so that the axis and
-    the first dimension are swapped
+    the first dimension are swapped.
     """
     shape = list(range(module.weight.ndim))
     axis = shape[axis]
@@ -696,7 +700,11 @@ class LayerwiseActivationEqualization(GraphTransform):
 
     def setup(self):
         for region in self.regions:
-            hook_fn = partial(self.forward_stats_hook, name=region)
+            batch_dim = 0
+            if hasattr(region, 'batch_first'):
+                batch_dim = 0 if region.batch_first == True else 1
+
+            hook_fn = partial(self.forward_stats_hook, name=region, batch_dim=batch_dim)
             self.hooks.append(region.register_forward_pre_hook(hook_fn))
 
     def apply(self, alpha):
@@ -720,7 +728,7 @@ class LayerwiseActivationEqualization(GraphTransform):
         for hook in self.hooks:
             hook.remove()
 
-    def forward_stats_hook(self, module, inp, name):
+    def forward_stats_hook(self, module, inp, name, batch_dim=0):
         if len(inp) == 0:
             warnings.warn(
                 "Cannot perform layerwise activation equalization with only kwargs as input")
@@ -736,8 +744,8 @@ class LayerwiseActivationEqualization(GraphTransform):
             inp = inp[0]
         else:
             inp = inp[0]
+
         # Compute stats along the batch dimension
-        batch_dim = 0
         if hasattr(inp, 'names') and 'N' in inp.names:
             batch_dim = inp.names.index('N')
             inp = inp.transpose(0, batch_dim)
@@ -806,10 +814,16 @@ class GraphActivationEqualization(GraphTransform):
                                                for act_name in region.acts]):
                 regions_to_drop.append(region)
             else:
+                # We assume that the entire region has a unique batch_dim
+                batch_dim = 0
+                for name in region.srcs + region.sinks:
+                    module = name_to_module[name]
+                    if hasattr(module, 'batch_first'):
+                        batch_dim = 0 if module.batch_first == True else 1
+
                 for act_name in region.acts:
-                    # act_name = region.acts[0]
                     act_module = name_to_module[act_name]
-                    hook_fn = partial(self.forward_stats_hook, name=act_name)
+                    hook_fn = partial(self.forward_stats_hook, name=act_name, batch_dim=batch_dim)
                     self.hooks.append(act_module.register_forward_hook(hook_fn))
 
         self.regions = [x for x in self.regions if x not in regions_to_drop]
@@ -855,12 +869,13 @@ class GraphActivationEqualization(GraphTransform):
         for hook in self.hooks:
             hook.remove()
 
-    def forward_stats_hook(self, module, inp, out, name):
-        # Compute stats along the batch dimension
-        batch_dim = 0
+    def forward_stats_hook(self, module, inp, out, name, batch_dim=0):
+        inp = inp[0]
+
         if hasattr(inp, 'names') and 'N' in inp.names:
             batch_dim = inp.names.index('N')
             inp = inp.transpose(0, batch_dim)
+
         self.batch_dim_act_map[name] = batch_dim
 
         if name not in self.float_act_map:

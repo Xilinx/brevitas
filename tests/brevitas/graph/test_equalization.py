@@ -140,7 +140,7 @@ def test_models(toy_model, merge_bias, request):
     assert torch.allclose(expected_out, out, atol=ATOL)
     # Check that at least one region performs "true" equalization
     # If all shapes are scalar, no equalization has been performed
-    assert any([shape != () for shape in shape_scale_regions])
+    assert all([shape != () for shape in shape_scale_regions])
 
 
 @pytest_cases.parametrize("layerwise", [True, False])
