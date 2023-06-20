@@ -735,6 +735,11 @@ class LayerwiseActivationEqualization(GraphTransform):
             self.float_act_map[name] = None
             return
 
+        # Extra check for batch_dim
+        if hasattr(inp, 'names') and 'N' in inp.names:
+            batch_dim = inp.names.index('N')
+            inp = inp.transpose(0, batch_dim)
+
         if len(inp) > 1:
             # check that they are all equal for self-attention MHA
             self_attention = all([inp[0].data_ptr() == i.data_ptr() for i in inp])
@@ -745,17 +750,14 @@ class LayerwiseActivationEqualization(GraphTransform):
         else:
             inp = inp[0]
 
-        # Compute stats along the batch dimension
-        if hasattr(inp, 'names') and 'N' in inp.names:
-            batch_dim = inp.names.index('N')
-            inp = inp.transpose(0, batch_dim)
         self.batch_dim_act_map[name] = batch_dim
 
         if name not in self.float_act_map:
-            self.float_act_map[name] = self.scale_fn(inp, dim=0)
+            self.float_act_map[name] = self.scale_fn(inp, dim=batch_dim)
         else:
-            batch_data = torch.cat([self.float_act_map[name].unsqueeze(0), inp], dim=0)
-            self.float_act_map[name] = self.scale_fn(batch_data, dim=0)
+            batch_data = torch.cat([self.float_act_map[name].unsqueeze(batch_dim), inp],
+                                   dim=batch_dim)
+            self.float_act_map[name] = self.scale_fn(batch_data, dim=batch_dim)
 
     def insert_mul_node(self, scale, shape, axis, region, batch_dim=0):
         broadcastable_shape = [1] * len(shape)
@@ -872,6 +874,7 @@ class GraphActivationEqualization(GraphTransform):
     def forward_stats_hook(self, module, inp, out, name, batch_dim=0):
         inp = inp[0]
 
+        # Extra check for batch_dim
         if hasattr(inp, 'names') and 'N' in inp.names:
             batch_dim = inp.names.index('N')
             inp = inp.transpose(0, batch_dim)
@@ -879,10 +882,11 @@ class GraphActivationEqualization(GraphTransform):
         self.batch_dim_act_map[name] = batch_dim
 
         if name not in self.float_act_map:
-            self.float_act_map[name] = self.scale_fn(out, dim=0)
+            self.float_act_map[name] = self.scale_fn(out, dim=batch_dim)
         else:
-            batch_data = torch.cat([self.float_act_map[name].unsqueeze(0), out], dim=0)
-            self.float_act_map[name] = self.scale_fn(batch_data, dim=0)
+            batch_data = torch.cat([self.float_act_map[name].unsqueeze(batch_dim), out],
+                                   dim=batch_dim)
+            self.float_act_map[name] = self.scale_fn(batch_data, dim=batch_dim)
 
     def insert_mul_node(self, scale, shape, axis, act_node, batch_dim=0):
         broadcastable_shape = [1] * len(shape)

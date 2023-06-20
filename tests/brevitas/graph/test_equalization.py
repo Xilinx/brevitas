@@ -174,7 +174,7 @@ def test_act_equalization_models(toy_model, layerwise, request):
         assert len(regions) > 0
         # Check that at least one region performs "true" equalization
         # If all shapes are scalar, no equalization has been performed
-        assert any([shape != () for shape in shape_scale_regions])
+        assert all([shape != () for shape in shape_scale_regions])
 
 
 @pytest_cases.parametrize(
