@@ -1,7 +1,7 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from typing import Optional
+from typing import List, Optional, Tuple
 
 import torch
 
@@ -84,3 +84,22 @@ class ParameterWrapper(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def forward(self):
         return self.value
+
+
+class SliceTensor(brevitas.jit.ScriptModule):
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.subtensor_slice_list = brevitas.jit.Attribute([None], List[Optional[Tuple[int, int]]])
+
+    @brevitas.jit.script_method
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if torch.jit.is_scripting():
+            for i, s in enumerate(self.subtensor_slice_list):
+                if s is not None:
+                    x = x.slice(i, s[0], s[1])
+        else:
+            slices = tuple(
+                slice(*s) if s is not None else slice(s) for s in self.subtensor_slice_list)
+            x = x[slices]
+        return x
