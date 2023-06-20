@@ -3,7 +3,7 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 """
 
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 import torch
 from torch import Tensor
@@ -92,12 +92,18 @@ class ExpandReshapeScalingWrapper(brevitas.jit.ScriptModule):
         self.wrapped_scaling_impl = wrapped_scaling_impl
         self.expanded_scaling_shape = expanded_scaling_shape
         self.reshaped_scaling_shape = reshaped_scaling_shape
+        self.subtensor_slice_list = torch.jit.Attribute([None], List[Optional[Tuple[int, int]]])
 
+    @brevitas.jit.script_method
     def forward(self, x):
         scale = self.wrapped_scaling_impl(x)
-        scale = scale.expand(self.expanded_scaling_shape).contiguous()
-        # contiguous() above is to avoid an unsafe_view below
-        scale = scale.view(self.reshaped_scaling_shape)
+        scale = scale.expand(self.expanded_scaling_shape)
+        scale = scale.reshape(self.reshaped_scaling_shape)
+        for i, s in enumerate(self.subtensor_slice_list):
+            if s is not None:
+                scale = scale.slice(i, s[0], s[1])
+            else:
+                scale = scale.slice(i)
         return scale
 
 
@@ -110,6 +116,7 @@ class ExpandReshapeZeroPointWrapper(brevitas.jit.ScriptModule):
         self.wrapped_zero_point_impl = wrapped_zero_point_impl
         self.expanded_zero_point_shape = expanded_zero_point_shape
         self.reshaped_zero_point_shape = reshaped_zero_point_shape
+        self.subtensor_slice_list = torch.jit.Attribute([None], List[Optional[Tuple[int, int]]])
 
     def unexpanded_zero_point(self, unexpanded_scale, bit_width):
         """
@@ -120,13 +127,19 @@ class ExpandReshapeZeroPointWrapper(brevitas.jit.ScriptModule):
             -zero_point_stats, unexpanded_scale, bit_width)
         return zero_point
 
+    @brevitas.jit.script_method
     def forward(self, x: Tensor, scale: Tensor, bit_width: Tensor):
         # We have to break into wrapped_zero_point_impl since we need to expand and reshape
         # Before we call into scale_shift_zero_point
         zero_point_stats = self.wrapped_zero_point_impl.parameter_list_stats()
         zero_point_stats = zero_point_stats.expand(self.expanded_zero_point_shape).contiguous()
         # contiguous() above is to avoid an unsafe_view below
-        zero_point_stats = zero_point_stats.view(self.reshaped_zero_point_shape)
+        zero_point_stats = zero_point_stats.reshape(self.reshaped_zero_point_shape)
+        for i, s in enumerate(self.subtensor_slice_list):
+            if s is not None:
+                zero_point_stats = zero_point_stats.slice(i, s[0], s[1])
+            else:
+                zero_point_stats = zero_point_stats.slice(i)
         zero_point = self.wrapped_zero_point_impl.scale_shift_zero_point(
             -zero_point_stats, scale, bit_width)
         return zero_point
