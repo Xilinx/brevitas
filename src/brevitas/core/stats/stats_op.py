@@ -21,10 +21,14 @@ DEFAULT_STD_DEV_EPSILON = 1e-8
 class NegativeMinOrZero(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim']
 
-    def __init__(self, stats_reduce_dim: Optional[int] = None) -> None:
+    def __init__(
+            self,
+            stats_reduce_dim: Optional[int] = None,
+            dtype: Optional[torch.dtype] = None,
+            device: Optional[torch.device] = None) -> None:
         super(NegativeMinOrZero, self).__init__()
         self.stats_reduce_dim = stats_reduce_dim
-        self.zero = StatelessBuffer(torch.tensor(0.0))
+        self.zero = StatelessBuffer(torch.tensor(0.0, dtype=dtype, device=device))
 
     @brevitas.jit.script_method
     def forward(self, x: Tensor) -> Tensor:
@@ -69,11 +73,16 @@ class AbsPercentile(brevitas.jit.ScriptModule):
 class NegativePercentileOrZero(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim', 'q']
 
-    def __init__(self, low_percentile_q, stats_reduce_dim: Optional[int] = None) -> None:
+    def __init__(
+            self,
+            low_percentile_q,
+            stats_reduce_dim: Optional[int] = None,
+            dtype: Optional[torch.dtype] = None,
+            device: Optional[torch.device] = None) -> None:
         super(NegativePercentileOrZero, self).__init__()
         self.stats_reduce_dim = stats_reduce_dim
         self.q = low_percentile_q
-        self.zero = StatelessBuffer(torch.tensor(0.0))
+        self.zero = StatelessBuffer(torch.tensor(0.0, dtype=dtype, device=device))
 
     @brevitas.jit.script_method
     def forward(self, x: Tensor) -> Tensor:

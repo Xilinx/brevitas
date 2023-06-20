@@ -42,13 +42,16 @@ class _RuntimeStats(brevitas.jit.ScriptModule):
             stats_impl: nn.Module,
             stats_output_shape: Tuple[int, ...],
             stats_input_view_shape_impl: nn.Module,
-            stats_buffer_momentum: float) -> None:
+            stats_buffer_momentum: float,
+            dtype: Optional[torch.dtype],
+            device: Optional[torch.device]) -> None:
         super(_RuntimeStats, self).__init__()
         self.counter = brevitas.jit.Attribute(0, int)
         self.stats_input_view_shape_impl = stats_input_view_shape_impl
         self.stats = _Stats(stats_impl, stats_output_shape)
         self.momentum = stats_buffer_momentum
-        self.register_buffer('running_stats', torch.full(stats_output_shape, 1.0))
+        self.register_buffer(
+            'running_stats', torch.full(stats_output_shape, 1.0, dtype=dtype, device=device))
 
     @brevitas.jit.script_method
     def forward(self, stats_input) -> Tensor:
