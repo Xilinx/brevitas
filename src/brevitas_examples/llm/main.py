@@ -79,9 +79,9 @@ parser.add_argument(
 parser.add_argument(
     '--input-scale-type',
     type=str,
-    default='float32',
-    choices=['float32', 'po2'],
-    help='Whether input scale is a float value or a po2. Default: float32.')
+    default='float',
+    choices=['float', 'po2'],
+    help='Whether input scale is a float value or a po2. Default: float.')
 parser.add_argument(
     '--input-quant-type',
     type=str,
@@ -100,6 +100,10 @@ parser.add_argument('--gptq', action='store_true', help='Apply GPTQ.')
 parser.add_argument('--act-calibration', action='store_true', help='Apply activation calibration.')
 parser.add_argument('--bias-corr', action='store_true', help='Apply bias correction.')
 parser.add_argument('--no-quantize', action='store_true', help='Disable quantization.')
+parser.add_argument(
+    '--no-float16',
+    action='store_true',
+    help='Disable float16 as base datatype and switch to float32.')
 parser.add_argument(
     '--act-equalization', action='store_true', help='Apply activation equalization (SmoothQuant).')
 parser.add_argument(
@@ -163,7 +167,12 @@ def main():
     validate(args)
     set_seed(args.seed)
 
-    kwargs = {"torch_dtype": torch.float}
+    if args.no_float16:
+        dtype = torch.float32
+    else:
+        dtype = torch.float16
+
+    kwargs = {"torch_dtype": dtype}
     print("Model loading...")
     model = AutoModelForCausalLM.from_pretrained(args.model, **kwargs)
     print("Model loaded.")
@@ -171,7 +180,7 @@ def main():
 
     if args.input_bit_width:
         print("Replace HF MHA with quantizable variants...")
-        model = replace_mha_with_quantizable_layers(model)
+        model = replace_mha_with_quantizable_layers(model, dtype)
         print("Replacing done.")
 
     if args.export_target or args.eval or args.act_equalization or args.act_calibration or args.gptq or args.bias_corr:
@@ -189,6 +198,7 @@ def main():
         print("Applying model quantization...")
         quantize_model(
             get_model_impl(model).layers,
+            dtype=dtype,
             weight_quant_type=args.weight_quant_type,
             weight_bit_width=args.weight_bit_width,
             weight_param_method=args.weight_param_method,
