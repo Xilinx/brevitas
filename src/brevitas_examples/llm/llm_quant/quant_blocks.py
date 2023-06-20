@@ -11,6 +11,7 @@ import torch.nn as nn
 
 import brevitas
 from brevitas.core.function_wrapper.shape import PermuteDims
+from brevitas.core.utils import SliceTensor
 from brevitas.core.utils import StatelessBuffer
 
 
@@ -92,18 +93,15 @@ class ExpandReshapeScalingWrapper(brevitas.jit.ScriptModule):
         self.wrapped_scaling_impl = wrapped_scaling_impl
         self.expanded_scaling_shape = expanded_scaling_shape
         self.reshaped_scaling_shape = reshaped_scaling_shape
-        self.subtensor_slice_list = torch.jit.Attribute([None], List[Optional[Tuple[int, int]]])
+        self.slice_tensor = SliceTensor()
 
     @brevitas.jit.script_method
     def forward(self, x):
         scale = self.wrapped_scaling_impl(x)
         scale = scale.expand(self.expanded_scaling_shape)
         scale = scale.reshape(self.reshaped_scaling_shape)
-        for i, s in enumerate(self.subtensor_slice_list):
-            if s is not None:
-                scale = scale.slice(i, s[0], s[1])
-            else:
-                scale = scale.slice(i)
+        # slice tensor when required by partial quantization
+        scale = self.slice_tensor(scale)
         return scale
 
 
@@ -116,7 +114,7 @@ class ExpandReshapeZeroPointWrapper(brevitas.jit.ScriptModule):
         self.wrapped_zero_point_impl = wrapped_zero_point_impl
         self.expanded_zero_point_shape = expanded_zero_point_shape
         self.reshaped_zero_point_shape = reshaped_zero_point_shape
-        self.subtensor_slice_list = torch.jit.Attribute([None], List[Optional[Tuple[int, int]]])
+        self.slice_tensor = SliceTensor()
 
     def unexpanded_zero_point(self, unexpanded_scale, bit_width):
         """
@@ -135,11 +133,8 @@ class ExpandReshapeZeroPointWrapper(brevitas.jit.ScriptModule):
         zero_point_stats = zero_point_stats.expand(self.expanded_zero_point_shape).contiguous()
         # contiguous() above is to avoid an unsafe_view below
         zero_point_stats = zero_point_stats.reshape(self.reshaped_zero_point_shape)
-        for i, s in enumerate(self.subtensor_slice_list):
-            if s is not None:
-                zero_point_stats = zero_point_stats.slice(i, s[0], s[1])
-            else:
-                zero_point_stats = zero_point_stats.slice(i)
+        # slice tensor when required by partial quantization
+        zero_point_stats = self.slice_tensor(zero_point_stats)
         zero_point = self.wrapped_zero_point_impl.scale_shift_zero_point(
             -zero_point_stats, scale, bit_width)
         return zero_point
