@@ -43,8 +43,8 @@ parser.add_argument(
 parser.add_argument(
     '--weight-scale-type',
     type=str,
-    default='float32',
-    choices=['float32', 'po2'],
+    default='float',
+    choices=['float', 'po2'],
     help='Whether scale is a float value or a po2. Default: po2.')
 parser.add_argument(
     '--weight-quant-type',
