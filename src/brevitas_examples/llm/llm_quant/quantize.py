@@ -34,7 +34,7 @@ from brevitas_examples.llm.llm_quant.quantizers import ShiftedUint8ActPerRowFloa
 from brevitas_examples.llm.llm_quant.quantizers import ShiftedUintWeightAsymmetricGroupQuant
 
 WEIGHT_QUANT_MAP = {
-    'float32': {
+    'float': {
         'stats': {
             'per_tensor': {
                 'sym': Int8WeightPerTensorFloat, 'asym': ShiftedUint8WeightPerTensorFloat},
@@ -62,7 +62,7 @@ WEIGHT_QUANT_MAP = {
                 'sym': Int8WeightPerChannelFixedPointMSE},},}}
 
 INPUT_QUANT_MAP = {
-    'float32': {
+    'float': {
         'stats': {
             'per_tensor': {
                 'sym': Int8ActPerTensorFloat, 'asym': ShiftedUint8ActPerTensorFloat},
@@ -84,6 +84,7 @@ INPUT_QUANT_MAP = {
 
 def quantize_model(
         model,
+        dtype,
         weight_bit_width,
         weight_param_method,
         weight_scale_type,
@@ -169,7 +170,8 @@ def quantize_model(
             **{
                 'bit_width': input_bit_width, 'quantize_zero_point': quantize_input_zero_point})
 
-    quant_linear_kwargs = {'input_quant': per_tensor_input_quant, 'weight_quant': weight_quant}
+    quant_linear_kwargs = {
+        'input_quant': per_tensor_input_quant, 'weight_quant': weight_quant, 'dtype': dtype}
 
     quant_mha_kwargs = {
         'in_proj_input_quant': input_quant,
@@ -188,7 +190,8 @@ def quantize_model(
         'batch_first': True,
         # activation equalization requires packed_in_proj
         # since it supports only self-attention
-        'packed_in_proj': True}
+        'packed_in_proj': True,
+        'dtype': dtype}
 
     layer_map = {
         nn.Linear: (qnn.QuantLinear, quant_linear_kwargs),
