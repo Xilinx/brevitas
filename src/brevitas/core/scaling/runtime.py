@@ -107,7 +107,9 @@ class RuntimeStatsScaling(brevitas.jit.ScriptModule):
             scaling_stats_impl,
             scaling_shape,
             scaling_stats_input_view_shape_impl,
-            scaling_stats_momentum)
+            scaling_stats_momentum,
+            dtype,
+            device)
         self.stats_scaling_impl = _StatsScaling(
             restrict_scaling_impl,
             scaling_shape,
