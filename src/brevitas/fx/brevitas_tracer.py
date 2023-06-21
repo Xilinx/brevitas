@@ -11,8 +11,51 @@ from torch.nn import Sequential
 from brevitas.utils.python_utils import patch
 
 from . import GraphModule
+from . import map_aggregate
+from . import Proxy
 from . import Tracer
+from .value_tracer import _UNSET
+from .value_tracer import UnsetValueException
 from .value_tracer import ValueTracer
+
+FNS_TO_PATCH = [
+    torch.arange,
+    torch.tensor,
+    torch.zeros,
+    torch.ones,
+    torch.rand,
+    torch.randn,
+    torch.randint,
+    torch.full,
+    torch.finfo]
+
+
+def _gen_torch_fn_patches(orig_fn):
+    tracers: Dict[Any, None] = {}
+
+    def find_tracer(a):
+        if isinstance(a, Proxy):
+            tracers[a.tracer] = None
+
+    def new_fn(*args, **kwargs):
+        map_aggregate(args, find_tracer)
+        map_aggregate(kwargs, find_tracer)
+        assert len(tracers) == 1, "Multiple different tracers found."
+        tracer = next(iter(tracers.keys()))
+        try:
+            value = orig_fn(*tracer.unpack_arg(args), **tracer.unpack_arg(kwargs))
+        except UnsetValueException:
+            value = _UNSET
+        return tracer.create_proxy(
+            'call_function',
+            orig_fn,
+            args,
+            kwargs,
+            name=tracer.graph._target_to_str(orig_fn.__name__),
+            value=value)
+
+    patch_fn = patch(torch, orig_fn.__name__, new_fn)
+    return patch_fn
 
 
 def _gen_patches():
@@ -39,7 +82,11 @@ def _gen_patches():
     cat_patch = patch(torch, 'cat', cat)
     stack_patch = patch(torch, 'stack', stack)
 
-    return [cat_patch, stack_patch]
+    tensor_creation_patches = []
+    for fn in FNS_TO_PATCH:
+        tensor_creation_patches.append(_gen_torch_fn_patches(fn))
+
+    return [cat_patch, stack_patch] + tensor_creation_patches
 
 
 def _is_brevitas_leaf_module(m, fully_qualified_name):
