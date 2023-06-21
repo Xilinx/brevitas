@@ -44,9 +44,9 @@ def equalize_test(model, regions, merge_bias, bias_shrinkage, scale_computation_
         for region in regions:
             scale_factors_region = _cross_layer_equalization(
                 [name_to_module[n] for n in region.srcs], [name_to_module[n] for n in region.sinks],
-                merge_bias,
-                bias_shrinkage,
-                scale_computation_type)
+                merge_bias=merge_bias,
+                bias_shrinkage=bias_shrinkage,
+                scale_computation_type=scale_computation_type)
             if i == 0:
                 scale_factors_regions.append(scale_factors_region)
     return scale_factors_regions
@@ -90,9 +90,11 @@ def bnconv_model():
             self.bn.weight.data = torch.randn_like(self.bn.weight)
             self.bn.bias.data = torch.randn_like(self.bn.bias)
             self.conv = nn.Conv2d(3, 16, kernel_size=3)
+            self.relu = nn.ReLU()
 
         def forward(self, x):
             x = self.bn(x)
+            x = self.relu(x)
             x = self.conv(x)
             return x
 
@@ -114,9 +116,11 @@ def linearmha_model(bias, add_bias_kv, batch_first):
             self.linear = nn.Linear(3, 24)
             self.mha = nn.MultiheadAttention(
                 24, 3, 0.1, bias=bias, add_bias_kv=add_bias_kv, batch_first=batch_first)
+            self.relu = nn.ReLU()
 
         def forward(self, x):
             x = self.linear(x)
+            x = self.relu(x)
             x, _ = self.mha(x, x, x)
             return x
 
@@ -141,9 +145,11 @@ def layernormmha_model(bias, add_bias_kv, batch_first):
             self.layernorm.bias.data = torch.randn_like(self.layernorm.bias)
             self.mha = nn.MultiheadAttention(
                 3, 3, 0.1, bias=bias, add_bias_kv=add_bias_kv, batch_first=batch_first)
+            self.relu = nn.ReLU()
 
         def forward(self, x):
             x = self.layernorm(x)
+            x = self.relu(x)
             x, _ = self.mha(x, x, x)
             return x
 
@@ -165,9 +171,11 @@ def mhalinear_model(bias, add_bias_kv, batch_first):
             self.mha = nn.MultiheadAttention(
                 3, 1, 0.1, bias=bias, add_bias_kv=add_bias_kv, batch_first=batch_first)
             self.linear = nn.Linear(3, 6)
+            self.relu = nn.ReLU()
 
         def forward(self, x):
             x, _ = self.mha(x, x, x)
+            x = self.relu(x)
             x = self.linear(x)
             return x
 
@@ -183,13 +191,41 @@ def convdepthconv_model():
             super().__init__()
             self.conv = nn.Conv2d(3, 16, kernel_size=3)
             self.conv_0 = nn.Conv2d(16, 16, kernel_size=1, groups=16)
+            self.relu = nn.ReLU()
 
         def forward(self, x):
             x = self.conv(x)
+            x = self.relu(x)
             x = self.conv_0(x)
             return x
 
     return ConvDepthConvModel
+
+
+@pytest_cases.fixture
+def convbn_model():
+
+    class ConvBNModel(nn.Module):
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.conv = nn.Conv2d(3, 128, kernel_size=3)
+            self.bn = nn.BatchNorm2d(128)
+            # Simulate statistics gathering
+            self.bn.running_mean.data = torch.randn_like(self.bn.running_mean)
+            self.bn.running_var.data = torch.abs(torch.randn_like(self.bn.running_var))
+            # Simulate learned parameters
+            self.bn.weight.data = torch.randn_like(self.bn.weight)
+            self.bn.bias.data = torch.randn_like(self.bn.bias)
+            self.relu = nn.ReLU()
+
+        def forward(self, x):
+            x = self.conv(x)
+            x = self.relu(x)
+            x = self.bn(x)
+            return x
+
+    return ConvBNModel
 
 
 @pytest_cases.fixture
@@ -201,10 +237,12 @@ def residual_model():
             super().__init__()
             self.conv = nn.Conv2d(3, 16, kernel_size=1)
             self.conv_0 = nn.Conv2d(16, 3, kernel_size=1)
+            self.relu = nn.ReLU()
 
         def forward(self, x):
             start = x
             x = self.conv(x)
+            x = self.relu(x)
             x = self.conv_0(x)
             x = start + x
             return x
@@ -225,11 +263,13 @@ def srcsinkconflict_model():
             self.conv_start = nn.Conv2d(3, 3, kernel_size=1)
             self.conv = nn.Conv2d(3, 3, kernel_size=1)
             self.conv_0 = nn.Conv2d(3, 3, kernel_size=1)
+            self.relu = nn.ReLU()
 
         def forward(self, x):
             start = self.conv_start(x)
             x = self.conv_0(start)
             x = start + x
+            x = self.relu(x)
             x = self.conv(x)
             return x
 
@@ -246,11 +286,13 @@ def mul_model():
             self.conv_1 = nn.Conv2d(3, 3, kernel_size=1)
             self.conv_0 = nn.Conv2d(3, 3, kernel_size=1)
             self.conv_end = nn.Conv2d(3, 3, kernel_size=1)
+            self.relu = nn.ReLU()
 
         def forward(self, x):
             x_0 = self.conv_0(x)
             x_1 = self.conv_1(x)
             x = x_0 * x_1
+            x = self.relu(x)
             x = self.conv_end(x)
             return x
 

@@ -10,6 +10,8 @@ from brevitas.fx import symbolic_trace
 from brevitas.graph.equalize import _batch_norm
 from brevitas.graph.equalize import _extract_regions
 from brevitas.graph.equalize import _is_supported_module
+from brevitas.graph.equalize import activation_equalization_mode
+from brevitas.graph.standardize import DuplicateSharedStatelessModule
 from brevitas.graph.standardize import TorchFunctionalToModule
 from brevitas.graph.utils import get_module
 
@@ -139,3 +141,80 @@ def test_models(toy_model, merge_bias, request):
     # Check that at least one region performs "true" equalization
     # If all shapes are scalar, no equalization has been performed
     assert all([shape != () for shape in shape_scale_regions])
+
+
+@pytest_cases.parametrize("layerwise", [True, False])
+def test_act_equalization_models(toy_model, layerwise, request):
+    test_id = request.node.callspec.id
+
+    if 'mha' in test_id:
+        in_shape = IN_SIZE_LINEAR
+    else:
+        in_shape = IN_SIZE_CONV
+
+    model_class = toy_model
+    model = model_class()
+    inp = torch.randn(in_shape)
+
+    model.eval()
+    expected_out = model(inp)
+    model = symbolic_trace(model)
+    with torch.no_grad():
+        with activation_equalization_mode(model, 0.5, True, layerwise=layerwise) as aem:
+            regions = aem.graph_act_eq.regions
+            model(inp)
+    scale_factor_regions = aem.scale_factors
+    shape_scale_regions = [scale.shape for scale in scale_factor_regions]
+
+    out = model(inp)
+    assert torch.allclose(expected_out, out, atol=ATOL)
+
+    # This region is made up of a residual branch, so no regions are found for act equalization
+    if 'srcsinkconflict_mode' not in test_id:
+        assert len(regions) > 0
+        # Check that at least one region performs "true" equalization
+        # If all shapes are scalar, no equalization has been performed
+        assert all([shape != () for shape in shape_scale_regions])
+
+
+@pytest_cases.parametrize(
+    "model_dict", [(model_name, coverage) for model_name, coverage in MODELS.items()],
+    ids=[model_name for model_name, _ in MODELS.items()])
+@pytest_cases.parametrize("layerwise", [True, False])
+def test_act_equalization_torchvision_models(model_dict: dict, layerwise: bool):
+    model, coverage = model_dict
+
+    if model == 'googlenet' and torch_version == version.parse('1.8.1'):
+        pytest.skip(
+            'Skip because of PyTorch error = AttributeError: \'function\' object has no attribute \'GoogLeNetOutputs\' '
+        )
+    if 'vit' in model and torch_version < version.parse('1.13'):
+        pytest.skip(
+            f'ViT supported from torch version 1.13, current torch version is {torch_version}')
+
+    try:
+        model = getattr(models, model)(pretrained=True, transform_input=False)
+    except TypeError:
+        model = getattr(models, model)(pretrained=True)
+
+    torch.manual_seed(SEED)
+    inp = torch.randn(IN_SIZE_CONV)
+    model.eval()
+
+    model = symbolic_trace(model)
+    model = TorchFunctionalToModule().apply(model)
+    model = DuplicateSharedStatelessModule().apply(model)
+    expected_out = model(inp)
+
+    with torch.no_grad():
+        with activation_equalization_mode(model, 0.5, True, layerwise=layerwise) as aem:
+            model(inp)
+    scale_factor_regions = aem.scale_factors
+    shape_scale_regions = [scale.shape for scale in scale_factor_regions]
+
+    out = model(inp)
+
+    assert torch.allclose(expected_out, out, atol=ATOL)
+    # Check that at least one region performs "true" equalization
+    # If all shapes are scalar, no equalization has been performed
+    assert any([shape != () for shape in shape_scale_regions])

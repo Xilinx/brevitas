@@ -31,7 +31,10 @@ class ScaleBias(Module):
         self.runtime_shape = runtime_shape
 
     def forward(self, input):
-        return input * self.weight.view(self.runtime_shape) + self.bias.view(self.runtime_shape)
+        out = input * self.weight.view(self.runtime_shape)
+        if self.bias:
+            out += self.bias.view(self.runtime_shape)
+        return out
 
 
 class QuantScaleBias(QuantWBIOL, ScaleBias):

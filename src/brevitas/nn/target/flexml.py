@@ -51,60 +51,6 @@ class FlexMLQuantLeakyReLU(nn.Module):
         return self.output_quant.is_quant_act_signed
 
 
-class FlexMLQuantSwish(QuantNLAL):
-
-    def __init__(
-            self,
-            act_quant: Optional[ActQuantType] = Int8ActPerTensorFixedPoint,
-            input_quant: Optional[ActQuantType] = None,
-            return_quant_tensor: bool = False,
-            **kwargs):
-        QuantNLAL.__init__(
-            self,
-            act_impl=nn.SiLU,
-            passthrough_act=False,
-            input_quant=input_quant,
-            act_quant=act_quant,
-            return_quant_tensor=return_quant_tensor,
-            **kwargs)
-
-
-class FlexMLQuantHardsigmoid(QuantNLAL):
-
-    def __init__(
-            self,
-            act_quant: Optional[ActQuantType] = Uint8ActPerTensorFixedPoint,
-            input_quant: Optional[ActQuantType] = None,
-            return_quant_tensor: bool = False,
-            **kwargs):
-        QuantNLAL.__init__(
-            self,
-            act_impl=nn.Hardsigmoid,
-            passthrough_act=False,
-            input_quant=input_quant,
-            act_quant=act_quant,
-            return_quant_tensor=return_quant_tensor,
-            **kwargs)
-
-
-class FlexMLQuantHardswish(QuantNLAL):
-
-    def __init__(
-            self,
-            act_quant: Optional[ActQuantType] = Int8ActPerTensorFixedPoint,
-            input_quant: Optional[ActQuantType] = None,
-            return_quant_tensor: bool = False,
-            **kwargs):
-        QuantNLAL.__init__(
-            self,
-            act_impl=nn.Hardswish,
-            passthrough_act=False,
-            input_quant=input_quant,
-            act_quant=act_quant,
-            return_quant_tensor=return_quant_tensor,
-            **kwargs)
-
-
 class FlexMLQuantAvgPool2d(QuantLayerMixin, nn.AvgPool2d):
 
     class Int16QuantAvgPoolDivQuant(Int8ActPerTensorFixedPoint):

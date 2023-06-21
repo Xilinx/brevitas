@@ -10,6 +10,7 @@ import brevitas
 from brevitas.graph.base import InsertModuleCallAfter
 from brevitas.graph.base import ModuleInstanceToModuleInstance
 from brevitas.graph.base import ModuleToModuleByInstance
+from brevitas.graph.utils import del_module
 from brevitas.graph.utils import get_module
 
 ADD_FNS = [torch.add, operator.add, operator.iadd]
@@ -107,9 +108,7 @@ def are_inputs_quantized_and_aligned(model, node, quantized_modules_list, quant_
     for inp_node in node.all_input_nodes:
         if inp_node.op == 'call_module':
             inp_module = get_module(model, inp_node.target)
-            if isinstance(inp_module, tuple(quant_act_map.keys())):
-                quantized_modules_list.append(None)
-            elif isinstance(inp_module, tuple(PRECISION_PRESERVING_MODULES)) and (
+            if isinstance(inp_module, tuple(PRECISION_PRESERVING_MODULES)) and (
                     not same_sign or
                 (same_sign and isinstance(inp_module, tuple(SIGN_PRESERVING_MODULES)))):
                 are_inputs_quantized_and_aligned(
@@ -156,7 +155,7 @@ def output_quant_handler(
         rewriters,
         is_sign_preserving,
         quant_identity_map,
-        quant_act_map=None,
+        quant_act_map,
         unsigned_act_tuple=None):
     """
     Starting from `node`, check if any of the users requires requantization (i.e., it does not have
@@ -164,7 +163,7 @@ def output_quant_handler(
     branches are connected. If another branch has its own requantization step, there will be two
     consecutive for that branch.
     """
-    if is_sign_preserving and (quant_act_map is None or unsigned_act_tuple is None):
+    if is_sign_preserving and unsigned_act_tuple is None:
         raise RuntimeError("Missing information for output_quant_handler")
     quant_module = None
     quant_module_name = None
@@ -366,18 +365,47 @@ def add_output_quant_handler(model, quant_identity_map, quant_act_map, unsigned_
     return model
 
 
+def act_handler(model, layer_map):
+    for node in model.graph.nodes:
+        rewriters = []
+        if node.op == 'call_module':
+            module = get_module(model, node.target)
+            if isinstance(module, tuple(layer_map.keys())):
+                if layer_map[type(module)] is not None:
+                    quant_module_class, quant_module_kwargs = layer_map[type(module)]
+                    quant_module = quant_module_class(**quant_module_kwargs)
+                    # Check for activation equalization mul nodes
+                    if len(node.users) == 1:
+                        user_node = list(node.users.keys())[0]
+                        if user_node.name.endswith('act_eq_mul'):
+                            # We update activation_impl so that the mul node is executed before quantization
+                            act_module = quant_module.act_quant.fused_activation_quant_proxy.activation_impl
+                            mul_module = get_module(model, user_node.target)
+                            quant_module.act_quant.fused_activation_quant_proxy.activation_impl = torch.nn.Sequential(
+                                *[act_module, mul_module])
+                            # The mul node added during equalization is removed
+                            user_node.replace_all_uses_with(node)
+                            model.graph.erase_node(user_node)
+                            del_module(model, user_node.target)
+                    rewriter = ModuleInstanceToModuleInstance(module, quant_module)
+                    rewriters.append(rewriter)
+        for rewriter in rewriters:
+            model = rewriter.apply(model)
+    return model
+
+
 def layer_handler(
-    model,
-    layer_map,
-    requantize_output,
-    quant_identity_map=dict(),
-    quant_act_map=dict(),
-    unsigned_act_tuple=dict()):
+        model,
+        layer_map,
+        requantize_output,
+        quant_identity_map=None,
+        quant_act_map=None,
+        unsigned_act_tuple=None):
     """
     Replace FP weight layers with their corresponding quantized version
     """
-    if requantize_output and (len(quant_identity_map) == 0 or len(quant_act_map) == 0 or
-                              len(unsigned_act_tuple) == 0):
+    if requantize_output and (quant_identity_map is None or quant_act_map is None or
+                              unsigned_act_tuple is None):
         raise RuntimeError("Missing information to requantize output")
     for node in model.graph.nodes:
         rewriters = []
@@ -409,7 +437,6 @@ def layer_handler(
                     quant_module_class, quant_module_kwargs = layer_map[type(module)]
                     # Quantize the input if is not quantized, input_quant is not specified,
                     # and the quant_identity_map is provided.
-                    # The last requirement is needed to avoid requantizing the input to activations
                     if not are_inputs_quantized_and_aligned(
                             model, node, [], quant_act_map, same_sign=False
                     ) and not 'input_quant' in quant_module_kwargs and len(quant_identity_map) > 0:

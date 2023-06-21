@@ -157,3 +157,9 @@ def get_output_channel_dim(module):
 
 def get_output_channels(module):
     return module.weight.shape[get_output_channel_dim(module)]
+
+
+def get_node(graph_model, name):
+    for node in graph_model.graph.nodes:
+        if node.target == name:
+            return node

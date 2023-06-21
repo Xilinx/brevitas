@@ -4,19 +4,11 @@
 from torch import nn
 
 from brevitas.fx.brevitas_tracer import symbolic_trace
-from brevitas.graph.base import ModuleToModuleByClass
-from brevitas.graph.equalize import EqualizeGraph
-from brevitas.graph.fixed_point import CollapseConsecutiveConcats
-from brevitas.graph.fixed_point import MergeBatchNorm
-from brevitas.graph.fixed_point import MoveSplitBatchNormBeforeCat
 from brevitas.graph.per_input import AdaptiveAvgPoolToAvgPool
 from brevitas.graph.quantize import preprocess_for_quantize
 from brevitas.graph.quantize import quantize
 from brevitas.graph.quantize import UNSIGNED_ACT_TUPLE
-from brevitas.graph.standardize import DuplicateSharedStatelessModule
 from brevitas.graph.standardize import MeanMethodToAdaptiveAvgPool2d
-from brevitas.graph.standardize import RemoveStochasticModules
-from brevitas.graph.standardize import TorchFunctionalToModule
 import brevitas.nn as qnn
 from brevitas.quant import Int8ActPerTensorFixedPoint
 from brevitas.quant import Int8WeightPerTensorFixedPoint
@@ -113,19 +105,7 @@ FLEXML_QUANT_ACT_MAP = {
     nn.Sigmoid: (
         qnn.QuantSigmoid, {
             'act_quant': Uint8ActPerTensorFixedPoint,
-            'return_quant_tensor': True,}),
-    nn.SiLU: (
-        qnn.flexml.FlexMLQuantSwish, {
-            'act_quant': Int8ActPerTensorFixedPoint,
-            'return_quant_tensor': True,}),
-    nn.Hardswish: (
-        qnn.flexml.FlexMLQuantHardswish, {
-            'act_quant': Int8ActPerTensorFixedPoint,
-            'return_quant_tensor': True,}),
-    nn.Hardsigmoid: (
-        qnn.flexml.FlexMLQuantHardsigmoid, {
-            'act_quant': Uint8ActPerTensorFixedPoint,
-            'return_quant_tensor': True,})}
+            'return_quant_tensor': True,}),}
 
 FLEXML_QUANT_IDENTITY_MAP = {
     'signed':
