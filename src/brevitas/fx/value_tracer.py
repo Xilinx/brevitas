@@ -342,6 +342,10 @@ class ValueTracer(Tracer):
         return ValueAttribute(obj, 'keys')()
 
     def proxy(self, node: Node, value: Any) -> 'Proxy':
+        # We don't want to proxy None, or it will affect
+        # the correctness of the tracing process for is None checks
+        if value is None:
+            return None
         return ValueProxy(node, value, self)
 
     def create_arg(self, a: Any):
@@ -726,6 +730,11 @@ class ValueTracer(Tracer):
                 param = sig.parameters[name]
                 default = () if param.default is inspect.Parameter.empty else (
                     param.default,)  # type: ignore[assignment]
+            # Don't create a placeholder for values that default to None
+            if value is _UNSET and default == (None,):
+                return
+            if value is _UNSET and default != ():
+                value = param.default
             return self.create_proxy(
                 "placeholder",
                 name,
