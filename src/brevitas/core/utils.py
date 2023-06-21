@@ -92,6 +92,12 @@ class SliceTensor(brevitas.jit.ScriptModule):
         super().__init__()
         self.subtensor_slice_list = brevitas.jit.Attribute([None], List[Optional[Tuple[int, int]]])
 
+    @torch.jit.ignore
+    def eager_forward(self, x: torch.Tensor) -> torch.Tensor:
+        slices = tuple(slice(*s) if s is not None else slice(s) for s in self.subtensor_slice_list)
+        x = x[slices]
+        return x
+
     @brevitas.jit.script_method
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if torch.jit.is_scripting():
@@ -99,7 +105,5 @@ class SliceTensor(brevitas.jit.ScriptModule):
                 if s is not None:
                     x = x.slice(i, s[0], s[1])
         else:
-            slices = tuple(
-                slice(*s) if s is not None else slice(s) for s in self.subtensor_slice_list)
-            x = x[slices]
+            x = self.eager_forward(x)
         return x
