@@ -4,6 +4,7 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 """
 
 import argparse
+import warnings
 
 import numpy as np
 import torch
@@ -17,6 +18,7 @@ from brevitas_examples.llm.llm_quant.data import get_c4
 from brevitas_examples.llm.llm_quant.equalize import apply_act_equalization
 from brevitas_examples.llm.llm_quant.eval import model_eval
 from brevitas_examples.llm.llm_quant.gptq import apply_gptq
+from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_affine_merge
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import replace_mha_with_quantizable_layers
 from brevitas_examples.llm.llm_quant.quantize import quantize_model
 from brevitas_examples.llm.llm_quant.run_utils import get_model_impl
@@ -99,6 +101,7 @@ parser.add_argument(
 parser.add_argument('--gptq', action='store_true', help='Apply GPTQ.')
 parser.add_argument('--act-calibration', action='store_true', help='Apply activation calibration.')
 parser.add_argument('--bias-corr', action='store_true', help='Apply bias correction.')
+parser.add_argument('--ln-affine-merge', action='store_true', help='Merge LN affine params.')
 parser.add_argument('--no-quantize', action='store_true', help='Disable quantization.')
 parser.add_argument(
     '--no-float16',
@@ -160,6 +163,10 @@ def validate(args):
                 assert args.quantize_weight_zero_point, "Quantized weight zero point required."
             if args.input_quant_type == 'asym':
                 assert args.quantize_input_zero_point, "Quantized input zero point required."
+        if args.input_bit_width is not None and not args.act_calibration:
+            warnings.warn(
+                "Input quantization is being applied without activation calibration. Set --act-calibration."
+            )
 
 
 def main():
@@ -178,16 +185,24 @@ def main():
     print("Model loaded.")
     model.eval()
 
-    if args.input_bit_width:
-        print("Replace HF MHA with quantizable variants...")
-        model = replace_mha_with_quantizable_layers(model, dtype)
-        print("Replacing done.")
-
-    if args.export_target or args.eval or args.act_equalization or args.act_calibration or args.gptq or args.bias_corr:
+    if (args.export_target or args.eval or args.act_equalization or args.act_calibration or
+            args.gptq or args.bias_corr or args.ln_affine_merge):
         print("Data loading...")
         calibration_loader, val_data = get_c4(
             nsamples=args.nsamples, seed=args.seed, model=args.model, seqlen=args.seqlen)
         print("Data loaded.")
+
+    # Apply LN affine merging before inserting MHA layers
+    # since currently there is support only for merging into Linear
+    if args.ln_affine_merge:
+        print("Apply LN affine merge...")
+        apply_layernorm_affine_merge(model, ref_kwargs={'input_ids': calibration_loader[0]})
+        print("LN affine merge applied.")
+
+    if args.input_bit_width:
+        print("Replace HF MHA with quantizable variants...")
+        model = replace_mha_with_quantizable_layers(model, dtype)
+        print("Replacing done.")
 
     if args.act_equalization:
         print("Apply act equalization (SmoothQuant)...")
