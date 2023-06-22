@@ -473,11 +473,11 @@ def _cross_layer_equalization(
     return scaling_factors
 
 
-def _update_weights(original_module, new_module, attr='weight'):
+def _update_weights(original_module, new_value, attr='weight'):
     if isinstance(original_module, WeightBiasTuple):
-        setattr(getattr(original_module, attr), 'data', new_module)
+        setattr(getattr(original_module, attr), 'data', new_value)
     else:
-        setattr(original_module, attr, nn.Parameter(new_module))
+        setattr(original_module, attr, nn.Parameter(new_value))
 
 
 def _equalize(
