@@ -12,13 +12,11 @@ from transformers import AutoModelForCausalLM
 
 from brevitas.export import export_onnx_qcdq
 from brevitas.export import export_torch_qcdq
-from brevitas.fx.brevitas_tracer import value_trace
-from brevitas.graph.equalize import EqualizeGraph
-from brevitas.utils.torch_utils import torch_partial_deepcopy
 from brevitas_examples.llm.llm_quant.bias_corr import apply_bias_correction
 from brevitas_examples.llm.llm_quant.calibrate import apply_calibration
 from brevitas_examples.llm.llm_quant.data import get_c4
 from brevitas_examples.llm.llm_quant.equalize import apply_act_equalization
+from brevitas_examples.llm.llm_quant.equalize import apply_weight_equalization
 from brevitas_examples.llm.llm_quant.eval import model_eval
 from brevitas_examples.llm.llm_quant.gptq import apply_gptq
 from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_affine_merge
@@ -113,7 +111,7 @@ parser.add_argument(
 parser.add_argument(
     '--weight-equalization',
     action='store_true',
-    help='Apply weight equalization. Relevant to ReLU activations (e.g. OPT models).')
+    help='Apply weight equalization. Relevant to ReLU based models (e.g. OPT).')
 parser.add_argument(
     '--act-equalization', action='store_true', help='Apply activation equalization (SmoothQuant).')
 parser.add_argument(
@@ -192,8 +190,8 @@ def main():
     print("Model loaded.")
     model.eval()
 
-
-    if args.export_target or args.eval or args.act_equalization or args.act_calibration or args.gptq or args.bias_corr or args.ln_affine_merge or args.weight_equalization:
+    if (args.export_target or args.eval or args.act_equalization or args.act_calibration or
+            args.gptq or args.bias_corr or args.ln_affine_merge or args.weight_equalization):
         print("Data loading...")
         calibration_loader, val_data = get_c4(
             nsamples=args.nsamples, seed=args.seed, model=args.model, seqlen=args.seqlen)
@@ -215,25 +213,9 @@ def main():
 
     if args.weight_equalization:
         print("Apply weight equalization...")
-        graph_model = value_trace(
-            model, value_args={
-                'input_ids': calibration_loader[0], 'return_dict': False})
-        # graph_out = graph_model(calibration_loader[0])
-        # eager_out = model(calibration_loader[0], return_dict=False)
-
-        # def allclose(g, e):
-        #     if isinstance(g, tuple) and isinstance(e, tuple):
-        #         for gg, ee in zip(g, e):
-        #             allclose(gg, ee)
-        #     else:
-        #         if g is not None:
-        #             assert e is not None
-        #             assert torch.allclose(g, e)
-
-        # allclose(graph_out, eager_out)
-        EqualizeGraph(iterations=1, merge_bias=True).apply(graph_model)
+        apply_weight_equalization(model, ref_kwargs={'input_ids': calibration_loader[0]})
         print("Weight equalization applied.")
-        
+
     if args.act_equalization:
         print("Apply act equalization (SmoothQuant)...")
         apply_act_equalization(model, calibration_loader, args.nsamples)
