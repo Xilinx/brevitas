@@ -135,12 +135,18 @@ class DisableEnableQuantization(Transform):
                 inp, min_val=module.quant_injector.min_val, max_val=module.quant_injector.max_val)
         return QuantTensor(value=inp, training=module.training)
 
-    def disable_act_quantization(self, model, is_training):
+    def disable_act_quantization(self, model, is_training, call_quantizer_impl=False):
+        # If call_quantizer_impl is set to True, the quantization will be performed but the output
+        # will be discarded through the hook. It is useful for collecting activation stats,
+        # for example during activation calibration in PTQ
         for module in model.modules():
             if isinstance(module, ActQuantProxyFromInjector):
-                hook = module.register_forward_hook(self.disable_act_quant_hook)
                 module.train(is_training)
-                self.disable_act_quant_hooks.append(hook)
+                if call_quantizer_impl:
+                    hook = module.register_forward_hook(self.disable_act_quant_hook)
+                    self.disable_act_quant_hooks.append(hook)
+                else:
+                    module.disable_quant = True
             elif isinstance(module, _ACC_PROXIES):
                 module.train(is_training)
                 module.disable_quant = True
@@ -163,6 +169,7 @@ class DisableEnableQuantization(Transform):
                 module.train(is_training)
                 module.disable_quant = False
             elif isinstance(module, ActQuantProxyFromInjector):
+                module.disable_quant = False
                 module.train(is_training)
         for hook in self.disable_act_quant_hooks:
             hook.remove()
@@ -182,7 +189,7 @@ class DisableEnableQuantization(Transform):
 
     def apply(self, model, is_training, quantization_enabled):
         if not quantization_enabled:
-            self.disable_act_quantization(model, is_training)
+            self.disable_act_quantization(model, is_training, call_quantizer_impl=True)
             self.disable_param_quantization(model, is_training)
         else:
             self.enable_act_quantization(model, is_training)

@@ -92,7 +92,7 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
 
     @property
     def is_quant_enabled(self):
-        return self._is_quant_enabled
+        return self._is_quant_enabled and not self.disable_quant
 
     @is_quant_enabled.setter
     def is_quant_enabled(self, is_quant_enabled):
@@ -142,9 +142,12 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
             y = x
             if isinstance(y, QuantTensor):
                 y = y.value
+
             if self.export_mode:
                 y = self.fused_activation_quant_proxy.activation_impl(y)
                 y = self.export_handler(y)
+            elif not self.is_quant_enabled:
+                y = self.fused_activation_quant_proxy.activation_impl(y)
             else:
                 y = self.fused_activation_quant_proxy(y)
             # If y is an empty QuantTensor, we need to check if this is a passthrough proxy,
@@ -156,6 +159,8 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
                     y = y[0]
                 return QuantTensor(y, x.scale, x.zero_point, x.bit_width, x.signed, self.training)
             else:
+                if isinstance(y, tuple):
+                    y = y[0]
                 return QuantTensor(y, training=self.training)
         else:
             if isinstance(x, QuantTensor):  # passthrough
