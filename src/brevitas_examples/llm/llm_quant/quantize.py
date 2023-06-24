@@ -123,6 +123,7 @@ def quantize_model(
     weight_quant = weight_quant.let(
         **{
             'bit_width': weight_bit_width,
+            'narrow_range': False,
             'block_size': weight_group_size,
             'quantize_zero_point': quantize_weight_zero_point})
     # weight scale is converted to a standalone parameter
