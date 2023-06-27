@@ -15,9 +15,12 @@ class EqualizedModule(torch.nn.Module):
 
         if len(args) > 0:
             x = args[0]
+            # We delete it since it will updated and passed as first arg
             args.pop(0)
         elif len(kwargs) > 0 and 'query' in kwargs:
             x = kwargs['query']
+            # We delete it since it will updated and passed as first arg
+            del kwargs['query']
         else:
             raise ValueError("Unsupported input type")
 
@@ -34,11 +37,6 @@ class EqualizedModule(torch.nn.Module):
         # We need to preserve the correctness of the forward even after
         # quantization has been applied
         if isinstance(self.layer, (torch.nn.MultiheadAttention, QuantMultiheadAttention)):
-            if 'query' not in kwargs.keys():
-                pos_inputs.append(out)
-                args.pop(0)
-            else:
-                kwargs['query'] = out
             if 'key' not in kwargs.keys():
                 pos_inputs.append(out)
                 args.pop(0)

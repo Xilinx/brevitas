@@ -1,8 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from collections import namedtuple
-from copy import deepcopy
 from dataclasses import dataclass
 from dataclasses import field
 from functools import partial
