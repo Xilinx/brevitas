@@ -62,13 +62,7 @@ brevitas_lib.define(
 brevitas_lib.impl("matmul_rhs_group_quant", matmul_rhs_group_quant)
 
 
-def brevitas〇matmul_rhs_group_quant〡shape(
-        lhs: List[int],
-        rhs: List[int],
-        rhs_scale: List[int],
-        rhs_zero_point: List[int],
-        rhs_bit_width: int,
-        rhs_group_size: int) -> List[int]:
+def brevitas〇matmul_rhs_group_quant〡shape(lhs: List[int], rhs: List[int], rhs_scale: List[int], rhs_zero_point: List[int], rhs_bit_width: int, rhs_group_size: int) -> List[int]:
     if len(lhs) == 3 and len(rhs) == 2:
         return [lhs[0], lhs[1], rhs[0]]
     elif len(lhs) == 2 and len(rhs) == 2:
@@ -77,20 +71,13 @@ def brevitas〇matmul_rhs_group_quant〡shape(
         raise ValueError("Input shapes not supported.")
 
 
-def brevitas〇matmul_rhs_group_quant〡dtype(
-        lhs_rank_dtype: Tuple[int, int],
-        rhs_rank_dtype: Tuple[int, int],
-        rhs_scale_rank_dtype: Tuple[int, int],
-        rhs_zero_point_rank_dtype: Tuple[int, int],
-        rhs_bit_width: int,
-        rhs_group_size: int) -> int:
+def brevitas〇matmul_rhs_group_quant〡dtype(lhs_rank_dtype: Tuple[int, int], rhs_rank_dtype: Tuple[int, int], rhs_scale_rank_dtype: Tuple[int, int], rhs_zero_point_rank_dtype: Tuple[int, int], rhs_bit_width: int, rhs_group_size: int) -> int:
     # output dtype is the dtype of the lhs float input
     lhs_rank, lhs_dtype = lhs_rank_dtype
     return lhs_dtype
 
 
-def brevitas〇matmul_rhs_group_quant〡has_value_semantics(
-        lhs, rhs, rhs_scale, rhs_zero_point, rhs_bit_width, rhs_group_size) -> None:
+def brevitas〇matmul_rhs_group_quant〡has_value_semantics(lhs, rhs, rhs_scale, rhs_zero_point, rhs_bit_width, rhs_group_size) -> None:
     return
 
 
