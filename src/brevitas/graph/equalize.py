@@ -734,11 +734,22 @@ class LayerwiseActivationEqualization(GraphTransform):
             if hasattr(region, 'batch_first'):
                 batch_dim = 0 if region.batch_first == True else 1
 
-            hook_fn = partial(self.forward_stats_hook, name=region, batch_dim=batch_dim)
-            self.hooks.append(region.register_forward_pre_hook(hook_fn))
+            # hook_fn = partial(self.forward_stats_hook, name=region, batch_dim=batch_dim)
+            # self.hooks.append(region.register_forward_pre_hook(hook_fn))
+            kwarg_name = 'query' if isinstance(region, torch.nn.MultiheadAttention) else None
+            hook_fn = partial(
+                self.forward_stats_hook,
+                name=region,
+                batch_dim=batch_dim,
+                kwarg_name=kwarg_name,
+                use_inp=True)
+            new_instance = SmartHook(region, hook_fn)
+            ModuleInstanceToModuleInstance(region, new_instance).apply(self.model)
+            self.hooks.append(new_instance)
 
     def apply(self, alpha):
         scale_factors = []
+        self.remove_hooks()
         for region in self.regions:
             if self.float_act_map[region] == None:
                 continue
@@ -756,29 +767,20 @@ class LayerwiseActivationEqualization(GraphTransform):
 
     def remove_hooks(self):
         for hook in self.hooks:
-            hook.remove()
+            ModuleInstanceToModuleInstance(hook, hook.module).apply(self.model)
 
-    def forward_stats_hook(self, module, inp, name, batch_dim=0):
-        if len(inp) == 0:
-            warnings.warn(
-                "Cannot perform layerwise activation equalization with only kwargs as input")
-            self.float_act_map[name] = None
-            return
+    def forward_stats_hook(self, *args, name, batch_dim=0, kwarg_name=None, use_inp=True, **kwargs):
 
+        if use_inp and len(args) > 1:
+            inp = args[0]
+        elif not use_inp:
+            inp = args[-1]
+        elif len(kwargs) > 0:
+            inp = kwargs[kwarg_name]
         # Extra check for batch_dim
         if hasattr(inp, 'names') and 'N' in inp.names:
             batch_dim = inp.names.index('N')
             inp = inp.transpose(0, batch_dim)
-
-        if len(inp) > 1:
-            # check that they are all equal for self-attention MHA
-            self_attention = all([inp[0].data_ptr() == i.data_ptr() for i in inp])
-            if not self_attention:
-                self.float_act_map[name] = None
-                return
-            inp = inp[0]
-        else:
-            inp = inp[0]
 
         self.batch_dim_act_map[name] = batch_dim
 
