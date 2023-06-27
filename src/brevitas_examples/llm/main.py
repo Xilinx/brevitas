@@ -164,13 +164,13 @@ def validate(args):
             assert args.weight_quant_granularity != 'per_group', "ONNX QCDQ export doesn't support group weight quantization."
             if args.weight_quant_type == 'asym':
                 assert args.quantize_weight_zero_point, "Quantized weight zero point required."
-            if args.input_quant_type == 'asym':
+            if args.input_bit_width is not None and args.input_quant_type == 'asym':
                 assert args.quantize_input_zero_point, "Quantized input zero point required."
         if args.export_target == 'torch_qcdq':
             assert args.weight_quant_granularity != 'per_group', "TorchScript QCDQ export doesn't support group weight quantization."
             if args.weight_quant_type == 'asym':
                 assert args.quantize_weight_zero_point, "Quantized weight zero point required."
-            if args.input_quant_type == 'asym':
+            if args.input_bit_width is not None and args.input_quant_type == 'asym':
                 assert args.quantize_input_zero_point, "Quantized input zero point required."
         if args.input_bit_width:
             assert args.act_calibration, "Input quantization is being applied without activation calibration. Set --act-calibration."
