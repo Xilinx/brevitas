@@ -54,12 +54,14 @@ def quantize_and_export(args):
     # Run quantization
     quantize_model(
         model,
+        dtype=torch.float32,
         weight_quant_type=args.weight_quant_type,
         weight_bit_width=args.weight_bit_width,
         weight_group_size=args.weight_group_size,
         weight_param_method='stats',
-        weight_scale_type='float32',
-        weight_quant_granularity='per_group')
+        weight_scale_type='float',
+        weight_quant_granularity='per_group',
+        quantize_weight_zero_point=False)
 
     # Run a test forward pass
     model(torch.randn(2, 128))
