@@ -10,6 +10,7 @@ from brevitas.fx import value_trace
 from brevitas.graph.equalize import _is_reshaping_op
 from brevitas.graph.equalize import _is_scale_invariant_module
 from brevitas.graph.utils import get_module
+from brevitas_examples.llm.llm_quant.run_utils import cast_to_float32
 
 
 def replace_bias(next_module, new_bias):
@@ -73,6 +74,7 @@ def merge_layernorm_affine_params(graph_model):
                         )
     for module, merged in merged_dict.items():
         if merged:
+            # We preserve weight and bias in case they are used to merge SmoothQuant scales in fx mode later on
             module.weight.data.fill_(1.)
             module.bias.data.fill_(0.)
         else:
@@ -83,5 +85,8 @@ def merge_layernorm_affine_params(graph_model):
 
 @torch.no_grad()
 def apply_layernorm_affine_merge(model, ref_kwargs):
-    graph_model = value_trace(model, ref_kwargs)
-    merge_layernorm_affine_params(graph_model)
+    # We can't do fp16 tracing on CPU as many kernels are not implemented
+    # So we have to cast to fp32 first, trace, apply merging, and then cast back
+    with cast_to_float32(model):
+        graph_model = value_trace(model, ref_kwargs)
+        merge_layernorm_affine_params(graph_model)
