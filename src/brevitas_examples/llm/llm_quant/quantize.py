@@ -139,7 +139,9 @@ def quantize_model(
     if input_quant is not None:
         input_quant = input_quant.let(
             **{
-                'bit_width': input_bit_width, 'quantize_zero_point': quantize_input_zero_point})
+                'bit_width': input_bit_width,
+                'quantize_zero_point': quantize_input_zero_point,
+                'dtype': dtype})
         if input_quant_granularity == 'per_row':
             # QuantMHA internally always uses Seq, B, E
             input_quant = input_quant.let(
@@ -150,7 +152,9 @@ def quantize_model(
     if sym_input_quant is not None:
         sym_input_quant = sym_input_quant.let(
             **{
-                'bit_width': input_bit_width, 'quantize_zero_point': quantize_input_zero_point})
+                'bit_width': input_bit_width,
+                'quantize_zero_point': quantize_input_zero_point,
+                'dtype': dtype})
         if input_quant_granularity == 'per_row':
             q_scaled_quant = sym_input_quant.let(
                 **{
@@ -169,7 +173,9 @@ def quantize_model(
     if per_tensor_input_quant is not None:
         per_tensor_input_quant = per_tensor_input_quant.let(
             **{
-                'bit_width': input_bit_width, 'quantize_zero_point': quantize_input_zero_point})
+                'bit_width': input_bit_width,
+                'quantize_zero_point': quantize_input_zero_point,
+                'dtype': dtype})
 
     quant_linear_kwargs = {
         'input_quant': per_tensor_input_quant, 'weight_quant': weight_quant, 'dtype': dtype}

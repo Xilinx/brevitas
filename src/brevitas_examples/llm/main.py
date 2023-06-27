@@ -4,7 +4,6 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 """
 
 import argparse
-import warnings
 
 import numpy as np
 import torch
@@ -113,7 +112,12 @@ parser.add_argument(
     action='store_true',
     help='Apply weight equalization. Relevant to ReLU based models (e.g. OPT).')
 parser.add_argument(
-    '--act-equalization', action='store_true', help='Apply activation equalization (SmoothQuant).')
+    '--act-equalization',
+    default=None,
+    choices=[None, 'layerwise', 'fx'],
+    help='Apply activation equalization (SmoothQuant). Layerwise introduces standalone mul nodes,'
+    'while fx merges them whenever possible into previous tensors, which is possible on ReLU based models (e.g. OPT).'
+)
 parser.add_argument(
     '--export-target',
     default=None,
@@ -168,10 +172,8 @@ def validate(args):
                 assert args.quantize_weight_zero_point, "Quantized weight zero point required."
             if args.input_quant_type == 'asym':
                 assert args.quantize_input_zero_point, "Quantized input zero point required."
-        if args.input_bit_width is not None and not args.act_calibration:
-            warnings.warn(
-                "Input quantization is being applied without activation calibration. Set --act-calibration."
-            )
+        if args.input_bit_width:
+            assert args.act_calibration, "Input quantization is being applied without activation calibration. Set --act-calibration."
 
 
 def main():
@@ -204,9 +206,9 @@ def main():
         apply_layernorm_affine_merge(model, ref_kwargs={'input_ids': calibration_loader[0]})
         print("LN affine merge applied.")
 
-    # Insert standard MHA layers when performing weight equalization to avoid dealing
+    # Insert standard MHA layers when performing fx based weight/act equalization to avoid dealing
     # with all the variability in HF implementations
-    if args.weight_equalization or args.input_bit_width:
+    if args.weight_equalization or args.act_equalization == 'fx' or args.input_bit_width:
         print("Replace HF MHA with quantizable variants...")
         model = replace_mha_with_quantizable_layers(model, dtype)
         print("Replacing done.")
@@ -216,9 +218,14 @@ def main():
         apply_weight_equalization(model, ref_kwargs={'input_ids': calibration_loader[0]})
         print("Weight equalization applied.")
 
-    if args.act_equalization:
+    if args.act_equalization is not None:
         print("Apply act equalization (SmoothQuant)...")
-        apply_act_equalization(model, calibration_loader, args.nsamples)
+        apply_act_equalization(
+            model,
+            args.act_equalization,
+            calibration_loader,
+            args.nsamples,
+            ref_kwargs={'input_ids': calibration_loader[0]})
         print("Act equalization applied.")
 
     if not args.no_quantize:

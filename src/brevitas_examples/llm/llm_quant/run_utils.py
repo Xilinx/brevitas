@@ -19,6 +19,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+from contextlib import contextmanager
+
 import torch
 from torch import nn
 from tqdm import tqdm
@@ -140,3 +142,21 @@ def apply_layer_ptq_fn(
         input_capture_fn=calib_input_capture,
         seqlen=seqlen,
         **inference_fn_kwargs)
+
+
+@contextmanager
+def cast_to_float32(model):
+    dtype_dict = {}
+    for name, p in model.named_parameters():
+        dtype_dict[name] = p.dtype
+    for name, b in model.named_buffers():
+        dtype_dict[name] = b.dtype
+    if any(dtype != torch.float32 for dtype in dtype_dict.values()):
+        model.to(dtype=torch.float32)
+    try:
+        yield model
+    finally:
+        for name, p in model.named_parameters():
+            p.data = p.data.to(dtype_dict[name])
+        for name, b in model.named_buffers():
+            b.data = b.data.to(dtype_dict[name])
