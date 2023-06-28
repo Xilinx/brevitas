@@ -911,7 +911,7 @@ class GraphActivationEqualization(GraphTransform):
             self, module, *args, name, batch_dim=0, kwarg_name=None, use_inp=True, **kwargs):
         # Check for MHA Cross attention, and if found, skip it
         kwargs_to_check = deepcopy(kwargs)
-        kwargs_to_check.update(zip(module.forward.__code__.co_varnames[1:], args))
+        kwargs_to_check.update(zip(module.forward.__code__.co_varnames[1:], args[:-1]))
         if 'query' in kwargs_to_check and 'key' in kwargs_to_check and 'value' in kwargs_to_check:
             if kwargs_to_check['query'].data_ptr() != kwargs_to_check['key'].data_ptr(
             ) != kwargs_to_check['value'].data_ptr():
