@@ -1,3 +1,6 @@
+# Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+
 from copy import deepcopy
 from dataclasses import dataclass
 from dataclasses import field
