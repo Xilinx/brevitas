@@ -1,6 +1,7 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from copy import deepcopy
 from dataclasses import dataclass
 from dataclasses import field
 from functools import partial
@@ -20,6 +21,7 @@ from brevitas.graph.utils import get_module
 from brevitas.graph.utils import get_node
 from brevitas.nn.equalized_layer import EqualizedModule
 from brevitas.nn.quant_scale_bias import ScaleBias
+from brevitas.utils.torch_utils import KwargsForwardHook
 
 from .base import GraphTransform
 from .base import InsertModuleCallAfter
@@ -70,21 +72,6 @@ _residual_methods = ('add', 'add_')
 _residual_fns = (torch.add, operator.add, operator.iadd, operator.__add__, operator.__iadd__)
 
 _batch_norm = (nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d)
-
-
-# To be moved in Pytorch utils
-class SmartHook(nn.Module):
-
-    def __init__(self, module, hook_fn):
-        super().__init__()
-        self.module = module
-        self.hook_fn = hook_fn
-
-    def forward(self, *args, **kwargs):
-        out = self.module(*args, **kwargs)
-        args = args + (out,)
-        self.hook_fn(*args, **kwargs)
-        return out
 
 
 # Required for being hashable
@@ -732,8 +719,6 @@ class LayerwiseActivationEqualization(GraphTransform):
             if hasattr(region, 'batch_first'):
                 batch_dim = 0 if region.batch_first == True else 1
 
-            # hook_fn = partial(self.forward_stats_hook, name=region, batch_dim=batch_dim)
-            # self.hooks.append(region.register_forward_pre_hook(hook_fn))
             kwarg_name = 'query' if isinstance(region, torch.nn.MultiheadAttention) else None
             hook_fn = partial(
                 self.forward_stats_hook,
@@ -741,7 +726,7 @@ class LayerwiseActivationEqualization(GraphTransform):
                 batch_dim=batch_dim,
                 kwarg_name=kwarg_name,
                 use_inp=True)
-            new_instance = SmartHook(region, hook_fn)
+            new_instance = KwargsForwardHook(region, hook_fn)
             ModuleInstanceToModuleInstance(region, new_instance).apply(self.model)
             self.hooks.append(new_instance)
 
@@ -767,7 +752,16 @@ class LayerwiseActivationEqualization(GraphTransform):
         for hook in self.hooks:
             ModuleInstanceToModuleInstance(hook, hook.module).apply(self.model)
 
-    def forward_stats_hook(self, *args, name, batch_dim=0, kwarg_name=None, use_inp=True, **kwargs):
+    def forward_stats_hook(
+            self, module, *args, name, batch_dim=0, kwarg_name=None, use_inp=True, **kwargs):
+        # Check for MHA Cross attention, and if found, skip it
+        kwargs_to_check = deepcopy(kwargs)
+        kwargs_to_check.update(zip(module.forward.__code__.co_varnames[1:], args[:-1]))
+        if 'query' in kwargs_to_check and 'key' in kwargs_to_check and 'value' in kwargs_to_check:
+            if kwargs_to_check['query'].data_ptr() != kwargs_to_check['key'].data_ptr(
+            ) != kwargs_to_check['value'].data_ptr():
+                self.float_act_map[name] = None
+                return
 
         if use_inp and len(args) > 1:
             inp = args[0]
@@ -775,6 +769,7 @@ class LayerwiseActivationEqualization(GraphTransform):
             inp = args[-1]
         elif len(kwargs) > 0:
             inp = kwargs[kwarg_name]
+
         # Extra check for batch_dim
         if hasattr(inp, 'names') and 'N' in inp.names:
             batch_dim = inp.names.index('N')
@@ -832,7 +827,6 @@ class GraphActivationEqualization(GraphTransform):
     def setup(self):
         name_to_module = dict_name_to_module(self.graph_model, self.regions)
         # Select only regions with activation to equalize through.
-        # If a region has no activations, it is dropped.
         # If a region has multiple scale varying activation, must also be dropped
         # because we can't propagate scaling factors
         regions_to_drop = []
@@ -862,7 +856,7 @@ class GraphActivationEqualization(GraphTransform):
                         batch_dim=batch_dim,
                         kwarg_name=kwarg_name,
                         use_inp=use_inp)
-                    new_instance = SmartHook(act_module, hook_fn)
+                    new_instance = KwargsForwardHook(act_module, hook_fn)
                     ModuleInstanceToModuleInstance(act_module, new_instance).apply(self.graph_model)
                     self.hooks.append(new_instance)
 
@@ -874,6 +868,8 @@ class GraphActivationEqualization(GraphTransform):
         name_to_module = dict_name_to_module(self.graph_model, self.regions)
         for region in self.regions:
             region_to_search = region.sinks if len(region.acts) == 0 else region.acts
+            if any([self.float_act_map[name] is None for name in region_to_search]):
+                continue
             act_module = [name_to_module[act_name] for act_name in region.acts]
             list_of_act_val = [self.float_act_map[name] for name in region_to_search]
             sinks = [name_to_module[sink] for sink in region.sinks]
@@ -911,7 +907,16 @@ class GraphActivationEqualization(GraphTransform):
         for hook in self.hooks:
             ModuleInstanceToModuleInstance(hook, hook.module).apply(self.graph_model)
 
-    def forward_stats_hook(self, *args, name, batch_dim=0, kwarg_name=None, use_inp=True, **kwargs):
+    def forward_stats_hook(
+            self, module, *args, name, batch_dim=0, kwarg_name=None, use_inp=True, **kwargs):
+        # Check for MHA Cross attention, and if found, skip it
+        kwargs_to_check = deepcopy(kwargs)
+        kwargs_to_check.update(zip(module.forward.__code__.co_varnames[1:], args))
+        if 'query' in kwargs_to_check and 'key' in kwargs_to_check and 'value' in kwargs_to_check:
+            if kwargs_to_check['query'].data_ptr() != kwargs_to_check['key'].data_ptr(
+            ) != kwargs_to_check['value'].data_ptr():
+                self.float_act_map[name] = None
+                return
 
         if use_inp and len(args) > 1:
             inp = args[0]

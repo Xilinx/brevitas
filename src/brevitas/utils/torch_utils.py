@@ -3,6 +3,7 @@
 
 import copy
 
+import torch
 from torch.nn import Sequential
 
 
@@ -19,6 +20,20 @@ class TupleSequential(Sequential):
         out = self.output(modules[0], input)
         for mod in modules[1:]:
             out = self.output(mod, out)
+        return out
+
+
+class KwargsForwardHook(torch.nn.Module):
+
+    def __init__(self, module, hook_fn):
+        super().__init__()
+        self.module = module
+        self.hook_fn = hook_fn
+
+    def forward(self, *args, **kwargs):
+        out = self.module(*args, **kwargs)
+        args = args + (out,)
+        self.hook_fn(self.module, *args, **kwargs)
         return out
 
 
