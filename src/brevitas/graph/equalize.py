@@ -718,13 +718,8 @@ class LayerwiseActivationEqualization(GraphTransform):
             if hasattr(region, 'batch_first'):
                 batch_dim = 0 if region.batch_first == True else 1
 
-            kwarg_name = 'query' if isinstance(region, torch.nn.MultiheadAttention) else None
             hook_fn = partial(
-                self.forward_stats_hook,
-                name=region,
-                batch_dim=batch_dim,
-                kwarg_name=kwarg_name,
-                use_inp=True)
+                self.forward_stats_hook, name=region, batch_dim=batch_dim, use_inp=True)
             new_instance = KwargsForwardHook(region, hook_fn)
             ModuleInstanceToModuleInstance(region, new_instance).apply(self.model)
             self.hooks.append(new_instance)
@@ -751,35 +746,32 @@ class LayerwiseActivationEqualization(GraphTransform):
         for hook in self.hooks:
             ModuleInstanceToModuleInstance(hook, hook.module).apply(self.model)
 
-    def forward_stats_hook(
-            self, module, *args, name, batch_dim=0, kwarg_name=None, use_inp=True, **kwargs):
+    def forward_stats_hook(self, module, *args, name, batch_dim=0, use_inp=True, **kwargs):
         # Check for MHA Cross attention, and if found, skip it
-        kwargs_to_check = deepcopy(kwargs)
-        kwargs_to_check.update(zip(module.forward.__code__.co_varnames[1:], args[:-1]))
-        if 'query' in kwargs_to_check and 'key' in kwargs_to_check and 'value' in kwargs_to_check:
-            if kwargs_to_check['query'].data_ptr() != kwargs_to_check['key'].data_ptr(
-            ) != kwargs_to_check['value'].data_ptr():
+        kwargs.update(zip(module.forward.__code__.co_varnames[1:], args[:-1]))
+        if 'query' in kwargs and 'key' in kwargs and 'value' in kwargs:
+            if kwargs['query'].data_ptr() != kwargs['key'].data_ptr() != kwargs['value'].data_ptr():
                 self.float_act_map[name] = None
                 return
 
-        if use_inp and len(args) > 1:
-            inp = args[0]
+        possible_input_kwargs = ['input', 'inp', 'query']
+        input_kwarg = [x for x in kwargs.keys() if x in possible_input_kwargs][0]
+        if use_inp:
+            x = kwargs[input_kwarg]
         elif not use_inp:
-            inp = args[-1]
-        elif len(kwargs) > 0:
-            inp = kwargs[kwarg_name]
+            x = args[-1]
 
         # Extra check for batch_dim
-        if hasattr(inp, 'names') and 'N' in inp.names:
-            batch_dim = inp.names.index('N')
-            inp = inp.transpose(0, batch_dim)
+        if hasattr(x, 'names') and 'N' in x.names:
+            batch_dim = x.names.index('N')
+            x = x.transpose(0, batch_dim)
 
         self.batch_dim_act_map[name] = batch_dim
 
         if name not in self.float_act_map:
-            self.float_act_map[name] = self.scale_fn(inp, dim=batch_dim)
+            self.float_act_map[name] = self.scale_fn(x, dim=batch_dim)
         else:
-            batch_data = torch.cat([self.float_act_map[name].unsqueeze(batch_dim), inp],
+            batch_data = torch.cat([self.float_act_map[name].unsqueeze(batch_dim), x],
                                    dim=batch_dim)
             self.float_act_map[name] = self.scale_fn(batch_data, dim=batch_dim)
 
@@ -846,15 +838,9 @@ class GraphActivationEqualization(GraphTransform):
                         batch_dim = 0 if module.batch_first == True else 1
                 for name in region_to_search:
                     act_module = name_to_module[name]
-                    kwarg_name = 'query' if isinstance(
-                        act_module, torch.nn.MultiheadAttention) else None
                     use_inp = True if region_to_search == region.sinks else False
                     hook_fn = partial(
-                        self.forward_stats_hook,
-                        name=name,
-                        batch_dim=batch_dim,
-                        kwarg_name=kwarg_name,
-                        use_inp=use_inp)
+                        self.forward_stats_hook, name=name, batch_dim=batch_dim, use_inp=use_inp)
                     new_instance = KwargsForwardHook(act_module, hook_fn)
                     ModuleInstanceToModuleInstance(act_module, new_instance).apply(self.graph_model)
                     self.hooks.append(new_instance)
@@ -906,23 +892,21 @@ class GraphActivationEqualization(GraphTransform):
         for hook in self.hooks:
             ModuleInstanceToModuleInstance(hook, hook.module).apply(self.graph_model)
 
-    def forward_stats_hook(
-            self, module, *args, name, batch_dim=0, kwarg_name=None, use_inp=True, **kwargs):
+    def forward_stats_hook(self, module, *args, name, batch_dim=0, use_inp=True, **kwargs):
         # Check for MHA Cross attention, and if found, skip it
-        kwargs_to_check = deepcopy(kwargs)
-        kwargs_to_check.update(zip(module.forward.__code__.co_varnames[1:], args[:-1]))
-        if 'query' in kwargs_to_check and 'key' in kwargs_to_check and 'value' in kwargs_to_check:
-            if kwargs_to_check['query'].data_ptr() != kwargs_to_check['key'].data_ptr(
-            ) != kwargs_to_check['value'].data_ptr():
+        kwargs.update(zip(module.forward.__code__.co_varnames[1:], args[:-1]))
+        if 'query' in kwargs and 'key' in kwargs and 'value' in kwargs:
+            if kwargs['query'].data_ptr() != kwargs['key'].data_ptr() != kwargs['value'].data_ptr():
                 self.float_act_map[name] = None
                 return
 
-        if use_inp and len(args) > 1:
-            x = args[0]
+        possible_input_kwargs = ['input', 'inp', 'query']
+        input_kwarg = [x for x in kwargs.keys() if x in possible_input_kwargs][0]
+        if use_inp:
+            x = kwargs[input_kwarg]
         elif not use_inp:
             x = args[-1]
-        elif len(kwargs) > 0:
-            x = kwargs[kwarg_name]
+
         # Extra check for batch_dim
         if hasattr(x, 'names') and 'N' in x.names:
             batch_dim = x.names.index('N')
