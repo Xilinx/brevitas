@@ -22,6 +22,7 @@ from brevitas import config
 from brevitas import torch_version
 from brevitas.graph.quantize import preprocess_for_quantize
 from brevitas.graph.target.flexml import preprocess_for_flexml_quantize
+from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_act_equalization
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_bias_correction
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_gptq
 from brevitas_examples.imagenet_classification.ptq.ptq_common import calibrate
@@ -53,6 +54,7 @@ OPTIONS = {
     'bias_corr': [True],  # Bias Correction
     'graph_eq_iterations': [0, 20],  # Graph Equalization
     'graph_eq_merge_bias': [False, True],  # Merge bias for Graph Equalization
+    'act_eq': ['fx', 'layerwise', None],  # Perform Activation Equalization (Smoothquant)
     'gptq': [False, True],  # Enable/Disable GPTQ
     'gptq_act_order': [False, True],  # Use act_order euristics for GPTQ
     'act_quant_percentile': [99.9, 99.99, 99.999],  # Activation Quantization Percentile
@@ -69,6 +71,7 @@ OPTIONS_DEFAULT = {
     'bias_corr': [True],  # Bias Correction
     'graph_eq_iterations': [20],  # Graph Equalization
     'graph_eq_merge_bias': [True],  # Merge bias for Graph Equalization
+    'act_eq': ['fx'],  # Perform Activation Equalization (Smoothquant)
     'gptq': [True],  # Enable/Disable GPTQ
     'gptq_act_order': [False],  # Use act_order euristics for GPTQ
     'act_quant_percentile': [99.999],  # Activation Quantization Percentile
@@ -197,6 +200,10 @@ def ptq_torchvision_models(df, args):
             equalize_merge_bias=config_namespace.graph_eq_merge_bias)
     else:
         raise RuntimeError(f"{config_namespace.target_backend} backend not supported.")
+
+    if config_namespace.act_equalization is not None:
+        print("Applying activation equalization:")
+        apply_act_equalization(model, calib_loader, layerwise=args.act_equalization == 'layerwise')
 
     # Define the quantized model
     quant_model = quantize_model(

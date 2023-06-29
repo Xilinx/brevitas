@@ -17,8 +17,10 @@ import torchvision
 
 from brevitas.export import export_onnx_qcdq
 from brevitas.export import export_torch_qcdq
+from brevitas.graph.equalize import activation_equalization_mode
 from brevitas.graph.quantize import preprocess_for_quantize
 from brevitas.graph.target.flexml import preprocess_for_flexml_quantize
+from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_act_equalization
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_bias_correction
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_gptq
 from brevitas_examples.imagenet_classification.ptq.ptq_common import calibrate
@@ -97,6 +99,11 @@ parser.add_argument(
     default='symmetric',
     choices=['symmetric', 'asymmetric'],
     help='Activation quantization type (default: symmetric)')
+parser.add_argument(
+    '--act-equalization',
+    default=None,
+    choices=['fx', 'layerwise', None],
+    help='Activation equalization type (default: None)')
 parser.add_argument(
     '--act-quant-calibration-type',
     default='percentile',
@@ -233,6 +240,10 @@ def main():
             merge_bn=not args.calibrate_bn)
     else:
         raise RuntimeError(f"{args.target_backend} backend not supported.")
+
+    if args.act_equalization is not None:
+        print("Applying activation equalization:")
+        apply_act_equalization(model, calib_loader, layerwise=args.act_equalization == 'layerwise')
 
     # Define the quantized model
     quant_model = quantize_model(
