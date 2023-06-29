@@ -103,7 +103,7 @@ parser.add_argument(
     '--act-equalization',
     default=None,
     choices=['fx', 'layerwise', None],
-    help='Activation quantization type (default: symmetric)')
+    help='Activation equalization type (default: None)')
 parser.add_argument(
     '--act-quant-calibration-type',
     default='percentile',
