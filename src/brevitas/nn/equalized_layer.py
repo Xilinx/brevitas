@@ -11,19 +11,11 @@ class EqualizedModule(torch.nn.Module):
         self.layer = layer
 
     def forward(self, *args, **kwargs):
-        args = list(args)
+        kwargs.update(zip(self.layer.forward.__code__.co_varnames[1:], args))
 
-        if len(args) > 0:
-            x = args[0]
-            # We delete it since it will updated and passed as first arg
-            args.pop(0)
-        elif len(kwargs) > 0 and 'query' in kwargs:
-            x = kwargs['query']
-            # We delete it since it will updated and passed as first arg
-            del kwargs['query']
-        else:
-            raise ValueError("Unsupported input type")
-
+        possible_input_kwargs = ['input', 'inp', 'query']
+        input_kwarg = [x for x in kwargs.keys() if x in possible_input_kwargs][0]
+        x = kwargs[input_kwarg]
         out = x
         if 'key' in kwargs:
             if kwargs['key'].data_ptr() != out.data_ptr():
@@ -32,20 +24,12 @@ class EqualizedModule(torch.nn.Module):
                     "Replace kwargs with positional args to avoid this exception.")
         out = self.scale(out)
 
-        pos_inputs = [out]
+        kwargs[input_kwarg] = out
         # QuantMultiheadAttention is not a subclass of MultiheadAttention
         # We need to preserve the correctness of the forward even after
         # quantization has been applied
         if isinstance(self.layer, (torch.nn.MultiheadAttention, QuantMultiheadAttention)):
-            if 'key' not in kwargs.keys():
-                pos_inputs.append(out)
-                args.pop(0)
-            else:
-                kwargs['key'] = out
-            if 'value' not in kwargs.keys():
-                pos_inputs.append(out)
-                args.pop(0)
-            else:
-                kwargs['value'] = out
-        out = self.layer(*(pos_inputs + args), **kwargs)
+            kwargs['key'] = out
+            kwargs['value'] = out
+        out = self.layer(**kwargs)
         return out
