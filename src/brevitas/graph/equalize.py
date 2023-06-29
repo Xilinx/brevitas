@@ -138,8 +138,7 @@ class activation_equalization_mode:
     def __exit__(self, type, value, traceback):
         if self.enabled:
             self.scale_factors = self.graph_act_eq.apply(self.alpha)
-            self.graph_act_eq.remove_hooks()
-            return True  # To propagate exceptions
+        return True  # To propagate exceptions
 
 
 def dict_name_to_module(model, regions):
@@ -919,22 +918,22 @@ class GraphActivationEqualization(GraphTransform):
                 return
 
         if use_inp and len(args) > 1:
-            inp = args[0]
+            x = args[0]
         elif not use_inp:
-            inp = args[-1]
+            x = args[-1]
         elif len(kwargs) > 0:
-            inp = kwargs[kwarg_name]
+            x = kwargs[kwarg_name]
         # Extra check for batch_dim
-        if hasattr(inp, 'names') and 'N' in inp.names:
-            batch_dim = inp.names.index('N')
-            inp = inp.transpose(0, batch_dim)
+        if hasattr(x, 'names') and 'N' in x.names:
+            batch_dim = x.names.index('N')
+            x = x.transpose(0, batch_dim)
 
         self.batch_dim_act_map[name] = batch_dim
 
         if name not in self.float_act_map:
-            self.float_act_map[name] = self.scale_fn(inp, dim=batch_dim)
+            self.float_act_map[name] = self.scale_fn(x, dim=batch_dim)
         else:
-            batch_data = torch.cat([self.float_act_map[name].unsqueeze(batch_dim), inp],
+            batch_data = torch.cat([self.float_act_map[name].unsqueeze(batch_dim), x],
                                    dim=batch_dim)
             self.float_act_map[name] = self.scale_fn(batch_data, dim=batch_dim)
 
