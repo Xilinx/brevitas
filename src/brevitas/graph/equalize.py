@@ -604,7 +604,9 @@ def find_sinks(graph_model: GraphModule, starting_node: Node,
         if _is_supported_module(graph_model, node):
             module = get_module(graph_model, node.target)
             # It is not possible to equalize through LayerNorm as sink
-            if not isinstance(module, (nn.LayerNorm,) + _batch_norm):
+            if isinstance(module, (nn.LayerNorm,) + _batch_norm):
+                state.sinks.add(_UNSUPPORTED_OP)
+            else:
                 state.sinks.add(node.target)
         elif _is_scale_invariant_module(
                 graph_model, node) or _is_scale_invariant_function(node) or _is_reshaping_op(node):
