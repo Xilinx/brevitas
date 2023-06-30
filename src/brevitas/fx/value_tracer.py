@@ -119,6 +119,9 @@ class ValueProxy(Proxy):
             raise RuntimeError("Value of a proxy can't be a proxy.")
         self.value = value
 
+    def __index__(self):
+        return self.value.__index__()
+
     @property
     def value(self):
         if self._value is _UNSET:
