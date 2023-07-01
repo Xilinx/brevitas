@@ -40,7 +40,14 @@ def _gen_torch_fn_patches(orig_fn):
     def new_fn(*args, **kwargs):
         map_aggregate(args, find_tracer)
         map_aggregate(kwargs, find_tracer)
+
+        # In case no tracer has been found, return the output of orig_fn as constant value to be
+        # tracked by following ops
+        if len(tracers) == 0:
+            return orig_fn(*args, **kwargs)
+
         assert len(tracers) == 1, "Multiple different tracers found."
+
         tracer = next(iter(tracers.keys()))
         try:
             value = orig_fn(*tracer.unpack_arg(args), **tracer.unpack_arg(kwargs))
