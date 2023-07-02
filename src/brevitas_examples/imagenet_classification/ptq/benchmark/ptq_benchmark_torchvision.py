@@ -45,13 +45,14 @@ TORCHVISION_TOP1_MAP = {
 
 OPTIONS = {
     'model_name': TORCHVISION_TOP1_MAP.keys(),
-    'target_backend': ['generic', 'layerwise', 'flexml'],  # Target backend
-    'scale_factor_type': ['float32', 'po2'],  # Scale factor type
-    'weight_bit_width': [8, 6, 4],  # Weight Bit Width
-    'act_bit_width': [8],  # Act bit width
-    'bias_bit_width': ['int32', 'int16'],  # Bias Bit-Width for Po2 scale
-    'scaling_per_output_channel': [False, True],  # Scaling Per Output Channel
-    'act_quant_type': ['asymmetric', 'symmetric'],  # Act Quant Type
+    'target_backend': ['fx', 'layerwise', 'flexml'],  # Target backend
+    'scale_factor_type': ['float', 'po2'],  # Scale factor type
+    'weight_bit_width': [8, 4],  # Weight Bit Width
+    'act_bit_width': [8, 4],  # Act bit width
+    'bias_bit_width': [32, 16],  # Bias Bit-Width for Po2 scale
+    'weight_quant_granularity': ['per_tensor', 'per_channel'],  # Scaling Per Output Channel
+    'act_quant_type': ['asym', 'sym'],  # Act Quant Type
+    'act_param_method': ['stats', 'mse'],  # Act Param Method
     'bias_corr': [True],  # Bias Correction
     'graph_eq_iterations': [0, 20],  # Graph Equalization
     'graph_eq_merge_bias': [False, True],  # Merge bias for Graph Equalization
@@ -63,17 +64,18 @@ OPTIONS = {
 }
 
 OPTIONS_DEFAULT = {
-    'target_backend': ['generic'],  # Target backend
-    'scale_factor_type': ['float32'],  # Scale factor type
+    'target_backend': ['fx'],  # Target backend
+    'scale_factor_type': ['float'],  # Scale factor type
     'weight_bit_width': [8],  # Weight Bit Width
     'act_bit_width': [8],  # Act bit width
-    'bias_bit_width': ['int32'],  # Bias Bit-Width for Po2 scale
-    'scaling_per_output_channel': [True],  # Scaling Per Output Channel
-    'act_quant_type': ['symmetric'],  # Act Quant Type
+    'bias_bit_width': [32],  # Bias Bit-Width for Po2 scale
+    'weight_quant_granularity': ['per_channel'],  # Scaling Per Output Channel
+    'act_quant_type': ['sym'],  # Act Quant Type
+    'act_param_method': ['stats'],  # Act Param Method
     'bias_corr': [True],  # Bias Correction
     'graph_eq_iterations': [20],  # Graph Equalization
     'graph_eq_merge_bias': [True],  # Merge bias for Graph Equalization
-    'act_equalization': ['fx'],  # Perform Activation Equalization (Smoothquant)
+    'act_equalization': [None],  # Perform Activation Equalization (Smoothquant)
     'learned_round': [False],  # Enable/Disable Learned Round
     'gptq': [True],  # Enable/Disable GPTQ
     'gptq_act_order': [False],  # Use act_order euristics for GPTQ
@@ -131,32 +133,29 @@ def main():
 
 
 def ptq_torchvision_models(df, args):
+    # Generate all possible combinations, including invalid ones
+    # Split stats and mse due to the act_quant_percentile value
+    percentile_options = OPTIONS.copy()
+    percentile_options['act_param_method'] = ['stats']
+    mse_options = OPTIONS.copy()
+    mse_options['act_param_method'] = ['mse']
+    mse_options['act_quant_percentile'] = [None]
+    # Combine the two sets of combinations
+    combinations = list(product(*percentile_options.values())) + list(
+        product(*mse_options.values()))
+    # Generate Namespace for each configuration
+    configs = [
+        SimpleNamespace(**{k: v
+                           for k, v in zip(OPTIONS.keys(), combination)})
+        for combination in combinations]
+    # Define which configurations are not valid
+    configs = list(map(validate_config, configs))
+    # Drop invalid configurations
+    configs = list(config for config in configs if config.is_valid)
+    if args.idx > len(configs):
+        return
 
-    combinations = list(product(*OPTIONS.values()))
-    if args.idx > len(combinations):
-        return
-    combination = combinations[args.idx]
-
-    config_namespace = SimpleNamespace()
-    for key, value in zip(OPTIONS.keys(), combination):
-        setattr(config_namespace, key, value)
-
-    # Flexml supports only per-tensor scale factors, power of two scale factors
-    if config_namespace.target_backend == 'flexml' and (
-            config_namespace.scaling_per_output_channel or
-            config_namespace.scale_factor_type == 'float32'):
-        return
-    # Merge bias can be enabled only when graph equalization is enabled
-    if config_namespace.graph_eq_iterations == 0 and config_namespace.graph_eq_merge_bias:
-        return
-    # For generic and layerwise backend, we only test for int32 bias bit width
-    if (config_namespace.target_backend == 'generic' or config_namespace.target_backend
-            == 'layerwise') and config_namespace.bias_bit_width == 'int16':
-        return
-
-    # If GPTQ is disabled, we do not care about the act_order heuristic
-    if not config_namespace.gptq and config_namespace.gptq_act_order:
-        return
+    config_namespace = configs[args.idx]
 
     fp_accuracy = TORCHVISION_TOP1_MAP[config_namespace.model_name]
     # Get model-specific configurations about input shapes and normalization
@@ -194,7 +193,7 @@ def ptq_torchvision_models(df, args):
             torch.ones(1, 3, img_shape, img_shape),
             equalize_iters=config_namespace.graph_eq_iterations,
             equalize_merge_bias=config_namespace.graph_eq_merge_bias)
-    elif config_namespace.target_backend == 'generic' or config_namespace.target_backend == 'layerwise':
+    elif config_namespace.target_backend == 'fx' or config_namespace.target_backend == 'layerwise':
         model = preprocess_for_quantize(
             model,
             equalize_iters=config_namespace.graph_eq_iterations,
@@ -214,7 +213,7 @@ def ptq_torchvision_models(df, args):
         act_bit_width=config_namespace.act_bit_width,
         weight_bit_width=config_namespace.weight_bit_width,
         bias_bit_width=config_namespace.bias_bit_width,
-        scaling_per_output_channel=config_namespace.scaling_per_output_channel,
+        weight_quant_granularity=config_namespace.weight_quant_granularity,
         act_quant_percentile=config_namespace.act_quant_percentile,
         act_quant_type=config_namespace.act_quant_type,
         scale_factor_type=config_namespace.scale_factor_type)
@@ -273,6 +272,33 @@ def ptq_torchvision_models(df, args):
     folder = './multirun/' + str(args.idx)
     os.makedirs(folder, exist_ok=True)
     torchvision_df.to_csv(os.path.join(folder, 'RESULTS_TORCHVISION.csv'), index=False)
+
+
+def validate_config(config_namespace):
+    is_valid = True
+    # Flexml supports only per-tensor scale factors, power of two scale factors
+    if config_namespace.target_backend == 'flexml' and (
+            config_namespace.weight_quant_granularity == 'per_channel' or
+            config_namespace.scale_factor_type == 'float32'):
+        is_valid = False
+    # Merge bias can be enabled only when graph equalization is enabled
+    if config_namespace.graph_eq_iterations == 0 and config_namespace.graph_eq_merge_bias:
+        is_valid = False
+    # For generic and layerwise backend, we only test for int32 bias bit width
+    if (config_namespace.target_backend == 'generic' or config_namespace.target_backend
+            == 'layerwise') and config_namespace.bias_bit_width == 'int16':
+        is_valid = False
+    # If GPTQ is disabled, we do not care about the act_order heuristic
+    if not config_namespace.gptq and config_namespace.gptq_act_order:
+        is_valid = False
+
+    if config_namespace.act_equalization == 'layerwise' and config_namespace.target_backend == 'generic':
+        is_valid = False
+    if config_namespace.act_bit_width < config_namespace.weight_bit_width:
+        is_valid = False
+
+    config_namespace.is_valid = is_valid
+    return config_namespace
 
 
 if __name__ == '__main__':

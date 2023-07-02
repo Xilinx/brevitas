@@ -27,7 +27,7 @@ def main():
         'Weight bit width',
         'Act bit width',
         'Bias bit width',
-        'Scaling per output channel',
+        'Weight quant granularity',
         'Act quant type'])
     idx = grouped_df['Top 1% quant accuracy'].transform(max) == df['Top 1% quant accuracy']
     best_config_df = df[idx]
