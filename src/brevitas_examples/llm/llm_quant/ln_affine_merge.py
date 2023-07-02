@@ -88,5 +88,5 @@ def apply_layernorm_affine_merge(model, ref_kwargs):
     # We can't do fp16 tracing on CPU as many kernels are not implemented
     # So we have to cast to fp32 first, trace, apply merging, and then cast back
     with cast_to_float32(model):
-        graph_model = value_trace(model, ref_kwargs)
+        graph_model = value_trace(model, value_args=ref_kwargs)
         merge_layernorm_affine_params(graph_model)
