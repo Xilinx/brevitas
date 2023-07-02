@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from collections import namedtuple
 from copy import deepcopy
 from dataclasses import dataclass
 from dataclasses import field
@@ -22,6 +21,7 @@ from brevitas.graph.utils import get_module
 from brevitas.graph.utils import get_node
 from brevitas.nn.equalized_layer import EqualizedModule
 from brevitas.nn.quant_scale_bias import ScaleBias
+from brevitas.utils.torch_utils import KwargsForwardHook
 
 from .base import GraphTransform
 from .base import InsertModuleCallAfter
@@ -138,8 +138,7 @@ class activation_equalization_mode:
     def __exit__(self, type, value, traceback):
         if self.enabled:
             self.scale_factors = self.graph_act_eq.apply(self.alpha)
-            self.graph_act_eq.remove_hooks()
-            return True  # To propagate exceptions
+        return True  # To propagate exceptions
 
 
 def dict_name_to_module(model, regions):
@@ -576,8 +575,6 @@ def find_srcs(graph_model: GraphModule, starting_node: Node,
             find_sinks(graph_model, node, state)
         elif _is_scale_invariant_module(
                 graph_model, node) or _is_scale_invariant_function(node) or _is_reshaping_op(node):
-            if _is_scale_invariant_activation(graph_model, node):
-                state.acts.add(node.target)
             find_srcs(graph_model, node, state)
             find_sinks(graph_model, node, state)
         elif (node.op == 'call_method' and node.target in _residual_methods or
@@ -608,8 +605,6 @@ def find_sinks(graph_model: GraphModule, starting_node: Node,
                 state.sinks.add(node.target)
         elif _is_scale_invariant_module(
                 graph_model, node) or _is_scale_invariant_function(node) or _is_reshaping_op(node):
-            if _is_scale_invariant_activation(graph_model, node):
-                state.acts.add(node.target)
             find_sinks(graph_model, node, state)
         elif (node.op == 'call_method' and node.target in _residual_methods or
               node.op == 'call_function' and node.target in _residual_fns):
@@ -723,11 +718,15 @@ class LayerwiseActivationEqualization(GraphTransform):
             if hasattr(region, 'batch_first'):
                 batch_dim = 0 if region.batch_first == True else 1
 
-            hook_fn = partial(self.forward_stats_hook, name=region, batch_dim=batch_dim)
-            self.hooks.append(region.register_forward_pre_hook(hook_fn))
+            hook_fn = partial(
+                self.forward_stats_hook, name=region, batch_dim=batch_dim, use_inp=True)
+            new_instance = KwargsForwardHook(region, hook_fn)
+            ModuleInstanceToModuleInstance(region, new_instance).apply(self.model)
+            self.hooks.append(new_instance)
 
     def apply(self, alpha):
         scale_factors = []
+        self.remove_hooks()
         for region in self.regions:
             if self.float_act_map[region] == None:
                 continue
@@ -745,36 +744,34 @@ class LayerwiseActivationEqualization(GraphTransform):
 
     def remove_hooks(self):
         for hook in self.hooks:
-            hook.remove()
+            ModuleInstanceToModuleInstance(hook, hook.module).apply(self.model)
 
-    def forward_stats_hook(self, module, inp, name, batch_dim=0):
-        if len(inp) == 0:
-            warnings.warn(
-                "Cannot perform layerwise activation equalization with only kwargs as input")
-            self.float_act_map[name] = None
-            return
-
-        # Extra check for batch_dim
-        if hasattr(inp, 'names') and 'N' in inp.names:
-            batch_dim = inp.names.index('N')
-            inp = inp.transpose(0, batch_dim)
-
-        if len(inp) > 1:
-            # check that they are all equal for self-attention MHA
-            self_attention = all([inp[0].data_ptr() == i.data_ptr() for i in inp])
-            if not self_attention:
+    def forward_stats_hook(self, module, *args, name, batch_dim=0, use_inp=True, **kwargs):
+        # Check for MHA Cross attention, and if found, skip it
+        kwargs.update(zip(module.forward.__code__.co_varnames[1:], args[:-1]))
+        if 'query' in kwargs and 'key' in kwargs and 'value' in kwargs:
+            if kwargs['query'].data_ptr() != kwargs['key'].data_ptr() != kwargs['value'].data_ptr():
                 self.float_act_map[name] = None
                 return
-            inp = inp[0]
-        else:
-            inp = inp[0]
+
+        possible_input_kwargs = ['input', 'inp', 'query']
+        input_kwarg = [x for x in kwargs.keys() if x in possible_input_kwargs][0]
+        if use_inp:
+            x = kwargs[input_kwarg]
+        elif not use_inp:
+            x = args[-1]
+
+        # Extra check for batch_dim
+        if hasattr(x, 'names') and 'N' in x.names:
+            batch_dim = x.names.index('N')
+            x = x.transpose(0, batch_dim)
 
         self.batch_dim_act_map[name] = batch_dim
 
         if name not in self.float_act_map:
-            self.float_act_map[name] = self.scale_fn(inp, dim=batch_dim)
+            self.float_act_map[name] = self.scale_fn(x, dim=batch_dim)
         else:
-            batch_data = torch.cat([self.float_act_map[name].unsqueeze(batch_dim), inp],
+            batch_data = torch.cat([self.float_act_map[name].unsqueeze(batch_dim), x],
                                    dim=batch_dim)
             self.float_act_map[name] = self.scale_fn(batch_data, dim=batch_dim)
 
@@ -821,40 +818,45 @@ class GraphActivationEqualization(GraphTransform):
     def setup(self):
         name_to_module = dict_name_to_module(self.graph_model, self.regions)
         # Select only regions with activation to equalize through.
-        # If a region has no activations, it is dropped.
         # If a region has multiple scale varying activation, must also be dropped
         # because we can't propagate scaling factors
         regions_to_drop = []
         for region in self.regions:
-            if len(region.acts) == 0:
-                regions_to_drop.append(region)
             # This condition is for redudancy, since
             # a region with two scale-varying activations cannot be detected in the first place
-            elif len(region.acts) > 1 and any([isinstance(name_to_module[act_name],
-                                                          _scale_varying_activations)
-                                               for act_name in region.acts]):
+            if len(region.acts) > 1 and any([isinstance(name_to_module[act_name],
+                                                        _scale_varying_activations)
+                                             for act_name in region.acts]):
                 regions_to_drop.append(region)
             else:
                 # We assume that the entire region has a unique batch_dim
                 batch_dim = 0
+                region_to_search = region.sinks if len(region.acts) == 0 else region.acts
                 for name in region.srcs + region.sinks:
                     module = name_to_module[name]
                     if hasattr(module, 'batch_first'):
                         batch_dim = 0 if module.batch_first == True else 1
-
-                for act_name in region.acts:
-                    act_module = name_to_module[act_name]
-                    hook_fn = partial(self.forward_stats_hook, name=act_name, batch_dim=batch_dim)
-                    self.hooks.append(act_module.register_forward_hook(hook_fn))
+                for name in region_to_search:
+                    act_module = name_to_module[name]
+                    use_inp = True if region_to_search == region.sinks else False
+                    hook_fn = partial(
+                        self.forward_stats_hook, name=name, batch_dim=batch_dim, use_inp=use_inp)
+                    new_instance = KwargsForwardHook(act_module, hook_fn)
+                    ModuleInstanceToModuleInstance(act_module, new_instance).apply(self.graph_model)
+                    self.hooks.append(new_instance)
 
         self.regions = [x for x in self.regions if x not in regions_to_drop]
 
     def apply(self, alpha):
         scale_factors = []
+        self.remove_hooks()
         name_to_module = dict_name_to_module(self.graph_model, self.regions)
         for region in self.regions:
+            region_to_search = region.sinks if len(region.acts) == 0 else region.acts
+            if any([self.float_act_map[name] is None for name in region_to_search]):
+                continue
             act_module = [name_to_module[act_name] for act_name in region.acts]
-            list_of_act_val = [self.float_act_map[act_name] for act_name in region.acts]
+            list_of_act_val = [self.float_act_map[name] for name in region_to_search]
             sinks = [name_to_module[sink] for sink in region.sinks]
             # Filter out scale_varying activations from the srcs
             srcs = [
@@ -888,22 +890,34 @@ class GraphActivationEqualization(GraphTransform):
 
     def remove_hooks(self):
         for hook in self.hooks:
-            hook.remove()
+            ModuleInstanceToModuleInstance(hook, hook.module).apply(self.graph_model)
 
-    def forward_stats_hook(self, module, inp, out, name, batch_dim=0):
-        inp = inp[0]
+    def forward_stats_hook(self, module, *args, name, batch_dim=0, use_inp=True, **kwargs):
+        # Check for MHA Cross attention, and if found, skip it
+        kwargs.update(zip(module.forward.__code__.co_varnames[1:], args[:-1]))
+        if 'query' in kwargs and 'key' in kwargs and 'value' in kwargs:
+            if kwargs['query'].data_ptr() != kwargs['key'].data_ptr() != kwargs['value'].data_ptr():
+                self.float_act_map[name] = None
+                return
+
+        possible_input_kwargs = ['input', 'inp', 'query']
+        input_kwarg = [x for x in kwargs.keys() if x in possible_input_kwargs][0]
+        if use_inp:
+            x = kwargs[input_kwarg]
+        elif not use_inp:
+            x = args[-1]
 
         # Extra check for batch_dim
-        if hasattr(inp, 'names') and 'N' in inp.names:
-            batch_dim = inp.names.index('N')
-            inp = inp.transpose(0, batch_dim)
+        if hasattr(x, 'names') and 'N' in x.names:
+            batch_dim = x.names.index('N')
+            x = x.transpose(0, batch_dim)
 
         self.batch_dim_act_map[name] = batch_dim
 
         if name not in self.float_act_map:
-            self.float_act_map[name] = self.scale_fn(out, dim=batch_dim)
+            self.float_act_map[name] = self.scale_fn(x, dim=batch_dim)
         else:
-            batch_data = torch.cat([self.float_act_map[name].unsqueeze(batch_dim), out],
+            batch_data = torch.cat([self.float_act_map[name].unsqueeze(batch_dim), x],
                                    dim=batch_dim)
             self.float_act_map[name] = self.scale_fn(batch_data, dim=batch_dim)
 

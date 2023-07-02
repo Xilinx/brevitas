@@ -10,8 +10,12 @@ class EqualizedModule(torch.nn.Module):
         self.scale = scale_module
         self.layer = layer
 
-    def forward(self, x, *args, **kwargs):
-        args = list(args)
+    def forward(self, *args, **kwargs):
+        kwargs.update(zip(self.layer.forward.__code__.co_varnames[1:], args))
+
+        possible_input_kwargs = ['input', 'inp', 'query']
+        input_kwarg = [x for x in kwargs.keys() if x in possible_input_kwargs][0]
+        x = kwargs[input_kwarg]
         out = x
         if 'key' in kwargs:
             if kwargs['key'].data_ptr() != out.data_ptr():
@@ -20,21 +24,12 @@ class EqualizedModule(torch.nn.Module):
                     "Replace kwargs with positional args to avoid this exception.")
         out = self.scale(out)
 
-        pos_inputs = [out]
+        kwargs[input_kwarg] = out
         # QuantMultiheadAttention is not a subclass of MultiheadAttention
         # We need to preserve the correctness of the forward even after
         # quantization has been applied
         if isinstance(self.layer, (torch.nn.MultiheadAttention, QuantMultiheadAttention)):
-            if 'key' not in kwargs.items():
-                pos_inputs.append(out)
-                args.pop(0)
-            else:
-                kwargs['key'] = out
-            if 'value' not in kwargs.items():
-                pos_inputs.append(out)
-                args.pop(0)
-            else:
-                kwargs['value'] = out
-
-        out = self.layer(*pos_inputs, *args, **kwargs)
+            kwargs['key'] = out
+            kwargs['value'] = out
+        out = self.layer(**kwargs)
         return out
