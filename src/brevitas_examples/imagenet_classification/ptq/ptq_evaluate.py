@@ -72,14 +72,14 @@ parser.add_argument(
     help='model architecture: ' + ' | '.join(model_names) + ' (default: resnet18)')
 parser.add_argument(
     '--target-backend',
-    default='generic',
-    choices=['generic', 'layerwise', 'flexml'],
+    default='fx',
+    choices=['fx', 'layerwise', 'flexml'],
     help='Backend to target for quantization (default: generic)')
 parser.add_argument(
     '--scale-factor-type',
-    default='float32',
-    choices=['float32', 'po2'],
-    help='Type for scale factors (default: float32)')
+    default='float',
+    choices=['float', 'po2'],
+    help='Type for scale factors (default: float)')
 parser.add_argument(
     '--act-bit-width', default=8, type=int, help='Activations bit width (default: 8)')
 parser.add_argument(
@@ -90,15 +90,27 @@ parser.add_argument(
     type=int,
     help='Input and weights bit width for first and last layer w/ layerwise backend (default: 8)')
 parser.add_argument(
-    '--bias-bit-width',
-    default='int32',
-    choices=['int32', 'int16'],
-    help='Bias bit width (default: int32)')
+    '--bias-bit-width', default=32, choices=[32, 16], help='Bias bit width (default: 32)')
 parser.add_argument(
     '--act-quant-type',
-    default='symmetric',
-    choices=['symmetric', 'asymmetric'],
-    help='Activation quantization type (default: symmetric)')
+    default='sym',
+    choices=['sym', 'asym'],
+    help='Activation quantization type (default: sym)')
+parser.add_argument(
+    '--weight-quant-type',
+    default='sym',
+    choices=['sym', 'asym'],
+    help='Weight quantization type (default: sym)')
+parser.add_argument(
+    '--weight-quant-granularity',
+    default='per_tensor',
+    choices=['per_tensor', 'per_channel'],
+    help='Activation quantization type (default: per_tensor)')
+parser.add_argument(
+    '--weight-quant-calibration-type',
+    default='stats',
+    choices=['stats', 'mse'],
+    help='Weight quantization calibration type (default: stats)')
 parser.add_argument(
     '--act-equalization',
     default=None,
@@ -106,9 +118,9 @@ parser.add_argument(
     help='Activation equalization type (default: None)')
 parser.add_argument(
     '--act-quant-calibration-type',
-    default='percentile',
-    choices=['percentile', 'mse'],
-    help='Activation quantization calibration type (default: percentile)')
+    default='stats',
+    choices=['stats', 'mse'],
+    help='Activation quantization calibration type (default: stats)')
 parser.add_argument(
     '--graph-eq-iterations',
     default=20,
@@ -155,8 +167,8 @@ def main():
     np.random.seed(SEED)
     torch.manual_seed(SEED)
 
-    if args.act_quant_calibration_type == 'percentile':
-        act_quant_calib_config = str(args.act_quant_percentile) + 'percentile'
+    if args.act_quant_calibration_type == 'stats':
+        act_quant_calib_config = str(args.act_quant_percentile) + 'stats'
     else:
         act_quant_calib_config = args.act_quant_calibration_type
 
@@ -170,12 +182,13 @@ def main():
         f"{'gptq_act_order_' if args.gptq_act_order else ''}"
         f"{'weight_narrow_range_' if args.weight_narrow_range else ''}"
         f"{args.bias_bit_width}bias_"
-        f"{'per_channel' if args.scaling_per_output_channel else 'per_tensor'}_"
+        f"{args.weight_quant_granularity}_"
         f"{args.act_quant_type}_"
         f"{'bc_' if args.bias_corr else ''}"
         f"{args.graph_eq_iterations}geiters_"
         f"{'mb_' if args.graph_eq_merge_bias else ''}"
         f"{act_quant_calib_config}_"
+        f"{args.weight_quant_calibration_type}_"
         f"{'bnc' if args.calibrate_bn else ''}")
 
     print(
@@ -188,12 +201,13 @@ def main():
         f"GPTQ Act Order: {args.gptq_act_order} - "
         f"Weight narrow range: {args.weight_narrow_range} - "
         f"Bias bit width: {args.bias_bit_width} - "
-        f"Per-channel scale factors: {args.scaling_per_output_channel} - "
+        f"Weight scale factors type: {args.weight_quant_granularity} - "
         f"Activation quant type: {args.act_quant_type} - "
         f"Bias Correction Enabled: {args.bias_corr} - "
         f"Iterations for graph equalization: {args.graph_eq_iterations} - "
         f"Merge bias in graph equalization: {args.graph_eq_merge_bias} - "
         f"Activation quant calibration type: {act_quant_calib_config} - "
+        f"Weight quant calibration type: {args.weight_quant_calibration_type} - "
         f"Calibrate BN: {args.calibrate_bn}")
 
     # Get model-specific configurations about input shapes and normalization
@@ -232,7 +246,7 @@ def main():
             equalize_iters=args.graph_eq_iterations,
             equalize_merge_bias=args.graph_eq_merge_bias,
             merge_bn=not args.calibrate_bn)
-    elif args.target_backend == 'generic' or args.target_backend == 'layerwise':
+    elif args.target_backend == 'fx' or args.target_backend == 'layerwise':
         model = preprocess_for_quantize(
             model,
             equalize_iters=args.graph_eq_iterations,
@@ -249,16 +263,18 @@ def main():
     quant_model = quantize_model(
         model,
         backend=args.target_backend,
-        layerwise_first_last_bit_width=args.layerwise_first_last_bit_width,
-        act_bit_width=args.act_bit_width,
+        scale_factor_type=args.scale_factor_type,
+        bias_bit_width=args.bias_bit_width,
         weight_bit_width=args.weight_bit_width,
         weight_narrow_range=args.weight_narrow_range,
-        bias_bit_width=args.bias_bit_width,
-        scaling_per_output_channel=args.scaling_per_output_channel,
+        weight_param_method=args.weight_quant_calibration_type,
+        weight_quant_granularity=args.weight_quant_granularity,
+        weight_quant_type=args.weight_quant_type,
+        layerwise_first_last_bit_width=args.layerwise_first_last_bit_width,
+        act_bit_width=args.act_bit_width,
+        act_param_method=args.act_quant_calibration_type,
         act_quant_percentile=args.act_quant_percentile,
-        act_quant_type=args.act_quant_type,
-        scale_factor_type=args.scale_factor_type)
-
+        act_quant_type=args.act_quant_type)
     # If available, use the selected GPU
     if args.gpu is not None:
         torch.cuda.set_device(args.gpu)
