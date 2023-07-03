@@ -202,23 +202,20 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
 
     @brevitas.jit.script_method
     def forward(self, ignored: torch.Tensor) -> torch.Tensor:
-        stats = self.parameter_list_stats()
-        # workaround to avoid find_ununsed_parameter=True in DDP
-        stats = stats + 0. * self.value
-        if self.local_loss_mode:
-            return self.stats_scaling_impl(stats)
+        if self.init_done:
+            value = abs_binary_sign_grad(self.stats_scaling_impl.restrict_clamp_scaling(self.value))
+            return value
         else:
-            if self.init_done:
-                value = abs_binary_sign_grad(
-                    self.stats_scaling_impl.restrict_clamp_scaling(self.value))
-                return value
-            else:
-                stats = self.restrict_inplace_preprocess(stats)
-                inplace_tensor_mul(self.value.detach(), stats)
-                value = abs_binary_sign_grad(
-                    self.stats_scaling_impl.restrict_clamp_scaling(self.value))
-                self.init_done = True
-                return value
+            stats = self.parameter_list_stats()
+            # workaround to avoid find_ununsed_parameter=True in DDP
+            stats = stats + 0. * self.value
+            if self.local_loss_mode:
+                return self.stats_scaling_impl(stats)
+            stats = self.restrict_inplace_preprocess(stats)
+            inplace_tensor_mul(self.value.detach(), stats)
+            value = abs_binary_sign_grad(self.stats_scaling_impl.restrict_clamp_scaling(self.value))
+            self.init_done = True
+            return value
 
     def state_dict(self, destination=None, prefix='', keep_vars=False):
         output_dict = super(ParameterFromStatsFromParameterScaling, self).state_dict(
