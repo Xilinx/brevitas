@@ -427,6 +427,7 @@ class MSEZeroPointSubInjector(MSESubInjectorBase):
     per_channel = (this << 1).scaling_per_output_channel
     proxy_module = (this << 1).proxy_module
     mse_init_op = NegativeMinOrZero
+    mse_search_method = 'grid'
     stats_impl = MSE
     stats_reduce_dim = (this << 1).stats_reduce_dim
 
