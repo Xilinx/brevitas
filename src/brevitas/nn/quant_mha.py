@@ -403,8 +403,15 @@ class QuantMultiheadAttention(Module):
         #
         # compute in-projection
         #
+
         if self.in_proj is not None:
             if check_tensors_same_ptr([key, query, value]):
+                # Mark dimensions through named tensors.
+                if not torch._C._get_tracing_state():
+                    if isinstance(query, QuantTensor):
+                        query.value.rename_('L', 'N', 'E')
+                    else:
+                        query.rename_('L', 'N', 'E')
                 # self-attention
                 q, k, v = self.in_proj(query).chunk(3, dim=-1)
             else:
@@ -415,7 +422,15 @@ class QuantMultiheadAttention(Module):
             assert self.q_proj is not None, "use_separate_proj_weight is True but q_proj is None"
             assert self.k_proj is not None, "use_separate_proj_weight is True but k_proj is None"
             assert self.v_proj is not None, "use_separate_proj_weight is True but v_proj is None"
+            # Mark dimensions through named tensors.
+            if not torch._C._get_tracing_state():
+                for t in [query, key, value]:
+                    t.rename_('L', 'N', 'E')
             q, k, v = self.q_proj(query), self.k_proj(key), self.v_proj(value)
+        # Remove names to avoid errors downstream
+        if not torch._C._get_tracing_state():
+            for t in [q, k, v]:
+                t.rename_(None)
 
         # prep attention mask
         if attn_mask is not None:
@@ -546,10 +561,18 @@ class QuantMultiheadAttention(Module):
         v = self.v_quant(v)
 
         attn_output = torch.bmm(attn_output_weights, v)
-        attn_output = attn_output.transpose(0, 1).contiguous().view(tgt_len * bsz, embed_dim)
-
+        # preserve the 3D input compared to the float version to be able to do row wise scaling
+        attn_output = attn_output.transpose(0, 1).contiguous().view(tgt_len, bsz, embed_dim)
+        # Set dim names for PTQ algorithms that requires it
+        if not torch._C._get_tracing_state():
+            attn_output.rename_('L', 'N', 'E')
         attn_output = self.out_proj(attn_output)
-        attn_output = attn_output.view(tgt_len, bsz, attn_output.size(1))
+        # Remove names to avoid errors un unsupported downstream ops
+        if not torch._C._get_tracing_state():
+            if isinstance(attn_output, QuantTensor):
+                attn_output.value.rename_(None)
+            else:
+                attn_output.rename_(None)
 
         if need_weights:
             # optionally average attention weights over heads
