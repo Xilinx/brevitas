@@ -145,18 +145,20 @@ def apply_layer_ptq_fn(
 
 
 @contextmanager
-def cast_to_float32(model):
+def cast_to_float32(model, target_dtype):
     dtype_dict = {}
-    for name, p in model.named_parameters():
+    for name, p in model.state_dict().items():
+        # This allows to pick up duplicated parameters
         dtype_dict[name] = p.dtype
-    for name, b in model.named_buffers():
-        dtype_dict[name] = b.dtype
     if any(dtype != torch.float32 for dtype in dtype_dict.values()):
         model.to(dtype=torch.float32)
     try:
         yield model
     finally:
-        for name, p in model.named_parameters():
-            p.data = p.data.to(dtype_dict[name])
-        for name, b in model.named_buffers():
-            b.data = b.data.to(dtype_dict[name])
+        for name, p in {**dict(model.named_parameters()), **dict(model.named_buffers())}.items():
+            if name in dtype_dict:
+                p.data = p.data.to(dtype_dict[name])
+            else:
+                # target_dtype covers any new tensors that might have been
+                # introduced in the process (e.g. during equalization)
+                p.data = p.data.to(target_dtype)

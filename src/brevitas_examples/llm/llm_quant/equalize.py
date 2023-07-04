@@ -29,6 +29,7 @@ def activation_equalization_iter(curr_layer, inps, outs, cached_values, alpha):
 @torch.no_grad()
 def apply_act_equalization(
         model,
+        dtype,
         act_equalization_type,
         dataloader,
         nsamples,
@@ -47,7 +48,7 @@ def apply_act_equalization(
         assert ref_kwargs is not None, "Ref kwargs required to perform tracing and lift the model into FX."
         # We can't do fp16 tracing on CPU as many kernels are not implemented
         # So we have to cast to fp32 first, trace, apply equalization, and then cast back
-        with cast_to_float32(model):
+        with cast_to_float32(model, dtype):
             graph_model = value_trace(model, value_args=ref_kwargs)
             # TODO this is currently running on CPU. We need Accelerate or a TorchDispatchMode
             # or an FX interpreter to run it on GPU
@@ -65,9 +66,9 @@ def apply_act_equalization(
 
 
 @torch.no_grad()
-def apply_weight_equalization(model, ref_kwargs, scale_computation_type='range'):
+def apply_weight_equalization(model, dtype, ref_kwargs, scale_computation_type='range'):
     # We can't do fp16 tracing on CPU as many kernels are not implemented
     # So we have to cast to fp32 first, trace, apply equalization, and then cast back
-    with cast_to_float32(model):
+    with cast_to_float32(model, dtype):
         graph_model = value_trace(model, value_args=ref_kwargs)
         EqualizeGraph(scale_computation_type=scale_computation_type).apply(graph_model)

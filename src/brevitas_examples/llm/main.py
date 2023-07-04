@@ -43,7 +43,7 @@ parser.add_argument(
     choices=['stats', 'mse'],
     help='How scales/zero-point are determined. Default: stats.')
 parser.add_argument(
-    '--weight-scale-type',
+    '--weight-scale-precision',
     type=str,
     default='float',
     choices=['float', 'po2'],
@@ -77,13 +77,21 @@ parser.add_argument(
     type=str,
     default='stats',
     choices=['stats', 'mse'],
-    help='How scales/zero-point are determined. Default: stats.')
+    help=
+    'How scales/zero-point are determined. Default: stats (percentile for static, absmax minmax for dynamic).'
+)
 parser.add_argument(
-    '--input-scale-type',
+    '--input-scale-precision',
     type=str,
     default='float',
     choices=['float', 'po2'],
     help='Whether input scale is a float value or a po2. Default: float.')
+parser.add_argument(
+    '--input-scale-type',
+    type=str,
+    default='float',
+    choices=['static', 'dynamic'],
+    help='Whether input scale is a static value or a dynamic value.')
 parser.add_argument(
     '--input-quant-type',
     type=str,
@@ -94,8 +102,13 @@ parser.add_argument(
     '--input-quant-granularity',
     type=str,
     default='per_tensor',
-    choices=['per_tensor', 'per_row'],
+    choices=['per_tensor', 'per_row', 'per_group'],
     help='Granularity for scales/zero-point of inputs. Default: per_tensor.')
+parser.add_argument(
+    '--input-group-size',
+    type=int,
+    default=64,
+    help='Group size for per_group input quantization. Default: 64.')
 parser.add_argument(
     '--quantize-input-zero-point', action='store_true', help='Quantize input zero-point.')
 parser.add_argument('--gptq', action='store_true', help='Apply GPTQ.')
@@ -152,6 +165,8 @@ def model_export(model, ref_input, args):
 
 def validate(args):
     if not args.no_quantize:
+        if args.export_target is not None and args.input_bit_width is not None:
+            assert args.input_scale_type == 'static', "Only static scale supported for export currently."
         if args.export_target == 'sharded_torchmlir_group_weight':
             assert args.weight_quant_granularity == 'per_group', "Sharded torch group export requires per group weight quant."
             assert args.input_bit_width is None, "Sharded torch group weight export doesn't support input quant."
@@ -172,8 +187,10 @@ def validate(args):
                 assert args.quantize_weight_zero_point, "Quantized weight zero point required."
             if args.input_bit_width is not None and args.input_quant_type == 'asym':
                 assert args.quantize_input_zero_point, "Quantized input zero point required."
-        if args.input_bit_width:
-            assert args.act_calibration, "Input quantization is being applied without activation calibration. Set --act-calibration."
+        if (args.input_bit_width and
+            (args.input_scale_type == 'static' or
+             (args.input_scale_type == 'dynamic' and args.input_quant_type == 'asym'))):
+            assert args.act_calibration, "Static input quantization is being applied without activation calibration. Set --act-calibration."
 
 
 def main():
@@ -203,7 +220,7 @@ def main():
     # since currently there is support only for merging into Linear
     if args.ln_affine_merge:
         print("Apply LN affine merge...")
-        apply_layernorm_affine_merge(model, ref_kwargs={'input_ids': calibration_loader[0]})
+        apply_layernorm_affine_merge(model, dtype, ref_kwargs={'input_ids': calibration_loader[0]})
         print("LN affine merge applied.")
 
     # Insert standard MHA layers when performing fx based weight/act equalization to avoid dealing
@@ -215,13 +232,14 @@ def main():
 
     if args.weight_equalization:
         print("Apply weight equalization...")
-        apply_weight_equalization(model, ref_kwargs={'input_ids': calibration_loader[0]})
+        apply_weight_equalization(model, dtype, ref_kwargs={'input_ids': calibration_loader[0]})
         print("Weight equalization applied.")
 
     if args.act_equalization is not None:
         print("Apply act equalization (SmoothQuant)...")
         apply_act_equalization(
             model,
+            dtype,
             args.act_equalization,
             calibration_loader,
             args.nsamples,
@@ -236,15 +254,17 @@ def main():
             weight_quant_type=args.weight_quant_type,
             weight_bit_width=args.weight_bit_width,
             weight_param_method=args.weight_param_method,
-            weight_scale_type=args.weight_scale_type,
+            weight_scale_precision=args.weight_scale_precision,
             weight_quant_granularity=args.weight_quant_granularity,
             weight_group_size=args.weight_group_size,
             quantize_weight_zero_point=args.quantize_weight_zero_point,
             input_bit_width=args.input_bit_width,
             input_quant_type=args.input_quant_type,
             input_param_method=args.input_param_method,
+            input_scale_precision=args.input_scale_precision,
             input_scale_type=args.input_scale_type,
             input_quant_granularity=args.input_quant_granularity,
+            input_group_size=args.input_group_size,
             quantize_input_zero_point=args.quantize_input_zero_point,
             seqlen=args.seqlen)
         print("Model quantization applied.")
