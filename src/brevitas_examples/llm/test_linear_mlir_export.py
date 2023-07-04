@@ -59,7 +59,7 @@ def quantize_and_export(args):
         weight_bit_width=args.weight_bit_width,
         weight_group_size=args.weight_group_size,
         weight_param_method='stats',
-        weight_scale_type='float',
+        weight_scale_precision='float',
         weight_quant_granularity='per_group',
         quantize_weight_zero_point=False)
 

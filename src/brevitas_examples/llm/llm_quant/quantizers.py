@@ -5,7 +5,14 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 
 from torch import nn
 
-from brevitas.core.scaling import StatsFromParameterScaling
+from brevitas.core.function_wrapper.shape import OverBatchOverOutputChannelView
+from brevitas.core.function_wrapper.shape import OverBatchOverTensorView
+from brevitas.core.function_wrapper.shape import OverTensorView
+from brevitas.core.scaling import ParameterFromStatsFromParameterScaling
+from brevitas.core.stats import AbsMinMax
+from brevitas.core.stats import NegativeMinOrZero
+from brevitas.core.stats import NegativePercentileOrZero
+from brevitas.core.zero_point import ParameterFromRuntimeZeroPoint
 from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.inject import this
 from brevitas.inject import value
@@ -49,10 +56,9 @@ class IntWeightSymmetricGroupQuant(Int8WeightPerChannelFloat):
     scaling_input_shape = this.expanded_scaling_shape
     scaling_stats_input_view_shape_impl = OverSubChannelBlockView
     scaling_impl = ExpandReshapeScalingWrapper
-    wrapped_scaling_impl = StatsFromParameterScaling
-    scaling_stats_impl = AbsMaxKeepDim
     # scale is converted to a parameter right away
-    scaling_impl_type = 'parameter_from_stats'
+    wrapped_scaling_impl = ParameterFromStatsFromParameterScaling
+    keepdim = True
     stats_reduce_dim = 2
     # Set bit_width and block size externally
     bit_width = None
@@ -70,8 +76,9 @@ class ShiftedUintWeightAsymmetricGroupQuant(IntWeightSymmetricGroupQuant):
     zero_point_stats_input_view_shape_impl = this.scaling_stats_input_view_shape_impl
     zero_point_stats_input_concat_dim = 0
     zero_point_impl = ExpandReshapeZeroPointWrapper
-    zero_point_stats_impl = NegativeMinOrZeroKeepDim
-    scaling_stats_impl = AbsMinMaxKeepDim
+    zero_point_stats_impl = NegativeMinOrZero
+    scaling_stats_impl = AbsMinMax
+    keepdim = True
     # zero-point is converted to a parameter right away
     wrapped_zero_point_impl = ParameterFromStatsFromParameterZeroPoint
     quantize_zero_point = False
@@ -92,3 +99,34 @@ class ShiftedUint8ActPerRowFloat(ShiftedUint8ActPerTensorFloat):
 
 class ShiftedUint8ActPerRowFloatMSE(ShiftedUint8ActPerTensorFloatMSE):
     scaling_per_output_channel = True
+
+
+class Int8ActDynamicPerTensorFloat(Int8ActPerTensorFloat):
+    """
+    Symmetric quantizer with per tensor dynamic scale.
+    """
+    scaling_impl = RuntimeDynamicStatsScaling
+    scaling_stats_input_view_shape_impl = OverBatchOverTensorView
+    scaling_stats_op = 'max'
+
+
+class Int8ActDynamicPerRowFloat(Int8ActPerRowFloat):
+    """
+    Symmetric quantizer with per row dynamic scale.
+    """
+    scaling_impl = RuntimeDynamicStatsScaling
+    scaling_stats_input_view_shape_impl = OverBatchOverOutputChannelView
+    scaling_stats_op = 'max'
+
+
+class Int8ActDynamicPerGroupFloat(Int8ActPerRowFloat):
+    """
+    Symmetric quantizer with per row dynamic scale.
+    """
+    scaling_impl = RuntimeDynamicGroupStatsScaling
+    keepdim = True
+    scaling_stats_op = 'max'
+
+    @value
+    def stats_reduce_dim(group_dim):
+        return group_dim + 1
