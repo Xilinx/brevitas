@@ -62,7 +62,7 @@ class calibration_mode:
     def __init__(self, model, enabled=True):
         self.model = model
         self.previous_training_state = model.training
-        self.disable_quant_inference = DisableEnableQuantization()
+        self.disable_quant_inference = DisableEnableQuantization(call_act_quantizer_impl=True)
         self.enabled = enabled
 
     def __enter__(self):
@@ -111,9 +111,10 @@ class ClipFloatWeights(Transform):
 
 class DisableEnableQuantization(Transform):
 
-    def __init__(self):
+    def __init__(self, call_act_quantizer_impl=False):
         super(DisableEnableQuantization, self).__init__()
         self.disable_act_quant_hooks = []
+        self.call_act_quantizer_impl = call_act_quantizer_impl
 
     def unpack_input(self, inp):
         if isinstance(inp, tuple):
@@ -135,14 +136,14 @@ class DisableEnableQuantization(Transform):
                 inp, min_val=module.quant_injector.min_val, max_val=module.quant_injector.max_val)
         return QuantTensor(value=inp, training=module.training)
 
-    def disable_act_quantization(self, model, is_training, call_quantizer_impl=False):
-        # If call_quantizer_impl is set to True, the quantization will be performed but the output
+    def disable_act_quantization(self, model, is_training):
+        # If self.call_act_quantizer_impl is set to True, the quantization will be performed but the output
         # will be discarded through the hook. It is useful for collecting activation stats,
         # for example during activation calibration in PTQ
         for module in model.modules():
             if isinstance(module, ActQuantProxyFromInjector):
                 module.train(is_training)
-                if call_quantizer_impl:
+                if self.call_act_quantizer_impl:
                     hook = module.register_forward_hook(self.disable_act_quant_hook)
                     self.disable_act_quant_hooks.append(hook)
                 else:
@@ -189,7 +190,7 @@ class DisableEnableQuantization(Transform):
 
     def apply(self, model, is_training, quantization_enabled):
         if not quantization_enabled:
-            self.disable_act_quantization(model, is_training, call_quantizer_impl=True)
+            self.disable_act_quantization(model, is_training)
             self.disable_param_quantization(model, is_training)
         else:
             self.enable_act_quantization(model, is_training)
