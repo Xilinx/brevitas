@@ -227,6 +227,7 @@ class GPTQ():
         # Define batch size before re-organizing the input
         if hasattr(inp, 'names') and 'N' in inp.names:
             batch_dim = inp.names.index('N')
+            inp.rename_(None)
             inp = inp.transpose(0, batch_dim)
         batch_size = inp.shape[0]
 
