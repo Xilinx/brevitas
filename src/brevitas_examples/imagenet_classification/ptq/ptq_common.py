@@ -282,7 +282,7 @@ def apply_learned_round_learning(
     print(len(blocks))
 
     for block, get_inp_out, layer_loss, learned_round_module in block_wise_learned_round_iterator(model, blocks, iters=iters):
-        optimizer = optimizer_class(list(learned_round_module.parameters()), **optimizer_kwargs)
+        optimizer = optimizer_class(learned_round_module.parameters(), **optimizer_kwargs)
         pbar = tqdm(range(epochs), desc='')
         for e in pbar:
             for i, (img, t) in enumerate(dataloader):
