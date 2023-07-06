@@ -197,15 +197,13 @@ def insert_learned_round_quantizer(layer, learned_round_zeta=1.1, learned_round_
             delta = (layer.weight.data / layer.quant_weight().scale) - floor_weight
             value = -torch.log((learned_round_zeta - learned_round_gamma) /
                                (delta - learned_round_gamma) - 1)
-            state_dict = layer.weight_quant.state_dict()
             layer.weight_quant.quant_injector = layer.weight_quant.quant_injector.let(
                 float_to_int_impl_type=FloatToIntImplType.LEARNED_ROUND,
                 learned_round_impl_type=LearnedRoundImplType.HARD_SIGMOID,
                 learned_round_gamma=learned_round_gamma,
                 learned_round_zeta=learned_round_zeta,
                 learned_round_init=value)
-            layer.weight_quant.init_tensor_quant()
-            layer.weight_quant.load_state_dict(state_dict)
+            layer.weight_quant.init_tensor_quant(preserve_state_dict=True)
 
 
 def split_layers(model, blocks):
