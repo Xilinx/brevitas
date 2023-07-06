@@ -291,6 +291,8 @@ def main():
 
     if args.export_target:
         print(f"Export to {args.export_target}")
+        # Currently we always export on CPU with a float32 container to avoid float16 CPU errors
+        model = model.cpu().to(dtype=torch.float32)
         model_export(model, calibration_loader[0], args)
 
 
