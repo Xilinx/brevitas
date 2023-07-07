@@ -74,6 +74,7 @@ class GetLayerInpOut(DisableEnableQuantization):
 
         handle = self.layer.register_forward_hook(self.data_saver)
         self.disable_param_quantization(self.model, is_training=False)
+        self.disable_act_quantization(self.model, is_training=False)
         with torch.no_grad():
             try:
                 _ = self.model(model_input)
@@ -83,6 +84,7 @@ class GetLayerInpOut(DisableEnableQuantization):
 
         self.data_saver.store_output = False
         self.enable_param_quantization(self.model, is_training=False)
+        self.enable_act_quantization(self.model, is_training=False)
         with torch.no_grad():
             try:
                 _ = self.model(model_input)
