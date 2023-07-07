@@ -268,7 +268,7 @@ def quantize_model(
         'q_scaled_quant': q_scaled_quant,
         'k_transposed_quant': k_transposed_quant,
         'v_quant': v_quant,
-        'out_proj_input_quant': linear_2d_input_quant,
+        'out_proj_input_quant': input_quant,
         'out_proj_weight_quant': weight_quant,
         'out_proj_bias_quant': None,
         'out_proj_output_quant': None,

@@ -3,6 +3,9 @@ from typing import Optional, Tuple
 import torch
 from torch import nn
 
+from brevitas.nn.equalized_layer import EqualizedModule
+from brevitas.utils.torch_utils import KwargsForwardHook
+
 
 def attention_mask_handler(
         attention_mask, batch_size, num_heads, query_seq_length, key_value_seq_length):
@@ -52,6 +55,26 @@ class MultiheadAttentionWrapper(nn.Module):
             batch_first,
             device,
             dtype)
+
+    @property
+    def wrapped_mha(self):
+        mha = self.mha
+        # Workaround for activation equalization for when mha is wrapped
+        # KwargsForwardHook is inserted during act equalization
+        # EqualizedModule is inserted after act equalization
+        if isinstance(mha, KwargsForwardHook):
+            mha = mha.module
+        if isinstance(mha, EqualizedModule):
+            mha = mha.layer
+        return mha
+
+    @property
+    def num_heads(self):
+        return self.wrapped_mha.num_heads
+
+    @property
+    def batch_first(self):
+        return self.wrapped_mha.batch_first
 
     def _load_from_state_dict(
             self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
@@ -134,13 +157,13 @@ class QuantizableOPTAttention(MultiheadAttentionWrapper):
             key_value_states = hidden_states
         if layer_head_mask is not None:
             raise RuntimeError("layer_head_mask is not supported.")
-        if self.mha.batch_first:
+        if self.batch_first:
             batch_size, query_seq_length = hidden_states.shape[:2]
             key_value_seq_length = key_value_states.shape[1]
         else:
             query_seq_length, batch_size = hidden_states.shape[:2]
             key_value_seq_length = key_value_states.shape[0]
-        num_heads = self.mha.num_heads
+        num_heads = self.num_heads
         attention_mask = attention_mask_handler(
             attention_mask, batch_size, num_heads, query_seq_length, key_value_seq_length)
         attn_output, attn_output_weights = self.mha(

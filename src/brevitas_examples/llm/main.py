@@ -78,7 +78,7 @@ parser.add_argument(
     default='stats',
     choices=['stats', 'mse'],
     help=
-    'How scales/zero-point are determined. Default: stats (percentile for static, absmax minmax for dynamic).'
+    'How scales/zero-point are determined. Default: stats (percentile for static, absmax or minmax for dynamic).'
 )
 parser.add_argument(
     '--input-scale-precision',
@@ -89,7 +89,7 @@ parser.add_argument(
 parser.add_argument(
     '--input-scale-type',
     type=str,
-    default='float',
+    default='static',
     choices=['static', 'dynamic'],
     help='Whether input scale is a static value or a dynamic value.')
 parser.add_argument(
