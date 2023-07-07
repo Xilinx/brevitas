@@ -1,8 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from copy import deepcopy
-
 import torch
 import torch.backends.cudnn as cudnn
 from tqdm import tqdm
@@ -18,6 +16,7 @@ from brevitas.graph.quantize import layerwise_quantize
 from brevitas.graph.quantize import quantize
 from brevitas.graph.target.flexml import quantize_flexml
 import brevitas.nn as qnn
+from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.quant.fixed_point import Int8ActPerTensorFixedPoint
 from brevitas.quant.fixed_point import Int8ActPerTensorFixedPointMSE
 from brevitas.quant.fixed_point import Int8WeightPerChannelFixedPoint
@@ -39,6 +38,10 @@ from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloatMSE
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloatMSE
+from brevitas_examples.imagenet_classification.ptq.learned_round_utils import \
+    layerwise_learned_round_iterator
+from brevitas_examples.imagenet_classification.ptq.learned_round_utils import save_inp_out_data
+from brevitas_examples.imagenet_classification.ptq.learned_round_utils import split_layers
 
 QUANTIZE_MAP = {'layerwise': layerwise_quantize, 'fx': quantize, 'flexml': quantize_flexml}
 
@@ -385,32 +388,45 @@ def apply_learned_round_learning(
         model,
         dataloader,
         optimizer_class=torch.optim.Adam,
-        epochs=60,
-        optimizer_kwargs={'lr': 1e-1}):
-    blocks = []
-    split_layers(model, blocks)
+        iters=20000,
+        optimizer_kwargs={'lr': 1e-3}):
 
-    iters = len(dataloader) * epochs
-    print(f"Total Iterations per block {iters}")
-    print(len(blocks))
+    from torchvision.models.resnet import BasicBlock
+    layers = []
+    split_layers(model, layers, BasicBlock)
 
-    for block, layer_loss, learned_round_module in block_wise_learned_round_iterator(model, blocks, iters=iters):
-        optimizer = optimizer_class(learned_round_module.parameters(), **optimizer_kwargs)
-        _, all_fp_out = save_inp_out_data(model, block, dataloader, store_inp=False, store_out = True, keep_gpu=True, disable_quant=True)
-        all_quant_inp, _ = save_inp_out_data(model, block, dataloader, store_inp=True, store_out=True, keep_gpu=True, disable_quant=False)
+    print(len(layers))
+    print(f"Total Iterations per layer {iters}")
+
+    for layer, layer_loss, learned_round_modules, scale_parameters in layerwise_learned_round_iterator(layers, iters=iters):
+        _, all_fp_out = save_inp_out_data(model, layer, dataloader, True, True, True, True)
+        all_quant_inp, _ = save_inp_out_data(model, layer, dataloader, True, True, True, False)
+        parameters = []
+        for module in learned_round_modules:
+            parameters.extend(list(module.parameters()))
+        optimizer = optimizer_class(parameters, **optimizer_kwargs)
+        a_optimizer = optimizer_class(scale_parameters, lr=4e-4)
+        a_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            a_optimizer, T_max=iters, eta_min=0.)
         max_size = len(all_fp_out)
         pbar = tqdm(range(iters), desc='')
         for i in pbar:
             idx = torch.randint(0, max_size, (dataloader.batch_size,))
+
             quant_inp, fp_out = all_quant_inp[idx], all_fp_out[idx]
-            block.train()
+            for module in layer.modules():
+                if isinstance(module, QuantWBIOL):
+                    module.train()
 
             optimizer.zero_grad()
-            quant_out = block(quant_inp)
+            a_optimizer.zero_grad()
+            quant_out = layer(quant_inp)
             loss, rec_loss, round_loss, b = layer_loss(quant_out, fp_out)
 
             loss.backward()
             optimizer.step()
+            a_optimizer.step()
+            a_scheduler.step()
             pbar.set_description(
-                "loss = {:.4f}, rec_loss = {:.4f}, round_loss = {:.4f}, b = {:.4f}".format(
+                "loss = {:.4f}, rec_loss = {:.4f}, round_loss = {:.4f} - b = {:.4f}".format(
                     loss, rec_loss, round_loss, b))

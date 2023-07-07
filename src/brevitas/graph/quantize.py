@@ -270,6 +270,7 @@ def preprocess_for_quantize(
 
     if trace_model:
         model = symbolic_trace(model)
+
     model = TorchFunctionalToModule().apply(model)
     model = DuplicateSharedStatelessModule().apply(model)
     if relu6_to_relu:

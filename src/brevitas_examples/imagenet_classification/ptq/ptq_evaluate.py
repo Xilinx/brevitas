@@ -237,7 +237,6 @@ def main():
         center_crop_shape,
         inception_preprocessing=inception_preprocessing)
 
-    # Get the model from torchvision
     model = get_torchvision_model(args.model_name)
 
     # Preprocess the model for quantization
@@ -253,6 +252,7 @@ def main():
     elif args.target_backend == 'fx' or args.target_backend == 'layerwise':
         model = preprocess_for_quantize(
             model,
+            trace_model=True,
             equalize_iters=args.graph_eq_iterations,
             equalize_merge_bias=args.graph_eq_merge_bias,
             merge_bn=not args.calibrate_bn)
