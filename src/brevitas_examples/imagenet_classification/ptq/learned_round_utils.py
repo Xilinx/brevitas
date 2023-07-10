@@ -71,6 +71,7 @@ class GetLayerInpOut(DisableEnableQuantization):
     def __call__(self, model_input):
         device = self.layer.weight.device
         model_input = model_input.to(device)
+        self.model.eval()
 
         handle = self.layer.register_forward_hook(self.data_saver)
         self.disable_param_quantization(self.model, is_training=False)
@@ -96,55 +97,23 @@ class GetLayerInpOut(DisableEnableQuantization):
         return inp, out
 
 
-def sigmoid(x):
-    return (1.0 + np.exp(-x)) ** -1.0
+class LinearTempDecay:
 
-
-class TempDecay:
-
-    def __init__(
-            self,
-            t_max,
-            b_range=(20.0, 2.0),
-            rel_decay_start=0.0,
-            decay_type='cosine',
-            decay_shape=1.0):
+    def __init__(self, t_max: int, rel_start_decay: float = 0.2, start_b: int = 10, end_b: int = 2):
         self.t_max = t_max
-        self.start_b, self.end_b = b_range
-        self.decay_type = decay_type
-        self.decay_shape = decay_shape
-        self.decay_start = rel_decay_start * t_max
+        self.start_decay = rel_start_decay * t_max
+        self.start_b = start_b
+        self.end_b = end_b
 
     def __call__(self, t):
-        if t < self.decay_start:
+        if t < self.start_decay:
             return self.start_b
-
-        rel_t = (t - self.decay_start) / (self.t_max - self.decay_start)
-        if self.decay_type == 'linear':
-            return self.end_b + (self.start_b - self.end_b) * max(0.0, (1 - rel_t))
-        elif self.decay_type == 'cosine':
-            return self.end_b + 0.5 * (self.start_b - self.end_b) * (1 + np.cos(rel_t * np.pi))
-        elif self.decay_type == 'sigmoid':
-            d = self.decay_shape
-            offset = sigmoid(-d / 2)
-            rel_progress = (sigmoid(d * (rel_t - 0.5)) - offset) / (1 - 2 * offset)
-            return self.start_b + (self.end_b - self.start_b) * rel_progress
-        elif self.decay_type == 'power':
-            return self.end_b + (self.start_b - self.end_b) * (1 - rel_t ** self.decay_shape)
-        elif self.decay_type == 'exp':
-            r = self.decay_shape
-            rel_progress = (1.0 - np.exp(-r * rel_t)) / (1.0 - np.exp(-r))
-            return self.start_b + (self.end_b - self.start_b) * rel_progress
-        elif self.decay_type == 'log':
-            r = self.decay_shape
-            C = np.exp(self.end_b / r)
-            c = np.exp(self.start_b / r)
-            return r * np.log((C - c) * rel_t + c)
         else:
-            raise ValueError(f'Unknown temp decay type {self.decay_type}')
+            rel_t = (t - self.start_decay) / (self.t_max - self.start_decay)
+            return self.end_b + (self.start_b - self.end_b) * max(0.0, (1 - rel_t))
 
 
-class CombinedLoss:
+class Loss:
 
     def __init__(
             self,
@@ -154,21 +123,19 @@ class CombinedLoss:
             max_count=1000,
             b_range=(20, 2),
             warmup=0.2,
-            decay_start=0.0,
-            **temp_decay_kw):
+            decay_start=0.0):
         self.weight = weight
         self.module = module
         self.loss_start = max_count * warmup
-        self.temp_decay = TempDecay(
+        self.temp_decay = LinearTempDecay(
             max_count,
-            b_range=b_range,
-            rel_decay_start=warmup + (1.0 - warmup) * decay_start,
-            **temp_decay_kw,
-        )
+            start_b=b_range[0],
+            end_b=b_range[1],
+            rel_start_decay=warmup + (1.0 - warmup) * decay_start)
         self.iter = 0
         self.learned_round_module = learned_round_module
 
-    def __call__(self, pred, tgt, *args, **kwargs):
+    def __call__(self, pred, tgt):
         self.iter += 1
 
         rec_loss = F.mse_loss(pred, tgt, reduction='none').sum(1).mean()
@@ -182,7 +149,7 @@ class CombinedLoss:
             round_loss = self.weight * (1 - ((round_vals - 0.5).abs() * 2).pow(b)).sum()
 
         total_loss = rec_loss + round_loss
-        return total_loss, rec_loss, round_loss
+        return total_loss, rec_loss, round_loss, b
 
 
 def find_learned_round_module(module):
@@ -226,8 +193,6 @@ def block_wise_learned_round_iterator(model, blocks, iters=1000):
         learned_round_module = find_learned_round_module(block)
         learned_round_module.value.requires_grad = True
         inp_out_class = GetLayerInpOut(model, block)
-        layer_loss = CombinedLoss(
-            module=block, learned_round_module=learned_round_module, max_count=iters)
-        block.train()
+        layer_loss = Loss(module=block, learned_round_module=learned_round_module, max_count=iters)
         yield block, inp_out_class, layer_loss, learned_round_module
         block.eval()
