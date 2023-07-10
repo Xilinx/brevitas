@@ -192,7 +192,49 @@ def block_wise_learned_round_iterator(model, blocks, iters=1000):
 
         learned_round_module = find_learned_round_module(block)
         learned_round_module.value.requires_grad = True
-        inp_out_class = GetLayerInpOut(model, block)
         layer_loss = Loss(module=block, learned_round_module=learned_round_module, max_count=iters)
-        yield block, inp_out_class, layer_loss, learned_round_module
+        yield block, layer_loss, learned_round_module
         block.eval()
+
+
+def save_inp_out_data(
+        model,
+        module,
+        dataloader: torch.utils.data.DataLoader,
+        store_inp=False,
+        store_out=False,
+        keep_gpu: bool = True,
+        disable_quant=False):
+    if disable_quant:
+        disable_quant_class = DisableEnableQuantization()
+        disable_quant_class.disable_act_quantization(model, False)
+        disable_quant_class.disable_param_quantization(model, False)
+    device = next(model.parameters()).device
+    data_saver = DataSaverHook(store_output=store_out)
+    handle = module.register_forward_hook(data_saver)
+    cached = [[], []]
+    with torch.no_grad():
+        for img, t in dataloader:
+            try:
+                _ = model(img.to(device))
+            except StopFwdException:
+                pass
+            if store_inp:
+                if keep_gpu:
+                    cached[0].append(data_saver.input_store[0].detach())
+                else:
+                    cached[0].append(data_saver.input_store[0].detach().cpu())
+            if store_out:
+                if keep_gpu:
+                    cached[1].append(data_saver.output_store.detach())
+                else:
+                    cached[1].append(data_saver.output_store.detach().cpu())
+    if store_inp:
+        cached[0] = torch.cat([x for x in cached[0]])
+    if store_out:
+        cached[1] = torch.cat([x for x in cached[1]])
+    handle.remove()
+    if disable_quant:
+        disable_quant_class.enable_act_quantization(model, False)
+        disable_quant_class.enable_param_quantization(model, False)
+    return cached
