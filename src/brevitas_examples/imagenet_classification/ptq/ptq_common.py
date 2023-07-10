@@ -33,6 +33,7 @@ from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFixedPoint
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
 from brevitas_examples.imagenet_classification.ptq.learned_round_utils import \
     block_wise_learned_round_iterator
+from brevitas_examples.imagenet_classification.ptq.learned_round_utils import save_inp_out_data
 from brevitas_examples.imagenet_classification.ptq.learned_round_utils import split_layers
 
 LAYER_MAP = {
@@ -271,32 +272,31 @@ def apply_learned_round_learning(
         dataloader,
         optimizer_class=torch.optim.Adam,
         epochs=60,
-        optimizer_kwargs={'lr': 1e-3}):
+        optimizer_kwargs={'lr': 1e-1}):
     blocks = []
     split_layers(model, blocks)
-    device = next(iter(model.parameters())).device
-    dtype = next(iter(model.parameters())).dtype
 
     iters = len(dataloader) * epochs
     print(f"Total Iterations per block {iters}")
     print(len(blocks))
 
-    for block, get_inp_out, layer_loss, learned_round_module in block_wise_learned_round_iterator(model, blocks, iters=iters):
+    for block, layer_loss, learned_round_module in block_wise_learned_round_iterator(model, blocks, iters=iters):
         optimizer = optimizer_class(learned_round_module.parameters(), **optimizer_kwargs)
-        pbar = tqdm(range(epochs), desc='')
-        for e in pbar:
-            for i, (img, t) in enumerate(dataloader):
-                img = img.to(device)
-                img = img.to(dtype)
-                quant_inp, fp_out = get_inp_out(img)
-                block.train()
+        _, all_fp_out = save_inp_out_data(model, block, dataloader, store_inp=False, store_out = True, keep_gpu=True, disable_quant=True)
+        all_quant_inp, _ = save_inp_out_data(model, block, dataloader, store_inp=True, store_out=True, keep_gpu=True, disable_quant=False)
+        max_size = len(all_fp_out)
+        pbar = tqdm(range(iters), desc='')
+        for i in pbar:
+            idx = torch.randint(0, max_size, (dataloader.batch_size,))
+            quant_inp, fp_out = all_quant_inp[idx], all_fp_out[idx]
+            block.train()
 
-                optimizer.zero_grad()
-                quant_out = block(quant_inp)
-                loss, rec_loss, round_loss, b = layer_loss(quant_out, fp_out)
+            optimizer.zero_grad()
+            quant_out = block(quant_inp)
+            loss, rec_loss, round_loss, b = layer_loss(quant_out, fp_out)
 
-                loss.backward()
-                optimizer.step()
-                pbar.set_description(
-                    "loss = {:.4f}, rec_loss = {:.4f}, round_loss = {:.4f}, b = {:.4f}".format(
-                        loss, rec_loss, round_loss, b))
+            loss.backward()
+            optimizer.step()
+            pbar.set_description(
+                "loss = {:.4f}, rec_loss = {:.4f}, round_loss = {:.4f}, b = {:.4f}".format(
+                    loss, rec_loss, round_loss, b))
