@@ -156,9 +156,9 @@ add_bool_arg(
     default=True,
     help='Narrow range for weight quantization (default: enabled)')
 add_bool_arg(parser, 'gptq', default=True, help='GPTQ (default: enabled)')
-add_bool_arg(parser, 'learned-round', default=False, help='Learned round (default: disabled)')
 add_bool_arg(
     parser, 'gptq-act-order', default=False, help='GPTQ Act order heuristic (default: disabled)')
+add_bool_arg(parser, 'learned-round', default=False, help='Learned round (default: disabled)')
 add_bool_arg(parser, 'calibrate-bn', default=False, help='Calibrate BN (default: disabled)')
 
 

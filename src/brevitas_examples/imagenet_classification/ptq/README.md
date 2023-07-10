@@ -59,27 +59,34 @@ This flow allows to specify which pre-trained torchvision model to quantize and 
 It also gives the possibility to export the model to either ONNX QCDQ format or in torch QCDQ format.
 The quantization and export options to specify are:
 ```bash
-usage: ptq_evaluate.py [-h] --calibration-dir CALIBRATION_DIR --validation-dir
-                       VALIDATION_DIR [--workers WORKERS]
-                       [--batch-size-calibration BATCH_SIZE_CALIBRATION]
-                       [--batch-size-validation BATCH_SIZE_VALIDATION]
-                       [--export-dir EXPORT_DIR] [--gpu GPU]
-                       [--calibration-samples CALIBRATION_SAMPLES]
-                       [--model-name ARCH]
-                       [--target-backend {generic,layerwise,flexml}]
-                       [--scale-factor-type {float32,po2}]
-                       [--act-bit-width ACT_BIT_WIDTH]
-                       [--weight-bit-width WEIGHT_BIT_WIDTH]
-                       [--bias-bit-width {int32,int16}]
-                       [--act-quant-type {symmetric,asymmetric}]
-                       [--graph-eq-iterations GRAPH_EQ_ITERATIONS]
-                       [--act-quant-percentile ACT_QUANT_PERCENTILE]
-                       [--export-onnx-qcdq] [--export-torch-qcdq]
-                       [--scaling-per-output-channel | --no-scaling-per-output-channel]
-                       [--bias-corr | --no-bias-corr]
-                       [--graph-eq-merge-bias | --no-graph-eq-merge-bias]
-                       [--weight-narrow-range | --no-weight-narrow-range]
-
+usage: brevitas_ptq_imagenet_val [-h] --calibration-dir CALIBRATION_DIR
+                                 --validation-dir VALIDATION_DIR
+                                 [--workers WORKERS]
+                                 [--batch-size-calibration BATCH_SIZE_CALIBRATION]
+                                 [--batch-size-validation BATCH_SIZE_VALIDATION]
+                                 [--export-dir EXPORT_DIR] [--gpu GPU]
+                                 [--calibration-samples CALIBRATION_SAMPLES]
+                                 [--model-name ARCH]
+                                 [--target-backend {generic,layerwise,flexml}]
+                                 [--scale-factor-type {float32,po2}]
+                                 [--act-bit-width ACT_BIT_WIDTH]
+                                 [--weight-bit-width WEIGHT_BIT_WIDTH]
+                                 [--layerwise-first-last-bit-width LAYERWISE_FIRST_LAST_BIT_WIDTH]
+                                 [--bias-bit-width {int32,int16}]
+                                 [--act-quant-type {symmetric,asymmetric}]
+                                 [--act-equalization {fx,layerwise,None}]
+                                 [--act-quant-calibration-type {percentile,mse}]
+                                 [--graph-eq-iterations GRAPH_EQ_ITERATIONS]
+                                 [--act-quant-percentile ACT_QUANT_PERCENTILE]
+                                 [--export-onnx-qcdq] [--export-torch-qcdq]
+                                 [--scaling-per-output-channel | --no-scaling-per-output-channel]
+                                 [--bias-corr | --no-bias-corr]
+                                 [--graph-eq-merge-bias | --no-graph-eq-merge-bias]
+                                 [--weight-narrow-range | --no-weight-narrow-range]
+                                 [--gptq | --no-gptq]
+                                 [--gptq-act-order | --no-gptq-act-order]
+                                 [--learned-round | --no-learned-round]
+                                 [--calibrate-bn | --no-calibrate-bn]
 PyTorch ImageNet PTQ Validation
 
 optional arguments:
@@ -160,6 +167,10 @@ optional arguments:
   --no-gptq             Disable GPTQ (default: enabled)
   --gptq-act-order      Enable GPTQ Act order heuristic (default: disabled)
   --no-gptq-act-order   Disable GPTQ Act order heuristic (default: disabled)
+  --learned-round       Enable Learned round (default: disabled)
+  --no-learned-round    Disable Learned round (default: disabled)
+  --calibrate-bn        Enable Calibrate BN (default: disabled)
+  --no-calibrate-bn     Disable Calibrate BN (default: disabled)
 ```
 
 The script requires to specify the calibration folder (`--calibration-dir`), from which the calibration samples will be taken (configurable with the `--calibration-samples` argument), and a validation folder (`--validation-dir`).
