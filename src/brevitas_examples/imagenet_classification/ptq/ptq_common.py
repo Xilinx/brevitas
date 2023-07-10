@@ -271,7 +271,7 @@ def apply_learned_round_learning(
         dataloader,
         optimizer_class=torch.optim.Adam,
         epochs=60,
-        optimizer_kwargs={'lr': 1e-1}):
+        optimizer_kwargs={'lr': 1e-3}):
     blocks = []
     split_layers(model, blocks)
     device = next(iter(model.parameters())).device
