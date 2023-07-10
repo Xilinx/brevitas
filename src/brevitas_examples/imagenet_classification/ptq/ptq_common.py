@@ -293,10 +293,10 @@ def apply_learned_round_learning(
 
                 optimizer.zero_grad()
                 quant_out = block(quant_inp)
-                loss, rec_loss, round_loss = layer_loss(quant_out, fp_out)
+                loss, rec_loss, round_loss, b = layer_loss(quant_out, fp_out)
 
                 loss.backward()
                 optimizer.step()
                 pbar.set_description(
-                    "loss = {:.4f}, rec_loss = {:.4f}, round_loss = {:.4f}".format(
-                        loss, rec_loss, round_loss))
+                    "loss = {:.4f}, rec_loss = {:.4f}, round_loss = {:.4f}, b = {:.4f}".format(
+                        loss, rec_loss, round_loss, b))
