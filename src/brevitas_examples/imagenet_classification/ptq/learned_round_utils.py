@@ -59,44 +59,6 @@ class DataSaverHook:
         raise StopFwdException
 
 
-class GetLayerInpOut(DisableEnableQuantization):
-
-    def __init__(self, model: torch.nn.Module, layer: torch.nn.Module, store_output: bool = True):
-        super().__init__()
-        self.model = model
-        self.layer = layer
-        self.store_output = store_output
-        self.data_saver = DataSaverHook(store_output=store_output)
-
-    def __call__(self, model_input):
-        device = self.layer.weight.device
-        model_input = model_input.to(device)
-        self.model.eval()
-
-        handle = self.layer.register_forward_hook(self.data_saver)
-        self.disable_param_quantization(self.model, is_training=False)
-        self.disable_act_quantization(self.model, is_training=False)
-        with torch.no_grad():
-            try:
-                _ = self.model(model_input)
-            except StopFwdException:
-                pass
-            out = self.data_saver.output_store.detach()
-
-        self.data_saver.store_output = False
-        self.enable_param_quantization(self.model, is_training=False)
-        self.enable_act_quantization(self.model, is_training=False)
-        with torch.no_grad():
-            try:
-                _ = self.model(model_input)
-            except StopFwdException:
-                pass
-            inp = self.data_saver.input_store[0].detach()
-        handle.remove()
-        self.data_saver.store_output = True
-        return inp, out
-
-
 class LinearTempDecay:
 
     def __init__(self, t_max: int, rel_start_decay: float = 0.2, start_b: int = 10, end_b: int = 2):
@@ -175,26 +137,26 @@ def insert_learned_round_quantizer(layer, learned_round_zeta=1.1, learned_round_
             layer.weight_quant.init_tensor_quant(preserve_state_dict=True)
 
 
-def split_layers(model, blocks):
+def split_layers(model, layers):
     for module in model.children():
         if isinstance(module, QuantWBIOL):
-            blocks.append(module)
+            layers.append(module)
         else:
-            split_layers(module, blocks)
+            split_layers(module, layers)
 
 
-def block_wise_learned_round_iterator(model, blocks, iters=1000):
-    for block in blocks:
-        insert_learned_round_quantizer(block)
+def learned_round_iterator(layers, iters=1000):
+    for layer in layers:
+        insert_learned_round_quantizer(layer)
 
-        for p in block.parameters():
+        for p in layer.parameters():
             p.requires_grad = False
 
-        learned_round_module = find_learned_round_module(block)
+        learned_round_module = find_learned_round_module(layer)
         learned_round_module.value.requires_grad = True
-        layer_loss = Loss(module=block, learned_round_module=learned_round_module, max_count=iters)
-        yield block, layer_loss, learned_round_module
-        block.eval()
+        layer_loss = Loss(module=layer, learned_round_module=learned_round_module, max_count=iters)
+        yield layer, layer_loss, learned_round_module
+        layer.eval()
 
 
 def save_inp_out_data(

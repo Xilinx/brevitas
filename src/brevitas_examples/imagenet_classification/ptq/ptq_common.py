@@ -31,8 +31,7 @@ from brevitas.quant.scaled_int import Int16Bias
 from brevitas.quant.scaled_int import Int32Bias
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFixedPoint
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
-from brevitas_examples.imagenet_classification.ptq.learned_round_utils import \
-    block_wise_learned_round_iterator
+from brevitas_examples.imagenet_classification.ptq.learned_round_utils import learned_round_iterator
 from brevitas_examples.imagenet_classification.ptq.learned_round_utils import save_inp_out_data
 from brevitas_examples.imagenet_classification.ptq.learned_round_utils import split_layers
 
@@ -269,24 +268,24 @@ def apply_gptq(calib_loader, model, act_order=False):
 
 def apply_learned_round_learning(
         model, dataloader, optimizer_class=torch.optim.Adam, iters=1000, optimizer_lr=1e-1):
-    blocks = []
-    split_layers(model, blocks)
-    print(f"Total Iterations per block {iters}")
-    print(len(blocks))
+    layers = []
+    split_layers(model, layers)
+    print(f"Total Iterations per layer {iters}")
+    print(len(layers))
 
-    for block, layer_loss, learned_round_module in block_wise_learned_round_iterator(model, blocks, iters=iters):
+    for layer, layer_loss, learned_round_module in learned_round_iterator(layers, iters=iters):
         optimizer = optimizer_class(learned_round_module.parameters(), lr=optimizer_lr)
-        _, all_fp_out = save_inp_out_data(model, block, dataloader, store_inp=False, store_out=True, keep_gpu=True, disable_quant=True)
-        all_quant_inp, _ = save_inp_out_data(model, block, dataloader, store_inp=True, store_out=True, keep_gpu=True, disable_quant=False)
+        _, all_fp_out = save_inp_out_data(model, layer, dataloader, store_inp=False, store_out=True, keep_gpu=True, disable_quant=True)
+        all_quant_inp, _ = save_inp_out_data(model, layer, dataloader, store_inp=True, store_out=True, keep_gpu=True, disable_quant=False)
         max_size = len(all_fp_out)
         pbar = tqdm(range(iters), desc='')
         for i in pbar:
             idx = torch.randint(0, max_size, (dataloader.batch_size,))
             quant_inp, fp_out = all_quant_inp[idx], all_fp_out[idx]
-            block.train()
+            layer.train()
 
             optimizer.zero_grad()
-            quant_out = block(quant_inp)
+            quant_out = layer(quant_inp)
             loss, rec_loss, round_loss, b = layer_loss(quant_out, fp_out)
 
             loss.backward()
