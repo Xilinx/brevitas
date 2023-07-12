@@ -26,6 +26,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+from copy import deepcopy
+import re
+
 import torch
 
 from brevitas import config
@@ -34,6 +37,7 @@ from brevitas.graph.calibrate import DisableEnableQuantization
 from brevitas.inject.enum import FloatToIntImplType
 from brevitas.inject.enum import LearnedRoundImplType
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
+from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector
 
 config.IGNORE_MISSING_KEYS = True
 
@@ -126,10 +130,7 @@ class Loss:
         self.module = module
         self.loss_start = max_count * warmup
         self.temp_decay = LinearTempDecay(
-            max_count,
-            start_b=b_range[0],
-            end_b=b_range[1],
-            rel_start_decay=warmup + (1.0 - warmup) * decay_start)
+            max_count, start_b=b_range[0], end_b=b_range[1], rel_start_decay=warmup)
         self.iter = 0
         self.learned_round_modules = learned_round_modules
         self.rec_loss = rec_loss
@@ -179,35 +180,47 @@ def insert_learned_round_quantizer(layer, learned_round_zeta=1.1, learned_round_
         layer.weight_quant.init_tensor_quant(preserve_state_dict=True)
 
 
-def split_layers(model, layers, block_class=QuantWBIOL):
-    for module in model.modules():
-        if isinstance(module, block_class):
-            layers.append(module)
+def split_layerwise(model, class_type=QuantWBIOL):
+    layers = dict()
+    for name, module in model.named_modules():
+        if isinstance(module, class_type):
+            layers[name] = module
+    return layers
 
 
-def layerwise_learned_round_iterator(layers, iters=1000):
-    k = 0
-    for layer in layers:
-        for p in layer.parameters():
+def split_blockwise(model, block_name):
+    regex = re.compile(block_name)
+    blocks = dict()
+    for name, module in model.named_modules():
+        regex_match = regex.match(name)
+        if regex_match:
+            blocks[regex_match.string] = module
+    return blocks
+
+
+def layerwise_learned_round_iterator(layers, iters=1000, learned_round_type='layerwise'):
+    for name, layers in layers.items():
+        for p in layers.parameters():
             p.requires_grad = False
 
         learned_round_modules = []
         scale_parameters = []
-        for module in layer.modules():
+        for module in layers.modules():
             if isinstance(module, QuantWBIOL):
-                for p in module.input_quant.parameters():
-                    p.requires_grad = True
-                    scale_parameters.append(p)
                 insert_learned_round_quantizer(module)
                 module = find_learned_round_module(module)
                 module.value.requires_grad = True
                 learned_round_modules.append(module)
+            if isinstance(module, ActQuantProxyFromInjector) and learned_round_type == 'block':
+                for p in module.parameters():
+                    p.requires_grad = True
+                    scale_parameters.append(p)
 
         layer_loss = Loss(
-            module=layer, learned_round_modules=learned_round_modules, max_count=iters)
-        yield layer, layer_loss, learned_round_modules, scale_parameters
+            module=layers, learned_round_modules=learned_round_modules, max_count=iters)
+        yield layers, layer_loss, learned_round_modules, scale_parameters
 
-        layer.eval()
+        layers.eval()
 
 
 def save_inp_out_data(

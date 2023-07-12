@@ -138,6 +138,13 @@ parser.add_argument(
     '--export-torch-qcdq',
     action='store_true',
     help='If true, export the model in torch qcdq format')
+parser.add_argument(
+    '--learned-round',
+    default=None,
+    choices=[None, 'layerwise', 'block'],
+    help='Learned round strategy (default: None)')
+parser.add_argument(
+    '--learned-round-block-name', default=None, help='Regex for block name (default: None)')
 add_bool_arg(
     parser,
     'scaling-per-output-channel',
@@ -158,7 +165,6 @@ add_bool_arg(
 add_bool_arg(parser, 'gptq', default=True, help='GPTQ (default: enabled)')
 add_bool_arg(
     parser, 'gptq-act-order', default=False, help='GPTQ Act order heuristic (default: disabled)')
-add_bool_arg(parser, 'learned-round', default=False, help='Learned round (default: disabled)')
 add_bool_arg(parser, 'calibrate-bn', default=False, help='Calibrate BN (default: disabled)')
 
 
@@ -238,8 +244,6 @@ def main():
         inception_preprocessing=inception_preprocessing)
 
     model = get_torchvision_model(args.model_name)
-
-    # Preprocess the model for quantization
     if args.target_backend == 'flexml':
         # flexml requires static shapes, pass a representative input in
         img_shape = model_config['center_crop_shape']
@@ -252,7 +256,6 @@ def main():
     elif args.target_backend == 'fx' or args.target_backend == 'layerwise':
         model = preprocess_for_quantize(
             model,
-            trace_model=True,
             equalize_iters=args.graph_eq_iterations,
             equalize_merge_bias=args.graph_eq_merge_bias,
             merge_bn=not args.calibrate_bn)
@@ -284,7 +287,6 @@ def main():
         torch.cuda.set_device(args.gpu)
         quant_model = quant_model.cuda(args.gpu)
         cudnn.benchmark = False
-
     # Calibrate the quant_model on the calibration dataloader
     print("Starting activation calibration:")
     calibrate(calib_loader, quant_model)
@@ -295,7 +297,11 @@ def main():
 
     if args.learned_round:
         print("Applying Learned Round:")
-        apply_learned_round_learning(quant_model, calib_loader)
+        apply_learned_round_learning(
+            quant_model,
+            calib_loader,
+            learned_round_type=args.learned_round,
+            learned_round_block_name=args.learned_round_block_name)
 
     if args.calibrate_bn:
         print("Calibrate BN:")
