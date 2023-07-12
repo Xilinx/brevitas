@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from argparse import Namespace
+import warnings
 
 import numpy as np
 from torch import Tensor
@@ -38,12 +39,15 @@ def export(model: nn.Module, testloader: DataLoader, args: Namespace, opset_vers
             opset_version=opset_version)
         print(f"Saved QONNX model to {save_path}/qonnx_model.onnx")
     if args.export_to_qcdq_onnx:
-        export_onnx_qcdq(
-            model.cpu(),
-            input_t=inp.cpu(),
-            export_path=f"{save_path}/qcdq_onnx_model.onnx",
-            opset_version=opset_version)
-        print(f"Saved QCDQ ONNX model to {save_path}/qcdq_onnx_model.onnx")
+        if opset_version < 13:
+            warnings.warn("Need opset 13+ to support per-channel quantization.")
+        else:
+            export_onnx_qcdq(
+                model.cpu(),
+                input_t=inp.cpu(),
+                export_path=f"{save_path}/qcdq_onnx_model.onnx",
+                opset_version=opset_version)
+            print(f"Saved QCDQ ONNX model to {save_path}/qcdq_onnx_model.onnx")
     if args.export_to_qcdq_torch:
         export_torch_qcdq(
             model.cpu(), input_t=inp.cpu(), export_path=f"{save_path}/qcdq_torch_model.pt")
