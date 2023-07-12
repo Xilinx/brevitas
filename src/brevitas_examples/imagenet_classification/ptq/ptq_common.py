@@ -271,7 +271,7 @@ def apply_learned_round_learning(
     layers = []
     split_layers(model, layers)
     print(f"Total Iterations per layer {iters}")
-    print(len(layers))
+    print(f"Number of layers {len(layers)}")
 
     for layer, layer_loss, learned_round_module in learned_round_iterator(layers, iters=iters):
         optimizer = optimizer_class(learned_round_module.parameters(), lr=optimizer_lr)
