@@ -35,6 +35,7 @@ Furthermore, Brevitas additional PTQ techniques can be enabled:
 - Graph equalization[<sup>1 </sup>].
 - If Graph equalization is enabled, the _merge\_bias_ technique can be enabled.[<sup>2 </sup>] [<sup>3 </sup>].
 - GPTQ [<sup>4 </sup>].
+- Learned Round [<sup>5 </sup>].
 
 
 Internally, when defining a quantized model programmatically, Brevitas leverages `torch.fx` and its `symbolic_trace` functionality, meaning that an input model is required to pass symbolic tracing for it to work.
@@ -59,34 +60,36 @@ This flow allows to specify which pre-trained torchvision model to quantize and 
 It also gives the possibility to export the model to either ONNX QCDQ format or in torch QCDQ format.
 The quantization and export options to specify are:
 ```bash
-usage: brevitas_ptq_imagenet_val [-h] --calibration-dir CALIBRATION_DIR
-                                 --validation-dir VALIDATION_DIR
-                                 [--workers WORKERS]
-                                 [--batch-size-calibration BATCH_SIZE_CALIBRATION]
-                                 [--batch-size-validation BATCH_SIZE_VALIDATION]
-                                 [--export-dir EXPORT_DIR] [--gpu GPU]
-                                 [--calibration-samples CALIBRATION_SAMPLES]
-                                 [--model-name ARCH]
-                                 [--target-backend {generic,layerwise,flexml}]
-                                 [--scale-factor-type {float32,po2}]
-                                 [--act-bit-width ACT_BIT_WIDTH]
-                                 [--weight-bit-width WEIGHT_BIT_WIDTH]
-                                 [--layerwise-first-last-bit-width LAYERWISE_FIRST_LAST_BIT_WIDTH]
-                                 [--bias-bit-width {int32,int16}]
-                                 [--act-quant-type {symmetric,asymmetric}]
-                                 [--act-equalization {fx,layerwise,None}]
-                                 [--act-quant-calibration-type {percentile,mse}]
-                                 [--graph-eq-iterations GRAPH_EQ_ITERATIONS]
-                                 [--act-quant-percentile ACT_QUANT_PERCENTILE]
-                                 [--export-onnx-qcdq] [--export-torch-qcdq]
-                                 [--scaling-per-output-channel | --no-scaling-per-output-channel]
-                                 [--bias-corr | --no-bias-corr]
-                                 [--graph-eq-merge-bias | --no-graph-eq-merge-bias]
-                                 [--weight-narrow-range | --no-weight-narrow-range]
-                                 [--gptq | --no-gptq]
-                                 [--gptq-act-order | --no-gptq-act-order]
-                                 [--learned-round | --no-learned-round]
-                                 [--calibrate-bn | --no-calibrate-bn]
+usage: ptq_evaluate.py [-h] --calibration-dir CALIBRATION_DIR --validation-dir
+                       VALIDATION_DIR [--workers WORKERS]
+                       [--batch-size-calibration BATCH_SIZE_CALIBRATION]
+                       [--batch-size-validation BATCH_SIZE_VALIDATION]
+                       [--export-dir EXPORT_DIR] [--gpu GPU]
+                       [--calibration-samples CALIBRATION_SAMPLES]
+                       [--model-name ARCH]
+                       [--target-backend {generic,layerwise,flexml}]
+                       [--scale-factor-type {float32,po2}]
+                       [--act-bit-width ACT_BIT_WIDTH]
+                       [--weight-bit-width WEIGHT_BIT_WIDTH]
+                       [--layerwise-first-last-bit-width LAYERWISE_FIRST_LAST_BIT_WIDTH]
+                       [--bias-bit-width {int32,int16}]
+                       [--act-quant-type {symmetric,asymmetric}]
+                       [--act-equalization {fx,layerwise,None}]
+                       [--act-quant-calibration-type {percentile,mse}]
+                       [--graph-eq-iterations GRAPH_EQ_ITERATIONS]
+                       [--learned-round-iters LEARNED_ROUND_ITERS]
+                       [--learned-round-lr LEARNED_ROUND_LR]
+                       [--act-quant-percentile ACT_QUANT_PERCENTILE]
+                       [--export-onnx-qcdq] [--export-torch-qcdq]
+                       [--scaling-per-output-channel | --no-scaling-per-output-channel]
+                       [--bias-corr | --no-bias-corr]
+                       [--graph-eq-merge-bias | --no-graph-eq-merge-bias]
+                       [--weight-narrow-range | --no-weight-narrow-range]
+                       [--gptq | --no-gptq]
+                       [--gptq-act-order | --no-gptq-act-order]
+                       [--learned-round | --no-learned-round]
+                       [--calibrate-bn | --no-calibrate-bn]
+
 PyTorch ImageNet PTQ Validation
 
 optional arguments:
@@ -145,6 +148,11 @@ optional arguments:
                         Activation quantization type (default: symmetric)
   --graph-eq-iterations GRAPH_EQ_ITERATIONS
                         Numbers of iterations for graph equalization (default: 20)
+  --learned-round-iters LEARNED_ROUND_ITERS
+                        Numbers of iterations for learned round for each layer
+                        (default: 1000)
+  --learned-round-lr LEARNED_ROUND_LR
+                        Learning rate for learned round (default: 1e-3)
   --act-quant-percentile ACT_QUANT_PERCENTILE
                         Percentile to use for stats of activation quantization (default: 99.999)
   --export-onnx-qcdq    If true, export the model in onnx qcdq format
@@ -199,3 +207,4 @@ and a `RESULTS_IMGCLSMOB.csv` with the results on manually quantized models star
 [<sup>2 </sup>]: https://github.com/Xilinx/Vitis-AI/blob/50da04ddae396d10a1545823aca30b3abb24a276/src/vai_quantizer/vai_q_pytorch/nndct_shared/optimization/commander.py#L450
 [<sup>3 </sup>]: https://github.com/openppl-public/ppq/blob/master/ppq/quantization/algorithm/equalization.py
 [<sup>4 </sup>]: https://arxiv.org/abs/2210.17323
+[<sup>5 </sup>]: https://arxiv.org/abs/2004.10568

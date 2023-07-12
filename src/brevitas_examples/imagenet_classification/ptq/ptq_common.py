@@ -268,21 +268,15 @@ def apply_gptq(calib_loader, model, act_order=False):
 
 
 def apply_learned_round_learning(
-        model,
-        dataloader,
-        optimizer_class=torch.optim.Adam,
-        epochs=60,
-        optimizer_kwargs={'lr': 1e-1}):
+        model, dataloader, optimizer_class=torch.optim.Adam, iters=1000, optimizer_lr=1e-1):
     blocks = []
     split_layers(model, blocks)
-
-    iters = len(dataloader) * epochs
     print(f"Total Iterations per block {iters}")
     print(len(blocks))
 
     for block, layer_loss, learned_round_module in block_wise_learned_round_iterator(model, blocks, iters=iters):
-        optimizer = optimizer_class(learned_round_module.parameters(), **optimizer_kwargs)
-        _, all_fp_out = save_inp_out_data(model, block, dataloader, store_inp=False, store_out = True, keep_gpu=True, disable_quant=True)
+        optimizer = optimizer_class(learned_round_module.parameters(), lr=optimizer_lr)
+        _, all_fp_out = save_inp_out_data(model, block, dataloader, store_inp=False, store_out=True, keep_gpu=True, disable_quant=True)
         all_quant_inp, _ = save_inp_out_data(model, block, dataloader, store_inp=True, store_out=True, keep_gpu=True, disable_quant=False)
         max_size = len(all_fp_out)
         pbar = tqdm(range(iters), desc='')

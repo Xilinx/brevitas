@@ -116,6 +116,16 @@ parser.add_argument(
     type=int,
     help='Numbers of iterations for graph equalization (default: 20)')
 parser.add_argument(
+    '--learned-round-iters',
+    default=1000,
+    type=int,
+    help='Numbers of iterations for learned round for each layer (default: 1000)')
+parser.add_argument(
+    '--learned-round-lr',
+    default=1e-3,
+    type=float,
+    help='Learning rate for learned round (default: 1e-3)')
+parser.add_argument(
     '--act-quant-percentile',
     default=99.999,
     type=float,
@@ -279,7 +289,11 @@ def main():
 
     if args.learned_round:
         print("Applying Learned Round:")
-        apply_learned_round_learning(quant_model, calib_loader)
+        apply_learned_round_learning(
+            quant_model,
+            calib_loader,
+            iters=args.learned_round_iters,
+            optimizer_lr=args.learned_round_lr)
 
     if args.calibrate_bn:
         print("Calibrate BN:")
