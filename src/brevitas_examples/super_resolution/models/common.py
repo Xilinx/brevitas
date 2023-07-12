@@ -13,7 +13,7 @@ from brevitas.nn.quant_layer import WeightQuantType
 from brevitas.quant import Int8ActPerTensorFloat
 from brevitas.quant import Int8WeightPerTensorFloat
 from brevitas.quant import Uint8ActPerTensorFloat
-from brevitas.quant.fixed_point import Int8AccumulatorAwareWeightQuant
+from brevitas.quant import Int8AccumulatorAwareWeightQuant
 
 
 class CommonIntWeightPerChannelQuant(Int8WeightPerTensorFloat):
