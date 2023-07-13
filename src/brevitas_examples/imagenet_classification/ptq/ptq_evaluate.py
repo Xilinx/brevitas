@@ -75,7 +75,7 @@ parser.add_argument(
     '--target-backend',
     default='fx',
     choices=['fx', 'layerwise', 'flexml'],
-    help='Backend to target for quantization (default: generic)')
+    help='Backend to target for quantization (default: fx)')
 parser.add_argument(
     '--scale-factor-type',
     default='float',

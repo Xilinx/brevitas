@@ -9,7 +9,7 @@ We provide two workflows:
 - A benchmark suite that tests several quantization configurations on a few selected models.
 
 Three types of target backend are exposed for programmatic quantization. Different backends dictate different structural policies for how a network should be quantized:
-- *generic*:
+- *fx*:
   - The number of re-quantization ops is minimized by re-quantizing only when necessary, avoiding consecutive quantization ops if possible.
   - Adds are quantized to have the same scale at the input, but allows for different signs.
   - Concats are quantized to have the same scale, zero-point, sign and bit-width.
@@ -67,7 +67,7 @@ usage: ptq_evaluate.py [-h] --calibration-dir CALIBRATION_DIR --validation-dir
                        [--export-dir EXPORT_DIR] [--gpu GPU]
                        [--calibration-samples CALIBRATION_SAMPLES]
                        [--model-name ARCH]
-                       [--target-backend {generic,layerwise,flexml}]
+                       [--target-backend {fx,layerwise,flexml}]
                        [--scale-factor-type {float32,po2}]
                        [--act-bit-width ACT_BIT_WIDTH]
                        [--weight-bit-width WEIGHT_BIT_WIDTH]
@@ -134,8 +134,8 @@ optional arguments:
                         vgg16 | vgg16_bn | vgg19 | vgg19_bn | vit_b_16 |
                         vit_b_32 | vit_h_14 | vit_l_16 | vit_l_32 |
                         wide_resnet101_2 | wide_resnet50_2 (default: resnet18)
-  --target-backend {generic,layerwise,flexml}
-                        Backend to target for quantization (default: generic)
+  --target-backend {fx,layerwise,flexml}
+                        Backend to target for quantization (default: fx)
   --scale-factor-type {float32,po2}
                         Type for scale factors (default: float32)
   --act-bit-width ACT_BIT_WIDTH

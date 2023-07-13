@@ -284,15 +284,15 @@ def validate_config(config_namespace):
     # Merge bias can be enabled only when graph equalization is enabled
     if config_namespace.graph_eq_iterations == 0 and config_namespace.graph_eq_merge_bias:
         is_valid = False
-    # For generic and layerwise backend, we only test for int32 bias bit width
-    if (config_namespace.target_backend == 'generic' or config_namespace.target_backend
-            == 'layerwise') and config_namespace.bias_bit_width == 'int16':
+    # For fx and layerwise backend, we only test for bias with bit width equals to 32
+    if (config_namespace.target_backend == 'fx' or config_namespace.target_backend
+            == 'layerwise') and config_namespace.bias_bit_width == 16:
         is_valid = False
     # If GPTQ is disabled, we do not care about the act_order heuristic
     if not config_namespace.gptq and config_namespace.gptq_act_order:
         is_valid = False
 
-    if config_namespace.act_equalization == 'layerwise' and config_namespace.target_backend == 'generic':
+    if config_namespace.act_equalization == 'layerwise' and config_namespace.target_backend == 'fx':
         is_valid = False
     if config_namespace.act_bit_width < config_namespace.weight_bit_width:
         is_valid = False

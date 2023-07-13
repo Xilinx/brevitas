@@ -125,7 +125,7 @@ def quantize_model(
         module, weight_bit_width)
     act_bit_width_or_lambda = act_bit_width if backend != 'layerwise' else lambda module: bit_width_fn(
         module, act_bit_width)
-    quant_layer_map, quant_layerwise_layer_map, quant_act_map, quant_identity_map = update_quant_maps(dtype=dtype,
+    quant_layer_map, quant_layerwise_layer_map, quant_act_map, quant_identity_map = create_quant_maps(dtype=dtype,
                             bias_bit_width=bias_bit_width,
                             weight_bit_width=weight_bit_width_or_lambda,
                             weight_param_method=weight_param_method,
@@ -141,7 +141,7 @@ def quantize_model(
                             act_quant_percentile=act_quant_percentile)
 
     if backend != 'layerwise':
-        # Generic and flexml requires three mappings for quantization
+        # Fx and flexml backend requires three mappings for quantization
         quantize_kwargs = {
             'compute_layer_map': quant_layer_map,
             'quant_act_map': quant_act_map,
@@ -154,7 +154,7 @@ def quantize_model(
     return quant_model
 
 
-def update_quant_maps(
+def create_quant_maps(
         dtype,
         bias_bit_width,
         weight_bit_width,
@@ -173,10 +173,10 @@ def update_quant_maps(
     Starting from pre-defined quantizers, modify them to match the desired configuration
     """
 
-    def weight_kwargs_prefix(prefix, weight_kwargs):
+    def kwargs_prefix(prefix, weight_kwargs):
         return {prefix + k: v for k, v in weight_kwargs.items()}
 
-    # Retrive base input, weight, and bias quantizers
+    # Retrieve base input, weight, and bias quantizers
     bias_quant = BIAS_BIT_WIDTH_MAP[bias_bit_width]
     weight_quant = WEIGHT_QUANT_MAP[weight_scale_type][weight_param_method][
         weight_quant_granularity][weight_quant_type]
@@ -214,84 +214,60 @@ def update_quant_maps(
             **{
                 'high_percentile_q': act_quant_percentile, 'dtype': dtype})
         if act_quant_type == 'asym':
-            act_quant = act_quant.let(**{'low_percentile_q': 100 - act_quant_percentile})
+            per_tensor_act_quant = per_tensor_act_quant.let(
+                **{'low_percentile_q': 100 - act_quant_percentile})
 
     weight_quant_and_bit_width = {
         'weight_quant': weight_quant, 'weight_bit_width': weight_bit_width}
 
-    quant_linear_kwargs = {
+    quant_wbiol_kwargs = {
         **weight_quant_and_bit_width,
         'dtype': dtype,
         'return_quant_tensor': False,
         'bias_quant': bias_quant}
-    quant_conv_kwargs = {
-        **weight_quant_and_bit_width,
-        'dtype': dtype,
-        'return_quant_tensor': False,
-        'bias_quant': bias_quant}
+
+    # yapf: disable
     quant_mha_kwargs = {
-        **weight_kwargs_prefix('in_proj_', weight_quant_and_bit_width),
-        **weight_kwargs_prefix('out_proj_', weight_quant_and_bit_width),
-        'in_proj_bias_quant':
-            bias_quant,
-        'softmax_input_quant':
-            None,
-        'attn_output_weights_quant':
-            sym_act_quant,
-        'attn_output_weights_bit_width':
-            act_bit_width,
-        'attn_output_weights_signed':
-            False,
-        'q_scaled_quant':
-            sym_act_quant,
-        'q_scaled_bit_width':
-            act_bit_width,
-        'k_transposed_quant':
-            sym_act_quant,
-        'k_transposed_bit_width':
-            act_bit_width,
-        'v_quant':
-            sym_act_quant,
-        'v_bit_width':
-            act_bit_width,
-        'out_proj_quant':
-            act_quant,
-        'out_proj_bit_width':
-            act_bit_width,
-        'out_proj_bias_quant':
-            None,
-        'out_proj_output_quant':
-            None,
+        **kwargs_prefix('in_proj_', weight_quant_and_bit_width),
+        **kwargs_prefix('out_proj_', weight_quant_and_bit_width),
+        'in_proj_bias_quant': bias_quant,
+        'softmax_input_quant': None,
+        'attn_output_weights_quant': sym_act_quant,
+        'attn_output_weights_bit_width': act_bit_width,
+        'attn_output_weights_signed': False,
+        'q_scaled_quant': sym_act_quant,
+        'q_scaled_bit_width': act_bit_width,
+        'k_transposed_quant': sym_act_quant,
+        'k_transposed_bit_width': act_bit_width,
+        'v_quant': sym_act_quant,
+        'v_bit_width': act_bit_width,
+        'out_proj_input_quant': act_quant,
+        'out_proj_bit_width': act_bit_width,
+        'out_proj_bias_quant': bias_quant,
+        'out_proj_output_quant': None,
         # activation equalization requires packed_in_proj
         # since it supports only self-attention
-        'packed_in_proj':
-            True,
-        'dtype':
-            dtype,
-        'return_quant_tensor':
-            False}
+        'packed_in_proj': True,
+        'dtype': dtype,
+        'return_quant_tensor': False}
+    # yapf: enable
 
     # Layerwise is  basic quant kwargs + input_quant
-    layerwise_quant_linear_kwargs = {
-        **quant_linear_kwargs,
-        'input_quant': per_tensor_act_quant,
-        'input_bit_width': act_bit_width}
-    layerwise_quant_conv_kwargs = {
-        **quant_conv_kwargs, 'input_quant': per_tensor_act_quant, 'input_bit_width': act_bit_width}
+    layerwise_quant_wbiol_kwargs = {
+        **quant_wbiol_kwargs, 'input_quant': per_tensor_act_quant, 'input_bit_width': act_bit_width}
+
     layerwise_quant_mha_kwargs = {
         **quant_mha_kwargs,
         'in_proj_input_quant': per_tensor_act_quant,
         'in_proj_input_bit_width': act_bit_width}
-    layerwise_quant_linear_kwargs['bias_quant'] = None
-    layerwise_quant_conv_kwargs['bias_quant'] = None
-    layerwise_quant_mha_kwargs['in_proj_bias_quant'] = None
+
     quant_layer_map = {
-        torch.nn.Linear: (qnn.QuantLinear, quant_linear_kwargs),
+        torch.nn.Linear: (qnn.QuantLinear, quant_wbiol_kwargs),
         torch.nn.MultiheadAttention: (qnn.QuantMultiheadAttention, quant_mha_kwargs),
-        torch.nn.Conv1d: (qnn.QuantConv1d, quant_conv_kwargs),
-        torch.nn.Conv2d: (qnn.QuantConv2d, quant_conv_kwargs),
-        torch.nn.ConvTranspose1d: (qnn.QuantConvTranspose1d, quant_conv_kwargs),
-        torch.nn.ConvTranspose2d: (qnn.QuantConvTranspose2d, quant_conv_kwargs),}
+        torch.nn.Conv1d: (qnn.QuantConv1d, quant_wbiol_kwargs),
+        torch.nn.Conv2d: (qnn.QuantConv2d, quant_wbiol_kwargs),
+        torch.nn.ConvTranspose1d: (qnn.QuantConvTranspose1d, quant_wbiol_kwargs),
+        torch.nn.ConvTranspose2d: (qnn.QuantConvTranspose2d, quant_wbiol_kwargs),}
 
     act_quant_and_bit_width = {'act_quant': act_quant, 'bit_width': act_bit_width}
     quant_act_kwargs = {**act_quant_and_bit_width, 'return_quant_tensor': True}
@@ -308,12 +284,12 @@ def update_quant_maps(
         'unsigned': (qnn.QuantIdentity, {
             **quant_act_kwargs, 'signed': False}),}
     quant_layerwise_layer_map = {
-        torch.nn.Linear: (qnn.QuantLinear, layerwise_quant_linear_kwargs),
+        torch.nn.Linear: (qnn.QuantLinear, layerwise_quant_wbiol_kwargs),
         torch.nn.MultiheadAttention: (qnn.QuantMultiheadAttention, layerwise_quant_mha_kwargs),
-        torch.nn.Conv1d: (qnn.QuantConv1d, layerwise_quant_conv_kwargs),
-        torch.nn.Conv2d: (qnn.QuantConv2d, layerwise_quant_conv_kwargs),
-        torch.nn.ConvTranspose1d: (qnn.QuantConvTranspose1d, layerwise_quant_conv_kwargs),
-        torch.nn.ConvTranspose2d: (qnn.QuantConvTranspose2d, layerwise_quant_conv_kwargs),}
+        torch.nn.Conv1d: (qnn.QuantConv1d, layerwise_quant_wbiol_kwargs),
+        torch.nn.Conv2d: (qnn.QuantConv2d, layerwise_quant_wbiol_kwargs),
+        torch.nn.ConvTranspose1d: (qnn.QuantConvTranspose1d, layerwise_quant_wbiol_kwargs),
+        torch.nn.ConvTranspose2d: (qnn.QuantConvTranspose2d, layerwise_quant_wbiol_kwargs),}
 
     return quant_layer_map, quant_layerwise_layer_map, quant_act_map, quant_identity_map
 
