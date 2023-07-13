@@ -10,6 +10,7 @@ from torch import Tensor
 from typing_extensions import Protocol
 from typing_extensions import runtime_checkable
 
+from brevitas import config
 from brevitas.function import max_int
 from brevitas.quant_tensor import QuantTensor
 
@@ -49,12 +50,23 @@ class ParameterQuantProxyFromInjector(QuantProxyFromInjector):
     def tracked_parameter_list(self):
         pass
 
-    def init_tensor_quant(self):
+    def init_tensor_quant(self, preserve_state_dict=False):
         param_list = self.tracked_parameter_list
+
         # params might not be there yet, e.g. bias before merging
         if param_list:
+            if preserve_state_dict:
+                reinit_on_state_dict = config.REINIT_ON_STATE_DICT_LOAD
+                ignore_missing_key = config.IGNORE_MISSING_KEYS
+                config.REINIT_ON_STATE_DICT_LOAD = False
+                config.IGNORE_MISSING_KEYS = True
+                state_dict = self.state_dict()
             self.quant_injector = self.quant_injector.let(tracked_parameter_list=param_list)
             super(ParameterQuantProxyFromInjector, self).init_tensor_quant()
+            if preserve_state_dict:
+                self.load_state_dict(state_dict)
+                config.IGNORE_MISSING_KEYS = ignore_missing_key
+                config.REINIT_ON_STATE_DICT_LOAD = reinit_on_state_dict
 
     def max_uint_value(self, bit_width):
         return max_int(False, self.is_narrow_range, bit_width)

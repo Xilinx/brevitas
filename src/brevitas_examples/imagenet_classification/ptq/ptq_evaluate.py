@@ -23,6 +23,7 @@ from brevitas.graph.target.flexml import preprocess_for_flexml_quantize
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_act_equalization
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_bias_correction
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_gptq
+from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_learned_round_learning
 from brevitas_examples.imagenet_classification.ptq.ptq_common import calibrate
 from brevitas_examples.imagenet_classification.ptq.ptq_common import calibrate_bn
 from brevitas_examples.imagenet_classification.ptq.ptq_common import quantize_model
@@ -115,6 +116,16 @@ parser.add_argument(
     type=int,
     help='Numbers of iterations for graph equalization (default: 20)')
 parser.add_argument(
+    '--learned-round-iters',
+    default=1000,
+    type=int,
+    help='Numbers of iterations for learned round for each layer (default: 1000)')
+parser.add_argument(
+    '--learned-round-lr',
+    default=1e-3,
+    type=float,
+    help='Learning rate for learned round (default: 1e-3)')
+parser.add_argument(
     '--act-quant-percentile',
     default=99.999,
     type=float,
@@ -145,6 +156,7 @@ add_bool_arg(
 add_bool_arg(parser, 'gptq', default=True, help='GPTQ (default: enabled)')
 add_bool_arg(
     parser, 'gptq-act-order', default=False, help='GPTQ Act order heuristic (default: disabled)')
+add_bool_arg(parser, 'learned-round', default=False, help='Learned round (default: disabled)')
 add_bool_arg(parser, 'calibrate-bn', default=False, help='Calibrate BN (default: disabled)')
 
 
@@ -156,7 +168,7 @@ def main():
     torch.manual_seed(SEED)
 
     if args.act_quant_calibration_type == 'percentile':
-        act_quant_calib_config = str(args.act_quant_percentile) + 'percentile'
+        act_quant_calib_config = str(args.act_quant_percentile) + ' percentile'
     else:
         act_quant_calib_config = args.act_quant_calibration_type
 
@@ -168,6 +180,7 @@ def main():
         f"w{args.weight_bit_width}_"
         f"{'gptq_' if args.gptq else ''}"
         f"{'gptq_act_order_' if args.gptq_act_order else ''}"
+        f"{'learned_round_' if args.learned_round else ''}"
         f"{'weight_narrow_range_' if args.weight_narrow_range else ''}"
         f"{args.bias_bit_width}bias_"
         f"{'per_channel' if args.scaling_per_output_channel else 'per_tensor'}_"
@@ -186,6 +199,7 @@ def main():
         f"Weight bit width: {args.weight_bit_width} - "
         f"GPTQ: {args.gptq} - "
         f"GPTQ Act Order: {args.gptq_act_order} - "
+        f"Learned Round: {args.learned_round} - "
         f"Weight narrow range: {args.weight_narrow_range} - "
         f"Bias bit width: {args.bias_bit_width} - "
         f"Per-channel scale factors: {args.scaling_per_output_channel} - "
@@ -272,6 +286,14 @@ def main():
     if args.gptq:
         print("Performing GPTQ:")
         apply_gptq(calib_loader, quant_model, args.gptq_act_order)
+
+    if args.learned_round:
+        print("Applying Learned Round:")
+        apply_learned_round_learning(
+            quant_model,
+            calib_loader,
+            iters=args.learned_round_iters,
+            optimizer_lr=args.learned_round_lr)
 
     if args.calibrate_bn:
         print("Calibrate BN:")
