@@ -32,7 +32,8 @@ SIGN_PRESERVING_MODULES = (
     nn.AdaptiveAvgPool2d,
     nn.AdaptiveAvgPool3d,
     nn.PixelShuffle,
-    nn.PixelUnshuffle)
+    nn.PixelUnshuffle,
+    nn.Identity)
 
 PRECISION_PRESERVING_MODULES = (
     nn.Dropout,
@@ -42,7 +43,8 @@ PRECISION_PRESERVING_MODULES = (
     nn.MaxPool2d,
     nn.MaxPool3d,
     nn.PixelShuffle,
-    nn.PixelUnshuffle)
+    nn.PixelUnshuffle,
+    nn.Identity)
 
 
 def inp_placeholder_handler(model, input_quantizer):
