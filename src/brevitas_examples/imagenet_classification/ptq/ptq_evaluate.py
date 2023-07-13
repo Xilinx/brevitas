@@ -254,11 +254,13 @@ def main():
             equalize_merge_bias=args.graph_eq_merge_bias,
             merge_bn=not args.calibrate_bn)
     elif args.target_backend == 'fx' or args.target_backend == 'layerwise':
-        model = preprocess_for_quantize(
+        model_preprocessed = preprocess_for_quantize(
             model,
             equalize_iters=args.graph_eq_iterations,
             equalize_merge_bias=args.graph_eq_merge_bias,
-            merge_bn=not args.calibrate_bn)
+            merge_bn=not args.calibrate_bn and not args.learned_round == 'block')
+        if args.learned_round != 'block':
+            model = model_preprocessed
     else:
         raise RuntimeError(f"{args.target_backend} backend not supported.")
 
@@ -287,6 +289,7 @@ def main():
         torch.cuda.set_device(args.gpu)
         quant_model = quant_model.cuda(args.gpu)
         cudnn.benchmark = False
+
     # Calibrate the quant_model on the calibration dataloader
     print("Starting activation calibration:")
     calibrate(calib_loader, quant_model)

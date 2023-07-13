@@ -171,7 +171,6 @@ def insert_learned_round_quantizer(layer, learned_round_zeta=1.1, learned_round_
         value = -torch.log((learned_round_zeta - learned_round_gamma) /
                            (delta - learned_round_gamma) - 1)
         layer.weight_quant.quant_injector = layer.weight_quant.quant_injector.let(
-            bit_width=4,
             float_to_int_impl_type=FloatToIntImplType.LEARNED_ROUND,
             learned_round_impl_type=LearnedRoundImplType.HARD_SIGMOID,
             learned_round_gamma=learned_round_gamma,
@@ -189,38 +188,43 @@ def split_layerwise(model, class_type=QuantWBIOL):
 
 
 def split_blockwise(model, block_name):
-    regex = re.compile(block_name)
+    regex_exact_match = re.compile(block_name)
+    regex_starts_with = re.compile(block_name[:-1])
     blocks = dict()
     for name, module in model.named_modules():
-        regex_match = regex.match(name)
-        if regex_match:
-            blocks[regex_match.string] = module
+        re_match = regex_exact_match.match(name)
+        re_match_starts_with = regex_starts_with.match(name)
+        if re_match:
+            blocks[re_match.string] = module
+        elif not re_match_starts_with and isinstance(module, QuantWBIOL):
+            blocks[name] = module
+
     return blocks
 
 
-def layerwise_learned_round_iterator(layers, iters=1000, learned_round_type='layerwise'):
-    for name, layers in layers.items():
-        for p in layers.parameters():
+def blockwise_learned_round_iterator(blocks, iters=1000, learned_round_type='layerwise'):
+    for name, block in blocks.items():
+        for p in block.parameters():
             p.requires_grad = False
 
         learned_round_modules = []
         scale_parameters = []
-        for module in layers.modules():
+        for module in block.modules():
             if isinstance(module, QuantWBIOL):
                 insert_learned_round_quantizer(module)
                 module = find_learned_round_module(module)
                 module.value.requires_grad = True
                 learned_round_modules.append(module)
-            if isinstance(module, ActQuantProxyFromInjector) and learned_round_type == 'block':
+            if isinstance(module, ActQuantProxyFromInjector
+                         ) and learned_round_type == 'block' and not isinstance(block, QuantWBIOL):
                 for p in module.parameters():
                     p.requires_grad = True
                     scale_parameters.append(p)
+        block_loss = Loss(
+            module=block, learned_round_modules=learned_round_modules, max_count=iters)
+        yield block, block_loss, learned_round_modules, scale_parameters
 
-        layer_loss = Loss(
-            module=layers, learned_round_modules=learned_round_modules, max_count=iters)
-        yield layers, layer_loss, learned_round_modules, scale_parameters
-
-        layers.eval()
+        block.eval()
 
 
 def save_inp_out_data(
