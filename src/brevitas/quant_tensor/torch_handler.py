@@ -157,5 +157,5 @@ def pixel_shuffle_handler(*args, **kwargs):
 
 
 @implements(F.pixel_unshuffle)
-def pixel_shuffle_handler(*args, **kwargs):
+def pixel_unshuffle_handler(*args, **kwargs):
     return quant_invariant_handler(F.pixel_unshuffle, *args, **kwargs)
