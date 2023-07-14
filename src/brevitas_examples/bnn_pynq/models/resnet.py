@@ -8,6 +8,7 @@ import torch.nn as nn
 
 import brevitas.nn as qnn
 from brevitas.quant import Int8WeightPerChannelFloat
+from brevitas.quant import Int8WeightPerTensorFloat
 from brevitas.quant import TruncTo8bit
 from brevitas.quant_tensor import QuantTensor
 
@@ -121,7 +122,7 @@ class QuantResNet(nn.Module):
             round_average_pool=False,
             weight_quant=Int8WeightPerChannelFloat,
             first_layer_weight_quant=Int8WeightPerChannelFloat,
-            last_layer_weight_quant=Int8WeightPerChannelFloat):
+            last_layer_weight_quant=Int8WeightPerTensorFloat):
         super(QuantResNet, self).__init__()
         self.in_planes = 64
         self.conv1 = make_quant_conv2d(
