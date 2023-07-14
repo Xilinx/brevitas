@@ -305,6 +305,10 @@ def quantize(
     graph_model = act_handler(graph_model, layer_map=quant_act_map)
     graph_model = add_output_quant_handler(
         graph_model, quant_identity_map, quant_act_map, unsigned_act_tuple)
+    # The call to esidual_handler has to be performed before layer_handler
+    # so that all requantization steps are correctly inserted and aligned.
+    graph_model = residual_handler(
+        graph_model, quant_identity_map, quant_act_map, unsigned_act_tuple, align_input_quant)
     graph_model = layer_handler(
         graph_model,
         layer_map=compute_layer_map,
@@ -312,8 +316,6 @@ def quantize(
         quant_act_map=quant_act_map,
         unsigned_act_tuple=unsigned_act_tuple,
         requantize_output=requantize_layer_handler_output)
-    graph_model = residual_handler(
-        graph_model, quant_identity_map, quant_act_map, unsigned_act_tuple, align_input_quant)
     graph_model = DisableLastReturnQuantTensor().apply(graph_model)
     graph_model.train(training_state)
     config.IGNORE_MISSING_KEYS = ignore_missing_keys_state
