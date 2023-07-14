@@ -46,7 +46,8 @@ def inp_placeholder_handler(model, input_quantizer):
     for node in model.graph.nodes:
         if node.op == 'placeholder':
             act_quant, kwargs_act_quant = input_quantizer
-            kwargs_act_quant = _evaluate_new_kwargs(kwargs_act_quant, dict(), None)
+            kwargs_act_quant = _evaluate_new_kwargs(
+                kwargs_act_quant, dict(), old_module=None, name=node.target, node=node)
             inp_quant = act_quant(**kwargs_act_quant)
             name = node.name + '_quant'
             model.add_module(name, inp_quant)
@@ -183,7 +184,8 @@ def output_quant_handler(
                     quant_module_class, quant_module_kwargs = quant_identity_map['unsigned']
                 else:
                     quant_module_class, quant_module_kwargs = quant_identity_map['signed']
-                quant_module_kwargs = _evaluate_new_kwargs(quant_module_kwargs, dict(), None)
+                quant_module_kwargs = _evaluate_new_kwargs(
+                    quant_module_kwargs, dict(), old_module=None, name=node.target, node=node)
                 quant_module = quant_module_class(**quant_module_kwargs)
                 quant_module_name = node.name + '_output_quant'
                 model.add_module(quant_module_name, quant_module)
@@ -232,7 +234,11 @@ def recursive_input_handler(
                 if isinstance(align_output, tuple):
                     quant_module_class, quant_module_kwargs = align_output
                     rewriter = ModuleToModuleByInstance(
-                        module, quant_module_class, **quant_module_kwargs)
+                        module,
+                        quant_module_class,
+                        module_name=node.target,
+                        module_node=node,
+                        **quant_module_kwargs)
                     rewriters.append(rewriter)
                 # If it is a nn.Module, it is an already instatiated QuantAct that will replace
                 # the current inp_node module
@@ -292,7 +298,8 @@ def _get_quant_module(model, node, quant_identity_map, quant_act_map, unsigned_a
         quant_module_class, quant_module_kwargs = quant_identity_map['unsigned']
     else:
         quant_module_class, quant_module_kwargs = quant_identity_map['signed']
-    quant_module_kwargs = _evaluate_new_kwargs(quant_module_kwargs, dict(), None)
+    quant_module_kwargs = _evaluate_new_kwargs(
+        quant_module_kwargs, dict(), old_module=None, name=node.target, node=node)
     quant_module = quant_module_class(**quant_module_kwargs)
     quant_module_name = node.name + '_quant'
     model.add_module(quant_module_name, quant_module)
@@ -424,7 +431,8 @@ def layer_handler(
                         previous_node_users.remove(node)
 
                         act_quant, kwargs_act_quant = quant_identity_map['signed']
-                        kwargs_act_quant = _evaluate_new_kwargs(kwargs_act_quant, dict(), None)
+                        kwargs_act_quant = _evaluate_new_kwargs(
+                            kwargs_act_quant, dict(), old_module=None, name=node.target, node=node)
                         inp_quant = act_quant(**kwargs_act_quant)
                         name = node.name + '_input_quant'
                         model.add_module(name, inp_quant)
@@ -432,7 +440,11 @@ def layer_handler(
                             name, previous_node, tuple(previous_node_users))
                         rewriters.append(rewriter)
                     rewriter = ModuleToModuleByInstance(
-                        module, quant_module_class, **quant_module_kwargs)
+                        module,
+                        quant_module_class,
+                        module_name=node.target,
+                        module_node=node,
+                        **quant_module_kwargs)
                     rewriters.append(rewriter)
         for rewriter in rewriters:
             model = rewriter.apply(model)
@@ -440,7 +452,10 @@ def layer_handler(
 
 
 def find_module(
-        model: nn.Module, layer_map: Dict[nn.Module, Optional[Dict]], module_to_replace: List):
+        model: nn.Module,
+        module_name: str,
+        layer_map: Dict[nn.Module, Optional[Dict]],
+        module_to_replace: List):
     """
     Iterate through the model looking at immediate children of every module to look for supported modules.
     This allows us to stop the search when we meet a top-level module that is supported.
@@ -448,10 +463,10 @@ def find_module(
     Linear submodules.
     """
     if isinstance(model, tuple(layer_map.keys())):
-        module_to_replace.append(model)
+        module_to_replace.append([model, module_name])
     else:
-        for module in model.children():
-            find_module(module, layer_map, module_to_replace)
+        for name, module in model.named_children():
+            find_module(module, name, layer_map, module_to_replace)
 
 
 def layerwise_layer_handler(model: nn.Module, layer_map: Dict[nn.Module, Optional[Dict]]):
@@ -459,12 +474,13 @@ def layerwise_layer_handler(model: nn.Module, layer_map: Dict[nn.Module, Optiona
     Replace FP weight layers with their corresponding quantized version
     """
     module_to_replace = []
-    find_module(model, layer_map, module_to_replace)
+    find_module(model, '', layer_map, module_to_replace)
     rewriters = []
-    for module in module_to_replace:
+    for module, module_name in module_to_replace:
         if layer_map[type(module)] is not None:
             quant_module_class, quant_module_kwargs = layer_map[type(module)]
-            rewriter = ModuleToModuleByInstance(module, quant_module_class, **quant_module_kwargs)
+            rewriter = ModuleToModuleByInstance(
+                module, quant_module_class, module_name=module_name, **quant_module_kwargs)
             rewriters.append(rewriter)
     for rewriter in rewriters:
         model = rewriter.apply(model)

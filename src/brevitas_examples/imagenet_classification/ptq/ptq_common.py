@@ -67,7 +67,7 @@ def quantize_model(
     maps = [deepcopy(quant_map) for quant_map in LAYER_MAP[backend]]
 
     def bit_width_fn(module, other_bit_width):
-        if backend != 'layerwise' or layerwise_first_last_bit_width is None:
+        if backend != 'layerwise':
             return other_bit_width
         if isinstance(module, torch.nn.Conv2d) and module.in_channels == 3:
             return layerwise_first_last_bit_width

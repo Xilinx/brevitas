@@ -34,11 +34,11 @@ __all__ = [
 _TORCH_TESTING_DICT = get_testing_overrides()
 
 
-def _evaluate_new_kwargs(original_kwargs, new_kwargs, old_module):
+def _evaluate_new_kwargs(original_kwargs, new_kwargs, old_module, name=None, node=None):
     update_dict = dict()
     for k, v in original_kwargs.items():
         if islambda(v):
-            v = v(old_module)
+            v = v(old_module, name, node)
         update_dict[k] = v
     new_kwargs.update(update_dict)
     return new_kwargs
@@ -116,10 +116,12 @@ class PerInputModuleToModuleByHook(PerInputTrasform, ABC):
 
 class ModuleToModule(GraphTransform, ABC):
 
-    def __init__(self, new_module_class, **kwargs):
+    def __init__(self, new_module_class, module_name=None, module_node=None, **kwargs):
         super().__init__()
         self.new_module_class = new_module_class
         self.new_module_kwargs = kwargs
+        self.module_name = module_name
+        self.module_node = module_node
 
     def _map_origin_vars(self, vars: dict):
         return {k: v is not None if k == 'bias' else v for k, v in vars.items()}
@@ -140,7 +142,12 @@ class ModuleToModule(GraphTransform, ABC):
         new_module_signature_keys = signature_keys(self.new_module_class)
         new_kwargs = {k: v for k, v in new_kwargs.items() if k in new_module_signature_keys}
         # update with kwargs passed to the rewriter
-        new_kwargs = _evaluate_new_kwargs(self.new_module_kwargs, new_kwargs, old_module)
+        new_kwargs = _evaluate_new_kwargs(
+            self.new_module_kwargs,
+            new_kwargs,
+            old_module,
+            name=self.module_name,
+            node=self.module_node)
         # init the new module
         new_module = self.new_module_class(**new_kwargs)
         return new_module
@@ -201,8 +208,14 @@ class ModuleToModuleByName(ModuleToModule):
 
 class ModuleToModuleByInstance(ModuleToModule):
 
-    def __init__(self, old_module_instance, new_module_class, **kwargs):
-        super().__init__(new_module_class, **kwargs)
+    def __init__(
+            self,
+            old_module_instance,
+            new_module_class,
+            module_name=None,
+            module_node=None,
+            **kwargs):
+        super().__init__(new_module_class, module_name, module_node, **kwargs)
         self.old_module_instance = old_module_instance
 
     def apply(self, model: GraphModule) -> GraphModule:
