@@ -190,7 +190,9 @@ class GPTQ():
 
         # By default, use groups = 1
         self.groups = 1
-        if isinstance(self.layer, qnn.QuantConv2d):
+        if isinstance(self.layer, SUPPORTED_CONV_OP):
+            if isinstance(self.layer, (qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d)):
+                weight = weight.transpose(1, 0)  # This performs a view
             weight = weight.flatten(1)
             self.groups = self.layer.groups
 
