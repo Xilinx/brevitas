@@ -242,7 +242,7 @@ def create_quant_maps(
         'v_quant': sym_act_quant,
         'v_bit_width': act_bit_width,
         'out_proj_input_quant': act_quant,
-        'out_proj_bit_width': act_bit_width,
+        'out_proj_input_bit_width': act_bit_width,
         'out_proj_bias_quant': bias_quant,
         'out_proj_output_quant': None,
         # activation equalization requires packed_in_proj
