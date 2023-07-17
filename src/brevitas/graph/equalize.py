@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from copy import deepcopy
 from dataclasses import dataclass
 from dataclasses import field
 from functools import partial
@@ -539,11 +538,6 @@ def _is_scale_invariant_module(graph_model: GraphModule, node: Node) -> bool:
         _scale_invariant_layers + _scale_invariant_activations)
 
 
-def _is_scale_invariant_activation(graph_model, node):
-    return node.op == 'call_module' and isinstance(
-        get_module(graph_model, node.target), _scale_invariant_activations)
-
-
 def _is_scale_varying_activation(graph_model, node):
     return node.op == 'call_module' and isinstance(
         get_module(graph_model, node.target), _scale_varying_activations)
@@ -621,8 +615,8 @@ def find_sinks(graph_model: GraphModule, starting_node: Node,
 def _extract_regions(
         graph_model: GraphModule,
         add_mul_node: bool = False,
-        return_acts: bool = False) -> Set[Tuple[str]]:
-    regions = set()
+        return_acts: bool = False) -> List[Region]:
+    regions = []
     for node in graph_model.graph.nodes:
         if _is_supported_module(graph_model,
                                 node) or (add_mul_node and
@@ -641,7 +635,8 @@ def _extract_regions(
                     region_to_add = Region(srcs=srcs, sinks=sinks, acts=acts)
                 else:
                     region_to_add = Region(srcs=srcs, sinks=sinks)
-                regions.add(region_to_add)
+                if region_to_add not in regions:
+                    regions.append(region_to_add)
     return regions
 
 
