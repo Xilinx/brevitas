@@ -621,8 +621,8 @@ def find_sinks(graph_model: GraphModule, starting_node: Node,
 def _extract_regions(
         graph_model: GraphModule,
         add_mul_node: bool = False,
-        return_acts: bool = False) -> Set[Tuple[str]]:
-    regions = set()
+        return_acts: bool = False) -> List[Region]:
+    regions = []
     for node in graph_model.graph.nodes:
         if _is_supported_module(graph_model,
                                 node) or (add_mul_node and
@@ -641,7 +641,8 @@ def _extract_regions(
                     region_to_add = Region(srcs=srcs, sinks=sinks, acts=acts)
                 else:
                     region_to_add = Region(srcs=srcs, sinks=sinks)
-                regions.add(region_to_add)
+                if region_to_add not in regions:
+                    regions.append(region_to_add)
     return regions
 
 
