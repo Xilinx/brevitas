@@ -275,12 +275,12 @@ def create_quant_maps(
         torch.nn.ReLU: (qnn.QuantReLU, {
             **quant_act_kwargs, 'signed': False}),
         torch.nn.ReLU6: (qnn.QuantReLU, {
-            **quant_act_kwargs, 'signed': False, 'max_val': 6.}),
+            **quant_act_kwargs, 'signed': False}),
         torch.nn.Sigmoid: (qnn.QuantSigmoid, {
             **quant_act_kwargs, 'signed': False}),}
     quant_identity_map = {
         'signed': (qnn.QuantIdentity, {
-            **quant_act_kwargs, 'signed': True}),
+            **quant_act_kwargs}),
         'unsigned': (qnn.QuantIdentity, {
             **quant_act_kwargs, 'signed': False}),}
     quant_layerwise_layer_map = {
