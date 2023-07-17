@@ -27,20 +27,19 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
+import gc
+
 import torch
 import torch.nn as nn
+
 from .quantizer import pseudo_quantize_tensor
-import gc
 
 __all__ = ["auto_clip_block"]
 
 
 # weight quantization
 @torch.no_grad()
-def auto_clip_layer(w, input_feat, n_bit, q_config,
-                    n_grid=20,
-                    max_shrink=0.5,
-                    n_sample_token=512):
+def auto_clip_layer(w, input_feat, n_bit, q_config, n_grid=20, max_shrink=0.5, n_sample_token=512):
     assert w.dim() == 2
     org_w_shape = w.shape
     # w           [co, ci]      -> [co, 1, n_group, group size]
@@ -57,7 +56,7 @@ def auto_clip_layer(w, input_feat, n_bit, q_config,
     best_max_val_all = []
 
     for i_b in range(w.shape[0] // oc_batch_size):
-        w = w_all[i_b * oc_batch_size: (i_b + 1) * oc_batch_size]
+        w = w_all[i_b * oc_batch_size:(i_b + 1) * oc_batch_size]
 
         org_max_val = w.abs().amax(dim=-1, keepdim=True)  # co, 1, n_group, 1
 
@@ -68,7 +67,7 @@ def auto_clip_layer(w, input_feat, n_bit, q_config,
 
         for i_s in range(int(max_shrink * n_grid)):
             max_val = org_max_val * (1 - i_s / n_grid)
-            min_val = - max_val
+            min_val = -max_val
             cur_w = torch.clamp(w, min_val, max_val)
             q_w = pseudo_quantize_tensor(cur_w, n_bit=n_bit, **q_config)
             cur_out = (input_feat * q_w).sum(dim=-1)
@@ -92,12 +91,9 @@ def auto_clip_layer(w, input_feat, n_bit, q_config,
 
 
 @torch.no_grad()
-def auto_clip_block(module,
-                    w_bit, q_config,
-                    input_feat):
+def auto_clip_block(module, w_bit, q_config, input_feat):
 
-    named_linears = {name: m for name,
-                     m in module.named_modules() if isinstance(m, nn.Linear)}
+    named_linears = {name: m for name, m in module.named_modules() if isinstance(m, nn.Linear)}
 
     clip_list = []
     for name in named_linears:

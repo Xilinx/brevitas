@@ -34,11 +34,8 @@ LM_HEAD_KEYWORDS = ["lm_head", "embed_out", "output"]
 
 
 # core quantization method (simulated quantization)
-def pseudo_quantize_tensor(w, n_bit=8,
-                           zero_point=True, q_group_size=-1,
-                           inplace=False,
-                           get_scale_zp=False
-                           ):
+def pseudo_quantize_tensor(
+        w, n_bit=8, zero_point=True, q_group_size=-1, inplace=False, get_scale_zp=False):
     org_w_shape = w.shape
     if q_group_size > 0:
         assert org_w_shape[-1] % q_group_size == 0
@@ -56,7 +53,7 @@ def pseudo_quantize_tensor(w, n_bit=8,
         max_val = w.abs().amax(dim=1, keepdim=True)
         max_val = max_val.clamp(min=1e-5)
         max_int = 2 ** (n_bit - 1) - 1
-        min_int = - 2 ** (n_bit - 1)
+        min_int = -2 ** (n_bit - 1)
         scales = max_val / max_int
         zeros = 0
 
@@ -64,11 +61,9 @@ def pseudo_quantize_tensor(w, n_bit=8,
     assert torch.isnan(w).sum() == 0
 
     if inplace:
-        ((w.div_(scales).round_().add_(zeros)).clamp_(
-            min_int, max_int).sub_(zeros)).mul_(scales)
+        ((w.div_(scales).round_().add_(zeros)).clamp_(min_int, max_int).sub_(zeros)).mul_(scales)
     else:
-        w = (torch.clamp(torch.round(w / scales) +
-                         zeros, min_int, max_int) - zeros) * scales
+        w = (torch.clamp(torch.round(w / scales) + zeros, min_int, max_int) - zeros) * scales
     assert torch.isnan(w).sum() == 0
 
     w = w.reshape(org_w_shape)

@@ -29,11 +29,12 @@ SOFTWARE.
 
 import torch
 import torch.nn as nn
-
+from transformers.models.llama.modeling_llama import LlamaDecoderLayer
+from transformers.models.llama.modeling_llama import LlamaRMSNorm
 from transformers.models.opt.modeling_opt import OPTDecoderLayer
-from transformers.models.llama.modeling_llama import LlamaDecoderLayer, LlamaRMSNorm
 
-from .utils.module import get_op_by_name, get_op_name
+from .utils.module import get_op_by_name
+from .utils.module import get_op_name
 
 __all__ = ["auto_scale_block", "apply_scale"]
 
@@ -58,7 +59,7 @@ def get_act_scale(x):
 def scale_ln_fcs(ln, fcs, scales):
     if not isinstance(fcs, list):
         fcs = [fcs]
-    
+
     scales = scales.to(ln.weight.device)
 
     ln.weight.div_(scales)
@@ -80,7 +81,7 @@ def scale_fc_fc(fc1, fc2, scales):
     assert isinstance(fc1, nn.Linear)
     assert isinstance(fc2, nn.Linear)
     assert fc1.out_features == fc2.in_features
-    
+
     scales = scales.to(fc1.weight.device)
 
     fc1.weight.div_(scales.view(-1, 1))
@@ -96,17 +97,22 @@ def scale_fc_fc(fc1, fc2, scales):
 
 
 @torch.no_grad()
-def auto_scale_block(module, module_kwargs,
-                     w_bit, q_config,
-                     input_feat):
+def auto_scale_block(module, module_kwargs, w_bit, q_config, input_feat):
     from .quantizer import pseudo_quantize_tensor
+
     # firstly, get the weight quantize function
     if w_bit is not None:
-        def w_quantize_func(p): return pseudo_quantize_tensor(
-            p, n_bit=w_bit, **q_config,
-        ).detach()
+
+        def w_quantize_func(p):
+            return pseudo_quantize_tensor(
+                p,
+                n_bit=w_bit,
+                **q_config,
+            ).detach()
     else:
-        def w_quantize_func(p): return p
+
+        def w_quantize_func(p):
+            return p
 
     if "use_cache" in module_kwargs:
         module_kwargs.pop("use_cache")
@@ -117,8 +123,7 @@ def auto_scale_block(module, module_kwargs,
         # x: n, ci
         x = x.to(next(block.parameters()).device)
         weight = torch.cat([_m.weight for _m in linears2scale], dim=0)
-        w_max = get_weight_scale(
-            weight, q_group_size=q_config.get("q_group_size", -1))
+        w_max = get_weight_scale(weight, q_group_size=q_config.get("q_group_size", -1))
 
         with torch.no_grad():
             org_out = block(x, **kwargs)
@@ -137,13 +142,11 @@ def auto_scale_block(module, module_kwargs,
         org_sd = {k: v.cpu() for k, v in block.state_dict().items()}
         for ratio in range(n_grid):
             ratio = ratio * 1 / n_grid
-            scales = (x_max.pow(ratio) / w_max.pow(1-ratio)
-                      ).clamp(min=1e-4).view(-1)
+            scales = (x_max.pow(ratio) / w_max.pow(1 - ratio)).clamp(min=1e-4).view(-1)
             scales = scales / (scales.max() * scales.min()).sqrt()
             for fc in linears2scale:
                 fc.weight.mul_(scales.view(1, -1))
-                fc.weight.data = w_quantize_func(
-                    fc.weight.data) / (scales.view(1, -1))
+                fc.weight.data = w_quantize_func(fc.weight.data) / (scales.view(1, -1))
             out = block(x, **kwargs)
             if isinstance(out, tuple):
                 out = out[0]
@@ -173,88 +176,97 @@ def auto_scale_block(module, module_kwargs,
 
         scales = _search_module_scale(module2inspect, layers, inp, kwargs)
         # prev_op_name, [layer_name], scale
-        return (get_op_name(module, prev_op), tuple([get_op_name(module, m) for m in layers]), scales)
+        return (
+            get_op_name(module, prev_op), tuple([get_op_name(module, m) for m in layers]), scales)
 
     scales_list = []  # return the searched scales
 
     if isinstance(module, OPTDecoderLayer):
         # attention input
-        scales_list.append(_auto_get_scale(
-            prev_op=module.self_attn_layer_norm,
-            layers=[module.self_attn.q_proj,
-                    module.self_attn.k_proj, module.self_attn.v_proj],
-            inp=input_feat['self_attn.q_proj'],
-            module2inspect=module.self_attn, kwargs=module_kwargs,
-        ))
+        scales_list.append(
+            _auto_get_scale(
+                prev_op=module.self_attn_layer_norm,
+                layers=[module.self_attn.q_proj, module.self_attn.k_proj, module.self_attn.v_proj],
+                inp=input_feat['self_attn.q_proj'],
+                module2inspect=module.self_attn,
+                kwargs=module_kwargs,
+            ))
         # attn out
-        scales_list.append(_auto_get_scale(
-            prev_op=module.self_attn.v_proj,
-            layers=[module.self_attn.out_proj],
-            inp=input_feat['self_attn.out_proj'],
-        ))
+        scales_list.append(
+            _auto_get_scale(
+                prev_op=module.self_attn.v_proj,
+                layers=[module.self_attn.out_proj],
+                inp=input_feat['self_attn.out_proj'],
+            ))
         # fc1
-        scales_list.append(_auto_get_scale(
-            prev_op=module.final_layer_norm,
-            layers=[module.fc1],
-            inp=input_feat['fc1'],
-        ))
+        scales_list.append(
+            _auto_get_scale(
+                prev_op=module.final_layer_norm,
+                layers=[module.fc1],
+                inp=input_feat['fc1'],
+            ))
         # fc2
-        scales_list.append(_auto_get_scale(
-            prev_op=module.fc1,
-            layers=[module.fc2],
-            inp=input_feat['fc2'],
-        ))
+        scales_list.append(
+            _auto_get_scale(
+                prev_op=module.fc1,
+                layers=[module.fc2],
+                inp=input_feat['fc2'],
+            ))
 
     elif isinstance(module, LlamaDecoderLayer):
         # attention input
-        scales_list.append(_auto_get_scale(
-            prev_op=module.input_layernorm,
-            layers=[module.self_attn.q_proj,
-                    module.self_attn.k_proj, module.self_attn.v_proj],
-            inp=input_feat['self_attn.q_proj'],
-            module2inspect=module.self_attn, kwargs=module_kwargs,
-        ))
+        scales_list.append(
+            _auto_get_scale(
+                prev_op=module.input_layernorm,
+                layers=[module.self_attn.q_proj, module.self_attn.k_proj, module.self_attn.v_proj],
+                inp=input_feat['self_attn.q_proj'],
+                module2inspect=module.self_attn,
+                kwargs=module_kwargs,
+            ))
         # attn out
-        scales_list.append(_auto_get_scale(
-            prev_op=module.self_attn.v_proj,
-            layers=[module.self_attn.o_proj],
-            inp=input_feat['self_attn.o_proj'],
-        ))
+        scales_list.append(
+            _auto_get_scale(
+                prev_op=module.self_attn.v_proj,
+                layers=[module.self_attn.o_proj],
+                inp=input_feat['self_attn.o_proj'],
+            ))
         # fc1
-        scales_list.append(_auto_get_scale(
-            prev_op=module.post_attention_layernorm,
-            layers=[module.mlp.gate_proj, module.mlp.up_proj],
-            inp=input_feat['mlp.gate_proj'],
-            module2inspect=module.mlp,
-        ))
+        scales_list.append(
+            _auto_get_scale(
+                prev_op=module.post_attention_layernorm,
+                layers=[module.mlp.gate_proj, module.mlp.up_proj],
+                inp=input_feat['mlp.gate_proj'],
+                module2inspect=module.mlp,
+            ))
         # fc2
-        scales_list.append(_auto_get_scale(
-            prev_op=module.mlp.up_proj,
-            layers=[module.mlp.down_proj],
-            inp=input_feat['mlp.down_proj'],
-        ))
+        scales_list.append(
+            _auto_get_scale(
+                prev_op=module.mlp.up_proj,
+                layers=[module.mlp.down_proj],
+                inp=input_feat['mlp.down_proj'],
+            ))
 
     else:
         raise NotImplementedError(f"{type(module)} not supported yet!")
 
     return scales_list
 
+
 def apply_scale(module, scales_list, input_feat_dict=None):
     for prev_op_name, layer_names, scales in scales_list:
         prev_op = get_op_by_name(module, prev_op_name)
         layers = [get_op_by_name(module, name) for name in layer_names]
-        
+
         if isinstance(prev_op, nn.Linear):
             assert len(layers) == 1
             scale_fc_fc(prev_op, layers[0], scales)
         elif isinstance(prev_op, (nn.LayerNorm, LlamaRMSNorm)):
             scale_ln_fcs(prev_op, layers, scales)
         else:
-            raise NotImplementedError(
-                f"prev_op {type(prev_op)} not supported yet!")
-            
+            raise NotImplementedError(f"prev_op {type(prev_op)} not supported yet!")
+
         # apply the scaling to input feat if given; prepare it for clipping
-        if input_feat_dict is not None:  
+        if input_feat_dict is not None:
             for layer_name in layer_names:
                 inp = input_feat_dict[layer_name]
                 inp.div_(scales.view(1, -1).to(inp.device))
