@@ -23,8 +23,12 @@ from contextlib import contextmanager
 
 import torch
 from torch import nn
+from torch.utils._python_dispatch import TorchDispatchMode
+from torch.utils._pytree import tree_map
 from tqdm import tqdm
 from transformers.models.opt.modeling_opt import OPTModel
+
+from brevitas.fx.value_tracer import ValueProxy
 
 
 def get_model_impl(model):
@@ -162,3 +166,26 @@ def cast_to_float32(model, target_dtype):
                 # target_dtype covers any new tensors that might have been
                 # introduced in the process (e.g. during equalization)
                 p.data = p.data.to(target_dtype)
+
+
+class CastFloat16ToFloat32(TorchDispatchMode):
+
+    def cast_cpu_to(self, x, src_dtype, dest_dtype):
+        # workaround for value_trace to avoid tracing through the ops below
+        if issubclass(type(x), ValueProxy):
+            t = x.value
+        else:
+            t = x
+        if isinstance(t, torch.Tensor) and t.dtype == src_dtype and t.device == torch.device('cpu'):
+            # Keep the casting out of place so that it's ephemeral
+            return t.to(dest_dtype, non_blocking=True, copy=True)
+        return x
+
+    def cast_cpu_float32(self, t):
+        return self.cast_cpu_to(t, src_dtype=torch.float16, dest_dtype=torch.float32)
+
+    def __torch_dispatch__(self, func, types, args=(), kwargs=None):
+        kwargs = kwargs if kwargs else {}
+        args, kwargs = tree_map(self.cast_cpu_float32, (args, kwargs))
+        out = func(*args, **kwargs)
+        return out
