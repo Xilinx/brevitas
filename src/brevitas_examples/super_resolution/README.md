@@ -12,10 +12,10 @@ Note that this is a difference from many academic works that train only on the Y
 
 | Model Name                  | Upscale Factor | Weight quantization | Activation quantization | Peak Signal-to-Noise Ratio |
 |-----------------------------|----------------|---------------------|-------------------------|----------------------------|
-| [float_espcn_x2](https://github.com/Xilinx/brevitas/releases/download/super_res-r0/float_espcn_x2-2f3821e3.pth) | x2             | float32             | float32                 | 30.37                      |
-| [quant_espcn_x2_w8a8_base](https://github.com/Xilinx/brevitas/releases/download/super_res-r0/quant_espcn_x2_w8a8_base-7d54e29c.pth)    | x2             | int8                | (u)int8                 | 30.16                      |
-| [quant_espcn_x2_w8a8_a2q_32b](https://github.com/Xilinx/brevitas/releases/download/super_res-r0/quant_espcn_x2_w8a8_a2q_32b-0b1f361d.pth) | x2             | int8                | (u)int8                 | 30.80                      |
-| [quant_espcn_x2_w8a8_a2q_16b](https://github.com/Xilinx/brevitas/releases/download/super_res-r0/quant_espcn_x2_w8a8_a2q_16b-3c4acd35.pth) | x2             | int8                | (u)int8                 | 29.38                      |
+| [float_espcn_x2](https://github.com/Xilinx/brevitas/releases/download/super_res_r0/float_espcn_x2-2f3821e3.pth) | x2             | float32             | float32                 | 30.37                      |
+| [quant_espcn_x2_w8a8_base](https://github.com/Xilinx/brevitas/releases/download/super_res_r0/quant_espcn_x2_w8a8_base-7d54e29c.pth)    | x2             | int8                | (u)int8                 | 30.16                      |
+| [quant_espcn_x2_w8a8_a2q_32b](https://github.com/Xilinx/brevitas/releases/download/super_res_r0/quant_espcn_x2_w8a8_a2q_32b-0b1f361d.pth) | x2             | int8                | (u)int8                 | 30.80                      |
+| [quant_espcn_x2_w8a8_a2q_16b](https://github.com/Xilinx/brevitas/releases/download/super_res_r0/quant_espcn_x2_w8a8_a2q_16b-3c4acd35.pth) | x2             | int8                | (u)int8                 | 29.38                      |
 | bicubic_interp              | x2             | N/A                 | N/A                     | 28.71                      |
 
 
