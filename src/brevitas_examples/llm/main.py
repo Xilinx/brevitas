@@ -22,6 +22,7 @@ from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_affi
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import replace_mha_with_quantizable_layers
 from brevitas_examples.llm.llm_quant.quantize import quantize_model
 from brevitas_examples.llm.llm_quant.run_utils import get_model_impl
+from brevitas_examples.llm.llm_quant.run_utils import CastFloat16ToFloat32
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -131,6 +132,8 @@ parser.add_argument(
     help='Apply activation equalization (SmoothQuant). Layerwise introduces standalone mul nodes,'
     'while fx merges them whenever possible into previous tensors, which is possible on ReLU based models (e.g. OPT).'
 )
+parser.add_argument('--load-awq', type=str, default=None,
+                    help="Load the awq search results.")
 parser.add_argument(
     '--export-target',
     default=None,
@@ -208,6 +211,13 @@ def main():
     model = AutoModelForCausalLM.from_pretrained(args.model, **kwargs)
     print("Model loaded.")
     model.eval()
+
+    if args.load_awq:
+        from brevitas_examples.llm.llm_quant.awq.pre_quant import apply_awq
+        awq_results = torch.load(args.load_awq, map_location="cpu")
+        with CastFloat16ToFloat32():
+            apply_awq(model, awq_results)
+    
 
     if (args.export_target or args.eval or args.act_equalization or args.act_calibration or
             args.gptq or args.bias_corr or args.ln_affine_merge or args.weight_equalization):
