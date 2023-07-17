@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from copy import deepcopy
 from dataclasses import dataclass
 from dataclasses import field
 from functools import partial
@@ -537,11 +536,6 @@ def _is_scale_invariant_module(graph_model: GraphModule, node: Node) -> bool:
     return node.op == 'call_module' and isinstance(
         get_module(graph_model, node.target),
         _scale_invariant_layers + _scale_invariant_activations)
-
-
-def _is_scale_invariant_activation(graph_model, node):
-    return node.op == 'call_module' and isinstance(
-        get_module(graph_model, node.target), _scale_invariant_activations)
 
 
 def _is_scale_varying_activation(graph_model, node):
