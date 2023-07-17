@@ -57,8 +57,8 @@ _scale_invariant_layers = (
     nn.AdaptiveAvgPool2d,
     nn.AdaptiveAvgPool3d,
     nn.Identity,
-    torch.nn.ReLU, 
-    torch.nn.LeakyReLU)
+    nn.ReLU, 
+    nn.LeakyReLU)
 
 _scale_invariant_op = (torch.mul, operator.mul, operator.imul, operator.__mul__, operator.__imul__)
 
