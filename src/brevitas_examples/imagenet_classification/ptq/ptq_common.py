@@ -7,68 +7,111 @@ import torch
 import torch.backends.cudnn as cudnn
 from tqdm import tqdm
 
-from brevitas.core.function_wrapper.ops_ste import CeilSte
+from brevitas.core.scaling.standalone import ParameterFromStatsFromParameterScaling
+from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.graph.calibrate import bias_correction_mode
 from brevitas.graph.calibrate import calibration_mode
 from brevitas.graph.calibrate import norm_correction_mode
 from brevitas.graph.equalize import activation_equalization_mode
 from brevitas.graph.gptq import gptq_mode
-from brevitas.graph.quantize import COMPUTE_LAYER_MAP
-from brevitas.graph.quantize import LAYERWISE_COMPUTE_LAYER_MAP
 from brevitas.graph.quantize import layerwise_quantize
-from brevitas.graph.quantize import QUANT_ACT_MAP
-from brevitas.graph.quantize import QUANT_IDENTITY_MAP
 from brevitas.graph.quantize import quantize
-from brevitas.graph.target.flexml import FLEXML_COMPUTE_LAYER_MAP
-from brevitas.graph.target.flexml import FLEXML_QUANT_ACT_MAP
-from brevitas.graph.target.flexml import FLEXML_QUANT_IDENTITY_MAP
 from brevitas.graph.target.flexml import quantize_flexml
-from brevitas.inject.enum import RestrictValueType
-from brevitas.inject.enum import ScalingImplType
-from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
-from brevitas.nn.quant_mha import QuantMultiheadAttention
+import brevitas.nn as qnn
+from brevitas.quant.fixed_point import Int8ActPerTensorFixedPoint
+from brevitas.quant.fixed_point import Int8ActPerTensorFixedPointMSE
+from brevitas.quant.fixed_point import Int8WeightPerChannelFixedPoint
+from brevitas.quant.fixed_point import Int8WeightPerChannelFixedPointMSE
+from brevitas.quant.fixed_point import Int8WeightPerTensorFixedPoint
+from brevitas.quant.fixed_point import Int8WeightPerTensorFixedPointMSE
+from brevitas.quant.scaled_int import Int8ActPerTensorFloat
+from brevitas.quant.scaled_int import Int8ActPerTensorFloatMSE
+from brevitas.quant.scaled_int import Int8WeightPerChannelFloat
+from brevitas.quant.scaled_int import Int8WeightPerChannelFloatMSE
+from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
+from brevitas.quant.scaled_int import Int8WeightPerTensorFloatMSE
 from brevitas.quant.scaled_int import Int16Bias
 from brevitas.quant.scaled_int import Int32Bias
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFixedPoint
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
+from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloatMSE
+from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloat
+from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloatMSE
+from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
+from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloatMSE
 from brevitas_examples.imagenet_classification.ptq.learned_round_utils import learned_round_iterator
 from brevitas_examples.imagenet_classification.ptq.learned_round_utils import save_inp_out_data
 from brevitas_examples.imagenet_classification.ptq.learned_round_utils import split_layers
 
-LAYER_MAP = {
-    'generic': [COMPUTE_LAYER_MAP, QUANT_ACT_MAP, QUANT_IDENTITY_MAP],
-    'layerwise': [LAYERWISE_COMPUTE_LAYER_MAP],
-    'flexml': [FLEXML_COMPUTE_LAYER_MAP, FLEXML_QUANT_ACT_MAP, FLEXML_QUANT_IDENTITY_MAP]}
+QUANTIZE_MAP = {'layerwise': layerwise_quantize, 'fx': quantize, 'flexml': quantize_flexml}
 
-ASYMMETRIC_ACT_QUANT_MAP = {
-    'generic': ShiftedUint8ActPerTensorFloat,
-    'layerwise': ShiftedUint8ActPerTensorFloat,
-    'flexml': ShiftedUint8ActPerTensorFixedPoint}
+BIAS_BIT_WIDTH_MAP = {32: Int32Bias, 16: Int16Bias}
 
-QUANTIZE_MAP = {'layerwise': layerwise_quantize, 'generic': quantize, 'flexml': quantize_flexml}
+WEIGHT_QUANT_MAP = {
+    'float': {
+        'stats': {
+            'per_tensor': {
+                'sym': Int8WeightPerTensorFloat, 'asym': ShiftedUint8WeightPerTensorFloat},
+            'per_channel': {
+                'sym': Int8WeightPerChannelFloat, 'asym': ShiftedUint8WeightPerChannelFloat}},
+        'mse': {
+            'per_tensor': {
+                'sym': Int8WeightPerTensorFloatMSE, 'asym': ShiftedUint8WeightPerTensorFloatMSE},
+            'per_channel': {
+                'sym': Int8WeightPerChannelFloatMSE, 'asym': ShiftedUint8WeightPerChannelFloatMSE},
+        },},
+    'po2': {
+        'stats': {
+            'per_tensor': {
+                'sym': Int8WeightPerTensorFixedPoint},
+            'per_channel': {
+                'sym': Int8WeightPerChannelFixedPoint},},
+        'mse': {
+            'per_tensor': {
+                'sym': Int8WeightPerTensorFixedPointMSE},
+            'per_channel': {
+                'sym': Int8WeightPerChannelFixedPointMSE}},}}
 
-BIAS_BIT_WIDTH_MAP = {'int32': Int32Bias, 'int16': Int16Bias}
+INPUT_QUANT_MAP = {
+    'float': {
+        'stats': {
+            'per_tensor': {
+                'sym': Int8ActPerTensorFloat, 'asym': ShiftedUint8ActPerTensorFloat}},
+        'mse': {
+            'per_tensor': {
+                'sym': Int8ActPerTensorFloatMSE, 'asym': ShiftedUint8ActPerTensorFloatMSE}}},
+    'po2': {
+        'stats': {
+            'per_tensor': {
+                'sym': Int8ActPerTensorFixedPoint, 'asym': ShiftedUint8ActPerTensorFixedPoint},},
+        'mse': {
+            'per_tensor': {
+                'sym': Int8ActPerTensorFixedPointMSE}},}}
 
 
 def quantize_model(
         model,
         backend,
-        act_bit_width,
         weight_bit_width,
-        layerwise_first_last_bit_width,
+        act_bit_width,
         bias_bit_width,
-        scaling_per_output_channel,
+        weight_quant_granularity,
         act_quant_percentile,
         act_quant_type,
         scale_factor_type,
-        weight_narrow_range=False):
+        layerwise_first_last_bit_width=8,
+        weight_narrow_range=False,
+        weight_param_method='stats',
+        act_param_method='stats',
+        weight_quant_type='sym',
+        act_quant_granularity='per_tensor',
+        dtype=torch.float32):
     # Define what quantize function to use and, based on the given configuration, its arguments
     quantize_fn = QUANTIZE_MAP[backend]
+    weight_scale_type = scale_factor_type
+    act_scale_type = scale_factor_type
 
-    act_quant_asym = None
-    if act_quant_type == 'asymmetric':
-        act_quant_asym = ASYMMETRIC_ACT_QUANT_MAP[backend]
-    maps = [deepcopy(quant_map) for quant_map in LAYER_MAP[backend]]
+    weight_quant_granularity = weight_quant_granularity
 
     def bit_width_fn(module, other_bit_width):
         if isinstance(module, torch.nn.Conv2d) and module.in_channels == 3:
@@ -82,122 +125,173 @@ def quantize_model(
         module, weight_bit_width)
     act_bit_width_or_lambda = act_bit_width if backend != 'layerwise' else lambda module: bit_width_fn(
         module, act_bit_width)
-    maps = update_quant_maps(
-        maps,
-        scale_factor_type=scale_factor_type,
-        bias_bit_width=bias_bit_width,
-        scaling_per_output_channel=scaling_per_output_channel,
-        act_quant_percentile=act_quant_percentile,
-        act_quant_asym=act_quant_asym,
-        act_bit_width=act_bit_width_or_lambda,
-        weight_bit_width=weight_bit_width_or_lambda,
-        weight_narrow_range=weight_narrow_range)
+    quant_layer_map, quant_layerwise_layer_map, quant_act_map, quant_identity_map = create_quant_maps(dtype=dtype,
+                            bias_bit_width=bias_bit_width,
+                            weight_bit_width=weight_bit_width_or_lambda,
+                            weight_param_method=weight_param_method,
+                            weight_scale_type=weight_scale_type,
+                            weight_quant_type=weight_quant_type,
+                            weight_quant_granularity=weight_quant_granularity,
+                            weight_narrow_range=weight_narrow_range,
+                            act_bit_width=act_bit_width_or_lambda,
+                            act_scale_type=act_scale_type,
+                            act_param_method=act_param_method,
+                            act_quant_type=act_quant_type,
+                            act_quant_granularity=act_quant_granularity,
+                            act_quant_percentile=act_quant_percentile)
 
-    if len(maps) == 3:
-        # Generic and flexml requires three mappings for quantization
+    if backend != 'layerwise':
+        # Fx and flexml backend requires three mappings for quantization
         quantize_kwargs = {
-            'compute_layer_map': maps[0], 'quant_act_map': maps[1], 'quant_identity_map': maps[2]}
-    elif len(maps) == 1:
+            'compute_layer_map': quant_layer_map,
+            'quant_act_map': quant_act_map,
+            'quant_identity_map': quant_identity_map}
+    else:
         # Layerwise requires only the compute layer mapping
-        quantize_kwargs = {'compute_layer_map': maps[0]}
+        quantize_kwargs = {'compute_layer_map': quant_layerwise_layer_map}
 
     quant_model = quantize_fn(model, **quantize_kwargs)
     return quant_model
 
 
-def update_quant_maps(
-        maps,
-        scale_factor_type,
+def create_quant_maps(
+        dtype,
         bias_bit_width,
-        scaling_per_output_channel,
-        act_quant_percentile,
-        act_quant_asym,
-        act_bit_width,
         weight_bit_width,
-        weight_narrow_range):
+        weight_param_method,
+        weight_scale_type,
+        weight_quant_type,
+        weight_quant_granularity,
+        weight_narrow_range,
+        act_bit_width=None,
+        act_scale_type=None,
+        act_param_method=None,
+        act_quant_type=None,
+        act_quant_granularity=None,
+        act_quant_percentile=None):
     """
     Starting from pre-defined quantizers, modify them to match the desired configuration
     """
 
-    act_kwargs = {'bit_width': act_bit_width, 'high_percentile_q': act_quant_percentile}
-
-    weight_kwargs = {
-        'scaling_impl_type': ScalingImplType.PARAMETER_FROM_STATS,
-        'scaling_per_output_channel': scaling_per_output_channel,
-        'bit_width': weight_bit_width,
-        'narrow_range': weight_narrow_range}
-
-    scale_factor_dict = {}
-    if scale_factor_type == 'po2':
-        scale_factor_dict['restrict_scaling_type'] = RestrictValueType.POWER_OF_TWO
-        scale_factor_dict['restrict_value_float_to_int_impl'] = CeilSte
-    elif scale_factor_type == 'float32':
-        scale_factor_dict['restrict_scaling_type'] = RestrictValueType.FP
-
-    act_kwargs.update(scale_factor_dict)
-    weight_kwargs.update(scale_factor_dict)
-
-    # In MHA some activations need to be always with symmetric quantizers to avoid costly ops
-    act_kwargs_sym_only = deepcopy(act_kwargs)
-
-    # If activation quantization is asymmetric, update it and add low_percentile
-    if act_quant_asym is not None:
-        act_kwargs['act_quant'] = act_quant_asym
-        act_kwargs['low_percentile_q'] = 100.0 - act_quant_percentile
-
-    def weight_kwargs_prefix(prefix):
+    def kwargs_prefix(prefix, weight_kwargs):
         return {prefix + k: v for k, v in weight_kwargs.items()}
 
-    def act_kwargs_prefix(prefix, kwargs):
-        updated_kwargs = {}
-        for k, v in kwargs.items():
-            key = k
-            if prefix != '':
-                key = prefix + key.replace('act_', '')
-            updated_kwargs[key] = v
-        return updated_kwargs
-
+    # Retrieve base input, weight, and bias quantizers
     bias_quant = BIAS_BIT_WIDTH_MAP[bias_bit_width]
-    for map in maps:
-        for k, v in map.items():
-            if v is None:
-                # Non quantized layer, continue
-                continue
-            quantizer_class, quantizer_kwargs = v
-            if issubclass(quantizer_class, QuantWBIOL):
-                # Update weight and bias
-                map[k][1].update(weight_kwargs_prefix('weight_'))
-                map[k][1]['bias_quant'] = bias_quant
-                # If we are using asymmetric activations, return_quant_tensor must be False
-                if act_quant_asym is not None:
-                    map[k][1]['return_quant_tensor'] = False
-                # If input_quant is defined, we need to update it with correct arguments
-                if 'input_quant' in quantizer_kwargs.keys():
-                    # Add kwargs arguments to input_quant, if present
-                    map[k][1].update(act_kwargs_prefix('input_', act_kwargs))
-            elif quantizer_class == QuantMultiheadAttention:
-                # Update weights and bias
-                map[k][1].update(weight_kwargs_prefix('in_proj_weight_'))
-                map[k][1].update(weight_kwargs_prefix('out_proj_weight_'))
-                map[k][1]['in_proj_bias_quant'] = bias_quant
-                map[k][1]['out_proj_bias_quant'] = bias_quant
-                # Update inner requantization activations
-                map[k][1].update(act_kwargs_prefix('attn_output_weights_', act_kwargs_sym_only))
-                map[k][1].update(act_kwargs_prefix('q_scaled_', act_kwargs_sym_only))
-                map[k][1].update(act_kwargs_prefix('k_transposed_', act_kwargs_sym_only))
-                map[k][1].update(act_kwargs_prefix('v_', act_kwargs_sym_only))
-                map[k][1].update(act_kwargs_prefix('out_proj_input_', act_kwargs))
-                if act_quant_asym is not None:
-                    map[k][1]['return_quant_tensor'] = False
-                # If in_proj_input_quant is defined, we need to update it with correct arguments
-                if 'in_proj_input_quant' in quantizer_kwargs.keys():
-                    # Add kwargs arguments to input_quant, if present
-                    map[k][1].update(act_kwargs_prefix('in_proj_input_', act_kwargs))
-            elif 'act_quant' in quantizer_kwargs.keys() or hasattr(quantizer_class, 'act_quant'):
-                # Add kwargs argument to activation quantizers.
-                quantizer_kwargs.update(act_kwargs_prefix('', act_kwargs))
+    weight_quant = WEIGHT_QUANT_MAP[weight_scale_type][weight_param_method][
+        weight_quant_granularity][weight_quant_type]
+    if act_bit_width is not None:
+        act_quant = INPUT_QUANT_MAP[act_scale_type][act_param_method][act_quant_granularity][
+            act_quant_type]
+        # Some activations in MHA should always be symmetric
+        sym_act_quant = INPUT_QUANT_MAP[act_scale_type][act_param_method][act_quant_granularity][
+            'sym']
+        # Linear layers with 2d input should always be per tensor
+        per_tensor_act_quant = INPUT_QUANT_MAP[act_scale_type][act_param_method]['per_tensor'][
+            act_quant_type]
+    else:
+        act_quant = None
+        sym_act_quant = None
+        per_tensor_act_quant = None
 
-    return maps
+    # Modify the weight quantizer based on the arguments passed in
+    weight_quant = weight_quant.let(
+        **{
+            'narrow_range': weight_narrow_range,
+            'scaling_impl': ParameterFromStatsFromParameterScaling})
+    if weight_quant_type == 'asym':
+        weight_quant = weight_quant.let(zero_point_impl=ParameterFromStatsFromParameterZeroPoint)
+    if act_quant is not None:
+        act_quant = act_quant.let(**{'high_percentile_q': act_quant_percentile, 'dtype': dtype})
+        if act_quant_type == 'asym':
+            act_quant = act_quant.let(**{'low_percentile_q': 100 - act_quant_percentile})
+    if sym_act_quant is not None:
+        sym_act_quant = sym_act_quant.let(
+            **{
+                'high_percentile_q': act_quant_percentile, 'dtype': dtype})
+    if per_tensor_act_quant is not None:
+        per_tensor_act_quant = per_tensor_act_quant.let(
+            **{
+                'high_percentile_q': act_quant_percentile, 'dtype': dtype})
+        if act_quant_type == 'asym':
+            per_tensor_act_quant = per_tensor_act_quant.let(
+                **{'low_percentile_q': 100 - act_quant_percentile})
+
+    weight_quant_and_bit_width = {
+        'weight_quant': weight_quant, 'weight_bit_width': weight_bit_width}
+
+    quant_wbiol_kwargs = {
+        **weight_quant_and_bit_width,
+        'dtype': dtype,
+        'return_quant_tensor': False,
+        'bias_quant': bias_quant}
+
+    # yapf: disable
+    quant_mha_kwargs = {
+        **kwargs_prefix('in_proj_', weight_quant_and_bit_width),
+        **kwargs_prefix('out_proj_', weight_quant_and_bit_width),
+        'in_proj_bias_quant': bias_quant,
+        'softmax_input_quant': None,
+        'attn_output_weights_quant': sym_act_quant,
+        'attn_output_weights_bit_width': act_bit_width,
+        'attn_output_weights_signed': False,
+        'q_scaled_quant': sym_act_quant,
+        'q_scaled_bit_width': act_bit_width,
+        'k_transposed_quant': sym_act_quant,
+        'k_transposed_bit_width': act_bit_width,
+        'v_quant': sym_act_quant,
+        'v_bit_width': act_bit_width,
+        'out_proj_input_quant': act_quant,
+        'out_proj_input_bit_width': act_bit_width,
+        'out_proj_bias_quant': bias_quant,
+        'out_proj_output_quant': None,
+        # activation equalization requires packed_in_proj
+        # since it supports only self-attention
+        'packed_in_proj': True,
+        'dtype': dtype,
+        'return_quant_tensor': False}
+    # yapf: enable
+
+    # Layerwise is  basic quant kwargs + input_quant
+    layerwise_quant_wbiol_kwargs = {
+        **quant_wbiol_kwargs, 'input_quant': per_tensor_act_quant, 'input_bit_width': act_bit_width}
+
+    layerwise_quant_mha_kwargs = {
+        **quant_mha_kwargs,
+        'in_proj_input_quant': per_tensor_act_quant,
+        'in_proj_input_bit_width': act_bit_width}
+
+    quant_layer_map = {
+        torch.nn.Linear: (qnn.QuantLinear, quant_wbiol_kwargs),
+        torch.nn.MultiheadAttention: (qnn.QuantMultiheadAttention, quant_mha_kwargs),
+        torch.nn.Conv1d: (qnn.QuantConv1d, quant_wbiol_kwargs),
+        torch.nn.Conv2d: (qnn.QuantConv2d, quant_wbiol_kwargs),
+        torch.nn.ConvTranspose1d: (qnn.QuantConvTranspose1d, quant_wbiol_kwargs),
+        torch.nn.ConvTranspose2d: (qnn.QuantConvTranspose2d, quant_wbiol_kwargs),}
+
+    act_quant_and_bit_width = {'act_quant': act_quant, 'bit_width': act_bit_width}
+    quant_act_kwargs = {**act_quant_and_bit_width, 'return_quant_tensor': True}
+    quant_act_map = {
+        torch.nn.ReLU: (qnn.QuantReLU, {
+            **quant_act_kwargs, 'signed': False}),
+        torch.nn.ReLU6: (qnn.QuantReLU, {
+            **quant_act_kwargs, 'signed': False, 'max_val': 6.}),
+        torch.nn.Sigmoid: (qnn.QuantSigmoid, {
+            **quant_act_kwargs, 'signed': False}),}
+    quant_identity_map = {
+        'signed': (qnn.QuantIdentity, {
+            **quant_act_kwargs, 'signed': True}),
+        'unsigned': (qnn.QuantIdentity, {
+            **quant_act_kwargs, 'signed': False}),}
+    quant_layerwise_layer_map = {
+        torch.nn.Linear: (qnn.QuantLinear, layerwise_quant_wbiol_kwargs),
+        torch.nn.MultiheadAttention: (qnn.QuantMultiheadAttention, layerwise_quant_mha_kwargs),
+        torch.nn.Conv1d: (qnn.QuantConv1d, layerwise_quant_wbiol_kwargs),
+        torch.nn.Conv2d: (qnn.QuantConv2d, layerwise_quant_wbiol_kwargs),
+        torch.nn.ConvTranspose1d: (qnn.QuantConvTranspose1d, layerwise_quant_wbiol_kwargs),
+        torch.nn.ConvTranspose2d: (qnn.QuantConvTranspose2d, layerwise_quant_wbiol_kwargs),}
+
+    return quant_layer_map, quant_layerwise_layer_map, quant_act_map, quant_identity_map
 
 
 def calibrate(calib_loader, model):
