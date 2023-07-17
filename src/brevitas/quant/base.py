@@ -343,7 +343,7 @@ class WeightNormPerChannelFloatDecoupled(SolveWeightScalingStatsInputDimsFromMod
 
     @value
     def scaling_init(scaling_init_impl, bit_width):
-        scales = scaling_init_impl(bit_width) / (pow(2., bit_width - 1.) - 1.)
+        scales = scaling_init_impl.parameter_list_stats() / (pow(2., bit_width - 1.) - 1.)
         return scales
 
     proxy_class = DecoupledWeightQuantProxyFromInjector
