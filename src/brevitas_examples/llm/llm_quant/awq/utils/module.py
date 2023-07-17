@@ -27,6 +27,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
+
 def get_op_by_name(module, op_name):
     # get the op by its name relative to the module
     for name, m in module.named_modules():

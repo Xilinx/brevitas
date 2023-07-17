@@ -27,13 +27,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-import torch
 from datasets import load_dataset
+import torch
 
 
 def get_calib_dataset(data="pileval", tokenizer=None, n_samples=512, block_size=512):
     if data == "pileval":
-        dataset = load_dataset("json", data_files="https://the-eye.eu/public/AI/pile/val.jsonl.zst", split="train")
+        dataset = load_dataset(
+            "json", data_files="https://the-eye.eu/public/AI/pile/val.jsonl.zst", split="train")
     else:
         raise NotImplementedError
     dataset = dataset.shuffle(seed=42)
@@ -56,4 +57,4 @@ def get_calib_dataset(data="pileval", tokenizer=None, n_samples=512, block_size=
     cat_samples = torch.cat(samples, dim=1)
     n_split = cat_samples.shape[1] // block_size
     print(f" * Split into {n_split} blocks")
-    return [cat_samples[:, i*block_size:(i+1)*block_size] for i in range(n_split)]
+    return [cat_samples[:, i * block_size:(i + 1) * block_size] for i in range(n_split)]
