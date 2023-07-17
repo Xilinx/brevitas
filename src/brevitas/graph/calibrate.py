@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from abc import ABC
+from copy import deepcopy
 from functools import partial
 import sys
 
@@ -279,11 +280,16 @@ class _BiasCorrection(DisableEnableQuantization):
         # Compute float reference
         self.disable_act_quantization(module, is_training=False)
         self.disable_param_quantization(module, is_training=False)
+        quant_weight = dict()
+        if hasattr(module, 'weight_orig_data'):
+            quant_weight[module] = deepcopy(module.weight.data)
+            module.weight.data = module.weight_orig_data
         out_float = module.forward(*inp)  # Required to avoid infinite recursion
         self.collect_float_mean(module, out_float, name)
         self.enable_act_quantization(module, is_training=False)
         self.enable_param_quantization(module, is_training=False)
-
+        for module, value in quant_weight.items():
+            module.weight.data = value
         # Compute quant output
         # We need to disable output_quant while out_quant is being computed
         # or we are going to apply bias correction on post quant values instead of pre quant

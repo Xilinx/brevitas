@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from copy import deepcopy
+from brevitas.graph.gpxq import gptq_mode, gpfq_mode
 
 import torch
 import torch.backends.cudnn as cudnn
@@ -13,7 +14,6 @@ from brevitas.graph.calibrate import bias_correction_mode
 from brevitas.graph.calibrate import calibration_mode
 from brevitas.graph.calibrate import norm_correction_mode
 from brevitas.graph.equalize import activation_equalization_mode
-from brevitas.graph.gptq import gptq_mode
 from brevitas.graph.quantize import layerwise_quantize
 from brevitas.graph.quantize import quantize
 from brevitas.graph.target.flexml import quantize_flexml
@@ -358,6 +358,21 @@ def apply_gptq(calib_loader, model, act_order=False):
                     images = images.to(dtype)
                     gptq_model(images)
                 gptq.update()
+
+
+def apply_gpfq(calib_loader, model, act_order=False):
+    model.eval()
+    dtype = next(model.parameters()).dtype
+    device = next(model.parameters()).device
+    with torch.no_grad():
+        with gpfq_mode(model, act_order=act_order, use_quant_activations=True) as gpfq:
+            gpfq_model = gpfq.model
+            for i in tqdm(range(gpfq.num_layers)):
+                for i, (images, target) in enumerate(calib_loader):
+                    images = images.to(device)
+                    images = images.to(dtype)
+                    gpfq_model(images)
+                gpfq.update()
 
 
 def apply_learned_round_learning(
