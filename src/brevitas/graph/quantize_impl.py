@@ -51,6 +51,7 @@ MAX_RESIDUAL_ITERS = 9999
 
 BATCH_NORM = (nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d)
 
+
 def inp_placeholder_handler(model, input_quantizer):
     """
     Add Quantization step at the input of the network.
