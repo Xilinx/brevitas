@@ -296,11 +296,5 @@ class QuantizableBertAttention(MultiheadAttentionWrapper):
                 del state_dict[name]
         state_dict[prefix + 'mha.out_proj.weight'] = torch.eye(self.mha.out_proj.weight.shape[0])
         state_dict[prefix + 'mha.out_proj.bias'] = torch.zeros(self.mha.out_proj.bias.shape)
-        # elif prefix + 'self.output.dense.weight' in name:
-        #     state_dict[prefix + 'mha.out_proj.weight'] = value
-        #     del state_dict[name]
-        # elif prefix + 'self.output.dense.bias' in name:
-        #     state_dict[prefix + 'mha.out_proj.bias'] = value
-        #     del state_dict[name]
         return super()._load_from_state_dict(
             state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
