@@ -49,6 +49,7 @@ PRECISION_PRESERVING_MODULES = (
 
 MAX_RESIDUAL_ITERS = 9999
 
+BATCH_NORM = (nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d)
 
 def inp_placeholder_handler(model, input_quantizer):
     """
@@ -187,6 +188,18 @@ def output_quant_handler(
             user_module = get_module(model, user.target)
             if hasattr(user_module, 'act_quant'):
                 output_quant = False
+            elif isinstance(user_module, BATCH_NORM):
+                # If the user is BatchNorm, check BN's users and potentially requentize at
+                # the output of BN
+                output_quant = False
+                output_quant_handler(
+                    model,
+                    user,
+                    rewriters,
+                    is_sign_preserving,
+                    quant_identity_map,
+                    quant_act_map,
+                    unsigned_act_tuple)
         if output_quant:
             if quant_module_name is None and quant_module is None:
                 if is_sign_preserving and are_inputs_unsigned(
