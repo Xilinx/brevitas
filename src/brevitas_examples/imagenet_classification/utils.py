@@ -5,6 +5,9 @@ import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 from tqdm import tqdm
 
+from brevitas.export.inference.manager import InferenceWeightProxyManager
+from brevitas.export.inference.utils import brevitas_proxy_inference_mode
+
 SEED = 123456
 
 MEAN = [0.485, 0.456, 0.406]
@@ -73,7 +76,7 @@ def validate(val_loader, model):
     model.eval()
     dtype = next(model.parameters()).dtype
     device = next(model.parameters()).device
-    with torch.no_grad():
+    with torch.no_grad(), brevitas_proxy_inference_mode(model, InferenceWeightProxyManager):
         for i, (images, target) in enumerate(tqdm(val_loader)):
             target = target.to(device)
             target = target.to(dtype)
