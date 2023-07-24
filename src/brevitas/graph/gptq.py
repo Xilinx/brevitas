@@ -26,6 +26,9 @@ class StopFwdException(Exception):
     pass
 
 
+DISABLE_PRE_FORWARD_HOOK = False
+
+
 @dataclass
 class LayerHandler:
     layer_names: Set = field(default_factory=set)
@@ -60,7 +63,8 @@ class gptq_mode:
             inplace: bool = True,
             use_quant_activations: bool = True,
             num_blocks: int = 100,
-            act_order: bool = False) -> None:
+            act_order: bool = False,
+            return_forward_output: bool = False) -> None:
         if not inplace:
             model = deepcopy(model)
         self.model = model
@@ -80,6 +84,7 @@ class gptq_mode:
         self.orig_forward = self.model.forward
         self.model.forward = self.catch_stopfwd
         self.group_of_parallel_layers = group_of_parallel_layers
+        self.return_forward_output = return_forward_output
 
     def _is_module_supported(self, module):
         if isinstance(module, SUPPORTED_CONV_OP):
@@ -158,6 +163,14 @@ class gptq_mode:
             self.orig_forward(*args, **kwargs)
         except StopFwdException:
             pass
+        finally:
+            if self.return_forward_output:
+                # If we want to return the output of the network, we need to disable all hooks
+                global DISABLE_PRE_FORWARD_HOOK
+                DISABLE_PRE_FORWARD_HOOK = True
+                out = self.orig_forward(*args, **kwargs)
+                DISABLE_PRE_FORWARD_HOOK = False
+                return out
 
 
 class GPTQ():
@@ -212,6 +225,9 @@ class GPTQ():
         self.parallel_layers = parallel_layers
 
     def update_batch(self, module, input, current_layer):
+        global DISABLE_PRE_FORWARD_HOOK
+        if DISABLE_PRE_FORWARD_HOOK:
+            return input
         # Update reference to current layer
         current_layer.layer_names.add(self.name)
 
