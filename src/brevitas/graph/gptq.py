@@ -26,9 +26,6 @@ class StopFwdException(Exception):
     pass
 
 
-DISABLE_PRE_FORWARD_HOOK = False
-
-
 @dataclass
 class LayerHandler:
     layer_names: Set = field(default_factory=set)
@@ -166,10 +163,11 @@ class gptq_mode:
         finally:
             if self.return_forward_output:
                 # If we want to return the output of the network, we need to disable all hooks
-                global DISABLE_PRE_FORWARD_HOOK
-                DISABLE_PRE_FORWARD_HOOK = True
+                for name, gptq_class in self.gptq_layers.items():
+                    gptq_class.disable_pre_forward_hook = True
                 out = self.orig_forward(*args, **kwargs)
-                DISABLE_PRE_FORWARD_HOOK = False
+                for name, gptq_class in self.gptq_layers.items():
+                    gptq_class.disable_pre_forward_hook = False
                 return out
 
 
@@ -224,9 +222,10 @@ class GPTQ():
         self.nsamples = 0
         self.parallel_layers = parallel_layers
 
+        self.disable_pre_forward_hook = False
+
     def update_batch(self, module, input, current_layer):
-        global DISABLE_PRE_FORWARD_HOOK
-        if DISABLE_PRE_FORWARD_HOOK:
+        if self.disable_pre_forward_hook:
             return input
         # Update reference to current layer
         current_layer.layer_names.add(self.name)
