@@ -224,7 +224,7 @@ class GPTQ():
 
         self.disable_pre_forward_hook = False
         # Some layers require knowledge from quant inputs to compute quant weights
-        self.quant_input = QuantTensor(value=None)
+        self.quant_input = None
 
     def update_batch(self, module, input, current_layer):
         if self.disable_pre_forward_hook:
@@ -401,7 +401,7 @@ class GPTQ():
             for i in range(count):
                 w = weight_block[:, i]  # [OC]
                 d = h_inv_block[:, i, i]  # [groups]
-                q = self.get_quant_weights(i, i1, i2, permutation_list, self.quant_input)  # [OC]
+                q = self.get_quant_weights(i, i1, i2, permutation_list)  # [OC]
 
                 error = (w - q) / d  # [OC]
                 if self.groups > 1:
@@ -428,7 +428,7 @@ class GPTQ():
                 perm = permutation_list[0]
                 weight[:, perm[i2:]] -= (error_block.matmul(h_inv[0, i1:i2, i2:])).to(dtype)
 
-    def get_quant_weights(self, i, i1, i2, permutation_list, quant_inp: QuantTensor = None):
+    def get_quant_weights(self, i, i1, i2, permutation_list):
         # We need to recompute quant weights at runtime since our float weights are being updated
 
         # For QuantLinear and for some QuantConvolutional layers, we exploit the possibility
