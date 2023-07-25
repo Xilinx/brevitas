@@ -20,8 +20,9 @@ from brevitas.export import export_torch_qcdq
 from brevitas.graph.equalize import activation_equalization_mode
 from brevitas.graph.quantize import preprocess_for_quantize
 from brevitas.graph.target.flexml import preprocess_for_flexml_quantize
-from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_act_equalization, apply_gpfq
+from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_act_equalization
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_bias_correction
+from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_gpfq
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_gptq
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_learned_round_learning
 from brevitas_examples.imagenet_classification.ptq.ptq_common import calibrate
@@ -166,7 +167,7 @@ add_bool_arg(
     default=True,
     help='Narrow range for weight quantization (default: enabled)')
 add_bool_arg(parser, 'gptq', default=True, help='GPTQ (default: enabled)')
-add_bool_arg(parser, 'gpfq', default=False, help='GPTQ (default: disabled)')
+add_bool_arg(parser, 'gpfq', default=False, help='GPFQ (default: disabled)')
 add_bool_arg(
     parser, 'gptq-act-order', default=False, help='GPTQ Act order heuristic (default: disabled)')
 add_bool_arg(parser, 'learned-round', default=False, help='Learned round (default: disabled)')

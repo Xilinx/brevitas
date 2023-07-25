@@ -1,7 +1,8 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from abc import ABC, abstractmethod
+from abc import ABC
+from abc import abstractmethod
 from copy import deepcopy
 from dataclasses import dataclass
 from dataclasses import field
@@ -17,9 +18,8 @@ try:
     from torch.linalg import LinAlgError
 except:
     LinAlgError = RuntimeError
-
-import unfoldNd
 import numpy as np
+import unfoldNd
 
 from brevitas.graph.calibrate import DisableEnableQuantization
 import brevitas.nn as qnn
@@ -40,6 +40,7 @@ class LayerHandler:
 
 
 class gpxq_mode(ABC):
+
     def __init__(
             self,
             model,
@@ -106,11 +107,7 @@ class gpxq_mode(ABC):
                 # Attach hooks for GPTQ
                 if self._is_module_supported(module):
                     gpxq = self.class_implementation(
-                        module,
-                        name,
-                        # num_blocks=self.num_blocks,
-                        act_order=self.act_order,
-                        parallel_layers=parallel_layers)
+                        module, name, act_order=self.act_order, parallel_layers=parallel_layers)
                     hook_fn = partial(gpxq.update_batch, current_layer=self.current_layer)
                     self.hook_dict[name] = module.register_forward_pre_hook(hook_fn)
                     self.gpxq_layers[name] = gpxq
@@ -140,6 +137,7 @@ class gpxq_mode(ABC):
     @abstractmethod
     def catch_stopfwd(self, *args, **kwargs):
         pass
+
 
 class gptq_mode(gpxq_mode):
     """
@@ -195,6 +193,7 @@ class gptq_mode(gpxq_mode):
                 for name, gptq_class in self.gptq_layers.items():
                     gptq_class.disable_pre_forward_hook = False
                 return out
+
 
 class gpfq_mode(gpxq_mode):
     """
@@ -256,7 +255,7 @@ class gpfq_mode(gpxq_mode):
         for module in self.model.modules():
             if hasattr(module, 'weight_orig_data'):
                 module.weight.data = quant_weight[module]
-        # Re-enable quantization. If activation quantization is disabled, 
+        # Re-enable quantization. If activation quantization is disabled,
         # we also disable bias quantization
         self.disable_quant_inference.enable_param_quantization(self.model, is_training=False)
         if self.use_quant_activations:
@@ -551,12 +550,11 @@ class GPTQ(GPxQ):
                     error_block[group_index].matmul(h_inv[group_index, i1:i2, i2:])).to(dtype)
 
 
-
-
 class GPFQ(GPxQ):
     """
     Based on https://github.com/YixuanSeanZhou/Quantized_Neural_Nets/tree/main
     """
+
     def __init__(self, layer, name, act_order, parallel_layers=1) -> None:
         super().__init__(layer, name, act_order, parallel_layers)
         self.float_input = None
@@ -564,9 +562,8 @@ class GPFQ(GPxQ):
         self.index_computed = False
         self.p = 0.25
 
-
     def update_batch(self, module, input, current_layer):
-        
+
         # Update reference to current layer
         current_layer.layer_names.add(self.name)
         is_quant_disabled = module.weight_quant.disable_quant
