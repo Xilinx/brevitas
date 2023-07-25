@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import os
 import pprint
 import random
 
@@ -25,7 +26,7 @@ torch.manual_seed(random_seed)
 desc = """Evaluating single-image super resolution models on the BSD300 dataset.
 
 Example:
->> python eval_model.py --data_root=data --model-path=outputs/model.pth --model=quant_espcn_x2_w8a8_base --upscale-factor=2
+>> python eval_model.py --data_root=data --model=quant_espcn_x2_w8a8_a2q_16b --use_pretrained --export_to_qonnx
 """
 
 parser = argparse.ArgumentParser(description='PyTorch BSD300 Validation')
@@ -63,6 +64,8 @@ def main():
 
     test_psnr = evaluate_avg_psnr(testloader, model)
     print(f"[{args.model}] test_psnr={test_psnr:.2f}")
+
+    os.makedirs(args.save_path, exist_ok=True)
 
     # evaluate accumulator bit widths
     if args.eval_acc_bw:

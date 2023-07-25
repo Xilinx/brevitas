@@ -23,6 +23,7 @@ from brevitas.core.scaling import AccumulatorAwareParameterPreScaling
 from brevitas.core.scaling import IntScaling
 from brevitas.core.scaling import ParameterFromStatsFromParameterScaling
 from brevitas.core.scaling import ParameterPreScalingWeightNorm
+from brevitas.core.scaling import ParameterScaling
 from brevitas.core.scaling import SCALAR_SHAPE
 from brevitas.core.scaling import SCALING_STATS_REDUCE_DIM
 from brevitas.core.scaling import StatsFromParameterScaling
@@ -340,11 +341,17 @@ class WeightNormPerChannelFloatDecoupled(SolveWeightScalingStatsInputDimsFromMod
     details on the arithmetic, see `ParameterPreScalingWeightNorm`. For further details
     on the weight normalization-based quantization technique, see the referenced paper."""
 
+    @value
+    def scaling_init(scaling_init_impl, bit_width):
+        scales = scaling_init_impl.parameter_list_stats() / (pow(2., bit_width - 1.) - 1.)
+        return scales
+
     proxy_class = DecoupledWeightQuantProxyFromInjector
     tensor_quant = DecoupledRescalingIntQuant
     decoupled_int_quant = DecoupledIntQuant
     tensor_clamp_impl = TensorClamp
-    scaling_impl = ParameterFromStatsFromParameterScaling
+    scaling_impl = ParameterScaling
+    scaling_init_impl = StatsFromParameterScaling
     restrict_scaling_impl = FloatRestrictValue
     scaling_stats_impl = AbsMax
     pre_scaling_impl = ParameterPreScalingWeightNorm
@@ -360,8 +367,8 @@ class WeightNormPerChannelFloatDecoupled(SolveWeightScalingStatsInputDimsFromMod
     scaling_stats_input_view_shape_impl = OverOutputChannelView
     stats_reduce_dim = SCALING_STATS_REDUCE_DIM
     scaling_per_output_channel = True
-    scaling_min_val = 1e-8
-    pre_scaling_min_val = 1e-8
+    scaling_min_val = 1e-10
+    pre_scaling_min_val = 1e-10
 
 
 class AccumulatorAwareWeightQuant(WeightNormPerChannelFloatDecoupled):
