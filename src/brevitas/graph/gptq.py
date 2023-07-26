@@ -381,15 +381,17 @@ class GPTQ():
                 if self.groups > 1:
                     # In case of depthwise convs, each weight matrix interacts with only
                     # part of the input values, thus with only one of the hessian matrix
-                    for ii in range(self.groups):
+                    for ii, perm in enumerate(permutation_list):
                         weight_block[ii, i:] -= error[ii] * h_inv_block[ii, i, i:]
+                        # We need to update the original weights
+                        weight[ii, perm[i1:i2][i:]] = weight_block[ii, i:].to(dtype)
                 else:
+                    perm = permutation_list[0]
                     weight_block[:, i:] -= error.unsqueeze(1).matmul(
                         h_inv_block[0, i, i:].unsqueeze(0))
+                    # We need to update the original weights
+                    weight[:, perm[i1:i2][i:]] = weight_block[:, i:].to(dtype)
                 error_block[:, i] = error
-
-                # We need to update the original weights
-                weight[:, perm[i1:i2][i:]] = weight_block[:, i:].to(dtype)
 
             if self.groups > 1:
                 # In case of depthwise convs, each weight matrix interacts with only
