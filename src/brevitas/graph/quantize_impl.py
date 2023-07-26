@@ -494,30 +494,41 @@ def layer_handler(
 
 
 def find_module(
-        model: nn.Module, layer_map: Dict[nn.Module, Optional[Dict]], module_to_replace: List):
+        model: nn.Module,
+        layer_map: Dict[nn.Module, Optional[Dict]],
+        module_to_replace: List,
+        allow_subclass: bool = False):
     """
     Iterate through the model looking at immediate children of every module to look for supported modules.
     This allows us to stop the search when we meet a top-level module that is supported.
     Specifically, it allows to map nn.MultiheadAttetion to its quantized counterpart and not its
     Linear submodules.
     """
-    if isinstance(model, tuple(layer_map.keys())):
-        module_to_replace.append(model)
+
+    if allow_subclass:
+        base_classes = type(model).__bases__
+    else:
+        base_classes = [type(model)]
+    matching_classes = [parent for parent in base_classes if parent in layer_map.keys()]
+
+    if len(matching_classes) == 1:
+        module_to_replace.append((model, matching_classes[0]))
     else:
         for module in model.children():
-            find_module(module, layer_map, module_to_replace)
+            find_module(module, layer_map, module_to_replace, allow_subclass)
 
 
-def layerwise_layer_handler(model: nn.Module, layer_map: Dict[nn.Module, Optional[Dict]]):
+def layerwise_layer_handler(
+        model: nn.Module, layer_map: Dict[nn.Module, Optional[Dict]], allow_subclass: bool = False):
     """
     Replace FP weight layers with their corresponding quantized version
     """
     module_to_replace = []
-    find_module(model, layer_map, module_to_replace)
+    find_module(model, layer_map, module_to_replace, allow_subclass)
     rewriters = []
-    for module in module_to_replace:
-        if layer_map[type(module)] is not None:
-            quant_module_class, quant_module_kwargs = layer_map[type(module)]
+    for module, class_type in module_to_replace:
+        if layer_map[class_type] is not None:
+            quant_module_class, quant_module_kwargs = layer_map[class_type]
             rewriter = ModuleToModuleByInstance(module, quant_module_class, **quant_module_kwargs)
             rewriters.append(rewriter)
     for rewriter in rewriters:
