@@ -616,7 +616,6 @@ class GPFQ(GPxQ):
                 if np.max(self.rand_indices) > inp.shape[0]:
                     indexes = self.rand_indices < inp.shape[0]
                     indexes = self.rand_indices[indexes]
-                    
 
                 inp = inp[indexes]
                 inp_processed.append(inp)
