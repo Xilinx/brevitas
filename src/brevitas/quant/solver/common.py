@@ -6,6 +6,7 @@ from brevitas.core.function_wrapper import *
 from brevitas.core.function_wrapper.learned_round import LearnedRoundHardSigmoid
 from brevitas.core.function_wrapper.learned_round import LearnedRoundSigmoid
 from brevitas.core.function_wrapper.learned_round import LearnedRoundSte
+from brevitas.core.function_wrapper.stochastic_round import StochasticRoundSte
 from brevitas.core.quant import *
 from brevitas.core.quant import QuantType
 from brevitas.core.restrict_val import *
@@ -45,6 +46,8 @@ def solve_float_to_int_impl_from_enum(impl_type):
         return DPURoundSte
     elif impl_type == FloatToIntImplType.LEARNED_ROUND:
         return LearnedRoundSte
+    elif impl_type == FloatToIntImplType.STOCHASTIC_ROUND:
+        return StochasticRoundSte
     else:
         raise Exception(f"{impl_type} not recognized.")
 
