@@ -223,6 +223,8 @@ class GPTQ():
         self.parallel_layers = parallel_layers
 
         self.disable_pre_forward_hook = False
+        # Some layers require knowledge from quant inputs to compute quant weights
+        self.quant_input = None
 
     def update_batch(self, module, input, current_layer):
         if self.disable_pre_forward_hook:
@@ -234,6 +236,15 @@ class GPTQ():
         inp = input[0]
         # If using Quant Activations, inp could be QuantTensor
         if isinstance(inp, QuantTensor):
+            if self.layer.weight_quant_requires_quant_input:
+                # Can minimize memory allocation by not storing actual values
+                self.quant_input = QuantTensor(
+                    value=None,
+                    scale=inp.scale,
+                    zero_point=inp.zero_point,
+                    bit_width=inp.bit_width,
+                    signed=inp.signed,
+                    training=inp.training)
             inp = inp.value
 
         # If input is unbatched, add batch_size = 1
@@ -427,7 +438,9 @@ class GPTQ():
         if isinstance(self.layer, qnn.QuantLinear):
             index = permutation_list[0][i1:i2][i]
             subtensor_slice_list = [None, (index, index + 1)]
-            q = self.layer.quant_weight(subtensor_slice_list=subtensor_slice_list).value  # [OC, 1]
+            q = self.layer.quant_weight(
+                subtensor_slice_list=subtensor_slice_list,
+                quant_input=self.quant_input).value  # [OC, 1]
         elif isinstance(self.layer, SUPPORTED_CONV_OP):
             # For depthwise and ConvTranspose we fall back to quantizing the entire martix.
             # For all other cases, we create a mask that represent the slicing we will perform on the weight matrix
@@ -435,7 +448,7 @@ class GPTQ():
             if self.groups > 1 or (self.groups == 1 and isinstance(
                     self.layer, (qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d))):
 
-                quant_weight = self.layer.quant_weight()
+                quant_weight = self.layer.quant_weight(quant_input=self.quant_input)
                 quant_weight = quant_weight.value
 
                 if isinstance(self.layer, (qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d)):
@@ -458,8 +471,9 @@ class GPTQ():
                     residual_index = residual_index // shape
                 index_2d_to_nd = index_2d_to_nd[::-1]
                 index_2d_to_nd.insert(0, None)
-                q = self.layer.quant_weight(subtensor_slice_list=index_2d_to_nd).value.flatten(
-                    1)  # [OC, 1]
+                q = self.layer.quant_weight(
+                    subtensor_slice_list=index_2d_to_nd,
+                    quant_input=self.quant_input).value.flatten(1)  # [OC, 1]
         # We need to remove the last dim
         q = q.squeeze(1)  # [OC]
         return q
