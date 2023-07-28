@@ -1,7 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from brevitas.core.function_wrapper import RoundSte
 from brevitas.core.quant.float import FloatQuant
 from brevitas.core.scaling.float_scaling import FloatScaling
 from brevitas.inject import ExtendedInjector
@@ -9,20 +8,21 @@ from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector
 from brevitas.quant.solver import ActQuantSolver
 from brevitas.quant.solver import WeightQuantSolver
+from brevitas.quant.solver.common import SolveTensorQuantFloatToIntImplFromEnum
 
 
-class FloatWeightBase(ExtendedInjector):
+class FloatWeightBase(SolveTensorQuantFloatToIntImplFromEnum):
     proxy_class = WeightQuantProxyFromInjector
     tensor_quant = FloatQuant
     signed = True
-    float_to_int_impl = RoundSte
+    float_to_int_impl_type = 'round'
 
 
-class FloatActBase(ExtendedInjector):
+class FloatActBase(SolveTensorQuantFloatToIntImplFromEnum):
     proxy_class = ActQuantProxyFromInjector
     tensor_quant = FloatQuant
     signed = True
-    float_to_int_impl = RoundSte
+    float_to_int_impl_type = 'round'
 
 
 class ScaledFloatWeightBase(FloatWeightBase, WeightQuantSolver):

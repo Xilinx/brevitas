@@ -43,6 +43,13 @@ def float_to_int_impl_to_enum(module):
     elif isinstance(module, CeilSte):
         return FloatToIntImplType.CEIL
     elif isinstance(module, DPURoundSte):
-        return DPURoundSte
+        return FloatToIntImplType.DPU
+    elif isinstance(module, LearnedRoundSte):
+        return FloatToIntImplType.LEARNED_ROUND
+    elif isinstance(module, StochasticRoundSte):
+        if module.deterministic_inference:
+            return FloatToIntImplType.ROUND
+        else:
+            return FloatToIntImplType.STOCHASTIC_ROUND
     else:
         return None
