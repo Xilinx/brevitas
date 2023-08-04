@@ -12,6 +12,8 @@ from brevitas.export.manager import _set_recurrent_layer_export_handler
 from brevitas.export.manager import _set_recurrent_layer_export_mode
 from brevitas.export.onnx.debug import DebugMarkerFunction
 from brevitas.export.onnx.manager import ONNXBaseManager
+from brevitas.export.onnx.finn.function.parameter import QuantizedConvNdFn
+from brevitas.export.onnx.finn.handler.parameter import FINNQuantConvNdHandler
 
 from .function import BrevitasBinaryQuantFn
 from .function import BrevitasQuantFn
@@ -42,14 +44,16 @@ class QONNXManager(ONNXBaseManager):
         BrevitasDecoupledWeightQuantProxyHandler,
         BrevitasDecoupledWeightQuantWithInputProxyHandler,
         BrevitasTruncQuantProxyHandler,
-        BrevitasQuantLSTMLayerHandler]
+        BrevitasQuantLSTMLayerHandler,
+        FINNQuantConvNdHandler]
 
     custom_fns = [
         DebugMarkerFunction,
         BrevitasQuantFn,
         BrevitasBinaryQuantFn,
         BrevitasTruncFn,
-        BrevitasQuantLSTMCellFn]
+        BrevitasQuantLSTMCellFn,
+        QuantizedConvNdFn]
 
     @classmethod
     def set_export_mode(cls, model: Module, enabled: bool):

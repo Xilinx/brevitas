@@ -3,6 +3,7 @@
 
 import torch
 from torch.autograd import Function
+from torch.onnx.symbolic_helper import _get_tensor_sizes
 
 from brevitas.core.bit_width import BitWidthConst
 from brevitas.core.function_wrapper.clamp import TensorClamp
@@ -10,6 +11,7 @@ from brevitas.core.quant import IntQuant
 from brevitas.core.quant import TruncIntQuant
 from brevitas.function import binary_sign
 from brevitas.quant.solver.common import solve_float_to_int_impl_from_enum
+
 
 DOMAIN_STRING = "onnx.brevitas"
 
@@ -19,6 +21,7 @@ class BrevitasBinaryQuantFn(Function):
     @staticmethod
     def symbolic(g, x, scale, zero_point, bit_width, narrow_range, signed, rounding_mode):
         ret = g.op(f'{DOMAIN_STRING}::BipolarQuant', x, scale)
+        ret.setType(x.type().with_sizes(_get_tensor_sizes(x)))
         return ret
 
     @staticmethod
@@ -40,6 +43,7 @@ class BrevitasQuantFn(Function):
             rounding_mode_s=rounding_mode,
             signed_i=int(signed),
             narrow_i=int(narrow_range))
+        ret.setType(x.type().with_sizes(_get_tensor_sizes(x)))
         return ret
 
     @staticmethod
