@@ -85,7 +85,8 @@ usage: ptq_evaluate.py [-h] --calibration-dir CALIBRATION_DIR --validation-dir
                        [--bias-corr | --no-bias-corr]
                        [--graph-eq-merge-bias | --no-graph-eq-merge-bias]
                        [--weight-narrow-range | --no-weight-narrow-range]
-                       [--gptq | --no-gptq]
+                       [--gpfq-p GPFQ_P] [--gptq | --no-gptq]
+                       [--gpfq | --no-gpfq]
                        [--gptq-act-order | --no-gptq-act-order]
                        [--learned-round | --no-learned-round]
                        [--calibrate-bn | --no-calibrate-bn]
@@ -171,8 +172,11 @@ optional arguments:
                         Enable Narrow range for weight quantization (default: enabled)
   --no-weight-narrow-range
                         Disable Narrow range for weight quantization (default: enabled)
+  --gpfq-p GPFQ_P       P parameter for GPFQ (default: 0.25)
   --gptq                Enable GPTQ (default: enabled)
   --no-gptq             Disable GPTQ (default: enabled)
+  --gpfq                Enable GPFQ (default: disabled)
+  --no-gpfq             Disable GPFQ (default: disabled)
   --gptq-act-order      Enable GPTQ Act order heuristic (default: disabled)
   --no-gptq-act-order   Disable GPTQ Act order heuristic (default: disabled)
   --learned-round       Enable Learned round (default: disabled)

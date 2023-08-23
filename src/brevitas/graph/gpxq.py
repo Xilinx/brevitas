@@ -167,10 +167,17 @@ class gptq_mode(gpxq_mode):
             inplace: bool = True,
             use_quant_activations: bool = True,
             num_blocks: int = 100,
+            return_forward_output: bool = False,
             act_order: bool = False) -> None:
         if not inplace:
             model = deepcopy(model)
-        super().__init__(model, group_of_parallel_layers, inplace, use_quant_activations, act_order)
+        super().__init__(
+            model,
+            group_of_parallel_layers,
+            inplace,
+            use_quant_activations,
+            act_order,
+            return_forward_output)
 
         self.orig_forward = self.model.forward
         self.model.forward = self.catch_stopfwd
@@ -187,11 +194,11 @@ class gptq_mode(gpxq_mode):
         finally:
             if self.return_forward_output:
                 # If we want to return the output of the network, we need to disable all hooks
-                for name, gptq_class in self.gptq_layers.items():
-                    gptq_class.disable_pre_forward_hook = True
+                for name, gpxq_class in self.gpxq_layers.items():
+                    gpxq_class.disable_pre_forward_hook = True
                 out = self.orig_forward(*args, **kwargs)
-                for name, gptq_class in self.gptq_layers.items():
-                    gptq_class.disable_pre_forward_hook = False
+                for name, gpxq_class in self.gpxq_layers.items():
+                    gpxq_class.disable_pre_forward_hook = False
                 return out
 
 
@@ -222,14 +229,23 @@ class gpfq_mode(gpxq_mode):
             group_of_parallel_layers: Optional[List[str]] = None,
             inplace: bool = True,
             use_quant_activations: bool = True,
+            p: int = 0.25,
+            return_forward_output: bool = False,
             act_order: bool = False) -> None:
         if not inplace:
             model = deepcopy(model)
-        super().__init__(model, group_of_parallel_layers, inplace, use_quant_activations, act_order)
+        super().__init__(
+            model,
+            group_of_parallel_layers,
+            inplace,
+            use_quant_activations,
+            act_order,
+            return_forward_output)
 
         self.orig_forward = self.model.forward
         self.model.forward = self.catch_stopfwd
         self.class_implementation = GPFQ
+        GPFQ.p = p
 
     def catch_stopfwd(self, *args, **kwargs):
         # Collect quant input
@@ -263,6 +279,15 @@ class gpfq_mode(gpxq_mode):
         else:
             self.disable_quant_inference.disable_bias_quantization(self.model, is_training=False)
 
+        if self.return_forward_output:
+            # If we want to return the output of the network, we need to disable all hooks
+            for name, gpxq_class in self.gpxq_layers.items():
+                gpxq_class.disable_pre_forward_hook = True
+            out = self.orig_forward(*args, **kwargs)
+            for name, gpxq_class in self.gpxq_layers.items():
+                gpxq_class.disable_pre_forward_hook = False
+            return out
+
 
 class GPxQ(ABC):
 
@@ -291,7 +316,6 @@ class GPxQ(ABC):
         # Some layers require knowledge from quant inputs to compute quant weights
         self.quant_input = None
 
-    
     def process_input(self, inp):
         # Input is a tuple, so we take first element
         inp = inp[0]
@@ -321,19 +345,19 @@ class GPxQ(ABC):
         return inp
 
     @abstractmethod
-    def update_batch(self, module, input, current_layer):
+    def update_batch(self):
         pass
 
     @abstractmethod
-    def single_layer_update(self, percdamp=.01):
+    def single_layer_update(self):
         pass
 
     def get_quant_weights(self, i, i1, permutation_list):
         # We need to recompute quant weights at runtime since our float weights are being updated
-        # Add offset in case of blockwise computation (e.g., GPTQ)
+        # Add offset in case of blockwise computation
         i = i1 + i
         # For QuantLinear and for some QuantConvolutional layers, we exploit the possibility
-        # of quantizing only a subset of the entire matrix speeding up the computation of GPTQ
+        # of quantizing only a subset of the entire matrix speeding up the computation of GPxQ
         if isinstance(self.layer, qnn.QuantLinear):
             index = permutation_list[0][i]
             subtensor_slice_list = [None, (index, index + 1)]
@@ -414,6 +438,9 @@ class GPTQ(GPxQ):
         self.nsamples = 0
 
     def update_batch(self, module, input, current_layer):
+        if self.disable_pre_forward_hook:
+            return input
+
         # Update reference to current layer
         current_layer.layer_names.add(self.name)
         inp = self.process_input(input)
@@ -554,15 +581,22 @@ class GPFQ(GPxQ):
     """
     Based on https://github.com/YixuanSeanZhou/Quantized_Neural_Nets/tree/main
     """
+    p = 0.25
 
     def __init__(self, layer, name, act_order, parallel_layers=1) -> None:
+
+        if act_order:
+            raise ValueError("Act_order is not supported in GPFQ")
+
         super().__init__(layer, name, act_order, parallel_layers)
         self.float_input = None
         self.quantized_input = None
         self.index_computed = False
-        self.p = 0.25
+        self.p = GPFQ.p
 
     def update_batch(self, module, input, current_layer):
+        if self.disable_pre_forward_hook:
+            return input
 
         # Update reference to current layer
         current_layer.layer_names.add(self.name)
@@ -631,7 +665,13 @@ class GPFQ(GPxQ):
                 self.quantized_input = inp_processed
             else:
                 self.quantized_input = torch.cat([self.quantized_input, inp_processed], dim=1)
-        raise StopFwdException
+        # If we are executing GPFQ with group of parallel layers, we keep track of how many forward
+        # we executed. Once we executed as many as the number of parallel_layers, we raise
+        # StopFwdException
+        current_layer.forward_count += 1
+        if current_layer.forward_count == len(self.parallel_layers):
+            current_layer.forward_count = 0
+            raise StopFwdException
 
     def single_layer_update(self):
         weight = self.layer.weight.data
@@ -641,12 +681,14 @@ class GPFQ(GPxQ):
             if isinstance(self.layer, (qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d)):
                 weight = weight.transpose(1, 0)  # This performs a view
             weight = weight.flatten(1)
-        weight = weight.view(self.groups, -1, weight.shape[-1]) # [Groups, OC/Groups, IC]
-        U = torch.zeros(weight.shape[0], weight.shape[1], self.float_input.shape[1], device=dev, dtype=dtype)
+        weight = weight.view(self.groups, -1, weight.shape[-1])  # [Groups, OC/Groups, IC]
+        U = torch.zeros(
+            weight.shape[0], weight.shape[1], self.float_input.shape[1], device=dev, dtype=dtype)
 
         for t in range(weight.shape[-1]):
             for group_index in range(self.groups):
-                U[group_index] += weight[group_index, :, t].unsqueeze(1) * self.float_input[group_index, :, t].unsqueeze(0) #[OC/Groups, 1] * [1, INSHAPE[1]]
+                U[group_index] += weight[group_index, :, t].unsqueeze(1) * self.float_input[
+                    group_index, :, t].unsqueeze(0)  #[OC/Groups, 1] * [1, INSHAPE[1]]
                 norm = torch.linalg.norm(self.quantized_input[group_index, :, t], 2) ** 2
                 if norm > 0:
                     q_arg = U[group_index].matmul(self.quantized_input[group_index, :, t]) / norm
@@ -656,7 +698,8 @@ class GPFQ(GPxQ):
                 weight[group_index, :, t] = q_arg
             q = self.get_quant_weights(t, 0, [torch.tensor(range(weight.shape[-1]))])
             for group_index in range(self.groups):
-                U[group_index] -= q[group_index].unsqueeze(1) * self.quantized_input[group_index, :, t].unsqueeze(0)
+                U[group_index] -= q[group_index].unsqueeze(1) * self.quantized_input[
+                    group_index, :, t].unsqueeze(0)
 
         del self.float_input
         del self.quantized_input

@@ -166,6 +166,8 @@ add_bool_arg(
     'weight-narrow-range',
     default=True,
     help='Narrow range for weight quantization (default: enabled)')
+parser.add_argument(
+    '--gpfq-p', default=0.25, type=float, help='P parameter for GPFQ (default: 0.25)')
 add_bool_arg(parser, 'gptq', default=True, help='GPTQ (default: enabled)')
 add_bool_arg(parser, 'gpfq', default=False, help='GPFQ (default: disabled)')
 add_bool_arg(
@@ -193,6 +195,7 @@ def main():
         f"a{args.act_bit_width}"
         f"w{args.weight_bit_width}_"
         f"{'gptq_' if args.gptq else ''}"
+        f"{'gpfq_' if args.gpfq else ''}"
         f"{'gptq_act_order_' if args.gptq_act_order else ''}"
         f"{'learned_round_' if args.learned_round else ''}"
         f"{'weight_narrow_range_' if args.weight_narrow_range else ''}"
@@ -213,6 +216,8 @@ def main():
         f"Activation bit width: {args.act_bit_width} - "
         f"Weight bit width: {args.weight_bit_width} - "
         f"GPTQ: {args.gptq} - "
+        f"GPFQ: {args.gpfq} - "
+        f"GPFQ P: {args.gpfq_p} - "
         f"GPTQ Act Order: {args.gptq_act_order} - "
         f"Learned Round: {args.learned_round} - "
         f"Weight narrow range: {args.weight_narrow_range} - "
@@ -303,12 +308,11 @@ def main():
 
     if args.gpfq:
         print("Performing GPFQ:")
-        apply_gpfq(calib_loader, quant_model)
+        apply_gpfq(calib_loader, quant_model, p=args.gpfq_p)
 
     if args.gptq:
         print("Performing GPTQ:")
-        apply_gptq(calib_loader, quant_model, args.gptq_act_order)
-    
+        apply_gptq(calib_loader, quant_model, act_order=args.gptq_act_order)
 
     if args.learned_round:
         print("Applying Learned Round:")
