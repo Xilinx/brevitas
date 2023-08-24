@@ -5,7 +5,7 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 
 import torch
 
-from brevitas.graph.gptq import gptq_mode
+from brevitas.graph.gpxq import gptq_mode
 from brevitas_examples.llm.llm_quant.run_utils import apply_layer_ptq_fn
 
 
