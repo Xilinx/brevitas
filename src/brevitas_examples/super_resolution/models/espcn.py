@@ -12,10 +12,14 @@ from .common import CommonIntAccumulatorAwareWeightQuant
 from .common import CommonIntWeightPerChannelQuant
 from .common import CommonUintActQuant
 from .common import ConstUint8ActQuant
-from .common import QuantNearestNeighborConvolution
 
 __all__ = [
-    "float_espcn", "quant_espcn", "quant_espcn_a2q", "quant_espcn_base", "FloatESPCN", "QuantESPCN"]
+    "float_espcn", 
+    "quant_espcn", 
+    "quant_espcn_a2q", 
+    "quant_espcn_base", 
+    "FloatESPCN", 
+    "QuantESPCN"]
 
 IO_DATA_BIT_WIDTH = 8
 IO_ACC_BIT_WIDTH = 32
@@ -29,9 +33,7 @@ def weight_init(layer):
 
 
 class FloatESPCN(nn.Module):
-    """Floating-point version of FINN-Friendly Quantized Efficient Sub-Pixel Convolution
-    Network (ESPCN) as used in Colbert et al. (2023) - `Quantized Neural Networks for
-    Low-Precision Accumulation with Guaranteed Overflow Avoidance`."""
+    """Floating-point version of Efficient Sub-Pixel Convolution Network (ESPCN)"""
 
     def __init__(self, upscale_factor: int = 3, num_channels: int = 3):
         super(FloatESPCN, self).__init__()
@@ -45,20 +47,27 @@ class FloatESPCN(nn.Module):
             padding=2,
             bias=True)
         self.conv2 = nn.Conv2d(
-            in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=1, bias=True)
+            in_channels=64, 
+            out_channels=64, 
+            kernel_size=3, 
+            stride=1, 
+            padding=1, 
+            bias=True)
         self.conv3 = nn.Conv2d(
-            in_channels=64, out_channels=32, kernel_size=3, stride=1, padding=1, bias=True)
-        self.conv4 = nn.Sequential()
-        self.conv4.add_module("interp", nn.UpsamplingNearest2d(scale_factor=upscale_factor))
-        self.conv4.add_module(
-            "conv",
-            nn.Conv2d(
-                in_channels=32,
-                out_channels=num_channels,
-                kernel_size=3,
-                stride=1,
-                padding=1,
-                bias=True))
+            in_channels=64, 
+            out_channels=32, 
+            kernel_size=3, 
+            stride=1, 
+            padding=1, 
+            bias=True)
+        self.conv4 = nn.Conv2d(
+            in_channels=32,
+            out_channels=num_channels * pow(upscale_factor, 2),
+            kernel_size=3,
+            stride=1,
+            padding=1,
+            bias=False)
+        self.pixel_shuffle = nn.PixelShuffle(upscale_factor)
 
         self.bn1 = nn.BatchNorm2d(64)
         self.bn2 = nn.BatchNorm2d(64)
@@ -75,15 +84,13 @@ class FloatESPCN(nn.Module):
         x = self.relu(self.bn1(self.conv1(x)))
         x = self.relu(self.bn2(self.conv2(x)))
         x = self.relu(self.bn3(self.conv3(x)))
-        x = self.conv4(x)
-        x = self.out(x)
+        x = self.pixel_shuffle(self.conv4(x))
+        x = self.out(x) # To mirror quant version
         return x
 
 
 class QuantESPCN(FloatESPCN):
-    """FINN-Friendly Quantized Efficient Sub-Pixel Convolution Network (ESPCN) as
-    used in Colbert et al. (2023) - `Quantized Neural Networks for Low-Precision
-    Accumulation with Guaranteed Overflow Avoidance`."""
+    """FINN-Friendly Quantized Efficient Sub-Pixel Convolution Network (ESPCN)"""
 
     def __init__(
             self,
@@ -130,27 +137,28 @@ class QuantESPCN(FloatESPCN):
             kernel_size=3,
             stride=1,
             padding=1,
+            bias=True,
             input_bit_width=act_bit_width,
             input_quant=CommonUintActQuant,
             weight_bit_width=weight_bit_width,
             weight_accumulator_bit_width=acc_bit_width,
             weight_quant=weight_quant)
-        # Quantizing the weights and input activations to 8-bit integers
-        # and not applying accumulator constraint to the final convolution
-        # layer (i.e., accumulator_bit_width=32).
-        self.conv4 = QuantNearestNeighborConvolution(
+        # We quantize the weights and input activations of the final layer
+        # to 8-bit integers. We do not apply the accumulator constraint to
+        # the final convolution layer. FINN does not currently support 
+        # per-tensor quantization or biases for sub-pixel convolution layers.
+        self.conv4 = qnn.QuantConv2d(
             in_channels=32,
-            out_channels=num_channels,
+            out_channels=num_channels * pow(upscale_factor, 2),
             kernel_size=3,
             stride=1,
             padding=1,
-            upscale_factor=upscale_factor,
-            bias=True,
-            signed_act=False,
-            act_bit_width=IO_DATA_BIT_WIDTH,
-            acc_bit_width=IO_ACC_BIT_WIDTH,
-            weight_quant=weight_quant,
-            weight_bit_width=IO_DATA_BIT_WIDTH)
+            bias=False,
+            input_bit_width=act_bit_width,
+            input_quant=CommonUintActQuant,
+            weight_bit_width=IO_DATA_BIT_WIDTH,
+            weight_quant=CommonIntWeightPerChannelQuant,
+            weight_scaling_per_output_channel=False)
 
         self.bn1 = nn.BatchNorm2d(64)
         self.bn2 = nn.BatchNorm2d(64)
