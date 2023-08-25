@@ -52,6 +52,9 @@ from torchvision.transforms import CenterCrop
 from torchvision.transforms import Compose
 from torchvision.transforms import Resize
 from torchvision.transforms import ToTensor
+from torchvision.transforms import RandomCrop
+from torchvision.transforms import RandomVerticalFlip
+from torchvision.transforms import RandomHorizontalFlip
 
 __all__ = ["get_bsd300_dataloaders"]
 
@@ -79,21 +82,21 @@ def load_img_rbg(filepath):
 
 class DatasetFromFolder(data.Dataset):
 
-    def __init__(self, image_dir, input_transform=None, target_transform=None):
+    def __init__(self, image_dir, shared_transform, input_transform, target_transform):
         super(DatasetFromFolder, self).__init__()
         self.image_filenames = [
             os.path.join(image_dir, x) for x in os.listdir(image_dir) if is_valid_image_file(x)]
 
+        self.shared_transform = shared_transform
         self.input_transform = input_transform
         self.target_transform = target_transform
 
     def __getitem__(self, index):
         input = load_img_rbg(self.image_filenames[index])
+        input = self.shared_transform(input)
         target = input.copy()
-        if self.input_transform:
-            input = self.input_transform(input)
-        if self.target_transform:
-            target = self.target_transform(target)
+        input = self.input_transform(input)
+        target = self.target_transform(target)
         return input, target
 
     def __len__(self):
@@ -122,35 +125,45 @@ def calculate_valid_crop_size(crop_size, upscale_factor):
     return crop_size - (crop_size % upscale_factor)
 
 
+def train_transforms(crop_size):
+    return Compose([
+        RandomCrop(crop_size, pad_if_needed=True),
+        RandomHorizontalFlip(),
+        RandomVerticalFlip()])
+
+
+def test_transforms(crop_size):
+    return Compose([CenterCrop(crop_size)])
+
+
 def input_transform(crop_size, upscale_factor):
     return Compose([
-        CenterCrop(crop_size),
         Resize(crop_size // upscale_factor),
         ToTensor(),])
 
 
-def target_transform(crop_size):
-    return Compose([
-        CenterCrop(crop_size),
-        ToTensor(),])
+def target_transform():
+    return Compose([ToTensor()])
 
 
-def get_training_set(upscale_factor: int, root_dir: str, crop_size: int = 256):
+def get_training_set(upscale_factor: int, root_dir: str, crop_size: int):
     train_dir = os.path.join(root_dir, "train")
     crop_size = calculate_valid_crop_size(crop_size, upscale_factor)
     return DatasetFromFolder(
         train_dir,
+        shared_transform=train_transforms(crop_size),
         input_transform=input_transform(crop_size, upscale_factor),
-        target_transform=target_transform(crop_size))
+        target_transform=target_transform())
 
 
-def get_test_set(upscale_factor: int, root_dir: str, crop_size: int = 256):
+def get_test_set(upscale_factor: int, root_dir: str, crop_size: int):
     test_dir = os.path.join(root_dir, "test")
     crop_size = calculate_valid_crop_size(crop_size, upscale_factor)
     return DatasetFromFolder(
         test_dir,
+        shared_transform=test_transforms(crop_size),
         input_transform=input_transform(crop_size, upscale_factor),
-        target_transform=target_transform(crop_size))
+        target_transform=target_transform())
 
 
 def get_bsd300_dataloaders(
