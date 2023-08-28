@@ -404,11 +404,11 @@ class Int8ActPerTensorFloatBatchQuant1d(IntQuant,
 class Int8WeightNormL2PerChannelFixedPoint(WeightNormPerChannelFloatDecoupled):
     """
     Experimental 8-bit narrow signed integer quantizer with learned per-channel scaling factors
-    and L2 weight normalization based on `Quantized Neural Networks for Low-Precision Accumulation
-    with Guaranteed Overflow Avoidance` by I. Colbert, A. Pappalardo, and J. Petri-Koenig
-    (https://arxiv.org/abs/2301.13376). The quantizer learns scaling factors in the float domain and
-    learns vector parameter g in the log domain with the half-way rounding function. Suitable for
-    retraining from floating-point depthwise separable weights.
+    and L2 weight normalization based on `A2Q: Accumulator-Aware Quantization with Guaranteed Overflow
+    Avoidance` by I. Colbert, A. Pappalardo, and J. Petri-Koenig (https://arxiv.org/abs/2308.13504).
+    The quantizer learns scaling factors in the float domain and learns vector parameter g in the log
+    domain with the half-way rounding function. Suitable for retraining from floating-point depthwise
+    separable weights.
 
     Examples:
         >>> from brevitas.nn import QuantConv2d
@@ -421,11 +421,11 @@ class Int8WeightNormL2PerChannelFixedPoint(WeightNormPerChannelFloatDecoupled):
 class Int8AccumulatorAwareWeightQuant(AccumulatorAwareWeightQuant):
     """
     Experimental 8-bit narrow signed accumulator-aware integer quantizer with learned per-channel
-    scaling factors based on `Quantized Neural Networks for Low-Precision Accumulation with Guaranteed
-    Overflow Avoidance` by I.Colbert, A.Pappalardo, and J.Petri-Koenig (https://arxiv.org/abs/2301.13376).
-    The quantizer learns scaling factors in the float domain and learns vector parameter g in the log
-    domain with the round-to-zero rounding function. The norm is clamped according the the specified
-    accumulator bit-width. Suitable for retraining from floating-point depthwise separable weights.
+    scaling factors based on `A2Q: Accumulator-Aware Quantization with Guaranteed Overflow Avoidance`
+    by I.Colbert, A.Pappalardo, and J.Petri-Koenig (https://arxiv.org/abs/2308.13504). The quantizer
+    learns scaling factors in the float domain and learns vector parameter g in the log domain with
+    the round-to-zero rounding function. The norm is clamped according the the specified accumulator
+    bit-width. Suitable for retraining from floating-point depthwise separable weights.
 
     Examples:
         >>> from brevitas.nn import QuantConv2d
