@@ -112,6 +112,10 @@ parser.add_argument(
     help='Group size for per_group input quantization. Default: 64.')
 parser.add_argument(
     '--quantize-input-zero-point', action='store_true', help='Quantize input zero-point.')
+parser.add_argument(
+    '--quantize-embedding', action='store_true', help='Quantize first nn.Embedding layer.')
+parser.add_argument(
+    '--quantize-last-layer', action='store_true', help='Quantize last nn.Linear layer.')
 parser.add_argument('--gptq', action='store_true', help='Apply GPTQ.')
 parser.add_argument('--act-calibration', action='store_true', help='Apply activation calibration.')
 parser.add_argument('--bias-corr', action='store_true', help='Apply bias correction.')
@@ -254,10 +258,15 @@ def main():
             ref_kwargs={'input_ids': calibration_loader[0]})
         print("Act equalization applied.")
 
+    if args.quantize_embedding or args.quantize_last_layer:
+        layers_to_quantize = model
+    else:
+        layers_to_quantize = get_model_impl(model).layers
+
     if not args.no_quantize:
         print("Applying model quantization...")
         quantize_model(
-            get_model_impl(model).layers,
+            layers_to_quantize,
             dtype=dtype,
             weight_quant_type=args.weight_quant_type,
             weight_bit_width=args.weight_bit_width,
@@ -274,7 +283,11 @@ def main():
             input_quant_granularity=args.input_quant_granularity,
             input_group_size=args.input_group_size,
             quantize_input_zero_point=args.quantize_input_zero_point,
+            quantize_embedding=args.quantize_embedding,
             seqlen=args.seqlen)
+        # Tie back first/last layer weights in case they got untied
+        model.tie_weights()
+        print(model)
         print("Model quantization applied.")
 
     if args.act_calibration:

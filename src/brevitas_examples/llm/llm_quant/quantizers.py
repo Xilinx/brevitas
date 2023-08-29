@@ -37,6 +37,8 @@ class IntWeightSymmetricGroupQuant(Int8WeightPerChannelFloat):
             return module.weight.size(0), module.weight.size(1) // block_size, block_size, module.weight.size(2), module.weight.size(3)
         elif isinstance(module, nn.Linear):
             return module.weight.size(0), module.weight.size(1) // block_size, block_size
+        elif isinstance(module, nn.Embedding):
+            return module.weight.size(0), module.weight.size(1) // block_size, block_size
         else:
             raise RuntimeError("Module not supported.")
 
@@ -45,6 +47,8 @@ class IntWeightSymmetricGroupQuant(Int8WeightPerChannelFloat):
         if isinstance(module, nn.Conv2d):
             return module.weight.size(0), module.weight.size(1) // block_size, 1, module.weight.size(2), module.weight.size(3)
         elif isinstance(module, nn.Linear):
+            return module.weight.size(0), module.weight.size(1) // block_size, 1
+        elif isinstance(module, nn.Embedding):
             return module.weight.size(0), module.weight.size(1) // block_size, 1
         else:
             raise RuntimeError("Module not supported.")

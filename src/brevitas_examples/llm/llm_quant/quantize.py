@@ -113,6 +113,7 @@ def quantize_model(
         input_quant_granularity=None,
         input_group_size=None,
         quantize_input_zero_point=False,
+        quantize_embedding=False,
         seqlen=None):
     """
     Replace float layers with quant layers in the target model
@@ -281,4 +282,9 @@ def quantize_model(
     layer_map = {
         nn.Linear: (qnn.QuantLinear, quant_linear_kwargs),
         nn.MultiheadAttention: (qnn.QuantMultiheadAttention, quant_mha_kwargs)}
+
+    if quantize_embedding:
+        quant_embedding_kwargs = {'weight_quant': weight_quant, 'dtype': dtype}
+        layer_map[nn.Embedding] = (qnn.QuantEmbedding, quant_embedding_kwargs)
+
     layerwise_quantize(model=model, compute_layer_map=layer_map)
