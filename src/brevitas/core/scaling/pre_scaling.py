@@ -22,9 +22,8 @@ __all__ = [
 class ParameterPreScalingWeightNorm(brevitas.jit.ScriptModule):
     """
     ScriptModule implementation of learned pre-clipping scaling factor to support weight
-    normalization-based quantization as proposed in `Quantized Neural Networks for Low-
-    Precision Accumulation with Guaranteed Overflow Avoidance` by I. Colbert, A. Pappalardo,
-    and J. Petri-Koenig.
+    normalization-based quantization as proposed in `A2Q: Accumulator-Aware Quantization
+    with Guaranteed Overflow Avoidance` by I. Colbert, A. Pappalardo, and J. Petri-Koenig.
 
     The module parameterizes the pre-clipping scaling factor (i.e., `pre_scale`) of the
     decoupled tensor quantizer (i.e., `DecoupledRescalingIntQuant`) by combining the
@@ -114,9 +113,8 @@ class ParameterPreScalingWeightNorm(brevitas.jit.ScriptModule):
 class AccumulatorAwareParameterPreScaling(ParameterPreScalingWeightNorm):
     """
     ScriptModule implementation of learned pre-clipping scaling factor to support
-    accumulator-aware quantizaion (A2Q) as proposed in `Quantized Neural Networks for Low-
-    Precision Accumulation with Guaranteed Overflow Avoidance` by I. Colbert, A. Pappalardo,
-    and J. Petri-Koenig.
+    accumulator-aware quantizaion (A2Q) as proposed in `A2Q: Accumulator-Aware Quantization
+    with Guaranteed Overflow Avoidance` by I. Colbert, A. Pappalardo, and J. Petri-Koenig.
 
     The module parameterizes the pre-clipping scaling factor (i.e., `pre_scale`) of the
     decoupled tensor quantizer (i.e., `DecoupledRescalingIntQuant`) by combining the
