@@ -6,7 +6,10 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 from abc import ABC
 from abc import abstractmethod
 from contextlib import contextmanager
+import math
+import warnings
 
+import numpy as np
 import torch
 from torch.nn import Module
 
@@ -127,6 +130,41 @@ class LinearWeightBlockQuantHandler(WeightBlockQuantHandlerBase, ABC):
                     shift_factor = (bit_width * (j - i))
                     packed_int_weights[:, column] |= int_weights[:, j] << shift_factor
                 i += 8 // bit_width
+            return packed_int_weights
+
+        # pack 3b values into 3 bytes, 5b values into 5 bytes, 6b values into 4 bytes
+        elif bit_width == 3 or bit_width == 5 or bit_width == 6:
+            padding = (int_weights.shape[1] * bit_width) % 8
+            if padding > 0:
+                warnings.warn(
+                    f"Weight tensor does not divide by {bit_width}, zero-padding columns by {padding}."
+                )
+            packed_int_weights = torch.zeros(
+                (int_weights.shape[0], int_weights.shape[1] * bit_width // 8 + padding),
+                device=int_weights.device,
+                dtype=int_weights.dtype)
+
+            def lcm(x, y):
+                from fractions import gcd
+                return x * y // gcd(x, y)
+
+            num_packed_bits = lcm(bit_width, 8)
+            num_packed_bytes = num_packed_bits // 8
+            num_packed_elems = num_packed_bits // bit_width
+
+            i = 0
+            for column in range(0, packed_int_weights.shape[1], num_packed_bytes):
+                # cast to uint8 since it's the only dtype supported by unpackbits
+                # the bit-wise representation of int8 values isn't affected
+                bits_to_unpack = int_weights[:, i:i + num_packed_elems].numpy().astype(np.uint8)
+                unpacked_bits = np.unpackbits(bits_to_unpack, axis=1)
+                unpacked_bits = unpacked_bits.reshape(unpacked_bits.shape[0], -1, 8)
+                unpacked_bits = unpacked_bits[:, :, -bit_width:]
+                unpacked_bits = unpacked_bits.reshape(unpacked_bits.shape[0], -1)
+                packed_bits = np.packbits(unpacked_bits, axis=1)
+                packed_int_weights[:, column:column +
+                                   num_packed_bytes] |= torch.from_numpy(packed_bits)
+                i += num_packed_elems
             return packed_int_weights
         else:
             raise ValueError(f"Bit width {bit_width} not supported.")
