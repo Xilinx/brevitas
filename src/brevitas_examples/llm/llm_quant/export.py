@@ -140,7 +140,7 @@ class LinearWeightBlockQuantHandler(WeightBlockQuantHandlerBase, ABC):
                     f"Weight tensor does not divide by {bit_width}, zero-padding columns by {padding}."
                 )
             packed_int_weights = torch.zeros(
-                (int_weights.shape[0], int_weights.shape[1] * bit_width // 8 + padding),
+                (int_weights.shape[0], (int_weights.shape[1] * bit_width + padding) // 8),
                 device=int_weights.device,
                 dtype=int_weights.dtype)
 
