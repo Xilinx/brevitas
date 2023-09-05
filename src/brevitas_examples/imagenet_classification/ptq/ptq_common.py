@@ -13,8 +13,8 @@ from brevitas.graph.calibrate import bias_correction_mode
 from brevitas.graph.calibrate import calibration_mode
 from brevitas.graph.calibrate import norm_correction_mode
 from brevitas.graph.equalize import activation_equalization_mode
-from brevitas.graph.gpxq import gpfq_mode
-from brevitas.graph.gpxq import gptq_mode
+from brevitas.graph.gpfq import gpfq_mode
+from brevitas.graph.gptq import gptq_mode
 from brevitas.graph.quantize import layerwise_quantize
 from brevitas.graph.quantize import quantize
 from brevitas.graph.target.flexml import quantize_flexml
