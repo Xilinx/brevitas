@@ -74,8 +74,8 @@ def check_tensors_same_ptr(tensor_list):
         if hasattr(t, 'data_ptr'):
             ptr = t.data_ptr()
             pointers.append(ptr)
-        elif hasattr(t, 'value') and hasattr(t.value, 'data_ptr'):
-            pointers.append(t.value.data_ptr())
+        elif hasattr(t, 'qt_value') and hasattr(t.qt_value, 'data_ptr'):
+            pointers.append(t.qt_value.data_ptr())
         else:
             return False
     return all(p == pointers[0] for p in pointers)

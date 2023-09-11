@@ -479,7 +479,7 @@ class MSE(torch.nn.Module):
         self.set_local_loss_mode(True)
         quant_value = self.proxy_forward(x)
         if isinstance(quant_value, tuple):
-            quant_value = quant_value[0]
+            quant_value = quant_value.value
         loss = self.mse_loss_fn(x, quant_value)
         self.set_local_loss_mode(False)
         return loss

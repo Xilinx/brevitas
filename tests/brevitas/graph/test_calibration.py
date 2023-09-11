@@ -46,7 +46,8 @@ def test_scale_factors_ptq_calibration_po2(inp):
 
         def __init__(self):
             super(TestModel, self).__init__()
-            self.act = qnn.QuantIdentity(act_quant=Int8ActPerTensorFixedPoint)
+            self.act = qnn.QuantIdentity(
+                act_quant=Int8ActPerTensorFixedPoint, return_quant_tensor=True)
 
         def forward(self, x):
             return self.act(x)

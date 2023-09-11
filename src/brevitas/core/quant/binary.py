@@ -58,7 +58,7 @@ class BinaryQuant(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
         scale = self.scaling_impl(x)
-        y = binary_sign_ste(x) * scale
+        y = binary_sign_ste(x)  #* scale
         y = self.delay_wrapper(x, y)
         return y, scale, self.zero_point(), self.bit_width()
 
@@ -119,6 +119,6 @@ class ClampedBinaryQuant(brevitas.jit.ScriptModule):
     def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
         scale = self.scaling_impl(x)
         y = self.tensor_clamp_impl(x, -scale, scale)
-        y = binary_sign_ste(y) * scale
+        y = binary_sign_ste(y)  #* scale
         y = self.delay_wrapper(x, y)
         return y, scale, self.zero_point(), self.bit_width()

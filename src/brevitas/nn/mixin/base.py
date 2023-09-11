@@ -167,14 +167,18 @@ class QuantLayerMixin(ExportMixin):
                 cached_inp = _CachedIO(inp.detach(), self.cache_quant_io_metadata_only)
                 self._cached_inp = cached_inp
         else:
-            inp = QuantTensor(inp, training=self.training)
+            # inp = QuantTensor(inp, scale=torch.tensor(1.0, device=inp.device, dtype=inp.dtype),  training=self.training)
             if not self.training and self.cache_inference_quant_inp:
                 cached_inp = _CachedIO(inp.detach(), self.cache_quant_io_metadata_only)
                 self._cached_inp = cached_inp
+        # print(inp)
         # Remove any naming metadata to avoid dowmstream errors
         # Avoid inplace operations on the input in case of forward hooks
         if not torch._C._get_tracing_state():
-            inp = inp.set(value=inp.value.rename(None))
+            if isinstance(inp, QuantTensor):
+                inp = inp.set(qt_value=inp.qt_value.rename(None))
+            else:
+                inp = inp.rename(None)
         return inp
 
     def pack_output(self, quant_output: QuantTensor):
@@ -184,7 +188,10 @@ class QuantLayerMixin(ExportMixin):
         if self.return_quant_tensor:
             return quant_output
         else:
-            return quant_output.value
+            if isinstance(quant_output, QuantTensor):
+                return quant_output.value
+            else:
+                return quant_output
 
 
 class QuantRecurrentLayerMixin(ExportMixin):
@@ -246,9 +253,10 @@ class QuantRecurrentLayerMixin(ExportMixin):
         acc_bit_width = None
         quant_weight_ih = gate.input_weight()
         quant_weight_hh = gate.hidden_weight()
-        if quant_input.bit_width is not None:
+        if isinstance(quant_input, QuantTensor):
             acc_bit_width = None  # TODO
-        if quant_input.scale is not None and quant_weight_ih.scale is not None:
+        if getattr(quant_input, 'scale', None) is not None and getattr(
+                quant_weight_ih, 'scale', None) is not None:
             acc_scale_shape = compute_channel_view_shape(quant_input.value, channel_dim=1)
             acc_scale = quant_weight_ih.scale.view(acc_scale_shape)
             acc_scale = acc_scale * quant_input.scale.view(acc_scale_shape)
@@ -267,8 +275,8 @@ class QuantRecurrentLayerMixin(ExportMixin):
         quant_input = inp
         if not self.quantize_output_only:
             quant_input = self.io_quant(quant_input)
-        elif not isinstance(inp, QuantTensor):
-            quant_input = QuantTensor(quant_input)
+        # elif not isinstance(inp, QuantTensor):
+        #     quant_input = QuantTensor(quant_input)
         return quant_input
 
     def maybe_quantize_state(self, inp, state, quant):
@@ -276,7 +284,7 @@ class QuantRecurrentLayerMixin(ExportMixin):
             batch_size = inp.size(0) if self.cell.batch_first else inp.size(1)
             quant_state = torch.zeros(
                 int(batch_size), self.hidden_size, dtype=inp.dtype, device=inp.device)
-            quant_state = QuantTensor(quant_state)
+            # quant_state = QuantTensor(quant_state)
         else:
             quant_state = quant(state)
         return quant_state
@@ -303,7 +311,8 @@ class QuantRecurrentLayerMixin(ExportMixin):
                     quant_output[2],
                     quant_output[3],
                     self.io_quant.is_signed,
-                    self.training) for quant_output in quant_outputs]
+                    self.training,
+                    _allow_empty=True) for quant_output in quant_outputs]
         else:
             outputs = [torch.unsqueeze(o[0], dim=seq_dim) for o in quant_outputs]
         if self.reverse_input:
@@ -331,7 +340,8 @@ class QuantRecurrentLayerMixin(ExportMixin):
                     quant_state[2],
                     quant_state[3],
                     quant.is_signed,
-                    self.training)
+                    training=self.training,
+                    _allow_empty=True)
             else:
                 quant_state = torch.unsqueeze(quant_state[0], dim=0)
         return quant_state

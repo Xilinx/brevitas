@@ -409,7 +409,7 @@ class QuantMultiheadAttention(Module):
                 # Mark dimensions through named tensors.
                 if not torch._C._get_tracing_state():
                     if isinstance(query, QuantTensor):
-                        query.value.rename_('L', 'N', 'E')
+                        query.qt_value.rename_('L', 'N', 'E')
                     else:
                         query.rename_('L', 'N', 'E')
                 # self-attention
@@ -426,7 +426,7 @@ class QuantMultiheadAttention(Module):
             if not torch._C._get_tracing_state():
                 for t in [query, key, value]:
                     if isinstance(t, QuantTensor):
-                        t.value.rename_('L', 'N', 'E')
+                        t.qt_value.rename_('L', 'N', 'E')
                     else:
                         t.rename_('L', 'N', 'E')
             q, k, v = self.q_proj(query), self.k_proj(key), self.v_proj(value)
@@ -573,7 +573,7 @@ class QuantMultiheadAttention(Module):
         # Remove names to avoid errors un unsupported downstream ops
         if not torch._C._get_tracing_state():
             if isinstance(attn_output, QuantTensor):
-                attn_output.value.rename_(None)
+                attn_output.qt_value.rename_(None)
             else:
                 attn_output.rename_(None)
 

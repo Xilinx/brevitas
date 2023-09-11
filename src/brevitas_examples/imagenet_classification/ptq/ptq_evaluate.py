@@ -45,10 +45,10 @@ model_names = sorted(
 parser = argparse.ArgumentParser(description='PyTorch ImageNet PTQ Validation')
 parser.add_argument(
     '--calibration-dir',
-    required=True,
+    required=False,
     help='Path to folder containing Imagenet calibration folder')
 parser.add_argument(
-    '--validation-dir', required=True, help='Path to folder containing Imagenet validation folder')
+    '--validation-dir', required=False, help='Path to folder containing Imagenet validation folder')
 parser.add_argument(
     '--workers', default=8, type=int, help='Number of data loading workers (default: 8)')
 parser.add_argument(
@@ -407,6 +407,11 @@ def main():
     if args.bias_corr:
         print("Applying bias correction:")
         apply_bias_correction(calib_loader, quant_model)
+
+    from brevitas.graph.calibrate import DisableEnableQuantization
+    disable_enable_quant = DisableEnableQuantization()
+    # disable_enable_quant.disable_act_quantization(model, False)
+    # disable_enable_quant.disable_bias_quantization(model, False)
 
     # Validate the quant_model on the validation dataloader
     print("Starting validation:")
