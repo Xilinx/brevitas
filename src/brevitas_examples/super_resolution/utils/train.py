@@ -15,6 +15,7 @@ def calc_average_psnr(ref_images: Tensor, gen_images: Tensor, eps: float = 1e-10
 
 
 def train_for_epoch(trainloader, model, criterion, optimizer):
+    model.train()
     tot_loss = 0.
     for i, (images, targets) in enumerate(trainloader):
         optimizer.zero_grad()
