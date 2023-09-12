@@ -11,7 +11,12 @@ from typing import List, Optional, Set
 import warnings
 
 import torch
-from torch.linalg import LinAlgError
+
+try:
+    from torch.linalg import LinAlgError
+except:
+    LinAlgError = RuntimeError
+
 import unfoldNd
 
 from brevitas.graph.calibrate import DisableEnableQuantization
