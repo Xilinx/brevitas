@@ -8,4 +8,4 @@ SEED = 123456
 DIFFERING_EXECUTOR_ENUM = 10  # Disabled since it fails with normal test setup
 
 torch.random.manual_seed(SEED)
-hypothesis.settings(suppress_health_check=hypothesis.HealthCheck(DIFFERING_EXECUTOR_ENUM))
+hypothesis.settings(suppress_health_check=[hypothesis.HealthCheck(DIFFERING_EXECUTOR_ENUM)])
