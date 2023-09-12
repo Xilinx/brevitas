@@ -173,7 +173,7 @@ def get_bsd300_dataloaders(
         batch_size_test: int = 100,
         pin_memory: bool = True,
         upscale_factor: int = 3,
-        crop_size: int = 256,
+        crop_size: int = 512,
         download: bool = False) -> Tuple[Type[DataLoader]]:
     """Function that loads BSD300 dataset from data_root folder and returns the training
     and testing dataloaders. If <data_root>/BSD300/images does not exist, then the data is
@@ -184,10 +184,10 @@ def get_bsd300_dataloaders(
         num_workers (int): Number of workers to use for both dataloaders. Default: 0
         batch_size (int): Size of batches to use for the training dataloader. Default: 32
         batch_size_test (int): Size of batches to use for the testing dataloader. When
-            None, then batch_size_test = batch_size. Default: 32
+            None, then batch_size_test = batch_size. Default: 100
         pin_memory (bool): Whether or not to pin the memory for both dataloaders. Default: True
         upscale_factor (int): The upscale factor for the super resolution task. Default: 3
-        crop_size (int): The size to crop images for upscaling. Default: 256
+        crop_size (int): The size to crop images for upscaling. Default: 512
         download (bool): Whether or not to download the dataset. Default: False
     """
     data_root = download_bsd300(data_root, download)
