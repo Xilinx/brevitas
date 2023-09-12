@@ -24,9 +24,9 @@ class CommonIntWeightPerChannelQuant(Int8WeightPerTensorFloat):
     scaling_per_output_channel = True
 
 
-class CommonIntAccumulatorAwareWeightQuant(Int8AccumulatorAwareWeightQuant):
-    pre_scaling_min_val = 1e-8
-    scaling_min_val = 1e-8
+class CommonIntAccumulatorAwareWeightQuant(Int8AccumulatorAwareWeightQuant):  
+    pre_scaling_min_val = 1e-10
+    scaling_min_val = 1e-10
 
 
 class CommonIntActQuant(Int8ActPerTensorFloat):
