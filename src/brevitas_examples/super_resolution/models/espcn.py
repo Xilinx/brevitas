@@ -14,12 +14,7 @@ from .common import CommonUintActQuant
 from .common import ConstUint8ActQuant
 
 __all__ = [
-    "float_espcn", 
-    "quant_espcn", 
-    "quant_espcn_a2q", 
-    "quant_espcn_base", 
-    "FloatESPCN", 
-    "QuantESPCN"]
+    "float_espcn", "quant_espcn", "quant_espcn_a2q", "quant_espcn_base", "FloatESPCN", "QuantESPCN"]
 
 IO_DATA_BIT_WIDTH = 8
 IO_ACC_BIT_WIDTH = 32
@@ -47,19 +42,9 @@ class FloatESPCN(nn.Module):
             padding=2,
             bias=True)
         self.conv2 = nn.Conv2d(
-            in_channels=64, 
-            out_channels=64, 
-            kernel_size=3, 
-            stride=1, 
-            padding=1, 
-            bias=True)
+            in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=1, bias=True)
         self.conv3 = nn.Conv2d(
-            in_channels=64, 
-            out_channels=32, 
-            kernel_size=3, 
-            stride=1, 
-            padding=1, 
-            bias=True)
+            in_channels=64, out_channels=32, kernel_size=3, stride=1, padding=1, bias=True)
         self.conv4 = nn.Conv2d(
             in_channels=32,
             out_channels=num_channels * pow(upscale_factor, 2),
@@ -85,7 +70,7 @@ class FloatESPCN(nn.Module):
         x = self.relu(self.bn2(self.conv2(x)))
         x = self.relu(self.bn3(self.conv3(x)))
         x = self.pixel_shuffle(self.conv4(x))
-        x = self.out(x) # To mirror quant version
+        x = self.out(x)  # To mirror quant version
         return x
 
 
@@ -145,7 +130,7 @@ class QuantESPCN(FloatESPCN):
             weight_quant=weight_quant)
         # We quantize the weights and input activations of the final layer
         # to 8-bit integers. We do not apply the accumulator constraint to
-        # the final convolution layer. FINN does not currently support 
+        # the final convolution layer. FINN does not currently support
         # per-tensor quantization or biases for sub-pixel convolution layers.
         self.conv4 = qnn.QuantConv2d(
             in_channels=32,

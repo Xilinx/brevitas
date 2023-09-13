@@ -50,11 +50,11 @@ from torch.utils.data import DataLoader
 import torch.utils.data as data
 from torchvision.transforms import CenterCrop
 from torchvision.transforms import Compose
+from torchvision.transforms import RandomCrop
+from torchvision.transforms import RandomHorizontalFlip
+from torchvision.transforms import RandomVerticalFlip
 from torchvision.transforms import Resize
 from torchvision.transforms import ToTensor
-from torchvision.transforms import RandomCrop
-from torchvision.transforms import RandomVerticalFlip
-from torchvision.transforms import RandomHorizontalFlip
 
 __all__ = ["get_bsd300_dataloaders"]
 
@@ -127,9 +127,7 @@ def calculate_valid_crop_size(crop_size, upscale_factor):
 
 def train_transforms(crop_size):
     return Compose([
-        RandomCrop(crop_size, pad_if_needed=True),
-        RandomHorizontalFlip(),
-        RandomVerticalFlip()])
+        RandomCrop(crop_size, pad_if_needed=True), RandomHorizontalFlip(), RandomVerticalFlip()])
 
 
 def test_transforms(crop_size):
