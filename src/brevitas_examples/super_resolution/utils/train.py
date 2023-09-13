@@ -16,7 +16,7 @@ def calc_average_psnr(ref_images: Tensor, gen_images: Tensor, eps: float = 1e-10
     return psnr.mean()
 
 
-def train_for_epoch(trainloader, model, criterion, optimizer):
+def train_for_epoch(trainloader, model, criterion, optimizer, reg_weight: float = 1e-3):
     model.train()
 
     tot_loss, reg_penalty = 0., 0.
@@ -45,7 +45,7 @@ def train_for_epoch(trainloader, model, criterion, optimizer):
         targets = targets.to(device)
         outputs = model(images)
         task_loss: Tensor = criterion(outputs, targets)
-        loss = task_loss + reg_penalty
+        loss = task_loss + (reg_weight * reg_penalty)
         loss.backward()
         optimizer.step()
         reg_penalty = 0.  # reset the accumulated regularization penalty
