@@ -23,7 +23,7 @@ Note that this is a difference from many academic works that train only on the Y
 ||
 | [quant_espcn_x2_w4a4_base]()    | x2             | int4                | (u)int4                 | 30.30                  |
 | [quant_espcn_x2_w4a4_a2q_32b]() | x2             | int4                | (u)int4                 | 30.27                  |
-| [quant_espcn_x2_w4a4_a2q_14b]() | x2             | int4                | (u)int4                 | 30.24                  |
+| [quant_espcn_x2_w4a4_a2q_13b]() | x2             | int4                | (u)int4                 | 30.24                  |
 
 
 ## Train

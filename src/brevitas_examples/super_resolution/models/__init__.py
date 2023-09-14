@@ -37,13 +37,13 @@ model_impl = {
             weight_bit_width=4,
             act_bit_width=4,
             acc_bit_width=32),
-    'quant_espcn_x2_w4a4_a2q_14b':
+    'quant_espcn_x2_w4a4_a2q_13b':
         partial(
             quant_espcn_a2q,
             upscale_factor=2,
             weight_bit_width=4,
             act_bit_width=4,
-            acc_bit_width=14)}
+            acc_bit_width=13)}
 
 root_url = 'https://github.com/Xilinx/brevitas/releases/download/super_res-r0'
 
