@@ -45,13 +45,16 @@ model_impl = {
             act_bit_width=4,
             acc_bit_width=13)}
 
-root_url = 'https://github.com/Xilinx/brevitas/releases/download/super_res-r0'
+root_url = 'https://github.com/Xilinx/brevitas/releases/download/super_res_r1'
 
 model_url = {
-    'float_espcn_x2': f'{root_url}/float_espcn_x2-2f3821e3.pth',
-    'quant_espcn_x2_w8a8_base': f'{root_url}/quant_espcn_x2_w8a8_base-7d54e29c.pth',
-    'quant_espcn_x2_w8a8_a2q_32b': f'{root_url}/quant_espcn_x2_w8a8_a2q_32b-0b1f361d.pth',
-    'quant_espcn_x2_w8a8_a2q_16b': f'{root_url}/quant_espcn_x2_w8a8_a2q_16b-3c4acd35.pth'}
+    'float_espcn_x2': f'{root_url}/float_espcn_x2-2f85a454.pth',
+    'quant_espcn_x2_w4a4_a2q_13b': f'{root_url}/quant_espcn_x2_w4a4_a2q_13b-9fff234e.pth',
+    'quant_espcn_x2_w4a4_a2q_32b': f'{root_url}/quant_espcn_x2_w4a4_a2q_32b-8702a412.pth',
+    'quant_espcn_x2_w4a4_base': f'{root_url}/quant_espcn_x2_w4a4_base-80658e6d.pth',
+    'quant_espcn_x2_w8a8_a2q_16b': f'{root_url}/quant_espcn_x2_w8a8_a2q_16b-f9e1da66.pth',
+    'quant_espcn_x2_w8a8_a2q_32b': f'{root_url}/quant_espcn_x2_w8a8_a2q_32b-85470d9b.pth',
+    'quant_espcn_x2_w8a8_base': f'{root_url}/quant_espcn_x2_w8a8_base-f761e4a1.pth'}
 
 
 def get_model_by_name(name: str, pretrained: bool = False) -> Union[FloatESPCN, QuantESPCN]:
