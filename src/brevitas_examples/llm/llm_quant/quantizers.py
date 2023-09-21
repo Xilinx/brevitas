@@ -14,8 +14,10 @@ from brevitas.core.stats import NegativeMinOrZero
 from brevitas.core.stats import NegativePercentileOrZero
 from brevitas.core.zero_point import ParameterFromRuntimeZeroPoint
 from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
+from brevitas.inject import ExtendedInjector
 from brevitas.inject import this
 from brevitas.inject import value
+from brevitas.quant.experimental.float import Fp8e4m3WeightPerChannelFloat
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8ActPerTensorFloatMSE
 from brevitas.quant.scaled_int import Int8WeightPerChannelFloat
@@ -25,11 +27,7 @@ from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloatMSE
 from .quant_blocks import *
 
 
-class IntWeightSymmetricGroupQuant(Int8WeightPerChannelFloat):
-    """
-    Block / group / vector signed symmetric weight quantizer with float scales.
-    We inherit from a per-channel quantizer to re-use some underlying machinery.
-    """
+class WeightSymmetricGroupQuantMixin(ExtendedInjector):
 
     @value
     def expanded_scaling_shape(module, block_size):
@@ -67,6 +65,23 @@ class IntWeightSymmetricGroupQuant(Int8WeightPerChannelFloat):
     # Set bit_width and block size externally
     bit_width = None
     block_size = None
+
+
+class IntWeightSymmetricGroupQuant(WeightSymmetricGroupQuantMixin, Int8WeightPerChannelFloat):
+    """
+    Block / group / vector signed symmetric int weight quantizer with float scales.
+    We inherit from a per-channel quantizer to re-use some underlying machinery.
+    """
+    pass
+
+
+class Fp8e4m3WeightSymmetricGroupQuant(WeightSymmetricGroupQuantMixin,
+                                       Fp8e4m3WeightPerChannelFloat):
+    """
+    Block / group / vector signed symmetric e4m3 weight quantizer with float scales.
+    We inherit from a per-channel quantizer to re-use some underlying machinery.
+    """
+    pass
 
 
 class ShiftedUintWeightAsymmetricGroupQuant(IntWeightSymmetricGroupQuant):
@@ -125,7 +140,7 @@ class Int8ActDynamicPerRowFloat(Int8ActPerRowFloat):
 
 class Int8ActDynamicPerGroupFloat(Int8ActPerRowFloat):
     """
-    Symmetric quantizer with per row dynamic scale.
+    Symmetric quantizer with per group scale.
     """
     scaling_impl = RuntimeDynamicGroupStatsScaling
     keepdim = True
