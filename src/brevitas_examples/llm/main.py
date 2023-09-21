@@ -4,6 +4,7 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 """
 
 import argparse
+import re
 
 import numpy as np
 import torch
@@ -24,7 +25,21 @@ from brevitas_examples.llm.llm_quant.quantize import quantize_model
 from brevitas_examples.llm.llm_quant.run_utils import CastFloat16ToFloat32
 from brevitas_examples.llm.llm_quant.run_utils import get_model_impl
 
+
+class CustomValidator(object):
+
+    def __init__(self, pattern):
+        self._pattern = re.compile(pattern)
+
+    def __call__(self, value):
+        if not self._pattern.match(value):
+            raise argparse.ArgumentTypeError(
+                "Argument has to match '{}'".format(self._pattern.pattern))
+        return value
+
+
 parser = argparse.ArgumentParser()
+quant_format_validator = CustomValidator(r"int|e[1-8]m[1-8]")
 parser.add_argument(
     '--model',
     type=str,
@@ -46,8 +61,8 @@ parser.add_argument(
 parser.add_argument(
     '--weight-scale-precision',
     type=str,
-    default='float',
-    choices=['float', 'po2'],
+    default='float_scale',
+    choices=['float_scale', 'po2_scale'],
     help='Whether scale is a float value or a po2. Default: po2.')
 parser.add_argument(
     '--weight-quant-type',
@@ -55,6 +70,12 @@ parser.add_argument(
     default='asym',
     choices=['sym', 'asym'],
     help='Weight quantization type. Default: asym.')
+parser.add_argument(
+    '--weight-quant-format',
+    type=quant_format_validator,
+    default='int',
+    help='Weight quantization type. Either int or eXmY, with X+Y==weight_bit_width-1. Default: int.'
+)
 parser.add_argument(
     '--weight-quant-granularity',
     type=str,
@@ -74,6 +95,11 @@ parser.add_argument(
     default=None,
     help='Input bit width. Default: None (disables input quantization).')
 parser.add_argument(
+    '--input-quant-format',
+    type=quant_format_validator,
+    default='int',
+    help='Input quantization type. Either int or eXmY, with X+Y==weight_bit_width-1. Default: int.')
+parser.add_argument(
     '--input-param-method',
     type=str,
     default='stats',
@@ -84,14 +110,14 @@ parser.add_argument(
 parser.add_argument(
     '--input-scale-precision',
     type=str,
-    default='float',
-    choices=['float', 'po2'],
+    default='float_scale',
+    choices=['float_scale', 'po2_scale'],
     help='Whether input scale is a float value or a po2. Default: float.')
 parser.add_argument(
     '--input-scale-type',
     type=str,
     default='static',
-    choices=['static', 'dynamic'],
+    choices=['static', 'dynamic', 'no_scale'],
     help='Whether input scale is a static value or a dynamic value.')
 parser.add_argument(
     '--input-quant-type',
@@ -171,6 +197,8 @@ def model_export(model, ref_input, args):
 
 def validate(args):
     if not args.no_quantize:
+        if args.export_target is not None:
+            assert args.input_quant_format == 'int', "Only integer quantization supported for export currently."
         if args.export_target is not None and args.input_bit_width is not None:
             assert args.input_scale_type == 'static', "Only static scale supported for export currently."
         if args.export_target == 'sharded_torchmlir_group_weight':
@@ -268,6 +296,7 @@ def main():
         quantize_model(
             layers_to_quantize,
             dtype=dtype,
+            weight_quant_format=args.weight_quant_format,
             weight_quant_type=args.weight_quant_type,
             weight_bit_width=args.weight_bit_width,
             weight_param_method=args.weight_param_method,
@@ -277,6 +306,7 @@ def main():
             quantize_weight_zero_point=args.quantize_weight_zero_point,
             input_bit_width=args.input_bit_width,
             input_quant_type=args.input_quant_type,
+            input_quant_format=args.input_quant_format,
             input_param_method=args.input_param_method,
             input_scale_precision=args.input_scale_precision,
             input_scale_type=args.input_scale_type,
