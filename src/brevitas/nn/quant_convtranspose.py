@@ -37,6 +37,7 @@ class QuantConvTranspose1d(QuantWBIOL, ConvTranspose1d):
             output_padding: int = 0,
             dilation: int = 1,
             groups: int = 1,
+            padding_mode: str = 'zeros',
             bias: bool = True,
             weight_quant: Optional[WeightQuantType] = Int8WeightPerTensorFloat,
             bias_quant: Optional[BiasQuantType] = None,
@@ -56,6 +57,7 @@ class QuantConvTranspose1d(QuantWBIOL, ConvTranspose1d):
             output_padding=output_padding,
             dilation=dilation,
             groups=groups,
+            padding_mode=padding_mode,
             bias=bias,
             device=device,
             dtype=dtype)
@@ -132,6 +134,7 @@ class QuantConvTranspose2d(QuantWBIOL, ConvTranspose2d):
             output_padding: Union[int, Tuple[int]] = 0,
             dilation: Union[int, Tuple[int]] = 1,
             groups: int = 1,
+            padding_mode: str = 'zeros',
             bias: bool = True,
             weight_quant: Optional[WeightQuantType] = Int8WeightPerTensorFloat,
             bias_quant: Optional[BiasQuantType] = None,
@@ -151,6 +154,7 @@ class QuantConvTranspose2d(QuantWBIOL, ConvTranspose2d):
             output_padding=output_padding,
             dilation=dilation,
             groups=groups,
+            padding_mode=padding_mode,
             bias=bias,
             device=device,
             dtype=dtype)
