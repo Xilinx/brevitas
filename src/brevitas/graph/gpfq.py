@@ -66,12 +66,7 @@ class gpfq_mode(gpxq_mode):
             self.orig_forward(*args, **kwargs)
         except StopFwdException:
             pass
-        # Before collecting float input, restore original float weights if they have been modified
-        quant_weight = dict()
-        for module in self.model.modules():
-            if hasattr(module, 'weight_orig_data'):
-                quant_weight[module] = deepcopy(module.weight.data)
-                module.weight.data = module.weight_orig_data
+
         # Disable quantization
         self.disable_quant_inference.disable_param_quantization(self.model, is_training=False)
         self.disable_quant_inference.disable_act_quantization(self.model, is_training=False)
@@ -80,10 +75,7 @@ class gpfq_mode(gpxq_mode):
             self.orig_forward(*args, **kwargs)
         except StopFwdException:
             pass
-        # Restore correct weights
-        for module in self.model.modules():
-            if hasattr(module, 'weight_orig_data'):
-                module.weight.data = quant_weight[module]
+
         # Re-enable quantization. If activation quantization is disabled,
         # we also disable bias quantization
         self.disable_quant_inference.enable_param_quantization(self.model, is_training=False)

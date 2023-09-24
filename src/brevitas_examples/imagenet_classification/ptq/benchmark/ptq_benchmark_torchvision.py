@@ -24,6 +24,7 @@ from brevitas.graph.quantize import preprocess_for_quantize
 from brevitas.graph.target.flexml import preprocess_for_flexml_quantize
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_act_equalization
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_bias_correction
+from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_gpfq
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_gptq
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_learned_round_learning
 from brevitas_examples.imagenet_classification.ptq.ptq_common import calibrate
@@ -59,6 +60,8 @@ OPTIONS = {
     'act_equalization': ['fx', 'layerwise', None],  # Perform Activation Equalization (Smoothquant)
     'learned_round': [False, True],  # Enable/Disable Learned Round
     'gptq': [False, True],  # Enable/Disable GPTQ
+    'gpfq': [False, True],  # Enable/Disable GPFQ
+    'gpfq_p': [0.25, 0.75],  # GPFQ P
     'gptq_act_order': [False, True],  # Use act_order euristics for GPTQ
     'act_quant_percentile': [99.9, 99.99, 99.999],  # Activation Quantization Percentile
 }
@@ -78,6 +81,8 @@ OPTIONS_DEFAULT = {
     'act_equalization': [None],  # Perform Activation Equalization (Smoothquant)
     'learned_round': [False],  # Enable/Disable Learned Round
     'gptq': [True],  # Enable/Disable GPTQ
+    'gpfq': [False],  # Enable/Disable GPFQ
+    'gpfq_p': [0.25],  # GPFQ P
     'gptq_act_order': [False],  # Use act_order euristics for GPTQ
     'act_quant_percentile': [99.999],  # Activation Quantization Percentile
 }
@@ -115,19 +120,8 @@ def main():
     args.gpu = get_gpu_index(args.idx)
     print("Iter {}, GPU {}".format(args.idx, args.gpu))
 
-    options_names = [k.replace('_', ' ').capitalize() for k in OPTIONS.keys()]
-    torchvision_df = pd.DataFrame(
-        columns=options_names + [
-            'Top 1% floating point accuracy',
-            'Top 1% quant accuracy',
-            'Floating point accuracy - quant accuracy',
-            'Quant accuracy / floating point accuracy',
-            'Calibration size',
-            'Calibration batch size',
-            'Torch version',
-            'Brevitas version'])
     try:
-        ptq_torchvision_models(torchvision_df, args)
+        ptq_torchvision_models(args)
     except Exception as E:
         print("Exception at index {}: {}".format(args.idx, E))
 
@@ -227,6 +221,10 @@ def ptq_torchvision_models(df, args):
     # Calibrate the quant_model on the calibration dataloader
     print("Starting calibration")
     calibrate(calib_loader, quant_model)
+
+    if config_namespace.gpfq:
+        print("Performing GPFQ:")
+        apply_gpfq(calib_loader, quant_model, p=config_namespace.gpfq_p)
 
     if config_namespace.gptq:
         print("Performing gptq")

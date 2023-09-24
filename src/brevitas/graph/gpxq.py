@@ -11,10 +11,6 @@ from operator import attrgetter
 from typing import List, Optional, Set
 import warnings
 
-import numpy as np
-import torch
-import unfoldNd
-
 from brevitas.graph.calibrate import DisableEnableQuantization
 import brevitas.nn as qnn
 from brevitas.quant_tensor import QuantTensor
@@ -141,7 +137,7 @@ class GPxQ(ABC):
         self.act_order = act_order
 
         weight = layer.weight.data
-        self.layer.weight_orig_data = deepcopy(weight)
+        self.layer.weight_orig = deepcopy(layer.weight)
         # By default, use groups = 1
         self.groups = 1
         if isinstance(self.layer, SUPPORTED_CONV_OP):

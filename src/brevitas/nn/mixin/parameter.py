@@ -61,6 +61,9 @@ class QuantWeightMixin(QuantProxyMixin):
             self,
             quant_input: Optional[QuantTensor] = None,
             subtensor_slice_list: List[Optional[Tuple[int, int]]] = None):
+        weights_to_quantize = self.weight
+        if not self.weight_quant.is_quant_enabled and hasattr(self, 'weight_orig'):
+            weights_to_quantize = self.weight_orig
         if subtensor_slice_list is not None:
             # prepare the quantizer for a subtensor input, if any modifications are required
             # we set a list of tuples rather than a list of slices so that it's jit friendly
@@ -95,9 +98,9 @@ class QuantWeightMixin(QuantProxyMixin):
                 input_bit_width = None
                 input_is_signed = None
             out = self.weight_quant(
-                self.weight[weight_slice_tuple], input_bit_width, input_is_signed)
+                weights_to_quantize[weight_slice_tuple], input_bit_width, input_is_signed)
         else:
-            out = self.weight_quant(self.weight[weight_slice_tuple])
+            out = self.weight_quant(weights_to_quantize[weight_slice_tuple])
         if subtensor_slice_list is not None:
             # Restore the quantizer behaviour to full tensor quantization
             # The modules to slice should have been cached already at this point
