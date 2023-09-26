@@ -36,6 +36,7 @@ Furthermore, Brevitas additional PTQ techniques can be enabled:
 - If Graph equalization is enabled, the _merge\_bias_ technique can be enabled.[<sup>2 </sup>] [<sup>3 </sup>].
 - GPTQ [<sup>4 </sup>].
 - Learned Round [<sup>5 </sup>].
+- GPFQ [<sup>6 </sup>].
 
 
 Internally, when defining a quantized model programmatically, Brevitas leverages `torch.fx` and its `symbolic_trace` functionality, meaning that an input model is required to pass symbolic tracing for it to work.
@@ -212,3 +213,4 @@ and a `RESULTS_IMGCLSMOB.csv` with the results on manually quantized models star
 [<sup>3 </sup>]: https://github.com/openppl-public/ppq/blob/master/ppq/quantization/algorithm/equalization.py
 [<sup>4 </sup>]: https://arxiv.org/abs/2210.17323
 [<sup>5 </sup>]: https://arxiv.org/abs/2004.10568
+[<sup>6 </sup>]: https://arxiv.org/abs/2201.11113
