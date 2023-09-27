@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from abc import ABC
+from copy import deepcopy
 from functools import partial
 import sys
 
@@ -279,6 +280,7 @@ class _BiasCorrection(DisableEnableQuantization):
         # Compute float reference
         self.disable_act_quantization(module, is_training=False)
         self.disable_param_quantization(module, is_training=False)
+
         out_float = module.forward(*inp)  # Required to avoid infinite recursion
         self.collect_float_mean(module, out_float, name)
         self.enable_act_quantization(module, is_training=False)

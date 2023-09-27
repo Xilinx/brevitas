@@ -24,6 +24,7 @@ from brevitas.graph.quantize import preprocess_for_quantize
 from brevitas.graph.target.flexml import preprocess_for_flexml_quantize
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_act_equalization
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_bias_correction
+from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_gpfq
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_gptq
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_learned_round_learning
 from brevitas_examples.imagenet_classification.ptq.ptq_common import calibrate
@@ -52,6 +53,7 @@ OPTIONS = {
     'bias_bit_width': [32, 16],  # Bias Bit-Width for Po2 scale
     'weight_quant_granularity': ['per_tensor', 'per_channel'],  # Scaling Per Output Channel
     'act_quant_type': ['asym', 'sym'],  # Act Quant Type
+    'weight_param_method': ['stats', 'mse'],  # Weight Quant Type
     'act_param_method': ['stats', 'mse'],  # Act Param Method
     'bias_corr': [True],  # Bias Correction
     'graph_eq_iterations': [0, 20],  # Graph Equalization
@@ -60,6 +62,8 @@ OPTIONS = {
     'learned_round': [False, True],  # Enable/Disable Learned Round
     'gptq': [False, True],  # Enable/Disable GPTQ
     'gptq_act_order': [False, True],  # Use act_order euristics for GPTQ
+    'gpfq': [False, True],  # Enable/Disable GPFQ
+    'gpfq_p': [0.25, 0.75],  # GPFQ P
     'act_quant_percentile': [99.9, 99.99, 99.999],  # Activation Quantization Percentile
 }
 
@@ -71,13 +75,16 @@ OPTIONS_DEFAULT = {
     'bias_bit_width': [32],  # Bias Bit-Width for Po2 scale
     'weight_quant_granularity': ['per_channel'],  # Scaling Per Output Channel
     'act_quant_type': ['sym'],  # Act Quant Type
-    'act_param_method': ['stats'],  # Act Param Method
+    'act_param_method': ['mse'],  # Act Param Method
+    'weight_param_method': ['stats'],  # Weight Quant Type
     'bias_corr': [True],  # Bias Correction
     'graph_eq_iterations': [20],  # Graph Equalization
     'graph_eq_merge_bias': [True],  # Merge bias for Graph Equalization
     'act_equalization': [None],  # Perform Activation Equalization (Smoothquant)
     'learned_round': [False],  # Enable/Disable Learned Round
     'gptq': [True],  # Enable/Disable GPTQ
+    'gpfq': [False],  # Enable/Disable GPFQ
+    'gpfq_p': [0.25],  # GPFQ P
     'gptq_act_order': [False],  # Use act_order euristics for GPTQ
     'act_quant_percentile': [99.999],  # Activation Quantization Percentile
 }
@@ -114,35 +121,36 @@ def main():
 
     args.gpu = get_gpu_index(args.idx)
     print("Iter {}, GPU {}".format(args.idx, args.gpu))
-
-    options_names = [k.replace('_', ' ').capitalize() for k in OPTIONS.keys()]
-    torchvision_df = pd.DataFrame(
-        columns=options_names + [
-            'Top 1% floating point accuracy',
-            'Top 1% quant accuracy',
-            'Floating point accuracy - quant accuracy',
-            'Quant accuracy / floating point accuracy',
-            'Calibration size',
-            'Calibration batch size',
-            'Torch version',
-            'Brevitas version'])
     try:
-        ptq_torchvision_models(torchvision_df, args)
+        ptq_torchvision_models(args)
     except Exception as E:
         print("Exception at index {}: {}".format(args.idx, E))
 
 
-def ptq_torchvision_models(df, args):
+def ptq_torchvision_models(args):
     # Generate all possible combinations, including invalid ones
     # Split stats and mse due to the act_quant_percentile value
-    percentile_options = OPTIONS.copy()
-    percentile_options['act_param_method'] = ['stats']
-    mse_options = OPTIONS.copy()
-    mse_options['act_param_method'] = ['mse']
-    mse_options['act_quant_percentile'] = [None]
+
+    if 'stats' in OPTIONS['act_param_method']:
+        percentile_options = OPTIONS.copy()
+        percentile_options['act_param_method'] = ['stats']
+    else:
+        percentile_options = None
+
+    if 'mse' in OPTIONS['act_param_method']:
+        mse_options = OPTIONS.copy()
+        mse_options['act_param_method'] = ['mse']
+        mse_options['act_quant_percentile'] = [None]
+    else:
+        mse_options = None
+
+    # Combine MSE and Percentile combinations, if they are defined
+    combinations = []
+    if mse_options is not None:
+        combinations += list(product(*mse_options.values()))
+    if percentile_options is not None:
+        combinations += list(product(*percentile_options.values()))
     # Combine the two sets of combinations
-    combinations = list(product(*percentile_options.values())) + list(
-        product(*mse_options.values()))
     # Generate Namespace for each configuration
     configs = [
         SimpleNamespace(**{k: v
@@ -152,10 +160,12 @@ def ptq_torchvision_models(df, args):
     configs = list(map(validate_config, configs))
     # Drop invalid configurations
     configs = list(config for config in configs if config.is_valid)
+
     if args.idx > len(configs):
         return
 
     config_namespace = configs[args.idx]
+    print(config_namespace)
 
     fp_accuracy = TORCHVISION_TOP1_MAP[config_namespace.model_name]
     # Get model-specific configurations about input shapes and normalization
@@ -212,6 +222,8 @@ def ptq_torchvision_models(df, args):
         backend=config_namespace.target_backend,
         act_bit_width=config_namespace.act_bit_width,
         weight_bit_width=config_namespace.weight_bit_width,
+        weight_param_method=config_namespace.weight_param_method,
+        act_param_method=config_namespace.act_param_method,
         bias_bit_width=config_namespace.bias_bit_width,
         weight_quant_granularity=config_namespace.weight_quant_granularity,
         act_quant_percentile=config_namespace.act_quant_percentile,
@@ -227,6 +239,10 @@ def ptq_torchvision_models(df, args):
     # Calibrate the quant_model on the calibration dataloader
     print("Starting calibration")
     calibrate(calib_loader, quant_model)
+
+    if config_namespace.gpfq:
+        print("Performing GPFQ:")
+        apply_gpfq(calib_loader, quant_model, p=config_namespace.gpfq_p)
 
     if config_namespace.gptq:
         print("Performing gptq")
@@ -290,6 +306,10 @@ def validate_config(config_namespace):
         is_valid = False
     # If GPTQ is disabled, we do not care about the act_order heuristic
     if not config_namespace.gptq and config_namespace.gptq_act_order:
+        is_valid = False
+
+    # If GPFQ is disabled, we execute only one configuration for p==0.25
+    if not config_namespace.gpfq and config_namespace.gpfq_p == 0.75:
         is_valid = False
 
     if config_namespace.act_equalization == 'layerwise' and config_namespace.target_backend == 'fx':

@@ -13,6 +13,7 @@ from brevitas.graph.calibrate import bias_correction_mode
 from brevitas.graph.calibrate import calibration_mode
 from brevitas.graph.calibrate import norm_correction_mode
 from brevitas.graph.equalize import activation_equalization_mode
+from brevitas.graph.gpfq import gpfq_mode
 from brevitas.graph.gptq import gptq_mode
 from brevitas.graph.quantize import layerwise_quantize
 from brevitas.graph.quantize import quantize
@@ -203,7 +204,7 @@ def create_quant_maps(
         weight_quant = weight_quant.let(zero_point_impl=ParameterFromStatsFromParameterZeroPoint)
     if act_quant is not None:
         act_quant = act_quant.let(**{'high_percentile_q': act_quant_percentile, 'dtype': dtype})
-        if act_quant_type == 'asym':
+        if act_quant_type == 'asym' and act_quant_percentile is not None:
             act_quant = act_quant.let(**{'low_percentile_q': 100 - act_quant_percentile})
     if sym_act_quant is not None:
         sym_act_quant = sym_act_quant.let(
@@ -213,7 +214,7 @@ def create_quant_maps(
         per_tensor_act_quant = per_tensor_act_quant.let(
             **{
                 'high_percentile_q': act_quant_percentile, 'dtype': dtype})
-        if act_quant_type == 'asym':
+        if act_quant_type == 'asym' and act_quant_percentile is not None:
             per_tensor_act_quant = per_tensor_act_quant.let(
                 **{'low_percentile_q': 100 - act_quant_percentile})
 
@@ -358,6 +359,21 @@ def apply_gptq(calib_loader, model, act_order=False):
                     images = images.to(dtype)
                     gptq_model(images)
                 gptq.update()
+
+
+def apply_gpfq(calib_loader, model, p=0.25):
+    model.eval()
+    dtype = next(model.parameters()).dtype
+    device = next(model.parameters()).device
+    with torch.no_grad():
+        with gpfq_mode(model, p=p, use_quant_activations=True) as gpfq:
+            gpfq_model = gpfq.model
+            for i in tqdm(range(gpfq.num_layers)):
+                for i, (images, target) in enumerate(calib_loader):
+                    images = images.to(device)
+                    images = images.to(dtype)
+                    gpfq_model(images)
+                gpfq.update()
 
 
 def apply_learned_round_learning(

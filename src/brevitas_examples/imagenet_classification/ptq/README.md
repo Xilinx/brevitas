@@ -36,6 +36,7 @@ Furthermore, Brevitas additional PTQ techniques can be enabled:
 - If Graph equalization is enabled, the _merge\_bias_ technique can be enabled.[<sup>2 </sup>] [<sup>3 </sup>].
 - GPTQ [<sup>4 </sup>].
 - Learned Round [<sup>5 </sup>].
+- GPFQ [<sup>6 </sup>].
 
 
 Internally, when defining a quantized model programmatically, Brevitas leverages `torch.fx` and its `symbolic_trace` functionality, meaning that an input model is required to pass symbolic tracing for it to work.
@@ -85,7 +86,8 @@ usage: ptq_evaluate.py [-h] --calibration-dir CALIBRATION_DIR --validation-dir
                        [--bias-corr | --no-bias-corr]
                        [--graph-eq-merge-bias | --no-graph-eq-merge-bias]
                        [--weight-narrow-range | --no-weight-narrow-range]
-                       [--gptq | --no-gptq]
+                       [--gpfq-p GPFQ_P] [--gptq | --no-gptq]
+                       [--gpfq | --no-gpfq]
                        [--gptq-act-order | --no-gptq-act-order]
                        [--learned-round | --no-learned-round]
                        [--calibrate-bn | --no-calibrate-bn]
@@ -171,8 +173,11 @@ optional arguments:
                         Enable Narrow range for weight quantization (default: enabled)
   --no-weight-narrow-range
                         Disable Narrow range for weight quantization (default: enabled)
+  --gpfq-p GPFQ_P       P parameter for GPFQ (default: 0.25)
   --gptq                Enable GPTQ (default: enabled)
   --no-gptq             Disable GPTQ (default: enabled)
+  --gpfq                Enable GPFQ (default: disabled)
+  --no-gpfq             Disable GPFQ (default: disabled)
   --gptq-act-order      Enable GPTQ Act order heuristic (default: disabled)
   --no-gptq-act-order   Disable GPTQ Act order heuristic (default: disabled)
   --learned-round       Enable Learned round (default: disabled)
@@ -208,3 +213,4 @@ and a `RESULTS_IMGCLSMOB.csv` with the results on manually quantized models star
 [<sup>3 </sup>]: https://github.com/openppl-public/ppq/blob/master/ppq/quantization/algorithm/equalization.py
 [<sup>4 </sup>]: https://arxiv.org/abs/2210.17323
 [<sup>5 </sup>]: https://arxiv.org/abs/2004.10568
+[<sup>6 </sup>]: https://arxiv.org/abs/2201.11113
