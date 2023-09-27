@@ -36,6 +36,7 @@ class gpxq_mode(ABC):
             model,
             group_of_parallel_layers: Optional[List[str]] = None,
             inplace: bool = True,
+            create_weight_orig: bool = True,
             use_quant_activations: bool = True,
             act_order: bool = False,
             return_forward_output: bool = False) -> None:
@@ -43,6 +44,7 @@ class gpxq_mode(ABC):
         if not inplace:
             model = deepcopy(model)
         self.model = model
+        self.create_weight_orig = create_weight_orig
         self.use_quant_activations = use_quant_activations
         self.hook_dict = dict()
         self.gpxq_layers = dict()
@@ -97,7 +99,11 @@ class gpxq_mode(ABC):
                 # Attach hooks for GPTQ
                 if self._is_module_supported(module):
                     gpxq = self.class_implementation(
-                        module, name, act_order=self.act_order, parallel_layers=parallel_layers)
+                        module,
+                        name,
+                        act_order=self.act_order,
+                        parallel_layers=parallel_layers,
+                        create_weight_orig=self.create_weight_orig)
                     hook_fn = partial(gpxq.update_batch, current_layer=self.current_layer)
                     self.hook_dict[name] = module.register_forward_pre_hook(hook_fn)
                     self.gpxq_layers[name] = gpxq
@@ -131,13 +137,16 @@ class gpxq_mode(ABC):
 
 class GPxQ(ABC):
 
-    def __init__(self, layer, name, act_order, parallel_layers=1) -> None:
+    def __init__(self, layer, name, act_order, parallel_layers=1, create_weight_orig=True) -> None:
         self.layer = layer
         self.name = name
         self.act_order = act_order
 
         weight = layer.weight.data
-        self.layer.weight_orig = deepcopy(layer.weight)
+
+        if create_weight_orig and not hasattr(self.layer, 'weight_orig'):
+            self.layer.register_buffer('weight_orig', layer.weight.detach().clone())
+
         # By default, use groups = 1
         self.groups = 1
         if isinstance(self.layer, SUPPORTED_CONV_OP):

@@ -41,6 +41,7 @@ class gpfq_mode(gpxq_mode):
             model,
             group_of_parallel_layers: Optional[List[str]] = None,
             inplace: bool = True,
+            create_weight_orig: bool = True,
             use_quant_activations: bool = True,
             p: int = 0.25,
             return_forward_output: bool = False,
@@ -51,6 +52,7 @@ class gpfq_mode(gpxq_mode):
             model,
             group_of_parallel_layers,
             inplace,
+            create_weight_orig,
             use_quant_activations,
             act_order,
             return_forward_output)
@@ -100,12 +102,12 @@ class GPFQ(GPxQ):
     """
     p = 0.25
 
-    def __init__(self, layer, name, act_order, parallel_layers=1) -> None:
+    def __init__(self, layer, name, act_order, parallel_layers=1, create_weight_orig=True) -> None:
 
         if act_order:
             raise ValueError("Act_order is not supported in GPFQ")
 
-        super().__init__(layer, name, act_order, parallel_layers)
+        super().__init__(layer, name, act_order, parallel_layers, create_weight_orig)
         self.float_input = None
         self.quantized_input = None
         self.index_computed = False

@@ -47,6 +47,7 @@ class gptq_mode(gpxq_mode):
             model,
             group_of_parallel_layers: Optional[List[str]] = None,
             inplace: bool = True,
+            create_weight_orig: bool = True,
             use_quant_activations: bool = True,
             num_blocks: int = 100,
             return_forward_output: bool = False,
@@ -57,6 +58,7 @@ class gptq_mode(gpxq_mode):
             model,
             group_of_parallel_layers,
             inplace,
+            create_weight_orig,
             use_quant_activations,
             act_order,
             return_forward_output)
@@ -104,8 +106,8 @@ class GPTQ(GPxQ):
     """
     num_blocks = 100
 
-    def __init__(self, layer, name, act_order, parallel_layers=1) -> None:
-        super().__init__(layer, name, act_order, parallel_layers)
+    def __init__(self, layer, name, act_order, parallel_layers=1, create_weight_orig=True) -> None:
+        super().__init__(layer, name, act_order, parallel_layers, create_weight_orig)
 
         dev = self.layer.weight.device
 
