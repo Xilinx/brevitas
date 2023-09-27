@@ -131,7 +131,6 @@ def ptq_torchvision_models(args):
     # Generate all possible combinations, including invalid ones
     # Split stats and mse due to the act_quant_percentile value
 
-    print(OPTIONS['act_param_method'])
     if 'stats' in OPTIONS['act_param_method']:
         percentile_options = OPTIONS.copy()
         percentile_options['act_param_method'] = ['stats']
@@ -141,17 +140,16 @@ def ptq_torchvision_models(args):
     if 'mse' in OPTIONS['act_param_method']:
         mse_options = OPTIONS.copy()
         mse_options['act_param_method'] = ['mse']
+        mse_options['act_quant_percentile'] = [None]
     else:
         mse_options = None
 
-    if mse_options is not None and percentile_options is not None:
-        combinations = list(product(*percentile_options.values())) + list(
-            product(*mse_options.values()))
-    elif mse_options is not None:
-        combinations = list(product(*mse_options.values()))
-    elif percentile_options is not None:
-        combinations = list(product(*percentile_options.values()))
-
+    # Combine MSE and Percentile combinations, if they are defined
+    combinations = []
+    if mse_options is not None:
+        combinations += list(product(*mse_options.values()))
+    if percentile_options is not None:
+        combinations += list(product(*percentile_options.values()))
     # Combine the two sets of combinations
     # Generate Namespace for each configuration
     configs = [
