@@ -436,8 +436,8 @@ class MSE(torch.nn.Module):
             mse_init_op,
             inner_stats_input_view_shape_impl: torch.nn.Module,
             stats_reduce_dim: Optional[int] = None,
-            mse_search_method='fibonacci',
-            mse_iters=10):
+            mse_search_method: str = 'fibonacci',
+            mse_iters: int = 20):
         super(MSE, self).__init__()
         self.mse_init_op = mse_init_op
         self.input_view_shape_impl = inner_stats_input_view_shape_impl
