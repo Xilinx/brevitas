@@ -50,6 +50,12 @@ def extend_collect_stats_steps(module):
         module.collect_stats_steps = sys.maxsize
 
 
+def set_collect_stats_to_average(module):
+    if hasattr(module, 'collect_stats_steps') and hasattr(module, 'momentum'):
+        # Set the average for stats collection to a true average (default is EMA)
+        module.momentum = None
+
+
 def finalize_collect_stats(module):
     if hasattr(module, 'collect_stats_steps') and hasattr(module, 'counter'):
         # If the counter has already reached collect_stats_steps, we do not want to reset it
@@ -69,6 +75,7 @@ class calibration_mode:
     def __enter__(self):
         if self.enabled:
             self.model.apply(extend_collect_stats_steps)
+            self.model.apply(set_collect_stats_to_average)
             self.disable_quant_inference.apply(
                 self.model, is_training=True, quantization_enabled=False)
 
