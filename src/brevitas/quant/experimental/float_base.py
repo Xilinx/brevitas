@@ -4,6 +4,7 @@
 from brevitas.core.quant.float import FloatQuant
 from brevitas.core.scaling.float_scaling import FloatScaling
 from brevitas.inject import ExtendedInjector
+from brevitas.inject import value
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector
 from brevitas.quant.solver import ActQuantSolver
@@ -40,15 +41,20 @@ class ScaledFloatActBase(FloatActBase, ActQuantSolver):
     float_scaling_impl = FloatScaling
 
 
-class Fp8e4m3Mixin(ExtendedInjector):
+class ExponentBiasMixin(ExtendedInjector):
+
+    @value
+    def exponent_bias(exponent_bit_width):
+        return 2 ** (exponent_bit_width - 1) - 1
+
+
+class Fp8e4m3Mixin(ExponentBiasMixin):
     bit_width = 8
     exponent_bit_width = 4
     mantissa_bit_width = 3
-    exponent_bias = 7
 
 
-class Fp8e5m2Mixin(ExtendedInjector):
+class Fp8e5m2Mixin(ExponentBiasMixin):
     bit_width = 8
     exponent_bit_width = 5
     mantissa_bit_width = 2
-    exponent_bias = 15
