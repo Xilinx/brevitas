@@ -55,34 +55,10 @@ TORCHVISION_TOP1_MAP = {
     'mobilenet_v2': 71.898,
     'vit_b_32': 75.912,}
 
-OPTIONS = {
-    'model_name': TORCHVISION_TOP1_MAP.keys(),
-    'target_backend': ['fx', 'layerwise', 'flexml'],  # Target backend
-    'scale_factor_type': ['float', 'po2'],  # Scale factor type
-    'weight_bit_width': [8, 4],  # Weight Bit Width
-    'act_bit_width': [8, 4],  # Act bit width
-    'bias_bit_width': [None, 32, 16],  # Bias Bit-Width for Po2 scale
-    'weight_quant_granularity': ['per_tensor', 'per_channel'],  # Scaling Per Output Channel
-    'act_quant_type': ['asym', 'sym'],  # Act Quant Type
-    'weight_param_method': ['stats', 'mse'],  # Weight Quant Type
-    'act_param_method': ['stats', 'mse'],  # Act Param Method
-    'bias_corr': [True],  # Bias Correction
-    'graph_eq_iterations': [0, 20],  # Graph Equalization
-    'graph_eq_merge_bias': [False, True],  # Merge bias for Graph Equalization
-    'act_equalization': ['fx', 'layerwise', None],  # Perform Activation Equalization (Smoothquant)
-    'learned_round': [False, True],  # Enable/Disable Learned Round
-    'gptq': [False, True],  # Enable/Disable GPTQ
-    'gptq_act_order': [False, True],  # Use act_order euristics for GPTQ
-    'gpfq': [False, True],  # Enable/Disable GPFQ
-    'gpfq_p': [0.25, 0.75],  # GPFQ P
-    'act_quant_percentile': [99.9, 99.99, 99.999],  # Activation Quantization Percentile
-    'uint_sym_act_for_unsigned_values': [True],  # Whether to use unsigned act quant when possible
-}
-
 OPTIONS_DEFAULT = {
     'model_name': list(TORCHVISION_TOP1_MAP.keys()),
     'quant_format': ['int'],  # Quantization type (INT vs Float)
-    'target_backend': ['fx'],  # Target backend
+    'target_backend': ['layerwise'],  # Target backend
     'scale_factor_type': ['float_scale'],  # Scale factor type
     'weight_mantissa_bit_width': [4],
     'weight_exponent_bit_width': [3],
@@ -166,6 +142,7 @@ def ptq_torchvision_models(args):
         return
 
     config_namespace = SimpleNamespace(**configs[args.idx])
+    print(config_namespace)
 
     fp_accuracy = TORCHVISION_TOP1_MAP[config_namespace.model_name]
     # Get model-specific configurations about input shapes and normalization
@@ -222,6 +199,10 @@ def ptq_torchvision_models(args):
         quant_format=config_namespace.quant_format,
         backend=config_namespace.target_backend,
         act_bit_width=config_namespace.act_bit_width,
+        weight_mantissa_bit_width=config_namespace.weight_mantissa_bit_width,
+        weight_exponent_bit_width=config_namespace.weight_exponent_bit_width,
+        act_mantissa_bit_width=config_namespace.act_mantissa_bit_width,
+        act_exponent_bit_width=config_namespace.act_exponent_bit_width,
         weight_bit_width=config_namespace.weight_bit_width,
         weight_param_method=config_namespace.weight_param_method,
         act_param_method=config_namespace.act_param_method,
@@ -330,6 +311,12 @@ def validate_config(config_namespace):
     if config_namespace.quant_format == 'float':
         config_namespace.act_quant_type = 'sym'
         config_namespace.weight_quant_type = 'sym'
+
+    if config_namespace.quant_format == 'float':
+        if config_namespace.weight_exponent_bit_width + config_namespace.weight_mantissa_bit_width != config_namespace.weight_bit_width - 1:
+            is_valid = False
+        if config_namespace.act_exponent_bit_width + config_namespace.act_mantissa_bit_width != config_namespace.act_bit_width - 1:
+            is_valid = False
 
     config_namespace.is_valid = is_valid
     return config_namespace
