@@ -46,7 +46,7 @@ from brevitas_examples.imagenet_classification.ptq.learned_round_utils import sp
 
 QUANTIZE_MAP = {'layerwise': layerwise_quantize, 'fx': quantize, 'flexml': quantize_flexml}
 
-BIAS_BIT_WIDTH_MAP = {32: Int32Bias, 16: Int16Bias}
+BIAS_BIT_WIDTH_MAP = {32: Int32Bias, 16: Int16Bias, None: None}
 
 WEIGHT_QUANT_MAP = {
     'float': {
