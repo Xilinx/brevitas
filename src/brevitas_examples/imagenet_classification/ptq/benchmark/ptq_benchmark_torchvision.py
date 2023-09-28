@@ -50,7 +50,7 @@ OPTIONS = {
     'scale_factor_type': ['float', 'po2'],  # Scale factor type
     'weight_bit_width': [8, 4],  # Weight Bit Width
     'act_bit_width': [8, 4],  # Act bit width
-    'bias_bit_width': ['float', 32, 16],  # Bias Bit-Width for Po2 scale
+    'bias_bit_width': [None, 32, 16],  # Bias Bit-Width for Po2 scale
     'weight_quant_granularity': ['per_tensor', 'per_channel'],  # Scaling Per Output Channel
     'act_quant_type': ['asym', 'sym'],  # Act Quant Type
     'weight_param_method': ['stats', 'mse'],  # Weight Quant Type

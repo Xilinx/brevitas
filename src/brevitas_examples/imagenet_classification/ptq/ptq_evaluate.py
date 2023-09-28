@@ -92,7 +92,7 @@ parser.add_argument(
     type=int,
     help='Input and weights bit width for first and last layer w/ layerwise backend (default: 8)')
 parser.add_argument(
-    '--bias-bit-width', default=32, choices=[32, 16, 'float'], help='Bias bit width (default: 32)')
+    '--bias-bit-width', default=32, choices=[32, 16, None], help='Bias bit width (default: 32)')
 parser.add_argument(
     '--act-quant-type',
     default='sym',
