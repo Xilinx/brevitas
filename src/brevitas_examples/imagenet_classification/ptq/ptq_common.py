@@ -106,6 +106,7 @@ def quantize_model(
         act_param_method='stats',
         weight_quant_type='sym',
         act_quant_granularity='per_tensor',
+        uint_sym_act_for_unsigned_values=True,
         dtype=torch.float32):
     # Define what quantize function to use and, based on the given configuration, its arguments
     quantize_fn = QUANTIZE_MAP[backend]
@@ -127,6 +128,7 @@ def quantize_model(
     act_bit_width_or_lambda = act_bit_width if backend != 'layerwise' else lambda module: bit_width_fn(
         module, act_bit_width)
     quant_layer_map, quant_layerwise_layer_map, quant_act_map, quant_identity_map = create_quant_maps(dtype=dtype,
+                            uint_sym_act_for_unsigned_values=uint_sym_act_for_unsigned_values,
                             bias_bit_width=bias_bit_width,
                             weight_bit_width=weight_bit_width_or_lambda,
                             weight_param_method=weight_param_method,
@@ -164,6 +166,7 @@ def create_quant_maps(
         weight_quant_type,
         weight_quant_granularity,
         weight_narrow_range,
+        uint_sym_act_for_unsigned_values=True,
         act_bit_width=None,
         act_scale_type=None,
         act_param_method=None,
@@ -235,7 +238,7 @@ def create_quant_maps(
         'softmax_input_quant': None,
         'attn_output_weights_quant': sym_act_quant,
         'attn_output_weights_bit_width': act_bit_width,
-        'attn_output_weights_signed': False,
+        'attn_output_weights_signed': not uint_sym_act_for_unsigned_values,
         'q_scaled_quant': sym_act_quant,
         'q_scaled_bit_width': act_bit_width,
         'k_transposed_quant': sym_act_quant,
@@ -273,17 +276,21 @@ def create_quant_maps(
     act_quant_and_bit_width = {'act_quant': act_quant, 'bit_width': act_bit_width}
     quant_act_kwargs = {**act_quant_and_bit_width, 'return_quant_tensor': True}
     quant_act_map = {
-        torch.nn.ReLU: (qnn.QuantReLU, {
-            **quant_act_kwargs, 'signed': False}),
-        torch.nn.ReLU6: (qnn.QuantReLU, {
-            **quant_act_kwargs, 'signed': False}),
-        torch.nn.Sigmoid: (qnn.QuantSigmoid, {
-            **quant_act_kwargs, 'signed': False}),}
+        torch.nn.ReLU:
+            (qnn.QuantReLU, {
+                **quant_act_kwargs, 'signed': not uint_sym_act_for_unsigned_values}),
+        torch.nn.ReLU6:
+            (qnn.QuantReLU, {
+                **quant_act_kwargs, 'signed': not uint_sym_act_for_unsigned_values}),
+        torch.nn.Sigmoid: (
+            qnn.QuantSigmoid, {
+                **quant_act_kwargs, 'signed': not uint_sym_act_for_unsigned_values}),}
     quant_identity_map = {
         'signed': (qnn.QuantIdentity, {
             **quant_act_kwargs}),
-        'unsigned': (qnn.QuantIdentity, {
-            **quant_act_kwargs, 'signed': False}),}
+        'unsigned': (
+            qnn.QuantIdentity, {
+                **quant_act_kwargs, 'signed': not uint_sym_act_for_unsigned_values}),}
     quant_layerwise_layer_map = {
         torch.nn.Linear: (qnn.QuantLinear, layerwise_quant_wbiol_kwargs),
         torch.nn.MultiheadAttention: (qnn.QuantMultiheadAttention, layerwise_quant_mha_kwargs),
