@@ -38,6 +38,17 @@ from brevitas_examples.imagenet_classification.utils import validate
 config.IGNORE_MISSING_KEYS = True
 
 
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
+
+
 class hashabledict(dict):
 
     def __hash__(self):
@@ -66,11 +77,11 @@ OPTIONS_DEFAULT = {
     'act_exponent_bit_width': [3],
     'weight_bit_width': [8],  # Weight Bit Width
     'act_bit_width': [8],  # Act bit width
-    'bias_bit_width': [32],  # Bias Bit-Width for Po2 scale
+    'bias_bit_width': [None],  # Bias Bit-Width for Po2 scale
     'weight_quant_granularity': ['per_channel'],  # Scaling Per Output Channel
     'act_quant_type': ['sym'],  # Act Quant Type
-    'act_param_method': ['mse'],  # Act Param Method
-    'weight_param_method': ['stats'],  # Weight Quant Type
+    'act_param_method': ['stats'],  # Act Param Method
+    'weight_param_method': ['mse'],  # Weight Quant Type
     'bias_corr': [True],  # Bias Correction
     'graph_eq_iterations': [20],  # Graph Equalization
     'graph_eq_merge_bias': [True],  # Merge bias for Graph Equalization
@@ -102,8 +113,12 @@ parser.add_argument(
     '--batch-size-validation', default=256, type=int, help='Minibatch size for validation')
 parser.add_argument('--calibration-samples', default=1000, type=int, help='Calibration size')
 for option_name, option_value in OPTIONS_DEFAULT.items():
-    parser.add_argument(
-        f'--{option_name}', default=option_value, nargs="+", type=type(option_value[0]))
+    if isinstance(option_value[0], bool):
+        type_args = str2bool
+    else:
+        type_args = type(option_value[0])
+    parser.add_argument(f'--{option_name}', default=option_value, nargs="+", type=type_args)
+print(parser)
 
 
 def main():
@@ -138,7 +153,7 @@ def ptq_torchvision_models(args):
 
     configs = unique(configs)
 
-    if args.idx > len(configs):
+    if args.idx > len(configs) - 1:
         return
 
     config_namespace = SimpleNamespace(**configs[args.idx])

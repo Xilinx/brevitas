@@ -22,8 +22,11 @@ from brevitas.inject import value
 import brevitas.nn as qnn
 from brevitas.quant.experimental.float import Fp8e4m3Act
 from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloat
+from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloatMSE
 from brevitas.quant.experimental.float import Fp8e4m3WeightPerChannelFloat
+from brevitas.quant.experimental.float import Fp8e4m3WeightPerChannelFloatMSE
 from brevitas.quant.experimental.float import Fp8e4m3WeightPerTensorFloat
+from brevitas.quant.experimental.float import Fp8e4m3WeightPerTensorFloatMSE
 from brevitas.quant.fixed_point import Int8ActPerTensorFixedPoint
 from brevitas.quant.fixed_point import Int8ActPerTensorFixedPointMSE
 from brevitas.quant.fixed_point import Int8WeightPerChannelFixedPoint
@@ -85,7 +88,12 @@ WEIGHT_QUANT_MAP = {
                 'per_tensor': {
                     'sym': Fp8e4m3WeightPerTensorFloat},
                 'per_channel': {
-                    'sym': Fp8e4m3WeightPerChannelFloat}}}}}
+                    'sym': Fp8e4m3WeightPerChannelFloat}},
+            'mse': {
+                'per_tensor': {
+                    'sym': Fp8e4m3WeightPerTensorFloatMSE},
+                'per_channel': {
+                    'sym': Fp8e4m3WeightPerChannelFloatMSE}}}}}
 
 INPUT_QUANT_MAP = {
     'int': {
@@ -108,7 +116,10 @@ INPUT_QUANT_MAP = {
         'float_scale': {
             'stats': {
                 'per_tensor': {
-                    'sym': Fp8e4m3ActPerTensorFloat},}}},}
+                    'sym': Fp8e4m3ActPerTensorFloat}},
+            'mse': {
+                'per_tensor': {
+                    'sym': Fp8e4m3ActPerTensorFloat},}}}}
 
 
 def quantize_model(
@@ -184,7 +195,7 @@ def quantize_model(
     # Missing fix for name_shadowing for all variables
     weight_bit_width_dict = {}
     act_bit_width_dict = {}
-    if weight_quant_format == 'int' and backend == 'layerwise':
+    if quant_format == 'int' and backend == 'layerwise':
         weight_bit_width_dict['weight_bit_width'] = layerwise_bit_width_fn_weight
         act_bit_width_dict['act_bit_width'] = layerwise_bit_width_fn_act
 
@@ -192,7 +203,7 @@ def quantize_model(
         weight_bit_width_dict['weight_bit_width'] = weight_bit_width
         act_bit_width_dict['act_bit_width'] = act_bit_width
 
-    if weight_quant_format == 'float' and backend == 'layerwise':
+    if quant_format == 'float' and backend == 'layerwise':
         weight_bit_width_dict['weight_bit_width'] = layerwise_bit_width_fn_weight
         act_bit_width_dict['act_bit_width'] = layerwise_bit_width_fn_act
         weight_bit_width_dict['weight_mantissa_bit_width'] = layerwise_bit_width_fn_weight_mantissa
@@ -271,15 +282,13 @@ def create_quant_maps(
 
     weight_bit_width_dict = {'bit_width': weight_bit_width}
     if weight_quant_format == 'float':
-        weight_bit_width_dict = {
-            'exponent_bit_width': weight_exponent_bit_width,
-            'mantissa_bit_width': weight_mantissa_bit_width}
+        weight_bit_width_dict['exponent_bit_width'] = weight_exponent_bit_width
+        weight_bit_width_dict['mantissa_bit_width'] = weight_mantissa_bit_width
 
     act_bit_width_dict = {'bit_width': act_bit_width}
     if act_quant_format == 'float':
-        act_bit_width_dict = {
-            'exponent_bit_width': act_exponent_bit_width,
-            'mantissa_bit_width': act_mantissa_bit_width}
+        act_bit_width_dict['exponent_bit_width'] = act_exponent_bit_width
+        act_bit_width_dict['mantissa_bit_width'] = act_mantissa_bit_width
 
     # Retrieve base input, weight, and bias quantizers
     bias_quant = BIAS_BIT_WIDTH_MAP[bias_bit_width]
