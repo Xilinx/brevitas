@@ -65,7 +65,8 @@ OPTIONS = {
     'gpfq': [False, True],  # Enable/Disable GPFQ
     'gpfq_p': [0.25, 0.75],  # GPFQ P
     'act_quant_percentile': [99.9, 99.99, 99.999],  # Activation Quantization Percentile
-    'uint_sym_act_for_unsigned_values': [False],}
+    'uint_sym_act_for_unsigned_values': [True],  # Whether to use unsigned act quant when possible
+}
 
 OPTIONS_DEFAULT = {
     'target_backend': ['fx'],  # Target backend
@@ -87,7 +88,8 @@ OPTIONS_DEFAULT = {
     'gpfq_p': [0.25],  # GPFQ P
     'gptq_act_order': [False],  # Use act_order euristics for GPTQ
     'act_quant_percentile': [99.999],  # Activation Quantization Percentile
-    'uint_sym_act_for_unsigned_values': [False],}
+    'uint_sym_act_for_unsigned_values': [True],  # Whether to use unsigned act quant when possible
+}
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet PTQ Validation')
 parser.add_argument('idx', type=int)
