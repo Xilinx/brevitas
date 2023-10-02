@@ -65,6 +65,7 @@ OPTIONS = {
     'gpfq': [False, True],  # Enable/Disable GPFQ
     'gpfq_p': [0.25, 0.75],  # GPFQ P
     'act_quant_percentile': [99.9, 99.99, 99.999],  # Activation Quantization Percentile
+    'uint_sym_act_for_unsigned_values': [True],  # Whether to use unsigned act quant when possible
 }
 
 OPTIONS_DEFAULT = {
@@ -87,6 +88,7 @@ OPTIONS_DEFAULT = {
     'gpfq_p': [0.25],  # GPFQ P
     'gptq_act_order': [False],  # Use act_order euristics for GPTQ
     'act_quant_percentile': [99.999],  # Activation Quantization Percentile
+    'uint_sym_act_for_unsigned_values': [True],  # Whether to use unsigned act quant when possible
 }
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet PTQ Validation')
@@ -228,7 +230,8 @@ def ptq_torchvision_models(args):
         weight_quant_granularity=config_namespace.weight_quant_granularity,
         act_quant_percentile=config_namespace.act_quant_percentile,
         act_quant_type=config_namespace.act_quant_type,
-        scale_factor_type=config_namespace.scale_factor_type)
+        scale_factor_type=config_namespace.scale_factor_type,
+        uint_sym_act_for_unsigned_values=config_namespace.uint_sym_act_for_unsigned_values)
 
     # If available, use the selected GPU
     if args.gpu is not None:
