@@ -11,8 +11,6 @@ from brevitas.core.function_wrapper.shape import OverTensorView
 from brevitas.core.scaling import ParameterFromStatsFromParameterScaling
 from brevitas.core.stats import AbsMinMax
 from brevitas.core.stats import NegativeMinOrZero
-from brevitas.core.stats import NegativePercentileOrZero
-from brevitas.core.zero_point import ParameterFromRuntimeZeroPoint
 from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import this

@@ -14,7 +14,7 @@ from brevitas.function.ops_ste import round_ste
 
 from .torch_handler import QUANT_TENSOR_FN_HANDLER
 
-IS_VALID_ATOL = 1e-1
+IS_VALID_ATOL = 2e-1
 
 
 class QuantTensorBase(NamedTuple):

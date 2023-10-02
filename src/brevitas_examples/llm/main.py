@@ -12,6 +12,8 @@ from transformers import AutoModelForCausalLM
 
 from brevitas.export import export_onnx_qcdq
 from brevitas.export import export_torch_qcdq
+from brevitas_examples.common.generative.quantize import quantize_model
+from brevitas_examples.common.parse_utils import quant_format_validator
 from brevitas_examples.llm.llm_quant.bias_corr import apply_bias_correction
 from brevitas_examples.llm.llm_quant.calibrate import apply_calibration
 from brevitas_examples.llm.llm_quant.data import get_c4
@@ -21,25 +23,10 @@ from brevitas_examples.llm.llm_quant.eval import model_eval
 from brevitas_examples.llm.llm_quant.gptq import apply_gptq
 from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_affine_merge
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import replace_mha_with_quantizable_layers
-from brevitas_examples.llm.llm_quant.quantize import quantize_model
 from brevitas_examples.llm.llm_quant.run_utils import CastFloat16ToFloat32
 from brevitas_examples.llm.llm_quant.run_utils import get_model_impl
 
-
-class CustomValidator(object):
-
-    def __init__(self, pattern):
-        self._pattern = re.compile(pattern)
-
-    def __call__(self, value):
-        if not self._pattern.match(value):
-            raise argparse.ArgumentTypeError(
-                "Argument has to match '{}'".format(self._pattern.pattern))
-        return value
-
-
 parser = argparse.ArgumentParser()
-quant_format_validator = CustomValidator(r"int|e[1-8]m[1-8]")
 parser.add_argument(
     '--model',
     type=str,
