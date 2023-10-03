@@ -172,8 +172,9 @@ class QuantLayerMixin(ExportMixin):
                 cached_inp = _CachedIO(inp.detach(), self.cache_quant_io_metadata_only)
                 self._cached_inp = cached_inp
         # Remove any naming metadata to avoid dowmstream errors
+        # Avoid inplace operations on the input in case of forward hooks
         if not torch._C._get_tracing_state():
-            inp.value.rename_(None)
+            inp = inp.set(value=inp.value.rename(None))
         return inp
 
     def pack_output(self, quant_output: QuantTensor):

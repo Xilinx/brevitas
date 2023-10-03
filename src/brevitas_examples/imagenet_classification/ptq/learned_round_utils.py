@@ -36,6 +36,7 @@ from brevitas.graph.calibrate import DisableEnableQuantization
 from brevitas.inject.enum import FloatToIntImplType
 from brevitas.inject.enum import LearnedRoundImplType
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
+from brevitas.quant_tensor import QuantTensor
 
 config.IGNORE_MISSING_KEYS = True
 
@@ -53,6 +54,19 @@ class DataSaverHook:
         self.output_store = None
 
     def __call__(self, module, input_batch, output_batch):
+        input_batch = input_batch[0]
+        if isinstance(input_batch, QuantTensor):
+            input_batch = input_batch.value
+
+        if hasattr(input_batch, 'names') and 'N' in input_batch.names:
+            batch_dim = input_batch.names.index('N')
+
+            input_batch.rename_(None)
+            input_batch = input_batch.transpose(0, batch_dim)
+            if self.store_output:
+                output_batch.rename_(None)
+                output_batch = output_batch.transpose(0, batch_dim)
+
         if self.store_output:
             self.output_store = output_batch
         self.input_store = input_batch
@@ -183,9 +197,9 @@ def save_inp_out_data(
                 pass
             if store_inp:
                 if keep_gpu:
-                    cached[0].append(data_saver.input_store[0].detach())
+                    cached[0].append(data_saver.input_store.detach())
                 else:
-                    cached[0].append(data_saver.input_store[0].detach().cpu())
+                    cached[0].append(data_saver.input_store.detach().cpu())
             if store_out:
                 if keep_gpu:
                     cached[1].append(data_saver.output_store.detach())
