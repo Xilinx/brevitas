@@ -86,7 +86,7 @@ class StatsFromParameterZeroPoint(brevitas.jit.ScriptModule):
 
 
 class ParameterFromRuntimeZeroPoint(brevitas.jit.ScriptModule):
-    __constants__ = ['stats_permute_dims', 'zero_point_shape', 'momentum']
+    __constants__ = ['stats_permute_dims', 'zero_point_shape']
 
     def __init__(
             self,
@@ -105,7 +105,8 @@ class ParameterFromRuntimeZeroPoint(brevitas.jit.ScriptModule):
         self.counter: int = brevitas.jit.Attribute(0, int)
         self.zero_point_shape = zero_point_shape
         self.stats_input_view_shape_impl = zero_point_stats_input_view_shape_impl
-        self.momentum = zero_point_stats_momentum
+        self.momentum: Optional[float] = brevitas.jit.Attribute(
+            zero_point_stats_momentum, Optional[float])
         self.value = Parameter(torch.full(zero_point_shape, 0.0, dtype=dtype, device=device))
         self.register_buffer(
             'buffer', torch.full(zero_point_shape, 0.0, dtype=dtype, device=device))

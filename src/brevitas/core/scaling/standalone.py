@@ -282,7 +282,6 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
         Maps to scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS == 'PARAMETER_FROM_STATS'
         == 'parameter_from_stats' when applied to runtime values (inputs/outputs/activations) in higher-level APIs.
     """
-    __constants__ = ['momentum']
 
     def __init__(
             self,
@@ -301,7 +300,8 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
         self.counter: int = brevitas.jit.Attribute(0, int)
         self.stats_input_view_shape_impl = scaling_stats_input_view_shape_impl
         self.stats = _Stats(scaling_stats_impl, scaling_shape)
-        self.momentum = scaling_stats_momentum
+        self.momentum: Optional[float] = brevitas.jit.Attribute(
+            scaling_stats_momentum, Optional[float])
         self.register_buffer('buffer', torch.full(scaling_shape, 1.0, dtype=dtype, device=device))
         self.value = Parameter(torch.full(scaling_shape, 1.0, dtype=dtype, device=device))
         self.restrict_scaling = _RestrictValue(restrict_scaling_impl)
