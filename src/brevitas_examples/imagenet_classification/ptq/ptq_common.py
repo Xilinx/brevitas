@@ -362,9 +362,7 @@ def create_quant_maps(
     # yapf: enable
 
     # Layerwise is  basic quant kwargs + input_quant
-    layerwise_quant_wbiol_kwargs = {
-        **quant_wbiol_kwargs, 'input_quant': per_tensor_act_quant
-    }  #, **kwargs_prefix('input_', act_float_format)}#'input_mantissa_bit_width': act_float_format['mantissa_bit_width'], 'input_exponent_bit_width': act_float_format['exponent_bit_width']}
+    layerwise_quant_wbiol_kwargs = {**quant_wbiol_kwargs, 'input_quant': per_tensor_act_quant}
 
     layerwise_quant_mha_kwargs = {**quant_mha_kwargs, 'in_proj_input_quant': per_tensor_act_quant}
 

@@ -128,13 +128,13 @@ class Fp8e5m2ActPerChannelFloat2dMSE(Fp8e5m2Mixin, MSESymmetricScale, ScaledFloa
 
 class Fp8e4m3WeightPerChannelFloatMSE(Fp8e4m3Mixin, MSESymmetricScale, ScaledFloatWeightBase):
     """
-    FP8 signed E3M4 weight quantizer with per-channel absmax-based scaling.
+    FP8 signed E3M4 weight quantizer with per-channel MSE-based scaling.
     """
     scaling_per_output_channel = True
 
 
 class Fp8e4m3WeightPerTensorFloatMSE(Fp8e4m3Mixin, MSESymmetricScale, ScaledFloatWeightBase):
     """
-    FP8 signed E3M4 weight quantizer with per-tensor absmax-based scaling.
+    FP8 signed E3M4 weight quantizer with per-tensor MSE-based scaling.
     """
     scaling_per_output_channel = False
