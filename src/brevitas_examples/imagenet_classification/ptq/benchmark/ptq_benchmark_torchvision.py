@@ -49,9 +49,9 @@ def parse_type(v, default_type):
 def parse_bool(v):
     if isinstance(v, bool):
         return v
-    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+    if v.lower() in ('yes', 'true', 't', 'y'):
         return True
-    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+    elif v.lower() in ('no', 'false', 'f', 'n'):
         return False
     else:
         raise argparse.ArgumentTypeError('Boolean value expected.')
