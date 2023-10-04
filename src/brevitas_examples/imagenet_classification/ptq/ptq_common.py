@@ -18,7 +18,15 @@ from brevitas.graph.gptq import gptq_mode
 from brevitas.graph.quantize import layerwise_quantize
 from brevitas.graph.quantize import quantize
 from brevitas.graph.target.flexml import quantize_flexml
+from brevitas.inject import value
 import brevitas.nn as qnn
+from brevitas.quant.experimental.float import Fp8e4m3Act
+from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloat
+from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloatMSE
+from brevitas.quant.experimental.float import Fp8e4m3WeightPerChannelFloat
+from brevitas.quant.experimental.float import Fp8e4m3WeightPerChannelFloatMSE
+from brevitas.quant.experimental.float import Fp8e4m3WeightPerTensorFloat
+from brevitas.quant.experimental.float import Fp8e4m3WeightPerTensorFloatMSE
 from brevitas.quant.fixed_point import Int8ActPerTensorFixedPoint
 from brevitas.quant.fixed_point import Int8ActPerTensorFixedPointMSE
 from brevitas.quant.fixed_point import Int8WeightPerChannelFixedPoint
@@ -49,45 +57,69 @@ QUANTIZE_MAP = {'layerwise': layerwise_quantize, 'fx': quantize, 'flexml': quant
 BIAS_BIT_WIDTH_MAP = {32: Int32Bias, 16: Int16Bias, None: None}
 
 WEIGHT_QUANT_MAP = {
+    'int': {
+        'float_scale': {
+            'stats': {
+                'per_tensor': {
+                    'sym': Int8WeightPerTensorFloat, 'asym': ShiftedUint8WeightPerTensorFloat},
+                'per_channel': {
+                    'sym': Int8WeightPerChannelFloat, 'asym': ShiftedUint8WeightPerChannelFloat}},
+            'mse': {
+                'per_tensor': {
+                    'sym': Int8WeightPerTensorFloatMSE,
+                    'asym': ShiftedUint8WeightPerTensorFloatMSE},
+                'per_channel': {
+                    'sym': Int8WeightPerChannelFloatMSE,
+                    'asym': ShiftedUint8WeightPerChannelFloatMSE},},},
+        'po2_scale': {
+            'stats': {
+                'per_tensor': {
+                    'sym': Int8WeightPerTensorFixedPoint},
+                'per_channel': {
+                    'sym': Int8WeightPerChannelFixedPoint},},
+            'mse': {
+                'per_tensor': {
+                    'sym': Int8WeightPerTensorFixedPointMSE},
+                'per_channel': {
+                    'sym': Int8WeightPerChannelFixedPointMSE}},}},
     'float': {
-        'stats': {
-            'per_tensor': {
-                'sym': Int8WeightPerTensorFloat, 'asym': ShiftedUint8WeightPerTensorFloat},
-            'per_channel': {
-                'sym': Int8WeightPerChannelFloat, 'asym': ShiftedUint8WeightPerChannelFloat}},
-        'mse': {
-            'per_tensor': {
-                'sym': Int8WeightPerTensorFloatMSE, 'asym': ShiftedUint8WeightPerTensorFloatMSE},
-            'per_channel': {
-                'sym': Int8WeightPerChannelFloatMSE, 'asym': ShiftedUint8WeightPerChannelFloatMSE},
-        },},
-    'po2': {
-        'stats': {
-            'per_tensor': {
-                'sym': Int8WeightPerTensorFixedPoint},
-            'per_channel': {
-                'sym': Int8WeightPerChannelFixedPoint},},
-        'mse': {
-            'per_tensor': {
-                'sym': Int8WeightPerTensorFixedPointMSE},
-            'per_channel': {
-                'sym': Int8WeightPerChannelFixedPointMSE}},}}
+        'float_scale': {
+            'stats': {
+                'per_tensor': {
+                    'sym': Fp8e4m3WeightPerTensorFloat},
+                'per_channel': {
+                    'sym': Fp8e4m3WeightPerChannelFloat}},
+            'mse': {
+                'per_tensor': {
+                    'sym': Fp8e4m3WeightPerTensorFloatMSE},
+                'per_channel': {
+                    'sym': Fp8e4m3WeightPerChannelFloatMSE}}}}}
 
 INPUT_QUANT_MAP = {
+    'int': {
+        'float_scale': {
+            'stats': {
+                'per_tensor': {
+                    'sym': Int8ActPerTensorFloat, 'asym': ShiftedUint8ActPerTensorFloat}},
+            'mse': {
+                'per_tensor': {
+                    'sym': Int8ActPerTensorFloatMSE, 'asym': ShiftedUint8ActPerTensorFloatMSE}}},
+        'po2_scale': {
+            'stats': {
+                'per_tensor': {
+                    'sym': Int8ActPerTensorFixedPoint, 'asym': ShiftedUint8ActPerTensorFixedPoint},
+            },
+            'mse': {
+                'per_tensor': {
+                    'sym': Int8ActPerTensorFixedPointMSE}},}},
     'float': {
-        'stats': {
-            'per_tensor': {
-                'sym': Int8ActPerTensorFloat, 'asym': ShiftedUint8ActPerTensorFloat}},
-        'mse': {
-            'per_tensor': {
-                'sym': Int8ActPerTensorFloatMSE, 'asym': ShiftedUint8ActPerTensorFloatMSE}}},
-    'po2': {
-        'stats': {
-            'per_tensor': {
-                'sym': Int8ActPerTensorFixedPoint, 'asym': ShiftedUint8ActPerTensorFixedPoint},},
-        'mse': {
-            'per_tensor': {
-                'sym': Int8ActPerTensorFixedPointMSE}},}}
+        'float_scale': {
+            'stats': {
+                'per_tensor': {
+                    'sym': Fp8e4m3ActPerTensorFloat}},
+            'mse': {
+                'per_tensor': {
+                    'sym': Fp8e4m3ActPerTensorFloat},}}}}
 
 
 def quantize_model(
@@ -100,7 +132,14 @@ def quantize_model(
         act_quant_percentile,
         act_quant_type,
         scale_factor_type,
+        quant_format,
         layerwise_first_last_bit_width=8,
+        layerwise_first_last_mantissa_bit_width=4,
+        layerwise_first_last_exponent_bit_width=3,
+        weight_mantissa_bit_width=4,
+        weight_exponent_bit_width=3,
+        act_mantissa_bit_width=4,
+        act_exponent_bit_width=3,
         weight_narrow_range=False,
         weight_param_method='stats',
         act_param_method='stats',
@@ -113,35 +152,90 @@ def quantize_model(
     weight_scale_type = scale_factor_type
     act_scale_type = scale_factor_type
 
-    weight_quant_granularity = weight_quant_granularity
+    weight_quant_format = quant_format
+    act_quant_format = quant_format
 
-    def bit_width_fn(module, other_bit_width):
+    def layerwise_bit_width_fn(module, base_bit_width, first_last_bit_width):
         if isinstance(module, torch.nn.Conv2d) and module.in_channels == 3:
-            return layerwise_first_last_bit_width
+            return first_last_bit_width
         elif isinstance(module, torch.nn.Linear) and module.out_features == 1000:
-            return layerwise_first_last_bit_width
+            return first_last_bit_width
         else:
-            return other_bit_width
+            return base_bit_width
 
-    weight_bit_width_or_lambda = weight_bit_width if backend != 'layerwise' else lambda module: bit_width_fn(
-        module, weight_bit_width)
-    act_bit_width_or_lambda = act_bit_width if backend != 'layerwise' else lambda module: bit_width_fn(
-        module, act_bit_width)
+    @value
+    def layerwise_bit_width_fn_act_exponent(module):
+        return layerwise_bit_width_fn(
+            module, act_exponent_bit_width, layerwise_first_last_exponent_bit_width)
+
+    @value
+    def layerwise_bit_width_fn_act_mantissa(module):
+        return layerwise_bit_width_fn(
+            module, act_mantissa_bit_width, layerwise_first_last_mantissa_bit_width)
+
+    @value
+    def layerwise_bit_width_fn_weight_exponent(module):
+        return layerwise_bit_width_fn(
+            module, weight_exponent_bit_width, layerwise_first_last_exponent_bit_width)
+
+    @value
+    def layerwise_bit_width_fn_weight_mantissa(module):
+        return layerwise_bit_width_fn(
+            module, weight_mantissa_bit_width, layerwise_first_last_mantissa_bit_width)
+
+    @value
+    def layerwise_bit_width_fn_act(module):
+        return layerwise_bit_width_fn(module, act_bit_width, layerwise_first_last_bit_width)
+
+    @value
+    def layerwise_bit_width_fn_weight(module):
+        return layerwise_bit_width_fn(module, weight_bit_width, layerwise_first_last_bit_width)
+
+    # Missing fix for backend =! layerwise
+    # Missing fix for name_shadowing for all variables
+    weight_bit_width_dict = {}
+    act_bit_width_dict = {}
+    if quant_format == 'int' and backend == 'layerwise':
+        weight_bit_width_dict['weight_bit_width'] = layerwise_bit_width_fn_weight
+        act_bit_width_dict['act_bit_width'] = layerwise_bit_width_fn_act
+
+    else:
+        weight_bit_width_dict['weight_bit_width'] = weight_bit_width
+        act_bit_width_dict['act_bit_width'] = act_bit_width
+
+    if quant_format == 'float' and backend == 'layerwise':
+        weight_bit_width_dict['weight_bit_width'] = layerwise_bit_width_fn_weight
+        act_bit_width_dict['act_bit_width'] = layerwise_bit_width_fn_act
+        weight_bit_width_dict['weight_mantissa_bit_width'] = layerwise_bit_width_fn_weight_mantissa
+        weight_bit_width_dict['weight_exponent_bit_width'] = layerwise_bit_width_fn_weight_exponent
+        act_bit_width_dict['act_mantissa_bit_width'] = layerwise_bit_width_fn_act_mantissa
+        act_bit_width_dict['act_exponent_bit_width'] = layerwise_bit_width_fn_act_exponent
+    else:
+        weight_bit_width_dict['weight_bit_width'] = weight_bit_width
+        act_bit_width_dict['act_bit_width'] = act_bit_width
+        weight_bit_width_dict['weight_mantissa_bit_width'] = weight_mantissa_bit_width
+        weight_bit_width_dict['weight_exponent_bit_width'] = weight_exponent_bit_width
+        act_bit_width_dict['act_mantissa_bit_width'] = act_mantissa_bit_width
+        act_bit_width_dict['act_exponent_bit_width'] = act_exponent_bit_width
+
+
     quant_layer_map, quant_layerwise_layer_map, quant_act_map, quant_identity_map = create_quant_maps(dtype=dtype,
                             uint_sym_act_for_unsigned_values=uint_sym_act_for_unsigned_values,
                             bias_bit_width=bias_bit_width,
-                            weight_bit_width=weight_bit_width_or_lambda,
                             weight_param_method=weight_param_method,
                             weight_scale_type=weight_scale_type,
                             weight_quant_type=weight_quant_type,
                             weight_quant_granularity=weight_quant_granularity,
                             weight_narrow_range=weight_narrow_range,
-                            act_bit_width=act_bit_width_or_lambda,
+                            weight_quant_format=weight_quant_format,
+                            act_quant_format=act_quant_format,
                             act_scale_type=act_scale_type,
                             act_param_method=act_param_method,
                             act_quant_type=act_quant_type,
                             act_quant_granularity=act_quant_granularity,
-                            act_quant_percentile=act_quant_percentile)
+                            act_quant_percentile=act_quant_percentile,
+                            **weight_bit_width_dict,
+                            **act_bit_width_dict)
 
     if backend != 'layerwise':
         # Fx and flexml backend requires three mappings for quantization
@@ -166,7 +260,13 @@ def create_quant_maps(
         weight_quant_type,
         weight_quant_granularity,
         weight_narrow_range,
+        weight_quant_format,
+        act_quant_format,
         uint_sym_act_for_unsigned_values=True,
+        weight_mantissa_bit_width=None,
+        weight_exponent_bit_width=None,
+        act_mantissa_bit_width=None,
+        act_exponent_bit_width=None,
         act_bit_width=None,
         act_scale_type=None,
         act_param_method=None,
@@ -180,19 +280,34 @@ def create_quant_maps(
     def kwargs_prefix(prefix, weight_kwargs):
         return {prefix + k: v for k, v in weight_kwargs.items()}
 
+    weight_bit_width_dict = {'bit_width': weight_bit_width}
+    if weight_quant_format == 'float':
+        weight_bit_width_dict['exponent_bit_width'] = weight_exponent_bit_width
+        weight_bit_width_dict['mantissa_bit_width'] = weight_mantissa_bit_width
+
+    act_bit_width_dict = {'bit_width': act_bit_width}
+    if act_quant_format == 'float':
+        act_bit_width_dict['exponent_bit_width'] = act_exponent_bit_width
+        act_bit_width_dict['mantissa_bit_width'] = act_mantissa_bit_width
+
     # Retrieve base input, weight, and bias quantizers
     bias_quant = BIAS_BIT_WIDTH_MAP[bias_bit_width]
-    weight_quant = WEIGHT_QUANT_MAP[weight_scale_type][weight_param_method][
+    weight_quant = WEIGHT_QUANT_MAP[weight_quant_format][weight_scale_type][weight_param_method][
         weight_quant_granularity][weight_quant_type]
+    weight_quant = weight_quant.let(**weight_bit_width_dict)
+
     if act_bit_width is not None:
-        act_quant = INPUT_QUANT_MAP[act_scale_type][act_param_method][act_quant_granularity][
-            act_quant_type]
+        act_quant = INPUT_QUANT_MAP[act_quant_format][act_scale_type][act_param_method][
+            act_quant_granularity][act_quant_type]
         # Some activations in MHA should always be symmetric
-        sym_act_quant = INPUT_QUANT_MAP[act_scale_type][act_param_method][act_quant_granularity][
-            'sym']
+        sym_act_quant = INPUT_QUANT_MAP[act_quant_format][act_scale_type][act_param_method][
+            act_quant_granularity]['sym']
         # Linear layers with 2d input should always be per tensor
-        per_tensor_act_quant = INPUT_QUANT_MAP[act_scale_type][act_param_method]['per_tensor'][
-            act_quant_type]
+        per_tensor_act_quant = INPUT_QUANT_MAP[act_quant_format][act_scale_type][act_param_method][
+            'per_tensor'][act_quant_type]
+        act_quant = act_quant.let(**act_bit_width_dict)
+        sym_act_quant = sym_act_quant.let(**act_bit_width_dict)
+        per_tensor_act_quant = per_tensor_act_quant.let(**act_bit_width_dict)
     else:
         act_quant = None
         sym_act_quant = None
@@ -221,31 +336,22 @@ def create_quant_maps(
             per_tensor_act_quant = per_tensor_act_quant.let(
                 **{'low_percentile_q': 100 - act_quant_percentile})
 
-    weight_quant_and_bit_width = {
-        'weight_quant': weight_quant, 'weight_bit_width': weight_bit_width}
+    weight_quant_dict = {'weight_quant': weight_quant}
 
     quant_wbiol_kwargs = {
-        **weight_quant_and_bit_width,
-        'dtype': dtype,
-        'return_quant_tensor': False,
-        'bias_quant': bias_quant}
+        **weight_quant_dict, 'dtype': dtype, 'return_quant_tensor': False, 'bias_quant': bias_quant}
 
     # yapf: disable
     quant_mha_kwargs = {
-        **kwargs_prefix('in_proj_', weight_quant_and_bit_width),
-        **kwargs_prefix('out_proj_', weight_quant_and_bit_width),
+        **kwargs_prefix('in_proj_', weight_quant_dict),
+        **kwargs_prefix('out_proj_', weight_quant_dict),
         'in_proj_bias_quant': bias_quant,
         'softmax_input_quant': None,
         'attn_output_weights_quant': sym_act_quant,
-        'attn_output_weights_bit_width': act_bit_width,
         'q_scaled_quant': sym_act_quant,
-        'q_scaled_bit_width': act_bit_width,
         'k_transposed_quant': sym_act_quant,
-        'k_transposed_bit_width': act_bit_width,
         'v_quant': sym_act_quant,
-        'v_bit_width': act_bit_width,
         'out_proj_input_quant': act_quant,
-        'out_proj_input_bit_width': act_bit_width,
         'out_proj_bias_quant': bias_quant,
         'out_proj_output_quant': None,
         # activation equalization requires packed_in_proj
@@ -256,13 +362,9 @@ def create_quant_maps(
     # yapf: enable
 
     # Layerwise is  basic quant kwargs + input_quant
-    layerwise_quant_wbiol_kwargs = {
-        **quant_wbiol_kwargs, 'input_quant': per_tensor_act_quant, 'input_bit_width': act_bit_width}
+    layerwise_quant_wbiol_kwargs = {**quant_wbiol_kwargs, 'input_quant': per_tensor_act_quant}
 
-    layerwise_quant_mha_kwargs = {
-        **quant_mha_kwargs,
-        'in_proj_input_quant': per_tensor_act_quant,
-        'in_proj_input_bit_width': act_bit_width}
+    layerwise_quant_mha_kwargs = {**quant_mha_kwargs, 'in_proj_input_quant': per_tensor_act_quant}
 
     quant_layer_map = {
         torch.nn.Linear: (qnn.QuantLinear, quant_wbiol_kwargs),
