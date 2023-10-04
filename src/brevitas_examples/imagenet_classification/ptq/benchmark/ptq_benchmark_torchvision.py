@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import argparse
+from functools import partial
 from itertools import product
 import os
 import random
@@ -38,7 +39,14 @@ from brevitas_examples.imagenet_classification.utils import validate
 config.IGNORE_MISSING_KEYS = True
 
 
-def str2bool(v):
+def parse_type(v, default_type):
+    if v == 'None':
+        return None
+    else:
+        return default_type(v)
+
+
+def parse_bool(v):
     if isinstance(v, bool):
         return v
     if v.lower() in ('yes', 'true', 't', 'y', '1'):
@@ -77,7 +85,7 @@ OPTIONS_DEFAULT = {
     'act_exponent_bit_width': [3],
     'weight_bit_width': [8],  # Weight Bit Width
     'act_bit_width': [8],  # Act bit width
-    'bias_bit_width': [None],  # Bias Bit-Width for Po2 scale
+    'bias_bit_width': [32],  # Bias Bit-Width for Po2 scale
     'weight_quant_granularity': ['per_channel'],  # Scaling Per Output Channel
     'act_quant_type': ['sym'],  # Act Quant Type
     'act_param_method': ['stats'],  # Act Param Method
@@ -85,7 +93,7 @@ OPTIONS_DEFAULT = {
     'bias_corr': [True],  # Bias Correction
     'graph_eq_iterations': [20],  # Graph Equalization
     'graph_eq_merge_bias': [True],  # Merge bias for Graph Equalization
-    'act_equalization': [None],  # Perform Activation Equalization (Smoothquant)
+    'act_equalization': ['layerwise'],  # Perform Activation Equalization (Smoothquant)
     'learned_round': [False],  # Enable/Disable Learned Round
     'gptq': [True],  # Enable/Disable GPTQ
     'gpfq': [False],  # Enable/Disable GPFQ
@@ -114,11 +122,10 @@ parser.add_argument(
 parser.add_argument('--calibration-samples', default=1000, type=int, help='Calibration size')
 for option_name, option_value in OPTIONS_DEFAULT.items():
     if isinstance(option_value[0], bool):
-        type_args = str2bool
+        type_args = parse_bool
     else:
-        type_args = type(option_value[0])
+        type_args = partial(parse_type, default_type=type(option_value[0]))
     parser.add_argument(f'--{option_name}', default=option_value, nargs="+", type=type_args)
-print(parser)
 
 
 def main():
