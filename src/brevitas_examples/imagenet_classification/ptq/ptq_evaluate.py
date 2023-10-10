@@ -79,9 +79,9 @@ parser.add_argument(
     help='Backend to target for quantization (default: fx)')
 parser.add_argument(
     '--scale-factor-type',
-    default='float',
-    choices=['float', 'po2'],
-    help='Type for scale factors (default: float)')
+    default='float_scale',
+    choices=['float_scale', 'po2_scale'],
+    help='Type for scale factors (default: float_scale)')
 parser.add_argument(
     '--act-bit-width', default=8, type=int, help='Activations bit width (default: 8)')
 parser.add_argument(
@@ -168,6 +168,34 @@ add_bool_arg(
     help='Narrow range for weight quantization (default: enabled)')
 parser.add_argument(
     '--gpfq-p', default=0.25, type=float, help='P parameter for GPFQ (default: 0.25)')
+parser.add_argument(
+    '--quant_format', default='int', choices=['int', 'float'],
+    help='Quantization format to use for weights and activations (default: int)'
+)
+parser.add_argument(
+    '--layerwise-first-last-mantissa-bit-width', default=4, type=int,
+    help='TODO' # @TODO: write helpful description for this
+)
+parser.add_argument(
+    '--layerwise-first-last-exponent-bit-width', default=3, type=int,
+    help='TODO' # @TODO: write helpful description for this
+)
+parser.add_argument(
+    '--weight-mantissa-bit-width', default=4, type=int,
+    help='TODO' # @TODO: write helpful description for this
+)
+parser.add_argument(
+    '--weight-exponent-bit-width', default=3, type=int,
+    help='TODO' # @TODO: write helpful description for this
+)
+parser.add_argument(
+    '--act-mantissa-bit-width', default=4, type=int,
+    help='TODO' # @TODO: write helpful description for this
+)
+parser.add_argument(
+    '--act-exponent-bit-width', default=3, type=int,
+    help='TODO' # @TODO: write helpful description for this
+)
 add_bool_arg(parser, 'gptq', default=True, help='GPTQ (default: enabled)')
 add_bool_arg(parser, 'gpfq', default=False, help='GPFQ (default: disabled)')
 add_bool_arg(
@@ -208,6 +236,7 @@ def main():
         f"{act_quant_calib_config}_"
         f"{args.weight_quant_calibration_type}_"
         f"{'bnc' if args.calibrate_bn else ''}")
+    # @TODO: include added options in configurations here
 
     print(
         f"Model: {args.model_name} - "
@@ -295,7 +324,14 @@ def main():
         act_bit_width=args.act_bit_width,
         act_param_method=args.act_quant_calibration_type,
         act_quant_percentile=args.act_quant_percentile,
-        act_quant_type=args.act_quant_type)
+        act_quant_type=args.act_quant_type,
+        quant_format=args.quant_format,
+        layerwise_first_last_mantissa_bit_width=args.layerwise_first_last_mantissa_bit_width,
+        layerwise_first_last_exponent_bit_width=args.layerwise_first_last_exponent_bit_width,
+        weight_mantissa_bit_width=args.weight_mantissa_bit_width,
+        weight_exponent_bit_width=args.weight_exponent_bit_width,
+        act_mantissa_bit_width=args.act_mantissa_bit_width,
+        act_exponent_bit_width=args.act_exponent_bit_width)
     # If available, use the selected GPU
     if args.gpu is not None:
         torch.cuda.set_device(args.gpu)

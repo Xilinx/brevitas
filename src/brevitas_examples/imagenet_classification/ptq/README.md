@@ -69,14 +69,17 @@ usage: ptq_evaluate.py [-h] --calibration-dir CALIBRATION_DIR --validation-dir
                        [--calibration-samples CALIBRATION_SAMPLES]
                        [--model-name ARCH]
                        [--target-backend {fx,layerwise,flexml}]
-                       [--scale-factor-type {float32,po2}]
+                       [--scale-factor-type {float_scale,po2_scale}]
                        [--act-bit-width ACT_BIT_WIDTH]
                        [--weight-bit-width WEIGHT_BIT_WIDTH]
                        [--layerwise-first-last-bit-width LAYERWISE_FIRST_LAST_BIT_WIDTH]
-                       [--bias-bit-width {int32,int16}]
-                       [--act-quant-type {symmetric,asymmetric}]
+                       [--bias-bit-width {32,16,None}]
+                       [--act-quant-type {sym,asym}]
+                       [--weight-quant-type {sym,asym}]
+                       [--weight-quant-granularity {per_tensor,per_channel}]
+                       [--weight-quant-calibration-type {stats,mse}]
                        [--act-equalization {fx,layerwise,None}]
-                       [--act-quant-calibration-type {percentile,mse}]
+                       [--act-quant-calibration-type {stats,mse}]
                        [--graph-eq-iterations GRAPH_EQ_ITERATIONS]
                        [--learned-round-iters LEARNED_ROUND_ITERS]
                        [--learned-round-lr LEARNED_ROUND_LR]
@@ -86,15 +89,21 @@ usage: ptq_evaluate.py [-h] --calibration-dir CALIBRATION_DIR --validation-dir
                        [--bias-corr | --no-bias-corr]
                        [--graph-eq-merge-bias | --no-graph-eq-merge-bias]
                        [--weight-narrow-range | --no-weight-narrow-range]
-                       [--gpfq-p GPFQ_P] [--gptq | --no-gptq]
-                       [--gpfq | --no-gpfq]
+                       [--gpfq-p GPFQ_P] [--quant_format {int,float}]
+                       [--layerwise-first-last-mantissa-bit-width LAYERWISE_FIRST_LAST_MANTISSA_BIT_WIDTH]
+                       [--layerwise-first-last-exponent-bit-width LAYERWISE_FIRST_LAST_EXPONENT_BIT_WIDTH]
+                       [--weight-mantissa-bit-width WEIGHT_MANTISSA_BIT_WIDTH]
+                       [--weight-exponent-bit-width WEIGHT_EXPONENT_BIT_WIDTH]
+                       [--act-mantissa-bit-width ACT_MANTISSA_BIT_WIDTH]
+                       [--act-exponent-bit-width ACT_EXPONENT_BIT_WIDTH]
+                       [--gptq | --no-gptq] [--gpfq | --no-gpfq]
                        [--gptq-act-order | --no-gptq-act-order]
                        [--learned-round | --no-learned-round]
                        [--calibrate-bn | --no-calibrate-bn]
 
 PyTorch ImageNet PTQ Validation
 
-optional arguments:
+options:
   -h, --help            show this help message and exit
   --calibration-dir CALIBRATION_DIR
                         Path to folder containing Imagenet calibration folder
@@ -138,42 +147,81 @@ optional arguments:
                         wide_resnet101_2 | wide_resnet50_2 (default: resnet18)
   --target-backend {fx,layerwise,flexml}
                         Backend to target for quantization (default: fx)
-  --scale-factor-type {float32,po2}
-                        Type for scale factors (default: float32)
+  --scale-factor-type {float_scale,po2_scale}
+                        Type for scale factors (default: float_scale)
   --act-bit-width ACT_BIT_WIDTH
                         Activations bit width (default: 8)
   --weight-bit-width WEIGHT_BIT_WIDTH
                         Weights bit width (default: 8)
-  --bias-bit-width {int32,int16}
-                        Bias bit width (default: int32)
-  --act-quant-type {symmetric,asymmetric}
-                        Activation quantization type (default: symmetric)
+  --layerwise-first-last-bit-width LAYERWISE_FIRST_LAST_BIT_WIDTH
+                        Input and weights bit width for first and last layer
+                        w/ layerwise backend (default: 8)
+  --bias-bit-width {32,16,None}
+                        Bias bit width (default: 32)
+  --act-quant-type {sym,asym}
+                        Activation quantization type (default: sym)
+  --weight-quant-type {sym,asym}
+                        Weight quantization type (default: sym)
+  --weight-quant-granularity {per_tensor,per_channel}
+                        Activation quantization type (default: per_tensor)
+  --weight-quant-calibration-type {stats,mse}
+                        Weight quantization calibration type (default: stats)
+  --act-equalization {fx,layerwise,None}
+                        Activation equalization type (default: None)
+  --act-quant-calibration-type {stats,mse}
+                        Activation quantization calibration type (default:
+                        stats)
   --graph-eq-iterations GRAPH_EQ_ITERATIONS
-                        Numbers of iterations for graph equalization (default: 20)
+                        Numbers of iterations for graph equalization (default:
+                        20)
   --learned-round-iters LEARNED_ROUND_ITERS
                         Numbers of iterations for learned round for each layer
                         (default: 1000)
   --learned-round-lr LEARNED_ROUND_LR
                         Learning rate for learned round (default: 1e-3)
   --act-quant-percentile ACT_QUANT_PERCENTILE
-                        Percentile to use for stats of activation quantization (default: 99.999)
+                        Percentile to use for stats of activation quantization
+                        (default: 99.999)
   --export-onnx-qcdq    If true, export the model in onnx qcdq format
   --export-torch-qcdq   If true, export the model in torch qcdq format
   --scaling-per-output-channel
-                        Enable Weight scaling per output channel (default: enabled)
+                        Enable Weight scaling per output channel (default:
+                        enabled)
   --no-scaling-per-output-channel
-                        Disable Weight scaling per output channel (default: enabled)
-  --bias-corr           Enable Bias correction after calibration (default: enabled)
-  --no-bias-corr        Disable Bias correction after calibration (default: enabled)
+                        Disable Weight scaling per output channel (default:
+                        enabled)
+  --bias-corr           Enable Bias correction after calibration (default:
+                        enabled)
+  --no-bias-corr        Disable Bias correction after calibration (default:
+                        enabled)
   --graph-eq-merge-bias
-                        Enable Merge bias when performing graph equalization (default: enabled)
+                        Enable Merge bias when performing graph equalization
+                        (default: enabled)
   --no-graph-eq-merge-bias
-                        Disable Merge bias when performing graph equalization (default: enabled)
+                        Disable Merge bias when performing graph equalization
+                        (default: enabled)
   --weight-narrow-range
-                        Enable Narrow range for weight quantization (default: enabled)
+                        Enable Narrow range for weight quantization (default:
+                        enabled)
   --no-weight-narrow-range
-                        Disable Narrow range for weight quantization (default: enabled)
+                        Disable Narrow range for weight quantization (default:
+                        enabled)
   --gpfq-p GPFQ_P       P parameter for GPFQ (default: 0.25)
+  --quant_format {int,float}
+                        Quantization format to use for weights and activations
+                        (default: int)
+  --layerwise-first-last-mantissa-bit-width LAYERWISE_FIRST_LAST_MANTISSA_BIT_WIDTH
+                        TODO
+  --layerwise-first-last-exponent-bit-width LAYERWISE_FIRST_LAST_EXPONENT_BIT_WIDTH
+                        TODO
+  --weight-mantissa-bit-width WEIGHT_MANTISSA_BIT_WIDTH
+                        TODO
+  --weight-exponent-bit-width WEIGHT_EXPONENT_BIT_WIDTH
+                        TODO
+  --act-mantissa-bit-width ACT_MANTISSA_BIT_WIDTH
+                        TODO
+  --act-exponent-bit-width ACT_EXPONENT_BIT_WIDTH
+                        TODO
   --gptq                Enable GPTQ (default: enabled)
   --no-gptq             Disable GPTQ (default: enabled)
   --gpfq                Enable GPFQ (default: disabled)
