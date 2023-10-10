@@ -352,7 +352,7 @@ class WeightNormPerChannelFloatDecoupled(SolveWeightScalingStatsInputDimsFromMod
     tensor_clamp_impl = TensorClamp
     scaling_impl = ParameterScaling
     scaling_init_impl = StatsFromParameterScaling
-    restrict_scaling_impl = FloatRestrictValue
+    restrict_scaling_impl = LogFloatRestrictValue
     scaling_stats_impl = AbsMax
     pre_scaling_impl = ParameterPreScalingWeightNorm
     restrict_pre_scaling_impl = LogFloatRestrictValue
@@ -395,7 +395,6 @@ class AccumulatorAwareWeightQuant(WeightNormPerChannelFloatDecoupled):
     proxy_class = DecoupledWeightQuantWithInputProxyFromInjector
     tensor_quant = DecoupledRescalingIntQuantWithInput
     pre_scaling_impl = AccumulatorAwareParameterPreScaling
-    pre_scaling_min_val = 1e-8
     accumulator_bit_width = 32  # default maximum accumulator width is 32 bits
     normalize_stats_impl = L1Norm  # required to align with derivations in paper
     float_to_int_impl = RoundToZeroSte  # required to ensure no upwards rounding violates constraints
