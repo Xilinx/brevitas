@@ -169,32 +169,45 @@ add_bool_arg(
 parser.add_argument(
     '--gpfq-p', default=0.25, type=float, help='P parameter for GPFQ (default: 0.25)')
 parser.add_argument(
-    '--quant_format', default='int', choices=['int', 'float'],
-    help='Quantization format to use for weights and activations (default: int)'
+    '--quant_format',
+    default='int',
+    choices=['int', 'float'],
+    help='Quantization format to use for weights and activations (default: int)')
+parser.add_argument(
+    '--layerwise-first-last-mantissa-bit-width',
+    default=4,
+    type=int,
+    help='TODO'  # @TODO: write helpful description
 )
 parser.add_argument(
-    '--layerwise-first-last-mantissa-bit-width', default=4, type=int,
-    help='TODO' # @TODO: write helpful description for this
+    '--layerwise-first-last-exponent-bit-width',
+    default=3,
+    type=int,
+    help='TODO'  # @TODO: write helpful description
 )
 parser.add_argument(
-    '--layerwise-first-last-exponent-bit-width', default=3, type=int,
-    help='TODO' # @TODO: write helpful description for this
+    '--weight-mantissa-bit-width',
+    default=4,
+    type=int,
+    help='TODO'  # @TODO: write helpful description
 )
 parser.add_argument(
-    '--weight-mantissa-bit-width', default=4, type=int,
-    help='TODO' # @TODO: write helpful description for this
+    '--weight-exponent-bit-width',
+    default=3,
+    type=int,
+    help='TODO'  # @TODO: write helpful description
 )
 parser.add_argument(
-    '--weight-exponent-bit-width', default=3, type=int,
-    help='TODO' # @TODO: write helpful description for this
+    '--act-mantissa-bit-width',
+    default=4,
+    type=int,
+    help='TODO'  # @TODO: write helpful description
 )
 parser.add_argument(
-    '--act-mantissa-bit-width', default=4, type=int,
-    help='TODO' # @TODO: write helpful description for this
-)
-parser.add_argument(
-    '--act-exponent-bit-width', default=3, type=int,
-    help='TODO' # @TODO: write helpful description for this
+    '--act-exponent-bit-width',
+    default=3,
+    type=int,
+    help='TODO'  # @TODO: write helpful description
 )
 add_bool_arg(parser, 'gptq', default=True, help='GPTQ (default: enabled)')
 add_bool_arg(parser, 'gpfq', default=False, help='GPFQ (default: disabled)')
