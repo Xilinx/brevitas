@@ -177,38 +177,36 @@ parser.add_argument(
     '--layerwise-first-last-mantissa-bit-width',
     default=4,
     type=int,
-    help='TODO'  # @TODO: write helpful description
+    help=
+    'Mantissa bit width used with float layerwise quantization for first and last layer (default: 4)'
 )
 parser.add_argument(
     '--layerwise-first-last-exponent-bit-width',
     default=3,
     type=int,
-    help='TODO'  # @TODO: write helpful description
+    help=
+    'Exponent bit width used with float layerwise quantization for first and last layer (default: 3)'
 )
 parser.add_argument(
     '--weight-mantissa-bit-width',
     default=4,
     type=int,
-    help='TODO'  # @TODO: write helpful description
-)
+    help='Mantissa bit width used with float quantization for weights (default: 4)')
 parser.add_argument(
     '--weight-exponent-bit-width',
     default=3,
     type=int,
-    help='TODO'  # @TODO: write helpful description
-)
+    help='Exponent bit width used with float quantization for weights (default: 3)')
 parser.add_argument(
     '--act-mantissa-bit-width',
     default=4,
     type=int,
-    help='TODO'  # @TODO: write helpful description
-)
+    help='Mantissa bit width used with float quantization for activations (default: 4)')
 parser.add_argument(
     '--act-exponent-bit-width',
     default=3,
     type=int,
-    help='TODO'  # @TODO: write helpful description
-)
+    help='Exponent bit width used with float quantization for activations (default: 3)')
 add_bool_arg(parser, 'gptq', default=True, help='GPTQ (default: enabled)')
 add_bool_arg(parser, 'gpfq', default=False, help='GPFQ (default: disabled)')
 add_bool_arg(
