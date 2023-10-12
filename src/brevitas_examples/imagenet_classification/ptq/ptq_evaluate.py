@@ -169,7 +169,7 @@ add_bool_arg(
 parser.add_argument(
     '--gpfq-p', default=0.25, type=float, help='P parameter for GPFQ (default: 0.25)')
 parser.add_argument(
-    '--quant_format',
+    '--quant-format',
     default='int',
     choices=['int', 'float'],
     help='Quantization format to use for weights and activations (default: int)')
@@ -231,10 +231,10 @@ def main():
         f"{args.model_name}_"
         f"{args.target_backend}_"
         f"{args.quant_format}_"
-        f"{args.weight_mantissa_bit_width if args.quant_format == 'float' else ''}_"
-        f"{args.weight_exponent_bit_width if args.quant_format == 'float' else ''}_"
-        f"{args.act_mantissa_bit_width if args.quant_format == 'float' else ''}_"
-        f"{args.act_exponent_bit_width if args.quant_format == 'float' else ''}_"
+        f"{str(args.weight_mantissa_bit_width) + '_' if args.quant_format == 'float' else ''}"
+        f"{str(args.weight_exponent_bit_width) + '_' if args.quant_format == 'float' else ''}"
+        f"{str(args.act_mantissa_bit_width) + '_' if args.quant_format == 'float' else ''}"
+        f"{str(args.act_exponent_bit_width) + '_' if args.quant_format == 'float' else ''}"
         f"{args.scale_factor_type}_"
         f"a{args.act_bit_width}"
         f"w{args.weight_bit_width}_"
