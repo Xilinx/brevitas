@@ -6,8 +6,8 @@ from typing import Optional
 from torch import Tensor
 import torch.nn as nn
 
-from brevitas.core.restrict_val import RestrictValueType
 from brevitas.core.restrict_val import FloatRestrictValue
+from brevitas.core.restrict_val import RestrictValueType
 from brevitas.core.scaling import ScalingImplType
 import brevitas.nn as qnn
 from brevitas.nn.quant_layer import WeightQuantType
