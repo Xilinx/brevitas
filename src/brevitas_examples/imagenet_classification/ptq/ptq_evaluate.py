@@ -230,6 +230,11 @@ def main():
     config = (
         f"{args.model_name}_"
         f"{args.target_backend}_"
+        f"{args.quant_format}_"
+        f"{args.weight_mantissa_bit_width if args.quant_format == 'float' else ''}_"
+        f"{args.weight_exponent_bit_width if args.quant_format == 'float' else ''}_"
+        f"{args.act_mantissa_bit_width if args.quant_format == 'float' else ''}_"
+        f"{args.act_exponent_bit_width if args.quant_format == 'float' else ''}_"
         f"{args.scale_factor_type}_"
         f"a{args.act_bit_width}"
         f"w{args.weight_bit_width}_"
@@ -246,12 +251,7 @@ def main():
         f"{'mb_' if args.graph_eq_merge_bias else ''}"
         f"{act_quant_calib_config}_"
         f"{args.weight_quant_calibration_type}_"
-        f"{'bnc' if args.calibrate_bn else ''}"
-        f"{args.quant_format}"
-        f"{args.weight_mantissa_bit_width if args.quant_format == 'float' else ''}"
-        f"{args.weight_exponent_bit_width if args.quant_format == 'float' else ''}"
-        f"{args.act_mantissa_bit_width if args.quant_format == 'float' else ''}"
-        f"{args.act_exponent_bit_width if args.quant_format == 'float' else ''}")
+        f"{'bnc' if args.calibrate_bn else ''}")
 
     print(
         f"Model: {args.model_name} - "
