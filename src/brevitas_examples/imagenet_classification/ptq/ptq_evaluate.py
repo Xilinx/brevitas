@@ -246,8 +246,12 @@ def main():
         f"{'mb_' if args.graph_eq_merge_bias else ''}"
         f"{act_quant_calib_config}_"
         f"{args.weight_quant_calibration_type}_"
-        f"{'bnc' if args.calibrate_bn else ''}")
-    # @TODO: include added options in configurations here
+        f"{'bnc' if args.calibrate_bn else ''}"
+        f"{args.quant_format}"
+        f"{args.weight_mantissa_bit_width if args.quant_format == 'float' else ''}"
+        f"{args.weight_exponent_bit_width if args.quant_format == 'float' else ''}"
+        f"{args.act_mantissa_bit_width if args.quant_format == 'float' else ''}"
+        f"{args.act_exponent_bit_width if args.quant_format == 'float' else ''}")
 
     print(
         f"Model: {args.model_name} - "
