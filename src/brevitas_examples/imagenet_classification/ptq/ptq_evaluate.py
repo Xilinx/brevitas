@@ -243,6 +243,7 @@ def main():
         f"{'gptq_' if args.gptq else ''}"
         f"{'gpfq_' if args.gpfq else ''}"
         f"{'gptq_act_order_' if args.gptq_act_order else ''}"
+        f"{'gpfq_act_order_' if args.gpfq_act_order else ''}"
         f"{'learned_round_' if args.learned_round else ''}"
         f"{'weight_narrow_range_' if args.weight_narrow_range else ''}"
         f"{args.bias_bit_width}bias_"
