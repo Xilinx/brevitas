@@ -118,11 +118,9 @@ class GPFQ(GPxQ):
             len_parallel_layers=1,
             create_weight_orig=True,
             p=0.25) -> None:
-
-        if act_order:
-            raise ValueError("Act_order is not supported in GPFQ")
-
+        
         super().__init__(layer, name, act_order, len_parallel_layers, create_weight_orig)
+        
         self.float_input = None
         self.quantized_input = None
         self.index_computed = False
@@ -220,25 +218,41 @@ class GPFQ(GPxQ):
             weight.shape[0], weight.shape[1], self.float_input.shape[1], device=dev, dtype=dtype)
         self.float_input = self.float_input.to(dev)
         self.quantized_input = self.quantized_input.to(dev)
-        permutation_list = [torch.tensor(range(weight.shape[-1]))]
+        # We don't need full Hessian, we just need the diagonal
+        self.H_diag = self.quantized_input.transpose(2, 1).square().sum(
+            2)  # summing over Batch dimension
+        permutation_list = []
+        for group_index in range(self.groups):
+            if self.act_order:
+                # Re-order Hessian_diagonal so that weights associated to
+                # higher magnitude activations are quantized first
+                perm = torch.argsort(self.H_diag[group_index, :], descending=True)
+            else:
+                # No permutation, permutation tensor is a ordered index
+                perm = torch.tensor(range(weight.shape[-1]), device=dev)
+            permutation_list.append(perm)
         for t in range(weight.shape[-1]):
             for group_index in range(self.groups):
                 U[group_index] += torch.matmul(
-                    weight[group_index, :, t].unsqueeze(1),
-                    self.float_input[group_index, :,
-                                     t].unsqueeze(0))  #[OC/Groups, 1] * [1, INSHAPE[1]]
-                norm = torch.linalg.norm(self.quantized_input[group_index, :, t], 2) ** 2
+                    weight[group_index, :, permutation_list[group_index][t]].unsqueeze(1),
+                    self.float_input[group_index, :, permutation_list[group_index][t]].unsqueeze(
+                        0))  #[OC/Groups, 1] * [1, INSHAPE[1]]
+                norm = torch.linalg.norm(
+                    self.quantized_input[group_index, :, permutation_list[group_index][t]], 2) ** 2
                 if norm > 0:
-                    q_arg = U[group_index].matmul(self.quantized_input[group_index, :, t]) / norm
+                    q_arg = U[group_index].matmul(
+                        self.quantized_input[group_index, :,
+                                             permutation_list[group_index][t]]) / norm
                 else:
                     q_arg = torch.zeros_like(U[group_index, :, 0])
 
-                weight[group_index, :, t] = q_arg
+                weight[group_index, :, permutation_list[group_index][t]] = q_arg
             q = self.get_quant_weights(t, 0, permutation_list)
             for group_index in range(self.groups):
                 U[group_index] -= torch.matmul(
                     q[group_index].unsqueeze(1),
-                    self.quantized_input[group_index, :, t].unsqueeze(0))
+                    self.quantized_input[group_index, :,
+                                         permutation_list[group_index][t]].unsqueeze(0))
 
         del self.float_input
         del self.quantized_input
