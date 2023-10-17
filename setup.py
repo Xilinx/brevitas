@@ -28,7 +28,7 @@ setup(
     author="Alessandro Pappalardo",
     author_email="alessand@amd.com",
     url="https://github.com/Xilinx/brevitas",
-    python_requires=">=3.7",
+    python_requires=">=3.8",
     install_requires=read_requirements('requirements.txt'),
     extras_require={
         "notebook": read_requirements('requirements-notebook.txt'),
