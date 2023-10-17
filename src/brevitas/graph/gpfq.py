@@ -104,9 +104,6 @@ class GPFQ(GPxQ):
 
     def __init__(self, layer, name, act_order, parallel_layers=1, create_weight_orig=True) -> None:
 
-        if act_order:
-            raise ValueError("Act_order is not supported in GPFQ")
-
         super().__init__(layer, name, act_order, parallel_layers, create_weight_orig)
         self.float_input = None
         self.quantized_input = None
@@ -205,7 +202,19 @@ class GPFQ(GPxQ):
             weight.shape[0], weight.shape[1], self.float_input.shape[1], device=dev, dtype=dtype)
         self.float_input = self.float_input.to(dev)
         self.quantized_input = self.quantized_input.to(dev)
-        permutation_list = [torch.tensor(range(weight.shape[-1]))]
+        # We don't need full Hessian, we just need the diagonal
+        self.H_diag = self.quantized_input.transpose(2, 1).square().sum(
+            2)  # summing over Batch dimension
+        permutation_list = []
+        for group_index in range(self.groups):
+            if self.act_order:
+                # Re-order Hessian_diagonal so that weights associated to
+                # higher magnitude activations are quantized first
+                perm = torch.argsort(self.H_diag[group_index, :], descending=True)
+            else:
+                # No permutation, permutation tensor is a ordered index
+                perm = torch.tensor(range(weight.shape[-1]), device=dev)
+            permutation_list.append(perm)
         for t in range(weight.shape[-1]):
             for group_index in range(self.groups):
                 U[group_index] += torch.matmul(

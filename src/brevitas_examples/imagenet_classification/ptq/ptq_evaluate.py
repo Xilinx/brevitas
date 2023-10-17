@@ -211,6 +211,8 @@ add_bool_arg(parser, 'gptq', default=True, help='GPTQ (default: enabled)')
 add_bool_arg(parser, 'gpfq', default=False, help='GPFQ (default: disabled)')
 add_bool_arg(
     parser, 'gptq-act-order', default=False, help='GPTQ Act order heuristic (default: disabled)')
+add_bool_arg(
+    parser, 'gpfq-act-order', default=False, help='GPFQ Act order heuristic (default: disabled)')
 add_bool_arg(parser, 'learned-round', default=False, help='Learned round (default: disabled)')
 add_bool_arg(parser, 'calibrate-bn', default=False, help='Calibrate BN (default: disabled)')
 
@@ -263,6 +265,7 @@ def main():
         f"GPFQ: {args.gpfq} - "
         f"GPFQ P: {args.gpfq_p} - "
         f"GPTQ Act Order: {args.gptq_act_order} - "
+        f"GPFQ Act Order: {args.gpfq_act_order} - "
         f"Learned Round: {args.learned_round} - "
         f"Weight narrow range: {args.weight_narrow_range} - "
         f"Bias bit width: {args.bias_bit_width} - "
@@ -359,7 +362,7 @@ def main():
 
     if args.gpfq:
         print("Performing GPFQ:")
-        apply_gpfq(calib_loader, quant_model, p=args.gpfq_p)
+        apply_gpfq(calib_loader, quant_model, p=args.gpfq_p, act_order=args.gpfq_act_order)
 
     if args.gptq:
         print("Performing GPTQ:")
