@@ -61,44 +61,26 @@ This flow allows to specify which pre-trained torchvision model to quantize and 
 It also gives the possibility to export the model to either ONNX QCDQ format or in torch QCDQ format.
 The quantization and export options to specify are:
 ```bash
-usage: ptq_evaluate.py [-h] --calibration-dir CALIBRATION_DIR --validation-dir
-                       VALIDATION_DIR [--workers WORKERS]
-                       [--batch-size-calibration BATCH_SIZE_CALIBRATION]
-                       [--batch-size-validation BATCH_SIZE_VALIDATION]
-                       [--export-dir EXPORT_DIR] [--gpu GPU]
-                       [--calibration-samples CALIBRATION_SAMPLES]
-                       [--model-name ARCH]
-                       [--target-backend {fx,layerwise,flexml}]
-                       [--scale-factor-type {float_scale,po2_scale}]
-                       [--act-bit-width ACT_BIT_WIDTH]
-                       [--weight-bit-width WEIGHT_BIT_WIDTH]
-                       [--layerwise-first-last-bit-width LAYERWISE_FIRST_LAST_BIT_WIDTH]
-                       [--bias-bit-width {32,16,None}]
-                       [--act-quant-type {sym,asym}]
-                       [--weight-quant-type {sym,asym}]
-                       [--weight-quant-granularity {per_tensor,per_channel}]
-                       [--weight-quant-calibration-type {stats,mse}]
-                       [--act-equalization {fx,layerwise,None}]
-                       [--act-quant-calibration-type {stats,mse}]
-                       [--graph-eq-iterations GRAPH_EQ_ITERATIONS]
-                       [--learned-round-iters LEARNED_ROUND_ITERS]
-                       [--learned-round-lr LEARNED_ROUND_LR]
-                       [--act-quant-percentile ACT_QUANT_PERCENTILE]
-                       [--export-onnx-qcdq] [--export-torch-qcdq]
-                       [--scaling-per-output-channel | --no-scaling-per-output-channel]
-                       [--bias-corr | --no-bias-corr]
-                       [--graph-eq-merge-bias | --no-graph-eq-merge-bias]
-                       [--weight-narrow-range | --no-weight-narrow-range]
-                       [--gpfq-p GPFQ_P] [--quant_format {int,float}]
+usage: ptq_evaluate.py [-h] --calibration-dir CALIBRATION_DIR --validation-dir VALIDATION_DIR [--workers WORKERS]
+                       [--batch-size-calibration BATCH_SIZE_CALIBRATION] [--batch-size-validation BATCH_SIZE_VALIDATION]
+                       [--export-dir EXPORT_DIR] [--gpu GPU] [--calibration-samples CALIBRATION_SAMPLES] [--model-name ARCH]
+                       [--target-backend {fx,layerwise,flexml}] [--scale-factor-type {float_scale,po2_scale}]
+                       [--act-bit-width ACT_BIT_WIDTH] [--weight-bit-width WEIGHT_BIT_WIDTH]
+                       [--layerwise-first-last-bit-width LAYERWISE_FIRST_LAST_BIT_WIDTH] [--bias-bit-width {32,16,None}]
+                       [--act-quant-type {sym,asym}] [--weight-quant-type {sym,asym}]
+                       [--weight-quant-granularity {per_tensor,per_channel}] [--weight-quant-calibration-type {stats,mse}]
+                       [--act-equalization {fx,layerwise,None}] [--act-quant-calibration-type {stats,mse}]
+                       [--graph-eq-iterations GRAPH_EQ_ITERATIONS] [--learned-round-iters LEARNED_ROUND_ITERS]
+                       [--learned-round-lr LEARNED_ROUND_LR] [--act-quant-percentile ACT_QUANT_PERCENTILE] [--export-onnx-qcdq]
+                       [--export-torch-qcdq] [--scaling-per-output-channel | --no-scaling-per-output-channel]
+                       [--bias-corr | --no-bias-corr] [--graph-eq-merge-bias | --no-graph-eq-merge-bias]
+                       [--weight-narrow-range | --no-weight-narrow-range] [--gpfq-p GPFQ_P] [--quant-format {int,float}]
                        [--layerwise-first-last-mantissa-bit-width LAYERWISE_FIRST_LAST_MANTISSA_BIT_WIDTH]
                        [--layerwise-first-last-exponent-bit-width LAYERWISE_FIRST_LAST_EXPONENT_BIT_WIDTH]
                        [--weight-mantissa-bit-width WEIGHT_MANTISSA_BIT_WIDTH]
-                       [--weight-exponent-bit-width WEIGHT_EXPONENT_BIT_WIDTH]
-                       [--act-mantissa-bit-width ACT_MANTISSA_BIT_WIDTH]
-                       [--act-exponent-bit-width ACT_EXPONENT_BIT_WIDTH]
-                       [--gptq | --no-gptq] [--gpfq | --no-gpfq]
-                       [--gptq-act-order | --no-gptq-act-order]
-                       [--learned-round | --no-learned-round]
+                       [--weight-exponent-bit-width WEIGHT_EXPONENT_BIT_WIDTH] [--act-mantissa-bit-width ACT_MANTISSA_BIT_WIDTH]
+                       [--act-exponent-bit-width ACT_EXPONENT_BIT_WIDTH] [--gptq | --no-gptq] [--gpfq | --no-gpfq]
+                       [--gptq-act-order | --no-gptq-act-order] [--learned-round | --no-learned-round]
                        [--calibrate-bn | --no-calibrate-bn]
 
 PyTorch ImageNet PTQ Validation
@@ -119,32 +101,19 @@ options:
   --gpu GPU             GPU id to use (default: None)
   --calibration-samples CALIBRATION_SAMPLES
                         Calibration size (default: 1000)
-  --model-name ARCH     model architecture: alexnet | convnext_base |
-                        convnext_large | convnext_small | convnext_tiny |
-                        densenet121 | densenet161 | densenet169 | densenet201
-                        | efficientnet_b0 | efficientnet_b1 | efficientnet_b2
-                        | efficientnet_b3 | efficientnet_b4 | efficientnet_b5
-                        | efficientnet_b6 | efficientnet_b7 |
-                        efficientnet_v2_l | efficientnet_v2_m |
-                        efficientnet_v2_s | googlenet | inception_v3 |
-                        list_models | maxvit_t | mnasnet0_5 | mnasnet0_75 |
-                        mnasnet1_0 | mnasnet1_3 | mobilenet_v2 |
-                        mobilenet_v3_large | mobilenet_v3_small |
-                        regnet_x_16gf | regnet_x_1_6gf | regnet_x_32gf |
-                        regnet_x_3_2gf | regnet_x_400mf | regnet_x_800mf |
-                        regnet_x_8gf | regnet_y_128gf | regnet_y_16gf |
-                        regnet_y_1_6gf | regnet_y_32gf | regnet_y_3_2gf |
-                        regnet_y_400mf | regnet_y_800mf | regnet_y_8gf |
-                        resnet101 | resnet152 | resnet18 | resnet34 | resnet50
-                        | resnext101_32x8d | resnext101_64x4d |
-                        resnext50_32x4d | shufflenet_v2_x0_5 |
-                        shufflenet_v2_x1_0 | shufflenet_v2_x1_5 |
-                        shufflenet_v2_x2_0 | squeezenet1_0 | squeezenet1_1 |
-                        swin_b | swin_s | swin_t | swin_v2_b | swin_v2_s |
-                        swin_v2_t | vgg11 | vgg11_bn | vgg13 | vgg13_bn |
-                        vgg16 | vgg16_bn | vgg19 | vgg19_bn | vit_b_16 |
-                        vit_b_32 | vit_h_14 | vit_l_16 | vit_l_32 |
-                        wide_resnet101_2 | wide_resnet50_2 (default: resnet18)
+  --model-name ARCH     model architecture: alexnet | convnext_base | convnext_large | convnext_small | convnext_tiny |
+                        densenet121 | densenet161 | densenet169 | densenet201 | efficientnet_b0 | efficientnet_b1 |
+                        efficientnet_b2 | efficientnet_b3 | efficientnet_b4 | efficientnet_b5 | efficientnet_b6 | efficientnet_b7
+                        | efficientnet_v2_l | efficientnet_v2_m | efficientnet_v2_s | googlenet | inception_v3 | list_models |
+                        maxvit_t | mnasnet0_5 | mnasnet0_75 | mnasnet1_0 | mnasnet1_3 | mobilenet_v2 | mobilenet_v3_large |
+                        mobilenet_v3_small | regnet_x_16gf | regnet_x_1_6gf | regnet_x_32gf | regnet_x_3_2gf | regnet_x_400mf |
+                        regnet_x_800mf | regnet_x_8gf | regnet_y_128gf | regnet_y_16gf | regnet_y_1_6gf | regnet_y_32gf |
+                        regnet_y_3_2gf | regnet_y_400mf | regnet_y_800mf | regnet_y_8gf | resnet101 | resnet152 | resnet18 |
+                        resnet34 | resnet50 | resnext101_32x8d | resnext101_64x4d | resnext50_32x4d | shufflenet_v2_x0_5 |
+                        shufflenet_v2_x1_0 | shufflenet_v2_x1_5 | shufflenet_v2_x2_0 | squeezenet1_0 | squeezenet1_1 | swin_b |
+                        swin_s | swin_t | swin_v2_b | swin_v2_s | swin_v2_t | vgg11 | vgg11_bn | vgg13 | vgg13_bn | vgg16 |
+                        vgg16_bn | vgg19 | vgg19_bn | vit_b_16 | vit_b_32 | vit_h_14 | vit_l_16 | vit_l_32 | wide_resnet101_2 |
+                        wide_resnet50_2 (default: resnet18)
   --target-backend {fx,layerwise,flexml}
                         Backend to target for quantization (default: fx)
   --scale-factor-type {float_scale,po2_scale}
@@ -154,8 +123,7 @@ options:
   --weight-bit-width WEIGHT_BIT_WIDTH
                         Weights bit width (default: 8)
   --layerwise-first-last-bit-width LAYERWISE_FIRST_LAST_BIT_WIDTH
-                        Input and weights bit width for first and last layer
-                        w/ layerwise backend (default: 8)
+                        Input and weights bit width for first and last layer w/ layerwise backend (default: 8)
   --bias-bit-width {32,16,None}
                         Bias bit width (default: 32)
   --act-quant-type {sym,asym}
@@ -169,59 +137,46 @@ options:
   --act-equalization {fx,layerwise,None}
                         Activation equalization type (default: None)
   --act-quant-calibration-type {stats,mse}
-                        Activation quantization calibration type (default:
-                        stats)
+                        Activation quantization calibration type (default: stats)
   --graph-eq-iterations GRAPH_EQ_ITERATIONS
-                        Numbers of iterations for graph equalization (default:
-                        20)
+                        Numbers of iterations for graph equalization (default: 20)
   --learned-round-iters LEARNED_ROUND_ITERS
-                        Numbers of iterations for learned round for each layer
-                        (default: 1000)
+                        Numbers of iterations for learned round for each layer (default: 1000)
   --learned-round-lr LEARNED_ROUND_LR
                         Learning rate for learned round (default: 1e-3)
   --act-quant-percentile ACT_QUANT_PERCENTILE
-                        Percentile to use for stats of activation quantization
-                        (default: 99.999)
+                        Percentile to use for stats of activation quantization (default: 99.999)
   --export-onnx-qcdq    If true, export the model in onnx qcdq format
   --export-torch-qcdq   If true, export the model in torch qcdq format
   --scaling-per-output-channel
-                        Enable Weight scaling per output channel (default:
-                        enabled)
+                        Enable Weight scaling per output channel (default: enabled)
   --no-scaling-per-output-channel
-                        Disable Weight scaling per output channel (default:
-                        enabled)
-  --bias-corr           Enable Bias correction after calibration (default:
-                        enabled)
-  --no-bias-corr        Disable Bias correction after calibration (default:
-                        enabled)
+                        Disable Weight scaling per output channel (default: enabled)
+  --bias-corr           Enable Bias correction after calibration (default: enabled)
+  --no-bias-corr        Disable Bias correction after calibration (default: enabled)
   --graph-eq-merge-bias
-                        Enable Merge bias when performing graph equalization
-                        (default: enabled)
+                        Enable Merge bias when performing graph equalization (default: enabled)
   --no-graph-eq-merge-bias
-                        Disable Merge bias when performing graph equalization
-                        (default: enabled)
+                        Disable Merge bias when performing graph equalization (default: enabled)
   --weight-narrow-range
-                        Enable Narrow range for weight quantization (default:
-                        enabled)
+                        Enable Narrow range for weight quantization (default: enabled)
   --no-weight-narrow-range
-                        Disable Narrow range for weight quantization (default:
-                        enabled)
+                        Disable Narrow range for weight quantization (default: enabled)
   --gpfq-p GPFQ_P       P parameter for GPFQ (default: 0.25)
-  --quant_format {int,float}
-                        Quantization format to use for weights and activations
-                        (default: int)
+  --quant-format {int,float}
+                        Quantization format to use for weights and activations (default: int)
   --layerwise-first-last-mantissa-bit-width LAYERWISE_FIRST_LAST_MANTISSA_BIT_WIDTH
-                        TODO
+                        Mantissa bit width used with float layerwise quantization for first and last layer (default: 4)
   --layerwise-first-last-exponent-bit-width LAYERWISE_FIRST_LAST_EXPONENT_BIT_WIDTH
-                        TODO
+                        Exponent bit width used with float layerwise quantization for first and last layer (default: 3)
   --weight-mantissa-bit-width WEIGHT_MANTISSA_BIT_WIDTH
-                        TODO
+                        Mantissa bit width used with float quantization for weights (default: 4)
   --weight-exponent-bit-width WEIGHT_EXPONENT_BIT_WIDTH
-                        TODO
+                        Exponent bit width used with float quantization for weights (default: 3)
   --act-mantissa-bit-width ACT_MANTISSA_BIT_WIDTH
-                        TODO
+                        Mantissa bit width used with float quantization for activations (default: 4)
   --act-exponent-bit-width ACT_EXPONENT_BIT_WIDTH
-                        TODO
+                        Exponent bit width used with float quantization for activations (default: 3)
   --gptq                Enable GPTQ (default: enabled)
   --no-gptq             Disable GPTQ (default: enabled)
   --gpfq                Enable GPFQ (default: disabled)
