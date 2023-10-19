@@ -79,9 +79,9 @@ parser.add_argument(
     help='Backend to target for quantization (default: fx)')
 parser.add_argument(
     '--scale-factor-type',
-    default='float',
-    choices=['float', 'po2'],
-    help='Type for scale factors (default: float)')
+    default='float_scale',
+    choices=['float_scale', 'po2_scale'],
+    help='Type for scale factors (default: float_scale)')
 parser.add_argument(
     '--act-bit-width', default=8, type=int, help='Activations bit width (default: 8)')
 parser.add_argument(
@@ -168,6 +168,45 @@ add_bool_arg(
     help='Narrow range for weight quantization (default: enabled)')
 parser.add_argument(
     '--gpfq-p', default=0.25, type=float, help='P parameter for GPFQ (default: 0.25)')
+parser.add_argument(
+    '--quant-format',
+    default='int',
+    choices=['int', 'float'],
+    help='Quantization format to use for weights and activations (default: int)')
+parser.add_argument(
+    '--layerwise-first-last-mantissa-bit-width',
+    default=4,
+    type=int,
+    help=
+    'Mantissa bit width used with float layerwise quantization for first and last layer (default: 4)'
+)
+parser.add_argument(
+    '--layerwise-first-last-exponent-bit-width',
+    default=3,
+    type=int,
+    help=
+    'Exponent bit width used with float layerwise quantization for first and last layer (default: 3)'
+)
+parser.add_argument(
+    '--weight-mantissa-bit-width',
+    default=4,
+    type=int,
+    help='Mantissa bit width used with float quantization for weights (default: 4)')
+parser.add_argument(
+    '--weight-exponent-bit-width',
+    default=3,
+    type=int,
+    help='Exponent bit width used with float quantization for weights (default: 3)')
+parser.add_argument(
+    '--act-mantissa-bit-width',
+    default=4,
+    type=int,
+    help='Mantissa bit width used with float quantization for activations (default: 4)')
+parser.add_argument(
+    '--act-exponent-bit-width',
+    default=3,
+    type=int,
+    help='Exponent bit width used with float quantization for activations (default: 3)')
 add_bool_arg(parser, 'gptq', default=True, help='GPTQ (default: enabled)')
 add_bool_arg(parser, 'gpfq', default=False, help='GPFQ (default: disabled)')
 add_bool_arg(
@@ -191,6 +230,11 @@ def main():
     config = (
         f"{args.model_name}_"
         f"{args.target_backend}_"
+        f"{args.quant_format}_"
+        f"{str(args.weight_mantissa_bit_width) + '_' if args.quant_format == 'float' else ''}"
+        f"{str(args.weight_exponent_bit_width) + '_' if args.quant_format == 'float' else ''}"
+        f"{str(args.act_mantissa_bit_width) + '_' if args.quant_format == 'float' else ''}"
+        f"{str(args.act_exponent_bit_width) + '_' if args.quant_format == 'float' else ''}"
         f"{args.scale_factor_type}_"
         f"a{args.act_bit_width}"
         f"w{args.weight_bit_width}_"
@@ -295,7 +339,14 @@ def main():
         act_bit_width=args.act_bit_width,
         act_param_method=args.act_quant_calibration_type,
         act_quant_percentile=args.act_quant_percentile,
-        act_quant_type=args.act_quant_type)
+        act_quant_type=args.act_quant_type,
+        quant_format=args.quant_format,
+        layerwise_first_last_mantissa_bit_width=args.layerwise_first_last_mantissa_bit_width,
+        layerwise_first_last_exponent_bit_width=args.layerwise_first_last_exponent_bit_width,
+        weight_mantissa_bit_width=args.weight_mantissa_bit_width,
+        weight_exponent_bit_width=args.weight_exponent_bit_width,
+        act_mantissa_bit_width=args.act_mantissa_bit_width,
+        act_exponent_bit_width=args.act_exponent_bit_width)
     # If available, use the selected GPU
     if args.gpu is not None:
         torch.cuda.set_device(args.gpu)
