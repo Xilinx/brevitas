@@ -37,7 +37,6 @@ class QuantEltwiseAdd(QuantInputOutputLayer, Module):
         if self.export_mode:
             assert self.cache_quant_io_metadata_only, "Can't cache multiple inputs"
             out = self.export_handler(inp=input.value, other=other.value)
-            self._set_global_is_quant_layer(False)
             return out
         quant_input = self.input_quant(input)
         quant_other = self.input_quant(other)
@@ -70,7 +69,6 @@ class QuantCat(QuantInputOutputLayer, Module):
         # shortcut execution through the export impl during export
         if self.export_mode:
             out = self.export_handler([qt.value for qt in quant_tensor_list])
-            self._set_global_is_quant_layer(False)
             return out
         quant_tensor_list = [self.input_quant(qt) for qt in quant_tensor_list]
         # trigger an assert if scale factors and bit widths are None or different

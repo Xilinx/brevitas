@@ -4,8 +4,42 @@
 import onnx
 import torch
 from torch.autograd import Function
+from torch.onnx.symbolic_helper import _get_tensor_sizes
 
 from brevitas.export.onnx import onnx_export_opset
+
+
+class MatMulNBitsFn(Function):
+
+    @staticmethod
+    def symbolic(g, x, int_weights, scales, zero_points, K, N, bits, block_size):
+        ret = g.op(
+            'com.microsoft::MatMulNBits',
+            x,
+            int_weights,
+            scales,
+            zero_points,
+            K_i=K,
+            N_i=N,
+            bits_i=bits,
+            block_size_i=block_size)
+        output_size = _get_tensor_sizes(x)
+        output_size[-1] = N
+        ret.setType(x.type().with_sizes(output_size))
+        return ret
+
+    @staticmethod
+    def forward(g, x, int_weights, scales, zero_points, K, N, bits, block_size):
+        dtype = x.dtype
+        device = x.device
+        shape = x.shape
+        out_shape = list(shape)
+        out_shape[-1] = N
+        # Only tensor metadata (shape, dtype, device) are preserved in the forward pass during
+        # tracing, not the correct value
+        out = torch.empty(out_shape, dtype=dtype, device=device)
+        return out
+
 
 AXIS_OPSET = 13
 
