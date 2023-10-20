@@ -18,6 +18,7 @@ from brevitas_examples.llm.llm_quant.data import get_c4
 from brevitas_examples.llm.llm_quant.equalize import apply_act_equalization
 from brevitas_examples.llm.llm_quant.equalize import apply_weight_equalization
 from brevitas_examples.llm.llm_quant.eval import model_eval
+from brevitas_examples.llm.llm_quant.export import export_packed_onnx
 from brevitas_examples.llm.llm_quant.gptq import apply_gptq
 from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_affine_merge
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import replace_mha_with_quantizable_layers
@@ -169,6 +170,7 @@ parser.add_argument(
     choices=[
         None,
         'onnx_qcdq',
+        'packed_onnx',
         'torch_qcdq',
         'sharded_torchmlir_group_weight',
         'sharded_packed_torchmlir_group_weight'],
@@ -189,6 +191,8 @@ def model_export(model, ref_input, args):
         from brevitas_examples.llm.llm_quant.sharded_mlir_group_export import \
             sharded_weight_group_export
         sharded_weight_group_export(model, no_custom_packed_export=False)
+    elif args.export_target == 'packed_onnx':
+        export_packed_onnx(model, ref_input, export_path=f"{args.model.replace('/', '-')}.onnx")
     elif args.export_target == 'onnx_qcdq':
         export_onnx_qcdq(model, ref_input, export_path=f"{args.model.replace('/', '-')}.onnx")
     elif args.export_target == 'torch_qcdq':

@@ -156,7 +156,7 @@ def quantize_model(
         weight_quant_format = 'float'
     else:
         weight_float_format = {}
-    if re.compile(r'e[1-8]m[1-8]').match(input_quant_format):
+    if input_quant_format is not None and re.compile(r'e[1-8]m[1-8]').match(input_quant_format):
         input_float_format = {
             'exponent_bit_width': int(input_quant_format[1]),
             'mantissa_bit_width': int(input_quant_format[3])}
