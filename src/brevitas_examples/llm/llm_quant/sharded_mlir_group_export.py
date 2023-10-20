@@ -40,7 +40,6 @@ from io import BytesIO
 from pathlib import Path
 import re
 from typing import List
-import warnings
 
 import torch
 from torch._decomp import get_decompositions
@@ -50,9 +49,6 @@ from tqdm import tqdm
 
 from brevitas.backport.fx._symbolic_trace import wrap
 from brevitas.backport.fx.experimental.proxy_tensor import make_fx
-from brevitas.export.onnx.handler import ONNXBaseHandler
-from brevitas.export.onnx.standard.function import MatMulNBitsFn
-from brevitas.nn.quant_linear import QuantLinear
 from brevitas_examples.llm.llm_quant.export import block_quant_layer_level_manager
 from brevitas_examples.llm.llm_quant.export import BlockQuantProxyLevelManager
 from brevitas_examples.llm.llm_quant.export import brevitas_layer_export_mode
