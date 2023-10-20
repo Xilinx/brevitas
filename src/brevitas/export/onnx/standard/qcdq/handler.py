@@ -5,12 +5,13 @@ from abc import ABC
 
 import torch
 
+from brevitas.export.common.handler.qcdq import CDQDecoupledWeightQuantProxyHandlerMixin
+from brevitas.export.common.handler.qcdq import CDQDecoupledWeightQuantWithInputProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import CDQMixin
+from brevitas.export.common.handler.qcdq import CDQWeightQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import DQMixin
 from brevitas.export.common.handler.qcdq import QCDQActQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQBiasQuantProxyHandlerMixin
-from brevitas.export.common.handler.qcdq import QCDQDecoupledWeightQuantProxyHandlerMixin
-from brevitas.export.common.handler.qcdq import QCDQDecoupledWeightQuantWithInputProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQTruncQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQWeightQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QMixin
@@ -70,20 +71,26 @@ class StdQCDQONNXMixin(QMixin, StdCDQONNXMixin, ABC):
         return QuantizeLinearFn.apply(x, scale, zero_point, dtype, axis)
 
 
-class StdQCDQONNXWeightQuantProxyHandler(StdCDQONNXMixin,
+class StdCDQONNXWeightQuantProxyHandler(StdCDQONNXMixin,
+                                        CDQWeightQuantProxyHandlerMixin,
+                                        ONNXBaseHandler):
+    pass
+
+
+class StdQCDQONNXWeightQuantProxyHandler(StdQCDQONNXMixin,
                                          QCDQWeightQuantProxyHandlerMixin,
                                          ONNXBaseHandler):
     pass
 
 
 class StdQCDQONNXDecoupledWeightQuantProxyHandler(StdCDQONNXMixin,
-                                                  QCDQDecoupledWeightQuantProxyHandlerMixin,
+                                                  CDQDecoupledWeightQuantProxyHandlerMixin,
                                                   ONNXBaseHandler):
     pass
 
 
 class StdQCDQONNXDecoupledWeightQuantWithInputProxyHandler(
-        StdCDQONNXMixin, QCDQDecoupledWeightQuantWithInputProxyHandlerMixin, ONNXBaseHandler):
+        StdCDQONNXMixin, CDQDecoupledWeightQuantWithInputProxyHandlerMixin, ONNXBaseHandler):
     pass
 
 

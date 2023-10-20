@@ -118,7 +118,24 @@ class CDQProxyHandlerMixin(QuantAxisMixin, ClipMixin, ZeroPointHandlerMixin, CDQ
             'scale_orig_shape': scale_orig_shape}
 
 
-class QCDQWeightQuantProxyHandlerMixin(CDQProxyHandlerMixin, ABC):
+class QCDQProxyHandlerMixin(CDQProxyHandlerMixin, ABC):
+
+    def quantize_symbolic_kwargs(cls, scale, zero_point, bit_width, is_signed):
+        # compute axis before redefining scale
+        axis = cls.quant_axis(scale)
+        scale = to_0dim_if_scalar(scale.flatten())
+        zp = to_0dim_if_scalar(zero_point.flatten())
+        # expand_as must go after 0-dim check
+        zp = zp.expand_as(scale)
+        zp = cls.zero_point_with_dtype(is_signed, bit_width, zp)
+        if cls.itemize_quantize_scalar_params:
+            scale = to_item_if_0dim(scale)
+            zp = to_item_if_0dim(zp)
+        dtype = cls.signed_dtype(bit_width, is_signed)
+        return {'scale': scale, 'zero_point': zp, 'dtype': dtype, 'axis': axis}
+
+
+class CDQWeightQuantProxyHandlerMixin(CDQProxyHandlerMixin, ABC):
     handled_layer = WeightQuantProxyFromInjector
 
     def prepare_for_export(self, module):
@@ -162,7 +179,44 @@ class QCDQWeightQuantProxyHandlerMixin(CDQProxyHandlerMixin, ABC):
         return x, scale, zero_point, bit_width
 
 
-class QCDQDecoupledWeightQuantProxyHandlerMixin(QCDQWeightQuantProxyHandlerMixin, ABC):
+class QCDQWeightQuantProxyHandlerMixin(QCDQProxyHandlerMixin, ABC):
+    handled_layer = WeightQuantProxyFromInjector
+
+    def prepare_for_export(self, module):
+        if module.is_quant_enabled:
+            self.validate(module)
+            self.symbolic_kwargs['bit_width'] = module.bit_width()
+            self.symbolic_kwargs['quantize_symbolic_kwargs'] = self.quantize_symbolic_kwargs(
+                module.scale(), module.zero_point(), module.bit_width(), module.is_signed)
+            self.symbolic_kwargs['clip_symbolic_kwargs'] = self.int_clip_symbolic_kwargs(
+                module.is_narrow_range, module.is_signed, module.bit_width())
+            self.symbolic_kwargs['dequantize_symbolic_kwargs'] = self.dequantize_symbolic_kwargs(
+                module.scale(), module.zero_point(), module.bit_width(), module.is_signed)
+        else:
+            self.symbolic_kwargs = None
+
+    def symbolic_execution(self, x: Tensor):
+        assert self.symbolic_kwargs is not None, 'Symbolic execution requires quant to be enabled'
+        quantize_symbolic_kwargs = self.symbolic_kwargs['quantize_symbolic_kwargs']
+        clip_symbolic_kwargs = self.symbolic_kwargs['clip_symbolic_kwargs']
+        dequantize_symbolic_kwargs = self.symbolic_kwargs['dequantize_symbolic_kwargs']
+        scale = dequantize_symbolic_kwargs['scale']
+        zero_point = dequantize_symbolic_kwargs['zero_point']
+        bit_width = self.symbolic_kwargs['bit_width']
+        scale_orig_shape = dequantize_symbolic_kwargs.pop('scale_orig_shape')
+        # Workaround to trick the tracer into believing all return values are used
+        self.assert_ge_zero(scale, zero_point, bit_width)
+        x = self.quantize_fn(x, *quantize_symbolic_kwargs.values())
+        if clip_symbolic_kwargs is not None:
+            x = self.clip_fn(x, *clip_symbolic_kwargs.values())
+        x = self.dequantize_fn(x, *dequantize_symbolic_kwargs.values())
+        # Restore the original shapes to guarantee correct shape propagation downstream
+        scale = scale.view(scale_orig_shape)
+        zero_point = zero_point.view_as(scale)
+        return x, scale, zero_point, bit_width
+
+
+class CDQDecoupledWeightQuantProxyHandlerMixin(CDQWeightQuantProxyHandlerMixin, ABC):
     handled_layer = DecoupledWeightQuantProxyFromInjector
 
     def symbolic_execution(self, x: Tensor):
@@ -171,30 +225,16 @@ class QCDQDecoupledWeightQuantProxyHandlerMixin(QCDQWeightQuantProxyHandlerMixin
         return out, scale, zero_point, scale, zero_point, bit_width
 
 
-class QCDQDecoupledWeightQuantWithInputProxyHandlerMixin(QCDQDecoupledWeightQuantProxyHandlerMixin,
-                                                         ABC):
+class CDQDecoupledWeightQuantWithInputProxyHandlerMixin(CDQDecoupledWeightQuantProxyHandlerMixin,
+                                                        ABC):
     handled_layer = DecoupledWeightQuantWithInputProxyFromInjector
 
     def symbolic_execution(self, x: Tensor, input_bit_width: torch.Tensor, input_is_signed: bool):
         return super().symbolic_execution(x)
 
 
-class QCDQActQuantProxyHandlerMixin(QMixin, CDQProxyHandlerMixin, ABC):
+class QCDQActQuantProxyHandlerMixin(QMixin, QCDQProxyHandlerMixin, ABC):
     handled_layer = ActQuantProxyFromInjector
-
-    def quantize_symbolic_kwargs(cls, scale, zero_point, bit_width, is_signed):
-        # compute axis before redefining scale
-        axis = cls.quant_axis(scale)
-        scale = to_0dim_if_scalar(scale.flatten())
-        zp = to_0dim_if_scalar(zero_point.flatten())
-        # expand_as must go after 0-dim check
-        zp = zp.expand_as(scale)
-        zp = cls.zero_point_with_dtype(is_signed, bit_width, zp)
-        if cls.itemize_quantize_scalar_params:
-            scale = to_item_if_0dim(scale)
-            zp = to_item_if_0dim(zp)
-        dtype = cls.signed_dtype(bit_width, is_signed)
-        return {'scale': scale, 'zero_point': zp, 'dtype': dtype, 'axis': axis}
 
     def prepare_for_export(self, module):
         if module.is_quant_enabled:

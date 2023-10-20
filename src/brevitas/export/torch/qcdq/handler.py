@@ -6,11 +6,12 @@ from abc import ABC
 import torch
 
 from brevitas.export.common.handler.base import BaseHandler
+from brevitas.export.common.handler.qcdq import CDQDecoupledWeightQuantProxyHandlerMixin
+from brevitas.export.common.handler.qcdq import CDQDecoupledWeightQuantWithInputProxyHandlerMixin
+from brevitas.export.common.handler.qcdq import CDQWeightQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import DQMixin
 from brevitas.export.common.handler.qcdq import QCDQActQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQBiasQuantProxyHandlerMixin
-from brevitas.export.common.handler.qcdq import QCDQDecoupledWeightQuantProxyHandlerMixin
-from brevitas.export.common.handler.qcdq import QCDQDecoupledWeightQuantWithInputProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQTruncQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQWeightQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QMixin
@@ -90,7 +91,17 @@ class TorchQCDQHandler(BaseHandler):
         return self.symbolic_execution(*args, **kwargs)
 
 
-class TorchQCDQWeightQuantProxyHandler(TorchCDQMixin,
+class TorchCDQWeightQuantProxyHandler(TorchCDQMixin,
+                                      CDQWeightQuantProxyHandlerMixin,
+                                      TorchQCDQHandler):
+
+    @classmethod
+    def int_clip_symbolic_kwargs(cls, narrow, signed, bit_width):
+        clip_args = super().int_clip_symbolic_kwargs(narrow, signed, bit_width)
+        return _itemize_clip_bounds(clip_args)
+
+
+class TorchQCDQWeightQuantProxyHandler(TorchQCDQMixin,
                                        QCDQWeightQuantProxyHandlerMixin,
                                        TorchQCDQHandler):
 
@@ -101,7 +112,7 @@ class TorchQCDQWeightQuantProxyHandler(TorchCDQMixin,
 
 
 class TorchQCDQDecoupledWeightQuantProxyHandler(TorchCDQMixin,
-                                                QCDQDecoupledWeightQuantProxyHandlerMixin,
+                                                CDQDecoupledWeightQuantProxyHandlerMixin,
                                                 TorchQCDQHandler):
 
     @classmethod
@@ -111,7 +122,7 @@ class TorchQCDQDecoupledWeightQuantProxyHandler(TorchCDQMixin,
 
 
 class TorchQCDQDecoupledWeightQuantWithInputProxyHandler(
-        TorchCDQMixin, QCDQDecoupledWeightQuantWithInputProxyHandlerMixin, TorchQCDQHandler):
+        TorchCDQMixin, CDQDecoupledWeightQuantWithInputProxyHandlerMixin, TorchQCDQHandler):
 
     @classmethod
     def int_clip_symbolic_kwargs(cls, narrow, signed, bit_width):
