@@ -7,7 +7,7 @@ import torch
 from brevitas import torch_version
 
 # This needs to be bumped until https://github.com/pytorch/pytorch/pull/94461 gets merged
-if torch_version < version.parse('2.1'):
+if torch_version < version.parse('2.2'):
     import brevitas.backport.fx as fx
     from brevitas.backport.fx._compatibility import compatibility
     from brevitas.backport.fx._symbolic_trace import _assert_is_none
