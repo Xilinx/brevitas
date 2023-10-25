@@ -199,7 +199,7 @@ def quantize_model(
         weight_bit_width_dict['weight_bit_width'] = layerwise_bit_width_fn_weight
         act_bit_width_dict['act_bit_width'] = layerwise_bit_width_fn_act
 
-    else:
+    elif quant_format == 'int' and backend != 'layerwise':
         weight_bit_width_dict['weight_bit_width'] = weight_bit_width
         act_bit_width_dict['act_bit_width'] = act_bit_width
 
@@ -210,7 +210,7 @@ def quantize_model(
         weight_bit_width_dict['weight_exponent_bit_width'] = layerwise_bit_width_fn_weight_exponent
         act_bit_width_dict['act_mantissa_bit_width'] = layerwise_bit_width_fn_act_mantissa
         act_bit_width_dict['act_exponent_bit_width'] = layerwise_bit_width_fn_act_exponent
-    else:
+    elif quant_format == 'float' and backend != 'layerwise':
         weight_bit_width_dict['weight_bit_width'] = weight_bit_width
         act_bit_width_dict['act_bit_width'] = act_bit_width
         weight_bit_width_dict['weight_mantissa_bit_width'] = weight_mantissa_bit_width
