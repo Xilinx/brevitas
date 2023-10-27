@@ -361,6 +361,14 @@ def create_quant_maps(
         'return_quant_tensor': False}
     # yapf: enable
 
+    quant_act_kwargs = {'act_quant': act_quant, 'return_quant_tensor': True}
+    # For potentially unsigned activations, we create a separate dict
+    unsigned_quant_act_kwargs = quant_act_kwargs.copy()
+    if uint_sym_act_for_unsigned_values:
+        # In case we support unsigned activation, the output of softmax can be unsigned
+        quant_mha_kwargs['attn_output_weights_signed'] = False
+        unsigned_quant_act_kwargs['signed'] = False
+
     # Layerwise is  basic quant kwargs + input_quant
     layerwise_quant_wbiol_kwargs = {**quant_wbiol_kwargs, 'input_quant': per_tensor_act_quant}
 
@@ -373,16 +381,6 @@ def create_quant_maps(
         torch.nn.Conv2d: (qnn.QuantConv2d, quant_wbiol_kwargs),
         torch.nn.ConvTranspose1d: (qnn.QuantConvTranspose1d, quant_wbiol_kwargs),
         torch.nn.ConvTranspose2d: (qnn.QuantConvTranspose2d, quant_wbiol_kwargs),}
-
-    act_quant_and_bit_width = {'act_quant': act_quant, 'bit_width': act_bit_width}
-    quant_act_kwargs = {**act_quant_and_bit_width, 'return_quant_tensor': True}
-
-    # For potentially unsigned activations, we create a separate dict
-    unsigned_quant_act_kwargs = quant_act_kwargs.copy()
-    if uint_sym_act_for_unsigned_values:
-        # In case we support unsigned activation, the output of softmax can be unsigned
-        quant_mha_kwargs['attn_output_weights_signed'] = False
-        unsigned_quant_act_kwargs['signed'] = False
 
     quant_act_map = {
         torch.nn.ReLU: (qnn.QuantReLU, {
