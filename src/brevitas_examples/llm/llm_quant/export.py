@@ -204,10 +204,12 @@ class BlockQuantProxyLevelManager(BaseManager):
         _set_proxy_export_handler(cls, module)
 
 
-def block_quant_layer_level_manager(export_handlers):
+def block_quant_layer_level_manager(export_handlers, target=None, custom_fns_to_register=None):
 
     class BlockQuantLayerLevelManager(BaseManager):
         handlers = export_handlers
+        target_name = '' if target is None else target
+        custom_fns = [] if custom_fns_to_register is None else custom_fns_to_register
 
         @classmethod
         def set_export_handler(cls, module):
@@ -256,7 +258,6 @@ class ONNXLinearWeightBlockQuantHandlerFwd(ONNXBaseHandler, WeightBlockQuantHand
     def __init__(self):
         super(ONNXLinearWeightBlockQuantHandlerFwd, self).__init__()
         self.group_size = None
-        register_custom_op_symbolic('::MatMulNBitsFn', MatMulNBitsFn.symbolic, 1)
 
     def pack_int_weights(self, bit_width, int_weights, zero_point):
         assert int_weights.dtype in [torch.uint8, torch.int8], "Packing requires (u)int8 input."
@@ -329,6 +330,9 @@ class ONNXLinearWeightBlockQuantHandlerFwd(ONNXBaseHandler, WeightBlockQuantHand
 
 def export_packed_onnx(model, input, export_path):
     export_class = block_quant_layer_level_manager(
-        export_handlers=[ONNXLinearWeightBlockQuantHandlerFwd])
+        export_handlers=[ONNXLinearWeightBlockQuantHandlerFwd],
+        target='',
+        custom_fns_to_register=MatMulNBitsFn)
+
     with torch.inference_mode(), brevitas_layer_export_mode(model, export_class):
         torch.onnx.export(model, input, export_path)
