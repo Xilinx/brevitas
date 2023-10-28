@@ -31,17 +31,17 @@ A few notes on training:
 
 To start training a model from scratch, e.g. LFC_1W1A, run:
  ```bash
-BREVITAS_JIT=1 brevitas_bnn_pynq_train --network LFC_1W1A --experiments /path/to/experiments
+BREVITAS_JIT=1 python bnn_pynq_train.py --network LFC_1W1A --experiments /path/to/experiments
  ```
 
 ## Evaluate
 
 To evaluate a pretrained model, e.g. LFC_1W1A, run:
  ```bash
-BREVITAS_JIT=1 brevitas_bnn_pynq_train --evaluate --network LFC_1W1A --pretrained
+BREVITAS_JIT=1 python bnn_pynq_train.py --evaluate --network LFC_1W1A --pretrained
  ```
 
 To evaluate your own checkpoint, of e.g. LFC_1W1A, run:
  ```bash
-BREVITAS_JIT=1 brevitas_bnn_pynq_train --evaluate --network LFC_1W1A --resume /path/to/checkpoint.tar
+BREVITAS_JIT=1 python bnn_pynq_train.py --evaluate --network LFC_1W1A --resume /path/to/checkpoint.tar
  ```
