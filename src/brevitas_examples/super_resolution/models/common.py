@@ -6,6 +6,7 @@ from typing import Optional
 from torch import Tensor
 import torch.nn as nn
 
+from brevitas.core.restrict_val import FloatRestrictValue
 from brevitas.core.restrict_val import RestrictValueType
 from brevitas.core.scaling import ScalingImplType
 import brevitas.nn as qnn
@@ -25,6 +26,7 @@ class CommonIntWeightPerChannelQuant(Int8WeightPerTensorFloat):
 
 
 class CommonIntAccumulatorAwareWeightQuant(Int8AccumulatorAwareWeightQuant):
+    restrict_scaling_impl = FloatRestrictValue  # backwards compatibility
     pre_scaling_min_val = 1e-10
     scaling_min_val = 1e-10
 
