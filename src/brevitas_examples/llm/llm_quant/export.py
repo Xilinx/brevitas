@@ -118,6 +118,7 @@ class LinearWeightBlockQuantHandler(WeightBlockQuantHandlerBase, ABC):
         if bit_width == 8:
             return int_weights
         elif bit_width == 4 or bit_width == 2:
+            assert int_weights.shape[1] * bit_width % 8 == 0, "Number of columns multiplied by the bit-width must be a multiple of 8"
             packed_int_weights = torch.zeros(
                 (int_weights.shape[0], int_weights.shape[1] * bit_width // 8),
                 device=int_weights.device,
