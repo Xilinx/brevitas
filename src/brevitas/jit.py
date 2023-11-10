@@ -6,7 +6,7 @@ import torch
 
 from brevitas.config import JIT_ENABLED
 
-IS_ABOVE_110 = version.parse(torch.__version__) > version.parse('1.1.0')
+# IS_ABOVE_110 = version.parse(torch.__version__) > version.parse('1.1.0')
 
 
 def _disabled(fn):
@@ -20,10 +20,10 @@ if JIT_ENABLED:
     ScriptModule = torch.jit.ScriptModule
     Attribute = torch.jit.Attribute
 
-    if not IS_ABOVE_110:
-        script_method_110_disabled = _disabled
-    else:
-        script_method_110_disabled = script_method
+    script_method_110_disabled = script_method
+    # script_method_110_disabled = _disabled
+    # if not IS_ABOVE_110:
+    # else:
 
 else:
 
