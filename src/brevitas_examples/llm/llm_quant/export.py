@@ -6,12 +6,12 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 from abc import ABC
 from abc import abstractmethod
 from contextlib import contextmanager
-import math
 import warnings
 
 import numpy as np
 import torch
 from torch.nn import Module
+from torch.onnx import register_custom_op_symbolic
 
 from brevitas.export.common.handler.base import BaseHandler
 from brevitas.export.manager import _set_layer_export_handler
@@ -19,6 +19,8 @@ from brevitas.export.manager import _set_layer_export_mode
 from brevitas.export.manager import _set_proxy_export_handler
 from brevitas.export.manager import _set_proxy_export_mode
 from brevitas.export.manager import BaseManager
+from brevitas.export.onnx.handler import ONNXBaseHandler
+from brevitas.export.onnx.standard.function import MatMulNBitsFn
 from brevitas.nn import QuantLinear
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
 
@@ -47,8 +49,11 @@ class WeightBlockQuantHandlerBase(BaseHandler, ABC):
         scaling_impl = self.scaling_impl(proxy_module)
         int_scaling_impl = proxy_module.tensor_quant.int_scaling_impl
         int_threshold = int_scaling_impl(bit_width)
-        threshold = scaling_impl.wrapped_scaling_impl.stats_scaling_impl(
-            scaling_impl.wrapped_scaling_impl.parameter_list_stats())
+        if hasattr(scaling_impl, 'wrapped_scaling_impl'):
+            threshold = scaling_impl.wrapped_scaling_impl.stats_scaling_impl(
+                scaling_impl.wrapped_scaling_impl.parameter_list_stats())
+        else:
+            threshold = scaling_impl.stats_scaling_impl(scaling_impl.parameter_list_stats())
         return threshold / int_threshold
 
     def export_zero_point(self, proxy_module, scale, bit_width):
@@ -243,3 +248,87 @@ def replace_call_fn_target(graph_model, src, target):
             node.target = target
     graph_model.graph.lint()
     graph_model.recompile()
+
+
+class ONNXLinearWeightBlockQuantHandlerFwd(ONNXBaseHandler, WeightBlockQuantHandlerBase):
+    handled_layer = QuantLinear
+
+    def __init__(self):
+        super(ONNXLinearWeightBlockQuantHandlerFwd, self).__init__()
+        self.group_size = None
+        register_custom_op_symbolic('::MatMulNBitsFn', MatMulNBitsFn.symbolic, 1)
+
+    def pack_int_weights(self, bit_width, int_weights, zero_point):
+        assert int_weights.dtype in [torch.uint8, torch.int8], "Packing requires (u)int8 input."
+        assert bit_width == 4, "Only 4 bit quantization export is supported at the moment"
+
+        is_symmetric = torch.sum(zero_point) == 0
+        zero_point = zero_point.to(torch.uint8)
+        rows, cols = int_weights.shape
+        block_size = self.group_size
+        blob_size = block_size // 2
+        k_blocks = (rows + block_size - 1) // block_size
+        padded_rows = k_blocks * block_size
+        pad_len = padded_rows - rows
+
+        # ONNX operator assumes implicit zp of 8 (largest negative number in Po2)
+        # If we are in a "symmetric"  quantized scenario, we need to add this implicit zero point
+        # Otherwise it has already been added during the convesion to integer
+        zp = 0 if not int_weights.dtype == torch.int8 else 8
+        int_weights += zp
+        if pad_len > 0:
+            int_weights = torch.nn.functional(int_weights, (0, 0, 0, pad_len))
+        packed = np.zeros((cols, k_blocks, blob_size), dtype="uint8")
+        rows, cols = int_weights.shape
+        int_weights = int_weights.t()
+        for n in range(cols):
+            for k_id in range(0, rows, block_size):
+                blk_int0 = (int_weights[n, k_id:k_id + block_size:2].numpy()).astype("uint8")
+                blk_int1 = (int_weights[n, k_id + 1:k_id + block_size:2].numpy()).astype("uint8")
+                packed[n, k_id // block_size] = np.bitwise_or(blk_int0, np.left_shift(blk_int1, 4))
+
+        zero_point = zero_point.to(torch.uint8).flatten()
+        base_zp = 136 if is_symmetric else 0
+        packed_zp = base_zp * torch.ones(
+            (zero_point.shape[0] + 1) // 2, device=int_weights.device, dtype=torch.uint8)
+
+        i = 0
+        for column in range(packed_zp.shape[0]):
+            for j in range(i, i + (8 // bit_width)):
+                shift_factor = (bit_width * (j - i))
+                packed_zp[column] |= zero_point[j] << shift_factor
+            i += 8 // bit_width
+        return torch.tensor(packed), packed_zp
+
+    def prepare_for_export(self, module):
+        self.bit_width = self.bit_width_impl(module.weight_quant)()
+        assert self.bit_width <= 8., "Only 8b or lower is supported."
+        quant_weight = module.quant_weight()
+        self.bias = module.bias
+        self.scale = self.export_scale(module.weight_quant, self.bit_width)
+        if (quant_weight.zero_point != 0.).any():
+            self.zero_point = self.export_zero_point(
+                module.weight_quant, self.scale, self.bit_width)
+        else:
+            # if there is no zero-point, export zeroes in the shape of scale
+            self.zero_point = torch.zeros_like(self.scale)
+        self.group_size = module.weight_quant.quant_injector.block_size
+        self.bit_width = int(self.bit_width.cpu().item())
+        self.int_weight, self.zero_point = self.pack_int_weights(self.bit_width, quant_weight.int().t().detach(), self.zero_point)
+        self.weight_shape = module.weight.shape
+
+    def symbolic_execution(self, x):
+        int_weights = self.int_weight
+        scale = self.scale
+        bit_width = self.bit_width
+        N, K = self.weight_shape
+        out = MatMulNBitsFn.apply(
+            x, int_weights, scale.flatten(), self.zero_point, K, N, bit_width, self.group_size)
+        return out
+
+
+def export_packed_onnx(model, input, export_path):
+    export_class = block_quant_layer_level_manager(
+        export_handlers=[ONNXLinearWeightBlockQuantHandlerFwd])
+    with torch.inference_mode(), brevitas_layer_export_mode(model, export_class):
+        torch.onnx.export(model, input, export_path)
