@@ -1,5 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
+from inspect import isclass
 import operator
 from typing import Dict, List, Optional
 
@@ -493,31 +494,45 @@ def layer_handler(
     return model
 
 
+def _module_class_name(module_class_or_str):
+    name = module_class_or_str.__module__ + '.' + module_class_or_str.__name__ if isclass(
+        module_class_or_str) else module_class_or_str
+    return name
+
+
 def find_module(
-        model: nn.Module, layer_map: Dict[nn.Module, Optional[Dict]], module_to_replace: List):
+        model: nn.Module,
+        layer_map: Dict[nn.Module, Optional[Dict]],
+        module_to_replace: List,
+        name_blacklist):
     """
     Iterate through the model looking at immediate children of every module to look for supported modules.
     This allows us to stop the search when we meet a top-level module that is supported.
     Specifically, it allows to map nn.MultiheadAttetion to its quantized counterpart and not its
     Linear submodules.
     """
-    if isinstance(model, tuple(layer_map.keys())):
+    if _module_class_name(type(model)) in layer_map.keys():
         module_to_replace.append(model)
     else:
-        for module in model.children():
-            find_module(module, layer_map, module_to_replace)
+        for name, module in model.named_children():
+            if name_blacklist is not None and name in name_blacklist:
+                continue
+            find_module(module, layer_map, module_to_replace, name_blacklist)
 
 
-def layerwise_layer_handler(model: nn.Module, layer_map: Dict[nn.Module, Optional[Dict]]):
+def layerwise_layer_handler(
+        model: nn.Module, layer_map: Dict[nn.Module, Optional[Dict]], name_blacklist=None):
     """
     Replace FP weight layers with their corresponding quantized version
     """
+    # Normalize all module lookups to fully qualified strings
+    layer_map = {_module_class_name(m): v for m, v in layer_map.items()}
     module_to_replace = []
-    find_module(model, layer_map, module_to_replace)
+    find_module(model, layer_map, module_to_replace, name_blacklist)
     rewriters = []
     for module in module_to_replace:
-        if layer_map[type(module)] is not None:
-            quant_module_class, quant_module_kwargs = layer_map[type(module)]
+        if layer_map[_module_class_name(type(module))] is not None:
+            quant_module_class, quant_module_kwargs = layer_map[_module_class_name(type(module))]
             rewriter = ModuleToModuleByInstance(module, quant_module_class, **quant_module_kwargs)
             rewriters.append(rewriter)
     for rewriter in rewriters:

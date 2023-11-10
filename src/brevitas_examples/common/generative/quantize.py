@@ -31,16 +31,18 @@ from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloatMSE
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloatMSE
-from brevitas_examples.llm.llm_quant.quantizers import Fp8e4m3WeightSymmetricGroupQuant
-from brevitas_examples.llm.llm_quant.quantizers import Int8ActDynamicPerGroupFloat
-from brevitas_examples.llm.llm_quant.quantizers import Int8ActDynamicPerRowFloat
-from brevitas_examples.llm.llm_quant.quantizers import Int8ActDynamicPerTensorFloat
-from brevitas_examples.llm.llm_quant.quantizers import Int8ActPerRowFloat
-from brevitas_examples.llm.llm_quant.quantizers import Int8ActPerRowFloatMSE
-from brevitas_examples.llm.llm_quant.quantizers import IntWeightSymmetricGroupQuant
-from brevitas_examples.llm.llm_quant.quantizers import ShiftedUint8ActPerRowFloat
-from brevitas_examples.llm.llm_quant.quantizers import ShiftedUint8ActPerRowFloatMSE
-from brevitas_examples.llm.llm_quant.quantizers import ShiftedUintWeightAsymmetricGroupQuant
+from brevitas_examples.common.generative.nn import LoRACompatibleQuantConv2d
+from brevitas_examples.common.generative.nn import LoRACompatibleQuantLinear
+from brevitas_examples.common.generative.quantizers import Fp8e4m3WeightSymmetricGroupQuant
+from brevitas_examples.common.generative.quantizers import Int8ActDynamicPerGroupFloat
+from brevitas_examples.common.generative.quantizers import Int8ActDynamicPerRowFloat
+from brevitas_examples.common.generative.quantizers import Int8ActDynamicPerTensorFloat
+from brevitas_examples.common.generative.quantizers import Int8ActPerRowFloat
+from brevitas_examples.common.generative.quantizers import Int8ActPerRowFloatMSE
+from brevitas_examples.common.generative.quantizers import IntWeightSymmetricGroupQuant
+from brevitas_examples.common.generative.quantizers import ShiftedUint8ActPerRowFloat
+from brevitas_examples.common.generative.quantizers import ShiftedUint8ActPerRowFloatMSE
+from brevitas_examples.common.generative.quantizers import ShiftedUintWeightAsymmetricGroupQuant
 
 WEIGHT_QUANT_MAP = {
     'int': {
@@ -132,8 +134,9 @@ def quantize_model(
         weight_group_size,
         quantize_weight_zero_point,
         weight_quant_format='int',
+        name_blacklist=None,
         input_bit_width=None,
-        input_quant_format=None,
+        input_quant_format='',
         input_scale_precision=None,
         input_scale_type=None,
         input_param_method=None,
@@ -190,7 +193,6 @@ def quantize_model(
     # Modify the weight quantizer based on the arguments passed in
     weight_quant = weight_quant.let(
         **{
-            'bit_width': weight_bit_width,
             'narrow_range': False,
             'block_size': weight_group_size,
             'quantize_zero_point': quantize_weight_zero_point},
@@ -309,7 +311,15 @@ def quantize_model(
                         'group_dim': 1, 'group_size': input_group_size})
 
     quant_linear_kwargs = {
-        'input_quant': linear_2d_input_quant, 'weight_quant': weight_quant, 'dtype': dtype}
+        'input_quant': linear_2d_input_quant,
+        'weight_quant': weight_quant,
+        'weight_bit_width': weight_bit_width,
+        'dtype': dtype}
+    quant_conv_kwargs = {
+        'input_quant': input_quant,
+        'weight_quant': weight_quant,
+        'weight_bit_width': weight_bit_width,
+        'dtype': dtype}
 
     quant_mha_kwargs = {
         'in_proj_input_quant': input_quant,
@@ -333,10 +343,14 @@ def quantize_model(
 
     layer_map = {
         nn.Linear: (qnn.QuantLinear, quant_linear_kwargs),
+        nn.Conv2d: (qnn.QuantConv2d, quant_conv_kwargs),
+        'diffusers.models.lora.LoRACompatibleLinear':
+            (LoRACompatibleQuantLinear, quant_linear_kwargs),
+        'diffusers.models.lora.LoRACompatibleConv': (LoRACompatibleQuantConv2d, quant_conv_kwargs),
         nn.MultiheadAttention: (qnn.QuantMultiheadAttention, quant_mha_kwargs)}
 
     if quantize_embedding:
         quant_embedding_kwargs = {'weight_quant': weight_quant, 'dtype': dtype}
         layer_map[nn.Embedding] = (qnn.QuantEmbedding, quant_embedding_kwargs)
 
-    layerwise_quantize(model=model, compute_layer_map=layer_map)
+    layerwise_quantize(model=model, compute_layer_map=layer_map, name_blacklist=name_blacklist)

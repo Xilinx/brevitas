@@ -185,7 +185,6 @@ def compile_vicuna_layer(
                     torch.ops.aten.split.Tensor,
                     torch.ops.aten.split_with_sizes,]),
             )(hidden_states, attention_mask, position_ids)
-            print(fx_g.graph)
     else:
         with export_context_manager(vicuna_layer, export_class):
             fx_g = make_fx(
