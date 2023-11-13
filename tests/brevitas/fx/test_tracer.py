@@ -238,4 +238,4 @@ def test_quant_module(module):
         out = mod(x)
         graph_model = value_trace(mod, value_args={'x': x_trace})
         graph_out = graph_model(x)
-        assert graph_out.value.isclose(out.value).all().item()
+        assert graph_out.isclose(out).all().item()

@@ -63,10 +63,12 @@ class TestPercentile:
 
     def test_interval_percentile(self):
         values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-        values = torch.tensor(values)
+        values = torch.tensor(values, dtype=torch.float32)
         interval_percentile = PercentileInterval(low_percentile_q=0.01, high_percentile_q=99.9)
         out = interval_percentile(values)
 
         range = self.compute_percentile(values, low_q=0.01, high_q=99.9)
-        expected_out = torch.abs(range[1] - range[0])
+        # Clamp is to make sure the lower bound is not positive to align with zero-point statistics
+        low_result = torch.clamp(range[0], max=torch.tensor(0.0))
+        expected_out = torch.abs(range[1] - low_result)
         assert torch.allclose(out, expected_out)
