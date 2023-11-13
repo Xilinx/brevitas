@@ -203,7 +203,7 @@ class GPFQ(GPxQ):
         # we executed. Once we executed as many as the number of parallel_layers, we raise
         # StopFwdException
         current_layer.forward_count += 1
-        if current_layer.forward_count == len(self.parallel_layers):
+        if current_layer.forward_count == self.parallel_layers:
             current_layer.forward_count = 0
             raise StopFwdException
 

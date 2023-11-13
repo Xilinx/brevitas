@@ -102,7 +102,7 @@ class gpxq_mode(ABC):
                         module,
                         name,
                         act_order=self.act_order,
-                        parallel_layers=parallel_layers,
+                        parallel_layers=len(parallel_layers),
                         create_weight_orig=self.create_weight_orig)
                     hook_fn = partial(
                         gpxq_module_optimizer.update_batch, current_layer=self.current_layer)
