@@ -83,7 +83,8 @@ class gptq_mode(gpxq_mode):
                     gpxq_class.disable_pre_forward_hook = False
                 return out
 
-    def init_class(self, layer, name, act_order, parallel_layers, create_weight_orig):
+    def initialize_module_optimizer(
+            self, layer, name, act_order, parallel_layers, create_weight_orig):
         return GPTQ(
             layer=layer,
             name=name,
@@ -126,7 +127,6 @@ class GPTQ(GPxQ):
 
         # Define how many columns to update in each mini-block
         self.blocksize = math.ceil(self.columns / num_blocks)
-        self.num_blocks = num_blocks
 
         # Initialize Hessian matrix and counter. We need it in float32 to compute the inverse
         self.H = torch.zeros((self.groups, self.columns, self.columns),

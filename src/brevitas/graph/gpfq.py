@@ -94,7 +94,8 @@ class gpfq_mode(gpxq_mode):
                 gpxq_class.disable_pre_forward_hook = False
             return out
 
-    def init_class(self, layer, name, act_order, parallel_layers, create_weight_orig):
+    def initialize_module_optimizer(
+            self, layer, name, act_order, parallel_layers, create_weight_orig):
         return GPFQ(
             layer=layer,
             name=name,

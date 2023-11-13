@@ -98,15 +98,16 @@ class gpxq_mode(ABC):
 
                 # Attach hooks for GPTQ
                 if self._is_module_supported(module):
-                    gpxq = self.init_class(
+                    gpxq_module_optimizer = self.initialize_module_optimizer(
                         module,
                         name,
                         act_order=self.act_order,
                         parallel_layers=parallel_layers,
                         create_weight_orig=self.create_weight_orig)
-                    hook_fn = partial(gpxq.update_batch, current_layer=self.current_layer)
+                    hook_fn = partial(
+                        gpxq_module_optimizer.update_batch, current_layer=self.current_layer)
                     self.hook_dict[name] = module.register_forward_pre_hook(hook_fn)
-                    self.gpxq_layers[name] = gpxq
+                    self.gpxq_layers[name] = gpxq_module_optimizer
         if not self.use_quant_activations:
             self.disable_quant_inference.disable_act_quantization(
                 self.model, is_training=self.model.training)
