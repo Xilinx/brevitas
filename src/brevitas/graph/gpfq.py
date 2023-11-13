@@ -59,8 +59,7 @@ class gpfq_mode(gpxq_mode):
 
         self.orig_forward = self.model.forward
         self.model.forward = self.catch_stopfwd
-        self.class_implementation = GPFQ
-        GPFQ.p = p
+        self.p = p
 
     def catch_stopfwd(self, *args, **kwargs):
         # Collect quant input
@@ -95,23 +94,39 @@ class gpfq_mode(gpxq_mode):
                 gpxq_class.disable_pre_forward_hook = False
             return out
 
+    def initialize_module_optimizer(
+            self, layer, name, act_order, len_parallel_layers, create_weight_orig):
+        return GPFQ(
+            layer=layer,
+            name=name,
+            act_order=act_order,
+            len_parallel_layers=len_parallel_layers,
+            create_weight_orig=create_weight_orig,
+            p=self.p)
+
 
 class GPFQ(GPxQ):
     """
     Based on https://github.com/YixuanSeanZhou/Quantized_Neural_Nets/tree/main
     """
-    p = 0.25
 
-    def __init__(self, layer, name, act_order, parallel_layers=1, create_weight_orig=True) -> None:
+    def __init__(
+            self,
+            layer,
+            name,
+            act_order,
+            len_parallel_layers=1,
+            create_weight_orig=True,
+            p=0.25) -> None:
 
         if act_order:
             raise ValueError("Act_order is not supported in GPFQ")
 
-        super().__init__(layer, name, act_order, parallel_layers, create_weight_orig)
+        super().__init__(layer, name, act_order, len_parallel_layers, create_weight_orig)
         self.float_input = None
         self.quantized_input = None
         self.index_computed = False
-        self.p = GPFQ.p
+        self.p = p
 
     def update_batch(self, module, input, current_layer):
         if self.disable_pre_forward_hook:
@@ -188,7 +203,7 @@ class GPFQ(GPxQ):
         # we executed. Once we executed as many as the number of parallel_layers, we raise
         # StopFwdException
         current_layer.forward_count += 1
-        if current_layer.forward_count == len(self.parallel_layers):
+        if current_layer.forward_count == self.len_parallel_layers:
             current_layer.forward_count = 0
             raise StopFwdException
 

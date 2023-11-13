@@ -98,15 +98,16 @@ class gpxq_mode(ABC):
 
                 # Attach hooks for GPTQ
                 if self._is_module_supported(module):
-                    gpxq = self.class_implementation(
+                    gpxq_module_optimizer = self.initialize_module_optimizer(
                         module,
                         name,
                         act_order=self.act_order,
-                        parallel_layers=parallel_layers,
+                        len_parallel_layers=len(parallel_layers),
                         create_weight_orig=self.create_weight_orig)
-                    hook_fn = partial(gpxq.update_batch, current_layer=self.current_layer)
+                    hook_fn = partial(
+                        gpxq_module_optimizer.update_batch, current_layer=self.current_layer)
                     self.hook_dict[name] = module.register_forward_pre_hook(hook_fn)
-                    self.gpxq_layers[name] = gpxq
+                    self.gpxq_layers[name] = gpxq_module_optimizer
         if not self.use_quant_activations:
             self.disable_quant_inference.disable_act_quantization(
                 self.model, is_training=self.model.training)
@@ -137,7 +138,8 @@ class gpxq_mode(ABC):
 
 class GPxQ(ABC):
 
-    def __init__(self, layer, name, act_order, parallel_layers=1, create_weight_orig=True) -> None:
+    def __init__(
+            self, layer, name, act_order, len_parallel_layers=1, create_weight_orig=True) -> None:
         self.layer = layer
         self.name = name
         self.act_order = act_order
@@ -159,7 +161,7 @@ class GPxQ(ABC):
         self.rows = weight.shape[0]
         # Number of columns is equal to the input channels (IC)
         self.columns = weight.shape[1]
-        self.parallel_layers = parallel_layers
+        self.len_parallel_layers = len_parallel_layers
 
         self.disable_pre_forward_hook = False
         # Some layers require knowledge from quant inputs to compute quant weights
