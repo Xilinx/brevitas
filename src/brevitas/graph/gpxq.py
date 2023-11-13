@@ -98,7 +98,7 @@ class gpxq_mode(ABC):
 
                 # Attach hooks for GPTQ
                 if self._is_module_supported(module):
-                    gpxq = self.class_implementation(
+                    gpxq = self.init_class(
                         module,
                         name,
                         act_order=self.act_order,

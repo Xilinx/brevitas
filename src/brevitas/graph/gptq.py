@@ -67,8 +67,6 @@ class gptq_mode(gpxq_mode):
         self.model.forward = self.catch_stopfwd
         # How many subblock to use during GPTQ for each layer
         self.num_blocks = num_blocks
-        self.class_implementation = GPTQ
-        GPTQ.num_blocks = num_blocks
 
     def catch_stopfwd(self, *args, **kwargs):
         try:
@@ -84,6 +82,15 @@ class gptq_mode(gpxq_mode):
                 for name, gpxq_class in self.gpxq_layers.items():
                     gpxq_class.disable_pre_forward_hook = False
                 return out
+
+    def init_class(self, layer, name, act_order, parallel_layers, create_weight_orig):
+        return GPTQ(
+            layer=layer,
+            name=name,
+            act_order=act_order,
+            parallel_layers=parallel_layers,
+            create_weight_orig=create_weight_orig,
+            num_blocks=self.num_blocks)
 
 
 class GPTQ(GPxQ):
@@ -104,15 +111,22 @@ class GPTQ(GPxQ):
     See the License for the specific language governing permissions and
     limitations under the License.
     """
-    num_blocks = 100
 
-    def __init__(self, layer, name, act_order, parallel_layers=1, create_weight_orig=True) -> None:
+    def __init__(
+            self,
+            layer,
+            name,
+            act_order,
+            parallel_layers=1,
+            create_weight_orig=True,
+            num_blocks=100) -> None:
         super().__init__(layer, name, act_order, parallel_layers, create_weight_orig)
 
         dev = self.layer.weight.device
 
         # Define how many columns to update in each mini-block
-        self.blocksize = math.ceil(self.columns / GPTQ.num_blocks)
+        self.blocksize = math.ceil(self.columns / num_blocks)
+        self.num_blocks = num_blocks
 
         # Initialize Hessian matrix and counter. We need it in float32 to compute the inverse
         self.H = torch.zeros((self.groups, self.columns, self.columns),
