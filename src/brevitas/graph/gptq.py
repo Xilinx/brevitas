@@ -84,12 +84,12 @@ class gptq_mode(gpxq_mode):
                 return out
 
     def initialize_module_optimizer(
-            self, layer, name, act_order, parallel_layers, create_weight_orig):
+            self, layer, name, act_order, len_parallel_layers, create_weight_orig):
         return GPTQ(
             layer=layer,
             name=name,
             act_order=act_order,
-            parallel_layers=parallel_layers,
+            len_parallel_layers=len_parallel_layers,
             create_weight_orig=create_weight_orig,
             num_blocks=self.num_blocks)
 
@@ -118,10 +118,10 @@ class GPTQ(GPxQ):
             layer,
             name,
             act_order,
-            parallel_layers=1,
+            len_parallel_layers=1,
             create_weight_orig=True,
             num_blocks=100) -> None:
-        super().__init__(layer, name, act_order, parallel_layers, create_weight_orig)
+        super().__init__(layer, name, act_order, len_parallel_layers, create_weight_orig)
 
         dev = self.layer.weight.device
 
@@ -184,7 +184,7 @@ class GPTQ(GPxQ):
         # we executed. Once we executed as many as the number of parallel_layers, we raise
         # StopFwdException
         current_layer.forward_count += 1
-        if current_layer.forward_count == self.parallel_layers:
+        if current_layer.forward_count == self.len_parallel_layers:
             current_layer.forward_count = 0
             raise StopFwdException
 
