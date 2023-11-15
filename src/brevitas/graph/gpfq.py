@@ -43,7 +43,7 @@ class gpfq_mode(gpxq_mode):
             inplace: bool = True,
             create_weight_orig: bool = True,
             use_quant_activations: bool = True,
-            p: int = 0.25,
+            p: float = 1.0,
             return_forward_output: bool = False,
             act_order: bool = False) -> None:
         if not inplace:
@@ -117,10 +117,10 @@ class GPFQ(GPxQ):
             act_order,
             len_parallel_layers=1,
             create_weight_orig=True,
-            p=0.25) -> None:
-        
+            p=1.0) -> None:
+
         super().__init__(layer, name, act_order, len_parallel_layers, create_weight_orig)
-        
+
         self.float_input = None
         self.quantized_input = None
         self.index_computed = False
