@@ -13,6 +13,24 @@ from .quant_layer import ActQuantType
 from .quant_layer import QuantNonLinearActLayer as QuantNLAL
 
 
+# Starting from Torch 2.0, nn.Module init function accepts custom *args and **kwargs
+# torch.nn.Sigmoid does not provide its own init method, and the presence of *args + **kwargs
+# conflicts with the dependency injection package
+class Sigmoid(nn.Sigmoid):
+
+    def __init__(self):
+        super().__init__()
+
+
+# Starting from Torch 2.0, nn.Module init function accepts custom *args and **kwargs
+# torch.nn.Tanh does not provide its own init method, and the presence of *args + **kwargs
+# conflicts with the dependency injection package
+class Tanh(nn.Tanh):
+
+    def __init__(self):
+        super().__init__()
+
+
 class QuantReLU(QuantNLAL):
 
     def __init__(
@@ -41,7 +59,7 @@ class QuantSigmoid(QuantNLAL):
             **kwargs):
         QuantNLAL.__init__(
             self,
-            act_impl=nn.Sigmoid,
+            act_impl=Sigmoid,
             passthrough_act=False,
             input_quant=input_quant,
             act_quant=act_quant,
@@ -59,7 +77,7 @@ class QuantTanh(QuantNLAL):
             **kwargs):
         QuantNLAL.__init__(
             self,
-            act_impl=nn.Tanh,
+            act_impl=Tanh,
             passthrough_act=False,
             input_quant=input_quant,
             act_quant=act_quant,
