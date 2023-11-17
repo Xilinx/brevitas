@@ -73,6 +73,11 @@ def torchvision_model(model_name, quantize_fn):
     if torch_version < version.parse('1.11.0') and model_name == 'vit_b_32':
         return None
 
+    # Due to a regression in torchvision, we cannot load pretrained weights for effnet_b0
+    # https://github.com/pytorch/vision/issues/7744
+    if torch_version == version.parse('2.1.0') and model_name == 'efficientnet_b0':
+        return None
+
     # Deeplab and fcn are in a different module, and they have a dict as output which is not suited for torchscript
     if model_name in ('deeplabv3_resnet50', 'fcn_resnet50'):
         model_fn = getattr(modelzoo.segmentation, model_name)
