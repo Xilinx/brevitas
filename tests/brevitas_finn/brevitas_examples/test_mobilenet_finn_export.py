@@ -16,7 +16,7 @@ from qonnx.transformation.infer_shapes import InferShapes
 import torch
 
 from brevitas import torch_version
-from brevitas.export import export_finn_onnx
+from brevitas.export import export_qonnx
 from brevitas_examples.imagenet_classification import quant_mobilenet_v1_4b
 
 ort_mac_fail = pytest.mark.skipif(
@@ -41,7 +41,7 @@ def test_mobilenet_v1_4b(pretrained):
     torch_tensor = torch.from_numpy(numpy_tensor).float()
     # do forward pass in PyTorch/Brevitas
     expected = mobilenet(torch_tensor).detach().numpy()
-    export_finn_onnx(mobilenet, input_shape=INPUT_SIZE, export_path=finn_onnx)
+    export_qonnx(mobilenet, input_shape=INPUT_SIZE, export_path=finn_onnx)
     model = ModelWrapper(finn_onnx)
     model = model.transform(GiveUniqueNodeNames())
     model = model.transform(DoubleToSingleFloat())
