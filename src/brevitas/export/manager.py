@@ -20,7 +20,6 @@ from brevitas.nn.mixin.base import QuantRecurrentLayerMixin
 from brevitas.proxy.quant_proxy import QuantProxyProtocol
 from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.jit_utils import clear_class_registry
-# from brevitas.utils.jit_utils import jit_patches_generator
 from brevitas.utils.python_utils import patch
 
 
@@ -162,7 +161,6 @@ class BaseManager(ABC):
 
     target_name = None
     handlers = []
-    _base_trace_patches_generator = None  # jit_patches_generator
     _fn_to_cache = []
     _fn_cache = []
     _cached_io_handler_map = {}
@@ -183,10 +181,7 @@ class BaseManager(ABC):
 
     @classmethod
     def _trace_patches(cls):
-        patches = []
-        if cls._base_trace_patches_generator is not None:
-            patches += cls._base_trace_patches_generator()
-        patches += cls._gen_patches(cls._trace_fn_dispatcher)
+        patches = cls._gen_patches(cls._trace_fn_dispatcher)
         return patches
 
     @classmethod
