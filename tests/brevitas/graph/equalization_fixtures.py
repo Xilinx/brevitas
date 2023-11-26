@@ -109,6 +109,10 @@ def linearmha_model(bias, add_bias_kv, batch_first):
     if torch_version < version.parse('1.9.1'):
         pytest.skip(f"batch_first not supported in MHA with torch version {torch_version}")
 
+    # Skip due to following issue https://github.com/pytorch/pytorch/issues/97128
+    if torch_version == version.parse('2.0.1') and not bias and batch_first and not add_bias_kv:
+        pytest.skip(f"Skip due to a regression in pytorch 2.0.1")
+
     class LinearMhaModel(nn.Module):
 
         def __init__(self) -> None:
@@ -134,6 +138,10 @@ def linearmha_model(bias, add_bias_kv, batch_first):
 def layernormmha_model(bias, add_bias_kv, batch_first):
     if torch_version < version.parse('1.9.1'):
         pytest.skip(f"batch_first not supported in MHA with torch version {torch_version}")
+
+    # Skip due to following issue https://github.com/pytorch/pytorch/issues/97128
+    if torch_version == version.parse('2.0.1') and not bias and batch_first and not add_bias_kv:
+        pytest.skip(f"Skip due to a regression in pytorch 2.0.1")
 
     class LayerNormMhaModel(nn.Module):
 
@@ -163,6 +171,10 @@ def layernormmha_model(bias, add_bias_kv, batch_first):
 def mhalinear_model(bias, add_bias_kv, batch_first):
     if torch_version < version.parse('1.9.1'):
         pytest.skip(f"batch_first not supported in MHA with torch version {torch_version}")
+
+    # Skip due to following issue https://github.com/pytorch/pytorch/issues/97128
+    if torch_version == version.parse('2.0.1') and not bias and batch_first and not add_bias_kv:
+        pytest.skip(f"Skip due to a regression in pytorch 2.0.1")
 
     class MhaLinearModel(nn.Module):
 

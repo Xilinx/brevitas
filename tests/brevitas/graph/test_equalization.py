@@ -124,7 +124,9 @@ def test_models(toy_model, merge_bias, request):
     inp = torch.randn(in_shape)
 
     model.eval()
-    expected_out = model(inp)
+    with torch.no_grad():
+        expected_out = model(inp)
+
     model = symbolic_trace(model)
     regions = _extract_regions(model)
     scale_factor_regions = equalize_test(
@@ -135,7 +137,8 @@ def test_models(toy_model, merge_bias, request):
         scale_computation_type='maxabs')
     shape_scale_regions = [scale.shape for scale in scale_factor_regions]
 
-    out = model(inp)
+    with torch.no_grad():
+        out = model(inp)
     assert len(regions) > 0
     assert torch.allclose(expected_out, out, atol=ATOL)
     # Check that at least one region performs "true" equalization
