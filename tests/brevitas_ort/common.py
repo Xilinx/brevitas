@@ -4,6 +4,9 @@
 import numpy as np
 import onnxruntime as ort
 import pytest
+from qonnx.core.modelwrapper import ModelWrapper
+import qonnx.core.onnx_exec as oxe
+from qonnx.transformation.infer_shapes import InferShapes
 import torch
 
 from brevitas.export import export_onnx_qcdq
@@ -113,32 +116,39 @@ def is_brevitas_ort_close(
     input_t = torch.from_numpy(np_input)
     brevitas_output = model(input_t)
 
-    if export_type == 'qop':
-        export_onnx_qop(model, input_t, export_path=export_name)
-        brevitas_output = brevitas_output.int(float_datatype=False)
-    elif export_type == 'qcdq':
-        export_onnx_qcdq(model, input_t, export_path=export_name)
-    elif export_type == 'qcdq_opset14':
-        export_onnx_qcdq(model, input_t, opset_version=14, export_path=export_name)
-    elif export_type == 'qonnx_opset14':
-        export_qonnx(model, input_t, opset_version=14, export_path=export_name)
-    else:
-        raise RuntimeError(f"Export type {export_type} not recognized.")
-
     if tolerance is not None and export_type == 'qcdq':
         tolerance = tolerance * brevitas_output.scale  # Float Output, tolerance is +/- output scale
 
-    ort_output = compute_ort(export_name, np_input)
+    if export_type == 'qonnx':
+        exported_model = export_qonnx(model, input_t, export_path=export_name)
+        exported_model = ModelWrapper(exported_model)
+        exported_model = exported_model.transform(InferShapes())
+        idict = {exported_model.graph.input[0].name: np_input}
+        odict = oxe.execute_onnx(exported_model, idict, True)
+        ort_output = odict[exported_model.graph.output[0].name]
+    else:
+        if export_type == 'qop':
+            export_onnx_qop(model, input_t, export_path=export_name)
+            brevitas_output = brevitas_output.int(float_datatype=False)
+        elif export_type == 'qcdq':
+            export_onnx_qcdq(model, input_t, export_path=export_name)
+        elif export_type == 'qcdq_opset14':
+            export_onnx_qcdq(model, input_t, opset_version=14, export_path=export_name)
+        elif export_type == 'qonnx_opset14':
+            export_qonnx(model, input_t, opset_version=14, export_path=export_name)
+        else:
+            raise RuntimeError(f"Export type {export_type} not recognized.")
+
+        ort_output = compute_ort(export_name, np_input)
 
     if first_output_only:
-        if isinstance(ort_output, tuple):
+        if isinstance(ort_output, (tuple, list)):
             ort_output = ort_output[0]
         if isinstance(brevitas_output, tuple):
             brevitas_output = brevitas_output[0]
-
-    # make sure we are not comparing 0s
-    if ort_output == 0 and (brevitas_output == 0).all():
-        pytest.skip("Skip testing against all 0s.")
+        # make sure we are not comparing 0s
+        if (ort_output == 0).all() and (brevitas_output == 0).all():
+            pytest.skip("Skip testing against all 0s.")
 
     return recursive_allclose(ort_output, brevitas_output, tolerance)
 
