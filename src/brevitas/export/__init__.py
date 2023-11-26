@@ -4,17 +4,11 @@
 from functools import wraps
 
 from .onnx.debug import enable_debug
-from .onnx.finn.manager import FINNManager
 from .onnx.qonnx.manager import QONNXManager
 from .onnx.standard.qcdq.manager import StdQCDQONNXManager
 from .onnx.standard.qoperator.manager import StdQOpONNXManager
 from .torch.qcdq.manager import TorchQCDQManager
 from .torch.qoperator.manager import TorchQOpManager
-
-
-@wraps(FINNManager.export)
-def export_finn_onnx(*args, **kwargs):
-    return FINNManager.export(*args, **kwargs)
 
 
 @wraps(QONNXManager.export)
