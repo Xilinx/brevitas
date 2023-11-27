@@ -345,6 +345,7 @@ def create_quant_maps(
     quant_mha_kwargs = {
         **kwargs_prefix('in_proj_', weight_quant_dict),
         **kwargs_prefix('out_proj_', weight_quant_dict),
+        'in_proj_input_quant': None,
         'in_proj_bias_quant': bias_quant,
         'softmax_input_quant': None,
         'attn_output_weights_quant': sym_act_quant,
