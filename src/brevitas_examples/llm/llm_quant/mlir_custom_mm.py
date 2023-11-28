@@ -9,10 +9,9 @@ from typing import List, Tuple
 import torch
 import torch.utils.cpp_extension
 import torch_mlir
-from torch_mlir.dialects.torch.importer.jit_ir.build_tools.registry import \
-    _rename_python_keyword_parameter_name
-from torch_mlir.dialects.torch.importer.jit_ir.build_tools.registry import JitOperator
-from torch_mlir.dialects.torch.importer.jit_ir.build_tools.registry import SIG_ATTR_TYPE
+from torch_mlir.jit_ir_importer.build_tools.registry import _rename_python_keyword_parameter_name
+from torch_mlir.jit_ir_importer.build_tools.registry import JitOperator
+from torch_mlir.jit_ir_importer.build_tools.registry import SIG_ATTR_TYPE
 
 from brevitas.backport.fx._symbolic_trace import wrap
 
