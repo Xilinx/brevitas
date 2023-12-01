@@ -320,9 +320,10 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
         # quant_weight_value = getattr(quant_weight, 'value', quant_weight)
         # quant_weight_scale = getattr(quant_weight, 'scale', None)
         # quant_weight_bitwidth = getattr(quant_weight, 'bit_width', None)
-
-        if ((not isinstance(quant_input, QuantTensor) or not isinstance(quant_weight, QuantTensor))
-                and not self.is_output_quant_enabled) and self.return_quant_tensor:
+        compute_output_quant_tensor = isinstance(quant_input, QuantTensor) and isinstance(
+            quant_weight, QuantTensor)
+        if not (compute_output_quant_tensor or
+                self.is_output_quant_enabled) and self.return_quant_tensor:
             raise RuntimeError("QuantLayer is not correctly configured")
 
         if (self.return_quant_tensor or
@@ -379,7 +380,7 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
         elif self.return_quant_tensor and output_zero_point is None:
             output_zero_point = torch.zeros(1).type_as(output_tensor)
 
-        if not self.return_quant_tensor or (output_scale is None and output_zero_point is None):
+        if not self.return_quant_tensor or not compute_output_quant_tensor:
             quant_output = output_tensor
         else:
             quant_output = QuantTensor.from_fake_quantized(
