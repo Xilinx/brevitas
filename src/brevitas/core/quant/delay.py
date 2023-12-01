@@ -21,7 +21,7 @@ class _DelayQuant(brevitas.jit.ScriptModule):
         super(_DelayQuant, self).__init__()
         self.quant_delay_steps: int = brevitas.jit.Attribute(quant_delay_steps, int)
 
-    @brevitas.jit.script_method_110_disabled
+    @brevitas.jit.script_method
     def forward(self, x: Tensor, y: Tensor) -> Tensor:
         if self.quant_delay_steps > 0:
             self.quant_delay_steps = self.quant_delay_steps - 1
