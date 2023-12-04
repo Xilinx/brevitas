@@ -129,7 +129,7 @@ def ptq_quant_models(df, args):
         acc_diff = np.around(top1 - fp_accuracy, decimals=3)
         acc_ratio = np.around(top1 / fp_accuracy, decimals=3)
 
-        df.at[k, :] = [
+        df.loc[k] = [
             model_name,
             bias_corr,
             fp_accuracy,
