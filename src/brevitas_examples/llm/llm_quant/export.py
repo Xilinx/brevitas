@@ -274,7 +274,8 @@ class ONNXLinearWeightBlockQuantHandlerFwd(ONNXBaseHandler, WeightBlockQuantHand
 
         # ONNX operator assumes implicit zp of 8 (largest negative number in Po2)
         # If we are in a "symmetric"  quantized scenario, we need to add this implicit zero point
-        # Otherwise it has already been added during the convesion to integer
+        # Otherwise it has already been added during the convesion to integer.
+        # This allows to pack weights always in unsigned integer.
         zp = 0 if not int_weights.dtype == torch.int8 else 8
         int_weights += zp
         if pad_len > 0:
@@ -289,6 +290,9 @@ class ONNXLinearWeightBlockQuantHandlerFwd(ONNXBaseHandler, WeightBlockQuantHand
                 packed[n, k_id // block_size] = np.bitwise_or(blk_int0, np.left_shift(blk_int1, 4))
 
         zero_point = zero_point.to(torch.uint8).flatten()
+
+        # The constant value 136 is derived from the source code in ORT test suite.
+        # https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/test/python/quantization/test_quantizeblockwise_4bits.py
         base_zp = 136 if is_symmetric else 0
         packed_zp = base_zp * torch.ones(
             (zero_point.shape[0] + 1) // 2, device=int_weights.device, dtype=torch.uint8)

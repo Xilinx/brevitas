@@ -29,10 +29,15 @@ class MatMulNBitsFn(Function):
 
     @staticmethod
     def forward(g, x, int_weights, scales, zero_points, K, N, bits, block_size):
+        dtype = x.dtype
+        device = x.device
         shape = x.shape
         out_shape = list(shape)
         out_shape[-1] = N
-        return torch.empty(out_shape)
+        # Only tensor metadata (shape, dtype, device) are preserved in the forward pass during
+        # tracing, not the correct value
+        out = torch.empty(out_shape, dtype=dtype, device=device)
+        return out
 
 
 AXIS_OPSET = 13
