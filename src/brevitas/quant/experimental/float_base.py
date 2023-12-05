@@ -17,6 +17,7 @@ class FloatWeightBase(SolveTensorQuantFloatToIntImplFromEnum):
     tensor_quant = FloatQuant
     signed = True
     float_to_int_impl_type = 'round'
+    scaling_min_val = 1e-10
 
 
 class FloatActBase(SolveTensorQuantFloatToIntImplFromEnum):
@@ -24,6 +25,7 @@ class FloatActBase(SolveTensorQuantFloatToIntImplFromEnum):
     tensor_quant = FloatQuant
     signed = True
     float_to_int_impl_type = 'round'
+    scaling_min_val = 1e-10
 
 
 class ScaledFloatWeightBase(FloatWeightBase, WeightQuantSolver):
