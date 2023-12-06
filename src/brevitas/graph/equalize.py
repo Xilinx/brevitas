@@ -1,14 +1,8 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-<<<<<<< HEAD
 from abc import ABC
 from abc import abstractmethod
-=======
-from collections import namedtuple
-from collections import OrderedDict
-from copy import deepcopy
->>>>>>> Feat (graph/equalize): extended graph equalization
 from dataclasses import dataclass
 from dataclasses import field
 from functools import partial
@@ -183,10 +177,13 @@ def dict_name_to_module(model, regions):
     name_set = set()
     for region in regions:
         for name in region.srcs:
+            name = name.split("$")[0]
             name_set.add(name)
         for name in region.sinks:
+            name = name.split("$")[0]
             name_set.add(name)
         for name in region.acts:
+            name = name.split("$")[0]
             name_set.add(name)
     for name, module in model.named_modules():
         if name in name_set:
@@ -794,7 +791,7 @@ def find_sinks(graph_model: GraphModule, starting_node: Node,
             weight = get_weight_sink([module])
             eq_indexes = EqualizationIndexes(0, weight[0].shape[0], state.offset)
             # It is not possible to equalize through LayerNorm as sink
-            if isinstance(module, (nn.LayerNorm,)):
+            if isinstance(module, (nn.LayerNorm,) + _batch_norm):
                 # state.sinks.add((_UNSUPPORTED_OP, _UNSUPPORTED_OP))
                 state.sinks[_UNSUPPORTED_OP] = _UNSUPPORTED_OP
             else:
@@ -1096,16 +1093,10 @@ class GraphActivationEqualization(ActivationEqualization):
         name_to_module = dict_name_to_module(self.model, self.regions)
         for region in self.regions:
             region_to_search = region.sinks if len(region.acts) == 0 else region.acts
-            if any([self.float_act_map[name] is None for name in region_to_search]):
+            if any([self.float_act_map[name.split("$")[0]] is None for name in region_to_search]):
                 continue
-            act_module = [name_to_module[act_name] for act_name in region.acts]
-            list_of_act_val = [self.float_act_map[name] for name in region_to_search]
-            sinks = [name_to_module[sink] for sink in region.sinks]
-            # Filter out scale_varying activations from the srcs
-            srcs = [
-                name_to_module[src]
-                for src in region.srcs
-                if not isinstance(name_to_module[src], _scale_varying_activations)]
+            act_module = [name_to_module[act_name.split("$")[0]] for act_name in region.acts]
+            list_of_act_val = [self.float_act_map[name.split("$")[0]] for name in region_to_search]
 
             list_of_insert_mul_node_fn = None
             if self.add_mul_node and any([

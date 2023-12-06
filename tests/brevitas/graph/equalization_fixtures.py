@@ -21,8 +21,8 @@ MODELS = {
     'shufflenet_v2_x0_5': [0.318, 0.649],
     'mobilenet_v2': [0.161, 0.320],
     'resnet18': [0.487, 0.952],
-    'googlenet': [0.1826, 0.413],
-    'inception_v3': [0.264, 0.6],
+    'googlenet': [0.495, 0.982],
+    'inception_v3': [0.582, 0.989],
     'alexnet': [0.875, 0.875],}
 
 IN_SIZE_CONV = (1, 3, 224, 224)
@@ -34,8 +34,10 @@ def equalize_test(model, regions, merge_bias, bias_shrinkage, scale_computation_
     name_set = set()
     for region in regions:
         for name in region.srcs:
+            name = name.split('$')[0]
             name_set.add(name)
         for name in region.sinks:
+            name = name.split('$')[0]
             name_set.add(name)
     scale_factors_regions = []
     for name, module in model.named_modules():

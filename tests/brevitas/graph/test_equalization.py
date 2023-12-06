@@ -86,8 +86,8 @@ def test_equalization_torchvision_models(model_coverage: tuple, merge_bias: bool
     srcs = set()
     sinks = set()
     for r in regions:
-        srcs.update(list(r.srcs))
-        sinks.update(list(r.sinks))
+        srcs.update([x.split("$")[0] for x in list(r.srcs)])
+        sinks.update([x.split("$")[0] for x in list(r.sinks)])
 
     count_region_srcs = 0
     count_region_sinks = 0
