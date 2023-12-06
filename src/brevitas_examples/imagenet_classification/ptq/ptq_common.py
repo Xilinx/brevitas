@@ -17,7 +17,6 @@ from brevitas.graph.gpfq import gpfq_mode
 from brevitas.graph.gptq import gptq_mode
 from brevitas.graph.quantize import layerwise_quantize
 from brevitas.graph.quantize import quantize
-from brevitas.graph.target.flexml import quantize_flexml
 from brevitas.inject import value
 import brevitas.nn as qnn
 from brevitas.quant.experimental.float import Fp8e4m3Act
@@ -52,7 +51,7 @@ from brevitas_examples.imagenet_classification.ptq.learned_round_utils import le
 from brevitas_examples.imagenet_classification.ptq.learned_round_utils import save_inp_out_data
 from brevitas_examples.imagenet_classification.ptq.learned_round_utils import split_layers
 
-QUANTIZE_MAP = {'layerwise': layerwise_quantize, 'fx': quantize, 'flexml': quantize_flexml}
+QUANTIZE_MAP = {'layerwise': layerwise_quantize, 'fx': quantize}
 
 BIAS_BIT_WIDTH_MAP = {32: Int32Bias, 16: Int16Bias, None: None}
 
@@ -238,7 +237,7 @@ def quantize_model(
                             **act_bit_width_dict)
 
     if backend != 'layerwise':
-        # Fx and flexml backend requires three mappings for quantization
+        # Fx backend requires three mappings for quantization
         quantize_kwargs = {
             'compute_layer_map': quant_layer_map,
             'quant_act_map': quant_act_map,

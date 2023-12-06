@@ -17,9 +17,7 @@ import torchvision
 
 from brevitas.export import export_onnx_qcdq
 from brevitas.export import export_torch_qcdq
-from brevitas.graph.equalize import activation_equalization_mode
 from brevitas.graph.quantize import preprocess_for_quantize
-from brevitas.graph.target.flexml import preprocess_for_flexml_quantize
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_act_equalization
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_bias_correction
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_gpfq
@@ -75,7 +73,7 @@ parser.add_argument(
 parser.add_argument(
     '--target-backend',
     default='fx',
-    choices=['fx', 'layerwise', 'flexml'],
+    choices=['fx', 'layerwise'],
     help='Backend to target for quantization (default: fx)')
 parser.add_argument(
     '--scale-factor-type',
@@ -306,23 +304,11 @@ def main():
     model = get_torchvision_model(args.model_name)
 
     # Preprocess the model for quantization
-    if args.target_backend == 'flexml':
-        # flexml requires static shapes, pass a representative input in
-        img_shape = model_config['center_crop_shape']
-        model = preprocess_for_flexml_quantize(
-            model,
-            torch.ones(1, 3, img_shape, img_shape),
-            equalize_iters=args.graph_eq_iterations,
-            equalize_merge_bias=args.graph_eq_merge_bias,
-            merge_bn=not args.calibrate_bn)
-    elif args.target_backend == 'fx' or args.target_backend == 'layerwise':
-        model = preprocess_for_quantize(
-            model,
-            equalize_iters=args.graph_eq_iterations,
-            equalize_merge_bias=args.graph_eq_merge_bias,
-            merge_bn=not args.calibrate_bn)
-    else:
-        raise RuntimeError(f"{args.target_backend} backend not supported.")
+    model = preprocess_for_quantize(
+        model,
+        equalize_iters=args.graph_eq_iterations,
+        equalize_merge_bias=args.graph_eq_merge_bias,
+        merge_bn=not args.calibrate_bn)
 
     if args.act_equalization is not None:
         print("Applying activation equalization:")

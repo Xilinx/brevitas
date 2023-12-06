@@ -21,7 +21,6 @@ from brevitas import __version__ as brevitas_version
 from brevitas import config
 from brevitas import torch_version
 from brevitas.graph.quantize import preprocess_for_quantize
-from brevitas.graph.target.flexml import preprocess_for_flexml_quantize
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_act_equalization
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_bias_correction
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_gpfq
@@ -194,21 +193,10 @@ def ptq_torchvision_models(args):
     model = get_torchvision_model(config_namespace.model_name)
 
     # Preprocess the model for quantization
-    if config_namespace.target_backend == 'flexml':
-        # Flexml requires static shapes, thus representative input is passed in
-        img_shape = model_config['center_crop_shape']
-        model = preprocess_for_flexml_quantize(
-            model,
-            torch.ones(1, 3, img_shape, img_shape),
-            equalize_iters=config_namespace.graph_eq_iterations,
-            equalize_merge_bias=config_namespace.graph_eq_merge_bias)
-    elif config_namespace.target_backend == 'fx' or config_namespace.target_backend == 'layerwise':
-        model = preprocess_for_quantize(
-            model,
-            equalize_iters=config_namespace.graph_eq_iterations,
-            equalize_merge_bias=config_namespace.graph_eq_merge_bias)
-    else:
-        raise RuntimeError(f"{config_namespace.target_backend} backend not supported.")
+    model = preprocess_for_quantize(
+        model,
+        equalize_iters=config_namespace.graph_eq_iterations,
+        equalize_merge_bias=config_namespace.graph_eq_merge_bias)
 
     if config_namespace.act_equalization is not None:
         print("Applying activation equalization:")
@@ -297,11 +285,6 @@ def ptq_torchvision_models(args):
 
 def validate_config(config_namespace):
     is_valid = True
-    # Flexml supports only per-tensor scale factors, power of two scale factors
-    if config_namespace.target_backend == 'flexml' and (
-            config_namespace.weight_quant_granularity == 'per_channel' or
-            config_namespace.scale_factor_type == 'float_scale'):
-        is_valid = False
     # Merge bias can be enabled only when graph equalization is enabled
     if config_namespace.graph_eq_iterations == 0 and config_namespace.graph_eq_merge_bias:
         is_valid = False
