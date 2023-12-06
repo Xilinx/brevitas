@@ -262,6 +262,7 @@ def preprocess_for_quantize(
         equalize_iters=0,
         equalize_merge_bias=True,
         merge_bn=True,
+        include_cat=True,
         equalize_bias_shrinkage: str = 'vaiq',
         equalize_scale_computation: str = 'maxabs'):
 

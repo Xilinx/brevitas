@@ -1,8 +1,14 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+<<<<<<< HEAD
 from abc import ABC
 from abc import abstractmethod
+=======
+from collections import namedtuple
+from collections import OrderedDict
+from copy import deepcopy
+>>>>>>> Feat (graph/equalize): extended graph equalization
 from dataclasses import dataclass
 from dataclasses import field
 from functools import partial
@@ -62,7 +68,13 @@ _scale_invariant_layers = (
     nn.ReLU,
     nn.LeakyReLU)
 
-_scale_invariant_op = (torch.mul, operator.mul, operator.imul, operator.__mul__, operator.__imul__)
+_scale_invariant_op = (
+    torch.mul,
+    operator.mul,
+    operator.imul,
+    operator.__mul__,
+    operator.__imul__,
+    torch.nn.functional.interpolate)
 
 _select_op = (operator.getitem, operator.__getitem__)
 
@@ -90,18 +102,36 @@ class WeightBiasTuple:
 # Required for being hashable
 @dataclass(eq=True, frozen=True)
 class Region:
-    srcs: Tuple = field(default_factory=tuple)
-    sinks: Tuple = field(default_factory=tuple)
+    srcs: Dict = field(default_factory=dict)
+    sinks: Dict = field(default_factory=dict)
     acts: Tuple = field(default_factory=tuple)
 
 
 @dataclass
 class WalkRegionState:
-    srcs: Set = field(default_factory=set)
-    sinks: Set = field(default_factory=set)
+    srcs: Dict = field(default_factory=dict)
+    sinks: Dict = field(default_factory=dict)
     acts: Set = field(default_factory=set)
     history: set = field(default_factory=set)
     add_mul_node: bool = False
+    offset: int = 0
+    update_offset: bool = False
+
+
+# Start and End identify the starting and ending channels of the weight matrix that need to be
+# equalized.
+# Offset refers to the relative position of these channels with respect to
+# the other matrices' channels that are equalized simultaneously.
+# Source matrix are always fully equalized, while sinks can be partially equalized.
+@dataclass
+class EqualizationIndexes:
+    start: int = 0
+    end: int = 0
+    offset: int = 0
+
+
+def __str__(self):
+    return str(self.start) + '_' + str(self.end) + '_' + str(self.offset)
 
 
 _UNSUPPORTED_OP = object()
@@ -181,15 +211,6 @@ def _channel_range(inp: torch.Tensor, dim: int = 1) -> torch.Tensor:
 def _channel_maxabs(inp: torch.Tensor, dim: int = 1) -> torch.Tensor:
     out = torch.max(torch.abs(inp), dim=dim)[0]
     return out
-
-
-def _get_size(axes: Dict[nn.Module, int]) -> int:
-    m0, axis0 = list(axes.items())[0]
-    size = m0.weight.size(axis0)
-    for m, axis in axes.items():
-        if m.weight.size(axis) != size:
-            return None
-    return size
 
 
 def _get_input_axis(module: nn.Module) -> Optional[int]:
@@ -282,7 +303,7 @@ def _combine_weights_bias(
         return weight.data
 
     bias = bias.data
-    weight = weight.data.reshape(weight.shape[0], -1)
+    weight = weight.reshape(weight.shape[0], -1)
     bias = bias.reshape(-1, 1)
 
     weight = torch.where(
@@ -324,8 +345,8 @@ def transpose(module: torch.nn.Module, axis: int):
 
 
 def _cross_layer_equalization(
-        srcs: List[nn.Module],
-        sinks: List[nn.Module],
+        srcs: Dict[nn.Module, List[int]],
+        sinks: Dict[nn.Module, List[int]],
         merge_bias: bool,
         scale_computation_type: str,
         bias_shrinkage: Optional[Union[float, str]] = None,
@@ -339,41 +360,60 @@ def _cross_layer_equalization(
     """
 
     # Determine device and type of tensors
-    device = next(sinks[0].parameters()).device
-    dtype = next(sinks[0].parameters()).dtype
+    device = next(sinks['sinks0'][0].parameters()).device
+    dtype = next(sinks['sinks0'][0].parameters()).dtype
 
     # If equalization criteria are not met, we return a scalar one to indicate that no equalization
     # has been performed
     def _no_equalize():
+        print("No Eq")
         return torch.tensor(1., dtype=dtype, device=device)
 
-    src_axes = {}
-    sink_axes = {}
     act_sink_axes = {}
     act_sources_axes = {}
+    single_module = list(sinks.values())[0][0]
+    device = next(single_module.parameters()).device
+    dtype = next(single_module.parameters()).dtype
 
-    for i, module in enumerate(srcs):
+    max_shape_srcs = 0
+    for name, (k, v) in srcs.items():
+        max_shape_srcs = max(max_shape_srcs, v.end + v.offset)
+    max_shape_sinks = 0
+    for name, (k, v) in sinks.items():
+        max_shape_sinks = max(max_shape_sinks, v.offset + (v.end - v.start))
+    # Exit if source and sink have different sizes
+
+    if max_shape_srcs != max_shape_sinks and len(srcs) > 0:
+        return _no_equalize()
+
+    # for i, module in enumerate(srcs):
+    src_axes = {}
+    for i, (name, (module, indexes)) in enumerate(srcs.items()):
         # If module is not supported, do not perform graph equalization
+        axis = _get_output_axis(module)
+        act_sources_axes[name] = _get_act_axis(module)
         if not isinstance(module, _supported_layers):
             return _no_equalize()
         if isinstance(module, nn.MultiheadAttention):
-            srcs[i] = module.out_proj
-        src_axes[srcs[i]] = _get_output_axis(module)
-        act_sources_axes[srcs[i]] = _get_act_axis(module)
+            module = module.out_proj
+            srcs[name] = (module, indexes)
+        src_axes[name] = (module, axis)
 
-    for i, module in enumerate(sinks):
+    sink_axes = {}
+    for i, (name, (module, indexes)) in enumerate(sinks.items()):
+        axis = _get_input_axis(module)
+        act_sink_axes[name] = _get_act_axis(module)
         # If module is not supported, do not perform graph equalization
         if not isinstance(module, _supported_layers):
             return _no_equalize()
         # For MultiheadAttention, we support only self-attetion
         if isinstance(module, nn.MultiheadAttention) and module.in_proj_weight is not None:
             # For sinks, we only need to modify the weight but not the bias
-            sinks[i] = WeightBiasTuple(weight=module.in_proj_weight)
+            module = WeightBiasTuple(module.in_proj_weight)
+            sinks[name] = (module, indexes)
         elif isinstance(module, nn.MultiheadAttention) and module.in_proj_weight is None:
             return _no_equalize()
-        sink_axes[sinks[i]] = _get_input_axis(module)
-        act_sink_axes[sinks[i]] = _get_act_axis(module)
-
+        sink_axes[name] = (module, axis)
     # If act_val is enabled, use source or sink weights to determine the activation channel
     # For example, if the source is BatchNorm, we need to use the information coming from the sinks
     if list_of_act_val is not None:
@@ -396,40 +436,51 @@ def _cross_layer_equalization(
     if None in axes_to_check:
         return _no_equalize()
 
-    # Check if the sink_size is None,
-    # which means that the some of the sinks do not have the same size as the others.
-    sink_size = _get_size(sink_axes)
-    if None in [sink_size]:
-        return _no_equalize()
-
     scale_fn = _select_scale_computation_fn(scale_computation_type)
-    sink_weights = [transpose(m, axis) for m, axis in sink_axes.items()]
-    sinks_range = scale_fn(torch.cat([w.reshape(w.size(0), -1) for w in sink_weights], 1))
+    sink_weights = {name: transpose(m, axis) for name, (m, axis) in sink_axes.items()}
+    srcs_range = -1 * torch.ones(max_shape_srcs, device=device, dtype=dtype)
+    sinks_range = -1 * torch.ones(max_shape_sinks, device=device, dtype=dtype)
+    for k, v in sink_weights.items():
+        # Sinks can be partially equalized, thus we need to select
+        # only the channels we are interested in
+        indexes = sinks[k][1]
+        # Compute the range of the channels we need to equalize
+        weight_range = scale_fn(v.reshape(v.size(0), -1))[indexes.start:indexes.end]
+        # Compute the numbers of channels we are equalizing
+        channel_range = indexes.end - indexes.start
+        # Use the offset and the range to update the correct range in the sinks
+        sinks_range[indexes.offset:indexes.offset + channel_range] = torch.max(
+            sinks_range[indexes.offset:indexes.offset + channel_range], weight_range)
+    sinks_range = torch.clamp(sinks_range, EPSILON)
 
     # Determine the srcs_range based on where we are performing activation equalization or
     # weight equalization
     if list_of_act_val is not None:
         list_of_act_val_shapes = [act_val.shape for act_val in list_of_act_val]
+        if len(list_of_act_val_shapes) > 0:
+            shape_0 = list_of_act_val_shapes[0]
+            if any(shape_0 != shape for shape in list_of_act_val_shapes):
+                return _no_equalize()
         list_of_act_val = [
             transpose(WeightBiasTuple(act_val), act_axis) for act_val in list_of_act_val]
         srcs_range = scale_fn(
             torch.cat([act_val.reshape(act_val.size(0), -1) for act_val in list_of_act_val], 1))
     else:
-        # If we do weight equalization, perform additional check on source size
-        src_size = _get_size(src_axes)
-        # Exit if source and sink have different different sizes, or if sources contains None
-        if src_size != sink_size or None in [src_size]:
-            warnings.warn(
-                "Detected source and sink with non compatible shapes, equalization is skipped")
-            return _no_equalize()
-
         if merge_bias:
-            src_weights = [
-                _combine_weights_bias(transpose(m, axis), bias_shrinkage, m.bias) for m,
-                axis in src_axes.items()]
+            src_weights = {
+                name: _combine_weights_bias(transpose(m, axis), bias_shrinkage, m.bias)
+                for name, (m, axis) in src_axes.items()}
         else:
-            src_weights = [transpose(m, axis) for m, axis in src_axes.items()]
-        srcs_range = scale_fn(torch.cat([w.reshape(w.size(0), -1) for w in src_weights], 1))
+            src_weights = {name: transpose(m, axis) for name, (m, axis) in src_axes.items()}
+        for k, v in src_weights.items():
+            # Srcs are always fully equalized, thus we simply need to apply the offset to position them
+            # correctly with respect to the other srcs matrices.
+            indexes = srcs[k][1]
+            channel_start = indexes.offset + indexes.start
+            channel_end = indexes.offset + indexes.end
+            weight_range = scale_fn(v.reshape(v.size(0), -1))
+            srcs_range[channel_start:channel_end] = torch.max(
+                srcs_range[channel_start:channel_end], weight_range)
 
     # If there is a mismatch between srcs and sinks values, exit
     if srcs_range.shape != sinks_range.shape:
@@ -455,32 +506,44 @@ def _cross_layer_equalization(
         for act_val_shape, insert_mul_node_fn in zip(list_of_act_val_shapes, list_of_insert_mul_node_fn):
             insert_mul_node_fn(inverse_scaling_factors, act_val_shape, act_axis)
     if len(src_axes) > 0:
-        for module, axis in src_axes.items():
+        for name, (module, axis) in src_axes.items():
+            indexes = srcs[name][1]
+            channel_start = indexes.offset + indexes.start
+            channel_end = indexes.offset + indexes.end
             if hasattr(module, 'bias') and module.bias is not None:
                 _update_weights(
                     module,
-                    module.bias.clone() * inverse_scaling_factors.view_as(module.bias),
+                    module.bias.clone() *
+                    inverse_scaling_factors[channel_start:channel_end].view_as(module.bias),
                     attr='bias')
             src_broadcast_size = [1] * module.weight.ndim
             src_broadcast_size[axis] = module.weight.size(axis)
+
             _update_weights(
-                module, (
-                    module.weight.clone() *
-                    torch.reshape(inverse_scaling_factors, src_broadcast_size)),
+                module,
+                module.weight.clone() * torch.reshape(
+                    inverse_scaling_factors[channel_start:channel_end], src_broadcast_size),
                 attr='weight')
     for module, axis in sink_axes.items():
         sink_broadcast_size = [1] * module.weight.ndim
         sink_broadcast_size[axis] = module.weight.size(axis)
+        indexes = sinks[name][1]
+        channel_range = indexes.end - indexes.start
+        partial_scaling = torch.ones(module.weight.size(axis), device=device, dtype=dtype)
+        # We replace the scaling factors of the channels we need to equalize, leaving the other to
+        # one (i.e., no equalization)
+        partial_scaling[indexes.start:indexes.end] = scaling_factors[indexes.offset:indexes.offset +
+                                                                     channel_range]
         if isinstance(module, _batch_norm):
             # We re-compute the bias as function of running_mean and running_var to adjust the
             # additive factor for equalization.
             additive_factor = module.running_mean.data * module.weight.data / torch.sqrt(
                 module.running_var.data + module.eps)
             _update_weights(
-                module, module.bias.clone() + additive_factor * (scaling_factors - 1), attr='bias')
+                module, module.bias.clone() + additive_factor * (partial_scaling - 1), attr='bias')
         _update_weights(
             module,
-            module.weight.clone() * torch.reshape(scaling_factors, sink_broadcast_size),
+            module.weight.clone() * torch.reshape(partial_scaling, sink_broadcast_size),
             attr='weight')
 
     return scaling_factors
@@ -491,6 +554,16 @@ def _update_weights(original_module, new_value, attr='weight'):
         setattr(getattr(original_module, attr), 'data', new_value)
     else:
         setattr(original_module, attr, nn.Parameter(new_value))
+
+
+def _organize_region(region, name_to_module, type):
+    region_dict = {}
+    region = getattr(region, type)
+    for i, (k, v) in enumerate(region.items()):
+        name = type + str(i)
+        k = k.split('$')[0]
+        region_dict[name] = (name_to_module[k], v)
+    return region_dict
 
 
 def _equalize(
@@ -507,22 +580,25 @@ def _equalize(
     name_to_module: Dict[str, nn.Module] = {}
     name_set = set()
     for region in regions:
-        for name in region.srcs:
-            name_set.add(name)
-        for name in region.sinks:
-            name_set.add(name)
+        for name in region.srcs.keys():
+            name_set.add(name.split("$")[0])
+        for name in region.sinks.keys():
+            name_set.add(name.split("$")[0])
 
     for name, module in model.named_modules():
         if name in name_set:
             name_to_module[name] = module
     for i in range(iterations):
         scale_factor_max = None
-        for region in regions:
+        for ii, region in enumerate(regions):
+            srcs_dict = _organize_region(region, name_to_module, 'srcs')
+            sinks_dict = _organize_region(region, name_to_module, 'sinks')
             scale_factors_region = _cross_layer_equalization(
-                [name_to_module[n] for n in region.srcs], [name_to_module[n] for n in region.sinks],
+                srcs_dict,
+                sinks_dict,
                 merge_bias=merge_bias,
-                scale_computation_type=scale_computation_type,
-                bias_shrinkage=bias_shrinkage)
+                bias_shrinkage=bias_shrinkage,
+                scale_computation_type=scale_computation_type)
             scale_factor_region_max = torch.max(torch.abs(1 - scale_factors_region))
             if scale_factor_max is not None:
                 scale_factor_max = torch.max(scale_factor_max, scale_factor_region_max)
@@ -557,46 +633,153 @@ def _is_scale_varying_activation(graph_model, node):
 
 
 def _is_scale_invariant_function(node: Node) -> bool:
-    return node.op == 'call_function' and node.target in _scale_invariant_op + _select_op
+    out = node.op == 'call_function' and node.target in _scale_invariant_op + _select_op
+    if node.target == torch.nn.functional.interpolate:
+        out &= node.kwargs.get('mode', None) == 'nearest'
+    return out
 
 
 def _is_reshaping_op(node: Node) -> bool:
     return node.target in _reshaping_op
 
 
+def get_weight_source(module_list):
+    transpose = lambda module, axis: module.weight if axis == 0 else module.weight.transpose(0, 1)
+    for i, module in enumerate(module_list):
+        if isinstance(module, nn.MultiheadAttention):
+            if hasattr(module, 'out_proj'):
+                module_list[i] = module.out_proj
+            else:
+                raise RuntimeError("Configuration for Multiheadattention not supported")
+    srcs_axes = {module: _get_output_axis(module) for module in module_list}
+    weight = [transpose(m, axis) for m, axis in srcs_axes.items()]
+    return weight
+
+
+def get_weight_sink(module_list):
+    transpose = lambda module, axis: module.weight if axis == 0 else module.weight.transpose(0, 1)
+    for i, module in enumerate(module_list):
+        if isinstance(module, nn.MultiheadAttention):
+            if hasattr(module, 'in_proj_weight'):
+                module_list[i] = WeightBiasTuple(module.in_proj_weight)
+            else:
+                raise RuntimeError("Configuration for Multiheadattention not supported")
+    sinks_axes = {module: _get_input_axis(module) for module in module_list}
+    weight = [transpose(m, axis) for m, axis in sinks_axes.items()]
+    return weight
+
+
+def find_srcs_channel_dim(model, inp_node):
+    if _is_supported_module(model, inp_node):
+        # If we meet a supported module, determine the channel shape
+        module = get_module(model, inp_node.target)
+        # Since we are walking up, we consider the module as srcs
+        weight = get_weight_source([module])
+        channel = weight[0].shape[0]
+        return channel
+    elif _is_add(inp_node):
+        # If it's add, we need the channel shape of one of the branches, since they are all the same
+        return find_srcs_channel_dim(model, inp_node.all_input_nodes[0])
+    elif _is_cat(inp_node):
+        total_channels = 0
+        # If it's cat, we need to sum the channel shape of all the branches
+        for n in inp_node.all_input_nodes:
+            total_channels += find_srcs_channel_dim(model, n)
+        return total_channels
+    elif _is_scale_invariant_module(model, inp_node) or _is_scale_invariant_function(inp_node):
+        return find_srcs_channel_dim(model, inp_node.all_input_nodes[0])
+    else:
+        return _UNSUPPORTED_OP
+
+
+def cat_handler(graph_model: GraphModule, starting_node: Node, state: WalkRegionState):
+
+    state.srcs.clear()
+    state.sinks.clear()
+    state.history.clear()
+    state.srcs[starting_node.target] = _UNSUPPORTED_OP
+    state.update_offset = True
+    state.offset = 0
+    find_srcs(graph_model, starting_node, state)
+    state.update_offset = False
+    state.offset = 0
+    find_sinks(graph_model, starting_node, state)
+
+
+def _is_cat(node):
+    return node.target in (torch.cat,)
+
+
+def _is_cat_in_srcs(srcs):
+    out = False
+    for src in srcs:
+        out = out or src in (torch.cat,)
+    return out
+
+
+def _is_add(node):
+    return (
+        node.op == 'call_method' and node.target in _residual_methods or
+        node.op == 'call_function' and node.target in _residual_fns)
+
+
 def find_srcs(graph_model: GraphModule, starting_node: Node,
               state: WalkRegionState) -> Dict[str, Set]:
     node_list = starting_node.all_input_nodes
+    update_offset_state = state.update_offset
     for node in node_list:
         # we keep a history of how the graph has been walked already, invariant to the direction,
         # to avoid getting stuck in a loop
         path = (node, starting_node)
+        module = None
         if path not in state.history:
             state.history.add(path)
         else:
             continue
         if _is_supported_module(graph_model, node):
-            state.srcs.add(node.target)
+            module = get_module(graph_model, node.target)
+            weight = get_weight_source([module])
+            eq_indexes = EqualizationIndexes(0, weight[0].shape[0], state.offset)
+            # state.srcs.add((node.target, eq_indexes))
+            full_source_name = node.target + '$' + str(eq_indexes)
+            state.srcs[full_source_name] = eq_indexes
             # After we found a source, we need to check if it branches into multiple sinks
             find_sinks(graph_model, node, state)
+            state.offset = state.offset if not state.update_offset else state.offset + weight[
+                0].shape[0]
         elif _is_scale_invariant_module(
                 graph_model, node) or _is_scale_invariant_function(node) or _is_reshaping_op(node):
-            find_srcs(graph_model, node, state)
             find_sinks(graph_model, node, state)
+            find_srcs(graph_model, node, state)
         elif (node.op == 'call_method' and node.target in _residual_methods or
               node.op == 'call_function' and node.target in _residual_fns):
-            find_srcs(graph_model, node, state)
+            state.update_offset = False
             find_sinks(graph_model, node, state)
+            find_srcs(graph_model, node, state)
+            state.update_offset = update_offset_state
+        elif _is_cat(node):
+            # We have never encoutered cat
+            if not _is_cat_in_srcs(state.srcs):
+                # We restart the region search starting from the cat
+                cat_handler(graph_model, node, state)
+            # We have encoutered cat already
+            else:
+                state.update_offset = False
+                find_sinks(graph_model, node, state)
+                state.update_offset = True
+                find_srcs(graph_model, node, state)
+                state.update_offset = update_offset_state
         elif node.target in _ignore_ops:
             continue
         else:
             # If we meet an unrecognized op, we add None to invalidate the region
-            state.srcs.add(_UNSUPPORTED_OP)
+            state.sinks[_UNSUPPORTED_OP] = _UNSUPPORTED_OP
 
 
 def find_sinks(graph_model: GraphModule, starting_node: Node,
                state: WalkRegionState) -> Dict[str, Set]:
     node_list = starting_node.users
+    update_offset_state = state.update_offset
     for node in node_list:
         # we keep a history of how the graph has been walked already, invariant to the direction,
         # to avoid getting stuck in a loop
@@ -608,50 +791,88 @@ def find_sinks(graph_model: GraphModule, starting_node: Node,
             continue
         if _is_supported_module(graph_model, node):
             module = get_module(graph_model, node.target)
+            weight = get_weight_sink([module])
+            eq_indexes = EqualizationIndexes(0, weight[0].shape[0], state.offset)
             # It is not possible to equalize through LayerNorm as sink
-            if isinstance(module, (nn.LayerNorm,) + _batch_norm):
-                state.sinks.add(_UNSUPPORTED_OP)
+            if isinstance(module, (nn.LayerNorm,)):
+                # state.sinks.add((_UNSUPPORTED_OP, _UNSUPPORTED_OP))
+                state.sinks[_UNSUPPORTED_OP] = _UNSUPPORTED_OP
             else:
-                state.sinks.add(node.target)
+                full_sink_name = node.target + '$' + str(eq_indexes)
+                state.sinks[full_sink_name] = eq_indexes
+                # state.sinks[node.target] = eq_indexes
         elif _is_scale_invariant_module(
                 graph_model, node) or _is_scale_invariant_function(node) or _is_reshaping_op(node):
             find_sinks(graph_model, node, state)
         elif (node.op == 'call_method' and node.target in _residual_methods or
               node.op == 'call_function' and node.target in _residual_fns):
+            state.update_offset = False
             find_sinks(graph_model, node, state)
             find_srcs(graph_model, node, state)
+            state.update_offset = update_offset_state
+        elif _is_cat(node):
+            # We have never encoutered cat
+            if not _is_cat_in_srcs(state.srcs):
+                # We restart the region search starting from the cat
+                cat_handler(graph_model, node, state)
+            # We have encoutered cat already
+            else:
+                # In this case we define all our sinks, and isolate only the channels we want
+                # to equalize (start, end).
+                # Furthermore, we need to consider the offset given by the sources of the second cat
+                index = node.all_input_nodes.index(starting_node)
+                channels = []
+                for n in node.all_input_nodes:
+                    channels.append(find_srcs_channel_dim(graph_model, n))
+                start = sum(channels[:index])
+                end = start + channels[index]
+                new_state = WalkRegionState(offset=state.offset)
+                find_sinks(graph_model, node, new_state)
+
+                for k in new_state.sinks.keys():
+                    state.sinks[k] = EqualizationIndexes(start, end, new_state.offset)
+                state.srcs.update(new_state.srcs)
         elif node.target in _ignore_ops:
             continue
         else:
             # If we meet an unrecognized op, we add None to invalidate the region
-            state.sinks.add(_UNSUPPORTED_OP)
+            state.sinks[_UNSUPPORTED_OP] = _UNSUPPORTED_OP
 
 
 def _extract_regions(
         graph_model: GraphModule,
         add_mul_node: bool = False,
         return_acts: bool = False) -> List[Region]:
-    regions = []
+    regions = list()
+    regions_name = set()
     for node in graph_model.graph.nodes:
         if _is_supported_module(graph_model,
                                 node) or (add_mul_node and
                                           _is_scale_varying_activation(graph_model, node)):
-            state = WalkRegionState(srcs={node.target}, add_mul_node=add_mul_node)
+            state = WalkRegionState(add_mul_node=add_mul_node)
             if _is_scale_varying_activation(graph_model, node):
                 state.acts.add(node.target)
+            else:
+                module = get_module(graph_model, node.target)
+                weight = get_weight_source([module])
+                eq_indexes = EqualizationIndexes(0, weight[0].shape[0], 0)
+                full_source_name = node.target + '$' + str(eq_indexes)
+                state.srcs[full_source_name] = eq_indexes
             find_sinks(graph_model, node, state)
-            if state.sinks and _UNSUPPORTED_OP not in state.sinks and _UNSUPPORTED_OP not in state.srcs:
-                # each region should appear only once, so to make it hashable
-                # we convert srcs and sinks to ordered lists first, and then to tuples
-                srcs = tuple(sorted(state.srcs))
-                sinks = tuple(sorted(state.sinks))
-                acts = tuple(sorted(state.acts))
+            if state.sinks and _UNSUPPORTED_OP not in state.sinks.keys(
+            ) and _UNSUPPORTED_OP not in state.srcs.keys():
+                # Drop cat from the srcs
+                state.srcs = {k: v for k, v in state.srcs.items() if k is not torch.cat}
+                sorted_srcs = dict(sorted(state.srcs.items()))
+                sorted_sinks = dict(sorted(state.sinks.items()))
+                sorted_acts = tuple(sorted(state.acts))
                 if return_acts:
-                    region_to_add = Region(srcs=srcs, sinks=sinks, acts=acts)
+                    region = Region(srcs=sorted_srcs, sinks=sorted_sinks, acts=sorted_acts)
                 else:
-                    region_to_add = Region(srcs=srcs, sinks=sinks)
-                if region_to_add not in regions:
-                    regions.append(region_to_add)
+                    region = Region(srcs=sorted_srcs, sinks=sorted_sinks)
+
+                if region not in regions:
+                    regions.append(region)
     return regions
 
 
@@ -773,7 +994,9 @@ class LayerwiseActivationEqualization(ActivationEqualization):
         """
         if isinstance(model,
                       _supported_layers) and not isinstance(model, _batch_norm + (nn.LayerNorm,)):
-            regions.append(model)
+            weight = get_weight_sink([model])
+            eq_indexes = EqualizationIndexes(0, weight[0].shape[0], 0)
+            regions.append((model, eq_indexes))
         else:
             for module in model.children():
                 self.find_module(module, regions)
@@ -785,25 +1008,25 @@ class LayerwiseActivationEqualization(ActivationEqualization):
                 batch_dim = 0 if region.batch_first else 1
 
             hook_fn = partial(
-                self.forward_stats_hook, name=region, batch_dim=batch_dim, use_inp=True)
-            new_instance = KwargsForwardHook(region, hook_fn)
-            ModuleInstanceToModuleInstance(region, new_instance).apply(self.model)
+                self.forward_stats_hook, name=region[0], batch_dim=batch_dim, use_inp=True)
+            new_instance = KwargsForwardHook(region[0], hook_fn)
+            ModuleInstanceToModuleInstance(region[0], new_instance).apply(self.model)
             self.hooks.append(new_instance)
 
     def apply(self, alpha):
         scale_factors = []
         self.remove_hooks()
         for region in self.regions:
-            if self.float_act_map[region] == None:
+            if self.float_act_map[region[0]] == None:
                 continue
             sinks = region
             insert_mul_fn = partial(
-                self.insert_mul_node, region=region, batch_dim=self.batch_dim_act_map[region])
+                self.insert_mul_node, region=region[0], batch_dim=self.batch_dim_act_map[region[0]])
             scale_factors.append(
-                _cross_layer_equalization([], [sinks],
+                _cross_layer_equalization({}, {'sinks0': sinks},
                                           False,
                                           scale_computation_type=self.scale_computation_type,
-                                          list_of_act_val=[self.float_act_map[region]],
+                                          list_of_act_val=[self.float_act_map[region[0]]],
                                           list_of_insert_mul_node_fn=[insert_mul_fn],
                                           alpha=alpha))
         return scale_factors
@@ -896,10 +1119,12 @@ class GraphActivationEqualization(ActivationEqualization):
                             self.insert_mul_node,
                             act_node=act_node,
                             batch_dim=self.batch_dim_act_map[act_name]))
+            srcs_dict = _organize_region(region, name_to_module, 'srcs')
+            sinks_dict = _organize_region(region, name_to_module, 'sinks')
             scale_factors.append(
                 _cross_layer_equalization(
-                    srcs,
-                    sinks,
+                    srcs_dict,
+                    sinks_dict,
                     False,
                     scale_computation_type=self.scale_computation_type,
                     list_of_act_val=list_of_act_val,

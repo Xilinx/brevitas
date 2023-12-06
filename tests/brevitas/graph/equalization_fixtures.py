@@ -42,8 +42,11 @@ def equalize_test(model, regions, merge_bias, bias_shrinkage, scale_computation_
             name_to_module[name] = module
     for i in range(3):
         for region in regions:
+            srcs_dict = _organize_region(region, name_to_module, 'srcs')
+            sinks_dict = _organize_region(region, name_to_module, 'sinks')
             scale_factors_region = _cross_layer_equalization(
-                [name_to_module[n] for n in region.srcs], [name_to_module[n] for n in region.sinks],
+                srcs_dict,
+                sinks_dict,
                 merge_bias=merge_bias,
                 bias_shrinkage=bias_shrinkage,
                 scale_computation_type=scale_computation_type)
