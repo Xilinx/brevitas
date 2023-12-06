@@ -11,6 +11,7 @@ from torchvision import models
 
 from brevitas import torch_version
 from brevitas.graph.equalize import _cross_layer_equalization
+from brevitas.graph.equalize import _organize_region
 
 SEED = 123456
 ATOL = 1e-3
