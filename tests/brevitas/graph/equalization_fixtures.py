@@ -22,7 +22,7 @@ MODELS = {
     'mobilenet_v2': [0.161, 0.320],
     'resnet18': [0.487, 0.952],
     'googlenet': [0.495, 0.982],
-    'inception_v3': [0.582, 0.989],
+    'inception_v3': [0.497, 0.989],
     'alexnet': [0.875, 0.875],}
 
 IN_SIZE_CONV = (1, 3, 224, 224)
