@@ -33,11 +33,9 @@ def equalize_test(model, regions, merge_bias, bias_shrinkage, scale_computation_
     name_to_module = {}
     name_set = set()
     for region in regions:
-        for name in region.srcs:
-            name = name.split('$')[0]
+        for name in region.srcs_names:
             name_set.add(name)
-        for name in region.sinks:
-            name = name.split('$')[0]
+        for name in region.sinks_names:
             name_set.add(name)
     scale_factors_regions = []
     for name, module in model.named_modules():
