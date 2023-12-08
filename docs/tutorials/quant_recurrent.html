@@ -1,12 +1,15 @@
 
+
 <!DOCTYPE html>
 
-<html lang="en">
+
+<html lang="en" >
+
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
 
-    <title>Quantized RNNs and LSTMs &#8212; Brevitas 0.9.0 documentation</title>
+    <title>Quantized RNNs and LSTMs &#8212; Brevitas 0.10.0b1.dev37+g993c869.d20231123 documentation</title>
   
   
   
@@ -16,22 +19,24 @@
   </script>
   
   <!-- Loaded before other Sphinx assets -->
-  <link href="../_static/styles/theme.css?digest=796348d33e8b1d947c94" rel="stylesheet">
-<link href="../_static/styles/bootstrap.css?digest=796348d33e8b1d947c94" rel="stylesheet">
-<link href="../_static/styles/pydata-sphinx-theme.css?digest=796348d33e8b1d947c94" rel="stylesheet">
+  <link href="../_static/styles/theme.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+<link href="../_static/styles/bootstrap.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
 
   
-  <link href="../_static/vendor/fontawesome/6.1.2/css/all.min.css?digest=796348d33e8b1d947c94" rel="stylesheet">
-  <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.1.2/webfonts/fa-solid-900.woff2">
-<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.1.2/webfonts/fa-brands-400.woff2">
-<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.1.2/webfonts/fa-regular-400.woff2">
+  <link href="../_static/vendor/fontawesome/6.1.2/css/all.min.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.1.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.1.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.1.2/webfonts/fa-regular-400.woff2" />
 
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/nbsphinx-code-cells.css" />
   
   <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=796348d33e8b1d947c94">
-<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=796348d33e8b1d947c94">
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=365ca57ee442770a23c6" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=365ca57ee442770a23c6" />
+  <script src="../_static/vendor/fontawesome/6.1.2/js/all.min.js?digest=365ca57ee442770a23c6"></script>
 
     <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
     <script src="../_static/jquery.js"></script>
@@ -48,79 +53,103 @@
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="ONNX Export" href="onnx_export.html" />
     <link rel="prev" title="Anatomy of a Quantizer" href="anatomy_quantizer.html" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="docsearch:language" content="en">
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
   </head>
   
   
-  <body data-spy="scroll" data-target="#bd-toc-nav" data-offset="180" data-default-mode="">
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
 
   
   
   <a class="skip-link" href="#main-content">Skip to main content</a>
+  
+  <div id="pst-scroll-pixel-helper"></div>
 
   
-  <input type="checkbox" class="sidebar-toggle" name="__primary" id="__primary">
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>
+    Back to top
+  </button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__primary"
+          id="__primary"/>
   <label class="overlay overlay-primary" for="__primary"></label>
-
   
-  <input type="checkbox" class="sidebar-toggle" name="__secondary" id="__secondary">
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__secondary"
+          id="__secondary"/>
   <label class="overlay overlay-secondary" for="__secondary"></label>
-
   
   <div class="search-button__wrapper">
     <div class="search-button__overlay"></div>
     <div class="search-button__search-container">
-      
-<form class="bd-search d-flex align-items-center" action="../search.html" method="get">
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
   <i class="fa-solid fa-magnifying-glass"></i>
-  <input type="search" class="form-control" name="q" id="search-input" placeholder="Search the docs ..." aria-label="Search the docs ..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
   <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
-</form>
-    </div>
+</form></div>
   </div>
-
   
-  <nav class="bd-header navbar navbar-expand-lg bd-navbar" id="navbar-main"><div class="bd-header__inner bd-page-width">
+    <nav class="bd-header navbar navbar-expand-lg bd-navbar">
+<div class="bd-header__inner bd-page-width">
   <label class="sidebar-toggle primary-toggle" for="__primary">
-      <span class="fa-solid fa-bars"></span>
+    <span class="fa-solid fa-bars"></span>
   </label>
-  <div id="navbar-start">
-    
-    
   
-
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+  
 
 <a class="navbar-brand logo" href="../index.html">
-
   
   
   
   
   
+    
+    
+      
+    
+    
+    <img src="../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.10.0b1.dev37+g993c869.d20231123 documentation - Home"/>
+    <script>document.write(`<img src="../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.10.0b1.dev37+g993c869.d20231123 documentation - Home"/>`);</script>
   
   
-
-  
-    <img src="../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Logo image">
-    <img src="../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Logo image">
-  
-  
-</a>
+</a></div>
     
   </div>
-
   
   <div class="col-lg-9 navbar-header-items">
-    <div id="navbar-center" class="mr-auto">
+    
+    <div class="me-auto navbar-header-items__center">
       
-      <div class="navbar-center-item">
-        <nav class="navbar-nav">
-    <p class="sidebar-header-items__title" role="heading" aria-level="1" aria-label="Site Navigation">
-        Site Navigation
-    </p>
-    <ul id="navbar-main-elements" class="navbar-nav">
-        
+        <div class="navbar-item"><nav class="navbar-nav">
+  <p class="sidebar-header-items__title"
+     role="heading"
+     aria-level="1"
+     aria-label="Site Navigation">
+    Site Navigation
+  </p>
+  <ul class="bd-navbar-elements navbar-nav">
+    
                     <li class="nav-item">
                       <a class="nav-link nav-internal" href="../setup.html">
                         Setup
@@ -176,76 +205,87 @@
                       </a>
                     </li>
                 
-    </ul>
-</nav>
-      </div>
+  </ul>
+</nav></div>
       
     </div>
-
-    <div id="navbar-end">
+    
+    
+    <div class="navbar-header-items__end">
       
-        <div class="navbar-end-item navbar-persistent--container">
+        <div class="navbar-item navbar-persistent--container">
           
-<button class="btn btn-sm navbar-btn search-button search-button__button" title="Search" aria-label="Search" data-toggle="tooltip">
-  <i class="fa-solid fa-magnifying-glass"></i>
-</button>
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
         </div>
       
       
-      <div class="navbar-end-item">
-        <button class="theme-switch-button btn btn-sm btn-outline-primary navbar-btn rounded-circle" title="light/dark" aria-label="light/dark" data-toggle="tooltip">
-    <span class="theme-switch" data-mode="light"><i class="fa-solid fa-sun"></i></span>
-    <span class="theme-switch" data-mode="dark"><i class="fa-solid fa-moon"></i></span>
-    <span class="theme-switch" data-mode="auto"><i class="fa-solid fa-circle-half-stroke"></i></span>
-</button>
-      </div>
-      
-      <div class="navbar-end-item">
-        <ul id="navbar-icon-links" class="navbar-nav" aria-label="Icon Links">
-      </ul>
-      </div>
+        <div class="navbar-item">
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
       
     </div>
+    
   </div>
-
-
   
   
     <div class="navbar-persistent--mobile">
-<button class="btn btn-sm navbar-btn search-button search-button__button" title="Search" aria-label="Search" data-toggle="tooltip">
-  <i class="fa-solid fa-magnifying-glass"></i>
-</button>
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
     </div>
   
 
   
-  <label class="sidebar-toggle secondary-toggle" for="__secondary">
+    <label class="sidebar-toggle secondary-toggle" for="__secondary" tabindex="0">
       <span class="fa-solid fa-outdent"></span>
-  </label>
+    </label>
   
-
 </div>
-  </nav>
-  
 
+    </nav>
+  
   <div class="bd-container">
     <div class="bd-container__inner bd-page-width">
       
       <div class="bd-sidebar-primary bd-sidebar">
         
+
   
   <div class="sidebar-header-items sidebar-primary__section">
     
     
       <div class="sidebar-header-items__center">
-      
-      <div class="navbar-center-item">
-        <nav class="navbar-nav">
-    <p class="sidebar-header-items__title" role="heading" aria-level="1" aria-label="Site Navigation">
-        Site Navigation
-    </p>
-    <ul id="navbar-main-elements" class="navbar-nav">
         
+          <div class="navbar-item"><nav class="navbar-nav">
+  <p class="sidebar-header-items__title"
+     role="heading"
+     aria-level="1"
+     aria-label="Site Navigation">
+    Site Navigation
+  </p>
+  <ul class="bd-navbar-elements navbar-nav">
+    
                     <li class="nav-item">
                       <a class="nav-link nav-internal" href="../setup.html">
                         Setup
@@ -301,42 +341,35 @@
                       </a>
                     </li>
                 
-    </ul>
-</nav>
-      </div>
-      
+  </ul>
+</nav></div>
+        
       </div>
     
-
     
     
-    <div class="sidebar-header-items__end">
-      
-      <div class="navbar-end-item">
-        <button class="theme-switch-button btn btn-sm btn-outline-primary navbar-btn rounded-circle" title="light/dark" aria-label="light/dark" data-toggle="tooltip">
-    <span class="theme-switch" data-mode="light"><i class="fa-solid fa-sun"></i></span>
-    <span class="theme-switch" data-mode="dark"><i class="fa-solid fa-moon"></i></span>
-    <span class="theme-switch" data-mode="auto"><i class="fa-solid fa-circle-half-stroke"></i></span>
-</button>
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+        
       </div>
-      
-      <div class="navbar-end-item">
-        <ul id="navbar-icon-links" class="navbar-nav" aria-label="Icon Links">
-      </ul>
-      </div>
-      
-    </div>
     
   </div>
-
   
-  <div class="sidebar-start-items sidebar-primary__section">
-    <div class="sidebar-start-items__item"><nav class="bd-links" id="bd-docs-nav" aria-label="Section navigation">
-  <p class="bd-links__title" role="heading" aria-level="1">
-    Section Navigation
-  </p>
-  <div class="bd-toc-item navbar-nav">
-    <p aria-level="2" class="caption" role="heading"><span class="caption-text">Tutorials:</span></p>
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item"><nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><p aria-level="2" class="caption" role="heading"><span class="caption-text">Tutorials:</span></p>
 <ul class="current nav bd-sidenav">
 <li class="toctree-l1"><a class="reference internal" href="tvmcon2021.html">Brevitas TVMCon 2021 tutorial</a></li>
 
@@ -354,285 +387,63 @@
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">Quantized RNNs and LSTMs</a></li>
 <li class="toctree-l1"><a class="reference internal" href="onnx_export.html">ONNX Export</a></li>
 </ul>
-
-  </div>
-</nav>
+</div>
+</nav></div>
     </div>
-  </div>
   
-
   
-  <div class="sidebar-end-items sidebar-primary__section">
-    <div class="sidebar-end-items__item">
-    </div>
+  <div class="sidebar-primary-items__end sidebar-primary__section">
   </div>
-
   
   <div id="rtd-footer-container"></div>
 
+
       </div>
+      
       <main id="main-content" class="bd-main">
         
         
-        <div class="bd-content">
-          <div class="bd-article-container">
-            
-            <div class="bd-header-article">
-                
-            </div>
-            
-            
-            <article class="bd-article" role="main">
+          <div class="bd-content">
+            <div class="bd-article-container">
               
+              <div class="bd-header-article">
+<div class="header-article-items header-article__inner">
   
-<style>
-/* CSS for nbsphinx extension */
-
-/* remove conflicting styling from Sphinx themes */
-div.nbinput.container div.prompt *,
-div.nboutput.container div.prompt *,
-div.nbinput.container div.input_area pre,
-div.nboutput.container div.output_area pre,
-div.nbinput.container div.input_area .highlight,
-div.nboutput.container div.output_area .highlight {
-    border: none;
-    padding: 0;
-    margin: 0;
-    box-shadow: none;
-}
-
-div.nbinput.container > div[class*=highlight],
-div.nboutput.container > div[class*=highlight] {
-    margin: 0;
-}
-
-div.nbinput.container div.prompt *,
-div.nboutput.container div.prompt * {
-    background: none;
-}
-
-div.nboutput.container div.output_area .highlight,
-div.nboutput.container div.output_area pre {
-    background: unset;
-}
-
-div.nboutput.container div.output_area div.highlight {
-    color: unset;  /* override Pygments text color */
-}
-
-/* avoid gaps between output lines */
-div.nboutput.container div[class*=highlight] pre {
-    line-height: normal;
-}
-
-/* input/output containers */
-div.nbinput.container,
-div.nboutput.container {
-    display: -webkit-flex;
-    display: flex;
-    align-items: flex-start;
-    margin: 0;
-    width: 100%;
-}
-@media (max-width: 540px) {
-    div.nbinput.container,
-    div.nboutput.container {
-        flex-direction: column;
-    }
-}
-
-/* input container */
-div.nbinput.container {
-    padding-top: 5px;
-}
-
-/* last container */
-div.nblast.container {
-    padding-bottom: 5px;
-}
-
-/* input prompt */
-div.nbinput.container div.prompt pre {
-    color: #307FC1;
-}
-
-/* output prompt */
-div.nboutput.container div.prompt pre {
-    color: #BF5B3D;
-}
-
-/* all prompts */
-div.nbinput.container div.prompt,
-div.nboutput.container div.prompt {
-    width: 4.5ex;
-    padding-top: 5px;
-    position: relative;
-    user-select: none;
-}
-
-div.nbinput.container div.prompt > div,
-div.nboutput.container div.prompt > div {
-    position: absolute;
-    right: 0;
-    margin-right: 0.3ex;
-}
-
-@media (max-width: 540px) {
-    div.nbinput.container div.prompt,
-    div.nboutput.container div.prompt {
-        width: unset;
-        text-align: left;
-        padding: 0.4em;
-    }
-    div.nboutput.container div.prompt.empty {
-        padding: 0;
-    }
-
-    div.nbinput.container div.prompt > div,
-    div.nboutput.container div.prompt > div {
-        position: unset;
-    }
-}
-
-/* disable scrollbars on prompts */
-div.nbinput.container div.prompt pre,
-div.nboutput.container div.prompt pre {
-    overflow: hidden;
-}
-
-/* input/output area */
-div.nbinput.container div.input_area,
-div.nboutput.container div.output_area {
-    -webkit-flex: 1;
-    flex: 1;
-    overflow: auto;
-}
-@media (max-width: 540px) {
-    div.nbinput.container div.input_area,
-    div.nboutput.container div.output_area {
-        width: 100%;
-    }
-}
-
-/* input area */
-div.nbinput.container div.input_area {
-    border: 1px solid #e0e0e0;
-    border-radius: 2px;
-    /*background: #f5f5f5;*/
-}
-
-/* override MathJax center alignment in output cells */
-div.nboutput.container div[class*=MathJax] {
-    text-align: left !important;
-}
-
-/* override sphinx.ext.imgmath center alignment in output cells */
-div.nboutput.container div.math p {
-    text-align: left;
-}
-
-/* standard error */
-div.nboutput.container div.output_area.stderr {
-    background: #fdd;
-}
-
-/* ANSI colors */
-.ansi-black-fg { color: #3E424D; }
-.ansi-black-bg { background-color: #3E424D; }
-.ansi-black-intense-fg { color: #282C36; }
-.ansi-black-intense-bg { background-color: #282C36; }
-.ansi-red-fg { color: #E75C58; }
-.ansi-red-bg { background-color: #E75C58; }
-.ansi-red-intense-fg { color: #B22B31; }
-.ansi-red-intense-bg { background-color: #B22B31; }
-.ansi-green-fg { color: #00A250; }
-.ansi-green-bg { background-color: #00A250; }
-.ansi-green-intense-fg { color: #007427; }
-.ansi-green-intense-bg { background-color: #007427; }
-.ansi-yellow-fg { color: #DDB62B; }
-.ansi-yellow-bg { background-color: #DDB62B; }
-.ansi-yellow-intense-fg { color: #B27D12; }
-.ansi-yellow-intense-bg { background-color: #B27D12; }
-.ansi-blue-fg { color: #208FFB; }
-.ansi-blue-bg { background-color: #208FFB; }
-.ansi-blue-intense-fg { color: #0065CA; }
-.ansi-blue-intense-bg { background-color: #0065CA; }
-.ansi-magenta-fg { color: #D160C4; }
-.ansi-magenta-bg { background-color: #D160C4; }
-.ansi-magenta-intense-fg { color: #A03196; }
-.ansi-magenta-intense-bg { background-color: #A03196; }
-.ansi-cyan-fg { color: #60C6C8; }
-.ansi-cyan-bg { background-color: #60C6C8; }
-.ansi-cyan-intense-fg { color: #258F8F; }
-.ansi-cyan-intense-bg { background-color: #258F8F; }
-.ansi-white-fg { color: #C5C1B4; }
-.ansi-white-bg { background-color: #C5C1B4; }
-.ansi-white-intense-fg { color: #A1A6B2; }
-.ansi-white-intense-bg { background-color: #A1A6B2; }
-
-.ansi-default-inverse-fg { color: #FFFFFF; }
-.ansi-default-inverse-bg { background-color: #000000; }
-
-.ansi-bold { font-weight: bold; }
-.ansi-underline { text-decoration: underline; }
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
 
 
-div.nbinput.container div.input_area div[class*=highlight] > pre,
-div.nboutput.container div.output_area div[class*=highlight] > pre,
-div.nboutput.container div.output_area div[class*=highlight].math,
-div.nboutput.container div.output_area.rendered_html,
-div.nboutput.container div.output_area > div.output_javascript,
-div.nboutput.container div.output_area:not(.rendered_html) > img{
-    padding: 5px;
-    margin: 0;
-}
 
-/* fix copybtn overflow problem in chromium (needed for 'sphinx_copybutton') */
-div.nbinput.container div.input_area > div[class^='highlight'],
-div.nboutput.container div.output_area > div[class^='highlight']{
-    overflow-y: hidden;
-}
-
-/* hide copybtn icon on prompts (needed for 'sphinx_copybutton') */
-.prompt a.copybtn {
-    display: none;
-}
-
-/* Some additional styling taken form the Jupyter notebook CSS */
-div.rendered_html table {
-  border: none;
-  border-collapse: collapse;
-  border-spacing: 0;
-  color: black;
-  font-size: 12px;
-  table-layout: fixed;
-}
-div.rendered_html thead {
-  border-bottom: 1px solid black;
-  vertical-align: bottom;
-}
-div.rendered_html tr,
-div.rendered_html th,
-div.rendered_html td {
-  text-align: right;
-  vertical-align: middle;
-  padding: 0.5em 0.5em;
-  line-height: normal;
-  white-space: normal;
-  max-width: none;
-  border: none;
-}
-div.rendered_html th {
-  font-weight: bold;
-}
-div.rendered_html tbody tr:nth-child(odd) {
-  background: #f5f5f5;
-}
-div.rendered_html tbody tr:hover {
-  background: rgba(66, 165, 245, 0.2);
-}
-</style>
-<section id="Quantized-RNNs-and-LSTMs">
+<nav aria-label="Breadcrumb">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Tutorials</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page">Quantized...</li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article" role="main">
+                  
+  <section id="Quantized-RNNs-and-LSTMs">
 <h1>Quantized RNNs and LSTMs<a class="headerlink" href="#Quantized-RNNs-and-LSTMs" title="Permalink to this heading">#</a></h1>
 <p>With version 0.8, Brevitas introduces support for quantized recurrent layers through <code class="docutils literal notranslate"><span class="pre">QuantRNN</span></code> and <code class="docutils literal notranslate"><span class="pre">QuantLSTM</span></code>. As with other Brevitas quantized layers, <code class="docutils literal notranslate"><span class="pre">QuantRNN</span></code> and <code class="docutils literal notranslate"><span class="pre">QuantLSTM</span></code> can be used as drop-in replacement for their floating-point variants, but they also go further and support some additional structural recurrent options not found in upstream PyTorch. Similarly to other quantized layers, both <code class="docutils literal notranslate"><span class="pre">QuantRNN</span></code> and <code class="docutils literal notranslate"><span class="pre">QuantLSTM</span></code> can take in different quantizers for different tensors
 involved in their computation.</p>
@@ -643,10 +454,11 @@ involved in their computation.</p>
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">inspect</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">inspect</span>
 <span class="kn">from</span> <span class="nn">brevitas.nn</span> <span class="kn">import</span> <span class="n">QuantRNN</span>
 <span class="kn">from</span> <span class="nn">IPython.display</span> <span class="kn">import</span> <span class="n">Markdown</span><span class="p">,</span> <span class="n">display</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
 <span class="k">def</span> <span class="nf">pretty_print_source</span><span class="p">(</span><span class="n">source</span><span class="p">):</span>
     <span class="n">display</span><span class="p">(</span><span class="n">Markdown</span><span class="p">(</span><span class="s1">&#39;```python</span><span class="se">\n</span><span class="s1">&#39;</span> <span class="o">+</span> <span class="n">source</span> <span class="o">+</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">```&#39;</span><span class="p">))</span>
@@ -703,8 +515,7 @@ involved in their computation.</p>
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="k">def</span> <span class="nf">rnn_sublayer</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">sublayer_number</span><span class="p">,</span> <span class="n">right_to_left_direction</span><span class="p">):</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">rnn_sublayer</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">sublayer_number</span><span class="p">,</span> <span class="n">right_to_left_direction</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">module</span><span class="o">.</span><span class="n">layers</span><span class="p">[</span><span class="n">sublayer_number</span><span class="p">][</span><span class="mi">1</span> <span class="k">if</span> <span class="n">right_to_left_direction</span> <span class="k">else</span> <span class="mi">0</span><span class="p">]</span>
 
 <span class="n">quant_rnn</span> <span class="o">=</span> <span class="n">QuantRNN</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">num_layers</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">bidirectional</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -729,8 +540,7 @@ c:\users\alessand\documents\brevitas\src\brevitas\nn\mixin\base.py:112: UserWarn
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="n">quant_rnn_0_left_to_right</span><span class="o">.</span><span class="n">gate_params</span><span class="o">.</span><span class="n">input_weight</span><span class="o">.</span><span class="n">weight_quant</span> <span class="ow">is</span> <span class="n">quant_rnn_1_right_to_left</span><span class="o">.</span><span class="n">gate_params</span><span class="o">.</span><span class="n">input_weight</span><span class="o">.</span><span class="n">weight_quant</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">quant_rnn_0_left_to_right</span><span class="o">.</span><span class="n">gate_params</span><span class="o">.</span><span class="n">input_weight</span><span class="o">.</span><span class="n">weight_quant</span> <span class="ow">is</span> <span class="n">quant_rnn_1_right_to_left</span><span class="o">.</span><span class="n">gate_params</span><span class="o">.</span><span class="n">input_weight</span><span class="o">.</span><span class="n">weight_quant</span>
 </pre></div>
 </div>
 </div>
@@ -747,8 +557,7 @@ False
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="n">quant_rnn_0_left_to_right</span><span class="o">.</span><span class="n">cell</span><span class="o">.</span><span class="n">gate_acc_quant</span> <span class="ow">is</span> <span class="n">quant_rnn_1_right_to_left</span><span class="o">.</span><span class="n">cell</span><span class="o">.</span><span class="n">gate_acc_quant</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">quant_rnn_0_left_to_right</span><span class="o">.</span><span class="n">cell</span><span class="o">.</span><span class="n">gate_acc_quant</span> <span class="ow">is</span> <span class="n">quant_rnn_1_right_to_left</span><span class="o">.</span><span class="n">cell</span><span class="o">.</span><span class="n">gate_acc_quant</span>
 </pre></div>
 </div>
 </div>
@@ -765,8 +574,7 @@ False
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="n">quant_rnn_0_left_to_right</span><span class="o">.</span><span class="n">gate_params</span><span class="o">.</span><span class="n">bias_quant</span> <span class="ow">is</span> <span class="n">quant_rnn_1_right_to_left</span><span class="o">.</span><span class="n">gate_params</span><span class="o">.</span><span class="n">bias_quant</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">quant_rnn_0_left_to_right</span><span class="o">.</span><span class="n">gate_params</span><span class="o">.</span><span class="n">bias_quant</span> <span class="ow">is</span> <span class="n">quant_rnn_1_right_to_left</span><span class="o">.</span><span class="n">gate_params</span><span class="o">.</span><span class="n">bias_quant</span>
 </pre></div>
 </div>
 </div>
@@ -784,8 +592,7 @@ False
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="n">quant_rnn_0_left_to_right</span><span class="o">.</span><span class="n">io_quant</span> <span class="ow">is</span> <span class="n">quant_rnn_1_right_to_left</span><span class="o">.</span><span class="n">io_quant</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">quant_rnn_0_left_to_right</span><span class="o">.</span><span class="n">io_quant</span> <span class="ow">is</span> <span class="n">quant_rnn_1_right_to_left</span><span class="o">.</span><span class="n">io_quant</span>
 </pre></div>
 </div>
 </div>
@@ -803,8 +610,7 @@ True
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">brevitas.nn</span> <span class="kn">import</span> <span class="n">QuantRNN</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">brevitas.nn</span> <span class="kn">import</span> <span class="n">QuantRNN</span>
 
 <span class="k">def</span> <span class="nf">count_weights</span><span class="p">(</span><span class="n">model</span><span class="p">):</span>
     <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="k">for</span> <span class="n">n</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">named_parameters</span><span class="p">()</span> <span class="k">if</span> <span class="s1">&#39;weight&#39;</span> <span class="ow">in</span> <span class="n">n</span><span class="p">)</span>
@@ -816,9 +622,7 @@ True
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Number of weights for single direction QuantRNN: </span><span class="si">{</span><span class="n">count_weights</span><span class="p">(</span><span class="n">quant_rnn_single_direction</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Number of weights for bidirectional QuantRNN: </span><span class="si">{</span><span class="n">count_weights</span><span class="p">(</span><span class="n">quant_rnn_bidirectional</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Number of weights for bidirectional QuantRNN with shared input-hidden weights: </span><span class="si">{</span><span class="n">count_weights</span><span class="p">(</span><span class="n">quant_rnn_bidirectional_shared_input_hidden</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-
-
-</pre></div>
+<br/><br/></pre></div>
 </div>
 </div>
 <div class="nboutput nblast docutils container">
@@ -836,8 +640,7 @@ Number of weights for bidirectional QuantRNN with shared input-hidden weights: 1
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="n">quant_rnn_4b</span> <span class="o">=</span> <span class="n">QuantRNN</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">weight_scaling_per_output_channel</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">io_bit_width</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">quant_rnn_4b</span> <span class="o">=</span> <span class="n">QuantRNN</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">weight_scaling_per_output_channel</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">io_bit_width</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span>
 <span class="n">quant_rnn_4b_0_left_to_right</span> <span class="o">=</span> <span class="n">rnn_sublayer</span><span class="p">(</span><span class="n">quant_rnn_4b</span><span class="p">,</span> <span class="n">sublayer_number</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">right_to_left_direction</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
 <span class="n">input_hidden_weight</span> <span class="o">=</span> <span class="n">quant_rnn_4b_0_left_to_right</span><span class="o">.</span><span class="n">gate_params</span><span class="o">.</span><span class="n">input_weight</span><span class="o">.</span><span class="n">quant_weight</span><span class="p">()</span>
@@ -908,8 +711,7 @@ Hidden-hidden weight scale: tensor([[0.0316],
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">torch</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">torch</span>
 <span class="kn">from</span> <span class="nn">brevitas.nn</span> <span class="kn">import</span> <span class="n">QuantRNN</span>
 
 <span class="n">quant_rnn</span> <span class="o">=</span> <span class="n">QuantRNN</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">batch_first</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -933,8 +735,7 @@ Hidden states size: torch.Size([1, 2, 20])
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[10]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">torch</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">torch</span>
 <span class="kn">from</span> <span class="nn">brevitas.nn</span> <span class="kn">import</span> <span class="n">QuantRNN</span>
 
 <span class="n">quant_rnn</span> <span class="o">=</span> <span class="n">QuantRNN</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">batch_first</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -1003,8 +804,7 @@ c:\users\alessand\documents\brevitas\src\brevitas\nn\mixin\base.py:343: UserWarn
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[11]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">brevitas.nn</span> <span class="kn">import</span> <span class="n">QuantIdentity</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">brevitas.nn</span> <span class="kn">import</span> <span class="n">QuantIdentity</span>
 
 <span class="n">quant_identity</span> <span class="o">=</span> <span class="n">QuantIdentity</span><span class="p">(</span><span class="n">return_quant_tensor</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="n">quant_rnn</span><span class="p">(</span><span class="n">quant_identity</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">)))</span>
@@ -1063,8 +863,7 @@ c:\users\alessand\documents\brevitas\src\brevitas\nn\mixin\base.py:343: UserWarn
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[12]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="n">quant_rnn</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">20</span><span class="p">))</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">quant_rnn</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">20</span><span class="p">))</span>
 </pre></div>
 </div>
 </div>
@@ -1120,8 +919,7 @@ c:\users\alessand\documents\brevitas\src\brevitas\nn\mixin\base.py:343: UserWarn
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[13]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">torch.nn</span> <span class="kn">import</span> <span class="n">RNN</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">torch.nn</span> <span class="kn">import</span> <span class="n">RNN</span>
 <span class="kn">from</span> <span class="nn">brevitas.nn</span> <span class="kn">import</span> <span class="n">QuantRNN</span>
 <span class="kn">from</span> <span class="nn">brevitas</span> <span class="kn">import</span> <span class="n">config</span>
 
@@ -1147,10 +945,10 @@ c:\users\alessand\documents\brevitas\src\brevitas\nn\mixin\base.py:343: UserWarn
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[14]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">torch.nn</span> <span class="kn">import</span> <span class="n">RNN</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">torch.nn</span> <span class="kn">import</span> <span class="n">RNN</span>
 <span class="kn">from</span> <span class="nn">brevitas.nn</span> <span class="kn">import</span> <span class="n">QuantRNN</span>
 <span class="kn">from</span> <span class="nn">brevitas</span> <span class="kn">import</span> <span class="n">config</span>
+<span class="n">ATOL</span> <span class="o">=</span> <span class="mf">1e-6</span>
 
 <span class="n">config</span><span class="o">.</span><span class="n">IGNORE_MISSING_KEYS</span> <span class="o">=</span> <span class="kc">True</span>
 <span class="n">torch</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="mi">123456</span><span class="p">)</span>
@@ -1163,12 +961,10 @@ c:\users\alessand\documents\brevitas\src\brevitas\nn\mixin\base.py:343: UserWarn
 
 <span class="c1"># Generate random input</span>
 <span class="n">inp</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
-
 <span class="c1"># Check outputs are the same</span>
-<span class="k">assert</span> <span class="n">torch</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">quant_rnn</span><span class="p">(</span><span class="n">inp</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span> <span class="n">float_rnn</span><span class="p">(</span><span class="n">inp</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span><span class="o">.</span><span class="n">all</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
-
+<span class="k">assert</span> <span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">quant_rnn</span><span class="p">(</span><span class="n">inp</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span> <span class="n">float_rnn</span><span class="p">(</span><span class="n">inp</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span> <span class="n">atol</span><span class="o">=</span><span class="n">ATOL</span><span class="p">)</span>
 <span class="c1"># Check hidden states are the same</span>
-<span class="k">assert</span> <span class="n">torch</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">quant_rnn</span><span class="p">(</span><span class="n">inp</span><span class="p">)[</span><span class="mi">1</span><span class="p">],</span> <span class="n">float_rnn</span><span class="p">(</span><span class="n">inp</span><span class="p">)[</span><span class="mi">1</span><span class="p">])</span><span class="o">.</span><span class="n">all</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+<span class="k">assert</span> <span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">quant_rnn</span><span class="p">(</span><span class="n">inp</span><span class="p">)[</span><span class="mi">1</span><span class="p">],</span> <span class="n">float_rnn</span><span class="p">(</span><span class="n">inp</span><span class="p">)[</span><span class="mi">1</span><span class="p">],</span> <span class="n">atol</span><span class="o">=</span><span class="n">ATOL</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1177,8 +973,7 @@ c:\users\alessand\documents\brevitas\src\brevitas\nn\mixin\base.py:343: UserWarn
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[15]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">brevitas.quant.binary</span> <span class="kn">import</span> <span class="n">SignedBinaryWeightPerTensorConst</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">brevitas.quant.binary</span> <span class="kn">import</span> <span class="n">SignedBinaryWeightPerTensorConst</span>
 
 <span class="n">binary_rnn</span> <span class="o">=</span> <span class="n">QuantRNN</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">weight_quant</span><span class="o">=</span><span class="n">SignedBinaryWeightPerTensorConst</span><span class="p">)</span>
 <span class="n">binary_rnn</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
@@ -1243,8 +1038,7 @@ c:\users\alessand\documents\brevitas\src\brevitas\nn\mixin\base.py:343: UserWarn
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[16]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">inspect</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">inspect</span>
 <span class="kn">from</span> <span class="nn">brevitas.nn</span> <span class="kn">import</span> <span class="n">QuantLSTM</span>
 <span class="kn">from</span> <span class="nn">IPython.display</span> <span class="kn">import</span> <span class="n">Markdown</span><span class="p">,</span> <span class="n">display</span>
 
@@ -1335,8 +1129,7 @@ set, supported only by QONNX. In both cases, <code class="docutils literal notra
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[17]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">time</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">time</span>
 <span class="kn">from</span> <span class="nn">IPython.display</span> <span class="kn">import</span> <span class="n">IFrame</span>
 
 <span class="k">def</span> <span class="nf">show_netron</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="n">port</span><span class="p">):</span>
@@ -1353,19 +1146,25 @@ set, supported only by QONNX. In both cases, <code class="docutils literal notra
 <section id="QuantLSTM-weight-only-quantization-export">
 <h3>QuantLSTM weight-only quantization export<a class="headerlink" href="#QuantLSTM-weight-only-quantization-export" title="Permalink to this heading">#</a></h3>
 <p>For use case (1), we leverage export to ONNX QCDQ. Qeight quantization is represented with QCDQ nodes, while the standard ONNX <code class="docutils literal notranslate"><span class="pre">LSTM</span></code> operator is adopted for the recurrent cell. With this approach, we can represent any weight bit width &gt;= 2. Opset 14 is required. For the purpose of this 1 layer, 1 direction example we keep the default <code class="docutils literal notranslate"><span class="pre">weight_quant</span></code> set, we add <code class="docutils literal notranslate"><span class="pre">weight_bit_width=4</span></code>, while we disable the other quantizers:</p>
-<div class="nbinput docutils container">
+<div class="nbinput nblast docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[18]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">torch</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">torch</span>
 <span class="kn">from</span> <span class="nn">brevitas.nn</span> <span class="kn">import</span> <span class="n">QuantLSTM</span>
 <span class="kn">from</span> <span class="nn">brevitas.export</span> <span class="kn">import</span> <span class="n">export_onnx_qcdq</span>
 
 <span class="n">quant_lstm_weight_only</span> <span class="o">=</span> <span class="n">QuantLSTM</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">io_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bias_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">gate_acc_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sigmoid_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tanh_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cell_state_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 <span class="n">export_path</span> <span class="o">=</span> <span class="s1">&#39;quant_lstm_weight_only_4b.onnx&#39;</span>
-<span class="n">export_onnx_qcdq</span><span class="p">(</span><span class="n">quant_lstm_weight_only</span><span class="p">,</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">)),</span> <span class="n">opset_version</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">export_path</span><span class="p">)</span>
-<span class="n">show_netron</span><span class="p">(</span><span class="n">export_path</span><span class="p">,</span> <span class="mi">8080</span><span class="p">)</span>
+<span class="n">exported_model</span> <span class="o">=</span> <span class="n">export_onnx_qcdq</span><span class="p">(</span><span class="n">quant_lstm_weight_only</span><span class="p">,</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">)),</span> <span class="n">opset_version</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">export_path</span><span class="p">)</span>
+<br/></pre></div>
+</div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[19]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">show_netron</span><span class="p">(</span><span class="n">export_path</span><span class="p">,</span> <span class="mi">8080</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1378,7 +1177,7 @@ Serving &#39;quant_lstm_weight_only_4b.onnx&#39; at http://localhost:8080
 </pre></div></div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[18]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[19]:
 </pre></div>
 </div>
 <div class="output_area rendered_html docutils container">
@@ -1396,8 +1195,7 @@ Serving &#39;quant_lstm_weight_only_4b.onnx&#39; at http://localhost:8080
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[19]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">onnxruntime</span> <span class="k">as</span> <span class="nn">ort</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">onnxruntime</span> <span class="k">as</span> <span class="nn">ort</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 
 <span class="n">sess</span> <span class="o">=</span> <span class="n">ort</span><span class="o">.</span><span class="n">InferenceSession</span><span class="p">(</span><span class="n">export_path</span><span class="p">)</span>
@@ -1408,12 +1206,11 @@ Serving &#39;quant_lstm_weight_only_4b.onnx&#39; at http://localhost:8080
 </div>
 </div>
 <p>CIFG is also supported in a way that follows the semantics of <code class="docutils literal notranslate"><span class="pre">onnxruntime</span></code>:</p>
-<div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[20]:
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[21]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">torch</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">torch</span>
 <span class="kn">from</span> <span class="nn">brevitas.nn</span> <span class="kn">import</span> <span class="n">QuantLSTM</span>
 <span class="kn">from</span> <span class="nn">brevitas.export</span> <span class="kn">import</span> <span class="n">export_onnx_qcdq</span>
 
@@ -1421,8 +1218,15 @@ Serving &#39;quant_lstm_weight_only_4b.onnx&#39; at http://localhost:8080
     <span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">coupled_input_forget_gates</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
     <span class="n">io_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bias_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">gate_acc_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sigmoid_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tanh_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cell_state_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 <span class="n">export_path</span> <span class="o">=</span> <span class="s1">&#39;quant_lstm_weight_only_cifg_4b.onnx&#39;</span>
-<span class="n">export_onnx_qcdq</span><span class="p">(</span><span class="n">quant_lstm_weight_only_cifg</span><span class="p">,</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">)),</span> <span class="n">opset_version</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">export_path</span><span class="p">)</span>
-<span class="n">show_netron</span><span class="p">(</span><span class="n">export_path</span><span class="p">,</span> <span class="mi">8082</span><span class="p">)</span>
+<span class="n">exported_model</span> <span class="o">=</span> <span class="n">export_onnx_qcdq</span><span class="p">(</span><span class="n">quant_lstm_weight_only_cifg</span><span class="p">,</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">)),</span> <span class="n">opset_version</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">export_path</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[22]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">show_netron</span><span class="p">(</span><span class="n">export_path</span><span class="p">,</span> <span class="mi">8082</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1435,7 +1239,7 @@ Serving &#39;quant_lstm_weight_only_cifg_4b.onnx&#39; at http://localhost:8082
 </pre></div></div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[20]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[22]:
 </pre></div>
 </div>
 <div class="output_area rendered_html docutils container">
@@ -1453,8 +1257,7 @@ Serving &#39;quant_lstm_weight_only_cifg_4b.onnx&#39; at http://localhost:8082
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[21]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">onnxruntime</span> <span class="k">as</span> <span class="nn">ort</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">onnxruntime</span> <span class="k">as</span> <span class="nn">ort</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 
 <span class="n">sess</span> <span class="o">=</span> <span class="n">ort</span><span class="o">.</span><span class="n">InferenceSession</span><span class="p">(</span><span class="n">export_path</span><span class="p">)</span>
@@ -1466,11 +1269,10 @@ Serving &#39;quant_lstm_weight_only_cifg_4b.onnx&#39; at http://localhost:8082
 </div>
 <p>For the 2 layers, 2 directions use case:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[22]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[24]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">torch</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">torch</span>
 <span class="kn">from</span> <span class="nn">brevitas.nn</span> <span class="kn">import</span> <span class="n">QuantLSTM</span>
 <span class="kn">from</span> <span class="nn">brevitas.export</span> <span class="kn">import</span> <span class="n">export_onnx_qcdq</span>
 
@@ -1478,19 +1280,26 @@ Serving &#39;quant_lstm_weight_only_cifg_4b.onnx&#39; at http://localhost:8082
     <span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">bidirectional</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">num_layers</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
     <span class="n">io_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bias_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">gate_acc_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sigmoid_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tanh_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cell_state_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 <span class="n">export_path</span> <span class="o">=</span> <span class="s1">&#39;quant_lstm_weight_only_bidirectional_2_layers.onnx&#39;</span>
-<span class="n">export_onnx_qcdq</span><span class="p">(</span><span class="n">quant_lstm_weight_only_bidirectional_2_layers</span><span class="p">,</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">)),</span> <span class="n">opset_version</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">export_path</span><span class="p">)</span>
-<span class="n">show_netron</span><span class="p">(</span><span class="n">export_path</span><span class="p">,</span> <span class="mi">8083</span><span class="p">)</span>
+<span class="n">exported_model</span> <span class="o">=</span> <span class="n">export_onnx_qcdq</span><span class="p">(</span><span class="n">quant_lstm_weight_only_bidirectional_2_layers</span><span class="p">,</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">)),</span> <span class="n">opset_version</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">export_path</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
-<div class="nboutput docutils container">
+<div class="nboutput nblast docutils container">
 <div class="prompt empty docutils container">
 </div>
 <div class="output_area stderr docutils container">
 <div class="highlight"><pre>
-c:\users\alessand\documents\brevitas\src\brevitas\nn\mixin\base.py:112: UserWarning: Keyword arguments are being passed but they not being used.
+/home/giuseppe/Documents/git/brevitas/src/brevitas/nn/mixin/base.py:77: UserWarning: Keyword arguments are being passed but they not being used.
   warn(&#39;Keyword arguments are being passed but they not being used.&#39;)
 </pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[25]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">show_netron</span><span class="p">(</span><span class="n">export_path</span><span class="p">,</span> <span class="mi">8083</span><span class="p">)</span>
+</pre></div>
+</div>
 </div>
 <div class="nboutput docutils container">
 <div class="prompt empty docutils container">
@@ -1501,7 +1310,7 @@ Serving &#39;quant_lstm_weight_only_bidirectional_2_layers.onnx&#39; at http://l
 </pre></div></div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[22]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[25]:
 </pre></div>
 </div>
 <div class="output_area rendered_html docutils container">
@@ -1516,11 +1325,10 @@ Serving &#39;quant_lstm_weight_only_bidirectional_2_layers.onnx&#39; at http://l
 </div>
 <p>Shared input-hidden weights are also supported:</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[23]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[26]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">torch</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">torch</span>
 <span class="kn">from</span> <span class="nn">brevitas.nn</span> <span class="kn">import</span> <span class="n">QuantLSTM</span>
 <span class="kn">from</span> <span class="nn">brevitas.export</span> <span class="kn">import</span> <span class="n">export_onnx_qcdq</span>
 
@@ -1528,19 +1336,26 @@ Serving &#39;quant_lstm_weight_only_bidirectional_2_layers.onnx&#39; at http://l
     <span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">bidirectional</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">shared_input_hidden_weights</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
     <span class="n">io_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bias_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">gate_acc_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sigmoid_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tanh_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cell_state_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 <span class="n">export_path</span> <span class="o">=</span> <span class="s1">&#39;quant_lstm_weight_only_bidirectional_2_layers_shared_ih.onnx&#39;</span>
-<span class="n">export_onnx_qcdq</span><span class="p">(</span><span class="n">quant_lstm_weight_only_bidirectional_2_layers_shared</span><span class="p">,</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">)),</span> <span class="n">opset_version</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">export_path</span><span class="p">)</span>
-<span class="n">show_netron</span><span class="p">(</span><span class="n">export_path</span><span class="p">,</span> <span class="mi">8085</span><span class="p">)</span>
+<span class="n">exported_model</span> <span class="o">=</span> <span class="n">export_onnx_qcdq</span><span class="p">(</span><span class="n">quant_lstm_weight_only_bidirectional_2_layers_shared</span><span class="p">,</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">)),</span> <span class="n">opset_version</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">export_path</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
-<div class="nboutput docutils container">
+<div class="nboutput nblast docutils container">
 <div class="prompt empty docutils container">
 </div>
 <div class="output_area stderr docutils container">
 <div class="highlight"><pre>
-c:\users\alessand\documents\brevitas\src\brevitas\nn\mixin\base.py:112: UserWarning: Keyword arguments are being passed but they not being used.
+/home/giuseppe/Documents/git/brevitas/src/brevitas/nn/mixin/base.py:77: UserWarning: Keyword arguments are being passed but they not being used.
   warn(&#39;Keyword arguments are being passed but they not being used.&#39;)
 </pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[27]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">show_netron</span><span class="p">(</span><span class="n">export_path</span><span class="p">,</span> <span class="mi">8085</span><span class="p">)</span>
+</pre></div>
+</div>
 </div>
 <div class="nboutput docutils container">
 <div class="prompt empty docutils container">
@@ -1551,7 +1366,7 @@ Serving &#39;quant_lstm_weight_only_bidirectional_2_layers_shared_ih.onnx&#39; a
 </pre></div></div>
 </div>
 <div class="nboutput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[23]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[27]:
 </pre></div>
 </div>
 <div class="output_area rendered_html docutils container">
@@ -1569,8 +1384,7 @@ Serving &#39;quant_lstm_weight_only_bidirectional_2_layers_shared_ih.onnx&#39; a
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[24]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">torch</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">torch</span>
 <span class="kn">from</span> <span class="nn">brevitas.nn</span> <span class="kn">import</span> <span class="n">QuantLSTM</span>
 <span class="kn">from</span> <span class="nn">brevitas.export</span> <span class="kn">import</span> <span class="n">export_onnx_qcdq</span>
 
@@ -1578,8 +1392,7 @@ Serving &#39;quant_lstm_weight_only_bidirectional_2_layers_shared_ih.onnx&#39; a
     <span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">bidirectional</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">num_layers</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">weight_bit_width</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">shared_intra_layer_weight_quant</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
     <span class="n">io_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bias_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">gate_acc_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sigmoid_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tanh_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cell_state_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 <span class="n">export_path</span> <span class="o">=</span> <span class="s1">&#39;quant_lstm_weight_only_bidirectional_2_layers_shared_q.onnx&#39;</span>
-<span class="n">export_onnx_qcdq</span><span class="p">(</span><span class="n">quant_lstm_weight_only_bidirectional_2_layers</span><span class="p">,</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">)),</span> <span class="n">opset_version</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">export_path</span><span class="p">)</span>
-<span class="n">show_netron</span><span class="p">(</span><span class="n">export_path</span><span class="p">,</span> <span class="mi">8086</span><span class="p">)</span>
+<span class="n">exported_model</span> <span class="o">=</span> <span class="n">export_onnx_qcdq</span><span class="p">(</span><span class="n">quant_lstm_weight_only_bidirectional_2_layers</span><span class="p">,</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">)),</span> <span class="n">opset_version</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">export_path</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1614,13 +1427,20 @@ Serving &#39;quant_lstm_weight_only_bidirectional_2_layers_shared_q.onnx&#39; at
 
 ></iframe></div>
 </div>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">show_netron</span><span class="p">(</span><span class="n">export_path</span><span class="p">,</span> <span class="mi">8086</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
 <p>Alternatively, if we set both <code class="docutils literal notranslate"><span class="pre">shared_input_hidden_weights=True</span></code> and <code class="docutils literal notranslate"><span class="pre">shared_intra_layer_weight_quant=True</span></code>, the side effect is that all quantizers among both directions in a given layer are gonna have the same scale/zp/bit-width.</p>
 <div class="nbinput docutils container">
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[25]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">torch</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">torch</span>
 <span class="kn">from</span> <span class="nn">brevitas.nn</span> <span class="kn">import</span> <span class="n">QuantLSTM</span>
 <span class="kn">from</span> <span class="nn">brevitas.export</span> <span class="kn">import</span> <span class="n">export_onnx_qcdq</span>
 
@@ -1629,8 +1449,7 @@ Serving &#39;quant_lstm_weight_only_bidirectional_2_layers_shared_q.onnx&#39; at
     <span class="n">shared_input_hidden_weights</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">shared_intra_layer_weight_quant</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
     <span class="n">io_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">bias_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">gate_acc_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sigmoid_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tanh_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cell_state_quant</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 <span class="n">export_path</span> <span class="o">=</span> <span class="s1">&#39;quant_lstm_weight_only_bidirectional_2_layers_shared_q_ih.onnx&#39;</span>
-<span class="n">export_onnx_qcdq</span><span class="p">(</span><span class="n">quant_lstm_weight_only_bidirectional_2_layers</span><span class="p">,</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">)),</span> <span class="n">opset_version</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">export_path</span><span class="p">)</span>
-<span class="n">show_netron</span><span class="p">(</span><span class="n">export_path</span><span class="p">,</span> <span class="mi">8087</span><span class="p">)</span>
+<span class="n">exported_model</span> <span class="o">=</span> <span class="n">export_onnx_qcdq</span><span class="p">(</span><span class="n">quant_lstm_weight_only_bidirectional_2_layers</span><span class="p">,</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">)),</span> <span class="n">opset_version</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">export_path</span><span class="o">=</span><span class="n">export_path</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1665,6 +1484,14 @@ Serving &#39;quant_lstm_weight_only_bidirectional_2_layers_shared_q_ih.onnx&#39;
 
 ></iframe></div>
 </div>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">show_netron</span><span class="p">(</span><span class="n">export_path</span><span class="p">,</span> <span class="mi">8087</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
 </section>
 <section id="QuantLSTM-full-quantization-export">
 <h3>QuantLSTM full quantization export<a class="headerlink" href="#QuantLSTM-full-quantization-export" title="Permalink to this heading">#</a></h3>
@@ -1673,15 +1500,13 @@ Serving &#39;quant_lstm_weight_only_bidirectional_2_layers_shared_q_ih.onnx&#39;
 <div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[26]:
 </pre></div>
 </div>
-<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">torch</span>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">torch</span>
 <span class="kn">from</span> <span class="nn">brevitas.nn</span> <span class="kn">import</span> <span class="n">QuantLSTM</span>
 <span class="kn">from</span> <span class="nn">brevitas.export</span> <span class="kn">import</span> <span class="n">export_qonnx</span>
 
 <span class="n">quant_lstm</span> <span class="o">=</span> <span class="n">QuantLSTM</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">hidden_size</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
 <span class="n">export_path</span> <span class="o">=</span> <span class="s1">&#39;quant_lstm.onnx&#39;</span>
-<span class="n">export_qonnx</span><span class="p">(</span><span class="n">quant_lstm</span><span class="p">,</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">)),</span> <span class="n">export_path</span><span class="o">=</span><span class="n">export_path</span><span class="p">)</span>
-<span class="n">show_netron</span><span class="p">(</span><span class="n">export_path</span><span class="p">,</span> <span class="mi">8088</span><span class="p">)</span>
+<span class="n">exported_model</span> <span class="o">=</span> <span class="n">export_qonnx</span><span class="p">(</span><span class="n">quant_lstm</span><span class="p">,</span> <span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">)),</span> <span class="n">export_path</span><span class="o">=</span><span class="n">export_path</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -1706,6 +1531,14 @@ Serving &#39;quant_lstm.onnx&#39; at http://localhost:8088
     allowfullscreen
 
 ></iframe></div>
+</div>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">show_netron</span><span class="p">(</span><span class="n">export_path</span><span class="p">,</span> <span class="mi">8088</span><span class="p">)</span>
+</pre></div>
+</div>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">QuantLSTMCell</span></code> takes the following series of inputs.</p>
 <ul class="simple">
@@ -1764,155 +1597,119 @@ Serving &#39;quant_lstm.onnx&#39; at http://localhost:8088
 </section>
 
 
-            </article>
-            
-            
-            
-            <footer class="bd-footer-article">
-                <!-- Previous / next buttons -->
-<div class='prev-next-area'>
-  <a class='left-prev' id="prev-link" href="anatomy_quantizer.html" title="previous page">
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer">
+                  <!-- Previous / next buttons -->
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="anatomy_quantizer.html"
+       title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
-          <p class="prev-next-subtitle">previous</p>
-          <p class="prev-next-title">Anatomy of a Quantizer</p>
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Anatomy of a Quantizer</p>
       </div>
-  </a>
-  <a class='right-next' id="next-link" href="onnx_export.html" title="next page">
-  <div class="prev-next-info">
-      <p class="prev-next-subtitle">next</p>
-      <p class="prev-next-title">ONNX Export</p>
-  </div>
-  <i class="fa-solid fa-angle-right"></i>
-  </a>
+    </a>
+    <a class="right-next"
+       href="onnx_export.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">ONNX Export</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
 </div>
-            </footer>
-            
-          </div>
-          
-          
-          
-            <div class="bd-sidebar-secondary bd-toc">
+                </footer>
               
-<div class="toc-item">
-  
-<div class="tocsection onthispage">
-    <i class="fa-solid fa-list"></i> On this page
-</div>
-<nav id="bd-toc-nav" class="page-toc">
-    <ul class="visible nav section-nav flex-column">
- <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#QuantRNN">
-   QuantRNN
-  </a>
- </li>
- <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#QuantLSTM">
-   QuantLSTM
-  </a>
- </li>
- <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#Just-in-time-compilation">
-   Just-in-time compilation
-  </a>
- </li>
- <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#Calibration">
-   Calibration
-  </a>
- </li>
- <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#Export">
-   Export
-  </a>
-  <ul class="nav section-nav flex-column">
-   <li class="toc-h3 nav-item toc-entry">
-    <a class="reference internal nav-link" href="#QuantLSTM-weight-only-quantization-export">
-     QuantLSTM weight-only quantization export
-    </a>
-   </li>
-   <li class="toc-h3 nav-item toc-entry">
-    <a class="reference internal nav-link" href="#QuantLSTM-full-quantization-export">
-     QuantLSTM full quantization export
-    </a>
-   </li>
-  </ul>
- </li>
-</ul>
-
-</nav>
-</div>
-
-<div class="toc-item">
-  
-<div id="searchbox"></div>
-</div>
-
-<div class="toc-item">
-  
-</div>
-
-<div class="toc-item">
-  
-<div class="tocsection sourcelink">
-    <a href="../_sources/tutorials/quant_recurrent.nblink.txt">
-        <i class="fa-solid fa-file-lines"></i> Show Source
-    </a>
-</div>
-
-</div>
-
             </div>
-          
-          
-        </div>
-        <footer class="bd-footer-content">
-          <div class="bd-footer-content__inner">
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+  <div class="sidebar-secondary-item">
+  <div class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#QuantRNN">QuantRNN</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#QuantLSTM">QuantLSTM</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#Just-in-time-compilation">Just-in-time compilation</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#Calibration">Calibration</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#Export">Export</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#QuantLSTM-weight-only-quantization-export">QuantLSTM weight-only quantization export</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#QuantLSTM-full-quantization-export">QuantLSTM full quantization export</a></li>
+</ul>
+</li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+  <div class="tocsection sourcelink">
+    <a href="../_sources/tutorials/quant_recurrent.nblink.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
             
           </div>
-        </footer>
+          <footer class="bd-footer-content">
+            
+          </footer>
         
       </main>
     </div>
   </div>
-
   
-    
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script src="../_static/scripts/bootstrap.js?digest=796348d33e8b1d947c94"></script>
-<script src="../_static/scripts/pydata-sphinx-theme.js?digest=796348d33e8b1d947c94"></script>
+  <script src="../_static/scripts/bootstrap.js?digest=365ca57ee442770a23c6"></script>
+<script src="../_static/scripts/pydata-sphinx-theme.js?digest=365ca57ee442770a23c6"></script>
 
-  <footer class="bd-footer"><div class="bd-footer__inner container">
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
   
-  <div class="footer-item">
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+  <p class="copyright">
     
-<p class="copyright">
-
-    &copy; Copyright 2023 - Advanced Micro Devices, Inc..<br>
-
-</p>
-
-  </div>
-  
-  <div class="footer-item">
-    <p class="theme-version">
-    Built with the
-    <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">
-        PyData Sphinx Theme
-    </a>
-    0.12.0.
-</p>
-  </div>
-  
-  <div class="footer-item">
+      © Copyright 2023 - Advanced Micro Devices, Inc..
+      <br/>
     
-<p class="sphinx-version">
-Created using <a href="http://sphinx-doc.org/">Sphinx</a> 5.3.0.<br>
-</p>
-
-  </div>
+  </p>
+</div>
+      
+        <div class="footer-item">
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.3.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item"><p class="theme-version">
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.14.3.
+</p></div>
+      
+    </div>
   
 </div>
+
   </footer>
   </body>
 </html>
