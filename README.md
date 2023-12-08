@@ -14,7 +14,7 @@ If you like this project please consider ⭐ this repo, as it is the simplest an
 ## Requirements
 
 * Python >= 3.8 .
-* [Pytorch](https://pytorch.org) >= 1.9.1, <= 1.13.1 (PyTorch 2.0+ is currently untested).
+* [Pytorch](https://pytorch.org) >= 1.9.1, <= 2.1 (more recent versions would be untested).
 * Windows, Linux or macOS.
 * GPU training-time acceleration (*Optional* but recommended).
 
@@ -30,7 +30,7 @@ pip install brevitas
 Brevitas currently offers quantized implementations of the most common PyTorch layers used in DNN under `brevitas.nn`, such as `QuantConv1d`, `QuantConv2d`, `QuantConvTranspose1d`, `QuantConvTranspose2d`, `QuantMultiheadAttention`, `QuantRNN`, `QuantLSTM` etc., for adoption within PTQ and/or QAT.
 For each one of these layers, quantization of different tensors (inputs, weights, bias, outputs, etc) can be individually tuned according to a wide range of quantization settings.
 
-As a reference for PTQ, Brevitas provides an example user flow for ImageNet classification models under [`brevitas_examples.imagenet_classification.ptq`](https://github.com/Xilinx/brevitas/blob/master/src/brevitas_examples/imagenet_classification/ptq/ptq_evaluate.py) that quantizes an input torchvision model using PTQ under different quantization configurations (e.g. bit-width, granularity of scale, etc). Sample accuracy results are available [here](https://github.com/Xilinx/brevitas/blob/master/src/brevitas_examples/imagenet_classification/ptq/RESULTS_TORCHVISION_BEST_CONFIGS.csv) for a selection of three reference topologies (ResNet18, MobileNet V2, ViT), under a variety of different quantization settings.
+As a reference for PTQ, Brevitas provides an example user flow for ImageNet classification models under [`brevitas_examples.imagenet_classification.ptq`](https://github.com/Xilinx/brevitas/blob/master/src/brevitas_examples/imagenet_classification/ptq/ptq_evaluate.py) that quantizes an input torchvision model using PTQ under different quantization configurations (e.g. bit-width, granularity of scale, etc). 
 
 For more info, checkout https://xilinx.github.io/brevitas/getting_started .
 
@@ -50,6 +50,7 @@ If you adopt Brevitas in your work, please cite it as:
 
 ## History
 
+- *2023/12/08* - Release version 0.10.0, see the [release notes](https://github.com/Xilinx/brevitas/releases/tag/v0.10.0).
 - *2023/04/28* - Minor release version 0.9.1, see the [release notes](https://github.com/Xilinx/brevitas/releases/tag/v0.9.1).
 - *2023/04/21* - Release version 0.9.0, see the [release notes](https://github.com/Xilinx/brevitas/releases/tag/v0.9.0).
 - *2023/01/10* - Release version 0.8.0, see the [release notes](https://github.com/Xilinx/brevitas/releases/tag/v0.8.0).
