@@ -52,7 +52,13 @@ class TorchDQMixin(DQMixin, ABC):
         assert module.bit_width() > 1., 'Binary quant not supported'
 
 
-class TorchCDQMixin(TorchDQMixin, ABC):
+class TorchDQCastMixin(TorchDQMixin, ABC):
+
+    def cast_fn(self, x, dtype):
+        return x.type(dtype)
+
+
+class TorchCDQMixin(TorchDQCastMixin, ABC):
 
     def clip_fn(self, x, min_val, max_val):
         return torch.clamp(x, min_val, max_val)
@@ -128,7 +134,8 @@ class TorchQCDQActQuantProxyHandler(TorchQCDQMixin, QCDQActQuantProxyHandlerMixi
         return _itemize_clip_bounds(clip_args)
 
 
-class TorchQCDQBiasQuantProxyHandler(TorchDQMixin, QCDQBiasQuantProxyHandlerMixin,
+class TorchQCDQBiasQuantProxyHandler(TorchDQCastMixin,
+                                     QCDQBiasQuantProxyHandlerMixin,
                                      TorchQCDQHandler):
     pass
 
