@@ -193,6 +193,7 @@ def quantize_model(
     # Modify the weight quantizer based on the arguments passed in
     weight_quant = weight_quant.let(
         **{
+            'bit_width': weight_bit_width,
             'narrow_range': False,
             'block_size': weight_group_size,
             'quantize_zero_point': quantize_weight_zero_point},
@@ -311,15 +312,8 @@ def quantize_model(
                         'group_dim': 1, 'group_size': input_group_size})
 
     quant_linear_kwargs = {
-        'input_quant': linear_2d_input_quant,
-        'weight_quant': weight_quant,
-        'weight_bit_width': weight_bit_width,
-        'dtype': dtype}
-    quant_conv_kwargs = {
-        'input_quant': input_quant,
-        'weight_quant': weight_quant,
-        'weight_bit_width': weight_bit_width,
-        'dtype': dtype}
+        'input_quant': linear_2d_input_quant, 'weight_quant': weight_quant, 'dtype': dtype}
+    quant_conv_kwargs = {'input_quant': input_quant, 'weight_quant': weight_quant, 'dtype': dtype}
 
     quant_mha_kwargs = {
         'in_proj_input_quant': input_quant,

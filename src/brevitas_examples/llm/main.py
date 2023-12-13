@@ -304,7 +304,6 @@ def main():
             seqlen=args.seqlen)
         # Tie back first/last layer weights in case they got untied
         model.tie_weights()
-        print(model)
         print("Model quantization applied.")
 
     if args.act_calibration:
