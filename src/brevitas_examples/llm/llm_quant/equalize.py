@@ -10,7 +10,6 @@ import torch
 from brevitas.fx.brevitas_tracer import value_trace
 from brevitas.graph.equalize import activation_equalization_mode
 from brevitas.graph.equalize import EqualizeGraph
-from brevitas.graph.standardize import DuplicateSharedStatelessModule
 from brevitas.graph.standardize import TorchFunctionalToModule
 from brevitas_examples.llm.llm_quant.run_utils import apply_layer_ptq_fn
 from brevitas_examples.llm.llm_quant.run_utils import cast_to_float32
