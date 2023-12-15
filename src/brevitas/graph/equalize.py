@@ -727,7 +727,7 @@ class LayerwiseActivationEqualization(GraphTransform):
         for region in self.regions:
             batch_dim = 0
             if hasattr(region, 'batch_first'):
-                batch_dim = 0 if region.batch_first == True else 1
+                batch_dim = 0 if region.batch_first else 1
 
             hook_fn = partial(
                 self.forward_stats_hook, name=region, batch_dim=batch_dim, use_inp=True)
@@ -844,7 +844,7 @@ class GraphActivationEqualization(GraphTransform):
                 for name in region.srcs + region.sinks:
                     module = name_to_module[name]
                     if hasattr(module, 'batch_first'):
-                        batch_dim = 0 if module.batch_first == True else 1
+                        batch_dim = 0 if module.batch_first else 1
                 for name in region_to_search:
                     act_module = name_to_module[name]
                     use_inp = True if region_to_search == region.sinks else False
@@ -919,14 +919,6 @@ class GraphActivationEqualization(GraphTransform):
         # Extra check for batch_dim
         if hasattr(x, 'names') and 'N' in x.names:
             batch_dim = x.names.index('N')
-
-        self.batch_dim_act_map[name] = batch_dim
-        if name not in self.float_act_map:
-            self.float_act_map[name] = self.scale_fn(x, dim=batch_dim)
-        else:
-            batch_data = torch.cat([self.float_act_map[name].unsqueeze(batch_dim), x],
-                                   dim=batch_dim)
-            self.float_act_map[name] = self.scale_fn(batch_data, dim=batch_dim)
 
         input_scales = self.scale_fn(x, dim=batch_dim)
         if name not in self.float_act_map:
