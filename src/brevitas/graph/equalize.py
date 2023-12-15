@@ -721,8 +721,6 @@ class LayerwiseActivationEqualization(GraphTransform):
         """
         Iterate through the model looking at immediate children of every module to look for supported modules.
         This allows us to stop the search when we meet a top-level module that is supported.
-        Specifically, it allows to map nn.MultiheadAttetion to its quantized counterpart and not its
-        Linear submodules.
         """
         if isinstance(model,
                       _supported_layers) and not isinstance(model, _batch_norm + (nn.LayerNorm,)):
