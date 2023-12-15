@@ -922,6 +922,8 @@ class GraphActivationEqualization(GraphTransform):
         if hasattr(x, 'names') and 'N' in x.names:
             batch_dim = x.names.index('N')
 
+        self.batch_dim_act_map[name] = batch_dim
+
         input_scales = self.scale_fn(x, dim=batch_dim)
         if name not in self.float_act_map:
             self.float_act_map[name] = input_scales
