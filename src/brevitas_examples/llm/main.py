@@ -303,8 +303,13 @@ def main():
             quantize_embedding=args.quantize_embedding,
             seqlen=args.seqlen)
         # Tie back first/last layer weights in case they got untied
-        model.tie_weights()
         print("Model quantization applied.")
+
+    # If any equalization has taken places, the embedding layer and the fully connected one are
+    # not tied anymore, and they need to be treated as standalone, separate layers.
+    # In all other cases we can tie them back so to preserve memory.
+    if args.act_equalization is None and not args.weight_equalization:
+        model.tie_weights()
 
     if args.act_calibration:
         print("Apply act calibration...")

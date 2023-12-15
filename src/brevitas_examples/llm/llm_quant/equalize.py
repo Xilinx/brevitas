@@ -10,6 +10,8 @@ import torch
 from brevitas.fx.brevitas_tracer import value_trace
 from brevitas.graph.equalize import activation_equalization_mode
 from brevitas.graph.equalize import EqualizeGraph
+from brevitas.graph.standardize import DuplicateSharedStatelessModule
+from brevitas.graph.standardize import TorchFunctionalToModule
 from brevitas_examples.llm.llm_quant.run_utils import apply_layer_ptq_fn
 from brevitas_examples.llm.llm_quant.run_utils import cast_to_float32
 
@@ -50,6 +52,8 @@ def apply_act_equalization(
         # So we have to cast to fp32 first, trace, apply equalization, and then cast back
         with cast_to_float32(model, dtype):
             graph_model = value_trace(model, value_args=ref_kwargs)
+            graph_model = TorchFunctionalToModule().apply(graph_model)
+            graph_model = DuplicateSharedStatelessModule().apply(graph_model)
             # TODO this is currently running on CPU. We need Accelerate or a TorchDispatchMode
             # or an FX interpreter to run it on GPU
             warnings.warn(
