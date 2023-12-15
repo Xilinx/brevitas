@@ -63,9 +63,17 @@ _scale_invariant_layers = (
     nn.ReLU,
     nn.LeakyReLU)
 
-_scale_invariant_op = (torch.mul, operator.mul, operator.imul, operator.__mul__, operator.__imul__)
+_scale_invariant_op = (
+    torch.mul,
+    operator.mul,
+    operator.imul,
+    operator.__mul__,
+    operator.__imul__,
+)
 
 _select_op = (operator.getitem, operator.__getitem__)
+
+_reshaping_op = ('view', 'reshape', 'flatten', 'contiguous', torch.reshape, torch.flatten)
 
 _scale_varying_activations = (
     torch.nn.Sigmoid, torch.nn.Tanh, torch.nn.ReLU6, torch.nn.GELU, torch.nn.SiLU)
@@ -76,7 +84,7 @@ _residual_fns = (torch.add, operator.add, operator.iadd, operator.__add__, opera
 
 _batch_norm = (nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d)
 
-_ignore_ops = (getattr, 'size', 'contiguous')
+_ignore_ops = (getattr, 'size')
 
 
 # Required for being hashable
@@ -559,9 +567,7 @@ def _is_scale_invariant_function(node: Node) -> bool:
 
 
 def _is_reshaping_op(node: Node) -> bool:
-    return (
-        node.op == 'call_function' and node.target in [torch.flatten, torch.reshape] or
-        node.op == 'call_method' and node.target in ['view', 'reshape', 'flatten'])
+    return node.target in _reshaping_op
 
 
 def find_srcs(graph_model: GraphModule, starting_node: Node,
