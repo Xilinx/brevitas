@@ -107,7 +107,8 @@ class TorchFunctionalToModule(GraphTransform):
                                                        nn.AvgPool1d), (F.avg_pool2d, nn.AvgPool2d),
                         (F.avg_pool3d, nn.AvgPool3d), (F.adaptive_avg_pool1d, nn.AdaptiveAvgPool1d),
                         (F.adaptive_avg_pool2d,
-                         nn.AdaptiveAvgPool2d), (F.adaptive_avg_pool3d, nn.AdaptiveAvgPool3d))
+                         nn.AdaptiveAvgPool2d), (F.adaptive_avg_pool3d,
+                                                 nn.AdaptiveAvgPool3d), (F.dropout, nn.Dropout))
 
     def __init__(self, fn_to_module_map=FN_TO_MODULE_MAP):
         super().__init__()

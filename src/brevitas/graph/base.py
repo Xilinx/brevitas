@@ -296,6 +296,15 @@ class FnToModule(CallableToModule):
     def match_node(self, node: Node) -> bool:
         return node.op == 'call_function' and node.target is self.old_callable
 
+    def move_node_args_to_kwargs(self, node: Node):
+        super().move_node_args_to_kwargs(node)
+        # Moving to stateful modules, we remove the 'training' argument if it is passed to the
+        # functional version of the layer since it is not needed anymore
+        kwargs = dict(node.kwargs)
+        if 'training' in kwargs:
+            del kwargs['training']
+        node.kwargs = immutable_dict(kwargs)
+
 
 class MethodToModule(CallableToModule):
 
