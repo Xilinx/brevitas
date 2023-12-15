@@ -437,12 +437,14 @@ def _cross_layer_equalization(
 
     # Instead of clipping very low values, which would cause their reciprocal to be very large
     # thus hindering quantization, we set them to one, which is the no-op equivalent for equalization
-    sinks_range = torch.where(
-        sinks_range > EPSILON, sinks_range, torch.tensor(1., dtype=dtype, device=device))
-    srcs_range = torch.where(
-        srcs_range > EPSILON, srcs_range, torch.tensor(1., dtype=dtype, device=device))
-    srcs_range = torch.pow(srcs_range, alpha)
+    sinks_range = torch.where((sinks_range < EPSILON) | (srcs_range < EPSILON),
+                              torch.tensor(1., dtype=dtype, device=device),
+                              sinks_range)
+    srcs_range = torch.where((sinks_range < EPSILON) | (srcs_range < EPSILON),
+                             torch.tensor(1., dtype=dtype, device=device),
+                             srcs_range)
 
+    srcs_range = torch.pow(srcs_range, alpha)
     sinks_range = torch.pow(sinks_range, 1 - alpha)
     scaling_factors = srcs_range / sinks_range
     inverse_scaling_factors = torch.reciprocal(scaling_factors)

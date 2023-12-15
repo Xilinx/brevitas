@@ -32,6 +32,7 @@ def trace_and_standardize(model, ref_kwargs):
     graph_model = value_trace(model, value_args=ref_kwargs)
     graph_model = TorchFunctionalToModule().apply(graph_model)
     graph_model = DuplicateSharedStatelessModule().apply(graph_model)
+    return graph_model
 
 
 @torch.no_grad()
