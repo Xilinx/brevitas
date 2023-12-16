@@ -17,7 +17,7 @@ from brevitas.utils.python_utils import islambda
 
 __all__ = [
     'Transform',
-    'PerInputTrasform',
+    'PerInputTransform',
     'GraphTransform',
     'PerInputModuleToModuleByHook',
     'ModuleToModule',
@@ -40,7 +40,7 @@ class Transform(ABC):
         pass
 
 
-class PerInputTrasform(ABC):
+class PerInputTransform(ABC):
 
     @abstractmethod
     def apply(self, model: Module, inp: torch.Tensor) -> Module:
@@ -66,7 +66,7 @@ class UntilFixedPointGraphTransform(Transform):
         return graph_model
 
 
-class PerInputModuleToModuleByHook(PerInputTrasform, ABC):
+class PerInputModuleToModuleByHook(PerInputTransform, ABC):
 
     def __init__(self):
         self.input_size_map = {}
