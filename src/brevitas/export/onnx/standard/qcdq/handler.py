@@ -5,9 +5,8 @@ from abc import ABC
 
 import torch
 
-from brevitas.export.common.handler.qcdq import CastMixin
 from brevitas.export.common.handler.qcdq import CDQMixin
-from brevitas.export.common.handler.qcdq import DQMixin
+from brevitas.export.common.handler.qcdq import DQCastMixin
 from brevitas.export.common.handler.qcdq import QCDQActQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQBiasQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQDecoupledWeightQuantProxyHandlerMixin
@@ -24,10 +23,13 @@ from ..function import IntClipFn
 from ..function import QuantizeLinearFn
 
 
-class StdDQONNXMixin(DQMixin, ABC):
+class StdDQCastONNXMixin(DQCastMixin, ABC):
 
     def dequantize_fn(self, x, scale, zero_point, axis):
         return DequantizeLinearFn.apply(x, scale, zero_point, axis)
+
+    def cast_fn(self, x, dtype):
+        return CastFn.apply(x, dtype)
 
     @property
     def flatten_dequantize_params(self):
@@ -39,12 +41,6 @@ class StdDQONNXMixin(DQMixin, ABC):
 
     def validate(self, module):
         assert module.bit_width() > 1., 'Binary quant not supported'
-
-
-class StdDQCastONNXMixin(CastMixin, StdDQONNXMixin):
-
-    def cast_fn(self, x, dtype):
-        return CastFn.apply(x, dtype)
 
 
 class StdCDQCastONNXMixin(CDQMixin, StdDQCastONNXMixin, ABC):

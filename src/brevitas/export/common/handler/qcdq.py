@@ -51,17 +51,17 @@ class DQMixin(ABC):
             assert bools
 
 
+class DQCastMixin(DQMixin, ABC):
+
+    @abstractmethod
+    def cast_fn(self, x, dtype):
+        pass
+
+
 class CDQMixin(DQMixin, ABC):
 
     @abstractmethod
     def clip_fn(self, x, min_val, max_val):
-        pass
-
-
-class CastMixin(ABC):
-
-    @abstractmethod
-    def cast_fn(self, x, dtype):
         pass
 
 
