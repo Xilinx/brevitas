@@ -14,13 +14,13 @@ from ..function import DequantizeLinearFn
 from ..function import IntClipFn
 from ..function import QuantizeLinearFn
 from ..manager import StdONNXBaseManager
-from .handler import StdQCDQONNXActQuantProxyHandler
-from .handler import StdQCDQONNXBiasQuantProxyHandler
-from .handler import StdQCDQONNXDecoupledWeightQuantProxyHandler
-from .handler import StdQCDQONNXDecoupledWeightQuantWithInputProxyHandler
-from .handler import StdQCDQONNXQuantLSTMLayerHandler
-from .handler import StdQCDQONNXTruncQuantProxyHandler
-from .handler import StdQCDQONNXWeightQuantProxyHandler
+from .handler import StdQCDQCastONNXActQuantProxyHandler
+from .handler import StdQCDQCastONNXBiasQuantProxyHandler
+from .handler import StdQCDQCastONNXDecoupledWeightQuantProxyHandler
+from .handler import StdQCDQCastONNXDecoupledWeightQuantWithInputProxyHandler
+from .handler import StdQCDQCastONNXQuantLSTMLayerHandler
+from .handler import StdQCDQCastONNXTruncQuantProxyHandler
+from .handler import StdQCDQCastONNXWeightQuantProxyHandler
 
 
 class StdQCDQONNXManager(StdONNXBaseManager):
@@ -33,13 +33,13 @@ class StdQCDQONNXManager(StdONNXBaseManager):
         "eliminate_unused_initializer"]
 
     handlers = [
-        StdQCDQONNXWeightQuantProxyHandler,
-        StdQCDQONNXBiasQuantProxyHandler,
-        StdQCDQONNXActQuantProxyHandler,
-        StdQCDQONNXDecoupledWeightQuantProxyHandler,
-        StdQCDQONNXTruncQuantProxyHandler,
-        StdQCDQONNXDecoupledWeightQuantWithInputProxyHandler,
-        StdQCDQONNXQuantLSTMLayerHandler]
+        StdQCDQCastONNXWeightQuantProxyHandler,
+        StdQCDQCastONNXBiasQuantProxyHandler,
+        StdQCDQCastONNXActQuantProxyHandler,
+        StdQCDQCastONNXDecoupledWeightQuantProxyHandler,
+        StdQCDQCastONNXTruncQuantProxyHandler,
+        StdQCDQCastONNXDecoupledWeightQuantWithInputProxyHandler,
+        StdQCDQCastONNXQuantLSTMLayerHandler]
 
     custom_fns = [
         DebugMarkerFunction,

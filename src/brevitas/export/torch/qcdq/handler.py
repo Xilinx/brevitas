@@ -93,9 +93,9 @@ class TorchQCDQHandler(BaseHandler):
         return self.symbolic_execution(*args, **kwargs)
 
 
-class TorchQCDQWeightQuantProxyHandler(TorchCDQCastMixin,
-                                       QCDQWeightQuantProxyHandlerMixin,
-                                       TorchQCDQHandler):
+class TorchQCDQCastWeightQuantProxyHandler(TorchCDQCastMixin,
+                                           QCDQWeightQuantProxyHandlerMixin,
+                                           TorchQCDQHandler):
 
     @classmethod
     def int_clip_symbolic_kwargs(cls, narrow, signed, bit_width):
@@ -103,9 +103,9 @@ class TorchQCDQWeightQuantProxyHandler(TorchCDQCastMixin,
         return _itemize_clip_bounds(clip_args)
 
 
-class TorchQCDQDecoupledWeightQuantProxyHandler(TorchCDQCastMixin,
-                                                QCDQDecoupledWeightQuantProxyHandlerMixin,
-                                                TorchQCDQHandler):
+class TorchQCDQCastDecoupledWeightQuantProxyHandler(TorchCDQCastMixin,
+                                                    QCDQDecoupledWeightQuantProxyHandlerMixin,
+                                                    TorchQCDQHandler):
 
     @classmethod
     def int_clip_symbolic_kwargs(cls, narrow, signed, bit_width):
@@ -113,7 +113,7 @@ class TorchQCDQDecoupledWeightQuantProxyHandler(TorchCDQCastMixin,
         return _itemize_clip_bounds(clip_args)
 
 
-class TorchQCDQDecoupledWeightQuantWithInputProxyHandler(
+class TorchQCDQCastDecoupledWeightQuantWithInputProxyHandler(
         TorchCDQCastMixin, QCDQDecoupledWeightQuantWithInputProxyHandlerMixin, TorchQCDQHandler):
 
     @classmethod
@@ -122,9 +122,9 @@ class TorchQCDQDecoupledWeightQuantWithInputProxyHandler(
         return _itemize_clip_bounds(clip_args)
 
 
-class TorchQCDQActQuantProxyHandler(TorchQCDQCastMixin,
-                                    QCDQActQuantProxyHandlerMixin,
-                                    TorchQCDQHandler):
+class TorchQCDQCastActQuantProxyHandler(TorchQCDQCastMixin,
+                                        QCDQActQuantProxyHandlerMixin,
+                                        TorchQCDQHandler):
 
     @classmethod
     def int_clip_symbolic_kwargs(cls, narrow, signed, bit_width):
@@ -132,15 +132,15 @@ class TorchQCDQActQuantProxyHandler(TorchQCDQCastMixin,
         return _itemize_clip_bounds(clip_args)
 
 
-class TorchQCDQBiasQuantProxyHandler(TorchDQCastMixin,
-                                     QCDQBiasQuantProxyHandlerMixin,
-                                     TorchQCDQHandler):
+class TorchQCDQCastBiasQuantProxyHandler(TorchDQCastMixin,
+                                         QCDQBiasQuantProxyHandlerMixin,
+                                         TorchQCDQHandler):
     pass
 
 
-class TorchQCDQTruncQuantProxyHandler(TorchQCDQCastMixin,
-                                      QCDQTruncQuantProxyHandlerMixin,
-                                      TorchQCDQHandler):
+class TorchQCDQCastTruncQuantProxyHandler(TorchQCDQCastMixin,
+                                          QCDQTruncQuantProxyHandlerMixin,
+                                          TorchQCDQHandler):
 
     @classmethod
     def int_clip_symbolic_kwargs(cls, narrow, signed, bit_width):

@@ -74,42 +74,42 @@ class StdQCDQCastONNXMixin(QMixin, StdCDQCastONNXMixin, ABC):
         return QuantizeLinearFn.apply(x, scale, zero_point, dtype, axis)
 
 
-class StdQCDQONNXWeightQuantProxyHandler(StdCDQCastONNXMixin,
-                                         QCDQWeightQuantProxyHandlerMixin,
-                                         ONNXBaseHandler):
+class StdQCDQCastONNXWeightQuantProxyHandler(StdCDQCastONNXMixin,
+                                             QCDQWeightQuantProxyHandlerMixin,
+                                             ONNXBaseHandler):
     pass
 
 
-class StdQCDQONNXDecoupledWeightQuantProxyHandler(StdCDQCastONNXMixin,
-                                                  QCDQDecoupledWeightQuantProxyHandlerMixin,
-                                                  ONNXBaseHandler):
+class StdQCDQCastONNXDecoupledWeightQuantProxyHandler(StdCDQCastONNXMixin,
+                                                      QCDQDecoupledWeightQuantProxyHandlerMixin,
+                                                      ONNXBaseHandler):
     pass
 
 
-class StdQCDQONNXDecoupledWeightQuantWithInputProxyHandler(
+class StdQCDQCastONNXDecoupledWeightQuantWithInputProxyHandler(
         StdCDQCastONNXMixin, QCDQDecoupledWeightQuantWithInputProxyHandlerMixin, ONNXBaseHandler):
     pass
 
 
-class StdQCDQONNXActQuantProxyHandler(StdQCDQCastONNXMixin,
-                                      QCDQActQuantProxyHandlerMixin,
-                                      ONNXBaseHandler):
+class StdQCDQCastONNXActQuantProxyHandler(StdQCDQCastONNXMixin,
+                                          QCDQActQuantProxyHandlerMixin,
+                                          ONNXBaseHandler):
     pass
 
 
-class StdQCDQONNXBiasQuantProxyHandler(StdDQCastONNXMixin,
-                                       QCDQBiasQuantProxyHandlerMixin,
-                                       ONNXBaseHandler):
+class StdQCDQCastONNXBiasQuantProxyHandler(StdDQCastONNXMixin,
+                                           QCDQBiasQuantProxyHandlerMixin,
+                                           ONNXBaseHandler):
     pass
 
 
-class StdQCDQONNXTruncQuantProxyHandler(StdQCDQCastONNXMixin,
-                                        QCDQTruncQuantProxyHandlerMixin,
-                                        ONNXBaseHandler):
+class StdQCDQCastONNXTruncQuantProxyHandler(StdQCDQCastONNXMixin,
+                                            QCDQTruncQuantProxyHandlerMixin,
+                                            ONNXBaseHandler):
     pass
 
 
-class StdQCDQONNXQuantLSTMLayerHandler(QuantLSTMLayerHandler):
+class StdQCDQCastONNXQuantLSTMLayerHandler(QuantLSTMLayerHandler):
 
     def quantized_cell_symbolic_execution(
             self,
