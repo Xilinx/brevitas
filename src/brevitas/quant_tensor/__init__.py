@@ -355,7 +355,6 @@ class QuantTensor(QuantTensorBase):
                 output_value = torch.cat(tensors, dim=dim)
                 return output_value
 
-
     # Reference: https://docs.python.org/3/reference/datamodel.html#emulating-numeric-types
 
     def __neg__(self):
