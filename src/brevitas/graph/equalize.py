@@ -144,7 +144,7 @@ class WalkRegionState:
 
     @property
     def sinks_names(self):
-        return [name.split("$")[0] for name in self.sinks.keys()]
+        return [name.split("$")[0] for name in self.sinks.keys() if name is not _UNSUPPORTED_OP]
 
     def add(
             self,
