@@ -870,7 +870,7 @@ def _extract_regions(
                 module = get_module(graph_model, node.target)
                 weight = get_weight_source([module])
                 eq_indexes = EqualizationIndexes(0, weight[0].shape[0], 0)
-                state.add_srcs(node.target.module, eq_indexes)
+                state.add_srcs(node.target, module, eq_indexes)
             find_sinks(graph_model, node, state)
             if state.sinks and _UNSUPPORTED_OP not in state.sinks.keys(
             ) and _UNSUPPORTED_OP not in state.srcs.keys():
