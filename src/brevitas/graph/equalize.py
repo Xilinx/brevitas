@@ -674,8 +674,14 @@ def find_srcs_channel_dim(model, inp_node):
         channel = weight[0].shape[0]
         return channel
     elif _is_add(inp_node):
-        # If it's add, we need the channel shape of one of the branches, since they are all the same
-        return find_srcs_channel_dim(model, inp_node.all_input_nodes[0])
+        all_channels = []
+        for n in inp_node.all_input_nodes:
+            all_channels.append(find_srcs_channel_dim(model, n))
+        # All branches to add should have the same amount of channels
+        if all([channel == all_channels[0] for channel in all_channels]):
+            return all_channels[0]
+        else:
+            return _UNSUPPORTED_OP
     elif _is_cat(inp_node):
         total_channels = 0
         # If it's cat, we need to sum the channel shape of all the branches
@@ -816,7 +822,11 @@ def find_sinks(graph_model: GraphModule, starting_node: Node,
                 index = node.all_input_nodes.index(starting_node)
                 channels = []
                 for n in node.all_input_nodes:
-                    channels.append(find_srcs_channel_dim(graph_model, n))
+                    channel_dim = find_srcs_channel_dim(graph_model, n)
+                    if channel_dim is _UNSUPPORTED_OP:
+                        state.sinks[_UNSUPPORTED_OP] = _UNSUPPORTED_OP
+                        continue
+                    channels.append(channel_dim)
                 start = sum(channels[:index])
                 end = start + channels[index]
                 new_state = WalkRegionState(offset=state.offset)
