@@ -30,21 +30,11 @@ IN_SIZE_LINEAR = (1, 224, 3)
 
 
 def equalize_test(model, regions, merge_bias, bias_shrinkage, scale_computation_type):
-    name_to_module = {}
-    name_set = set()
-    for region in regions:
-        for name in region.srcs_names:
-            name_set.add(name)
-        for name in region.sinks_names:
-            name_set.add(name)
     scale_factors_regions = []
-    for name, module in model.named_modules():
-        if name in name_set:
-            name_to_module[name] = module
     for i in range(3):
         for region in regions:
-            srcs_dict = _organize_region(region, name_to_module, 'srcs')
-            sinks_dict = _organize_region(region, name_to_module, 'sinks')
+            srcs_dict = _organize_region(region, 'srcs')
+            sinks_dict = _organize_region(region, 'sinks')
             scale_factors_region = _cross_layer_equalization(
                 srcs_dict,
                 sinks_dict,

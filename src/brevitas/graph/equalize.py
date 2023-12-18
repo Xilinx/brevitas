@@ -86,6 +86,18 @@ _batch_norm = (nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d)
 _ignore_ops = (getattr, 'size')
 
 
+# Start and End identify the starting and ending channels of the weight matrix that need to be
+# equalized.
+# Offset refers to the relative position of these channels with respect to
+# the other matrices' channels that are equalized simultaneously.
+# Source matrix are always fully equalized, while sinks can be partially equalized.
+@dataclass
+class EqualizationIndexes:
+    start: int = 0
+    end: int = 0
+    offset: int = 0
+
+
 # Required for being hashable
 @dataclass(eq=True, frozen=True)
 class WeightBiasTuple:
@@ -99,6 +111,7 @@ class Region:
     srcs: Dict = field(default_factory=dict)
     sinks: Dict = field(default_factory=dict)
     acts: Tuple = field(default_factory=tuple)
+    name_to_module: Dict = field(default_factory=dict)
 
     @property
     def srcs_names(self):
@@ -108,6 +121,10 @@ class Region:
     def sinks_names(self):
         return [name.split("$")[0] for name in self.sinks.keys()]
 
+    def get_module_from_name(self, name: str) -> nn.Module:
+        name = name.split("$")[0]
+        return self.name_to_module[name]
+
 
 @dataclass
 class WalkRegionState:
@@ -115,21 +132,47 @@ class WalkRegionState:
     sinks: Dict = field(default_factory=dict)
     acts: Set = field(default_factory=set)
     history: set = field(default_factory=set)
+    name_to_module: Dict = field(default_factory=dict)
+
     add_mul_node: bool = False
     offset: int = 0
     update_offset: bool = False
 
+    @property
+    def srcs_names(self):
+        return [name.split("$")[0] for name in self.srcs.keys()]
 
-# Start and End identify the starting and ending channels of the weight matrix that need to be
-# equalized.
-# Offset refers to the relative position of these channels with respect to
-# the other matrices' channels that are equalized simultaneously.
-# Source matrix are always fully equalized, while sinks can be partially equalized.
-@dataclass
-class EqualizationIndexes:
-    start: int = 0
-    end: int = 0
-    offset: int = 0
+    @property
+    def sinks_names(self):
+        return [name.split("$")[0] for name in self.sinks.keys()]
+
+    def add(
+            self,
+            type: str,
+            name: str,
+            module: nn.Module,
+            indexes: Optional[EqualizationIndexes] = None):
+        if type == 'srcs' or type == 'sinks':
+            assert indexes is not None
+            full_source_name = name + '$' + str(indexes)
+            self.srcs[full_source_name] = indexes
+            getattr(self, type)[full_source_name] = indexes
+        else:
+            getattr(self, type).add(name)
+        self.name_to_module[name] = module
+
+    def add_srcs(self, src_name: str, src: nn.Module, indexes: EqualizationIndexes):
+        self.add('srcs', src_name, src, indexes)
+
+    def add_sinks(self, sink_name: str, sink: nn.Module, indexes: EqualizationIndexes):
+        self.add('srcs', sink_name, sink, indexes)
+
+    def add_acts(self, act_name: str, act: nn.Module):
+        self.add('acts', act_name, act)
+
+    def get_module_from_name(self, name: str) -> nn.Module:
+        name = name.split("$")[0]
+        return self.name_to_module[name]
 
 
 def __str__(self):
@@ -177,23 +220,6 @@ class activation_equalization_mode:
         if self.enabled:
             self.scale_factors = self.graph_act_eq.apply(self.alpha)
         return True  # To propagate exceptions
-
-
-def dict_name_to_module(model, regions):
-    name_to_module: Dict[str, torch.nn.Module] = {}
-
-    name_set = set()
-    for region in regions:
-        for name in region.srcs_names:
-            name_set.add(name)
-        for name in region.sinks_names:
-            name_set.add(name)
-        for name in region.acts:
-            name_set.add(name)
-    for name, module in model.named_modules():
-        if name in name_set:
-            name_to_module[name] = module
-    return name_to_module
 
 
 def _channel_range(inp: torch.Tensor, dim: int = 1) -> torch.Tensor:
@@ -556,13 +582,12 @@ def _update_weights(original_module, new_value, attr='weight'):
         setattr(original_module, attr, nn.Parameter(new_value))
 
 
-def _organize_region(region, name_to_module, type):
+def _organize_region(region, type):
     region_dict = {}
     region = getattr(region, type)
     for i, (k, v) in enumerate(region.items()):
         name = type + str(i)
-        k = k.split('$')[0]
-        region_dict[name] = (name_to_module[k], v)
+        region_dict[name] = (region.get_module_from_name(k), v)
     return region_dict
 
 
@@ -577,22 +602,11 @@ def _equalize(
     """
     Generalized version of section 4.1 of https://arxiv.org/pdf/1906.04721.pdf
     """
-    name_to_module: Dict[str, nn.Module] = {}
-    name_set = set()
-    for region in regions:
-        for name in region.srcs_names:
-            name_set.add(name)
-        for name in region.sinks_names:
-            name_set.add(name)
-
-    for name, module in model.named_modules():
-        if name in name_set:
-            name_to_module[name] = module
     for i in range(iterations):
         scale_factor_max = None
         for ii, region in enumerate(regions):
-            srcs_dict = _organize_region(region, name_to_module, 'srcs')
-            sinks_dict = _organize_region(region, name_to_module, 'sinks')
+            srcs_dict = _organize_region(region, 'srcs')
+            sinks_dict = _organize_region(region, 'sinks')
             scale_factors_region = _cross_layer_equalization(
                 srcs_dict,
                 sinks_dict,
@@ -740,9 +754,9 @@ def find_srcs(graph_model: GraphModule, starting_node: Node,
             module = get_module(graph_model, node.target)
             weight = get_weight_source([module])
             eq_indexes = EqualizationIndexes(0, weight[0].shape[0], state.offset)
-            full_source_name = node.target + '$' + str(eq_indexes)
-            state.srcs[full_source_name] = eq_indexes
+
             # After we found a source, we need to check if it branches into multiple sinks
+            state.add_srcs(node.target, module, eq_indexes)
             find_sinks(graph_model, node, state)
             state.offset = state.offset if not state.update_offset else state.offset + weight[
                 0].shape[0]
@@ -796,8 +810,8 @@ def find_sinks(graph_model: GraphModule, starting_node: Node,
             if isinstance(module, (nn.LayerNorm,) + _batch_norm):
                 state.sinks[_UNSUPPORTED_OP] = _UNSUPPORTED_OP
             else:
-                full_sink_name = node.target + '$' + str(eq_indexes)
-                state.sinks[full_sink_name] = eq_indexes
+                state.add_sinks(node.target, module, eq_indexes)
+
         elif _is_scale_invariant_module(
                 graph_model, node) or _is_scale_invariant_function(node) or _is_reshaping_op(node):
             find_sinks(graph_model, node, state)
@@ -826,8 +840,11 @@ def find_sinks(graph_model: GraphModule, starting_node: Node,
                 new_state = WalkRegionState(offset=state.offset)
                 find_sinks(graph_model, node, new_state)
 
-                for k in new_state.sinks.keys():
-                    state.sinks[k] = EqualizationIndexes(start, end, new_state.offset)
+                for k in new_state.sinks_names:
+                    state.add_sinks(
+                        k,
+                        new_state.get_module_from_name(k),
+                        EqualizationIndexes(start, end, new_state.offset))
                 state.srcs.update(new_state.srcs)
         elif node.target in _ignore_ops:
             continue
@@ -841,20 +858,19 @@ def _extract_regions(
         add_mul_node: bool = False,
         return_acts: bool = False) -> List[Region]:
     regions = list()
-    regions_name = set()
     for node in graph_model.graph.nodes:
         if _is_supported_module(graph_model,
                                 node) or (add_mul_node and
                                           _is_scale_varying_activation(graph_model, node)):
             state = WalkRegionState(add_mul_node=add_mul_node)
             if _is_scale_varying_activation(graph_model, node):
-                state.acts.add(node.target)
+                module = get_module(graph_model, node.target)
+                state.add_acts(node.target, module)
             else:
                 module = get_module(graph_model, node.target)
                 weight = get_weight_source([module])
                 eq_indexes = EqualizationIndexes(0, weight[0].shape[0], 0)
-                full_source_name = node.target + '$' + str(eq_indexes)
-                state.srcs[full_source_name] = eq_indexes
+                state.add_srcs(node.target.module, eq_indexes)
             find_sinks(graph_model, node, state)
             if state.sinks and _UNSUPPORTED_OP not in state.sinks.keys(
             ) and _UNSUPPORTED_OP not in state.srcs.keys():
@@ -864,9 +880,14 @@ def _extract_regions(
                 sorted_sinks = dict(sorted(state.sinks.items()))
                 sorted_acts = tuple(sorted(state.acts))
                 if return_acts:
-                    region = Region(srcs=sorted_srcs, sinks=sorted_sinks, acts=sorted_acts)
+                    region = Region(
+                        srcs=sorted_srcs,
+                        sinks=sorted_sinks,
+                        acts=sorted_acts,
+                        name_to_module=state.name_to_module)
                 else:
-                    region = Region(srcs=sorted_srcs, sinks=sorted_sinks)
+                    region = Region(
+                        srcs=sorted_srcs, sinks=sorted_sinks, name_to_module=state.name_to_module)
 
                 if region not in regions:
                     regions.append(region)
@@ -1055,7 +1076,6 @@ class GraphActivationEqualization(ActivationEqualization):
             self.scale_fn = _channel_range
 
     def setup(self):
-        name_to_module = dict_name_to_module(self.model, self.regions)
         # Select only regions with activation to equalize through.
         # If a region has multiple scale varying activation, must also be dropped
         # because we can't propagate scaling factors
@@ -1063,7 +1083,7 @@ class GraphActivationEqualization(ActivationEqualization):
         for region in self.regions:
             # This condition is for redudancy, since
             # a region with two scale-varying activations cannot be detected in the first place
-            if len(region.acts) > 1 and any([isinstance(name_to_module[act_name],
+            if len(region.acts) > 1 and any([isinstance(region.get_module_from_name(act_name),
                                                         _scale_varying_activations)
                                              for act_name in region.acts]):
                 regions_to_drop.append(region)
@@ -1073,11 +1093,11 @@ class GraphActivationEqualization(ActivationEqualization):
             batch_dim = 0
             region_to_search = region.sinks if len(region.acts) == 0 else region.acts
             for name in region.srcs + region.sinks:
-                module = name_to_module[name]
+                module = region.get_module_from_name(name)
                 if hasattr(module, 'batch_first'):
                     batch_dim = 0 if module.batch_first else 1
             for name in region_to_search:
-                module = name_to_module[name]
+                module = region.get_module_from_name(name)
                 use_inp = True if region_to_search == region.sinks else False
                 hook_fn = partial(
                     self.forward_stats_hook, name=name, batch_dim=batch_dim, use_inp=use_inp)
@@ -1090,12 +1110,11 @@ class GraphActivationEqualization(ActivationEqualization):
     def apply(self, alpha):
         scale_factors = []
         self.remove_hooks()
-        name_to_module = dict_name_to_module(self.model, self.regions)
         for region in self.regions:
             region_names = region.sinks_names if len(region.acts) == 0 else region.acts
             if any([self.float_act_map[name] is None for name in region_names]):
                 continue
-            act_module = [name_to_module[act_name] for act_name in region.acts]
+            act_module = [region.get_module_from_name(act_name) for act_name in region.acts]
             list_of_act_val = [self.float_act_map[name] for name in region_names]
 
             list_of_insert_mul_node_fn = None
@@ -1110,8 +1129,8 @@ class GraphActivationEqualization(ActivationEqualization):
                             self.insert_mul_node,
                             act_node=act_node,
                             batch_dim=self.batch_dim_act_map[act_name]))
-            srcs_dict = _organize_region(region, name_to_module, 'srcs')
-            sinks_dict = _organize_region(region, name_to_module, 'sinks')
+            srcs_dict = _organize_region(region, 'srcs')
+            sinks_dict = _organize_region(region, 'sinks')
             scale_factors.append(
                 _cross_layer_equalization(
                     srcs_dict,
