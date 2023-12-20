@@ -412,7 +412,7 @@ class QuantTensor(QuantTensorBase):
             output_signed = self.signed or other.signed
             output_training = self.training or other.training
             if self.is_zero_zero_point(self) and self.is_zero_zero_point(other):
-                output_zero_point = self.zero_point / other.zero_point
+                output_zero_point = self.zero_point * other.zero_point  # Output zero_point is a new, zero-valued tensor
             else:
                 output_zero_point = None  # TODO non-zero zero point
             output = QuantTensor(
