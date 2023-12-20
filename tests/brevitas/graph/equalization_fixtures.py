@@ -11,7 +11,6 @@ from torchvision import models
 
 from brevitas import torch_version
 from brevitas.graph.equalize import _cross_layer_equalization
-from brevitas.graph.equalize import _organize_region
 
 SEED = 123456
 ATOL = 1e-3
@@ -29,7 +28,7 @@ IN_SIZE_CONV = (1, 3, 224, 224)
 IN_SIZE_LINEAR = (1, 224, 3)
 
 
-def equalize_test(model, regions, merge_bias, bias_shrinkage, scale_computation_type):
+def equalize_test(regions, merge_bias, bias_shrinkage, scale_computation_type):
     scale_factors_regions = []
     for i in range(3):
         for region in regions:

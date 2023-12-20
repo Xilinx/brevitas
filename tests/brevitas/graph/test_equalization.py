@@ -30,7 +30,7 @@ def test_resnet18_equalization():
     model_orig = copy.deepcopy(model)
     regions = _extract_regions(model)
     _ = equalize_test(
-        model, regions, merge_bias=True, bias_shrinkage='vaiq', scale_computation_type='maxabs')
+        regions, merge_bias=True, bias_shrinkage='vaiq', scale_computation_type='maxabs')
     out = model(inp)
 
     # Check that equalization is not introducing FP variations
@@ -75,11 +75,7 @@ def test_equalization_torchvision_models(model_coverage: tuple, merge_bias: bool
 
     regions = _extract_regions(model)
     scale_factor_regions = equalize_test(
-        model,
-        regions,
-        merge_bias=merge_bias,
-        bias_shrinkage='vaiq',
-        scale_computation_type='maxabs')
+        regions, merge_bias=merge_bias, bias_shrinkage='vaiq', scale_computation_type='maxabs')
     shape_scale_regions = [scale.shape for scale in scale_factor_regions]
 
     out = model(inp)
@@ -132,11 +128,7 @@ def test_models(toy_model, merge_bias, request):
     model = symbolic_trace(model)
     regions = _extract_regions(model)
     scale_factor_regions = equalize_test(
-        model,
-        regions,
-        merge_bias=merge_bias,
-        bias_shrinkage='vaiq',
-        scale_computation_type='maxabs')
+        regions, merge_bias=merge_bias, bias_shrinkage='vaiq', scale_computation_type='maxabs')
     shape_scale_regions = [scale.shape for scale in scale_factor_regions]
 
     with torch.no_grad():
