@@ -1,11 +1,18 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+import onnx
+import torch
 from torch.autograd import Function
 
 from brevitas.export.onnx import onnx_export_opset
 
 AXIS_OPSET = 13
+
+DATATYPE_DICT = {
+    torch.float32: onnx.TensorProto.DataType.FLOAT,
+    torch.float16: onnx.TensorProto.DataType.FLOAT16,
+    torch.bfloat16: onnx.TensorProto.DataType.BFLOAT16}
 
 
 class DequantizeLinearFn(Function):
@@ -37,6 +44,18 @@ class IntClipFn(Function):
     @staticmethod
     def forward(ctx, int_x, min_int_val, max_int_val):
         return int_x
+
+
+class CastFn(Function):
+
+    @staticmethod
+    def symbolic(g, x, dtype):
+        ret = g.op('Cast', x, to_i=DATATYPE_DICT[dtype])
+        return ret
+
+    @staticmethod
+    def forward(ctx, x, dtype):
+        return x.to(dtype)
 
 
 class QuantizeLinearFn(Function):
