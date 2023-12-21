@@ -61,7 +61,7 @@ def accuracy(output, target, topk=(1,), stable=False):
         return res
 
 
-def validate(val_loader, model):
+def validate(val_loader, model, stable=True):
     """
     Run validation on the desired dataset
     """
@@ -82,7 +82,7 @@ def validate(val_loader, model):
 
             output = model(images)
             # measure accuracy
-            acc1, = accuracy(output, target, stable=True)
+            acc1, = accuracy(output, target, stable=stable)
             top1.update(acc1[0], images.size(0))
 
         print_accuracy(top1, 'Total:')
