@@ -124,8 +124,8 @@ def preprocess_for_flexml_quantize(
         equalize_iters=0,
         equalize_merge_bias=True,
         merge_bn=True,
-        equalize_bias_shrinkage: str = 'vaiq',
-        equalize_scale_computation: str = 'maxabs',
+        equalize_bias_shrinkage='vaiq',
+        equalize_scale_computation='maxabs',
         **model_kwargs):
     training_state = model.training
     model.eval()
