@@ -12,6 +12,8 @@ import brevitas
 from brevitas import config
 from brevitas.core.utils import StatelessBuffer
 from brevitas.function.ops import max_int
+# Use custom implementation of kthvalue as work around to (b)float16 kernel limitations
+from brevitas.utils.torch_utils import kthvalue
 
 from .stats_wrapper import SCALAR_SHAPE
 
@@ -64,7 +66,7 @@ class AbsPercentile(brevitas.jit.ScriptModule):
         if self.stats_reduce_dim is None:
             # k is 1-indexed, so round away from zero
             k = int(math.floor(.01 * self.q * x.numel() + 0.5))
-            result = x.abs().view(-1).kthvalue(k).values
+            result = kthvalue(x.abs().view(-1), k)[0]
         else:
             # assuming x is two dimensional, get the other dimension
             assert len(x.size()) == 2, "Only 2-dim input is supported."
@@ -72,7 +74,7 @@ class AbsPercentile(brevitas.jit.ScriptModule):
             dim_slice = torch.narrow(x, dim=other_dim, start=0, length=1)
             # k is 1-indexed, so round away from zero
             k = int(math.floor(.01 * self.q * dim_slice.numel() + 0.5))
-            result = x.abs().kthvalue(k, dim=self.stats_reduce_dim, keepdim=self.keepdim).values
+            result = kthvalue(x.abs(), k, dim=self.stats_reduce_dim, keepdim=self.keepdim)[0]
         return result
 
 
@@ -97,7 +99,7 @@ class NegativePercentileOrZero(brevitas.jit.ScriptModule):
         if self.stats_reduce_dim is None:
             # k is 1-indexed, so round away from zero
             k = int(math.ceil(.01 * self.q * x.numel()))
-            result = x.view(-1).kthvalue(k).values
+            result = kthvalue(x.view(-1), k)[0]
         else:
             # assuming x is two dimensional, get the other dimension
             assert len(x.size()) == 2, "Only 2-dim input is supported."
@@ -105,7 +107,7 @@ class NegativePercentileOrZero(brevitas.jit.ScriptModule):
             dim_slice = torch.narrow(x, dim=other_dim, start=0, length=1)
             # k is 1-indexed, so round away from zero
             k = int(math.ceil(.01 * self.q * dim_slice.numel()))
-            result = x.kthvalue(k, dim=self.stats_reduce_dim, keepdim=self.keepdim).values
+            result = kthvalue(x, k, dim=self.stats_reduce_dim, keepdim=self.keepdim)[0]
         result = torch.clamp(result, max=self.zero())
         return result
 
@@ -134,8 +136,8 @@ class PercentileInterval(brevitas.jit.ScriptModule):
             low_k = int(math.ceil(.01 * self.low_q * x.numel()))
             # k is 1-indexed, so round away from zero
             high_k = int(math.floor(.01 * self.high_q * x.numel() + 0.5))
-            low_result = x.view(-1).kthvalue(low_k).values
-            high_result = x.view(-1).kthvalue(high_k).values
+            low_result = kthvalue(x.view(-1), low_k)[0]
+            high_result = kthvalue(x.view(-1), high_k)[0]
         else:
             # assuming x is two dimensional, get the other dimension
             assert len(x.size()) == 2, "Only 2-dim input is supported."
@@ -144,8 +146,8 @@ class PercentileInterval(brevitas.jit.ScriptModule):
             low_k = int(math.ceil(.01 * self.low_q * dim_slice.numel()))
             # k is 1-indexed, so round away from zero
             high_k = int(math.floor(.01 * self.high_q * dim_slice.numel() + 0.5))
-            low_result = x.kthvalue(low_k, dim=self.stats_reduce_dim, keepdim=self.keepdim).values
-            high_result = x.kthvalue(high_k, dim=self.stats_reduce_dim, keepdim=self.keepdim).values
+            low_result = kthvalue(x, low_k, dim=self.stats_reduce_dim, keepdim=self.keepdim)[0]
+            high_result = kthvalue(x, high_k, dim=self.stats_reduce_dim, keepdim=self.keepdim)[0]
         # We need to make sure the lower bound is not positive to align with zero-point statistics
         low_result = torch.clamp(low_result, max=self.zero())
         interval = high_result - low_result

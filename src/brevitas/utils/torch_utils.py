@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import copy
+from typing import Optional, Tuple
 
 import torch
 from torch.nn import Sequential
@@ -46,3 +47,36 @@ def torch_partial_deepcopy(model):
         memo[id(p)] = copy.copy(p)  # Shallow copy of parameters
     model_copy = copy.deepcopy(model, memo)
     return model_copy
+
+
+def kthvalue(
+    x: torch.Tensor,
+    k: int,
+    dim: Optional[int] = None,
+    keepdim: bool = False,
+    out: Optional[Tuple[torch.Tensor, torch.LongTensor]] = None
+) -> Tuple[torch.Tensor, torch.LongTensor]:
+    # As of torch 2.1, there is no kthvalue implementation:
+    # - In CPU for float16
+    # - In GPU for bfloat16
+    # In these cases we cast to float32 and then go back to the original dtype
+    dtype = x.dtype
+    device = str(x.device)
+
+    # We do not support out as buffer for the output, since we cannot control its dtype
+    if out is not None:
+        raise RuntimeError("out argument for kthvalue not supported")
+
+    if (dtype == torch.float16 and 'cpu' in device) or \
+        (dtype == torch.bfloat16 and 'cuda' in device):
+        x = x.type(torch.float32)
+
+    # PyTorch specify None as default for `dim` but it breaks if we specifically pass None
+    if dim is not None:
+        x, indices = torch.kthvalue(x, k, dim=dim, keepdim=keepdim)
+    else:
+        x, indices = torch.kthvalue(x, k, keepdim=keepdim)
+
+    if x.dtype != dtype:
+        x = x.type(dtype)
+    return (x, indices)
