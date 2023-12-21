@@ -11,6 +11,8 @@ from operator import attrgetter
 from typing import List, Optional, Set
 import warnings
 
+import torch
+
 from brevitas.graph.calibrate import DisableEnableQuantization
 import brevitas.nn as qnn
 from brevitas.quant_tensor import QuantTensor
@@ -175,13 +177,23 @@ class GPxQ(ABC):
             if self.layer.weight_quant_requires_quant_input:
                 # Can minimize memory allocation by not storing actual values
                 self.quant_input = QuantTensor(
-                    value=None,
+                    value=torch.empty(
+                        1, dtype=self.layer.weight.dtype, device=self.layer.weight.device),
                     scale=inp.scale,
                     zero_point=inp.zero_point,
                     bit_width=inp.bit_width,
                     signed=inp.signed,
                     training=inp.training)
             inp = inp.value
+        elif self.layer.is_input_quant_enabled:
+            self.quant_input = QuantTensor(
+                value=torch.empty(
+                    1, dtype=self.layer.weight.dtype, device=self.layer.weight.device),
+                scale=self.layer.quant_input_scale(),
+                zero_point=self.layer.quant_input_zero_point(),
+                bit_width=self.layer.quant_input_bit_width(),
+                signed=self.layer.is_quant_input_signed,
+                training=self.layer.training)
 
         # If input is unbatched, add batch_size = 1
         if len(inp.shape) == 1:

@@ -201,3 +201,18 @@ def max_float(exponent_bit_width: Tensor, mantissa_bit_width: Tensor, exponent_b
             device=mantissa_bit_width.device)))
     max_val = max_mantissa * (2 ** max_exponent)
     return max_val
+
+
+def get_upper_bound_on_l1_norm(
+        accumulator_bit_width: Tensor, input_bit_width: Tensor, input_is_signed: bool) -> Tensor:
+    """Calculate the upper bound on the l1-norm of the weights using the derivations from
+    `Quantized Neural Networks for Low-Precision Accumulation with Guaranteed Overflow Avoidance`
+    by I.Colbert, A.Pappalardo, and J.Petri-Koenig."""
+    assert input_bit_width is not None, "A2Q relies on input bit-width."
+    assert input_is_signed is not None, "A2Q relies on input sign."
+    assert accumulator_bit_width is not None, "A2Q relies on accumulator bit-width."
+    input_is_signed = float(input_is_signed)  # 1. if signed else 0.
+    max_accumulator_bit_width = accumulator_bit_width  # P
+    max_accumulator_mag = pow(2., max_accumulator_bit_width - 1.) - 1.  # 2^{P-1}-1
+    max_input_mag_inverse = pow(2., input_is_signed - input_bit_width)
+    return max_accumulator_mag * max_input_mag_inverse
