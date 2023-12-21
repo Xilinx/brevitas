@@ -14,6 +14,7 @@ from brevitas.core.restrict_val import _RestrictClampValue
 from brevitas.core.stats import SCALAR_SHAPE
 from brevitas.core.stats.stats_wrapper import _Stats
 from brevitas.function import abs_binary_sign_grad
+from brevitas.function import get_upper_bound_on_l1_norm
 
 __all__ = ["ParameterPreScalingWeightNorm", "AccumulatorAwareParameterPreScaling"]
 
@@ -171,32 +172,14 @@ class AccumulatorAwareParameterPreScaling(ParameterPreScalingWeightNorm):
         self.accumulator_bit_width = accumulator_bit_width_impl
 
     @brevitas.jit.script_method
-    def get_upper_bound_on_l1_norm(self, input_bit_width: Tensor, input_is_signed: bool) -> Tensor:
-        """Calculate the upper bound on the l1-norm of the weights using the derivations from
-        `Quantized Neural Networks for Low-Precision Accumulation with Guaranteed Overflow Avoidance`
-        by I.Colbert, A.Pappalardo, and J.Petri-Koenig."""
-        assert input_bit_width is not None, "A2Q relies on input bit-width."
-        assert input_is_signed is not None, "A2Q relies on input sign."
-        input_is_signed = float(input_is_signed)  # 1. if signed else 0.
-        # This is the minimum of the two maximum magnitudes that P could take, which are -2^{P-1}
-        # and 2^{P-1}-1. Note that evaluating to -2^{P-1} would mean there is a possibility of overflow
-        # on the positive side of this range.
-        max_accumulator_bit_width = self.accumulator_bit_width()  # P
-        max_accumulator_mag = pow(2., max_accumulator_bit_width - 1.) - 1.  # 2^{P-1}-1
-        # This is the maximum possible magnitude that the input data could take. When the data is signed,
-        # this is 2^{N-1}. When the data is unsigned, this is 2^N - 1. We use a slightly looser bound here
-        # to simplify our derivations on the export validation.
-        max_input_mag_inverse = pow(2., input_is_signed - input_bit_width)
-        return max_accumulator_mag * max_input_mag_inverse
-
-    @brevitas.jit.script_method
     def forward(self, weights: Tensor, input_bit_width: Tensor, input_is_signed: bool) -> Tensor:
         """Takes weights as input and returns the pre-clipping scaling factor"""
         weights = self.stats_input_view_shape_impl(weights)
         d_w = self.stats(weights)  # denominator for weight normalization
         s = self.scaling_impl(weights)  # s
         g = abs_binary_sign_grad(self.restrict_clamp_scaling(self.value))  # g
-        T = self.get_upper_bound_on_l1_norm(input_bit_width, input_is_signed)  # T / s
+        T = get_upper_bound_on_l1_norm(
+            self.accumulator_bit_width(), input_bit_width, input_is_signed)  # T / s
         g = torch.clamp_max(g / s, T)
         value = d_w / g  # calculating final pre-clipping scaling factor
         # re-apply clamp_min_ste from restrict_scaling_impl to the specified pre_scaling_min_val
