@@ -193,11 +193,19 @@ def _select_scale_computation_fn(
 
 class activation_equalization_mode:
 
-    def __init__(self, model, alpha, add_mul_node=True, layerwise=True, enabled=True) -> None:
+    def __init__(
+            self,
+            model,
+            alpha,
+            add_mul_node=True,
+            layerwise=True,
+            enabled=True,
+            co_optimize_act_weights=False) -> None:
         self.model = model
         self.alpha = alpha
         self.enabled = enabled
         self.add_mul_node = add_mul_node
+        self.co_optimize_act_weights = co_optimize_act_weights
         if layerwise:
             if not self.add_mul_node:
                 raise ValueError("Layerwise activation equalization requires add_mul_node")
@@ -207,7 +215,8 @@ class activation_equalization_mode:
                 raise TypeError(
                     "A Torch FX representation of the model is needed for Graph Activation Equalization"
                 )
-            self.graph_act_eq = GraphActivationEqualization(self.model, self.add_mul_node)
+            self.graph_act_eq = GraphActivationEqualization(
+                self.model, self.add_mul_node, co_optimize_act_weights=co_optimize_act_weights)
         self.scale_factors = None
 
     def __enter__(self):
@@ -378,7 +387,8 @@ def _cross_layer_equalization(
         bias_shrinkage: Optional[Union[float, str]] = None,
         list_of_act_val: Optional[torch.Tensor] = None,
         list_of_insert_mul_node_fn: Optional[List[Callable]] = None,
-        alpha: float = 0.5) -> torch.Tensor:
+        alpha: float = 0.5,
+        co_optimize_act_weights: bool = False) -> torch.Tensor:
     """
     Given two adjacent tensors', the weights are scaled such that
     the ranges of the first tensors' output channel are equal to the
@@ -389,6 +399,13 @@ def _cross_layer_equalization(
     # has been performed
     def _no_equalize():
         return torch.tensor(1., dtype=dtype, device=device)
+
+    # If a module has `allocate_params` attribute, we must load the weights following that method
+
+    for name in (region.srcs_names + region.sinks_names):
+        module = region.get_module_from_name(name)
+        if hasattr(module, 'allocate_params'):
+            module.allocate_params(module)
 
     act_sink_axes = {}
     act_sources_axes = {}
@@ -466,6 +483,7 @@ def _cross_layer_equalization(
         indexes = region.sinks[k]
         # Compute the range of the channels we need to equalize
         weight_range = scale_fn(v.reshape(v.size(0), -1))[indexes.start:indexes.end]
+        weight_range = weight_range.to(device)
         # Compute the numbers of channels we are equalizing
         channel_range = indexes.end - indexes.start
         # Use the offset and the range to update the correct range in the sinks
@@ -474,6 +492,22 @@ def _cross_layer_equalization(
 
     # Determine the srcs_range based on where we are performing activation equalization or
     # weight equalization
+    if merge_bias:
+        src_weights = {
+            name: _combine_weights_bias(transpose(m, axis), bias_shrinkage, m.bias)
+            for name, (m, axis) in src_axes.items()}
+    else:
+        src_weights = {name: transpose(m, axis) for name, (m, axis) in src_axes.items()}
+    for k, v in src_weights.items():
+        # Srcs are always fully equalized, thus we simply need to apply the offset to position them
+        # correctly with respect to the other srcs matrices.
+        indexes = region.srcs[k]
+        channel_start = indexes.offset + indexes.start
+        channel_end = indexes.offset + indexes.end
+        weight_range = scale_fn(v.reshape(v.size(0), -1))
+        weight_range = weight_range.to(device)
+        srcs_range[channel_start:channel_end] = torch.max(
+            srcs_range[channel_start:channel_end], weight_range)
     if list_of_act_val is not None:
         list_of_act_val_shapes = [act_val.shape for act_val in list_of_act_val]
         if len(list_of_act_val_shapes) > 0:
@@ -482,24 +516,15 @@ def _cross_layer_equalization(
                 return _no_equalize()
         list_of_act_val = [
             transpose(WeightBiasTuple(act_val), act_axis) for act_val in list_of_act_val]
-        srcs_range = scale_fn(
+        srcs_range_act = scale_fn(
             torch.cat([act_val.reshape(act_val.size(0), -1) for act_val in list_of_act_val], 1))
-    else:
-        if merge_bias:
-            src_weights = {
-                name: _combine_weights_bias(transpose(m, axis), bias_shrinkage, m.bias)
-                for name, (m, axis) in src_axes.items()}
+        srcs_range_act = srcs_range_act.to(device=device)
+
+    if list_of_act_val is not None:
+        if co_optimize_act_weights:
+            srcs_range = .5 * srcs_range + .5 * srcs_range_act
         else:
-            src_weights = {name: transpose(m, axis) for name, (m, axis) in src_axes.items()}
-        for k, v in src_weights.items():
-            # Srcs are always fully equalized, thus we simply need to apply the offset to position them
-            # correctly with respect to the other srcs matrices.
-            indexes = region.srcs[k]
-            channel_start = indexes.offset + indexes.start
-            channel_end = indexes.offset + indexes.end
-            weight_range = scale_fn(v.reshape(v.size(0), -1))
-            srcs_range[channel_start:channel_end] = torch.max(
-                srcs_range[channel_start:channel_end], weight_range)
+            srcs_range = srcs_range_act
 
     # If there is a mismatch between srcs and sinks values, exit
     if srcs_range.shape != sinks_range.shape:
@@ -526,24 +551,26 @@ def _cross_layer_equalization(
             insert_mul_node_fn(inverse_scaling_factors, act_val_shape, act_axis)
     if len(src_axes) > 0:
         for name, (module, axis) in src_axes.items():
+            module_device = module.weight.device
             indexes = region.srcs[name]
             channel_start = indexes.offset + indexes.start
             channel_end = indexes.offset + indexes.end
+            partial_inverse_scale = inverse_scaling_factors[channel_start:channel_end].to(
+                device=module_device)
             if hasattr(module, 'bias') and module.bias is not None:
                 _update_weights(
                     module,
-                    module.bias.clone() *
-                    inverse_scaling_factors[channel_start:channel_end].view_as(module.bias),
+                    module.bias.clone() * partial_inverse_scale.view_as(module.bias),
                     attr='bias')
             src_broadcast_size = [1] * module.weight.ndim
             src_broadcast_size[axis] = module.weight.size(axis)
 
             _update_weights(
                 module,
-                module.weight.clone() * torch.reshape(
-                    inverse_scaling_factors[channel_start:channel_end], src_broadcast_size),
+                module.weight.clone() * torch.reshape(partial_inverse_scale, src_broadcast_size),
                 attr='weight')
     for name, (module, axis) in sink_axes.items():
+        module_device = module.weight.device
         sink_broadcast_size = [1] * module.weight.ndim
         sink_broadcast_size[axis] = module.weight.size(axis)
         indexes = region.sinks[name]
@@ -553,10 +580,17 @@ def _cross_layer_equalization(
         # one (i.e., no equalization)
         partial_scaling[indexes.start:indexes.end] = scaling_factors[indexes.offset:indexes.offset +
                                                                      channel_range]
+        partial_scaling = partial_scaling.to(device=module_device)
         _update_weights(
             module,
             module.weight.clone() * torch.reshape(partial_scaling, sink_broadcast_size),
             attr='weight')
+
+    # If a module has `offload_params` attribute, we must offload the weights following that method
+    for name in (region.srcs_names + region.sinks_names):
+        module = region.get_module_from_name(name)
+        if hasattr(module, 'offload_params'):
+            module.offload_params(module)
 
     return scaling_factors
 
@@ -604,7 +638,9 @@ def _is_supported_module(graph_model: GraphModule, node: Node) -> bool:
             # We support only self-attention
             if isinstance(module, nn.MultiheadAttention):
                 kwargs = dict(node.kwargs)
-                kwargs.update(zip(module.forward.__code__.co_varnames[1:], node.args))
+                forward_to_check = module._old_forward if hasattr(
+                    module, '_old_forward') else module.forward
+                kwargs.update(zip(forward_to_check.__code__.co_varnames[1:], node.args))
                 return kwargs['query'].name == kwargs['key'].name == kwargs['value'].name
             return True
     return False
@@ -927,7 +963,9 @@ class ActivationEqualization(GraphTransform, ABC):
 
     def forward_stats_hook(self, module, *args, name, batch_dim=0, use_inp=True, **kwargs):
         # Check for MHA Cross attention, and if found, skip it
-        kwargs.update(zip(module.forward.__code__.co_varnames[1:], args[:-1]))
+        forward_to_check = module._old_forward if hasattr(
+            module, '_old_forward') else module.forward
+        kwargs.update(zip(forward_to_check.__code__.co_varnames[1:], args[:-1]))
         if 'query' in kwargs and 'key' in kwargs and 'value' in kwargs:
             if kwargs['query'].data_ptr() != kwargs['key'].data_ptr() != kwargs['value'].data_ptr():
                 self.float_act_map[name] = None
@@ -1035,13 +1073,15 @@ class GraphActivationEqualization(ActivationEqualization):
             self,
             model: GraphModule,
             add_mul_node: bool = False,
-            scale_computation_type: str = 'maxabs'):
+            scale_computation_type: str = 'maxabs',
+            co_optimize_act_weights: bool = False):
         super(GraphActivationEqualization, self).__init__(model, scale_computation_type)
         self.float_act_map = {}
         self.batch_dim_act_map = {}
         self.hooks = []
         self.hooked_modules = set()
         self.add_mul_node = add_mul_node
+        self.co_optimize_act_weights = co_optimize_act_weights
         self.regions = _extract_regions(model, add_mul_node=add_mul_node, return_acts=True)
 
         if self.scale_computation_type == 'maxabs':
@@ -1118,7 +1158,8 @@ class GraphActivationEqualization(ActivationEqualization):
                     scale_computation_type=self.scale_computation_type,
                     list_of_act_val=list_of_act_val,
                     list_of_insert_mul_node_fn=list_of_insert_mul_node_fn,
-                    alpha=alpha))
+                    alpha=alpha,
+                    co_optimize_act_weights=self.co_optimize_act_weights))
 
         return scale_factors
 
