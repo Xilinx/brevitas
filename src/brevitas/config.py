@@ -22,5 +22,6 @@ NATIVE_STE_BACKEND_ENABLED = env_to_bool('BREVITAS_NATIVE_STE_BACKEND', False)
 VERBOSE = env_to_bool('BREVITAS_VERBOSE', False)
 
 # Internal global variables
+_FULL_STATE_DICT = False
 _IS_INSIDE_QUANT_LAYER = None
 _ONGOING_EXPORT = None

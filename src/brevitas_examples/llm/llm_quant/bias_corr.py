@@ -22,5 +22,5 @@ def bias_corr_iter(curr_layer, inps, outs, cached_values):
 
 
 @torch.no_grad()
-def apply_bias_correction(model, dataloader, nsamples, seqlen=2048):
-    apply_layer_ptq_fn(model, dataloader, nsamples, inference_fn=bias_corr_iter, seqlen=seqlen)
+def apply_bias_correction(model, dataloader):
+    apply_layer_ptq_fn(model, dataloader, inference_fn=bias_corr_iter)

@@ -17,6 +17,7 @@ from brevitas_examples.common.parse_utils import quant_format_validator
 from brevitas_examples.llm.llm_quant.bias_corr import apply_bias_correction
 from brevitas_examples.llm.llm_quant.calibrate import apply_calibration
 from brevitas_examples.llm.llm_quant.data import get_c4
+from brevitas_examples.llm.llm_quant.data import get_wikitext2
 from brevitas_examples.llm.llm_quant.equalize import apply_act_equalization
 from brevitas_examples.llm.llm_quant.equalize import apply_weight_equalization
 from brevitas_examples.llm.llm_quant.eval import model_eval
@@ -24,6 +25,7 @@ from brevitas_examples.llm.llm_quant.gptq import apply_gptq
 from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_affine_merge
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import replace_mha_with_quantizable_layers
 from brevitas_examples.llm.llm_quant.run_utils import CastFloat16ToFloat32
+from brevitas_examples.llm.llm_quant.run_utils import get_fx_graph
 from brevitas_examples.llm.llm_quant.run_utils import get_model_impl
 
 parser = argparse.ArgumentParser()
@@ -66,7 +68,7 @@ parser.add_argument(
 parser.add_argument(
     '--weight-quant-granularity',
     type=str,
-    default='per_group',
+    default='per_tensor',
     choices=['per_channel', 'per_tensor', 'per_group'],
     help='Granularity for scales/zero-point of weights. Default: per_group.')
 parser.add_argument(
@@ -115,7 +117,7 @@ parser.add_argument(
 parser.add_argument(
     '--input-quant-granularity',
     type=str,
-    default='per_tensor',
+    default='per_group',
     choices=['per_tensor', 'per_row', 'per_group'],
     help='Granularity for scales/zero-point of inputs. Default: per_tensor.')
 parser.add_argument(
@@ -239,7 +241,7 @@ def main():
     if (args.export_target or args.eval or args.act_equalization or args.act_calibration or
             args.gptq or args.bias_corr or args.ln_affine_merge or args.weight_equalization):
         print("Data loading...")
-        calibration_loader, val_data = get_c4(
+        calibration_loader, val_data = get_wikitext2(
             nsamples=args.nsamples, seed=args.seed, model=args.model, seqlen=args.seqlen)
         print("Data loaded.")
 
@@ -257,20 +259,17 @@ def main():
         model = replace_mha_with_quantizable_layers(model, dtype)
         print("Replacing done.")
 
+    graph_model = get_fx_graph(model, ref_kwargs={'input_ids': calibration_loader[0]}, dtype=dtype)
+
     if args.weight_equalization:
         print("Apply weight equalization...")
-        apply_weight_equalization(model, dtype, ref_kwargs={'input_ids': calibration_loader[0]})
+        apply_weight_equalization(graph_model)
         print("Weight equalization applied.")
 
     if args.act_equalization is not None:
         print("Apply act equalization (SmoothQuant)...")
         apply_act_equalization(
-            model,
-            dtype,
-            args.act_equalization,
-            calibration_loader,
-            args.nsamples,
-            ref_kwargs={'input_ids': calibration_loader[0]})
+            model, args.act_equalization, calibration_loader, graph_model=graph_model)
         print("Act equalization applied.")
 
     if args.quantize_embedding or args.quantize_last_layer:
@@ -313,17 +312,17 @@ def main():
 
     if args.act_calibration:
         print("Apply act calibration...")
-        apply_calibration(model, calibration_loader, args.nsamples)
+        apply_calibration(model, calibration_loader)
         print("Act calibration applied.")
 
     if args.gptq:
         print("Applying GPTQ...")
-        apply_gptq(model, calibration_loader, args.nsamples)
+        apply_gptq(model, calibration_loader)
         print("GPTQ applied.")
 
     if args.bias_corr:
         print("Applying bias correction...")
-        apply_bias_correction(model, calibration_loader, args.nsamples)
+        apply_bias_correction(model, calibration_loader)
         print("Bias correction applied.")
 
     if args.eval:
