@@ -7,6 +7,7 @@ import re
 from torch import nn
 
 from brevitas import nn as qnn
+from brevitas.core.function_wrapper.shape import OverTensorView
 from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.graph.quantize import layerwise_quantize
 from brevitas.quant.experimental.float import Fp8e4m3Act
@@ -222,13 +223,7 @@ def quantize_model(
                     'per_channel_broadcastable_shape': (seqlen, 1, 1),
                     'scaling_stats_permute_dims': (0, 1, 2)})
         elif input_scale_type == 'dynamic':
-            if input_quant_granularity == 'per_tensor':
-                input_quant = input_quant.let(
-                    **{
-                        'dynamic_scaling_broadcastable_shape': (1, -1, 1),
-                        'permute_dims': (1, 0, 2),
-                        'stats_reduce_dim': 1})
-            elif input_quant_granularity == 'per_row':
+            if input_quant_granularity == 'per_row':
                 input_quant = input_quant.let(
                     **{
                         'dynamic_scaling_broadcastable_shape': (seqlen, -1, 1),
@@ -256,16 +251,8 @@ def quantize_model(
             attn_output_weights_quant = q_scaled_quant
         elif input_scale_type == 'dynamic':
             if input_quant_granularity == 'per_tensor':
-                q_scaled_quant = sym_input_quant.let(
-                    **{
-                        'dynamic_scaling_broadcastable_shape': (-1, 1, 1),
-                        'permute_dims': None,
-                        'stats_reduce_dim': 1})
-                k_transposed_quant = sym_input_quant.let(
-                    **{
-                        'dynamic_scaling_broadcastable_shape': (-1, 1, 1),
-                        'permute_dims': None,
-                        'stats_reduce_dim': 1})
+                q_scaled_quant = sym_input_quant
+                k_transposed_quant = sym_input_quant
             elif input_quant_granularity == 'per_row':
                 q_scaled_quant = sym_input_quant.let(
                     **{
@@ -298,15 +285,7 @@ def quantize_model(
                 'dtype': dtype},
             **input_float_format)
         if input_scale_type == 'dynamic':
-            # Note: this breaks if applied to 3d Linear inputs,
-            # in case standard MHA layers haven't been inserted
-            if input_quant_granularity == 'per_tensor' or input_quant_granularity == 'per_row':
-                linear_2d_input_quant = linear_2d_input_quant.let(
-                    **{
-                        'dynamic_scaling_broadcastable_shape': (-1, 1),
-                        'permute_dims': None,
-                        'stats_reduce_dim': 1})
-            elif input_quant_granularity == 'per_group':
+            if input_quant_granularity == 'per_group':
                 linear_2d_input_quant = linear_2d_input_quant.let(
                     **{
                         'group_dim': 1, 'group_size': input_group_size})
@@ -347,4 +326,6 @@ def quantize_model(
         quant_embedding_kwargs = {'weight_quant': weight_quant, 'dtype': dtype}
         layer_map[nn.Embedding] = (qnn.QuantEmbedding, quant_embedding_kwargs)
 
-    layerwise_quantize(model=model, compute_layer_map=layer_map, name_blacklist=name_blacklist)
+    model = layerwise_quantize(
+        model=model, compute_layer_map=layer_map, name_blacklist=name_blacklist)
+    return model

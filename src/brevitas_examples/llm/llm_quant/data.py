@@ -69,3 +69,30 @@ def get_c4(nsamples, seed, seqlen, model, nvalsamples=256):
 
     valenc = torch.hstack(valenc)
     return trainloader, valenc
+
+
+def get_wikitext2(nsamples, seed, seqlen, model, type='raw'):
+    from datasets import load_dataset
+    dataset_name = 'wikitext-2-v1'
+    if type == 'raw':
+        dataset_name = 'wikitext-2-raw-v1'
+
+    traindata = load_dataset('wikitext', dataset_name, split='train')
+    testdata = load_dataset('wikitext', dataset_name, split='test')
+
+    from transformers import AutoTokenizer
+    tokenizer = AutoTokenizer.from_pretrained(model, use_fast=False)
+    trainenc = tokenizer("\n\n".join(traindata['text']), return_tensors='pt')
+    testenc = tokenizer("\n\n".join(testdata['text']), return_tensors='pt')
+
+    import random
+    random.seed(seed)
+    trainloader = []
+    for _ in range(nsamples):
+        i = random.randint(0, trainenc.input_ids.shape[1] - seqlen - 1)
+        j = i + seqlen
+        inp = trainenc.input_ids[:, i:j]
+        tar = inp.clone()
+        tar[:, :-1] = -100
+        trainloader.append(inp)
+    return trainloader, testenc.input_ids

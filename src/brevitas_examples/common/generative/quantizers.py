@@ -123,8 +123,10 @@ class Int8ActDynamicPerTensorFloat(Int8ActPerTensorFloat):
     Symmetric quantizer with per tensor dynamic scale.
     """
     scaling_impl = RuntimeDynamicStatsScaling
-    scaling_stats_input_view_shape_impl = OverBatchOverTensorView
+    scaling_stats_input_view_shape_impl = OverTensorView
     scaling_stats_op = 'max'
+    dynamic_scaling_broadcastable_shape = (-1,)
+    stats_reduce_dim = 0
 
 
 class Int8ActDynamicPerRowFloat(Int8ActPerRowFloat):

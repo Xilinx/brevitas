@@ -48,10 +48,9 @@ def model_eval(model, valenc, seqlen):
     inps = apply_layer_inference_fn(
         model,
         valenc,
-        nsamples,
         input_capture_fn=eval_input_capture_fn,
         inference_fn=eval_inference_fn,
-        seqlen=seqlen)
+    )
 
     model_impl = get_model_impl(model)
     use_cache = model.config.use_cache
@@ -87,5 +86,29 @@ def model_eval(model, valenc, seqlen):
         nlls.append(neg_log_likelihood)
 
     ppl = torch.exp(torch.stack(nlls).sum() / (nsamples * seqlen))
+    model.config.use_cache = use_cache
+    return ppl
+
+
+@torch.no_grad()
+def model_eval_accelerate(model, valenc, seqlen):
+
+    nsamples = valenc.numel() // seqlen
+
+    use_cache = model.config.use_cache
+    model.config.use_cache = False
+    with torch.inference_mode():
+        nlls = []
+        for i in tqdm(range(nsamples)):
+            batch = valenc[:, (i * seqlen):((i + 1) * seqlen)].cuda()
+            lm_logits = model(batch)['logits']
+            shift_logits = lm_logits[:, :-1, :].contiguous()
+            shift_labels = (valenc[:, (i * seqlen):((i + 1) * seqlen)][:, 1:]).cuda()
+            loss_fct = nn.CrossEntropyLoss()
+            loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
+            neg_log_likelihood = loss.float() * seqlen
+            nlls.append(neg_log_likelihood)
+
+        ppl = torch.exp(torch.stack(nlls).sum() / (nsamples * seqlen))
     model.config.use_cache = use_cache
     return ppl
