@@ -20,6 +20,7 @@ limitations under the License.
 """
 
 from contextlib import contextmanager
+import functools
 
 import torch
 from torch import nn
@@ -27,8 +28,71 @@ from torch.utils._python_dispatch import TorchDispatchMode
 from torch.utils._pytree import tree_map
 from tqdm import tqdm
 from transformers.models.opt.modeling_opt import OPTModel
+from transformers.utils.fx import symbolic_trace
 
+from brevitas.fx.brevitas_tracer import value_trace
 from brevitas.fx.value_tracer import ValueProxy
+from brevitas.graph.standardize import TorchFunctionalToModule
+from brevitas.utils.python_utils import recurse_getattr
+
+BLOCK_PATTERNS = [
+    "transformer.h",
+    "model.decoder.layers",
+    "gpt_neox.layers",
+    "model.layers",]
+
+
+def get_fx_graph(model, ref_kwargs=None, dtype=None):
+    try:
+        graph_model = symbolic_trace(model, list(ref_kwargs.keys()))
+    except:
+        assert ref_kwargs is not None, "Symbolic traced failed, pass an example input to perform FX value trace "
+        with cast_to_float32(model, dtype):
+            graph_model = value_trace(model, value_args=ref_kwargs)
+
+    graph_model = TorchFunctionalToModule().apply(graph_model)
+    return graph_model
+
+
+def get_preceding_modules(model: nn.Module, module_name: str):
+    # From https://github.com/huggingface/optimum/blob/main/optimum/gptq/utils.py
+    previous_module_name = []
+    stop_adding = False
+
+    def _get_preceding_modules(model: nn.Module, module_name: str, name: str = ""):
+        nonlocal stop_adding
+        for name_bis, child in model.named_children():
+            new_name = name + "." + name_bis if name != "" else name_bis
+            if new_name == module_name:
+                stop_adding = True
+                break
+            _get_preceding_modules(child, module_name, name=new_name)
+        if not stop_adding:
+            previous_module_name.append(name)
+        return previous_module_name
+
+    return _get_preceding_modules(model, module_name)
+
+
+def get_block_name_with_pattern(model: nn.Module):
+    """
+    From: https://github.com/huggingface/optimum/blob/main/optimum/gptq/utils.py
+    Get the name of the module that contains the transformers blocks by checking if any modules has a specific pattern
+
+    Args:
+        model (`nn.Module`):
+        The input model
+    Returns:
+        `str`: The name of the module that contains the Transformer blocks.
+    """
+    modules_names = [n for n, _ in model.named_modules()]
+    for pattern_candidate in BLOCK_PATTERNS:
+        pattern_candidate = pattern_candidate
+        if any(pattern_candidate in name for name in modules_names):
+            return pattern_candidate
+    raise ValueError(
+        "Block pattern could not be match. Pass `block_name_to_quantize` argument in `quantize_model`"
+    )
 
 
 def get_model_impl(model):
@@ -53,23 +117,16 @@ def calib_input_capture(model, dataloader):
 
 
 @torch.no_grad()
-def capture_first_layer_inputs(input_capture_fn, dataloader, model, model_impl, nsamples, seqlen):
-    layers = model_impl.layers
+def capture_first_layer_inputs(input_capture_fn, dataloader, model, layers, preceding_layers_name):
 
-    model_impl.embed_tokens = model_impl.embed_tokens.cuda()
-    if hasattr(model_impl, 'embed_positions'):
-        model_impl.embed_positions = model_impl.embed_positions.cuda()
-    if hasattr(model_impl, 'project_in') and model_impl.project_in is not None:
-        model_impl.project_in = model_impl.project_in.cuda()
-    if hasattr(model_impl, 'norm'):
-        model_impl.norm = model_impl.norm.cuda()
-    if hasattr(model_impl, 'embed_layer_norm'):
-        model_impl.embed_layer_norm = model_impl.embed_layer_norm.cuda()
+    for module_name in preceding_layers_name:
+        module = recurse_getattr(model, module_name)
+        if module is None:
+            raise ValueError(f"Module {module_name} was not found in model")
+        module = module.cuda()
 
-    layers[0] = layers[0].cuda()
-
-    dtype = next(iter(model_impl.parameters())).dtype
-    inps = torch.zeros((nsamples, seqlen, model.config.hidden_size), dtype=dtype).cuda()
+    dtype = next(iter(model.parameters())).dtype
+    inps = []
     cache = {'i': 0}
 
     class InputCatcher(nn.Module):
@@ -79,7 +136,7 @@ def capture_first_layer_inputs(input_capture_fn, dataloader, model, model_impl, 
             self.module = module
 
         def forward(self, inp, **kwargs):
-            inps[cache['i']] = inp
+            inps.append(inp)
             cache['i'] += 1
             cache['attention_mask'] = kwargs['attention_mask']
             if 'position_ids' in kwargs.keys():
@@ -88,39 +145,32 @@ def capture_first_layer_inputs(input_capture_fn, dataloader, model, model_impl, 
 
     layers[0] = InputCatcher(layers[0])
     input_capture_fn(model, dataloader)
+    inps = torch.cat(inps, dim=0).cuda().to(dtype)
 
     layers[0] = layers[0].module
-    layers[0] = layers[0].cpu()
-    model_impl.embed_tokens = model_impl.embed_tokens.cpu()
-    if hasattr(model_impl, 'embed_positions'):
-        model_impl.embed_positions = model_impl.embed_positions.cpu()
-    if hasattr(model_impl, 'project_in') and model_impl.project_in is not None:
-        model_impl.project_in = model_impl.project_in.cpu()
-    if hasattr(model_impl, 'norm'):
-        model_impl.norm = model_impl.norm.cpu()
-    if hasattr(model_impl, 'embed_layer_norm'):
-        model_impl.embed_layer_norm = model_impl.embed_layer_norm.cpu()
 
+    for module_name in preceding_layers_name:
+        module = recurse_getattr(model, module_name)
+        if module is None:
+            raise ValueError(f"Module {module_name} was not found in model")
+        module = module.cpu()
     return inps, cache
 
 
 @torch.no_grad()
 def apply_layer_inference_fn(
-        model,
-        dataloader,
-        nsamples,
-        inference_fn,
-        input_capture_fn,
-        seqlen=2048,
-        **inference_fn_kwargs):
-    model_impl = get_model_impl(model)
-    layers = model_impl.layers
+        model, dataloader, inference_fn, input_capture_fn, block_name=None, **inference_fn_kwargs):
+    if block_name is None:
+        block_name = get_block_name_with_pattern(model)
+
+    layers = recurse_getattr(model, block_name)
+    module_name_preceding_first_block = get_preceding_modules(model, block_name)
 
     use_cache = model.config.use_cache
     model.config.use_cache = False
 
     inps, cache = capture_first_layer_inputs(
-        input_capture_fn, dataloader, model, model_impl, nsamples, seqlen)
+        input_capture_fn, dataloader, model, layers, module_name_preceding_first_block)
     outs = torch.zeros_like(inps)
 
     cached_values = {}
@@ -136,15 +186,12 @@ def apply_layer_inference_fn(
     return inps
 
 
-def apply_layer_ptq_fn(
-        model, dataloader, nsamples, inference_fn, seqlen=2048, **inference_fn_kwargs):
+def apply_layer_ptq_fn(model, dataloader, inference_fn, **inference_fn_kwargs):
     return apply_layer_inference_fn(
         model,
         dataloader,
-        nsamples,
         inference_fn,
         input_capture_fn=calib_input_capture,
-        seqlen=seqlen,
         **inference_fn_kwargs)
 
 
