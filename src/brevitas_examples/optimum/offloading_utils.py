@@ -117,10 +117,9 @@ def infer_auto_device_map(
         # We keep relevant tied parameters only: one of the tied parameters in the group is inside the current module
         # and the other is not.
         tied_param_goups = [
-            tied_group for tied_group in tied_parameters if any(
-                name + '.' in k + '.' for k in tied_group)
-        ]  # and not all(name in k for k in tied_group)
-        #]
+            tied_group for tied_group in tied_parameters
+            if any(name + '.' in k + '.'
+                   for k in tied_group) and not all(name + '.' in k + '.' for k in tied_group)]
         if verbose and len(tied_param_goups) > 0:
             print(f"  Found the relevant tied param groups {tied_param_goups}")
         # Then we keep track of all the parameters that are tied to the current module, but not in the current module
