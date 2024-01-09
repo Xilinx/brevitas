@@ -322,10 +322,11 @@ class QuantTensor(QuantTensorBase):
                                 first_qt.check_zero_points_same(qt) and
                                 first_qt.check_bit_width_same(qt) and first_qt.check_sign_same(qt)):
                             is_output_qt_valid = False
-                    elif not (first_qt.check_scaling_factors_same(qt) and
-                              first_qt.check_zero_points_same(qt) and
-                              first_qt.check_bit_width_same(qt) and first_qt.check_sign_same(qt)):
-                        raise RuntimeError("Scaling factors are different")
+                    else:
+                        first_qt.check_scaling_factors_same(qt)
+                        first_qt.check_zero_points_same(qt)
+                        first_qt.check_bit_width_same(qt)
+                        first_qt.check_sign_same(qt)
 
                 output_training = any([qt.training for qt in tensors])
                 if output_training:

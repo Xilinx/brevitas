@@ -28,7 +28,7 @@ class _CachedIO:
     def __init__(self, quant_tensor: QuantTensor, metadata_only: bool):
         self.shape = quant_tensor.value.shape
         if metadata_only:
-            self.quant_tensor = quant_tensor.set(value=None)
+            self.quant_tensor = quant_tensor.set(qt_value=None)
         else:
             self.quant_tensor = quant_tensor
 
