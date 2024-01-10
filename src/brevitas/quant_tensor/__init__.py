@@ -34,7 +34,7 @@ class QuantTensorBase(NamedTuple):
 
 def _unpack_quant_tensor(input_data):
     if isinstance(input_data, QuantTensor):
-        return input_data.tensor
+        return input_data.value
     elif isinstance(input_data, tuple):
         return tuple([_unpack_quant_tensor(v) for v in input_data])
     elif isinstance(input_data, list):
@@ -132,6 +132,8 @@ class QuantTensor(QuantTensorBase):
     @property
     def value(self):
         if self.is_valid:
+            if self.zero_point is None or self.scale is None:
+                return self.qt_value
             return (self.qt_value - self.zero_point) * self.scale
         else:
             return self.qt_value

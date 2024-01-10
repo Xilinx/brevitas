@@ -18,6 +18,7 @@ from brevitas.common import ExportMixin
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import Injector
 from brevitas.nn.utils import compute_channel_view_shape
+from brevitas.quant_tensor import _is_all_nested_not_none
 from brevitas.quant_tensor import QuantTensor
 
 from .utils import filter_kwargs

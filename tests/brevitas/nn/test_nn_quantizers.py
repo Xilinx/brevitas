@@ -199,9 +199,18 @@ def test_quant_mha(model_input, current_cases):
     case_id = get_case_id(cases_generator_func)
     args = case_id.split('-')[1:]  # Exclude first argument
     kwargs = parse_args(args)
-
-    if (kwargs['io_quant'] is None or
-            kwargs['weight_quant'] is None) and kwargs['bias_quant'] == 'quant_external':
+    is_input_quanttensor = kwargs['io_quant'] is not None or kwargs['input_quantized']
+    if not ((is_input_quanttensor and kwargs['weight_quant'] is not None) or
+            kwargs['io_quant'] is not None) and kwargs['return_quant_tensor']:
+        with pytest.raises(RuntimeError, match='QuantLayer is not correctly configured'):
+            output, _ = model(inp, inp, inp)
+        return
+    elif kwargs['io_quant'] is None and kwargs['return_quant_tensor']:
+        with pytest.raises(RuntimeError, match='QuantLayer is not correctly configured'):
+            output, _ = model(inp, inp, inp)
+        return
+    elif (kwargs['io_quant'] is None or
+          kwargs['weight_quant'] is None) and kwargs['bias_quant'] == 'quant_external':
         with pytest.raises(RuntimeError, match='Input scale required'):
             output, _ = model(inp, inp, inp)
         return
