@@ -41,8 +41,13 @@ def test_quant_wbiol(model_input, current_cases):
 
     is_input_quanttensor = kwargs['io_quant'] is not None or kwargs['input_quantized']
 
-    if (not is_input_quanttensor or
-            kwargs['weight_quant'] is None) and kwargs['bias_quant'] == 'quant_external':
+    if (not (is_input_quanttensor and kwargs['weight_quant'] is not None) and
+            kwargs['io_quant'] is None) and kwargs['return_quant_tensor']:
+        with pytest.raises(RuntimeError, match='QuantLayer is not correctly configured'):
+            output = model(input)
+        return
+    elif (not is_input_quanttensor or
+          kwargs['weight_quant'] is None) and kwargs['bias_quant'] == 'quant_external':
         with pytest.raises(RuntimeError, match='Input scale required'):
             output = model(input)
         return
