@@ -6,13 +6,14 @@ from abc import ABC
 import torch
 
 from brevitas.export.common.handler.base import BaseHandler
+from brevitas.export.common.handler.qcdq import CDQCastBiasQuantProxyHandlerMixin
+from brevitas.export.common.handler.qcdq import CDQCastDecoupledWeightQuantProxyHandlerMixin
+from brevitas.export.common.handler.qcdq import \
+    CDQCastDecoupledWeightQuantWithInputProxyHandlerMixin
+from brevitas.export.common.handler.qcdq import CDQCastWeightQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import DQCastMixin
-from brevitas.export.common.handler.qcdq import QCDQActQuantProxyHandlerMixin
-from brevitas.export.common.handler.qcdq import QCDQBiasQuantProxyHandlerMixin
-from brevitas.export.common.handler.qcdq import QCDQDecoupledWeightQuantProxyHandlerMixin
-from brevitas.export.common.handler.qcdq import QCDQDecoupledWeightQuantWithInputProxyHandlerMixin
-from brevitas.export.common.handler.qcdq import QCDQTruncQuantProxyHandlerMixin
-from brevitas.export.common.handler.qcdq import QCDQWeightQuantProxyHandlerMixin
+from brevitas.export.common.handler.qcdq import QCDQCastActQuantProxyHandlerMixin
+from brevitas.export.common.handler.qcdq import QCDQCastTruncQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QMixin
 
 
@@ -94,7 +95,7 @@ class TorchQCDQHandler(BaseHandler):
 
 
 class TorchQCDQCastWeightQuantProxyHandler(TorchCDQCastMixin,
-                                           QCDQWeightQuantProxyHandlerMixin,
+                                           CDQCastWeightQuantProxyHandlerMixin,
                                            TorchQCDQHandler):
 
     @classmethod
@@ -104,7 +105,7 @@ class TorchQCDQCastWeightQuantProxyHandler(TorchCDQCastMixin,
 
 
 class TorchQCDQCastDecoupledWeightQuantProxyHandler(TorchCDQCastMixin,
-                                                    QCDQDecoupledWeightQuantProxyHandlerMixin,
+                                                    CDQCastDecoupledWeightQuantProxyHandlerMixin,
                                                     TorchQCDQHandler):
 
     @classmethod
@@ -114,7 +115,7 @@ class TorchQCDQCastDecoupledWeightQuantProxyHandler(TorchCDQCastMixin,
 
 
 class TorchQCDQCastDecoupledWeightQuantWithInputProxyHandler(
-        TorchCDQCastMixin, QCDQDecoupledWeightQuantWithInputProxyHandlerMixin, TorchQCDQHandler):
+        TorchCDQCastMixin, CDQCastDecoupledWeightQuantWithInputProxyHandlerMixin, TorchQCDQHandler):
 
     @classmethod
     def int_clip_symbolic_kwargs(cls, narrow, signed, bit_width):
@@ -123,7 +124,7 @@ class TorchQCDQCastDecoupledWeightQuantWithInputProxyHandler(
 
 
 class TorchQCDQCastActQuantProxyHandler(TorchQCDQCastMixin,
-                                        QCDQActQuantProxyHandlerMixin,
+                                        QCDQCastActQuantProxyHandlerMixin,
                                         TorchQCDQHandler):
 
     @classmethod
@@ -133,13 +134,13 @@ class TorchQCDQCastActQuantProxyHandler(TorchQCDQCastMixin,
 
 
 class TorchQCDQCastBiasQuantProxyHandler(TorchDQCastMixin,
-                                         QCDQBiasQuantProxyHandlerMixin,
+                                         CDQCastBiasQuantProxyHandlerMixin,
                                          TorchQCDQHandler):
     pass
 
 
 class TorchQCDQCastTruncQuantProxyHandler(TorchQCDQCastMixin,
-                                          QCDQTruncQuantProxyHandlerMixin,
+                                          QCDQCastTruncQuantProxyHandlerMixin,
                                           TorchQCDQHandler):
 
     @classmethod

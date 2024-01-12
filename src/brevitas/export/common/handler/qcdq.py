@@ -58,7 +58,7 @@ class DQCastMixin(DQMixin, ABC):
         pass
 
 
-class CDQMixin(DQMixin, ABC):
+class CDQCastMixin(DQCastMixin, ABC):
 
     @abstractmethod
     def clip_fn(self, x, min_val, max_val):
@@ -102,7 +102,7 @@ class QMixin(BitWidthHandlerMixin, ABC):
         return dtype
 
 
-class CDQProxyHandlerMixin(QuantAxisMixin, ClipMixin, ZeroPointHandlerMixin, CDQMixin, ABC):
+class CDQCastProxyHandlerMixin(QuantAxisMixin, ClipMixin, ZeroPointHandlerMixin, CDQCastMixin, ABC):
 
     def dequantize_symbolic_kwargs(cls, scale, zero_point, bit_width, is_signed):
         scale_orig_shape = scale.shape
@@ -125,7 +125,7 @@ class CDQProxyHandlerMixin(QuantAxisMixin, ClipMixin, ZeroPointHandlerMixin, CDQ
             'scale_orig_shape': scale_orig_shape}
 
 
-class QCDQWeightQuantProxyHandlerMixin(CDQProxyHandlerMixin, ABC):
+class CDQCastWeightQuantProxyHandlerMixin(CDQCastProxyHandlerMixin, ABC):
     handled_layer = WeightQuantProxyFromInjector
 
     def prepare_for_export(self, module):
@@ -179,7 +179,7 @@ class QCDQWeightQuantProxyHandlerMixin(CDQProxyHandlerMixin, ABC):
         return x, scale, zero_point, bit_width
 
 
-class QCDQDecoupledWeightQuantProxyHandlerMixin(QCDQWeightQuantProxyHandlerMixin, ABC):
+class CDQCastDecoupledWeightQuantProxyHandlerMixin(CDQCastWeightQuantProxyHandlerMixin, ABC):
     handled_layer = DecoupledWeightQuantProxyFromInjector
 
     def symbolic_execution(self, x: Tensor):
@@ -188,15 +188,15 @@ class QCDQDecoupledWeightQuantProxyHandlerMixin(QCDQWeightQuantProxyHandlerMixin
         return out, scale, zero_point, scale, zero_point, bit_width
 
 
-class QCDQDecoupledWeightQuantWithInputProxyHandlerMixin(QCDQDecoupledWeightQuantProxyHandlerMixin,
-                                                         ABC):
+class CDQCastDecoupledWeightQuantWithInputProxyHandlerMixin(
+        CDQCastDecoupledWeightQuantProxyHandlerMixin, ABC):
     handled_layer = DecoupledWeightQuantWithInputProxyFromInjector
 
     def symbolic_execution(self, x: Tensor, input_bit_width: torch.Tensor, input_is_signed: bool):
         return super().symbolic_execution(x)
 
 
-class QCDQActQuantProxyHandlerMixin(QMixin, CDQProxyHandlerMixin, ABC):
+class QCDQCastActQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin, ABC):
     handled_layer = ActQuantProxyFromInjector
 
     def quantize_symbolic_kwargs(cls, scale, zero_point, bit_width, is_signed):
@@ -265,7 +265,7 @@ class QCDQActQuantProxyHandlerMixin(QMixin, CDQProxyHandlerMixin, ABC):
         return x, scale, zero_point, bit_width
 
 
-class QCDQBiasQuantProxyHandlerMixin(DQMixin, QuantAxisMixin, ZeroPointHandlerMixin, ABC):
+class CDQCastBiasQuantProxyHandlerMixin(DQCastMixin, QuantAxisMixin, ZeroPointHandlerMixin, ABC):
     handled_layer = BiasQuantProxyFromInjector
 
     def validate(self, module):
@@ -325,12 +325,12 @@ class QCDQBiasQuantProxyHandlerMixin(DQMixin, QuantAxisMixin, ZeroPointHandlerMi
         return y, scale, zero_point, bit_width
 
 
-class QCDQTruncQuantProxyHandlerMixin(QuantAxisMixin,
-                                      ClipMixin,
-                                      ZeroPointHandlerMixin,
-                                      QMixin,
-                                      CDQMixin,
-                                      ABC):
+class QCDQCastTruncQuantProxyHandlerMixin(QuantAxisMixin,
+                                          ClipMixin,
+                                          ZeroPointHandlerMixin,
+                                          QMixin,
+                                          CDQCastMixin,
+                                          ABC):
     handled_layer = TruncQuantProxyFromInjector
 
     def prepare_for_export(self, module: TruncQuantProxyFromInjector):
