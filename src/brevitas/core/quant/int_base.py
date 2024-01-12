@@ -164,8 +164,8 @@ class DecoupledIntQuant(brevitas.jit.ScriptModule):
             zero_point: Tensor,
             bit_width: Tensor,
             x: Tensor) -> Tensor:
-        y_int = self.to_int(pre_scale, pre_zero_point, bit_width, x)
-        y = y_int - zero_point
-        y = y * scale
+        y = self.to_int(pre_scale, pre_zero_point, bit_width, x)
+        # y = y_int - zero_point
+        # y = y * scale
         y = self.delay_wrapper(x, y)
         return y

@@ -198,7 +198,11 @@ class QuantBiasMixin(QuantProxyMixin):
         if self.bias is None:
             return None
         if not self.bias_quant.requires_input_scale and not self.bias_quant.requires_input_bit_width:
-            return self.bias_quant(self.bias).zero_point
+            bias_quant = self.bias_quant(self.bias)
+            if isinstance(bias_quant, QuantTensor):
+                return bias_quant.zero_point
+            else:
+                return None
         else:
             if self._cached_bias is None:
                 raise RuntimeError(
