@@ -14,12 +14,15 @@ from brevitas.export.common.handler.qcdq import CDQCastWeightQuantProxyHandlerMi
 from brevitas.export.common.handler.qcdq import DQCastMixin
 from brevitas.export.common.handler.qcdq import QCDQCastActQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQCastTruncQuantProxyHandlerMixin
+from brevitas.export.common.handler.qcdq import DynamicQDQActQuantProxyHandlerMixin
+from brevitas.export.common.handler.qcdq import DynamicQMixin
 from brevitas.export.common.handler.qcdq import QMixin
 from brevitas.export.onnx.handler import ONNXBaseHandler
 from brevitas.export.onnx.handler import QuantLSTMLayerHandler
 
 from ..function import CastFn
 from ..function import DequantizeLinearFn
+from ..function import DynamicQuantizeLinearFn
 from ..function import IntClipFn
 from ..function import QuantizeLinearFn
 
@@ -75,6 +78,32 @@ class StdQCDQCastONNXMixin(QMixin, StdCDQCastONNXMixin, ABC):
         return QuantizeLinearFn.apply(x, scale, zero_point, dtype, axis)
 
 
+
+class StdDynamicQDQCastONNXMixin(DynamicQMixin, StdDQCastONNXMixin, ABC):
+
+    @classmethod
+    def int8_dtype(cls):
+        return torch.int8
+
+    @classmethod
+    def uint8_dtype(cls):
+        return torch.uint8
+
+    @classmethod
+    def int32_dtype(cls):
+        return torch.int32
+
+    def validate(self, module):
+        super().validate(module)
+        # ONNX QuantizeLinear supports only 8b output with round to nearest even.
+        # Below 8b quantization is supported through clipping.
+        assert module.rounding_mode.upper() == 'ROUND', 'Only round to nearest even supported'
+        self.validate_8b_bit_width(module.bit_width(), le_then=False)
+
+    def quantize_fn(self, x, dtype):
+        return DynamicQuantizeLinearFn.apply(x, dtype)
+
+
 class StdCDQCastONNXWeightQuantProxyHandler(StdCDQCastONNXMixin,
                                             CDQCastWeightQuantProxyHandlerMixin,
                                             ONNXBaseHandler):
@@ -96,6 +125,13 @@ class StdCDQCastONNXDecoupledWeightQuantWithInputProxyHandler(
 class StdQCDQCastONNXActQuantProxyHandler(StdQCDQCastONNXMixin,
                                           QCDQCastActQuantProxyHandlerMixin,
                                           ONNXBaseHandler):
+    pass
+
+
+
+class StdDynamicQDQCastONNXActQuantProxyHandler(StdDynamicQDQCastONNXMixin,
+                                                DynamicQDQActQuantProxyHandlerMixin,
+                                                ONNXBaseHandler):
     pass
 
 

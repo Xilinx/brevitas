@@ -11,6 +11,7 @@ from brevitas.export.onnx.debug import DebugMarkerFunction
 from brevitas.export.onnx.function import LSTMCellFn
 
 from ..function import DequantizeLinearFn
+from ..function import DynamicQuantizeLinearFn
 from ..function import IntClipFn
 from ..function import QuantizeLinearFn
 from ..manager import StdONNXBaseManager
@@ -18,6 +19,7 @@ from .handler import StdCDQCastONNXBiasQuantProxyHandler
 from .handler import StdCDQCastONNXDecoupledWeightQuantProxyHandler
 from .handler import StdCDQCastONNXDecoupledWeightQuantWithInputProxyHandler
 from .handler import StdCDQCastONNXWeightQuantProxyHandler
+from .handler import StdDynamicQDQCastONNXActQuantProxyHandler
 from .handler import StdQCDQCastONNXActQuantProxyHandler
 from .handler import StdQCDQCastONNXQuantLSTMLayerHandler
 from .handler import StdQCDQCastONNXTruncQuantProxyHandler
@@ -37,6 +39,7 @@ class StdQCDQONNXManager(StdONNXBaseManager):
         StdCDQCastONNXBiasQuantProxyHandler,
         StdQCDQCastONNXActQuantProxyHandler,
         StdCDQCastONNXDecoupledWeightQuantProxyHandler,
+        StdDynamicQDQCastONNXActQuantProxyHandler,
         StdQCDQCastONNXTruncQuantProxyHandler,
         StdCDQCastONNXDecoupledWeightQuantWithInputProxyHandler,
         StdQCDQCastONNXQuantLSTMLayerHandler]
@@ -44,6 +47,7 @@ class StdQCDQONNXManager(StdONNXBaseManager):
     custom_fns = [
         DebugMarkerFunction,
         QuantizeLinearFn,
+        DynamicQuantizeLinearFn,
         DequantizeLinearFn,
         IntClipFn,
         LSTMCellFn,]

@@ -15,10 +15,12 @@ from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import this
 from brevitas.inject import value
+from brevitas.proxy.runtime_quant import DynamicActQuantProxyFromInjector
 from brevitas.quant.experimental.float import Fp8e4m3WeightPerChannelFloat
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8ActPerTensorFloatMSE
 from brevitas.quant.scaled_int import Int8WeightPerChannelFloat
+from brevitas.quant.scaled_int import Uint8ActPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloatMSE
 
@@ -122,9 +124,23 @@ class Int8ActDynamicPerTensorFloat(Int8ActPerTensorFloat):
     """
     Symmetric quantizer with per tensor dynamic scale.
     """
+    proxy_class = DynamicActQuantProxyFromInjector
     scaling_impl = RuntimeDynamicStatsScaling
     scaling_stats_input_view_shape_impl = OverBatchOverTensorView
     scaling_stats_op = 'max'
+
+
+class ShiftedUint8ActDynamicPerTensorFloat(ShiftedUint8ActPerTensorFloat):
+    """
+    Symmetric quantizer with per tensor dynamic scale.
+    """
+    proxy_class = DynamicActQuantProxyFromInjector
+    scaling_impl = RuntimeDynamicStatsScaling
+    scaling_stats_input_view_shape_impl = OverTensorView
+    scaling_stats_op = 'max'
+    zero_point_stats_impl = NegativeMinOrZero
+    dynamic_scaling_broadcastable_shape = (-1,)
+    stats_reduce_dim = 0
 
 
 class Int8ActDynamicPerRowFloat(Int8ActPerRowFloat):

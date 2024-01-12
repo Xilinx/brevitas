@@ -75,3 +75,19 @@ class QuantizeLinearFn(Function):
     @staticmethod
     def forward(ctx, x, output_scale, ouput_zero_point, output_dtype, output_axis):
         return x.type(output_dtype)
+
+
+class DynamicQuantizeLinearFn(Function):
+
+    @staticmethod
+    def symbolic(g, x, output_dtype):
+        x, scale, zp = g.op('DynamicQuantizeLinear', x, outputs=3)
+        return x, scale, zp
+
+    @staticmethod
+    def forward(ctx, x, output_dtype):
+        device = x.device
+        dtype = x.dtype
+        scale = torch.empty(1, device=device, dtype=dtype)
+        zero_point = torch.empty(1, device=device, dtype=output_dtype)
+        return x.type(output_dtype), scale, zero_point
