@@ -15,7 +15,6 @@ from brevitas.export.common.handler.qcdq import CDQCastWeightQuantProxyHandlerMi
 from brevitas.export.common.handler.qcdq import DQCastMixin
 from brevitas.export.common.handler.qcdq import QCDQCastActQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQCastTruncQuantProxyHandlerMixin
-from brevitas.export.common.handler.qcdq import DynamicQDQActQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QMixin
 
 
@@ -90,29 +89,6 @@ class TorchQCDQCastMixin(QMixin, TorchCDQCastMixin, ABC):
         return y.int_repr()
 
 
-class TorchDynamicQDQCastMixin(QMixin, TorchDQCastMixin, ABC):
-
-    @classmethod
-    def int8_dtype(cls):
-        return torch.qint8
-
-    @classmethod
-    def uint8_dtype(cls):
-        return torch.quint8
-
-    @classmethod
-    def int32_dtype(cls):
-        return torch.qint32
-
-    def validate(self, module):
-        super().validate(module)
-        self.validate_8b_bit_width(module.bit_width(), le_then=False)
-        assert module.rounding_mode.upper() == 'ROUND', 'Only round to nearest even supported'
-
-    def quantize_fn(self, x, scale, zero_point, dtype, axis):
-        raise RuntimeError("Currently there is no representation for Dynamic Quantization in Torch")
-
-
 class TorchQCDQHandler(BaseHandler):
 
     def forward(self, *args, **kwargs):
@@ -156,12 +132,6 @@ class TorchQCDQCastActQuantProxyHandler(TorchQCDQCastMixin,
     def int_clip_symbolic_kwargs(cls, narrow, signed, bit_width):
         clip_args = super().int_clip_symbolic_kwargs(narrow, signed, bit_width)
         return _itemize_clip_bounds(clip_args)
-
-
-class StdDynamicQDQCastONNXActQuantProxyHandler(TorchDynamicQDQCastMixin,
-                                                DynamicQDQActQuantProxyHandlerMixin,
-                                                TorchQCDQHandler):
-    pass
 
 
 class TorchCDQCastBiasQuantProxyHandler(TorchDQCastMixin,
