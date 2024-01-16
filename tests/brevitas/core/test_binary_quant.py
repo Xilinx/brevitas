@@ -32,7 +32,7 @@ class TestBinaryUnit:
         binary_quant = binary_quant_impl_all(scaling_impl)
         output, scale, zp, bit_width = binary_quant(inp)
         scaling_impl.assert_called_once_with(inp)
-        assert is_binary_output_value_correct(scale, output)
+        assert is_binary_output_value_correct(scale, output * scale)
         assert is_binary_output_sign_correct(inp, output)
         assert (scale == scale_init).all()
         assert zp == torch.tensor(0.0)
@@ -55,7 +55,7 @@ class TestBinaryIntegration:
     @given(inp=float_tensor_random_shape_st())
     def test_output_value(self, binary_quant_all, inp):
         output, scale, _, _ = binary_quant_all(inp)
-        assert is_binary_output_value_correct(scale, output)
+        assert is_binary_output_value_correct(scale, output * scale)
 
     def test_delayed_output_value(self, delayed_binary_quant_all, quant_delay_steps, randn_inp):
         """
@@ -66,7 +66,7 @@ class TestBinaryIntegration:
             output, _, _, _ = delayed_binary_quant_all(randn_inp)
             assert (output == randn_inp).all()
         output, scale, _, _ = delayed_binary_quant_all(randn_inp)
-        assert is_binary_output_value_correct(scale, output)
+        assert is_binary_output_value_correct(scale, output * scale)
 
     @given(inp=float_tensor_random_shape_st())
     def test_output_bit_width(self, binary_quant_all, inp):

@@ -48,7 +48,7 @@ class BinaryQuant(brevitas.jit.ScriptModule):
         Set env variable BREVITAS_JIT=1 to enable TorchScript compilation of this module.
     """
 
-    def __init__(self, scaling_impl: Module, signed, quant_delay_steps: int = 0):
+    def __init__(self, scaling_impl: Module, signed: bool = True, quant_delay_steps: int = 0):
         super(BinaryQuant, self).__init__()
         assert signed, "Unsigned binary quant not supported"
         self.scaling_impl = scaling_impl
