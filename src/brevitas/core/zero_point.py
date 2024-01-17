@@ -319,7 +319,7 @@ class PreZeroCenterZeroPoint(brevitas.jit.ScriptModule):
 
     @brevitas.jit.script_method
     def forward(self, x: Tensor, scale: Tensor, bit_width: Tensor) -> Tensor:
-        # NOTE: `DecoupledIntQuant` adds the `pre_zero_point`` value to the scaled tensor,
+        # NOTE: `DecoupledIntQuant` adds the `pre_zero_point` value to the scaled tensor,
         # so this needs to return the negative of the scaled average value to perform
         # pre-zero centering before rounding and clipping
         z = self.get_zero_center(x) / scale  # need to scale the norm by s
