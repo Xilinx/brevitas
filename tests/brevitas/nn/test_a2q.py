@@ -3,7 +3,6 @@
 
 import pytest_cases
 from pytest_cases import get_case_id
-import torch
 
 from brevitas.nn.utils import calculate_min_accumulator_bit_width
 from brevitas.quant_tensor import QuantTensor
@@ -36,6 +35,7 @@ def test_quant_wbiol_a2q(model_input, current_cases):
     case_id = get_case_id(cases_generator_func)
     args = case_id.split('-')[1:]  # Exclude first argument
     kwargs = parse_args(args)
+    zero_centered_weights = kwargs['weight_quant'] == "quant_a2q_plus"  # A2Q+ zero-centers weights
 
     # A2Q needs to have a quantized input, which can be done by input quantizer or returning
     # a quantized tensor from the preceding layer
@@ -71,7 +71,10 @@ def test_quant_wbiol_a2q(model_input, current_cases):
 
     # using the closed-form bounds on accumulator bit-width
     cur_acc_bit_width = calculate_min_accumulator_bit_width(
-        input_bit_width, input_is_signed, quant_weight_per_channel_l1_norm.max())
+        input_bit_width,
+        input_is_signed,
+        quant_weight_per_channel_l1_norm.max(),
+        zero_centered_weights=zero_centered_weights)
     exp_acc_bit_width = kwargs['accumulator_bit_width']
     assert cur_acc_bit_width <= exp_acc_bit_width, \
         f"Model does not satisfy accumulator bit-width bounds. Expected {exp_acc_bit_width}, got {cur_acc_bit_width}"
