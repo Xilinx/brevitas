@@ -87,10 +87,14 @@ def calculate_min_accumulator_bit_width(
         weight_max_l1_norm: Optional[Tensor] = None,
         weight_bit_width: Optional[Tensor] = None,
         n_elements: Optional[Tensor] = None,
-        min_val: Optional[float] = 1e-10):
-    """Using the closed-form bounds on accumulator bit-width as derived in `Quantized Neural Networks for Low-Precision Accumulation with Guaranteed Overflow
-    Avoidance` by I. Colbert, A. Pappalardo, and J. Petri-Koenig. This function returns the minimum accumulator bit-width that can be used without risk of
-    overflow. It supports both the data-type bound as well as the weight-level bound.
+        min_val: Optional[float] = 1e-10,
+        zero_centered_weights: bool = False):
+    """Using the closed-form bounds on accumulator bit-width as derived in `A2Q: Accumulator-Aware Quantization with
+    Guaranteed Overflow Avoidance`. This function returns the minimum accumulator bit-width that can be used without
+    risk of overflow. It supports both the data-type bound as well as the weight-level bound.
+
+    If `zero_centered_weights=True` and `weight_max_l1_norm` is not None, then the function uses the bounds derived in
+    `A2Q+: Improving Accumulator-Aware Weight Quantization`.
 
     Args:
         input_bit_width (Tensor): the bit-width of the inputs to the layer.
@@ -99,6 +103,7 @@ def calculate_min_accumulator_bit_width(
         weight_bit_width (Tensor): the bit-width of the weights to the layer.
         n_elements (Tensor): the number of elements in the dot product.
         min_val (float): the minimum value used for the l1-norm, used to avoid log2(0). Default: 1e-8.
+        zero_centered_weights (bool): if the weights are zero-centered: Default: false.
 
     Example (data-type bound):
     >> acc_bit_width = calculate_min_accumulator_bit_width(input_bit_width, input_is_signed, weight_bit_width, n_elements)
@@ -113,6 +118,12 @@ def calculate_min_accumulator_bit_width(
         if isinstance(weight_max_l1_norm, Tensor):
             assert weight_max_l1_norm.numel() == 1, "The minimum accumulator bit-width calculation currently only supports scalars."
         weight_max_l1_norm = torch.clamp_min(weight_max_l1_norm, min_val)
+        # if the weights are zero-centered, then use the improved bound
+        if zero_centered_weights:
+            input_range = pow(2., input_bit_width) - 1.  # 2^N - 1.
+            min_bit_width = torch.log2(weight_max_l1_norm * input_range + 2.)
+            min_bit_width = ceil_ste(min_bit_width)
+            return min_bit_width
         input_is_signed = float(input_is_signed)
         alpha = torch.log2(weight_max_l1_norm) + input_bit_width - input_is_signed
     # else use the data-type bound
