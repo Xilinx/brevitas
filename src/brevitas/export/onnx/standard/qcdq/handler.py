@@ -78,7 +78,6 @@ class StdQCDQCastONNXMixin(QMixin, StdCDQCastONNXMixin, ABC):
         return QuantizeLinearFn.apply(x, scale, zero_point, dtype, axis)
 
 
-
 class StdDynamicQDQCastONNXMixin(DynamicQMixin, StdDQCastONNXMixin, ABC):
 
     @classmethod
@@ -126,7 +125,6 @@ class StdQCDQCastONNXActQuantProxyHandler(StdQCDQCastONNXMixin,
                                           QCDQCastActQuantProxyHandlerMixin,
                                           ONNXBaseHandler):
     pass
-
 
 
 class StdDynamicQDQCastONNXActQuantProxyHandler(StdDynamicQDQCastONNXMixin,

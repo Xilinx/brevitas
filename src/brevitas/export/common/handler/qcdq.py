@@ -304,7 +304,6 @@ class DynamicQDQActQuantProxyHandlerMixin(DynamicQMixin, DQMixin, ABC):
         if x_dtype == torch.float16 or x_dtype == torch.bfloat16:
             x = self.cast_fn(x, torch.float32)
 
-        # x, scale = self.quantize_fn(x, int_dtype)
         x, scale, zero_point = self.quantize_fn(x, int_dtype)
 
         x = self.dequantize_fn(x, scale, zero_point, None)
