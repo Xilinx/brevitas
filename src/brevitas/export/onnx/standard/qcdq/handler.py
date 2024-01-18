@@ -5,14 +5,15 @@ from abc import ABC
 
 import torch
 
-from brevitas.export.common.handler.qcdq import CDQMixin
+from brevitas.export.common.handler.qcdq import CDQCastBiasQuantProxyHandlerMixin
+from brevitas.export.common.handler.qcdq import CDQCastDecoupledWeightQuantProxyHandlerMixin
+from brevitas.export.common.handler.qcdq import \
+    CDQCastDecoupledWeightQuantWithInputProxyHandlerMixin
+from brevitas.export.common.handler.qcdq import CDQCastMixin
+from brevitas.export.common.handler.qcdq import CDQCastWeightQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import DQCastMixin
-from brevitas.export.common.handler.qcdq import QCDQActQuantProxyHandlerMixin
-from brevitas.export.common.handler.qcdq import QCDQBiasQuantProxyHandlerMixin
-from brevitas.export.common.handler.qcdq import QCDQDecoupledWeightQuantProxyHandlerMixin
-from brevitas.export.common.handler.qcdq import QCDQDecoupledWeightQuantWithInputProxyHandlerMixin
-from brevitas.export.common.handler.qcdq import QCDQTruncQuantProxyHandlerMixin
-from brevitas.export.common.handler.qcdq import QCDQWeightQuantProxyHandlerMixin
+from brevitas.export.common.handler.qcdq import QCDQCastActQuantProxyHandlerMixin
+from brevitas.export.common.handler.qcdq import QCDQCastTruncQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QMixin
 from brevitas.export.onnx.handler import ONNXBaseHandler
 from brevitas.export.onnx.handler import QuantLSTMLayerHandler
@@ -43,7 +44,7 @@ class StdDQCastONNXMixin(DQCastMixin, ABC):
         assert module.bit_width() > 1., 'Binary quant not supported'
 
 
-class StdCDQCastONNXMixin(CDQMixin, StdDQCastONNXMixin, ABC):
+class StdCDQCastONNXMixin(CDQCastMixin, StdDQCastONNXMixin, ABC):
 
     def clip_fn(self, x, min_val, max_val):
         return IntClipFn.apply(x, min_val, max_val)
@@ -74,37 +75,38 @@ class StdQCDQCastONNXMixin(QMixin, StdCDQCastONNXMixin, ABC):
         return QuantizeLinearFn.apply(x, scale, zero_point, dtype, axis)
 
 
-class StdQCDQCastONNXWeightQuantProxyHandler(StdCDQCastONNXMixin,
-                                             QCDQWeightQuantProxyHandlerMixin,
-                                             ONNXBaseHandler):
+class StdCDQCastONNXWeightQuantProxyHandler(StdCDQCastONNXMixin,
+                                            CDQCastWeightQuantProxyHandlerMixin,
+                                            ONNXBaseHandler):
     pass
 
 
-class StdQCDQCastONNXDecoupledWeightQuantProxyHandler(StdCDQCastONNXMixin,
-                                                      QCDQDecoupledWeightQuantProxyHandlerMixin,
-                                                      ONNXBaseHandler):
+class StdCDQCastONNXDecoupledWeightQuantProxyHandler(StdCDQCastONNXMixin,
+                                                     CDQCastDecoupledWeightQuantProxyHandlerMixin,
+                                                     ONNXBaseHandler):
     pass
 
 
-class StdQCDQCastONNXDecoupledWeightQuantWithInputProxyHandler(
-        StdCDQCastONNXMixin, QCDQDecoupledWeightQuantWithInputProxyHandlerMixin, ONNXBaseHandler):
+class StdCDQCastONNXDecoupledWeightQuantWithInputProxyHandler(
+        StdCDQCastONNXMixin, CDQCastDecoupledWeightQuantWithInputProxyHandlerMixin,
+        ONNXBaseHandler):
     pass
 
 
 class StdQCDQCastONNXActQuantProxyHandler(StdQCDQCastONNXMixin,
-                                          QCDQActQuantProxyHandlerMixin,
+                                          QCDQCastActQuantProxyHandlerMixin,
                                           ONNXBaseHandler):
     pass
 
 
-class StdQCDQCastONNXBiasQuantProxyHandler(StdDQCastONNXMixin,
-                                           QCDQBiasQuantProxyHandlerMixin,
-                                           ONNXBaseHandler):
+class StdCDQCastONNXBiasQuantProxyHandler(StdDQCastONNXMixin,
+                                          CDQCastBiasQuantProxyHandlerMixin,
+                                          ONNXBaseHandler):
     pass
 
 
 class StdQCDQCastONNXTruncQuantProxyHandler(StdQCDQCastONNXMixin,
-                                            QCDQTruncQuantProxyHandlerMixin,
+                                            QCDQCastTruncQuantProxyHandlerMixin,
                                             ONNXBaseHandler):
     pass
 
