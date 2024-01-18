@@ -95,9 +95,9 @@ class StdDynamicQDQCastONNXMixin(DynamicQMixin, StdDQCastONNXMixin, ABC):
 
     def validate(self, module):
         super().validate(module)
-        # ONNX QuantizeLinear supports only 8b output with round to nearest even.
-        # Below 8b quantization is supported through clipping.
+        # ONNX DynamicQuantizeLinear supports only 8b output with round to nearest even.
         assert module.rounding_mode.upper() == 'ROUND', 'Only round to nearest even supported'
+        # Below 8b quantization is not supported.
         self.validate_8b_bit_width(module.bit_width(), le_then=False)
 
     def quantize_fn(self, x, dtype):

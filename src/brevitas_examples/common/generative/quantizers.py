@@ -67,6 +67,10 @@ class WeightSymmetricGroupQuantMixin(ExtendedInjector):
     block_size = None
 
 
+class ActDynamicProxyMixin(ExtendedInjector):
+    proxy_class = DynamicActQuantProxyFromInjector
+
+
 class IntWeightSymmetricGroupQuant(WeightSymmetricGroupQuantMixin, Int8WeightPerChannelFloat):
     """
     Block / group / vector signed symmetric int weight quantizer with float scales.
@@ -130,20 +134,7 @@ class Int8ActDynamicPerTensorFloat(Int8ActPerTensorFloat):
     scaling_stats_op = 'max'
 
 
-class ShiftedUint8ActDynamicPerTensorFloat(ShiftedUint8ActPerTensorFloat):
-    """
-    Symmetric quantizer with per tensor dynamic scale.
-    """
-    proxy_class = DynamicActQuantProxyFromInjector
-    scaling_impl = RuntimeDynamicStatsScaling
-    scaling_stats_input_view_shape_impl = OverTensorView
-    scaling_stats_op = 'max'
-    zero_point_stats_impl = NegativeMinOrZero
-    dynamic_scaling_broadcastable_shape = (-1,)
-    stats_reduce_dim = 0
-
-
-class Int8ActDynamicPerRowFloat(Int8ActPerRowFloat):
+class Int8ActDynamicPerRowFloat(Int8ActPerRowFloat, ActDynamicProxyMixin):
     """
     Symmetric quantizer with per row dynamic scale.
     """
@@ -152,13 +143,49 @@ class Int8ActDynamicPerRowFloat(Int8ActPerRowFloat):
     scaling_stats_op = 'max'
 
 
-class Int8ActDynamicPerGroupFloat(Int8ActPerRowFloat):
+class Int8ActDynamicPerGroupFloat(Int8ActPerRowFloat, ActDynamicProxyMixin):
     """
     Symmetric quantizer with per group scale.
     """
     scaling_impl = RuntimeDynamicGroupStatsScaling
     keepdim = True
     scaling_stats_op = 'max'
+
+    @value
+    def stats_reduce_dim(group_dim):
+        return group_dim + 1
+
+
+class ShiftedUint8ActDynamicPerTensorFloat(ShiftedUint8ActPerTensorFloat, ActDynamicProxyMixin):
+    """
+    Asymmetric quantizer with per tensor dynamic scale.
+    """
+    scaling_impl = RuntimeDynamicStatsScaling
+    scaling_stats_input_view_shape_impl = OverTensorView
+    scaling_stats_op = 'max'
+    zero_point_stats_impl = NegativeMinOrZero
+    dynamic_scaling_broadcastable_shape = (-1,)
+    stats_reduce_dim = 0
+
+
+class ShiftedUint8ActDynamicPerRowFloat(ShiftedUint8ActPerRowFloat, ActDynamicProxyMixin):
+    """
+    Asymmetric quantizer with per row dynamic scale.
+    """
+    scaling_impl = RuntimeDynamicStatsScaling
+    scaling_stats_input_view_shape_impl = OverBatchOverOutputChannelView
+    scaling_stats_op = 'max'
+    zero_point_stats_impl = NegativeMinOrZero
+
+
+class ShiftedUint8ActDynamicPerGroupFloat(ShiftedUint8ActPerRowFloat, ActDynamicProxyMixin):
+    """
+    Asymmetric quantizer with per group dynamic scale.
+    """
+    scaling_impl = RuntimeDynamicGroupStatsScaling
+    keepdim = True
+    scaling_stats_op = 'max'
+    zero_point_stats_impl = NegativeMinOrZero
 
     @value
     def stats_reduce_dim(group_dim):

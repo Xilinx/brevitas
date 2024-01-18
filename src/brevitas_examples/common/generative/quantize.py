@@ -40,6 +40,8 @@ from brevitas_examples.common.generative.quantizers import Int8ActDynamicPerTens
 from brevitas_examples.common.generative.quantizers import Int8ActPerRowFloat
 from brevitas_examples.common.generative.quantizers import Int8ActPerRowFloatMSE
 from brevitas_examples.common.generative.quantizers import IntWeightSymmetricGroupQuant
+from brevitas_examples.common.generative.quantizers import ShiftedUint8ActDynamicPerGroupFloat
+from brevitas_examples.common.generative.quantizers import ShiftedUint8ActDynamicPerRowFloat
 from brevitas_examples.common.generative.quantizers import ShiftedUint8ActDynamicPerTensorFloat
 from brevitas_examples.common.generative.quantizers import ShiftedUint8ActPerRowFloat
 from brevitas_examples.common.generative.quantizers import ShiftedUint8ActPerRowFloatMSE
@@ -112,9 +114,11 @@ INPUT_QUANT_MAP = {
                         'sym': Int8ActDynamicPerTensorFloat,
                         'asym': ShiftedUint8ActDynamicPerTensorFloat},
                     'per_row': {
-                        'sym': Int8ActDynamicPerRowFloat},
+                        'sym': Int8ActDynamicPerRowFloat,
+                        'asym': ShiftedUint8ActDynamicPerRowFloat},
                     'per_group': {
-                        'sym': Int8ActDynamicPerGroupFloat},}}}},
+                        'sym': Int8ActDynamicPerGroupFloat,
+                        'asym': ShiftedUint8ActDynamicPerGroupFloat},}}}},
     'float': {
         'static': {
             'float_scale': {
