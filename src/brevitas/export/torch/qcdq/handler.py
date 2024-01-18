@@ -10,6 +10,7 @@ from brevitas.export.common.handler.qcdq import CDQCastBiasQuantProxyHandlerMixi
 from brevitas.export.common.handler.qcdq import CDQCastDecoupledWeightQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import \
     CDQCastDecoupledWeightQuantWithInputProxyHandlerMixin
+from brevitas.export.common.handler.qcdq import CDQCastMixin
 from brevitas.export.common.handler.qcdq import CDQCastWeightQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import DQCastMixin
 from brevitas.export.common.handler.qcdq import QCDQCastActQuantProxyHandlerMixin
@@ -56,7 +57,7 @@ class TorchDQCastMixin(DQCastMixin, ABC):
         assert module.bit_width() > 1., 'Binary quant not supported'
 
 
-class TorchCDQCastMixin(TorchDQCastMixin, ABC):
+class TorchCDQCastMixin(CDQCastMixin, TorchDQCastMixin, ABC):
 
     def clip_fn(self, x, min_val, max_val):
         return torch.clamp(x, min_val, max_val)
