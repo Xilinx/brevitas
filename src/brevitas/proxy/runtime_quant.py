@@ -12,6 +12,7 @@ from typing_extensions import runtime_checkable
 import brevitas
 from brevitas.quant_tensor import QuantTensor
 
+from .quant_proxy import _is_per_output_channel_scaling
 from .quant_proxy import QuantProxyFromInjector
 from .quant_proxy import QuantProxyProtocol
 
@@ -180,6 +181,10 @@ class DynamicActQuantProxyFromInjector(ActQuantProxyFromInjector):
     def bit_width(self):
         bit_width = self.__call__(self._zero_hw_sentinel()).bit_width
         return bit_width
+
+    @property
+    def is_per_output_channel_scaling(self):
+        return _is_per_output_channel_scaling(self.quant_injector)
 
 
 class ClampQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol):

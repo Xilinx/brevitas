@@ -273,7 +273,7 @@ class QCDQCastActQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin, ABC):
         return x, scale, zero_point, bit_width
 
 
-class DynamicQDQActQuantProxyHandlerMixin(DynamicQMixin, DQMixin, ABC):
+class DynamicQDQCastActQuantProxyHandlerMixin(DynamicQMixin, DQCastMixin, ABC):
     handled_layer = DynamicActQuantProxyFromInjector
 
     def validate(self, module):
