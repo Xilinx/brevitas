@@ -95,9 +95,9 @@ class TorchQCDQHandler(BaseHandler):
         return self.symbolic_execution(*args, **kwargs)
 
 
-class TorchQCDQCastWeightQuantProxyHandler(TorchCDQCastMixin,
-                                           CDQCastWeightQuantProxyHandlerMixin,
-                                           TorchQCDQHandler):
+class TorchCDQCastWeightQuantProxyHandler(TorchCDQCastMixin,
+                                          CDQCastWeightQuantProxyHandlerMixin,
+                                          TorchQCDQHandler):
 
     @classmethod
     def int_clip_symbolic_kwargs(cls, narrow, signed, bit_width):
@@ -105,9 +105,9 @@ class TorchQCDQCastWeightQuantProxyHandler(TorchCDQCastMixin,
         return _itemize_clip_bounds(clip_args)
 
 
-class TorchQCDQCastDecoupledWeightQuantProxyHandler(TorchCDQCastMixin,
-                                                    CDQCastDecoupledWeightQuantProxyHandlerMixin,
-                                                    TorchQCDQHandler):
+class TorchCDQCastDecoupledWeightQuantProxyHandler(TorchCDQCastMixin,
+                                                   CDQCastDecoupledWeightQuantProxyHandlerMixin,
+                                                   TorchQCDQHandler):
 
     @classmethod
     def int_clip_symbolic_kwargs(cls, narrow, signed, bit_width):
@@ -115,7 +115,7 @@ class TorchQCDQCastDecoupledWeightQuantProxyHandler(TorchCDQCastMixin,
         return _itemize_clip_bounds(clip_args)
 
 
-class TorchQCDQCastDecoupledWeightQuantWithInputProxyHandler(
+class TorchCDQCastDecoupledWeightQuantWithInputProxyHandler(
         TorchCDQCastMixin, CDQCastDecoupledWeightQuantWithInputProxyHandlerMixin, TorchQCDQHandler):
 
     @classmethod
@@ -134,9 +134,9 @@ class TorchQCDQCastActQuantProxyHandler(TorchQCDQCastMixin,
         return _itemize_clip_bounds(clip_args)
 
 
-class TorchQCDQCastBiasQuantProxyHandler(TorchDQCastMixin,
-                                         CDQCastBiasQuantProxyHandlerMixin,
-                                         TorchQCDQHandler):
+class TorchCDQCastBiasQuantProxyHandler(TorchDQCastMixin,
+                                        CDQCastBiasQuantProxyHandlerMixin,
+                                        TorchQCDQHandler):
     pass
 
 
