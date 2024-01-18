@@ -75,19 +75,19 @@ class StdQCDQCastONNXMixin(QMixin, StdCDQCastONNXMixin, ABC):
         return QuantizeLinearFn.apply(x, scale, zero_point, dtype, axis)
 
 
-class StdQCDQCastONNXWeightQuantProxyHandler(StdCDQCastONNXMixin,
-                                             CDQCastWeightQuantProxyHandlerMixin,
-                                             ONNXBaseHandler):
+class StdCDQCastONNXWeightQuantProxyHandler(StdCDQCastONNXMixin,
+                                            CDQCastWeightQuantProxyHandlerMixin,
+                                            ONNXBaseHandler):
     pass
 
 
-class StdQCDQCastONNXDecoupledWeightQuantProxyHandler(StdCDQCastONNXMixin,
-                                                      CDQCastDecoupledWeightQuantProxyHandlerMixin,
-                                                      ONNXBaseHandler):
+class StdCDQCastONNXDecoupledWeightQuantProxyHandler(StdCDQCastONNXMixin,
+                                                     CDQCastDecoupledWeightQuantProxyHandlerMixin,
+                                                     ONNXBaseHandler):
     pass
 
 
-class StdQCDQCastONNXDecoupledWeightQuantWithInputProxyHandler(
+class StdCDQCastONNXDecoupledWeightQuantWithInputProxyHandler(
         StdCDQCastONNXMixin, CDQCastDecoupledWeightQuantWithInputProxyHandlerMixin,
         ONNXBaseHandler):
     pass
@@ -99,9 +99,9 @@ class StdQCDQCastONNXActQuantProxyHandler(StdQCDQCastONNXMixin,
     pass
 
 
-class StdQCDQCastONNXBiasQuantProxyHandler(StdDQCastONNXMixin,
-                                           CDQCastBiasQuantProxyHandlerMixin,
-                                           ONNXBaseHandler):
+class StdCDQCastONNXBiasQuantProxyHandler(StdDQCastONNXMixin,
+                                          CDQCastBiasQuantProxyHandlerMixin,
+                                          ONNXBaseHandler):
     pass
 
 
