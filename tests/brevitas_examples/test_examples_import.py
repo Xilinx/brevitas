@@ -4,7 +4,7 @@
 import pytest
 
 from brevitas.quant.scaled_int import Int8AccumulatorAwareWeightQuant
-from brevitas.quant.scaled_int import Int8ImprovedAccumulatorAwareWeightQuant
+from brevitas.quant.scaled_int import Int8AccumulatorAwareZeroCenterWeightQuant
 from brevitas.quant.scaled_int import Int8WeightPerChannelFloat
 
 
@@ -46,7 +46,7 @@ def test_import_stt():
     [
         Int8WeightPerChannelFloat,
         Int8AccumulatorAwareWeightQuant,
-        Int8ImprovedAccumulatorAwareWeightQuant])
+        Int8AccumulatorAwareZeroCenterWeightQuant])
 def test_super_resolution_float_and_quant_models_match(upscale_factor, num_channels, weight_quant):
     import brevitas.config as config
     from brevitas_examples.super_resolution.models import float_espcn
