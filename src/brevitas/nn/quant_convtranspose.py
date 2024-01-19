@@ -8,8 +8,10 @@ import torch
 from torch import Tensor
 from torch.nn import ConvTranspose1d
 from torch.nn import ConvTranspose2d
+from torch.nn import ConvTranspose3d
 from torch.nn.functional import conv_transpose1d
 from torch.nn.functional import conv_transpose2d
+from torch.nn.functional import conv_transpose3d
 
 from brevitas import torch_version
 from brevitas.function.ops import max_int
@@ -22,7 +24,7 @@ from .quant_layer import BiasQuantType
 from .quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from .quant_layer import WeightQuantType
 
-__all__ = ['QuantConvTranspose1d', 'QuantConvTranspose2d']
+__all__ = ['QuantConvTranspose1d', 'QuantConvTranspose2d', 'QuantConvTranspose3d']
 
 
 class QuantConvTranspose1d(QuantWBIOL, ConvTranspose1d):
@@ -218,3 +220,6 @@ class QuantConvTranspose2d(QuantWBIOL, ConvTranspose2d):
         max_uint_output = max_uint_input * max_kernel_val * overlapping_sums * group_size
         max_output_bit_width = ceil_ste(torch.log2(max_uint_output))
         return max_output_bit_width
+
+class QuantConvTranspose3d(QuantWBIOL, ConvTranspose3d):
+    pass
