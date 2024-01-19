@@ -12,7 +12,7 @@ from brevitas.export.common.handler.qcdq import \
 from brevitas.export.common.handler.qcdq import CDQCastMixin
 from brevitas.export.common.handler.qcdq import CDQCastWeightQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import DQCastMixin
-from brevitas.export.common.handler.qcdq import DynamicQDQActQuantProxyHandlerMixin
+from brevitas.export.common.handler.qcdq import DynamicQDQCastActQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import DynamicQMixin
 from brevitas.export.common.handler.qcdq import QCDQCastActQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQCastTruncQuantProxyHandlerMixin
@@ -99,7 +99,7 @@ class StdDynamicQDQCastONNXMixin(DynamicQMixin, StdDQCastONNXMixin, ABC):
         # Below 8b quantization is not supported.
         self.validate_8b_bit_width(module.bit_width(), le_then=False)
         # Only per tensor quantization is supported
-        assert module.is_per_output_channel_scaling, "Only per tensor scaling supported"
+        assert not module.is_per_output_channel_scaling, "Only per tensor scaling supported"
 
     def quantize_fn(self, x, dtype):
         return DynamicQuantizeLinearFn.apply(x, dtype)
@@ -130,7 +130,7 @@ class StdQCDQCastONNXActQuantProxyHandler(StdQCDQCastONNXMixin,
 
 
 class StdDynamicQDQCastONNXActQuantProxyHandler(StdDynamicQDQCastONNXMixin,
-                                                DynamicQDQActQuantProxyHandlerMixin,
+                                                DynamicQDQCastActQuantProxyHandlerMixin,
                                                 ONNXBaseHandler):
     pass
 

@@ -114,11 +114,9 @@ INPUT_QUANT_MAP = {
                         'sym': Int8ActDynamicPerTensorFloat,
                         'asym': ShiftedUint8ActDynamicPerTensorFloat},
                     'per_row': {
-                        'sym': Int8ActDynamicPerRowFloat,
-                        'asym': ShiftedUint8ActDynamicPerRowFloat},
+                        'sym': Int8ActDynamicPerRowFloat},
                     'per_group': {
-                        'sym': Int8ActDynamicPerGroupFloat,
-                        'asym': ShiftedUint8ActDynamicPerGroupFloat},}}}},
+                        'sym': Int8ActDynamicPerGroupFloat},}}}},
     'float': {
         'static': {
             'float_scale': {
