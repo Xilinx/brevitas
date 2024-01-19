@@ -20,11 +20,11 @@ from brevitas.nn.quant_mha import QuantMultiheadAttention
 from brevitas.nn.quant_rnn import QuantLSTM
 from brevitas.nn.quant_rnn import QuantRNN
 from brevitas.quant.scaled_int import Int8AccumulatorAwareWeightQuant
+from brevitas.quant.scaled_int import Int8AccumulatorAwareZeroCenterWeightQuant
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8ActPerTensorFloatBatchQuant1d
 from brevitas.quant.scaled_int import Int8ActPerTensorFloatBatchQuant2d
 from brevitas.quant.scaled_int import Int8BiasPerTensorFloatInternalScaling
-from brevitas.quant.scaled_int import Int8ImprovedAccumulatorAwareWeightQuant
 from brevitas.quant.scaled_int import Int8WeightNormL2PerChannelFixedPoint
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from brevitas.quant.scaled_int import Int16Bias
@@ -48,7 +48,7 @@ LSTM_WEIGHT_QUANTIZER = {
 
 A2Q_WBIOL_WEIGHT_QUANTIZER = {
     'quant_a2q': Int8AccumulatorAwareWeightQuant,
-    'quant_a2q_plus': Int8ImprovedAccumulatorAwareWeightQuant}
+    'quant_a2q_plus': Int8AccumulatorAwareZeroCenterWeightQuant}
 
 WBIOL_WEIGHT_QUANTIZER = {
     'None': None,

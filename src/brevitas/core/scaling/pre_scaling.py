@@ -17,7 +17,10 @@ from brevitas.core.zero_point import PreZeroCenterZeroPoint
 from brevitas.function import abs_binary_sign_grad
 from brevitas.function import get_upper_bound_on_l1_norm
 
-__all__ = ["ParameterPreScalingWeightNorm", "AccumulatorAwareParameterPreScaling"]
+__all__ = [
+    "ParameterPreScalingWeightNorm",
+    "AccumulatorAwareParameterPreScaling",
+    "AccumulatorAwareZeroCenterParameterPreScaling"]
 
 
 class ParameterPreScalingWeightNorm(brevitas.jit.ScriptModule):
@@ -192,14 +195,13 @@ class AccumulatorAwareParameterPreScaling(ParameterPreScalingWeightNorm):
         return value
 
 
-class ImprovedAccumulatorAwareParameterPreScaling(AccumulatorAwareParameterPreScaling):
+class AccumulatorAwareZeroCenterParameterPreScaling(AccumulatorAwareParameterPreScaling):
     """
     ScriptModule implementation of learned pre-clipping scaling factor to support
-    A2Q+ as proposed in `A2Q+: Improving Accumulator-Aware Weight Quantization` by
-    I. Colbert, A. Pappalardo, J. Petri-Koenig, and Y. Umuroglu.
+    A2Q+ as proposed in `A2Q+: Improving Accumulator-Aware Weight Quantization`.
 
     The module implements the zero-centering constraint as a pre-clipping zero-point
-    (i.e., `PreZeroCenterZeroPoint`) and updates the calculation on the l1-norm maximum.
+    (i.e., `PreZeroCenterZeroPoint`) to relax the l1-norm constraint.
 
     Args:
         scaling_impl (Module): post-clipping scaling factor.

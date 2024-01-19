@@ -34,8 +34,8 @@ __all__ = [
     'Uint8ActPerTensorFloatBatchQuant2d',
     'Int8ActPerTensorFloatBatchQuant2d',
     'Int8AccumulatorAwareWeightQuant',
-    'Int8WeightNormL2PerChannelFixedPoint',
-    'Int8ImprovedAccumulatorAwareWeightQuant']
+    'Int8AccumulatorAwareZeroCenterWeightQuant',
+    'Int8WeightNormL2PerChannelFixedPoint']
 
 
 class Int8ActPerTensorFloatMinMaxInit(IntQuant,
@@ -434,7 +434,7 @@ class Int8AccumulatorAwareWeightQuant(AccumulatorAwareWeightQuant):
     bit_width = 8
 
 
-class Int8ImprovedAccumulatorAwareWeightQuant(ImprovedAccumulatorAwareWeightQuant):
+class Int8AccumulatorAwareZeroCenterWeightQuant(AccumulatorAwareZeroCenterWeightQuant):
     """
     Experimental 8-bit narrow signed improved accumulator-aware integer weight quantizer with learned
     per-channel scaling factors based on `A2Q+: Improving Accumulator-Aware Weight Quantization` by
@@ -445,7 +445,7 @@ class Int8ImprovedAccumulatorAwareWeightQuant(ImprovedAccumulatorAwareWeightQuan
 
     Examples:
         >>> from brevitas.nn import QuantConv2d
-        >>> conv = QuantConv2d(4, 4, 3, groups=4, weight_quant=Int8ImprovedAccumulatorAwareWeightQuant)
+        >>> conv = QuantConv2d(4, 4, 3, groups=4, weight_quant=Int8AccumulatorAwareZeroCenterWeightQuant)
         >>> conv.quant_weight()
     """
     bit_width = 8

@@ -20,7 +20,7 @@ from brevitas.core.quant.int_base import DecoupledIntQuant
 from brevitas.core.restrict_val import FloatRestrictValue
 from brevitas.core.restrict_val import LogFloatRestrictValue
 from brevitas.core.scaling import AccumulatorAwareParameterPreScaling
-from brevitas.core.scaling import ImprovedAccumulatorAwareParameterPreScaling
+from brevitas.core.scaling import AccumulatorAwareZeroCenterParameterPreScaling
 from brevitas.core.scaling import IntScaling
 from brevitas.core.scaling import ParameterFromStatsFromParameterScaling
 from brevitas.core.scaling import ParameterPreScalingWeightNorm
@@ -78,7 +78,7 @@ __all__ = [
     'BatchQuantStatsScaling1d',
     'BatchQuantStatsScaling2d',
     'AccumulatorAwareWeightQuant',
-    'ImprovedAccumulatorAwareWeightQuant',
+    'AccumulatorAwareZeroCenterWeightQuant',
     'MSESymmetricScale',
     'MSEAsymmetricScale',
     'MSEWeightZeroPoint',
@@ -403,15 +403,15 @@ class AccumulatorAwareWeightQuant(WeightNormPerChannelFloatDecoupled):
     float_to_int_impl = RoundToZeroSte  # required to ensure no upwards rounding violates constraints
 
 
-class ImprovedAccumulatorAwareWeightQuant(AccumulatorAwareWeightQuant):
+class AccumulatorAwareZeroCenterWeightQuant(AccumulatorAwareWeightQuant):
     """Experimental improved accumulator-aware weight quantized based on: `A2Q+: Improving
-    Accumulator-Aware Weight Quantization` by I. Colbert, A. Pappalardo, J. Petri-Koenig,
-    and Y. Umuroglu. When compared to the standard accumulator-aware quantizer (A2Q), A2Q+
-    changes the following:
+    Accumulator-Aware Weight Quantization`.
+
+    When compared to A2Q, A2Q+ changes the following:
     (1) an added zero-centering constraint on the weights (i.e., `PreZeroCenterZeroPoint`)
     (2) an improved l1-norm bound that is derived in the referenced paper
     """
-    pre_scaling_impl = ImprovedAccumulatorAwareParameterPreScaling
+    pre_scaling_impl = AccumulatorAwareZeroCenterParameterPreScaling
     pre_zero_point_impl = PreZeroCenterZeroPoint
     pre_zero_point_shape = this.scaling_shape  # TODO: decouple zero_point from scaling
     pre_zero_point_stats_input_view_shape_impl = this.scaling_stats_input_view_shape_impl
