@@ -7,6 +7,7 @@ from typing import Union
 from torch import hub
 import torch.nn as nn
 
+from .common import CommonIntAccumulatorAwareZeroCenterWeightQuant
 from .espcn import *
 
 model_impl = {
@@ -43,7 +44,23 @@ model_impl = {
             upscale_factor=2,
             weight_bit_width=4,
             act_bit_width=4,
-            acc_bit_width=13)}
+            acc_bit_width=13),
+    'quant_espcn_x2_w4a4_a2q_plus_13b':
+        partial(
+            quant_espcn,
+            upscale_factor=2,
+            weight_bit_width=4,
+            act_bit_width=4,
+            acc_bit_width=13,
+            weight_quant=CommonIntAccumulatorAwareZeroCenterWeightQuant),
+    'quant_espcn_x2_w8a8_a2q_plus_16b':
+        partial(
+            quant_espcn,
+            upscale_factor=2,
+            weight_bit_width=8,
+            act_bit_width=8,
+            acc_bit_width=16,
+            weight_quant=CommonIntAccumulatorAwareZeroCenterWeightQuant)}
 
 root_url = 'https://github.com/Xilinx/brevitas/releases/download/super_res_r1'
 
