@@ -276,10 +276,6 @@ class QCDQCastActQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin, ABC):
 class DynamicQDQCastActQuantProxyHandlerMixin(DynamicQMixin, DQCastMixin, ABC):
     handled_layer = DynamicActQuantProxyFromInjector
 
-    def validate(self, module):
-        super().validate(module)
-        assert module.is_signed == False, "Only unsigned quantization is supported"
-
     def prepare_for_export(self, module):
         if module.is_quant_enabled:
             self.validate(module)

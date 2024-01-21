@@ -127,11 +127,10 @@ class Int8ActDynamicPerTensorFloat(ActDynamicProxyMixin, Int8ActPerTensorFloat):
     """
     Symmetric quantizer with per tensor dynamic scale.
     """
-    proxy_class = DynamicActQuantProxyFromInjector
     scaling_impl = RuntimeDynamicStatsScaling
     scaling_stats_input_view_shape_impl = OverTensorView
-    scaling_stats_op = 'max'
-    dynamic_scaling_broadcastable_shape = (-1,)
+    scaling_stats_op = 'min_max'
+    dynamic_scaling_broadcastable_shape = this.scaling_shape
     stats_reduce_dim = 0
 
 
@@ -141,7 +140,7 @@ class Int8ActDynamicPerRowFloat(ActDynamicProxyMixin, Int8ActPerRowFloat):
     """
     scaling_impl = RuntimeDynamicStatsScaling
     scaling_stats_input_view_shape_impl = OverBatchOverOutputChannelView
-    scaling_stats_op = 'max'
+    scaling_stats_op = 'min_max'
 
 
 class Int8ActDynamicPerGroupFloat(ActDynamicProxyMixin, Int8ActPerRowFloat):
@@ -150,7 +149,7 @@ class Int8ActDynamicPerGroupFloat(ActDynamicProxyMixin, Int8ActPerRowFloat):
     """
     scaling_impl = RuntimeDynamicGroupStatsScaling
     keepdim = True
-    scaling_stats_op = 'max'
+    scaling_stats_op = 'min_max'
 
     @value
     def stats_reduce_dim(group_dim):
@@ -159,11 +158,11 @@ class Int8ActDynamicPerGroupFloat(ActDynamicProxyMixin, Int8ActPerRowFloat):
 
 class ShiftedUint8ActDynamicPerTensorFloat(ActDynamicProxyMixin, ShiftedUint8ActPerTensorFloat):
     """
-    Asymmetric quantizer with per tensor dynamic scale.
+    Symmetric quantizer with per tensor dynamic scale.
     """
     scaling_impl = RuntimeDynamicStatsScaling
     scaling_stats_input_view_shape_impl = OverTensorView
-    scaling_stats_op = 'max'
+    scaling_stats_op = 'min_max'
     zero_point_stats_impl = NegativeMinOrZero
-    dynamic_scaling_broadcastable_shape = (-1,)
+    dynamic_scaling_broadcastable_shape = this.scaling_shape
     stats_reduce_dim = 0

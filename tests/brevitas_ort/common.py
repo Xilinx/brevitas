@@ -30,6 +30,7 @@ from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
+from brevitas_examples.common.generative.quantizers import ShiftedUint8ActDynamicPerTensorFloat
 
 SEED = 123456
 OUT_CH = 16
@@ -114,7 +115,8 @@ def recursive_allclose(ort_output, brevitas_output, tolerance):
 def is_brevitas_ort_close(
         model, np_input, export_name, export_type, tolerance=None, first_output_only=False):
     input_t = torch.from_numpy(np_input)
-    brevitas_output = model(input_t)
+    with torch.no_grad():
+        brevitas_output = model(input_t)
 
     if tolerance is not None and export_type == 'qcdq':
         tolerance = tolerance * brevitas_output.scale  # Float Output, tolerance is +/- output scale
