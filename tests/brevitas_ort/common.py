@@ -58,7 +58,9 @@ WBIOL_QUANTIZERS = {
     'a2q': (A2QWeightQuantizerForTests, Int8ActPerTensorFloat),
     'symmetric_per_tensor_fixed_point': (Int8WeightPerTensorFixedPoint, Int8ActPerTensorFixedPoint),
     'symmetric_per_channel_fixed_point':
-        (Int8WeightPerChannelFixedPoint, Int8ActPerTensorFixedPoint)}
+        (Int8WeightPerChannelFixedPoint, Int8ActPerTensorFixedPoint),
+    'weight_symmetric_activation_dynamic_asymmetric_per_tensor_float':
+        (Int8WeightPerTensorFloat, ShiftedUint8ActDynamicPerTensorFloat)}
 LSTM_QUANTIZERS = {
     'asymmetric_per_tensor_float':
         (ShiftedUint8WeightPerTensorFloat, ShiftedUint8ActPerTensorFloat),

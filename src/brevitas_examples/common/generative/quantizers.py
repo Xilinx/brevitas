@@ -131,7 +131,6 @@ class Int8ActDynamicPerTensorFloat(ActDynamicProxyMixin, Int8ActPerTensorFloat):
     scaling_stats_input_view_shape_impl = OverTensorView
     scaling_stats_op = 'min_max'
     dynamic_scaling_broadcastable_shape = this.scaling_shape
-    stats_reduce_dim = 0
 
 
 class Int8ActDynamicPerRowFloat(ActDynamicProxyMixin, Int8ActPerRowFloat):
@@ -165,4 +164,3 @@ class ShiftedUint8ActDynamicPerTensorFloat(ActDynamicProxyMixin, ShiftedUint8Act
     scaling_stats_op = 'min_max'
     zero_point_stats_impl = NegativeMinOrZero
     dynamic_scaling_broadcastable_shape = this.scaling_shape
-    stats_reduce_dim = 0
