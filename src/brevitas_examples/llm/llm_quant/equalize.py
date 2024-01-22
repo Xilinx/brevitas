@@ -27,7 +27,7 @@ def activation_equalization_iter(curr_layer, inps, outs, cached_values, alpha):
 
 @torch.no_grad()
 def apply_act_equalization(model, act_equalization_type, dataloader, alpha=0.5):
-    model, mapping = offload_model(model)
+    model = offload_model(model)
     if act_equalization_type == 'layerwise':
         with activation_equalization_mode(model, alpha, add_mul_node=True, layerwise=True):
             for input_ids in tqdm(dataloader):
@@ -45,7 +45,7 @@ def apply_act_equalization(model, act_equalization_type, dataloader, alpha=0.5):
     else:
         raise RuntimeError(f"{act_equalization_type} not supported.")
     # Remove all accelerate hooks
-    remove_hooks(model, mapping)
+    remove_hooks(model)
 
 
 @torch.no_grad()
