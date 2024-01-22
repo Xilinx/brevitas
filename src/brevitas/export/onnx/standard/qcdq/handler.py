@@ -12,6 +12,8 @@ from brevitas.export.common.handler.qcdq import \
 from brevitas.export.common.handler.qcdq import CDQCastMixin
 from brevitas.export.common.handler.qcdq import CDQCastWeightQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import DQCastMixin
+from brevitas.export.common.handler.qcdq import DynamicQDQCastActQuantProxyHandlerMixin
+from brevitas.export.common.handler.qcdq import DynamicQMixin
 from brevitas.export.common.handler.qcdq import QCDQCastActQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQCastTruncQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QMixin
@@ -20,6 +22,7 @@ from brevitas.export.onnx.handler import QuantLSTMLayerHandler
 
 from ..function import CastFn
 from ..function import DequantizeLinearFn
+from ..function import DynamicQuantizeLinearFn
 from ..function import IntClipFn
 from ..function import QuantizeLinearFn
 
@@ -75,6 +78,37 @@ class StdQCDQCastONNXMixin(QMixin, StdCDQCastONNXMixin, ABC):
         return QuantizeLinearFn.apply(x, scale, zero_point, dtype, axis)
 
 
+class StdDynamicQDQCastONNXMixin(DynamicQMixin, StdDQCastONNXMixin, ABC):
+
+    @classmethod
+    def int8_dtype(cls):
+        return torch.int8
+
+    @classmethod
+    def uint8_dtype(cls):
+        return torch.uint8
+
+    @classmethod
+    def int32_dtype(cls):
+        return torch.int32
+
+    def validate(self, module):
+        super().validate(module)
+
+        assert module.is_signed == False, "Only unsigned quantization supported"
+        assert module.quant_injector.scaling_stats_op == 'min_max', "Only min_max scaling op supported"
+        # ONNX QuantizeLinear supports only 8b output with round to nearest even.
+        # Below 8b quantization is supported through clipping.
+        assert module.rounding_mode.upper() == 'ROUND', 'Only round to nearest even supported'
+        # Below 8b quantization is not supported.
+        self.validate_8b_bit_width(module.bit_width(), le_then=False)
+        # Only per tensor quantization is supported
+        assert not module.quant_injector.scaling_per_output_channel, "Only per tensor scaling supported"
+
+    def quantize_fn(self, x, dtype):
+        return DynamicQuantizeLinearFn.apply(x, dtype)
+
+
 class StdCDQCastONNXWeightQuantProxyHandler(StdCDQCastONNXMixin,
                                             CDQCastWeightQuantProxyHandlerMixin,
                                             ONNXBaseHandler):
@@ -96,6 +130,12 @@ class StdCDQCastONNXDecoupledWeightQuantWithInputProxyHandler(
 class StdQCDQCastONNXActQuantProxyHandler(StdQCDQCastONNXMixin,
                                           QCDQCastActQuantProxyHandlerMixin,
                                           ONNXBaseHandler):
+    pass
+
+
+class StdDynamicQDQCastONNXActQuantProxyHandler(StdDynamicQDQCastONNXMixin,
+                                                DynamicQDQCastActQuantProxyHandlerMixin,
+                                                ONNXBaseHandler):
     pass
 
 

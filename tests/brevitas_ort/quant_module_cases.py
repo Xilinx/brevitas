@@ -5,6 +5,9 @@ from pytest_cases import parametrize
 from pytest_cases import set_case_id
 from torch import nn
 
+from brevitas.nn.quant_activation import QuantIdentity
+from brevitas.nn.quant_avg_pool import TruncAvgPool2d
+from brevitas.nn.quant_rnn import QuantLSTM
 from brevitas.quant.scaled_int import Int32Bias
 
 from .common import *

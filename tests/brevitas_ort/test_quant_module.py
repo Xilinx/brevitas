@@ -27,6 +27,8 @@ def test_ort_wbiol(model, export_type, current_cases):
     impl = case_id.split('-')[
         -2]  # Inverse list of definition, 'export_type' is -1, 'impl' is -2, etc.
     quantizer = case_id.split('-')[-6]
+    o_bit_width = case_id.split('-')[-5]
+    i_bit_width = case_id.split('-')[-3]
 
     if impl in ('QuantConvTranspose1d', 'QuantConvTranspose2d') and export_type == 'qop':
         pytest.skip('Export of ConvTranspose is not supported for QOperation')
@@ -34,6 +36,9 @@ def test_ort_wbiol(model, export_type, current_cases):
         pytest.skip('Per-channel zero-point is not well supported in ORT.')
     if 'QuantLinear' in impl and 'asymmetric' in quantizer:
         pytest.skip('ORT execution is unreliable and fails randomly on a subset of cases.')
+    if 'dynamic' in quantizer and ((o_bit_width != "o8" or i_bit_width != "i8") or
+                                   export_type != "qcdq"):
+        pytest.skip('Dynamic Act Quant supported only for 8bit and QCDQ export')
 
     if impl in ('QuantLinear'):
         in_size = (1, IN_CH)

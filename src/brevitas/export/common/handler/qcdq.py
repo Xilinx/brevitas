@@ -15,6 +15,7 @@ from brevitas.proxy import BiasQuantProxyFromInjector
 from brevitas.proxy import DecoupledWeightQuantProxyFromInjector
 from brevitas.proxy import DecoupledWeightQuantWithInputProxyFromInjector
 from brevitas.proxy import WeightQuantProxyFromInjector
+from brevitas.proxy.runtime_quant import DynamicActQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector
 
 from .base import BitWidthHandlerMixin
@@ -100,6 +101,13 @@ class QMixin(BitWidthHandlerMixin, ABC):
             raise RuntimeError(
                 "Unsigned quantization > 8b not supported for export, switch to signed.")
         return dtype
+
+
+class DynamicQMixin(QMixin, ABC):
+
+    @abstractmethod
+    def quantize_fn(self, x, dtype):
+        pass
 
 
 class CDQCastProxyHandlerMixin(QuantAxisMixin, ClipMixin, ZeroPointHandlerMixin, CDQCastMixin, ABC):
@@ -262,6 +270,43 @@ class QCDQCastActQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin, ABC):
         # Restore the original shapes to guarantee correct shape propagation downstream
         scale = scale.view(scale_orig_shape)
         zero_point = zero_point.view_as(scale)
+        return x, scale, zero_point, bit_width
+
+
+class DynamicQDQCastActQuantProxyHandlerMixin(DynamicQMixin, DQCastMixin, ABC):
+    handled_layer = DynamicActQuantProxyFromInjector
+
+    def prepare_for_export(self, module):
+        if module.is_quant_enabled:
+            self.validate(module)
+            bit_width = module.bit_width()
+            is_signed = module.is_signed
+            dtype = self.signed_dtype(bit_width, is_signed)
+            self.symbolic_kwargs['bit_width'] = bit_width
+            self.symbolic_kwargs['is_signed'] = is_signed
+            self.symbolic_kwargs['dtype'] = dtype
+        else:
+            self.symbolic_kwargs = None
+
+    def symbolic_execution(self, x: Tensor):
+        assert self.symbolic_kwargs is not None, 'Symbolic execution requires quant to be enabled'
+
+        bit_width = self.symbolic_kwargs['bit_width']
+        int_dtype = self.symbolic_kwargs['dtype']
+        # Workaround to trick the tracer into believing all return values are used
+        self.assert_ge_zero(bit_width)
+        # If original dtype of the input is (b)float16, cast the input to float32
+        x_dtype = x.dtype
+        if x_dtype == torch.float16 or x_dtype == torch.bfloat16:
+            x = self.cast_fn(x, torch.float32)
+
+        x, scale, zero_point = self.quantize_fn(x, int_dtype)
+
+        x = self.dequantize_fn(x, scale, zero_point, None)
+        # After dequantization, cast both output and scale to the correct dtype
+        if x_dtype == torch.float16 or x_dtype == torch.bfloat16:
+            x = self.cast_fn(x, x_dtype)
+            scale = self.cast_fn(scale, x_dtype)
         return x, scale, zero_point, bit_width
 
 

@@ -16,10 +16,7 @@ from brevitas.nn import QuantConv1d
 from brevitas.nn import QuantConv2d
 from brevitas.nn import QuantConvTranspose1d
 from brevitas.nn import QuantConvTranspose2d
-from brevitas.nn import QuantIdentity
 from brevitas.nn import QuantLinear
-from brevitas.nn import QuantLSTM
-from brevitas.nn import TruncAvgPool2d
 from brevitas.quant.fixed_point import Int8ActPerTensorFixedPoint
 from brevitas.quant.fixed_point import Int8WeightPerChannelFixedPoint
 from brevitas.quant.fixed_point import Int8WeightPerTensorFixedPoint
@@ -30,6 +27,7 @@ from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
+from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerTensorFloat
 
 SEED = 123456
 OUT_CH = 16
@@ -57,7 +55,9 @@ WBIOL_QUANTIZERS = {
     'a2q': (A2QWeightQuantizerForTests, Int8ActPerTensorFloat),
     'symmetric_per_tensor_fixed_point': (Int8WeightPerTensorFixedPoint, Int8ActPerTensorFixedPoint),
     'symmetric_per_channel_fixed_point':
-        (Int8WeightPerChannelFixedPoint, Int8ActPerTensorFixedPoint)}
+        (Int8WeightPerChannelFixedPoint, Int8ActPerTensorFixedPoint),
+    'weight_symmetric_activation_dynamic_asymmetric_per_tensor_float':
+        (Int8WeightPerTensorFloat, ShiftedUint8DynamicActPerTensorFloat)}
 LSTM_QUANTIZERS = {
     'asymmetric_per_tensor_float':
         (ShiftedUint8WeightPerTensorFloat, ShiftedUint8ActPerTensorFloat),
@@ -114,7 +114,8 @@ def recursive_allclose(ort_output, brevitas_output, tolerance):
 def is_brevitas_ort_close(
         model, np_input, export_name, export_type, tolerance=None, first_output_only=False):
     input_t = torch.from_numpy(np_input)
-    brevitas_output = model(input_t)
+    with torch.no_grad():
+        brevitas_output = model(input_t)
 
     if tolerance is not None and export_type == 'qcdq':
         tolerance = tolerance * brevitas_output.scale  # Float Output, tolerance is +/- output scale
