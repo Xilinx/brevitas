@@ -215,6 +215,7 @@ class QuantConv2d(QuantWBIOL, Conv2d):
         return max_output_bit_width
 
 class QuantConv3d(QuantWBIOL, Conv3d):
+    
     def __init__(
             self,
             in_channels: int,
