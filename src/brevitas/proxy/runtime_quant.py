@@ -12,7 +12,6 @@ from typing_extensions import runtime_checkable
 import brevitas
 from brevitas.quant_tensor import QuantTensor
 
-from .quant_proxy import _is_per_output_channel_scaling
 from .quant_proxy import QuantProxyFromInjector
 from .quant_proxy import QuantProxyProtocol
 
