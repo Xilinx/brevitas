@@ -33,7 +33,7 @@ def gptq_iter(curr_layer, inps, outs, cached_values, act_order):
 
 @torch.no_grad()
 def apply_gptq(model, dataloader, act_order=True, block_name=None):
-    model, _ = offload_model(model)
+    model = offload_model(model)
     with gptq_mode(model,
                    use_quant_activations=False,
                    act_order=act_order,
