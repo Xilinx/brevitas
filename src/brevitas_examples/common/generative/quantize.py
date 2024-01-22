@@ -34,17 +34,15 @@ from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloatMS
 from brevitas_examples.common.generative.nn import LoRACompatibleQuantConv2d
 from brevitas_examples.common.generative.nn import LoRACompatibleQuantLinear
 from brevitas_examples.common.generative.quantizers import Fp8e4m3WeightSymmetricGroupQuant
-from brevitas_examples.common.generative.quantizers import Int8ActDynamicPerGroupFloat
-from brevitas_examples.common.generative.quantizers import Int8ActDynamicPerRowFloat
-from brevitas_examples.common.generative.quantizers import Int8ActDynamicPerTensorFloat
 from brevitas_examples.common.generative.quantizers import Int8ActPerRowFloat
 from brevitas_examples.common.generative.quantizers import Int8ActPerRowFloatMSE
+from brevitas_examples.common.generative.quantizers import Int8DynamicActPerGroupFloat
+from brevitas_examples.common.generative.quantizers import Int8DynamicActPerRowFloat
+from brevitas_examples.common.generative.quantizers import Int8DynamicActPerTensorFloat
 from brevitas_examples.common.generative.quantizers import IntWeightSymmetricGroupQuant
-from brevitas_examples.common.generative.quantizers import ShiftedUint8ActDynamicPerGroupFloat
-from brevitas_examples.common.generative.quantizers import ShiftedUint8ActDynamicPerRowFloat
-from brevitas_examples.common.generative.quantizers import ShiftedUint8ActDynamicPerTensorFloat
 from brevitas_examples.common.generative.quantizers import ShiftedUint8ActPerRowFloat
 from brevitas_examples.common.generative.quantizers import ShiftedUint8ActPerRowFloatMSE
+from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerTensorFloat
 from brevitas_examples.common.generative.quantizers import ShiftedUintWeightAsymmetricGroupQuant
 
 WEIGHT_QUANT_MAP = {
@@ -111,12 +109,12 @@ INPUT_QUANT_MAP = {
             'float_scale': {
                 'stats': {
                     'per_tensor': {
-                        'sym': Int8ActDynamicPerTensorFloat,
-                        'asym': ShiftedUint8ActDynamicPerTensorFloat},
+                        'sym': Int8DynamicActPerTensorFloat,
+                        'asym': ShiftedUint8DynamicActPerTensorFloat},
                     'per_row': {
-                        'sym': Int8ActDynamicPerRowFloat},
+                        'sym': Int8DynamicActPerRowFloat},
                     'per_group': {
-                        'sym': Int8ActDynamicPerGroupFloat},}}}},
+                        'sym': Int8DynamicActPerGroupFloat},}}}},
     'float': {
         'static': {
             'float_scale': {

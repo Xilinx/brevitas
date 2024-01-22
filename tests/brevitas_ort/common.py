@@ -16,10 +16,7 @@ from brevitas.nn import QuantConv1d
 from brevitas.nn import QuantConv2d
 from brevitas.nn import QuantConvTranspose1d
 from brevitas.nn import QuantConvTranspose2d
-from brevitas.nn import QuantIdentity
 from brevitas.nn import QuantLinear
-from brevitas.nn import QuantLSTM
-from brevitas.nn import TruncAvgPool2d
 from brevitas.quant.fixed_point import Int8ActPerTensorFixedPoint
 from brevitas.quant.fixed_point import Int8WeightPerChannelFixedPoint
 from brevitas.quant.fixed_point import Int8WeightPerTensorFixedPoint
@@ -30,7 +27,7 @@ from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
-from brevitas_examples.common.generative.quantizers import ShiftedUint8ActDynamicPerTensorFloat
+from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerTensorFloat
 
 SEED = 123456
 OUT_CH = 16
@@ -60,7 +57,7 @@ WBIOL_QUANTIZERS = {
     'symmetric_per_channel_fixed_point':
         (Int8WeightPerChannelFixedPoint, Int8ActPerTensorFixedPoint),
     'weight_symmetric_activation_dynamic_asymmetric_per_tensor_float':
-        (Int8WeightPerTensorFloat, ShiftedUint8ActDynamicPerTensorFloat)}
+        (Int8WeightPerTensorFloat, ShiftedUint8DynamicActPerTensorFloat)}
 LSTM_QUANTIZERS = {
     'asymmetric_per_tensor_float':
         (ShiftedUint8WeightPerTensorFloat, ShiftedUint8ActPerTensorFloat),

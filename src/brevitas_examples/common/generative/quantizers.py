@@ -66,7 +66,7 @@ class WeightSymmetricGroupQuantMixin(ExtendedInjector):
     block_size = None
 
 
-class ActDynamicProxyMixin(ExtendedInjector):
+class DynamicActProxyMixin(ExtendedInjector):
     proxy_class = DynamicActQuantProxyFromInjector
 
 
@@ -123,7 +123,7 @@ class ShiftedUint8ActPerRowFloatMSE(ShiftedUint8ActPerTensorFloatMSE):
     scaling_per_output_channel = True
 
 
-class Int8ActDynamicPerTensorFloat(ActDynamicProxyMixin, Int8ActPerTensorFloat):
+class Int8DynamicActPerTensorFloat(DynamicActProxyMixin, Int8ActPerTensorFloat):
     """
     Symmetric quantizer with per tensor dynamic scale.
     """
@@ -133,7 +133,7 @@ class Int8ActDynamicPerTensorFloat(ActDynamicProxyMixin, Int8ActPerTensorFloat):
     dynamic_scaling_broadcastable_shape = this.scaling_shape
 
 
-class Int8ActDynamicPerRowFloat(ActDynamicProxyMixin, Int8ActPerRowFloat):
+class Int8DynamicActPerRowFloat(DynamicActProxyMixin, Int8ActPerRowFloat):
     """
     Symmetric quantizer with per row dynamic scale.
     """
@@ -142,7 +142,7 @@ class Int8ActDynamicPerRowFloat(ActDynamicProxyMixin, Int8ActPerRowFloat):
     scaling_stats_op = 'min_max'
 
 
-class Int8ActDynamicPerGroupFloat(ActDynamicProxyMixin, Int8ActPerRowFloat):
+class Int8DynamicActPerGroupFloat(DynamicActProxyMixin, Int8ActPerRowFloat):
     """
     Symmetric quantizer with per group scale.
     """
@@ -155,7 +155,7 @@ class Int8ActDynamicPerGroupFloat(ActDynamicProxyMixin, Int8ActPerRowFloat):
         return group_dim + 1
 
 
-class ShiftedUint8ActDynamicPerTensorFloat(ActDynamicProxyMixin, ShiftedUint8ActPerTensorFloat):
+class ShiftedUint8DynamicActPerTensorFloat(DynamicActProxyMixin, ShiftedUint8ActPerTensorFloat):
     """
     Symmetric quantizer with per tensor dynamic scale.
     """
