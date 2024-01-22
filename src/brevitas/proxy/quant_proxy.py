@@ -54,12 +54,6 @@ def _update_state_dict_impl(quant_injector):
     return impl
 
 
-def _is_per_output_channel_scaling(quant_injector):
-    if 'scaling_per_output_channel' in quant_injector:
-        return quant_injector.scaling_per_output_channel
-    return None
-
-
 @runtime_checkable
 class QuantProxyProtocol(Protocol):
     is_quant_enabled: bool

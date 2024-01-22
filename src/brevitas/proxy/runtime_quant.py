@@ -182,10 +182,6 @@ class DynamicActQuantProxyFromInjector(ActQuantProxyFromInjector):
         bit_width = self.__call__(self._zero_hw_sentinel()).bit_width
         return bit_width
 
-    @property
-    def is_per_output_channel_scaling(self):
-        return _is_per_output_channel_scaling(self.quant_injector)
-
 
 class ClampQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol):
 
