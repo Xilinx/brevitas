@@ -7,8 +7,8 @@ import torch
 import brevitas.config as config
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer
 from brevitas.utils.python_utils import recurse_getattr
-from brevitas_examples.optimum.offloading_utils import infer_auto_device_map
 from brevitas_examples.optimum.offloading_utils import infer_fx_auto_device_map
+from brevitas_examples.optimum.offloading_utils import offload_call_function
 
 
 def maybe_offload_weights_to_cpu(model, is_fx=False):
@@ -16,14 +16,13 @@ def maybe_offload_weights_to_cpu(model, is_fx=False):
     cuda_device_map = {
         i: torch.cuda.mem_get_info(i)[0] * 0.7 for i in range(torch.cuda.device_count())}
     cpu_device_map = {'cpu': virtual_memory().available * 0.7}
+    memory_map = {**cpu_device_map, **cuda_device_map}
     if is_fx:
-        device_map, old_mapping = infer_fx_auto_device_map(model, cpu_device_map | cuda_device_map)
+        device_map = infer_fx_auto_device_map(model, memory_map)
+        device_map = offload_call_function(model, memory_map, device_map)
     else:
         device_map = infer_auto_device_map(
-            model,
-            cpu_device_map | cuda_device_map,
-            no_split_module_classes=model._no_split_modules)
-        old_mapping = None
+            model, memory_map, no_split_module_classes=model._no_split_modules)
     model = dispatch_model(model, device_map)
     config._FULL_STATE_DICT = False
     if "disk" in model.hf_device_map.values():
@@ -38,28 +37,24 @@ def maybe_offload_weights_to_cpu(model, is_fx=False):
     #             module = recurse_getattr(model, name)
     #             remove_hook_from_module(module, recurse=True)
     #             module, hook = cpu_offload_with_hook(module, prev_module_hook=hook)
-    return model, old_mapping
+    return model
 
 
-def remove_hooks(model, old_mapping=None):
+def remove_hooks(model):
     for module in model.modules():
         if hasattr(module, '_hf_hook'):
             del module.allocate_params
             del module.offload_params
     remove_hook_from_module(model, recurse=True)
-    brevitas_align_tracked_parameter_list(model)
     model.cpu()
-    if old_mapping is not None:
-        for k, v in old_mapping.items():
-            k.target = v
+    if hasattr(model, 'graph'):
+        for node in model.graph.nodes:
+            if node.op == 'call_function':
+                if 'orig_target' in node.meta:
+                    node.target = node.meta['orig_target']
+                    del node.meta['orig_target']
         model.recompile()
         model.graph.lint()
-
-
-def brevitas_align_tracked_parameter_list(model):
-    for module in model.modules():
-        if isinstance(module, QuantWeightBiasInputOutputLayer):
-            module.weight_quant.init_tensor_quant(preserve_state_dict=True)
 
 
 def update_internal_dict(module):
@@ -71,7 +66,7 @@ def update_internal_dict(module):
 
 def offload_model(model, device='cuda'):
     # FX vs non-FX model need different offloading
-    model, old_mapping = maybe_offload_weights_to_cpu(model, is_fx=hasattr(model, 'graph'))
+    model = maybe_offload_weights_to_cpu(model, is_fx=hasattr(model, 'graph'))
 
     # We attach these functions to the hooked modules for convenience when modifying parameters
     # during PTQ (e.g. SmoothQuant).
@@ -88,8 +83,6 @@ def offload_model(model, device='cuda'):
         for m in module.modules():
             if hasattr(m, '_hf_hook'):
                 m._hf_hook.pre_forward(m)
-        # TODO: Revisit this and if it's necessary/useful
-        brevitas_align_tracked_parameter_list(module)
 
     def offload_params(module):
         """
@@ -99,8 +92,6 @@ def offload_model(model, device='cuda'):
         if module._hf_hook.offload == False:
             return
         update_internal_dict(module)
-        # TODO: Revisit this and if it's necessary/useful
-        brevitas_align_tracked_parameter_list(module)
         module._hf_hook.post_forward(module, torch.tensor([]))
         for m in module.modules():
             if hasattr(m, '_hf_hook'):
@@ -111,7 +102,7 @@ def offload_model(model, device='cuda'):
             module.allocate_params = allocate_params
             module.offload_params = offload_params
 
-    return model, old_mapping
+    return model
 
 
 # Adapted from optimum/exporters/onnx/convert.py, check_dummy_inputs_are_allowed
