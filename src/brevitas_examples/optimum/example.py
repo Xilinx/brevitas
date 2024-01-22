@@ -4,6 +4,8 @@ import os
 import torch
 
 torch.manual_seed(0)
+import warnings
+
 from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
 
@@ -12,6 +14,10 @@ from brevitas_examples.optimum.quantizer import BrevitasQuantizationConfig
 from brevitas_examples.optimum.quantizer import BrevitasQuantizer
 from brevitas_examples.optimum.utils import offload_model
 from brevitas_examples.optimum.utils import remove_hooks
+
+warnings.warn((
+    "To run this example, it is required to install accelerate from source, "
+    "e.g., pip install git+https://github.com/huggingface/accelerate.git@main"))
 
 parser = ArgumentParser(
     description="A simple example to demonstrate a prototype Brevitas/HuggingFace quantization flow"
@@ -79,7 +85,7 @@ if via_fx:
         dtype=torch.float32)
 model = quantizer.quantize(model, calibration_dataloader)
 
-model, _ = offload_model(model)
+model = offload_model(model)
 print("Model eval...")
 ppl = model_eval_accelerate(model, validation_dataloader, config.seqlen)
 print(f"C4 perplexity: {ppl}")
