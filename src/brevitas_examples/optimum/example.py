@@ -14,6 +14,7 @@ from brevitas_examples.optimum.quantizer import BrevitasQuantizationConfig
 from brevitas_examples.optimum.quantizer import BrevitasQuantizer
 from brevitas_examples.optimum.utils import offload_model
 from brevitas_examples.optimum.utils import remove_hooks
+from datasets import load_dataset
 
 warnings.warn((
     "To run this example, it is required to install accelerate from source, "
@@ -59,34 +60,44 @@ tokenizer = AutoTokenizer.from_pretrained(model_name)
 model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=torch.float32)
 
 model.eval()
+input_names = ["input_ids", "attention_mask", "past_key_values"]
+
+def preprocess_function(examples, tokenizer):
+    return tokenizer(examples["sentence"], padding="max_length", max_length=128, truncation=True)
+
+
+with torch.no_grad():
+    fx_model = symbolic_trace(model, input_names)
 config = BrevitasQuantizationConfig(
     apply_gptq=args.apply_gptq,
     apply_weight_equalization=args.apply_weight_equalization,
-    apply_act_equalization=args.apply_act_equalization,
+    apply_act_equalization='layerwise',#args.apply_act_equalization,
     replace_mha_with_quantizable=args.replace_mha_with_quantizable,
 )
 via_fx = args.with_fx or args.apply_act_equalization == "fx"
 quantizer = BrevitasQuantizer(model, config)
 
-calibration_dataloader, validation_dataloader =  quantizer.get_calibration_dataloader(
-     model_name,
+calibration_dataloader =  quantizer.get_calibration_dataloader(
+     tokenizer,
      dataset_name='wikitext2-raw',
      num_samples=config.nsamples,
      seqlen=config.seqlen)
+# if via_fx:
+#     model = get_fx_graph(
+#         model,
+#         ref_kwargs={
+#             'input_ids': calibration_dataloader[0]
+#         },  # , 'attention_mask': torch.ones_like(calibration_dataloader[0])}, adding this will make the attention_mask a required argument, leaving it out removes it from the forward signature
+#         dtype=torch.float32)
 
 from brevitas_examples.llm.llm_quant.run_utils import get_fx_graph
 
-if via_fx:
-    model = get_fx_graph(
-        model,
-        ref_kwargs={
-            'input_ids': calibration_dataloader[0]
-        },  # , 'attention_mask': torch.ones_like(calibration_dataloader[0])}, adding this will make the attention_mask a required argument, leaving it out removes it from the forward signature
-        dtype=torch.float32)
 model = quantizer.quantize(model, calibration_dataloader)
 
 model = offload_model(model)
 print("Model eval...")
+validation_dataloader = traindata = load_dataset('wikitext', 'wikitext-2-raw-v1', split='test')
+validation_dataloader = tokenizer("\n\n".join(validation_dataloader['text']), return_tensors='pt')
 ppl = model_eval_accelerate(model, validation_dataloader, config.seqlen)
 print(f"C4 perplexity: {ppl}")
 
