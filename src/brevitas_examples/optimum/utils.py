@@ -5,7 +5,6 @@ from psutil import virtual_memory
 import torch
 
 import brevitas.config as config
-from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer
 from brevitas.utils.python_utils import recurse_getattr
 from brevitas_examples.optimum.offloading_utils import infer_fx_auto_device_map
 from brevitas_examples.optimum.offloading_utils import offload_call_function

@@ -4,9 +4,12 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 """
 
 import torch
+from tqdm import tqdm
 
 from brevitas.graph.calibrate import calibration_mode
 from brevitas_examples.llm.llm_quant.run_utils import apply_layer_ptq_fn
+from brevitas_examples.optimum.utils import offload_model
+from brevitas_examples.optimum.utils import remove_hooks
 
 
 @torch.no_grad()
@@ -23,4 +26,10 @@ def calibration_iter(curr_layer, inps, outs, cached_values):
 
 @torch.no_grad()
 def apply_calibration(model, dataloader):
-    apply_layer_ptq_fn(model, dataloader, inference_fn=calibration_iter)
+    model = offload_model(model)
+    with calibration_mode(model):
+        for inps in tqdm(dataloader):
+            inps = {k: v.cuda() for (k, v) in inps.items()}
+            model(**inps)
+    # Remove all accelerate hooks
+    remove_hooks(model)
