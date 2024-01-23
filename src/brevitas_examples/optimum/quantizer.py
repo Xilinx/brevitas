@@ -50,8 +50,6 @@ class BrevitasQuantizer(OptimumQuantizer):
         dtype = next(iter(self.model.parameters()))
         if dtype == torch.bfloat16 and self.qconfig.replace_mha_with_quantizable:
             raise RuntimeError("Scaled_dot_product does not support bfloat16 and cuda")
-        if self.qconfig.input_scale_type == 'dynamic' and self.qconfig.input_quant_type == 'asym':
-            raise RuntimeError("Zero point not supported for dynamic quantization")
         if self.qconfig.input_quant_granularity == 'per_row' and not self.qconfig.replace_mha_with_quantizable:
             raise RuntimeError(
                 "Per-row act quant requires setting replace_mha_with_quantizable to True")
@@ -108,7 +106,7 @@ class BrevitasQuantizer(OptimumQuantizer):
 
         # Perform a single inference pass to generate the correct state_dict
         with torch.no_grad():
-            model(calib_dataloader[0])
+            model(**calib_dataloader[0])
 
         if self.qconfig.apply_gptq:
             print("Apply gptq")
@@ -123,20 +121,23 @@ class BrevitasQuantizer(OptimumQuantizer):
 
     def get_calibration_dataloader(
         self,
-        model,
+        tokenizer,
         dataset_name='c4',
         num_samples: int = 100,
         seqlen: int = 2048,
         seed: int = 0,
     ):
         if dataset_name == 'c4':
-            trainloader, valenc = get_c4(nsamples=num_samples, seed=seed, model=model, seqlen=seqlen)
+            calib_dataloader = get_c4(
+                nsamples=num_samples, seed=seed, tokenizer=tokenizer, seqlen=seqlen)
         elif dataset_name == 'wikitext2':
-            trainloader, valenc = get_wikitext2(nsamples=num_samples, seqlen=seqlen, seed=seed, model=model, type='')
+            calib_dataloader = get_wikitext2(
+                nsamples=num_samples, seqlen=seqlen, seed=seed, tokenizer=tokenizer, type='')
         elif dataset_name == 'wikitext2-raw':
-            trainloader, valenc = get_wikitext2(nsamples=num_samples, seqlen=seqlen, seed=seed, model=model, type='raw')
+            calib_dataloader = get_wikitext2(
+                nsamples=num_samples, seqlen=seqlen, seed=seed, tokenizer=tokenizer, type='raw')
 
-        return trainloader, valenc
+        return calib_dataloader
 
     def export(self, model, export_path, format='onnx_qcdq'):
         # Currently we always export on CPU with a float32 container to avoid float16 CPU errors

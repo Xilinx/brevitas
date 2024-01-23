@@ -40,8 +40,9 @@ def apply_gptq(model, dataloader, act_order=True, block_name=None):
                    create_weight_orig=False) as gptq:
         gptq_model = gptq.model
         for _ in tqdm(range(gptq.num_layers)):
-            for input_ids in dataloader:
-                gptq_model(input_ids=input_ids.cuda())
+            for inps in dataloader:
+                inps = {k: v.cuda() for (k, v) in inps.items()}
+                gptq_model(**inps)
             gptq.update()
     # Remove all accelerate hooks
     remove_hooks(model)
