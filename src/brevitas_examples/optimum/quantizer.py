@@ -128,11 +128,14 @@ class BrevitasQuantizer(OptimumQuantizer):
         seed: int = 0,
     ):
         if dataset_name == 'c4':
-            calib_dataloader = get_c4(nsamples=num_samples, seed=seed, tokenizer=tokenizer, seqlen=seqlen)
+            calib_dataloader = get_c4(
+                nsamples=num_samples, seed=seed, tokenizer=tokenizer, seqlen=seqlen)
         elif dataset_name == 'wikitext2':
-            calib_dataloader = get_wikitext2(nsamples=num_samples, seqlen=seqlen, seed=seed, tokenizer=tokenizer, type='')
+            calib_dataloader = get_wikitext2(
+                nsamples=num_samples, seqlen=seqlen, seed=seed, tokenizer=tokenizer, type='')
         elif dataset_name == 'wikitext2-raw':
-            calib_dataloader = get_wikitext2(nsamples=num_samples, seqlen=seqlen, seed=seed, tokenizer=tokenizer, type='raw')
+            calib_dataloader = get_wikitext2(
+                nsamples=num_samples, seqlen=seqlen, seed=seed, tokenizer=tokenizer, type='raw')
 
         return calib_dataloader
 

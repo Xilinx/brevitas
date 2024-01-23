@@ -31,7 +31,7 @@ def apply_act_equalization(model, act_equalization_type, dataloader, alpha=0.5):
     if act_equalization_type == 'layerwise':
         with activation_equalization_mode(model, alpha, add_mul_node=True, layerwise=True):
             for inps in tqdm(dataloader):
-                inps = {k:v.cuda() for (k,v) in inps.items()}
+                inps = {k: v.cuda() for (k, v) in inps.items()}
                 model(**inps)
     elif act_equalization_type == 'fx':
         assert model is not None, "FX Model is required to perform FX SmoothQuant"
@@ -41,7 +41,7 @@ def apply_act_equalization(model, act_equalization_type, dataloader, alpha=0.5):
                                           layerwise=False,
                                           co_optimize_act_weights=True):
             for inps in tqdm(dataloader):
-                inps = {k:v.cuda() for (k,v) in inps.items()}
+                inps = {k: v.cuda() for (k, v) in inps.items()}
                 model(**inps)
 
     else:

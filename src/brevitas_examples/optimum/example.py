@@ -3,10 +3,11 @@ import os
 
 import torch
 
+from brevitas_examples.llm.llm_quant.data import get_wikitext2
+
 torch.manual_seed(0)
 import warnings
 
-from datasets import load_dataset
 from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
 
@@ -70,7 +71,7 @@ def preprocess_function(examples, tokenizer):
 config = BrevitasQuantizationConfig(
     apply_gptq=args.apply_gptq,
     apply_weight_equalization=args.apply_weight_equalization,
-    apply_act_equalization='layerwise',  #args.apply_act_equalization,
+    apply_act_equalization=args.apply_act_equalization,
     replace_mha_with_quantizable=args.replace_mha_with_quantizable,
 )
 via_fx = args.with_fx or args.apply_act_equalization == "fx"
@@ -78,6 +79,9 @@ quantizer = BrevitasQuantizer(model, config)
 
 calibration_dataloader = quantizer.get_calibration_dataloader(
     tokenizer, dataset_name='wikitext2-raw', num_samples=config.nsamples, seqlen=config.seqlen)
+
+from brevitas_examples.llm.llm_quant.run_utils import get_fx_graph
+
 if via_fx:
     model = get_fx_graph(
         model,
@@ -86,14 +90,12 @@ if via_fx:
         },  # , 'attention_mask': torch.ones_like(calibration_dataloader[0])}, adding this will make the attention_mask a required argument, leaving it out removes it from the forward signature
         dtype=torch.float32)
 
-from brevitas_examples.llm.llm_quant.run_utils import get_fx_graph
-
 model = quantizer.quantize(model, calibration_dataloader)
 
 model = offload_model(model)
 print("Model eval...")
-validation_dataloader = traindata = load_dataset('wikitext', 'wikitext-2-raw-v1', split='test')
-validation_dataloader = tokenizer("\n\n".join(validation_dataloader['text']), return_tensors='pt')
+validation_dataloader = get_wikitext2(
+    config.nsamples, 0, config.seqlen, tokenizer, type='raw', split='validation')
 ppl = model_eval_accelerate(model, validation_dataloader, config.seqlen)
 print(f"C4 perplexity: {ppl}")
 

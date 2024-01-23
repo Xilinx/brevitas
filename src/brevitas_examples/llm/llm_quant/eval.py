@@ -103,7 +103,7 @@ def model_eval_accelerate(model, valenc, seqlen):
             attention_mask = torch.ones_like(batch)
             lm_logits = model(input_ids=batch, attention_mask=attention_mask)['logits']
             shift_logits = lm_logits[:, :-1, :].contiguous()
-            shift_labels = ( valenc['input_ids'][:, (i * seqlen):((i + 1) * seqlen)][:, 1:]).cuda()
+            shift_labels = (valenc['input_ids'][:, (i * seqlen):((i + 1) * seqlen)][:, 1:]).cuda()
             loss_fct = nn.CrossEntropyLoss()
             loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
             neg_log_likelihood = loss.float() * seqlen
