@@ -162,5 +162,6 @@ class ShiftedUint8DynamicActPerTensorFloat(DynamicActProxyMixin, ShiftedUint8Act
     scaling_impl = RuntimeDynamicStatsScaling
     scaling_stats_input_view_shape_impl = OverTensorView
     scaling_stats_op = 'min_max'
+    zero_point_impl = RuntimeDynamicStatsZeroPoint
     zero_point_stats_impl = NegativeMinOrZero
     dynamic_scaling_broadcastable_shape = this.scaling_shape
