@@ -16,6 +16,29 @@ from .utils import mul_add_from_bn
 
 class _BatchNormToQuantScaleBias(QuantScaleBias, ABC):
 
+    def __init__(
+            self, 
+            num_features: int,
+            bias: bool = True,
+            weight_quant: Optional[WeightQuantType] = Int8WeightPerTensorFloat,
+            bias_quant: Optional[BiasQuantType] = None,
+            input_quant: Optional[ActQuantType] = None,
+            output_quant: Optional[ActQuantType] = None,
+            return_quant_tensor: bool = False,
+            runtime_shape=(1, -1, 1),
+            **kwargs):
+        QuantScaleBias.__init__(
+            self,
+            num_features=num_features,
+            weight_quant=weight_quant,
+            bias_quant=bias_quant,
+            input_quant=input_quant,
+            output_quant=output_quant,
+            return_quant_tensor=return_quant_tensor,
+            runtime_shape=runtime_shape,
+            **kwargs
+        )
+
     def _load_from_state_dict(
             self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
             error_msgs):
@@ -59,16 +82,18 @@ class BatchNorm1dToQuantScaleBias(_BatchNormToQuantScaleBias):
             input_quant: Optional[ActQuantType] = None,
             output_quant: Optional[ActQuantType] = None,
             return_quant_tensor: bool = False,
+            runtime_shape=(1, -1, 1),
             **kwargs):
         super(BatchNorm1dToQuantScaleBias, self).__init__(
             num_features,
             bias=True,
-            runtime_shape=(1, -1, 1),
+            runtime_shape=runtime_shape,
             weight_quant=weight_quant,
             bias_quant=bias_quant,
             input_quant=input_quant,
             output_quant=output_quant,
             return_quant_tensor=return_quant_tensor,
+            runtime_shape=runtime_shape,
             **kwargs)
         self.eps = eps
 
@@ -84,15 +109,17 @@ class BatchNorm2dToQuantScaleBias(_BatchNormToQuantScaleBias):
             input_quant: Optional[ActQuantType] = None,
             output_quant: Optional[ActQuantType] = None,
             return_quant_tensor: bool = False,
+            runtime_shape=(1, -1, 1, 1),
             **kwargs):
         super(BatchNorm2dToQuantScaleBias, self).__init__(
             num_features,
             bias=True,
-            runtime_shape=(1, -1, 1, 1),
+            runtime_shape=runtime_shape,
             weight_quant=weight_quant,
             bias_quant=bias_quant,
             input_quant=input_quant,
             output_quant=output_quant,
             return_quant_tensor=return_quant_tensor,
+            runtime_shape=runtime_shape,
             **kwargs)
         self.eps = eps
