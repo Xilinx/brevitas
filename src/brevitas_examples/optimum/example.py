@@ -61,12 +61,6 @@ tokenizer = AutoTokenizer.from_pretrained(model_name)
 model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=torch.float32)
 
 model.eval()
-input_names = ["input_ids", "attention_mask", "past_key_values"]
-
-
-def preprocess_function(examples, tokenizer):
-    return tokenizer(examples["sentence"], padding="max_length", max_length=128, truncation=True)
-
 
 config = BrevitasQuantizationConfig(
     apply_gptq=args.apply_gptq,
