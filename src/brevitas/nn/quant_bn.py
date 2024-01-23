@@ -93,7 +93,6 @@ class BatchNorm1dToQuantScaleBias(_BatchNormToQuantScaleBias):
             input_quant=input_quant,
             output_quant=output_quant,
             return_quant_tensor=return_quant_tensor,
-            runtime_shape=runtime_shape,
             **kwargs)
         self.eps = eps
 
@@ -120,6 +119,5 @@ class BatchNorm2dToQuantScaleBias(_BatchNormToQuantScaleBias):
             input_quant=input_quant,
             output_quant=output_quant,
             return_quant_tensor=return_quant_tensor,
-            runtime_shape=runtime_shape,
             **kwargs)
         self.eps = eps
