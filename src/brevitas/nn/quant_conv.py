@@ -171,8 +171,9 @@ class QuantConv2d(QuantWBIOL, Conv2d):
         max_output_bit_width = ceil_ste(torch.log2(max_uint_output))
         return max_output_bit_width
 
+
 class QuantConv3d(QuantWBIOL, Conv3d):
-    
+
     def __init__(
             self,
             in_channels: int,
@@ -232,7 +233,7 @@ class QuantConv3d(QuantWBIOL, Conv3d):
         # if groups == in_channels that means each channel is convolved with its own set of filters
         return self.groups == self.channels
 
-    def forward(self, input: Union[Tensor, QuantTensor]) -> Union[Tensor,QuantTensor]:
+    def forward(self, input: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
         # calls QuantWBIOL.forward_impl and eventually inner_forward_impl below
         return self.forward_impl(input)
 

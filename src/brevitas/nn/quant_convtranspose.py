@@ -221,7 +221,9 @@ class QuantConvTranspose2d(QuantWBIOL, ConvTranspose2d):
         max_output_bit_width = ceil_ste(torch.log2(max_uint_output))
         return max_output_bit_width
 
+
 class QuantConvTranspose3d(QuantWBIOL, ConvTranspose3d):
+
     def __init__(
             self,
             in_channels: int,
@@ -283,7 +285,7 @@ class QuantConvTranspose3d(QuantWBIOL, ConvTranspose3d):
                 output_size=None) -> Union[Tensor, QuantTensor]:
         self._output_size = output_size  # cache the value temporarily
         return self.forward_impl(input)
-    
+
     def compute_output_padding(self, inp, output_size):
         if torch_version >= version.parse('1.12'):
             return self._output_padding(
@@ -291,7 +293,7 @@ class QuantConvTranspose3d(QuantWBIOL, ConvTranspose3d):
         else:
             return self._output_padding(
                 inp, output_size, self.stride, self.padding, self.kernel_size)
-        
+
     def conv_transpose3d_zeros_pad(
             self, x: Tensor, weight: Tensor, bias: Optional[Tensor], output_padding):
         out = conv_transpose3d(

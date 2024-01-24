@@ -11,17 +11,19 @@ from brevitas.nn.utils import merge_bn
 
 OUTPUT_CHANNELS = 10
 INPUT_CHANNELS = 5
-KERNEL_SIZE = (3,3,3)
+KERNEL_SIZE = (3, 3, 3)
 WEIGHT_BIT_WIDTH = 5
 
+
 class TestQuantConv3d:
-    
+
     def test_module_init(self):
-        mod = QuantConv3d(out_channels=OUTPUT_CHANNELS,
-                          in_channels=INPUT_CHANNELS,
-                          kernel_size=KERNEL_SIZE,
-                          bias=False)
-        
+        mod = QuantConv3d(
+            out_channels=OUTPUT_CHANNELS,
+            in_channels=INPUT_CHANNELS,
+            kernel_size=KERNEL_SIZE,
+            bias=False)
+
     def test_fp_quant_module(self):
         float_mod = Conv3d(
             out_channels=OUTPUT_CHANNELS,
