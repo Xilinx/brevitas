@@ -181,8 +181,7 @@ class AccumulatorAwareParameterPreScaling(ParameterPreScalingWeightNorm):
         return upper_bound
 
     @brevitas.jit.script_method
-    def forward(self, weights: Tensor, input_bit_width: Tensor, input_is_signed: bool) -> Tensor:
-        """Takes weights as input and returns the pre-clipping scaling factor"""
+    def inner_forward(self, weights: Tensor, input_bit_width: Tensor, input_is_signed: bool):
         weights = self.stats_input_view_shape_impl(weights)
         d_w = self.stats(weights)  # denominator for weight normalization
         s = self.scaling_impl(weights)  # s
@@ -192,6 +191,13 @@ class AccumulatorAwareParameterPreScaling(ParameterPreScalingWeightNorm):
         value = d_w / g  # calculating final pre-clipping scaling factor
         # re-apply clamp_min_ste from restrict_scaling_impl to the specified pre_scaling_min_val
         value = self.restrict_clamp_scaling.clamp_min_ste(value)
+        return value
+
+    @brevitas.jit.script_method
+    def forward(self, weights: Tensor, input_bit_width: Tensor, input_is_signed: bool) -> Tensor:
+        """Takes weights, input bit-width, and input sign as input and returns the pre-clipping
+        scaling factor per-channel, which is $s \cdot \Vert v \Vert_1 / g$"""
+        value = self.inner_forward(weights, input_bit_width, input_is_signed)
         return value
 
 
@@ -256,7 +262,10 @@ class AccumulatorAwareZeroCenterParameterPreScaling(AccumulatorAwareParameterPre
 
     @brevitas.jit.script_method
     def forward(self, weights: Tensor, input_bit_width: Tensor, input_is_signed: bool) -> Tensor:
-        # NOTE: A2Q+ requires zero-centered floating-point weights, which means that the
+        """Takes weights, input bit-width, and input sign as input and returns the pre-clipping
+        scaling factor per-channel, which is $s \cdot \Vert v - \mu_v \Vert_1 / g$"""
+        # NOTE: A2Q+ requires zero-centering the floating-point weights, which means that the
         # calculation of the l1-norm needs to be done over the zero-centered weights.
         z = self.pre_zero_point.get_zero_center(weights)
-        return super().forward(weights + z, input_bit_width, input_is_signed)
+        value = self.inner_forward(weights + z, input_bit_width, input_is_signed)
+        return value

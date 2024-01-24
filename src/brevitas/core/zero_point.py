@@ -314,7 +314,7 @@ class PreZeroCenterZeroPoint(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def get_zero_center(self, x: Tensor) -> Tensor:
         x = self.stats_input_view_shape_impl(x)
-        u = torch.mean(x, axis=self.stats_reduce_dim, keepdim=True)
+        u = torch.mean(x, dim=self.stats_reduce_dim, keepdim=True)
         z = -u.view(self.stats_output_shape)
         return z
 
