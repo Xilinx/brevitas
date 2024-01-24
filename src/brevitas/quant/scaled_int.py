@@ -436,12 +436,12 @@ class Int8AccumulatorAwareWeightQuant(AccumulatorAwareWeightQuant):
 
 class Int8AccumulatorAwareZeroCenterWeightQuant(AccumulatorAwareZeroCenterWeightQuant):
     """
-    Experimental 8-bit narrow signed improved accumulator-aware integer weight quantizer with learned
-    per-channel scaling factors based on `A2Q+: Improving Accumulator-Aware Weight Quantization` by
-    I. Colbert, A. Pappalardo, J. Petri-Koenig, and Y. Umuroglu. The quantizer learns scaling factors
-    in the float domain and learns norm parameter g in the log domain with the round-to-zero rounding
-    function. The norm is clamped according the specified accumulator bit-width using zero-centered
-    weights. The zero-centering is done before rounding and clippnig.
+    Experimental 8-bit narrow signed zero-centered accumulator-aware integer weight quantizer with
+    learned per-channel scaling factors based on `A2Q+: Improving Accumulator-Aware Weight Quantization`
+    by I. Colbert, A. Pappalardo, J. Petri-Koenig, and Y. Umuroglu (https://arxiv.org/abs/2401.10432).
+    The quantizer learns scaling factors in the float domain and learns norm parameter g in the log domain
+    with the round-to-zero rounding function. The norm is clamped according the specified accumulator
+    bit-width using zero-centered weights. The zero-centering is done before rounding and clipping.
 
     Examples:
         >>> from brevitas.nn import QuantConv2d

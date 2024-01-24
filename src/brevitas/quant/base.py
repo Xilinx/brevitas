@@ -404,12 +404,12 @@ class AccumulatorAwareWeightQuant(WeightNormPerChannelFloatDecoupled):
 
 
 class AccumulatorAwareZeroCenterWeightQuant(AccumulatorAwareWeightQuant):
-    """Experimental improved accumulator-aware weight quantized based on: `A2Q+: Improving
-    Accumulator-Aware Weight Quantization`.
+    """Experimental zero-centered accumulator-aware weight quantized based on:
+    `A2Q+: Improving Accumulator-Aware Weight Quantization`.
 
     When compared to A2Q, A2Q+ changes the following:
-    (1) an added zero-centering constraint on the weights (i.e., `PreZeroCenterZeroPoint`)
-    (2) an improved l1-norm bound that is derived in the referenced paper
+    (1) added zero-centering constraint on the weights (i.e., `PreZeroCenterZeroPoint`)
+    (2) a more relaxed l1-norm bound that is derived in the referenced paper
     """
     pre_scaling_impl = AccumulatorAwareZeroCenterParameterPreScaling
     pre_zero_point_impl = PreZeroCenterZeroPoint
