@@ -60,8 +60,6 @@ class gpfq_mode(gpxq_mode):
             act_order,
             return_forward_output)
 
-        self.orig_forward = self.model.forward
-        self.model.forward = self.catch_stopfwd
         self.p = p
 
         # GPFA2Q params

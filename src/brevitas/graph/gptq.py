@@ -63,8 +63,6 @@ class gptq_mode(gpxq_mode):
             act_order,
             return_forward_output)
 
-        self.orig_forward = self.model.forward
-        self.model.forward = self.catch_stopfwd
         # How many subblock to use during GPTQ for each layer
         self.num_blocks = num_blocks
 

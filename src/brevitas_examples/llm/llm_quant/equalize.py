@@ -26,13 +26,13 @@ def activation_equalization_iter(curr_layer, inps, outs, cached_values, alpha):
 
 
 @torch.no_grad()
-def apply_act_equalization(model, act_equalization_type, dataloader, alpha=0.5):
+def apply_act_equalization(model, act_equalization_type, dataloader, forward_call, alpha=0.5):
     model = offload_model(model)
     if act_equalization_type == 'layerwise':
         with activation_equalization_mode(model, alpha, add_mul_node=True, layerwise=True):
             for inps in tqdm(dataloader):
-                inps = {k: v.cuda() for (k, v) in inps.items()}
-                model(**inps)
+                forward_call(model, inps)
+
     elif act_equalization_type == 'fx':
         assert model is not None, "FX Model is required to perform FX SmoothQuant"
         with activation_equalization_mode(model,
@@ -41,8 +41,7 @@ def apply_act_equalization(model, act_equalization_type, dataloader, alpha=0.5):
                                           layerwise=False,
                                           co_optimize_act_weights=True):
             for inps in tqdm(dataloader):
-                inps = {k: v.cuda() for (k, v) in inps.items()}
-                model(**inps)
+                forward_call(model, inps)
 
     else:
         raise RuntimeError(f"{act_equalization_type} not supported.")
