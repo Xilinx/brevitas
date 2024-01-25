@@ -107,7 +107,7 @@ calibration_dataloader = quantizer.get_calibration_dataloader(
     tokenizer, dataset_name='wikitext2-raw', num_samples=config.nsamples, seqlen=config.seqlen)
 
 print("Apply quantization")
-# model = quantizer.quantize(model, calibration_dataloader, forward_call=forward_call)
+model = quantizer.quantize(model, calibration_dataloader, forward_call=forward_call)
 print("Quantization applied")
 
 model = offload_model(model)
