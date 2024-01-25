@@ -91,7 +91,7 @@ def model_eval(model, valenc, seqlen):
 
 
 @torch.no_grad()
-def model_eval_accelerate(model, valenc, seqlen):
+def model_eval_accelerate(model, valenc, seqlen, forward_call):
 
     nsamples = valenc['input_ids'].numel() // seqlen
     use_cache = model.config.use_cache
@@ -101,14 +101,14 @@ def model_eval_accelerate(model, valenc, seqlen):
         for i in tqdm(range(nsamples)):
             batch = valenc['input_ids'][:, (i * seqlen):((i + 1) * seqlen)].cuda()
             attention_mask = torch.ones_like(batch)
-            lm_logits = model(input_ids=batch, attention_mask=attention_mask)['logits']
+            lm_logits = forward_call(model, {
+                'input_ids': batch, 'attention_mask': attention_mask})['logits']
             shift_logits = lm_logits[:, :-1, :].contiguous()
             shift_labels = (valenc['input_ids'][:, (i * seqlen):((i + 1) * seqlen)][:, 1:]).cuda()
             loss_fct = nn.CrossEntropyLoss()
             loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
             neg_log_likelihood = loss.float() * seqlen
             nlls.append(neg_log_likelihood)
-
         ppl = torch.exp(torch.stack(nlls).sum() / (nsamples * seqlen))
     model.config.use_cache = use_cache
     return ppl
