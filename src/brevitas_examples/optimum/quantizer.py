@@ -5,6 +5,7 @@ from types import MethodType
 
 from optimum.exporters import TasksManager
 from optimum.exporters.onnx import export
+from optimum.exporters.onnx.__main__ import onnx_export
 from optimum.quantization_base import OptimumQuantizer
 import torch
 
@@ -143,26 +144,10 @@ class BrevitasQuantizer(OptimumQuantizer):
     def export(self, model, export_path, format='onnx_qcdq'):
         # Currently we always export on CPU with a float32 container to avoid float16 CPU errors
         model = model.cpu().to(dtype=torch.float32)
-        model_type = model.config.model_type
         if format == 'onnx_qcdq':
             export_class = StdQCDQONNXManager
-            backend = "onnx"
             with torch.inference_mode(), brevitas_proxy_export_mode(model, export_class):
-                # We would like to use the export_main optimum export since it takes care also of KV Cache
-                # This API does not seem to do that
-                onnx_path = Path(export_path)
-                onnx_config_constructor = TasksManager.get_exporter_config_constructor(
-                    backend, model, task="text-generation")
-                onnx_config = onnx_config_constructor(model.config)
-                # Remove all arguments from the `generate_dummy_inputs` method which are not in the GraphModule's signature
-                if isinstance(model, torch.fx.graph_module.GraphModule):
-                    forward_signature_keys = get_forward_signature(model)
-                    onnx_config._brv_generate_dummy_inputs_orig = onnx_config.generate_dummy_inputs
-                    onnx_config.generate_dummy_inputs = MethodType(
-                        partial(
-                            generate_dummy_inputs, forward_signature_keys=forward_signature_keys),
-                        onnx_config)
-                onnx_inputs, onnx_outputs = export(model, onnx_config, onnx_path, onnx_config.DEFAULT_ONNX_OPSET)
+                onnx_export(model, Path(export_path), task="text-generation-with-past")
         elif format == 'torchscript_qcdq':
             raise RuntimeError("TBD")
         elif format == 'onnx_packed_int':
