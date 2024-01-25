@@ -16,6 +16,7 @@ from brevitas.export.common.handler.qcdq import DynamicQDQCastActQuantProxyHandl
 from brevitas.export.common.handler.qcdq import DynamicQMixin
 from brevitas.export.common.handler.qcdq import QCDQCastActQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQCastTruncQuantProxyHandlerMixin
+from brevitas.export.common.handler.qcdq import QCDQCastWeightQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QMixin
 from brevitas.export.onnx.handler import ONNXBaseHandler
 from brevitas.export.onnx.handler import QuantLSTMLayerHandler
@@ -112,6 +113,12 @@ class StdDynamicQDQCastONNXMixin(DynamicQMixin, StdDQCastONNXMixin, ABC):
 class StdCDQCastONNXWeightQuantProxyHandler(StdCDQCastONNXMixin,
                                             CDQCastWeightQuantProxyHandlerMixin,
                                             ONNXBaseHandler):
+    pass
+
+
+class StdQCDQCastONNXWeightQuantProxyHandler(StdQCDQCastONNXMixin,
+                                             QCDQCastWeightQuantProxyHandlerMixin,
+                                             ONNXBaseHandler):
     pass
 
 

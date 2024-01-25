@@ -160,7 +160,7 @@ def _restore_requires_grad(m: Module, previous_state):
 class BaseManager(ABC):
 
     target_name = None
-    handlers = []
+    handlers = set()
     _fn_to_cache = []
     _fn_cache = []
     _cached_io_handler_map = {}

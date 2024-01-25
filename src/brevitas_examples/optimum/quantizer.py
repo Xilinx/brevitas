@@ -145,6 +145,12 @@ class BrevitasQuantizer(OptimumQuantizer):
 
     def export(self, model, export_path):
         export_class = StdQCDQONNXManager
+
+        # When exporting large model, it is better to explicitly export the floating point weight
+        # followed by quantize-dequantize, instead of integer weights + dequantize.
+        # PyTorch ONNX export seems to run in some form of weight duplication with integer weights,
+        # causing the export to fail because the total model is over 2GB.
+        export_class.change_weight_handler(export_quantize_node_weight=True)
         # workaround for FX model
         extra_kwargs = {}
         if isinstance(self.model, (GraphModule, TorchGraphModule)):

@@ -27,7 +27,7 @@ from .handler.pool import PytorchQuantMaxPool2d
 class TorchQOpManager(BaseManager):
     target_name = 'torch'
 
-    handlers = [
+    handlers = {
         PytorchQuantMaxPool1d,
         PytorchQuantMaxPool2d,
         PytorchQuantHardTanhHandler,
@@ -35,7 +35,7 @@ class TorchQOpManager(BaseManager):
         PytorchQuantReLUHandler,
         PytorchQuantConv1dHandler,
         PytorchQuantConv2dHandler,
-        PytorchQuantLinearHandler]
+        PytorchQuantLinearHandler}
 
     @classmethod
     def set_export_mode(cls, module: Module, enabled: bool):
