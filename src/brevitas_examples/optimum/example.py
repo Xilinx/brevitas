@@ -114,8 +114,8 @@ model = offload_model(model)
 print("Model eval...")
 validation_dataloader = get_wikitext2(
     config.nsamples, 0, config.seqlen, tokenizer, type='raw', split='validation')
-# ppl = model_eval_accelerate(model, validation_dataloader, config.seqlen, forward_call=forward_call)
-# print(f"C4 perplexity: {ppl}")
+ppl = model_eval_accelerate(model, validation_dataloader, config.seqlen, forward_call=forward_call)
+print(f"C4 perplexity: {ppl}")
 
 print("Model export...")
 # Several export format could be achieved:
