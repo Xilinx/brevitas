@@ -1,5 +1,7 @@
 import logging
 
+from accelerate.hooks import add_hook_to_module
+from accelerate.hooks import AlignDevicesHook
 from accelerate.utils import check_tied_parameters_in_config
 from accelerate.utils import compute_module_sizes
 from accelerate.utils import find_device
@@ -7,15 +9,22 @@ from accelerate.utils import find_tied_parameters
 from accelerate.utils import get_max_layer_size
 from accelerate.utils import get_max_memory
 from accelerate.utils import send_to_device
-from accelerate.utils.modeling import clean_device_map
 import torch
-import torch.nn as nn
 
-from brevitas.graph.base import InsertModuleCallAfter
 from brevitas.graph.utils import get_module
-from brevitas.utils.python_utils import recurse_getattr
 
 logger = logging.getLogger(__name__)
+
+
+def align_input(model, device_map):
+    if set(device_map.values()) == {"cpu"} or set(device_map.values()) == {"cpu", "disk"}:
+        main_device = "cpu"
+    else:
+        main_device = [d for d in device_map.values() if d not in ["cpu", "disk"]][0]
+    hook = AlignDevicesHook(
+        execution_device=main_device, io_same_device=True, skip_keys=None, tied_params_map=None)
+    add_hook_to_module(model, hook)
+    return model
 
 
 # The main rationale is to work around the fact that module.__class__.__name__ is Module for everything
@@ -239,14 +248,15 @@ def infer_fx_auto_device_map(
                         f"(available={current_max_size-current_memory_used}).")
             current_memory_used += module_size
             device_map[name] = devices[current_device]
+
+    if len(set(device_map.values())) == 1:
+        device_map = {'': list(device_map.values())[0]}
     return device_map
 
 
 def offload_call_function(model, max_memory, device_map):
     max_memory = get_max_memory(max_memory)
     devices = list(max_memory.keys())
-
-    input_replacement = []
 
     for node in model.graph.nodes:
         if node.op == 'call_function':
@@ -272,26 +282,7 @@ def offload_call_function(model, max_memory, device_map):
 
             node.meta['orig_target'] = node.target
             node.target = new_func
-        elif node.op == 'placeholder':
-            input_replacement.append(node)
 
-    if set(device_map.values()) == {"cpu"} or set(device_map.values()) == {"cpu", "disk"}:
-        main_device = "cpu"
-    else:
-        main_device = [d for d in device_map.values() if d not in ["cpu", "disk"]][0]
-
-    def align_input_to_main_device(*inp):
-        return send_to_device(*inp, main_device)
-
-    for node in input_replacement:
-        with model.graph.inserting_after(node):
-            new_node = model.graph.create_node(
-                op="call_function",
-                target=align_input_to_main_device,
-                args=(node,),
-                name=f"align_device_{node.name}")
-            node.replace_all_uses_with(new_node)
-            new_node.args = (node,)
     model.recompile()
     model.graph.lint()
 

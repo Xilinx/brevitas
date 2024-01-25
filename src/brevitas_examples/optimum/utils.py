@@ -6,6 +6,7 @@ import torch
 
 import brevitas.config as config
 from brevitas.utils.python_utils import recurse_getattr
+from brevitas_examples.optimum.offloading_utils import align_input
 from brevitas_examples.optimum.offloading_utils import infer_fx_auto_device_map
 from brevitas_examples.optimum.offloading_utils import offload_call_function
 
@@ -23,6 +24,10 @@ def maybe_offload_weights_to_cpu(model, is_fx=False):
         device_map = infer_auto_device_map(
             model, memory_map, no_split_module_classes=model._no_split_modules)
     model = dispatch_model(model, device_map)
+
+    if len(set(device_map.values())) == 1:
+        model = align_input(model, device_map)
+
     config._FULL_STATE_DICT = False
     if "disk" in model.hf_device_map.values():
         raise ValueError("disk offload is not supported with quantization")
@@ -52,10 +57,6 @@ def remove_hooks(model):
                 if 'orig_target' in node.meta:
                     node.target = node.meta['orig_target']
                     del node.meta['orig_target']
-            if node.op == 'placeholder':
-                next_user = list(node.users.keys())[0]
-                next_user.replace_all_uses_with(node)
-                model.graph.erase_node(next_user)
         model.recompile()
         model.graph.lint()
 

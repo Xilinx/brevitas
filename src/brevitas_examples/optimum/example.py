@@ -72,8 +72,8 @@ model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=torch.float
 model.eval()
 
 via_fx = args.with_fx or args.apply_act_equalization == "fx"
-
 if via_fx:
+    dtype = next(iter(model.parameters())).dtype
     input_names = ["input_ids", "attention_mask", "past_key_values"]
 
     # Determine past_key_values tuple shapes
@@ -84,11 +84,12 @@ if via_fx:
         model = symbolic_trace(model, input_names)
 
     pkv = tuple((
-        torch.empty(1, num_attention_heads, 0, embed_dim),
-        torch.empty(1, num_attention_heads, 0, embed_dim)) for i in range(num_layers))
+        torch.empty(1, num_attention_heads, 0, embed_dim, dtype=dtype),
+        torch.empty(1, num_attention_heads, 0, embed_dim, dtype=dtype)) for i in range(num_layers))
 
     def forward_call(model, inps):
         inps['past_key_values'] = pkv
+
         return model(**inps)
 else:
 

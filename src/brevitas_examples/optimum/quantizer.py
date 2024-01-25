@@ -8,8 +8,10 @@ from optimum.exporters.onnx import export
 from optimum.exporters.onnx.__main__ import onnx_export
 from optimum.quantization_base import OptimumQuantizer
 import torch
+from torch.fx import GraphModule as TorchGraphModule
 
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
+from brevitas.fx import GraphModule
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer
 from brevitas.utils.python_utils import recurse_getattr
 from brevitas_examples.common.generative.quantize import quantize_model
@@ -141,16 +143,17 @@ class BrevitasQuantizer(OptimumQuantizer):
 
         return calib_dataloader
 
-    def export(self, model, export_path, format='onnx_qcdq'):
-        # Currently we always export on CPU with a float32 container to avoid float16 CPU errors
-        model = model.cpu().to(dtype=torch.float32)
-        if format == 'onnx_qcdq':
-            export_class = StdQCDQONNXManager
-            with torch.inference_mode(), brevitas_proxy_export_mode(model, export_class):
-                onnx_export(model, Path(export_path), task="text-generation-with-past")
-        elif format == 'torchscript_qcdq':
-            raise RuntimeError("TBD")
-        elif format == 'onnx_packed_int':
-            raise RuntimeError("TBD")
-        else:
-            raise RuntimeError("Format not supported")
+    def export(self, model, export_path):
+        export_class = StdQCDQONNXManager
+        # workaround for FX model
+        extra_kwargs = {}
+        if isinstance(self.model, (GraphModule, TorchGraphModule)):
+            extra_kwargs['sequence_length'] = 1
+
+        with torch.no_grad(), brevitas_proxy_export_mode(model, export_class):
+            onnx_export(
+                model,
+                Path(export_path),
+                task="text-generation-with-past",
+                do_validation=False,
+                **extra_kwargs)
