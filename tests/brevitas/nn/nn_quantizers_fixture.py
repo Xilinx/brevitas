@@ -20,6 +20,7 @@ from brevitas.nn.quant_mha import QuantMultiheadAttention
 from brevitas.nn.quant_rnn import QuantLSTM
 from brevitas.nn.quant_rnn import QuantRNN
 from brevitas.quant.scaled_int import Int8AccumulatorAwareWeightQuant
+from brevitas.quant.scaled_int import Int8AccumulatorAwareZeroCenterWeightQuant
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8ActPerTensorFloatBatchQuant1d
 from brevitas.quant.scaled_int import Int8ActPerTensorFloatBatchQuant2d
@@ -45,12 +46,16 @@ LSTM_WEIGHT_QUANTIZER = {
     'quant_sym': Int8WeightPerTensorFloat,
     'quant_asym': ShiftedUint8WeightPerTensorFloat}
 
+A2Q_WBIOL_WEIGHT_QUANTIZER = {
+    'quant_a2q': Int8AccumulatorAwareWeightQuant,
+    'quant_a2q_plus': Int8AccumulatorAwareZeroCenterWeightQuant}
+
 WBIOL_WEIGHT_QUANTIZER = {
     'None': None,
     'quant_sym': Int8WeightPerTensorFloat,
     'quant_asym': ShiftedUint8WeightPerTensorFloat,
     'quant_decoupled': Int8WeightNormL2PerChannelFixedPoint,
-    'quant_a2q': Int8AccumulatorAwareWeightQuant}
+    **A2Q_WBIOL_WEIGHT_QUANTIZER}
 
 WBIOL_IO_QUANTIZER = {
     'None': None,
@@ -107,7 +112,7 @@ def build_case_model(
     _, bias_quantizer = bias_quantizer
     _, io_quantizer = io_quantizer
 
-    if io_quantizer is None and not input_quantized and k == 'quant_a2q':
+    if io_quantizer is None and not input_quantized and k in A2Q_WBIOL_WEIGHT_QUANTIZER:
         pytest.skip(
             "A2Q uses an input-aware decoupled weight proxy that requires a quantized input tensor."
         )
@@ -215,11 +220,13 @@ def case_model(
     'accumulator_bit_width',
     ACC_BIT_WIDTHS,
     ids=[f'accumulator_bit_width${bw}' for bw in ACC_BIT_WIDTHS])
-def case_model_a2q(io_quantizer, module, request, accumulator_bit_width):
+@pytest_cases.parametrize(
+    'weight_quantizer',
+    A2Q_WBIOL_WEIGHT_QUANTIZER.items(),
+    ids=[f'weight_quant${c}' for c, _ in A2Q_WBIOL_WEIGHT_QUANTIZER.items()])
+def case_model_a2q(io_quantizer, module, request, accumulator_bit_width, weight_quantizer):
     set_case_id(request.node.callspec.id, case_model_a2q)
     case_id = get_case_id(case_model_a2q)
-    # forcing test to only use accumulator-aware weight quantizer
-    weight_quantizer = ('quant_a2q', Int8AccumulatorAwareWeightQuant)
     # reducing coverage by fixing some case parameters
     return build_case_model(
         weight_quantizer,
@@ -604,7 +611,7 @@ def case_mha(
     _, bias_quantizer = bias_quantizer
     _, io_quantizer = io_quantizer
 
-    if io_quantizer is None and k == 'quant_a2q':
+    if io_quantizer is None and k in A2Q_WBIOL_WEIGHT_QUANTIZER:
         # Can't rely on a QuantTensor input for quant_mha at this point
         pytest.skip(
             "A2Q uses an input-aware decoupled weight proxy that requires a quantized input tensor."
