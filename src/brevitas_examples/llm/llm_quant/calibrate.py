@@ -25,11 +25,10 @@ def calibration_iter(curr_layer, inps, outs, cached_values):
 
 
 @torch.no_grad()
-def apply_calibration(model, dataloader):
+def apply_calibration(model, dataloader, forward_call):
     model = offload_model(model)
     with calibration_mode(model):
         for inps in tqdm(dataloader):
-            inps = {k: v.cuda() for (k, v) in inps.items()}
-            model(**inps)
+            forward_call(model, inps)
     # Remove all accelerate hooks
     remove_hooks(model)
