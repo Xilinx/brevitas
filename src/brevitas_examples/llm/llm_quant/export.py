@@ -192,7 +192,7 @@ class LinearWeightBlockQuantHandler(WeightBlockQuantHandlerBase, ABC):
 
 class BlockQuantProxyLevelManager(BaseManager):
 
-    handlers = [WeightBlockQuantProxyHandler]
+    handlers = {WeightBlockQuantProxyHandler}
 
     @classmethod
     def set_export_handler(cls, module):
@@ -212,7 +212,7 @@ def block_quant_layer_level_manager(export_handlers):
 
 
 @contextmanager
-def brevitas_proxy_export_mode(model, export_manager=BlockQuantProxyLevelManager):
+def brevitas_proxy_export_mode(model, export_manager):
     is_training = model.training
     model.eval()
     model.apply(export_manager.set_export_handler)

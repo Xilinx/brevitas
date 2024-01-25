@@ -22,13 +22,13 @@ from .handler import TorchQCDQCastTruncQuantProxyHandler
 class TorchQCDQManager(BaseManager):
     target_name = 'torch'
 
-    handlers = [
+    handlers = {
         TorchCDQCastWeightQuantProxyHandler,
         TorchCDQCastDecoupledWeightQuantProxyHandler,
         TorchCDQCastDecoupledWeightQuantWithInputProxyHandler,
         TorchQCDQCastActQuantProxyHandler,
         TorchCDQCastBiasQuantProxyHandler,
-        TorchQCDQCastTruncQuantProxyHandler]
+        TorchQCDQCastTruncQuantProxyHandler}
 
     @classmethod
     def set_export_mode(cls, model: Module, enabled: bool):
