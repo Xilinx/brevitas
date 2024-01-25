@@ -246,6 +246,8 @@ def offload_call_function(model, max_memory, device_map):
     max_memory = get_max_memory(max_memory)
     devices = list(max_memory.keys())
 
+    input_replacement = []
+
     for node in model.graph.nodes:
         if node.op == 'call_function':
 
@@ -270,7 +272,26 @@ def offload_call_function(model, max_memory, device_map):
 
             node.meta['orig_target'] = node.target
             node.target = new_func
+        elif node.op == 'placeholder':
+            input_replacement.append(node)
 
+    if set(device_map.values()) == {"cpu"} or set(device_map.values()) == {"cpu", "disk"}:
+        main_device = "cpu"
+    else:
+        main_device = [d for d in device_map.values() if d not in ["cpu", "disk"]][0]
+
+    def align_input_to_main_device(*inp):
+        return send_to_device(*inp, main_device)
+
+    for node in input_replacement:
+        with model.graph.inserting_after(node):
+            new_node = model.graph.create_node(
+                op="call_function",
+                target=align_input_to_main_device,
+                args=(node,),
+                name=f"align_device_{node.name}")
+            node.replace_all_uses_with(new_node)
+            new_node.args = (node,)
     model.recompile()
     model.graph.lint()
 

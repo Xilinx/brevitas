@@ -52,6 +52,10 @@ def remove_hooks(model):
                 if 'orig_target' in node.meta:
                     node.target = node.meta['orig_target']
                     del node.meta['orig_target']
+            if node.op == 'placeholder':
+                next_user = list(node.users.keys())[0]
+                next_user.replace_all_uses_with(node)
+                model.graph.erase_node(next_user)
         model.recompile()
         model.graph.lint()
 

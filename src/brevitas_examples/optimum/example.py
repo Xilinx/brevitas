@@ -74,10 +74,27 @@ model.eval()
 via_fx = args.with_fx or args.apply_act_equalization == "fx"
 
 if via_fx:
-    # TODO: extend to include past_key_value, requires forward-calling modification
-    input_names = ["input_ids", "attention_mask"]
+    input_names = ["input_ids", "attention_mask", "past_key_values"]
+
+    # Determine past_key_values tuple shapes
+    num_layers = model.config.num_hidden_layers
+    num_attention_heads = model.config.num_attention_heads
+    embed_dim = model.config.hidden_size // num_attention_heads
     with torch.no_grad():
         model = symbolic_trace(model, input_names)
+
+    pkv = tuple((
+        torch.empty(1, num_attention_heads, 0, embed_dim),
+        torch.empty(1, num_attention_heads, 0, embed_dim)) for i in range(num_layers))
+
+    def forward_call(model, inps):
+        inps['past_key_values'] = pkv
+        return model(**inps)
+else:
+
+    def forward_call(model, inps):
+        return model(**inps)
+
 
 config = BrevitasQuantizationConfig(
     apply_gptq=args.apply_gptq,
@@ -90,18 +107,20 @@ calibration_dataloader = quantizer.get_calibration_dataloader(
     tokenizer, dataset_name='wikitext2-raw', num_samples=config.nsamples, seqlen=config.seqlen)
 
 print("Apply quantization")
-model = quantizer.quantize(model, calibration_dataloader)
+# model = quantizer.quantize(model, calibration_dataloader, forward_call=forward_call)
 print("Quantization applied")
 
 model = offload_model(model)
 print("Model eval...")
 validation_dataloader = get_wikitext2(
     config.nsamples, 0, config.seqlen, tokenizer, type='raw', split='validation')
-ppl = model_eval_accelerate(model, validation_dataloader, config.seqlen)
-print(f"C4 perplexity: {ppl}")
+# ppl = model_eval_accelerate(model, validation_dataloader, config.seqlen, forward_call=forward_call)
+# print(f"C4 perplexity: {ppl}")
 
 print("Model export...")
 # Several export format could be achieved:
 # QCDQ, Packed weight + QCDQ for activation, Packed weights + Dynamic Quant for activations...
 remove_hooks(model)
+
+## Export still WIP
 quantizer.export(model, 'model_export.onnx')

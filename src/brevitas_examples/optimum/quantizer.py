@@ -56,7 +56,7 @@ class BrevitasQuantizer(OptimumQuantizer):
         if self.qconfig.quantization_format == 'graph_mode':
             raise RuntimeError("FX quantization not yet compatible with accelerate")
 
-    def quantize(self, model, calib_dataloader):
+    def quantize(self, model, calib_dataloader, forward_call):
         dtype = next(iter(model.parameters())).dtype
 
         # Insert standard MHA layers when performing fx based weight/act equalization to avoid dealing
@@ -78,7 +78,8 @@ class BrevitasQuantizer(OptimumQuantizer):
 
         if self.qconfig.apply_act_equalization is not None:
             print("Apply Act Equalization (SmoothQuant)")
-            apply_act_equalization(model, self.qconfig.apply_act_equalization, calib_dataloader)
+            apply_act_equalization(
+                model, self.qconfig.apply_act_equalization, calib_dataloader, forward_call)
             print("Act equalization applied")
 
         # We do not quantize embedding and last fully connected layer
@@ -106,16 +107,16 @@ class BrevitasQuantizer(OptimumQuantizer):
 
         # Perform a single inference pass to generate the correct state_dict
         with torch.no_grad():
-            model(**calib_dataloader[0])
+            forward_call(model, calib_dataloader[0])
 
         if self.qconfig.apply_gptq:
             print("Apply gptq")
-            apply_gptq(model, calib_dataloader)
+            apply_gptq(model, calib_dataloader, forward_call)
             print("GPTQ applied")
 
         if self.qconfig.input_bit_width is not None and self.qconfig.input_scale_type == 'static':
             print("Apply act calibration...")
-            apply_calibration(model, calib_dataloader)
+            apply_calibration(model, calib_dataloader, forward_call)
             print("Act calibration applied.")
         return model
 

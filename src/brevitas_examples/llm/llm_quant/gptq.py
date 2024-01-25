@@ -32,7 +32,7 @@ def gptq_iter(curr_layer, inps, outs, cached_values, act_order):
 
 
 @torch.no_grad()
-def apply_gptq(model, dataloader, act_order=True, block_name=None):
+def apply_gptq(model, dataloader, forward_call, act_order=True):
     model = offload_model(model)
     with gptq_mode(model,
                    use_quant_activations=False,
@@ -41,8 +41,7 @@ def apply_gptq(model, dataloader, act_order=True, block_name=None):
         gptq_model = gptq.model
         for _ in tqdm(range(gptq.num_layers)):
             for inps in dataloader:
-                inps = {k: v.cuda() for (k, v) in inps.items()}
-                gptq_model(**inps)
+                forward_call(gptq_model, inps)
             gptq.update()
     # Remove all accelerate hooks
     remove_hooks(model)
