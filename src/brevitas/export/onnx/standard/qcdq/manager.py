@@ -23,6 +23,7 @@ from .handler import StdDynamicQDQCastONNXActQuantProxyHandler
 from .handler import StdQCDQCastONNXActQuantProxyHandler
 from .handler import StdQCDQCastONNXQuantLSTMLayerHandler
 from .handler import StdQCDQCastONNXTruncQuantProxyHandler
+from .handler import StdQCDQCastONNXWeightQuantProxyHandler
 
 
 class StdQCDQONNXManager(StdONNXBaseManager):
@@ -34,7 +35,7 @@ class StdQCDQONNXManager(StdONNXBaseManager):
         "extract_constant_to_initializer",  # remove unused graph inputs & initializers
         "eliminate_unused_initializer"]
 
-    handlers = [
+    handlers = {
         StdCDQCastONNXWeightQuantProxyHandler,
         StdCDQCastONNXBiasQuantProxyHandler,
         StdQCDQCastONNXActQuantProxyHandler,
@@ -42,7 +43,7 @@ class StdQCDQONNXManager(StdONNXBaseManager):
         StdDynamicQDQCastONNXActQuantProxyHandler,
         StdQCDQCastONNXTruncQuantProxyHandler,
         StdCDQCastONNXDecoupledWeightQuantWithInputProxyHandler,
-        StdQCDQCastONNXQuantLSTMLayerHandler]
+        StdQCDQCastONNXQuantLSTMLayerHandler}
 
     custom_fns = [
         DebugMarkerFunction,
@@ -61,3 +62,12 @@ class StdQCDQONNXManager(StdONNXBaseManager):
     def set_export_handler(cls, module: Module):
         _set_proxy_export_handler(cls, module)
         _set_recurrent_layer_export_handler(cls, module)
+
+    @classmethod
+    def change_weight_handler(cls, export_quantize_node_weight: bool = False):
+        if export_quantize_node_weight:
+            cls.handler.discard(StdCDQCastONNXWeightQuantProxyHandler)
+            cls.handler.add(StdQCDQCastONNXWeightQuantProxyHandler)
+        else:
+            cls.handler.discard(StdQCDQCastONNXWeightQuantProxyHandler)
+            cls.handler.add(StdCDQCastONNXWeightQuantProxyHandler)
