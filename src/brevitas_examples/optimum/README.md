@@ -16,9 +16,9 @@ The example shows:
 
 The examples were tested using:
  - PyTorch v2.1.2
- - transformers v4.36.2
- - accelerate v0.25.0
- - optimum v1.16.1
+ - transformers installed from main
+ - accelerate install from main
+ - optimum installed from main
  - brevitas (this branch)
 
 ## Running the Example

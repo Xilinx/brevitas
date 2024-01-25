@@ -10,6 +10,7 @@ import warnings
 
 from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
+from transformers.utils.fx import symbolic_trace
 
 from brevitas_examples.llm.llm_quant.eval import model_eval_accelerate
 from brevitas_examples.optimum.quantizer import BrevitasQuantizationConfig
@@ -20,6 +21,14 @@ from brevitas_examples.optimum.utils import remove_hooks
 warnings.warn((
     "To run this example, it is required to install accelerate from source, "
     "e.g., pip install git+https://github.com/huggingface/accelerate.git@main"))
+
+warnings.warn((
+    "To run this example, it is required to install transformers from source, "
+    "e.g., pip install git+https://github.com/huggingface/transformers.git@main"))
+
+warnings.warn((
+    "To run this example, it is required to install optimum from source, "
+    "e.g., pip install git+https://github.com/huggingface/optimum.git@main"))
 
 parser = ArgumentParser(
     description="A simple example to demonstrate a prototype Brevitas/HuggingFace quantization flow"
@@ -62,29 +71,27 @@ model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=torch.float
 
 model.eval()
 
+via_fx = args.with_fx or args.apply_act_equalization == "fx"
+
+if via_fx:
+    # TODO: extend to include past_key_value, requires forward-calling modification
+    input_names = ["input_ids", "attention_mask"]
+    with torch.no_grad():
+        model = symbolic_trace(model, input_names)
+
 config = BrevitasQuantizationConfig(
     apply_gptq=args.apply_gptq,
     apply_weight_equalization=args.apply_weight_equalization,
     apply_act_equalization=args.apply_act_equalization,
-    replace_mha_with_quantizable=args.replace_mha_with_quantizable,
-)
-via_fx = args.with_fx or args.apply_act_equalization == "fx"
+    replace_mha_with_quantizable=args.replace_mha_with_quantizable)
 quantizer = BrevitasQuantizer(model, config)
 
 calibration_dataloader = quantizer.get_calibration_dataloader(
     tokenizer, dataset_name='wikitext2-raw', num_samples=config.nsamples, seqlen=config.seqlen)
 
-from brevitas_examples.llm.llm_quant.run_utils import get_fx_graph
-
-if via_fx:
-    model = get_fx_graph(
-        model,
-        ref_kwargs={
-            'input_ids': calibration_dataloader[0]
-        },  # , 'attention_mask': torch.ones_like(calibration_dataloader[0])}, adding this will make the attention_mask a required argument, leaving it out removes it from the forward signature
-        dtype=torch.float32)
-
+print("Apply quantization")
 model = quantizer.quantize(model, calibration_dataloader)
+print("Quantization applied")
 
 model = offload_model(model)
 print("Model eval...")
