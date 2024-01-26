@@ -133,10 +133,13 @@ def is_brevitas_ort_close(
             brevitas_output = brevitas_output.int(float_datatype=False)
         elif export_type == 'qcdq':
             export_onnx_qcdq(model, input_t, export_path=export_name)
+            brevitas_output = brevitas_output.value
         elif export_type == 'qcdq_opset14':
             export_onnx_qcdq(model, input_t, opset_version=14, export_path=export_name)
+            brevitas_output = brevitas_output.value
         elif export_type == 'qonnx_opset14':
             export_qonnx(model, input_t, opset_version=14, export_path=export_name)
+            brevitas_output = brevitas_output.value
         else:
             raise RuntimeError(f"Export type {export_type} not recognized.")
 

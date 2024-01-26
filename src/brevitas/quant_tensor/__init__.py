@@ -8,6 +8,7 @@ import warnings
 import torch
 from torch import Tensor
 
+import brevitas.config as config
 from brevitas.function.ops import max_int
 from brevitas.function.ops import min_int
 from brevitas.function.ops_ste import ceil_ste
@@ -97,7 +98,10 @@ class QuantTensor(QuantTensorBase):
 
     @classmethod
     def from_fake_quantized(cls, fake_quant_value, scale, zero_point, bit_width, signed, training):
-        quant_tensor = torch.round(fake_quant_value / scale + zero_point)
+        if config._ONGOING_EXPORT:
+            quant_tensor = fake_quant_value
+        else:
+            quant_tensor = torch.round(fake_quant_value / scale + zero_point)
         return cls(quant_tensor, scale, zero_point, bit_width, signed, training)
 
     @property
@@ -131,7 +135,7 @@ class QuantTensor(QuantTensorBase):
 
     @property
     def value(self):
-        if self.is_valid:
+        if self.is_valid and not config._ONGOING_EXPORT:
             if self.zero_point is None or self.scale is None:
                 return self.qt_value
             return (self.qt_value - self.zero_point) * self.scale
@@ -232,7 +236,16 @@ class QuantTensor(QuantTensorBase):
 
     def int(self, float_datatype=False):
         if self.is_valid:
-            return self.qt_value
+            int_value = self.qt_value
+            if float_datatype:
+                return int_value
+            else:
+                if self.bit_width <= 8. and self.signed_t.item():
+                    return int_value.to(torch.int8)
+                elif self.bit_width <= 8. and not self.signed_t.item():
+                    return int_value.to(torch.uint8)
+                else:
+                    return int_value.to(torch.int32)
         else:
             raise RuntimeError(f"QuantTensor not valid.")
 

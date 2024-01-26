@@ -167,12 +167,10 @@ class QuantLayerMixin(ExportMixin):
             if not self.training and not self._export_mode and self.cache_inference_quant_inp:
                 cached_inp = _CachedIO(inp.detach(), self.cache_quant_io_metadata_only)
                 self._cached_inp = cached_inp
-        else:
-            # inp = QuantTensor(inp, scale=torch.tensor(1.0, device=inp.device, dtype=inp.dtype),  training=self.training)
-            if not self.training and self.cache_inference_quant_inp:
-                cached_inp = _CachedIO(inp.detach(), self.cache_quant_io_metadata_only)
-                self._cached_inp = cached_inp
-        # print(inp)
+        # else:
+        #     if not self.training and self.cache_inference_quant_inp:
+        #         cached_inp = _CachedIO(inp.detach(), self.cache_quant_io_metadata_only)
+        #         self._cached_inp = cached_inp
         # Remove any naming metadata to avoid dowmstream errors
         # Avoid inplace operations on the input in case of forward hooks
         if not torch._C._get_tracing_state():
