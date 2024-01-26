@@ -307,7 +307,8 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
 
         # shortcut execution through the export impl during export
         if self.export_mode:
-            out = self.export_handler(inp.value)
+            inp_value = getattr(inp, 'value', inp)
+            out = self.export_handler(inp_value)
             self._set_global_is_quant_layer(False)
             return out
 
