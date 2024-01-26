@@ -32,10 +32,11 @@ def gptq_iter(curr_layer, inps, outs, cached_values, act_order):
 
 
 @torch.no_grad()
-def apply_gptq(model, dataloader, forward_call, act_order=True):
+def apply_gptq(model, dataloader, forward_call, act_order=True, group_of_parallel_layers=None):
     model = offload_model(model)
     with gptq_mode(model,
                    use_quant_activations=False,
+                   group_of_parallel_layers=group_of_parallel_layers,
                    act_order=act_order,
                    create_weight_orig=False) as gptq:
         gptq_model = gptq.model
