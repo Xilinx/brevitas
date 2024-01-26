@@ -126,7 +126,7 @@ class gpxq_mode(ABC):
             self.disable_quant_inference.disable_bias_quantization(
                 self.model, is_training=self.model.training)
 
-        self.num_layers = len(self.gpxq_layers)
+        self.num_layers = len(dict_of_layers)
         return self
 
     def __exit__(self, type, value, traceback):

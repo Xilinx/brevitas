@@ -48,6 +48,7 @@ class BrevitasQuantizer(OptimumQuantizer):
         except OSError:
             LOGGER.warning(f"Could not load the config automatically.")
         self.validate_quant_config()
+        self.group_of_parallel_layers = None
 
     def validate_quant_config(self):
         dtype = next(iter(self.model.parameters()))
@@ -58,6 +59,25 @@ class BrevitasQuantizer(OptimumQuantizer):
                 "Per-row act quant requires setting replace_mha_with_quantizable to True")
         if self.qconfig.quantization_format == 'graph_mode':
             raise RuntimeError("FX quantization not yet compatible with accelerate")
+
+    def find_groups_of_parallel_layers(self, names_of_groups_of_parallel_layers):
+        names = [name for name, _ in self.model.named_modules()]
+        group_of_parallel_layers = []
+        set_found_layers = set()
+        for group in names_of_groups_of_parallel_layers:
+            first_name = group[0]
+            for name in names:
+                if name.endswith(first_name) and name not in set_found_layers:
+                    all_names_present = True
+                    prefix = name.removesuffix(first_name)
+                    for name_in_group in group:
+                        if not prefix + name_in_group in names:
+                            all_names_present = False
+                    if all_names_present:
+                        found_names = [prefix + name_in_group for name_in_group in group]
+                        group_of_parallel_layers.append(found_names)
+                        set_found_layers.update(found_names)
+        self.group_of_parallel_layers = group_of_parallel_layers
 
     def quantize(self, model, calib_dataloader, forward_call):
         dtype = next(iter(model.parameters())).dtype
@@ -114,7 +134,11 @@ class BrevitasQuantizer(OptimumQuantizer):
 
         if self.qconfig.apply_gptq:
             print("Apply gptq")
-            apply_gptq(model, calib_dataloader, forward_call)
+            apply_gptq(
+                model,
+                calib_dataloader,
+                forward_call,
+                group_of_parallel_layers=self.group_of_parallel_layers)
             print("GPTQ applied")
 
         if self.qconfig.input_bit_width is not None and self.qconfig.input_scale_type == 'static':

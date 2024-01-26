@@ -104,6 +104,11 @@ config = BrevitasQuantizationConfig(
     replace_mha_with_quantizable=args.replace_mha_with_quantizable)
 quantizer = BrevitasQuantizer(model, config)
 
+# To speed up GPTQ computation, we can look through the model to find layers that can be optimized in parallel
+# Because they do not depend on each other. A typical case is the input matrices of the attention layer.
+# We just need to specify the suffix of the layer, and they will be matched across the entire structure.
+# quantizer.find_groups_of_parallel_layers([['q_proj', 'k_proj', 'v_proj']]) # This is for base OPT
+
 calibration_dataloader = quantizer.get_calibration_dataloader(
     tokenizer, dataset_name='wikitext2-raw', num_samples=config.nsamples, seqlen=config.seqlen)
 
