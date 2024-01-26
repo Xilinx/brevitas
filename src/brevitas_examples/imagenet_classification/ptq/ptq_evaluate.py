@@ -256,6 +256,9 @@ def main():
     else:
         act_quant_calib_config = args.act_quant_calibration_type
 
+    if args.act_bit_width == 0:
+        args.act_bit_width = None
+
     config = (
         f"{args.model_name}_"
         f"{args.target_backend}_"

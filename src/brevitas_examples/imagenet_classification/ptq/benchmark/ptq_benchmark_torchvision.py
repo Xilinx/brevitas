@@ -339,6 +339,9 @@ def validate_config(config_namespace):
         config_namespace.gpfa2q)
     if multiple_gpxqs > 1:
         is_valid = False
+    elif multiple_gpxqs == 0:
+        # no gpxq algorithm, set act order to None
+        config_namespace.gpxq_act_order = None
 
     if config_namespace.act_equalization == 'layerwise' and config_namespace.target_backend == 'fx':
         is_valid = False
