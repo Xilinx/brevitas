@@ -197,8 +197,10 @@ def quantize_model(
     act_bit_width_dict = {}
     if quant_format == 'int' and backend == 'layerwise':
         weight_bit_width_dict['weight_bit_width'] = layerwise_bit_width_fn_weight
-        act_bit_width_dict['act_bit_width'] = layerwise_bit_width_fn_act
-
+        if act_bit_width is not None:
+            act_bit_width_dict['act_bit_width'] = layerwise_bit_width_fn_act
+        else:
+            act_bit_width_dict['act_bit_width'] = None
     elif quant_format == 'int' and backend != 'layerwise':
         weight_bit_width_dict['weight_bit_width'] = weight_bit_width
         act_bit_width_dict['act_bit_width'] = act_bit_width
@@ -291,7 +293,7 @@ def create_quant_maps(
         act_bit_width_dict['mantissa_bit_width'] = act_mantissa_bit_width
 
     # Retrieve base input, weight, and bias quantizers
-    bias_quant = BIAS_BIT_WIDTH_MAP[bias_bit_width]
+    bias_quant = BIAS_BIT_WIDTH_MAP[bias_bit_width] if act_bit_width is not None else None
     weight_quant = WEIGHT_QUANT_MAP[weight_quant_format][weight_scale_type][weight_param_method][
         weight_quant_granularity][weight_quant_type]
     weight_quant = weight_quant.let(**weight_bit_width_dict)
