@@ -218,6 +218,13 @@ parser.add_argument(
     type=int,
     help='Accumulator Bit Width for GPFA2Q (default: None)')
 parser.add_argument('--onnx-opset-version', default=None, type=int, help='ONNX opset version')
+parser.add_argument(
+    '--channel-splitting-ratio',
+    default=0.0,
+    type=float,
+    help=
+    'Split Ratio for Channel Splitting. When set to 0.0, Channel Splitting will not be applied. (default: 0.0)'
+)
 add_bool_arg(parser, 'gptq', default=False, help='GPTQ (default: disabled)')
 add_bool_arg(parser, 'gpfq', default=False, help='GPFQ (default: disabled)')
 add_bool_arg(parser, 'gpfa2q', default=False, help='GPFA2Q (default: disabled)')
@@ -225,6 +232,16 @@ add_bool_arg(
     parser, 'gpxq-act-order', default=False, help='GPxQ Act order heuristic (default: disabled)')
 add_bool_arg(parser, 'learned-round', default=False, help='Learned round (default: disabled)')
 add_bool_arg(parser, 'calibrate-bn', default=False, help='Calibrate BN (default: disabled)')
+add_bool_arg(
+    parser,
+    'split-input',
+    default=False,
+    help='Input Channels Splitting for channel splitting (default: disabled)')
+add_bool_arg(
+    parser,
+    'merge-bn',
+    default=True,
+    help='Merge BN layers before quantizing the model (default: enabled)')
 
 
 def main():
@@ -264,7 +281,8 @@ def main():
         f"{'mb_' if args.graph_eq_merge_bias else ''}"
         f"{act_quant_calib_config}_"
         f"{args.weight_quant_calibration_type}_"
-        f"{'bnc' if args.calibrate_bn else ''}")
+        f"{'bnc_' if args.calibrate_bn else ''}"
+        f"{'channel_splitting' if args.channel_splitting_ratio else ''}")
 
     print(
         f"Model: {args.model_name} - "
@@ -288,7 +306,10 @@ def main():
         f"Merge bias in graph equalization: {args.graph_eq_merge_bias} - "
         f"Activation quant calibration type: {act_quant_calib_config} - "
         f"Weight quant calibration type: {args.weight_quant_calibration_type} - "
-        f"Calibrate BN: {args.calibrate_bn}")
+        f"Calibrate BN: {args.calibrate_bn} - "
+        f"Channel Splitting Ratio: {args.channel_splitting_ratio} - "
+        f"Split Input: {args.split_input} - "
+        f"Merge BN: {args.merge_bn}")
 
     # Get model-specific configurations about input shapes and normalization
     model_config = get_model_config(args.model_name)
@@ -332,7 +353,9 @@ def main():
             model,
             equalize_iters=args.graph_eq_iterations,
             equalize_merge_bias=args.graph_eq_merge_bias,
-            merge_bn=not args.calibrate_bn)
+            merge_bn=args.merge_bn,
+            channel_splitting_ratio=args.channel_splitting_ratio,
+            channel_splitting_split_input=args.split_input)
     else:
         raise RuntimeError(f"{args.target_backend} backend not supported.")
 
