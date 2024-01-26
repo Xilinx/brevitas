@@ -12,6 +12,7 @@ from brevitas.core.scaling import ScalingImplType
 import brevitas.nn as qnn
 from brevitas.nn.quant_layer import WeightQuantType
 from brevitas.quant import Int8AccumulatorAwareWeightQuant
+from brevitas.quant import Int8AccumulatorAwareZeroCenterWeightQuant
 from brevitas.quant import Int8ActPerTensorFloat
 from brevitas.quant import Int8WeightPerTensorFloat
 from brevitas.quant import Uint8ActPerTensorFloat
@@ -26,9 +27,14 @@ class CommonIntWeightPerChannelQuant(Int8WeightPerTensorFloat):
 
 
 class CommonIntAccumulatorAwareWeightQuant(Int8AccumulatorAwareWeightQuant):
+    """A2Q: Accumulator-Aware Quantization with Guaranteed Overflow Avoidance"""
     restrict_scaling_impl = FloatRestrictValue  # backwards compatibility
-    pre_scaling_min_val = 1e-10
-    scaling_min_val = 1e-10
+    bit_width = None
+
+
+class CommonIntAccumulatorAwareZeroCenterWeightQuant(Int8AccumulatorAwareZeroCenterWeightQuant):
+    """A2Q+: Improving Accumulator-Aware Weight Quantization"""
+    bit_width = None
 
 
 class CommonIntActQuant(Int8ActPerTensorFloat):

@@ -20,10 +20,12 @@ Note that this is a difference from many academic works that train only on the Y
 | [quant_espcn_x2_w8a8_base](https://github.com/Xilinx/brevitas/releases/download/super_res_r1/quant_espcn_x2_w8a8_base-f761e4a1.pth) | x2 | int8 | (u)int8 | 30.96 |
 | [quant_espcn_x2_w8a8_a2q_32b](https://github.com/Xilinx/brevitas/releases/download/super_res_r1/quant_espcn_x2_w8a8_a2q_32b-85470d9b.pth) | x2 | int8 | (u)int8 | 30.79 |
 | [quant_espcn_x2_w8a8_a2q_16b](https://github.com/Xilinx/brevitas/releases/download/super_res_r1/quant_espcn_x2_w8a8_a2q_16b-f9e1da66.pth) | x2 | int8 | (u)int8 | 30.56 |
+| [quant_espcn_x2_w8a8_a2q_plus_16b](https://github.com/Xilinx/brevitas/releases/download/super_res_r2/quant_espcn_x2_w8a8_a2q_plus_16b-0ddf46f1.pth) | x2 | int8 | (u)int8 | 31.24 |
 ||
 | [quant_espcn_x2_w4a4_base](https://github.com/Xilinx/brevitas/releases/download/super_res_r1/quant_espcn_x2_w4a4_base-80658e6d.pth) | x2 | int4 | (u)int4 | 30.30 |
 | [quant_espcn_x2_w4a4_a2q_32b](https://github.com/Xilinx/brevitas/releases/download/super_res_r1/quant_espcn_x2_w4a4_a2q_32b-8702a412.pth) | x2 | int4 | (u)int4 | 30.27 |
 | [quant_espcn_x2_w4a4_a2q_13b](https://github.com/Xilinx/brevitas/releases/download/super_res_r1/quant_espcn_x2_w4a4_a2q_13b-9fff234e.pth) | x2 | int4 | (u)int4 | 30.24 |
+| [quant_espcn_x2_w4a4_a2q_plus_13b](https://github.com/Xilinx/brevitas/releases/download/super_res_r2/quant_espcn_x2_w4a4_a2q_plus_13b-6e6d55f0.pth) | x2 | int4 | (u)int4 | 30.95 |
 
 
 ## Train
