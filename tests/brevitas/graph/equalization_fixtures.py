@@ -20,30 +20,20 @@ MODELS = {
     'shufflenet_v2_x0_5': [0.318, 0.649],
     'mobilenet_v2': [0.161, 0.320],
     'resnet18': [0.487, 0.952],
-    'googlenet': [0.1826, 0.413],
-    'inception_v3': [0.264, 0.6],
+    'googlenet': [0.495, 0.982],
+    'inception_v3': [0.497, 0.989],
     'alexnet': [0.875, 0.875],}
 
 IN_SIZE_CONV = (1, 3, 224, 224)
 IN_SIZE_LINEAR = (1, 224, 3)
 
 
-def equalize_test(model, regions, merge_bias, bias_shrinkage, scale_computation_type):
-    name_to_module = {}
-    name_set = set()
-    for region in regions:
-        for name in region.srcs:
-            name_set.add(name)
-        for name in region.sinks:
-            name_set.add(name)
+def equalize_test(regions, merge_bias, bias_shrinkage, scale_computation_type):
     scale_factors_regions = []
-    for name, module in model.named_modules():
-        if name in name_set:
-            name_to_module[name] = module
     for i in range(3):
         for region in regions:
             scale_factors_region = _cross_layer_equalization(
-                [name_to_module[n] for n in region.srcs], [name_to_module[n] for n in region.sinks],
+                region,
                 merge_bias=merge_bias,
                 bias_shrinkage=bias_shrinkage,
                 scale_computation_type=scale_computation_type)

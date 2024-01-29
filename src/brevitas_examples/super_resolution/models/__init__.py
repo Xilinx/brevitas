@@ -7,6 +7,7 @@ from typing import Union
 from torch import hub
 import torch.nn as nn
 
+from .common import CommonIntAccumulatorAwareZeroCenterWeightQuant
 from .espcn import *
 
 model_impl = {
@@ -43,18 +44,45 @@ model_impl = {
             upscale_factor=2,
             weight_bit_width=4,
             act_bit_width=4,
-            acc_bit_width=13)}
+            acc_bit_width=13),
+    'quant_espcn_x2_w4a4_a2q_plus_13b':
+        partial(
+            quant_espcn,
+            upscale_factor=2,
+            weight_bit_width=4,
+            act_bit_width=4,
+            acc_bit_width=13,
+            weight_quant=CommonIntAccumulatorAwareZeroCenterWeightQuant),
+    'quant_espcn_x2_w8a8_a2q_plus_16b':
+        partial(
+            quant_espcn,
+            upscale_factor=2,
+            weight_bit_width=8,
+            act_bit_width=8,
+            acc_bit_width=16,
+            weight_quant=CommonIntAccumulatorAwareZeroCenterWeightQuant)}
 
-root_url = 'https://github.com/Xilinx/brevitas/releases/download/super_res_r1'
+root_url = 'https://github.com/Xilinx/brevitas/releases/download/'
 
 model_url = {
-    'float_espcn_x2': f'{root_url}/float_espcn_x2-2f85a454.pth',
-    'quant_espcn_x2_w4a4_a2q_13b': f'{root_url}/quant_espcn_x2_w4a4_a2q_13b-9fff234e.pth',
-    'quant_espcn_x2_w4a4_a2q_32b': f'{root_url}/quant_espcn_x2_w4a4_a2q_32b-8702a412.pth',
-    'quant_espcn_x2_w4a4_base': f'{root_url}/quant_espcn_x2_w4a4_base-80658e6d.pth',
-    'quant_espcn_x2_w8a8_a2q_16b': f'{root_url}/quant_espcn_x2_w8a8_a2q_16b-f9e1da66.pth',
-    'quant_espcn_x2_w8a8_a2q_32b': f'{root_url}/quant_espcn_x2_w8a8_a2q_32b-85470d9b.pth',
-    'quant_espcn_x2_w8a8_base': f'{root_url}/quant_espcn_x2_w8a8_base-f761e4a1.pth'}
+    'float_espcn_x2':
+        f'{root_url}/super_res_r1/float_espcn_x2-2f85a454.pth',
+    'quant_espcn_x2_w4a4_a2q_13b':
+        f'{root_url}/super_res_r1/quant_espcn_x2_w4a4_a2q_13b-9fff234e.pth',
+    'quant_espcn_x2_w4a4_a2q_32b':
+        f'{root_url}/super_res_r1/quant_espcn_x2_w4a4_a2q_32b-8702a412.pth',
+    'quant_espcn_x2_w4a4_base':
+        f'{root_url}/super_res_r1/quant_espcn_x2_w4a4_base-80658e6d.pth',
+    'quant_espcn_x2_w8a8_a2q_16b':
+        f'{root_url}/super_res_r1/quant_espcn_x2_w8a8_a2q_16b-f9e1da66.pth',
+    'quant_espcn_x2_w8a8_a2q_32b':
+        f'{root_url}/super_res_r1/quant_espcn_x2_w8a8_a2q_32b-85470d9b.pth',
+    'quant_espcn_x2_w8a8_base':
+        f'{root_url}/super_res_r1/quant_espcn_x2_w8a8_base-f761e4a1.pth',
+    'quant_espcn_x2_w4a4_a2q_plus_13b':
+        f'{root_url}/super_res_r2/quant_espcn_x2_w4a4_a2q_plus_13b-6e6d55f0.pth',
+    'quant_espcn_x2_w8a8_a2q_plus_16b':
+        f'{root_url}/super_res_r2/quant_espcn_x2_w8a8_a2q_plus_16b-0ddf46f1.pth'}
 
 
 def get_model_by_name(name: str, pretrained: bool = False) -> Union[FloatESPCN, QuantESPCN]:

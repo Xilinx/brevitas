@@ -8,6 +8,8 @@ import torch
 from brevitas.core.stats import AbsPercentile
 from brevitas.core.stats import NegativePercentileOrZero
 from brevitas.core.stats import PercentileInterval
+# Use custom implementation of kthvalue as work around to (b)float16 kernel limitations
+from brevitas.utils.torch_utils import kthvalue
 
 
 def test_abs_percentile_per_tensor():
@@ -35,10 +37,10 @@ class TestPercentile:
         low_p, high_p = None, None
         if low_q is not None:
             k = int(math.ceil(.01 * low_q * x.numel()))
-            low_p = x.view(-1).kthvalue(k).values
+            low_p = kthvalue(x.view(-1), k=k)[0]
         if high_q is not None:
             k = int(math.floor(.01 * high_q * x.numel() + 0.5))
-            high_p = x.view(-1).kthvalue(k).values
+            high_p = kthvalue(x.view(-1), k=k)[0]
         return low_p, high_p
 
     def test_negative_percentile(self):

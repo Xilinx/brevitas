@@ -12,6 +12,8 @@ from brevitas.graph.calibrate import bias_correction_mode
 from brevitas.graph.calibrate import calibration_mode
 import brevitas.nn as qnn
 from brevitas.quant import Int8ActPerTensorFixedPoint
+# Use custom implementation of kthvalue as work around to (b)float16 kernel limitations
+from brevitas.utils.torch_utils import kthvalue
 from tests.brevitas.hyp_helper import float_tensor_random_size_st
 
 IN_CH = 8
@@ -21,7 +23,7 @@ BATCH = 1
 
 def compute_quantile(x, q):
     k = int(math.floor(.01 * q * x.numel() + 0.5))
-    result = x.abs().view(-1).kthvalue(k).values
+    result = kthvalue(x.abs().view(-1), k=k)[0]
     return result
 
 

@@ -11,16 +11,18 @@ from brevitas.export.onnx.debug import DebugMarkerFunction
 from brevitas.export.onnx.function import LSTMCellFn
 
 from ..function import DequantizeLinearFn
+from ..function import DynamicQuantizeLinearFn
 from ..function import IntClipFn
 from ..function import QuantizeLinearFn
 from ..manager import StdONNXBaseManager
-from .handler import StdQCDQONNXActQuantProxyHandler
-from .handler import StdQCDQONNXBiasQuantProxyHandler
-from .handler import StdQCDQONNXDecoupledWeightQuantProxyHandler
-from .handler import StdQCDQONNXDecoupledWeightQuantWithInputProxyHandler
-from .handler import StdQCDQONNXQuantLSTMLayerHandler
-from .handler import StdQCDQONNXTruncQuantProxyHandler
-from .handler import StdQCDQONNXWeightQuantProxyHandler
+from .handler import StdCDQCastONNXBiasQuantProxyHandler
+from .handler import StdCDQCastONNXDecoupledWeightQuantProxyHandler
+from .handler import StdCDQCastONNXDecoupledWeightQuantWithInputProxyHandler
+from .handler import StdCDQCastONNXWeightQuantProxyHandler
+from .handler import StdDynamicQDQCastONNXActQuantProxyHandler
+from .handler import StdQCDQCastONNXActQuantProxyHandler
+from .handler import StdQCDQCastONNXQuantLSTMLayerHandler
+from .handler import StdQCDQCastONNXTruncQuantProxyHandler
 
 
 class StdQCDQONNXManager(StdONNXBaseManager):
@@ -33,17 +35,19 @@ class StdQCDQONNXManager(StdONNXBaseManager):
         "eliminate_unused_initializer"]
 
     handlers = [
-        StdQCDQONNXWeightQuantProxyHandler,
-        StdQCDQONNXBiasQuantProxyHandler,
-        StdQCDQONNXActQuantProxyHandler,
-        StdQCDQONNXDecoupledWeightQuantProxyHandler,
-        StdQCDQONNXTruncQuantProxyHandler,
-        StdQCDQONNXDecoupledWeightQuantWithInputProxyHandler,
-        StdQCDQONNXQuantLSTMLayerHandler]
+        StdCDQCastONNXWeightQuantProxyHandler,
+        StdCDQCastONNXBiasQuantProxyHandler,
+        StdQCDQCastONNXActQuantProxyHandler,
+        StdCDQCastONNXDecoupledWeightQuantProxyHandler,
+        StdDynamicQDQCastONNXActQuantProxyHandler,
+        StdQCDQCastONNXTruncQuantProxyHandler,
+        StdCDQCastONNXDecoupledWeightQuantWithInputProxyHandler,
+        StdQCDQCastONNXQuantLSTMLayerHandler]
 
     custom_fns = [
         DebugMarkerFunction,
         QuantizeLinearFn,
+        DynamicQuantizeLinearFn,
         DequantizeLinearFn,
         IntClipFn,
         LSTMCellFn,]

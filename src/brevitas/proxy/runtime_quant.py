@@ -169,6 +169,19 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
                 return QuantTensor(x, training=self.training)
 
 
+class DynamicActQuantProxyFromInjector(ActQuantProxyFromInjector):
+
+    def scale(self, force_eval=True):
+        raise RuntimeError("Scale for Dynamic Act Quant is input-dependant")
+
+    def zero_point(self, force_eval=True):
+        raise RuntimeError("Zero point for Dynamic Act Quant is input-dependant")
+
+    def bit_width(self):
+        bit_width = self.__call__(self._zero_hw_sentinel()).bit_width
+        return bit_width
+
+
 class ClampQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol):
 
     def forward(self, x: QuantTensor):

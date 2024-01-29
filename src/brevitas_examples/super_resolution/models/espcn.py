@@ -164,7 +164,7 @@ def float_espcn(upscale_factor: int, num_channels: int = 3) -> FloatESPCN:
 
 
 def quant_espcn(
-        upcsale_factor: int,
+        upscale_factor: int,
         num_channels: int = 3,
         weight_bit_width: int = 8,
         act_bit_width: int = 8,
@@ -172,7 +172,7 @@ def quant_espcn(
         weight_quant: WeightQuantType = CommonIntWeightPerChannelQuant) -> QuantESPCN:
     """ """
     return QuantESPCN(
-        upscale_factor=upcsale_factor,
+        upscale_factor=upscale_factor,
         num_channels=num_channels,
         act_bit_width=act_bit_width,
         acc_bit_width=acc_bit_width,

@@ -472,12 +472,17 @@ def apply_gptq(calib_loader, model, act_order=False):
                 gptq.update()
 
 
-def apply_gpfq(calib_loader, model, act_order, p=0.25):
+def apply_gpfq(calib_loader, model, act_order, p=1.0, use_gpfa2q=False, accumulator_bit_width=None):
     model.eval()
     dtype = next(model.parameters()).dtype
     device = next(model.parameters()).device
     with torch.no_grad():
-        with gpfq_mode(model, p=p, use_quant_activations=True, act_order=act_order) as gpfq:
+        with gpfq_mode(model,
+                       p=p,
+                       use_quant_activations=True,
+                       act_order=act_order,
+                       use_gpfa2q=use_gpfa2q,
+                       accumulator_bit_width=accumulator_bit_width) as gpfq:
             gpfq_model = gpfq.model
             for i in tqdm(range(gpfq.num_layers)):
                 for i, (images, target) in enumerate(calib_loader):

@@ -18,8 +18,10 @@ python ptq_benchmark_torchvision.py $1 --calibration-dir /scratch/datasets/image
 --act_equalization layerwise \
 --learned_round False \
 --gptq False \
---gptq_act_order False \
+--gpxq_act_order False \
 --gpfq False \
 --gpfq_p None \
+--gpfa2q False \
+--accumulator_bit_width None \
 --uint_sym_act_for_unsigned_values False \
 --act_quant_percentile None \

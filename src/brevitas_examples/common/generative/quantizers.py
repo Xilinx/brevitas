@@ -15,6 +15,7 @@ from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import this
 from brevitas.inject import value
+from brevitas.proxy.runtime_quant import DynamicActQuantProxyFromInjector
 from brevitas.quant.experimental.float import Fp8e4m3WeightPerChannelFloat
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8ActPerTensorFloatMSE
@@ -63,6 +64,10 @@ class WeightSymmetricGroupQuantMixin(ExtendedInjector):
     # Set bit_width and block size externally
     bit_width = None
     block_size = None
+
+
+class DynamicActProxyMixin(ExtendedInjector):
+    proxy_class = DynamicActQuantProxyFromInjector
 
 
 class IntWeightSymmetricGroupQuant(WeightSymmetricGroupQuantMixin, Int8WeightPerChannelFloat):
@@ -118,32 +123,45 @@ class ShiftedUint8ActPerRowFloatMSE(ShiftedUint8ActPerTensorFloatMSE):
     scaling_per_output_channel = True
 
 
-class Int8ActDynamicPerTensorFloat(Int8ActPerTensorFloat):
+class Int8DynamicActPerTensorFloat(DynamicActProxyMixin, Int8ActPerTensorFloat):
     """
     Symmetric quantizer with per tensor dynamic scale.
     """
     scaling_impl = RuntimeDynamicStatsScaling
-    scaling_stats_input_view_shape_impl = OverBatchOverTensorView
-    scaling_stats_op = 'max'
+    scaling_stats_input_view_shape_impl = OverTensorView
+    scaling_stats_op = 'min_max'
+    dynamic_scaling_broadcastable_shape = this.scaling_shape
 
 
-class Int8ActDynamicPerRowFloat(Int8ActPerRowFloat):
+class Int8DynamicActPerRowFloat(DynamicActProxyMixin, Int8ActPerRowFloat):
     """
     Symmetric quantizer with per row dynamic scale.
     """
     scaling_impl = RuntimeDynamicStatsScaling
     scaling_stats_input_view_shape_impl = OverBatchOverOutputChannelView
-    scaling_stats_op = 'max'
+    scaling_stats_op = 'min_max'
 
 
-class Int8ActDynamicPerGroupFloat(Int8ActPerRowFloat):
+class Int8DynamicActPerGroupFloat(DynamicActProxyMixin, Int8ActPerRowFloat):
     """
     Symmetric quantizer with per group scale.
     """
     scaling_impl = RuntimeDynamicGroupStatsScaling
     keepdim = True
-    scaling_stats_op = 'max'
+    scaling_stats_op = 'min_max'
 
     @value
     def stats_reduce_dim(group_dim):
         return group_dim + 1
+
+
+class ShiftedUint8DynamicActPerTensorFloat(DynamicActProxyMixin, ShiftedUint8ActPerTensorFloat):
+    """
+    Symmetric quantizer with per tensor dynamic scale.
+    """
+    scaling_impl = RuntimeDynamicStatsScaling
+    scaling_stats_input_view_shape_impl = OverTensorView
+    scaling_stats_op = 'min_max'
+    zero_point_impl = RuntimeDynamicStatsZeroPoint
+    zero_point_stats_impl = NegativeMinOrZero
+    dynamic_scaling_broadcastable_shape = this.scaling_shape

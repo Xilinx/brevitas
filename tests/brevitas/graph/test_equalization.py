@@ -30,13 +30,13 @@ def test_resnet18_equalization():
     model_orig = copy.deepcopy(model)
     regions = _extract_regions(model)
     _ = equalize_test(
-        model, regions, merge_bias=True, bias_shrinkage='vaiq', scale_computation_type='maxabs')
+        regions, merge_bias=True, bias_shrinkage='vaiq', scale_computation_type='maxabs')
     out = model(inp)
 
     # Check that equalization is not introducing FP variations
     assert torch.allclose(expected_out, out, atol=ATOL)
 
-    regions = sorted(regions, key=lambda region: region.srcs[0])
+    regions = sorted(regions, key=lambda region: sorted([r for r in region.srcs_names]))
     resnet_18_regions = sorted(RESNET_18_REGIONS, key=lambda region: region[0][0])
     equalized_layers = set()
     for r in resnet_18_regions:
@@ -45,8 +45,10 @@ def test_resnet18_equalization():
 
     # Check that we found all the expected regions
     for region, expected_region in zip(regions, resnet_18_regions):
-        sources_check = set(region.srcs) == set(expected_region[0])
-        sinks_check = set(region.sinks) == set(expected_region[1])
+        srcs = region.srcs_names
+        sources_check = set(srcs) == set(expected_region[0])
+        sinks = region.sinks_names
+        sinks_check = set(sinks) == set(expected_region[1])
         assert sources_check
         assert sinks_check
 
@@ -73,19 +75,15 @@ def test_equalization_torchvision_models(model_coverage: tuple, merge_bias: bool
 
     regions = _extract_regions(model)
     scale_factor_regions = equalize_test(
-        model,
-        regions,
-        merge_bias=merge_bias,
-        bias_shrinkage='vaiq',
-        scale_computation_type='maxabs')
+        regions, merge_bias=merge_bias, bias_shrinkage='vaiq', scale_computation_type='maxabs')
     shape_scale_regions = [scale.shape for scale in scale_factor_regions]
 
     out = model(inp)
     srcs = set()
     sinks = set()
     for r in regions:
-        srcs.update(list(r.srcs))
-        sinks.update(list(r.sinks))
+        srcs.update([x for x in list(r.srcs_names)])
+        sinks.update([x for x in list(r.sinks_names)])
 
     count_region_srcs = 0
     count_region_sinks = 0
@@ -130,11 +128,7 @@ def test_models(toy_model, merge_bias, request):
     model = symbolic_trace(model)
     regions = _extract_regions(model)
     scale_factor_regions = equalize_test(
-        model,
-        regions,
-        merge_bias=merge_bias,
-        bias_shrinkage='vaiq',
-        scale_computation_type='maxabs')
+        regions, merge_bias=merge_bias, bias_shrinkage='vaiq', scale_computation_type='maxabs')
     shape_scale_regions = [scale.shape for scale in scale_factor_regions]
 
     with torch.no_grad():

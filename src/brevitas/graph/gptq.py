@@ -114,13 +114,8 @@ class GPTQ(GPxQ):
     """
 
     def __init__(
-            self,
-            layer,
-            name,
-            act_order,
-            len_parallel_layers=1,
-            create_weight_orig=True,
-            num_blocks=100) -> None:
+            self, layer, name, act_order, len_parallel_layers, create_weight_orig,
+            num_blocks) -> None:
         super().__init__(layer, name, act_order, len_parallel_layers, create_weight_orig)
 
         dev = self.layer.weight.device

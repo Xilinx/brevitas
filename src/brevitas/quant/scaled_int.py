@@ -34,6 +34,7 @@ __all__ = [
     'Uint8ActPerTensorFloatBatchQuant2d',
     'Int8ActPerTensorFloatBatchQuant2d',
     'Int8AccumulatorAwareWeightQuant',
+    'Int8AccumulatorAwareZeroCenterWeightQuant',
     'Int8WeightNormL2PerChannelFixedPoint']
 
 
@@ -406,9 +407,8 @@ class Int8WeightNormL2PerChannelFixedPoint(WeightNormPerChannelFloatDecoupled):
     Experimental 8-bit narrow signed integer quantizer with learned per-channel scaling factors
     and L2 weight normalization based on `A2Q: Accumulator-Aware Quantization with Guaranteed Overflow
     Avoidance` by I. Colbert, A. Pappalardo, and J. Petri-Koenig (https://arxiv.org/abs/2308.13504).
-    The quantizer learns scaling factors in the float domain and learns vector parameter g in the log
-    domain with the half-way rounding function. Suitable for retraining from floating-point depthwise
-    separable weights.
+    The quantizer learns scaling factors and norm parameter g in the log-float domain with the half-way
+    rounding function.
 
     Examples:
         >>> from brevitas.nn import QuantConv2d
@@ -423,13 +423,29 @@ class Int8AccumulatorAwareWeightQuant(AccumulatorAwareWeightQuant):
     Experimental 8-bit narrow signed accumulator-aware integer quantizer with learned per-channel
     scaling factors based on `A2Q: Accumulator-Aware Quantization with Guaranteed Overflow Avoidance`
     by I.Colbert, A.Pappalardo, and J.Petri-Koenig (https://arxiv.org/abs/2308.13504). The quantizer
-    learns scaling factors in the float domain and learns vector parameter g in the log domain with
-    the round-to-zero rounding function. The norm is clamped according the the specified accumulator
-    bit-width. Suitable for retraining from floating-point depthwise separable weights.
+    learns scaling factors s and norm parameter g in the log-float domain with the round-to-zero
+    rounding function. The norm is clamped according the specified accumulator bit-width.
 
     Examples:
         >>> from brevitas.nn import QuantConv2d
         >>> conv = QuantConv2d(4, 4, 3, groups=4, weight_quant=Int8AccumulatorAwareWeightQuant)
+        >>> conv.quant_weight()
+    """
+    bit_width = 8
+
+
+class Int8AccumulatorAwareZeroCenterWeightQuant(AccumulatorAwareZeroCenterWeightQuant):
+    """
+    Experimental 8-bit narrow signed zero-centered accumulator-aware integer weight quantizer with
+    learned per-channel scaling factors based on `A2Q+: Improving Accumulator-Aware Weight Quantization`
+    by I. Colbert, A. Pappalardo, J. Petri-Koenig, and Y. Umuroglu (https://arxiv.org/abs/2401.10432).
+    The quantizer learns scaling factors in the float domain and learns norm parameter g in the log domain
+    with the round-to-zero rounding function. The norm is clamped according the specified accumulator
+    bit-width using zero-centered weights. The zero-centering is done before rounding and clipping.
+
+    Examples:
+        >>> from brevitas.nn import QuantConv2d
+        >>> conv = QuantConv2d(4, 4, 3, groups=4, weight_quant=Int8AccumulatorAwareZeroCenterWeightQuant)
         >>> conv.quant_weight()
     """
     bit_width = 8

@@ -20,6 +20,7 @@ from brevitas.core.quant.int_base import DecoupledIntQuant
 from brevitas.core.restrict_val import FloatRestrictValue
 from brevitas.core.restrict_val import LogFloatRestrictValue
 from brevitas.core.scaling import AccumulatorAwareParameterPreScaling
+from brevitas.core.scaling import AccumulatorAwareZeroCenterParameterPreScaling
 from brevitas.core.scaling import IntScaling
 from brevitas.core.scaling import ParameterFromStatsFromParameterScaling
 from brevitas.core.scaling import ParameterPreScalingWeightNorm
@@ -38,6 +39,7 @@ from brevitas.core.stats import NegativePercentileOrZero
 from brevitas.core.utils import SingleArgStatelessBuffer
 from brevitas.core.zero_point import ParameterFromRuntimeZeroPoint
 from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
+from brevitas.core.zero_point import PreZeroCenterZeroPoint
 from brevitas.core.zero_point import StatsFromParameterZeroPoint
 from brevitas.core.zero_point import ZeroZeroPoint
 from brevitas.inject import ExtendedInjector
@@ -76,6 +78,7 @@ __all__ = [
     'BatchQuantStatsScaling1d',
     'BatchQuantStatsScaling2d',
     'AccumulatorAwareWeightQuant',
+    'AccumulatorAwareZeroCenterWeightQuant',
     'MSESymmetricScale',
     'MSEAsymmetricScale',
     'MSEWeightZeroPoint',
@@ -398,6 +401,20 @@ class AccumulatorAwareWeightQuant(WeightNormPerChannelFloatDecoupled):
     accumulator_bit_width = 32  # default maximum accumulator width is 32 bits
     normalize_stats_impl = L1Norm  # required to align with derivations in paper
     float_to_int_impl = RoundToZeroSte  # required to ensure no upwards rounding violates constraints
+
+
+class AccumulatorAwareZeroCenterWeightQuant(AccumulatorAwareWeightQuant):
+    """Experimental zero-centered accumulator-aware weight quantized based on:
+    `A2Q+: Improving Accumulator-Aware Weight Quantization`.
+
+    When compared to A2Q, A2Q+ changes the following:
+    (1) added zero-centering constraint on the weights (i.e., `PreZeroCenterZeroPoint`)
+    (2) a more relaxed l1-norm bound that is derived in the referenced paper
+    """
+    pre_scaling_impl = AccumulatorAwareZeroCenterParameterPreScaling
+    pre_zero_point_impl = PreZeroCenterZeroPoint
+    pre_zero_point_shape = this.scaling_shape  # TODO: decouple zero_point from scaling
+    pre_zero_point_stats_input_view_shape_impl = this.scaling_stats_input_view_shape_impl
 
 
 class MSESubInjectorBase(ExtendedInjector):

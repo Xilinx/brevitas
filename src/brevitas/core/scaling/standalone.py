@@ -223,6 +223,7 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
         # Avoid saving the init value
         if not self.init_done:
             del output_dict[prefix + 'value']
+        return output_dict
 
     def _load_from_state_dict(
             self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,

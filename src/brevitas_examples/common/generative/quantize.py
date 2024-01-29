@@ -34,14 +34,15 @@ from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloatMS
 from brevitas_examples.common.generative.nn import LoRACompatibleQuantConv2d
 from brevitas_examples.common.generative.nn import LoRACompatibleQuantLinear
 from brevitas_examples.common.generative.quantizers import Fp8e4m3WeightSymmetricGroupQuant
-from brevitas_examples.common.generative.quantizers import Int8ActDynamicPerGroupFloat
-from brevitas_examples.common.generative.quantizers import Int8ActDynamicPerRowFloat
-from brevitas_examples.common.generative.quantizers import Int8ActDynamicPerTensorFloat
 from brevitas_examples.common.generative.quantizers import Int8ActPerRowFloat
 from brevitas_examples.common.generative.quantizers import Int8ActPerRowFloatMSE
+from brevitas_examples.common.generative.quantizers import Int8DynamicActPerGroupFloat
+from brevitas_examples.common.generative.quantizers import Int8DynamicActPerRowFloat
+from brevitas_examples.common.generative.quantizers import Int8DynamicActPerTensorFloat
 from brevitas_examples.common.generative.quantizers import IntWeightSymmetricGroupQuant
 from brevitas_examples.common.generative.quantizers import ShiftedUint8ActPerRowFloat
 from brevitas_examples.common.generative.quantizers import ShiftedUint8ActPerRowFloatMSE
+from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerTensorFloat
 from brevitas_examples.common.generative.quantizers import ShiftedUintWeightAsymmetricGroupQuant
 
 WEIGHT_QUANT_MAP = {
@@ -108,11 +109,12 @@ INPUT_QUANT_MAP = {
             'float_scale': {
                 'stats': {
                     'per_tensor': {
-                        'sym': Int8ActDynamicPerTensorFloat},
+                        'sym': Int8DynamicActPerTensorFloat,
+                        'asym': ShiftedUint8DynamicActPerTensorFloat},
                     'per_row': {
-                        'sym': Int8ActDynamicPerRowFloat},
+                        'sym': Int8DynamicActPerRowFloat},
                     'per_group': {
-                        'sym': Int8ActDynamicPerGroupFloat},}}}},
+                        'sym': Int8DynamicActPerGroupFloat},}}}},
     'float': {
         'static': {
             'float_scale': {
@@ -193,6 +195,7 @@ def quantize_model(
     # Modify the weight quantizer based on the arguments passed in
     weight_quant = weight_quant.let(
         **{
+            'bit_width': weight_bit_width,
             'narrow_range': False,
             'block_size': weight_group_size,
             'quantize_zero_point': quantize_weight_zero_point},
@@ -311,15 +314,8 @@ def quantize_model(
                         'group_dim': 1, 'group_size': input_group_size})
 
     quant_linear_kwargs = {
-        'input_quant': linear_2d_input_quant,
-        'weight_quant': weight_quant,
-        'weight_bit_width': weight_bit_width,
-        'dtype': dtype}
-    quant_conv_kwargs = {
-        'input_quant': input_quant,
-        'weight_quant': weight_quant,
-        'weight_bit_width': weight_bit_width,
-        'dtype': dtype}
+        'input_quant': linear_2d_input_quant, 'weight_quant': weight_quant, 'dtype': dtype}
+    quant_conv_kwargs = {'input_quant': input_quant, 'weight_quant': weight_quant, 'dtype': dtype}
 
     quant_mha_kwargs = {
         'in_proj_input_quant': input_quant,
