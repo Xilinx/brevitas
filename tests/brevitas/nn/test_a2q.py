@@ -103,11 +103,17 @@ def test_quant_wbiol_a2q(model_input, current_cases):
             'model_type'] == 'QuantConv2d':  # shape = (out_channels, in_channels, kernel_size, kernel_size)
         quant_weight_per_channel_l1_norm = quant_weight.norm(p=1, dim=(1, 2, 3))
     elif kwargs[
+            'model_type'] == 'QuantConv3d':  # shape = (out_channels, in_channels, kernel_size, kernel_size)
+        quant_weight_per_channel_l1_norm = quant_weight.norm(p=1, dim=(1, 2, 3, 4))
+    elif kwargs[
             'model_type'] == 'QuantConvTranspose1d':  # shape = (in_channels, out_channels, kernel_size)
         quant_weight_per_channel_l1_norm = quant_weight.norm(p=1, dim=(0, 2))
     elif kwargs[
             'model_type'] == 'QuantConvTranspose2d':  # shape = (in_channels, out_channels, kernel_size)
         quant_weight_per_channel_l1_norm = quant_weight.norm(p=1, dim=(0, 2, 3))
+    elif kwargs[
+            'model_type'] == 'QuantConvTranspose3d':  # shape = (in_channels, out_channels, kernel_size)
+        quant_weight_per_channel_l1_norm = quant_weight.norm(p=1, dim=(0, 2, 3, 4))
     else:
         raise NotImplementedError(f"Check for {kwargs['model_type']} is not yet implemented.")
 

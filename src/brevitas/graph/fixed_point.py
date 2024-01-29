@@ -33,11 +33,14 @@ class MoveSplitBatchNormBeforeCat(UntilFixedPointGraphTransform):
         nn.Conv3d,
         nn.ConvTranspose1d,
         nn.ConvTranspose2d,
+        nn.ConvTranspose3d,
         qnn.QuantLinear,
         qnn.QuantConv1d,
         qnn.QuantConv2d,
+        qnn.QuantConv3d,
         qnn.QuantConvTranspose1d,
-        qnn.QuantConvTranspose2d)
+        qnn.QuantConvTranspose2d,
+        qnn.QuantConvTranspose3d)
 
     def __init__(self, before_modules_types=DEFAULT_BEFORE_MODULES_TYPES):
         super(MoveSplitBatchNormBeforeCat, self).__init__()
@@ -93,8 +96,10 @@ class MergeBatchNorm(UntilFixedPointGraphTransform):
                          nn.BatchNorm1d), (qnn.BatchNorm2dToQuantScaleBias,
                                            nn.BatchNorm2d), (qnn.QuantLinear, nn.BatchNorm1d),
                         (qnn.QuantConv1d, nn.BatchNorm1d), (qnn.QuantConv2d, nn.BatchNorm2d),
-                        (qnn.QuantConvTranspose1d,
-                         nn.BatchNorm1d), (qnn.QuantConvTranspose2d, nn.BatchNorm2d))
+                        (qnn.QuantConv3d,
+                         nn.BatchNorm3d), (qnn.QuantConvTranspose1d, nn.BatchNorm1d),
+                        (qnn.QuantConvTranspose2d,
+                         nn.BatchNorm2d), (qnn.QuantConvTranspose3d, nn.BatchNorm3d))
 
     def __init__(self, patterns=DEFAULT_PATTERNS):
         super(MergeBatchNorm, self).__init__()
