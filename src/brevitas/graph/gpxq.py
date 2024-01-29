@@ -16,7 +16,12 @@ import brevitas.nn as qnn
 from brevitas.quant_tensor import QuantTensor
 
 SUPPORTED_CONV_OP = (
-    qnn.QuantConv2d, qnn.QuantConv1d, qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d)
+    qnn.QuantConv3d,
+    qnn.QuantConv2d,
+    qnn.QuantConv1d,
+    qnn.QuantConvTranspose1d,
+    qnn.QuantConvTranspose2d,
+    qnn.QuantConvTranspose3d)
 
 
 class StopFwdException(Exception):
@@ -152,7 +157,9 @@ class GPxQ(ABC):
         # By default, use groups = 1
         self.groups = 1
         if isinstance(self.layer, SUPPORTED_CONV_OP):
-            if isinstance(self.layer, (qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d)):
+            if isinstance(
+                    self.layer,
+                (qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d, qnn.QuantConvTranspose3d)):
                 weight = weight.transpose(1, 0)  # This performs a view
             weight = weight.flatten(1)
             self.groups = self.layer.groups
