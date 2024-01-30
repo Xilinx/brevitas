@@ -1,7 +1,7 @@
 hypothesis
 mock
 psutil
-pytest
+pytest==7.4.4 # TODO: Revert when pytest_cases is compatible with latest Pytest
 pytest-mock
 pytest-xdist
 pytest_cases
