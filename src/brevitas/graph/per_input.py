@@ -10,7 +10,6 @@ from torch import nn
 from brevitas.graph.utils import replace_module
 from brevitas.nn import QuantConv1d
 from brevitas.nn import QuantConv2d
-from brevitas.nn import QuantConv3d
 
 from .base import PerInputModuleToModuleByHook
 
@@ -94,10 +93,9 @@ class AvgPoolToQuantDepthwiseConv(PerInputModuleToModuleByHook):
                 dw_conv = QuantConv1d(**kwargs)
             elif isinstance(avgpool, nn.AvgPool2d):
                 dw_conv = QuantConv2d(**kwargs)
-            elif isinstance(avgpool, nn.AvgPool3d):
-                dw_conv = QuantConv3d(**kwargs)
             else:
-                raise RuntimeError("Unsupported operation.")
+                assert isinstance(avgpool, nn.AvgPool3d)
+                raise RuntimeError("QuantConv3d not supported yet.")
             kernel_value = 1. / reduce(mul, dw_conv.kernel_size)
             dw_conv.register_parameter(
                 'scalar_weight', torch.nn.Parameter(torch.tensor(kernel_value)))

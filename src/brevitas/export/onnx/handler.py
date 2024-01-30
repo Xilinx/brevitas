@@ -88,38 +88,6 @@ class Kernel2dApplHandlerMixin(ABC):
             return list(module.kernel_size)
 
 
-class Kernel3dApplHandlerMixin(ABC):
-
-    @staticmethod
-    def padding(module):
-        if isinstance(module.padding, int):
-            padding = [module.padding] * 6
-        else:
-            padding = list(module.padding) + list(module.padding)
-        return padding
-
-    @staticmethod
-    def stride(module):
-        if isinstance(module.stride, int):
-            return [module.stride] * 4
-        else:
-            return list(module.stride)
-
-    @staticmethod
-    def dilation(module):
-        if isinstance(module.dilation, int):
-            return [module.dilation] * 4
-        else:
-            return list(module.dilation)
-
-    @staticmethod
-    def kernel_shape(module):
-        if isinstance(module.kernel_size, int):
-            return [module.kernel_size] * 4
-        else:
-            return list(module.kernel_size)
-
-
 class ONNXBaseHandler(BaseHandler, ABC):
 
     def __init__(self):

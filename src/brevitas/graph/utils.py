@@ -31,8 +31,7 @@ CONV_TRANSPOSED = [
     nn.ConvTranspose2d,
     nn.ConvTranspose3d,
     qnn.QuantConvTranspose1d,
-    qnn.QuantConvTranspose2d,
-    qnn.QuantConvTranspose3d]
+    qnn.QuantConvTranspose2d]
 
 
 def module_class_name(m: torch.nn.Module):

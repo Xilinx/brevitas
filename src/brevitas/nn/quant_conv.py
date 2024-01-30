@@ -292,19 +292,11 @@ class QuantConv3d(QuantWBIOL, Conv3d):
         pad_h = max((oh - 1) * self.stride[1] + (kh - 1) * self.dilation[1] + 1 - ih, 0)
         pad_w = max((ow - 1) * self.stride[2] + (kw - 1) * self.dilation[2] + 1 - iw, 0)
         if pad_h > 0 or pad_w > 0:
-            x = F.pad(
-                x,
-                [
-                    pad_w // 2,
-                    pad_w - pad_w // 2,
-                    pad_h // 2,
-                    pad_h - pad_h // 2,
-                    pad_d // 2,
-                    pad_d - pad_d // 2])
+            x = F.pad(x, [pad_w // 2, pad_w - pad_w // 2, pad_h // 2, pad_h - pad_h // 2, pad_d // 2, pad_d - pad_d // 2])
         out = F.conv2d(x, weight, bias, self.stride, 0, self.dilation, self.groups)
         return out
 
-    def forward(self, input: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
+    def forward(self, input: Union[Tensor, QuantTensor]) -> Union[Tensor,QuantTensor]:
         # calls QuantWBIOL.forward_impl and eventually inner_forward_impl below
         return self.forward_impl(input)
 

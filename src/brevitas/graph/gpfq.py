@@ -156,9 +156,7 @@ class GPFQ(GPxQ):
 
         if isinstance(self.layer, SUPPORTED_CONV_OP):
             # Pick the correct unfoldNd class
-            if isinstance(
-                    self.layer,
-                (qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d, qnn.QuantConvTranspose3d)):
+            if isinstance(self.layer, (qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d)):
                 unfold_impl = unfoldNd.UnfoldTransposeNd
             else:
                 unfold_impl = unfoldNd.UnfoldNd
@@ -222,9 +220,7 @@ class GPFQ(GPxQ):
         dev = weight.device
         dtype = weight.dtype
         if isinstance(self.layer, SUPPORTED_CONV_OP):
-            if isinstance(
-                    self.layer,
-                (qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d, qnn.QuantConvTranspose3d)):
+            if isinstance(self.layer, (qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d)):
                 weight = weight.transpose(1, 0)  # This performs a view
             weight = weight.flatten(1)
         weight = weight.view(self.groups, -1, weight.shape[-1])  # [Groups, OC/Groups, IC]
