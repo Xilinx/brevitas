@@ -49,7 +49,28 @@ model_impl = {
             act_bit_width=4,
             acc_bit_width=12,
             weight_bit_width=4,
-            weight_quant=CommonIntAccumulatorAwareWeightQuant)}
+            weight_quant=CommonIntAccumulatorAwareWeightQuant),
+    "quant_resnet18_w4a4_a2q_plus_32b":
+        partial(
+            quant_resnet18,
+            act_bit_width=4,
+            acc_bit_width=32,
+            weight_bit_width=4,
+            weight_quant=CommonIntAccumulatorAwareZeroCenterWeightQuant),
+    "quant_resnet18_w4a4_a2q_plus_16b":
+        partial(
+            quant_resnet18,
+            act_bit_width=4,
+            acc_bit_width=16,
+            weight_bit_width=4,
+            weight_quant=CommonIntAccumulatorAwareZeroCenterWeightQuant),
+    "quant_resnet18_w4a4_a2q_plus_12b":
+        partial(
+            quant_resnet18,
+            act_bit_width=4,
+            acc_bit_width=12,
+            weight_bit_width=4,
+            weight_quant=CommonIntAccumulatorAwareZeroCenterWeightQuant)}
 
 root_url = 'https://github.com/Xilinx/brevitas/releases/download/'
 
