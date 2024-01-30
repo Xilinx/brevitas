@@ -66,8 +66,8 @@ class StdQCDQONNXManager(StdONNXBaseManager):
     @classmethod
     def change_weight_handler(cls, export_quantize_node_weight: bool = False):
         if export_quantize_node_weight:
-            cls.handler.discard(StdCDQCastONNXWeightQuantProxyHandler)
-            cls.handler.add(StdQCDQCastONNXWeightQuantProxyHandler)
+            cls.handlers.discard(StdCDQCastONNXWeightQuantProxyHandler)
+            cls.handlers.add(StdQCDQCastONNXWeightQuantProxyHandler)
         else:
-            cls.handler.discard(StdQCDQCastONNXWeightQuantProxyHandler)
-            cls.handler.add(StdCDQCastONNXWeightQuantProxyHandler)
+            cls.handlers.discard(StdQCDQCastONNXWeightQuantProxyHandler)
+            cls.handlers.add(StdCDQCastONNXWeightQuantProxyHandler)
