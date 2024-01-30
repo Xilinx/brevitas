@@ -39,6 +39,8 @@ class FloatQuant(brevitas.jit.ScriptModule):
             torch.tensor(float(exponent_bit_width), device=device, dtype=dtype))
         self.mantissa_bit_width = StatelessBuffer(
             (torch.tensor(float(mantissa_bit_width), device=device, dtype=dtype)))
+        if exponent_bias is None:
+            exponent_bias = 2 ** (exponent_bit_width - 1) - 1
         self.exponent_bias = StatelessBuffer(
             torch.tensor(float(exponent_bias), device=device, dtype=dtype))
         self.fp_max_val = StatelessBuffer(
