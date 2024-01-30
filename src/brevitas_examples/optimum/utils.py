@@ -19,7 +19,7 @@ def maybe_offload_weights_to_cpu(model, is_fx=False):
     memory_map = {**cpu_device_map, **cuda_device_map}
     if is_fx:
         device_map = infer_fx_auto_device_map(model, memory_map)
-        device_map = offload_call_function(model, memory_map, device_map)
+        offload_call_function(model, device_map)
     else:
         device_map = infer_auto_device_map(
             model, memory_map, no_split_module_classes=model._no_split_modules)
