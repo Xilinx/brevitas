@@ -76,7 +76,8 @@ QUANT_WBIOL_IMPL = [
     QuantConv2d,
     QuantConv3d,
     QuantConvTranspose1d,
-    QuantConvTranspose2d,  #QuantConvTranspose3d,
+    QuantConvTranspose2d,
+    QuantConvTranspose3d,
 ]
 
 

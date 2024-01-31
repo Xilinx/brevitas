@@ -32,7 +32,8 @@ QUANT_CONV_VARIANTS = [
     QuantConv2d,
     QuantConv3d,
     QuantConvTranspose1d,
-    QuantConvTranspose2d,  #QuantConvTranspose3d,
+    QuantConvTranspose2d,
+    QuantConvTranspose3d,
 ]
 
 
