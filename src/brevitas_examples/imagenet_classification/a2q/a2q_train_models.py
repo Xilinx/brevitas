@@ -15,30 +15,93 @@ import torch.optim.lr_scheduler as lrs
 
 import brevitas.config as config
 from brevitas.export import export_qonnx
-from brevitas_examples.imagenet_classification.a2q.ep_init import apply_bias_correction
-from brevitas_examples.imagenet_classification.a2q.ep_init import apply_ep_init
 import brevitas_examples.imagenet_classification.a2q.utils as utils
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--data-root", type=str, required=True)
-parser.add_argument("--model-name", type=str, default="quant_resnet18_w4a4_a2q_32b")
-parser.add_argument("--save-path", type=str, default='outputs/')
-parser.add_argument("--num-workers", type=int, default=0)
-parser.add_argument("--pin-memory", action="store_true", default=False)
-parser.add_argument("--batch-size-train", type=int, default=256)
-parser.add_argument("--batch-size-test", type=int, default=512)
-parser.add_argument("--batch-size-calibration", type=int, default=256)
-parser.add_argument("--calibration-samples", type=int, default=1000)
-parser.add_argument("--weight-decay", type=float, default=1e-5)
-parser.add_argument("--lr-init", type=float, default=1e-3)
-parser.add_argument("--lr-step-size", type=int, default=30)
-parser.add_argument("--lr-gamma", type=float, default=0.1)
-parser.add_argument("--total-epochs", type=int, default=90)
-parser.add_argument("--pretrained", action="store_true", default=False)
-parser.add_argument("--save-ckpt", action="store_true", default=False)
-parser.add_argument("--apply-bias-corr", action="store_true", default=False)
-parser.add_argument("--apply-ep-init", action="store_true", default=False)
-parser.add_argument("--export-to-qonnx", action="store_true", default=False)
+parser.add_argument(
+    "--data-root", type=str, required=True, help="Directory where the dataset is stored.")
+parser.add_argument(
+    "--model-name",
+    type=str,
+    default="quant_resnet18_w4a4_a2q_32b",
+    help="Name of model to train. Default: 'quant_resnet18_w4a4_a2q_32b'",
+    choices=utils.model_impl.keys())
+parser.add_argument(
+    "--save-path",
+    type=str,
+    default="outputs/",
+    help="Directory where to save checkpoints. Default: 'outputs/'")
+parser.add_argument(
+    "--num-workers",
+    type=int,
+    default=0,
+    help="Number of workers for the dataloader to use. Default: 0")
+parser.add_argument(
+    "--pin-memory",
+    action="store_true",
+    default=False,
+    help="If true, pin memory for the dataloader.")
+parser.add_argument(
+    "--batch-size-train",
+    type=int,
+    default=256,
+    help="Batch size for the training dataloader. Default: 256")
+parser.add_argument(
+    "--batch-size-test",
+    type=int,
+    default=512,
+    help="Batch size for the testing dataloader. Default: 512")
+parser.add_argument(
+    "--batch-size-calibration",
+    type=int,
+    default=256,
+    help="Batch size for the calibration dataloader. Default: 256")
+parser.add_argument(
+    "--calibration-samples",
+    type=int,
+    default=1000,
+    help="Number of samples to use for calibration. Default: 1000")
+parser.add_argument(
+    "--weight-decay",
+    type=float,
+    default=1e-5,
+    help="Weight decay for the Adam optimizer. Default: 0.00001")
+parser.add_argument(
+    "--lr-init", type=float, default=1e-3, help="Initial learning rate. Default: 0.001")
+parser.add_argument(
+    "--lr-step-size",
+    type=int,
+    default=30,
+    help="Step size for the learning rate scheduler. Default: 30")
+parser.add_argument(
+    "--lr-gamma",
+    type=float,
+    default=0.1,
+    help="Default gamma for the learning rate scheduler. Default: 0.1")
+parser.add_argument(
+    "--total-epochs", type=int, default=90, help="Total epoch to train the model for. Default: 90")
+parser.add_argument(
+    "--from-float-checkpoint",
+    action="store_true",
+    default=False,
+    help="If true, use a pre-trained floating-point checkpoint.")
+parser.add_argument(
+    "--save-torch-model",
+    action="store_true",
+    default=False,
+    help="If true, save torch model to specified save path.")
+parser.add_argument(
+    "--apply-bias-corr",
+    action="store_true",
+    default=False,
+    help="If true, apply bias correction to the quantized model.")
+parser.add_argument(
+    "--apply-ep-init",
+    action="store_true",
+    default=False,
+    help="If true, apply EP-init to the quantized model.")
+parser.add_argument(
+    "--export-to-qonnx", action="store_true", default=False, help="If true, export model to QONNX.")
 
 # ignore missing keys when loading pre-trained checkpoint
 config.IGNORE_MISSING_KEYS = True
@@ -71,10 +134,8 @@ if __name__ == "__main__":
         num_workers=args.num_workers,
         subset_size=args.calibration_samples)
 
-    print(
-        f"Initializating {args.model_name} from",
-        "checkpoint..." if args.pretrained else "scratch...")
-    model = utils.get_model_by_name(args.model_name, args.pretrained)
+    model = utils.get_model_by_name(
+        args.model_name, init_from_float_checkpoint=args.from_float_checkpoint)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(
         utils.filter_params(model.named_parameters(), args.weight_decay),
@@ -85,11 +146,11 @@ if __name__ == "__main__":
     # Calibrate the quant model on the calibration dataset
     if args.apply_ep_init:
         print("Applying EP-init:")
-        apply_ep_init(model, random_inp)
+        utils.apply_ep_init(model, random_inp)
 
     if args.apply_bias_corr:
         print("Applying bias correction:")
-        apply_bias_correction(calibloader, model)
+        utils.apply_bias_correction(calibloader, model)
 
     best_top_1, best_weights = 0., copy.deepcopy(model.state_dict())
     for epoch in range(args.total_epochs):
@@ -116,7 +177,7 @@ if __name__ == "__main__":
 
     # save checkpoint
     os.makedirs(args.save_path, exist_ok=True)
-    if args.save_ckpt:
+    if args.save_torch_model:
         ckpt_path = f"{args.save_path}/{args.model_name}.pth"
         torch.save(best_weights, ckpt_path)
         with open(ckpt_path, "rb") as _file:

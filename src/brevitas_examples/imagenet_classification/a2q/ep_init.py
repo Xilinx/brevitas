@@ -7,26 +7,12 @@ import numpy as np
 import torch
 from torch import Tensor
 import torch.nn as nn
-from tqdm import tqdm
 
 from brevitas.core.scaling import AccumulatorAwareParameterPreScaling
 from brevitas.function.shape import over_output_channels
-from brevitas.graph.calibrate import bias_correction_mode
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 
 __all__ = ["apply_bias_correction", "apply_ep_init"]
-
-
-def apply_bias_correction(calib_loader, model: nn.Module):
-    model.eval()
-    dtype = next(model.parameters()).dtype
-    device = next(model.parameters()).device
-    with torch.no_grad():
-        with bias_correction_mode(model):
-            for (images, _) in tqdm(calib_loader):
-                images = images.to(device)
-                images = images.to(dtype)
-                model(images)
 
 
 def get_a2q_module(module: nn.Module):

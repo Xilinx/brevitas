@@ -19,28 +19,54 @@ from tqdm import tqdm
 
 from brevitas.core.scaling.pre_scaling import AccumulatorAwareParameterPreScaling
 from brevitas.function import abs_binary_sign_grad
+from brevitas.graph.calibrate import bias_correction_mode
 
+from .ep_init import apply_ep_init
 from .quant import *
 from .resnet import float_resnet18
 from .resnet import quant_resnet18
+
+__all__ = [
+    "apply_ep_init",
+    "get_model_by_name",
+    "filter_params",
+    "create_calibration_dataloader",
+    "get_cifar10_dataloaders",
+    "apply_bias_correction",
+    "train_for_epoch",
+    "evaluate_topk_accuracies"]
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 model_impl = {
     "float_resnet18":
         float_resnet18,
-    "quant_resnet18_w4a4_a2q_32b":
-        partial(
-            quant_resnet18,
-            act_bit_width=4,
-            acc_bit_width=32,
-            weight_bit_width=4,
-            weight_quant=CommonIntAccumulatorAwareWeightQuant),
     "quant_resnet18_w4a4_a2q_16b":
         partial(
             quant_resnet18,
             act_bit_width=4,
             acc_bit_width=16,
+            weight_bit_width=4,
+            weight_quant=CommonIntAccumulatorAwareWeightQuant),
+    "quant_resnet18_w4a4_a2q_15b":
+        partial(
+            quant_resnet18,
+            act_bit_width=4,
+            acc_bit_width=15,
+            weight_bit_width=4,
+            weight_quant=CommonIntAccumulatorAwareWeightQuant),
+    "quant_resnet18_w4a4_a2q_14b":
+        partial(
+            quant_resnet18,
+            act_bit_width=4,
+            acc_bit_width=14,
+            weight_bit_width=4,
+            weight_quant=CommonIntAccumulatorAwareWeightQuant),
+    "quant_resnet18_w4a4_a2q_13b":
+        partial(
+            quant_resnet18,
+            act_bit_width=4,
+            acc_bit_width=13,
             weight_bit_width=4,
             weight_quant=CommonIntAccumulatorAwareWeightQuant),
     "quant_resnet18_w4a4_a2q_12b":
@@ -50,18 +76,32 @@ model_impl = {
             acc_bit_width=12,
             weight_bit_width=4,
             weight_quant=CommonIntAccumulatorAwareWeightQuant),
-    "quant_resnet18_w4a4_a2q_plus_32b":
-        partial(
-            quant_resnet18,
-            act_bit_width=4,
-            acc_bit_width=32,
-            weight_bit_width=4,
-            weight_quant=CommonIntAccumulatorAwareZeroCenterWeightQuant),
     "quant_resnet18_w4a4_a2q_plus_16b":
         partial(
             quant_resnet18,
             act_bit_width=4,
             acc_bit_width=16,
+            weight_bit_width=4,
+            weight_quant=CommonIntAccumulatorAwareZeroCenterWeightQuant),
+    "quant_resnet18_w4a4_a2q_plus_15b":
+        partial(
+            quant_resnet18,
+            act_bit_width=4,
+            acc_bit_width=15,
+            weight_bit_width=4,
+            weight_quant=CommonIntAccumulatorAwareZeroCenterWeightQuant),
+    "quant_resnet18_w4a4_a2q_plus_14b":
+        partial(
+            quant_resnet18,
+            act_bit_width=4,
+            acc_bit_width=14,
+            weight_bit_width=4,
+            weight_quant=CommonIntAccumulatorAwareZeroCenterWeightQuant),
+    "quant_resnet18_w4a4_a2q_plus_13b":
+        partial(
+            quant_resnet18,
+            act_bit_width=4,
+            acc_bit_width=13,
             weight_bit_width=4,
             weight_quant=CommonIntAccumulatorAwareZeroCenterWeightQuant),
     "quant_resnet18_w4a4_a2q_plus_12b":
@@ -74,16 +114,52 @@ model_impl = {
 
 root_url = 'https://github.com/Xilinx/brevitas/releases/download/'
 
-model_url = {"float_resnet18": f"{root_url}/a2q/resnet18-e9872c01.pth"}
+model_url = {
+    "float_resnet18":
+        f"{root_url}/ep_init/float_resnet18-1d98d23a.pth",
+    "quant_resnet18_w4a4_a2q_12b":
+        f"{root_url}/ep_init/quant_resnet18_w4a4_a2q_12b-8a440436.pth",
+    "quant_resnet18_w4a4_a2q_13b":
+        f"{root_url}/ep_init/quant_resnet18_w4a4_a2q_13b-8c31a2b1.pth",
+    "quant_resnet18_w4a4_a2q_14b":
+        f"{root_url}/ep_init/quant_resnet18_w4a4_a2q_14b-267f237b.pth",
+    "quant_resnet18_w4a4_a2q_15b":
+        f"{root_url}/ep_init/quant_resnet18_w4a4_a2q_15b-0d5bf266.pth",
+    "quant_resnet18_w4a4_a2q_16b":
+        f"{root_url}/ep_init/quant_resnet18_w4a4_a2q_16b-d0af41f1.pth",
+    "quant_resnet18_w4a4_a2q_plus_12b":
+        f"{root_url}/ep_init/quant_resnet18_w4a4_a2q_plus_12b-d69f003b.pth",
+    "quant_resnet18_w4a4_a2q_plus_13b":
+        f"{root_url}/ep_init/quant_resnet18_w4a4_a2q_plus_13b-332aaf81.pth",
+    "quant_resnet18_w4a4_a2q_plus_14b":
+        f"{root_url}/ep_init/quant_resnet18_w4a4_a2q_plus_14b-5a2d11aa.pth",
+    "quant_resnet18_w4a4_a2q_plus_15b":
+        f"{root_url}/ep_init/quant_resnet18_w4a4_a2q_plus_15b-3c89551a.pth",
+    "quant_resnet18_w4a4_a2q_plus_16b":
+        f"{root_url}/ep_init/quant_resnet18_w4a4_a2q_plus_16b-19973380.pth"}
 
 
-def get_model_by_name(model_name: str, pretrained: bool) -> nn.Module:
+def get_model_by_name(
+        model_name: str,
+        pretrained: bool = False,
+        init_from_float_checkpoint: bool = False) -> nn.Module:
+
     assert model_name in model_impl, f"Error: {model_name} not implemented."
     model: Module = model_impl[model_name]()
-    if pretrained:
-        checkpoint = model_url['float_resnet18']
+
+    if init_from_float_checkpoint:
+        checkpoint = model_url["float_resnet18"]
         state_dict = hub.load_state_dict_from_url(checkpoint, progress=True, map_location='cpu')
         model.load_state_dict(state_dict, strict=True)
+
+    elif pretrained:
+        checkpoint = model_url[model_name]
+        state_dict = hub.load_state_dict_from_url(checkpoint, progress=True, map_location='cpu')
+        if model_name.startswith("quant"):
+            # fixes issue when bias keys are missing in the pre-trained state_dict when loading from checkpoint
+            _prepare_bias_corrected_quant_model(model)
+        model.load_state_dict(state_dict, strict=True)
+
     return model
 
 
@@ -161,6 +237,30 @@ def get_cifar10_dataloaders(
     )
 
     return trainloader, testloader
+
+
+def apply_bias_correction(calib_loader, model: nn.Module):
+    model.eval()
+    dtype = next(model.parameters()).dtype
+    device = next(model.parameters()).device
+    with torch.no_grad():
+        with bias_correction_mode(model):
+            for (images, _) in tqdm(calib_loader):
+                images = images.to(device)
+                images = images.to(dtype)
+                model(images)
+
+
+def _prepare_bias_corrected_quant_model(model: nn.Module):
+    model.eval()
+    dtype = next(model.parameters()).dtype
+    device = next(model.parameters()).device
+    images = torch.randn(10, 3, 32, 32)
+    images = images.to(device)
+    images = images.to(dtype)
+    with torch.no_grad():
+        with bias_correction_mode(model):
+            model(images)
 
 
 def train_for_epoch(trainloader, model, criterion, optimizer, reg_weight: float = 1e-3):
