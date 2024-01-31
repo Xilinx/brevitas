@@ -45,11 +45,10 @@ def test_ort_wbiol(model, export_type, current_cases):
         in_size = (1, IN_CH)
     elif impl in ('QuantConv1d', 'QuantConvTranspose1d'):
         in_size = (1, IN_CH, FEATURES)
-    else:
-        #elif impl in ('QuantConv2d', 'QuantConvTranspose2d'):
+    elif impl in ('QuantConv2d', 'QuantConvTranspose2d'):
         in_size = (1, IN_CH, FEATURES, FEATURES)
-    #else:
-    #    in_size = (1, IN_CH, FEATURES, FEATURES, FEATURES)
+    else:
+        in_size = (1, IN_CH, FEATURES, FEATURES, FEATURES)
 
     inp = gen_linspaced_data(reduce(mul, in_size), -1, 1).reshape(in_size)
 
