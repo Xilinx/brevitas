@@ -127,3 +127,5 @@ def apply_ep_init(model: nn.Module, inp: Tensor):
 
     for hook in hook_list:
         hook.remove()
+
+    return model

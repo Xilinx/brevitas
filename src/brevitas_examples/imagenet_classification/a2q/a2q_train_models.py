@@ -91,7 +91,12 @@ parser.add_argument(
     default=False,
     help="If true, save torch model to specified save path.")
 parser.add_argument(
-    "--apply-bias-corr",
+    "--apply-act-calibration",
+    action="store_true",
+    default=False,
+    help="If true, apply activation calibration to the quantized model.")
+parser.add_argument(
+    "--apply-bias-correction",
     action="store_true",
     default=False,
     help="If true, apply bias correction to the quantized model.")
@@ -137,7 +142,7 @@ if __name__ == "__main__":
     model = utils.get_model_by_name(
         args.model_name, init_from_float_checkpoint=args.from_float_checkpoint)
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(
+    optimizer = optim.SGD(
         utils.filter_params(model.named_parameters(), args.weight_decay),
         lr=args.lr_init,
         weight_decay=args.weight_decay)
@@ -146,9 +151,14 @@ if __name__ == "__main__":
     # Calibrate the quant model on the calibration dataset
     if args.apply_ep_init:
         print("Applying EP-init:")
-        utils.apply_ep_init(model, random_inp)
+        model = utils.apply_ep_init(model, random_inp)
 
-    if args.apply_bias_corr:
+    # Calibrate the quant model on the calibration dataset
+    if args.apply_act_calibration:
+        print("Applying activation calibration:")
+        utils.apply_act_calibrate(calibloader, model)
+
+    if args.apply_bias_correction:
         print("Applying bias correction:")
         utils.apply_bias_correction(calibloader, model)
 
@@ -173,7 +183,7 @@ if __name__ == "__main__":
 
     model.load_state_dict(best_weights)
     top_1, top_5, loss = utils.evaluate_topk_accuracies(testloader, model, criterion)
-    print(f"Final top_1={top_1:.1%}, top_5={top_5:.1%}, loss={loss:.3f}")
+    print(f"Final: top_1={top_1:.1%}, top_5={top_5:.1%}, loss={loss:.3f}")
 
     # save checkpoint
     os.makedirs(args.save_path, exist_ok=True)

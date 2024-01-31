@@ -20,6 +20,7 @@ from tqdm import tqdm
 from brevitas.core.scaling.pre_scaling import AccumulatorAwareParameterPreScaling
 from brevitas.function import abs_binary_sign_grad
 from brevitas.graph.calibrate import bias_correction_mode
+from brevitas.graph.calibrate import calibration_mode
 
 from .ep_init import apply_ep_init
 from .quant import *
@@ -28,11 +29,12 @@ from .resnet import quant_resnet18
 
 __all__ = [
     "apply_ep_init",
+    "apply_act_calibrate",
+    "apply_bias_correction",
     "get_model_by_name",
     "filter_params",
     "create_calibration_dataloader",
     "get_cifar10_dataloaders",
-    "apply_bias_correction",
     "train_for_epoch",
     "evaluate_topk_accuracies"]
 
@@ -237,6 +239,18 @@ def get_cifar10_dataloaders(
     )
 
     return trainloader, testloader
+
+
+def apply_act_calibrate(calib_loader, model):
+    model.eval()
+    dtype = next(model.parameters()).dtype
+    device = next(model.parameters()).device
+    with torch.no_grad():
+        with calibration_mode(model):
+            for images, _ in tqdm(calib_loader):
+                images = images.to(device)
+                images = images.to(dtype)
+                model(images)
 
 
 def apply_bias_correction(calib_loader, model: nn.Module):
