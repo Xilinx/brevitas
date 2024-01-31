@@ -96,8 +96,7 @@ QUANT_WBIOL_IMPL = [
     QuantConv3d,
     QuantConvTranspose1d,
     QuantConvTranspose2d,
-    QuantConvTranspose3d,
-]
+    QuantConvTranspose3d,]
 
 ACC_BIT_WIDTHS = [8, 9, 10, 12, 16, 24, 32]
 

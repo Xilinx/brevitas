@@ -77,8 +77,7 @@ QUANT_WBIOL_IMPL = [
     QuantConv3d,
     QuantConvTranspose1d,
     QuantConvTranspose2d,
-    QuantConvTranspose3d,
-]
+    QuantConvTranspose3d,]
 
 
 def compute_ort(export_name, np_input):
