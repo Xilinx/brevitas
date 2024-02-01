@@ -96,7 +96,8 @@ QUANT_WBIOL_IMPL = [
     QuantConv3d,
     QuantConvTranspose1d,
     QuantConvTranspose2d,
-    QuantConvTranspose3d,]
+    QuantConvTranspose3d,
+    ]
 
 ACC_BIT_WIDTHS = [8, 9, 10, 12, 16, 24, 32]
 
@@ -161,8 +162,10 @@ def build_case_model(
         in_size = (1, IN_CH)
     elif impl in ('QuantConv1d', 'QuantConvTranspose1d'):
         in_size = (1, IN_CH, FEATURES)
-    else:
+    elif impl in ('QuantConv2d', 'QuantConvTranspose2d'):
         in_size = (1, IN_CH, FEATURES, FEATURES)
+    else:
+        in_size = (1, IN_CH, FEATURES, FEATURES, FEATURES)
 
     if input_quantized:
         quant_inp = QuantTensor(

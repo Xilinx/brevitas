@@ -61,7 +61,8 @@ QUANT_WBIOL_IMPL = [
     QuantConv3d,
     QuantConvTranspose1d,
     QuantConvTranspose2d,
-    QuantConvTranspose3d,]
+    QuantConvTranspose3d,
+    ]
 BIT_WIDTHS = [4, 8, 10]  # below 8, equal 8, above 8
 BIAS_BIT_WIDTHS = [8, 16, 32]
 
