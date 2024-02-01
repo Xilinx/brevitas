@@ -33,8 +33,7 @@ QUANT_CONV_VARIANTS = [
     QuantConv3d,
     QuantConvTranspose1d,
     QuantConvTranspose2d,
-    QuantConvTranspose3d,
-    ]
+    QuantConvTranspose3d,]
 
 
 @pytest_cases.fixture()
