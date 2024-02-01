@@ -301,6 +301,49 @@ def mul_model():
     return ResidualSrcsAndSinkModel
 
 
+@pytest_cases.fixture
+def convgroupconv_model():
+
+    class ConvGroupConvModel(nn.Module):
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.conv = nn.Conv2d(3, 16, kernel_size=3)
+            self.conv_0 = nn.Conv2d(16, 32, kernel_size=1, groups=2)
+            self.conv_1 = nn.Conv2d(32, 64, kernel_size=1, groups=4)
+            self.relu = nn.ReLU()
+
+        def forward(self, x):
+            x = self.conv(x)
+            x = self.relu(x)
+            x = self.conv_0(x)
+            x = self.relu(x)
+            x = self.conv_1(x)
+            return x
+
+    return ConvGroupConvModel
+
+
+@pytest_cases.fixture
+def convtranspose_model():
+
+    class ConvTransposeModel(nn.Module):
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.relu = nn.ReLU()
+            self.conv_0 = nn.ConvTranspose2d(in_channels=3, out_channels=8, kernel_size=3)
+            self.conv_1 = nn.ConvTranspose2d(in_channels=8, out_channels=32, kernel_size=3)
+
+        def forward(self, x):
+            x = self.conv_0(x)
+            x = self.relu(x)
+            x = self.conv_1(x)
+            return x
+
+    return ConvTransposeModel
+
+
 list_of_fixtures = [
     'residual_model',
     'srcsinkconflict_model',
@@ -309,7 +352,9 @@ list_of_fixtures = [
     'convdepthconv_model',
     'linearmha_model',
     'mhalinear_model',
-    'layernormmha_model']
+    'layernormmha_model',
+    'convgroupconv_model',
+    'convtranspose_model']
 
 toy_model = fixture_union('toy_model', list_of_fixtures, ids=list_of_fixtures)
 

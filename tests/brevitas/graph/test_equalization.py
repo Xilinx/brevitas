@@ -137,7 +137,11 @@ def test_models(toy_model, merge_bias, request):
     assert torch.allclose(expected_out, out, atol=ATOL)
     # Check that at least one region performs "true" equalization
     # If all shapes are scalar, no equalization has been performed
-    assert all([shape != () for shape in shape_scale_regions])
+    if 'convgroupconv' in test_id:
+        with pytest.raises(AssertionError):
+            assert all([shape != () for shape in shape_scale_regions])
+    else:
+        assert all([shape != () for shape in shape_scale_regions])
 
 
 @pytest_cases.parametrize("layerwise", [True, False])
@@ -167,7 +171,13 @@ def test_act_equalization_models(toy_model, layerwise, request):
     assert torch.allclose(expected_out, out, atol=ATOL)
 
     # This region is made up of a residual branch, so no regions are found for act equalization
-    if 'srcsinkconflict_mode' not in test_id:
+    if 'convgroupconv' in test_id:
+        with pytest.raises(AssertionError):
+            assert len(regions) > 0
+            # Check that at least one region performs "true" equalization
+            # If all shapes are scalar, no equalization has been performed
+            assert all([shape != () for shape in shape_scale_regions])
+    else:
         assert len(regions) > 0
         # Check that at least one region performs "true" equalization
         # If all shapes are scalar, no equalization has been performed
