@@ -1,4 +1,5 @@
 import logging
+from typing import Mapping
 
 from accelerate.hooks import add_hook_to_module
 from accelerate.hooks import AlignDevicesHook
@@ -278,22 +279,38 @@ def offload_call_function(model, device_map):
         if node.op == 'call_function':
 
             def new_func(*args, old_callable=node.target, **kwargs):
-                device = find_device([args, kwargs])
                 args = list(args)
-                original_args_device = []
-                original_kwargs_device = dict()
-                for i, arg in enumerate(args):
-                    original_args_device.append(find_device(arg))
-                    args[i] = send_to_device(arg, device)
-                for k, v in kwargs.items():
-                    original_kwargs_device[k] = find_device(v)
-                    kwargs[k] = send_to_device(v, device)
-                out = old_callable(*args, **kwargs)
+                device_mapping = dict()
 
+                # Identify the device for each tensor in args and kwargs
                 for i, arg in enumerate(args):
-                    args[i] = send_to_device(arg, original_args_device[i])
+                    all_devices = find_all_devices(arg)
+                    if all_devices is not None:
+                        device_mapping.update(dict(all_devices))
+
                 for k, v in kwargs.items():
-                    kwargs[k] = send_to_device(v, original_kwargs_device[k])
+                    all_devices = find_all_devices(arg)
+                    if all_devices is not None:
+                        device_mapping.update(dict(all_devices))
+
+                total_devices = [d for d in list(device_mapping.values()) if d is not None]
+                # If there is only one device, no re-alignement is necessary
+                if len(set(total_devices)) > 1:
+                    # Pick the main device, i.e. the first device that is not 'cpu' or 'disk'
+                    if set(device_mapping.values()) == {"cpu"} or set(device_mapping.values()) == {
+                            "cpu", "disk"}:
+                        device = "cpu"
+                    else:
+                        device = [d for d in device_mapping.values() if d not in ["cpu", "disk"]][0]
+                    # Align args and kwargs to the same device
+                    args = send_to_device(args, device)
+                    kwargs = send_to_device(kwargs, device)
+                out = old_callable(*args, **kwargs)
+                if len(set(total_devices)) > 1:
+                    # Restore the original device to avoid memory leaks
+                    for k, v in device_mapping.items():
+                        k = k.to(v)
+
                 return out
 
             node.meta['orig_target'] = node.target
@@ -301,3 +318,28 @@ def offload_call_function(model, device_map):
 
     model.recompile()
     model.graph.lint()
+
+
+def find_all_devices(data):
+    """
+    Finds the device on which a nested dict/list/tuple of tensors lies (assuming they are all on the same device).
+
+    Args:
+        (nested list/tuple/dictionary of `torch.Tensor`): The data we want to know the device of.
+    """
+    if isinstance(data, Mapping):
+        devices = []
+        for obj in data.values():
+            device = find_all_devices(obj)
+            if device is not None:
+                devices.extend(device)
+        return devices
+    elif isinstance(data, (tuple, list)):
+        devices = []
+        for obj in data:
+            device = find_all_devices(obj)
+            if device is not None:
+                devices.extend(device)
+        return devices
+    elif isinstance(data, torch.Tensor):
+        return [(data, str(data.device))]
