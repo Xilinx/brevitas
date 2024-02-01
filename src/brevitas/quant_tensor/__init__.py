@@ -3,10 +3,12 @@
 
 from abc import ABC
 from typing import NamedTuple, Optional
+import warnings
 
 import torch
 from torch import Tensor
 
+import brevitas.config as config
 from brevitas.function.ops import max_int
 from brevitas.function.ops import min_int
 from brevitas.function.ops_ste import ceil_ste
@@ -16,6 +18,10 @@ from .torch_handler import QUANT_TENSOR_FN_HANDLER
 
 IS_VALID_ATOL = 2e-1
 BFLOAT16_IS_VALID_ATOL = 0.5
+
+
+def _get_dequantize_tensor(input):
+    return input.value if isinstance(input, QuantTensor) else input
 
 
 class QuantTensorBase(NamedTuple):
@@ -29,7 +35,7 @@ class QuantTensorBase(NamedTuple):
 
 def _unpack_quant_tensor(input_data):
     if isinstance(input_data, QuantTensor):
-        return input_data.tensor
+        return input_data.value
     elif isinstance(input_data, tuple):
         return tuple([_unpack_quant_tensor(v) for v in input_data])
     elif isinstance(input_data, list):
@@ -54,7 +60,14 @@ def _is_all_nested_not_none(input_data):
 class QuantTensor(QuantTensorBase):
 
     def __new__(
-            cls, value, scale=None, zero_point=None, bit_width=None, signed=None, training=None):
+            cls,
+            value=None,
+            scale=None,
+            zero_point=None,
+            bit_width=None,
+            signed=None,
+            training=None,
+            _allow_empty=False):
 
         if scale is not None and not isinstance(scale, torch.Tensor):
             scale = torch.tensor(scale, dtype=torch.float)
@@ -66,7 +79,22 @@ class QuantTensor(QuantTensorBase):
             signed = torch.tensor(signed, dtype=torch.bool)
         if training is not None and not isinstance(training, torch.Tensor):
             training = torch.tensor(training, dtype=torch.bool)
-        return super().__new__(cls, value, scale, zero_point, bit_width, signed, training)
+
+        if _allow_empty:
+            warnings.warn(
+                "Empty QuantTensor are deprecated and will be removed in a future version")
+        # elif value is not None and scale is not None and zero_point is not None:
+        #     is_int = torch.allclose(torch.round(int_value), int_value)
+        #     if not is_int:
+        #         quant_tensor = quant_tensor.set(int_value = torch.round(int_value / scale + zero_point))
+        # elif int_value is None and value is not None:
+        #     pass
+        elif not _allow_empty and (scale is None or bit_width is None or zero_point is None):
+            raise RuntimeError("To create an emtpy QuantTensor, set _allow_empty=True")
+
+        quant_tensor = super().__new__(
+            cls, value, scale, zero_point, bit_width, signed, training)
+        return quant_tensor
 
     @property
     def signed(self):
@@ -419,6 +447,9 @@ class QuantTensor(QuantTensorBase):
 
     def __sub__(self, other):
         return self.__add__(-other)
+
+    def __str__(self):
+        return f"QuantTensor(value={self.value}, scale={self.scale}, zero_point={self.zero_point}, bit_width={self.bit_width}, signed_t={self.signed_t}, training_t={self.training_t})"
 
     def __truediv__(self, other):
         if isinstance(other, QuantTensor) and self.is_not_none and other.is_not_none:

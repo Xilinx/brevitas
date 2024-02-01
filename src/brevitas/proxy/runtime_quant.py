@@ -157,16 +157,20 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
             elif self.is_passthrough_act:  # preserve scale/zp/bit/sign even without output quant
                 if isinstance(y, tuple):
                     y = y[0]
-                return QuantTensor(y, x.scale, x.zero_point, x.bit_width, x.signed, self.training)
+                if isinstance(x, QuantTensor):
+                    return QuantTensor.from_fake_quantized(
+                        y, x.scale, x.zero_point, x.bit_width, x.signed, self.training)
+                else:
+                    return y
             else:
                 if isinstance(y, tuple):
                     y = y[0]
-                return QuantTensor(y, training=self.training)
+                return y
         else:
             if isinstance(x, QuantTensor):  # passthrough
                 return x
             else:
-                return QuantTensor(x, training=self.training)
+                return x
 
 
 class DynamicActQuantProxyFromInjector(ActQuantProxyFromInjector):

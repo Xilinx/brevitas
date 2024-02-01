@@ -116,6 +116,7 @@ def is_brevitas_ort_close(
     input_t = torch.from_numpy(np_input)
     with torch.no_grad():
         brevitas_output = model(input_t)
+    computed_out = brevitas_output.value
 
     if tolerance is not None and export_type == 'qcdq':
         tolerance = tolerance * brevitas_output.scale  # Float Output, tolerance is +/- output scale
@@ -130,7 +131,7 @@ def is_brevitas_ort_close(
     else:
         if export_type == 'qop':
             export_onnx_qop(model, input_t, export_path=export_name)
-            brevitas_output = brevitas_output.int(float_datatype=False)
+            computed_out = brevitas_output.int(float_datatype=False)
         elif export_type == 'qcdq':
             export_onnx_qcdq(model, input_t, export_path=export_name)
         elif export_type == 'qcdq_opset14':
@@ -145,13 +146,13 @@ def is_brevitas_ort_close(
     if first_output_only:
         if isinstance(ort_output, (tuple, list)):
             ort_output = ort_output[0]
-        if isinstance(brevitas_output, tuple):
-            brevitas_output = brevitas_output[0]
+        if isinstance(computed_out, tuple):
+            computed_out = computed_out[0]
         # make sure we are not comparing 0s
-        if (ort_output == 0).all() and (brevitas_output == 0).all():
+        if (ort_output == 0).all() and (computed_out == 0).all():
             pytest.skip("Skip testing against all 0s.")
 
-    return recursive_allclose(ort_output, brevitas_output, tolerance)
+    return recursive_allclose(ort_output, computed_out, tolerance)
 
 
 def gen_linspaced_data(num_samples, min_val=-1.0, max_val=1.0):

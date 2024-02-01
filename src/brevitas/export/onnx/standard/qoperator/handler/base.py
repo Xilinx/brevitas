@@ -104,7 +104,7 @@ class StdQOpONNXQuantLayerHandler(ONNXBaseHandler,
 
     @classmethod
     def input_dequant_symbolic_kwargs(cls, module):
-        if module._cached_inp.scale is not None:
+        if module._cached_inp is not None:
             return cls.dequant_symbolic_kwargs_from_cached_io(module._cached_inp)
         else:
             return None

@@ -168,7 +168,7 @@ class DisableEnableQuantization(Transform):
         if isinstance(module.tracked_module_list[0], QuantHardTanh):
             inp = F.hardtanh(
                 inp, min_val=module.quant_injector.min_val, max_val=module.quant_injector.max_val)
-        return QuantTensor(value=inp, training=module.training)
+        return inp
 
     def disable_act_quantization(self, model, is_training):
         # If self.call_act_quantizer_impl is set to True, the quantization will be performed but the output
