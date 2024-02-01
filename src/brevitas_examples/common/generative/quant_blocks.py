@@ -89,7 +89,8 @@ class ExpandReshapeZeroPointWrapper(brevitas.jit.ScriptModule):
         return zero_point
 
 
-class RuntimeDynamicStatsScaling(brevitas.jit.ScriptModule):
+# TODO: restore JIT compatibility
+class RuntimeDynamicStatsScaling(nn.Module):
 
     def __init__(
             self,
@@ -101,7 +102,6 @@ class RuntimeDynamicStatsScaling(brevitas.jit.ScriptModule):
         self.stats_impl = scaling_stats_impl
         self.dynamic_scaling_broadcastable_fn = dynamic_scaling_broadcastable_fn
 
-    @brevitas.jit.script_method
     def forward(self, x) -> Tensor:
         shape = x.shape
         x = self.scaling_stats_input_view_shape_impl(x)
@@ -110,7 +110,8 @@ class RuntimeDynamicStatsScaling(brevitas.jit.ScriptModule):
         return x
 
 
-class RuntimeDynamicStatsZeroPoint(brevitas.jit.ScriptModule):
+# TODO: restore JIT compatibility
+class RuntimeDynamicStatsZeroPoint(nn.Module):
 
     def __init__(
             self,
@@ -125,7 +126,6 @@ class RuntimeDynamicStatsZeroPoint(brevitas.jit.ScriptModule):
         self.dynamic_scaling_broadcastable_fn = dynamic_scaling_broadcastable_fn
         self.scale_shift_zero_point = _ScaleShiftZeroPoint(int_quant, quantize_zero_point)
 
-    @brevitas.jit.script_method
     def forward(self, x, scale, bit_width) -> Tensor:
         shape = x.shape
         x = self.zero_point_stats_input_view_shape_impl(x)
