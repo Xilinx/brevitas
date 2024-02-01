@@ -54,11 +54,6 @@ class BrevitasQuantizer(OptimumQuantizer):
         dtype = next(iter(self.model.parameters()))
         if dtype == torch.bfloat16 and self.qconfig.replace_mha_with_quantizable:
             raise RuntimeError("Scaled_dot_product does not support bfloat16 and cuda")
-        if self.qconfig.input_quant_granularity == 'per_row' and not self.qconfig.replace_mha_with_quantizable:
-            raise RuntimeError(
-                "Per-row act quant requires setting replace_mha_with_quantizable to True")
-        if self.qconfig.quantization_format == 'graph_mode':
-            raise RuntimeError("FX quantization not yet compatible with accelerate")
 
     def find_groups_of_parallel_layers(self, names_of_groups_of_parallel_layers):
         names = [name for name, _ in self.model.named_modules()]
@@ -125,8 +120,7 @@ class BrevitasQuantizer(OptimumQuantizer):
             input_scale_type=self.qconfig.input_scale_type,
             input_quant_granularity=self.qconfig.input_quant_granularity,
             input_group_size=self.qconfig.input_group_size,
-            quantize_input_zero_point=self.qconfig.quantize_zero_point,
-            seqlen=self.qconfig.seqlen)
+            quantize_input_zero_point=self.qconfig.quantize_zero_point)
 
         # Perform a single inference pass to generate the correct state_dict
         with torch.no_grad():

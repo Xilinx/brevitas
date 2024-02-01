@@ -129,4 +129,4 @@ print("Model export...")
 remove_hooks(model)
 
 ## Export still WIP
-quantizer.export(model, 'model_export')
+# quantizer.export(model, 'model_export')

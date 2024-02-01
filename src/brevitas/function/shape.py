@@ -93,3 +93,22 @@ def over_batch_over_output_channels(x: Tensor):
         (2, 3, -1)
     """
     return x.shape[0], x.shape[1], -1
+
+
+@brevitas.jit.script
+def over_output_features(x: Tensor):
+    """
+    Returns a shape s such that x.view(s) is a 2-dim tensor with batches
+    at dimension 0, output channels at dimension 1, and any other feature at dimension 2.
+
+    Args:
+        x (Tensor): Input tensor with batches at dimension 0 and output channels at dimension 1.
+
+    Returns:
+        A tuple containing the 2-dim shape.
+
+    Examples:
+        >>> over_batch_over_output_channels(torch.randn([2, 3, 4, 3]))
+        (2, 3, -1)
+    """
+    return -1, x.shape[-1]

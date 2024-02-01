@@ -14,6 +14,7 @@ from brevitas.core.function_wrapper import Identity
 from brevitas.function.shape import over_batch_over_output_channels
 from brevitas.function.shape import over_batch_over_tensor
 from brevitas.function.shape import over_output_channels
+from brevitas.function.shape import over_output_features
 from brevitas.function.shape import over_tensor
 
 
@@ -123,6 +124,32 @@ class OverBatchOverOutputChannelView(brevitas.jit.ScriptModule):
     def forward(self, x: torch.Tensor):
         y = self.permute_impl(x)
         shape = over_batch_over_output_channels(y)
+        return y.reshape(shape)
+
+
+class OverOutputFeaturesView(brevitas.jit.ScriptModule):
+    """
+    ScriptModule to compute the :func:`~brevitas.function.shape.over_output_features`
+    view of an input tensor.
+
+    Examples:
+        >>> view_module = OverOutputFeaturesView()
+        >>> y = view_module(torch.empty(size=[8, 10, 25]))
+        >>> y.shape
+        torch.Size([80, 25])
+    """
+
+    def __init__(self, permute_dims: Optional[Tuple[int, ...]] = None) -> None:
+        super(OverOutputFeaturesView, self).__init__()
+        if permute_dims is not None:
+            self.permute_impl = PermuteDims(permute_dims)
+        else:
+            self.permute_impl = Identity()
+
+    @brevitas.jit.script_method
+    def forward(self, x: torch.Tensor):
+        y = self.permute_impl(x)
+        shape = over_output_features(y)
         return y.reshape(shape)
 
 
