@@ -46,7 +46,6 @@ def test_minifloat(minifloat_format):
 
 
 @given(inp=float_tensor_random_shape_st(), minifloat_format=random_minifloat_format())
-@jit_disabled_for_mock()
 def test_float_to_quant_float(inp, minifloat_format):
     bit_width, exponent_bit_width, mantissa_bit_width, signed = minifloat_format
     if exponent_bit_width == 0 or mantissa_bit_width == 0:
@@ -70,6 +69,7 @@ def test_float_to_quant_float(inp, minifloat_format):
 
 
 @given(inp=float_tensor_random_shape_st(), minifloat_format=random_minifloat_format())
+@jit_disabled_for_mock()
 def test_scaling_impls_called_once(inp, minifloat_format):
     bit_width, exponent_bit_width, mantissa_bit_width, signed = minifloat_format
     scaling_impl = mock.Mock(side_effect=lambda x: 1.)
@@ -101,6 +101,7 @@ def test_scaling_impls_called_once(inp, minifloat_format):
     inp=float_tensor_random_shape_st(),
     minifloat_format=random_minifloat_format(),
     scale=float_st())
+@jit_disabled_for_mock()
 def test_inner_scale(inp, minifloat_format, scale):
     bit_width, exponent_bit_width, mantissa_bit_width, signed = minifloat_format
     # set scaling_impl to scale and float_scaling_impl to 1 to use the same scale as we are here
