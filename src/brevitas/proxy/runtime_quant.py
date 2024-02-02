@@ -158,7 +158,7 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
                 if isinstance(y, tuple):
                     y = y[0]
                 if isinstance(x, QuantTensor):
-                    return QuantTensor.from_fake_quantized(
+                    return QuantTensor(
                         y, x.scale, x.zero_point, x.bit_width, x.signed, self.training)
                 else:
                     return y

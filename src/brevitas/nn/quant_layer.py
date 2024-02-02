@@ -139,7 +139,8 @@ class QuantNonLinearActLayer(QuantNonLinearActMixin, QuantInputMixin, QuantLayer
         quant_input = self.input_quant(input)
         # shortcut execution through the export impl during export
         if self.export_mode:
-            out = self.export_handler(quant_input.value)
+            quant_input_value = getattr(quant_input, 'value', quant_input)
+            out = self.export_handler(quant_input_value)
             self._set_global_is_quant_layer(False)
             return out
         out = self.act_quant(quant_input)
@@ -348,7 +349,7 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
             quant_bias_value = getattr(quant_bias, 'value', quant_bias)
             quant_bias_scale = getattr(quant_bias, 'scale', None)
             quant_bias_bitwidth = getattr(quant_bias, 'bit_width', None)
-            if not self.training and self.cache_inference_quant_bias:
+            if not self.training and self.cache_inference_quant_bias and isinstance(quant_bias, QuantTensor):
                 self._cached_bias = _CachedIO(quant_bias.detach(), metadata_only=False)
             output_tensor = self.inner_forward_impl(
                 return_value(quant_input), return_value(quant_weight), return_value(quant_bias))
@@ -384,7 +385,7 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
         if not self.return_quant_tensor or not compute_output_quant_tensor:
             quant_output = output_tensor
         else:
-            quant_output = QuantTensor.from_fake_quantized(
+            quant_output = QuantTensor(
                 output_tensor,
                 scale=output_scale,
                 zero_point=output_zero_point,
