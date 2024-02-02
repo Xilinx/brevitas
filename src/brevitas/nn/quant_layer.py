@@ -139,8 +139,8 @@ class QuantNonLinearActLayer(QuantNonLinearActMixin, QuantInputMixin, QuantLayer
         quant_input = self.input_quant(input)
         # shortcut execution through the export impl during export
         if self.export_mode:
-            quant_input_value = getattr(quant_input, 'value', quant_input)
-            out = self.export_handler(quant_input_value)
+            # quant_input_value = getattr(quant_input, 'value', quant_input)
+            out = self.export_handler(quant_input)
             self._set_global_is_quant_layer(False)
             return out
         out = self.act_quant(quant_input)
