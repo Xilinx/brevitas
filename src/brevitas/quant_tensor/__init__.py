@@ -92,8 +92,7 @@ class QuantTensor(QuantTensorBase):
         elif not _allow_empty and (scale is None or bit_width is None or zero_point is None):
             raise RuntimeError("To create an emtpy QuantTensor, set _allow_empty=True")
 
-        quant_tensor = super().__new__(
-            cls, value, scale, zero_point, bit_width, signed, training)
+        quant_tensor = super().__new__(cls, value, scale, zero_point, bit_width, signed, training)
         return quant_tensor
 
     @property

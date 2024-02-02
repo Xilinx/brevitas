@@ -349,7 +349,8 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
             quant_bias_value = getattr(quant_bias, 'value', quant_bias)
             quant_bias_scale = getattr(quant_bias, 'scale', None)
             quant_bias_bitwidth = getattr(quant_bias, 'bit_width', None)
-            if not self.training and self.cache_inference_quant_bias and isinstance(quant_bias, QuantTensor):
+            if not self.training and self.cache_inference_quant_bias and isinstance(quant_bias,
+                                                                                    QuantTensor):
                 self._cached_bias = _CachedIO(quant_bias.detach(), metadata_only=False)
             output_tensor = self.inner_forward_impl(
                 return_value(quant_input), return_value(quant_weight), return_value(quant_bias))
