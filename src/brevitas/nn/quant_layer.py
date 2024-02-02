@@ -10,6 +10,7 @@ from torch import Tensor
 from torch.nn import Module
 from torch.nn import Parameter
 
+from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import QuantTensor
 
 from .mixin import *
@@ -17,10 +18,6 @@ from .mixin.base import _CachedIO
 from .utils import compute_channel_view_shape
 from .utils import merge_bn
 from .utils import rename_state_dict_by_prefix
-
-
-def return_value(tensor):
-    return tensor.value if isinstance(tensor, QuantTensor) else tensor
 
 
 class QuantNonLinearActLayer(QuantNonLinearActMixin, QuantInputMixin, QuantLayerMixin, Module):
@@ -299,11 +296,6 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
         merge_bn(self, bn, output_channel_dim=self.output_channel_dim)
 
     def forward_impl(self, inp: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
-        output_scale = None
-        output_bit_width = None
-        output_zero_point = None
-        output_signed = None
-
         inp = self.unpack_input(inp)
 
         # shortcut execution through the export impl during export
@@ -314,14 +306,8 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
             return out
 
         quant_input = self.input_quant(inp)
-        # quant_input_value = getattr(quant_input, 'value', quant_input)
-        # quant_input_scale = getattr(quant_input, 'scale', None)
-        # quant_input_bitwidth = getattr(quant_input, 'bit_width', None)
-
         quant_weight = self.quant_weight(quant_input)
-        # quant_weight_value = getattr(quant_weight, 'value', quant_weight)
-        # quant_weight_scale = getattr(quant_weight, 'scale', None)
-        # quant_weight_bitwidth = getattr(quant_weight, 'bit_width', None)
+
         compute_output_quant_tensor = isinstance(quant_input, QuantTensor) and isinstance(
             quant_weight, QuantTensor)
         if not (compute_output_quant_tensor or
@@ -337,42 +323,37 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
 
                 output_scale = self.quant_output_scale_impl(
                     inp, quant_input.scale, quant_weight.scale)
-
-                quant_input_signed = quant_input.signed if isinstance(
-                    quant_input, QuantTensor) else True
-                quant_weight_signed = quant_weight.signed if isinstance(
-                    quant_weight, QuantTensor) else True
-                output_signed = quant_input_signed or quant_weight_signed
+                output_signed = quant_input.signed or quant_weight.signed
 
         if self.bias is not None:
             quant_bias = self.bias_quant(self.bias, output_scale, output_bit_width)
-            quant_bias_value = getattr(quant_bias, 'value', quant_bias)
-            quant_bias_scale = getattr(quant_bias, 'scale', None)
-            quant_bias_bitwidth = getattr(quant_bias, 'bit_width', None)
             if not self.training and self.cache_inference_quant_bias and isinstance(quant_bias,
                                                                                     QuantTensor):
                 self._cached_bias = _CachedIO(quant_bias.detach(), metadata_only=False)
             output_tensor = self.inner_forward_impl(
-                return_value(quant_input), return_value(quant_weight), return_value(quant_bias))
+                _unpack_quant_tensor(quant_input),
+                _unpack_quant_tensor(quant_weight),
+                _unpack_quant_tensor(quant_bias))
 
-            if (self.return_quant_tensor and output_scale is not None and
-                (quant_bias_scale is None or
-                 (quant_bias_scale is not None and
-                  quant_bias_scale.data_ptr() != output_scale.data_ptr()))):
-                channel_dim = -1 if isinstance(self, torch.nn.Linear) else 1
-                output_scale_broadcast_shape = compute_channel_view_shape(
-                    inp, channel_dim=channel_dim)
-                output_zero_point = -quant_bias_value.view(
-                    output_scale_broadcast_shape) / output_scale
+            if (self.return_quant_tensor and isinstance(quant_bias, QuantTensor)):
 
-            if hasattr(quant_bias, 'bit_width'
-                      ) and quant_bias_bitwidth is not None and output_bit_width is not None:
-                output_bit_width = torch.where(
-                    quant_bias_bitwidth > output_bit_width, quant_bias_bitwidth, output_bit_width)
-                output_bit_width = output_bit_width + 1
+                if output_scale is not None and quant_bias.scale.data_ptr(
+                ) != output_scale.data_ptr():
+                    channel_dim = -1 if isinstance(self, torch.nn.Linear) else 1
+                    output_scale_broadcast_shape = compute_channel_view_shape(
+                        inp, channel_dim=channel_dim)
+                    output_zero_point = -quant_bias.value.view(
+                        output_scale_broadcast_shape) / output_scale
+
+                if output_bit_width is not None:
+                    output_bit_width = torch.where(
+                        quant_bias.bit_width > output_bit_width,
+                        quant_bias.bit_width,
+                        output_bit_width)
+                    output_bit_width = output_bit_width + 1
         else:
             output_tensor = self.inner_forward_impl(
-                return_value(quant_input), return_value(quant_weight), None)
+                _unpack_quant_tensor(quant_input), _unpack_quant_tensor(quant_weight), None)
 
         if self.return_quant_tensor and not self.is_output_quant_enabled:
             if (isinstance(quant_input, QuantTensor) and isinstance(quant_weight, QuantTensor) and

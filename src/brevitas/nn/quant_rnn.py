@@ -684,19 +684,19 @@ class _QuantLSTMLayer(QuantRecurrentLayerMixin, nn.Module):
             quant_weight_if, quant_weight_hf, quant_bias_forget = self.gate_params_fwd(
                 self.forget_gate_params, quant_input)
         # Handle None bias by setting it 0.
-        if getattr(quant_bias_input, 'value', quant_bias_input) is None:
+        if quant_bias_input is None:
             quant_bias_input = torch.tensor(0., device=quant_input_value.device)
         else:
             quant_bias_input = _unpack_quant_tensor(quant_bias_input)
-        if getattr(quant_bias_forget, 'value', quant_bias_forget) is None:
+        if quant_bias_forget is None:
             quant_bias_forget = torch.tensor(0., device=quant_input_value.device)
         else:
             quant_bias_forget = _unpack_quant_tensor(quant_bias_forget)
-        if getattr(quant_bias_cell, 'value', quant_bias_cell) is None:
+        if quant_bias_cell is None:
             quant_bias_cell = torch.tensor(0., device=quant_input_value.device)
         else:
             quant_bias_cell = _unpack_quant_tensor(quant_bias_cell)
-        if getattr(quant_bias_output, 'value', quant_bias_output) is None:
+        if quant_bias_output is None:
             quant_bias_output = torch.tensor(0., device=quant_input_value.device)
         else:
             quant_bias_output = _unpack_quant_tensor(quant_bias_output)
