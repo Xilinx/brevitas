@@ -181,7 +181,8 @@ class QuantLayerMixin(ExportMixin):
         return inp
 
     def pack_output(self, quant_output: QuantTensor):
-        if not self.training and self.cache_inference_quant_out and isinstance(quant_output, QuantTensor):
+        if not self.training and self.cache_inference_quant_out and isinstance(quant_output,
+                                                                               QuantTensor):
             self._cached_out = _CachedIO(quant_output.detach(), self.cache_quant_io_metadata_only)
         self._set_global_is_quant_layer(False)
         if self.return_quant_tensor:
@@ -291,7 +292,7 @@ class QuantRecurrentLayerMixin(ExportMixin):
     def pack_quant_outputs(self, quant_outputs):
         # In export mode, quant_outputs has the shape of the output concatenated value
         if self.export_mode:
-            if self.return_quant_tensor:
+            if self.return_quant_tensor and self.io_quant.is_quant_enabled:
                 return QuantTensor(
                     quant_outputs,
                     self.io_quant.scale(),
@@ -321,7 +322,7 @@ class QuantRecurrentLayerMixin(ExportMixin):
 
     def pack_quant_state(self, quant_state, quant):
         if self.export_mode:
-            if self.return_quant_tensor:
+            if self.return_quant_tensor and quant.is_quant_enabled:
                 quant_state = QuantTensor(
                     torch.unsqueeze(quant_state, dim=0),
                     quant.scale(),
