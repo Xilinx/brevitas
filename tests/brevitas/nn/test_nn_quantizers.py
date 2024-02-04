@@ -121,23 +121,18 @@ def test_quant_lstm_rnn_full(model_input, current_cases):
     if h is not None:
         if return_quant_tensor and kwargs['io_quant'] is not None:
             assert isinstance(h, QuantTensor)
+            assert h.scale is not None
+            assert h.bit_width is not None
         else:
             assert isinstance(h, torch.Tensor)
 
     if c is not None:
-        if kwargs['signed_act'] is None or not kwargs['return_quant_tensor']:
-            if not kwargs['bidirectional']:
-                if not kwargs['return_quant_tensor']:
-                    assert isinstance(c, torch.Tensor)
-                elif kwargs['return_quant_tensor'] and kwargs['signed_act'] is None and kwargs[
-                        'num_layers'] == 2:
-                    assert isinstance(c, torch.Tensor)
-                else:
-                    assert isinstance(c, QuantTensor)
-            else:
-                assert isinstance(c, torch.Tensor)
+        if kwargs['signed_act'] is None or not return_quant_tensor:
+            assert isinstance(c, torch.Tensor)
         else:
             assert isinstance(c, QuantTensor)
+            assert c.scale is not None
+            assert c.bit_width is not None
 
 
 @pytest_cases.parametrize_with_cases('model_input', cases=[case_quant_lstm, case_quant_rnn])
