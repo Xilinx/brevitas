@@ -340,17 +340,17 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
                 _unpack_quant_tensor(quant_weight),
                 _unpack_quant_tensor(quant_bias))
 
-            if (self.return_quant_tensor and isinstance(quant_bias, QuantTensor)):
+            if (self.return_quant_tensor):
+                if output_scale is not None:
+                    if (isinstance(quant_bias, QuantTensor) and quant_bias.scale.data_ptr() !=
+                            output_scale.data_ptr()) or not isinstance(quant_bias, QuantTensor):
+                        channel_dim = -1 if isinstance(self, torch.nn.Linear) else 1
+                        output_scale_broadcast_shape = compute_channel_view_shape(
+                            inp, channel_dim=channel_dim)
+                        output_zero_point = -_unpack_quant_tensor(quant_bias).view(
+                            output_scale_broadcast_shape) / output_scale
 
-                if output_scale is not None and quant_bias.scale.data_ptr(
-                ) != output_scale.data_ptr():
-                    channel_dim = -1 if isinstance(self, torch.nn.Linear) else 1
-                    output_scale_broadcast_shape = compute_channel_view_shape(
-                        inp, channel_dim=channel_dim)
-                    output_zero_point = -quant_bias.value.view(
-                        output_scale_broadcast_shape) / output_scale
-
-                if output_bit_width is not None:
+                if output_bit_width is not None and isinstance(quant_bias, QuantTensor):
                     output_bit_width = torch.where(
                         quant_bias.bit_width > output_bit_width,
                         quant_bias.bit_width,
