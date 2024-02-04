@@ -296,6 +296,11 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
         merge_bn(self, bn, output_channel_dim=self.output_channel_dim)
 
     def forward_impl(self, inp: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
+        output_scale = None
+        output_bit_width = None
+        output_signed = None
+        output_zero_point = None
+
         inp = self.unpack_input(inp)
 
         # shortcut execution through the export impl during export

@@ -419,7 +419,7 @@ class _QuantRNNLayer(QuantRecurrentLayerMixin, nn.Module):
         quant_weight_ih, quant_weight_hh, quant_bias = self.gate_params_fwd(
             self.gate_params, quant_input)
         quant_input_value = _unpack_quant_tensor(quant_input)
-        if getattr(quant_bias, 'value', quant_bias) is None:
+        if quant_bias is None:
             quant_bias = torch.tensor(0., device=quant_input_value.device)
         else:
             quant_bias = _unpack_quant_tensor(quant_bias)
