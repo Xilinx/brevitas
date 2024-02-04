@@ -24,7 +24,6 @@ from brevitas.quant import Int8WeightPerTensorFloat
 from brevitas.quant import Int32Bias
 from brevitas.quant import Uint8ActPerTensorFloat
 from brevitas.quant_tensor import _unpack_quant_tensor
-from brevitas.quant_tensor import QuantTensor
 
 QuantTupleShortEnabled = List[Tuple[Tensor, Tensor, Tensor, Tensor]]
 QuantTupleShortDisabled = List[Tuple[Tensor, Optional[Tensor], Optional[Tensor], Optional[Tensor]]]
@@ -971,6 +970,9 @@ class QuantLSTM(QuantRecurrentStackBase):
             **kwargs)
         if cat_output_cell_states and cell_state_quant is not None and not shared_cell_state_quant:
             raise RuntimeError("Concatenating cell states requires shared cell quantizers.")
+        if return_quant_tensor and (io_quant is None or cell_state_quant is None):
+            raise RuntimeError(
+                "To return a valid QuantTensor, specify a io_quant and cell_state_quant")
         self.cat_output_cell_states = cat_output_cell_states
 
     def forward(self, inp, hx=None, cx=None):

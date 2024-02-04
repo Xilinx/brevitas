@@ -410,7 +410,14 @@ def case_quant_lstm_full(
             return self.lstm(x)
 
     torch.random.manual_seed(SEED)
-    module = Model()
+    if return_quant_tensor and (io_quantizer is None or signed_act_quantizer is None):
+        with pytest.raises(
+                RuntimeError,
+                match="To return a valid QuantTensor, specify a io_quant and cell_state_quant"):
+            module = Model()
+        module = None
+    else:
+        module = Model()
 
     in_size = (FEATURES, 1, IN_CH)
     inp = torch.randn(in_size)

@@ -59,39 +59,18 @@ def _is_all_nested_not_none(input_data):
 
 class QuantTensor(QuantTensorBase):
 
-    def __new__(
-            cls,
-            value=None,
-            scale=None,
-            zero_point=None,
-            bit_width=None,
-            signed=None,
-            training=None,
-            _allow_empty=False):
+    def __new__(cls, value, scale, zero_point, bit_width, signed, training):
 
-        if scale is not None and not isinstance(scale, torch.Tensor):
+        if not isinstance(scale, torch.Tensor):
             scale = torch.tensor(scale, dtype=torch.float)
-        if zero_point is not None and not isinstance(zero_point, torch.Tensor):
+        if not isinstance(zero_point, torch.Tensor):
             zero_point = torch.tensor(zero_point, dtype=torch.float)
-        if bit_width is not None and not isinstance(bit_width, torch.Tensor):
+        if not isinstance(bit_width, torch.Tensor):
             bit_width = torch.tensor(bit_width, dtype=torch.float)
-        if signed is not None and not isinstance(signed, torch.Tensor):
+        if not isinstance(signed, torch.Tensor):
             signed = torch.tensor(signed, dtype=torch.bool)
-        if training is not None and not isinstance(training, torch.Tensor):
+        if not isinstance(training, torch.Tensor):
             training = torch.tensor(training, dtype=torch.bool)
-
-        if _allow_empty:
-            warnings.warn(
-                "Empty QuantTensor are deprecated and will be removed in a future version")
-        # elif value is not None and scale is not None and zero_point is not None:
-        #     is_int = torch.allclose(torch.round(int_value), int_value)
-        #     if not is_int:
-        #         quant_tensor = quant_tensor.set(int_value = torch.round(int_value / scale + zero_point))
-        # elif int_value is None and value is not None:
-        #     pass
-        elif not _allow_empty and (scale is None or bit_width is None or zero_point is None):
-            raise RuntimeError("To create an emtpy QuantTensor, set _allow_empty=True")
-
         quant_tensor = super().__new__(cls, value, scale, zero_point, bit_width, signed, training)
         return quant_tensor
 

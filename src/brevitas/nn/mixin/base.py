@@ -277,7 +277,6 @@ class QuantRecurrentLayerMixin(ExportMixin):
             batch_size = inp.size(0) if self.cell.batch_first else inp.size(1)
             quant_state = torch.zeros(
                 int(batch_size), self.hidden_size, dtype=inp.dtype, device=inp.device)
-            # quant_state = QuantTensor(quant_state)
         else:
             quant_state = quant(state)
         return quant_state
@@ -304,8 +303,7 @@ class QuantRecurrentLayerMixin(ExportMixin):
                     quant_output[2],
                     quant_output[3],
                     self.io_quant.is_signed,
-                    self.training,
-                    _allow_empty=True) for quant_output in quant_outputs]
+                    self.training) for quant_output in quant_outputs]
         else:
             outputs = [torch.unsqueeze(o[0], dim=seq_dim) for o in quant_outputs]
         if self.reverse_input:
@@ -333,8 +331,7 @@ class QuantRecurrentLayerMixin(ExportMixin):
                     quant_state[2],
                     quant_state[3],
                     quant.is_signed,
-                    training=self.training,
-                    _allow_empty=True)
+                    training=self.training)
             else:
                 quant_state = torch.unsqueeze(quant_state[0], dim=0)
         return quant_state

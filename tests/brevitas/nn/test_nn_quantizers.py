@@ -77,7 +77,6 @@ def test_quant_wbiol(model_input, current_cases):
 @pytest_cases.parametrize_with_cases(
     'model_input', cases=[case_quant_lstm_full, case_quant_rnn_full])
 def test_quant_lstm_rnn_full(model_input, current_cases):
-    model, input = model_input
 
     cases_generator_func = current_cases['model_input'][1]
     case_id = get_case_id(cases_generator_func)
@@ -85,7 +84,11 @@ def test_quant_lstm_rnn_full(model_input, current_cases):
     kwargs = parse_args(args)
 
     is_input_quanttensor = kwargs['io_quant'] is not None or kwargs['input_quantized']
+    return_quant_tensor = kwargs['return_quant_tensor']
 
+    if return_quant_tensor and (kwargs['io_quant'] is None or kwargs['signed_act'] is None):
+        pytest.skip("Invalid config")
+    model, input = model_input
     if (kwargs['bias_quant'] == 'quant_external') and ( \
         (not is_input_quanttensor or kwargs['weight_quant'] is None) or \
         (kwargs['num_layers']> 1 and (kwargs['weight_quant'] is None or kwargs['io_quant'] is None))):
@@ -103,23 +106,16 @@ def test_quant_lstm_rnn_full(model_input, current_cases):
         else:
             output, h = output
             c = None
-    return_quant_tensor = kwargs['return_quant_tensor']
 
     if return_quant_tensor:
         assert isinstance(output, QuantTensor)
-        # Empty QuantTensor
-        if ( not kwargs['input_quantized'] or kwargs['weight_quant'] is None) and \
-            kwargs['io_quant'] is None:
-            assert output.scale is None
-            assert output.bit_width is None
-        else:  # "Full" QuantTensor
-            assert output.scale is not None
-            assert output.bit_width is not None
+        assert output.scale is not None
+        assert output.bit_width is not None
     else:
         assert isinstance(output, torch.Tensor)
 
     if h is not None:
-        if return_quant_tensor and kwargs['io_quant'] is not None:
+        if return_quant_tensor:
             assert isinstance(h, QuantTensor)
             assert h.scale is not None
             assert h.bit_width is not None
@@ -127,7 +123,7 @@ def test_quant_lstm_rnn_full(model_input, current_cases):
             assert isinstance(h, torch.Tensor)
 
     if c is not None:
-        if kwargs['signed_act'] is None or not return_quant_tensor:
+        if not return_quant_tensor:
             assert isinstance(c, torch.Tensor)
         else:
             assert isinstance(c, QuantTensor)
@@ -163,30 +159,28 @@ def test_quant_lstm_rnn(model_input, current_cases):
         else:
             output, h = output
             c = None
-    return_quant_tensor = kwargs['return_quant_tensor'] and kwargs['io_quant'] is not None
+    return_quant_tensor = kwargs['return_quant_tensor']
 
     if return_quant_tensor:
         assert isinstance(output, QuantTensor)
-        # Empty QuantTensor
-        if ( not kwargs['input_quantized'] or kwargs['weight_quant'] is None) and \
-            kwargs['io_quant'] is None:
-            assert output.scale is None
-            assert output.bit_width is None
-        else:  # "Full" QuantTensor
-            assert output.scale is not None
-            assert output.bit_width is not None
+        assert output.scale is not None
+        assert output.bit_width is not None
     else:
         assert isinstance(output, torch.Tensor)
 
     if h is not None:
-        if return_quant_tensor and kwargs['io_quant'] is not None:
+        if return_quant_tensor:
             assert isinstance(h, QuantTensor)
+            assert h.scale is not None
+            assert h.bit_width is not None
         else:
             assert isinstance(h, torch.Tensor)
 
     if c is not None:
-        if return_quant_tensor and kwargs['io_quant'] is not None:
+        if return_quant_tensor:
             assert isinstance(c, QuantTensor)
+            assert c.scale is not None
+            assert c.bit_width is not None
         else:
             assert isinstance(c, torch.Tensor)
 
@@ -218,12 +212,7 @@ def test_quant_mha(model_input, current_cases):
 
     if kwargs['return_quant_tensor']:
         assert isinstance(output, QuantTensor)
-        # Empty QuantTensor
-        if kwargs['io_quant'] is None:
-            assert output.scale is None
-            assert output.bit_width is None
-        else:  # "Full" QuantTensor
-            assert output.scale is not None
-            assert output.bit_width is not None
+        assert output.scale is not None
+        assert output.bit_width is not None
     else:
         assert isinstance(output, torch.Tensor)
