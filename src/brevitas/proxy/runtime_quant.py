@@ -201,7 +201,8 @@ class TruncQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
 
     def bit_width(self):
         zhs = self._zero_hw_sentinel()
-        empty_imp = QuantTensor(zhs, zhs, zhs, zhs)
+        # Signed might or might not be defined. We just care about retrieving the bitwidth
+        empty_imp = QuantTensor(zhs, zhs, zhs, zhs, signed=True, training=self.training)
         bit_width = self.__call__(empty_imp).bit_width
         return bit_width
 
