@@ -155,7 +155,7 @@ class QuantLayerMixin(ExportMixin):
         else:
             return None
 
-    def unpack_input(self, inp: Union[Tensor, QuantTensor]):
+    def unpack_input(self, inp: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
         self._set_global_is_quant_layer(True)
         # Hack to recognize a QuantTensor that has decayed to a tuple
         # when used as input to tracing (e.g. during ONNX export)
@@ -174,7 +174,7 @@ class QuantLayerMixin(ExportMixin):
                 inp = inp.rename(None)
         return inp
 
-    def pack_output(self, quant_output: QuantTensor):
+    def pack_output(self, quant_output: QuantTensor) -> Union[Tensor, QuantTensor]:
         if not self.training and self.cache_inference_quant_out and isinstance(quant_output,
                                                                                QuantTensor):
             self._cached_out = _CachedIO(quant_output.detach(), self.cache_quant_io_metadata_only)
