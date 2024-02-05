@@ -13,9 +13,6 @@ from brevitas.core.utils import StatelessBuffer
 from brevitas.function.ops import max_float
 from brevitas.function.ops_ste import floor_ste
 
-# max int that can be passed to torch.exp2() without running into inf
-MAX_REPRESENTABLE_INT = 127
-
 
 class FloatQuant(brevitas.jit.ScriptModule):
     __constants__ = ['signed']
@@ -67,7 +64,6 @@ class FloatQuant(brevitas.jit.ScriptModule):
     def internal_scale(self, x):
         internal_scale = floor_ste(torch.log2(torch.abs(x))) - self.mantissa_bit_width()
         internal_scale = torch.clamp_min(internal_scale, self.fp_internal_scale_min())
-        internal_scale = torch.clamp_max(internal_scale, MAX_REPRESENTABLE_INT)
         internal_scale = torch.exp2(internal_scale)
         return internal_scale
 

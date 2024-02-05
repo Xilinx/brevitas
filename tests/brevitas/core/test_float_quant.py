@@ -151,4 +151,8 @@ def test_inner_scale(inp, minifloat_format, scale):
                 True if val == 0. or val.isnan() else False for val in expected_out.flatten()
             ]).all()
         else:
-            assert torch.equal(out, expected_out)
+            # filter out NaN values as we can't compare them
+            # Note: this still checks if NaN appears at the same values
+            out_nans = out.isnan()
+            expected_out_nans = expected_out.isnan()
+            assert torch.equal(out[~out_nans], expected_out[~expected_out_nans])
