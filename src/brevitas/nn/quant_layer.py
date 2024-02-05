@@ -136,8 +136,7 @@ class QuantNonLinearActLayer(QuantNonLinearActMixin, QuantInputMixin, QuantLayer
         quant_input = self.input_quant(input)
         # shortcut execution through the export impl during export
         if self.export_mode:
-            # quant_input_value = getattr(quant_input, 'value', quant_input)
-            out = self.export_handler(quant_input)
+            out = self.export_handler(_unpack_quant_tensor(quant_input))
             self._set_global_is_quant_layer(False)
             return out
         out = self.act_quant(quant_input)
@@ -298,15 +297,14 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
     def forward_impl(self, inp: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
         output_scale = None
         output_bit_width = None
-        output_signed = None
         output_zero_point = None
+        output_signed = None
 
         inp = self.unpack_input(inp)
 
         # shortcut execution through the export impl during export
         if self.export_mode:
-            inp_value = getattr(inp, 'value', inp)
-            out = self.export_handler(inp_value)
+            out = self.export_handler(_unpack_quant_tensor(inp))
             self._set_global_is_quant_layer(False)
             return out
 
@@ -369,7 +367,7 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
         elif self.return_quant_tensor and output_zero_point is None:
             output_zero_point = torch.zeros(1).type_as(output_tensor)
 
-        if not self.return_quant_tensor or not compute_output_quant_tensor:
+        if not compute_output_quant_tensor:
             quant_output = output_tensor
         else:
             quant_output = QuantTensor(

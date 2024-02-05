@@ -123,12 +123,12 @@ def test_quant_lstm_rnn_full(model_input, current_cases):
             assert isinstance(h, torch.Tensor)
 
     if c is not None:
-        if not return_quant_tensor:
-            assert isinstance(c, torch.Tensor)
-        else:
+        if return_quant_tensor:
             assert isinstance(c, QuantTensor)
             assert c.scale is not None
             assert c.bit_width is not None
+        else:
+            assert isinstance(c, torch.Tensor)
 
 
 @pytest_cases.parametrize_with_cases('model_input', cases=[case_quant_lstm, case_quant_rnn])

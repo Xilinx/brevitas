@@ -18,6 +18,7 @@ from brevitas.common import ExportMixin
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import Injector
 from brevitas.nn.utils import compute_channel_view_shape
+from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import QuantTensor
 
 from .utils import filter_kwargs
@@ -181,10 +182,7 @@ class QuantLayerMixin(ExportMixin):
         if self.return_quant_tensor:
             return quant_output
         else:
-            if isinstance(quant_output, QuantTensor):
-                return quant_output.value
-            else:
-                return quant_output
+            return _unpack_quant_tensor(quant_output)
 
 
 class QuantRecurrentLayerMixin(ExportMixin):
@@ -268,8 +266,6 @@ class QuantRecurrentLayerMixin(ExportMixin):
         quant_input = inp
         if not self.quantize_output_only:
             quant_input = self.io_quant(quant_input)
-        # elif not isinstance(inp, QuantTensor):
-        #     quant_input = QuantTensor(quant_input)
         return quant_input
 
     def maybe_quantize_state(self, inp, state, quant):

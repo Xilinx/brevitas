@@ -20,10 +20,6 @@ IS_VALID_ATOL = 2e-1
 BFLOAT16_IS_VALID_ATOL = 0.5
 
 
-def _get_dequantize_tensor(input):
-    return input.value if isinstance(input, QuantTensor) else input
-
-
 class QuantTensorBase(NamedTuple):
     value: Tensor
     scale: Optional[Tensor]
