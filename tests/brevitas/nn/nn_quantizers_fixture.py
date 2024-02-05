@@ -384,6 +384,8 @@ def case_quant_lstm_full(
 
     if return_quant_tensor and io_quantizer is None:
         pytest.skip("return_quant_tensor cannot be True if no io_quantizer is specified")
+    if return_quant_tensor and signed_act_quantizer is None:
+        pytest.skip("return_quant_tensor cannot be True if no cell_state_quant is specified")
 
     class Model(nn.Module):
 
@@ -410,14 +412,7 @@ def case_quant_lstm_full(
             return self.lstm(x)
 
     torch.random.manual_seed(SEED)
-    if return_quant_tensor and (io_quantizer is None or signed_act_quantizer is None):
-        with pytest.raises(
-                RuntimeError,
-                match="To return a valid QuantTensor, specify a io_quant and cell_state_quant"):
-            module = Model()
-        module = None
-    else:
-        module = Model()
+    module = Model()
 
     in_size = (FEATURES, 1, IN_CH)
     inp = torch.randn(in_size)

@@ -970,9 +970,8 @@ class QuantLSTM(QuantRecurrentStackBase):
             **kwargs)
         if cat_output_cell_states and cell_state_quant is not None and not shared_cell_state_quant:
             raise RuntimeError("Concatenating cell states requires shared cell quantizers.")
-        if return_quant_tensor and (io_quant is None or cell_state_quant is None):
-            raise RuntimeError(
-                "To return a valid QuantTensor, specify a io_quant and cell_state_quant")
+        if return_quant_tensor and cell_state_quant is None:
+            raise RuntimeError("return_quant_tensor=True requires cell_state_quant != None.")
         self.cat_output_cell_states = cat_output_cell_states
 
     def forward(self, inp, hx=None, cx=None):

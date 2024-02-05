@@ -247,10 +247,9 @@ class QuantRecurrentLayerMixin(ExportMixin):
         if isinstance(quant_input, QuantTensor):
             acc_bit_width = None  # TODO
         if isinstance(quant_input, QuantTensor) and isinstance(quant_weight_ih, QuantTensor):
-            if quant_input.scale is not None and quant_weight_ih.scale is not None:
-                acc_scale_shape = compute_channel_view_shape(quant_input.value, channel_dim=1)
-                acc_scale = quant_weight_ih.scale.view(acc_scale_shape)
-                acc_scale = acc_scale * quant_input.scale.view(acc_scale_shape)
+            acc_scale_shape = compute_channel_view_shape(quant_input.value, channel_dim=1)
+            acc_scale = quant_weight_ih.scale.view(acc_scale_shape)
+            acc_scale = acc_scale * quant_input.scale.view(acc_scale_shape)
         quant_bias = gate.bias_quant(gate.bias, acc_scale, acc_bit_width)
         return quant_weight_ih, quant_weight_hh, quant_bias
 
@@ -279,6 +278,8 @@ class QuantRecurrentLayerMixin(ExportMixin):
 
     def pack_quant_outputs(self, quant_outputs):
         # In export mode, quant_outputs has the shape of the output concatenated value
+        # Even though we check that return_quant_tensor can be enabled only with io_quant != None,
+        # inner layers in a deep network overrides it, so we check again.
         if self.export_mode:
             if self.return_quant_tensor and self.io_quant.is_quant_enabled:
                 return QuantTensor(
@@ -308,6 +309,8 @@ class QuantRecurrentLayerMixin(ExportMixin):
             return torch.cat(outputs, dim=seq_dim)
 
     def pack_quant_state(self, quant_state, quant):
+        # Even though we check that return_quant_tensor can be enabled only with quant != None,
+        # inner layers in a deep network overrides it, so we check again.
         if self.export_mode:
             if self.return_quant_tensor and quant.is_quant_enabled:
                 quant_state = QuantTensor(

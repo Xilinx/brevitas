@@ -86,8 +86,6 @@ def test_quant_lstm_rnn_full(model_input, current_cases):
     is_input_quanttensor = kwargs['io_quant'] is not None or kwargs['input_quantized']
     return_quant_tensor = kwargs['return_quant_tensor']
 
-    if return_quant_tensor and (kwargs['io_quant'] is None or kwargs['signed_act'] is None):
-        pytest.skip("Invalid config")
     model, input = model_input
     if (kwargs['bias_quant'] == 'quant_external') and ( \
         (not is_input_quanttensor or kwargs['weight_quant'] is None) or \

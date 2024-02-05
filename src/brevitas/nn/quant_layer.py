@@ -367,7 +367,7 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
         elif self.return_quant_tensor and output_zero_point is None:
             output_zero_point = torch.zeros(1).type_as(output_tensor)
 
-        if not compute_output_quant_tensor:
+        if not self.return_quant_tensor or not compute_output_quant_tensor:
             quant_output = output_tensor
         else:
             quant_output = QuantTensor(
