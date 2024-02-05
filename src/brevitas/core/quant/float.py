@@ -23,6 +23,7 @@ class FloatQuant(brevitas.jit.ScriptModule):
             signed: bool,
             exponent_bit_width: int,
             mantissa_bit_width: int,
+            case_clamp_impl: nn.Module,
             exponent_bias: Optional[int] = None,
             scaling_impl: Optional[nn.Module] = None,
             float_scaling_impl: Optional[nn.Module] = None,
@@ -59,6 +60,7 @@ class FloatQuant(brevitas.jit.ScriptModule):
         self.zero_point_impl = StatelessBuffer(torch.tensor(0., device=device, dtype=dtype))
         self.float_scaling_impl = float_scaling_impl
         self.scaling_impl = scaling_impl
+        self.case_clamp_impl = case_clamp_impl
 
     @brevitas.jit.script_method
     def internal_scale(self, x):
@@ -86,6 +88,8 @@ class FloatQuant(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def forward(self, x):
         y, scale = self.quantize(x)
+        # after quantizing, clamp to special cases like NaN, inf
+        y = self.case_clamp_impl(y, self.exponent_bit_width(), self.mantissa_bit_width())
         y = self.dequantize(y, scale)
         # This is to respect the current interface of proxies
         return y, scale, self.zero_point_impl(), self.bit_width()

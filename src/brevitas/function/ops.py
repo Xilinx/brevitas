@@ -11,6 +11,10 @@ from torch import Tensor
 
 import brevitas
 
+P_INF_TENSOR = torch.tensor(float('inf'))
+N_INF_TENSOR = torch.tensor(float('-inf'))
+NAN_TENSOR = torch.tensor(float('nan'))
+
 
 @brevitas.jit.script
 def binary_sign(x: Tensor) -> Tensor:
@@ -217,3 +221,55 @@ def get_upper_bound_on_l1_norm(
     max_accumulator_mag = pow(2., max_accumulator_bit_width - 1.) - 1.  # 2^{P-1}-1
     max_input_mag_inverse = pow(2., input_is_signed - input_bit_width)
     return max_accumulator_mag * max_input_mag_inverse
+
+
+def clamp_to_fp_encoding(
+        x: Tensor,
+        exponent_bit_width: int,
+        mantissa_bit_width: int,
+        nan_value: Tensor,
+        inf_value: Tensor,
+        max_value: Tensor,
+        saturating: bool):
+    """
+    Clamp any values that exceed inf/NaN special codes to these. Differentiates between saturating
+    and non-saturating mode.
+
+    nan_value needs to be set to the min NaN value there is.
+    """
+    # TODO: question regarding inf/NaN values
+    max_exponent_value = 2 ** (exponent_bit_width - 1)
+    # decompose value
+    mantissa, exponent = torch.frexp(x)
+    # check if any of the exponent values are all 1s, i.e. equal the max_exponent value
+    exponent_mask = exponent - 1 >= max_exponent_value  # - 1 because frexp returns exponent in range [-125, 128], but actual exponent bits are in range [-126, 127]
+    is_nan_mask = mantissa.abs() >= nan_value  # nan_value is the min NaN value
+    is_inf_mask = mantissa == inf_value
+    full_nan_mask = torch.logical_and(exponent_mask, is_nan_mask)
+    full_inf_mask = torch.logical_and(exponent_mask, is_inf_mask)
+    if saturating:
+        # set all values of mantissa_nan_mask and exponent_mask to NaN
+        x[full_nan_mask] = NAN_TENSOR
+
+        # set all inf_values to max_val
+        x[full_inf_mask] = max_value
+
+        # clamp absolute values greater than max to +- max val
+        x = torch.clamp(x, -max_value, max_value)
+
+        return x
+    else:
+        # in non saturating case, just set all exceeding values to nan
+        x[full_nan_mask] = NAN_TENSOR
+        if inf_value is None:
+            # we just set all values to NaN
+            x[full_inf_mask] = NAN_TENSOR
+        else:
+            # set inf values to +- infinity
+            x[full_inf_mask] = torch.where(x[full_inf_mask] > 0, P_INF_TENSOR, N_INF_TENSOR)
+            # clamp all values greater than max_value to +inf
+            x = torch.where(x > max_value, P_INF_TENSOR, x)
+            # clamp all values smaller than min_value to -inf
+            x = torch.where(x < -max_value, N_INF_TENSOR, x)
+
+        return x

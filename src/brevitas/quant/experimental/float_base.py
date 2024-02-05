@@ -1,6 +1,7 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from brevitas.core.function_wrapper import FloatClamp
 from brevitas.core.quant.float import FloatQuant
 from brevitas.core.scaling.float_scaling import FloatScaling
 from brevitas.inject import ExtendedInjector
@@ -54,9 +55,19 @@ class Fp8e4m3Mixin(ExponentBiasMixin):
     bit_width = 8
     exponent_bit_width = 4
     mantissa_bit_width = 3
+    case_clamp_impl = FloatClamp
+    nan_value = '111'
+    inf_value = None
+    max_value = 448.
+    saturating = True
 
 
 class Fp8e5m2Mixin(ExponentBiasMixin):
     bit_width = 8
     exponent_bit_width = 5
     mantissa_bit_width = 2
+    case_clamp_impl = FloatClamp
+    nan_value = '01'  # smallest NaN value. Others are '11' and '10'
+    inf_value = '00'
+    max_value = 57344.
+    saturating = True
