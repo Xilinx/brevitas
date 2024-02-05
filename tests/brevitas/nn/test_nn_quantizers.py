@@ -62,14 +62,8 @@ def test_quant_wbiol(model_input, current_cases):
 
     if kwargs['return_quant_tensor']:
         assert isinstance(output, QuantTensor)
-        # Empty QuantTensor
-        if ( not kwargs['input_quantized'] or kwargs['weight_quant'] is None) and \
-            kwargs['io_quant'] is None:
-            assert output.scale is None
-            assert output.bit_width is None
-        else:  # "Full" QuantTensor
-            assert output.scale is not None
-            assert output.bit_width is not None
+        assert output.scale is not None
+        assert output.bit_width is not None
     else:
         assert isinstance(output, torch.Tensor)
 

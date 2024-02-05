@@ -59,7 +59,7 @@ class TruncAvgPool2d(TruncMixin, QuantLayerMixin, AvgPool2d):
             return self.export_handler(x.value)
         x = x.set(value=super(TruncAvgPool2d, self).forward(x.value))
         if self.is_trunc_quant_enabled:
-            assert x.is_not_none  # check input quant tensor is filled with values
+            assert isinstance(x, QuantTensor)  # check input quant tensor is filled with values
             # remove avg scaling
             rescaled_value = x.value * self._avg_scaling
             x = x.set(value=rescaled_value)
@@ -138,7 +138,7 @@ class TruncAdaptiveAvgPool2d(TruncMixin, QuantLayerMixin, AdaptiveAvgPool2d):
             self._cached_kernel_size = k_size
             self._cached_kernel_stride = stride
         if self.is_trunc_quant_enabled:
-            assert y.is_not_none  # check input quant tensor is filled with values
+            assert isinstance(y, QuantTensor)  # check input quant tensor is filled with values
             reduce_size = reduce(mul, k_size, 1)
             rescaled_value = y.value * reduce_size  # remove avg scaling
             y = y.set(value=rescaled_value)
