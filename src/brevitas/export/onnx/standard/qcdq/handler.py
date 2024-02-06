@@ -113,19 +113,19 @@ class StdDynamicQDQCastONNXMixin(DynamicQMixin, StdDQCastONNXMixin, ABC):
 class StdQCDQCastONNXWeightQuantProxyHandler(StdQCDQCastONNXMixin,
                                              QCDQCastWeightQuantProxyHandlerMixin,
                                              ONNXBaseHandler):
-    _export_q_node: bool = False
+    pass
 
 
 class StdQCDQCastONNXDecoupledWeightQuantProxyHandler(StdQCDQCastONNXMixin,
                                                       QCDQCastDecoupledWeightQuantProxyHandlerMixin,
                                                       ONNXBaseHandler):
-    _export_q_node: bool = False
+    pass
 
 
 class StdQCDQCastONNXDecoupledWeightQuantWithInputProxyHandler(
         StdQCDQCastONNXMixin, QCDQCastDecoupledWeightQuantWithInputProxyHandlerMixin,
         ONNXBaseHandler):
-    _export_q_node: bool = False
+    pass
 
 
 class StdQCDQCastONNXActQuantProxyHandler(StdQCDQCastONNXMixin,

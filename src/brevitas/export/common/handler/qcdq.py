@@ -135,6 +135,7 @@ class CDQCastProxyHandlerMixin(QuantAxisMixin, ClipMixin, ZeroPointHandlerMixin,
 
 class QCDQCastWeightQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin):
     handled_layer = WeightQuantProxyFromInjector
+    _export_q_node = False
 
     def quantize_symbolic_kwargs(cls, scale, zero_point, bit_width, is_signed):
         # compute axis before redefining scale
@@ -229,6 +230,7 @@ class QCDQCastWeightQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin):
 
 class QCDQCastDecoupledWeightQuantProxyHandlerMixin(QCDQCastWeightQuantProxyHandlerMixin, ABC):
     handled_layer = DecoupledWeightQuantProxyFromInjector
+    _export_q_node = False
 
     def symbolic_execution(self, x: Tensor):
         out, scale, zero_point, bit_width = super().symbolic_execution(x)
@@ -239,6 +241,7 @@ class QCDQCastDecoupledWeightQuantProxyHandlerMixin(QCDQCastWeightQuantProxyHand
 class QCDQCastDecoupledWeightQuantWithInputProxyHandlerMixin(
         QCDQCastDecoupledWeightQuantProxyHandlerMixin, ABC):
     handled_layer = DecoupledWeightQuantWithInputProxyFromInjector
+    _export_q_node = False
 
     def validate(self, module):
         assert not self._export_q_node, "This proxy requires to export integer weights"
