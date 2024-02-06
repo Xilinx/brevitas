@@ -16,13 +16,13 @@ from ..function import IntClipFn
 from ..function import QuantizeLinearFn
 from ..manager import StdONNXBaseManager
 from .handler import StdCDQCastONNXBiasQuantProxyHandler
-from .handler import StdCDQCastONNXDecoupledWeightQuantProxyHandler
-from .handler import StdCDQCastONNXDecoupledWeightQuantWithInputProxyHandler
-from .handler import StdCDQCastONNXWeightQuantProxyHandler
 from .handler import StdDynamicQDQCastONNXActQuantProxyHandler
 from .handler import StdQCDQCastONNXActQuantProxyHandler
+from .handler import StdQCDQCastONNXDecoupledWeightQuantProxyHandler
+from .handler import StdQCDQCastONNXDecoupledWeightQuantWithInputProxyHandler
 from .handler import StdQCDQCastONNXQuantLSTMLayerHandler
 from .handler import StdQCDQCastONNXTruncQuantProxyHandler
+from .handler import StdQCDQCastONNXWeightQuantProxyHandler
 
 
 class StdQCDQONNXManager(StdONNXBaseManager):
@@ -35,13 +35,13 @@ class StdQCDQONNXManager(StdONNXBaseManager):
         "eliminate_unused_initializer"]
 
     handlers = [
-        StdCDQCastONNXWeightQuantProxyHandler,
+        StdQCDQCastONNXWeightQuantProxyHandler,
         StdCDQCastONNXBiasQuantProxyHandler,
         StdQCDQCastONNXActQuantProxyHandler,
-        StdCDQCastONNXDecoupledWeightQuantProxyHandler,
+        StdQCDQCastONNXDecoupledWeightQuantProxyHandler,
         StdDynamicQDQCastONNXActQuantProxyHandler,
         StdQCDQCastONNXTruncQuantProxyHandler,
-        StdCDQCastONNXDecoupledWeightQuantWithInputProxyHandler,
+        StdQCDQCastONNXDecoupledWeightQuantWithInputProxyHandler,
         StdQCDQCastONNXQuantLSTMLayerHandler]
 
     custom_fns = [
@@ -61,3 +61,14 @@ class StdQCDQONNXManager(StdONNXBaseManager):
     def set_export_handler(cls, module: Module):
         _set_proxy_export_handler(cls, module)
         _set_recurrent_layer_export_handler(cls, module)
+
+    @classmethod
+    def export_onnx(cls, *args, export_weight_q_node: bool = False, **kwargs):
+        cls.change_weight_export(export_weight_q_node)
+        super().export_onnx(*args, **kwargs)
+
+    @classmethod
+    def change_weight_export(cls, export_weight_q_node: bool = False):
+        for handler in cls.handlers:
+            if hasattr(handler, '_export_q_node'):
+                handler._export_weight_q_node = export_weight_q_node

@@ -6,16 +6,16 @@ from abc import ABC
 import torch
 
 from brevitas.export.common.handler.qcdq import CDQCastBiasQuantProxyHandlerMixin
-from brevitas.export.common.handler.qcdq import CDQCastDecoupledWeightQuantProxyHandlerMixin
-from brevitas.export.common.handler.qcdq import \
-    CDQCastDecoupledWeightQuantWithInputProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import CDQCastMixin
-from brevitas.export.common.handler.qcdq import CDQCastWeightQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import DQCastMixin
 from brevitas.export.common.handler.qcdq import DynamicQDQCastActQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import DynamicQMixin
 from brevitas.export.common.handler.qcdq import QCDQCastActQuantProxyHandlerMixin
+from brevitas.export.common.handler.qcdq import QCDQCastDecoupledWeightQuantProxyHandlerMixin
+from brevitas.export.common.handler.qcdq import \
+    QCDQCastDecoupledWeightQuantWithInputProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQCastTruncQuantProxyHandlerMixin
+from brevitas.export.common.handler.qcdq import QCDQCastWeightQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QMixin
 from brevitas.export.onnx.handler import ONNXBaseHandler
 from brevitas.export.onnx.handler import QuantLSTMLayerHandler
@@ -71,7 +71,8 @@ class StdQCDQCastONNXMixin(QMixin, StdCDQCastONNXMixin, ABC):
         super().validate(module)
         # ONNX QuantizeLinear supports only 8b output with round to nearest even.
         # Below 8b quantization is supported through clipping.
-        assert module.rounding_mode.upper() == 'ROUND', 'Only round to nearest even supported'
+        if getattr(self, '_export_q_node', True):
+            assert module.rounding_mode.upper() == 'ROUND', 'Only round to nearest even supported'
         self.validate_8b_bit_width(module.bit_width(), le_then=True)
 
     def quantize_fn(self, x, scale, zero_point, dtype, axis):
@@ -109,20 +110,20 @@ class StdDynamicQDQCastONNXMixin(DynamicQMixin, StdDQCastONNXMixin, ABC):
         return DynamicQuantizeLinearFn.apply(x, dtype)
 
 
-class StdCDQCastONNXWeightQuantProxyHandler(StdCDQCastONNXMixin,
-                                            CDQCastWeightQuantProxyHandlerMixin,
-                                            ONNXBaseHandler):
+class StdQCDQCastONNXWeightQuantProxyHandler(StdQCDQCastONNXMixin,
+                                             QCDQCastWeightQuantProxyHandlerMixin,
+                                             ONNXBaseHandler):
     pass
 
 
-class StdCDQCastONNXDecoupledWeightQuantProxyHandler(StdCDQCastONNXMixin,
-                                                     CDQCastDecoupledWeightQuantProxyHandlerMixin,
-                                                     ONNXBaseHandler):
+class StdQCDQCastONNXDecoupledWeightQuantProxyHandler(StdQCDQCastONNXMixin,
+                                                      QCDQCastDecoupledWeightQuantProxyHandlerMixin,
+                                                      ONNXBaseHandler):
     pass
 
 
-class StdCDQCastONNXDecoupledWeightQuantWithInputProxyHandler(
-        StdCDQCastONNXMixin, CDQCastDecoupledWeightQuantWithInputProxyHandlerMixin,
+class StdQCDQCastONNXDecoupledWeightQuantWithInputProxyHandler(
+        StdQCDQCastONNXMixin, QCDQCastDecoupledWeightQuantWithInputProxyHandlerMixin,
         ONNXBaseHandler):
     pass
 

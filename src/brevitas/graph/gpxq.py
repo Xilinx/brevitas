@@ -12,7 +12,9 @@ from typing import List, Optional, Set
 import warnings
 
 import torch
+from torch.fx import GraphModule as TorchGraphModule
 
+from brevitas.fx import GraphModule
 from brevitas.graph.calibrate import DisableEnableQuantization
 import brevitas.nn as qnn
 from brevitas.quant_tensor import QuantTensor
@@ -63,6 +65,13 @@ class gpxq_mode(ABC):
         self.group_of_parallel_layers = group_of_parallel_layers
         self.return_forward_output = return_forward_output
 
+        if isinstance(self.model, (GraphModule, TorchGraphModule)):
+            self.orig_forward = self.model.__class__.forward
+            self.model.__class__.forward = self.catch_stopfwd
+        else:
+            self.orig_forward = self.model.forward
+            self.model.forward = self.catch_stopfwd
+
     def _is_module_supported(self, module):
         if isinstance(module, SUPPORTED_CONV_OP):
             return True
@@ -110,6 +119,7 @@ class gpxq_mode(ABC):
                         gpxq_module_optimizer.update_batch, current_layer=self.current_layer)
                     self.hook_dict[name] = module.register_forward_pre_hook(hook_fn)
                     self.gpxq_layers[name] = gpxq_module_optimizer
+
         if not self.use_quant_activations:
             self.disable_quant_inference.disable_act_quantization(
                 self.model, is_training=self.model.training)
@@ -120,7 +130,11 @@ class gpxq_mode(ABC):
         return self
 
     def __exit__(self, type, value, traceback):
-        self.model.forward = self.orig_forward
+        if isinstance(self.model, (GraphModule, TorchGraphModule)):
+            self.model.__class__.forward = self.orig_forward
+        else:
+            self.model.forward = self.orig_forward
+
         if not self.use_quant_activations:
             self.disable_quant_inference.enable_act_quantization(
                 self.model, is_training=self.model.training)
