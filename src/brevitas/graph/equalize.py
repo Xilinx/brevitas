@@ -637,6 +637,7 @@ def _is_supported_module(graph_model: GraphModule, node: Node) -> bool:
             # We support only self-attention
             if isinstance(module, nn.MultiheadAttention):
                 kwargs = dict(node.kwargs)
+                # When using hf/accelerate, we need to check the signature of the original forward
                 forward_to_check = module._old_forward if hasattr(
                     module, '_old_forward') else module.forward
                 kwargs.update(zip(forward_to_check.__code__.co_varnames[1:], node.args))
@@ -962,6 +963,7 @@ class ActivationEqualization(GraphTransform, ABC):
 
     def forward_stats_hook(self, module, *args, name, batch_dim=0, use_inp=True, **kwargs):
         # Check for MHA Cross attention, and if found, skip it
+        # When using hf/accelerate, we need to check the signature of the original forward
         forward_to_check = module._old_forward if hasattr(
             module, '_old_forward') else module.forward
         kwargs.update(zip(forward_to_check.__code__.co_varnames[1:], args[:-1]))

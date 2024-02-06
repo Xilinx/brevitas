@@ -5,6 +5,7 @@
 - transformers
 - datasets
 - torch_mlir (optional for torch-mlir based export)
+- optimum-amd (WIP, install brevitas-compatibility branch)
 
 ## Run
 

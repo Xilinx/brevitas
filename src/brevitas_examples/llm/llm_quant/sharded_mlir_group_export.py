@@ -404,7 +404,7 @@ def sharded_weight_group_export(model, no_custom_packed_export):
         export_context_manager = brevitas_layer_export_mode
         # generate an export_class with the handler declared above
         export_class = block_quant_layer_level_manager(
-            export_handlers={LinearWeightBlockQuantHandlerFwd})
+            export_handlers=[LinearWeightBlockQuantHandlerFwd])
 
     layers0 = [FirstVicunaLayer(layer) for layer in model.model.layers]
     mlirs0 = compile_to_vmfb(
