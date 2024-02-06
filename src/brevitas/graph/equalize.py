@@ -494,10 +494,10 @@ def _cross_layer_equalization(
     # weight equalization
     if merge_bias:
         src_weights = {
-            name: _combine_weights_bias(transpose(m, axis), bias_shrinkage, m.bias)
+            name: _combine_weights_bias(transpose(m.weight, axis), bias_shrinkage, m.bias)
             for name, (m, axis) in src_axes.items()}
     else:
-        src_weights = {name: transpose(m, axis) for name, (m, axis) in src_axes.items()}
+        src_weights = {name: transpose(m.weight, axis) for name, (m, axis) in src_axes.items()}
     for k, v in src_weights.items():
         # Srcs are always fully equalized, thus we simply need to apply the offset to position them
         # correctly with respect to the other srcs matrices.
