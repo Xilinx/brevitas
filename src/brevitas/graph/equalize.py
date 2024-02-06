@@ -514,7 +514,8 @@ def _cross_layer_equalization(
             shape_0 = list_of_act_val_shapes[0]
             if any(shape_0 != shape for shape in list_of_act_val_shapes):
                 return _no_equalize()
-        list_of_act_val = list_of_act_val = [transpose(act_val, act_axis) for act_val in list_of_act_val]
+        list_of_act_val = list_of_act_val = [
+            transpose(act_val, act_axis) for act_val in list_of_act_val]
         srcs_range_act = scale_fn(
             torch.cat([act_val.reshape(act_val.size(0), -1) for act_val in list_of_act_val], 1))
         srcs_range_act = srcs_range_act.to(device=device)
