@@ -56,9 +56,8 @@ class Fp8e4m3Mixin(ExponentBiasMixin):
     exponent_bit_width = 4
     mantissa_bit_width = 3
     case_clamp_impl = FloatClamp
-    nan_value = '111'
-    inf_value = None
-    max_value = 448.
+    nan_values = tuple(('111',))
+    inf_values = None
     saturating = True
 
 
@@ -67,7 +66,6 @@ class Fp8e5m2Mixin(ExponentBiasMixin):
     exponent_bit_width = 5
     mantissa_bit_width = 2
     case_clamp_impl = FloatClamp
-    nan_value = '01'  # smallest NaN value. Others are '11' and '10'
-    inf_value = '00'
-    max_value = 57344.
+    nan_values = ('01', '11', '10')
+    inf_values = tuple(('00',))
     saturating = True

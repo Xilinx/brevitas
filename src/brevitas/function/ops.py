@@ -5,6 +5,7 @@
 Implementation of various core operations often performed as part of quantization.
 The implemented functions adheres to the restriction imposed by Pytorch 1.1.0's TorchScript compiler.
 """
+from typing import Tuple
 
 import torch
 from torch import Tensor
@@ -227,8 +228,8 @@ def clamp_to_fp_encoding(
         x: Tensor,
         exponent_bit_width: int,
         mantissa_bit_width: int,
-        nan_value: Tensor,
-        inf_value: Tensor,
+        nan_values: Tuple[float],
+        inf_values: Tuple[float],
         max_value: Tensor,
         saturating: bool):
     """
@@ -237,39 +238,27 @@ def clamp_to_fp_encoding(
 
     nan_value needs to be set to the min NaN value there is.
     """
-    # TODO: question regarding inf/NaN values
-    max_exponent_value = 2 ** (exponent_bit_width - 1)
-    # decompose value
-    mantissa, exponent = torch.frexp(x)
-    # check if any of the exponent values are all 1s, i.e. equal the max_exponent value
-    exponent_mask = exponent - 1 >= max_exponent_value  # - 1 because frexp returns exponent in range [-125, 128], but actual exponent bits are in range [-126, 127]
-    is_nan_mask = mantissa.abs() >= nan_value  # nan_value is the min NaN value
-    is_inf_mask = mantissa == inf_value
-    full_nan_mask = torch.logical_and(exponent_mask, is_nan_mask)
-    full_inf_mask = torch.logical_and(exponent_mask, is_inf_mask)
+    # TODO: think about setting NaN/inf values to the specific minifloat code, that's also why not all arguments are used at this time
+    # NaN values all stay at NaN, so no need to do anything with NaN values
+    # get all positive inf values
+    inf_mask = x.isinf()
+    p_max_val_mask = x > max_value
+    n_max_val_mask = -x > max_value
+
     if saturating:
-        # set all values of mantissa_nan_mask and exponent_mask to NaN
-        x[full_nan_mask] = NAN_TENSOR
-
-        # set all inf_values to max_val
-        x[full_inf_mask] = max_value
-
-        # clamp absolute values greater than max to +- max val
-        x = torch.clamp(x, -max_value, max_value)
-
-        return x
+        # clamp everything to +- max_value
+        x = x.clamp(-max_value, max_value)
     else:
-        # in non saturating case, just set all exceeding values to nan
-        x[full_nan_mask] = NAN_TENSOR
-        if inf_value is None:
-            # we just set all values to NaN
-            x[full_inf_mask] = NAN_TENSOR
-        else:
-            # set inf values to +- infinity
-            x[full_inf_mask] = torch.where(x[full_inf_mask] > 0, P_INF_TENSOR, N_INF_TENSOR)
-            # clamp all values greater than max_value to +inf
-            x = torch.where(x > max_value, P_INF_TENSOR, x)
-            # clamp all values smaller than min_value to -inf
-            x = torch.where(x < -max_value, N_INF_TENSOR, x)
+        if inf_values:
+            # we have inf values, so we set abs values > max_value to +- inf, and leave inf at inf
+            x[p_max_val_mask] = P_INF_TENSOR
+            x[n_max_val_mask] = N_INF_TENSOR
+        if not inf_values:
+            # no inf values, so we need to map them to NaN
+            full_max_val_mask = torch.logical_and(p_max_val_mask, n_max_val_mask)
+            x[full_max_val_mask] = NAN_TENSOR
 
-        return x
+            # we also map the inf values to NaN in this case
+            x[inf_mask] = NAN_TENSOR
+
+    return x
