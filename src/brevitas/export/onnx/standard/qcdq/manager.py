@@ -71,4 +71,4 @@ class StdQCDQONNXManager(StdONNXBaseManager):
     def change_weight_export(cls, export_weight_q_node: bool = False):
         for handler in cls.handlers:
             if hasattr(handler, '_export_q_node'):
-                handler._export_weight_q_node = export_weight_q_node
+                handler._export_q_node = export_weight_q_node
