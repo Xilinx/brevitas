@@ -7,11 +7,16 @@ import argparse
 import re
 
 import numpy as np
+from optimum.amd.brevitas.accelerate_utils import offload_model
+from optimum.amd.brevitas.accelerate_utils import remove_hooks
+from optimum.exporters.onnx.__main__ import onnx_export
 import torch
 from transformers import AutoModelForCausalLM
+from transformers import AutoTokenizer
 
 from brevitas.export import export_onnx_qcdq
 from brevitas.export import export_torch_qcdq
+from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
 from brevitas_examples.common.generative.quantize import quantize_model
 from brevitas_examples.common.parse_utils import quant_format_validator
 from brevitas_examples.llm.llm_quant.bias_corr import apply_bias_correction
@@ -20,13 +25,16 @@ from brevitas_examples.llm.llm_quant.data import get_c4
 from brevitas_examples.llm.llm_quant.data import get_wikitext2
 from brevitas_examples.llm.llm_quant.equalize import apply_act_equalization
 from brevitas_examples.llm.llm_quant.equalize import apply_weight_equalization
+from brevitas_examples.llm.llm_quant.eval import create_validation_dataloader
 from brevitas_examples.llm.llm_quant.eval import model_eval
+from brevitas_examples.llm.llm_quant.export import BlockQuantProxyLevelManager
+from brevitas_examples.llm.llm_quant.export import brevitas_proxy_export_mode
 from brevitas_examples.llm.llm_quant.gptq import apply_gptq
 from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_affine_merge
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import replace_mha_with_quantizable_layers
 from brevitas_examples.llm.llm_quant.run_utils import CastFloat16ToFloat32
-from brevitas_examples.llm.llm_quant.run_utils import get_fx_graph
-from brevitas_examples.llm.llm_quant.run_utils import get_model_impl
+from brevitas_examples.llm.llm_quant.run_utils import get_fx
+from brevitas_examples.llm.llm_quant.run_utils import modify_dataloader
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -56,7 +64,7 @@ parser.add_argument(
 parser.add_argument(
     '--weight-quant-type',
     type=str,
-    default='asym',
+    default='sym',
     choices=['sym', 'asym'],
     help='Weight quantization type. Default: asym.')
 parser.add_argument(
@@ -68,7 +76,7 @@ parser.add_argument(
 parser.add_argument(
     '--weight-quant-granularity',
     type=str,
-    default='per_tensor',
+    default='per_group',
     choices=['per_channel', 'per_tensor', 'per_group'],
     help='Granularity for scales/zero-point of weights. Default: per_group.')
 parser.add_argument(
@@ -117,7 +125,7 @@ parser.add_argument(
 parser.add_argument(
     '--input-quant-granularity',
     type=str,
-    default='per_group',
+    default='per_tensor',
     choices=['per_tensor', 'per_row', 'per_group'],
     help='Granularity for scales/zero-point of inputs. Default: per_tensor.')
 parser.add_argument(
@@ -179,7 +187,18 @@ def model_export(model, ref_input, args):
             sharded_weight_group_export
         sharded_weight_group_export(model, no_custom_packed_export=False)
     elif args.export_target == 'onnx_qcdq':
-        export_onnx_qcdq(model, ref_input, export_path=f"{args.model.replace('/', '-')}.onnx")
+        if args.weight_quant_granularity == 'per_group':
+            export_manager = BlockQuantProxyLevelManager
+        else:
+            export_manager = StdQCDQONNXManager
+            export_manager.change_weight_export(export_weight_q_node=True)
+        print(f"Exporting the model in ./quantized_onnx/{args.model.replace('/', '-')}")
+        with torch.no_grad(), brevitas_proxy_export_mode(model, export_manager=export_manager):
+            onnx_export(
+                model,
+                f"./quantized_onnx/{args.model.replace('/', '-')}",
+                task="text-generation-with-past",
+                do_validation=False)
     elif args.export_target == 'torch_qcdq':
         export_torch_qcdq(model, ref_input, export_path=f"{args.model.replace('/', '-')}.pt")
 
@@ -199,7 +218,8 @@ def validate(args):
             assert args.input_bit_width is None, "Sharded packed torch group weight export doesn't support input quant."
             assert not args.quantize_weight_zero_point, "Quantized weight zero point not supported."
         if args.export_target == 'onnx_qcdq':
-            assert args.weight_quant_granularity != 'per_group', "ONNX QCDQ export doesn't support group weight quantization."
+            if args.weight_quant_granularity == 'per_group':
+                assert args.input_bit_width is None, "ONNX QCDQ per_group quantization requires no input quantization"
             if args.weight_quant_type == 'asym':
                 assert args.quantize_weight_zero_point, "Quantized weight zero point required."
             if args.input_bit_width is not None and args.input_quant_type == 'asym':
@@ -231,6 +251,7 @@ def main():
     model = AutoModelForCausalLM.from_pretrained(args.model, **kwargs)
     print("Model loaded.")
     model.eval()
+    tokenizer = AutoTokenizer.from_pretrained(args.model)
 
     if args.load_awq:
         from brevitas_examples.llm.llm_quant.awq.pre_quant import apply_awq
@@ -241,8 +262,15 @@ def main():
     if (args.export_target or args.eval or args.act_equalization or args.act_calibration or
             args.gptq or args.bias_corr or args.ln_affine_merge or args.weight_equalization):
         print("Data loading...")
-        calibration_loader, val_data = get_wikitext2(
-            nsamples=args.nsamples, seed=args.seed, model=args.model, seqlen=args.seqlen)
+        calibration_loader = get_wikitext2(
+            nsamples=args.nsamples, tokenizer=tokenizer, seqlen=args.seqlen, seed=0)
+        val_data = get_wikitext2(
+            nsamples=args.nsamples,
+            tokenizer=tokenizer,
+            seqlen=args.seqlen,
+            split='validation',
+            seed=0)
+        val_data = create_validation_dataloader(val_data, args.seqlen)
         print("Data loaded.")
 
     # Apply LN affine merging before inserting MHA layers
@@ -259,28 +287,27 @@ def main():
         model = replace_mha_with_quantizable_layers(model, dtype)
         print("Replacing done.")
 
-    graph_model = get_fx_graph(model, ref_kwargs={'input_ids': calibration_loader[0]}, dtype=dtype)
+    if args.weight_equalization or args.act_equalization == 'fx':
+        model = get_fx(model)
+        calibration_loader = modify_dataloader(args.model, calibration_loader)
+        val_data = modify_dataloader(args.model, val_data)
 
     if args.weight_equalization:
         print("Apply weight equalization...")
-        apply_weight_equalization(graph_model)
+        apply_weight_equalization(model)
         print("Weight equalization applied.")
 
     if args.act_equalization is not None:
+        offload_model(model)
         print("Apply act equalization (SmoothQuant)...")
-        apply_act_equalization(
-            model, args.act_equalization, calibration_loader, graph_model=graph_model)
+        apply_act_equalization(model, args.act_equalization, calibration_loader)
         print("Act equalization applied.")
-
-    if args.quantize_embedding or args.quantize_last_layer:
-        layers_to_quantize = model
-    else:
-        layers_to_quantize = get_model_impl(model).layers
+        remove_hooks(model)
 
     if not args.no_quantize:
         print("Applying model quantization...")
         quantize_model(
-            layers_to_quantize,
+            model,
             dtype=dtype,
             weight_quant_format=args.weight_quant_format,
             weight_quant_type=args.weight_quant_type,
@@ -299,8 +326,7 @@ def main():
             input_quant_granularity=args.input_quant_granularity,
             input_group_size=args.input_group_size,
             quantize_input_zero_point=args.quantize_input_zero_point,
-            quantize_embedding=args.quantize_embedding,
-            seqlen=args.seqlen)
+            quantize_embedding=args.quantize_embedding)
         # Tie back first/last layer weights in case they got untied
         print("Model quantization applied.")
 
@@ -310,6 +336,7 @@ def main():
     if args.act_equalization is None and not args.weight_equalization:
         model.tie_weights()
 
+    model = offload_model(model)
     if args.act_calibration:
         print("Apply act calibration...")
         apply_calibration(model, calibration_loader)
@@ -329,6 +356,7 @@ def main():
         print("Model eval...")
         ppl = model_eval(model, val_data, args.seqlen)
         print(f"C4 perplexity: {ppl}")
+    remove_hooks(model)
 
     if args.export_target:
         print(f"Export to {args.export_target}")
