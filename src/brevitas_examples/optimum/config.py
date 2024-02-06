@@ -4,7 +4,6 @@ from typing import Literal, Optional
 
 @dataclass
 class BrevitasQuantizationConfig:
-    quantization_format: Literal['eager_mode', 'graph_mode'] = 'eager_mode'
     replace_mha_with_quantizable: bool = False
     seqlen: int = 2048
     nsamples: int = 128
