@@ -99,7 +99,6 @@ class TorchQCDQHandler(BaseHandler):
 class TorchQCDQCastWeightQuantProxyHandler(TorchQCDQCastMixin,
                                            QCDQCastWeightQuantProxyHandlerMixin,
                                            TorchQCDQHandler):
-    _export_q_node = False
 
     @classmethod
     def int_clip_symbolic_kwargs(cls, narrow, signed, bit_width):
@@ -110,7 +109,6 @@ class TorchQCDQCastWeightQuantProxyHandler(TorchQCDQCastMixin,
 class TorchQCDQCastDecoupledWeightQuantProxyHandler(TorchQCDQCastMixin,
                                                     QCDQCastDecoupledWeightQuantProxyHandlerMixin,
                                                     TorchQCDQHandler):
-    _export_q_node: bool = False
 
     @classmethod
     def int_clip_symbolic_kwargs(cls, narrow, signed, bit_width):
@@ -121,7 +119,6 @@ class TorchQCDQCastDecoupledWeightQuantProxyHandler(TorchQCDQCastMixin,
 class TorchQCDQCastDecoupledWeightQuantWithInputProxyHandler(
         TorchQCDQCastMixin, QCDQCastDecoupledWeightQuantWithInputProxyHandlerMixin,
         TorchQCDQHandler):
-    _export_q_node: bool = False
 
     @classmethod
     def int_clip_symbolic_kwargs(cls, narrow, signed, bit_width):
