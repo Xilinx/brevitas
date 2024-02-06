@@ -8,7 +8,6 @@ dimensions of a tensor.
 
 from typing import Tuple
 
-import torch
 from torch import Tensor
 
 import brevitas
@@ -17,6 +16,7 @@ __all__ = [
     'over_tensor',
     'over_output_channels',
     'over_batch_over_tensor',
+    'over_output_features',
     'over_batch_over_output_channels']
 
 
@@ -93,3 +93,22 @@ def over_batch_over_output_channels(x: Tensor):
         (2, 3, -1)
     """
     return x.shape[0], x.shape[1], -1
+
+
+@brevitas.jit.script
+def over_output_features(x: Tensor):
+    """
+    Returns a shape s such that x.view(s) is a 2-dim tensor with all features except the last
+    one at dimension 0.
+
+    Args:
+        x (Tensor): Input tensor with batches at dimension 0 and output channels at dimension 1.
+
+    Returns:
+        A tuple containing the 2-dim shape.
+
+    Examples:
+        >>> over_output_features(torch.randn([2, 3, 4, 3]))
+        (24, 3)
+    """
+    return -1, x.shape[-1]
