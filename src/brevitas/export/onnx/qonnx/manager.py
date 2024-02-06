@@ -35,14 +35,14 @@ class QONNXManager(ONNXBaseManager):
         "extract_constant_to_initializer",  # remove unused graph inputs & initializers
         "eliminate_unused_initializer"]
 
-    handlers = {
+    handlers = [
         BrevitasActQuantProxyHandler,
         BrevitasBiasQuantProxyHandler,
         BrevitasWeightQuantProxyHandler,
         BrevitasDecoupledWeightQuantProxyHandler,
         BrevitasDecoupledWeightQuantWithInputProxyHandler,
         BrevitasTruncQuantProxyHandler,
-        BrevitasQuantLSTMLayerHandler}
+        BrevitasQuantLSTMLayerHandler]
 
     custom_fns = [
         DebugMarkerFunction,

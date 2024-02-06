@@ -79,7 +79,6 @@ class WeightBlockQuantProxyHandler(WeightBlockQuantHandlerBase):
         assert self.bit_width <= 8., "Only 8b or lower is supported."
         quant_layer = module.tracked_module_list[0]
         quant_weight = quant_layer.quant_weight()
-        self.int_weight = quant_weight.int().detach()
         self.dtype = quant_weight.value.dtype
         self.scale = self.export_scale(module, self.bit_width).detach()
         self.expanded_scaling_shape = self.scaling_impl(module).expanded_scaling_shape
@@ -93,16 +92,24 @@ class WeightBlockQuantProxyHandler(WeightBlockQuantHandlerBase):
         scale = self.scale.expand(self.expanded_scaling_shape).contiguous()
         # contiguous above is to avoid the reshape below being mapped to a unsafe view
         scale = scale.view(self.reshaped_scaling_shape)
-        int_weight = self.int_weight
+
+        # Explicitly export custom Q/DQ to avoid aggressive constant folding
+        x = x / scale
         if self.zero_point is not None:
             zero_point = self.zero_point.expand(self.expanded_zero_point_shape).contiguous()
             # contiguous above is to avoid the reshape below being mapped to a unsafe view
             zero_point = zero_point.view(self.reshaped_zero_point_shape)
             # avoid unsigned subtraction
-            int_weight = int_weight.to(self.dtype) - zero_point.to(self.dtype)
+            x = x.to(self.dtype) + zero_point.to(self.dtype)
         else:
             zero_point = torch.zeros_like(scale)
+
+        int_weight = torch.round(x)
+        if self.zero_point is not None:
+            int_weight = int_weight.to(self.dtype) - zero_point.to(self.dtype)
+
         quant_weight = int_weight * scale
+
         return quant_weight, scale, zero_point, self.bit_width
 
 
@@ -192,7 +199,7 @@ class LinearWeightBlockQuantHandler(WeightBlockQuantHandlerBase, ABC):
 
 class BlockQuantProxyLevelManager(BaseManager):
 
-    handlers = {WeightBlockQuantProxyHandler}
+    handlers = [WeightBlockQuantProxyHandler]
 
     @classmethod
     def set_export_handler(cls, module):
