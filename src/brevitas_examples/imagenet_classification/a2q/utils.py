@@ -147,6 +147,7 @@ def get_model_by_name(
         init_from_float_checkpoint: bool = False) -> nn.Module:
 
     assert model_name in model_impl, f"Error: {model_name} not implemented."
+    assert not (pretrained and init_from_float_checkpoint), "Error: pretrained and init_from_float_checkpoint cannot both be true."
     model: Module = model_impl[model_name]()
 
     if init_from_float_checkpoint:
