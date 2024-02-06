@@ -142,18 +142,18 @@ def main(args):
             dtype=dtype)
         if args.export_target == 'torchscript':
             if args.weight_quant_granularity == 'per_group':
-                manager = BlockQuantProxyLevelManager
+                export_manager = BlockQuantProxyLevelManager
             else:
-                manager = TorchQCDQManager
-                manager.change_weight_export(export_weight_q_node=True)
-            export_torchscript(pipe, trace_inputs, output_dir)
+                export_manager = TorchQCDQManager
+                export_manager.change_weight_export(export_weight_q_node=True)
+            export_torchscript(pipe, trace_inputs, output_dir, export_manager)
         elif args.export_target == 'onnx':
             if args.weight_quant_granularity == 'per_group':
-                manager = BlockQuantProxyLevelManager
+                export_manager = BlockQuantProxyLevelManager
             else:
-                manager = StdQCDQONNXManager
-                manager.change_weight_export(export_weight_q_node=True)
-            export_onnx(pipe, trace_inputs, output_dir, manager=manager)
+                export_manager = StdQCDQONNXManager
+                export_manager.change_weight_export(export_weight_q_node=True)
+            export_onnx(pipe, trace_inputs, output_dir, export_manager)
 
 
 if __name__ == "__main__":

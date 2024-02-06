@@ -26,8 +26,7 @@ class UnetExportWrapper(nn.Module):
         return self.unet(*args, **kwargs, return_dict=False)
 
 
-def export_torchscript(pipe, trace_inputs, output_dir):
-    export_manager = BlockQuantProxyLevelManager
+def export_torchscript(pipe, trace_inputs, output_dir, export_manager):
     with torch.no_grad(), brevitas_proxy_export_mode(pipe.unet, export_manager):
         fx_g = make_fx(
             UnetExportWrapper(pipe.unet),
@@ -49,8 +48,8 @@ def export_torchscript(pipe, trace_inputs, output_dir):
         torch.jit.save(jit_g, output_path)
 
 
-def export_onnx(pipe, trace_inputs, output_dir, manager):
+def export_onnx(pipe, trace_inputs, output_dir, export_manager):
     output_path = os.path.join(output_dir, 'unet.onnx')
     print(f"Saving unet to {output_path} ...")
-    with torch.no_grad(), brevitas_proxy_export_mode(pipe.unet, manager):
+    with torch.no_grad(), brevitas_proxy_export_mode(pipe.unet, export_manager):
         torch.onnx.export(pipe.unet, args=tuple(trace_inputs.values()), f=output_path)
