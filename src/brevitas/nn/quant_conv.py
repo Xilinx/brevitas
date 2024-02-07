@@ -301,7 +301,7 @@ class QuantConv3d(QuantWBIOL, Conv3d):
                     pad_h - pad_h // 2,
                     pad_d // 2,
                     pad_d - pad_d // 2])
-        out = F.conv2d(x, weight, bias, self.stride, 0, self.dilation, self.groups)
+        out = F.conv3d(x, weight, bias, self.stride, 0, self.dilation, self.groups)
         return out
 
     def forward(self, input: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
