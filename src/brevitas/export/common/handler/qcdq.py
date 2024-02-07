@@ -135,7 +135,6 @@ class CDQCastProxyHandlerMixin(QuantAxisMixin, ClipMixin, ZeroPointHandlerMixin,
 
 class QCDQCastWeightQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin):
     handled_layer = WeightQuantProxyFromInjector
-    _export_q_node = False
 
     def quantize_symbolic_kwargs(cls, scale, zero_point, bit_width, is_signed):
         # compute axis before redefining scale
@@ -194,6 +193,9 @@ class QCDQCastWeightQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin):
 
     def quantize_from_floating_point(self, x: Tensor):
         quantize_symbolic_kwargs = self.symbolic_kwargs['quantize_symbolic_kwargs']
+        # Before quantization, cast input to float32
+        if self.scale_dtype == torch.float16 or self.scale_dtype == torch.bfloat16:
+            x = self.cast_fn(x, torch.float32)
         x = self.quantize_fn(x, *quantize_symbolic_kwargs.values())
         return x
 
@@ -230,7 +232,6 @@ class QCDQCastWeightQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin):
 
 class QCDQCastDecoupledWeightQuantProxyHandlerMixin(QCDQCastWeightQuantProxyHandlerMixin, ABC):
     handled_layer = DecoupledWeightQuantProxyFromInjector
-    _export_q_node = False
 
     def symbolic_execution(self, x: Tensor):
         out, scale, zero_point, bit_width = super().symbolic_execution(x)
@@ -241,7 +242,6 @@ class QCDQCastDecoupledWeightQuantProxyHandlerMixin(QCDQCastWeightQuantProxyHand
 class QCDQCastDecoupledWeightQuantWithInputProxyHandlerMixin(
         QCDQCastDecoupledWeightQuantProxyHandlerMixin, ABC):
     handled_layer = DecoupledWeightQuantWithInputProxyFromInjector
-    _export_q_node = False
 
     def validate(self, module):
         assert not self._export_q_node, "This proxy requires to export integer weights"
