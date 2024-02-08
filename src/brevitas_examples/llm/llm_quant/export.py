@@ -6,12 +6,10 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 from abc import ABC
 from abc import abstractmethod
 from contextlib import contextmanager
-import math
 import warnings
 
 import numpy as np
 import torch
-from torch.nn import Module
 
 from brevitas.export.common.handler.base import BaseHandler
 from brevitas.export.manager import _set_layer_export_handler
@@ -19,8 +17,28 @@ from brevitas.export.manager import _set_layer_export_mode
 from brevitas.export.manager import _set_proxy_export_handler
 from brevitas.export.manager import _set_proxy_export_mode
 from brevitas.export.manager import BaseManager
+from brevitas.function.ops import max_int
+from brevitas.function.ops import min_int
 from brevitas.nn import QuantLinear
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
+
+
+# TODO: Improve Groupwise export
+def clip_kwargs(narrow, signed, bit_width):
+    if narrow or bit_width != 8. and bit_width != 32.:
+        if signed and (bit_width < 8. or narrow and bit_width <= 8.):
+            dtype = torch.int8
+        elif not signed and (bit_width < 8. or narrow and bit_width <= 8.):
+            dtype = torch.uint8
+        elif signed and (bit_width < 32. or narrow and bit_width <= 32.):
+            dtype = torch.int32
+        else:
+            raise RuntimeError(f"Sign {signed} and bit width {bit_width} not supported for export.")
+        return {
+            'min_val': min_int(signed, narrow, bit_width).to(dtype),
+            'max_val': max_int(signed, narrow, bit_width).to(dtype)}
+    else:
+        return None
 
 
 class WeightBlockQuantHandlerBase(BaseHandler, ABC):
@@ -79,38 +97,41 @@ class WeightBlockQuantProxyHandler(WeightBlockQuantHandlerBase):
         assert self.bit_width <= 8., "Only 8b or lower is supported."
         quant_layer = module.tracked_module_list[0]
         quant_weight = quant_layer.quant_weight()
+        signed = module.is_signed
+        int_dtype = torch.int8 if signed else torch.uint8
         self.dtype = quant_weight.value.dtype
+        self.int_dtype = int_dtype
         self.scale = self.export_scale(module, self.bit_width).detach()
         self.expanded_scaling_shape = self.scaling_impl(module).expanded_scaling_shape
         self.reshaped_scaling_shape = self.scaling_impl(module).reshaped_scaling_shape
-        if (quant_weight.zero_point != 0.).any():
-            self.zero_point = self.export_zero_point(module, self.scale, self.bit_width).detach()
-            self.expanded_zero_point_shape = self.zero_point_impl(module).expanded_zero_point_shape
-            self.reshaped_zero_point_shape = self.zero_point_impl(module).reshaped_zero_point_shape
+        self.zero_point = self.export_zero_point(module, self.scale, self.bit_width).detach()
+        # self.zero_point = self.zero_point.to(dtype=int_dtype)
+        self.expanded_zero_point_shape = self.zero_point_impl(module).expanded_zero_point_shape
+        self.reshaped_zero_point_shape = self.zero_point_impl(module).reshaped_zero_point_shape
+        self.group_size = int(module.quant_injector.block_size)
+        self.group_dim = int(module.quant_injector.stats_reduce_dim)
+
+        self.clip_kwargs = clip_kwargs(
+            module.is_narrow_range, module.is_signed, quant_weight.bit_width)
 
     def forward(self, x):
-        scale = self.scale.expand(self.expanded_scaling_shape).contiguous()
         # contiguous above is to avoid the reshape below being mapped to a unsafe view
-        scale = scale.view(self.reshaped_scaling_shape)
 
-        # Explicitly export custom Q/DQ to avoid aggressive constant folding
-        x = x / scale
-        if self.zero_point is not None:
-            zero_point = self.zero_point.expand(self.expanded_zero_point_shape).contiguous()
-            # contiguous above is to avoid the reshape below being mapped to a unsafe view
-            zero_point = zero_point.view(self.reshaped_zero_point_shape)
-            # avoid unsigned subtraction
-            x = x.to(self.dtype) + zero_point.to(self.dtype)
-        else:
-            zero_point = torch.zeros_like(scale)
+        scale = self.scale
+        zero_point = self.zero_point
+        bit_width = self.bit_width
+        x = x.view(self.expanded_scaling_shape)
+        x = torch.round((x / scale) + zero_point).type(self.int_dtype)
+        if self.clip_kwargs is not None:
+            x = torch.clip(x, min=self.clip_kwargs['min_val'], max=self.clip_kwargs['max_val'])
+        x = (x.type(self.dtype) - zero_point) * scale
+        scale = scale.expand(self.expanded_scaling_shape).contiguous().view(
+            self.reshaped_scaling_shape)
+        zero_point = zero_point.expand(self.expanded_zero_point_shape).contiguous().view(
+            self.reshaped_zero_point_shape).type(self.int_dtype)
+        x = x.view(self.reshaped_scaling_shape)
 
-        int_weight = torch.round(x)
-        if self.zero_point is not None:
-            int_weight = int_weight.to(self.dtype) - zero_point.to(self.dtype)
-
-        quant_weight = int_weight * scale
-
-        return quant_weight, scale, zero_point, self.bit_width
+        return x, scale, zero_point, bit_width
 
 
 class LinearWeightBlockQuantHandler(WeightBlockQuantHandlerBase, ABC):
