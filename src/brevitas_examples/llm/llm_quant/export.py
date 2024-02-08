@@ -109,8 +109,6 @@ class WeightBlockQuantProxyHandler(WeightBlockQuantHandlerBase):
             self.reshaped_zero_point_shape = self.zero_point_impl(module).reshaped_zero_point_shape
         else:
             self.zero_point = None
-        self.group_size = int(module.quant_injector.block_size)
-        self.group_dim = int(module.quant_injector.stats_reduce_dim)
 
         self.clip_kwargs = clip_kwargs(
             module.is_narrow_range, module.is_signed, quant_weight.bit_width)
