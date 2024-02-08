@@ -98,14 +98,12 @@ class WeightBlockQuantProxyHandler(WeightBlockQuantHandlerBase):
         quant_layer = module.tracked_module_list[0]
         quant_weight = quant_layer.quant_weight()
         signed = module.is_signed
-        int_dtype = torch.int8 if signed else torch.uint8
+        self.int_dtype = torch.int8 if signed else torch.uint8
         self.dtype = quant_weight.value.dtype
-        self.int_dtype = int_dtype
         self.scale = self.export_scale(module, self.bit_width).detach()
         self.expanded_scaling_shape = self.scaling_impl(module).expanded_scaling_shape
         self.reshaped_scaling_shape = self.scaling_impl(module).reshaped_scaling_shape
         self.zero_point = self.export_zero_point(module, self.scale, self.bit_width).detach()
-        # self.zero_point = self.zero_point.to(dtype=int_dtype)
         self.expanded_zero_point_shape = self.zero_point_impl(module).expanded_zero_point_shape
         self.reshaped_zero_point_shape = self.zero_point_impl(module).reshaped_zero_point_shape
         self.group_size = int(module.quant_injector.block_size)
@@ -115,8 +113,6 @@ class WeightBlockQuantProxyHandler(WeightBlockQuantHandlerBase):
             module.is_narrow_range, module.is_signed, quant_weight.bit_width)
 
     def forward(self, x):
-        # contiguous above is to avoid the reshape below being mapped to a unsafe view
-
         scale = self.scale
         zero_point = self.zero_point
         bit_width = self.bit_width
