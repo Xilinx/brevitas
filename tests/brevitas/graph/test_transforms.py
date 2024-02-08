@@ -50,6 +50,66 @@ def test_rewriter_merge_bn(model_name: str, pretrained: bool):
         assert is_close
 
 
+def test_conv1d_merge_bn():
+
+    class TestModel(nn.Module):
+
+        def __init__(self):
+            super(TestModel, self).__init__()
+
+            self.net = nn.Sequential(nn.Conv1d(16, 33, 3, stride=2), nn.BatchNorm1d(33), nn.ReLU())
+
+        def forward(self, x):
+            return self.net(x)
+
+    model = TestModel()
+    graph = symbolic_trace(model)
+    graph = MergeBatchNorm().apply(graph)
+
+    for m in graph.modules():
+        assert not isinstance(m, nn.BatchNorm1d)
+
+
+def test_conv2d_merge_bn():
+
+    class TestModel(nn.Module):
+
+        def __init__(self):
+            super(TestModel, self).__init__()
+
+            self.net = nn.Sequential(nn.Conv2d(16, 33, 3, stride=2), nn.BatchNorm2d(33), nn.ReLU())
+
+        def forward(self, x):
+            return self.net(x)
+
+    model = TestModel()
+    graph = symbolic_trace(model)
+    graph = MergeBatchNorm().apply(graph)
+
+    for m in graph.modules():
+        assert not isinstance(m, nn.BatchNorm2d)
+
+
+def test_conv3d_merge_bn():
+
+    class TestModel(nn.Module):
+
+        def __init__(self):
+            super(TestModel, self).__init__()
+
+            self.net = nn.Sequential(nn.Conv3d(16, 33, 3, stride=2), nn.BatchNorm3d(33), nn.ReLU())
+
+        def forward(self, x):
+            return self.net(x)
+
+    model = TestModel()
+    graph = symbolic_trace(model)
+    graph = MergeBatchNorm().apply(graph)
+
+    for m in graph.modules():
+        assert not isinstance(m, nn.BatchNorm3d)
+
+
 def test_rewriter_duplicate_shared_relu():
 
     class TestModel(nn.Module):
