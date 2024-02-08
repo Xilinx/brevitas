@@ -163,8 +163,10 @@ def build_case_model(
         in_size = (1, IN_CH, FEATURES)
     elif impl in ('QuantConv2d', 'QuantConvTranspose2d'):
         in_size = (1, IN_CH, FEATURES, FEATURES)
-    else:
+    elif impl in ('QuantConv3d', 'QuantConvTranspose3d'):
         in_size = (1, IN_CH, FEATURES, FEATURES, FEATURES)
+    else:
+        raise RuntimeError("Unsupported operation")
 
     if input_quantized:
         quant_inp = QuantTensor(

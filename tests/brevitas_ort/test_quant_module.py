@@ -47,8 +47,10 @@ def test_ort_wbiol(model, export_type, current_cases):
         in_size = (1, IN_CH, FEATURES)
     elif impl in ('QuantConv2d', 'QuantConvTranspose2d'):
         in_size = (1, IN_CH, FEATURES, FEATURES)
-    else:
+    elif impl in ('QuantConv3d', 'QuantConvTranspose3d'):
         in_size = (1, IN_CH, FEATURES, FEATURES, FEATURES)
+    else:
+        raise RuntimeError("Unsupported operation")
 
     inp = gen_linspaced_data(reduce(mul, in_size), -1, 1).reshape(in_size)
 
