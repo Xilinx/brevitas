@@ -13,16 +13,16 @@ All residual connections are quantized to the specified activation bit width.
 
 | Model Name | Weight Quantization | Activation Quantization | Target Accumulator | Top-1 Accuracy (%) |
 |-----------------------------|----------------|---------------------|-------------------------|----------------------------|
-| [float_resnet18](https://github.com/Xilinx/brevitas/releases/download/ep_init/float_resnet18-1d98d23a.pth) | float32 | float32 | float32 | 95.0 |
+| [float_resnet18](https://github.com/Xilinx/brevitas/releases/download/a2q_cifar10_r1/float_resnet18-1d98d23a.pth) | float32 | float32 | float32 | 95.0 |
 ||
-| [quant_resnet18_w4a4_a2q_16b](https://github.com/Xilinx/brevitas/releases/download/ep_init/quant_resnet18_w4a4_a2q_16b-d0af41f1.pth) | int4 | uint4 | int16 | 94.2 |
-| [quant_resnet18_w4a4_a2q_15b](https://github.com/Xilinx/brevitas/releases/download/ep_init/quant_resnet18_w4a4_a2q_15b-0d5bf266.pth) | int4 | uint4 | int15 | 94.2 |
-| [quant_resnet18_w4a4_a2q_14b](https://github.com/Xilinx/brevitas/releases/download/ep_init/quant_resnet18_w4a4_a2q_14b-267f237b.pth) | int4 | uint4 | int14 | 92.6 |
-| [quant_resnet18_w4a4_a2q_13b](https://github.com/Xilinx/brevitas/releases/download/ep_init/quant_resnet18_w4a4_a2q_13b-8c31a2b1.pth) | int4 | uint4 | int13 | 89.8 |
-| [quant_resnet18_w4a4_a2q_12b](https://github.com/Xilinx/brevitas/releases/download/ep_init/quant_resnet18_w4a4_a2q_12b-8a440436.pth) | int4 | uint4 | int12 | 83.9 |
+| [quant_resnet18_w4a4_a2q_16b](https://github.com/Xilinx/brevitas/releases/download/a2q_cifar10_r1/quant_resnet18_w4a4_a2q_16b-d0af41f1.pth) | int4 | uint4 | int16 | 94.2 |
+| [quant_resnet18_w4a4_a2q_15b](https://github.com/Xilinx/brevitas/releases/download/a2q_cifar10_r1/quant_resnet18_w4a4_a2q_15b-0d5bf266.pth) | int4 | uint4 | int15 | 94.2 |
+| [quant_resnet18_w4a4_a2q_14b](https://github.com/Xilinx/brevitas/releases/download/a2q_cifar10_r1/quant_resnet18_w4a4_a2q_14b-267f237b.pth) | int4 | uint4 | int14 | 92.6 |
+| [quant_resnet18_w4a4_a2q_13b](https://github.com/Xilinx/brevitas/releases/download/a2q_cifar10_r1/quant_resnet18_w4a4_a2q_13b-8c31a2b1.pth) | int4 | uint4 | int13 | 89.8 |
+| [quant_resnet18_w4a4_a2q_12b](https://github.com/Xilinx/brevitas/releases/download/a2q_cifar10_r1/quant_resnet18_w4a4_a2q_12b-8a440436.pth) | int4 | uint4 | int12 | 83.9 |
 ||
-| [quant_resnet18_w4a4_a2q_plus_16b](https://github.com/Xilinx/brevitas/releases/download/ep_init/quant_resnet18_w4a4_a2q_plus_16b-19973380.pth) | int4 | uint4 | int16 | 94.2 |
-| [quant_resnet18_w4a4_a2q_plus_15b](https://github.com/Xilinx/brevitas/releases/download/ep_init/quant_resnet18_w4a4_a2q_plus_15b-3c89551a.pth) | int4 | uint4 | int15 | 94.1 |
-| [quant_resnet18_w4a4_a2q_plus_14b](https://github.com/Xilinx/brevitas/releases/download/ep_init/quant_resnet18_w4a4_a2q_plus_14b-5a2d11aa.pth) | int4 | uint4 | int14 | 94.1 |
-| [quant_resnet18_w4a4_a2q_plus_13b](https://github.com/Xilinx/brevitas/releases/download/ep_init/quant_resnet18_w4a4_a2q_plus_13b-332aaf81.pth) | int4 | uint4 | int13 | 92.8 |
-| [quant_resnet18_w4a4_a2q_plus_12b](https://github.com/Xilinx/brevitas/releases/download/ep_init/quant_resnet18_w4a4_a2q_plus_12b-d69f003b.pth) | int4 | uint4 | int12 | 90.6 |
+| [quant_resnet18_w4a4_a2q_plus_16b](https://github.com/Xilinx/brevitas/releases/download/a2q_cifar10_r1/quant_resnet18_w4a4_a2q_plus_16b-19973380.pth) | int4 | uint4 | int16 | 94.2 |
+| [quant_resnet18_w4a4_a2q_plus_15b](https://github.com/Xilinx/brevitas/releases/download/a2q_cifar10_r1/quant_resnet18_w4a4_a2q_plus_15b-3c89551a.pth) | int4 | uint4 | int15 | 94.1 |
+| [quant_resnet18_w4a4_a2q_plus_14b](https://github.com/Xilinx/brevitas/releases/download/a2q_cifar10_r1/quant_resnet18_w4a4_a2q_plus_14b-5a2d11aa.pth) | int4 | uint4 | int14 | 94.1 |
+| [quant_resnet18_w4a4_a2q_plus_13b](https://github.com/Xilinx/brevitas/releases/download/a2q_cifar10_r1/quant_resnet18_w4a4_a2q_plus_13b-332aaf81.pth) | int4 | uint4 | int13 | 92.8 |
+| [quant_resnet18_w4a4_a2q_plus_12b](https://github.com/Xilinx/brevitas/releases/download/a2q_cifar10_r1/quant_resnet18_w4a4_a2q_plus_12b-d69f003b.pth) | int4 | uint4 | int12 | 90.6 |
