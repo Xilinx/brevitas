@@ -183,7 +183,7 @@ class QuantBiasMixin(QuantProxyMixin):
     def quant_bias_scale(self):
         if self.bias is None or not self.is_bias_quant_enabled:
             return None
-        if not self.bias_quant.requires_input_scale and not self.bias_quant.requires_input_bit_width:
+        if not self.bias_quant.requires_input_scale:
             return self.bias_quant(self.bias).scale
         else:
             if self._cached_bias is None:
@@ -197,7 +197,8 @@ class QuantBiasMixin(QuantProxyMixin):
     def quant_bias_zero_point(self):
         if self.bias is None:
             return None
-        if not self.bias_quant.requires_input_scale and not self.bias_quant.requires_input_bit_width:
+
+        if not self.bias_quant.requires_input_scale:
             bias_quant = self.bias_quant(self.bias)
             if isinstance(bias_quant, QuantTensor):
                 return bias_quant.zero_point
@@ -215,7 +216,7 @@ class QuantBiasMixin(QuantProxyMixin):
     def quant_bias_bit_width(self):
         if self.bias is None or not self.is_bias_quant_enabled:
             return None
-        if not self.bias_quant.requires_input_scale and not self.bias_quant.requires_input_bit_width:
+        if not self.bias_quant.requires_input_scale:
             return self.bias_quant(self.bias).bit_width
         else:
             if self._cached_bias is None:

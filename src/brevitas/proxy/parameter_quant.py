@@ -33,7 +33,6 @@ class WeightQuantProxyProtocol(QuantProxyProtocol, Protocol):
 
 @runtime_checkable
 class BiasQuantProxyProtocol(QuantProxyProtocol, Protocol):
-    requires_input_bit_width: bool
     requires_input_scale: bool
 
     def forward(
@@ -162,13 +161,6 @@ class BiasQuantProxyFromInjector(ParameterQuantProxyFromInjector, BiasQuantProxy
         return [m.bias for m in self.tracked_module_list if m.bias is not None]
 
     @property
-    def requires_input_bit_width(self) -> bool:
-        if self.is_quant_enabled:
-            return self.quant_injector.requires_input_bit_width
-        else:
-            return False
-
-    @property
     def requires_input_scale(self) -> bool:
         if self.is_quant_enabled:
             return self.quant_injector.requires_input_scale
@@ -188,30 +180,19 @@ class BiasQuantProxyFromInjector(ParameterQuantProxyFromInjector, BiasQuantProxy
         return zero_point
 
     def bit_width(self):
-        if self.requires_input_bit_width:
-            return None
         zhs = self._zero_hw_sentinel()
         bit_width = self.__call__(self.tracked_parameter_list[0], zhs, zhs).bit_width
         return bit_width
 
-    def forward(
-            self,
-            x: Tensor,
-            input_scale: Optional[Tensor] = None,
-            input_bit_width: Optional[Tensor] = None) -> Union[Tensor, QuantTensor]:
+    def forward(self, x: Tensor, input_scale: Optional[Tensor] = None) ->  Union[Tensor, QuantTensor]:
         if self.is_quant_enabled:
             impl = self.export_handler if self.export_mode else self.tensor_quant
             if self.requires_input_scale and input_scale is None:
                 raise RuntimeError("Input scale required")
-            if self.requires_input_bit_width and input_bit_width is None:
-                raise RuntimeError("Input bit-width required")
-            if self.requires_input_scale and self.requires_input_bit_width:
-                input_scale = input_scale.view(-1)
-                out, out_scale, out_zp, out_bit_width = impl(x, input_scale, input_bit_width)
-            elif self.requires_input_scale and not self.requires_input_bit_width:
+            if self.requires_input_scale:
                 input_scale = input_scale.view(-1)
                 out, out_scale, out_zp, out_bit_width = impl(x, input_scale)
-            elif not self.requires_input_scale and not self.requires_input_bit_width:
+            elif not self.requires_input_scale:
                 out, out_scale, out_zp, out_bit_width = impl(x)
             else:
                 raise RuntimeError("Internally defined bit-width required")

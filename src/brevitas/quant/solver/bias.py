@@ -1,9 +1,7 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from brevitas.core.function_wrapper import Identity
 from brevitas.core.quant import PrescaledRestrictIntQuant
-from brevitas.core.quant import PrescaledRestrictIntQuantWithInputBitWidth
 from brevitas.core.quant import RescalingIntQuant
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import value
@@ -34,29 +32,17 @@ class SolveBiasScalingPerOutputChannelShapeFromModule(ExtendedInjector):
         return (module.out_channels,)
 
 
-class SolveBiasBitWidthImplFromEnum(ExtendedInjector):
-
-    @value
-    def bit_width_impl(bit_width_impl_type, requires_input_bit_width):
-        if not requires_input_bit_width:
-            return solve_bit_width_impl_from_enum(bit_width_impl_type)
-        else:
-            return Identity
-
-
 class SolveBiasTensorQuantFromEnum(SolveIntQuantFromEnum):
 
     @value
-    def tensor_quant(quant_type, requires_input_bit_width, requires_input_scale):
+    def tensor_quant(quant_type, requires_input_scale):
         if quant_type == QuantType.FP:
             return None
         elif quant_type == QuantType.INT:
-            if not requires_input_bit_width and requires_input_scale:
+            if requires_input_scale:
                 return PrescaledRestrictIntQuant
-            elif not requires_input_bit_width and not requires_input_scale:
+            elif not requires_input_scale:
                 return RescalingIntQuant
-            else:  # requires_input_bit_width == True
-                return PrescaledRestrictIntQuantWithInputBitWidth
         elif quant_type == QuantType.TERNARY:
             raise RuntimeError(f'{quant_type} not supported.')
         elif quant_type == QuantType.BINARY:
@@ -75,7 +61,7 @@ class BiasQuantSolver(SolveScalingStatsInputViewShapeImplFromEnum,
                       SolveParameterScalingImplFromEnum,
                       SolveParameterTensorClampImplFromEnum,
                       SolveParameterScalingInitFromEnum,
-                      SolveBiasBitWidthImplFromEnum,
+                      SolveBitWidthImplFromEnum,
                       SolveBiasScalingPerOutputChannelShapeFromModule,
                       SolveBiasScalingStatsInputConcatDimFromModule,
                       SolveBiasTensorQuantFromEnum,

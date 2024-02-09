@@ -9,7 +9,7 @@ import torch.nn as nn
 import brevitas.nn as qnn
 from brevitas.quant import Int8WeightPerChannelFloat
 from brevitas.quant import Int8WeightPerTensorFloat
-from brevitas.quant import IntBias
+from brevitas.quant import Int32Bias
 from brevitas.quant import TruncTo8bit
 from brevitas.quant_tensor import QuantTensor
 
@@ -121,7 +121,7 @@ class QuantResNet(nn.Module):
             act_bit_width=8,
             weight_bit_width=8,
             round_average_pool=False,
-            last_layer_bias_quant=IntBias,
+            last_layer_bias_quant=Int32Bias,
             weight_quant=Int8WeightPerChannelFloat,
             first_layer_weight_quant=Int8WeightPerChannelFloat,
             last_layer_weight_quant=Int8WeightPerTensorFloat):
