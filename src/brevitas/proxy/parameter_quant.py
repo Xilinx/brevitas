@@ -171,17 +171,17 @@ class BiasQuantProxyFromInjector(ParameterQuantProxyFromInjector, BiasQuantProxy
         if self.requires_input_scale:
             return None
         zhs = self._zero_hw_sentinel()
-        scale = self.__call__(self.tracked_parameter_list[0], zhs, zhs).scale
+        scale = self.__call__(self.tracked_parameter_list[0], zhs).scale
         return scale
 
     def zero_point(self):
         zhs = self._zero_hw_sentinel()
-        zero_point = self.__call__(self.tracked_parameter_list[0], zhs, zhs).zero_point
+        zero_point = self.__call__(self.tracked_parameter_list[0], zhs).zero_point
         return zero_point
 
     def bit_width(self):
         zhs = self._zero_hw_sentinel()
-        bit_width = self.__call__(self.tracked_parameter_list[0], zhs, zhs).bit_width
+        bit_width = self.__call__(self.tracked_parameter_list[0], zhs).bit_width
         return bit_width
 
     def forward(self, x: Tensor, input_scale: Optional[Tensor] = None) ->  Union[Tensor, QuantTensor]:

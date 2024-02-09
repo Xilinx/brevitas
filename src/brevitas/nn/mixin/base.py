@@ -242,16 +242,13 @@ class QuantRecurrentLayerMixin(ExportMixin):
     @staticmethod
     def gate_params_fwd(gate, quant_input):
         acc_scale = None
-        acc_bit_width = None
         quant_weight_ih = gate.input_weight()
         quant_weight_hh = gate.hidden_weight()
-        if isinstance(quant_input, QuantTensor):
-            acc_bit_width = None  # TODO
         if isinstance(quant_input, QuantTensor) and isinstance(quant_weight_ih, QuantTensor):
             acc_scale_shape = compute_channel_view_shape(quant_input.value, channel_dim=1)
             acc_scale = quant_weight_ih.scale.view(acc_scale_shape)
             acc_scale = acc_scale * quant_input.scale.view(acc_scale_shape)
-        quant_bias = gate.bias_quant(gate.bias, acc_scale, acc_bit_width)
+        quant_bias = gate.bias_quant(gate.bias, acc_scale)
         return quant_weight_ih, quant_weight_hh, quant_bias
 
     def reset_parameters(self) -> None:
