@@ -5,7 +5,7 @@
 Implementation of various core operations often performed as part of quantization.
 The implemented functions adheres to the restriction imposed by Pytorch 1.1.0's TorchScript compiler.
 """
-from typing import Tuple
+from typing import Optional, Tuple
 
 import torch
 from torch import Tensor
@@ -226,12 +226,12 @@ def get_upper_bound_on_l1_norm(
 
 def clamp_to_fp_encoding(
         x: Tensor,
-        exponent_bit_width: int,
-        mantissa_bit_width: int,
-        nan_values: Tuple[float],
-        inf_values: Tuple[float],
         max_value: Tensor,
-        saturating: bool):
+        saturating: bool,
+        exponent_bit_width: Optional[Tensor] = None,
+        mantissa_bit_width: Optional[Tensor] = None,
+        nan_values: Optional[Tuple[float]] = None,
+        inf_values: Optional[Tuple[float]] = None):
     """
     Clamp any values that exceed inf/NaN special codes to these. Differentiates between saturating
     and non-saturating mode.
@@ -249,13 +249,13 @@ def clamp_to_fp_encoding(
         # clamp everything to +- max_value
         x = x.clamp(-max_value, max_value)
     else:
-        if inf_values:
+        if len(inf_values) > 0:
             # we have inf values, so we set abs values > max_value to +- inf, and leave inf at inf
             x[p_max_val_mask] = P_INF_TENSOR
             x[n_max_val_mask] = N_INF_TENSOR
-        if not inf_values:
+        else:
             # no inf values, so we need to map them to NaN
-            full_max_val_mask = torch.logical_and(p_max_val_mask, n_max_val_mask)
+            full_max_val_mask = torch.logical_or(p_max_val_mask, n_max_val_mask)
             x[full_max_val_mask] = NAN_TENSOR
 
             # we also map the inf values to NaN in this case

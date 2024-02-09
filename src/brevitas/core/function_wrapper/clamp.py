@@ -12,6 +12,7 @@ from torch import Tensor
 import brevitas
 from brevitas.function import clamp_to_fp_encoding
 from brevitas.function import tensor_clamp
+from brevitas.utils.float_quant_utils import get_minifloat_value
 
 
 class TensorClamp(brevitas.jit.ScriptModule):
@@ -87,7 +88,8 @@ class FloatClamp(brevitas.jit.ScriptModule):
 
     __constants__ = ['nan_values', 'inf_values', 'saturating']
 
-    def __init__(self, nan_values: Tuple[str], inf_values: Tuple[str], saturating: bool) -> None:
+    def __init__(
+            self, nan_values: Tuple[str], inf_values: Tuple[str], saturating: bool = False) -> None:
         super(FloatClamp, self).__init__()
         # TODO: check that NaN/inf values are all mantissa_bit_width long
         self.nan_values = nan_values if nan_values is not None else tuple()
@@ -97,28 +99,11 @@ class FloatClamp(brevitas.jit.ScriptModule):
             raise RuntimeError('Minifloat Error: inf value cannot exist without NaN value.')
         self.saturating = saturating
 
-    def mantissa_bits_to_float(self, bits: str, frexp_compatible: bool = False) -> float:
-        res = 1.0
-        for i, val in enumerate(bits):
-            # iterating through from left to right
-            res += ((2 ** -(i + 1)) * float(val))
-        if frexp_compatible:
-            return res / 2.
-        else:
-            return res
-
-    def get_minifloat_value(
-            self,
-            exponent_string: str,
-            mantissa_string: str,
-            exponent_bias: Tensor,
-            sign: str = '0') -> float:
-        exponent_value = int(exponent_string, 2)
-        mantissa_value = self.mantissa_bits_to_float(mantissa_string)
-        return ((-1) ** float(sign)) * 2 ** (exponent_value - exponent_bias) * mantissa_value
-
     def get_max_value(
-            self, exponent_bit_width: int, mantissa_bit_width: int, exponent_bias: Tensor) -> float:
+            self, exponent_bit_width: Tensor, mantissa_bit_width: Tensor,
+            exponent_bias: Tensor) -> float:
+        exponent_bit_width = exponent_bit_width.int().item()
+        mantissa_bit_width = mantissa_bit_width.int().item()
         # calculate max possible value for this specific format
         if not self.nan_values and not self.inf_values:
             # we don't have any codes, so just return max possible value
@@ -141,7 +126,7 @@ class FloatClamp(brevitas.jit.ScriptModule):
                 mantissa_string = format(max_value_mantissa, f'0{mantissa_bit_width}b')
 
         # we don't need the sign since we're looking for the max value
-        max_value = self.get_minifloat_value(
+        max_value = get_minifloat_value(
             exponent_string=exponent_string,
             mantissa_string=mantissa_string,
             exponent_bias=exponent_bias)
@@ -155,15 +140,15 @@ class FloatClamp(brevitas.jit.ScriptModule):
             mantissa_bit_width: Tensor,
             exponent_bias: Tensor):
         max_value = self.get_max_value(
-            exponent_bit_width=exponent_bit_width.int().item(),
-            mantissa_bit_width=mantissa_bit_width.int().item(),
+            exponent_bit_width=exponent_bit_width,
+            mantissa_bit_width=mantissa_bit_width,
             exponent_bias=exponent_bias)
         # TODO: at this time, we just pass the codes for inf/NaN, we might need to change that
         return clamp_to_fp_encoding(
-            x,
-            exponent_bit_width,
-            mantissa_bit_width,
-            nan_values=self.nan_values,
-            inf_values=self.inf_values,
+            x=x,
             max_value=max_value,
-            saturating=self.saturating)
+            saturating=self.saturating,
+            exponent_bit_width=exponent_bit_width,
+            mantissa_bit_width=mantissa_bit_width,
+            nan_values=self.nan_values,
+            inf_values=self.inf_values)
