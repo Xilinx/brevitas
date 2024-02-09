@@ -176,8 +176,7 @@ class QuantBiasMixin(QuantProxyMixin):
         if self.bias is None:
             return None
         scale = self.quant_bias_scale()
-        bit_width = self.quant_bias_bit_width()
-        quant_bias = self.bias_quant(self.bias, scale, bit_width)
+        quant_bias = self.bias_quant(self.bias, scale)
         return quant_bias
 
     def quant_bias_scale(self):
