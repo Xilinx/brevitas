@@ -249,6 +249,10 @@ def main():
         dtype = torch.float16
 
     kwargs = {"torch_dtype": dtype}
+
+    if args.export_target == 'torch_qcdq':
+        kwargs['torchscript'] = True
+
     print("Model loading...")
     model = AutoModelForCausalLM.from_pretrained(args.model, **kwargs)
     print("Model loaded.")
