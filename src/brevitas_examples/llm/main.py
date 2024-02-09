@@ -189,11 +189,9 @@ def model_export(model, ref_input, args):
     elif args.export_target == 'onnx_qcdq':
         if args.weight_quant_granularity == 'per_group':
             export_manager = BlockQuantProxyLevelManager
-            constant_folding = False
         else:
             export_manager = StdQCDQONNXManager
             export_manager.change_weight_export(export_weight_q_node=True)
-            constant_folding = True
 
         print(f"Exporting the model in ./quantized_onnx/{args.model.replace('/', '-')}")
         with torch.no_grad(), brevitas_proxy_export_mode(model, export_manager=export_manager):
@@ -201,10 +199,10 @@ def model_export(model, ref_input, args):
                 model,
                 f"./quantized_onnx/{args.model.replace('/', '-')}",
                 task="text-generation-with-past",
-                do_validation=False,
-                do_constant_folding=constant_folding)
+                do_validation=False)
     elif args.export_target == 'torch_qcdq':
-        export_torch_qcdq(model, ref_input, export_path=f"{args.model.replace('/', '-')}.pt")
+        export_torch_qcdq(
+            model, ref_input['input_ids'], export_path=f"{args.model.replace('/', '-')}.pt")
 
 
 def validate(args):

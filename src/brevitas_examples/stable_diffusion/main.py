@@ -129,7 +129,8 @@ def main(args):
 
     if args.export_target:
         # Move to cpu and to float32 to enable CPU export
-        pipe.unet.to('cpu').to(torch.float32)
+        if not (args.float16 and args.export_cuda_float16):
+            pipe.unet.to('cpu').to(torch.float32)
         pipe.unet.eval()
         device = next(iter(pipe.unet.parameters())).device
         dtype = next(iter(pipe.unet.parameters())).dtype
@@ -233,6 +234,7 @@ if __name__ == "__main__":
         help='Group size for per_group weight quantization. Default: 16.')
     add_bool_arg(
         parser, 'quantize-weight-zero-point', default=True, help='Quantize weight zero-point.')
+    add_bool_arg(parser, 'export-cuda-float16', default=False, help='Export FP16 on CUDA')
     args = parser.parse_args()
     print("Args: " + str(vars(args)))
     main(args)
