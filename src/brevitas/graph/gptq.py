@@ -181,7 +181,7 @@ class GPTQ(GPxQ):
 
     def single_layer_update(self, percdamp=.01):
         if hasattr(self.layer, 'allocate_params'):
-            self.layer.allocate_params(self.layer, 'cuda')
+            self.layer.allocate_params(self.layer)
         weight = self.layer.weight.data
         dev = weight.device
 
