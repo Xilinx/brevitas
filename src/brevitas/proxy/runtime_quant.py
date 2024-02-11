@@ -167,10 +167,8 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
                     y = y[0]
                 return y
         else:
-            if isinstance(x, QuantTensor):  # passthrough
-                return x
-            else:
-                return x
+            # If fused activation quant proxy is not enabled, return the input
+            return x
 
 
 class DynamicActQuantProxyFromInjector(ActQuantProxyFromInjector):

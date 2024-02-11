@@ -62,8 +62,6 @@ def test_quant_wbiol(model_input, current_cases):
 
     if kwargs['return_quant_tensor']:
         assert isinstance(output, QuantTensor)
-        assert output.scale is not None
-        assert output.bit_width is not None
     else:
         assert isinstance(output, torch.Tensor)
 
@@ -101,24 +99,18 @@ def test_quant_lstm_rnn_full(model_input, current_cases):
 
     if return_quant_tensor:
         assert isinstance(output, QuantTensor)
-        assert output.scale is not None
-        assert output.bit_width is not None
     else:
         assert isinstance(output, torch.Tensor)
 
     if h is not None:
         if return_quant_tensor:
             assert isinstance(h, QuantTensor)
-            assert h.scale is not None
-            assert h.bit_width is not None
         else:
             assert isinstance(h, torch.Tensor)
 
     if c is not None:
         if return_quant_tensor:
             assert isinstance(c, QuantTensor)
-            assert c.scale is not None
-            assert c.bit_width is not None
         else:
             assert isinstance(c, torch.Tensor)
 
@@ -155,24 +147,18 @@ def test_quant_lstm_rnn(model_input, current_cases):
 
     if return_quant_tensor:
         assert isinstance(output, QuantTensor)
-        assert output.scale is not None
-        assert output.bit_width is not None
     else:
         assert isinstance(output, torch.Tensor)
 
     if h is not None:
         if return_quant_tensor:
             assert isinstance(h, QuantTensor)
-            assert h.scale is not None
-            assert h.bit_width is not None
         else:
             assert isinstance(h, torch.Tensor)
 
     if c is not None:
         if return_quant_tensor:
             assert isinstance(c, QuantTensor)
-            assert c.scale is not None
-            assert c.bit_width is not None
         else:
             assert isinstance(c, torch.Tensor)
 
@@ -204,7 +190,5 @@ def test_quant_mha(model_input, current_cases):
 
     if kwargs['return_quant_tensor']:
         assert isinstance(output, QuantTensor)
-        assert output.scale is not None
-        assert output.bit_width is not None
     else:
         assert isinstance(output, torch.Tensor)

@@ -190,10 +190,7 @@ class QuantTensor(QuantTensorBase):
     @staticmethod
     def is_zero_zero_point(tensor):
         QuantTensor.check_input_type(tensor)
-        if tensor.zero_point is not None:
-            return (tensor.zero_point == 0.).all()
-        else:
-            return None
+        return (tensor.zero_point == 0.).all()
 
     def check_scaling_factors_same(self, other):
         if self.training is not None and self.training:
@@ -318,27 +315,27 @@ class QuantTensor(QuantTensorBase):
     def to(self, *args, **kwargs):
         return QuantTensor(
             self.value.to(*args, **kwargs),
-            self.scale.to(*args, **kwargs) if self.scale is not None else None,
-            self.zero_point.to(*args, **kwargs) if self.zero_point is not None else None,
-            self.bit_width.to(*args, **kwargs) if self.bit_width is not None else None,
+            self.scale.to(*args, **kwargs),
+            self.zero_point.to(*args, **kwargs),
+            self.bit_width.to(*args, **kwargs),
             self.signed,
             self.training)
 
     def cuda(self, *args, **kwargs):
         return QuantTensor(
             self.value.cuda(*args, **kwargs),
-            self.scale.cuda(*args, **kwargs) if self.scale is not None else None,
-            self.zero_point.cuda(*args, **kwargs) if self.zero_point is not None else None,
-            self.bit_width.cuda(*args, **kwargs) if self.bit_width is not None else None,
+            self.scale.cuda(*args, **kwargs),
+            self.zero_point.cuda(*args, **kwargs),
+            self.bit_width.cuda(*args, **kwargs),
             self.signed,
             self.training)
 
     def cpu(self, *args, **kwargs):
         return QuantTensor(
             self.value.cpu(*args, **kwargs),
-            self.scale.cpu(*args, **kwargs) if self.scale is not None else None,
-            self.zero_point.cpu(*args, **kwargs) if self.zero_point is not None else None,
-            self.bit_width.cpu(*args, **kwargs) if self.bit_width is not None else None,
+            self.scale.cpu(*args, **kwargs),
+            self.zero_point.cpu(*args, **kwargs),
+            self.bit_width.cpu(*args, **kwargs),
             self.signed,
             self.training)
 
