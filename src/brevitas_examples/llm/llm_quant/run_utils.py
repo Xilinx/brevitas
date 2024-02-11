@@ -47,7 +47,7 @@ def get_fx(model):
     return model
 
 
-def modify_dataloader(model_name_or_path, data):
+def modify_dataloader(model_name_or_path, data, dtype):
     config = AutoConfig.from_pretrained(model_name_or_path)
 
     normalized_config_class = NormalizedConfigManager.get_normalized_config_class(config.model_type)
@@ -59,8 +59,8 @@ def modify_dataloader(model_name_or_path, data):
 
     for sample in data:
         sample["past_key_values"] = tuple((
-            torch.zeros(1, num_heads, 0, head_dim, device=sample["input_ids"].device),
-            torch.zeros(1, num_heads, 0, head_dim, device=sample["input_ids"].device),
+            torch.zeros(1, num_heads, 0, head_dim, device=sample["input_ids"].device, dtype=dtype),
+            torch.zeros(1, num_heads, 0, head_dim, device=sample["input_ids"].device, dtype=dtype),
         ) for _ in range(num_layers))
     return data
 

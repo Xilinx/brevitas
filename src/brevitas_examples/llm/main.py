@@ -293,12 +293,15 @@ def main():
 
     if args.weight_equalization or args.act_equalization == 'fx':
         model = get_fx(model)
-        calibration_loader = modify_dataloader(args.model, calibration_loader)
-        val_data = modify_dataloader(args.model, val_data)
+        calibration_loader = modify_dataloader(args.model, calibration_loader, dtype=dtype)
+        val_data = modify_dataloader(args.model, val_data, dtype=dtype)
 
     if args.weight_equalization:
         print("Apply weight equalization...")
+        # In case of float16 model, we need to offload to account for missing ops
+        model = offload_model(model)
         apply_weight_equalization(model)
+        remove_hooks(model)
         print("Weight equalization applied.")
 
     if args.act_equalization is not None:
