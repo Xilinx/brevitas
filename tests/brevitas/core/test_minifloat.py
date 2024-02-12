@@ -17,35 +17,19 @@ FORMATS = {Fp8e5m2Mixin: 57344., Fp8e4m3Mixin: 448.}
 @pytest.mark.parametrize(
     'minifloat, expected_max_val', ((format, max_val) for format, max_val in FORMATS.items()))
 def test_max_value(minifloat, expected_max_val):
-    # minifloat_format, expected_max_val = format
-    exponent_bit_width = torch.tensor(minifloat.exponent_bit_width)
-    mantissa_bit_width = torch.tensor(minifloat.mantissa_bit_width)
-    exponent_bias = torch.tensor(minifloat.exponent_bias)
-
-    max_val = minifloat.case_clamp_impl.get_max_value(
-        exponent_bit_width=exponent_bit_width,
-        mantissa_bit_width=mantissa_bit_width,
-        exponent_bias=exponent_bias)
+    max_val = minifloat.case_clamp_impl.max_val_impl()
 
     assert expected_max_val == max_val
 
 
 @given(inp=float_tensor_random_shape_st())
 def test_clamp(inp, fp8_clamp):
-    # construct tensor which exceeds max val
-    exponent_bit_width = torch.tensor(fp8_clamp.exponent_bit_width)
-    mantissa_bit_width = torch.tensor(fp8_clamp.mantissa_bit_width)
-    exponent_bias = torch.tensor(fp8_clamp.exponent_bias)
-
-    max_val = fp8_clamp.case_clamp_impl.get_max_value(
-        exponent_bit_width=exponent_bit_width,
-        mantissa_bit_width=mantissa_bit_width,
-        exponent_bias=exponent_bias)
+    max_val = fp8_clamp.case_clamp_impl.max_val_impl()
     # get values that exceed max_val
     over_limit_mask = inp.abs() > max_val
 
     # clamp inp
-    inp = fp8_clamp.case_clamp_impl(inp, exponent_bit_width, mantissa_bit_width, exponent_bias)
+    inp = fp8_clamp.case_clamp_impl(inp)
 
     if fp8_clamp.case_clamp_impl.saturating:
         # should be clamped to +- max val

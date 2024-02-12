@@ -6,9 +6,10 @@ from pytest_cases import fixture_union
 
 from brevitas.core.function_wrapper import FloatClamp
 from brevitas.quant.experimental.float_base import ExponentBiasMixin
+from brevitas.quant.experimental.float_base import ScaledFloatWeightBase
 
 
-class Fp8e4m3Base(ExponentBiasMixin):
+class Fp8e4m3Base(ExponentBiasMixin, ScaledFloatWeightBase):
     bit_width = 8
     exponent_bit_width = 4
     mantissa_bit_width = 3
@@ -19,7 +20,7 @@ class Fp8e4m3Base(ExponentBiasMixin):
     hypothesis_internal_is_this_a_mock_check = False
 
 
-class Fp8e5m2Base(ExponentBiasMixin):
+class Fp8e5m2Base(ExponentBiasMixin, ScaledFloatWeightBase):
     bit_width = 8
     exponent_bit_width = 5
     mantissa_bit_width = 2
