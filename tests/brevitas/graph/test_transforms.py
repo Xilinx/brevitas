@@ -126,16 +126,10 @@ def test_avg_pool_to_quant_conv(dims):
 
     has_quant_conv = False
     for m in graph.modules():
-        if isinstance(m, QuantConv1d):
-            has_quant_conv = True
-        if isinstance(m, QuantConv2d):
-            has_quant_conv = True
-        if isinstance(m, QuantConv3d):
+        if isinstance(m, (QuantConv1d, QuantConv2d, QuantConv3d)):
             has_quant_conv = True
 
-        assert not isinstance(m, nn.AvgPool1d)
-        assert not isinstance(m, nn.AvgPool2d)
-        assert not isinstance(m, nn.AvgPool3d)
+        assert not isinstance(m, (nn.AvgPool1d, nn.AvgPool2d, nn.AvgPool3d))
 
     assert has_quant_conv
 
