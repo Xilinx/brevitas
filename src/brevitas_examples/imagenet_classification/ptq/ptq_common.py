@@ -146,7 +146,8 @@ def quantize_model(
         weight_quant_type='sym',
         act_quant_granularity='per_tensor',
         uint_sym_act_for_unsigned_values=True,
-        dtype=torch.float32):
+        dtype=torch.float32,
+        device='cpu'):
     # Define what quantize function to use and, based on the given configuration, its arguments
     quantize_fn = QUANTIZE_MAP[backend]
     weight_scale_type = scale_factor_type
@@ -222,6 +223,7 @@ def quantize_model(
 
 
     quant_layer_map, quant_layerwise_layer_map, quant_act_map, quant_identity_map = create_quant_maps(dtype=dtype,
+                            device=device,
                             uint_sym_act_for_unsigned_values=uint_sym_act_for_unsigned_values,
                             bias_bit_width=bias_bit_width,
                             weight_param_method=weight_param_method,
@@ -274,7 +276,8 @@ def create_quant_maps(
         act_param_method=None,
         act_quant_type=None,
         act_quant_granularity=None,
-        act_quant_percentile=None):
+        act_quant_percentile=None,
+        device='cpu'):
     """
     Starting from pre-defined quantizers, modify them to match the desired configuration
     """
@@ -323,17 +326,19 @@ def create_quant_maps(
     if weight_quant_type == 'asym':
         weight_quant = weight_quant.let(zero_point_impl=ParameterFromStatsFromParameterZeroPoint)
     if act_quant is not None:
-        act_quant = act_quant.let(**{'high_percentile_q': act_quant_percentile, 'dtype': dtype})
+        act_quant = act_quant.let(
+            **{
+                'high_percentile_q': act_quant_percentile, 'dtype': dtype, 'device': device})
         if act_quant_type == 'asym' and act_quant_percentile is not None:
             act_quant = act_quant.let(**{'low_percentile_q': 100 - act_quant_percentile})
     if sym_act_quant is not None:
         sym_act_quant = sym_act_quant.let(
             **{
-                'high_percentile_q': act_quant_percentile, 'dtype': dtype})
+                'high_percentile_q': act_quant_percentile, 'dtype': dtype, 'device': device})
     if per_tensor_act_quant is not None:
         per_tensor_act_quant = per_tensor_act_quant.let(
             **{
-                'high_percentile_q': act_quant_percentile, 'dtype': dtype})
+                'high_percentile_q': act_quant_percentile, 'dtype': dtype, 'device': device})
         if act_quant_type == 'asym' and act_quant_percentile is not None:
             per_tensor_act_quant = per_tensor_act_quant.let(
                 **{'low_percentile_q': 100 - act_quant_percentile})
@@ -341,7 +346,11 @@ def create_quant_maps(
     weight_quant_dict = {'weight_quant': weight_quant}
 
     quant_wbiol_kwargs = {
-        **weight_quant_dict, 'dtype': dtype, 'return_quant_tensor': False, 'bias_quant': bias_quant}
+        **weight_quant_dict,
+        'dtype': dtype,
+        'device': device,
+        'return_quant_tensor': False,
+        'bias_quant': bias_quant}
 
     # yapf: disable
     quant_mha_kwargs = {
@@ -361,6 +370,7 @@ def create_quant_maps(
         # since it supports only self-attention
         'packed_in_proj': True,
         'dtype': dtype,
+        'device': device,
         'return_quant_tensor': False}
     # yapf: enable
 
@@ -451,8 +461,12 @@ def apply_act_equalization(model, calib_loader, layerwise):
     model.eval()
     dtype = next(model.parameters()).dtype
     device = next(model.parameters()).device
+    add_mul_node = layerwise
     with torch.no_grad():
-        with activation_equalization_mode(model, alpha=0.5, layerwise=layerwise):
+        with activation_equalization_mode(model,
+                                          alpha=0.5,
+                                          layerwise=layerwise,
+                                          add_mul_node=add_mul_node):
             for i, (images, target) in enumerate(tqdm(calib_loader)):
                 images = images.to(device)
                 images = images.to(dtype)
