@@ -362,14 +362,21 @@ def main():
     else:
         raise RuntimeError(f"{args.target_backend} backend not supported.")
 
+    # If available, use the selected GPU
+    if args.gpu is not None:
+        torch.cuda.set_device(args.gpu)
+        model = model.cuda(args.gpu)
+        cudnn.benchmark = False
+
     if args.act_equalization is not None:
         print("Applying activation equalization:")
         apply_act_equalization(model, calib_loader, layerwise=args.act_equalization == 'layerwise')
-
+    device = next(iter(model.parameters())).device
     # Define the quantized model
     quant_model = quantize_model(
         model,
         dtype=dtype,
+        device=device,
         backend=args.target_backend,
         scale_factor_type=args.scale_factor_type,
         bias_bit_width=args.bias_bit_width,
@@ -390,11 +397,6 @@ def main():
         weight_exponent_bit_width=args.weight_exponent_bit_width,
         act_mantissa_bit_width=args.act_mantissa_bit_width,
         act_exponent_bit_width=args.act_exponent_bit_width)
-    # If available, use the selected GPU
-    if args.gpu is not None:
-        torch.cuda.set_device(args.gpu)
-        quant_model = quant_model.cuda(args.gpu)
-        cudnn.benchmark = False
 
     # Calibrate the quant_model on the calibration dataloader
     print("Starting activation calibration:")
