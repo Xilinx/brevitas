@@ -18,9 +18,9 @@ import brevitas.nn as qnn
 from brevitas.quant_tensor import QuantTensor
 
 SUPPORTED_CONV_OP = (
-    qnn.QuantConv3d,
-    qnn.QuantConv2d,
     qnn.QuantConv1d,
+    qnn.QuantConv2d,
+    qnn.QuantConv3d,
     qnn.QuantConvTranspose1d,
     qnn.QuantConvTranspose2d,
     qnn.QuantConvTranspose3d)
