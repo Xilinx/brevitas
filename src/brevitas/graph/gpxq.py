@@ -65,11 +65,10 @@ class gpxq_mode(ABC):
         self.group_of_parallel_layers = group_of_parallel_layers
         self.return_forward_output = return_forward_output
 
+        self.orig_forward = self.model.forward
         if isinstance(self.model, (GraphModule, TorchGraphModule)):
-            self.orig_forward = self.model.__class__.forward
             self.model.__class__.forward = self.catch_stopfwd
         else:
-            self.orig_forward = self.model.forward
             self.model.forward = self.catch_stopfwd
 
     def _is_module_supported(self, module):
