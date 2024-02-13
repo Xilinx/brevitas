@@ -85,6 +85,28 @@ class calibration_mode:
             self.model, is_training=self.previous_training_state, quantization_enabled=True)
 
 
+class allow_unexpected_bias_keys:
+
+    def __init__(self, model):
+        self.model = model
+
+    def __enter__(self):
+        self.tracked_modules = []
+        for module in self.model.modules():
+            if issubclass(type(module), QuantWBIOL):
+                if module.bias is None:
+                    module.register_parameter(
+                        'bias',
+                        nn.Parameter(torch.empty(module.weight.shape[0])).to(module.weight.device))
+                    self.tracked_modules.append(module)
+
+    def __exit__(self, type, value, traceback):
+        for module in self.tracked_modules:
+            # empty tensor has a numel result of 0
+            if torch.numel(module.bias) == 0:
+                module.bias = None
+
+
 class bias_correction_mode:
 
     def __init__(self, model, enabled=True):
