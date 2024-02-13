@@ -187,3 +187,31 @@ class TestBiasCorrection():
         )  # In bias_correction mode, the input to each layer is equal to the FP output of the previous layer
         assert (inputs[1] == fp_outs[1, 0, :]).all(
         )  # In bias_correction mode, the input to each layer is equal to the FP output of the previous layer
+
+
+def test_import_bias_correction():
+
+    class SimpleQuantLinearNet(nn.Module):
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.net = nn.Sequential(qnn.QuantLinear(IN_CH, OUT_CH, bias=False))
+
+        def forward(self, inp):
+            return self.net(inp)
+
+    model = SimpleQuantLinearNet()
+
+    with bias_correction_mode(model):
+        model(torch.randn((1, IN_CH)))
+
+    for m in model.modules():
+        if isinstance(m, qnn.QuantLinear):
+            assert m.bias is not None
+
+    new_model = SimpleQuantLinearNet()
+    new_model.load_state_dict(model.state_dict())
+
+    for m in new_model.modules():
+        if isinstance(m, qnn.QuantLinear):
+            assert m.bias is not None
