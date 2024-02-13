@@ -24,7 +24,11 @@ from brevitas.quant_tensor import QuantTensor
 from .base import Transform
 
 __all__ = [
-    'ClipFloatWeights', 'DisableEnableQuantization', 'bias_correction_mode', 'calibration_mode']
+    'ClipFloatWeights',
+    'DisableEnableQuantization',
+    'bias_correction_mode',
+    'calibration_mode',
+    'allow_unexpected_bias_keys']
 
 _PARAM_PROXIES = (WeightQuantProxyFromInjector, BiasQuantProxyFromInjector)
 
