@@ -3,7 +3,6 @@
 
 from hypothesis import given
 import pytest
-import torch
 
 from brevitas.quant.experimental.float_base import Fp8e4m3Mixin
 from brevitas.quant.experimental.float_base import Fp8e5m2Mixin
@@ -36,7 +35,7 @@ def test_clamp(inp, fp8_clamp):
         assert (inp[over_limit_mask].abs() == max_val).all()
     else:
         # if inf_values, over limit mask should now be all inf
-        if len(fp8_clamp.case_clamp_impl.inf_values) > 0:
+        if fp8_clamp.case_clamp_impl.inf_values is not None:
             # all values exceeding max_val should be inf
             assert inp[over_limit_mask].isinf().all()
         else:

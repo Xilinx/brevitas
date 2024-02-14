@@ -56,7 +56,7 @@ class Fp8e4m3Mixin(ExponentBiasMixin):
     exponent_bit_width = 4
     mantissa_bit_width = 3
     case_clamp_impl = FloatClamp
-    nan_values = tuple(('111',))
+    nan_values = (('111',))
     inf_values = None
     saturating = True
 
@@ -67,5 +67,5 @@ class Fp8e5m2Mixin(ExponentBiasMixin):
     mantissa_bit_width = 2
     case_clamp_impl = FloatClamp
     nan_values = ('01', '11', '10')
-    inf_values = tuple(('00',))
+    inf_values = (('00',))
     saturating = True

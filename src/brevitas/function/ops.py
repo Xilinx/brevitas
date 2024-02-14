@@ -12,10 +12,6 @@ from torch import Tensor
 
 import brevitas
 
-P_INF_TENSOR = torch.tensor(float('inf'))
-N_INF_TENSOR = torch.tensor(float('-inf'))
-NAN_TENSOR = torch.tensor(float('nan'))
-
 
 @brevitas.jit.script
 def binary_sign(x: Tensor) -> Tensor:
@@ -222,43 +218,3 @@ def get_upper_bound_on_l1_norm(
     max_accumulator_mag = pow(2., max_accumulator_bit_width - 1.) - 1.  # 2^{P-1}-1
     max_input_mag_inverse = pow(2., input_is_signed - input_bit_width)
     return max_accumulator_mag * max_input_mag_inverse
-
-
-def clamp_to_fp_encoding(
-        x: Tensor,
-        max_value: Tensor,
-        saturating: bool,
-        exponent_bit_width: Optional[Tensor] = None,
-        mantissa_bit_width: Optional[Tensor] = None,
-        nan_values: Optional[Tuple[float]] = None,
-        inf_values: Optional[Tuple[float]] = None):
-    """
-    Clamp any values that exceed inf/NaN special codes to these. Differentiates between saturating
-    and non-saturating mode.
-
-    nan_value needs to be set to the min NaN value there is.
-    """
-    # TODO: think about setting NaN/inf values to the specific minifloat code, that's also why not all arguments are used at this time
-    # NaN values all stay at NaN, so no need to do anything with NaN values
-    # get all positive inf values
-    inf_mask = x.isinf()
-    p_max_val_mask = x > max_value
-    n_max_val_mask = -x > max_value
-
-    if saturating:
-        # clamp everything to +- max_value
-        x = x.clamp(-max_value, max_value)
-    else:
-        if len(inf_values) > 0:
-            # we have inf values, so we set abs values > max_value to +- inf, and leave inf at inf
-            x[p_max_val_mask] = P_INF_TENSOR
-            x[n_max_val_mask] = N_INF_TENSOR
-        else:
-            # no inf values, so we need to map them to NaN
-            full_max_val_mask = torch.logical_or(p_max_val_mask, n_max_val_mask)
-            x[full_max_val_mask] = NAN_TENSOR
-
-            # we also map the inf values to NaN in this case
-            x[inf_mask] = NAN_TENSOR
-
-    return x

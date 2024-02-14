@@ -7,6 +7,7 @@ import torch
 import torch.nn as nn
 
 import brevitas
+from brevitas.core.function_wrapper import FloatClamp
 from brevitas.core.function_wrapper import RoundSte
 from brevitas.core.scaling import ConstScaling
 from brevitas.core.utils import StatelessBuffer
@@ -56,11 +57,15 @@ class FloatQuant(brevitas.jit.ScriptModule):
             float_scaling_impl = ConstScaling(1., device=device, dtype=dtype)
         if scaling_impl is None:
             scaling_impl = ConstScaling(1., device=device, dtype=dtype)
+        if case_clamp_impl is None:
+            self.case_clamp_impl = FloatClamp(
+                exponent_bit_width=self.exponent_bit_width,
+                mantissa_bit_width=self.mantissa_bit_width,
+                exponent_bias=self.exponent_bias)
         # Zero-point is currently hardcoded to 0
         self.zero_point_impl = StatelessBuffer(torch.tensor(0., device=device, dtype=dtype))
         self.float_scaling_impl = float_scaling_impl
         self.scaling_impl = scaling_impl
-        self.case_clamp_impl = case_clamp_impl
 
     @brevitas.jit.script_method
     def internal_scale(self, x):
@@ -89,12 +94,7 @@ class FloatQuant(brevitas.jit.ScriptModule):
     def forward(self, x):
         y, scale = self.quantize(x)
         # after quantizing, clamp to special cases like NaN/inf if they are set
-        if self.case_clamp_impl is not None:
-            y = self.case_clamp_impl(
-                y,
-                exponent_bit_width=self.exponent_bit_width(),
-                mantissa_bit_width=self.mantissa_bit_width(),
-                exponent_bias=self.exponent_bias())
+        y = self.case_clamp_impl(y)
         y = self.dequantize(y, scale)
         # This is to respect the current interface of proxies
         return y, scale, self.zero_point_impl(), self.bit_width()
