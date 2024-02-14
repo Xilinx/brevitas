@@ -9,12 +9,11 @@ import re
 import numpy as np
 from optimum.amd.brevitas.accelerate_utils import offload_model
 from optimum.amd.brevitas.accelerate_utils import remove_hooks
-from optimum.exporters.onnx.__main__ import onnx_export
+from optimum.exporters.onnx import onnx_export_from_model
 import torch
 from transformers import AutoModelForCausalLM
 from transformers import AutoTokenizer
 
-from brevitas.export import export_onnx_qcdq
 from brevitas.export import export_torch_qcdq
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
 from brevitas_examples.common.generative.quantize import quantize_model
@@ -32,6 +31,7 @@ from brevitas_examples.llm.llm_quant.export import brevitas_proxy_export_mode
 from brevitas_examples.llm.llm_quant.gptq import apply_gptq
 from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_affine_merge
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import replace_mha_with_quantizable_layers
+from brevitas_examples.llm.llm_quant.run_utils import cast_to_float32
 from brevitas_examples.llm.llm_quant.run_utils import CastFloat16ToFloat32
 from brevitas_examples.llm.llm_quant.run_utils import get_fx
 from brevitas_examples.llm.llm_quant.run_utils import modify_dataloader
@@ -195,7 +195,7 @@ def model_export(model, ref_input, args):
 
         print(f"Exporting the model in ./quantized_onnx/{args.model.replace('/', '-')}")
         with torch.no_grad(), brevitas_proxy_export_mode(model, export_manager=export_manager):
-            onnx_export(
+            onnx_export_from_model(
                 model,
                 f"./quantized_onnx/{args.model.replace('/', '-')}",
                 task="text-generation-with-past",
@@ -265,19 +265,12 @@ def main():
         with CastFloat16ToFloat32():
             apply_awq(model, awq_results)
 
-    if (args.export_target or args.eval or args.act_equalization or args.act_calibration or
-            args.gptq or args.bias_corr or args.ln_affine_merge or args.weight_equalization):
-        print("Data loading...")
-        calibration_loader = get_wikitext2(
-            nsamples=args.nsamples, tokenizer=tokenizer, seqlen=args.seqlen, seed=0)
-        val_data = get_wikitext2(
-            nsamples=args.nsamples,
-            tokenizer=tokenizer,
-            seqlen=args.seqlen,
-            split='validation',
-            seed=0)
-        val_data = create_validation_dataloader(val_data, args.seqlen)
-        print("Data loaded.")
+    calibration_loader = get_wikitext2(
+        nsamples=args.nsamples, tokenizer=tokenizer, seqlen=args.seqlen, seed=0)
+    val_data = get_wikitext2(
+        nsamples=args.nsamples, tokenizer=tokenizer, seqlen=args.seqlen, split='validation', seed=0)
+    val_data = create_validation_dataloader(val_data, args.seqlen)
+    print("Data loaded.")
 
     # Apply LN affine merging before inserting MHA layers
     # since currently there is support only for merging into Linear
@@ -315,7 +308,7 @@ def main():
 
     if not args.no_quantize:
         print("Applying model quantization...")
-        quantize_model(
+        model = quantize_model(
             model,
             dtype=dtype,
             weight_quant_format=args.weight_quant_format,
@@ -345,7 +338,10 @@ def main():
     if args.act_equalization is None and not args.weight_equalization:
         model.tie_weights()
 
+    with cast_to_float32(model, dtype):
+        model(**calibration_loader[0])
     model = offload_model(model)
+
     if args.act_calibration:
         print("Apply act calibration...")
         apply_calibration(model, calibration_loader)
@@ -370,7 +366,7 @@ def main():
     if args.export_target:
         print(f"Export to {args.export_target}")
         # Currently we always export on CPU with a float32 container to avoid float16 CPU errors
-        model = model.cpu().to(dtype=torch.float32)
+        model = model.to(dtype=torch.float32)
         model_export(model, calibration_loader[0], args)
 
 
