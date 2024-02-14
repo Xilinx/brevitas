@@ -81,6 +81,7 @@ class TorchQCDQCastMixin(QMixin, TorchCDQCastMixin, ABC):
         super().validate(module)
         if getattr(self, '_export_q_node', True):
             assert module.rounding_mode.upper() == 'ROUND', 'Only round to nearest even supported'
+        assert not module.is_groupwise, "Export with Per Group quantization not supported"
 
     def quantize_fn(self, x, scale, zero_point, dtype, axis):
         if axis is None:
