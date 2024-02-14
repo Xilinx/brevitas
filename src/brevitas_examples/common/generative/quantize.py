@@ -34,14 +34,10 @@ from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloatMS
 from brevitas_examples.common.generative.nn import LoRACompatibleQuantConv2d
 from brevitas_examples.common.generative.nn import LoRACompatibleQuantLinear
 from brevitas_examples.common.generative.quantizers import Fp8e4m3WeightSymmetricGroupQuant
-from brevitas_examples.common.generative.quantizers import Int8ActPerRowFloat
-from brevitas_examples.common.generative.quantizers import Int8ActPerRowFloatMSE
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerGroupFloat
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerRowFloat
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerTensorFloat
 from brevitas_examples.common.generative.quantizers import IntWeightSymmetricGroupQuant
-from brevitas_examples.common.generative.quantizers import ShiftedUint8ActPerRowFloat
-from brevitas_examples.common.generative.quantizers import ShiftedUint8ActPerRowFloatMSE
 from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerRowFloat
 from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerTensorFloat
 from brevitas_examples.common.generative.quantizers import ShiftedUintWeightAsymmetricGroupQuant
@@ -91,14 +87,11 @@ INPUT_QUANT_MAP = {
             'float_scale': {
                 'stats': {
                     'per_tensor': {
-                        'sym': Int8ActPerTensorFloat, 'asym': ShiftedUint8ActPerTensorFloat},
-                    'per_row': {
-                        'sym': Int8ActPerRowFloat, 'asym': ShiftedUint8ActPerRowFloat},},
+                        'sym': Int8ActPerTensorFloat, 'asym': ShiftedUint8ActPerTensorFloat},},
                 'mse': {
                     'per_tensor': {
-                        'sym': Int8ActPerTensorFloatMSE, 'asym': ShiftedUint8ActPerTensorFloatMSE},
-                    'per_row': {
-                        'sym': Int8ActPerRowFloatMSE, 'asym': ShiftedUint8ActPerRowFloatMSE},},},
+                        'sym': Int8ActPerTensorFloatMSE, 'asym': ShiftedUint8ActPerTensorFloatMSE}},
+            },
             'po2_scale': {
                 'stats': {
                     'per_tensor': {

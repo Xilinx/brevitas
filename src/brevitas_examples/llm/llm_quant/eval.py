@@ -35,8 +35,7 @@ def create_validation_dataloader(data, seqlen):
 def model_eval(model, valenc, seqlen):
 
     nsamples = len(valenc)
-    use_cache = model.config.use_cache
-    model.config.use_cache = False
+
     with torch.no_grad():
         nlls = []
         for inps in valenc:
@@ -48,5 +47,4 @@ def model_eval(model, valenc, seqlen):
             neg_log_likelihood = loss.float() * seqlen
             nlls.append(neg_log_likelihood)
         ppl = torch.exp(torch.stack(nlls).sum() / (nsamples * seqlen))
-    model.config.use_cache = use_cache
     return ppl
