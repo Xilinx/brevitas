@@ -149,6 +149,10 @@ parser.add_argument(
     action='store_true',
     help='Disable float16 as base datatype and switch to float32.')
 parser.add_argument(
+    '--replace-mha',
+    action='store_true',
+    help='Replace HuggingFace Attention with a quantizable version')
+parser.add_argument(
     '--weight-equalization',
     action='store_true',
     help='Apply weight equalization. Relevant to ReLU based models (e.g. OPT).')
@@ -236,6 +240,11 @@ def validate(args):
             (args.input_scale_type == 'static' or
              (args.input_scale_type == 'dynamic' and args.input_quant_type == 'asym'))):
             assert args.act_calibration, "Static input quantization is being applied without activation calibration. Set --act-calibration."
+        if (args.weight_equalization or args.act_equalization == 'fx'):
+            if args.replace_mha:
+                assert args.export_target != 'onnx_qcdq', "Cannot export ONNX QCDQ with FX + MHA replacing"
+            else:
+                assert args.export_target != 'torch_qcdq', "Cannot export Torch QCDQ with FX"
 
 
 def main():
@@ -281,7 +290,7 @@ def main():
 
     # Insert standard MHA layers when performing fx based weight/act equalization to avoid dealing
     # with all the variability in HF implementations
-    if args.weight_equalization or args.act_equalization == 'fx' or args.input_bit_width:
+    if args.replace_mha:
         print("Replace HF MHA with quantizable variants...")
         model = replace_mha_with_quantizable_layers(model, dtype)
         print("Replacing done.")
