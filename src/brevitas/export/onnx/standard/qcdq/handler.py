@@ -73,7 +73,7 @@ class StdQCDQCastONNXMixin(QMixin, StdCDQCastONNXMixin, ABC):
         # Below 8b quantization is supported through clipping.
         if getattr(self, '_export_q_node', True):
             assert module.rounding_mode.upper() == 'ROUND', 'Only round to nearest even supported'
-        assert not hasattr(module.quant_injector, 'group_size'), "Export with Per Group quantization not supported"
+        assert not module.is_groupwise, "Export with Per Group quantization not supported"
 
         self.validate_8b_bit_width(module.bit_width(), le_then=True)
 
