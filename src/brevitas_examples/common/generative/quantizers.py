@@ -5,8 +5,6 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 
 from torch import nn
 
-from brevitas.core.function_wrapper.shape import OverBatchOverOutputChannelView
-from brevitas.core.function_wrapper.shape import OverBatchOverTensorView
 from brevitas.core.function_wrapper.shape import OverOutputFeaturesView
 from brevitas.core.function_wrapper.shape import OverTensorView
 from brevitas.core.scaling import ParameterFromStatsFromParameterScaling
@@ -109,22 +107,6 @@ class ShiftedUintWeightAsymmetricGroupQuant(IntWeightSymmetricGroupQuant):
     signed = False
 
 
-class Int8ActPerRowFloat(Int8ActPerTensorFloat):
-    scaling_per_output_channel = True
-
-
-class Int8ActPerRowFloatMSE(Int8ActPerTensorFloatMSE):
-    scaling_per_output_channel = True
-
-
-class ShiftedUint8ActPerRowFloat(ShiftedUint8ActPerTensorFloat):
-    scaling_per_output_channel = True
-
-
-class ShiftedUint8ActPerRowFloatMSE(ShiftedUint8ActPerTensorFloatMSE):
-    scaling_per_output_channel = True
-
-
 class Int8DynamicActPerTensorFloat(DynamicActProxyMixin, Int8ActPerTensorFloat):
     """
     Symmetric quantizer with per tensor dynamic scale.
@@ -135,22 +117,24 @@ class Int8DynamicActPerTensorFloat(DynamicActProxyMixin, Int8ActPerTensorFloat):
     dynamic_scaling_broadcastable_fn = lambda x, shape: x.view(SCALAR_SHAPE)
 
 
-class Int8DynamicActPerRowFloat(DynamicActProxyMixin, Int8ActPerRowFloat):
+class Int8DynamicActPerRowFloat(DynamicActProxyMixin, Int8ActPerTensorFloat):
     """
     Symmetric quantizer with per row dynamic scale.
     """
     scaling_impl = RuntimeDynamicStatsScaling
     scaling_stats_input_view_shape_impl = OverOutputFeaturesView
     scaling_stats_op = 'min_max'
+    scaling_per_output_channel = True
 
 
-class Int8DynamicActPerGroupFloat(DynamicActProxyMixin, Int8ActPerRowFloat):
+class Int8DynamicActPerGroupFloat(DynamicActProxyMixin, Int8ActPerTensorFloat):
     """
     Symmetric quantizer with per group scale.
     """
     scaling_impl = RuntimeDynamicGroupStatsScaling
     keepdim = True
     scaling_stats_op = 'min_max'
+    scaling_per_output_channel = True
 
     @value
     def stats_reduce_dim(group_dim):
