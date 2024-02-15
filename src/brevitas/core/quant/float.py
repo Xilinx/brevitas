@@ -24,8 +24,8 @@ class FloatQuant(brevitas.jit.ScriptModule):
             signed: bool,
             exponent_bit_width: int,
             mantissa_bit_width: int,
+            exponent_bias: int,
             case_clamp_impl: Optional[nn.Module] = None,
-            exponent_bias: Optional[int] = None,
             scaling_impl: Optional[nn.Module] = None,
             float_scaling_impl: Optional[nn.Module] = None,
             float_to_int_impl: nn.Module = RoundSte(),
@@ -45,8 +45,6 @@ class FloatQuant(brevitas.jit.ScriptModule):
             raise RuntimeError("Mantissa bit width cannot be 0.")
         self.mantissa_bit_width = StatelessBuffer(
             (torch.tensor(float(mantissa_bit_width), device=device, dtype=dtype)))
-        if exponent_bias is None:
-            exponent_bias = 2 ** (exponent_bit_width - 1) - 1
         self.exponent_bias = StatelessBuffer(
             torch.tensor(float(exponent_bias), device=device, dtype=dtype))
         self.fp_max_val = StatelessBuffer(

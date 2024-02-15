@@ -122,22 +122,14 @@ class FloatClamp(brevitas.jit.ScriptModule):
             self.max_val_impl = StatelessBuffer(
                 max_float(
                     self.exponent_bit_width(), self.mantissa_bit_width(), self.exponent_bias()))
-        elif self.inf_values is not None and self.nan_values is not None:
-            # we have values for NaN and inf, so initiate MaxValInfNaN
+        elif self.nan_values is not None:
+            # we at least have values for NaN, so initiate MaxValInfNaN
             self.max_val_impl = MaxFloatInfNaN(
                 exponent_bit_width=self.exponent_bit_width,
                 mantissa_bit_width=self.mantissa_bit_width,
                 exponent_bias=self.exponent_bias,
                 nan_values=self.nan_values,
                 inf_values=self.inf_values,
-                saturating=self.saturating)
-        elif self.inf_values is None and self.nan_values is not None:
-            # we only have values for NaN, so initiate MaxValNaN
-            self.max_val_impl = MaxFloatNaN(
-                exponent_bit_width=self.exponent_bit_width,
-                mantissa_bit_width=self.mantissa_bit_width,
-                exponent_bias=self.exponent_bias,
-                nan_values=self.nan_values,
                 saturating=self.saturating)
         else:
             # no NaN values but inf values
@@ -169,64 +161,18 @@ class MaxFloatInfNaN(brevitas.jit.ScriptModule):
 
         self.inf_values = inf_values
         self.nan_values = nan_values
+        self.__special_values = nan_values + inf_values if inf_values is not None else nan_values
 
         self.saturating = saturating
 
         # check that NaN/inf values are all mantissa_bit_width long
-        if any(map(lambda x: len(x) > mantissa_bit_width, self.nan_values + self.inf_values)):
+        if any(map(lambda x: len(x) > mantissa_bit_width, self.__special_values)):
             raise RuntimeError('NaN/inf codes need to be the same length as the mantissa.')
 
     @brevitas.jit.script_method
     def forward(self):
         # idea: take inf and nan values, select the smallest, set max_value to smallest_val - 1
-        min_special_case = min(map(lambda x: int(x, 2), self.nan_values + self.inf_values))
-        max_value_mantissa = min_special_case - 1
-
-        if max_value_mantissa < 0:
-            # all mantissa values are used, so we need to use decrease exponent values
-            exponent_string = '1' * (self.exponent_bit_width - 1)
-            exponent_string += '0'  # add trailing 0 to reach bit width
-            # since we decreased exponent, we can use full mantissa
-            mantissa_string = '1' * self.mantissa_bit_width
-        else:
-            # there is a free mantissa code, so use full exponent
-            exponent_string = '1' * self.exponent_bit_width
-            # get binary code for max_value_mantissa in the number of mantissa bits
-            mantissa_string = format(max_value_mantissa, f'0{self.mantissa_bit_width}b')
-
-        # we don't need the sign since we're looking for the max value
-        max_value = get_minifloat_value(
-            exponent_string=exponent_string,
-            mantissa_string=mantissa_string,
-            exponent_bias=self.exponent_bias)
-        return max_value
-
-
-class MaxFloatNaN(brevitas.jit.ScriptModule):
-
-    def __init__(
-            self,
-            exponent_bit_width: Tensor,
-            mantissa_bit_width: Tensor,
-            exponent_bias: Tensor,
-            nan_values: Tuple[str],
-            saturating: bool = False) -> None:
-        super(MaxFloatNaN, self).__init__()
-        self.exponent_bit_width = exponent_bit_width
-        self.mantissa_bit_width = mantissa_bit_width
-        self.exponent_bias = exponent_bias
-
-        self.nan_values = nan_values
-        self.saturating = saturating
-
-        # check that NaN values are all mantissa_bit_width long
-        if any(map(lambda x: len(x) > mantissa_bit_width, self.nan_values)):
-            raise RuntimeError('NaN codes need to be the same length as the mantissa.')
-
-    @brevitas.jit.script_method
-    def forward(self):
-        # idea: take inf and nan values, select the smallest, set max_value to smallest_val - 1
-        min_special_case = min(map(lambda x: int(x, 2), self.nan_values))
+        min_special_case = min(map(lambda x: int(x, 2), self.__special_values))
         max_value_mantissa = min_special_case - 1
 
         if max_value_mantissa < 0:
