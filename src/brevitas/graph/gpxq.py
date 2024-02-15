@@ -34,6 +34,32 @@ class LayerHandler:
 
 
 class gpxq_mode(ABC):
+    """
+    Apply GPxQ algorithm.
+
+    Args:
+        model (Module): The model to quantize with GPxQ
+        group_of_parallel_layers (Optional, List[str]): .List of lists where each inner list is a group
+            of layer names that can be optimized in parallel. Default: None
+        inplace (bool): Wheter to apply GPFQ inplace or perform a deepcopy. Default: True
+        create_weight_orig (bool): If True, store the original floating point weights before applying
+            gpxq. These weights will be used anytime quantization is disabled. Default: True
+        use_quant_activations (bool): Wheter to leave quantize activations enabled while performing
+            GPxQ. Default: False
+        act_order (bool): Whether to order greedy path following by Hessian approximation. Default: False
+        return_forward_output (bool): If True, returns the output of the forward pass. Otherwise the
+            forward call inside the context manager returns None. Default: False
+
+    Example:
+        >>> with torch.no_grad():
+        >>>     with gpxq_mode(model) as gpxq:
+        >>>         gpxq_mode = gpxq.model
+        >>>         for i in tqdm(range(gpxq.num_layers)):
+        >>>             for img, t in calib_loader:
+        >>>                 img = img.cuda()
+        >>>                 gpxq_mode(img)
+        >>>             gpxq.update()
+    """
 
     def __init__(
             self,

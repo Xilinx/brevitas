@@ -23,7 +23,11 @@ class gpfq_mode(gpxq_mode):
 
     Args:
         model (Module): The model to quantize with GPFQ
+        group_of_parallel_layers (Optional, List[str]): .List of lists where each inner list is a group
+            of layer names that can be optimized in parallel. Default: None
         inplace (bool): Wheter to apply GPFQ inplace or perform a deepcopy. Default: True
+        create_weight_orig (bool): If True, store the original floating point weights before applying
+            gpfq. These weights will be used anytime quantization is disabled. Default: True
         use_quant_activations (bool): Wheter to leave quantize activations enabled while performing
             GPFQ. Default: False
         p (float): The percentage of processed inputs to use. Default: 1.0
