@@ -29,24 +29,24 @@ from .quant_blocks import *
 class WeightSymmetricGroupQuantMixin(ExtendedInjector):
 
     @value
-    def expanded_scaling_shape(module, block_size):
+    def expanded_scaling_shape(module, group_size):
         if isinstance(module, nn.Conv2d):
-            return module.weight.size(0), module.weight.size(1) // block_size, block_size, module.weight.size(2), module.weight.size(3)
+            return module.weight.size(0), module.weight.size(1) // group_size, group_size, module.weight.size(2), module.weight.size(3)
         elif isinstance(module, nn.Linear):
-            return module.weight.size(0), module.weight.size(1) // block_size, block_size
+            return module.weight.size(0), module.weight.size(1) // group_size, group_size
         elif isinstance(module, nn.Embedding):
-            return module.weight.size(0), module.weight.size(1) // block_size, block_size
+            return module.weight.size(0), module.weight.size(1) // group_size, group_size
         else:
             raise RuntimeError("Module not supported.")
 
     @value
-    def scaling_shape(module, block_size):
+    def scaling_shape(module, group_size):
         if isinstance(module, nn.Conv2d):
-            return module.weight.size(0), module.weight.size(1) // block_size, 1, module.weight.size(2), module.weight.size(3)
+            return module.weight.size(0), module.weight.size(1) // group_size, 1, module.weight.size(2), module.weight.size(3)
         elif isinstance(module, nn.Linear):
-            return module.weight.size(0), module.weight.size(1) // block_size, 1
+            return module.weight.size(0), module.weight.size(1) // group_size, 1
         elif isinstance(module, nn.Embedding):
-            return module.weight.size(0), module.weight.size(1) // block_size, 1
+            return module.weight.size(0), module.weight.size(1) // group_size, 1
         else:
             raise RuntimeError("Module not supported.")
 
@@ -63,7 +63,7 @@ class WeightSymmetricGroupQuantMixin(ExtendedInjector):
     stats_reduce_dim = 2
     # Set bit_width and block size externally
     bit_width = None
-    block_size = None
+    group_size = None
 
 
 class DynamicActProxyMixin(ExtendedInjector):
