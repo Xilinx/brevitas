@@ -48,7 +48,8 @@ class gpfq_mode(gpxq_mode):
             return_forward_output: bool = False,
             act_order: bool = False,
             use_gpfa2q: bool = False,
-            accumulator_bit_width: Optional[int] = None) -> None:
+            accumulator_bit_width: Optional[int] = None,
+            ignore_layers: Optional[List[str]] = None) -> None:
         if not inplace:
             model = deepcopy(model)
         super().__init__(
@@ -65,6 +66,7 @@ class gpfq_mode(gpxq_mode):
         # GPFA2Q params
         self.use_gpfa2q = use_gpfa2q
         self.accumulator_bit_width = accumulator_bit_width
+        self.ignore_layers = ignore_layers
 
     def catch_stopfwd(self, *args, **kwargs):
         # Collect quant input
@@ -101,7 +103,7 @@ class gpfq_mode(gpxq_mode):
 
     def initialize_module_optimizer(
             self, layer, name, act_order, len_parallel_layers, create_weight_orig):
-        if not self.use_gpfa2q:
+        if (name in self.ignore_layers) or (not self.use_gpfa2q):
             return GPFQ(
                 layer=layer,
                 name=name,
@@ -287,12 +289,13 @@ class GPFA2Q(GPFQ):
             p=p)
         self.accumulator_bit_width = accumulator_bit_width
         assert self.accumulator_bit_width is not None
+        self.requires_quant_input = True  # force true
 
     def single_layer_update(self):
         # raise error in case no quant-input is here
         if self.quant_input is None:
             raise ValueError(
-                'Expected quant input to calculate Upper Bound on L1 norm, but received None')
+                'Expected quant input to calculate L1-norm upper bound, but received None')
         weight = self.layer.weight.data
         dev = weight.device
         dtype = weight.dtype
@@ -314,7 +317,8 @@ class GPFA2Q(GPFQ):
         s = self.layer.quant_weight_scale()
         s = s.view(self.groups, -1)  # [Groups, OC/Groups]
 
-        l1_norm = torch.zeros(weight.shape[:-1], device=dev)
+        # initialize cumulative l1-norm
+        z = torch.zeros(weight.shape[:-1], device=dev)
 
         # We don't need full Hessian, we just need the diagonal
         self.H_diag = self.quantized_input.transpose(2, 1).square().sum(
@@ -345,18 +349,13 @@ class GPFA2Q(GPFQ):
                 else:
                     q_arg = torch.zeros_like(U[group_index, :, 0])
 
+                max_q_arg = s[group_index, :] * torch.clamp_min(T - z[group_index, :], 0.)
+                q_arg = q_arg.sign() * torch.clamp_max(q_arg.abs(), max_q_arg)
                 weight[group_index, :, permutation_list[group_index][t]] = q_arg
             q = self.get_quant_weights(t, 0, permutation_list)
+            z += q.abs() / s  # increment cumulative l1-norm
 
             for group_index in range(self.groups):
-                candidate_l1 = l1_norm[group_index] + torch.abs(q[group_index])
-                candidate_l1_mask = candidate_l1 > T * s[group_index]
-                if torch.any(candidate_l1_mask):
-                    # set all values to 0 that are exceeding T * s
-                    weight[group_index, :, permutation_list[group_index][t]][candidate_l1_mask] = 0
-                    q[group_index][candidate_l1_mask] = 0
-                else:
-                    l1_norm[group_index] = candidate_l1
                 U[group_index] -= torch.matmul(
                     q[group_index].unsqueeze(1),
                     self.quantized_input[group_index, :,
