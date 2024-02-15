@@ -162,3 +162,4 @@ class StatsInputViewShapeImpl(object):
     OVER_OUTPUT_CHANNELS = OverOutputChannelView
     OVER_BATCH_OVER_TENSOR = OverBatchOverTensorView
     OVER_BATCH_OVER_OUTPUT_CHANNELS = OverBatchOverOutputChannelView
+    OVER_OUTPUT_FEATURES = OverOutputFeaturesView
