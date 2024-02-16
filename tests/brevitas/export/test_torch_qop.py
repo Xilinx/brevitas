@@ -7,7 +7,6 @@ from brevitas.export import export_torch_qop
 from brevitas.nn import QuantConv2d
 from brevitas.nn import QuantIdentity
 from brevitas.nn import QuantLinear
-from brevitas.nn import QuantMaxPool2d
 from brevitas.nn import QuantReLU
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from brevitas.quant.scaled_int import Int16Bias
@@ -192,68 +191,6 @@ def test_quant_act_export():
 
         def forward(self, x):
             return self.act2(self.act1(x))
-
-    inp = torch.randn(IN_SIZE)
-    model = Model()
-    model(inp)  # collect scale factors
-    model.eval()
-    inp = torch.randn(IN_SIZE) * RANDN_STD + RANDN_MEAN  # New input with bigger range
-    brevitas_out = model(inp)
-    pytorch_qf_model = export_torch_qop(model, input_t=inp)
-    pytorch_out = pytorch_qf_model(inp)
-    atol = model.act2.quant_output_scale().item() * TOLERANCE
-    assert pytorch_out.isclose(brevitas_out, rtol=0.0, atol=atol).all()
-
-
-@jit_disabled_for_export()
-def test_quant_max_pool2d_export():
-    IN_SIZE = (1, 1, IN_CH, IN_CH)
-    KERNEL_SIZE = 3
-
-    class Model(torch.nn.Module):
-
-        def __init__(self):
-            super().__init__()
-            self.act = QuantIdentity(
-                bit_width=8, act_quant=ShiftedUint8ActPerTensorFloat, return_quant_tensor=True)
-            self.pool = QuantMaxPool2d(
-                kernel_size=KERNEL_SIZE, stride=KERNEL_SIZE, return_quant_tensor=False)
-
-        def forward(self, x):
-            return self.pool(self.act(x))
-
-    inp = torch.randn(IN_SIZE)
-    model = Model()
-    model(inp)  # collect scale factors
-    model.eval()
-    inp = torch.randn(IN_SIZE) * RANDN_STD + RANDN_MEAN  # New input with bigger range
-    brevitas_out = model(inp)
-    pytorch_qf_model = export_torch_qop(model, input_t=inp)
-    pytorch_out = pytorch_qf_model(inp)
-    atol = model.act.quant_output_scale().item() * TOLERANCE
-    assert pytorch_out.isclose(brevitas_out, rtol=0.0, atol=atol).all()
-
-
-@requires_pt_ge('9999', 'Darwin')
-@jit_disabled_for_export()
-def test_func_quant_max_pool2d_export():
-    IN_SIZE = (1, 1, IN_CH, IN_CH)
-    KERNEL_SIZE = 2
-
-    class Model(torch.nn.Module):
-
-        def __init__(self):
-            super().__init__()
-            self.act1 = QuantIdentity(
-                bit_width=8, act_quant=ShiftedUint8ActPerTensorFloat, return_quant_tensor=True)
-            self.act2 = QuantIdentity(
-                bit_width=8, act_quant=ShiftedUint8ActPerTensorFloat, return_quant_tensor=False)
-
-        def forward(self, x):
-            x = self.act1(x)
-            x = torch.nn.functional.max_pool2d(x, KERNEL_SIZE)
-            x = self.act2(x)
-            return x
 
     inp = torch.randn(IN_SIZE)
     model = Model()

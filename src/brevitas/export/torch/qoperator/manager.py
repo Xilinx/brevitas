@@ -20,16 +20,11 @@ from .handler.act import PytorchQuantReLUHandler
 from .handler.parameter import PytorchQuantConv1dHandler
 from .handler.parameter import PytorchQuantConv2dHandler
 from .handler.parameter import PytorchQuantLinearHandler
-from .handler.pool import PytorchQuantMaxPool1d
-from .handler.pool import PytorchQuantMaxPool2d
-
 
 class TorchQOpManager(BaseManager):
     target_name = 'torch'
 
     handlers = [
-        PytorchQuantMaxPool1d,
-        PytorchQuantMaxPool2d,
         PytorchQuantHardTanhHandler,
         PytorchQuantIdentityHandler,
         PytorchQuantReLUHandler,

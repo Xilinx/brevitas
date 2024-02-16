@@ -9,7 +9,6 @@ from brevitas.export import export_qonnx
 from brevitas.nn import QuantConv2d
 from brevitas.nn import QuantIdentity
 from brevitas.nn import QuantLinear
-from brevitas.nn import QuantMaxPool2d
 from brevitas.nn import QuantReLU
 from brevitas.nn import TruncAvgPool2d
 from brevitas.quant.scaled_int import Int4WeightPerTensorFloatDecoupled
