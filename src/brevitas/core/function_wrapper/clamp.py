@@ -161,21 +161,21 @@ class MaxFloatInfNaN(brevitas.jit.ScriptModule):
 
         self.inf_values = inf_values
         self.nan_values = nan_values
-        self.__special_values = nan_values + inf_values if inf_values is not None else nan_values
+        self._special_values = nan_values + inf_values if inf_values is not None else nan_values
 
         self.saturating = saturating
 
         # check that NaN/inf values are all mantissa_bit_width long
-        if any(map(lambda x: len(x) > mantissa_bit_width, self.__special_values)):
+        if any(map(lambda x: len(x) > mantissa_bit_width, self._special_values)):
             raise RuntimeError('NaN/inf codes need to be the same length as the mantissa.')
 
         # move computation of min for forward pass here so it's jit compatible
-        self.__min_special_case = min(map(lambda x: int(x, 2), self.__special_values))
+        self._min_special_case = min(map(lambda x: int(x, 2), self._special_values))
 
     @brevitas.jit.script_method
     def forward(self):
         # idea: take inf and nan values, select the smallest, set max_value to smallest_val - 1
-        max_value_mantissa = self.__min_special_case - 1
+        max_value_mantissa = self._min_special_case - 1
 
         if max_value_mantissa < 0:
             # all mantissa values are used, so we need to use decrease exponent values
