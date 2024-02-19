@@ -2,10 +2,11 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from copy import deepcopy
-from typing import List, Optional
+from typing import Callable, List, Optional
 
 import numpy as np
 import torch
+import torch.nn as nn
 import unfoldNd
 
 from brevitas.function import get_upper_bound_on_l1_norm
@@ -22,9 +23,21 @@ class gpfq_mode(gpxq_mode):
 
     Args:
         model (Module): The model to quantize with GPFQ
+        group_of_parallel_layers (Optional, List[str]): .List of lists where each inner list is a group
+            of layer names that can be optimized in parallel. Default: None
         inplace (bool): Wheter to apply GPFQ inplace or perform a deepcopy. Default: True
+        create_weight_orig (bool): If True, store the original floating point weights before applying
+            gpfq. These weights will be used anytime quantization is disabled. Default: True
         use_quant_activations (bool): Wheter to leave quantize activations enabled while performing
             GPFQ. Default: False
+        p (float): The percentage of processed inputs to use. Default: 1.0
+        return_forward_output (bool): If True, returns the output of the forward pass. Otherwise the
+            forward call inside the context manager returns None. Default: False
+        act_order (bool): Whether to order greedy path following by Hessian approximation. Default: False
+        use_gpfa2q (bool): Whether to use accumulator-aware GPFQ. Default: False
+        accumulator_bit_width (Optional, int): The target accumulator bit width. Default: None
+        a2q_layer_filter_fnc (Optional, callable): An optional lambda function to filter layers for
+            accumulator cosntraints. Should return True for layers to constrain. Default: `lambda x: True`
 
     Example:
         >>> with torch.no_grad():
@@ -39,7 +52,7 @@ class gpfq_mode(gpxq_mode):
 
     def __init__(
             self,
-            model,
+            model: nn.Module,
             group_of_parallel_layers: Optional[List[str]] = None,
             inplace: bool = True,
             create_weight_orig: bool = True,
@@ -48,7 +61,8 @@ class gpfq_mode(gpxq_mode):
             return_forward_output: bool = False,
             act_order: bool = False,
             use_gpfa2q: bool = False,
-            accumulator_bit_width: Optional[int] = None) -> None:
+            accumulator_bit_width: Optional[int] = None,
+            a2q_layer_filter_fnc: Optional[Callable[[nn.Module], bool]] = lambda x: True) -> None:
         if not inplace:
             model = deepcopy(model)
         super().__init__(
@@ -65,6 +79,7 @@ class gpfq_mode(gpxq_mode):
         # GPFA2Q params
         self.use_gpfa2q = use_gpfa2q
         self.accumulator_bit_width = accumulator_bit_width
+        self.a2q_layer_filter_fnc = a2q_layer_filter_fnc  # returns true when to use GPFA2Q
 
     def catch_stopfwd(self, *args, **kwargs):
         # Collect quant input
@@ -101,7 +116,7 @@ class gpfq_mode(gpxq_mode):
 
     def initialize_module_optimizer(
             self, layer, name, act_order, len_parallel_layers, create_weight_orig):
-        if not self.use_gpfa2q:
+        if (not self.a2q_layer_filter_fnc(layer)) or (not self.use_gpfa2q):
             return GPFQ(
                 layer=layer,
                 name=name,
@@ -287,12 +302,13 @@ class GPFA2Q(GPFQ):
             p=p)
         self.accumulator_bit_width = accumulator_bit_width
         assert self.accumulator_bit_width is not None
+        self.requires_quant_input = True  # force true
 
     def single_layer_update(self):
         # raise error in case no quant-input is here
         if self.quant_input is None:
             raise ValueError(
-                'Expected quant input to calculate Upper Bound on L1 norm, but received None')
+                'Expected quant input to calculate L1-norm upper bound, but received None')
         weight = self.layer.weight.data
         dev = weight.device
         dtype = weight.dtype
@@ -314,7 +330,8 @@ class GPFA2Q(GPFQ):
         s = self.layer.quant_weight_scale()
         s = s.view(self.groups, -1)  # [Groups, OC/Groups]
 
-        l1_norm = torch.zeros(weight.shape[:-1], device=dev)
+        # initialize cumulative l1-norm
+        z = torch.zeros(weight.shape[:-1], device=dev)
 
         # We don't need full Hessian, we just need the diagonal
         self.H_diag = self.quantized_input.transpose(2, 1).square().sum(
@@ -345,18 +362,13 @@ class GPFA2Q(GPFQ):
                 else:
                     q_arg = torch.zeros_like(U[group_index, :, 0])
 
+                max_q_arg = s[group_index, :] * torch.clamp_min(T - z[group_index, :], 0.)
+                q_arg = q_arg.sign() * torch.clamp_max(q_arg.abs(), max_q_arg)
                 weight[group_index, :, permutation_list[group_index][t]] = q_arg
             q = self.get_quant_weights(t, 0, permutation_list)
+            z += q.abs() / s  # increment cumulative l1-norm
 
             for group_index in range(self.groups):
-                candidate_l1 = l1_norm[group_index] + torch.abs(q[group_index])
-                candidate_l1_mask = candidate_l1 > T * s[group_index]
-                if torch.any(candidate_l1_mask):
-                    # set all values to 0 that are exceeding T * s
-                    weight[group_index, :, permutation_list[group_index][t]][candidate_l1_mask] = 0
-                    q[group_index][candidate_l1_mask] = 0
-                else:
-                    l1_norm[group_index] = candidate_l1
                 U[group_index] -= torch.matmul(
                     q[group_index].unsqueeze(1),
                     self.quantized_input[group_index, :,

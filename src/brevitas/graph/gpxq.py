@@ -34,6 +34,32 @@ class LayerHandler:
 
 
 class gpxq_mode(ABC):
+    """
+    Apply GPxQ algorithm.
+
+    Args:
+        model (Module): The model to quantize with GPxQ
+        group_of_parallel_layers (Optional, List[str]): .List of lists where each inner list is a group
+            of layer names that can be optimized in parallel. Default: None
+        inplace (bool): Wheter to apply GPFQ inplace or perform a deepcopy. Default: True
+        create_weight_orig (bool): If True, store the original floating point weights before applying
+            gpxq. These weights will be used anytime quantization is disabled. Default: True
+        use_quant_activations (bool): Wheter to leave quantize activations enabled while performing
+            GPxQ. Default: False
+        act_order (bool): Whether to order greedy path following by Hessian approximation. Default: False
+        return_forward_output (bool): If True, returns the output of the forward pass. Otherwise the
+            forward call inside the context manager returns None. Default: False
+
+    Example:
+        >>> with torch.no_grad():
+        >>>     with gpxq_mode(model) as gpxq:
+        >>>         gpxq_mode = gpxq.model
+        >>>         for i in tqdm(range(gpxq.num_layers)):
+        >>>             for img, t in calib_loader:
+        >>>                 img = img.cuda()
+        >>>                 gpxq_mode(img)
+        >>>             gpxq.update()
+    """
 
     def __init__(
             self,
@@ -181,32 +207,59 @@ class GPxQ(ABC):
         self.disable_pre_forward_hook = False
         # Some layers require knowledge from quant inputs to compute quant weights
         self.quant_input = None
+        self.requires_quant_input = False  # For GPFA2Q
+
+    @property
+    def layer_requires_input_quant(self):
+        # some weight quantizers require a quant input (e.g., A2Q)
+        check_1 = self.layer.weight_quant_requires_quant_input
+        # if input_quant is enabled, then we will store its information
+        check_2 = self.layer.is_input_quant_enabled
+        # GPFA2Q requires the quantized input to be stored
+        check_3 = self.requires_quant_input
+        requires_input_quant = check_1 or check_2 or check_3
+        return requires_input_quant
 
     def process_input(self, inp):
         # Input is a tuple, so we take first element
         inp = inp[0]
-        # If using Quant Activations, inp could be QuantTensor
+
+        # if the quant_input is not already cached, then get
+        # metadata from QuantWBIOL module
+        if self.quant_input is None:
+            inp_scale = self.layer.quant_input_scale()
+            inp_zero_point = self.layer.quant_input_zero_point()
+            inp_bit_width = self.layer.quant_input_bit_width()
+            inp_signed = self.layer.is_quant_input_signed
+            inp_training = self.layer.training
+
+        # If using quantized activations, inp could be QuantTensor. In
+        # this case, we overwrite the metadata if it is specified.
         if isinstance(inp, QuantTensor):
-            if self.layer.weight_quant_requires_quant_input:
-                # Can minimize memory allocation by not storing actual values
-                self.quant_input = QuantTensor(
-                    value=torch.empty(
-                        1, dtype=self.layer.weight.dtype, device=self.layer.weight.device),
-                    scale=inp.scale,
-                    zero_point=inp.zero_point,
-                    bit_width=inp.bit_width,
-                    signed=inp.signed,
-                    training=inp.training)
+            if self.layer_requires_input_quant and (self.quant_input is None):
+                if inp.scale is not None:
+                    inp_scale = inp.scale
+                if inp.zero_point is not None:
+                    inp_zero_point = inp.zero_point
+                if inp.bit_width is not None:
+                    inp_bit_width = inp.bit_width
+                if inp.signed is not None:
+                    inp_signed = inp.signed
+                if inp.training is not None:
+                    inp_training = inp.training
             inp = inp.value
-        elif self.layer.is_input_quant_enabled:
+
+        # if the layer requires an input quant and the quant input cache has
+        # yet to be populated, then populate with the collected metadata
+        if self.layer_requires_input_quant and (self.quant_input is None):
             self.quant_input = QuantTensor(
                 value=torch.empty(
                     1, dtype=self.layer.weight.dtype, device=self.layer.weight.device),
-                scale=self.layer.quant_input_scale(),
-                zero_point=self.layer.quant_input_zero_point(),
-                bit_width=self.layer.quant_input_bit_width(),
-                signed=self.layer.is_quant_input_signed,
-                training=self.layer.training)
+                scale=inp_scale,
+                zero_point=inp_zero_point,
+                bit_width=inp_bit_width,
+                signed=inp_signed,
+                training=inp_training)
 
         # If input is unbatched, add batch_size = 1
         if len(inp.shape) == 1:
