@@ -57,9 +57,9 @@ class FloatQuant(brevitas.jit.ScriptModule):
             scaling_impl = ConstScaling(1., device=device, dtype=dtype)
         if case_clamp_impl is None:
             self.case_clamp_impl = FloatClamp(
-                exponent_bit_width=self.exponent_bit_width,
-                mantissa_bit_width=self.mantissa_bit_width,
-                exponent_bias=self.exponent_bias)
+                exponent_bit_width=self.exponent_bit_width(),
+                mantissa_bit_width=self.mantissa_bit_width(),
+                exponent_bias=self.exponent_bias())
         # Zero-point is currently hardcoded to 0
         self.zero_point_impl = StatelessBuffer(torch.tensor(0., device=device, dtype=dtype))
         self.float_scaling_impl = float_scaling_impl

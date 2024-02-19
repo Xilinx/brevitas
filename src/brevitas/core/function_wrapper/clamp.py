@@ -13,11 +13,8 @@ import brevitas
 from brevitas.core.utils import StatelessBuffer
 from brevitas.function import max_float
 from brevitas.function import tensor_clamp
+from brevitas.utils.float_quant_utils import dec_to_bits
 from brevitas.utils.float_quant_utils import get_minifloat_value
-
-P_INF_TENSOR = torch.tensor(float('inf'))
-N_INF_TENSOR = torch.tensor(float('-inf'))
-NAN_TENSOR = torch.tensor(float('nan'))
 
 
 class TensorClamp(brevitas.jit.ScriptModule):
@@ -91,13 +88,7 @@ class FloatClamp(brevitas.jit.ScriptModule):
     I.e. setting inf to 1101.111 (E4M3) is not a valid code.
     """
 
-    __constants__ = [
-        'exponent_bit_width',
-        'mantissa_bit_width',
-        'exponent_bias',
-        'nan_values',
-        'inf_values',
-        'saturating']
+    __constants__ = ['nan_values', 'inf_values', 'saturating']
 
     def __init__(
             self,
@@ -109,9 +100,9 @@ class FloatClamp(brevitas.jit.ScriptModule):
             saturating: bool = False) -> None:
         super(FloatClamp, self).__init__()
 
-        self.exponent_bit_width = exponent_bit_width
-        self.mantissa_bit_width = mantissa_bit_width
-        self.exponent_bias = exponent_bias
+        self.exponent_bit_width = torch.tensor(exponent_bit_width)
+        self.mantissa_bit_width = torch.tensor(mantissa_bit_width)
+        self.exponent_bias = torch.tensor(exponent_bias)
 
         self.nan_values = nan_values
         self.inf_values = inf_values
@@ -120,8 +111,7 @@ class FloatClamp(brevitas.jit.ScriptModule):
         # inf without NaN not possible
         if self.inf_values is None and self.nan_values is None:
             self.max_val_impl = StatelessBuffer(
-                max_float(
-                    self.exponent_bit_width(), self.mantissa_bit_width(), self.exponent_bias()))
+                max_float(self.exponent_bit_width, self.mantissa_bit_width, self.exponent_bias))
         elif self.nan_values is not None:
             # we at least have values for NaN, so initiate MaxValInfNaN
             self.max_val_impl = MaxFloatInfNaN(
@@ -170,7 +160,7 @@ class MaxFloatInfNaN(brevitas.jit.ScriptModule):
             raise RuntimeError('NaN/inf codes need to be the same length as the mantissa.')
 
         # move computation of min for forward pass here so it's jit compatible
-        self._min_special_case = min(map(lambda x: int(x, 2), self._special_values))
+        self._min_special_case = torch.tensor(min(map(lambda x: int(x, 2), self._special_values)))
 
     @brevitas.jit.script_method
     def forward(self):
@@ -179,21 +169,20 @@ class MaxFloatInfNaN(brevitas.jit.ScriptModule):
 
         if max_value_mantissa < 0:
             # all mantissa values are used, so we need to use decrease exponent values
-            exponent_string = '1' * (self.exponent_bit_width - 1)
-            exponent_string += '0'  # add trailing 0 to reach bit width
+            exponent = torch.tensor(1).repeat(self.exponent_bit_width - 1)
+            exponent = torch.cat([exponent, torch.tensor([0], dtype=exponent.dtype)
+                                 ])  # add trailing 0 to reach bit width
             # since we decreased exponent, we can use full mantissa
-            mantissa_string = '1' * self.mantissa_bit_width
+            mantissa = torch.tensor(1).repeat(self.mantissa_bit_width)
         else:
             # there is a free mantissa code, so use full exponent
-            exponent_string = '1' * self.exponent_bit_width
+            exponent = torch.tensor(1).repeat(self.exponent_bit_width)
             # get binary code for max_value_mantissa in the number of mantissa bits
-            mantissa_string = format(max_value_mantissa, f'0{self.mantissa_bit_width}b')
+            mantissa = dec_to_bits(max_value_mantissa, self.mantissa_bit_width)
 
         # we don't need the sign since we're looking for the max value
         max_value = get_minifloat_value(
-            exponent_string=exponent_string,
-            mantissa_string=mantissa_string,
-            exponent_bias=self.exponent_bias)
+            exponent=exponent, mantissa=mantissa, exponent_bias=self.exponent_bias)
         return max_value
 
 
@@ -218,14 +207,14 @@ class CaseClamp(brevitas.jit.ScriptModule):
         else:
             if self.inf_values is not None:
                 # we have inf values, so we set abs values > max_value to +- inf, and leave inf at inf
-                x[p_max_val_mask] = P_INF_TENSOR
-                x[n_max_val_mask] = N_INF_TENSOR
+                x[p_max_val_mask] = torch.tensor(float('inf'))
+                x[n_max_val_mask] = torch.tensor(float('-inf'))
             else:
                 # no inf values, so we need to map them to NaN
                 full_max_val_mask = torch.logical_or(p_max_val_mask, n_max_val_mask)
-                x[full_max_val_mask] = NAN_TENSOR
+                x[full_max_val_mask] = torch.tensor(float('nan'))
 
                 # we also map the inf values to NaN in this case
-                x[inf_mask] = NAN_TENSOR
+                x[inf_mask] = torch.tensor(float('nan'))
 
         return x
