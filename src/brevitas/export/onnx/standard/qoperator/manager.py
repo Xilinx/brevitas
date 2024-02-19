@@ -28,6 +28,7 @@ from .handler.parameter import StdQOpONNXQuantConv1dHandler
 from .handler.parameter import StdQOpONNXQuantConv2dHandler
 from .handler.parameter import StdQOpONNXQuantLinearHandler
 
+
 class StdQOpONNXManager(StdONNXBaseManager):
     target_name = 'StdQOpONNX'
 

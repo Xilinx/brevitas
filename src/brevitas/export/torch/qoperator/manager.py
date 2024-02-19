@@ -21,6 +21,7 @@ from .handler.parameter import PytorchQuantConv1dHandler
 from .handler.parameter import PytorchQuantConv2dHandler
 from .handler.parameter import PytorchQuantLinearHandler
 
+
 class TorchQOpManager(BaseManager):
     target_name = 'torch'
 
