@@ -41,7 +41,7 @@ class StdQOpONNXManager(StdONNXBaseManager):
         F.max_pool3d,
         F.adaptive_max_pool1d,
         F.adaptive_max_pool2d,
-        F.adaptive_max_pool3d,]
+        F.adaptive_max_pool3d]
 
     handlers = [
         StdQOpONNXQuantConv1dHandler,
@@ -51,7 +51,7 @@ class StdQOpONNXManager(StdONNXBaseManager):
         StdQOpONNXQuantHardTanhHandler,
         StdQOpONNXQuantIdentityHandler,
         StdQOpONNXQuantTanhHandler,
-        StdQOpONNXQuantSigmoidHandler,]
+        StdQOpONNXQuantSigmoidHandler]
 
     onnx_passes = [
         # remove unused graph inputs & initializers
