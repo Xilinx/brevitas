@@ -19,7 +19,6 @@ from .quant_conv import QuantConv3d
 from .quant_convtranspose import QuantConvTranspose1d
 from .quant_convtranspose import QuantConvTranspose2d
 from .quant_convtranspose import QuantConvTranspose3d
-from .quant_dropout import QuantDropout
 from .quant_eltwise import QuantCat
 from .quant_eltwise import QuantEltwiseAdd
 from .quant_embedding import QuantEmbedding
