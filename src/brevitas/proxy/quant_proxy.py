@@ -21,6 +21,13 @@ __all__ = [
     'QuantProxyFromInjector',]
 
 
+def _is_groupwise(quant_injector):
+    if 'group_size' in quant_injector:
+        return True
+    else:
+        return False
+
+
 def _is_signed(quant_injector):
     if 'signed' in quant_injector:
         return quant_injector.signed
@@ -104,6 +111,10 @@ class QuantProxyFromInjector(ExportMixin, nn.Module, QuantProxyProtocol):
     @property
     def is_signed(self):
         return _is_signed(self.quant_injector)
+
+    @property
+    def is_groupwise(self):
+        return _is_groupwise(self.quant_injector)
 
     @property
     def is_narrow_range(self):

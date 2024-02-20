@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
 
-    <title>brevitas.core.function_wrapper package &#8212; Brevitas 0.10.0b1.dev37+g993c869.d20231123 documentation</title>
+    <title>brevitas.core.function_wrapper package &#8212; Brevitas 0.10.2 documentation</title>
   
   
   
@@ -126,8 +126,8 @@
       
     
     
-    <img src="../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.10.0b1.dev37+g993c869.d20231123 documentation - Home"/>
-    <script>document.write(`<img src="../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.10.0b1.dev37+g993c869.d20231123 documentation - Home"/>`);</script>
+    <img src="../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.10.2 documentation - Home"/>
+    <script>document.write(`<img src="../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.10.2 documentation - Home"/>`);</script>
   
   
 </a></div>
@@ -916,6 +916,35 @@ registered hooks while the latter silently ignores them.</p>
 </dd></dl>
 
 <dl class="py class">
+<dt class="sig sig-object py" id="brevitas.core.function_wrapper.shape.OverOutputFeaturesView">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.function_wrapper.shape.</span></span><span class="sig-name descname"><span class="pre">OverOutputFeaturesView</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">permute_dims</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/shape.html#OverOutputFeaturesView"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.shape.OverOutputFeaturesView" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<p>ScriptModule to compute the <a class="reference internal" href="brevitas.function.html#brevitas.function.shape.over_output_features" title="brevitas.function.shape.over_output_features"><code class="xref py py-func docutils literal notranslate"><span class="pre">over_output_features()</span></code></a>
+view of an input tensor.</p>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">view_module</span> <span class="o">=</span> <span class="n">OverOutputFeaturesView</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">y</span> <span class="o">=</span> <span class="n">view_module</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">25</span><span class="p">]))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">y</span><span class="o">.</span><span class="n">shape</span>
+<span class="go">torch.Size([80, 25])</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.core.function_wrapper.shape.OverOutputFeaturesView.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/shape.html#OverOutputFeaturesView.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.shape.OverOutputFeaturesView.forward" title="Permalink to this definition">#</a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.shape.OverTensorView">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.function_wrapper.shape.</span></span><span class="sig-name descname"><span class="pre">OverTensorView</span></span><a class="reference internal" href="../_modules/brevitas/core/function_wrapper/shape.html#OverTensorView"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.function_wrapper.shape.OverTensorView" title="Permalink to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
@@ -985,6 +1014,12 @@ All adhere to the same interface.</p>
 <dt class="sig sig-object py" id="brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS">
 <span class="sig-name descname"><span class="pre">OVER_OUTPUT_CHANNELS</span></span><a class="headerlink" href="#brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS" title="Permalink to this definition">#</a></dt>
 <dd><p>alias of <a class="reference internal" href="#brevitas.core.function_wrapper.shape.OverOutputChannelView" title="brevitas.core.function_wrapper.shape.OverOutputChannelView"><code class="xref py py-class docutils literal notranslate"><span class="pre">OverOutputChannelView</span></code></a></p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl.OVER_OUTPUT_FEATURES">
+<span class="sig-name descname"><span class="pre">OVER_OUTPUT_FEATURES</span></span><a class="headerlink" href="#brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl.OVER_OUTPUT_FEATURES" title="Permalink to this definition">#</a></dt>
+<dd><p>alias of <a class="reference internal" href="#brevitas.core.function_wrapper.shape.OverOutputFeaturesView" title="brevitas.core.function_wrapper.shape.OverOutputFeaturesView"><code class="xref py py-class docutils literal notranslate"><span class="pre">OverOutputFeaturesView</span></code></a></p>
 </dd></dl>
 
 <dl class="py attribute">
@@ -1127,6 +1162,10 @@ All adhere to the same interface.</p>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.shape.OverOutputChannelView.forward"><code class="docutils literal notranslate"><span class="pre">OverOutputChannelView.forward()</span></code></a></li>
 </ul>
 </li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.shape.OverOutputFeaturesView"><code class="docutils literal notranslate"><span class="pre">OverOutputFeaturesView</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.shape.OverOutputFeaturesView.forward"><code class="docutils literal notranslate"><span class="pre">OverOutputFeaturesView.forward()</span></code></a></li>
+</ul>
+</li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.shape.OverTensorView"><code class="docutils literal notranslate"><span class="pre">OverTensorView</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.shape.OverTensorView.forward"><code class="docutils literal notranslate"><span class="pre">OverTensorView.forward()</span></code></a></li>
 </ul>
@@ -1139,6 +1178,7 @@ All adhere to the same interface.</p>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl.OVER_BATCH_OVER_OUTPUT_CHANNELS"><code class="docutils literal notranslate"><span class="pre">StatsInputViewShapeImpl.OVER_BATCH_OVER_OUTPUT_CHANNELS</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl.OVER_BATCH_OVER_TENSOR"><code class="docutils literal notranslate"><span class="pre">StatsInputViewShapeImpl.OVER_BATCH_OVER_TENSOR</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS"><code class="docutils literal notranslate"><span class="pre">StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl.OVER_OUTPUT_FEATURES"><code class="docutils literal notranslate"><span class="pre">StatsInputViewShapeImpl.OVER_OUTPUT_FEATURES</span></code></a></li>
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl.OVER_TENSOR"><code class="docutils literal notranslate"><span class="pre">StatsInputViewShapeImpl.OVER_TENSOR</span></code></a></li>
 </ul>
 </li>

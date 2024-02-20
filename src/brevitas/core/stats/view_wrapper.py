@@ -7,6 +7,7 @@ from torch.nn import Module
 from torch.nn import Parameter
 
 import brevitas
+import brevitas.config as config
 from brevitas.core.function_wrapper import StatsInputViewShapeImpl  # retrocomp
 
 
@@ -33,7 +34,8 @@ class _ViewParameterWrapper(brevitas.jit.ScriptModule):
     def state_dict(self, destination=None, prefix='', keep_vars=False):
         output_dict = super(_ViewParameterWrapper, self).state_dict(
             destination=destination, prefix=prefix, keep_vars=keep_vars)
-        del output_dict[prefix + 'parameter']
+        if not config._FULL_STATE_DICT:
+            del output_dict[prefix + 'parameter']
         return output_dict
 
 
@@ -62,5 +64,6 @@ class _ViewCatParameterWrapper(brevitas.jit.ScriptModule):
     def state_dict(self, destination=None, prefix='', keep_vars=False):
         output_dict = super(_ViewCatParameterWrapper, self).state_dict(
             destination=destination, prefix=prefix, keep_vars=keep_vars)
-        del output_dict[prefix + 'parameter']
+        if not config._FULL_STATE_DICT:
+            del output_dict[prefix + 'parameter']
         return output_dict

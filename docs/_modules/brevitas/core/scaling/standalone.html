@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>brevitas.core.scaling.standalone &#8212; Brevitas 0.10.0b1.dev37+g993c869.d20231123 documentation</title>
+    <title>brevitas.core.scaling.standalone &#8212; Brevitas 0.10.2 documentation</title>
   
   
   
@@ -123,8 +123,8 @@
       
     
     
-    <img src="../../../../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.10.0b1.dev37+g993c869.d20231123 documentation - Home"/>
-    <script>document.write(`<img src="../../../../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.10.0b1.dev37+g993c869.d20231123 documentation - Home"/>`);</script>
+    <img src="../../../../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.10.2 documentation - Home"/>
+    <script>document.write(`<img src="../../../../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.10.2 documentation - Home"/>`);</script>
   
   
 </a></div>
@@ -632,7 +632,8 @@ document.write(`
             <span class="n">destination</span><span class="o">=</span><span class="n">destination</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="n">prefix</span><span class="p">,</span> <span class="n">keep_vars</span><span class="o">=</span><span class="n">keep_vars</span><span class="p">)</span>
         <span class="c1"># Avoid saving the init value</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">init_done</span><span class="p">:</span>
-            <span class="k">del</span> <span class="n">output_dict</span><span class="p">[</span><span class="n">prefix</span> <span class="o">+</span> <span class="s1">&#39;value&#39;</span><span class="p">]</span></div>
+            <span class="k">del</span> <span class="n">output_dict</span><span class="p">[</span><span class="n">prefix</span> <span class="o">+</span> <span class="s1">&#39;value&#39;</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">output_dict</span></div>
 
     <span class="k">def</span> <span class="nf">_load_from_state_dict</span><span class="p">(</span>
             <span class="bp">self</span><span class="p">,</span> <span class="n">state_dict</span><span class="p">,</span> <span class="n">prefix</span><span class="p">,</span> <span class="n">local_metadata</span><span class="p">,</span> <span class="n">strict</span><span class="p">,</span> <span class="n">missing_keys</span><span class="p">,</span> <span class="n">unexpected_keys</span><span class="p">,</span>

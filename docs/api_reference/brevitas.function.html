@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
 
-    <title>brevitas.function package &#8212; Brevitas 0.10.0b1.dev37+g993c869.d20231123 documentation</title>
+    <title>brevitas.function package &#8212; Brevitas 0.10.2 documentation</title>
   
   
   
@@ -126,8 +126,8 @@
       
     
     
-    <img src="../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.10.0b1.dev37+g993c869.d20231123 documentation - Home"/>
-    <script>document.write(`<img src="../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.10.0b1.dev37+g993c869.d20231123 documentation - Home"/>`);</script>
+    <img src="../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.10.2 documentation - Home"/>
+    <script>document.write(`<img src="../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.10.2 documentation - Home"/>`);</script>
   
   
 </a></div>
@@ -485,6 +485,20 @@ The implemented functions adheres to the restriction imposed by Pytorch 1.1.0’
 <span class="go">tensor([-1., -0.,  0.,  2.])</span>
 </pre></div>
 </div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="brevitas.function.ops.get_upper_bound_on_l1_norm">
+<span class="sig-prename descclassname"><span class="pre">brevitas.function.ops.</span></span><span class="sig-name descname"><span class="pre">get_upper_bound_on_l1_norm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">accumulator_bit_width</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_bit_width</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_is_signed</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/function/ops.html#get_upper_bound_on_l1_norm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.ops.get_upper_bound_on_l1_norm" title="Permalink to this definition">#</a></dt>
+<dd><p>Calculate the upper bound on the l1-norm of the weights needed to guarantee overflow avoidance
+for a given accumulator bit width and input representation using the derivations from
+<cite>A2Q: Accumulator-Aware Quantization with Guaranteed Overflow Avoidance</cite> by I.Colbert,
+A.Pappalardo, and J.Petri-Koenig. Note that this assumes integer quantization.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
@@ -1065,6 +1079,26 @@ x (Tensor): Input tensor with output channels at dimension 0.</p>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="brevitas.function.shape.over_output_features">
+<span class="sig-prename descclassname"><span class="pre">brevitas.function.shape.</span></span><span class="sig-name descname"><span class="pre">over_output_features</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/function/shape.html#over_output_features"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.shape.over_output_features" title="Permalink to this definition">#</a></dt>
+<dd><p>Returns a shape s such that x.view(s) is a 2-dim tensor with all features except the last
+one at dimension 0.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>x</strong> (<em>Tensor</em>) – Input tensor with batches at dimension 0 and output channels at dimension 1.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A tuple containing the 2-dim shape.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">over_output_features</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">([</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">]))</span>
+<span class="go">(24, 3)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="brevitas.function.shape.over_tensor">
 <span class="sig-prename descclassname"><span class="pre">brevitas.function.shape.</span></span><span class="sig-name descname"><span class="pre">over_tensor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/function/shape.html#over_tensor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.shape.over_tensor" title="Permalink to this definition">#</a></dt>
 <dd><p>Computes the shape s such that x.view(s) is a flat tensor.</p>
@@ -1136,6 +1170,7 @@ x (Tensor): Input tensor with output channels at dimension 0.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-brevitas.function.ops">brevitas.function.ops module</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.ops.binary_sign"><code class="docutils literal notranslate"><span class="pre">binary_sign()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.ops.dpu_round"><code class="docutils literal notranslate"><span class="pre">dpu_round()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.ops.get_upper_bound_on_l1_norm"><code class="docutils literal notranslate"><span class="pre">get_upper_bound_on_l1_norm()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.ops.identity"><code class="docutils literal notranslate"><span class="pre">identity()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.ops.max_float"><code class="docutils literal notranslate"><span class="pre">max_float()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.ops.max_int"><code class="docutils literal notranslate"><span class="pre">max_int()</span></code></a></li>
@@ -1164,6 +1199,7 @@ x (Tensor): Input tensor with output channels at dimension 0.</p>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.shape.over_batch_over_output_channels"><code class="docutils literal notranslate"><span class="pre">over_batch_over_output_channels()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.shape.over_batch_over_tensor"><code class="docutils literal notranslate"><span class="pre">over_batch_over_tensor()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.shape.over_output_channels"><code class="docutils literal notranslate"><span class="pre">over_output_channels()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.shape.over_output_features"><code class="docutils literal notranslate"><span class="pre">over_output_features()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.shape.over_tensor"><code class="docutils literal notranslate"><span class="pre">over_tensor()</span></code></a></li>
 </ul>
 </li>

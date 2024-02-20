@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
 
-    <title>brevitas.core package &#8212; Brevitas 0.10.0b1.dev37+g993c869.d20231123 documentation</title>
+    <title>brevitas.core package &#8212; Brevitas 0.10.2 documentation</title>
   
   
   
@@ -126,8 +126,8 @@
       
     
     
-    <img src="../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.10.0b1.dev37+g993c869.d20231123 documentation - Home"/>
-    <script>document.write(`<img src="../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.10.0b1.dev37+g993c869.d20231123 documentation - Home"/>`);</script>
+    <img src="../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.10.2 documentation - Home"/>
+    <script>document.write(`<img src="../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.10.2 documentation - Home"/>`);</script>
   
   
 </a></div>
@@ -555,6 +555,10 @@ document.write(`
 <li class="toctree-l4"><a class="reference internal" href="brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.shape.OverOutputChannelView.forward"><code class="docutils literal notranslate"><span class="pre">OverOutputChannelView.forward()</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.shape.OverOutputFeaturesView"><code class="docutils literal notranslate"><span class="pre">OverOutputFeaturesView</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.shape.OverOutputFeaturesView.forward"><code class="docutils literal notranslate"><span class="pre">OverOutputFeaturesView.forward()</span></code></a></li>
+</ul>
+</li>
 <li class="toctree-l3"><a class="reference internal" href="brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.shape.OverTensorView"><code class="docutils literal notranslate"><span class="pre">OverTensorView</span></code></a><ul>
 <li class="toctree-l4"><a class="reference internal" href="brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.shape.OverTensorView.forward"><code class="docutils literal notranslate"><span class="pre">OverTensorView.forward()</span></code></a></li>
 </ul>
@@ -567,6 +571,7 @@ document.write(`
 <li class="toctree-l4"><a class="reference internal" href="brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl.OVER_BATCH_OVER_OUTPUT_CHANNELS"><code class="docutils literal notranslate"><span class="pre">StatsInputViewShapeImpl.OVER_BATCH_OVER_OUTPUT_CHANNELS</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl.OVER_BATCH_OVER_TENSOR"><code class="docutils literal notranslate"><span class="pre">StatsInputViewShapeImpl.OVER_BATCH_OVER_TENSOR</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS"><code class="docutils literal notranslate"><span class="pre">StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl.OVER_OUTPUT_FEATURES"><code class="docutils literal notranslate"><span class="pre">StatsInputViewShapeImpl.OVER_OUTPUT_FEATURES</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="brevitas.core.function_wrapper.html#brevitas.core.function_wrapper.shape.StatsInputViewShapeImpl.OVER_TENSOR"><code class="docutils literal notranslate"><span class="pre">StatsInputViewShapeImpl.OVER_TENSOR</span></code></a></li>
 </ul>
 </li>
@@ -1318,6 +1323,39 @@ registered hooks while the latter silently ignores them.</p>
 </dd></dl>
 
 <dl class="py class">
+<dt class="sig sig-object py" id="brevitas.core.zero_point.PreZeroCenterZeroPoint">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.zero_point.</span></span><span class="sig-name descname"><span class="pre">PreZeroCenterZeroPoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">stats_reduce_dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pre_zero_point_stats_input_view_shape_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pre_zero_point_shape</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/zero_point.html#PreZeroCenterZeroPoint"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.zero_point.PreZeroCenterZeroPoint" title="Permalink to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
+<p>Experimental ScriptModule implementation of a pre-scaling zero-point that zero-centers
+the incoming tensors. This is intended to be used with <cite>DecoupledIntQuant</cite>.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.core.zero_point.PreZeroCenterZeroPoint.forward">
+<span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bit_width</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/zero_point.html#PreZeroCenterZeroPoint.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.zero_point.PreZeroCenterZeroPoint.forward" title="Permalink to this definition">#</a></dt>
+<dd><p>Defines the computation performed at every call.</p>
+<p>Should be overridden by all subclasses.
+:rtype: <a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Although the recipe for forward pass needs to be defined within
+this function, one should call the <code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code> instance afterwards
+instead of this since the former takes care of running the
+registered hooks while the latter silently ignores them.</p>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="brevitas.core.zero_point.PreZeroCenterZeroPoint.get_zero_center">
+<span class="sig-name descname"><span class="pre">get_zero_center</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/zero_point.html#PreZeroCenterZeroPoint.get_zero_center"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.zero_point.PreZeroCenterZeroPoint.get_zero_center" title="Permalink to this definition">#</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
 <dt class="sig sig-object py" id="brevitas.core.zero_point.StatsFromParameterZeroPoint">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">brevitas.core.zero_point.</span></span><span class="sig-name descname"><span class="pre">StatsFromParameterZeroPoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">int_quant</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">quantize_zero_point</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zero_point_stats_input_view_shape_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zero_point_stats_input_concat_dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zero_point_stats_impl</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zero_point_shape</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tracked_parameter_list</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/core/zero_point.html#StatsFromParameterZeroPoint"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.core.zero_point.StatsFromParameterZeroPoint" title="Permalink to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a></p>
@@ -1483,6 +1521,11 @@ registered hooks while the latter silently ignores them.</p>
 </li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.zero_point.ParameterZeroPoint"><code class="docutils literal notranslate"><span class="pre">ParameterZeroPoint</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.zero_point.ParameterZeroPoint.forward"><code class="docutils literal notranslate"><span class="pre">ParameterZeroPoint.forward()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.zero_point.PreZeroCenterZeroPoint"><code class="docutils literal notranslate"><span class="pre">PreZeroCenterZeroPoint</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.zero_point.PreZeroCenterZeroPoint.forward"><code class="docutils literal notranslate"><span class="pre">PreZeroCenterZeroPoint.forward()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.zero_point.PreZeroCenterZeroPoint.get_zero_center"><code class="docutils literal notranslate"><span class="pre">PreZeroCenterZeroPoint.get_zero_center()</span></code></a></li>
 </ul>
 </li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.core.zero_point.StatsFromParameterZeroPoint"><code class="docutils literal notranslate"><span class="pre">StatsFromParameterZeroPoint</span></code></a><ul class="nav section-nav flex-column">

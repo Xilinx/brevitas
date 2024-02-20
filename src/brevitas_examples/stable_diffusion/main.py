@@ -10,15 +10,20 @@ import os
 import re
 import time
 
+from dependencies import value
 from diffusers import StableDiffusionPipeline
 import torch
 from torch import nn
 
+from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
+from brevitas.export.torch.qcdq.manager import TorchQCDQManager
 from brevitas_examples.common.generative.quantize import quantize_model
 from brevitas_examples.common.parse_utils import add_bool_arg
 from brevitas_examples.common.parse_utils import quant_format_validator
+from brevitas_examples.llm.llm_quant.export import BlockQuantProxyLevelManager
 from brevitas_examples.stable_diffusion.sd_quant.constants import SD_2_1_EMBEDDINGS_SHAPE
-from brevitas_examples.stable_diffusion.sd_quant.export import export_torchscript_weight_group_quant
+from brevitas_examples.stable_diffusion.sd_quant.export import export_onnx
+from brevitas_examples.stable_diffusion.sd_quant.export import export_torchscript
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_latents
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_unet_rand_inputs
 from brevitas_examples.stable_diffusion.sd_quant.utils import unet_input_shape
@@ -87,15 +92,14 @@ def main(args):
     # Quantize model
     if args.quantize:
 
-        def bit_width_fn(module):
+        @value
+        def bit_width(module):
             if isinstance(module, nn.Linear):
                 return args.linear_weight_bit_width
             elif isinstance(module, nn.Conv2d):
                 return args.conv_weight_bit_width
             else:
                 raise RuntimeError(f"Module {module} not supported.")
-
-        weight_bit_width = lambda module: bit_width_fn(module)
 
         print("Applying model quantization...")
         quantize_model(
@@ -104,7 +108,7 @@ def main(args):
             name_blacklist=blacklist,
             weight_quant_format=args.weight_quant_format,
             weight_quant_type=args.weight_quant_type,
-            weight_bit_width=weight_bit_width,
+            weight_bit_width=bit_width,
             weight_param_method=args.weight_param_method,
             weight_scale_precision=args.weight_scale_precision,
             weight_quant_granularity=args.weight_quant_granularity,
@@ -125,19 +129,32 @@ def main(args):
 
     if args.export_target:
         # Move to cpu and to float32 to enable CPU export
-        pipe.unet.to('cpu').to(torch.float32)
+        if not (args.float16 and args.export_cuda_float16):
+            pipe.unet.to('cpu').to(torch.float32)
         pipe.unet.eval()
-    if args.export_target == 'torchscript_weight_group_quant':
-        assert args.weight_quant_granularity == 'per_group', "Per-group quantization required."
+        device = next(iter(pipe.unet.parameters())).device
+        dtype = next(iter(pipe.unet.parameters())).dtype
+    if args.export_target:
         assert args.weight_quant_format == 'int', "Only integer quantization supported for export."
         trace_inputs = generate_unet_rand_inputs(
             embedding_shape=SD_2_1_EMBEDDINGS_SHAPE,
             unet_input_shape=unet_input_shape(args.resolution),
-            device='cpu',
-            dtype=torch.float32)
-        export_torchscript_weight_group_quant(pipe, trace_inputs, output_dir)
-    else:
-        raise ValueError(f"{args.export_target} not recognized.")
+            device=device,
+            dtype=dtype)
+        if args.export_target == 'torchscript':
+            if args.weight_quant_granularity == 'per_group':
+                export_manager = BlockQuantProxyLevelManager
+            else:
+                export_manager = TorchQCDQManager
+                export_manager.change_weight_export(export_weight_q_node=True)
+            export_torchscript(pipe, trace_inputs, output_dir, export_manager)
+        elif args.export_target == 'onnx':
+            if args.weight_quant_granularity == 'per_group':
+                export_manager = BlockQuantProxyLevelManager
+            else:
+                export_manager = StdQCDQONNXManager
+                export_manager.change_weight_export(export_weight_q_node=True)
+            export_onnx(pipe, trace_inputs, output_dir, export_manager)
 
 
 if __name__ == "__main__":
@@ -174,7 +191,7 @@ if __name__ == "__main__":
         '--export-target',
         type=str,
         default='',
-        choices=['', 'torchscript_weight_group_quant'],
+        choices=['', 'torchscript', 'onnx'],
         help='Target export flow.')
     parser.add_argument(
         '--conv-weight-bit-width', type=int, default=8, help='Weight bit width. Default: 8.')
@@ -217,6 +234,7 @@ if __name__ == "__main__":
         help='Group size for per_group weight quantization. Default: 16.')
     add_bool_arg(
         parser, 'quantize-weight-zero-point', default=True, help='Quantize weight zero-point.')
+    add_bool_arg(parser, 'export-cuda-float16', default=False, help='Export FP16 on CUDA')
     args = parser.parse_args()
     print("Args: " + str(vars(args)))
     main(args)

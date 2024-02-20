@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>brevitas.core.zero_point &#8212; Brevitas 0.10.0b1.dev37+g993c869.d20231123 documentation</title>
+    <title>brevitas.core.zero_point &#8212; Brevitas 0.10.2 documentation</title>
   
   
   
@@ -123,8 +123,8 @@
       
     
     
-    <img src="../../../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.10.0b1.dev37+g993c869.d20231123 documentation - Home"/>
-    <script>document.write(`<img src="../../../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.10.0b1.dev37+g993c869.d20231123 documentation - Home"/>`);</script>
+    <img src="../../../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.10.2 documentation - Home"/>
+    <script>document.write(`<img src="../../../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.10.2 documentation - Home"/>`);</script>
   
   
 </a></div>
@@ -434,7 +434,8 @@ document.write(`
     <span class="s1">&#39;StatsFromParameterZeroPoint&#39;</span><span class="p">,</span>
     <span class="s1">&#39;ParameterFromRuntimeZeroPoint&#39;</span><span class="p">,</span>
     <span class="s1">&#39;ParameterZeroPoint&#39;</span><span class="p">,</span>
-    <span class="s1">&#39;ParameterFromStatsFromParameterZeroPoint&#39;</span><span class="p">]</span>
+    <span class="s1">&#39;ParameterFromStatsFromParameterZeroPoint&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;PreZeroCenterZeroPoint&#39;</span><span class="p">]</span>
 
 
 <div class="viewcode-block" id="ZeroZeroPoint"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.zero_point.ZeroZeroPoint">[docs]</a><span class="k">class</span> <span class="nc">ZeroZeroPoint</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
@@ -704,6 +705,36 @@ document.write(`
             <span class="bp">self</span><span class="o">.</span><span class="n">init_done</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">IGNORE_MISSING_KEYS</span> <span class="ow">and</span> <span class="n">value_key</span> <span class="ow">in</span> <span class="n">missing_keys</span><span class="p">:</span>
             <span class="n">missing_keys</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">value_key</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="PreZeroCenterZeroPoint"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.zero_point.PreZeroCenterZeroPoint">[docs]</a><span class="k">class</span> <span class="nc">PreZeroCenterZeroPoint</span><span class="p">(</span><span class="n">brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">ScriptModule</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Experimental ScriptModule implementation of a pre-scaling zero-point that zero-centers</span>
+<span class="sd">    the incoming tensors. This is intended to be used with `DecoupledIntQuant`.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">stats_reduce_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+            <span class="n">pre_zero_point_stats_input_view_shape_impl</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span>
+            <span class="n">pre_zero_point_shape</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="o">...</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">PreZeroCenterZeroPoint</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span> <span class="o">=</span> <span class="n">stats_reduce_dim</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stats_output_shape</span> <span class="o">=</span> <span class="n">pre_zero_point_shape</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stats_input_view_shape_impl</span> <span class="o">=</span> <span class="n">pre_zero_point_stats_input_view_shape_impl</span>
+
+<div class="viewcode-block" id="PreZeroCenterZeroPoint.get_zero_center"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.zero_point.PreZeroCenterZeroPoint.get_zero_center">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
+    <span class="k">def</span> <span class="nf">get_zero_center</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stats_input_view_shape_impl</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">u</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">stats_reduce_dim</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">z</span> <span class="o">=</span> <span class="o">-</span><span class="n">u</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stats_output_shape</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">z</span></div>
+
+<div class="viewcode-block" id="PreZeroCenterZeroPoint.forward"><a class="viewcode-back" href="../../../api_reference/brevitas.core.html#brevitas.core.zero_point.PreZeroCenterZeroPoint.forward">[docs]</a>    <span class="nd">@brevitas</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">script_method</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">scale</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">bit_width</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+        <span class="c1"># NOTE: `DecoupledIntQuant` adds the `pre_zero_point` value to the scaled tensor,</span>
+        <span class="c1"># so this needs to return the negative of the scaled average value to perform</span>
+        <span class="c1"># pre-zero centering before rounding and clipping</span>
+        <span class="n">z</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_zero_center</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">/</span> <span class="n">scale</span>  <span class="c1"># need to scale the norm by s</span>
+        <span class="k">return</span> <span class="n">z</span></div></div>
 </pre></div>
 
                 </article>

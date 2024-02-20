@@ -1,7 +1,7 @@
 # Integer-Quantized Super Resolution Experiments with Brevitas
 
 This directory contains scripts demonstrating how to train integer-quantized super resolution models using Brevitas.
-Code is also provided to demonstrate accumulator-aware quantization (A2Q) as proposed in our ICCV 2023 paper "[A2Q: Accumulator-Aware Quantization with Guaranteed Overflow Avoidance](https://arxiv.org/abs/2308.13504)".
+Code is also provided to demonstrate accumulator-aware quantization (A2Q) as proposed in our ICCV 2023 paper "[A2Q: Accumulator-Aware Quantization with Guaranteed Overflow Avoidance](https://arxiv.org/abs/2308.13504)", as well as A2Q+ as proposed in our paper "[A2Q+: Improving Accumulator-Aware Weight Quantization](https://arxiv.org/abs/2401.10432)", where we introduce and motivate the zero-centered weight quantizer (i.e., `AccumulatorAwareZeroCenterWeightQuant`)
 
 ## Experiments
 

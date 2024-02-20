@@ -5,12 +5,12 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 
 from torch import nn
 
-from brevitas.core.function_wrapper.shape import OverBatchOverOutputChannelView
-from brevitas.core.function_wrapper.shape import OverBatchOverTensorView
+from brevitas.core.function_wrapper.shape import OverOutputFeaturesView
 from brevitas.core.function_wrapper.shape import OverTensorView
 from brevitas.core.scaling import ParameterFromStatsFromParameterScaling
 from brevitas.core.stats import AbsMinMax
 from brevitas.core.stats import NegativeMinOrZero
+from brevitas.core.stats.stats_wrapper import SCALAR_SHAPE
 from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import this
@@ -29,24 +29,24 @@ from .quant_blocks import *
 class WeightSymmetricGroupQuantMixin(ExtendedInjector):
 
     @value
-    def expanded_scaling_shape(module, block_size):
+    def expanded_scaling_shape(module, group_size):
         if isinstance(module, nn.Conv2d):
-            return module.weight.size(0), module.weight.size(1) // block_size, block_size, module.weight.size(2), module.weight.size(3)
+            return module.weight.size(0), module.weight.size(1) // group_size, group_size, module.weight.size(2), module.weight.size(3)
         elif isinstance(module, nn.Linear):
-            return module.weight.size(0), module.weight.size(1) // block_size, block_size
+            return module.weight.size(0), module.weight.size(1) // group_size, group_size
         elif isinstance(module, nn.Embedding):
-            return module.weight.size(0), module.weight.size(1) // block_size, block_size
+            return module.weight.size(0), module.weight.size(1) // group_size, group_size
         else:
             raise RuntimeError("Module not supported.")
 
     @value
-    def scaling_shape(module, block_size):
+    def scaling_shape(module, group_size):
         if isinstance(module, nn.Conv2d):
-            return module.weight.size(0), module.weight.size(1) // block_size, 1, module.weight.size(2), module.weight.size(3)
+            return module.weight.size(0), module.weight.size(1) // group_size, 1, module.weight.size(2), module.weight.size(3)
         elif isinstance(module, nn.Linear):
-            return module.weight.size(0), module.weight.size(1) // block_size, 1
+            return module.weight.size(0), module.weight.size(1) // group_size, 1
         elif isinstance(module, nn.Embedding):
-            return module.weight.size(0), module.weight.size(1) // block_size, 1
+            return module.weight.size(0), module.weight.size(1) // group_size, 1
         else:
             raise RuntimeError("Module not supported.")
 
@@ -63,7 +63,7 @@ class WeightSymmetricGroupQuantMixin(ExtendedInjector):
     stats_reduce_dim = 2
     # Set bit_width and block size externally
     bit_width = None
-    block_size = None
+    group_size = None
 
 
 class DynamicActProxyMixin(ExtendedInjector):
@@ -107,22 +107,6 @@ class ShiftedUintWeightAsymmetricGroupQuant(IntWeightSymmetricGroupQuant):
     signed = False
 
 
-class Int8ActPerRowFloat(Int8ActPerTensorFloat):
-    scaling_per_output_channel = True
-
-
-class Int8ActPerRowFloatMSE(Int8ActPerTensorFloatMSE):
-    scaling_per_output_channel = True
-
-
-class ShiftedUint8ActPerRowFloat(ShiftedUint8ActPerTensorFloat):
-    scaling_per_output_channel = True
-
-
-class ShiftedUint8ActPerRowFloatMSE(ShiftedUint8ActPerTensorFloatMSE):
-    scaling_per_output_channel = True
-
-
 class Int8DynamicActPerTensorFloat(DynamicActProxyMixin, Int8ActPerTensorFloat):
     """
     Symmetric quantizer with per tensor dynamic scale.
@@ -130,29 +114,35 @@ class Int8DynamicActPerTensorFloat(DynamicActProxyMixin, Int8ActPerTensorFloat):
     scaling_impl = RuntimeDynamicStatsScaling
     scaling_stats_input_view_shape_impl = OverTensorView
     scaling_stats_op = 'min_max'
-    dynamic_scaling_broadcastable_shape = this.scaling_shape
+    dynamic_scaling_broadcastable_fn = lambda x, shape: x.view(SCALAR_SHAPE)
 
 
-class Int8DynamicActPerRowFloat(DynamicActProxyMixin, Int8ActPerRowFloat):
+class Int8DynamicActPerRowFloat(DynamicActProxyMixin, Int8ActPerTensorFloat):
     """
     Symmetric quantizer with per row dynamic scale.
     """
     scaling_impl = RuntimeDynamicStatsScaling
-    scaling_stats_input_view_shape_impl = OverBatchOverOutputChannelView
+    scaling_stats_input_view_shape_impl = OverOutputFeaturesView
     scaling_stats_op = 'min_max'
+    scaling_per_output_channel = True
 
 
-class Int8DynamicActPerGroupFloat(DynamicActProxyMixin, Int8ActPerRowFloat):
+class Int8DynamicActPerGroupFloat(DynamicActProxyMixin, Int8ActPerTensorFloat):
     """
     Symmetric quantizer with per group scale.
     """
     scaling_impl = RuntimeDynamicGroupStatsScaling
     keepdim = True
     scaling_stats_op = 'min_max'
+    scaling_per_output_channel = True
 
     @value
     def stats_reduce_dim(group_dim):
-        return group_dim + 1
+        # If group_dim = -1, we need a workaround to avoid selecting wrong dim
+        if group_dim == -1:
+            return -1
+        else:
+            return group_dim + 1
 
 
 class ShiftedUint8DynamicActPerTensorFloat(DynamicActProxyMixin, ShiftedUint8ActPerTensorFloat):
@@ -164,4 +154,16 @@ class ShiftedUint8DynamicActPerTensorFloat(DynamicActProxyMixin, ShiftedUint8Act
     scaling_stats_op = 'min_max'
     zero_point_impl = RuntimeDynamicStatsZeroPoint
     zero_point_stats_impl = NegativeMinOrZero
-    dynamic_scaling_broadcastable_shape = this.scaling_shape
+    dynamic_scaling_broadcastable_fn = lambda x, shape: x.view(SCALAR_SHAPE)
+
+
+class ShiftedUint8DynamicActPerRowFloat(DynamicActProxyMixin, ShiftedUint8ActPerTensorFloat):
+    """
+    Asymmetric quantizer with per row dynamic scale.
+    """
+    scaling_impl = RuntimeDynamicStatsScaling
+    scaling_stats_input_view_shape_impl = OverOutputFeaturesView
+    scaling_stats_op = 'min_max'
+    scaling_per_output_channel = True
+    zero_point_impl = RuntimeDynamicStatsZeroPoint
+    zero_point_stats_impl = NegativeMinOrZero

@@ -27,6 +27,7 @@ class BrevitasQuantProxyHandler(ONNXBaseHandler, ABC):
     def validate(self, module):
         if module.bit_width() == 1:
             assert module.zero_point() == 0, "Zero-point not supported for binary quant."
+        assert not module.is_groupwise, "Export with Per Group quantization not supported"
 
     def prepare_for_export(self, module):
         if module.is_quant_enabled:

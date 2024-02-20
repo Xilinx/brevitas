@@ -13,7 +13,7 @@ If you like this project please consider ⭐ this repo, as it is the simplest an
 
 ## Requirements
 
-* Python >= 3.8 .
+* Python >= 3.8.
 * [Pytorch](https://pytorch.org) >= 1.9.1, <= 2.1 (more recent versions would be untested).
 * Windows, Linux or macOS.
 * GPU training-time acceleration (*Optional* but recommended).
@@ -32,7 +32,7 @@ For each one of these layers, quantization of different tensors (inputs, weights
 
 As a reference for PTQ, Brevitas provides an example user flow for ImageNet classification models under [`brevitas_examples.imagenet_classification.ptq`](https://github.com/Xilinx/brevitas/blob/master/src/brevitas_examples/imagenet_classification/ptq/ptq_evaluate.py) that quantizes an input torchvision model using PTQ under different quantization configurations (e.g. bit-width, granularity of scale, etc).
 
-For more info, checkout https://xilinx.github.io/brevitas/getting_started .
+For more info, checkout our [getting started guide](https://xilinx.github.io/brevitas/getting_started).
 
 ## Cite as
 
@@ -50,6 +50,8 @@ If you adopt Brevitas in your work, please cite it as:
 
 ## History
 
+- *2024/02/19* - Minor release version 0.10.2, see the [release notes](https://github.com/Xilinx/brevitas/releases/tag/v0.10.2).
+- *2024/02/15* - Minor release version 0.10.1, see the [release notes](https://github.com/Xilinx/brevitas/releases/tag/v0.10.1).
 - *2023/12/08* - Release version 0.10.0, see the [release notes](https://github.com/Xilinx/brevitas/releases/tag/v0.10.0).
 - *2023/04/28* - Minor release version 0.9.1, see the [release notes](https://github.com/Xilinx/brevitas/releases/tag/v0.9.1).
 - *2023/04/21* - Release version 0.9.0, see the [release notes](https://github.com/Xilinx/brevitas/releases/tag/v0.9.0).

@@ -54,6 +54,5 @@ setup(
             'brevitas_melgan_val = brevitas_examples.text_to_speech.melgan_val:main',
             'brevitas_quartznet_preprocess = brevitas_examples.speech_to_text.get_librispeech_data:main',
             'brevitas_melgan_preprocess = brevitas_examples.text_to_speech.preprocess_dataset:main',
-            'brevitas_ptq_imagenet_benchmark = brevitas_examples.imagenet_classification.ptq.ptq_benchmark:main',
             'brevitas_ptq_imagenet_val = brevitas_examples.imagenet_classification.ptq.ptq_evaluate:main',
             'brevitas_ptq_llm = brevitas_examples.llm.main:main'],})

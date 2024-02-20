@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
 
-    <title>brevitas.core.quant package &#8212; Brevitas 0.10.0b1.dev37+g993c869.d20231123 documentation</title>
+    <title>brevitas.core.quant package &#8212; Brevitas 0.10.2 documentation</title>
   
   
   
@@ -126,8 +126,8 @@
       
     
     
-    <img src="../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.10.0b1.dev37+g993c869.d20231123 documentation - Home"/>
-    <script>document.write(`<img src="../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.10.0b1.dev37+g993c869.d20231123 documentation - Home"/>`);</script>
+    <img src="../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.10.2 documentation - Home"/>
+    <script>document.write(`<img src="../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.10.2 documentation - Home"/>`);</script>
   
   
 </a></div>
@@ -670,26 +670,23 @@ registered hooks while the latter silently ignores them.</p>
 <p>ScriptModule that wraps around an integer quantization implementation like
 <code class="xref py py-class docutils literal notranslate"><span class="pre">IntQuant</span></code>. Zero-point is set to zero, scale is taken as input,
 bit-width is computed from an input bit-width.</p>
-<blockquote>
-<div><dl>
-<dt>Args:</dt><dd><p>int_quant (Module): Module that implements integer quantization.
-bit_width_impl (Module): Module that takes the input bit-width in and returns the bit-width</p>
-<blockquote>
-<div><p>to be used for quantization.</p>
-</div></blockquote>
-</dd>
-</dl>
-</div></blockquote>
 <dl class="field-list simple">
-<dt class="field-odd">Returns<span class="colon">:</span></dt>
-<dd class="field-odd"><p><dl class="simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>int_quant</strong> (<em>Module</em>) – Module that implements integer quantization.</p></li>
+<li><p><strong>bit_width_impl</strong> (<em>Module</em>) – Module that takes the input bit-width in and returns the bit-width
+to be used for quantization.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
 <dt>Quantized output in de-quantized format, scale,</dt><dd><p>zero-point, bit_width.</p>
 </dd>
 </dl>
 </p>
 </dd>
-<dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p>Tuple[Tensor, Tensor, Tensor, Tensor]</p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Tuple[Tensor, Tensor, Tensor, Tensor]</p>
 </dd>
 </dl>
 <p class="rubric">Examples</p>
@@ -739,32 +736,27 @@ registered hooks while the latter silently ignores them.</p>
 <p>ScriptModule that wraps around an integer quantization implementation like
 <code class="xref py py-class docutils literal notranslate"><span class="pre">IntQuant</span></code>. Scale, zero-point and bit-width are returned from their
 respective implementations and passed on to the integer quantization implementation.</p>
-<blockquote>
-<div><dl>
-<dt>Args:</dt><dd><p>int_quant (Module): Module that implements integer quantization.
-scaling_impl (Module): Module that takes in the input to quantize and returns a scale factor,</p>
-<blockquote>
-<div><p>here interpreted as threshold on the floating-point range of quantization.</p>
-</div></blockquote>
-<dl class="simple">
-<dt>int_scaling_impl (Module): Module that takes in a bit-width and returns an integer scale</dt><dd><p>factor, here interpreted as threshold on the integer range of quantization.</p>
-</dd>
-</dl>
-<p>zero_point_impl (Module): Module that returns an integer zero-point.
-bit_width_impl (Module): Module that returns a bit-width.</p>
-</dd>
-</dl>
-</div></blockquote>
 <dl class="field-list simple">
-<dt class="field-odd">Returns<span class="colon">:</span></dt>
-<dd class="field-odd"><p><dl class="simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>int_quant</strong> (<em>Module</em>) – Module that implements integer quantization.</p></li>
+<li><p><strong>scaling_impl</strong> (<em>Module</em>) – Module that takes in the input to quantize and returns a scale factor,
+here interpreted as threshold on the floating-point range of quantization.</p></li>
+<li><p><strong>int_scaling_impl</strong> (<em>Module</em>) – Module that takes in a bit-width and returns an integer scale
+factor, here interpreted as threshold on the integer range of quantization.</p></li>
+<li><p><strong>zero_point_impl</strong> (<em>Module</em>) – Module that returns an integer zero-point.</p></li>
+<li><p><strong>bit_width_impl</strong> (<em>Module</em>) – Module that returns a bit-width.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
 <dt>Quantized output in de-quantized format, scale,</dt><dd><p>zero-point, bit_width.</p>
 </dd>
 </dl>
 </p>
 </dd>
-<dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p>Tuple[Tensor, Tensor, Tensor, Tensor]</p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Tuple[Tensor, Tensor, Tensor, Tensor]</p>
 </dd>
 </dl>
 <p class="rubric">Examples</p>

@@ -20,72 +20,31 @@ import torch
 from torch import nn
 from tqdm import tqdm
 
-from brevitas_examples.llm.llm_quant.run_utils import apply_layer_inference_fn
-from brevitas_examples.llm.llm_quant.run_utils import get_model_impl
-from brevitas_examples.llm.llm_quant.run_utils import InputCatcherException
 
-
-def eval_inference_fn(curr_layer, inps, outs, cached_values):
-    curr_layer.cuda()
-    for j in range(len(inps)):
-        outs[j] = curr_layer(inps[j].unsqueeze(0).cuda(), **cached_values)[0]
-    curr_layer.cpu()
+def create_validation_dataloader(data, seqlen):
+    nsamples = data['input_ids'].numel() // seqlen
+    val_dataloader = []
+    for i in tqdm(range(nsamples)):
+        batch = data['input_ids'][:, (i * seqlen):((i + 1) * seqlen)].cuda()
+        attention_mask = torch.ones_like(batch)
+        val_dataloader.append({'input_ids': batch, 'attention_mask': attention_mask})
+    return val_dataloader
 
 
 @torch.no_grad()
 def model_eval(model, valenc, seqlen):
 
-    nsamples = valenc.numel() // seqlen
+    nsamples = len(valenc)
 
-    def eval_input_capture_fn(model, data):
-        for i in range(nsamples):
-            batch = data[:, (i * seqlen):((i + 1) * seqlen)].cuda()
-            try:
-                model(batch)
-            except InputCatcherException:
-                pass
-
-    inps = apply_layer_inference_fn(
-        model,
-        valenc,
-        nsamples,
-        input_capture_fn=eval_input_capture_fn,
-        inference_fn=eval_inference_fn,
-        seqlen=seqlen)
-
-    model_impl = get_model_impl(model)
-    use_cache = model.config.use_cache
-    model.config.use_cache = False
-
-    if hasattr(model_impl, 'norm') and model_impl.norm is not None:
-        model_impl.norm = model_impl.norm.cuda()
-    if hasattr(model_impl, 'final_layer_norm') and model_impl.final_layer_norm is not None:
-        model_impl.final_layer_norm = model_impl.final_layer_norm.cuda()
-    if hasattr(model_impl, 'project_out') and model_impl.project_out is not None:
-        model_impl.project_out = model_impl.project_out.cuda()
-    if hasattr(model, 'lm_head'):
-        model.lm_head = model.lm_head.cuda()
-
-    valenc = valenc.cuda()
-    nlls = []
-    for i in tqdm(range(nsamples)):
-        hidden_states = inps[i].unsqueeze(0)
-        if hasattr(model_impl, 'norm') and model_impl.norm is not None:
-            hidden_states = model_impl.norm(hidden_states)
-        if hasattr(model_impl, 'final_layer_norm') and model_impl.final_layer_norm is not None:
-            hidden_states = model_impl.final_layer_norm(hidden_states)
-        if hasattr(model_impl, 'project_out') and model_impl.project_out is not None:
-            hidden_states = model_impl.project_out(hidden_states)
-        lm_logits = hidden_states
-        if hasattr(model, 'lm_head'):
-            lm_logits = model.lm_head(lm_logits)
-        shift_logits = lm_logits[:, :-1, :].contiguous()
-        shift_labels = valenc[:, (i * seqlen):((i + 1) * seqlen)][:, 1:]
-        loss_fct = nn.CrossEntropyLoss()
-        loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
-        neg_log_likelihood = loss.float() * seqlen
-        nlls.append(neg_log_likelihood)
-
-    ppl = torch.exp(torch.stack(nlls).sum() / (nsamples * seqlen))
-    model.config.use_cache = use_cache
+    with torch.no_grad():
+        nlls = []
+        for inps in valenc:
+            lm_logits = model(**inps)['logits']
+            shift_logits = lm_logits[:, :-1, :].contiguous()
+            shift_labels = inps['input_ids'][:, 1:].cuda()
+            loss_fct = nn.CrossEntropyLoss()
+            loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
+            neg_log_likelihood = loss.float() * seqlen
+            nlls.append(neg_log_likelihood)
+        ppl = torch.exp(torch.stack(nlls).sum() / (nsamples * seqlen))
     return ppl

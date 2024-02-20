@@ -20,132 +20,49 @@ limitations under the License.
 """
 
 from contextlib import contextmanager
+import inspect
 
+from optimum.utils.normalized_config import NormalizedConfigManager
 import torch
-from torch import nn
 from torch.utils._python_dispatch import TorchDispatchMode
 from torch.utils._pytree import tree_map
-from tqdm import tqdm
-from transformers.models.opt.modeling_opt import OPTModel
+from transformers import AutoConfig
+from transformers.utils.fx import symbolic_trace
 
 from brevitas.fx.value_tracer import ValueProxy
 
 
-def get_model_impl(model):
-    model_impl = model.model
-    if isinstance(model_impl, OPTModel):
-        model_impl = model_impl.decoder
-    return model_impl
+def get_fx(model):
+    forward_signature = inspect.signature(model.forward).parameters
+    if all(input_name in forward_signature
+           for input_name in ["input_ids", "attention_mask", "past_key_values"]):
+        input_names = ["input_ids", "attention_mask", "past_key_values"]
+    else:
+        raise ValueError(
+            f"Quantization with an FX graph is currently only supported for models taking `input_ids`, `attention_mask` and `past_key_values` as inputs. The model only has the following inputs: {forward_signature}"
+        )
+
+    with torch.no_grad():
+        model = symbolic_trace(model, input_names)
+    return model
 
 
-class InputCatcherException(Exception):
-    pass
+def modify_dataloader(model_name_or_path, data, dtype):
+    config = AutoConfig.from_pretrained(model_name_or_path)
 
+    normalized_config_class = NormalizedConfigManager.get_normalized_config_class(config.model_type)
+    normalized_config = normalized_config_class(config)
 
-@torch.no_grad()
-def calib_input_capture(model, dataloader):
-    for batch in dataloader:
-        batch = batch.cuda()
-        try:
-            model(batch)
-        except InputCatcherException:
-            pass
+    num_heads = normalized_config.num_attention_heads
+    head_dim = normalized_config.hidden_size // num_heads
+    num_layers = normalized_config.num_layers
 
-
-@torch.no_grad()
-def capture_first_layer_inputs(input_capture_fn, dataloader, model, model_impl, nsamples, seqlen):
-    layers = model_impl.layers
-
-    model_impl.embed_tokens = model_impl.embed_tokens.cuda()
-    if hasattr(model_impl, 'embed_positions'):
-        model_impl.embed_positions = model_impl.embed_positions.cuda()
-    if hasattr(model_impl, 'project_in') and model_impl.project_in is not None:
-        model_impl.project_in = model_impl.project_in.cuda()
-    if hasattr(model_impl, 'norm'):
-        model_impl.norm = model_impl.norm.cuda()
-    if hasattr(model_impl, 'embed_layer_norm'):
-        model_impl.embed_layer_norm = model_impl.embed_layer_norm.cuda()
-
-    layers[0] = layers[0].cuda()
-
-    dtype = next(iter(model_impl.parameters())).dtype
-    inps = torch.zeros((nsamples, seqlen, model.config.hidden_size), dtype=dtype).cuda()
-    cache = {'i': 0}
-
-    class InputCatcher(nn.Module):
-
-        def __init__(self, module):
-            super().__init__()
-            self.module = module
-
-        def forward(self, inp, **kwargs):
-            inps[cache['i']] = inp
-            cache['i'] += 1
-            cache['attention_mask'] = kwargs['attention_mask']
-            if 'position_ids' in kwargs.keys():
-                cache['position_ids'] = kwargs['position_ids']
-            raise InputCatcherException
-
-    layers[0] = InputCatcher(layers[0])
-    input_capture_fn(model, dataloader)
-
-    layers[0] = layers[0].module
-    layers[0] = layers[0].cpu()
-    model_impl.embed_tokens = model_impl.embed_tokens.cpu()
-    if hasattr(model_impl, 'embed_positions'):
-        model_impl.embed_positions = model_impl.embed_positions.cpu()
-    if hasattr(model_impl, 'project_in') and model_impl.project_in is not None:
-        model_impl.project_in = model_impl.project_in.cpu()
-    if hasattr(model_impl, 'norm'):
-        model_impl.norm = model_impl.norm.cpu()
-    if hasattr(model_impl, 'embed_layer_norm'):
-        model_impl.embed_layer_norm = model_impl.embed_layer_norm.cpu()
-
-    return inps, cache
-
-
-@torch.no_grad()
-def apply_layer_inference_fn(
-        model,
-        dataloader,
-        nsamples,
-        inference_fn,
-        input_capture_fn,
-        seqlen=2048,
-        **inference_fn_kwargs):
-    model_impl = get_model_impl(model)
-    layers = model_impl.layers
-
-    use_cache = model.config.use_cache
-    model.config.use_cache = False
-
-    inps, cache = capture_first_layer_inputs(
-        input_capture_fn, dataloader, model, model_impl, nsamples, seqlen)
-    outs = torch.zeros_like(inps)
-
-    cached_values = {}
-    cached_values['attention_mask'] = cache['attention_mask']
-    if 'position_ids' in cache.keys():
-        cached_values['position_ids'] = cache['position_ids']
-
-    for curr_layer in tqdm(layers):
-        inference_fn(curr_layer, inps, outs, cached_values, **inference_fn_kwargs)
-        inps, outs = outs, inps
-
-    model.config.use_cache = use_cache
-    return inps
-
-
-def apply_layer_ptq_fn(
-        model, dataloader, nsamples, inference_fn, seqlen=2048, **inference_fn_kwargs):
-    return apply_layer_inference_fn(
-        model,
-        dataloader,
-        nsamples,
-        inference_fn,
-        input_capture_fn=calib_input_capture,
-        seqlen=seqlen,
-        **inference_fn_kwargs)
+    for sample in data:
+        sample["past_key_values"] = tuple((
+            torch.zeros(1, num_heads, 0, head_dim, device=sample["input_ids"].device, dtype=dtype),
+            torch.zeros(1, num_heads, 0, head_dim, device=sample["input_ids"].device, dtype=dtype),
+        ) for _ in range(num_layers))
+    return data
 
 
 @contextmanager
