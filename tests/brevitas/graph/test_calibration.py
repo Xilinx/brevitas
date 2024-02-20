@@ -232,7 +232,7 @@ def test_bias_correction_flag():
 
     model = SimpleQuantLinearNet()
 
-    with bias_correction_mode(model, only_layers_with_bias=True):
+    with bias_correction_mode(model, skip_if_no_bias=True):
         model(torch.randn((1, IN_CH)))
 
     for m in model.modules():

@@ -113,9 +113,9 @@ class allow_unexpected_bias_keys:
 
 class bias_correction_mode:
 
-    def __init__(self, model, enabled=True, only_layers_with_bias=False):
+    def __init__(self, model, enabled=True, skip_if_no_bias=False):
         self.model = model
-        self.bias_correction = _BiasCorrection(only_layers_with_bias=only_layers_with_bias)
+        self.bias_correction = _BiasCorrection(skip_if_no_bias=skip_if_no_bias)
         self.enabled = enabled
         self.hooks = []
 
@@ -235,7 +235,7 @@ class _BiasCorrection(DisableEnableQuantization):
 
     LAYERS = (QuantWBIOL,)
 
-    def __init__(self, layers=LAYERS, only_layers_with_bias=False):
+    def __init__(self, layers=LAYERS, skip_if_no_bias=False):
         super(_BiasCorrection, self).__init__()
         self.layers = layers
         self.iterations = {}
@@ -243,7 +243,7 @@ class _BiasCorrection(DisableEnableQuantization):
         self.float_mean_map = {}
         self.collect_float_mean_hooks = []
         self.correct_bias_hooks = []
-        self.only_layers_with_bias = only_layers_with_bias
+        self.skip_if_no_bias = skip_if_no_bias
 
     def compute_mean(self, inp, transpose_dim):
         inp = inp.transpose(0, transpose_dim)
@@ -275,7 +275,7 @@ class _BiasCorrection(DisableEnableQuantization):
                 correction = self.correction_map[name] / self.iterations[name]
                 if module.bias is not None:
                     module.bias.data += correction
-                elif self.only_layers_with_bias is False:
+                elif self.skip_if_no_bias is False:
                     module.register_parameter(
                         'bias', nn.Parameter(correction).to(module.weight.device))
 
