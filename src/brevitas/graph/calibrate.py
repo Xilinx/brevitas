@@ -24,7 +24,11 @@ from brevitas.quant_tensor import QuantTensor
 from .base import Transform
 
 __all__ = [
-    'ClipFloatWeights', 'DisableEnableQuantization', 'bias_correction_mode', 'calibration_mode']
+    'ClipFloatWeights',
+    'DisableEnableQuantization',
+    'bias_correction_mode',
+    'calibration_mode',
+    'load_quant_model']
 
 _PARAM_PROXIES = (WeightQuantProxyFromInjector, BiasQuantProxyFromInjector)
 
@@ -85,11 +89,33 @@ class calibration_mode:
             self.model, is_training=self.previous_training_state, quantization_enabled=True)
 
 
+class load_quant_model:
+
+    def __init__(self, model):
+        self.model = model
+        self.tracked_modules = []
+
+    def __enter__(self):
+        for module in self.model.modules():
+            if issubclass(type(module), QuantWBIOL):
+                if module.bias is None:
+                    module.register_parameter(
+                        'bias',
+                        nn.Parameter(torch.empty(module.weight.shape[0])).to(module.weight.device))
+                    self.tracked_modules.append(module)
+
+    def __exit__(self, type, value, traceback):
+        for module in self.tracked_modules:
+            # empty tensor has a numel result of 0
+            if torch.numel(module.bias) == 0:
+                module.bias = None
+
+
 class bias_correction_mode:
 
-    def __init__(self, model, enabled=True):
+    def __init__(self, model, enabled=True, skip_if_no_bias=False):
         self.model = model
-        self.bias_correction = _BiasCorrection()
+        self.bias_correction = _BiasCorrection(skip_if_no_bias=skip_if_no_bias)
         self.enabled = enabled
         self.hooks = []
 
@@ -209,7 +235,7 @@ class _BiasCorrection(DisableEnableQuantization):
 
     LAYERS = (QuantWBIOL,)
 
-    def __init__(self, layers=LAYERS):
+    def __init__(self, layers=LAYERS, skip_if_no_bias=False):
         super(_BiasCorrection, self).__init__()
         self.layers = layers
         self.iterations = {}
@@ -217,6 +243,7 @@ class _BiasCorrection(DisableEnableQuantization):
         self.float_mean_map = {}
         self.collect_float_mean_hooks = []
         self.correct_bias_hooks = []
+        self.skip_if_no_bias = skip_if_no_bias
 
     def compute_mean(self, inp, transpose_dim):
         inp = inp.transpose(0, transpose_dim)
@@ -248,7 +275,7 @@ class _BiasCorrection(DisableEnableQuantization):
                 correction = self.correction_map[name] / self.iterations[name]
                 if module.bias is not None:
                     module.bias.data += correction
-                else:
+                elif self.skip_if_no_bias is False:
                     module.register_parameter(
                         'bias', nn.Parameter(correction).to(module.weight.device))
 
