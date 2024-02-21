@@ -93,9 +93,9 @@ class load_quant_model:
 
     def __init__(self, model):
         self.model = model
+        self.tracked_modules = []
 
     def __enter__(self):
-        self.tracked_modules = []
         for module in self.model.modules():
             if issubclass(type(module), QuantWBIOL):
                 if module.bias is None:
