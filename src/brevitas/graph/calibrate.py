@@ -28,7 +28,7 @@ __all__ = [
     'DisableEnableQuantization',
     'bias_correction_mode',
     'calibration_mode',
-    'allow_unexpected_bias_keys']
+    'load_quant_model']
 
 _PARAM_PROXIES = (WeightQuantProxyFromInjector, BiasQuantProxyFromInjector)
 
@@ -89,7 +89,7 @@ class calibration_mode:
             self.model, is_training=self.previous_training_state, quantization_enabled=True)
 
 
-class allow_unexpected_bias_keys:
+class load_quant_model:
 
     def __init__(self, model):
         self.model = model

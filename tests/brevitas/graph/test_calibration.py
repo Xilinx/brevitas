@@ -8,9 +8,9 @@ from pytest_cases import fixture
 import torch
 import torch.nn as nn
 
-from brevitas.graph.calibrate import allow_unexpected_bias_keys
 from brevitas.graph.calibrate import bias_correction_mode
 from brevitas.graph.calibrate import calibration_mode
+from brevitas.graph.calibrate import load_quant_model
 import brevitas.nn as qnn
 from brevitas.quant import Int8ActPerTensorFixedPoint
 from tests.brevitas.hyp_helper import float_tensor_random_size_st
@@ -211,7 +211,7 @@ def test_import_bias_correction():
             assert m.bias is not None
 
     new_model = SimpleQuantLinearNet()
-    with allow_unexpected_bias_keys(new_model):
+    with load_quant_model(new_model):
         new_model.load_state_dict(model.state_dict())
 
     for m in new_model.modules():
