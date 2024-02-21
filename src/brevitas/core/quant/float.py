@@ -25,7 +25,7 @@ class FloatQuant(brevitas.jit.ScriptModule):
             exponent_bit_width: int,
             mantissa_bit_width: int,
             exponent_bias: int,
-            case_clamp_impl: Optional[nn.Module] = None,
+            float_clamp_impl: Optional[nn.Module] = None,
             scaling_impl: Optional[nn.Module] = None,
             float_scaling_impl: Optional[nn.Module] = None,
             float_to_int_impl: nn.Module = RoundSte(),
@@ -55,8 +55,8 @@ class FloatQuant(brevitas.jit.ScriptModule):
             float_scaling_impl = ConstScaling(1., device=device, dtype=dtype)
         if scaling_impl is None:
             scaling_impl = ConstScaling(1., device=device, dtype=dtype)
-        if case_clamp_impl is None:
-            self.case_clamp_impl = FloatClamp(
+        if float_clamp_impl is None:
+            self.float_clamp_impl = FloatClamp(
                 exponent_bit_width=self.exponent_bit_width(),
                 mantissa_bit_width=self.mantissa_bit_width(),
                 exponent_bias=self.exponent_bias())
@@ -92,7 +92,7 @@ class FloatQuant(brevitas.jit.ScriptModule):
     def forward(self, x):
         y, scale = self.quantize(x)
         # after quantizing, clamp to special cases like NaN/inf if they are set
-        y = self.case_clamp_impl(y)
+        y = self.float_clamp_impl(y)
         y = self.dequantize(y, scale)
         # This is to respect the current interface of proxies
         return y, scale, self.zero_point_impl(), self.bit_width()

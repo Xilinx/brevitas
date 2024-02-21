@@ -16,26 +16,26 @@ FORMATS = {Fp8e5m2Mixin: 57344., Fp8e4m3Mixin: 448., Fp8e4m3Base: 480., Fp8e5m2B
 @pytest.mark.parametrize(
     'minifloat, expected_max_val', ((format, max_val) for format, max_val in FORMATS.items()))
 def test_max_value(minifloat, expected_max_val):
-    max_val = minifloat.case_clamp_impl.max_val_impl()
+    max_val = minifloat.float_clamp_impl.max_value
 
     assert expected_max_val == max_val
 
 
 @given(inp=float_tensor_random_shape_st())
 def test_clamp(inp, fp8_clamp):
-    max_val = fp8_clamp.case_clamp_impl.max_val_impl()
+    max_val = fp8_clamp.float_clamp_impl.max_value
     # get values that exceed max_val
     over_limit_mask = inp.abs() > max_val
 
     # clamp inp
-    inp = fp8_clamp.case_clamp_impl(inp)
+    inp = fp8_clamp.float_clamp_impl(inp)
 
-    if fp8_clamp.case_clamp_impl.saturating:
+    if fp8_clamp.float_clamp_impl.fpx_clamp_impl.saturating:
         # should be clamped to +- max val
         assert (inp[over_limit_mask].abs() == max_val).all()
     else:
         # if inf_values, over limit mask should now be all inf
-        if fp8_clamp.case_clamp_impl.inf_values is not None:
+        if fp8_clamp.float_clamp_impl.fpx_clamp_impl.inf_values is not None:
             # all values exceeding max_val should be inf
             assert inp[over_limit_mask].isinf().all()
         else:
