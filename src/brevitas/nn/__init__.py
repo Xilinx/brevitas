@@ -21,8 +21,6 @@ from .quant_eltwise import QuantCat
 from .quant_eltwise import QuantEltwiseAdd
 from .quant_embedding import QuantEmbedding
 from .quant_linear import QuantLinear
-from .quant_max_pool import QuantMaxPool1d
-from .quant_max_pool import QuantMaxPool2d
 from .quant_mha import QuantMultiheadAttention
 from .quant_rnn import QuantLSTM
 from .quant_rnn import QuantRNN
