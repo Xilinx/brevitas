@@ -13,6 +13,7 @@ from torch.nn import AvgPool2d
 from brevitas.function.ops import max_int
 from brevitas.function.ops_ste import ceil_ste
 from brevitas.inject.defaults import RoundTo8bit
+from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import QuantTensor
 
 from .mixin.acc import AccQuantType
@@ -56,15 +57,17 @@ class TruncAvgPool2d(TruncMixin, QuantLayerMixin, AvgPool2d):
     def forward(self, input: Union[Tensor, QuantTensor]):
         x = self.unpack_input(input)
         if self.export_mode:
-            return self.export_handler(x.value)
-        x = x.set(value=super(TruncAvgPool2d, self).forward(x.value))
-        if self.is_trunc_quant_enabled:
-            assert isinstance(x, QuantTensor)
-            # remove avg scaling
-            rescaled_value = x.value * self._avg_scaling
-            x = x.set(value=rescaled_value)
-            x = x.set(bit_width=self.max_acc_bit_width(x.bit_width))
-            x = self.trunc_quant(x)
+            return self.export_handler(_unpack_quant_tensor(x))
+        if isinstance(x, QuantTensor):
+            x = x.set(value=super(TruncAvgPool2d, self).forward(x.value))
+            if self.is_trunc_quant_enabled:
+                # remove avg scaling
+                rescaled_value = x.value * self._avg_scaling
+                x = x.set(value=rescaled_value)
+                x = x.set(bit_width=self.max_acc_bit_width(x.bit_width))
+                x = self.trunc_quant(x)
+        else:
+            x = super(TruncAvgPool2d, self).forward(x)
         return self.pack_output(x)
 
     def max_acc_bit_width(self, input_bit_width):
@@ -129,21 +132,23 @@ class TruncAdaptiveAvgPool2d(TruncMixin, QuantLayerMixin, AdaptiveAvgPool2d):
         x = self.unpack_input(input)
         # shortcut execution through the export impl during export
         if self.export_mode:
-            out = self.export_handler(x.value)
+            out = self.export_handler(_unpack_quant_tensor(x))
             self._set_global_is_quant_layer(False)
             return out
-        y = x.set(value=super(TruncAdaptiveAvgPool2d, self).forward(x.value))
-        k_size, stride = self.compute_kernel_size_stride(x.value.shape[2:], y.value.shape[2:])
         if self.cache_kernel_size_stride:
             self._cached_kernel_size = k_size
             self._cached_kernel_stride = stride
-        if self.is_trunc_quant_enabled:
-            assert isinstance(y, QuantTensor)
-            reduce_size = reduce(mul, k_size, 1)
-            rescaled_value = y.value * reduce_size  # remove avg scaling
-            y = y.set(value=rescaled_value)
-            y = y.set(bit_width=self.max_acc_bit_width(y.bit_width, reduce_size))
-            y = self.trunc_quant(y)
+        if isinstance(x, QuantTensor):
+            y = x.set(value=super(TruncAdaptiveAvgPool2d, self).forward(x.value))
+            k_size, stride = self.compute_kernel_size_stride(x.value.shape[2:], y.value.shape[2:])
+            if self.is_trunc_quant_enabled:
+                reduce_size = reduce(mul, k_size, 1)
+                rescaled_value = y.value * reduce_size  # remove avg scaling
+                y = y.set(value=rescaled_value)
+                y = y.set(bit_width=self.max_acc_bit_width(y.bit_width, reduce_size))
+                y = self.trunc_quant(y)
+        else:
+            y = super(TruncAdaptiveAvgPool2d, self).forward(x)
         return self.pack_output(y)
 
     def max_acc_bit_width(self, input_bit_width, reduce_size):

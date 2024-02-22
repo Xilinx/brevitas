@@ -174,12 +174,13 @@ class QuantLayerMixin(ExportMixin):
                 inp = inp.rename(None)
         return inp
 
-    def pack_output(self, quant_output: QuantTensor) -> Union[Tensor, QuantTensor]:
+    def pack_output(self, quant_output: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
         if not self.training and self.cache_inference_quant_out and isinstance(quant_output,
                                                                                QuantTensor):
             self._cached_out = _CachedIO(quant_output.detach(), self.cache_quant_io_metadata_only)
         self._set_global_is_quant_layer(False)
         if self.return_quant_tensor:
+            assert isinstance(quant_output, QuantTensor)
             return quant_output
         else:
             return _unpack_quant_tensor(quant_output)

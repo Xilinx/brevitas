@@ -319,7 +319,6 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
 
         if isinstance(quant_input, QuantTensor) and isinstance(quant_weight, QuantTensor):
             output_bit_width = self.max_acc_bit_width(quant_input.bit_width, quant_weight.bit_width)
-
             output_scale = self.quant_output_scale_impl(inp, quant_input.scale, quant_weight.scale)
             output_signed = quant_input.signed or quant_weight.signed
 
