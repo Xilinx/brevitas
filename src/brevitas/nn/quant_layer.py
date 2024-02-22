@@ -317,9 +317,8 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
                 self.is_output_quant_enabled) and self.return_quant_tensor:
             raise RuntimeError("QuantLayer is not correctly configured")
 
-        if (self.return_quant_tensor or
-            (self.is_bias_quant_enabled and
-             (self.bias_quant.requires_input_scale or self.bias_quant.requires_input_bit_width))):
+        if (self.is_bias_quant_enabled and
+            (self.bias_quant.requires_input_scale or self.bias_quant.requires_input_bit_width)):
             if isinstance(quant_input, QuantTensor) and isinstance(quant_weight, QuantTensor):
                 output_bit_width = self.max_acc_bit_width(
                     quant_input.bit_width, quant_weight.bit_width)
@@ -338,35 +337,33 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
                 _unpack_quant_tensor(quant_weight),
                 _unpack_quant_tensor(quant_bias))
 
-            if (self.return_quant_tensor):
-                if output_scale is not None:
-                    if (isinstance(quant_bias, QuantTensor) and quant_bias.scale.data_ptr() !=
-                            output_scale.data_ptr()) or not isinstance(quant_bias, QuantTensor):
-                        channel_dim = -1 if isinstance(self, torch.nn.Linear) else 1
-                        output_scale_broadcast_shape = compute_channel_view_shape(
-                            inp, channel_dim=channel_dim)
-                        output_zero_point = -_unpack_quant_tensor(quant_bias).view(
-                            output_scale_broadcast_shape) / output_scale
+            if output_scale is not None:
+                if (isinstance(quant_bias, QuantTensor) and
+                        quant_bias.scale.data_ptr() != output_scale.data_ptr()) or not isinstance(
+                            quant_bias, QuantTensor):
+                    channel_dim = -1 if isinstance(self, torch.nn.Linear) else 1
+                    output_scale_broadcast_shape = compute_channel_view_shape(
+                        inp, channel_dim=channel_dim)
+                    output_zero_point = -_unpack_quant_tensor(quant_bias).view(
+                        output_scale_broadcast_shape) / output_scale
 
-                if output_bit_width is not None and isinstance(quant_bias, QuantTensor):
-                    output_bit_width = torch.where(
-                        quant_bias.bit_width > output_bit_width,
-                        quant_bias.bit_width,
-                        output_bit_width)
-                    output_bit_width = output_bit_width + 1
+            if output_bit_width is not None and isinstance(quant_bias, QuantTensor):
+                output_bit_width = torch.where(
+                    quant_bias.bit_width > output_bit_width, quant_bias.bit_width, output_bit_width)
+                output_bit_width = output_bit_width + 1
         else:
             output_tensor = self.inner_forward_impl(
                 _unpack_quant_tensor(quant_input), _unpack_quant_tensor(quant_weight), None)
 
-        if self.return_quant_tensor and not self.is_output_quant_enabled:
+        if not self.is_output_quant_enabled:
             if isinstance(quant_input, QuantTensor) and isinstance(quant_weight, QuantTensor):
                 if (quant_input.zero_point != 0.0).any() or (quant_weight.zero_point != 0.0).any():
                     raise RuntimeError(
                         "Computing zero point of output accumulator not supported yet.")
-                else:
+                elif output_zero_point is None:
                     output_zero_point = quant_input.zero_point
 
-        elif self.return_quant_tensor and output_zero_point is None:
+        elif output_zero_point is None:
             output_zero_point = torch.zeros(1).type_as(output_tensor)
 
         if not self.return_quant_tensor or not compute_output_quant_tensor:
