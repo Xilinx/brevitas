@@ -185,7 +185,13 @@ def test_quant_mha(model_input, current_cases):
         with pytest.raises(RuntimeError, match='Input scale required'):
             output, _ = model(inp, inp, inp)
         return
-
+    elif kwargs['weight_quant'] is not None and kwargs['io_quant'] is None:
+        if kwargs['weight_quant'] == 'quant_asym' and kwargs['return_quant_tensor']:
+            with pytest.raises(
+                    RuntimeError,
+                    match='Computing zero point of output accumulator not supported yet.'):
+                output, _ = model(inp, inp, inp)
+            return
     output, _ = model(inp, inp, inp)
 
     if kwargs['return_quant_tensor']:
