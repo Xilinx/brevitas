@@ -317,15 +317,11 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
                 self.is_output_quant_enabled) and self.return_quant_tensor:
             raise RuntimeError("QuantLayer is not correctly configured")
 
-        if (self.is_bias_quant_enabled and
-            (self.bias_quant.requires_input_scale or self.bias_quant.requires_input_bit_width)):
-            if isinstance(quant_input, QuantTensor) and isinstance(quant_weight, QuantTensor):
-                output_bit_width = self.max_acc_bit_width(
-                    quant_input.bit_width, quant_weight.bit_width)
+        if isinstance(quant_input, QuantTensor) and isinstance(quant_weight, QuantTensor):
+            output_bit_width = self.max_acc_bit_width(quant_input.bit_width, quant_weight.bit_width)
 
-                output_scale = self.quant_output_scale_impl(
-                    inp, quant_input.scale, quant_weight.scale)
-                output_signed = quant_input.signed or quant_weight.signed
+            output_scale = self.quant_output_scale_impl(inp, quant_input.scale, quant_weight.scale)
+            output_signed = quant_input.signed or quant_weight.signed
 
         if self.bias is not None:
             quant_bias = self.bias_quant(self.bias, output_scale, output_bit_width)
@@ -357,7 +353,8 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
 
         if not self.is_output_quant_enabled:
             if isinstance(quant_input, QuantTensor) and isinstance(quant_weight, QuantTensor):
-                if (quant_input.zero_point != 0.0).any() or (quant_weight.zero_point != 0.0).any():
+                if (quant_input.zero_point != 0.0
+                   ).any() or (quant_weight.zero_point != 0.0).any() and self.return_quant_tensor:
                     raise RuntimeError(
                         "Computing zero point of output accumulator not supported yet.")
                 elif output_zero_point is None:
@@ -366,9 +363,7 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
         elif output_zero_point is None:
             output_zero_point = torch.zeros(1).type_as(output_tensor)
 
-        if not self.return_quant_tensor or not compute_output_quant_tensor:
-            quant_output = output_tensor
-        else:
+        if compute_output_quant_tensor:
             quant_output = QuantTensor(
                 output_tensor,
                 scale=output_scale,
@@ -376,5 +371,8 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
                 bit_width=output_bit_width,
                 signed=output_signed,
                 training=self.training)
+        else:
+            quant_output = output_tensor
+
         quant_output = self.output_quant(quant_output)
         return self.pack_output(quant_output)
