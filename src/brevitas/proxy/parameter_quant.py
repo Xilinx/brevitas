@@ -184,7 +184,9 @@ class BiasQuantProxyFromInjector(ParameterQuantProxyFromInjector, BiasQuantProxy
         bit_width = self.__call__(self.tracked_parameter_list[0], zhs).bit_width
         return bit_width
 
-    def forward(self, x: Tensor, input_scale: Optional[Tensor] = None) ->  Union[Tensor, QuantTensor]:
+    def forward(self,
+                x: Tensor,
+                input_scale: Optional[Tensor] = None) -> Union[Tensor, QuantTensor]:
         if self.is_quant_enabled:
             impl = self.export_handler if self.export_mode else self.tensor_quant
             if self.requires_input_scale and input_scale is None:
