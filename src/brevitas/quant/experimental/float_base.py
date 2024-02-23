@@ -11,6 +11,7 @@ from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector
 from brevitas.quant.solver import ActQuantSolver
 from brevitas.quant.solver import WeightQuantSolver
 from brevitas.quant.solver.common import SolveTensorQuantFloatToIntImplFromEnum
+from brevitas.utils.float_quant_utils import get_max_value
 
 
 class FloatWeightBase(SolveTensorQuantFloatToIntImplFromEnum):
@@ -51,7 +52,15 @@ class ExponentBiasMixin(ExtendedInjector):
         return 2 ** (exponent_bit_width - 1) - 1
 
 
-class Fp8e4m3Mixin(ExponentBiasMixin):
+class MaxFloatInfNaNMixin(ExtendedInjector):
+
+    @value
+    def max_value(exponent_bit_width, mantissa_bit_width, exponent_bias, nan_values, inf_values):
+        return get_max_value(
+            exponent_bit_width, mantissa_bit_width, exponent_bias, nan_values, inf_values)
+
+
+class Fp8e4m3Mixin(ExponentBiasMixin, MaxFloatInfNaNMixin):
     bit_width = 8
     exponent_bit_width = 4
     mantissa_bit_width = 3
@@ -61,7 +70,7 @@ class Fp8e4m3Mixin(ExponentBiasMixin):
     saturating = True
 
 
-class Fp8e5m2Mixin(ExponentBiasMixin):
+class Fp8e5m2Mixin(ExponentBiasMixin, MaxFloatInfNaNMixin):
     bit_width = 8
     exponent_bit_width = 5
     mantissa_bit_width = 2

@@ -13,6 +13,7 @@ from brevitas.core.scaling import ConstScaling
 from brevitas.core.utils import StatelessBuffer
 from brevitas.function.ops import max_float
 from brevitas.function.ops_ste import floor_ste
+from brevitas.utils.float_quant_utils import get_max_value
 
 
 class FloatQuant(brevitas.jit.ScriptModule):
@@ -57,9 +58,8 @@ class FloatQuant(brevitas.jit.ScriptModule):
             scaling_impl = ConstScaling(1., device=device, dtype=dtype)
         if float_clamp_impl is None:
             self.float_clamp_impl = FloatClamp(
-                exponent_bit_width=self.exponent_bit_width(),
-                mantissa_bit_width=self.mantissa_bit_width(),
-                exponent_bias=self.exponent_bias())
+                max_value=get_max_value(
+                    exponent_bit_width, mantissa_bit_width, exponent_bias, None, None))
         # Zero-point is currently hardcoded to 0
         self.zero_point_impl = StatelessBuffer(torch.tensor(0., device=device, dtype=dtype))
         self.float_scaling_impl = float_scaling_impl
