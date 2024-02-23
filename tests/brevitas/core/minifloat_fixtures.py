@@ -4,18 +4,14 @@
 import pytest_cases
 from pytest_cases import fixture_union
 
-from brevitas.core.function_wrapper import FloatClamp
 from brevitas.inject.enum import BitWidthImplType
-from brevitas.quant.experimental.float_base import ExponentBiasMixin
-from brevitas.quant.experimental.float_base import MaxFloatInfNaNMixin
 from brevitas.quant.experimental.float_base import ScaledFloatWeightBase
 
 
-class Fp8e4m3Base(ExponentBiasMixin, MaxFloatInfNaNMixin, ScaledFloatWeightBase):
+class Fp8e4m3Base(ScaledFloatWeightBase):
     bit_width = 8
     exponent_bit_width = 4
     mantissa_bit_width = 3
-    float_clamp_impl = FloatClamp
     nan_values = None
     inf_values = None
     saturating = True
@@ -24,11 +20,10 @@ class Fp8e4m3Base(ExponentBiasMixin, MaxFloatInfNaNMixin, ScaledFloatWeightBase)
     hypothesis_internal_is_this_a_mock_check = False
 
 
-class Fp8e5m2Base(ExponentBiasMixin, MaxFloatInfNaNMixin, ScaledFloatWeightBase):
+class Fp8e5m2Base(ScaledFloatWeightBase):
     bit_width = 8
     exponent_bit_width = 5
     mantissa_bit_width = 2
-    float_clamp_impl = FloatClamp
     nan_values = None
     inf_values = None
     saturating = True

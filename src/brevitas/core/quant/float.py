@@ -7,13 +7,11 @@ import torch
 import torch.nn as nn
 
 import brevitas
-from brevitas.core.function_wrapper import FloatClamp
 from brevitas.core.function_wrapper import RoundSte
 from brevitas.core.scaling import ConstScaling
 from brevitas.core.utils import StatelessBuffer
 from brevitas.function.ops import max_float
 from brevitas.function.ops_ste import floor_ste
-from brevitas.utils.float_quant_utils import get_max_value
 
 
 class FloatQuant(brevitas.jit.ScriptModule):

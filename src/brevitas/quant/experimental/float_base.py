@@ -15,20 +15,37 @@ from brevitas.quant.solver.common import SolveTensorQuantFloatToIntImplFromEnum
 from brevitas.utils.float_quant_utils import get_max_value
 
 
-class FloatWeightBase(SolveTensorQuantFloatToIntImplFromEnum):
+class FloatBase(SolveTensorQuantFloatToIntImplFromEnum):
+    tensor_quant = FloatQuant
+    signed = True
+    float_to_int_impl_type = 'round'
+    scaling_min_val = 1e-10
+    float_clamp_impl = FloatClamp
+    tensor_clamp_impl = TensorClamp
+
+    @value
+    def exponent_bias(exponent_bit_width):
+        return 2 ** (exponent_bit_width - 1) - 1
+
+    @value
+    def max_value(
+            exponent_bit_width, mantissa_bit_width, exponent_bias, nan_values, inf_values,
+            saturating):
+        return get_max_value(
+            exponent_bit_width,
+            mantissa_bit_width,
+            exponent_bias,
+            nan_values,
+            inf_values,
+            saturating)
+
+
+class FloatWeightBase(FloatBase):
     proxy_class = WeightQuantProxyFromInjector
-    tensor_quant = FloatQuant
-    signed = True
-    float_to_int_impl_type = 'round'
-    scaling_min_val = 1e-10
 
 
-class FloatActBase(SolveTensorQuantFloatToIntImplFromEnum):
+class FloatActBase(FloatBase):
     proxy_class = ActQuantProxyFromInjector
-    tensor_quant = FloatQuant
-    signed = True
-    float_to_int_impl_type = 'round'
-    scaling_min_val = 1e-10
 
 
 class ScaledFloatWeightBase(FloatWeightBase, WeightQuantSolver):
@@ -46,45 +63,19 @@ class ScaledFloatActBase(FloatActBase, ActQuantSolver):
     float_scaling_impl = FloatScaling
 
 
-class ExponentBiasMixin(ExtendedInjector):
-
-    @value
-    def exponent_bias(exponent_bit_width):
-        return 2 ** (exponent_bit_width - 1) - 1
-
-
-class MaxFloatInfNaNMixin(ExtendedInjector):
-
-    @value
-    def max_value(
-            exponent_bit_width, mantissa_bit_width, exponent_bias, nan_values, inf_values,
-            saturating):
-        return get_max_value(
-            exponent_bit_width,
-            mantissa_bit_width,
-            exponent_bias,
-            nan_values,
-            inf_values,
-            saturating)
-
-
-class Fp8e4m3Mixin(ExponentBiasMixin, MaxFloatInfNaNMixin):
+class Fp8e4m3Mixin(ExtendedInjector):
     bit_width = 8
     exponent_bit_width = 4
     mantissa_bit_width = 3
-    float_clamp_impl = FloatClamp
-    tensor_clamp_impl = TensorClamp
     nan_values = (('111',))
     inf_values = None
     saturating = True
 
 
-class Fp8e5m2Mixin(ExponentBiasMixin, MaxFloatInfNaNMixin):
+class Fp8e5m2Mixin(ExtendedInjector):
     bit_width = 8
     exponent_bit_width = 5
     mantissa_bit_width = 2
-    float_clamp_impl = FloatClamp
-    tensor_clamp_impl = TensorClamp
     nan_values = ('01', '11', '10')
     inf_values = (('00',))
     saturating = True
