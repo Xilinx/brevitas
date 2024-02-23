@@ -48,6 +48,21 @@ _LAYERS_TO_CLIP = (
 BN_LAYERS = (nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d)
 
 
+def disable_return_quant_tensor(model):
+    previous_state = {}
+    for module in model.modules():
+        if hasattr(module, 'return_quant_tensor'):
+            previous_state[module] = module.return_quant_tensor
+            module.return_quant_tensor = False
+    return previous_state
+
+
+def restore_return_quant_tensor(model, previous_state):
+    for module in model.modules():
+        if hasattr(module, 'return_quant_tensor'):
+            module.return_quant_tensor = previous_state[module]
+
+
 def extend_collect_stats_steps(module):
     if hasattr(module, 'collect_stats_steps'):
         # We extend the collect steps in PTQ to match potentially long calibrations
@@ -75,11 +90,13 @@ class calibration_mode:
         self.previous_training_state = model.training
         self.disable_quant_inference = DisableEnableQuantization(call_act_quantizer_impl=True)
         self.enabled = enabled
+        self.return_quant_tensor_state = dict()
 
     def __enter__(self):
         if self.enabled:
             self.model.apply(extend_collect_stats_steps)
             self.model.apply(set_collect_stats_to_average)
+            self.return_quant_tensor_state = disable_return_quant_tensor(self.model)
             self.disable_quant_inference.apply(
                 self.model, is_training=True, quantization_enabled=False)
 
@@ -87,6 +104,7 @@ class calibration_mode:
         self.model.apply(finalize_collect_stats)
         self.disable_quant_inference.apply(
             self.model, is_training=self.previous_training_state, quantization_enabled=True)
+        restore_return_quant_tensor(self.model, self.return_quant_tensor_state)
 
 
 class load_quant_model:
@@ -168,7 +186,7 @@ class DisableEnableQuantization(Transform):
         if isinstance(module.tracked_module_list[0], QuantHardTanh):
             inp = F.hardtanh(
                 inp, min_val=module.quant_injector.min_val, max_val=module.quant_injector.max_val)
-        return QuantTensor(value=inp, training=module.training)
+        return inp
 
     def disable_act_quantization(self, model, is_training):
         # If self.call_act_quantizer_impl is set to True, the quantization will be performed but the output

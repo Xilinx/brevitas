@@ -3,7 +3,7 @@
 
 from abc import ABCMeta
 from abc import abstractmethod
-from typing import List, Optional, Tuple
+from typing import Optional, Union
 
 import torch
 from torch import Tensor
@@ -94,13 +94,13 @@ class WeightQuantProxyFromInjector(ParameterQuantProxyFromInjector, WeightQuantP
         bit_width_ = self.__call__(self.tracked_parameter_list[0]).bit_width
         return bit_width_
 
-    def forward(self, x: torch.Tensor) -> QuantTensor:
+    def forward(self, x: torch.Tensor) -> Union[Tensor, QuantTensor]:
         if self.is_quant_enabled:
             impl = self.export_handler if self.export_mode else self.tensor_quant
             out, scale, zero_point, bit_width = impl(x)
             return QuantTensor(out, scale, zero_point, bit_width, self.is_signed, self.training)
         else:  # quantization disabled
-            return QuantTensor(x, training=self.training)
+            return x
 
 
 class DecoupledWeightQuantProxyFromInjector(WeightQuantProxyFromInjector):
@@ -115,13 +115,13 @@ class DecoupledWeightQuantProxyFromInjector(WeightQuantProxyFromInjector):
         out, scale, zero_point, bit_width, pre_scale, pre_zero_point = output_tuple
         return pre_zero_point
 
-    def forward(self, x: torch.Tensor) -> QuantTensor:
+    def forward(self, x: torch.Tensor) -> Union[Tensor, QuantTensor]:
         if self.is_quant_enabled:
             impl = self.export_handler if self.export_mode else self.tensor_quant
             out, scale, zero_point, bit_width, pre_scale, pre_zero_point = impl(x)
             return QuantTensor(out, scale, zero_point, bit_width, self.is_signed, self.training)
         else:  # quantization disabled
-            return QuantTensor(x, training=self.training)
+            return x
 
 
 class DecoupledWeightQuantWithInputProxyFromInjector(DecoupledWeightQuantProxyFromInjector):
@@ -145,9 +145,8 @@ class DecoupledWeightQuantWithInputProxyFromInjector(DecoupledWeightQuantProxyFr
     def pre_zero_point(self):
         raise NotImplementedError
 
-    def forward(
-            self, x: torch.Tensor, input_bit_width: torch.Tensor,
-            input_is_signed: bool) -> QuantTensor:
+    def forward(self, x: torch.Tensor, input_bit_width: torch.Tensor,
+                input_is_signed: bool) -> Union[Tensor, QuantTensor]:
         if self.is_quant_enabled:
             impl = self.export_handler if self.export_mode else self.tensor_quant
             out, scale, zero_point, bit_width, pre_scale, pre_zero_point = impl(x, input_bit_width, input_is_signed)
@@ -199,7 +198,7 @@ class BiasQuantProxyFromInjector(ParameterQuantProxyFromInjector, BiasQuantProxy
             self,
             x: Tensor,
             input_scale: Optional[Tensor] = None,
-            input_bit_width: Optional[Tensor] = None) -> QuantTensor:
+            input_bit_width: Optional[Tensor] = None) -> Union[Tensor, QuantTensor]:
         if self.is_quant_enabled:
             impl = self.export_handler if self.export_mode else self.tensor_quant
             if self.requires_input_scale and input_scale is None:
@@ -218,4 +217,4 @@ class BiasQuantProxyFromInjector(ParameterQuantProxyFromInjector, BiasQuantProxy
                 raise RuntimeError("Internally defined bit-width required")
             return QuantTensor(out, out_scale, out_zp, out_bit_width, self.is_signed, self.training)
         else:
-            return QuantTensor(x, training=self.training)
+            return x

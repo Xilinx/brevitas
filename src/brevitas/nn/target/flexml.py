@@ -97,11 +97,13 @@ class FlexMLQuantAvgPool2d(QuantLayerMixin, nn.AvgPool2d):
 
     def forward(self, input: Union[Tensor, QuantTensor]):
         x = self.unpack_input(input)
-        x = x.set(value=super(FlexMLQuantAvgPool2d, self).forward(x.value) * self.rescaling_const)
-        if x.scale is not None:
+        if isinstance(x, QuantTensor):
+            x = x.set(
+                value=super(FlexMLQuantAvgPool2d, self).forward(x.value) * self.rescaling_const)
             x = x.set(scale=x.scale * self.quantized_div_scale)
-        if x.bit_width is not None:
             x = x.set(bit_width=self.max_acc_bit_width(x.bit_width))
+        else:
+            x = super(FlexMLQuantAvgPool2d, self).forward(x) * self.rescaling_const
         return self.pack_output(x)
 
     def max_acc_bit_width(self, input_bit_width):

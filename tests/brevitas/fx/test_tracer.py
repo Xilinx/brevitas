@@ -232,8 +232,8 @@ def test_module(module):
 @pytest.mark.parametrize('module', QUANT_TENSOR_MODULES)
 def test_quant_module(module):
     mod = module()
-    x = QuantTensor(torch.randn(INPUT_SIZE))
-    x_trace = QuantTensor(torch.randn(INPUT_SIZE))
+    x = torch.randn(INPUT_SIZE)
+    x_trace = torch.randn(INPUT_SIZE)
     with torch.no_grad():
         out = mod(x)
         graph_model = value_trace(mod, value_args={'x': x_trace})

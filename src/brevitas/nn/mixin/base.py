@@ -18,6 +18,7 @@ from brevitas.common import ExportMixin
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import Injector
 from brevitas.nn.utils import compute_channel_view_shape
+from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import QuantTensor
 
 from .utils import filter_kwargs
@@ -154,7 +155,7 @@ class QuantLayerMixin(ExportMixin):
         else:
             return None
 
-    def unpack_input(self, inp: Union[Tensor, QuantTensor]):
+    def unpack_input(self, inp: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
         self._set_global_is_quant_layer(True)
         # Hack to recognize a QuantTensor that has decayed to a tuple
         # when used as input to tracing (e.g. during ONNX export)
@@ -166,25 +167,23 @@ class QuantLayerMixin(ExportMixin):
             if not self.training and not self._export_mode and self.cache_inference_quant_inp:
                 cached_inp = _CachedIO(inp.detach(), self.cache_quant_io_metadata_only)
                 self._cached_inp = cached_inp
-        else:
-            inp = QuantTensor(inp, training=self.training)
-            if not self.training and self.cache_inference_quant_inp:
-                cached_inp = _CachedIO(inp.detach(), self.cache_quant_io_metadata_only)
-                self._cached_inp = cached_inp
-        # Remove any naming metadata to avoid dowmstream errors
-        # Avoid inplace operations on the input in case of forward hooks
         if not torch._C._get_tracing_state():
-            inp = inp.set(value=inp.value.rename(None))
+            if isinstance(inp, QuantTensor):
+                inp = inp.set(value=inp.value.rename(None))
+            else:
+                inp = inp.rename(None)
         return inp
 
-    def pack_output(self, quant_output: QuantTensor):
-        if not self.training and self.cache_inference_quant_out:
+    def pack_output(self, quant_output: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
+        if not self.training and self.cache_inference_quant_out and isinstance(quant_output,
+                                                                               QuantTensor):
             self._cached_out = _CachedIO(quant_output.detach(), self.cache_quant_io_metadata_only)
         self._set_global_is_quant_layer(False)
         if self.return_quant_tensor:
+            assert isinstance(quant_output, QuantTensor)
             return quant_output
         else:
-            return quant_output.value
+            return _unpack_quant_tensor(quant_output)
 
 
 class QuantRecurrentLayerMixin(ExportMixin):
@@ -246,9 +245,9 @@ class QuantRecurrentLayerMixin(ExportMixin):
         acc_bit_width = None
         quant_weight_ih = gate.input_weight()
         quant_weight_hh = gate.hidden_weight()
-        if quant_input.bit_width is not None:
+        if isinstance(quant_input, QuantTensor):
             acc_bit_width = None  # TODO
-        if quant_input.scale is not None and quant_weight_ih.scale is not None:
+        if isinstance(quant_input, QuantTensor) and isinstance(quant_weight_ih, QuantTensor):
             acc_scale_shape = compute_channel_view_shape(quant_input.value, channel_dim=1)
             acc_scale = quant_weight_ih.scale.view(acc_scale_shape)
             acc_scale = acc_scale * quant_input.scale.view(acc_scale_shape)
@@ -267,8 +266,6 @@ class QuantRecurrentLayerMixin(ExportMixin):
         quant_input = inp
         if not self.quantize_output_only:
             quant_input = self.io_quant(quant_input)
-        elif not isinstance(inp, QuantTensor):
-            quant_input = QuantTensor(quant_input)
         return quant_input
 
     def maybe_quantize_state(self, inp, state, quant):
@@ -276,15 +273,16 @@ class QuantRecurrentLayerMixin(ExportMixin):
             batch_size = inp.size(0) if self.cell.batch_first else inp.size(1)
             quant_state = torch.zeros(
                 int(batch_size), self.hidden_size, dtype=inp.dtype, device=inp.device)
-            quant_state = QuantTensor(quant_state)
         else:
             quant_state = quant(state)
         return quant_state
 
     def pack_quant_outputs(self, quant_outputs):
         # In export mode, quant_outputs has the shape of the output concatenated value
+        # Even though we check that return_quant_tensor can be enabled only with io_quant != None,
+        # inner layers in a deep network overrides it, so we check again.
         if self.export_mode:
-            if self.return_quant_tensor:
+            if self.return_quant_tensor and self.io_quant.is_quant_enabled:
                 return QuantTensor(
                     quant_outputs,
                     self.io_quant.scale(),
@@ -295,7 +293,7 @@ class QuantRecurrentLayerMixin(ExportMixin):
             else:
                 return quant_outputs
         seq_dim = 1 if self.cell.batch_first else 0
-        if self.return_quant_tensor:
+        if self.return_quant_tensor and self.io_quant.is_quant_enabled:
             outputs = [
                 QuantTensor(
                     torch.unsqueeze(quant_output[0], dim=seq_dim),
@@ -312,8 +310,10 @@ class QuantRecurrentLayerMixin(ExportMixin):
             return torch.cat(outputs, dim=seq_dim)
 
     def pack_quant_state(self, quant_state, quant):
+        # Even though we check that return_quant_tensor can be enabled only with quant != None,
+        # inner layers in a deep network overrides it, so we check again.
         if self.export_mode:
-            if self.return_quant_tensor:
+            if self.return_quant_tensor and quant.is_quant_enabled:
                 quant_state = QuantTensor(
                     torch.unsqueeze(quant_state, dim=0),
                     quant.scale(),
@@ -324,7 +324,7 @@ class QuantRecurrentLayerMixin(ExportMixin):
             else:
                 quant_state = torch.unsqueeze(quant_state, dim=0)
         else:
-            if self.return_quant_tensor:
+            if self.return_quant_tensor and quant.is_quant_enabled:
                 quant_state = QuantTensor(
                     torch.unsqueeze(quant_state[0], dim=0),
                     quant_state[1],

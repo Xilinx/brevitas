@@ -30,6 +30,7 @@ CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."""
 
+from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import QuantTensor
 
 from .common import *
@@ -68,13 +69,13 @@ class ResStack(nn.Module):
         for layer in self.layers:
             x = self.scale_norm(x)
             if isinstance(x, QuantTensor):
-                x_unp, _, _ = x
+                x_unp = _unpack_quant_tensor(x)
             else:
                 x_unp = x
             x_layer = self.scale_norm(layer(x_unp))
 
             if isinstance(x_layer, QuantTensor):
-                x_layer_unp, _, _ = x_layer
+                x_layer_unp = _unpack_quant_tensor(x_layer)
             else:
                 x_layer_unp = x_layer
 
@@ -84,7 +85,7 @@ class ResStack(nn.Module):
                 x = x + x_layer
 
         if isinstance(x, QuantTensor):
-            x, _, _ = x
+            x = _unpack_quant_tensor(x)
 
         return x
 
