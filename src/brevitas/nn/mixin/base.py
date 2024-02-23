@@ -331,7 +331,7 @@ class QuantRecurrentLayerMixin(ExportMixin):
                     quant_state[2],
                     quant_state[3],
                     quant.is_signed,
-                    training=self.training)
+                    self.training)
             else:
                 quant_state = torch.unsqueeze(quant_state[0], dim=0)
         return quant_state

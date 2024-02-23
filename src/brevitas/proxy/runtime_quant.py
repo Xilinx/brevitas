@@ -151,7 +151,7 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
             else:
                 y = self.fused_activation_quant_proxy(y)
             # If y is an empty QuantTensor, we need to check if this is a passthrough proxy,
-            # otherwise return an empty QuantTensor
+            # otherwise return a simple Tensor
             if isinstance(y, tuple) and not any(map(lambda f: f is None, y)):
                 return QuantTensor(*y, signed=self.is_signed, training=self.training)
             elif self.is_passthrough_act:  # preserve scale/zp/bit/sign even without output quant
