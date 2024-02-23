@@ -26,7 +26,7 @@ class FloatQuant(brevitas.jit.ScriptModule):
             exponent_bit_width: int,
             mantissa_bit_width: int,
             exponent_bias: int,
-            float_clamp_impl: Optional[nn.Module] = None,
+            float_clamp_impl: nn.Module,
             scaling_impl: Optional[nn.Module] = None,
             float_scaling_impl: Optional[nn.Module] = None,
             float_to_int_impl: nn.Module = RoundSte(),
@@ -56,14 +56,11 @@ class FloatQuant(brevitas.jit.ScriptModule):
             float_scaling_impl = ConstScaling(1., device=device, dtype=dtype)
         if scaling_impl is None:
             scaling_impl = ConstScaling(1., device=device, dtype=dtype)
-        if float_clamp_impl is None:
-            self.float_clamp_impl = FloatClamp(
-                max_value=get_max_value(
-                    exponent_bit_width, mantissa_bit_width, exponent_bias, None, None))
         # Zero-point is currently hardcoded to 0
         self.zero_point_impl = StatelessBuffer(torch.tensor(0., device=device, dtype=dtype))
         self.float_scaling_impl = float_scaling_impl
         self.scaling_impl = scaling_impl
+        self.float_clamp_impl = float_clamp_impl
 
     @brevitas.jit.script_method
     def internal_scale(self, x):

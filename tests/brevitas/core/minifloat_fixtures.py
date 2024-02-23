@@ -18,6 +18,7 @@ class Fp8e4m3Base(ExponentBiasMixin, MaxFloatInfNaNMixin, ScaledFloatWeightBase)
     float_clamp_impl = FloatClamp
     nan_values = None
     inf_values = None
+    saturating = True
     bit_width_impl_type = BitWidthImplType.CONST
     # hypothesis extra
     hypothesis_internal_is_this_a_mock_check = False
@@ -30,6 +31,7 @@ class Fp8e5m2Base(ExponentBiasMixin, MaxFloatInfNaNMixin, ScaledFloatWeightBase)
     float_clamp_impl = FloatClamp
     nan_values = None
     inf_values = None
+    saturating = True
     bit_width_impl_type = BitWidthImplType.CONST
     # hypothesis extra
     hypothesis_internal_is_this_a_mock_check = False
@@ -59,27 +61,6 @@ def fp8e5m2_regular(sat):
     return Fp8e5m2
 
 
-@pytest_cases.fixture
-@pytest_cases.parametrize('sat', [True, False])
-def fp8e4m3_no_special_values(sat):
-
-    class Fp8e4m3None(Fp8e4m3Base):
-        saturating = sat
-
-    return Fp8e4m3None
-
-
-@pytest_cases.fixture
-@pytest_cases.parametrize('sat', [True, False])
-def fp8e5m2_no_special_values(sat):
-
-    class Fp8e5m2None(Fp8e5m2Base):
-        saturating = sat
-
-    return Fp8e5m2None
-
-
-list_of_fixtures = [
-    'fp8e4m3_regular', 'fp8e5m2_regular', 'fp8e4m3_no_special_values', 'fp8e5m2_no_special_values']
+list_of_fixtures = ['fp8e4m3_regular', 'fp8e5m2_regular']
 
 fp8_clamp = fixture_union('fp8_clamp', list_of_fixtures, ids=list_of_fixtures)

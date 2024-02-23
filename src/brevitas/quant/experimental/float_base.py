@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from brevitas.core.function_wrapper import FloatClamp
+from brevitas.core.function_wrapper import TensorClamp
 from brevitas.core.quant.float import FloatQuant
 from brevitas.core.scaling.float_scaling import FloatScaling
 from brevitas.inject import ExtendedInjector
@@ -55,9 +56,16 @@ class ExponentBiasMixin(ExtendedInjector):
 class MaxFloatInfNaNMixin(ExtendedInjector):
 
     @value
-    def max_value(exponent_bit_width, mantissa_bit_width, exponent_bias, nan_values, inf_values):
+    def max_value(
+            exponent_bit_width, mantissa_bit_width, exponent_bias, nan_values, inf_values,
+            saturating):
         return get_max_value(
-            exponent_bit_width, mantissa_bit_width, exponent_bias, nan_values, inf_values)
+            exponent_bit_width,
+            mantissa_bit_width,
+            exponent_bias,
+            nan_values,
+            inf_values,
+            saturating)
 
 
 class Fp8e4m3Mixin(ExponentBiasMixin, MaxFloatInfNaNMixin):
@@ -65,6 +73,7 @@ class Fp8e4m3Mixin(ExponentBiasMixin, MaxFloatInfNaNMixin):
     exponent_bit_width = 4
     mantissa_bit_width = 3
     float_clamp_impl = FloatClamp
+    tensor_clamp_impl = TensorClamp
     nan_values = (('111',))
     inf_values = None
     saturating = True
@@ -75,6 +84,7 @@ class Fp8e5m2Mixin(ExponentBiasMixin, MaxFloatInfNaNMixin):
     exponent_bit_width = 5
     mantissa_bit_width = 2
     float_clamp_impl = FloatClamp
+    tensor_clamp_impl = TensorClamp
     nan_values = ('01', '11', '10')
     inf_values = (('00',))
     saturating = True

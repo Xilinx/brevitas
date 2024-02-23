@@ -24,10 +24,13 @@ def get_minifloat_value(exponent: str, mantissa: str, exponent_bias: int) -> flo
     return 2 ** (exponent_value - exponent_bias) * mantissa_value
 
 
-def get_max_value(exponent_bit_width, mantissa_bit_width, exponent_bias, nan_values, inf_values):
+def get_max_value(
+        exponent_bit_width, mantissa_bit_width, exponent_bias, nan_values, inf_values, saturating):
     # Idea: take the smallest NaN/inf value, set max_value to the next smaller one
     # inf without NaN not possible
     if inf_values is None and nan_values is None:
+        # saturating has to be True if no NaN/inf value are used
+        assert saturating, 'cannot be non-saturating without NaN/inf values'
         # no special cases, max_value is using all bits for exponent and mantissa
         exponent = '1' * exponent_bit_width
         mantissa = '1' * mantissa_bit_width

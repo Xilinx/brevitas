@@ -91,9 +91,9 @@ class FloatClamp(brevitas.jit.ScriptModule):
     def __init__(
             self,
             max_value: float,
-            tensor_clamp_impl: Module = TensorClamp(),
+            tensor_clamp_impl: Module,
             inf_values: Optional[Tuple[str]] = None,
-            saturating: bool = False) -> None:
+            saturating: bool = True) -> None:
         super(FloatClamp, self).__init__()
 
         self.tensor_clamp_impl = tensor_clamp_impl
