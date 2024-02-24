@@ -48,8 +48,9 @@ class QuantScaleBias(QuantWBIOL, ScaleBias):
             input_quant: Optional[ActQuantType] = None,
             output_quant: Optional[ActQuantType] = None,
             return_quant_tensor: bool = False,
+            runtime_shape=(1, -1, 1),
             **kwargs) -> None:
-        ScaleBias.__init__(self, num_features, bias)
+        ScaleBias.__init__(self, num_features, bias, runtime_shape=runtime_shape)
         QuantWBIOL.__init__(
             self,
             weight_quant=weight_quant,
