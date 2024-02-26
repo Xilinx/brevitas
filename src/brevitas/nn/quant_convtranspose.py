@@ -103,7 +103,14 @@ class QuantConvTranspose1d(QuantWBIOL, ConvTranspose1d):
     def conv_transpose1d_zeros_pad(
             self, x: Tensor, weight: Tensor, bias: Optional[Tensor], output_padding):
         out = conv_transpose1d(
-            x, weight, bias, self.stride, self.padding, output_padding, self.groups, self.dilation)
+            x,
+            weight,
+            bias,
+            stride=self.stride,
+            padding=self.padding,
+            output_padding=output_padding,
+            groups=self.groups,
+            dilation=self.dilation)
         return out
 
     def inner_forward_impl(self, x: Tensor, quant_weight: Tensor, quant_bias: Optional[Tensor]):
@@ -200,7 +207,14 @@ class QuantConvTranspose2d(QuantWBIOL, ConvTranspose2d):
     def conv_transpose2d_zeros_pad(
             self, x: Tensor, weight: Tensor, bias: Optional[Tensor], output_padding):
         out = conv_transpose2d(
-            x, weight, bias, self.stride, self.padding, output_padding, self.groups, self.dilation)
+            x,
+            weight,
+            bias,
+            stride=self.stride,
+            padding=self.padding,
+            output_padding=output_padding,
+            groups=self.groups,
+            dilation=self.dilation)
         return out
 
     def inner_forward_impl(self, x: Tensor, quant_weight: Tensor, quant_bias: Optional[Tensor]):
@@ -298,7 +312,14 @@ class QuantConvTranspose3d(QuantWBIOL, ConvTranspose3d):
     def conv_transpose3d_zeros_pad(
             self, x: Tensor, weight: Tensor, bias: Optional[Tensor], output_padding):
         out = conv_transpose3d(
-            x, weight, bias, self.stride, self.padding, output_padding, self.groups, self.dilation)
+            x,
+            weight,
+            bias,
+            stride=self.stride,
+            padding=self.padding,
+            output_padding=output_padding,
+            groups=self.groups,
+            dilation=self.dilation)
         return out
 
     def inner_forward_impl(self, x: Tensor, quant_weight: Tensor, quant_bias: Optional[Tensor]):
