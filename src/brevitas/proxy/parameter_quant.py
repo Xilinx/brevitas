@@ -82,16 +82,22 @@ class WeightQuantProxyFromInjector(ParameterQuantProxyFromInjector, WeightQuantP
         return False
 
     def scale(self):
+        if not self.is_quant_enabled:
+            return None
         scale = self.__call__(self.tracked_parameter_list[0]).scale
         return scale
 
     def zero_point(self):
+        if not self.is_quant_enabled:
+            return None
         zero_point = self.__call__(self.tracked_parameter_list[0]).zero_point
         return zero_point
 
     def bit_width(self):
-        bit_width_ = self.__call__(self.tracked_parameter_list[0]).bit_width
-        return bit_width_
+        if not self.is_quant_enabled:
+            return None
+        bit_width = self.__call__(self.tracked_parameter_list[0]).bit_width
+        return bit_width
 
     def forward(self, x: torch.Tensor) -> Union[Tensor, QuantTensor]:
         if self.is_quant_enabled:
@@ -105,11 +111,15 @@ class WeightQuantProxyFromInjector(ParameterQuantProxyFromInjector, WeightQuantP
 class DecoupledWeightQuantProxyFromInjector(WeightQuantProxyFromInjector):
 
     def pre_scale(self):
+        if not self.is_quant_enabled:
+            return None
         output_tuple = self.tensor_quant(self.tracked_parameter_list[0])
         out, scale, zero_point, bit_width, pre_scale, pre_zero_point = output_tuple
         return pre_scale
 
     def pre_zero_point(self):
+        if not self.is_quant_enabled:
+            return None
         output_tuple = self.tensor_quant(self.tracked_parameter_list[0])
         out, scale, zero_point, bit_width, pre_scale, pre_zero_point = output_tuple
         return pre_zero_point
@@ -151,7 +161,7 @@ class DecoupledWeightQuantWithInputProxyFromInjector(DecoupledWeightQuantProxyFr
             out, scale, zero_point, bit_width, pre_scale, pre_zero_point = impl(x, input_bit_width, input_is_signed)
             return QuantTensor(out, scale, zero_point, bit_width, self.is_signed, self.training)
         else:  # quantization disabled
-            return QuantTensor(x, training=self.training)
+            return x
 
 
 class BiasQuantProxyFromInjector(ParameterQuantProxyFromInjector, BiasQuantProxyProtocol):
@@ -168,18 +178,22 @@ class BiasQuantProxyFromInjector(ParameterQuantProxyFromInjector, BiasQuantProxy
             return False
 
     def scale(self):
-        if self.requires_input_scale:
+        if self.requires_input_scale or not self.is_quant_enabled:
             return None
         zhs = self._zero_hw_sentinel()
         scale = self.__call__(self.tracked_parameter_list[0], zhs).scale
         return scale
 
     def zero_point(self):
+        if not self.is_quant_enabled:
+            return None
         zhs = self._zero_hw_sentinel()
         zero_point = self.__call__(self.tracked_parameter_list[0], zhs).zero_point
         return zero_point
 
     def bit_width(self):
+        if not self.is_quant_enabled:
+            return None
         zhs = self._zero_hw_sentinel()
         bit_width = self.__call__(self.tracked_parameter_list[0], zhs).bit_width
         return bit_width
