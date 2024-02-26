@@ -118,6 +118,8 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
             self.fused_activation_quant_proxy = None
 
     def scale(self, force_eval=True):
+        if not self.is_quant_enabled:
+            return None
         current_status = self.training
         if force_eval:
             self.eval()
@@ -126,6 +128,8 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
         return scale
 
     def zero_point(self, force_eval=True):
+        if not self.is_quant_enabled:
+            return None
         current_status = self.training
         if force_eval:
             self.eval()
@@ -133,9 +137,15 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
         self.train(current_status)
         return zero_point
 
-    def bit_width(self):
-        scale = self.__call__(self._zero_hw_sentinel()).bit_width
-        return scale
+    def bit_width(self, force_eval=True):
+        if not self.is_quant_enabled:
+            return None
+        current_status = self.training
+        if force_eval:
+            self.eval()
+        bit_width = self.__call__(self._zero_hw_sentinel()).bit_width
+        self.train(current_status)
+        return bit_width
 
     def forward(self, x: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
         if self.fused_activation_quant_proxy is not None:
@@ -179,10 +189,6 @@ class DynamicActQuantProxyFromInjector(ActQuantProxyFromInjector):
     def zero_point(self, force_eval=True):
         raise RuntimeError("Zero point for Dynamic Act Quant is input-dependant")
 
-    def bit_width(self):
-        bit_width = self.__call__(self._zero_hw_sentinel()).bit_width
-        return bit_width
-
 
 class ClampQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol):
 
@@ -198,6 +204,8 @@ class ClampQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
 class TruncQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol):
 
     def bit_width(self):
+        if not self.is_quant_enabled:
+            return None
         zhs = self._zero_hw_sentinel()
         # Signed might or might not be defined. We just care about retrieving the bitwidth
         empty_imp = QuantTensor(zhs, zhs, zhs, zhs, signed=True, training=self.training)
