@@ -29,8 +29,12 @@ class FloatBase(SolveTensorQuantFloatToIntImplFromEnum):
 
     @value
     def max_value(
-            exponent_bit_width, mantissa_bit_width, exponent_bias, nan_values, inf_values,
-            saturating):
+            exponent_bit_width,
+            mantissa_bit_width,
+            exponent_bias,
+            nan_values=None,
+            inf_values=None,
+            saturating=True):
         return get_max_value(
             exponent_bit_width,
             mantissa_bit_width,
@@ -67,8 +71,6 @@ class Fp8e4m3Mixin(ExtendedInjector):
     bit_width = 8
     exponent_bit_width = 4
     mantissa_bit_width = 3
-    nan_values = (('111',))
-    inf_values = None
     saturating = True
 
 
@@ -76,6 +78,4 @@ class Fp8e5m2Mixin(ExtendedInjector):
     bit_width = 8
     exponent_bit_width = 5
     mantissa_bit_width = 2
-    nan_values = ('01', '11', '10')
-    inf_values = (('00',))
     saturating = True

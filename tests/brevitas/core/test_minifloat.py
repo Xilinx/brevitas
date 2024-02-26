@@ -6,11 +6,14 @@ import pytest
 
 from brevitas.quant.experimental.float import Fp8e4m3Weight
 from brevitas.quant.experimental.float import Fp8e5m2Weight
+from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPWeight
+from brevitas.quant.experimental.float_quant_ocp import Fp8e5m2OCPWeight
 from tests.brevitas.hyp_helper import float_tensor_random_shape_st
 
 from .minifloat_fixtures import *
 
-FORMATS = {Fp8e5m2Weight: 57344., Fp8e4m3Weight: 448., Fp8e4m3Base: 480., Fp8e5m2Base: 114688.}
+FORMATS = {
+    Fp8e5m2OCPWeight: 57344., Fp8e4m3OCPWeight: 448., Fp8e4m3Weight: 480., Fp8e5m2Weight: 114688.}
 
 
 @pytest.mark.parametrize(

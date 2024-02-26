@@ -4,58 +4,34 @@
 import pytest_cases
 from pytest_cases import fixture_union
 
-from brevitas.inject.enum import BitWidthImplType
-from brevitas.quant.experimental.float_base import ScaledFloatWeightBase
-
-
-class Fp8e4m3Base(ScaledFloatWeightBase):
-    bit_width = 8
-    exponent_bit_width = 4
-    mantissa_bit_width = 3
-    nan_values = None
-    inf_values = None
-    saturating = True
-    bit_width_impl_type = BitWidthImplType.CONST
-    # hypothesis extra
-    hypothesis_internal_is_this_a_mock_check = False
-
-
-class Fp8e5m2Base(ScaledFloatWeightBase):
-    bit_width = 8
-    exponent_bit_width = 5
-    mantissa_bit_width = 2
-    nan_values = None
-    inf_values = None
-    saturating = True
-    bit_width_impl_type = BitWidthImplType.CONST
-    # hypothesis extra
-    hypothesis_internal_is_this_a_mock_check = False
+from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPWeight
+from brevitas.quant.experimental.float_quant_ocp import Fp8e5m2OCPWeight
 
 
 @pytest_cases.fixture
 @pytest_cases.parametrize('sat', [True, False])
-def fp8e4m3_regular(sat):
+def fp8e4m3(sat):
 
-    class Fp8e4m3(Fp8e4m3Base):
+    class Fp8e4m3(Fp8e4m3OCPWeight):
         saturating = sat
-        nan_values = tuple(('111',))
-        inf_values = None
+        # for hypothesis and DI
+        hypothesis_internal_is_this_a_mock_check = True
 
     return Fp8e4m3
 
 
 @pytest_cases.fixture
 @pytest_cases.parametrize('sat', [True, False])
-def fp8e5m2_regular(sat):
+def fp8e5m2(sat):
 
-    class Fp8e5m2(Fp8e5m2Base):
+    class Fp8e5m2(Fp8e5m2OCPWeight):
         saturating = sat
-        nan_values = ('01', '11', '10')
-        inf_values = tuple(('00',))
+        # for hypothesis and DI
+        hypothesis_internal_is_this_a_mock_check = True
 
     return Fp8e5m2
 
 
-list_of_fixtures = ['fp8e4m3_regular', 'fp8e5m2_regular']
+list_of_fixtures = ['fp8e4m3', 'fp8e5m2']
 
 fp8_clamp = fixture_union('fp8_clamp', list_of_fixtures, ids=list_of_fixtures)
