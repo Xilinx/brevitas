@@ -41,7 +41,7 @@ class SolveBiasTensorQuantFromEnum(SolveIntQuantFromEnum):
         elif quant_type == QuantType.INT:
             if requires_input_scale:
                 return PrescaledRestrictIntQuant
-            elif not requires_input_scale:
+            else:
                 return RescalingIntQuant
         elif quant_type == QuantType.TERNARY:
             raise RuntimeError(f'{quant_type} not supported.')
