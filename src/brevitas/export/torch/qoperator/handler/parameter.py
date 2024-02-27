@@ -33,14 +33,14 @@ class PytorchQuantWBIOLHandler(PytorchQuantLayerHandler):
 
     @classmethod
     def validate(cls, module: QuantWBIOL):
-        assert module.is_weight_quant_enabled, 'Weight quantization required'
-        assert module.is_output_quant_enabled, 'Output quantization required'
+        assert module.weight_quant.is_quant_enabled, 'Weight quantization required'
+        assert module.output_quant.is_quant_enabled, 'Output quantization required'
 
     @classmethod
     def prepare_bias(cls, module: QuantWBIOL):
-        if module.bias is not None and not module.is_bias_quant_enabled:
+        if module.bias is not None and not module.bias_quant.is_quant_enabled:
             bias = module.bias.detach()
-        elif module.bias is not None and module.is_bias_quant_enabled:
+        elif module.bias is not None and module.bias_quant.is_quant_enabled:
             # export the dequantized value
             bias = module.quant_bias().value
         else:
@@ -49,19 +49,19 @@ class PytorchQuantWBIOLHandler(PytorchQuantLayerHandler):
 
     @classmethod
     def prepare_weight_quant(cls, module: QuantWBIOL):
-        cls.validate_bit_width(module.quant_weight_bit_width(), 7, le_then=True)
-        cls.validate_8b_bit_width(module.quant_input_bit_width(), le_then=False)
-        cls.validate_8b_bit_width(module.quant_output_bit_width(), le_then=False)
-        scale = module.quant_weight_scale()
+        cls.validate_bit_width(module.weight_quant.bit_width(), 7, le_then=True)
+        cls.validate_8b_bit_width(module.input_quant.bit_width(), le_then=False)
+        cls.validate_8b_bit_width(module.output_quant.bit_width(), le_then=False)
+        scale = module.weight_quant.scale()
         zero_point = cls.quant_weight_zero_point(module)
-        signed = module.is_quant_weight_signed
+        signed = module.weight_quant.is_signed
         weight = module.weight.detach()
         quant_impl, quant_kwargs = cls.gen_quant_impl_kwargs(scale, zero_point, signed)
         return quant_impl, (weight,), quant_kwargs
 
     def prepare_for_export(self, module: QuantWBIOL):
         self.validate(module)
-        if module.is_input_quant_enabled:
+        if module.input_quant.is_quant_enabled:
             self.input_quant_impl, self.input_quant_kwargs = self.prepare_input_quant(module)
         weight_quant_pack = self.prepare_weight_quant(module)
         self.weight_quant_impl, self.weight_quant_args, self.weight_quant_kwargs = weight_quant_pack

@@ -4,13 +4,11 @@
 from abc import ABCMeta
 from abc import abstractmethod
 from typing import Optional, Type, Union
-from warnings import warn
 
 from torch.nn import Module
 
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import Injector
-from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import ActQuantProxyProtocol
 from brevitas.quant import NoneActQuant
 
@@ -34,31 +32,6 @@ class QuantInputMixin(QuantProxyMixin):
             input_passthrough_act=True,
             **kwargs)
 
-    @property
-    def is_input_quant_enabled(self):
-        return self.input_quant.is_quant_enabled
-
-    @property
-    def is_quant_input_narrow_range(self):  # TODO make abstract once narrow range can be cached
-        return self.input_quant.is_narrow_range
-
-    @property
-    @abstractmethod
-    def is_quant_input_signed(self):
-        pass
-
-    @abstractmethod
-    def quant_input_scale(self):
-        pass
-
-    @abstractmethod
-    def quant_input_zero_point(self):
-        pass
-
-    @abstractmethod
-    def quant_input_bit_width(self):
-        pass
-
 
 class QuantOutputMixin(QuantProxyMixin):
     __metaclass__ = ABCMeta
@@ -74,31 +47,6 @@ class QuantOutputMixin(QuantProxyMixin):
             output_act_impl=None,
             output_passthrough_act=True,
             **kwargs)
-
-    @property
-    def is_output_quant_enabled(self):
-        return self.output_quant.is_quant_enabled
-
-    @property
-    def is_quant_output_narrow_range(self):  # TODO make abstract once narrow range can be cached
-        return self.output_quant.is_narrow_range
-
-    @property
-    @abstractmethod
-    def is_quant_output_signed(self):
-        pass
-
-    @abstractmethod
-    def quant_output_scale(self):
-        pass
-
-    @abstractmethod
-    def quant_output_zero_point(self):
-        pass
-
-    @abstractmethod
-    def quant_output_bit_width(self):
-        pass
 
 
 class QuantNonLinearActMixin(QuantProxyMixin):
@@ -124,28 +72,3 @@ class QuantNonLinearActMixin(QuantProxyMixin):
             none_quant_injector=NoneActQuant,
             **prefixed_kwargs,
             **kwargs)
-
-    @property
-    def is_act_quant_enabled(self):
-        return self.act_quant.is_quant_enabled
-
-    @property
-    def is_quant_act_narrow_range(self):  # TODO make abstract once narrow range can be cached
-        return self.act_quant.is_narrow_range
-
-    @property
-    @abstractmethod
-    def is_quant_act_signed(self):
-        pass
-
-    @abstractmethod
-    def quant_act_scale(self):
-        pass
-
-    @abstractmethod
-    def quant_act_zero_point(self):
-        pass
-
-    @abstractmethod
-    def quant_act_bit_width(self):
-        pass

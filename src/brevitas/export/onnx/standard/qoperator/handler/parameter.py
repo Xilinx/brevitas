@@ -28,7 +28,7 @@ class StdQOpONNXQuantWBIOLHandler(StdQOpONNXQuantLayerHandler, ABC):
     @staticmethod
     def int_weight(module: QuantWBIOL):
         int_weight = module.int_weight(float_datatype=False).detach()
-        if module.is_quant_weight_signed:
+        if module.weight_quant.is_signed:
             return int_weight.type(torch.int8)
         else:
             return int_weight.type(torch.uint8)
@@ -36,27 +36,27 @@ class StdQOpONNXQuantWBIOLHandler(StdQOpONNXQuantLayerHandler, ABC):
     @staticmethod
     def int_bias(module: QuantWBIOL):
         if module.bias is not None:
-            int_bias = module.int_bias(float_datatype=False).detach()
+            int_bias = module.bias_quant(module.bias).int(float_datatype=False).detach()
             return int_bias.type(torch.int32)
         else:
             return None
 
     @classmethod
     def validate(cls, module: QuantWBIOL, requires_quant_bias=True):
-        assert module.is_weight_quant_enabled, 'Weight quant required'
-        assert module.is_output_quant_enabled, 'Output quant required'
+        assert module.weight_quant.is_quant_enabled, 'Weight quant required'
+        assert module.output_quant.is_quant_enabled, 'Output quant required'
         # Handling narrow_range is across the network is difficult do to the fact that
         # it's not part of QuantTensor, and so it can't be cached
-        assert not module.is_quant_output_narrow_range, 'Narrow output quant not supported'
-        if module.is_input_quant_enabled:
-            assert not module.is_quant_input_narrow_range, 'Narrow output quant not supported'
-        cls.validate_8b_bit_width(module.quant_weight_bit_width(), le_then=True)
-        cls.validate_8b_bit_width(module.quant_input_bit_width(), le_then=True)
-        cls.validate_8b_bit_width(module.quant_output_bit_width(), le_then=True)
+        assert not module.output_quant.is_narrow_range, 'Narrow output quant not supported'
+        if module.input_quant.is_quant_enabled:
+            assert not module.input_quant.is_narrow_range, 'Narrow output quant not supported'
+        cls.validate_8b_bit_width(module.weight_quant.bit_width(), le_then=True)
+        cls.validate_8b_bit_width(module.input_quant.bit_width(), le_then=True)
+        cls.validate_8b_bit_width(module.output_quant.bit_width(), le_then=True)
         if module.bias is not None and requires_quant_bias:
-            assert module.is_bias_quant_enabled
-            assert module.is_quant_bias_signed
-            cls.validate_32b_bit_width(module.quant_bias_bit_width(), le_then=True)
+            assert module.bias_quant.is_quant_enabled
+            assert module.bias_quant.is_signed
+            cls.validate_32b_bit_width(module.bias_quant.bit_width(), le_then=True)
 
     def prepare_for_export(self, module: Union[QuantConv1d, QuantConv2d, QuantConv3d]):
         self.validate(module)
@@ -110,14 +110,14 @@ class StdQOpONNXQuantConvNdHandler(StdQOpONNXQuantWBIOLHandler, ABC):
 
     def op_symbolic_kwargs(self, module: Union[QuantConv1d, QuantConv2d, QuantConv3d]):
         conv_symbolic_kwargs = {
-            'input_scale': module.quant_input_scale(),
+            'input_scale': module.input_quant.scale(),
             'input_zero_point': self.quant_input_zero_point(module),
             'int_weight': self.int_weight(module),
-            'weight_scale': to_0dim_if_scalar(module.quant_weight_scale().flatten()),
+            'weight_scale': to_0dim_if_scalar(module.weight_quant.scale().flatten()),
             'weight_zero_point': to_0dim_if_scalar(self.quant_weight_zero_point(module).flatten()),
-            'output_scale': module.quant_output_scale(),
+            'output_scale': module.output_quant.scale(),
             'output_zero_point': self.quant_output_zero_point(module),
-            'output_dtype': self.torch_8b_dtype(module.is_quant_output_signed),
+            'output_dtype': self.torch_8b_dtype(module.output_quant.is_signed),
             'int_bias': self.int_bias(module),
             'out_shape': self.quant_output_shape(module),
             'kernel_size': list(module.kernel_size),
@@ -151,14 +151,14 @@ class StdQOpONNXQuantLinearHandler(StdQOpONNXQuantWBIOLHandler):
     # Convert linear to conv1d to handle bias
     def op_symbolic_kwargs(self, module: QuantLinear):
         conv_symbolic_kwargs = {
-            'input_scale': module.quant_input_scale(),
+            'input_scale': module.input_quant.scale(),
             'input_zero_point': self.quant_input_zero_point(module),
             'int_weight': self.int_weight(module).view(module.out_features, module.in_features, 1),
-            'weight_scale': to_0dim_if_scalar(module.quant_weight_scale().flatten()),
+            'weight_scale': to_0dim_if_scalar(module.weight_quant.scale().flatten()),
             'weight_zero_point': to_0dim_if_scalar(self.quant_weight_zero_point(module).flatten()),
-            'output_scale': module.quant_output_scale(),
+            'output_scale': module.output_quant.scale(),
             'output_zero_point': self.quant_output_zero_point(module),
-            'output_dtype': self.torch_8b_dtype(module.is_quant_output_signed),
+            'output_dtype': self.torch_8b_dtype(module.output_quant.is_signed),
             'int_bias': self.int_bias(module),
             'out_shape': self.quant_output_shape(module) + (1,),
             'kernel_size': [1],

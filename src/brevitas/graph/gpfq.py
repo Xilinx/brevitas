@@ -236,7 +236,7 @@ class GPFQ(GPxQ):
             raise StopFwdException
 
     def single_layer_update(self):
-        assert not self.layer.weight_quant_requires_quant_input, "Error: GPFQ does not support weight quantizers that require quantized inputs."
+        assert not self.layer.weight_quant.requires_quant_input, "Error: GPFQ does not support weight quantizers that require quantized inputs."
         weight = self.layer.weight.data
         dev = weight.device
         dtype = weight.dtype
@@ -360,7 +360,7 @@ class GPFA2Q(GPFQ):
         input_is_signed = self.quant_input.signed
         T = get_upper_bound_on_l1_norm(
             torch.tensor(self.accumulator_bit_width), input_bit_width, input_is_signed)
-        s = self.layer.quant_weight_scale()
+        s = self.layer.weight_quant.scale()
         if s.ndim > 1:
             s = s.view(self.groups, -1)  # [Groups, OC/Groups]
 

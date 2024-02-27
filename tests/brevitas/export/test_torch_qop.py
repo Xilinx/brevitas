@@ -57,7 +57,7 @@ def test_pytorch_quant_conv_export():
     brevitas_out = model(inp)
     pytorch_qf_model = export_torch_qop(model, input_t=inp)
     pytorch_out = pytorch_qf_model(inp)
-    atol = model.conv.quant_output_scale().item() * TOLERANCE
+    atol = model.conv.output_quant.scale().item() * TOLERANCE
     assert pytorch_out.isclose(brevitas_out, rtol=0.0, atol=atol).all()
 
 
@@ -94,7 +94,7 @@ def test_pytorch_quant_linear_export():
     brevitas_out = model(inp)
     pytorch_qf_model = export_torch_qop(model, input_t=inp)
     pytorch_out = pytorch_qf_model(inp)
-    atol = model.linear.quant_output_scale().item() * TOLERANCE
+    atol = model.linear.output_quant.scale().item() * TOLERANCE
     assert pytorch_out.isclose(brevitas_out, rtol=0.0, atol=atol).all()
 
 
@@ -132,7 +132,7 @@ def test_pytorch_quant_linear_bias_quant_export():
     brevitas_out = model(inp)
     pytorch_qf_model = export_torch_qop(model, input_t=inp)
     pytorch_out = pytorch_qf_model(inp)
-    atol = model.linear.quant_output_scale().item() * TOLERANCE
+    atol = model.linear.output_quant.scale().item() * TOLERANCE
     assert pytorch_out.isclose(brevitas_out, rtol=0.0, atol=atol).all()
 
 
@@ -172,7 +172,7 @@ def test_pytorch_quant_conv_bias_quant_export():
     brevitas_out = model(inp)
     pytorch_qf_model = export_torch_qop(model, input_t=inp)
     pytorch_out = pytorch_qf_model(inp)
-    atol = model.conv.quant_output_scale().item() * TOLERANCE
+    atol = model.conv.output_quant.scale().item() * TOLERANCE
     assert pytorch_out.isclose(brevitas_out, rtol=0.0, atol=atol).all()
 
 
@@ -200,5 +200,5 @@ def test_quant_act_export():
     brevitas_out = model(inp)
     pytorch_qf_model = export_torch_qop(model, input_t=inp)
     pytorch_out = pytorch_qf_model(inp)
-    atol = model.act2.quant_output_scale().item() * TOLERANCE
+    atol = model.act2.act_quant.scale().item() * TOLERANCE
     assert pytorch_out.isclose(brevitas_out, rtol=0.0, atol=atol).all()

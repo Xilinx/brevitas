@@ -237,10 +237,10 @@ def align_input_quant(
     # If it is a QuantIdentity already, simply modify tensor_quant or the scaling implementations
     # based on whether we need to align the sign or not
     if isinstance(module, qnn.QuantIdentity):
-        if align_sign or module.is_quant_act_signed == shared_quant_identity.is_quant_act_signed:
+        if align_sign or module.input_quant.is_signed == shared_quant_identity.input_quant.is_signed:
             return shared_quant_identity
         else:
-            assert not module.is_quant_act_signed and shared_quant_identity.is_quant_act_signed
+            assert not module.input_quant.is_signed and shared_quant_identity.input_quant.is_signed
             quant_module_class, quant_module_kwargs = quant_identity_map['unsigned']
             return (
                 quant_module_class,

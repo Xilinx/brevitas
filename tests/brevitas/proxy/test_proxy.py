@@ -45,9 +45,9 @@ class TestProxy:
 
     def test_weight_decoupled_with_input_proxy(self):
         model = QuantLinear(10, 5, weight_quant=Int8AccumulatorAwareWeightQuant)
-        with pytest.raises(NotImplementedError):
+        with pytest.raises(AssertionError):
             model.weight_quant.scale()
-        with pytest.raises(NotImplementedError):
+        with pytest.raises(AssertionError):
             model.weight_quant.zero_point()
 
         with pytest.raises(NotImplementedError):

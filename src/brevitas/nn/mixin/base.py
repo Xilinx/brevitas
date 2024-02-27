@@ -24,32 +24,6 @@ from brevitas.quant_tensor import QuantTensor
 from .utils import filter_kwargs
 
 
-class _CachedIO:
-
-    def __init__(self, quant_tensor: QuantTensor, metadata_only: bool):
-        self.shape = quant_tensor.value.shape
-        if metadata_only:
-            self.quant_tensor = quant_tensor.set(value=None)
-        else:
-            self.quant_tensor = quant_tensor
-
-    @property
-    def scale(self):
-        return self.quant_tensor.scale
-
-    @property
-    def zero_point(self):
-        return self.quant_tensor.zero_point
-
-    @property
-    def bit_width(self):
-        return self.quant_tensor.bit_width
-
-    @property
-    def signed(self):
-        return self.quant_tensor.signed
-
-
 class QuantProxyMixin(object):
     __metaclass__ = ABCMeta
 
@@ -82,78 +56,18 @@ class QuantProxyMixin(object):
 class QuantLayerMixin(ExportMixin):
     __metaclass__ = ABCMeta
 
-    def __init__(
-            self,
-            return_quant_tensor: bool,
-            cache_inference_quant_inp: bool = False,
-            cache_inference_quant_out: bool = False,
-            cache_quant_io_metadata_only: bool = True):
+    def __init__(self, return_quant_tensor: bool):
         ExportMixin.__init__(self)
         self.accept_quant_tensor = True
         self.return_quant_tensor = return_quant_tensor
-        self.cache_inference_quant_inp = cache_inference_quant_inp
-        self.cache_inference_quant_out = cache_inference_quant_out
-        self.cache_quant_io_metadata_only = cache_quant_io_metadata_only
-        self._cached_inp = None
-        self._cached_out = None
 
     @property
     @abstractmethod
     def channelwise_separable(self) -> bool:
         pass
 
-    @property
-    def is_quant_input_signed(self) -> Optional[bool]:  # tri-valued logic output
-        if self._cached_inp is not None:
-            return self._cached_inp.signed
-        else:
-            return None
-
     def _set_global_is_quant_layer(self, value):
         config._IS_INSIDE_QUANT_LAYER = value
-
-    def quant_input_scale(self):
-        if self._cached_inp is not None:
-            return self._cached_inp.scale
-        else:
-            return None
-
-    def quant_input_zero_point(self):
-        if self._cached_inp is not None:
-            return self._cached_inp.zero_point
-        else:
-            return None
-
-    def quant_input_bit_width(self):
-        if self._cached_inp is not None:
-            return self._cached_inp.bit_width
-        else:
-            return None
-
-    @property
-    def is_quant_output_signed(self) -> Optional[bool]:  # tri-valued logic output
-        if self._cached_out is not None:
-            return self._cached_out.signed
-        else:
-            return None
-
-    def quant_output_scale(self):
-        if self._cached_out is not None:
-            return self._cached_out.scale
-        else:
-            return None
-
-    def quant_output_zero_point(self):
-        if self._cached_out is not None:
-            return self._cached_out.zero_point
-        else:
-            return None
-
-    def quant_output_bit_width(self):
-        if self._cached_out is not None:
-            return self._cached_out.bit_width
-        else:
-            return None
 
     def unpack_input(self, inp: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
         self._set_global_is_quant_layer(True)
@@ -162,11 +76,6 @@ class QuantLayerMixin(ExportMixin):
         if (torch._C._get_tracing_state() is not None and isinstance(inp, tuple) and
                 len(inp) == len(QuantTensor._fields) and all([isinstance(t, Tensor) for t in inp])):
             inp = QuantTensor(*inp)
-        if isinstance(inp, QuantTensor):
-            # don't cache values during export pass
-            if not self.training and not self._export_mode and self.cache_inference_quant_inp:
-                cached_inp = _CachedIO(inp.detach(), self.cache_quant_io_metadata_only)
-                self._cached_inp = cached_inp
         if not torch._C._get_tracing_state():
             if isinstance(inp, QuantTensor):
                 inp = inp.set(value=inp.value.rename(None))
@@ -175,9 +84,6 @@ class QuantLayerMixin(ExportMixin):
         return inp
 
     def pack_output(self, quant_output: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
-        if not self.training and self.cache_inference_quant_out and isinstance(quant_output,
-                                                                               QuantTensor):
-            self._cached_out = _CachedIO(quant_output.detach(), self.cache_quant_io_metadata_only)
         self._set_global_is_quant_layer(False)
         if self.return_quant_tensor:
             assert isinstance(quant_output, QuantTensor)

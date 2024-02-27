@@ -5,6 +5,33 @@ from brevitas.core.bit_width import BitWidthParameter
 from brevitas.core.function_wrapper import *
 from brevitas.core.quant import RescalingIntQuant
 from brevitas.inject.enum import FloatToIntImplType
+from brevitas.quant_tensor import QuantTensor
+
+
+class _CachedIO:
+
+    def __init__(self, quant_tensor: QuantTensor, metadata_only: bool):
+        self.shape = quant_tensor.value.shape
+        if metadata_only:
+            self.quant_tensor = quant_tensor.set(value=None)
+        else:
+            self.quant_tensor = quant_tensor
+
+    @property
+    def scale(self):
+        return self.quant_tensor.scale
+
+    @property
+    def zero_point(self):
+        return self.quant_tensor.zero_point
+
+    @property
+    def bit_width(self):
+        return self.quant_tensor.bit_width
+
+    @property
+    def signed(self):
+        return self.quant_tensor.signed
 
 
 def has_learned_weight_bit_width(module):
