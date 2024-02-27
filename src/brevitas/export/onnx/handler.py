@@ -101,21 +101,21 @@ class Kernel3dApplHandlerMixin(ABC):
     @staticmethod
     def stride(module):
         if isinstance(module.stride, int):
-            return [module.stride] * 4
+            return [module.stride] * 3
         else:
             return list(module.stride)
 
     @staticmethod
     def dilation(module):
         if isinstance(module.dilation, int):
-            return [module.dilation] * 4
+            return [module.dilation] * 3
         else:
             return list(module.dilation)
 
     @staticmethod
     def kernel_shape(module):
         if isinstance(module.kernel_size, int):
-            return [module.kernel_size] * 4
+            return [module.kernel_size] * 3
         else:
             return list(module.kernel_size)
 
