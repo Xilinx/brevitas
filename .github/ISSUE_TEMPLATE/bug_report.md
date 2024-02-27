@@ -16,10 +16,10 @@ A clear and concise description of what the bug is.
 - [ ] I was only able to observe the bug once.
 
 **To Reproduce**
-Steps to reproduce the behavior:
-1. Go to '...'
-2. Click on '....'
-3. Scroll down to '....'
+Steps to reproduce the behavior. For example:
+1. When using Brevitas layer-wise/PTQ/export feature '...'
+2. With model '....'
+3. And then running '....'
 4. See error
 
 **Expected behavior**
