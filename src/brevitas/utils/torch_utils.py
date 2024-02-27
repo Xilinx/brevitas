@@ -80,3 +80,9 @@ def kthvalue(
     if x.dtype != dtype:
         x = x.type(dtype)
     return (x, indices)
+
+
+def compute_channel_view_shape(tensor: torch.Tensor, channel_dim: int):
+    broadcast_shape = [1] * len(tensor.size())
+    broadcast_shape[channel_dim] = -1
+    return tuple(broadcast_shape)

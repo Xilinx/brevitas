@@ -109,14 +109,6 @@ class QuantConv1d(QuantWBIOL, Conv1d):
         else:
             return self._conv_forward(x, quant_weight, quant_bias)
 
-    def max_acc_bit_width(self, input_bit_width, weight_bit_width):
-        max_uint_input = max_int(bit_width=input_bit_width, signed=False, narrow_range=False)
-        max_kernel_val = self.weight_quant.max_uint_value(weight_bit_width)
-        group_size = self.in_channels // self.groups
-        max_uint_output = max_uint_input * max_kernel_val * self.kernel_size[0] * group_size
-        max_output_bit_width = ceil_ste(torch.log2(max_uint_output))
-        return max_output_bit_width
-
 
 class QuantConv2d(QuantWBIOL, Conv2d):
 

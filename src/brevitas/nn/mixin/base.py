@@ -17,9 +17,9 @@ from brevitas import config
 from brevitas.common import ExportMixin
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import Injector
-from brevitas.nn.utils import compute_channel_view_shape
 from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import QuantTensor
+from brevitas.utils.torch_utils import compute_channel_view_shape
 
 from .utils import filter_kwargs
 
@@ -86,7 +86,7 @@ class QuantLayerMixin(ExportMixin):
     def pack_output(self, quant_output: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
         self._set_global_is_quant_layer(False)
         if self.return_quant_tensor:
-            assert isinstance(quant_output, QuantTensor)
+            assert isinstance(quant_output, QuantTensor), 'QuantLayer is not correctly configured, check if warnings were raised'
             return quant_output
         else:
             return _unpack_quant_tensor(quant_output)

@@ -2,17 +2,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import torch
-from torch import Tensor
 from torch.nn import Parameter
 
-from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjector
-from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
-
-
-def compute_channel_view_shape(tensor: Tensor, channel_dim: int):
-    broadcast_shape = [1] * len(tensor.size())
-    broadcast_shape[channel_dim] = -1
-    return tuple(broadcast_shape)
+from brevitas.utils.torch_utils import compute_channel_view_shape
 
 
 def mul_add_from_bn(bn_mean, bn_var, bn_eps, bn_weight, bn_bias):
@@ -23,6 +15,8 @@ def mul_add_from_bn(bn_mean, bn_var, bn_eps, bn_weight, bn_bias):
 
 
 def merge_bn(layer, bn, output_channel_dim=0):
+    from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjector
+    from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
     out = mul_add_from_bn(
         bn_mean=bn.running_mean,
         bn_var=bn.running_var,
