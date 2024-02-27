@@ -11,6 +11,7 @@ from torch.nn import Module
 
 from brevitas.function.ops import max_int
 from brevitas.function.ops import min_int
+from brevitas.nn.quant_layer import QuantNonLinearActLayer
 
 __all__ = ['BaseHandler', 'BitWidthHandlerMixin', 'ZeroPointHandlerMixin']
 
@@ -130,21 +131,25 @@ class ZeroPointHandlerMixin(ABC):
 
     @classmethod
     def quant_input_zero_point(cls, module):
-        signed = module.is_quant_input_signed
-        zero_point = module.quant_input_zero_point()
-        bit_width = module.quant_input_bit_width()
+        signed = module.input_quant.is_signed
+        zero_point = module.input_quant.zero_point()
+        bit_width = module.input_quant.bit_width()
         return cls.zero_point_with_dtype(signed, bit_width, zero_point)
 
     @classmethod
     def quant_weight_zero_point(cls, module):
-        signed = module.is_quant_weight_signed
-        zero_point = module.quant_weight_zero_point()
-        bit_width = module.quant_weight_bit_width()
+        signed = module.weight_quant.is_signed
+        zero_point = module.weight_quant.zero_point()
+        bit_width = module.weight_quant.bit_width()
         return cls.zero_point_with_dtype(signed, bit_width, zero_point)
 
     @classmethod
     def quant_output_zero_point(cls, module):
-        signed = module.is_quant_output_signed
-        zero_point = module.quant_output_zero_point()
-        bit_width = module.quant_output_bit_width()
+        if isinstance(module, QuantNonLinearActLayer):
+            quant = module.act_quant
+        else:
+            quant = module.output_quant
+        signed = quant.is_signed
+        zero_point = quant.zero_point()
+        bit_width = quant.bit_width()
         return cls.zero_point_with_dtype(signed, bit_width, zero_point)
