@@ -25,8 +25,8 @@ Steps to reproduce the behavior. For example:
 **Expected behavior**
 A clear and concise description of what you expected to happen.
 
-**Screenshots**
-If applicable, add screenshots to help explain your problem.
+**Screenshots/Code Example/Log Output**
+If applicable, add screenshots, code blocks, or output text to help explain your problem.
 
 **please complete the following information:**
  - Version number of Brevitas: 
