@@ -178,7 +178,6 @@ class Int8BiasPerTensorFixedPointInternalScaling(IntQuant,
         >>> fc = QuantLinear(10, 5, bias=True, bias_quant=Int8BiasPerTensorFixedPointInternalScaling)
     """
     requires_input_scale = False
-    requires_input_bit_width = False
 
 
 class Int4WeightPerTensorFixedPointDecoupled(WeightPerTensorFloatDecoupledL2Param):

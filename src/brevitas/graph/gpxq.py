@@ -234,19 +234,14 @@ class GPxQ(ABC):
             inp_training = self.layer.training
 
         # If using quantized activations, inp could be QuantTensor. In
-        # this case, we overwrite the metadata if it is specified.
+        # this case, we overwrite the metadata.
         if isinstance(inp, QuantTensor):
             if self.layer_requires_input_quant and (self.quant_input is None):
-                if inp.scale is not None:
-                    inp_scale = inp.scale
-                if inp.zero_point is not None:
-                    inp_zero_point = inp.zero_point
-                if inp.bit_width is not None:
-                    inp_bit_width = inp.bit_width
-                if inp.signed is not None:
-                    inp_signed = inp.signed
-                if inp.training is not None:
-                    inp_training = inp.training
+                inp_scale = inp.scale
+                inp_zero_point = inp.zero_point
+                inp_bit_width = inp.bit_width
+                inp_signed = inp.signed
+                inp_training = inp.training
             inp = inp.value
 
         # if the layer requires an input quant and the quant input cache has

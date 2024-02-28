@@ -1,18 +1,11 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from typing import Optional, Tuple, Union
-
-from packaging import version
-from torch import Tensor
 from torch.nn import functional as F
 from torch.nn import Module
 
-from brevitas import torch_version
 from brevitas.export.manager import _set_layer_export_handler
 from brevitas.export.manager import _set_layer_export_mode
-from brevitas.export.onnx.manager import ONNXBaseManager
-from brevitas.quant_tensor import QuantTensor
 
 from ..function import DequantizeLinearFn
 from ..function import IntClipFn
@@ -27,8 +20,6 @@ from .handler.base import StdQOpONNXQuantLayerHandler
 from .handler.parameter import StdQOpONNXQuantConv1dHandler
 from .handler.parameter import StdQOpONNXQuantConv2dHandler
 from .handler.parameter import StdQOpONNXQuantLinearHandler
-from .handler.pool import StdQOpONNXQuantMaxPool1d
-from .handler.pool import StdQOpONNXQuantMaxPool2d
 
 
 class StdQOpONNXManager(StdONNXBaseManager):
@@ -43,7 +34,7 @@ class StdQOpONNXManager(StdONNXBaseManager):
         F.max_pool3d,
         F.adaptive_max_pool1d,
         F.adaptive_max_pool2d,
-        F.adaptive_max_pool3d,]
+        F.adaptive_max_pool3d]
 
     handlers = [
         StdQOpONNXQuantConv1dHandler,
@@ -53,9 +44,7 @@ class StdQOpONNXManager(StdONNXBaseManager):
         StdQOpONNXQuantHardTanhHandler,
         StdQOpONNXQuantIdentityHandler,
         StdQOpONNXQuantTanhHandler,
-        StdQOpONNXQuantSigmoidHandler,
-        StdQOpONNXQuantMaxPool1d,
-        StdQOpONNXQuantMaxPool2d]
+        StdQOpONNXQuantSigmoidHandler]
 
     onnx_passes = [
         # remove unused graph inputs & initializers

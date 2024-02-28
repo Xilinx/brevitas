@@ -45,7 +45,7 @@ class QuantUpsample(QuantLayerMixin, Upsample):
         y_value = interpolate(x.value, self.size, self.scale_factor, self.mode, self.align_corners)
         if self.mode != 'nearest':
             # round interpolated values to scale
-            assert x.scale is not None, 'Input scale factor required to interpolate correctly'
+            assert isinstance(x, QuantTensor), 'Input scale factor required to interpolate correctly'
             y_value = round_ste(y_value / x.scale) * x.scale
         y = x.set(value=y_value)
         return self.pack_output(y)
@@ -73,7 +73,7 @@ class QuantUpsamplingBilinear2d(QuantLayerMixin, UpsamplingBilinear2d):
             return out
         y_value = interpolate(x.value, self.size, self.scale_factor, self.mode, self.align_corners)
         # round interpolated values to scale
-        assert x.scale is not None, 'Input scale factor required to interpolate correctly'
+        assert isinstance(x, QuantTensor), 'Input scale factor required to interpolate correctly'
         y_value = round_ste(y_value / x.scale) * x.scale
         y = x.set(value=y_value)
         return self.pack_output(y)

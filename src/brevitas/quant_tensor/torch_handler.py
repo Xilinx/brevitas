@@ -23,10 +23,7 @@ def implements(torch_function):
 
 def quant_invariant_handler(fn, inp, *args, **kwargs):
     out_value = fn(inp.value, *args, **kwargs)
-    if inp.is_not_none:
-        return inp.set(value=out_value)
-    else:
-        return out_value
+    return inp.set(value=out_value)
 
 
 @implements(torch.flatten)

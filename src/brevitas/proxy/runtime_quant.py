@@ -137,7 +137,7 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
         scale = self.__call__(self._zero_hw_sentinel()).bit_width
         return scale
 
-    def forward(self, x: Union[Tensor, QuantTensor]) -> QuantTensor:
+    def forward(self, x: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
         if self.fused_activation_quant_proxy is not None:
             y = x
             if isinstance(y, QuantTensor):
@@ -151,22 +151,24 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
             else:
                 y = self.fused_activation_quant_proxy(y)
             # If y is an empty QuantTensor, we need to check if this is a passthrough proxy,
-            # otherwise return an empty QuantTensor
+            # otherwise return a simple Tensor
             if isinstance(y, tuple) and not any(map(lambda f: f is None, y)):
                 return QuantTensor(*y, signed=self.is_signed, training=self.training)
             elif self.is_passthrough_act:  # preserve scale/zp/bit/sign even without output quant
                 if isinstance(y, tuple):
                     y = y[0]
-                return QuantTensor(y, x.scale, x.zero_point, x.bit_width, x.signed, self.training)
+                if isinstance(x, QuantTensor):
+                    return QuantTensor(
+                        y, x.scale, x.zero_point, x.bit_width, x.signed, self.training)
+                else:
+                    return y
             else:
                 if isinstance(y, tuple):
                     y = y[0]
-                return QuantTensor(y, training=self.training)
+                return y
         else:
-            if isinstance(x, QuantTensor):  # passthrough
-                return x
-            else:
-                return QuantTensor(x, training=self.training)
+            # If fused activation quant proxy is not enabled, return the input
+            return x
 
 
 class DynamicActQuantProxyFromInjector(ActQuantProxyFromInjector):
@@ -184,7 +186,7 @@ class DynamicActQuantProxyFromInjector(ActQuantProxyFromInjector):
 
 class ClampQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol):
 
-    def forward(self, x: QuantTensor):
+    def forward(self, x: QuantTensor) -> Union[Tensor, QuantTensor]:
         if self.is_quant_enabled:
             out_tuple = self.tensor_quant(x.value, x.scale, x.bit_width)
             out_value, out_scale, out_zp, out_bit_width = out_tuple
@@ -197,11 +199,12 @@ class TruncQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
 
     def bit_width(self):
         zhs = self._zero_hw_sentinel()
-        empty_imp = QuantTensor(zhs, zhs, zhs, zhs)
+        # Signed might or might not be defined. We just care about retrieving the bitwidth
+        empty_imp = QuantTensor(zhs, zhs, zhs, zhs, signed=True, training=self.training)
         bit_width = self.__call__(empty_imp).bit_width
         return bit_width
 
-    def forward(self, x: QuantTensor):
+    def forward(self, x: QuantTensor) -> Union[Tensor, QuantTensor]:
         if self.is_quant_enabled:
             if self.export_mode:
                 out_tuple = self.export_handler(

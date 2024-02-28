@@ -24,7 +24,11 @@ from brevitas.quant_tensor import QuantTensor
 from .base import Transform
 
 __all__ = [
-    'ClipFloatWeights', 'DisableEnableQuantization', 'bias_correction_mode', 'calibration_mode']
+    'ClipFloatWeights',
+    'DisableEnableQuantization',
+    'bias_correction_mode',
+    'calibration_mode',
+    'load_quant_model']
 
 _PARAM_PROXIES = (WeightQuantProxyFromInjector, BiasQuantProxyFromInjector)
 
@@ -42,6 +46,21 @@ _LAYERS_TO_CLIP = (
     nn.ConvTranspose3d)
 
 BN_LAYERS = (nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d)
+
+
+def disable_return_quant_tensor(model):
+    previous_state = {}
+    for module in model.modules():
+        if hasattr(module, 'return_quant_tensor'):
+            previous_state[module] = module.return_quant_tensor
+            module.return_quant_tensor = False
+    return previous_state
+
+
+def restore_return_quant_tensor(model, previous_state):
+    for module in model.modules():
+        if hasattr(module, 'return_quant_tensor'):
+            module.return_quant_tensor = previous_state[module]
 
 
 def extend_collect_stats_steps(module):
@@ -71,11 +90,13 @@ class calibration_mode:
         self.previous_training_state = model.training
         self.disable_quant_inference = DisableEnableQuantization(call_act_quantizer_impl=True)
         self.enabled = enabled
+        self.return_quant_tensor_state = dict()
 
     def __enter__(self):
         if self.enabled:
             self.model.apply(extend_collect_stats_steps)
             self.model.apply(set_collect_stats_to_average)
+            self.return_quant_tensor_state = disable_return_quant_tensor(self.model)
             self.disable_quant_inference.apply(
                 self.model, is_training=True, quantization_enabled=False)
 
@@ -83,13 +104,36 @@ class calibration_mode:
         self.model.apply(finalize_collect_stats)
         self.disable_quant_inference.apply(
             self.model, is_training=self.previous_training_state, quantization_enabled=True)
+        restore_return_quant_tensor(self.model, self.return_quant_tensor_state)
+
+
+class load_quant_model:
+
+    def __init__(self, model):
+        self.model = model
+        self.tracked_modules = []
+
+    def __enter__(self):
+        for module in self.model.modules():
+            if issubclass(type(module), QuantWBIOL):
+                if module.bias is None:
+                    module.register_parameter(
+                        'bias',
+                        nn.Parameter(torch.empty(module.weight.shape[0])).to(module.weight.device))
+                    self.tracked_modules.append(module)
+
+    def __exit__(self, type, value, traceback):
+        for module in self.tracked_modules:
+            # empty tensor has a numel result of 0
+            if torch.numel(module.bias) == 0:
+                module.bias = None
 
 
 class bias_correction_mode:
 
-    def __init__(self, model, enabled=True):
+    def __init__(self, model, enabled=True, skip_if_no_bias=False):
         self.model = model
-        self.bias_correction = _BiasCorrection()
+        self.bias_correction = _BiasCorrection(skip_if_no_bias=skip_if_no_bias)
         self.enabled = enabled
         self.hooks = []
 
@@ -142,7 +186,7 @@ class DisableEnableQuantization(Transform):
         if isinstance(module.tracked_module_list[0], QuantHardTanh):
             inp = F.hardtanh(
                 inp, min_val=module.quant_injector.min_val, max_val=module.quant_injector.max_val)
-        return QuantTensor(value=inp, training=module.training)
+        return inp
 
     def disable_act_quantization(self, model, is_training):
         # If self.call_act_quantizer_impl is set to True, the quantization will be performed but the output
@@ -209,7 +253,7 @@ class _BiasCorrection(DisableEnableQuantization):
 
     LAYERS = (QuantWBIOL,)
 
-    def __init__(self, layers=LAYERS):
+    def __init__(self, layers=LAYERS, skip_if_no_bias=False):
         super(_BiasCorrection, self).__init__()
         self.layers = layers
         self.iterations = {}
@@ -217,6 +261,7 @@ class _BiasCorrection(DisableEnableQuantization):
         self.float_mean_map = {}
         self.collect_float_mean_hooks = []
         self.correct_bias_hooks = []
+        self.skip_if_no_bias = skip_if_no_bias
 
     def compute_mean(self, inp, transpose_dim):
         inp = inp.transpose(0, transpose_dim)
@@ -248,7 +293,7 @@ class _BiasCorrection(DisableEnableQuantization):
                 correction = self.correction_map[name] / self.iterations[name]
                 if module.bias is not None:
                     module.bias.data += correction
-                else:
+                elif self.skip_if_no_bias is False:
                     module.register_parameter(
                         'bias', nn.Parameter(correction).to(module.weight.device))
 

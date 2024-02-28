@@ -12,6 +12,7 @@ import brevitas
 from brevitas import config
 from brevitas.core.utils import StatelessBuffer
 from brevitas.function.ops import max_int
+from brevitas.quant_tensor import _unpack_quant_tensor
 # Use custom implementation of kthvalue as work around to (b)float16 kernel limitations
 from brevitas.utils.torch_utils import kthvalue
 
@@ -478,8 +479,7 @@ class MSE(torch.nn.Module):
         # Set to local_loss_mode before calling the proxy
         self.set_local_loss_mode(True)
         quant_value = self.proxy_forward(x)
-        if isinstance(quant_value, tuple):
-            quant_value = quant_value[0]
+        quant_value = _unpack_quant_tensor(quant_value)
         loss = self.mse_loss_fn(x, quant_value)
         self.set_local_loss_mode(False)
         return loss

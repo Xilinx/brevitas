@@ -384,6 +384,8 @@ def case_quant_lstm_full(
 
     if return_quant_tensor and io_quantizer is None:
         pytest.skip("return_quant_tensor cannot be True if no io_quantizer is specified")
+    if return_quant_tensor and signed_act_quantizer is None:
+        pytest.skip("return_quant_tensor cannot be True if no cell_state_quant is specified")
 
     class Model(nn.Module):
 

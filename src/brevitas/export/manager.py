@@ -207,10 +207,9 @@ class BaseManager(ABC):
             if isinstance(input, QuantTensor):
                 inp_cache = None
                 out_cache = None
-                if input.is_not_none:
-                    inp_cache = _CachedIO(input, metadata_only=True)
+                inp_cache = _CachedIO(input, metadata_only=True)
                 output = fn(input, *args, **kwargs)
-                if isinstance(output, QuantTensor) and output.is_not_none:
+                if isinstance(output, QuantTensor):
                     out_cache = _CachedIO(output, metadata_only=True)
                 cached_io = (inp_cache, out_cache)
                 if fn in cls._cached_io_handler_map:
