@@ -8,6 +8,7 @@ assignees: ''
 ---
 
 **Describe the bug**
+
 A clear and concise description of what the bug is.
 
 **Reproducibility**
@@ -16,7 +17,9 @@ A clear and concise description of what the bug is.
 - [ ] Unable to reproduce.
 
 **To Reproduce**
+
 Steps to reproduce the behavior. For example:
+
 1. When using Brevitas layer-wise/PTQ/export feature '...'
 2. With model '....'
 3. And then running '....'
@@ -29,7 +32,12 @@ A clear and concise description of what you expected to happen.
 If applicable, add screenshots, code blocks, or output text to help explain your problem.
 
 **please complete the following information:**
- - Version number of Brevitas:
+
+_If known:_
+
+ - Brevitas version:
+ - PyTorch version:
+ - Operating System / platform:
 
 **Additional context**
 Add any other context about the problem here.
