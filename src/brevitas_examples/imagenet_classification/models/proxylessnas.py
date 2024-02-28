@@ -30,7 +30,7 @@ from brevitas.nn import QuantIdentity
 from brevitas.nn import QuantLinear
 from brevitas.nn import QuantReLU
 from brevitas.nn import TruncAvgPool2d
-from brevitas.quant import IntBias
+from brevitas.quant import Int32Bias
 
 from .common import *
 
@@ -300,7 +300,7 @@ class ProxylessNAS(nn.Module):
                 in_features=in_channels,
                 out_features=num_classes,
                 bias=True,
-                bias_quant=IntBias,
+                bias_quant=Int32Bias,
                 weight_bit_width=bit_width,
                 weight_quant=CommonIntWeightPerTensorQuant)
 

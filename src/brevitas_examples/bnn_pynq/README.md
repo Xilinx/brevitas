@@ -20,7 +20,7 @@ These pretrained models and training scripts are courtesy of
 | CNV_1W1A | 8 bit                        | 1 bit               | 1 bit                   |  CIFAR10      |    84.22%     |
 | CNV_1W2A | 8 bit                        | 1 bit               | 2 bit                   |  CIFAR10      |    87.80%     |
 | CNV_2W2A | 8 bit                        | 2 bit               | 2 bit                   |  CIFAR10      |    89.03%     |
-| RESNET18_4W4A | 8 bit (assumed)         | 4 bit               | 4 bit                   |  CIFAR10      |    92.60%     |
+| RESNET18_4W4A | 8 bit (assumed)         | 4 bit               | 4 bit                   |  CIFAR10      |    92.61%     |
 
 ## Train
 

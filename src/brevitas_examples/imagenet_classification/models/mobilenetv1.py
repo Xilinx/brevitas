@@ -34,7 +34,7 @@ from brevitas.nn import QuantConv2d
 from brevitas.nn import QuantLinear
 from brevitas.nn import QuantReLU
 from brevitas.nn import TruncAvgPool2d
-from brevitas.quant import IntBias
+from brevitas.quant import Int32Bias
 
 from .common import CommonIntWeightPerChannelQuant
 from .common import CommonIntWeightPerTensorQuant
@@ -181,7 +181,7 @@ class MobileNet(nn.Module):
             in_channels,
             num_classes,
             bias=True,
-            bias_quant=IntBias,
+            bias_quant=Int32Bias,
             weight_quant=last_layer_weight_quant,
             weight_bit_width=last_layer_bit_width)
 
