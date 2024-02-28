@@ -11,9 +11,9 @@ assignees: ''
 A clear and concise description of what the bug is.
 
 **Reproducibility**
-- [ ] I can reproduce the bug consistently.
-- [ ] The bug reproduces only sometimes.
-- [ ] I was only able to observe the bug once.
+- [ ] Can be reproduced consistently.
+- [ ] Difficult to reproduce.
+- [ ] Unable to reproduce.
 
 **To Reproduce**
 Steps to reproduce the behavior. For example:
