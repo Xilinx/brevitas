@@ -15,7 +15,9 @@ import torch
 from torch.fx import GraphModule as TorchGraphModule
 
 from brevitas.fx import GraphModule
+from brevitas.graph.calibrate import disable_return_quant_tensor
 from brevitas.graph.calibrate import DisableEnableQuantization
+from brevitas.graph.calibrate import restore_return_quant_tensor
 import brevitas.nn as qnn
 from brevitas.quant_tensor import QuantTensor
 
@@ -87,6 +89,7 @@ class gpxq_mode(ABC):
         # How many subblock to use during GPTQ for each layer
 
         self.disable_quant_inference = DisableEnableQuantization()
+        self.return_quant_tensor_state = dict()
 
         self.group_of_parallel_layers = group_of_parallel_layers
         self.return_forward_output = return_forward_output
@@ -146,6 +149,7 @@ class gpxq_mode(ABC):
                     self.gpxq_layers[name] = gpxq_module_optimizer
 
         if not self.use_quant_activations:
+            self.return_quant_tensor_state = disable_return_quant_tensor(self.model)
             self.disable_quant_inference.disable_act_quantization(
                 self.model, is_training=self.model.training)
             self.disable_quant_inference.disable_bias_quantization(
@@ -165,6 +169,7 @@ class gpxq_mode(ABC):
                 self.model, is_training=self.model.training)
             self.disable_quant_inference.enable_bias_quantization(
                 self.model, is_training=self.model.training)
+            restore_return_quant_tensor(self.model, self.return_quant_tensor_state)
 
     def update(self):
         for name in self.current_layer.layer_names:

@@ -10,6 +10,8 @@ import torch.nn as nn
 import unfoldNd
 
 from brevitas.function import get_upper_bound_on_l1_norm
+from brevitas.graph.calibrate import disable_return_quant_tensor
+from brevitas.graph.calibrate import restore_return_quant_tensor
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import StopFwdException
@@ -89,6 +91,7 @@ class gpfq_mode(gpxq_mode):
             pass
 
         # Disable quantization
+        self.return_quant_tensor_state = disable_return_quant_tensor(self.model)
         self.disable_quant_inference.disable_param_quantization(self.model, is_training=False)
         self.disable_quant_inference.disable_act_quantization(self.model, is_training=False)
         # Collect float input
@@ -104,6 +107,7 @@ class gpfq_mode(gpxq_mode):
             self.disable_quant_inference.enable_act_quantization(self.model, is_training=False)
         else:
             self.disable_quant_inference.disable_bias_quantization(self.model, is_training=False)
+        restore_return_quant_tensor(self.model, self.return_quant_tensor_state)
 
         if self.return_forward_output:
             # If we want to return the output of the network, we need to disable all hooks
