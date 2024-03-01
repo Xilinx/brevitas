@@ -239,6 +239,12 @@ parser.add_argument(
     help=
     'Split Ratio for Channel Splitting. When set to 0.0, Channel Splitting will not be applied. (default: 0.0)'
 )
+parser.add_argument(
+    '--compression-rate',
+    default=0.0,
+    type=float,
+    help='Specify compression rate < 1.0 for random projection. Default is 0.0 and does not use RP.'
+)
 add_bool_arg(parser, 'gptq', default=False, help='GPTQ (default: disabled)')
 add_bool_arg(parser, 'gpfq', default=False, help='GPFQ (default: disabled)')
 add_bool_arg(parser, 'gpfa2q', default=False, help='GPFA2Q (default: disabled)')
@@ -426,7 +432,12 @@ def main():
 
     if args.gpfq:
         print("Performing GPFQ:")
-        apply_gpfq(calib_loader, quant_model, p=args.gpfq_p, act_order=args.gpxq_act_order)
+        apply_gpfq(
+            calib_loader,
+            quant_model,
+            p=args.gpfq_p,
+            act_order=args.gpxq_act_order,
+            compression_rate=args.compression_rate)
 
     if args.gpfa2q:
         print("Performing GPFA2Q:")
@@ -436,7 +447,8 @@ def main():
             p=args.gpfq_p,
             act_order=args.gpxq_act_order,
             use_gpfa2q=args.gpfa2q,
-            accumulator_bit_width=args.accumulator_bit_width)
+            accumulator_bit_width=args.accumulator_bit_width,
+            compression_rate=args.compression_rate)
 
     if args.gptq:
         print("Performing GPTQ:")

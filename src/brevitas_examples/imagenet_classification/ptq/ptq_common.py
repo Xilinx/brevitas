@@ -535,7 +535,14 @@ def apply_gptq(calib_loader, model, act_order=False):
                 gptq.update()
 
 
-def apply_gpfq(calib_loader, model, act_order, p=1.0, use_gpfa2q=False, accumulator_bit_width=None):
+def apply_gpfq(
+        calib_loader,
+        model,
+        act_order,
+        p=1.0,
+        use_gpfa2q=False,
+        accumulator_bit_width=None,
+        compression_rate=0.0):
     model.eval()
     dtype = next(model.parameters()).dtype
     device = next(model.parameters()).device
@@ -545,7 +552,8 @@ def apply_gpfq(calib_loader, model, act_order, p=1.0, use_gpfa2q=False, accumula
                        use_quant_activations=True,
                        act_order=act_order,
                        use_gpfa2q=use_gpfa2q,
-                       accumulator_bit_width=accumulator_bit_width) as gpfq:
+                       accumulator_bit_width=accumulator_bit_width,
+                       compression_rate=compression_rate) as gpfq:
             gpfq_model = gpfq.model
             for i in tqdm(range(gpfq.num_layers)):
                 for i, (images, target) in enumerate(calib_loader):
