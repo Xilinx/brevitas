@@ -252,14 +252,17 @@ class GPxQ(ABC):
         # if the layer requires an input quant and the quant input cache has
         # yet to be populated, then populate with the collected metadata
         if self.layer_requires_input_quant and (self.quant_input is None):
-            self.quant_input = QuantTensor(
-                value=torch.empty(
-                    1, dtype=self.layer.weight.dtype, device=self.layer.weight.device),
-                scale=inp_scale,
-                zero_point=inp_zero_point,
-                bit_width=inp_bit_width,
-                signed=inp_signed,
-                training=inp_training)
+            try:
+                self.quant_input = QuantTensor(
+                    value=torch.empty(
+                        1, dtype=self.layer.weight.dtype, device=self.layer.weight.device),
+                    scale=inp_scale,
+                    zero_point=inp_zero_point,
+                    bit_width=inp_bit_width,
+                    signed=inp_signed,
+                    training=inp_training)
+            except TypeError:
+                pass
 
         # If input is unbatched, add batch_size = 1
         if len(inp.shape) == 1:
