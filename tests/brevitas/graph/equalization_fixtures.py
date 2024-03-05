@@ -12,6 +12,7 @@ from torchvision import models
 from brevitas import torch_version
 from brevitas.graph.equalize import _cross_layer_equalization
 import brevitas.nn as qnn
+from brevitas.quant import Int8ActPerTensorFloat
 
 SEED = 123456
 ATOL = 1e-3
@@ -91,6 +92,26 @@ def bnconv_model():
             return x
 
     return BNConvModel
+
+
+@pytest_cases.fixture
+def quant_conv_with_input_quant_model():
+
+    class QuantConvModel(nn.Module):
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.conv_0 = qnn.QuantConv2d(
+                3, 16, kernel_size=3)  # gpxq tests assume no quant on first layer
+            self.conv_1 = qnn.QuantConv2d(16, 32, kernel_size=3, input_quant=Int8ActPerTensorFloat)
+
+        def forward(self, x):
+            x = self.conv_0(x)
+            x = torch.relu(x)
+            x = self.conv_1(x)
+            return x
+
+    return QuantConvModel
 
 
 @pytest_cases.fixture
@@ -421,7 +442,10 @@ list_of_fixtures = [
     'convtranspose_model']
 
 list_of_quant_fixtures = [
-    'quant_convdepthconv_model', 'quant_residual_model', 'quant_convtranspose_model']
+    'quant_conv_with_input_quant_model',
+    'quant_convdepthconv_model',
+    'quant_residual_model',
+    'quant_convtranspose_model']
 
 toy_model = fixture_union('toy_model', list_of_fixtures, ids=list_of_fixtures)
 
