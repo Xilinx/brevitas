@@ -27,7 +27,7 @@ def to_quant_tensor(input: torch.Tensor) -> QuantTensor:
 
 def test_quant_tensor_init():
     x = torch.ones(4, 4)
-    quant_tensor = QuantTensor(x)
+    quant_tensor = to_quant_tensor(x)
     normal_tensor = torch.Tensor(x)
 
     assert torch.isclose(normal_tensor, quant_tensor, atol=0.1).all().item()
