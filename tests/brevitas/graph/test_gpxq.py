@@ -11,7 +11,6 @@ from torch.utils.data import TensorDataset
 
 from brevitas.graph.gpfq import gpfq_mode
 from brevitas.graph.gptq import gptq_mode
-import brevitas.nn as qnn
 
 from .equalization_fixtures import *
 
