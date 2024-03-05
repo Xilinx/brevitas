@@ -333,7 +333,8 @@ class GPFA2Q(GPFQ):
         T = get_upper_bound_on_l1_norm(
             torch.tensor(self.accumulator_bit_width), input_bit_width, input_is_signed)
         s = self.layer.quant_weight_scale()
-        s = s.view(self.groups, -1)  # [Groups, OC/Groups]
+        if s.ndim > 1:
+            s = s.view(self.groups, -1)  # [Groups, OC/Groups]
 
         # initialize cumulative l1-norm
         z = torch.zeros(weight.shape[:-1], device=dev)
@@ -367,8 +368,8 @@ class GPFA2Q(GPFQ):
                 else:
                     q_arg = torch.zeros_like(U[group_index, :, 0])
 
-                max_q_arg = s[group_index, :] * torch.clamp_min(T - z[group_index, :], 0.)
-                q_arg = q_arg.sign() * torch.clamp_max(q_arg.abs(), max_q_arg)
+                max_q_arg = s * torch.clamp_min(T - z, 0.)
+                q_arg = q_arg.sign() * torch.clamp_max(q_arg.abs(), max_q_arg[group_index, :])
                 weight[group_index, :, permutation_list[group_index][t]] = q_arg
             q = self.get_quant_weights(t, 0, permutation_list)
             z += q.abs() / s  # increment cumulative l1-norm
