@@ -16,21 +16,6 @@ import brevitas.nn as qnn
 from .equalization_fixtures import *
 
 
-class QuantConvModel(nn.Module):
-
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self.conv1 = qnn.QuantConv2d(3, 16, 3)
-        self.relu1 = qnn.QuantReLU(return_quant_tensor=True)
-        self.conv2 = qnn.QuantConv2d(16, 32, 3)
-
-    def forward(self, x):
-        x = self.conv1(x)
-        x = self.relu1(x)
-        x = self.conv2(x)
-        return x
-
-
 def apply_gpfq(
         calib_loader: DataLoader,
         model: nn.Module,
@@ -93,51 +78,6 @@ def identity_layer_filter_func(layer: nn.Module) -> bool:
 
 
 filter_func_dict = {"identity": identity_layer_filter_func, "ignore_input": custom_layer_filter_fnc}
-
-
-@pytest.mark.parametrize("act_order", [True, False])
-@pytest.mark.parametrize("use_quant_activations", [True, False])
-@pytest.mark.parametrize("acc_bit_width", [32, 24, 16, 12])
-@pytest.mark.parametrize("filter_func_str", filter_func_dict.keys())
-def test_gpfq(
-        act_order: bool, use_quant_activations: bool, acc_bit_width: int, filter_func_str: str):
-    model = QuantConvModel()
-    inp = torch.randn(100, 3, 32, 32)
-    dataset = TensorDataset(inp, inp)
-    calibloader = DataLoader(dataset, batch_size=32, num_workers=0, pin_memory=True, shuffle=True)
-    filter_func = filter_func_dict[filter_func_str]
-    if (acc_bit_width < 32) and (not use_quant_activations or filter_func_str == "identity"):
-        # GPFA2Q requires that the quant activations are used. GPFA2Q.single_layer_update will
-        # raise a ValueError if GPFA2Q.quant_input is None (also see GPxQ.process_input). This will
-        # happen when `use_quant_activations=False` or when the input to a model is not quantized
-        # and `a2q_layer_filter_fnc` does not properly handle it.
-        with pytest.raises(ValueError):
-            apply_gpfq(
-                calibloader,
-                model,
-                act_order=act_order,
-                use_quant_activations=use_quant_activations,
-                accumulator_bit_width=acc_bit_width,
-                a2q_layer_filter_fnc=filter_func)
-    else:
-        apply_gpfq(
-            calibloader,
-            model,
-            act_order=act_order,
-            use_quant_activations=use_quant_activations,
-            accumulator_bit_width=acc_bit_width,
-            a2q_layer_filter_fnc=filter_func)
-
-
-@pytest.mark.parametrize("act_order", [True, False])
-@pytest.mark.parametrize("use_quant_activations", [True, False])
-def test_gptq(act_order: bool, use_quant_activations: bool):
-    model = QuantConvModel()
-    inp = torch.randn(100, 3, 32, 32)
-    dataset = TensorDataset(inp, inp)
-    calibloader = DataLoader(dataset, batch_size=32, num_workers=0, pin_memory=True, shuffle=True)
-    apply_gptq(calibloader, model, act_order=act_order, use_quant_activations=use_quant_activations)
-
 
 apply_gpxq_func_map = {"gpfq": apply_gpfq, "gptq": apply_gptq}
 
