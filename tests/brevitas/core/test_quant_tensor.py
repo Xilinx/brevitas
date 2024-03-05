@@ -105,7 +105,3 @@ def test_is_valid():
 
     valid_quant_tensor = to_quant_tensor(x)
     assert valid_quant_tensor.is_valid
-
-
-if __name__ == "__main__":
-    test_quant_tensor_operators(Operator.MATMUL)
