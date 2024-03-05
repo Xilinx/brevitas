@@ -105,6 +105,9 @@ def test_toymodels(
     if (name == 'gptq' and acc_bit_width < 32):
         pytest.skip("GPTQ does not support accumulator-aware quantization.")
 
+    if (name == 'gptq' and torch_version < version.parse('1.9.1')):
+        pytest.skip(f"GPTQ usage of linalg_cholesky() is not compatible with torch {torch_version}")
+
     if name == 'gpfq':
         filter_func = filter_func_dict[filter_func_str]
         apply_gpxq = partial(
