@@ -11,7 +11,6 @@ from operator import attrgetter
 from typing import List, Optional, Set
 import warnings
 
-import torch
 from torch.fx import GraphModule as TorchGraphModule
 
 from brevitas.fx import GraphModule
@@ -19,7 +18,6 @@ from brevitas.graph.calibrate import disable_return_quant_tensor
 from brevitas.graph.calibrate import DisableEnableQuantization
 from brevitas.graph.calibrate import restore_return_quant_tensor
 import brevitas.nn as qnn
-from brevitas.quant_tensor import QuantTensor
 
 SUPPORTED_CONV_OP = (
     qnn.QuantConv2d, qnn.QuantConv1d, qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d)
@@ -212,57 +210,10 @@ class GPxQ(ABC):
         self.disable_pre_forward_hook = False
         # Some layers require knowledge from quant inputs to compute quant weights
         self.quant_input = None
-        self.requires_quant_input = False  # For GPFA2Q
-
-    @property
-    def layer_requires_input_quant(self):
-        # some weight quantizers require a quant input (e.g., A2Q)
-        check_1 = self.layer.weight_quant_requires_quant_input
-        # if input_quant is enabled, then we will store its information
-        check_2 = self.layer.is_input_quant_enabled
-        # GPFA2Q requires the quantized input to be stored
-        check_3 = self.requires_quant_input
-        requires_input_quant = check_1 or check_2 or check_3
-        return requires_input_quant
 
     def process_input(self, inp):
         # Input is a tuple, so we take first element
         inp = inp[0]
-
-        # if the quant_input is not already cached, then get
-        # metadata from QuantWBIOL module
-        if self.quant_input is None:
-            inp_scale = self.layer.quant_input_scale()
-            inp_zero_point = self.layer.quant_input_zero_point()
-            inp_bit_width = self.layer.quant_input_bit_width()
-            inp_signed = self.layer.is_quant_input_signed
-            inp_training = self.layer.training
-
-        # If using quantized activations, inp could be QuantTensor. In
-        # this case, we overwrite the metadata.
-        if isinstance(inp, QuantTensor):
-            if self.layer_requires_input_quant and (self.quant_input is None):
-                inp_scale = inp.scale
-                inp_zero_point = inp.zero_point
-                inp_bit_width = inp.bit_width
-                inp_signed = inp.signed
-                inp_training = inp.training
-            inp = inp.value
-
-        # if the layer requires an input quant and the quant input cache has
-        # yet to be populated, then populate with the collected metadata
-        if self.layer_requires_input_quant and (self.quant_input is None):
-            try:
-                self.quant_input = QuantTensor(
-                    value=torch.empty(
-                        1, dtype=self.layer.weight.dtype, device=self.layer.weight.device),
-                    scale=inp_scale,
-                    zero_point=inp_zero_point,
-                    bit_width=inp_bit_width,
-                    signed=inp_signed,
-                    training=inp_training)
-            except TypeError:
-                pass
 
         # If input is unbatched, add batch_size = 1
         if len(inp.shape) == 1:

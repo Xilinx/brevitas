@@ -17,6 +17,7 @@ from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import StopFwdException
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 import brevitas.nn as qnn
+from brevitas.quant_tensor import QuantTensor
 
 
 class gpfq_mode(gpxq_mode):
@@ -159,7 +160,7 @@ class GPFQ(GPxQ):
 
         # Update reference to current layer
         current_layer.layer_names.add(self.name)
-        is_quant_disabled = module.weight_quant.disable_quant
+        is_quant_enabled = module.weight_quant.is_quant_enabled
 
         inp = self.process_input(input)
         batch_size = inp.shape[0]
@@ -214,7 +215,7 @@ class GPFQ(GPxQ):
                 inp_processed.append(inp)
             inp_processed = torch.stack(inp_processed)
 
-        if is_quant_disabled:
+        if not is_quant_enabled:
             if self.float_input is None:
                 self.float_input = inp_processed
             else:
@@ -233,6 +234,7 @@ class GPFQ(GPxQ):
             raise StopFwdException
 
     def single_layer_update(self):
+        assert not self.layer.weight_quant_requires_quant_input, "Error: GPFQ does not support weight quantizers that require quantized inputs."
         weight = self.layer.weight.data
         dev = weight.device
         dtype = weight.dtype
@@ -306,13 +308,34 @@ class GPFA2Q(GPFQ):
             p=p)
         self.accumulator_bit_width = accumulator_bit_width
         assert self.accumulator_bit_width is not None
-        self.requires_quant_input = True  # force true
+
+    def process_input(self, inp):
+        inp = super().process_input(inp)
+
+        is_quant_enabled = self.layer.weight_quant.is_quant_enabled
+
+        # If using quantized activations, inp could be QuantTensor. In
+        # this case, we overwrite the metadata.
+        if isinstance(inp, QuantTensor):
+            if is_quant_enabled and self.quant_input is None:
+                self.quant_input = QuantTensor(
+                    value=torch.empty(
+                        1, dtype=self.layer.weight.dtype, device=self.layer.weight.device),
+                    scale=inp.scale,
+                    zero_point=inp.zero_point,
+                    bit_width=inp.bit_width,
+                    signed=inp.signed,
+                    training=inp.training)
+            inp = inp.value
+
+        return inp
 
     def single_layer_update(self):
         # raise error in case no quant-input is here
         if self.quant_input is None:
             raise ValueError('Expected self.quant_input to calculate L1-norm upper bound, but recevied None. ' + \
-                'Check if `use_quant_activations=True` in `gpfq_mode` when `accumulator_bit_width` is specified. ' + \
+                'Make sure that either the input to the model is a QuantTensor or the layer has an input quant enabled. ' \
+                'Also, check if `use_quant_activations=True` in `gpfq_mode` when `accumulator_bit_width` is specified. ' + \
                 'Alternatively, provide a custom `a2q_layer_filter_fnc` to `gpfq_mode` to filter layers without a quant_tensor input.')
         weight = self.layer.weight.data
         dev = weight.device
