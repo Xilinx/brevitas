@@ -118,7 +118,7 @@ class QuantConvTranspose1d(QuantWBIOL, ConvTranspose1d):
         max_uint_input = max_int(bit_width=input_bit_width, signed=False, narrow_range=False)
         max_kernel_val = self.weight_quant.max_uint_value(weight_bit_width)
         group_size = self.out_channels // self.groups
-        patch_size = max(self.kernel_size[0] // self.stride[0], 1)
+        patch_size = max(torch.ceil(self.kernel_size[0] / self.stride[0]), 1)
         max_uint_output = max_uint_input * max_kernel_val * patch_size * group_size
         max_output_bit_width = ceil_ste(torch.log2(max_uint_output))
         return max_output_bit_width
@@ -215,8 +215,8 @@ class QuantConvTranspose2d(QuantWBIOL, ConvTranspose2d):
         max_uint_input = max_int(bit_width=input_bit_width, signed=False, narrow_range=False)
         max_kernel_val = self.weight_quant.max_uint_value(weight_bit_width)
         group_size = self.out_channels // self.groups
-        patch_size = max(self.kernel_size[0] // self.stride[0], 1) * max(
-            self.kernel_size[1] // self.stride[1], 1)
+        patch_size = max(torch.ceil(self.kernel_size[0] / self.stride[0]), 1) * max(
+            torch.ceil(self.kernel_size[1] / self.stride[1]), 1)
         max_uint_output = max_uint_input * max_kernel_val * patch_size * group_size
         max_output_bit_width = ceil_ste(torch.log2(max_uint_output))
         return max_output_bit_width
@@ -313,9 +313,9 @@ class QuantConvTranspose3d(QuantWBIOL, ConvTranspose3d):
         max_uint_input = max_int(bit_width=input_bit_width, signed=False, narrow_range=False)
         max_kernel_val = self.weight_quant.max_uint_value(weight_bit_width)
         group_size = self.out_channels // self.groups
-        patch_size = max(self.kernel_size[0] // self.stride[0], 1) * max(
-            self.kernel_size[1] // self.stride[1], 1) * max(
-                self.kernel_size[2] // self.stride[2], 1)
+        patch_size = max(torch.ceil(self.kernel_size[0] / self.stride[0]), 1) * max(
+            torch.ceil(self.kernel_size[1] / self.stride[1]), 1) * max(
+                torch.ceil(self.kernel_size[2] / self.stride[2]), 1)
         max_uint_output = max_uint_input * max_kernel_val * patch_size * group_size
         max_output_bit_width = ceil_ste(torch.log2(max_uint_output))
         return max_output_bit_width
