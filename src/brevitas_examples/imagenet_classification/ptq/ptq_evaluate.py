@@ -251,6 +251,11 @@ add_bool_arg(
     'merge-bn',
     default=True,
     help='Merge BN layers before quantizing the model (default: enabled)')
+add_bool_arg(
+    parser,
+    'uint_sym_act_for_unsigned_values',
+    default=True,
+    help='Use unsigned act quant when possible (default: enabled)')
 
 
 def main():
@@ -405,7 +410,8 @@ def main():
         weight_mantissa_bit_width=args.weight_mantissa_bit_width,
         weight_exponent_bit_width=args.weight_exponent_bit_width,
         act_mantissa_bit_width=args.act_mantissa_bit_width,
-        act_exponent_bit_width=args.act_exponent_bit_width)
+        act_exponent_bit_width=args.act_exponent_bit_width,
+        uint_sym_act_for_unsigned_values=args.uint_sym_act_for_unsigned_values)
 
     # Calibrate the quant_model on the calibration dataloader
     print("Starting activation calibration:")
