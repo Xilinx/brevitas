@@ -118,8 +118,8 @@ class QuantConvTranspose1d(QuantWBIOL, ConvTranspose1d):
         max_uint_input = max_int(bit_width=input_bit_width, signed=False, narrow_range=False)
         max_kernel_val = self.weight_quant.max_uint_value(weight_bit_width)
         group_size = self.out_channels // self.groups
-        overlapping_sums = max(round(self.kernel_size[0] / self.stride[0]), 1)
-        max_uint_output = max_uint_input * max_kernel_val * overlapping_sums * group_size
+        patch_size = (self.kernel_size[0] // self.stride[0])
+        max_uint_output = max_uint_input * max_kernel_val * patch_size * group_size
         max_output_bit_width = ceil_ste(torch.log2(max_uint_output))
         return max_output_bit_width
 
@@ -215,9 +215,9 @@ class QuantConvTranspose2d(QuantWBIOL, ConvTranspose2d):
         max_uint_input = max_int(bit_width=input_bit_width, signed=False, narrow_range=False)
         max_kernel_val = self.weight_quant.max_uint_value(weight_bit_width)
         group_size = self.out_channels // self.groups
-        overlapping_sums = max(round(self.kernel_size[0] / self.stride[0]), 1)
-        overlapping_sums *= max(round(self.kernel_size[1] / self.stride[1]), 1)
-        max_uint_output = max_uint_input * max_kernel_val * overlapping_sums * group_size
+        patch_size = (self.kernel_size[0] //
+                      self.stride[0]) * (self.kernel_size[1] // self.stride[1])
+        max_uint_output = max_uint_input * max_kernel_val * patch_size * group_size
         max_output_bit_width = ceil_ste(torch.log2(max_uint_output))
         return max_output_bit_width
 
@@ -313,9 +313,8 @@ class QuantConvTranspose3d(QuantWBIOL, ConvTranspose3d):
         max_uint_input = max_int(bit_width=input_bit_width, signed=False, narrow_range=False)
         max_kernel_val = self.weight_quant.max_uint_value(weight_bit_width)
         group_size = self.out_channels // self.groups
-        overlapping_sums = max(round(self.kernel_size[0] / self.stride[0]), 1)
-        overlapping_sums *= max(round(self.kernel_size[1] / self.stride[1]), 1)
-        overlapping_sums *= max(round(self.kernel_size[2] / self.stride[2]), 1)
-        max_uint_output = max_uint_input * max_kernel_val * overlapping_sums * group_size
+        patch_size = (self.kernel_size[0] // self.stride[0]) * (
+            self.kernel_size[1] // self.stride[1]) * (self.kernel_size[2] // self.stride[2])
+        max_uint_output = max_uint_input * max_kernel_val * patch_size * group_size
         max_output_bit_width = ceil_ste(torch.log2(max_uint_output))
         return max_output_bit_width
