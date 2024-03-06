@@ -1,0 +1,16 @@
+name: Full Test Suite
+
+on:
+    push:
+        branches: [master, dev]
+    issue_comment:
+        types: [created]
+
+jobs:
+    full_test_suite:
+        runs-on: ubuntu-latest
+
+        # always run on push event but for comment events, only run for pull request comments with the specific expected message
+        if: (github.event.issue.pull_request != '' && contains(github.event.comment.body,'/test')) || (github.event_name == 'push')
+        steps:
+            - run: echo Hello, world!
