@@ -88,7 +88,7 @@ def test_quant_tensor_transpose():
 
 def test_quant_tensor_view():
     x = torch.ones(4, 4)
-    a = QuantTensor(x)
+    a = to_quant_tensor(x)
     b = torch.Tensor(x)
 
     assert torch.isclose(a.view(-1), b.view(-1), atol=0.01).all().item()
@@ -100,7 +100,7 @@ def test_quant_tensor_view():
 def test_is_valid():
     x = torch.randn(4, 4)
     # directly initialised QuantTensor shouldn't be valid
-    invalid_quant_tensor = QuantTensor(x)
+    invalid_quant_tensor = QuantTensor(x, None, None, None, None, None)
     assert invalid_quant_tensor.is_valid == False
 
     valid_quant_tensor = to_quant_tensor(x)
