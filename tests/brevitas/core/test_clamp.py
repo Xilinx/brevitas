@@ -12,12 +12,13 @@ from tests.brevitas.hyp_helper import float_tensor_random_shape_st
 
 from .minifloat_fixtures import *
 
-FORMATS = {
+FORMAT_MAXVAL_MAP = {
     Fp8e5m2OCPWeight: 57344., Fp8e4m3OCPWeight: 448., Fp8e4m3Weight: 480., Fp8e5m2Weight: 114688.}
 
 
 @pytest.mark.parametrize(
-    'minifloat, expected_max_val', ((format, max_val) for format, max_val in FORMATS.items()))
+    'minifloat, expected_max_val',
+    ((format, max_val) for format, max_val in FORMAT_MAXVAL_MAP.items()))
 def test_max_value(minifloat, expected_max_val):
     max_val = minifloat.float_clamp_impl.max_value()
 
@@ -25,7 +26,7 @@ def test_max_value(minifloat, expected_max_val):
 
 
 @given(inp=float_tensor_random_shape_st())
-def test_clamp(inp, fp8_clamp):
+def test_float_clamp(inp, fp8_clamp):
     max_val = fp8_clamp.float_clamp_impl.max_value()
     # get values that exceed max_val
     over_limit_mask = inp.abs() > max_val
