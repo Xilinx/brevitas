@@ -14,8 +14,10 @@ from brevitas.export import export_onnx_qop
 from brevitas.export import export_qonnx
 from brevitas.nn import QuantConv1d
 from brevitas.nn import QuantConv2d
+from brevitas.nn import QuantConv3d
 from brevitas.nn import QuantConvTranspose1d
 from brevitas.nn import QuantConvTranspose2d
+from brevitas.nn import QuantConvTranspose3d
 from brevitas.nn import QuantLinear
 from brevitas.quant.fixed_point import Int8ActPerTensorFixedPoint
 from brevitas.quant.fixed_point import Int8WeightPerChannelFixedPoint
@@ -70,7 +72,13 @@ LSTM_QUANTIZERS = {
     'symmetric_per_channel_fixed_point':
         (Int8WeightPerChannelFixedPoint, Int8ActPerTensorFixedPoint)}
 QUANT_WBIOL_IMPL = [
-    QuantLinear, QuantConv1d, QuantConv2d, QuantConvTranspose1d, QuantConvTranspose2d]
+    QuantLinear,
+    QuantConv1d,
+    QuantConv2d,
+    QuantConv3d,
+    QuantConvTranspose1d,
+    QuantConvTranspose2d,
+    QuantConvTranspose3d,]
 
 
 def compute_ort(export_name, np_input):

@@ -209,7 +209,7 @@ class ValueProxy(Proxy):
             proxies: List[Proxy] = []
 
             def find_proxy(a):
-                if isinstance(a, cls):
+                if isinstance(a, cls) and a not in proxies:
                     proxies.append(a)
 
             fx.node.map_aggregate(method_args, find_proxy)
@@ -228,7 +228,7 @@ class ValueProxy(Proxy):
         if torch.overrides.is_tensor_method_or_property(orig_method):
             proxy = retrieve_method_proxy(args, kwargs)
             try:
-                value = orig_method(*tracer.unpack_arg(args), **tracer.unpack_arg(kwargs))
+                value = proxy.value(*tracer.unpack_arg(args), **tracer.unpack_arg(kwargs))
             except UnsetValueException:
                 value = _UNSET
             return tracer.create_proxy(

@@ -12,8 +12,10 @@ import torch.nn as nn
 from brevitas import torch_version
 from brevitas.nn import QuantConv1d
 from brevitas.nn import QuantConv2d
+from brevitas.nn import QuantConv3d
 from brevitas.nn import QuantConvTranspose1d
 from brevitas.nn import QuantConvTranspose2d
+from brevitas.nn import QuantConvTranspose3d
 from brevitas.nn import QuantIdentity
 from brevitas.nn import QuantLinear
 from brevitas.nn.quant_mha import QuantMultiheadAttention
@@ -91,8 +93,10 @@ QUANT_WBIOL_IMPL = [
     QuantLinear,
     QuantConv1d,
     QuantConv2d,
+    QuantConv3d,
     QuantConvTranspose1d,
-    QuantConvTranspose2d,]
+    QuantConvTranspose2d,
+    QuantConvTranspose3d,]
 
 ACC_BIT_WIDTHS = [8, 9, 10, 12, 16, 24, 32]
 
@@ -157,8 +161,12 @@ def build_case_model(
         in_size = (1, IN_CH)
     elif impl in ('QuantConv1d', 'QuantConvTranspose1d'):
         in_size = (1, IN_CH, FEATURES)
-    else:
+    elif impl in ('QuantConv2d', 'QuantConvTranspose2d'):
         in_size = (1, IN_CH, FEATURES, FEATURES)
+    elif impl in ('QuantConv3d', 'QuantConvTranspose3d'):
+        in_size = (1, IN_CH, FEATURES, FEATURES, FEATURES)
+    else:
+        raise RuntimeError("Unsupported operation")
 
     if input_quantized:
         quant_inp = QuantTensor(

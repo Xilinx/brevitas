@@ -8,11 +8,13 @@ from torch import Tensor
 from brevitas.export.common import to_0dim_if_scalar
 from brevitas.export.onnx.handler import Kernel1dApplHandlerMixin
 from brevitas.export.onnx.handler import Kernel2dApplHandlerMixin
+from brevitas.export.onnx.handler import Kernel3dApplHandlerMixin
 from brevitas.export.onnx.standard.function import DequantizeLinearFn
 from brevitas.export.onnx.standard.function import IntClipFn
 from brevitas.export.onnx.standard.function import QuantizeLinearFn
 from brevitas.nn import QuantConv1d
 from brevitas.nn import QuantConv2d
+from brevitas.nn import QuantConv3d
 from brevitas.nn import QuantLinear
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 
@@ -56,7 +58,7 @@ class StdQOpONNXQuantWBIOLHandler(StdQOpONNXQuantLayerHandler, ABC):
             assert module.is_quant_bias_signed
             cls.validate_32b_bit_width(module.quant_bias_bit_width(), le_then=True)
 
-    def prepare_for_export(self, module: Union[QuantConv1d, QuantConv2d]):
+    def prepare_for_export(self, module: Union[QuantConv1d, QuantConv2d, QuantConv3d]):
         self.validate(module)
 
         op_symbolic_kwargs = self.op_symbolic_kwargs(module)
@@ -106,7 +108,7 @@ class StdQOpONNXQuantWBIOLHandler(StdQOpONNXQuantLayerHandler, ABC):
 
 class StdQOpONNXQuantConvNdHandler(StdQOpONNXQuantWBIOLHandler, ABC):
 
-    def op_symbolic_kwargs(self, module: Union[QuantConv1d, QuantConv2d]):
+    def op_symbolic_kwargs(self, module: Union[QuantConv1d, QuantConv2d, QuantConv3d]):
         conv_symbolic_kwargs = {
             'input_scale': module.quant_input_scale(),
             'input_zero_point': self.quant_input_zero_point(module),
@@ -129,6 +131,10 @@ class StdQOpONNXQuantConvNdHandler(StdQOpONNXQuantWBIOLHandler, ABC):
         conv_symbolic_kwargs = self.symbolic_kwargs['op_symbolic_kwargs']
         out = QLinearConvFn.apply(inp, *conv_symbolic_kwargs.values())
         return out
+
+
+class StdQOpONNXQuantConv3dHandler(StdQOpONNXQuantConvNdHandler, Kernel3dApplHandlerMixin):
+    handled_layer = QuantConv3d
 
 
 class StdQOpONNXQuantConv2dHandler(StdQOpONNXQuantConvNdHandler, Kernel2dApplHandlerMixin):

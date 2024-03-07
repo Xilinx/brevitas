@@ -45,6 +45,12 @@ FLEXML_COMPUTE_LAYER_MAP = {
             'weight_quant': Int8WeightPerTensorFixedPoint,
             'bias_quant': Int16Bias,
             'return_quant_tensor': True}),
+    nn.Conv3d: (
+        qnn.QuantConv3d,
+        {
+            'weight_quant': Int8WeightPerTensorFixedPoint,
+            'bias_quant': Int16Bias,
+            'return_quant_tensor': True}),
     nn.ConvTranspose1d: (
         qnn.QuantConvTranspose1d,
         {
@@ -53,6 +59,12 @@ FLEXML_COMPUTE_LAYER_MAP = {
             'return_quant_tensor': True}),
     nn.ConvTranspose2d: (
         qnn.QuantConvTranspose2d,
+        {
+            'weight_quant': Int8WeightPerTensorFixedPoint,
+            'bias_quant': Int16Bias,
+            'return_quant_tensor': True}),
+    nn.ConvTranspose3d: (
+        qnn.QuantConvTranspose3d,
         {
             'weight_quant': Int8WeightPerTensorFixedPoint,
             'bias_quant': Int16Bias,
