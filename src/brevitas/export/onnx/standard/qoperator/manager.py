@@ -19,6 +19,7 @@ from .handler.act import StdQOpONNXQuantTanhHandler
 from .handler.base import StdQOpONNXQuantLayerHandler
 from .handler.parameter import StdQOpONNXQuantConv1dHandler
 from .handler.parameter import StdQOpONNXQuantConv2dHandler
+from .handler.parameter import StdQOpONNXQuantConv3dHandler
 from .handler.parameter import StdQOpONNXQuantLinearHandler
 
 
@@ -39,6 +40,7 @@ class StdQOpONNXManager(StdONNXBaseManager):
     handlers = [
         StdQOpONNXQuantConv1dHandler,
         StdQOpONNXQuantConv2dHandler,
+        StdQOpONNXQuantConv3dHandler,
         StdQOpONNXQuantLinearHandler,
         StdQOpONNXQuantReLUHandler,
         StdQOpONNXQuantHardTanhHandler,

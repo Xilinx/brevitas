@@ -7,8 +7,10 @@ import torch
 
 from brevitas.nn import QuantConv1d
 from brevitas.nn import QuantConv2d
+from brevitas.nn import QuantConv3d
 from brevitas.nn import QuantConvTranspose1d
 from brevitas.nn import QuantConvTranspose2d
+from brevitas.nn import QuantConvTranspose3d
 from brevitas.nn import QuantLinear
 from brevitas.nn import QuantScaleBias
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
@@ -25,7 +27,13 @@ OUTPUT_CH = 10
 IN_CH = 5
 KERNEL_SIZE = 3
 
-QUANT_CONV_VARIANTS = [QuantConv1d, QuantConv2d, QuantConvTranspose1d, QuantConvTranspose2d]
+QUANT_CONV_VARIANTS = [
+    QuantConv1d,
+    QuantConv2d,
+    QuantConv3d,
+    QuantConvTranspose1d,
+    QuantConvTranspose2d,
+    QuantConvTranspose3d,]
 
 
 @pytest_cases.fixture()

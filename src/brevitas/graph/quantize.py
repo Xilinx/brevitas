@@ -82,6 +82,12 @@ COMPUTE_LAYER_MAP = {
             'weight_quant': Int8WeightPerTensorFloat,
             'bias_quant': Int32Bias,
             'return_quant_tensor': True}),
+    nn.Conv3d: (
+        qnn.QuantConv3d,
+        {
+            'weight_quant': Int8WeightPerTensorFloat,
+            'bias_quant': Int32Bias,
+            'return_quant_tensor': True}),
     nn.ConvTranspose1d: (
         qnn.QuantConvTranspose1d,
         {
@@ -90,6 +96,12 @@ COMPUTE_LAYER_MAP = {
             'return_quant_tensor': True}),
     nn.ConvTranspose2d: (
         qnn.QuantConvTranspose2d,
+        {
+            'weight_quant': Int8WeightPerTensorFloat,
+            'bias_quant': Int32Bias,
+            'return_quant_tensor': True}),
+    nn.ConvTranspose3d: (
+        qnn.QuantConvTranspose3d,
         {
             'weight_quant': Int8WeightPerTensorFloat,
             'bias_quant': Int32Bias,
@@ -151,6 +163,13 @@ LAYERWISE_COMPUTE_LAYER_MAP = {
             'weight_quant': Int8WeightPerTensorFloat,
             'bias_quant': Int32Bias,
             'return_quant_tensor': False}),
+    nn.Conv3d: (
+        qnn.QuantConv3d,
+        {
+            'input_quant': Int8ActPerTensorFloat,
+            'weight_quant': Int8WeightPerTensorFloat,
+            'bias_quant': Int32Bias,
+            'return_quant_tensor': False}),
     nn.ConvTranspose1d: (
         qnn.QuantConvTranspose1d,
         {
@@ -160,6 +179,13 @@ LAYERWISE_COMPUTE_LAYER_MAP = {
             'return_quant_tensor': False}),
     nn.ConvTranspose2d: (
         qnn.QuantConvTranspose2d,
+        {
+            'input_quant': Int8ActPerTensorFloat,
+            'weight_quant': Int8WeightPerTensorFloat,
+            'bias_quant': Int32Bias,
+            'return_quant_tensor': False}),
+    nn.ConvTranspose3d: (
+        qnn.QuantConvTranspose3d,
         {
             'input_quant': Int8ActPerTensorFloat,
             'weight_quant': Int8WeightPerTensorFloat,

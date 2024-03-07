@@ -10,12 +10,16 @@ from torch import nn
 from torchvision import models
 
 from brevitas.fx import symbolic_trace
+from brevitas.graph import AvgPoolToQuantDepthwiseConv
 from brevitas.graph import DuplicateSharedStatelessModule
 from brevitas.graph import FnToModule
 from brevitas.graph import MeanMethodToAdaptiveAvgPool2d
 from brevitas.graph import MergeBatchNorm
 from brevitas.graph import MethodToModule
 from brevitas.graph.base import ModuleToModuleByInstance
+from brevitas.nn import QuantConv1d
+from brevitas.nn import QuantConv2d
+from brevitas.nn import QuantConv3d
 
 SEED = 123456
 INPUT_SIZE = (1, 3, 224, 224)
@@ -48,6 +52,86 @@ def test_rewriter_merge_bn(model_name: str, pretrained: bool):
         for m in graph_model.modules():
             assert not isinstance(m, nn.BatchNorm2d)
         assert is_close
+
+
+@pytest.mark.parametrize("dims", [1, 2, 3])
+def test_conv_merge_bn(dims):
+
+    class TestModel(nn.Module):
+
+        def __init__(self, dims):
+            super(TestModel, self).__init__()
+            layers = []
+
+            if dims == 1:
+                layers.append(nn.Conv1d(16, 33, 3, stride=2))
+                layers.append(nn.BatchNorm1d(33))
+            elif dims == 2:
+                layers.append(nn.Conv2d(16, 33, 3, stride=2))
+                layers.append(nn.BatchNorm2d(33))
+            else:
+                layers.append(nn.Conv3d(16, 33, 3, stride=2))
+                layers.append(nn.BatchNorm3d(33))
+
+            layers.append(nn.ReLU())
+
+            self.net = nn.Sequential(*layers)
+
+        def forward(self, x):
+            return self.net(x)
+
+    model = TestModel(dims)
+    graph = symbolic_trace(model)
+    graph = MergeBatchNorm().apply(graph)
+
+    for m in graph.modules():
+        if dims == 1:
+            assert not isinstance(m, nn.BatchNorm1d)
+        elif dims == 2:
+            assert not isinstance(m, nn.BatchNorm2d)
+        else:
+            assert not isinstance(m, nn.BatchNorm3d)
+
+
+@pytest.mark.parametrize("dims", [1, 2, 3])
+def test_avg_pool_to_quant_conv(dims):
+
+    class TestModel(nn.Module):
+
+        def __init__(self, dims):
+            super(TestModel, self).__init__()
+
+            if dims == 1:
+                self.net = nn.Sequential(nn.AvgPool1d(3, stride=2), nn.ReLU())
+            elif dims == 2:
+                self.net = nn.Sequential(nn.AvgPool2d(3, stride=2), nn.ReLU())
+            else:
+                self.net = nn.Sequential(nn.AvgPool3d(3, stride=2), nn.ReLU())
+
+        def forward(self, x):
+            return self.net(x)
+
+    model = TestModel(dims)
+
+    args = None
+    if dims == 1:
+        args = torch.randn(20, 16, 10)
+    elif dims == 2:
+        args = torch.randn(20, 16, 10, 50)
+    else:
+        args = torch.randn(20, 16, 10, 50, 100)
+
+    graph = symbolic_trace(model)
+    graph = AvgPoolToQuantDepthwiseConv().apply(graph, args)
+
+    has_quant_conv = False
+    for m in graph.modules():
+        if isinstance(m, (QuantConv1d, QuantConv2d, QuantConv3d)):
+            has_quant_conv = True
+
+        assert not isinstance(m, (nn.AvgPool1d, nn.AvgPool2d, nn.AvgPool3d))
+
+    assert has_quant_conv
 
 
 def test_rewriter_duplicate_shared_relu():
