@@ -95,26 +95,6 @@ def bnconv_model():
 
 
 @pytest_cases.fixture
-def quant_conv_with_input_quant_model():
-
-    class QuantConvModel(nn.Module):
-
-        def __init__(self) -> None:
-            super().__init__()
-            self.conv_0 = qnn.QuantConv2d(
-                3, 16, kernel_size=3)  # gpxq tests assume no quant on first layer
-            self.conv_1 = qnn.QuantConv2d(16, 32, kernel_size=3, input_quant=Int8ActPerTensorFloat)
-
-        def forward(self, x):
-            x = self.conv_0(x)
-            x = torch.relu(x)
-            x = self.conv_1(x)
-            return x
-
-    return QuantConvModel
-
-
-@pytest_cases.fixture
 @pytest_cases.parametrize('bias', [True, False])
 @pytest_cases.parametrize('add_bias_kv', [True, False])
 @pytest_cases.parametrize('batch_first', [True, False])
@@ -228,26 +208,6 @@ def convdepthconv_model():
 
 
 @pytest_cases.fixture
-def quant_convdepthconv_model():
-
-    class QuantConvDepthConvModel(nn.Module):
-
-        def __init__(self) -> None:
-            super().__init__()
-            self.conv = qnn.QuantConv2d(3, 16, kernel_size=3)
-            self.conv_0 = qnn.QuantConv2d(16, 16, kernel_size=1, groups=16)
-            self.relu = qnn.QuantReLU(return_quant_tensor=True)
-
-        def forward(self, x):
-            x = self.conv(x)
-            x = self.relu(x)
-            x = self.conv_0(x)
-            return x
-
-    return QuantConvDepthConvModel
-
-
-@pytest_cases.fixture
 def convbn_model():
 
     class ConvBNModel(nn.Module):
@@ -293,28 +253,6 @@ def residual_model():
             return x
 
     return ResidualModel
-
-
-@pytest_cases.fixture
-def quant_residual_model():
-
-    class QuantResidualModel(nn.Module):
-
-        def __init__(self) -> None:
-            super().__init__()
-            self.conv = qnn.QuantConv2d(3, 16, kernel_size=1)
-            self.conv_0 = qnn.QuantConv2d(16, 3, kernel_size=1)
-            self.relu = qnn.QuantReLU(return_quant_tensor=True)
-
-        def forward(self, x):
-            start = x
-            x = self.conv(x)
-            x = self.relu(x)
-            x = self.conv_0(x)
-            x = start + x
-            return x
-
-    return QuantResidualModel
 
 
 @pytest_cases.fixture
@@ -409,6 +347,100 @@ def convtranspose_model():
     return ConvTransposeModel
 
 
+list_of_fixtures = [
+    'residual_model',
+    'srcsinkconflict_model',
+    'mul_model',
+    'bnconv_model',
+    'convdepthconv_model',
+    'linearmha_model',
+    'mhalinear_model',
+    'layernormmha_model',
+    'convgroupconv_model',
+    'convtranspose_model']
+
+toy_model = fixture_union('toy_model', list_of_fixtures, ids=list_of_fixtures)
+
+RESNET_18_REGIONS = [
+    [('layer3.0.bn1',), ('layer3.0.conv2',)],
+    [('layer4.1.bn1',), ('layer4.1.conv2',)],
+    [('layer2.1.bn1',), ('layer2.1.conv2',)],
+    [('layer3.1.bn1',), ('layer3.1.conv2',)],
+    [('layer1.0.bn1',), ('layer1.0.conv2',)],
+    [('layer3.0.bn2', 'layer3.0.downsample.1', 'layer3.1.bn2'),
+     ('layer3.1.conv1', 'layer4.0.conv1', 'layer4.0.downsample.0')],
+    [('layer4.0.bn1',), ('layer4.0.conv2',)],
+    [('layer2.0.bn2', 'layer2.0.downsample.1', 'layer2.1.bn2'),
+     ('layer2.1.conv1', 'layer3.0.conv1', 'layer3.0.downsample.0')],
+    [('layer1.1.bn1',), ('layer1.1.conv2',)],
+    [('bn1', 'layer1.0.bn2', 'layer1.1.bn2'),
+     ('layer1.0.conv1', 'layer1.1.conv1', 'layer2.0.conv1', 'layer2.0.downsample.0')],
+    [('layer2.0.bn1',), ('layer2.0.conv2',)],
+    [('layer4.0.bn2', 'layer4.0.downsample.1', 'layer4.1.bn2'), ('fc', 'layer4.1.conv1')],]
+
+
+@pytest_cases.fixture
+def quant_conv_with_input_quant_model():
+
+    class QuantConvModel(nn.Module):
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.conv_0 = qnn.QuantConv2d(
+                3, 16, kernel_size=3)  # gpxq tests assume no quant on first layer
+            self.conv_1 = qnn.QuantConv2d(16, 32, kernel_size=3, input_quant=Int8ActPerTensorFloat)
+
+        def forward(self, x):
+            x = self.conv_0(x)
+            x = torch.relu(x)
+            x = self.conv_1(x)
+            return x
+
+    return QuantConvModel
+
+
+@pytest_cases.fixture
+def quant_convdepthconv_model():
+
+    class QuantConvDepthConvModel(nn.Module):
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.conv = qnn.QuantConv2d(3, 16, kernel_size=3)
+            self.conv_0 = qnn.QuantConv2d(16, 16, kernel_size=1, groups=16)
+            self.relu = qnn.QuantReLU(return_quant_tensor=True)
+
+        def forward(self, x):
+            x = self.conv(x)
+            x = self.relu(x)
+            x = self.conv_0(x)
+            return x
+
+    return QuantConvDepthConvModel
+
+
+@pytest_cases.fixture
+def quant_residual_model():
+
+    class QuantResidualModel(nn.Module):
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.conv = qnn.QuantConv2d(3, 16, kernel_size=1)
+            self.conv_0 = qnn.QuantConv2d(16, 3, kernel_size=1)
+            self.relu = qnn.QuantReLU(return_quant_tensor=True)
+
+        def forward(self, x):
+            start = x
+            x = self.conv(x)
+            x = self.relu(x)
+            x = self.conv_0(x)
+            x = start + x
+            return x
+
+    return QuantResidualModel
+
+
 @pytest_cases.fixture
 def quant_convtranspose_model():
 
@@ -429,42 +461,11 @@ def quant_convtranspose_model():
     return QuantConvTransposeModel
 
 
-list_of_fixtures = [
-    'residual_model',
-    'srcsinkconflict_model',
-    'mul_model',
-    'bnconv_model',
-    'convdepthconv_model',
-    'linearmha_model',
-    'mhalinear_model',
-    'layernormmha_model',
-    'convgroupconv_model',
-    'convtranspose_model']
-
 list_of_quant_fixtures = [
     'quant_conv_with_input_quant_model',
     'quant_convdepthconv_model',
     'quant_residual_model',
     'quant_convtranspose_model']
 
-toy_model = fixture_union('toy_model', list_of_fixtures, ids=list_of_fixtures)
-
 toy_quant_model = fixture_union(
     'toy_quant_model', list_of_quant_fixtures, ids=list_of_quant_fixtures)
-
-RESNET_18_REGIONS = [
-    [('layer3.0.bn1',), ('layer3.0.conv2',)],
-    [('layer4.1.bn1',), ('layer4.1.conv2',)],
-    [('layer2.1.bn1',), ('layer2.1.conv2',)],
-    [('layer3.1.bn1',), ('layer3.1.conv2',)],
-    [('layer1.0.bn1',), ('layer1.0.conv2',)],
-    [('layer3.0.bn2', 'layer3.0.downsample.1', 'layer3.1.bn2'),
-     ('layer3.1.conv1', 'layer4.0.conv1', 'layer4.0.downsample.0')],
-    [('layer4.0.bn1',), ('layer4.0.conv2',)],
-    [('layer2.0.bn2', 'layer2.0.downsample.1', 'layer2.1.bn2'),
-     ('layer2.1.conv1', 'layer3.0.conv1', 'layer3.0.downsample.0')],
-    [('layer1.1.bn1',), ('layer1.1.conv2',)],
-    [('bn1', 'layer1.0.bn2', 'layer1.1.bn2'),
-     ('layer1.0.conv1', 'layer1.1.conv1', 'layer2.0.conv1', 'layer2.0.downsample.0')],
-    [('layer2.0.bn1',), ('layer2.0.conv2',)],
-    [('layer4.0.bn2', 'layer4.0.downsample.1', 'layer4.1.bn2'), ('fc', 'layer4.1.conv1')],]
