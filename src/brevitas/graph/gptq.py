@@ -3,9 +3,10 @@
 
 from copy import deepcopy
 import math
-from typing import List, Optional, Set
+from typing import List, Optional
 import warnings
 
+from packaging import version
 import torch
 
 try:
@@ -14,6 +15,7 @@ except:
     LinAlgError = RuntimeError
 import unfoldNd
 
+from brevitas import torch_version
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import StopFwdException
@@ -133,6 +135,8 @@ class GPTQ(GPxQ):
                              dtype=torch.float32)
         self.nsamples = 0
 
+        assert torch_version >= version.parse('1.10'), "GPTQ requires torch 1.10 or higher"
+
     def update_batch(self, module, input, current_layer):
         if self.disable_pre_forward_hook:
             return input
@@ -188,6 +192,7 @@ class GPTQ(GPxQ):
             raise StopFwdException
 
     def single_layer_update(self, percdamp=.01):
+        assert not self.layer.weight_quant_requires_quant_input, "Error: GPTQ does not support weight quantizers that require quantized inputs."
         if hasattr(self.layer, 'allocate_params'):
             self.layer.allocate_params(self.layer)
         weight = self.layer.weight.data
