@@ -104,9 +104,6 @@ def test_toymodels(
     if (name == 'gptq' and acc_bit_width < 32):
         pytest.skip("GPTQ does not support accumulator-aware quantization.")
 
-    if (name == 'gptq' and torch_version <= version.parse('1.9.1')):
-        pytest.skip(f"GPTQ usage of linalg_cholesky() is not compatible with torch {torch_version}")
-
     if name == 'gpfq':
         filter_func = filter_func_dict[filter_func_str]
         apply_gpxq = partial(
@@ -123,8 +120,17 @@ def test_toymodels(
     dataset = TensorDataset(inp, inp)
     calib_loader = DataLoader(dataset, batch_size=16, num_workers=0, pin_memory=True, shuffle=True)
 
-    if (name == 'gpfq') and (acc_bit_width < 32) and (not use_quant_activations or
-                                                      filter_func_str == 'identity'):
+    if (name == 'gptq' and torch_version < version.parse('1.10')):
+        # GPTQ usage of linalg_cholesky() is not compatible with torch 1.9.1 and below
+        with pytest.raises(AssertionError):
+            apply_gpxq(
+                calib_loader=calib_loader,
+                model=model,
+                act_order=act_order,
+                use_quant_activations=use_quant_activations)
+
+    elif (name == 'gpfq') and (acc_bit_width < 32) and (not use_quant_activations or
+                                                        filter_func_str == 'identity'):
         # GPFA2Q requires that the quant activations are used. GPFA2Q.single_layer_update will
         # raise a ValueError if GPFA2Q.quant_input is None (also see GPxQ.process_input). This will
         # happen when `use_quant_activations=False` or when the input to a model is not quantized
