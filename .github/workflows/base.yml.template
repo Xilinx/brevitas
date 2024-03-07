@@ -3,9 +3,6 @@ name: &{name}
 on:
   push:
     branches: [ master, dev ]
-  pull_request:
-    types:
-      - review_requested
 
 jobs:
   build:

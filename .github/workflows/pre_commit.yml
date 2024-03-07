@@ -8,8 +8,6 @@ on:
       - opened
       - reopened
       - synchronize
-      - ready_for_review
-      - review_requested
 
 jobs:
   pre_commit:
