@@ -6,8 +6,6 @@ on:
       - opened
       - reopened
       - synchronize
-  issue_comment:
-    types: [created]
 
 
 jobs:
@@ -24,7 +22,7 @@ jobs:
 
 
 
-    if: ${{ !github.event.pull_request.draft && (github.event_name != 'issue_comment' || (github.event.issue.pull_request != '' && contains(github.event.comment.body, '/run-tests')))}}
+    if: ${{ !github.event.pull_request.draft }}
     steps:
 
     - name: Checkout repo
