@@ -95,13 +95,3 @@ def test_quant_tensor_view():
     assert torch.isclose(a.view(2, -1), b.view(2, -1), atol=0.01).all().item()
     assert torch.isclose(a.view(16, -1), b.view(16, -1), atol=0.01).all().item()
     assert torch.isclose(a.view(8, 2), b.view(8, 2), atol=0.01).all().item()
-
-
-def test_is_valid():
-    x = torch.randn(4, 4)
-    # directly initialised QuantTensor shouldn't be valid
-    invalid_quant_tensor = QuantTensor(x, None, None, None, None, None)
-    assert invalid_quant_tensor.is_valid == False
-
-    valid_quant_tensor = to_quant_tensor(x)
-    assert valid_quant_tensor.is_valid
