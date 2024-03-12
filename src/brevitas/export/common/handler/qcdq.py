@@ -66,6 +66,37 @@ class CDQCastMixin(DQCastMixin, ABC):
         pass
 
 
+class FloatQMixin(ABC):
+
+    @classmethod
+    def e4m3_dtype(cls):
+        return torch.float8_e4m3fn
+
+    @classmethod
+    def e5m2_dtype(cls):
+        return torch.float8_e5m2
+
+    @classmethod
+    def float32_dtype(cls):
+        return torch.float32
+
+    @abstractmethod
+    def quantize_fn(self, x, scale, zero_point, dtype, axis):
+        pass
+
+    @classmethod
+    def signed_dtype(cls, mantissa_bit_width, exponent_bit_width):
+        if mantissa_bit_width is None or exponent_bit_width is None:
+            return None
+        if mantissa_bit_width == 5 and mantissa_bit_width == 2:
+            dtype = cls.e5m2_dtype()
+        elif mantissa_bit_width == 4 and mantissa_bit_width == 3:
+            dtype = cls.e4m3_dtype()
+        else:
+            dtype = cls.float32_dtype()
+        return dtype
+
+
 class QMixin(BitWidthHandlerMixin, ABC):
 
     @classmethod
@@ -143,11 +174,11 @@ class QCDQCastWeightQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin):
         zp = to_0dim_if_scalar(zero_point.flatten())
         # expand_as must go after 0-dim check
         zp = zp.expand_as(scale)
-        zp = cls.zero_point_with_dtype(is_signed, bit_width, zp)
+        dtype = cls.signed_dtype(bit_width, is_signed)
+        zp = cls.zero_point_with_dtype(is_signed, dtype, zp)
         if cls.itemize_quantize_scalar_params:
             scale = to_item_if_0dim(scale)
             zp = to_item_if_0dim(zp)
-        dtype = cls.signed_dtype(bit_width, is_signed)
         return {'scale': scale, 'zero_point': zp, 'dtype': dtype, 'axis': axis}
 
     def prepare_quantize_from_floating_point(self, module):
@@ -230,6 +261,10 @@ class QCDQCastWeightQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin):
         return x, scale, zero_point, bit_width
 
 
+class QCDQCastWeightFloatQuantProxyHandlerMixin(QCDQCastWeightQuantProxyHandlerMixin):
+    pass
+
+
 class QCDQCastDecoupledWeightQuantProxyHandlerMixin(QCDQCastWeightQuantProxyHandlerMixin, ABC):
     handled_layer = DecoupledWeightQuantProxyFromInjector
 
@@ -261,11 +296,11 @@ class QCDQCastActQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin, ABC):
         zp = to_0dim_if_scalar(zero_point.flatten())
         # expand_as must go after 0-dim check
         zp = zp.expand_as(scale)
-        zp = cls.zero_point_with_dtype(is_signed, bit_width, zp)
+        dtype = cls.signed_dtype(bit_width, is_signed)
+        zp = cls.zero_point_with_dtype(is_signed, dtype, zp)
         if cls.itemize_quantize_scalar_params:
             scale = to_item_if_0dim(scale)
             zp = to_item_if_0dim(zp)
-        dtype = cls.signed_dtype(bit_width, is_signed)
         return {'scale': scale, 'zero_point': zp, 'dtype': dtype, 'axis': axis}
 
     def prepare_for_export(self, module):
@@ -369,6 +404,7 @@ class CDQCastBiasQuantProxyHandlerMixin(DQCastMixin, QuantAxisMixin, ZeroPointHa
     def prepare_for_export(self, module):
         if module.is_quant_enabled:
             self.validate(module)
+            self.dtype = torch.int8
             int_biases = {
                 tm.bias.data_ptr(): tm.quant_bias().int(float_datatype=False)
                 for tm in module.tracked_module_list}
@@ -386,6 +422,7 @@ class CDQCastBiasQuantProxyHandlerMixin(DQCastMixin, QuantAxisMixin, ZeroPointHa
         scale = self.symbolic_kwargs['scale']
         bit_width = self.symbolic_kwargs['bit_width']
         zero_point = self.symbolic_kwargs['zero_point']
+        dtype = self.dtype
         assert scale is not None or input_scale is not None, 'Input scale required for bias export'
         assert bit_width is not None or input_bit_width is not None, 'Input bit width required for bias export'
         if input_scale is not None:
@@ -399,8 +436,7 @@ class CDQCastBiasQuantProxyHandlerMixin(DQCastMixin, QuantAxisMixin, ZeroPointHa
             zero_point = zero_point.flatten()
         scale = to_0dim_if_scalar(scale)
         zero_point = to_0dim_if_scalar(zero_point).expand_as(scale)
-        zero_point = self.zero_point_with_dtype(
-            True, bit_width, zero_point)  # assume signed is True
+        zero_point = self.zero_point_with_dtype(True, dtype, zero_point)  # assume signed is True
         # If original dtype of scale is (b)float16, store the original dtype
         # and cast the scale to float32
         scale_dtype = scale.dtype

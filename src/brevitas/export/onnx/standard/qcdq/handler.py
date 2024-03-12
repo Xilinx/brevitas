@@ -15,6 +15,7 @@ from brevitas.export.common.handler.qcdq import QCDQCastDecoupledWeightQuantProx
 from brevitas.export.common.handler.qcdq import \
     QCDQCastDecoupledWeightQuantWithInputProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQCastTruncQuantProxyHandlerMixin
+from brevitas.export.common.handler.qcdq import QCDQCastWeightFloatQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQCastWeightQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QMixin
 from brevitas.export.onnx.handler import ONNXBaseHandler
@@ -81,6 +82,22 @@ class StdQCDQCastONNXMixin(QMixin, StdCDQCastONNXMixin, ABC):
         return QuantizeLinearFn.apply(x, scale, zero_point, dtype, axis)
 
 
+class StdFloatQCDQCastONNXMixin(QMixin, StdCDQCastONNXMixin, ABC):
+
+    def validate(self, module):
+        super().validate(module)
+        # ONNX QuantizeLinear supports only 8b output with round to nearest even.
+        # Below 8b quantization is supported through clipping.
+        if getattr(self, '_export_q_node', True):
+            assert module.rounding_mode.upper() == 'ROUND', 'Only round to nearest even supported'
+        assert not module.is_groupwise, "Export with Per Group quantization not supported"
+
+        # self.validate_8b_bit_width(module.bit_width(), le_then=True)
+
+    def quantize_fn(self, x, scale, zero_point, dtype, axis):
+        return QuantizeLinearFn.apply(x, scale, zero_point, dtype, axis)
+
+
 class StdDynamicQDQCastONNXMixin(DynamicQMixin, StdDQCastONNXMixin, ABC):
 
     @classmethod
@@ -115,6 +132,12 @@ class StdDynamicQDQCastONNXMixin(DynamicQMixin, StdDQCastONNXMixin, ABC):
 class StdQCDQCastONNXWeightQuantProxyHandler(StdQCDQCastONNXMixin,
                                              QCDQCastWeightQuantProxyHandlerMixin,
                                              ONNXBaseHandler):
+    _export_q_node = False
+
+
+class StdQCDQCastONNXWeightFloatQuantProxyHandler(StdFloatQCDQCastONNXMixin,
+                                                  QCDQCastWeightFloatQuantProxyHandlerMixin,
+                                                  ONNXBaseHandler):
     _export_q_node = False
 
 

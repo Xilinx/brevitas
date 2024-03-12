@@ -115,18 +115,19 @@ class ScaleHandlerMixin(ABC):
 class ZeroPointHandlerMixin(ABC):
 
     @classmethod
-    def zero_point_with_dtype(cls, signed, bit_width, zero_point):
+    def zero_point_with_dtype(cls, signed, dtype, zero_point):
         if not signed:
             if (zero_point < 0).any():
                 raise RuntimeError("Zero points have to be positive under unsigned quantization")
-            if bit_width > 8:
-                raise RuntimeError("Unsigned zero-point with bit-width > 8 not supported.")
-            return zero_point.type(torch.uint8)
-        else:
-            if bit_width <= 8:
-                return zero_point.type(torch.int8)
-            else:
-                return zero_point.type(torch.int32)
+        return zero_point.type(dtype)
+        #     if bit_width > 8:
+        #         raise RuntimeError("Unsigned zero-point with bit-width > 8 not supported.")
+        #     return zero_point.type(torch.uint8)
+        # else:
+        #     if bit_width <= 8:
+        #         return zero_point.type(torch.int8)
+        #     else:
+        #         return zero_point.type(torch.int32)
 
     @classmethod
     def quant_input_zero_point(cls, module):
