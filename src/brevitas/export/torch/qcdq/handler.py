@@ -6,6 +6,7 @@ from abc import ABC
 import torch
 
 from brevitas.export.common.handler.base import BaseHandler
+from brevitas.export.common.handler.base import QuantDtypeMixin
 from brevitas.export.common.handler.qcdq import CDQCastBiasQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import CDQCastMixin
 from brevitas.export.common.handler.qcdq import DQCastMixin
@@ -25,11 +26,28 @@ def _itemize_clip_bounds(clip_args):
     return clip_args
 
 
-class TorchDQCastMixin(DQCastMixin, ABC):
+class TorchDQCastMixin(DQCastMixin, QuantDtypeMixin, ABC):
 
     def __init__(self) -> None:
         super().__init__()
         self.symbolic_kwargs = {}
+
+    @classmethod
+    def int8_dtype(cls):
+        return torch.qint8
+
+    @classmethod
+    def uint8_dtype(cls):
+        return torch.quint8
+
+    @classmethod
+    def int32_dtype(cls):
+        return torch.qint32
+
+    @classmethod
+    def qint_to_int(cls, qint):
+        mapping = {torch.quint8: torch.uint8, torch.qint8: torch.int8, torch.qint32: torch.int32}
+        return mapping[qint]
 
     def dequantize_fn(self, x, scale, zero_point, axis):
         # cast zero_point to float, otherwise if both x
@@ -64,18 +82,6 @@ class TorchCDQCastMixin(CDQCastMixin, TorchDQCastMixin, ABC):
 
 
 class TorchQCDQCastMixin(QMixin, TorchCDQCastMixin, ABC):
-
-    @classmethod
-    def int8_dtype(cls):
-        return torch.qint8
-
-    @classmethod
-    def uint8_dtype(cls):
-        return torch.quint8
-
-    @classmethod
-    def int32_dtype(cls):
-        return torch.qint32
 
     def validate(self, module):
         super().validate(module)

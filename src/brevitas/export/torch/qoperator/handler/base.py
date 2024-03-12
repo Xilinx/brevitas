@@ -9,6 +9,7 @@ from torch import Tensor
 
 from brevitas.export.common.handler.base import BaseHandler
 from brevitas.export.common.handler.base import BitWidthHandlerMixin
+from brevitas.export.common.handler.base import QuantDtypeMixin
 from brevitas.export.common.handler.base import ZeroPointHandlerMixin
 
 SCALAR_SHAPE = ()
@@ -18,7 +19,11 @@ def _is_scalar(x: Tensor):
     return x.shape == SCALAR_SHAPE
 
 
-class PytorchQuantLayerHandler(BaseHandler, BitWidthHandlerMixin, ZeroPointHandlerMixin, ABC):
+class PytorchQuantLayerHandler(BaseHandler,
+                               BitWidthHandlerMixin,
+                               ZeroPointHandlerMixin,
+                               QuantDtypeMixin,
+                               ABC):
 
     @classmethod
     @abstractmethod
@@ -34,6 +39,18 @@ class PytorchQuantLayerHandler(BaseHandler, BitWidthHandlerMixin, ZeroPointHandl
     @abstractmethod
     def validate(cls, module):
         pass
+
+    @classmethod
+    def int8_dtype(cls):
+        return torch.int8
+
+    @classmethod
+    def uint8_dtype(cls):
+        return torch.uint8
+
+    @classmethod
+    def int32_dtype(cls):
+        raise NotImplementedError  # This should not be needed for QOp
 
     @classmethod
     def gen_quant_impl_kwargs(
@@ -55,16 +72,18 @@ class PytorchQuantLayerHandler(BaseHandler, BitWidthHandlerMixin, ZeroPointHandl
 
     @classmethod
     def prepare_input_quant(cls, module):
+        dtype = cls.signed_dtype(module.quant_input_bit_width(), module.is_quant_input_signed)
         scale = module.quant_input_scale()
-        zero_point = cls.quant_input_zero_point(module)
+        zero_point = cls.quant_input_zero_point(module, dtype)
         signed = module.is_quant_input_signed
         quant_impl, quant_kwargs = cls.gen_quant_impl_kwargs(scale, zero_point, signed)
         return quant_impl, quant_kwargs
 
     @classmethod
     def prepare_output_quant(cls, module):
+        dtype = cls.signed_dtype(module.quant_output_bit_width(), module.is_quant_output_signed)
         scale = module.quant_output_scale()
-        zero_point = cls.quant_output_zero_point(module)
+        zero_point = cls.quant_output_zero_point(module, dtype)
         signed = module.is_quant_output_signed
         incl_dtype = cls.explicit_output_dtype()
         quant_impl, quant_kwargs = cls.gen_quant_impl_kwargs(scale, zero_point, signed, incl_dtype)

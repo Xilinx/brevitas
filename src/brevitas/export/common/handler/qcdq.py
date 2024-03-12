@@ -21,6 +21,7 @@ from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector
 from .base import BitWidthHandlerMixin
 from .base import ClipMixin
 from .base import QuantAxisMixin
+from .base import QuantDtypeMixin
 from .base import ZeroPointHandlerMixin
 
 
@@ -99,39 +100,9 @@ class FloatQMixin(ABC):
 
 class QMixin(BitWidthHandlerMixin, ABC):
 
-    @classmethod
-    @abstractmethod
-    def uint8_dtype(cls):
-        pass
-
-    @classmethod
-    @abstractmethod
-    def int8_dtype(cls):
-        pass
-
-    @classmethod
-    @abstractmethod
-    def int32_dtype(cls):
-        pass
-
     @abstractmethod
     def quantize_fn(self, x, scale, zero_point, dtype, axis):
         pass
-
-    @classmethod
-    def signed_dtype(cls, bit_width, is_signed):
-        if bit_width is None:
-            return None
-        if is_signed and bit_width <= 8:
-            dtype = cls.int8_dtype()
-        elif not is_signed and bit_width <= 8:
-            dtype = cls.uint8_dtype()
-        elif is_signed and bit_width > 8:
-            dtype = cls.int32_dtype()
-        else:
-            raise RuntimeError(
-                "Unsigned quantization > 8b not supported for export, switch to signed.")
-        return dtype
 
 
 class DynamicQMixin(QMixin, ABC):
@@ -141,7 +112,12 @@ class DynamicQMixin(QMixin, ABC):
         pass
 
 
-class CDQCastProxyHandlerMixin(QuantAxisMixin, ClipMixin, ZeroPointHandlerMixin, CDQCastMixin, ABC):
+class CDQCastProxyHandlerMixin(QuantAxisMixin,
+                               ClipMixin,
+                               ZeroPointHandlerMixin,
+                               QuantDtypeMixin,
+                               CDQCastMixin,
+                               ABC):
 
     def dequantize_symbolic_kwargs(cls, scale, zero_point, bit_width, is_signed):
         scale_orig_shape = scale.shape
@@ -153,7 +129,9 @@ class CDQCastProxyHandlerMixin(QuantAxisMixin, ClipMixin, ZeroPointHandlerMixin,
             zero_point = zero_point.flatten()
         zp = to_0dim_if_scalar(zero_point)
         zp = zp.expand_as(scale)
-        zp = cls.zero_point_with_dtype(is_signed, bit_width, zp)
+        dtype = cls.signed_dtype(bit_width, is_signed)
+        # For zero_point, always int
+        zp = cls.zero_point_with_dtype(is_signed, dtype, zp)
         return {
             'scale': scale,
             'zero_point': zp,
@@ -176,6 +154,8 @@ class QCDQCastWeightQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin):
         zp = zp.expand_as(scale)
         dtype = cls.signed_dtype(bit_width, is_signed)
         zp = cls.zero_point_with_dtype(is_signed, dtype, zp)
+        # For Torch, Dtype is QINT, For ONNX, dtype is int
+        # For both of them, zero_point dtype is int
         if cls.itemize_quantize_scalar_params:
             scale = to_item_if_0dim(scale)
             zp = to_item_if_0dim(zp)
@@ -404,7 +384,7 @@ class CDQCastBiasQuantProxyHandlerMixin(DQCastMixin, QuantAxisMixin, ZeroPointHa
     def prepare_for_export(self, module):
         if module.is_quant_enabled:
             self.validate(module)
-            self.dtype = torch.int8
+            self.dtype = torch.int32
             int_biases = {
                 tm.bias.data_ptr(): tm.quant_bias().int(float_datatype=False)
                 for tm in module.tracked_module_list}

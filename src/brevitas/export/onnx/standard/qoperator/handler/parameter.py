@@ -109,22 +109,43 @@ class StdQOpONNXQuantWBIOLHandler(StdQOpONNXQuantLayerHandler, ABC):
 class StdQOpONNXQuantConvNdHandler(StdQOpONNXQuantWBIOLHandler, ABC):
 
     def op_symbolic_kwargs(self, module: Union[QuantConv1d, QuantConv2d, QuantConv3d]):
+        input_dtype = self.signed_dtype(
+            module.quant_input_bit_width(), module.is_quant_input_signed)
+        weight_dtype = self.signed_dtype(
+            module.quant_weight_bit_width(), module.is_quant_weight_signed)
+        output_dtype = self.signed_dtype(
+            module.quant_output_bit_width(), module.is_quant_output_signed)
         conv_symbolic_kwargs = {
-            'input_scale': module.quant_input_scale(),
-            'input_zero_point': self.quant_input_zero_point(module),
-            'int_weight': self.int_weight(module),
-            'weight_scale': to_0dim_if_scalar(module.quant_weight_scale().flatten()),
-            'weight_zero_point': to_0dim_if_scalar(self.quant_weight_zero_point(module).flatten()),
-            'output_scale': module.quant_output_scale(),
-            'output_zero_point': self.quant_output_zero_point(module),
-            'output_dtype': self.torch_8b_dtype(module.is_quant_output_signed),
-            'int_bias': self.int_bias(module),
-            'out_shape': self.quant_output_shape(module),
-            'kernel_size': list(module.kernel_size),
-            'padding': self.padding(module),
-            'stride': self.stride(module),
-            'groups': module.groups,
-            'dilation': self.dilation(module)}
+            'input_scale':
+                module.quant_input_scale(),
+            'input_zero_point':
+                self.quant_input_zero_point(module, input_dtype),
+            'int_weight':
+                self.int_weight(module),
+            'weight_scale':
+                to_0dim_if_scalar(module.quant_weight_scale().flatten()),
+            'weight_zero_point':
+                to_0dim_if_scalar(self.quant_weight_zero_point(module, weight_dtype).flatten()),
+            'output_scale':
+                module.quant_output_scale(),
+            'output_zero_point':
+                self.quant_output_zero_point(module, output_dtype),
+            'output_dtype':
+                self.signed_dtype(module.quant_output_bit_width(), module.is_quant_output_signed),
+            'int_bias':
+                self.int_bias(module),
+            'out_shape':
+                self.quant_output_shape(module),
+            'kernel_size':
+                list(module.kernel_size),
+            'padding':
+                self.padding(module),
+            'stride':
+                self.stride(module),
+            'groups':
+                module.groups,
+            'dilation':
+                self.dilation(module)}
         return conv_symbolic_kwargs
 
     def op_symbolic_execution(self, inp: Tensor):
@@ -150,21 +171,38 @@ class StdQOpONNXQuantLinearHandler(StdQOpONNXQuantWBIOLHandler):
 
     # Convert linear to conv1d to handle bias
     def op_symbolic_kwargs(self, module: QuantLinear):
+        input_dtype = self.signed_dtype(
+            module.quant_input_bit_width(), module.is_quant_input_signed)
+        weight_dtype = self.signed_dtype(
+            module.quant_weight_bit_width(), module.is_quant_weight_signed)
+        output_dtype = self.signed_dtype(
+            module.quant_output_bit_width(), module.is_quant_output_signed)
         conv_symbolic_kwargs = {
-            'input_scale': module.quant_input_scale(),
-            'input_zero_point': self.quant_input_zero_point(module),
-            'int_weight': self.int_weight(module).view(module.out_features, module.in_features, 1),
-            'weight_scale': to_0dim_if_scalar(module.quant_weight_scale().flatten()),
-            'weight_zero_point': to_0dim_if_scalar(self.quant_weight_zero_point(module).flatten()),
-            'output_scale': module.quant_output_scale(),
-            'output_zero_point': self.quant_output_zero_point(module),
-            'output_dtype': self.torch_8b_dtype(module.is_quant_output_signed),
-            'int_bias': self.int_bias(module),
-            'out_shape': self.quant_output_shape(module) + (1,),
+            'input_scale':
+                module.quant_input_scale(),
+            'input_zero_point':
+                self.quant_input_zero_point(module, input_dtype),
+            'int_weight':
+                self.int_weight(module).view(module.out_features, module.in_features, 1),
+            'weight_scale':
+                to_0dim_if_scalar(module.quant_weight_scale().flatten()),
+            'weight_zero_point':
+                to_0dim_if_scalar(self.quant_weight_zero_point(module, weight_dtype).flatten()),
+            'output_scale':
+                module.quant_output_scale(),
+            'output_zero_point':
+                self.quant_output_zero_point(module, output_dtype),
+            'output_dtype':
+                self.signed_dtype(module.quant_output_bit_width(), module.is_quant_output_signed),
+            'int_bias':
+                self.int_bias(module),
+            'out_shape':
+                self.quant_output_shape(module) + (1,),
             'kernel_size': [1],
             'padding': [0, 0],
             'stride': [1],
-            'groups': 1,
+            'groups':
+                1,
             'dilation': [1]}
         return conv_symbolic_kwargs
 

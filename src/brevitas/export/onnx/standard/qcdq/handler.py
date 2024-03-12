@@ -5,6 +5,7 @@ from abc import ABC
 
 import torch
 
+from brevitas.export.common.handler.base import QuantDtypeMixin
 from brevitas.export.common.handler.qcdq import CDQCastBiasQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import CDQCastMixin
 from brevitas.export.common.handler.qcdq import DQCastMixin
@@ -28,7 +29,19 @@ from ..function import IntClipFn
 from ..function import QuantizeLinearFn
 
 
-class StdDQCastONNXMixin(DQCastMixin, ABC):
+class StdDQCastONNXMixin(DQCastMixin, QuantDtypeMixin, ABC):
+
+    @classmethod
+    def int8_dtype(cls):
+        return torch.int8
+
+    @classmethod
+    def uint8_dtype(cls):
+        return torch.uint8
+
+    @classmethod
+    def int32_dtype(cls):
+        return torch.int32
 
     def dequantize_fn(self, x, scale, zero_point, axis):
         return DequantizeLinearFn.apply(x, scale, zero_point, axis)
@@ -55,18 +68,6 @@ class StdCDQCastONNXMixin(CDQCastMixin, StdDQCastONNXMixin, ABC):
 
 
 class StdQCDQCastONNXMixin(QMixin, StdCDQCastONNXMixin, ABC):
-
-    @classmethod
-    def int8_dtype(cls):
-        return torch.int8
-
-    @classmethod
-    def uint8_dtype(cls):
-        return torch.uint8
-
-    @classmethod
-    def int32_dtype(cls):
-        return torch.int32
 
     def validate(self, module):
         super().validate(module)

@@ -38,6 +38,39 @@ class QuantAxisMixin(ABC):
         return None
 
 
+class QuantDtypeMixin(ABC):
+
+    @classmethod
+    @abstractmethod
+    def uint8_dtype(cls):
+        pass
+
+    @classmethod
+    @abstractmethod
+    def int8_dtype(cls):
+        pass
+
+    @classmethod
+    @abstractmethod
+    def int32_dtype(cls):
+        pass
+
+    @classmethod
+    def signed_dtype(cls, bit_width, is_signed):
+        if bit_width is None:
+            return None
+        if is_signed and bit_width <= 8:
+            dtype = cls.int8_dtype()
+        elif not is_signed and bit_width <= 8:
+            dtype = cls.uint8_dtype()
+        elif is_signed and bit_width > 8:
+            dtype = cls.int32_dtype()
+        else:
+            raise RuntimeError(
+                "Unsigned quantization > 8b not supported for export, switch to signed.")
+        return dtype
+
+
 class ClipMixin(ABC):
 
     @classmethod
@@ -130,22 +163,22 @@ class ZeroPointHandlerMixin(ABC):
         #         return zero_point.type(torch.int32)
 
     @classmethod
-    def quant_input_zero_point(cls, module):
+    def quant_input_zero_point(cls, module, dtype):
         signed = module.is_quant_input_signed
         zero_point = module.quant_input_zero_point()
         bit_width = module.quant_input_bit_width()
-        return cls.zero_point_with_dtype(signed, bit_width, zero_point)
+        return cls.zero_point_with_dtype(signed, dtype, zero_point)
 
     @classmethod
-    def quant_weight_zero_point(cls, module):
+    def quant_weight_zero_point(cls, module, dtype):
         signed = module.is_quant_weight_signed
         zero_point = module.quant_weight_zero_point()
         bit_width = module.quant_weight_bit_width()
-        return cls.zero_point_with_dtype(signed, bit_width, zero_point)
+        return cls.zero_point_with_dtype(signed, dtype, zero_point)
 
     @classmethod
-    def quant_output_zero_point(cls, module):
+    def quant_output_zero_point(cls, module, dtype):
         signed = module.is_quant_output_signed
         zero_point = module.quant_output_zero_point()
         bit_width = module.quant_output_bit_width()
-        return cls.zero_point_with_dtype(signed, bit_width, zero_point)
+        return cls.zero_point_with_dtype(signed, dtype, zero_point)
