@@ -69,6 +69,7 @@ def parse_args(args):
     parser.add_argument("--network", default="LFC_1W1A", type=str, help="neural network")
     parser.add_argument("--pretrained", action='store_true', help="Load pretrained model")
     parser.add_argument("--strict", action='store_true', help="Strict state dictionary loading")
+    parser.add_argument("--compile", action='store_true', help="Compile model with `torch.compile` (PyTorch version >=2 only)")
     parser.add_argument(
         "--state_dict_to_pth",
         action='store_true',

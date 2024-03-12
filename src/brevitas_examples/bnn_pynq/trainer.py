@@ -24,6 +24,7 @@ from .logger import TrainingEpochMeters
 from .models import model_with_cfg
 from .models.losses import SqrHingeLoss
 
+TORCH_GEQ_200 = parse(torch.__version__) >= parse("2.0.0")
 
 class MirrorMNIST(MNIST):
 
@@ -64,6 +65,8 @@ class Trainer(object):
     def __init__(self, args):
 
         model, cfg = model_with_cfg(args.network, args.pretrained)
+        if args.compile and TORCH_GEQ_200:
+            model = torch.compile(model)
 
         # Init arguments
         self.args = args
