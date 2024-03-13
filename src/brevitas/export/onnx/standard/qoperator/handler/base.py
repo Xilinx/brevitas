@@ -50,6 +50,10 @@ class StdQOpONNXQuantLayerHandler(ONNXBaseHandler,
         raise NotImplementedError  # This should not be needed for QOp
 
     @classmethod
+    def signed_quant_dtype(cls, bit_width, is_signed):
+        raise NotImplementedError  # This should not be needed for QOp
+
+    @classmethod
     def op_symbolic_kwargs(cls, module):
         raise NotImplementedError  # optional method
 
