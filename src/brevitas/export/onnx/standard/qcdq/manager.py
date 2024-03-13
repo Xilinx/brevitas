@@ -22,6 +22,7 @@ from .handler import StdQCDQCastONNXDecoupledWeightQuantProxyHandler
 from .handler import StdQCDQCastONNXDecoupledWeightQuantWithInputProxyHandler
 from .handler import StdQCDQCastONNXQuantLSTMLayerHandler
 from .handler import StdQCDQCastONNXTruncQuantProxyHandler
+from .handler import StdQCDQCastONNXWeightFloatQuantProxyHandler
 from .handler import StdQCDQCastONNXWeightQuantProxyHandler
 
 
@@ -35,14 +36,16 @@ class StdQCDQONNXManager(StdONNXBaseManager):
         "eliminate_unused_initializer"]
 
     handlers = [
+        StdQCDQCastONNXWeightFloatQuantProxyHandler,
         StdQCDQCastONNXWeightQuantProxyHandler,
-        StdCDQCastONNXBiasQuantProxyHandler,
-        StdQCDQCastONNXActQuantProxyHandler,
-        StdQCDQCastONNXDecoupledWeightQuantProxyHandler,
-        StdDynamicQDQCastONNXActQuantProxyHandler,
-        StdQCDQCastONNXTruncQuantProxyHandler,
-        StdQCDQCastONNXDecoupledWeightQuantWithInputProxyHandler,
-        StdQCDQCastONNXQuantLSTMLayerHandler]
+        # StdCDQCastONNXBiasQuantProxyHandler,
+        # StdQCDQCastONNXActQuantProxyHandler,
+        # StdQCDQCastONNXDecoupledWeightQuantProxyHandler,
+        # StdDynamicQDQCastONNXActQuantProxyHandler,
+        # StdQCDQCastONNXTruncQuantProxyHandler,
+        # StdQCDQCastONNXDecoupledWeightQuantWithInputProxyHandler,
+        # StdQCDQCastONNXQuantLSTMLayerHandler
+    ]
 
     custom_fns = [
         DebugMarkerFunction,

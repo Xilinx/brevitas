@@ -5,6 +5,7 @@ from abc import ABC
 
 import torch
 
+from brevitas.export.common.handler.base import ABCQuantDtypeMixin
 from brevitas.export.common.handler.base import QuantDtypeMixin
 from brevitas.export.common.handler.qcdq import CDQCastBiasQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import CDQCastMixin
@@ -17,7 +18,7 @@ from brevitas.export.common.handler.qcdq import \
     QCDQCastDecoupledWeightQuantWithInputProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQCastTruncQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQCastWeightFloatQuantProxyHandlerMixin
-from brevitas.export.common.handler.qcdq import QCDQCastWeightQuantProxyHandlerMixin
+from brevitas.export.common.handler.qcdq import QCDQCastWeightIntQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QMixin
 from brevitas.export.onnx.handler import ONNXBaseHandler
 from brevitas.export.onnx.handler import QuantLSTMLayerHandler
@@ -29,23 +30,7 @@ from ..function import IntClipFn
 from ..function import QuantizeLinearFn
 
 
-class StdDQCastONNXMixin(DQCastMixin, QuantDtypeMixin, ABC):
-
-    @classmethod
-    def int8_dtype(cls):
-        return torch.int8
-
-    @classmethod
-    def uint8_dtype(cls):
-        return torch.uint8
-
-    @classmethod
-    def int32_dtype(cls):
-        return torch.int32
-
-    @classmethod
-    def signed_quant_dtype(cls, bit_width, is_signed):
-        return cls.signed_dtype(bit_width, is_signed)
+class StdDQCastONNXMixin(DQCastMixin, ABC):
 
     def dequantize_fn(self, x, scale, zero_point, axis):
         return DequantizeLinearFn.apply(x, scale, zero_point, axis)
@@ -135,7 +120,7 @@ class StdDynamicQDQCastONNXMixin(DynamicQMixin, StdDQCastONNXMixin, ABC):
 
 
 class StdQCDQCastONNXWeightQuantProxyHandler(StdQCDQCastONNXMixin,
-                                             QCDQCastWeightQuantProxyHandlerMixin,
+                                             QCDQCastWeightIntQuantProxyHandlerMixin,
                                              ONNXBaseHandler):
     _export_q_node = False
 
@@ -143,7 +128,7 @@ class StdQCDQCastONNXWeightQuantProxyHandler(StdQCDQCastONNXMixin,
 class StdQCDQCastONNXWeightFloatQuantProxyHandler(StdFloatQCDQCastONNXMixin,
                                                   QCDQCastWeightFloatQuantProxyHandlerMixin,
                                                   ONNXBaseHandler):
-    _export_q_node = False
+    _export_q_node = True
 
 
 class StdQCDQCastONNXDecoupledWeightQuantProxyHandler(StdQCDQCastONNXMixin,

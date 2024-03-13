@@ -76,6 +76,37 @@ class QuantDtypeMixin(ABC):
         pass
 
 
+class QuantFloatDtypeMixin(ABC):
+
+    @classmethod
+    def e4m3_dtype(cls):
+        return torch.float8_e4m3fn
+
+    @classmethod
+    def e5m2_dtype(cls):
+        return torch.float8_e5m2
+
+    @classmethod
+    def float32_dtype(cls):
+        return torch.float32
+
+    @classmethod
+    def signed_dtype(cls, mantissa_bit_width, exponent_bit_width):
+        if mantissa_bit_width is None or exponent_bit_width is None:
+            return None
+        if exponent_bit_width == 5 and mantissa_bit_width == 2:
+            dtype = cls.e5m2_dtype()
+        elif exponent_bit_width == 4 and mantissa_bit_width == 3:
+            dtype = cls.e4m3_dtype()
+        else:
+            dtype = cls.float32_dtype()
+        return dtype
+
+    @classmethod
+    def signed_quant_dtype(cls, bit_width, is_signed):
+        return cls.signed_dtype(bit_width, is_signed)
+
+
 class ClipMixin(ABC):
 
     @classmethod

@@ -15,8 +15,10 @@ from brevitas.export.common.handler.qcdq import QCDQCastDecoupledWeightQuantProx
 from brevitas.export.common.handler.qcdq import \
     QCDQCastDecoupledWeightQuantWithInputProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQCastTruncQuantProxyHandlerMixin
+from brevitas.export.common.handler.qcdq import QCDQCastWeightIntQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQCastWeightQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QMixin
+from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
 
 
 def _itemize_clip_bounds(clip_args):
@@ -105,7 +107,7 @@ class TorchQCDQHandler(BaseHandler):
 
 
 class TorchQCDQCastWeightQuantProxyHandler(TorchQCDQCastMixin,
-                                           QCDQCastWeightQuantProxyHandlerMixin,
+                                           QCDQCastWeightIntQuantProxyHandlerMixin,
                                            TorchQCDQHandler):
     _export_q_node = False
 
