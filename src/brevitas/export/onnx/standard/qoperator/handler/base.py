@@ -67,16 +67,12 @@ class StdQOpONNXQuantLayerHandler(ONNXBaseHandler,
     @classmethod
     def output_quant_symbolic_kwargs(cls, module):
         if module.is_output_quant_enabled:
+            dtype = cls.signed_dtype(module.quant_output_bit_width(), module.is_quant_output_signed)
             return {
-                'output_scale':
-                    module.quant_output_scale(),
-                'output_zero_point':
-                    cls.quant_output_zero_point(module),
-                'output_dtype':
-                    cls.signed_dtype(
-                        module.quant_output_bit_width(), module.is_quant_output_signed),
-                'output_axis':
-                    cls.quant_axis(module.quant_output_scale())}
+                'output_scale': module.quant_output_scale(),
+                'output_zero_point': cls.quant_output_zero_point(module, dtype),
+                'output_dtype': dtype,
+                'output_axis': cls.quant_axis(module.quant_output_scale())}
         else:
             return None
 
@@ -113,14 +109,10 @@ class StdQOpONNXQuantLayerHandler(ONNXBaseHandler,
         if module.is_input_quant_enabled:
             dtype = cls.signed_dtype(module.quant_input_bit_width(), module.is_quant_input_signed)
             return {
-                'output_scale':
-                    module.quant_input_scale(),
-                'output_zero_point':
-                    cls.quant_input_zero_point(module, dtype),
-                'output_dtype':
-                    cls.signed_dtype(module.quant_input_bit_width(), module.is_quant_input_signed),
-                'output_axis':
-                    cls.quant_axis(module.quant_input_scale())}
+                'output_scale': module.quant_input_scale(),
+                'output_zero_point': cls.quant_input_zero_point(module, dtype),
+                'output_dtype': dtype,
+                'output_axis': cls.quant_axis(module.quant_input_scale())}
         else:
             return None
 
@@ -134,26 +126,26 @@ class StdQOpONNXQuantLayerHandler(ONNXBaseHandler,
     @classmethod
     def dequant_symbolic_kwargs_from_cached_io(cls, cached_io):
         cls.validate_8b_bit_width(cached_io.bit_width, le_then=True)
+        dtype = cls.signed_dtype(cached_io.bit_width, cached_io.signed)
         return {
             'input_scale':
                 cached_io.scale,
             'input_zero_point':
-                cls.zero_point_with_dtype(
-                    cached_io.signed, cached_io.bit_width, cached_io.zero_point),
+                cls.zero_point_with_dtype(cached_io.signed, dtype, cached_io.zero_point),
             'input_axis':
                 cls.quant_axis(cached_io.scale)}
 
     @classmethod
     def quant_symbolic_kwargs_from_cached_io(cls, cached_io):
         cls.validate_8b_bit_width(cached_io.bit_width, le_then=True)
+        dtype = cls.signed_dtype(cached_io.bit_width, cached_io.signed)
         q_kwargs = {
             'output_scale':
                 cached_io.scale,
             'output_zero_point':
-                cls.zero_point_with_dtype(
-                    cached_io.signed, cached_io.bit_width, cached_io.zero_point),
+                cls.zero_point_with_dtype(cached_io.signed, dtype, cached_io.zero_point),
             'output_dtype':
-                cls.signed_dtype(cached_io.bit_width, cached_io.signed),
+                dtype,
             'output_axis':
                 cls.quant_axis(cached_io.scale)}
         # TODO support narrow caching
