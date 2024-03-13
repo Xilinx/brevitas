@@ -70,6 +70,11 @@ class QuantDtypeMixin(ABC):
                 "Unsigned quantization > 8b not supported for export, switch to signed.")
         return dtype
 
+    @classmethod
+    @abstractmethod
+    def signed_quant_dtype(cls, bit_width, is_signed):
+        pass
+
 
 class ClipMixin(ABC):
 

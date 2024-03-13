@@ -115,8 +115,8 @@ class DynamicQMixin(QMixin, ABC):
 class CDQCastProxyHandlerMixin(QuantAxisMixin,
                                ClipMixin,
                                ZeroPointHandlerMixin,
-                               QuantDtypeMixin,
                                CDQCastMixin,
+                               QuantDtypeMixin,
                                ABC):
 
     def dequantize_symbolic_kwargs(cls, scale, zero_point, bit_width, is_signed):
@@ -154,12 +154,13 @@ class QCDQCastWeightQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin):
         zp = zp.expand_as(scale)
         dtype = cls.signed_dtype(bit_width, is_signed)
         zp = cls.zero_point_with_dtype(is_signed, dtype, zp)
+        quant_dtype = cls.signed_quant_dtype(bit_width, is_signed)
         # For Torch, Dtype is QINT, For ONNX, dtype is int
         # For both of them, zero_point dtype is int
         if cls.itemize_quantize_scalar_params:
             scale = to_item_if_0dim(scale)
             zp = to_item_if_0dim(zp)
-        return {'scale': scale, 'zero_point': zp, 'dtype': dtype, 'axis': axis}
+        return {'scale': scale, 'zero_point': zp, 'dtype': quant_dtype, 'axis': axis}
 
     def prepare_quantize_from_floating_point(self, module):
         quant_weight = module.tracked_module_list[0].quant_weight()
@@ -278,10 +279,12 @@ class QCDQCastActQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin, ABC):
         zp = zp.expand_as(scale)
         dtype = cls.signed_dtype(bit_width, is_signed)
         zp = cls.zero_point_with_dtype(is_signed, dtype, zp)
+        quant_dtype = cls.signed_quant_dtype(bit_width, is_signed)
+
         if cls.itemize_quantize_scalar_params:
             scale = to_item_if_0dim(scale)
             zp = to_item_if_0dim(zp)
-        return {'scale': scale, 'zero_point': zp, 'dtype': dtype, 'axis': axis}
+        return {'scale': scale, 'zero_point': zp, 'dtype': quant_dtype, 'axis': axis}
 
     def prepare_for_export(self, module):
         if module.is_quant_enabled:
@@ -335,7 +338,7 @@ class QCDQCastActQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin, ABC):
         return x, scale, zero_point, bit_width
 
 
-class DynamicQDQCastActQuantProxyHandlerMixin(DynamicQMixin, DQCastMixin, ABC):
+class DynamicQDQCastActQuantProxyHandlerMixin(DynamicQMixin, DQCastMixin, QuantDtypeMixin, ABC):
     handled_layer = DynamicActQuantProxyFromInjector
 
     def prepare_for_export(self, module):
@@ -343,7 +346,7 @@ class DynamicQDQCastActQuantProxyHandlerMixin(DynamicQMixin, DQCastMixin, ABC):
             self.validate(module)
             bit_width = module.bit_width()
             is_signed = module.is_signed
-            dtype = self.signed_dtype(bit_width, is_signed)
+            dtype = self.signed_quant_dtype(bit_width, is_signed)
             self.symbolic_kwargs['bit_width'] = bit_width
             self.symbolic_kwargs['is_signed'] = is_signed
             self.symbolic_kwargs['dtype'] = dtype

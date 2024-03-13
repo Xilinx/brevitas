@@ -34,20 +34,21 @@ class TorchDQCastMixin(DQCastMixin, QuantDtypeMixin, ABC):
 
     @classmethod
     def int8_dtype(cls):
-        return torch.qint8
+        return torch.int8
 
     @classmethod
     def uint8_dtype(cls):
-        return torch.quint8
+        return torch.uint8
 
     @classmethod
     def int32_dtype(cls):
-        return torch.qint32
+        return torch.int32
 
     @classmethod
-    def qint_to_int(cls, qint):
-        mapping = {torch.quint8: torch.uint8, torch.qint8: torch.int8, torch.qint32: torch.int32}
-        return mapping[qint]
+    def signed_quant_dtype(cls, bit_width, is_signed):
+        signed_dtype = cls.signed_dtype(bit_width, is_signed)
+        mapping = {torch.uint8: torch.quint8, torch.int8: torch.qint8, torch.int32: torch.qint32}
+        return mapping[signed_dtype]
 
     def dequantize_fn(self, x, scale, zero_point, axis):
         # cast zero_point to float, otherwise if both x

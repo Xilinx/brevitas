@@ -53,6 +53,10 @@ class PytorchQuantLayerHandler(BaseHandler,
         raise NotImplementedError  # This should not be needed for QOp
 
     @classmethod
+    def signed_quant_dtype(cls, bit_width, is_signed):
+        raise NotImplementedError  # This should not be needed for QOp
+
+    @classmethod
     def gen_quant_impl_kwargs(
             cls, scale: Tensor, zero_point: Tensor, signed: bool, include_dtype=True):
         if _is_scalar(scale):

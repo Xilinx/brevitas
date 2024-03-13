@@ -43,6 +43,10 @@ class StdDQCastONNXMixin(DQCastMixin, QuantDtypeMixin, ABC):
     def int32_dtype(cls):
         return torch.int32
 
+    @classmethod
+    def signed_quant_dtype(cls, bit_width, is_signed):
+        return cls.signed_dtype(bit_width, is_signed)
+
     def dequantize_fn(self, x, scale, zero_point, axis):
         return DequantizeLinearFn.apply(x, scale, zero_point, axis)
 
