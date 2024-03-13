@@ -5,8 +5,6 @@ from abc import ABC
 
 import torch
 
-from brevitas.export.common.handler.base import ABCQuantDtypeMixin
-from brevitas.export.common.handler.base import QuantDtypeMixin
 from brevitas.export.common.handler.qcdq import CDQCastBiasQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import CDQCastMixin
 from brevitas.export.common.handler.qcdq import DQCastMixin
