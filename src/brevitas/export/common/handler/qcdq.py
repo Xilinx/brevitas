@@ -263,7 +263,7 @@ class QCDQCastWeightIntQuantProxyHandlerMixin(QCDQCastWeightQuantProxyHandlerMix
 
     def prepare_for_export(self, module):
         if module.is_quant_enabled:
-            super(QCDQCastWeightQuantProxyHandlerMixin).prepare_for_export(module)
+            QCDQCastWeightQuantProxyHandlerMixin.prepare_for_export(self, module)
             # Get the first quant weight as representative
             quant_weight = module.tracked_module_list[0].quant_weight()
 
@@ -326,12 +326,8 @@ class QCDQCastWeightFloatQuantProxyHandlerMixin(QCDQCastWeightQuantProxyHandlerM
 
     def prepare_for_export(self, module):
         if module.is_quant_enabled:
-            self.validate(module)
-            if self._export_q_node:
-                self.prepare_quantize_from_floating_point(module)
-            else:
-                self.prepare_quantize_from_quantized(module)
-            # Get the first quant weight as representative
+            QCDQCastWeightQuantProxyHandlerMixin.prepare_for_export(self, module)
+
             quant_weight = module.tracked_module_list[0].quant_weight()
             mantissa_bit_width = module.mantissa_bit_width()
             exponent_bit_width = module.exponent_bit_width()
