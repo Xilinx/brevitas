@@ -23,29 +23,6 @@ if torch.__version__.endswith('+cpu'):
 else:
     torch_version = version.parse(torch.__version__)
 
-original_cat = torch.cat
-if torch_version < version.parse('1.7.0'):
-    from torch._overrides import handle_torch_function
-    from torch._overrides import has_torch_function
-
-    @torch.jit.ignore
-    def unsupported_jit_cat(tensors, dim):
-        if not isinstance(tensors, (tuple, list)):
-            tensors = tuple(tensors)
-            return unsupported_jit_cat(tensors, dim)
-        if any(type(t) is not Tensor for t in tensors) and has_torch_function(tensors):
-            return handle_torch_function(
-                original_cat, relevant_args=tensors, tensors=tensors, dim=dim)
-        else:
-            return original_cat(tensors=tensors, dim=dim)
-
-    def cat(tensors: List[Tensor], dim: int = 0) -> Tensor:
-        if not torch.jit.is_scripting():
-            return unsupported_jit_cat(tensors, dim)
-        return original_cat(tensors, dim=dim)
-
-    torch.cat = cat
-
 try:
     __version__ = get_distribution(__name__).version
 except DistributionNotFound:
