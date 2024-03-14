@@ -59,5 +59,3 @@ jobs:
     - name: Run Nox session for Notebook execution
       shell: bash
       run: nox -v -s tests_brevitas_notebook-${{ matrix.python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)
-
-
