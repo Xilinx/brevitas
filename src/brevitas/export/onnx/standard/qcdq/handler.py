@@ -5,6 +5,7 @@ from abc import ABC
 
 import torch
 
+from brevitas.export.common.handler.base import QuantDtypeMixin
 from brevitas.export.common.handler.qcdq import CDQCastBiasQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import CDQCastMixin
 from brevitas.export.common.handler.qcdq import DQCastMixin
@@ -54,7 +55,23 @@ class StdCDQCastONNXMixin(CDQCastMixin, StdDQCastONNXMixin, ABC):
         return IntClipFn.apply(x, min_val, max_val)
 
 
-class StdQCDQCastONNXMixin(QMixin, StdCDQCastONNXMixin, ABC):
+class StdQCDQCastONNXMixin(QMixin, StdCDQCastONNXMixin, QuantDtypeMixin, ABC):
+
+    @classmethod
+    def int8_dtype(cls):
+        return torch.int8
+
+    @classmethod
+    def uint8_dtype(cls):
+        return torch.uint8
+
+    @classmethod
+    def int32_dtype(cls):
+        return torch.int32
+
+    @classmethod
+    def signed_quant_dtype(cls, bit_width, is_signed):
+        return cls.signed_dtype(bit_width, is_signed)
 
     def validate(self, module):
         super().validate(module)

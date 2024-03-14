@@ -41,6 +41,14 @@ class PytorchQuantLayerHandler(BaseHandler,
         pass
 
     @classmethod
+    def int8_dtype(cls):
+        return torch.int8
+
+    @classmethod
+    def uint8_dtype(cls):
+        return torch.uint8
+
+    @classmethod
     def int32_dtype(cls):
         raise NotImplementedError  # This should not be needed for QOp
 
