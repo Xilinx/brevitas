@@ -6,6 +6,7 @@ on:
       - opened
       - reopened
       - synchronize
+      - ready_for_review
 
 
 jobs:
@@ -59,3 +60,5 @@ jobs:
     - name: Run Nox session for end-to-end flows
       shell: bash
       run: nox -v -s tests_brevitas_end_to_end-${{ matrix.python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)
+
+

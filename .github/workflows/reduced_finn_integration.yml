@@ -6,6 +6,7 @@ on:
       - opened
       - reopened
       - synchronize
+      - ready_for_review
 
 
 jobs:
@@ -61,3 +62,5 @@ jobs:
     - name: Run Nox session for Brevitas-FINN integration
       shell: bash
       run: nox -v -s tests_brevitas_finn_integration-${{ matrix.python_version }}\(\pytorch_${{ matrix.pytorch_version }}\)
+
+
