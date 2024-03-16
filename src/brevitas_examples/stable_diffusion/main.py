@@ -27,7 +27,7 @@ from brevitas_examples.stable_diffusion.sd_quant.constants import SD_XL_EMBEDDIN
 from brevitas_examples.stable_diffusion.sd_quant.export import export_onnx
 from brevitas_examples.stable_diffusion.sd_quant.export import export_torchscript
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_latents
-from brevitas_examples.stable_diffusion.sd_quant.utils import generate_unet_rand_inputs
+from brevitas_examples.stable_diffusion.sd_quant.utils import generate_unet_21_rand_inputs
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_unet_xl_rand_inputs
 from brevitas_examples.stable_diffusion.sd_quant.utils import unet_input_shape
 
@@ -191,7 +191,7 @@ def main(args):
             generate_fn = generate_unet_xl_rand_inputs
             shape = SD_XL_EMBEDDINGS_SHAPE
         else:
-            generate_fn = generate_unet_rand_inputs
+            generate_fn = generate_unet_21_rand_inputs
             shape = SD_2_1_EMBEDDINGS_SHAPE
         trace_inputs = generate_fn(
             embedding_shape=shape,
@@ -316,7 +316,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '--weight-quant-granularity',
         type=str,
-        default='per_group',
+        default='per_channel',
         choices=['per_channel', 'per_tensor', 'per_group'],
         help='Granularity for scales/zero-point of weights. Default: per_group.')
     parser.add_argument(

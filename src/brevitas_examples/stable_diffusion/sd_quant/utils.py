@@ -49,6 +49,18 @@ def generate_unet_rand_inputs(
     return unet_rand_inputs
 
 
+def generate_unet_21_rand_inputs(
+        embedding_shape,
+        unet_input_shape,
+        batch_size=1,
+        device='cpu',
+        dtype=torch.float32,
+        with_return_dict_false=False):
+    unet_rand_inputs = generate_unet_rand_inputs(
+        embedding_shape, unet_input_shape, batch_size, device, dtype, with_return_dict_false)
+    return tuple(unet_rand_inputs.values())
+
+
 def generate_unet_xl_rand_inputs(
         embedding_shape,
         unet_input_shape,
