@@ -20,6 +20,19 @@ from brevitas.graph.base import GraphTransform
 from brevitas.graph.base import ModuleInstanceToModuleInstance
 from brevitas.graph.utils import get_module
 from brevitas.graph.utils import get_node
+from brevitas.nn import QuantConv1d
+from brevitas.nn import QuantConv2d
+from brevitas.nn import QuantConv3d
+from brevitas.nn import QuantConvTranspose1d
+from brevitas.nn import QuantConvTranspose2d
+from brevitas.nn import QuantConvTranspose3d
+from brevitas.nn import QuantHardTanh
+from brevitas.nn import QuantIdentity
+from brevitas.nn import QuantLinear
+from brevitas.nn import QuantMultiheadAttention
+from brevitas.nn import QuantReLU
+from brevitas.nn import QuantSigmoid
+from brevitas.nn import QuantTanh
 from brevitas.nn.equalized_layer import EqualizedModule
 from brevitas.nn.quant_scale_bias import ScaleBias
 from brevitas.utils.torch_utils import KwargsForwardHook
@@ -35,11 +48,19 @@ _supported_layers = (
     nn.ConvTranspose1d,
     nn.ConvTranspose2d,
     nn.ConvTranspose3d,
+    QuantConvTranspose1d,
+    QuantConvTranspose2d,
+    QuantConvTranspose3d,
     nn.MultiheadAttention,
+    QuantMultiheadAttention,
     nn.Conv1d,
     nn.Conv2d,
     nn.Conv3d,
+    QuantConv1d,
+    QuantConv2d,
+    QuantConv3d,
     nn.Linear,
+    QuantLinear,
     nn.LayerNorm,
     nn.BatchNorm1d,
     nn.BatchNorm2d,
@@ -84,6 +105,8 @@ _residual_fns = (torch.add, operator.add, operator.iadd, operator.__add__, opera
 _batch_norm = (nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d)
 
 _ignore_ops = (getattr, 'size')
+
+_quant_modules = (QuantReLU, QuantIdentity, QuantHardTanh, QuantTanh, QuantSigmoid)
 
 
 # Start and End identify the starting and ending channels of the weight matrix that need to be
@@ -644,9 +667,26 @@ def _is_supported_module(graph_model: GraphModule, node: Node) -> bool:
     return False
 
 
+def _is_quant_module(graph_model: GraphModule, node: Node):
+    module = get_module(graph_model, node.target)
+    return isinstance(module, _quant_modules)
+
+
+def _get_act_impl(graph_module: GraphModule, node: Node):
+    module = get_module(graph_module, node.target)
+    # we know it is a quant module, so just access the proxies
+    # should be the act_quant.fused_activation_quant_proxy.activation_impl
+    return module.act_quant.fused_activation_quant_proxy.activation_impl
+
+
 def _is_scale_invariant_module(graph_model: GraphModule, node: Node) -> bool:
-    return node.op == 'call_module' and isinstance(
-        get_module(graph_model, node.target), _scale_invariant_layers)
+    # if quant module, we need to check the activation impl
+    if node.op == 'call_module':
+        if _is_quant_module(graph_model, node):
+            # if its quant, check the call impl
+            act_impl = _get_act_impl(graph_model, node)
+            return isinstance(act_impl, _scale_invariant_layers)
+        return isinstance(get_module(graph_model, node.target), _scale_invariant_layers)
 
 
 def _is_scale_varying_activation(graph_model, node):
@@ -667,9 +707,12 @@ def _is_reshaping_op(node: Node) -> bool:
 
 def get_weight_source(module):
     transpose = lambda weight, axis: weight if axis == 0 else weight.transpose(0, 1)
-    if isinstance(module, nn.MultiheadAttention) and not hasattr(module, 'out_proj'):
+    if isinstance(
+            module,
+        (nn.MultiheadAttention, QuantMultiheadAttention)) and not hasattr(module, 'out_proj'):
         raise RuntimeError("Configuration for Multiheadattention not supported")
-    weight = module.out_proj.weight if isinstance(module, nn.MultiheadAttention) else module.weight
+    weight = module.out_proj.weight if isinstance(
+        module, (nn.MultiheadAttention, QuantMultiheadAttention)) else module.weight
     axis = _get_output_axis(module)
     weight = transpose(weight, axis)
     return weight
@@ -677,10 +720,16 @@ def get_weight_source(module):
 
 def get_weight_sink(module):
     transpose = lambda weight, axis: weight if axis == 0 else weight.transpose(0, 1)
-    if isinstance(module, nn.MultiheadAttention) and not hasattr(module, 'in_proj_weight'):
-        raise RuntimeError("Configuration for Multiheadattention not supported")
-    weight = WeightBiasWrapper(module.in_proj_weight).weight if isinstance(
-        module, nn.MultiheadAttention) else module.weight
+    if isinstance(module, nn.MultiheadAttention):
+        if not hasattr(module, 'in_proj_weight'):
+            raise RuntimeError("Configuration for Multiheadattention not supported")
+        weight = WeightBiasWrapper(module.in_proj_weight).weight
+    elif isinstance(module, QuantMultiheadAttention):
+        if not hasattr(module.in_proj, 'weight'):
+            raise RuntimeError("Configuration for Multiheadattention not supported")
+        weight = WeightBiasWrapper(module.in_proj.weight).weight
+    else:
+        weight = module.weight
     axis = _get_input_axis(module)
     weight = transpose(weight, axis)
     return weight
