@@ -173,6 +173,9 @@ class GPFQ(GPxQ):
 
 
 class A2GPFQ(GPFQ):
+    """
+    Accumulator-Aware GPFQ (A2GPFQ) based on `A2Q: Accumulator-Aware Quantization with Guaranteed Overflow Avoidance`
+    """
 
     def __init__(
             self,

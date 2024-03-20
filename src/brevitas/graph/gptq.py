@@ -212,6 +212,9 @@ class GPTQ(GPxQ):
 
 
 class A2GPTQ(GPTQ):
+    """
+    Accumulator-Aware GPTQ (A2GPTQ) based on `A2Q: Accumulator-Aware Quantization with Guaranteed Overflow Avoidance`
+    """
 
     def __init__(
             self,
