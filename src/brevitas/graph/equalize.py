@@ -13,7 +13,6 @@ import warnings
 import torch
 from torch.fx import GraphModule as TorchGraphModule
 import torch.nn as nn
-from tqdm import tqdm
 
 from brevitas.fx import GraphModule
 from brevitas.fx import Node
@@ -660,13 +659,11 @@ def _equalize(
         merge_bias: bool,
         bias_shrinkage: Union[str, float],
         scale_computation_type: str,
-        l1_penalty: float = 0.,
-        verbose: bool = False) -> GraphModule:
+        l1_penalty: float = 0.) -> GraphModule:
     """
     Generalized version of section 4.1 of https://arxiv.org/pdf/1906.04721.pdf
     """
-    pbar = tqdm(range(iterations)) if verbose else range(iterations)
-    for i in pbar:
+    for i in range(iterations):
         scale_factor_max = None
         for region in regions:
             scale_factors_region = _cross_layer_equalization(
@@ -965,8 +962,7 @@ class EqualizeGraph(GraphTransform):
             merge_bias: bool = True,
             bias_shrinkage: Union[float, str] = 'vaiq',
             scale_computation_type: str = 'maxabs',
-            l1_penalty: float = 0.,
-            verbose: bool = False) -> None:
+            l1_penalty: float = 0.) -> None:
         super(EqualizeGraph, self).__init__()
         self.iterations = iterations
         self.return_regions = return_regions
@@ -975,7 +971,6 @@ class EqualizeGraph(GraphTransform):
         self.threshold = threshold
         self.scale_computation_type = scale_computation_type
         self.l1_penalty = l1_penalty
-        self.verbose = verbose
 
     def apply(self,
               graph_model: GraphModule) -> Union[Tuple[GraphModule, Set[Tuple[str]]], GraphModule]:
@@ -989,8 +984,7 @@ class EqualizeGraph(GraphTransform):
                 self.merge_bias,
                 self.bias_shrinkage,
                 self.scale_computation_type,
-                self.l1_penalty,
-                self.verbose)
+                self.l1_penalty)
         if self.return_regions:
             return graph_model, regions
         else:
