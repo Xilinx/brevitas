@@ -461,11 +461,31 @@ def quant_convtranspose_model():
     return QuantConvTransposeModel
 
 
+@pytest_cases.fixture()
+def quant_linear_model():
+
+    class QuantLinearModel(nn.Module):
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.linear_0 = qnn.QuantLinear(
+                3, 16, True, input_quant=Int8ActPerTensorFloat, return_quant_tensor=True)
+            self.linear_1 = qnn.QuantLinear(16, 10, True)
+
+        def forward(self, x):
+            x = self.linear_0(x)
+            x = self.linear_1(x)
+            return x
+
+    return QuantLinearModel
+
+
 list_of_quant_fixtures = [
     'quant_conv_with_input_quant_model',
     'quant_convdepthconv_model',
     'quant_residual_model',
-    'quant_convtranspose_model']
+    'quant_convtranspose_model',
+    'quant_linear_model']
 
 toy_quant_model = fixture_union(
     'toy_quant_model', list_of_quant_fixtures, ids=list_of_quant_fixtures)
