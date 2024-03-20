@@ -403,8 +403,9 @@ def _get_weight_from_module(
     w = m.weight
     # if this is a sink node, then also pre-compute the average (important later)
     if scale_computation_type == "l1" and not is_src:
-        i = _get_output_axis(m)
-        w = w / w.shape[i]
+        i = _get_output_axis(m)  # Can be None if LayerNorm
+        if i is not None:
+            w = w / w.shape[i]
     w = transpose(w, axis)
     if merge_bias and is_src:
         w = _combine_weights_bias(w, bias_shrinkage, m.bias).cpu()

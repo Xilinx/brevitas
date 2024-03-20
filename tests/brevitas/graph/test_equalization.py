@@ -60,7 +60,9 @@ def test_resnet18_equalization():
 
 
 @pytest_cases.parametrize("merge_bias", [True, False])
-def test_equalization_torchvision_models(model_coverage: tuple, merge_bias: bool):
+@pytest_cases.parametrize("scale_computation_type", ["maxabs", "range", "l1"])
+def test_equalization_torchvision_models(
+        model_coverage: tuple, merge_bias: bool, scale_computation_type: str):
     model, coverage = model_coverage
 
     torch.manual_seed(SEED)
@@ -75,7 +77,10 @@ def test_equalization_torchvision_models(model_coverage: tuple, merge_bias: bool
 
     regions = _extract_regions(model)
     scale_factor_regions = equalize_test(
-        regions, merge_bias=merge_bias, bias_shrinkage='vaiq', scale_computation_type='maxabs')
+        regions,
+        merge_bias=merge_bias,
+        bias_shrinkage='vaiq',
+        scale_computation_type=scale_computation_type)
     shape_scale_regions = [scale.shape for scale in scale_factor_regions]
 
     out = model(inp)
@@ -109,7 +114,8 @@ def test_equalization_torchvision_models(model_coverage: tuple, merge_bias: bool
 
 
 @pytest_cases.parametrize("merge_bias", [True, False])
-def test_models(toy_model, merge_bias, request):
+@pytest_cases.parametrize("scale_computation_type", ["range", "maxabs", "l1"])
+def test_models(toy_model, merge_bias, scale_computation_type, request):
     test_id = request.node.callspec.id
 
     if 'mha' in test_id:
@@ -128,7 +134,10 @@ def test_models(toy_model, merge_bias, request):
     model = symbolic_trace(model)
     regions = _extract_regions(model)
     scale_factor_regions = equalize_test(
-        regions, merge_bias=merge_bias, bias_shrinkage='vaiq', scale_computation_type='maxabs')
+        regions,
+        merge_bias=merge_bias,
+        bias_shrinkage='vaiq',
+        scale_computation_type=scale_computation_type)
     shape_scale_regions = [scale.shape for scale in scale_factor_regions]
 
     with torch.no_grad():
