@@ -20,126 +20,6 @@ import brevitas.nn as qnn
 from brevitas.quant_tensor import QuantTensor
 
 
-class gpfq_mode(gpxq_mode):
-    """
-    Apply GPFQ algorithm.
-
-    Args:
-        model (Module): The model to quantize with GPFQ
-        group_of_parallel_layers (Optional, List[str]): .List of lists where each inner list is a group
-            of layer names that can be optimized in parallel. Default: None
-        inplace (bool): Wheter to apply GPFQ inplace or perform a deepcopy. Default: True
-        create_weight_orig (bool): If True, store the original floating point weights before applying
-            gpfq. These weights will be used anytime quantization is disabled. Default: True
-        use_quant_activations (bool): Wheter to leave quantize activations enabled while performing
-            GPFQ. Default: False
-        p (float): The percentage of processed inputs to use. Default: 1.0
-        return_forward_output (bool): If True, returns the output of the forward pass. Otherwise the
-            forward call inside the context manager returns None. Default: False
-        act_order (bool): Whether to order greedy path following by Hessian approximation. Default: False
-        use_gpfa2q (bool): Whether to use accumulator-aware GPFQ. Default: False
-        accumulator_bit_width (Optional, int): The target accumulator bit width. Default: None
-        a2q_layer_filter_fnc (Optional, callable): An optional lambda function to filter layers for
-            accumulator cosntraints. Should return True for layers to constrain. Default: `lambda x: True`
-
-    Example:
-        >>> with torch.no_grad():
-        >>>     with gpfq_mode(model) as gpfq:
-        >>>         gpfq_model = gpfq.model
-        >>>         for i in tqdm(range(gpfq.num_layers)):
-        >>>             for img, t in calib_loader:
-        >>>                 img = img.cuda()
-        >>>                 gpfq_model(img)
-        >>>             gpfq.update()
-    """
-
-    def __init__(
-            self,
-            model: nn.Module,
-            group_of_parallel_layers: Optional[List[str]] = None,
-            inplace: bool = True,
-            create_weight_orig: bool = True,
-            use_quant_activations: bool = True,
-            p: float = 1.0,
-            return_forward_output: bool = False,
-            act_order: bool = False,
-            use_gpfa2q: bool = False,
-            accumulator_bit_width: Optional[int] = None,
-            a2q_layer_filter_fnc: Optional[Callable[[nn.Module], bool]] = lambda x: True) -> None:
-        if not inplace:
-            model = deepcopy(model)
-        super().__init__(
-            model,
-            group_of_parallel_layers,
-            inplace,
-            create_weight_orig,
-            use_quant_activations,
-            act_order,
-            return_forward_output)
-
-        self.p = p
-
-        # GPFA2Q params
-        self.use_gpfa2q = use_gpfa2q
-        self.accumulator_bit_width = accumulator_bit_width
-        self.a2q_layer_filter_fnc = a2q_layer_filter_fnc  # returns true when to use GPFA2Q
-
-    def catch_stopfwd(self, *args, **kwargs):
-        # Collect quant input
-        try:
-            self.orig_forward(*args, **kwargs)
-        except StopFwdException:
-            pass
-
-        # Disable quantization
-        self.return_quant_tensor_state = disable_return_quant_tensor(self.model)
-        self.disable_quant_inference.disable_param_quantization(self.model, is_training=False)
-        self.disable_quant_inference.disable_act_quantization(self.model, is_training=False)
-        # Collect float input
-        try:
-            self.orig_forward(*args, **kwargs)
-        except StopFwdException:
-            pass
-
-        # Re-enable quantization. If activation quantization is disabled,
-        # we also disable bias quantization
-        self.disable_quant_inference.enable_param_quantization(self.model, is_training=False)
-        if self.use_quant_activations:
-            self.disable_quant_inference.enable_act_quantization(self.model, is_training=False)
-        else:
-            self.disable_quant_inference.disable_bias_quantization(self.model, is_training=False)
-        restore_return_quant_tensor(self.model, self.return_quant_tensor_state)
-
-        if self.return_forward_output:
-            # If we want to return the output of the network, we need to disable all hooks
-            for name, gpxq_class in self.gpxq_layers.items():
-                gpxq_class.disable_pre_forward_hook = True
-            out = self.orig_forward(*args, **kwargs)
-            for name, gpxq_class in self.gpxq_layers.items():
-                gpxq_class.disable_pre_forward_hook = False
-            return out
-
-    def initialize_module_optimizer(
-            self, layer, name, act_order, len_parallel_layers, create_weight_orig):
-        if (not self.a2q_layer_filter_fnc(layer)) or (not self.use_gpfa2q):
-            return GPFQ(
-                layer=layer,
-                name=name,
-                act_order=act_order,
-                len_parallel_layers=len_parallel_layers,
-                create_weight_orig=create_weight_orig,
-                p=self.p)
-        else:
-            return GPFA2Q(
-                layer=layer,
-                name=name,
-                act_order=act_order,
-                len_parallel_layers=len_parallel_layers,
-                create_weight_orig=create_weight_orig,
-                p=self.p,
-                accumulator_bit_width=self.accumulator_bit_width)
-
-
 class GPFQ(GPxQ):
     """
     Based on https://github.com/YixuanSeanZhou/Quantized_Neural_Nets/tree/main
@@ -252,18 +132,19 @@ class GPFQ(GPxQ):
         self.float_input = self.float_input.to(dev)
         self.quantized_input = self.quantized_input.to(dev)
         # We don't need full Hessian, we just need the diagonal
-        self.H_diag = self.quantized_input.transpose(2, 1).square().sum(
-            2)  # summing over Batch dimension
+        H_diag = self.quantized_input.transpose(2,
+                                                1).square().sum(2)  # summing over Batch dimension
         permutation_list = []
         for group_index in range(self.groups):
             if self.act_order:
                 # Re-order Hessian_diagonal so that weights associated to
                 # higher magnitude activations are quantized first
-                perm = torch.argsort(self.H_diag[group_index, :], descending=True)
+                perm = torch.argsort(H_diag[group_index, :], descending=True)
             else:
                 # No permutation, permutation tensor is a ordered index
                 perm = torch.tensor(range(weight.shape[-1]), device=dev)
             permutation_list.append(perm)
+        del H_diag  # free memory
         for t in range(weight.shape[-1]):
             for group_index in range(self.groups):
                 U[group_index] += torch.matmul(
@@ -291,7 +172,7 @@ class GPFQ(GPxQ):
         del self.quantized_input
 
 
-class GPFA2Q(GPFQ):
+class A2GPFQ(GPFQ):
 
     def __init__(
             self,
@@ -350,36 +231,39 @@ class GPFA2Q(GPFQ):
                 weight = weight.transpose(1, 0)  # This performs a view
             weight = weight.flatten(1)
         weight = weight.view(self.groups, -1, weight.shape[-1])  # [Groups, OC/Groups, IC]
-        U = torch.zeros(
-            weight.shape[0], weight.shape[1], self.float_input.shape[1], device=dev, dtype=dtype)
+
         self.float_input = self.float_input.to(dev)
         self.quantized_input = self.quantized_input.to(dev)
+
+        # We don't need full Hessian, we just need the diagonal
+        H_diag = self.quantized_input.transpose(2,
+                                                1).square().sum(2)  # summing over Batch dimension
+        permutation_list = []
+        for group_index in range(self.groups):
+            if self.act_order:
+                # Re-order Hessian_diagonal so that weights associated to
+                # higher magnitude activations are quantized first
+                perm = torch.argsort(H_diag[group_index, :], descending=True)
+            else:
+                # No permutation, permutation tensor is a ordered index
+                perm = torch.tensor(range(weight.shape[-1]), device=dev)
+            permutation_list.append(perm)
+
+        del H_diag  # free memory
 
         # get upper bound
         input_bit_width = self.quant_input.bit_width
         input_is_signed = self.quant_input.signed
         T = get_upper_bound_on_l1_norm(
             torch.tensor(self.accumulator_bit_width), input_bit_width, input_is_signed)
-        s = self.layer.quant_weight_scale()
+        s = self.layer.weight_quant.scale()
         if s.ndim > 1:
             s = s.view(self.groups, -1)  # [Groups, OC/Groups]
 
         # initialize cumulative l1-norm
         z = torch.zeros(weight.shape[:-1], device=dev)
-
-        # We don't need full Hessian, we just need the diagonal
-        self.H_diag = self.quantized_input.transpose(2, 1).square().sum(
-            2)  # summing over Batch dimension
-        permutation_list = []
-        for group_index in range(self.groups):
-            if self.act_order:
-                # Re-order Hessian_diagonal so that weights associated to
-                # higher magnitude activations are quantized first
-                perm = torch.argsort(self.H_diag[group_index, :], descending=True)
-            else:
-                # No permutation, permutation tensor is a ordered index
-                perm = torch.tensor(range(weight.shape[-1]), device=dev)
-            permutation_list.append(perm)
+        U = torch.zeros(
+            weight.shape[0], weight.shape[1], self.float_input.shape[1], device=dev, dtype=dtype)
 
         for t in range(weight.shape[-1]):
             for group_index in range(self.groups):
@@ -396,10 +280,12 @@ class GPFA2Q(GPFQ):
                 else:
                     q_arg = torch.zeros_like(U[group_index, :, 0])
 
-                max_q_arg = s * torch.clamp_min(T - z, 0.)
+                # TODO: handle worst-case rounding errors based on weight quant
+                max_q_arg = s * torch.clamp_min(T - z - 0.5, 0.)
                 q_arg = q_arg.sign() * torch.clamp_max(q_arg.abs(), max_q_arg[group_index, :])
                 weight[group_index, :, permutation_list[group_index][t]] = q_arg
             q = self.get_quant_weights(t, 0, permutation_list)
+            # TODO: need to handle non-zero zero points properly
             z += q.abs() / s  # increment cumulative l1-norm
 
             for group_index in range(self.groups):
@@ -410,3 +296,123 @@ class GPFA2Q(GPFQ):
 
         del self.float_input
         del self.quantized_input
+
+
+class gpfq_mode(gpxq_mode):
+    """
+    Apply GPFQ algorithm.
+
+    Args:
+        model (Module): The model to quantize with GPFQ
+        group_of_parallel_layers (Optional, List[str]): .List of lists where each inner list is a group
+            of layer names that can be optimized in parallel. Default: None
+        inplace (bool): Wheter to apply GPFQ inplace or perform a deepcopy. Default: True
+        create_weight_orig (bool): If True, store the original floating point weights before applying
+            gpfq. These weights will be used anytime quantization is disabled. Default: True
+        use_quant_activations (bool): Wheter to leave quantize activations enabled while performing
+            GPFQ. Default: False
+        p (float): The percentage of processed inputs to use. Default: 1.0
+        return_forward_output (bool): If True, returns the output of the forward pass. Otherwise the
+            forward call inside the context manager returns None. Default: False
+        act_order (bool): Whether to order greedy path following by Hessian approximation. Default: False
+        accumulator_bit_width (Optional, int): The target accumulator bit width. Default: None
+        a2q_layer_filter_fnc (Optional, callable): An optional lambda function to filter layers for
+            accumulator cosntraints. Should return True for layers to constrain. Default: `lambda x: False`
+        a2q_gpfq_class (Optional, A2GPFQ): An option to override the default accumulator-aware GPFQ class
+            for enforcing accumulator constraints. Default: `A2GPFQ`
+
+    Example:
+        >>> with torch.no_grad():
+        >>>     with gpfq_mode(model) as gpfq:
+        >>>         gpfq_model = gpfq.model
+        >>>         for i in tqdm(range(gpfq.num_layers)):
+        >>>             for img, t in calib_loader:
+        >>>                 img = img.cuda()
+        >>>                 gpfq_model(img)
+        >>>             gpfq.update()
+    """
+
+    def __init__(
+            self,
+            model: nn.Module,
+            group_of_parallel_layers: Optional[List[str]] = None,
+            inplace: bool = True,
+            create_weight_orig: bool = True,
+            use_quant_activations: bool = True,
+            p: float = 1.0,
+            return_forward_output: bool = False,
+            act_order: bool = False,
+            accumulator_bit_width: Optional[int] = None,
+            a2q_layer_filter_fnc: Optional[Callable[[nn.Module], bool]] = lambda x: False,
+            a2q_gpfq_class: Optional[A2GPFQ] = A2GPFQ) -> None:
+        if not inplace:
+            model = deepcopy(model)
+        super().__init__(
+            model,
+            group_of_parallel_layers,
+            inplace,
+            create_weight_orig,
+            use_quant_activations,
+            act_order,
+            return_forward_output)
+
+        self.p = p
+
+        # A2GPFQ params
+        self.accumulator_bit_width = accumulator_bit_width
+        self.a2q_layer_filter_fnc = a2q_layer_filter_fnc  # returns true when to use A2GPFQ
+        self.a2q_gpfq_class = a2q_gpfq_class
+
+    def catch_stopfwd(self, *args, **kwargs):
+        # Collect quant input
+        try:
+            self.orig_forward(*args, **kwargs)
+        except StopFwdException:
+            pass
+
+        # Disable quantization
+        self.return_quant_tensor_state = disable_return_quant_tensor(self.model)
+        self.disable_quant_inference.disable_param_quantization(self.model, is_training=False)
+        self.disable_quant_inference.disable_act_quantization(self.model, is_training=False)
+        # Collect float input
+        try:
+            self.orig_forward(*args, **kwargs)
+        except StopFwdException:
+            pass
+
+        # Re-enable quantization. If activation quantization is disabled,
+        # we also disable bias quantization
+        self.disable_quant_inference.enable_param_quantization(self.model, is_training=False)
+        if self.use_quant_activations:
+            self.disable_quant_inference.enable_act_quantization(self.model, is_training=False)
+        else:
+            self.disable_quant_inference.disable_bias_quantization(self.model, is_training=False)
+        restore_return_quant_tensor(self.model, self.return_quant_tensor_state)
+
+        if self.return_forward_output:
+            # If we want to return the output of the network, we need to disable all hooks
+            for name, gpxq_class in self.gpxq_layers.items():
+                gpxq_class.disable_pre_forward_hook = True
+            out = self.orig_forward(*args, **kwargs)
+            for name, gpxq_class in self.gpxq_layers.items():
+                gpxq_class.disable_pre_forward_hook = False
+            return out
+
+    def initialize_module_optimizer(
+            self, layer, name, act_order, len_parallel_layers, create_weight_orig):
+        if self.accumulator_bit_width is not None and self.a2q_layer_filter_fnc(layer):
+            return self.a2q_gpfq_class(
+                layer=layer,
+                name=name,
+                act_order=act_order,
+                len_parallel_layers=len_parallel_layers,
+                create_weight_orig=create_weight_orig,
+                p=self.p,
+                accumulator_bit_width=self.accumulator_bit_width)
+        return GPFQ(
+            layer=layer,
+            name=name,
+            act_order=act_order,
+            len_parallel_layers=len_parallel_layers,
+            create_weight_orig=create_weight_orig,
+            p=self.p)
