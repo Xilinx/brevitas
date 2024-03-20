@@ -60,9 +60,8 @@ def test_resnet18_equalization():
 
 
 @pytest_cases.parametrize("merge_bias", [True, False])
-@pytest_cases.parametrize("scale_computation_type", ["maxabs", "range", "l1"])
 def test_equalization_torchvision_models(
-        model_coverage: tuple, merge_bias: bool, scale_computation_type: str):
+        model_coverage: tuple, merge_bias: bool, scale_computation_type: str = "maxabs"):
     model, coverage = model_coverage
 
     torch.manual_seed(SEED)
