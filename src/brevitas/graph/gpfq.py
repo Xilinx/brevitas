@@ -19,6 +19,8 @@ from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 import brevitas.nn as qnn
 from brevitas.quant_tensor import QuantTensor
 
+TARGET_DIM = 512
+
 
 class gpfq_mode(gpxq_mode):
     """
@@ -247,10 +249,18 @@ class GPFQ(GPxQ):
                 weight = weight.transpose(1, 0)  # This performs a view
             weight = weight.flatten(1)
         weight = weight.view(self.groups, -1, weight.shape[-1])  # [Groups, OC/Groups, IC]
+        # use random projection to reduce dimensionality
+        n = self.quantized_input.size(1)
+        # create gaussian random matrix
+        R = torch.normal(mean=0.0, std=1. / n, size=(TARGET_DIM, n), device=dev)
+        self.quantized_input = torch.transpose(self.quantized_input, 1, 2) @ R.T
+        self.float_input = torch.transpose(self.float_input, 1, 2) @ R.T
+        del R
+        # reshape back
+        self.quantized_input = torch.transpose(self.quantized_input, 1, 2).to(dev)
+        self.float_input = torch.transpose(self.float_input, 1, 2).to(dev)
         U = torch.zeros(
             weight.shape[0], weight.shape[1], self.float_input.shape[1], device=dev, dtype=dtype)
-        self.float_input = self.float_input.to(dev)
-        self.quantized_input = self.quantized_input.to(dev)
         # We don't need full Hessian, we just need the diagonal
         self.H_diag = self.quantized_input.transpose(2, 1).square().sum(
             2)  # summing over Batch dimension
