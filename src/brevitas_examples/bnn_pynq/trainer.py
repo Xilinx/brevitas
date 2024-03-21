@@ -18,7 +18,8 @@ from torchvision import transforms
 from torchvision.datasets import CIFAR10
 from torchvision.datasets import MNIST
 
-from brevitas.export import export_onnx_qcdq, export_qonnx
+from brevitas.export import export_onnx_qcdq
+from brevitas.export import export_qonnx
 
 from .logger import EvalEpochMeters
 from .logger import Logger
@@ -158,7 +159,8 @@ class Trainer(object):
             with open(path, "rb") as f:
                 bytes = f.read()
                 readable_hash = sha256(bytes).hexdigest()[:8]
-            new_path = os.path.join(self.checkpoints_dir_path, "{}-qonnx-{}.onnx".format(name, readable_hash))
+            new_path = os.path.join(
+                self.checkpoints_dir_path, "{}-qonnx-{}.onnx".format(name, readable_hash))
             os.rename(path, new_path)
             self.logger.info("Exporting QONNX to {}".format(new_path))
         if args.export_qcdq_onnx:
@@ -168,7 +170,8 @@ class Trainer(object):
             with open(path, "rb") as f:
                 bytes = f.read()
                 readable_hash = sha256(bytes).hexdigest()[:8]
-            new_path = os.path.join(self.checkpoints_dir_path, "{}-qcdq-{}.onnx".format(name, readable_hash))
+            new_path = os.path.join(
+                self.checkpoints_dir_path, "{}-qcdq-{}.onnx".format(name, readable_hash))
             os.rename(path, new_path)
             self.logger.info("Exporting QCDQ ONNX to {}".format(new_path))
 

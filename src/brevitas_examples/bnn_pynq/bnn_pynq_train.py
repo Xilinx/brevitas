@@ -112,7 +112,7 @@ def launch(cmd_args):
 
     # Avoid creating new folders etc.
     if args.evaluate:
-        args.dry_run = True # Comment out to export ONNX models from pre-trained
+        args.dry_run = True  # Comment out to export ONNX models from pre-trained
 
     # Init trainer
     trainer = Trainer(args)
