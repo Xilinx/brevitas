@@ -18,6 +18,8 @@ from torchvision import transforms
 from torchvision.datasets import CIFAR10
 from torchvision.datasets import MNIST
 
+from brevitas.export import export_onnx_qcdq, export_qonnx
+
 from .logger import EvalEpochMeters
 from .logger import Logger
 from .logger import TrainingEpochMeters
@@ -148,6 +150,27 @@ class Trainer(object):
             os.rename(path, new_path)
             self.logger.info("Saving checkpoint model to {}".format(new_path))
             exit(0)
+
+        if args.export_qonnx:
+            name = args.network.lower()
+            path = os.path.join(self.checkpoints_dir_path, name)
+            export_qonnx(model, self.train_loader.dataset[0][0].unsqueeze(0), path)
+            with open(path, "rb") as f:
+                bytes = f.read()
+                readable_hash = sha256(bytes).hexdigest()[:8]
+            new_path = os.path.join(self.checkpoints_dir_path, "{}-qonnx-{}.onnx".format(name, readable_hash))
+            os.rename(path, new_path)
+            self.logger.info("Exporting QONNX to {}".format(new_path))
+        if args.export_qcdq_onnx:
+            name = args.network.lower()
+            path = os.path.join(self.checkpoints_dir_path, name)
+            export_onnx_qcdq(model, self.train_loader.dataset[0][0].unsqueeze(0), path)
+            with open(path, "rb") as f:
+                bytes = f.read()
+                readable_hash = sha256(bytes).hexdigest()[:8]
+            new_path = os.path.join(self.checkpoints_dir_path, "{}-qcdq-{}.onnx".format(name, readable_hash))
+            os.rename(path, new_path)
+            self.logger.info("Exporting QCDQ ONNX to {}".format(new_path))
 
         if args.gpus is not None and len(args.gpus) == 1:
             model = model.to(device=self.device)

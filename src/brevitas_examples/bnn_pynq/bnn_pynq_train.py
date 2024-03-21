@@ -73,6 +73,8 @@ def parse_args(args):
         "--state_dict_to_pth",
         action='store_true',
         help="Saves a model state_dict into a pth and then exits")
+    parser.add_argument("--export_qonnx", action='store_true', help="Export QONNX Model")
+    parser.add_argument("--export_qcdq_onnx", action='store_true', help="Export QCDQ ONNX Model")
     return parser.parse_args(args)
 
 
@@ -110,7 +112,7 @@ def launch(cmd_args):
 
     # Avoid creating new folders etc.
     if args.evaluate:
-        args.dry_run = True
+        args.dry_run = True # Comment out to export ONNX models from pre-trained
 
     # Init trainer
     trainer = Trainer(args)
