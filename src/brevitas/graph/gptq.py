@@ -344,7 +344,10 @@ class A2GPTQ(GPTQ):
             for i in range(count):
                 # TODO: need to handle upwards rounding errors properly
                 q_lim = s * torch.clamp_min(T - z - 0.5, 0.0)  # [groups, OC/groups]
-                weight[:, :, perm[i1:i2][i]].clamp_(-q_lim, q_lim)
+                # NOTE: need to clamp before quantization
+                for group_index in range(self.groups):
+                    perm = permutation_list[group_index]
+                    weight[:, :, perm[i1:i2][i]].clamp_(-q_lim, q_lim)
                 q_groups = self.get_quant_weights(i, i1, permutation_list)  # [groups, OC/groups]
                 for group_index in range(self.groups):
                     perm = permutation_list[group_index]
