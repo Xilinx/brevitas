@@ -155,7 +155,6 @@ class Int8BiasPerTensorFloatInternalScaling(IntQuant,
     requires_input_scale = False
     requires_input_bit_width = False
 
-
 class Int8WeightPerTensorFloat(NarrowIntQuant,
                                MaxStatsScaling,
                                PerTensorFloatScaling8bit,
