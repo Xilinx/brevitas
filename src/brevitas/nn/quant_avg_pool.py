@@ -110,8 +110,8 @@ class TruncAdaptiveAvgPool2d(TruncMixin, QuantLayerMixin, AdaptiveAvgPool2d):
     def padding(self):
         return 0
 
-    @classmethod
-    def compute_kernel_size_stride(cls, input_shape, output_shape):
+    @staticmethod
+    def compute_kernel_size_stride(input_shape, output_shape):
         kernel_size_list = []
         stride_list = []
         for inp, out in zip(input_shape, output_shape):
