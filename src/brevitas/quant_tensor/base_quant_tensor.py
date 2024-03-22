@@ -3,7 +3,11 @@ from typing import NamedTuple, Optional
 from torch import Tensor
 
 
-class QuantTensorBase(NamedTuple):
+class QuantTensor:
+    pass
+
+
+class IntTensorBase(NamedTuple):
     value: Tensor
     scale: Optional[Tensor]
     zero_point: Optional[Tensor]
@@ -13,7 +17,7 @@ class QuantTensorBase(NamedTuple):
 
 
 def _unpack_quant_tensor(input_data):
-    if isinstance(input_data, QuantTensorBase):
+    if isinstance(input_data, QuantTensor):
         return input_data.value
     elif isinstance(input_data, tuple):
         return tuple([_unpack_quant_tensor(v) for v in input_data])

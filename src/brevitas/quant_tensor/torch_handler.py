@@ -246,7 +246,7 @@ def adaptive_avg_pool2d_handler(quant_input, output_shape):
     rescaled_value = x * reduce_size  # remove avg scaling
 
     quant_input = quant_input.set(value=rescaled_value)
-    quant_input = quant_input.set(bit_width=max_acc_bit_width(x.bit_width, reduce_size))
+    quant_input = quant_input.set(bit_width=max_acc_bit_width(quant_input.bit_width, reduce_size))
     return quant_input
 
 
@@ -324,8 +324,8 @@ def quant_layer(
 
 
 def create_quant_tensor(tensor, scale, bit_width, zero_point, signed, training):
-    from brevitas.quant_tensor import QuantTensor
-    return QuantTensor(
+    from brevitas.quant_tensor import IntQuantTensor
+    return IntQuantTensor(
         tensor,
         scale=scale,
         zero_point=zero_point,

@@ -10,6 +10,7 @@ from typing_extensions import Protocol
 from typing_extensions import runtime_checkable
 
 import brevitas
+from brevitas.quant_tensor import IntQuantTensor
 from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.quant_utils import _CachedIO
 
@@ -166,11 +167,11 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
         elif self._cached_act is None:
             return None
 
-    def forward(self, x: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
+    def forward(self, x: Union[Tensor, IntQuantTensor]) -> Union[Tensor, IntQuantTensor]:
         out = x
         if self.fused_activation_quant_proxy is not None:
             y = x
-            if isinstance(y, QuantTensor):
+            if isinstance(y, IntQuantTensor):
                 y = y.value
 
             if self.export_mode:
@@ -180,15 +181,15 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
                 y = self.fused_activation_quant_proxy.activation_impl(y)
             else:
                 y = self.fused_activation_quant_proxy(y)
-            # If y is an empty QuantTensor, we need to check if this is a passthrough proxy,
+            # If y is an empty IntQuantTensor, we need to check if this is a passthrough proxy,
             # otherwise return a simple Tensor
             if isinstance(y, tuple) and not any(map(lambda f: f is None, y)):
-                out = QuantTensor(*y, signed=self.is_signed, training=self.training)
+                out = IntQuantTensor(*y, signed=self.is_signed, training=self.training)
             elif self.is_passthrough_act:  # preserve scale/zp/bit/sign even without output quant
                 if isinstance(y, tuple):
                     y = y[0]
-                if isinstance(x, QuantTensor):
-                    out = QuantTensor(
+                if isinstance(x, IntQuantTensor):
+                    out = IntQuantTensor(
                         y, x.scale, x.zero_point, x.bit_width, x.signed, self.training)
                 else:
                     out = y
@@ -199,7 +200,7 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
         else:
             # If fused activation quant proxy is not enabled, return the input
             out = x
-        if not self.training and self.cache_inference_quant_act and isinstance(out, QuantTensor):
+        if not self.training and self.cache_inference_quant_act and isinstance(out, IntQuantTensor):
             cached_out = _CachedIO(out.detach(), self.cache_quant_io_metadata_only)
             self._cached_act = cached_out
         return out
@@ -216,11 +217,11 @@ class DynamicActQuantProxyFromInjector(ActQuantProxyFromInjector):
 
 class ClampQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol):
 
-    def forward(self, x: QuantTensor) -> Union[Tensor, QuantTensor]:
+    def forward(self, x: IntQuantTensor) -> Union[Tensor, IntQuantTensor]:
         if self.is_quant_enabled:
             out_tuple = self.tensor_quant(x.value, x.scale, x.bit_width)
             out_value, out_scale, out_zp, out_bit_width = out_tuple
-            return QuantTensor(
+            return IntQuantTensor(
                 out_value, out_scale, out_zp, out_bit_width, self.is_signed, self.training)
         return x
 
@@ -232,11 +233,11 @@ class TruncQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
             return None
         zhs = self._zero_hw_sentinel()
         # Signed might or might not be defined. We just care about retrieving the bitwidth
-        empty_imp = QuantTensor(zhs, zhs, zhs, zhs, signed=True, training=self.training)
+        empty_imp = IntQuantTensor(zhs, zhs, zhs, zhs, signed=True, training=self.training)
         bit_width = self.__call__(empty_imp).bit_width
         return bit_width
 
-    def forward(self, x: QuantTensor) -> Union[Tensor, QuantTensor]:
+    def forward(self, x: IntQuantTensor) -> Union[Tensor, IntQuantTensor]:
         if self.is_quant_enabled:
             if self.export_mode:
                 out_tuple = self.export_handler(
@@ -244,7 +245,8 @@ class TruncQuantProxyFromInjector(QuantProxyFromInjector, AccQuantProxyProtocol)
             else:
                 out_tuple = self.tensor_quant(x.value, x.scale, x.zero_point, x.bit_width)
             out_value, out_scale, out_zp, out_bit_width = out_tuple
-            return QuantTensor(out_value, out_scale, out_zp, out_bit_width, x.signed, self.training)
+            return IntQuantTensor(
+                out_value, out_scale, out_zp, out_bit_width, x.signed, self.training)
         else:
             return x
 

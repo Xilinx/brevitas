@@ -57,7 +57,7 @@ from torch._C import ScriptObject
 import torch.utils._pytree as pytree
 
 from brevitas import torch_version
-from brevitas.quant_tensor import QuantTensorBase
+from brevitas.quant_tensor import QuantTensor
 
 from . import *
 from . import _assert_is_none
@@ -82,7 +82,7 @@ from . import Scope
 from . import ScopeContextManager
 
 _UNSET = object()
-extended_base_types = base_types + (QuantTensorBase,)
+extended_base_types = base_types + (QuantTensor,)
 
 FRAME_FILES = [
     'fx/brevitas_tracer.py',

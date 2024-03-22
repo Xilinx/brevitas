@@ -15,6 +15,7 @@ from typing_extensions import runtime_checkable
 from brevitas import config
 from brevitas.function import max_int
 from brevitas.inject import BaseInjector as Injector
+from brevitas.quant_tensor import IntQuantTensor
 from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.quant_utils import _CachedIO
 
@@ -103,11 +104,11 @@ class WeightQuantProxyFromInjector(ParameterQuantProxyFromInjector, WeightQuantP
         bit_width = self.__call__(self.tracked_parameter_list[0]).bit_width
         return bit_width
 
-    def forward(self, x: torch.Tensor) -> Union[Tensor, QuantTensor]:
+    def forward(self, x: torch.Tensor) -> Union[Tensor, IntQuantTensor]:
         if self.is_quant_enabled:
             impl = self.export_handler if self.export_mode else self.tensor_quant
             out, scale, zero_point, bit_width = impl(x)
-            return QuantTensor(out, scale, zero_point, bit_width, self.is_signed, self.training)
+            return IntQuantTensor(out, scale, zero_point, bit_width, self.is_signed, self.training)
         else:  # quantization disabled
             return x
 
@@ -128,11 +129,11 @@ class DecoupledWeightQuantProxyFromInjector(WeightQuantProxyFromInjector):
         out, scale, zero_point, bit_width, pre_scale, pre_zero_point = output_tuple
         return pre_zero_point
 
-    def forward(self, x: torch.Tensor) -> Union[Tensor, QuantTensor]:
+    def forward(self, x: torch.Tensor) -> Union[Tensor, IntQuantTensor]:
         if self.is_quant_enabled:
             impl = self.export_handler if self.export_mode else self.tensor_quant
             out, scale, zero_point, bit_width, pre_scale, pre_zero_point = impl(x)
-            return QuantTensor(out, scale, zero_point, bit_width, self.is_signed, self.training)
+            return IntQuantTensor(out, scale, zero_point, bit_width, self.is_signed, self.training)
         else:  # quantization disabled
             return x
 
@@ -157,11 +158,12 @@ class DecoupledWeightQuantWithInputProxyFromInjector(DecoupledWeightQuantProxyFr
         raise NotImplementedError
 
     def forward(
-            self,
-            x: torch.Tensor,
-            quant_input: Optional[Union[Tensor, QuantTensor]] = None) -> Union[Tensor, QuantTensor]:
+        self,
+        x: torch.Tensor,
+        quant_input: Optional[Union[Tensor,
+                                    IntQuantTensor]] = None) -> Union[Tensor, IntQuantTensor]:
         if isinstance(quant_input,
-                      QuantTensor) and not self.training and self.cache_inference_quant_act:
+                      IntQuantTensor) and not self.training and self.cache_inference_quant_act:
             cached_inp = _CachedIO(quant_input.detach(), self.cache_quant_io_metadata_only)
             self._cached_act = cached_inp
 
@@ -170,14 +172,14 @@ class DecoupledWeightQuantWithInputProxyFromInjector(DecoupledWeightQuantProxyFr
                 assert self._cached_act is not None, "No cached quant input found. Enable caching and perform a forward pass"
                 quant_input = self._cached_act
             else:
-                assert isinstance(quant_input, QuantTensor), "Input must be quantized"
+                assert isinstance(quant_input, IntQuantTensor), "Input must be quantized"
 
             input_bit_width = quant_input.bit_width
             input_is_signed = quant_input.signed
 
             impl = self.export_handler if self.export_mode else self.tensor_quant
             out, scale, zero_point, bit_width, pre_scale, pre_zero_point = impl(x, input_bit_width, input_is_signed)
-            return QuantTensor(out, scale, zero_point, bit_width, self.is_signed, self.training)
+            return IntQuantTensor(out, scale, zero_point, bit_width, self.is_signed, self.training)
         else:  # quantization disabled
             return x
 
@@ -236,7 +238,7 @@ class BiasQuantProxyFromInjector(ParameterQuantProxyFromInjector, BiasQuantProxy
 
     def forward(self,
                 x: Tensor,
-                input_scale: Optional[Tensor] = None) -> Union[Tensor, QuantTensor]:
+                input_scale: Optional[Tensor] = None) -> Union[Tensor, IntQuantTensor]:
         out = x
         if self.is_quant_enabled:
             impl = self.export_handler if self.export_mode else self.tensor_quant
@@ -251,10 +253,12 @@ class BiasQuantProxyFromInjector(ParameterQuantProxyFromInjector, BiasQuantProxy
             else:
                 out, out_scale, out_zp, out_bit_width = impl(x)
 
-            out = QuantTensor(out, out_scale, out_zp, out_bit_width, self.is_signed, self.training)
+            out = IntQuantTensor(
+                out, out_scale, out_zp, out_bit_width, self.is_signed, self.training)
         else:
             out = x
-        if isinstance(out, QuantTensor) and not self.training and self.cache_inference_quant_bias:
+        if isinstance(out,
+                      IntQuantTensor) and not self.training and self.cache_inference_quant_bias:
             cached_bias = _CachedIO(out.detach(), metadata_only=False)
             self._cached_bias = cached_bias
         return out
