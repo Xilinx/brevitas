@@ -93,14 +93,10 @@ class TruncAdaptiveAvgPool2d(TruncMixin, QuantLayerMixin, AdaptiveAvgPool2d):
             output_size: Union[int, Tuple[int, int]],
             trunc_quant: Optional[AccQuantType] = RoundTo8bit,
             return_quant_tensor: bool = True,
-            cache_kernel_size_stride: bool = True,
             **kwargs):
         AdaptiveAvgPool2d.__init__(self, output_size=output_size)
         QuantLayerMixin.__init__(self, return_quant_tensor)
         TruncMixin.__init__(self, trunc_quant=trunc_quant, **kwargs)
-        self.cache_kernel_size_stride = cache_kernel_size_stride
-        self._cached_kernel_size = None
-        self._cached_kernel_stride = None
 
     @property
     def channelwise_separable(self) -> bool:
@@ -114,15 +110,8 @@ class TruncAdaptiveAvgPool2d(TruncMixin, QuantLayerMixin, AdaptiveAvgPool2d):
     def padding(self):
         return 0
 
-    @property
-    def kernel_size(self):
-        return self._cached_kernel_size
-
-    @property
-    def stride(self):
-        return self._cached_kernel_stride
-
-    def compute_kernel_size_stride(self, input_shape, output_shape):
+    @staticmethod
+    def compute_kernel_size_stride(input_shape, output_shape):
         kernel_size_list = []
         stride_list = []
         for inp, out in zip(input_shape, output_shape):
@@ -140,10 +129,6 @@ class TruncAdaptiveAvgPool2d(TruncMixin, QuantLayerMixin, AdaptiveAvgPool2d):
             out = self.export_handler(_unpack_quant_tensor(x))
             self._set_global_is_quant_layer(False)
             return out
-
-        if self.cache_kernel_size_stride:
-            self._cached_kernel_size = k_size
-            self._cached_kernel_stride = stride
 
         if isinstance(x, QuantTensor):
             y = x.set(value=super(TruncAdaptiveAvgPool2d, self).forward(x.value))
