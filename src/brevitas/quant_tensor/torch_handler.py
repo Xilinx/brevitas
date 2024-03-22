@@ -14,6 +14,8 @@ from brevitas.function.ops import max_int
 from brevitas.function.ops_ste import ceil_ste
 from brevitas.utils.torch_utils import compute_channel_view_shape
 
+INT_QUANT_TENSOR_FN_HANDLER = {}
+FLOAT_QUANT_TENSOR_FN_HANDLER = {}
 QUANT_TENSOR_FN_HANDLER = {}
 
 
@@ -22,6 +24,16 @@ def implements(torch_function):
     @functools.wraps(torch_function)
     def decorator(func):
         QUANT_TENSOR_FN_HANDLER[torch_function] = func
+        return func
+
+    return decorator
+
+
+def implements_int_qt(torch_function):
+
+    @functools.wraps(torch_function)
+    def decorator(func):
+        INT_QUANT_TENSOR_FN_HANDLER[torch_function] = func
         return func
 
     return decorator
@@ -47,10 +59,10 @@ def transpose_handler(inp, *args, **kwargs):
     return inp.transpose(*args, **kwargs)
 
 
-@implements(torch.cat)
+@implements_int_qt(torch.cat)
 def cat_handler(*args, **kwargs):
-    from brevitas.quant_tensor import QuantTensor
-    return QuantTensor.cat(*args, **kwargs)
+    from brevitas.quant_tensor import IntQuantTensor
+    return IntQuantTensor.cat(*args, **kwargs)
 
 
 @implements(F.pad)
@@ -164,43 +176,43 @@ def pixel_unshuffle_handler(*args, **kwargs):
     return quant_invariant_handler(F.pixel_unshuffle, *args, **kwargs)
 
 
-@implements(F.conv1d)
+@implements_int_qt(F.conv1d)
 def conv1d_handler(quant_input, quant_weight, bias=None, *args, **kwargs):
     output = quant_layer(F.conv1d, quant_input, quant_weight, bias, *args, **kwargs)
     return output
 
 
-@implements(F.conv2d)
+@implements_int_qt(F.conv2d)
 def conv2d_handler(quant_input, quant_weight, bias=None, *args, **kwargs):
     output = quant_layer(F.conv2d, quant_input, quant_weight, bias, *args, **kwargs)
     return output
 
 
-@implements(F.conv3d)
+@implements_int_qt(F.conv3d)
 def conv3d_handler(quant_input, quant_weight, bias=None, *args, **kwargs):
     output = quant_layer(F.conv3d, quant_input, quant_weight, bias, *args, **kwargs)
     return output
 
 
-@implements(F.conv_transpose1d)
+@implements_int_qt(F.conv_transpose1d)
 def conv_transpose1d_handler(quant_input, quant_weight, bias=None, *args, **kwargs):
     output = quant_layer(F.conv_transpose1d, quant_input, quant_weight, bias, *args, **kwargs)
     return output
 
 
-@implements(F.conv_transpose2d)
+@implements_int_qt(F.conv_transpose2d)
 def conv_transpose2d_handler(quant_input, quant_weight, bias=None, *args, **kwargs):
     output = quant_layer(F.conv_transpose2d, quant_input, quant_weight, bias, *args, **kwargs)
     return output
 
 
-@implements(F.conv_transpose3d)
+@implements_int_qt(F.conv_transpose3d)
 def conv_transpose3d_handler(quant_input, quant_weight, bias=None, *args, **kwargs):
     output = quant_layer(F.conv_transpose3d, quant_input, quant_weight, bias, *args, **kwargs)
     return output
 
 
-@implements(F.linear)
+@implements_int_qt(F.linear)
 def linear_handler(quant_input, quant_weight, bias=None, *args, **kwargs):
     output = quant_layer(F.linear, quant_input, quant_weight, bias, *args, **kwargs)
     return output
@@ -252,7 +264,7 @@ def avg_pool2d_handler(
     return quant_input
 
 
-@implements(F.adaptive_avg_pool2d)
+@implements_int_qt(F.adaptive_avg_pool2d)
 def adaptive_avg_pool2d_handler(quant_input, output_shape):
     from functools import reduce
     from operator import mul
@@ -336,8 +348,7 @@ def quant_layer(fn, quant_input, quant_weight, bias, *args, **kwargs):
     if compute_output_quant_tensor:
         if output_zero_point is None:
             output_zero_point = torch.zeros(1).type_as(output)
-
-        return create_quant_tensor(
+        return create_int_quant_tensor(
             output,
             output_scale,
             output_bit_width,
@@ -348,9 +359,9 @@ def quant_layer(fn, quant_input, quant_weight, bias, *args, **kwargs):
         return output
 
 
-def create_quant_tensor(tensor, scale, bit_width, zero_point, signed, training):
-    from brevitas.quant_tensor import QuantTensor
-    return QuantTensor(
+def create_int_quant_tensor(tensor, scale, bit_width, zero_point, signed, training):
+    from brevitas.quant_tensor import IntQuantTensor
+    return IntQuantTensor(
         tensor,
         scale=scale,
         zero_point=zero_point,

@@ -85,8 +85,8 @@ class FloatQuant(brevitas.jit.ScriptModule):
     def forward(self, x):
         y, scale = self.quantize(x)
         # after quantizing, clamp to special cases like NaN/inf if they are set
-        y = self.float_clamp_impl(
+        y, saturating, inf_values, nan_values = self.float_clamp_impl(
             y, self.exponent_bit_width(), self.mantissa_bit_width(), self.exponent_bias())
         y = self.dequantize(y, scale)
         # This is to respect the current interface of proxies
-        return y, scale, self.zero_point_impl(), self.bit_width()
+        return y, scale, self.zero_point_impl(), self.exponent_bit_width(), self.mantissa_bit_width(), self.exponent_bias(), saturating, inf_values, nan_values

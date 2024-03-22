@@ -18,6 +18,7 @@ from brevitas.common import ExportMixin
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import Injector
 from brevitas.quant_tensor import _unpack_quant_tensor
+from brevitas.quant_tensor import IntQuantTensor
 from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.torch_utils import compute_channel_view_shape
 
@@ -74,8 +75,9 @@ class QuantLayerMixin(ExportMixin):
         # Hack to recognize a QuantTensor that has decayed to a tuple
         # when used as input to tracing (e.g. during ONNX export)
         if (torch._C._get_tracing_state() is not None and isinstance(inp, tuple) and
-                len(inp) == len(QuantTensor._fields) and all([isinstance(t, Tensor) for t in inp])):
-            inp = QuantTensor(*inp)
+                len(inp) == len(IntQuantTensor._fields) and
+                all([isinstance(t, Tensor) for t in inp])):
+            inp = IntQuantTensor(*inp)
         if not torch._C._get_tracing_state():
             if isinstance(inp, QuantTensor):
                 inp = inp.set(value=inp.value.rename(None))
@@ -181,7 +183,7 @@ class QuantRecurrentLayerMixin(ExportMixin):
         # inner layers in a deep network overrides it, so we check again.
         if self.export_mode:
             if self.return_quant_tensor and self.io_quant.is_quant_enabled:
-                return QuantTensor(
+                return IntQuantTensor(
                     quant_outputs,
                     self.io_quant.scale(),
                     self.io_quant.zero_point(),
@@ -193,7 +195,7 @@ class QuantRecurrentLayerMixin(ExportMixin):
         seq_dim = 1 if self.cell.batch_first else 0
         if self.return_quant_tensor and self.io_quant.is_quant_enabled:
             outputs = [
-                QuantTensor(
+                IntQuantTensor(
                     torch.unsqueeze(quant_output[0], dim=seq_dim),
                     quant_output[1],
                     quant_output[2],
@@ -212,7 +214,7 @@ class QuantRecurrentLayerMixin(ExportMixin):
         # inner layers in a deep network overrides it, so we check again.
         if self.export_mode:
             if self.return_quant_tensor and quant.is_quant_enabled:
-                quant_state = QuantTensor(
+                quant_state = IntQuantTensor(
                     torch.unsqueeze(quant_state, dim=0),
                     quant.scale(),
                     quant.zero_point(),
@@ -223,7 +225,7 @@ class QuantRecurrentLayerMixin(ExportMixin):
                 quant_state = torch.unsqueeze(quant_state, dim=0)
         else:
             if self.return_quant_tensor and quant.is_quant_enabled:
-                quant_state = QuantTensor(
+                quant_state = IntQuantTensor(
                     torch.unsqueeze(quant_state[0], dim=0),
                     quant_state[1],
                     quant_state[2],

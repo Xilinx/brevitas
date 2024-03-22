@@ -18,7 +18,7 @@ from brevitas.graph.calibrate import disable_return_quant_tensor
 from brevitas.graph.calibrate import DisableEnableQuantization
 from brevitas.graph.calibrate import restore_return_quant_tensor
 import brevitas.nn as qnn
-from brevitas.quant_tensor import QuantTensor
+from brevitas.quant_tensor import IntQuantTensor
 from brevitas.utils.quant_utils import _CachedIO
 
 SUPPORTED_CONV_OP = (
@@ -227,9 +227,9 @@ class GPxQ(ABC):
 
         is_quant_enabled = self.layer.weight_quant.is_quant_enabled
 
-        # If using quantized activations, inp could be QuantTensor. In
+        # If using quantized activations, inp could be IntQuantTensor. In
         # this case, we overwrite the metadata.
-        if isinstance(inp, QuantTensor):
+        if isinstance(inp, IntQuantTensor):
             if is_quant_enabled and self.quant_metadata is None:
                 self.quant_metadata = _CachedIO(inp, metadata_only=True)
             inp = inp.value

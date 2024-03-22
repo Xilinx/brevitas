@@ -1,0 +1,165 @@
+from typing import Optional, Union
+from warnings import warn
+
+import torch
+from torch import Tensor
+import torch.nn as nn
+
+from brevitas.inject import BaseInjector as Injector
+from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjectorBase
+from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjectorBase
+from brevitas.quant_tensor import FloatQuantTensor
+from brevitas.utils.quant_utils import _CachedIOFloat
+
+
+class WeightFloatQuantProxyFromInjector(WeightQuantProxyFromInjectorBase):
+
+    def scale(self):
+        if not self.is_quant_enabled:
+            return None
+        scale = self.__call__(self.tracked_parameter_list[0]).scale
+        return scale
+
+    def zero_point(self):
+        if not self.is_quant_enabled:
+            return None
+        zero_point = self.__call__(self.tracked_parameter_list[0]).zero_point
+        return zero_point
+
+    def exponent_bit_width(self):
+        if not self.is_quant_enabled:
+            return None
+        exponent_bit_width = self.__call__(self.tracked_parameter_list[0]).exponent_bit_width
+        return exponent_bit_width
+
+    def mantissa_bit_width(self):
+        if not self.is_quant_enabled:
+            return None
+        mantissa_bit_width = self.__call__(self.tracked_parameter_list[0]).mantissa_bit_width
+        return mantissa_bit_width
+
+    def exponent_bias(self):
+        if not self.is_quant_enabled:
+            return None
+        exponent_bias = self.__call__(self.tracked_parameter_list[0]).exponent_bias
+        return exponent_bias
+
+    def is_saturating(self):
+        if not self.is_quant_enabled:
+            return None
+        saturating = self.__call__(self.tracked_parameter_list[0]).saturating
+        return saturating
+
+    def inf_values(self):
+        if not self.is_quant_enabled:
+            return None
+        inf_values = self.__call__(self.tracked_parameter_list[0]).inf_values
+        return inf_values
+
+    def nan_values(self):
+        if not self.is_quant_enabled:
+            return None
+        nan_values = self.__call__(self.tracked_parameter_list[0]).nan_values
+        return nan_values
+
+    def forward(self, x: torch.Tensor) -> Union[Tensor, FloatQuantTensor]:
+        if self.is_quant_enabled:
+            impl = self.export_handler if self.export_mode else self.tensor_quant
+            out, scale, zero_point, exponent_bit_width, mantissa_bit_width, exponent_bias, saturating, inf_values, nan_values = impl(x)
+            return FloatQuantTensor(
+                out,
+                scale,
+                zero_point,
+                exponent_bit_width,
+                mantissa_bit_width,
+                exponent_bias,
+                self.is_signed,
+                self.training,
+                saturating,
+                inf_values,
+                nan_values)
+        else:  # quantization disabled
+            return x
+
+
+class BiasFloatQuantProxyFromInjector(BiasQuantProxyFromInjectorBase):
+
+    def scale(self):
+        if not self.is_quant_enabled:
+            return None
+        if self.requires_input_scale:
+            cache = self.get_cached('scale')
+            return cache
+        zhs = self._zero_hw_sentinel()
+        scale = self.__call__(self.tracked_parameter_list[0], zhs).scale
+        return scale
+
+    def zero_point(self):
+        if not self.is_quant_enabled:
+            return None
+        zhs = self._zero_hw_sentinel()
+        zero_point = self.__call__(self.tracked_parameter_list[0], zhs).zero_point
+        return zero_point
+
+    def exponent_bit_width(self):
+        if not self.is_quant_enabled:
+            return None
+        exponent_bit_width = self.__call__(self.tracked_parameter_list[0]).exponent_bit_width
+        return exponent_bit_width
+
+    def mantissa_bit_width(self):
+        if not self.is_quant_enabled:
+            return None
+        mantissa_bit_width = self.__call__(self.tracked_parameter_list[0]).mantissa_bit_width
+        return mantissa_bit_width
+
+    def exponent_bias(self):
+        if not self.is_quant_enabled:
+            return None
+        exponent_bias = self.__call__(self.tracked_parameter_list[0]).exponent_bias
+        return exponent_bias
+
+    def is_saturating(self):
+        if not self.is_quant_enabled:
+            return None
+        saturating = self.__call__(self.tracked_parameter_list[0]).saturating
+        return saturating
+
+    def inf_values(self):
+        if not self.is_quant_enabled:
+            return None
+        inf_values = self.__call__(self.tracked_parameter_list[0]).inf_values
+        return inf_values
+
+    def nan_values(self):
+        if not self.is_quant_enabled:
+            return None
+        nan_values = self.__call__(self.tracked_parameter_list[0]).nan_values
+        return nan_values
+
+    def forward(self,
+                x: Tensor,
+                input_scale: Optional[Tensor] = None) -> Union[Tensor, FloatQuantTensor]:
+        out = x
+        if self.is_quant_enabled:
+            impl = self.export_handler if self.export_mode else self.tensor_quant
+            if self.requires_input_scale and input_scale is None:
+                input_scale = self.scale()
+                if input_scale is None:
+                    raise RuntimeError("Input scale required")
+
+            if self.requires_input_scale:
+                input_scale = input_scale.view(-1)
+                out, out_scale, out_zp, out_bit_width = impl(x, input_scale)
+            else:
+                out, out_scale, out_zp, out_bit_width = impl(x)
+
+            out = FloatQuantTensor(
+                out, out_scale, out_zp, out_bit_width, self.is_signed, self.training)
+        else:
+            out = x
+        if isinstance(out,
+                      FloatQuantTensor) and not self.training and self.cache_inference_quant_bias:
+            cached_bias = _CachedIOFloat(out.detach(), metadata_only=False)
+            self._cached_bias = cached_bias
+        return out
