@@ -352,8 +352,6 @@ class QuantTensor(QuantTensorBase):
                 bit_width=output_bit_width,
                 signed=output_signed,
                 training=output_training)
-        elif isinstance(other, QuantTensor):
-            output = self.value + other.value
         else:
             output = self.value + other
         return output
@@ -382,8 +380,6 @@ class QuantTensor(QuantTensorBase):
                 bit_width=output_bit_width,
                 signed=output_signed,
                 training=output_training)
-        elif isinstance(other, QuantTensor):
-            output = self.value * other.value
         else:
             output = self.value * other
         return output
@@ -413,8 +409,6 @@ class QuantTensor(QuantTensorBase):
                 bit_width=output_bit_width,
                 signed=output_signed,
                 training=output_training)
-        elif isinstance(other, QuantTensor):
-            output = self.value / other.value
         else:
             output = self.value / other
         return output
