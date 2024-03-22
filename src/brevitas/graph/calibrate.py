@@ -119,14 +119,11 @@ class load_quant_model:
                 if module.bias is None:
                     module.register_parameter(
                         'bias',
-                        nn.Parameter(torch.empty(module.weight.shape[0])).to(module.weight.device))
+                        nn.Parameter(torch.zeros(module.weight.shape[0])).to(module.weight.device))
                     self.tracked_modules.append(module)
 
     def __exit__(self, type, value, traceback):
-        for module in self.tracked_modules:
-            # empty tensor has a numel result of 0
-            if torch.numel(module.bias) == 0:
-                module.bias = None
+        pass
 
 
 class bias_correction_mode:
