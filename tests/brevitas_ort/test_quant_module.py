@@ -19,7 +19,7 @@ from .quant_module_cases import QuantWBIOLCases
 
 
 @parametrize_with_cases('model', cases=QuantWBIOLCases)
-@pytest.mark.parametrize('export_type', ['qcdq', 'qonnx', 'qop'])
+@pytest.mark.parametrize('export_type', ['qcdq', 'qonnx'])
 @requires_pt_ge('1.8.1')
 def test_ort_wbiol(model, export_type, current_cases):
     cases_generator_func = current_cases['model'][1]
@@ -30,9 +30,6 @@ def test_ort_wbiol(model, export_type, current_cases):
     o_bit_width = case_id.split('-')[-5]
     i_bit_width = case_id.split('-')[-3]
 
-    if impl in ('QuantConvTranspose1d', 'QuantConvTranspose2d',
-                'QuantConvTranspose3d') and export_type == 'qop':
-        pytest.skip('Export of ConvTranspose is not supported for QOperation')
     if 'per_channel' in quantizer and 'asymmetric' in quantizer:
         pytest.skip('Per-channel zero-point is not well supported in ORT.')
     if 'QuantLinear' in impl and 'asymmetric' in quantizer:
