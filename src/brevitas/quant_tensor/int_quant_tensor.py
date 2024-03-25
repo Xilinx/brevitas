@@ -36,17 +36,11 @@ class IntQuantTensor(IntTensorBase, QuantTensor):
 
     @property
     def signed(self):
-        if self.signed_t is not None:
-            return self.signed_t.item()
-        else:
-            return None
+        return self.signed_t.item()
 
     @property
     def training(self):
-        if self.training_t is not None:
-            return self.training_t.item()
-        else:
-            return None
+        return self.training_t.item()
 
     def __torch_function__(self, func, types, args=(), kwargs=None):
         if kwargs is None:
@@ -103,38 +97,10 @@ class IntQuantTensor(IntTensorBase, QuantTensor):
         value_device = self.value.device
         is_same_device = True
         for t in [self.scale, self.zero_point, self.bit_width]:
-            if t is not None:
-                is_same_device &= value_device == t.device
+            is_same_device &= value_device == t.device
         if not is_same_device:
             raise RuntimeError("Value and metadata are on different devices")
         return value_device
-
-    def set(self, **kwargs):
-        return self._replace(**kwargs)
-
-    def detach_(self):
-        self.value.detach_()
-        self.scale.detach_()
-        self.zero_point.detach_()
-        self.bit_width.detach_()
-
-    def detach(self):
-        return IntQuantTensor(
-            self.value.detach(),
-            self.scale.detach(),
-            self.zero_point.detach(),
-            self.bit_width.detach(),
-            self.signed,
-            self.training)
-
-    def contiguous(self):
-        return IntQuantTensor(
-            self.value.contiguous(),
-            self.scale.contiguous(),
-            self.zero_point.contiguous(),
-            self.bit_width.contiguous(),
-            self.signed,
-            self.training)
 
     def int(self, float_datatype=False):
         if self.is_valid:
@@ -167,13 +133,13 @@ class IntQuantTensor(IntTensorBase, QuantTensor):
         return (tensor.zero_point == 0.).all()
 
     def check_scaling_factors_same(self, other):
-        if self.training is not None and self.training:
+        if self.training:
             return True
         if not torch.allclose(self.scale, other.scale):
             raise RuntimeError("Scaling factors are different")
 
     def check_zero_points_same(self, other):
-        if self.training is not None and self.training:
+        if self.training:
             return True
         if not torch.allclose(self.zero_point, other.zero_point):
             raise RuntimeError("Zero points are different")
@@ -200,7 +166,7 @@ class IntQuantTensor(IntTensorBase, QuantTensor):
         tensor_meta = {
             'scale': self.scale, 'zero_point': self.zero_point, 'bit_width': self.bit_width}
         for k, tm in tensor_meta.items():
-            if tm is not None and len(value.shape) == len(tm.shape):
+            if len(value.shape) == len(tm.shape):
                 tensor_meta[k] = tm.transpose(*args, **kwargs)
         return self.set(value=value, **tensor_meta)
 
@@ -209,22 +175,9 @@ class IntQuantTensor(IntTensorBase, QuantTensor):
         tensor_meta = {
             'scale': self.scale, 'zero_point': self.zero_point, 'bit_width': self.bit_width}
         for k, tm in tensor_meta.items():
-            if tm is not None and len(value.shape) == len(tm.shape):
+            if len(value.shape) == len(tm.shape):
                 tensor_meta[k] = tm.permute(*args, **kwargs)
         return self.set(value=value, **tensor_meta)
-
-    def size(self, *args, **kwargs):
-        return self.value.size(*args, **kwargs)
-
-    @property
-    def shape(self):
-        return self.value.shape
-
-    def dim(self):
-        return self.value.dim()
-
-    def add(self, other):
-        return self + other
 
     @staticmethod
     def cat(tensors, dim, out=None):
@@ -286,33 +239,6 @@ class IntQuantTensor(IntTensorBase, QuantTensor):
                 signed=True,
                 training=self.training)
 
-    def to(self, *args, **kwargs):
-        return IntQuantTensor(
-            self.value.to(*args, **kwargs),
-            self.scale.to(*args, **kwargs),
-            self.zero_point.to(*args, **kwargs),
-            self.bit_width.to(*args, **kwargs),
-            self.signed,
-            self.training)
-
-    def cuda(self, *args, **kwargs):
-        return IntQuantTensor(
-            self.value.cuda(*args, **kwargs),
-            self.scale.cuda(*args, **kwargs),
-            self.zero_point.cuda(*args, **kwargs),
-            self.bit_width.cuda(*args, **kwargs),
-            self.signed,
-            self.training)
-
-    def cpu(self, *args, **kwargs):
-        return IntQuantTensor(
-            self.value.cpu(*args, **kwargs),
-            self.scale.cpu(*args, **kwargs),
-            self.zero_point.cpu(*args, **kwargs),
-            self.bit_width.cpu(*args, **kwargs),
-            self.signed,
-            self.training)
-
     def __add__(self, other):
         if isinstance(other, IntQuantTensor):
             self.check_scaling_factors_same(other)
@@ -333,17 +259,9 @@ class IntQuantTensor(IntTensorBase, QuantTensor):
                 bit_width=output_bit_width,
                 signed=output_signed,
                 training=output_training)
-        elif isinstance(other, IntQuantTensor):
-            output = self.value + other.value
         else:
             output = self.value + other
         return output
-
-    def __radd__(self, other):
-        return self.__add__(other)
-
-    def __rmul__(self, other):
-        return self.__mul__(other)
 
     def __mul__(self, other):
         if isinstance(other, IntQuantTensor):
@@ -363,14 +281,9 @@ class IntQuantTensor(IntTensorBase, QuantTensor):
                 bit_width=output_bit_width,
                 signed=output_signed,
                 training=output_training)
-        elif isinstance(other, IntQuantTensor):
-            output = self.value * other.value
         else:
             output = self.value * other
         return output
-
-    def __sub__(self, other):
-        return self.__add__(-other)
 
     def __str__(self):
         return f"IntQuantTensor(value={self.value}, scale={self.scale}, zero_point={self.zero_point}, bit_width={self.bit_width}, signed_t={self.signed_t}, training_t={self.training_t})"
@@ -394,8 +307,6 @@ class IntQuantTensor(IntTensorBase, QuantTensor):
                 bit_width=output_bit_width,
                 signed=output_signed,
                 training=output_training)
-        elif isinstance(other, IntQuantTensor):
-            output = self.value / other.value
         else:
             output = self.value / other
         return output
@@ -414,9 +325,6 @@ class IntQuantTensor(IntTensorBase, QuantTensor):
                 training=self.training)
         else:
             return self
-
-    def __pos__(self):
-        return self
 
     @classmethod
     def max_acc_bit_width(cls, *args):

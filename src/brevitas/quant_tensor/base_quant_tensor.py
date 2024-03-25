@@ -1,19 +1,100 @@
-from typing import NamedTuple, Optional
+from typing import NamedTuple
 
 from torch import Tensor
 
 
 class QuantTensor:
-    pass
+
+    def detach_(self):
+        for field in self._fields:
+            getattr(self, field).detach_()
+
+    def detach(self):
+        qt_type = type(self)
+        values = []
+        for field in self._fields:
+            value = getattr(self, field)
+            if isinstance(value, Tensor):
+                value = value.detach()
+            values.append(value)
+        return qt_type(*values)
+
+    def contiguous(self):
+        qt_type = type(self)
+        values = []
+        for field in self._fields:
+            value = getattr(self, field)
+            if isinstance(value, Tensor):
+                value = value.contiguous()
+            values.append(value)
+        return qt_type(*values)
+
+    def set(self, **kwargs):
+        return self._replace(**kwargs)
+
+    @property
+    def shape(self):
+        return self.value.shape
+
+    def dim(self):
+        return self.value.dim()
+
+    def add(self, other):
+        return self + other
+
+    def to(self, *args, **kwargs):
+        qt_type = type(self)
+        values = []
+        for field in self._fields:
+            value = getattr(self, field)
+            if isinstance(value, Tensor):
+                value = value.to(*args, **kwargs)
+            values.append(value)
+        return qt_type(*values)
+
+    def cuda(self, *args, **kwargs):
+        qt_type = type(self)
+        values = []
+        for field in self._fields:
+            value = getattr(self, field)
+            if isinstance(value, Tensor):
+                value = value.cuda(*args, **kwargs)
+            values.append(value)
+        return qt_type(*values)
+
+    def cpu(self, *args, **kwargs):
+        qt_type = type(self)
+        values = []
+        for field in self._fields:
+            value = getattr(self, field)
+            if isinstance(value, Tensor):
+                value = value.cpu(*args, **kwargs)
+            values.append(value)
+        return qt_type(*values)
+
+    def __radd__(self, other):
+        return self.__add__(other)
+
+    def __rmul__(self, other):
+        return self.__mul__(other)
+
+    def __sub__(self, other):
+        return self.__add__(-other)
+
+    def __pos__(self):
+        return self
+
+    def size(self, *args, **kwargs):
+        return self.value.size(*args, **kwargs)
 
 
 class IntTensorBase(NamedTuple):
     value: Tensor
-    scale: Optional[Tensor]
-    zero_point: Optional[Tensor]
-    bit_width: Optional[Tensor]
-    signed_t: Optional[Tensor]
-    training_t: Optional[Tensor]
+    scale: Tensor
+    zero_point: Tensor
+    bit_width: Tensor
+    signed_t: Tensor
+    training_t: Tensor
 
 
 def _unpack_quant_tensor(input_data):
