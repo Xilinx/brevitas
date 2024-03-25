@@ -111,7 +111,7 @@ def test_toymodels(
 
     model_class = toy_quant_model
     model = model_class()
-    if 'mha' in test_id:
+    if 'mha' in test_id or 'linear' in test_id:
         inp = torch.randn(32, *IN_SIZE_LINEAR[1:])
     else:
         inp = torch.randn(32, *IN_SIZE_CONV_SMALL[1:])

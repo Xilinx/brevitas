@@ -21,6 +21,7 @@ from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import StopFwdException
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 import brevitas.nn as qnn
+from brevitas.quant_tensor import QuantTensor
 
 
 class gptq_mode(gpxq_mode):
@@ -150,6 +151,9 @@ class GPTQ(GPxQ):
         if isinstance(self.layer, qnn.QuantLinear):
             if len(inp.shape) > 2:
                 inp = inp.reshape((-1, sum(inp.shape[2:])))
+            # Unwrap tensor value if QuantTensor
+            if isinstance(inp, QuantTensor):
+                inp = inp.value
             inp = inp.t()
             # For QuantLinear layer, groups will be 1
             inp_processed = inp.unsqueeze(0)
