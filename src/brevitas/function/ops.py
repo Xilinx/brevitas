@@ -5,12 +5,13 @@
 Implementation of various core operations often performed as part of quantization.
 The implemented functions adheres to the restriction imposed by Pytorch 1.1.0's TorchScript compiler.
 """
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 import torch
 from torch import Tensor
 
 import brevitas
+from brevitas.utils.float_quant_utils import get_minifloat_value
 
 
 @brevitas.jit.script
@@ -191,30 +192,51 @@ def min_int(signed: bool, narrow_range: bool, bit_width: Tensor) -> Tensor:
 
 
 @brevitas.jit.script
-def max_float(exponent_bit_width: Tensor, mantissa_bit_width: Tensor, exponent_bias: Tensor):
-    max_exponent = (2. ** exponent_bit_width) - 1. - exponent_bias
-    max_mantissa = torch.sum((
-        2. ** torch.arange(
-            0,
-            -1. * mantissa_bit_width - 1.,
-            -1.,
-            dtype=mantissa_bit_width.dtype,
-            device=mantissa_bit_width.device)))
-    max_val = max_mantissa * (2 ** max_exponent)
-    return max_val
+def max_float(
+        exponent_bit_width: Tensor,
+        mantissa_bit_width: Tensor,
+        exponent_bias: Tensor,
+        nan_values: Tuple[str],
+        inf_values: Tuple[str],
+        saturating: bool):
+    # Idea: take the smallest NaN/inf value, set max_value to the next smaller one
+    # inf without NaN not possible
+    if inf_values is None and nan_values is None:
+        # saturating has to be True if no NaN/inf value are used
+        assert saturating, 'cannot be non-saturating without NaN/inf values'
+        # no special cases, max_value is using all bits for exponent and mantissa
+        exponent = '1' * exponent_bit_width
+        mantissa = '1' * mantissa_bit_width
+    elif nan_values is not None:
+        # we at least have values for NaN, so initiate MaxValInfNaN
+        special_values = nan_values + inf_values if inf_values is not None else nan_values
 
+        # check that NaN/inf values are all mantissa_bit_width long
+        if any(map(lambda x: len(x) > mantissa_bit_width, special_values)):
+            raise RuntimeError('NaN/inf codes need to be the same length as the mantissa.')
 
-def get_upper_bound_on_l1_norm(
-        accumulator_bit_width: Tensor, input_bit_width: Tensor, input_is_signed: bool) -> Tensor:
-    """Calculate the upper bound on the l1-norm of the weights needed to guarantee overflow avoidance
-    for a given accumulator bit width and input representation using the derivations from
-    `A2Q: Accumulator-Aware Quantization with Guaranteed Overflow Avoidance` by I.Colbert,
-    A.Pappalardo, and J.Petri-Koenig. Note that this assumes integer quantization."""
-    assert input_bit_width is not None, "A2Q relies on input bit-width."
-    assert input_is_signed is not None, "A2Q relies on input sign."
-    assert accumulator_bit_width is not None, "A2Q relies on accumulator bit-width."
-    input_is_signed = float(input_is_signed)  # 1. if signed else 0.
-    max_accumulator_bit_width = accumulator_bit_width  # P
-    max_accumulator_mag = pow(2., max_accumulator_bit_width - 1.) - 1.  # 2^{P-1}-1
-    max_input_mag_inverse = pow(2., input_is_signed - input_bit_width)
-    return max_accumulator_mag * max_input_mag_inverse
+        # get the minimum special case, our max value is the next smaller value
+        min_special_case = min(map(lambda x: int(x, 2), special_values))
+
+        max_value_mantissa = min_special_case - 1
+
+        if max_value_mantissa < 0:
+            # all mantissa values are used, so we need to use decrease exponent values
+            exponent = '1' * (exponent_bit_width - 1)
+            # add trailing 0 to reach bit width
+            exponent += '0'
+            # since we decreased exponent, we can use full mantissa
+            mantissa = '1' * mantissa_bit_width
+        else:
+            # there is a free mantissa code, so use full exponent
+            exponent = '1' * exponent_bit_width
+            # get binary code for max_value_mantissa in the number of mantissa bits
+            mantissa = format(max_value_mantissa, f'0{mantissa_bit_width}b')
+    else:
+        # no NaN values but inf values
+        raise RuntimeError('Minifloat Error: inf value cannot exist without NaN value.')
+
+    # we don't need the sign since we're looking for the max value
+    max_value = get_minifloat_value(
+        exponent=exponent, mantissa=mantissa, exponent_bias=exponent_bias)
+    return max_value
