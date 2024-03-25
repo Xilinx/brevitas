@@ -12,7 +12,6 @@ from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector
 from brevitas.quant.solver import ActQuantSolver
 from brevitas.quant.solver import WeightQuantSolver
 from brevitas.quant.solver.common import SolveTensorQuantFloatToIntImplFromEnum
-from brevitas.utils.float_quant_utils import max_float
 
 
 class FloatBase(SolveTensorQuantFloatToIntImplFromEnum):
