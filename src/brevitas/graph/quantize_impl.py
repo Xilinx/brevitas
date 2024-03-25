@@ -80,8 +80,8 @@ def are_inputs_unsigned(model, node, is_unsigned_list, quant_act_map, unsigned_a
             elif isinstance(inp_module, tuple(SIGN_PRESERVING_MODULES)):
                 are_inputs_unsigned(
                     model, inp_node, is_unsigned_list, quant_act_map, unsigned_act_tuple)
-            elif hasattr(inp_module, 'is_quant_act_signed'):
-                is_unsigned_list.append(not inp_module.is_quant_act_signed)
+            elif hasattr(inp_module, 'input_quant'):
+                is_unsigned_list.append(not inp_module.input_quant.is_signed)
             else:
                 is_unsigned_list.append(False)
         elif inp_node.op == 'call_function':

@@ -13,6 +13,7 @@ from brevitas.export.onnx.handler import ONNXBaseHandler
 from brevitas.export.onnx.standard.function import DequantizeLinearFn
 from brevitas.export.onnx.standard.function import IntClipFn
 from brevitas.export.onnx.standard.function import QuantizeLinearFn
+from brevitas.nn.quant_layer import QuantNonLinearActLayer
 
 
 class StdQOpONNXQuantLayerHandler(ONNXBaseHandler,
@@ -48,38 +49,42 @@ class StdQOpONNXQuantLayerHandler(ONNXBaseHandler,
 
     @classmethod
     def quant_output_shape(cls, module):
-        cached_out = module._cached_out
+        cached_out = module.output_quant._cached_act
         if cached_out is None:
             raise RuntimeError("Caching of outputs is required to export")
         return cached_out.shape
 
     @classmethod
     def output_quant_symbolic_kwargs(cls, module):
-        if module.is_output_quant_enabled:
+        quant_proxy = module.act_quant if isinstance(
+            module, QuantNonLinearActLayer) else module.output_quant
+        if quant_proxy.is_quant_enabled:
             return {
-                'output_scale': module.quant_output_scale(),
+                'output_scale': quant_proxy.scale(),
                 'output_zero_point': cls.quant_output_zero_point(module),
-                'output_dtype': cls.torch_8b_dtype(module.is_quant_output_signed),
-                'output_axis': cls.quant_axis(module.quant_output_scale())}
+                'output_dtype': cls.torch_8b_dtype(quant_proxy.is_signed),
+                'output_axis': cls.quant_axis(quant_proxy.scale())}
         else:
             return None
 
     @classmethod
     def output_clip_symbolic_kwargs(cls, module):
-        if module.is_output_quant_enabled:
-            narrow = module.is_quant_output_narrow_range
-            signed = module.is_quant_output_signed
-            bit_width = module.quant_output_bit_width()
+        quant_proxy = module.act_quant if isinstance(
+            module, QuantNonLinearActLayer) else module.output_quant
+        if quant_proxy.is_quant_enabled:
+            narrow = quant_proxy.is_narrow_range
+            signed = quant_proxy.is_signed
+            bit_width = quant_proxy.bit_width()
             return cls.int_clip_symbolic_kwargs(narrow, signed, bit_width)
         else:
             return None
 
     @classmethod
     def input_clip_symbolic_kwargs(cls, module):
-        if module.is_input_quant_enabled:
-            narrow = module.is_quant_input_narrow_range
-            signed = module.is_quant_input_signed
-            bit_width = module.quant_input_bit_width()
+        if module.input_quant.is_quant_enabled:
+            narrow = module.input_quant.is_narrow_range
+            signed = module.input_quant.is_signed
+            bit_width = module.input_quant.bit_width()
             return cls.int_clip_symbolic_kwargs(narrow, signed, bit_width)
         else:
             return None
@@ -87,25 +92,25 @@ class StdQOpONNXQuantLayerHandler(ONNXBaseHandler,
     @classmethod
     def output_dequant_symbolic_kwargs(cls, module):
         return {
-            'input_scale': module.quant_output_scale(),
+            'input_scale': module.output_quant.scale(),
             'input_zero_point': cls.quant_output_zero_point(module),
-            'input_axis': cls.quant_axis(module.quant_output_scale())}
+            'input_axis': cls.quant_axis(module.output_quant.scale())}
 
     @classmethod
     def input_quant_symbolic_kwargs(cls, module):
-        if module.is_input_quant_enabled:
+        if module.input_quant.is_quant_enabled:
             return {
-                'output_scale': module.quant_input_scale(),
+                'output_scale': module.input_quant.scale(),
                 'output_zero_point': cls.quant_input_zero_point(module),
-                'output_dtype': cls.torch_8b_dtype(module.is_quant_input_signed),
-                'output_axis': cls.quant_axis(module.quant_input_scale())}
+                'output_dtype': cls.torch_8b_dtype(module.input_quant.is_signed),
+                'output_axis': cls.quant_axis(module.input_quant.scale())}
         else:
             return None
 
     @classmethod
     def input_dequant_symbolic_kwargs(cls, module):
-        if module._cached_inp is not None:
-            return cls.dequant_symbolic_kwargs_from_cached_io(module._cached_inp)
+        if module.input_quant._cached_act is not None and not module.input_quant.is_quant_enabled:
+            return cls.dequant_symbolic_kwargs_from_cached_io(module.input_quant._cached_act)
         else:
             return None
 

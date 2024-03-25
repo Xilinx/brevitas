@@ -10,6 +10,7 @@ from torch import Tensor
 from brevitas.export.common.handler.base import BaseHandler
 from brevitas.export.common.handler.base import BitWidthHandlerMixin
 from brevitas.export.common.handler.base import ZeroPointHandlerMixin
+from brevitas.nn.quant_layer import QuantNonLinearActLayer
 
 SCALAR_SHAPE = ()
 
@@ -55,17 +56,21 @@ class PytorchQuantLayerHandler(BaseHandler, BitWidthHandlerMixin, ZeroPointHandl
 
     @classmethod
     def prepare_input_quant(cls, module):
-        scale = module.quant_input_scale()
+        scale = module.input_quant.scale()
         zero_point = cls.quant_input_zero_point(module)
-        signed = module.is_quant_input_signed
+        signed = module.input_quant.is_signed
         quant_impl, quant_kwargs = cls.gen_quant_impl_kwargs(scale, zero_point, signed)
         return quant_impl, quant_kwargs
 
     @classmethod
     def prepare_output_quant(cls, module):
-        scale = module.quant_output_scale()
+        if isinstance(module, QuantNonLinearActLayer):
+            quant = module.act_quant
+        else:
+            quant = module.output_quant
+        scale = quant.scale()
         zero_point = cls.quant_output_zero_point(module)
-        signed = module.is_quant_output_signed
+        signed = quant.is_signed
         incl_dtype = cls.explicit_output_dtype()
         quant_impl, quant_kwargs = cls.gen_quant_impl_kwargs(scale, zero_point, signed, incl_dtype)
         return quant_impl, quant_kwargs

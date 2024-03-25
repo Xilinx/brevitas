@@ -5,7 +5,7 @@ import torch
 
 from brevitas.nn import QuantLinear
 from brevitas.quant import Int32Bias
-from brevitas.quant_tensor import QuantTensor
+from brevitas.quant_tensor import IntQuantTensor
 
 OUTPUT_FEATURES = 10
 INPUT_FEATURES = 5
@@ -36,7 +36,7 @@ class TestQuantLinearInit:
             in_features=INPUT_FEATURES,
             bias=True,
             weight_scaling_impl_type='HE')
-        assert mod.quant_weight_scale()
+        assert mod.weight_quant.scale()
 
 
 class TestQuantLinearFwd:
@@ -57,7 +57,7 @@ class TestQuantLinearFwd:
             in_features=INPUT_FEATURES,
             bias=True,
             bias_quant=Int32Bias)
-        x = QuantTensor(
+        x = IntQuantTensor(
             torch.rand(size=(3, INPUT_FEATURES)),
             torch.tensor(1.0),
             torch.tensor(0.0),

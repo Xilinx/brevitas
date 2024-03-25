@@ -23,13 +23,13 @@ class PytorchQuantNLALHandler(PytorchQuantLayerHandler, ABC):
 
     @classmethod
     def validate(cls, module: QuantNLAL):
-        assert not module.is_input_quant_enabled, 'Input quantization not supported'
-        cls.validate_8b_bit_width(module.quant_act_bit_width(), le_then=False)
+        assert not module.input_quant.is_quant_enabled, 'Input quantization not supported'
+        cls.validate_8b_bit_width(module.act_quant.bit_width(), le_then=False)
 
     def prepare_for_export(self, module: QuantNLAL):
         self.validate(module)
         self.qf_impl, self.qf_kwargs = self.prepare_qf(module)
-        if module.is_act_quant_enabled:
+        if module.act_quant.is_quant_enabled:
             self.output_quant_impl, self.output_quant_kwargs = self.prepare_output_quant(module)
         self.return_quant_tensor = module.return_quant_tensor
 

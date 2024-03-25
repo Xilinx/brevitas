@@ -41,7 +41,7 @@ class TestQuantReLU:
         stats_act.eval()
         param_act.eval()
 
-        assert (torch.allclose(stats_act.quant_act_scale(), param_act.quant_act_scale()))
+        assert (torch.allclose(stats_act.act_quant.scale(), param_act.act_quant.scale()))
 
     def test_scaling_parameter_grad(self):
         stats_act = QuantReLU(

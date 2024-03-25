@@ -20,14 +20,14 @@ class StdQOpONNXQuantNLALHandler(StdQOpONNXQuantLayerHandler, ABC):
 
     @classmethod
     def validate(cls, module: QuantNLAL):
-        if cls.input_quant_supported and module.is_input_quant_enabled:
-            assert not module.is_quant_input_narrow_range, "Narrow range quant not supported."
-        elif not cls.input_quant_supported and module.is_input_quant_enabled:
+        if cls.input_quant_supported and module.input_quant.is_quant_enabled:
+            assert not module.input_quant.is_narrow_range, "Narrow range quant not supported."
+        elif not cls.input_quant_supported and module.input_quant.is_quant_enabled:
             raise RuntimeError("Input quant not supported.")
-        if module.is_act_quant_enabled:
-            assert not module.is_quant_act_narrow_range, "Narrow range quant not supported."
-        input_bit_width = module.quant_input_bit_width()
-        act_bit_width = module.quant_act_bit_width()
+        if module.act_quant.is_quant_enabled:
+            assert not module.act_quant.is_narrow_range, "Narrow range quant not supported."
+        input_bit_width = module.input_quant.bit_width()
+        act_bit_width = module.act_quant.bit_width()
         if input_bit_width is not None:
             cls.validate_8b_bit_width(input_bit_width, le_then=True)
         if act_bit_width is not None:

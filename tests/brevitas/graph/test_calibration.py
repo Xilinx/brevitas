@@ -59,7 +59,7 @@ def test_scale_factors_ptq_calibration_po2(inp):
             model(inp)
 
     expected_scale = reference_implementation_scale_factors_po2(inp)
-    scale = model.act.quant_act_scale()
+    scale = model.act.act_quant.scale()
 
     assert torch.allclose(expected_scale, scale)
 

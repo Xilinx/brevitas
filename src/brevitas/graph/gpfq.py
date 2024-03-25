@@ -17,7 +17,7 @@ from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import StopFwdException
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 import brevitas.nn as qnn
-from brevitas.quant_tensor import QuantTensor
+from brevitas.quant_tensor import IntQuantTensor
 
 
 class gpfq_mode(gpxq_mode):
@@ -236,7 +236,7 @@ class GPFQ(GPxQ):
             raise StopFwdException
 
     def single_layer_update(self):
-        assert not self.layer.weight_quant_requires_quant_input, "Error: GPFQ does not support weight quantizers that require quantized inputs."
+        assert not self.layer.weight_quant.requires_quant_input, "Error: GPFQ does not support weight quantizers that require quantized inputs."
         weight = self.layer.weight.data
         dev = weight.device
         dtype = weight.dtype
@@ -319,11 +319,11 @@ class GPFA2Q(GPFQ):
 
         is_quant_enabled = self.layer.weight_quant.is_quant_enabled
 
-        # If using quantized activations, inp could be QuantTensor. In
+        # If using quantized activations, inp could be IntQuantTensor. In
         # this case, we overwrite the metadata.
-        if isinstance(inp, QuantTensor):
+        if isinstance(inp, IntQuantTensor):
             if is_quant_enabled and self.quant_input is None:
-                self.quant_input = QuantTensor(
+                self.quant_input = IntQuantTensor(
                     value=torch.empty(
                         1, dtype=self.layer.weight.dtype, device=self.layer.weight.device),
                     scale=inp.scale,
@@ -339,7 +339,7 @@ class GPFA2Q(GPFQ):
         # raise error in case no quant-input is here
         if self.quant_input is None:
             raise ValueError('Expected self.quant_input to calculate L1-norm upper bound, but recevied None. ' + \
-                'Make sure that either the input to the model is a QuantTensor or the layer has an input quant enabled. ' \
+                'Make sure that either the input to the model is a IntQuantTensor or the layer has an input quant enabled. ' \
                 'Also, check if `use_quant_activations=True` in `gpfq_mode` when `accumulator_bit_width` is specified. ' + \
                 'Alternatively, provide a custom `a2q_layer_filter_fnc` to `gpfq_mode` to filter layers without a quant_tensor input.')
         weight = self.layer.weight.data
@@ -360,7 +360,7 @@ class GPFA2Q(GPFQ):
         input_is_signed = self.quant_input.signed
         T = get_upper_bound_on_l1_norm(
             torch.tensor(self.accumulator_bit_width), input_bit_width, input_is_signed)
-        s = self.layer.quant_weight_scale()
+        s = self.layer.weight_quant.scale()
         if s.ndim > 1:
             s = s.view(self.groups, -1)  # [Groups, OC/Groups]
 
