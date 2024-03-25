@@ -11,7 +11,8 @@ from brevitas.core.function_wrapper import RoundSte
 from brevitas.core.function_wrapper import TensorClamp
 from brevitas.core.quant.float import FloatQuant
 from brevitas.core.scaling import ConstScaling
-from brevitas.utils.float_quant_utils import get_max_value
+from brevitas.core.scaling import FloatScaling
+from brevitas.function.ops import max_float
 from tests.brevitas.hyp_helper import float_st
 from tests.brevitas.hyp_helper import float_tensor_random_shape_st
 from tests.brevitas.hyp_helper import random_minifloat_format
@@ -32,12 +33,17 @@ def test_float_quant_defaults(minifloat_format):
                 signed=signed,
                 float_clamp_impl=None)
     else:
-        max_value = get_max_value(
-            exponent_bit_width, mantissa_bit_width, exponent_bias, None, None, True)
         # init FloatClamp
-        float_clamp = FloatClamp(max_value=max_value, tensor_clamp_impl=TensorClamp())
+        float_clamp = FloatClamp(
+            tensor_clamp_impl=TensorClamp(),
+            signed=signed,
+            inf_values=None,
+            nan_values=None,
+            saturating=True)
+        scaling = FloatScaling(None, None, True)
         float_quant = FloatQuant(
             bit_width=bit_width,
+            scaling_impl=scaling,
             exponent_bit_width=exponent_bit_width,
             mantissa_bit_width=mantissa_bit_width,
             exponent_bias=exponent_bias,
@@ -45,7 +51,7 @@ def test_float_quant_defaults(minifloat_format):
             float_clamp_impl=float_clamp)
         assert isinstance(float_quant.float_to_int_impl, RoundSte)
         assert isinstance(float_quant.float_scaling_impl, ConstScaling)
-        assert isinstance(float_quant.scaling_impl, ConstScaling)
+        assert isinstance(float_quant.scaling_impl, FloatScaling)
 
 
 @given(minifloat_format=random_minifloat_format())
@@ -57,6 +63,7 @@ def test_minifloat(minifloat_format):
 @given(inp=float_tensor_random_shape_st(), minifloat_format=random_minifloat_format())
 def test_float_to_quant_float(inp, minifloat_format):
     bit_width, exponent_bit_width, mantissa_bit_width, signed, exponent_bias = minifloat_format
+
     if exponent_bit_width == 0 or mantissa_bit_width == 0:
         with pytest.raises(RuntimeError):
             float_quant = FloatQuant(
@@ -67,12 +74,17 @@ def test_float_to_quant_float(inp, minifloat_format):
                 signed=signed,
                 float_clamp_impl=None)
     else:
-        max_value = get_max_value(
-            exponent_bit_width, mantissa_bit_width, exponent_bias, None, None, True)
         # init FloatClamp
-        float_clamp = FloatClamp(max_value=max_value, tensor_clamp_impl=TensorClamp())
+        float_clamp = FloatClamp(
+            tensor_clamp_impl=TensorClamp(),
+            signed=signed,
+            inf_values=None,
+            nan_values=None,
+            saturating=True)
+        scaling = FloatScaling(None, None, True)
         float_quant = FloatQuant(
             bit_width=bit_width,
+            scaling_impl=scaling,
             exponent_bit_width=exponent_bit_width,
             mantissa_bit_width=mantissa_bit_width,
             exponent_bias=exponent_bias,
@@ -81,6 +93,9 @@ def test_float_to_quant_float(inp, minifloat_format):
         expected_out, _, _, bit_width_out = float_quant(inp)
 
         out_quant, scale = float_quant.quantize(inp)
+        exponent_bit_width, mantissa_bit_width, exponent_bias  = torch.tensor(exponent_bit_width, dtype=torch.float), torch.tensor(mantissa_bit_width, dtype=torch.float), torch.tensor(exponent_bias, dtype=torch.float)
+        out_quant = float_quant.float_clamp_impl(
+            out_quant, exponent_bit_width, mantissa_bit_width, exponent_bias)
         assert bit_width_out == bit_width
         assert torch.equal(expected_out, out_quant * scale)
 
@@ -89,7 +104,7 @@ def test_float_to_quant_float(inp, minifloat_format):
 @jit_disabled_for_mock()
 def test_scaling_impls_called_once(inp, minifloat_format):
     bit_width, exponent_bit_width, mantissa_bit_width, signed, exponent_bias = minifloat_format
-    scaling_impl = mock.Mock(side_effect=lambda x: 1.)
+    scaling_impl = mock.Mock(side_effect=lambda x, y, z: 1.)
     float_scaling_impl = mock.Mock(side_effect=lambda x: 1.)
     if exponent_bit_width == 0 or mantissa_bit_width == 0:
         with pytest.raises(RuntimeError):
@@ -103,10 +118,13 @@ def test_scaling_impls_called_once(inp, minifloat_format):
                 float_scaling_impl=float_scaling_impl,
                 float_clamp_impl=None)
     else:
-        max_value = get_max_value(
-            exponent_bit_width, mantissa_bit_width, exponent_bias, None, None, True)
         # init FloatClamp
-        float_clamp = FloatClamp(max_value=max_value, tensor_clamp_impl=TensorClamp())
+        float_clamp = FloatClamp(
+            tensor_clamp_impl=TensorClamp(),
+            signed=signed,
+            inf_values=None,
+            nan_values=None,
+            saturating=True)
         float_quant = FloatQuant(
             bit_width=bit_width,
             exponent_bit_width=exponent_bit_width,
@@ -116,9 +134,12 @@ def test_scaling_impls_called_once(inp, minifloat_format):
             scaling_impl=scaling_impl,
             float_scaling_impl=float_scaling_impl,
             float_clamp_impl=float_clamp)
-        output = float_quant.quantize(inp)
+        _ = float_quant.quantize(inp)
         # scaling implementations should be called exaclty once on the input
-        scaling_impl.assert_called_once_with(inp)
+        scaling_impl.assert_called_once_with(
+            torch.tensor(exponent_bit_width),
+            torch.tensor(mantissa_bit_width),
+            torch.tensor(exponent_bias))
         float_scaling_impl.assert_called_once_with(inp)
 
 
@@ -130,7 +151,7 @@ def test_scaling_impls_called_once(inp, minifloat_format):
 def test_inner_scale(inp, minifloat_format, scale):
     bit_width, exponent_bit_width, mantissa_bit_width, signed, exponent_bias = minifloat_format
     # set scaling_impl to scale and float_scaling_impl to 1 to use the same scale as we are here
-    scaling_impl = mock.Mock(side_effect=lambda x: scale)
+    scaling_impl = mock.Mock(side_effect=lambda x, y, z: scale)
     float_scaling_impl = mock.Mock(side_effect=lambda x: 1.)
     if exponent_bit_width == 0 or mantissa_bit_width == 0:
         with pytest.raises(RuntimeError):
@@ -144,10 +165,13 @@ def test_inner_scale(inp, minifloat_format, scale):
                 float_scaling_impl=float_scaling_impl,
                 float_clamp_impl=None)
     else:
-        max_value = get_max_value(
-            exponent_bit_width, mantissa_bit_width, exponent_bias, None, None, True)
         # init FloatClamp
-        float_clamp = FloatClamp(max_value=max_value, tensor_clamp_impl=TensorClamp())
+        float_clamp = FloatClamp(
+            tensor_clamp_impl=TensorClamp(),
+            signed=signed,
+            inf_values=None,
+            nan_values=None,
+            saturating=True)
         float_quant = FloatQuant(
             bit_width=bit_width,
             exponent_bit_width=exponent_bit_width,
@@ -160,15 +184,20 @@ def test_inner_scale(inp, minifloat_format, scale):
 
         # scale inp manually
         scaled_inp = inp / scale
-
+        max_val = max_float(
+            torch.tensor(exponent_bit_width),
+            torch.tensor(mantissa_bit_width),
+            torch.tensor(exponent_bias))
+        max_available_float = float_clamp.max_available_float
+        max_value = max_val if max_available_float is None else torch.min(
+            max_value, max_available_float)
         # call internal scale
         internal_scale = float_quant.internal_scale(scaled_inp)
         val_fp_quant = internal_scale * float_quant.float_to_int_impl(scaled_inp / internal_scale)
         if signed:
-            val_fp_quant = torch.clip(
-                val_fp_quant, -1. * float_quant.fp_max_val(), float_quant.fp_max_val())
+            val_fp_quant = torch.clip(val_fp_quant, -1. * max_val, max_val)
         else:
-            val_fp_quant = torch.clip(val_fp_quant, 0., float_quant.fp_max_val())
+            val_fp_quant = torch.clip(val_fp_quant, 0., max_val)
 
         # dequantize manually
         out = val_fp_quant * scale

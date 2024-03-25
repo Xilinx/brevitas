@@ -1,5 +1,8 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
+from typing import Tuple
+
+import torch
 
 
 def mantissa_bits_to_float(bits: str, frexp_compatible: bool = False) -> float:
@@ -21,11 +24,16 @@ def get_minifloat_value(exponent: str, mantissa: str, exponent_bias: int) -> flo
     """
     exponent_value = int(exponent, 2)
     mantissa_value = mantissa_bits_to_float(mantissa)
-    return 2 ** (exponent_value - exponent_bias) * mantissa_value
+    return (2 ** (exponent_value - exponent_bias)) * mantissa_value
 
 
-def get_max_value(
-        exponent_bit_width, mantissa_bit_width, exponent_bias, nan_values, inf_values, saturating):
+def get_max_available_float(
+        exponent_bit_width: torch.Tensor,
+        mantissa_bit_width: torch.Tensor,
+        exponent_bias: torch.Tensor,
+        nan_values: Tuple[str],
+        inf_values: Tuple[str],
+        saturating: bool) -> torch.Tensor:
     # Idea: take the smallest NaN/inf value, set max_value to the next smaller one
     # inf without NaN not possible
     if inf_values is None and nan_values is None:
