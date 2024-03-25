@@ -18,53 +18,61 @@ class Operator(Enum):
     MATMUL = 4
 
 
-# QuantTensor isn't meant to be initialized directly, it'll be invalid if you do
-# so you need to create it indirectly via QuantIdentity for example
 def to_quant_tensor(input: torch.Tensor) -> QuantTensor:
-    mod = QuantIdentity(bit_width=8, quant_type=QuantType.INT, return_quant_tensor=True)
+    mod = QuantIdentity(bit_width=8, return_quant_tensor=True)
     return mod(input)
 
 
+def qdq(normal_tensor, quant_tensor):
+    return (
+        torch.round(normal_tensor / quant_tensor.scale + quant_tensor.zero_point) -
+        quant_tensor.zero_point) * quant_tensor.scale
+
+
 def test_quant_tensor_init():
-    x = torch.ones(4, 4)
+    x = torch.randn(4, 4)
     quant_tensor = to_quant_tensor(x)
     normal_tensor = torch.Tensor(x)
-
-    assert torch.isclose(normal_tensor, quant_tensor, atol=0.1).all().item()
+    assert torch.allclose(qdq(normal_tensor, quant_tensor), quant_tensor, rtol=0.01)
 
 
 @pytest.mark.parametrize(
     'op', [Operator.ADD, Operator.SUBTRACT, Operator.DIVIDE, Operator.MULTIPLY, Operator.MATMUL])
 def test_quant_tensor_operators(op):
-    x = torch.ones(4, 4)
+    x = torch.randn(4, 4)
 
     a = torch.Tensor(x)
     b = torch.Tensor(x)
+
     qa = to_quant_tensor(a)
     qb = to_quant_tensor(b)
 
+    # to factor in quantisation error
+    e_a = a - qa
+    e_b = b - qb
+
     if op == Operator.ADD:
-        normal = a + b
         quant = qa + qb
+        normal = (a - e_a) + (b - e_b)
     elif op == Operator.SUBTRACT:
-        normal = a - b
         quant = qa - qb
+        normal = (a - e_a) - (b - e_b)
     elif op == Operator.DIVIDE:
-        normal = a / b
         quant = qa / qb
+        normal = (a - e_a) / (b - e_b)
     elif op == Operator.MULTIPLY:
-        normal = a * b
         quant = qa * qb
+        normal = (a - e_a) * (b - e_b)
     elif op == Operator.MATMUL:
-        normal = a @ b
         # @ matmul operator not implemented for QuantTensor
         quant = torch.matmul(qa, qb)
+        normal = (a - e_a) @ (b - e_b)
     else:
         # unrecognised operator
         assert False
 
     # tolerance set to a high value as there is considerable loss of precision
-    assert torch.isclose(normal, quant, atol=0.1).all().item()
+    assert torch.allclose(normal, quant)
 
 
 def test_quant_tensor_div_by_zero():
@@ -76,22 +84,24 @@ def test_quant_tensor_div_by_zero():
 def test_quant_tensor_div_by_fraction():
     a = to_quant_tensor(torch.ones(4, 4))
     b = to_quant_tensor(torch.ones(4, 4) * 0.5)
-    assert torch.isclose(a / b, torch.ones(4, 4) * 2, atol=0.1).all().item()
+    assert torch.allclose(a / b, torch.ones(4, 4) * 2, atol=0.1)
 
 
+# TODO: need to deal with quant metadata
 def test_quant_tensor_transpose():
     x = torch.ones(4, 4).tril()
     a = x.clone()
     b = to_quant_tensor(x)
-    assert torch.isclose(a.transpose(0, 1), b.transpose(0, 1), atol=0.01).all().item()
+    assert torch.allclose(a.transpose(0, 1), b.transpose(0, 1), atol=0.01)
 
 
+# TODO: need to deal with quant metadata
 def test_quant_tensor_view():
     x = torch.ones(4, 4)
     a = to_quant_tensor(x)
     b = torch.Tensor(x)
 
-    assert torch.isclose(a.view(-1), b.view(-1), atol=0.01).all().item()
-    assert torch.isclose(a.view(2, -1), b.view(2, -1), atol=0.01).all().item()
-    assert torch.isclose(a.view(16, -1), b.view(16, -1), atol=0.01).all().item()
-    assert torch.isclose(a.view(8, 2), b.view(8, 2), atol=0.01).all().item()
+    assert torch.allclose(a.view(-1), b.view(-1), atol=0.01)
+    assert torch.allclose(a.view(2, -1), b.view(2, -1), atol=0.01)
+    assert torch.allclose(a.view(16, -1), b.view(16, -1), atol=0.01)
+    assert torch.allclose(a.view(8, 2), b.view(8, 2), atol=0.01)
