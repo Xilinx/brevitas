@@ -5,6 +5,7 @@
 Implementation of various core operations often performed as part of quantization.
 The implemented functions adheres to the restriction imposed by Pytorch 1.1.0's TorchScript compiler.
 """
+from typing import Optional, Tuple
 
 import torch
 from torch import Tensor

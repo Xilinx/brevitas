@@ -3,7 +3,7 @@
 
 from abc import ABCMeta
 from abc import abstractmethod
-from typing import List, Optional, Tuple
+from typing import Optional, Union
 
 import torch
 from torch import Tensor
@@ -33,7 +33,6 @@ class WeightQuantProxyProtocol(QuantProxyProtocol, Protocol):
 
 @runtime_checkable
 class BiasQuantProxyProtocol(QuantProxyProtocol, Protocol):
-    requires_input_bit_width: bool
     requires_input_scale: bool
 
     def forward(
@@ -83,45 +82,55 @@ class WeightQuantProxyFromInjector(ParameterQuantProxyFromInjector, WeightQuantP
         return False
 
     def scale(self):
+        if not self.is_quant_enabled:
+            return None
         scale = self.__call__(self.tracked_parameter_list[0]).scale
         return scale
 
     def zero_point(self):
+        if not self.is_quant_enabled:
+            return None
         zero_point = self.__call__(self.tracked_parameter_list[0]).zero_point
         return zero_point
 
     def bit_width(self):
-        bit_width_ = self.__call__(self.tracked_parameter_list[0]).bit_width
-        return bit_width_
+        if not self.is_quant_enabled:
+            return None
+        bit_width = self.__call__(self.tracked_parameter_list[0]).bit_width
+        return bit_width
 
-    def forward(self, x: torch.Tensor) -> QuantTensor:
+    def forward(self, x: torch.Tensor) -> Union[Tensor, QuantTensor]:
         if self.is_quant_enabled:
             impl = self.export_handler if self.export_mode else self.tensor_quant
             out, scale, zero_point, bit_width = impl(x)
             return QuantTensor(out, scale, zero_point, bit_width, self.is_signed, self.training)
         else:  # quantization disabled
-            return QuantTensor(x, training=self.training)
+            return x
 
 
 class DecoupledWeightQuantProxyFromInjector(WeightQuantProxyFromInjector):
 
     def pre_scale(self):
+        if not self.is_quant_enabled:
+            return None
         output_tuple = self.tensor_quant(self.tracked_parameter_list[0])
         out, scale, zero_point, bit_width, pre_scale, pre_zero_point = output_tuple
         return pre_scale
 
     def pre_zero_point(self):
+        if not self.is_quant_enabled:
+            return None
         output_tuple = self.tensor_quant(self.tracked_parameter_list[0])
         out, scale, zero_point, bit_width, pre_scale, pre_zero_point = output_tuple
         return pre_zero_point
 
-    def forward(self, x: torch.Tensor) -> QuantTensor:
+    def forward(self, x: torch.Tensor) -> Union[Tensor, QuantTensor]:
         if self.is_quant_enabled:
             impl = self.export_handler if self.export_mode else self.tensor_quant
             out, scale, zero_point, bit_width, pre_scale, pre_zero_point = impl(x)
             return QuantTensor(out, scale, zero_point, bit_width, self.is_signed, self.training)
         else:  # quantization disabled
-            return QuantTensor(x, training=self.training)
+            return x
 
 
 class DecoupledWeightQuantWithInputProxyFromInjector(DecoupledWeightQuantProxyFromInjector):
@@ -145,15 +154,14 @@ class DecoupledWeightQuantWithInputProxyFromInjector(DecoupledWeightQuantProxyFr
     def pre_zero_point(self):
         raise NotImplementedError
 
-    def forward(
-            self, x: torch.Tensor, input_bit_width: torch.Tensor,
-            input_is_signed: bool) -> QuantTensor:
+    def forward(self, x: torch.Tensor, input_bit_width: torch.Tensor,
+                input_is_signed: bool) -> Union[Tensor, QuantTensor]:
         if self.is_quant_enabled:
             impl = self.export_handler if self.export_mode else self.tensor_quant
             out, scale, zero_point, bit_width, pre_scale, pre_zero_point = impl(x, input_bit_width, input_is_signed)
             return QuantTensor(out, scale, zero_point, bit_width, self.is_signed, self.training)
         else:  # quantization disabled
-            return QuantTensor(x, training=self.training)
+            return x
 
 
 class BiasQuantProxyFromInjector(ParameterQuantProxyFromInjector, BiasQuantProxyProtocol):
@@ -163,13 +171,6 @@ class BiasQuantProxyFromInjector(ParameterQuantProxyFromInjector, BiasQuantProxy
         return [m.bias for m in self.tracked_module_list if m.bias is not None]
 
     @property
-    def requires_input_bit_width(self) -> bool:
-        if self.is_quant_enabled:
-            return self.quant_injector.requires_input_bit_width
-        else:
-            return False
-
-    @property
     def requires_input_scale(self) -> bool:
         if self.is_quant_enabled:
             return self.quant_injector.requires_input_scale
@@ -177,45 +178,40 @@ class BiasQuantProxyFromInjector(ParameterQuantProxyFromInjector, BiasQuantProxy
             return False
 
     def scale(self):
-        if self.requires_input_scale:
+        if self.requires_input_scale or not self.is_quant_enabled:
             return None
         zhs = self._zero_hw_sentinel()
-        scale = self.__call__(self.tracked_parameter_list[0], zhs, zhs).scale
+        scale = self.__call__(self.tracked_parameter_list[0], zhs).scale
         return scale
 
     def zero_point(self):
+        if not self.is_quant_enabled:
+            return None
         zhs = self._zero_hw_sentinel()
-        zero_point = self.__call__(self.tracked_parameter_list[0], zhs, zhs).zero_point
+        zero_point = self.__call__(self.tracked_parameter_list[0], zhs).zero_point
         return zero_point
 
     def bit_width(self):
-        if self.requires_input_bit_width:
+        if not self.is_quant_enabled:
             return None
         zhs = self._zero_hw_sentinel()
-        bit_width = self.__call__(self.tracked_parameter_list[0], zhs, zhs).bit_width
+        bit_width = self.__call__(self.tracked_parameter_list[0], zhs).bit_width
         return bit_width
 
-    def forward(
-            self,
-            x: Tensor,
-            input_scale: Optional[Tensor] = None,
-            input_bit_width: Optional[Tensor] = None) -> QuantTensor:
+    def forward(self,
+                x: Tensor,
+                input_scale: Optional[Tensor] = None) -> Union[Tensor, QuantTensor]:
         if self.is_quant_enabled:
             impl = self.export_handler if self.export_mode else self.tensor_quant
             if self.requires_input_scale and input_scale is None:
                 raise RuntimeError("Input scale required")
-            if self.requires_input_bit_width and input_bit_width is None:
-                raise RuntimeError("Input bit-width required")
-            if self.requires_input_scale and self.requires_input_bit_width:
-                input_scale = input_scale.view(-1)
-                out, out_scale, out_zp, out_bit_width = impl(x, input_scale, input_bit_width)
-            elif self.requires_input_scale and not self.requires_input_bit_width:
+
+            if self.requires_input_scale:
                 input_scale = input_scale.view(-1)
                 out, out_scale, out_zp, out_bit_width = impl(x, input_scale)
-            elif not self.requires_input_scale and not self.requires_input_bit_width:
-                out, out_scale, out_zp, out_bit_width = impl(x)
             else:
-                raise RuntimeError("Internally defined bit-width required")
+                out, out_scale, out_zp, out_bit_width = impl(x)
+
             return QuantTensor(out, out_scale, out_zp, out_bit_width, self.is_signed, self.training)
         else:
-            return QuantTensor(x, training=self.training)
+            return x

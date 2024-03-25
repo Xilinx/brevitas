@@ -10,6 +10,7 @@ import torch.nn as nn
 
 from brevitas.graph.calibrate import bias_correction_mode
 from brevitas.graph.calibrate import calibration_mode
+from brevitas.graph.calibrate import load_quant_model
 import brevitas.nn as qnn
 from brevitas.quant import Int8ActPerTensorFixedPoint
 # Use custom implementation of kthvalue as work around to (b)float16 kernel limitations
@@ -189,3 +190,53 @@ class TestBiasCorrection():
         )  # In bias_correction mode, the input to each layer is equal to the FP output of the previous layer
         assert (inputs[1] == fp_outs[1, 0, :]).all(
         )  # In bias_correction mode, the input to each layer is equal to the FP output of the previous layer
+
+
+def test_import_bias_correction():
+
+    class SimpleQuantLinearNet(nn.Module):
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.net = nn.Sequential(qnn.QuantLinear(IN_CH, OUT_CH, bias=False))
+
+        def forward(self, inp):
+            return self.net(inp)
+
+    model = SimpleQuantLinearNet()
+
+    with bias_correction_mode(model):
+        model(torch.randn((1, IN_CH)))
+
+    for m in model.modules():
+        if isinstance(m, qnn.QuantLinear):
+            assert m.bias is not None
+
+    new_model = SimpleQuantLinearNet()
+    with load_quant_model(new_model):
+        new_model.load_state_dict(model.state_dict())
+
+    for m in new_model.modules():
+        if isinstance(m, qnn.QuantLinear):
+            assert m.bias is not None
+
+
+def test_bias_correction_flag():
+
+    class SimpleQuantLinearNet(nn.Module):
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.net = nn.Sequential(qnn.QuantLinear(IN_CH, OUT_CH, bias=False))
+
+        def forward(self, inp):
+            return self.net(inp)
+
+    model = SimpleQuantLinearNet()
+
+    with bias_correction_mode(model, skip_if_no_bias=True):
+        model(torch.randn((1, IN_CH)))
+
+    for m in model.modules():
+        if isinstance(m, qnn.QuantLinear):
+            assert m.bias is None

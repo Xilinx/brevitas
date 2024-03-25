@@ -85,7 +85,6 @@ class IntBias(IntQuant, BiasQuantSolver):
     """
     tensor_clamp_impl = TensorClamp
     requires_input_scale = True
-    requires_input_bit_width = True
 
 
 class Int8Bias(IntBias):
@@ -98,7 +97,6 @@ class Int8Bias(IntBias):
         >>> fc = QuantLinear(10, 5, bias=True, bias_quant=Int8Bias)
     """
     bit_width = 8
-    requires_input_bit_width = False
 
 
 class Int16Bias(IntBias):
@@ -111,7 +109,6 @@ class Int16Bias(IntBias):
         >>> fc = QuantLinear(10, 5, bias=True, bias_quant=Int16Bias)
     """
     bit_width = 16
-    requires_input_bit_width = False
 
 
 class Int24Bias(IntBias):
@@ -124,7 +121,6 @@ class Int24Bias(IntBias):
         >>> fc = QuantLinear(10, 5, bias=True, bias_quant=Int16Bias)
     """
     bit_width = 24
-    requires_input_bit_width = False
 
 
 class Int32Bias(IntBias):
@@ -137,7 +133,6 @@ class Int32Bias(IntBias):
         >>> fc = QuantLinear(10, 5, bias=True, bias_quant=Int16Bias)
     """
     bit_width = 32
-    requires_input_bit_width = False
 
 
 class Int8BiasPerTensorFloatInternalScaling(IntQuant,
@@ -153,7 +148,6 @@ class Int8BiasPerTensorFloatInternalScaling(IntQuant,
         >>> fc = QuantLinear(10, 5, bias=True, bias_quant=Int8BiasPerTensorFloatInternalScaling)
     """
     requires_input_scale = False
-    requires_input_bit_width = False
 
 
 class Int8WeightPerTensorFloat(NarrowIntQuant,

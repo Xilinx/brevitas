@@ -377,7 +377,7 @@ def create_quant_maps(
     quant_act_kwargs = {'act_quant': act_quant, 'return_quant_tensor': True}
     # For potentially unsigned activations, we create a separate dict
     unsigned_quant_act_kwargs = quant_act_kwargs.copy()
-    if uint_sym_act_for_unsigned_values:
+    if uint_sym_act_for_unsigned_values and act_quant_format != 'float':
         # In case we support unsigned activation, the output of softmax can be unsigned
         quant_mha_kwargs['attn_output_weights_signed'] = False
         unsigned_quant_act_kwargs['signed'] = False

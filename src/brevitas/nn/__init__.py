@@ -15,15 +15,14 @@ from .quant_bn import BatchNorm1dToQuantScaleBias
 from .quant_bn import BatchNorm2dToQuantScaleBias
 from .quant_conv import QuantConv1d
 from .quant_conv import QuantConv2d
+from .quant_conv import QuantConv3d
 from .quant_convtranspose import QuantConvTranspose1d
 from .quant_convtranspose import QuantConvTranspose2d
-from .quant_dropout import QuantDropout
+from .quant_convtranspose import QuantConvTranspose3d
 from .quant_eltwise import QuantCat
 from .quant_eltwise import QuantEltwiseAdd
 from .quant_embedding import QuantEmbedding
 from .quant_linear import QuantLinear
-from .quant_max_pool import QuantMaxPool1d
-from .quant_max_pool import QuantMaxPool2d
 from .quant_mha import QuantMultiheadAttention
 from .quant_rnn import QuantLSTM
 from .quant_rnn import QuantRNN

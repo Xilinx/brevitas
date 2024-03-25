@@ -1,9 +1,4 @@
-import torch
-from torch.nn import Module
-
 from brevitas.nn import HadamardClassifier
-from brevitas.quant import IntBias
-from brevitas.quant_tensor import QuantTensor
 
 OUTPUT_FEATURES = 10
 INPUT_FEATURES = 5

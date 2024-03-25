@@ -49,15 +49,13 @@ class HadamardClassifier(QuantLayerMixin, nn.Module):
         out = inp.value / norm
         out = nn.functional.linear(out, self.proj[:self.out_channels, :self.in_channels])
         out = -self.scale * out
-        if inp.scale is not None:
+        if isinstance(inp, QuantTensor):
             output_scale = inp.scale * self.scale / norm
-        if inp.bit_width is not None:
             output_bit_width = self.max_output_bit_width(inp.bit_width)
-        if (self.return_quant_tensor and inp.zero_point is not None and
-            (inp.zero_point != 0.0).any()):
-            raise RuntimeError("Computing zero point of output accumulator not supported yet.")
-        else:
-            output_zp = inp.zero_point
+            if (self.return_quant_tensor and inp.zero_point != 0.0).any():
+                raise RuntimeError("Computing zero point of output accumulator not supported yet.")
+            else:
+                output_zp = inp.zero_point
         out = QuantTensor(
             value=out,
             scale=output_scale,

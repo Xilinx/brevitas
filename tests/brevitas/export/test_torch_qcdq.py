@@ -36,8 +36,10 @@ def test_torch_qcdq_wbiol_export(
         in_size = (1, IN_CH)
     elif quant_module_impl == QuantConv1d or quant_module_impl == QuantConvTranspose1d:
         in_size = (1, IN_CH, FEATURES)
-    else:
+    elif quant_module_impl == QuantConv2d or quant_module_impl == QuantConvTranspose2d:
         in_size = (1, IN_CH, FEATURES, FEATURES)
+    else:
+        in_size = (1, IN_CH, FEATURES, FEATURES, FEATURES)
 
     inp = torch.randn(in_size)
     quant_module(inp)  # Collect scale factors

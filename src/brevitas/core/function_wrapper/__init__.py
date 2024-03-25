@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from .clamp import ClampMin
+from .clamp import FloatClamp
 from .clamp import ScalarClamp
 from .clamp import TensorClamp
 from .learned_round import LearnedRoundSte

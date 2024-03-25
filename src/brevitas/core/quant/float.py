@@ -23,7 +23,8 @@ class FloatQuant(brevitas.jit.ScriptModule):
             signed: bool,
             exponent_bit_width: int,
             mantissa_bit_width: int,
-            exponent_bias: Optional[int] = None,
+            exponent_bias: int,
+            float_clamp_impl: nn.Module,
             scaling_impl: Optional[nn.Module] = None,
             float_scaling_impl: Optional[nn.Module] = None,
             float_to_int_impl: nn.Module = RoundSte(),
@@ -43,8 +44,6 @@ class FloatQuant(brevitas.jit.ScriptModule):
             raise RuntimeError("Mantissa bit width cannot be 0.")
         self.mantissa_bit_width = StatelessBuffer(
             (torch.tensor(float(mantissa_bit_width), device=device, dtype=dtype)))
-        if exponent_bias is None:
-            exponent_bias = 2 ** (exponent_bit_width - 1) - 1
         self.exponent_bias = StatelessBuffer(
             torch.tensor(float(exponent_bias), device=device, dtype=dtype))
         self.fp_max_val = StatelessBuffer(
@@ -59,6 +58,7 @@ class FloatQuant(brevitas.jit.ScriptModule):
         self.zero_point_impl = StatelessBuffer(torch.tensor(0., device=device, dtype=dtype))
         self.float_scaling_impl = float_scaling_impl
         self.scaling_impl = scaling_impl
+        self.float_clamp_impl = float_clamp_impl
 
     @brevitas.jit.script_method
     def internal_scale(self, x):
@@ -86,6 +86,8 @@ class FloatQuant(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def forward(self, x):
         y, scale = self.quantize(x)
+        # after quantizing, clamp to special cases like NaN/inf if they are set
+        y = self.float_clamp_impl(y)
         y = self.dequantize(y, scale)
         # This is to respect the current interface of proxies
         return y, scale, self.zero_point_impl(), self.bit_width()

@@ -110,6 +110,7 @@ usage: ptq_evaluate.py [-h] --calibration-dir CALIBRATION_DIR --validation-dir
                        [--calibrate-bn | --no-calibrate-bn]
                        [--channel-splitting-split-input | --no-channel-splitting-split-input]
                        [--merge-bn | --no-merge-bn]
+                       [--uint_sym_act_for_unsigned_values | --no-uint_sym_act_for_unsigned_values]
 
 PyTorch ImageNet PTQ Validation
 
@@ -269,6 +270,12 @@ options:
                         (default: enabled)
   --no-merge-bn         Disable Merge BN layers before quantizing the model
                         (default: enabled)
+  --uint_sym_act_for_unsigned_values
+                        Enable Use unsigned act quant when possible (default:
+                        enabled)
+  --no-uint_sym_act_for_unsigned_values
+                        Disable Use unsigned act quant when possible (default:
+                        enabled)
 
 ```
 

@@ -18,8 +18,6 @@ ADD_FNS = [torch.add, operator.add, operator.iadd]
 
 ADD_METHODS = ['add', 'add_']
 
-CAT = brevitas.original_cat
-
 SIGN_PRESERVING_MODULES = (
     nn.Dropout,
     nn.Dropout2d,
@@ -87,7 +85,8 @@ def are_inputs_unsigned(model, node, is_unsigned_list, quant_act_map, unsigned_a
             else:
                 is_unsigned_list.append(False)
         elif inp_node.op == 'call_function':
-            if inp_node.target in [torch.reshape, torch.flatten, torch.transpose, CAT] + ADD_FNS:
+            if inp_node.target in [torch.reshape, torch.flatten, torch.transpose, torch.cat
+                                  ] + ADD_FNS:
                 are_inputs_unsigned(
                     model, inp_node, is_unsigned_list, quant_act_map, unsigned_act_tuple)
             else:
@@ -141,7 +140,7 @@ def are_inputs_quantized_and_aligned(model, node, quantized_modules_list, quant_
             if inp_node.target in [torch.reshape, torch.flatten, torch.transpose]:
                 are_inputs_quantized_and_aligned(
                     model, inp_node, quantized_modules_list, quant_act_map, same_sign)
-            elif inp_node.target is CAT:
+            elif inp_node.target is torch.cat:
                 are_inputs_quantized_and_aligned(
                     model, inp_node, quantized_modules_list, quant_act_map, True)
             elif inp_node.target in ADD_FNS:
@@ -281,7 +280,7 @@ def recursive_input_handler(
                 quant_identity_map,
                 align_input_quant_fn,
                 align_sign)
-        elif inp_node.op == 'call_function' and inp_node.target is CAT:
+        elif inp_node.op == 'call_function' and inp_node.target is torch.cat:
             recursive_input_handler(
                 model,
                 inp_node,
@@ -329,12 +328,12 @@ def residual_handler(
     def is_converged(model):
 
         for node in model.graph.nodes:
-            if (node.op == 'call_function' and node.target in ADD_FNS + [CAT] or
+            if (node.op == 'call_function' and node.target in ADD_FNS + [torch.cat] or
                     node.op == 'call_method' and node.target in ADD_METHODS):
                 rewriters = []
                 # If the op is CAT, check that inputs have same sign, and in recursive_input_handler
                 # force that the sign is aligned
-                same_sign = node.target is CAT
+                same_sign = node.target is torch.cat
 
                 # If input to the CAT or ADD node are quantized and aligned correctly, continue to
                 # the next node
