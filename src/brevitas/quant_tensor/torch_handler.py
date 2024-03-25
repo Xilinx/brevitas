@@ -47,8 +47,8 @@ def transpose_handler(inp, *args, **kwargs):
 
 @implements(torch.cat)
 def cat_handler(*args, **kwargs):
-    from brevitas.quant_tensor import QuantTensor
-    return QuantTensor.cat(*args, **kwargs)
+    from brevitas.quant_tensor import IntQuantTensor
+    return IntQuantTensor.cat(*args, **kwargs)
 
 
 @implements(F.pad)

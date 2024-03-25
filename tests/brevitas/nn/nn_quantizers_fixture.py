@@ -33,6 +33,7 @@ from brevitas.quant.scaled_int import Int16Bias
 from brevitas.quant.scaled_int import Uint8ActPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
+from brevitas.quant_tensor import IntQuantTensor
 from brevitas.quant_tensor import QuantTensor
 
 SEED = 123456
@@ -169,7 +170,7 @@ def build_case_model(
         raise RuntimeError("Unsupported operation")
 
     if input_quantized:
-        quant_inp = QuantTensor(
+        quant_inp = IntQuantTensor(
             torch.randint(-128, 127, in_size) * 0.128, 0.128, 0., 8., True, is_training)
     else:
         quant_inp = torch.randn(in_size)
