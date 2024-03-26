@@ -11,7 +11,7 @@ from brevitas.core.function_wrapper import RoundSte
 from brevitas.core.function_wrapper import TensorClamp
 from brevitas.core.quant.float import FloatQuant
 from brevitas.core.scaling import ConstScaling
-from brevitas.utils.float_quant_utils import get_max_value
+from brevitas.function.ops import max_float
 from tests.brevitas.hyp_helper import float_st
 from tests.brevitas.hyp_helper import float_tensor_random_shape_st
 from tests.brevitas.hyp_helper import random_minifloat_format
@@ -32,7 +32,7 @@ def test_float_quant_defaults(minifloat_format):
                 signed=signed,
                 float_clamp_impl=None)
     else:
-        max_value = get_max_value(
+        max_value = max_float(
             exponent_bit_width, mantissa_bit_width, exponent_bias, None, None, True)
         # init FloatClamp
         float_clamp = FloatClamp(max_value=max_value, tensor_clamp_impl=TensorClamp())
@@ -67,7 +67,7 @@ def test_float_to_quant_float(inp, minifloat_format):
                 signed=signed,
                 float_clamp_impl=None)
     else:
-        max_value = get_max_value(
+        max_value = max_float(
             exponent_bit_width, mantissa_bit_width, exponent_bias, None, None, True)
         # init FloatClamp
         float_clamp = FloatClamp(max_value=max_value, tensor_clamp_impl=TensorClamp())
@@ -103,7 +103,7 @@ def test_scaling_impls_called_once(inp, minifloat_format):
                 float_scaling_impl=float_scaling_impl,
                 float_clamp_impl=None)
     else:
-        max_value = get_max_value(
+        max_value = max_float(
             exponent_bit_width, mantissa_bit_width, exponent_bias, None, None, True)
         # init FloatClamp
         float_clamp = FloatClamp(max_value=max_value, tensor_clamp_impl=TensorClamp())
@@ -144,7 +144,7 @@ def test_inner_scale(inp, minifloat_format, scale):
                 float_scaling_impl=float_scaling_impl,
                 float_clamp_impl=None)
     else:
-        max_value = get_max_value(
+        max_value = max_float(
             exponent_bit_width, mantissa_bit_width, exponent_bias, None, None, True)
         # init FloatClamp
         float_clamp = FloatClamp(max_value=max_value, tensor_clamp_impl=TensorClamp())
