@@ -21,4 +21,4 @@ def get_minifloat_value(exponent: str, mantissa: str, exponent_bias: int) -> flo
     """
     exponent_value = int(exponent, 2)
     mantissa_value = mantissa_bits_to_float(mantissa)
-    return 2 ** (exponent_value - exponent_bias) * mantissa_value
+    return (2 ** (exponent_value - exponent_bias)) * mantissa_value

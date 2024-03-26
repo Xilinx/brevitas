@@ -69,7 +69,7 @@ class FloatQuant(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def quantize(self, x: torch.Tensor):
         scale_impl_value = self.scaling_impl(
-            self.exponent_bit_width, self.mantissa_bit_width, self.exponent_bias)
+            self.exponent_bit_width(), self.mantissa_bit_width(), self.exponent_bias())
         scale = scale_impl_value / self.float_scaling_impl(x)
         scaled_x = x / scale
         internal_scale = self.internal_scale(scaled_x)
@@ -85,7 +85,7 @@ class FloatQuant(brevitas.jit.ScriptModule):
         y, scale = self.quantize(x)
         # after quantizing, clamp to special cases like NaN/inf if they are set
         y = self.float_clamp_impl(
-            y, self.exponent_bit_width, self.mantissa_bit_width, self.exponent_bias)
+            y, self.exponent_bit_width(), self.mantissa_bit_width(), self.exponent_bias())
         y = self.dequantize(y, scale)
         # This is to respect the current interface of proxies
         return y, scale, self.zero_point_impl(), self.bit_width()

@@ -201,6 +201,8 @@ def max_float(
         saturating: bool):
     # Idea: take the smallest NaN/inf value, set max_value to the next smaller one
     # inf without NaN not possible
+    exponent_bit_width = int(exponent_bit_width.item())
+    mantissa_bit_width = int(mantissa_bit_width.item())
     if inf_values is None and nan_values is None:
         # saturating has to be True if no NaN/inf value are used
         assert saturating, 'cannot be non-saturating without NaN/inf values'
