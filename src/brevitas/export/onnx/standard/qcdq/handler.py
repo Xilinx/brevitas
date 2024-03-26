@@ -5,6 +5,7 @@ from abc import ABC
 
 import torch
 
+from brevitas.export.common.handler.base import QuantDtypeMixin
 from brevitas.export.common.handler.qcdq import CDQCastBiasQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import CDQCastMixin
 from brevitas.export.common.handler.qcdq import DQCastMixin
@@ -15,7 +16,8 @@ from brevitas.export.common.handler.qcdq import QCDQCastDecoupledWeightQuantProx
 from brevitas.export.common.handler.qcdq import \
     QCDQCastDecoupledWeightQuantWithInputProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQCastTruncQuantProxyHandlerMixin
-from brevitas.export.common.handler.qcdq import QCDQCastWeightQuantProxyHandlerMixin
+from brevitas.export.common.handler.qcdq import QCDQCastWeightFloatQuantProxyHandlerMixin
+from brevitas.export.common.handler.qcdq import QCDQCastWeightIntQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QMixin
 from brevitas.export.onnx.handler import ONNXBaseHandler
 from brevitas.export.onnx.handler import QuantLSTMLayerHandler
@@ -53,7 +55,7 @@ class StdCDQCastONNXMixin(CDQCastMixin, StdDQCastONNXMixin, ABC):
         return IntClipFn.apply(x, min_val, max_val)
 
 
-class StdQCDQCastONNXMixin(QMixin, StdCDQCastONNXMixin, ABC):
+class StdQCDQCastONNXMixin(QMixin, StdCDQCastONNXMixin, QuantDtypeMixin, ABC):
 
     @classmethod
     def int8_dtype(cls):
@@ -67,6 +69,10 @@ class StdQCDQCastONNXMixin(QMixin, StdCDQCastONNXMixin, ABC):
     def int32_dtype(cls):
         return torch.int32
 
+    @classmethod
+    def signed_quant_dtype(cls, bit_width, is_signed):
+        return cls.signed_dtype(bit_width, is_signed)
+
     def validate(self, module):
         super().validate(module)
         # ONNX QuantizeLinear supports only 8b output with round to nearest even.
@@ -76,6 +82,22 @@ class StdQCDQCastONNXMixin(QMixin, StdCDQCastONNXMixin, ABC):
         assert not module.is_groupwise, "Export with Per Group quantization not supported"
 
         self.validate_8b_bit_width(module.bit_width(), le_then=True)
+
+    def quantize_fn(self, x, scale, zero_point, dtype, axis):
+        return QuantizeLinearFn.apply(x, scale, zero_point, dtype, axis)
+
+
+class StdFloatQCDQCastONNXMixin(QMixin, StdCDQCastONNXMixin, ABC):
+
+    def validate(self, module):
+        super().validate(module)
+        # ONNX QuantizeLinear supports only 8b output with round to nearest even.
+        # Below 8b quantization is supported through clipping.
+        if getattr(self, '_export_q_node', True):
+            assert module.rounding_mode.upper() == 'ROUND', 'Only round to nearest even supported'
+        assert not module.is_groupwise, "Export with Per Group quantization not supported"
+
+        # self.validate_8b_bit_width(module.bit_width(), le_then=True)
 
     def quantize_fn(self, x, scale, zero_point, dtype, axis):
         return QuantizeLinearFn.apply(x, scale, zero_point, dtype, axis)
@@ -113,9 +135,15 @@ class StdDynamicQDQCastONNXMixin(DynamicQMixin, StdDQCastONNXMixin, ABC):
 
 
 class StdQCDQCastONNXWeightQuantProxyHandler(StdQCDQCastONNXMixin,
-                                             QCDQCastWeightQuantProxyHandlerMixin,
+                                             QCDQCastWeightIntQuantProxyHandlerMixin,
                                              ONNXBaseHandler):
     _export_q_node = False
+
+
+class StdQCDQCastONNXWeightFloatQuantProxyHandler(StdFloatQCDQCastONNXMixin,
+                                                  QCDQCastWeightFloatQuantProxyHandlerMixin,
+                                                  ONNXBaseHandler):
+    _export_q_node = True
 
 
 class StdQCDQCastONNXDecoupledWeightQuantProxyHandler(StdQCDQCastONNXMixin,

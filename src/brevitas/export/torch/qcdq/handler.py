@@ -6,6 +6,7 @@ from abc import ABC
 import torch
 
 from brevitas.export.common.handler.base import BaseHandler
+from brevitas.export.common.handler.base import QuantDtypeMixin
 from brevitas.export.common.handler.qcdq import CDQCastBiasQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import CDQCastMixin
 from brevitas.export.common.handler.qcdq import DQCastMixin
@@ -14,8 +15,10 @@ from brevitas.export.common.handler.qcdq import QCDQCastDecoupledWeightQuantProx
 from brevitas.export.common.handler.qcdq import \
     QCDQCastDecoupledWeightQuantWithInputProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQCastTruncQuantProxyHandlerMixin
+from brevitas.export.common.handler.qcdq import QCDQCastWeightIntQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQCastWeightQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QMixin
+from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
 
 
 def _itemize_clip_bounds(clip_args):
@@ -25,11 +28,29 @@ def _itemize_clip_bounds(clip_args):
     return clip_args
 
 
-class TorchDQCastMixin(DQCastMixin, ABC):
+class TorchDQCastMixin(DQCastMixin, QuantDtypeMixin, ABC):
 
     def __init__(self) -> None:
         super().__init__()
         self.symbolic_kwargs = {}
+
+    @classmethod
+    def int8_dtype(cls):
+        return torch.int8
+
+    @classmethod
+    def uint8_dtype(cls):
+        return torch.uint8
+
+    @classmethod
+    def int32_dtype(cls):
+        return torch.int32
+
+    @classmethod
+    def signed_quant_dtype(cls, bit_width, is_signed):
+        signed_dtype = cls.signed_dtype(bit_width, is_signed)
+        mapping = {torch.uint8: torch.quint8, torch.int8: torch.qint8, torch.int32: torch.qint32}
+        return mapping[signed_dtype]
 
     def dequantize_fn(self, x, scale, zero_point, axis):
         # cast zero_point to float, otherwise if both x
@@ -65,18 +86,6 @@ class TorchCDQCastMixin(CDQCastMixin, TorchDQCastMixin, ABC):
 
 class TorchQCDQCastMixin(QMixin, TorchCDQCastMixin, ABC):
 
-    @classmethod
-    def int8_dtype(cls):
-        return torch.qint8
-
-    @classmethod
-    def uint8_dtype(cls):
-        return torch.quint8
-
-    @classmethod
-    def int32_dtype(cls):
-        return torch.qint32
-
     def validate(self, module):
         super().validate(module)
         if getattr(self, '_export_q_node', True):
@@ -98,7 +107,7 @@ class TorchQCDQHandler(BaseHandler):
 
 
 class TorchQCDQCastWeightQuantProxyHandler(TorchQCDQCastMixin,
-                                           QCDQCastWeightQuantProxyHandlerMixin,
+                                           QCDQCastWeightIntQuantProxyHandlerMixin,
                                            TorchQCDQHandler):
     _export_q_node = False
 

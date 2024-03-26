@@ -7,6 +7,7 @@ from torch import Tensor
 from brevitas.export.common.handler.base import BitWidthHandlerMixin
 from brevitas.export.common.handler.base import ClipMixin
 from brevitas.export.common.handler.base import QuantAxisMixin
+from brevitas.export.common.handler.base import QuantDtypeMixin
 from brevitas.export.common.handler.base import ScaleHandlerMixin
 from brevitas.export.common.handler.base import ZeroPointHandlerMixin
 from brevitas.export.onnx.handler import ONNXBaseHandler
@@ -21,6 +22,7 @@ class StdQOpONNXQuantLayerHandler(ONNXBaseHandler,
                                   ClipMixin,
                                   BitWidthHandlerMixin,
                                   ZeroPointHandlerMixin,
+                                  QuantDtypeMixin,
                                   ABC):
 
     @abstractmethod
@@ -36,15 +38,24 @@ class StdQOpONNXQuantLayerHandler(ONNXBaseHandler,
         pass
 
     @classmethod
-    def op_symbolic_kwargs(cls, module):
-        raise NotImplementedError  # optional method
+    def int8_dtype(cls):
+        return torch.int8
 
     @classmethod
-    def torch_8b_dtype(cls, is_signed):
-        if is_signed:
-            return torch.int8
-        else:
-            return torch.uint8
+    def uint8_dtype(cls):
+        return torch.uint8
+
+    @classmethod
+    def int32_dtype(cls):
+        raise NotImplementedError  # This should not be needed for QOp
+
+    @classmethod
+    def signed_quant_dtype(cls, bit_width, is_signed):
+        raise NotImplementedError  # This should not be needed for QOp
+
+    @classmethod
+    def op_symbolic_kwargs(cls, module):
+        raise NotImplementedError  # optional method
 
     @classmethod
     def quant_output_shape(cls, module):
@@ -56,10 +67,11 @@ class StdQOpONNXQuantLayerHandler(ONNXBaseHandler,
     @classmethod
     def output_quant_symbolic_kwargs(cls, module):
         if module.is_output_quant_enabled:
+            dtype = cls.signed_dtype(module.quant_output_bit_width(), module.is_quant_output_signed)
             return {
                 'output_scale': module.quant_output_scale(),
-                'output_zero_point': cls.quant_output_zero_point(module),
-                'output_dtype': cls.torch_8b_dtype(module.is_quant_output_signed),
+                'output_zero_point': cls.quant_output_zero_point(module, dtype),
+                'output_dtype': dtype,
                 'output_axis': cls.quant_axis(module.quant_output_scale())}
         else:
             return None
@@ -86,18 +98,20 @@ class StdQOpONNXQuantLayerHandler(ONNXBaseHandler,
 
     @classmethod
     def output_dequant_symbolic_kwargs(cls, module):
+        dtype = cls.signed_dtype(module.quant_output_bit_width(), module.is_quant_output_signed)
         return {
             'input_scale': module.quant_output_scale(),
-            'input_zero_point': cls.quant_output_zero_point(module),
+            'input_zero_point': cls.quant_output_zero_point(module, dtype),
             'input_axis': cls.quant_axis(module.quant_output_scale())}
 
     @classmethod
     def input_quant_symbolic_kwargs(cls, module):
         if module.is_input_quant_enabled:
+            dtype = cls.signed_dtype(module.quant_input_bit_width(), module.is_quant_input_signed)
             return {
                 'output_scale': module.quant_input_scale(),
-                'output_zero_point': cls.quant_input_zero_point(module),
-                'output_dtype': cls.torch_8b_dtype(module.is_quant_input_signed),
+                'output_zero_point': cls.quant_input_zero_point(module, dtype),
+                'output_dtype': dtype,
                 'output_axis': cls.quant_axis(module.quant_input_scale())}
         else:
             return None
@@ -112,26 +126,26 @@ class StdQOpONNXQuantLayerHandler(ONNXBaseHandler,
     @classmethod
     def dequant_symbolic_kwargs_from_cached_io(cls, cached_io):
         cls.validate_8b_bit_width(cached_io.bit_width, le_then=True)
+        dtype = cls.signed_dtype(cached_io.bit_width, cached_io.signed)
         return {
             'input_scale':
                 cached_io.scale,
             'input_zero_point':
-                cls.zero_point_with_dtype(
-                    cached_io.signed, cached_io.bit_width, cached_io.zero_point),
+                cls.zero_point_with_dtype(cached_io.signed, dtype, cached_io.zero_point),
             'input_axis':
                 cls.quant_axis(cached_io.scale)}
 
     @classmethod
     def quant_symbolic_kwargs_from_cached_io(cls, cached_io):
         cls.validate_8b_bit_width(cached_io.bit_width, le_then=True)
+        dtype = cls.signed_dtype(cached_io.bit_width, cached_io.signed)
         q_kwargs = {
             'output_scale':
                 cached_io.scale,
             'output_zero_point':
-                cls.zero_point_with_dtype(
-                    cached_io.signed, cached_io.bit_width, cached_io.zero_point),
+                cls.zero_point_with_dtype(cached_io.signed, dtype, cached_io.zero_point),
             'output_dtype':
-                cls.torch_8b_dtype(cached_io.signed),
+                dtype,
             'output_axis':
                 cls.quant_axis(cached_io.scale)}
         # TODO support narrow caching
