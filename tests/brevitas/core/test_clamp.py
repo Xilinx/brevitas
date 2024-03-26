@@ -3,7 +3,9 @@
 
 from hypothesis import given
 import pytest
+import torch
 
+from brevitas.function.ops import max_float
 from brevitas.quant.experimental.float import Fp8e4m3Weight
 from brevitas.quant.experimental.float import Fp8e5m2Weight
 from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPWeight
@@ -20,19 +22,41 @@ FORMAT_MAXVAL_MAP = {
     'minifloat, expected_max_val',
     ((format, max_val) for format, max_val in FORMAT_MAXVAL_MAP.items()))
 def test_max_value(minifloat, expected_max_val):
-    max_val = minifloat.float_clamp_impl.max_value()
+    inf_values = minifloat.float_clamp_impl.inf_values
+    nan_values = minifloat.float_clamp_impl.nan_values
+    saturating = minifloat.float_clamp_impl.saturating
+    max_val = max_float(
+        minifloat.exponent_bit_width,
+        minifloat.mantissa_bit_width,
+        minifloat.exponent_bias,
+        nan_values,
+        inf_values,
+        saturating)
 
     assert expected_max_val == max_val
 
 
 @given(inp=float_tensor_random_shape_st())
 def test_float_clamp(inp, fp8_clamp):
-    max_val = fp8_clamp.float_clamp_impl.max_value()
+    inf_values = fp8_clamp.float_clamp_impl.inf_values
+    nan_values = fp8_clamp.float_clamp_impl.nan_values
+    saturating = fp8_clamp.float_clamp_impl.saturating
+    max_val = max_float(
+        fp8_clamp.exponent_bit_width,
+        fp8_clamp.mantissa_bit_width,
+        fp8_clamp.exponent_bias,
+        nan_values,
+        inf_values,
+        saturating)
     # get values that exceed max_val
     over_limit_mask = inp.abs() > max_val
 
     # clamp inp
-    inp = fp8_clamp.float_clamp_impl(inp)
+    inp = fp8_clamp.float_clamp_impl(
+        inp,
+        torch.tensor(fp8_clamp.exponent_bit_width),
+        torch.tensor(fp8_clamp.mantissa_bit_width),
+        torch.tensor(fp8_clamp.exponent_bias))
 
     if fp8_clamp.float_clamp_impl.saturating:
         # should be clamped to +- max val
