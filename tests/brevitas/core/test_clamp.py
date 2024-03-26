@@ -26,9 +26,9 @@ def test_max_value(minifloat, expected_max_val):
     nan_values = minifloat.float_clamp_impl.nan_values
     saturating = minifloat.float_clamp_impl.saturating
     max_val = max_float(
-        minifloat.exponent_bit_width,
-        minifloat.mantissa_bit_width,
-        minifloat.exponent_bias,
+        torch.tensor(minifloat.exponent_bit_width, dtype=torch.float32),
+        torch.tensor(minifloat.mantissa_bit_width, dtype=torch.float32),
+        torch.tensor(minifloat.exponent_bias, dtype=torch.float32),
         nan_values,
         inf_values,
         saturating)
@@ -42,9 +42,9 @@ def test_float_clamp(inp, fp8_clamp):
     nan_values = fp8_clamp.float_clamp_impl.nan_values
     saturating = fp8_clamp.float_clamp_impl.saturating
     max_val = max_float(
-        fp8_clamp.exponent_bit_width,
-        fp8_clamp.mantissa_bit_width,
-        fp8_clamp.exponent_bias,
+        torch.tensor(fp8_clamp.exponent_bit_width, dtype=torch.float32),
+        torch.tensor(fp8_clamp.mantissa_bit_width, dtype=torch.float32),
+        torch.tensor(fp8_clamp.exponent_bias, dtype=torch.float32),
         nan_values,
         inf_values,
         saturating)
