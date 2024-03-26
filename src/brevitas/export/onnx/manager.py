@@ -123,8 +123,6 @@ class ONNXBaseManager(BaseManager, ABC):
                     module.apply(lambda m: _override_inp_caching_mode(m, enabled=False))
                     # perform export pass
                     with ExitStack() as stack:
-                        for mgr in cls._trace_patches():
-                            stack.enter_context(mgr)
                         if export_path is not None:
                             export_target = export_path
                         else:
