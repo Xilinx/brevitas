@@ -84,8 +84,23 @@ class FloatQuant(brevitas.jit.ScriptModule):
         return y * scale
 
     @brevitas.jit.script_method
+    def dtype(self):
+
+        if self.mantissa_bit_width is None or self.exponent_bit_width is None:
+            return None
+
+        if self.exponent_bit_width() == 5 and self.mantissa_bit_width() == 2:
+            return torch.float8_e5m2
+
+        elif self.exponent_bit_width() == 4 and self.mantissa_bit_width() == 3:
+            return torch.float8_e4m3fn
+
+        else:
+            return torch.float32
+
+    @brevitas.jit.script_method
     def forward(self, x):
         y, scale = self.quantize(x)
         y = self.dequantize(y, scale)
         # This is to respect the current interface of proxies
-        return y, scale, self.zero_point_impl(), self.bit_width()
+        return y, scale, self.zero_point_impl(), self.bit_width(), self.dtype()

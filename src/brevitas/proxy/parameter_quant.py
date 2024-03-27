@@ -97,8 +97,8 @@ class WeightQuantProxyFromInjector(ParameterQuantProxyFromInjector, WeightQuantP
     def forward(self, x: torch.Tensor) -> QuantTensor:
         if self.is_quant_enabled:
             impl = self.export_handler if self.export_mode else self.tensor_quant
-            out, scale, zero_point, bit_width = impl(x)
-            return QuantTensor(out, scale, zero_point, bit_width, self.is_signed, self.training)
+            out, scale, zero_point, bit_width, dtype = impl(x)
+            return QuantTensor(out, scale, zero_point, bit_width, self.is_signed, self.training, dtype)
         else:  # quantization disabled
             return QuantTensor(x, training=self.training)
 

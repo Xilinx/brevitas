@@ -358,6 +358,7 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
             zero_point=output_zero_point,
             bit_width=output_bit_width,
             signed=output_signed,
-            training=self.training)
+            training=self.training,
+            dtype = quant_weight.dtype)
         quant_output = self.output_quant(quant_output)
         return self.pack_output(quant_output)
