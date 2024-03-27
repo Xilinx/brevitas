@@ -13,12 +13,16 @@ from dependencies import value
 from diffusers import DiffusionPipeline
 import torch
 from torch import nn
+from tqdm import tqdm
 
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
 from brevitas.export.torch.qcdq.manager import TorchQCDQManager
 from brevitas.graph.calibrate import bias_correction_mode
 from brevitas.graph.calibrate import calibration_mode
 from brevitas.graph.equalize import activation_equalization_mode
+from brevitas.graph.gptq import gptq_mode
+from brevitas.nn.equalized_layer import EqualizedModule
+from brevitas.utils.torch_utils import KwargsForwardHook
 from brevitas_examples.common.generative.quantize import quantize_model
 from brevitas_examples.common.parse_utils import add_bool_arg
 from brevitas_examples.common.parse_utils import quant_format_validator
@@ -111,10 +115,20 @@ def main(args):
     print(f"Moving model to {args.device}...")
     pipe = pipe.to(args.device)
 
-    with activation_equalization_mode(pipe.unet, alpha=0.5, layerwise=True, add_mul_node=True):
-        prompts = VALIDATION_PROMPTS
-        run_val_inference(
-            pipe, args.resolution, prompts, test_seeds, output_dir, args.device, dtype)
+    if args.activation_equalization:
+        with activation_equalization_mode(pipe.unet, alpha=0.5, layerwise=True, add_mul_node=True):
+            # Workaround to expose `in_features` attribute from the Hook Wrapper
+            for m in pipe.unet.modules():
+                if isinstance(m, KwargsForwardHook) and hasattr(m.module, 'in_features'):
+                    m.in_features = m.module.in_features
+            prompts = VALIDATION_PROMPTS
+            run_val_inference(
+                pipe, args.resolution, prompts, test_seeds, output_dir, args.device, dtype)
+
+        # Workaround to expose `in_features` attribute from the EqualizedModule Wrapper
+        for m in pipe.unet.modules():
+            if isinstance(m, EqualizedModule) and hasattr(m.module, 'in_features'):
+                m.in_features = m.module.in_features
 
     # Quantize model
     if args.quantize:
@@ -174,6 +188,19 @@ def main(args):
                 prompts = VALIDATION_PROMPTS
                 run_val_inference(
                     pipe, args.resolution, prompts, test_seeds, output_dir, args.device, dtype)
+
+        if args.gptq:
+            print("Applying GPTQ. It can take several hours")
+            with gptq_mode(pipe.unet,
+                           create_weight_orig=False,
+                           use_quant_activations=False,
+                           return_forward_output=True,
+                           act_order=True) as gptq:
+                prompts = VALIDATION_PROMPTS
+                for _ in tqdm(range(gptq.num_layers)):
+                    run_val_inference(
+                        pipe, args.resolution, prompts, test_seeds, output_dir, args.device, dtype)
+                    gptq.update()
 
         print("Applying bias correction")
         with bias_correction_mode(pipe.unet):
@@ -255,6 +282,9 @@ if __name__ == "__main__":
         default='.',
         help='Path where to generate output folder.')
     add_bool_arg(parser, 'quantize', default=True, help='Toggle quantization.')
+    add_bool_arg(
+        parser, 'activation-equalization', default=False, help='Toggle Activation Equalization.')
+    add_bool_arg(parser, 'gptq', default=False, help='Toggle gptq')
     add_bool_arg(parser, 'float16', default=True, help='Enable float16 execution.')
     add_bool_arg(parser, 'attention-slicing', default=False, help='Enable attention slicing.')
     add_bool_arg(
