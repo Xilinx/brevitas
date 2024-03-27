@@ -187,6 +187,8 @@ def _select_scale_computation_fn(
         return _channel_maxabs
     elif scale_computation_type == 'range':
         return _channel_range
+    elif scale_computation_type == 'avgabs':
+        return _channel_avgabs
     else:
         raise RuntimeError(f"Scale computation type {scale_computation_type} not supported")
 
@@ -246,6 +248,12 @@ def _channel_range(inp: torch.Tensor, dim: int = 1) -> torch.Tensor:
 
 def _channel_maxabs(inp: torch.Tensor, dim: int = 1) -> torch.Tensor:
     out = torch.max(torch.abs(inp), dim=dim)[0]
+    return out
+
+
+def _channel_avgabs(inp: torch.Tensor, dim: int = 1) -> torch.Tensor:
+    out = torch.abs(inp)
+    out = torch.mean(out, dim=dim)
     return out
 
 
@@ -368,6 +376,25 @@ def _combine_weights_bias(
     return weight_bias
 
 
+def _get_weight_from_module(
+        m: nn.Module,
+        axis: int,
+        is_src: bool,
+        merge_bias: bool = True,
+        bias_shrinkage: str = "vaiq",
+        scale_computation_type: str = "maxabs"):
+    w = m.weight
+    # if this is a sink node, then also pre-compute the average (important later)
+    if scale_computation_type == "l1" and not is_src:
+        i = _get_output_axis(m)  # Can be None if LayerNorm
+        if i is not None:
+            w = w / w.shape[i]
+    w = transpose(w, axis)
+    if merge_bias and is_src:
+        w = _combine_weights_bias(w, bias_shrinkage, m.bias).cpu()
+    return w.cpu()
+
+
 def transpose(tensor: torch.Tensor, axis: int):
     """
     Given a tensor and an axis, this function re-arranges the tensor so that the axis and
@@ -473,7 +500,10 @@ def _cross_layer_equalization(
         return _no_equalize()
 
     scale_fn = _select_scale_computation_fn(scale_computation_type)
-    sink_weights = {name: transpose(m.weight.cpu(), axis) for name, (m, axis) in sink_axes.items()}
+    sink_weights = {
+        name: _get_weight_from_module(
+            m, axis, is_src=False, scale_computation_type=scale_computation_type)
+        for name, (m, axis) in sink_axes.items()}
     srcs_range = -1 * torch.ones(max_shape_srcs, device='cpu', dtype=dtype)
     sinks_range = -1 * torch.ones(max_shape_sinks, device='cpu', dtype=dtype)
     for k, v in sink_weights.items():
@@ -490,13 +520,15 @@ def _cross_layer_equalization(
 
     # Determine the srcs_range based on where we are performing activation equalization or
     # weight equalization
-    if merge_bias:
-        src_weights = {
-            name: _combine_weights_bias(transpose(m.weight, axis), bias_shrinkage, m.bias).cpu()
-            for name, (m, axis) in src_axes.items()}
-    else:
-        src_weights = {
-            name: transpose(m.weight.cpu(), axis) for name, (m, axis) in src_axes.items()}
+    src_weights = {
+        name: _get_weight_from_module(
+            m,
+            axis,
+            is_src=True,
+            merge_bias=merge_bias,
+            bias_shrinkage=bias_shrinkage,
+            scale_computation_type=scale_computation_type) for name, (m, axis) in src_axes.items()}
+
     for k, v in src_weights.items():
         # Srcs are always fully equalized, thus we simply need to apply the offset to position them
         # correctly with respect to the other srcs matrices.
@@ -541,8 +573,8 @@ def _cross_layer_equalization(
 
     srcs_range = torch.pow(srcs_range, alpha)
     sinks_range = torch.pow(sinks_range, 1 - alpha)
-    scaling_factors = srcs_range / sinks_range
-    inverse_scaling_factors = torch.reciprocal(scaling_factors)
+    scaling_factors = srcs_range / sinks_range  # to sinks
+    inverse_scaling_factors = torch.reciprocal(scaling_factors)  # to sources
 
     if list_of_act_val is not None and list_of_insert_mul_node_fn is not None:
         device = list_of_act_val[0].device
