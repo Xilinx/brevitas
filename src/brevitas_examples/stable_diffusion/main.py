@@ -227,6 +227,7 @@ def main(args):
 
         # Define tracing input
         if args.is_sd_xl:
+            assert args.export_target != 'torchscript', "Torchscript export of SD-XL not supported"
             generate_fn = generate_unet_xl_rand_inputs
             shape = SD_XL_EMBEDDINGS_SHAPE
         else:

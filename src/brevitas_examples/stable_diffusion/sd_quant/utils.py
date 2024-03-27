@@ -68,6 +68,10 @@ def generate_unet_xl_rand_inputs(
         device='cpu',
         dtype=torch.float32,
         with_return_dict_false=False):
+    # We need to pass a combination of args and kwargs to ONNX export
+    # If we pass all kwargs, something breaks
+    # If we pass only the last element as kwargs, since it is a dict, it has a weird interaction and something breaks
+    # The solution is to pass only one argument as args, and everything else as kwargs
     unet_rand_inputs = generate_unet_rand_inputs(
         embedding_shape, unet_input_shape, batch_size, device, dtype, with_return_dict_false)
     sample = unet_rand_inputs['sample']
