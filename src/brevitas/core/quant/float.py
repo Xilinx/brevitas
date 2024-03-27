@@ -1,7 +1,7 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from typing import Optional
+from typing import Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -46,8 +46,7 @@ class FloatQuant(brevitas.jit.ScriptModule):
             (torch.tensor(float(mantissa_bit_width), device=device, dtype=dtype)))
         self.exponent_bias = StatelessBuffer(
             torch.tensor(float(exponent_bias), device=device, dtype=dtype))
-        self.fp_max_val = StatelessBuffer(
-            max_float(self.exponent_bit_width(), self.mantissa_bit_width(), self.exponent_bias()))
+
         self.fp_internal_scale_min = StatelessBuffer(
             1. - self.exponent_bias() - self.mantissa_bit_width())
         if float_scaling_impl is None:
@@ -69,14 +68,12 @@ class FloatQuant(brevitas.jit.ScriptModule):
 
     @brevitas.jit.script_method
     def quantize(self, x: torch.Tensor):
-        scale = self.scaling_impl(x) / self.float_scaling_impl(x)
+        scale_impl_value = self.scaling_impl(
+            self.exponent_bit_width(), self.mantissa_bit_width(), self.exponent_bias())
+        scale = scale_impl_value / self.float_scaling_impl(x)
         scaled_x = x / scale
         internal_scale = self.internal_scale(scaled_x)
         val_fp_quant = internal_scale * self.float_to_int_impl(scaled_x / internal_scale)
-        if self.signed:
-            val_fp_quant = torch.clip(val_fp_quant, -1. * self.fp_max_val(), self.fp_max_val())
-        else:
-            val_fp_quant = torch.clip(val_fp_quant, 0., self.fp_max_val())
         return val_fp_quant, scale
 
     @brevitas.jit.script_method
@@ -87,7 +84,8 @@ class FloatQuant(brevitas.jit.ScriptModule):
     def forward(self, x):
         y, scale = self.quantize(x)
         # after quantizing, clamp to special cases like NaN/inf if they are set
-        y = self.float_clamp_impl(y)
+        y = self.float_clamp_impl(
+            y, self.exponent_bit_width(), self.mantissa_bit_width(), self.exponent_bias())
         y = self.dequantize(y, scale)
         # This is to respect the current interface of proxies
         return y, scale, self.zero_point_impl(), self.bit_width()

@@ -13,6 +13,7 @@ from torch.nn import Module
 import brevitas
 from brevitas.core.utils import StatelessBuffer
 from brevitas.function import tensor_clamp
+from brevitas.function.ops import max_float
 
 
 class TensorClamp(brevitas.jit.ScriptModule):
@@ -90,26 +91,41 @@ class FloatClamp(brevitas.jit.ScriptModule):
 
     def __init__(
             self,
-            max_value: float,
             tensor_clamp_impl: Module,
+            signed: bool,
             inf_values: Optional[Tuple[str]] = None,
+            nan_values: Optional[Tuple[str]] = None,
             saturating: bool = True) -> None:
         super(FloatClamp, self).__init__()
 
         self.tensor_clamp_impl = tensor_clamp_impl
-
-        self.max_value = StatelessBuffer(torch.tensor(max_value))
+        self.nan_values = nan_values
+        self.inf_values = inf_values
         self.saturating = saturating
+        self.signed = signed
         self.has_inf_values = bool(inf_values)
 
     @brevitas.jit.script_method
-    def forward(self, x: Tensor):
+    def forward(
+            self,
+            x: Tensor,
+            exponent_bit_width: Tensor,
+            mantissa_bit_width: Tensor,
+            exponent_bias: Tensor):
         inf_mask = x.isinf()
-        p_max_val_mask = x > self.max_value()
-        n_max_val_mask = -x > self.max_value()
+        max_value = max_float(
+            exponent_bit_width,
+            mantissa_bit_width,
+            exponent_bias,
+            self.nan_values,
+            self.inf_values,
+            self.saturating)
+        p_max_val_mask = x > max_value
+        n_max_val_mask = -x > max_value
+        min_float = torch.tensor(0.) if not self.signed else -max_value
 
         # first clamp everything to +- max_value, basically the saturating case
-        x = self.tensor_clamp_impl(x, min_val=-self.max_value(), max_val=self.max_value())
+        x = self.tensor_clamp_impl(x, min_val=min_float, max_val=max_value)
 
         if not self.saturating:
             # if non-saturating, we need to map values greater than max_val to nan or inf

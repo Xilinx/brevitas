@@ -4,6 +4,7 @@ assert ScalingImplType
 
 from brevitas.core.stats import SCALAR_SHAPE
 
+from .float_scaling import FloatScaling
 from .int_scaling import IntScaling
 from .int_scaling import PowerOfTwoIntScaling
 from .pre_scaling import AccumulatorAwareParameterPreScaling

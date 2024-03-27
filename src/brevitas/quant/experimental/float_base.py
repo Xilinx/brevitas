@@ -12,7 +12,6 @@ from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector
 from brevitas.quant.solver import ActQuantSolver
 from brevitas.quant.solver import WeightQuantSolver
 from brevitas.quant.solver.common import SolveTensorQuantFloatToIntImplFromEnum
-from brevitas.utils.float_quant_utils import get_max_value
 
 
 class FloatBase(SolveTensorQuantFloatToIntImplFromEnum):
@@ -26,22 +25,6 @@ class FloatBase(SolveTensorQuantFloatToIntImplFromEnum):
     @value
     def exponent_bias(exponent_bit_width):
         return 2 ** (exponent_bit_width - 1) - 1
-
-    @value
-    def max_value(
-            exponent_bit_width,
-            mantissa_bit_width,
-            exponent_bias,
-            nan_values=None,
-            inf_values=None,
-            saturating=True):
-        return get_max_value(
-            exponent_bit_width,
-            mantissa_bit_width,
-            exponent_bias,
-            nan_values,
-            inf_values,
-            saturating)
 
 
 class FloatWeightBase(FloatBase):
