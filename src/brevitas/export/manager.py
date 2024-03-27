@@ -204,8 +204,7 @@ class BaseManager(ABC):
         module.apply(lambda m: _override_bias_caching_mode(m, enabled=True))
         module.apply(lambda m: _override_inp_caching_mode(m, enabled=True))
         module.apply(lambda m: _override_out_caching_mode(m, enabled=True))
-        with ExitStack() as stack:
-            _ = module.forward(*args, **kwargs)
+        _ = module.forward(*args, **kwargs)
         # Restore previous caching properties
         module.apply(lambda m: _restore_quant_metadata_caching_mode(m))
         module.apply(lambda m: _restore_bias_caching_mode(m))
@@ -228,10 +227,9 @@ class BaseManager(ABC):
             cls.set_export_mode(module, enabled=True)
             # force requires_grad to False to let the wrapped model lambda go through tracing
             requires_grad_backup_dict = _force_requires_grad_false(module)
-            with ExitStack() as stack:
-                # wrapping with a lambda forces inlining during tracing,
-                # converts everything to const and removes unused params/buffers
-                traced_model = torch.jit.trace(_JitTraceExportWrapper(module), args)
+            # wrapping with a lambda forces inlining during tracing,
+            # converts everything to const and removes unused params/buffers
+            traced_model = torch.jit.trace(_JitTraceExportWrapper(module), args)
             # Hack to clone the function, otherwise restoring requires_grad
             # on module will break traced_model
             with BytesIO() as tmp:

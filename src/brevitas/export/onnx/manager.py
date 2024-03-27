@@ -122,13 +122,12 @@ class ONNXBaseManager(BaseManager, ABC):
                     # temporarily disable input caching to avoid collectives empty debug values
                     module.apply(lambda m: _override_inp_caching_mode(m, enabled=False))
                     # perform export pass
-                    with ExitStack() as stack:
-                        if export_path is not None:
-                            export_target = export_path
-                        else:
-                            model_bytes = BytesIO()
-                            export_target = model_bytes
-                        torch.onnx.export(module, args, export_target, **onnx_export_kwargs)
+                    if export_path is not None:
+                        export_target = export_path
+                    else:
+                        model_bytes = BytesIO()
+                        export_target = model_bytes
+                    torch.onnx.export(module, args, export_target, **onnx_export_kwargs)
 
                     # restore the model to previous properties
                     module.apply(lambda m: _restore_inp_caching_mode(m))
