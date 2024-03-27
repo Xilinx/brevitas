@@ -18,6 +18,7 @@ from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
 from brevitas.export.torch.qcdq.manager import TorchQCDQManager
 from brevitas.graph.calibrate import bias_correction_mode
 from brevitas.graph.calibrate import calibration_mode
+from brevitas.graph.equalize import activation_equalization_mode
 from brevitas_examples.common.generative.quantize import quantize_model
 from brevitas_examples.common.parse_utils import add_bool_arg
 from brevitas_examples.common.parse_utils import quant_format_validator
@@ -106,6 +107,15 @@ def main(args):
         if hasattr(m, 'lora_layer') and m.lora_layer is not None:
             raise RuntimeError("LoRA layers should be fused in before calling into quantization.")
 
+    # Move model to target device
+    print(f"Moving model to {args.device}...")
+    pipe = pipe.to(args.device)
+
+    with activation_equalization_mode(pipe.unet, alpha=0.5, layerwise=True, add_mul_node=True):
+        prompts = VALIDATION_PROMPTS
+        run_val_inference(
+            pipe, args.resolution, prompts, test_seeds, output_dir, args.device, dtype)
+
     # Quantize model
     if args.quantize:
 
@@ -139,6 +149,7 @@ def main(args):
         quantize_model(
             pipe.unet,
             dtype=dtype,
+            device=args.device,
             name_blacklist=blacklist,
             weight_bit_width=weight_bit_width,
             weight_quant_format=args.weight_quant_format,
@@ -157,11 +168,6 @@ def main(args):
             input_quant_granularity=args.input_quant_granularity)
         print("Model quantization applied.")
 
-    # Move model to target device
-    print(f"Moving model to {args.device}...")
-    pipe = pipe.to(args.device)
-
-    if args.quantize:
         if is_input_quantized and args.input_scale_type == 'static':
             print("Applying activation calibration")
             with calibration_mode(pipe.unet):
