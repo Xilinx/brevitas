@@ -189,8 +189,7 @@ class BaseManager(ABC):
         # force enable caching
         module.apply(lambda m: _override_quant_metadata_caching_mode(m, enabled=True))
         module.apply(lambda m: _override_bias_caching_mode(m, enabled=True))
-        module.apply(lambda m: _override_inp_caching_mode(m, enabled=True))
-        module.apply(lambda m: _override_out_caching_mode(m, enabled=True))
+        module.apply(lambda m: _override_act_caching_mode(m, enabled=True))
         _ = module.forward(*args, **kwargs)
         # Restore previous caching properties
         module.apply(lambda m: _restore_quant_metadata_caching_mode(m))
