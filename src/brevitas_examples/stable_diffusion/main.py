@@ -289,7 +289,7 @@ if __name__ == "__main__":
     add_bool_arg(parser, 'float16', default=True, help='Enable float16 execution.')
     add_bool_arg(parser, 'attention-slicing', default=False, help='Enable attention slicing.')
     add_bool_arg(
-        parser, 'is_sd_xl', default=False, help='Enable this flag to correctly export SDXL')
+        parser, 'is-sd-xl', default=False, help='Enable this flag to correctly export SDXL')
     parser.add_argument(
         '--export-target',
         type=str,
@@ -306,9 +306,9 @@ if __name__ == "__main__":
     parser.add_argument(
         '--linear-weight-bit-width', type=int, default=8, help='Weight bit width. Default: 8.')
     parser.add_argument(
-        '--conv-input-bit-width', type=int, default=None, help='Input bit width. Default: 8.')
+        '--conv-input-bit-width', type=int, default=8, help='Input bit width. Default: 8.')
     parser.add_argument(
-        '--linear-input-bit-width', type=int, default=None, help='Input bit width. Default: 8.')
+        '--linear-input-bit-width', type=int, default=8, help='Input bit width. Default: 8.')
     parser.add_argument(
         '--weight-param-method',
         type=str,
