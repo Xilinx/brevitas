@@ -113,7 +113,7 @@ def test_equalization_torchvision_models(
 
 
 @pytest_cases.parametrize("merge_bias", [True, False])
-@pytest_cases.parametrize("scale_computation_type", ["range", "maxabs", "l1"])
+@pytest_cases.parametrize("scale_computation_type", ["range", "maxabs", "avgabs"])
 def test_models(toy_model, merge_bias, scale_computation_type, request):
     test_id = request.node.callspec.id
 

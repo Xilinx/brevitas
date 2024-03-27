@@ -182,16 +182,13 @@ _UNSUPPORTED_OP = object()
 
 
 def _select_scale_computation_fn(
-        scale_computation_type: str,
-        is_src: bool = True,
-        l1_penalty: float = 0.) -> Callable[[torch.Tensor], torch.Tensor]:
+        scale_computation_type: str) -> Callable[[torch.Tensor], torch.Tensor]:
     if scale_computation_type == 'maxabs':
         return _channel_maxabs
     elif scale_computation_type == 'range':
         return _channel_range
-    elif scale_computation_type == 'l1':
-        fnc = partial(_channel_l1_norm, is_src=is_src, penalty=l1_penalty)
-        return fnc
+    elif scale_computation_type == 'avgabs':
+        return _channel_avgabs
     else:
         raise RuntimeError(f"Scale computation type {scale_computation_type} not supported")
 
@@ -254,22 +251,9 @@ def _channel_maxabs(inp: torch.Tensor, dim: int = 1) -> torch.Tensor:
     return out
 
 
-def _channel_l1_norm(
-        inp: torch.Tensor,
-        is_src: bool = True,
-        dim: int = 1,
-        penalty: Union[float, torch.Tensor] = 0.) -> torch.Tensor:
-    if not isinstance(penalty, torch.Tensor):
-        assert isinstance(penalty, float)
-        penalty = torch.tensor(penalty)
-    out = inp.norm(p=1, dim=dim)
-    # if it is not a source node, then it is sink and we need to get
-    # the total l1-norm over the tensor rather than per-channel; this is
-    # actually equivalent to the average per-channel l1-norm since we
-    # pre-normalize the weights in `_get_weight_from_module()`
-    if not is_src:
-        out.fill_(inp.norm(p=1))
-    out = torch.sqrt(out.square() + penalty.square())
+def _channel_avgabs(inp: torch.Tensor, dim: int = 1) -> torch.Tensor:
+    out = torch.abs(inp)
+    out = torch.mean(out, dim=dim)
     return out
 
 
@@ -431,8 +415,7 @@ def _cross_layer_equalization(
         list_of_act_val: Optional[torch.Tensor] = None,
         list_of_insert_mul_node_fn: Optional[List[Callable]] = None,
         alpha: float = 0.5,
-        co_optimize_act_weights: bool = False,
-        l1_penalty: float = 0.) -> torch.Tensor:
+        co_optimize_act_weights: bool = False) -> torch.Tensor:
     """
     Given two adjacent tensors', the weights are scaled such that
     the ranges of the first tensors' output channel are equal to the
@@ -516,8 +499,7 @@ def _cross_layer_equalization(
     if None in axes_to_check:
         return _no_equalize()
 
-    scale_fn = _select_scale_computation_fn(
-        scale_computation_type, is_src=False, l1_penalty=l1_penalty)
+    scale_fn = _select_scale_computation_fn(scale_computation_type)
     sink_weights = {
         name: _get_weight_from_module(
             m, axis, is_src=False, scale_computation_type=scale_computation_type)
@@ -547,8 +529,6 @@ def _cross_layer_equalization(
             bias_shrinkage=bias_shrinkage,
             scale_computation_type=scale_computation_type) for name, (m, axis) in src_axes.items()}
 
-    scale_fn = _select_scale_computation_fn(
-        scale_computation_type, is_src=True, l1_penalty=l1_penalty)
     for k, v in src_weights.items():
         # Srcs are always fully equalized, thus we simply need to apply the offset to position them
         # correctly with respect to the other srcs matrices.
@@ -658,8 +638,7 @@ def _equalize(
         threshold: float,
         merge_bias: bool,
         bias_shrinkage: Union[str, float],
-        scale_computation_type: str,
-        l1_penalty: float = 0.) -> GraphModule:
+        scale_computation_type: str) -> GraphModule:
     """
     Generalized version of section 4.1 of https://arxiv.org/pdf/1906.04721.pdf
     """
@@ -670,8 +649,7 @@ def _equalize(
                 region,
                 merge_bias=merge_bias,
                 bias_shrinkage=bias_shrinkage,
-                scale_computation_type=scale_computation_type,
-                l1_penalty=l1_penalty)
+                scale_computation_type=scale_computation_type)
             scale_factor_region_max = torch.max(torch.abs(1 - scale_factors_region))
             if scale_factor_max is not None:
                 scale_factor_max = torch.max(scale_factor_max, scale_factor_region_max)
@@ -961,8 +939,7 @@ class EqualizeGraph(GraphTransform):
             return_regions: bool = False,
             merge_bias: bool = True,
             bias_shrinkage: Union[float, str] = 'vaiq',
-            scale_computation_type: str = 'maxabs',
-            l1_penalty: float = 0.) -> None:
+            scale_computation_type: str = 'maxabs') -> None:
         super(EqualizeGraph, self).__init__()
         self.iterations = iterations
         self.return_regions = return_regions
@@ -970,7 +947,6 @@ class EqualizeGraph(GraphTransform):
         self.bias_shrinkage = bias_shrinkage
         self.threshold = threshold
         self.scale_computation_type = scale_computation_type
-        self.l1_penalty = l1_penalty
 
     def apply(self,
               graph_model: GraphModule) -> Union[Tuple[GraphModule, Set[Tuple[str]]], GraphModule]:
@@ -983,8 +959,7 @@ class EqualizeGraph(GraphTransform):
                 self.threshold,
                 self.merge_bias,
                 self.bias_shrinkage,
-                self.scale_computation_type,
-                self.l1_penalty)
+                self.scale_computation_type)
         if self.return_regions:
             return graph_model, regions
         else:
