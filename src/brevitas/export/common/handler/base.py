@@ -11,6 +11,7 @@ from torch.nn import Module
 
 from brevitas.function.ops import max_int
 from brevitas.function.ops import min_int
+from brevitas.nn.quant_layer import QuantNonLinearActLayer
 
 __all__ = ['BaseHandler', 'BitWidthHandlerMixin', 'ZeroPointHandlerMixin']
 
