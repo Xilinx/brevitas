@@ -335,12 +335,11 @@ class QuantTensor(QuantTensorBase):
         elif self.value.shape == other.shape:
             output = QuantTensor(
                 value=self.value + other,
-                scale=output_scale,
+                scale=self.scale,
                 zero_point=self.zero_point - other / self.scale,
-                bit_width=output_bit_width,
-                signed=output_signed,
-                training=output_training)
-
+                bit_width=self.bit_width,
+                signed=self.signed,
+                training=self.training)
         else:
             output = self.value + other
         return output
