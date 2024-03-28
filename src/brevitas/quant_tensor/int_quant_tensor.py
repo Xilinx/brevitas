@@ -332,7 +332,9 @@ class QuantTensor(QuantTensorBase):
                 bit_width=output_bit_width,
                 signed=output_signed,
                 training=output_training)
-        elif self.value.shape == other.shape:
+        else:
+            # When adding a QT with a normal Tensor, we use the zero_point as a way to preserve
+            # and return a QT.
             output = QuantTensor(
                 value=self.value + other,
                 scale=self.scale,
@@ -340,8 +342,6 @@ class QuantTensor(QuantTensorBase):
                 bit_width=self.bit_width,
                 signed=self.signed,
                 training=self.training)
-        else:
-            output = self.value + other
         return output
 
     def __radd__(self, other):
