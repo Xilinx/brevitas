@@ -87,7 +87,7 @@ class QuantScaleBias(QuantWBIOL, ScaleBias):
         quant_bias = quant_bias.view(self.runtime_shape)
 
         def biased_mul(input, weight, bias):
-            out = torch.mul(input, weight)
+            out = input * weight
             if bias is not None:
                 out += bias
             return out
