@@ -1,9 +1,15 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+import torch
+from torch import Tensor
+
 from brevitas.core.bit_width import BitWidthParameter
 from brevitas.core.function_wrapper import *
 from brevitas.core.quant import RescalingIntQuant
+from brevitas.function.ops import max_int
+from brevitas.function.ops import min_int
+from brevitas.function.shape import over_output_channels
 from brevitas.inject.enum import FloatToIntImplType
 from brevitas.quant_tensor import QuantTensor
 
@@ -80,3 +86,34 @@ def float_to_int_impl_to_enum(module):
             return FloatToIntImplType.STOCHASTIC_ROUND
     else:
         return None
+
+
+def _calculate_acc_range(module, input_range):
+    quant_weight = module.quant_weight()
+    quant_weight: Tensor = quant_weight.int().float()
+    shape = over_output_channels(quant_weight)
+    quant_weight = quant_weight.reshape(shape)
+
+    max_vectors = torch.where(quant_weight > 0, input_range[1], input_range[0])
+    min_vectors = torch.where(quant_weight > 0, input_range[0], input_range[1])
+    max_values_per_accumulator: Tensor = (quant_weight * max_vectors).sum(axis=1)
+    min_values_per_accumulator: Tensor = (quant_weight * min_vectors).sum(axis=1)
+
+    max_value = max_values_per_accumulator.max()
+    min_value = min_values_per_accumulator.min()
+    return (min_value, max_value)
+
+
+def calculate_accumulator_bit_width(module) -> Tensor:
+    input_bit_width = module.quant_input_bit_width()
+    input_is_signed = module.is_quant_input_signed
+    input_is_narrow = module.is_quant_input_narrow_range
+    if input_bit_width is not None:
+        input_min = min_int(input_is_signed, input_is_narrow, input_bit_width)
+        input_max = max_int(input_is_signed, input_is_narrow, input_bit_width)
+        (acc_min, acc_max) = _calculate_acc_range(module, [input_min, input_max])
+        _acc_max = max(-acc_min, 1 + acc_max)
+        acc_bit_width = torch.log2(_acc_max) + 1
+        acc_bit_width = torch.ceil(acc_bit_width)
+        return acc_bit_width
+    return torch.tensor([32.0])
