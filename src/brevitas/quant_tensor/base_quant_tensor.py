@@ -1,15 +1,15 @@
-from typing import NamedTuple, Optional
+from typing import NamedTuple
 
 from torch import Tensor
 
 
 class QuantTensorBase(NamedTuple):
     value: Tensor
-    scale: Optional[Tensor]
-    zero_point: Optional[Tensor]
-    bit_width: Optional[Tensor]
-    signed_t: Optional[Tensor]
-    training_t: Optional[Tensor]
+    scale: Tensor
+    zero_point: Tensor
+    bit_width: Tensor
+    signed_t: Tensor
+    training_t: Tensor
 
 
 def _unpack_quant_tensor(input_data):

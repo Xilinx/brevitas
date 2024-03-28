@@ -169,11 +169,5 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
         else:
             output_tensor = self.inner_forward_impl(quant_input, quant_weight, None)
 
-        if not self.output_quant.is_quant_enabled and self.return_quant_tensor:
-            if compute_output_quant_tensor:
-                if (quant_input.zero_point != 0.0).any() or (quant_weight.zero_point != 0.0).any():
-                    raise RuntimeError(
-                        "Computing zero point of output accumulator not supported yet.")
-
         quant_output = self.output_quant(output_tensor)
         return self.pack_output(quant_output)

@@ -332,8 +332,15 @@ class QuantTensor(QuantTensorBase):
                 bit_width=output_bit_width,
                 signed=output_signed,
                 training=output_training)
-        elif isinstance(other, QuantTensor):
-            output = self.value + other.value
+        elif self.value.shape == other.shape:
+            output = QuantTensor(
+                value=self.value + other,
+                scale=output_scale,
+                zero_point=self.zero_point - other / self.scale,
+                bit_width=output_bit_width,
+                signed=output_signed,
+                training=output_training)
+
         else:
             output = self.value + other
         return output
@@ -362,8 +369,6 @@ class QuantTensor(QuantTensorBase):
                 bit_width=output_bit_width,
                 signed=output_signed,
                 training=output_training)
-        elif isinstance(other, QuantTensor):
-            output = self.value * other.value
         else:
             output = self.value * other
         return output
@@ -393,8 +398,6 @@ class QuantTensor(QuantTensorBase):
                 bit_width=output_bit_width,
                 signed=output_signed,
                 training=output_training)
-        elif isinstance(other, QuantTensor):
-            output = self.value / other.value
         else:
             output = self.value / other
         return output
@@ -416,19 +419,3 @@ class QuantTensor(QuantTensorBase):
 
     def __pos__(self):
         return self
-
-    @classmethod
-    def max_acc_bit_width(cls, *args):
-
-        def _max_int_or_tensor(args):
-            if isinstance(args, QuantTensor):
-                return max_int(bit_width=args.bit_width, signed=False, narrow_range=False)
-            else:
-                return args
-
-        args = map(_max_int_or_tensor, args)
-        res = 1
-        for arg in args:
-            res *= arg
-        res = ceil_ste(torch.log2(res))
-        return res

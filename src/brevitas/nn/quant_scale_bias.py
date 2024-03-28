@@ -92,18 +92,17 @@ class QuantScaleBias(QuantWBIOL, ScaleBias):
                 out += bias
             return out
 
-        # TODO: when implementing new types of QuantTensor, this should be revised
-        if isinstance(input, QuantTensor):
-            from brevitas.quant_tensor.torch_handler import quant_layer
+        # # TODO: when implementing new types of QuantTensor, this should be revised
+        # if isinstance(input, QuantTensor):
+        #     from brevitas.quant_tensor.torch_handler import quant_layer
 
-            output_tensor = quant_layer(
-                biased_mul,
-                input,
-                quant_weight,
-                bias=quant_bias,
-                external_acc_bit_width_fn=self.max_acc_bit_width)
-        else:
-            output_tensor = biased_mul(input, quant_weight, quant_bias)
+        #     output_tensor = quant_layer(
+        #         biased_mul,
+        #         input,
+        #         quant_weight,
+        #         bias=quant_bias)
+        # else:
+        output_tensor = biased_mul(input, quant_weight, quant_bias)
 
         return output_tensor
 
