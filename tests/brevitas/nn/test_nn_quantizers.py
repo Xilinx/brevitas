@@ -53,8 +53,9 @@ def test_quant_wbiol(model_input, current_cases):
         return
     elif kwargs['weight_quant'] == 'quant_asym' and kwargs['return_quant_tensor'] and kwargs['io_quant'] is None \
         and kwargs['input_quantized']:
-        with pytest.raises(RuntimeError,
-                           match='Computing zero point of output accumulator not supported yet.'):
+        with pytest.raises(
+                AssertionError,
+                match='QuantLayer is not correctly configured, check if warnings were raised'):
             output = model(input)
         return
     else:
@@ -188,8 +189,8 @@ def test_quant_mha(model_input, current_cases):
     elif kwargs['weight_quant'] is not None and kwargs['io_quant'] is None:
         if kwargs['weight_quant'] == 'quant_asym' and kwargs['return_quant_tensor']:
             with pytest.raises(
-                    RuntimeError,
-                    match='Computing zero point of output accumulator not supported yet.'):
+                    AssertionError,
+                    match='QuantLayer is not correctly configured, check if warnings were raised'):
                 output, _ = model(inp, inp, inp)
             return
     output, _ = model(inp, inp, inp)

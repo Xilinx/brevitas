@@ -165,9 +165,9 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
 
         if self.bias is not None:
             quant_bias = self.bias_quant(self.bias, output_scale)
-            output_tensor = self.inner_forward_impl(quant_input, quant_weight, quant_bias)
         else:
-            output_tensor = self.inner_forward_impl(quant_input, quant_weight, None)
+            quant_bias = None
+        output_tensor = self.inner_forward_impl(quant_input, quant_weight, quant_bias)
 
         quant_output = self.output_quant(output_tensor)
         return self.pack_output(quant_output)
