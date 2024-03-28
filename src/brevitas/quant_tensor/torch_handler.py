@@ -310,10 +310,12 @@ def quant_layer(
                 bias.bit_width > output_bit_width, bias.bit_width, output_bit_width)
             output_bit_width = output_bit_width + 1
 
-    if compute_output_quant_tensor and (quant_input.zero_point != 0.0).any() or (
-            quant_weight.zero_point != 0.0).any():
-        warnings.warn("Computing zero point of output accumulator not supported yet.")
-        compute_output_quant_tensor = False
+    if compute_output_quant_tensor:
+        if (isinstance(quant_input, QuantTensor) and
+            (quant_input.zero_point != 0.0).any()) or (isinstance(quant_weight, QuantTensor) and
+                                                       (quant_weight.zero_point != 0.0).any()):
+            warnings.warn("Computing zero point of output accumulator not supported yet.")
+            compute_output_quant_tensor = False
 
     if compute_output_quant_tensor:
         if output_zero_point is None:
