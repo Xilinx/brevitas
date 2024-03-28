@@ -251,8 +251,7 @@ def adaptive_avg_pool2d_handler(quant_input, output_shape):
     return quant_input
 
 
-def quant_layer(
-        cls, quant_input, quant_weight, bias, *args, external_acc_bit_width_fn=None, **kwargs):
+def quant_layer(cls, quant_input, quant_weight, bias, *args, **kwargs):
     from brevitas.quant_tensor import _unpack_quant_tensor
     from brevitas.quant_tensor import QuantTensor
 
@@ -260,10 +259,7 @@ def quant_layer(
     output_bit_width = None
     output_zero_point = None
     output_signed = None
-    if external_acc_bit_width_fn is None:
-        max_acc_bit_width = IMPLS[cls]
-    else:
-        max_acc_bit_width = external_acc_bit_width_fn
+    max_acc_bit_width = IMPLS[cls]
 
     compute_output_quant_tensor = isinstance(quant_input, QuantTensor) and isinstance(
         quant_weight, QuantTensor)
