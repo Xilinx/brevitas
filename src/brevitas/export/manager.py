@@ -14,13 +14,13 @@ from torch import Tensor
 from torch.nn import Module
 
 from brevitas import config
-from brevitas.nn.mixin.base import _CachedIO
 from brevitas.nn.mixin.base import QuantLayerMixin
 from brevitas.nn.mixin.base import QuantRecurrentLayerMixin
 from brevitas.proxy.quant_proxy import QuantProxyProtocol
 from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.jit_utils import clear_class_registry
 from brevitas.utils.python_utils import patch
+from brevitas.utils.quant_utils import _CachedIO
 
 
 class _JitTraceExportWrapper(nn.Module):
@@ -64,18 +64,11 @@ def _override_bias_caching_mode(m: Module, enabled: bool):
             m.cache_inference_quant_bias = enabled
 
 
-def _override_inp_caching_mode(m: Module, enabled: bool):
-    if hasattr(m, 'cache_inference_quant_inp'):
-        if not hasattr(m, "cache_inference_quant_inp_backup"):
-            m.cache_inference_quant_inp_backup = m.cache_inference_quant_inp
-            m.cache_inference_quant_inp = enabled
-
-
-def _override_out_caching_mode(m: Module, enabled: bool):
-    if hasattr(m, 'cache_inference_quant_out'):
-        if not hasattr(m, "cache_inference_quant_out_backup"):
-            m.cache_inference_quant_out_backup = m.cache_inference_quant_out
-            m.cache_inference_quant_out = enabled
+def _override_act_caching_mode(m: Module, enabled: bool):
+    if hasattr(m, 'cache_inference_quant_act'):
+        if not hasattr(m, "cache_inference_quant_act_backup"):
+            m.cache_inference_quant_act_backup = m.cache_inference_quant_act
+            m.cache_inference_quant_act = enabled
 
 
 def _restore_quant_metadata_caching_mode(m: Module):
@@ -90,16 +83,10 @@ def _restore_bias_caching_mode(m: Module):
         del m.cache_inference_quant_bias_backup
 
 
-def _restore_inp_caching_mode(m: Module):
-    if hasattr(m, "cache_inference_quant_inp_backup"):
-        m.cache_inference_quant_inp = m.cache_inference_quant_inp_backup
-        del m.cache_inference_quant_inp_backup
-
-
-def _restore_out_caching_mode(m: Module):
-    if hasattr(m, "cache_inference_quant_out_backup"):
-        m.cache_inference_quant_out = m.cache_inference_quant_out_backup
-        del m.cache_inference_quant_out_backup
+def _restore_act_caching_mode(m: Module):
+    if hasattr(m, "cache_inference_quant_act_backup"):
+        m.cache_inference_quant_act = m.cache_inference_quant_act_backup
+        del m.cache_inference_quant_act_backup
 
 
 def _set_recurrent_layer_export_mode(model: Module, enabled: bool):
@@ -202,14 +189,12 @@ class BaseManager(ABC):
         # force enable caching
         module.apply(lambda m: _override_quant_metadata_caching_mode(m, enabled=True))
         module.apply(lambda m: _override_bias_caching_mode(m, enabled=True))
-        module.apply(lambda m: _override_inp_caching_mode(m, enabled=True))
-        module.apply(lambda m: _override_out_caching_mode(m, enabled=True))
+        module.apply(lambda m: _override_act_caching_mode(m, enabled=True))
         _ = module.forward(*args, **kwargs)
         # Restore previous caching properties
         module.apply(lambda m: _restore_quant_metadata_caching_mode(m))
         module.apply(lambda m: _restore_bias_caching_mode(m))
-        module.apply(lambda m: _restore_inp_caching_mode(m))
-        module.apply(lambda m: _restore_out_caching_mode(m))
+        module.apply(lambda m: _restore_act_caching_mode(m))
 
     @classmethod
     def jit_inference_trace(

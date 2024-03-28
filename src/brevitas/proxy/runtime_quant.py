@@ -11,6 +11,7 @@ from typing_extensions import runtime_checkable
 
 import brevitas
 from brevitas.quant_tensor import QuantTensor
+from brevitas.utils.quant_utils import _CachedIO
 
 from .quant_proxy import QuantProxyFromInjector
 from .quant_proxy import QuantProxyProtocol
@@ -89,10 +90,19 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
         QuantProxyFromInjector.__init__(self, quant_layer, quant_injector)
         ActQuantProxyProtocol.__init__(self)
         self.is_passthrough_act = _is_passthrough_act(quant_injector)
+        self._cached_act = None
+        self.cache_inference_quant_act = False
+        self.cache_quant_io_metadata_only = True
 
     @property
     def is_quant_enabled(self):
         return self._is_quant_enabled and not self.disable_quant
+
+    @property
+    def is_signed(self):
+        if self._cached_act is not None:
+            return self._cached_act.signed
+        return super().is_signed
 
     @is_quant_enabled.setter
     def is_quant_enabled(self, is_quant_enabled):
@@ -118,36 +128,46 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
             self.fused_activation_quant_proxy = None
 
     def scale(self, force_eval=True):
-        if not self.is_quant_enabled:
+        if self.is_quant_enabled:
+            current_status = self.training
+            if force_eval:
+                self.eval()
+            out = self.__call__(self._zero_hw_sentinel())
+            self.train(current_status)
+            return out.scale
+        elif self._cached_act is not None:
+            return self._cached_act.scale
+        elif self._cached_act is None:
             return None
-        current_status = self.training
-        if force_eval:
-            self.eval()
-        scale = self.__call__(self._zero_hw_sentinel()).scale
-        self.train(current_status)
-        return scale
 
     def zero_point(self, force_eval=True):
-        if not self.is_quant_enabled:
+        if self.is_quant_enabled:
+            current_status = self.training
+            if force_eval:
+                self.eval()
+            out = self.__call__(self._zero_hw_sentinel())
+            self.train(current_status)
+            return out.zero_point
+        elif self._cached_act is not None:
+            return self._cached_act.zero_point
+        elif self._cached_act is None:
             return None
-        current_status = self.training
-        if force_eval:
-            self.eval()
-        zero_point = self.__call__(self._zero_hw_sentinel()).zero_point
-        self.train(current_status)
-        return zero_point
 
     def bit_width(self, force_eval=True):
-        if not self.is_quant_enabled:
+        if self.is_quant_enabled:
+            current_status = self.training
+            if force_eval:
+                self.eval()
+            out = self.__call__(self._zero_hw_sentinel())
+            self.train(current_status)
+            return out.bit_width
+        elif self._cached_act is not None:
+            return self._cached_act.bit_width
+        elif self._cached_act is None:
             return None
-        current_status = self.training
-        if force_eval:
-            self.eval()
-        bit_width = self.__call__(self._zero_hw_sentinel()).bit_width
-        self.train(current_status)
-        return bit_width
 
     def forward(self, x: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
+        out = x
         if self.fused_activation_quant_proxy is not None:
             y = x
             if isinstance(y, QuantTensor):
@@ -163,22 +183,26 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
             # If y is an empty QuantTensor, we need to check if this is a passthrough proxy,
             # otherwise return a simple Tensor
             if isinstance(y, tuple) and not any(map(lambda f: f is None, y)):
-                return QuantTensor(*y, signed=self.is_signed, training=self.training)
+                out = QuantTensor(*y, signed=self.is_signed, training=self.training)
             elif self.is_passthrough_act:  # preserve scale/zp/bit/sign even without output quant
                 if isinstance(y, tuple):
                     y = y[0]
                 if isinstance(x, QuantTensor):
-                    return QuantTensor(
+                    out = QuantTensor(
                         y, x.scale, x.zero_point, x.bit_width, x.signed, self.training)
                 else:
-                    return y
+                    out = y
             else:
                 if isinstance(y, tuple):
                     y = y[0]
-                return y
+                out = y
         else:
             # If fused activation quant proxy is not enabled, return the input
-            return x
+            out = x
+        if not self.training and self.cache_inference_quant_act and isinstance(out, QuantTensor):
+            cached_out = _CachedIO(out.detach(), self.cache_quant_io_metadata_only)
+            self._cached_act = cached_out
+        return out
 
 
 class DynamicActQuantProxyFromInjector(ActQuantProxyFromInjector):
