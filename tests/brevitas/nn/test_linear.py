@@ -36,7 +36,7 @@ class TestQuantLinearInit:
             in_features=INPUT_FEATURES,
             bias=True,
             weight_scaling_impl_type='HE')
-        assert mod.quant_weight_scale()
+        assert mod.weight_quant.scale()
 
 
 class TestQuantLinearFwd:

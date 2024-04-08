@@ -10,7 +10,6 @@ from qonnx.transformation.infer_shapes import InferShapes
 import torch
 
 from brevitas.export import export_onnx_qcdq
-from brevitas.export import export_onnx_qop
 from brevitas.export import export_qonnx
 from brevitas.nn import QuantConv1d
 from brevitas.nn import QuantConv2d
@@ -143,10 +142,7 @@ def is_brevitas_ort_close(
         odict = oxe.execute_onnx(exported_model, idict, True)
         ort_output = odict[exported_model.graph.output[0].name]
     else:
-        if export_type == 'qop':
-            export_onnx_qop(model, input_t, export_path=export_name)
-            computed_out = brevitas_output.int(float_datatype=False)
-        elif export_type == 'qcdq':
+        if export_type == 'qcdq':
             export_onnx_qcdq(model, input_t, export_path=export_name)
         elif export_type == 'qcdq_opset14':
             export_onnx_qcdq(model, input_t, opset_version=14, export_path=export_name)

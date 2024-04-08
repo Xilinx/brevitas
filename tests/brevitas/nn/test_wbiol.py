@@ -76,23 +76,23 @@ fixture_union('default_wbiol_layer', ['default_wbiol_quant_linear', 'default_wbi
 
 
 def test_default_wbiol_input_quant_enabled(default_wbiol_layer: QuantWBIOL):
-    assert not default_wbiol_layer.is_input_quant_enabled
+    assert not default_wbiol_layer.input_quant.is_quant_enabled
 
 
 def test_default_wbiol_output_quant_enabled(default_wbiol_layer: QuantWBIOL):
-    assert not default_wbiol_layer.is_output_quant_enabled
+    assert not default_wbiol_layer.output_quant.is_quant_enabled
 
 
 def test_default_wbiol_bias_quant_enabled(default_wbiol_layer: QuantWBIOL):
-    assert not default_wbiol_layer.is_bias_quant_enabled
+    assert not default_wbiol_layer.bias_quant.is_quant_enabled
 
 
 def test_default_wbiol_weight_quant_enabled(default_wbiol_layer: QuantWBIOL):
-    assert default_wbiol_layer.is_weight_quant_enabled
+    assert default_wbiol_layer.weight_quant.is_quant_enabled
 
 
 def test_default_wbiol_weight_bit_width_enabled(default_wbiol_layer: QuantWBIOL):
-    assert default_wbiol_layer.quant_weight_bit_width() == torch.tensor(8.)
+    assert default_wbiol_layer.weight_quant.bit_width() == torch.tensor(8.)
 
 
 def test_default_wbiol_return_quant(default_wbiol_layer: QuantWBIOL):
@@ -100,63 +100,63 @@ def test_default_wbiol_return_quant(default_wbiol_layer: QuantWBIOL):
 
 
 def test_default_wbiol_quant_bias_signed(default_wbiol_layer: QuantWBIOL):
-    assert default_wbiol_layer.is_quant_bias_signed is None
+    assert default_wbiol_layer.bias_quant.is_signed is None
 
 
 def test_default_wbiol_quant_weight_signed(default_wbiol_layer: QuantWBIOL):
-    assert default_wbiol_layer.is_quant_weight_signed
+    assert default_wbiol_layer.weight_quant.is_signed
 
 
 def test_default_wbiol_quant_bias_narrow_range(default_wbiol_layer: QuantWBIOL):
-    assert default_wbiol_layer.is_quant_bias_narrow_range is None
+    assert default_wbiol_layer.bias_quant.is_narrow_range is None
 
 
 def test_default_wbiol_quant_weight_narrow_range(default_wbiol_layer: QuantWBIOL):
-    assert default_wbiol_layer.is_quant_weight_narrow_range
+    assert default_wbiol_layer.weight_quant.is_narrow_range
 
 
 def test_default_wbiol_quant_input_signed(default_wbiol_layer: QuantWBIOL):
-    assert default_wbiol_layer.is_quant_input_signed is None
+    assert default_wbiol_layer.input_quant.is_signed is None
 
 
 def test_default_wbiol_quant_output_signed(default_wbiol_layer: QuantWBIOL):
-    assert default_wbiol_layer.is_quant_output_signed is None
+    assert default_wbiol_layer.output_quant.is_signed is None
 
 
 def test_default_wbiol_quant_input_narrow_range(default_wbiol_layer: QuantWBIOL):
-    assert default_wbiol_layer.is_quant_input_narrow_range is None
+    assert default_wbiol_layer.input_quant.is_narrow_range is None
 
 
 def test_default_wbiol_quant_output_narrow_range(default_wbiol_layer: QuantWBIOL):
-    assert default_wbiol_layer.is_quant_output_narrow_range is None
+    assert default_wbiol_layer.output_quant.is_narrow_range is None
 
 
 def test_default_wbiol_quant_input_zero_point(default_wbiol_layer: QuantWBIOL):
-    assert default_wbiol_layer.quant_input_zero_point() is None
+    assert default_wbiol_layer.input_quant.zero_point() is None
 
 
 def test_default_wbiol_quant_output_zero_point(default_wbiol_layer: QuantWBIOL):
-    assert default_wbiol_layer.quant_output_zero_point() is None
+    assert default_wbiol_layer.output_quant.zero_point() is None
 
 
 def test_default_wbiol_quant_weight_zero_point(default_wbiol_layer: QuantWBIOL):
-    assert default_wbiol_layer.quant_weight_zero_point() == torch.tensor(0.)
+    assert default_wbiol_layer.weight_quant.zero_point() == torch.tensor(0.)
 
 
 def test_default_wbiol_quant_bias_zero_point(default_wbiol_layer: QuantWBIOL):
-    assert default_wbiol_layer.quant_bias_zero_point() is None
+    assert default_wbiol_layer.bias_quant.zero_point() is None
 
 
 def test_default_wbiol_quant_input_scale(default_wbiol_layer: QuantWBIOL):
-    assert default_wbiol_layer.quant_input_scale() is None
+    assert default_wbiol_layer.input_quant.scale() is None
 
 
 def test_default_wbiol_quant_output_scale(default_wbiol_layer: QuantWBIOL):
-    assert default_wbiol_layer.quant_output_scale() is None
+    assert default_wbiol_layer.output_quant.scale() is None
 
 
 def test_default_wbiol_quant_bias_scale(default_wbiol_layer: QuantWBIOL):
-    assert default_wbiol_layer.quant_bias_scale() is None
+    assert default_wbiol_layer.bias_quant.scale() is None
 
 
 def test_default_wbiol_weight_quant_proxy(default_wbiol_layer: QuantWBIOL):

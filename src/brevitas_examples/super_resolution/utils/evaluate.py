@@ -55,8 +55,8 @@ def _calc_min_acc_bit_width(module: QuantWBIOL) -> Tensor:
     assert isinstance(module, qnn.QuantConv2d), "Error: function only support QuantConv2d."
 
     # bit-width and sign need to come from the quant tensor of the preceding layer if no io_quant
-    input_bit_width = module.quant_input_bit_width()
-    input_is_signed = float(module.is_quant_input_signed)
+    input_bit_width = module.input_quant.bit_width()
+    input_is_signed = float(module.input_quant.is_signed)
 
     # the tensor quantizer requires a QuantTensor with specified bit-width and sign
     quant_weight = module.quant_weight()
