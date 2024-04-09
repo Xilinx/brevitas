@@ -21,6 +21,7 @@ from brevitas.graph.base import ModuleInstanceToModuleInstance
 from brevitas.graph.utils import get_module
 from brevitas.graph.utils import get_node
 from brevitas.nn.equalized_layer import EqualizedModule
+from brevitas.nn.equalized_layer import INPUT_NAMES
 from brevitas.nn.quant_scale_bias import ScaleBias
 from brevitas.utils.torch_utils import KwargsForwardHook
 
@@ -970,8 +971,7 @@ class ActivationEqualization(GraphTransform, ABC):
                 self.float_act_map[name] = None
                 return
 
-        possible_input_kwargs = ['input', 'inp', 'query']
-        input_kwarg = [x for x in kwargs.keys() if x in possible_input_kwargs][0]
+        input_kwarg = [x for x in kwargs.keys() if x in INPUT_NAMES][0]
         if use_inp:
             x = kwargs[input_kwarg]
         elif not use_inp:
