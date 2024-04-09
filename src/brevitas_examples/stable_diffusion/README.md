@@ -121,7 +121,7 @@ options:
                         Weight quantization type. Either int or eXmY, with
                         X+Y==weight_bit_width-1. Default: int.
   --input-quant-format INPUT_QUANT_FORMAT
-                        Weight quantization type. Either int or eXmY, with
+                        Input quantization type. Either int or eXmY, with
                         X+Y==input_bit_width-1. Default: int.
   --weight-quant-granularity {per_channel,per_tensor,per_group}
                         Granularity for scales/zero-point of weights. Default:
