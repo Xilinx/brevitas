@@ -362,7 +362,7 @@ if __name__ == "__main__":
         type=quant_format_validator,
         default='int',
         help=
-        'Weight quantization type. Either int or eXmY, with X+Y==weight_bit_width-1. Default: int.')
+        'Weight quantization type. Either int or eXmY, with X+Y==input_bit_width-1. Default: int.')
     parser.add_argument(
         '--weight-quant-granularity',
         type=str,
