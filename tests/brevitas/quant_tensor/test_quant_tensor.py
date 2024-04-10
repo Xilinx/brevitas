@@ -71,7 +71,6 @@ def test_quant_tensor_operators(op):
         # unrecognised operator
         assert False
 
-    # tolerance set to a high value as there is considerable loss of precision
     assert torch.allclose(normal, quant)
 
 
