@@ -155,7 +155,7 @@ def quantize_model(
     act_scale_type = scale_factor_type
 
     # We check all of the provided values are positive integers
-    check_bit_widths(
+    check_positive_int(
         weight_bit_width,
         act_bit_width,
         bias_bit_width,
@@ -551,7 +551,7 @@ def apply_learned_round_learning(
                 "loss = {:.4f}, rec_loss = {:.4f}, round_loss = {:.4f}, b = {:.4f}".format(
                     loss, rec_loss, round_loss, b))
 
-def check_bit_widths(*args):
+def check_positive_int(*args):
     """
     We check that every inputted value is positive, and an integer.
     """
