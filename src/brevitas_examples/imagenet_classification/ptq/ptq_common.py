@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from copy import deepcopy
-
 import math
+
 import torch
 import torch.backends.cudnn as cudnn
 from tqdm import tqdm
@@ -550,6 +550,7 @@ def apply_learned_round_learning(
             pbar.set_description(
                 "loss = {:.4f}, rec_loss = {:.4f}, round_loss = {:.4f}, b = {:.4f}".format(
                     loss, rec_loss, round_loss, b))
+
 
 def check_positive_int(*args):
     """
