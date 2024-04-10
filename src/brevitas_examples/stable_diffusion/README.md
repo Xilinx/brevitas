@@ -16,8 +16,6 @@ We support ONNX integer export, and we are planning to release soon export for f
 To export the model with fp16 scale factors, enable `export-cuda-float16`. This will performing the tracing necessary for export on GPU, leaving the model in fp16.
 If the flag is not enabled, the model will be moved to CPU and cast to float32 before export because of missing CPU kernels in fp16.
 
-NB: when exporting Stable Diffusion XL, make sure to enable `is-sd-xl` flag. The flag is not needed when export is not executed.
-
 
 ## Run
 
@@ -29,7 +27,7 @@ usage: main.py [-h] [-m MODEL] [-d DEVICE] [-b BATCH_SIZE] [--prompt PROMPT]
                [--activation-equalization | --no-activation-equalization]
                [--gptq | --no-gptq] [--float16 | --no-float16]
                [--attention-slicing | --no-attention-slicing]
-               [--is-sd-xl | --no-is-sd-xl] [--export-target {,onnx}]
+               [--export-target {,onnx}]
                [--export-weight-q-node | --no-export-weight-q-node]
                [--conv-weight-bit-width CONV_WEIGHT_BIT_WIDTH]
                [--linear-weight-bit-width LINEAR_WEIGHT_BIT_WIDTH]
@@ -83,10 +81,6 @@ options:
   --attention-slicing   Enable Enable attention slicing. Default: Disabled
   --no-attention-slicing
                         Disable Enable attention slicing. Default: Disabled
-  --is-sd-xl            Enable Enable this flag to correctly export SDXL.
-                        Default: Disabled
-  --no-is-sd-xl         Disable Enable this flag to correctly export SDXL.
-                        Default: Disabled
   --export-target {,onnx}
                         Target export flow.
   --export-weight-q-node
