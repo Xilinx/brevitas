@@ -185,15 +185,15 @@ def quantize_model(
     # We check all of the provided values are positive integers
     check_positive_int(
         weight_bit_width,
-        act_bit_width,  # bias_bit_width,
+        act_bit_width,
+        bias_bit_width,
         layerwise_first_last_bit_width,
         layerwise_first_last_mantissa_bit_width,
         layerwise_first_last_exponent_bit_width,
         weight_mantissa_bit_width,
         weight_exponent_bit_width,
         act_mantissa_bit_width,
-        act_exponent_bit_width,
-    )
+        act_exponent_bit_width)
 
     if act_scale_computation_type == 'dynamic':
         assert bias_bit_width is None, "Bias quantization is not supported with dynamic activation quantization"
