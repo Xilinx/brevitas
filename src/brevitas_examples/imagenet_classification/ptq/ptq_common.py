@@ -195,6 +195,9 @@ def quantize_model(
         act_exponent_bit_width,
     )
 
+    if act_scale_computation_type == 'dynamic':
+        assert bias_bit_width is None, "Bias quantization is not supported with dynamic activation quantization"
+
     weight_quant_format = quant_format
     act_quant_format = quant_format
 
