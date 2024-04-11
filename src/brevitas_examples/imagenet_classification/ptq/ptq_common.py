@@ -555,7 +555,10 @@ def apply_learned_round_learning(
 def check_positive_int(*args):
     """
     We check that every inputted value is positive, and an integer.
+    If it's None, it is skipped.
     """
     for arg in args:
+        if arg is None:
+            continue
         assert arg > 0.0
         assert math.isclose(arg % 1, 0.0)
