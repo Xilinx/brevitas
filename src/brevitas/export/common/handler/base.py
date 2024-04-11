@@ -12,7 +12,7 @@ from torch.nn import Module
 from brevitas.function.ops import max_int
 from brevitas.function.ops import min_int
 
-__all__ = ['BaseHandler', 'BitWidthHandlerMixin', 'ZeroPointHandlerMixin']
+__all__ = ['BaseHandler', 'BitWidthHandlerMixin', 'ZeroPointHandlerMixin', 'FloatZeroPointHandlerMixin']
 
 
 class BaseHandler(Module, ABC):
@@ -111,6 +111,9 @@ class ScaleHandlerMixin(ABC):
     def validate_neg_scalar_int_exponent(cls, scale: Tensor):
         return -cls.validate_scalar_int_exponent(scale)
 
+
+class FloatZeroPointHandlerMixin(ABC):
+    pass
 
 class ZeroPointHandlerMixin(ABC):
 

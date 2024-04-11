@@ -24,6 +24,7 @@ from .quant_proxy import QuantProxyProtocol
 
 __all__ = [
     'WeightQuantProxyFromInjector',
+    'FloatWeightQuantProxyFromInjector',
     'BiasQuantProxyFromInjector',
     'WeightQuantProxyProtocol',
     'BiasQuantProxyProtocol']
@@ -74,6 +75,50 @@ class ParameterQuantProxyFromInjector(QuantProxyFromInjector):
 
     def max_uint_value(self, bit_width):
         return max_int(False, self.is_narrow_range, bit_width)
+
+
+class FloatWeightQuantProxyFromInjector(ParameterQuantProxyFromInjector, WeightQuantProxyProtocol):
+
+    @property
+    def tracked_parameter_list(self):
+        return [m.weight for m in self.tracked_module_list if m.weight is not None]
+
+    @property
+    def requires_quant_input(self):
+        return False
+
+    def scale(self):
+        if not self.is_quant_enabled:
+            return None
+        scale = self.__call__(self.tracked_parameter_list[0]).scale
+        return scale
+
+    def zero_point(self):
+        if not self.is_quant_enabled:
+            return None
+        zero_point = self.__call__(self.tracked_parameter_list[0]).zero_point
+        return zero_point
+
+    def exponent_bit_width(self):
+        if not self.is_quant_enabled:
+            return None
+        exponent_bit_width = self.__call__(self.tracked_parameter_list[0]).exponent_bit_width
+        return exponent_bit_width
+
+    def mantissa_bit_width(self):
+        if not self.is_quant_enabled:
+            return None
+        mantissa_bit_width = self.__call__(self.tracked_parameter_list[0]).mantissa_bit_width
+        return mantissa_bit_width
+
+    def forward(self, x: torch.Tensor) -> Union[Tensor, QuantTensor]:
+        if self.is_quant_enabled:
+            warn("This code should be replace with FloatQuantTensor when it becomes")
+            impl = self.export_handler if self.export_mode else self.tensor_quant
+            out, scale, zero_point, bit_width = impl(x)
+            return QuantTensor(out, scale, zero_point, bit_width, self.is_signed, self.training)
+        else:  # quantization disabled
+            return x
 
 
 class WeightQuantProxyFromInjector(ParameterQuantProxyFromInjector, WeightQuantProxyProtocol):

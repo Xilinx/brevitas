@@ -16,7 +16,9 @@ from brevitas.export.common.handler.qcdq import \
     QCDQCastDecoupledWeightQuantWithInputProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQCastTruncQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQCastWeightQuantProxyHandlerMixin
+from brevitas.export.common.handler.qcdq import QCDQCastFloatWeightQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QMixin
+from brevitas.export.common.handler.qcdq import FloatQMixin
 from brevitas.export.onnx.handler import ONNXBaseHandler
 from brevitas.export.onnx.handler import QuantLSTMLayerHandler
 
@@ -27,6 +29,26 @@ from ..function import IntClipFn
 from ..function import QuantizeLinearFn
 
 
+
+class StdFloatDQCastONNXMixin(DQCastMixin, ABC):
+
+    def dequantize_fn(self, x, scale, zero_point, axis):
+        raise NotImplementedError()
+
+    def cast_fn(self, x, dtype):
+        raise NotImplementedError()
+
+    @property
+    def flatten_dequantize_params(self):
+        raise NotImplementedError()
+
+    @property
+    def itemize_quantize_scalar_params(self):
+        raise NotImplementedError()
+
+    def validate(self, module):
+        raise NotImplementedError()
+    
 class StdDQCastONNXMixin(DQCastMixin, ABC):
 
     def dequantize_fn(self, x, scale, zero_point, axis):
@@ -47,11 +69,22 @@ class StdDQCastONNXMixin(DQCastMixin, ABC):
         assert module.bit_width() > 1., 'Binary quant not supported'
 
 
+class StdFloatCDQCastONNXMixin(CDQCastMixin, StdFloatDQCastONNXMixin, ABC):
+
+    def clip_fn(self, x, min_val, max_val):
+        return IntClipFn.apply(x, min_val, max_val)
+
 class StdCDQCastONNXMixin(CDQCastMixin, StdDQCastONNXMixin, ABC):
 
     def clip_fn(self, x, min_val, max_val):
         return IntClipFn.apply(x, min_val, max_val)
 
+class StdFloatQCDQCastONNXMixin(FloatQMixin, StdFloatCDQCastONNXMixin, ABC):
+    def validate(self, module):
+        raise NotImplementedError()
+
+    def quantize_fn(self, x, scale, zero_point, dtype, axis):
+        raise NotImplementedError()
 
 class StdQCDQCastONNXMixin(QMixin, StdCDQCastONNXMixin, ABC):
 
@@ -110,6 +143,12 @@ class StdDynamicQDQCastONNXMixin(DynamicQMixin, StdDQCastONNXMixin, ABC):
 
     def quantize_fn(self, x, dtype):
         return DynamicQuantizeLinearFn.apply(x, dtype)
+
+
+class StdQCDQCastONNXFloatWeightQuantProxyHandler(StdFloatQCDQCastONNXMixin,
+                                                  QCDQCastFloatWeightQuantProxyHandlerMixin,
+                                                  ONNXBaseHandler):
+    _export_q_node = False
 
 
 class StdQCDQCastONNXWeightQuantProxyHandler(StdQCDQCastONNXMixin,

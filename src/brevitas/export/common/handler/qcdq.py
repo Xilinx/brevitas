@@ -15,6 +15,7 @@ from brevitas.proxy import BiasQuantProxyFromInjector
 from brevitas.proxy import DecoupledWeightQuantProxyFromInjector
 from brevitas.proxy import DecoupledWeightQuantWithInputProxyFromInjector
 from brevitas.proxy import WeightQuantProxyFromInjector
+from brevitas.proxy import FloatWeightQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import DynamicActQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector
 
@@ -22,6 +23,7 @@ from .base import BitWidthHandlerMixin
 from .base import ClipMixin
 from .base import QuantAxisMixin
 from .base import ZeroPointHandlerMixin
+from .base import FloatZeroPointHandlerMixin
 
 
 class DQMixin(ABC):
@@ -65,6 +67,8 @@ class CDQCastMixin(DQCastMixin, ABC):
     def clip_fn(self, x, min_val, max_val):
         pass
 
+class FloatQMixin(ABC):
+    pass
 
 class QMixin(BitWidthHandlerMixin, ABC):
 
@@ -110,6 +114,11 @@ class DynamicQMixin(QMixin, ABC):
         pass
 
 
+class FloatCDQCastProxyHandlerMixin(QuantAxisMixin, FloatZeroPointHandlerMixin, CDQCastMixin, ABC):
+
+    def dequantize_symbolic_kwargs(cls, scale, zero_point, bit_width, is_signed):
+        raise NotImplementedError()
+
 class CDQCastProxyHandlerMixin(QuantAxisMixin, ClipMixin, ZeroPointHandlerMixin, CDQCastMixin, ABC):
 
     def dequantize_symbolic_kwargs(cls, scale, zero_point, bit_width, is_signed):
@@ -132,6 +141,30 @@ class CDQCastProxyHandlerMixin(QuantAxisMixin, ClipMixin, ZeroPointHandlerMixin,
             # size as the scale
             'scale_orig_shape': scale_orig_shape}
 
+
+class QCDQCastFloatWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHandlerMixin):
+    handled_layer = FloatWeightQuantProxyFromInjector
+
+    def quantize_symbolic_kwargs(cls, scale, zero_point, bit_width, is_signed):
+        raise NotImplementedError()
+
+    def prepare_quantize_from_floating_point(self, module):
+        raise NotImplementedError()
+
+    def prepare_quantize_from_integer(self, module):
+        raise NotImplementedError()
+
+    def prepare_for_export(self, module):
+        raise NotImplementedError()
+
+    def quantize_from_floating_point(self, x: Tensor):
+        raise NotImplementedError()
+
+    def quantize_from_integer(self, x: Tensor):
+        raise NotImplementedError()
+
+    def symbolic_execution(self, x: Tensor):
+        raise NotImplementedError()
 
 class QCDQCastWeightQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin):
     handled_layer = WeightQuantProxyFromInjector
