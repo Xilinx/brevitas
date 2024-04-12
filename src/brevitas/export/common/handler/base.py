@@ -12,6 +12,8 @@ from torch.nn import Module
 from brevitas.function.ops import max_int
 from brevitas.function.ops import min_int
 
+from warnings import warn
+
 __all__ = ['BaseHandler', 'BitWidthHandlerMixin', 'ZeroPointHandlerMixin', 'FloatZeroPointHandlerMixin']
 
 
@@ -37,6 +39,11 @@ class QuantAxisMixin(ABC):
                 return i
         return None
 
+class FloatClipMixin(ABC):
+    @classmethod
+    def clip_symbolic_kwargs(cls, narrow, signed, exponent_bit_width, mantissa_bit_width):
+        warn("Not implemented for floating point")
+        return None
 
 class ClipMixin(ABC):
 
@@ -113,7 +120,14 @@ class ScaleHandlerMixin(ABC):
 
 
 class FloatZeroPointHandlerMixin(ABC):
-    pass
+    @classmethod
+    def zero_point_with_dtype(cls, signed, exponent_bit_width, mantissa_bit_width, zero_point):
+        if exponent_bit_width == 4 and mantissa_bit_width == 3:
+            return zero_point.type(torch.float8_e4m3fn)
+        elif exponent_bit_width == 5 and mantissa_bit_width == 2:
+            return zero_point.type(torch.float8_e5m2)
+        else:
+            return zero_point.type(torch.float32)
 
 class ZeroPointHandlerMixin(ABC):
 

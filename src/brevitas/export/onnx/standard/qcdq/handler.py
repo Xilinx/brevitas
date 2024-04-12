@@ -28,6 +28,7 @@ from ..function import DynamicQuantizeLinearFn
 from ..function import IntClipFn
 from ..function import QuantizeLinearFn
 
+from warnings import warn
 
 
 class StdFloatDQCastONNXMixin(DQCastMixin, ABC):
@@ -44,7 +45,7 @@ class StdFloatDQCastONNXMixin(DQCastMixin, ABC):
 
     @property
     def itemize_quantize_scalar_params(self):
-        raise NotImplementedError()
+        return False
 
     def validate(self, module):
         raise NotImplementedError()
@@ -81,7 +82,8 @@ class StdCDQCastONNXMixin(CDQCastMixin, StdDQCastONNXMixin, ABC):
 
 class StdFloatQCDQCastONNXMixin(FloatQMixin, StdFloatCDQCastONNXMixin, ABC):
     def validate(self, module):
-        raise NotImplementedError()
+        warn("Needs to be implemented")
+        pass
 
     def quantize_fn(self, x, scale, zero_point, dtype, axis):
         raise NotImplementedError()

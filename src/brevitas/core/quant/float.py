@@ -89,4 +89,4 @@ class FloatQuant(brevitas.jit.ScriptModule):
             y, self.exponent_bit_width(), self.mantissa_bit_width(), self.exponent_bias())
         y = self.dequantize(y, scale)
         # This is to respect the current interface of proxies
-        return y, scale, self.zero_point_impl(), self.bit_width()
+        return y, scale, self.zero_point_impl(), self.exponent_bit_width(), self.mantissa_bit_width()
