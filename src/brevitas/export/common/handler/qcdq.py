@@ -21,7 +21,6 @@ from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector
 
 from .base import BitWidthHandlerMixin
 from .base import ClipMixin
-from .base import FloatClipMixin
 from .base import QuantAxisMixin
 from .base import ZeroPointHandlerMixin
 from .base import FloatZeroPointHandlerMixin
@@ -129,7 +128,7 @@ class DynamicQMixin(QMixin, ABC):
         pass
 
 
-class FloatCDQCastProxyHandlerMixin(QuantAxisMixin, FloatClipMixin, FloatZeroPointHandlerMixin, CDQCastMixin, ABC):
+class FloatCDQCastProxyHandlerMixin(QuantAxisMixin, FloatZeroPointHandlerMixin, CDQCastMixin, ABC):
 
     def dequantize_symbolic_kwargs(cls, scale, zero_point, exponent_bit_width, mantisssa_bit_width, is_signed):
         scale_orig_shape = scale.shape
@@ -221,22 +220,55 @@ class QCDQCastFloatWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHa
             if self.scale_dtype == torch.bfloat16 or self.scale_dtype == torch.float16:
                 scale = self.cast_fn(scale, torch.float32)
 
-            self.symbolic_kwargs['bit_width'] = quant_weight.bit_width
-            self.symbolic_kwargs['clip_symbolic_kwargs'] = self.clip_symbolic_kwargs(
-                module.is_narrow_range, module.is_signed, quant_weight.exponent_bit_width, quant_weight.mantissa_bit_width)
+            self.symbolic_kwargs['exponent_bit_width'] = quant_weight.exponent_bit_width
+            self.symbolic_kwargs['mantissa_bit_width'] = quant_weight.mantissa_bit_width
             self.symbolic_kwargs['dequantize_symbolic_kwargs'] = self.dequantize_symbolic_kwargs(
                 scale, quant_weight.zero_point, quant_weight.exponent_bit_width, quant_weight.mantissa_bit_width, module.is_signed)
         else:
             self.symbolic_kwargs = None
 
-    def quantize_from_floating_point(self, x: Tensor):
-        raise NotImplementedError()
+    def quantize_from_floating_point(self, x: Tensor, zp):
+        quantize_symbolic_kwargs = self.symbolic_kwargs['quantize_symbolic_kwargs']
+        quantize_symbolic_kwargs['zero_point'] = zp
+        # Before quantization, cast input to float32
+        if self.scale_dtype == torch.float16 or self.scale_dtype == torch.bfloat16:
+            x = self.cast_fn(x, torch.float32)
+        x = self.quantize_fn(x, *quantize_symbolic_kwargs.values())
+        return x
 
     def quantize_from_integer(self, x: Tensor):
-        raise NotImplementedError()
+        int_weights = {
+            tm.weight.data_ptr(): tm.quant_weight().int(float_datatype=False)
+            for tm in module.tracked_module_list}
+        self.symbolic_kwargs['int_weights'] = int_weights
 
     def symbolic_execution(self, x: Tensor):
-        raise NotImplementedError()
+        assert self.symbolic_kwargs is not None, 'Symbolic execution requires quant to be enabled'
+
+        # Copy dict to allow for popping kwargs even on shared quantizers
+        dequantize_symbolic_kwargs = copy(self.symbolic_kwargs['dequantize_symbolic_kwargs'])
+        scale = dequantize_symbolic_kwargs['scale']
+        zero_point = dequantize_symbolic_kwargs['zero_point']
+
+        if self._export_q_node:
+            x = self.quantize_from_floating_point(x, zero_point)
+        else:
+            x = self.quantize_from_integer(x)
+
+        exponent_bit_width = self.symbolic_kwargs['exponent_bit_width']
+        mantissa_bit_width = self.symbolic_kwargs['mantissa_bit_width']
+        scale_orig_shape = dequantize_symbolic_kwargs.pop('scale_orig_shape')
+        # Workaround to trick the tracer into believing all return values are used
+        self.assert_ge_zero(scale, exponent_bit_width, mantissa_bit_width)
+        x = self.dequantize_fn(x, *dequantize_symbolic_kwargs.values())
+        # After dequantization, cast both input and scale to the correct dtype
+        if self.scale_dtype == torch.float16 or self.scale_dtype == torch.bfloat16:
+            x = self.cast_fn(x, self.scale_dtype)
+            scale = self.cast_fn(scale, self.scale_dtype)
+        # Restore the original shapes to guarantee correct shape propagation downstream
+        scale = scale.view(scale_orig_shape)
+        zero_point = zero_point.view_as(scale)
+        return x, scale, zero_point, exponent_bit_width, mantissa_bit_width
 
 class QCDQCastWeightQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin):
     handled_layer = WeightQuantProxyFromInjector

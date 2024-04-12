@@ -30,25 +30,6 @@ from ..function import QuantizeLinearFn
 
 from warnings import warn
 
-
-class StdFloatDQCastONNXMixin(DQCastMixin, ABC):
-
-    def dequantize_fn(self, x, scale, zero_point, axis):
-        raise NotImplementedError()
-
-    def cast_fn(self, x, dtype):
-        raise NotImplementedError()
-
-    @property
-    def flatten_dequantize_params(self):
-        raise NotImplementedError()
-
-    @property
-    def itemize_quantize_scalar_params(self):
-        return False
-
-    def validate(self, module):
-        raise NotImplementedError()
     
 class StdDQCastONNXMixin(DQCastMixin, ABC):
 
@@ -69,6 +50,9 @@ class StdDQCastONNXMixin(DQCastMixin, ABC):
     def validate(self, module):
         assert module.bit_width() > 1., 'Binary quant not supported'
 
+class StdFloatDQCastONNXMixin(StdDQCastONNXMixin, ABC):
+    def validate(self, module):
+        pass
 
 class StdFloatCDQCastONNXMixin(CDQCastMixin, StdFloatDQCastONNXMixin, ABC):
 
@@ -82,11 +66,10 @@ class StdCDQCastONNXMixin(CDQCastMixin, StdDQCastONNXMixin, ABC):
 
 class StdFloatQCDQCastONNXMixin(FloatQMixin, StdFloatCDQCastONNXMixin, ABC):
     def validate(self, module):
-        warn("Needs to be implemented")
         pass
 
     def quantize_fn(self, x, scale, zero_point, dtype, axis):
-        raise NotImplementedError()
+        return QuantizeLinearFn.apply(x, scale, zero_point, dtype, axis)
 
 class StdQCDQCastONNXMixin(QMixin, StdCDQCastONNXMixin, ABC):
 

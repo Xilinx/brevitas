@@ -39,12 +39,6 @@ class QuantAxisMixin(ABC):
                 return i
         return None
 
-class FloatClipMixin(ABC):
-    @classmethod
-    def clip_symbolic_kwargs(cls, narrow, signed, exponent_bit_width, mantissa_bit_width):
-        warn("Not implemented for floating point")
-        return None
-
 class ClipMixin(ABC):
 
     @classmethod
