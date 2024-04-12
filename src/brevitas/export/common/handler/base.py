@@ -40,6 +40,13 @@ class QuantAxisMixin(ABC):
         return None
 
 
+class FloatClipMixin(ABC):
+
+    @classmethod
+    def clip_symbolic_kwargs(cls, narrow, signed, exponent_bit_width, mantissa_bit_width):
+        return None
+
+
 class ClipMixin(ABC):
 
     @classmethod

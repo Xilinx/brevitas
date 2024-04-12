@@ -21,6 +21,7 @@ from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector
 
 from .base import BitWidthHandlerMixin
 from .base import ClipMixin
+from .base import FloatClipMixin
 from .base import FloatZeroPointHandlerMixin
 from .base import QuantAxisMixin
 from .base import ZeroPointHandlerMixin
@@ -131,7 +132,11 @@ class DynamicQMixin(QMixin, ABC):
         pass
 
 
-class FloatCDQCastProxyHandlerMixin(QuantAxisMixin, FloatZeroPointHandlerMixin, CDQCastMixin, ABC):
+class FloatCDQCastProxyHandlerMixin(QuantAxisMixin,
+                                    FloatClipMixin,
+                                    FloatZeroPointHandlerMixin,
+                                    CDQCastMixin,
+                                    ABC):
 
     def dequantize_symbolic_kwargs(
             cls, scale, zero_point, exponent_bit_width, mantisssa_bit_width, is_signed):
@@ -235,6 +240,11 @@ class QCDQCastFloatWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHa
 
             self.symbolic_kwargs['exponent_bit_width'] = quant_weight.exponent_bit_width
             self.symbolic_kwargs['mantissa_bit_width'] = quant_weight.mantissa_bit_width
+            self.symbolic_kwargs['clip_symbolic_kwargs'] = self.clip_symbolic_kwargs(
+                module.is_narrow_range,
+                module.is_signed,
+                quant_weight.exponent_bit_width,
+                quant_weight.mantissa_bit_width)
             self.symbolic_kwargs['dequantize_symbolic_kwargs'] = self.dequantize_symbolic_kwargs(
                 scale,
                 quant_weight.zero_point,
@@ -271,12 +281,14 @@ class QCDQCastFloatWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHa
             x = self.quantize_from_floating_point(x, zero_point)
         else:
             x = self.quantize_from_integer(x)
-
+        clip_symbolic_kwargs = self.symbolic_kwargs['clip_symbolic_kwargs']
         exponent_bit_width = self.symbolic_kwargs['exponent_bit_width']
         mantissa_bit_width = self.symbolic_kwargs['mantissa_bit_width']
         scale_orig_shape = dequantize_symbolic_kwargs.pop('scale_orig_shape')
         # Workaround to trick the tracer into believing all return values are used
         self.assert_ge_zero(scale, exponent_bit_width, mantissa_bit_width)
+        if clip_symbolic_kwargs is not None:
+            x = self.clip_fn(x, *clip_symbolic_kwargs.values())
         x = self.dequantize_fn(x, *dequantize_symbolic_kwargs.values())
         # After dequantization, cast both input and scale to the correct dtype
         if self.scale_dtype == torch.float16 or self.scale_dtype == torch.bfloat16:
@@ -315,10 +327,7 @@ class QCDQCastWeightQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin):
             scale, quant_weight.zero_point, quant_weight.bit_width, module.is_signed)
 
     def prepare_quantize_from_integer(self, module):
-        int_weights = {
-            tm.weight.data_ptr(): tm.quant_weight().int(float_datatype=False)
-            for tm in module.tracked_module_list}
-        self.symbolic_kwargs['int_weights'] = int_weights
+        return self.symbolic_kwargs['int_weights'][x.data_ptr()]
 
     def prepare_for_export(self, module):
         if module.is_quant_enabled:
