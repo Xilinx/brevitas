@@ -210,7 +210,10 @@ class QCDQCastFloatWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHa
             module.is_signed)
 
     def prepare_quantize_from_integer(self, module):
-        raise NotImplementedError()
+        int_weights = {
+            tm.weight.data_ptr(): tm.quant_weight().int(float_datatype=False)
+            for tm in module.tracked_module_list}
+        self.symbolic_kwargs['int_weights'] = int_weights
 
     def prepare_for_export(self, module):
         if module.is_quant_enabled:
