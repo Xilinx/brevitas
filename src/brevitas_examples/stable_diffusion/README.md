@@ -1,6 +1,6 @@
 # Stable Diffusion Quantization
 
-It currently supports Stable Diffusion 2.1 and Stable Diffusion XL.
+It supports Stable Diffusion 2.1 and Stable Diffusion XL.
 
 The following PTQ techniques are currently supported:
 - Activation Equalization (e.g., SmoothQuant), layerwise (with the addition of Mul ops)
@@ -8,16 +8,18 @@ The following PTQ techniques are currently supported:
 - GPTQ
 - Bias Correction
 
-These techniques can be applied for both integer and floating point quantization
+These techniques can be applied for both integer and floating point quantization.
+Activation quantization is optional, and disabled by default. To enable, set both `conv-input-bit-width` and `linear-input-bit-width`.
 
 We support ONNX integer export, and we are planning to release soon export for floating point quantization (e.g., FP8).
-To export the model in fp16, enable `export-cuda-float16`. This will performing the tracing necessary for export on GPU, leaving the model in fp16.
-If the flag is not enabled, the model will be moved to CPU and cast to float32 before export because of missing CPU kernels in fp16.
 
-NB: when exporting Stable Diffusion XL, make sure to enable `is-sd-xl` flag. The flag is not needed when export is not executed.
+To export the model with fp16 scale factors, enable `export-cuda-float16`. This will performing the tracing necessary for export on GPU, leaving the model in fp16.
+If the flag is not enabled, the model will be moved to CPU and cast to float32 before export because of missing CPU kernels in fp16.
 
 
 ## Run
+
+```bash
 usage: main.py [-h] [-m MODEL] [-d DEVICE] [-b BATCH_SIZE] [--prompt PROMPT]
                [--resolution RESOLUTION]
                [--output-path OUTPUT_PATH | --no-output-path]
@@ -25,7 +27,7 @@ usage: main.py [-h] [-m MODEL] [-d DEVICE] [-b BATCH_SIZE] [--prompt PROMPT]
                [--activation-equalization | --no-activation-equalization]
                [--gptq | --no-gptq] [--float16 | --no-float16]
                [--attention-slicing | --no-attention-slicing]
-               [--is-sd-xl | --no-is-sd-xl] [--export-target {,onnx}]
+               [--export-target {,onnx}]
                [--export-weight-q-node | --no-export-weight-q-node]
                [--conv-weight-bit-width CONV_WEIGHT_BIT_WIDTH]
                [--linear-weight-bit-width LINEAR_WEIGHT_BIT_WIDTH]
@@ -79,10 +81,6 @@ options:
   --attention-slicing   Enable Enable attention slicing. Default: Disabled
   --no-attention-slicing
                         Disable Enable attention slicing. Default: Disabled
-  --is-sd-xl            Enable Enable this flag to correctly export SDXL.
-                        Default: Disabled
-  --no-is-sd-xl         Disable Enable this flag to correctly export SDXL.
-                        Default: Disabled
   --export-target {,onnx}
                         Target export flow.
   --export-weight-q-node
@@ -117,8 +115,8 @@ options:
                         Weight quantization type. Either int or eXmY, with
                         X+Y==weight_bit_width-1. Default: int.
   --input-quant-format INPUT_QUANT_FORMAT
-                        Weight quantization type. Either int or eXmY, with
-                        X+Y==weight_bit_width-1. Default: int.
+                        Input quantization type. Either int or eXmY, with
+                        X+Y==input_bit_width-1. Default: int.
   --weight-quant-granularity {per_channel,per_tensor,per_group}
                         Granularity for scales/zero-point of weights. Default:
                         per_channel.
@@ -139,3 +137,4 @@ options:
                         Enable Export FP16 on CUDA. Default: Disabled
   --no-export-cuda-float16
                         Disable Export FP16 on CUDA. Default: Disabled
+```

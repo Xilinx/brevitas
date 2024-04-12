@@ -11,12 +11,12 @@ import time
 
 from dependencies import value
 from diffusers import DiffusionPipeline
+from diffusers import StableDiffusionXLPipeline
 import torch
 from torch import nn
 from tqdm import tqdm
 
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
-from brevitas.export.torch.qcdq.manager import TorchQCDQManager
 from brevitas.graph.calibrate import bias_correction_mode
 from brevitas.graph.calibrate import calibration_mode
 from brevitas.graph.equalize import activation_equalization_mode
@@ -96,6 +96,9 @@ def main(args):
     print(f"Loading model from {args.model}...")
     pipe = DiffusionPipeline.from_pretrained(args.model, torch_dtype=dtype)
     print(f"Model loaded from {args.model}.")
+
+    # Detect Stable Diffusion XL pipeline
+    is_sd_xl = isinstance(pipe, StableDiffusionXLPipeline)
 
     # Enable attention slicing
     if args.attention_slicing:
@@ -226,7 +229,7 @@ def main(args):
         dtype = next(iter(pipe.unet.parameters())).dtype
 
         # Define tracing input
-        if args.is_sd_xl:
+        if is_sd_xl:
             generate_fn = generate_unet_xl_rand_inputs
             shape = SD_XL_EMBEDDINGS_SHAPE
         else:
@@ -287,11 +290,6 @@ if __name__ == "__main__":
         'attention-slicing',
         default=False,
         help='Enable attention slicing. Default: Disabled')
-    add_bool_arg(
-        parser,
-        'is-sd-xl',
-        default=False,
-        help='Enable this flag to correctly export SDXL. Default: Disabled')
     parser.add_argument(
         '--export-target', type=str, default='', choices=['', 'onnx'], help='Target export flow.')
     add_bool_arg(
@@ -362,7 +360,7 @@ if __name__ == "__main__":
         type=quant_format_validator,
         default='int',
         help=
-        'Weight quantization type. Either int or eXmY, with X+Y==weight_bit_width-1. Default: int.')
+        'Input quantization type. Either int or eXmY, with X+Y==input_bit_width-1. Default: int.')
     parser.add_argument(
         '--weight-quant-granularity',
         type=str,
