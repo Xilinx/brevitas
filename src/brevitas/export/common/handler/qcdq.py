@@ -264,10 +264,7 @@ class QCDQCastFloatWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHa
         return x
 
     def quantize_from_integer(self, x: Tensor):
-        int_weights = {
-            tm.weight.data_ptr(): tm.quant_weight().int(float_datatype=False)
-            for tm in module.tracked_module_list}
-        self.symbolic_kwargs['int_weights'] = int_weights
+        return self.symbolic_kwargs['int_weights'][x.data_ptr()]
 
     def symbolic_execution(self, x: Tensor):
         assert self.symbolic_kwargs is not None, 'Symbolic execution requires quant to be enabled'
@@ -327,7 +324,10 @@ class QCDQCastWeightQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin):
             scale, quant_weight.zero_point, quant_weight.bit_width, module.is_signed)
 
     def prepare_quantize_from_integer(self, module):
-        return self.symbolic_kwargs['int_weights'][x.data_ptr()]
+        int_weights = {
+            tm.weight.data_ptr(): tm.quant_weight().int(float_datatype=False)
+            for tm in module.tracked_module_list}
+        self.symbolic_kwargs['int_weights'] = int_weights
 
     def prepare_for_export(self, module):
         if module.is_quant_enabled:
