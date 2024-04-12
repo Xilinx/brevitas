@@ -8,7 +8,7 @@ import torch
 from brevitas import torch_version
 from brevitas.export import export_onnx_qcdq
 import brevitas.nn as qnn
-from brevitas.quant.experimental.scaled_float import Fp8e4m3OCPWeightPerTensorFloat
+from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPWeightPerTensorFloat
 
 
 def test_simple_fp8_export():
