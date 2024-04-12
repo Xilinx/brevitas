@@ -56,7 +56,7 @@ def test_float_clamp(inp, fp8_clamp):
         assert (inp[over_limit_mask].abs() == max_val).all()
     else:
         # if inf_values, over limit mask should now be all inf
-        if fp8_clamp.float_clamp_impl.has_inf_values:
+        if fp8_clamp.float_clamp_impl.inf_values:
             # all values exceeding max_val should be inf
             assert inp[over_limit_mask].isinf().all()
         else:
