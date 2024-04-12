@@ -20,10 +20,10 @@ from .handler import StdDynamicQDQCastONNXActQuantProxyHandler
 from .handler import StdQCDQCastONNXActQuantProxyHandler
 from .handler import StdQCDQCastONNXDecoupledWeightQuantProxyHandler
 from .handler import StdQCDQCastONNXDecoupledWeightQuantWithInputProxyHandler
+from .handler import StdQCDQCastONNXFloatWeightQuantProxyHandler
 from .handler import StdQCDQCastONNXQuantLSTMLayerHandler
 from .handler import StdQCDQCastONNXTruncQuantProxyHandler
 from .handler import StdQCDQCastONNXWeightQuantProxyHandler
-from .handler import StdQCDQCastONNXFloatWeightQuantProxyHandler
 
 
 class StdQCDQONNXManager(StdONNXBaseManager):

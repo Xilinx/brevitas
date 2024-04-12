@@ -117,7 +117,13 @@ class FloatWeightQuantProxyFromInjector(ParameterQuantProxyFromInjector, WeightQ
             warn("This code should be replace with FloatQuantTensor when it becomes")
             impl = self.export_handler if self.export_mode else self.tensor_quant
             out, scale, zero_point, exponent_bit_width, mantissa_bit_width = impl(x)
-            qt = QuantTensor(out, scale, zero_point, exponent_bit_width+mantissa_bit_width, self.is_signed, self.training)
+            qt = QuantTensor(
+                out,
+                scale,
+                zero_point,
+                exponent_bit_width + mantissa_bit_width,
+                self.is_signed,
+                self.training)
             qt.exponent_bit_width = exponent_bit_width
             qt.mantissa_bit_width = mantissa_bit_width
             #!!!!!!!!!   PLACEHOLDER CODE   !!!!!!!!!

@@ -4,6 +4,7 @@
 from abc import ABC
 from abc import abstractmethod
 import math
+from warnings import warn
 
 import torch
 from torch import Tensor
@@ -12,9 +13,8 @@ from torch.nn import Module
 from brevitas.function.ops import max_int
 from brevitas.function.ops import min_int
 
-from warnings import warn
-
-__all__ = ['BaseHandler', 'BitWidthHandlerMixin', 'ZeroPointHandlerMixin', 'FloatZeroPointHandlerMixin']
+__all__ = [
+    'BaseHandler', 'BitWidthHandlerMixin', 'ZeroPointHandlerMixin', 'FloatZeroPointHandlerMixin']
 
 
 class BaseHandler(Module, ABC):
@@ -38,6 +38,7 @@ class QuantAxisMixin(ABC):
             if s != 1:
                 return i
         return None
+
 
 class ClipMixin(ABC):
 
@@ -114,6 +115,7 @@ class ScaleHandlerMixin(ABC):
 
 
 class FloatZeroPointHandlerMixin(ABC):
+
     @classmethod
     def zero_point_with_dtype(cls, signed, exponent_bit_width, mantissa_bit_width, zero_point):
         if exponent_bit_width == 4 and mantissa_bit_width == 3:
@@ -122,6 +124,7 @@ class FloatZeroPointHandlerMixin(ABC):
             return zero_point.type(torch.float8_e5m2)
         else:
             return zero_point.type(torch.float32)
+
 
 class ZeroPointHandlerMixin(ABC):
 

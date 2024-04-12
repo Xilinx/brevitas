@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from abc import ABC
+from warnings import warn
 
 import torch
 
@@ -10,15 +11,15 @@ from brevitas.export.common.handler.qcdq import CDQCastMixin
 from brevitas.export.common.handler.qcdq import DQCastMixin
 from brevitas.export.common.handler.qcdq import DynamicQDQCastActQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import DynamicQMixin
+from brevitas.export.common.handler.qcdq import FloatQMixin
 from brevitas.export.common.handler.qcdq import QCDQCastActQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQCastDecoupledWeightQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import \
     QCDQCastDecoupledWeightQuantWithInputProxyHandlerMixin
+from brevitas.export.common.handler.qcdq import QCDQCastFloatWeightQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQCastTruncQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQCastWeightQuantProxyHandlerMixin
-from brevitas.export.common.handler.qcdq import QCDQCastFloatWeightQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QMixin
-from brevitas.export.common.handler.qcdq import FloatQMixin
 from brevitas.export.onnx.handler import ONNXBaseHandler
 from brevitas.export.onnx.handler import QuantLSTMLayerHandler
 
@@ -28,9 +29,7 @@ from ..function import DynamicQuantizeLinearFn
 from ..function import IntClipFn
 from ..function import QuantizeLinearFn
 
-from warnings import warn
 
-    
 class StdDQCastONNXMixin(DQCastMixin, ABC):
 
     def dequantize_fn(self, x, scale, zero_point, axis):
@@ -50,26 +49,33 @@ class StdDQCastONNXMixin(DQCastMixin, ABC):
     def validate(self, module):
         assert module.bit_width() > 1., 'Binary quant not supported'
 
+
 class StdFloatDQCastONNXMixin(StdDQCastONNXMixin, ABC):
+
     def validate(self, module):
         pass
+
 
 class StdFloatCDQCastONNXMixin(CDQCastMixin, StdFloatDQCastONNXMixin, ABC):
 
     def clip_fn(self, x, min_val, max_val):
         return IntClipFn.apply(x, min_val, max_val)
 
+
 class StdCDQCastONNXMixin(CDQCastMixin, StdDQCastONNXMixin, ABC):
 
     def clip_fn(self, x, min_val, max_val):
         return IntClipFn.apply(x, min_val, max_val)
 
+
 class StdFloatQCDQCastONNXMixin(FloatQMixin, StdFloatCDQCastONNXMixin, ABC):
+
     def validate(self, module):
         pass
 
     def quantize_fn(self, x, scale, zero_point, dtype, axis):
         return QuantizeLinearFn.apply(x, scale, zero_point, dtype, axis)
+
 
 class StdQCDQCastONNXMixin(QMixin, StdCDQCastONNXMixin, ABC):
 
