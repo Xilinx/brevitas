@@ -72,7 +72,7 @@ class FloatQMixin(ABC):
 
     @abstractmethod
     def quantize_fn(self, x, scale, zero_point, dtype, axis):
-        raise NotImplementedError()
+        pass
 
     @classmethod
     def signed_dtype(cls, exponent_bit_width, mantissa_bit_width, is_signed):
