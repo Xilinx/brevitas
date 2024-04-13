@@ -76,6 +76,7 @@ def test_layerwise_10_in_channels_quantize_model(
 
     We test:
     - We can feed data through the model.
+    - THe modules are of the Quant type.
     - That the weight, bias and input/output quantization is as expected (only test the first layer).
     - That the bit widths are as desired.
     """
@@ -108,12 +109,15 @@ def test_layerwise_10_in_channels_quantize_model(
     first_layer = quant_model.get_submodule('0')
     first_layer_output = first_layer(torch.rand(1, 10, IMAGE_DIM, IMAGE_DIM))
 
+    # Assert the module types are as desired
+    assert isinstance(first_layer, QuantConv2d)
+
     # Assert only weight is quantized by default
     # However, here input and bias are also quantized
-    assert first_layer.is_weight_quant_enabled
-    assert first_layer.is_bias_quant_enabled
-    assert first_layer.is_input_quant_enabled  # unlike with the fx backend, the input quantization is enabled.
-    assert not first_layer.is_output_quant_enabled
+    assert first_layer.weight_quant.is_quant_enabled
+    assert first_layer.bias_quant.is_quant_enabled
+    assert first_layer.input_quant.is_quant_enabled  # unlike with the fx backend, the input quantization is enabled.
+    assert not first_layer.output_quant.is_quant_enabled
     # NOTE: The `layerwise` backend also differs from the `fx` backend in that: the input quantization is enabled
     # for the first Conv layer by default in the `layerwise`, whereas it is disabled in the `fx` backend. However,
     # in practice this is because the `fx` backend introduces an extra quantization module (i.e. QuantIdentity) before
@@ -125,9 +129,9 @@ def test_layerwise_10_in_channels_quantize_model(
     assert first_layer.bias_quant.tensor_quant.msb_clamp_bit_width_impl.bit_width._buffers[
         'value'].item() == bias_bit_width
     # Weights
-    assert first_layer.quant_weight_bit_width().item() == weight_bit_width
+    assert first_layer.weight_quant.bit_width().item() == weight_bit_width
     # Activations
-    assert first_layer.quant_input_bit_width().item() == act_bit_width
+    assert first_layer.input_quant.bit_width().item() == act_bit_width
 
 
 @pytest.mark.parametrize("weight_bit_width", [9, 16])
@@ -168,9 +172,9 @@ def test_layerwise_3_in_channels_quantize_model(
     assert first_layer.bias_quant.tensor_quant.msb_clamp_bit_width_impl.bit_width._buffers[
         'value'].item() == bias_bit_width
     # Weights
-    assert first_layer.quant_weight_bit_width().item() == layerwise_first_last_bit_width
+    assert first_layer.weight_quant.bit_width().item() == layerwise_first_last_bit_width
     # Activations
-    assert first_layer.quant_input_bit_width().item() == layerwise_first_last_bit_width
+    assert first_layer.input_quant.bit_width().item() == layerwise_first_last_bit_width
 
 
 @pytest.mark.parametrize("weight_bit_width", [2, 8, 16])
@@ -210,14 +214,18 @@ def test_fx_model(simple_model, weight_bit_width, bias_bit_width, act_bit_width)
     last_layer = quant_model.get_submodule('6')
     last_layer_output = quant_model.get_submodule('_6_output_quant')
 
-    # Check quantization is toggled as expected
-    assert first_conv_layer.is_weight_quant_enabled
-    assert first_conv_layer.is_bias_quant_enabled
-    assert not first_conv_layer.is_input_quant_enabled  # unlike with the layerwise backend, the input quantization is disabled.
-    assert not first_conv_layer.is_output_quant_enabled
+    # Assert the module types are as desired
+    assert isinstance(first_conv_layer, QuantConv2d)
+    assert isinstance(last_layer, QuantLinear)
 
-    assert not first_relu_layer.is_input_quant_enabled
-    assert first_relu_layer.is_output_quant_enabled  # the output of the "fused" ConvReLU is quantized
+    # Check quantization is toggled as expected
+    assert first_conv_layer.weight_quant.is_quant_enabled
+    assert first_conv_layer.bias_quant.is_quant_enabled
+    assert not first_conv_layer.input_quant.is_quant_enabled  # unlike with the layerwise backend, the input quantization is disabled.
+    assert not first_conv_layer.output_quant.is_quant_enabled
+
+    assert not first_relu_layer.input_quant.is_quant_enabled
+    assert first_relu_layer.act_quant.is_quant_enabled  # the output of the "fused" ConvReLU is quantized
 
     # Assert types are as expected
     assert isinstance(quant_model.get_submodule('3'), QuantReLU)
@@ -229,11 +237,11 @@ def test_fx_model(simple_model, weight_bit_width, bias_bit_width, act_bit_width)
     assert last_layer.bias_quant.tensor_quant.msb_clamp_bit_width_impl.bit_width._buffers[
         'value'].item() == bias_bit_width
     # Weights
-    assert first_conv_layer.quant_weight_bit_width().item() == weight_bit_width
-    assert last_layer.quant_weight_bit_width().item() == weight_bit_width
+    assert first_conv_layer.weight_quant.bit_width().item() == weight_bit_width
+    assert last_layer.weight_quant.bit_width().item() == weight_bit_width
     # Activations
-    assert first_relu_layer.quant_output_bit_width().item() == act_bit_width
-    assert last_layer_output.quant_output_bit_width().item() == act_bit_width
+    assert first_relu_layer.act_quant.bit_width().item() == act_bit_width
+    assert last_layer_output.act_quant.bit_width().item() == act_bit_width
 
 
 def test_po2_layerwise_quantization(simple_model):
@@ -268,10 +276,10 @@ def test_po2_layerwise_quantization(simple_model):
     last_layer = quant_model.get_submodule('6')
 
     # Assert scales are powers of 2 as expected
-    assert torch.isclose(torch.log2(first_conv_layer.quant_input_scale()) % 1, torch.Tensor([0.0]))
-    assert torch.isclose(torch.log2(first_conv_layer.quant_weight_scale()) % 1, torch.Tensor([0.0]))
-    assert torch.isclose(torch.log2(last_layer.quant_input_scale()) % 1, torch.Tensor([0.0]))
-    assert torch.isclose(torch.log2(last_layer.quant_weight_scale()) % 1, torch.Tensor([0.0]))
+    assert torch.isclose(torch.log2(first_conv_layer.input_quant.scale()) % 1, torch.Tensor([0.0]))
+    assert torch.isclose(torch.log2(first_conv_layer.weight_quant.scale()) % 1, torch.Tensor([0.0]))
+    assert torch.isclose(torch.log2(last_layer.input_quant.scale()) % 1, torch.Tensor([0.0]))
+    assert torch.isclose(torch.log2(last_layer.weight_quant.scale()) % 1, torch.Tensor([0.0]))
 
     # Assert quantization bit widths are as desired
     # Biases
@@ -280,10 +288,10 @@ def test_po2_layerwise_quantization(simple_model):
     assert last_layer.bias_quant.tensor_quant.msb_clamp_bit_width_impl.bit_width._buffers[
         'value'].item() == bias_bit_width
     # Weights
-    assert first_conv_layer.quant_weight_bit_width().item() == weight_bit_width
-    assert last_layer.quant_weight_bit_width().item() == weight_bit_width
+    assert first_conv_layer.weight_quant.bit_width().item() == weight_bit_width
+    assert last_layer.weight_quant.bit_width().item() == weight_bit_width
     # Activation
-    assert first_conv_layer.quant_input_bit_width().item() == act_bit_width
+    assert first_conv_layer.input_quant.bit_width().item() == act_bit_width
 
 
 def test_invalid_input(simple_model):
@@ -318,7 +326,7 @@ def test_invalid_input(simple_model):
             quant_format='int',
         )
     # Test that zero values are invalid for bit widths
-    with pytest.raises(Exception):
+    with pytest.raises(AssertionError):
         quantize_model(
             model=fx_model,
             backend='fx',
@@ -332,7 +340,7 @@ def test_invalid_input(simple_model):
             quant_format='int',
         )
     # Test that negative values are invalid for bit widths
-    with pytest.raises(Exception):
+    with pytest.raises(AssertionError):
         quantize_model(
             model=fx_model,
             backend='fx',

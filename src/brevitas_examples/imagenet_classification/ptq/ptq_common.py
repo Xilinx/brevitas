@@ -602,4 +602,5 @@ def check_positive_int(*args):
         if arg is None:
             continue
         assert arg > 0.0
+        assert not math.isclose(arg, 0.0)
         assert math.isclose(arg % 1, 0.0)
