@@ -587,12 +587,6 @@ def test_layerwise_10_in_channels_quantize_model(
         scale_factor_type='float_scale',
         quant_format='int',
         layerwise_first_last_bit_width=layerwise_first_last_bit_width,
-        #layerwise_first_last_mantissa_bit_width=10,
-        #layerwise_first_last_exponent_bit_width=10,
-        #weight_mantissa_bit_width=10,
-        #weight_exponent_bit_width=10,
-        #act_mantissa_bit_width=layerwise_first_last_bit_width,
-        #act_exponent_bit_width=layerwise_first_last_bit_width,
     )
     assert isinstance(quant_model, nn.Sequential)
 
