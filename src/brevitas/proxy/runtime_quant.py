@@ -81,6 +81,20 @@ class FusedActivationQuantProxy(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def forward(self, x):
         x = self.activation_impl(x)
+        x, output_scale, output_zp, output_bit_width = self.tensor_quant(x)
+        return x, output_scale, output_zp, output_bit_width
+
+
+class FloatFusedActivationQuantProxy(brevitas.jit.ScriptModule):
+
+    def __init__(self, activation_impl, tensor_quant):
+        super(FloatFusedActivationQuantProxy, self).__init__()
+        self.activation_impl = activation_impl
+        self.tensor_quant = tensor_quant
+
+    @brevitas.jit.script_method
+    def forward(self, x):
+        x = self.activation_impl(x)
         x, output_scale, output_zp, output_exponent_bit_width, output_mantissa_bit_width = self.tensor_quant(x)
         return x, output_scale, output_zp, output_exponent_bit_width, output_mantissa_bit_width
 
@@ -207,6 +221,27 @@ class ActQuantProxyFromInjector(QuantProxyFromInjector, ActQuantProxyProtocol):
 
 
 class FloatActQuantProxyFromInjector(ActQuantProxyFromInjector):
+
+    def init_tensor_quant(self):
+        tensor_quant = self.quant_injector.tensor_quant
+        if 'act_impl' in self.quant_injector:
+            act_impl = self.quant_injector.act_impl
+        else:
+            act_impl = None
+        is_act_enabled = _is_act_enabled(act_impl, tensor_quant)
+        is_quant_enabled = tensor_quant is not None
+        self.is_quant_enabled = is_quant_enabled
+        if is_act_enabled and is_quant_enabled:
+            self.fused_activation_quant_proxy = FloatFusedActivationQuantProxy(
+                act_impl, tensor_quant)
+        elif is_act_enabled and not is_quant_enabled:
+            self.fused_activation_quant_proxy = FloatFusedActivationQuantProxy(
+                act_impl, _TensorQuantDisabledIdentity())
+        elif not is_act_enabled and is_quant_enabled:
+            self.fused_activation_quant_proxy = FloatFusedActivationQuantProxy(
+                Identity(), tensor_quant)
+        else:
+            self.fused_activation_quant_proxy = None
 
     def exponent_bit_width(self, force_eval=True):
         if self.is_quant_enabled:
