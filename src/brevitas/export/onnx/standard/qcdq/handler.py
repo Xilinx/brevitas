@@ -137,7 +137,7 @@ class StdDynamicQDQCastONNXMixin(DynamicQMixin, StdDQCastONNXMixin, ABC):
         return DynamicQuantizeLinearFn.apply(x, dtype)
 
 
-class StdQCDQCastONNXFloatWeightQuantProxyHandler(StdFloatQCDQCastONNXMixin,
+class StdFloatQCDQCastONNXWeightQuantProxyHandler(StdFloatQCDQCastONNXMixin,
                                                   FloatQCDQCastWeightQuantProxyHandlerMixin,
                                                   ONNXBaseHandler):
     _export_q_node = False
@@ -161,7 +161,7 @@ class StdQCDQCastONNXDecoupledWeightQuantWithInputProxyHandler(
     _export_q_node = False
 
 
-class StdQCDQCastONNXFloatActQuantProxyHandler(StdFloatQCDQCastONNXMixin,
+class StdFloatQCDQCastONNXActQuantProxyHandler(StdFloatQCDQCastONNXMixin,
                                                FloatQCDQCastActQuantProxyHandlerMixin,
                                                ONNXBaseHandler):
     pass

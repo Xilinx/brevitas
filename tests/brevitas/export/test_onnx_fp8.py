@@ -41,6 +41,6 @@ def test_fp8_export_export_activation():
 
 
 if __name__ == "__main__":
-    test_fp8_export_activation()
-    #test_fp8_export_export_activation()
+    #test_fp8_export_activation()
+    test_fp8_export_export_activation()
     print("Done")
