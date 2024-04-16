@@ -127,6 +127,7 @@ class ONNXBaseManager(BaseManager, ABC):
                     else:
                         model_bytes = BytesIO()
                         export_target = model_bytes
+                    onnx_export_kwargs['verbose'] = True
                     torch.onnx.export(module, args, export_target, **onnx_export_kwargs)
 
                     # restore the model to previous properties

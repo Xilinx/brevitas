@@ -184,7 +184,7 @@ class CDQCastProxyHandlerMixin(QuantAxisMixin, ClipMixin, ZeroPointHandlerMixin,
             'scale_orig_shape': scale_orig_shape}
 
 
-class QCDQCastFloatWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHandlerMixin):
+class FloatQCDQCastWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHandlerMixin):
     handled_layer = FloatWeightQuantProxyFromInjector
 
     def quantize_symbolic_kwargs(
