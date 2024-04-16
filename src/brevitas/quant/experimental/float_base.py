@@ -8,7 +8,7 @@ from brevitas.core.scaling.float_scaling import FloatScaling
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import value
 from brevitas.proxy.parameter_quant import FloatWeightQuantProxyFromInjector
-from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector
+from brevitas.proxy.runtime_quant import FloatActQuantProxyFromInjector
 from brevitas.quant.solver import ActQuantSolver
 from brevitas.quant.solver import WeightQuantSolver
 from brevitas.quant.solver.common import SolveTensorQuantFloatToIntImplFromEnum
@@ -32,7 +32,7 @@ class FloatWeightBase(FloatBase):
 
 
 class FloatActBase(FloatBase):
-    proxy_class = ActQuantProxyFromInjector
+    proxy_class = FloatActQuantProxyFromInjector
 
 
 class ScaledFloatWeightBase(FloatWeightBase, WeightQuantSolver):

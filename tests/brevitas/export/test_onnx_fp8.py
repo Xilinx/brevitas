@@ -8,6 +8,7 @@ import torch
 from brevitas import torch_version
 from brevitas.export import export_onnx_qcdq
 import brevitas.nn as qnn
+from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPActPerTensorFloat
 from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPWeightPerTensorFloat
 
 
@@ -20,6 +21,15 @@ def test_simple_fp8_export():
     assert True
 
 
+def test_fp8_export_activation():
+    if torch_version < version.parse('2.1.0'):
+        pytest.skip(f"OCP FP8 types not supported by {torch_version}")
+
+    model = qnn.QuantLinear(3, 16, input_quant=Fp8e4m3OCPActPerTensorFloat)
+    export_onnx_qcdq(model, torch.randn(1, 3), 'test.onnx', export_weight_q_node=True)
+    assert True
+
+
 if __name__ == "__main__":
-    test_simple_fp8_export()
+    test_fp8_export_activation()
     print("Done")

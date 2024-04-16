@@ -8,4 +8,5 @@ from .parameter_quant import FloatWeightQuantProxyFromInjector
 from .parameter_quant import WeightQuantProxyFromInjector
 from .runtime_quant import ActQuantProxyFromInjector
 from .runtime_quant import ClampQuantProxyFromInjector
+from .runtime_quant import FloatActQuantProxyFromInjector
 from .runtime_quant import TruncQuantProxyFromInjector
