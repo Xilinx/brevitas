@@ -255,10 +255,9 @@ class FloatQCDQCastWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHa
         else:
             self.symbolic_kwargs = None
 
-    def quantize_from_floating_point(self, x: Tensor, zp):
+    def quantize_from_floating_point(self, x: Tensor):
         # Workaround for equal_cpu RuntimeError
         quantize_symbolic_kwargs = self.symbolic_kwargs['quantize_symbolic_kwargs']
-        quantize_symbolic_kwargs['zero_point'] = zp
         # Before quantization, cast input to float32
         if self.scale_dtype == torch.float16 or self.scale_dtype == torch.bfloat16:
             x = self.cast_fn(x, torch.float32)
@@ -277,7 +276,7 @@ class FloatQCDQCastWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHa
         zero_point = dequantize_symbolic_kwargs['zero_point']
 
         if self._export_q_node:
-            x = self.quantize_from_floating_point(x, zero_point)
+            x = self.quantize_from_floating_point(x)
         else:
             x = self.quantize_from_integer(x)
         clip_symbolic_kwargs = self.symbolic_kwargs['clip_symbolic_kwargs']
@@ -483,9 +482,6 @@ class FloatQCDQCastActQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHandl
         clip_symbolic_kwargs = self.symbolic_kwargs['clip_symbolic_kwargs']
         exponent_bit_width = self.symbolic_kwargs['exponent_bit_width']
         mantissa_bit_width = self.symbolic_kwargs['mantissa_bit_width']
-
-        # Workaround to trick the tracer into believing all return values are used
-        quantize_symbolic_kwargs['zero_point'] = zero_point
 
         self.assert_ge_zero(scale, exponent_bit_width, mantissa_bit_width)
         # If original dtype of the input is (b)float16, cast the input to float32

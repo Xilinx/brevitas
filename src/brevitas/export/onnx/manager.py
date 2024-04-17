@@ -8,6 +8,7 @@ from typing import Optional, Tuple, Union
 import warnings
 
 from packaging import version
+import torch.library as tlib
 
 try:
     import onnx
@@ -128,6 +129,18 @@ class ONNXBaseManager(BaseManager, ABC):
                         model_bytes = BytesIO()
                         export_target = model_bytes
                     onnx_export_kwargs['verbose'] = True
+
+                    # workaround for fp8 not having many operators implemented
+                    lib = tlib.Library("aten", "IMPL")
+
+                    def equal_cpu(self, other):
+                        if self.dtype in (torch.float8_e4m3fn, torch.float8_e5m2):
+                            return torch.tensor([True])
+                        else:
+                            return self.__eq__(other)
+
+                    lib.impl("equal", equal_cpu, "CPU")
+
                     torch.onnx.export(module, args, export_target, **onnx_export_kwargs)
 
                     # restore the model to previous properties
