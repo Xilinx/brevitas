@@ -41,7 +41,10 @@ class Fp8Workaround():
             self.lib = torch.library.Library("aten", "IMPL")
 
             def equal_cpu(self, other):
-                if self.dtype in (torch.float8_e4m3fn, torch.float8_e5m2):
+                if (isinstance(self, Tensor) and
+                        self.dtype in (torch.float8_e4m3fn, torch.float8_e5m2)) or (
+                            isinstance(other, Tensor) and
+                            other.dtype in (torch.float8_e4m3fn, torch.float8_e5m2)):
                     return torch.tensor([True])
                 else:
                     return self.__eq__(other)
