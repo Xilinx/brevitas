@@ -128,7 +128,6 @@ class ONNXBaseManager(BaseManager, ABC):
                     else:
                         model_bytes = BytesIO()
                         export_target = model_bytes
-                    onnx_export_kwargs['verbose'] = True
 
                     # workaround for fp8 not having many operators implemented
                     lib = tlib.Library("aten", "IMPL")
