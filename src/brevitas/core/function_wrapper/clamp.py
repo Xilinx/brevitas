@@ -146,7 +146,7 @@ class FloatClamp(brevitas.jit.ScriptModule):
                 x[inf_mask] = torch.tensor(float('nan'))
             else:
                 raise RuntimeError(
-                    "Clamping is not saturaing, but neither `inf_values` nor `nan_values` is specified"
+                    "Clamping is not saturating, but neither `inf_values` nor `nan_values` is specified"
                 )
 
         return x
