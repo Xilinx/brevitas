@@ -8,7 +8,6 @@ from typing import Optional, Tuple, Union
 import warnings
 
 from packaging import version
-import torch.library as tlib
 
 try:
     import onnx
@@ -29,6 +28,28 @@ from ..manager import _override_act_caching_mode
 from ..manager import _restore_act_caching_mode
 from ..manager import BaseManager
 from ..manager import ExportContext
+
+
+# workaround for fp8 not having many operators implemented
+class Fp8Workaround():
+
+    def __init__(self):
+        pass
+
+    def __enter__(self):
+        if torch_version >= version.parse('2.1.0'):
+            self.lib = torch.library.Library("aten", "IMPL")
+
+            def equal_cpu(self, other):
+                if self.dtype in (torch.float8_e4m3fn, torch.float8_e5m2):
+                    return torch.tensor([True])
+                else:
+                    return self.__eq__(other)
+
+            self.lib.impl("equal", equal_cpu, "CPU")
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        self.lib = None
 
 
 class ONNXBaseManager(BaseManager, ABC):
@@ -129,18 +150,8 @@ class ONNXBaseManager(BaseManager, ABC):
                         model_bytes = BytesIO()
                         export_target = model_bytes
 
-                    # workaround for fp8 not having many operators implemented
-                    lib = tlib.Library("aten", "IMPL")
-
-                    def equal_cpu(self, other):
-                        if self.dtype in (torch.float8_e4m3fn, torch.float8_e5m2):
-                            return torch.tensor([True])
-                        else:
-                            return self.__eq__(other)
-
-                    lib.impl("equal", equal_cpu, "CPU")
-
-                    torch.onnx.export(module, args, export_target, **onnx_export_kwargs)
+                    with Fp8Workaround():
+                        torch.onnx.export(module, args, export_target, **onnx_export_kwargs)
 
                     # restore the model to previous properties
                     module.apply(lambda m: _restore_act_caching_mode(m))
