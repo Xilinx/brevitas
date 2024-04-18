@@ -1,6 +1,8 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from dependencies import value
+
 from brevitas.quant.base import MSESymmetricScale
 from brevitas.quant.experimental.float_base import FloatActBase
 from brevitas.quant.experimental.float_base import FloatWeightBase
@@ -8,16 +10,41 @@ from brevitas.quant.experimental.float_base import Fp8e4m3Mixin
 from brevitas.quant.experimental.float_base import Fp8e5m2Mixin
 from brevitas.quant.experimental.float_base import ScaledFloatActBase
 from brevitas.quant.experimental.float_base import ScaledFloatWeightBase
+from brevitas.utils.float_quant_utils import get_max_available_float
 
 
 class Fp8e4m3OCPMixin(Fp8e4m3Mixin):
     nan_values = (('111',))
     inf_values = None
 
+    @value
+    def max_available_float(
+            exponent_bit_width, mantissa_bit_width, exponent_bias, nan_values, inf_values,
+            saturating):
+        return get_max_available_float(
+            exponent_bit_width,
+            mantissa_bit_width,
+            exponent_bias,
+            nan_values,
+            inf_values,
+            saturating)
+
 
 class Fp8e5m2OCPMixin(Fp8e5m2Mixin):
     nan_values = ('01', '11', '10')
     inf_values = (('00',))
+
+    @value
+    def max_available_float(
+            exponent_bit_width, mantissa_bit_width, exponent_bias, nan_values, inf_values,
+            saturating):
+        return get_max_available_float(
+            exponent_bit_width,
+            mantissa_bit_width,
+            exponent_bias,
+            nan_values,
+            inf_values,
+            saturating)
 
 
 class Fp8e4m3OCPWeight(Fp8e4m3OCPMixin, FloatWeightBase):

@@ -5,12 +5,13 @@
 Implementation of various core operations often performed as part of quantization.
 The implemented functions adheres to the restriction imposed by Pytorch 1.1.0's TorchScript compiler.
 """
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 import torch
 from torch import Tensor
 
 import brevitas
+from brevitas.utils.float_quant_utils import get_minifloat_value
 
 
 @brevitas.jit.script

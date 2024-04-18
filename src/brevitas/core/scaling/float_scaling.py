@@ -1,7 +1,7 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from typing import Optional
+from typing import List, Optional, Tuple
 
 import torch
 from torch import Tensor
@@ -15,18 +15,28 @@ class FloatScaling(brevitas.jit.ScriptModule):
 
     def __init__(
             self,
-            exponent_bit_width: int,
-            mantissa_bit_width: int,
-            exponent_bias: int,
+            max_available_float: Optional[float] = None,
+            inf_values: Optional[Tuple[str]] = None,
+            nan_values: Optional[Tuple[str]] = None,
+            saturating: bool = True,
             device: Optional[str] = None,
             dtype: Optional[torch.dtype] = None):
         super(FloatScaling, self).__init__()
-        exponent_bit_width = torch.tensor(exponent_bit_width, device=device, dtype=dtype)
-        mantissa_bit_width = torch.tensor(mantissa_bit_width, device=device, dtype=dtype)
-        exponent_bias = torch.tensor(exponent_bias, device=device, dtype=dtype)
-        self.max_float_val = StatelessBuffer(
-            max_float(exponent_bit_width, mantissa_bit_width, exponent_bias))
+        self.inf_values = inf_values
+        self.nan_values = nan_values
+        self.saturating = saturating
+
+        if max_available_float:
+            max_available_float = torch.tensor(max_available_float, device=device, dtype=dtype)
+            self.max_available_float = StatelessBuffer(max_available_float)
+        else:
+            self.max_available_float = None
 
     @brevitas.jit.script_method
-    def forward(self, input: torch.Tensor) -> Tensor:
-        return self.max_float_val()
+    def forward(
+            self, exponent_bit_width: Tensor, mantissa_bit_width: Tensor,
+            exponent_bias: Tensor) -> Tensor:
+        max_value = max_float(exponent_bit_width, mantissa_bit_width, exponent_bias)
+        max_value = max_value if self.max_available_float is None else torch.min(
+            max_value, self.max_available_float())
+        return max_value
