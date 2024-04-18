@@ -47,38 +47,19 @@ class TruncAvgPool2d(TruncMixin, QuantLayerMixin, AvgPool2d):
     def requires_export_handler(self):
         return True
 
-    @property
-    def _avg_scaling(self):
-        if isinstance(self.kernel_size, tuple):
-            return self.kernel_size[0] * self.kernel_size[1]
-        else:
-            return self.kernel_size * self.kernel_size
-
     def forward(self, input: Union[Tensor, QuantTensor]):
         x = self.unpack_input(input)
 
         if self.export_mode:
             return self.export_handler(_unpack_quant_tensor(x))
 
-        if isinstance(x, QuantTensor):
-            x = x.set(value=super(TruncAvgPool2d, self).forward(x.value))
-            if self.is_trunc_quant_enabled:
-                # remove avg scaling
-                rescaled_value = x.value * self._avg_scaling
-                x = x.set(value=rescaled_value)
-                x = x.set(bit_width=self.max_acc_bit_width(x.bit_width))
-                x = self.trunc_quant(x)
+        if isinstance(x, QuantTensor) and self.is_trunc_quant_enabled:
+            y = AvgPool2d.forward(self, x)
+            y = self.trunc_quant(y)
         else:
-            assert not self.is_trunc_quant_enabled
-            x = super(TruncAvgPool2d, self).forward(x)
+            y = AvgPool2d.forward(self, _unpack_quant_tensor(x))
 
-        return self.pack_output(x)
-
-    def max_acc_bit_width(self, input_bit_width):
-        max_uint_input = max_int(bit_width=input_bit_width, signed=False, narrow_range=False)
-        max_uint_output = max_uint_input * self._avg_scaling
-        max_output_bit_width = ceil_ste(torch.log2(max_uint_output))
-        return max_output_bit_width
+        return self.pack_output(y)
 
 
 class TruncAdaptiveAvgPool2d(TruncMixin, QuantLayerMixin, AdaptiveAvgPool2d):
@@ -130,23 +111,10 @@ class TruncAdaptiveAvgPool2d(TruncMixin, QuantLayerMixin, AdaptiveAvgPool2d):
             self._set_global_is_quant_layer(False)
             return out
 
-        if isinstance(x, QuantTensor):
-            y = x.set(value=super(TruncAdaptiveAvgPool2d, self).forward(x.value))
-            k_size, stride = self.compute_kernel_size_stride(x.value.shape[2:], y.value.shape[2:])
-            if self.is_trunc_quant_enabled:
-                reduce_size = reduce(mul, k_size, 1)
-                rescaled_value = y.value * reduce_size  # remove avg scaling
-                y = y.set(value=rescaled_value)
-                y = y.set(bit_width=self.max_acc_bit_width(y.bit_width, reduce_size))
-                y = self.trunc_quant(y)
+        if isinstance(x, QuantTensor) and self.is_trunc_quant_enabled:
+            y = AdaptiveAvgPool2d.forward(self, x)
+            y = self.trunc_quant(y)
         else:
-            assert not self.is_trunc_quant_enabled
-            y = super(TruncAdaptiveAvgPool2d, self).forward(x)
+            y = AdaptiveAvgPool2d.forward(self, _unpack_quant_tensor(x))
 
         return self.pack_output(y)
-
-    def max_acc_bit_width(self, input_bit_width, reduce_size):
-        max_uint_input = max_int(bit_width=input_bit_width, signed=False, narrow_range=False)
-        max_uint_output = max_uint_input * reduce_size
-        max_output_bit_width = ceil_ste(torch.log2(max_uint_output))
-        return max_output_bit_width
