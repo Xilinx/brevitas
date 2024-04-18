@@ -118,9 +118,3 @@ class TruncAdaptiveAvgPool2d(TruncMixin, QuantLayerMixin, AdaptiveAvgPool2d):
             y = AdaptiveAvgPool2d.forward(self, _unpack_quant_tensor(x))
 
         return self.pack_output(y)
-
-    def max_acc_bit_width(self, input_bit_width, reduce_size):
-        max_uint_input = max_int(bit_width=input_bit_width, signed=False, narrow_range=False)
-        max_uint_output = max_uint_input * reduce_size
-        max_output_bit_width = ceil_ste(torch.log2(max_uint_output))
-        return max_output_bit_width

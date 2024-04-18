@@ -205,6 +205,26 @@ def linear_handler(quant_input, quant_weight, bias=None, *args, **kwargs):
     return output
 
 
+@implements(F.embedding)
+def embedding_handler(input, quant_weight, *args, **kwargs):
+    from brevitas.quant_tensor import _unpack_quant_tensor
+    from brevitas.quant_tensor import QuantTensor
+
+    quant_weight_value = _unpack_quant_tensor(quant_weight)
+    out = F.embedding(input, quant_weight_value, *args, **kwargs)
+
+    if isinstance(quant_weight, QuantTensor):
+        scale = quant_weight.scale
+        zero_point = quant_weight.zero_point
+        bit_width = quant_weight.bit_width
+        if any(t.numel() > 1 for t in [scale, zero_point, bit_width]):
+            raise RuntimeError("Only per-tensor quantization is supported.")
+        signed = quant_weight.signed
+        training = quant_weight.training
+        out = QuantTensor(out, scale, zero_point, bit_width, signed, training)
+    return out
+
+
 @implements(F.avg_pool2d)
 def avg_pool2d_handler(
         quant_input, kernel_size, stride, padding, ceil_mode, count_include_pad, divisor_override):

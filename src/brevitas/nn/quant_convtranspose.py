@@ -122,15 +122,6 @@ class QuantConvTranspose1d(QuantWBIOL, ConvTranspose1d):
         else:
             raise NotImplementedError(f"Padding mode {self.padding_mode} not supported.")
 
-    def max_acc_bit_width(self, input_bit_width, weight_bit_width):
-        max_uint_input = max_int(bit_width=input_bit_width, signed=False, narrow_range=False)
-        max_kernel_val = self.weight_quant.max_uint_value(weight_bit_width)
-        group_size = self.out_channels // self.groups
-        patch_size = max(math.ceil(self.kernel_size[0] / self.stride[0]), 1)
-        max_uint_output = max_uint_input * max_kernel_val * patch_size * group_size
-        max_output_bit_width = ceil_ste(torch.log2(max_uint_output))
-        return max_output_bit_width
-
 
 class QuantConvTranspose2d(QuantWBIOL, ConvTranspose2d):
 
@@ -226,16 +217,6 @@ class QuantConvTranspose2d(QuantWBIOL, ConvTranspose2d):
         else:
             raise NotImplementedError(f"Padding mode {self.padding_mode} not supported.")
 
-    def max_acc_bit_width(self, input_bit_width, weight_bit_width):
-        max_uint_input = max_int(bit_width=input_bit_width, signed=False, narrow_range=False)
-        max_kernel_val = self.weight_quant.max_uint_value(weight_bit_width)
-        group_size = self.out_channels // self.groups
-        patch_size = max(math.ceil(self.kernel_size[0] / self.stride[0]), 1) * max(
-            math.ceil(self.kernel_size[1] / self.stride[1]), 1)
-        max_uint_output = max_uint_input * max_kernel_val * patch_size * group_size
-        max_output_bit_width = ceil_ste(torch.log2(max_uint_output))
-        return max_output_bit_width
-
 
 class QuantConvTranspose3d(QuantWBIOL, ConvTranspose3d):
 
@@ -330,14 +311,3 @@ class QuantConvTranspose3d(QuantWBIOL, ConvTranspose3d):
             return out
         else:
             raise NotImplementedError(f"Padding mode {self.padding_mode} not supported.")
-
-    def max_acc_bit_width(self, input_bit_width, weight_bit_width):
-        max_uint_input = max_int(bit_width=input_bit_width, signed=False, narrow_range=False)
-        max_kernel_val = self.weight_quant.max_uint_value(weight_bit_width)
-        group_size = self.out_channels // self.groups
-        patch_size = max(math.ceil(self.kernel_size[0] / self.stride[0]), 1) * max(
-            math.ceil(self.kernel_size[1] / self.stride[1]), 1) * max(
-                math.ceil(self.kernel_size[2] / self.stride[2]), 1)
-        max_uint_output = max_uint_input * max_kernel_val * patch_size * group_size
-        max_output_bit_width = ceil_ste(torch.log2(max_uint_output))
-        return max_output_bit_width
