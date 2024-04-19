@@ -17,6 +17,7 @@ from brevitas.function import max_int
 from brevitas.inject import BaseInjector as Injector
 from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.quant_utils import _CachedIO
+from brevitas.utils.torch_utils import compute_channel_view_shape
 
 from .quant_proxy import QuantProxyFromInjector
 from .quant_proxy import QuantProxyProtocol
@@ -234,10 +235,35 @@ class BiasQuantProxyFromInjector(ParameterQuantProxyFromInjector, BiasQuantProxy
         bit_width = self.__call__(self.tracked_parameter_list[0], zhs).bit_width
         return bit_width
 
-    def forward(self,
-                x: Tensor,
-                input_scale: Optional[Tensor] = None) -> Union[Tensor, QuantTensor]:
+    def quant_output_scale_impl(
+            self, input: QuantTensor, weight: QuantTensor, module: torch.nn.Module):
+        channel_dim = -1 if isinstance(module, torch.nn.Linear) else 1
+        output_scale_shape = compute_channel_view_shape(input, channel_dim=channel_dim)
+        output_scale = weight.scale.view(output_scale_shape)
+        output_scale = output_scale * input.scale.view(output_scale_shape)
+        return output_scale
+
+    def compute_bias_scale(self, input, weight):
+        if self.requires_input_scale:
+            return None
+        if not isinstance(input, QuantTensor) or not isinstance(weight, QuantTensor):
+            return None
+        if len(self.tracked_module_list) > 1:
+            if not all(
+                    type[self.tracked_module_list[0]] == type[x] for x in self.tracked_module_list):
+                raise RuntimeError(
+                    "Bias quantizer shared across different type of layers with external scale is not supported."
+                )
+        scale = self.quant_output_scale_impl(input, weight, self.tracked_module_list[0])
+        return scale
+
+    def forward(
+            self,
+            x: Tensor,
+            input: Optional[Union[Tensor, QuantTensor]] = None,
+            weight: Union[Tensor, QuantTensor] = None) -> Union[Tensor, QuantTensor]:
         out = x
+        input_scale = self.compute_bias_scale(input, weight)
         if self.is_quant_enabled:
             impl = self.export_handler if self.export_mode else self.tensor_quant
             if self.requires_input_scale and input_scale is None:
