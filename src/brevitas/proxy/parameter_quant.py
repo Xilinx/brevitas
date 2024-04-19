@@ -311,7 +311,8 @@ class BiasQuantProxyFromInjector(BiasQuantProxyFromInjectorBase):
             self,
             x: Tensor,
             input: Optional[Union[Tensor, IntQuantTensor]] = None,
-            weight: Optional[Union[Tensor, IntQuantTensor]] = None) -> Union[Tensor, IntQuantTensor]:
+            weight: Optional[Union[Tensor,
+                                   IntQuantTensor]] = None) -> Union[Tensor, IntQuantTensor]:
         out = x
         input_scale = self.compute_bias_scale(input, weight)
         if self.is_quant_enabled:
