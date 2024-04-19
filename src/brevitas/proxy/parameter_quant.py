@@ -236,14 +236,17 @@ class BiasQuantProxyFromInjector(ParameterQuantProxyFromInjector, BiasQuantProxy
         return bit_width
 
     def quant_output_scale_impl(
-            self, input: QuantTensor, weight: QuantTensor, module: torch.nn.Module):
+            self, input: QuantTensor, weight: QuantTensor, module: torch.nn.Module) -> Tensor:
         channel_dim = -1 if isinstance(module, torch.nn.Linear) else 1
         output_scale_shape = compute_channel_view_shape(input, channel_dim=channel_dim)
         output_scale = weight.scale.view(output_scale_shape)
         output_scale = output_scale * input.scale.view(output_scale_shape)
         return output_scale
 
-    def compute_bias_scale(self, input, weight):
+    def compute_bias_scale(
+            self,
+            input: Optional[Union[Tensor, QuantTensor]],
+            weight: Optional[Union[Tensor, QuantTensor]]) -> Optional[Tensor]:
         if self.requires_input_scale:
             return None
         if not isinstance(input, QuantTensor) or not isinstance(weight, QuantTensor):
