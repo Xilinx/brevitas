@@ -87,7 +87,7 @@ class FloatClamp(brevitas.jit.ScriptModule):
     I.e. setting inf to 1101.111 (E4M3) is not a valid code.
     """
 
-    __constants__ = ['saturating', 'has_inf_values']
+    __constants__ = ['saturating', 'inf_values', 'nan_values', 'signed', 'max_available_float']
 
     def __init__(
             self,
@@ -133,11 +133,11 @@ class FloatClamp(brevitas.jit.ScriptModule):
 
         if not self.saturating:
             # if non-saturating, we need to map values greater than max_val to nan or inf
-            if self.inf_values:
+            if self.inf_values is not None:
                 # we have inf values, so we set abs values > max_value to +- inf, and leave inf at inf
                 x[p_max_val_mask] = torch.tensor(float('inf'))
                 x[n_max_val_mask] = torch.tensor(float('-inf'))
-            elif self.nan_values:
+            elif self.nan_values is not None:
                 # no inf values, so we need to map them to NaN
                 full_max_val_mask = torch.logical_or(p_max_val_mask, n_max_val_mask)
                 x[full_max_val_mask] = torch.tensor(float('nan'))
