@@ -221,12 +221,12 @@ def linear_handler(quant_input, quant_weight, bias=None, *args, **kwargs):
 @implements(F.embedding)
 def embedding_handler(input, quant_weight, *args, **kwargs):
     from brevitas.quant_tensor import _unpack_quant_tensor
-    from brevitas.quant_tensor import QuantTensor
+    from brevitas.quant_tensor import IntQuantTensor
 
     quant_weight_value = _unpack_quant_tensor(quant_weight)
     out = F.embedding(input, quant_weight_value, *args, **kwargs)
 
-    if isinstance(quant_weight, QuantTensor):
+    if isinstance(quant_weight, IntQuantTensor):
         scale = quant_weight.scale
         zero_point = quant_weight.zero_point
         bit_width = quant_weight.bit_width
@@ -234,7 +234,7 @@ def embedding_handler(input, quant_weight, *args, **kwargs):
             raise RuntimeError("Only per-tensor quantization is supported.")
         signed = quant_weight.signed
         training = quant_weight.training
-        out = QuantTensor(out, scale, zero_point, bit_width, signed, training)
+        out = IntQuantTensor(out, scale, zero_point, bit_width, signed, training)
     return out
 
 
@@ -285,7 +285,7 @@ def adaptive_avg_pool2d_handler(quant_input, output_shape):
 
 def quant_layer(fn, quant_input, quant_weight, bias, *args, **kwargs):
     from brevitas.quant_tensor import _unpack_quant_tensor
-    from brevitas.quant_tensor import QuantTensor
+    from brevitas.quant_tensor import IntQuantTensor
 
     output_scale = None
     output_bit_width = None
@@ -293,8 +293,8 @@ def quant_layer(fn, quant_input, quant_weight, bias, *args, **kwargs):
     output_signed = None
     max_acc_bit_width = FN_ACC_BITWIDTH_MAPPING[fn]
 
-    compute_output_quant_tensor = isinstance(quant_input, QuantTensor) and isinstance(
-        quant_weight, QuantTensor)
+    compute_output_quant_tensor = isinstance(quant_input, IntQuantTensor) and isinstance(
+        quant_weight, IntQuantTensor)
 
     if bias is None:
         output = fn(
@@ -311,7 +311,7 @@ def quant_layer(fn, quant_input, quant_weight, bias, *args, **kwargs):
             *args,
             **kwargs)
 
-    if isinstance(quant_input, QuantTensor) and isinstance(quant_weight, QuantTensor):
+    if isinstance(quant_input, IntQuantTensor) and isinstance(quant_weight, IntQuantTensor):
         output_bit_width = max_acc_bit_width(
             quant_input.bit_width,
             quant_weight.bit_width,
@@ -325,22 +325,22 @@ def quant_layer(fn, quant_input, quant_weight, bias, *args, **kwargs):
 
     if bias is not None:
         if output_scale is not None:
-            if (isinstance(bias, QuantTensor) and
+            if (isinstance(bias, IntQuantTensor) and
                     not torch.allclose(bias.scale, output_scale)) or not isinstance(bias,
-                                                                                    QuantTensor):
+                                                                                    IntQuantTensor):
                 channel_dim = -1 if isinstance(fn, torch.nn.Linear) else 1
                 output_scale_broadcast_shape = compute_channel_view_shape(
                     quant_input, channel_dim=channel_dim)
                 output_zero_point = -_unpack_quant_tensor(bias).view(
                     output_scale_broadcast_shape) / output_scale
-        if output_bit_width is not None and isinstance(bias, QuantTensor):
+        if output_bit_width is not None and isinstance(bias, IntQuantTensor):
             output_bit_width = torch.where(
                 bias.bit_width > output_bit_width, bias.bit_width, output_bit_width)
             output_bit_width = output_bit_width + 1
 
     if compute_output_quant_tensor:
-        if (isinstance(quant_input, QuantTensor) and
-            (quant_input.zero_point != 0.0).any()) or (isinstance(quant_weight, QuantTensor) and
+        if (isinstance(quant_input, IntQuantTensor) and
+            (quant_input.zero_point != 0.0).any()) or (isinstance(quant_weight, IntQuantTensor) and
                                                        (quant_weight.zero_point != 0.0).any()):
             warnings.warn("Computing zero point of output accumulator not supported yet.")
             compute_output_quant_tensor = False
