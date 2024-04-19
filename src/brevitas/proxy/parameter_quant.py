@@ -250,7 +250,7 @@ class BiasQuantProxyFromInjector(ParameterQuantProxyFromInjector, BiasQuantProxy
             return None
         if len(self.tracked_module_list) > 1:
             if not all(
-                    type[self.tracked_module_list[0]] == type[x] for x in self.tracked_module_list):
+                [type[self.tracked_module_list[0]] == type[x] for x in self.tracked_module_list]):
                 raise RuntimeError(
                     "Bias quantizer shared across different type of layers with external scale is not supported."
                 )
