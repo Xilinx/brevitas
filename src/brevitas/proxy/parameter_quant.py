@@ -247,7 +247,7 @@ class BiasQuantProxyFromInjector(ParameterQuantProxyFromInjector, BiasQuantProxy
             self,
             input: Optional[Union[Tensor, QuantTensor]],
             weight: Optional[Union[Tensor, QuantTensor]]) -> Optional[Tensor]:
-        if self.requires_input_scale:
+        if not self.requires_input_scale:
             return None
         if not isinstance(input, QuantTensor) or not isinstance(weight, QuantTensor):
             return None
