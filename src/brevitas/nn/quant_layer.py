@@ -118,14 +118,6 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
     def max_acc_bit_width(self, input_bit_width: Tensor, quant_weight_bit_width: Tensor):
         pass
 
-    def quant_output_scale_impl(
-            self, inp: Tensor, quant_input_scale: Tensor, quant_weight_scale: Tensor):
-        channel_dim = -1 if isinstance(self, torch.nn.Linear) else 1
-        output_scale_shape = compute_channel_view_shape(inp, channel_dim=channel_dim)
-        output_scale = quant_weight_scale.view(output_scale_shape)
-        output_scale = output_scale * quant_input_scale.view(output_scale_shape)
-        return output_scale
-
     @property
     def requires_export_handler(self):
         return (
@@ -150,7 +142,6 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
             return out
 
         quant_input = self.input_quant(inp)
-
         quant_weight = self.quant_weight(quant_input)
 
         compute_output_quant_tensor = isinstance(quant_input, QuantTensor) and isinstance(
@@ -159,12 +150,8 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
                 self.output_quant.is_quant_enabled) and self.return_quant_tensor:
             raise RuntimeError("QuantLayer is not correctly configured")
 
-        output_scale = None
-        if isinstance(quant_input, QuantTensor) and isinstance(quant_weight, QuantTensor):
-            output_scale = self.quant_output_scale_impl(inp, quant_input.scale, quant_weight.scale)
-
         if self.bias is not None:
-            quant_bias = self.bias_quant(self.bias, output_scale)
+            quant_bias = self.bias_quant(self.bias, quant_input, quant_weight)
         else:
             quant_bias = None
         output_tensor = self.inner_forward_impl(quant_input, quant_weight, quant_bias)
