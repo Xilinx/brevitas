@@ -11,7 +11,7 @@ from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import IntQuantTensorBase
 from brevitas.quant_tensor import QuantTensor
 
-from .torch_handler import INT_QUANT_TENSOR_FN_HANDLER
+from .int_torch_handler import INT_QUANT_TENSOR_FN_HANDLER
 from .torch_handler import QUANT_TENSOR_FN_HANDLER
 
 IS_VALID_ATOL = 2e-1
@@ -283,6 +283,8 @@ class IntQuantTensor(IntQuantTensorBase, QuantTensor):
                 bit_width=output_bit_width,
                 signed=output_signed,
                 training=output_training)
+        elif isinstance(other, QuantTensor):
+            output = self.value + _unpack_quant_tensor(other)
         else:
             # When adding a QT with a normal Tensor, we use the zero_point as a way to preserve
             # and return a QT.

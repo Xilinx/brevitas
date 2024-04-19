@@ -110,7 +110,7 @@ class FloatQuantTensorBase(NamedTuple):
     exponent_bias: Tensor
     signed_t: Tensor
     training_t: Tensor
-    saturate_t: Tensor
+    saturating_t: Tensor
     inf_values: List[str]
     nan_values: List[str]
 

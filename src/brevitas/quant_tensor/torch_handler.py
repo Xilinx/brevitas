@@ -29,16 +29,6 @@ def implements(torch_function):
     return decorator
 
 
-def implements_int_qt(torch_function):
-
-    @functools.wraps(torch_function)
-    def decorator(func):
-        INT_QUANT_TENSOR_FN_HANDLER[torch_function] = func
-        return func
-
-    return decorator
-
-
 def quant_invariant_handler(fn, inp, *args, **kwargs):
     out_value = fn(inp.value, *args, **kwargs)
     return inp.set(value=out_value)
@@ -57,12 +47,6 @@ def reshape_handler(inp, *args, **kwargs):
 @implements(torch.transpose)
 def transpose_handler(inp, *args, **kwargs):
     return inp.transpose(*args, **kwargs)
-
-
-@implements_int_qt(torch.cat)
-def cat_handler(*args, **kwargs):
-    from brevitas.quant_tensor import IntQuantTensor
-    return IntQuantTensor.cat(*args, **kwargs)
 
 
 @implements(F.pad)

@@ -8,15 +8,11 @@ from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import FloatQuantTensorBase
 from brevitas.quant_tensor import QuantTensor
 
-from .torch_handler import FLOAT_QUANT_TENSOR_FN_HANDLER
+from .float_torch_handler import FLOAT_QUANT_TENSOR_FN_HANDLER
 from .torch_handler import QUANT_TENSOR_FN_HANDLER
 
 IS_VALID_ATOL = 2e-1
 BFLOAT16_IS_VALID_ATOL = 0.5
-
-
-def exponent_bias(exponent_bit_width):
-    return 2 ** (exponent_bit_width - 1) - 1
 
 
 class FloatQuantTensor(FloatQuantTensorBase, QuantTensor):
@@ -114,10 +110,10 @@ class FloatQuantTensor(FloatQuantTensorBase, QuantTensor):
             rounded_minifloat_value = torch.round(pre_round_minifloat_value)
             max_abs_diff = torch.max(torch.abs(pre_round_minifloat_value - rounded_minifloat_value))
             atol = BFLOAT16_IS_VALID_ATOL if self.value.dtype == torch.bfloat16 else IS_VALID_ATOL
-            is_int = max_abs_diff < atol
+            is_minifloat = max_abs_diff < atol
             # We are missing the checks about self being contained between max and min value
             # given by mantissa, exponent, inf, nan, and saturating
-            return is_int
+            return is_minifloat
 
     @property
     def device(self):
@@ -285,68 +281,27 @@ class FloatQuantTensor(FloatQuantTensorBase, QuantTensor):
             raise NotImplementedError
 
     def __add__(self, other):
-        if isinstance(other, FloatQuantTensor):
-            self.check_scaling_factors_same(other)
-            if self.exponent_bias != exponent_bias(self.exponent_bit_width):
-                return self.value + other.value
-            output_value = self.value + other.value
-            output_scale = (self.scale + other.scale) / 2
-            output_zero_point = self.zero_point + other.zero_point
-            output_signed = self.signed or other.signed
-            output_training = self.training or other.training
-            output = FloatQuantTensor(
-                value=output_value,
-                scale=output_scale,
-                zero_point=output_zero_point,
-                exponent_bit_width=self.exponent_bit_width + 1,
-                mantissa_bit_width=self.mantissa_bit_width,
-                exponent_bias=exponent_bias(self.exponent_bit_width + 1),
-                signed=output_signed,
-                training=output_training,
-                saturating=self.saturating,
-                inf_values=self.inf_values,
-                nan_values=self.nan_values)
+        if isinstance(other, QuantTensor):
+            return self.value + other.value
         else:
-            output = self.value + _unpack_quant_tensor(other)
+            output = self.value + other
         return output
 
     def __mul__(self, other):
-        if isinstance(other, FloatQuantTensor):
-            if self.exponent_bias != exponent_bias(self.exponent_bit_width):
-                return self.value + other.value
-            output_value = self.value * other.value
-            output_scale = self.scale * other.scale
-            output_signed = self.signed or other.signed
-            output_training = self.training or other.training
-            if self.is_zero_zero_point(self) and self.is_zero_zero_point(other):
-                output_zero_point = self.zero_point * other.zero_point
-            else:
-                raise RuntimeError("Zero-points of mul operands are non-zero, not supported.")
-            output = FloatQuantTensor(
-                value=output_value,
-                scale=output_scale,
-                zero_point=output_zero_point,
-                exponent_bit_width=self.exponent_bit_width + 1,
-                mantissa_bit_width=self.mantissa_bit_width,
-                exponent_bias=exponent_bias(self.exponent_bit_width + 1),
-                signed=output_signed,
-                training=output_training,
-                saturating=self.saturating,
-                inf_values=self.inf_values,
-                nan_values=self.nan_values)
+        if isinstance(other, QuantTensor):
+            return self.value * other.value
         else:
-            output = self.value * _unpack_quant_tensor(other)
+            output = self.value * other
         return output
 
     def __str__(self):
         return f"FloatQuantTensor(value={self.value}, scale={self.scale}, zero_point={self.zero_point}, bit_width={self.bit_width}, signed_t={self.signed_t}, training_t={self.training_t})"
 
     def __truediv__(self, other):
-        if isinstance(other, FloatQuantTensor):
-            # TODO: Is it possible to preserve FloatQuantTensor like we do for IntQuantTensor?
-            output = self.value / other.value
+        if isinstance(other, QuantTensor):
+            return self.value / other.value
         else:
-            output = self.value / _unpack_quant_tensor(other)
+            output = self.value / other
         return output
 
     def __abs__(self):
