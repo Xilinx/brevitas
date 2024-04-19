@@ -39,7 +39,8 @@ def test_quant_tensor_init():
 @pytest.mark.parametrize(
     'op', [Operator.ADD, Operator.SUBTRACT, Operator.DIVIDE, Operator.MULTIPLY, Operator.MATMUL])
 def test_quant_tensor_operators(op):
-    x = torch.randn(4, 4)
+    # Avoid 0 values
+    x = 1 + torch.rand(4, 4)
 
     a = torch.Tensor(x)
     b = torch.Tensor(x)
