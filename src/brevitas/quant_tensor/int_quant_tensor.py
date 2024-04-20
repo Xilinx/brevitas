@@ -211,6 +211,14 @@ class QuantTensor(QuantTensorBase):
             if tm is not None and len(value.shape) == len(tm.shape):
                 tensor_meta[k] = tm.permute(*args, **kwargs)
         return self.set(value=value, **tensor_meta)
+    
+    def squeeze(self, *args, **kwargs):
+        pass
+        # TODO
+    
+    def unsqueeze(self, *args, **kwargs):
+        pass
+        # TODO
 
     def size(self, *args, **kwargs):
         return self.value.size(*args, **kwargs)
