@@ -45,17 +45,21 @@ def reshape_handler(inp, *args, **kwargs):
 def transpose_handler(inp, *args, **kwargs):
     return inp.transpose(*args, **kwargs)
 
+
 @implements(torch.permute)
 def permute_handler(inp, *args, **kwargs):
     return inp.permute(*args, **kwargs)
+
 
 @implements(torch.squeeze)
 def squeeze_handler(inp, *args, **kwargs):
     return inp.squeeze(*args, **kwargs)
 
+
 @implements(torch.unsqueeze)
 def unsqueeze_handler(inp, *args, **kwargs):
     return inp.unsqueeze(*args, **kwargs)
+
 
 @implements(torch.cat)
 def cat_handler(*args, **kwargs):
