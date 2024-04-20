@@ -87,7 +87,6 @@ def test_quant_tensor_div_by_fraction():
     assert torch.allclose(a / b, torch.ones(4, 4) * 2, atol=0.1)
 
 
-# TODO: need to deal with quant metadata
 def test_quant_tensor_transpose():
     x = torch.ones(4, 4).tril()
     a = x.clone()
