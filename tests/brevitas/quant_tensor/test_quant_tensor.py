@@ -102,36 +102,52 @@ def test_quant_tensor_transpose():
     x = torch.ones(4, 4).tril()
     a = x.clone()
     b = to_quant_tensor(x)
-    assert torch.allclose(a.transpose(0, 1), b.transpose(0, 1), atol=0.01)
+    b_transposed = b.transpose(0, 1)
+    assert b_transposed.is_valid
+    assert torch.allclose(a.transpose(0, 1), b_transposed, atol=0.01)
     c = to_quant_tensor_per_channel(x)
-    assert torch.allclose(a.transpose(0, 1), c.transpose(0, 1), atol=0.01)
+    c_transposed = c.transpose(0, 1)
+    assert c_transposed.is_valid
+    assert torch.allclose(a.transpose(0, 1), c_transposed, atol=0.01)
 
 
 def test_quant_tensor_permute():
     x = torch.rand(4, 4, 4)
     a = x.clone()
     b = to_quant_tensor(x)
-    assert torch.allclose(a.permute(1, 0, 2), b.permute(1, 0, 2), atol=0.01)
+    b_permuted = b.permute(1, 0, 2)
+    assert b_permuted.is_valid
+    assert torch.allclose(a.permute(1, 0, 2), b_permuted, atol=0.01)
     c = to_quant_tensor_per_channel(x)
-    assert torch.allclose(a.permute(1, 0, 2), c.permute(1, 0, 2), atol=0.01)
+    c_permuted = c.permute(1, 0, 2)
+    assert c_permuted.is_valid
+    assert torch.allclose(a.permute(1, 0, 2), c_permuted, atol=0.01)
 
 
 def test_quant_tensor_squeeze():
     x = torch.rand(4, 1, 4, 1)
     a = x.clone()
     b = to_quant_tensor(x)
-    assert torch.allclose(a.squeeze(), b.squeeze(), atol=0.01)
+    b_squeezed = b.squeeze()
+    assert b_squeezed.is_valid
+    assert torch.allclose(a.squeeze(), b_squeezed, atol=0.01)
     c = to_quant_tensor_per_channel(x)
-    assert torch.allclose(a.squeeze(), c.squeeze(), atol=0.01)
+    c_squeezed = c.squeeze()
+    assert c_squeezed.is_valid
+    assert torch.allclose(a.squeeze(), c_squeezed, atol=0.01)
 
 
 def test_quant_tensor_unsqueeze():
     x = torch.rand(4, 4)
     a = x.clone()
     b = to_quant_tensor(x)
-    assert torch.allclose(a.unsqueeze(1), b.unsqueeze(1), atol=0.01)
+    b_unsqueezed = b.unsqueeze(1)
+    assert b_unsqueezed.is_valid
+    assert torch.allclose(a.unsqueeze(1), b_unsqueezed, atol=0.01)
     c = to_quant_tensor_per_channel(x)
-    assert torch.allclose(a.unsqueeze(1), c.unsqueeze(1), atol=0.01)
+    c_unsqueezed = c.unsqueeze(1)
+    assert c_unsqueezed.is_valid
+    assert torch.allclose(a.unsqueeze(1), c_unsqueezed, atol=0.01)
 
 
 # TODO: need to deal with quant metadata
