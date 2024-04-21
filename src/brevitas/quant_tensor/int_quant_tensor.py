@@ -214,10 +214,13 @@ class QuantTensor(QuantTensorBase):
     
     def squeeze(self, *args, **kwargs):
         value = self.value.squeeze(*args, **kwargs)
-        if len(args) != 0 or "dim" in kwargs:
-            target_dims = args[0] if len(args) != 0 else kwargs["dim"]
-        else:
-            target_dims = [idx for idx, dim in enumerate(self.value.shape) if dim == 1]
+        one_dims = [idx for idx, dim in enumerate(self.value.shape) if dim == 1]
+        arg_dims = list(range(len(self.value.shape)))
+        if len(args) != 0:
+            arg_dims = args[0]
+        elif "dim" in kwargs:
+            arg_dims = kwargs["dim"]
+        target_dims = list(set(one_dims) & set(arg_dims))
         tensor_meta = {
             'scale': self.scale, 'zero_point': self.zero_point, 'bit_width': self.bit_width}
         for k, tm in tensor_meta.items():
