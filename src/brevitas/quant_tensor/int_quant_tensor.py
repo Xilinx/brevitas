@@ -232,6 +232,7 @@ class QuantTensor(QuantTensorBase):
         for k, tm in tensor_meta.items():
             if tm is not None and len(value.shape) == len(tm.shape):
                 tensor_meta[k] = tm.unsqueeze(*args, **kwargs)
+        return self.set(value=value, **tensor_meta)
 
     def size(self, *args, **kwargs):
         return self.value.size(*args, **kwargs)
