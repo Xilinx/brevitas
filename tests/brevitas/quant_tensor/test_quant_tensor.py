@@ -94,6 +94,27 @@ def test_quant_tensor_transpose():
     assert torch.allclose(a.transpose(0, 1), b.transpose(0, 1), atol=0.01)
 
 
+def test_quant_tensor_permute():
+    x = torch.rand(4, 4, 4)
+    a = x.clone()
+    b = to_quant_tensor(x)
+    assert torch.allclose(a.permute(1, 0, 2), b.permute(1, 0, 2), atol=0.01)
+
+
+def test_quant_tensor_squeeze():
+    x = torch.rand(4, 1, 4, 1)
+    a = x.clone()
+    b = to_quant_tensor(x)
+    assert torch.allclose(a.squeeze(), b.squeeze(), atol=0.01)
+
+
+def test_quant_tensor_unsqueeze():
+    x = torch.rand(4, 4)
+    a = x.clone()
+    b = to_quant_tensor(x)
+    assert torch.allclose(a.unsqueeze(1), b.unsqueeze(1), atol=0.01)
+
+
 # TODO: need to deal with quant metadata
 def test_quant_tensor_view():
     x = torch.ones(4, 4)
