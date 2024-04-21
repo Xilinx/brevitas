@@ -213,12 +213,25 @@ class QuantTensor(QuantTensorBase):
         return self.set(value=value, **tensor_meta)
     
     def squeeze(self, *args, **kwargs):
-        pass
-        # TODO
+        value = self.value.squeeze(*args, **kwargs)
+        if len(args) != 0 or "dim" in kwargs:
+            target_dims = args[0] if len(args) != 0 else kwargs["dim"]
+        else:
+            target_dims = [idx for idx, dim in enumerate(self.value.shape) if dim == 1]
+        tensor_meta = {
+            'scale': self.scale, 'zero_point': self.zero_point, 'bit_width': self.bit_width}
+        for k, tm in tensor_meta.items():
+            if tm is not None and len(value.shape) == len(tm.shape):
+                tensor_meta[k] = tm.squeeze(target_dims)
+        return self.set(value=value, **tensor_meta)
     
     def unsqueeze(self, *args, **kwargs):
-        pass
-        # TODO
+        value = self.value.unsqueeze(*args, **kwargs)
+        tensor_meta = {
+            'scale': self.scale, 'zero_point': self.zero_point, 'bit_width': self.bit_width}
+        for k, tm in tensor_meta.items():
+            if tm is not None and len(value.shape) == len(tm.shape):
+                tensor_meta[k] = tm.unsqueeze(*args, **kwargs)
 
     def size(self, *args, **kwargs):
         return self.value.size(*args, **kwargs)
