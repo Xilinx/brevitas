@@ -214,12 +214,18 @@ class QuantTensor(QuantTensorBase):
 
     def squeeze(self, *args, **kwargs):
         one_dims = [idx for idx, dim in enumerate(self.value.shape) if dim == 1]
-        arg_dims = list(range(len(self.value.shape)))
-        if len(args) != 0:
-            arg_dims = [args[0]] if isinstance(args[0], int) else list(args[0])
-        elif "dim" in kwargs:
-            arg_dims = [kwargs["dim"]] if isinstance(kwargs["dim"], int) else list(kwargs["dim"])
-        sorted_target_dims = sorted(list(set(one_dims) & set(arg_dims)), reverse=True)
+        if len(args) == 0 and "dim" not in kwargs:
+            sorted_target_dims = sorted(one_dims, reverse=True)
+        else:
+            if len(args) != 0:
+                arg_dims = [args[0]] if isinstance(args[0], int) else list(args[0])
+            elif "dim" in kwargs:
+                arg_dims = [kwargs["dim"]] if isinstance(kwargs["dim"], int) else list(
+                    kwargs["dim"])
+            else:
+                raise RuntimeError("no dim specified")
+            arg_dims = [dim if dim >= 0 else dim + len(self.value.shape) for dim in arg_dims]
+            sorted_target_dims = sorted(list(set(one_dims) & set(arg_dims)), reverse=True)
         value = self.value
         for dim in sorted_target_dims:
             value = value.squeeze(dim)
