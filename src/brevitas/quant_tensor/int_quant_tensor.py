@@ -225,7 +225,9 @@ class QuantTensor(QuantTensorBase):
             'scale': self.scale, 'zero_point': self.zero_point, 'bit_width': self.bit_width}
         for k, tm in tensor_meta.items():
             if tm is not None and len(value.shape) == len(tm.shape) - len(target_dims):
-                tensor_meta[k] = tm.squeeze(dim=target_dims)
+                for dim in sorted(target_dims, reverse=True):
+                    tm = tm.squeeze(dim)
+                tensor_meta[k] = tm
         return self.set(value=value, **tensor_meta)
 
     def unsqueeze(self, *args, **kwargs):
