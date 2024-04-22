@@ -219,15 +219,15 @@ class QuantTensor(QuantTensorBase):
             arg_dims = [args[0]] if isinstance(args[0], int) else list(args[0])
         elif "dim" in kwargs:
             arg_dims = [kwargs["dim"]] if isinstance(kwargs["dim"], int) else list(kwargs["dim"])
-        target_dims = list(set(one_dims) & set(arg_dims))
+        sorted_target_dims = sorted(list(set(one_dims) & set(arg_dims)), reverse=True)
         value = self.value
-        for dim in sorted(target_dims, reverse=True):
+        for dim in sorted_target_dims:
             value = value.squeeze(dim)
         tensor_meta = {
             'scale': self.scale, 'zero_point': self.zero_point, 'bit_width': self.bit_width}
         for k, tm in tensor_meta.items():
-            if tm is not None and len(value.shape) == len(tm.shape) - len(target_dims):
-                for dim in sorted(target_dims, reverse=True):
+            if tm is not None and len(value.shape) == len(tm.shape) - len(sorted_target_dims):
+                for dim in sorted_target_dims:
                     tm = tm.squeeze(dim)
                 tensor_meta[k] = tm
         return self.set(value=value, **tensor_meta)
