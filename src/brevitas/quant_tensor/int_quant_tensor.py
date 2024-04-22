@@ -213,7 +213,6 @@ class QuantTensor(QuantTensorBase):
         return self.set(value=value, **tensor_meta)
 
     def squeeze(self, *args, **kwargs):
-        value = self.value.squeeze(*args, **kwargs)
         one_dims = [idx for idx, dim in enumerate(self.value.shape) if dim == 1]
         arg_dims = list(range(len(self.value.shape)))
         if len(args) != 0:
@@ -221,6 +220,9 @@ class QuantTensor(QuantTensorBase):
         elif "dim" in kwargs:
             arg_dims = [kwargs["dim"]] if isinstance(kwargs["dim"], int) else list(kwargs["dim"])
         target_dims = list(set(one_dims) & set(arg_dims))
+        value = self.value
+        for dim in sorted(target_dims, reverse=True):
+            value = value.squeeze(dim)
         tensor_meta = {
             'scale': self.scale, 'zero_point': self.zero_point, 'bit_width': self.bit_width}
         for k, tm in tensor_meta.items():
