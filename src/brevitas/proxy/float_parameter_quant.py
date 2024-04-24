@@ -73,11 +73,11 @@ class WeightFloatQuantProxyFromInjector(WeightQuantProxyFromInjectorBase):
                 exponent_bit_width,
                 mantissa_bit_width,
                 exponent_bias,
-                self.is_signed,
-                self.training,
                 saturating,
                 inf_values,
-                nan_values)
+                nan_values,
+                self.is_signed,
+                self.training)
         else:  # quantization disabled
             return x
 
@@ -150,12 +150,22 @@ class BiasFloatQuantProxyFromInjector(BiasQuantProxyFromInjectorBase):
 
             if self.requires_input_scale:
                 input_scale = input_scale.view(-1)
-                out, out_scale, out_zp, out_bit_width = impl(x, input_scale)
+                out, scale, zero_point, exponent_bit_width, mantissa_bit_width, exponent_bias, saturating, inf_values, nan_values = impl(x, input_scale)
             else:
-                out, out_scale, out_zp, out_bit_width = impl(x)
+                out, scale, zero_point, exponent_bit_width, mantissa_bit_width, exponent_bias, saturating, inf_values, nan_values = impl(x)
 
             out = FloatQuantTensor(
-                out, out_scale, out_zp, out_bit_width, self.is_signed, self.training)
+                out,
+                scale,
+                zero_point,
+                exponent_bit_width,
+                mantissa_bit_width,
+                exponent_bias,
+                saturating,
+                inf_values,
+                nan_values,
+                self.is_signed,
+                self.training)
         else:
             out = x
         if isinstance(out,

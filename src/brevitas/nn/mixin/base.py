@@ -18,9 +18,9 @@ from brevitas.common import ExportMixin
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import Injector
 from brevitas.quant_tensor import _unpack_quant_tensor
+from brevitas.quant_tensor import FloatQuantTensor
 from brevitas.quant_tensor import IntQuantTensor
 from brevitas.quant_tensor import QuantTensor
-from brevitas.utils.torch_utils import compute_channel_view_shape
 
 from .utils import filter_kwargs
 
@@ -70,13 +70,22 @@ class QuantLayerMixin(ExportMixin):
     def _set_global_is_quant_layer(self, value):
         config._IS_INSIDE_QUANT_LAYER = value
 
+    def get_quant_tensor_class(self, inp: Union[Tensor, QuantTensor]):
+        quant_tensor_classes = [IntQuantTensor, FloatQuantTensor]
+        for qt_class in quant_tensor_classes:
+            if len(inp) == len(qt_class._fields):
+                return qt_class
+        return None
+
     def unpack_input(self, inp: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
         self._set_global_is_quant_layer(True)
         # Hack to recognize a QuantTensor that has decayed to a tuple
         # when used as input to tracing (e.g. during ONNX export)
         if (torch._C._get_tracing_state() is not None and isinstance(inp, tuple) and
-                len(inp) == len(QuantTensor._fields) and all([isinstance(t, Tensor) for t in inp])):
-            inp = QuantTensor(*inp)
+                all([isinstance(t, Tensor) for t in inp])):
+            qt_class = self.get_quant_tensor_class(inp)
+            if qt_class is not None:
+                inp = qt_class(*inp)
         if not torch._C._get_tracing_state():
             if isinstance(inp, QuantTensor):
                 inp = inp.set(value=inp.value.rename(None))

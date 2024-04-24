@@ -149,4 +149,4 @@ def quant_layer(fn, quant_input, quant_weight, bias, *args, **kwargs):
             *args,
             **kwargs)
 
-        return output
+    return output
