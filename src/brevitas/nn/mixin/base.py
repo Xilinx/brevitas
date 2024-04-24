@@ -75,9 +75,8 @@ class QuantLayerMixin(ExportMixin):
         # Hack to recognize a QuantTensor that has decayed to a tuple
         # when used as input to tracing (e.g. during ONNX export)
         if (torch._C._get_tracing_state() is not None and isinstance(inp, tuple) and
-                len(inp) == len(IntQuantTensor._fields) and
-                all([isinstance(t, Tensor) for t in inp])):
-            inp = IntQuantTensor(*inp)
+                len(inp) == len(QuantTensor._fields) and all([isinstance(t, Tensor) for t in inp])):
+            inp = QuantTensor(*inp)
         if not torch._C._get_tracing_state():
             if isinstance(inp, QuantTensor):
                 inp = inp.set(value=inp.value.rename(None))
