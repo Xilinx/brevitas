@@ -82,8 +82,7 @@ class FusedActivationQuantProxy(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def forward(self, x):
         x = self.activation_impl(x)
-        x, output_scale, output_zp, output_bit_width = self.tensor_quant(x)
-        return x, output_scale, output_zp, output_bit_width
+        return self.tensor_quant(x)
 
 
 class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtocol, ABC):

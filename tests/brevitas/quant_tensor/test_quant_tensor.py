@@ -7,6 +7,9 @@ import torch
 
 from brevitas.inject.enum import QuantType
 from brevitas.nn import QuantIdentity
+from brevitas.quant.experimental.float_quant_ocp import Fp8e5m2OCPActPerTensorFloat
+from brevitas.quant_tensor import FloatQuantTensor
+from brevitas.quant_tensor import IntQuantTensor
 from brevitas.quant_tensor import QuantTensor
 
 
@@ -18,8 +21,14 @@ class Operator(Enum):
     MATMUL = 4
 
 
-def to_quant_tensor(input: torch.Tensor) -> QuantTensor:
+def to_quant_tensor(input: torch.Tensor) -> IntQuantTensor:
     mod = QuantIdentity(bit_width=8, return_quant_tensor=True)
+    return mod(input)
+
+
+def to_float_quant_tensor(input: torch.Tensor) -> FloatQuantTensor:
+    mod = QuantIdentity(
+        bit_width=8, return_quant_tensor=True, act_quant=Fp8e5m2OCPActPerTensorFloat)
     return mod(input)
 
 
@@ -38,15 +47,16 @@ def test_quant_tensor_init():
 
 @pytest.mark.parametrize(
     'op', [Operator.ADD, Operator.SUBTRACT, Operator.DIVIDE, Operator.MULTIPLY, Operator.MATMUL])
-def test_quant_tensor_operators(op):
+@pytest.mark.parametrize('quant_fn', [to_quant_tensor, to_float_quant_tensor])
+def test_quant_tensor_operators(op, quant_fn):
     # Avoid 0 values
     x = 1 + torch.rand(4, 4)
 
     a = torch.Tensor(x)
     b = torch.Tensor(x)
 
-    qa = to_quant_tensor(a)
-    qb = to_quant_tensor(b)
+    qa = quant_fn(a)
+    qb = quant_fn(b)
 
     # to factor in quantisation error
     e_a = a - qa

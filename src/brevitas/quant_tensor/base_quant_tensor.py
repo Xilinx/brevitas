@@ -108,11 +108,11 @@ class FloatQuantTensorBase(NamedTuple):
     exponent_bit_width: Tensor
     mantissa_bit_width: Tensor
     exponent_bias: Tensor
-    signed_t: Tensor
-    training_t: Tensor
     saturating_t: Tensor
     inf_values: List[str]
     nan_values: List[str]
+    signed_t: Tensor
+    training_t: Tensor
 
 
 def _unpack_quant_tensor(input_data):

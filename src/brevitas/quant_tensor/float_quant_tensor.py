@@ -25,11 +25,11 @@ class FloatQuantTensor(FloatQuantTensorBase, QuantTensor):
             exponent_bit_width,
             mantissa_bit_width,
             exponent_bias,
-            signed,
-            training,
             saturating,
-            inf_values=None,
-            nan_values=None):
+            inf_values,
+            nan_values,
+            signed,
+            training):
 
         if not isinstance(scale, torch.Tensor):
             scale = torch.tensor(scale, dtype=torch.float)
@@ -41,12 +41,12 @@ class FloatQuantTensor(FloatQuantTensorBase, QuantTensor):
             mantissa_bit_width = torch.tensor(mantissa_bit_width, dtype=torch.float)
         if not isinstance(exponent_bias, torch.Tensor):
             exponent_bias = torch.tensor(exponent_bias, dtype=torch.float)
+        if not isinstance(saturating, torch.Tensor):
+            saturating = torch.tensor(saturating, dtype=torch.bool)
         if not isinstance(signed, torch.Tensor):
             signed = torch.tensor(signed, dtype=torch.bool)
         if not isinstance(training, torch.Tensor):
             training = torch.tensor(training, dtype=torch.bool)
-        if not isinstance(saturating, torch.Tensor):
-            saturating = torch.tensor(saturating, dtype=torch.bool)
         quant_tensor = super().__new__(
             cls,
             value,
@@ -55,11 +55,11 @@ class FloatQuantTensor(FloatQuantTensorBase, QuantTensor):
             exponent_bit_width,
             mantissa_bit_width,
             exponent_bias,
-            signed,
-            training,
             saturating,
             inf_values,
-            nan_values)
+            nan_values,
+            signed,
+            training)
         return quant_tensor
 
     @property
@@ -133,7 +133,7 @@ class FloatQuantTensor(FloatQuantTensorBase, QuantTensor):
         assert float_datatype, "Minifloat quant returns only higher precision dtype"
 
         if self.is_valid:
-            float_value = round_ste(self._pre_round_float_value)
+            float_value = self._pre_round_float_value
             return float_value.type(self.scale.dtype)
         else:
             raise RuntimeError(f"FloatQuantTensor not valid.")
