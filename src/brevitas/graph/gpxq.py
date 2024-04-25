@@ -232,6 +232,8 @@ class GPxQ(ABC):
             batch_dim = inp.names.index('N')
             inp.rename_(None)
             inp = inp.transpose(0, batch_dim)
+
+        inp = self.layer.input_quant(inp)
         return inp
 
     @abstractmethod
