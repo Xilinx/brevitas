@@ -18,6 +18,8 @@ from brevitas.graph.calibrate import disable_return_quant_tensor
 from brevitas.graph.calibrate import DisableEnableQuantization
 from brevitas.graph.calibrate import restore_return_quant_tensor
 import brevitas.nn as qnn
+from brevitas.quant_tensor import QuantTensor
+from brevitas.utils.quant_utils import _CachedIO
 
 SUPPORTED_CONV_OP = (
     qnn.QuantConv1d,
@@ -216,11 +218,21 @@ class GPxQ(ABC):
 
         self.disable_pre_forward_hook = False
         # Some layers require knowledge from quant inputs to compute quant weights
-        self.quant_input = None
+        self.quant_metadata = None
 
     def process_input(self, inp):
         # Input is a tuple, so we take first element
         inp = inp[0]
+        inp = self.layer.input_quant(inp)
+
+        is_quant_enabled = self.layer.weight_quant.is_quant_enabled
+
+        # If using quantized activations, inp could be QuantTensor. In
+        # this case, we overwrite the metadata.
+        if isinstance(inp, QuantTensor):
+            if is_quant_enabled and self.quant_metadata is None:
+                self.quant_metadata = _CachedIO(inp, metadata_only=True)
+            inp = inp.value
 
         # If input is unbatched, add batch_size = 1
         if len(inp.shape) == 1:
@@ -232,6 +244,7 @@ class GPxQ(ABC):
             batch_dim = inp.names.index('N')
             inp.rename_(None)
             inp = inp.transpose(0, batch_dim)
+
         return inp
 
     @abstractmethod
