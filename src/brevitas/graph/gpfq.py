@@ -17,7 +17,6 @@ from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import StopFwdException
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 import brevitas.nn as qnn
-from brevitas.quant_tensor import _unpack_quant_tensor
 
 
 class gpfq_mode(gpxq_mode):
@@ -163,7 +162,6 @@ class GPFQ(GPxQ):
         is_quant_enabled = module.weight_quant.is_quant_enabled
 
         inp = self.process_input(input)
-        inp = _unpack_quant_tensor(inp)
         batch_size = inp.shape[0]
 
         # Preprocess the input to compute the Hessian
