@@ -18,7 +18,6 @@ from brevitas.graph.gpxq import StopFwdException
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 import brevitas.nn as qnn
 from brevitas.quant_tensor import _unpack_quant_tensor
-from brevitas.quant_tensor import QuantTensor
 
 
 class gpfq_mode(gpxq_mode):
@@ -315,31 +314,10 @@ class GPFA2Q(GPFQ):
         self.accumulator_bit_width = accumulator_bit_width
         assert self.accumulator_bit_width is not None
 
-    def process_input(self, inp):
-        inp = super().process_input(inp)
-
-        is_quant_enabled = self.layer.weight_quant.is_quant_enabled
-
-        # If using quantized activations, inp could be QuantTensor. In
-        # this case, we overwrite the metadata.
-        if isinstance(inp, QuantTensor):
-            if is_quant_enabled and self.quant_input is None:
-                self.quant_input = QuantTensor(
-                    value=torch.empty(
-                        1, dtype=self.layer.weight.dtype, device=self.layer.weight.device),
-                    scale=inp.scale,
-                    zero_point=inp.zero_point,
-                    bit_width=inp.bit_width,
-                    signed=inp.signed,
-                    training=inp.training)
-            inp = inp.value
-
-        return inp
-
     def single_layer_update(self):
         # raise error in case no quant-input is here
-        if self.quant_input is None:
-            raise ValueError('Expected self.quant_input to calculate L1-norm upper bound, but recevied None. ' + \
+        if self.quant_metadata is None:
+            raise ValueError('Expected self.quant_metadata to calculate L1-norm upper bound, but recevied None. ' + \
                 'Make sure that either the input to the model is a QuantTensor or the layer has an input quant enabled. ' \
                 'Also, check if `use_quant_activations=True` in `gpfq_mode` when `accumulator_bit_width` is specified. ' + \
                 'Alternatively, provide a custom `a2q_layer_filter_fnc` to `gpfq_mode` to filter layers without a quant_tensor input.')
@@ -357,8 +335,8 @@ class GPFA2Q(GPFQ):
         self.quantized_input = self.quantized_input.to(dev)
 
         # get upper bound
-        input_bit_width = self.quant_input.bit_width
-        input_is_signed = self.quant_input.signed
+        input_bit_width = self.quant_metadata.bit_width
+        input_is_signed = self.quant_metadata.signed
         T = get_upper_bound_on_l1_norm(
             torch.tensor(self.accumulator_bit_width), input_bit_width, input_is_signed)
         s = self.layer.weight_quant.scale()
