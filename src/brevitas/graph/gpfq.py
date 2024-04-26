@@ -314,8 +314,8 @@ class GPFA2Q(GPFQ):
 
     def single_layer_update(self):
         # raise error in case no quant-input is here
-        if self.quant_input is None:
-            raise ValueError('Expected self.quant_input to calculate L1-norm upper bound, but recevied None. ' + \
+        if self.quant_metadata is None:
+            raise ValueError('Expected self.quant_metadata to calculate L1-norm upper bound, but recevied None. ' + \
                 'Make sure that either the input to the model is a IntQuantTensor or the layer has an input quant enabled. ' \
                 'Also, check if `use_quant_activations=True` in `gpfq_mode` when `accumulator_bit_width` is specified. ' + \
                 'Alternatively, provide a custom `a2q_layer_filter_fnc` to `gpfq_mode` to filter layers without a quant_tensor input.')
