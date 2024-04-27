@@ -3,7 +3,80 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 SPDX-License-Identifier: MIT
 """
 
+from contextlib import contextmanager
+
 import torch
+
+from brevitas.export.common.handler.base import BaseHandler
+from brevitas.export.manager import _set_proxy_export_handler
+from brevitas.export.manager import _set_proxy_export_mode
+from brevitas.export.manager import BaseManager
+from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer
+from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
+
+
+class InferenceWeightProxyHandler(BaseHandler):
+    handled_layer = WeightQuantProxyFromInjector
+
+    def __init__(self):
+        super(InferenceWeightProxyHandler, self).__init__()
+        self.scale = None
+        self.zero_point = None
+        self.bit_width = None
+        self.float_weight = None
+
+    def prepare_for_export(self, module):
+        assert len(module.tracked_module_list) == 1, "Shared quantizers not supported."
+        quant_layer = module.tracked_module_list[0]
+        self.float_weight = quant_layer.quant_weight()
+        quant_layer.weight.data = quant_layer.weight.data.cpu()
+        self.scale = module.scale()
+        self.zero_point = module.zero_point()
+        self.bit_width = module.bit_width()
+
+    def forward(self, x):
+        return self.float_weight, self.scale, self.zero_point, self.bit_width
+
+
+class InferenceWeightProxyManager(BaseManager):
+    handlers = [InferenceWeightProxyHandler]
+
+    @classmethod
+    def set_export_handler(cls, module):
+        if hasattr(module,
+                   'requires_export_handler') and module.requires_export_handler and not isinstance(
+                       module, (WeightQuantProxyFromInjector)):
+            return
+        _set_proxy_export_handler(cls, module)
+
+
+def store_mapping_tensor_state_dict(model):
+    mapping = dict()
+    for module in model.modules():
+        if isinstance(module, QuantWeightBiasInputOutputLayer):
+            mapping[module.weight.data_ptr()] = module.weight.device
+    return mapping
+
+
+def restore_mapping(model, mapping):
+    for module in model.modules():
+        if isinstance(module, QuantWeightBiasInputOutputLayer):
+            module.weight.data = module.weight.data.to(mapping[module.weight.data_ptr()])
+
+
+@contextmanager
+def brevitas_proxy_inference_mode(model):
+    mapping = store_mapping_tensor_state_dict(model)
+    is_training = model.training
+    model.eval()
+    model.apply(InferenceWeightProxyManager.set_export_handler)
+    _set_proxy_export_mode(model, enabled=True)
+    try:
+        yield model
+    finally:
+        restore_mapping(model, mapping)
+        _set_proxy_export_mode(model, enabled=False)
+        model.train(is_training)
 
 
 def unet_input_shape(resolution):

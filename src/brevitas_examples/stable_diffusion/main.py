@@ -5,6 +5,7 @@ SPDX-License-Identifier: MIT
 
 import argparse
 from datetime import datetime
+from functools import partial
 import json
 import os
 import time
@@ -12,24 +13,32 @@ import time
 from dependencies import value
 from diffusers import DiffusionPipeline
 from diffusers import StableDiffusionXLPipeline
+import numpy as np
+import pandas as pd
 import torch
 from torch import nn
+from torchmetrics.image.fid import FrechetInceptionDistance
 from tqdm import tqdm
 
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
+from brevitas.export.torch.qcdq.manager import TorchQCDQManager
 from brevitas.graph.calibrate import bias_correction_mode
 from brevitas.graph.calibrate import calibration_mode
 from brevitas.graph.equalize import activation_equalization_mode
 from brevitas.graph.gptq import gptq_mode
+from brevitas.inject.enum import QuantType
 from brevitas.nn.equalized_layer import EqualizedModule
+from brevitas.nn.forward_handlers import brevitas_proxy_inference_mode
 from brevitas.utils.torch_utils import KwargsForwardHook
 from brevitas_examples.common.generative.quantize import quantize_model
 from brevitas_examples.common.parse_utils import add_bool_arg
 from brevitas_examples.common.parse_utils import quant_format_validator
 from brevitas_examples.llm.llm_quant.export import BlockQuantProxyLevelManager
+from brevitas_examples.stable_diffusion.mlperf_evaluation.accuracy import compute_mlperf_fid
 from brevitas_examples.stable_diffusion.sd_quant.constants import SD_2_1_EMBEDDINGS_SHAPE
 from brevitas_examples.stable_diffusion.sd_quant.constants import SD_XL_EMBEDDINGS_SHAPE
 from brevitas_examples.stable_diffusion.sd_quant.export import export_onnx
+from brevitas_examples.stable_diffusion.sd_quant.export import export_torch_export
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_latents
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_unet_21_rand_inputs
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_unet_xl_rand_inputs
@@ -37,35 +46,88 @@ from brevitas_examples.stable_diffusion.sd_quant.utils import unet_input_shape
 
 TEST_SEED = 123456
 
-VALIDATION_PROMPTS = {
-    'validation_prompt_0': 'A cat playing with a ball',
-    'validation_prompt_1': 'A dog running on the beach'}
+NEGATIVE_PROMPTS = ["normal quality, low quality, worst quality, low res, blurry, nsfw, nude"]
+
+CALIBRATION_PROMPTS = [
+    'A man in a space suit playing a guitar, inspired by Cyril Rolando, highly detailed illustration, full color illustration, very detailed illustration, dan mumford and alex grey style',
+    'a living room, bright modern Scandinavian style house, large windows, magazine photoshoot, 8k, studio lighting',
+    'cute rabbit in a spacesuit',
+    'minimalistic plolygon geometric car in brutalism warehouse, Rick Owens']
+
+TESTING_PROMPTS = [
+    'batman, cute modern disney style, Pixar 3d portrait, ultra detailed, gorgeous, 3d zbrush, trending on dribbble, 8k render',
+    'A beautiful stack of rocks sitting on top of a beach, a picture, red black white golden colors, chakras, packshot, stock photo',
+    'A painting of a fish on a black background, a digital painting, by Jason Benjamin, colorful vector illustration, mixed media style illustration, epic full color illustration, mascot illustration',
+    'close up photo of a rabbit, forest in spring, haze, halation, bloom, dramatic atmosphere, centred, rule of thirds, 200mm 1.4f macro shot'
+]
+
+
+def load_calib_prompts(calib_data_path, sep="\t"):
+    df = pd.read_csv(calib_data_path, sep=sep)
+    lst = df["caption"].tolist()
+    return lst
 
 
 def run_test_inference(
-        pipe, resolution, prompts, seeds, output_path, device, dtype, name_prefix=''):
+        pipe,
+        resolution,
+        prompts,
+        seeds,
+        output_path,
+        device,
+        dtype,
+        use_negative_prompts,
+        guidance_scale,
+        name_prefix=''):
+    images = dict()
     with torch.no_grad():
         if not os.path.exists(output_path):
             os.mkdir(output_path)
         test_latents = generate_latents(seeds, device, dtype, unet_input_shape(resolution))
+        neg_prompts = NEGATIVE_PROMPTS * len(seeds) if use_negative_prompts else []
+        for prompt in prompts:
+            prompt_images = pipe([prompt] * len(seeds),
+                                 latents=test_latents,
+                                 negative_prompt=neg_prompts,
+                                 guidance_scale=guidance_scale).images
+            images[prompt] = prompt_images
 
-        for name, prompt in prompts.items():
-            print(f"Generating: {name}")
-            images = pipe([prompt] * len(seeds), latents=test_latents).images
-            for i, seed in enumerate(seeds):
-                file_path = os.path.join(output_path, f"{name_prefix}{name}_{seed}.png")
+        i = 0
+        for prompt, prompt_images in images.items():
+            for image in prompt_images:
+                file_path = os.path.join(output_path, f"{name_prefix}{i}.png")
                 print(f"Saving to {file_path}")
-                images[i].save(file_path)
+                image.save(file_path)
+                i += 1
+    return images
 
 
-def run_val_inference(pipe, resolution, prompts, seeds, output_path, device, dtype, name_prefix=''):
+def run_val_inference(
+        pipe,
+        resolution,
+        prompts,
+        seeds,
+        device,
+        dtype,
+        use_negative_prompts,
+        guidance_scale,
+        total_steps,
+        test_latents=None):
     with torch.no_grad():
-        test_latents = generate_latents(seeds, device, dtype, unet_input_shape(resolution))
 
-        for name, prompt in prompts.items():
-            print(f"Generating: {name}")
+        if test_latents is None:
+            test_latents = generate_latents(seeds[0], device, dtype, unet_input_shape(resolution))
+
+        neg_prompts = NEGATIVE_PROMPTS if use_negative_prompts else []
+        for prompt in prompts:
             # We don't want to generate any image, so we return only the latent encoding pre VAE
-            pipe([prompt] * len(seeds), latents=test_latents, output_type='latent')
+            pipe(
+                prompt,
+                negative_prompt=neg_prompts[0],
+                latents=test_latents,
+                output_type='latent',
+                guidance_scale=guidance_scale,
+                num_inference_steps=total_steps)
 
 
 def main(args):
@@ -73,11 +135,21 @@ def main(args):
     if args.export_target:
         assert args.weight_quant_format == 'int', "Currently only integer quantization supported for export."
 
-    # Select dtype
-    if args.float16:
-        dtype = torch.float16
-    else:
-        dtype = torch.float32
+    dtype = getattr(torch, args.dtype)
+
+    calibration_prompts = CALIBRATION_PROMPTS
+    if args.calibration_prompt_path is not None:
+        calibration_prompts = load_calib_prompts(args.calibration_prompt_path)
+    prompts = list()
+    for i, v in enumerate(calibration_prompts):
+        if i == args.calibration_prompt:
+            break
+        prompts.append(v)
+    calibration_prompts = prompts
+
+    latents = None
+    if args.path_to_latents is not None:
+        latents = torch.load(args.path_to_latents).to(torch.float16)
 
     # Create output dir. Move to tmp if None
     ts = datetime.fromtimestamp(time.time())
@@ -96,6 +168,29 @@ def main(args):
     print(f"Loading model from {args.model}...")
     pipe = DiffusionPipeline.from_pretrained(args.model, torch_dtype=dtype)
     print(f"Model loaded from {args.model}.")
+
+    # Move model to target device
+    print(f"Moving model to {args.device}...")
+    pipe = pipe.to(args.device)
+
+    if args.prompt > 0 and not args.use_mlperf_inference:
+        print(f"Running inference with prompt ...")
+        prompts = []
+        for i, v in enumerate(TESTING_PROMPTS):
+            if i == args.prompt:
+                break
+            prompts.append(v)
+        float_images = run_test_inference(
+            pipe,
+            args.resolution,
+            prompts,
+            test_seeds,
+            output_dir,
+            args.device,
+            dtype,
+            guidance_scale=args.guidance_scale,
+            use_negative_prompts=args.use_negative_prompts,
+            name_prefix='float_')
 
     # Detect Stable Diffusion XL pipeline
     is_sd_xl = isinstance(pipe, StableDiffusionXLPipeline)
@@ -116,19 +211,23 @@ def main(args):
         if hasattr(m, 'lora_layer') and m.lora_layer is not None:
             raise RuntimeError("LoRA layers should be fused in before calling into quantization.")
 
-    # Move model to target device
-    print(f"Moving model to {args.device}...")
-    pipe = pipe.to(args.device)
-
     if args.activation_equalization:
         with activation_equalization_mode(pipe.unet, alpha=0.5, layerwise=True, add_mul_node=True):
             # Workaround to expose `in_features` attribute from the Hook Wrapper
             for m in pipe.unet.modules():
                 if isinstance(m, KwargsForwardHook) and hasattr(m.module, 'in_features'):
                     m.in_features = m.module.in_features
-            prompts = VALIDATION_PROMPTS
             run_val_inference(
-                pipe, args.resolution, prompts, test_seeds, output_dir, args.device, dtype)
+                pipe,
+                args.resolution,
+                calibration_prompts,
+                test_seeds,
+                args.device,
+                dtype,
+                total_steps=args.calibration_steps,
+                use_negative_prompts=args.use_negative_prompts,
+                test_latents=latents,
+                guidance_scale=args.guidance_scale)
 
         # Workaround to expose `in_features` attribute from the EqualizedModule Wrapper
         for m in pipe.unet.modules():
@@ -147,22 +246,28 @@ def main(args):
             else:
                 raise RuntimeError(f"Module {module} not supported.")
 
-        # XOR between the two input_bit_width. Either they are both None, or neither of them is
-        assert (args.linear_input_bit_width is None) == (args.conv_input_bit_width is None), 'Both input bit width must be specified or left to None'
+        @value
+        def input_bit_width(module):
+            if isinstance(module, nn.Linear):
+                return args.linear_input_bit_width
+            elif isinstance(module, nn.Conv2d):
+                return args.conv_input_bit_width
+            else:
+                raise RuntimeError(f"Module {module} not supported.")
 
-        is_input_quantized = args.linear_input_bit_width is not None and args.conv_input_bit_width is not None
-        if is_input_quantized:
+        input_kwargs = dict()
+        if args.linear_input_bit_width is None or args.conv_input_bit_width is None:
 
             @value
-            def input_bit_width(module):
-                if isinstance(module, nn.Linear):
-                    return args.linear_input_bit_width
-                elif isinstance(module, nn.Conv2d):
-                    return args.conv_input_bit_width
+            def input_quant_type(module):
+                if args.linear_input_bit_width is None and isinstance(module, nn.Linear):
+                    return QuantType.FP
+                elif args.conv_input_bit_width is None and isinstance(module, nn.Conv2d):
+                    return QuantType.FP
                 else:
-                    raise RuntimeError(f"Module {module} not supported.")
-        else:
-            input_bit_width = None
+                    return QuantType.INT
+
+            input_kwargs['quant_type'] = input_quant_type
 
         print("Applying model quantization...")
         quantize_model(
@@ -184,46 +289,115 @@ def main(args):
             input_scale_precision=args.input_scale_precision,
             input_param_method=args.input_param_method,
             input_quant_type=args.input_quant_type,
-            input_quant_granularity=args.input_quant_granularity)
+            input_quant_granularity=args.input_quant_granularity,
+            use_ocp=args.use_ocp,
+            input_kwargs=input_kwargs)
         print("Model quantization applied.")
 
-        if is_input_quantized and args.input_scale_type == 'static':
+        if (args.linear_input_bit_width is not None or
+                args.conv_input_bit_width is not None) and args.input_scale_type == 'static':
             print("Applying activation calibration")
-            with calibration_mode(pipe.unet):
-                prompts = VALIDATION_PROMPTS
+            with brevitas_proxy_inference_mode(pipe.unet), torch.no_grad(), calibration_mode(pipe.unet):
                 run_val_inference(
-                    pipe, args.resolution, prompts, test_seeds, output_dir, args.device, dtype)
+                    pipe,
+                    args.resolution,
+                    calibration_prompts,
+                    test_seeds,
+                    args.device,
+                    dtype,
+                    total_steps=args.calibration_steps,
+                    use_negative_prompts=args.use_negative_prompts,
+                    test_latents=latents,
+                    guidance_scale=args.guidance_scale)
+        pipe.set_progress_bar_config(disable=True)
 
         if args.gptq:
             print("Applying GPTQ. It can take several hours")
-            with gptq_mode(pipe.unet,
+            with torch.no_grad(), gptq_mode(pipe.unet,
                            create_weight_orig=False,
                            use_quant_activations=False,
                            return_forward_output=True,
                            act_order=True) as gptq:
-                prompts = VALIDATION_PROMPTS
                 for _ in tqdm(range(gptq.num_layers)):
                     run_val_inference(
-                        pipe, args.resolution, prompts, test_seeds, output_dir, args.device, dtype)
+                        pipe,
+                        args.resolution,
+                        calibration_prompts,
+                        test_seeds,
+                        args.device,
+                        dtype,
+                        total_steps=args.calibration_steps,
+                        use_negative_prompts=args.use_negative_prompts,
+                        test_latents=latents,
+                        guidance_scale=args.guidance_scale)
                     gptq.update()
+                    torch.cuda.empty_cache()
+        pipe.set_progress_bar_config(disable=False)
 
-        print("Applying bias correction")
-        with bias_correction_mode(pipe.unet):
-            prompts = VALIDATION_PROMPTS
-            run_val_inference(
-                pipe, args.resolution, prompts, test_seeds, output_dir, args.device, dtype)
+        if args.bias_correction:
+            print("Applying bias correction")
+            with brevitas_proxy_inference_mode(pipe.unet), bias_correction_mode(pipe.unet):
+                run_val_inference(
+                    pipe,
+                    args.resolution,
+                    calibration_prompts,
+                    test_seeds,
+                    args.device,
+                    dtype,
+                    total_steps=args.calibration_steps,
+                    use_negative_prompts=args.use_negative_prompts,
+                    test_latents=latents,
+                    guidance_scale=args.guidance_scale)
+
+    if args.checkpoint_name is not None:
+        torch.save(pipe.unet.state_dict(), args.checkpoint_name)
 
     # Perform inference
-    if args.prompt:
-        print(f"Running inference with prompt '{args.prompt}' ...")
-        prompts = {'manual_prompt': args.prompt}
-        run_test_inference(
-            pipe, args.resolution, prompts, test_seeds, output_dir, args.device, dtype)
+    if args.prompt > 0:
+        with brevitas_proxy_inference_mode(pipe.unet):
+            if args.use_mlperf_inference:
+                print(f"Computing accuracy with MLPerf pipeline")
+                compute_mlperf_fid(pipe.unet, args.prompt)
+            else:
+                print(f"Computing accuracy on default prompt")
+                prompts = list()
+                for i, v in enumerate(TESTING_PROMPTS):
+                    if i == args.prompt:
+                        break
+                    prompts.append(v)
+                quant_images = run_test_inference(
+                    pipe,
+                    args.resolution,
+                    prompts,
+                    test_seeds,
+                    output_dir,
+                    args.device,
+                    dtype,
+                    use_negative_prompts=args.use_negative_prompts,
+                    guidance_scale=args.guidance_scale,
+                    name_prefix='quant_')
+
+                float_images_values = float_images.values()
+                float_images_values = [x for x_nested in float_images_values for x in x_nested]
+                float_images_values = torch.tensor([
+                    np.array(image) for image in float_images_values])
+                float_images_values = float_images_values.permute(0, 3, 1, 2)
+
+                quant_images_values = quant_images.values()
+                quant_images_values = [x for x_nested in quant_images_values for x in x_nested]
+                quant_images_values = torch.tensor([
+                    np.array(image) for image in quant_images_values])
+                quant_images_values = quant_images_values.permute(0, 3, 1, 2)
+
+                fid = FrechetInceptionDistance(normalize=False)
+                fid.update(float_images_values, real=True)
+                fid.update(quant_images_values, real=False)
+                print(f"FID: {float(fid.compute())}")
 
     if args.export_target:
         # Move to cpu and to float32 to enable CPU export
-        if not (args.float16 and args.export_cuda_float16):
-            pipe.unet.to('cpu').to(torch.float32)
+        if not (dtype == torch.float16 and args.export_cuda_float16):
+            pipe.unet.to('cpu').to(dtype)
         pipe.unet.eval()
         device = next(iter(pipe.unet.parameters())).device
         dtype = next(iter(pipe.unet.parameters())).dtype
@@ -248,6 +422,13 @@ def main(args):
                 export_manager = StdQCDQONNXManager
                 export_manager.change_weight_export(export_weight_q_node=args.export_weight_q_node)
             export_onnx(pipe, trace_inputs, output_dir, export_manager)
+        if args.export_target == 'torch':
+            if args.weight_quant_granularity == 'per_group':
+                export_manager = BlockQuantProxyLevelManager
+            else:
+                export_manager = TorchQCDQManager
+                export_manager.change_weight_export(export_weight_q_node=args.export_weight_q_node)
+            export_torch_export(pipe, trace_inputs, output_dir, export_manager)
 
 
 if __name__ == "__main__":
@@ -260,17 +441,46 @@ if __name__ == "__main__":
         help='Path or name of the model.')
     parser.add_argument(
         '-d', '--device', type=str, default='cuda:0', help='Target device for quantized model.')
-    parser.add_argument('-b', '--batch-size', type=int, default=4, help='Batch size. Default: 4')
+    parser.add_argument(
+        '-b',
+        '--batch-size',
+        type=int,
+        default=2,
+        help='How many seeds to use for each image during validation. Default: 2')
     parser.add_argument(
         '--prompt',
+        type=int,
+        default=4,
+        help='Number of prompt to use for testing. Default: 4. Max: 4')
+    parser.add_argument(
+        '--calibration-prompt',
+        type=int,
+        default=2,
+        help='Number of prompt to use for calibration. Default: 2')
+    parser.add_argument(
+        '--calibration-prompt-path', type=str, default=None, help='Path to calibration prompt')
+    parser.add_argument(
+        '--checkpoint-name',
         type=str,
-        default='An austronaut riding a horse on Mars.',
-        help='Manual prompt for testing. Default: An austronaut riding a horse on Mars.')
+        default=None,
+        help='Name to use to store the checkpoint. If not provided, no checkpoint is saved.')
+    parser.add_argument(
+        '--path-to-latents',
+        type=str,
+        default=None,
+        help=
+        'Load pre-defined latents. If not provided, they are generated based on an internal seed.')
     parser.add_argument(
         '--resolution',
         type=int,
         default=512,
         help='Resolution along height and width dimension. Default: 512.')
+    parser.add_argument('--guidance-scale', type=float, default=7.5, help='Guidance scale.')
+    parser.add_argument(
+        '--calibration-steps',
+        type=float,
+        default=8,
+        help='Percentage of steps used during calibration')
     add_bool_arg(
         parser,
         'output-path',
@@ -284,14 +494,24 @@ if __name__ == "__main__":
         default=False,
         help='Toggle Activation Equalization. Default: Disabled')
     add_bool_arg(parser, 'gptq', default=False, help='Toggle gptq. Default: Disabled')
-    add_bool_arg(parser, 'float16', default=True, help='Enable float16 execution. Default: Enabled')
+    add_bool_arg(
+        parser, 'bias-correction', default=True, help='Toggle bias-correction. Default: Enabled')
+    parser.add_argument(
+        '--dtype',
+        default='float16',
+        choices=['float32', 'float16', 'bfloat16'],
+        help='Model Dtype, choices are float32, float16, bfloat16. Default: float16')
     add_bool_arg(
         parser,
         'attention-slicing',
         default=False,
         help='Enable attention slicing. Default: Disabled')
     parser.add_argument(
-        '--export-target', type=str, default='', choices=['', 'onnx'], help='Target export flow.')
+        '--export-target',
+        type=str,
+        default='',
+        choices=['', 'torch', 'onnx'],
+        help='Target export flow.')
     add_bool_arg(
         parser,
         'export-weight-q-node',
@@ -391,6 +611,21 @@ if __name__ == "__main__":
         help='Quantize weight zero-point. Default: Enabled')
     add_bool_arg(
         parser, 'export-cuda-float16', default=False, help='Export FP16 on CUDA. Default: Disabled')
+    add_bool_arg(
+        parser,
+        'use-mlperf-inference',
+        default=False,
+        help='Evaluate FID score with MLPerf pipeline. Default: False')
+    add_bool_arg(
+        parser,
+        'use-ocp',
+        default=True,
+        help='Use OCP format for float quantization. Default: True')
+    add_bool_arg(
+        parser,
+        'use-negative-prompts',
+        default=True,
+        help='Use negative prompts during generation/calibration. Default: Enabled')
     args = parser.parse_args()
     print("Args: " + str(vars(args)))
     main(args)
