@@ -16,18 +16,25 @@ We support ONNX integer export, and we are planning to release soon export for f
 To export the model with fp16 scale factors, enable `export-cuda-float16`. This will performing the tracing necessary for export on GPU, leaving the model in fp16.
 If the flag is not enabled, the model will be moved to CPU and cast to float32 before export because of missing CPU kernels in fp16.
 
+To use MLPerf inference setup, check and install the correct requirements specified in the `requirements.txt` file under mlperf_evaluation.
 
 ## Run
 
 ```bash
 usage: main.py [-h] [-m MODEL] [-d DEVICE] [-b BATCH_SIZE] [--prompt PROMPT]
-               [--resolution RESOLUTION]
+               [--calibration-prompt CALIBRATION_PROMPT]
+               [--calibration-prompt-path CALIBRATION_PROMPT_PATH]
+               [--checkpoint-name CHECKPOINT_NAME]
+               [--path-to-latents PATH_TO_LATENTS] [--resolution RESOLUTION]
+               [--guidance-scale GUIDANCE_SCALE]
+               [--calibration-steps CALIBRATION_STEPS]
                [--output-path OUTPUT_PATH | --no-output-path]
                [--quantize | --no-quantize]
                [--activation-equalization | --no-activation-equalization]
-               [--gptq | --no-gptq] [--float16 | --no-float16]
+               [--gptq | --no-gptq] [--bias-correction | --no-bias-correction]
+               [--dtype {float32,float16,bfloat16}]
                [--attention-slicing | --no-attention-slicing]
-               [--export-target {,onnx}]
+               [--export-target {,torch,onnx}]
                [--export-weight-q-node | --no-export-weight-q-node]
                [--conv-weight-bit-width CONV_WEIGHT_BIT_WIDTH]
                [--linear-weight-bit-width LINEAR_WEIGHT_BIT_WIDTH]
@@ -47,6 +54,9 @@ usage: main.py [-h] [-m MODEL] [-d DEVICE] [-b BATCH_SIZE] [--prompt PROMPT]
                [--weight-group-size WEIGHT_GROUP_SIZE]
                [--quantize-weight-zero-point | --no-quantize-weight-zero-point]
                [--export-cuda-float16 | --no-export-cuda-float16]
+               [--use-mlperf-inference | --no-use-mlperf-inference]
+               [--use-ocp | --no-use-ocp]
+               [--use-negative-prompts | --no-use-negative-prompts]
 
 Stable Diffusion quantization
 
@@ -57,12 +67,27 @@ options:
   -d DEVICE, --device DEVICE
                         Target device for quantized model.
   -b BATCH_SIZE, --batch-size BATCH_SIZE
-                        Batch size. Default: 4
-  --prompt PROMPT       Manual prompt for testing. Default: An austronaut
-                        riding a horse on Mars.
+                        How many seeds to use for each image during
+                        validation. Default: 2
+  --prompt PROMPT       Number of prompt to use for testing. Default: 4. Max:
+                        4
+  --calibration-prompt CALIBRATION_PROMPT
+                        Number of prompt to use for calibration. Default: 2
+  --calibration-prompt-path CALIBRATION_PROMPT_PATH
+                        Path to calibration prompt
+  --checkpoint-name CHECKPOINT_NAME
+                        Name to use to store the checkpoint. If not provided,
+                        no checkpoint is saved.
+  --path-to-latents PATH_TO_LATENTS
+                        Load pre-defined latents. If not provided, they are
+                        generated based on an internal seed.
   --resolution RESOLUTION
                         Resolution along height and width dimension. Default:
                         512.
+  --guidance-scale GUIDANCE_SCALE
+                        Guidance scale.
+  --calibration-steps CALIBRATION_STEPS
+                        Percentage of steps used during calibration
   --output-path OUTPUT_PATH
                         Path where to generate output folder.
   --no-output-path      Disable Path where to generate output folder.
@@ -76,12 +101,15 @@ options:
                         Disabled
   --gptq                Enable Toggle gptq. Default: Disabled
   --no-gptq             Disable Toggle gptq. Default: Disabled
-  --float16             Enable Enable float16 execution. Default: Enabled
-  --no-float16          Disable Enable float16 execution. Default: Enabled
+  --bias-correction     Enable Toggle bias-correction. Default: Enabled
+  --no-bias-correction  Disable Toggle bias-correction. Default: Enabled
+  --dtype {float32,float16,bfloat16}
+                        Model Dtype, choices are float32, float16, bfloat16.
+                        Default: float16
   --attention-slicing   Enable Enable attention slicing. Default: Disabled
   --no-attention-slicing
                         Disable Enable attention slicing. Default: Disabled
-  --export-target {,onnx}
+  --export-target {,torch,onnx}
                         Target export flow.
   --export-weight-q-node
                         Enable Enable export of floating point weights + QDQ
@@ -137,4 +165,21 @@ options:
                         Enable Export FP16 on CUDA. Default: Disabled
   --no-export-cuda-float16
                         Disable Export FP16 on CUDA. Default: Disabled
+  --use-mlperf-inference
+                        Enable Evaluate FID score with MLPerf pipeline.
+                        Default: False
+  --no-use-mlperf-inference
+                        Disable Evaluate FID score with MLPerf pipeline.
+                        Default: False
+  --use-ocp             Enable Use OCP format for float quantization. Default:
+                        True
+  --no-use-ocp          Disable Use OCP format for float quantization.
+                        Default: True
+  --use-negative-prompts
+                        Enable Use negative prompts during
+                        generation/calibration. Default: Enabled
+  --no-use-negative-prompts
+                        Disable Use negative prompts during
+                        generation/calibration. Default: Enabled
+
 ```

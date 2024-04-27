@@ -7,12 +7,7 @@ import os
 
 import torch
 from torch import nn
-from torch._decomp import get_decompositions
 
-from brevitas.backport.fx.experimental.proxy_tensor import make_fx
-from brevitas.export.manager import _force_requires_grad_false
-from brevitas.export.manager import _JitTraceExportWrapper
-from brevitas_examples.llm.llm_quant.export import BlockQuantProxyLevelManager
 from brevitas_examples.llm.llm_quant.export import brevitas_proxy_export_mode
 
 
@@ -31,3 +26,12 @@ def export_onnx(pipe, trace_inputs, output_dir, export_manager):
     print(f"Saving unet to {output_path} ...")
     with torch.no_grad(), brevitas_proxy_export_mode(pipe.unet, export_manager):
         torch.onnx.export(pipe.unet, args=trace_inputs, f=output_path)
+
+
+def export_torch_export(pipe, trace_inputs, output_dir, export_manager):
+    output_path = os.path.join(output_dir, 'unet.onnx')
+    print(trace_inputs[1])
+    print(f"Saving unet to {output_path} ...")
+    with torch.no_grad(), brevitas_proxy_export_mode(pipe.unet, export_manager):
+        torch.export.export(
+            UnetExportWrapper(pipe.unet), args=(trace_inputs[0],), kwargs=trace_inputs[1])

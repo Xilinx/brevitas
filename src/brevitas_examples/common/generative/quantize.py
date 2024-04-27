@@ -4,6 +4,7 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 """
 import re
 
+import torch
 from torch import nn
 
 from brevitas import nn as qnn
@@ -13,6 +14,8 @@ from brevitas.quant.experimental.float import Fp8e4m3Act
 from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloat
 from brevitas.quant.experimental.float import Fp8e4m3WeightPerChannelFloat
 from brevitas.quant.experimental.float import Fp8e4m3WeightPerTensorFloat
+from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPWeightPerChannelFloat
+from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPWeightPerTensorFloat
 from brevitas.quant.fixed_point import Int8ActPerTensorFixedPoint
 from brevitas.quant.fixed_point import Int8ActPerTensorFixedPointMSE
 from brevitas.quant.fixed_point import Int8WeightPerChannelFixedPoint
@@ -79,7 +82,14 @@ WEIGHT_QUANT_MAP = {
                 'per_channel': {
                     'sym': Fp8e4m3WeightPerChannelFloat},
                 'per_group': {
-                    'sym': Fp8e4m3WeightSymmetricGroupQuant}},}}}
+                    'sym': Fp8e4m3WeightSymmetricGroupQuant}}}},
+    'float_ocp': {
+        'float_scale': {
+            'stats': {
+                'per_tensor': {
+                    'sym': Fp8e4m3OCPWeightPerTensorFloat},
+                'per_channel': {
+                    'sym': Fp8e4m3OCPWeightPerChannelFloat}}}}}
 
 INPUT_QUANT_MAP = {
     'int': {
@@ -142,7 +152,10 @@ def quantize_model(
         input_group_size=None,
         quantize_input_zero_point=False,
         quantize_embedding=False,
-        device=None):
+        use_ocp=False,
+        device=None,
+        weight_kwargs=None,
+        input_kwargs=None):
     """
     Replace float layers with quant layers in the target model
     """
@@ -154,6 +167,8 @@ def quantize_model(
             'exponent_bit_width': int(weight_quant_format[1]),
             'mantissa_bit_width': int(weight_quant_format[3])}
         weight_quant_format = 'float'
+        if use_ocp:
+            weight_quant_format += '_ocp'
     else:
         weight_float_format = {}
     if re.compile(r'e[1-8]m[1-8]').match(input_quant_format):
@@ -161,6 +176,8 @@ def quantize_model(
             'exponent_bit_width': int(input_quant_format[1]),
             'mantissa_bit_width': int(input_quant_format[3])}
         input_quant_format = 'float'
+        if use_ocp:
+            input_quant_format += '_ocp'
     else:
         input_float_format = {}
 
@@ -178,6 +195,11 @@ def quantize_model(
         linear_input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
             input_scale_precision][input_param_method][input_quant_granularity][input_quant_type]
 
+        if input_kwargs is not None:
+            input_quant = input_quant.let(**input_kwargs)
+            sym_input_quant = sym_input_quant.let(**input_kwargs)
+            linear_input_quant = linear_input_quant.let(**input_kwargs)
+
     else:
         input_quant = None
         sym_input_quant = None
@@ -190,6 +212,10 @@ def quantize_model(
             'narrow_range': False,
             'quantize_zero_point': quantize_weight_zero_point},
         **weight_float_format)
+    if dtype == torch.float16:
+        weight_quant = weight_quant.let(**{'scaling_min_val': 1e-4})
+    if weight_kwargs is not None:
+        weight_quant = weight_quant.let(**weight_kwargs)
 
     # Set the group_size is we're doing groupwise quantization
     if weight_quant_granularity == 'per_group':
