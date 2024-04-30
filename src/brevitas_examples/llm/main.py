@@ -278,7 +278,7 @@ def main():
         nsamples=args.nsamples, tokenizer=tokenizer, seqlen=args.seqlen, seed=0)
     val_data = get_wikitext2(
         nsamples=args.nsamples, tokenizer=tokenizer, seqlen=args.seqlen, split='validation', seed=0)
-    val_data = create_validation_dataloader(val_data, args.seqlen)
+    val_data = create_validation_dataloader(val_data, args.seqlen, model.device)
     print("Data loaded.")
 
     # Apply LN affine merging before inserting MHA layers

@@ -21,11 +21,11 @@ from torch import nn
 from tqdm import tqdm
 
 
-def create_validation_dataloader(data, seqlen):
+def create_validation_dataloader(data, seqlen, device):
     nsamples = data['input_ids'].numel() // seqlen
     val_dataloader = []
     for i in tqdm(range(nsamples)):
-        batch = data['input_ids'][:, (i * seqlen):((i + 1) * seqlen)].cuda()
+        batch = data['input_ids'][:, (i * seqlen):((i + 1) * seqlen)].to(device)
         attention_mask = torch.ones_like(batch)
         val_dataloader.append({'input_ids': batch, 'attention_mask': attention_mask})
     return val_dataloader
@@ -41,7 +41,7 @@ def model_eval(model, valenc, seqlen):
         for inps in valenc:
             lm_logits = model(**inps)['logits']
             shift_logits = lm_logits[:, :-1, :].contiguous()
-            shift_labels = inps['input_ids'][:, 1:].cuda()
+            shift_labels = inps['input_ids'][:, 1:].to(model.device)
             loss_fct = nn.CrossEntropyLoss()
             loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
             neg_log_likelihood = loss.float() * seqlen
