@@ -222,6 +222,9 @@ class QuantTensor(QuantTensorBase):
     def dim(self):
         return self.value.dim()
 
+    def mean(self):
+        return self.value.mean()
+
     @property
     def shape(self):
         return self.value.shape
