@@ -8,6 +8,7 @@ import random
 import warnings
 
 import numpy as np
+import timm
 import torch
 import torch.backends.cudnn as cudnn
 import torch.nn.parallel
@@ -47,10 +48,6 @@ def parse_type(v, default_type):
         return default_type(v)
 
 
-model_names = sorted(
-    name for name in torchvision.models.__dict__ if name.islower() and not name.startswith("__") and
-    callable(torchvision.models.__dict__[name]) and not name.startswith("get_"))
-
 parser = argparse.ArgumentParser(description='PyTorch ImageNet PTQ Validation')
 parser.add_argument(
     '--calibration-dir',
@@ -76,11 +73,15 @@ parser.add_argument('--gpu', default=None, type=int, help='GPU id to use (defaul
 parser.add_argument(
     '--calibration-samples', default=1000, type=int, help='Calibration size (default: 1000)')
 parser.add_argument(
+    '--dataset',
+    default='torchvision',
+    choices=['torchvision', 'timm'],
+    help='Source of models (default: torchvision)')
+parser.add_argument(
     '--model-name',
     default='resnet18',
     metavar='ARCH',
-    choices=model_names,
-    help='model architecture: ' + ' | '.join(model_names) + ' (default: resnet18)')
+    help='model architecture: (default: resnet18)')
 parser.add_argument(
     '--dtype', default='float', choices=['float', 'bfloat16'], help='Data type to use')
 parser.add_argument(
@@ -351,8 +352,11 @@ def main():
         center_crop_shape,
         inception_preprocessing=inception_preprocessing)
 
-    # Get the model from torchvision
-    model = get_torchvision_model(args.model_name)
+    # Get the model from torchvision or timm
+    if args.dataset == 'torchvision':
+        model = get_torchvision_model(args.model_name)
+    else:
+        model = timm.create_model(args.model_name, pretrained=True)
     model = model.to(dtype)
 
     # Preprocess the model for quantization
