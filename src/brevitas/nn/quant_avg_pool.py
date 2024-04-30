@@ -47,6 +47,13 @@ class TruncAvgPool2d(TruncMixin, QuantLayerMixin, AvgPool2d):
     def requires_export_handler(self):
         return True
 
+    @property
+    def _avg_scaling(self):
+        if isinstance(self.kernel_size, tuple):
+            return self.kernel_size[0] * self.kernel_size[1]
+        else:
+            return self.kernel_size * self.kernel_size
+
     def forward(self, input: Union[Tensor, QuantTensor]):
         x = self.unpack_input(input)
 
@@ -55,7 +62,10 @@ class TruncAvgPool2d(TruncMixin, QuantLayerMixin, AvgPool2d):
 
         if isinstance(x, QuantTensor) and self.is_trunc_quant_enabled:
             y = AvgPool2d.forward(self, x)
-            y = self.trunc_quant(y)
+            if self.is_trunc_quant_enabled:
+                rescaled_value = x.value * self._avg_scaling
+                x = x.set(value=rescaled_value)
+                x = self.trunc_quant(x)
         else:
             y = AvgPool2d.forward(self, _unpack_quant_tensor(x))
 
@@ -113,6 +123,11 @@ class TruncAdaptiveAvgPool2d(TruncMixin, QuantLayerMixin, AdaptiveAvgPool2d):
 
         if isinstance(x, QuantTensor) and self.is_trunc_quant_enabled:
             y = AdaptiveAvgPool2d.forward(self, x)
+            if self.is_trunc_quant_enabled:
+                k_size, stride = self.compute_kernel_size_stride(x.value.shape[2:], y.value.shape[2:])
+                reduce_size = reduce(mul, k_size, 1)
+                rescaled_value = y.value * reduce_size  # remove avg scaling
+                y = y.set(value=rescaled_value)
             y = self.trunc_quant(y)
         else:
             y = AdaptiveAvgPool2d.forward(self, _unpack_quant_tensor(x))
