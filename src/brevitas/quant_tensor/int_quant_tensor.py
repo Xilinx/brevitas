@@ -214,6 +214,13 @@ class QuantTensor(QuantTensorBase):
 
     def size(self, *args, **kwargs):
         return self.value.size(*args, **kwargs)
+    
+    @property
+    def ndim(self):
+        return self.value.ndim
+
+    def dim(self):
+        return self.value.dim()
 
     @property
     def shape(self):
