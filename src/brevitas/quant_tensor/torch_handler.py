@@ -245,8 +245,8 @@ def avg_pool2d_handler(
         avg_scaling = kernel_size[0] * kernel_size[1]
     else:
         avg_scaling = kernel_size * kernel_size
-    rescaled_value = x * avg_scaling
-    quant_input = quant_input.set(value=rescaled_value)
+
+    quant_input = quant_input.set(value=x)
     quant_input = quant_input.set(bit_width=max_acc_bit_width(quant_input.bit_width, avg_scaling))
     return quant_input
 
@@ -264,9 +264,8 @@ def adaptive_avg_pool2d_handler(quant_input, output_shape):
 
     max_acc_bit_width = FN_ACC_BITWIDTH_MAPPING[F.avg_pool2d]
     reduce_size = reduce(mul, k_size, 1)
-    rescaled_value = x * reduce_size  # remove avg scaling
 
-    quant_input = quant_input.set(value=rescaled_value)
+    quant_input = quant_input.set(value=x)
     quant_input = quant_input.set(bit_width=max_acc_bit_width(quant_input.bit_width, reduce_size))
     return quant_input
 
