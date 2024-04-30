@@ -222,8 +222,8 @@ class QuantTensor(QuantTensorBase):
     def dim(self):
         return self.value.dim()
 
-    def mean(self, *args):
-        return self.value.mean(args)
+    def mean(self, *args, **kwargs):
+        return self.value.mean(*args, **kwargs)
 
     @property
     def shape(self):
