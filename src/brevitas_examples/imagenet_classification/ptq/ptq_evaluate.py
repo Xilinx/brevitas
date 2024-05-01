@@ -380,6 +380,10 @@ def main():
         val_loader = generate_dataloader_with_transform(
             args.validation_dir, args.batch_size_validation, args.workers, transform)
 
+    if args.validate_before_quantize is True:
+        print("Starting validation of unquantized model")
+        validate(val_loader, model, stable=dtype != torch.bfloat16)
+
     # Preprocess the model for quantization
     if args.target_backend == 'flexml':
         # flexml requires static shapes, pass a representative input in
@@ -479,10 +483,6 @@ def main():
     # Validate the quant_model on the validation dataloader
     print("Starting validation:")
     validate(val_loader, quant_model, stable=dtype != torch.bfloat16)
-
-    if args.validate_before_quantize == True:
-        print("Starting validation of unquantized model")
-        validate(val_loader, model, stable=dtype != torch.bfloat16)
 
     if args.export_onnx_qcdq or args.export_torch_qcdq:
         # Generate reference input tensor to drive the export process
