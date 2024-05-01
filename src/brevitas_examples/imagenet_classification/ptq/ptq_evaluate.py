@@ -350,7 +350,7 @@ def main():
     model = model.to(dtype)
 
     # Generate calibration and validation dataloaders
-    if args.repostory == 'torchvision':
+    if args.repository == 'torchvision':
         resize_shape = model_config['resize_shape']
         center_crop_shape = model_config['center_crop_shape']
         inception_preprocessing = model_config['inception_preprocessing']
