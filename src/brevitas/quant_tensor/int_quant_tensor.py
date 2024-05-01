@@ -235,6 +235,9 @@ class QuantTensor(QuantTensorBase):
     def add(self, other):
         return self + other
 
+    def unsqueeze(self, *args, **kwargs):
+        return self.value.unsqueeze(*args, **kwargs)
+
     @staticmethod
     def cat(tensors, dim, out=None):
         if out is not None:
