@@ -34,6 +34,7 @@ from brevitas_examples.imagenet_classification.ptq.utils import add_bool_arg
 from brevitas_examples.imagenet_classification.ptq.utils import get_model_config
 from brevitas_examples.imagenet_classification.ptq.utils import get_torchvision_model
 from brevitas_examples.imagenet_classification.utils import generate_dataloader
+from brevitas_examples.imagenet_classification.utils import generate_dataloader_with_transform
 from brevitas_examples.imagenet_classification.utils import SEED
 from brevitas_examples.imagenet_classification.utils import validate
 
@@ -349,25 +350,35 @@ def main():
     model = model.to(dtype)
 
     # Generate calibration and validation dataloaders
-    resize_shape = model_config['resize_shape']
-    center_crop_shape = model_config['center_crop_shape']
-    inception_preprocessing = model_config['inception_preprocessing']
+    if args.repostory == 'torchvision':
+        resize_shape = model_config['resize_shape']
+        center_crop_shape = model_config['center_crop_shape']
+        inception_preprocessing = model_config['inception_preprocessing']
 
-    calib_loader = generate_dataloader(
-        args.calibration_dir,
-        args.batch_size_calibration,
-        args.workers,
-        resize_shape,
-        center_crop_shape,
-        args.calibration_samples,
-        inception_preprocessing)
-    val_loader = generate_dataloader(
-        args.validation_dir,
-        args.batch_size_validation,
-        args.workers,
-        resize_shape,
-        center_crop_shape,
-        inception_preprocessing=inception_preprocessing)
+        calib_loader = generate_dataloader(
+            args.calibration_dir,
+            args.batch_size_calibration,
+            args.workers,
+            resize_shape,
+            center_crop_shape,
+            args.calibration_samples,
+            inception_preprocessing)
+        val_loader = generate_dataloader(
+            args.validation_dir,
+            args.batch_size_validation,
+            args.workers,
+            resize_shape,
+            center_crop_shape,
+            inception_preprocessing=inception_preprocessing)
+    else:
+        calib_loader = generate_dataloader_with_transform(
+            args.calibration_dir,
+            args.batch_size_calibration,
+            args.workers,
+            transform,
+            args.calibration_samples)
+        val_loader = generate_dataloader_with_transform(
+            args.validation_dir, args.batch_size_validation, args.workers, transform)
 
     # Preprocess the model for quantization
     if args.target_backend == 'flexml':

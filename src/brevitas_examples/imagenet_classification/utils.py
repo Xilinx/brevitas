@@ -109,6 +109,11 @@ def generate_dataset(dir, resize_shape=256, center_crop_shape=224, inception_pre
     return dataset
 
 
+def generate_dataset_with_transform(dir, transform):
+    dataset = datasets.ImageFolder(dir, transform)
+    return dataset
+
+
 def generate_dataloader(
         dir,
         batch_size,
@@ -122,6 +127,22 @@ def generate_dataloader(
         resize_shape=resize_shape,
         center_crop_shape=center_crop_shape,
         inception_preprocessing=inception_preprocessing)
+    if subset_size is not None:
+        dataset = torch.utils.data.Subset(dataset, list(range(subset_size)))
+    loader = torch.utils.data.DataLoader(
+        dataset, batch_size=batch_size, num_workers=num_workers, pin_memory=True)
+
+    return loader
+
+
+def generate_dataloader_with_transform(
+    dir,
+    batch_size,
+    num_workers,
+    transform,
+    subset_size=None,
+):
+    dataset = generate_dataset_with_transform(dir, transform)
     if subset_size is not None:
         dataset = torch.utils.data.Subset(dataset, list(range(subset_size)))
     loader = torch.utils.data.DataLoader(
