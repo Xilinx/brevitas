@@ -349,6 +349,12 @@ def main():
         model_config['center_crop_shape'] = transform.transforms[1].size[0]
     model = model.to(dtype)
 
+    # If available, use the selected GPU
+    if args.gpu is not None:
+        torch.cuda.set_device(args.gpu)
+        model = model.cuda(args.gpu)
+        cudnn.benchmark = False
+
     # Generate calibration and validation dataloaders
     if args.repository == 'torchvision':
         resize_shape = model_config['resize_shape']
@@ -404,12 +410,6 @@ def main():
             channel_splitting_split_input=args.channel_splitting_split_input)
     else:
         raise RuntimeError(f"{args.target_backend} backend not supported.")
-
-    # If available, use the selected GPU
-    if args.gpu is not None:
-        torch.cuda.set_device(args.gpu)
-        model = model.cuda(args.gpu)
-        cudnn.benchmark = False
 
     if args.act_equalization is not None:
         print("Applying activation equalization:")
