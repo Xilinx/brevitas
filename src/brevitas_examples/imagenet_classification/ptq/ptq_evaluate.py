@@ -73,7 +73,7 @@ parser.add_argument('--gpu', default=None, type=int, help='GPU id to use (defaul
 parser.add_argument(
     '--calibration-samples', default=1000, type=int, help='Calibration size (default: 1000)')
 parser.add_argument(
-    '--dataset',
+    '--repository',
     default='torchvision',
     choices=['torchvision', 'timm'],
     help='Source of models (default: torchvision)')
@@ -182,6 +182,11 @@ add_bool_arg(
     'weight-narrow-range',
     default=False,
     help='Narrow range for weight quantization (default: disabled)')
+add_bool_arg(
+    parser,
+    'validate-before-quantize',
+    default=False,
+    help='Run validation on the model before it is quantized')
 parser.add_argument('--gpfq-p', default=1.0, type=float, help='P parameter for GPFQ (default: 1.0)')
 parser.add_argument(
     '--quant-format',
@@ -332,10 +337,22 @@ def main():
     # Get model-specific configurations about input shapes and normalization
     model_config = get_model_config(args.model_name)
 
+    # Get the model from torchvision or timm
+    if args.repository == 'torchvision':
+        model = get_torchvision_model(args.model_name)
+    else:
+        model = timm.create_model(args.model_name, pretrained=True)
+        data_cfg = timm.data.resolve_data_config(model.pretrained_cfg)
+        transform = timm.data.create_transform(**data_cfg)
+        model_config['resize_shape'] = transform.transforms[0].size
+        model_config['center_crop_shape'] = transform.transforms[1].size[0]
+    model = model.to(dtype)
+
     # Generate calibration and validation dataloaders
     resize_shape = model_config['resize_shape']
     center_crop_shape = model_config['center_crop_shape']
     inception_preprocessing = model_config['inception_preprocessing']
+
     calib_loader = generate_dataloader(
         args.calibration_dir,
         args.batch_size_calibration,
@@ -351,13 +368,6 @@ def main():
         resize_shape,
         center_crop_shape,
         inception_preprocessing=inception_preprocessing)
-
-    # Get the model from torchvision or timm
-    if args.dataset == 'torchvision':
-        model = get_torchvision_model(args.model_name)
-    else:
-        model = timm.create_model(args.model_name, pretrained=True)
-    model = model.to(dtype)
 
     # Preprocess the model for quantization
     if args.target_backend == 'flexml':
@@ -458,6 +468,10 @@ def main():
     # Validate the quant_model on the validation dataloader
     print("Starting validation:")
     validate(val_loader, quant_model, stable=dtype != torch.bfloat16)
+
+    if args.validate_before_quantize == True:
+        print("Starting validation of unquantized model")
+        validate(val_loader, model, stable=dtype != torch.bfloat16)
 
     if args.export_onnx_qcdq or args.export_torch_qcdq:
         # Generate reference input tensor to drive the export process
