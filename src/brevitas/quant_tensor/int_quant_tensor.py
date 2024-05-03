@@ -238,6 +238,9 @@ class QuantTensor(QuantTensorBase):
     def unsqueeze(self, *args, **kwargs):
         return self.value.unsqueeze(*args, **kwargs)
 
+    def sigmoid(self):
+        return self.value.sigmoid()
+
     @staticmethod
     def cat(tensors, dim, out=None):
         if out is not None:
