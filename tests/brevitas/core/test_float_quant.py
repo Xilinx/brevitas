@@ -40,18 +40,18 @@ def test_float_quant_defaults(minifloat_format):
             inf_values=None,
             nan_values=None,
             saturating=True)
-        scaling = FloatScaling(None, None, True)
+        float_scaling = FloatScaling(None, None, True)
         float_quant = FloatQuant(
             bit_width=bit_width,
-            scaling_impl=scaling,
+            float_scaling_impl=float_scaling,
             exponent_bit_width=exponent_bit_width,
             mantissa_bit_width=mantissa_bit_width,
             exponent_bias=exponent_bias,
             signed=signed,
             float_clamp_impl=float_clamp)
         assert isinstance(float_quant.float_to_int_impl, RoundSte)
-        assert isinstance(float_quant.float_scaling_impl, ConstScaling)
-        assert isinstance(float_quant.scaling_impl, FloatScaling)
+        assert isinstance(float_quant.float_scaling_impl, FloatScaling)
+        assert isinstance(float_quant.scaling_impl, ConstScaling)
 
 
 @given(minifloat_format=random_minifloat_format())
@@ -81,10 +81,10 @@ def test_float_to_quant_float(inp, minifloat_format):
             inf_values=None,
             nan_values=None,
             saturating=True)
-        scaling = FloatScaling(None, None, True)
+        float_scaling_impl = mock.Mock(side_effect=lambda x, y, z: 1.)
         float_quant = FloatQuant(
             bit_width=bit_width,
-            scaling_impl=scaling,
+            float_scaling_impl=float_scaling_impl,
             exponent_bit_width=exponent_bit_width,
             mantissa_bit_width=mantissa_bit_width,
             exponent_bias=exponent_bias,
@@ -103,8 +103,8 @@ def test_float_to_quant_float(inp, minifloat_format):
 @jit_disabled_for_mock()
 def test_scaling_impls_called_once(inp, minifloat_format):
     bit_width, exponent_bit_width, mantissa_bit_width, signed, exponent_bias = minifloat_format
-    scaling_impl = mock.Mock(side_effect=lambda x, y, z: 1.)
-    float_scaling_impl = mock.Mock(side_effect=lambda x: 1.)
+    scaling_impl = mock.Mock(side_effect=lambda x: 1.)
+    float_scaling_impl = mock.Mock(side_effect=lambda x, y, z: 1.)
     if exponent_bit_width == 0 or mantissa_bit_width == 0:
         with pytest.raises(RuntimeError):
             float_quant = FloatQuant(
@@ -135,11 +135,11 @@ def test_scaling_impls_called_once(inp, minifloat_format):
             float_clamp_impl=float_clamp)
         _ = float_quant.quantize(inp)
         # scaling implementations should be called exaclty once on the input
-        scaling_impl.assert_called_once_with(
+        float_scaling_impl.assert_called_once_with(
             torch.tensor(exponent_bit_width),
             torch.tensor(mantissa_bit_width),
             torch.tensor(exponent_bias))
-        float_scaling_impl.assert_called_once_with(inp)
+        scaling_impl.assert_called_once_with(inp)
 
 
 @given(
@@ -150,8 +150,8 @@ def test_scaling_impls_called_once(inp, minifloat_format):
 def test_inner_scale(inp, minifloat_format, scale):
     bit_width, exponent_bit_width, mantissa_bit_width, signed, exponent_bias = minifloat_format
     # set scaling_impl to scale and float_scaling_impl to 1 to use the same scale as we are here
-    scaling_impl = mock.Mock(side_effect=lambda x, y, z: scale)
-    float_scaling_impl = mock.Mock(side_effect=lambda x: 1.)
+    float_scaling_impl = mock.Mock(side_effect=lambda x, y, z: 1.)
+    scaling_impl = mock.Mock(side_effect=lambda x: scale)
     if exponent_bit_width == 0 or mantissa_bit_width == 0:
         with pytest.raises(RuntimeError):
             float_quant = FloatQuant(
