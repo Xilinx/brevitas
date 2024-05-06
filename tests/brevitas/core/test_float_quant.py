@@ -61,6 +61,7 @@ def test_minifloat(minifloat_format):
 
 
 @given(inp=float_tensor_random_shape_st(), minifloat_format=random_minifloat_format())
+@jit_disabled_for_mock()
 def test_float_to_quant_float(inp, minifloat_format):
     bit_width, exponent_bit_width, mantissa_bit_width, signed, exponent_bias = minifloat_format
 
