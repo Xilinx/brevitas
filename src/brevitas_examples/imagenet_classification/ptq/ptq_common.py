@@ -120,7 +120,7 @@ INPUT_QUANT_MAP = {
                     'sym': Fp8e4m3ActPerTensorFloat}},
             'mse': {
                 'per_tensor': {
-                    'sym': Fp8e4m3ActPerTensorFloat},}}}}
+                    'sym': Fp8e4m3ActPerTensorFloatMSE}}}}}
 
 
 def quantize_model(
