@@ -235,6 +235,9 @@ class QuantTensor(QuantTensorBase):
     def add(self, other):
         return self + other
 
+    def sum(self, *args, **kwargs):
+        return self.value.sum(*args, **kwargs)
+
     def unsqueeze(self, *args, **kwargs):
         return self.value.unsqueeze(*args, **kwargs)
 
