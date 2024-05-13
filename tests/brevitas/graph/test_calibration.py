@@ -214,7 +214,7 @@ def test_import_bias_correction():
 
     new_model = SimpleQuantLinearNet()
 
-    with load_quant_model_mode(model):
+    with load_quant_model_mode(new_model):
         new_model.load_state_dict(model.state_dict())
 
     for m in new_model.modules():

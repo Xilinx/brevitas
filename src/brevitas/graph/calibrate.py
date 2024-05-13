@@ -135,7 +135,7 @@ class load_quant_model_mode:
             if issubclass(type(module), QuantWBIOL):
                 module._quant_load_model_mode = True
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(self, *args, **kwargs):
         for module in self.model.modules():
             if issubclass(type(module), QuantWBIOL):
                 module._quant_load_model_mode = False
