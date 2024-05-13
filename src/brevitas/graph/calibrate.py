@@ -24,11 +24,7 @@ from brevitas.quant_tensor import QuantTensor
 from .base import Transform
 
 __all__ = [
-    'ClipFloatWeights',
-    'DisableEnableQuantization',
-    'bias_correction_mode',
-    'calibration_mode',
-    'load_quant_model']
+    'ClipFloatWeights', 'DisableEnableQuantization', 'bias_correction_mode', 'calibration_mode']
 
 _PARAM_PROXIES = (WeightQuantProxyFromInjector, BiasQuantProxyFromInjector)
 
@@ -105,25 +101,6 @@ class calibration_mode:
         self.disable_quant_inference.apply(
             self.model, is_training=self.previous_training_state, quantization_enabled=True)
         restore_return_quant_tensor(self.model, self.return_quant_tensor_state)
-
-
-class load_quant_model:
-
-    def __init__(self, model):
-        self.model = model
-        self.tracked_modules = []
-
-    def __enter__(self):
-        for module in self.model.modules():
-            if issubclass(type(module), QuantWBIOL):
-                if module.bias is None:
-                    module.register_parameter(
-                        'bias',
-                        nn.Parameter(torch.zeros(module.weight.shape[0])).to(module.weight.device))
-                    self.tracked_modules.append(module)
-
-    def __exit__(self, type, value, traceback):
-        pass
 
 
 class bias_correction_mode:

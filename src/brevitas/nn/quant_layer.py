@@ -3,12 +3,11 @@
 
 from abc import ABCMeta
 from abc import abstractmethod
-from typing import Callable, Optional, Type, Union
+from typing import Optional, Type, Union
 
 import torch
 from torch import Tensor
 from torch.nn import Module
-from torch.nn import Parameter
 
 from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import QuantTensor
@@ -375,3 +374,15 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
 
         quant_output = self.output_quant(quant_output)
         return self.pack_output(quant_output)
+
+    def _load_from_state_dict(
+            self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
+            error_msgs):
+        bias_key = prefix + 'bias'
+        # If the state dict has a bias and the module does not, bias correction was used
+        # We add a bias module to prevent failing during the load of the state dict
+        if bias_key in state_dict and self.bias is None:
+            self.register_parameter(
+                'bias', torch.nn.Parameter(torch.zeros(self.out_channels)).to(self.weight.device))
+        super(QuantWeightBiasInputOutputLayer, self)._load_from_state_dict(
+            state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
