@@ -264,6 +264,7 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
             **kwargs)
         QuantWeightMixin.__init__(self, weight_quant, **kwargs)
         QuantBiasMixin.__init__(self, bias_quant, **kwargs)
+        self._quant_load_model_mode = False
 
     @abstractmethod
     def inner_forward_impl(self, x: Tensor, quant_weight: Tensor, quant_bias: Optional[Tensor]):
@@ -381,7 +382,7 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
         bias_key = prefix + 'bias'
         # If the state dict has a bias and the module does not, bias correction was used
         # We add a bias module to prevent failing during the load of the state dict
-        if bias_key in state_dict and self.bias is None:
+        if bias_key in state_dict and self.bias is None and self._quant_load_model_mode:
             self.register_parameter(
                 'bias', torch.nn.Parameter(torch.zeros(self.out_channels)).to(self.weight.device))
         super(QuantWeightBiasInputOutputLayer, self)._load_from_state_dict(

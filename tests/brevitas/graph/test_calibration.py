@@ -10,6 +10,7 @@ import torch.nn as nn
 
 from brevitas.graph.calibrate import bias_correction_mode
 from brevitas.graph.calibrate import calibration_mode
+from brevitas.graph.calibrate import load_quant_model_mode
 import brevitas.nn as qnn
 from brevitas.quant import Int8ActPerTensorFixedPoint
 # Use custom implementation of kthvalue as work around to (b)float16 kernel limitations
@@ -213,7 +214,8 @@ def test_import_bias_correction():
 
     new_model = SimpleQuantLinearNet()
 
-    new_model.load_state_dict(model.state_dict())
+    with load_quant_model_mode(model):
+        new_model.load_state_dict(model.state_dict())
 
     for m in new_model.modules():
         if isinstance(m, qnn.QuantLinear):

@@ -13,7 +13,6 @@ import torch.nn.functional as F
 from brevitas.nn import QuantHardTanh
 from brevitas.nn import QuantLinear
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
-from brevitas.nn.utils import compute_channel_view_shape
 from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjector
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector
@@ -24,7 +23,11 @@ from brevitas.quant_tensor import QuantTensor
 from .base import Transform
 
 __all__ = [
-    'ClipFloatWeights', 'DisableEnableQuantization', 'bias_correction_mode', 'calibration_mode']
+    'ClipFloatWeights',
+    'DisableEnableQuantization',
+    'bias_correction_mode',
+    'calibration_mode',
+    'load_quant_model_mode']
 
 _PARAM_PROXIES = (WeightQuantProxyFromInjector, BiasQuantProxyFromInjector)
 
@@ -119,6 +122,24 @@ class bias_correction_mode:
         self.bias_correction.apply_correction(self.model)
         for hook in self.hooks:
             hook.remove()
+
+
+class load_quant_model_mode:
+
+    def __init__(self, model):
+        self.model = model
+        self.tracked_modules = []
+
+    def __enter__(self):
+        for module in self.model.modules():
+            if issubclass(type(module), QuantWBIOL):
+                module._quant_load_model_mode = True
+
+    def __exit__(self, type, value, traceback):
+        for module in self.model.modules():
+            if issubclass(type(module), QuantWBIOL):
+                module._quant_load_model_mode = False
+        return True
 
 
 class ClipFloatWeights(Transform):
