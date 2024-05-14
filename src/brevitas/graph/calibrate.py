@@ -27,7 +27,7 @@ __all__ = [
     'DisableEnableQuantization',
     'bias_correction_mode',
     'calibration_mode',
-    'load_quant_model']
+    'load_quant_model_mode']
 
 _PARAM_PROXIES = (WeightQuantProxyFromInjector, BiasQuantProxyFromInjector)
 
@@ -106,28 +106,6 @@ class calibration_mode:
         restore_return_quant_tensor(self.model, self.return_quant_tensor_state)
 
 
-class load_quant_model:
-
-    def __init__(self, model):
-        self.model = model
-        self.tracked_modules = []
-
-    def __enter__(self):
-        for module in self.model.modules():
-            if issubclass(type(module), QuantWBIOL):
-                if module.bias is None:
-                    module.register_parameter(
-                        'bias',
-                        nn.Parameter(torch.empty(module.weight.shape[0])).to(module.weight.device))
-                    self.tracked_modules.append(module)
-
-    def __exit__(self, type, value, traceback):
-        for module in self.tracked_modules:
-            # empty tensor has a numel result of 0
-            if torch.numel(module.bias) == 0:
-                module.bias = None
-
-
 class bias_correction_mode:
 
     def __init__(self, model, enabled=True, skip_if_no_bias=False):
@@ -144,6 +122,24 @@ class bias_correction_mode:
         self.bias_correction.apply_correction(self.model)
         for hook in self.hooks:
             hook.remove()
+
+
+class load_quant_model_mode:
+
+    def __init__(self, model):
+        self.model = model
+        self.tracked_modules = []
+
+    def __enter__(self):
+        for module in self.model.modules():
+            if issubclass(type(module), QuantWBIOL):
+                module._quant_load_model_mode = True
+
+    def __exit__(self, *args, **kwargs):
+        for module in self.model.modules():
+            if issubclass(type(module), QuantWBIOL):
+                module._quant_load_model_mode = False
+        return True
 
 
 class ClipFloatWeights(Transform):
