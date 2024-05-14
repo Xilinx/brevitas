@@ -84,6 +84,7 @@ usage: ptq_evaluate.py [-h] --calibration-dir CALIBRATION_DIR --validation-dir
                        [--weight-quant-calibration-type {stats,mse}]
                        [--act-equalization {fx,layerwise,None}]
                        [--act-quant-calibration-type {stats,mse}]
+                       [--act-scale-computation-type {static,dynamic}]
                        [--graph-eq-iterations GRAPH_EQ_ITERATIONS]
                        [--learned-round-iters LEARNED_ROUND_ITERS]
                        [--learned-round-lr LEARNED_ROUND_LR]
@@ -184,6 +185,9 @@ options:
   --act-quant-calibration-type {stats,mse}
                         Activation quantization calibration type (default:
                         stats)
+  --act-scale-computation-type {static,dynamic}
+                        Activation quantization scale computation type
+                        (default: static)
   --graph-eq-iterations GRAPH_EQ_ITERATIONS
                         Numbers of iterations for graph equalization (default:
                         20)

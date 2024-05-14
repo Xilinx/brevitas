@@ -106,6 +106,7 @@ class RuntimeDynamicStatsScaling(nn.Module):
         shape = x.shape
         x = self.scaling_stats_input_view_shape_impl(x)
         x = self.stats_impl(x)
+
         x = self.dynamic_scaling_broadcastable_fn(x, shape)
         return x
 

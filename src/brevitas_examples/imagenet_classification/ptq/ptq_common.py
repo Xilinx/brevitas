@@ -8,6 +8,7 @@ import torch
 import torch.backends.cudnn as cudnn
 from tqdm import tqdm
 
+from brevitas.core.function_wrapper.shape import OverBatchOverTensorView
 from brevitas.core.scaling.standalone import ParameterFromStatsFromParameterScaling
 from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.graph.calibrate import bias_correction_mode
@@ -49,9 +50,27 @@ from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloatMSE
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloatMSE
+from brevitas_examples.common.generative.quantizers import Int8DynamicActPerTensorFloat
+from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerTensorFloat
 from brevitas_examples.imagenet_classification.ptq.learned_round_utils import learned_round_iterator
 from brevitas_examples.imagenet_classification.ptq.learned_round_utils import save_inp_out_data
 from brevitas_examples.imagenet_classification.ptq.learned_round_utils import split_layers
+
+
+# Every element of the Batch will have its own scale factor and zero point
+class CNNShiftedUint8DynamicActPerTensorFloat(ShiftedUint8DynamicActPerTensorFloat):
+    scaling_stats_input_view_shape_impl = OverBatchOverTensorView
+    scaling_stats_permute_dims = None
+    stats_reduce_dim = 1
+    dynamic_scaling_broadcastable_fn = lambda x, shape: x.view(shape[0], *[1 for _ in range(len(shape[1:]))])
+
+
+class CNNInt8DynamicActPerTensorFloat(Int8DynamicActPerTensorFloat):
+    scaling_stats_input_view_shape_impl = OverBatchOverTensorView
+    scaling_stats_permute_dims = None
+    stats_reduce_dim = 1
+    dynamic_scaling_broadcastable_fn = lambda x, shape: x.view(shape[0], *[1 for _ in range(len(shape[1:]))])
+
 
 QUANTIZE_MAP = {'layerwise': layerwise_quantize, 'fx': quantize, 'flexml': quantize_flexml}
 
@@ -98,21 +117,29 @@ WEIGHT_QUANT_MAP = {
 
 INPUT_QUANT_MAP = {
     'int': {
-        'float_scale': {
-            'stats': {
-                'per_tensor': {
-                    'sym': Int8ActPerTensorFloat, 'asym': ShiftedUint8ActPerTensorFloat}},
-            'mse': {
-                'per_tensor': {
-                    'sym': Int8ActPerTensorFloatMSE, 'asym': ShiftedUint8ActPerTensorFloatMSE}}},
-        'po2_scale': {
-            'stats': {
-                'per_tensor': {
-                    'sym': Int8ActPerTensorFixedPoint, 'asym': ShiftedUint8ActPerTensorFixedPoint},
-            },
-            'mse': {
-                'per_tensor': {
-                    'sym': Int8ActPerTensorFixedPointMSE}},}},
+        'static': {
+            'float_scale': {
+                'stats': {
+                    'per_tensor': {
+                        'sym': Int8ActPerTensorFloat, 'asym': ShiftedUint8ActPerTensorFloat}},
+                'mse': {
+                    'per_tensor': {
+                        'sym': Int8ActPerTensorFloatMSE,
+                        'asym': ShiftedUint8ActPerTensorFloatMSE}}},
+            'po2_scale': {
+                'stats': {
+                    'per_tensor': {
+                        'sym': Int8ActPerTensorFixedPoint,
+                        'asym': ShiftedUint8ActPerTensorFixedPoint},},
+                'mse': {
+                    'per_tensor': {
+                        'sym': Int8ActPerTensorFixedPointMSE}}}},
+        'dynamic': {
+            'float_scale': {
+                'stats': {
+                    'per_tensor': {
+                        'sym': CNNInt8DynamicActPerTensorFloat,
+                        'asym': CNNShiftedUint8DynamicActPerTensorFloat}}}}},
     'float': {
         'float_scale': {
             'stats': {
@@ -146,6 +173,7 @@ def quantize_model(
         act_param_method='stats',
         weight_quant_type='sym',
         act_quant_granularity='per_tensor',
+        act_scale_computation_type='dynamic',
         uint_sym_act_for_unsigned_values=True,
         dtype=torch.float32,
         device='cpu'):
@@ -165,8 +193,10 @@ def quantize_model(
         weight_mantissa_bit_width,
         weight_exponent_bit_width,
         act_mantissa_bit_width,
-        act_exponent_bit_width,
-    )
+        act_exponent_bit_width)
+
+    if act_scale_computation_type == 'dynamic':
+        assert bias_bit_width is None, "Bias quantization is not supported with dynamic activation quantization"
 
     weight_quant_format = quant_format
     act_quant_format = quant_format
@@ -253,6 +283,7 @@ def quantize_model(
                             act_quant_type=act_quant_type,
                             act_quant_granularity=act_quant_granularity,
                             act_quant_percentile=act_quant_percentile,
+                            act_scale_computation_type=act_scale_computation_type,
                             **weight_bit_width_dict,
                             **act_bit_width_dict)
 
@@ -288,6 +319,7 @@ def create_quant_maps(
         act_exponent_bit_width=None,
         act_bit_width=None,
         act_scale_type=None,
+        act_scale_computation_type=None,
         act_param_method=None,
         act_quant_type=None,
         act_quant_granularity=None,
@@ -317,14 +349,14 @@ def create_quant_maps(
     weight_quant = weight_quant.let(**weight_bit_width_dict)
 
     if act_bit_width is not None:
-        act_quant = INPUT_QUANT_MAP[act_quant_format][act_scale_type][act_param_method][
-            act_quant_granularity][act_quant_type]
+        act_quant = INPUT_QUANT_MAP[act_quant_format][act_scale_computation_type][act_scale_type][
+            act_param_method][act_quant_granularity][act_quant_type]
         # Some activations in MHA should always be symmetric
-        sym_act_quant = INPUT_QUANT_MAP[act_quant_format][act_scale_type][act_param_method][
-            act_quant_granularity]['sym']
+        sym_act_quant = INPUT_QUANT_MAP[act_quant_format][act_scale_computation_type][
+            act_scale_type][act_param_method][act_quant_granularity]['sym']
         # Linear layers with 2d input should always be per tensor
-        per_tensor_act_quant = INPUT_QUANT_MAP[act_quant_format][act_scale_type][act_param_method][
-            'per_tensor'][act_quant_type]
+        per_tensor_act_quant = INPUT_QUANT_MAP[act_quant_format][act_scale_computation_type][
+            act_scale_type][act_param_method]['per_tensor'][act_quant_type]
         act_quant = act_quant.let(**act_bit_width_dict)
         sym_act_quant = sym_act_quant.let(**act_bit_width_dict)
         per_tensor_act_quant = per_tensor_act_quant.let(**act_bit_width_dict)
