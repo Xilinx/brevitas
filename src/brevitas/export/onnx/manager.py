@@ -45,7 +45,9 @@ class Fp8Workaround():
                         self.dtype in (torch.float8_e4m3fn, torch.float8_e5m2)) or (
                             isinstance(other, Tensor) and
                             other.dtype in (torch.float8_e4m3fn, torch.float8_e5m2)):
-                    return torch.tensor([True])
+                    self = self.to(torch.float32)
+                    other = other.to(torch.float32)
+                    return torch.equal(self, other)
                 else:
                     res = True
                     if not isinstance(self, Tensor):
