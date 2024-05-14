@@ -34,7 +34,7 @@ from ..manager import ExportContext
 class Fp8Workaround():
 
     def __init__(self):
-        pass
+        self.lib = None
 
     def __enter__(self):
         if torch_version >= version.parse('2.1.0'):
@@ -64,7 +64,8 @@ class Fp8Workaround():
             self.lib.impl("equal", equal_cpu, "CPU")
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
-        self.lib._destroy()
+        if self.lib is not None:
+            self.lib._destroy()
 
 
 class ONNXBaseManager(BaseManager, ABC):
