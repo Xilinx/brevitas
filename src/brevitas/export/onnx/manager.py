@@ -64,8 +64,7 @@ class Fp8Workaround():
             self.lib.impl("equal", equal_cpu, "CPU")
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
-        if self.lib is not None:
-            self.lib._destroy()
+        self.lib = None
 
 
 class ONNXBaseManager(BaseManager, ABC):
