@@ -47,12 +47,22 @@ class Fp8Workaround():
                             other.dtype in (torch.float8_e4m3fn, torch.float8_e5m2)):
                     return torch.tensor([True])
                 else:
-                    return self.__eq__(other)
+                    res = True
+                    if not isinstance(self, Tensor):
+                        self = torch.tensor(self)
+                    if not isinstance(other, Tensor):
+                        other = torch.tensor(other)
+                    if self.dim() > 0:
+                        for x, y in zip(self.flatten(), other.flatten()):
+                            res &= x == y
+                    else:
+                        res = self.item() == other.item()
+                    return torch.tensor([res])
 
             self.lib.impl("equal", equal_cpu, "CPU")
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
-        self.lib = None
+        self.lib._destroy()
 
 
 class ONNXBaseManager(BaseManager, ABC):
