@@ -129,12 +129,14 @@ def test_toymodels(
                 act_order=act_order,
                 use_quant_activations=use_quant_activations)
 
-    elif (name == 'gpfq') and (acc_bit_width < 32) and (not use_quant_activations or
-                                                        filter_func_str == 'identity'):
+    elif (name == 'gpfq') and (acc_bit_width < 32) and (
+            not use_quant_activations or filter_func_str
+            == 'identity') and not (hasattr(model, 'linear_0') and use_quant_activations):
         # GPFA2Q requires that the quant activations are used. GPFA2Q.single_layer_update will
         # raise a ValueError if GPFA2Q.quant_input is None (also see GPxQ.process_input). This will
         # happen when `use_quant_activations=False` or when the input to a model is not quantized
         # and `a2q_layer_filter_fnc` does not properly handle it.
+        # Note: the quant_linear_model actually is not expected to raise this Error since it has an input quant, i.e. manual check to avoid running in here with that model
         with pytest.raises(ValueError):
             apply_gpxq(
                 calib_loader=calib_loader,
