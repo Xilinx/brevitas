@@ -76,6 +76,10 @@ class gptq_mode(gpxq_mode):
         # How many subblock to use during GPTQ for each layer
         self.num_blocks = num_blocks
 
+    def __enter__(self):
+        self.setup_gpxq_layers()
+        return self.setup_gpxq_hooks()
+
     def catch_stopfwd(self, *args, **kwargs):
         try:
             self.orig_forward(*args, **kwargs)

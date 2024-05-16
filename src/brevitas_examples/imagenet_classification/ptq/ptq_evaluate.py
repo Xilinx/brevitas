@@ -245,6 +245,11 @@ parser.add_argument(
     type=float,
     help='Specify compression rate < 1.0 for random projection. Default is 0.0 and does not use RP.'
 )
+add_bool_arg(
+    parser,
+    'collect-float-first',
+    default=False,
+    help='In GPFQ, separate float and quant forward pass for speed up. (default: False)')
 add_bool_arg(parser, 'gptq', default=False, help='GPTQ (default: disabled)')
 add_bool_arg(parser, 'gpfq', default=False, help='GPFQ (default: disabled)')
 add_bool_arg(parser, 'gpfa2q', default=False, help='GPFA2Q (default: disabled)')
@@ -437,7 +442,8 @@ def main():
             quant_model,
             p=args.gpfq_p,
             act_order=args.gpxq_act_order,
-            compression_rate=args.compression_rate)
+            compression_rate=args.compression_rate,
+            collect_float_first=args.collect_float_first)
 
     if args.gpfa2q:
         print("Performing GPFA2Q:")
@@ -448,7 +454,8 @@ def main():
             act_order=args.gpxq_act_order,
             use_gpfa2q=args.gpfa2q,
             accumulator_bit_width=args.accumulator_bit_width,
-            compression_rate=args.compression_rate)
+            compression_rate=args.compression_rate,
+            collect_float_first=args.collect_float_first)
 
     if args.gptq:
         print("Performing GPTQ:")

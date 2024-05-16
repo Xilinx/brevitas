@@ -3,13 +3,10 @@
 
 from copy import deepcopy
 import math
-from math import pi
 from typing import Callable, List, Optional
 
 import numpy as np
 import torch
-from torch.fft import fft
-from torch.fft import fftn
 import torch.nn as nn
 import unfoldNd
 
@@ -87,7 +84,8 @@ class gpfq_mode(gpxq_mode):
             use_gpfa2q: bool = False,
             accumulator_bit_width: Optional[int] = None,
             a2q_layer_filter_fnc: Optional[Callable[[nn.Module], bool]] = lambda x: True,
-            compression_rate: Optional[float] = 0.0) -> None:
+            compression_rate: Optional[float] = 0.0,
+            collect_float_first: bool = False) -> None:
         if not inplace:
             model = deepcopy(model)
         super().__init__(
@@ -111,22 +109,34 @@ class gpfq_mode(gpxq_mode):
         if self.compression_rate < 0.0 or self.compression_rate > 1.0:
             raise ValueError('Compression rate for random projection must be between 0 and 1.')
 
-    def catch_stopfwd(self, *args, **kwargs):
-        # Collect quant input
-        try:
-            self.orig_forward(*args, **kwargs)
-        except StopFwdException:
-            pass
+        # speeding up by collecting float input first so we don't need to do it later
+        self.collect_float_first = collect_float_first
 
-        # Disable quantization
-        self.return_quant_tensor_state = disable_return_quant_tensor(self.model)
-        self.disable_quant_inference.disable_param_quantization(self.model, is_training=False)
-        self.disable_quant_inference.disable_act_quantization(self.model, is_training=False)
-        # Collect float input
-        try:
-            self.orig_forward(*args, **kwargs)
-        except StopFwdException:
-            pass
+    def __enter__(self):
+        # initialize gpxq layers
+        self.setup_gpxq_layers()
+        if self.collect_float_first:
+            self.float_collection_hooks = dict()
+            # set up hooks for collecting the float input
+            for name, layer in self.gpxq_layers.items():
+                # Attach float collecting hook
+                self.float_collection_hooks[name] = layer.layer.register_forward_hook(
+                    layer.collect_float_input)
+
+            # Disable quantization
+            self.return_quant_tensor_state = disable_return_quant_tensor(self.model)
+            self.disable_quant_inference.disable_param_quantization(self.model, is_training=False)
+            self.disable_quant_inference.disable_act_quantization(self.model, is_training=False)
+
+            return self
+        else:
+            # if we're not collecting, setup original hooks
+            return self.setup_gpxq_hooks()
+
+    def finalize_float_collection(self):
+        # remove the hooks we attached during the float collection
+        for name, hook in self.float_collection_hooks.items():
+            hook.remove()
 
         # Re-enable quantization. If activation quantization is disabled,
         # we also disable bias quantization
@@ -136,6 +146,37 @@ class gpfq_mode(gpxq_mode):
         else:
             self.disable_quant_inference.disable_bias_quantization(self.model, is_training=False)
         restore_return_quant_tensor(self.model, self.return_quant_tensor_state)
+
+        # setup the original hooks
+        self.setup_gpxq_hooks()
+
+    def catch_stopfwd(self, *args, **kwargs):
+        # Collect quant input
+        try:
+            self.orig_forward(*args, **kwargs)
+        except StopFwdException:
+            pass
+
+        if not self.collect_float_first:
+            # Disable quantization
+            self.return_quant_tensor_state = disable_return_quant_tensor(self.model)
+            self.disable_quant_inference.disable_param_quantization(self.model, is_training=False)
+            self.disable_quant_inference.disable_act_quantization(self.model, is_training=False)
+            # Collect float input
+            try:
+                self.orig_forward(*args, **kwargs)
+            except StopFwdException:
+                pass
+
+            # Re-enable quantization. If activation quantization is disabled,
+            # we also disable bias quantization
+            self.disable_quant_inference.enable_param_quantization(self.model, is_training=False)
+            if self.use_quant_activations:
+                self.disable_quant_inference.enable_act_quantization(self.model, is_training=False)
+            else:
+                self.disable_quant_inference.disable_bias_quantization(
+                    self.model, is_training=False)
+            restore_return_quant_tensor(self.model, self.return_quant_tensor_state)
 
         if self.return_forward_output:
             # If we want to return the output of the network, we need to disable all hooks
@@ -185,6 +226,70 @@ class GPFQ(GPxQ):
         self.index_computed = False
         self.p = p
         self.compression_rate = compression_rate
+
+    def collect_float_input(self, module, args, output):
+        # this is the hook function to offload the output of this layer to disc
+        inp = self.process_input(args)
+        batch_size = inp.shape[0]
+
+        # Preprocess the input to compute the Hessian
+        if isinstance(self.layer, qnn.QuantLinear):
+            if len(inp.shape) > 2:
+                inp = inp.reshape((-1, sum(inp.shape[2:])))
+            # For QuantLinear layer, groups will be 1
+            inp_processed = inp.unsqueeze(0)
+
+        if isinstance(self.layer, SUPPORTED_CONV_OP):
+            # Pick the correct unfoldNd class
+            if isinstance(
+                    self.layer,
+                (qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d, qnn.QuantConvTranspose3d)):
+                unfold_impl = unfoldNd.UnfoldTransposeNd
+            else:
+                unfold_impl = unfoldNd.UnfoldNd
+
+            unfold = unfold_impl(
+                self.layer.kernel_size,
+                dilation=self.layer.dilation,
+                padding=self.layer.padding,
+                stride=self.layer.kernel_size)
+
+            # Split input based on how many groups in convolution
+            inp_by_group = torch.chunk(inp, self.groups, 1)
+            inp_processed = []
+            # Preprocess input by group
+            for i, inp in enumerate(inp_by_group):
+
+                inp = unfold(inp)
+
+                batch_size, num_blocks = inp.shape[0], inp.shape[-1]
+                inp = torch.transpose(inp, 1, 2)  # shape (B, L, C*kernel_size[0]*kernel_size[1])
+                inp = inp.reshape(-1, inp.size(-1))  # shape (B*L, C*kernel_size[0]*kernel_size[1])
+
+                if not self.index_computed:
+                    self.index_computed = True
+                    self.rand_indices = np.concatenate([
+                        np.random.choice(
+                            np.arange(num_blocks * i, num_blocks * (i + 1)),
+                            size=int(
+                                self.p * num_blocks + 1 if self.p != 1 else self.p * num_blocks))
+                        for i in range(batch_size)])  # need to define self.p (probability)
+
+                indexes = self.rand_indices
+                if np.max(self.rand_indices) > inp.shape[0]:
+                    indexes = self.rand_indices < inp.shape[0]
+                    indexes = self.rand_indices[indexes]
+
+                inp = inp[indexes]
+                inp_processed.append(inp)
+            inp_processed = torch.stack(inp_processed)
+
+        inp_processed = inp_processed.cpu()
+
+        if self.float_input is None:
+            self.float_input = inp_processed
+        else:
+            self.float_input = torch.cat([self.float_input, inp_processed], dim=1)
 
     def update_batch(self, module, input, current_layer):
         if self.disable_pre_forward_hook:

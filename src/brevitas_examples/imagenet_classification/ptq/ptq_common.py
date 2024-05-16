@@ -543,7 +543,8 @@ def apply_gpfq(
         p=1.0,
         use_gpfa2q=False,
         accumulator_bit_width=None,
-        compression_rate=0.0):
+        compression_rate=0.0,
+        collect_float_first=True):
     model.eval()
     dtype = next(model.parameters()).dtype
     device = next(model.parameters()).device
@@ -554,7 +555,16 @@ def apply_gpfq(
                        act_order=act_order,
                        use_gpfa2q=use_gpfa2q,
                        accumulator_bit_width=accumulator_bit_width,
-                       compression_rate=compression_rate) as gpfq:
+                       compression_rate=compression_rate,
+                       collect_float_first=collect_float_first) as gpfq:
+            if collect_float_first:
+                print('Collecting float input first...')
+                for i, (images, target) in tqdm(enumerate(calib_loader)):
+                    images = images.to(device)
+                    images = images.to(dtype)
+                    gpfq.orig_forward(images)
+                gpfq.finalize_float_collection()
+
             gpfq_model = gpfq.model
             for i in tqdm(range(gpfq.num_layers)):
                 for i, (images, target) in enumerate(calib_loader):

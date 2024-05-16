@@ -113,34 +113,38 @@ class gpxq_mode(ABC):
         else:
             return False
 
+    @abstractmethod
     def __enter__(self):
+        pass
+
+    def setup_gpxq_layers(self):
         # The user can specify on which layers to apply gptq in parallel.
         # All the others will be executed sequentially
-        dict_of_layers = {
+        self.dict_of_layers = {
             name: [(name, module)] for name,
             module in self.model.named_modules() if self._is_module_supported(module)}
         if self.group_of_parallel_layers is not None:
             for parallel_layers in self.group_of_parallel_layers:
                 for name in parallel_layers:
-                    if name not in dict_of_layers:
+                    if name not in self.dict_of_layers:
                         raise ValueError(
                             "The layer {} is not present in the model or it is not supported for GPTQ"
                             .format(name))
-                    del dict_of_layers[name]
+                    del self.dict_of_layers[name]
                 names = '_'.join(parallel_layers)
-                dict_of_layers[names] = [
+                self.dict_of_layers[names] = [
                     (name, attrgetter(name)(self.model)) for name in parallel_layers]
 
         # Print warning if hooks are attached to any module, since the normal forward flow of the
         # network is highly disrupted during GPxQ
-        for _, parallel_layers in dict_of_layers.items():
+        for _, parallel_layers in self.dict_of_layers.items():
             for name, module in parallel_layers:
                 if len(module._forward_hooks) > 0 or len(module._forward_pre_hooks):
                     warnings.warn(
                         f'Hooks detected during setup for GPxQ. '
                         f'Behaviour might deviate from what expected.')
 
-                # Attach hooks for GPTQ
+                # initialize GPxQ
                 if self._is_module_supported(module):
                     gpxq_module_optimizer = self.initialize_module_optimizer(
                         module,
@@ -148,10 +152,13 @@ class gpxq_mode(ABC):
                         act_order=self.act_order,
                         len_parallel_layers=len(parallel_layers),
                         create_weight_orig=self.create_weight_orig)
-                    hook_fn = partial(
-                        gpxq_module_optimizer.update_batch, current_layer=self.current_layer)
-                    self.hook_dict[name] = module.register_forward_pre_hook(hook_fn)
                     self.gpxq_layers[name] = gpxq_module_optimizer
+
+    def setup_gpxq_hooks(self):
+        for name, module in self.gpxq_layers.items():
+            # Attach hooks for GPxQ
+            hook_fn = partial(module.update_batch, current_layer=self.current_layer)
+            self.hook_dict[name] = module.layer.register_forward_pre_hook(hook_fn)
 
         if not self.use_quant_activations:
             self.return_quant_tensor_state = disable_return_quant_tensor(self.model)
@@ -160,7 +167,7 @@ class gpxq_mode(ABC):
             self.disable_quant_inference.disable_bias_quantization(
                 self.model, is_training=self.model.training)
 
-        self.num_layers = len(dict_of_layers)
+        self.num_layers = len(self.dict_of_layers)
         return self
 
     def __exit__(self, type, value, traceback):
