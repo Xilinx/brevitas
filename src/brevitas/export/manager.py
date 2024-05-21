@@ -3,15 +3,14 @@
 
 from abc import ABC
 from abc import abstractmethod
-from contextlib import ExitStack
-from functools import partial
 from io import BytesIO
-from typing import Optional, Tuple, Union
+from typing import Tuple, Union
 
 import torch
 from torch import nn
 from torch import Tensor
 from torch.nn import Module
+from typing_extensions import Protocol
 
 from brevitas import config
 from brevitas.nn.mixin.base import QuantLayerMixin
@@ -20,7 +19,6 @@ from brevitas.proxy.quant_proxy import QuantProxyProtocol
 from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.jit_utils import clear_class_registry
 from brevitas.utils.python_utils import patch
-from brevitas.utils.quant_utils import _CachedIO
 
 
 class _JitTraceExportWrapper(nn.Module):
@@ -101,9 +99,10 @@ def _set_layer_export_mode(model: Module, enabled: bool):
             m.export_mode = enabled
 
 
-def _set_proxy_export_mode(model: Module, enabled: bool):
+def _set_proxy_export_mode(
+        model: Module, enabled: bool, proxy_class: Protocol = QuantProxyProtocol):
     for m in model.modules():
-        if isinstance(m, QuantProxyProtocol) and hasattr(m, 'export_mode'):
+        if isinstance(m, proxy_class) and hasattr(m, 'export_mode'):
             m.export_mode = enabled
 
 
