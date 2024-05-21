@@ -215,7 +215,7 @@ def main(args):
 
     if args.activation_equalization and args.load_checkpoint is None:
         pipe.set_progress_bar_config(disable=True)
-        with activation_equalization_mode(pipe.unet, alpha=0.5, layerwise=True, add_mul_node=True):
+        with activation_equalization_mode(pipe.unet, alpha=0.9, layerwise=True, add_mul_node=True):
             # Workaround to expose `in_features` attribute from the Hook Wrapper
             for m in pipe.unet.modules():
                 if isinstance(m, KwargsForwardHook) and hasattr(m.module, 'in_features'):
@@ -574,7 +574,7 @@ if __name__ == "__main__":
         type=str,
         default='minmax',
         choices=['minmax', 'percentile'],
-        help='How scales/zero-point are determined. Default: stats.')
+        help='Define what statics op to use . Default: minmax.')
     parser.add_argument(
         '--weight-scale-precision',
         type=str,

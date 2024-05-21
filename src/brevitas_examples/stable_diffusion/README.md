@@ -18,6 +18,23 @@ If the flag is not enabled, the model will be moved to CPU and cast to float32 b
 
 To use MLPerf inference setup, check and install the correct requirements specified in the `requirements.txt` file under mlperf_evaluation.
 
+For example, to perform weight-only quantization on SDXL, the following can be used:
+
+`python main.py --resolution 1024 --batch 1 --model /path/to/sdxl --prompt 500 --conv-weight-bit-width 8 --linear-weight-bit-width 8 --dtype float16 --weight-quant-type sym  --calibration-steps 8 --guidance-scale 8. --use-negative-prompts --calibration-prompt 500  --activation-eq --use-mlperf`
+
+To add activation quantization:
+
+`--linear-input-bit 8 --conv-input-bit 8`
+
+To choose between `static` or `dynamic` activation quantization, set the flag: `--input-scale-type` to either option
+
+To include export:
+`--export-target torch` or `--export-target onnx`
+
+To perform a dry-run quantization, where only the structure of the quantized model is preserved but no calibration of the quantized parameter is performed, add the `--dry-run` flag.
+
+
+
 ## Run
 
 ```bash
@@ -25,6 +42,7 @@ usage: main.py [-h] [-m MODEL] [-d DEVICE] [-b BATCH_SIZE] [--prompt PROMPT]
                [--calibration-prompt CALIBRATION_PROMPT]
                [--calibration-prompt-path CALIBRATION_PROMPT_PATH]
                [--checkpoint-name CHECKPOINT_NAME]
+               [--load-checkpoint LOAD_CHECKPOINT]
                [--path-to-latents PATH_TO_LATENTS] [--resolution RESOLUTION]
                [--guidance-scale GUIDANCE_SCALE]
                [--calibration-steps CALIBRATION_STEPS]
@@ -42,6 +60,7 @@ usage: main.py [-h] [-m MODEL] [-d DEVICE] [-b BATCH_SIZE] [--prompt PROMPT]
                [--linear-input-bit-width LINEAR_INPUT_BIT_WIDTH]
                [--weight-param-method {stats,mse}]
                [--input-param-method {stats,mse}]
+               [--input-stats-op {minmax,percentile}]
                [--weight-scale-precision {float_scale,po2_scale}]
                [--input-scale-precision {float_scale,po2_scale}]
                [--weight-quant-type {sym,asym}]
@@ -57,6 +76,7 @@ usage: main.py [-h] [-m MODEL] [-d DEVICE] [-b BATCH_SIZE] [--prompt PROMPT]
                [--use-mlperf-inference | --no-use-mlperf-inference]
                [--use-ocp | --no-use-ocp]
                [--use-negative-prompts | --no-use-negative-prompts]
+               [--dry-run | --no-dry-run]
 
 Stable Diffusion quantization
 
@@ -78,6 +98,9 @@ options:
   --checkpoint-name CHECKPOINT_NAME
                         Name to use to store the checkpoint. If not provided,
                         no checkpoint is saved.
+  --load-checkpoint LOAD_CHECKPOINT
+                        Path to checkpoint to load. If provided, PTQ
+                        techniques are skipped.
   --path-to-latents PATH_TO_LATENTS
                         Load pre-defined latents. If not provided, they are
                         generated based on an internal seed.
@@ -129,6 +152,8 @@ options:
                         How scales/zero-point are determined. Default: stats.
   --input-param-method {stats,mse}
                         How scales/zero-point are determined. Default: stats.
+  --input-stats-op {minmax,percentile}
+                        Define what statics op to use . Default: minmax.
   --weight-scale-precision {float_scale,po2_scale}
                         Whether scale is a float value or a po2. Default:
                         float_scale.
@@ -181,5 +206,9 @@ options:
   --no-use-negative-prompts
                         Disable Use negative prompts during
                         generation/calibration. Default: Enabled
+  --dry-run             Enable Generate a quantized model without any
+                        calibration. Default: Disabled
+  --no-dry-run          Disable Generate a quantized model without any
+                        calibration. Default: Disabled
 
 ```
