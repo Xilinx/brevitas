@@ -193,12 +193,12 @@ from torch.nn.functional import adaptive_avg_pool2d
 import torchvision.transforms as TF
 from tqdm import tqdm
 
-from brevitas_examples.inception import InceptionV3
 from brevitas_examples.stable_diffusion.mlperf_evaluation.backend import BackendPytorch
 from brevitas_examples.stable_diffusion.mlperf_evaluation.backend import Item
 from brevitas_examples.stable_diffusion.mlperf_evaluation.backend import RunnerBase
 from brevitas_examples.stable_diffusion.mlperf_evaluation.dataset import Coco
 from brevitas_examples.stable_diffusion.mlperf_evaluation.dataset import ImagesDataset
+from brevitas_examples.stable_diffusion.mlperf_evaluation.inception import InceptionV3
 
 IMAGE_EXTENSIONS = {'bmp', 'jpg', 'jpeg', 'pgm', 'png', 'ppm', 'tif', 'tiff', 'webp'}
 
