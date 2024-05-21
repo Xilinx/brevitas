@@ -13,8 +13,8 @@ import torch.nn.functional as F
 from brevitas.nn import QuantHardTanh
 from brevitas.nn import QuantLinear
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
-from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjector
-from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
+from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjectorBase
+from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjectorBase
 from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import ClampQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector
@@ -29,9 +29,9 @@ __all__ = [
     'calibration_mode',
     'load_quant_model_mode']
 
-_PARAM_PROXIES = (WeightQuantProxyFromInjector, BiasQuantProxyFromInjector)
+_PARAM_PROXIES = (WeightQuantProxyFromInjectorBase, BiasQuantProxyFromInjectorBase)
 
-_BIAS_PROXIES = (BiasQuantProxyFromInjector)
+_BIAS_PROXIES = (BiasQuantProxyFromInjectorBase)
 
 _ACC_PROXIES = (TruncQuantProxyFromInjector, ClampQuantProxyFromInjector)
 

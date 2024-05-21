@@ -149,4 +149,4 @@ class FloatClamp(brevitas.jit.ScriptModule):
                     "Clamping is not saturating, but neither `inf_values` nor `nan_values` is specified"
                 )
 
-        return x
+        return x, self.saturating, self.inf_values, self.nan_values

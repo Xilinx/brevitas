@@ -15,8 +15,8 @@ def mul_add_from_bn(bn_mean, bn_var, bn_eps, bn_weight, bn_bias):
 
 
 def merge_bn(layer, bn, output_channel_dim=0):
-    from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjector
-    from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
+    from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjectorBase
+    from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjectorBase
     out = mul_add_from_bn(
         bn_mean=bn.running_mean,
         bn_var=bn.running_var,
@@ -33,9 +33,10 @@ def merge_bn(layer, bn, output_channel_dim=0):
     else:
         layer.bias = Parameter(add_factor)
     if (hasattr(layer, 'weight_quant') and
-            isinstance(layer.weight_quant, WeightQuantProxyFromInjector)):
+            isinstance(layer.weight_quant, WeightQuantProxyFromInjectorBase)):
         layer.weight_quant.init_tensor_quant()
-    if (hasattr(layer, 'bias_quant') and isinstance(layer.bias_quant, BiasQuantProxyFromInjector)):
+    if (hasattr(layer, 'bias_quant') and
+            isinstance(layer.bias_quant, BiasQuantProxyFromInjectorBase)):
         layer.bias_quant.init_tensor_quant()
 
 

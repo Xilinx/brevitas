@@ -60,7 +60,7 @@ def test_float_clamp(inp, fp8_clamp):
     over_limit_mask = inp.abs() > max_val
 
     # clamp inp
-    inp = fp8_clamp.float_clamp_impl(
+    inp, *_ = fp8_clamp.float_clamp_impl(
         inp,
         torch.tensor(fp8_clamp.exponent_bit_width),
         torch.tensor(fp8_clamp.mantissa_bit_width),
