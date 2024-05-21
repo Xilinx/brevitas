@@ -220,6 +220,8 @@ def main(args):
             for m in pipe.unet.modules():
                 if isinstance(m, KwargsForwardHook) and hasattr(m.module, 'in_features'):
                     m.in_features = m.module.in_features
+            if args.dry_run:
+                calibration_prompts = [calibration_prompts[0]]
             run_val_inference(
                 pipe,
                 args.resolution,
@@ -293,18 +295,29 @@ def main(args):
             input_param_method=args.input_param_method,
             input_quant_type=args.input_quant_type,
             input_quant_granularity=args.input_quant_granularity,
+            input_stats_op=args.input_stats_op,
             use_ocp=args.use_ocp,
             input_kwargs=input_kwargs)
         print("Model quantization applied.")
-        list_of_names = [
-            n for n,
-            m in pipe.unet.named_modules() if isinstance(m, QuantWeightBiasInputOutputLayer)]
+
         pipe.set_progress_bar_config(disable=True)
+        if args.dry_run:
+            with torch.no_grad():
+                run_val_inference(
+                    pipe,
+                    args.resolution, [calibration_prompts[0]],
+                    test_seeds,
+                    args.device,
+                    dtype,
+                    total_steps=args.calibration_steps,
+                    use_negative_prompts=args.use_negative_prompts,
+                    test_latents=latents,
+                    guidance_scale=args.guidance_scale)
         if args.load_checkpoint is not None:
             with load_quant_model_mode(pipe.unet):
                 pipe.unet.load_state_dict(torch.load(args.load_checkpoint))
                 pipe = pipe.to(args.device)
-        else:
+        elif not args.dry_run:
             if (args.linear_input_bit_width is not None or
                     args.conv_input_bit_width is not None) and args.input_scale_type == 'static':
                 print("Applying activation calibration")
@@ -342,7 +355,6 @@ def main(args):
                             guidance_scale=args.guidance_scale)
                         gptq.update()
                         torch.cuda.empty_cache()
-
             if args.bias_correction:
                 print("Applying bias correction")
                 with bias_correction_mode(pipe.unet):
@@ -358,11 +370,11 @@ def main(args):
                         test_latents=latents,
                         guidance_scale=args.guidance_scale)
 
-    if args.checkpoint_name is not None and args.load_checkpoint is None:
+    if args.checkpoint_name is not None and args.load_checkpoint is None and not args.dry_run:
         torch.save(pipe.unet.state_dict(), args.checkpoint_name)
 
     # Perform inference
-    if args.prompt > 0:
+    if args.prompt > 0 and not args.dry_run:
         # with brevitas_proxy_inference_mode(pipe.unet):
         if args.use_mlperf_inference:
             print(f"Computing accuracy with MLPerf pipeline")
@@ -558,6 +570,12 @@ if __name__ == "__main__":
         choices=['stats', 'mse'],
         help='How scales/zero-point are determined. Default: stats.')
     parser.add_argument(
+        '--input-stats-op',
+        type=str,
+        default='minmax',
+        choices=['minmax', 'percentile'],
+        help='How scales/zero-point are determined. Default: stats.')
+    parser.add_argument(
         '--weight-scale-precision',
         type=str,
         default='float_scale',
@@ -638,6 +656,11 @@ if __name__ == "__main__":
         'use-negative-prompts',
         default=True,
         help='Use negative prompts during generation/calibration. Default: Enabled')
+    add_bool_arg(
+        parser,
+        'dry-run',
+        default=False,
+        help='Generate a quantized model without any calibration. Default: Disabled')
     args = parser.parse_args()
     print("Args: " + str(vars(args)))
     main(args)

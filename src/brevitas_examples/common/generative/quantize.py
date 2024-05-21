@@ -8,8 +8,10 @@ import torch
 from torch import nn
 
 from brevitas import nn as qnn
+from brevitas.core.stats.stats_op import NegativeMinOrZero
 from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.graph.quantize import layerwise_quantize
+from brevitas.inject.enum import StatsOp
 from brevitas.quant.experimental.float import Fp8e4m3Act
 from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloat
 from brevitas.quant.experimental.float import Fp8e4m3WeightPerChannelFloat
@@ -150,6 +152,7 @@ def quantize_model(
         input_quant_type=None,
         input_quant_granularity=None,
         input_group_size=None,
+        input_stats_op='percentile',
         quantize_input_zero_point=False,
         quantize_embedding=False,
         use_ocp=False,
@@ -195,10 +198,21 @@ def quantize_model(
         linear_input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
             input_scale_precision][input_param_method][input_quant_granularity][input_quant_type]
 
-        if input_kwargs is not None:
-            input_quant = input_quant.let(**input_kwargs)
-            sym_input_quant = sym_input_quant.let(**input_kwargs)
-            linear_input_quant = linear_input_quant.let(**input_kwargs)
+        if input_kwargs is None:
+            input_kwargs = dict()
+
+        if input_stats_op == 'minmax':
+            if input_quant_type == 'asym':
+                input_scaling_stats_op = StatsOp.MIN_MAX
+                # zero_point_stats_impl = NegativeMinOrZero
+                # input_kwargs['zero_point_stats_impl'] = zero_point_stats_impl
+            else:
+                input_scaling_stats_op = StatsOp.MAX
+            input_kwargs['scaling_stats_op'] = input_scaling_stats_op
+
+        input_quant = input_quant.let(**input_kwargs)
+        sym_input_quant = sym_input_quant.let(**input_kwargs)
+        linear_input_quant = linear_input_quant.let(**input_kwargs)
 
     else:
         input_quant = None
