@@ -166,8 +166,11 @@ class QuantWeightBiasInputOutputLayer(QuantBiasMixin, QuantWeightMixin, QuantInp
         bias_key = prefix + 'bias'
         # If the state dict has a bias and the module does not, bias correction was used
         # We add a bias module to prevent failing during the load of the state dict
-        if bias_key in state_dict and self.bias is None and self._quant_load_model_mode:
+        if (bias_key in state_dict) and (self.bias is None) and self._quant_load_model_mode:
             self.register_parameter(
-                'bias', torch.nn.Parameter(torch.zeros(self.out_channels)).to(self.weight.device))
+                'bias',
+                torch.nn.Parameter(
+                    torch.zeros(
+                        self.out_channels, device=self.weight.device, dtype=self.weight.dtype)))
         super(QuantWeightBiasInputOutputLayer, self)._load_from_state_dict(
             state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
