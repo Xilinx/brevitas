@@ -57,7 +57,7 @@ from torch._C import ScriptObject
 import torch.utils._pytree as pytree
 
 from brevitas import torch_version
-from brevitas.quant_tensor import QuantTensorBase
+from brevitas.quant_tensor import QuantTensor
 
 from . import *
 from . import _assert_is_none
@@ -82,7 +82,7 @@ from . import Scope
 from . import ScopeContextManager
 
 _UNSET = object()
-extended_base_types = base_types + (QuantTensorBase,)
+extended_base_types = base_types + (QuantTensor,)
 
 FRAME_FILES = [
     'fx/brevitas_tracer.py',
@@ -209,8 +209,8 @@ class ValueProxy(Proxy):
             proxies: List[Proxy] = []
 
             def find_proxy(a):
-                if isinstance(a, cls):
-                    proxies[a] = None
+                if isinstance(a, cls) and a not in proxies:
+                    proxies.append(a)
 
             fx.node.map_aggregate(method_args, find_proxy)
             fx.node.map_aggregate(method_kwargs, find_proxy)

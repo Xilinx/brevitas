@@ -15,6 +15,7 @@ from brevitas.proxy import BiasQuantProxyFromInjector
 from brevitas.proxy import DecoupledWeightQuantProxyFromInjector
 from brevitas.proxy import DecoupledWeightQuantWithInputProxyFromInjector
 from brevitas.proxy import WeightQuantProxyFromInjector
+from brevitas.proxy.runtime_quant import DynamicActQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector
 
 from .base import BitWidthHandlerMixin
@@ -51,7 +52,14 @@ class DQMixin(ABC):
             assert bools
 
 
-class CDQMixin(DQMixin, ABC):
+class DQCastMixin(DQMixin, ABC):
+
+    @abstractmethod
+    def cast_fn(self, x, dtype):
+        pass
+
+
+class CDQCastMixin(DQCastMixin, ABC):
 
     @abstractmethod
     def clip_fn(self, x, min_val, max_val):
@@ -95,7 +103,14 @@ class QMixin(BitWidthHandlerMixin, ABC):
         return dtype
 
 
-class CDQProxyHandlerMixin(QuantAxisMixin, ClipMixin, ZeroPointHandlerMixin, CDQMixin, ABC):
+class DynamicQMixin(QMixin, ABC):
+
+    @abstractmethod
+    def quantize_fn(self, x, dtype):
+        pass
+
+
+class CDQCastProxyHandlerMixin(QuantAxisMixin, ClipMixin, ZeroPointHandlerMixin, CDQCastMixin, ABC):
 
     def dequantize_symbolic_kwargs(cls, scale, zero_point, bit_width, is_signed):
         scale_orig_shape = scale.shape
@@ -118,32 +133,81 @@ class CDQProxyHandlerMixin(QuantAxisMixin, ClipMixin, ZeroPointHandlerMixin, CDQ
             'scale_orig_shape': scale_orig_shape}
 
 
-class QCDQWeightQuantProxyHandlerMixin(CDQProxyHandlerMixin, ABC):
+class QCDQCastWeightQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin):
     handled_layer = WeightQuantProxyFromInjector
+
+    def quantize_symbolic_kwargs(cls, scale, zero_point, bit_width, is_signed):
+        # compute axis before redefining scale
+        axis = cls.quant_axis(scale)
+        scale = to_0dim_if_scalar(scale.flatten())
+        zp = to_0dim_if_scalar(zero_point.flatten())
+        # expand_as must go after 0-dim check
+        zp = zp.expand_as(scale)
+        zp = cls.zero_point_with_dtype(is_signed, bit_width, zp)
+        if cls.itemize_quantize_scalar_params:
+            scale = to_item_if_0dim(scale)
+            zp = to_item_if_0dim(zp)
+        dtype = cls.signed_dtype(bit_width, is_signed)
+        return {'scale': scale, 'zero_point': zp, 'dtype': dtype, 'axis': axis}
+
+    def prepare_quantize_from_floating_point(self, module):
+        quant_weight = module.tracked_module_list[0].quant_weight()
+        scale = quant_weight.scale
+        self.scale_dtype = scale.dtype
+        if self.scale_dtype == torch.bfloat16 or self.scale_dtype == torch.float16:
+            scale = self.cast_fn(scale, torch.float32)
+        self.symbolic_kwargs['quantize_symbolic_kwargs'] = self.quantize_symbolic_kwargs(
+            scale, quant_weight.zero_point, quant_weight.bit_width, module.is_signed)
+
+    def prepare_quantize_from_integer(self, module):
+        int_weights = {
+            tm.weight.data_ptr(): tm.quant_weight().int(float_datatype=False)
+            for tm in module.tracked_module_list}
+        self.symbolic_kwargs['int_weights'] = int_weights
 
     def prepare_for_export(self, module):
         if module.is_quant_enabled:
             self.validate(module)
-            int_weights = {
-                tm.weight.data_ptr(): tm.quant_weight().int(float_datatype=False)
-                for tm in module.tracked_module_list}
+            if self._export_q_node:
+                self.prepare_quantize_from_floating_point(module)
+            else:
+                self.prepare_quantize_from_integer(module)
             # Get the first quant weight as representative
             quant_weight = module.tracked_module_list[0].quant_weight()
-            self.symbolic_kwargs['int_weights'] = int_weights
+
+            # (B)float16 is not supported with standard Q/DQ ops, thus we store the original dtype
+            # of the scale and we cast it to float32.
+            # The original dtype is then restored during the forward pass
+            scale = quant_weight.scale
+            self.scale_dtype = scale.dtype
+            if self.scale_dtype == torch.bfloat16 or self.scale_dtype == torch.float16:
+                scale = self.cast_fn(scale, torch.float32)
+
             self.symbolic_kwargs['bit_width'] = quant_weight.bit_width
             self.symbolic_kwargs['clip_symbolic_kwargs'] = self.int_clip_symbolic_kwargs(
                 module.is_narrow_range, module.is_signed, quant_weight.bit_width)
             self.symbolic_kwargs['dequantize_symbolic_kwargs'] = self.dequantize_symbolic_kwargs(
-                quant_weight.scale,
-                quant_weight.zero_point,
-                quant_weight.bit_width,
-                module.is_signed)
+                scale, quant_weight.zero_point, quant_weight.bit_width, module.is_signed)
         else:
             self.symbolic_kwargs = None
 
+    def quantize_from_floating_point(self, x: Tensor):
+        quantize_symbolic_kwargs = self.symbolic_kwargs['quantize_symbolic_kwargs']
+        # Before quantization, cast input to float32
+        if self.scale_dtype == torch.float16 or self.scale_dtype == torch.bfloat16:
+            x = self.cast_fn(x, torch.float32)
+        x = self.quantize_fn(x, *quantize_symbolic_kwargs.values())
+        return x
+
+    def quantize_from_integer(self, x: Tensor):
+        return self.symbolic_kwargs['int_weights'][x.data_ptr()]
+
     def symbolic_execution(self, x: Tensor):
         assert self.symbolic_kwargs is not None, 'Symbolic execution requires quant to be enabled'
-        x = self.symbolic_kwargs['int_weights'][x.data_ptr()]
+        if self._export_q_node:
+            x = self.quantize_from_floating_point(x)
+        else:
+            x = self.quantize_from_integer(x)
         clip_symbolic_kwargs = self.symbolic_kwargs['clip_symbolic_kwargs']
         # Copy dict to allow for popping kwargs even on shared quantizers
         dequantize_symbolic_kwargs = copy(self.symbolic_kwargs['dequantize_symbolic_kwargs'])
@@ -156,30 +220,38 @@ class QCDQWeightQuantProxyHandlerMixin(CDQProxyHandlerMixin, ABC):
         if clip_symbolic_kwargs is not None:
             x = self.clip_fn(x, *clip_symbolic_kwargs.values())
         x = self.dequantize_fn(x, *dequantize_symbolic_kwargs.values())
+        # After dequantization, cast both input and scale to the correct dtype
+        if self.scale_dtype == torch.float16 or self.scale_dtype == torch.bfloat16:
+            x = self.cast_fn(x, self.scale_dtype)
+            scale = self.cast_fn(scale, self.scale_dtype)
         # Restore the original shapes to guarantee correct shape propagation downstream
         scale = scale.view(scale_orig_shape)
         zero_point = zero_point.view_as(scale)
         return x, scale, zero_point, bit_width
 
 
-class QCDQDecoupledWeightQuantProxyHandlerMixin(QCDQWeightQuantProxyHandlerMixin, ABC):
+class QCDQCastDecoupledWeightQuantProxyHandlerMixin(QCDQCastWeightQuantProxyHandlerMixin, ABC):
     handled_layer = DecoupledWeightQuantProxyFromInjector
 
     def symbolic_execution(self, x: Tensor):
         out, scale, zero_point, bit_width = super().symbolic_execution(x)
         # Return post-rounding scale and zero-point in place of pre-rounding as a placeholder
-        return out, scale, zero_point, scale, zero_point, bit_width
+        # The order of arguments must match the order in the forward method of DecoupledRescalingIntQuant
+        return out, scale, zero_point, bit_width, scale, zero_point
 
 
-class QCDQDecoupledWeightQuantWithInputProxyHandlerMixin(QCDQDecoupledWeightQuantProxyHandlerMixin,
-                                                         ABC):
+class QCDQCastDecoupledWeightQuantWithInputProxyHandlerMixin(
+        QCDQCastDecoupledWeightQuantProxyHandlerMixin, ABC):
     handled_layer = DecoupledWeightQuantWithInputProxyFromInjector
+
+    def validate(self, module):
+        assert not self._export_q_node, "This proxy requires to export integer weights"
 
     def symbolic_execution(self, x: Tensor, input_bit_width: torch.Tensor, input_is_signed: bool):
         return super().symbolic_execution(x)
 
 
-class QCDQActQuantProxyHandlerMixin(QMixin, CDQProxyHandlerMixin, ABC):
+class QCDQCastActQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin, ABC):
     handled_layer = ActQuantProxyFromInjector
 
     def quantize_symbolic_kwargs(cls, scale, zero_point, bit_width, is_signed):
@@ -200,12 +272,22 @@ class QCDQActQuantProxyHandlerMixin(QMixin, CDQProxyHandlerMixin, ABC):
         if module.is_quant_enabled:
             self.validate(module)
             self.symbolic_kwargs['bit_width'] = module.bit_width()
+
+            # (B)float16 is not supported with standard Q/DQ ops, thus we store the original dtype
+            # of the scale and we cast it to float32.
+            # The original dtype is then restored during the forward pass
+            scale = module.scale()
+            self.scale_dtype = scale.dtype
+            if self.scale_dtype == torch.bfloat16 or self.scale_dtype == torch.float16:
+                scale = self.cast_fn(scale, torch.float32)
+
             self.symbolic_kwargs['quantize_symbolic_kwargs'] = self.quantize_symbolic_kwargs(
-                module.scale(), module.zero_point(), module.bit_width(), module.is_signed)
+                scale, module.zero_point(), module.bit_width(), module.is_signed)
             self.symbolic_kwargs['dequantize_symbolic_kwargs'] = self.dequantize_symbolic_kwargs(
-                module.scale(), module.zero_point(), module.bit_width(), module.is_signed)
+                scale, module.zero_point(), module.bit_width(), module.is_signed)
             self.symbolic_kwargs['clip_symbolic_kwargs'] = self.int_clip_symbolic_kwargs(
                 module.is_narrow_range, module.is_signed, module.bit_width())
+
         else:
             self.symbolic_kwargs = None
 
@@ -221,17 +303,61 @@ class QCDQActQuantProxyHandlerMixin(QMixin, CDQProxyHandlerMixin, ABC):
         bit_width = self.symbolic_kwargs['bit_width']
         # Workaround to trick the tracer into believing all return values are used
         self.assert_ge_zero(scale, zero_point, bit_width)
+        # If original dtype of the input is (b)float16, cast the input to float32
+        if x.dtype == torch.float16 or x.dtype == torch.bfloat16:
+            x = self.cast_fn(x, torch.float32)
         x = self.quantize_fn(x, *quantize_symbolic_kwargs.values())
         if clip_symbolic_kwargs is not None:
             x = self.clip_fn(x, *clip_symbolic_kwargs.values())
         x = self.dequantize_fn(x, *dequantize_symbolic_kwargs.values())
+        # After dequantization, cast both output and scale to the correct dtype
+        if self.scale_dtype == torch.float16 or self.scale_dtype == torch.bfloat16:
+            x = self.cast_fn(x, self.scale_dtype)
+            scale = self.cast_fn(scale, self.scale_dtype)
         # Restore the original shapes to guarantee correct shape propagation downstream
         scale = scale.view(scale_orig_shape)
         zero_point = zero_point.view_as(scale)
         return x, scale, zero_point, bit_width
 
 
-class QCDQBiasQuantProxyHandlerMixin(DQMixin, QuantAxisMixin, ZeroPointHandlerMixin, ABC):
+class DynamicQDQCastActQuantProxyHandlerMixin(DynamicQMixin, DQCastMixin, ABC):
+    handled_layer = DynamicActQuantProxyFromInjector
+
+    def prepare_for_export(self, module):
+        if module.is_quant_enabled:
+            self.validate(module)
+            bit_width = module.bit_width()
+            is_signed = module.is_signed
+            dtype = self.signed_dtype(bit_width, is_signed)
+            self.symbolic_kwargs['bit_width'] = bit_width
+            self.symbolic_kwargs['is_signed'] = is_signed
+            self.symbolic_kwargs['dtype'] = dtype
+        else:
+            self.symbolic_kwargs = None
+
+    def symbolic_execution(self, x: Tensor):
+        assert self.symbolic_kwargs is not None, 'Symbolic execution requires quant to be enabled'
+
+        bit_width = self.symbolic_kwargs['bit_width']
+        int_dtype = self.symbolic_kwargs['dtype']
+        # Workaround to trick the tracer into believing all return values are used
+        self.assert_ge_zero(bit_width)
+        # If original dtype of the input is (b)float16, cast the input to float32
+        x_dtype = x.dtype
+        if x_dtype == torch.float16 or x_dtype == torch.bfloat16:
+            x = self.cast_fn(x, torch.float32)
+
+        x, scale, zero_point = self.quantize_fn(x, int_dtype)
+
+        x = self.dequantize_fn(x, scale, zero_point, None)
+        # After dequantization, cast both output and scale to the correct dtype
+        if x_dtype == torch.float16 or x_dtype == torch.bfloat16:
+            x = self.cast_fn(x, x_dtype)
+            scale = self.cast_fn(scale, x_dtype)
+        return x, scale, zero_point, bit_width
+
+
+class CDQCastBiasQuantProxyHandlerMixin(DQCastMixin, QuantAxisMixin, ZeroPointHandlerMixin, ABC):
     handled_layer = BiasQuantProxyFromInjector
 
     def validate(self, module):
@@ -275,19 +401,28 @@ class QCDQBiasQuantProxyHandlerMixin(DQMixin, QuantAxisMixin, ZeroPointHandlerMi
         zero_point = to_0dim_if_scalar(zero_point).expand_as(scale)
         zero_point = self.zero_point_with_dtype(
             True, bit_width, zero_point)  # assume signed is True
+        # If original dtype of scale is (b)float16, store the original dtype
+        # and cast the scale to float32
+        scale_dtype = scale.dtype
+        if scale_dtype == torch.float16 or scale_dtype == torch.bfloat16:
+            scale = self.cast_fn(scale, torch.float32)
         y = self.dequantize_fn(int_bias, scale, zero_point, quant_axis)
+        # After dequantization, cast both output and scale to the correct dtype
+        if scale_dtype == torch.float16 or scale_dtype == torch.bfloat16:
+            y = self.cast_fn(y, scale_dtype)
+            scale = self.cast_fn(scale, scale_dtype)
         # Restore the original shapes to guarantee correct shape propagation downstream
         scale = scale.view(scale_orig_shape)
         zero_point = zero_point.view_as(scale)
         return y, scale, zero_point, bit_width
 
 
-class QCDQTruncQuantProxyHandlerMixin(QuantAxisMixin,
-                                      ClipMixin,
-                                      ZeroPointHandlerMixin,
-                                      QMixin,
-                                      CDQMixin,
-                                      ABC):
+class QCDQCastTruncQuantProxyHandlerMixin(QuantAxisMixin,
+                                          ClipMixin,
+                                          ZeroPointHandlerMixin,
+                                          QMixin,
+                                          CDQCastMixin,
+                                          ABC):
     handled_layer = TruncQuantProxyFromInjector
 
     def prepare_for_export(self, module: TruncQuantProxyFromInjector):
@@ -302,6 +437,13 @@ class QCDQTruncQuantProxyHandlerMixin(QuantAxisMixin,
         output_bit_width = self.symbolic_kwargs['output_bit_width']
         dtype = self.int8_dtype() if signed else self.uint8_dtype()
         trunc_scale = 2.0 ** (input_bit_width - output_bit_width)
+        # If original dtype of scale is (b)float16, store the original scale dtype
+        # and cast the scale and the input to float32
+        scale_dtype = scale.dtype
+        if scale_dtype == torch.bfloat16 or scale_dtype == torch.float16:
+            scale = self.cast_fn(scale, torch.float32)
+        if x.dtype == torch.bfloat16 or x.dtype == torch.float16:
+            x = self.cast_fn(x, torch.float32)
         pre_scale = scale * trunc_scale
         flat_pre_scale = to_0dim_if_scalar(pre_scale.flatten())
         flat_scale = to_0dim_if_scalar(scale.flatten())
@@ -312,4 +454,8 @@ class QCDQTruncQuantProxyHandlerMixin(QuantAxisMixin,
         if clip_symbolic_kwargs is not None:
             x = self.clip_fn(x, *clip_symbolic_kwargs.values())
         x = self.dequantize_fn(x, flat_scale, zp, self.quant_axis(scale))
+        # After dequantization, cast both output and scale to the correct dtype
+        if scale_dtype == torch.float16 or scale_dtype == torch.bfloat16:
+            x = self.cast_fn(x, scale_dtype)
+            scale = self.cast_fn(scale, scale_dtype)
         return x, scale, zero_point, output_bit_width

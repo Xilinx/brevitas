@@ -20,9 +20,11 @@ from brevitas.core.quant.int_base import DecoupledIntQuant
 from brevitas.core.restrict_val import FloatRestrictValue
 from brevitas.core.restrict_val import LogFloatRestrictValue
 from brevitas.core.scaling import AccumulatorAwareParameterPreScaling
+from brevitas.core.scaling import AccumulatorAwareZeroCenterParameterPreScaling
 from brevitas.core.scaling import IntScaling
 from brevitas.core.scaling import ParameterFromStatsFromParameterScaling
 from brevitas.core.scaling import ParameterPreScalingWeightNorm
+from brevitas.core.scaling import ParameterScaling
 from brevitas.core.scaling import SCALAR_SHAPE
 from brevitas.core.scaling import SCALING_STATS_REDUCE_DIM
 from brevitas.core.scaling import StatsFromParameterScaling
@@ -37,6 +39,7 @@ from brevitas.core.stats import NegativePercentileOrZero
 from brevitas.core.utils import SingleArgStatelessBuffer
 from brevitas.core.zero_point import ParameterFromRuntimeZeroPoint
 from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
+from brevitas.core.zero_point import PreZeroCenterZeroPoint
 from brevitas.core.zero_point import StatsFromParameterZeroPoint
 from brevitas.core.zero_point import ZeroZeroPoint
 from brevitas.inject import ExtendedInjector
@@ -75,6 +78,7 @@ __all__ = [
     'BatchQuantStatsScaling1d',
     'BatchQuantStatsScaling2d',
     'AccumulatorAwareWeightQuant',
+    'AccumulatorAwareZeroCenterWeightQuant',
     'MSESymmetricScale',
     'MSEAsymmetricScale',
     'MSEWeightZeroPoint',
@@ -340,12 +344,18 @@ class WeightNormPerChannelFloatDecoupled(SolveWeightScalingStatsInputDimsFromMod
     details on the arithmetic, see `ParameterPreScalingWeightNorm`. For further details
     on the weight normalization-based quantization technique, see the referenced paper."""
 
+    @value
+    def scaling_init(scaling_init_impl, bit_width):
+        scales = scaling_init_impl.parameter_list_stats() / (pow(2., bit_width - 1.) - 1.)
+        return scales
+
     proxy_class = DecoupledWeightQuantProxyFromInjector
     tensor_quant = DecoupledRescalingIntQuant
     decoupled_int_quant = DecoupledIntQuant
     tensor_clamp_impl = TensorClamp
-    scaling_impl = ParameterFromStatsFromParameterScaling
-    restrict_scaling_impl = FloatRestrictValue
+    scaling_impl = ParameterScaling
+    scaling_init_impl = StatsFromParameterScaling
+    restrict_scaling_impl = LogFloatRestrictValue
     scaling_stats_impl = AbsMax
     pre_scaling_impl = ParameterPreScalingWeightNorm
     restrict_pre_scaling_impl = LogFloatRestrictValue
@@ -360,8 +370,8 @@ class WeightNormPerChannelFloatDecoupled(SolveWeightScalingStatsInputDimsFromMod
     scaling_stats_input_view_shape_impl = OverOutputChannelView
     stats_reduce_dim = SCALING_STATS_REDUCE_DIM
     scaling_per_output_channel = True
-    scaling_min_val = 1e-8
-    pre_scaling_min_val = 1e-8
+    scaling_min_val = 1e-10
+    pre_scaling_min_val = 1e-10
 
 
 class AccumulatorAwareWeightQuant(WeightNormPerChannelFloatDecoupled):
@@ -388,10 +398,23 @@ class AccumulatorAwareWeightQuant(WeightNormPerChannelFloatDecoupled):
     proxy_class = DecoupledWeightQuantWithInputProxyFromInjector
     tensor_quant = DecoupledRescalingIntQuantWithInput
     pre_scaling_impl = AccumulatorAwareParameterPreScaling
-    pre_scaling_min_val = 1e-8
     accumulator_bit_width = 32  # default maximum accumulator width is 32 bits
     normalize_stats_impl = L1Norm  # required to align with derivations in paper
     float_to_int_impl = RoundToZeroSte  # required to ensure no upwards rounding violates constraints
+
+
+class AccumulatorAwareZeroCenterWeightQuant(AccumulatorAwareWeightQuant):
+    """Experimental zero-centered accumulator-aware weight quantized based on:
+    `A2Q+: Improving Accumulator-Aware Weight Quantization`.
+
+    When compared to A2Q, A2Q+ changes the following:
+    (1) added zero-centering constraint on the weights (i.e., `PreZeroCenterZeroPoint`)
+    (2) a more relaxed l1-norm bound that is derived in the referenced paper
+    """
+    pre_scaling_impl = AccumulatorAwareZeroCenterParameterPreScaling
+    pre_zero_point_impl = PreZeroCenterZeroPoint
+    pre_zero_point_shape = this.scaling_shape  # TODO: decouple zero_point from scaling
+    pre_zero_point_stats_input_view_shape_impl = this.scaling_stats_input_view_shape_impl
 
 
 class MSESubInjectorBase(ExtendedInjector):
@@ -412,6 +435,8 @@ class MSESymmetricScaleSubInjector(MSESubInjectorBase):
     mse_init_op = AbsMax
     stats_impl = MSE
     stats_reduce_dim = (this << 1).stats_reduce_dim
+    device = (this << 1).device
+    type = (this << 1).type
 
 
 class MSEAsymmetricScaleSubInjector(MSESubInjectorBase):
@@ -420,6 +445,8 @@ class MSEAsymmetricScaleSubInjector(MSESubInjectorBase):
     mse_init_op = AbsMinMax
     stats_impl = MSE
     stats_reduce_dim = (this << 1).stats_reduce_dim
+    device = (this << 1).device
+    type = (this << 1).type
 
 
 class MSEZeroPointSubInjector(MSESubInjectorBase):
@@ -430,6 +457,8 @@ class MSEZeroPointSubInjector(MSESubInjectorBase):
     mse_search_method = 'grid'
     stats_impl = MSE
     stats_reduce_dim = (this << 1).stats_reduce_dim
+    device = (this << 1).device
+    type = (this << 1).type
 
 
 class MSEAsymmetricScale(ExtendedInjector):

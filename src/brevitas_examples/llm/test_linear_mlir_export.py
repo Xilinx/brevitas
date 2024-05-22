@@ -18,11 +18,11 @@ from brevitas_examples.llm.llm_quant.quantize import quantize_model
 
 # Due a tracing issue this annotation needs to be
 # in the same module (== file) from which make_fx is called
-# We also can't directly annotate torch.ops.brevitas.matmul_rhs_group_quant
+# We also can't directly annotate torch.ops.quant.matmul_rhs_group_quant
 # and so we trace a placeholder first and then replace it post tracing
 @wrap(visible_to_make_fx=True)
 def matmul_rhs_group_quant_placeholder(*args, **kwargs):
-    return torch.ops.brevitas.matmul_rhs_group_quant(*args, **kwargs)
+    return torch.ops.quant.matmul_rhs_group_quant(*args, **kwargs)
 
 
 class LinearWeightBlockQuantHandlerFwd(LinearWeightBlockQuantHandler):
@@ -84,7 +84,7 @@ def quantize_and_export(args):
     replace_call_fn_target(
         traced_model,
         src=matmul_rhs_group_quant_placeholder,
-        target=torch.ops.brevitas.matmul_rhs_group_quant)
+        target=torch.ops.quant.matmul_rhs_group_quant)
 
     # print the output graph
     print(traced_model.graph)
@@ -93,7 +93,7 @@ def quantize_and_export(args):
         traced_model,
         torch.randn(2, 128),
         output_type="torch",
-        backend_legal_ops=["brevitas.matmul_rhs_group_quant"],
+        backend_legal_ops=["quant.matmul_rhs_group_quant"],
         extra_library=brevitas_matmul_rhs_group_quant_library,
         use_tracing=True,
         verbose=False)

@@ -2,11 +2,10 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import torch
-from torch.nn import Module
 
 from brevitas.nn import QuantLinear
-from brevitas.quant import IntBias
-from brevitas.quant_tensor import QuantTensor
+from brevitas.quant import Int32Bias
+from brevitas.quant_tensor import IntQuantTensor
 
 OUTPUT_FEATURES = 10
 INPUT_FEATURES = 5
@@ -25,7 +24,10 @@ class TestQuantLinearInit:
 
     def test_module_init_bias_int(self):
         mod = QuantLinear(
-            out_features=OUTPUT_FEATURES, in_features=INPUT_FEATURES, bias=True, bias_quant=IntBias)
+            out_features=OUTPUT_FEATURES,
+            in_features=INPUT_FEATURES,
+            bias=True,
+            bias_quant=Int32Bias)
         assert mod
 
     def test_module_init_scale_impl_type_override(self):
@@ -34,7 +36,7 @@ class TestQuantLinearInit:
             in_features=INPUT_FEATURES,
             bias=True,
             weight_scaling_impl_type='HE')
-        assert mod.quant_weight_scale()
+        assert mod.weight_quant.scale()
 
 
 class TestQuantLinearFwd:
@@ -51,10 +53,15 @@ class TestQuantLinearFwd:
 
     def test_forward_bias_int(self):
         mod = QuantLinear(
-            out_features=OUTPUT_FEATURES, in_features=INPUT_FEATURES, bias=True, bias_quant=IntBias)
-        x = QuantTensor(
+            out_features=OUTPUT_FEATURES,
+            in_features=INPUT_FEATURES,
+            bias=True,
+            bias_quant=Int32Bias)
+        x = IntQuantTensor(
             torch.rand(size=(3, INPUT_FEATURES)),
             torch.tensor(1.0),
             torch.tensor(0.0),
-            torch.tensor(3))
+            torch.tensor(3),
+            signed=True,
+            training=False)
         assert mod(x) is not None

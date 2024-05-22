@@ -12,24 +12,28 @@ import torch.nn as nn
 from brevitas import torch_version
 from brevitas.nn import QuantConv1d
 from brevitas.nn import QuantConv2d
+from brevitas.nn import QuantConv3d
 from brevitas.nn import QuantConvTranspose1d
 from brevitas.nn import QuantConvTranspose2d
+from brevitas.nn import QuantConvTranspose3d
 from brevitas.nn import QuantIdentity
 from brevitas.nn import QuantLinear
 from brevitas.nn.quant_mha import QuantMultiheadAttention
 from brevitas.nn.quant_rnn import QuantLSTM
 from brevitas.nn.quant_rnn import QuantRNN
-from brevitas.quant.fixed_point import Int8AccumulatorAwareWeightQuant
-from brevitas.quant.fixed_point import Int8WeightNormL2PerChannelFixedPoint
+from brevitas.quant.scaled_int import Int8AccumulatorAwareWeightQuant
+from brevitas.quant.scaled_int import Int8AccumulatorAwareZeroCenterWeightQuant
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8ActPerTensorFloatBatchQuant1d
 from brevitas.quant.scaled_int import Int8ActPerTensorFloatBatchQuant2d
 from brevitas.quant.scaled_int import Int8BiasPerTensorFloatInternalScaling
+from brevitas.quant.scaled_int import Int8WeightNormL2PerChannelFixedPoint
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 from brevitas.quant.scaled_int import Int16Bias
 from brevitas.quant.scaled_int import Uint8ActPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
+from brevitas.quant_tensor import IntQuantTensor
 from brevitas.quant_tensor import QuantTensor
 
 SEED = 123456
@@ -45,12 +49,16 @@ LSTM_WEIGHT_QUANTIZER = {
     'quant_sym': Int8WeightPerTensorFloat,
     'quant_asym': ShiftedUint8WeightPerTensorFloat}
 
+A2Q_WBIOL_WEIGHT_QUANTIZER = {
+    'quant_a2q': Int8AccumulatorAwareWeightQuant,
+    'quant_a2q_plus': Int8AccumulatorAwareZeroCenterWeightQuant}
+
 WBIOL_WEIGHT_QUANTIZER = {
     'None': None,
     'quant_sym': Int8WeightPerTensorFloat,
     'quant_asym': ShiftedUint8WeightPerTensorFloat,
     'quant_decoupled': Int8WeightNormL2PerChannelFixedPoint,
-    'quant_a2q': Int8AccumulatorAwareWeightQuant}
+    **A2Q_WBIOL_WEIGHT_QUANTIZER}
 
 WBIOL_IO_QUANTIZER = {
     'None': None,
@@ -86,8 +94,10 @@ QUANT_WBIOL_IMPL = [
     QuantLinear,
     QuantConv1d,
     QuantConv2d,
+    QuantConv3d,
     QuantConvTranspose1d,
-    QuantConvTranspose2d,]
+    QuantConvTranspose2d,
+    QuantConvTranspose3d,]
 
 ACC_BIT_WIDTHS = [8, 9, 10, 12, 16, 24, 32]
 
@@ -107,7 +117,7 @@ def build_case_model(
     _, bias_quantizer = bias_quantizer
     _, io_quantizer = io_quantizer
 
-    if io_quantizer is None and not input_quantized and k == 'quant_a2q':
+    if io_quantizer is None and not input_quantized and k in A2Q_WBIOL_WEIGHT_QUANTIZER:
         pytest.skip(
             "A2Q uses an input-aware decoupled weight proxy that requires a quantized input tensor."
         )
@@ -152,11 +162,15 @@ def build_case_model(
         in_size = (1, IN_CH)
     elif impl in ('QuantConv1d', 'QuantConvTranspose1d'):
         in_size = (1, IN_CH, FEATURES)
-    else:
+    elif impl in ('QuantConv2d', 'QuantConvTranspose2d'):
         in_size = (1, IN_CH, FEATURES, FEATURES)
+    elif impl in ('QuantConv3d', 'QuantConvTranspose3d'):
+        in_size = (1, IN_CH, FEATURES, FEATURES, FEATURES)
+    else:
+        raise RuntimeError("Unsupported operation")
 
     if input_quantized:
-        quant_inp = QuantTensor(
+        quant_inp = IntQuantTensor(
             torch.randint(-128, 127, in_size) * 0.128, 0.128, 0., 8., True, is_training)
     else:
         quant_inp = torch.randn(in_size)
@@ -215,11 +229,13 @@ def case_model(
     'accumulator_bit_width',
     ACC_BIT_WIDTHS,
     ids=[f'accumulator_bit_width${bw}' for bw in ACC_BIT_WIDTHS])
-def case_model_a2q(io_quantizer, module, request, accumulator_bit_width):
+@pytest_cases.parametrize(
+    'weight_quantizer',
+    A2Q_WBIOL_WEIGHT_QUANTIZER.items(),
+    ids=[f'weight_quant${c}' for c, _ in A2Q_WBIOL_WEIGHT_QUANTIZER.items()])
+def case_model_a2q(io_quantizer, module, request, accumulator_bit_width, weight_quantizer):
     set_case_id(request.node.callspec.id, case_model_a2q)
     case_id = get_case_id(case_model_a2q)
-    # forcing test to only use accumulator-aware weight quantizer
-    weight_quantizer = ('quant_a2q', Int8AccumulatorAwareWeightQuant)
     # reducing coverage by fixing some case parameters
     return build_case_model(
         weight_quantizer,
@@ -377,6 +393,8 @@ def case_quant_lstm_full(
 
     if return_quant_tensor and io_quantizer is None:
         pytest.skip("return_quant_tensor cannot be True if no io_quantizer is specified")
+    if return_quant_tensor and signed_act_quantizer is None:
+        pytest.skip("return_quant_tensor cannot be True if no cell_state_quant is specified")
 
     class Model(nn.Module):
 
@@ -604,7 +622,7 @@ def case_mha(
     _, bias_quantizer = bias_quantizer
     _, io_quantizer = io_quantizer
 
-    if io_quantizer is None and k == 'quant_a2q':
+    if io_quantizer is None and k in A2Q_WBIOL_WEIGHT_QUANTIZER:
         # Can't rely on a QuantTensor input for quant_mha at this point
         pytest.skip(
             "A2Q uses an input-aware decoupled weight proxy that requires a quantized input tensor."

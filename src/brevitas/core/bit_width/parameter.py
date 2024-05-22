@@ -106,7 +106,8 @@ class BitWidthParameter(brevitas.jit.ScriptModule):
             del state_dict[bit_width_offset_key]
         super(BitWidthParameter, self)._load_from_state_dict(
             state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
-        if config.IGNORE_MISSING_KEYS and bit_width_offset_key in missing_keys:
+        if (config.IGNORE_MISSING_KEYS or
+                self.override_pretrained) and bit_width_offset_key in missing_keys:
             missing_keys.remove(bit_width_offset_key)
 
 
@@ -147,5 +148,6 @@ class RemoveBitwidthParameter(brevitas.jit.ScriptModule):
             del state_dict[bit_width_coeff_key]
         super(RemoveBitwidthParameter, self)._load_from_state_dict(
             state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
-        if config.IGNORE_MISSING_KEYS and bit_width_coeff_key in missing_keys:
+        if (config.IGNORE_MISSING_KEYS or
+                self.override_pretrained) and bit_width_coeff_key in missing_keys:
             missing_keys.remove(bit_width_coeff_key)

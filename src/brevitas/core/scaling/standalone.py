@@ -221,8 +221,9 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
         output_dict = super(ParameterFromStatsFromParameterScaling, self).state_dict(
             destination=destination, prefix=prefix, keep_vars=keep_vars)
         # Avoid saving the init value
-        if not self.init_done:
+        if not self.init_done and not config._FULL_STATE_DICT:
             del output_dict[prefix + 'value']
+        return output_dict
 
     def _load_from_state_dict(
             self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
@@ -282,7 +283,6 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
         Maps to scaling_impl_type == ScalingImplType.PARAMETER_FROM_STATS == 'PARAMETER_FROM_STATS'
         == 'parameter_from_stats' when applied to runtime values (inputs/outputs/activations) in higher-level APIs.
     """
-    __constants__ = ['momentum']
 
     def __init__(
             self,
@@ -301,7 +301,8 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
         self.counter: int = brevitas.jit.Attribute(0, int)
         self.stats_input_view_shape_impl = scaling_stats_input_view_shape_impl
         self.stats = _Stats(scaling_stats_impl, scaling_shape)
-        self.momentum = scaling_stats_momentum
+        self.momentum: Optional[float] = brevitas.jit.Attribute(
+            scaling_stats_momentum, Optional[float])
         self.register_buffer('buffer', torch.full(scaling_shape, 1.0, dtype=dtype, device=device))
         self.value = Parameter(torch.full(scaling_shape, 1.0, dtype=dtype, device=device))
         self.restrict_scaling = _RestrictValue(restrict_scaling_impl)
@@ -361,7 +362,7 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
         # Avoid saving the buffer
         del output_dict[prefix + 'buffer']
         # Avoid saving the init value
-        if self.counter == 0:
+        if self.counter == 0 and not config._FULL_STATE_DICT:
             del output_dict[prefix + 'value']
         # Save buffer into value for any non-zero number of collection steps
         elif self.counter <= self.collect_stats_steps:

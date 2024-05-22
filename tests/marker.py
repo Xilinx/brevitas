@@ -50,5 +50,14 @@ def jit_disabled_for_mock():
     return skip_wrapper
 
 
+def jit_disabled_for_dynamic_quant_act():
+    skip = config.JIT_ENABLED
+
+    def skip_wrapper(f):
+        return pytest.mark.skipif(skip, reason=f'Dynamic Act Quant requires JIT to be disabled')(f)
+
+    return skip_wrapper
+
+
 skip_on_macos_nox = pytest.mark.skipif(
     platform.system() == "Darwin", reason="Known issue with Nox and MacOS.")

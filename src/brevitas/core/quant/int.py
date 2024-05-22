@@ -19,7 +19,7 @@ class PrescaledRestrictIntQuantWithInputBitWidth(brevitas.jit.ScriptModule):
     :class:`~brevitas.core.quant.IntQuant`. Zero-point is set to zero, scale is taken as input,
     bit-width is computed from an input bit-width.
 
-     Args:
+    Args:
         int_quant (Module): Module that implements integer quantization.
         bit_width_impl (Module): Module that takes the input bit-width in and returns the bit-width
             to be used for quantization.
@@ -89,7 +89,7 @@ class RescalingIntQuant(brevitas.jit.ScriptModule):
     :class:`~brevitas.core.quant.IntQuant`. Scale, zero-point and bit-width are returned from their
     respective implementations and passed on to the integer quantization implementation.
 
-     Args:
+    Args:
         int_quant (Module): Module that implements integer quantization.
         scaling_impl (Module): Module that takes in the input to quantize and returns a scale factor,
             here interpreted as threshold on the floating-point range of quantization.

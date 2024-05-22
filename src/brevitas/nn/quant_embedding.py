@@ -1,17 +1,15 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from typing import Optional, Type, Union
+from typing import Optional
 
 import torch
 from torch import Tensor
 from torch.nn import Embedding
-from torch.nn import EmbeddingBag
 from torch.nn.functional import embedding
 
-from brevitas.function.ops import max_int
-from brevitas.function.ops_ste import ceil_ste
 from brevitas.inject.defaults import Int8WeightPerTensorFloat
+from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import QuantTensor
 
 from .mixin.parameter import QuantWeightMixin
@@ -53,23 +51,28 @@ class QuantEmbedding(QuantWeightMixin, Embedding):
         self.accept_quant_tensor = False
         self.return_quant_tensor = return_quant_tensor
 
+    @property
+    def output_channel_dim(self) -> int:
+        return 0
+
+    @property
+    def out_channels(self) -> int:
+        return self.num_embeddings
+
     def forward(self, inp):
         quant_weight = self.quant_weight()
         out = embedding(
             inp,
-            quant_weight.value,
+            quant_weight,
             self.padding_idx,
             self.max_norm,
             self.norm_type,
             self.scale_grad_by_freq,
             self.sparse)
         if self.return_quant_tensor:
-            scale = quant_weight.scale
-            zero_point = quant_weight.zero_point
-            bit_width = quant_weight.bit_width
-            if any(t.numel() > 1 for t in [scale, zero_point, bit_width]):
-                raise RuntimeError("Only per-tensor quantization is supported.")
-            signed = quant_weight.signed
-            training = quant_weight.training
-            out = QuantTensor(out, scale, zero_point, bit_width, signed, training)
+            assert isinstance(out, QuantTensor), "Enable weight quantization to return QuantTensor"
+            return out
+        else:
+            out = _unpack_quant_tensor(out)
+
         return out

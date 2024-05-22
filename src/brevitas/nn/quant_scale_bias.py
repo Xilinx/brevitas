@@ -78,15 +78,20 @@ class QuantScaleBias(QuantWBIOL, ScaleBias):
     def forward(self, inp: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
         return self.forward_impl(inp)
 
-    def inner_forward_impl(self, input: Tensor, quant_weight: Tensor, quant_bias: Optional[Tensor]):
+    def inner_forward_impl(
+            self,
+            input: Union[Tensor, QuantTensor],
+            quant_weight: Union[Tensor, QuantTensor],
+            quant_bias: Optional[Union[Tensor, QuantTensor]]):
         quant_weight = quant_weight.view(self.runtime_shape)
         quant_bias = quant_bias.view(self.runtime_shape)
-        output_tensor = input * quant_weight + quant_bias
-        return output_tensor
 
-    def max_acc_bit_width(self, input_bit_width, weight_bit_width):
-        max_input_val = max_int(bit_width=input_bit_width, signed=False, narrow_range=False)
-        max_weight_val = self.weight_quant.max_uint_value(weight_bit_width)
-        max_output_val = max_input_val * max_weight_val
-        output_bit_width = ceil_ste(torch.log2(max_output_val))
-        return output_bit_width
+        def biased_mul(input, weight, bias):
+            out = input * weight
+            if bias is not None:
+                out += bias
+            return out
+
+        output_tensor = biased_mul(input, quant_weight, quant_bias)
+
+        return output_tensor

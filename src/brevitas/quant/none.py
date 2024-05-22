@@ -31,7 +31,6 @@ class NoneBiasQuant(BiasQuantSolver):
     """
     quant_type = QuantType.FP
     requires_input_scale = False
-    requires_input_bit_width = False
 
 
 class NoneTruncQuant(TruncQuantSolver):

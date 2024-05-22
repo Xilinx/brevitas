@@ -45,6 +45,12 @@ FLEXML_COMPUTE_LAYER_MAP = {
             'weight_quant': Int8WeightPerTensorFixedPoint,
             'bias_quant': Int16Bias,
             'return_quant_tensor': True}),
+    nn.Conv3d: (
+        qnn.QuantConv3d,
+        {
+            'weight_quant': Int8WeightPerTensorFixedPoint,
+            'bias_quant': Int16Bias,
+            'return_quant_tensor': True}),
     nn.ConvTranspose1d: (
         qnn.QuantConvTranspose1d,
         {
@@ -53,6 +59,12 @@ FLEXML_COMPUTE_LAYER_MAP = {
             'return_quant_tensor': True}),
     nn.ConvTranspose2d: (
         qnn.QuantConvTranspose2d,
+        {
+            'weight_quant': Int8WeightPerTensorFixedPoint,
+            'bias_quant': Int16Bias,
+            'return_quant_tensor': True}),
+    nn.ConvTranspose3d: (
+        qnn.QuantConvTranspose3d,
         {
             'weight_quant': Int8WeightPerTensorFixedPoint,
             'bias_quant': Int16Bias,
@@ -124,8 +136,8 @@ def preprocess_for_flexml_quantize(
         equalize_iters=0,
         equalize_merge_bias=True,
         merge_bn=True,
-        equalize_bias_shrinkage: str = 'vaiq',
-        equalize_scale_computation: str = 'maxabs',
+        equalize_bias_shrinkage='vaiq',
+        equalize_scale_computation='maxabs',
         **model_kwargs):
     training_state = model.training
     model.eval()

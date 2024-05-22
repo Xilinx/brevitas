@@ -12,7 +12,7 @@ from qonnx.transformation.general import RemoveStaticGraphInputs
 from qonnx.transformation.infer_shapes import InferShapes
 import torch
 
-from brevitas.export import export_finn_onnx
+from brevitas.export import export_qonnx
 from brevitas_examples.speech_to_text import quant_quartznet_perchannelscaling_4b
 
 QUARTZNET_POSTPROCESSED_INPUT_SIZE = (1, 64, 256)  # B, features, sequence
@@ -26,8 +26,7 @@ def test_quartznet_asr_4b(pretrained):
     finn_onnx = "quant_quartznet_perchannelscaling_4b.onnx"
     quartznet = quant_quartznet_perchannelscaling_4b(pretrained, export_mode=True)
     quartznet.eval()
-    export_finn_onnx(
-        quartznet, input_shape=QUARTZNET_POSTPROCESSED_INPUT_SIZE, export_path=finn_onnx)
+    export_qonnx(quartznet, input_shape=QUARTZNET_POSTPROCESSED_INPUT_SIZE, export_path=finn_onnx)
     model = ModelWrapper(finn_onnx)
     model = model.transform(GiveUniqueNodeNames())
     model = model.transform(DoubleToSingleFloat())

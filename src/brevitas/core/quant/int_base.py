@@ -61,7 +61,7 @@ class IntQuant(brevitas.jit.ScriptModule):
         self.narrow_range = narrow_range
         self.delay_wrapper = DelayWrapper(quant_delay_steps)
 
-    @brevitas.jit.script_method_110_disabled
+    @brevitas.jit.script_method
     def to_int(self, scale: Tensor, zero_point: Tensor, bit_width: Tensor, x: Tensor) -> Tensor:
         y = x / scale
         y = y + zero_point
@@ -134,7 +134,7 @@ class DecoupledIntQuant(brevitas.jit.ScriptModule):
         self.narrow_range = narrow_range
         self.delay_wrapper = DelayWrapper(quant_delay_steps)
 
-    @brevitas.jit.script_method_110_disabled
+    @brevitas.jit.script_method
     def to_int(
             self, pre_scale: Tensor, pre_zero_point: Tensor, bit_width: Tensor,
             x: Tensor) -> Tensor:

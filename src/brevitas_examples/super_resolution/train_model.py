@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import argparse
+import copy
 from hashlib import sha256
 import json
 import os
@@ -46,10 +47,10 @@ parser.add_argument(
 parser.add_argument('--workers', type=int, default=0, help='Number of data loading workers')
 parser.add_argument('--batch_size', type=int, default=8, help='Minibatch size')
 parser.add_argument('--learning_rate', type=float, default=1e-3, help='Learning rate')
-parser.add_argument('--total_epochs', type=int, default=100, help='Total number of training epochs')
-parser.add_argument('--weight_decay', type=float, default=1e-4, help='Weight decay')
+parser.add_argument('--total_epochs', type=int, default=500, help='Total number of training epochs')
+parser.add_argument('--weight_decay', type=float, default=1e-5, help='Weight decay')
 parser.add_argument('--step_size', type=int, default=1)
-parser.add_argument('--gamma', type=float, default=0.98)
+parser.add_argument('--gamma', type=float, default=0.999)
 parser.add_argument('--eval_acc_bw', action='store_true', default=False)
 parser.add_argument('--save_pth_ckpt', action='store_true', default=False)
 parser.add_argument('--save_model_io', action='store_true', default=False)
@@ -81,7 +82,6 @@ def main():
         args.data_root,
         num_workers=args.workers,
         batch_size=args.batch_size,
-        batch_size_test=1,
         upscale_factor=model.upscale_factor,
         download=True)
     criterion = nn.MSELoss()
@@ -92,17 +92,25 @@ def main():
     scheduler = lrs.StepLR(optimizer, step_size=args.step_size, gamma=args.gamma)
 
     # train model
+    best_psnr, best_weights = 0., copy.deepcopy(model.state_dict())
     for ep in range(args.total_epochs):
         train_loss = train_for_epoch(trainloader, model, criterion, optimizer)
         test_psnr = evaluate_avg_psnr(testloader, model)
         scheduler.step()
         print(f"[Epoch {ep:03d}] train_loss={train_loss:.4f}, test_psnr={test_psnr:.2f}")
+        if test_psnr >= best_psnr:
+            best_weights = copy.deepcopy(model.state_dict())
+            best_psnr = test_psnr
+    model.load_state_dict(best_weights)
+    model = model.to(device)
+    test_psnr = evaluate_avg_psnr(testloader, model)
+    print(f"Final test_psnr={test_psnr:.2f}")
 
     # save checkpoint
     os.makedirs(args.save_path, exist_ok=True)
     if args.save_pth_ckpt:
         ckpt_path = f"{args.save_path}/{args.model}.pth"
-        torch.save(model.state_dict(), ckpt_path)
+        torch.save(best_weights, ckpt_path)
         with open(ckpt_path, "rb") as _file:
             bytes = _file.read()
             model_tag = sha256(bytes).hexdigest()[:8]

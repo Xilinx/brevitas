@@ -1,12 +1,15 @@
 
+
 <!DOCTYPE html>
 
-<html lang="en">
+
+<html lang="en" >
+
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
 
-    <title>brevitas.function package &#8212; Brevitas 0.9.0 documentation</title>
+    <title>brevitas.function package &#8212; Brevitas 0.10.2 documentation</title>
   
   
   
@@ -16,22 +19,23 @@
   </script>
   
   <!-- Loaded before other Sphinx assets -->
-  <link href="../_static/styles/theme.css?digest=796348d33e8b1d947c94" rel="stylesheet">
-<link href="../_static/styles/bootstrap.css?digest=796348d33e8b1d947c94" rel="stylesheet">
-<link href="../_static/styles/pydata-sphinx-theme.css?digest=796348d33e8b1d947c94" rel="stylesheet">
+  <link href="../_static/styles/theme.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+<link href="../_static/styles/bootstrap.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
 
   
-  <link href="../_static/vendor/fontawesome/6.1.2/css/all.min.css?digest=796348d33e8b1d947c94" rel="stylesheet">
-  <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.1.2/webfonts/fa-solid-900.woff2">
-<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.1.2/webfonts/fa-brands-400.woff2">
-<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.1.2/webfonts/fa-regular-400.woff2">
+  <link href="../_static/vendor/fontawesome/6.1.2/css/all.min.css?digest=365ca57ee442770a23c6" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.1.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.1.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.1.2/webfonts/fa-regular-400.woff2" />
 
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css" />
   
   <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=796348d33e8b1d947c94">
-<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=796348d33e8b1d947c94">
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=365ca57ee442770a23c6" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=365ca57ee442770a23c6" />
+  <script src="../_static/vendor/fontawesome/6.1.2/js/all.min.js?digest=365ca57ee442770a23c6"></script>
 
     <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
     <script src="../_static/jquery.js"></script>
@@ -46,79 +50,103 @@
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="brevitas.ops package" href="brevitas.ops.html" />
     <link rel="prev" title="API reference" href="index.html" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="docsearch:language" content="en">
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
   </head>
   
   
-  <body data-spy="scroll" data-target="#bd-toc-nav" data-offset="180" data-default-mode="">
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
 
   
   
   <a class="skip-link" href="#main-content">Skip to main content</a>
+  
+  <div id="pst-scroll-pixel-helper"></div>
 
   
-  <input type="checkbox" class="sidebar-toggle" name="__primary" id="__primary">
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>
+    Back to top
+  </button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__primary"
+          id="__primary"/>
   <label class="overlay overlay-primary" for="__primary"></label>
-
   
-  <input type="checkbox" class="sidebar-toggle" name="__secondary" id="__secondary">
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__secondary"
+          id="__secondary"/>
   <label class="overlay overlay-secondary" for="__secondary"></label>
-
   
   <div class="search-button__wrapper">
     <div class="search-button__overlay"></div>
     <div class="search-button__search-container">
-      
-<form class="bd-search d-flex align-items-center" action="../search.html" method="get">
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
   <i class="fa-solid fa-magnifying-glass"></i>
-  <input type="search" class="form-control" name="q" id="search-input" placeholder="Search the docs ..." aria-label="Search the docs ..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
   <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
-</form>
-    </div>
+</form></div>
   </div>
-
   
-  <nav class="bd-header navbar navbar-expand-lg bd-navbar" id="navbar-main"><div class="bd-header__inner bd-page-width">
+    <nav class="bd-header navbar navbar-expand-lg bd-navbar">
+<div class="bd-header__inner bd-page-width">
   <label class="sidebar-toggle primary-toggle" for="__primary">
-      <span class="fa-solid fa-bars"></span>
+    <span class="fa-solid fa-bars"></span>
   </label>
-  <div id="navbar-start">
-    
-    
   
-
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+  
 
 <a class="navbar-brand logo" href="../index.html">
-
   
   
   
   
   
+    
+    
+      
+    
+    
+    <img src="../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Brevitas 0.10.2 documentation - Home"/>
+    <script>document.write(`<img src="../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Brevitas 0.10.2 documentation - Home"/>`);</script>
   
   
-
-  
-    <img src="../_static/brevitas_logo_black.svg" class="logo__image only-light" alt="Logo image">
-    <img src="../_static/brevitas_logo_white.svg" class="logo__image only-dark" alt="Logo image">
-  
-  
-</a>
+</a></div>
     
   </div>
-
   
   <div class="col-lg-9 navbar-header-items">
-    <div id="navbar-center" class="mr-auto">
+    
+    <div class="me-auto navbar-header-items__center">
       
-      <div class="navbar-center-item">
-        <nav class="navbar-nav">
-    <p class="sidebar-header-items__title" role="heading" aria-level="1" aria-label="Site Navigation">
-        Site Navigation
-    </p>
-    <ul id="navbar-main-elements" class="navbar-nav">
-        
+        <div class="navbar-item"><nav class="navbar-nav">
+  <p class="sidebar-header-items__title"
+     role="heading"
+     aria-level="1"
+     aria-label="Site Navigation">
+    Site Navigation
+  </p>
+  <ul class="bd-navbar-elements navbar-nav">
+    
                     <li class="nav-item">
                       <a class="nav-link nav-internal" href="../setup.html">
                         Setup
@@ -174,76 +202,87 @@
                       </a>
                     </li>
                 
-    </ul>
-</nav>
-      </div>
+  </ul>
+</nav></div>
       
     </div>
-
-    <div id="navbar-end">
+    
+    
+    <div class="navbar-header-items__end">
       
-        <div class="navbar-end-item navbar-persistent--container">
+        <div class="navbar-item navbar-persistent--container">
           
-<button class="btn btn-sm navbar-btn search-button search-button__button" title="Search" aria-label="Search" data-toggle="tooltip">
-  <i class="fa-solid fa-magnifying-glass"></i>
-</button>
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
         </div>
       
       
-      <div class="navbar-end-item">
-        <button class="theme-switch-button btn btn-sm btn-outline-primary navbar-btn rounded-circle" title="light/dark" aria-label="light/dark" data-toggle="tooltip">
-    <span class="theme-switch" data-mode="light"><i class="fa-solid fa-sun"></i></span>
-    <span class="theme-switch" data-mode="dark"><i class="fa-solid fa-moon"></i></span>
-    <span class="theme-switch" data-mode="auto"><i class="fa-solid fa-circle-half-stroke"></i></span>
-</button>
-      </div>
-      
-      <div class="navbar-end-item">
-        <ul id="navbar-icon-links" class="navbar-nav" aria-label="Icon Links">
-      </ul>
-      </div>
+        <div class="navbar-item">
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
       
     </div>
+    
   </div>
-
-
   
   
     <div class="navbar-persistent--mobile">
-<button class="btn btn-sm navbar-btn search-button search-button__button" title="Search" aria-label="Search" data-toggle="tooltip">
-  <i class="fa-solid fa-magnifying-glass"></i>
-</button>
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
     </div>
   
 
   
-  <label class="sidebar-toggle secondary-toggle" for="__secondary">
+    <label class="sidebar-toggle secondary-toggle" for="__secondary" tabindex="0">
       <span class="fa-solid fa-outdent"></span>
-  </label>
+    </label>
   
-
 </div>
-  </nav>
-  
 
+    </nav>
+  
   <div class="bd-container">
     <div class="bd-container__inner bd-page-width">
       
       <div class="bd-sidebar-primary bd-sidebar">
         
+
   
   <div class="sidebar-header-items sidebar-primary__section">
     
     
       <div class="sidebar-header-items__center">
-      
-      <div class="navbar-center-item">
-        <nav class="navbar-nav">
-    <p class="sidebar-header-items__title" role="heading" aria-level="1" aria-label="Site Navigation">
-        Site Navigation
-    </p>
-    <ul id="navbar-main-elements" class="navbar-nav">
         
+          <div class="navbar-item"><nav class="navbar-nav">
+  <p class="sidebar-header-items__title"
+     role="heading"
+     aria-level="1"
+     aria-label="Site Navigation">
+    Site Navigation
+  </p>
+  <ul class="bd-navbar-elements navbar-nav">
+    
                     <li class="nav-item">
                       <a class="nav-link nav-internal" href="../setup.html">
                         Setup
@@ -299,42 +338,35 @@
                       </a>
                     </li>
                 
-    </ul>
-</nav>
-      </div>
-      
+  </ul>
+</nav></div>
+        
       </div>
     
-
     
     
-    <div class="sidebar-header-items__end">
-      
-      <div class="navbar-end-item">
-        <button class="theme-switch-button btn btn-sm btn-outline-primary navbar-btn rounded-circle" title="light/dark" aria-label="light/dark" data-toggle="tooltip">
-    <span class="theme-switch" data-mode="light"><i class="fa-solid fa-sun"></i></span>
-    <span class="theme-switch" data-mode="dark"><i class="fa-solid fa-moon"></i></span>
-    <span class="theme-switch" data-mode="auto"><i class="fa-solid fa-circle-half-stroke"></i></span>
-</button>
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+        
       </div>
-      
-      <div class="navbar-end-item">
-        <ul id="navbar-icon-links" class="navbar-nav" aria-label="Icon Links">
-      </ul>
-      </div>
-      
-    </div>
     
   </div>
-
   
-  <div class="sidebar-start-items sidebar-primary__section">
-    <div class="sidebar-start-items__item"><nav class="bd-links" id="bd-docs-nav" aria-label="Section navigation">
-  <p class="bd-links__title" role="heading" aria-level="1">
-    Section Navigation
-  </p>
-  <div class="bd-toc-item navbar-nav">
-    <ul class="current nav bd-sidenav">
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item"><nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
 <li class="toctree-l1 current active"><a class="current reference internal" href="#">brevitas.function package</a></li>
 <li class="toctree-l1"><a class="reference internal" href="brevitas.ops.html">brevitas.ops package</a></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="brevitas.core.html">brevitas.core package</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-1"><i class="fa-solid fa-chevron-down"></i></label><ul>
@@ -346,36 +378,62 @@
 </ul>
 </li>
 </ul>
-
-  </div>
-</nav>
+</div>
+</nav></div>
     </div>
-  </div>
   
-
   
-  <div class="sidebar-end-items sidebar-primary__section">
-    <div class="sidebar-end-items__item">
-    </div>
+  <div class="sidebar-primary-items__end sidebar-primary__section">
   </div>
-
   
   <div id="rtd-footer-container"></div>
 
+
       </div>
+      
       <main id="main-content" class="bd-main">
         
         
-        <div class="bd-content">
-          <div class="bd-article-container">
-            
-            <div class="bd-header-article">
-                
-            </div>
-            
-            
-            <article class="bd-article" role="main">
+          <div class="bd-content">
+            <div class="bd-article-container">
               
+              <div class="bd-header-article">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+
+
+<nav aria-label="Breadcrumb">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">API reference</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page">brevitas.fun...</li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article" role="main">
+                  
   <section id="brevitas-function-package">
 <h1>brevitas.function package<a class="headerlink" href="#brevitas-function-package" title="Permalink to this heading">#</a></h1>
 <section id="submodules">
@@ -430,6 +488,20 @@ The implemented functions adheres to the restriction imposed by Pytorch 1.1.0’
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="brevitas.function.ops.get_upper_bound_on_l1_norm">
+<span class="sig-prename descclassname"><span class="pre">brevitas.function.ops.</span></span><span class="sig-name descname"><span class="pre">get_upper_bound_on_l1_norm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">accumulator_bit_width</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_bit_width</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_is_signed</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/function/ops.html#get_upper_bound_on_l1_norm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.ops.get_upper_bound_on_l1_norm" title="Permalink to this definition">#</a></dt>
+<dd><p>Calculate the upper bound on the l1-norm of the weights needed to guarantee overflow avoidance
+for a given accumulator bit width and input representation using the derivations from
+<cite>A2Q: Accumulator-Aware Quantization with Guaranteed Overflow Avoidance</cite> by I.Colbert,
+A.Pappalardo, and J.Petri-Koenig. Note that this assumes integer quantization.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="brevitas.function.ops.identity">
 <span class="sig-prename descclassname"><span class="pre">brevitas.function.ops.</span></span><span class="sig-name descname"><span class="pre">identity</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/function/ops.html#identity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.ops.identity" title="Permalink to this definition">#</a></dt>
 <dd><p>Identity function.</p>
@@ -452,14 +524,19 @@ The implemented functions adheres to the restriction imposed by Pytorch 1.1.0’
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="brevitas.function.ops.max_float">
+<span class="sig-prename descclassname"><span class="pre">brevitas.function.ops.</span></span><span class="sig-name descname"><span class="pre">max_float</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">exponent_bit_width</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mantissa_bit_width</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exponent_bias</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/function/ops.html#max_float"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.ops.max_float" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="brevitas.function.ops.max_int">
 <span class="sig-prename descclassname"><span class="pre">brevitas.function.ops.</span></span><span class="sig-name descname"><span class="pre">max_int</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">signed</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">narrow_range</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bit_width</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/function/ops.html#max_int"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.ops.max_int" title="Permalink to this definition">#</a></dt>
 <dd><p>Compute the maximum integer representable by a given number of bits.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>signed</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – Indicates whether the represented integer is signed or not.</p></li>
-<li><p><strong>narrow_range</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – Indicates whether to narrow the maximum unsigned value represented by 1.</p></li>
+<li><p><strong>signed</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.12)"><em>bool</em></a>) – Indicates whether the represented integer is signed or not.</p></li>
+<li><p><strong>narrow_range</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.12)"><em>bool</em></a>) – Indicates whether to narrow the maximum unsigned value represented by 1.</p></li>
 <li><p><strong>bit_width</strong> (<em>Tensor</em>) – Number of bits available for the representation.</p></li>
 </ul>
 </dd>
@@ -490,8 +567,8 @@ The implemented functions adheres to the restriction imposed by Pytorch 1.1.0’
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>signed</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – Indicates whether the represented integer is signed or not.</p></li>
-<li><p><strong>narrow_range</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – Indicates whether to narrow the minimum value represented by 1.</p></li>
+<li><p><strong>signed</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.12)"><em>bool</em></a>) – Indicates whether the represented integer is signed or not.</p></li>
+<li><p><strong>narrow_range</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.12)"><em>bool</em></a>) – Indicates whether to narrow the minimum value represented by 1.</p></li>
 <li><p><strong>bit_width</strong> (<em>Tensor</em>) – Number of bits available for the representation.</p></li>
 </ul>
 </dd>
@@ -595,6 +672,11 @@ the compiler.</p>
 <span class="sig-prename descclassname"><span class="pre">brevitas.function.ops_ste.</span></span><span class="sig-name descname"><span class="pre">abs_binary_sign_grad</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/function/ops_ste.html#abs_binary_sign_grad"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.ops_ste.abs_binary_sign_grad" title="Permalink to this definition">#</a></dt>
 <dd><p>Function that implements <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.abs.html#torch.abs" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.abs()</span></code></a> with a binary-sign backward, in order to
 have subgradient 1 in 0. Compare with <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.abs.html#torch.abs" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.abs()</span></code></a>’ subgradient of 0 in 0.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+</dd>
+</dl>
 <p class="rubric">Notes</p>
 <p>Wrapper for either <a class="reference internal" href="brevitas.ops.html#brevitas.ops.autograd_ste_ops.abs_binary_sign_grad_impl" title="brevitas.ops.autograd_ste_ops.abs_binary_sign_grad_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">abs_binary_sign_grad_impl()</span></code></a>
 (with env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>) or its native just-in-time compiled variant (with
@@ -610,11 +692,6 @@ have subgradient 1 in 0. Compare with <a class="reference external" href="https:
 <span class="go">True</span>
 </pre></div>
 </div>
-<dl class="field-list simple">
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
-</dd>
-</dl>
 </dd></dl>
 
 <dl class="py function">
@@ -622,6 +699,11 @@ have subgradient 1 in 0. Compare with <a class="reference external" href="https:
 <span class="sig-prename descclassname"><span class="pre">brevitas.function.ops_ste.</span></span><span class="sig-name descname"><span class="pre">binary_sign_ste</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/function/ops_ste.html#binary_sign_ste"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.ops_ste.binary_sign_ste" title="Permalink to this definition">#</a></dt>
 <dd><p>Function that implements <a class="reference internal" href="#brevitas.function.ops.binary_sign" title="brevitas.function.ops.binary_sign"><code class="xref py py-func docutils literal notranslate"><span class="pre">binary_sign()</span></code></a> with a straight-through
 gradient estimator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+</dd>
+</dl>
 <p class="rubric">Notes</p>
 <p>Wrapper for either <a class="reference internal" href="brevitas.ops.html#brevitas.ops.autograd_ste_ops.binary_sign_ste_impl" title="brevitas.ops.autograd_ste_ops.binary_sign_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">binary_sign_ste_impl()</span></code></a> (with
 env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>) or its native just-in-time compiled variant (with
@@ -637,17 +719,17 @@ env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0<
 <span class="go">True</span>
 </pre></div>
 </div>
-<dl class="field-list simple">
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
-</dd>
-</dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="brevitas.function.ops_ste.ceil_ste">
 <span class="sig-prename descclassname"><span class="pre">brevitas.function.ops_ste.</span></span><span class="sig-name descname"><span class="pre">ceil_ste</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/function/ops_ste.html#ceil_ste"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.ops_ste.ceil_ste" title="Permalink to this definition">#</a></dt>
 <dd><p>Function that implements <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.ceil.html#torch.ceil" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.ceil()</span></code></a> with a straight-through gradient estimator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+</dd>
+</dl>
 <p class="rubric">Notes</p>
 <p>Wrapper for either <a class="reference internal" href="brevitas.ops.html#brevitas.ops.autograd_ste_ops.ceil_ste_impl" title="brevitas.ops.autograd_ste_ops.ceil_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">ceil_ste_impl()</span></code></a> (with env
 <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>) or its native just-in-time compiled variant (with <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=1</span></code>).</p>
@@ -662,11 +744,6 @@ env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0<
 <span class="go">True</span>
 </pre></div>
 </div>
-<dl class="field-list simple">
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
-</dd>
-</dl>
 </dd></dl>
 
 <dl class="py function">
@@ -674,6 +751,11 @@ env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0<
 <span class="sig-prename descclassname"><span class="pre">brevitas.function.ops_ste.</span></span><span class="sig-name descname"><span class="pre">dpu_round_ste</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/function/ops_ste.html#dpu_round_ste"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.ops_ste.dpu_round_ste" title="Permalink to this definition">#</a></dt>
 <dd><p>Function that implements <a class="reference internal" href="#brevitas.function.ops.dpu_round" title="brevitas.function.ops.dpu_round"><code class="xref py py-func docutils literal notranslate"><span class="pre">dpu_round()</span></code></a> with a straight-through
 gradient estimator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+</dd>
+</dl>
 <p class="rubric">Notes</p>
 <p>Wrapper for either <a class="reference internal" href="brevitas.ops.html#brevitas.ops.autograd_ste_ops.dpu_round_ste_impl" title="brevitas.ops.autograd_ste_ops.dpu_round_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">dpu_round_ste_impl()</span></code></a> (with
 env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>) or its native just-in-time compiled variant (with
@@ -689,17 +771,17 @@ env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0<
 <span class="go">True</span>
 </pre></div>
 </div>
-<dl class="field-list simple">
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
-</dd>
-</dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="brevitas.function.ops_ste.floor_ste">
 <span class="sig-prename descclassname"><span class="pre">brevitas.function.ops_ste.</span></span><span class="sig-name descname"><span class="pre">floor_ste</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/function/ops_ste.html#floor_ste"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.ops_ste.floor_ste" title="Permalink to this definition">#</a></dt>
 <dd><p>Function that implements <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.floor.html#torch.floor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.floor()</span></code></a> with a straight-through gradient estimator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+</dd>
+</dl>
 <p class="rubric">Notes</p>
 <p>Wrapper for either <a class="reference internal" href="brevitas.ops.html#brevitas.ops.autograd_ste_ops.floor_ste_impl" title="brevitas.ops.autograd_ste_ops.floor_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">floor_ste_impl()</span></code></a> (with env
 <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>) or its native just-in-time compiled variant (with <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=1</span></code>).</p>
@@ -714,17 +796,17 @@ env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0<
 <span class="go">True</span>
 </pre></div>
 </div>
-<dl class="field-list simple">
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
-</dd>
-</dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="brevitas.function.ops_ste.round_ste">
 <span class="sig-prename descclassname"><span class="pre">brevitas.function.ops_ste.</span></span><span class="sig-name descname"><span class="pre">round_ste</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/function/ops_ste.html#round_ste"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.ops_ste.round_ste" title="Permalink to this definition">#</a></dt>
 <dd><p>Function that implements <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.round.html#torch.round" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.round()</span></code></a> with a straight-through gradient estimator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+</dd>
+</dl>
 <p class="rubric">Notes</p>
 <p>Wrapper for either <a class="reference internal" href="brevitas.ops.html#brevitas.ops.autograd_ste_ops.round_ste_impl" title="brevitas.ops.autograd_ste_ops.round_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">round_ste_impl()</span></code></a> (with env
 <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>) or its native just-in-time compiled variant (with <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=1</span></code>).</p>
@@ -739,11 +821,6 @@ env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0<
 <span class="go">True</span>
 </pre></div>
 </div>
-<dl class="field-list simple">
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
-</dd>
-</dl>
 </dd></dl>
 
 <dl class="py function">
@@ -751,6 +828,11 @@ env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0<
 <span class="sig-prename descclassname"><span class="pre">brevitas.function.ops_ste.</span></span><span class="sig-name descname"><span class="pre">round_to_zero_ste</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/function/ops_ste.html#round_to_zero_ste"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.ops_ste.round_to_zero_ste" title="Permalink to this definition">#</a></dt>
 <dd><p>Function that implements <a class="reference internal" href="#brevitas.function.ops.round_to_zero" title="brevitas.function.ops.round_to_zero"><code class="xref py py-func docutils literal notranslate"><span class="pre">round_to_zero()</span></code></a> with a straight-through
 gradient estimator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+</dd>
+</dl>
 <p class="rubric">Notes</p>
 <p>Wrapper for either <a class="reference internal" href="brevitas.ops.html#brevitas.ops.autograd_ste_ops.round_to_zero_ste_impl" title="brevitas.ops.autograd_ste_ops.round_to_zero_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">round_to_zero_ste_impl()</span></code></a> (with
 env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>) or its native just-in-time compiled variant (with
@@ -766,11 +848,6 @@ env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0<
 <span class="go">True</span>
 </pre></div>
 </div>
-<dl class="field-list simple">
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
-</dd>
-</dl>
 </dd></dl>
 
 <dl class="py function">
@@ -783,7 +860,7 @@ always <code class="docutils literal notranslate"><span class="pre">None</span><
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>x</strong> (<a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>) – input tensor to clamp.</p></li>
-<li><p><strong>min_val</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – scalar value to use as lower bound for the input tensor.</p></li>
+<li><p><strong>min_val</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.12)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – scalar value to use as lower bound for the input tensor.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -820,8 +897,8 @@ and <code class="docutils literal notranslate"><span class="pre">max_val</span><
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>x</strong> (<a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a>) – input tensor to clamp.</p></li>
-<li><p><strong>min_val</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – scalar value to use as lower bound for the input tensor.</p></li>
-<li><p><strong>max_val</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – scalar value to use as upper bound for the input tensor.</p></li>
+<li><p><strong>min_val</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.12)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – scalar value to use as lower bound for the input tensor.</p></li>
+<li><p><strong>max_val</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.12)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – scalar value to use as upper bound for the input tensor.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -854,6 +931,11 @@ and <code class="docutils literal notranslate"><span class="pre">max_val</span><
 <dd><p>Function that implements <a class="reference internal" href="#brevitas.function.ops.tensor_clamp" title="brevitas.function.ops.tensor_clamp"><code class="xref py py-func docutils literal notranslate"><span class="pre">tensor_clamp()</span></code></a> with a straight-through
 gradient estimator for the gradient of y w.r.t. to x, while the gradient of y w.r.t. to min_val
 and max_val is always None.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+</dd>
+</dl>
 <p class="rubric">Notes</p>
 <p>Wrapper for either <a class="reference internal" href="brevitas.ops.html#brevitas.ops.autograd_ste_ops.tensor_clamp_ste_impl" title="brevitas.ops.autograd_ste_ops.tensor_clamp_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">tensor_clamp_ste_impl()</span></code></a> (with
 env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>) or its native just-in-time compiled variant (with
@@ -869,11 +951,6 @@ env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0<
 <span class="go">True</span>
 </pre></div>
 </div>
-<dl class="field-list simple">
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
-</dd>
-</dl>
 </dd></dl>
 
 <dl class="py function">
@@ -882,6 +959,11 @@ env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0<
 <dd><p>Function that implements <a class="reference internal" href="#brevitas.function.ops.tensor_clamp_" title="brevitas.function.ops.tensor_clamp_"><code class="xref py py-func docutils literal notranslate"><span class="pre">tensor_clamp_()</span></code></a> with a straight-through
 gradient estimator for the gradient of y w.r.t. to x, while the gradient of y w.r.t. to min_val
 and max_val is always None.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+</dd>
+</dl>
 <p class="rubric">Notes</p>
 <p>Wrapper for either <code class="xref py py-func docutils literal notranslate"><span class="pre">tensor_clamp_ste_impl_()</span></code> (with
 env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>) or its C++ just-in-time compiled variant (with <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=1</span></code>).</p>
@@ -898,17 +980,17 @@ env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0<
 <span class="go">True</span>
 </pre></div>
 </div>
-<dl class="field-list simple">
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
-</dd>
-</dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="brevitas.function.ops_ste.ternary_sign_ste">
 <span class="sig-prename descclassname"><span class="pre">brevitas.function.ops_ste.</span></span><span class="sig-name descname"><span class="pre">ternary_sign_ste</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/function/ops_ste.html#ternary_sign_ste"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.ops_ste.ternary_sign_ste" title="Permalink to this definition">#</a></dt>
 <dd><p>Function that implements <a class="reference external" href="https://pytorch.org/docs/master/generated/torch.sign.html#torch.sign" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.sign()</span></code></a> with a straight-through gradient estimator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
+</dd>
+</dl>
 <p class="rubric">Notes</p>
 <p>Wrapper for either <a class="reference internal" href="brevitas.ops.html#brevitas.ops.autograd_ste_ops.ternary_sign_ste_impl" title="brevitas.ops.autograd_ste_ops.ternary_sign_ste_impl"><code class="xref py py-func docutils literal notranslate"><span class="pre">ternary_sign_ste_impl()</span></code></a> (with
 env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0</span></code>) or its native just-in-time compiled variant (with
@@ -924,11 +1006,6 @@ env <code class="docutils literal notranslate"><span class="pre">BREVITAS_JIT=0<
 <span class="go">True</span>
 </pre></div>
 </div>
-<dl class="field-list simple">
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/master/tensors.html#torch.Tensor" title="(in PyTorch vmaster (2.1.0a0+gitbe0b12e ))"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tensor</span></code></a></p>
-</dd>
-</dl>
 </dd></dl>
 
 </section>
@@ -966,7 +1043,7 @@ at dimension 0 and any other feature at dimension 1.</p>
 <dd class="field-odd"><p><strong>x</strong> (<em>Tensor</em>) – Input tensor with batches at dimension 0.</p>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.11)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>]</p>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.12)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.12)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.12)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>]</p>
 </dd>
 <dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>A tuple containing the 2-dim shape.</p>
@@ -988,7 +1065,7 @@ at dimension 0 and any other feature at dimension 1.</p>
 x (Tensor): Input tensor with output channels at dimension 0.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.11)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>]</p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.12)"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.12)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.12)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>]</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>A tuple containing the 2-dim shape.</p>
@@ -1002,6 +1079,26 @@ x (Tensor): Input tensor with output channels at dimension 0.</p>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="brevitas.function.shape.over_output_features">
+<span class="sig-prename descclassname"><span class="pre">brevitas.function.shape.</span></span><span class="sig-name descname"><span class="pre">over_output_features</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/function/shape.html#over_output_features"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.shape.over_output_features" title="Permalink to this definition">#</a></dt>
+<dd><p>Returns a shape s such that x.view(s) is a 2-dim tensor with all features except the last
+one at dimension 0.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>x</strong> (<em>Tensor</em>) – Input tensor with batches at dimension 0 and output channels at dimension 1.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A tuple containing the 2-dim shape.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">over_output_features</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">([</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">]))</span>
+<span class="go">(24, 3)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="brevitas.function.shape.over_tensor">
 <span class="sig-prename descclassname"><span class="pre">brevitas.function.shape.</span></span><span class="sig-name descname"><span class="pre">over_tensor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/brevitas/function/shape.html#over_tensor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#brevitas.function.shape.over_tensor" title="Permalink to this definition">#</a></dt>
 <dd><p>Computes the shape s such that x.view(s) is a flat tensor.</p>
@@ -1010,7 +1107,7 @@ x (Tensor): Input tensor with output channels at dimension 0.</p>
 <dd class="field-odd"><p><strong>x</strong> (<em>Tensor</em>) – Input tensor.</p>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.12)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
 </dd>
 <dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>The number -1 corresponding to a flat shape.</p>
@@ -1027,360 +1124,147 @@ x (Tensor): Input tensor with output channels at dimension 0.</p>
 </section>
 
 
-            </article>
-            
-            
-            
-            <footer class="bd-footer-article">
-                <!-- Previous / next buttons -->
-<div class='prev-next-area'>
-  <a class='left-prev' id="prev-link" href="index.html" title="previous page">
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer">
+                  <!-- Previous / next buttons -->
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="index.html"
+       title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
-          <p class="prev-next-subtitle">previous</p>
-          <p class="prev-next-title">API reference</p>
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">API reference</p>
       </div>
-  </a>
-  <a class='right-next' id="next-link" href="brevitas.ops.html" title="next page">
-  <div class="prev-next-info">
-      <p class="prev-next-subtitle">next</p>
-      <p class="prev-next-title">brevitas.ops package</p>
-  </div>
-  <i class="fa-solid fa-angle-right"></i>
-  </a>
+    </a>
+    <a class="right-next"
+       href="brevitas.ops.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">brevitas.ops package</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
 </div>
-            </footer>
-            
-          </div>
-          
-          
-          
-            <div class="bd-sidebar-secondary bd-toc">
+                </footer>
               
-<div class="toc-item">
-  
-<div class="tocsection onthispage">
-    <i class="fa-solid fa-list"></i> On this page
-</div>
-<nav id="bd-toc-nav" class="page-toc">
-    <ul class="visible nav section-nav flex-column">
- <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#submodules">
-   Submodules
-  </a>
- </li>
- <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#module-brevitas.function.ops">
-   brevitas.function.ops module
-  </a>
-  <ul class="nav section-nav flex-column">
-   <li class="toc-h3 nav-item toc-entry">
-    <a class="reference internal nav-link" href="#brevitas.function.ops.binary_sign">
-     <code class="docutils literal notranslate">
-      <span class="pre">
-       binary_sign()
-      </span>
-     </code>
-    </a>
-   </li>
-   <li class="toc-h3 nav-item toc-entry">
-    <a class="reference internal nav-link" href="#brevitas.function.ops.dpu_round">
-     <code class="docutils literal notranslate">
-      <span class="pre">
-       dpu_round()
-      </span>
-     </code>
-    </a>
-   </li>
-   <li class="toc-h3 nav-item toc-entry">
-    <a class="reference internal nav-link" href="#brevitas.function.ops.identity">
-     <code class="docutils literal notranslate">
-      <span class="pre">
-       identity()
-      </span>
-     </code>
-    </a>
-   </li>
-   <li class="toc-h3 nav-item toc-entry">
-    <a class="reference internal nav-link" href="#brevitas.function.ops.max_int">
-     <code class="docutils literal notranslate">
-      <span class="pre">
-       max_int()
-      </span>
-     </code>
-    </a>
-   </li>
-   <li class="toc-h3 nav-item toc-entry">
-    <a class="reference internal nav-link" href="#brevitas.function.ops.min_int">
-     <code class="docutils literal notranslate">
-      <span class="pre">
-       min_int()
-      </span>
-     </code>
-    </a>
-   </li>
-   <li class="toc-h3 nav-item toc-entry">
-    <a class="reference internal nav-link" href="#brevitas.function.ops.round_to_zero">
-     <code class="docutils literal notranslate">
-      <span class="pre">
-       round_to_zero()
-      </span>
-     </code>
-    </a>
-   </li>
-   <li class="toc-h3 nav-item toc-entry">
-    <a class="reference internal nav-link" href="#brevitas.function.ops.tensor_clamp">
-     <code class="docutils literal notranslate">
-      <span class="pre">
-       tensor_clamp()
-      </span>
-     </code>
-    </a>
-   </li>
-   <li class="toc-h3 nav-item toc-entry">
-    <a class="reference internal nav-link" href="#brevitas.function.ops.tensor_clamp_">
-     <code class="docutils literal notranslate">
-      <span class="pre">
-       tensor_clamp_()
-      </span>
-     </code>
-    </a>
-   </li>
-  </ul>
- </li>
- <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#module-brevitas.function.ops_ste">
-   brevitas.function.ops_ste module
-  </a>
-  <ul class="nav section-nav flex-column">
-   <li class="toc-h3 nav-item toc-entry">
-    <a class="reference internal nav-link" href="#brevitas.function.ops_ste.abs_binary_sign_grad">
-     <code class="docutils literal notranslate">
-      <span class="pre">
-       abs_binary_sign_grad()
-      </span>
-     </code>
-    </a>
-   </li>
-   <li class="toc-h3 nav-item toc-entry">
-    <a class="reference internal nav-link" href="#brevitas.function.ops_ste.binary_sign_ste">
-     <code class="docutils literal notranslate">
-      <span class="pre">
-       binary_sign_ste()
-      </span>
-     </code>
-    </a>
-   </li>
-   <li class="toc-h3 nav-item toc-entry">
-    <a class="reference internal nav-link" href="#brevitas.function.ops_ste.ceil_ste">
-     <code class="docutils literal notranslate">
-      <span class="pre">
-       ceil_ste()
-      </span>
-     </code>
-    </a>
-   </li>
-   <li class="toc-h3 nav-item toc-entry">
-    <a class="reference internal nav-link" href="#brevitas.function.ops_ste.dpu_round_ste">
-     <code class="docutils literal notranslate">
-      <span class="pre">
-       dpu_round_ste()
-      </span>
-     </code>
-    </a>
-   </li>
-   <li class="toc-h3 nav-item toc-entry">
-    <a class="reference internal nav-link" href="#brevitas.function.ops_ste.floor_ste">
-     <code class="docutils literal notranslate">
-      <span class="pre">
-       floor_ste()
-      </span>
-     </code>
-    </a>
-   </li>
-   <li class="toc-h3 nav-item toc-entry">
-    <a class="reference internal nav-link" href="#brevitas.function.ops_ste.round_ste">
-     <code class="docutils literal notranslate">
-      <span class="pre">
-       round_ste()
-      </span>
-     </code>
-    </a>
-   </li>
-   <li class="toc-h3 nav-item toc-entry">
-    <a class="reference internal nav-link" href="#brevitas.function.ops_ste.round_to_zero_ste">
-     <code class="docutils literal notranslate">
-      <span class="pre">
-       round_to_zero_ste()
-      </span>
-     </code>
-    </a>
-   </li>
-   <li class="toc-h3 nav-item toc-entry">
-    <a class="reference internal nav-link" href="#brevitas.function.ops_ste.scalar_clamp_min_ste">
-     <code class="docutils literal notranslate">
-      <span class="pre">
-       scalar_clamp_min_ste()
-      </span>
-     </code>
-    </a>
-   </li>
-   <li class="toc-h3 nav-item toc-entry">
-    <a class="reference internal nav-link" href="#brevitas.function.ops_ste.scalar_clamp_ste">
-     <code class="docutils literal notranslate">
-      <span class="pre">
-       scalar_clamp_ste()
-      </span>
-     </code>
-    </a>
-   </li>
-   <li class="toc-h3 nav-item toc-entry">
-    <a class="reference internal nav-link" href="#brevitas.function.ops_ste.tensor_clamp_ste">
-     <code class="docutils literal notranslate">
-      <span class="pre">
-       tensor_clamp_ste()
-      </span>
-     </code>
-    </a>
-   </li>
-   <li class="toc-h3 nav-item toc-entry">
-    <a class="reference internal nav-link" href="#brevitas.function.ops_ste.tensor_clamp_ste_">
-     <code class="docutils literal notranslate">
-      <span class="pre">
-       tensor_clamp_ste_()
-      </span>
-     </code>
-    </a>
-   </li>
-   <li class="toc-h3 nav-item toc-entry">
-    <a class="reference internal nav-link" href="#brevitas.function.ops_ste.ternary_sign_ste">
-     <code class="docutils literal notranslate">
-      <span class="pre">
-       ternary_sign_ste()
-      </span>
-     </code>
-    </a>
-   </li>
-  </ul>
- </li>
- <li class="toc-h2 nav-item toc-entry">
-  <a class="reference internal nav-link" href="#module-brevitas.function.shape">
-   brevitas.function.shape module
-  </a>
-  <ul class="nav section-nav flex-column">
-   <li class="toc-h3 nav-item toc-entry">
-    <a class="reference internal nav-link" href="#brevitas.function.shape.over_batch_over_output_channels">
-     <code class="docutils literal notranslate">
-      <span class="pre">
-       over_batch_over_output_channels()
-      </span>
-     </code>
-    </a>
-   </li>
-   <li class="toc-h3 nav-item toc-entry">
-    <a class="reference internal nav-link" href="#brevitas.function.shape.over_batch_over_tensor">
-     <code class="docutils literal notranslate">
-      <span class="pre">
-       over_batch_over_tensor()
-      </span>
-     </code>
-    </a>
-   </li>
-   <li class="toc-h3 nav-item toc-entry">
-    <a class="reference internal nav-link" href="#brevitas.function.shape.over_output_channels">
-     <code class="docutils literal notranslate">
-      <span class="pre">
-       over_output_channels()
-      </span>
-     </code>
-    </a>
-   </li>
-   <li class="toc-h3 nav-item toc-entry">
-    <a class="reference internal nav-link" href="#brevitas.function.shape.over_tensor">
-     <code class="docutils literal notranslate">
-      <span class="pre">
-       over_tensor()
-      </span>
-     </code>
-    </a>
-   </li>
-  </ul>
- </li>
-</ul>
-
-</nav>
-</div>
-
-<div class="toc-item">
-  
-<div id="searchbox"></div>
-</div>
-
-<div class="toc-item">
-  
-</div>
-
-<div class="toc-item">
-  
-<div class="tocsection sourcelink">
-    <a href="../_sources/api_reference/brevitas.function.rst.txt">
-        <i class="fa-solid fa-file-lines"></i> Show Source
-    </a>
-</div>
-
-</div>
-
             </div>
-          
-          
-        </div>
-        <footer class="bd-footer-content">
-          <div class="bd-footer-content__inner">
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+  <div class="sidebar-secondary-item">
+  <div class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#submodules">Submodules</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-brevitas.function.ops">brevitas.function.ops module</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.ops.binary_sign"><code class="docutils literal notranslate"><span class="pre">binary_sign()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.ops.dpu_round"><code class="docutils literal notranslate"><span class="pre">dpu_round()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.ops.get_upper_bound_on_l1_norm"><code class="docutils literal notranslate"><span class="pre">get_upper_bound_on_l1_norm()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.ops.identity"><code class="docutils literal notranslate"><span class="pre">identity()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.ops.max_float"><code class="docutils literal notranslate"><span class="pre">max_float()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.ops.max_int"><code class="docutils literal notranslate"><span class="pre">max_int()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.ops.min_int"><code class="docutils literal notranslate"><span class="pre">min_int()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.ops.round_to_zero"><code class="docutils literal notranslate"><span class="pre">round_to_zero()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.ops.tensor_clamp"><code class="docutils literal notranslate"><span class="pre">tensor_clamp()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.ops.tensor_clamp_"><code class="docutils literal notranslate"><span class="pre">tensor_clamp_()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-brevitas.function.ops_ste">brevitas.function.ops_ste module</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.ops_ste.abs_binary_sign_grad"><code class="docutils literal notranslate"><span class="pre">abs_binary_sign_grad()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.ops_ste.binary_sign_ste"><code class="docutils literal notranslate"><span class="pre">binary_sign_ste()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.ops_ste.ceil_ste"><code class="docutils literal notranslate"><span class="pre">ceil_ste()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.ops_ste.dpu_round_ste"><code class="docutils literal notranslate"><span class="pre">dpu_round_ste()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.ops_ste.floor_ste"><code class="docutils literal notranslate"><span class="pre">floor_ste()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.ops_ste.round_ste"><code class="docutils literal notranslate"><span class="pre">round_ste()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.ops_ste.round_to_zero_ste"><code class="docutils literal notranslate"><span class="pre">round_to_zero_ste()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.ops_ste.scalar_clamp_min_ste"><code class="docutils literal notranslate"><span class="pre">scalar_clamp_min_ste()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.ops_ste.scalar_clamp_ste"><code class="docutils literal notranslate"><span class="pre">scalar_clamp_ste()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.ops_ste.tensor_clamp_ste"><code class="docutils literal notranslate"><span class="pre">tensor_clamp_ste()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.ops_ste.tensor_clamp_ste_"><code class="docutils literal notranslate"><span class="pre">tensor_clamp_ste_()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.ops_ste.ternary_sign_ste"><code class="docutils literal notranslate"><span class="pre">ternary_sign_ste()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-brevitas.function.shape">brevitas.function.shape module</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.shape.over_batch_over_output_channels"><code class="docutils literal notranslate"><span class="pre">over_batch_over_output_channels()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.shape.over_batch_over_tensor"><code class="docutils literal notranslate"><span class="pre">over_batch_over_tensor()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.shape.over_output_channels"><code class="docutils literal notranslate"><span class="pre">over_output_channels()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.shape.over_output_features"><code class="docutils literal notranslate"><span class="pre">over_output_features()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#brevitas.function.shape.over_tensor"><code class="docutils literal notranslate"><span class="pre">over_tensor()</span></code></a></li>
+</ul>
+</li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+  <div class="tocsection sourcelink">
+    <a href="../_sources/api_reference/brevitas.function.rst.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
             
           </div>
-        </footer>
+          <footer class="bd-footer-content">
+            
+          </footer>
         
       </main>
     </div>
   </div>
-
   
-    
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script src="../_static/scripts/bootstrap.js?digest=796348d33e8b1d947c94"></script>
-<script src="../_static/scripts/pydata-sphinx-theme.js?digest=796348d33e8b1d947c94"></script>
+  <script src="../_static/scripts/bootstrap.js?digest=365ca57ee442770a23c6"></script>
+<script src="../_static/scripts/pydata-sphinx-theme.js?digest=365ca57ee442770a23c6"></script>
 
-  <footer class="bd-footer"><div class="bd-footer__inner container">
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
   
-  <div class="footer-item">
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+  <p class="copyright">
     
-<p class="copyright">
-
-    &copy; Copyright 2023 - Advanced Micro Devices, Inc..<br>
-
-</p>
-
-  </div>
-  
-  <div class="footer-item">
-    <p class="theme-version">
-    Built with the
-    <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">
-        PyData Sphinx Theme
-    </a>
-    0.12.0.
-</p>
-  </div>
-  
-  <div class="footer-item">
+      © Copyright 2023 - Advanced Micro Devices, Inc..
+      <br/>
     
-<p class="sphinx-version">
-Created using <a href="http://sphinx-doc.org/">Sphinx</a> 5.3.0.<br>
-</p>
-
-  </div>
+  </p>
+</div>
+      
+        <div class="footer-item">
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.3.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item"><p class="theme-version">
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.14.3.
+</p></div>
+      
+    </div>
   
 </div>
+
   </footer>
   </body>
 </html>

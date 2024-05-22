@@ -4,30 +4,20 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 """
 
 import torch
+from tqdm import tqdm
 
 from brevitas.graph.gptq import gptq_mode
-from brevitas_examples.llm.llm_quant.run_utils import apply_layer_ptq_fn
 
 
 @torch.no_grad()
-def gptq_iter(curr_layer, inps, outs, cached_values, act_order):
-    curr_layer = curr_layer.cuda()
-    with gptq_mode(curr_layer, use_quant_activations=False, act_order=act_order) as gptq:
-        gptq_layer = gptq.model
-        for _ in range(gptq.num_layers):
-            for j in range(len(inps)):
-                curr_inp = inps[j].unsqueeze(0).cuda()
-                gptq_layer(curr_inp, **cached_values)
+def apply_gptq(model, dataloader, act_order=True, group_of_parallel_layers=None):
+    with gptq_mode(model,
+                   use_quant_activations=False,
+                   group_of_parallel_layers=group_of_parallel_layers,
+                   act_order=act_order,
+                   create_weight_orig=False) as gptq:
+        gptq_model = gptq.model
+        for _ in tqdm(range(gptq.num_layers)):
+            for inps in dataloader:
+                gptq_model(**inps)
             gptq.update()
-    for j in range(len(inps)):
-        inp = inps[j].unsqueeze(0).cuda()
-        curr_out = curr_layer(inp, **cached_values)[0]
-        outs[j] = curr_out
-    curr_layer.cpu()
-    return outs
-
-
-@torch.no_grad()
-def apply_gptq(model, dataloader, nsamples, act_order=True, seqlen=2048):
-    apply_layer_ptq_fn(
-        model, dataloader, nsamples, inference_fn=gptq_iter, seqlen=seqlen, act_order=act_order)

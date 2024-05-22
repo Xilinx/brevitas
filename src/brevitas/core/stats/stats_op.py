@@ -12,6 +12,9 @@ import brevitas
 from brevitas import config
 from brevitas.core.utils import StatelessBuffer
 from brevitas.function.ops import max_int
+from brevitas.quant_tensor import _unpack_quant_tensor
+# Use custom implementation of kthvalue as work around to (b)float16 kernel limitations
+from brevitas.utils.torch_utils import kthvalue
 
 from .stats_wrapper import SCALAR_SHAPE
 
@@ -38,8 +41,7 @@ class NegativeMinOrZero(brevitas.jit.ScriptModule):
             min_val = torch.min(x)
         else:
             min_val = torch.min(x, dim=self.stats_reduce_dim, keepdim=self.keepdim)[0]
-        min_val = torch.where(
-            min_val <= self.zero().to(min_val.dtype), min_val, self.zero().to(min_val.dtype))
+        min_val = torch.clamp(min_val, max=self.zero())
         return min_val
 
 
@@ -65,7 +67,7 @@ class AbsPercentile(brevitas.jit.ScriptModule):
         if self.stats_reduce_dim is None:
             # k is 1-indexed, so round away from zero
             k = int(math.floor(.01 * self.q * x.numel() + 0.5))
-            result = x.abs().view(-1).kthvalue(k).values
+            result = kthvalue(x.abs().view(-1), k)[0]
         else:
             # assuming x is two dimensional, get the other dimension
             assert len(x.size()) == 2, "Only 2-dim input is supported."
@@ -73,7 +75,7 @@ class AbsPercentile(brevitas.jit.ScriptModule):
             dim_slice = torch.narrow(x, dim=other_dim, start=0, length=1)
             # k is 1-indexed, so round away from zero
             k = int(math.floor(.01 * self.q * dim_slice.numel() + 0.5))
-            result = x.abs().kthvalue(k, dim=self.stats_reduce_dim, keepdim=self.keepdim).values
+            result = kthvalue(x.abs(), k, dim=self.stats_reduce_dim, keepdim=self.keepdim)[0]
         return result
 
 
@@ -98,7 +100,7 @@ class NegativePercentileOrZero(brevitas.jit.ScriptModule):
         if self.stats_reduce_dim is None:
             # k is 1-indexed, so round away from zero
             k = int(math.ceil(.01 * self.q * x.numel()))
-            result = x.view(-1).kthvalue(k).values
+            result = kthvalue(x.view(-1), k)[0]
         else:
             # assuming x is two dimensional, get the other dimension
             assert len(x.size()) == 2, "Only 2-dim input is supported."
@@ -106,9 +108,8 @@ class NegativePercentileOrZero(brevitas.jit.ScriptModule):
             dim_slice = torch.narrow(x, dim=other_dim, start=0, length=1)
             # k is 1-indexed, so round away from zero
             k = int(math.ceil(.01 * self.q * dim_slice.numel()))
-            result = x.kthvalue(k, dim=self.stats_reduce_dim, keepdim=self.keepdim).values
-        result = torch.where(
-            result <= self.zero().to(result.dtype), result, self.zero().to(result.dtype))
+            result = kthvalue(x, k, dim=self.stats_reduce_dim, keepdim=self.keepdim)[0]
+        result = torch.clamp(result, max=self.zero())
         return result
 
 
@@ -120,12 +121,15 @@ class PercentileInterval(brevitas.jit.ScriptModule):
             low_percentile_q,
             high_percentile_q,
             stats_reduce_dim: Optional[int] = None,
-            keepdim: bool = False) -> None:
+            keepdim: bool = False,
+            dtype: Optional[torch.dtype] = None,
+            device: Optional[torch.device] = None) -> None:
         super(PercentileInterval, self).__init__()
         self.stats_reduce_dim = stats_reduce_dim
         self.low_q = low_percentile_q
         self.high_q = high_percentile_q
         self.keepdim = keepdim
+        self.zero = StatelessBuffer(torch.tensor(0.0, dtype=dtype, device=device))
 
     @brevitas.jit.script_method
     def forward(self, x: Tensor) -> Tensor:
@@ -133,8 +137,8 @@ class PercentileInterval(brevitas.jit.ScriptModule):
             low_k = int(math.ceil(.01 * self.low_q * x.numel()))
             # k is 1-indexed, so round away from zero
             high_k = int(math.floor(.01 * self.high_q * x.numel() + 0.5))
-            low_result = x.view(-1).kthvalue(low_k).values
-            high_result = x.view(-1).kthvalue(high_k).values
+            low_result = kthvalue(x.view(-1), low_k)[0]
+            high_result = kthvalue(x.view(-1), high_k)[0]
         else:
             # assuming x is two dimensional, get the other dimension
             assert len(x.size()) == 2, "Only 2-dim input is supported."
@@ -143,8 +147,10 @@ class PercentileInterval(brevitas.jit.ScriptModule):
             low_k = int(math.ceil(.01 * self.low_q * dim_slice.numel()))
             # k is 1-indexed, so round away from zero
             high_k = int(math.floor(.01 * self.high_q * dim_slice.numel() + 0.5))
-            low_result = x.kthvalue(low_k, dim=self.stats_reduce_dim, keepdim=self.keepdim).values
-            high_result = x.kthvalue(high_k, dim=self.stats_reduce_dim, keepdim=self.keepdim).values
+            low_result = kthvalue(x, low_k, dim=self.stats_reduce_dim, keepdim=self.keepdim)[0]
+            high_result = kthvalue(x, high_k, dim=self.stats_reduce_dim, keepdim=self.keepdim)[0]
+        # We need to make sure the lower bound is not positive to align with zero-point statistics
+        low_result = torch.clamp(low_result, max=self.zero())
         interval = high_result - low_result
         abs_interval = torch.abs(interval)
         return abs_interval
@@ -169,19 +175,28 @@ class AbsMax(brevitas.jit.ScriptModule):
 class AbsMinMax(brevitas.jit.ScriptModule):
     __constants__ = ['stats_reduce_dim', 'keepdim']
 
-    def __init__(self, stats_reduce_dim: Optional[int] = None, keepdim: bool = False) -> None:
+    def __init__(
+            self,
+            stats_reduce_dim: Optional[int] = None,
+            keepdim: bool = False,
+            dtype: Optional[torch.dtype] = None,
+            device: Optional[torch.device] = None) -> None:
         super(AbsMinMax, self).__init__()
         self.stats_reduce_dim = stats_reduce_dim
         self.keepdim = keepdim
+        self.zero = StatelessBuffer(torch.tensor(0.0, dtype=dtype, device=device))
 
     @brevitas.jit.script_method
     def forward(self, x: Tensor):
         if self.stats_reduce_dim is None:
-            return torch.abs(torch.max(x) - torch.min(x))
+            max_val = torch.max(x)
+            min_val = torch.min(x)
         else:
             max_val = torch.max(x, dim=self.stats_reduce_dim, keepdim=self.keepdim)[0]
             min_val = torch.min(x, dim=self.stats_reduce_dim, keepdim=self.keepdim)[0]
-            return torch.abs(max_val - min_val)
+        # We need to make sure the lower bound is not positive to align with zero-point statistics
+        min_val = torch.clamp(min_val, max=self.zero())
+        return torch.abs(max_val - min_val)
 
 
 class AbsMaxAve(brevitas.jit.ScriptModule):
@@ -436,8 +451,8 @@ class MSE(torch.nn.Module):
             mse_init_op,
             inner_stats_input_view_shape_impl: torch.nn.Module,
             stats_reduce_dim: Optional[int] = None,
-            mse_search_method='fibonacci',
-            mse_iters=10):
+            mse_search_method: str = 'fibonacci',
+            mse_iters: int = 20):
         super(MSE, self).__init__()
         self.mse_init_op = mse_init_op
         self.input_view_shape_impl = inner_stats_input_view_shape_impl
@@ -464,8 +479,7 @@ class MSE(torch.nn.Module):
         # Set to local_loss_mode before calling the proxy
         self.set_local_loss_mode(True)
         quant_value = self.proxy_forward(x)
-        if isinstance(quant_value, tuple):
-            quant_value = quant_value[0]
+        quant_value = _unpack_quant_tensor(quant_value)
         loss = self.mse_loss_fn(x, quant_value)
         self.set_local_loss_mode(False)
         return loss

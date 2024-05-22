@@ -60,11 +60,11 @@ from brevitas_examples.llm.llm_quant.mlir_custom_mm import brevitas_matmul_rhs_g
 
 # Due a tracing issue this annotation needs to be
 # in the same module (== file) from which make_fx is called
-# We also can't directly annotate torch.ops.brevitas.matmul_rhs_group_quant
+# We also can't directly annotate torch.ops.quant.matmul_rhs_group_quant
 # and so we trace a placeholder first and then replace it post tracing
 @wrap(visible_to_make_fx=True)
 def matmul_rhs_group_quant_placeholder(*args, **kwargs):
-    return torch.ops.brevitas.matmul_rhs_group_quant(*args, **kwargs)
+    return torch.ops.quant.matmul_rhs_group_quant(*args, **kwargs)
 
 
 class LinearWeightBlockQuantHandlerFwd(LinearWeightBlockQuantHandler):
@@ -185,7 +185,6 @@ def compile_vicuna_layer(
                     torch.ops.aten.split.Tensor,
                     torch.ops.aten.split_with_sizes,]),
             )(hidden_states, attention_mask, position_ids)
-            print(fx_g.graph)
     else:
         with export_context_manager(vicuna_layer, export_class):
             fx_g = make_fx(
@@ -261,9 +260,7 @@ def compile_vicuna_layer(
 
     transform_fx(fx_g)
     replace_call_fn_target(
-        fx_g,
-        src=matmul_rhs_group_quant_placeholder,
-        target=torch.ops.brevitas.matmul_rhs_group_quant)
+        fx_g, src=matmul_rhs_group_quant_placeholder, target=torch.ops.quant.matmul_rhs_group_quant)
 
     fx_g.recompile()
     removed_none_indexes = _remove_nones(fx_g)
@@ -319,7 +316,7 @@ def compile_to_vmfb(inputs, layers, export_context_manager, export_class, is_fir
                 module = torch_mlir.compile(
                     ts_g, (hidden_states_placeholder, inputs[1], inputs[2]),
                     output_type="torch",
-                    backend_legal_ops=["brevitas.matmul_rhs_group_quant"],
+                    backend_legal_ops=["quant.matmul_rhs_group_quant"],
                     extra_library=brevitas_matmul_rhs_group_quant_library,
                     use_tracing=False,
                     verbose=False)
@@ -342,7 +339,7 @@ def compile_to_vmfb(inputs, layers, export_context_manager, export_class, is_fir
                         pkv0_placeholder,
                         pkv1_placeholder),
                     output_type="torch",
-                    backend_legal_ops=["brevitas.matmul_rhs_group_quant"],
+                    backend_legal_ops=["quant.matmul_rhs_group_quant"],
                     extra_library=brevitas_matmul_rhs_group_quant_library,
                     use_tracing=False,
                     verbose=False)

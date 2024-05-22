@@ -27,7 +27,7 @@ class QuantLinear(QuantWBIOL, Linear):
             self,
             in_features: int,
             out_features: int,
-            bias: bool,
+            bias: Optional[bool] = True,
             weight_quant: Optional[WeightQuantType] = Int8WeightPerTensorFloat,
             bias_quant: Optional[BiasQuantType] = None,
             input_quant: Optional[ActQuantType] = None,
@@ -79,10 +79,3 @@ class QuantLinear(QuantWBIOL, Linear):
             quant_weight_scale = quant_weight_scale.view(weight_broadcast_shape)
         quant_output_scale = linear(quant_input_scale, quant_weight_scale)
         return quant_output_scale
-
-    def max_acc_bit_width(self, input_bit_width, weight_bit_width):
-        max_input_val = max_int(bit_width=input_bit_width, signed=False, narrow_range=False)
-        max_fc_val = self.weight_quant.max_uint_value(weight_bit_width)
-        max_output_val = max_input_val * max_fc_val * self.in_features
-        output_bit_width = ceil_ste(torch.log2(max_output_val))
-        return output_bit_width

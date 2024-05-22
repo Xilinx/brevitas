@@ -124,28 +124,33 @@ def main():
     data_root = args.data_root
     data_sets = args.data_sets
 
-    if data_sets == "ALL":
+    if data_sets.upper() == "ALL":
         data_sets = "dev_clean,dev_other,train_clean_100,train_clean_360,train_other_500,test_clean,test_other"
 
     for data_set in data_sets.split(','):
         print("\n\nWorking on: {0}".format(data_set))
         filepath = os.path.join(data_root, data_set + ".tar.gz")
+
         print("Getting {0}".format(data_set))
         __maybe_download_file(filepath, data_set.upper())
+
         print("Extracting {0}".format(data_set))
         __extract_file(filepath, data_root)
+
         print("Processing {0}".format(data_set))
+        # the dataset name must be cast to lower case as the relevant folder in the tar.gz file is in lowercase
         __process_data(
             os.path.join(
                 os.path.join(data_root, "LibriSpeech"),
-                data_set.replace("_", "-"),
+                data_set.replace("_", "-").lower(),
             ),
             os.path.join(
                 os.path.join(data_root, "LibriSpeech"),
-                data_set.replace("_", "-"),
+                data_set.replace("_", "-").lower(),
             ) + "-processed",
             os.path.join(data_root, data_set + ".json"),
         )
+
     print('Done!')
 
 

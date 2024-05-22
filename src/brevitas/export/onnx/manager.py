@@ -24,8 +24,8 @@ import torch.onnx
 from brevitas import torch_version
 from brevitas.quant_tensor import QuantTensor
 
-from ..manager import _override_inp_caching_mode
-from ..manager import _restore_inp_caching_mode
+from ..manager import _override_act_caching_mode
+from ..manager import _restore_act_caching_mode
 from ..manager import BaseManager
 from ..manager import ExportContext
 
@@ -120,20 +120,17 @@ class ONNXBaseManager(BaseManager, ABC):
                     # enable export mode, this triggers collecting export values into handlers
                     cls.set_export_mode(module, enabled=True)
                     # temporarily disable input caching to avoid collectives empty debug values
-                    module.apply(lambda m: _override_inp_caching_mode(m, enabled=False))
+                    module.apply(lambda m: _override_act_caching_mode(m, enabled=False))
                     # perform export pass
-                    with ExitStack() as stack:
-                        for mgr in cls._trace_patches():
-                            stack.enter_context(mgr)
-                        if export_path is not None:
-                            export_target = export_path
-                        else:
-                            model_bytes = BytesIO()
-                            export_target = model_bytes
-                        torch.onnx.export(module, args, export_target, **onnx_export_kwargs)
+                    if export_path is not None:
+                        export_target = export_path
+                    else:
+                        model_bytes = BytesIO()
+                        export_target = model_bytes
+                    torch.onnx.export(module, args, export_target, **onnx_export_kwargs)
 
                     # restore the model to previous properties
-                    module.apply(lambda m: _restore_inp_caching_mode(m))
+                    module.apply(lambda m: _restore_act_caching_mode(m))
                     cls.set_export_mode(module, enabled=False)
                     module.train(training_state)
 

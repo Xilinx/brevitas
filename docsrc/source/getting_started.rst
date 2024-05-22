@@ -186,6 +186,7 @@ Weights, activations, biases quantization
 ..
 
 Compared to the previous scenario:
+
 - We now set ``return_quant_tensor=True`` in every quantized activations to propagate a ``QuantTensor`` to the next layer. This informs each ``QuantLinear`` or ``QuantConv2d`` of how the input passed in has been quantized.
 - A ``QuantTensor`` is just a tensor-like data structure providing metadata about how a tensor has been quantized, similar to a `torch.qint` dtype, but training friendly. Setting ``return_quant_tensor=True`` does not affect the way quantization is performed, it only changes the way the output is represented.
 - We enable bias quantization by setting the `Int32Bias` quantizer. What it does is to perform bias quantization with ```bias_scale = input_scale * weight_scale``, as it commonly done across inference toolchains. This is why we have to set ``return_quant_tensor=True``: each layer with ``Int32Bias`` can read the input scale from the ``QuantTensor`` passed in and use for bias quantization.

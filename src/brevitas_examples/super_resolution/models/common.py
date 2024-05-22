@@ -6,14 +6,16 @@ from typing import Optional
 from torch import Tensor
 import torch.nn as nn
 
+from brevitas.core.restrict_val import FloatRestrictValue
 from brevitas.core.restrict_val import RestrictValueType
 from brevitas.core.scaling import ScalingImplType
 import brevitas.nn as qnn
 from brevitas.nn.quant_layer import WeightQuantType
+from brevitas.quant import Int8AccumulatorAwareWeightQuant
+from brevitas.quant import Int8AccumulatorAwareZeroCenterWeightQuant
 from brevitas.quant import Int8ActPerTensorFloat
 from brevitas.quant import Int8WeightPerTensorFloat
 from brevitas.quant import Uint8ActPerTensorFloat
-from brevitas.quant.fixed_point import Int8AccumulatorAwareWeightQuant
 
 
 class CommonIntWeightPerChannelQuant(Int8WeightPerTensorFloat):
@@ -25,8 +27,14 @@ class CommonIntWeightPerChannelQuant(Int8WeightPerTensorFloat):
 
 
 class CommonIntAccumulatorAwareWeightQuant(Int8AccumulatorAwareWeightQuant):
-    pre_scaling_min_val = 1e-8
-    scaling_min_val = 1e-8
+    """A2Q: Accumulator-Aware Quantization with Guaranteed Overflow Avoidance"""
+    restrict_scaling_impl = FloatRestrictValue  # backwards compatibility
+    bit_width = None
+
+
+class CommonIntAccumulatorAwareZeroCenterWeightQuant(Int8AccumulatorAwareZeroCenterWeightQuant):
+    """A2Q+: Improving Accumulator-Aware Weight Quantization"""
+    bit_width = None
 
 
 class CommonIntActQuant(Int8ActPerTensorFloat):

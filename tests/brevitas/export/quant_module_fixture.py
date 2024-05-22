@@ -9,15 +9,17 @@ from torch import nn
 
 from brevitas.nn import QuantConv1d
 from brevitas.nn import QuantConv2d
+from brevitas.nn import QuantConv3d
 from brevitas.nn import QuantConvTranspose1d
 from brevitas.nn import QuantConvTranspose2d
+from brevitas.nn import QuantConvTranspose3d
 from brevitas.nn import QuantIdentity
 from brevitas.nn import QuantLinear
 from brevitas.nn import TruncAvgPool2d
-from brevitas.quant.fixed_point import Int8AccumulatorAwareWeightQuant
 from brevitas.quant.fixed_point import Int8ActPerTensorFixedPoint
 from brevitas.quant.fixed_point import Int8WeightPerChannelFixedPoint
 from brevitas.quant.fixed_point import Int8WeightPerTensorFixedPoint
+from brevitas.quant.scaled_int import Int8AccumulatorAwareWeightQuant
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8BiasPerTensorFloatInternalScaling
 from brevitas.quant.scaled_int import Int8WeightPerChannelFloat
@@ -53,7 +55,13 @@ BIAS_QUANTIZERS = {
     'bias_external_scale': (Int32Bias,),
     'bias_internal_scale': (Int8BiasPerTensorFloatInternalScaling,)}
 QUANT_WBIOL_IMPL = [
-    QuantLinear, QuantConv1d, QuantConv2d, QuantConvTranspose1d, QuantConvTranspose2d]
+    QuantLinear,
+    QuantConv1d,
+    QuantConv2d,
+    QuantConv3d,
+    QuantConvTranspose1d,
+    QuantConvTranspose2d,
+    QuantConvTranspose3d,]
 BIT_WIDTHS = [4, 8, 10]  # below 8, equal 8, above 8
 BIAS_BIT_WIDTHS = [8, 16, 32]
 

@@ -2,12 +2,20 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import functools
+import math
+from typing import Callable
+import warnings
 
 import torch
+from torch import Tensor
 import torch.nn.functional as F
 
-import brevitas
+from brevitas.function.ops import max_int
+from brevitas.function.ops_ste import ceil_ste
+from brevitas.utils.torch_utils import compute_channel_view_shape
 
+INT_QUANT_TENSOR_FN_HANDLER = {}
+FLOAT_QUANT_TENSOR_FN_HANDLER = {}
 QUANT_TENSOR_FN_HANDLER = {}
 
 
@@ -23,10 +31,7 @@ def implements(torch_function):
 
 def quant_invariant_handler(fn, inp, *args, **kwargs):
     out_value = fn(inp.value, *args, **kwargs)
-    if inp.is_not_none:
-        return inp.set(value=out_value)
-    else:
-        return out_value
+    return inp.set(value=out_value)
 
 
 @implements(torch.flatten)
@@ -42,12 +47,6 @@ def reshape_handler(inp, *args, **kwargs):
 @implements(torch.transpose)
 def transpose_handler(inp, *args, **kwargs):
     return inp.transpose(*args, **kwargs)
-
-
-@implements(brevitas.original_cat)
-def cat_handler(*args, **kwargs):
-    from brevitas.quant_tensor import QuantTensor
-    return QuantTensor.cat(*args, **kwargs)
 
 
 @implements(F.pad)

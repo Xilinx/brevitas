@@ -11,24 +11,24 @@ from brevitas.export.manager import _set_proxy_export_mode
 from brevitas.export.manager import BaseManager
 from brevitas.export.manager import ExportContext
 
-from .handler import TorchQCDQActQuantProxyHandler
-from .handler import TorchQCDQBiasQuantProxyHandler
-from .handler import TorchQCDQDecoupledWeightQuantProxyHandler
-from .handler import TorchQCDQDecoupledWeightQuantWithInputProxyHandler
-from .handler import TorchQCDQTruncQuantProxyHandler
-from .handler import TorchQCDQWeightQuantProxyHandler
+from .handler import TorchCDQCastBiasQuantProxyHandler
+from .handler import TorchQCDQCastActQuantProxyHandler
+from .handler import TorchQCDQCastDecoupledWeightQuantProxyHandler
+from .handler import TorchQCDQCastDecoupledWeightQuantWithInputProxyHandler
+from .handler import TorchQCDQCastTruncQuantProxyHandler
+from .handler import TorchQCDQCastWeightQuantProxyHandler
 
 
 class TorchQCDQManager(BaseManager):
     target_name = 'torch'
 
     handlers = [
-        TorchQCDQWeightQuantProxyHandler,
-        TorchQCDQDecoupledWeightQuantProxyHandler,
-        TorchQCDQDecoupledWeightQuantWithInputProxyHandler,
-        TorchQCDQActQuantProxyHandler,
-        TorchQCDQBiasQuantProxyHandler,
-        TorchQCDQTruncQuantProxyHandler]
+        TorchQCDQCastWeightQuantProxyHandler,
+        TorchQCDQCastDecoupledWeightQuantProxyHandler,
+        TorchQCDQCastDecoupledWeightQuantWithInputProxyHandler,
+        TorchQCDQCastActQuantProxyHandler,
+        TorchCDQCastBiasQuantProxyHandler,
+        TorchQCDQCastTruncQuantProxyHandler]
 
     @classmethod
     def set_export_mode(cls, model: Module, enabled: bool):
@@ -39,7 +39,19 @@ class TorchQCDQManager(BaseManager):
         _set_proxy_export_handler(cls, module)
 
     @classmethod
-    def export(cls, module: Module, args, export_path: Optional[str] = None):
+    def change_weight_export(cls, export_weight_q_node: bool = False):
+        for handler in cls.handlers:
+            if hasattr(handler, '_export_q_node'):
+                handler._export_weight_q_node = export_weight_q_node
+
+    @classmethod
+    def export(
+            cls,
+            module: Module,
+            args,
+            export_path: Optional[str] = None,
+            export_weight_q_node: bool = False):
+        cls.change_weight_export(export_weight_q_node=export_weight_q_node)
         with ExportContext(cls):
             traced_module = cls.jit_inference_trace(module, args, export_path)
         return traced_module

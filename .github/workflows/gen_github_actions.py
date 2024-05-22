@@ -17,7 +17,7 @@ ENDTOEND_YML = 'end_to_end.yml'
 # Reduced Test for PRs, except when a review is requested
 PYTHON_VERSIONS_REDUCED = ('3.8',)
 
-PYTORCH_LIST_REDUCED = ["1.9.1", "1.10.1", "1.13.0"]
+PYTORCH_LIST_REDUCED = ["1.9.1", "1.13.0", "2.1.0"]
 
 PLATFORM_LIST_REDUCED = ['ubuntu-latest']
 
@@ -33,9 +33,9 @@ PYTEST_MATRIX_EXTRA_REDUCED = od([('jit_status', [
     'jit_disabled',])])
 
 # Data shared betwen Nox sessions and Github Actions, formatted as tuples
-PYTHON_VERSIONS = ('3.7', '3.8')
+PYTHON_VERSIONS = ('3.8', '3.9')
 
-PYTORCH_VERSIONS = ('1.9.1', '1.10.1', '1.11.0', '1.12.1', '1.13.0')
+PYTORCH_VERSIONS = ('1.9.1', '1.10.1', '1.11.0', '1.12.1', '1.13.0', '2.0.1', '2.1.0')
 JIT_STATUSES = ('jit_disabled', 'jit_enabled')
 
 # Data used only by Github Actions, formatted as lists or lists of ordered dicts

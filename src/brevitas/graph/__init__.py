@@ -3,6 +3,7 @@
 
 from .base import *
 from .calibrate import *
+from .channel_splitting import *
 from .equalize import *
 from .fixed_point import *
 from .per_input import *

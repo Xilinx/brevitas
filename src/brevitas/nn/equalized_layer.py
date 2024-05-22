@@ -4,7 +4,7 @@ import torch
 
 from brevitas.nn.quant_mha import QuantMultiheadAttention
 
-INPUT_NAMES = ['input', 'inp', 'query', 'x']
+INPUT_NAMES = ['input', 'inp', 'query', 'x', 'hidden_states']
 
 
 class EqualizedModule(torch.nn.Module):

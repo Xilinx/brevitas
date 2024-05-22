@@ -59,6 +59,7 @@ class MeanMethodToAdaptiveAvgPool2d(MethodToModule):
         is_adaptive_2d_mean = ((2, 3) in node.args or [2, 3] in node.args or
                                'dim' in node.kwargs and
                                (node.kwargs['dim'] == (2, 3) or node.kwargs['dim'] == [2, 3]))
+        is_adaptive_2d_mean = is_adaptive_2d_mean and not node.kwargs.get('keepdim', False)
         return spr and is_adaptive_2d_mean
 
     def move_node_args_to_kwargs(self, node: Node):
@@ -107,7 +108,8 @@ class TorchFunctionalToModule(GraphTransform):
                                                        nn.AvgPool1d), (F.avg_pool2d, nn.AvgPool2d),
                         (F.avg_pool3d, nn.AvgPool3d), (F.adaptive_avg_pool1d, nn.AdaptiveAvgPool1d),
                         (F.adaptive_avg_pool2d,
-                         nn.AdaptiveAvgPool2d), (F.adaptive_avg_pool3d, nn.AdaptiveAvgPool3d))
+                         nn.AdaptiveAvgPool2d), (F.adaptive_avg_pool3d,
+                                                 nn.AdaptiveAvgPool3d), (F.dropout, nn.Dropout))
 
     def __init__(self, fn_to_module_map=FN_TO_MODULE_MAP):
         super().__init__()

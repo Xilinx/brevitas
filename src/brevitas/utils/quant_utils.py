@@ -5,6 +5,80 @@ from brevitas.core.bit_width import BitWidthParameter
 from brevitas.core.function_wrapper import *
 from brevitas.core.quant import RescalingIntQuant
 from brevitas.inject.enum import FloatToIntImplType
+from brevitas.quant_tensor import FloatQuantTensor
+from brevitas.quant_tensor import IntQuantTensor
+
+
+class _CachedIO:
+
+    def __init__(self, quant_tensor: IntQuantTensor, metadata_only: bool):
+        self.shape = quant_tensor.value.shape
+        if metadata_only:
+            self.quant_tensor = quant_tensor.set(value=None)
+        else:
+            self.quant_tensor = quant_tensor
+
+    @property
+    def scale(self):
+        return self.quant_tensor.scale
+
+    @property
+    def zero_point(self):
+        return self.quant_tensor.zero_point
+
+    @property
+    def bit_width(self):
+        return self.quant_tensor.bit_width
+
+    @property
+    def signed(self):
+        return self.quant_tensor.signed
+
+
+class _CachedIOFloat:
+
+    def __init__(self, quant_tensor: FloatQuantTensor, metadata_only: bool):
+        self.shape = quant_tensor.value.shape
+        if metadata_only:
+            self.quant_tensor = quant_tensor.set(value=None)
+        else:
+            self.quant_tensor = quant_tensor
+
+    @property
+    def scale(self):
+        return self.quant_tensor.scale
+
+    @property
+    def zero_point(self):
+        return self.quant_tensor.zero_point
+
+    @property
+    def exponent_bit_width(self):
+        return self.quant_tensor.exponent_bit_width
+
+    @property
+    def mantissa_bit_width(self):
+        return self.quant_tensor.mantissa_bit_width
+
+    @property
+    def exponent_bias(self):
+        return self.quant_tensor.exponent_bias
+
+    @property
+    def saturating(self):
+        return self.quant_tensor.saturating
+
+    @property
+    def inf_values(self):
+        return self.quant_tensor.inf_values
+
+    @property
+    def nan_values(self):
+        return self.quant_tensor.nan_values
+
+    @property
+    def signed(self):
+        return self.quant_tensor.signed
 
 
 def has_learned_weight_bit_width(module):
@@ -43,6 +117,13 @@ def float_to_int_impl_to_enum(module):
     elif isinstance(module, CeilSte):
         return FloatToIntImplType.CEIL
     elif isinstance(module, DPURoundSte):
-        return DPURoundSte
+        return FloatToIntImplType.DPU
+    elif isinstance(module, LearnedRoundSte):
+        return FloatToIntImplType.LEARNED_ROUND
+    elif isinstance(module, StochasticRoundSte):
+        if module.deterministic_inference:
+            return FloatToIntImplType.ROUND
+        else:
+            return FloatToIntImplType.STOCHASTIC_ROUND
     else:
         return None

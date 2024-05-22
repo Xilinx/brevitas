@@ -2,8 +2,10 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from .clamp import ClampMin
+from .clamp import FloatClamp
 from .clamp import ScalarClamp
 from .clamp import TensorClamp
+from .learned_round import LearnedRoundSte
 from .misc import Identity
 from .misc import InplaceLogTwo
 from .misc import LogTwo
@@ -21,3 +23,4 @@ from .shape import OverBatchOverTensorView
 from .shape import OverOutputChannelView
 from .shape import OverTensorView
 from .shape import StatsInputViewShapeImpl
+from .stochastic_round import StochasticRoundSte

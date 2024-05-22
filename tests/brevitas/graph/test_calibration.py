@@ -10,8 +10,11 @@ import torch.nn as nn
 
 from brevitas.graph.calibrate import bias_correction_mode
 from brevitas.graph.calibrate import calibration_mode
+from brevitas.graph.calibrate import load_quant_model_mode
 import brevitas.nn as qnn
 from brevitas.quant import Int8ActPerTensorFixedPoint
+# Use custom implementation of kthvalue as work around to (b)float16 kernel limitations
+from brevitas.utils.torch_utils import kthvalue
 from tests.brevitas.hyp_helper import float_tensor_random_size_st
 
 IN_CH = 8
@@ -21,7 +24,7 @@ BATCH = 1
 
 def compute_quantile(x, q):
     k = int(math.floor(.01 * q * x.numel() + 0.5))
-    result = x.abs().view(-1).kthvalue(k).values
+    result = kthvalue(x.abs().view(-1), k=k)[0]
     return result
 
 
@@ -56,7 +59,7 @@ def test_scale_factors_ptq_calibration_po2(inp):
             model(inp)
 
     expected_scale = reference_implementation_scale_factors_po2(inp)
-    scale = model.act.quant_act_scale()
+    scale = model.act.act_quant.scale()
 
     assert torch.allclose(expected_scale, scale)
 
@@ -187,3 +190,54 @@ class TestBiasCorrection():
         )  # In bias_correction mode, the input to each layer is equal to the FP output of the previous layer
         assert (inputs[1] == fp_outs[1, 0, :]).all(
         )  # In bias_correction mode, the input to each layer is equal to the FP output of the previous layer
+
+
+def test_import_bias_correction():
+
+    class SimpleQuantLinearNet(nn.Module):
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.net = nn.Sequential(qnn.QuantLinear(IN_CH, OUT_CH, bias=False))
+
+        def forward(self, inp):
+            return self.net(inp)
+
+    model = SimpleQuantLinearNet()
+
+    with bias_correction_mode(model):
+        model(torch.randn((1, IN_CH)))
+
+    for m in model.modules():
+        if isinstance(m, qnn.QuantLinear):
+            assert m.bias is not None
+
+    new_model = SimpleQuantLinearNet()
+
+    with load_quant_model_mode(new_model):
+        new_model.load_state_dict(model.state_dict())
+
+    for m in new_model.modules():
+        if isinstance(m, qnn.QuantLinear):
+            assert m.bias is not None
+
+
+def test_bias_correction_flag():
+
+    class SimpleQuantLinearNet(nn.Module):
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.net = nn.Sequential(qnn.QuantLinear(IN_CH, OUT_CH, bias=False))
+
+        def forward(self, inp):
+            return self.net(inp)
+
+    model = SimpleQuantLinearNet()
+
+    with bias_correction_mode(model, skip_if_no_bias=True):
+        model(torch.randn((1, IN_CH)))
+
+    for m in model.modules():
+        if isinstance(m, qnn.QuantLinear):
+            assert m.bias is None

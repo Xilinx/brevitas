@@ -17,36 +17,12 @@ from brevitas import config
 from brevitas.common import ExportMixin
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import Injector
-from brevitas.nn.utils import compute_channel_view_shape
+from brevitas.quant_tensor import _unpack_quant_tensor
+from brevitas.quant_tensor import FloatQuantTensor
+from brevitas.quant_tensor import IntQuantTensor
 from brevitas.quant_tensor import QuantTensor
 
 from .utils import filter_kwargs
-
-
-class _CachedIO:
-
-    def __init__(self, quant_tensor: QuantTensor, metadata_only: bool):
-        self.shape = quant_tensor.value.shape
-        if metadata_only:
-            self.quant_tensor = quant_tensor.set(value=None)
-        else:
-            self.quant_tensor = quant_tensor
-
-    @property
-    def scale(self):
-        return self.quant_tensor.scale
-
-    @property
-    def zero_point(self):
-        return self.quant_tensor.zero_point
-
-    @property
-    def bit_width(self):
-        return self.quant_tensor.bit_width
-
-    @property
-    def signed(self):
-        return self.quant_tensor.signed
 
 
 class QuantProxyMixin(object):
@@ -81,109 +57,49 @@ class QuantProxyMixin(object):
 class QuantLayerMixin(ExportMixin):
     __metaclass__ = ABCMeta
 
-    def __init__(
-            self,
-            return_quant_tensor: bool,
-            cache_inference_quant_inp: bool = False,
-            cache_inference_quant_out: bool = False,
-            cache_quant_io_metadata_only: bool = True):
+    def __init__(self, return_quant_tensor: bool):
         ExportMixin.__init__(self)
         self.accept_quant_tensor = True
         self.return_quant_tensor = return_quant_tensor
-        self.cache_inference_quant_inp = cache_inference_quant_inp
-        self.cache_inference_quant_out = cache_inference_quant_out
-        self.cache_quant_io_metadata_only = cache_quant_io_metadata_only
-        self._cached_inp = None
-        self._cached_out = None
 
     @property
     @abstractmethod
     def channelwise_separable(self) -> bool:
         pass
 
-    @property
-    def is_quant_input_signed(self) -> Optional[bool]:  # tri-valued logic output
-        if self._cached_inp is not None:
-            return self._cached_inp.signed
-        else:
-            return None
-
     def _set_global_is_quant_layer(self, value):
         config._IS_INSIDE_QUANT_LAYER = value
 
-    def quant_input_scale(self):
-        if self._cached_inp is not None:
-            return self._cached_inp.scale
-        else:
-            return None
+    def get_quant_tensor_class(self, inp: Union[Tensor, QuantTensor]):
+        quant_tensor_classes = [IntQuantTensor, FloatQuantTensor]
+        for qt_class in quant_tensor_classes:
+            if len(inp) == len(qt_class._fields):
+                return qt_class
+        return None
 
-    def quant_input_zero_point(self):
-        if self._cached_inp is not None:
-            return self._cached_inp.zero_point
-        else:
-            return None
-
-    def quant_input_bit_width(self):
-        if self._cached_inp is not None:
-            return self._cached_inp.bit_width
-        else:
-            return None
-
-    @property
-    def is_quant_output_signed(self) -> Optional[bool]:  # tri-valued logic output
-        if self._cached_out is not None:
-            return self._cached_out.signed
-        else:
-            return None
-
-    def quant_output_scale(self):
-        if self._cached_out is not None:
-            return self._cached_out.scale
-        else:
-            return None
-
-    def quant_output_zero_point(self):
-        if self._cached_out is not None:
-            return self._cached_out.zero_point
-        else:
-            return None
-
-    def quant_output_bit_width(self):
-        if self._cached_out is not None:
-            return self._cached_out.bit_width
-        else:
-            return None
-
-    def unpack_input(self, inp: Union[Tensor, QuantTensor]):
+    def unpack_input(self, inp: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
         self._set_global_is_quant_layer(True)
         # Hack to recognize a QuantTensor that has decayed to a tuple
         # when used as input to tracing (e.g. during ONNX export)
         if (torch._C._get_tracing_state() is not None and isinstance(inp, tuple) and
-                len(inp) == len(QuantTensor._fields) and all([isinstance(t, Tensor) for t in inp])):
-            inp = QuantTensor(*inp)
-        if isinstance(inp, QuantTensor):
-            # don't cache values during export pass
-            if not self.training and not self._export_mode and self.cache_inference_quant_inp:
-                cached_inp = _CachedIO(inp.detach(), self.cache_quant_io_metadata_only)
-                self._cached_inp = cached_inp
-        else:
-            inp = QuantTensor(inp, training=self.training)
-            if not self.training and self.cache_inference_quant_inp:
-                cached_inp = _CachedIO(inp.detach(), self.cache_quant_io_metadata_only)
-                self._cached_inp = cached_inp
-        # Remove any naming metadata to avoid dowmstream errors
+                all([isinstance(t, Tensor) for t in inp])):
+            qt_class = self.get_quant_tensor_class(inp)
+            if qt_class is not None:
+                inp = qt_class(*inp)
         if not torch._C._get_tracing_state():
-            inp.value.rename_(None)
+            if isinstance(inp, QuantTensor):
+                inp = inp.set(value=inp.value.rename(None))
+            else:
+                inp = inp.rename(None)
         return inp
 
-    def pack_output(self, quant_output: QuantTensor):
-        if not self.training and self.cache_inference_quant_out:
-            self._cached_out = _CachedIO(quant_output.detach(), self.cache_quant_io_metadata_only)
+    def pack_output(self, quant_output: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
         self._set_global_is_quant_layer(False)
         if self.return_quant_tensor:
+            assert isinstance(quant_output, QuantTensor), 'QuantLayer is not correctly configured, check if warnings were raised'
             return quant_output
         else:
-            return quant_output.value
+            return _unpack_quant_tensor(quant_output)
 
 
 class QuantRecurrentLayerMixin(ExportMixin):
@@ -241,17 +157,9 @@ class QuantRecurrentLayerMixin(ExportMixin):
 
     @staticmethod
     def gate_params_fwd(gate, quant_input):
-        acc_scale = None
-        acc_bit_width = None
         quant_weight_ih = gate.input_weight()
         quant_weight_hh = gate.hidden_weight()
-        if quant_input.bit_width is not None:
-            acc_bit_width = None  # TODO
-        if quant_input.scale is not None and quant_weight_ih.scale is not None:
-            acc_scale_shape = compute_channel_view_shape(quant_input.value, channel_dim=1)
-            acc_scale = quant_weight_ih.scale.view(acc_scale_shape)
-            acc_scale = acc_scale * quant_input.scale.view(acc_scale_shape)
-        quant_bias = gate.bias_quant(gate.bias, acc_scale, acc_bit_width)
+        quant_bias = gate.bias_quant(gate.bias, quant_input, quant_weight_ih)
         return quant_weight_ih, quant_weight_hh, quant_bias
 
     def reset_parameters(self) -> None:
@@ -266,8 +174,6 @@ class QuantRecurrentLayerMixin(ExportMixin):
         quant_input = inp
         if not self.quantize_output_only:
             quant_input = self.io_quant(quant_input)
-        elif not isinstance(inp, QuantTensor):
-            quant_input = QuantTensor(quant_input)
         return quant_input
 
     def maybe_quantize_state(self, inp, state, quant):
@@ -275,16 +181,17 @@ class QuantRecurrentLayerMixin(ExportMixin):
             batch_size = inp.size(0) if self.cell.batch_first else inp.size(1)
             quant_state = torch.zeros(
                 int(batch_size), self.hidden_size, dtype=inp.dtype, device=inp.device)
-            quant_state = QuantTensor(quant_state)
         else:
             quant_state = quant(state)
         return quant_state
 
     def pack_quant_outputs(self, quant_outputs):
         # In export mode, quant_outputs has the shape of the output concatenated value
+        # Even though we check that return_quant_tensor can be enabled only with io_quant != None,
+        # inner layers in a deep network overrides it, so we check again.
         if self.export_mode:
-            if self.return_quant_tensor:
-                return QuantTensor(
+            if self.return_quant_tensor and self.io_quant.is_quant_enabled:
+                return IntQuantTensor(
                     quant_outputs,
                     self.io_quant.scale(),
                     self.io_quant.zero_point(),
@@ -294,9 +201,9 @@ class QuantRecurrentLayerMixin(ExportMixin):
             else:
                 return quant_outputs
         seq_dim = 1 if self.cell.batch_first else 0
-        if self.return_quant_tensor:
+        if self.return_quant_tensor and self.io_quant.is_quant_enabled:
             outputs = [
-                QuantTensor(
+                IntQuantTensor(
                     torch.unsqueeze(quant_output[0], dim=seq_dim),
                     quant_output[1],
                     quant_output[2],
@@ -311,9 +218,11 @@ class QuantRecurrentLayerMixin(ExportMixin):
             return torch.cat(outputs, dim=seq_dim)
 
     def pack_quant_state(self, quant_state, quant):
+        # Even though we check that return_quant_tensor can be enabled only with quant != None,
+        # inner layers in a deep network overrides it, so we check again.
         if self.export_mode:
-            if self.return_quant_tensor:
-                quant_state = QuantTensor(
+            if self.return_quant_tensor and quant.is_quant_enabled:
+                quant_state = IntQuantTensor(
                     torch.unsqueeze(quant_state, dim=0),
                     quant.scale(),
                     quant.zero_point(),
@@ -323,8 +232,8 @@ class QuantRecurrentLayerMixin(ExportMixin):
             else:
                 quant_state = torch.unsqueeze(quant_state, dim=0)
         else:
-            if self.return_quant_tensor:
-                quant_state = QuantTensor(
+            if self.return_quant_tensor and quant.is_quant_enabled:
+                quant_state = IntQuantTensor(
                     torch.unsqueeze(quant_state[0], dim=0),
                     quant_state[1],
                     quant_state[2],

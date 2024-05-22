@@ -11,6 +11,8 @@ from torchvision import models
 
 from brevitas import torch_version
 from brevitas.graph.equalize import _cross_layer_equalization
+import brevitas.nn as qnn
+from brevitas.quant import Int8ActPerTensorFloat
 
 SEED = 123456
 ATOL = 1e-3
@@ -20,30 +22,21 @@ MODELS = {
     'shufflenet_v2_x0_5': [0.318, 0.649],
     'mobilenet_v2': [0.161, 0.320],
     'resnet18': [0.487, 0.952],
-    'googlenet': [0.1826, 0.413],
-    'inception_v3': [0.264, 0.6],
+    'googlenet': [0.495, 0.982],
+    'inception_v3': [0.497, 0.989],
     'alexnet': [0.875, 0.875],}
 
 IN_SIZE_CONV = (1, 3, 224, 224)
 IN_SIZE_LINEAR = (1, 224, 3)
+IN_SIZE_CONV_SMALL = (1, 3, 32, 32)
 
 
-def equalize_test(model, regions, merge_bias, bias_shrinkage, scale_computation_type):
-    name_to_module = {}
-    name_set = set()
-    for region in regions:
-        for name in region.srcs:
-            name_set.add(name)
-        for name in region.sinks:
-            name_set.add(name)
+def equalize_test(regions, merge_bias, bias_shrinkage, scale_computation_type):
     scale_factors_regions = []
-    for name, module in model.named_modules():
-        if name in name_set:
-            name_to_module[name] = module
     for i in range(3):
         for region in regions:
             scale_factors_region = _cross_layer_equalization(
-                [name_to_module[n] for n in region.srcs], [name_to_module[n] for n in region.sinks],
+                region,
                 merge_bias=merge_bias,
                 bias_shrinkage=bias_shrinkage,
                 scale_computation_type=scale_computation_type)
@@ -109,6 +102,10 @@ def linearmha_model(bias, add_bias_kv, batch_first):
     if torch_version < version.parse('1.9.1'):
         pytest.skip(f"batch_first not supported in MHA with torch version {torch_version}")
 
+    # Skip due to following issue https://github.com/pytorch/pytorch/issues/97128
+    if torch_version == version.parse('2.0.1') and not bias and batch_first and not add_bias_kv:
+        pytest.skip(f"Skip due to a regression in pytorch 2.0.1")
+
     class LinearMhaModel(nn.Module):
 
         def __init__(self) -> None:
@@ -134,6 +131,10 @@ def linearmha_model(bias, add_bias_kv, batch_first):
 def layernormmha_model(bias, add_bias_kv, batch_first):
     if torch_version < version.parse('1.9.1'):
         pytest.skip(f"batch_first not supported in MHA with torch version {torch_version}")
+
+    # Skip due to following issue https://github.com/pytorch/pytorch/issues/97128
+    if torch_version == version.parse('2.0.1') and not bias and batch_first and not add_bias_kv:
+        pytest.skip(f"Skip due to a regression in pytorch 2.0.1")
 
     class LayerNormMhaModel(nn.Module):
 
@@ -163,6 +164,10 @@ def layernormmha_model(bias, add_bias_kv, batch_first):
 def mhalinear_model(bias, add_bias_kv, batch_first):
     if torch_version < version.parse('1.9.1'):
         pytest.skip(f"batch_first not supported in MHA with torch version {torch_version}")
+
+    # Skip due to following issue https://github.com/pytorch/pytorch/issues/97128
+    if torch_version == version.parse('2.0.1') and not bias and batch_first and not add_bias_kv:
+        pytest.skip(f"Skip due to a regression in pytorch 2.0.1")
 
     class MhaLinearModel(nn.Module):
 
@@ -299,6 +304,49 @@ def mul_model():
     return ResidualSrcsAndSinkModel
 
 
+@pytest_cases.fixture
+def convgroupconv_model():
+
+    class ConvGroupConvModel(nn.Module):
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.conv = nn.Conv2d(3, 16, kernel_size=3)
+            self.conv_0 = nn.Conv2d(16, 32, kernel_size=1, groups=2)
+            self.conv_1 = nn.Conv2d(32, 64, kernel_size=1, groups=4)
+            self.relu = nn.ReLU()
+
+        def forward(self, x):
+            x = self.conv(x)
+            x = self.relu(x)
+            x = self.conv_0(x)
+            x = self.relu(x)
+            x = self.conv_1(x)
+            return x
+
+    return ConvGroupConvModel
+
+
+@pytest_cases.fixture
+def convtranspose_model():
+
+    class ConvTransposeModel(nn.Module):
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.relu = nn.ReLU()
+            self.conv_0 = nn.ConvTranspose2d(in_channels=3, out_channels=8, kernel_size=3)
+            self.conv_1 = nn.ConvTranspose2d(in_channels=8, out_channels=32, kernel_size=3)
+
+        def forward(self, x):
+            x = self.conv_0(x)
+            x = self.relu(x)
+            x = self.conv_1(x)
+            return x
+
+    return ConvTransposeModel
+
+
 list_of_fixtures = [
     'residual_model',
     'srcsinkconflict_model',
@@ -307,7 +355,9 @@ list_of_fixtures = [
     'convdepthconv_model',
     'linearmha_model',
     'mhalinear_model',
-    'layernormmha_model']
+    'layernormmha_model',
+    'convgroupconv_model',
+    'convtranspose_model']
 
 toy_model = fixture_union('toy_model', list_of_fixtures, ids=list_of_fixtures)
 
@@ -327,3 +377,95 @@ RESNET_18_REGIONS = [
      ('layer1.0.conv1', 'layer1.1.conv1', 'layer2.0.conv1', 'layer2.0.downsample.0')],
     [('layer2.0.bn1',), ('layer2.0.conv2',)],
     [('layer4.0.bn2', 'layer4.0.downsample.1', 'layer4.1.bn2'), ('fc', 'layer4.1.conv1')],]
+
+
+@pytest_cases.fixture
+def quant_conv_with_input_quant_model():
+
+    class QuantConvModel(nn.Module):
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.conv_0 = qnn.QuantConv2d(
+                3, 16, kernel_size=3)  # gpxq tests assume no quant on first layer
+            self.conv_1 = qnn.QuantConv2d(16, 32, kernel_size=3, input_quant=Int8ActPerTensorFloat)
+
+        def forward(self, x):
+            x = self.conv_0(x)
+            x = torch.relu(x)
+            x = self.conv_1(x)
+            return x
+
+    return QuantConvModel
+
+
+@pytest_cases.fixture
+def quant_convdepthconv_model():
+
+    class QuantConvDepthConvModel(nn.Module):
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.conv = qnn.QuantConv2d(3, 16, kernel_size=3)
+            self.conv_0 = qnn.QuantConv2d(16, 16, kernel_size=1, groups=16)
+            self.relu = qnn.QuantReLU(return_quant_tensor=True)
+
+        def forward(self, x):
+            x = self.conv(x)
+            x = self.relu(x)
+            x = self.conv_0(x)
+            return x
+
+    return QuantConvDepthConvModel
+
+
+@pytest_cases.fixture
+def quant_residual_model():
+
+    class QuantResidualModel(nn.Module):
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.conv = qnn.QuantConv2d(3, 16, kernel_size=1)
+            self.conv_0 = qnn.QuantConv2d(16, 3, kernel_size=1)
+            self.relu = qnn.QuantReLU(return_quant_tensor=True)
+
+        def forward(self, x):
+            start = x
+            x = self.conv(x)
+            x = self.relu(x)
+            x = self.conv_0(x)
+            x = start + x
+            return x
+
+    return QuantResidualModel
+
+
+@pytest_cases.fixture
+def quant_convtranspose_model():
+
+    class QuantConvTransposeModel(nn.Module):
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.relu = qnn.QuantReLU(return_quant_tensor=True)
+            self.conv_0 = qnn.QuantConvTranspose2d(in_channels=3, out_channels=8, kernel_size=3)
+            self.conv_1 = qnn.QuantConvTranspose2d(in_channels=8, out_channels=32, kernel_size=3)
+
+        def forward(self, x):
+            x = self.conv_0(x)
+            x = self.relu(x)
+            x = self.conv_1(x)
+            return x
+
+    return QuantConvTransposeModel
+
+
+list_of_quant_fixtures = [
+    'quant_conv_with_input_quant_model',
+    'quant_convdepthconv_model',
+    'quant_residual_model',
+    'quant_convtranspose_model']
+
+toy_quant_model = fixture_union(
+    'toy_quant_model', list_of_quant_fixtures, ids=list_of_quant_fixtures)

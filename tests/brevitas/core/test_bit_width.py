@@ -142,6 +142,7 @@ class TestBitWidthParameter:
         """
         if (bit_width_init_two < min_bit_width_init) and not override_pretrained:
             pytest.xfail('bit_width cannot be smaller than min_bit_width')
+
         override_value = bit_width_parameter.bit_width_offset
         bit_width_parameter.load_state_dict(bit_width_stateful_const.state_dict())
         bit_width_parameter_tensor = bit_width_parameter()

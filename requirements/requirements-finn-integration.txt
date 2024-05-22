@@ -1,6 +1,6 @@
 bitstring
-onnx
+onnx==1.15
 onnxoptimizer
-onnxruntime
+onnxruntime>=1.15.0
 qonnx
 toposort

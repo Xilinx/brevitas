@@ -18,6 +18,7 @@ from brevitas.graph.quantize import layerwise_quantize
 from brevitas.graph.quantize import quantize
 from brevitas.graph.target.flexml import preprocess_for_flexml_quantize
 from brevitas.graph.target.flexml import quantize_flexml
+from brevitas_examples.imagenet_classification.ptq.ptq_common import quantize_model
 from tests.marker import requires_pt_ge
 
 BATCH = 1
@@ -53,6 +54,20 @@ class NoDictModel(torch.nn.Module):
         return out['out']
 
 
+def quantize_float(model):
+    return quantize_model(
+        model,
+        weight_bit_width=8,
+        act_bit_width=8,
+        bias_bit_width=None,
+        weight_quant_granularity='per_tensor',
+        act_quant_percentile=99.999,
+        act_quant_type='sym',
+        scale_factor_type='float_scale',
+        backend='layerwise',
+        quant_format='float')
+
+
 @fixture
 @parametrize('model_name', MODEL_LIST)
 @parametrize('quantize_fn', [quantize, quantize_flexml, layerwise_quantize])
@@ -71,6 +86,11 @@ def torchvision_model(model_name, quantize_fn):
                                                                   'mobilenet_v3_small'):
         return None
     if torch_version < version.parse('1.11.0') and model_name == 'vit_b_32':
+        return None
+
+    # Due to a regression in torchvision, we cannot load pretrained weights for effnet_b0
+    # https://github.com/pytorch/vision/issues/7744
+    if torch_version == version.parse('2.1.0') and model_name == 'efficientnet_b0':
         return None
 
     # Deeplab and fcn are in a different module, and they have a dict as output which is not suited for torchscript
@@ -97,12 +117,24 @@ def test_torchvision_graph_quantization_flexml_qcdq_onnx(torchvision_model, requ
     if torchvision_model is None:
         pytest.skip('Model not instantiated')
     inp = torch.randn(BATCH, IN_CH, HEIGHT, WIDTH)
-    export_onnx_qcdq(torchvision_model, args=inp)
+    test_id = request.node.callspec.id
+
+    quantize_fn_name = test_id.split("-")[0]
+    torchvision_model(inp)
+    if quantize_fn_name != 'quantize_float':
+        export_onnx_qcdq(torchvision_model, args=inp)
 
 
 @requires_pt_ge('1.9.1')
 def test_torchvision_graph_quantization_flexml_qcdq_torch(torchvision_model, request):
     if torchvision_model is None:
         pytest.skip('Model not instantiated')
+
+    test_id = request.node.callspec.id
+    quantize_fn_name = test_id.split("-")[0]
+    if quantize_fn_name == 'quantize_float':
+        return
     inp = torch.randn(BATCH, IN_CH, HEIGHT, WIDTH)
+
+    torchvision_model(inp)
     export_torch_qcdq(torchvision_model, args=inp)

@@ -317,7 +317,7 @@ def proxy_call(proxy_mode, func, args, kwargs):
     # `__torch_dispatch__` is only called on torch ops, which must subclass `OpOverload`
     # We treat all other functions as an `external_call`, for instance, a function decorated
     # with `@torch.fx.wrap`
-    external_call = not isinstance(func, backport._ops.OpOverload)
+    external_call = not isinstance(func, (backport._ops.OpOverload, torch._ops.OpOverload))
 
     def can_handle_tensor(x):
         return type(x) in HANDLED_TYPES or has_proxy_slot(x, proxy_mode.tracer)
