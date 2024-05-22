@@ -16,8 +16,12 @@ from brevitas.quant.experimental.float import Fp8e4m3Act
 from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloat
 from brevitas.quant.experimental.float import Fp8e4m3WeightPerChannelFloat
 from brevitas.quant.experimental.float import Fp8e4m3WeightPerTensorFloat
+from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPActPerTensorFloat
 from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPWeightPerChannelFloat
 from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPWeightPerTensorFloat
+from brevitas.quant.experimental.float_quant_ocp import Fp8e5m2OCPActPerTensorFloat
+from brevitas.quant.experimental.float_quant_ocp import Fp8e5m2OCPWeightPerChannelFloat
+from brevitas.quant.experimental.float_quant_ocp import Fp8e5m2OCPWeightPerTensorFloat
 from brevitas.quant.fixed_point import Int8ActPerTensorFixedPoint
 from brevitas.quant.fixed_point import Int8ActPerTensorFixedPointMSE
 from brevitas.quant.fixed_point import Int8WeightPerChannelFixedPoint
@@ -86,12 +90,20 @@ WEIGHT_QUANT_MAP = {
                 'per_group': {
                     'sym': Fp8e4m3WeightSymmetricGroupQuant}}}},
     'float_ocp': {
-        'float_scale': {
-            'stats': {
-                'per_tensor': {
-                    'sym': Fp8e4m3OCPWeightPerTensorFloat},
-                'per_channel': {
-                    'sym': Fp8e4m3OCPWeightPerChannelFloat}}}}}
+        'e4m3': {
+            'float_scale': {
+                'stats': {
+                    'per_tensor': {
+                        'sym': Fp8e4m3OCPWeightPerTensorFloat},
+                    'per_channel': {
+                        'sym': Fp8e4m3OCPWeightPerChannelFloat}}}},
+        'e5m2': {
+            'float_scale': {
+                'stats': {
+                    'per_tensor': {
+                        'sym': Fp8e5m2OCPWeightPerTensorFloat},
+                    'per_channel': {
+                        'sym': Fp8e5m2OCPWeightPerChannelFloat}}}}}}
 
 INPUT_QUANT_MAP = {
     'int': {
@@ -129,7 +141,18 @@ INPUT_QUANT_MAP = {
                     'per_tensor': {
                         'sym': Fp8e4m3ActPerTensorFloat},}}},
         'no_scale': {
-            'sym': Fp8e4m3Act,}}}
+            'sym': Fp8e4m3Act,}},
+    'float_ocp': {
+        'e4m3': {
+            'float_scale': {
+                'stats': {
+                    'per_tensor': {
+                        'sym': Fp8e4m3OCPActPerTensorFloat}}}},
+        'e5m2': {
+            'float_scale': {
+                'stats': {
+                    'per_tensor': {
+                        'sym': Fp8e5m2OCPActPerTensorFloat}}}}}}
 
 
 def quantize_model(
@@ -163,40 +186,63 @@ def quantize_model(
     Replace float layers with quant layers in the target model
     """
     # Retrive base input and weight quantizers
-
+    ocp_weight_format = None
+    ocp_input_format = None
     # match against custom float format
     if re.compile(r'e[1-8]m[1-8]').match(weight_quant_format):
         weight_float_format = {
             'exponent_bit_width': int(weight_quant_format[1]),
             'mantissa_bit_width': int(weight_quant_format[3])}
-        weight_quant_format = 'float'
-        if use_ocp:
+        if ocp_weight_format:
             weight_quant_format += '_ocp'
+            ocp_weight_format = weight_quant_format
+        weight_quant_format = 'float'
     else:
         weight_float_format = {}
     if re.compile(r'e[1-8]m[1-8]').match(input_quant_format):
         input_float_format = {
             'exponent_bit_width': int(input_quant_format[1]),
             'mantissa_bit_width': int(input_quant_format[3])}
-        input_quant_format = 'float'
-        if use_ocp:
+        if ocp_weight_format:
             input_quant_format += '_ocp'
+            ocp_input_format = input_quant_format
+        input_quant_format = 'float'
     else:
         input_float_format = {}
 
-    weight_quant = WEIGHT_QUANT_MAP[weight_quant_format][weight_scale_precision][
-        weight_param_method][weight_quant_granularity][weight_quant_type]
+    if ocp_weight_format is not None:
+        weight_quant = WEIGHT_QUANT_MAP[weight_quant_format][ocp_weight_format][
+            weight_scale_precision][weight_param_method][weight_quant_granularity][
+                weight_quant_type]
+    else:
+        weight_quant = WEIGHT_QUANT_MAP[weight_quant_format][weight_scale_precision][
+            weight_param_method][weight_quant_granularity][weight_quant_type]
+
     if input_bit_width is not None and input_scale_type == 'no_scale':
         input_quant = sym_input_quant = linear_input_quant = INPUT_QUANT_MAP[input_quant_format][
             input_scale_type][input_quant_type]
     elif input_bit_width is not None:
-        input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][input_scale_precision][
-            input_param_method][input_quant_granularity][input_quant_type]
-        # Some activations in MHA should always be symmetric
-        sym_input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
-            input_scale_precision][input_param_method][input_quant_granularity]['sym']
-        linear_input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
-            input_scale_precision][input_param_method][input_quant_granularity][input_quant_type]
+        if ocp_input_format:
+            input_quant = INPUT_QUANT_MAP[input_quant_format][ocp_input_format][input_scale_type][
+                input_scale_precision][input_param_method][input_quant_granularity][
+                    input_quant_type]
+            # Some activations in MHA should always be symmetric
+            sym_input_quant = INPUT_QUANT_MAP[input_quant_format][ocp_input_format][
+                input_scale_type][input_scale_precision][input_param_method][
+                    input_quant_granularity]['sym']
+            linear_input_quant = INPUT_QUANT_MAP[input_quant_format][ocp_input_format][
+                input_scale_type][input_scale_precision][input_param_method][
+                    input_quant_granularity][input_quant_type]
+        else:
+            input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
+                input_scale_precision][input_param_method][input_quant_granularity][
+                    input_quant_type]
+            # Some activations in MHA should always be symmetric
+            sym_input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
+                input_scale_precision][input_param_method][input_quant_granularity]['sym']
+            linear_input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
+                input_scale_precision][input_param_method][input_quant_granularity][
+                    input_quant_type]
 
         if input_kwargs is None:
             input_kwargs = dict()
