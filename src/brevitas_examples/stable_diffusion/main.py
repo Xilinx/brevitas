@@ -370,7 +370,7 @@ def main(args):
                         test_latents=latents,
                         guidance_scale=args.guidance_scale)
 
-    if args.checkpoint_name is not None and args.load_checkpoint is None and not args.dry_run:
+    if args.checkpoint_name is not None and args.load_checkpoint is None:
         torch.save(pipe.unet.state_dict(), args.checkpoint_name)
 
     # Perform inference
