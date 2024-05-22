@@ -220,8 +220,10 @@ def main(args):
             for m in pipe.unet.modules():
                 if isinstance(m, KwargsForwardHook) and hasattr(m.module, 'in_features'):
                     m.in_features = m.module.in_features
+            total_steps = args.calibration_steps
             if args.dry_run or args.load_checkpoint is not None:
                 calibration_prompts = [calibration_prompts[0]]
+                total_steps = 1
             run_val_inference(
                 pipe,
                 args.resolution,
@@ -229,7 +231,7 @@ def main(args):
                 test_seeds,
                 args.device,
                 dtype,
-                total_steps=args.calibration_steps,
+                total_steps=total_steps,
                 use_negative_prompts=args.use_negative_prompts,
                 test_latents=latents,
                 guidance_scale=args.guidance_scale)
@@ -318,7 +320,7 @@ def main(args):
                     test_seeds,
                     args.device,
                     dtype,
-                    total_steps=args.calibration_steps,
+                    total_steps=1,
                     use_negative_prompts=args.use_negative_prompts,
                     test_latents=latents,
                     guidance_scale=args.guidance_scale)
