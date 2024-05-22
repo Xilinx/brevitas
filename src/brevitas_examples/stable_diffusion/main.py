@@ -202,25 +202,25 @@ def main(args):
         pipe.enable_attention_slicing()
 
     # Extract list of layers to avoid
-    blacklist = []
-    for name, _ in pipe.unet.named_modules():
-        if 'time_emb' in name or 'conv_in' in name:
-            blacklist.append(name.split('.')[-1])
-    print(f"Blacklisted layers: {blacklist}")
+    # blacklist = []
+    # for name, _ in pipe.unet.named_modules():
+    #     if 'time_emb' in name or 'conv_in' in name:
+    #         blacklist.append(name)
+    # print(f"Blacklisted layers: {blacklist}")
 
     # Make sure there all LoRA layers are fused first, otherwise raise an error
     for m in pipe.unet.modules():
         if hasattr(m, 'lora_layer') and m.lora_layer is not None:
             raise RuntimeError("LoRA layers should be fused in before calling into quantization.")
 
-    if args.activation_equalization and args.load_checkpoint is None:
+    if args.activation_equalization:
         pipe.set_progress_bar_config(disable=True)
         with activation_equalization_mode(pipe.unet, alpha=0.9, layerwise=True, add_mul_node=True):
             # Workaround to expose `in_features` attribute from the Hook Wrapper
             for m in pipe.unet.modules():
                 if isinstance(m, KwargsForwardHook) and hasattr(m.module, 'in_features'):
                     m.in_features = m.module.in_features
-            if args.dry_run:
+            if args.dry_run or args.load_checkpoint is not None:
                 calibration_prompts = [calibration_prompts[0]]
             run_val_inference(
                 pipe,
@@ -279,7 +279,7 @@ def main(args):
             pipe.unet,
             dtype=dtype,
             device=args.device,
-            name_blacklist=blacklist,
+            # name_blacklist=blacklist,
             weight_bit_width=weight_bit_width,
             weight_quant_format=args.weight_quant_format,
             weight_quant_type=args.weight_quant_type,
@@ -300,7 +300,16 @@ def main(args):
             input_kwargs=input_kwargs)
         print("Model quantization applied.")
 
+        for name, module in pipe.unet.named_modules():
+            if 'time_emb' in name:  # or 'conv_in' in name:
+                if hasattr(module, 'input_quant'):
+                    module.input_quant.quant_injector = module.input_quant.quant_injector.let(
+                        **{'quant_type': QuantType.FP})
+                    module.input_quant.init_tensor_quant()
+                # blacklist.append(name.split('.')[-1])
+
         pipe.set_progress_bar_config(disable=True)
+
         if args.dry_run:
             with torch.no_grad():
                 run_val_inference(
@@ -313,9 +322,11 @@ def main(args):
                     use_negative_prompts=args.use_negative_prompts,
                     test_latents=latents,
                     guidance_scale=args.guidance_scale)
+
         if args.load_checkpoint is not None:
             with load_quant_model_mode(pipe.unet):
-                pipe.unet.load_state_dict(torch.load(args.load_checkpoint))
+                pipe = pipe.to('cpu')
+                pipe.unet.load_state_dict(torch.load(args.load_checkpoint, map_location='cpu'))
                 pipe = pipe.to(args.device)
         elif not args.dry_run:
             if (args.linear_input_bit_width is not None or

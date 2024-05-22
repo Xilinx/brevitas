@@ -250,8 +250,8 @@ def quantize_model(
         if input_stats_op == 'minmax':
             if input_quant_type == 'asym':
                 input_scaling_stats_op = StatsOp.MIN_MAX
-                # zero_point_stats_impl = NegativeMinOrZero
-                # input_kwargs['zero_point_stats_impl'] = zero_point_stats_impl
+                zero_point_stats_impl = NegativeMinOrZero
+                input_kwargs['zero_point_stats_impl'] = zero_point_stats_impl
             else:
                 input_scaling_stats_op = StatsOp.MAX
             input_kwargs['scaling_stats_op'] = input_scaling_stats_op
