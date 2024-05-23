@@ -14,43 +14,28 @@ from brevitas.utils.quant_utils import _CachedIOFloat
 class ActFloatQuantProxyFromInjector(ActQuantProxyFromInjectorBase):
 
     def scale(self, force_eval=True):
-        if self.is_quant_enabled:
-            current_status = self.training
-            if force_eval:
-                self.eval()
-            out = self.__call__(self._zero_hw_sentinel())
-            self.train(current_status)
-            return out.scale
-        elif self._cached_act is not None:
-            return self._cached_act.scale
-        elif self._cached_act is None:
-            return None
+        return self.retrieve_attribute('scale', force_eval)
 
     def zero_point(self, force_eval=True):
-        if self.is_quant_enabled:
-            current_status = self.training
-            if force_eval:
-                self.eval()
-            out = self.__call__(self._zero_hw_sentinel())
-            self.train(current_status)
-            return out.zero_point
-        elif self._cached_act is not None:
-            return self._cached_act.zero_point
-        elif self._cached_act is None:
-            return None
+        return self.retrieve_attribute('zero_point', force_eval)
 
-    def bit_width(self, force_eval=True):
-        if self.is_quant_enabled:
-            current_status = self.training
-            if force_eval:
-                self.eval()
-            out = self.__call__(self._zero_hw_sentinel())
-            self.train(current_status)
-            return out.bit_width
-        elif self._cached_act is not None:
-            return self._cached_act.bit_width
-        elif self._cached_act is None:
-            return None
+    def exponent_bit_width(self, force_eval=True):
+        return self.retrieve_attribute('exponent_bit_width', force_eval)
+
+    def mantissa_bit_width(self, force_eval=True):
+        return self.retrieve_attribute('mantissa_bit_width', force_eval)
+
+    def exponent_bias(self, force_eval=True):
+        return self.retrieve_attribute('exponent_bias', force_eval)
+
+    def saturating(self, force_eval=True):
+        return self.retrieve_attribute('saturating', force_eval)
+
+    def inf_values(self, force_eval=True):
+        return self.retrieve_attribute('inf_values', force_eval)
+
+    def nan_values(self, force_eval=True):
+        return self.retrieve_attribute('nan_values', force_eval)
 
     def forward(self, x: Union[Tensor, FloatQuantTensor]) -> Union[Tensor, FloatQuantTensor]:
         out = x
@@ -68,7 +53,8 @@ class ActFloatQuantProxyFromInjector(ActQuantProxyFromInjectorBase):
                 y = self.fused_activation_quant_proxy(y)
             # If y is an empty FloatQuantTensor, we need to check if this is a passthrough proxy,
             # otherwise return a simple Tensor
-            if isinstance(y, tuple) and not any(map(lambda f: f is None, y)):
+            # We exclude the last two values (inf_values and nan_values)
+            if isinstance(y, tuple) and not any(map(lambda f: f is None, y[:-2])):
                 out = FloatQuantTensor(*y, signed=self.is_signed, training=self.training)
             elif self.is_passthrough_act:  # preserve scale/zp/bit/sign even without output quant
                 if isinstance(y, tuple):

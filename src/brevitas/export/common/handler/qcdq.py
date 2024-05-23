@@ -241,6 +241,10 @@ class FloatQCDQCastWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHa
 
             self.symbolic_kwargs['exponent_bit_width'] = quant_weight.exponent_bit_width
             self.symbolic_kwargs['mantissa_bit_width'] = quant_weight.mantissa_bit_width
+            self.symbolic_kwargs['exponent_bias'] = quant_weight.exponent_bias
+            self.symbolic_kwargs['saturating'] = quant_weight.saturating
+            self.symbolic_kwargs['inf_values'] = quant_weight.inf_values
+            self.symbolic_kwargs['nan_values'] = quant_weight.nan_values
             self.symbolic_kwargs['clip_symbolic_kwargs'] = self.clip_symbolic_kwargs(
                 module.is_narrow_range,
                 module.is_signed,
@@ -282,6 +286,10 @@ class FloatQCDQCastWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHa
         clip_symbolic_kwargs = self.symbolic_kwargs['clip_symbolic_kwargs']
         exponent_bit_width = self.symbolic_kwargs['exponent_bit_width']
         mantissa_bit_width = self.symbolic_kwargs['mantissa_bit_width']
+        exponent_bias = self.symbolic_kwargs['exponent_bias']
+        saturating = self.symbolic_kwargs['saturating']
+        inf_values = self.symbolic_kwargs['inf_values']
+        nan_values = self.symbolic_kwargs['nan_values']
         scale_orig_shape = dequantize_symbolic_kwargs.pop('scale_orig_shape')
         # Workaround to trick the tracer into believing all return values are used
         self.assert_ge_zero(scale, exponent_bit_width, mantissa_bit_width)
@@ -295,7 +303,7 @@ class FloatQCDQCastWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHa
         # Restore the original shapes to guarantee correct shape propagation downstream
         scale = scale.view(scale_orig_shape)
         zero_point = zero_point.view_as(scale)
-        return x, scale, zero_point, exponent_bit_width, mantissa_bit_width
+        return x, scale, zero_point, exponent_bit_width, mantissa_bit_width, exponent_bias, saturating, inf_values, nan_values
 
 
 class QCDQCastWeightQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin):
@@ -439,6 +447,10 @@ class FloatQCDQCastActQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHandl
             self.validate(module)
             self.symbolic_kwargs['exponent_bit_width'] = module.exponent_bit_width()
             self.symbolic_kwargs['mantissa_bit_width'] = module.mantissa_bit_width()
+            self.symbolic_kwargs['exponent_bias'] = module.exponent_bias()
+            self.symbolic_kwargs['saturating'] = module.saturating()
+            self.symbolic_kwargs['inf_values'] = module.inf_values()
+            self.symbolic_kwargs['nan_values'] = module.nan_values()
 
             # (B)float16 is not supported with standard Q/DQ ops, thus we store the original dtype
             # of the scale and we cast it to float32.
@@ -482,6 +494,10 @@ class FloatQCDQCastActQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHandl
         clip_symbolic_kwargs = self.symbolic_kwargs['clip_symbolic_kwargs']
         exponent_bit_width = self.symbolic_kwargs['exponent_bit_width']
         mantissa_bit_width = self.symbolic_kwargs['mantissa_bit_width']
+        exponent_bias = self.symbolic_kwargs['exponent_bias']
+        saturating = self.symbolic_kwargs['saturating']
+        inf_values = self.symbolic_kwargs['inf_values']
+        nan_values = self.symbolic_kwargs['nan_values']
 
         self.assert_ge_zero(scale, exponent_bit_width, mantissa_bit_width)
         # If original dtype of the input is (b)float16, cast the input to float32
@@ -498,7 +514,7 @@ class FloatQCDQCastActQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHandl
         # Restore the original shapes to guarantee correct shape propagation downstream
         scale = scale.view(scale_orig_shape)
         zero_point = zero_point.view_as(scale)
-        return x, scale, zero_point, exponent_bit_width, mantissa_bit_width
+        return x, scale, zero_point, exponent_bit_width, mantissa_bit_width, exponent_bias, saturating, inf_values, nan_values
 
 
 class QCDQCastActQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin, ABC):
