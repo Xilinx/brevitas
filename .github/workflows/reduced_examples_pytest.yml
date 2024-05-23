@@ -24,6 +24,9 @@ jobs:
 
 
         exclude:
+          - pytorch_version: '1.9.1'
+            platform: 'macos-latest'
+
           - python_version: '3.10'
             pytorch_version: '1.9.1'
 
