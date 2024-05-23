@@ -45,7 +45,6 @@ FINN_PLATFORM_LIST = ['windows-latest', 'ubuntu-latest']
 STRATEGY = od([('fail-fast', 'false')])
 
 EXCLUDE_LIST = generate_exclusion_list([[
-    ['python_version', ['3.8']],
     ['pytorch_version', ['1.9.1']],
     ['platform', ['macos-latest']],]])
 
