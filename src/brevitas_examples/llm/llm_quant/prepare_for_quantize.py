@@ -1,11 +1,15 @@
 import warnings
 
 from transformers.models.opt.modeling_opt import OPTAttention
+from transformers.models.bert.modeling_bert import BertSelfAttention
 
 from brevitas.graph import ModuleToModuleByClass
-from brevitas_examples.llm.llm_quant.mha_layers import QuantizableOPTAttention
+from brevitas_examples.llm.llm_quant.mha_layers import QuantizableOPTAttention, QuantizableBertAttention
 
-QUANTIZABLE_MHA_MAP = {OPTAttention: (QuantizableOPTAttention, {'batch_first': True})}
+QUANTIZABLE_MHA_MAP = {
+    OPTAttention: (QuantizableOPTAttention, {'batch_first': True}),
+    BertSelfAttention: (QuantizableBertAttention, {'batch_first': True}),
+}
 
 
 def replace_mha_with_quantizable_layers(model, dtype):
