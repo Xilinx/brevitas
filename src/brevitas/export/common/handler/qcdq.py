@@ -17,6 +17,7 @@ from brevitas.proxy import DecoupledWeightQuantProxyFromInjector
 from brevitas.proxy import DecoupledWeightQuantWithInputProxyFromInjector
 from brevitas.proxy import WeightFloatQuantProxyFromInjector
 from brevitas.proxy import WeightQuantProxyFromInjector
+from brevitas.proxy.float_parameter_quant import BiasFloatQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import DynamicActQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector
 
@@ -216,10 +217,10 @@ class FloatQCDQCastWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHa
             module.is_signed)
 
     def prepare_quantize_from_integer(self, module):
-        int_weights = {
-            tm.weight.data_ptr(): tm.quant_weight().int(float_datatype=False)
+        minifloat_weight = {
+            tm.weight.data_ptr(): tm.quant_weight().minifloat(float_datatype=True)
             for tm in module.tracked_module_list}
-        self.symbolic_kwargs['int_weights'] = int_weights
+        self.symbolic_kwargs['minifloat_weight'] = minifloat_weight
 
     def prepare_for_export(self, module):
         if module.is_quant_enabled:
@@ -269,7 +270,7 @@ class FloatQCDQCastWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHa
         return x
 
     def quantize_from_integer(self, x: Tensor):
-        return self.symbolic_kwargs['int_weights'][x.data_ptr()]
+        return self.symbolic_kwargs['minifloat_weight'][x.data_ptr()]
 
     def symbolic_execution(self, x: Tensor):
         assert self.symbolic_kwargs is not None, 'Symbolic execution requires quant to be enabled'
@@ -623,6 +624,79 @@ class DynamicQDQCastActQuantProxyHandlerMixin(DynamicQMixin, DQCastMixin, ABC):
         return x, scale, zero_point, bit_width
 
 
+class FloatCDQCastBiasQuantProxyHandlerMixin(DQCastMixin,
+                                             QuantAxisMixin,
+                                             FloatZeroPointHandlerMixin,
+                                             ABC):
+    handled_layer = BiasFloatQuantProxyFromInjector
+
+    def validate(self, module):
+        if module.bit_width() is not None:
+            assert module.bit_width() > 1., 'Binary quant not supported'
+        assert module.is_signed, 'Unsigned bias not supported.'
+        assert module.rounding_mode == 'ROUND', 'Only round to nearest even supported.'
+
+    def prepare_for_export(self, module):
+        if module.is_quant_enabled:
+            self.validate(module)
+            int_biases = {
+                tm.bias.data_ptr(): tm.quant_bias().minifloat(float_datatype=False)
+                for tm in module.tracked_module_list}
+            self.symbolic_kwargs = {
+                'int_biases': int_biases,
+                'scale': module.scale(),
+                'zero_point': module.zero_point(),
+                'exponent_bit_width': module.exponent_bit_width(),
+                'mantissa_bit_width': module.mantissa_bit_width(),
+                'exponent_bias': module.exponent_bias(),
+                'saturating': module.saturating(),
+                'inf_values': module.inf_values(),
+                'nan_values': module.nan_values()}
+
+        else:
+            self.symbolic_kwargs = None
+
+    def symbolic_execution(self, x: Tensor, input_scale=None):
+        assert self.symbolic_kwargs is not None, 'Symbolic execution requires quant to be enabled'
+        int_bias = self.symbolic_kwargs['int_biases'][x.data_ptr()]
+        scale = self.symbolic_kwargs['scale']
+        zero_point = self.symbolic_kwargs['zero_point']
+        exponent_bit_width = self.symbolic_kwargs['exponent_bit_width']
+        mantissa_bit_width = self.symbolic_kwargs['mantissa_bit_width']
+        exponent_bias = self.symbolic_kwargs['exponent_bias']
+        saturating = self.symbolic_kwargs['saturating']
+        inf_values = self.symbolic_kwargs['inf_values']
+        nan_values = self.symbolic_kwargs['nan_values']
+
+        assert scale is not None or input_scale is not None, 'Input scale required for bias export'
+        if input_scale is not None:
+            scale = input_scale
+        scale_orig_shape = scale.shape
+
+        quant_axis = self.quant_axis(scale)
+        if self.flatten_dequantize_params:
+            scale = scale.flatten()
+            zero_point = zero_point.flatten()
+        scale = to_0dim_if_scalar(scale)
+        zero_point = to_0dim_if_scalar(zero_point).expand_as(scale)
+        zero_point = self.zero_point_with_dtype(
+            True, exponent_bit_width, mantissa_bit_width, zero_point)  # assume signed is True
+        # If original dtype of scale is (b)float16, store the original dtype
+        # and cast the scale to float32
+        scale_dtype = scale.dtype
+        if scale_dtype == torch.float16 or scale_dtype == torch.bfloat16:
+            scale = self.cast_fn(scale, torch.float32)
+        y = self.dequantize_fn(int_bias, scale, zero_point, quant_axis)
+        # After dequantization, cast both output and scale to the correct dtype
+        if scale_dtype == torch.float16 or scale_dtype == torch.bfloat16:
+            y = self.cast_fn(y, scale_dtype)
+            scale = self.cast_fn(scale, scale_dtype)
+        # Restore the original shapes to guarantee correct shape propagation downstream
+        scale = scale.view(scale_orig_shape)
+        zero_point = zero_point.view_as(scale)
+        return y, scale, zero_point, exponent_bit_width, mantissa_bit_width, exponent_bias, saturating, inf_values, nan_values
+
+
 class CDQCastBiasQuantProxyHandlerMixin(DQCastMixin, QuantAxisMixin, ZeroPointHandlerMixin, ABC):
     handled_layer = BiasQuantProxyFromInjector
 
@@ -646,19 +720,17 @@ class CDQCastBiasQuantProxyHandlerMixin(DQCastMixin, QuantAxisMixin, ZeroPointHa
         else:
             self.symbolic_kwargs = None
 
-    def symbolic_execution(self, x: Tensor, input_scale=None, input_bit_width=None):
+    def symbolic_execution(self, x: Tensor, input_scale=None):
         assert self.symbolic_kwargs is not None, 'Symbolic execution requires quant to be enabled'
         int_bias = self.symbolic_kwargs['int_biases'][x.data_ptr()]
         scale = self.symbolic_kwargs['scale']
         bit_width = self.symbolic_kwargs['bit_width']
         zero_point = self.symbolic_kwargs['zero_point']
         assert scale is not None or input_scale is not None, 'Input scale required for bias export'
-        assert bit_width is not None or input_bit_width is not None, 'Input bit width required for bias export'
         if input_scale is not None:
             scale = input_scale
         scale_orig_shape = scale.shape
-        if input_bit_width is not None:
-            bit_width = input_bit_width
+
         quant_axis = self.quant_axis(scale)
         if self.flatten_dequantize_params:
             scale = scale.flatten()

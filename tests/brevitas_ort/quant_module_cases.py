@@ -27,11 +27,21 @@ class QuantWBIOLCases:
         set_case_id(request.node.callspec.id, QuantWBIOLCases.case_quant_wbiol)
 
         weight_quant, io_quant = quantizers
+        if weight_quant == Fp8e4m3OCPWeightPerTensorFloat:
+            if weight_bit_width < 8 or input_bit_width < 8 or output_bit_width < 8:
+                pytest.skip('FP8 export requires total bitwidth equal to 8')
+            torch.use_deterministic_algorithms(False)
+        else:
+            torch.use_deterministic_algorithms(True)
+
         if impl is QuantLinear:
             layer_kwargs = {'in_features': IN_CH, 'out_features': OUT_CH}
         else:
             layer_kwargs = {
                 'in_channels': IN_CH, 'out_channels': OUT_CH, 'kernel_size': KERNEL_SIZE}
+
+        bias_quantizer = None if weight_quant == Fp8e4m3OCPWeightPerTensorFloat else Int32Bias
+        return_quant_tensor = False if weight_quant == Fp8e4m3OCPWeightPerTensorFloat else True
 
         class Model(nn.Module):
 
@@ -46,8 +56,8 @@ class QuantWBIOLCases:
                     weight_bit_width=weight_bit_width,
                     input_bit_width=input_bit_width,
                     output_bit_width=output_bit_width,
-                    bias_quant=Int32Bias,
-                    return_quant_tensor=True)
+                    bias_quant=bias_quantizer,
+                    return_quant_tensor=return_quant_tensor)
                 self.conv.weight.data.uniform_(-0.01, 0.01)
 
             def forward(self, x):

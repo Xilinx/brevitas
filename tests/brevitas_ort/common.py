@@ -18,6 +18,8 @@ from brevitas.nn import QuantConvTranspose1d
 from brevitas.nn import QuantConvTranspose2d
 from brevitas.nn import QuantConvTranspose3d
 from brevitas.nn import QuantLinear
+from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPActPerTensorFloat
+from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPWeightPerTensorFloat
 from brevitas.quant.fixed_point import Int8ActPerTensorFixedPoint
 from brevitas.quant.fixed_point import Int8WeightPerChannelFixedPoint
 from brevitas.quant.fixed_point import Int8WeightPerTensorFixedPoint
@@ -59,7 +61,8 @@ WBIOL_QUANTIZERS = {
     'symmetric_per_channel_fixed_point':
         (Int8WeightPerChannelFixedPoint, Int8ActPerTensorFixedPoint),
     'weight_symmetric_activation_dynamic_asymmetric_per_tensor_float':
-        (Int8WeightPerTensorFloat, ShiftedUint8DynamicActPerTensorFloat)}
+        (Int8WeightPerTensorFloat, ShiftedUint8DynamicActPerTensorFloat),
+    'fp8_per_tensor_float': (None, Fp8e4m3OCPActPerTensorFloat)}
 LSTM_QUANTIZERS = {
     'asymmetric_per_tensor_float':
         (ShiftedUint8WeightPerTensorFloat, ShiftedUint8ActPerTensorFloat),
@@ -143,9 +146,12 @@ def is_brevitas_ort_close(
         ort_output = odict[exported_model.graph.output[0].name]
     else:
         if export_type == 'qcdq':
-            export_onnx_qcdq(model, input_t, export_path=export_name)
-        elif export_type == 'qcdq_opset14':
-            export_onnx_qcdq(model, input_t, opset_version=14, export_path=export_name)
+            export_onnx_qcdq(
+                model,
+                input_t,
+                export_path=export_name,
+                export_weight_q_node=True,
+                opset_version=19)
         elif export_type == 'qonnx_opset14':
             export_qonnx(model, input_t, opset_version=14, export_path=export_name)
         else:

@@ -71,7 +71,7 @@ def test_ort_avgpool(model, current_cases):
 
 
 @parametrize_with_cases('model', cases=QuantRecurrentCases)
-@pytest.mark.parametrize('export_type', ['qcdq_opset14', 'qonnx_opset14'])
+@pytest.mark.parametrize('export_type', ['qcdq', 'qonnx_opset14'])
 @requires_pt_ge('1.10')
 def test_ort_lstm(model, export_type, current_cases):
     cases_generator_func = current_cases['model'][1]
