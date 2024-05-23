@@ -1,5 +1,21 @@
 # Stable Diffusion Quantization
 
+## Requirements
+
+For MLPerf inference execution, it is recommended to follow the MLPerf instruction to download the dataset and all relevant files,
+such as pre-generated latents and captions for calibration.
+
+Similarly, a new python enviornment should be used with python<=3.10, installing first the requirements specified in
+`requirements.txt` in stable_diffusion/mlperf_evaluation.
+
+
+Afterwards, install brevitas with:
+```bash
+pip install -e .[export]
+```
+
+## Quantization Options
+
 It supports Stable Diffusion 2.1 and Stable Diffusion XL.
 
 The following PTQ techniques are currently supported:
@@ -9,6 +25,7 @@ The following PTQ techniques are currently supported:
 - Bias Correction
 
 These techniques can be applied for both integer and floating point quantization.
+
 Activation quantization is optional, and disabled by default. To enable, set both `conv-input-bit-width` and `linear-input-bit-width`.
 
 We support ONNX integer export, and we are planning to release soon export for floating point quantization (e.g., FP8).
