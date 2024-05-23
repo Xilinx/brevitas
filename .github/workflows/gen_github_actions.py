@@ -45,8 +45,8 @@ FINN_PLATFORM_LIST = ['windows-latest', 'ubuntu-latest']
 STRATEGY = od([('fail-fast', 'false')])
 
 EXCLUDE_LIST = generate_exclusion_list([[['python_version', ['3.10']],
-                                             ['pytorch_version', [
-                                                 '1.9.1',]]]])
+                                         ['pytorch_version', [
+                                             '1.9.1',]]]])
 
 JIT_EXCLUDE_LIST = generate_exclusion_list([[['pytorch_version', ['1.9.1']],
                                              ['jit_status', [
