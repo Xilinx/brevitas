@@ -1,6 +1,7 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from abc import ABC
 from abc import ABCMeta
 from abc import abstractmethod
 from typing import Optional, Union
@@ -15,6 +16,7 @@ from typing_extensions import runtime_checkable
 from brevitas import config
 from brevitas.function import max_int
 from brevitas.inject import BaseInjector as Injector
+from brevitas.quant_tensor import IntQuantTensor
 from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.quant_utils import _CachedIO
 from brevitas.utils.torch_utils import compute_channel_view_shape
@@ -24,8 +26,9 @@ from .quant_proxy import QuantProxyProtocol
 
 __all__ = [
     'WeightQuantProxyFromInjector',
-    'FloatWeightQuantProxyFromInjector',
+    'WeightQuantProxyFromInjectorBase',
     'BiasQuantProxyFromInjector',
+    'BiasQuantProxyFromInjectorBase',
     'WeightQuantProxyProtocol',
     'BiasQuantProxyProtocol']
 
@@ -77,7 +80,9 @@ class ParameterQuantProxyFromInjector(QuantProxyFromInjector):
         return max_int(False, self.is_narrow_range, bit_width)
 
 
-class FloatWeightQuantProxyFromInjector(ParameterQuantProxyFromInjector, WeightQuantProxyProtocol):
+class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
+                                       WeightQuantProxyProtocol,
+                                       ABC):
 
     @property
     def tracked_parameter_list(self):
@@ -87,52 +92,37 @@ class FloatWeightQuantProxyFromInjector(ParameterQuantProxyFromInjector, WeightQ
     def requires_quant_input(self):
         return False
 
-    def scale(self):
-        if not self.is_quant_enabled:
-            return None
-        scale = self.__call__(self.tracked_parameter_list[0]).scale
-        return scale
 
-    def zero_point(self):
-        if not self.is_quant_enabled:
-            return None
-        zero_point = self.__call__(self.tracked_parameter_list[0]).zero_point
-        return zero_point
+class BiasQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector, BiasQuantProxyProtocol, ABC):
 
-    def exponent_bit_width(self):
-        if not self.is_quant_enabled:
-            return None
-        exponent_bit_width = self.__call__(self.tracked_parameter_list[0]).exponent_bit_width
-        return exponent_bit_width
+    def __init__(self, quant_layer: nn.Module, quant_injector: Injector) -> None:
+        super().__init__(quant_layer, quant_injector)
+        self._cached_bias = None
+        self.cache_inference_quant_bias = False
 
-    def mantissa_bit_width(self):
-        if not self.is_quant_enabled:
-            return None
-        mantissa_bit_width = self.__call__(self.tracked_parameter_list[0]).mantissa_bit_width
-        return mantissa_bit_width
+    @property
+    def tracked_parameter_list(self):
+        return [m.bias for m in self.tracked_module_list if m.bias is not None]
 
-    def forward(self, x: torch.Tensor) -> Union[Tensor, QuantTensor]:
-        #!!!!!!!!!   PLACEHOLDER CODE   !!!!!!!!!
+    @property
+    def requires_input_scale(self) -> bool:
         if self.is_quant_enabled:
-            warn("This code should be replace with FloatQuantTensor when it becomes")
-            impl = self.export_handler if self.export_mode else self.tensor_quant
-            out, scale, zero_point, exponent_bit_width, mantissa_bit_width = impl(x)
-            qt = QuantTensor(
-                out,
-                scale,
-                zero_point,
-                exponent_bit_width + mantissa_bit_width,
-                self.is_signed,
-                self.training)
-            qt.exponent_bit_width = exponent_bit_width
-            qt.mantissa_bit_width = mantissa_bit_width
-            #!!!!!!!!!   PLACEHOLDER CODE   !!!!!!!!!
-            return qt
-        else:  # quantization disabled
-            return x
+            return self.quant_injector.requires_input_scale
+        else:
+            return False
+
+    def get_cached(self, attr):
+        if self._cached_bias is None:
+            warn(
+                "No quant bias cache found, set cache_inference_quant_bias=True and run an "
+                "inference pass first")
+            return None
+        if self.training:
+            warn("Cached quant bias scale is being used in training mode.")
+        return getattr(self._cached_bias, attr)
 
 
-class WeightQuantProxyFromInjector(ParameterQuantProxyFromInjector, WeightQuantProxyProtocol):
+class WeightQuantProxyFromInjector(WeightQuantProxyFromInjectorBase):
 
     @property
     def tracked_parameter_list(self):
@@ -160,11 +150,11 @@ class WeightQuantProxyFromInjector(ParameterQuantProxyFromInjector, WeightQuantP
         bit_width = self.__call__(self.tracked_parameter_list[0]).bit_width
         return bit_width
 
-    def forward(self, x: torch.Tensor) -> Union[Tensor, QuantTensor]:
+    def forward(self, x: torch.Tensor) -> Union[Tensor, IntQuantTensor]:
         if self.is_quant_enabled:
             impl = self.export_handler if self.export_mode else self.tensor_quant
             out, scale, zero_point, bit_width = impl(x)
-            return QuantTensor(out, scale, zero_point, bit_width, self.is_signed, self.training)
+            return IntQuantTensor(out, scale, zero_point, bit_width, self.is_signed, self.training)
         else:  # quantization disabled
             return x
 
@@ -185,11 +175,11 @@ class DecoupledWeightQuantProxyFromInjector(WeightQuantProxyFromInjector):
         out, scale, zero_point, bit_width, pre_scale, pre_zero_point = output_tuple
         return pre_zero_point
 
-    def forward(self, x: torch.Tensor) -> Union[Tensor, QuantTensor]:
+    def forward(self, x: torch.Tensor) -> Union[Tensor, IntQuantTensor]:
         if self.is_quant_enabled:
             impl = self.export_handler if self.export_mode else self.tensor_quant
             out, scale, zero_point, bit_width, pre_scale, pre_zero_point = impl(x)
-            return QuantTensor(out, scale, zero_point, bit_width, self.is_signed, self.training)
+            return IntQuantTensor(out, scale, zero_point, bit_width, self.is_signed, self.training)
         else:  # quantization disabled
             return x
 
@@ -214,11 +204,12 @@ class DecoupledWeightQuantWithInputProxyFromInjector(DecoupledWeightQuantProxyFr
         raise NotImplementedError
 
     def forward(
-            self,
-            x: torch.Tensor,
-            quant_input: Optional[Union[Tensor, QuantTensor]] = None) -> Union[Tensor, QuantTensor]:
+        self,
+        x: torch.Tensor,
+        quant_input: Optional[Union[Tensor,
+                                    IntQuantTensor]] = None) -> Union[Tensor, IntQuantTensor]:
         if isinstance(quant_input,
-                      QuantTensor) and not self.training and self.cache_inference_quant_act:
+                      IntQuantTensor) and not self.training and self.cache_inference_quant_act:
             cached_inp = _CachedIO(quant_input.detach(), self.cache_quant_io_metadata_only)
             self._cached_act = cached_inp
 
@@ -227,19 +218,19 @@ class DecoupledWeightQuantWithInputProxyFromInjector(DecoupledWeightQuantProxyFr
                 assert self._cached_act is not None, "No cached quant input found. Enable caching and perform a forward pass"
                 quant_input = self._cached_act
             else:
-                assert isinstance(quant_input, QuantTensor), "Input must be quantized"
+                assert isinstance(quant_input, IntQuantTensor), "Input must be quantized"
 
             input_bit_width = quant_input.bit_width
             input_is_signed = quant_input.signed
 
             impl = self.export_handler if self.export_mode else self.tensor_quant
             out, scale, zero_point, bit_width, pre_scale, pre_zero_point = impl(x, input_bit_width, input_is_signed)
-            return QuantTensor(out, scale, zero_point, bit_width, self.is_signed, self.training)
+            return IntQuantTensor(out, scale, zero_point, bit_width, self.is_signed, self.training)
         else:  # quantization disabled
             return x
 
 
-class BiasQuantProxyFromInjector(ParameterQuantProxyFromInjector, BiasQuantProxyProtocol):
+class BiasQuantProxyFromInjector(BiasQuantProxyFromInjectorBase):
 
     def __init__(self, quant_layer: nn.Module, quant_injector: Injector) -> None:
         super().__init__(quant_layer, quant_injector)
@@ -292,7 +283,7 @@ class BiasQuantProxyFromInjector(ParameterQuantProxyFromInjector, BiasQuantProxy
         return bit_width
 
     def quant_output_scale_impl(
-            self, input: QuantTensor, weight: QuantTensor, module: torch.nn.Module) -> Tensor:
+            self, input: IntQuantTensor, weight: IntQuantTensor, module: torch.nn.Module) -> Tensor:
         channel_dim = -1 if isinstance(module, torch.nn.Linear) else 1
         output_scale_shape = compute_channel_view_shape(input, channel_dim=channel_dim)
         output_scale = weight.scale.view(output_scale_shape)
@@ -301,11 +292,11 @@ class BiasQuantProxyFromInjector(ParameterQuantProxyFromInjector, BiasQuantProxy
 
     def compute_bias_scale(
             self,
-            input: Optional[Union[Tensor, QuantTensor]],
-            weight: Optional[Union[Tensor, QuantTensor]]) -> Optional[Tensor]:
+            input: Optional[Union[Tensor, IntQuantTensor]],
+            weight: Optional[Union[Tensor, IntQuantTensor]]) -> Optional[Tensor]:
         if not self.requires_input_scale:
             return None
-        if not isinstance(input, QuantTensor) or not isinstance(weight, QuantTensor):
+        if not isinstance(input, IntQuantTensor) or not isinstance(weight, IntQuantTensor):
             return None
         if len(self.tracked_module_list) > 1:
             if not all(
@@ -319,8 +310,9 @@ class BiasQuantProxyFromInjector(ParameterQuantProxyFromInjector, BiasQuantProxy
     def forward(
             self,
             x: Tensor,
-            input: Optional[Union[Tensor, QuantTensor]] = None,
-            weight: Optional[Union[Tensor, QuantTensor]] = None) -> Union[Tensor, QuantTensor]:
+            input: Optional[Union[Tensor, IntQuantTensor]] = None,
+            weight: Optional[Union[Tensor,
+                                   IntQuantTensor]] = None) -> Union[Tensor, IntQuantTensor]:
         out = x
         input_scale = self.compute_bias_scale(input, weight)
         if self.is_quant_enabled:
@@ -336,10 +328,12 @@ class BiasQuantProxyFromInjector(ParameterQuantProxyFromInjector, BiasQuantProxy
             else:
                 out, out_scale, out_zp, out_bit_width = impl(x)
 
-            out = QuantTensor(out, out_scale, out_zp, out_bit_width, self.is_signed, self.training)
+            out = IntQuantTensor(
+                out, out_scale, out_zp, out_bit_width, self.is_signed, self.training)
         else:
             out = x
-        if isinstance(out, QuantTensor) and not self.training and self.cache_inference_quant_bias:
+        if isinstance(out,
+                      IntQuantTensor) and not self.training and self.cache_inference_quant_bias:
             cached_bias = _CachedIO(out.detach(), metadata_only=False)
             self._cached_bias = cached_bias
         return out

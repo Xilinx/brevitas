@@ -7,3 +7,4 @@ pytest-xdist
 pytest_cases
 scipy
 torchvision
+tqdm

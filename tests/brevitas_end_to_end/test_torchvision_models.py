@@ -18,6 +18,7 @@ from brevitas.graph.quantize import layerwise_quantize
 from brevitas.graph.quantize import quantize
 from brevitas.graph.target.flexml import preprocess_for_flexml_quantize
 from brevitas.graph.target.flexml import quantize_flexml
+from brevitas_examples.imagenet_classification.ptq.ptq_common import quantize_model
 from tests.marker import requires_pt_ge
 
 BATCH = 1
@@ -51,6 +52,20 @@ class NoDictModel(torch.nn.Module):
     def forward(self, inp):
         out = self.model(inp)
         return out['out']
+
+
+def quantize_float(model):
+    return quantize_model(
+        model,
+        weight_bit_width=8,
+        act_bit_width=8,
+        bias_bit_width=None,
+        weight_quant_granularity='per_tensor',
+        act_quant_percentile=99.999,
+        act_quant_type='sym',
+        scale_factor_type='float_scale',
+        backend='layerwise',
+        quant_format='float')
 
 
 @fixture
@@ -102,12 +117,24 @@ def test_torchvision_graph_quantization_flexml_qcdq_onnx(torchvision_model, requ
     if torchvision_model is None:
         pytest.skip('Model not instantiated')
     inp = torch.randn(BATCH, IN_CH, HEIGHT, WIDTH)
-    export_onnx_qcdq(torchvision_model, args=inp)
+    test_id = request.node.callspec.id
+
+    quantize_fn_name = test_id.split("-")[0]
+    torchvision_model(inp)
+    if quantize_fn_name != 'quantize_float':
+        export_onnx_qcdq(torchvision_model, args=inp)
 
 
 @requires_pt_ge('1.9.1')
 def test_torchvision_graph_quantization_flexml_qcdq_torch(torchvision_model, request):
     if torchvision_model is None:
         pytest.skip('Model not instantiated')
+
+    test_id = request.node.callspec.id
+    quantize_fn_name = test_id.split("-")[0]
+    if quantize_fn_name == 'quantize_float':
+        return
     inp = torch.randn(BATCH, IN_CH, HEIGHT, WIDTH)
+
+    torchvision_model(inp)
     export_torch_qcdq(torchvision_model, args=inp)

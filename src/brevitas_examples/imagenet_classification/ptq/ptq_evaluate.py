@@ -139,6 +139,11 @@ parser.add_argument(
     choices=['stats', 'mse'],
     help='Activation quantization calibration type (default: stats)')
 parser.add_argument(
+    '--act-scale-computation-type',
+    default='static',
+    choices=['static', 'dynamic'],
+    help='Activation quantization scale computation type (default: static)')
+parser.add_argument(
     '--graph-eq-iterations',
     default=20,
     type=int,
@@ -411,11 +416,13 @@ def main():
         weight_exponent_bit_width=args.weight_exponent_bit_width,
         act_mantissa_bit_width=args.act_mantissa_bit_width,
         act_exponent_bit_width=args.act_exponent_bit_width,
+        act_scale_computation_type=args.act_scale_computation_type,
         uint_sym_act_for_unsigned_values=args.uint_sym_act_for_unsigned_values)
 
-    # Calibrate the quant_model on the calibration dataloader
-    print("Starting activation calibration:")
-    calibrate(calib_loader, quant_model)
+    if args.act_scale_computation_type == 'static':
+        # Calibrate the quant_model on the calibration dataloader
+        print("Starting activation calibration:")
+        calibrate(calib_loader, quant_model)
 
     if args.gpfq:
         print("Performing GPFQ:")

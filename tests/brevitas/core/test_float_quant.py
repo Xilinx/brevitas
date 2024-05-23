@@ -95,7 +95,7 @@ def test_float_to_quant_float(inp, minifloat_format):
 
         out_quant, scale = float_quant.quantize(inp)
         exponent_bit_width, mantissa_bit_width, exponent_bias  = torch.tensor(exponent_bit_width, dtype=torch.float), torch.tensor(mantissa_bit_width, dtype=torch.float), torch.tensor(exponent_bias, dtype=torch.float)
-        out_quant = float_quant.float_clamp_impl(
+        out_quant, *_ = float_quant.float_clamp_impl(
             out_quant, exponent_bit_width, mantissa_bit_width, exponent_bias)
         assert torch.allclose(expected_out, out_quant * scale)
 
@@ -202,7 +202,7 @@ def test_inner_scale(inp, minifloat_format, scale):
         # dequantize manually
         out = val_fp_quant * scale
 
-        expected_out, expected_scale, _, _, _ = float_quant(inp)
+        expected_out, expected_scale, *_ = float_quant(inp)
 
         assert scale == expected_scale
         if scale == 0.0:
