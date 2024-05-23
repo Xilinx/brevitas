@@ -391,7 +391,7 @@ def main(args):
         # with brevitas_proxy_inference_mode(pipe.unet):
         if args.use_mlperf_inference:
             print(f"Computing accuracy with MLPerf pipeline")
-            compute_mlperf_fid(pipe, args.prompt)
+            compute_mlperf_fid(args.model, args.path_to_coco, pipe, args.prompt)
         else:
             print(f"Computing accuracy on default prompt")
             prompts = list()
@@ -507,6 +507,13 @@ if __name__ == "__main__":
         default=None,
         help=
         'Load pre-defined latents. If not provided, they are generated based on an internal seed.')
+    parser.add_argument(
+        '--path-to-coco',
+        type=str,
+        default=None,
+        help=
+        'Path to MLPerf compliant Coco dataset. Used when the --use-mlperf flag is set. Default: None'
+    )
     parser.add_argument(
         '--resolution',
         type=int,

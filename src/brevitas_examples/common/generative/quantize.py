@@ -42,6 +42,7 @@ from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloatMSE
 from brevitas_examples.common.generative.nn import LoRACompatibleQuantConv2d
 from brevitas_examples.common.generative.nn import LoRACompatibleQuantLinear
+from brevitas_examples.common.generative.quantizers import Fp8e4m3DynamicOCPActPerTensorFloat
 from brevitas_examples.common.generative.quantizers import Fp8e4m3WeightSymmetricGroupQuant
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerGroupFloat
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerRowFloat
@@ -143,16 +144,23 @@ INPUT_QUANT_MAP = {
         'no_scale': {
             'sym': Fp8e4m3Act,}},
     'float_ocp': {
-        'e4m3': {
-            'float_scale': {
-                'stats': {
-                    'per_tensor': {
-                        'sym': Fp8e4m3OCPActPerTensorFloat}}}},
-        'e5m2': {
-            'float_scale': {
-                'stats': {
-                    'per_tensor': {
-                        'sym': Fp8e5m2OCPActPerTensorFloat}}}}}}
+        'static': {
+            'e4m3': {
+                'float_scale': {
+                    'stats': {
+                        'per_tensor': {
+                            'sym': Fp8e4m3OCPActPerTensorFloat}}}},
+            'e5m2': {
+                'float_scale': {
+                    'stats': {
+                        'per_tensor': {
+                            'sym': Fp8e5m2OCPActPerTensorFloat}}}}},
+        'dynamic': {
+            'e4m3': {
+                'float_scale': {
+                    'stats': {
+                        'per_tensor': {
+                            'sym': Fp8e4m3DynamicOCPActPerTensorFloat}}}}}}}
 
 
 def quantize_model(
