@@ -10,12 +10,12 @@ from torch import Tensor
 
 from brevitas.export.common import to_0dim_if_scalar
 from brevitas.export.common import to_item_if_0dim
+from brevitas.proxy import ActFloatQuantProxyFromInjector
 from brevitas.proxy import ActQuantProxyFromInjector
 from brevitas.proxy import BiasQuantProxyFromInjector
 from brevitas.proxy import DecoupledWeightQuantProxyFromInjector
 from brevitas.proxy import DecoupledWeightQuantWithInputProxyFromInjector
-from brevitas.proxy import FloatActQuantProxyFromInjector
-from brevitas.proxy import FloatWeightQuantProxyFromInjector
+from brevitas.proxy import WeightFloatQuantProxyFromInjector
 from brevitas.proxy import WeightQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import DynamicActQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector
@@ -185,7 +185,7 @@ class CDQCastProxyHandlerMixin(QuantAxisMixin, ClipMixin, ZeroPointHandlerMixin,
 
 
 class FloatQCDQCastWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHandlerMixin):
-    handled_layer = FloatWeightQuantProxyFromInjector
+    handled_layer = WeightFloatQuantProxyFromInjector
 
     def quantize_symbolic_kwargs(
             cls, scale, zero_point, exponent_bit_width, mantissa_bit_width, is_signed):
@@ -417,7 +417,7 @@ class QCDQCastDecoupledWeightQuantWithInputProxyHandlerMixin(
 
 
 class FloatQCDQCastActQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHandlerMixin, ABC):
-    handled_layer = FloatActQuantProxyFromInjector
+    handled_layer = ActFloatQuantProxyFromInjector
 
     def quantize_symbolic_kwargs(
             cls, scale, zero_point, exponent_bit_width, mantissa_bit_width, is_signed):
