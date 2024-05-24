@@ -37,6 +37,8 @@ def test_ort_wbiol(model, export_type, current_cases):
     if 'dynamic' in quantizer and ((o_bit_width != "o8" or i_bit_width != "i8") or
                                    export_type != "qcdq"):
         pytest.skip('Dynamic Act Quant supported only for 8bit and QCDQ export')
+    if export_type == 'qonnx' and 'fp8' in quantizer:
+        pytest.skip('FP8 export requires QCDQ')
 
     if impl in ('QuantLinear'):
         in_size = (1, IN_CH)
