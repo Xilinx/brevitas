@@ -123,7 +123,14 @@ def recursive_allclose(ort_output, brevitas_output, tolerance):
 
 
 def is_brevitas_ort_close(
-        model, np_input, export_name, export_type, tolerance=None, first_output_only=False):
+        model,
+        np_input,
+        export_name,
+        export_type,
+        tolerance=None,
+        first_output_only=False,
+        onnx_opset=14,
+        export_q_weight=False):
     input_t = torch.from_numpy(np_input)
     with torch.no_grad():
         brevitas_output = model(input_t)
@@ -150,8 +157,8 @@ def is_brevitas_ort_close(
                 model,
                 input_t,
                 export_path=export_name,
-                export_weight_q_node=True,
-                opset_version=19)
+                export_weight_q_node=export_q_weight,
+                opset_version=onnx_opset)
         elif export_type == 'qonnx_opset14':
             export_qonnx(model, input_t, opset_version=14, export_path=export_name)
         else:
