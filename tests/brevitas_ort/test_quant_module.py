@@ -42,7 +42,7 @@ def test_ort_wbiol(model, export_type, current_cases):
         pytest.skip('FP8 export requires QCDQ')
     if torch_version < parse('2.1') and 'fp8' in quantizer:
         pytest.skip('FP8 requires PyTorch 2.1 or higher')
-    else:
+    elif torch_version >= parse('2.1') and 'fp8' in quantizer:
         onnx_opset = 19
         export_q_weight = True
 
@@ -69,7 +69,8 @@ def test_ort_wbiol(model, export_type, current_cases):
         export_type,
         tolerance=INT_TOLERANCE,
         first_output_only=True,
-        onnx_opset=onnx_opset)
+        onnx_opset=onnx_opset,
+        export_q_weight=export_q_weight)
 
 
 @parametrize_with_cases('model', cases=QuantAvgPoolCases)
