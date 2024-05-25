@@ -21,6 +21,7 @@ from .quant_module_cases import QuantWBIOLCases
 
 @parametrize_with_cases('model', cases=QuantWBIOLCases)
 @pytest.mark.parametrize('export_type', ['qcdq', 'qonnx'])
+@requires_pt_ge('1.10')
 def test_ort_wbiol(model, export_type, current_cases):
     cases_generator_func = current_cases['model'][1]
     case_id = get_case_id(cases_generator_func)
@@ -74,6 +75,7 @@ def test_ort_wbiol(model, export_type, current_cases):
 
 
 @parametrize_with_cases('model', cases=QuantAvgPoolCases)
+@requires_pt_ge('1.10')
 def test_ort_avgpool(model, current_cases):
     in_size = (1, IN_CH, FEATURES, FEATURES)
     inp = gen_linspaced_data(reduce(mul, in_size), -1, 1).reshape(in_size)
