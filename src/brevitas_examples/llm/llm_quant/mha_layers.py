@@ -179,6 +179,32 @@ class QuantizableOPTAttention(MultiheadAttentionWrapper):
 
 class QuantizableBertAttention(MultiheadAttentionWrapper):
 
+    def __init__(
+            self,
+            all_head_size,
+            num_attention_heads,
+            dropout=0.,
+            bias=True,
+            add_bias_kv=False,
+            add_zero_attn=False,
+            kdim=None,
+            vdim=None,
+            batch_first=False,
+            device=None,
+            dtype=None) -> None:
+        super().__init__(
+            embed_dim=all_head_size,
+            num_heads=num_attention_heads,
+            dropout=dropout,
+            bias=bias,
+            add_bias_kv=add_bias_kv,
+            add_zero_attn=add_zero_attn,
+            kdim=kdim,
+            vdim=vdim,
+            batch_first=batch_first,
+            device=device,
+            dtype=dtype)
+
     def forward(
         self,
         hidden_states: torch.Tensor,
