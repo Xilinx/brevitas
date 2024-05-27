@@ -141,7 +141,7 @@ class FloatQuantTensor(FloatQuantTensorBase, QuantTensor):
         assert float_datatype, "Minifloat quant returns only higher precision dtype"
 
         if self.is_valid:
-            float_value = self._pre_round_float_value
+            float_value = torch.round(self._pre_round_float_value) * self.internal_scale()
             return float_value.type(self.scale.dtype)
         else:
             raise RuntimeError(f"FloatQuantTensor not valid.")
