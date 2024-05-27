@@ -290,6 +290,7 @@ def main(args):
             weight_quant_granularity=args.weight_quant_granularity,
             weight_group_size=args.weight_group_size,
             quantize_weight_zero_point=args.quantize_weight_zero_point,
+            quantize_input_zero_point=args.quantize_input_zero_point,
             input_bit_width=input_bit_width,
             input_quant_format=args.input_quant_format,
             input_scale_type=args.input_scale_type,
@@ -309,7 +310,6 @@ def main(args):
                         **{'quant_type': QuantType.FP})
                     module.input_quant.init_tensor_quant()
                 # blacklist.append(name.split('.')[-1])
-
         pipe.set_progress_bar_config(disable=True)
 
         if args.dry_run:
@@ -659,6 +659,11 @@ if __name__ == "__main__":
         'quantize-weight-zero-point',
         default=True,
         help='Quantize weight zero-point. Default: Enabled')
+    add_bool_arg(
+        parser,
+        'quantize-input-zero-point',
+        default=False,
+        help='Quantize input zero-point. Default: Enabled')
     add_bool_arg(
         parser, 'export-cuda-float16', default=False, help='Export FP16 on CUDA. Default: Disabled')
     add_bool_arg(
