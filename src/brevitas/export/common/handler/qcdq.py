@@ -188,6 +188,8 @@ class QCDQCastWeightQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin):
                 module.is_narrow_range, module.is_signed, quant_weight.bit_width)
             self.symbolic_kwargs['dequantize_symbolic_kwargs'] = self.dequantize_symbolic_kwargs(
                 scale, quant_weight.zero_point, quant_weight.bit_width, module.is_signed)
+            self.scale_orig_shape = self.symbolic_kwargs['dequantize_symbolic_kwargs'].pop(
+                'scale_orig_shape')
         else:
             self.symbolic_kwargs = None
 
@@ -210,13 +212,14 @@ class QCDQCastWeightQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin):
             x = self.quantize_from_integer(x)
         clip_symbolic_kwargs = self.symbolic_kwargs['clip_symbolic_kwargs']
         # Copy dict to allow for popping kwargs even on shared quantizers
-        dequantize_symbolic_kwargs = copy(self.symbolic_kwargs['dequantize_symbolic_kwargs'])
+        dequantize_symbolic_kwargs = self.symbolic_kwargs['dequantize_symbolic_kwargs']
         scale = dequantize_symbolic_kwargs['scale']
         zero_point = dequantize_symbolic_kwargs['zero_point']
         bit_width = self.symbolic_kwargs['bit_width']
-        scale_orig_shape = dequantize_symbolic_kwargs.pop('scale_orig_shape')
+        scale_orig_shape = self.scale_orig_shape  # dequantize_symbolic_kwargs['scale_orig_shape']
         # Workaround to trick the tracer into believing all return values are used
-        self.assert_ge_zero(scale, zero_point, bit_width)
+        if not torch._dynamo.is_compiling():
+            self.assert_ge_zero(scale, zero_point, bit_width)
         if clip_symbolic_kwargs is not None:
             x = self.clip_fn(x, *clip_symbolic_kwargs.values())
         x = self.dequantize_fn(x, *dequantize_symbolic_kwargs.values())
@@ -287,6 +290,8 @@ class QCDQCastActQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin, ABC):
                 scale, module.zero_point(), module.bit_width(), module.is_signed)
             self.symbolic_kwargs['clip_symbolic_kwargs'] = self.int_clip_symbolic_kwargs(
                 module.is_narrow_range, module.is_signed, module.bit_width())
+            self.scale_orig_shape = self.symbolic_kwargs['dequantize_symbolic_kwargs'].pop(
+                'scale_orig_shape')
 
         else:
             self.symbolic_kwargs = None
@@ -296,10 +301,10 @@ class QCDQCastActQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin, ABC):
         quantize_symbolic_kwargs = self.symbolic_kwargs['quantize_symbolic_kwargs']
         clip_symbolic_kwargs = self.symbolic_kwargs['clip_symbolic_kwargs']
         # Copy dict to allow for popping kwargs even on shared quantizers
-        dequantize_symbolic_kwargs = copy(self.symbolic_kwargs['dequantize_symbolic_kwargs'])
+        dequantize_symbolic_kwargs = self.symbolic_kwargs['dequantize_symbolic_kwargs']
         scale = dequantize_symbolic_kwargs['scale']
         zero_point = dequantize_symbolic_kwargs['zero_point']
-        scale_orig_shape = dequantize_symbolic_kwargs.pop('scale_orig_shape')
+        scale_orig_shape = self.scale_orig_shape
         bit_width = self.symbolic_kwargs['bit_width']
         # Workaround to trick the tracer into believing all return values are used
         self.assert_ge_zero(scale, zero_point, bit_width)

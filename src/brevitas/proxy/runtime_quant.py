@@ -4,6 +4,7 @@
 from abc import ABC
 from typing import Optional, Tuple, Union
 
+import torch
 from torch import nn
 from torch import Tensor
 from torch.nn import Identity
@@ -187,7 +188,10 @@ class ActQuantProxyFromInjector(ActQuantProxyFromInjectorBase):
             # If y is an empty IntQuantTensor, we need to check if this is a passthrough proxy,
             # otherwise return a simple Tensor
             if isinstance(y, tuple) and not any(map(lambda f: f is None, y)):
-                out = IntQuantTensor(*y, signed=self.is_signed, training=self.training)
+                if torch._dynamo.is_compiling():
+                    return out
+                else:
+                    return IntQuantTensor(*y, signed=self.is_signed, training=self.training)
             elif self.is_passthrough_act:  # preserve scale/zp/bit/sign even without output quant
                 if isinstance(y, tuple):
                     y = y[0]

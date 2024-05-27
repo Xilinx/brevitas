@@ -32,6 +32,10 @@ def export_torch_export(pipe, trace_inputs, output_dir, export_manager):
     output_path = os.path.join(output_dir, 'unet.onnx')
     print(trace_inputs[1])
     print(f"Saving unet to {output_path} ...")
+    export_manager.change_weight_export(True)
+    import brevitas.config as config
+    config._FULL_STATE_DICT = True
     with torch.no_grad(), brevitas_proxy_export_mode(pipe.unet, export_manager):
         torch.export.export(
             UnetExportWrapper(pipe.unet), args=(trace_inputs[0],), kwargs=trace_inputs[1])
+    config._FULL_STATE_DICT = False

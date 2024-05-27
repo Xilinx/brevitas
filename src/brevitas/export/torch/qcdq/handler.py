@@ -4,6 +4,7 @@
 from abc import ABC
 
 import torch
+from torch import dtype as torch_dtype
 
 from brevitas.export.common.handler.base import BaseHandler
 from brevitas.export.common.handler.qcdq import CDQCastBiasQuantProxyHandlerMixin
@@ -23,6 +24,18 @@ def _itemize_clip_bounds(clip_args):
         clip_args['min_val'] = clip_args['min_val'].item()
         clip_args['max_val'] = clip_args['max_val'].item()
     return clip_args
+
+
+LIBRARY = torch.library.Library("brevitas", 'DEF')
+
+LIBRARY.define("quantize_dequantize(Tensor x) -> Tensor")
+
+
+def quantize_dequantize_meta(x):
+    return torch.empty_like(x)
+
+
+LIBRARY.impl("quantize_dequantize", quantize_dequantize_meta, "Meta")
 
 
 class TorchDQCastMixin(DQCastMixin, ABC):
@@ -107,6 +120,9 @@ class TorchQCDQCastWeightQuantProxyHandler(TorchQCDQCastMixin,
         clip_args = super().int_clip_symbolic_kwargs(narrow, signed, bit_width)
         return _itemize_clip_bounds(clip_args)
 
+    def symbolic_execution(self, x: torch.Tensor):
+        return torch.ops.brevitas.quantize_dequantize(x), None, None, None
+
 
 class TorchQCDQCastDecoupledWeightQuantProxyHandler(TorchQCDQCastMixin,
                                                     QCDQCastDecoupledWeightQuantProxyHandlerMixin,
@@ -138,6 +154,9 @@ class TorchQCDQCastActQuantProxyHandler(TorchQCDQCastMixin,
     def int_clip_symbolic_kwargs(cls, narrow, signed, bit_width):
         clip_args = super().int_clip_symbolic_kwargs(narrow, signed, bit_width)
         return _itemize_clip_bounds(clip_args)
+
+    def symbolic_execution(self, x: torch.Tensor):
+        return torch.ops.brevitas.quantize_dequantize(x), None, None, None
 
 
 class TorchCDQCastBiasQuantProxyHandler(TorchDQCastMixin,

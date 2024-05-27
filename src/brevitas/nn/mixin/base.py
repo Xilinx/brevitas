@@ -68,7 +68,8 @@ class QuantLayerMixin(ExportMixin):
         pass
 
     def _set_global_is_quant_layer(self, value):
-        config._IS_INSIDE_QUANT_LAYER = value
+        pass
+        # config._IS_INSIDE_QUANT_LAYER = value
 
     def get_quant_tensor_class(self, inp: Union[Tensor, QuantTensor]):
         quant_tensor_classes = [IntQuantTensor, FloatQuantTensor]

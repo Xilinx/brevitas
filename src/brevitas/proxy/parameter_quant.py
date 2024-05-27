@@ -154,7 +154,11 @@ class WeightQuantProxyFromInjector(WeightQuantProxyFromInjectorBase):
         if self.is_quant_enabled:
             impl = self.export_handler if self.export_mode else self.tensor_quant
             out, scale, zero_point, bit_width = impl(x)
-            return IntQuantTensor(out, scale, zero_point, bit_width, self.is_signed, self.training)
+            if torch._dynamo.is_compiling():
+                return out
+            else:
+                return IntQuantTensor(
+                    out, scale, zero_point, bit_width, self.is_signed, self.training)
         else:  # quantization disabled
             return x
 
