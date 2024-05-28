@@ -286,7 +286,7 @@ class FloatQCDQCastWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHa
         nan_values = self.symbolic_kwargs['nan_values']
         scale_orig_shape = dequantize_symbolic_kwargs.pop('scale_orig_shape')
         # Workaround to trick the tracer into believing all return values are used
-        self.assert_ge_zero(scale, exponent_bit_width, mantissa_bit_width)
+        self.assert_ge_zero(scale, exponent_bit_width, mantissa_bit_width, exponent_bias)
         if clip_symbolic_kwargs is not None:
             x = self.clip_fn(x, *clip_symbolic_kwargs.values())
         x = self.dequantize_fn(x, *dequantize_symbolic_kwargs.values())
@@ -490,7 +490,7 @@ class FloatQCDQCastActQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHandl
         inf_values = self.symbolic_kwargs['inf_values']
         nan_values = self.symbolic_kwargs['nan_values']
 
-        self.assert_ge_zero(scale, exponent_bit_width, mantissa_bit_width)
+        self.assert_ge_zero(scale, exponent_bit_width, mantissa_bit_width, exponent_bias)
         # If original dtype of the input is (b)float16, cast the input to float32
         if x.dtype == torch.float16 or x.dtype == torch.bfloat16:
             x = self.cast_fn(x, torch.float32)

@@ -41,6 +41,8 @@ class QuantWBIOLCases:
                 'in_channels': IN_CH, 'out_channels': OUT_CH, 'kernel_size': KERNEL_SIZE}
 
         bias_quantizer = None if weight_quant == Fp8e4m3OCPWeightPerTensorFloat else Int32Bias
+        # Required because of numpy error with FP8 data type. Export iself works fine.
+        return_quant_tensor = False if weight_quant == Fp8e4m3OCPWeightPerTensorFloat else True
 
         class Model(nn.Module):
 
@@ -56,7 +58,7 @@ class QuantWBIOLCases:
                     input_bit_width=input_bit_width,
                     output_bit_width=output_bit_width,
                     bias_quant=bias_quantizer,
-                    return_quant_tensor=True)
+                    return_quant_tensor=return_quant_tensor)
                 self.conv.weight.data.uniform_(-0.01, 0.01)
 
             def forward(self, x):
