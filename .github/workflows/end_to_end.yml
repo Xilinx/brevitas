@@ -21,6 +21,9 @@ jobs:
 
 
         exclude:
+          - pytorch_version: '1.9.1'
+            platform: 'macos-latest'
+
           - platform: 'windows-latest'
 
 

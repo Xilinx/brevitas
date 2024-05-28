@@ -22,6 +22,10 @@ jobs:
         platform: ['ubuntu-latest']
 
 
+        exclude:
+          - pytorch_version: '1.9.1'
+            platform: 'macos-latest'
+
 
 
     if: ${{ !github.event.pull_request.draft }}
