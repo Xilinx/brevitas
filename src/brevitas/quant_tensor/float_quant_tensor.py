@@ -101,7 +101,7 @@ class FloatQuantTensor(FloatQuantTensorBase, QuantTensor):
             scale = self.scale.type(torch.float32)
         minifloat_value = value / scale
         fp_internal_scale = 1. - self.exponent_bias - self.mantissa_bit_width
-        int_scale = float_internal_scale(self.value, self.mantissa_bit_width(), fp_internal_scale)
+        int_scale = float_internal_scale(self.value, self.mantissa_bit_width, fp_internal_scale)
         minifloat_value = minifloat_value / int_scale
         return minifloat_value
 
