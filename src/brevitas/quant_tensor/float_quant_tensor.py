@@ -3,6 +3,7 @@
 
 import torch
 
+from brevitas.function.ops import float_internal_scale
 from brevitas.function.ops_ste import floor_ste
 from brevitas.function.ops_ste import round_ste
 from brevitas.quant_tensor import _unpack_quant_tensor
@@ -91,13 +92,6 @@ class FloatQuantTensor(FloatQuantTensorBase, QuantTensor):
     def tensor(self):
         return self.value
 
-    def internal_scale(self):
-        internal_scale = floor_ste(torch.log2(torch.abs(self.value))) - self.mantissa_bit_width
-        internal_scale = torch.clamp_min(
-            internal_scale, 1. - self.exponent_bias - self.mantissa_bit_width)
-        internal_scale = torch.exp2(internal_scale)
-        return internal_scale
-
     @property
     def _pre_round_float_value(self):
         value = self.value
@@ -106,7 +100,8 @@ class FloatQuantTensor(FloatQuantTensorBase, QuantTensor):
             value = self.value.type(torch.float32)
             scale = self.scale.type(torch.float32)
         minifloat_value = value / scale
-        int_scale = self.internal_scale()
+        fp_internal_scale = 1. - self.exponent_bias - self.mantissa_bit_width
+        int_scale = float_internal_scale(self.value, self.mantissa_bit_width(), fp_internal_scale)
         minifloat_value = minifloat_value / int_scale
         return minifloat_value
 

@@ -41,7 +41,6 @@ class QuantWBIOLCases:
                 'in_channels': IN_CH, 'out_channels': OUT_CH, 'kernel_size': KERNEL_SIZE}
 
         bias_quantizer = None if weight_quant == Fp8e4m3OCPWeightPerTensorFloat else Int32Bias
-        return_quant_tensor = False if weight_quant == Fp8e4m3OCPWeightPerTensorFloat else True
 
         class Model(nn.Module):
 
