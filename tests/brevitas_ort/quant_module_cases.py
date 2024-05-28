@@ -56,7 +56,7 @@ class QuantWBIOLCases:
                     input_bit_width=input_bit_width,
                     output_bit_width=output_bit_width,
                     bias_quant=bias_quantizer,
-                    return_quant_tensor=return_quant_tensor)
+                    return_quant_tensor=True)
                 self.conv.weight.data.uniform_(-0.01, 0.01)
 
             def forward(self, x):
