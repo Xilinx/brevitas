@@ -23,6 +23,10 @@ jobs:
         jit_status: ['jit_disabled']
 
 
+        exclude:
+          - pytorch_version: '1.9.1'
+            platform: 'macos-latest'
+
 
 
     if: ${{ !github.event.pull_request.draft }}
