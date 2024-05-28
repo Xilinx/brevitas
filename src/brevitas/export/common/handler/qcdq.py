@@ -78,7 +78,7 @@ class FloatQMixin(ABC):
         pass
 
     @classmethod
-    def signed_dtype(cls, exponent_bit_width, mantissa_bit_width, is_signed):
+    def signed_dtype(cls, exponent_bit_width, mantissa_bit_width):
         if exponent_bit_width is None or mantissa_bit_width is None:
             return None
         if exponent_bit_width == 4 and mantissa_bit_width == 3:
@@ -140,8 +140,7 @@ class FloatCDQCastProxyHandlerMixin(QuantAxisMixin,
                                     CDQCastMixin,
                                     ABC):
 
-    def dequantize_symbolic_kwargs(
-            cls, scale, zero_point, exponent_bit_width, mantisssa_bit_width, is_signed):
+    def dequantize_symbolic_kwargs(cls, scale, zero_point, exponent_bit_width, mantissa_bit_width):
         scale_orig_shape = scale.shape
         axis = cls.quant_axis(scale)
         if cls.flatten_dequantize_params:
@@ -151,7 +150,7 @@ class FloatCDQCastProxyHandlerMixin(QuantAxisMixin,
             zero_point = zero_point.flatten()
         zp = to_0dim_if_scalar(zero_point)
         zp = zp.expand_as(scale)
-        zp = cls.zero_point_with_dtype(is_signed, exponent_bit_width, mantisssa_bit_width, zp)
+        zp = cls.zero_point_with_dtype(exponent_bit_width, mantissa_bit_width, zp)
         return {
             'scale': scale,
             'zero_point': zp,
@@ -188,19 +187,18 @@ class CDQCastProxyHandlerMixin(QuantAxisMixin, ClipMixin, ZeroPointHandlerMixin,
 class FloatQCDQCastWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHandlerMixin):
     handled_layer = WeightFloatQuantProxyFromInjector
 
-    def quantize_symbolic_kwargs(
-            cls, scale, zero_point, exponent_bit_width, mantissa_bit_width, is_signed):
+    def quantize_symbolic_kwargs(cls, scale, zero_point, exponent_bit_width, mantissa_bit_width):
         # compute axis before redefining scale
         axis = cls.quant_axis(scale)
         scale = to_0dim_if_scalar(scale.flatten())
         zp = to_0dim_if_scalar(zero_point.flatten())
         # expand_as must go after 0-dim check
         zp = zp.expand_as(scale)
-        zp = cls.zero_point_with_dtype(is_signed, exponent_bit_width, mantissa_bit_width, zp)
+        zp = cls.zero_point_with_dtype(exponent_bit_width, mantissa_bit_width, zp)
         if cls.itemize_quantize_scalar_params:
             scale = to_item_if_0dim(scale)
             zp = to_item_if_0dim(zp)
-        dtype = cls.signed_dtype(exponent_bit_width, mantissa_bit_width, is_signed)
+        dtype = cls.signed_dtype(exponent_bit_width, mantissa_bit_width)
         return {'scale': scale, 'zero_point': zp, 'dtype': dtype, 'axis': axis}
 
     def prepare_quantize_from_floating_point(self, module):
@@ -213,14 +211,10 @@ class FloatQCDQCastWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHa
             scale,
             quant_weight.zero_point,
             quant_weight.exponent_bit_width,
-            quant_weight.mantissa_bit_width,
-            module.is_signed)
+            quant_weight.mantissa_bit_width)
 
-    def prepare_quantize_from_integer(self, module):
-        minifloat_weight = {
-            tm.weight.data_ptr(): tm.quant_weight().minifloat(float_datatype=True)
-            for tm in module.tracked_module_list}
-        self.symbolic_kwargs['minifloat_weight'] = minifloat_weight
+    def prepare_quantize_from_minifloat(self, module):
+        raise NotImplementedError
 
     def prepare_for_export(self, module):
         if module.is_quant_enabled:
@@ -228,7 +222,7 @@ class FloatQCDQCastWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHa
             if self._export_q_node:
                 self.prepare_quantize_from_floating_point(module)
             else:
-                self.prepare_quantize_from_integer(module)
+                self.prepare_quantize_from_minifloat(module)
             # Get the first quant weight as representative
             quant_weight = module.tracked_module_list[0].quant_weight()
 
@@ -255,8 +249,7 @@ class FloatQCDQCastWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHa
                 scale,
                 quant_weight.zero_point,
                 quant_weight.exponent_bit_width,
-                quant_weight.mantissa_bit_width,
-                module.is_signed)
+                quant_weight.mantissa_bit_width)
         else:
             self.symbolic_kwargs = None
 
@@ -269,8 +262,8 @@ class FloatQCDQCastWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHa
         x = self.quantize_fn(x, *quantize_symbolic_kwargs.values())
         return x
 
-    def quantize_from_integer(self, x: Tensor):
-        return self.symbolic_kwargs['minifloat_weight'][x.data_ptr()]
+    def quantize_from_minifloat(self, x: Tensor):
+        raise NotImplementedError
 
     def symbolic_execution(self, x: Tensor):
         assert self.symbolic_kwargs is not None, 'Symbolic execution requires quant to be enabled'
@@ -283,7 +276,7 @@ class FloatQCDQCastWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHa
         if self._export_q_node:
             x = self.quantize_from_floating_point(x)
         else:
-            x = self.quantize_from_integer(x)
+            x = self.quantize_from_minifloat(x)
         clip_symbolic_kwargs = self.symbolic_kwargs['clip_symbolic_kwargs']
         exponent_bit_width = self.symbolic_kwargs['exponent_bit_width']
         mantissa_bit_width = self.symbolic_kwargs['mantissa_bit_width']
@@ -428,19 +421,18 @@ class QCDQCastDecoupledWeightQuantWithInputProxyHandlerMixin(
 class FloatQCDQCastActQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHandlerMixin, ABC):
     handled_layer = ActFloatQuantProxyFromInjector
 
-    def quantize_symbolic_kwargs(
-            cls, scale, zero_point, exponent_bit_width, mantissa_bit_width, is_signed):
+    def quantize_symbolic_kwargs(cls, scale, zero_point, exponent_bit_width, mantissa_bit_width):
         # compute axis before redefining scale
         axis = cls.quant_axis(scale)
         scale = to_0dim_if_scalar(scale.flatten())
         zp = to_0dim_if_scalar(zero_point.flatten())
         # expand_as must go after 0-dim check
         zp = zp.expand_as(scale)
-        zp = cls.zero_point_with_dtype(is_signed, exponent_bit_width, mantissa_bit_width, zp)
+        zp = cls.zero_point_with_dtype(exponent_bit_width, mantissa_bit_width, zp)
         if cls.itemize_quantize_scalar_params:
             scale = to_item_if_0dim(scale)
             zp = to_item_if_0dim(zp)
-        dtype = cls.signed_dtype(exponent_bit_width, mantissa_bit_width, is_signed)
+        dtype = cls.signed_dtype(exponent_bit_width, mantissa_bit_width)
         return {'scale': scale, 'zero_point': zp, 'dtype': dtype, 'axis': axis}
 
     def prepare_for_export(self, module):
@@ -465,14 +457,12 @@ class FloatQCDQCastActQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHandl
                 scale,
                 module.zero_point(),
                 module.exponent_bit_width(),
-                module.mantissa_bit_width(),
-                module.is_signed)
+                module.mantissa_bit_width())
             self.symbolic_kwargs['dequantize_symbolic_kwargs'] = self.dequantize_symbolic_kwargs(
                 scale,
                 module.zero_point(),
                 module.exponent_bit_width(),
-                module.mantissa_bit_width(),
-                module.is_signed)
+                module.mantissa_bit_width())
             self.symbolic_kwargs['clip_symbolic_kwargs'] = self.clip_symbolic_kwargs(
                 module.is_narrow_range,
                 module.is_signed,
@@ -628,6 +618,9 @@ class FloatCDQCastBiasQuantProxyHandlerMixin(DQCastMixin,
                                              QuantAxisMixin,
                                              FloatZeroPointHandlerMixin,
                                              ABC):
+    # TODO: We do not have any bias quantizer so this is not wired to anything.
+    # Currently we do not support Minifloat -> DQ export for minifloat.
+    # This has to be rewritten to be QDQ
     handled_layer = BiasFloatQuantProxyFromInjector
 
     def validate(self, module):

@@ -22,7 +22,6 @@ __all__ = [
     'ActQuantProxyProtocol',
     'AccQuantProxyProtocol',
     'ActQuantProxyFromInjector',
-    'FloatActQuantProxyFromInjector',
     'TruncQuantProxyFromInjector',
     'ClampQuantProxyFromInjector']
 

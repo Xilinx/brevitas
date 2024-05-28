@@ -31,7 +31,7 @@ from ..manager import ExportContext
 
 
 # workaround for fp8 not having many operators implemented
-class Fp8Workaround():
+class PatchFp8Ops():
 
     def __init__(self):
         self.lib = None
@@ -165,7 +165,7 @@ class ONNXBaseManager(BaseManager, ABC):
                         model_bytes = BytesIO()
                         export_target = model_bytes
 
-                    with Fp8Workaround():
+                    with PatchFp8Ops():
                         torch.onnx.export(module, args, export_target, **onnx_export_kwargs)
 
                     # restore the model to previous properties

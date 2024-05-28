@@ -54,13 +54,13 @@ class StdDQCastONNXMixin(DQCastMixin, ABC):
 class StdFloatDQCastONNXMixin(StdDQCastONNXMixin, ABC):
 
     def validate(self, module):
-        pass
+        super().validate(module)
 
 
 class StdFloatCDQCastONNXMixin(CDQCastMixin, StdFloatDQCastONNXMixin, ABC):
 
     def clip_fn(self, x, min_val, max_val):
-        return IntClipFn.apply(x, min_val, max_val)
+        raise NotImplementedError
 
 
 class StdCDQCastONNXMixin(CDQCastMixin, StdDQCastONNXMixin, ABC):
@@ -71,8 +71,23 @@ class StdCDQCastONNXMixin(CDQCastMixin, StdDQCastONNXMixin, ABC):
 
 class StdFloatQCDQCastONNXMixin(FloatQMixin, StdFloatCDQCastONNXMixin, ABC):
 
+    def is_ocp(self, module):
+        is_e4m3 = module.mantissa_bit_width() == 3 and module.exponent_bit_width() == 4
+
+        is_ocp_e4m3 = is_e4m3 and module.inf_values() is None and module.nan_values() == (('111',))
+
+        is_e5m2 = module.mantissa_bit_width() == 5 and module.exponent_bit_width() == 2
+
+        is_ocp_e5m2 = is_e5m2 and module.inf_values() == (
+            ('00',)) and module.nan_values() == ('01', '11', '10')
+
+        return is_ocp_e4m3 or is_ocp_e5m2
+
     def validate(self, module):
-        pass
+        assert self.is_ocp(module), 'Only OCP Standard is supported for FP8 export'
+        if getattr(self, '_export_q_node', True):
+            assert module.rounding_mode.upper() == 'ROUND', 'Only round to nearest even supported'
+        super().validate(module)
 
     def quantize_fn(self, x, scale, zero_point, dtype, axis):
         return QuantizeLinearFn.apply(x, scale, zero_point, dtype, axis)
