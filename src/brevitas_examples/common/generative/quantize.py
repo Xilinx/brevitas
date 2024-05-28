@@ -183,7 +183,6 @@ def quantize_model(
         input_quant_type=None,
         input_quant_granularity=None,
         input_group_size=None,
-        input_stats_op='percentile',
         quantize_input_zero_point=False,
         quantize_embedding=False,
         use_ocp=False,
@@ -201,7 +200,7 @@ def quantize_model(
         weight_float_format = {
             'exponent_bit_width': int(weight_quant_format[1]),
             'mantissa_bit_width': int(weight_quant_format[3])}
-        if ocp_weight_format:
+        if use_ocp:
             weight_quant_format += '_ocp'
             ocp_weight_format = weight_quant_format
         weight_quant_format = 'float'
@@ -211,7 +210,7 @@ def quantize_model(
         input_float_format = {
             'exponent_bit_width': int(input_quant_format[1]),
             'mantissa_bit_width': int(input_quant_format[3])}
-        if ocp_weight_format:
+        if use_ocp:
             input_quant_format += '_ocp'
             ocp_input_format = input_quant_format
         input_quant_format = 'float'
@@ -254,15 +253,6 @@ def quantize_model(
 
         if input_kwargs is None:
             input_kwargs = dict()
-
-        if input_stats_op == 'minmax':
-            if input_quant_type == 'asym':
-                input_scaling_stats_op = StatsOp.MIN_MAX
-                zero_point_stats_impl = NegativeMinOrZero
-                input_kwargs['zero_point_stats_impl'] = zero_point_stats_impl
-            else:
-                input_scaling_stats_op = StatsOp.MAX
-            input_kwargs['scaling_stats_op'] = input_scaling_stats_op
 
         input_quant = input_quant.let(**input_kwargs)
         sym_input_quant = sym_input_quant.let(**input_kwargs)

@@ -4,7 +4,6 @@
 from abc import ABC
 
 import torch
-from torch import dtype as torch_dtype
 
 from brevitas.export.common.handler.base import BaseHandler
 from brevitas.export.common.handler.qcdq import CDQCastBiasQuantProxyHandlerMixin
@@ -27,15 +26,20 @@ def _itemize_clip_bounds(clip_args):
 
 
 LIBRARY = torch.library.Library("brevitas", 'DEF')
-
-LIBRARY.define("quantize_dequantize(Tensor x) -> Tensor")
-
-
-def quantize_dequantize_meta(x):
-    return torch.empty_like(x)
+LIBRARY.define("quantize(Tensor x, Tensor scale, Tensor zero_point,  int axis) -> Tensor")
+LIBRARY.define("dequantize(Tensor x, Tensor scale, Tensor zero_point, int axis) -> Tensor")
 
 
-LIBRARY.impl("quantize_dequantize", quantize_dequantize_meta, "Meta")
+def quantize_fn(x, scale, zero_point, axis):
+    return torch.empty_like(x).type(zero_point.dtype)
+
+
+def dequantize_fn(x, scale, zero_point, axis):
+    return torch.empty_like(x).type(scale.dtype)
+
+
+LIBRARY.impl("quantize", quantize_fn, "Meta")
+LIBRARY.impl("dequantize", dequantize_fn, "Meta")
 
 
 class TorchDQCastMixin(DQCastMixin, ABC):
@@ -45,15 +49,18 @@ class TorchDQCastMixin(DQCastMixin, ABC):
         self.symbolic_kwargs = {}
 
     def dequantize_fn(self, x, scale, zero_point, axis):
+        if axis is None:
+            axis = -1
         # cast zero_point to float, otherwise if both x
         # and zero_point are uint (as in asym quant)
         # uint - uint can lead to errors. Don't cast x to float
         # as the main float datatype might not be float32 (e.g float16)
-        if isinstance(zero_point, torch.Tensor):
-            zero_point = zero_point.to(torch.float)
-        else:
-            zero_point = float(zero_point)
-        return (x - zero_point) * scale
+        return torch.ops.brevitas.dequantize(x, scale, zero_point, axis)
+        # if isinstance(zero_point, torch.Tensor):
+        #     zero_point = zero_point.to(torch.float)
+        # else:
+        #     zero_point = float(zero_point)
+        # return (x - zero_point) * scale
 
     def cast_fn(self, x, dtype):
         return x.type(dtype)
@@ -64,7 +71,7 @@ class TorchDQCastMixin(DQCastMixin, ABC):
 
     @property
     def itemize_quantize_scalar_params(self):
-        return True
+        return False
 
     def validate(self, module):
         assert module.bit_width() > 1., 'Binary quant not supported'
@@ -80,15 +87,15 @@ class TorchQCDQCastMixin(QMixin, TorchCDQCastMixin, ABC):
 
     @classmethod
     def int8_dtype(cls):
-        return torch.qint8
+        return torch.int8
 
     @classmethod
     def uint8_dtype(cls):
-        return torch.quint8
+        return torch.uint8
 
     @classmethod
     def int32_dtype(cls):
-        return torch.qint32
+        return torch.int32
 
     def validate(self, module):
         super().validate(module)
@@ -98,10 +105,14 @@ class TorchQCDQCastMixin(QMixin, TorchCDQCastMixin, ABC):
 
     def quantize_fn(self, x, scale, zero_point, dtype, axis):
         if axis is None:
-            y = torch.quantize_per_tensor(x, scale, zero_point, dtype)
-        else:
-            y = torch.quantize_per_channel(x, scale, zero_point, axis, dtype)
-        return y.int_repr()
+            axis = -1
+        return torch.ops.brevitas.quantize(x, scale, zero_point, axis)
+
+        # if axis is None:
+        #     y = torch.quantize_per_tensor(x, scale, zero_point, dtype)
+        # else:
+        #     y = torch.quantize_per_channel(x, scale, zero_point, axis, dtype)
+        # return y.int_repr()
 
 
 class TorchQCDQHandler(BaseHandler):
@@ -119,9 +130,6 @@ class TorchQCDQCastWeightQuantProxyHandler(TorchQCDQCastMixin,
     def int_clip_symbolic_kwargs(cls, narrow, signed, bit_width):
         clip_args = super().int_clip_symbolic_kwargs(narrow, signed, bit_width)
         return _itemize_clip_bounds(clip_args)
-
-    def symbolic_execution(self, x: torch.Tensor):
-        return torch.ops.brevitas.quantize_dequantize(x), None, None, None
 
 
 class TorchQCDQCastDecoupledWeightQuantProxyHandler(TorchQCDQCastMixin,
@@ -154,9 +162,6 @@ class TorchQCDQCastActQuantProxyHandler(TorchQCDQCastMixin,
     def int_clip_symbolic_kwargs(cls, narrow, signed, bit_width):
         clip_args = super().int_clip_symbolic_kwargs(narrow, signed, bit_width)
         return _itemize_clip_bounds(clip_args)
-
-    def symbolic_execution(self, x: torch.Tensor):
-        return torch.ops.brevitas.quantize_dequantize(x), None, None, None
 
 
 class TorchCDQCastBiasQuantProxyHandler(TorchDQCastMixin,

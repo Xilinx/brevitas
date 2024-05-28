@@ -60,7 +60,8 @@ usage: main.py [-h] [-m MODEL] [-d DEVICE] [-b BATCH_SIZE] [--prompt PROMPT]
                [--calibration-prompt-path CALIBRATION_PROMPT_PATH]
                [--checkpoint-name CHECKPOINT_NAME]
                [--load-checkpoint LOAD_CHECKPOINT]
-               [--path-to-latents PATH_TO_LATENTS] [--resolution RESOLUTION]
+               [--path-to-latents PATH_TO_LATENTS]
+               [--path-to-coco PATH_TO_COCO] [--resolution RESOLUTION]
                [--guidance-scale GUIDANCE_SCALE]
                [--calibration-steps CALIBRATION_STEPS]
                [--output-path OUTPUT_PATH | --no-output-path]
@@ -77,7 +78,8 @@ usage: main.py [-h] [-m MODEL] [-d DEVICE] [-b BATCH_SIZE] [--prompt PROMPT]
                [--linear-input-bit-width LINEAR_INPUT_BIT_WIDTH]
                [--weight-param-method {stats,mse}]
                [--input-param-method {stats,mse}]
-               [--input-stats-op {minmax,percentile}]
+               [--input-scale-stats-op {minmax,percentile}]
+               [--input-zp-stats-op {minmax,percentile}]
                [--weight-scale-precision {float_scale,po2_scale}]
                [--input-scale-precision {float_scale,po2_scale}]
                [--weight-quant-type {sym,asym}]
@@ -89,11 +91,16 @@ usage: main.py [-h] [-m MODEL] [-d DEVICE] [-b BATCH_SIZE] [--prompt PROMPT]
                [--input-scale-type {static,dynamic}]
                [--weight-group-size WEIGHT_GROUP_SIZE]
                [--quantize-weight-zero-point | --no-quantize-weight-zero-point]
+               [--quantize-input-zero-point | --no-quantize-input-zero-point]
                [--export-cuda-float16 | --no-export-cuda-float16]
                [--use-mlperf-inference | --no-use-mlperf-inference]
                [--use-ocp | --no-use-ocp]
                [--use-negative-prompts | --no-use-negative-prompts]
                [--dry-run | --no-dry-run]
+               [--quantize-time-emb | --no-quantize-time-emb]
+               [--quantize-conv-in | --no-quantize-conv-in]
+               [--quantize-input-time-emb | --no-quantize-input-time-emb]
+               [--quantize-input-conv-in | --no-quantize-input-conv-in]
 
 Stable Diffusion quantization
 
@@ -113,21 +120,24 @@ options:
   --calibration-prompt-path CALIBRATION_PROMPT_PATH
                         Path to calibration prompt
   --checkpoint-name CHECKPOINT_NAME
-                        Name to use to store the checkpoint. If not provided,
-                        no checkpoint is saved.
+                        Name to use to store the checkpoint in the output dir.
+                        If not provided, no checkpoint is saved.
   --load-checkpoint LOAD_CHECKPOINT
                         Path to checkpoint to load. If provided, PTQ
                         techniques are skipped.
   --path-to-latents PATH_TO_LATENTS
                         Load pre-defined latents. If not provided, they are
                         generated based on an internal seed.
+  --path-to-coco PATH_TO_COCO
+                        Path to MLPerf compliant Coco dataset. Used when the
+                        --use-mlperf flag is set. Default: None
   --resolution RESOLUTION
                         Resolution along height and width dimension. Default:
                         512.
   --guidance-scale GUIDANCE_SCALE
                         Guidance scale.
   --calibration-steps CALIBRATION_STEPS
-                        Percentage of steps used during calibration
+                        Steps used during calibration
   --output-path OUTPUT_PATH
                         Path where to generate output folder.
   --no-output-path      Disable Path where to generate output folder.
@@ -169,8 +179,12 @@ options:
                         How scales/zero-point are determined. Default: stats.
   --input-param-method {stats,mse}
                         How scales/zero-point are determined. Default: stats.
-  --input-stats-op {minmax,percentile}
-                        Define what statics op to use . Default: minmax.
+  --input-scale-stats-op {minmax,percentile}
+                        Define what statics op to use for input scale.
+                        Default: minmax.
+  --input-zp-stats-op {minmax,percentile}
+                        Define what statics op to use for input zero point.
+                        Default: minmax.
   --weight-scale-precision {float_scale,po2_scale}
                         Whether scale is a float value or a po2. Default:
                         float_scale.
@@ -203,6 +217,10 @@ options:
                         Enable Quantize weight zero-point. Default: Enabled
   --no-quantize-weight-zero-point
                         Disable Quantize weight zero-point. Default: Enabled
+  --quantize-input-zero-point
+                        Enable Quantize input zero-point. Default: Enabled
+  --no-quantize-input-zero-point
+                        Disable Quantize input zero-point. Default: Enabled
   --export-cuda-float16
                         Enable Export FP16 on CUDA. Default: Disabled
   --no-export-cuda-float16
@@ -227,5 +245,23 @@ options:
                         calibration. Default: Disabled
   --no-dry-run          Disable Generate a quantized model without any
                         calibration. Default: Disabled
+  --quantize-time-emb   Enable Quantize time embedding layers. Default: True
+  --no-quantize-time-emb
+                        Disable Quantize time embedding layers. Default: True
+  --quantize-conv-in    Enable Quantize first conv layer. Default: True
+  --no-quantize-conv-in
+                        Disable Quantize first conv layer. Default: True
+  --quantize-input-time-emb
+                        Enable Quantize input to time embedding layers.
+                        Default: Disabled
+  --no-quantize-input-time-emb
+                        Disable Quantize input to time embedding layers.
+                        Default: Disabled
+  --quantize-input-conv-in
+                        Enable Quantize input to first conv layer. Default:
+                        Enabled
+  --no-quantize-input-conv-in
+                        Disable Quantize input to first conv layer. Default:
+                        Enabled
 
 ```
