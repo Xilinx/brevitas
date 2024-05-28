@@ -10,7 +10,6 @@ import torch
 from torch import Tensor
 
 import brevitas
-from brevitas.function.ops_ste import floor_ste
 
 
 @brevitas.jit.script
@@ -223,6 +222,9 @@ def get_upper_bound_on_l1_norm(
 @brevitas.jit.script
 def float_internal_scale(
         x: Tensor, mantissa_bit_width: Tensor, fp_internal_scale_min: Tensor) -> Tensor:
+    # Avoid circular import
+    from brevitas.function.ops_ste import floor_ste
+
     internal_scale = floor_ste(torch.log2(torch.abs(x))) - mantissa_bit_width
     internal_scale = torch.clamp_min(internal_scale, fp_internal_scale_min)
     internal_scale = torch.exp2(internal_scale)
