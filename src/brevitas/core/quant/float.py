@@ -59,9 +59,14 @@ class FloatQuant(brevitas.jit.ScriptModule):
         self.scaling_impl = scaling_impl
         self.float_clamp_impl = float_clamp_impl
 
+        # To avoid log(0), we add small a small value based on the used dtype
+        if dtype is None:
+            dtype = torch.get_default_dtype()
+        self.eps = torch.finfo(dtype).tiny
+
     @brevitas.jit.script_method
     def internal_scale(self, x):
-        internal_scale = floor_ste(torch.log2(torch.abs(x))) - self.mantissa_bit_width()
+        internal_scale = floor_ste(torch.log2(torch.abs(x) + self.eps)) - self.mantissa_bit_width()
         internal_scale = torch.clamp_min(internal_scale, self.fp_internal_scale_min())
         internal_scale = torch.exp2(internal_scale)
         return internal_scale
