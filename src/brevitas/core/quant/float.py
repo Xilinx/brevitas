@@ -59,6 +59,11 @@ class FloatQuant(brevitas.jit.ScriptModule):
         self.scaling_impl = scaling_impl
         self.float_clamp_impl = float_clamp_impl
 
+        # To avoid log(0), we add small a small value based on the used dtype
+        if dtype is None:
+            dtype = torch.get_default_dtype()
+        self.eps = torch.finfo(dtype).tiny
+
     @brevitas.jit.script_method
     def quantize(self, x: torch.Tensor):
         scaling_impl_value = self.scaling_impl(x)
