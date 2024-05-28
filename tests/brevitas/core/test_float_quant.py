@@ -12,6 +12,7 @@ from brevitas.core.function_wrapper import TensorClamp
 from brevitas.core.quant.float import FloatQuant
 from brevitas.core.scaling import ConstScaling
 from brevitas.core.scaling import FloatScaling
+from brevitas.function.ops import float_internal_scale
 from brevitas.function.ops import max_float
 from tests.brevitas.hyp_helper import float_st
 from tests.brevitas.hyp_helper import float_tensor_random_shape_st
@@ -192,7 +193,8 @@ def test_inner_scale(inp, minifloat_format, scale):
         max_value = max_val if max_available_float is None else torch.min(
             max_value, max_available_float)
         # call internal scale
-        internal_scale = float_quant.internal_scale(scaled_inp)
+        internal_scale = float_internal_scale(
+            scaled_inp, float_quant.mantissa_bit_width(), float_quant.fp_internal_scale_min())
         val_fp_quant = internal_scale * float_quant.float_to_int_impl(scaled_inp / internal_scale)
         if signed:
             val_fp_quant = torch.clip(val_fp_quant, -1. * max_val, max_val)
