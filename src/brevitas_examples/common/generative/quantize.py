@@ -200,20 +200,20 @@ def quantize_model(
         weight_float_format = {
             'exponent_bit_width': int(weight_quant_format[1]),
             'mantissa_bit_width': int(weight_quant_format[3])}
+        ocp_weight_format = weight_quant_format
+        weight_quant_format = 'float'
         if use_ocp:
             weight_quant_format += '_ocp'
-            ocp_weight_format = weight_quant_format
-        weight_quant_format = 'float'
     else:
         weight_float_format = {}
     if re.compile(r'e[1-8]m[1-8]').match(input_quant_format):
         input_float_format = {
             'exponent_bit_width': int(input_quant_format[1]),
             'mantissa_bit_width': int(input_quant_format[3])}
+        ocp_input_format = input_quant_format
+        input_quant_format = 'float'
         if use_ocp:
             input_quant_format += '_ocp'
-            ocp_input_format = input_quant_format
-        input_quant_format = 'float'
     else:
         input_float_format = {}
 
@@ -230,15 +230,15 @@ def quantize_model(
             input_scale_type][input_quant_type]
     elif input_bit_width is not None:
         if ocp_input_format:
-            input_quant = INPUT_QUANT_MAP[input_quant_format][ocp_input_format][input_scale_type][
+            input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][ocp_input_format][
                 input_scale_precision][input_param_method][input_quant_granularity][
                     input_quant_type]
             # Some activations in MHA should always be symmetric
-            sym_input_quant = INPUT_QUANT_MAP[input_quant_format][ocp_input_format][
-                input_scale_type][input_scale_precision][input_param_method][
+            sym_input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
+                ocp_input_format][input_scale_precision][input_param_method][
                     input_quant_granularity]['sym']
-            linear_input_quant = INPUT_QUANT_MAP[input_quant_format][ocp_input_format][
-                input_scale_type][input_scale_precision][input_param_method][
+            linear_input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
+                ocp_input_format][input_scale_precision][input_param_method][
                     input_quant_granularity][input_quant_type]
         else:
             input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][

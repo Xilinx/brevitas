@@ -66,6 +66,8 @@ class WeightFloatQuantProxyFromInjector(WeightQuantProxyFromInjectorBase):
         if self.is_quant_enabled:
             impl = self.export_handler if self.export_mode else self.tensor_quant
             out, scale, zero_point, exponent_bit_width, mantissa_bit_width, exponent_bias, saturating, inf_values, nan_values = impl(x)
+            if torch._dynamo.is_compiling():
+                return out
             return FloatQuantTensor(
                 out,
                 scale,

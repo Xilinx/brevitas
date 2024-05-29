@@ -136,9 +136,6 @@ def run_val_inference(
 
 def main(args):
 
-    if args.export_target:
-        assert args.weight_quant_format == 'int', "Currently only integer quantization supported for export."
-
     dtype = getattr(torch, args.dtype)
 
     calibration_prompts = CALIBRATION_PROMPTS

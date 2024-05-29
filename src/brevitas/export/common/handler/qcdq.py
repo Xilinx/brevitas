@@ -151,6 +151,7 @@ class FloatCDQCastProxyHandlerMixin(QuantAxisMixin,
         zp = to_0dim_if_scalar(zero_point)
         zp = zp.expand_as(scale)
         zp = cls.zero_point_with_dtype(exponent_bit_width, mantissa_bit_width, zp)
+        cls.scale_orig_shape = scale_orig_shape
         return {
             'scale': scale,
             'zero_point': zp,
@@ -158,7 +159,8 @@ class FloatCDQCastProxyHandlerMixin(QuantAxisMixin,
             # We save only the scale original shape
             # as zero-point is being expanded to the same
             # size as the scale
-            'scale_orig_shape': scale_orig_shape}
+        }
+        # 'scale_orig_shape': scale_orig_shape}
 
 
 class CDQCastProxyHandlerMixin(QuantAxisMixin, ClipMixin, ZeroPointHandlerMixin, CDQCastMixin, ABC):
@@ -269,7 +271,7 @@ class FloatQCDQCastWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHa
         assert self.symbolic_kwargs is not None, 'Symbolic execution requires quant to be enabled'
 
         # Copy dict to allow for popping kwargs even on shared quantizers
-        dequantize_symbolic_kwargs = copy(self.symbolic_kwargs['dequantize_symbolic_kwargs'])
+        dequantize_symbolic_kwargs = self.symbolic_kwargs['dequantize_symbolic_kwargs']
         scale = dequantize_symbolic_kwargs['scale']
         zero_point = dequantize_symbolic_kwargs['zero_point']
 
@@ -284,9 +286,11 @@ class FloatQCDQCastWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHa
         saturating = self.symbolic_kwargs['saturating']
         inf_values = self.symbolic_kwargs['inf_values']
         nan_values = self.symbolic_kwargs['nan_values']
-        scale_orig_shape = dequantize_symbolic_kwargs.pop('scale_orig_shape')
+        # scale_orig_shape = dequantize_symbolic_kwargs.pop('scale_orig_shape')
+        scale_orig_shape = self.scale_orig_shape
         # Workaround to trick the tracer into believing all return values are used
-        self.assert_ge_zero(scale, exponent_bit_width, mantissa_bit_width, exponent_bias)
+        if not torch._dynamo.is_compiling():
+            self.assert_ge_zero(scale, exponent_bit_width, mantissa_bit_width, exponent_bias)
         if clip_symbolic_kwargs is not None:
             x = self.clip_fn(x, *clip_symbolic_kwargs.values())
         x = self.dequantize_fn(x, *dequantize_symbolic_kwargs.values())
@@ -466,6 +470,8 @@ class FloatQCDQCastActQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHandl
                 module.zero_point(),
                 module.exponent_bit_width(),
                 module.mantissa_bit_width())
+            # self.scale_orig_shape = self.symbolic_kwargs['dequantize_symbolic_kwargs'].pop(
+            #     'scale_orig_shape')
             self.symbolic_kwargs['clip_symbolic_kwargs'] = self.clip_symbolic_kwargs(
                 module.is_narrow_range,
                 module.is_signed,
@@ -479,10 +485,10 @@ class FloatQCDQCastActQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHandl
         assert self.symbolic_kwargs is not None, 'Symbolic execution requires quant to be enabled'
 
         # Copy dict to allow for popping kwargs even on shared quantizers
-        dequantize_symbolic_kwargs = copy(self.symbolic_kwargs['dequantize_symbolic_kwargs'])
+        dequantize_symbolic_kwargs = self.symbolic_kwargs['dequantize_symbolic_kwargs']
         scale = dequantize_symbolic_kwargs['scale']
         zero_point = dequantize_symbolic_kwargs['zero_point']
-        scale_orig_shape = dequantize_symbolic_kwargs.pop('scale_orig_shape')
+        scale_orig_shape = self.scale_orig_shape
 
         quantize_symbolic_kwargs = self.symbolic_kwargs['quantize_symbolic_kwargs']
         clip_symbolic_kwargs = self.symbolic_kwargs['clip_symbolic_kwargs']
@@ -492,8 +498,8 @@ class FloatQCDQCastActQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHandl
         saturating = self.symbolic_kwargs['saturating']
         inf_values = self.symbolic_kwargs['inf_values']
         nan_values = self.symbolic_kwargs['nan_values']
-
-        self.assert_ge_zero(scale, exponent_bit_width, mantissa_bit_width, exponent_bias)
+        if not torch._dynamo.is_compiling():
+            self.assert_ge_zero(scale, exponent_bit_width, mantissa_bit_width, exponent_bias)
         # If original dtype of the input is (b)float16, cast the input to float32
         if x.dtype == torch.float16 or x.dtype == torch.bfloat16:
             x = self.cast_fn(x, torch.float32)

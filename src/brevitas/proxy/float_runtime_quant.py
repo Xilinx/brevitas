@@ -43,7 +43,6 @@ class ActFloatQuantProxyFromInjector(ActQuantProxyFromInjectorBase):
             y = x
             if isinstance(y, FloatQuantTensor):
                 y = y.value
-
             if self.export_mode:
                 y = self.fused_activation_quant_proxy.activation_impl(y)
                 y = self.export_handler(y)
@@ -55,7 +54,10 @@ class ActFloatQuantProxyFromInjector(ActQuantProxyFromInjectorBase):
             # otherwise return a simple Tensor
             # We exclude the last two values (inf_values and nan_values)
             if isinstance(y, tuple) and not any(map(lambda f: f is None, y[:-2])):
-                out = FloatQuantTensor(*y, signed=self.is_signed, training=self.training)
+                if torch._dynamo.is_compiling():
+                    pass
+                else:
+                    out = FloatQuantTensor(*y, signed=self.is_signed, training=self.training)
             elif self.is_passthrough_act:  # preserve scale/zp/bit/sign even without output quant
                 if isinstance(y, tuple):
                     y = y[0]

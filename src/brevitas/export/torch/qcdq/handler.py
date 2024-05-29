@@ -9,6 +9,9 @@ from brevitas.export.common.handler.base import BaseHandler
 from brevitas.export.common.handler.qcdq import CDQCastBiasQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import CDQCastMixin
 from brevitas.export.common.handler.qcdq import DQCastMixin
+from brevitas.export.common.handler.qcdq import FloatQCDQCastActQuantProxyHandlerMixin
+from brevitas.export.common.handler.qcdq import FloatQCDQCastWeightQuantProxyHandlerMixin
+from brevitas.export.common.handler.qcdq import FloatQMixin
 from brevitas.export.common.handler.qcdq import QCDQCastActQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQCastDecoupledWeightQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import \
@@ -115,10 +118,59 @@ class TorchQCDQCastMixin(QMixin, TorchCDQCastMixin, ABC):
         # return y.int_repr()
 
 
+class StdFloatDQCastONNXMixin(TorchDQCastMixin, ABC):
+
+    def is_ocp(self, module):
+        is_e4m3 = module.mantissa_bit_width() == 3 and module.exponent_bit_width() == 4
+
+        is_ocp_e4m3 = is_e4m3 and module.inf_values() is None and module.nan_values() == (('111',))
+
+        is_e5m2 = module.mantissa_bit_width() == 5 and module.exponent_bit_width() == 2
+
+        is_ocp_e5m2 = is_e5m2 and module.inf_values() == (
+            ('00',)) and module.nan_values() == ('01', '11', '10')
+
+        return is_ocp_e4m3 or is_ocp_e5m2
+
+    def validate(self, module):
+        assert self.is_ocp(module), 'Only OCP Standard is supported for FP8 export'
+
+
+class StdFloatCDQCastONNXMixin(CDQCastMixin, StdFloatDQCastONNXMixin, ABC):
+
+    def clip_fn(self, x, min_val, max_val):
+        raise NotImplementedError
+
+
+class StdFloatQCDQCastONNXMixin(FloatQMixin, StdFloatCDQCastONNXMixin, ABC):
+
+    def validate(self, module):
+        if getattr(self, '_export_q_node', True):
+            assert module.rounding_mode.upper() == 'ROUND', 'Only round to nearest even supported'
+        super().validate(module)
+
+    def quantize_fn(self, x, scale, zero_point, dtype, axis):
+        if axis is None:
+            axis = -1
+        return torch.ops.brevitas.quantize(x, scale, zero_point, axis)
+
+
 class TorchQCDQHandler(BaseHandler):
 
     def forward(self, *args, **kwargs):
         return self.symbolic_execution(*args, **kwargs)
+
+
+class TorchFloatQCDQCastWeightQuantProxyHandler(StdFloatQCDQCastONNXMixin,
+                                                FloatQCDQCastWeightQuantProxyHandlerMixin,
+                                                TorchQCDQHandler):
+    _export_q_node = False
+
+
+class TorchFloatQCDQCastActQuantProxyHandler(StdFloatQCDQCastONNXMixin,
+                                             FloatQCDQCastActQuantProxyHandlerMixin,
+                                             TorchQCDQHandler):
+    pass
 
 
 class TorchQCDQCastWeightQuantProxyHandler(TorchQCDQCastMixin,
