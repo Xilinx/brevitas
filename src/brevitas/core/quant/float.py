@@ -10,8 +10,7 @@ import brevitas
 from brevitas.core.function_wrapper import RoundSte
 from brevitas.core.scaling import ConstScaling
 from brevitas.core.utils import StatelessBuffer
-from brevitas.function.ops import max_float
-from brevitas.function.ops_ste import floor_ste
+from brevitas.utils.torch_utils import float_internal_scale
 
 
 class FloatQuant(brevitas.jit.ScriptModule):
@@ -59,12 +58,10 @@ class FloatQuant(brevitas.jit.ScriptModule):
         self.scaling_impl = scaling_impl
         self.float_clamp_impl = float_clamp_impl
 
-    @brevitas.jit.script_method
-    def internal_scale(self, x):
-        internal_scale = floor_ste(torch.log2(torch.abs(x))) - self.mantissa_bit_width()
-        internal_scale = torch.clamp_min(internal_scale, self.fp_internal_scale_min())
-        internal_scale = torch.exp2(internal_scale)
-        return internal_scale
+        # To avoid log(0), we add small a small value based on the used dtype
+        if dtype is None:
+            dtype = torch.get_default_dtype()
+        self.eps = torch.finfo(dtype).tiny
 
     @brevitas.jit.script_method
     def quantize(self, x: torch.Tensor):
@@ -73,7 +70,8 @@ class FloatQuant(brevitas.jit.ScriptModule):
             self.exponent_bit_width(), self.mantissa_bit_width(), self.exponent_bias())
         scale = scaling_impl_value / float_scaling_impl_value
         scaled_x = x / scale
-        internal_scale = self.internal_scale(scaled_x)
+        internal_scale = float_internal_scale(
+            scaled_x, self.mantissa_bit_width(), self.fp_internal_scale_min())
         val_fp_quant = internal_scale * self.float_to_int_impl(scaled_x / internal_scale)
         return val_fp_quant, scale
 

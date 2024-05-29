@@ -3,10 +3,10 @@
 
 import torch
 
-from brevitas.function.ops_ste import round_ste
 from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import FloatQuantTensorBase
 from brevitas.quant_tensor import QuantTensor
+from brevitas.utils.torch_utils import float_internal_scale
 
 from .float_torch_handler import FLOAT_QUANT_TENSOR_FN_HANDLER
 from .torch_handler import QUANT_TENSOR_FN_HANDLER
@@ -94,13 +94,13 @@ class FloatQuantTensor(FloatQuantTensorBase, QuantTensor):
     def _pre_round_float_value(self):
         value = self.value
         scale = self.scale
-        zero_point = self.zero_point
         if self.scale.dtype == torch.bfloat16:
             value = self.value.type(torch.float32)
             scale = self.scale.type(torch.float32)
-            zero_point = self.zero_point.type(torch.float32)
         minifloat_value = value / scale
-        minifloat_value = minifloat_value + zero_point
+        fp_internal_scale = 1. - self.exponent_bias - self.mantissa_bit_width
+        int_scale = float_internal_scale(self.value, self.mantissa_bit_width, fp_internal_scale)
+        minifloat_value = minifloat_value / int_scale
         return minifloat_value
 
     @property
@@ -130,10 +130,13 @@ class FloatQuantTensor(FloatQuantTensorBase, QuantTensor):
         return value_device
 
     def minifloat(self, float_datatype=True):
+        # TODO: Check if OCP and cast to proper data-type if matching
         assert float_datatype, "Minifloat quant returns only higher precision dtype"
 
         if self.is_valid:
-            float_value = self._pre_round_float_value
+            fp_internal_scale = 1. - self.exponent_bias - self.mantissa_bit_width
+            int_scale = float_internal_scale(self.value, self.mantissa_bit_width, fp_internal_scale)
+            float_value = torch.round(self._pre_round_float_value) * int_scale
             return float_value.type(self.scale.dtype)
         else:
             raise RuntimeError(f"FloatQuantTensor not valid.")

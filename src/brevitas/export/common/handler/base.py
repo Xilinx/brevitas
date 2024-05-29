@@ -4,6 +4,7 @@
 from abc import ABC
 from abc import abstractmethod
 import math
+from warnings import warn
 
 import torch
 from torch import Tensor
@@ -12,7 +13,8 @@ from torch.nn import Module
 from brevitas.function.ops import max_int
 from brevitas.function.ops import min_int
 
-__all__ = ['BaseHandler', 'BitWidthHandlerMixin', 'ZeroPointHandlerMixin']
+__all__ = [
+    'BaseHandler', 'BitWidthHandlerMixin', 'ZeroPointHandlerMixin', 'FloatZeroPointHandlerMixin']
 
 
 class BaseHandler(Module, ABC):
@@ -35,6 +37,13 @@ class QuantAxisMixin(ABC):
         for i, s in enumerate(scale.shape):
             if s != 1:
                 return i
+        return None
+
+
+class FloatClipMixin(ABC):
+
+    @classmethod
+    def clip_symbolic_kwargs(cls, narrow, signed, exponent_bit_width, mantissa_bit_width):
         return None
 
 
@@ -110,6 +119,18 @@ class ScaleHandlerMixin(ABC):
     @classmethod
     def validate_neg_scalar_int_exponent(cls, scale: Tensor):
         return -cls.validate_scalar_int_exponent(scale)
+
+
+class FloatZeroPointHandlerMixin(ABC):
+
+    @classmethod
+    def zero_point_with_dtype(cls, exponent_bit_width, mantissa_bit_width, zero_point):
+        if exponent_bit_width == 4 and mantissa_bit_width == 3:
+            return zero_point.type(torch.float8_e4m3fn)
+        elif exponent_bit_width == 5 and mantissa_bit_width == 2:
+            return zero_point.type(torch.float8_e5m2)
+        else:
+            return zero_point.type(torch.float32)
 
 
 class ZeroPointHandlerMixin(ABC):

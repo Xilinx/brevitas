@@ -1,13 +1,7 @@
 import functools
-import math
-import warnings
 
 import torch
 import torch.nn.functional as F
-
-from brevitas.function.ops import max_int
-from brevitas.function.ops_ste import ceil_ste
-from brevitas.utils.torch_utils import compute_channel_view_shape
 
 FLOAT_QUANT_TENSOR_FN_HANDLER = {}
 

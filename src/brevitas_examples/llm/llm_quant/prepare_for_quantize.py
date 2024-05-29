@@ -13,7 +13,7 @@ def replace_mha_with_quantizable_layers(model, dtype):
     for src_module, (quantizable_module, quantizable_module_kwargs) in QUANTIZABLE_MHA_MAP.items():
         rewriter = ModuleToModuleByClass(
             src_module, quantizable_module, **quantizable_module_kwargs, dtype=dtype)
-    rewriters.append(rewriter)
+        rewriters.append(rewriter)
     if not rewriters:
         warnings.warn(
             f"No module to replace was found. Supported modules are {list(QUANTIZABLE_MHA_MAP.keys())}"

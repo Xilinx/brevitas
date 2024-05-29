@@ -23,6 +23,9 @@ jobs:
 
         exclude:
           - pytorch_version: '1.9.1'
+            platform: 'macos-latest'
+
+          - pytorch_version: '1.9.1'
             jit_status: 'jit_enabled'
 
 
