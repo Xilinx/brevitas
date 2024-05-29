@@ -10,10 +10,10 @@ from brevitas.export import export_onnx_qcdq
 import brevitas.nn as qnn
 from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPActPerTensorFloat
 from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPWeightPerTensorFloat
-from tests.marker import jit_disabled_for_mock
+from tests.marker import jit_disabled_for_export
 
 
-@jit_disabled_for_mock()
+@jit_disabled_for_export()
 def test_simple_fp8_export():
     if torch_version < version.parse('2.1.0'):
         pytest.skip(f"OCP FP8 types not supported by {torch_version}")
@@ -23,7 +23,7 @@ def test_simple_fp8_export():
     assert True
 
 
-@jit_disabled_for_mock()
+@jit_disabled_for_export()
 def test_fp8_export_activation():
     if torch_version < version.parse('2.1.0'):
         pytest.skip(f"OCP FP8 types not supported by {torch_version}")
@@ -33,7 +33,7 @@ def test_fp8_export_activation():
     assert True
 
 
-@jit_disabled_for_mock()
+@jit_disabled_for_export()
 def test_fp8_export_export_activation():
     if torch_version < version.parse('2.1.0'):
         pytest.skip(f"OCP FP8 types not supported by {torch_version}")
