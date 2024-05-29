@@ -1,6 +1,8 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from .float_parameter_quant import WeightFloatQuantProxyFromInjector
+from .float_runtime_quant import ActFloatQuantProxyFromInjector
 from .parameter_quant import BiasQuantProxyFromInjector
 from .parameter_quant import BiasQuantProxyFromInjectorBase
 from .parameter_quant import DecoupledWeightQuantProxyFromInjector

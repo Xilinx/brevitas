@@ -95,6 +95,23 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
         self.cache_inference_quant_act = False
         self.cache_quant_io_metadata_only = True
 
+    def internal_forward(self, force_eval):
+        current_status = self.training
+        if force_eval:
+            self.eval()
+        out = self.__call__(self._zero_hw_sentinel())
+        self.train(current_status)
+        return out
+
+    def retrieve_attribute(self, attribute, force_eval):
+        if self.is_quant_enabled:
+            out = self.internal_forward(force_eval)
+            return getattr(out, attribute)
+        elif self._cached_act is not None:
+            return getattr(self._cached_act, attribute)
+        elif self._cached_act is None:
+            return None
+
     @property
     def is_quant_enabled(self):
         return self._is_quant_enabled and not self.disable_quant
@@ -132,43 +149,13 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
 class ActQuantProxyFromInjector(ActQuantProxyFromInjectorBase):
 
     def scale(self, force_eval=True):
-        if self.is_quant_enabled:
-            current_status = self.training
-            if force_eval:
-                self.eval()
-            out = self.__call__(self._zero_hw_sentinel())
-            self.train(current_status)
-            return out.scale
-        elif self._cached_act is not None:
-            return self._cached_act.scale
-        elif self._cached_act is None:
-            return None
+        return self.retrieve_attribute('scale', force_eval)
 
     def zero_point(self, force_eval=True):
-        if self.is_quant_enabled:
-            current_status = self.training
-            if force_eval:
-                self.eval()
-            out = self.__call__(self._zero_hw_sentinel())
-            self.train(current_status)
-            return out.zero_point
-        elif self._cached_act is not None:
-            return self._cached_act.zero_point
-        elif self._cached_act is None:
-            return None
+        return self.retrieve_attribute('zero_point', force_eval)
 
     def bit_width(self, force_eval=True):
-        if self.is_quant_enabled:
-            current_status = self.training
-            if force_eval:
-                self.eval()
-            out = self.__call__(self._zero_hw_sentinel())
-            self.train(current_status)
-            return out.bit_width
-        elif self._cached_act is not None:
-            return self._cached_act.bit_width
-        elif self._cached_act is None:
-            return None
+        return self.retrieve_attribute('bit_width', force_eval)
 
     def forward(self, x: Union[Tensor, IntQuantTensor]) -> Union[Tensor, IntQuantTensor]:
         out = x

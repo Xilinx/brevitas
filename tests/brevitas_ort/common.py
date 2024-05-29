@@ -18,6 +18,8 @@ from brevitas.nn import QuantConvTranspose1d
 from brevitas.nn import QuantConvTranspose2d
 from brevitas.nn import QuantConvTranspose3d
 from brevitas.nn import QuantLinear
+from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPActPerTensorFloat
+from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPWeightPerTensorFloat
 from brevitas.quant.fixed_point import Int8ActPerTensorFixedPoint
 from brevitas.quant.fixed_point import Int8WeightPerChannelFixedPoint
 from brevitas.quant.fixed_point import Int8WeightPerTensorFixedPoint
@@ -59,7 +61,8 @@ WBIOL_QUANTIZERS = {
     'symmetric_per_channel_fixed_point':
         (Int8WeightPerChannelFixedPoint, Int8ActPerTensorFixedPoint),
     'weight_symmetric_activation_dynamic_asymmetric_per_tensor_float':
-        (Int8WeightPerTensorFloat, ShiftedUint8DynamicActPerTensorFloat)}
+        (Int8WeightPerTensorFloat, ShiftedUint8DynamicActPerTensorFloat),
+    'fp8_per_tensor_float': (Fp8e4m3OCPWeightPerTensorFloat, Fp8e4m3OCPActPerTensorFloat)}
 LSTM_QUANTIZERS = {
     'asymmetric_per_tensor_float':
         (ShiftedUint8WeightPerTensorFloat, ShiftedUint8ActPerTensorFloat),
@@ -120,7 +123,14 @@ def recursive_allclose(ort_output, brevitas_output, tolerance):
 
 
 def is_brevitas_ort_close(
-        model, np_input, export_name, export_type, tolerance=None, first_output_only=False):
+        model,
+        np_input,
+        export_name,
+        export_type,
+        tolerance=None,
+        first_output_only=False,
+        onnx_opset=14,
+        export_q_weight=False):
     input_t = torch.from_numpy(np_input)
     with torch.no_grad():
         brevitas_output = model(input_t)
@@ -143,9 +153,12 @@ def is_brevitas_ort_close(
         ort_output = odict[exported_model.graph.output[0].name]
     else:
         if export_type == 'qcdq':
-            export_onnx_qcdq(model, input_t, export_path=export_name)
-        elif export_type == 'qcdq_opset14':
-            export_onnx_qcdq(model, input_t, opset_version=14, export_path=export_name)
+            export_onnx_qcdq(
+                model,
+                input_t,
+                export_path=export_name,
+                export_weight_q_node=export_q_weight,
+                opset_version=onnx_opset)
         elif export_type == 'qonnx_opset14':
             export_qonnx(model, input_t, opset_version=14, export_path=export_name)
         else:

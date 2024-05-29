@@ -7,10 +7,8 @@ from brevitas.core.quant.float import FloatQuant
 from brevitas.core.scaling.float_scaling import FloatScaling
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import value
-from brevitas.proxy.float_parameter_quant import WeightFloatQuantProxyFromInjector
-from brevitas.proxy.float_runtime_quant import ActFloatQuantProxyFromInjector
-from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
-from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector
+from brevitas.proxy import ActFloatQuantProxyFromInjector
+from brevitas.proxy import WeightFloatQuantProxyFromInjector
 from brevitas.quant.solver import ActQuantSolver
 from brevitas.quant.solver import WeightQuantSolver
 from brevitas.quant.solver.common import SolveTensorQuantFloatToIntImplFromEnum

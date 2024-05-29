@@ -30,6 +30,43 @@ from ..manager import BaseManager
 from ..manager import ExportContext
 
 
+# workaround for fp8 not having many operators implemented
+class PatchFp8Ops():
+
+    def __init__(self):
+        self.lib = None
+
+    def __enter__(self):
+        if torch_version >= version.parse('2.1.0'):
+            self.lib = torch.library.Library("aten", "IMPL")
+
+            def equal_cpu(self, other):
+                if (isinstance(self, Tensor) and
+                        self.dtype in (torch.float8_e4m3fn, torch.float8_e5m2)) or (
+                            isinstance(other, Tensor) and
+                            other.dtype in (torch.float8_e4m3fn, torch.float8_e5m2)):
+                    self = self.to(torch.float32)
+                    other = other.to(torch.float32)
+                    return torch.equal(self, other)
+                else:
+                    res = True
+                    if not isinstance(self, Tensor):
+                        self = torch.tensor(self)
+                    if not isinstance(other, Tensor):
+                        other = torch.tensor(other)
+                    if self.dim() > 0:
+                        for x, y in zip(self.flatten(), other.flatten()):
+                            res &= x == y
+                    else:
+                        res = self.item() == other.item()
+                    return torch.tensor([res])
+
+            self.lib.impl("equal", equal_cpu, "CPU")
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        self.lib = None
+
+
 class ONNXBaseManager(BaseManager, ABC):
 
     model_transforms = []
@@ -127,7 +164,9 @@ class ONNXBaseManager(BaseManager, ABC):
                     else:
                         model_bytes = BytesIO()
                         export_target = model_bytes
-                    torch.onnx.export(module, args, export_target, **onnx_export_kwargs)
+
+                    with PatchFp8Ops():
+                        torch.onnx.export(module, args, export_target, **onnx_export_kwargs)
 
                     # restore the model to previous properties
                     module.apply(lambda m: _restore_act_caching_mode(m))

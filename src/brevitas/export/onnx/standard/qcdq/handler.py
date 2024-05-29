@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from abc import ABC
+from warnings import warn
 
 import torch
 
@@ -10,6 +11,9 @@ from brevitas.export.common.handler.qcdq import CDQCastMixin
 from brevitas.export.common.handler.qcdq import DQCastMixin
 from brevitas.export.common.handler.qcdq import DynamicQDQCastActQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import DynamicQMixin
+from brevitas.export.common.handler.qcdq import FloatQCDQCastActQuantProxyHandlerMixin
+from brevitas.export.common.handler.qcdq import FloatQCDQCastWeightQuantProxyHandlerMixin
+from brevitas.export.common.handler.qcdq import FloatQMixin
 from brevitas.export.common.handler.qcdq import QCDQCastActQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import QCDQCastDecoupledWeightQuantProxyHandlerMixin
 from brevitas.export.common.handler.qcdq import \
@@ -47,10 +51,45 @@ class StdDQCastONNXMixin(DQCastMixin, ABC):
         assert module.bit_width() > 1., 'Binary quant not supported'
 
 
+class StdFloatDQCastONNXMixin(StdDQCastONNXMixin, ABC):
+
+    def is_ocp(self, module):
+        is_e4m3 = module.mantissa_bit_width() == 3 and module.exponent_bit_width() == 4
+
+        is_ocp_e4m3 = is_e4m3 and module.inf_values() is None and module.nan_values() == (('111',))
+
+        is_e5m2 = module.mantissa_bit_width() == 5 and module.exponent_bit_width() == 2
+
+        is_ocp_e5m2 = is_e5m2 and module.inf_values() == (
+            ('00',)) and module.nan_values() == ('01', '11', '10')
+
+        return is_ocp_e4m3 or is_ocp_e5m2
+
+    def validate(self, module):
+        assert self.is_ocp(module), 'Only OCP Standard is supported for FP8 export'
+
+
+class StdFloatCDQCastONNXMixin(CDQCastMixin, StdFloatDQCastONNXMixin, ABC):
+
+    def clip_fn(self, x, min_val, max_val):
+        raise NotImplementedError
+
+
 class StdCDQCastONNXMixin(CDQCastMixin, StdDQCastONNXMixin, ABC):
 
     def clip_fn(self, x, min_val, max_val):
         return IntClipFn.apply(x, min_val, max_val)
+
+
+class StdFloatQCDQCastONNXMixin(FloatQMixin, StdFloatCDQCastONNXMixin, ABC):
+
+    def validate(self, module):
+        if getattr(self, '_export_q_node', True):
+            assert module.rounding_mode.upper() == 'ROUND', 'Only round to nearest even supported'
+        super().validate(module)
+
+    def quantize_fn(self, x, scale, zero_point, dtype, axis):
+        return QuantizeLinearFn.apply(x, scale, zero_point, dtype, axis)
 
 
 class StdQCDQCastONNXMixin(QMixin, StdCDQCastONNXMixin, ABC):
@@ -112,6 +151,12 @@ class StdDynamicQDQCastONNXMixin(DynamicQMixin, StdDQCastONNXMixin, ABC):
         return DynamicQuantizeLinearFn.apply(x, dtype)
 
 
+class StdFloatQCDQCastONNXWeightQuantProxyHandler(StdFloatQCDQCastONNXMixin,
+                                                  FloatQCDQCastWeightQuantProxyHandlerMixin,
+                                                  ONNXBaseHandler):
+    _export_q_node = False
+
+
 class StdQCDQCastONNXWeightQuantProxyHandler(StdQCDQCastONNXMixin,
                                              QCDQCastWeightQuantProxyHandlerMixin,
                                              ONNXBaseHandler):
@@ -128,6 +173,12 @@ class StdQCDQCastONNXDecoupledWeightQuantWithInputProxyHandler(
         StdQCDQCastONNXMixin, QCDQCastDecoupledWeightQuantWithInputProxyHandlerMixin,
         ONNXBaseHandler):
     _export_q_node = False
+
+
+class StdFloatQCDQCastONNXActQuantProxyHandler(StdFloatQCDQCastONNXMixin,
+                                               FloatQCDQCastActQuantProxyHandlerMixin,
+                                               ONNXBaseHandler):
+    pass
 
 
 class StdQCDQCastONNXActQuantProxyHandler(StdQCDQCastONNXMixin,
