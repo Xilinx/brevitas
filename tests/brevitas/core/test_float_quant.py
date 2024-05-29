@@ -12,8 +12,8 @@ from brevitas.core.function_wrapper import TensorClamp
 from brevitas.core.quant.float import FloatQuant
 from brevitas.core.scaling import ConstScaling
 from brevitas.core.scaling import FloatScaling
-from brevitas.function.ops import float_internal_scale
 from brevitas.function.ops import max_float
+from brevitas.utils.torch_utils import float_internal_scale
 from tests.brevitas.hyp_helper import float_st
 from tests.brevitas.hyp_helper import float_tensor_random_shape_st
 from tests.brevitas.hyp_helper import random_minifloat_format
