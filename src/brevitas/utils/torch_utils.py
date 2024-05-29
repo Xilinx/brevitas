@@ -7,6 +7,9 @@ from typing import Optional, Tuple
 import torch
 from torch.nn import Sequential
 
+import brevitas
+from brevitas.function.ops_ste import floor_ste
+
 
 class TupleSequential(Sequential):
 
@@ -86,3 +89,14 @@ def compute_channel_view_shape(tensor: torch.Tensor, channel_dim: int):
     broadcast_shape = [1] * len(tensor.size())
     broadcast_shape[channel_dim] = -1
     return tuple(broadcast_shape)
+
+
+@brevitas.jit.script
+def float_internal_scale(
+        x: torch.Tensor, mantissa_bit_width: torch.Tensor,
+        fp_internal_scale_min: torch.Tensor) -> torch.Tensor:
+
+    internal_scale = floor_ste(torch.log2(torch.abs(x))) - mantissa_bit_width
+    internal_scale = torch.clamp_min(internal_scale, fp_internal_scale_min)
+    internal_scale = torch.exp2(internal_scale)
+    return internal_scale

@@ -217,15 +217,3 @@ def get_upper_bound_on_l1_norm(
     max_accumulator_mag = pow(2., max_accumulator_bit_width - 1.) - 1.  # 2^{P-1}-1
     max_input_mag_inverse = pow(2., input_is_signed - input_bit_width)
     return max_accumulator_mag * max_input_mag_inverse
-
-
-@brevitas.jit.script
-def float_internal_scale(
-        x: Tensor, mantissa_bit_width: Tensor, fp_internal_scale_min: Tensor) -> Tensor:
-    # Avoid circular import
-    from brevitas.function.ops_ste import floor_ste
-
-    internal_scale = floor_ste(torch.log2(torch.abs(x))) - mantissa_bit_width
-    internal_scale = torch.clamp_min(internal_scale, fp_internal_scale_min)
-    internal_scale = torch.exp2(internal_scale)
-    return internal_scale

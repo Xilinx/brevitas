@@ -10,8 +10,7 @@ import brevitas
 from brevitas.core.function_wrapper import RoundSte
 from brevitas.core.scaling import ConstScaling
 from brevitas.core.utils import StatelessBuffer
-from brevitas.function.ops import float_internal_scale
-from brevitas.function.ops_ste import floor_ste
+from brevitas.utils.torch_utils import float_internal_scale
 
 
 class FloatQuant(brevitas.jit.ScriptModule):

@@ -3,12 +3,10 @@
 
 import torch
 
-from brevitas.function.ops import float_internal_scale
-from brevitas.function.ops_ste import floor_ste
-from brevitas.function.ops_ste import round_ste
 from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import FloatQuantTensorBase
 from brevitas.quant_tensor import QuantTensor
+from brevitas.utils.torch_utils import float_internal_scale
 
 from .float_torch_handler import FLOAT_QUANT_TENSOR_FN_HANDLER
 from .torch_handler import QUANT_TENSOR_FN_HANDLER
