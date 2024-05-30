@@ -87,7 +87,7 @@ class FloatClamp(brevitas.jit.ScriptModule):
     I.e. setting inf to 1101.111 (E4M3) is not a valid code.
     """
 
-    __constants__ = ['saturating', 'inf_values', 'nan_values', 'signed', 'max_available_float']
+    __constants__ = ['saturating', 'inf_values', 'nan_values', 'signed']
 
     def __init__(
             self,
