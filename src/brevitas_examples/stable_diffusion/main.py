@@ -207,9 +207,9 @@ def main(args):
     blacklist = []
     for name, _ in pipe.unet.named_modules():
         if 'time_emb' in name and not args.quantize_time_emb:
-            blacklist.append(name)
+            blacklist.append(name.split('.')[-1])
         if 'conv_in' in name and not args.quantize_conv_in:
-            blacklist.append(name)
+            blacklist.append(name.split('.')[-1])
     print(f"Blacklisted layers: {blacklist}")
 
     # Make sure there all LoRA layers are fused first, otherwise raise an error
@@ -424,7 +424,7 @@ def main(args):
         # with brevitas_proxy_inference_mode(pipe.unet):
         if args.use_mlperf_inference:
             print(f"Computing accuracy with MLPerf pipeline")
-            compute_mlperf_fid(args.model, args.path_to_coco, pipe, args.prompt)
+            compute_mlperf_fid(args.model, args.path_to_coco, pipe, args.prompt, output_dir)
         else:
             print(f"Computing accuracy on default prompt")
             prompts = list()

@@ -180,6 +180,7 @@ Available under the following LICENSE:
    END OF TERMS AND CONDITIONS
 """
 
+import json
 import logging
 import os
 import pathlib
@@ -483,7 +484,12 @@ class PostProcessCoco:
         return result_dict
 
 
-def compute_mlperf_fid(path_to_sdxl, path_to_coco, model_to_replace=None, samples_to_evaluate=500):
+def compute_mlperf_fid(
+        path_to_sdxl,
+        path_to_coco,
+        model_to_replace=None,
+        samples_to_evaluate=500,
+        output_dir=None):
 
     assert os.path.isfile(path_to_coco + '/tools/val2014.npz'), "Val2014.npz file required. Check the MLPerf directory for instructions"
 
@@ -521,3 +527,7 @@ def compute_mlperf_fid(path_to_sdxl, path_to_coco, model_to_replace=None, sample
         runner.run_one_item(Item(idx, idx, data, label))
         post_proc.finalize(res_dict, ds=ds)
         log.info(res_dict)
+    if output_dir is not None:
+        # Dump args to json
+        with open(os.path.join(output_dir, 'results_mlperf.json'), 'w') as fp:
+            json.dump(res_dict, fp)
