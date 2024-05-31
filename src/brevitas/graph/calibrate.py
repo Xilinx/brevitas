@@ -286,17 +286,17 @@ class _BiasCorrection(DisableEnableQuantization):
         for name, module in model.named_modules():
             if name in self.correction_map.keys():
                 correction = self.correction_map[name] / self.iterations[name]
+                # When accelerate is enabled, bring tensors onto the device to avoid allocating a meta parameter.
+                if hasattr(module, 'allocate_params'):
+                    module.allocate_params(module)
                 if module.bias is not None:
                     module.bias.data += correction
                 elif self.skip_if_no_bias is False:
-                    # When accelerate is enabled, bring tensors onto the device to avoid allocating a meta parameter.
-                    if hasattr(module, 'allocate_params'):
-                        module.allocate_params(module)
                     module.register_parameter(
                         'bias', nn.Parameter(correction).to(module.weight.device))
-                    # Offload params again
-                    if hasattr(module, 'offload_params'):
-                        module.offload_params(module)
+                # Offload params again
+                if hasattr(module, 'offload_params'):
+                    module.offload_params(module)
 
     def compute_correct_bias(self, module, inp, name):
         inp = self.unpack_input(inp)
