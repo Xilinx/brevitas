@@ -33,15 +33,14 @@ def create_validation_dataloader(data, seqlen, device):
 
 @torch.no_grad()
 def model_eval(model, valenc, seqlen):
-
     nsamples = len(valenc)
-
+    dev = next(iter(model.parameters())).device
     with torch.no_grad():
         nlls = []
         for inps in valenc:
             lm_logits = model(**inps)['logits']
             shift_logits = lm_logits[:, :-1, :].contiguous()
-            shift_labels = inps['input_ids'][:, 1:].to(model.device)
+            shift_labels = inps['input_ids'][:, 1:].to(dev)
             loss_fct = nn.CrossEntropyLoss()
             loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
             neg_log_likelihood = loss.float() * seqlen
