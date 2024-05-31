@@ -298,9 +298,6 @@ class GPFQ(GPxQ):
                 # No permutation, permutation tensor is a ordered index
                 perm = torch.tensor(range(weight.shape[-1]), device=dev)
             permutation_list.append(perm)
-
-        self.reactivate_quantization()
-
         for t in range(weight.shape[-1]):
             for group_index in range(self.groups):
                 U[group_index] += torch.matmul(
@@ -399,8 +396,6 @@ class GPFA2Q(GPFQ):
                 # No permutation, permutation tensor is a ordered index
                 perm = torch.tensor(range(weight.shape[-1]), device=dev)
             permutation_list.append(perm)
-
-        self.reactivate_quantization()
 
         for t in range(weight.shape[-1]):
             for group_index in range(self.groups):

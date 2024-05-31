@@ -164,10 +164,6 @@ class gpxq_mode(ABC):
         return self
 
     def __exit__(self, type, value, traceback):
-        for name, layer in self.gpxq_layers.items():
-            if not layer.done:
-                layer.reactivate_quantization()
-
         if isinstance(self.model, (GraphModule, TorchGraphModule)):
             self.model.__class__.forward = self.orig_forward
         else:
@@ -223,10 +219,6 @@ class GPxQ(ABC):
         self.disable_pre_forward_hook = False
         # Some layers require knowledge from quant inputs to compute quant weights
         self.quant_metadata = None
-        self.disable_quant_inference = DisableEnableQuantization()
-        self.return_quant_tensor_state = disable_return_quant_tensor(self.layer)
-        self.disable_quant_inference.disable_param_quantization(self.layer, False)
-        self.done = False
 
     def process_input(self, inp):
         # Input is a tuple, so we take first element
@@ -262,11 +254,6 @@ class GPxQ(ABC):
     @abstractmethod
     def single_layer_update(self):
         pass
-
-    def reactivate_quantization(self):
-        self.done = True
-        self.disable_quant_inference.enable_param_quantization(self.layer, False)
-        restore_return_quant_tensor(self.layer, self.return_quant_tensor_state)
 
     def get_quant_weights(self, i, i1, permutation_list):
         # We need to recompute quant weights at runtime since our float weights are being updated

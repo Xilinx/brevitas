@@ -86,11 +86,9 @@ class gptq_mode(gpxq_mode):
                 # If we want to return the output of the network, we need to disable all hooks
                 for name, gpxq_class in self.gpxq_layers.items():
                     gpxq_class.disable_pre_forward_hook = True
-
                 out = self.orig_forward(*args, **kwargs)
                 for name, gpxq_class in self.gpxq_layers.items():
                     gpxq_class.disable_pre_forward_hook = False
-
                 return out
 
     def initialize_module_optimizer(
@@ -136,7 +134,6 @@ class GPTQ(GPxQ):
                              device='cpu',
                              dtype=torch.float32)
         self.nsamples = 0
-        self.done = False
 
         assert torch_version >= version.parse('1.10'), "GPTQ requires torch 1.10 or higher"
 
@@ -259,8 +256,6 @@ class GPTQ(GPxQ):
             return
         finally:
             del self.H
-
-        self.reactivate_quantization()
 
         for i1 in range(0, self.columns, self.blocksize):
             i2 = min(i1 + self.blocksize, self.columns)
