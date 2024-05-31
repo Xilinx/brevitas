@@ -50,7 +50,7 @@ class ShiftedUint8ActPerTensorFixedPointMSE(MSEAsymmetricScale,
 
 
 class ShiftedUint8ActPerTensorFloat(ShiftedParamFromPercentileUintQuant,
-                                    ParamFromRuntimePercentileIntervalScaling,
+                                    ParamFromRuntimeMinMaxScaling,
                                     PerTensorFloatScaling8bit,
                                     ActQuantSolver):
     """

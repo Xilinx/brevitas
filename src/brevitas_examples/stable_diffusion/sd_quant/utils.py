@@ -23,19 +23,44 @@ class InferenceWeightProxyHandler(BaseHandler):
         self.scale = None
         self.zero_point = None
         self.bit_width = None
+        self.dtype = None
         self.float_weight = None
+
+    def scaling_impl(self, proxy_module):
+        return proxy_module.tensor_quant.scaling_impl
+
+    def zero_point_impl(self, proxy_module):
+        return proxy_module.tensor_quant.zero_point_impl
+
+    def bit_width_impl(self, proxy_module):
+        return proxy_module.tensor_quant.msb_clamp_bit_width_impl
+
+    def export_scale(self, proxy_module, bit_width):
+        scaling_impl = self.scaling_impl(proxy_module)
+        int_scaling_impl = proxy_module.tensor_quant.int_scaling_impl
+        int_threshold = int_scaling_impl(bit_width)
+        threshold = scaling_impl.stats_scaling_impl(scaling_impl.parameter_list_stats())
+        return threshold / int_threshold
+
+    def export_zero_point(self, proxy_module, weight, scale, bit_width):
+        zero_point_impl = self.zero_point_impl(proxy_module)
+        return zero_point_impl(weight, scale, bit_width)
 
     def prepare_for_export(self, module):
         assert len(module.tracked_module_list) == 1, "Shared quantizers not supported."
+        self.bit_width = self.bit_width_impl(module)()
+        assert self.bit_width <= 8., "Only 8b or lower is supported."
         quant_layer = module.tracked_module_list[0]
         self.float_weight = quant_layer.quant_weight()
-        quant_layer.weight.data = quant_layer.weight.data.cpu()
-        self.scale = module.scale()
-        self.zero_point = module.zero_point()
-        self.bit_width = module.bit_width()
+        self.dtype = self.float_weight.value.dtype
+        # if (self.float_weight.zero_point != 0.).any():
+        #     self.zero_point = self.export_zero_point(module, quant_layer.weight, self.scale, self.bit_width).detach().cpu()
+        # self.scale = self.export_scale(module, self.bit_width).detach().cpu()
+        # quant_layer.weight.data = quant_layer.weight.data.cpu()
 
     def forward(self, x):
-        return self.float_weight, self.scale, self.zero_point, self.bit_width
+
+        return self.float_weight.value, self.float_weight.scale, self.float_weight.zero_point, self.bit_width
 
 
 class InferenceWeightProxyManager(BaseManager):
@@ -70,7 +95,7 @@ def brevitas_proxy_inference_mode(model):
     is_training = model.training
     model.eval()
     model.apply(InferenceWeightProxyManager.set_export_handler)
-    _set_proxy_export_mode(model, enabled=True)
+    _set_proxy_export_mode(model, enabled=True, proxy_class=WeightQuantProxyFromInjector)
     try:
         yield model
     finally:

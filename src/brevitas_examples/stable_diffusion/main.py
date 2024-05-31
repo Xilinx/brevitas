@@ -24,11 +24,12 @@ from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
 from brevitas.export.torch.qcdq.manager import TorchQCDQManager
 from brevitas.graph.calibrate import bias_correction_mode
 from brevitas.graph.calibrate import calibration_mode
+from brevitas.graph.calibrate import load_quant_model_mode
 from brevitas.graph.equalize import activation_equalization_mode
 from brevitas.graph.gptq import gptq_mode
 from brevitas.inject.enum import QuantType
 from brevitas.nn.equalized_layer import EqualizedModule
-from brevitas.nn.forward_handlers import brevitas_proxy_inference_mode
+from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer
 from brevitas.utils.torch_utils import KwargsForwardHook
 from brevitas_examples.common.generative.quantize import quantize_model
 from brevitas_examples.common.parse_utils import add_bool_arg
@@ -39,6 +40,7 @@ from brevitas_examples.stable_diffusion.sd_quant.constants import SD_2_1_EMBEDDI
 from brevitas_examples.stable_diffusion.sd_quant.constants import SD_XL_EMBEDDINGS_SHAPE
 from brevitas_examples.stable_diffusion.sd_quant.export import export_onnx
 from brevitas_examples.stable_diffusion.sd_quant.export import export_torch_export
+from brevitas_examples.stable_diffusion.sd_quant.utils import brevitas_proxy_inference_mode
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_latents
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_unet_21_rand_inputs
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_unet_xl_rand_inputs
@@ -119,7 +121,7 @@ def run_val_inference(
             test_latents = generate_latents(seeds[0], device, dtype, unet_input_shape(resolution))
 
         neg_prompts = NEGATIVE_PROMPTS if use_negative_prompts else []
-        for prompt in prompts:
+        for prompt in tqdm(prompts):
             # We don't want to generate any image, so we return only the latent encoding pre VAE
             pipe(
                 prompt,
@@ -203,7 +205,7 @@ def main(args):
     blacklist = []
     for name, _ in pipe.unet.named_modules():
         if 'time_emb' in name or 'conv_in' in name:
-            blacklist.append(name)
+            blacklist.append(name.split('.')[-1])
     print(f"Blacklisted layers: {blacklist}")
 
     # Make sure there all LoRA layers are fused first, otherwise raise an error
@@ -211,7 +213,8 @@ def main(args):
         if hasattr(m, 'lora_layer') and m.lora_layer is not None:
             raise RuntimeError("LoRA layers should be fused in before calling into quantization.")
 
-    if args.activation_equalization:
+    if args.activation_equalization and args.load_checkpoint is None:
+        pipe.set_progress_bar_config(disable=True)
         with activation_equalization_mode(pipe.unet, alpha=0.5, layerwise=True, add_mul_node=True):
             # Workaround to expose `in_features` attribute from the Hook Wrapper
             for m in pipe.unet.modules():
@@ -231,8 +234,8 @@ def main(args):
 
         # Workaround to expose `in_features` attribute from the EqualizedModule Wrapper
         for m in pipe.unet.modules():
-            if isinstance(m, EqualizedModule) and hasattr(m.module, 'in_features'):
-                m.in_features = m.module.in_features
+            if isinstance(m, EqualizedModule) and hasattr(m.layer, 'in_features'):
+                m.in_features = m.layer.in_features
 
     # Quantize model
     if args.quantize:
@@ -293,32 +296,19 @@ def main(args):
             use_ocp=args.use_ocp,
             input_kwargs=input_kwargs)
         print("Model quantization applied.")
-
-        if (args.linear_input_bit_width is not None or
-                args.conv_input_bit_width is not None) and args.input_scale_type == 'static':
-            print("Applying activation calibration")
-            with brevitas_proxy_inference_mode(pipe.unet), torch.no_grad(), calibration_mode(pipe.unet):
-                run_val_inference(
-                    pipe,
-                    args.resolution,
-                    calibration_prompts,
-                    test_seeds,
-                    args.device,
-                    dtype,
-                    total_steps=args.calibration_steps,
-                    use_negative_prompts=args.use_negative_prompts,
-                    test_latents=latents,
-                    guidance_scale=args.guidance_scale)
+        list_of_names = [
+            n for n,
+            m in pipe.unet.named_modules() if isinstance(m, QuantWeightBiasInputOutputLayer)]
         pipe.set_progress_bar_config(disable=True)
-
-        if args.gptq:
-            print("Applying GPTQ. It can take several hours")
-            with torch.no_grad(), gptq_mode(pipe.unet,
-                           create_weight_orig=False,
-                           use_quant_activations=False,
-                           return_forward_output=True,
-                           act_order=True) as gptq:
-                for _ in tqdm(range(gptq.num_layers)):
+        if args.load_checkpoint is not None:
+            with load_quant_model_mode(pipe.unet):
+                pipe.unet.load_state_dict(torch.load(args.load_checkpoint))
+                pipe = pipe.to(args.device)
+        else:
+            if (args.linear_input_bit_width is not None or
+                    args.conv_input_bit_width is not None) and args.input_scale_type == 'static':
+                print("Applying activation calibration")
+                with torch.no_grad(), calibration_mode(pipe.unet):
                     run_val_inference(
                         pipe,
                         args.resolution,
@@ -330,69 +320,86 @@ def main(args):
                         use_negative_prompts=args.use_negative_prompts,
                         test_latents=latents,
                         guidance_scale=args.guidance_scale)
-                    gptq.update()
-                    torch.cuda.empty_cache()
-        pipe.set_progress_bar_config(disable=False)
 
-        if args.bias_correction:
-            print("Applying bias correction")
-            with brevitas_proxy_inference_mode(pipe.unet), bias_correction_mode(pipe.unet):
-                run_val_inference(
-                    pipe,
-                    args.resolution,
-                    calibration_prompts,
-                    test_seeds,
-                    args.device,
-                    dtype,
-                    total_steps=args.calibration_steps,
-                    use_negative_prompts=args.use_negative_prompts,
-                    test_latents=latents,
-                    guidance_scale=args.guidance_scale)
+            if args.gptq:
+                print("Applying GPTQ. It can take several hours")
+                with torch.no_grad(), gptq_mode(pipe.unet,
+                            create_weight_orig=False,
+                            use_quant_activations=False,
+                            return_forward_output=True,
+                            act_order=True) as gptq:
+                    for _ in tqdm(range(gptq.num_layers)):
+                        run_val_inference(
+                            pipe,
+                            args.resolution,
+                            calibration_prompts,
+                            test_seeds,
+                            args.device,
+                            dtype,
+                            total_steps=args.calibration_steps,
+                            use_negative_prompts=args.use_negative_prompts,
+                            test_latents=latents,
+                            guidance_scale=args.guidance_scale)
+                        gptq.update()
+                        torch.cuda.empty_cache()
 
-    if args.checkpoint_name is not None:
+            if args.bias_correction:
+                print("Applying bias correction")
+                with bias_correction_mode(pipe.unet):
+                    run_val_inference(
+                        pipe,
+                        args.resolution,
+                        calibration_prompts,
+                        test_seeds,
+                        args.device,
+                        dtype,
+                        total_steps=args.calibration_steps,
+                        use_negative_prompts=args.use_negative_prompts,
+                        test_latents=latents,
+                        guidance_scale=args.guidance_scale)
+
+    if args.checkpoint_name is not None and args.load_checkpoint is None:
         torch.save(pipe.unet.state_dict(), args.checkpoint_name)
 
     # Perform inference
     if args.prompt > 0:
-        with brevitas_proxy_inference_mode(pipe.unet):
-            if args.use_mlperf_inference:
-                print(f"Computing accuracy with MLPerf pipeline")
-                compute_mlperf_fid(pipe.unet, args.prompt)
-            else:
-                print(f"Computing accuracy on default prompt")
-                prompts = list()
-                for i, v in enumerate(TESTING_PROMPTS):
-                    if i == args.prompt:
-                        break
-                    prompts.append(v)
-                quant_images = run_test_inference(
-                    pipe,
-                    args.resolution,
-                    prompts,
-                    test_seeds,
-                    output_dir,
-                    args.device,
-                    dtype,
-                    use_negative_prompts=args.use_negative_prompts,
-                    guidance_scale=args.guidance_scale,
-                    name_prefix='quant_')
+        # with brevitas_proxy_inference_mode(pipe.unet):
+        if args.use_mlperf_inference:
+            print(f"Computing accuracy with MLPerf pipeline")
+            compute_mlperf_fid(pipe, args.prompt)
+        else:
+            print(f"Computing accuracy on default prompt")
+            prompts = list()
+            for i, v in enumerate(TESTING_PROMPTS):
+                if i == args.prompt:
+                    break
+                prompts.append(v)
+            quant_images = run_test_inference(
+                pipe,
+                args.resolution,
+                prompts,
+                test_seeds,
+                output_dir,
+                args.device,
+                dtype,
+                use_negative_prompts=args.use_negative_prompts,
+                guidance_scale=args.guidance_scale,
+                name_prefix='quant_')
 
-                float_images_values = float_images.values()
-                float_images_values = [x for x_nested in float_images_values for x in x_nested]
-                float_images_values = torch.tensor([
-                    np.array(image) for image in float_images_values])
-                float_images_values = float_images_values.permute(0, 3, 1, 2)
+            float_images_values = float_images.values()
+            float_images_values = [x for x_nested in float_images_values for x in x_nested]
+            float_images_values = torch.tensor([np.array(image) for image in float_images_values])
+            float_images_values = float_images_values.permute(0, 3, 1, 2)
 
-                quant_images_values = quant_images.values()
-                quant_images_values = [x for x_nested in quant_images_values for x in x_nested]
-                quant_images_values = torch.tensor([
-                    np.array(image) for image in quant_images_values])
-                quant_images_values = quant_images_values.permute(0, 3, 1, 2)
+            quant_images_values = quant_images.values()
+            quant_images_values = [x for x_nested in quant_images_values for x in x_nested]
+            quant_images_values = torch.tensor([np.array(image) for image in quant_images_values])
+            quant_images_values = quant_images_values.permute(0, 3, 1, 2)
 
-                fid = FrechetInceptionDistance(normalize=False)
-                fid.update(float_images_values, real=True)
-                fid.update(quant_images_values, real=False)
-                print(f"FID: {float(fid.compute())}")
+            fid = FrechetInceptionDistance(normalize=False)
+            fid.update(float_images_values, real=True)
+            fid.update(quant_images_values, real=False)
+            print(f"FID: {float(fid.compute())}")
 
     if args.export_target:
         # Move to cpu and to float32 to enable CPU export
@@ -464,6 +471,11 @@ if __name__ == "__main__":
         type=str,
         default=None,
         help='Name to use to store the checkpoint. If not provided, no checkpoint is saved.')
+    parser.add_argument(
+        '--load-checkpoint',
+        type=str,
+        default=None,
+        help='Path to checkpoint to load. If provided, PTQ techniques are skipped.')
     parser.add_argument(
         '--path-to-latents',
         type=str,

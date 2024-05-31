@@ -488,18 +488,19 @@ def compute_mlperf_fid(model_to_replace=None, samples_to_evaluate=500):
     post_proc = PostProcessCoco(
         statistics_path='/scratch/users/gfranco/datasets/coco/tools/val2014.npz')
 
-    dtype = next(iter(model_to_replace.parameters())).dtype
+    dtype = next(iter(model_to_replace.unet.parameters())).dtype
     res_dict = {}
     model = BackendPytorch(
         '/scratch/hf_models/stable-diffusion-xl-base-1.0/stable-diffusion-xl-base-1.0/',
         'xl',
         steps=20,
         batch_size=1,
+        device='cpu',
         precision=dtype)
     model.load()
 
     if model_to_replace is not None:
-        model.pipe.unet = model_to_replace
+        model.pipe = model_to_replace
 
     ds = Coco(
         data_path='/scratch/users/gfranco/datasets/coco',
