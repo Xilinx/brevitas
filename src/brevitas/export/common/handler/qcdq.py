@@ -570,7 +570,8 @@ class QCDQCastActQuantProxyHandlerMixin(QMixin, CDQCastProxyHandlerMixin, ABC):
         scale_orig_shape = self.scale_orig_shape
         bit_width = self.symbolic_kwargs['bit_width']
         # Workaround to trick the tracer into believing all return values are used
-        self.assert_ge_zero(scale, zero_point, bit_width)
+        if not torch._dynamo.is_compiling():
+            self.assert_ge_zero(scale, zero_point, bit_width)
         # If original dtype of the input is (b)float16, cast the input to float32
         if x.dtype == torch.float16 or x.dtype == torch.bfloat16:
             x = self.cast_fn(x, torch.float32)

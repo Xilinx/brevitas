@@ -99,10 +99,9 @@ def _set_layer_export_mode(model: Module, enabled: bool):
             m.export_mode = enabled
 
 
-def _set_proxy_export_mode(
-        model: Module, enabled: bool, proxy_class: Protocol = QuantProxyProtocol):
+def _set_proxy_export_mode(model: Module, enabled: bool):
     for m in model.modules():
-        if isinstance(m, proxy_class) and hasattr(m, 'export_mode'):
+        if isinstance(m, QuantProxyProtocol) and hasattr(m, 'export_mode'):
             m.export_mode = enabled
 
 
