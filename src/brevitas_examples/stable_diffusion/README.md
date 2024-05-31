@@ -75,6 +75,7 @@ usage: main.py [-h] [-m MODEL] [-d DEVICE] [-b BATCH_SIZE] [--prompt PROMPT]
                [--conv-weight-bit-width CONV_WEIGHT_BIT_WIDTH]
                [--linear-weight-bit-width LINEAR_WEIGHT_BIT_WIDTH]
                [--conv-input-bit-width CONV_INPUT_BIT_WIDTH]
+               [--act-eq-alpha ACT_EQ_ALPHA]
                [--linear-input-bit-width LINEAR_INPUT_BIT_WIDTH]
                [--weight-param-method {stats,mse}]
                [--input-param-method {stats,mse}]
@@ -173,6 +174,8 @@ options:
                         Weight bit width. Default: 8.
   --conv-input-bit-width CONV_INPUT_BIT_WIDTH
                         Input bit width. Default: None (not quantized)
+  --act-eq-alpha ACT_EQ_ALPHA
+                        Alpha for activation equalization. Default: 0.9
   --linear-input-bit-width LINEAR_INPUT_BIT_WIDTH
                         Input bit width. Default: None (not quantized).
   --weight-param-method {stats,mse}
