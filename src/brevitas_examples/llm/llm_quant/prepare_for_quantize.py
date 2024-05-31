@@ -24,8 +24,7 @@ def _set_bert_mha_attributes(module):
 
 
 _SET_ATTRIBUTES_MAP = {
-    BertAttention: _set_bert_mha_attributes,
-}
+    BertAttention: _set_bert_mha_attributes,}
 
 
 def set_mha_attributes(model):
