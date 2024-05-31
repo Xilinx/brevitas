@@ -109,7 +109,7 @@ class gpfq_mode(gpxq_mode):
         # selecting impl of random proj
         self.compression_rate = compression_rate
         if self.compression_rate < 0.0 or self.compression_rate > 1.0:
-            raise ValueError(f'Compression rate for random projection cannot be {compression_rate}')
+            raise ValueError('Compression rate for random projection must be between 0 and 1.')
 
     def catch_stopfwd(self, *args, **kwargs):
         # Collect quant input
