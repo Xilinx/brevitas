@@ -171,18 +171,28 @@ class SolveIntScalingImplFromEnum(ExtendedInjector):
 class SolveStatsReduceDimFromEnum(ExtendedInjector):
 
     @value
-    def stats_reduce_dim(scaling_stats_op, scaling_per_output_channel):
-        if scaling_stats_op == StatsOp.MAX_AVE or scaling_per_output_channel:
+    def stats_reduce_dim(scaling_stats_op, scaling_per_output_channel, group_dim = None):
+        
+        if group_dim is not None:
+            return SCALING_STATS_REDUCE_DIM + 1
+        elif scaling_stats_op == StatsOp.MAX_AVE or scaling_per_output_channel:
             return SCALING_STATS_REDUCE_DIM
         else:
             return None
-
+    
+    @value
+    def keepdim(group_dim=None):
+        if group_dim is not None:
+            return True
+    
 
 class SolveScalingStatsInputViewShapeImplFromEnum(ExtendedInjector):
 
     @value
-    def scaling_stats_input_view_shape_impl(scaling_per_output_channel, scaling_stats_op):
-        if scaling_per_output_channel or scaling_stats_op == StatsOp.MAX_AVE:
+    def scaling_stats_input_view_shape_impl(scaling_per_output_channel, scaling_stats_op, group_dim=None):
+        if group_dim is not None:
+            return StatsInputViewShapeImpl.OVER_SUBCHANNEL_BLOCK
+        elif scaling_per_output_channel or scaling_stats_op == StatsOp.MAX_AVE:
             return StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS
         else:
             return StatsInputViewShapeImpl.OVER_TENSOR

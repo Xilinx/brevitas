@@ -81,6 +81,60 @@ class _CachedIOFloat:
         return self.quant_tensor.signed
 
 
+class _CachedIOMXFloat:
+
+    def __init__(self, quant_tensor: FloatQuantTensor, metadata_only: bool):
+        self.shape = quant_tensor.value.shape
+        if metadata_only:
+            self.quant_tensor = quant_tensor.set(value=None)
+        else:
+            self.quant_tensor = quant_tensor
+
+    @property
+    def scale(self):
+        return self.quant_tensor.scale
+
+    @property
+    def zero_point(self):
+        return self.quant_tensor.zero_point
+
+    @property
+    def exponent_bit_width(self):
+        return self.quant_tensor.exponent_bit_width
+
+    @property
+    def mantissa_bit_width(self):
+        return self.quant_tensor.mantissa_bit_width
+
+    @property
+    def exponent_bias(self):
+        return self.quant_tensor.exponent_bias
+
+    @property
+    def saturating(self):
+        return self.quant_tensor.saturating
+
+    @property
+    def inf_values(self):
+        return self.quant_tensor.inf_values
+
+    @property
+    def nan_values(self):
+        return self.quant_tensor.nan_values
+
+    @property
+    def signed(self):
+        return self.quant_tensor.signed
+
+    @property
+    def group_size(self):
+        return self.quant_tensor.group_size
+
+    @property
+    def group_dim(self):
+        return self.quant_tensor.group_dim
+
+
 def has_learned_weight_bit_width(module):
     from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
 

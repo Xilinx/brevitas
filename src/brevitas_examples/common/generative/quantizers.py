@@ -7,7 +7,6 @@ from torch import nn
 
 from brevitas.core.function_wrapper.shape import OverOutputFeaturesView
 from brevitas.core.function_wrapper.shape import OverTensorView
-from brevitas.core.scaling import ParameterFromStatsFromParameterScaling
 from brevitas.core.stats import AbsMinMax
 from brevitas.core.stats import NegativeMinOrZero
 from brevitas.core.stats.stats_wrapper import SCALAR_SHAPE
@@ -15,77 +14,37 @@ from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import this
 from brevitas.inject import value
+from brevitas.proxy.groupwise_float_parameter_quant import \
+    GroupwiseWeightFloatQuantProxyFromInjector
+from brevitas.proxy.groupwise_int_parameter_quant import GroupwiseWeightQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import DynamicActQuantProxyFromInjector
 from brevitas.quant.experimental.float import Fp8e4m3WeightPerChannelFloat
 from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPActPerTensorFloat
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
-from brevitas.quant.scaled_int import Int8ActPerTensorFloatMSE
 from brevitas.quant.scaled_int import Int8WeightPerChannelFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
-from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloatMSE
 
 from .quant_blocks import *
-
-
-class WeightSymmetricGroupQuantMixin(ExtendedInjector):
-
-    @value
-    def expanded_scaling_shape(module, group_size):
-        if isinstance(module, nn.Conv2d):
-            return module.weight.size(0), module.weight.size(1) // group_size, group_size, module.weight.size(2), module.weight.size(3)
-        elif isinstance(module, nn.Linear):
-            return module.weight.size(0), module.weight.size(1) // group_size, group_size
-        elif isinstance(module, nn.Embedding):
-            return module.weight.size(0), module.weight.size(1) // group_size, group_size
-        else:
-            raise RuntimeError("Module not supported.")
-
-    @value
-    def scaling_shape(module, group_size):
-        if isinstance(module, nn.Conv2d):
-            return module.weight.size(0), module.weight.size(1) // group_size, 1, module.weight.size(2), module.weight.size(3)
-        elif isinstance(module, nn.Linear):
-            return module.weight.size(0), module.weight.size(1) // group_size, 1
-        elif isinstance(module, nn.Embedding):
-            return module.weight.size(0), module.weight.size(1) // group_size, 1
-        else:
-            raise RuntimeError("Module not supported.")
-
-    @value
-    def reshaped_scaling_shape(module):
-        return module.weight.shape
-
-    scaling_input_shape = this.expanded_scaling_shape
-    scaling_stats_input_view_shape_impl = OverSubChannelBlockView
-    scaling_impl = ExpandReshapeScalingWrapper
-    # scale is converted to a parameter right away
-    wrapped_scaling_impl = ParameterFromStatsFromParameterScaling
-    keepdim = True
-    stats_reduce_dim = 2
-    # Set bit_width and block size externally
-    bit_width = None
-    group_size = None
 
 
 class DynamicActProxyMixin(ExtendedInjector):
     proxy_class = DynamicActQuantProxyFromInjector
 
 
-class IntWeightSymmetricGroupQuant(WeightSymmetricGroupQuantMixin, Int8WeightPerChannelFloat):
+class IntWeightSymmetricGroupQuant(Int8WeightPerChannelFloat):
     """
     Block / group / vector signed symmetric int weight quantizer with float scales.
     We inherit from a per-channel quantizer to re-use some underlying machinery.
     """
-    pass
+    proxy_class = GroupwiseWeightQuantProxyFromInjector
 
 
-class Fp8e4m3WeightSymmetricGroupQuant(WeightSymmetricGroupQuantMixin,
-                                       Fp8e4m3WeightPerChannelFloat):
+class Fp8e4m3WeightSymmetricGroupQuant(Fp8e4m3WeightPerChannelFloat):
     """
     Block / group / vector signed symmetric e4m3 weight quantizer with float scales.
     We inherit from a per-channel quantizer to re-use some underlying machinery.
     """
-    pass
+    proxy_class = GroupwiseWeightFloatQuantProxyFromInjector
 
 
 class ShiftedUintWeightAsymmetricGroupQuant(IntWeightSymmetricGroupQuant):

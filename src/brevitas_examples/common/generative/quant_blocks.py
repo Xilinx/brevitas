@@ -16,24 +16,6 @@ from brevitas.core.zero_point import _ScaleShiftZeroPoint
 from brevitas.function.ops_ste import abs_binary_sign_grad
 
 
-class OverSubChannelBlockView(brevitas.jit.ScriptModule):
-    __constants__ = ['scaling_input_shape']
-
-    def __init__(self, scaling_input_shape, permute_dims: Optional[Tuple[int, ...]]) -> None:
-        super(OverSubChannelBlockView, self).__init__()
-        self.scaling_input_shape = scaling_input_shape
-        if permute_dims is not None:
-            self.permute_impl = PermuteDims(permute_dims)
-        else:
-            self.permute_impl = nn.Identity()
-
-    @brevitas.jit.script_method
-    def forward(self, x: torch.Tensor):
-        y = self.permute_impl(x)
-        y = y.view(self.scaling_input_shape)
-        return y
-
-
 class ExpandReshapeScalingWrapper(brevitas.jit.ScriptModule):
     __constants__ = ['expanded_scaling_shape', 'reshaped_scaling_shape']
 

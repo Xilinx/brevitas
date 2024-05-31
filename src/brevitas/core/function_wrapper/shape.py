@@ -153,6 +153,24 @@ class OverOutputFeaturesView(brevitas.jit.ScriptModule):
         return y.reshape(shape)
 
 
+class OverSubChannelBlockView(brevitas.jit.ScriptModule):
+    __constants__ = ['expanded_scaling_shape']
+
+    def __init__(self, expanded_scaling_shape, permute_dims: Optional[Tuple[int, ...]]) -> None:
+        super(OverSubChannelBlockView, self).__init__()
+        self.expanded_scaling_shape = expanded_scaling_shape
+        if permute_dims is not None:
+            self.permute_impl = PermuteDims(permute_dims)
+        else:
+            self.permute_impl = torch.nn.Identity()
+
+    @brevitas.jit.script_method
+    def forward(self, x: torch.Tensor):
+        y = self.permute_impl(x)
+        y = y.view(self.expanded_scaling_shape)
+        return y
+
+
 class StatsInputViewShapeImpl(object):
     """
     Enum-like object to collect pointers to variants of ScriptModules that perform a view on a tensor.
@@ -163,3 +181,4 @@ class StatsInputViewShapeImpl(object):
     OVER_BATCH_OVER_TENSOR = OverBatchOverTensorView
     OVER_BATCH_OVER_OUTPUT_CHANNELS = OverBatchOverOutputChannelView
     OVER_OUTPUT_FEATURES = OverOutputFeaturesView
+    OVER_SUBCHANNEL_BLOCK = OverSubChannelBlockView
