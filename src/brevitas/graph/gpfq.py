@@ -2,10 +2,14 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from copy import deepcopy
+import math
+from math import pi
 from typing import Callable, List, Optional
 
 import numpy as np
 import torch
+from torch.fft import fft
+from torch.fft import fftn
 import torch.nn as nn
 import unfoldNd
 
@@ -17,6 +21,24 @@ from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import StopFwdException
 from brevitas.graph.gpxq import SUPPORTED_CONV_OP
 import brevitas.nn as qnn
+
+
+def random_projection(
+        float_input: torch.Tensor, quantized_input: torch.Tensor, compression_rate: float):
+    # use random projection to reduce dimensionality
+    n = quantized_input.size(1)
+    target_dim = int(compression_rate * n)
+    dev = float_input.device
+    # create gaussian random matrix
+    R = torch.normal(mean=0.0, std=1. / math.sqrt(n), size=(target_dim, n), device=dev)
+    quantized_input = torch.transpose(quantized_input, 1, 2) @ R.T
+    float_input = torch.transpose(float_input, 1, 2) @ R.T
+    del R
+    # reshape back
+    quantized_input = torch.transpose(quantized_input, 1, 2)
+    float_input = torch.transpose(float_input, 1, 2)
+
+    return float_input, quantized_input
 
 
 class gpfq_mode(gpxq_mode):
@@ -64,7 +86,8 @@ class gpfq_mode(gpxq_mode):
             act_order: bool = False,
             use_gpfa2q: bool = False,
             accumulator_bit_width: Optional[int] = None,
-            a2q_layer_filter_fnc: Optional[Callable[[nn.Module], bool]] = lambda x: True) -> None:
+            a2q_layer_filter_fnc: Optional[Callable[[nn.Module], bool]] = lambda x: True,
+            compression_rate: Optional[float] = 0.0) -> None:
         if not inplace:
             model = deepcopy(model)
         super().__init__(
@@ -82,6 +105,11 @@ class gpfq_mode(gpxq_mode):
         self.use_gpfa2q = use_gpfa2q
         self.accumulator_bit_width = accumulator_bit_width
         self.a2q_layer_filter_fnc = a2q_layer_filter_fnc  # returns true when to use GPFA2Q
+
+        # selecting impl of random proj
+        self.compression_rate = compression_rate
+        if self.compression_rate < 0.0 or self.compression_rate > 1.0:
+            raise ValueError('Compression rate for random projection must be between 0 and 1.')
 
     def catch_stopfwd(self, *args, **kwargs):
         # Collect quant input
@@ -127,7 +155,8 @@ class gpfq_mode(gpxq_mode):
                 act_order=act_order,
                 len_parallel_layers=len_parallel_layers,
                 create_weight_orig=create_weight_orig,
-                p=self.p)
+                p=self.p,
+                compression_rate=self.compression_rate)
         else:
             return GPFA2Q(
                 layer=layer,
@@ -136,7 +165,8 @@ class gpfq_mode(gpxq_mode):
                 len_parallel_layers=len_parallel_layers,
                 create_weight_orig=create_weight_orig,
                 p=self.p,
-                accumulator_bit_width=self.accumulator_bit_width)
+                accumulator_bit_width=self.accumulator_bit_width,
+                compression_rate=self.compression_rate)
 
 
 class GPFQ(GPxQ):
@@ -144,7 +174,9 @@ class GPFQ(GPxQ):
     Based on https://github.com/YixuanSeanZhou/Quantized_Neural_Nets/tree/main
     """
 
-    def __init__(self, layer, name, act_order, len_parallel_layers, create_weight_orig, p) -> None:
+    def __init__(
+            self, layer, name, act_order, len_parallel_layers, create_weight_orig, p,
+            compression_rate) -> None:
 
         super().__init__(layer, name, act_order, len_parallel_layers, create_weight_orig)
 
@@ -152,6 +184,7 @@ class GPFQ(GPxQ):
         self.quantized_input = None
         self.index_computed = False
         self.p = p
+        self.compression_rate = compression_rate
 
     def update_batch(self, module, input, current_layer):
         if self.disable_pre_forward_hook:
@@ -246,10 +279,12 @@ class GPFQ(GPxQ):
                 weight = weight.transpose(1, 0)  # This performs a view
             weight = weight.flatten(1)
         weight = weight.view(self.groups, -1, weight.shape[-1])  # [Groups, OC/Groups, IC]
-        U = torch.zeros(
-            weight.shape[0], weight.shape[1], self.float_input.shape[1], device=dev, dtype=dtype)
+        if self.compression_rate > 0.0:
+            self.float_input, self.quantized_input = random_projection(self.float_input, self.quantized_input, self.compression_rate)
         self.float_input = self.float_input.to(dev)
         self.quantized_input = self.quantized_input.to(dev)
+        U = torch.zeros(
+            weight.shape[0], weight.shape[1], self.float_input.shape[1], device=dev, dtype=dtype)
         # We don't need full Hessian, we just need the diagonal
         self.H_diag = self.quantized_input.transpose(2, 1).square().sum(
             2)  # summing over Batch dimension
@@ -300,7 +335,8 @@ class GPFA2Q(GPFQ):
             len_parallel_layers,
             create_weight_orig,
             accumulator_bit_width,
-            p) -> None:
+            p,
+            compression_rate) -> None:
         GPFQ.__init__(
             self,
             layer=layer,
@@ -308,7 +344,8 @@ class GPFA2Q(GPFQ):
             act_order=act_order,
             len_parallel_layers=len_parallel_layers,
             create_weight_orig=create_weight_orig,
-            p=p)
+            p=p,
+            compression_rate=compression_rate)
         self.accumulator_bit_width = accumulator_bit_width
         assert self.accumulator_bit_width is not None
 
@@ -329,6 +366,8 @@ class GPFA2Q(GPFQ):
         weight = weight.view(self.groups, -1, weight.shape[-1])  # [Groups, OC/Groups, IC]
         U = torch.zeros(
             weight.shape[0], weight.shape[1], self.float_input.shape[1], device=dev, dtype=dtype)
+        if self.compression_rate > 0.0:
+            self.float_input, self.quantized_input = random_projection(self.float_input, self.quantized_input, self.compression_rate)
         self.float_input = self.float_input.to(dev)
         self.quantized_input = self.quantized_input.to(dev)
 
