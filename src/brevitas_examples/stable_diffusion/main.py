@@ -20,6 +20,7 @@ from torch import nn
 from torchmetrics.image.fid import FrechetInceptionDistance
 from tqdm import tqdm
 
+from brevitas.core.stats.stats_op import NegativeMinOrZero
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
 from brevitas.export.torch.qcdq.manager import TorchQCDQManager
 from brevitas.graph.calibrate import bias_correction_mode
@@ -28,6 +29,7 @@ from brevitas.graph.calibrate import load_quant_model_mode
 from brevitas.graph.equalize import activation_equalization_mode
 from brevitas.graph.gptq import gptq_mode
 from brevitas.inject.enum import QuantType
+from brevitas.inject.enum import StatsOp
 from brevitas.nn.equalized_layer import EqualizedModule
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer
 from brevitas.utils.torch_utils import KwargsForwardHook
@@ -202,11 +204,13 @@ def main(args):
         pipe.enable_attention_slicing()
 
     # Extract list of layers to avoid
-    # blacklist = []
-    # for name, _ in pipe.unet.named_modules():
-    #     if 'time_emb' in name or 'conv_in' in name:
-    #         blacklist.append(name)
-    # print(f"Blacklisted layers: {blacklist}")
+    blacklist = []
+    for name, _ in pipe.unet.named_modules():
+        if 'time_emb' in name and not args.quantize_time_emb:
+            blacklist.append(name)
+        if 'conv_in' in name and not args.quantize_conv_in:
+            blacklist.append(name)
+    print(f"Blacklisted layers: {blacklist}")
 
     # Make sure there all LoRA layers are fused first, otherwise raise an error
     for m in pipe.unet.modules():
@@ -266,7 +270,7 @@ def main(args):
         if args.linear_input_bit_width is None or args.conv_input_bit_width is None:
 
             @value
-            def input_quant_type(module):
+            def input_quant_enabled(module):
                 if args.linear_input_bit_width is None and isinstance(module, nn.Linear):
                     return QuantType.FP
                 elif args.conv_input_bit_width is None and isinstance(module, nn.Conv2d):
@@ -274,14 +278,36 @@ def main(args):
                 else:
                     return QuantType.INT
 
-            input_kwargs['quant_type'] = input_quant_type
+            input_kwargs['quant_type'] = input_quant_enabled
+
+        if args.input_scale_stats_op == 'minmax':
+
+            @value
+            def input_scale_stats_type():
+                if args.input_quant_type == 'asym':
+                    input_scaling_stats_op = StatsOp.MIN_MAX
+                else:
+                    input_scaling_stats_op = StatsOp.MAX
+                return input_scaling_stats_op
+
+            input_kwargs['scaling_stats_op'] = input_scale_stats_type
+
+        if args.input_zp_stats_op == 'minmax':
+
+            @value
+            def input_zp_stats_type():
+                if args.input_quant_type == 'asym':
+                    zero_point_stats_impl = NegativeMinOrZero
+                    return zero_point_stats_impl
+
+            input_kwargs['zero_point_stats_impl'] = input_zp_stats_type
 
         print("Applying model quantization...")
         quantize_model(
             pipe.unet,
             dtype=dtype,
             device=args.device,
-            # name_blacklist=blacklist,
+            name_blacklist=blacklist,
             weight_bit_width=weight_bit_width,
             weight_quant_format=args.weight_quant_format,
             weight_quant_type=args.weight_quant_type,
@@ -298,18 +324,25 @@ def main(args):
             input_param_method=args.input_param_method,
             input_quant_type=args.input_quant_type,
             input_quant_granularity=args.input_quant_granularity,
-            input_stats_op=args.input_stats_op,
             use_ocp=args.use_ocp,
             input_kwargs=input_kwargs)
         print("Model quantization applied.")
 
+        skipped_layers = []
         for name, module in pipe.unet.named_modules():
-            if 'time_emb' in name:  # or 'conv_in' in name:
+            if 'time_emb' in name and not args.quantize_input_time_emb:
                 if hasattr(module, 'input_quant'):
                     module.input_quant.quant_injector = module.input_quant.quant_injector.let(
                         **{'quant_type': QuantType.FP})
                     module.input_quant.init_tensor_quant()
-                # blacklist.append(name.split('.')[-1])
+                    skipped_layers.append(name)
+            if 'conv_in' in name and not args.quantize_input_conv_in:
+                if hasattr(module, 'input_quant'):
+                    module.input_quant.quant_injector = module.input_quant.quant_injector.let(
+                        **{'quant_type': QuantType.FP})
+                    module.input_quant.init_tensor_quant()
+                    skipped_layers.append(name)
+        print(f"Skipped input quantization for layers: {skipped_layers}")
         pipe.set_progress_bar_config(disable=True)
 
         if args.dry_run:
@@ -384,7 +417,7 @@ def main(args):
                         guidance_scale=args.guidance_scale)
 
     if args.checkpoint_name is not None and args.load_checkpoint is None:
-        torch.save(pipe.unet.state_dict(), args.checkpoint_name)
+        torch.save(pipe.unet.state_dict(), os.path.join(output_dir, args.checkpoint_name))
 
     # Perform inference
     if args.prompt > 0 and not args.dry_run:
@@ -495,7 +528,9 @@ if __name__ == "__main__":
         '--checkpoint-name',
         type=str,
         default=None,
-        help='Name to use to store the checkpoint. If not provided, no checkpoint is saved.')
+        help=
+        'Name to use to store the checkpoint in the output dir. If not provided, no checkpoint is saved.'
+    )
     parser.add_argument(
         '--load-checkpoint',
         type=str,
@@ -521,10 +556,7 @@ if __name__ == "__main__":
         help='Resolution along height and width dimension. Default: 512.')
     parser.add_argument('--guidance-scale', type=float, default=7.5, help='Guidance scale.')
     parser.add_argument(
-        '--calibration-steps',
-        type=float,
-        default=8,
-        help='Percentage of steps used during calibration')
+        '--calibration-steps', type=float, default=8, help='Steps used during calibration')
     add_bool_arg(
         parser,
         'output-path',
@@ -590,11 +622,17 @@ if __name__ == "__main__":
         choices=['stats', 'mse'],
         help='How scales/zero-point are determined. Default: stats.')
     parser.add_argument(
-        '--input-stats-op',
+        '--input-scale-stats-op',
         type=str,
         default='minmax',
         choices=['minmax', 'percentile'],
-        help='Define what statics op to use . Default: minmax.')
+        help='Define what statics op to use for input scale. Default: minmax.')
+    parser.add_argument(
+        '--input-zp-stats-op',
+        type=str,
+        default='minmax',
+        choices=['minmax', 'percentile'],
+        help='Define what statics op to use for input zero point. Default: minmax.')
     parser.add_argument(
         '--weight-scale-precision',
         type=str,
@@ -686,6 +724,23 @@ if __name__ == "__main__":
         'dry-run',
         default=False,
         help='Generate a quantized model without any calibration. Default: Disabled')
+    add_bool_arg(
+        parser,
+        'quantize-time-emb',
+        default=True,
+        help='Quantize time embedding layers. Default: True')
+    add_bool_arg(
+        parser, 'quantize-conv-in', default=True, help='Quantize first conv layer. Default: True')
+    add_bool_arg(
+        parser,
+        'quantize-input-time-emb',
+        default=False,
+        help='Quantize input to time embedding layers. Default: Disabled')
+    add_bool_arg(
+        parser,
+        'quantize-input-conv-in',
+        default=True,
+        help='Quantize input to first conv layer. Default: Enabled')
     args = parser.parse_args()
     print("Args: " + str(vars(args)))
     main(args)
