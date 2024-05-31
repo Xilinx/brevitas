@@ -183,6 +183,7 @@ class QuantizableBertAttention(MultiheadAttentionWrapper):
             self,
             all_head_size,
             num_attention_heads,
+            ln_normalized_shape,
             dropout=0.,
             bias=True,
             add_bias_kv=False,
@@ -190,6 +191,9 @@ class QuantizableBertAttention(MultiheadAttentionWrapper):
             kdim=None,
             vdim=None,
             batch_first=False,
+            ln_eps=1e-05,
+            ln_elementwise_affine=True,
+            ln_bias=True,
             device=None,
             dtype=None) -> None:
         super().__init__(
@@ -202,6 +206,13 @@ class QuantizableBertAttention(MultiheadAttentionWrapper):
             kdim=kdim,
             vdim=vdim,
             batch_first=batch_first,
+            device=device,
+            dtype=dtype)
+        self.ln = nn.LayerNorm(
+            normalized_shape=ln_normalized_shape,
+            eps=ln_eps,
+            elementwise_affine=ln_elementwise_affine,
+            bias=ln_bias,
             device=device,
             dtype=dtype)
 
@@ -238,8 +249,9 @@ class QuantizableBertAttention(MultiheadAttentionWrapper):
             attn_mask=attention_mask,
             need_weights=output_attentions,
             average_attn_weights=False)
+        ln_output = self.ln(attn_output + hidden_states)
         past_key_value = None
-        return attn_output, attn_output_weights, past_key_value
+        return ln_output, attn_output_weights, past_key_value
 
     def _load_from_state_dict(
             self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
@@ -261,43 +273,57 @@ class QuantizableBertAttention(MultiheadAttentionWrapper):
 
         embed_dim = self.mha.embed_dim
         for name, value in list(state_dict.items()):
-            if prefix + 'query.weight' in name:
+            if prefix + 'self.query.weight' in name:
                 weight = torch.zeros((3 * embed_dim, embed_dim),
                                      device=value.device,
                                      dtype=value.dtype)
                 weight[:embed_dim] = value
                 set_weight(weight)
                 del state_dict[name]
-            elif prefix + 'key.weight' in name:
+            elif prefix + 'self.key.weight' in name:
                 weight = torch.zeros((3 * embed_dim, embed_dim),
                                      device=value.device,
                                      dtype=value.dtype)
                 weight[embed_dim:2 * embed_dim] = value
                 set_weight(weight)
                 del state_dict[name]
-            elif prefix + 'value.weight' in name:
+            elif prefix + 'self.value.weight' in name:
                 weight = torch.zeros((3 * embed_dim, embed_dim),
                                      device=value.device,
                                      dtype=value.dtype)
                 weight[2 * embed_dim:3 * embed_dim] = value
                 set_weight(weight)
                 del state_dict[name]
-            if prefix + 'query.bias' in name:
+            if prefix + 'self.query.bias' in name:
                 bias = torch.zeros(3 * embed_dim, device=value.device, dtype=value.dtype)
                 bias[:embed_dim] = value
                 set_bias(bias)
                 del state_dict[name]
-            elif prefix + 'key.bias' in name:
+            elif prefix + 'self.key.bias' in name:
                 bias = torch.zeros(3 * embed_dim, device=value.device, dtype=value.dtype)
                 bias[embed_dim:2 * embed_dim] = value
                 set_bias(bias)
                 del state_dict[name]
-            elif prefix + 'value.bias' in name:
+            elif prefix + 'self.value.bias' in name:
                 bias = torch.zeros(3 * embed_dim, device=value.device, dtype=value.dtype)
                 bias[2 * embed_dim:3 * embed_dim] = value
                 set_bias(bias)
                 del state_dict[name]
-        state_dict[prefix + 'mha.out_proj.weight'] = torch.eye(self.mha.out_proj.weight.shape[0])
-        state_dict[prefix + 'mha.out_proj.bias'] = torch.zeros(self.mha.out_proj.bias.shape)
+            if prefix + 'output.dense.weight' in name:
+                weight_name = f'{prefix}mha.out_proj.weight'
+                state_dict[weight_name] = value
+                del state_dict[name]
+            if prefix + 'output.dense.bias' in name:
+                weight_name = f'{prefix}mha.out_proj.bias'
+                state_dict[weight_name] = value
+                del state_dict[name]
+            if prefix + 'output.LayerNorm.weight' in name:
+                weight_name = f'{prefix}ln.weight'
+                state_dict[weight_name] = value
+                del state_dict[name]
+            if prefix + 'output.LayerNorm.bias' in name:
+                weight_name = f'{prefix}ln.bias'
+                state_dict[weight_name] = value
+                del state_dict[name]
         return super()._load_from_state_dict(
             state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
