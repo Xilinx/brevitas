@@ -216,7 +216,7 @@ def main(args):
 
     if args.activation_equalization:
         pipe.set_progress_bar_config(disable=True)
-        with activation_equalization_mode(pipe.unet, alpha=0.9, layerwise=True, add_mul_node=True):
+        with activation_equalization_mode(pipe.unet, alpha=args.act_eq_alpha, layerwise=True, add_mul_node=True):
             # Workaround to expose `in_features` attribute from the Hook Wrapper
             for m in pipe.unet.modules():
                 if isinstance(m, KwargsForwardHook) and hasattr(m.module, 'in_features'):
@@ -601,6 +601,11 @@ if __name__ == "__main__":
         type=int,
         default=None,
         help='Input bit width. Default: None (not quantized)')
+    parser.add_argument(
+        '--act-eq-alpha',
+        type=float,
+        default=0.9,
+        help='Alpha for activation equalization. Default: 0.9')
     parser.add_argument(
         '--linear-input-bit-width',
         type=int,
