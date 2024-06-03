@@ -62,7 +62,12 @@ class gpfq_mode(gpxq_mode):
 
     Example:
         >>> with torch.no_grad():
-        >>>     with gpfq_mode(model) as gpfq:
+        >>>     with gpfq_mode(model, collect_float_first) as gpfq:
+        >>>         if collect_float_first:
+        >>>             for img, t in calib_loader:
+        >>>                 img = img.cuda()
+        >>>                 gpfq.orig_forward(img)
+        >>>             gpfq.finalize_float_collection()
         >>>         gpfq_model = gpfq.model
         >>>         for i in tqdm(range(gpfq.num_layers)):
         >>>             for img, t in calib_loader:
