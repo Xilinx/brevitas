@@ -141,13 +141,14 @@ INPUT_QUANT_MAP = {
                         'sym': CNNInt8DynamicActPerTensorFloat,
                         'asym': CNNShiftedUint8DynamicActPerTensorFloat}}}}},
     'float': {
-        'float_scale': {
-            'stats': {
-                'per_tensor': {
-                    'sym': Fp8e4m3ActPerTensorFloat}},
-            'mse': {
-                'per_tensor': {
-                    'sym': Fp8e4m3ActPerTensorFloatMSE}}}}}
+        'static': {
+            'float_scale': {
+                'stats': {
+                    'per_tensor': {
+                        'sym': Fp8e4m3ActPerTensorFloat}},
+                'mse': {
+                    'per_tensor': {
+                        'sym': Fp8e4m3ActPerTensorFloatMSE}}}}}}
 
 
 def quantize_model(
