@@ -43,7 +43,8 @@ class ScaledFloatWeightBase(FloatWeightBase, WeightQuantSolver):
 
 
 class ScaledFloatActBase(FloatActBase, ActQuantSolver):
-    scaling_stats_op = 'max'
+    scaling_stats_op = 'percentile'
+    high_percentile_q = 99.999
     scaling_impl_type = 'parameter_from_stats'
     restrict_scaling_type = 'fp'
     collect_stats_steps = 300

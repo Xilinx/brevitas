@@ -15,7 +15,7 @@ from brevitas.nn import QuantLinear
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer as QuantWBIOL
 from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjectorBase
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjectorBase
-from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector
+from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector, ActQuantProxyFromInjectorBase
 from brevitas.proxy.runtime_quant import ClampQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import TruncQuantProxyFromInjector
 from brevitas.quant_tensor import QuantTensor
@@ -188,7 +188,7 @@ class DisableEnableQuantization(Transform):
         # will be discarded through the hook. It is useful for collecting activation stats,
         # for example during activation calibration in PTQ
         for module in model.modules():
-            if isinstance(module, ActQuantProxyFromInjector):
+            if isinstance(module, ActQuantProxyFromInjectorBase):
                 module.train(is_training)
                 if self.call_act_quantizer_impl:
                     hook = module.register_forward_hook(self.disable_act_quant_hook)
@@ -216,7 +216,7 @@ class DisableEnableQuantization(Transform):
             if isinstance(module, _ACC_PROXIES):
                 module.train(is_training)
                 module.disable_quant = False
-            elif isinstance(module, ActQuantProxyFromInjector):
+            elif isinstance(module, ActQuantProxyFromInjectorBase):
                 module.disable_quant = False
                 module.train(is_training)
         for hook in self.disable_act_quant_hooks:
