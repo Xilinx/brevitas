@@ -13,6 +13,7 @@ from brevitas.export.manager import _set_proxy_export_mode
 from brevitas.export.manager import BaseManager
 from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
+from brevitas_examples.stable_diffusion.sd_quant.constants import SDXL_FEAT_DIM
 
 
 class InferenceWeightProxyHandler(BaseHandler):
@@ -177,7 +178,7 @@ def generate_unet_xl_rand_inputs(
     unet_rand_inputs['timestep_cond'] = None
     unet_rand_inputs['cross_attention_kwargs'] = None
     unet_rand_inputs['added_cond_kwargs'] = {
-        "text_embeds": torch.randn(1, 1280, dtype=dtype, device=device),
+        "text_embeds": torch.randn(1, SDXL_FEAT_DIM, dtype=dtype, device=device),
         "time_ids": torch.randn(1, 6, dtype=dtype, device=device)}
     inputs = (sample, unet_rand_inputs)
     return inputs

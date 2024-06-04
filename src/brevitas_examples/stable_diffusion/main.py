@@ -13,6 +13,8 @@ import time
 from dependencies import value
 from diffusers import DiffusionPipeline
 from diffusers import StableDiffusionXLPipeline
+from diffusers.models.attention_processor import Attention
+from diffusers.models.attention_processor import AttnProcessor
 import numpy as np
 import pandas as pd
 import torch
@@ -23,17 +25,20 @@ from tqdm import tqdm
 from brevitas.core.stats.stats_op import NegativeMinOrZero
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
 from brevitas.export.torch.qcdq.manager import TorchQCDQManager
+from brevitas.graph.base import ModuleToModuleByClass
 from brevitas.graph.calibrate import bias_correction_mode
 from brevitas.graph.calibrate import calibration_mode
 from brevitas.graph.calibrate import load_quant_model_mode
 from brevitas.graph.equalize import activation_equalization_mode
 from brevitas.graph.gptq import gptq_mode
+from brevitas.graph.quantize import layerwise_quantize
 from brevitas.inject.enum import QuantType
 from brevitas.inject.enum import StatsOp
 from brevitas.nn.equalized_layer import EqualizedModule
-from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer
+from brevitas.nn.quant_activation import QuantIdentity
 from brevitas.utils.torch_utils import KwargsForwardHook
-from brevitas_examples.common.generative.quantize import quantize_model
+from brevitas_examples.common.generative.quantize import generate_quant_maps
+from brevitas_examples.common.generative.quantize import generate_quantizers
 from brevitas_examples.common.parse_utils import add_bool_arg
 from brevitas_examples.common.parse_utils import quant_format_validator
 from brevitas_examples.llm.llm_quant.export import BlockQuantProxyLevelManager
@@ -42,7 +47,7 @@ from brevitas_examples.stable_diffusion.sd_quant.constants import SD_2_1_EMBEDDI
 from brevitas_examples.stable_diffusion.sd_quant.constants import SD_XL_EMBEDDINGS_SHAPE
 from brevitas_examples.stable_diffusion.sd_quant.export import export_onnx
 from brevitas_examples.stable_diffusion.sd_quant.export import export_torch_export
-from brevitas_examples.stable_diffusion.sd_quant.utils import brevitas_proxy_inference_mode
+from brevitas_examples.stable_diffusion.sd_quant.modules import QuantAttention
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_latents
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_unet_21_rand_inputs
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_unet_xl_rand_inputs
@@ -260,6 +265,8 @@ def main(args):
                 return args.linear_input_bit_width
             elif isinstance(module, nn.Conv2d):
                 return args.conv_input_bit_width
+            elif isinstance(module, QuantIdentity):
+                return args.quant_identity_bit_width
             else:
                 raise RuntimeError(f"Module {module} not supported.")
 
@@ -300,11 +307,9 @@ def main(args):
             input_kwargs['zero_point_stats_impl'] = input_zp_stats_type
 
         print("Applying model quantization...")
-        quantize_model(
-            pipe.unet,
+        quantizers = generate_quantizers(
             dtype=dtype,
             device=args.device,
-            name_blacklist=blacklist,
             weight_bit_width=weight_bit_width,
             weight_quant_format=args.weight_quant_format,
             weight_quant_type=args.weight_quant_type,
@@ -323,6 +328,46 @@ def main(args):
             input_quant_granularity=args.input_quant_granularity,
             use_ocp=args.use_ocp,
             input_kwargs=input_kwargs)
+
+        layer_map = generate_quant_maps(
+            *quantizers, dtype, args.device, args.input_quant_format, False)
+        if not args.quantize_linear_conv:
+            for _, (quant_class, quant_args) in layer_map.items():
+                for k, v in quant_args.items():
+                    if 'quant' in k:
+                        quant_args[k] = None
+
+        if args.quantize_sdp_1 or args.quantize_sdp_2:
+            if args.quantize_sdp_2:
+                input_quant = quantizers[0]
+                print(input_quant)
+                if args.input_quant_format == 'int':
+                    uns_input_quant = input_quant.let(**{'signed': False})
+                else:
+                    uns_input_quant = input_quant
+                rewriter = ModuleToModuleByClass(
+                    Attention,
+                    QuantAttention,
+                    softmax_output_quant=uns_input_quant,
+                    query_dim=lambda module: module.to_q.in_features,
+                    dim_head=lambda module: int(1 / (module.scale ** 2)),
+                    processor=AttnProcessor())
+                import brevitas.config as config
+                config.IGNORE_MISSING_KEYS = True
+                pipe.unet = rewriter.apply(pipe.unet)
+                config.IGNORE_MISSING_KEYS = False
+            quant_kwargs = layer_map[torch.nn.Linear][1]
+            what_to_quantize = []
+            if args.quantize_sdp_1:
+                what_to_quantize.extend(['to_q', 'to_k'])
+            if args.quantize_sdp_2:
+                what_to_quantize.extend(['to_v'])
+            quant_kwargs['output_quant'] = lambda module, name: input_quant if any(ending in name for ending in what_to_quantize) else None
+            layer_map[torch.nn.Linear] = (layer_map[torch.nn.Linear][0], quant_kwargs)
+
+        pipe.unet = layerwise_quantize(
+            model=pipe.unet, compute_layer_map=layer_map, name_blacklist=blacklist)
+
         print("Model quantization applied.")
 
         skipped_layers = []
@@ -340,6 +385,7 @@ def main(args):
                     module.input_quant.init_tensor_quant()
                     skipped_layers.append(name)
         print(f"Skipped input quantization for layers: {skipped_layers}")
+
         pipe.set_progress_bar_config(disable=True)
 
         if args.dry_run:
@@ -597,6 +643,8 @@ if __name__ == "__main__":
     parser.add_argument(
         '--linear-weight-bit-width', type=int, default=8, help='Weight bit width. Default: 8.')
     parser.add_argument(
+        '--quant-identity-bit-width', type=int, default=8, help='Weight bit width. Default: None')
+    parser.add_argument(
         '--conv-input-bit-width',
         type=int,
         default=None,
@@ -724,8 +772,8 @@ if __name__ == "__main__":
     add_bool_arg(
         parser,
         'quantize-time-emb',
-        default=True,
-        help='Quantize time embedding layers. Default: True')
+        default=False,
+        help='Quantize time embedding layers. Default: False')
     add_bool_arg(
         parser, 'quantize-conv-in', default=True, help='Quantize first conv layer. Default: True')
     add_bool_arg(
@@ -738,6 +786,13 @@ if __name__ == "__main__":
         'quantize-input-conv-in',
         default=True,
         help='Quantize input to first conv layer. Default: Enabled')
+    add_bool_arg(parser, 'quantize-sdp-1', default=True, help='Quantize SDP. Default: Disabled')
+    add_bool_arg(parser, 'quantize-sdp-2', default=True, help='Quantize SDP. Default: Disabled')
+    add_bool_arg(
+        parser,
+        'quantize-linear-conv',
+        default=True,
+        help='Perform quantization through layer replacement of linear/conv. Default: Enabled')
     args = parser.parse_args()
     print("Args: " + str(vars(args)))
     main(args)
