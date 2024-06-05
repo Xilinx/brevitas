@@ -46,6 +46,7 @@ from brevitas_examples.stable_diffusion.mlperf_evaluation.accuracy import comput
 from brevitas_examples.stable_diffusion.sd_quant.constants import SD_2_1_EMBEDDINGS_SHAPE
 from brevitas_examples.stable_diffusion.sd_quant.constants import SD_XL_EMBEDDINGS_SHAPE
 from brevitas_examples.stable_diffusion.sd_quant.export import export_onnx
+from brevitas_examples.stable_diffusion.sd_quant.export import export_quant_params
 from brevitas_examples.stable_diffusion.sd_quant.export import export_torch_export
 from brevitas_examples.stable_diffusion.sd_quant.modules import QuantAttention
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_latents
@@ -221,7 +222,10 @@ def main(args):
 
     if args.activation_equalization:
         pipe.set_progress_bar_config(disable=True)
-        with activation_equalization_mode(pipe.unet, alpha=args.act_eq_alpha, layerwise=True, add_mul_node=True):
+        with activation_equalization_mode(pipe.unet,
+                                          alpha=args.act_eq_alpha,
+                                          layerwise=True,
+                                          add_mul_node=True):
             # Workaround to expose `in_features` attribute from the Hook Wrapper
             for m in pipe.unet.modules():
                 if isinstance(m, KwargsForwardHook) and hasattr(m.module, 'in_features'):
@@ -537,6 +541,8 @@ def main(args):
                 export_manager = TorchQCDQManager
                 export_manager.change_weight_export(export_weight_q_node=args.export_weight_q_node)
             export_torch_export(pipe, trace_inputs, output_dir, export_manager)
+        if args.export_target == 'param_dump':
+            export_quant_params(pipe)
 
 
 if __name__ == "__main__":
@@ -629,7 +635,7 @@ if __name__ == "__main__":
         '--export-target',
         type=str,
         default='',
-        choices=['', 'torch', 'onnx'],
+        choices=['', 'torch', 'onnx', 'param_dump'],
         help='Target export flow.')
     add_bool_arg(
         parser,
@@ -791,8 +797,8 @@ if __name__ == "__main__":
         'quantize-input-conv-in',
         default=True,
         help='Quantize input to first conv layer. Default: Enabled')
-    add_bool_arg(parser, 'quantize-sdp-1', default=True, help='Quantize SDP. Default: Disabled')
-    add_bool_arg(parser, 'quantize-sdp-2', default=True, help='Quantize SDP. Default: Disabled')
+    add_bool_arg(parser, 'quantize-sdp-1', default=False, help='Quantize SDP. Default: Disabled')
+    add_bool_arg(parser, 'quantize-sdp-2', default=False, help='Quantize SDP. Default: Disabled')
     add_bool_arg(
         parser,
         'quantize-linear-conv',

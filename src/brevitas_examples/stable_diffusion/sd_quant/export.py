@@ -3,11 +3,14 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 SPDX-License-Identifier: MIT
 """
 
+import json
 import os
 
 import torch
 from torch import nn
 
+from brevitas.nn.equalized_layer import EqualizedModule
+from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer
 from brevitas_examples.llm.llm_quant.export import brevitas_proxy_export_mode
 
 
@@ -30,7 +33,6 @@ def export_onnx(pipe, trace_inputs, output_dir, export_manager):
 
 def export_torch_export(pipe, trace_inputs, output_dir, export_manager):
     output_path = os.path.join(output_dir, 'unet.pt2')
-    print(trace_inputs[1])
     print(f"Saving unet to {output_path} ...")
     export_manager.change_weight_export(True)
     import brevitas.config as config
@@ -39,4 +41,37 @@ def export_torch_export(pipe, trace_inputs, output_dir, export_manager):
         exported_program = torch.export.export(
             UnetExportWrapper(pipe.unet), args=(trace_inputs[0],), kwargs=trace_inputs[1])
     config._FULL_STATE_DICT = False
+    print(exported_program.graph.print_tabular())
     torch.export.save(exported_program, output_path)
+
+
+def export_quant_params(pipe, output_dir):
+    output_path = os.path.join(output_dir, 'params.json')
+    print(f"Saving unet to {output_path} ...")
+    from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
+    prefix = 'pipe.unet.'
+    full_params = dict()
+    quant_params = dict()
+    with torch.no_grad(), brevitas_proxy_export_mode(pipe.unet, StdQCDQONNXManager):
+        for name, module in pipe.unet.named_modules():
+            if isinstance(module, EqualizedModule):
+                if isinstance(module.layer, QuantWeightBiasInputOutputLayer):
+                    layer_dict = dict()
+                    full_name = prefix + name
+                    smoothquant_param = module.scale.weight
+                    input_scale = module.layer.input_quant.export_handler.symbolic_kwargs[
+                        'dequantize_symbolic_kwargs']['scale']
+                    input_zp = module.layer.input_quant.export_handler.symbolic_kwargs[
+                        'dequantize_symbolic_kwargs']['zero_point']
+                    weight_scale = module.layer.weight_quant.export_handler.symbolic_kwargs[
+                        'dequantize_symbolic_kwargs']['scale']
+                    weight_zp = module.layer.weight_quant.export_handler.symbolic_kwargs[
+                        'dequantize_symbolic_kwargs']['zero_point']
+                    layer_dict['smoothquant_mul'] = smoothquant_param.data
+                    layer_dict['input_scale'] = input_scale.data
+                    layer_dict['input_zp'] = input_zp.data
+                    layer_dict['weight_scale'] = weight_scale.data
+                    layer_dict['weight_zp'] = weight_zp.data
+                    quant_params[full_name] = layer_dict
+    with open('param_dump.json', 'w') as file:
+        json.dump(quant_params, file)
