@@ -71,6 +71,17 @@ def export_quant_params(pipe, output_dir):
                     layer_dict['input_zp'] = input_zp.tolist()
                     layer_dict['weight_scale'] = weight_scale.tolist()
                     layer_dict['weight_zp'] = weight_zp.tolist()
+                    layer_dict['fake_quantized_weight'] = module.layer.weight.data.numpy().tolist()
+                    if module.layer.bias is not None:
+                        layer_dict['fake_quantized_bias'] = module.layer.bias.data.numpy().tolist()
                     quant_params[full_name] = layer_dict
+            elif isinstance(module, torch.nn.Module) and hasattr(module, 'weight') and not isinstance(module, QuantWeightBiasInputOutputLayer):
+                layer_dict = dict()
+                full_name = prefix + name
+                layer_dict['fp_weight'] = module.weight.data.numpy().tolist()
+                if module.bias is not None:
+                    layer_dict['fp_bias'] = module.bias.data.numpy().tolist()
+                quant_params[full_name] = layer_dict
+
     with open(output_path, 'w') as file:
-        json.dump(quant_params, file)
+        json.dump(quant_params, file, indent="  ")

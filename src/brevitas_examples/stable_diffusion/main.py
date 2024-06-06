@@ -323,27 +323,7 @@ def main(args):
             input_quant_granularity=args.input_quant_granularity,
             use_ocp=args.use_ocp,
             input_kwargs=input_kwargs)
-        float_sdpa_quantizers = generate_quantizers(
-            dtype=dtype,
-            device=args.device,
-            weight_bit_width=weight_bit_width,
-            weight_quant_format='e4m3',
-            weight_quant_type=args.weight_quant_type,
-            weight_param_method=args.weight_param_method,
-            weight_scale_precision=args.weight_scale_precision,
-            weight_quant_granularity=args.weight_quant_granularity,
-            weight_group_size=args.weight_group_size,
-            quantize_weight_zero_point=args.quantize_weight_zero_point,
-            quantize_input_zero_point=args.quantize_input_zero_point,
-            input_bit_width=input_bit_width,
-            input_quant_format='e4m3',
-            input_scale_type=args.input_scale_type,
-            input_scale_precision=args.input_scale_precision,
-            input_param_method=args.input_param_method,
-            input_quant_type=args.input_quant_type,
-            input_quant_granularity=args.input_quant_granularity,
-            use_ocp=args.use_ocp,
-            input_kwargs=input_kwargs)
+        
         layer_map = generate_quant_maps(
             *quantizers, dtype, args.device, args.input_quant_format, False)
         if not args.quantize_linear_conv:
@@ -369,6 +349,27 @@ def main(args):
         layer_map[torch.nn.Conv2d] = (layer_map[torch.nn.Conv2d][0], conv_qkwargs)
 
         if args.quantize_sdp_1 or args.quantize_sdp_2:
+            float_sdpa_quantizers = generate_quantizers(
+                dtype=dtype,
+                device=args.device,
+                weight_bit_width=weight_bit_width,
+                weight_quant_format='e4m3',
+                weight_quant_type='sym',
+                weight_param_method=args.weight_param_method,
+                weight_scale_precision=args.weight_scale_precision,
+                weight_quant_granularity=args.weight_quant_granularity,
+                weight_group_size=args.weight_group_size,
+                quantize_weight_zero_point=args.quantize_weight_zero_point,
+                quantize_input_zero_point=args.quantize_input_zero_point,
+                input_bit_width=input_bit_width,
+                input_quant_format='e4m3',
+                input_scale_type=args.input_scale_type,
+                input_scale_precision=args.input_scale_precision,
+                input_param_method=args.input_param_method,
+                input_quant_type='sym',
+                input_quant_granularity=args.input_quant_granularity,
+                use_ocp=args.use_ocp,
+                input_kwargs=input_kwargs)
             input_quant = float_sdpa_quantizers[0]
             input_quant = input_quant.let(**{'bit_width': args.linear_output_bit_width})
             if args.quantize_sdp_2:
