@@ -9,6 +9,7 @@ from functools import partial
 import json
 import os
 import time
+import warnings
 
 from dependencies import value
 from diffusers import DiffusionPipeline
@@ -55,6 +56,7 @@ from brevitas_examples.stable_diffusion.sd_quant.utils import generate_unet_xl_r
 from brevitas_examples.stable_diffusion.sd_quant.utils import unet_input_shape
 
 TEST_SEED = 123456
+torch.manual_seed(TEST_SEED)
 
 NEGATIVE_PROMPTS = ["normal quality, low quality, worst quality, low res, blurry, nsfw, nude"]
 
@@ -157,6 +159,8 @@ def main(args):
     latents = None
     if args.path_to_latents is not None:
         latents = torch.load(args.path_to_latents).to(torch.float16)
+    else:
+        warnings.warn("No latent provided. Will generate some using pre-set seeds")
 
     # Create output dir. Move to tmp if None
     ts = datetime.fromtimestamp(time.time())
@@ -332,7 +336,27 @@ def main(args):
             input_quant_granularity=args.input_quant_granularity,
             use_ocp=args.use_ocp,
             input_kwargs=input_kwargs)
-
+        float_sdpa_quantizers = generate_quantizers(
+            dtype=dtype,
+            device=args.device,
+            weight_bit_width=weight_bit_width,
+            weight_quant_format='e4m3',
+            weight_quant_type=args.weight_quant_type,
+            weight_param_method=args.weight_param_method,
+            weight_scale_precision=args.weight_scale_precision,
+            weight_quant_granularity=args.weight_quant_granularity,
+            weight_group_size=args.weight_group_size,
+            quantize_weight_zero_point=args.quantize_weight_zero_point,
+            quantize_input_zero_point=args.quantize_input_zero_point,
+            input_bit_width=input_bit_width,
+            input_quant_format='e4m3',
+            input_scale_type=args.input_scale_type,
+            input_scale_precision=args.input_scale_precision,
+            input_param_method=args.input_param_method,
+            input_quant_type=args.input_quant_type,
+            input_quant_granularity=args.input_quant_granularity,
+            use_ocp=args.use_ocp,
+            input_kwargs=input_kwargs)
         layer_map = generate_quant_maps(
             *quantizers, dtype, args.device, args.input_quant_format, False)
         if not args.quantize_linear_conv:
@@ -342,17 +366,13 @@ def main(args):
                         quant_args[k] = None
 
         if args.quantize_sdp_1 or args.quantize_sdp_2:
+            input_quant = float_sdpa_quantizers[0]
             if args.quantize_sdp_2:
-                input_quant = quantizers[0]
-                print(input_quant)
-                if args.input_quant_format == 'int':
-                    uns_input_quant = input_quant.let(**{'signed': False})
-                else:
-                    uns_input_quant = input_quant
+                print("Quantize SDPA 2")
                 rewriter = ModuleToModuleByClass(
                     Attention,
                     QuantAttention,
-                    softmax_output_quant=uns_input_quant,
+                    softmax_output_quant=input_quant,
                     query_dim=lambda module: module.to_q.in_features,
                     dim_head=lambda module: int(1 / (module.scale ** 2)),
                     processor=AttnProcessor())
@@ -542,7 +562,7 @@ def main(args):
                 export_manager.change_weight_export(export_weight_q_node=args.export_weight_q_node)
             export_torch_export(pipe, trace_inputs, output_dir, export_manager)
         if args.export_target == 'param_dump':
-            export_quant_params(pipe)
+            export_quant_params(pipe, output_dir)
 
 
 if __name__ == "__main__":

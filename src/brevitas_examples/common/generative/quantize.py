@@ -392,7 +392,7 @@ def generate_quant_maps(
         'in_proj_bias_quant': None,
         'softmax_input_quant': None,
         'attn_output_weights_quant': attn_output_weights_quant,
-        'attn_output_weights_signed': input_quant_format == 'float',
+        'attn_output_weights_signed': 'float' in input_quant_format,
         'q_scaled_quant': q_scaled_quant,
         'k_transposed_quant': k_transposed_quant,
         'v_quant': v_quant,

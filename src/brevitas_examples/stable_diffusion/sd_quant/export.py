@@ -50,7 +50,6 @@ def export_quant_params(pipe, output_dir):
     print(f"Saving unet to {output_path} ...")
     from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
     prefix = 'pipe.unet.'
-    full_params = dict()
     quant_params = dict()
     with torch.no_grad(), brevitas_proxy_export_mode(pipe.unet, StdQCDQONNXManager):
         for name, module in pipe.unet.named_modules():
@@ -60,18 +59,18 @@ def export_quant_params(pipe, output_dir):
                     full_name = prefix + name
                     smoothquant_param = module.scale.weight
                     input_scale = module.layer.input_quant.export_handler.symbolic_kwargs[
-                        'dequantize_symbolic_kwargs']['scale']
+                        'dequantize_symbolic_kwargs']['scale'].data.numpy()
                     input_zp = module.layer.input_quant.export_handler.symbolic_kwargs[
-                        'dequantize_symbolic_kwargs']['zero_point']
+                        'dequantize_symbolic_kwargs']['zero_point'].data.numpy()
                     weight_scale = module.layer.weight_quant.export_handler.symbolic_kwargs[
-                        'dequantize_symbolic_kwargs']['scale']
+                        'dequantize_symbolic_kwargs']['scale'].data.numpy()
                     weight_zp = module.layer.weight_quant.export_handler.symbolic_kwargs[
-                        'dequantize_symbolic_kwargs']['zero_point']
-                    layer_dict['smoothquant_mul'] = smoothquant_param.data
-                    layer_dict['input_scale'] = input_scale.data
-                    layer_dict['input_zp'] = input_zp.data
-                    layer_dict['weight_scale'] = weight_scale.data
-                    layer_dict['weight_zp'] = weight_zp.data
+                        'dequantize_symbolic_kwargs']['zero_point'].data.numpy()
+                    layer_dict['smoothquant_mul'] = smoothquant_param.data.numpy().tolist()
+                    layer_dict['input_scale'] = input_scale.tolist()
+                    layer_dict['input_zp'] = input_zp.tolist()
+                    layer_dict['weight_scale'] = weight_scale.tolist()
+                    layer_dict['weight_zp'] = weight_zp.tolist()
                     quant_params[full_name] = layer_dict
-    with open('param_dump.json', 'w') as file:
+    with open(output_path, 'w') as file:
         json.dump(quant_params, file)
