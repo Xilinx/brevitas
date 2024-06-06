@@ -4,8 +4,11 @@ from diffusers import DiffusionPipeline
 from diffusers.models.attention_processor import Attention
 import torch
 
+from brevitas.graph.base import ModuleInstanceToModuleInstance
 from brevitas.graph.base import ModuleToModuleByClass
+from brevitas.nn.equalized_layer import EqualizedModule
 from brevitas.nn.quant_activation import QuantIdentity
+from brevitas.nn.quant_scale_bias import ScaleBias
 from brevitas.quant.scaled_int import Uint8ActPerTensorFloat
 from brevitas.quant_tensor import _unpack_quant_tensor
 
@@ -13,30 +16,30 @@ from brevitas.quant_tensor import _unpack_quant_tensor
 class QuantAttention(Attention):
 
     def __init__(
-        self,
-        query_dim: int,
-        cross_attention_dim: Optional[int] = None,
-        heads: int = 8,
-        dim_head: int = 64,
-        dropout: float = 0.0,
-        bias=False,
-        upcast_attention: bool = False,
-        upcast_softmax: bool = False,
-        cross_attention_norm: Optional[str] = None,
-        cross_attention_norm_num_groups: int = 32,
-        added_kv_proj_dim: Optional[int] = None,
-        norm_num_groups: Optional[int] = None,
-        spatial_norm_dim: Optional[int] = None,
-        out_bias: bool = True,
-        scale_qk: bool = True,
-        only_cross_attention: bool = False,
-        eps: float = 1e-5,
-        rescale_output_factor: float = 1.0,
-        residual_connection: bool = False,
-        _from_deprecated_attn_block=False,
-        processor: Optional["AttnProcessor"] = None,
-        softmax_output_quant=None,
-    ):
+            self,
+            query_dim: int,
+            cross_attention_dim: Optional[int] = None,
+            heads: int = 8,
+            dim_head: int = 64,
+            dropout: float = 0.0,
+            bias=False,
+            upcast_attention: bool = False,
+            upcast_softmax: bool = False,
+            cross_attention_norm: Optional[str] = None,
+            cross_attention_norm_num_groups: int = 32,
+            added_kv_proj_dim: Optional[int] = None,
+            norm_num_groups: Optional[int] = None,
+            spatial_norm_dim: Optional[int] = None,
+            out_bias: bool = True,
+            scale_qk: bool = True,
+            only_cross_attention: bool = False,
+            eps: float = 1e-5,
+            rescale_output_factor: float = 1.0,
+            residual_connection: bool = False,
+            _from_deprecated_attn_block=False,
+            processor: Optional["AttnProcessor"] = None,
+            softmax_output_quant=None,
+            is_equalized=False):
         super().__init__(
             query_dim,
             cross_attention_dim,
@@ -64,6 +67,16 @@ class QuantAttention(Attention):
         # self.output_k_quant = QuantIdentity(qkv_output_quant)
         # self.output_v_quant = QuantIdentity(qkv_output_quant)
         self.output_softmax_quant = QuantIdentity(softmax_output_quant)
+        if is_equalized:
+            replacements = []
+            for n, m in self.named_modules():
+                if isinstance(m, torch.nn.Linear):
+                    in_channels = m.in_features
+                    eq_m = EqualizedModule(ScaleBias(in_channels, False, (1, 1, -1)), m)
+                    r = ModuleInstanceToModuleInstance(m, eq_m)
+                    replacements.append(r)
+            for r in replacements:
+                r.apply(self)
 
     def get_attention_scores(
             self,

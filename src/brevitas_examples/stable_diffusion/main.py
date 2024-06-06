@@ -279,19 +279,6 @@ def main(args):
                 raise RuntimeError(f"Module {module} not supported.")
 
         input_kwargs = dict()
-        if args.linear_input_bit_width is None or args.conv_input_bit_width is None:
-
-            @value
-            def input_quant_enabled(module):
-                if args.linear_input_bit_width is None and isinstance(module, nn.Linear):
-                    return QuantType.FP
-                elif args.conv_input_bit_width is None and isinstance(module, nn.Conv2d):
-                    return QuantType.FP
-                else:
-                    return QuantType.INT
-
-            input_kwargs['quant_type'] = input_quant_enabled
-
         if args.input_scale_stats_op == 'minmax':
 
             @value
@@ -365,21 +352,40 @@ def main(args):
                     if 'quant' in k:
                         quant_args[k] = None
 
+        linear_qkwargs = layer_map[torch.nn.Linear][1]
+        linear_qkwargs[
+            'input_quant'] = None if args.linear_input_bit_width is None else linear_qkwargs[
+                'input_quant']
+        linear_qkwargs[
+            'weight_quant'] = None if args.linear_weight_bit_width == 0 else linear_qkwargs[
+                'weight_quant']
+        layer_map[torch.nn.Linear] = (layer_map[torch.nn.Linear][0], linear_qkwargs)
+
+        conv_qkwargs = layer_map[torch.nn.Conv2d][1]
+        conv_qkwargs['input_quant'] = None if args.conv_input_bit_width is None else conv_qkwargs[
+            'input_quant']
+        conv_qkwargs['weight_quant'] = None if args.conv_weight_bit_width == 0 else conv_qkwargs[
+            'weight_quant']
+        layer_map[torch.nn.Conv2d] = (layer_map[torch.nn.Conv2d][0], conv_qkwargs)
+
         if args.quantize_sdp_1 or args.quantize_sdp_2:
             input_quant = float_sdpa_quantizers[0]
+            input_quant = input_quant.let(**{'bit_width': args.linear_output_bit_width})
             if args.quantize_sdp_2:
-                print("Quantize SDPA 2")
                 rewriter = ModuleToModuleByClass(
                     Attention,
                     QuantAttention,
                     softmax_output_quant=input_quant,
                     query_dim=lambda module: module.to_q.in_features,
                     dim_head=lambda module: int(1 / (module.scale ** 2)),
-                    processor=AttnProcessor())
+                    processor=AttnProcessor(),
+                    is_equalized=args.activation_equalization)
                 import brevitas.config as config
                 config.IGNORE_MISSING_KEYS = True
                 pipe.unet = rewriter.apply(pipe.unet)
                 config.IGNORE_MISSING_KEYS = False
+                pipe.unet = pipe.unet.to(args.device)
+                pipe.unet = pipe.unet.to(dtype)
             quant_kwargs = layer_map[torch.nn.Linear][1]
             what_to_quantize = []
             if args.quantize_sdp_1:
@@ -682,6 +688,11 @@ if __name__ == "__main__":
         help='Alpha for activation equalization. Default: 0.9')
     parser.add_argument(
         '--linear-input-bit-width',
+        type=int,
+        default=None,
+        help='Input bit width. Default: None (not quantized).')
+    parser.add_argument(
+        '--linear-output-bit-width',
         type=int,
         default=None,
         help='Input bit width. Default: None (not quantized).')
