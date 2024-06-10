@@ -74,6 +74,10 @@ class FloatQuantTensor(FloatQuantTensorBase, QuantTensor):
     def saturating(self):
         return self.saturating_t.item()
 
+    @property
+    def eps(self):
+        return torch.finfo(self.scale.dtype).tiny
+
     def __torch_function__(self, func, types, args=(), kwargs=None):
         if kwargs is None:
             kwargs = {}
@@ -99,7 +103,8 @@ class FloatQuantTensor(FloatQuantTensorBase, QuantTensor):
             scale = self.scale.type(torch.float32)
         minifloat_value = value / scale
         fp_internal_scale = 1. - self.exponent_bias - self.mantissa_bit_width
-        int_scale = float_internal_scale(self.value, self.mantissa_bit_width, fp_internal_scale)
+        int_scale = float_internal_scale(
+            self.value, self.mantissa_bit_width, fp_internal_scale, self.eps)
         minifloat_value = minifloat_value / int_scale
         return minifloat_value
 
@@ -135,7 +140,8 @@ class FloatQuantTensor(FloatQuantTensorBase, QuantTensor):
 
         if self.is_valid:
             fp_internal_scale = 1. - self.exponent_bias - self.mantissa_bit_width
-            int_scale = float_internal_scale(self.value, self.mantissa_bit_width, fp_internal_scale)
+            int_scale = float_internal_scale(
+                self.value, self.mantissa_bit_width, fp_internal_scale, self.eps)
             float_value = torch.round(self._pre_round_float_value) * int_scale
             return float_value.type(self.scale.dtype)
         else:
