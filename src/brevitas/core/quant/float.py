@@ -14,7 +14,7 @@ from brevitas.utils.torch_utils import float_internal_scale
 
 
 class FloatQuant(brevitas.jit.ScriptModule):
-    __constants__ = ['signed']
+    __constants__ = ['signed', 'eps']
 
     def __init__(
             self,

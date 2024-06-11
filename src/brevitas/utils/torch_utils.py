@@ -96,7 +96,7 @@ def float_internal_scale(
         x: torch.Tensor,
         mantissa_bit_width: torch.Tensor,
         fp_internal_scale_min: torch.Tensor,
-        eps: torch.Tensor) -> torch.Tensor:
+        eps: float) -> torch.Tensor:
 
     internal_scale = floor_ste(torch.log2(torch.abs(x) + eps)) - mantissa_bit_width
     internal_scale = torch.clamp_min(internal_scale, fp_internal_scale_min)
