@@ -14,7 +14,7 @@ from brevitas.utils.torch_utils import float_internal_scale
 
 
 class FloatQuant(brevitas.jit.ScriptModule):
-    __constants__ = ['signed']
+    __constants__ = ['signed', 'eps']
 
     def __init__(
             self,
@@ -71,7 +71,7 @@ class FloatQuant(brevitas.jit.ScriptModule):
         scale = scaling_impl_value / float_scaling_impl_value
         scaled_x = x / scale
         internal_scale = float_internal_scale(
-            scaled_x, self.mantissa_bit_width(), self.fp_internal_scale_min())
+            scaled_x, self.mantissa_bit_width(), self.fp_internal_scale_min(), self.eps)
         val_fp_quant = internal_scale * self.float_to_int_impl(scaled_x / internal_scale)
         return val_fp_quant, scale
 

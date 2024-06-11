@@ -93,10 +93,12 @@ def compute_channel_view_shape(tensor: torch.Tensor, channel_dim: int):
 
 @brevitas.jit.script
 def float_internal_scale(
-        x: torch.Tensor, mantissa_bit_width: torch.Tensor,
-        fp_internal_scale_min: torch.Tensor) -> torch.Tensor:
+        x: torch.Tensor,
+        mantissa_bit_width: torch.Tensor,
+        fp_internal_scale_min: torch.Tensor,
+        eps: float) -> torch.Tensor:
 
-    internal_scale = floor_ste(torch.log2(torch.abs(x))) - mantissa_bit_width
+    internal_scale = floor_ste(torch.log2(torch.abs(x) + eps)) - mantissa_bit_width
     internal_scale = torch.clamp_min(internal_scale, fp_internal_scale_min)
     internal_scale = torch.exp2(internal_scale)
     return internal_scale
