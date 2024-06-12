@@ -201,6 +201,7 @@ class activation_equalization_mode:
             add_mul_node=True,
             layerwise=True,
             enabled=True,
+            blacklist_layers=None,
             co_optimize_act_weights=False) -> None:
         self.model = model
         self.alpha = alpha
@@ -210,7 +211,8 @@ class activation_equalization_mode:
         if layerwise:
             if not self.add_mul_node:
                 raise ValueError("Layerwise activation equalization requires add_mul_node")
-            self.graph_act_eq = LayerwiseActivationEqualization(self.model)
+            self.graph_act_eq = LayerwiseActivationEqualization(
+                self.model, blacklist_layers=blacklist_layers)
         else:
             if not isinstance(self.model, (TorchGraphModule, GraphModule)):
                 raise TypeError(
@@ -996,15 +998,17 @@ class ActivationEqualization(GraphTransform, ABC):
 
 class LayerwiseActivationEqualization(ActivationEqualization):
 
-    def __init__(self, model, scale_computation_type: str = 'maxabs'):
+    def __init__(self, model, scale_computation_type: str = 'maxabs', blacklist_layers=None):
         super(LayerwiseActivationEqualization, self).__init__(model, scale_computation_type)
         self.float_act_map = {}
         self.batch_dim_act_map = {}
         self.hooks = []
         self.add_mul_node = True
+        self.blacklist_layers = blacklist_layers
 
         regions: List[Region] = []
-        self.find_module(model, regions)
+        name = ''
+        self.find_module(model, name, regions)
         self.regions = regions
 
         if self.scale_computation_type == 'maxabs':
@@ -1012,20 +1016,22 @@ class LayerwiseActivationEqualization(ActivationEqualization):
         elif self.scale_computation_type == 'range':
             self.scale_fn = _channel_range
 
-    def find_module(self, model, regions: List):
+    def find_module(self, model, name, regions: List):
         """
         Iterate through the model looking at immediate children of every module to look for supported modules.
         This allows us to stop the search when we meet a top-level module that is supported.
         """
         if isinstance(model,
                       _supported_layers) and not isinstance(model, _batch_norm + (nn.LayerNorm,)):
+            if self.blacklist_layers is not None and name in self.blacklist_layers:
+                return
             weight = get_weight_sink(model)
             eq_indexes = EqualizationIndexes(0, weight.shape[0], 0)
             region = Region(sinks={'sinks0': eq_indexes}, name_to_module={'sinks0': model})
             regions.append(region)
         else:
-            for module in model.children():
-                self.find_module(module, regions)
+            for name, module in model.named_children():
+                self.find_module(module, name, regions)
 
     def setup(self):
         for region in self.regions:

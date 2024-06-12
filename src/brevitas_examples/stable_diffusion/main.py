@@ -230,6 +230,7 @@ def main(args):
         with activation_equalization_mode(pipe.unet,
                                           alpha=args.act_eq_alpha,
                                           layerwise=True,
+                                          blacklist_layers=blacklist,
                                           add_mul_node=True):
             # Workaround to expose `in_features` attribute from the Hook Wrapper
             for m in pipe.unet.modules():
@@ -420,7 +421,7 @@ def main(args):
 
         pipe.set_progress_bar_config(disable=True)
 
-        if args.dry_run:
+        if args.dry_run or args.load_checkpoint:
             with torch.no_grad():
                 run_val_inference(
                     pipe,
