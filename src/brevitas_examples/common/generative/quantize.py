@@ -163,8 +163,7 @@ INPUT_QUANT_MAP = {
                             'sym': Fp8e4m3DynamicOCPActPerTensorFloat}}}}}}}
 
 
-def quantize_model(
-        model,
+def generate_quantizers(
         dtype,
         weight_bit_width,
         weight_param_method,
@@ -174,7 +173,6 @@ def quantize_model(
         weight_group_size,
         quantize_weight_zero_point,
         weight_quant_format='int',
-        name_blacklist=None,
         input_bit_width=None,
         input_quant_format='',
         input_scale_precision=None,
@@ -184,7 +182,6 @@ def quantize_model(
         input_quant_granularity=None,
         input_group_size=None,
         quantize_input_zero_point=False,
-        quantize_embedding=False,
         use_ocp=False,
         device=None,
         weight_kwargs=None,
@@ -200,20 +197,20 @@ def quantize_model(
         weight_float_format = {
             'exponent_bit_width': int(weight_quant_format[1]),
             'mantissa_bit_width': int(weight_quant_format[3])}
+        ocp_weight_format = weight_quant_format
+        weight_quant_format = 'float'
         if use_ocp:
             weight_quant_format += '_ocp'
-            ocp_weight_format = weight_quant_format
-        weight_quant_format = 'float'
     else:
         weight_float_format = {}
     if re.compile(r'e[1-8]m[1-8]').match(input_quant_format):
         input_float_format = {
             'exponent_bit_width': int(input_quant_format[1]),
             'mantissa_bit_width': int(input_quant_format[3])}
+        ocp_input_format = input_quant_format
+        input_quant_format = 'float'
         if use_ocp:
             input_quant_format += '_ocp'
-            ocp_input_format = input_quant_format
-        input_quant_format = 'float'
     else:
         input_float_format = {}
 
@@ -230,15 +227,15 @@ def quantize_model(
             input_scale_type][input_quant_type]
     elif input_bit_width is not None:
         if ocp_input_format:
-            input_quant = INPUT_QUANT_MAP[input_quant_format][ocp_input_format][input_scale_type][
+            input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][ocp_input_format][
                 input_scale_precision][input_param_method][input_quant_granularity][
                     input_quant_type]
             # Some activations in MHA should always be symmetric
-            sym_input_quant = INPUT_QUANT_MAP[input_quant_format][ocp_input_format][
-                input_scale_type][input_scale_precision][input_param_method][
+            sym_input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
+                ocp_input_format][input_scale_precision][input_param_method][
                     input_quant_granularity]['sym']
-            linear_input_quant = INPUT_QUANT_MAP[input_quant_format][ocp_input_format][
-                input_scale_type][input_scale_precision][input_param_method][
+            linear_input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
+                ocp_input_format][input_scale_precision][input_param_method][
                     input_quant_granularity][input_quant_type]
         else:
             input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
@@ -365,6 +362,21 @@ def quantize_model(
                 linear_input_quant = linear_input_quant.let(
                     **{
                         'group_dim': -1, 'group_size': input_group_size})
+    return linear_input_quant, weight_quant, input_quant, q_scaled_quant, k_transposed_quant, v_quant, attn_output_weights_quant
+
+
+def generate_quant_maps(
+        linear_input_quant,
+        weight_quant,
+        input_quant,
+        q_scaled_quant,
+        k_transposed_quant,
+        v_quant,
+        attn_output_weights_quant,
+        dtype,
+        device,
+        input_quant_format,
+        quantize_embedding):
 
     quant_linear_kwargs = {
         'input_quant': linear_input_quant,
@@ -380,7 +392,7 @@ def quantize_model(
         'in_proj_bias_quant': None,
         'softmax_input_quant': None,
         'attn_output_weights_quant': attn_output_weights_quant,
-        'attn_output_weights_signed': input_quant_format == 'float',
+        'attn_output_weights_signed': 'float' in input_quant_format,
         'q_scaled_quant': q_scaled_quant,
         'k_transposed_quant': k_transposed_quant,
         'v_quant': v_quant,
@@ -406,7 +418,71 @@ def quantize_model(
     if quantize_embedding:
         quant_embedding_kwargs = {'weight_quant': weight_quant, 'dtype': dtype, 'device': device}
         layer_map[nn.Embedding] = (qnn.QuantEmbedding, quant_embedding_kwargs)
+    return layer_map
 
+
+def quantize_model(
+        model,
+        dtype,
+        weight_bit_width,
+        weight_param_method,
+        weight_scale_precision,
+        weight_quant_type,
+        weight_quant_granularity,
+        weight_group_size,
+        quantize_weight_zero_point,
+        weight_quant_format='int',
+        name_blacklist=None,
+        input_bit_width=None,
+        input_quant_format='',
+        input_scale_precision=None,
+        input_scale_type=None,
+        input_param_method=None,
+        input_quant_type=None,
+        input_quant_granularity=None,
+        input_group_size=None,
+        quantize_input_zero_point=False,
+        quantize_embedding=False,
+        use_ocp=False,
+        device=None,
+        weight_kwargs=None,
+        input_kwargs=None):
+
+    linear_input_quant, weight_quant, input_quant, q_scaled_quant, k_transposed_quant, v_quant, attn_output_weights_quant = generate_quantizers(
+        dtype,
+        weight_bit_width,
+        weight_param_method,
+        weight_scale_precision,
+        weight_quant_type,
+        weight_quant_granularity,
+        weight_group_size,
+        quantize_weight_zero_point,
+        weight_quant_format,
+        input_bit_width,
+        input_quant_format,
+        input_scale_precision,
+        input_scale_type,
+        input_param_method,
+        input_quant_type,
+        input_quant_granularity,
+        input_group_size,
+        quantize_input_zero_point,
+        use_ocp,
+        device,
+        weight_kwargs,
+        input_kwargs)
+    layer_map = generate_quant_maps(
+        linear_input_quant,
+        weight_quant,
+        input_quant,
+        q_scaled_quant,
+        k_transposed_quant,
+        v_quant,
+        attn_output_weights_quant,
+        dtype,
+        device,
+        input_quant_format,
+        quantize_embedding)
     model = layerwise_quantize(
         model=model, compute_layer_map=layer_map, name_blacklist=name_blacklist)
     return model

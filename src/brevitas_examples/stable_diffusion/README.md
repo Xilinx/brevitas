@@ -30,7 +30,7 @@ Activation quantization is optional, and disabled by default. To enable, set bot
 
 We support ONNX integer export, and we are planning to release soon export for floating point quantization (e.g., FP8).
 
-To export the model with fp16 scale factors, enable `export-cuda-float16`. This will performing the tracing necessary for export on GPU, leaving the model in fp16.
+To export the model with fp16 scale factors, disable `export-cpu-float32`. This will performing the tracing necessary for export on GPU, leaving the model in fp16.
 If the flag is not enabled, the model will be moved to CPU and cast to float32 before export because of missing CPU kernels in fp16.
 
 To use MLPerf inference setup, check and install the correct requirements specified in the `requirements.txt` file under mlperf_evaluation.
@@ -70,7 +70,7 @@ usage: main.py [-h] [-m MODEL] [-d DEVICE] [-b BATCH_SIZE] [--prompt PROMPT]
                [--gptq | --no-gptq] [--bias-correction | --no-bias-correction]
                [--dtype {float32,float16,bfloat16}]
                [--attention-slicing | --no-attention-slicing]
-               [--export-target {,torch,onnx}]
+               [--export-target {,onnx}]
                [--export-weight-q-node | --no-export-weight-q-node]
                [--conv-weight-bit-width CONV_WEIGHT_BIT_WIDTH]
                [--linear-weight-bit-width LINEAR_WEIGHT_BIT_WIDTH]
@@ -93,15 +93,11 @@ usage: main.py [-h] [-m MODEL] [-d DEVICE] [-b BATCH_SIZE] [--prompt PROMPT]
                [--weight-group-size WEIGHT_GROUP_SIZE]
                [--quantize-weight-zero-point | --no-quantize-weight-zero-point]
                [--quantize-input-zero-point | --no-quantize-input-zero-point]
-               [--export-cuda-float16 | --no-export-cuda-float16]
+               [--export-cpu-float32 | --no-export-cpu-float32]
                [--use-mlperf-inference | --no-use-mlperf-inference]
                [--use-ocp | --no-use-ocp]
                [--use-negative-prompts | --no-use-negative-prompts]
                [--dry-run | --no-dry-run]
-               [--quantize-time-emb | --no-quantize-time-emb]
-               [--quantize-conv-in | --no-quantize-conv-in]
-               [--quantize-input-time-emb | --no-quantize-input-time-emb]
-               [--quantize-input-conv-in | --no-quantize-input-conv-in]
 
 Stable Diffusion quantization
 
@@ -160,7 +156,7 @@ options:
   --attention-slicing   Enable Enable attention slicing. Default: Disabled
   --no-attention-slicing
                         Disable Enable attention slicing. Default: Disabled
-  --export-target {,torch,onnx}
+  --export-target {,onnx}
                         Target export flow.
   --export-weight-q-node
                         Enable Enable export of floating point weights + QDQ
@@ -224,10 +220,9 @@ options:
                         Enable Quantize input zero-point. Default: Enabled
   --no-quantize-input-zero-point
                         Disable Quantize input zero-point. Default: Enabled
-  --export-cuda-float16
-                        Enable Export FP16 on CUDA. Default: Disabled
-  --no-export-cuda-float16
-                        Disable Export FP16 on CUDA. Default: Disabled
+  --export-cpu-float32  Enable Export FP32 on CPU. Default: Disabled
+  --no-export-cpu-float32
+                        Disable Export FP32 on CPU. Default: Disabled
   --use-mlperf-inference
                         Enable Evaluate FID score with MLPerf pipeline.
                         Default: False
@@ -248,23 +243,5 @@ options:
                         calibration. Default: Disabled
   --no-dry-run          Disable Generate a quantized model without any
                         calibration. Default: Disabled
-  --quantize-time-emb   Enable Quantize time embedding layers. Default: True
-  --no-quantize-time-emb
-                        Disable Quantize time embedding layers. Default: True
-  --quantize-conv-in    Enable Quantize first conv layer. Default: True
-  --no-quantize-conv-in
-                        Disable Quantize first conv layer. Default: True
-  --quantize-input-time-emb
-                        Enable Quantize input to time embedding layers.
-                        Default: Disabled
-  --no-quantize-input-time-emb
-                        Disable Quantize input to time embedding layers.
-                        Default: Disabled
-  --quantize-input-conv-in
-                        Enable Quantize input to first conv layer. Default:
-                        Enabled
-  --no-quantize-input-conv-in
-                        Disable Quantize input to first conv layer. Default:
-                        Enabled
 
 ```

@@ -22,17 +22,18 @@ from tqdm import tqdm
 
 from brevitas.core.stats.stats_op import NegativeMinOrZero
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
-from brevitas.export.torch.qcdq.manager import TorchQCDQManager
 from brevitas.graph.calibrate import bias_correction_mode
 from brevitas.graph.calibrate import calibration_mode
 from brevitas.graph.calibrate import load_quant_model_mode
 from brevitas.graph.equalize import activation_equalization_mode
 from brevitas.graph.gptq import gptq_mode
-from brevitas.inject.enum import QuantType
+from brevitas.graph.quantize import layerwise_quantize
 from brevitas.inject.enum import StatsOp
 from brevitas.nn.equalized_layer import EqualizedModule
-from brevitas.nn.quant_layer import QuantWeightBiasInputOutputLayer
+from brevitas.nn.quant_activation import QuantIdentity
 from brevitas.utils.torch_utils import KwargsForwardHook
+from brevitas_examples.common.generative.quantize import generate_quant_maps
+from brevitas_examples.common.generative.quantize import generate_quantizers
 from brevitas_examples.common.generative.quantize import quantize_model
 from brevitas_examples.common.parse_utils import add_bool_arg
 from brevitas_examples.common.parse_utils import quant_format_validator
@@ -41,8 +42,6 @@ from brevitas_examples.stable_diffusion.mlperf_evaluation.accuracy import comput
 from brevitas_examples.stable_diffusion.sd_quant.constants import SD_2_1_EMBEDDINGS_SHAPE
 from brevitas_examples.stable_diffusion.sd_quant.constants import SD_XL_EMBEDDINGS_SHAPE
 from brevitas_examples.stable_diffusion.sd_quant.export import export_onnx
-from brevitas_examples.stable_diffusion.sd_quant.export import export_torch_export
-from brevitas_examples.stable_diffusion.sd_quant.utils import brevitas_proxy_inference_mode
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_latents
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_unet_21_rand_inputs
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_unet_xl_rand_inputs
@@ -141,12 +140,9 @@ def main(args):
     calibration_prompts = CALIBRATION_PROMPTS
     if args.calibration_prompt_path is not None:
         calibration_prompts = load_calib_prompts(args.calibration_prompt_path)
-    prompts = list()
-    for i, v in enumerate(calibration_prompts):
-        if i == args.calibration_prompt:
-            break
-        prompts.append(v)
-    calibration_prompts = prompts
+    print(args.calibration_prompt, len(calibration_prompts))
+    assert args.calibration_prompt <= len(calibration_prompts) , f"Only {len(calibration_prompts)} prompts are available"
+    calibration_prompts = calibration_prompts[:args.calibration_prompt]
 
     latents = None
     if args.path_to_latents is not None:
@@ -176,15 +172,11 @@ def main(args):
 
     if args.prompt > 0 and not args.use_mlperf_inference:
         print(f"Running inference with prompt ...")
-        prompts = []
-        for i, v in enumerate(TESTING_PROMPTS):
-            if i == args.prompt:
-                break
-            prompts.append(v)
+        testing_prompts = TESTING_PROMPTS[:args.prompt]
         float_images = run_test_inference(
             pipe,
             args.resolution,
-            prompts,
+            testing_prompts,
             test_seeds,
             output_dir,
             args.device,
@@ -203,9 +195,7 @@ def main(args):
     # Extract list of layers to avoid
     blacklist = []
     for name, _ in pipe.unet.named_modules():
-        if 'time_emb' in name and not args.quantize_time_emb:
-            blacklist.append(name.split('.')[-1])
-        if 'conv_in' in name and not args.quantize_conv_in:
+        if 'time_emb' in name:
             blacklist.append(name.split('.')[-1])
     print(f"Blacklisted layers: {blacklist}")
 
@@ -263,23 +253,12 @@ def main(args):
                 return args.linear_input_bit_width
             elif isinstance(module, nn.Conv2d):
                 return args.conv_input_bit_width
+            elif isinstance(module, QuantIdentity):
+                return args.quant_identity_bit_width
             else:
                 raise RuntimeError(f"Module {module} not supported.")
 
         input_kwargs = dict()
-        if args.linear_input_bit_width is None or args.conv_input_bit_width is None:
-
-            @value
-            def input_quant_enabled(module):
-                if args.linear_input_bit_width is None and isinstance(module, nn.Linear):
-                    return QuantType.FP
-                elif args.conv_input_bit_width is None and isinstance(module, nn.Conv2d):
-                    return QuantType.FP
-                else:
-                    return QuantType.INT
-
-            input_kwargs['quant_type'] = input_quant_enabled
-
         if args.input_scale_stats_op == 'minmax':
 
             @value
@@ -303,11 +282,9 @@ def main(args):
             input_kwargs['zero_point_stats_impl'] = input_zp_stats_type
 
         print("Applying model quantization...")
-        quantize_model(
-            pipe.unet,
+        quantizers = generate_quantizers(
             dtype=dtype,
             device=args.device,
-            name_blacklist=blacklist,
             weight_bit_width=weight_bit_width,
             weight_quant_format=args.weight_quant_format,
             weight_quant_type=args.weight_quant_type,
@@ -326,23 +303,30 @@ def main(args):
             input_quant_granularity=args.input_quant_granularity,
             use_ocp=args.use_ocp,
             input_kwargs=input_kwargs)
+
+        layer_map = generate_quant_maps(
+            *quantizers, dtype, args.device, args.input_quant_format, False)
+
+        linear_qkwargs = layer_map[torch.nn.Linear][1]
+        linear_qkwargs[
+            'input_quant'] = None if args.linear_input_bit_width is None else linear_qkwargs[
+                'input_quant']
+        linear_qkwargs[
+            'weight_quant'] = None if args.linear_weight_bit_width == 0 else linear_qkwargs[
+                'weight_quant']
+        layer_map[torch.nn.Linear] = (layer_map[torch.nn.Linear][0], linear_qkwargs)
+
+        conv_qkwargs = layer_map[torch.nn.Conv2d][1]
+        conv_qkwargs['input_quant'] = None if args.conv_input_bit_width is None else conv_qkwargs[
+            'input_quant']
+        conv_qkwargs['weight_quant'] = None if args.conv_weight_bit_width == 0 else conv_qkwargs[
+            'weight_quant']
+        layer_map[torch.nn.Conv2d] = (layer_map[torch.nn.Conv2d][0], conv_qkwargs)
+
+        pipe.unet = layerwise_quantize(
+            model=pipe.unet, compute_layer_map=layer_map, name_blacklist=blacklist)
         print("Model quantization applied.")
 
-        skipped_layers = []
-        for name, module in pipe.unet.named_modules():
-            if 'time_emb' in name and not args.quantize_input_time_emb:
-                if hasattr(module, 'input_quant'):
-                    module.input_quant.quant_injector = module.input_quant.quant_injector.let(
-                        **{'quant_type': QuantType.FP})
-                    module.input_quant.init_tensor_quant()
-                    skipped_layers.append(name)
-            if 'conv_in' in name and not args.quantize_input_conv_in:
-                if hasattr(module, 'input_quant'):
-                    module.input_quant.quant_injector = module.input_quant.quant_injector.let(
-                        **{'quant_type': QuantType.FP})
-                    module.input_quant.init_tensor_quant()
-                    skipped_layers.append(name)
-        print(f"Skipped input quantization for layers: {skipped_layers}")
         pipe.set_progress_bar_config(disable=True)
 
         if args.dry_run:
@@ -427,15 +411,13 @@ def main(args):
             compute_mlperf_fid(args.model, args.path_to_coco, pipe, args.prompt, output_dir)
         else:
             print(f"Computing accuracy on default prompt")
-            prompts = list()
-            for i, v in enumerate(TESTING_PROMPTS):
-                if i == args.prompt:
-                    break
-                prompts.append(v)
+            testing_prompts = TESTING_PROMPTS[:args.prompt]
+            assert args.prompt <= len(TESTING_PROMPTS), f"Only {len(TESTING_PROMPTS)} prompts are available"
+
             quant_images = run_test_inference(
                 pipe,
                 args.resolution,
-                prompts,
+                testing_prompts,
                 test_seeds,
                 output_dir,
                 args.device,
@@ -461,8 +443,8 @@ def main(args):
 
     if args.export_target:
         # Move to cpu and to float32 to enable CPU export
-        if not (dtype == torch.float16 and args.export_cuda_float16):
-            pipe.unet.to('cpu').to(dtype)
+        if args.export_cpu_float32:
+            pipe.unet.to('cpu').to(torch.float32)
         pipe.unet.eval()
         device = next(iter(pipe.unet.parameters())).device
         dtype = next(iter(pipe.unet.parameters())).dtype
@@ -487,13 +469,6 @@ def main(args):
                 export_manager = StdQCDQONNXManager
                 export_manager.change_weight_export(export_weight_q_node=args.export_weight_q_node)
             export_onnx(pipe, trace_inputs, output_dir, export_manager)
-        if args.export_target == 'torch':
-            if args.weight_quant_granularity == 'per_group':
-                export_manager = BlockQuantProxyLevelManager
-            else:
-                export_manager = TorchQCDQManager
-                export_manager.change_weight_export(export_weight_q_node=args.export_weight_q_node)
-            export_torch_export(pipe, trace_inputs, output_dir, export_manager)
 
 
 if __name__ == "__main__":
@@ -583,11 +558,7 @@ if __name__ == "__main__":
         default=False,
         help='Enable attention slicing. Default: Disabled')
     parser.add_argument(
-        '--export-target',
-        type=str,
-        default='',
-        choices=['', 'torch', 'onnx'],
-        help='Target export flow.')
+        '--export-target', type=str, default='', choices=['', 'onnx'], help='Target export flow.')
     add_bool_arg(
         parser,
         'export-weight-q-node',
@@ -708,7 +679,7 @@ if __name__ == "__main__":
         default=False,
         help='Quantize input zero-point. Default: Enabled')
     add_bool_arg(
-        parser, 'export-cuda-float16', default=False, help='Export FP16 on CUDA. Default: Disabled')
+        parser, 'export-cpu-float32', default=False, help='Export FP32 on CPU. Default: Disabled')
     add_bool_arg(
         parser,
         'use-mlperf-inference',
@@ -729,23 +700,6 @@ if __name__ == "__main__":
         'dry-run',
         default=False,
         help='Generate a quantized model without any calibration. Default: Disabled')
-    add_bool_arg(
-        parser,
-        'quantize-time-emb',
-        default=True,
-        help='Quantize time embedding layers. Default: True')
-    add_bool_arg(
-        parser, 'quantize-conv-in', default=True, help='Quantize first conv layer. Default: True')
-    add_bool_arg(
-        parser,
-        'quantize-input-time-emb',
-        default=False,
-        help='Quantize input to time embedding layers. Default: Disabled')
-    add_bool_arg(
-        parser,
-        'quantize-input-conv-in',
-        default=True,
-        help='Quantize input to first conv layer. Default: Enabled')
     args = parser.parse_args()
     print("Args: " + str(vars(args)))
     main(args)
