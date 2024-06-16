@@ -158,7 +158,7 @@ def main(args):
 
     latents = None
     if args.path_to_latents is not None:
-        latents = torch.load(args.path_to_latents).to(torch.float16)
+        latents = torch.load(args.path_to_latents).to(dtype)
     else:
         warnings.warn("No latent provided. Will generate some using pre-set seeds")
 
@@ -227,10 +227,10 @@ def main(args):
 
     if args.activation_equalization:
         pipe.set_progress_bar_config(disable=True)
-        with activation_equalization_mode(pipe.unet,
+        with torch.no_grad(), activation_equalization_mode(pipe.unet,
                                           alpha=args.act_eq_alpha,
                                           layerwise=True,
-                                          blacklist_layers=blacklist,
+                                        #   blacklist_layers=blacklist,
                                           add_mul_node=True):
             # Workaround to expose `in_features` attribute from the Hook Wrapper
             for m in pipe.unet.modules():
