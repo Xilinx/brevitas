@@ -14,7 +14,7 @@ except ImportError:
 
 from brevitas.function.ops import max_int
 from brevitas.function.ops_ste import ceil_ste
-from brevitas.quant_tensor import QuantTensor
+from brevitas.quant_tensor import IntQuantTensor
 
 from .mixin.base import QuantLayerMixin
 
@@ -49,14 +49,14 @@ class HadamardClassifier(QuantLayerMixin, nn.Module):
         out = inp.value / norm
         out = nn.functional.linear(out, self.proj[:self.out_channels, :self.in_channels])
         out = -self.scale * out
-        if isinstance(inp, QuantTensor):
+        if isinstance(inp, IntQuantTensor):
             output_scale = inp.scale * self.scale / norm
             output_bit_width = self.max_output_bit_width(inp.bit_width)
             if (self.return_quant_tensor and inp.zero_point != 0.0).any():
                 raise RuntimeError("Computing zero point of output accumulator not supported yet.")
             else:
                 output_zp = inp.zero_point
-        out = QuantTensor(
+        out = IntQuantTensor(
             value=out,
             scale=output_scale,
             zero_point=output_zp,

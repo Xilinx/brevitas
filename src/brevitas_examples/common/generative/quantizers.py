@@ -56,13 +56,9 @@ class ShiftedUintWeightAsymmetricGroupQuant(IntWeightSymmetricGroupQuant):
     zero_point_shape = this.scaling_shape
     expanded_zero_point_shape = this.expanded_scaling_shape
     zero_point_stats_input_view_shape_impl = this.scaling_stats_input_view_shape_impl
-    zero_point_stats_input_concat_dim = 0
-    zero_point_impl = ExpandReshapeZeroPointWrapper
+    zero_point_stats_input_concat_dim = this.scaling_stats_input_concat_dim
     zero_point_stats_impl = NegativeMinOrZero
     scaling_stats_impl = AbsMinMax
-    keepdim = True
-    # zero-point is converted to a parameter right away
-    wrapped_zero_point_impl = ParameterFromStatsFromParameterZeroPoint
     quantize_zero_point = False
     signed = False
 

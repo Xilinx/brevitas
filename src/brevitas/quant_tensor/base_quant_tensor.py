@@ -115,7 +115,7 @@ class FloatQuantTensorBase(NamedTuple):
     training_t: Tensor
 
 
-class MXFloatQuantTensorBase(NamedTuple):
+class GroupwiseFloatQuantTensorBase(NamedTuple):
     value_: Tensor
     scale_: Tensor
     zero_point_: Tensor
@@ -131,7 +131,7 @@ class MXFloatQuantTensorBase(NamedTuple):
     training_t: Tensor
 
 
-class MXIntQuantTensorBase(NamedTuple):
+class GroupwisIntQuantTensorBase(NamedTuple):
     value_: Tensor
     scale_: Tensor
     zero_point_: Tensor

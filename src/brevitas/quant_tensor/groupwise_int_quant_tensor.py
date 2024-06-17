@@ -4,8 +4,8 @@
 import torch
 
 from brevitas.quant_tensor import _unpack_quant_tensor
-from brevitas.quant_tensor import GroupwisIntQuantTensorBase
-from brevitas.quant_tensor import QuantTensor
+from brevitas.quant_tensor.base_quant_tensor import GroupwisIntQuantTensorBase
+from brevitas.quant_tensor.base_quant_tensor import QuantTensor
 from brevitas.utils.torch_utils import float_internal_scale
 
 from .int_torch_handler import INT_QUANT_TENSOR_FN_HANDLER
@@ -17,12 +17,14 @@ BFLOAT16_IS_VALID_ATOL = 0.5
 
 class GroupwiseIntQuantTensor(GroupwisIntQuantTensorBase, QuantTensor):
 
-    def __new__(cls, value, scale, zero_point, group_size, group_dim, signed, training):
+    def __new__(cls, value, scale, zero_point, group_size, group_dim, bit_width, signed, training):
 
         if not isinstance(scale, torch.Tensor):
             scale = torch.tensor(scale, dtype=torch.float)
         if not isinstance(zero_point, torch.Tensor):
             zero_point = torch.tensor(zero_point, dtype=torch.float)
+        if not isinstance(bit_width, torch.Tensor):
+            bit_width = torch.tensor(bit_width, dtype=torch.float)
         if not isinstance(signed, torch.Tensor):
             signed = torch.tensor(signed, dtype=torch.bool)
         if not isinstance(training, torch.Tensor):

@@ -4,9 +4,8 @@
 import torch
 
 from brevitas.quant_tensor import _unpack_quant_tensor
-from brevitas.quant_tensor import GroupwiseFloatQuantTensorBase
-from brevitas.quant_tensor import QuantTensor
-from brevitas.quant_tensor.float_quant_tensor import FloatQuantTensor
+from brevitas.quant_tensor.base_quant_tensor import GroupwiseFloatQuantTensorBase
+from brevitas.quant_tensor.base_quant_tensor import QuantTensor
 from brevitas.utils.torch_utils import float_internal_scale
 
 from .float_torch_handler import FLOAT_QUANT_TENSOR_FN_HANDLER
