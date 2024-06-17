@@ -103,6 +103,7 @@ class WeightFloatQuantProxyFromInjectorBase(WeightQuantProxyFromInjectorBase):
         else:  # quantization disabled
             return x
 
+
 class WeightFloatQuantProxyFromInjector(WeightFloatQuantProxyFromInjectorBase):
 
     def forward(self, x: torch.Tensor) -> Union[Tensor, FloatQuantTensor]:

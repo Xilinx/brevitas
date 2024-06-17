@@ -128,7 +128,7 @@ class SolveParameterScalingShape(ExtendedInjector):
         return module.weight.shape
 
     @value
-    def expanded_scaling_shape(module, group_size):
+    def expanded_scaling_shape(module, group_size=None):
         size = list(module.weight.shape)
         assert size[1] % group_size == 0, 'Input channel is not divisible by group size'
         size[1] = size[1] // group_size
@@ -136,6 +136,6 @@ class SolveParameterScalingShape(ExtendedInjector):
         return size
 
     @value
-    def group_dim(module, group_size):
+    def group_dim(module, group_size=None):
         if group_size is not None:
             return 1
