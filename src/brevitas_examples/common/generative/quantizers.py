@@ -3,6 +3,7 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 """
 
+from brevitas.proxy.groupwise_float_runtime_quant import GroupwiseActFloatQuantProxyFromInjector
 from torch import nn
 
 from brevitas.core.function_wrapper.shape import OverOutputFeaturesView
@@ -87,6 +88,7 @@ class Int8DynamicActPerGroupFloat(DynamicActProxyMixin, Int8ActPerTensorFloat):
     """
     Symmetric quantizer with per group scale.
     """
+    proxy_class = GroupwiseActFloatQuantProxyFromInjector
     scaling_impl = RuntimeDynamicGroupStatsScaling
     keepdim = True
     scaling_stats_op = 'min_max'

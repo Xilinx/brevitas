@@ -86,7 +86,6 @@ class RuntimeDynamicGroupStatsScaling(brevitas.jit.ScriptModule):
     def forward(self, stats_input) -> Tensor:
         stats_input_reshaped = self.group_scaling_reshape(stats_input)
         out = self.scaling_stats_impl(stats_input_reshaped)
+        # Scaling min val
         out = torch.clamp_min(out, min=torch.tensor(1e-6, device=out.device, dtype=out.dtype))
-        out = out.expand(stats_input_reshaped.shape)
-        out = out.reshape(stats_input.shape)
         return out

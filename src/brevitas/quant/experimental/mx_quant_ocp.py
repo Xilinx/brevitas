@@ -40,20 +40,20 @@ class MXWeightMixIn(ExtendedInjector):
 
 
 class MXFp8e4m3OCPWeightPerTensorFloat(Fp8e4m3OCPWeightPerTensorFloat, MXWeightMixIn):
-    scaling_per_output_channel = False
+    pass
 
 
 class MXFp8e5m2OCPWeightPerTensorFloat(Fp8e5m2OCPWeightPerTensorFloat, MXWeightMixIn):
-    scaling_per_output_channel = False
+    pass
 
 
 class MXFp6e3m2OCPWeightPerTensorFloat(Fp6e3m2OCPMixin, ScaledFloatWeightBase, MXWeightMixIn):
-    scaling_per_output_channel = False
+    pass
 
 
 class MXFp6e2m3OCPWeightPerTensorFloat(Fp6e2m3OCPMixin, ScaledFloatWeightBase, MXWeightMixIn):
-    scaling_per_output_channel = False
+    pass
 
 
 class MXFp4e2m1OCPWeightPerTensorFloat(Fp4e2m1OCPMixin, ScaledFloatWeightBase, MXWeightMixIn):
-    scaling_per_output_channel = False
+    pass

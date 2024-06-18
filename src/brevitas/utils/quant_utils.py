@@ -81,7 +81,7 @@ class _CachedIOFloat:
         return self.quant_tensor.signed
 
 
-class _CachedIOMXFloat:
+class _CachedIOGroupwiseFloat:
 
     def __init__(self, quant_tensor: FloatQuantTensor, metadata_only: bool):
         self.shape = quant_tensor.value.shape
