@@ -52,6 +52,9 @@ class FloatQuant(brevitas.jit.ScriptModule):
         if scaling_impl is None:
             scaling_impl = ConstScaling(1., device=device, dtype=dtype)
 
+        if float_scaling_impl is None:
+            float_scaling_impl = ConstScaling(1., device=device, dtype=dtype)
+
         # Zero-point is currently hardcoded to 0
         self.zero_point_impl = StatelessBuffer(torch.tensor(0., device=device, dtype=dtype))
         self.float_scaling_impl = float_scaling_impl
