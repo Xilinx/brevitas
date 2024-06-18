@@ -3,8 +3,11 @@
 
 from copy import deepcopy
 import math
+from tempfile import TemporaryDirectory
 from typing import Callable, List, Optional
 
+from accelerate.utils.offload import offload_state_dict
+from accelerate.utils.offload import OffloadedWeightsLoader
 import numpy as np
 import torch
 import torch.nn as nn
@@ -122,7 +125,7 @@ class gpfq_mode(gpxq_mode):
         self.setup_gpxq_layers()
         if self.collect_float_first:
             self.float_collection_hooks = dict()
-            # set up hooks for collecting the float input
+            # set up hooks for collecting the float input and storing them on disc
             for name, layer in self.gpxq_layers.items():
                 # Attach float collecting hook
                 self.float_collection_hooks[name] = layer.layer.register_forward_hook(
@@ -143,6 +146,13 @@ class gpfq_mode(gpxq_mode):
         for name, hook in self.float_collection_hooks.items():
             hook.remove()
 
+        # create temp dir
+        self.tmp_dir = TemporaryDirectory()
+
+        # save all float activations to disc and delete them in the layers
+        for name, layer in self.gpxq_layers.items():
+            layer.offload_float_input(tmp_dir=self.tmp_dir.name)
+
         # Re-enable quantization. If activation quantization is disabled,
         # we also disable bias quantization
         self.disable_quant_inference.enable_param_quantization(self.model, is_training=False)
@@ -154,6 +164,12 @@ class gpfq_mode(gpxq_mode):
 
         # setup the original hooks
         self.setup_gpxq_hooks()
+
+    def __exit__(self, type, value, traceback):
+        # delete tmp dir
+        if self.collect_float_first:
+            self.tmp_dir.cleanup()
+        return super().__exit__(type, value, traceback)
 
     def catch_stopfwd(self, *args, **kwargs):
         # Collect quant input
@@ -202,7 +218,8 @@ class gpfq_mode(gpxq_mode):
                 len_parallel_layers=len_parallel_layers,
                 create_weight_orig=create_weight_orig,
                 p=self.p,
-                compression_rate=self.compression_rate)
+                compression_rate=self.compression_rate,
+                collect_float_first=self.collect_float_first)
         else:
             return GPFA2Q(
                 layer=layer,
@@ -212,7 +229,8 @@ class gpfq_mode(gpxq_mode):
                 create_weight_orig=create_weight_orig,
                 p=self.p,
                 accumulator_bit_width=self.accumulator_bit_width,
-                compression_rate=self.compression_rate)
+                compression_rate=self.compression_rate,
+                collect_float_first=self.collect_float_first)
 
 
 class GPFQ(GPxQ):
@@ -221,8 +239,15 @@ class GPFQ(GPxQ):
     """
 
     def __init__(
-            self, layer, name, act_order, len_parallel_layers, create_weight_orig, p,
-            compression_rate) -> None:
+            self,
+            layer,
+            name,
+            act_order,
+            len_parallel_layers,
+            create_weight_orig,
+            p,
+            compression_rate,
+            collect_float_first) -> None:
 
         super().__init__(layer, name, act_order, len_parallel_layers, create_weight_orig)
 
@@ -231,6 +256,7 @@ class GPFQ(GPxQ):
         self.index_computed = False
         self.p = p
         self.compression_rate = compression_rate
+        self.collect_float_first = collect_float_first
 
     def collect_float_input(self, module, args, output):
         # this is the hook function to offload the output of this layer to disc
@@ -295,6 +321,14 @@ class GPFQ(GPxQ):
             self.float_input = inp_processed
         else:
             self.float_input = torch.cat([self.float_input, inp_processed], dim=1)
+
+    def offload_float_input(self, tmp_dir):
+        # create tmp directory for this layer
+        self.save_dir = tmp_dir + '/' + self.name
+        # method expects dict
+        offload_state_dict(self.save_dir, state_dict={'float_input': self.float_input.detach()})
+        # then delete float_input to save memory
+        del self.float_input
 
     def update_batch(self, module, input, current_layer):
         if self.disable_pre_forward_hook:
@@ -382,6 +416,10 @@ class GPFQ(GPxQ):
         weight = self.layer.weight.data
         dev = weight.device
         dtype = weight.dtype
+        # load float input from disc if needed
+        if self.collect_float_first:
+            # load float_input from disc
+            self.float_input = OffloadedWeightsLoader(save_folder=self.save_dir)['float_input']
         if isinstance(self.layer, SUPPORTED_CONV_OP):
             if isinstance(
                     self.layer,
@@ -469,6 +507,10 @@ class GPFA2Q(GPFQ):
         weight = self.layer.weight.data
         dev = weight.device
         dtype = weight.dtype
+        # load float input from disc if needed
+        if self.collect_float_first:
+            # load float_input from disc
+            self.float_input = OffloadedWeightsLoader(save_folder=self.save_dir)['float_input']
         if isinstance(self.layer, SUPPORTED_CONV_OP):
             if isinstance(self.layer, (qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d)):
                 weight = weight.transpose(1, 0)  # This performs a view
