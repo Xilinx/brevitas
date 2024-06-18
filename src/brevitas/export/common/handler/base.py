@@ -124,13 +124,20 @@ class ScaleHandlerMixin(ABC):
 class FloatZeroPointHandlerMixin(ABC):
 
     @classmethod
-    def zero_point_with_dtype(cls, exponent_bit_width, mantissa_bit_width, zero_point):
-        if exponent_bit_width == 4 and mantissa_bit_width == 3:
-            return zero_point.type(torch.float8_e4m3fn)
-        elif exponent_bit_width == 5 and mantissa_bit_width == 2:
-            return zero_point.type(torch.float8_e5m2)
+    def zero_point_with_dtype(
+            cls, exponent_bit_width, mantissa_bit_width, is_ocp, is_fnuz, zero_point):
+        if is_ocp:
+            if exponent_bit_width == 4 and mantissa_bit_width == 3:
+                return zero_point.type(torch.float8_e4m3fn)
+            elif exponent_bit_width == 5 and mantissa_bit_width == 2:
+                return zero_point.type(torch.float8_e5m2)
+        elif is_fnuz:
+            if exponent_bit_width == 4 and mantissa_bit_width == 3:
+                return zero_point.type(torch.float8_e4m3fnuz)
+            elif exponent_bit_width == 5 and mantissa_bit_width == 2:
+                return zero_point.type(torch.float8_e5m2fnuz)
         else:
-            return zero_point.type(torch.float32)
+            raise NotImplementedError
 
 
 class ZeroPointHandlerMixin(ABC):

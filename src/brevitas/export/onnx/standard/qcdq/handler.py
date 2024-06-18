@@ -53,20 +53,8 @@ class StdDQCastONNXMixin(DQCastMixin, ABC):
 
 class StdFloatDQCastONNXMixin(StdDQCastONNXMixin, ABC):
 
-    def is_ocp(self, module):
-        is_e4m3 = module.mantissa_bit_width() == 3 and module.exponent_bit_width() == 4
-
-        is_ocp_e4m3 = is_e4m3 and module.inf_values() is None and module.nan_values() == (('111',))
-
-        is_e5m2 = module.mantissa_bit_width() == 5 and module.exponent_bit_width() == 2
-
-        is_ocp_e5m2 = is_e5m2 and module.inf_values() == (
-            ('00',)) and module.nan_values() == ('01', '11', '10')
-
-        return is_ocp_e4m3 or is_ocp_e5m2
-
     def validate(self, module):
-        assert self.is_ocp(module), 'Only OCP Standard is supported for FP8 export'
+        assert module.is_ocp or module.is_fnuz, 'Only OCP/FNUZ Standard are supported for FP8 export'
 
 
 class StdFloatCDQCastONNXMixin(CDQCastMixin, StdFloatDQCastONNXMixin, ABC):
