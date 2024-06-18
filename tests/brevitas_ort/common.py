@@ -62,7 +62,7 @@ WBIOL_QUANTIZERS = {
         (Int8WeightPerChannelFixedPoint, Int8ActPerTensorFixedPoint),
     'weight_symmetric_activation_dynamic_asymmetric_per_tensor_float':
         (Int8WeightPerTensorFloat, ShiftedUint8DynamicActPerTensorFloat),
-    'fp8_per_tensor_float': (Fp8e4m3OCPWeightPerTensorFloat, Fp8e4m3OCPActPerTensorFloat)}
+    'fp8_ocp_per_tensor_float': (Fp8e4m3OCPWeightPerTensorFloat, Fp8e4m3OCPActPerTensorFloat)}
 LSTM_QUANTIZERS = {
     'asymmetric_per_tensor_float':
         (ShiftedUint8WeightPerTensorFloat, ShiftedUint8ActPerTensorFloat),
