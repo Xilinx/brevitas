@@ -371,6 +371,7 @@ def main(args):
                 input_quant_type='sym',
                 input_quant_granularity=args.input_quant_granularity,
                 use_ocp=args.use_ocp,
+                use_fnuz=args.use_fnuz,
                 input_kwargs=input_kwargs)
             input_quant = float_sdpa_quantizers[0]
             input_quant = input_quant.let(**{'bit_width': args.linear_output_bit_width})
@@ -802,8 +803,13 @@ if __name__ == "__main__":
     add_bool_arg(
         parser,
         'use-ocp',
+        default=False,
+        help='Use OCP format for float quantization. Default: False')
+    add_bool_arg(
+        parser,
+        'use-fnuz',
         default=True,
-        help='Use OCP format for float quantization. Default: True')
+        help='Use FNUZ format for float quantization. Default: True')
     add_bool_arg(
         parser,
         'use-negative-prompts',

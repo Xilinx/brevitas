@@ -16,6 +16,8 @@ from brevitas.quant.experimental.float import Fp8e4m3Act
 from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloat
 from brevitas.quant.experimental.float import Fp8e4m3WeightPerChannelFloat
 from brevitas.quant.experimental.float import Fp8e4m3WeightPerTensorFloat
+from brevitas.quant.experimental.float_quant_fnuz import Fp8e4m3FNUZActPerTensorFloat
+from brevitas.quant.experimental.float_quant_fnuz import Fp8e5m2FNUZActPerTensorFloat
 from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPActPerTensorFloat
 from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPWeightPerChannelFloat
 from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPWeightPerTensorFloat
@@ -154,7 +156,19 @@ INPUT_QUANT_MAP = {
                 'float_scale': {
                     'stats': {
                         'per_tensor': {
-                            'sym': Fp8e5m2OCPActPerTensorFloat}}}}},
+                            'sym': Fp8e5m2OCPActPerTensorFloat}}}}}},
+    'float_fnuz': {
+        'static': {
+            'e4m3': {
+                'float_scale': {
+                    'stats': {
+                        'per_tensor': {
+                            'sym': Fp8e4m3FNUZActPerTensorFloat}}}},
+            'e5m2': {
+                'float_scale': {
+                    'stats': {
+                        'per_tensor': {
+                            'sym': Fp8e5m2FNUZActPerTensorFloat}}}}},
         'dynamic': {
             'e4m3': {
                 'float_scale': {
@@ -183,6 +197,7 @@ def generate_quantizers(
         input_group_size=None,
         quantize_input_zero_point=False,
         use_ocp=False,
+        use_fnuz=False,
         device=None,
         weight_kwargs=None,
         input_kwargs=None):
@@ -201,6 +216,8 @@ def generate_quantizers(
         weight_quant_format = 'float'
         if use_ocp:
             weight_quant_format += '_ocp'
+        elif use_fnuz:
+            weight_quant_format += '_fnuz'
     else:
         weight_float_format = {}
     if re.compile(r'e[1-8]m[1-8]').match(input_quant_format):
@@ -211,6 +228,8 @@ def generate_quantizers(
         input_quant_format = 'float'
         if use_ocp:
             input_quant_format += '_ocp'
+        elif use_fnuz:
+            weight_quant_format += '_fnuz'
     else:
         input_float_format = {}
 
