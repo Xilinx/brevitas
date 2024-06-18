@@ -78,15 +78,21 @@ class FloatQMixin(ABC):
         pass
 
     @classmethod
-    def signed_dtype(cls, exponent_bit_width, mantissa_bit_width):
+    def signed_dtype(cls, exponent_bit_width, mantissa_bit_width, is_ocp, is_fnuz):
         if exponent_bit_width is None or mantissa_bit_width is None:
             return None
-        if exponent_bit_width == 4 and mantissa_bit_width == 3:
-            dtype = torch.float8_e4m3fn
-        elif exponent_bit_width == 5 and mantissa_bit_width == 2:
-            dtype = torch.float8_e5m2
+        if is_ocp:
+            if exponent_bit_width == 4 and mantissa_bit_width == 3:
+                dtype = torch.float8_e4m3fn
+            elif exponent_bit_width == 5 and mantissa_bit_width == 2:
+                dtype = torch.float8_e5m2
+        elif is_fnuz:
+            if exponent_bit_width == 4 and mantissa_bit_width == 3:
+                dtype = torch.float8_e4m3fnuz
+            elif exponent_bit_width == 5 and mantissa_bit_width == 2:
+                dtype = torch.float8_e5m2fnuz
         else:
-            dtype = torch.float32
+            raise NotImplementedError
         return dtype
 
 
@@ -140,7 +146,8 @@ class FloatCDQCastProxyHandlerMixin(QuantAxisMixin,
                                     CDQCastMixin,
                                     ABC):
 
-    def dequantize_symbolic_kwargs(cls, scale, zero_point, exponent_bit_width, mantissa_bit_width):
+    def dequantize_symbolic_kwargs(
+            cls, scale, zero_point, exponent_bit_width, mantissa_bit_width, is_ocp, is_fnuz):
         scale_orig_shape = scale.shape
         axis = cls.quant_axis(scale)
         if cls.flatten_dequantize_params:
@@ -150,7 +157,7 @@ class FloatCDQCastProxyHandlerMixin(QuantAxisMixin,
             zero_point = zero_point.flatten()
         zp = to_0dim_if_scalar(zero_point)
         zp = zp.expand_as(scale)
-        zp = cls.zero_point_with_dtype(exponent_bit_width, mantissa_bit_width, zp)
+        zp = cls.zero_point_with_dtype(exponent_bit_width, mantissa_bit_width, is_ocp, is_fnuz, zp)
         return {
             'scale': scale,
             'zero_point': zp,
@@ -187,18 +194,19 @@ class CDQCastProxyHandlerMixin(QuantAxisMixin, ClipMixin, ZeroPointHandlerMixin,
 class FloatQCDQCastWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHandlerMixin):
     handled_layer = WeightFloatQuantProxyFromInjector
 
-    def quantize_symbolic_kwargs(cls, scale, zero_point, exponent_bit_width, mantissa_bit_width):
+    def quantize_symbolic_kwargs(
+            cls, scale, zero_point, exponent_bit_width, mantissa_bit_width, is_ocp, is_fnuz):
         # compute axis before redefining scale
         axis = cls.quant_axis(scale)
         scale = to_0dim_if_scalar(scale.flatten())
         zp = to_0dim_if_scalar(zero_point.flatten())
         # expand_as must go after 0-dim check
         zp = zp.expand_as(scale)
-        zp = cls.zero_point_with_dtype(exponent_bit_width, mantissa_bit_width, zp)
+        zp = cls.zero_point_with_dtype(exponent_bit_width, mantissa_bit_width, is_ocp, is_fnuz, zp)
         if cls.itemize_quantize_scalar_params:
             scale = to_item_if_0dim(scale)
             zp = to_item_if_0dim(zp)
-        dtype = cls.signed_dtype(exponent_bit_width, mantissa_bit_width)
+        dtype = cls.signed_dtype(exponent_bit_width, mantissa_bit_width, is_ocp, is_fnuz)
         return {'scale': scale, 'zero_point': zp, 'dtype': dtype, 'axis': axis}
 
     def prepare_quantize_from_floating_point(self, module):
@@ -211,7 +219,9 @@ class FloatQCDQCastWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHa
             scale,
             quant_weight.zero_point,
             quant_weight.exponent_bit_width,
-            quant_weight.mantissa_bit_width)
+            quant_weight.mantissa_bit_width,
+            module.is_ocp,
+            module.is_fnuz)
 
     def prepare_quantize_from_minifloat(self, module):
         raise NotImplementedError
@@ -249,7 +259,9 @@ class FloatQCDQCastWeightQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHa
                 scale,
                 quant_weight.zero_point,
                 quant_weight.exponent_bit_width,
-                quant_weight.mantissa_bit_width)
+                quant_weight.mantissa_bit_width,
+                module.is_ocp,
+                module.is_fnuz)
         else:
             self.symbolic_kwargs = None
 
@@ -421,18 +433,19 @@ class QCDQCastDecoupledWeightQuantWithInputProxyHandlerMixin(
 class FloatQCDQCastActQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHandlerMixin, ABC):
     handled_layer = ActFloatQuantProxyFromInjector
 
-    def quantize_symbolic_kwargs(cls, scale, zero_point, exponent_bit_width, mantissa_bit_width):
+    def quantize_symbolic_kwargs(
+            cls, scale, zero_point, exponent_bit_width, mantissa_bit_width, is_ocp, is_fnuz):
         # compute axis before redefining scale
         axis = cls.quant_axis(scale)
         scale = to_0dim_if_scalar(scale.flatten())
         zp = to_0dim_if_scalar(zero_point.flatten())
         # expand_as must go after 0-dim check
         zp = zp.expand_as(scale)
-        zp = cls.zero_point_with_dtype(exponent_bit_width, mantissa_bit_width, zp)
+        zp = cls.zero_point_with_dtype(exponent_bit_width, mantissa_bit_width, is_ocp, is_fnuz, zp)
         if cls.itemize_quantize_scalar_params:
             scale = to_item_if_0dim(scale)
             zp = to_item_if_0dim(zp)
-        dtype = cls.signed_dtype(exponent_bit_width, mantissa_bit_width)
+        dtype = cls.signed_dtype(exponent_bit_width, mantissa_bit_width, is_ocp, is_fnuz)
         return {'scale': scale, 'zero_point': zp, 'dtype': dtype, 'axis': axis}
 
     def prepare_for_export(self, module):
@@ -457,12 +470,16 @@ class FloatQCDQCastActQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHandl
                 scale,
                 module.zero_point(),
                 module.exponent_bit_width(),
-                module.mantissa_bit_width())
+                module.mantissa_bit_width(),
+                module.is_ocp,
+                module.is_fnuz)
             self.symbolic_kwargs['dequantize_symbolic_kwargs'] = self.dequantize_symbolic_kwargs(
                 scale,
                 module.zero_point(),
                 module.exponent_bit_width(),
-                module.mantissa_bit_width())
+                module.mantissa_bit_width(),
+                module.is_ocp,
+                module.is_fnuz)
             self.symbolic_kwargs['clip_symbolic_kwargs'] = self.clip_symbolic_kwargs(
                 module.is_narrow_range,
                 module.is_signed,

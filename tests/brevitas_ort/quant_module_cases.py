@@ -27,7 +27,8 @@ class QuantWBIOLCases:
         set_case_id(request.node.callspec.id, QuantWBIOLCases.case_quant_wbiol)
 
         weight_quant, io_quant = quantizers
-        if weight_quant == Fp8e4m3OCPWeightPerTensorFloat:
+        is_fp8 = weight_quant == Fp8e4m3OCPWeightPerTensorFloat
+        if is_fp8:
             if weight_bit_width < 8 or input_bit_width < 8 or output_bit_width < 8:
                 pytest.skip('FP8 export requires total bitwidth equal to 8')
             torch.use_deterministic_algorithms(False)
@@ -40,9 +41,9 @@ class QuantWBIOLCases:
             layer_kwargs = {
                 'in_channels': IN_CH, 'out_channels': OUT_CH, 'kernel_size': KERNEL_SIZE}
 
-        bias_quantizer = None if weight_quant == Fp8e4m3OCPWeightPerTensorFloat else Int32Bias
+        bias_quantizer = None if is_fp8 else Int32Bias
         # Required because of numpy error with FP8 data type. Export iself works fine.
-        return_quant_tensor = False if weight_quant == Fp8e4m3OCPWeightPerTensorFloat else True
+        return_quant_tensor = False if is_fp8 else True
 
         class Model(nn.Module):
 
