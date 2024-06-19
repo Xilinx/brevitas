@@ -7,11 +7,7 @@ from brevitas.inject import ExtendedInjector
 from brevitas.quant.base import MSESymmetricScale
 from brevitas.quant.experimental.float_base import FloatActBase
 from brevitas.quant.experimental.float_base import FloatWeightBase
-from brevitas.quant.experimental.float_base import Fp4e2m1Mixin
-from brevitas.quant.experimental.float_base import Fp6e2m3Mixin
-from brevitas.quant.experimental.float_base import Fp6e3m2Mixin
 from brevitas.quant.experimental.float_base import Fp8e4m3Mixin
-from brevitas.quant.experimental.float_base import Fp8e5m2Mixin
 from brevitas.quant.experimental.float_base import ScaledFloatActBase
 from brevitas.quant.experimental.float_base import ScaledFloatWeightBase
 from brevitas.utils.float_quant_utils import get_max_available_float
@@ -55,42 +51,42 @@ class FpOCPMixin(ExtendedInjector):
 
 class FpOCPWeight(FpOCPMixin, FloatWeightBase):
     """
-    OCP FP8 signed weight quantizer.
+    OCP FP signed weight quantizer.
     """
     pass
 
 
 class FpOCPAct(FpOCPMixin, FloatActBase):
     """
-    FP8 signed activation quantizer.
+    OCP FP signed activation quantizer.
     """
     pass
 
 
 class FpOCPWeightPerTensorFloat(FpOCPMixin, ScaledFloatWeightBase):
     """
-    FP8 signed E3M4 weight quantizer with per-tensor absmax-based scaling.
+    OCP FP signed E3M4 weight quantizer with per-tensor absmax-based scaling.
     """
     scaling_per_output_channel = False
 
 
 class FpOCPActPerTensorFloat(FpOCPMixin, ScaledFloatActBase):
     """
-    FP8 signed activation quantizer with per-tensor static percentile-based scaling.
+    OCP FP signed activation quantizer with per-tensor static percentile-based scaling.
     """
     scaling_per_output_channel = False
 
 
 class FpOCPWeightPerChannelFloat(FpOCPMixin, ScaledFloatWeightBase):
     """
-    FP8 signed E3M4 weight quantizer with per-channel absmax-based scaling.
+    OCP FP signed E3M4 weight quantizer with per-channel absmax-based scaling.
     """
     scaling_per_output_channel = True
 
 
 class FpOCPActPerChannelFloat2d(FpOCPMixin, ScaledFloatActBase):
     """
-    FP8 signed activation quantizer with per-channel static percentile-based scaling.
+    OCP FP signed activation quantizer with per-channel static percentile-based scaling.
     """
     scaling_per_output_channel = True
     scaling_stats_permute_dims = (1, 0, 2, 3)
@@ -98,14 +94,14 @@ class FpOCPActPerChannelFloat2d(FpOCPMixin, ScaledFloatActBase):
 
 class FpOCPActPerTensorFloatMSE(FpOCPMixin, MSESymmetricScale, ScaledFloatActBase):
     """
-    FP8 signed activation quantizer with per-tensor static MSE-based scaling.
+    OCP FP signed activation quantizer with per-tensor static MSE-based scaling.
     """
     scaling_per_output_channel = False
 
 
 class FpOCPActPerChannelFloat2dMSE(FpOCPMixin, MSESymmetricScale, ScaledFloatActBase):
     """
-    FP8 signed activation quantizer with per-channel static MSE-based scaling.
+    OCP FP signed activation quantizer with per-channel static MSE-based scaling.
     """
     scaling_per_output_channel = True
     scaling_stats_permute_dims = (1, 0, 2, 3)
@@ -113,13 +109,72 @@ class FpOCPActPerChannelFloat2dMSE(FpOCPMixin, MSESymmetricScale, ScaledFloatAct
 
 class FpOCPWeightPerChannelFloatMSE(FpOCPMixin, MSESymmetricScale, ScaledFloatWeightBase):
     """
-    FP8 signed E3M4 weight quantizer with per-channel MSE-based scaling.
+    OCP FP signed E3M4 weight quantizer with per-channel MSE-based scaling.
     """
     scaling_per_output_channel = True
 
 
 class FpOCPWeightPerTensorFloatMSE(FpOCPMixin, MSESymmetricScale, ScaledFloatWeightBase):
     """
-    FP8 signed E3M4 weight quantizer with per-tensor MSE-based scaling.
+    OCP FP signed E3M4 weight quantizer with per-tensor MSE-based scaling.
     """
     scaling_per_output_channel = False
+
+
+## Predefined FP8 Quantizers
+
+
+class Fp8e4m3OCPWeight(FpOCPWeight, Fp8e4m3Mixin):
+    """
+    OCP FP8 E4M3 signed weight quantizer.
+    """
+    pass
+
+
+class Fp8e4m3OCPAct(FpOCPAct, Fp8e4m3Mixin):
+    """
+    OCP FP8 E4M3 signed act quantizer.
+    """
+    pass
+
+
+class Fp8e4m3OCPWeightPerTensorFloat(FpOCPWeightPerTensorFloat, Fp8e4m3Mixin):
+    """
+    OCP FP8 E4M3 per-tensor scaled signed weight quantizer.
+    """
+    pass
+
+
+class Fp8e4m3OCPWeightPerChannelFloat(FpOCPWeightPerChannelFloat, Fp8e4m3Mixin):
+    """
+    OCP FP8 E4M3 per-channel scaled signed weight quantizer.
+    """
+    pass
+
+
+class Fp8e4m3OCPActPerTensorFloat(FpOCPActPerTensorFloat, Fp8e4m3Mixin):
+    """
+    OCP FP8 E4M3 scaled signed act quantizer.
+    """
+    pass
+
+
+class Fp8e4m3OCPActPerTensorFloatMSE(FpOCPActPerTensorFloatMSE, Fp8e4m3Mixin):
+    """
+    OCP FP8 E4M3 MSE-based scaled signed act quantizer.
+    """
+    pass
+
+
+class Fp8e4m3OCPWeightPerTensorFloatMSE(FpOCPWeightPerTensorFloatMSE, Fp8e4m3Mixin):
+    """
+    OCP FP8 E4M3 MSE-based per-tensor scaled signed weight quantizer.
+    """
+    pass
+
+
+class Fp8e4m3OCPWeightPerChannelFloatMSE(FpOCPWeightPerChannelFloatMSE, Fp8e4m3Mixin):
+    """
+    OCP FP8 E4M3 MSE-based per-channel scaled signed weight quantizer.
+    """
+    pass
