@@ -8,6 +8,7 @@ from brevitas.quant.base import MSESymmetricScale
 from brevitas.quant.experimental.float_base import FloatActBase
 from brevitas.quant.experimental.float_base import FloatWeightBase
 from brevitas.quant.experimental.float_base import Fp8e4m3Mixin
+from brevitas.quant.experimental.float_base import Fp8e5m2Mixin
 from brevitas.quant.experimental.float_base import ScaledFloatActBase
 from brevitas.quant.experimental.float_base import ScaledFloatWeightBase
 from brevitas.utils.float_quant_utils import get_max_available_float
@@ -176,5 +177,61 @@ class Fp8e4m3OCPWeightPerTensorFloatMSE(FpOCPWeightPerTensorFloatMSE, Fp8e4m3Mix
 class Fp8e4m3OCPWeightPerChannelFloatMSE(FpOCPWeightPerChannelFloatMSE, Fp8e4m3Mixin):
     """
     OCP FP8 E4M3 MSE-based per-channel scaled signed weight quantizer.
+    """
+    pass
+
+
+class Fp8e5m2OCPWeight(FpOCPWeight, Fp8e5m2Mixin):
+    """
+    OCP FP8 e5m2 signed weight quantizer.
+    """
+    pass
+
+
+class Fp8e5m2OCPAct(FpOCPAct, Fp8e5m2Mixin):
+    """
+    OCP FP8 e5m2 signed act quantizer.
+    """
+    pass
+
+
+class Fp8e5m2OCPWeightPerTensorFloat(FpOCPWeightPerTensorFloat, Fp8e5m2Mixin):
+    """
+    OCP FP8 e5m2 per-tensor scaled signed weight quantizer.
+    """
+    pass
+
+
+class Fp8e5m2OCPWeightPerChannelFloat(FpOCPWeightPerChannelFloat, Fp8e5m2Mixin):
+    """
+    OCP FP8 e5m2 per-channel scaled signed weight quantizer.
+    """
+    pass
+
+
+class Fp8e5m2OCPActPerTensorFloat(FpOCPActPerTensorFloat, Fp8e5m2Mixin):
+    """
+    OCP FP8 e5m2 scaled signed act quantizer.
+    """
+    pass
+
+
+class Fp8e5m2OCPActPerTensorFloatMSE(FpOCPActPerTensorFloatMSE, Fp8e5m2Mixin):
+    """
+    OCP FP8 e5m2 MSE-based scaled signed act quantizer.
+    """
+    pass
+
+
+class Fp8e5m2OCPWeightPerTensorFloatMSE(FpOCPWeightPerTensorFloatMSE, Fp8e5m2Mixin):
+    """
+    OCP FP8 e5m2 MSE-based per-tensor scaled signed weight quantizer.
+    """
+    pass
+
+
+class Fp8e5m2OCPWeightPerChannelFloatMSE(FpOCPWeightPerChannelFloatMSE, Fp8e5m2Mixin):
+    """
+    OCP FP8 e5m2 MSE-based per-channel scaled signed weight quantizer.
     """
     pass
