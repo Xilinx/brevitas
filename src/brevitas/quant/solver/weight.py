@@ -62,11 +62,12 @@ class SolveWeightScalingStatsInputDimsFromModule(ExtendedInjector):
     #  such that output channels are dim 0 and the remaining features are dim 1,
     #  along which we concatenate
     @value
-    def scaling_stats_input_concat_dim(scaling_per_output_channel):
-        if scaling_per_output_channel:
-            return 1
-        else:
-            return 0
+    def scaling_stats_input_concat_dim(scaling_per_output_channel=None):
+        if scaling_per_output_channel is not None:
+            if scaling_per_output_channel:
+                return 1
+            else:
+                return 0
 
     @value
     def permute_dims(module, output_channel_dim):

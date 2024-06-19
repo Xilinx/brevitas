@@ -37,7 +37,21 @@ class GroupwiseActFloatQuantProxyFromInjector(ActFloatQuantProxyFromInjectorBase
             # otherwise return a simple Tensor
             # We exclude the last two values (inf_values and nan_values)
             if isinstance(y, tuple) and not any(map(lambda f: f is None, y[:-2])):
-                out = GroupwiseFloatQuantTensor(*y, signed=self.is_signed, training=self.training)
+                value, scale, zero_point, exponent_bit_width, mantissa_bit_width, exponent_bias, saturating, inf_values, nan_values = y
+                out = GroupwiseFloatQuantTensor(
+                    value,
+                    scale,
+                    zero_point,
+                    self.group_size,
+                    self.group_dim,
+                    exponent_bit_width,
+                    mantissa_bit_width,
+                    exponent_bias,
+                    saturating,
+                    inf_values,
+                    nan_values,
+                    signed=self.is_signed,
+                    training=self.training)
             elif self.is_passthrough_act:  # preserve scale/zp/bit/sign even without output quant
                 if isinstance(y, tuple):
                     y = y[0]

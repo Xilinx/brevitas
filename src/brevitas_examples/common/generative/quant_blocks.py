@@ -62,30 +62,3 @@ class RuntimeDynamicStatsZeroPoint(nn.Module):
         x = abs_binary_sign_grad(x)
         x = self.scale_shift_zero_point(x, scale, bit_width)
         return x
-
-
-class RuntimeDynamicGroupStatsScaling(brevitas.jit.ScriptModule):
-
-    def __init__(self, group_size: int, group_dim: int, scaling_stats_impl: nn.Module) -> None:
-        super(RuntimeDynamicGroupStatsScaling, self).__init__()
-        self.group_size = group_size
-        self.group_dim = group_dim
-        self.scaling_stats_impl = scaling_stats_impl
-
-    @brevitas.jit.script_method
-    def group_scaling_reshape(self, stats_input):
-        tensor_shape = stats_input.shape
-        tensor_shape_list = list(tensor_shape)
-        tensor_shape_list[self.group_dim] = int(tensor_shape_list[self.group_dim] / self.group_size)
-        block_dim = self.group_dim + 1 if self.group_dim != -1 else -1
-        tensor_shape_list.insert(block_dim, self.group_size)
-        stats_input = stats_input.view(tensor_shape_list)
-        return stats_input
-
-    @brevitas.jit.script_method
-    def forward(self, stats_input) -> Tensor:
-        stats_input_reshaped = self.group_scaling_reshape(stats_input)
-        out = self.scaling_stats_impl(stats_input_reshaped)
-        # Scaling min val
-        out = torch.clamp_min(out, min=torch.tensor(1e-6, device=out.device, dtype=out.dtype))
-        return out

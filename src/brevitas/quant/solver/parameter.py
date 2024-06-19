@@ -108,8 +108,9 @@ class SolveParameterScalingImplFromEnum(SolveAffineRescalingFromEnum):
 class SolveParameterScalingShape(ExtendedInjector):
 
     @value
-    def scaling_shape(module, scaling_per_output_channel, group_size=None):
+    def scaling_shape(module, scaling_per_output_channel=None, group_size=None):
         if group_size is None:
+            assert scaling_per_output_channel is not None
             # this pattern of returning this.something allows to resolve scaling_output_channel_shape
             # only when scaling_per_output_channel is True
             if scaling_per_output_channel:

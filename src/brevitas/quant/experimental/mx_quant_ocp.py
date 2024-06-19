@@ -1,59 +1,73 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from dependencies import value
+
 from brevitas.core.function_wrapper.ops_ste import CeilSte
+from brevitas.core.scaling.runtime import RuntimeDynamicGroupStatsScaling
 from brevitas.inject import ExtendedInjector
 from brevitas.inject.enum import RestrictValueType
+from brevitas.proxy.groupwise_float_parameter_quant import \
+    GroupwiseWeightFloatQuantProxyFromInjector
+from brevitas.proxy.groupwise_float_runtime_quant import GroupwiseActFloatQuantProxyFromInjector
+from brevitas.quant.base import MSESymmetricScale
+from brevitas.quant.experimental.float_base import ScaledFloatActBase
 from brevitas.quant.experimental.float_base import ScaledFloatWeightBase
-from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPWeightPerTensorFloat
-from brevitas.quant.experimental.float_quant_ocp import Fp8e5m2OCPWeightPerTensorFloat
+from brevitas.quant.experimental.float_quant_ocp import FpOCPAct
+from brevitas.quant.experimental.float_quant_ocp import FpOCPActPerTensorFloat
+from brevitas.quant.experimental.float_quant_ocp import FpOCPWeight
+from brevitas.quant.experimental.float_quant_ocp import FpOCPWeightPerChannelFloat
+from brevitas.quant.experimental.float_quant_ocp import FpOCPWeightPerChannelFloatMSE
+from brevitas.quant.experimental.float_quant_ocp import FpOCPWeightPerTensorFloat
+from brevitas.quant.experimental.float_quant_ocp import FpOCPWeightPerTensorFloatMSE
 
 
-class Fp6e3m2OCPMixin(ExtendedInjector):
-    bit_width = 6
-    exponent_bit_width = 3
-    mantissa_bit_width = 2
-    nan_values = None
-    inf_values = None
-
-
-class Fp6e2m3OCPMixin(ExtendedInjector):
-    bit_width = 6
-    exponent_bit_width = 2
-    mantissa_bit_width = 3
-    nan_values = None
-    inf_values = None
-
-
-class Fp4e2m1OCPMixin(ExtendedInjector):
-    bit_width = 4
-    exponent_bit_width = 2
-    mantissa_bit_width = 1
-    nan_values = None
-    inf_values = None
-
-
-class MXWeightMixIn(ExtendedInjector):
+class MXFloatWeightMixin(ExtendedInjector):
+    proxy_class = GroupwiseWeightFloatQuantProxyFromInjector
     group_size = 32
     restrict_scaling_type = RestrictValueType.POWER_OF_TWO
     restrict_value_float_to_int_impl = CeilSte
 
 
-class MXFp8e4m3OCPWeightPerTensorFloat(Fp8e4m3OCPWeightPerTensorFloat, MXWeightMixIn):
+class MXFloatActMixin(ExtendedInjector):
+    proxy_class = GroupwiseActFloatQuantProxyFromInjector
+    group_size = 32
+    restrict_scaling_type = RestrictValueType.POWER_OF_TWO
+    restrict_value_float_to_int_impl = CeilSte
+    scaling_impl = RuntimeDynamicGroupStatsScaling
+
+    @value
+    def stats_reduce_dim(group_dim):
+        # If group_dim = -1, we need a workaround to avoid selecting wrong dim
+        if group_dim == -1:
+            return -1
+        else:
+            return group_dim + 1
+
+
+class MXFloatWeight(MXFloatWeightMixin, FpOCPWeight, ScaledFloatWeightBase):
+    """
+    MX Float signed weight quantizer.
+    """
     pass
 
 
-class MXFp8e5m2OCPWeightPerTensorFloat(Fp8e5m2OCPWeightPerTensorFloat, MXWeightMixIn):
+class MXFloatAct(MXFloatActMixin, FpOCPAct, ScaledFloatActBase):
+    """
+    MX Float signed activation quantizer.
+    """
     pass
 
 
-class MXFp6e3m2OCPWeightPerTensorFloat(Fp6e3m2OCPMixin, ScaledFloatWeightBase, MXWeightMixIn):
+class MXFloatActMSE(MXFloatAct, MSESymmetricScale):
+    """
+    MX Float signed activation quantizer with per-tensor static percentile-based scaling.
+    """
     pass
 
 
-class MXFp6e2m3OCPWeightPerTensorFloat(Fp6e2m3OCPMixin, ScaledFloatWeightBase, MXWeightMixIn):
-    pass
-
-
-class MXFp4e2m1OCPWeightPerTensorFloat(Fp4e2m1OCPMixin, ScaledFloatWeightBase, MXWeightMixIn):
+class MXFloatWeightFloatMSE(MXFloatWeight, MSESymmetricScale):
+    """
+    MX Float signed weight quantizer with per-channel MSE-based scaling.
+    """
     pass

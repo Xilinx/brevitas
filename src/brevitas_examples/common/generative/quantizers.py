@@ -3,20 +3,20 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 """
 
-from brevitas.proxy.groupwise_float_runtime_quant import GroupwiseActFloatQuantProxyFromInjector
 from torch import nn
 
 from brevitas.core.function_wrapper.shape import OverOutputFeaturesView
 from brevitas.core.function_wrapper.shape import OverTensorView
+from brevitas.core.scaling.runtime import RuntimeDynamicGroupStatsScaling
 from brevitas.core.stats import AbsMinMax
 from brevitas.core.stats import NegativeMinOrZero
 from brevitas.core.stats.stats_wrapper import SCALAR_SHAPE
-from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import this
 from brevitas.inject import value
 from brevitas.proxy.groupwise_float_parameter_quant import \
     GroupwiseWeightFloatQuantProxyFromInjector
+from brevitas.proxy.groupwise_float_runtime_quant import GroupwiseActFloatQuantProxyFromInjector
 from brevitas.proxy.groupwise_int_parameter_quant import GroupwiseWeightQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import DynamicActQuantProxyFromInjector
 from brevitas.quant.experimental.float import Fp8e4m3WeightPerChannelFloat
@@ -90,9 +90,7 @@ class Int8DynamicActPerGroupFloat(DynamicActProxyMixin, Int8ActPerTensorFloat):
     """
     proxy_class = GroupwiseActFloatQuantProxyFromInjector
     scaling_impl = RuntimeDynamicGroupStatsScaling
-    keepdim = True
     scaling_stats_op = 'min_max'
-    scaling_per_output_channel = True
 
     @value
     def stats_reduce_dim(group_dim):
