@@ -184,6 +184,8 @@ class SolveStatsReduceDimFromEnum(ExtendedInjector):
     def keepdim(group_dim=None):
         if group_dim is not None:
             return True
+        else:
+            return False
 
 
 class SolveScalingStatsInputViewShapeImplFromEnum(ExtendedInjector):
