@@ -13,9 +13,11 @@ try:
     from torch.linalg import LinAlgError
 except:
     LinAlgError = RuntimeError
+from torch.fx import GraphModule as TorchGraphModule
 import unfoldNd
 
 from brevitas import torch_version
+from brevitas.fx import GraphModule
 from brevitas.graph.gpxq import GPxQ
 from brevitas.graph.gpxq import gpxq_mode
 from brevitas.graph.gpxq import StopFwdException
@@ -77,6 +79,11 @@ class gptq_mode(gpxq_mode):
         self.num_blocks = num_blocks
 
     def __enter__(self):
+        self.orig_forward = self.model.forward
+        if isinstance(self.model, (GraphModule, TorchGraphModule)):
+            self.model.__class__.forward = self.catch_stopfwd
+        else:
+            self.model.forward = self.catch_stopfwd
         self.setup_gpxq_layers()
         return self.setup_gpxq_hooks()
 

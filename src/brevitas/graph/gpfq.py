@@ -3,17 +3,18 @@
 
 from copy import deepcopy
 import math
+import os
 from tempfile import TemporaryDirectory
 from typing import Callable, List, Optional
 
-from accelerate.utils.offload import offload_state_dict
-from accelerate.utils.offload import OffloadedWeightsLoader
 import numpy as np
 import torch
+from torch.fx import GraphModule as TorchGraphModule
 import torch.nn as nn
 import unfoldNd
 
 from brevitas.function import get_upper_bound_on_l1_norm
+from brevitas.fx import GraphModule
 from brevitas.graph.calibrate import disable_return_quant_tensor
 from brevitas.graph.calibrate import restore_return_quant_tensor
 from brevitas.graph.gpxq import GPxQ
@@ -66,12 +67,12 @@ class gpfq_mode(gpxq_mode):
     Example:
         >>> with torch.no_grad():
         >>>     with gpfq_mode(model, collect_float_first) as gpfq:
+        >>>         gpfq_model = gpfq.model
         >>>         if collect_float_first:
         >>>             for img, t in calib_loader:
         >>>                 img = img.cuda()
-        >>>                 gpfq.orig_forward(img)
+        >>>                 gpfq_model(img)
         >>>             gpfq.finalize_float_collection()
-        >>>         gpfq_model = gpfq.model
         >>>         for i in tqdm(range(gpfq.num_layers)):
         >>>             for img, t in calib_loader:
         >>>                 img = img.cuda()
@@ -139,6 +140,12 @@ class gpfq_mode(gpxq_mode):
             return self
         else:
             # if we're not collecting, setup original hooks
+            # setup catch_stopfwd
+            self.orig_forward = self.model.forward
+            if isinstance(self.model, (GraphModule, TorchGraphModule)):
+                self.model.__class__.forward = self.catch_stopfwd
+            else:
+                self.model.forward = self.catch_stopfwd
             return self.setup_gpxq_hooks()
 
     def finalize_float_collection(self):
@@ -161,7 +168,12 @@ class gpfq_mode(gpxq_mode):
         else:
             self.disable_quant_inference.disable_bias_quantization(self.model, is_training=False)
         restore_return_quant_tensor(self.model, self.return_quant_tensor_state)
-
+        # setup catch_stopfwd
+        self.orig_forward = self.model.forward
+        if isinstance(self.model, (GraphModule, TorchGraphModule)):
+            self.model.__class__.forward = self.catch_stopfwd
+        else:
+            self.model.forward = self.catch_stopfwd
         # setup the original hooks
         self.setup_gpxq_hooks()
 
@@ -325,8 +337,10 @@ class GPFQ(GPxQ):
     def offload_float_input(self, tmp_dir):
         # create tmp directory for this layer
         self.save_dir = tmp_dir + '/' + self.name
-        # method expects dict
-        offload_state_dict(self.save_dir, state_dict={'float_input': self.float_input.detach()})
+        os.makedirs(self.save_dir, exist_ok=True)
+        self.float_input_file = self.save_dir + '/float_input.pt'
+        # offload float input
+        torch.save(self.float_input, self.float_input_file)
         # then delete float_input to save memory
         del self.float_input
 
@@ -418,8 +432,7 @@ class GPFQ(GPxQ):
         dtype = weight.dtype
         # load float input from disc if needed
         if self.collect_float_first:
-            # load float_input from disc
-            self.float_input = OffloadedWeightsLoader(save_folder=self.save_dir)['float_input']
+            self.float_input = torch.load(self.float_input_file)
         if isinstance(self.layer, SUPPORTED_CONV_OP):
             if isinstance(
                     self.layer,
@@ -484,7 +497,8 @@ class GPFA2Q(GPFQ):
             create_weight_orig,
             accumulator_bit_width,
             p,
-            compression_rate) -> None:
+            compression_rate,
+            collect_float_first) -> None:
         GPFQ.__init__(
             self,
             layer=layer,
@@ -493,7 +507,8 @@ class GPFA2Q(GPFQ):
             len_parallel_layers=len_parallel_layers,
             create_weight_orig=create_weight_orig,
             p=p,
-            compression_rate=compression_rate)
+            compression_rate=compression_rate,
+            collect_float_first=collect_float_first)
         self.accumulator_bit_width = accumulator_bit_width
         assert self.accumulator_bit_width is not None
 
@@ -510,7 +525,7 @@ class GPFA2Q(GPFQ):
         # load float input from disc if needed
         if self.collect_float_first:
             # load float_input from disc
-            self.float_input = OffloadedWeightsLoader(save_folder=self.save_dir)['float_input']
+            self.float_input = torch.load(self.float_input_file)
         if isinstance(self.layer, SUPPORTED_CONV_OP):
             if isinstance(self.layer, (qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d)):
                 weight = weight.transpose(1, 0)  # This performs a view
