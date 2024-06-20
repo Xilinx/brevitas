@@ -13,6 +13,8 @@ import time
 from dependencies import value
 from diffusers import DiffusionPipeline
 from diffusers import StableDiffusionXLPipeline
+from diffusers.models.attention_processor import Attention
+from diffusers.models.attention_processor import AttnProcessor
 import numpy as np
 import pandas as pd
 import torch
@@ -22,6 +24,7 @@ from tqdm import tqdm
 
 from brevitas.core.stats.stats_op import NegativeMinOrZero
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
+from brevitas.graph.base import ModuleToModuleByClass
 from brevitas.graph.calibrate import bias_correction_mode
 from brevitas.graph.calibrate import calibration_mode
 from brevitas.graph.calibrate import load_quant_model_mode
@@ -42,12 +45,15 @@ from brevitas_examples.stable_diffusion.mlperf_evaluation.accuracy import comput
 from brevitas_examples.stable_diffusion.sd_quant.constants import SD_2_1_EMBEDDINGS_SHAPE
 from brevitas_examples.stable_diffusion.sd_quant.constants import SD_XL_EMBEDDINGS_SHAPE
 from brevitas_examples.stable_diffusion.sd_quant.export import export_onnx
+from brevitas_examples.stable_diffusion.sd_quant.export import export_quant_params
+from brevitas_examples.stable_diffusion.sd_quant.nn import QuantAttention
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_latents
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_unet_21_rand_inputs
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_unet_xl_rand_inputs
 from brevitas_examples.stable_diffusion.sd_quant.utils import unet_input_shape
 
 TEST_SEED = 123456
+# TODO: add deterministc flags
 
 NEGATIVE_PROMPTS = ["normal quality, low quality, worst quality, low res, blurry, nsfw, nude"]
 
@@ -206,10 +212,12 @@ def main(args):
 
     if args.activation_equalization:
         pipe.set_progress_bar_config(disable=True)
-        with activation_equalization_mode(pipe.unet,
-                                          alpha=args.act_eq_alpha,
-                                          layerwise=True,
-                                          add_mul_node=True):
+        with activation_equalization_mode(
+                pipe.unet,
+                alpha=args.act_eq_alpha,
+                layerwise=True,
+                blacklist_layers=blacklist if args.exclude_blacklist_act_eq else None,
+                add_mul_node=True):
             # Workaround to expose `in_features` attribute from the Hook Wrapper
             for m in pipe.unet.modules():
                 if isinstance(m, KwargsForwardHook) and hasattr(m.module, 'in_features'):
@@ -302,6 +310,7 @@ def main(args):
             input_quant_type=args.input_quant_type,
             input_quant_granularity=args.input_quant_granularity,
             use_ocp=args.use_ocp,
+            use_fnuz=args.use_fnuz,
             input_kwargs=input_kwargs)
 
         layer_map = generate_quant_maps(
@@ -322,6 +331,55 @@ def main(args):
         conv_qkwargs['weight_quant'] = None if args.conv_weight_bit_width == 0 else conv_qkwargs[
             'weight_quant']
         layer_map[torch.nn.Conv2d] = (layer_map[torch.nn.Conv2d][0], conv_qkwargs)
+
+        if args.quantize_sdp_1 or args.quantize_sdp_2:
+            float_sdpa_quantizers = generate_quantizers(
+                dtype=dtype,
+                device=args.device,
+                weight_bit_width=weight_bit_width,
+                weight_quant_format='e4m3',
+                weight_quant_type='sym',
+                weight_param_method=args.weight_param_method,
+                weight_scale_precision=args.weight_scale_precision,
+                weight_quant_granularity=args.weight_quant_granularity,
+                weight_group_size=args.weight_group_size,
+                quantize_weight_zero_point=args.quantize_weight_zero_point,
+                quantize_input_zero_point=args.quantize_input_zero_point,
+                input_bit_width=input_bit_width,
+                input_quant_format='e4m3',
+                input_scale_type=args.input_scale_type,
+                input_scale_precision=args.input_scale_precision,
+                input_param_method=args.input_param_method,
+                input_quant_type='sym',
+                input_quant_granularity=args.input_quant_granularity,
+                use_ocp=args.use_ocp,
+                use_fnuz=args.use_fnuz,
+                input_kwargs=input_kwargs)
+            input_quant = float_sdpa_quantizers[0]
+            input_quant = input_quant.let(**{'bit_width': args.linear_output_bit_width})
+            if args.quantize_sdp_2:
+                rewriter = ModuleToModuleByClass(
+                    Attention,
+                    QuantAttention,
+                    softmax_output_quant=input_quant,
+                    query_dim=lambda module: module.to_q.in_features,
+                    dim_head=lambda module: int(1 / (module.scale ** 2)),
+                    processor=AttnProcessor(),
+                    is_equalized=args.activation_equalization)
+                import brevitas.config as config
+                config.IGNORE_MISSING_KEYS = True
+                pipe.unet = rewriter.apply(pipe.unet)
+                config.IGNORE_MISSING_KEYS = False
+                pipe.unet = pipe.unet.to(args.device)
+                pipe.unet = pipe.unet.to(dtype)
+            quant_kwargs = layer_map[torch.nn.Linear][1]
+            what_to_quantize = []
+            if args.quantize_sdp_1:
+                what_to_quantize.extend(['to_q', 'to_k'])
+            if args.quantize_sdp_2:
+                what_to_quantize.extend(['to_v'])
+            quant_kwargs['output_quant'] = lambda module, name: input_quant if any(ending in name for ending in what_to_quantize) else None
+            layer_map[torch.nn.Linear] = (layer_map[torch.nn.Linear][0], quant_kwargs)
 
         pipe.unet = layerwise_quantize(
             model=pipe.unet, compute_layer_map=layer_map, name_blacklist=blacklist)
@@ -469,6 +527,8 @@ def main(args):
                 export_manager = StdQCDQONNXManager
                 export_manager.change_weight_export(export_weight_q_node=args.export_weight_q_node)
             export_onnx(pipe, trace_inputs, output_dir, export_manager)
+        if args.export_target == 'params_only':
+            export_quant_params(pipe, output_dir)
 
 
 if __name__ == "__main__":
@@ -488,10 +548,7 @@ if __name__ == "__main__":
         default=2,
         help='How many seeds to use for each image during validation. Default: 2')
     parser.add_argument(
-        '--prompt',
-        type=int,
-        default=4,
-        help='Number of prompt to use for testing. Default: 4. Max: 4')
+        '--prompt', type=int, default=4, help='Number of prompt to use for testing. Default: 4')
     parser.add_argument(
         '--calibration-prompt',
         type=int,
@@ -558,7 +615,11 @@ if __name__ == "__main__":
         default=False,
         help='Enable attention slicing. Default: Disabled')
     parser.add_argument(
-        '--export-target', type=str, default='', choices=['', 'onnx'], help='Target export flow.')
+        '--export-target',
+        type=str,
+        default='',
+        choices=['', 'onnx', 'params_only'],
+        help='Target export flow.')
     add_bool_arg(
         parser,
         'export-weight-q-node',
@@ -675,6 +736,11 @@ if __name__ == "__main__":
         help='Quantize weight zero-point. Default: Enabled')
     add_bool_arg(
         parser,
+        'exclude-blacklist-act-eq',
+        default=False,
+        help='Exclude unquantized layers from activation equalization. Default: Disabled')
+    add_bool_arg(
+        parser,
         'quantize-input-zero-point',
         default=False,
         help='Quantize input zero-point. Default: Enabled')
@@ -688,8 +754,13 @@ if __name__ == "__main__":
     add_bool_arg(
         parser,
         'use-ocp',
-        default=True,
+        default=False,
         help='Use OCP format for float quantization. Default: True')
+    add_bool_arg(
+        parser,
+        'use-nfuz',
+        default=True,
+        help='Use NFUZ format for float quantization. Default: True')
     add_bool_arg(
         parser,
         'use-negative-prompts',
@@ -700,6 +771,8 @@ if __name__ == "__main__":
         'dry-run',
         default=False,
         help='Generate a quantized model without any calibration. Default: Disabled')
+    add_bool_arg(parser, 'quantize-sdp-1', default=False, help='Quantize SDP. Default: Disabled')
+    add_bool_arg(parser, 'quantize-sdp-2', default=False, help='Quantize SDP. Default: Disabled')
     args = parser.parse_args()
     print("Args: " + str(vars(args)))
     main(args)
