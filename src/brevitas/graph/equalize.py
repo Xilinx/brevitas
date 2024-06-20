@@ -990,7 +990,8 @@ class ActivationEqualization(GraphTransform, ABC):
 
         self.batch_dim_act_map[name] = batch_dim
 
-        input_scales = self.scale_fn(x, dim=batch_dim)
+        dtype = x.dtype
+        input_scales = self.scale_fn(x.to(torch.float32), dim=batch_dim).to(dtype)
         if name not in self.float_act_map:
             self.float_act_map[name] = input_scales
         else:
