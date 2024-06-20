@@ -17,6 +17,8 @@ from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloat
 from brevitas.quant.experimental.float import Fp8e4m3WeightPerChannelFloat
 from brevitas.quant.experimental.float import Fp8e4m3WeightPerTensorFloat
 from brevitas.quant.experimental.float_quant_fnuz import Fp8e4m3FNUZActPerTensorFloat
+from brevitas.quant.experimental.float_quant_fnuz import Fp8e4m3FNUZWeightPerChannelFloat
+from brevitas.quant.experimental.float_quant_fnuz import Fp8e4m3FNUZWeightPerTensorFloat
 from brevitas.quant.experimental.float_quant_fnuz import Fp8e5m2FNUZActPerTensorFloat
 from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPActPerTensorFloat
 from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPWeightPerChannelFloat
@@ -106,7 +108,15 @@ WEIGHT_QUANT_MAP = {
                     'per_tensor': {
                         'sym': Fp8e5m2OCPWeightPerTensorFloat},
                     'per_channel': {
-                        'sym': Fp8e5m2OCPWeightPerChannelFloat}}}}}}
+                        'sym': Fp8e5m2OCPWeightPerChannelFloat}}}}},
+    'float_fnuz': {
+        'e4m3': {
+            'float_scale': {
+                'stats': {
+                    'per_tensor': {
+                        'sym': Fp8e4m3FNUZWeightPerTensorFloat},
+                    'per_channel': {
+                        'sym': Fp8e4m3FNUZWeightPerChannelFloat}}}}}}
 
 INPUT_QUANT_MAP = {
     'int': {
@@ -229,7 +239,7 @@ def generate_quantizers(
         if use_ocp:
             input_quant_format += '_ocp'
         elif use_fnuz:
-            weight_quant_format += '_fnuz'
+            input_quant_format += '_fnuz'
     else:
         input_float_format = {}
 
