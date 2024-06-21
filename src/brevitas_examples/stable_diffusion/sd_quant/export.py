@@ -27,7 +27,7 @@ def handle_quant_param(layer, layer_dict):
     input_scale = layer.input_quant.export_handler.symbolic_kwargs['dequantize_symbolic_kwargs'][
         'scale'].data
     input_zp = layer.input_quant.export_handler.symbolic_kwargs['dequantize_symbolic_kwargs'][
-        'zero_point'].data - 128.
+        'zero_point'].data
     weight_scale = layer.weight_quant.export_handler.symbolic_kwargs['dequantize_symbolic_kwargs'][
         'scale'].data
     weight_zp = layer.weight_quant.export_handler.symbolic_kwargs['dequantize_symbolic_kwargs'][
@@ -49,7 +49,7 @@ def handle_quant_param(layer, layer_dict):
     layer_dict['weight_scale_shape'] = weight_scale_shape
     layer_dict['weight_zp'] = weight_zp.numpy().tolist()
     layer_dict['weight_zp_shape'] = weight_scale_shape
-    layer_dict['weight_zp_dtype'] = str(torch.int8)
+    layer_dict['weight_zp_dtype'] = str(torch.uint8)
     return layer_dict
 
 

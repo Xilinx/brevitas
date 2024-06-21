@@ -46,7 +46,7 @@ To add activation quantization:
 To choose between `static` or `dynamic` activation quantization, set the flag: `--input-scale-type` to either option
 
 To include export:
-`--export-target torch` or `--export-target onnx`
+`--export-target onnx`
 
 To perform a dry-run quantization, where only the structure of the quantized model is preserved but no calibration of the quantized parameter is performed, add the `--dry-run` flag.
 
@@ -70,7 +70,7 @@ usage: main.py [-h] [-m MODEL] [-d DEVICE] [-b BATCH_SIZE] [--prompt PROMPT]
                [--gptq | --no-gptq] [--bias-correction | --no-bias-correction]
                [--dtype {float32,float16,bfloat16}]
                [--attention-slicing | --no-attention-slicing]
-               [--export-target {,onnx}]
+               [--export-target {,onnx,params_only}]
                [--export-weight-q-node | --no-export-weight-q-node]
                [--conv-weight-bit-width CONV_WEIGHT_BIT_WIDTH]
                [--linear-weight-bit-width LINEAR_WEIGHT_BIT_WIDTH]
@@ -92,12 +92,15 @@ usage: main.py [-h] [-m MODEL] [-d DEVICE] [-b BATCH_SIZE] [--prompt PROMPT]
                [--input-scale-type {static,dynamic}]
                [--weight-group-size WEIGHT_GROUP_SIZE]
                [--quantize-weight-zero-point | --no-quantize-weight-zero-point]
+               [--exclude-blacklist-act-eq | --no-exclude-blacklist-act-eq]
                [--quantize-input-zero-point | --no-quantize-input-zero-point]
                [--export-cpu-float32 | --no-export-cpu-float32]
                [--use-mlperf-inference | --no-use-mlperf-inference]
-               [--use-ocp | --no-use-ocp]
+               [--use-ocp | --no-use-ocp] [--use-nfuz | --no-use-nfuz]
                [--use-negative-prompts | --no-use-negative-prompts]
                [--dry-run | --no-dry-run]
+               [--quantize-sdp-1 | --no-quantize-sdp-1]
+               [--quantize-sdp-2 | --no-quantize-sdp-2]
 
 Stable Diffusion quantization
 
@@ -110,8 +113,7 @@ options:
   -b BATCH_SIZE, --batch-size BATCH_SIZE
                         How many seeds to use for each image during
                         validation. Default: 2
-  --prompt PROMPT       Number of prompt to use for testing. Default: 4. Max:
-                        4
+  --prompt PROMPT       Number of prompt to use for testing. Default: 4
   --calibration-prompt CALIBRATION_PROMPT
                         Number of prompt to use for calibration. Default: 2
   --calibration-prompt-path CALIBRATION_PROMPT_PATH
@@ -156,7 +158,7 @@ options:
   --attention-slicing   Enable Enable attention slicing. Default: Disabled
   --no-attention-slicing
                         Disable Enable attention slicing. Default: Disabled
-  --export-target {,onnx}
+  --export-target {,onnx,params_only}
                         Target export flow.
   --export-weight-q-node
                         Enable Enable export of floating point weights + QDQ
@@ -169,11 +171,11 @@ options:
   --linear-weight-bit-width LINEAR_WEIGHT_BIT_WIDTH
                         Weight bit width. Default: 8.
   --conv-input-bit-width CONV_INPUT_BIT_WIDTH
-                        Input bit width. Default: None (not quantized)
+                        Input bit width. Default: 0 (not quantized)
   --act-eq-alpha ACT_EQ_ALPHA
                         Alpha for activation equalization. Default: 0.9
   --linear-input-bit-width LINEAR_INPUT_BIT_WIDTH
-                        Input bit width. Default: None (not quantized).
+                        Input bit width. Default: 0 (not quantized).
   --weight-param-method {stats,mse}
                         How scales/zero-point are determined. Default: stats.
   --input-param-method {stats,mse}
@@ -216,6 +218,12 @@ options:
                         Enable Quantize weight zero-point. Default: Enabled
   --no-quantize-weight-zero-point
                         Disable Quantize weight zero-point. Default: Enabled
+  --exclude-blacklist-act-eq
+                        Enable Exclude unquantized layers from activation
+                        equalization. Default: Disabled
+  --no-exclude-blacklist-act-eq
+                        Disable Exclude unquantized layers from activation
+                        equalization. Default: Disabled
   --quantize-input-zero-point
                         Enable Quantize input zero-point. Default: Enabled
   --no-quantize-input-zero-point
@@ -233,6 +241,10 @@ options:
                         True
   --no-use-ocp          Disable Use OCP format for float quantization.
                         Default: True
+  --use-nfuz            Enable Use NFUZ format for float quantization.
+                        Default: True
+  --no-use-nfuz         Disable Use NFUZ format for float quantization.
+                        Default: True
   --use-negative-prompts
                         Enable Use negative prompts during
                         generation/calibration. Default: Enabled
@@ -243,5 +255,9 @@ options:
                         calibration. Default: Disabled
   --no-dry-run          Disable Generate a quantized model without any
                         calibration. Default: Disabled
+  --quantize-sdp-1      Enable Quantize SDP. Default: Disabled
+  --no-quantize-sdp-1   Disable Quantize SDP. Default: Disabled
+  --quantize-sdp-2      Enable Quantize SDP. Default: Disabled
+  --no-quantize-sdp-2   Disable Quantize SDP. Default: Disabled
 
 ```

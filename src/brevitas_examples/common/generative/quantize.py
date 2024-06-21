@@ -215,14 +215,14 @@ def generate_quantizers(
     Replace float layers with quant layers in the target model
     """
     # Retrive base input and weight quantizers
-    ocp_weight_format = None
-    ocp_input_format = None
+    std_float_weight_quant_format = None
+    std_float_input_format = None
     # match against custom float format
     if re.compile(r'e[1-8]m[1-8]').match(weight_quant_format):
         weight_float_format = {
             'exponent_bit_width': int(weight_quant_format[1]),
             'mantissa_bit_width': int(weight_quant_format[3])}
-        ocp_weight_format = weight_quant_format
+        std_float_weight_quant_format = weight_quant_format
         weight_quant_format = 'float'
         if use_ocp:
             weight_quant_format += '_ocp'
@@ -234,7 +234,7 @@ def generate_quantizers(
         input_float_format = {
             'exponent_bit_width': int(input_quant_format[1]),
             'mantissa_bit_width': int(input_quant_format[3])}
-        ocp_input_format = input_quant_format
+        std_float_input_format = input_quant_format
         input_quant_format = 'float'
         if use_ocp:
             input_quant_format += '_ocp'
@@ -243,8 +243,8 @@ def generate_quantizers(
     else:
         input_float_format = {}
 
-    if ocp_weight_format is not None:
-        weight_quant = WEIGHT_QUANT_MAP[weight_quant_format][ocp_weight_format][
+    if 'ocp' in weight_quant_format or 'fnuz' in weight_quant_format:
+        weight_quant = WEIGHT_QUANT_MAP[weight_quant_format][std_float_weight_quant_format][
             weight_scale_precision][weight_param_method][weight_quant_granularity][
                 weight_quant_type]
     else:
@@ -255,16 +255,16 @@ def generate_quantizers(
         input_quant = sym_input_quant = linear_input_quant = INPUT_QUANT_MAP[input_quant_format][
             input_scale_type][input_quant_type]
     elif input_bit_width is not None:
-        if ocp_input_format:
-            input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][ocp_input_format][
-                input_scale_precision][input_param_method][input_quant_granularity][
-                    input_quant_type]
+        if 'ocp' in input_quant_format or 'fnuz' in input_quant_format:
+            input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
+                std_float_input_format][input_scale_precision][input_param_method][
+                    input_quant_granularity][input_quant_type]
             # Some activations in MHA should always be symmetric
             sym_input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
-                ocp_input_format][input_scale_precision][input_param_method][
+                std_float_input_format][input_scale_precision][input_param_method][
                     input_quant_granularity]['sym']
             linear_input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
-                ocp_input_format][input_scale_precision][input_param_method][
+                std_float_input_format][input_scale_precision][input_param_method][
                     input_quant_granularity][input_quant_type]
         else:
             input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][

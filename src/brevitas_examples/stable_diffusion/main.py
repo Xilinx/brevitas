@@ -53,7 +53,7 @@ from brevitas_examples.stable_diffusion.sd_quant.utils import generate_unet_xl_r
 from brevitas_examples.stable_diffusion.sd_quant.utils import unet_input_shape
 
 TEST_SEED = 123456
-# TODO: add deterministc flags
+torch.manual_seed(TEST_SEED)
 
 NEGATIVE_PROMPTS = ["normal quality, low quality, worst quality, low res, blurry, nsfw, nude"]
 
@@ -318,7 +318,7 @@ def main(args):
 
         linear_qkwargs = layer_map[torch.nn.Linear][1]
         linear_qkwargs[
-            'input_quant'] = None if args.linear_input_bit_width is None else linear_qkwargs[
+            'input_quant'] = None if args.linear_input_bit_width == 0 else linear_qkwargs[
                 'input_quant']
         linear_qkwargs[
             'weight_quant'] = None if args.linear_weight_bit_width == 0 else linear_qkwargs[
@@ -326,8 +326,8 @@ def main(args):
         layer_map[torch.nn.Linear] = (layer_map[torch.nn.Linear][0], linear_qkwargs)
 
         conv_qkwargs = layer_map[torch.nn.Conv2d][1]
-        conv_qkwargs['input_quant'] = None if args.conv_input_bit_width is None else conv_qkwargs[
-            'input_quant']
+        conv_qkwargs[
+            'input_quant'] = None if args.conv_input_bit_width == 0 else conv_qkwargs['input_quant']
         conv_qkwargs['weight_quant'] = None if args.conv_weight_bit_width == 0 else conv_qkwargs[
             'weight_quant']
         layer_map[torch.nn.Conv2d] = (layer_map[torch.nn.Conv2d][0], conv_qkwargs)
@@ -355,6 +355,8 @@ def main(args):
                 use_ocp=args.use_ocp,
                 use_fnuz=args.use_fnuz,
                 input_kwargs=input_kwargs)
+            # We generate all quantizers, but we are only interested in activation quantization for
+            # the output of softmax and the output of QKV
             input_quant = float_sdpa_quantizers[0]
             input_quant = input_quant.let(**{'bit_width': args.linear_output_bit_width})
             if args.quantize_sdp_2:
@@ -634,8 +636,8 @@ if __name__ == "__main__":
     parser.add_argument(
         '--conv-input-bit-width',
         type=int,
-        default=None,
-        help='Input bit width. Default: None (not quantized)')
+        default=0,
+        help='Input bit width. Default: 0 (not quantized)')
     parser.add_argument(
         '--act-eq-alpha',
         type=float,
@@ -644,8 +646,8 @@ if __name__ == "__main__":
     parser.add_argument(
         '--linear-input-bit-width',
         type=int,
-        default=None,
-        help='Input bit width. Default: None (not quantized).')
+        default=0,
+        help='Input bit width. Default: 0 (not quantized).')
     parser.add_argument(
         '--weight-param-method',
         type=str,
