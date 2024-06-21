@@ -4,15 +4,28 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 """
 import re
 
+import torch
 from torch import nn
 
 from brevitas import nn as qnn
+from brevitas.core.stats.stats_op import NegativeMinOrZero
 from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.graph.quantize import layerwise_quantize
+from brevitas.inject.enum import StatsOp
 from brevitas.quant.experimental.float import Fp8e4m3Act
 from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloat
 from brevitas.quant.experimental.float import Fp8e4m3WeightPerChannelFloat
 from brevitas.quant.experimental.float import Fp8e4m3WeightPerTensorFloat
+from brevitas.quant.experimental.float_quant_fnuz import Fp8e4m3FNUZActPerTensorFloat
+from brevitas.quant.experimental.float_quant_fnuz import Fp8e4m3FNUZWeightPerChannelFloat
+from brevitas.quant.experimental.float_quant_fnuz import Fp8e4m3FNUZWeightPerTensorFloat
+from brevitas.quant.experimental.float_quant_fnuz import Fp8e5m2FNUZActPerTensorFloat
+from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPActPerTensorFloat
+from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPWeightPerChannelFloat
+from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPWeightPerTensorFloat
+from brevitas.quant.experimental.float_quant_ocp import Fp8e5m2OCPActPerTensorFloat
+from brevitas.quant.experimental.float_quant_ocp import Fp8e5m2OCPWeightPerChannelFloat
+from brevitas.quant.experimental.float_quant_ocp import Fp8e5m2OCPWeightPerTensorFloat
 from brevitas.quant.fixed_point import Int8ActPerTensorFixedPoint
 from brevitas.quant.fixed_point import Int8ActPerTensorFixedPointMSE
 from brevitas.quant.fixed_point import Int8WeightPerChannelFixedPoint
@@ -33,6 +46,7 @@ from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloatMSE
 from brevitas_examples.common.generative.nn import LoRACompatibleQuantConv2d
 from brevitas_examples.common.generative.nn import LoRACompatibleQuantLinear
+from brevitas_examples.common.generative.quantizers import Fp8e4m3DynamicOCPActPerTensorFloat
 from brevitas_examples.common.generative.quantizers import Fp8e4m3WeightSymmetricGroupQuant
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerGroupFloat
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerRowFloat
@@ -79,7 +93,30 @@ WEIGHT_QUANT_MAP = {
                 'per_channel': {
                     'sym': Fp8e4m3WeightPerChannelFloat},
                 'per_group': {
-                    'sym': Fp8e4m3WeightSymmetricGroupQuant}},}}}
+                    'sym': Fp8e4m3WeightSymmetricGroupQuant}}}},
+    'float_ocp': {
+        'e4m3': {
+            'float_scale': {
+                'stats': {
+                    'per_tensor': {
+                        'sym': Fp8e4m3OCPWeightPerTensorFloat},
+                    'per_channel': {
+                        'sym': Fp8e4m3OCPWeightPerChannelFloat}}}},
+        'e5m2': {
+            'float_scale': {
+                'stats': {
+                    'per_tensor': {
+                        'sym': Fp8e5m2OCPWeightPerTensorFloat},
+                    'per_channel': {
+                        'sym': Fp8e5m2OCPWeightPerChannelFloat}}}}},
+    'float_fnuz': {
+        'e4m3': {
+            'float_scale': {
+                'stats': {
+                    'per_tensor': {
+                        'sym': Fp8e4m3FNUZWeightPerTensorFloat},
+                    'per_channel': {
+                        'sym': Fp8e4m3FNUZWeightPerChannelFloat}}}}}}
 
 INPUT_QUANT_MAP = {
     'int': {
@@ -117,11 +154,40 @@ INPUT_QUANT_MAP = {
                     'per_tensor': {
                         'sym': Fp8e4m3ActPerTensorFloat},}}},
         'no_scale': {
-            'sym': Fp8e4m3Act,}}}
+            'sym': Fp8e4m3Act,}},
+    'float_ocp': {
+        'static': {
+            'e4m3': {
+                'float_scale': {
+                    'stats': {
+                        'per_tensor': {
+                            'sym': Fp8e4m3OCPActPerTensorFloat}}}},
+            'e5m2': {
+                'float_scale': {
+                    'stats': {
+                        'per_tensor': {
+                            'sym': Fp8e5m2OCPActPerTensorFloat}}}}}},
+    'float_fnuz': {
+        'static': {
+            'e4m3': {
+                'float_scale': {
+                    'stats': {
+                        'per_tensor': {
+                            'sym': Fp8e4m3FNUZActPerTensorFloat}}}},
+            'e5m2': {
+                'float_scale': {
+                    'stats': {
+                        'per_tensor': {
+                            'sym': Fp8e5m2FNUZActPerTensorFloat}}}}},
+        'dynamic': {
+            'e4m3': {
+                'float_scale': {
+                    'stats': {
+                        'per_tensor': {
+                            'sym': Fp8e4m3DynamicOCPActPerTensorFloat}}}}}}}
 
 
-def quantize_model(
-        model,
+def generate_quantizers(
         dtype,
         weight_bit_width,
         weight_param_method,
@@ -131,7 +197,6 @@ def quantize_model(
         weight_group_size,
         quantize_weight_zero_point,
         weight_quant_format='int',
-        name_blacklist=None,
         input_bit_width=None,
         input_quant_format='',
         input_scale_precision=None,
@@ -141,42 +206,83 @@ def quantize_model(
         input_quant_granularity=None,
         input_group_size=None,
         quantize_input_zero_point=False,
-        quantize_embedding=False,
-        device=None):
+        use_ocp=False,
+        use_fnuz=False,
+        device=None,
+        weight_kwargs=None,
+        input_kwargs=None):
     """
     Replace float layers with quant layers in the target model
     """
     # Retrive base input and weight quantizers
-
+    std_float_weight_quant_format = None
+    std_float_input_format = None
     # match against custom float format
     if re.compile(r'e[1-8]m[1-8]').match(weight_quant_format):
         weight_float_format = {
             'exponent_bit_width': int(weight_quant_format[1]),
             'mantissa_bit_width': int(weight_quant_format[3])}
+        std_float_weight_quant_format = weight_quant_format
         weight_quant_format = 'float'
+        if use_ocp:
+            weight_quant_format += '_ocp'
+        elif use_fnuz:
+            weight_quant_format += '_fnuz'
     else:
         weight_float_format = {}
     if re.compile(r'e[1-8]m[1-8]').match(input_quant_format):
         input_float_format = {
             'exponent_bit_width': int(input_quant_format[1]),
             'mantissa_bit_width': int(input_quant_format[3])}
+        std_float_input_format = input_quant_format
         input_quant_format = 'float'
+        if use_ocp:
+            input_quant_format += '_ocp'
+        elif use_fnuz:
+            input_quant_format += '_fnuz'
     else:
         input_float_format = {}
 
-    weight_quant = WEIGHT_QUANT_MAP[weight_quant_format][weight_scale_precision][
-        weight_param_method][weight_quant_granularity][weight_quant_type]
+    if 'ocp' in weight_quant_format or 'fnuz' in weight_quant_format:
+        weight_quant = WEIGHT_QUANT_MAP[weight_quant_format][std_float_weight_quant_format][
+            weight_scale_precision][weight_param_method][weight_quant_granularity][
+                weight_quant_type]
+    else:
+        weight_quant = WEIGHT_QUANT_MAP[weight_quant_format][weight_scale_precision][
+            weight_param_method][weight_quant_granularity][weight_quant_type]
+
     if input_bit_width is not None and input_scale_type == 'no_scale':
         input_quant = sym_input_quant = linear_input_quant = INPUT_QUANT_MAP[input_quant_format][
             input_scale_type][input_quant_type]
     elif input_bit_width is not None:
-        input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][input_scale_precision][
-            input_param_method][input_quant_granularity][input_quant_type]
-        # Some activations in MHA should always be symmetric
-        sym_input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
-            input_scale_precision][input_param_method][input_quant_granularity]['sym']
-        linear_input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
-            input_scale_precision][input_param_method][input_quant_granularity][input_quant_type]
+        if 'ocp' in input_quant_format or 'fnuz' in input_quant_format:
+            input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
+                std_float_input_format][input_scale_precision][input_param_method][
+                    input_quant_granularity][input_quant_type]
+            # Some activations in MHA should always be symmetric
+            sym_input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
+                std_float_input_format][input_scale_precision][input_param_method][
+                    input_quant_granularity]['sym']
+            linear_input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
+                std_float_input_format][input_scale_precision][input_param_method][
+                    input_quant_granularity][input_quant_type]
+        else:
+            input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
+                input_scale_precision][input_param_method][input_quant_granularity][
+                    input_quant_type]
+            # Some activations in MHA should always be symmetric
+            sym_input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
+                input_scale_precision][input_param_method][input_quant_granularity]['sym']
+            linear_input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
+                input_scale_precision][input_param_method][input_quant_granularity][
+                    input_quant_type]
+
+        if input_kwargs is None:
+            input_kwargs = dict()
+
+        input_quant = input_quant.let(**input_kwargs)
+        sym_input_quant = sym_input_quant.let(**input_kwargs)
+        linear_input_quant = linear_input_quant.let(**input_kwargs)
 
     else:
         input_quant = None
@@ -190,6 +296,10 @@ def quantize_model(
             'narrow_range': False,
             'quantize_zero_point': quantize_weight_zero_point},
         **weight_float_format)
+    if dtype == torch.float16:
+        weight_quant = weight_quant.let(**{'scaling_min_val': 1e-4})
+    if weight_kwargs is not None:
+        weight_quant = weight_quant.let(**weight_kwargs)
 
     # Set the group_size is we're doing groupwise quantization
     if weight_quant_granularity == 'per_group':
@@ -281,6 +391,21 @@ def quantize_model(
                 linear_input_quant = linear_input_quant.let(
                     **{
                         'group_dim': -1, 'group_size': input_group_size})
+    return linear_input_quant, weight_quant, input_quant, q_scaled_quant, k_transposed_quant, v_quant, attn_output_weights_quant
+
+
+def generate_quant_maps(
+        linear_input_quant,
+        weight_quant,
+        input_quant,
+        q_scaled_quant,
+        k_transposed_quant,
+        v_quant,
+        attn_output_weights_quant,
+        dtype,
+        device,
+        input_quant_format,
+        quantize_embedding):
 
     quant_linear_kwargs = {
         'input_quant': linear_input_quant,
@@ -296,7 +421,7 @@ def quantize_model(
         'in_proj_bias_quant': None,
         'softmax_input_quant': None,
         'attn_output_weights_quant': attn_output_weights_quant,
-        'attn_output_weights_signed': input_quant_format == 'float',
+        'attn_output_weights_signed': 'float' in input_quant_format,
         'q_scaled_quant': q_scaled_quant,
         'k_transposed_quant': k_transposed_quant,
         'v_quant': v_quant,
@@ -322,7 +447,71 @@ def quantize_model(
     if quantize_embedding:
         quant_embedding_kwargs = {'weight_quant': weight_quant, 'dtype': dtype, 'device': device}
         layer_map[nn.Embedding] = (qnn.QuantEmbedding, quant_embedding_kwargs)
+    return layer_map
 
+
+def quantize_model(
+        model,
+        dtype,
+        weight_bit_width,
+        weight_param_method,
+        weight_scale_precision,
+        weight_quant_type,
+        weight_quant_granularity,
+        weight_group_size,
+        quantize_weight_zero_point,
+        weight_quant_format='int',
+        name_blacklist=None,
+        input_bit_width=None,
+        input_quant_format='',
+        input_scale_precision=None,
+        input_scale_type=None,
+        input_param_method=None,
+        input_quant_type=None,
+        input_quant_granularity=None,
+        input_group_size=None,
+        quantize_input_zero_point=False,
+        quantize_embedding=False,
+        use_ocp=False,
+        device=None,
+        weight_kwargs=None,
+        input_kwargs=None):
+
+    linear_input_quant, weight_quant, input_quant, q_scaled_quant, k_transposed_quant, v_quant, attn_output_weights_quant = generate_quantizers(
+        dtype,
+        weight_bit_width,
+        weight_param_method,
+        weight_scale_precision,
+        weight_quant_type,
+        weight_quant_granularity,
+        weight_group_size,
+        quantize_weight_zero_point,
+        weight_quant_format,
+        input_bit_width,
+        input_quant_format,
+        input_scale_precision,
+        input_scale_type,
+        input_param_method,
+        input_quant_type,
+        input_quant_granularity,
+        input_group_size,
+        quantize_input_zero_point,
+        use_ocp,
+        device,
+        weight_kwargs,
+        input_kwargs)
+    layer_map = generate_quant_maps(
+        linear_input_quant,
+        weight_quant,
+        input_quant,
+        q_scaled_quant,
+        k_transposed_quant,
+        v_quant,
+        attn_output_weights_quant,
+        dtype,
+        device,
+        input_quant_format,
+        quantize_embedding)
     model = layerwise_quantize(
         model=model, compute_layer_map=layer_map, name_blacklist=name_blacklist)
     return model
