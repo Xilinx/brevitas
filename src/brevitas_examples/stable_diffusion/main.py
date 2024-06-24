@@ -760,9 +760,9 @@ if __name__ == "__main__":
         help='Use OCP format for float quantization. Default: True')
     add_bool_arg(
         parser,
-        'use-nfuz',
+        'use-fnuz',
         default=True,
-        help='Use NFUZ format for float quantization. Default: True')
+        help='Use FNUZ format for float quantization. Default: True')
     add_bool_arg(
         parser,
         'use-negative-prompts',
