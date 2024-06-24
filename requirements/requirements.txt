@@ -1,7 +1,7 @@
 dependencies==2.0.1
 numpy<=1.26.4
 packaging
-setuptools
+setuptools<70.0
 sympy
 torch>=1.9.1
 typing-extensions>=3.7.4
