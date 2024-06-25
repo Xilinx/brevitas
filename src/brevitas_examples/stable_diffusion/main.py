@@ -649,6 +649,11 @@ if __name__ == "__main__":
         default=0,
         help='Input bit width. Default: 0 (not quantized).')
     parser.add_argument(
+        '--linear-output-bit-width',
+        type=int,
+        default=0,
+        help='Input bit width. Default: 0 (not quantized).')
+    parser.add_argument(
         '--weight-param-method',
         type=str,
         default='stats',
