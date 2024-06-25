@@ -406,7 +406,7 @@ def main(args):
             with load_quant_model_mode(pipe.unet):
                 pipe = pipe.to('cpu')
                 pipe.unet.load_state_dict(torch.load(args.load_checkpoint, map_location='cpu'))
-                pipe = pipe.to(args.device)
+            pipe = pipe.to(args.device)
         elif not args.dry_run:
             if (args.linear_input_bit_width is not None or
                     args.conv_input_bit_width is not None) and args.input_scale_type == 'static':
