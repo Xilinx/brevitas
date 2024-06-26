@@ -159,6 +159,7 @@ def main(args):
     str_ts = ts.strftime("%Y%m%d_%H%M%S")
     output_dir = os.path.join(args.output_path, f'{str_ts}')
     os.mkdir(output_dir)
+    print(f"Saving results in {output_dir}")
 
     # Dump args to json
     with open(os.path.join(output_dir, 'args.json'), 'w') as fp:
