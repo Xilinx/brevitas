@@ -413,7 +413,9 @@ def main(args):
         if args.load_checkpoint is not None:
             with load_quant_model_mode(pipe.unet):
                 pipe = pipe.to('cpu')
+                print(f"Loading checkpoint: {args.load_checkpoint}... ", end="")
                 pipe.unet.load_state_dict(torch.load(args.load_checkpoint, map_location='cpu'))
+                print(f"Checkpoint loaded!")
             pipe = pipe.to(args.device)
         elif not args.dry_run:
             if (args.linear_input_bit_width is not None or
