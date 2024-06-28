@@ -385,7 +385,9 @@ def main(args):
             layer_map[torch.nn.Linear] = (layer_map[torch.nn.Linear][0], quant_kwargs)
 
             if args.override_conv_quant_config:
-                print(f"Overriding Conv2d quantization to weights: {float_sdpa_quantizers[1]}, inputs: {float_sdpa_quantizers[2]}")
+                print(
+                    f"Overriding Conv2d quantization to weights: {float_sdpa_quantizers[1]}, inputs: {float_sdpa_quantizers[2]}"
+                )
                 conv_qkwargs = layer_map[torch.nn.Conv2d][1]
                 conv_qkwargs['input_quant'] = float_sdpa_quantizers[2]
                 conv_qkwargs['weight_quant'] = float_sdpa_quantizers[1]
@@ -791,7 +793,11 @@ if __name__ == "__main__":
         help='Generate a quantized model without any calibration. Default: Disabled')
     add_bool_arg(parser, 'quantize-sdp-1', default=False, help='Quantize SDP. Default: Disabled')
     add_bool_arg(parser, 'quantize-sdp-2', default=False, help='Quantize SDP. Default: Disabled')
-    add_bool_arg(parser, 'override-conv-quant-config', default=False, help='Quantize Convolutions in the same way as SDP (i.e., FP8). Default: Disabled')
+    add_bool_arg(
+        parser,
+        'override-conv-quant-config',
+        default=False,
+        help='Quantize Convolutions in the same way as SDP (i.e., FP8). Default: Disabled')
     args = parser.parse_args()
     print("Args: " + str(vars(args)))
     main(args)
