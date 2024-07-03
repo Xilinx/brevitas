@@ -217,7 +217,7 @@ def main(args):
 
     if args.activation_equalization:
         pipe.set_progress_bar_config(disable=True)
-        with activation_equalization_mode(
+        with torch.no_grad(), activation_equalization_mode(
                 pipe.unet,
                 alpha=args.act_eq_alpha,
                 layerwise=True,
@@ -266,8 +266,6 @@ def main(args):
                 return args.linear_input_bit_width
             elif isinstance(module, nn.Conv2d):
                 return args.conv_input_bit_width
-            elif isinstance(module, QuantIdentity):
-                return args.quant_identity_bit_width
             else:
                 raise RuntimeError(f"Module {module} not supported.")
 
@@ -350,7 +348,7 @@ def main(args):
                 weight_group_size=args.weight_group_size,
                 quantize_weight_zero_point=args.quantize_weight_zero_point,
                 quantize_input_zero_point=args.quantize_input_zero_point,
-                input_bit_width=input_bit_width,
+                input_bit_width=args.linear_output_bit_width,
                 input_quant_format='e4m3',
                 input_scale_type=args.input_scale_type,
                 input_scale_precision=args.input_scale_precision,
@@ -363,7 +361,6 @@ def main(args):
             # We generate all quantizers, but we are only interested in activation quantization for
             # the output of softmax and the output of QKV
             input_quant = float_sdpa_quantizers[0]
-            input_quant = input_quant.let(**{'bit_width': args.linear_output_bit_width})
             if args.quantize_sdp_2:
                 rewriter = ModuleToModuleByClass(
                     Attention,
@@ -379,14 +376,13 @@ def main(args):
                 config.IGNORE_MISSING_KEYS = False
                 pipe.unet = pipe.unet.to(args.device)
                 pipe.unet = pipe.unet.to(dtype)
-            quant_kwargs = layer_map[torch.nn.Linear][1]
+            quant_kwargs = layer_map['diffusers.models.lora.LoRACompatibleLinear'][1]
             what_to_quantize = []
             if args.quantize_sdp_1:
                 what_to_quantize.extend(['to_q', 'to_k'])
             if args.quantize_sdp_2:
                 what_to_quantize.extend(['to_v'])
             quant_kwargs['output_quant'] = lambda module, name: input_quant if any(ending in name for ending in what_to_quantize) else None
-            layer_map[torch.nn.Linear] = (layer_map[torch.nn.Linear][0], quant_kwargs)
 
             if args.override_conv_quant_config:
                 print(
@@ -424,8 +420,8 @@ def main(args):
                 print(f"Checkpoint loaded!")
             pipe = pipe.to(args.device)
         elif not args.dry_run:
-            if (args.linear_input_bit_width is not None or
-                    args.conv_input_bit_width is not None) and args.input_scale_type == 'static':
+            if (args.linear_input_bit_width > 0 or args.conv_input_bit_width > 0 or
+                    args.linear_output_bit_width > 0) and args.input_scale_type == 'static':
                 print("Applying activation calibration")
                 with torch.no_grad(), calibration_mode(pipe.unet):
                     run_val_inference(
@@ -463,7 +459,7 @@ def main(args):
                         torch.cuda.empty_cache()
             if args.bias_correction:
                 print("Applying bias correction")
-                with bias_correction_mode(pipe.unet):
+                with torch.no_grad(), bias_correction_mode(pipe.unet):
                     run_val_inference(
                         pipe,
                         args.resolution,
