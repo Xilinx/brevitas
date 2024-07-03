@@ -284,6 +284,9 @@ class _BiasCorrection(DisableEnableQuantization):
 
     def apply_correction(self, model):
         for name, module in model.named_modules():
+            if isinstance(module, self.layers):
+                # Re-enable output quantization
+                self.enable_act_quantization(module.output_quant, is_training=False)
             if name in self.correction_map.keys():
                 correction = self.correction_map[name] / self.iterations[name]
                 if module.bias is not None:
@@ -316,6 +319,8 @@ class _BiasCorrection(DisableEnableQuantization):
                 self.iterations[name] = 0
                 hook_fn = partial(self.forward_hook_wbiol, name=name)
                 hooks.append(module.register_forward_hook(hook_fn))
+                # Disable output quant so that the bias correction can be merged in the bias
+                self.disable_act_quantization(module.output_quant, is_training=False)
 
     def forward_hook_wbiol(self, module, inp, output, name):
         """
@@ -332,14 +337,8 @@ class _BiasCorrection(DisableEnableQuantization):
         self.collect_float_mean(module, out_float, name)
         self.enable_act_quantization(module, is_training=False)
         self.enable_param_quantization(module, is_training=False)
-
-        # Compute quant output
-        # We need to disable output_quant while out_quant is being computed
-        # or we are going to apply bias correction on post quant values instead of pre quant
-        self.disable_act_quantization(module.output_quant, is_training=False)
-        out_quant = module.forward(*inp)  # Required to avoid infinite recursion
+        out_quant = output
         self.compute_correct_bias(module, out_quant, name)
-        self.enable_act_quantization(module.output_quant, is_training=False)
         self.iterations[name] += 1
         return out_float
 
