@@ -287,6 +287,6 @@ def test_lambda_kwargs():
     model = TestModel()
     assert model.conv.stride == (1, 1)
 
-    kwargs = {'stride': lambda module: 2 if module.in_channels == 3 else 1}
+    kwargs = {'stride': lambda module, name: 2 if module.in_channels == 3 else 1}
     model = ModuleToModuleByInstance(model.conv, nn.Conv2d, **kwargs).apply(model)
     assert model.conv.stride == (2, 2)
