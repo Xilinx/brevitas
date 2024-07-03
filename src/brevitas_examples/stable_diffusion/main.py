@@ -12,6 +12,7 @@ import time
 
 from dependencies import value
 from diffusers import DiffusionPipeline
+from diffusers import EulerDiscreteScheduler
 from diffusers import StableDiffusionXLPipeline
 from diffusers.models.attention_processor import Attention
 from diffusers.models.attention_processor import AttnProcessor
@@ -37,7 +38,6 @@ from brevitas.nn.quant_activation import QuantIdentity
 from brevitas.utils.torch_utils import KwargsForwardHook
 from brevitas_examples.common.generative.quantize import generate_quant_maps
 from brevitas_examples.common.generative.quantize import generate_quantizers
-from brevitas_examples.common.generative.quantize import quantize_model
 from brevitas_examples.common.parse_utils import add_bool_arg
 from brevitas_examples.common.parse_utils import quant_format_validator
 from brevitas_examples.llm.llm_quant.export import BlockQuantProxyLevelManager
@@ -170,7 +170,11 @@ def main(args):
 
     # Load model from float checkpoint
     print(f"Loading model from {args.model}...")
-    pipe = DiffusionPipeline.from_pretrained(args.model, torch_dtype=dtype)
+    variant = 'fp16' if dtype == torch.float16 else None
+    pipe = DiffusionPipeline.from_pretrained(
+        args.model, torch_dtype=dtype, variant=variant, use_safetensors=True)
+    pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config)
+    pipe.vae.config.force_upcast = True
     print(f"Model loaded from {args.model}.")
 
     # Move model to target device
