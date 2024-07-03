@@ -152,7 +152,7 @@ def main(args):
 
     latents = None
     if args.path_to_latents is not None:
-        latents = torch.load(args.path_to_latents).to(torch.float16)
+        latents = torch.load(args.path_to_latents).to(dtype)
 
     # Create output dir. Move to tmp if None
     ts = datetime.fromtimestamp(time.time())
