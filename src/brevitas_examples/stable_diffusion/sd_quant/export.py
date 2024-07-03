@@ -93,11 +93,13 @@ def export_quant_params(pipe, output_dir):
             elif isinstance(
                     module,
                     QuantWeightBiasInputOutputLayer) and id(module) not in handled_quant_layers:
+                full_name = name
                 layer_dict = dict()
                 layer_dict = handle_quant_param(module, layer_dict)
                 quant_params[full_name] = layer_dict
                 handled_quant_layers.add(id(module))
             elif isinstance(module, QuantNonLinearActLayer):
+                full_name = name
                 layer_dict = dict()
                 act_scale = module.act_quant.export_handler.symbolic_kwargs[
                     'dequantize_symbolic_kwargs']['scale'].data
