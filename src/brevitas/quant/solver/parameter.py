@@ -14,6 +14,7 @@ from brevitas.core.function_wrapper import TensorClamp
 from brevitas.core.function_wrapper import TensorClampSte
 from brevitas.core.scaling import *
 from brevitas.core.scaling import ScalingImplType
+from brevitas.core.scaling import ScalingPerOutputType
 from brevitas.inject import ExtendedInjector
 from brevitas.quant.solver.common import *
 
@@ -107,17 +108,22 @@ class SolveParameterScalingImplFromEnum(SolveAffineRescalingFromEnum):
 
 class SolveParameterScalingShape(ExtendedInjector):
 
+    # Retrocompatibility, binary flag for per-tensor/per-channel
     @value
-    def scaling_shape(module, scaling_per_output_channel=None, group_size=None):
-        if group_size is None:
-            assert scaling_per_output_channel is not None
-            # this pattern of returning this.something allows to resolve scaling_output_channel_shape
-            # only when scaling_per_output_channel is True
-            if scaling_per_output_channel:
-                return this.scaling_per_output_channel_shape
-            else:
-                return SCALAR_SHAPE
+    def scaling_per_output_type(scaling_per_output_channel=False):
+        if scaling_per_output_channel:
+            return ScalingPerOutputType.CHANNEL
         else:
+            return ScalingPerOutputType.TENSOR
+
+    @value
+    def scaling_shape(module, scaling_per_output_type, group_size=None):
+        if scaling_per_output_type == ScalingPerOutputType.TENSOR:
+            return SCALAR_SHAPE
+        elif scaling_per_output_type == ScalingPerOutputType.CHANNEL:
+            return this.scaling_per_output_channel_shape
+        elif scaling_per_output_type == ScalingPerOutputType.GROUP:
+            assert group_size is not None, "Per Group scaling requires group size"
             size = list(module.weight.shape)
             assert size[1] % group_size == 0, 'Input channel is not divisible by group size'
             size[1] = size[1] // group_size
@@ -130,6 +136,7 @@ class SolveParameterScalingShape(ExtendedInjector):
 
     @value
     def expanded_scaling_shape(module, group_size=None):
+        assert group_size is not None, "Per Group scaling requires group size"
         size = list(module.weight.shape)
         assert size[1] % group_size == 0, 'Input channel is not divisible by group size'
         size[1] = size[1] // group_size

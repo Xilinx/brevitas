@@ -3,6 +3,7 @@
 
 from brevitas.core.quant import *
 from brevitas.core.quant import QuantType
+from brevitas.core.scaling import ScalingPerOutputType
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import this
 from brevitas.inject import value
@@ -62,12 +63,11 @@ class SolveWeightScalingStatsInputDimsFromModule(ExtendedInjector):
     #  such that output channels are dim 0 and the remaining features are dim 1,
     #  along which we concatenate
     @value
-    def scaling_stats_input_concat_dim(scaling_per_output_channel=None):
-        if scaling_per_output_channel is not None:
-            if scaling_per_output_channel:
-                return 1
-            else:
-                return 0
+    def scaling_stats_input_concat_dim(scaling_per_output_type):
+        if scaling_per_output_type == ScalingPerOutputType.TENSOR:
+            return 0
+        elif scaling_per_output_type == ScalingPerOutputType.CHANNEL:
+            return 1
 
     @value
     def permute_dims(module, output_channel_dim):

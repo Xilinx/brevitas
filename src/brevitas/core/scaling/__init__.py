@@ -1,6 +1,8 @@
 from brevitas.inject.enum import ScalingImplType
+from brevitas.inject.enum import ScalingPerOutputType
 
 assert ScalingImplType
+assert ScalingPerOutputType
 
 from brevitas.core.stats import SCALAR_SHAPE
 

@@ -12,6 +12,7 @@ from brevitas.core.quant import QuantType
 from brevitas.core.restrict_val import *
 from brevitas.core.scaling import *
 from brevitas.core.scaling import ScalingImplType
+from brevitas.core.scaling import ScalingPerOutputType
 from brevitas.core.stats import *
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import value
@@ -194,20 +195,13 @@ class SolveStatsReduceDimFromEnum(ExtendedInjector):
 class SolveScalingStatsInputViewShapeImplFromEnum(ExtendedInjector):
 
     @value
-    def scaling_stats_input_view_shape_impl(
-            scaling_stats_op, scaling_per_output_channel=None, group_dim=None):
-
-        if group_dim is None:
-            assert scaling_per_output_channel is not None, 'scaling_per_output_channel parameter required'
-        if scaling_per_output_channel is None:
-            assert group_dim is not None, 'group_dim required'
-
-        if group_dim is not None:
-            return StatsInputViewShapeImpl.OVER_SUBCHANNEL_BLOCK
-        elif scaling_per_output_channel or scaling_stats_op == StatsOp.MAX_AVE:
-            return StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS
-        else:
+    def scaling_stats_input_view_shape_impl(scaling_stats_op, scaling_per_output_type):
+        if scaling_per_output_type == ScalingPerOutputType.TENSOR:
             return StatsInputViewShapeImpl.OVER_TENSOR
+        elif scaling_per_output_type == ScalingPerOutputType.CHANNEL or scaling_stats_op == StatsOp.MAX_AVE:
+            return StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS
+        elif scaling_per_output_type == ScalingPerOutputType.GROUP:
+            return StatsInputViewShapeImpl.OVER_SUBCHANNEL_BLOCK
 
     @value
     def permute_dims(scaling_stats_permute_dims):
