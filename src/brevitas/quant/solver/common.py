@@ -181,11 +181,19 @@ class SolveStatsReduceDimFromEnum(ExtendedInjector):
             return SCALING_STATS_REDUCE_DIM + 1
 
     @value
-    def keepdim(group_dim=None):
-        if group_dim is not None:
+    def keepdim(scaling_per_output_type):
+        if scaling_per_output_type == ScalingPerOutputType.GROUP:
             return True
         else:
             return False
+
+    # Retrocompatibility, binary flag for per-tensor/per-channel
+    @value
+    def scaling_per_output_type(scaling_per_output_channel=False):
+        if scaling_per_output_channel:
+            return ScalingPerOutputType.CHANNEL
+        else:
+            return ScalingPerOutputType.TENSOR
 
 
 class SolveScalingStatsInputViewShapeImplFromEnum(ExtendedInjector):

@@ -108,14 +108,6 @@ class SolveParameterScalingImplFromEnum(SolveAffineRescalingFromEnum):
 
 class SolveParameterScalingShape(ExtendedInjector):
 
-    # Retrocompatibility, binary flag for per-tensor/per-channel
-    @value
-    def scaling_per_output_type(scaling_per_output_channel=False):
-        if scaling_per_output_channel:
-            return ScalingPerOutputType.CHANNEL
-        else:
-            return ScalingPerOutputType.TENSOR
-
     @value
     def scaling_shape(module, scaling_per_output_type, group_size=None):
         if scaling_per_output_type == ScalingPerOutputType.TENSOR:
