@@ -18,6 +18,7 @@ from brevitas.inject import this
 from brevitas.inject import value
 from brevitas.inject.enum import QuantType
 from brevitas.inject.enum import ScalingImplType
+from brevitas.inject.enum import ScalingPerOutputType
 from brevitas.proxy import ActQuantProxyFromInjector
 from brevitas.proxy.utils import ConvertRuntimeStatsToParameter
 from brevitas.quant.solver.common import *
@@ -100,12 +101,12 @@ class SolveActScalingInitFromEnum(ExtendedInjector):
 class SolveActScalingShape(ExtendedInjector):
 
     @value
-    def scaling_shape(scaling_per_output_channel):
+    def scaling_shape(scaling_per_output_type):
         # this pattern of returning this.something allows to resolve scaling_output_channel_shape
         # only when scaling_per_output_channel is True
-        if scaling_per_output_channel:
+        if scaling_per_output_type == ScalingPerOutputType.CHANNEL:
             return this.per_channel_broadcastable_shape
-        else:
+        elif scaling_per_output_type == ScalingPerOutputType.TENSOR:
             return SCALAR_SHAPE
 
 

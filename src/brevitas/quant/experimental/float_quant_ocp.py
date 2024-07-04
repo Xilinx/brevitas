@@ -4,6 +4,7 @@
 from dependencies import value
 
 from brevitas.inject import ExtendedInjector
+from brevitas.inject.enum import ScalingPerOutputType
 from brevitas.quant.base import MSESymmetricScale
 from brevitas.quant.experimental.float_base import FloatActBase
 from brevitas.quant.experimental.float_base import FloatWeightBase
@@ -68,28 +69,28 @@ class FpOCPWeightPerTensorFloat(FpOCPMixin, ScaledFloatWeightBase):
     """
     OCP FP signed E3M4 weight quantizer with per-tensor absmax-based scaling.
     """
-    scaling_per_output_channel = False
+    scaling_per_output_type = ScalingPerOutputType.TENSOR
 
 
 class FpOCPActPerTensorFloat(FpOCPMixin, ScaledFloatActBase):
     """
     OCP FP signed activation quantizer with per-tensor static percentile-based scaling.
     """
-    scaling_per_output_channel = False
+    scaling_per_output_type = ScalingPerOutputType.TENSOR
 
 
 class FpOCPWeightPerChannelFloat(FpOCPMixin, ScaledFloatWeightBase):
     """
     OCP FP signed E3M4 weight quantizer with per-channel absmax-based scaling.
     """
-    scaling_per_output_channel = True
+    scaling_per_output_type = ScalingPerOutputType.CHANNEL
 
 
 class FpOCPActPerChannelFloat2d(FpOCPMixin, ScaledFloatActBase):
     """
     OCP FP signed activation quantizer with per-channel static percentile-based scaling.
     """
-    scaling_per_output_channel = True
+    scaling_per_output_type = ScalingPerOutputType.CHANNEL
     scaling_stats_permute_dims = (1, 0, 2, 3)
 
 
@@ -97,14 +98,14 @@ class FpOCPActPerTensorFloatMSE(FpOCPMixin, MSESymmetricScale, ScaledFloatActBas
     """
     OCP FP signed activation quantizer with per-tensor static MSE-based scaling.
     """
-    scaling_per_output_channel = False
+    scaling_per_output_type = ScalingPerOutputType.TENSOR
 
 
 class FpOCPActPerChannelFloat2dMSE(FpOCPMixin, MSESymmetricScale, ScaledFloatActBase):
     """
     OCP FP signed activation quantizer with per-channel static MSE-based scaling.
     """
-    scaling_per_output_channel = True
+    scaling_per_output_type = ScalingPerOutputType.CHANNEL
     scaling_stats_permute_dims = (1, 0, 2, 3)
 
 
@@ -112,14 +113,14 @@ class FpOCPWeightPerChannelFloatMSE(FpOCPMixin, MSESymmetricScale, ScaledFloatWe
     """
     OCP FP signed E3M4 weight quantizer with per-channel MSE-based scaling.
     """
-    scaling_per_output_channel = True
+    scaling_per_output_type = ScalingPerOutputType.CHANNEL
 
 
 class FpOCPWeightPerTensorFloatMSE(FpOCPMixin, MSESymmetricScale, ScaledFloatWeightBase):
     """
     OCP FP signed E3M4 weight quantizer with per-tensor MSE-based scaling.
     """
-    scaling_per_output_channel = False
+    scaling_per_output_type = ScalingPerOutputType.TENSOR
 
 
 ## Predefined FP8 Quantizers

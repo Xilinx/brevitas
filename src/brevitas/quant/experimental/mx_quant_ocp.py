@@ -7,6 +7,7 @@ from brevitas.core.function_wrapper.ops_ste import CeilSte
 from brevitas.core.scaling.runtime import RuntimeDynamicGroupStatsScaling
 from brevitas.inject import ExtendedInjector
 from brevitas.inject.enum import RestrictValueType
+from brevitas.inject.enum import ScalingPerOutputType
 from brevitas.proxy.groupwise_float_parameter_quant import \
     GroupwiseWeightFloatQuantProxyFromInjector
 from brevitas.proxy.groupwise_float_runtime_quant import GroupwiseActFloatQuantProxyFromInjector
@@ -27,6 +28,7 @@ class MXFloatWeightMixin(ExtendedInjector):
     group_size = 32
     restrict_scaling_type = RestrictValueType.POWER_OF_TWO
     restrict_value_float_to_int_impl = CeilSte
+    scaling_per_output_type = ScalingPerOutputType.GROUP
 
 
 class MXFloatActMixin(ExtendedInjector):
@@ -35,6 +37,7 @@ class MXFloatActMixin(ExtendedInjector):
     restrict_scaling_type = RestrictValueType.POWER_OF_TWO
     restrict_value_float_to_int_impl = CeilSte
     scaling_impl = RuntimeDynamicGroupStatsScaling
+    scaling_per_output_type = ScalingPerOutputType.GROUP
 
     @value
     def stats_reduce_dim(group_dim):
@@ -59,14 +62,7 @@ class MXFloatAct(MXFloatActMixin, FpOCPAct, ScaledFloatActBase):
     pass
 
 
-class MXFloatActMSE(MXFloatAct, MSESymmetricScale):
-    """
-    MX Float signed activation quantizer with per-tensor static percentile-based scaling.
-    """
-    pass
-
-
-class MXFloatWeightFloatMSE(MXFloatWeight, MSESymmetricScale):
+class MXFloatWeightMSE(MXFloatWeight, MSESymmetricScale):
     """
     MX Float signed weight quantizer with per-channel MSE-based scaling.
     """
