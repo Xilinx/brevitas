@@ -23,6 +23,7 @@ from brevitas.export.common.handler.qcdq import QCDQCastWeightQuantProxyHandlerM
 from brevitas.export.common.handler.qcdq import QMixin
 from brevitas.export.onnx.handler import ONNXBaseHandler
 from brevitas.export.onnx.handler import QuantLSTMLayerHandler
+from brevitas.inject.enum import ScalingPerOutputType
 
 from ..function import CastFn
 from ..function import DequantizeLinearFn
@@ -133,7 +134,7 @@ class StdDynamicQDQCastONNXMixin(DynamicQMixin, StdDQCastONNXMixin, ABC):
         # Below 8b quantization is not supported.
         self.validate_8b_bit_width(module.bit_width(), le_then=False)
         # Only per tensor quantization is supported
-        assert not module.quant_injector.scaling_per_output_channel, "Only per tensor scaling supported"
+        assert module.quant_injector.scaling_per_output_type == ScalingPerOutputType.TENSOR, "Only per tensor scaling supported"
 
     def quantize_fn(self, x, dtype):
         return DynamicQuantizeLinearFn.apply(x, dtype)
