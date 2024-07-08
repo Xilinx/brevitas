@@ -292,6 +292,7 @@ class _BiasCorrection(DisableEnableQuantization):
                 if module.bias is not None:
                     module.bias.data += correction
                 elif self.skip_if_no_bias is False:
+                    # If accelerate is enabled, bias will be on the same execution device as the weights, but won't be managed properly by accelerate
                     module.register_parameter(
                         'bias', nn.Parameter(correction).to(module.weight.device))
                 # Offload params again
