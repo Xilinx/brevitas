@@ -472,7 +472,7 @@ def main(args):
                         test_latents=latents,
                         guidance_scale=args.guidance_scale)
 
-    if args.vae_fp16_fix:
+    if args.vae_fp16_fix and is_sd_xl:
         vae_fix_scale = 128
         layer_whitelist = [
             "decoder.up_blocks.2.upsamplers.0.conv",
