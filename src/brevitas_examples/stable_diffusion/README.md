@@ -103,6 +103,7 @@ usage: main.py [-h] [-m MODEL] [-d DEVICE] [-b BATCH_SIZE] [--prompt PROMPT]
                [--quantize-sdp-1 | --no-quantize-sdp-1]
                [--quantize-sdp-2 | --no-quantize-sdp-2]
                [--override-conv-quant-config | --no-override-conv-quant-config]
+               [--vae-fp16-fix | --no-vae-fp16-fix]
 
 Stable Diffusion quantization
 
@@ -269,4 +270,8 @@ optional arguments:
   --no-override-conv-quant-config
                         Disable Quantize Convolutions in the same way as SDP
                         (i.e., FP8). Default: Disabled
+  --vae-fp16-fix        Enable Rescale the VAE to not go NaN with FP16.
+                        Default: Disabled
+  --no-vae-fp16-fix     Disable Rescale the VAE to not go NaN with FP16.
+                        Default: Disabled
 ```
