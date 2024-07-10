@@ -113,13 +113,23 @@ class bias_correction_mode:
         self.bias_correction = _BiasCorrection(skip_if_no_bias=skip_if_no_bias)
         self.enabled = enabled
         self.hooks = []
+        self.output_quant_modules = []
 
     def __enter__(self):
         if self.enabled:
+            for module in self.model.modules():
+                # Disable output quant so that the bias correction can be merged in the bias
+                if hasattr(module, 'output_quant') and module.output_quant.is_quant_enabled:
+                    self.bias_correction.disable_act_quantization(
+                        module.output_quant, is_training=False)
+                    self.output_quant_modules.append(module)
             self.bias_correction.register_hook_to_wbiol(self.model, self.hooks)
 
     def __exit__(self, type, value, traceback):
         self.bias_correction.apply_correction(self.model)
+        for module in self.output_quant_modules:
+            # Re-enable output quantization
+            self.bias_correction.enable_act_quantization(module.output_quant, is_training=False)
         for hook in self.hooks:
             hook.remove()
 
@@ -284,9 +294,6 @@ class _BiasCorrection(DisableEnableQuantization):
 
     def apply_correction(self, model):
         for name, module in model.named_modules():
-            if isinstance(module, self.layers):
-                # Re-enable output quantization
-                self.enable_act_quantization(module.output_quant, is_training=False)
             if name in self.correction_map.keys():
                 correction = self.correction_map[name] / self.iterations[name]
                 if module.bias is not None:
@@ -319,8 +326,6 @@ class _BiasCorrection(DisableEnableQuantization):
                 self.iterations[name] = 0
                 hook_fn = partial(self.forward_hook_wbiol, name=name)
                 hooks.append(module.register_forward_hook(hook_fn))
-                # Disable output quant so that the bias correction can be merged in the bias
-                self.disable_act_quantization(module.output_quant, is_training=False)
 
     def forward_hook_wbiol(self, module, inp, output, name):
         """
@@ -337,6 +342,8 @@ class _BiasCorrection(DisableEnableQuantization):
         self.collect_float_mean(module, out_float, name)
         self.enable_act_quantization(module, is_training=False)
         self.enable_param_quantization(module, is_training=False)
+        # Keep output quant disabled until further notice
+        self.disable_act_quantization(module.output_quant, is_training=False)
         out_quant = output
         self.compute_correct_bias(module, out_quant, name)
         self.iterations[name] += 1
