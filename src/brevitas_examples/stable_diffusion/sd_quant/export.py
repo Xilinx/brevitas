@@ -53,10 +53,13 @@ def handle_quant_param(layer, layer_dict):
     return layer_dict
 
 
-def export_quant_params(pipe, output_dir):
+def export_quant_params(pipe, output_dir, export_vae=False):
     quant_output_path = os.path.join(output_dir, 'quant_params.json')
-    output_path = os.path.join(output_dir, 'params.safetensors')
-    print(f"Saving unet to {output_path} ...")
+    unet_output_path = os.path.join(output_dir, 'params.safetensors')
+    print(f"Saving unet to {unet_output_path} ...")
+    if export_vae:
+        vae_output_path = os.path.join(output_dir, 'vae.safetensors')
+        print(f"Saving vae to {vae_output_path} ...")
     from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
     quant_params = dict()
     state_dict = pipe.unet.state_dict()
@@ -114,4 +117,6 @@ def export_quant_params(pipe, output_dir):
                 handled_quant_layers.add(id(module))
     with open(quant_output_path, 'w') as file:
         json.dump(quant_params, file, indent="  ")
-    save_file(state_dict, output_path)
+    save_file(state_dict, unet_output_path)
+    if export_vae:
+        save_file(pipe.vae.state_dict(), vae_output_path)

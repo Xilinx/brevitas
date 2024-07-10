@@ -472,15 +472,41 @@ def main(args):
                         test_latents=latents,
                         guidance_scale=args.guidance_scale)
 
+    if args.vae_fp16_fix:
+        vae_fix_scale = 128
+        layer_whitelist = [
+            "decoder.up_blocks.2.upsamplers.0.conv",
+            "decoder.up_blocks.3.resnets.0.conv2",
+            "decoder.up_blocks.3.resnets.1.conv2",
+            "decoder.up_blocks.3.resnets.2.conv2"]
+        #layer_whitelist = [
+        #    "decoder.up_blocks.3.resnets.0.conv_shortcut",
+        #    "decoder.up_blocks.3.resnets.0.conv2",
+        #    "decoder.up_blocks.3.resnets.1.conv2",
+        #    "decoder.up_blocks.3.resnets.2.conv2"]
+        corrected_layers = []
+        with torch.no_grad():
+            for name, module in pipe.vae.named_modules():
+                if name in layer_whitelist:
+                    corrected_layers.append(name)
+                    module.weight /= vae_fix_scale
+                    if module.bias is not None:
+                        module.bias /= vae_fix_scale
+        print(f"Corrected layers in VAE: {corrected_layers}")
+
     if args.checkpoint_name is not None and args.load_checkpoint is None:
         torch.save(pipe.unet.state_dict(), os.path.join(output_dir, args.checkpoint_name))
+        if args.vae_fp16_fix:
+            torch.save(
+                pipe.vae.state_dict(), os.path.join(output_dir, f"vae_{args.checkpoint_name}"))
 
     # Perform inference
     if args.prompt > 0 and not args.dry_run:
         # with brevitas_proxy_inference_mode(pipe.unet):
         if args.use_mlperf_inference:
             print(f"Computing accuracy with MLPerf pipeline")
-            compute_mlperf_fid(args.model, args.path_to_coco, pipe, args.prompt, output_dir)
+            compute_mlperf_fid(
+                args.model, args.path_to_coco, pipe, args.prompt, output_dir, not args.vae_fp16_fix)
         else:
             print(f"Computing accuracy on default prompt")
             testing_prompts = TESTING_PROMPTS[:args.prompt]
@@ -543,7 +569,7 @@ def main(args):
             export_onnx(pipe, trace_inputs, output_dir, export_manager)
         if args.export_target == 'params_only':
             pipe.to('cpu')
-            export_quant_params(pipe, output_dir)
+            export_quant_params(pipe, output_dir, export_vae=args.vae_fp16_fix)
 
 
 if __name__ == "__main__":
@@ -798,6 +824,11 @@ if __name__ == "__main__":
         'override-conv-quant-config',
         default=False,
         help='Quantize Convolutions in the same way as SDP (i.e., FP8). Default: Disabled')
+    add_bool_arg(
+        parser,
+        'vae-fp16-fix',
+        default=False,
+        help='Rescale the VAE to not go NaN with FP16. Default: Disabled')
     args = parser.parse_args()
     print("Args: " + str(vars(args)))
     main(args)
