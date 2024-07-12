@@ -32,6 +32,7 @@ from brevitas_examples.llm.llm_quant.export import brevitas_proxy_export_mode
 from brevitas_examples.llm.llm_quant.gptq import apply_gptq
 from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_affine_merge
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import replace_mha_with_quantizable_layers
+from brevitas_examples.llm.llm_quant.prepare_for_quantize import add_zero_bias_to_linear
 from brevitas_examples.llm.llm_quant.run_utils import cast_to_float32
 from brevitas_examples.llm.llm_quant.run_utils import CastFloat16ToFloat32
 from brevitas_examples.llm.llm_quant.run_utils import get_fx
@@ -364,6 +365,10 @@ def main():
 
     with cast_to_float32(model, dtype):
         model(**calibration_loader[0])
+
+    if args.bias_corr:
+        model = add_zero_bias_to_linear(model)
+
     model = offload_model(model)
 
     if args.act_calibration:
