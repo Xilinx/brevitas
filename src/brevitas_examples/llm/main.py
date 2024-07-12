@@ -17,6 +17,7 @@ from transformers import AutoTokenizer
 from brevitas.export import export_torch_qcdq
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
 from brevitas_examples.common.generative.quantize import quantize_model
+from brevitas_examples.common.parse_utils import add_bool_arg
 from brevitas_examples.common.parse_utils import quant_format_validator
 from brevitas_examples.llm.llm_quant.bias_corr import apply_bias_correction
 from brevitas_examples.llm.llm_quant.calibrate import apply_calibration
@@ -174,6 +175,16 @@ parser.add_argument(
         'sharded_torchmlir_group_weight',
         'sharded_packed_torchmlir_group_weight'],
     help='Model export.')
+add_bool_arg(
+    parser,
+    'use-ocp',
+    default=False,
+    help='Use OCP format for float quantization. Default: True')
+add_bool_arg(
+    parser,
+    'use-fnuz',
+    default=True,
+    help='Use FNUZ format for float quantization. Default: True')
 
 
 def set_seed(seed):
@@ -338,7 +349,10 @@ def main():
             input_quant_granularity=args.input_quant_granularity,
             input_group_size=args.input_group_size,
             quantize_input_zero_point=args.quantize_input_zero_point,
-            quantize_embedding=args.quantize_embedding)
+            quantize_embedding=args.quantize_embedding,
+            use_ocp=args.use_ocp,
+            use_fnuz=args.use_fnuz,
+        )
         # Tie back first/last layer weights in case they got untied
         print("Model quantization applied.")
 
