@@ -179,7 +179,7 @@ add_bool_arg(
     parser,
     'use-ocp',
     default=False,
-    help='Use OCP format for float quantization. Default: True')
+    help='Use OCP format for float quantization. Default: False')
 add_bool_arg(
     parser,
     'use-fnuz',
