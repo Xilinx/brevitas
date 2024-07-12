@@ -363,9 +363,6 @@ def main():
     if args.act_equalization is None and not args.weight_equalization:
         model.tie_weights()
 
-    with cast_to_float32(model, dtype):
-        model(**calibration_loader[0])
-
     if args.bias_corr:
         model = add_zero_bias_to_linear(model)
 
