@@ -13,6 +13,7 @@ from brevitas.graph.calibrate import calibration_mode
 from brevitas.graph.calibrate import load_quant_model_mode
 import brevitas.nn as qnn
 from brevitas.quant import Int8ActPerTensorFixedPoint
+from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 # Use custom implementation of kthvalue as work around to (b)float16 kernel limitations
 from brevitas.utils.torch_utils import kthvalue
 from tests.brevitas.hyp_helper import float_tensor_random_size_st
@@ -108,8 +109,9 @@ class TestBiasCorrection():
             def __init__(self) -> None:
                 super().__init__()
                 self.module_list = nn.ModuleList([
-                    qnn.QuantLinear(IN_CH, OUT_CH, bias=False),
-                    qnn.QuantLinear(OUT_CH, OUT_CH, bias=False)])
+                    qnn.QuantLinear(IN_CH, OUT_CH, bias=False, output_quant=Int8ActPerTensorFloat),
+                    qnn.QuantLinear(OUT_CH, OUT_CH, bias=False,
+                                    output_quant=Int8ActPerTensorFloat)])
 
             def forward(self, inp):
                 out_0 = self.module_list[0](inp)
@@ -138,18 +140,26 @@ class TestBiasCorrection():
         error = torch.zeros(num_layers, OUT_CH)
 
         # Reference Implementation of bias correction
+        quant_model.module_list[0].output_quant.disable_quant = True
+        quant_model.module_list[1].output_quant.disable_quant = True
         for b, inp in enumerate(inp_list):
             fp_outs[b, :, :] = fp_model(inp)
-
             quant_outs[b, 0, :] = quant_model.module_list[0](inp)
+
             quant_outs[b, 1, :] = quant_model.module_list[1](
                 fp_outs[b, 0, :])  # The second layer takes as input the "corrected" output
             error += fp_outs[b] - quant_outs[b]
+        quant_model.module_list[0].output_quant.disable_quant = False
+        quant_model.module_list[1].output_quant.disable_quant = False
 
         with bias_correction_mode(quant_model):
+            assert not quant_model.module_list[0].output_quant.is_quant_enabled
+            assert not quant_model.module_list[1].output_quant.is_quant_enabled
             for inp in inp_list:
                 quant_model(inp)
 
+        assert quant_model.module_list[0].output_quant.is_quant_enabled
+        assert quant_model.module_list[1].output_quant.is_quant_enabled
         assert quant_model.module_list[0].bias is not None
         assert quant_model.module_list[1].bias is not None
         assert torch.allclose(quant_model.module_list[0].bias, error[0] / len(inp_list))
