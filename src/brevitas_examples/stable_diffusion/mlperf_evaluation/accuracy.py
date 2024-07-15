@@ -615,7 +615,10 @@ def compute_mlperf_fid(
     model.load()
 
     if model_to_replace is not None:
-        model.pipe = model_to_replace
+        model.pipe.unet = model_to_replace.unet
+        if not vae_force_upcast:
+            model.pipe.vae = model.pipe.vae
+
     model.pipe.vae.config.force_upcast = vae_force_upcast
     ds = Coco(
         data_path=path_to_coco,

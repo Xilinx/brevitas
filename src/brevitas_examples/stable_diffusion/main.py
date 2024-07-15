@@ -7,6 +7,7 @@ import argparse
 from datetime import datetime
 from functools import partial
 import json
+import math
 import os
 import time
 
@@ -46,7 +47,9 @@ from brevitas_examples.stable_diffusion.sd_quant.constants import SD_2_1_EMBEDDI
 from brevitas_examples.stable_diffusion.sd_quant.constants import SD_XL_EMBEDDINGS_SHAPE
 from brevitas_examples.stable_diffusion.sd_quant.export import export_onnx
 from brevitas_examples.stable_diffusion.sd_quant.export import export_quant_params
+from brevitas_examples.stable_diffusion.sd_quant.nn import AttnProcessor2_0
 from brevitas_examples.stable_diffusion.sd_quant.nn import QuantAttention
+from brevitas_examples.stable_diffusion.sd_quant.nn import QuantizableAttention
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_latents
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_unet_21_rand_inputs
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_unet_xl_rand_inputs
@@ -175,6 +178,18 @@ def main(args):
         args.model, torch_dtype=dtype, variant=variant, use_safetensors=True)
     pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config)
     pipe.vae.config.force_upcast = True
+    if args.share_qkv_quant:
+        rewriter = ModuleToModuleByClass(
+            Attention,
+            QuantizableAttention,
+            query_dim=lambda module: module.to_q.in_features,
+            dim_head=lambda module: math.ceil(1 / (module.scale ** 2)),
+            bias=lambda module: hasattr(module.to_q, 'bias') and module.to_q.bias is not None,
+            processor=AttnProcessor2_0(),
+            dtype=dtype,
+            norm_num_groups=lambda module: None
+            if module.group_norm is None else module.group_norm.num_groups)
+        rewriter.apply(pipe.unet)
     print(f"Model loaded from {args.model}.")
 
     # Move model to target device
@@ -335,7 +350,9 @@ def main(args):
             'weight_quant']
         layer_map[torch.nn.Conv2d] = (layer_map[torch.nn.Conv2d][0], conv_qkwargs)
 
-        if args.quantize_sdp_1 or args.quantize_sdp_2:
+        if args.quantize_sdp:
+            assert args.share_qkv_quant, "Currently SDPA quantization is supported only with shared QKV quantization"
+            # TODO: reformat this
             float_sdpa_quantizers = generate_quantizers(
                 dtype=dtype,
                 device=args.device,
@@ -361,28 +378,20 @@ def main(args):
             # We generate all quantizers, but we are only interested in activation quantization for
             # the output of softmax and the output of QKV
             input_quant = float_sdpa_quantizers[0]
-            if args.quantize_sdp_2:
-                rewriter = ModuleToModuleByClass(
-                    Attention,
-                    QuantAttention,
-                    softmax_output_quant=input_quant,
-                    query_dim=lambda module: module.to_q.in_features,
-                    dim_head=lambda module: int(1 / (module.scale ** 2)),
-                    processor=AttnProcessor(),
-                    is_equalized=args.activation_equalization)
-                import brevitas.config as config
-                config.IGNORE_MISSING_KEYS = True
-                pipe.unet = rewriter.apply(pipe.unet)
-                config.IGNORE_MISSING_KEYS = False
-                pipe.unet = pipe.unet.to(args.device)
-                pipe.unet = pipe.unet.to(dtype)
-            quant_kwargs = layer_map['diffusers.models.lora.LoRACompatibleLinear'][1]
-            what_to_quantize = []
-            if args.quantize_sdp_1:
-                what_to_quantize.extend(['to_q', 'to_k'])
-            if args.quantize_sdp_2:
-                what_to_quantize.extend(['to_v'])
-            quant_kwargs['output_quant'] = lambda module, name: input_quant if any(ending in name for ending in what_to_quantize) else None
+            rewriter = ModuleToModuleByClass(
+                Attention,
+                QuantAttention,
+                matmul_input_quant=input_quant,
+                query_dim=lambda module: module.to_q.in_features,
+                dim_head=lambda module: math.ceil(1 / (module.scale ** 2)),
+                processor=AttnProcessor(),
+                is_equalized=args.activation_equalization)
+            import brevitas.config as config
+            config.IGNORE_MISSING_KEYS = True
+            pipe.unet = rewriter.apply(pipe.unet)
+            config.IGNORE_MISSING_KEYS = False
+            pipe.unet = pipe.unet.to(args.device)
+            pipe.unet = pipe.unet.to(dtype)
 
             if args.override_conv_quant_config:
                 print(
@@ -817,8 +826,7 @@ if __name__ == "__main__":
         'dry-run',
         default=False,
         help='Generate a quantized model without any calibration. Default: Disabled')
-    add_bool_arg(parser, 'quantize-sdp-1', default=False, help='Quantize SDP. Default: Disabled')
-    add_bool_arg(parser, 'quantize-sdp-2', default=False, help='Quantize SDP. Default: Disabled')
+    add_bool_arg(parser, 'quantize-sdp', default=False, help='Quantize SDP. Default: Disabled')
     add_bool_arg(
         parser,
         'override-conv-quant-config',
