@@ -8,6 +8,7 @@ import torch.nn as nn
 from brevitas.inject import BaseInjector as Injector
 from brevitas.proxy.runtime_quant import ActQuantProxyFromInjectorBase
 from brevitas.quant_tensor import FloatQuantTensor
+from brevitas.quant_tensor.base_quant_tensor import QuantTensor
 from brevitas.utils.quant_utils import _CachedIOFloat
 
 
@@ -59,11 +60,11 @@ class ActFloatQuantProxyFromInjector(ActQuantProxyFromInjectorBase):
         ) is None and self.exponent_bias() == 16
         return is_fnuz_e4m3 or is_fnuz_e5m2
 
-    def forward(self, x: Union[Tensor, FloatQuantTensor]) -> Union[Tensor, FloatQuantTensor]:
+    def forward(self, x: Union[Tensor, QuantTensor]) -> Union[Tensor, FloatQuantTensor]:
         out = x
         if self.fused_activation_quant_proxy is not None:
             y = x
-            if isinstance(y, FloatQuantTensor):
+            if isinstance(y, QuantTensor):
                 y = y.value
 
             if self.export_mode:

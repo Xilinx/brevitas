@@ -157,11 +157,11 @@ class ActQuantProxyFromInjector(ActQuantProxyFromInjectorBase):
     def bit_width(self, force_eval=True):
         return self.retrieve_attribute('bit_width', force_eval)
 
-    def forward(self, x: Union[Tensor, IntQuantTensor]) -> Union[Tensor, IntQuantTensor]:
+    def forward(self, x: Union[Tensor, QuantTensor]) -> Union[Tensor, IntQuantTensor]:
         out = x
         if self.fused_activation_quant_proxy is not None:
             y = x
-            if isinstance(y, IntQuantTensor):
+            if isinstance(y, QuantTensor):
                 y = y.value
 
             if self.export_mode:
