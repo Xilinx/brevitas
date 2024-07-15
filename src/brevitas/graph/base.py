@@ -126,13 +126,13 @@ class ModuleToModule(GraphTransform, ABC):
         for k, v in self.new_module_kwargs.items():
             if islambda(v):
                 if name is not None:
-                    v = v(old_module, name)
-                else:
                     # Two types of lambdas are admitted now, with/without the name of the module as input
                     if len(inspect.getfullargspec(v).args) == 2:
                         v = v(old_module, name)
                     elif len(inspect.getfullargspec(v).args) == 1:
                         v = v(old_module)
+                else:
+                    v = v(old_module)
             update_dict[k] = v
         new_kwargs.update(update_dict)
         return new_kwargs
