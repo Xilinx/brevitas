@@ -72,9 +72,9 @@ class BrevitasWeightQuantProxyHandler(BrevitasQuantProxyHandler):
                 'scale': first_qweight.scale,
                 'zero_point': first_qweight.zero_point,
                 'bit_width': first_qweight.bit_width,
-                'signed': first_qweight.signed,
                 # narrow_range is not a property of the QuantTensor, take it from the proxy instead
                 'narrow_range': module.is_narrow_range,
+                'signed': first_qweight.signed,
                 # override rounding mode since quantization has been pre-applied
                 'rounding_mode': 'ROUND'}
 
