@@ -85,8 +85,8 @@ def get_dataset_for_model(
         for sample in data:
             sample["past_key_values"] = tuple(
                 (
-                    torch.zeros(1, num_kv_heads, 0, head_dim, device=sample["input_ids"].device),
-                    torch.zeros(1, num_kv_heads, 0, head_dim, device=sample["input_ids"].device),
+                    torch.zeros(1, num_kv_heads, 0, head_dim, device=sample["input_ids"].device, dtype=sample["input_ids"].dtype),
+                    torch.zeros(1, num_kv_heads, 0, head_dim, device=sample["input_ids"].device, dtype=sample["input_ids"].dtype),
                 )
                 for _ in range(num_layers)
             )
