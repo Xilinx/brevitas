@@ -1,7 +1,6 @@
 import warnings
 
 import torch
-
 from transformers.models.opt.modeling_opt import OPTAttention
 
 from brevitas.graph import ModuleToModuleByClass
@@ -33,7 +32,8 @@ def add_zero_bias_to_linear(model: torch.nn.Module) -> torch.nn.Module:
                 module.register_parameter(
                     "bias",
                     torch.nn.Parameter(
-                        torch.zeros((module.weight.shape[0],), device=module.weight.device, dtype=module.weight.dtype)
-                    ),
+                        torch.zeros((module.weight.shape[0],),
+                                    device=module.weight.device,
+                                    dtype=module.weight.dtype)),
                 )
     return model

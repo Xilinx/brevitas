@@ -31,8 +31,8 @@ from brevitas_examples.llm.llm_quant.export import BlockQuantProxyLevelManager
 from brevitas_examples.llm.llm_quant.export import brevitas_proxy_export_mode
 from brevitas_examples.llm.llm_quant.gptq import apply_gptq
 from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_affine_merge
-from brevitas_examples.llm.llm_quant.prepare_for_quantize import replace_mha_with_quantizable_layers
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import add_zero_bias_to_linear
+from brevitas_examples.llm.llm_quant.prepare_for_quantize import replace_mha_with_quantizable_layers
 from brevitas_examples.llm.llm_quant.run_utils import cast_to_float32
 from brevitas_examples.llm.llm_quant.run_utils import CastFloat16ToFloat32
 from brevitas_examples.llm.llm_quant.run_utils import get_fx
@@ -50,7 +50,12 @@ parser.add_argument(
     '--nsamples', type=int, default=128, help='Number of calibration data samples. Default: 128.')
 parser.add_argument('--seqlen', type=int, default=2048, help='Sequence length. Default: 2048.')
 parser.add_argument('--eval', action='store_true', help='Eval model PPL on the chosen Dataset.')
-parser.add_argument('--dataset', type=str, choices=['wikitext2', 'c4'], default='wikitext2', help='Dataset to use for quantization (default: %(default)s)')
+parser.add_argument(
+    '--dataset',
+    type=str,
+    choices=['wikitext2', 'c4'],
+    default='wikitext2',
+    help='Dataset to use for quantization (default: %(default)s)')
 parser.add_argument('--weight-bit-width', type=int, default=8, help='Weight bit width. Default: 8.')
 parser.add_argument(
     '--weight-param-method',
@@ -177,17 +182,15 @@ parser.add_argument(
         'sharded_torchmlir_group_weight',
         'sharded_packed_torchmlir_group_weight'],
     help='Model export.')
-parser.add_argument('--checkpoint-name', type=str, default=None, help="Filename to save checkpoint. If `None`, no checkpoint is saved (default: %(default)s)")
+parser.add_argument(
+    '--checkpoint-name',
+    type=str,
+    default=None,
+    help="Filename to save checkpoint. If `None`, no checkpoint is saved (default: %(default)s)")
 add_bool_arg(
-    parser,
-    'use-ocp',
-    default=False,
-    help='Use OCP format for float quantization. Default: False')
+    parser, 'use-ocp', default=False, help='Use OCP format for float quantization. Default: False')
 add_bool_arg(
-    parser,
-    'use-fnuz',
-    default=True,
-    help='Use FNUZ format for float quantization. Default: True')
+    parser, 'use-fnuz', default=True, help='Use FNUZ format for float quantization. Default: True')
 
 
 def set_seed(seed):
@@ -324,7 +327,8 @@ def main():
     if args.eval:
         print("Float model eval...")
         model = offload_model(model)
-        ppl = compute_perplexity(model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
+        ppl = compute_perplexity(
+            model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
         remove_hooks(model)
         print(f"Float perplexity ({args.dataset}): {ppl}")
 
@@ -417,7 +421,8 @@ def main():
 
     if args.eval:
         print("Model eval...")
-        ppl = compute_perplexity(model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
+        ppl = compute_perplexity(
+            model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
         print(f"Quantized perplexity ({args.dataset}): {ppl}")
     remove_hooks(model)
 

@@ -24,18 +24,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-from typing import Any, Optional, Union
 import random
+from typing import Any, Optional, Union
 
 import numpy as np
-import torch
-
-from optimum.utils.normalized_config import NormalizedConfigManager
-from transformers import AutoConfig
-
-from optimum.amd.brevitas.data_utils import get_wikitext2
-from optimum.amd.brevitas.data_utils import get_c4
 from optimum.amd.brevitas.data_utils import DatasetToDevice
+from optimum.amd.brevitas.data_utils import get_c4
+from optimum.amd.brevitas.data_utils import get_wikitext2
+from optimum.utils.normalized_config import NormalizedConfigManager
+import torch
+from transformers import AutoConfig
 
 
 def get_dataset_for_model(
@@ -55,23 +53,28 @@ def get_dataset_for_model(
     torch.random.manual_seed(seed)
     get_dataset_map = {
         "wikitext2": get_wikitext2,
-        "c4": get_c4,
-    }
+        "c4": get_c4,}
     if split not in ["train", "validation"]:
         raise ValueError(f"The split need to be 'train' or 'validation' but found {split}")
     if dataset_name not in get_dataset_map:
-        raise ValueError(f"Expected a value in {list(get_dataset_map.keys())} but found {dataset_name}")
+        raise ValueError(
+            f"Expected a value in {list(get_dataset_map.keys())} but found {dataset_name}")
     get_dataset_fn = get_dataset_map[dataset_name]
 
     data = get_dataset_fn(
-        tokenizer=tokenizer, nsamples=nsamples, seqlen=seqlen, split=split, fuse_sequences=fuse_sequences, seed=seed
-    )
+        tokenizer=tokenizer,
+        nsamples=nsamples,
+        seqlen=seqlen,
+        split=split,
+        fuse_sequences=fuse_sequences,
+        seed=seed)
 
     # In case the dataset is loaded to be used with an fx.GraphModule, we need to add empty past_key_values inputs in the dataset.
     if require_fx:
         config = AutoConfig.from_pretrained(model_name_or_path)
 
-        normalized_config_class = NormalizedConfigManager.get_normalized_config_class(config.model_type)
+        normalized_config_class = NormalizedConfigManager.get_normalized_config_class(
+            config.model_type)
         normalized_config = normalized_config_class(config)
 
         num_heads = normalized_config.num_attention_heads
@@ -83,13 +86,22 @@ def get_dataset_for_model(
         num_layers = normalized_config.num_layers
 
         for sample in data:
-            sample["past_key_values"] = tuple(
-                (
-                    torch.zeros(1, num_kv_heads, 0, head_dim, device=sample["input_ids"].device, dtype=sample["input_ids"].dtype),
-                    torch.zeros(1, num_kv_heads, 0, head_dim, device=sample["input_ids"].device, dtype=sample["input_ids"].dtype),
-                )
-                for _ in range(num_layers)
-            )
+            sample["past_key_values"] = tuple((
+                torch.zeros(
+                    1,
+                    num_kv_heads,
+                    0,
+                    head_dim,
+                    device=sample["input_ids"].device,
+                    dtype=sample["input_ids"].dtype),
+                torch.zeros(
+                    1,
+                    num_kv_heads,
+                    0,
+                    head_dim,
+                    device=sample["input_ids"].device,
+                    dtype=sample["input_ids"].dtype),
+            ) for _ in range(num_layers))
 
     data = DatasetToDevice(data, device=device)
 
