@@ -9,6 +9,7 @@ import re
 import numpy as np
 from optimum.amd.brevitas.accelerate_utils import offload_model
 from optimum.amd.brevitas.accelerate_utils import remove_hooks
+from optimum.amd.brevitas.data_utils import compute_perplexity
 from optimum.exporters.onnx import onnx_export_from_model
 import torch
 from transformers import AutoModelForCausalLM
@@ -21,8 +22,7 @@ from brevitas_examples.common.parse_utils import add_bool_arg
 from brevitas_examples.common.parse_utils import quant_format_validator
 from brevitas_examples.llm.llm_quant.bias_corr import apply_bias_correction
 from brevitas_examples.llm.llm_quant.calibrate import apply_calibration
-from brevitas_examples.llm.llm_quant.data import get_c4
-from brevitas_examples.llm.llm_quant.data import get_wikitext2
+from brevitas_examples.llm.llm_quant.data_utils import get_dataset_for_model
 from brevitas_examples.llm.llm_quant.equalize import apply_act_equalization
 from brevitas_examples.llm.llm_quant.equalize import apply_weight_equalization
 from brevitas_examples.llm.llm_quant.eval import create_validation_dataloader
@@ -49,7 +49,8 @@ parser.add_argument(
 parser.add_argument(
     '--nsamples', type=int, default=128, help='Number of calibration data samples. Default: 128.')
 parser.add_argument('--seqlen', type=int, default=2048, help='Sequence length. Default: 2048.')
-parser.add_argument('--eval', action='store_true', help='Eval model PPL on C4.')
+parser.add_argument('--eval', action='store_true', help='Eval model PPL on the chosen Dataset.')
+parser.add_argument('--dataset', type=str, choices=['wikitext2', 'c4'], default='wikitext2', help='Dataset to use for quantization (default: %(default)s)')
 parser.add_argument('--weight-bit-width', type=int, default=8, help='Weight bit width. Default: 8.')
 parser.add_argument(
     '--weight-param-method',
@@ -176,6 +177,7 @@ parser.add_argument(
         'sharded_torchmlir_group_weight',
         'sharded_packed_torchmlir_group_weight'],
     help='Model export.')
+parser.add_argument('--checkpoint-name', type=str, default=None, help="Filename to save checkpoint. If `None`, no checkpoint is saved (default: %(default)s)")
 add_bool_arg(
     parser,
     'use-ocp',
@@ -286,13 +288,45 @@ def main():
         with CastFloat16ToFloat32():
             apply_awq(model, awq_results)
 
-    calibration_loader = get_wikitext2(
-        nsamples=args.nsamples, tokenizer=tokenizer, seqlen=args.seqlen, seed=0)
-    val_data = get_wikitext2(
-        nsamples=args.nsamples, tokenizer=tokenizer, seqlen=args.seqlen, split='validation', seed=0)
+    require_fx = True if args.weight_equalization or args.act_equalization == 'fx' else False
+    fuse_sequences = False
+
+    # Load the data for calibration and evaluation.
+    calibration_loader = get_dataset_for_model(
+        args.model,
+        dataset_name=args.dataset,
+        tokenizer=tokenizer,
+        nsamples=args.nsamples,
+        seqlen=args.seqlen,
+        split="train",
+        seed=args.seed,
+        require_fx=require_fx,
+        device=None,
+        fuse_sequences=fuse_sequences,
+    )
+
+    validation_loader = get_dataset_for_model(
+        args.model,
+        dataset_name=args.dataset,
+        tokenizer=tokenizer,
+        nsamples=args.nsamples,
+        seqlen=args.seqlen,
+        split="validation",
+        seed=args.seed,
+        require_fx=require_fx,
+        device=None,
+        fuse_sequences=fuse_sequences,
+    )
+
     device = next(iter(model.parameters())).device
-    val_data = create_validation_dataloader(val_data, args.seqlen, device)
     print("Data loaded.")
+
+    if args.eval:
+        print("Float model eval...")
+        model = offload_model(model)
+        ppl = compute_perplexity(model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
+        remove_hooks(model)
+        print(f"Float perplexity ({args.dataset}): {ppl}")
 
     # Apply LN affine merging before inserting MHA layers
     # since currently there is support only for merging into Linear
@@ -308,10 +342,8 @@ def main():
         model = replace_mha_with_quantizable_layers(model, dtype)
         print("Replacing done.")
 
-    if args.weight_equalization or args.act_equalization == 'fx':
+    if require_fx:
         model = get_fx(model)
-        calibration_loader = modify_dataloader(args.model, calibration_loader, dtype=dtype)
-        val_data = modify_dataloader(args.model, val_data, dtype=dtype)
 
     if args.weight_equalization:
         print("Apply weight equalization...")
@@ -385,9 +417,13 @@ def main():
 
     if args.eval:
         print("Model eval...")
-        ppl = model_eval(model, val_data, args.seqlen)
-        print(f"C4 perplexity: {ppl}")
+        ppl = compute_perplexity(model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
+        print(f"Quantized perplexity ({args.dataset}): {ppl}")
     remove_hooks(model)
+
+    if args.checkpoint_name is not None:
+        print(f"Saving checkpoint to {args.checkpoint_name}")
+        torch.save(model.state_dict(), args.checkpoint_name)
 
     if args.export_target:
         print(f"Export to {args.export_target}")

@@ -1,5 +1,7 @@
 import warnings
 
+import torch
+
 from transformers.models.opt.modeling_opt import OPTAttention
 
 from brevitas.graph import ModuleToModuleByClass
