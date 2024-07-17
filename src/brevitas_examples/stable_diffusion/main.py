@@ -220,10 +220,19 @@ def main(args):
 
     # Extract list of layers to avoid
     blacklist = []
+    non_blacklist = dict()
     for name, _ in pipe.unet.named_modules():
         if 'time_emb' in name:
             blacklist.append(name.split('.')[-1])
-    print(f"Blacklisted layers: {blacklist}")
+        else:
+            if isinstance(_, (torch.nn.Linear, torch.nn.Conv2d)):
+                name_to_add = name.split('.')[-1]
+                if name_to_add not in non_blacklist:
+                    non_blacklist[name_to_add] = 1
+                else:
+                    non_blacklist[name_to_add] += 1
+    print(f"Blacklisted layers: {set(blacklist)}")
+    print(f"Non blacklisted layers: {non_blacklist}")
 
     # Make sure there all LoRA layers are fused first, otherwise raise an error
     for m in pipe.unet.modules():
