@@ -2,6 +2,7 @@ accelerate==0.23.0
 diffusers==0.21.2
 open-clip-torch==2.7.0
 opencv-python==4.8.1.78
+pandas==2.2.2
 pycocotools==2.0.7
 scipy==1.9.1
 torchmetrics[image]==1.2.0

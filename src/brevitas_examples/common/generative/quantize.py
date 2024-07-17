@@ -473,6 +473,7 @@ def quantize_model(
         quantize_input_zero_point=False,
         quantize_embedding=False,
         use_ocp=False,
+        use_fnuz=False,
         device=None,
         weight_kwargs=None,
         input_kwargs=None):
@@ -497,6 +498,7 @@ def quantize_model(
         input_group_size,
         quantize_input_zero_point,
         use_ocp,
+        use_fnuz,
         device,
         weight_kwargs,
         input_kwargs)

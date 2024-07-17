@@ -77,6 +77,7 @@ usage: main.py [-h] [-m MODEL] [-d DEVICE] [-b BATCH_SIZE] [--prompt PROMPT]
                [--conv-input-bit-width CONV_INPUT_BIT_WIDTH]
                [--act-eq-alpha ACT_EQ_ALPHA]
                [--linear-input-bit-width LINEAR_INPUT_BIT_WIDTH]
+               [--linear-output-bit-width LINEAR_OUTPUT_BIT_WIDTH]
                [--weight-param-method {stats,mse}]
                [--input-param-method {stats,mse}]
                [--input-scale-stats-op {minmax,percentile}]
@@ -96,15 +97,17 @@ usage: main.py [-h] [-m MODEL] [-d DEVICE] [-b BATCH_SIZE] [--prompt PROMPT]
                [--quantize-input-zero-point | --no-quantize-input-zero-point]
                [--export-cpu-float32 | --no-export-cpu-float32]
                [--use-mlperf-inference | --no-use-mlperf-inference]
-               [--use-ocp | --no-use-ocp] [--use-nfuz | --no-use-nfuz]
+               [--use-ocp | --no-use-ocp] [--use-fnuz | --no-use-fnuz]
                [--use-negative-prompts | --no-use-negative-prompts]
                [--dry-run | --no-dry-run]
                [--quantize-sdp-1 | --no-quantize-sdp-1]
                [--quantize-sdp-2 | --no-quantize-sdp-2]
+               [--override-conv-quant-config | --no-override-conv-quant-config]
+               [--vae-fp16-fix | --no-vae-fp16-fix]
 
 Stable Diffusion quantization
 
-options:
+optional arguments:
   -h, --help            show this help message and exit
   -m MODEL, --model MODEL
                         Path or name of the model.
@@ -176,6 +179,8 @@ options:
                         Alpha for activation equalization. Default: 0.9
   --linear-input-bit-width LINEAR_INPUT_BIT_WIDTH
                         Input bit width. Default: 0 (not quantized).
+  --linear-output-bit-width LINEAR_OUTPUT_BIT_WIDTH
+                        Input bit width. Default: 0 (not quantized).
   --weight-param-method {stats,mse}
                         How scales/zero-point are determined. Default: stats.
   --input-param-method {stats,mse}
@@ -241,9 +246,9 @@ options:
                         True
   --no-use-ocp          Disable Use OCP format for float quantization.
                         Default: True
-  --use-nfuz            Enable Use NFUZ format for float quantization.
+  --use-fnuz            Enable Use FNUZ format for float quantization.
                         Default: True
-  --no-use-nfuz         Disable Use NFUZ format for float quantization.
+  --no-use-fnuz         Disable Use FNUZ format for float quantization.
                         Default: True
   --use-negative-prompts
                         Enable Use negative prompts during
@@ -259,5 +264,14 @@ options:
   --no-quantize-sdp-1   Disable Quantize SDP. Default: Disabled
   --quantize-sdp-2      Enable Quantize SDP. Default: Disabled
   --no-quantize-sdp-2   Disable Quantize SDP. Default: Disabled
-
+  --override-conv-quant-config
+                        Enable Quantize Convolutions in the same way as SDP
+                        (i.e., FP8). Default: Disabled
+  --no-override-conv-quant-config
+                        Disable Quantize Convolutions in the same way as SDP
+                        (i.e., FP8). Default: Disabled
+  --vae-fp16-fix        Enable Rescale the VAE to not go NaN with FP16.
+                        Default: Disabled
+  --no-vae-fp16-fix     Disable Rescale the VAE to not go NaN with FP16.
+                        Default: Disabled
 ```

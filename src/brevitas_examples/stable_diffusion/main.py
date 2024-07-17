@@ -7,11 +7,13 @@ import argparse
 from datetime import datetime
 from functools import partial
 import json
+import math
 import os
 import time
 
 from dependencies import value
 from diffusers import DiffusionPipeline
+from diffusers import EulerDiscreteScheduler
 from diffusers import StableDiffusionXLPipeline
 from diffusers.models.attention_processor import Attention
 from diffusers.models.attention_processor import AttnProcessor
@@ -37,7 +39,6 @@ from brevitas.nn.quant_activation import QuantIdentity
 from brevitas.utils.torch_utils import KwargsForwardHook
 from brevitas_examples.common.generative.quantize import generate_quant_maps
 from brevitas_examples.common.generative.quantize import generate_quantizers
-from brevitas_examples.common.generative.quantize import quantize_model
 from brevitas_examples.common.parse_utils import add_bool_arg
 from brevitas_examples.common.parse_utils import quant_format_validator
 from brevitas_examples.llm.llm_quant.export import BlockQuantProxyLevelManager
@@ -46,7 +47,9 @@ from brevitas_examples.stable_diffusion.sd_quant.constants import SD_2_1_EMBEDDI
 from brevitas_examples.stable_diffusion.sd_quant.constants import SD_XL_EMBEDDINGS_SHAPE
 from brevitas_examples.stable_diffusion.sd_quant.export import export_onnx
 from brevitas_examples.stable_diffusion.sd_quant.export import export_quant_params
+from brevitas_examples.stable_diffusion.sd_quant.nn import AttnProcessor2_0
 from brevitas_examples.stable_diffusion.sd_quant.nn import QuantAttention
+from brevitas_examples.stable_diffusion.sd_quant.nn import QuantizableAttention
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_latents
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_unet_21_rand_inputs
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_unet_xl_rand_inputs
@@ -152,13 +155,14 @@ def main(args):
 
     latents = None
     if args.path_to_latents is not None:
-        latents = torch.load(args.path_to_latents).to(torch.float16)
+        latents = torch.load(args.path_to_latents).to(dtype)
 
     # Create output dir. Move to tmp if None
     ts = datetime.fromtimestamp(time.time())
     str_ts = ts.strftime("%Y%m%d_%H%M%S")
     output_dir = os.path.join(args.output_path, f'{str_ts}')
     os.mkdir(output_dir)
+    print(f"Saving results in {output_dir}")
 
     # Dump args to json
     with open(os.path.join(output_dir, 'args.json'), 'w') as fp:
@@ -169,7 +173,23 @@ def main(args):
 
     # Load model from float checkpoint
     print(f"Loading model from {args.model}...")
-    pipe = DiffusionPipeline.from_pretrained(args.model, torch_dtype=dtype)
+    variant = 'fp16' if dtype == torch.float16 else None
+    pipe = DiffusionPipeline.from_pretrained(
+        args.model, torch_dtype=dtype, variant=variant, use_safetensors=True)
+    pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config)
+    pipe.vae.config.force_upcast = True
+    if args.share_qkv_quant:
+        rewriter = ModuleToModuleByClass(
+            Attention,
+            QuantizableAttention,
+            query_dim=lambda module: module.to_q.in_features,
+            dim_head=lambda module: math.ceil(1 / (module.scale ** 2)),
+            bias=lambda module: hasattr(module.to_q, 'bias') and module.to_q.bias is not None,
+            processor=AttnProcessor2_0(),
+            dtype=dtype,
+            norm_num_groups=lambda module: None
+            if module.group_norm is None else module.group_norm.num_groups)
+        rewriter.apply(pipe.unet)
     print(f"Model loaded from {args.model}.")
 
     # Move model to target device
@@ -200,10 +220,19 @@ def main(args):
 
     # Extract list of layers to avoid
     blacklist = []
+    non_blacklist = dict()
     for name, _ in pipe.unet.named_modules():
         if 'time_emb' in name:
             blacklist.append(name.split('.')[-1])
-    print(f"Blacklisted layers: {blacklist}")
+        else:
+            if isinstance(_, (torch.nn.Linear, torch.nn.Conv2d)):
+                name_to_add = name.split('.')[-1]
+                if name_to_add not in non_blacklist:
+                    non_blacklist[name_to_add] = 1
+                else:
+                    non_blacklist[name_to_add] += 1
+    print(f"Blacklisted layers: {set(blacklist)}")
+    print(f"Non blacklisted layers: {non_blacklist}")
 
     # Make sure there all LoRA layers are fused first, otherwise raise an error
     for m in pipe.unet.modules():
@@ -212,7 +241,7 @@ def main(args):
 
     if args.activation_equalization:
         pipe.set_progress_bar_config(disable=True)
-        with activation_equalization_mode(
+        with torch.no_grad(), activation_equalization_mode(
                 pipe.unet,
                 alpha=args.act_eq_alpha,
                 layerwise=True,
@@ -261,8 +290,6 @@ def main(args):
                 return args.linear_input_bit_width
             elif isinstance(module, nn.Conv2d):
                 return args.conv_input_bit_width
-            elif isinstance(module, QuantIdentity):
-                return args.quant_identity_bit_width
             else:
                 raise RuntimeError(f"Module {module} not supported.")
 
@@ -332,7 +359,9 @@ def main(args):
             'weight_quant']
         layer_map[torch.nn.Conv2d] = (layer_map[torch.nn.Conv2d][0], conv_qkwargs)
 
-        if args.quantize_sdp_1 or args.quantize_sdp_2:
+        if args.quantize_sdp:
+            assert args.share_qkv_quant, "Currently SDPA quantization is supported only with shared QKV quantization"
+            # TODO: reformat this
             float_sdpa_quantizers = generate_quantizers(
                 dtype=dtype,
                 device=args.device,
@@ -345,7 +374,7 @@ def main(args):
                 weight_group_size=args.weight_group_size,
                 quantize_weight_zero_point=args.quantize_weight_zero_point,
                 quantize_input_zero_point=args.quantize_input_zero_point,
-                input_bit_width=input_bit_width,
+                input_bit_width=args.linear_output_bit_width,
                 input_quant_format='e4m3',
                 input_scale_type=args.input_scale_type,
                 input_scale_precision=args.input_scale_precision,
@@ -358,30 +387,29 @@ def main(args):
             # We generate all quantizers, but we are only interested in activation quantization for
             # the output of softmax and the output of QKV
             input_quant = float_sdpa_quantizers[0]
-            input_quant = input_quant.let(**{'bit_width': args.linear_output_bit_width})
-            if args.quantize_sdp_2:
-                rewriter = ModuleToModuleByClass(
-                    Attention,
-                    QuantAttention,
-                    softmax_output_quant=input_quant,
-                    query_dim=lambda module: module.to_q.in_features,
-                    dim_head=lambda module: int(1 / (module.scale ** 2)),
-                    processor=AttnProcessor(),
-                    is_equalized=args.activation_equalization)
-                import brevitas.config as config
-                config.IGNORE_MISSING_KEYS = True
-                pipe.unet = rewriter.apply(pipe.unet)
-                config.IGNORE_MISSING_KEYS = False
-                pipe.unet = pipe.unet.to(args.device)
-                pipe.unet = pipe.unet.to(dtype)
-            quant_kwargs = layer_map[torch.nn.Linear][1]
-            what_to_quantize = []
-            if args.quantize_sdp_1:
-                what_to_quantize.extend(['to_q', 'to_k'])
-            if args.quantize_sdp_2:
-                what_to_quantize.extend(['to_v'])
-            quant_kwargs['output_quant'] = lambda module, name: input_quant if any(ending in name for ending in what_to_quantize) else None
-            layer_map[torch.nn.Linear] = (layer_map[torch.nn.Linear][0], quant_kwargs)
+            rewriter = ModuleToModuleByClass(
+                Attention,
+                QuantAttention,
+                matmul_input_quant=input_quant,
+                query_dim=lambda module: module.to_q.in_features,
+                dim_head=lambda module: math.ceil(1 / (module.scale ** 2)),
+                processor=AttnProcessor(),
+                is_equalized=args.activation_equalization)
+            import brevitas.config as config
+            config.IGNORE_MISSING_KEYS = True
+            pipe.unet = rewriter.apply(pipe.unet)
+            config.IGNORE_MISSING_KEYS = False
+            pipe.unet = pipe.unet.to(args.device)
+            pipe.unet = pipe.unet.to(dtype)
+
+            if args.override_conv_quant_config:
+                print(
+                    f"Overriding Conv2d quantization to weights: {float_sdpa_quantizers[1]}, inputs: {float_sdpa_quantizers[2]}"
+                )
+                conv_qkwargs = layer_map[torch.nn.Conv2d][1]
+                conv_qkwargs['input_quant'] = float_sdpa_quantizers[2]
+                conv_qkwargs['weight_quant'] = float_sdpa_quantizers[1]
+                layer_map[torch.nn.Conv2d] = (layer_map[torch.nn.Conv2d][0], conv_qkwargs)
 
         pipe.unet = layerwise_quantize(
             model=pipe.unet, compute_layer_map=layer_map, name_blacklist=blacklist)
@@ -405,11 +433,13 @@ def main(args):
         if args.load_checkpoint is not None:
             with load_quant_model_mode(pipe.unet):
                 pipe = pipe.to('cpu')
+                print(f"Loading checkpoint: {args.load_checkpoint}... ", end="")
                 pipe.unet.load_state_dict(torch.load(args.load_checkpoint, map_location='cpu'))
-                pipe = pipe.to(args.device)
+                print(f"Checkpoint loaded!")
+            pipe = pipe.to(args.device)
         elif not args.dry_run:
-            if (args.linear_input_bit_width is not None or
-                    args.conv_input_bit_width is not None) and args.input_scale_type == 'static':
+            if (args.linear_input_bit_width > 0 or args.conv_input_bit_width > 0 or
+                    args.linear_output_bit_width > 0) and args.input_scale_type == 'static':
                 print("Applying activation calibration")
                 with torch.no_grad(), calibration_mode(pipe.unet):
                     run_val_inference(
@@ -447,7 +477,7 @@ def main(args):
                         torch.cuda.empty_cache()
             if args.bias_correction:
                 print("Applying bias correction")
-                with bias_correction_mode(pipe.unet):
+                with torch.no_grad(), bias_correction_mode(pipe.unet):
                     run_val_inference(
                         pipe,
                         args.resolution,
@@ -460,15 +490,41 @@ def main(args):
                         test_latents=latents,
                         guidance_scale=args.guidance_scale)
 
+    if args.vae_fp16_fix and is_sd_xl:
+        vae_fix_scale = 128
+        layer_whitelist = [
+            "decoder.up_blocks.2.upsamplers.0.conv",
+            "decoder.up_blocks.3.resnets.0.conv2",
+            "decoder.up_blocks.3.resnets.1.conv2",
+            "decoder.up_blocks.3.resnets.2.conv2"]
+        #layer_whitelist = [
+        #    "decoder.up_blocks.3.resnets.0.conv_shortcut",
+        #    "decoder.up_blocks.3.resnets.0.conv2",
+        #    "decoder.up_blocks.3.resnets.1.conv2",
+        #    "decoder.up_blocks.3.resnets.2.conv2"]
+        corrected_layers = []
+        with torch.no_grad():
+            for name, module in pipe.vae.named_modules():
+                if name in layer_whitelist:
+                    corrected_layers.append(name)
+                    module.weight /= vae_fix_scale
+                    if module.bias is not None:
+                        module.bias /= vae_fix_scale
+        print(f"Corrected layers in VAE: {corrected_layers}")
+
     if args.checkpoint_name is not None and args.load_checkpoint is None:
         torch.save(pipe.unet.state_dict(), os.path.join(output_dir, args.checkpoint_name))
+        if args.vae_fp16_fix:
+            torch.save(
+                pipe.vae.state_dict(), os.path.join(output_dir, f"vae_{args.checkpoint_name}"))
 
     # Perform inference
     if args.prompt > 0 and not args.dry_run:
         # with brevitas_proxy_inference_mode(pipe.unet):
         if args.use_mlperf_inference:
             print(f"Computing accuracy with MLPerf pipeline")
-            compute_mlperf_fid(args.model, args.path_to_coco, pipe, args.prompt, output_dir)
+            compute_mlperf_fid(
+                args.model, args.path_to_coco, pipe, args.prompt, output_dir, not args.vae_fp16_fix)
         else:
             print(f"Computing accuracy on default prompt")
             testing_prompts = TESTING_PROMPTS[:args.prompt]
@@ -530,7 +586,8 @@ def main(args):
                 export_manager.change_weight_export(export_weight_q_node=args.export_weight_q_node)
             export_onnx(pipe, trace_inputs, output_dir, export_manager)
         if args.export_target == 'params_only':
-            export_quant_params(pipe, output_dir)
+            pipe.to('cpu')
+            export_quant_params(pipe, output_dir, export_vae=args.vae_fp16_fix)
 
 
 if __name__ == "__main__":
@@ -645,6 +702,11 @@ if __name__ == "__main__":
         help='Alpha for activation equalization. Default: 0.9')
     parser.add_argument(
         '--linear-input-bit-width',
+        type=int,
+        default=0,
+        help='Input bit width. Default: 0 (not quantized).')
+    parser.add_argument(
+        '--linear-output-bit-width',
         type=int,
         default=0,
         help='Input bit width. Default: 0 (not quantized).')
@@ -773,8 +835,17 @@ if __name__ == "__main__":
         'dry-run',
         default=False,
         help='Generate a quantized model without any calibration. Default: Disabled')
-    add_bool_arg(parser, 'quantize-sdp-1', default=False, help='Quantize SDP. Default: Disabled')
-    add_bool_arg(parser, 'quantize-sdp-2', default=False, help='Quantize SDP. Default: Disabled')
+    add_bool_arg(parser, 'quantize-sdp', default=False, help='Quantize SDP. Default: Disabled')
+    add_bool_arg(
+        parser,
+        'override-conv-quant-config',
+        default=False,
+        help='Quantize Convolutions in the same way as SDP (i.e., FP8). Default: Disabled')
+    add_bool_arg(
+        parser,
+        'vae-fp16-fix',
+        default=False,
+        help='Rescale the VAE to not go NaN with FP16. Default: Disabled')
     args = parser.parse_args()
     print("Args: " + str(vars(args)))
     main(args)

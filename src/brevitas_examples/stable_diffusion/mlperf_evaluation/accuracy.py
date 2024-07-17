@@ -601,7 +601,8 @@ def compute_mlperf_fid(
         path_to_coco,
         model_to_replace=None,
         samples_to_evaluate=500,
-        output_dir=None):
+        output_dir=None,
+        vae_force_upcast=True):
 
     assert os.path.isfile(path_to_coco + '/tools/val2014.npz'), "Val2014.npz file required. Check the MLPerf directory for instructions"
 
@@ -614,8 +615,11 @@ def compute_mlperf_fid(
     model.load()
 
     if model_to_replace is not None:
-        model.pipe = model_to_replace
+        model.pipe.unet = model_to_replace.unet
+        if not vae_force_upcast:
+            model.pipe.vae = model.pipe.vae
 
+    model.pipe.vae.config.force_upcast = vae_force_upcast
     ds = Coco(
         data_path=path_to_coco,
         name="coco-1024",

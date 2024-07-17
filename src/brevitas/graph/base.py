@@ -3,6 +3,7 @@
 
 from abc import ABC
 from abc import abstractmethod
+import inspect
 from inspect import getcallargs
 
 import torch
@@ -120,16 +121,23 @@ class ModuleToModule(GraphTransform, ABC):
             attrs['bias'] = module.bias
         return attrs
 
-    def _evaluate_new_kwargs(self, new_kwargs, old_module):
+    def _evaluate_new_kwargs(self, new_kwargs, old_module, name):
         update_dict = dict()
         for k, v in self.new_module_kwargs.items():
             if islambda(v):
-                v = v(old_module)
+                if name is not None:
+                    # Two types of lambdas are admitted now, with/without the name of the module as input
+                    if len(inspect.getfullargspec(v).args) == 2:
+                        v = v(old_module, name)
+                    elif len(inspect.getfullargspec(v).args) == 1:
+                        v = v(old_module)
+                else:
+                    v = v(old_module)
             update_dict[k] = v
         new_kwargs.update(update_dict)
         return new_kwargs
 
-    def _init_new_module(self, old_module: Module):
+    def _init_new_module(self, old_module: Module, name=None):
         # get attributes of original module
         new_kwargs = self._module_attributes(old_module)
         # transforms attribute of original module, e.g. bias Parameter -> bool
@@ -138,7 +146,7 @@ class ModuleToModule(GraphTransform, ABC):
         new_module_signature_keys = signature_keys(self.new_module_class)
         new_kwargs = {k: v for k, v in new_kwargs.items() if k in new_module_signature_keys}
         # update with kwargs passed to the rewriter
-        new_kwargs = self._evaluate_new_kwargs(new_kwargs, old_module)
+        new_kwargs = self._evaluate_new_kwargs(new_kwargs, old_module, name)
         # init the new module
         new_module = self.new_module_class(**new_kwargs)
         return new_module
@@ -204,10 +212,10 @@ class ModuleToModuleByInstance(ModuleToModule):
         self.old_module_instance = old_module_instance
 
     def apply(self, model: GraphModule) -> GraphModule:
-        for old_module in model.modules():
+        for name, old_module in model.named_modules():
             if old_module is self.old_module_instance:
                 # init the new module based on the old one
-                new_module = self._init_new_module(old_module)
+                new_module = self._init_new_module(old_module, name)
                 self._replace_old_module(model, old_module, new_module)
                 break
         return model
