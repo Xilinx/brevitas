@@ -48,7 +48,7 @@ def handle_quant_param(layer, layer_dict):
     weight_scale_shape = [nelems] + [1] * (layer.weight.data.ndim - 1)
     layer_dict['weight_scale_shape'] = weight_scale_shape
     if torch.sum(weight_zp) != 0.:
-        weight_zp = weight_zp - 128. # apply offset to have signed z
+        weight_zp = weight_zp - 128.  # apply offset to have signed z
         layer_dict['weight_zp'] = weight_zp.cpu().numpy().tolist()
         layer_dict['weight_zp_shape'] = weight_scale_shape
         layer_dict['weight_zp_dtype'] = str(torch.int8)
