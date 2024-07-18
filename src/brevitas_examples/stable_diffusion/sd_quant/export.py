@@ -31,7 +31,7 @@ def handle_quant_param(layer, layer_dict):
     weight_scale = layer.weight_quant.export_handler.symbolic_kwargs['dequantize_symbolic_kwargs'][
         'scale'].data
     weight_zp = layer.weight_quant.export_handler.symbolic_kwargs['dequantize_symbolic_kwargs'][
-        'zero_point'].data - 128.  # apply offset to have signed zp
+        'zero_point'].data
     if layer.output_quant.export_handler.symbolic_kwargs is not None:
         output_scale = layer.output_quant.export_handler.symbolic_kwargs[
             'dequantize_symbolic_kwargs']['scale'].data
@@ -43,13 +43,15 @@ def handle_quant_param(layer, layer_dict):
     layer_dict['input_zp'] = input_zp.numpy().tolist()
     layer_dict['input_zp_shape'] = input_zp.shape
     layer_dict['input_zp_dtype'] = str(torch.int8)
-    layer_dict['weight_scale'] = weight_scale.numpy().tolist()
+    layer_dict['weight_scale'] = weight_scale.cpu().numpy().tolist()
     nelems = layer.weight.shape[0]
     weight_scale_shape = [nelems] + [1] * (layer.weight.data.ndim - 1)
     layer_dict['weight_scale_shape'] = weight_scale_shape
-    layer_dict['weight_zp'] = weight_zp.numpy().tolist()
-    layer_dict['weight_zp_shape'] = weight_scale_shape
-    layer_dict['weight_zp_dtype'] = str(torch.int8)
+    if torch.sum(weight_zp) != 0.:
+        weight_zp = weight_zp - 128.  # apply offset to have signed z
+        layer_dict['weight_zp'] = weight_zp.cpu().numpy().tolist()
+        layer_dict['weight_zp_shape'] = weight_scale_shape
+        layer_dict['weight_zp_dtype'] = str(torch.int8)
     return layer_dict
 
 

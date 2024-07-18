@@ -602,6 +602,7 @@ def compute_mlperf_fid(
         model_to_replace=None,
         samples_to_evaluate=500,
         output_dir=None,
+        device='cpu',
         vae_force_upcast=True):
 
     assert os.path.isfile(path_to_coco + '/tools/val2014.npz'), "Val2014.npz file required. Check the MLPerf directory for instructions"
@@ -611,13 +612,13 @@ def compute_mlperf_fid(
     dtype = next(iter(model_to_replace.unet.parameters())).dtype
     res_dict = {}
     model = BackendPytorch(
-        path_to_sdxl, 'xl', steps=20, batch_size=1, device='cpu', precision=dtype)
+        path_to_sdxl, 'xl', steps=20, batch_size=1, device=device, precision=dtype)
     model.load()
 
     if model_to_replace is not None:
         model.pipe.unet = model_to_replace.unet
         if not vae_force_upcast:
-            model.pipe.vae = model.pipe.vae
+            model.pipe.vae = model_to_replace.vae
 
     model.pipe.vae.config.force_upcast = vae_force_upcast
     ds = Coco(

@@ -846,6 +846,11 @@ if __name__ == "__main__":
         'vae-fp16-fix',
         default=False,
         help='Rescale the VAE to not go NaN with FP16. Default: Disabled')
+    add_bool_arg(
+        parser,
+        'share-qkv-quant',
+        default=False,
+        help='Share QKV/KV quantization. Default: Disabled')
     args = parser.parse_args()
     print("Args: " + str(vars(args)))
     main(args)
