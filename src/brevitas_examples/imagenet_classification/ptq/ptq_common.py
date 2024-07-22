@@ -174,7 +174,7 @@ def quantize_model(
         act_param_method='stats',
         weight_quant_type='sym',
         act_quant_granularity='per_tensor',
-        act_scale_computation_type='dynamic',
+        act_scale_computation_type='static',
         uint_sym_act_for_unsigned_values=True,
         dtype=torch.float32,
         device='cpu'):
@@ -196,7 +196,7 @@ def quantize_model(
         act_mantissa_bit_width,
         act_exponent_bit_width)
 
-    if act_scale_computation_type == 'dynamic':
+    if act_scale_computation_type == 'dynamic' and backend != 'layerwise':
         assert bias_bit_width is None, "Bias quantization is not supported with dynamic activation quantization"
 
     weight_quant_format = quant_format
