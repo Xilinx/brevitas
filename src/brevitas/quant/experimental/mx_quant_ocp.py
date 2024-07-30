@@ -28,7 +28,7 @@ class MXFloatWeightMixin(ExtendedInjector):
     group_size = 32
     restrict_scaling_type = RestrictValueType.POWER_OF_TWO
     restrict_value_float_to_int_impl = CeilSte
-    scaling_per_output_type = ScalingPerOutputType.GROUP
+    scaling_output_type = ScalingPerOutputType.GROUP
 
 
 class MXFloatActMixin(ExtendedInjector):
@@ -37,7 +37,7 @@ class MXFloatActMixin(ExtendedInjector):
     restrict_scaling_type = RestrictValueType.POWER_OF_TWO
     restrict_value_float_to_int_impl = CeilSte
     scaling_impl = RuntimeDynamicGroupStatsScaling
-    scaling_per_output_type = ScalingPerOutputType.GROUP
+    scaling_output_type = ScalingPerOutputType.GROUP
 
     @value
     def stats_reduce_dim(group_dim):

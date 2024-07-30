@@ -228,7 +228,7 @@ class ShiftedParamFromPercentileUintQuant(ExtendedInjector):
 class PerChannelFloatScaling8bit(ExtendedInjector):
     """
     """
-    scaling_per_output_type = ScalingPerOutputType.CHANNEL
+    scaling_output_type = ScalingPerOutputType.CHANNEL
     restrict_scaling_type = RestrictValueType.FP
     bit_width = 8
 
@@ -236,7 +236,7 @@ class PerChannelFloatScaling8bit(ExtendedInjector):
 class PerTensorFloatScaling8bit(ExtendedInjector):
     """
     """
-    scaling_per_output_type = ScalingPerOutputType.TENSOR
+    scaling_output_type = ScalingPerOutputType.TENSOR
     restrict_scaling_type = RestrictValueType.FP
     bit_width = 8
 
@@ -244,7 +244,7 @@ class PerTensorFloatScaling8bit(ExtendedInjector):
 class PerChannelPoTScaling8bit(ExtendedInjector):
     """
     """
-    scaling_per_output_type = ScalingPerOutputType.CHANNEL
+    scaling_output_type = ScalingPerOutputType.CHANNEL
     restrict_scaling_type = RestrictValueType.FP
     bit_width = 8
 
@@ -252,7 +252,7 @@ class PerChannelPoTScaling8bit(ExtendedInjector):
 class PerTensorPoTScaling8bit(ExtendedInjector):
     """
     """
-    scaling_per_output_type = ScalingPerOutputType.TENSOR
+    scaling_output_type = ScalingPerOutputType.TENSOR
     restrict_scaling_type = RestrictValueType.POWER_OF_TWO
     bit_width = 8
     restrict_value_float_to_int_impl = CeilSte
@@ -263,7 +263,7 @@ class SignedBinaryClampedConst(ExtendedInjector):
     scaling_impl_type = ScalingImplType.CONST
     restrict_scaling_type = RestrictValueType.FP
     float_to_int_impl_type = FloatToIntImplType.ROUND
-    scaling_per_output_type = ScalingPerOutputType.TENSOR
+    scaling_output_type = ScalingPerOutputType.TENSOR
     narrow_range = True
     signed = True
 
@@ -271,7 +271,7 @@ class SignedBinaryClampedConst(ExtendedInjector):
 class PerTensorConstScaling2bit(ExtendedInjector):
     scaling_impl_type = ScalingImplType.CONST
     restrict_scaling_type = RestrictValueType.FP
-    scaling_per_output_type = ScalingPerOutputType.TENSOR
+    scaling_output_type = ScalingPerOutputType.TENSOR
     bit_width = 2
 
 
@@ -325,7 +325,7 @@ class WeightPerChannelFloatDecoupled(SolveWeightScalingStatsInputDimsFromModule,
     signed = True
     scaling_stats_input_view_shape_impl = OverOutputChannelView
     stats_reduce_dim = SCALING_STATS_REDUCE_DIM
-    scaling_per_output_type = ScalingPerOutputType.CHANNEL
+    scaling_output_type = ScalingPerOutputType.CHANNEL
 
 
 class WeightNormPerChannelFloatDecoupled(SolveWeightScalingStatsInputDimsFromModule,
@@ -370,7 +370,7 @@ class WeightNormPerChannelFloatDecoupled(SolveWeightScalingStatsInputDimsFromMod
     signed = True
     scaling_stats_input_view_shape_impl = OverOutputChannelView
     stats_reduce_dim = SCALING_STATS_REDUCE_DIM
-    scaling_per_output_type = ScalingPerOutputType.CHANNEL
+    scaling_output_type = ScalingPerOutputType.CHANNEL
     scaling_min_val = 1e-10
     pre_scaling_min_val = 1e-10
 
