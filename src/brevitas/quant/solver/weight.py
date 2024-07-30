@@ -89,9 +89,9 @@ class SolveWeightScalingStatsInputDimsFromModule(ExtendedInjector):
         return module.output_channel_dim
 
 
-class WeightQuantSolver(SolveWeightScalingStatsInputDimsFromModule,
+class WeightQuantSolver(SolveStatsReduceDimFromEnum,
+                        SolveWeightScalingStatsInputDimsFromModule,
                         SolveScalingStatsInputViewShapeImplFromEnum,
-                        SolveStatsReduceDimFromEnum,
                         SolveScalingStatsOpFromEnum,
                         SolveBitWidthImplFromEnum,
                         SolveTensorQuantFloatToIntImplFromEnum,
