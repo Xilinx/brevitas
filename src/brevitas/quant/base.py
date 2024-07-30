@@ -52,6 +52,7 @@ from brevitas.inject.enum import ScalingPerOutputType
 from brevitas.inject.enum import StatsOp
 from brevitas.proxy import DecoupledWeightQuantProxyFromInjector
 from brevitas.proxy import DecoupledWeightQuantWithInputProxyFromInjector
+from brevitas.quant.solver.common import SolveStatsReduceDimFromEnum
 from brevitas.quant.solver.parameter import SolveParameterScalingShape
 from brevitas.quant.solver.weight import SolveWeightScalingPerOutputChannelShapeFromModule
 from brevitas.quant.solver.weight import SolveWeightScalingStatsInputDimsFromModule
@@ -328,7 +329,8 @@ class WeightPerChannelFloatDecoupled(SolveWeightScalingStatsInputDimsFromModule,
     scaling_output_type = ScalingPerOutputType.CHANNEL
 
 
-class WeightNormPerChannelFloatDecoupled(SolveWeightScalingStatsInputDimsFromModule,
+class WeightNormPerChannelFloatDecoupled(SolveStatsReduceDimFromEnum,
+                                         SolveWeightScalingStatsInputDimsFromModule,
                                          SolveWeightScalingPerOutputChannelShapeFromModule,
                                          SolveParameterScalingShape):
     """Experimental narrow per-channel weight normalization-based signed integer quantizer
@@ -361,6 +363,7 @@ class WeightNormPerChannelFloatDecoupled(SolveWeightScalingStatsInputDimsFromMod
     pre_scaling_impl = ParameterPreScalingWeightNorm
     restrict_pre_scaling_impl = LogFloatRestrictValue
     normalize_stats_impl = L2Norm
+    scaling_output_type = ScalingPerOutputType.CHANNEL
     pre_scaling_shape = this.scaling_shape  # TODO: decouple pre_scaling_shape from scaling_shape
     int_scaling_impl = SingleArgStatelessBuffer(1.)
     zero_point_impl = ZeroZeroPoint
@@ -370,7 +373,6 @@ class WeightNormPerChannelFloatDecoupled(SolveWeightScalingStatsInputDimsFromMod
     signed = True
     scaling_stats_input_view_shape_impl = OverOutputChannelView
     stats_reduce_dim = SCALING_STATS_REDUCE_DIM
-    scaling_output_type = ScalingPerOutputType.CHANNEL
     scaling_min_val = 1e-10
     pre_scaling_min_val = 1e-10
 

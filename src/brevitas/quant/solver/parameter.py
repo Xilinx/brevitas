@@ -109,7 +109,7 @@ class SolveParameterScalingImplFromEnum(SolveAffineRescalingFromEnum):
 class SolveParameterScalingShape(ExtendedInjector):
 
     @value
-    def scaling_shape(module, scaling_per_output_type, group_size=None):
+    def scaling_shape(module, group_size=None, scaling_per_output_type=None):
         if scaling_per_output_type == ScalingPerOutputType.TENSOR:
             return SCALAR_SHAPE
         elif scaling_per_output_type == ScalingPerOutputType.CHANNEL:

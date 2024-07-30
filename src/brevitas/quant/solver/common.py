@@ -187,7 +187,8 @@ class SolveStatsReduceDimFromEnum(ExtendedInjector):
         else:
             return False
 
-    # Retrocompatibility, binary flag for per-tensor/per-channel
+    # Retrocompatibility. Priority is given to scaling_per_output_channel binary flag.
+    # We might want to check for discrepancies between the two and raise an error.
     @value
     def scaling_per_output_type(scaling_output_type=None, scaling_per_output_channel=None):
         if scaling_per_output_channel is not None:
