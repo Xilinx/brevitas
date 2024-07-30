@@ -189,11 +189,13 @@ class SolveStatsReduceDimFromEnum(ExtendedInjector):
 
     # Retrocompatibility, binary flag for per-tensor/per-channel
     @value
-    def scaling_per_output_type(scaling_output_type, scaling_per_output_channel=None):
+    def scaling_per_output_type(scaling_output_type=None, scaling_per_output_channel=None):
         if scaling_per_output_channel is not None:
             return ScalingPerOutputType.CHANNEL if scaling_per_output_channel else ScalingPerOutputType.TENSOR
-        else:
+        elif scaling_output_type is not None:
             return scaling_output_type
+        else:
+            raise RuntimeError("Specify scaling_output_type or scaling_per_output_channel")
 
 
 class SolveScalingStatsInputViewShapeImplFromEnum(ExtendedInjector):
