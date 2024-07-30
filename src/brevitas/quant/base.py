@@ -423,17 +423,19 @@ class AccumulatorAwareZeroCenterWeightQuant(AccumulatorAwareWeightQuant):
 class MSESubInjectorBase(ExtendedInjector):
 
     @value
-    def inner_stats_input_view_shape_impl(per_channel):
-        if per_channel:
+    def inner_stats_input_view_shape_impl(scaling_per_output_type):
+        if scaling_per_output_type == ScalingPerOutputType.CHANNEL:
             return StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS
-        else:
+        elif scaling_per_output_type == ScalingPerOutputType.TENSOR:
             return StatsInputViewShapeImpl.OVER_TENSOR
+        elif scaling_per_output_type == ScalingPerOutputType.GROUP:
+            raise RuntimeError("Not implemented yet")
 
     permute_dims = (this << 1).permute_dims
 
 
 class MSESymmetricScaleSubInjector(MSESubInjectorBase):
-    per_channel = (this << 1).scaling_per_output_channel
+    scaling_per_output_type = (this << 1).scaling_per_output_type
     proxy_module = (this << 1).proxy_module
     mse_init_op = AbsMax
     stats_impl = MSE
@@ -443,7 +445,7 @@ class MSESymmetricScaleSubInjector(MSESubInjectorBase):
 
 
 class MSEAsymmetricScaleSubInjector(MSESubInjectorBase):
-    per_channel = (this << 1).scaling_per_output_channel
+    scaling_per_output_type = (this << 1).scaling_per_output_type
     proxy_module = (this << 1).proxy_module
     mse_init_op = AbsMinMax
     stats_impl = MSE
@@ -454,7 +456,7 @@ class MSEAsymmetricScaleSubInjector(MSESubInjectorBase):
 
 class MSEZeroPointSubInjector(MSESubInjectorBase):
     # zp is per channel when scaling is per channel
-    per_channel = (this << 1).scaling_per_output_channel
+    scaling_per_output_type = (this << 1).scaling_per_output_type
     proxy_module = (this << 1).proxy_module
     mse_init_op = NegativeMinOrZero
     mse_search_method = 'grid'
