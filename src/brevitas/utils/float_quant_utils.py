@@ -5,9 +5,9 @@ from typing import Tuple
 import torch
 
 
-def mantissa_bits_to_float(bits: str, frexp_compatible: bool = False) -> float:
+def mantissa_bits_to_float(bits: str, frexp_compatible: bool = False, normal: bool = True) -> float:
     # computes the decimal place value from a given binary tensor
-    res = 1.0
+    res = 1.0 if normal else 0.0
     for i, val in enumerate(bits):
         # iterating through from left to right
         res += ((2 ** -(i + 1)) * float(val))
@@ -23,14 +23,20 @@ def get_minifloat_value(exponent: str, mantissa: str, exponent_bias: int) -> flo
     It expects the exponent and mantissa in their binary format.
     """
     exponent_value = int(exponent, 2)
-    mantissa_value = mantissa_bits_to_float(mantissa)
+
+    if exponent_value == 0:  # subnormal
+        exponent_bias -= 1  # exponent is e_min
+        mantissa_value = mantissa_bits_to_float(mantissa, normal=False)
+    else:  # normal
+        mantissa_value = mantissa_bits_to_float(mantissa, normal=True)
+
     return (2 ** (exponent_value - exponent_bias)) * mantissa_value
 
 
 def get_max_available_float(
-        exponent_bit_width: torch.Tensor,
-        mantissa_bit_width: torch.Tensor,
-        exponent_bias: torch.Tensor,
+        exponent_bit_width: int,
+        mantissa_bit_width: int,
+        exponent_bias: int,
         nan_values: Tuple[str],
         inf_values: Tuple[str],
         saturating: bool) -> torch.Tensor:
@@ -75,3 +81,17 @@ def get_max_available_float(
     max_value = get_minifloat_value(
         exponent=exponent, mantissa=mantissa, exponent_bias=exponent_bias)
     return max_value
+
+
+def get_min_available_float(
+        exponent_bit_width: int, mantissa_bit_width: int, exponent_bias: int) -> torch.Tensor:
+    """
+    Returns the minimum subnormal minifloat value for a given exponent and mantissa
+    bit-width, and exponent bias.
+    """
+    exponent = '0' * exponent_bit_width
+    mantissa = '0' * (mantissa_bit_width - 1) + '1'
+
+    min_value = get_minifloat_value(
+        exponent=exponent, mantissa=mantissa, exponent_bias=exponent_bias)
+    return min_value
