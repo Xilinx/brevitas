@@ -1,8 +1,8 @@
 # Brevitas
 
 [![Downloads](https://pepy.tech/badge/brevitas)](https://pepy.tech/project/brevitas)
-![Pytest](https://github.com/Xilinx/brevitas/workflows/Pytest/badge.svg?branch=master)
-![Examples Pytest](https://github.com/Xilinx/brevitas/workflows/Examples%20Pytest/badge.svg?branch=master)
+[![Pytest](https://github.com/Xilinx/brevitas/actions/workflows/pytest.yml/badge.svg?branch=master)](https://github.com/Xilinx/brevitas/actions/workflows/pytest.yml)
+[![Examples Pytest](https://github.com/Xilinx/brevitas/actions/workflows/examples_pytest.yml/badge.svg?branch=master)](https://github.com/Xilinx/brevitas/actions/workflows/examples_pytest.yml)
 [![DOI](https://zenodo.org/badge/140494324.svg)](https://zenodo.org/badge/latestdoi/140494324)
 
 Brevitas is a PyTorch library for neural network quantization, with support for both *post-training quantization (PTQ)* and *quantization-aware training (QAT)*.
