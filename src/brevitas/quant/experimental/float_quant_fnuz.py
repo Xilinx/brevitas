@@ -40,28 +40,28 @@ class FpFNUZWeightPerTensorFloat(FpFNUZMixin, ScaledFloatWeightBase):
     """
     FP8 signed weight quantizer with per-tensor absmax-based scaling.
     """
-    scaling_output_type = ScalingPerOutputType.TENSOR
+    scaling_per_output_type = ScalingPerOutputType.TENSOR
 
 
 class FpFNUZActPerTensorFloat(FpFNUZMixin, ScaledFloatActBase):
     """
     FP8 signed activation quantizer with per-tensor static percentile-based scaling.
     """
-    scaling_output_type = ScalingPerOutputType.TENSOR
+    scaling_per_output_type = ScalingPerOutputType.TENSOR
 
 
 class FpFNUZWeightPerChannelFloat(FpFNUZMixin, ScaledFloatWeightBase):
     """
     FP8 signed weight quantizer with per-channel absmax-based scaling.
     """
-    scaling_output_type = ScalingPerOutputType.CHANNEL
+    scaling_per_output_type = ScalingPerOutputType.CHANNEL
 
 
 class FpFNUZActPerChannelFloat2d(FpFNUZMixin, ScaledFloatActBase):
     """
     FP8 signed activation quantizer with per-channel static percentile-based scaling.
     """
-    scaling_output_type = ScalingPerOutputType.CHANNEL
+    scaling_per_output_type = ScalingPerOutputType.CHANNEL
     scaling_stats_permute_dims = (1, 0, 2, 3)
 
 
@@ -69,14 +69,14 @@ class FpFNUZActPerTensorFloatMSE(FpFNUZMixin, MSESymmetricScale, ScaledFloatActB
     """
     FP8 signed activation quantizer with per-tensor static MSE-based scaling.
     """
-    scaling_output_type = ScalingPerOutputType.TENSOR
+    scaling_per_output_type = ScalingPerOutputType.TENSOR
 
 
 class FpFNUZActPerChannelFloat2dMSE(FpFNUZMixin, MSESymmetricScale, ScaledFloatActBase):
     """
     FP8 signed activation quantizer with per-channel static MSE-based scaling.
     """
-    scaling_output_type = ScalingPerOutputType.CHANNEL
+    scaling_per_output_type = ScalingPerOutputType.CHANNEL
     scaling_stats_permute_dims = (1, 0, 2, 3)
 
 
@@ -84,14 +84,14 @@ class FpFNUZWeightPerChannelFloatMSE(FpFNUZMixin, MSESymmetricScale, ScaledFloat
     """
     FP8 signed weight quantizer with per-channel MSE-based scaling.
     """
-    scaling_output_type = ScalingPerOutputType.CHANNEL
+    scaling_per_output_type = ScalingPerOutputType.CHANNEL
 
 
 class FpFNUZWeightPerTensorFloatMSE(FpFNUZMixin, MSESymmetricScale, ScaledFloatWeightBase):
     """
     FP8 signed weight quantizer with per-tensor MSE-based scaling.
     """
-    scaling_output_type = ScalingPerOutputType.TENSOR
+    scaling_per_output_type = ScalingPerOutputType.TENSOR
 
 
 ## Predefined FP8 Quantizers

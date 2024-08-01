@@ -109,12 +109,12 @@ class SolveParameterScalingImplFromEnum(SolveAffineRescalingFromEnum):
 class SolveParameterScalingShape(ExtendedInjector):
 
     @value
-    def scaling_shape(module, group_size=None, scaling_per_output_type=None):
-        if scaling_per_output_type == ScalingPerOutputType.TENSOR:
+    def scaling_shape(module, group_size=None, scaling_per_output=None):
+        if scaling_per_output == ScalingPerOutputType.TENSOR:
             return SCALAR_SHAPE
-        elif scaling_per_output_type == ScalingPerOutputType.CHANNEL:
+        elif scaling_per_output == ScalingPerOutputType.CHANNEL:
             return this.scaling_per_output_channel_shape
-        elif scaling_per_output_type == ScalingPerOutputType.GROUP:
+        elif scaling_per_output == ScalingPerOutputType.GROUP:
             assert group_size is not None, "Per Group scaling requires group size"
             size = list(module.weight.shape)
             assert size[1] % group_size == 0, 'Input channel is not divisible by group size'

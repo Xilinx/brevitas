@@ -101,12 +101,12 @@ class SolveActScalingInitFromEnum(ExtendedInjector):
 class SolveActScalingShape(ExtendedInjector):
 
     @value
-    def scaling_shape(scaling_per_output_type):
+    def scaling_shape(scaling_per_output):
         # this pattern of returning this.something allows to resolve scaling_output_channel_shape
         # only when scaling_per_output_channel is True
-        if scaling_per_output_type == ScalingPerOutputType.CHANNEL:
+        if scaling_per_output == ScalingPerOutputType.CHANNEL:
             return this.per_channel_broadcastable_shape
-        elif scaling_per_output_type == ScalingPerOutputType.TENSOR:
+        elif scaling_per_output == ScalingPerOutputType.TENSOR:
             return SCALAR_SHAPE
 
 

@@ -63,10 +63,10 @@ class SolveWeightScalingStatsInputDimsFromModule(ExtendedInjector):
     #  such that output channels are dim 0 and the remaining features are dim 1,
     #  along which we concatenate
     @value
-    def scaling_stats_input_concat_dim(scaling_per_output_type):
-        if scaling_per_output_type == ScalingPerOutputType.TENSOR:
+    def scaling_stats_input_concat_dim(scaling_per_output):
+        if scaling_per_output == ScalingPerOutputType.TENSOR:
             return 0
-        elif scaling_per_output_type == ScalingPerOutputType.CHANNEL:
+        elif scaling_per_output == ScalingPerOutputType.CHANNEL:
             return 1
 
     @value

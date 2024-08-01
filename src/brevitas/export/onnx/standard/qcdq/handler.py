@@ -134,7 +134,7 @@ class StdDynamicQDQCastONNXMixin(DynamicQMixin, StdDQCastONNXMixin, ABC):
         # Below 8b quantization is not supported.
         self.validate_8b_bit_width(module.bit_width(), le_then=False)
         # Only per tensor quantization is supported
-        assert module.quant_injector.scaling_per_output_type == ScalingPerOutputType.TENSOR, "Only per tensor scaling supported"
+        assert module.quant_injector.scaling_per_output == ScalingPerOutputType.TENSOR, "Only per tensor scaling supported"
 
     def quantize_fn(self, x, dtype):
         return DynamicQuantizeLinearFn.apply(x, dtype)

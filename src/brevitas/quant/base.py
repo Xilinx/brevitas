@@ -229,7 +229,7 @@ class ShiftedParamFromPercentileUintQuant(ExtendedInjector):
 class PerChannelFloatScaling8bit(ExtendedInjector):
     """
     """
-    scaling_output_type = ScalingPerOutputType.CHANNEL
+    scaling_per_output_type = ScalingPerOutputType.CHANNEL
     restrict_scaling_type = RestrictValueType.FP
     bit_width = 8
 
@@ -237,7 +237,7 @@ class PerChannelFloatScaling8bit(ExtendedInjector):
 class PerTensorFloatScaling8bit(ExtendedInjector):
     """
     """
-    scaling_output_type = ScalingPerOutputType.TENSOR
+    scaling_per_output_type = ScalingPerOutputType.TENSOR
     restrict_scaling_type = RestrictValueType.FP
     bit_width = 8
 
@@ -245,7 +245,7 @@ class PerTensorFloatScaling8bit(ExtendedInjector):
 class PerChannelPoTScaling8bit(ExtendedInjector):
     """
     """
-    scaling_output_type = ScalingPerOutputType.CHANNEL
+    scaling_per_output_type = ScalingPerOutputType.CHANNEL
     restrict_scaling_type = RestrictValueType.FP
     bit_width = 8
 
@@ -253,7 +253,7 @@ class PerChannelPoTScaling8bit(ExtendedInjector):
 class PerTensorPoTScaling8bit(ExtendedInjector):
     """
     """
-    scaling_output_type = ScalingPerOutputType.TENSOR
+    scaling_per_output_type = ScalingPerOutputType.TENSOR
     restrict_scaling_type = RestrictValueType.POWER_OF_TWO
     bit_width = 8
     restrict_value_float_to_int_impl = CeilSte
@@ -264,7 +264,7 @@ class SignedBinaryClampedConst(ExtendedInjector):
     scaling_impl_type = ScalingImplType.CONST
     restrict_scaling_type = RestrictValueType.FP
     float_to_int_impl_type = FloatToIntImplType.ROUND
-    scaling_output_type = ScalingPerOutputType.TENSOR
+    scaling_per_output_type = ScalingPerOutputType.TENSOR
     narrow_range = True
     signed = True
 
@@ -272,7 +272,7 @@ class SignedBinaryClampedConst(ExtendedInjector):
 class PerTensorConstScaling2bit(ExtendedInjector):
     scaling_impl_type = ScalingImplType.CONST
     restrict_scaling_type = RestrictValueType.FP
-    scaling_output_type = ScalingPerOutputType.TENSOR
+    scaling_per_output_type = ScalingPerOutputType.TENSOR
     bit_width = 2
 
 
@@ -327,7 +327,7 @@ class WeightPerChannelFloatDecoupled(SolveStatsReduceDimFromEnum,
     signed = True
     scaling_stats_input_view_shape_impl = OverOutputChannelView
     stats_reduce_dim = SCALING_STATS_REDUCE_DIM
-    scaling_output_type = ScalingPerOutputType.CHANNEL
+    scaling_per_output_type = ScalingPerOutputType.CHANNEL
 
 
 class WeightNormPerChannelFloatDecoupled(SolveStatsReduceDimFromEnum,
@@ -364,7 +364,7 @@ class WeightNormPerChannelFloatDecoupled(SolveStatsReduceDimFromEnum,
     pre_scaling_impl = ParameterPreScalingWeightNorm
     restrict_pre_scaling_impl = LogFloatRestrictValue
     normalize_stats_impl = L2Norm
-    scaling_output_type = ScalingPerOutputType.CHANNEL
+    scaling_per_output_type = ScalingPerOutputType.CHANNEL
     pre_scaling_shape = this.scaling_shape  # TODO: decouple pre_scaling_shape from scaling_shape
     int_scaling_impl = SingleArgStatelessBuffer(1.)
     zero_point_impl = ZeroZeroPoint
@@ -424,19 +424,19 @@ class AccumulatorAwareZeroCenterWeightQuant(AccumulatorAwareWeightQuant):
 class MSESubInjectorBase(ExtendedInjector):
 
     @value
-    def inner_stats_input_view_shape_impl(scaling_per_output_type):
-        if scaling_per_output_type == ScalingPerOutputType.CHANNEL:
+    def inner_stats_input_view_shape_impl(scaling_per_output):
+        if scaling_per_output == ScalingPerOutputType.CHANNEL:
             return StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS
-        elif scaling_per_output_type == ScalingPerOutputType.TENSOR:
+        elif scaling_per_output == ScalingPerOutputType.TENSOR:
             return StatsInputViewShapeImpl.OVER_TENSOR
-        elif scaling_per_output_type == ScalingPerOutputType.GROUP:
+        elif scaling_per_output == ScalingPerOutputType.GROUP:
             raise RuntimeError("Not implemented yet")
 
     permute_dims = (this << 1).permute_dims
 
 
 class MSESymmetricScaleSubInjector(MSESubInjectorBase):
-    scaling_per_output_type = (this << 1).scaling_per_output_type
+    scaling_per_output = (this << 1).scaling_per_output
     proxy_module = (this << 1).proxy_module
     mse_init_op = AbsMax
     stats_impl = MSE
@@ -446,7 +446,7 @@ class MSESymmetricScaleSubInjector(MSESubInjectorBase):
 
 
 class MSEAsymmetricScaleSubInjector(MSESubInjectorBase):
-    scaling_per_output_type = (this << 1).scaling_per_output_type
+    scaling_per_output = (this << 1).scaling_per_output
     proxy_module = (this << 1).proxy_module
     mse_init_op = AbsMinMax
     stats_impl = MSE
@@ -457,7 +457,7 @@ class MSEAsymmetricScaleSubInjector(MSESubInjectorBase):
 
 class MSEZeroPointSubInjector(MSESubInjectorBase):
     # zp is per channel when scaling is per channel
-    scaling_per_output_type = (this << 1).scaling_per_output_type
+    scaling_per_output = (this << 1).scaling_per_output
     proxy_module = (this << 1).proxy_module
     mse_init_op = NegativeMinOrZero
     mse_search_method = 'grid'
