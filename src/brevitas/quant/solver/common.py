@@ -203,10 +203,10 @@ class SolveScalingStatsInputViewShapeImplFromEnum(ExtendedInjector):
 
     @value
     def scaling_stats_input_view_shape_impl(scaling_stats_op, scaling_per_output_type):
-        if scaling_per_output_type == ScalingPerOutputType.TENSOR:
-            return StatsInputViewShapeImpl.OVER_TENSOR
-        elif scaling_per_output_type == ScalingPerOutputType.CHANNEL or scaling_stats_op == StatsOp.MAX_AVE:
+        if scaling_per_output_type == ScalingPerOutputType.CHANNEL or scaling_stats_op == StatsOp.MAX_AVE:
             return StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS
+        elif scaling_per_output_type == ScalingPerOutputType.TENSOR:
+            return StatsInputViewShapeImpl.OVER_TENSOR
         elif scaling_per_output_type == ScalingPerOutputType.GROUP:
             return StatsInputViewShapeImpl.OVER_SUBCHANNEL_BLOCK
 
