@@ -302,7 +302,8 @@ class WeightPerTensorFloatDecoupledL2Param(SolveWeightScalingStatsInputDimsFromM
     signed = True
 
 
-class WeightPerChannelFloatDecoupled(SolveWeightScalingStatsInputDimsFromModule,
+class WeightPerChannelFloatDecoupled(SolveStatsReduceDimFromEnum,
+                                     SolveWeightScalingStatsInputDimsFromModule,
                                      SolveWeightScalingPerOutputChannelShapeFromModule,
                                      SolveParameterScalingShape):
     """
