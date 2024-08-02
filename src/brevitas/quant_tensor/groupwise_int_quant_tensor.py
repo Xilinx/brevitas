@@ -205,18 +205,10 @@ class GroupwiseIntQuantTensor(GroupwisIntQuantTensorBase, QuantTensor):
 
     def transpose(self, *args, **kwargs):
         value = self.value.transpose(*args, **kwargs)
-        # tensor_meta = {'scale': self.scale, 'zero_point': self.zero_point}
-        # for k, tm in tensor_meta.items():
-        #     if len(value.shape) == len(tm.shape):
-        #         tensor_meta[k] = tm.transpose(*args, **kwargs)
         return value
 
     def permute(self, *args, **kwargs):
         value = self.value.permute(*args, **kwargs)
-        # tensor_meta = {'scale': self.scale, 'zero_point': self.zero_point}
-        # for k, tm in tensor_meta.items():
-        #     if len(value.shape) == len(tm.shape):
-        #         tensor_meta[k] = tm.permute(*args, **kwargs)
         return value
 
     # Reference: https://docs.python.org/3/reference/datamodel.html#emulating-numeric-types

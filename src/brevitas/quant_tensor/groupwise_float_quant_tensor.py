@@ -81,84 +81,6 @@ class GroupwiseFloatQuantTensor(GroupwiseFloatQuantTensorBase, QuantTensor):
     def __torch_function__(self, func, types, args=(), kwargs=None):
         if kwargs is None:
             kwargs = {}
-
-        # new_args = list()
-        # if func in FLOAT_QUANT_TENSOR_FN_HANDLER:
-        #     group_dim = None
-        #     group_size = None
-        #     out_mx = True
-        #     for arg in args:
-        #         new_args.append(_unpack_quant_tensor(arg))
-        #         # if isinstance(arg, GroupwiseFloatQuantTensor):
-        #         #     value, scale, zp = arg.expand()
-        #         #     if group_dim is None and group_size is None:
-        #         #         group_dim = arg.group_dim
-        #         #         group_size = arg.group_size
-        #         #     elif group_dim != arg.group_dim or group_size != arg.group_size:
-        #         #         out_mx = False
-        #         #     expanded_float = FloatQuantTensor(
-        #         #         value,
-        #         #         scale,
-        #         #         zp,
-        #         #         arg.exponent_bit_width,
-        #         #         arg.mantissa_bit_width,
-        #         #         arg.exponent_bias,
-        #         #         arg.saturating,
-        #         #         arg.inf_values,
-        #         #         arg.nan_values,
-        #         #         arg.signed,
-        #         #         arg.training)
-        #         #     new_args.append(expanded_float)
-        #         # else:
-        #         #     new_args.append(args)
-        #     for k, v in kwargs.items():
-        #         kwargs[k] = _unpack_quant_tensor(v)
-        #         # if isinstance(arg, GroupwiseFloatQuantTensor):
-        #         #     if group_dim is None and group_size is None:
-        #         #         group_dim = arg.group_dim
-        #         #         group_size = arg.group_size
-        #         #     elif group_dim != arg.group_dim or group_size != arg.group_size:
-        #         #         out_mx = False
-        #         #     value, scale, zp = v.expand()
-        #         #     expanded_float = FloatQuantTensor(
-        #         #         value,
-        #         #         scale,
-        #         #         zp,
-        #         #         arg.exponent_bit_width,
-        #         #         arg.mantissa_bit_width,
-        #         #         arg.exponent_bias,
-        #         #         arg.saturating,
-        #         #         arg.inf_value,
-        #         #         arg.nan_values,
-        #         #         arg.signed,
-        #         #         arg.training)
-        #     out = FLOAT_QUANT_TENSOR_FN_HANDLER[func](*args, **kwargs)
-        #     # if isinstance(out, FloatQuantTensor) and out_mx:
-        #     #     ## Add check for MXFloatQT
-        #     #     output_value = GroupwiseFloatQuantTensor.from_expanded(
-        #     #         output_value, group_dim, group_size, compress=False)
-        #     #     output_scale = GroupwiseFloatQuantTensor.from_expanded(
-        #     #         output_scale, group_dim, group_size, compress=True)
-        #     #     output_zero_point = GroupwiseFloatQuantTensor.from_expanded(
-        #     #         output_zero_point, group_dim, group_size, compress=True)
-        #     #     out = GroupwiseFloatQuantTensor(
-        #     #         output_value,
-        #     #         output_scale,
-        #     #         output_zero_point,
-        #     #         group_size,
-        #     #         group_dim,
-        #     #         out.exponent_bit_width,
-        #     #         out.mantissa_bit_width,
-        #     #         out.exponent_bias,
-        #     #         out.saturating,
-        #     #         out.inf_value,
-        #     #         out.nan_values,
-        #     #         out.signed,
-        #     #         out.training)
-        #     #     return out
-        #     # else:
-        #     #     return _unpack_quant_tensor(out)
-        #     return out
         if func in QUANT_TENSOR_FN_HANDLER:
             return QUANT_TENSOR_FN_HANDLER[func](*args, **kwargs)
         else:
@@ -315,18 +237,10 @@ class GroupwiseFloatQuantTensor(GroupwiseFloatQuantTensorBase, QuantTensor):
 
     def transpose(self, *args, **kwargs):
         value = self.value.transpose(*args, **kwargs)
-        # tensor_meta = {'scale': self.scale, 'zero_point': self.zero_point}
-        # for k, tm in tensor_meta.items():
-        #     if len(value.shape) == len(tm.shape):
-        #         tensor_meta[k] = tm.transpose(*args, **kwargs)
         return value
 
     def permute(self, *args, **kwargs):
         value = self.value.permute(*args, **kwargs)
-        # tensor_meta = {'scale': self.scale, 'zero_point': self.zero_point}
-        # for k, tm in tensor_meta.items():
-        #     if len(value.shape) == len(tm.shape):
-        #         tensor_meta[k] = tm.permute(*args, **kwargs)
         return value
 
     # Reference: https://docs.python.org/3/reference/datamodel.html#emulating-numeric-types

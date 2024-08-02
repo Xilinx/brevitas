@@ -8,6 +8,7 @@ from brevitas.core.scaling.standalone import ConstScaling
 from brevitas.core.scaling.standalone import ParameterScaling
 from brevitas.fx.brevitas_tracer import symbolic_trace
 from brevitas.graph.base import ModuleToModuleByClass
+from brevitas.graph.calibrate import DisableEnableQuantization
 from brevitas.graph.channel_splitting import GraphChannelSplitting
 from brevitas.graph.equalize import EqualizeGraph
 from brevitas.graph.fixed_point import CollapseConsecutiveConcats
@@ -27,6 +28,9 @@ from brevitas.graph.standardize import RemoveStochasticModules
 from brevitas.graph.standardize import TorchFunctionalToModule
 from brevitas.nn import quant_layer
 import brevitas.nn as qnn
+from brevitas.proxy.groupwise_float_parameter_quant import \
+    GroupwiseWeightFloatQuantProxyFromInjector
+from brevitas.proxy.groupwise_float_runtime_quant import GroupwiseActFloatQuantProxyFromInjector
 from brevitas.quant import Int8ActPerTensorFloat
 from brevitas.quant import Int8ActPerTensorFloatMinMaxInit
 from brevitas.quant import Int8WeightPerTensorFloat

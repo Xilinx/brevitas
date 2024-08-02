@@ -6,6 +6,8 @@ from brevitas.core.function_wrapper import *
 from brevitas.core.quant import RescalingIntQuant
 from brevitas.inject.enum import FloatToIntImplType
 from brevitas.quant_tensor import FloatQuantTensor
+from brevitas.quant_tensor import GroupwiseFloatQuantTensor
+from brevitas.quant_tensor import GroupwiseIntQuantTensor
 from brevitas.quant_tensor import IntQuantTensor
 
 
@@ -83,7 +85,7 @@ class _CachedIOFloat:
 
 class _CachedIOGroupwiseFloat:
 
-    def __init__(self, quant_tensor: FloatQuantTensor, metadata_only: bool):
+    def __init__(self, quant_tensor: GroupwiseFloatQuantTensor, metadata_only: bool):
         self.shape = quant_tensor.value.shape
         if metadata_only:
             self.quant_tensor = quant_tensor.set(value=None)
@@ -121,6 +123,40 @@ class _CachedIOGroupwiseFloat:
     @property
     def nan_values(self):
         return self.quant_tensor.nan_values
+
+    @property
+    def signed(self):
+        return self.quant_tensor.signed
+
+    @property
+    def group_size(self):
+        return self.quant_tensor.group_size
+
+    @property
+    def group_dim(self):
+        return self.quant_tensor.group_dim
+
+
+class _CachedIOGroupwiseInt:
+
+    def __init__(self, quant_tensor: GroupwiseIntQuantTensor, metadata_only: bool):
+        self.shape = quant_tensor.value.shape
+        if metadata_only:
+            self.quant_tensor = quant_tensor.set(value=None)
+        else:
+            self.quant_tensor = quant_tensor
+
+    @property
+    def scale(self):
+        return self.quant_tensor.scale
+
+    @property
+    def zero_point(self):
+        return self.quant_tensor.zero_point
+
+    @property
+    def bit_width(self):
+        return self.quant_tensor.bit_width
 
     @property
     def signed(self):
