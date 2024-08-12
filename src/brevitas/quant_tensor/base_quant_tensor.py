@@ -137,6 +137,7 @@ class GroupwisIntQuantTensorBase(NamedTuple):
     zero_point_: Tensor
     group_size: Tensor
     group_dim: Tensor
+    bit_width: Tensor
     signed_t: Tensor
     training_t: Tensor
 

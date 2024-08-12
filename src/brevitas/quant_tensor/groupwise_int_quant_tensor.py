@@ -30,7 +30,7 @@ class GroupwiseIntQuantTensor(GroupwisIntQuantTensorBase, QuantTensor):
         if not isinstance(training, torch.Tensor):
             training = torch.tensor(training, dtype=torch.bool)
         quant_tensor = super().__new__(
-            cls, value, scale, zero_point, group_size, group_dim, signed, training)
+            cls, value, scale, zero_point, group_size, group_dim, bit_width, signed, training)
         return quant_tensor
 
     @property
