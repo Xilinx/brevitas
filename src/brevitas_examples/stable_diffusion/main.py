@@ -336,8 +336,6 @@ def main(args):
             input_param_method=args.input_param_method,
             input_quant_type=args.input_quant_type,
             input_quant_granularity=args.input_quant_granularity,
-            use_ocp=args.use_ocp,
-            use_fnuz=args.use_fnuz,
             input_kwargs=input_kwargs)
 
         layer_map = generate_quant_maps(
@@ -366,7 +364,7 @@ def main(args):
                 dtype=dtype,
                 device=args.device,
                 weight_bit_width=weight_bit_width,
-                weight_quant_format='e4m3',
+                weight_quant_format='float_ocp_e4m3',
                 weight_quant_type='sym',
                 weight_param_method=args.weight_param_method,
                 weight_scale_precision=args.weight_scale_precision,
@@ -375,14 +373,12 @@ def main(args):
                 quantize_weight_zero_point=args.quantize_weight_zero_point,
                 quantize_input_zero_point=args.quantize_input_zero_point,
                 input_bit_width=args.linear_output_bit_width,
-                input_quant_format='e4m3',
+                input_quant_format='float_ocp_e4m3',
                 input_scale_type=args.input_scale_type,
                 input_scale_precision=args.input_scale_precision,
                 input_param_method=args.input_param_method,
                 input_quant_type='sym',
                 input_quant_granularity=args.input_quant_granularity,
-                use_ocp=args.use_ocp,
-                use_fnuz=args.use_fnuz,
                 input_kwargs=input_kwargs)
             # We generate all quantizers, but we are only interested in activation quantization for
             # the output of softmax and the output of QKV
@@ -815,16 +811,6 @@ if __name__ == "__main__":
         'use-mlperf-inference',
         default=False,
         help='Evaluate FID score with MLPerf pipeline. Default: False')
-    add_bool_arg(
-        parser,
-        'use-ocp',
-        default=False,
-        help='Use OCP format for float quantization. Default: True')
-    add_bool_arg(
-        parser,
-        'use-fnuz',
-        default=True,
-        help='Use FNUZ format for float quantization. Default: True')
     add_bool_arg(
         parser,
         'use-negative-prompts',

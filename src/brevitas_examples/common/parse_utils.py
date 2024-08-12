@@ -13,7 +13,7 @@ class CustomValidator(object):
         self._pattern = re.compile(pattern)
 
     def __call__(self, value):
-        if not self._pattern.match(value):
+        if not self._pattern.findall(value):
             raise argparse.ArgumentTypeError(
                 "Argument has to match '{}'".format(self._pattern.pattern))
         return value

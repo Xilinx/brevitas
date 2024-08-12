@@ -8,10 +8,8 @@ import torch
 from torch import nn
 
 from brevitas import nn as qnn
-from brevitas.core.stats.stats_op import NegativeMinOrZero
 from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
 from brevitas.graph.quantize import layerwise_quantize
-from brevitas.inject.enum import StatsOp
 from brevitas.quant.experimental.float import Fp8e4m3Act
 from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloat
 from brevitas.quant.experimental.float import Fp8e4m3WeightPerChannelFloat
@@ -19,13 +17,17 @@ from brevitas.quant.experimental.float import Fp8e4m3WeightPerTensorFloat
 from brevitas.quant.experimental.float_quant_fnuz import Fp8e4m3FNUZActPerTensorFloat
 from brevitas.quant.experimental.float_quant_fnuz import Fp8e4m3FNUZWeightPerChannelFloat
 from brevitas.quant.experimental.float_quant_fnuz import Fp8e4m3FNUZWeightPerTensorFloat
-from brevitas.quant.experimental.float_quant_fnuz import Fp8e5m2FNUZActPerTensorFloat
 from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPActPerTensorFloat
 from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPWeightPerChannelFloat
 from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPWeightPerTensorFloat
-from brevitas.quant.experimental.float_quant_ocp import Fp8e5m2OCPActPerTensorFloat
-from brevitas.quant.experimental.float_quant_ocp import Fp8e5m2OCPWeightPerChannelFloat
-from brevitas.quant.experimental.float_quant_ocp import Fp8e5m2OCPWeightPerTensorFloat
+from brevitas.quant.experimental.mx_quant_ocp import MXFloat8e4m3Act
+from brevitas.quant.experimental.mx_quant_ocp import MXFloat8e4m3Weight
+from brevitas.quant.experimental.mx_quant_ocp import MXFloat8e4m3WeightMSE
+from brevitas.quant.experimental.mx_quant_ocp import MXInt8Act
+from brevitas.quant.experimental.mx_quant_ocp import MXInt8Weight
+from brevitas.quant.experimental.mx_quant_ocp import MXInt8WeightMSE
+from brevitas.quant.experimental.mx_quant_ocp import ShiftedMXUInt8Weight
+from brevitas.quant.experimental.mx_quant_ocp import ShiftedMXUInt8WeightMSE
 from brevitas.quant.fixed_point import Int8ActPerTensorFixedPoint
 from brevitas.quant.fixed_point import Int8ActPerTensorFixedPointMSE
 from brevitas.quant.fixed_point import Int8WeightPerChannelFixedPoint
@@ -46,7 +48,7 @@ from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloatMSE
 from brevitas_examples.common.generative.nn import LoRACompatibleQuantConv2d
 from brevitas_examples.common.generative.nn import LoRACompatibleQuantLinear
-from brevitas_examples.common.generative.quantizers import Fp8e4m3DynamicOCPActPerTensorFloat
+from brevitas_examples.common.generative.quantizers import Fp8e4m3DynamicActPerGroupFloat
 from brevitas_examples.common.generative.quantizers import Fp8e4m3WeightSymmetricGroupQuant
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerGroupFloat
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerRowFloat
@@ -66,7 +68,7 @@ WEIGHT_QUANT_MAP = {
                     'sym': Int8WeightPerChannelFloat, 'asym': ShiftedUint8WeightPerChannelFloat},
                 'per_group': {
                     'sym': IntWeightSymmetricGroupQuant,
-                    'asym': ShiftedUintWeightAsymmetricGroupQuant},},
+                    'asym': ShiftedUintWeightAsymmetricGroupQuant}},
             'mse': {
                 'per_tensor': {
                     'sym': Int8WeightPerTensorFloatMSE,
@@ -79,12 +81,16 @@ WEIGHT_QUANT_MAP = {
                 'per_tensor': {
                     'sym': Int8WeightPerTensorFixedPoint},
                 'per_channel': {
-                    'sym': Int8WeightPerChannelFixedPoint},},
+                    'sym': Int8WeightPerChannelFixedPoint},
+                'per_group': {
+                    'sym': MXInt8Weight, 'asym': ShiftedMXUInt8Weight}},
             'mse': {
                 'per_tensor': {
                     'sym': Int8WeightPerTensorFixedPointMSE},
                 'per_channel': {
-                    'sym': Int8WeightPerChannelFixedPointMSE},},}},
+                    'sym': Int8WeightPerChannelFixedPointMSE}},
+            'per_group': {
+                'sym': MXInt8WeightMSE, 'asym': ShiftedMXUInt8WeightMSE}}},
     'float': {
         'float_scale': {
             'stats': {
@@ -95,28 +101,26 @@ WEIGHT_QUANT_MAP = {
                 'per_group': {
                     'sym': Fp8e4m3WeightSymmetricGroupQuant}}}},
     'float_ocp': {
-        'e4m3': {
-            'float_scale': {
-                'stats': {
-                    'per_tensor': {
-                        'sym': Fp8e4m3OCPWeightPerTensorFloat},
-                    'per_channel': {
-                        'sym': Fp8e4m3OCPWeightPerChannelFloat}}}},
-        'e5m2': {
-            'float_scale': {
-                'stats': {
-                    'per_tensor': {
-                        'sym': Fp8e5m2OCPWeightPerTensorFloat},
-                    'per_channel': {
-                        'sym': Fp8e5m2OCPWeightPerChannelFloat}}}}},
+        'float_scale': {
+            'stats': {
+                'per_tensor': {
+                    'sym': Fp8e4m3OCPWeightPerTensorFloat},
+                'per_channel': {
+                    'sym': Fp8e4m3OCPWeightPerChannelFloat}}},
+        'po2_scale': {
+            'stats': {
+                'per_group': {
+                    'sym': MXFloat8e4m3Weight}},
+            'mse': {
+                'per_group': {
+                    'sym': MXFloat8e4m3WeightMSE}}}},
     'float_fnuz': {
-        'e4m3': {
-            'float_scale': {
-                'stats': {
-                    'per_tensor': {
-                        'sym': Fp8e4m3FNUZWeightPerTensorFloat},
-                    'per_channel': {
-                        'sym': Fp8e4m3FNUZWeightPerChannelFloat}}}}}}
+        'float_scale': {
+            'stats': {
+                'per_tensor': {
+                    'sym': Fp8e4m3FNUZWeightPerTensorFloat},
+                'per_channel': {
+                    'sym': Fp8e4m3FNUZWeightPerChannelFloat}}}}}
 
 INPUT_QUANT_MAP = {
     'int': {
@@ -124,18 +128,18 @@ INPUT_QUANT_MAP = {
             'float_scale': {
                 'stats': {
                     'per_tensor': {
-                        'sym': Int8ActPerTensorFloat, 'asym': ShiftedUint8ActPerTensorFloat},},
+                        'sym': Int8ActPerTensorFloat, 'asym': ShiftedUint8ActPerTensorFloat}},
                 'mse': {
                     'per_tensor': {
-                        'sym': Int8ActPerTensorFloatMSE, 'asym': ShiftedUint8ActPerTensorFloatMSE}},
-            },
+                        'sym': Int8ActPerTensorFloatMSE,
+                        'asym': ShiftedUint8ActPerTensorFloatMSE}}},
             'po2_scale': {
                 'stats': {
                     'per_tensor': {
-                        'sym': Int8ActPerTensorFixedPoint},},
+                        'sym': Int8ActPerTensorFixedPoint}},
                 'mse': {
                     'per_tensor': {
-                        'sym': Int8ActPerTensorFixedPointMSE},},}},
+                        'sym': Int8ActPerTensorFixedPointMSE}}}},
         'dynamic': {
             'float_scale': {
                 'stats': {
@@ -146,45 +150,38 @@ INPUT_QUANT_MAP = {
                         'sym': Int8DynamicActPerRowFloat,
                         'asym': ShiftedUint8DynamicActPerRowFloat},
                     'per_group': {
-                        'sym': Int8DynamicActPerGroupFloat},}}}},
+                        'sym': Int8DynamicActPerGroupFloat}}},
+            'po2_scale': {
+                'stats': {
+                    'per_group': MXInt8Act}}}},
     'float': {
         'static': {
             'float_scale': {
                 'stats': {
                     'per_tensor': {
-                        'sym': Fp8e4m3ActPerTensorFloat},}}},
+                        'sym': Fp8e4m3ActPerTensorFloat}}}},
+        'dynamic': {
+            'float_scale': {
+                'stats': {
+                    'per_group': Fp8e4m3DynamicActPerGroupFloat}}},
         'no_scale': {
             'sym': Fp8e4m3Act,}},
     'float_ocp': {
         'static': {
-            'e4m3': {
-                'float_scale': {
-                    'stats': {
-                        'per_tensor': {
-                            'sym': Fp8e4m3OCPActPerTensorFloat}}}},
-            'e5m2': {
-                'float_scale': {
-                    'stats': {
-                        'per_tensor': {
-                            'sym': Fp8e5m2OCPActPerTensorFloat}}}}}},
+            'float_scale': {
+                'stats': {
+                    'per_tensor': {
+                        'sym': Fp8e4m3OCPActPerTensorFloat}}}},
+        'dynamic': {
+            'po2_scale': {
+                'stats': {
+                    'per_group': MXFloat8e4m3Act}}}},
     'float_fnuz': {
         'static': {
-            'e4m3': {
-                'float_scale': {
-                    'stats': {
-                        'per_tensor': {
-                            'sym': Fp8e4m3FNUZActPerTensorFloat}}}},
-            'e5m2': {
-                'float_scale': {
-                    'stats': {
-                        'per_tensor': {
-                            'sym': Fp8e5m2FNUZActPerTensorFloat}}}}},
-        'dynamic': {
-            'e4m3': {
-                'float_scale': {
-                    'stats': {
-                        'per_tensor': {
-                            'sym': Fp8e4m3DynamicOCPActPerTensorFloat}}}}}}}
+            'float_scale': {
+                'stats': {
+                    'per_tensor': {
+                        'sym': Fp8e4m3FNUZActPerTensorFloat}}}}}}
 
 
 def generate_quantizers(
@@ -206,8 +203,6 @@ def generate_quantizers(
         input_quant_granularity=None,
         input_group_size=None,
         quantize_input_zero_point=False,
-        use_ocp=False,
-        use_fnuz=False,
         device=None,
         weight_kwargs=None,
         input_kwargs=None):
@@ -215,67 +210,36 @@ def generate_quantizers(
     Replace float layers with quant layers in the target model
     """
     # Retrive base input and weight quantizers
-    std_float_weight_quant_format = None
-    std_float_input_format = None
     # match against custom float format
-    if re.compile(r'e[1-8]m[1-8]').match(weight_quant_format):
+    if re.compile(r'e[1-8]m[1-8]').findall(weight_quant_format):
+        format = re.compile(r'e[1-8]m[1-8]').findall(weight_quant_format)[0]
+        weight_quant_format = weight_quant_format.replace('_' + format, '')
         weight_float_format = {
-            'exponent_bit_width': int(weight_quant_format[1]),
-            'mantissa_bit_width': int(weight_quant_format[3])}
-        std_float_weight_quant_format = weight_quant_format
-        weight_quant_format = 'float'
-        if use_ocp:
-            weight_quant_format += '_ocp'
-        elif use_fnuz:
-            weight_quant_format += '_fnuz'
+            'exponent_bit_width': int(format[1]), 'mantissa_bit_width': int(format[3])}
     else:
         weight_float_format = {}
-    if re.compile(r'e[1-8]m[1-8]').match(input_quant_format):
+    if re.compile(r'e[1-8]m[1-8]').findall(input_quant_format):
+        format = re.compile(r'e[1-8]m[1-8]').findall(input_quant_format)[0]
+        input_quant_format = input_quant_format.replace('_' + format, '')
         input_float_format = {
-            'exponent_bit_width': int(input_quant_format[1]),
-            'mantissa_bit_width': int(input_quant_format[3])}
-        std_float_input_format = input_quant_format
-        input_quant_format = 'float'
-        if use_ocp:
-            input_quant_format += '_ocp'
-        elif use_fnuz:
-            input_quant_format += '_fnuz'
+            'exponent_bit_width': int(format[1]), 'mantissa_bit_width': int(format[3])}
     else:
         input_float_format = {}
 
-    if 'ocp' in weight_quant_format or 'fnuz' in weight_quant_format:
-        weight_quant = WEIGHT_QUANT_MAP[weight_quant_format][std_float_weight_quant_format][
-            weight_scale_precision][weight_param_method][weight_quant_granularity][
-                weight_quant_type]
-    else:
-        weight_quant = WEIGHT_QUANT_MAP[weight_quant_format][weight_scale_precision][
-            weight_param_method][weight_quant_granularity][weight_quant_type]
+    weight_quant = WEIGHT_QUANT_MAP[weight_quant_format][weight_scale_precision][
+        weight_param_method][weight_quant_granularity][weight_quant_type]
 
     if input_bit_width is not None and input_scale_type == 'no_scale':
         input_quant = sym_input_quant = linear_input_quant = INPUT_QUANT_MAP[input_quant_format][
             input_scale_type][input_quant_type]
     elif input_bit_width is not None:
-        if 'ocp' in input_quant_format or 'fnuz' in input_quant_format:
-            input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
-                std_float_input_format][input_scale_precision][input_param_method][
-                    input_quant_granularity][input_quant_type]
-            # Some activations in MHA should always be symmetric
-            sym_input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
-                std_float_input_format][input_scale_precision][input_param_method][
-                    input_quant_granularity]['sym']
-            linear_input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
-                std_float_input_format][input_scale_precision][input_param_method][
-                    input_quant_granularity][input_quant_type]
-        else:
-            input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
-                input_scale_precision][input_param_method][input_quant_granularity][
-                    input_quant_type]
-            # Some activations in MHA should always be symmetric
-            sym_input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
-                input_scale_precision][input_param_method][input_quant_granularity]['sym']
-            linear_input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
-                input_scale_precision][input_param_method][input_quant_granularity][
-                    input_quant_type]
+        input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][input_scale_precision][
+            input_param_method][input_quant_granularity][input_quant_type]
+        # Some activations in MHA should always be symmetric
+        sym_input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
+            input_scale_precision][input_param_method][input_quant_granularity]['sym']
+        linear_input_quant = INPUT_QUANT_MAP[input_quant_format][input_scale_type][
+            input_scale_precision][input_param_method][input_quant_granularity][input_quant_type]
 
         if input_kwargs is None:
             input_kwargs = dict()
@@ -472,8 +436,6 @@ def quantize_model(
         input_group_size=None,
         quantize_input_zero_point=False,
         quantize_embedding=False,
-        use_ocp=False,
-        use_fnuz=False,
         device=None,
         weight_kwargs=None,
         input_kwargs=None):
@@ -497,8 +459,6 @@ def quantize_model(
         input_quant_granularity,
         input_group_size,
         quantize_input_zero_point,
-        use_ocp,
-        use_fnuz,
         device,
         weight_kwargs,
         input_kwargs)
