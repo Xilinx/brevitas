@@ -174,6 +174,10 @@ parser.add_argument(
         'sharded_torchmlir_group_weight',
         'sharded_packed_torchmlir_group_weight'],
     help='Model export.')
+parser.add_argument(
+    "--compile",
+    action='store_true',
+    help="Compile model with `torch.compile` (PyTorch version >=2 only)")
 
 
 def set_seed(seed):
@@ -366,6 +370,10 @@ def main():
         print("Applying bias correction...")
         apply_bias_correction(model, calibration_loader)
         print("Bias correction applied.")
+
+    if args.compile:
+        print("Applying compile")
+        model = torch.compile(model)
 
     if args.eval:
         print("Model eval...")

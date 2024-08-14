@@ -8,6 +8,7 @@ import random
 import warnings
 
 import numpy as np
+from packaging.version import parse
 import torch
 import torch.backends.cudnn as cudnn
 import torch.nn.parallel
@@ -16,6 +17,7 @@ import torch.utils.data
 import torch.utils.data.distributed
 import torchvision
 
+from brevitas import torch_version
 from brevitas.export import export_onnx_qcdq
 from brevitas.export import export_torch_qcdq
 from brevitas.graph.equalize import activation_equalization_mode
@@ -35,6 +37,8 @@ from brevitas_examples.imagenet_classification.ptq.utils import get_torchvision_
 from brevitas_examples.imagenet_classification.utils import generate_dataloader
 from brevitas_examples.imagenet_classification.utils import SEED
 from brevitas_examples.imagenet_classification.utils import validate
+
+TORCH_GEQ_200 = torch_version >= parse("2.0.0")
 
 # Ignore warnings about __torch_function__
 warnings.filterwarnings("ignore")
@@ -267,6 +271,7 @@ add_bool_arg(
     'uint_sym_act_for_unsigned_values',
     default=True,
     help='Use unsigned act quant when possible (default: enabled)')
+add_bool_arg(parser, 'compile', default=False, help='Enable torch.compile (Requires PyTorch>=2.0)')
 
 
 def main():
@@ -469,7 +474,9 @@ def main():
     if args.bias_corr:
         print("Applying bias correction:")
         apply_bias_correction(calib_loader, quant_model)
-
+    if args.compile and TORCH_GEQ_200:
+        print("Applying torch.compile")
+        model = torch.compile(model)
     # Validate the quant_model on the validation dataloader
     print("Starting validation:")
     validate(val_loader, quant_model, stable=dtype != torch.bfloat16)

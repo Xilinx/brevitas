@@ -18,13 +18,16 @@ from torchvision import transforms
 from torchvision.datasets import CIFAR10
 from torchvision.datasets import MNIST
 
+from brevitas import torch_version
+
 from .logger import EvalEpochMeters
 from .logger import Logger
 from .logger import TrainingEpochMeters
 from .models import model_with_cfg
 from .models.losses import SqrHingeLoss
 
-TORCH_GEQ_200 = parse(torch.__version__) >= parse("2.0.0")
+TORCH_GEQ_200 = torch_version >= parse("2.0.0")
+
 
 class MirrorMNIST(MNIST):
 
