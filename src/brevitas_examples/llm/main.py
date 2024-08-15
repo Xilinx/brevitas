@@ -327,6 +327,7 @@ def main():
     print("Data loaded.")
 
     if args.eval:
+        assert args.export_target != 'torch_qcdq', "TorchScript QCDQ export and Evaluation simultaneously"
         print("Float model eval...")
         model = offload_model(model)
         ppl = compute_perplexity(
