@@ -103,7 +103,7 @@ def torchvision_model(model_name, quantize_fn, compile):
         model = model_fn(pretrained=True)
 
     model.eval()
-    model = preprocess_for_flexml_quantize(model)
+    model = preprocess_for_flexml_quantize(model, inp)
     model = quantize_fn(model)
     with calibration_mode(model):
         model(inp)
