@@ -291,7 +291,7 @@ def main():
         with CastFloat16ToFloat32():
             apply_awq(model, awq_results)
 
-    require_fx = True if args.weight_equalization or args.act_equalization == 'fx' else False
+    require_fx = True if args.weight_equalization or args.act_equalization == 'fx' or args.ln_affine_merge else False
     fuse_sequences = False
 
     # Load the data for calibration and evaluation.
@@ -332,11 +332,14 @@ def main():
         remove_hooks(model)
         print(f"Float perplexity ({args.dataset}): {ppl}")
 
+    if require_fx:
+        model = get_fx(model)
+
     # Apply LN affine merging before inserting MHA layers
     # since currently there is support only for merging into Linear
     if args.ln_affine_merge:
         print("Apply LN affine merge...")
-        apply_layernorm_affine_merge(model, dtype, ref_kwargs={'input_ids': calibration_loader[0]})
+        apply_layernorm_affine_merge(model, dtype)
         print("LN affine merge applied.")
 
     # Insert standard MHA layers when performing fx based weight/act equalization to avoid dealing
@@ -345,9 +348,6 @@ def main():
         print("Replace HF MHA with quantizable variants...")
         model = replace_mha_with_quantizable_layers(model, dtype)
         print("Replacing done.")
-
-    if require_fx:
-        model = get_fx(model)
 
     if args.weight_equalization:
         print("Apply weight equalization...")
@@ -396,7 +396,7 @@ def main():
     # If any equalization has taken places, the embedding layer and the fully connected one are
     # not tied anymore, and they need to be treated as standalone, separate layers.
     # In all other cases we can tie them back so to preserve memory.
-    if args.act_equalization is None and not args.weight_equalization:
+    if args.act_equalization is None and not require_fx:
         model.tie_weights()
 
     if args.bias_corr:

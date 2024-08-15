@@ -6,7 +6,6 @@ SPDX-License-Identifier: MIT
 import torch
 from torch import nn
 
-from brevitas.fx import value_trace
 from brevitas.graph.equalize import _is_reshaping_op
 from brevitas.graph.equalize import _is_scale_invariant_module
 from brevitas.graph.utils import get_module
@@ -84,9 +83,8 @@ def merge_layernorm_affine_params(graph_model):
 
 
 @torch.no_grad()
-def apply_layernorm_affine_merge(model, dtype, ref_kwargs):
+def apply_layernorm_affine_merge(graph_model, dtype):
     # We can't do fp16 tracing on CPU as many kernels are not implemented
     # So we have to cast to fp32 first, trace, apply merging, and then cast back
-    with cast_to_float32(model, dtype):
-        graph_model = value_trace(model, value_args=ref_kwargs)
+    with cast_to_float32(graph_model, dtype):
         merge_layernorm_affine_params(graph_model)
