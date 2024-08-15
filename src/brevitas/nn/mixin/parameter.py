@@ -101,11 +101,11 @@ class QuantBiasMixin(QuantProxyMixin):
             proxy_prefix='bias_',
             **kwargs)
 
-    # def quant_bias(self):
-    #     if self.bias is None:
-    #         return None
-    #     quant_bias = self.bias_quant(self.bias)
-    #     return quant_bias
+    def quant_bias(self):
+        if self.bias is None:
+            return None
+        quant_bias = self.bias_quant(self.bias)
+        return quant_bias
 
     def register_parameter(self, name, value):
         super(QuantBiasMixin, self).register_parameter(name, value)
