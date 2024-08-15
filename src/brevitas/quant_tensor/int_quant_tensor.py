@@ -4,7 +4,6 @@
 import packaging
 import packaging.version
 import torch
-from torch._dynamo import allow_in_graph
 
 from brevitas import torch_version
 from brevitas.function.ops import max_int
@@ -17,6 +16,9 @@ from brevitas.quant_tensor import QuantTensor
 
 from .int_torch_handler import INT_QUANT_TENSOR_FN_HANDLER
 from .torch_handler import QUANT_TENSOR_FN_HANDLER
+
+if torch_version >= packaging.version.parse('2.0'):
+    from torch._dynamo import allow_in_graph
 
 IS_VALID_ATOL = 2e-1
 BFLOAT16_IS_VALID_ATOL = 0.5
