@@ -1,10 +1,12 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+import packaging
+import packaging.version
 import torch
 from torch._dynamo import allow_in_graph
-from torch.utils._pytree import register_pytree_node
 
+from brevitas import torch_version
 from brevitas.function.ops import max_int
 from brevitas.function.ops import min_int
 from brevitas.function.ops_ste import ceil_ste
@@ -367,11 +369,5 @@ class IntQuantTensor(IntQuantTensorBase, QuantTensor):
         return self
 
 
-# def flatten(int_qt):
-#     return list(int_qt._fields.keys(), int_qt._fields.values())
-# def unflatten(key, values):
-#     init_args = dict(zip(key, values))
-#     return IntQuantTensor(**init_args)
-
-# register_pytree_node(IntQuantTensor, flatten_fn=flatten, unflatten_fn=unflatten)
-allow_in_graph(IntQuantTensor)
+if torch_version >= packaging.version.parse('2.0'):
+    allow_in_graph(IntQuantTensor)
