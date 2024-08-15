@@ -17,7 +17,9 @@ from transformers import AutoTokenizer
 
 from brevitas.export import export_torch_qcdq
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
-from brevitas_examples.common.generative.quantize import quantize_model
+from brevitas.graph.quantize import layerwise_quantize
+from brevitas_examples.common.generative.quantize import generate_quant_maps
+from brevitas_examples.common.generative.quantize import generate_quantizers
 from brevitas_examples.common.parse_utils import add_bool_arg
 from brevitas_examples.common.parse_utils import quant_format_validator
 from brevitas_examples.llm.llm_quant.bias_corr import apply_bias_correction
@@ -366,30 +368,41 @@ def main():
 
     if not args.no_quantize:
         print("Applying model quantization...")
-        model = quantize_model(
-            model,
+        linear_input_quant, weight_quant, input_quant, q_scaled_quant, k_transposed_quant, v_quant, attn_output_weights_quant = generate_quantizers(
             dtype=dtype,
-            weight_quant_format=args.weight_quant_format,
-            weight_quant_type=args.weight_quant_type,
             weight_bit_width=args.weight_bit_width,
             weight_param_method=args.weight_param_method,
             weight_scale_precision=args.weight_scale_precision,
+            weight_quant_type=args.weight_quant_type,
             weight_quant_granularity=args.weight_quant_granularity,
             weight_group_size=args.weight_group_size,
             quantize_weight_zero_point=args.quantize_weight_zero_point,
+            weight_quant_format=args.weight_quant_format,
             input_bit_width=args.input_bit_width,
-            input_quant_type=args.input_quant_type,
             input_quant_format=args.input_quant_format,
-            input_param_method=args.input_param_method,
             input_scale_precision=args.input_scale_precision,
             input_scale_type=args.input_scale_type,
+            input_param_method=args.input_param_method,
+            input_quant_type=args.input_quant_type,
             input_quant_granularity=args.input_quant_granularity,
             input_group_size=args.input_group_size,
             quantize_input_zero_point=args.quantize_input_zero_point,
-            quantize_embedding=args.quantize_embedding,
             use_ocp=args.use_ocp,
             use_fnuz=args.use_fnuz,
-        )
+            device=device)
+        layer_map = generate_quant_maps(
+            linear_input_quant=linear_input_quant,
+            weight_quant=weight_quant,
+            input_quant=input_quant,
+            q_scaled_quant=q_scaled_quant,
+            k_transposed_quant=k_transposed_quant,
+            v_quant=v_quant,
+            attn_output_weights_quant=attn_output_weights_quant,
+            dtype=dtype,
+            device=device,
+            input_quant_format=args.input_quant_format,
+            quantize_embedding=args.quantize_embedding)
+        model = layerwise_quantize(model=model, compute_layer_map=layer_map, name_blacklist=None)
         # Tie back first/last layer weights in case they got untied
         print("Model quantization applied.")
 
