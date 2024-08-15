@@ -30,22 +30,21 @@ class IntQuantTensor(IntQuantTensorBase, QuantTensor):
     def __new__(cls, value, scale, zero_point, bit_width, signed, training, _zero_zero_point=False):
 
         if not isinstance(scale,
-                          (torch.Tensor)) and (TORCH_GE_20 and not isinstance(scale,
-                                                                              (torch.fx.Proxy))):
+                          (torch.Tensor)) or (TORCH_GE_20 and not isinstance(scale,
+                                                                             (torch.fx.Proxy))):
             scale = torch.tensor(scale, dtype=torch.float)
-        if not isinstance(zero_point, torch.Tensor) and (TORCH_GE_20 and
-                                                         not isinstance(zero_point,
-                                                                        (torch.fx.Proxy))):
-            zero_point = torch.tensor(zero_point, dtype=torch.float)
-        if not isinstance(bit_width, torch.Tensor) and (TORCH_GE_20 and
-                                                        not isinstance(bit_width,
+        if not isinstance(zero_point, torch.Tensor) or (TORCH_GE_20 and
+                                                        not isinstance(zero_point,
                                                                        (torch.fx.Proxy))):
+            zero_point = torch.tensor(zero_point, dtype=torch.float)
+        if not isinstance(bit_width, torch.Tensor) or (TORCH_GE_20 and
+                                                       not isinstance(bit_width, (torch.fx.Proxy))):
             bit_width = torch.tensor(bit_width, dtype=torch.float)
-        if not isinstance(signed, torch.Tensor) and (TORCH_GE_20 and
-                                                     not isinstance(signed, (torch.fx.Proxy))):
+        if not isinstance(signed, torch.Tensor) or (TORCH_GE_20 and
+                                                    not isinstance(signed, (torch.fx.Proxy))):
             signed = torch.tensor(signed, dtype=torch.bool)
-        if not isinstance(training, torch.Tensor) and (TORCH_GE_20 and
-                                                       not isinstance(training, (torch.fx.Proxy))):
+        if not isinstance(training, torch.Tensor) or (TORCH_GE_20 and
+                                                      not isinstance(training, (torch.fx.Proxy))):
             training = torch.tensor(training, dtype=torch.bool)
         quant_tensor = super().__new__(cls, value, scale, zero_point, bit_width, signed, training)
         quant_tensor._zero_zero_point = _zero_zero_point
