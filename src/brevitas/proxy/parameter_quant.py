@@ -164,7 +164,13 @@ class WeightQuantProxyFromInjector(WeightQuantProxyFromInjectorBase):
                 impl = self.export_handler if self.export_mode else self.tensor_quant
                 out, scale, zero_point, bit_width = impl(x)
                 out = IntQuantTensor(
-                    out, scale, zero_point, bit_width, self.is_signed, self.training)
+                    out,
+                    scale,
+                    zero_point,
+                    bit_width,
+                    self.is_signed,
+                    self.training,
+                    _zero_zero_point=self.is_zero_zero_point)
         else:  # quantization disabled
             out = x
         if isinstance(

@@ -187,7 +187,13 @@ class ActQuantProxyFromInjector(ActQuantProxyFromInjectorBase):
                     y = y[0]
                 if isinstance(x, IntQuantTensor):
                     out = IntQuantTensor(
-                        y, x.scale, x.zero_point, x.bit_width, x.signed, self.training)
+                        y,
+                        x.scale,
+                        x.zero_point,
+                        x.bit_width,
+                        x.signed,
+                        self.training,
+                        x._zero_zero_point)
                 else:
                     out = y
             else:
