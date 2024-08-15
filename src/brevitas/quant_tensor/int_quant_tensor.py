@@ -17,7 +17,8 @@ from brevitas.quant_tensor import QuantTensor
 from .int_torch_handler import INT_QUANT_TENSOR_FN_HANDLER
 from .torch_handler import QUANT_TENSOR_FN_HANDLER
 
-if torch_version >= packaging.version.parse('2.0'):
+TORCH_GE_20 = torch_version >= packaging.version.parse('2.0')
+if TORCH_GE_20:
     from torch._dynamo import allow_in_graph
 
 IS_VALID_ATOL = 2e-1
@@ -28,15 +29,15 @@ class IntQuantTensor(IntQuantTensorBase, QuantTensor):
 
     def __new__(cls, value, scale, zero_point, bit_width, signed, training, _zero_zero_point=False):
 
-        if not isinstance(scale, (torch.Tensor, torch.fx.proxy.Proxy)):
+        if not isinstance(scale, (torch.Tensor)) and (TORCH_GE_20 and torch.fx.proxy.Proxy):
             scale = torch.tensor(scale, dtype=torch.float)
-        if not isinstance(zero_point, (torch.Tensor, torch.fx.proxy.Proxy)):
+        if not isinstance(zero_point, torch.Tensor) and (TORCH_GE_20 and torch.fx.proxy.Proxy):
             zero_point = torch.tensor(zero_point, dtype=torch.float)
-        if not isinstance(bit_width, (torch.Tensor, torch.fx.proxy.Proxy)):
+        if not isinstance(bit_width, torch.Tensor) and (TORCH_GE_20 and torch.fx.proxy.Proxy):
             bit_width = torch.tensor(bit_width, dtype=torch.float)
-        if not isinstance(signed, (torch.Tensor, torch.fx.proxy.Proxy)):
+        if not isinstance(signed, torch.Tensor) and (TORCH_GE_20 and torch.fx.proxy.Proxy):
             signed = torch.tensor(signed, dtype=torch.bool)
-        if not isinstance(training, (torch.Tensor, torch.fx.proxy.Proxy)):
+        if not isinstance(training, torch.Tensor) and (TORCH_GE_20 and torch.fx.proxy.Proxy):
             training = torch.tensor(training, dtype=torch.bool)
         quant_tensor = super().__new__(cls, value, scale, zero_point, bit_width, signed, training)
         quant_tensor._zero_zero_point = _zero_zero_point
@@ -371,5 +372,5 @@ class IntQuantTensor(IntQuantTensorBase, QuantTensor):
         return self
 
 
-if torch_version >= packaging.version.parse('2.0'):
+if TORCH_GE_20:
     allow_in_graph(IntQuantTensor)
