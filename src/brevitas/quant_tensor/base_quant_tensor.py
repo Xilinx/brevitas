@@ -34,7 +34,10 @@ class QuantTensor:
         return qt_type(*values)
 
     def set(self, **kwargs):
-        return self._replace(**kwargs)
+        zzp = self._zero_zero_point
+        new_instance = self._replace(**kwargs)
+        new_instance._zero_zero_point = zzp
+        return new_instance
 
     @property
     def shape(self):
