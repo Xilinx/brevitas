@@ -116,11 +116,14 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
     def is_quant_enabled(self):
         return self._is_quant_enabled and not self.disable_quant
 
-    @property
-    def is_signed(self):
-        if self._cached_act is not None:
-            return self._cached_act.signed
-        return super().is_signed
+    # @property
+    # def is_signed(self):
+    #     if self._cached_act is not None:
+    #         return self._cached_act.signed
+    #     try:
+    #         return super().is_signed
+    #     except:
+    #         return None
 
     @is_quant_enabled.setter
     def is_quant_enabled(self, is_quant_enabled):
@@ -174,7 +177,11 @@ class ActQuantProxyFromInjector(ActQuantProxyFromInjectorBase):
             # If y is an empty IntQuantTensor, we need to check if this is a passthrough proxy,
             # otherwise return a simple Tensor
             if isinstance(y, tuple) and not any(map(lambda f: f is None, y)):
-                out = IntQuantTensor(*y, signed=self.is_signed, training=self.training)
+                out = IntQuantTensor(
+                    *y,
+                    signed=self.is_signed,
+                    training=self.training,
+                    _zero_zero_point=self.is_zero_zero_point)
             elif self.is_passthrough_act:  # preserve scale/zp/bit/sign even without output quant
                 if isinstance(y, tuple):
                     y = y[0]

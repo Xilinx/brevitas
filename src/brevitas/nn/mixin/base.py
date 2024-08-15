@@ -67,8 +67,8 @@ class QuantLayerMixin(ExportMixin):
     def channelwise_separable(self) -> bool:
         pass
 
-    def _set_global_is_quant_layer(self, value):
-        config._IS_INSIDE_QUANT_LAYER = value
+    # def _set_global_is_quant_layer(self, value):
+    #     config._IS_INSIDE_QUANT_LAYER = value
 
     def get_quant_tensor_class(self, inp: Union[Tensor, QuantTensor]):
         quant_tensor_classes = [IntQuantTensor, FloatQuantTensor]
@@ -78,7 +78,7 @@ class QuantLayerMixin(ExportMixin):
         return None
 
     def unpack_input(self, inp: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
-        self._set_global_is_quant_layer(True)
+        # self._set_global_is_quant_layer(True)
         # Hack to recognize a QuantTensor that has decayed to a tuple
         # when used as input to tracing (e.g. during ONNX export)
         if (torch._C._get_tracing_state() is not None and isinstance(inp, tuple) and
@@ -86,7 +86,7 @@ class QuantLayerMixin(ExportMixin):
             qt_class = self.get_quant_tensor_class(inp)
             if qt_class is not None:
                 inp = qt_class(*inp)
-        if not torch._C._get_tracing_state():
+        if not torch._C._get_tracing_state() and not torch.compiler.is_compiling():
             if isinstance(inp, QuantTensor):
                 inp = inp.set(value=inp.value.rename(None))
             else:
@@ -94,7 +94,7 @@ class QuantLayerMixin(ExportMixin):
         return inp
 
     def pack_output(self, quant_output: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
-        self._set_global_is_quant_layer(False)
+        # self._set_global_is_quant_layer(False)
         if self.return_quant_tensor:
             assert isinstance(quant_output, QuantTensor), 'QuantLayer is not correctly configured, check if warnings were raised'
             return quant_output

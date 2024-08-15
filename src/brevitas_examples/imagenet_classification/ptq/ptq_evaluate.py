@@ -476,7 +476,8 @@ def main():
         apply_bias_correction(calib_loader, quant_model)
     if args.compile and TORCH_GEQ_200:
         print("Applying torch.compile")
-        model = torch.compile(model)
+
+        quant_model = torch.compile(quant_model, fullgraph=True)
     # Validate the quant_model on the validation dataloader
     print("Starting validation:")
     validate(val_loader, quant_model, stable=dtype != torch.bfloat16)

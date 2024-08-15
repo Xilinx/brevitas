@@ -1,8 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-import os
-
 from packaging import version
 import pytest
 from pytest_cases import fixture
@@ -19,7 +17,6 @@ from brevitas.graph.quantize import quantize
 from brevitas.graph.target.flexml import preprocess_for_flexml_quantize
 from brevitas.graph.target.flexml import quantize_flexml
 from brevitas_examples.imagenet_classification.ptq.ptq_common import quantize_model
-from tests.marker import requires_pt_ge
 
 BATCH = 1
 HEIGHT, WIDTH = 224, 224
@@ -71,7 +68,8 @@ def quantize_float(model):
 @fixture
 @parametrize('model_name', MODEL_LIST)
 @parametrize('quantize_fn', [quantize, quantize_flexml, layerwise_quantize])
-def torchvision_model(model_name, quantize_fn):
+@parametrize('compile', [True, False])
+def torchvision_model(model_name, quantize_fn, compile):
 
     inp = torch.randn(BATCH, IN_CH, HEIGHT, WIDTH)
 
@@ -105,14 +103,15 @@ def torchvision_model(model_name, quantize_fn):
         model = model_fn(pretrained=True)
 
     model.eval()
-    model = preprocess_for_flexml_quantize(model, inp)
+    model = preprocess_for_flexml_quantize(model)
     model = quantize_fn(model)
     with calibration_mode(model):
         model(inp)
+    if torch_version >= version.parse('2.0') and compile and model_name != 'vit_b_32':
+        model = torch.compile(model, fullgraph=True)
     return model
 
 
-@requires_pt_ge('1.8.1')
 def test_torchvision_graph_quantization_flexml_qcdq_onnx(torchvision_model, request):
     if torchvision_model is None:
         pytest.skip('Model not instantiated')
@@ -125,7 +124,6 @@ def test_torchvision_graph_quantization_flexml_qcdq_onnx(torchvision_model, requ
         export_onnx_qcdq(torchvision_model, args=inp)
 
 
-@requires_pt_ge('1.9.1')
 def test_torchvision_graph_quantization_flexml_qcdq_torch(torchvision_model, request):
     if torchvision_model is None:
         pytest.skip('Model not instantiated')

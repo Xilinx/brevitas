@@ -137,6 +137,15 @@ def adaptive_avg_pool2d_handler(quant_input, output_shape):
     return quant_input
 
 
+def check_zp(quant_input, quant_weight):
+    if not quant_input._zero_zero_point or not quant_weight._zero_zero_point:
+        warnings.warn("Computing zero point of output accumulator not supported yet.")
+        return False
+    else:
+        return True
+
+
+# from functorch.experimental.control_flow import cond
 def quant_layer(fn, quant_input, quant_weight, bias, *args, **kwargs):
     from brevitas.quant_tensor import _unpack_quant_tensor
     from brevitas.quant_tensor import IntQuantTensor
@@ -179,9 +188,7 @@ def quant_layer(fn, quant_input, quant_weight, bias, *args, **kwargs):
 
     if bias is not None:
         if output_scale is not None:
-            if (isinstance(bias, IntQuantTensor) and
-                    not torch.allclose(bias.scale, output_scale)) or not isinstance(bias,
-                                                                                    IntQuantTensor):
+            if not isinstance(bias, IntQuantTensor):
                 channel_dim = -1 if isinstance(fn, torch.nn.Linear) else 1
                 output_scale_broadcast_shape = compute_channel_view_shape(
                     quant_input, channel_dim=channel_dim)
@@ -193,12 +200,7 @@ def quant_layer(fn, quant_input, quant_weight, bias, *args, **kwargs):
             output_bit_width = output_bit_width + 1
 
     if compute_output_quant_tensor:
-        if (isinstance(quant_input, IntQuantTensor) and
-            (quant_input.zero_point != 0.0).any()) or (isinstance(quant_weight, IntQuantTensor) and
-                                                       (quant_weight.zero_point != 0.0).any()):
-            warnings.warn("Computing zero point of output accumulator not supported yet.")
-            compute_output_quant_tensor = False
-
+        compute_output_quant_tensor = check_zp(quant_input, quant_weight)
     if compute_output_quant_tensor:
         if output_zero_point is None:
             output_zero_point = torch.zeros(1).type_as(output)

@@ -99,17 +99,18 @@ class BiasQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector, BiasQuantP
         super().__init__(quant_layer, quant_injector)
         self._cached_bias = None
         self.cache_inference_quant_bias = False
+        self.requires_input_scale = self.quant_injector.requires_input_scale and self.is_quant_enabled
 
     @property
     def tracked_parameter_list(self):
         return [m.bias for m in self.tracked_module_list if m.bias is not None]
 
-    @property
-    def requires_input_scale(self) -> bool:
-        if self.is_quant_enabled:
-            return self.quant_injector.requires_input_scale
-        else:
-            return False
+    # @property
+    # def requires_input_scale and self.is_quant_enabled(self) -> bool:
+    #     if self.is_quant_enabled:
+    #         return self.quant_injector.requires_input_scale and self.is_quant_enabled
+    #     else:
+    #         return False
 
     def get_cached(self, attr):
         if self._cached_bias is None:
@@ -249,7 +250,7 @@ class BiasQuantProxyFromInjector(BiasQuantProxyFromInjectorBase):
     def scale(self):
         if not self.is_quant_enabled:
             return None
-        if self.requires_input_scale:
+        if self.requires_input_scale and self.is_quant_enabled and self.is_quant_enabled:
             cache = self.get_cached('scale')
             return cache
         zhs = self._zero_hw_sentinel()
@@ -282,7 +283,7 @@ class BiasQuantProxyFromInjector(BiasQuantProxyFromInjectorBase):
             self,
             input: Optional[Union[Tensor, IntQuantTensor]],
             weight: Optional[Union[Tensor, IntQuantTensor]]) -> Optional[Tensor]:
-        if not self.requires_input_scale:
+        if not self.requires_input_scale and self.is_quant_enabled:
             return None
         if not isinstance(input, IntQuantTensor) or not isinstance(weight, IntQuantTensor):
             return None
@@ -305,12 +306,12 @@ class BiasQuantProxyFromInjector(BiasQuantProxyFromInjectorBase):
         input_scale = self.compute_bias_scale(input, weight)
         if self.is_quant_enabled:
             impl = self.export_handler if self.export_mode else self.tensor_quant
-            if self.requires_input_scale and input_scale is None:
+            if self.requires_input_scale and self.is_quant_enabled and input_scale is None:
                 input_scale = self.scale()
                 if input_scale is None:
                     raise RuntimeError("Input scale required")
 
-            if self.requires_input_scale:
+            if self.requires_input_scale and self.is_quant_enabled:
                 input_scale = input_scale.view(-1)
                 out, out_scale, out_zp, out_bit_width = impl(x, input_scale)
             else:

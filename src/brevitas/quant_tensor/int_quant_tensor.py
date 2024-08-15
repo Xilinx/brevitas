@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import torch
+from torch._dynamo import allow_in_graph
+from torch.utils._pytree import register_pytree_node
 
 from brevitas.function.ops import max_int
 from brevitas.function.ops import min_int
@@ -20,19 +22,20 @@ BFLOAT16_IS_VALID_ATOL = 0.5
 
 class IntQuantTensor(IntQuantTensorBase, QuantTensor):
 
-    def __new__(cls, value, scale, zero_point, bit_width, signed, training):
+    def __new__(cls, value, scale, zero_point, bit_width, signed, training, _zero_zero_point=False):
 
-        if not isinstance(scale, torch.Tensor):
+        if not isinstance(scale, (torch.Tensor, torch.fx.proxy.Proxy)):
             scale = torch.tensor(scale, dtype=torch.float)
-        if not isinstance(zero_point, torch.Tensor):
+        if not isinstance(zero_point, (torch.Tensor, torch.fx.proxy.Proxy)):
             zero_point = torch.tensor(zero_point, dtype=torch.float)
-        if not isinstance(bit_width, torch.Tensor):
+        if not isinstance(bit_width, (torch.Tensor, torch.fx.proxy.Proxy)):
             bit_width = torch.tensor(bit_width, dtype=torch.float)
-        if not isinstance(signed, torch.Tensor):
+        if not isinstance(signed, (torch.Tensor, torch.fx.proxy.Proxy)):
             signed = torch.tensor(signed, dtype=torch.bool)
-        if not isinstance(training, torch.Tensor):
+        if not isinstance(training, (torch.Tensor, torch.fx.proxy.Proxy)):
             training = torch.tensor(training, dtype=torch.bool)
         quant_tensor = super().__new__(cls, value, scale, zero_point, bit_width, signed, training)
+        quant_tensor._zero_zero_point = _zero_zero_point
         return quant_tensor
 
     @property
@@ -362,3 +365,13 @@ class IntQuantTensor(IntQuantTensorBase, QuantTensor):
 
     def __pos__(self):
         return self
+
+
+# def flatten(int_qt):
+#     return list(int_qt._fields.keys(), int_qt._fields.values())
+# def unflatten(key, values):
+#     init_args = dict(zip(key, values))
+#     return IntQuantTensor(**init_args)
+
+# register_pytree_node(IntQuantTensor, flatten_fn=flatten, unflatten_fn=unflatten)
+allow_in_graph(IntQuantTensor)

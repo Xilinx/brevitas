@@ -37,7 +37,8 @@ def model_eval(model, valenc, seqlen):
     dev = next(iter(model.parameters())).device
     with torch.no_grad():
         nlls = []
-        for inps in valenc:
+        for inps in tqdm(valenc):
+            inps = {k: v.to(dev) for k, v in inps.items()}
             lm_logits = model(**inps)['logits']
             shift_logits = lm_logits[:, :-1, :].contiguous()
             shift_labels = inps['input_ids'][:, 1:].to(dev)

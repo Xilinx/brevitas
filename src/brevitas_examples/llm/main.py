@@ -373,12 +373,20 @@ def main():
 
     if args.compile:
         print("Applying compile")
-        model = torch.compile(model)
+        remove_hooks(model)
+        model = torch.compile(model, fullgraph=True)
+        offload_model(model)
+        # Pre-compile
+        with torch.no_grad():
+            model(**val_data[0])
 
+    import time
+    start = time.time()
     if args.eval:
         print("Model eval...")
         ppl = model_eval(model, val_data, args.seqlen)
         print(f"C4 perplexity: {ppl}")
+    print(time.time() - start)
     remove_hooks(model)
 
     if args.export_target:

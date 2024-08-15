@@ -13,6 +13,7 @@ from typing_extensions import runtime_checkable
 from brevitas import config
 from brevitas.common import ExportMixin
 from brevitas.core.utils import StatelessBuffer
+from brevitas.core.zero_point import ZeroZeroPoint
 from brevitas.inject import BaseInjector as Injector
 from brevitas.utils.quant_utils import float_to_int_impl_to_enum
 
@@ -29,15 +30,11 @@ def _is_groupwise(quant_injector):
 
 
 def _is_signed(quant_injector):
-    if 'signed' in quant_injector:
-        return quant_injector.signed
-    return None
+    return quant_injector.signed
 
 
 def _is_narrow_range(quant_injector):
-    if 'narrow_range' in quant_injector:
-        return quant_injector.narrow_range
-    return None
+    return quant_injector.narrow_range
 
 
 def _rounding_mode(quant_injector):
@@ -88,6 +85,8 @@ class QuantProxyFromInjector(ExportMixin, nn.Module, QuantProxyProtocol):
         self.tracked_module_list = []
         self.add_tracked_module(quant_layer)
         self.disable_quant = False
+        self.is_zero_zero_point = self.quant_injector.zero_point_impl == ZeroZeroPoint if 'zero_point_impl' in quant_injector else False
+        self.is_signed = self.quant_injector.signed if 'signed' in quant_injector else None
 
     @property
     def requires_export_handler(self):
@@ -108,9 +107,9 @@ class QuantProxyFromInjector(ExportMixin, nn.Module, QuantProxyProtocol):
     def is_quant_enabled(self):
         return not self.disable_quant and self.tensor_quant is not None
 
-    @property
-    def is_signed(self):
-        return _is_signed(self.quant_injector)
+    # @property
+    # def is_signed(self):
+    #     return _is_signed(self.quant_injector)
 
     @property
     def is_groupwise(self):
