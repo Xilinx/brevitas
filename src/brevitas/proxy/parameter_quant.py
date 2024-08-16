@@ -324,7 +324,13 @@ class BiasQuantProxyFromInjector(BiasQuantProxyFromInjectorBase):
                 out, out_scale, out_zp, out_bit_width = impl(x)
 
             out = IntQuantTensor(
-                out, out_scale, out_zp, out_bit_width, self.is_signed, self.training)
+                out,
+                out_scale,
+                out_zp,
+                out_bit_width,
+                self.is_signed,
+                self.training,
+                _zero_zero_point=self.is_zero_zero_point)
         else:
             out = x
         if isinstance(out,

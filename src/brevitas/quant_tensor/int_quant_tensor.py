@@ -19,7 +19,12 @@ from .torch_handler import QUANT_TENSOR_FN_HANDLER
 
 TORCH_GE_20 = torch_version >= packaging.version.parse('2.0')
 if TORCH_GE_20:
+    dtype_check = (torch.Tensor, torch.fx.Proxy)
+    proxy_check = lambda x: isinstance(x, (torch.fx.Proxy,))
     from torch._dynamo import allow_in_graph
+else:
+    dtype_check = (torch.Tensor,)
+    proxy_check = lambda x: False
 
 IS_VALID_ATOL = 2e-1
 BFLOAT16_IS_VALID_ATOL = 0.5
@@ -27,32 +32,33 @@ BFLOAT16_IS_VALID_ATOL = 0.5
 
 class IntQuantTensor(IntQuantTensorBase, QuantTensor):
 
-    def __new__(cls, value, scale, zero_point, bit_width, signed, training, _zero_zero_point=False):
+    def __new__(cls, value, scale, zero_point, bit_width, signed, training, _zero_zero_point=None):
 
-        if not isinstance(scale,
-                          (torch.Tensor)) or (TORCH_GE_20 and not isinstance(scale,
-                                                                             (torch.fx.Proxy))):
+        if _zero_zero_point is None and proxy_check(scale):
+            _zero_zero_point = cls.is_zero_zero_point(zero_point)
+
+        if not isinstance(scale, dtype_check):
             scale = torch.tensor(scale, dtype=torch.float)
-        if not isinstance(zero_point, torch.Tensor) or (TORCH_GE_20 and
-                                                        not isinstance(zero_point,
-                                                                       (torch.fx.Proxy))):
+        if not isinstance(zero_point, dtype_check):
             zero_point = torch.tensor(zero_point, dtype=torch.float)
-        if not isinstance(bit_width, torch.Tensor) or (TORCH_GE_20 and
-                                                       not isinstance(bit_width, (torch.fx.Proxy))):
+        if not isinstance(bit_width, dtype_check):
             bit_width = torch.tensor(bit_width, dtype=torch.float)
-        if not isinstance(signed, torch.Tensor) or (TORCH_GE_20 and
-                                                    not isinstance(signed, (torch.fx.Proxy))):
+        if not isinstance(signed, dtype_check):
             signed = torch.tensor(signed, dtype=torch.bool)
-        if not isinstance(training, torch.Tensor) or (TORCH_GE_20 and
-                                                      not isinstance(training, (torch.fx.Proxy))):
+        if not isinstance(training, dtype_check):
             training = torch.tensor(training, dtype=torch.bool)
-        quant_tensor = super().__new__(cls, value, scale, zero_point, bit_width, signed, training)
-        quant_tensor._zero_zero_point = _zero_zero_point
+
+        quant_tensor = super().__new__(
+            cls, value, scale, zero_point, bit_width, signed, training, _zero_zero_point)
         return quant_tensor
 
     @property
     def signed(self):
         return self.signed_t.item()
+
+    @property
+    def _zero_zero_point(self):
+        return self.zero_zero_point_
 
     @property
     def training(self):
@@ -238,10 +244,12 @@ class IntQuantTensor(IntQuantTensorBase, QuantTensor):
                     output_scale = sum([qt.scale for qt in tensors]) / len(tensors)
                     output_zero_point = sum([qt.zero_point for qt in tensors]) / len(tensors)
                     output_bit_width = sum([qt.bit_width for qt in tensors]) / len(tensors)
+                    zero_zero_point = all([qt._zero_zero_point for qt in tensors])
                 else:  # at eval time, they are the same
                     output_scale = first_qt.scale
                     output_zero_point = first_qt.zero_point
                     output_bit_width = first_qt.bit_width
+                    zero_zero_point = first_qt._zero_zero_point
                 output_signed = first_qt.signed  # they are the same
                 return IntQuantTensor(
                     value=output_value,
@@ -249,7 +257,8 @@ class IntQuantTensor(IntQuantTensorBase, QuantTensor):
                     zero_point=output_zero_point,
                     bit_width=output_bit_width,
                     signed=output_signed,
-                    training=output_training)
+                    training=output_training,
+                    _zero_zero_point=zero_zero_point)
             else:
                 tensors = [_unpack_quant_tensor(qt) for qt in tensors]
                 output_value = torch.cat(tensors, dim=dim)
@@ -291,13 +300,15 @@ class IntQuantTensor(IntQuantTensorBase, QuantTensor):
             output_bit_width = ceil_ste(torch.log2(max_val - min_val))
             output_signed = self.signed or other.signed
             output_training = self.training or other.training
+            zero_zero_point = self._zero_zero_point and other._zero_zero_point
             output = IntQuantTensor(
                 value=output_value,
                 scale=output_scale,
                 zero_point=output_zero_point,
                 bit_width=output_bit_width,
                 signed=output_signed,
-                training=output_training)
+                training=output_training,
+                _zero_zero_point=zero_zero_point)
         elif isinstance(other, QuantTensor):
             output = self.value + _unpack_quant_tensor(other)
         else:
@@ -309,7 +320,8 @@ class IntQuantTensor(IntQuantTensorBase, QuantTensor):
                 zero_point=self.zero_point - _unpack_quant_tensor(other) / self.scale,
                 bit_width=self.bit_width,
                 signed=self.signed,
-                training=self.training)
+                training=self.training,
+                _zero_zero_point=self._zero_zero_point)
         return output
 
     def __mul__(self, other):
@@ -319,7 +331,8 @@ class IntQuantTensor(IntQuantTensorBase, QuantTensor):
             output_bit_width = self.bit_width + other.bit_width
             output_signed = self.signed or other.signed
             output_training = self.training or other.training
-            if self.is_zero_zero_point(self) and self.is_zero_zero_point(other):
+            zero_zero_point = self._zero_zero_point and other._zero_zero_point
+            if zero_zero_point:
                 output_zero_point = self.zero_point * other.zero_point
             else:
                 raise RuntimeError("Zero-points of mul operands are non-zero, not supported.")
@@ -329,7 +342,8 @@ class IntQuantTensor(IntQuantTensorBase, QuantTensor):
                 zero_point=output_zero_point,
                 bit_width=output_bit_width,
                 signed=output_signed,
-                training=output_training)
+                training=output_training,
+                _zero_zero_point=zero_zero_point)
         else:
             output = self.value * _unpack_quant_tensor(other)
         return output

@@ -34,9 +34,7 @@ class QuantTensor:
         return qt_type(*values)
 
     def set(self, **kwargs):
-        zzp = self._zero_zero_point
         new_instance = self._replace(**kwargs)
-        new_instance._zero_zero_point = zzp
         return new_instance
 
     @property
@@ -102,6 +100,7 @@ class IntQuantTensorBase(NamedTuple):
     bit_width: Tensor
     signed_t: Tensor
     training_t: Tensor
+    zero_zero_point_: bool
 
 
 class FloatQuantTensorBase(NamedTuple):

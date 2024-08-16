@@ -27,6 +27,8 @@ from brevitas.quant_tensor import QuantTensor
 
 from .utils import filter_kwargs
 
+TORCHE_GE_20 = torch_version > packaging.version.parse('2.0')
+
 
 class QuantProxyMixin(object):
     __metaclass__ = ABCMeta
@@ -89,7 +91,7 @@ class QuantLayerMixin(ExportMixin):
             qt_class = self.get_quant_tensor_class(inp)
             if qt_class is not None:
                 inp = qt_class(*inp)
-        if not torch._C._get_tracing_state() and (torch_version > packaging.version.parse('2.0') and
+        if not torch._C._get_tracing_state() and (TORCHE_GE_20 and
                                                   not torch._dynamo.is_compiling()):
             if isinstance(inp, QuantTensor):
                 inp = inp.set(value=inp.value.rename(None))

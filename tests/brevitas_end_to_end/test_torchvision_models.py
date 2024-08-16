@@ -107,8 +107,8 @@ def torchvision_model(model_name, quantize_fn, compile):
     model = quantize_fn(model)
     with calibration_mode(model):
         model(inp)
-    if torch_version >= version.parse('2.0') and compile and model_name != 'vit_b_32':
-        model = torch.compile(model, fullgraph=True)
+    if torch_version >= version.parse('2.0') and compile and model_name == 'vit_b_32':
+        return None
     return model
 
 

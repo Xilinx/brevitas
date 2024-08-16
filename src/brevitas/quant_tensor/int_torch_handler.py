@@ -204,18 +204,23 @@ def quant_layer(fn, quant_input, quant_weight, bias, *args, **kwargs):
     if compute_output_quant_tensor:
         if output_zero_point is None:
             output_zero_point = torch.zeros(1).type_as(output)
+            zero_zero_point = True
+        else:
+            zero_zero_point = False
         return create_int_quant_tensor(
             output,
             output_scale,
             output_bit_width,
             output_zero_point,
             output_signed,
-            output_training)
+            output_training,
+            zero_zero_point)
     else:
         return output
 
 
-def create_int_quant_tensor(tensor, scale, bit_width, zero_point, signed, training):
+def create_int_quant_tensor(
+        tensor, scale, bit_width, zero_point, signed, training, zero_zero_point):
     from brevitas.quant_tensor import IntQuantTensor
     return IntQuantTensor(
         tensor,
@@ -223,7 +228,8 @@ def create_int_quant_tensor(tensor, scale, bit_width, zero_point, signed, traini
         zero_point=zero_point,
         bit_width=bit_width,
         signed=signed,
-        training=training)
+        training=training,
+        _zero_zero_point=zero_zero_point)
 
 
 def quant_output_scale_impl(
