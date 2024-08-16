@@ -85,9 +85,10 @@ class QuantProxyFromInjector(ExportMixin, nn.Module, QuantProxyProtocol):
         self.tracked_module_list = []
         self.add_tracked_module(quant_layer)
         self.disable_quant = False
-        self.is_zero_zero_point = type(
-            self.quant_injector.zero_point_impl
-        ) is ZeroZeroPoint if 'zero_point_impl' in self.quant_injector else False
+        self.is_zero_zero_point = False
+        for m in self.modules():
+            if isinstance(m, ZeroZeroPoint):
+                self.is_zero_zero_point = True
         self.is_signed = self.quant_injector.signed if 'signed' in quant_injector else None
 
     @property
