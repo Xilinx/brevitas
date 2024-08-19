@@ -3,9 +3,9 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 """
 
-import sys
 import argparse
 import re
+import sys
 
 import numpy as np
 from optimum.amd.brevitas.accelerate_utils import offload_model
@@ -130,6 +130,8 @@ def main(args):
     print("Model loaded.")
     model.eval()
     tokenizer = AutoTokenizer.from_pretrained(args.model)
+    float_ppl = None
+    quant_ppl = None
 
     if args.load_awq:
         from brevitas_examples.llm.llm_quant.awq.pre_quant import apply_awq
@@ -174,10 +176,10 @@ def main(args):
         assert args.export_target != 'torch_qcdq', "TorchScript QCDQ export and Evaluation simultaneously"
         print("Float model eval...")
         model = offload_model(model)
-        ppl = compute_perplexity(
+        float_ppl = compute_perplexity(
             model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
         remove_hooks(model)
-        print(f"Float perplexity ({args.dataset}): {ppl}")
+        print(f"Float perplexity ({args.dataset}): {float_ppl}")
 
     if require_fx:
         model = get_fx(model)
@@ -281,9 +283,9 @@ def main(args):
 
     if args.eval:
         print("Model eval...")
-        ppl = compute_perplexity(
+        quant_ppl = compute_perplexity(
             model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
-        print(f"Quantized perplexity ({args.dataset}): {ppl}")
+        print(f"Quantized perplexity ({args.dataset}): {quant_ppl}")
     remove_hooks(model)
 
     if args.checkpoint_name is not None:
@@ -296,6 +298,8 @@ def main(args):
         model = model.to(dtype=torch.float32)
         model_export(model, calibration_loader[0], args)
 
+    return float_ppl, quant_ppl, model
+
 
 def parse_args(args):
     parser = argparse.ArgumentParser()
@@ -307,7 +311,10 @@ def parse_args(args):
     parser.add_argument(
         '--seed', type=int, default=0, help='Seed for sampling the calibration data. Default: 0.')
     parser.add_argument(
-        '--nsamples', type=int, default=128, help='Number of calibration data samples. Default: 128.')
+        '--nsamples',
+        type=int,
+        default=128,
+        help='Number of calibration data samples. Default: 128.')
     parser.add_argument('--seqlen', type=int, default=2048, help='Sequence length. Default: 2048.')
     parser.add_argument('--eval', action='store_true', help='Eval model PPL on the chosen Dataset.')
     parser.add_argument(
@@ -316,7 +323,8 @@ def parse_args(args):
         choices=['wikitext2', 'c4'],
         default='wikitext2',
         help='Dataset to use for quantization (default: %(default)s)')
-    parser.add_argument('--weight-bit-width', type=int, default=8, help='Weight bit width. Default: 8.')
+    parser.add_argument(
+        '--weight-bit-width', type=int, default=8, help='Weight bit width. Default: 8.')
     parser.add_argument(
         '--weight-param-method',
         type=str,
@@ -409,7 +417,8 @@ def parse_args(args):
     parser.add_argument(
         '--quantize-last-layer', action='store_true', help='Quantize last nn.Linear layer.')
     parser.add_argument('--gptq', action='store_true', help='Apply GPTQ.')
-    parser.add_argument('--act-calibration', action='store_true', help='Apply activation calibration.')
+    parser.add_argument(
+        '--act-calibration', action='store_true', help='Apply activation calibration.')
     parser.add_argument('--bias-corr', action='store_true', help='Apply bias correction.')
     parser.add_argument('--ln-affine-merge', action='store_true', help='Merge LN affine params.')
     parser.add_argument('--no-quantize', action='store_true', help='Disable quantization.')
@@ -449,6 +458,7 @@ def parse_args(args):
         default=None,
         help="Filename to save checkpoint. If `None`, no checkpoint is saved (default: %(default)s)")
     return parser.parse_args(args)
+
 
 if __name__ == '__main__':
     args = parse_args(sys.argv[1:])
