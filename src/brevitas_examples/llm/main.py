@@ -368,6 +368,7 @@ def main():
         remove_hooks(model)
 
     if not args.no_quantize:
+        name_blacklist = []
         print("Applying model quantization...")
         linear_input_quant, weight_quant, input_quant, q_scaled_quant, k_transposed_quant, v_quant, attn_output_weights_quant = generate_quantizers(
             dtype=dtype,
@@ -403,7 +404,9 @@ def main():
             device=device,
             input_quant_format=args.input_quant_format,
             quantize_embedding=args.quantize_embedding)
-        model = layerwise_quantize(model=model, compute_layer_map=layer_map, name_blacklist=None)
+        if not args.quantize_last_layer:
+            name_blacklist += ["lm_head"]
+        model = layerwise_quantize(model=model, compute_layer_map=layer_map, name_blacklist=name_blacklist)
         # Tie back first/last layer weights in case they got untied
         print("Model quantization applied.")
 
