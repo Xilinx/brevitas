@@ -223,10 +223,10 @@ def main(args):
     non_blacklist = dict()
     for name, _ in pipe.unet.named_modules():
         if 'time_emb' in name:
-            blacklist.append(name.split('.')[-1])
+            blacklist.append(name)
         else:
             if isinstance(_, (torch.nn.Linear, torch.nn.Conv2d)):
-                name_to_add = name.split('.')[-1]
+                name_to_add = name
                 if name_to_add not in non_blacklist:
                     non_blacklist[name_to_add] = 1
                 else:
