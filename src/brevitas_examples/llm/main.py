@@ -146,8 +146,6 @@ parser.add_argument(
 parser.add_argument(
     '--quantize-input-zero-point', action='store_true', help='Quantize input zero-point.')
 parser.add_argument(
-    '--quantize-embedding', action='store_true', help='Quantize first nn.Embedding layer.')
-parser.add_argument(
     '--quantize-last-layer', action='store_true', help='Quantize last nn.Linear layer.')
 parser.add_argument('--gptq', action='store_true', help='Apply GPTQ.')
 parser.add_argument('--act-calibration', action='store_true', help='Apply activation calibration.')
@@ -403,7 +401,7 @@ def main():
             dtype=dtype,
             device=device,
             input_quant_format=args.input_quant_format,
-            quantize_embedding=args.quantize_embedding)
+            quantize_embedding=False)
         if not args.quantize_last_layer:
             name_blacklist += ["lm_head"]
         model = layerwise_quantize(
