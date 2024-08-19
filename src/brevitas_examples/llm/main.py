@@ -406,7 +406,8 @@ def main():
             quantize_embedding=args.quantize_embedding)
         if not args.quantize_last_layer:
             name_blacklist += ["lm_head"]
-        model = layerwise_quantize(model=model, compute_layer_map=layer_map, name_blacklist=name_blacklist)
+        model = layerwise_quantize(
+            model=model, compute_layer_map=layer_map, name_blacklist=name_blacklist)
         # Tie back first/last layer weights in case they got untied
         print("Model quantization applied.")
 
