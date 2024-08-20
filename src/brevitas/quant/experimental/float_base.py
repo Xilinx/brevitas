@@ -62,3 +62,24 @@ class Fp8e5m2Mixin(ExtendedInjector):
     exponent_bit_width = 5
     mantissa_bit_width = 2
     saturating = True
+
+
+class Fp6e3m2Mixin(ExtendedInjector):
+    bit_width = 6
+    exponent_bit_width = 3
+    mantissa_bit_width = 2
+    saturating = True
+
+
+class Fp6e2m3Mixin(ExtendedInjector):
+    bit_width = 6
+    exponent_bit_width = 2
+    mantissa_bit_width = 3
+    saturating = True
+
+
+class Fp4e2m1Mixin(ExtendedInjector):
+    bit_width = 4
+    exponent_bit_width = 2
+    mantissa_bit_width = 1
+    saturating = True

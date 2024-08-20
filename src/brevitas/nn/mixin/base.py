@@ -21,6 +21,8 @@ from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import FloatQuantTensor
 from brevitas.quant_tensor import IntQuantTensor
 from brevitas.quant_tensor import QuantTensor
+from brevitas.quant_tensor.groupwise_float_quant_tensor import GroupwiseFloatQuantTensor
+from brevitas.quant_tensor.groupwise_int_quant_tensor import GroupwiseIntQuantTensor
 
 from .utils import filter_kwargs
 
@@ -71,7 +73,8 @@ class QuantLayerMixin(ExportMixin):
         config._IS_INSIDE_QUANT_LAYER = value
 
     def get_quant_tensor_class(self, inp: Union[Tensor, QuantTensor]):
-        quant_tensor_classes = [IntQuantTensor, FloatQuantTensor]
+        quant_tensor_classes = [
+            IntQuantTensor, FloatQuantTensor, GroupwiseIntQuantTensor, GroupwiseFloatQuantTensor]
         for qt_class in quant_tensor_classes:
             if len(inp) == len(qt_class._fields):
                 return qt_class

@@ -14,6 +14,7 @@ from brevitas.core.function_wrapper import TensorClamp
 from brevitas.core.function_wrapper import TensorClampSte
 from brevitas.core.scaling import *
 from brevitas.core.scaling import ScalingImplType
+from brevitas.core.scaling import ScalingPerOutputType
 from brevitas.inject import ExtendedInjector
 from brevitas.quant.solver.common import *
 
@@ -108,10 +109,33 @@ class SolveParameterScalingImplFromEnum(SolveAffineRescalingFromEnum):
 class SolveParameterScalingShape(ExtendedInjector):
 
     @value
-    def scaling_shape(scaling_per_output_channel):
-        # this pattern of returning this.something allows to resolve scaling_output_channel_shape
-        # only when scaling_per_output_channel is True
-        if scaling_per_output_channel:
-            return this.scaling_per_output_channel_shape
-        else:
+    def scaling_shape(module, group_size=None, scaling_per_output=None):
+        if scaling_per_output == ScalingPerOutputType.TENSOR:
             return SCALAR_SHAPE
+        elif scaling_per_output == ScalingPerOutputType.CHANNEL:
+            return this.scaling_per_output_channel_shape
+        elif scaling_per_output == ScalingPerOutputType.GROUP:
+            assert group_size is not None, "Per Group scaling requires group size"
+            size = list(module.weight.shape)
+            assert size[1] % group_size == 0, 'Input channel is not divisible by group size'
+            size[1] = size[1] // group_size
+            size.insert(2, 1)
+            return size
+
+    @value
+    def reshaped_scaling_shape(module):
+        return module.weight.shape
+
+    @value
+    def expanded_scaling_shape(module, group_size=None):
+        assert group_size is not None, "Per Group scaling requires group size"
+        size = list(module.weight.shape)
+        assert size[1] % group_size == 0, 'Input channel is not divisible by group size'
+        size[1] = size[1] // group_size
+        size.insert(2, group_size)
+        return size
+
+    @value
+    def group_dim(module, group_size=None):
+        if group_size is not None:
+            return 1

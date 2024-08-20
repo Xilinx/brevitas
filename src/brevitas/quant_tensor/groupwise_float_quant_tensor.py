@@ -4,8 +4,8 @@
 import torch
 
 from brevitas.quant_tensor import _unpack_quant_tensor
-from brevitas.quant_tensor import FloatQuantTensorBase
-from brevitas.quant_tensor import QuantTensor
+from brevitas.quant_tensor.base_quant_tensor import GroupwiseFloatQuantTensorBase
+from brevitas.quant_tensor.base_quant_tensor import QuantTensor
 from brevitas.utils.torch_utils import float_internal_scale
 
 from .float_torch_handler import FLOAT_QUANT_TENSOR_FN_HANDLER
@@ -15,13 +15,15 @@ IS_VALID_ATOL = 2e-1
 BFLOAT16_IS_VALID_ATOL = 0.5
 
 
-class FloatQuantTensor(FloatQuantTensorBase, QuantTensor):
+class GroupwiseFloatQuantTensor(GroupwiseFloatQuantTensorBase, QuantTensor):
 
     def __new__(
             cls,
             value,
             scale,
             zero_point,
+            group_size,
+            group_dim,
             exponent_bit_width,
             mantissa_bit_width,
             exponent_bias,
@@ -52,6 +54,8 @@ class FloatQuantTensor(FloatQuantTensorBase, QuantTensor):
             value,
             scale,
             zero_point,
+            group_size,
+            group_dim,
             exponent_bit_width,
             mantissa_bit_width,
             exponent_bias,
@@ -74,37 +78,70 @@ class FloatQuantTensor(FloatQuantTensorBase, QuantTensor):
     def saturating(self):
         return self.saturating_t.item()
 
-    @property
-    def eps(self):
-        return torch.finfo(self.scale.dtype).tiny
-
     def __torch_function__(self, func, types, args=(), kwargs=None):
         if kwargs is None:
             kwargs = {}
-        if func in FLOAT_QUANT_TENSOR_FN_HANDLER:
-            return FLOAT_QUANT_TENSOR_FN_HANDLER[func](*args, **kwargs)
-        elif func in QUANT_TENSOR_FN_HANDLER:
+        if func in QUANT_TENSOR_FN_HANDLER:
             return QUANT_TENSOR_FN_HANDLER[func](*args, **kwargs)
         else:
             args = _unpack_quant_tensor(args)
             kwargs = _unpack_quant_tensor(kwargs)
             return func(*args, **kwargs)
 
+    def expand(self):
+        curr_shape = self.value_.shape
+        new_value = self.value_.flatten(self.group_dim, self.group_dim + 1)
+        if self.scale_.shape != ():
+            new_scale = self.scale_.expand(curr_shape).flatten(self.group_dim, self.group_dim + 1)
+        else:
+            new_scale = self.scale_
+        if self.zero_point_.shape != ():
+            new_zp = self.zero_point_.expand(curr_shape).flatten(self.group_dim, self.group_dim + 1)
+        else:
+            new_zp = self.zero_point_
+
+        return new_value, new_scale, new_zp
+
+    @staticmethod
+    def from_expanded(value, group_size, group_dim, compress=False):
+        size = list(value.shape)
+        assert size[group_dim] % group_size == 0, 'Input channel is not divisible by group size'
+        if compress:
+            size[group_dim] = 1
+        else:
+            size[group_dim] = size[group_dim] // group_size
+        size.insert(group_dim + 1, group_size)
+        new_value = value.view(size)
+        return new_value
+
     @property
     def tensor(self):
         return self.value
 
     @property
+    def value(self):
+        new_value, new_scale, new_zp = self.expand()
+        return new_value
+
+    @property
+    def scale(self):
+        new_value, new_scale, new_zp = self.expand()
+        return new_scale
+
+    @property
+    def zero_point(self):
+        new_value, new_scale, new_zp = self.expand()
+        return new_zp
+
+    @property
     def _pre_round_float_value(self):
-        value = self.value
-        scale = self.scale
+        value, scale, zp = self.expand()
         if self.scale.dtype == torch.bfloat16:
-            value = self.value.type(torch.float32)
-            scale = self.scale.type(torch.float32)
+            value = value.type(torch.float32)
+            scale = scale.type(torch.float32)
         minifloat_value = value / scale
         fp_internal_scale = 1. - self.exponent_bias - self.mantissa_bit_width
-        int_scale = float_internal_scale(
-            self.value, self.mantissa_bit_width, fp_internal_scale, self.eps)
+        int_scale = float_internal_scale(self.value, self.mantissa_bit_width, fp_internal_scale)
         minifloat_value = minifloat_value / int_scale
         return minifloat_value
 
@@ -122,7 +159,7 @@ class FloatQuantTensor(FloatQuantTensorBase, QuantTensor):
 
     @property
     def device(self):
-        value_device = self.value.device
+        value_device = self.value_.device
         is_same_device = True
         for t in [self.scale,
                   self.zero_point,
@@ -140,8 +177,7 @@ class FloatQuantTensor(FloatQuantTensorBase, QuantTensor):
 
         if self.is_valid:
             fp_internal_scale = 1. - self.exponent_bias - self.mantissa_bit_width
-            int_scale = float_internal_scale(
-                self.value, self.mantissa_bit_width, fp_internal_scale, self.eps)
+            int_scale = float_internal_scale(self.value, self.mantissa_bit_width, fp_internal_scale)
             float_value = torch.round(self._pre_round_float_value) * int_scale
             return float_value.type(self.scale.dtype)
         else:
@@ -149,12 +185,12 @@ class FloatQuantTensor(FloatQuantTensorBase, QuantTensor):
 
     @staticmethod
     def check_input_type(tensor):
-        if not isinstance(tensor, FloatQuantTensor):
-            raise RuntimeError("Tensor is not a FloatQuantTensor")
+        if not isinstance(tensor, GroupwiseFloatQuantTensor):
+            raise RuntimeError("Tensor is not a GroupwiseFloatQuantTensor")
 
     @staticmethod
     def is_zero_zero_point(tensor):
-        FloatQuantTensor.check_input_type(tensor)
+        GroupwiseFloatQuantTensor.check_input_type(tensor)
         return (tensor.zero_point == 0.).all()
 
     def check_scaling_factors_same(self, other):
@@ -189,94 +225,44 @@ class FloatQuantTensor(FloatQuantTensorBase, QuantTensor):
             raise RuntimeError("Signs are different")
 
     def view(self, *args, **kwargs):
-        return self.set(value=self.value.view(*args, **kwargs))
+        return self.value.view(*args, **kwargs)  #self.set(value=self.value.view(*args, **kwargs))
 
     def reshape(self, *args, **kwargs):
-        return self.set(value=self.value.reshape(*args, **kwargs))
+        return self.value.reshape(
+            *args, **kwargs)  # self.set(value=self.value.reshape(*args, **kwargs))
 
     def flatten(self, *args, **kwargs):
-        return self.set(value=self.value.flatten(*args, **kwargs))
+        return self.value.flatten(
+            *args, **kwargs)  #self.set(value=self.value.flatten(*args, **kwargs))
 
     def transpose(self, *args, **kwargs):
         value = self.value.transpose(*args, **kwargs)
-        tensor_meta = {'scale': self.scale, 'zero_point': self.zero_point}
-        for k, tm in tensor_meta.items():
-            if len(value.shape) == len(tm.shape):
-                tensor_meta[k] = tm.transpose(*args, **kwargs)
-        return self.set(value=value, **tensor_meta)
+        return value
 
     def permute(self, *args, **kwargs):
         value = self.value.permute(*args, **kwargs)
-        tensor_meta = {'scale': self.scale, 'zero_point': self.zero_point}
-        for k, tm in tensor_meta.items():
-            if len(value.shape) == len(tm.shape):
-                tensor_meta[k] = tm.permute(*args, **kwargs)
-        return self.set(value=value, **tensor_meta)
-
-    @staticmethod
-    def cat(tensors, dim, out=None):
-        if out is not None:
-            raise RuntimeError("Out not supported.")
-        if len(tensors) < 2:
-            return tensors[0]
-        else:
-            first_qt = tensors[0]
-            if all([isinstance(qt, FloatQuantTensor) for qt in tensors]):
-                for qt in tensors[1:]:
-                    first_qt.check_scaling_factors_same(qt)
-                    first_qt.check_zero_points_same(qt)
-                    first_qt.check_bit_width_same(qt)
-                    first_qt.check_exponent_bias(qt)
-                    first_qt.check_inf_nan_same(qt)
-                    first_qt.check_sign_same(qt)
-                output_value = torch.cat([qt.value for qt in tensors], dim=dim)
-                output_training = any([qt.training for qt in tensors])
-                if output_training:
-                    output_scale = sum([qt.scale for qt in tensors]) / len(tensors)
-                    output_zero_point = sum([qt.zero_point for qt in tensors]) / len(tensors)
-                    output_exponent_bit_width = sum([qt.exponent_bit_width for qt in tensors
-                                                    ]) / len(tensors)
-                    output_mantissa_bit_width = sum([qt.mantissa_bit_width for qt in tensors
-                                                    ]) / len(tensors)
-                    output_exponent_bias = sum([qt.exponent_bias for qt in tensors]) / len(tensors)
-                else:  # at eval time, they are the same
-                    output_scale = first_qt.scale
-                    output_zero_point = first_qt.zero_point
-                    output_exponent_bit_width = first_qt.exponent_bit_width
-                    output_mantissa_bit_width = first_qt.mantissa_bit_width
-                    output_exponent_bias = first_qt.exponent_bias
-                output_signed = first_qt.signed  # they are the same
-                output_saturating = first_qt.saturating  # they are the same
-                output_inf_values = first_qt.inf_values  # they are the same
-                output_nan_values = first_qt.nan_values  # they are the same
-                return FloatQuantTensor(
-                    value=output_value,
-                    scale=output_scale,
-                    zero_point=output_zero_point,
-                    exponent_bit_width=output_exponent_bit_width,
-                    mantissa_bit_width=output_mantissa_bit_width,
-                    exponent_bias=output_exponent_bias,
-                    saturating=output_saturating,
-                    inf_values=output_inf_values,
-                    nan_values=output_nan_values,
-                    signed=output_signed,
-                    training=output_training)
-            else:
-                tensors = [_unpack_quant_tensor(qt) for qt in tensors]
-                output_value = torch.cat(tensors, dim=dim)
-                return output_value
+        return value
 
     # Reference: https://docs.python.org/3/reference/datamodel.html#emulating-numeric-types
 
     def __neg__(self):
-        neg_value = (-self.minifloat(float_datatype=True) - self.zero_point) * self.scale
+        neg_deq = -self.minifloat(float_datatype=True)
+        _, scale, zp = self.expand()
+
+        neg_value = (-neg_deq - zp) * scale
         # In case the dtype of self.minifloat is different from the one of the scale
-        neg_value = neg_value.type(self.scale.dtype)
+        neg_value = neg_value.type(scale.dtype)
+        neg_value = GroupwiseFloatQuantTensor.from_expanded(
+            neg_value, self.group_size, self.group_dim, compress=False)
+        scale = GroupwiseFloatQuantTensor.from_expanded(
+            scale, self.group_size, self.group_dim, compress=True)
         if self.signed:
-            return FloatQuantTensor(
+            return GroupwiseFloatQuantTensor(
                 value=neg_value,
-                scale=self.scale,
+                scale=scale,
                 zero_point=self.zero_point,
+                group_size=self.group_size,
+                group_dim=self.group_dim,
                 exponent_bit_width=self.exponent_bit_width,
                 mantissa_bit_width=self.mantissa_bit_width,
                 exponent_bias=self.exponent_bias,
@@ -304,7 +290,7 @@ class FloatQuantTensor(FloatQuantTensorBase, QuantTensor):
         return output
 
     def __str__(self):
-        return f"FloatQuantTensor(value={self.value}, scale={self.scale}, zero_point={self.zero_point}, exponent_bit_width={self.exponent_bit_width}, mantissa_bit_width={self.mantissa_bit_width}, exponent_bias={self.exponent_bias}, inf_values={self.inf_values}, nan_values={self.nan_values}, signed_t={self.signed_t}, training_t={self.training_t})"
+        return f"GroupwiseFloatQuantTensor(value={self.value}, scale={self.scale}, zero_point={self.zero_point}, group_size={self.group_size}, group_dim={self.group_dim}, exponent_bit_width={self.exponent_bit_width}, mantissa_bit_width={self.mantissa_bit_width}, exponent_bias={self.exponent_bias}, inf_values={self.inf_values}, nan_values={self.nan_values}, signed_t={self.signed_t}, training_t={self.training_t})"
 
     def __truediv__(self, other):
         if isinstance(other, QuantTensor):
@@ -315,14 +301,23 @@ class FloatQuantTensor(FloatQuantTensorBase, QuantTensor):
 
     def __abs__(self):
         if self.signed:
-            abs_value = (
-                torch.abs(self.minifloat(float_datatype=True)) - self.zero_point) * self.scale
+            neg_deq = self.minifloat(float_datatype=True)
+            _, scale, zp = self.expand()
+
             # In case the dtype of self.minifloat is different from the one of the scale
-            abs_value = abs_value.type(self.scale.dtype)
-            return FloatQuantTensor(
+            abs_value = (neg_deq - zp) * scale
+            # In case the dtype of self.minifloat is different from the one of the scale
+            abs_value = abs_value.type(scale.dtype)
+            abs_value = GroupwiseFloatQuantTensor.from_expanded(
+                abs_value, self.group_size, self.group_dim, compress=False)
+            scale = GroupwiseFloatQuantTensor.from_expanded(
+                scale, self.group_size, self.group_dim, compress=True)
+            return GroupwiseFloatQuantTensor(
                 value=abs_value,
                 scale=self.scale,
                 zero_point=self.zero_point,
+                group_size=self.group_size,
+                group_dim=self.group_dim,
                 exponent_bit_width=self.exponent_bit_width,
                 mantissa_bit_width=self.mantissa_bit_width,
                 exponent_bias=self.exponent_bias,

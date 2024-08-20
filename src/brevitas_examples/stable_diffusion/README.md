@@ -97,17 +97,15 @@ usage: main.py [-h] [-m MODEL] [-d DEVICE] [-b BATCH_SIZE] [--prompt PROMPT]
                [--quantize-input-zero-point | --no-quantize-input-zero-point]
                [--export-cpu-float32 | --no-export-cpu-float32]
                [--use-mlperf-inference | --no-use-mlperf-inference]
-               [--use-ocp | --no-use-ocp] [--use-fnuz | --no-use-fnuz]
                [--use-negative-prompts | --no-use-negative-prompts]
-               [--dry-run | --no-dry-run]
-               [--quantize-sdp-1 | --no-quantize-sdp-1]
-               [--quantize-sdp-2 | --no-quantize-sdp-2]
+               [--dry-run | --no-dry-run] [--quantize-sdp | --no-quantize-sdp]
                [--override-conv-quant-config | --no-override-conv-quant-config]
                [--vae-fp16-fix | --no-vae-fp16-fix]
+               [--share-qkv-quant | --no-share-qkv-quant]
 
 Stable Diffusion quantization
 
-optional arguments:
+options:
   -h, --help            show this help message and exit
   -m MODEL, --model MODEL
                         Path or name of the model.
@@ -203,10 +201,14 @@ optional arguments:
                         Input quantization type. Default: asym.
   --weight-quant-format WEIGHT_QUANT_FORMAT
                         Weight quantization type. Either int or eXmY, with
-                        X+Y==weight_bit_width-1. Default: int.
+                        X+Y==weight_bit_width-1. It's possible to add
+                        float_ocp_ or float_fnuz_ before the exponent/mantissa
+                        bitwidth. Default: int.
   --input-quant-format INPUT_QUANT_FORMAT
                         Input quantization type. Either int or eXmY, with
-                        X+Y==input_bit_width-1. Default: int.
+                        X+Y==input_bit_width-1. It's possible to add
+                        float_ocp_ or float_fnuz_ before the exponent/mantissa
+                        bitwidth. Default: int.
   --weight-quant-granularity {per_channel,per_tensor,per_group}
                         Granularity for scales/zero-point of weights. Default:
                         per_channel.
@@ -242,14 +244,6 @@ optional arguments:
   --no-use-mlperf-inference
                         Disable Evaluate FID score with MLPerf pipeline.
                         Default: False
-  --use-ocp             Enable Use OCP format for float quantization. Default:
-                        True
-  --no-use-ocp          Disable Use OCP format for float quantization.
-                        Default: True
-  --use-fnuz            Enable Use FNUZ format for float quantization.
-                        Default: True
-  --no-use-fnuz         Disable Use FNUZ format for float quantization.
-                        Default: True
   --use-negative-prompts
                         Enable Use negative prompts during
                         generation/calibration. Default: Enabled
@@ -260,10 +254,8 @@ optional arguments:
                         calibration. Default: Disabled
   --no-dry-run          Disable Generate a quantized model without any
                         calibration. Default: Disabled
-  --quantize-sdp-1      Enable Quantize SDP. Default: Disabled
-  --no-quantize-sdp-1   Disable Quantize SDP. Default: Disabled
-  --quantize-sdp-2      Enable Quantize SDP. Default: Disabled
-  --no-quantize-sdp-2   Disable Quantize SDP. Default: Disabled
+  --quantize-sdp        Enable Quantize SDP. Default: Disabled
+  --no-quantize-sdp     Disable Quantize SDP. Default: Disabled
   --override-conv-quant-config
                         Enable Quantize Convolutions in the same way as SDP
                         (i.e., FP8). Default: Disabled
@@ -274,4 +266,7 @@ optional arguments:
                         Default: Disabled
   --no-vae-fp16-fix     Disable Rescale the VAE to not go NaN with FP16.
                         Default: Disabled
+  --share-qkv-quant     Enable Share QKV/KV quantization. Default: Disabled
+  --no-share-qkv-quant  Disable Share QKV/KV quantization. Default: Disabled
+
 ```

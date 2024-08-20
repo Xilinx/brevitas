@@ -115,6 +115,33 @@ class FloatQuantTensorBase(NamedTuple):
     training_t: Tensor
 
 
+class GroupwiseFloatQuantTensorBase(NamedTuple):
+    value_: Tensor
+    scale_: Tensor
+    zero_point_: Tensor
+    group_size: Tensor
+    group_dim: Tensor
+    exponent_bit_width: Tensor
+    mantissa_bit_width: Tensor
+    exponent_bias: Tensor
+    saturating_t: Tensor
+    inf_values: List[str]
+    nan_values: List[str]
+    signed_t: Tensor
+    training_t: Tensor
+
+
+class GroupwisIntQuantTensorBase(NamedTuple):
+    value_: Tensor
+    scale_: Tensor
+    zero_point_: Tensor
+    group_size: Tensor
+    group_dim: Tensor
+    bit_width: Tensor
+    signed_t: Tensor
+    training_t: Tensor
+
+
 def _unpack_quant_tensor(input_data):
     if isinstance(input_data, QuantTensor):
         return input_data.value

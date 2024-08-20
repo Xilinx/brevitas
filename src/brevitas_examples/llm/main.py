@@ -81,7 +81,8 @@ parser.add_argument(
     '--weight-quant-format',
     type=quant_format_validator,
     default='int',
-    help='Weight quantization type. Either int or eXmY, with X+Y==weight_bit_width-1. Default: int.'
+    help=
+    'Weight quantization type. Either int or eXmY, with X+Y==weight_bit_width-1. It\'s possible to add float_ocp_ or float_fnuz_ before the exponent/mantissa bitwidth. Default: int.'
 )
 parser.add_argument(
     '--weight-quant-granularity',
@@ -105,7 +106,9 @@ parser.add_argument(
     '--input-quant-format',
     type=quant_format_validator,
     default='int',
-    help='Input quantization type. Either int or eXmY, with X+Y==weight_bit_width-1. Default: int.')
+    help=
+    'Input quantization type. Either int or eXmY, with X+Y==weight_bit_width-1. It\'s possible to add float_ocp_ or float_fnuz_ before the exponent/mantissa bitwidth. Default: int.'
+)
 parser.add_argument(
     '--input-param-method',
     type=str,
@@ -187,10 +190,6 @@ parser.add_argument(
     type=str,
     default=None,
     help="Filename to save checkpoint. If `None`, no checkpoint is saved (default: %(default)s)")
-add_bool_arg(
-    parser, 'use-ocp', default=False, help='Use OCP format for float quantization. Default: False')
-add_bool_arg(
-    parser, 'use-fnuz', default=True, help='Use FNUZ format for float quantization. Default: True')
 
 
 def set_seed(seed):
@@ -253,9 +252,7 @@ def validate(args):
                 assert args.quantize_weight_zero_point, "Quantized weight zero point required."
             if args.input_bit_width is not None and args.input_quant_type == 'asym':
                 assert args.quantize_input_zero_point, "Quantized input zero point required."
-        if (args.input_bit_width and
-            (args.input_scale_type == 'static' or
-             (args.input_scale_type == 'dynamic' and args.input_quant_type == 'asym'))):
+        if args.input_bit_width and args.input_scale_type == 'static':
             assert args.act_calibration, "Static input quantization is being applied without activation calibration. Set --act-calibration."
         if (args.weight_equalization or args.act_equalization == 'fx'):
             if args.replace_mha:
@@ -387,8 +384,6 @@ def main():
             input_quant_granularity=args.input_quant_granularity,
             input_group_size=args.input_group_size,
             quantize_input_zero_point=args.quantize_input_zero_point,
-            use_ocp=args.use_ocp,
-            use_fnuz=args.use_fnuz,
             device=device)
         layer_map = generate_quant_maps(
             linear_input_quant=linear_input_quant,

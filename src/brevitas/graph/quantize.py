@@ -13,7 +13,6 @@ from brevitas.graph.equalize import EqualizeGraph
 from brevitas.graph.fixed_point import CollapseConsecutiveConcats
 from brevitas.graph.fixed_point import MergeBatchNorm
 from brevitas.graph.fixed_point import MoveSplitBatchNormBeforeCat
-from brevitas.graph.per_input import AdaptiveAvgPoolToAvgPool
 from brevitas.graph.quantize_impl import act_handler
 from brevitas.graph.quantize_impl import add_output_quant_handler
 from brevitas.graph.quantize_impl import inp_placeholder_handler
@@ -25,7 +24,6 @@ from brevitas.graph.standardize import DuplicateSharedStatelessModule
 from brevitas.graph.standardize import MeanMethodToAdaptiveAvgPool2d
 from brevitas.graph.standardize import RemoveStochasticModules
 from brevitas.graph.standardize import TorchFunctionalToModule
-from brevitas.nn import quant_layer
 import brevitas.nn as qnn
 from brevitas.quant import Int8ActPerTensorFloat
 from brevitas.quant import Int8ActPerTensorFloatMinMaxInit

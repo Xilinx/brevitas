@@ -67,6 +67,15 @@ class ScalingImplType(AutoName):
     PARAMETER_FROM_STATS = auto()
 
 
+class ScalingPerOutputType(AutoName):
+    """
+
+    """
+    TENSOR = auto()
+    CHANNEL = auto()
+    GROUP = auto()
+
+
 class StatsOp(AutoName):
     """
 

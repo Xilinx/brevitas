@@ -12,6 +12,7 @@ from brevitas.core.quant import QuantType
 from brevitas.core.restrict_val import *
 from brevitas.core.scaling import *
 from brevitas.core.scaling import ScalingImplType
+from brevitas.core.scaling import ScalingPerOutputType
 from brevitas.core.stats import *
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import value
@@ -171,21 +172,43 @@ class SolveIntScalingImplFromEnum(ExtendedInjector):
 class SolveStatsReduceDimFromEnum(ExtendedInjector):
 
     @value
-    def stats_reduce_dim(scaling_stats_op, scaling_per_output_channel):
-        if scaling_stats_op == StatsOp.MAX_AVE or scaling_per_output_channel:
+    def stats_reduce_dim(scaling_stats_op, scaling_per_output):
+        if scaling_per_output == ScalingPerOutputType.CHANNEL or scaling_stats_op == StatsOp.MAX_AVE:
             return SCALING_STATS_REDUCE_DIM
-        else:
+        elif scaling_per_output == ScalingPerOutputType.TENSOR:
             return None
+        elif scaling_per_output == ScalingPerOutputType.GROUP:
+            return SCALING_STATS_REDUCE_DIM + 1
+
+    @value
+    def keepdim(scaling_per_output):
+        if scaling_per_output == ScalingPerOutputType.GROUP:
+            return True
+        else:
+            return False
+
+    # Retrocompatibility. Priority is given to scaling_per_output_channel binary flag.
+    # We might want to check for discrepancies between the two and raise an error.
+    @value
+    def scaling_per_output(scaling_per_output_type=None, scaling_per_output_channel=None):
+        if scaling_per_output_channel is not None:
+            return ScalingPerOutputType.CHANNEL if scaling_per_output_channel else ScalingPerOutputType.TENSOR
+        elif scaling_per_output_type is not None:
+            return scaling_per_output_type
+        else:
+            raise RuntimeError("Specify scaling_per_output_type or scaling_per_output_channel")
 
 
 class SolveScalingStatsInputViewShapeImplFromEnum(ExtendedInjector):
 
     @value
-    def scaling_stats_input_view_shape_impl(scaling_per_output_channel, scaling_stats_op):
-        if scaling_per_output_channel or scaling_stats_op == StatsOp.MAX_AVE:
+    def scaling_stats_input_view_shape_impl(scaling_stats_op, scaling_per_output):
+        if scaling_per_output == ScalingPerOutputType.CHANNEL or scaling_stats_op == StatsOp.MAX_AVE:
             return StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS
-        else:
+        elif scaling_per_output == ScalingPerOutputType.TENSOR:
             return StatsInputViewShapeImpl.OVER_TENSOR
+        elif scaling_per_output == ScalingPerOutputType.GROUP:
+            return StatsInputViewShapeImpl.OVER_SUBCHANNEL_BLOCK
 
     @value
     def permute_dims(scaling_stats_permute_dims):

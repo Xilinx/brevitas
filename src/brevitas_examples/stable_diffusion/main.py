@@ -336,8 +336,6 @@ def main(args):
             input_param_method=args.input_param_method,
             input_quant_type=args.input_quant_type,
             input_quant_granularity=args.input_quant_granularity,
-            use_ocp=args.use_ocp,
-            use_fnuz=args.use_fnuz,
             input_kwargs=input_kwargs)
 
         layer_map = generate_quant_maps(
@@ -366,7 +364,7 @@ def main(args):
                 dtype=dtype,
                 device=args.device,
                 weight_bit_width=weight_bit_width,
-                weight_quant_format='e4m3',
+                weight_quant_format='float_ocp_e4m3',
                 weight_quant_type='sym',
                 weight_param_method=args.weight_param_method,
                 weight_scale_precision=args.weight_scale_precision,
@@ -375,14 +373,12 @@ def main(args):
                 quantize_weight_zero_point=args.quantize_weight_zero_point,
                 quantize_input_zero_point=args.quantize_input_zero_point,
                 input_bit_width=args.linear_output_bit_width,
-                input_quant_format='e4m3',
+                input_quant_format='float_ocp_e4m3',
                 input_scale_type=args.input_scale_type,
                 input_scale_precision=args.input_scale_precision,
                 input_param_method=args.input_param_method,
                 input_quant_type='sym',
                 input_quant_granularity=args.input_quant_granularity,
-                use_ocp=args.use_ocp,
-                use_fnuz=args.use_fnuz,
                 input_kwargs=input_kwargs)
             # We generate all quantizers, but we are only interested in activation quantization for
             # the output of softmax and the output of QKV
@@ -763,13 +759,15 @@ if __name__ == "__main__":
         type=quant_format_validator,
         default='int',
         help=
-        'Weight quantization type. Either int or eXmY, with X+Y==weight_bit_width-1. Default: int.')
+        'Weight quantization type. Either int or eXmY, with X+Y==weight_bit_width-1. It\'s possible to add float_ocp_ or float_fnuz_ before the exponent/mantissa bitwidth. Default: int.'
+    )
     parser.add_argument(
         '--input-quant-format',
         type=quant_format_validator,
         default='int',
         help=
-        'Input quantization type. Either int or eXmY, with X+Y==input_bit_width-1. Default: int.')
+        'Input quantization type. Either int or eXmY, with X+Y==input_bit_width-1. It\'s possible to add float_ocp_ or float_fnuz_ before the exponent/mantissa bitwidth. Default: int.'
+    )
     parser.add_argument(
         '--weight-quant-granularity',
         type=str,
@@ -815,16 +813,6 @@ if __name__ == "__main__":
         'use-mlperf-inference',
         default=False,
         help='Evaluate FID score with MLPerf pipeline. Default: False')
-    add_bool_arg(
-        parser,
-        'use-ocp',
-        default=False,
-        help='Use OCP format for float quantization. Default: True')
-    add_bool_arg(
-        parser,
-        'use-fnuz',
-        default=True,
-        help='Use FNUZ format for float quantization. Default: True')
     add_bool_arg(
         parser,
         'use-negative-prompts',
