@@ -349,7 +349,7 @@ def parse_args(args):
         default='int',
         help=
         'Weight quantization type. Either int or eXmY, with X+Y==weight_bit_width-1. It\'s possible to add float_ocp_ or float_fnuz_ before the exponent/mantissa bitwidth. Default: int.'
-        )
+    )
     parser.add_argument(
         '--weight-quant-granularity',
         type=str,
@@ -374,7 +374,7 @@ def parse_args(args):
         default='int',
         help=
         'Input quantization type. Either int or eXmY, with X+Y==weight_bit_width-1. It\'s possible to add float_ocp_ or float_fnuz_ before the exponent/mantissa bitwidth. Default: int.'
-        )
+    )
     parser.add_argument(
         '--input-param-method',
         type=str,
@@ -456,7 +456,8 @@ def parse_args(args):
         '--checkpoint-name',
         type=str,
         default=None,
-        help="Filename to save checkpoint. If `None`, no checkpoint is saved (default: %(default)s)")
+        help="Filename to save checkpoint. If `None`, no checkpoint is saved (default: %(default)s)"
+    )
     return parser.parse_args(args)
 
 

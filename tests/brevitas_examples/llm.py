@@ -1,14 +1,13 @@
 # Copyright (C) 2024, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from dataclasses import dataclass
 from argparse import Namespace
+from dataclasses import dataclass
 import logging
 import shutil
 
-import pytest
-
 import numpy as np
+import pytest
 
 from brevitas_examples.llm.main import main
 from brevitas_examples.llm.main import parse_args
@@ -39,30 +38,32 @@ class ModelAndPpl:
 
 
 class UpdatableNamespace(Namespace):
+
     def update(self, **kwargs):
         self.__dict__.update(**kwargs)
 
 
-@pytest.fixture(scope="session", params=[
-    ModelAndPpl(
-        name="hf-internal-testing/tiny-random-LlamaForCausalLM",
-        float_ppl=None,
-        quant_ppl=None,
-        supports_fx=True,
-    ),
-    ModelAndPpl(
-        name="hf-internal-testing/tiny-random-OPTForCausalLM",
-        float_ppl=None,
-        quant_ppl=None,
-        supports_fx=True,
-    ),
-    ModelAndPpl(
-        name="hf-internal-testing/tiny-random-MistralForCausalLM",
-        float_ppl=None,
-        quant_ppl=None,
-        supports_fx=False,
-    ),
-])
+@pytest.fixture(
+    scope="session",
+    params=[
+        ModelAndPpl(
+            name="hf-internal-testing/tiny-random-LlamaForCausalLM",
+            float_ppl=None,
+            quant_ppl=None,
+            supports_fx=True,
+        ),
+        ModelAndPpl(
+            name="hf-internal-testing/tiny-random-OPTForCausalLM",
+            float_ppl=None,
+            quant_ppl=None,
+            supports_fx=True,
+        ),
+        ModelAndPpl(
+            name="hf-internal-testing/tiny-random-MistralForCausalLM",
+            float_ppl=None,
+            quant_ppl=None,
+            supports_fx=False,
+        ),])
 def small_models_with_ppl(request):
     yield request.param
 
@@ -77,22 +78,29 @@ def default_run_args(request):
     args.eval = True
     #args.checkpoint = ptid2pathname(request.node.nodeid) + ".pth" # Example filename which won't clash
     args.weight_bit_width = 8
-    args.weight_quant_granularity = "per_channel" # "per_tensor", "per_channel", "per_group".
+    args.weight_quant_granularity = "per_channel"  # "per_tensor", "per_channel", "per_group".
     args.input_bit_width = 8
     args.act_calibration = True
     return args
 
 
-@pytest.fixture(params=[
+@pytest.fixture(
+    params=[
         {},
-        {"bias_corr": True},
-        {"act_equalization": "layerwise"},
-        {"act_equalization": "fx"},
-        {"weight_equalization": True},
-        {"gptq": True},
-        {"ln_affine_merge": True},
-        {"replace_mha": True},
-    ])
+        {
+            "bias_corr": True},
+        {
+            "act_equalization": "layerwise"},
+        {
+            "act_equalization": "fx"},
+        {
+            "weight_equalization": True},
+        {
+            "gptq": True},
+        {
+            "ln_affine_merge": True},
+        {
+            "replace_mha": True},])
 def toggle_run_args(default_run_args, request):
     args = default_run_args
     args.update(**request.param)
