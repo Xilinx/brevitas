@@ -25,6 +25,12 @@ def allexact(x, y):
     return np.allclose(x, y, rtol=0.0, atol=0.0, equal_nan=False)
 
 
+class UpdatableNamespace(Namespace):
+
+    def update(self, **kwargs):
+        self.__dict__.update(**kwargs)
+
+
 def requires_fx(args):
     return args.act_equalization == "fx" or args.weight_equalization or args.ln_affine_merge
 
@@ -35,12 +41,6 @@ class ModelAndPpl:
     float_ppl: float
     quant_ppl: float
     supports_fx: bool
-
-
-class UpdatableNamespace(Namespace):
-
-    def update(self, **kwargs):
-        self.__dict__.update(**kwargs)
 
 
 @pytest.fixture(
