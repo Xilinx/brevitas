@@ -759,13 +759,15 @@ if __name__ == "__main__":
         type=quant_format_validator,
         default='int',
         help=
-        'Weight quantization type. Either int or eXmY, with X+Y==weight_bit_width-1. Default: int.')
+        'Weight quantization type. Either int or eXmY, with X+Y==weight_bit_width-1. It\'s possible to add float_ocp_ or float_fnuz_ before the exponent/mantissa bitwidth. Default: int.'
+    )
     parser.add_argument(
         '--input-quant-format',
         type=quant_format_validator,
         default='int',
         help=
-        'Input quantization type. Either int or eXmY, with X+Y==input_bit_width-1. Default: int.')
+        'Input quantization type. Either int or eXmY, with X+Y==input_bit_width-1. It\'s possible to add float_ocp_ or float_fnuz_ before the exponent/mantissa bitwidth. Default: int.'
+    )
     parser.add_argument(
         '--weight-quant-granularity',
         type=str,
