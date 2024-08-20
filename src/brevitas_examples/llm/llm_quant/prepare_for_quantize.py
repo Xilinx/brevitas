@@ -1,5 +1,6 @@
 import warnings
 
+import torch
 from transformers.models.opt.modeling_opt import OPTAttention
 
 from brevitas.graph import ModuleToModuleByClass
@@ -20,4 +21,19 @@ def replace_mha_with_quantizable_layers(model, dtype):
         )
     for rewriter in rewriters:
         model = rewriter.apply(model)
+    return model
+
+
+@torch.no_grad()
+def add_zero_bias_to_linear(model: torch.nn.Module) -> torch.nn.Module:
+    for name, module in model.named_modules():
+        if type(module) == torch.nn.Linear:
+            if module.bias is None:
+                module.register_parameter(
+                    "bias",
+                    torch.nn.Parameter(
+                        torch.zeros((module.weight.shape[0],),
+                                    device=module.weight.device,
+                                    dtype=module.weight.dtype)),
+                )
     return model

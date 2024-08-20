@@ -9,6 +9,7 @@ import re
 import numpy as np
 from optimum.amd.brevitas.accelerate_utils import offload_model
 from optimum.amd.brevitas.accelerate_utils import remove_hooks
+from optimum.amd.brevitas.data_utils import compute_perplexity
 from optimum.exporters.onnx import onnx_export_from_model
 import torch
 from transformers import AutoModelForCausalLM
@@ -16,12 +17,14 @@ from transformers import AutoTokenizer
 
 from brevitas.export import export_torch_qcdq
 from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
-from brevitas_examples.common.generative.quantize import quantize_model
+from brevitas.graph.quantize import layerwise_quantize
+from brevitas_examples.common.generative.quantize import generate_quant_maps
+from brevitas_examples.common.generative.quantize import generate_quantizers
+from brevitas_examples.common.parse_utils import add_bool_arg
 from brevitas_examples.common.parse_utils import quant_format_validator
 from brevitas_examples.llm.llm_quant.bias_corr import apply_bias_correction
 from brevitas_examples.llm.llm_quant.calibrate import apply_calibration
-from brevitas_examples.llm.llm_quant.data import get_c4
-from brevitas_examples.llm.llm_quant.data import get_wikitext2
+from brevitas_examples.llm.llm_quant.data_utils import get_dataset_for_model
 from brevitas_examples.llm.llm_quant.equalize import apply_act_equalization
 from brevitas_examples.llm.llm_quant.equalize import apply_weight_equalization
 from brevitas_examples.llm.llm_quant.eval import create_validation_dataloader
@@ -30,6 +33,7 @@ from brevitas_examples.llm.llm_quant.export import BlockQuantProxyLevelManager
 from brevitas_examples.llm.llm_quant.export import brevitas_proxy_export_mode
 from brevitas_examples.llm.llm_quant.gptq import apply_gptq
 from brevitas_examples.llm.llm_quant.ln_affine_merge import apply_layernorm_affine_merge
+from brevitas_examples.llm.llm_quant.prepare_for_quantize import add_zero_bias_to_linear
 from brevitas_examples.llm.llm_quant.prepare_for_quantize import replace_mha_with_quantizable_layers
 from brevitas_examples.llm.llm_quant.run_utils import cast_to_float32
 from brevitas_examples.llm.llm_quant.run_utils import CastFloat16ToFloat32
@@ -47,7 +51,13 @@ parser.add_argument(
 parser.add_argument(
     '--nsamples', type=int, default=128, help='Number of calibration data samples. Default: 128.')
 parser.add_argument('--seqlen', type=int, default=2048, help='Sequence length. Default: 2048.')
-parser.add_argument('--eval', action='store_true', help='Eval model PPL on C4.')
+parser.add_argument('--eval', action='store_true', help='Eval model PPL on the chosen Dataset.')
+parser.add_argument(
+    '--dataset',
+    type=str,
+    choices=['wikitext2', 'c4'],
+    default='wikitext2',
+    help='Dataset to use for quantization (default: %(default)s)')
 parser.add_argument('--weight-bit-width', type=int, default=8, help='Weight bit width. Default: 8.')
 parser.add_argument(
     '--weight-param-method',
@@ -136,8 +146,6 @@ parser.add_argument(
 parser.add_argument(
     '--quantize-input-zero-point', action='store_true', help='Quantize input zero-point.')
 parser.add_argument(
-    '--quantize-embedding', action='store_true', help='Quantize first nn.Embedding layer.')
-parser.add_argument(
     '--quantize-last-layer', action='store_true', help='Quantize last nn.Linear layer.')
 parser.add_argument('--gptq', action='store_true', help='Apply GPTQ.')
 parser.add_argument('--act-calibration', action='store_true', help='Apply activation calibration.')
@@ -174,6 +182,15 @@ parser.add_argument(
         'sharded_torchmlir_group_weight',
         'sharded_packed_torchmlir_group_weight'],
     help='Model export.')
+parser.add_argument(
+    '--checkpoint-name',
+    type=str,
+    default=None,
+    help="Filename to save checkpoint. If `None`, no checkpoint is saved (default: %(default)s)")
+add_bool_arg(
+    parser, 'use-ocp', default=False, help='Use OCP format for float quantization. Default: False')
+add_bool_arg(
+    parser, 'use-fnuz', default=True, help='Use FNUZ format for float quantization. Default: True')
 
 
 def set_seed(seed):
@@ -274,19 +291,56 @@ def main():
         with CastFloat16ToFloat32():
             apply_awq(model, awq_results)
 
-    calibration_loader = get_wikitext2(
-        nsamples=args.nsamples, tokenizer=tokenizer, seqlen=args.seqlen, seed=0)
-    val_data = get_wikitext2(
-        nsamples=args.nsamples, tokenizer=tokenizer, seqlen=args.seqlen, split='validation', seed=0)
+    require_fx = True if args.weight_equalization or args.act_equalization == 'fx' or args.ln_affine_merge else False
+    fuse_sequences = False
+
+    # Load the data for calibration and evaluation.
+    calibration_loader = get_dataset_for_model(
+        args.model,
+        dataset_name=args.dataset,
+        tokenizer=tokenizer,
+        nsamples=args.nsamples,
+        seqlen=args.seqlen,
+        split="train",
+        seed=args.seed,
+        require_fx=require_fx,
+        device=None,
+        fuse_sequences=fuse_sequences,
+    )
+
+    validation_loader = get_dataset_for_model(
+        args.model,
+        dataset_name=args.dataset,
+        tokenizer=tokenizer,
+        nsamples=args.nsamples,
+        seqlen=args.seqlen,
+        split="validation",
+        seed=args.seed,
+        require_fx=require_fx,
+        device=None,
+        fuse_sequences=fuse_sequences,
+    )
+
     device = next(iter(model.parameters())).device
-    val_data = create_validation_dataloader(val_data, args.seqlen, device)
     print("Data loaded.")
+
+    if args.eval:
+        assert args.export_target != 'torch_qcdq', "TorchScript QCDQ export and Evaluation simultaneously"
+        print("Float model eval...")
+        model = offload_model(model)
+        ppl = compute_perplexity(
+            model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
+        remove_hooks(model)
+        print(f"Float perplexity ({args.dataset}): {ppl}")
+
+    if require_fx:
+        model = get_fx(model)
 
     # Apply LN affine merging before inserting MHA layers
     # since currently there is support only for merging into Linear
     if args.ln_affine_merge:
         print("Apply LN affine merge...")
-        apply_layernorm_affine_merge(model, dtype, ref_kwargs={'input_ids': calibration_loader[0]})
+        apply_layernorm_affine_merge(model, dtype)
         print("LN affine merge applied.")
 
     # Insert standard MHA layers when performing fx based weight/act equalization to avoid dealing
@@ -295,11 +349,6 @@ def main():
         print("Replace HF MHA with quantizable variants...")
         model = replace_mha_with_quantizable_layers(model, dtype)
         print("Replacing done.")
-
-    if args.weight_equalization or args.act_equalization == 'fx':
-        model = get_fx(model)
-        calibration_loader = modify_dataloader(args.model, calibration_loader, dtype=dtype)
-        val_data = modify_dataloader(args.model, val_data, dtype=dtype)
 
     if args.weight_equalization:
         print("Apply weight equalization...")
@@ -317,39 +366,58 @@ def main():
         remove_hooks(model)
 
     if not args.no_quantize:
+        name_blacklist = []
         print("Applying model quantization...")
-        model = quantize_model(
-            model,
+        linear_input_quant, weight_quant, input_quant, q_scaled_quant, k_transposed_quant, v_quant, attn_output_weights_quant = generate_quantizers(
             dtype=dtype,
-            weight_quant_format=args.weight_quant_format,
-            weight_quant_type=args.weight_quant_type,
             weight_bit_width=args.weight_bit_width,
             weight_param_method=args.weight_param_method,
             weight_scale_precision=args.weight_scale_precision,
+            weight_quant_type=args.weight_quant_type,
             weight_quant_granularity=args.weight_quant_granularity,
             weight_group_size=args.weight_group_size,
             quantize_weight_zero_point=args.quantize_weight_zero_point,
+            weight_quant_format=args.weight_quant_format,
             input_bit_width=args.input_bit_width,
-            input_quant_type=args.input_quant_type,
             input_quant_format=args.input_quant_format,
-            input_param_method=args.input_param_method,
             input_scale_precision=args.input_scale_precision,
             input_scale_type=args.input_scale_type,
+            input_param_method=args.input_param_method,
+            input_quant_type=args.input_quant_type,
             input_quant_granularity=args.input_quant_granularity,
             input_group_size=args.input_group_size,
             quantize_input_zero_point=args.quantize_input_zero_point,
-            quantize_embedding=args.quantize_embedding)
+            use_ocp=args.use_ocp,
+            use_fnuz=args.use_fnuz,
+            device=device)
+        layer_map = generate_quant_maps(
+            linear_input_quant=linear_input_quant,
+            weight_quant=weight_quant,
+            input_quant=input_quant,
+            q_scaled_quant=q_scaled_quant,
+            k_transposed_quant=k_transposed_quant,
+            v_quant=v_quant,
+            attn_output_weights_quant=attn_output_weights_quant,
+            dtype=dtype,
+            device=device,
+            input_quant_format=args.input_quant_format,
+            quantize_embedding=False)
+        if not args.quantize_last_layer:
+            name_blacklist += ["lm_head"]
+        model = layerwise_quantize(
+            model=model, compute_layer_map=layer_map, name_blacklist=name_blacklist)
         # Tie back first/last layer weights in case they got untied
         print("Model quantization applied.")
 
     # If any equalization has taken places, the embedding layer and the fully connected one are
     # not tied anymore, and they need to be treated as standalone, separate layers.
     # In all other cases we can tie them back so to preserve memory.
-    if args.act_equalization is None and not args.weight_equalization:
+    if args.act_equalization is None and not require_fx:
         model.tie_weights()
 
-    with cast_to_float32(model, dtype):
-        model(**calibration_loader[0])
+    if args.bias_corr:
+        model = add_zero_bias_to_linear(model)
+
     model = offload_model(model)
 
     if args.act_calibration:
@@ -369,9 +437,14 @@ def main():
 
     if args.eval:
         print("Model eval...")
-        ppl = model_eval(model, val_data, args.seqlen)
-        print(f"C4 perplexity: {ppl}")
+        ppl = compute_perplexity(
+            model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
+        print(f"Quantized perplexity ({args.dataset}): {ppl}")
     remove_hooks(model)
+
+    if args.checkpoint_name is not None:
+        print(f"Saving checkpoint to {args.checkpoint_name}")
+        torch.save(model.state_dict(), args.checkpoint_name)
 
     if args.export_target:
         print(f"Export to {args.export_target}")
