@@ -186,7 +186,7 @@ def main(args):
         kwargs['torchscript'] = True
 
     print("Model loading...")
-    model = AutoModelForCausalLM.from_pretrained(args.model, **kwargs)
+    model = AutoModelForCausalLM.from_pretrained(args.model, attn_implementation="sdpa", **kwargs)
     print("Model loaded.")
     model.eval()
     tokenizer = AutoTokenizer.from_pretrained(args.model)
