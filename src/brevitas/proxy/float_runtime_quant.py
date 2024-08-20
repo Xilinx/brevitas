@@ -87,14 +87,14 @@ class ActFloatQuantProxyFromInjectorBase(ActQuantProxyFromInjectorBase):
                         y,
                         x.scale,
                         x.zero_point,
-                        x.mantissa_bit_width,
                         x.exponent_bit_width,
+                        x.mantissa_bit_width,
                         x.exponent_bias,
-                        x.signed,
-                        self.training,
                         x.saturating,
                         x.inf_values,
-                        x.nan_values)
+                        x.nan_values,
+                        x.signed,
+                        self.training)
                 else:
                     out = y
             else:
@@ -143,11 +143,11 @@ class ActFloatQuantProxyFromInjector(ActFloatQuantProxyFromInjectorBase):
                         x.mantissa_bit_width,
                         x.exponent_bit_width,
                         x.exponent_bias,
-                        x.signed,
-                        self.training,
                         x.saturating,
                         x.inf_values,
-                        x.nan_values)
+                        x.nan_values,
+                        x.signed,
+                        self.training)
                 else:
                     out = y
             else:

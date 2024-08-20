@@ -59,16 +59,16 @@ class GroupwiseActFloatQuantProxyFromInjector(ActFloatQuantProxyFromInjectorBase
                         y,
                         x.scale,
                         x.zero_point,
-                        self.group_dim,
                         self.group_size,
-                        x.mantissa_bit_width,
+                        self.group_dim,
                         x.exponent_bit_width,
+                        x.mantissa_bit_width,
                         x.exponent_bias,
-                        x.signed,
-                        self.training,
                         x.saturating,
                         x.inf_values,
-                        x.nan_values)
+                        x.nan_values,
+                        x.signed,
+                        self.training)
                 else:
                     out = y
             else:

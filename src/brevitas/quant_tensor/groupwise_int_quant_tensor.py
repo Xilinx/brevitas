@@ -72,7 +72,7 @@ class GroupwiseIntQuantTensor(GroupwisIntQuantTensorBase, QuantTensor):
         return new_value, new_scale, new_zp
 
     @staticmethod
-    def from_expanded(value, group_dim, group_size, compress=False):
+    def from_expanded(value, group_size, group_dim, compress=False):
         size = list(value.shape)
         assert size[group_dim] % group_size == 0, 'Input channel is not divisible by group size'
         if compress:
@@ -243,22 +243,20 @@ class GroupwiseIntQuantTensor(GroupwisIntQuantTensorBase, QuantTensor):
         # In case the dtype of self.minifloat is different from the one of the scale
         neg_value = neg_value.type(scale.dtype)
         neg_value = GroupwiseIntQuantTensor.from_expanded(
-            neg_value, self.group_dim, self.group_size, compress=False)
+            neg_value, self.group_size, self.group_dim, compress=False)
         scale = GroupwiseIntQuantTensor.from_expanded(
-            scale, self.group_dim, self.group_size, compress=True)
+            scale, self.group_size, self.group_dim, compress=True)
         if self.signed:
             return GroupwiseIntQuantTensor(
                 value=neg_value,
                 scale=scale,
                 zero_point=self.zero_point,
-                exponent_bit_width=self.exponent_bit_width,
-                mantissa_bit_width=self.mantissa_bit_width,
-                exponent_bias=self.exponent_bias,
+                group_size=self.group_size,
+                group_dim=self.group_dim,
+                bit_width=self.bit_width,
                 signed=self.signed,
                 training=self.training,
-                saturating=self.saturating,
-                inf_values=self.inf_values,
-                nan_values=self.nan_values)
+                saturating=self.saturating)
         else:
             # TODO: implement
             raise NotImplementedError
@@ -278,7 +276,7 @@ class GroupwiseIntQuantTensor(GroupwisIntQuantTensorBase, QuantTensor):
         return output
 
     def __str__(self):
-        return f"GroupwiseIntQuantTensor(value={self.value}, scale={self.scale}, zero_point={self.zero_point}, bit_width={self.bit_width}, signed_t={self.signed_t}, training_t={self.training_t})"
+        return f"GroupwiseIntQuantTensor(value={self.value}, scale={self.scale}, zero_point={self.zero_point}, group_size={self.group_size}, group_dim={self.group_dim}, bit_width={self.bit_width}, signed_t={self.signed_t}, training_t={self.training_t})"
 
     def __truediv__(self, other):
         if isinstance(other, QuantTensor):
@@ -297,19 +295,18 @@ class GroupwiseIntQuantTensor(GroupwisIntQuantTensorBase, QuantTensor):
             # In case the dtype of self.minifloat is different from the one of the scale
             abs_value = abs_value.type(scale.dtype)
             abs_value = GroupwiseIntQuantTensor.from_expanded(
-                abs_value, self.group_dim, self.group_size, compress=False)
+                abs_value, self.group_size, self.group_dim, compress=False)
             scale = GroupwiseIntQuantTensor.from_expanded(
-                scale, self.group_dim, self.group_size, compress=True)
+                scale, self.group_size, self.group_dim, compress=True)
             return GroupwiseIntQuantTensor(
                 value=abs_value,
                 scale=self.scale,
                 zero_point=self.zero_point,
-                exponent_bit_width=self.exponent_bit_width,
-                mantissa_bit_width=self.mantissa_bit_width,
+                group_size=self.group_size,
+                group_dim=self.group_dim,
+                bit_width=self.bit_width,
                 signed=False,
                 training=self.training,
-                saturating=self.saturating,
-                inf_values=self.inf_values,
-                nan_values=self.nan_values)
+                saturating=self.saturating)
         else:
             return self

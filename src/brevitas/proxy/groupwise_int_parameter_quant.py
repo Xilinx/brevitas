@@ -31,9 +31,9 @@ class GroupwiseWeightQuantProxyFromInjector(WeightQuantProxyFromInjector):
                 out,
                 scale,
                 zero_point,
-                bit_width,
-                self.group_dim,
                 self.group_size,
+                self.group_dim,
+                bit_width,
                 self.is_signed,
                 self.training)
         else:  # quantization disabled

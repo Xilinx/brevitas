@@ -256,11 +256,11 @@ class FloatQuantTensor(FloatQuantTensorBase, QuantTensor):
                     exponent_bit_width=output_exponent_bit_width,
                     mantissa_bit_width=output_mantissa_bit_width,
                     exponent_bias=output_exponent_bias,
-                    signed=output_signed,
-                    training=output_training,
                     saturating=output_saturating,
                     inf_values=output_inf_values,
-                    nan_values=output_nan_values)
+                    nan_values=output_nan_values,
+                    signed=output_signed,
+                    training=output_training)
             else:
                 tensors = [_unpack_quant_tensor(qt) for qt in tensors]
                 output_value = torch.cat(tensors, dim=dim)
@@ -280,11 +280,11 @@ class FloatQuantTensor(FloatQuantTensorBase, QuantTensor):
                 exponent_bit_width=self.exponent_bit_width,
                 mantissa_bit_width=self.mantissa_bit_width,
                 exponent_bias=self.exponent_bias,
-                signed=self.signed,
-                training=self.training,
                 saturating=self.saturating,
                 inf_values=self.inf_values,
-                nan_values=self.nan_values)
+                nan_values=self.nan_values,
+                signed=self.signed,
+                training=self.training)
         else:
             # TODO: implement
             raise NotImplementedError
@@ -304,7 +304,7 @@ class FloatQuantTensor(FloatQuantTensorBase, QuantTensor):
         return output
 
     def __str__(self):
-        return f"FloatQuantTensor(value={self.value}, scale={self.scale}, zero_point={self.zero_point}, bit_width={self.bit_width}, signed_t={self.signed_t}, training_t={self.training_t})"
+        return f"FloatQuantTensor(value={self.value}, scale={self.scale}, zero_point={self.zero_point}, exponent_bit_width={self.exponent_bit_width}, mantissa_bit_width={self.mantissa_bit_width}, exponent_bias={self.exponent_bias}, inf_values={self.inf_values}, nan_values={self.nan_values}, signed_t={self.signed_t}, training_t={self.training_t})"
 
     def __truediv__(self, other):
         if isinstance(other, QuantTensor):
@@ -325,10 +325,11 @@ class FloatQuantTensor(FloatQuantTensorBase, QuantTensor):
                 zero_point=self.zero_point,
                 exponent_bit_width=self.exponent_bit_width,
                 mantissa_bit_width=self.mantissa_bit_width,
-                signed=False,
-                training=self.training,
+                exponent_bias=self.exponent_bias,
                 saturating=self.saturating,
                 inf_values=self.inf_values,
-                nan_values=self.nan_values)
+                nan_values=self.nan_values,
+                signed=False,
+                training=self.training)
         else:
             return self

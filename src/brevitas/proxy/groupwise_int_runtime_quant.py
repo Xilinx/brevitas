@@ -54,8 +54,8 @@ class GroupwiseActQuantProxyFromInjector(ActQuantProxyFromInjector):
                         y,
                         x.scale,
                         x.zero_point,
-                        self.group_dim,
                         self.group_size,
+                        self.group_dim,
                         x.bit_width,
                         x.signed,
                         self.training)

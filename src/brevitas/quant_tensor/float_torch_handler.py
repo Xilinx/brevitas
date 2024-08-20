@@ -92,11 +92,11 @@ def embedding_handler(input, quant_weight, *args, **kwargs):
             exponent_bit_width,
             mantissa_bit_width,
             exponent_bias,
-            signed,
-            training,
             saturating,
             inf_values,
-            nan_values)
+            nan_values,
+            signed,
+            training)
     return out
 
 
