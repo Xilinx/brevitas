@@ -10,6 +10,7 @@ import torch.nn.functional as F
 from brevitas.fx import GraphModule
 from brevitas.fx import immutable_dict
 from brevitas.fx import Node
+from brevitas.nn.quant_sdpa import ScaledDotProductAttention 
 
 from .base import FnToModule
 from .base import GraphTransform
@@ -109,7 +110,8 @@ class TorchFunctionalToModule(GraphTransform):
                         (F.avg_pool3d, nn.AvgPool3d), (F.adaptive_avg_pool1d, nn.AdaptiveAvgPool1d),
                         (F.adaptive_avg_pool2d,
                          nn.AdaptiveAvgPool2d), (F.adaptive_avg_pool3d,
-                                                 nn.AdaptiveAvgPool3d), (F.dropout, nn.Dropout))
+                                                 nn.AdaptiveAvgPool3d), (F.dropout, nn.Dropout),
+                        (F.scaled_dot_product_attention, ScaledDotProductAttention))
 
     def __init__(self, fn_to_module_map=FN_TO_MODULE_MAP):
         super().__init__()
