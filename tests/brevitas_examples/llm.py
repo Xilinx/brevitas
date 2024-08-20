@@ -112,3 +112,47 @@ def test_small_models_toggle_run_args(caplog, toggle_run_args, small_models_with
     if use_fx and not small_models_with_ppl.supports_fx:
         pytest.xfail(f"{small_models_with_ppl.name} does not support FX")
     float_ppl, quant_ppl, model = main(args)
+
+
+@pytest.fixture(
+    params=[
+        {
+            "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
+            "act_equalization": "layerwise",
+            "gptq": True,
+            "float_ppl": 31274.05078125,
+            "quant_ppl": 33139.23046875},
+        {
+            "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+            "act_equalization": "fx",
+            "bias_corr": True,
+            "float_ppl": 33239.5,
+            "quant_ppl": 33283.75390625},
+        {
+            "model": "hf-internal-testing/tiny-random-OPTForCausalLM",
+            "weight_equalization": True,
+            "ln_affine_merge": True,
+            "replace_mha": True,
+            "float_ppl": 50016.0,
+            "quant_ppl": 50016.0},])
+def acc_args_and_acc(default_run_args, request):
+    args = default_run_args
+    run_dict = request.param
+    float_ppl = run_dict["float_ppl"]
+    quant_ppl = run_dict["quant_ppl"]
+    del run_dict["float_ppl"]
+    del run_dict["quant_ppl"]
+    args.update(**run_dict)
+    yield args, float_ppl, quant_ppl
+
+
+@pytest.mark.examples
+@pytest.mark.weekly
+def test_small_models_acc(caplog, acc_args_and_acc):
+    caplog.set_level(logging.INFO)
+    args, exp_float_ppl, exp_quant_ppl = acc_args_and_acc
+    float_ppl, quant_ppl, model = main(args)
+    float_ppl = float_ppl.detach().cpu().numpy()
+    quant_ppl = quant_ppl.detach().cpu().numpy()
+    assert allexact(exp_float_ppl, float_ppl), f"Expected float PPL {exp_float_ppl}, measured PPL {float_ppl}"
+    assert allexact(exp_quant_ppl, quant_ppl), f"Expected quant PPL {exp_quant_ppl}, measured PPL {quant_ppl}"
