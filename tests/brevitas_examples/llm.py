@@ -39,7 +39,6 @@ def requires_fx(args):
 class ModelAndPpl:
     name: str
     float_ppl: float
-    quant_ppl: float
     supports_fx: bool
 
 
@@ -49,19 +48,16 @@ class ModelAndPpl:
         ModelAndPpl(
             name="hf-internal-testing/tiny-random-LlamaForCausalLM",
             float_ppl=None,
-            quant_ppl=None,
             supports_fx=True,
         ),
         ModelAndPpl(
             name="hf-internal-testing/tiny-random-OPTForCausalLM",
             float_ppl=None,
-            quant_ppl=None,
             supports_fx=True,
         ),
         ModelAndPpl(
             name="hf-internal-testing/tiny-random-MistralForCausalLM",
             float_ppl=None,
-            quant_ppl=None,
             supports_fx=False,
         ),])
 def small_models_with_ppl(request):
@@ -114,7 +110,6 @@ def test_small_models_toggle_run_args(caplog, toggle_run_args, small_models_with
     args = toggle_run_args
     args.model = small_models_with_ppl.name
     exp_float_ppl = small_models_with_ppl.float_ppl
-    exp_quant_ppl = small_models_with_ppl.quant_ppl
     use_fx = requires_fx(args)
     if use_fx and not small_models_with_ppl.supports_fx:
         pytest.xfail(f"{small_models_with_ppl.name} does not support FX")
