@@ -504,7 +504,7 @@ def find_module(
         layer_map: Dict[nn.Module, Optional[Dict]],
         module_to_replace: List,
         name_blacklist,
-        prefix = ''):
+        prefix=''):
     """
     Iterate through the model looking at immediate children of every module to look for supported modules.
     This allows us to stop the search when we meet a top-level module that is supported.

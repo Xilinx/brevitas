@@ -1027,7 +1027,7 @@ class LayerwiseActivationEqualization(ActivationEqualization):
         elif self.scale_computation_type == 'range':
             self.scale_fn = _channel_range
 
-    def find_module(self, model, regions: List, prefix = ''):
+    def find_module(self, model, regions: List, prefix=''):
         """
         Iterate through the model looking at immediate children of every module to look for supported modules.
         This allows us to stop the search when we meet a top-level module that is supported.
