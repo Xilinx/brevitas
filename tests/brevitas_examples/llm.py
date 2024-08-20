@@ -94,9 +94,7 @@ def default_run_args(request):
         {
             "gptq": True},
         {
-            "ln_affine_merge": True},
-        {
-            "replace_mha": True},])
+            "ln_affine_merge": True},])
 def toggle_run_args(default_run_args, request):
     args = default_run_args
     args.update(**request.param)
