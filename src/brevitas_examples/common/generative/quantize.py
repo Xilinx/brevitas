@@ -153,7 +153,8 @@ INPUT_QUANT_MAP = {
                         'sym': Int8DynamicActPerGroupFloat}}},
             'po2_scale': {
                 'stats': {
-                    'per_group': MXInt8Act}}}},
+                    'per_group': {
+                        'sym': MXInt8Act}}}}},
     'float': {
         'static': {
             'float_scale': {
@@ -175,7 +176,8 @@ INPUT_QUANT_MAP = {
         'dynamic': {
             'po2_scale': {
                 'stats': {
-                    'per_group': MXFloat8e4m3Act}}}},
+                    'per_group': {
+                        'sym': MXFloat8e4m3Act}}}}},
     'float_fnuz': {
         'static': {
             'float_scale': {
