@@ -184,6 +184,15 @@ def test_small_models_acc(caplog, acc_args_and_acc):
                 }},
         {
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
+            "input_bit_width": None,
+            "act_calibration": False,
+            "exp_layer_types": {
+                "model.layers.0.self_attn.q_proj": "<class 'brevitas.nn.quant_linear.QuantLinear'>",
+                "model.layers.0.self_attn.q_proj.input_quant": "<class 'brevitas.proxy.runtime_quant.ActQuantProxyFromInjector'>",
+                "model.layers.0.self_attn.q_proj.weight_quant.tensor_quant": "<class 'brevitas.core.quant.int.RescalingIntQuant'>",
+                }},
+        {
+            "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
             "weight_quant_format": "float_ocp_e4m3",
             "weight_quant_type": "sym",
             "input_quant_format": "float_ocp_e5m2",
