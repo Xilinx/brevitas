@@ -1019,8 +1019,7 @@ class LayerwiseActivationEqualization(ActivationEqualization):
         self.blacklist_layers = blacklist_layers
 
         regions: List[Region] = []
-        name = ''
-        self.find_module(model, name, regions)
+        self.find_module(model, regions)
         self.regions = regions
 
         if self.scale_computation_type == 'maxabs':
@@ -1028,14 +1027,14 @@ class LayerwiseActivationEqualization(ActivationEqualization):
         elif self.scale_computation_type == 'range':
             self.scale_fn = _channel_range
 
-    def find_module(self, model, name, regions: List):
+    def find_module(self, model, regions: List, prefix=''):
         """
         Iterate through the model looking at immediate children of every module to look for supported modules.
         This allows us to stop the search when we meet a top-level module that is supported.
         """
         if isinstance(model,
                       _supported_layers) and not isinstance(model, _batch_norm + (nn.LayerNorm,)):
-            if self.blacklist_layers is not None and name in self.blacklist_layers:
+            if self.blacklist_layers is not None and prefix in self.blacklist_layers:
                 return
             weight = get_weight_sink(model)
             eq_indexes = EqualizationIndexes(0, weight.shape[0], 0)
@@ -1043,7 +1042,8 @@ class LayerwiseActivationEqualization(ActivationEqualization):
             regions.append(region)
         else:
             for name, module in model.named_children():
-                self.find_module(module, name, regions)
+                full_name = prefix + '.' + name if prefix != '' else name
+                self.find_module(module, regions, full_name)
 
     def setup(self):
         for region in self.regions:

@@ -503,7 +503,8 @@ def find_module(
         model: nn.Module,
         layer_map: Dict[nn.Module, Optional[Dict]],
         module_to_replace: List,
-        name_blacklist):
+        name_blacklist,
+        prefix=''):
     """
     Iterate through the model looking at immediate children of every module to look for supported modules.
     This allows us to stop the search when we meet a top-level module that is supported.
@@ -514,9 +515,10 @@ def find_module(
         module_to_replace.append(model)
     else:
         for name, module in model.named_children():
+            full_name = prefix + '.' + name if prefix != '' else name
             if name_blacklist is not None and name in name_blacklist:
                 continue
-            find_module(module, layer_map, module_to_replace, name_blacklist)
+            find_module(module, layer_map, module_to_replace, name_blacklist, full_name)
 
 
 def layerwise_layer_handler(
