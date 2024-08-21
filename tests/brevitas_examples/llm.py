@@ -28,13 +28,15 @@ def allexact(x, y):
 def assert_layer_types(model, exp_layer_types):
     for key, string in exp_layer_types.items():
         matched = False
+        layer_names = []
         for name, layer in model.named_modules():
+            layer_names += [name]
             if name == key:
                 matched = True
                 ltype = str(type(layer))
                 assert ltype == string, f"Expected layer type: {string}, found {ltype} for key: {key}"
                 continue
-        assert matched, f"Layer key: {key} not found"
+        assert matched, f"Layer key: {key} not found in {layer_names}"
 
 
 class UpdatableNamespace(Namespace):
@@ -174,8 +176,26 @@ def test_small_models_acc(caplog, acc_args_and_acc):
     params=[
         {
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
-            "quantize_last_layer": False,
-            "exp_layer_types": {"lm_head": "<class 'torch.nn.modules.linear.Linear'>"}},
+            "exp_layer_types": {
+                "lm_head": "<class 'torch.nn.modules.linear.Linear'>",
+                "model.layers.0.self_attn.q_proj": "<class 'brevitas.nn.quant_linear.QuantLinear'>",
+                "model.layers.0.self_attn.q_proj.input_quant.fused_activation_quant_proxy.tensor_quant": "<class 'brevitas.core.quant.int.RescalingIntQuant'>",
+                "model.layers.0.self_attn.q_proj.weight_quant.tensor_quant": "<class 'brevitas.core.quant.int.RescalingIntQuant'>",
+                }},
+        {
+            "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
+            "act_equalization": "layerwise",
+            "exp_layer_types": {
+                "model.layers.0.self_attn.q_proj": "<class 'brevitas.nn.equalized_layer.EqualizedModule'>",
+                "model.layers.0.self_attn.q_proj.layer": "<class 'brevitas.nn.quant_linear.QuantLinear'>",
+                }},
+        {
+            "model": "hf-internal-testing/tiny-random-OPTForCausalLM",
+            "replace_mha": True,
+            "exp_layer_types": {
+                "model.decoder.layers.0.self_attn": "<class 'brevitas_examples.llm.llm_quant.mha_layers.QuantizableOPTAttention'>",
+                "model.decoder.layers.0.self_attn.mha": "<class 'brevitas.nn.quant_mha.QuantMultiheadAttention'>",
+                }},
         {
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
             "quantize_last_layer": True,
