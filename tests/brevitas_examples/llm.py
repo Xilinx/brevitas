@@ -25,13 +25,16 @@ def allexact(x, y):
     return np.allclose(x, y, rtol=0.0, atol=0.0, equal_nan=False)
 
 
-def assert_layer_type(model, key, string):
-    for name, layer in model.named_modules():
-        if name == key:
-            ltype = str(type(layer))
-            assert ltype == string, f"Expected layer type: {string}, found {ltype} for key: {key}"
-            return
-    assert False, f"Layer key: {key} not found"
+def assert_layer_types(model, exp_layer_types):
+    for key, string in exp_layer_types.items():
+        matched = False
+        for name, layer in model.named_modules():
+            if name == key:
+                matched = True
+                ltype = str(type(layer))
+                assert ltype == string, f"Expected layer type: {string}, found {ltype} for key: {key}"
+                continue
+        assert matched, f"Layer key: {key} not found"
 
 
 class UpdatableNamespace(Namespace):
@@ -172,26 +175,22 @@ def test_small_models_acc(caplog, acc_args_and_acc):
         {
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
             "quantize_last_layer": False,
-            "layer_key": "lm_head",
-            "layer_type": "<class 'torch.nn.modules.linear.Linear'>"},
+            "exp_layer_types": {"lm_head": "<class 'torch.nn.modules.linear.Linear'>"}},
         {
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
             "quantize_last_layer": True,
-            "layer_key": "lm_head",
-            "layer_type": "<class 'brevitas.nn.quant_linear.QuantLinear'>"},])
+            "exp_layer_types": {"lm_head": "<class 'brevitas.nn.quant_linear.QuantLinear'>"}},])
 def layer_args(default_run_args, request):
     args = default_run_args
     layer_dict = request.param
-    layer_key = layer_dict["layer_key"]
-    layer_type = layer_dict["layer_type"]
-    del layer_dict["layer_key"]
-    del layer_dict["layer_type"]
+    exp_layer_types = layer_dict["exp_layer_types"]
+    del layer_dict["exp_layer_types"]
     args.update(**layer_dict)
-    yield args, layer_key, layer_type
+    yield args, exp_layer_types
 
 
 def test_small_models_quant_layer(caplog, layer_args):
     caplog.set_level(logging.INFO)
-    args, layer_key, layer_type = layer_args
+    args, exp_layer_types = layer_args
     float_ppl, quant_ppl, model = main(args)
-    assert_layer_type(model, layer_key, layer_type)
+    assert_layer_types(model, exp_layer_types)
