@@ -25,6 +25,15 @@ def allexact(x, y):
     return np.allclose(x, y, rtol=0.0, atol=0.0, equal_nan=False)
 
 
+def assert_layer_type(model, key, string):
+    for name, layer in model.named_modules():
+        if name == key:
+            ltype = str(type(layer))
+            assert ltype == string, f"Expected layer type: {string}, found {ltype} for key: {key}"
+            return
+    assert False, f"Layer key: {key} not found"
+
+
 class UpdatableNamespace(Namespace):
 
     def update(self, **kwargs):
@@ -156,3 +165,33 @@ def test_small_models_acc(caplog, acc_args_and_acc):
     quant_ppl = quant_ppl.detach().cpu().numpy()
     assert allexact(exp_float_ppl, float_ppl), f"Expected float PPL {exp_float_ppl}, measured PPL {float_ppl}"
     assert allexact(exp_quant_ppl, quant_ppl), f"Expected quant PPL {exp_quant_ppl}, measured PPL {quant_ppl}"
+
+
+@pytest.fixture(
+    params=[
+        {
+            "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
+            "quantize_last_layer": False,
+            "layer_key": "lm_head",
+            "layer_type": "<class 'torch.nn.modules.linear.Linear'>"},
+        {
+            "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
+            "quantize_last_layer": True,
+            "layer_key": "lm_head",
+            "layer_type": "<class 'brevitas.nn.quant_linear.QuantLinear'>"},])
+def layer_args(default_run_args, request):
+    args = default_run_args
+    layer_dict = request.param
+    layer_key = layer_dict["layer_key"]
+    layer_type = layer_dict["layer_type"]
+    del layer_dict["layer_key"]
+    del layer_dict["layer_type"]
+    args.update(**layer_dict)
+    yield args, layer_key, layer_type
+
+
+def test_small_models_quant_layer(caplog, layer_args):
+    caplog.set_level(logging.INFO)
+    args, layer_key, layer_type = layer_args
+    float_ppl, quant_ppl, model = main(args)
+    assert_layer_type(model, layer_key, layer_type)
