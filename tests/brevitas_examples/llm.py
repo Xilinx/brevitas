@@ -177,20 +177,25 @@ def test_small_models_acc(caplog, acc_args_and_acc):
         {
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
             "exp_layer_types": {
-                "lm_head": "<class 'torch.nn.modules.linear.Linear'>",
-                "model.layers.0.self_attn.q_proj": "<class 'brevitas.nn.quant_linear.QuantLinear'>",
-                "model.layers.0.self_attn.q_proj.input_quant.fused_activation_quant_proxy.tensor_quant": "<class 'brevitas.core.quant.int.RescalingIntQuant'>",
-                "model.layers.0.self_attn.q_proj.weight_quant.tensor_quant": "<class 'brevitas.core.quant.int.RescalingIntQuant'>",
-                }},
+                "lm_head":
+                    "<class 'torch.nn.modules.linear.Linear'>",
+                "model.layers.0.self_attn.q_proj":
+                    "<class 'brevitas.nn.quant_linear.QuantLinear'>",
+                "model.layers.0.self_attn.q_proj.input_quant.fused_activation_quant_proxy.tensor_quant":
+                    "<class 'brevitas.core.quant.int.RescalingIntQuant'>",
+                "model.layers.0.self_attn.q_proj.weight_quant.tensor_quant":
+                    "<class 'brevitas.core.quant.int.RescalingIntQuant'>",}},
         {
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
             "input_bit_width": None,
             "act_calibration": False,
             "exp_layer_types": {
-                "model.layers.0.self_attn.q_proj": "<class 'brevitas.nn.quant_linear.QuantLinear'>",
-                "model.layers.0.self_attn.q_proj.input_quant": "<class 'brevitas.proxy.runtime_quant.ActQuantProxyFromInjector'>",
-                "model.layers.0.self_attn.q_proj.weight_quant.tensor_quant": "<class 'brevitas.core.quant.int.RescalingIntQuant'>",
-                }},
+                "model.layers.0.self_attn.q_proj":
+                    "<class 'brevitas.nn.quant_linear.QuantLinear'>",
+                "model.layers.0.self_attn.q_proj.input_quant":
+                    "<class 'brevitas.proxy.runtime_quant.ActQuantProxyFromInjector'>",
+                "model.layers.0.self_attn.q_proj.weight_quant.tensor_quant":
+                    "<class 'brevitas.core.quant.int.RescalingIntQuant'>",}},
         {
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
             "weight_quant_format": "float_ocp_e4m3",
@@ -198,10 +203,12 @@ def test_small_models_acc(caplog, acc_args_and_acc):
             "input_quant_format": "float_ocp_e5m2",
             "input_quant_type": "sym",
             "exp_layer_types": {
-                "model.layers.0.self_attn.q_proj": "<class 'brevitas.nn.quant_linear.QuantLinear'>",
-                "model.layers.0.self_attn.q_proj.input_quant.fused_activation_quant_proxy.tensor_quant": "<class 'brevitas.core.quant.float.FloatQuant'>",
-                "model.layers.0.self_attn.q_proj.weight_quant.tensor_quant": "<class 'brevitas.core.quant.float.FloatQuant'>",
-                }},
+                "model.layers.0.self_attn.q_proj":
+                    "<class 'brevitas.nn.quant_linear.QuantLinear'>",
+                "model.layers.0.self_attn.q_proj.input_quant.fused_activation_quant_proxy.tensor_quant":
+                    "<class 'brevitas.core.quant.float.FloatQuant'>",
+                "model.layers.0.self_attn.q_proj.weight_quant.tensor_quant":
+                    "<class 'brevitas.core.quant.float.FloatQuant'>",}},
         {
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
             "weight_quant_format": "float_fnuz_e4m3",
@@ -209,10 +216,12 @@ def test_small_models_acc(caplog, acc_args_and_acc):
             "input_quant_format": "float_fnuz_e5m2",
             "input_quant_type": "sym",
             "exp_layer_types": {
-                "model.layers.0.self_attn.q_proj": "<class 'brevitas.nn.quant_linear.QuantLinear'>",
-                "model.layers.0.self_attn.q_proj.input_quant.fused_activation_quant_proxy.tensor_quant": "<class 'brevitas.core.quant.float.FloatQuant'>",
-                "model.layers.0.self_attn.q_proj.weight_quant.tensor_quant": "<class 'brevitas.core.quant.float.FloatQuant'>",
-                }},
+                "model.layers.0.self_attn.q_proj":
+                    "<class 'brevitas.nn.quant_linear.QuantLinear'>",
+                "model.layers.0.self_attn.q_proj.input_quant.fused_activation_quant_proxy.tensor_quant":
+                    "<class 'brevitas.core.quant.float.FloatQuant'>",
+                "model.layers.0.self_attn.q_proj.weight_quant.tensor_quant":
+                    "<class 'brevitas.core.quant.float.FloatQuant'>",}},
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "weight_quant_format": "float_ocp_e4m3",
@@ -230,30 +239,37 @@ def test_small_models_acc(caplog, acc_args_and_acc):
             "input_quant_type": "sym",
             "act_calibration": False,
             "exp_layer_types": {
-                "model.layers.0.self_attn.q_proj": "<class 'brevitas.nn.quant_linear.QuantLinear'>",
-                "model.layers.0.self_attn.q_proj.input_quant.fused_activation_quant_proxy.tensor_quant": "<class 'brevitas.core.quant.float.FloatQuant'>",
-                "model.layers.0.self_attn.q_proj.input_quant.fused_activation_quant_proxy.tensor_quant.scaling_impl.stats_input_view_shape_impl": "<class 'brevitas.core.function_wrapper.shape.OverSubChannelBlockView'>",
-                "model.layers.0.self_attn.q_proj.weight_quant.tensor_quant": "<class 'brevitas.core.quant.float.FloatQuant'>",
-                "model.layers.0.self_attn.q_proj.weight_quant.tensor_quant.scaling_impl.parameter_list_stats.first_tracked_param.view_shape_impl": "<class 'brevitas.core.function_wrapper.shape.OverSubChannelBlockView'>",
-                }},
+                "model.layers.0.self_attn.q_proj":
+                    "<class 'brevitas.nn.quant_linear.QuantLinear'>",
+                "model.layers.0.self_attn.q_proj.input_quant.fused_activation_quant_proxy.tensor_quant":
+                    "<class 'brevitas.core.quant.float.FloatQuant'>",
+                "model.layers.0.self_attn.q_proj.input_quant.fused_activation_quant_proxy.tensor_quant.scaling_impl.stats_input_view_shape_impl":
+                    "<class 'brevitas.core.function_wrapper.shape.OverSubChannelBlockView'>",
+                "model.layers.0.self_attn.q_proj.weight_quant.tensor_quant":
+                    "<class 'brevitas.core.quant.float.FloatQuant'>",
+                "model.layers.0.self_attn.q_proj.weight_quant.tensor_quant.scaling_impl.parameter_list_stats.first_tracked_param.view_shape_impl":
+                    "<class 'brevitas.core.function_wrapper.shape.OverSubChannelBlockView'>",}},
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
             "act_equalization": "layerwise",
             "exp_layer_types": {
-                "model.layers.0.self_attn.q_proj": "<class 'brevitas.nn.equalized_layer.EqualizedModule'>",
-                "model.layers.0.self_attn.q_proj.layer": "<class 'brevitas.nn.quant_linear.QuantLinear'>",
-                }},
+                "model.layers.0.self_attn.q_proj":
+                    "<class 'brevitas.nn.equalized_layer.EqualizedModule'>",
+                "model.layers.0.self_attn.q_proj.layer":
+                    "<class 'brevitas.nn.quant_linear.QuantLinear'>",}},
         {
             "model": "hf-internal-testing/tiny-random-OPTForCausalLM",
             "replace_mha": True,
             "exp_layer_types": {
-                "model.decoder.layers.0.self_attn": "<class 'brevitas_examples.llm.llm_quant.mha_layers.QuantizableOPTAttention'>",
-                "model.decoder.layers.0.self_attn.mha": "<class 'brevitas.nn.quant_mha.QuantMultiheadAttention'>",
-                }},
+                "model.decoder.layers.0.self_attn":
+                    "<class 'brevitas_examples.llm.llm_quant.mha_layers.QuantizableOPTAttention'>",
+                "model.decoder.layers.0.self_attn.mha":
+                    "<class 'brevitas.nn.quant_mha.QuantMultiheadAttention'>",}},
         {
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
             "quantize_last_layer": True,
-            "exp_layer_types": {"lm_head": "<class 'brevitas.nn.quant_linear.QuantLinear'>"}},])
+            "exp_layer_types": {
+                "lm_head": "<class 'brevitas.nn.quant_linear.QuantLinear'>"}},])
 def layer_args(default_run_args, request):
     args = default_run_args
     layer_dict = request.param
