@@ -5,6 +5,7 @@ from hypothesis import given
 import mock
 import torch
 
+from brevitas.core.function_wrapper import Identity
 from brevitas.core.function_wrapper import RoundSte
 from brevitas.core.function_wrapper import TensorClamp
 from brevitas.core.quant import *
@@ -30,6 +31,7 @@ class TestIntQuantUnit:
         int_quant = IntQuant(
             narrow_range=narrow_range,
             signed=signed,
+            input_view_impl=Identity,
             float_to_int_impl=float_to_int_impl,
             tensor_clamp_impl=tensor_clamp_impl)
         bit_width = torch.tensor(bit_width_init)
