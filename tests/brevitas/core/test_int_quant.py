@@ -31,7 +31,7 @@ class TestIntQuantUnit:
         int_quant = IntQuant(
             narrow_range=narrow_range,
             signed=signed,
-            input_view_impl=Identity,
+            input_view_impl=Identity(),
             float_to_int_impl=float_to_int_impl,
             tensor_clamp_impl=tensor_clamp_impl)
         bit_width = torch.tensor(bit_width_init)
@@ -53,7 +53,7 @@ class TestIntQuantUnit:
             zero_point_init,
             bit_width_init,
             arange_int_tensor):
-        int_quant = IntQuant(narrow_range=narrow_range, signed=signed)
+        int_quant = IntQuant(narrow_range=narrow_range, signed=signed, input_view_impl=Identity())
         zero_point = torch.tensor(zero_point_init).float()
         bit_width = torch.tensor(bit_width_init).float()
         scale = torch.tensor(standalone_scaling_init).float()
