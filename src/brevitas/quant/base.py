@@ -53,6 +53,7 @@ from brevitas.inject.enum import StatsOp
 from brevitas.proxy import DecoupledWeightQuantProxyFromInjector
 from brevitas.proxy import DecoupledWeightQuantWithInputProxyFromInjector
 from brevitas.quant.solver.common import SolveStatsReduceDimFromEnum
+from brevitas.quant.solver.parameter import SolveInputViewImpl
 from brevitas.quant.solver.parameter import SolveParameterScalingShape
 from brevitas.quant.solver.weight import SolveWeightScalingPerOutputChannelShapeFromModule
 from brevitas.quant.solver.weight import SolveWeightScalingStatsInputDimsFromModule
@@ -333,7 +334,8 @@ class WeightPerChannelFloatDecoupled(SolveStatsReduceDimFromEnum,
 class WeightNormPerChannelFloatDecoupled(SolveStatsReduceDimFromEnum,
                                          SolveWeightScalingStatsInputDimsFromModule,
                                          SolveWeightScalingPerOutputChannelShapeFromModule,
-                                         SolveParameterScalingShape):
+                                         SolveParameterScalingShape,
+                                         SolveInputViewImpl):
     """Experimental narrow per-channel weight normalization-based signed integer quantizer
     based on `Quantized Neural Networks for Low-Precision Accumulation with Guaranteed
     Overflow Avoidance` by I. Colbert, A. Pappalardo, and J. Petri-Koenig.
