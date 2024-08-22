@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from abc import ABC
+from abc import abstractmethod
 from typing import Optional, Tuple, Union
 
 from torch import nn
@@ -94,6 +95,7 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
         self._cached_act = None
         self.cache_inference_quant_act = False
         self.cache_quant_io_metadata_only = True
+        self.cache_class = None
 
     def internal_forward(self, force_eval):
         current_status = self.training
@@ -115,12 +117,6 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
     @property
     def is_quant_enabled(self):
         return self._is_quant_enabled and not self.disable_quant
-
-    @property
-    def is_signed(self):
-        if self._cached_act is not None:
-            return self._cached_act.signed
-        return super().is_signed
 
     @is_quant_enabled.setter
     def is_quant_enabled(self, is_quant_enabled):
@@ -145,8 +141,52 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
         else:
             self.fused_activation_quant_proxy = None
 
+    @abstractmethod
+    def create_quant_tensor(self, qt_args, x=None):
+        raise NotImplementedError
+
+    def forward(self, x: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
+        # If fused activation quant proxy is not enabled, return the input
+        if self.fused_activation_quant_proxy is None:
+            return x
+
+        y = x
+        if isinstance(y, QuantTensor):
+            y = y.value
+
+        if self.export_mode:
+            y = self.fused_activation_quant_proxy.activation_impl(y)
+            y = self.export_handler(y)
+        elif not self.is_quant_enabled:
+            # A tuple helps later with control flows
+            # The second None value is used later
+            y = (self.fused_activation_quant_proxy.activation_impl(y), None)
+        else:
+            y = self.fused_activation_quant_proxy(y)
+        # If y is an empty IntQuantTensor, we need to check if this is a passthrough proxy,
+        # otherwise return a simple Tensor
+
+        # If the second value (i.e., scale) is None, then quant is disabled
+        if isinstance(y, tuple) and y[1] is not None:
+            out = self.create_quant_tensor(y)
+        elif self.is_passthrough_act and isinstance(x, QuantTensor):
+            # preserve scale/zp/bit/sign even without output quant
+            y = y[0]
+            out = self.create_quant_tensor(y, x=x)
+        else:
+            out = y[0]
+
+        if not self.training and self.cache_inference_quant_act and isinstance(out, QuantTensor):
+            cached_out = self.cache_class(out.detach(), self.cache_quant_io_metadata_only)
+            self._cached_act = cached_out
+        return out
+
 
 class ActQuantProxyFromInjector(ActQuantProxyFromInjectorBase):
+
+    def __init__(self, quant_layer, quant_injector):
+        super().__init__(quant_layer, quant_injector)
+        self.cache_class = _CachedIO
 
     def scale(self, force_eval=True):
         return self.retrieve_attribute('scale', force_eval)
@@ -157,42 +197,12 @@ class ActQuantProxyFromInjector(ActQuantProxyFromInjectorBase):
     def bit_width(self, force_eval=True):
         return self.retrieve_attribute('bit_width', force_eval)
 
-    def forward(self, x: Union[Tensor, QuantTensor]) -> Union[Tensor, IntQuantTensor]:
-        out = x
-        if self.fused_activation_quant_proxy is not None:
-            y = x
-            if isinstance(y, QuantTensor):
-                y = y.value
-
-            if self.export_mode:
-                y = self.fused_activation_quant_proxy.activation_impl(y)
-                y = self.export_handler(y)
-            elif not self.is_quant_enabled:
-                y = self.fused_activation_quant_proxy.activation_impl(y)
-            else:
-                y = self.fused_activation_quant_proxy(y)
-            # If y is an empty IntQuantTensor, we need to check if this is a passthrough proxy,
-            # otherwise return a simple Tensor
-            if isinstance(y, tuple) and not any(map(lambda f: f is None, y)):
-                out = IntQuantTensor(*y, signed=self.is_signed, training=self.training)
-            elif self.is_passthrough_act:  # preserve scale/zp/bit/sign even without output quant
-                if isinstance(y, tuple):
-                    y = y[0]
-                if isinstance(x, IntQuantTensor):
-                    out = IntQuantTensor(
-                        y, x.scale, x.zero_point, x.bit_width, x.signed, self.training)
-                else:
-                    out = y
-            else:
-                if isinstance(y, tuple):
-                    y = y[0]
-                out = y
+    def create_quant_tensor(self, qt_args, x=None):
+        if x is None:
+            out = IntQuantTensor(*qt_args, self.is_signed, self.training)
         else:
-            # If fused activation quant proxy is not enabled, return the input
-            out = x
-        if not self.training and self.cache_inference_quant_act and isinstance(out, IntQuantTensor):
-            cached_out = _CachedIO(out.detach(), self.cache_quant_io_metadata_only)
-            self._cached_act = cached_out
+            out = IntQuantTensor(
+                qt_args, x.scale, x.zero_point, x.bit_width, x.signed, self.training)
         return out
 
 

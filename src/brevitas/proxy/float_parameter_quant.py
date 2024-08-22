@@ -1,5 +1,4 @@
-from typing import Optional, Union
-from warnings import warn
+from typing import Any, List, Optional, Union
 
 import torch
 from torch import Tensor
@@ -8,7 +7,9 @@ import torch.nn as nn
 from brevitas.inject import BaseInjector as Injector
 from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjectorBase
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjectorBase
+from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import FloatQuantTensor
+from brevitas.quant_tensor.base_quant_tensor import QuantTensor
 from brevitas.utils.quant_utils import _CachedIOFloat
 
 
@@ -84,46 +85,23 @@ class WeightFloatQuantProxyFromInjectorBase(WeightQuantProxyFromInjectorBase):
         ) is None and self.exponent_bias() == 16
         return is_fnuz_e4m3 or is_fnuz_e5m2
 
-    def forward(self, x: torch.Tensor) -> Union[Tensor, FloatQuantTensor]:
-        if self.is_quant_enabled:
-            impl = self.export_handler if self.export_mode else self.tensor_quant
-            out, scale, zero_point, exponent_bit_width, mantissa_bit_width, exponent_bias, saturating, inf_values, nan_values = impl(x)
-            return FloatQuantTensor(
-                out,
-                scale,
-                zero_point,
-                exponent_bit_width,
-                mantissa_bit_width,
-                exponent_bias,
-                saturating,
-                inf_values,
-                nan_values,
-                self.is_signed,
-                self.training)
-        else:  # quantization disabled
-            return x
-
 
 class WeightFloatQuantProxyFromInjector(WeightFloatQuantProxyFromInjectorBase):
 
-    def forward(self, x: torch.Tensor) -> Union[Tensor, FloatQuantTensor]:
-        if self.is_quant_enabled:
-            impl = self.export_handler if self.export_mode else self.tensor_quant
-            out, scale, zero_point, exponent_bit_width, mantissa_bit_width, exponent_bias, saturating, inf_values, nan_values = impl(x)
-            return FloatQuantTensor(
-                out,
-                scale,
-                zero_point,
-                exponent_bit_width,
-                mantissa_bit_width,
-                exponent_bias,
-                saturating,
-                inf_values,
-                nan_values,
-                self.is_signed,
-                self.training)
-        else:  # quantization disabled
-            return x
+    def create_quant_tensor(self, qt_args: List[Any]) -> Union[Tensor, QuantTensor]:
+        out, scale, zero_point, exponent_bit_width, mantissa_bit_width, exponent_bias, saturating, inf_values, nan_values = qt_args
+        return FloatQuantTensor(
+            out,
+            scale,
+            zero_point,
+            exponent_bit_width,
+            mantissa_bit_width,
+            exponent_bias,
+            saturating,
+            inf_values,
+            nan_values,
+            self.is_signed,
+            self.training)
 
 
 class BiasFloatQuantProxyFromInjector(BiasQuantProxyFromInjectorBase):
