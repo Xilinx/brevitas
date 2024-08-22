@@ -7,6 +7,7 @@ from torch.onnx.symbolic_helper import _get_tensor_sizes
 
 from brevitas.core.bit_width import BitWidthConst
 from brevitas.core.function_wrapper.clamp import TensorClamp
+from brevitas.core.function_wrapper.misc import Identity
 from brevitas.core.quant import IntQuant
 from brevitas.core.quant import TruncIntQuant
 from brevitas.function import binary_sign
@@ -51,6 +52,7 @@ class BrevitasQuantFn(Function):
         quant = IntQuant(
             float_to_int_impl=float_to_int_impl(),
             tensor_clamp_impl=TensorClamp(),
+            input_view_impl=Identity(),  #TODO: Update this when QONNX support Groupwise export
             narrow_range=narrow_range,
             signed=signed)
         y = quant(scale, zero_point, bit_width, x)
