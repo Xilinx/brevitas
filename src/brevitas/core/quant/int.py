@@ -135,6 +135,7 @@ class RescalingIntQuant(brevitas.jit.ScriptModule):
     def __init__(
             self,
             int_quant: Module,
+            input_view_impl: Module,
             scaling_impl: Module,
             int_scaling_impl: Module,
             zero_point_impl: Module,
@@ -145,6 +146,7 @@ class RescalingIntQuant(brevitas.jit.ScriptModule):
         self.int_scaling_impl = int_scaling_impl
         self.zero_point_impl = zero_point_impl
         self.msb_clamp_bit_width_impl = bit_width_impl
+        self.input_view_impl = input_view_impl
 
     @brevitas.jit.script_method
     def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
@@ -153,6 +155,7 @@ class RescalingIntQuant(brevitas.jit.ScriptModule):
         int_threshold = self.int_scaling_impl(bit_width)
         scale = threshold / int_threshold
         zero_point = self.zero_point_impl(x, scale, bit_width)
+        x = self.input_view_impl(x)
         y = self.int_quant(scale, zero_point, bit_width, x)
         return y, scale, zero_point, bit_width
 
@@ -167,7 +170,8 @@ class DecoupledRescalingIntQuant(brevitas.jit.ScriptModule):
             int_scaling_impl: Module,
             pre_zero_point_impl: Module,
             zero_point_impl: Module,
-            bit_width_impl: Module):
+            bit_width_impl: Module,
+            input_view_impl: Module):
         super(DecoupledRescalingIntQuant, self).__init__()
         self.decoupled_int_quant = decoupled_int_quant
         self.pre_scaling_impl = pre_scaling_impl
@@ -176,6 +180,7 @@ class DecoupledRescalingIntQuant(brevitas.jit.ScriptModule):
         self.pre_zero_point_impl = pre_zero_point_impl
         self.zero_point_impl = zero_point_impl
         self.msb_clamp_bit_width_impl = bit_width_impl
+        self.input_view_impl = input_view_impl
 
     @brevitas.jit.script_method
     def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]:
@@ -184,6 +189,7 @@ class DecoupledRescalingIntQuant(brevitas.jit.ScriptModule):
         pre_threshold = self.pre_scaling_impl(x)
         pre_scale = pre_threshold / int_threshold
         pre_zero_point = self.pre_zero_point_impl(x, pre_scale, bit_width)
+        x = self.input_view_impl(x)
         threshold = self.scaling_impl(x)
         scale = threshold / int_threshold
         zero_point = self.zero_point_impl(x, scale, bit_width)

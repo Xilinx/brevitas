@@ -8,6 +8,7 @@ from brevitas.inject import ExtendedInjector
 from brevitas.inject import this
 from brevitas.inject import value
 from brevitas.proxy import WeightQuantProxyFromInjector
+from brevitas.quant.solver.parameter import SolveInputViewImpl
 from brevitas.quant.solver.common import *
 from brevitas.quant.solver.parameter import *
 from brevitas.quant.solver.parameter import SolveInputViewImpl
@@ -69,6 +70,8 @@ class SolveWeightScalingStatsInputDimsFromModule(ExtendedInjector):
             return 0
         elif scaling_per_output == ScalingPerOutputType.CHANNEL:
             return 1
+        else:
+            raise RuntimeError("Shared groupwise quantization is not supported")
 
     @value
     def permute_dims(module, output_channel_dim):
