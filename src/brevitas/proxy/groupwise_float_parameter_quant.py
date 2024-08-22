@@ -9,11 +9,6 @@ from brevitas.quant_tensor import GroupwiseFloatQuantTensor
 
 class GroupwiseWeightFloatQuantProxyFromInjector(WeightFloatQuantProxyFromInjectorBase):
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # TODO: Is this always generated?
-        self.view_impl = self.quant_injector.scaling_stats_input_view_shape_impl
-
     @property
     def group_dim(self):
         return self.quant_injector.group_dim
@@ -25,7 +20,6 @@ class GroupwiseWeightFloatQuantProxyFromInjector(WeightFloatQuantProxyFromInject
     def forward(self, x: torch.Tensor) -> Union[Tensor, GroupwiseFloatQuantTensor]:
         if self.is_quant_enabled:
             impl = self.export_handler if self.export_mode else self.tensor_quant
-            x = self.view_impl(x)
             out, scale, zero_point, exponent_bit_width, mantissa_bit_width, exponent_bias, saturating, inf_values, nan_values = impl(x)
             return GroupwiseFloatQuantTensor(
                 out,

@@ -90,13 +90,15 @@ class GroupwiseFloatQuantTensor(GroupwiseFloatQuantTensorBase, QuantTensor):
 
     def expand(self):
         curr_shape = self.value_.shape
-        new_value = self.value_.flatten(self.group_dim, self.group_dim + 1)
+        start_dim = self.group_dim if self.group_dim != -1 else -2
+        new_value = self.value_.flatten(start_dim, start_dim + 1)
+        new_value = self.value_.flatten(start_dim, start_dim + 1)
         if self.scale_.shape != ():
-            new_scale = self.scale_.expand(curr_shape).flatten(self.group_dim, self.group_dim + 1)
+            new_scale = self.scale_.expand(curr_shape).flatten(start_dim, start_dim + 1)
         else:
             new_scale = self.scale_
         if self.zero_point_.shape != ():
-            new_zp = self.zero_point_.expand(curr_shape).flatten(self.group_dim, self.group_dim + 1)
+            new_zp = self.zero_point_.expand(curr_shape).flatten(start_dim, start_dim + 1)
         else:
             new_zp = self.zero_point_
 

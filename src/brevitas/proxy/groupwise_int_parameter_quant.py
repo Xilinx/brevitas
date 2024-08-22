@@ -25,7 +25,6 @@ class GroupwiseWeightQuantProxyFromInjector(WeightQuantProxyFromInjector):
     def forward(self, x: torch.Tensor) -> Union[Tensor, GroupwiseIntQuantTensor]:
         if self.is_quant_enabled:
             impl = self.export_handler if self.export_mode else self.tensor_quant
-            x = self.view_impl(x)
             out, scale, zero_point, bit_width = impl(x)
             return GroupwiseIntQuantTensor(
                 out,

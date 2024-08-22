@@ -4,6 +4,8 @@
 import math
 from typing import List
 
+from brevitas.core.function_wrapper.misc import Identity
+from brevitas.core.function_wrapper.shape import StatsInputViewShapeImpl
 from dependencies import this
 from dependencies import value
 import torch
@@ -139,3 +141,11 @@ class SolveParameterScalingShape(ExtendedInjector):
     def group_dim(module, group_size=None):
         if group_size is not None:
             return 1
+
+class SolveInputViewImpl(ExtendedInjector):
+    @value
+    def input_view_impl(scaling_per_output):
+        if scaling_per_output == ScalingPerOutputType.GROUP:
+            return StatsInputViewShapeImpl.OVER_SUBCHANNEL_BLOCK
+        else:
+            return Identity
