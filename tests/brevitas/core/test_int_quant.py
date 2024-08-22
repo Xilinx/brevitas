@@ -41,7 +41,7 @@ class TestIntQuantUnit:
             output, min_val=int_quant.min_int(bit_width), max_val=int_quant.max_int(bit_width))
 
     def test_int_quant_defaults(self, narrow_range, signed):
-        int_quant = IntQuant(narrow_range=narrow_range, signed=signed)
+        int_quant = IntQuant(narrow_range=narrow_range, signed=signed, input_view_impl=Identity())
         assert isinstance(int_quant.float_to_int_impl, RoundSte)
         assert isinstance(int_quant.tensor_clamp_impl, TensorClamp)
 
