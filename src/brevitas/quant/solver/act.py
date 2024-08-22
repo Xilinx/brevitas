@@ -1,8 +1,6 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from brevitas.core.function_wrapper.misc import Identity
-from brevitas.core.function_wrapper.shape import StatsInputViewShapeImpl
 import torch
 from torch import nn
 from torch import Tensor
@@ -133,12 +131,14 @@ class SolveUpdateStateDictImplFromEnum(ExtendedInjector):
 
 
 class SolveInputViewImpl(ExtendedInjector):
+
     @value
     def input_view_impl(scaling_per_output):
         if scaling_per_output == ScalingPerOutputType.GROUP:
             return StatsInputViewShapeImpl.DYNAMIC_OVER_SUBCHANNEL_BLOCK
         else:
             return Identity
+
 
 class ActQuantSolver(SolveActTensorQuantFromEnum,
                      SolveActScalingImplFromEnum,

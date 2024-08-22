@@ -178,10 +178,6 @@ class RuntimeDynamicGroupStatsScaling(brevitas.jit.ScriptModule):
         self.input_view_impl = input_view_impl
         self.restrict_clamp_scaling = _RestrictClampValue(scaling_min_val, restrict_scaling_impl)
 
-<<<<<<< HEAD
-=======
-
->>>>>>> Fix MX
     @brevitas.jit.script_method
     def forward(self, stats_input) -> torch.Tensor:
         stats_input_reshaped = self.input_view_impl(stats_input)

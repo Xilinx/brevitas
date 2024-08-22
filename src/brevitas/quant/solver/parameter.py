@@ -4,8 +4,6 @@
 import math
 from typing import List
 
-from brevitas.core.function_wrapper.misc import Identity
-from brevitas.core.function_wrapper.shape import StatsInputViewShapeImpl
 from dependencies import this
 from dependencies import value
 import torch
