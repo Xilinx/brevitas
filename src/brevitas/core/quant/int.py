@@ -167,8 +167,7 @@ class DecoupledRescalingIntQuant(brevitas.jit.ScriptModule):
             int_scaling_impl: Module,
             pre_zero_point_impl: Module,
             zero_point_impl: Module,
-            bit_width_impl: Module,
-            input_view_impl: Module):
+            bit_width_impl: Module):
         super(DecoupledRescalingIntQuant, self).__init__()
         self.decoupled_int_quant = decoupled_int_quant
         self.pre_scaling_impl = pre_scaling_impl
