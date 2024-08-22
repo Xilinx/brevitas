@@ -51,6 +51,7 @@ class IntQuant(brevitas.jit.ScriptModule):
             self,
             narrow_range: bool,
             signed: bool,
+            input_view_impl: Module,
             float_to_int_impl: Module = RoundSte(),
             tensor_clamp_impl: Module = TensorClamp(),
             quant_delay_steps: int = 0):
@@ -60,9 +61,11 @@ class IntQuant(brevitas.jit.ScriptModule):
         self.signed = signed
         self.narrow_range = narrow_range
         self.delay_wrapper = DelayWrapper(quant_delay_steps)
+        self.input_view_impl = input_view_impl
 
     @brevitas.jit.script_method
     def to_int(self, scale: Tensor, zero_point: Tensor, bit_width: Tensor, x: Tensor) -> Tensor:
+        x = self.input_view_impl(x)
         y = x / scale
         y = y + zero_point
         min_int_val = self.min_int(bit_width)
@@ -124,6 +127,7 @@ class DecoupledIntQuant(brevitas.jit.ScriptModule):
             self,
             narrow_range: bool,
             signed: bool,
+            input_view_impl: Module,
             float_to_int_impl: Module = RoundSte(),
             tensor_clamp_impl: Module = TensorClamp(),
             quant_delay_steps: int = 0):
@@ -133,11 +137,13 @@ class DecoupledIntQuant(brevitas.jit.ScriptModule):
         self.signed = signed
         self.narrow_range = narrow_range
         self.delay_wrapper = DelayWrapper(quant_delay_steps)
+        self.input_view_impl = input_view_impl
 
     @brevitas.jit.script_method
     def to_int(
             self, pre_scale: Tensor, pre_zero_point: Tensor, bit_width: Tensor,
             x: Tensor) -> Tensor:
+        x = self.input_view_impl(x)
         y = x / pre_scale
         y = y + pre_zero_point
         min_int_val = self.min_int(bit_width)
