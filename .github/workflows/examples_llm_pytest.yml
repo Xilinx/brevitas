@@ -1,0 +1,65 @@
+name: Examples LLM Pytest
+
+on:
+  push:
+    branches: [ master, dev ]
+  pull_request:
+    types:
+      - review_requested
+
+jobs:
+  build:
+    runs-on: ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+
+
+      matrix:
+        python_version: ['3.8', '3.9']
+        pytorch_version: ['1.9.1', '1.10.1', '1.11.0', '1.12.1', '1.13.0', '2.0.1', '2.1.0']
+        platform: ['windows-latest', 'ubuntu-latest', 'macos-latest']
+        jit_status: ['jit_disabled', 'jit_enabled']
+
+
+        exclude:
+          - pytorch_version: '1.9.1'
+            platform: 'macos-latest'
+
+          - pytorch_version: '1.9.1'
+            jit_status: 'jit_enabled'
+
+
+
+    if: ${{ !github.event.pull_request.draft }}
+    steps:
+
+    - name: Checkout repo
+      uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+       python-version: ${{ matrix.python_version }}
+
+    - name: Install Nox dependencies
+      shell: bash
+      run: pip install -r requirements/requirements-nox.txt
+
+    - name: Install update
+      shell: bash
+      run: sudo apt-get update
+      if: startsWith(runner.os, 'Linux') == true
+
+    - name: Install libsndfile and libgomp1 on Ubuntu
+      shell: bash
+      run: sudo apt-get install -y libsndfile-dev libgomp1
+      if: startsWith(runner.os, 'Linux') == true
+
+    - name: Install libomp on macOS
+      shell: bash
+      run: brew install libomp
+      if: startsWith(runner.os, 'macOS') == true
+
+    - name: Run Nox session for brevitas_examples pytest
+      shell: bash
+      run: nox -v -s tests_brevitas_examples_llm-${{ matrix.python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)
