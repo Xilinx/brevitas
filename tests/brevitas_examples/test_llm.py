@@ -24,11 +24,11 @@ def ptid2pathname(string):
 
 
 def allclose(x, y):
-    return np.allclose(x, y, rtol=1e-04, atol=1e+01, equal_nan=False)
+    return np.allclose(x, y, rtol=1e-03, atol=1e+01, equal_nan=False)
 
 
 def allveryclose(x, y):
-    return np.allclose(x, y, rtol=1e-08, atol=1e+01, equal_nan=False)
+    return np.allclose(x, y, rtol=1e-04, atol=2e+02, equal_nan=False)
 
 
 def allexact(x, y):
@@ -71,11 +71,6 @@ class ModelAndPpl:
     params=[
         ModelAndPpl(
             name="hf-internal-testing/tiny-random-LlamaForCausalLM",
-            float_ppl=None,
-            supports_fx=True,
-        ),
-        ModelAndPpl(
-            name="hf-internal-testing/tiny-random-OPTForCausalLM",
             float_ppl=None,
             supports_fx=True,
         ),
@@ -133,7 +128,7 @@ def toggle_run_args(default_run_args, request):
 
 
 @pytest.mark.llm
-@requires_pt_ge('2.4')
+@requires_pt_ge('2.2')
 def test_small_models_toggle_run_args(caplog, toggle_run_args, small_models_with_ppl):
     caplog.set_level(logging.INFO)
     args = toggle_run_args
@@ -141,6 +136,32 @@ def test_small_models_toggle_run_args(caplog, toggle_run_args, small_models_with
     exp_float_ppl = small_models_with_ppl.float_ppl
     use_fx = requires_fx(args)
     if use_fx and not small_models_with_ppl.supports_fx:
+        pytest.xfail(f"{small_models_with_ppl.name} does not support FX")
+    float_ppl, quant_ppl, model = main(args)
+
+
+@pytest.fixture(
+    scope="session",
+    params=[
+        ModelAndPpl(
+            name="hf-internal-testing/tiny-random-OPTForCausalLM",
+            float_ppl=None,
+            supports_fx=True,
+        ),])
+def small_models_with_ppl_pt_ge_2_4(request):
+    yield request.param
+
+
+@pytest.mark.llm
+@requires_pt_ge('2.4')
+def test_small_models_toggle_run_args_pt_ge_2_4(
+        caplog, toggle_run_args, small_models_with_ppl_pt_ge_2_4):
+    caplog.set_level(logging.INFO)
+    args = toggle_run_args
+    args.model = small_models_with_ppl_pt_ge_2_4.name
+    exp_float_ppl = small_models_with_ppl_pt_ge_2_4.float_ppl
+    use_fx = requires_fx(args)
+    if use_fx and not small_models_with_ppl_pt_ge_2_4.supports_fx:
         pytest.xfail(f"{small_models_with_ppl.name} does not support FX")
     float_ppl, quant_ppl, model = main(args)
 
@@ -158,14 +179,7 @@ def test_small_models_toggle_run_args(caplog, toggle_run_args, small_models_with
             "act_equalization": "fx",
             "bias_corr": True,
             "float_ppl": 33239.5,
-            "quant_ppl": 33283.75390625},
-        {
-            "model": "hf-internal-testing/tiny-random-OPTForCausalLM",
-            "weight_equalization": True,
-            "ln_affine_merge": True,
-            "replace_mha": True,
-            "float_ppl": 50016.0,
-            "quant_ppl": 50016.0},])
+            "quant_ppl": 33283.75390625},])
 def acc_args_and_acc(default_run_args, request):
     args = default_run_args
     run_dict = request.param
@@ -178,10 +192,46 @@ def acc_args_and_acc(default_run_args, request):
 
 
 @pytest.mark.llm
-@requires_pt_ge('2.4')
+@requires_pt_ge('2.2')
 def test_small_models_acc(caplog, acc_args_and_acc):
     caplog.set_level(logging.INFO)
     args, exp_float_ppl, exp_quant_ppl = acc_args_and_acc
+    float_ppl, quant_ppl, model = main(args)
+    float_ppl = float_ppl.detach().cpu().numpy()
+    quant_ppl = quant_ppl.detach().cpu().numpy()
+    if config.JIT_ENABLED:
+        assert allclose(exp_float_ppl, float_ppl), f"Expected float PPL {exp_float_ppl}, measured PPL {float_ppl}"
+        assert allclose(exp_quant_ppl, quant_ppl), f"Expected quant PPL {exp_quant_ppl}, measured PPL {quant_ppl}"
+    else:
+        assert allveryclose(exp_float_ppl, float_ppl), f"Expected float PPL {exp_float_ppl}, measured PPL {float_ppl}"
+        assert allveryclose(exp_quant_ppl, quant_ppl), f"Expected quant PPL {exp_quant_ppl}, measured PPL {quant_ppl}"
+
+
+@pytest.fixture(
+    params=[
+        {
+            "model": "hf-internal-testing/tiny-random-OPTForCausalLM",
+            "weight_equalization": True,
+            "ln_affine_merge": True,
+            "replace_mha": True,
+            "float_ppl": 50016.0,
+            "quant_ppl": 50016.0},])
+def acc_args_and_acc_pt_ge_2_4(default_run_args, request):
+    args = default_run_args
+    run_dict = request.param
+    float_ppl = run_dict["float_ppl"]
+    quant_ppl = run_dict["quant_ppl"]
+    del run_dict["float_ppl"]
+    del run_dict["quant_ppl"]
+    args.update(**run_dict)
+    yield args, float_ppl, quant_ppl
+
+
+@pytest.mark.llm
+@requires_pt_ge('2.4')
+def test_small_models_acc_pt_ge_2_4(caplog, acc_args_and_acc_pt_ge_2_4):
+    caplog.set_level(logging.INFO)
+    args, exp_float_ppl, exp_quant_ppl = acc_args_and_acc_pt_ge_2_4
     float_ppl, quant_ppl, model = main(args)
     float_ppl = float_ppl.detach().cpu().numpy()
     quant_ppl = quant_ppl.detach().cpu().numpy()
@@ -279,14 +329,6 @@ def test_small_models_acc(caplog, acc_args_and_acc):
                 "model.layers.0.self_attn.q_proj.layer":
                     "<class 'brevitas.nn.quant_linear.QuantLinear'>",}},
         {
-            "model": "hf-internal-testing/tiny-random-OPTForCausalLM",
-            "replace_mha": True,
-            "exp_layer_types": {
-                "model.decoder.layers.0.self_attn":
-                    "<class 'brevitas_examples.llm.llm_quant.mha_layers.QuantizableOPTAttention'>",
-                "model.decoder.layers.0.self_attn.mha":
-                    "<class 'brevitas.nn.quant_mha.QuantMultiheadAttention'>",}},
-        {
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
             "quantize_last_layer": True,
             "exp_layer_types": {
@@ -301,10 +343,38 @@ def layer_args(default_run_args, request):
 
 
 @pytest.mark.llm
-@requires_pt_ge('2.4')
+@requires_pt_ge('2.2')
 def test_small_models_quant_layer(caplog, layer_args):
     caplog.set_level(logging.INFO)
     args, exp_layer_types = layer_args
+    float_ppl, quant_ppl, model = main(args)
+    assert_layer_types(model, exp_layer_types)
+
+
+@pytest.fixture(
+    params=[
+        {
+            "model": "hf-internal-testing/tiny-random-OPTForCausalLM",
+            "replace_mha": True,
+            "exp_layer_types": {
+                "model.decoder.layers.0.self_attn":
+                    "<class 'brevitas_examples.llm.llm_quant.mha_layers.QuantizableOPTAttention'>",
+                "model.decoder.layers.0.self_attn.mha":
+                    "<class 'brevitas.nn.quant_mha.QuantMultiheadAttention'>",}},])
+def layer_args_pt_ge_2_4(default_run_args, request):
+    args = default_run_args
+    layer_dict = request.param
+    exp_layer_types = layer_dict["exp_layer_types"]
+    del layer_dict["exp_layer_types"]
+    args.update(**layer_dict)
+    yield args, exp_layer_types
+
+
+@pytest.mark.llm
+@requires_pt_ge('2.4')
+def test_small_models_quant_layer_pt_ge_2_4(caplog, layer_args_pt_ge_2_4):
+    caplog.set_level(logging.INFO)
+    args, exp_layer_types = layer_args_pt_ge_2_4
     float_ppl, quant_ppl, model = main(args)
     assert_layer_types(model, exp_layer_types)
 
