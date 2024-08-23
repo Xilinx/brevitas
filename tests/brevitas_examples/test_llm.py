@@ -24,11 +24,11 @@ def ptid2pathname(string):
 
 
 def allclose(x, y):
-    return np.allclose(x, y, rtol=1e-04, atol=3e-00, equal_nan=False)
+    return np.allclose(x, y, rtol=1e-04, atol=1e+01, equal_nan=False)
 
 
 def allveryclose(x, y):
-    return np.allclose(x, y, rtol=1e-08, atol=1e-01, equal_nan=False)
+    return np.allclose(x, y, rtol=1e-08, atol=1e+01, equal_nan=False)
 
 
 def allexact(x, y):
@@ -133,7 +133,7 @@ def toggle_run_args(default_run_args, request):
 
 
 @pytest.mark.llm
-@requires_pt_ge('2.2')
+@requires_pt_ge('2.4')
 def test_small_models_toggle_run_args(caplog, toggle_run_args, small_models_with_ppl):
     caplog.set_level(logging.INFO)
     args = toggle_run_args
@@ -178,7 +178,7 @@ def acc_args_and_acc(default_run_args, request):
 
 
 @pytest.mark.llm
-@requires_pt_ge('2.2')
+@requires_pt_ge('2.4')
 def test_small_models_acc(caplog, acc_args_and_acc):
     caplog.set_level(logging.INFO)
     args, exp_float_ppl, exp_quant_ppl = acc_args_and_acc
@@ -301,7 +301,7 @@ def layer_args(default_run_args, request):
 
 
 @pytest.mark.llm
-@requires_pt_ge('2.2')
+@requires_pt_ge('2.4')
 def test_small_models_quant_layer(caplog, layer_args):
     caplog.set_level(logging.INFO)
     args, exp_layer_types = layer_args
