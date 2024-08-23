@@ -13,6 +13,7 @@ import torch
 
 from brevitas import config
 from tests.marker import jit_disabled_for_export
+from tests.marker import requires_pt_ge
 
 
 def ptid2pathname(string):
