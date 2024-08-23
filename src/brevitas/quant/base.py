@@ -7,6 +7,7 @@ from torch import nn
 
 from brevitas.core.bit_width import BitWidthConst
 from brevitas.core.bit_width import BitWidthStatefulConst
+from brevitas.core.function_wrapper import Identity
 from brevitas.core.function_wrapper import OverOutputChannelView
 from brevitas.core.function_wrapper import RoundToZeroSte
 from brevitas.core.function_wrapper import TensorClamp
@@ -294,6 +295,8 @@ class WeightPerTensorFloatDecoupledL2Param(SolveWeightScalingStatsInputDimsFromM
     stats_reduce_dim = SCALING_STATS_REDUCE_DIM
     restrict_scaling_impl = FloatRestrictValue
     scaling_shape = SCALAR_SHAPE
+    scaling_per_output_type = ScalingPerOutputType.TENSOR
+    input_view_impl = Identity
     scaling_impl = ParameterFromStatsFromParameterScaling
     int_scaling_impl = IntScaling
     zero_point_impl = ZeroZeroPoint
@@ -306,7 +309,8 @@ class WeightPerTensorFloatDecoupledL2Param(SolveWeightScalingStatsInputDimsFromM
 class WeightPerChannelFloatDecoupled(SolveStatsReduceDimFromEnum,
                                      SolveWeightScalingStatsInputDimsFromModule,
                                      SolveWeightScalingPerOutputChannelShapeFromModule,
-                                     SolveParameterScalingShape):
+                                     SolveParameterScalingShape,
+                                     SolveInputViewImpl):
     """
     Experimental narrow per-channel signed int weight quantizer fragment with decoupled Linf
     normalization and learned scaling.
