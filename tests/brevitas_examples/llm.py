@@ -76,7 +76,13 @@ class ModelAndPpl:
             name="hf-internal-testing/tiny-random-MistralForCausalLM",
             float_ppl=None,
             supports_fx=False,
-        ),])
+        ),
+        #ModelAndPpl(
+        #    name="dacorvo/Mixtral-tiny",
+        #    float_ppl=None,
+        #    supports_fx=True,
+        #),
+        ])
 def small_models_with_ppl(request):
     yield request.param
 
