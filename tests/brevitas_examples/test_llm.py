@@ -130,6 +130,7 @@ def toggle_run_args(default_run_args, request):
 
 
 @pytest.mark.llm
+@requires_pt_ge('2.2')
 def test_small_models_toggle_run_args(caplog, toggle_run_args, small_models_with_ppl):
     from brevitas_examples.llm.main import main
     caplog.set_level(logging.INFO)
@@ -175,6 +176,7 @@ def acc_args_and_acc(default_run_args, request):
 
 
 @pytest.mark.llm
+@requires_pt_ge('2.2')
 def test_small_models_acc(caplog, acc_args_and_acc):
     from brevitas_examples.llm.main import main
     caplog.set_level(logging.INFO)
@@ -298,6 +300,7 @@ def layer_args(default_run_args, request):
 
 
 @pytest.mark.llm
+@requires_pt_ge('2.2')
 def test_small_models_quant_layer(caplog, layer_args):
     from brevitas_examples.llm.main import main
     caplog.set_level(logging.INFO)
@@ -327,6 +330,7 @@ def onnx_export_args(default_run_args, request):
 
 @pytest.mark.llm
 @jit_disabled_for_export()
+@requires_pt_ge('2.2')
 def test_small_models_onnx_export(caplog, onnx_export_args):
     import onnx
 
@@ -361,6 +365,7 @@ def torch_export_args(default_run_args, request):
 
 @pytest.mark.llm
 @jit_disabled_for_export()
+@requires_pt_ge('2.2')
 def test_small_models_torch_export(caplog, torch_export_args):
     from brevitas_examples.llm.main import main
     caplog.set_level(logging.INFO)

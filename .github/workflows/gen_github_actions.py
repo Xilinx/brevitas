@@ -26,6 +26,10 @@ MATRIX_REDUCED = od([('python_version', list(PYTHON_VERSIONS_REDUCED)),
                      ('pytorch_version', list(PYTORCH_LIST_REDUCED)),
                      ('platform', PLATFORM_LIST_REDUCED)])
 
+EXAMPLES_LLM_PYTEST_MATRIX_REDUCED = od([('python_version', list(PYTHON_VERSIONS_REDUCED)),
+                                         ('pytorch_version', list(
+                                             ('2.2.2',))), ('platform', PLATFORM_LIST_REDUCED)])
+
 FINN_MATRIX_REDUCED = od([('python_version', list(PYTHON_VERSIONS_REDUCED)),
                           ('pytorch_version', list(PYTORCH_LIST_REDUCED)),
                           ('platform', PLATFORM_LIST_REDUCED)])
@@ -61,6 +65,10 @@ END_TO_END_EXCLUDE_LIST = generate_exclusion_list([[['platform', [
 
 MATRIX = od([('python_version', list(PYTHON_VERSIONS)), ('pytorch_version', list(PYTORCH_VERSIONS)),
              ('platform', PLATFORM_LIST)])
+
+EXAMPLES_LLM_PYTEST_MATRIX = od([('python_version', list(PYTHON_VERSIONS)),
+                                 ('pytorch_version', list(
+                                     ('2.2.2', '2.3.1', '2.4.0'))), ('platform', PLATFORM_LIST)])
 
 FINN_MATRIX = od([('python_version', list(PYTHON_VERSIONS)),
                   ('pytorch_version', list(PYTORCH_VERSIONS)), ('platform', FINN_PLATFORM_LIST)])
@@ -179,14 +187,14 @@ def gen_examples_llm_pytest_yml():
     pytest = Action(
         'Examples LLM Pytest',
         EXCLUDE_LIST + JIT_EXCLUDE_LIST,
-        combine_od_list([MATRIX, PYTEST_MATRIX_EXTRA]),
+        combine_od_list([EXAMPLES_LLM_PYTEST_MATRIX, PYTEST_MATRIX_EXTRA]),
         EXAMPLES_LLM_PYTEST_STEP_LIST,
         STRATEGY)
     pytest.gen_yaml(BASE_YML_TEMPLATE, EXAMPLES_LLM_PYTEST_YML)
     pytest = Action(
         'Examples LLM Pytest',
         EXCLUDE_LIST,
-        combine_od_list([MATRIX_REDUCED, PYTEST_MATRIX_EXTRA_REDUCED]),
+        combine_od_list([EXAMPLES_LLM_PYTEST_MATRIX_REDUCED, PYTEST_MATRIX_EXTRA_REDUCED]),
         EXAMPLES_LLM_PYTEST_STEP_LIST,
         STRATEGY)
     pytest.gen_yaml(BASE_YML_REDUCED_TEMPLATE, 'reduced_' + EXAMPLES_LLM_PYTEST_YML)
