@@ -15,7 +15,6 @@ import torch
 from brevitas import config
 from brevitas_examples.llm.main import main
 from brevitas_examples.llm.main import parse_args
-
 from tests.marker import jit_disabled_for_export
 
 
@@ -85,7 +84,7 @@ class ModelAndPpl:
         #    float_ppl=None,
         #    supports_fx=True,
         #),
-        ])
+    ])
 def small_models_with_ppl(request):
     yield request.param
 
