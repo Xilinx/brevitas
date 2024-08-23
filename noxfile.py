@@ -114,7 +114,7 @@ def tests_brevitas_examples_cpu(session, pytorch, jit_status):
 def tests_brevitas_examples_llm(session, pytorch, jit_status):
     session.env['BREVITAS_JIT'] = '{}'.format(int(jit_status == 'jit_enabled'))
     install_pytorch(pytorch, session)
-    session.install('--upgrade', '-e', '.[test, llm, export]')
+    session.install('-e', '.[test, llm, export]')
     session.run('pytest', '-n', 'logical', '-k', 'llm', 'tests/brevitas_examples')
 
 
