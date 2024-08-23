@@ -108,7 +108,13 @@ def tests_brevitas_examples_cpu(session, pytorch, jit_status):
     install_pytorch(pytorch, session)
     install_torchvision(pytorch, session)  # For CV eval scripts
     session.install('--upgrade', '.[test, tts, stt, vision]')
-    session.run('pytest', '-n', 'logical', '--ignore-glob', 'tests/brevitas_examples/*llm*', 'tests/brevitas_examples')
+    session.run(
+        'pytest',
+        '-n',
+        'logical',
+        '--ignore-glob',
+        'tests/brevitas_examples/*llm*',
+        'tests/brevitas_examples')
 
 
 @nox.session(python=PYTHON_VERSIONS)
