@@ -141,8 +141,7 @@ def tests_brevitas_examples_llm(session, pytorch, jit_status):
     session.env['BREVITAS_JIT'] = '{}'.format(int(jit_status == 'jit_enabled'))
     install_pytorch(pytorch, session)
     install_torchvision(pytorch, session)  # Optimum seems to require torchvision
-    session.install(
-        '-e', '.[test, llm, export]', f'torch=={pytorch}' if IS_OSX else f'torch=={pytorch}+cpu')
+    session.install('-e', '.[test, llm, export]')
     session.run('pytest', '-n', 'logical', '-k', 'llm', 'tests/brevitas_examples/test_llm.py')
 
 

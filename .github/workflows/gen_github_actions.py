@@ -28,7 +28,7 @@ MATRIX_REDUCED = od([('python_version', list(PYTHON_VERSIONS_REDUCED)),
 
 EXAMPLES_LLM_PYTEST_MATRIX_REDUCED = od([('python_version', list(PYTHON_VERSIONS_REDUCED)),
                                          ('pytorch_version', list(
-                                             ('2.2.2',))), ('platform', PLATFORM_LIST_REDUCED)])
+                                             ('2.4.0',))), ('platform', PLATFORM_LIST_REDUCED)])
 
 FINN_MATRIX_REDUCED = od([('python_version', list(PYTHON_VERSIONS_REDUCED)),
                           ('pytorch_version', list(PYTORCH_LIST_REDUCED)),
