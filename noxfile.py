@@ -29,7 +29,10 @@ TORCHVISION_VERSION_DICT = {
     '1.12.1': '0.13.1',
     '1.13.0': '0.14.0',
     '2.0.1': '0.15.2',
-    '2.1.0': '0.16.0'}
+    '2.1.0': '0.16.0',
+    '2.2.2': '0.17.2',
+    '2.3.1': '0.18.1',
+    '2.4.0': '0.19.0'}
 
 PARSED_TORCHVISION_VERSION_DICT = {version.parse(k): v for k, v in TORCHVISION_VERSION_DICT.items()}
 
@@ -124,6 +127,7 @@ def tests_brevitas_examples_cpu(session, pytorch, jit_status):
 def tests_brevitas_examples_llm(session, pytorch, jit_status):
     session.env['BREVITAS_JIT'] = '{}'.format(int(jit_status == 'jit_enabled'))
     install_pytorch(pytorch, session)
+    install_torchvision(pytorch, session)  # Optimum seems to require torchvision
     session.install(
         '-e', '.[test, llm, export]', f'torch=={pytorch}' if IS_OSX else f'torch=={pytorch}+cpu')
     session.run('pytest', '-n', 'logical', '-k', 'llm', 'tests/brevitas_examples/test_llm.py')
