@@ -12,8 +12,11 @@ import onnx
 import pytest
 import torch
 
+from brevitas import config
 from brevitas_examples.llm.main import main
 from brevitas_examples.llm.main import parse_args
+
+from tests.marker import jit_disabled_for_export
 
 
 def ptid2pathname(string):
@@ -21,7 +24,7 @@ def ptid2pathname(string):
 
 
 def allclose(x, y):
-    return np.allclose(x, y, rtol=1e-02, atol=5e-01, equal_nan=False)
+    return np.allclose(x, y, rtol=1e-04, atol=3e-00, equal_nan=False)
 
 
 def allexact(x, y):
@@ -176,8 +179,12 @@ def test_small_models_acc(caplog, acc_args_and_acc):
     float_ppl, quant_ppl, model = main(args)
     float_ppl = float_ppl.detach().cpu().numpy()
     quant_ppl = quant_ppl.detach().cpu().numpy()
-    assert allexact(exp_float_ppl, float_ppl), f"Expected float PPL {exp_float_ppl}, measured PPL {float_ppl}"
-    assert allexact(exp_quant_ppl, quant_ppl), f"Expected quant PPL {exp_quant_ppl}, measured PPL {quant_ppl}"
+    if config.JIT_ENABLED:
+        assert allclose(exp_float_ppl, float_ppl), f"Expected float PPL {exp_float_ppl}, measured PPL {float_ppl}"
+        assert allclose(exp_quant_ppl, quant_ppl), f"Expected quant PPL {exp_quant_ppl}, measured PPL {quant_ppl}"
+    else:
+        assert allexact(exp_float_ppl, float_ppl), f"Expected float PPL {exp_float_ppl}, measured PPL {float_ppl}"
+        assert allexact(exp_quant_ppl, quant_ppl), f"Expected quant PPL {exp_quant_ppl}, measured PPL {quant_ppl}"
 
 
 @pytest.fixture(
@@ -315,6 +322,7 @@ def onnx_export_args(default_run_args, request):
 
 
 @pytest.mark.llm
+@jit_disabled_for_export()
 def test_small_models_onnx_export(caplog, onnx_export_args):
     caplog.set_level(logging.INFO)
     args = onnx_export_args
@@ -345,6 +353,7 @@ def torch_export_args(default_run_args, request):
 
 
 @pytest.mark.llm
+@jit_disabled_for_export()
 def test_small_models_torch_export(caplog, torch_export_args):
     caplog.set_level(logging.INFO)
     args = torch_export_args
