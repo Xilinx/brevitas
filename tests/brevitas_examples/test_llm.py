@@ -8,7 +8,6 @@ import os
 import shutil
 
 import numpy as np
-import onnx
 import pytest
 import torch
 
@@ -323,6 +322,7 @@ def onnx_export_args(default_run_args, request):
 @pytest.mark.llm
 @jit_disabled_for_export()
 def test_small_models_onnx_export(caplog, onnx_export_args):
+    import onnx
     caplog.set_level(logging.INFO)
     args = onnx_export_args
     float_ppl, quant_ppl, model = main(args)
