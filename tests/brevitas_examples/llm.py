@@ -119,8 +119,7 @@ def toggle_run_args(default_run_args, request):
     yield args
 
 
-@pytest.mark.examples
-@pytest.mark.weekly
+@pytest.mark.llm
 def test_small_models_toggle_run_args(caplog, toggle_run_args, small_models_with_ppl):
     caplog.set_level(logging.INFO)
     args = toggle_run_args
@@ -164,8 +163,7 @@ def acc_args_and_acc(default_run_args, request):
     yield args, float_ppl, quant_ppl
 
 
-@pytest.mark.examples
-@pytest.mark.weekly
+@pytest.mark.llm
 def test_small_models_acc(caplog, acc_args_and_acc):
     caplog.set_level(logging.INFO)
     args, exp_float_ppl, exp_quant_ppl = acc_args_and_acc
@@ -283,6 +281,7 @@ def layer_args(default_run_args, request):
     yield args, exp_layer_types
 
 
+@pytest.mark.llm
 def test_small_models_quant_layer(caplog, layer_args):
     caplog.set_level(logging.INFO)
     args, exp_layer_types = layer_args
@@ -309,6 +308,7 @@ def onnx_export_args(default_run_args, request):
     yield args
 
 
+@pytest.mark.llm
 def test_small_models_onnx_export(caplog, onnx_export_args):
     caplog.set_level(logging.INFO)
     args = onnx_export_args
@@ -338,6 +338,7 @@ def torch_export_args(default_run_args, request):
     yield args
 
 
+@pytest.mark.llm
 def test_small_models_torch_export(caplog, torch_export_args):
     caplog.set_level(logging.INFO)
     args = torch_export_args
