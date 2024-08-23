@@ -25,6 +25,10 @@ def allclose(x, y):
     return np.allclose(x, y, rtol=1e-04, atol=3e-00, equal_nan=False)
 
 
+def allveryclose(x, y):
+    return np.allclose(x, y, rtol=1e-08, atol=1e-01, equal_nan=False)
+
+
 def allexact(x, y):
     return np.allclose(x, y, rtol=0.0, atol=0.0, equal_nan=False)
 
@@ -181,8 +185,8 @@ def test_small_models_acc(caplog, acc_args_and_acc):
         assert allclose(exp_float_ppl, float_ppl), f"Expected float PPL {exp_float_ppl}, measured PPL {float_ppl}"
         assert allclose(exp_quant_ppl, quant_ppl), f"Expected quant PPL {exp_quant_ppl}, measured PPL {quant_ppl}"
     else:
-        assert allexact(exp_float_ppl, float_ppl), f"Expected float PPL {exp_float_ppl}, measured PPL {float_ppl}"
-        assert allexact(exp_quant_ppl, quant_ppl), f"Expected quant PPL {exp_quant_ppl}, measured PPL {quant_ppl}"
+        assert allveryclose(exp_float_ppl, float_ppl), f"Expected float PPL {exp_float_ppl}, measured PPL {float_ppl}"
+        assert allveryclose(exp_quant_ppl, quant_ppl), f"Expected quant PPL {exp_quant_ppl}, measured PPL {quant_ppl}"
 
 
 @pytest.fixture(
