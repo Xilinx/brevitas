@@ -137,7 +137,7 @@ class SolveParameterScalingShape(ExtendedInjector):
 
     @value
     def input_channel_dim(module):
-        return 1 if not module.transposed else 0
+        return 1 if not hasattr(module, 'transposed') or not module.transposed else 0
 
     @value
     def padding(module, input_channel_dim, group_size):
@@ -151,7 +151,7 @@ class SolveParameterScalingShape(ExtendedInjector):
     @value
     def group_dim(module, group_size=None):
         if group_size is not None:
-            return 1 if not module.transposed else 0
+            return 1 if not hasattr(module, 'transposed') or not module.transposed else 0
 
 
 class SolveInputViewImpl(ExtendedInjector):
