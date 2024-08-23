@@ -7,6 +7,7 @@ import sys
 
 import nox
 from packaging import version
+from packaging.version import parse
 
 sys.path.append(os.path.join(os.path.dirname(__file__), os.path.join('.', '.github', 'workflows')))
 from gen_github_actions import EXAMPLES_LLM_PYTEST_PYTORCH_VERSIONS
@@ -15,7 +16,8 @@ from gen_github_actions import PYTHON_VERSIONS
 from gen_github_actions import PYTORCH_VERSIONS
 
 IS_OSX = system() == 'Darwin'
-PYTORCH_STABLE_WHEEL_SRC = 'https://download.pytorch.org/whl/torch_stable.html'
+PYTORCH_STABLE_WHEEL_SRC = 'https://download.pytorch.org/whl/cpu'
+PYTORCH_STABLE_WHEEL_SRC_LEGACY = 'https://download.pytorch.org/whl/torch_stable.html'
 PYTORCH_IDS = tuple([f'pytorch_{i}' for i in PYTORCH_VERSIONS])
 EXAMPLES_LLM_PYTEST_PYTORCH_IDS = tuple([
     f'pytorch_{i}' for i in EXAMPLES_LLM_PYTEST_PYTORCH_VERSIONS])
@@ -39,7 +41,11 @@ PARSED_TORCHVISION_VERSION_DICT = {version.parse(k): v for k, v in TORCHVISION_V
 
 def install_pytorch(pytorch, session):
     if not IS_OSX:
-        cmd = [f'torch=={pytorch}+cpu', '-f', PYTORCH_STABLE_WHEEL_SRC]
+        if parse(pytorch) < parse('2.4.0'):
+            cmd = [f'torch=={pytorch}+cpu', '-f', PYTORCH_STABLE_WHEEL_SRC_LEGACY]
+        else:
+            cmd = [f'torch=={pytorch}', '--index-url', PYTORCH_STABLE_WHEEL_SRC]
+
     else:
         cmd = [f'torch=={pytorch}']
     session.install(*cmd)
@@ -48,11 +54,18 @@ def install_pytorch(pytorch, session):
 def install_torchvision(pytorch, session):
     torchvision = PARSED_TORCHVISION_VERSION_DICT[version.parse(pytorch)]
     if not IS_OSX:
-        cmd = [
-            f'torch=={pytorch}+cpu',  # make sure correct pytorch version is kept
-            f'torchvision=={torchvision}+cpu',
-            '-f',
-            PYTORCH_STABLE_WHEEL_SRC]
+        if parse(pytorch) < parse('2.4.0'):
+            cmd = [
+                f'torch=={pytorch}+cpu',  # make sure correct pytorch version is kept
+                f'torchvision=={torchvision}+cpu',
+                '-f',
+                PYTORCH_STABLE_WHEEL_SRC_LEGACY]
+        else:
+            cmd = [
+                f'torch=={pytorch}',
+                f'torchvision=={torchvision}',
+                '--index-url',
+                PYTORCH_STABLE_WHEEL_SRC]
     else:
         cmd = [f'torch=={pytorch}', f'torchvision=={torchvision}']
     session.install(*cmd)
