@@ -5,6 +5,8 @@ import torch
 from torch import nn
 from torch import Tensor
 
+from brevitas.core.function_wrapper.misc import Identity
+from brevitas.core.function_wrapper.shape import StatsInputViewShapeImpl
 from brevitas.core.quant import ClampedBinaryQuant
 from brevitas.core.quant import RescalingIntQuant
 from brevitas.core.quant import TernaryQuant
@@ -128,6 +130,16 @@ class SolveUpdateStateDictImplFromEnum(ExtendedInjector):
             return None
 
 
+class SolveInputViewImpl(ExtendedInjector):
+
+    @value
+    def input_view_impl(scaling_per_output):
+        if scaling_per_output == ScalingPerOutputType.GROUP:
+            return StatsInputViewShapeImpl.DYNAMIC_OVER_SUBCHANNEL_BLOCK
+        else:
+            return Identity
+
+
 class ActQuantSolver(SolveActTensorQuantFromEnum,
                      SolveActScalingImplFromEnum,
                      SolveIntScalingImplFromEnum,
@@ -140,7 +152,8 @@ class ActQuantSolver(SolveActTensorQuantFromEnum,
                      SolveActScalingShape,
                      SolveScalingStatsInputViewShapeImplFromEnum,
                      SolveActScalingPerOutputChannelShape,
-                     SolveUpdateStateDictImplFromEnum):
+                     SolveUpdateStateDictImplFromEnum,
+                     SolveInputViewImpl):
     """
     Translate enum directives to activation-specific quantization core modules.
     It should be placed last in the list of classes a quantizer inherits from,

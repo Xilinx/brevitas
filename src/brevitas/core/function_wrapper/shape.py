@@ -171,6 +171,25 @@ class OverSubChannelBlockView(brevitas.jit.ScriptModule):
         return y
 
 
+class DynamicOverSubChannelBlockView(brevitas.jit.ScriptModule):
+    __constants__ = ['group_size', 'group_dim']
+
+    def __init__(self, group_size, group_dim) -> None:
+        super(DynamicOverSubChannelBlockView, self).__init__()
+        self.group_size = group_size
+        self.group_dim = group_dim
+
+    @brevitas.jit.script_method
+    def forward(self, x):
+        tensor_shape = x.shape
+        tensor_shape_list = list(tensor_shape)
+        tensor_shape_list[self.group_dim] = int(tensor_shape_list[self.group_dim] / self.group_size)
+        block_dim = self.group_dim + 1 if self.group_dim != -1 else -1
+        tensor_shape_list.insert(block_dim, self.group_size)
+        x = x.view(tensor_shape_list)
+        return x
+
+
 class StatsInputViewShapeImpl(object):
     """
     Enum-like object to collect pointers to variants of ScriptModules that perform a view on a tensor.
@@ -182,3 +201,4 @@ class StatsInputViewShapeImpl(object):
     OVER_BATCH_OVER_OUTPUT_CHANNELS = OverBatchOverOutputChannelView
     OVER_OUTPUT_FEATURES = OverOutputFeaturesView
     OVER_SUBCHANNEL_BLOCK = OverSubChannelBlockView
+    DYNAMIC_OVER_SUBCHANNEL_BLOCK = DynamicOverSubChannelBlockView

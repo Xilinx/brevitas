@@ -24,7 +24,6 @@ class GroupwiseActFloatQuantProxyFromInjector(ActFloatQuantProxyFromInjectorBase
             y = x
             if isinstance(y, QuantTensor):
                 y = y.value
-
             if self.export_mode:
                 y = self.fused_activation_quant_proxy.activation_impl(y)
                 y = self.export_handler(y)

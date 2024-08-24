@@ -9,6 +9,7 @@ from brevitas.inject.enum import QuantType
 from brevitas.proxy import BiasQuantProxyFromInjector
 from brevitas.quant.solver.common import *
 from brevitas.quant.solver.parameter import *
+from brevitas.quant.solver.parameter import SolveInputViewImpl
 
 __all__ = [
     'BiasQuantSolver',
@@ -65,7 +66,8 @@ class BiasQuantSolver(SolveScalingStatsInputViewShapeImplFromEnum,
                       SolveBiasScalingPerOutputChannelShapeFromModule,
                       SolveBiasScalingStatsInputConcatDimFromModule,
                       SolveBiasTensorQuantFromEnum,
-                      SolveDtypeDeviceFromTrackedParameterList):
+                      SolveDtypeDeviceFromTrackedParameterList,
+                      SolveInputViewImpl):
     """
     Translate enum directives to bias-specific quantization core modules.
     It should be placed last in the list of classes a quantizer inherits from,

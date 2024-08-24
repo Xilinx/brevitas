@@ -195,8 +195,6 @@ class SolveStatsReduceDimFromEnum(ExtendedInjector):
             return ScalingPerOutputType.CHANNEL if scaling_per_output_channel else ScalingPerOutputType.TENSOR
         elif scaling_per_output_type is not None:
             return scaling_per_output_type
-        else:
-            raise RuntimeError("Specify scaling_per_output_type or scaling_per_output_channel")
 
 
 class SolveScalingStatsInputViewShapeImplFromEnum(ExtendedInjector):
