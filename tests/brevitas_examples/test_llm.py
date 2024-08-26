@@ -314,11 +314,11 @@ def test_small_models_acc_pt_ge_2_4(caplog, acc_args_and_acc_pt_ge_2_4):
                     "<class 'brevitas.nn.quant_linear.QuantLinear'>",
                 "model.layers.0.self_attn.q_proj.input_quant.fused_activation_quant_proxy.tensor_quant":
                     "<class 'brevitas.core.quant.float.FloatQuant'>",
-                "model.layers.0.self_attn.q_proj.input_quant.fused_activation_quant_proxy.tensor_quant.scaling_impl.stats_input_view_shape_impl":
-                    "<class 'brevitas.core.function_wrapper.shape.OverSubChannelBlockView'>",
+                "model.layers.0.self_attn.q_proj.input_quant.fused_activation_quant_proxy.tensor_quant.input_view_impl":
+                    "<class 'brevitas.core.function_wrapper.shape.DynamicOverSubChannelBlockView'>",
                 "model.layers.0.self_attn.q_proj.weight_quant.tensor_quant":
                     "<class 'brevitas.core.quant.float.FloatQuant'>",
-                "model.layers.0.self_attn.q_proj.weight_quant.tensor_quant.scaling_impl.parameter_list_stats.first_tracked_param.view_shape_impl":
+                "model.layers.0.self_attn.q_proj.weight_quant.tensor_quant.input_view_impl":
                     "<class 'brevitas.core.function_wrapper.shape.OverSubChannelBlockView'>",}},
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
