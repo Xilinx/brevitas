@@ -172,13 +172,13 @@ class SolveIntScalingImplFromEnum(ExtendedInjector):
 class SolveStatsReduceDimFromEnum(ExtendedInjector):
 
     @value
-    def stats_reduce_dim(scaling_stats_op, scaling_per_output):
+    def stats_reduce_dim(scaling_stats_op, scaling_per_output, group_dim=None):
         if scaling_per_output == ScalingPerOutputType.CHANNEL or scaling_stats_op == StatsOp.MAX_AVE:
             return SCALING_STATS_REDUCE_DIM
         elif scaling_per_output == ScalingPerOutputType.TENSOR:
             return None
         elif scaling_per_output == ScalingPerOutputType.GROUP:
-            return SCALING_STATS_REDUCE_DIM + 1
+            return group_dim + 1
 
     @value
     def keepdim(scaling_per_output):

@@ -111,17 +111,17 @@ class SolveParameterScalingImplFromEnum(SolveAffineRescalingFromEnum):
 class SolveParameterScalingShape(ExtendedInjector):
 
     @value
-    def scaling_shape(module, group_size=None, scaling_per_output=None):
+    def scaling_shape(module, group_dim, group_size=None, scaling_per_output=None):
         if scaling_per_output == ScalingPerOutputType.TENSOR:
             return SCALAR_SHAPE
         elif scaling_per_output == ScalingPerOutputType.CHANNEL:
             return this.scaling_per_output_channel_shape
         elif scaling_per_output == ScalingPerOutputType.GROUP:
             assert group_size is not None, "Per Group scaling requires group size"
+            assert group_dim is not None, "Per Group scaling requires group dim"
             size = list(module.weight.shape)
-            assert size[1] % group_size == 0, 'Input channel is not divisible by group size'
-            size[1] = size[1] // group_size
-            size.insert(2, 1)
+            size[group_dim] = (size[group_dim] + group_size - 1) // group_size
+            size.insert(group_dim + 1, 1)
             return size
 
     @value
@@ -129,18 +129,29 @@ class SolveParameterScalingShape(ExtendedInjector):
         return module.weight.shape
 
     @value
-    def expanded_scaling_shape(module, group_size=None):
+    def expanded_scaling_shape(module, group_dim, group_size=None):
         assert group_size is not None, "Per Group scaling requires group size"
         size = list(module.weight.shape)
-        assert size[1] % group_size == 0, 'Input channel is not divisible by group size'
-        size[1] = size[1] // group_size
-        size.insert(2, group_size)
+        size[group_dim] = (size[group_dim] + group_size - 1) // group_size
+        size.insert(group_dim + 1, group_size)
         return size
+
+    @value
+    def padding(module, group_dim, group_size):
+        padding = [0, 0] * len(module.weight.shape)
+        size = list(module.weight.shape)
+        if size[group_dim] % group_size != 0:
+            # Padding is done on the left side
+            padding[2 * group_dim] = group_size - size[group_dim] % group_size
+        # Padding takes a list of 2 values per dim in reverse order (N_DIM, N_DIM-1,...,0)
+        # so we need to reverse the order
+        padding = list(reversed(padding))
+        return padding
 
     @value
     def group_dim(module, group_size=None):
         if group_size is not None:
-            return 1
+            return 1 if not hasattr(module, 'transposed') or not module.transposed else 0
 
 
 class SolveInputViewImpl(ExtendedInjector):

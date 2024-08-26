@@ -156,17 +156,14 @@ class OverOutputFeaturesView(brevitas.jit.ScriptModule):
 class OverSubChannelBlockView(brevitas.jit.ScriptModule):
     __constants__ = ['expanded_scaling_shape']
 
-    def __init__(self, expanded_scaling_shape, permute_dims: Optional[Tuple[int, ...]]) -> None:
+    def __init__(self, expanded_scaling_shape, padding) -> None:
         super(OverSubChannelBlockView, self).__init__()
         self.expanded_scaling_shape = expanded_scaling_shape
-        if permute_dims is not None:
-            self.permute_impl = PermuteDims(permute_dims)
-        else:
-            self.permute_impl = torch.nn.Identity()
+        self.padding = padding
 
     @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
-        y = self.permute_impl(x)
+        y = torch.nn.functional.pad(x, self.padding, mode='constant', value=0)
         y = y.view(self.expanded_scaling_shape)
         return y
 
@@ -181,6 +178,16 @@ class DynamicOverSubChannelBlockView(brevitas.jit.ScriptModule):
 
     @brevitas.jit.script_method
     def forward(self, x):
+
+        tensor_shape = x.shape
+        tensor_shape_list = list(tensor_shape)
+        padding = [0, 0] * len(tensor_shape_list)
+        if tensor_shape_list[self.group_dim] % self.group_size != 0:
+            padding[2 * self.group_dim] = self.group_size - tensor_shape_list[
+                self.group_dim] % self.group_size
+        padding = list(reversed(padding))
+        x = torch.nn.functional.pad(x, padding, mode='constant', value=0)
+
         tensor_shape = x.shape
         tensor_shape_list = list(tensor_shape)
         tensor_shape_list[self.group_dim] = int(tensor_shape_list[self.group_dim] / self.group_size)
