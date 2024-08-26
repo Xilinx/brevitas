@@ -141,7 +141,10 @@ class SolveParameterScalingShape(ExtendedInjector):
         padding = [0, 0] * len(module.weight.shape)
         size = list(module.weight.shape)
         if size[group_dim] % group_size != 0:
+            # Padding is done on the left side
             padding[2 * group_dim] = group_size - size[group_dim] % group_size
+        # Padding takes a list of 2 values per dim in reverse order (N_DIM, N_DIM-1,...,0)
+        # so we need to reverse the order
         padding = list(reversed(padding))
         return padding
 
