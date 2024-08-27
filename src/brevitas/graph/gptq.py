@@ -133,11 +133,11 @@ class GPTQ(GPxQ):
         self.H = torch.zeros((self.groups, self.columns, self.columns),
                              device='cpu',
                              dtype=torch.float32,
-                             pin_memory=True)
+                             pin_memory=torch.cuda.is_available())
         self.B = torch.zeros((self.groups, self.columns, self.columns),
                              device='cpu',
                              dtype=torch.float32,
-                             pin_memory=True)
+                             pin_memory=torch.cuda.is_available())
         self.nsamples = 0
 
         assert torch_version >= version.parse('1.10'), "GPTQ requires torch 1.10 or higher"
