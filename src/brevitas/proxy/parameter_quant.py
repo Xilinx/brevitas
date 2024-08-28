@@ -125,8 +125,6 @@ class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
                 if not self.training and self.cache_inference_quant_weight and self._cached_weight is None:
                     self._cached_weight = self.cache_class(
                         out.detach(), metadata_only=self.cache_inference_quant_weight_metadata_only)
-                else:
-                    out = out[0]
         else:  # quantization disabled
             out = x
         return out
