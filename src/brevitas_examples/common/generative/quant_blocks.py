@@ -3,15 +3,12 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 """
 
-from typing import Callable, List, Optional, Tuple
+from typing import Callable
 
 import torch
 from torch import Tensor
 import torch.nn as nn
 
-import brevitas
-from brevitas.core.function_wrapper.shape import PermuteDims
-from brevitas.core.utils import SliceTensor
 from brevitas.core.zero_point import _ScaleShiftZeroPoint
 from brevitas.function.ops_ste import abs_binary_sign_grad
 
