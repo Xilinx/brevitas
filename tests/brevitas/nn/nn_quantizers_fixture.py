@@ -21,6 +21,8 @@ from brevitas.nn import QuantLinear
 from brevitas.nn.quant_mha import QuantMultiheadAttention
 from brevitas.nn.quant_rnn import QuantLSTM
 from brevitas.nn.quant_rnn import QuantRNN
+from brevitas.quant.experimental.mx_quant_ocp import MXInt8Act
+from brevitas.quant.experimental.mx_quant_ocp import MXInt8Weight
 from brevitas.quant.scaled_int import Int8AccumulatorAwareWeightQuant
 from brevitas.quant.scaled_int import Int8AccumulatorAwareZeroCenterWeightQuant
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
@@ -58,11 +60,13 @@ WBIOL_WEIGHT_QUANTIZER = {
     'quant_sym': Int8WeightPerTensorFloat,
     'quant_asym': ShiftedUint8WeightPerTensorFloat,
     'quant_decoupled': Int8WeightNormL2PerChannelFixedPoint,
+    'quant_mx': MXInt8Weight,
     **A2Q_WBIOL_WEIGHT_QUANTIZER}
 
 WBIOL_IO_QUANTIZER = {
     'None': None,
     'batch_quant': (Int8ActPerTensorFloatBatchQuant1d, Int8ActPerTensorFloatBatchQuant2d),
+    'quant_mx': MXInt8Act,
     'quant_sym': Int8ActPerTensorFloat,
     'quant_asym': ShiftedUint8ActPerTensorFloat}
 
@@ -121,6 +125,12 @@ def build_case_model(
         pytest.skip(
             "A2Q uses an input-aware decoupled weight proxy that requires a quantized input tensor."
         )
+    if (weight_quantizer == MXInt8Weight and
+            io_quantizer != MXInt8Act) or (weight_quantizer != MXInt8Weight and
+                                           io_quantizer == MXInt8Act):
+        pytest.skip("MX requires input and weights quantization to be aligned")
+    elif weight_quantizer == MXInt8Weight:
+        bias_quantizer = None
 
     impl = module.__name__
     # BatchQuant has dimension specific quantizers

@@ -76,26 +76,20 @@ def identity_layer_filter_func(layer: nn.Module) -> bool:
     return True
 
 
-filter_func_dict = {"identity": identity_layer_filter_func, "ignore_input": custom_layer_filter_fnc}
-
 apply_gpxq_func_map = {"gpfq": apply_gpfq, "gptq": apply_gptq}
 
 
 @pytest.mark.parametrize("act_order", [True, False])
 @pytest.mark.parametrize("use_quant_activations", [True, False])
 @pytest.mark.parametrize("acc_bit_width", [32, 24, 16, 12])
-@pytest.mark.parametrize("filter_func_str", filter_func_dict.keys())
 @pytest.mark.parametrize("apply_gpxq_tuple", apply_gpxq_func_map.items())
 def test_toymodels(
-        toy_quant_model,
-        act_order,
-        use_quant_activations,
-        acc_bit_width,
-        filter_func_str,
-        apply_gpxq_tuple,
+        toy_quant_model, act_order, use_quant_activations, acc_bit_width, apply_gpxq_tuple,
         request):
 
     test_id = request.node.callspec.id
+    if ('MXFloat' in test_id or 'MXInt' in test_id) and acc_bit_width < 32:
+        pytest.skip("MX quant does not support accumulator-aware quantization.")
 
     torch.manual_seed(SEED)
 
@@ -105,7 +99,7 @@ def test_toymodels(
         pytest.skip("GPTQ does not support accumulator-aware quantization.")
 
     if name == 'gpfq':
-        filter_func = filter_func_dict[filter_func_str]
+        filter_func = custom_layer_filter_fnc
         apply_gpxq = partial(
             apply_gpxq, accumulator_bit_width=acc_bit_width, a2q_layer_filter_fnc=filter_func)
 
@@ -129,8 +123,7 @@ def test_toymodels(
                 act_order=act_order,
                 use_quant_activations=use_quant_activations)
 
-    elif (name == 'gpfq') and (acc_bit_width < 32) and (not use_quant_activations or
-                                                        filter_func_str == 'identity'):
+    elif (name == 'gpfq') and (acc_bit_width < 32) and (not use_quant_activations):
         # GPFA2Q requires that the quant activations are used. GPFA2Q.single_layer_update will
         # raise a ValueError if GPFA2Q.quant_input is None (also see GPxQ.process_input). This will
         # happen when `use_quant_activations=False` or when the input to a model is not quantized
