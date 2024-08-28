@@ -3,7 +3,7 @@
 
 from abc import ABC
 from abc import abstractmethod
-from typing import Optional, Tuple, Union
+from typing import Any, Optional, Tuple, Union
 
 from torch import nn
 from torch import Tensor
@@ -197,7 +197,9 @@ class ActQuantProxyFromInjector(ActQuantProxyFromInjectorBase):
     def bit_width(self, force_eval=True):
         return self.retrieve_attribute('bit_width', force_eval)
 
-    def create_quant_tensor(self, qt_args, x=None):
+    def create_quant_tensor(
+            self, qt_args: Tuple[Any], x: Optional[IntQuantTensor] = None) -> IntQuantTensor:
+
         if x is None:
             out = IntQuantTensor(*qt_args, self.is_signed, self.training)
         else:

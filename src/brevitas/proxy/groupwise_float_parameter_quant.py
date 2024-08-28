@@ -1,6 +1,4 @@
-from typing import Any, List, Union
-
-from torch import Tensor
+from typing import Any, Tuple
 
 from brevitas.proxy.float_parameter_quant import WeightFloatQuantProxyFromInjectorBase
 from brevitas.quant_tensor import GroupwiseFloatQuantTensor
@@ -16,7 +14,7 @@ class GroupwiseWeightFloatQuantProxyFromInjector(WeightFloatQuantProxyFromInject
     def group_size(self):
         return self.quant_injector.group_size
 
-    def create_quant_tensor(self, qt_args: List[Any]) -> Union[Tensor, GroupwiseFloatQuantTensor]:
+    def create_quant_tensor(self, qt_args: Tuple[Any]) -> GroupwiseFloatQuantTensor:
         out, scale, zero_point, exponent_bit_width, mantissa_bit_width, exponent_bias, saturating, inf_values, nan_values = qt_args
         return GroupwiseFloatQuantTensor(
             out,

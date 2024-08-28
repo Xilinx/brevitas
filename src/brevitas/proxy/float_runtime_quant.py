@@ -1,14 +1,7 @@
-from typing import Optional, Union
-from warnings import warn
+from typing import Any, Optional, Tuple
 
-import torch
-from torch import Tensor
-import torch.nn as nn
-
-from brevitas.inject import BaseInjector as Injector
 from brevitas.proxy.runtime_quant import ActQuantProxyFromInjectorBase
 from brevitas.quant_tensor import FloatQuantTensor
-from brevitas.quant_tensor.base_quant_tensor import QuantTensor
 from brevitas.utils.quant_utils import _CachedIOFloat
 
 
@@ -67,7 +60,8 @@ class ActFloatQuantProxyFromInjector(ActFloatQuantProxyFromInjectorBase):
         super().__init__(quant_layer, quant_injector)
         self.cache_class = _CachedIOFloat
 
-    def create_quant_tensor(self, qt_args, x=None):
+    def create_quant_tensor(
+            self, qt_args: Tuple[Any], x: Optional[FloatQuantTensor] = None) -> FloatQuantTensor:
         if x is None:
             out = FloatQuantTensor(*qt_args, signed=self.is_signed, training=self.training)
         else:

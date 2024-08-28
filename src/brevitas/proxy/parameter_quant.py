@@ -188,7 +188,7 @@ class WeightQuantProxyFromInjector(WeightQuantProxyFromInjectorBase):
         bit_width = self.__call__(self.tracked_parameter_list[0]).bit_width
         return bit_width
 
-    def create_quant_tensor(self, qt_args: Tuple[Any]) -> Union[Tensor, QuantTensor]:
+    def create_quant_tensor(self, qt_args: Tuple[Any]) -> IntQuantTensor:
         return IntQuantTensor(*qt_args, self.is_signed, self.training)
 
 
@@ -208,7 +208,7 @@ class DecoupledWeightQuantProxyFromInjector(WeightQuantProxyFromInjector):
         out, scale, zero_point, bit_width, pre_scale, pre_zero_point = output_tuple
         return pre_zero_point
 
-    def create_quant_tensor(self, qt_args: Tuple[Any]) -> Union[Tensor, QuantTensor]:
+    def create_quant_tensor(self, qt_args: Tuple[Any]) -> IntQuantTensor:
         out, scale, zero_point, bit_width, pre_scale, pre_zero_point = qt_args
         return IntQuantTensor(out, scale, zero_point, bit_width, self.is_signed, self.training)
 

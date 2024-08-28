@@ -1,11 +1,7 @@
-from typing import Union
-
-import torch
-from torch import Tensor
+from typing import Any, Optional, Tuple
 
 from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector
 from brevitas.quant_tensor import GroupwiseIntQuantTensor
-from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.quant_utils import _CachedIOGroupwiseInt
 
 
@@ -23,7 +19,10 @@ class GroupwiseActQuantProxyFromInjector(ActQuantProxyFromInjector):
     def group_size(self):
         return self.quant_injector.group_size
 
-    def create_quant_tensor(self, qt_args, x=None):
+    def create_quant_tensor(
+            self,
+            qt_args: Tuple[Any],
+            x: Optional[GroupwiseIntQuantTensor] = None) -> GroupwiseIntQuantTensor:
         if x is None:
             value, scale, zero_point, bit_width, = qt_args
             out = GroupwiseIntQuantTensor(

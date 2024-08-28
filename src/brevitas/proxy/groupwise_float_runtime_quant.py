@@ -1,3 +1,5 @@
+from typing import Any, Optional, Tuple
+
 from brevitas.proxy.float_runtime_quant import ActFloatQuantProxyFromInjectorBase
 from brevitas.quant_tensor import GroupwiseFloatQuantTensor
 from brevitas.utils.quant_utils import _CachedIOGroupwiseFloat
@@ -17,7 +19,10 @@ class GroupwiseActFloatQuantProxyFromInjector(ActFloatQuantProxyFromInjectorBase
     def group_size(self):
         return self.quant_injector.group_size
 
-    def create_quant_tensor(self, qt_args, x=None):
+    def create_quant_tensor(
+            self,
+            qt_args: Tuple[Any],
+            x: Optional[GroupwiseFloatQuantTensor] = None) -> GroupwiseFloatQuantTensor:
         if x is None:
             value, scale, zero_point, exponent_bit_width, mantissa_bit_width, exponent_bias, saturating, inf_values, nan_values = qt_args
             out = GroupwiseFloatQuantTensor(

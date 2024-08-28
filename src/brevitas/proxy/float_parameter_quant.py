@@ -1,15 +1,10 @@
-from typing import Any, List, Optional, Union
+from typing import Any, Optional, Tuple, Union
 
-import torch
 from torch import Tensor
-import torch.nn as nn
 
-from brevitas.inject import BaseInjector as Injector
 from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjectorBase
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjectorBase
-from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import FloatQuantTensor
-from brevitas.quant_tensor.base_quant_tensor import QuantTensor
 from brevitas.utils.quant_utils import _CachedIOFloat
 
 
@@ -88,7 +83,7 @@ class WeightFloatQuantProxyFromInjectorBase(WeightQuantProxyFromInjectorBase):
 
 class WeightFloatQuantProxyFromInjector(WeightFloatQuantProxyFromInjectorBase):
 
-    def create_quant_tensor(self, qt_args: List[Any]) -> Union[Tensor, QuantTensor]:
+    def create_quant_tensor(self, qt_args: Tuple[Any]) -> FloatQuantTensor:
         out, scale, zero_point, exponent_bit_width, mantissa_bit_width, exponent_bias, saturating, inf_values, nan_values = qt_args
         return FloatQuantTensor(
             out,

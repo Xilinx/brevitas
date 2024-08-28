@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from abc import ABCMeta
-from abc import abstractmethod
 from typing import Optional
 
 from torch import nn
