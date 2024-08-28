@@ -109,9 +109,8 @@ class SolveParameterScalingImplFromEnum(SolveAffineRescalingFromEnum):
 
 
 class SolveParameterScalingShape(ExtendedInjector):
-
     @value
-    def scaling_shape(module, group_dim, group_size=None, scaling_per_output=None):
+    def scaling_shape(weight_shape, group_dim, group_size=None, scaling_per_output=None):
         if scaling_per_output == ScalingPerOutputType.TENSOR:
             return SCALAR_SHAPE
         elif scaling_per_output == ScalingPerOutputType.CHANNEL:
@@ -119,22 +118,31 @@ class SolveParameterScalingShape(ExtendedInjector):
         elif scaling_per_output == ScalingPerOutputType.GROUP:
             assert group_size is not None, "Per Group scaling requires group size"
             assert group_dim is not None, "Per Group scaling requires group dim"
-            size = list(module.weight.shape)
+            size = list(weight_shape)
             size[group_dim] = (size[group_dim] + group_size - 1) // group_size
             size.insert(group_dim + 1, 1)
-            return size
+            return tuple(size)
 
     @value
-    def reshaped_scaling_shape(module):
-        return module.weight.shape
+    def reshaped_scaling_shape(expanded_scaling_shape, group_dim, group_size):
+        new_shape = list(expanded_scaling_shape)
+        del new_shape[group_dim + 1]  # delete the group_size shape
+        # Expand the group_dim shape, accounting for padding
+        new_shape[group_dim] = new_shape[group_dim] * group_size
+        return new_shape
 
     @value
-    def expanded_scaling_shape(module, group_dim, group_size=None):
+    def expanded_scaling_shape(weight_shape, group_dim, group_size=None):
         assert group_size is not None, "Per Group scaling requires group size"
-        size = list(module.weight.shape)
+        size = list(weight_shape)
         size[group_dim] = (size[group_dim] + group_size - 1) // group_size
         size.insert(group_dim + 1, group_size)
-        return size
+        return tuple(size)
+
+    @value
+    def weight_shape(tracked_parameter_list):
+        module = tracked_parameter_list[0]
+        return tuple(module.shape)
 
     @value
     def padding(module, group_dim, group_size):

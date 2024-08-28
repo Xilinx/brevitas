@@ -14,6 +14,7 @@ from brevitas.common import ExportMixin
 from brevitas.core.utils import StatelessBuffer
 from brevitas.inject import BaseInjector as Injector
 from brevitas.utils.quant_utils import float_to_int_impl_to_enum
+from brevitas.core.scaling import ScalingPerOutputType
 
 __all__ = [
     'QuantProxyProtocol',
@@ -21,10 +22,7 @@ __all__ = [
 
 
 def _is_groupwise(quant_injector):
-    if 'group_size' in quant_injector:
-        return True
-    else:
-        return False
+    return 'scaling_per_output' in quant_injector and quant_injector.scaling_per_output == ScalingPerOutputType.GROUP
 
 
 def _is_narrow_range(quant_injector):

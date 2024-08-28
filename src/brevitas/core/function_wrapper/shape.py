@@ -154,16 +154,25 @@ class OverOutputFeaturesView(brevitas.jit.ScriptModule):
 
 
 class OverSubChannelBlockView(brevitas.jit.ScriptModule):
-    __constants__ = ['expanded_scaling_shape']
+    __constants__ = ['expanded_scaling_shape', 'group_size', 'group_dim']
 
-    def __init__(self, expanded_scaling_shape, padding) -> None:
+    def __init__(self, expanded_scaling_shape, group_size, group_dim) -> None:
         super(OverSubChannelBlockView, self).__init__()
         self.expanded_scaling_shape = expanded_scaling_shape
-        self.padding = padding
+        self.group_dim = group_dim
+        self.group_size = group_size
+
+    def padding(self, x):
+        padding = [0, 0] * len(x.shape)
+        size = x.shape
+        if size[self.group_dim] % self.group_size != 0:
+            padding[2 * self.group_dim] = self.group_size - size[self.group_dim] % self.group_size
+        padding = list(reversed(padding))
+        return padding
 
     @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
-        y = torch.nn.functional.pad(x, self.padding, mode='constant', value=0)
+        y = torch.nn.functional.pad(x, self.padding(x), mode='constant', value=0)
         y = y.view(self.expanded_scaling_shape)
         return y
 
