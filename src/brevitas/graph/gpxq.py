@@ -204,7 +204,7 @@ class GPxQ(ABC):
             self.layer.in_channels = weight.shape[1] if is_conv_transposed(
                 self.layer) else weight.shape[0]
 
-        weight_shape = list(layer.weight.shape)
+        weight_shape = torch.tensor(layer.weight.shape)
 
         if create_weight_orig and not hasattr(self.layer, 'weight_orig'):
             self.layer.register_buffer('weight_orig', layer.weight.detach().clone())
