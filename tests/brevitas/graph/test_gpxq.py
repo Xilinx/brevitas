@@ -122,7 +122,8 @@ def test_toymodels(
                 act_order=act_order,
                 use_quant_activations=use_quant_activations)
 
-    elif (name == 'gpfq') and (acc_bit_width < 32) and (not use_quant_activations or input_quant == 'None'):
+    elif (name == 'gpfq') and (acc_bit_width < 32) and (not use_quant_activations or
+                                                        input_quant == 'None'):
         # GPFA2Q requires that the quant activations are used. GPFA2Q.single_layer_update will
         # raise a ValueError if GPFA2Q.quant_input is None (also see GPxQ.process_input). This will
         # happen when `use_quant_activations=False` or when the input to a model is not quantized
