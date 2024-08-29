@@ -72,10 +72,6 @@ def custom_layer_filter_fnc(layer: nn.Module) -> bool:
     return True
 
 
-def identity_layer_filter_func(layer: nn.Module) -> bool:
-    return True
-
-
 apply_gpxq_func_map = {"gpfq": apply_gpfq, "gptq": apply_gptq}
 
 
@@ -88,7 +84,10 @@ def test_toymodels(
         request):
 
     test_id = request.node.callspec.id
-    if ('MXFloat' in test_id or 'MXInt' in test_id) and acc_bit_width < 32:
+    input_quant = test_id.split('-')[1]
+    weight_quant = test_id.split('-')[2]
+
+    if ('MXFloat' in input_quant or 'MXInt' in weight_quant) and acc_bit_width < 32:
         pytest.skip("MX quant does not support accumulator-aware quantization.")
 
     torch.manual_seed(SEED)
@@ -123,11 +122,10 @@ def test_toymodels(
                 act_order=act_order,
                 use_quant_activations=use_quant_activations)
 
-    elif (name == 'gpfq') and (acc_bit_width < 32) and (not use_quant_activations):
+    elif (name == 'gpfq') and (acc_bit_width < 32) and (not use_quant_activations or input_quant == 'None'):
         # GPFA2Q requires that the quant activations are used. GPFA2Q.single_layer_update will
         # raise a ValueError if GPFA2Q.quant_input is None (also see GPxQ.process_input). This will
         # happen when `use_quant_activations=False` or when the input to a model is not quantized
-        # and `a2q_layer_filter_fnc` does not properly handle it.
         with pytest.raises(ValueError):
             apply_gpxq(
                 calib_loader=calib_loader,

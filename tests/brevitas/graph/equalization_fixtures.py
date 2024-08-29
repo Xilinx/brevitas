@@ -384,7 +384,7 @@ RESNET_18_REGIONS = [
     [('layer4.0.bn2', 'layer4.0.downsample.1', 'layer4.1.bn2'), ('fc', 'layer4.1.conv1')],]
 
 
-input_quant, weight_quant = pytest_cases.param_fixtures("input_quant, weight_quant", [(Int8ActPerTensorFloat, Int8WeightPerTensorFloat), (MXInt8Act, MXInt8Weight), (MXFloat8e4m3Act, MXFloat8e4m3Weight)])
+input_quant, weight_quant = pytest_cases.param_fixtures("input_quant, weight_quant", [(None, Int8WeightPerTensorFloat), (Int8ActPerTensorFloat, Int8WeightPerTensorFloat), (MXInt8Act, MXInt8Weight), (MXFloat8e4m3Act, MXFloat8e4m3Weight)])
 
 
 @pytest_cases.fixture
@@ -439,7 +439,7 @@ def quant_residual_model(input_quant, weight_quant):
                 3, 16, kernel_size=1, input_quant=input_quant, weight_quant=weight_quant)
             self.conv_0 = qnn.QuantConv2d(
                 16, 3, kernel_size=1, input_quant=input_quant, weight_quant=weight_quant)
-            self.relu = qnn.QuantReLU(return_quant_tensor=True)
+            self.relu = qnn.QuantReLU(return_quant_tensor=input_quant != None)
 
         def forward(self, x):
             start = x
@@ -447,6 +447,7 @@ def quant_residual_model(input_quant, weight_quant):
             x = self.relu(x)
             x = self.conv_0(x)
             x = start + x
+
             return x
 
     return QuantResidualModel
@@ -459,7 +460,7 @@ def quant_convtranspose_model(input_quant, weight_quant):
 
         def __init__(self) -> None:
             super().__init__()
-            self.relu = qnn.QuantReLU(return_quant_tensor=True)
+            self.relu = qnn.QuantReLU(return_quant_tensor=input_quant != None)
             self.conv_0 = qnn.QuantConvTranspose2d(
                 in_channels=3,
                 out_channels=8,
