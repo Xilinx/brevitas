@@ -5,7 +5,15 @@ from abc import ABC
 from abc import abstractmethod
 from typing import Any, Optional, Tuple, Union
 
+import packaging.version
 import torch
+
+from brevitas import torch_version
+
+if torch_version < packaging.version.parse('2.0'):
+    is_dynamo_compiling = lambda: False
+else:
+    is_dynamo_compiling = torch._dynamo.is_compiling
 from torch import nn
 from torch import Tensor
 from torch.nn import Identity
@@ -115,6 +123,9 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
         elif self._cached_act is None:
             return None
 
+    def apply_input_view(self, x):
+        return self.fused_activation_quant_proxy.tensor_quant.int_quant.input_view_impl(x)
+
     @property
     def is_quant_enabled(self):
         return self._is_quant_enabled and not self.disable_quant
@@ -176,15 +187,18 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
         # If y is an empty QuantTensor, we need to check if this is a passthrough proxy,
         # otherwise return a simple Tensor
 
-        # If the second value (i.e., scale) is None, then quant is disabled
-        if isinstance(y, tuple) and y[1] is not None:
-            out = self.create_quant_tensor(y)
-        elif self.is_passthrough_act and isinstance(x, QuantTensor):
-            # preserve quant_metadata
-            y = y[0]
-            out = self.create_quant_tensor(y, x=x)
-        else:
+        if is_dynamo_compiling():
             out = y[0]
+        else:
+            # If the second value (i.e., scale) is None, then quant is disabled
+            if y[1] is not None:
+                out = self.create_quant_tensor(y)
+            elif self.is_passthrough_act and isinstance(x, QuantTensor):
+                # preserve scale/zp/bit/sign even without output quant
+                y = y[0]
+                out = self.create_quant_tensor(y, x=x)
+            else:
+                out = y[0]
 
         if not self.training and self.cache_inference_quant_act and isinstance(out, QuantTensor):
             cached_out = self.cache_class(out.detach(), self.cache_quant_io_metadata_only)

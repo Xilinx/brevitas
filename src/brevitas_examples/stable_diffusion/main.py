@@ -29,6 +29,7 @@ from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
 from brevitas.graph.base import ModuleToModuleByClass
 from brevitas.graph.calibrate import bias_correction_mode
 from brevitas.graph.calibrate import calibration_mode
+from brevitas.graph.calibrate import inference_mode
 from brevitas.graph.calibrate import load_quant_model_mode
 from brevitas.graph.equalize import activation_equalization_mode
 from brevitas.graph.gptq import gptq_mode
@@ -149,7 +150,6 @@ def main(args):
     calibration_prompts = CALIBRATION_PROMPTS
     if args.calibration_prompt_path is not None:
         calibration_prompts = load_calib_prompts(args.calibration_prompt_path)
-    print(args.calibration_prompt, len(calibration_prompts))
     assert args.calibration_prompt <= len(calibration_prompts) , f"Only {len(calibration_prompts)} prompts are available"
     calibration_prompts = calibration_prompts[:args.calibration_prompt]
 
@@ -231,8 +231,6 @@ def main(args):
                     non_blacklist[name_to_add] = 1
                 else:
                     non_blacklist[name_to_add] += 1
-    print(f"Blacklisted layers: {set(blacklist)}")
-    print(f"Non blacklisted layers: {non_blacklist}")
 
     # Make sure there all LoRA layers are fused first, otherwise raise an error
     for m in pipe.unet.modules():

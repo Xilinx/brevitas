@@ -8,12 +8,15 @@ import math
 from typing import Optional, Tuple, Union
 from warnings import warn
 
+import packaging.version
+import torch
 from torch import nn
 from torch import Tensor
 import torch.jit
 from torch.nn.utils.rnn import PackedSequence
 
 from brevitas import config
+from brevitas import torch_version
 from brevitas.common import ExportMixin
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import Injector
@@ -25,6 +28,11 @@ from brevitas.quant_tensor.groupwise_float_quant_tensor import GroupwiseFloatQua
 from brevitas.quant_tensor.groupwise_int_quant_tensor import GroupwiseIntQuantTensor
 
 from .utils import filter_kwargs
+
+if torch_version < packaging.version.parse('2.0'):
+    is_dynamo_compiling = lambda: False
+else:
+    is_dynamo_compiling = torch._dynamo.is_compiling
 
 
 class QuantProxyMixin(object):
@@ -85,7 +93,7 @@ class QuantLayerMixin(ExportMixin):
             qt_class = self.get_quant_tensor_class(inp)
             if qt_class is not None:
                 inp = qt_class(*inp)
-        if not torch._C._get_tracing_state():
+        if not torch._C._get_tracing_state() and not is_dynamo_compiling():
             if isinstance(inp, QuantTensor):
                 inp = inp.set(value=inp.value.rename(None))
             else:

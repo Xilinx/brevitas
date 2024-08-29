@@ -22,7 +22,6 @@ from brevitas.graph.quantize import quantize
 from brevitas.graph.target.flexml import quantize_flexml
 from brevitas.inject import value
 import brevitas.nn as qnn
-from brevitas.quant.experimental.float import Fp8e4m3Act
 from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloat
 from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloatMSE
 from brevitas.quant.experimental.float import Fp8e4m3WeightPerChannelFloat
