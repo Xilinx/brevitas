@@ -102,3 +102,13 @@ def float_internal_scale(
     internal_scale = torch.clamp_min(internal_scale, fp_internal_scale_min)
     internal_scale = torch.exp2(internal_scale)
     return internal_scale
+
+
+def padding(x, group_size, group_dim):
+    # Given a tensor X, compute the padding aloing group_dim so that groupwise shaping is possible
+    padding = [0, 0] * len(x.shape)
+    size = x.shape
+    if size[group_dim] % group_size != 0:
+        padding[2 * group_dim] = group_size - size[group_dim] % group_size
+    padding = list(reversed(padding))
+    return padding
