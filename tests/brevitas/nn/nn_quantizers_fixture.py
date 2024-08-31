@@ -121,22 +121,28 @@ def build_case_model(
         is_training,
         accumulator_bit_width=32):
 
-    k, weight_quantizer = weight_quantizer
-    _, bias_quantizer = bias_quantizer
-    _, io_quantizer = io_quantizer
-
-    if io_quantizer is None and not input_quantized and k in A2Q_WBIOL_WEIGHT_QUANTIZER:
+    weight_quant_name, weight_quantizer = weight_quantizer
+    bias_quant_name, bias_quantizer = bias_quantizer
+    io_quant_name, io_quantizer = io_quantizer
+    print(io_quant_name)
+    if ((io_quantizer is None and not input_quantized) or
+            'float' in io_quant_name) and weight_quant_name in A2Q_WBIOL_WEIGHT_QUANTIZER:
         pytest.skip(
             "A2Q uses an input-aware decoupled weight proxy that requires a quantized input tensor."
         )
-    if (weight_quantizer == MXInt8Weight and
-            io_quantizer != MXInt8Act) or (weight_quantizer != MXInt8Weight and
-                                           io_quantizer == MXInt8Act):
+    if ('mx' in weight_quant_name and
+            'mx' not in io_quant_name) or ('mx' not in weight_quant_name and 'mx' in io_quant_name):
         pytest.skip("MX requires input and weights quantization to be aligned")
     elif weight_quantizer == MXInt8Weight:
         if config.JIT_ENABLED:
             pytest.skip("Dynamic act quant is not compatible with JIT")
-        bias_quantizer = None
+        if bias_quant_name != 'quant_internal':
+            pytest.skip("MX quant does not support external scaled bias")
+    elif weight_quantizer == Fp8e4m3WeightPerTensorFloat or io_quantizer == Fp8e4m3ActPerTensorFloat:
+        if bias_quant_name != 'quant_internal':
+            pytest.skip("Float quant does not support external scaled bias")
+        if return_quant_tensor and ('float' in io_quant_name or io_quantizer is None):
+            pytest.skip("Float quant requires output quant to generate quant tensor")
 
     impl = module.__name__
     # BatchQuant has dimension specific quantizers
