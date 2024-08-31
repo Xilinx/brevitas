@@ -199,7 +199,7 @@ class GPxQ(ABC):
         self.act_order = act_order
         if self.layer.weight_quant.is_groupwise:
             weight = self.layer.weight_quant.apply_input_view(self.layer.weight)
-            weight = weight.view(self.layer.weight_quant.quant_injector.reshaped_scaling_shape)
+            weight = weight.view(self.layer.weight_quant.quant_injector.reshaped_groupwise_shape)
             self.layer.weight.data = weight.data
             self.layer.in_channels = weight.shape[1] if is_conv_transposed(
                 self.layer) else weight.shape[0]

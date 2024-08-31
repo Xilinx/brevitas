@@ -111,54 +111,49 @@ class SolveParameterScalingImplFromEnum(SolveAffineRescalingFromEnum):
 class SolveParameterScalingShape(ExtendedInjector):
 
     @value
-    def scaling_shape(weight_shape, group_dim, group_size=None, scaling_per_output=None):
+    def scaling_shape(scaling_per_output, expanded_groupwise_shape=None, group_dim=None):
         if scaling_per_output == ScalingPerOutputType.TENSOR:
             return SCALAR_SHAPE
         elif scaling_per_output == ScalingPerOutputType.CHANNEL:
             return this.scaling_per_output_channel_shape
         elif scaling_per_output == ScalingPerOutputType.GROUP:
-            assert group_size is not None, "Per Group scaling requires group size"
-            assert group_dim is not None, "Per Group scaling requires group dim"
-            size = list(weight_shape)
-            size[group_dim] = (size[group_dim] + group_size - 1) // group_size
-            size.insert(group_dim + 1, 1)
+            # Scaling shape is like expanded_groupwise_shape but has 1 in position group_dim + 1
+            assert expanded_groupwise_shape is not None, "Per Group scaling not correctly configured"
+            assert group_dim is not None, "Per Group scaling not correctly configured"
+            size = list(expanded_groupwise_shape)
+            size[group_dim + 1] = 1
             return tuple(size)
 
     @value
-    def reshaped_scaling_shape(expanded_scaling_shape, group_dim, group_size):
-        new_shape = list(expanded_scaling_shape)
+    def reshaped_groupwise_shape(expanded_groupwise_shape, group_dim, group_size):
+        new_shape = list(expanded_groupwise_shape)
         del new_shape[group_dim + 1]  # delete the group_size shape
         # Expand the group_dim shape, accounting for padding
         new_shape[group_dim] = new_shape[group_dim] * group_size
         return new_shape
 
     @value
-    def expanded_scaling_shape(weight_shape, group_dim, group_size=None):
-        assert group_size is not None, "Per Group scaling requires group size"
+    def expanded_groupwise_shape(tracked_parameter_list, group_dim, group_size=None):
+        # expanded_groupwise_shape will be called always to create scaling_shape, but it is only needed
+        # for groupwise quantization. All other groupwise shape infos are derived from this.
+
+        # If conditions do not allow for groupwise quantization, early exit and return None
+        if group_size is None:
+            return
+
+        # If group_size is specified and shared quantization is used, raise an error.
+        assert len(tracked_parameter_list) == 1, "Shared groupwise quantization is not currently supported"
+
+        weight_shape = tracked_parameter_list[0].shape
         size = list(weight_shape)
         size[group_dim] = (size[group_dim] + group_size - 1) // group_size
         size.insert(group_dim + 1, group_size)
         return tuple(size)
 
     @value
-    def weight_shape(tracked_parameter_list):
-        module = tracked_parameter_list[0]
-        return tuple(module.shape)
-
-    @value
-    def padding(module, group_dim, group_size):
-        padding = [0, 0] * len(module.weight.shape)
-        size = list(module.weight.shape)
-        if size[group_dim] % group_size != 0:
-            # Padding is done on the left side
-            padding[2 * group_dim] = group_size - size[group_dim] % group_size
-        # Padding takes a list of 2 values per dim in reverse order (N_DIM, N_DIM-1,...,0)
-        # so we need to reverse the order
-        padding = list(reversed(padding))
-        return padding
-
-    @value
     def group_dim(module, group_size=None):
+        # group_dim will be called always to create scaling_shape, but it is only needed
+        # for groupwise quantization.
         if group_size is not None:
             return 1 if not hasattr(module, 'transposed') or not module.transposed else 0
 

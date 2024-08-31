@@ -86,8 +86,8 @@ class WeightBlockQuantProxyHandler(WeightBlockQuantHandlerBase):
 
     def __init__(self):
         super().__init__()
-        self.expanded_scaling_shape = None
-        self.reshaped_scaling_shape = None
+        self.expanded_groupwise_shape = None
+        self.reshaped_groupwise_shape = None
         self.expanded_zero_point_shape = None
         self.reshaped_zero_point_shape = None
 
@@ -101,8 +101,8 @@ class WeightBlockQuantProxyHandler(WeightBlockQuantHandlerBase):
         self.int_dtype = torch.int8 if signed else torch.uint8
         self.dtype = quant_weight.value.dtype
         self.scale = self.export_scale(module, self.bit_width).detach()
-        self.expanded_scaling_shape = self.scaling_impl(module).expanded_scaling_shape
-        self.reshaped_scaling_shape = self.scaling_impl(module).reshaped_scaling_shape
+        self.expanded_groupwise_shape = self.scaling_impl(module).expanded_groupwise_shape
+        self.reshaped_groupwise_shape = self.scaling_impl(module).reshaped_groupwise_shape
         if (quant_weight.zero_point != 0.).any():
             self.zero_point = self.export_zero_point(module, self.scale, self.bit_width).detach()
             self.expanded_zero_point_shape = self.zero_point_impl(module).expanded_zero_point_shape
@@ -124,22 +124,22 @@ class WeightBlockQuantProxyHandler(WeightBlockQuantHandlerBase):
             zero_point = self.zero_point
 
         # QCDQ
-        x = x.view(self.expanded_scaling_shape)
+        x = x.view(self.expanded_groupwise_shape)
         x = torch.round((x / scale) + zero_point).type(self.int_dtype)
         if self.clip_kwargs is not None:
             x = torch.clip(x, min=self.clip_kwargs['min_val'], max=self.clip_kwargs['max_val'])
         x = (x.type(self.dtype) - zero_point) * scale
 
         # Fix shape post quantization
-        scale = scale.expand(self.expanded_scaling_shape).contiguous().view(
-            self.reshaped_scaling_shape)
+        scale = scale.expand(self.expanded_groupwise_shape).contiguous().view(
+            self.reshaped_groupwise_shape)
         # If zero_point is not defined, propagate same shape as scale
         if self.zero_point is None:
             zero_point = torch.zeros_like(scale).type(self.int_dtype)
         else:
             zero_point = zero_point.expand(self.expanded_zero_point_shape).contiguous().view(
                 self.reshaped_zero_point_shape).type(self.int_dtype)
-        x = x.view(self.reshaped_scaling_shape)
+        x = x.view(self.reshaped_groupwise_shape)
 
         return x, scale, zero_point, bit_width
 
