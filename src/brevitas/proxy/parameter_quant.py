@@ -116,11 +116,17 @@ class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
 
     def forward(self, x: torch.Tensor) -> Union[Tensor, QuantTensor]:
         if self.is_quant_enabled:
-            if self._cached_weight is not None and not self.cache_inference_quant_weight_metadata_only:
+            # If quant is enabled the priority is:
+            # - export mode
+            # - cached weight
+            # - quantization flow
+            if self.export_mode:
+                out = self.export_handler(x)
+                out = self.create_quant_tensor(out)
+            elif self._cached_weight is not None and not self.cache_inference_quant_weight_metadata_only:
                 out = self._cached_weight.quant_tensor
             else:
-                impl = self.export_handler if self.export_mode else self.tensor_quant
-                out = impl(x)
+                out = self.tensor_quant(x)
                 out = self.create_quant_tensor(out)
                 if not self.training and self.cache_inference_quant_weight and self._cached_weight is None:
                     self._cached_weight = self.cache_class(

@@ -1,11 +1,16 @@
-from typing import Any, Optional, Tuple
+from abc import ABC
+from typing import Any, Optional, Tuple, Union
 
+import torch
+import torch.nn as nn
+
+from brevitas.inject import BaseInjector as Injector
 from brevitas.proxy.runtime_quant import ActQuantProxyFromInjectorBase
 from brevitas.quant_tensor import FloatQuantTensor
 from brevitas.utils.quant_utils import _CachedIOFloat
 
 
-class ActFloatQuantProxyFromInjectorBase(ActQuantProxyFromInjectorBase):
+class ActFloatQuantProxyFromInjectorBase(ActQuantProxyFromInjectorBase, ABC):
 
     def scale(self, force_eval=True):
         return self.retrieve_attribute('scale', force_eval)
@@ -56,12 +61,14 @@ class ActFloatQuantProxyFromInjectorBase(ActQuantProxyFromInjectorBase):
 
 class ActFloatQuantProxyFromInjector(ActFloatQuantProxyFromInjectorBase):
 
-    def __init__(self, quant_layer, quant_injector):
+    def __init__(self, quant_layer: nn.Module, quant_injector: Injector):
         super().__init__(quant_layer, quant_injector)
         self.cache_class = _CachedIOFloat
 
     def create_quant_tensor(
-            self, qt_args: Tuple[Any], x: Optional[FloatQuantTensor] = None) -> FloatQuantTensor:
+            self,
+            qt_args: Union[torch.Tensor, Tuple[Any]],
+            x: Optional[FloatQuantTensor] = None) -> FloatQuantTensor:
         if x is None:
             out = FloatQuantTensor(*qt_args, signed=self.is_signed, training=self.training)
         else:

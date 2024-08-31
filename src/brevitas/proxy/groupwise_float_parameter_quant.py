@@ -1,10 +1,18 @@
 from typing import Any, Tuple
 
+import torch.nn as nn
+
+from brevitas.inject import BaseInjector as Injector
 from brevitas.proxy.float_parameter_quant import WeightFloatQuantProxyFromInjectorBase
 from brevitas.quant_tensor import GroupwiseFloatQuantTensor
+from brevitas.utils.quant_utils import _CachedIOGroupwiseFloat
 
 
 class GroupwiseWeightFloatQuantProxyFromInjector(WeightFloatQuantProxyFromInjectorBase):
+
+    def __init__(self, quant_layer: nn.Module, quant_injector: Injector) -> None:
+        super().__init__(quant_layer, quant_injector)
+        self.cache_class = _CachedIOGroupwiseFloat
 
     @property
     def group_dim(self):

@@ -5,6 +5,7 @@ from abc import ABC
 from abc import abstractmethod
 from typing import Any, Optional, Tuple, Union
 
+import torch
 from torch import nn
 from torch import Tensor
 from torch.nn import Identity
@@ -142,7 +143,14 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
             self.fused_activation_quant_proxy = None
 
     @abstractmethod
-    def create_quant_tensor(self, qt_args, x=None):
+    def create_quant_tensor(
+            self,
+            qt_args: Union[torch.Tensor, Tuple[Any]],
+            x: Optional[QuantTensor] = None) -> QuantTensor:
+        # Supports the following:
+        # - qt_args as tuple of Tensors and bools = standard quant activations
+        # - qt_args as Tensor and x as QuantTensor = passthrough activation
+        # In both cases, the output is a QuantTensor
         raise NotImplementedError
 
     def forward(self, x: Union[Tensor, QuantTensor]) -> Union[Tensor, QuantTensor]:
@@ -160,21 +168,24 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
         elif not self.is_quant_enabled:
             # A tuple helps later with control flows
             # The second None value is used later
-            y = (self.fused_activation_quant_proxy.activation_impl(y), None)
+            y = self.fused_activation_quant_proxy.activation_impl(y)
         else:
             y = self.fused_activation_quant_proxy(y)
-        # If y is an empty IntQuantTensor, we need to check if this is a passthrough proxy,
-        # otherwise return a simple Tensor
 
+        # If y is an empty QuantTensor, we need to check if this is a passthrough proxy,
+        # otherwise return a simple Tensor
         # If the second value (i.e., scale) is None, then quant is disabled
         if isinstance(y, tuple) and y[1] is not None:
             out = self.create_quant_tensor(y)
         elif self.is_passthrough_act and isinstance(x, QuantTensor):
-            # preserve scale/zp/bit/sign even without output quant
-            y = y[0]
+            # preserve quant_metadata
+            if isinstance(y, tuple):
+                y = y[0]
             out = self.create_quant_tensor(y, x=x)
         else:
-            out = y[0]
+            if isinstance(y, tuple):
+                y = y[0]
+            out = y
 
         if not self.training and self.cache_inference_quant_act and isinstance(out, QuantTensor):
             cached_out = self.cache_class(out.detach(), self.cache_quant_io_metadata_only)

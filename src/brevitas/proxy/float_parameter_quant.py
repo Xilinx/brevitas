@@ -1,14 +1,17 @@
+from abc import ABC
 from typing import Any, Optional, Tuple, Union
 
 from torch import Tensor
+import torch.nn as nn
 
+from brevitas.inject import BaseInjector as Injector
 from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjectorBase
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjectorBase
 from brevitas.quant_tensor import FloatQuantTensor
 from brevitas.utils.quant_utils import _CachedIOFloat
 
 
-class WeightFloatQuantProxyFromInjectorBase(WeightQuantProxyFromInjectorBase):
+class WeightFloatQuantProxyFromInjectorBase(WeightQuantProxyFromInjectorBase, ABC):
 
     def scale(self):
         if not self.is_quant_enabled:
@@ -82,6 +85,10 @@ class WeightFloatQuantProxyFromInjectorBase(WeightQuantProxyFromInjectorBase):
 
 
 class WeightFloatQuantProxyFromInjector(WeightFloatQuantProxyFromInjectorBase):
+
+    def __init__(self, quant_layer: nn.Module, quant_injector: Injector) -> None:
+        super().__init__(quant_layer, quant_injector)
+        self.cache_class = _CachedIOFloat
 
     def create_quant_tensor(self, qt_args: Tuple[Any]) -> FloatQuantTensor:
         out, scale, zero_point, exponent_bit_width, mantissa_bit_width, exponent_bias, saturating, inf_values, nan_values = qt_args
