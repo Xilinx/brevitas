@@ -189,7 +189,7 @@ def min_int(signed: bool, narrow_range: bool, bit_width: Tensor) -> Tensor:
     return value
 
 
-@brevitas.jit.script
+@brevitas.jit.ignore
 def max_float(exponent_bit_width: Tensor, mantissa_bit_width: Tensor, exponent_bias: Tensor):
     max_exponent = (2. ** exponent_bit_width) - 1. - exponent_bias
     max_mantissa = torch.sum((

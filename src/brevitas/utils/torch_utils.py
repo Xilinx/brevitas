@@ -104,6 +104,7 @@ def float_internal_scale(
     return internal_scale
 
 
+@brevitas.jit.ignore
 def padding(x, group_size, group_dim):
     # Given a tensor X, compute the padding aloing group_dim so that groupwise shaping is possible
     padding = [0, 0] * len(x.shape)
