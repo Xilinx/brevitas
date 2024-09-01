@@ -10,7 +10,9 @@ from brevitas.core.function_wrapper.shape import OverTensorView
 from brevitas.core.scaling.runtime import RuntimeDynamicGroupStatsScaling
 from brevitas.core.stats import AbsMinMax
 from brevitas.core.stats import NegativeMinOrZero
+from brevitas.core.stats.stats_op import HalfQuadraticOptimizerZeroPoint
 from brevitas.core.stats.stats_wrapper import SCALAR_SHAPE
+from brevitas.core.zero_point import StatsFromParameterZeroPoint
 from brevitas.inject import ExtendedInjector
 from brevitas.inject import this
 from brevitas.inject import value
@@ -21,11 +23,13 @@ from brevitas.proxy.groupwise_float_runtime_quant import GroupwiseActFloatQuantP
 from brevitas.proxy.groupwise_int_parameter_quant import GroupwiseWeightQuantProxyFromInjector
 from brevitas.proxy.groupwise_int_runtime_quant import GroupwiseActQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import DynamicActQuantProxyFromInjector
+from brevitas.quant.base import HQOWeightZeroPoint
 from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloat
 from brevitas.quant.experimental.float import Fp8e4m3WeightPerChannelFloat
 from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPActPerTensorFloat
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8WeightPerChannelFloat
+from brevitas.quant.scaled_int import Int8WeightPerChannelFloatHQO
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloat
 
@@ -51,14 +55,6 @@ class Fp8e4m3WeightSymmetricGroupQuant(Fp8e4m3WeightPerChannelFloat):
     We inherit from a per-channel quantizer to re-use some underlying machinery.
     """
     proxy_class = GroupwiseWeightFloatQuantProxyFromInjector
-    scaling_per_output_type = ScalingPerOutputType.GROUP
-
-
-class ShiftedUintWeightAsymmetricGroupQuant(ShiftedUint8WeightPerChannelFloat):
-    """
-    Block / group / vector signed asymmetric weight quantizer with float scales and zero-points.
-    """
-    proxy_class = GroupwiseWeightQuantProxyFromInjector
     scaling_per_output_type = ScalingPerOutputType.GROUP
 
 

@@ -331,7 +331,7 @@ def parse_args(args):
         '--weight-param-method',
         type=str,
         default='stats',
-        choices=['stats', 'mse'],
+        choices=['stats', 'mse', 'hqo'],
         help='How scales/zero-point are determined. Default: stats.')
     parser.add_argument(
         '--weight-scale-precision',

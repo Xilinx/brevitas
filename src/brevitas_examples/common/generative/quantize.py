@@ -37,14 +37,20 @@ from brevitas.quant.fixed_point import Int8WeightPerTensorFixedPointMSE
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8ActPerTensorFloatMSE
 from brevitas.quant.scaled_int import Int8WeightPerChannelFloat
+from brevitas.quant.scaled_int import Int8WeightPerChannelFloatHQO
 from brevitas.quant.scaled_int import Int8WeightPerChannelFloatMSE
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
+from brevitas.quant.scaled_int import Int8WeightPerTensorFloatHQO
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloatMSE
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloatMSE
+from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightGroupQuantFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloat
+from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloatHQO
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloatMSE
+from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerGroupFloatHQO
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
+from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloatHQO
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloatMSE
 from brevitas_examples.common.generative.nn import LoRACompatibleQuantConv2d
 from brevitas_examples.common.generative.nn import LoRACompatibleQuantLinear
@@ -56,7 +62,6 @@ from brevitas_examples.common.generative.quantizers import Int8DynamicActPerTens
 from brevitas_examples.common.generative.quantizers import IntWeightSymmetricGroupQuant
 from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerRowFloat
 from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerTensorFloat
-from brevitas_examples.common.generative.quantizers import ShiftedUintWeightAsymmetricGroupQuant
 
 WEIGHT_QUANT_MAP = {
     'int': {
@@ -68,14 +73,23 @@ WEIGHT_QUANT_MAP = {
                     'sym': Int8WeightPerChannelFloat, 'asym': ShiftedUint8WeightPerChannelFloat},
                 'per_group': {
                     'sym': IntWeightSymmetricGroupQuant,
-                    'asym': ShiftedUintWeightAsymmetricGroupQuant}},
+                    'asym': ShiftedUint8WeightGroupQuantFloat}},
             'mse': {
                 'per_tensor': {
                     'sym': Int8WeightPerTensorFloatMSE,
                     'asym': ShiftedUint8WeightPerTensorFloatMSE},
                 'per_channel': {
                     'sym': Int8WeightPerChannelFloatMSE,
-                    'asym': ShiftedUint8WeightPerChannelFloatMSE},},},
+                    'asym': ShiftedUint8WeightPerChannelFloatMSE}},
+            'hqo': {
+                'per_tensor': {
+                    'sym': Int8WeightPerTensorFloatHQO,
+                    'asym': ShiftedUint8WeightPerTensorFloatHQO},
+                'per_channel': {
+                    'sym': Int8WeightPerChannelFloatHQO,
+                    'asym': ShiftedUint8WeightPerChannelFloatHQO},
+                'per_group': {
+                    'asym': ShiftedUint8WeightPerGroupFloatHQO}},},
         'po2_scale': {
             'stats': {
                 'per_tensor': {

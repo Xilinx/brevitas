@@ -37,6 +37,8 @@ from brevitas.core.stats import L2Norm
 from brevitas.core.stats import MSE
 from brevitas.core.stats import NegativeMinOrZero
 from brevitas.core.stats import NegativePercentileOrZero
+from brevitas.core.stats.stats_op import HalfQuadraticOptimizerScale
+from brevitas.core.stats.stats_op import HalfQuadraticOptimizerZeroPoint
 from brevitas.core.utils import SingleArgStatelessBuffer
 from brevitas.core.zero_point import ParameterFromRuntimeZeroPoint
 from brevitas.core.zero_point import ParameterFromStatsFromParameterZeroPoint
@@ -458,7 +460,7 @@ class MSEAsymmetricScaleSubInjector(MSESubInjectorBase):
     stats_impl = MSE
     stats_reduce_dim = (this << 1).stats_reduce_dim
     device = (this << 1).device
-    type = (this << 1).type
+    dtype = (this << 1).dtype
 
 
 class MSEZeroPointSubInjector(MSESubInjectorBase):
@@ -470,7 +472,7 @@ class MSEZeroPointSubInjector(MSESubInjectorBase):
     stats_impl = MSE
     stats_reduce_dim = (this << 1).stats_reduce_dim
     device = (this << 1).device
-    type = (this << 1).type
+    dtype = (this << 1).dtype
 
 
 class MSEAsymmetricScale(ExtendedInjector):
@@ -520,3 +522,40 @@ class MSEWeightZeroPoint(MSEZeroPoint):
 
 class MSEActZeroPoint(MSEZeroPoint):
     zero_point_impl = ParameterFromRuntimeZeroPoint
+
+
+class HQOZeroPoint(ExtendedInjector):
+
+    hqo_init_op_zp = NegativeMinOrZero
+    inner_stats_input_view_shape_impl = this.zero_point_stats_input_view_shape_impl
+    stats_impl_zp = HalfQuadraticOptimizerZeroPoint
+
+    @value
+    def zero_point_stats_impl():
+        return this.stats_impl_zp
+
+
+class HQOScale(ExtendedInjector):
+    scaling_impl_type = ScalingImplType.PARAMETER_FROM_STATS
+    inner_stats_input_view_shape_impl = this.scaling_stats_input_view_shape_impl
+    stats_impl_scale = HalfQuadraticOptimizerScale
+
+    @value
+    def scaling_stats_impl():
+        return this.stats_impl_scale
+
+
+class HQOAsymmetricScale(HQOScale):
+    hqo_init_op_scale = AbsMinMax
+
+
+class HQOSymmetricScale(HQOScale):
+    hqo_init_op_scale = AbsMax
+
+
+class HQOActZeroPoint(HQOZeroPoint):
+    zero_point_impl = ParameterFromRuntimeZeroPoint
+
+
+class HQOWeightZeroPoint(HQOZeroPoint):
+    zero_point_impl = ParameterFromStatsFromParameterZeroPoint

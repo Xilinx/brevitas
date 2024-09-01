@@ -139,6 +139,8 @@ def run_test_models_run_args(args, model_with_ppl):
 @pytest_cases.fixture(
     ids=[
         "defaults",
+        "sym_weight_param_method=hqo",
+        "asym_weight_param_method=hqo",
         "bias_corr=True",
         "act_equalization=layerwise",
         "act_equalization=fx",
@@ -147,6 +149,8 @@ def run_test_models_run_args(args, model_with_ppl):
         "ln_affine_merge=True",],
     params=[
         {},
+        {"weight_param_method": "hqo"},
+        {"weight_param_method": "hqo", "weight_quant_type": "asym"},
         {"bias_corr": True},
         {"act_equalization": "layerwise"},
         {"act_equalization": "fx"},
