@@ -166,7 +166,7 @@ class OverSubChannelBlockView(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
         y = torch.nn.functional.pad(
-            x, padding(x, self.group_size, self.group_dim), mode='constant', value=0)
+            x, padding(x, self.group_size, self.group_dim), mode='constant', value=0.)
         y = y.view(self.expanded_groupwise_shape)
         return y
 
@@ -186,7 +186,7 @@ class DynamicOverSubChannelBlockView(brevitas.jit.ScriptModule):
         tensor_shape_list = list(tensor_shape)
         pad = padding(x, self.group_size, self.group_dim)
 
-        x = torch.nn.functional.pad(x, pad, mode='constant', value=0)
+        x = torch.nn.functional.pad(x, pad, mode='constant', value=0.)
 
         tensor_shape = x.shape
         tensor_shape_list = list(tensor_shape)

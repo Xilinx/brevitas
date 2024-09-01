@@ -124,7 +124,7 @@ def build_case_model(
     weight_quant_name, weight_quantizer = weight_quantizer
     bias_quant_name, bias_quantizer = bias_quantizer
     io_quant_name, io_quantizer = io_quantizer
-    print(io_quant_name)
+
     if ((io_quantizer is None and not input_quantized) or
             'float' in io_quant_name) and weight_quant_name in A2Q_WBIOL_WEIGHT_QUANTIZER:
         pytest.skip(
@@ -134,8 +134,6 @@ def build_case_model(
             'mx' not in io_quant_name) or ('mx' not in weight_quant_name and 'mx' in io_quant_name):
         pytest.skip("MX requires input and weights quantization to be aligned")
     elif weight_quantizer == MXInt8Weight:
-        if config.JIT_ENABLED:
-            pytest.skip("Dynamic act quant is not compatible with JIT")
         if bias_quant_name != 'quant_internal':
             pytest.skip("MX quant does not support external scaled bias")
     elif weight_quantizer == Fp8e4m3WeightPerTensorFloat or io_quantizer == Fp8e4m3ActPerTensorFloat:
@@ -640,16 +638,18 @@ def case_mha(
 
     # Change the case_id based on current value of Parameters
     set_case_id(request.node.callspec.id, case_mha)
-    k, weight_quantizer = weight_quantizer
+    weight_quant_name, weight_quantizer = weight_quantizer
     _, bias_quantizer = bias_quantizer
     _, io_quantizer = io_quantizer
 
-    if io_quantizer is None and k in A2Q_WBIOL_WEIGHT_QUANTIZER:
+    if io_quantizer is None and weight_quant_name in A2Q_WBIOL_WEIGHT_QUANTIZER:
         # Can't rely on a QuantTensor input for quant_mha at this point
         pytest.skip(
             "A2Q uses an input-aware decoupled weight proxy that requires a quantized input tensor."
         )
-
+    # TODO: restore compatibility
+    if ('mx' in weight_quant_name or 'float' in weight_quant_name):
+        pytest.skip("MX/Float quant not supported for MHA")
     # BatchQuant1d works over 3d input but not 2d, so we have a separate quantizer for out_proj
     if isinstance(io_quantizer, tuple):
         io_quantizer, out_proj_io_quantizer = io_quantizer

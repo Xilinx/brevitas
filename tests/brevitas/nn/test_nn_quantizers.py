@@ -173,11 +173,6 @@ def test_quant_mha(model_input, current_cases):
     args = case_id.split('-')[1:]  # Exclude first argument
     kwargs = parse_args(args)
 
-    # TODO: restore compatibility
-    skipped_quant = ['quant_mx', 'quant_float']
-    if kwargs['io_quant'] in skipped_quant or kwargs['weight_quant'] in skipped_quant:
-        pytest.skip("MX and Float quant not supported for MHA")
-
     is_input_quanttensor = kwargs['io_quant'] is not None or kwargs['input_quantized']
     if (not is_input_quanttensor or
             kwargs['weight_quant'] is None) and kwargs['bias_quant'] == 'quant_external':

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import copy
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 import torch
 from torch.nn import Sequential
@@ -105,7 +105,7 @@ def float_internal_scale(
 
 
 @brevitas.jit.ignore
-def padding(x, group_size, group_dim):
+def padding(x: torch.Tensor, group_size: int, group_dim: int) -> List[int]:
     # Given a tensor X, compute the padding aloing group_dim so that groupwise shaping is possible
     padding = [0, 0] * len(x.shape)
     size = x.shape
