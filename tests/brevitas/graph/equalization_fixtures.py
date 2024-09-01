@@ -387,7 +387,6 @@ RESNET_18_REGIONS = [
 input_quant, weight_quant = pytest_cases.param_fixtures("input_quant, weight_quant", [(None, Int8WeightPerTensorFloat), (Int8ActPerTensorFloat, Int8WeightPerTensorFloat), (MXInt8Act, MXInt8Weight), (MXFloat8e4m3Act, MXFloat8e4m3Weight)])
 
 
-
 @pytest_cases.fixture
 def quant_conv_with_input_quant_model(input_quant, weight_quant):
 
