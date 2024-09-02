@@ -71,8 +71,7 @@ class ModelAndPpl:
     scope="session",
     ids=[
         "llama",
-        "mistral",
-        #"mixtral",
+        "mistral",  #"mixtral",
     ],
     params=[
         ModelAndPpl(
@@ -120,8 +119,7 @@ def default_run_args(request):
         "act_equalization=fx",
         "weight_equalization=True",
         "gptq=True",
-        "ln_affine_merge=True",
-    ],
+        "ln_affine_merge=True",],
     params=[
         {},
         {
@@ -158,8 +156,7 @@ def test_small_models_toggle_run_args(caplog, toggle_run_args, small_models_with
 @pytest_cases.fixture(
     scope="session",
     ids=[
-        "opt",
-    ],
+        "opt",],
     params=[
         ModelAndPpl(
             name="hf-internal-testing/tiny-random-OPTForCausalLM",
@@ -187,8 +184,7 @@ def test_small_models_toggle_run_args_pt_ge_2_4(
 @pytest_cases.fixture(
     ids=[
         "llama",
-        "mistral",
-    ],
+        "mistral",],
     params=[
         {
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
@@ -231,8 +227,7 @@ def test_small_models_acc(caplog, acc_args_and_acc):
 
 @pytest_cases.fixture(
     ids=[
-        "opt-replace-mha",
-    ],
+        "opt-replace-mha",],
     params=[
         {
             "model": "hf-internal-testing/tiny-random-OPTForCausalLM",
@@ -276,8 +271,7 @@ def test_small_models_acc_pt_ge_2_4(caplog, acc_args_and_acc_pt_ge_2_4):
         "mistral-fp8_fnuz",
         "llama-mxfp8",
         "llama-int8-act_equalization=layerwise",
-        "mistral-int8-quant-last-layer",
-    ],
+        "mistral-int8-quant-last-layer",],
     params=[
         {
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
@@ -387,8 +381,7 @@ def test_small_models_quant_layer(caplog, layer_args):
 
 @pytest_cases.fixture(
     ids=[
-        "opt-replace-mha",
-    ],
+        "opt-replace-mha",],
     params=[
         {
             "model": "hf-internal-testing/tiny-random-OPTForCausalLM",
@@ -419,8 +412,7 @@ def test_small_models_quant_layer_pt_ge_2_4(caplog, layer_args_pt_ge_2_4):
 @pytest_cases.fixture(
     ids=[
         "qcdq-asym",
-        "qcdq-sym",
-    ],
+        "qcdq-sym",],
     params=[
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
@@ -453,8 +445,7 @@ def test_small_models_onnx_export(caplog, onnx_export_args):
 @pytest_cases.fixture(
     ids=[
         "qcdq-asym",
-        "qcdq-sym",
-    ],
+        "qcdq-sym",],
     params=[
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
