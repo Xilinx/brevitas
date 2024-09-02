@@ -10,6 +10,7 @@ import shutil
 import numpy as np
 import onnx
 import pytest
+import pytest_cases
 import torch
 
 from brevitas import config
@@ -66,8 +67,13 @@ class ModelAndPpl:
     supports_fx: bool
 
 
-@pytest.fixture(
+@pytest_cases.fixture(
     scope="session",
+    ids=[
+        "llama",
+        "mistral",
+        #"mixtral",
+    ],
     params=[
         ModelAndPpl(
             name="hf-internal-testing/tiny-random-LlamaForCausalLM",
@@ -89,7 +95,7 @@ def small_models_with_ppl(request):
     yield request.param
 
 
-@pytest.fixture()
+@pytest_cases.fixture()
 def default_run_args(request):
     args = UpdatableNamespace(**vars(parse_args([])))
     args.nsamples = 2
@@ -106,7 +112,16 @@ def default_run_args(request):
     return args
 
 
-@pytest.fixture(
+@pytest_cases.fixture(
+    ids=[
+        "defaults",
+        "bias_corr=True",
+        "act_equalization=layerwise",
+        "act_equalization=fx",
+        "weight_equalization=True",
+        "gptq=True",
+        "ln_affine_merge=True",
+    ],
     params=[
         {},
         {
@@ -140,8 +155,11 @@ def test_small_models_toggle_run_args(caplog, toggle_run_args, small_models_with
     float_ppl, quant_ppl, model = main(args)
 
 
-@pytest.fixture(
+@pytest_cases.fixture(
     scope="session",
+    ids=[
+        "opt",
+    ],
     params=[
         ModelAndPpl(
             name="hf-internal-testing/tiny-random-OPTForCausalLM",
@@ -166,7 +184,11 @@ def test_small_models_toggle_run_args_pt_ge_2_4(
     float_ppl, quant_ppl, model = main(args)
 
 
-@pytest.fixture(
+@pytest_cases.fixture(
+    ids=[
+        "llama",
+        "mistral",
+    ],
     params=[
         {
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
@@ -207,7 +229,10 @@ def test_small_models_acc(caplog, acc_args_and_acc):
         assert allveryclose(exp_quant_ppl, quant_ppl), f"Expected quant PPL {exp_quant_ppl}, measured PPL {quant_ppl}"
 
 
-@pytest.fixture(
+@pytest_cases.fixture(
+    ids=[
+        "opt-replace-mha",
+    ],
     params=[
         {
             "model": "hf-internal-testing/tiny-random-OPTForCausalLM",
@@ -243,7 +268,16 @@ def test_small_models_acc_pt_ge_2_4(caplog, acc_args_and_acc_pt_ge_2_4):
         assert allveryclose(exp_quant_ppl, quant_ppl), f"Expected quant PPL {exp_quant_ppl}, measured PPL {quant_ppl}"
 
 
-@pytest.fixture(
+@pytest_cases.fixture(
+    ids=[
+        "mistral-int8",
+        "mistral-weight-only",
+        "mistral-fp8_ocp",
+        "mistral-fp8_fnuz",
+        "llama-mxfp8",
+        "llama-int8-act_equalization=layerwise",
+        "mistral-int8-quant-last-layer",
+    ],
     params=[
         {
             "model": "hf-internal-testing/tiny-random-MistralForCausalLM",
@@ -351,7 +385,10 @@ def test_small_models_quant_layer(caplog, layer_args):
     assert_layer_types(model, exp_layer_types)
 
 
-@pytest.fixture(
+@pytest_cases.fixture(
+    ids=[
+        "opt-replace-mha",
+    ],
     params=[
         {
             "model": "hf-internal-testing/tiny-random-OPTForCausalLM",
@@ -379,7 +416,11 @@ def test_small_models_quant_layer_pt_ge_2_4(caplog, layer_args_pt_ge_2_4):
     assert_layer_types(model, exp_layer_types)
 
 
-@pytest.fixture(
+@pytest_cases.fixture(
+    ids=[
+        "qcdq-asym",
+        "qcdq-sym",
+    ],
     params=[
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
@@ -409,7 +450,11 @@ def test_small_models_onnx_export(caplog, onnx_export_args):
     shutil.rmtree(args.export_prefix)
 
 
-@pytest.fixture(
+@pytest_cases.fixture(
+    ids=[
+        "qcdq-asym",
+        "qcdq-sym",
+    ],
     params=[
         {
             "model": "hf-internal-testing/tiny-random-LlamaForCausalLM",
