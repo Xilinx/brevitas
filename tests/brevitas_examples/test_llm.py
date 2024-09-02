@@ -14,6 +14,7 @@ import pytest_cases
 import torch
 
 from brevitas import config
+# LLM example depends on optimum-amd, which requires PyTorch>=2.2
 from brevitas_examples.llm.main import main
 from brevitas_examples.llm.main import parse_args
 from tests.marker import jit_disabled_for_export
@@ -162,7 +163,7 @@ def test_small_models_toggle_run_args(caplog, toggle_run_args, small_models_with
         "opt",],
     params=[
         ModelAndPpl(
-            name="hf-internal-testing/tiny-random-OPTForCausalLM",
+            name="hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
             float_ppl=None,
             supports_fx=True,
         ),])
@@ -223,7 +224,7 @@ def test_small_models_acc(caplog, acc_args_and_acc):
         "opt-replace-mha",],
     params=[
         {
-            "model": "hf-internal-testing/tiny-random-OPTForCausalLM",
+            "model": "hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
             "weight_equalization": True,
             "ln_affine_merge": True,
             "replace_mha": True,
@@ -373,7 +374,7 @@ def test_small_models_quant_layer(caplog, layer_args):
         "opt-replace-mha",],
     params=[
         {
-            "model": "hf-internal-testing/tiny-random-OPTForCausalLM",
+            "model": "hf-internal-testing/tiny-random-OPTForCausalLM",  # Requires PT>=2.4 to run
             "replace_mha": True,
             "exp_layer_types": {
                 "model.decoder.layers.0.self_attn":
