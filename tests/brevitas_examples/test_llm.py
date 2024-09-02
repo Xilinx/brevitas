@@ -85,7 +85,7 @@ class ModelAndPpl:
             float_ppl=None,
             supports_fx=False,
         ),
-        #ModelAndPpl(
+        #ModelAndPpl( # Ready for MoE support
         #    name="dacorvo/Mixtral-tiny",
         #    float_ppl=None,
         #    supports_fx=True,
