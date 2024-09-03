@@ -18,7 +18,6 @@ import torchvision
 
 from brevitas.export import export_onnx_qcdq
 from brevitas.export import export_torch_qcdq
-from brevitas.graph.equalize import activation_equalization_mode
 from brevitas.graph.quantize import preprocess_for_quantize
 from brevitas.graph.target.flexml import preprocess_for_flexml_quantize
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_act_equalization
@@ -365,6 +364,7 @@ def main():
     # Get the model from torchvision
     model = get_torchvision_model(args.model_name)
     model = model.to(dtype)
+    model.eval()
 
     # Preprocess the model for quantization
     if args.target_backend == 'flexml':

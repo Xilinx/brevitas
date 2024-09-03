@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from abc import ABCMeta
-from abc import abstractmethod
 from typing import Optional
 
 from torch import nn
@@ -26,12 +25,6 @@ def _is_groupwise(quant_injector):
         return True
     else:
         return False
-
-
-def _is_signed(quant_injector):
-    if 'signed' in quant_injector:
-        return quant_injector.signed
-    return None
 
 
 def _is_narrow_range(quant_injector):
@@ -88,6 +81,8 @@ class QuantProxyFromInjector(ExportMixin, nn.Module, QuantProxyProtocol):
         self.tracked_module_list = []
         self.add_tracked_module(quant_layer)
         self.disable_quant = False
+        # Torch.compile compatibility requires this
+        self.is_signed = quant_injector.signed if 'signed' in quant_injector else None
 
     @property
     def requires_export_handler(self):
@@ -107,10 +102,6 @@ class QuantProxyFromInjector(ExportMixin, nn.Module, QuantProxyProtocol):
     @property
     def is_quant_enabled(self):
         return not self.disable_quant and self.tensor_quant is not None
-
-    @property
-    def is_signed(self):
-        return _is_signed(self.quant_injector)
 
     @property
     def is_groupwise(self):

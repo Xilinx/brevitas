@@ -4,7 +4,7 @@
 from abc import ABC
 from abc import ABCMeta
 from abc import abstractmethod
-from typing import Optional, Union
+from typing import Any, Optional, Tuple, Union
 from warnings import warn
 
 import torch
@@ -84,6 +84,24 @@ class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
                                        WeightQuantProxyProtocol,
                                        ABC):
 
+    def __init__(self, quant_layer: nn.Module, quant_injector: Injector) -> None:
+        super().__init__(quant_layer, quant_injector)
+        self._cached_weight = None
+        self._cache_inference_quant_weight = False
+        self.cache_inference_quant_weight_metadata_only = False
+        self.cache_class = None  # To be redefined by each class
+        self.quant_tensor_class = None  # To be redefined by each class
+
+    @property
+    def cache_inference_quant_weight(self):
+        return self._cache_inference_quant_weight
+
+    @cache_inference_quant_weight.setter
+    def cache_inference_quant_weight(self, value):
+        if not value:
+            self._cached_weight = None
+        self._cache_inference_quant_weight = value
+
     @property
     def tracked_parameter_list(self):
         return [m.weight for m in self.tracked_module_list if m.weight is not None]
@@ -92,6 +110,31 @@ class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
     def requires_quant_input(self):
         return False
 
+    @abstractmethod
+    def create_quant_tensor(self, qt_args: Tuple[Any]) -> Union[Tensor, QuantTensor]:
+        raise NotImplementedError
+
+    def forward(self, x: torch.Tensor) -> Union[Tensor, QuantTensor]:
+        if self.is_quant_enabled:
+            # If quant is enabled the priority is:
+            # - export mode
+            # - cached weight
+            # - quantization flow
+            if self.export_mode:
+                out = self.export_handler(x)
+                out = self.create_quant_tensor(out)
+            elif self._cached_weight is not None and not self.cache_inference_quant_weight_metadata_only:
+                out = self._cached_weight.quant_tensor
+            else:
+                out = self.tensor_quant(x)
+                out = self.create_quant_tensor(out)
+                if not self.training and self.cache_inference_quant_weight and self._cached_weight is None:
+                    self._cached_weight = self.cache_class(
+                        out.detach(), metadata_only=self.cache_inference_quant_weight_metadata_only)
+        else:  # quantization disabled
+            out = x
+        return out
+
 
 class BiasQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector, BiasQuantProxyProtocol, ABC):
 
@@ -99,17 +142,12 @@ class BiasQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector, BiasQuantP
         super().__init__(quant_layer, quant_injector)
         self._cached_bias = None
         self.cache_inference_quant_bias = False
+        self.cache_inference_quant_bias_metadata_only = False
+        self.requires_input_scale = self.quant_injector.requires_input_scale
 
     @property
     def tracked_parameter_list(self):
         return [m.bias for m in self.tracked_module_list if m.bias is not None]
-
-    @property
-    def requires_input_scale(self) -> bool:
-        if self.is_quant_enabled:
-            return self.quant_injector.requires_input_scale
-        else:
-            return False
 
     def get_cached(self, attr):
         if self._cached_bias is None:
@@ -126,8 +164,7 @@ class WeightQuantProxyFromInjector(WeightQuantProxyFromInjectorBase):
 
     def __init__(self, quant_layer: nn.Module, quant_injector: Injector) -> None:
         super().__init__(quant_layer, quant_injector)
-        self._cached_weight = None
-        self.cache_inference_quant_weight = False
+        self.cache_class = _CachedIO
 
     @property
     def tracked_parameter_list(self):
@@ -155,22 +192,8 @@ class WeightQuantProxyFromInjector(WeightQuantProxyFromInjectorBase):
         bit_width = self.__call__(self.tracked_parameter_list[0]).bit_width
         return bit_width
 
-    def forward(self, x: torch.Tensor) -> Union[Tensor, IntQuantTensor]:
-        if self.is_quant_enabled:
-            if self._cached_weight is not None:
-                out = self._cached_weight.quant_tensor
-            else:
-                impl = self.export_handler if self.export_mode else self.tensor_quant
-                out, scale, zero_point, bit_width = impl(x)
-                out = IntQuantTensor(
-                    out, scale, zero_point, bit_width, self.is_signed, self.training)
-        else:  # quantization disabled
-            out = x
-        if isinstance(
-                out, IntQuantTensor
-        ) and not self.training and self.cache_inference_quant_weight and self._cached_weight is None:
-            self._cached_weight = _CachedIO(out.detach(), metadata_only=False)
-        return out
+    def create_quant_tensor(self, qt_args: Tuple[Any]) -> IntQuantTensor:
+        return IntQuantTensor(*qt_args, self.is_signed, self.training)
 
 
 class DecoupledWeightQuantProxyFromInjector(WeightQuantProxyFromInjector):
@@ -189,13 +212,9 @@ class DecoupledWeightQuantProxyFromInjector(WeightQuantProxyFromInjector):
         out, scale, zero_point, bit_width, pre_scale, pre_zero_point = output_tuple
         return pre_zero_point
 
-    def forward(self, x: torch.Tensor) -> Union[Tensor, IntQuantTensor]:
-        if self.is_quant_enabled:
-            impl = self.export_handler if self.export_mode else self.tensor_quant
-            out, scale, zero_point, bit_width, pre_scale, pre_zero_point = impl(x)
-            return IntQuantTensor(out, scale, zero_point, bit_width, self.is_signed, self.training)
-        else:  # quantization disabled
-            return x
+    def create_quant_tensor(self, qt_args: Tuple[Any]) -> IntQuantTensor:
+        out, scale, zero_point, bit_width, pre_scale, pre_zero_point = qt_args
+        return IntQuantTensor(out, scale, zero_point, bit_width, self.is_signed, self.training)
 
 
 class DecoupledWeightQuantWithInputProxyFromInjector(DecoupledWeightQuantProxyFromInjector):
@@ -249,7 +268,7 @@ class BiasQuantProxyFromInjector(BiasQuantProxyFromInjectorBase):
     def scale(self):
         if not self.is_quant_enabled:
             return None
-        if self.requires_input_scale:
+        if self.requires_input_scale and self.is_quant_enabled and self.is_quant_enabled:
             cache = self.get_cached('scale')
             return cache
         zhs = self._zero_hw_sentinel()
@@ -282,7 +301,7 @@ class BiasQuantProxyFromInjector(BiasQuantProxyFromInjectorBase):
             self,
             input: Optional[Union[Tensor, IntQuantTensor]],
             weight: Optional[Union[Tensor, IntQuantTensor]]) -> Optional[Tensor]:
-        if not self.requires_input_scale:
+        if not self.requires_input_scale and self.is_quant_enabled:
             return None
         if not isinstance(input, IntQuantTensor) or not isinstance(weight, IntQuantTensor):
             return None
@@ -305,23 +324,23 @@ class BiasQuantProxyFromInjector(BiasQuantProxyFromInjectorBase):
         input_scale = self.compute_bias_scale(input, weight)
         if self.is_quant_enabled:
             impl = self.export_handler if self.export_mode else self.tensor_quant
-            if self.requires_input_scale and input_scale is None:
+            if self.requires_input_scale and input_scale is None and self.is_quant_enabled:
                 input_scale = self.scale()
                 if input_scale is None:
                     raise RuntimeError("Input scale required")
-
-            if self.requires_input_scale:
+            elif self.requires_input_scale and input_scale is not None and self.is_quant_enabled:
                 input_scale = input_scale.view(-1)
+
+            if self.requires_input_scale and self.is_quant_enabled:
                 out, out_scale, out_zp, out_bit_width = impl(x, input_scale)
             else:
                 out, out_scale, out_zp, out_bit_width = impl(x)
-
             out = IntQuantTensor(
                 out, out_scale, out_zp, out_bit_width, self.is_signed, self.training)
+            if not self.training and self.cache_inference_quant_bias:
+                cached_bias = _CachedIO(
+                    out.detach(), metadata_only=self.cache_inference_quant_bias_metadata_only)
+                self._cached_bias = cached_bias
         else:
             out = x
-        if isinstance(out,
-                      IntQuantTensor) and not self.training and self.cache_inference_quant_bias:
-            cached_bias = _CachedIO(out.detach(), metadata_only=False)
-            self._cached_bias = cached_bias
         return out

@@ -16,13 +16,14 @@ class _CachedIO:
     def __init__(self, quant_tensor: IntQuantTensor, metadata_only: bool):
         self.shape = quant_tensor.value.shape
         if metadata_only:
+            self.value = None
             self.quant_tensor = quant_tensor.set(value=None)
         else:
             self.quant_tensor = quant_tensor
-
-    @property
-    def scale(self):
-        return self.quant_tensor.scale
+            # torch.compile compatibility
+            self.value = quant_tensor.value
+        # torch.compile compatibility
+        self.scale = quant_tensor.scale
 
     @property
     def zero_point(self):
@@ -42,13 +43,14 @@ class _CachedIOFloat:
     def __init__(self, quant_tensor: FloatQuantTensor, metadata_only: bool):
         self.shape = quant_tensor.value.shape
         if metadata_only:
+            self.value = None
             self.quant_tensor = quant_tensor.set(value=None)
         else:
             self.quant_tensor = quant_tensor
-
-    @property
-    def scale(self):
-        return self.quant_tensor.scale
+            # torch.compile compatibility
+            self.value = quant_tensor.value
+        # torch.compile compatibility
+        self.scale = quant_tensor.scale
 
     @property
     def zero_point(self):
@@ -88,13 +90,14 @@ class _CachedIOGroupwiseFloat:
     def __init__(self, quant_tensor: GroupwiseFloatQuantTensor, metadata_only: bool):
         self.shape = quant_tensor.value.shape
         if metadata_only:
+            self.value = None
             self.quant_tensor = quant_tensor.set(value=None)
         else:
             self.quant_tensor = quant_tensor
-
-    @property
-    def scale(self):
-        return self.quant_tensor.scale
+            # torch.compile compatibility
+            self.value = quant_tensor.value
+        # torch.compile compatibility
+        self.scale = quant_tensor.scale
 
     @property
     def zero_point(self):
@@ -142,13 +145,14 @@ class _CachedIOGroupwiseInt:
     def __init__(self, quant_tensor: GroupwiseIntQuantTensor, metadata_only: bool):
         self.shape = quant_tensor.value.shape
         if metadata_only:
+            self.value = None
             self.quant_tensor = quant_tensor.set(value=None)
         else:
             self.quant_tensor = quant_tensor
-
-    @property
-    def scale(self):
-        return self.quant_tensor.scale
+            # torch.compile compatibility
+            self.value = quant_tensor.value
+        # torch.compile compatibility
+        self.scale = quant_tensor.scale
 
     @property
     def zero_point(self):
