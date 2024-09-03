@@ -46,7 +46,7 @@ class QuantConv1d(QuantWBIOL, Conv1d):
             dtype: Optional[torch.dtype] = None,
             **kwargs) -> None:
         # avoid an init error in the super class by setting padding to 0
-        if padding_mode == 'zeros' and padding == 'same' and any(map(lambda x: x > 1, stride)):
+        if padding_mode == 'zeros' and padding == 'same' and any(map(lambda x: x > 1, list(stride))):
             padding = 0
             is_same_padded_strided = True
         else:
@@ -132,7 +132,7 @@ class QuantConv2d(QuantWBIOL, Conv2d):
             dtype: Optional[torch.dtype] = None,
             **kwargs) -> None:
         # avoid an init error in the super class by setting padding to 0
-        if padding_mode == 'zeros' and padding == 'same' and any(map(lambda x: x > 1, stride)):
+        if padding_mode == 'zeros' and padding == 'same' and any(map(lambda x: x > 1, list(stride))):
             padding = 0
             is_same_padded_strided = True
         else:
@@ -220,7 +220,7 @@ class QuantConv3d(QuantWBIOL, Conv3d):
             dtype: Optional[torch.dtype] = None,
             **kwargs) -> None:
         # avoid an init error in the super class by setting padding to 0
-        if padding_mode == 'zeros' and padding == 'same' and any(map(lambda x: x > 1, stride)):
+        if padding_mode == 'zeros' and padding == 'same' and any(map(lambda x: x > 1, list(stride))):
             padding = 0
             is_same_padded_strided = True
         else:
