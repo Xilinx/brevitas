@@ -168,24 +168,21 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
         elif not self.is_quant_enabled:
             # A tuple helps later with control flows
             # The second None value is used later
-            y = self.fused_activation_quant_proxy.activation_impl(y)
+            y = (self.fused_activation_quant_proxy.activation_impl(y), None)
         else:
             y = self.fused_activation_quant_proxy(y)
-
         # If y is an empty QuantTensor, we need to check if this is a passthrough proxy,
         # otherwise return a simple Tensor
+
         # If the second value (i.e., scale) is None, then quant is disabled
         if isinstance(y, tuple) and y[1] is not None:
             out = self.create_quant_tensor(y)
         elif self.is_passthrough_act and isinstance(x, QuantTensor):
             # preserve quant_metadata
-            if isinstance(y, tuple):
-                y = y[0]
+            y = y[0]
             out = self.create_quant_tensor(y, x=x)
         else:
-            if isinstance(y, tuple):
-                y = y[0]
-            out = y
+            out = y[0]
 
         if not self.training and self.cache_inference_quant_act and isinstance(out, QuantTensor):
             cached_out = self.cache_class(out.detach(), self.cache_quant_io_metadata_only)
