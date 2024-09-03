@@ -206,7 +206,9 @@ class ActQuantProxyFromInjector(ActQuantProxyFromInjectorBase):
         return self.retrieve_attribute('bit_width', force_eval)
 
     def create_quant_tensor(
-            self, qt_args: Tuple[Any], x: Optional[IntQuantTensor] = None) -> IntQuantTensor:
+            self,
+            qt_args: Union[Tensor, Tuple[Any]],
+            x: Optional[IntQuantTensor] = None) -> IntQuantTensor:
 
         if x is None:
             out = IntQuantTensor(*qt_args, self.is_signed, self.training)
