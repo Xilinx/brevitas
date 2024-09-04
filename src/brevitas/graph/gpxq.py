@@ -238,8 +238,7 @@ class GPxQ(ABC):
         if isinstance(inp, IntQuantTensor):
             if is_quant_enabled and self.quant_metadata is None:
                 self.quant_metadata = _CachedIO(inp, metadata_only=True)
-            if isinstance(inp, QuantTensor):
-                inp = inp.value
+            inp = inp.value
 
         # If input is unbatched, add batch_size = 1
         if len(inp.shape) == 1:
