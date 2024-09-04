@@ -19,10 +19,16 @@ WEIGHT_BIT_WIDTH = 5
 class TestQuantConv3d:
 
     @pytest_cases.parametrize(
-        'kwargs', [{}, {
+        'kwargs',
+        [{}, {
             'padding': 'same', 'stride': 1}, {
-                'padding': 'same', 'stride': (1, 1, 1)}],
-        ids=['defaults', 'padding="same",stride=1', 'padding="same",stride=(1,1,1)'])
+                'padding': 'same', 'stride': (1, 1, 1)}, {
+                    'padding': 'same', 'stride': (2, 1, 1)}],
+        ids=[
+            'defaults',
+            'padding="same",stride=1',
+            'padding="same",stride=(1,1,1)',
+            'padding="same",stride=(2,1,1)'])
     def test_module_init(self, kwargs):
         mod = QuantConv3d(
             out_channels=OUTPUT_CHANNELS,
@@ -108,3 +114,28 @@ class TestQuantConv3d:
         merge_bn(mod, bn)
         inp = torch.randn(1, INPUT_CHANNELS, 20, 20, 20)
         mod(inp)
+
+    @pytest_cases.parametrize(
+        'kwargs',
+        [{
+            'is_same_padded_strided': False}, {
+                'padding': 'same', 'stride': 1, 'is_same_padded_strided': False}, {
+                    'padding': 'same', 'stride': (1, 1, 1), 'is_same_padded_strided': False}, {
+                        'padding': 'same', 'stride': (2, 1, 1), 'is_same_padded_strided': True}, {
+                            'padding': 0, 'stride': (2, 1, 1), 'is_same_padded_strided': False}],
+        ids=[
+            'defaults',
+            'padding="same",stride=1',
+            'padding="same",stride=(1,1,1)',
+            'padding="same",stride=(2,1,1)',
+            'padding=0,stride=(2,1,1)'])
+    def test_is_same_padded_strided(self, kwargs):
+        is_same_padded_strided = kwargs['is_same_padded_strided']
+        del kwargs['is_same_padded_strided']
+        mod = QuantConv3d(
+            out_channels=OUTPUT_CHANNELS,
+            in_channels=INPUT_CHANNELS,
+            kernel_size=KERNEL_SIZE,
+            bias=False,
+            **kwargs)
+        assert is_same_padded_strided == mod.is_same_padded_strided, f"Expected is_same_padded_strided={is_same_padded_strided}, found is_same_padded_strided={mod.is_same_padded_strided}"
