@@ -1,6 +1,7 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+import pytest_cases
 import torch
 from torch.nn import BatchNorm3d
 from torch.nn import Conv3d
@@ -17,12 +18,24 @@ WEIGHT_BIT_WIDTH = 5
 
 class TestQuantConv3d:
 
-    def test_module_init(self):
+    @pytest_cases.parametrize(
+        'kwargs',
+        [{}, {
+            'padding': 'same', 'stride': 1}, {
+                'padding': 'same', 'stride': (1, 1, 1)}, {
+                    'padding': 'same', 'stride': (2, 1, 1)}],
+        ids=[
+            'defaults',
+            'padding="same",stride=1',
+            'padding="same",stride=(1,1,1)',
+            'padding="same",stride=(2,1,1)'])
+    def test_module_init(self, kwargs):
         mod = QuantConv3d(
             out_channels=OUTPUT_CHANNELS,
             in_channels=INPUT_CHANNELS,
             kernel_size=KERNEL_SIZE,
-            bias=False)
+            bias=False,
+            **kwargs)
 
     def test_fp_quant_module(self):
         float_mod = Conv3d(
@@ -101,3 +114,28 @@ class TestQuantConv3d:
         merge_bn(mod, bn)
         inp = torch.randn(1, INPUT_CHANNELS, 20, 20, 20)
         mod(inp)
+
+    @pytest_cases.parametrize(
+        'kwargs',
+        [{
+            'is_same_padded_strided': False}, {
+                'padding': 'same', 'stride': 1, 'is_same_padded_strided': False}, {
+                    'padding': 'same', 'stride': (1, 1, 1), 'is_same_padded_strided': False}, {
+                        'padding': 'same', 'stride': (2, 1, 1), 'is_same_padded_strided': True}, {
+                            'padding': 0, 'stride': (2, 1, 1), 'is_same_padded_strided': False}],
+        ids=[
+            'defaults',
+            'padding="same",stride=1',
+            'padding="same",stride=(1,1,1)',
+            'padding="same",stride=(2,1,1)',
+            'padding=0,stride=(2,1,1)'])
+    def test_is_same_padded_strided(self, kwargs):
+        is_same_padded_strided = kwargs['is_same_padded_strided']
+        del kwargs['is_same_padded_strided']
+        mod = QuantConv3d(
+            out_channels=OUTPUT_CHANNELS,
+            in_channels=INPUT_CHANNELS,
+            kernel_size=KERNEL_SIZE,
+            bias=False,
+            **kwargs)
+        assert is_same_padded_strided == mod.is_same_padded_strided, f"Expected is_same_padded_strided={is_same_padded_strided}, found is_same_padded_strided={mod.is_same_padded_strided}"
