@@ -16,6 +16,7 @@ from brevitas.function.shape import over_batch_over_tensor
 from brevitas.function.shape import over_output_channels
 from brevitas.function.shape import over_output_features
 from brevitas.function.shape import over_tensor
+from brevitas.utils.torch_utils import padding
 
 
 class PermuteDims(brevitas.jit.ScriptModule):
@@ -154,17 +155,19 @@ class OverOutputFeaturesView(brevitas.jit.ScriptModule):
 
 
 class OverSubChannelBlockView(brevitas.jit.ScriptModule):
-    __constants__ = ['expanded_scaling_shape']
+    __constants__ = ['expanded_groupwise_shape', 'group_size', 'group_dim']
 
-    def __init__(self, expanded_scaling_shape, padding) -> None:
+    def __init__(self, expanded_groupwise_shape, group_size, group_dim) -> None:
         super(OverSubChannelBlockView, self).__init__()
-        self.expanded_scaling_shape = expanded_scaling_shape
-        self.padding = padding
+        self.expanded_groupwise_shape = expanded_groupwise_shape
+        self.group_dim = group_dim
+        self.group_size = group_size
 
     @brevitas.jit.script_method
     def forward(self, x: torch.Tensor):
-        y = torch.nn.functional.pad(x, self.padding, mode='constant', value=0)
-        y = y.view(self.expanded_scaling_shape)
+        y = torch.nn.functional.pad(
+            x, padding(x, self.group_size, self.group_dim), mode='constant', value=0.)
+        y = y.view(self.expanded_groupwise_shape)
         return y
 
 
@@ -181,12 +184,9 @@ class DynamicOverSubChannelBlockView(brevitas.jit.ScriptModule):
 
         tensor_shape = x.shape
         tensor_shape_list = list(tensor_shape)
-        padding = [0, 0] * len(tensor_shape_list)
-        if tensor_shape_list[self.group_dim] % self.group_size != 0:
-            padding[2 * self.group_dim] = self.group_size - tensor_shape_list[
-                self.group_dim] % self.group_size
-        padding = list(reversed(padding))
-        x = torch.nn.functional.pad(x, padding, mode='constant', value=0)
+        pad = padding(x, self.group_size, self.group_dim)
+
+        x = torch.nn.functional.pad(x, pad, mode='constant', value=0.)
 
         tensor_shape = x.shape
         tensor_shape_list = list(tensor_shape)

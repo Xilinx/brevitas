@@ -10,6 +10,7 @@ import torch
 import torch.nn as nn
 
 from brevitas import torch_version
+import brevitas.config as config
 from brevitas.nn import QuantConv1d
 from brevitas.nn import QuantConv2d
 from brevitas.nn import QuantConv3d
@@ -21,6 +22,10 @@ from brevitas.nn import QuantLinear
 from brevitas.nn.quant_mha import QuantMultiheadAttention
 from brevitas.nn.quant_rnn import QuantLSTM
 from brevitas.nn.quant_rnn import QuantRNN
+from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloat
+from brevitas.quant.experimental.float import Fp8e4m3WeightPerTensorFloat
+from brevitas.quant.experimental.mx_quant_ocp import MXInt8Act
+from brevitas.quant.experimental.mx_quant_ocp import MXInt8Weight
 from brevitas.quant.scaled_int import Int8AccumulatorAwareWeightQuant
 from brevitas.quant.scaled_int import Int8AccumulatorAwareZeroCenterWeightQuant
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
@@ -34,7 +39,6 @@ from brevitas.quant.scaled_int import Uint8ActPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
 from brevitas.quant_tensor import IntQuantTensor
-from brevitas.quant_tensor import QuantTensor
 
 SEED = 123456
 OUT_CH = 16
@@ -58,11 +62,15 @@ WBIOL_WEIGHT_QUANTIZER = {
     'quant_sym': Int8WeightPerTensorFloat,
     'quant_asym': ShiftedUint8WeightPerTensorFloat,
     'quant_decoupled': Int8WeightNormL2PerChannelFixedPoint,
+    'quant_mx': MXInt8Weight,
+    'quant_float': Fp8e4m3WeightPerTensorFloat,
     **A2Q_WBIOL_WEIGHT_QUANTIZER}
 
 WBIOL_IO_QUANTIZER = {
     'None': None,
     'batch_quant': (Int8ActPerTensorFloatBatchQuant1d, Int8ActPerTensorFloatBatchQuant2d),
+    'quant_mx': MXInt8Act,
+    'quant_float': Fp8e4m3ActPerTensorFloat,
     'quant_sym': Int8ActPerTensorFloat,
     'quant_asym': ShiftedUint8ActPerTensorFloat}
 
@@ -113,14 +121,26 @@ def build_case_model(
         is_training,
         accumulator_bit_width=32):
 
-    k, weight_quantizer = weight_quantizer
-    _, bias_quantizer = bias_quantizer
-    _, io_quantizer = io_quantizer
+    weight_quant_name, weight_quantizer = weight_quantizer
+    bias_quant_name, bias_quantizer = bias_quantizer
+    io_quant_name, io_quantizer = io_quantizer
 
-    if io_quantizer is None and not input_quantized and k in A2Q_WBIOL_WEIGHT_QUANTIZER:
+    if ((io_quantizer is None and not input_quantized) or
+            'float' in io_quant_name) and weight_quant_name in A2Q_WBIOL_WEIGHT_QUANTIZER:
         pytest.skip(
             "A2Q uses an input-aware decoupled weight proxy that requires a quantized input tensor."
         )
+    if ('mx' in weight_quant_name and
+            'mx' not in io_quant_name) or ('mx' not in weight_quant_name and 'mx' in io_quant_name):
+        pytest.skip("MX requires input and weights quantization to be aligned")
+    elif weight_quantizer == MXInt8Weight:
+        if bias_quant_name != 'quant_internal':
+            pytest.skip("MX quant does not support external scaled bias")
+    elif weight_quantizer == Fp8e4m3WeightPerTensorFloat or io_quantizer == Fp8e4m3ActPerTensorFloat:
+        if bias_quant_name != 'quant_internal':
+            pytest.skip("Float quant does not support external scaled bias")
+        if return_quant_tensor and ('float' in io_quant_name or io_quantizer is None):
+            pytest.skip("Float quant requires output quant to generate quant tensor")
 
     impl = module.__name__
     # BatchQuant has dimension specific quantizers
@@ -618,16 +638,18 @@ def case_mha(
 
     # Change the case_id based on current value of Parameters
     set_case_id(request.node.callspec.id, case_mha)
-    k, weight_quantizer = weight_quantizer
+    weight_quant_name, weight_quantizer = weight_quantizer
     _, bias_quantizer = bias_quantizer
     _, io_quantizer = io_quantizer
 
-    if io_quantizer is None and k in A2Q_WBIOL_WEIGHT_QUANTIZER:
+    if io_quantizer is None and weight_quant_name in A2Q_WBIOL_WEIGHT_QUANTIZER:
         # Can't rely on a QuantTensor input for quant_mha at this point
         pytest.skip(
             "A2Q uses an input-aware decoupled weight proxy that requires a quantized input tensor."
         )
-
+    # TODO: restore compatibility
+    if ('mx' in weight_quant_name or 'float' in weight_quant_name):
+        pytest.skip("MX/Float quant not supported for MHA")
     # BatchQuant1d works over 3d input but not 2d, so we have a separate quantizer for out_proj
     if isinstance(io_quantizer, tuple):
         io_quantizer, out_proj_io_quantizer = io_quantizer

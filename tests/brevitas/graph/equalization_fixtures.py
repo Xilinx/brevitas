@@ -13,6 +13,11 @@ from brevitas import torch_version
 from brevitas.graph.equalize import _cross_layer_equalization
 import brevitas.nn as qnn
 from brevitas.quant import Int8ActPerTensorFloat
+from brevitas.quant.experimental.mx_quant_ocp import MXFloat8e4m3Act
+from brevitas.quant.experimental.mx_quant_ocp import MXFloat8e4m3Weight
+from brevitas.quant.experimental.mx_quant_ocp import MXInt8Act
+from brevitas.quant.experimental.mx_quant_ocp import MXInt8Weight
+from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
 
 SEED = 123456
 ATOL = 1e-3
@@ -379,8 +384,11 @@ RESNET_18_REGIONS = [
     [('layer4.0.bn2', 'layer4.0.downsample.1', 'layer4.1.bn2'), ('fc', 'layer4.1.conv1')],]
 
 
+input_quant, weight_quant = pytest_cases.param_fixtures("input_quant, weight_quant", [(None, Int8WeightPerTensorFloat), (Int8ActPerTensorFloat, Int8WeightPerTensorFloat), (MXInt8Act, MXInt8Weight), (MXFloat8e4m3Act, MXFloat8e4m3Weight)])
+
+
 @pytest_cases.fixture
-def quant_conv_with_input_quant_model():
+def quant_conv_with_input_quant_model(input_quant, weight_quant):
 
     class QuantConvModel(nn.Module):
 
@@ -388,7 +396,8 @@ def quant_conv_with_input_quant_model():
             super().__init__()
             self.conv_0 = qnn.QuantConv2d(
                 3, 16, kernel_size=3)  # gpxq tests assume no quant on first layer
-            self.conv_1 = qnn.QuantConv2d(16, 32, kernel_size=3, input_quant=Int8ActPerTensorFloat)
+            self.conv_1 = qnn.QuantConv2d(
+                16, 32, kernel_size=3, input_quant=input_quant, weight_quant=weight_quant)
 
         def forward(self, x):
             x = self.conv_0(x)
@@ -420,15 +429,17 @@ def quant_convdepthconv_model():
 
 
 @pytest_cases.fixture
-def quant_residual_model():
+def quant_residual_model(input_quant, weight_quant):
 
     class QuantResidualModel(nn.Module):
 
         def __init__(self) -> None:
             super().__init__()
-            self.conv = qnn.QuantConv2d(3, 16, kernel_size=1)
-            self.conv_0 = qnn.QuantConv2d(16, 3, kernel_size=1)
-            self.relu = qnn.QuantReLU(return_quant_tensor=True)
+            self.conv = qnn.QuantConv2d(
+                3, 16, kernel_size=1, input_quant=input_quant, weight_quant=weight_quant)
+            self.conv_0 = qnn.QuantConv2d(
+                16, 3, kernel_size=1, input_quant=input_quant, weight_quant=weight_quant)
+            self.relu = qnn.QuantReLU(return_quant_tensor=input_quant != None)
 
         def forward(self, x):
             start = x
@@ -436,21 +447,32 @@ def quant_residual_model():
             x = self.relu(x)
             x = self.conv_0(x)
             x = start + x
+
             return x
 
     return QuantResidualModel
 
 
 @pytest_cases.fixture
-def quant_convtranspose_model():
+def quant_convtranspose_model(input_quant, weight_quant):
 
     class QuantConvTransposeModel(nn.Module):
 
         def __init__(self) -> None:
             super().__init__()
-            self.relu = qnn.QuantReLU(return_quant_tensor=True)
-            self.conv_0 = qnn.QuantConvTranspose2d(in_channels=3, out_channels=8, kernel_size=3)
-            self.conv_1 = qnn.QuantConvTranspose2d(in_channels=8, out_channels=32, kernel_size=3)
+            self.relu = qnn.QuantReLU(return_quant_tensor=input_quant != None)
+            self.conv_0 = qnn.QuantConvTranspose2d(
+                in_channels=3,
+                out_channels=8,
+                kernel_size=3,
+                input_quant=input_quant,
+                weight_quant=weight_quant)
+            self.conv_1 = qnn.QuantConvTranspose2d(
+                in_channels=8,
+                out_channels=32,
+                kernel_size=3,
+                input_quant=input_quant,
+                weight_quant=weight_quant)
 
         def forward(self, x):
             x = self.conv_0(x)

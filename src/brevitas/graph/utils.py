@@ -26,13 +26,13 @@ __all__ = [
     'get_output_channels',
     'get_output_channel_dim']
 
-CONV_TRANSPOSED = [
+CONV_TRANSPOSED = (
     nn.ConvTranspose1d,
     nn.ConvTranspose2d,
     nn.ConvTranspose3d,
     qnn.QuantConvTranspose1d,
     qnn.QuantConvTranspose2d,
-    qnn.QuantConvTranspose3d]
+    qnn.QuantConvTranspose3d)
 
 
 def module_class_name(m: torch.nn.Module):
@@ -146,7 +146,7 @@ def matches_module_pattern(pattern: Iterable, node: Node, modules: Dict[str, Any
 
 
 def is_conv_transposed(module):
-    return isinstance(module, tuple(CONV_TRANSPOSED))
+    return isinstance(module, CONV_TRANSPOSED)
 
 
 def get_output_channel_dim(module):

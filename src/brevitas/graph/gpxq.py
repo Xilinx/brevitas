@@ -11,14 +11,17 @@ from operator import attrgetter
 from typing import List, Optional, Set
 import warnings
 
+import torch
 from torch.fx import GraphModule as TorchGraphModule
 
 from brevitas.fx import GraphModule
 from brevitas.graph.calibrate import disable_return_quant_tensor
 from brevitas.graph.calibrate import DisableEnableQuantization
 from brevitas.graph.calibrate import restore_return_quant_tensor
+from brevitas.graph.utils import is_conv_transposed
 import brevitas.nn as qnn
 from brevitas.quant_tensor import IntQuantTensor
+from brevitas.quant_tensor.base_quant_tensor import QuantTensor
 from brevitas.utils.quant_utils import _CachedIO
 
 SUPPORTED_CONV_OP = (
@@ -194,8 +197,14 @@ class GPxQ(ABC):
         self.layer = layer
         self.name = name
         self.act_order = act_order
+        if self.layer.weight_quant.is_groupwise:
+            weight = self.layer.weight_quant.apply_input_view(self.layer.weight)
+            weight = weight.view(self.layer.weight_quant.quant_injector.reshaped_groupwise_shape)
+            self.layer.weight.data = weight.data
+            self.layer.in_channels = weight.shape[1] if is_conv_transposed(
+                self.layer) else weight.shape[0]
 
-        weight = layer.weight.data
+        weight_shape = torch.tensor(layer.weight.shape)
 
         if create_weight_orig and not hasattr(self.layer, 'weight_orig'):
             self.layer.register_buffer('weight_orig', layer.weight.detach().clone())
@@ -203,17 +212,14 @@ class GPxQ(ABC):
         # By default, use groups = 1
         self.groups = 1
         if isinstance(self.layer, SUPPORTED_CONV_OP):
-            if isinstance(
-                    self.layer,
-                (qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d, qnn.QuantConvTranspose3d)):
-                weight = weight.transpose(1, 0)  # This performs a view
-            weight = weight.flatten(1)
+            if is_conv_transposed(self.layer):
+                weight_shape[1], weight_shape[0] = weight_shape[0], weight_shape[1]
             self.groups = self.layer.groups
 
         # Number of rows is equal to the output channels (OC)
-        self.rows = weight.shape[0]
+        self.rows = weight_shape[0]
         # Number of columns is equal to the input channels (IC)
-        self.columns = weight.shape[1]
+        self.columns = torch.prod(weight_shape[1:])
         self.len_parallel_layers = len_parallel_layers
 
         self.disable_pre_forward_hook = False
@@ -262,17 +268,25 @@ class GPxQ(ABC):
         # For QuantLinear and for some QuantConvolutional layers, we exploit the possibility
         # of quantizing only a subset of the entire matrix speeding up the computation of GPxQ
         if isinstance(self.layer, qnn.QuantLinear):
-            index = permutation_list[0][i]
-            subtensor_slice_list = [None, (index, index + 1)]
-            q = self.layer.quant_weight(
-                subtensor_slice_list=subtensor_slice_list,
-                quant_input=self.quant_metadata).value.unsqueeze(0)  # [1, OC, 1]
+            if self.layer.weight_quant.is_groupwise:
+                # No slicing, not optimized
+                index = permutation_list[0][i]
+                q = self.layer.quant_weight(quant_input=self.quant_metadata).value.unsqueeze(
+                    0)  # [1, OC, 1]
+                q = q[:, :, i:i + 1]  # [groups, OC/groups, 1]
+            else:
+                index = permutation_list[0][i]
+                subtensor_slice_list = [None, (index, index + 1)]
+                q = self.layer.quant_weight(
+                    subtensor_slice_list=subtensor_slice_list,
+                    quant_input=self.quant_metadata).value.unsqueeze(0)  # [1, OC, 1]
         elif isinstance(self.layer, SUPPORTED_CONV_OP):
             # For depthwise and ConvTranspose we fall back to quantizing the entire martix.
             # For all other cases, we create a mask that represent the slicing we will perform on the weight matrix
             # and we quantize only the selected dimensions.
-            if self.groups > 1 or (self.groups == 1 and isinstance(
-                    self.layer, (qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d))):
+            if self.layer.weight_quant.is_groupwise or self.groups > 1 or (
+                    self.groups == 1 and
+                    isinstance(self.layer, (qnn.QuantConvTranspose1d, qnn.QuantConvTranspose2d))):
 
                 quant_weight = self.layer.quant_weight(quant_input=self.quant_metadata)
                 quant_weight = quant_weight.value

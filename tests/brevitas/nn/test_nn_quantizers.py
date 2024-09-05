@@ -172,6 +172,7 @@ def test_quant_mha(model_input, current_cases):
     case_id = get_case_id(cases_generator_func)
     args = case_id.split('-')[1:]  # Exclude first argument
     kwargs = parse_args(args)
+
     is_input_quanttensor = kwargs['io_quant'] is not None or kwargs['input_quantized']
     if (not is_input_quanttensor or
             kwargs['weight_quant'] is None) and kwargs['bias_quant'] == 'quant_external':
