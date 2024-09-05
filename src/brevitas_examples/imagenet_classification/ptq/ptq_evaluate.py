@@ -120,7 +120,12 @@ parser.add_argument(
 parser.add_argument(
     '--weight-quant-granularity',
     default='per_tensor',
-    choices=['per_tensor', 'per_channel'],
+    choices=['per_tensor', 'per_channel', 'per_group'],
+    help='Weight quantization type (default: per_tensor)')
+parser.add_argument(
+    '--act-quant-granularity',
+    default='per_tensor',
+    choices=['per_tensor', 'per_group'],
     help='Activation quantization type (default: per_tensor)')
 parser.add_argument(
     '--weight-quant-calibration-type',
@@ -168,11 +173,7 @@ parser.add_argument(
     '--export-torch-qcdq',
     action='store_true',
     help='If true, export the model in torch qcdq format')
-add_bool_arg(
-    parser,
-    'scaling-per-output-channel',
-    default=True,
-    help='Weight scaling per output channel (default: enabled)')
+
 add_bool_arg(
     parser, 'bias-corr', default=True, help='Bias correction after calibration (default: enabled)')
 add_bool_arg(
@@ -189,7 +190,7 @@ parser.add_argument('--gpfq-p', default=1.0, type=float, help='P parameter for G
 parser.add_argument(
     '--quant-format',
     default='int',
-    choices=['int', 'float'],
+    choices=['int', 'float', 'float_ocp'],
     help='Quantization format to use for weights and activations (default: int)')
 parser.add_argument(
     '--layerwise-first-last-mantissa-bit-width',
@@ -409,6 +410,7 @@ def main():
         weight_narrow_range=args.weight_narrow_range,
         weight_param_method=args.weight_quant_calibration_type,
         weight_quant_granularity=args.weight_quant_granularity,
+        act_quant_granularity=args.act_quant_granularity,
         weight_quant_type=args.weight_quant_type,
         layerwise_first_last_bit_width=args.layerwise_first_last_bit_width,
         act_bit_width=args.act_bit_width,

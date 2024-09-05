@@ -89,7 +89,9 @@ OPTIONS_DEFAULT = {
     'act_bit_width': [8],  # Act bit width
     'bias_bit_width': [32],  # Bias Bit-Width for Po2 scale
     'weight_quant_granularity': ['per_channel'],  # Scaling Per Output Channel
+    'act_quant_granularity': ['per_tensor'],  # Scaling Per Output Channel
     'act_quant_type': ['sym'],  # Act Quant Type
+    'act_scale_computation_type': ['static'],  # Act Quant Type
     'act_param_method': ['stats'],  # Act Param Method
     'weight_param_method': ['mse'],  # Weight Quant Type
     'bias_corr': [True],  # Bias Correction
@@ -240,7 +242,9 @@ def ptq_torchvision_models(args):
         weight_param_method=config_namespace.weight_param_method,
         act_param_method=config_namespace.act_param_method,
         bias_bit_width=config_namespace.bias_bit_width,
+        act_scale_computation_type=config_namespace.act_scale_computation_type,
         weight_quant_granularity=config_namespace.weight_quant_granularity,
+        act_quant_granularity=config_namespace.act_quant_granularity,
         act_quant_percentile=config_namespace.act_quant_percentile,
         act_quant_type=config_namespace.act_quant_type,
         scale_factor_type=config_namespace.scale_factor_type,
