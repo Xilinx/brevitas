@@ -80,7 +80,8 @@ usage: ptq_evaluate.py [-h] --calibration-dir CALIBRATION_DIR --validation-dir
                        [--bias-bit-width {32,16,None}]
                        [--act-quant-type {sym,asym}]
                        [--weight-quant-type {sym,asym}]
-                       [--weight-quant-granularity {per_tensor,per_channel}]
+                       [--weight-quant-granularity {per_tensor,per_channel,per_group}]
+                       [--act-quant-granularity {per_tensor,per_group}]
                        [--weight-quant-calibration-type {stats,mse}]
                        [--act-equalization {fx,layerwise,None}]
                        [--act-quant-calibration-type {stats,mse}]
@@ -90,11 +91,11 @@ usage: ptq_evaluate.py [-h] --calibration-dir CALIBRATION_DIR --validation-dir
                        [--learned-round-lr LEARNED_ROUND_LR]
                        [--act-quant-percentile ACT_QUANT_PERCENTILE]
                        [--export-onnx-qcdq] [--export-torch-qcdq]
-                       [--scaling-per-output-channel | --no-scaling-per-output-channel]
                        [--bias-corr | --no-bias-corr]
                        [--graph-eq-merge-bias | --no-graph-eq-merge-bias]
                        [--weight-narrow-range | --no-weight-narrow-range]
-                       [--gpfq-p GPFQ_P] [--quant-format {int,float}]
+                       [--gpfq-p GPFQ_P]
+                       [--quant-format {int,float,float_ocp}]
                        [--layerwise-first-last-mantissa-bit-width LAYERWISE_FIRST_LAST_MANTISSA_BIT_WIDTH]
                        [--layerwise-first-last-exponent-bit-width LAYERWISE_FIRST_LAST_EXPONENT_BIT_WIDTH]
                        [--weight-mantissa-bit-width WEIGHT_MANTISSA_BIT_WIDTH]
@@ -104,6 +105,7 @@ usage: ptq_evaluate.py [-h] --calibration-dir CALIBRATION_DIR --validation-dir
                        [--accumulator-bit-width ACCUMULATOR_BIT_WIDTH]
                        [--onnx-opset-version ONNX_OPSET_VERSION]
                        [--channel-splitting-ratio CHANNEL_SPLITTING_RATIO]
+                       [--compression-rate COMPRESSION_RATE]
                        [--gptq | --no-gptq] [--gpfq | --no-gpfq]
                        [--gpfa2q | --no-gpfa2q]
                        [--gpxq-act-order | --no-gpxq-act-order]
@@ -115,7 +117,7 @@ usage: ptq_evaluate.py [-h] --calibration-dir CALIBRATION_DIR --validation-dir
 
 PyTorch ImageNet PTQ Validation
 
-options:
+optional arguments:
   -h, --help            show this help message and exit
   --calibration-dir CALIBRATION_DIR
                         Path to folder containing Imagenet calibration folder
@@ -176,7 +178,9 @@ options:
                         Activation quantization type (default: sym)
   --weight-quant-type {sym,asym}
                         Weight quantization type (default: sym)
-  --weight-quant-granularity {per_tensor,per_channel}
+  --weight-quant-granularity {per_tensor,per_channel,per_group}
+                        Weight quantization type (default: per_tensor)
+  --act-quant-granularity {per_tensor,per_group}
                         Activation quantization type (default: per_tensor)
   --weight-quant-calibration-type {stats,mse}
                         Weight quantization calibration type (default: stats)
@@ -201,12 +205,6 @@ options:
                         (default: 99.999)
   --export-onnx-qcdq    If true, export the model in onnx qcdq format
   --export-torch-qcdq   If true, export the model in torch qcdq format
-  --scaling-per-output-channel
-                        Enable Weight scaling per output channel (default:
-                        enabled)
-  --no-scaling-per-output-channel
-                        Disable Weight scaling per output channel (default:
-                        enabled)
   --bias-corr           Enable Bias correction after calibration (default:
                         enabled)
   --no-bias-corr        Disable Bias correction after calibration (default:
@@ -224,7 +222,7 @@ options:
                         Disable Narrow range for weight quantization (default:
                         disabled)
   --gpfq-p GPFQ_P       P parameter for GPFQ (default: 1.0)
-  --quant-format {int,float}
+  --quant-format {int,float,float_ocp}
                         Quantization format to use for weights and activations
                         (default: int)
   --layerwise-first-last-mantissa-bit-width LAYERWISE_FIRST_LAST_MANTISSA_BIT_WIDTH
@@ -252,6 +250,9 @@ options:
   --channel-splitting-ratio CHANNEL_SPLITTING_RATIO
                         Split Ratio for Channel Splitting. When set to 0.0,
                         Channel Splitting will not be applied. (default: 0.0)
+  --compression-rate COMPRESSION_RATE
+                        Specify compression rate < 1.0 for random projection.
+                        Default is 0.0 and does not use RP.
   --gptq                Enable GPTQ (default: disabled)
   --no-gptq             Disable GPTQ (default: disabled)
   --gpfq                Enable GPFQ (default: disabled)
@@ -280,7 +281,6 @@ options:
   --no-uint_sym_act_for_unsigned_values
                         Disable Use unsigned act quant when possible (default:
                         enabled)
-
 ```
 
 The script requires to specify the calibration folder (`--calibration-dir`), from which the calibration samples will be taken (configurable with the `--calibration-samples` argument), and a validation folder (`--validation-dir`).
