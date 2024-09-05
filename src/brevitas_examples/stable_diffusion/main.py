@@ -222,7 +222,7 @@ def main(args):
     blacklist = []
     non_blacklist = dict()
     for name, _ in pipe.unet.named_modules():
-        if 'time_emb' in name:
+        if 'time_emb' in name or 'conv_in' in name or 'conv_out' in name:
             blacklist.append(name)
         else:
             if isinstance(_, (torch.nn.Linear, torch.nn.Conv2d)):
