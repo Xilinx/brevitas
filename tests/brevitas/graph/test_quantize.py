@@ -19,6 +19,11 @@ from brevitas.graph.quantize import layerwise_quantize
             'expected': "<class 'torch.nn.modules.linear.Linear'>"},
         {
             'model': nn.Sequential(nn.Sequential(nn.Linear(2, 3))),
+            'name_blacklist': ['0'],
+            'key': '0.0',
+            'expected': "<class 'torch.nn.modules.linear.Linear'>"},
+        {
+            'model': nn.Sequential(nn.Sequential(nn.Linear(2, 3))),
             'name_blacklist': ['0.0'],
             'key': '0.0',
             'expected': "<class 'torch.nn.modules.linear.Linear'>"},])
