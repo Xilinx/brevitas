@@ -13,6 +13,7 @@ import torchvision.models as modelzoo
 from brevitas import torch_version
 from brevitas.export import export_onnx_qcdq
 from brevitas.export import export_torch_qcdq
+from brevitas.export.inference.manager import inference_mode
 from brevitas.graph.calibrate import calibration_mode
 from brevitas.graph.quantize import layerwise_quantize
 from brevitas.graph.quantize import quantize
@@ -120,7 +121,6 @@ def test_torchvision_graph_quantization_flexml_qcdq_onnx(
     if torchvision_model is None:
         pytest.skip('Model not instantiated')
     if enable_compile:
-        torch._dynamo.config.capture_scalar_outputs = True
         model_name = test_id.split("-")[1]
         if torch_version <= version.parse('2.0'):
             pytest.skip("Pytorch 2.0 is required to test compile")
@@ -131,6 +131,7 @@ def test_torchvision_graph_quantization_flexml_qcdq_onnx(
 
     quantize_fn_name = test_id.split("-")[0]
     if enable_compile:
+        torch._dynamo.config.capture_scalar_outputs = True
         with torch.no_grad(), inference_mode(torchvision_model):
             prehook_non_compiled_out = torchvision_model(inp)
             post_hook_non_compiled_out = torchvision_model(inp)
