@@ -108,7 +108,8 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
 
     @property
     def input_view_impl(self):
-        if self.fused_activation_quant_proxy.tensor_quant is not None:
+        if self.fused_activation_quant_proxy.tensor_quant is not None and not isinstance(
+                self.fused_activation_quant_proxy.tensor_quant, _TensorQuantDisabledIdentity):
             return self.fused_activation_quant_proxy.tensor_quant.int_quant.input_view_impl
         else:
             return Identity()
