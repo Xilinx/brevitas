@@ -160,7 +160,7 @@ class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
                             out.detach(),
                             metadata_only=self.cache_inference_quant_weight_metadata_only)
         else:  # quantization disabled
-            out = self.apply_input_view(x)
+            out = self.input_view_impl(x)
         return out
 
 
