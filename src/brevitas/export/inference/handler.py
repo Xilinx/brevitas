@@ -2,10 +2,12 @@ from typing import Tuple
 
 import torch
 
-from brevitas.function.ops import max_float, max_int
+from brevitas.function.ops import max_float
+from brevitas.function.ops import max_int
 from brevitas.function.ops import min_int
 from brevitas.proxy.float_parameter_quant import WeightFloatQuantProxyFromInjector
-from brevitas.proxy.float_runtime_quant import ActFloatQuantProxyFromInjector, ActFloatQuantProxyFromInjectorBase
+from brevitas.proxy.float_runtime_quant import ActFloatQuantProxyFromInjector
+from brevitas.proxy.float_runtime_quant import ActFloatQuantProxyFromInjectorBase
 from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjector
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector
@@ -38,10 +40,8 @@ class IntInferencetHandler(torch.nn.Module):
         return self.dequant(self.quant(x)), self.scale, self.zero_point, self.bit_width
 
 
-
 class FloatInferencetHandler(IntInferencetHandler):
-    handled_layer = (
-        ActFloatQuantProxyFromInjector, WeightFloatQuantProxyFromInjector)
+    handled_layer = (ActFloatQuantProxyFromInjector, WeightFloatQuantProxyFromInjector)
 
     def attach_debug_info(self, module):
         pass
@@ -64,21 +64,23 @@ class FloatInferencetHandler(IntInferencetHandler):
                 self.float_to_int_impl = module.fused_activation_quant_proxy.tensor_quant.float_to_int_impl
                 self.float_clamp_impl = module.fused_activation_quant_proxy.tensor_quant.float_clamp_impl
 
-            self.max_clamp = max_float(self.exponent_bit_width, self.mantissa_bit_width, self.exponent_bias)
+            self.max_clamp = max_float(
+                self.exponent_bit_width, self.mantissa_bit_width, self.exponent_bias)
             self.min_clamp = -self.max_clamp
             self.fp_internal_scale_min = 1. - self.exponent_bias - self.mantissa_bit_width
-            self.max_value = max_float(self.exponent_bit_width, self.mantissa_bit_width, self.exponent_bias)
+            self.max_value = max_float(
+                self.exponent_bit_width, self.mantissa_bit_width, self.exponent_bias)
             self.min_value = torch.tensor(0.) if not module.is_signed else -self.max_value
 
     def quant(self, x):
-        x = x/self.scale
+        x = x / self.scale
         internal_scale = float_internal_scale(
             x, self.mantissa_bit_width, self.fp_internal_scale_min, self.eps)
         x = internal_scale * self.float_to_int_impl(x / internal_scale)
         x = self.float_clamp_impl.saturating_clamp(x, self.max_value, self.min_value)
         if not self.saturating:
             x = self.float_clamp_impl.inf_nan_clamp(x, self.max_value)
-        
+
         return x
 
     def forward(self, x, unused_scale=None) -> Tuple[torch.Tensor]:

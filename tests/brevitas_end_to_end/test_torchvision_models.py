@@ -114,7 +114,8 @@ def torchvision_model(model_name, quantize_fn):
 
 @requires_pt_ge('1.8.1')
 @parametrize('enable_compile', [True, False])
-def test_torchvision_graph_quantization_flexml_qcdq_onnx(torchvision_model, enable_compile, request):
+def test_torchvision_graph_quantization_flexml_qcdq_onnx(
+        torchvision_model, enable_compile, request):
     test_id = request.node.callspec.id
     if torchvision_model is None:
         pytest.skip('Model not instantiated')
@@ -133,13 +134,13 @@ def test_torchvision_graph_quantization_flexml_qcdq_onnx(torchvision_model, enab
         with torch.no_grad(), inference_mode(torchvision_model):
             prehook_non_compiled_out = torchvision_model(inp)
             post_hook_non_compiled_out = torchvision_model(inp)
-            assert torch.allclose(prehook_non_compiled_out, post_hook_non_compiled_out) 
+            assert torch.allclose(prehook_non_compiled_out, post_hook_non_compiled_out)
 
             compiled_model = torch.compile(torchvision_model, fullgraph=True)
             compiled_out = compiled_model(inp)
 
             # This fails! Compile might needs more small-scoped tests for accuracy evaluation
-            # assert torch.allclose(post_hook_non_compiled_out, compiled_out) 
+            # assert torch.allclose(post_hook_non_compiled_out, compiled_out)
     else:
         torchvision_model(inp)
 

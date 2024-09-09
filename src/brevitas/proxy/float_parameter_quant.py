@@ -91,6 +91,7 @@ class WeightFloatQuantProxyFromInjectorBase(WeightQuantProxyFromInjectorBase, AB
         else:
             return Identity()
 
+
 class WeightFloatQuantProxyFromInjector(WeightFloatQuantProxyFromInjectorBase):
 
     def __init__(self, quant_layer: nn.Module, quant_injector: Injector) -> None:

@@ -1,7 +1,8 @@
 from torch.nn import Module
 import torch.nn as nn
 
-from brevitas.export.inference.handler import FloatInferencetHandler, IntInferencetHandler
+from brevitas.export.inference.handler import FloatInferencetHandler
+from brevitas.export.inference.handler import IntInferencetHandler
 from brevitas.export.manager import _set_proxy_export_handler
 from brevitas.export.manager import _set_proxy_export_mode
 from brevitas.export.manager import _set_recurrent_layer_export_handler
