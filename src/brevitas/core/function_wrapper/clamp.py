@@ -113,10 +113,8 @@ class FloatClamp(brevitas.jit.ScriptModule):
         else:
             self.max_available_float = None
 
-    def inf_nan_clamp(self, x, max_value, inf_mask):
+    def inf_nan_clamp(self, x, inf_mask, p_max_val_mask, n_max_val_mask):
 
-        p_max_val_mask = x > max_value
-        n_max_val_mask = -x > max_value
         # if non-saturating, we need to map values greater than max_val to nan or inf
         if self.inf_values is not None:
             # we have inf values, so we set abs values > max_value to +- inf, and leave inf at inf
@@ -145,16 +143,21 @@ class FloatClamp(brevitas.jit.ScriptModule):
             exponent_bit_width: Tensor,
             mantissa_bit_width: Tensor,
             exponent_bias: Tensor):
-        inf_mask = x.isinf()
+
         max_value = max_float(exponent_bit_width, mantissa_bit_width, exponent_bias)
         max_value = max_value if self.max_available_float is None else torch.min(
             max_value, self.max_available_float())
         min_value = torch.tensor(0.) if not self.signed else -max_value
 
+        # Compute masks
+        inf_mask = x.isinf()
+        p_max_val_mask = x > max_value
+        n_max_val_mask = -x > max_value
+
         # first clamp everything to +- max_value, basically the saturating case
         x = self.saturating_clamp(x, max_value, min_value)
 
         if not self.saturating:
-            x = self.inf_nan_clamp(x, max_value, inf_mask)
+            x = self.inf_nan_clamp(x, inf_mask, p_max_val_mask, n_max_val_mask)
 
         return x, self.saturating, self.inf_values, self.nan_values

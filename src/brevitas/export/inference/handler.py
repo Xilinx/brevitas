@@ -73,14 +73,17 @@ class FloatInferencetHandler(IntInferencetHandler):
             self.min_value = torch.tensor(0.) if not module.is_signed else -self.max_value
 
     def quant(self, x):
+        # Compute masks
         inf_mask = x.isinf()
+        p_max_val_mask = x > self.max_value
+        n_max_val_mask = -x > self.max_value
         x = x / self.scale
         internal_scale = float_internal_scale(
             x, self.mantissa_bit_width, self.fp_internal_scale_min, self.eps)
         x = internal_scale * self.float_to_int_impl(x / internal_scale)
         x = self.float_clamp_impl.saturating_clamp(x, self.max_value, self.min_value)
         if not self.saturating:
-            x = self.float_clamp_impl.inf_nan_clamp(x, self.max_value, inf_mask)
+            x = self.float_clamp_impl.inf_nan_clamp(x, inf_mask, p_max_val_mask, n_max_val_mask)
 
         return x
 
