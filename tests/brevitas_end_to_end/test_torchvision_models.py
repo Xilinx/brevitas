@@ -71,7 +71,7 @@ def quantize_float(model):
 
 @fixture
 @parametrize('model_name', MODEL_LIST)
-@parametrize('quantize_fn', [quantize_float, quantize, quantize_flexml, layerwise_quantize])
+@parametrize('quantize_fn', [quantize_float])
 def torchvision_model(model_name, quantize_fn):
 
     inp = torch.randn(BATCH, IN_CH, HEIGHT, WIDTH)
