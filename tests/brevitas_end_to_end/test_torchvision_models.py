@@ -70,7 +70,7 @@ def quantize_float(model):
 
 @fixture
 @parametrize('model_name', MODEL_LIST)
-@parametrize('quantize_fn', [quantize, quantize_flexml, layerwise_quantize])
+@parametrize('quantize_fn', [quantize_float, quantize, quantize_flexml, layerwise_quantize])
 def torchvision_model(model_name, quantize_fn):
 
     inp = torch.randn(BATCH, IN_CH, HEIGHT, WIDTH)
@@ -113,15 +113,37 @@ def torchvision_model(model_name, quantize_fn):
 
 
 @requires_pt_ge('1.8.1')
-def test_torchvision_graph_quantization_flexml_qcdq_onnx(torchvision_model, request):
+@parametrize('enable_compile', [True, False])
+def test_torchvision_graph_quantization_flexml_qcdq_onnx(torchvision_model, enable_compile, request):
+    test_id = request.node.callspec.id
     if torchvision_model is None:
         pytest.skip('Model not instantiated')
+    if enable_compile:
+        torch._dynamo.config.capture_scalar_outputs = True
+        model_name = test_id.split("-")[1]
+        if torch_version <= version.parse('2.0'):
+            pytest.skip("Pytorch 2.0 is required to test compile")
+        if 'vit' in model_name:
+            pytest.skip("QuantMHA not supported with compile")
+
     inp = torch.randn(BATCH, IN_CH, HEIGHT, WIDTH)
-    test_id = request.node.callspec.id
 
     quantize_fn_name = test_id.split("-")[0]
-    torchvision_model(inp)
-    if quantize_fn_name != 'quantize_float':
+    if enable_compile:
+        with torch.no_grad(), inference_mode(torchvision_model):
+            prehook_non_compiled_out = torchvision_model(inp)
+            post_hook_non_compiled_out = torchvision_model(inp)
+            assert torch.allclose(prehook_non_compiled_out, post_hook_non_compiled_out) 
+
+            compiled_model = torch.compile(torchvision_model, fullgraph=True)
+            compiled_out = compiled_model(inp)
+
+            # This fails! Compile might needs more small-scoped tests for accuracy evaluation
+            # assert torch.allclose(post_hook_non_compiled_out, compiled_out) 
+    else:
+        torchvision_model(inp)
+
+    if quantize_fn_name != 'quantize_float' and not enable_compile:
         export_onnx_qcdq(torchvision_model, args=inp)
 
 

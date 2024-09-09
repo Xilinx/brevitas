@@ -122,7 +122,7 @@ class QuantProxyFromInjector(ExportMixin, nn.Module, QuantProxyProtocol):
             raise RuntimeError("Trying to add None as a parent module.")
 
     def apply_input_view(self, x):
-        return self.tensor_quant.int_quant.input_view_impl(x)
+        return self.input_view_impl(x)
 
     def _load_from_state_dict(
             self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,

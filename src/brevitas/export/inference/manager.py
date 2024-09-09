@@ -1,7 +1,7 @@
 from torch.nn import Module
 import torch.nn as nn
 
-from brevitas.export.inference.handler import IntInferencetHandler
+from brevitas.export.inference.handler import FloatInferencetHandler, IntInferencetHandler
 from brevitas.export.manager import _set_proxy_export_handler
 from brevitas.export.manager import _set_proxy_export_mode
 from brevitas.export.manager import _set_recurrent_layer_export_handler
@@ -39,6 +39,7 @@ class inference_mode:
         self.cache_quant_weight = cache_quant_weight
         self.export_manager = InferenceManager
         self.hook_list = []
+        self.return_quant_tensor_state = dict()
 
     def __enter__(self):
         if self.enabled:
@@ -82,7 +83,7 @@ class inference_mode:
 
 # Inheritance from BaseManager is not techincally needed
 class InferenceManager(BaseManager):
-    handlers = [IntInferencetHandler]
+    handlers = [IntInferencetHandler, FloatInferencetHandler]
 
     @classmethod
     def set_export_mode(cls, model: Module, enabled: bool):

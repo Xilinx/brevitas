@@ -11,6 +11,7 @@ import packaging.version
 import torch
 
 from brevitas import torch_version
+from brevitas.core.function_wrapper.misc import Identity
 
 if torch_version < packaging.version.parse('2.0'):
     is_dynamo_compiling = lambda: False
@@ -101,6 +102,13 @@ class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
         self.cache_inference_quant_weight_metadata_only = False
         self.cache_class = None  # To be redefined by each class
         self.quant_tensor_class = None  # To be redefined by each class
+
+    @property
+    def input_view_impl(self):
+        if self.tensor_quant is not None:
+            return self.tensor_quant.int_quant.input_view_impl
+        else:
+            return Identity()
 
     @property
     def cache_inference_quant_weight(self):

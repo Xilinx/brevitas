@@ -4,6 +4,7 @@ from typing import Any, Optional, Tuple, Union
 import torch
 import torch.nn as nn
 
+from brevitas.core.function_wrapper.misc import Identity
 from brevitas.inject import BaseInjector as Injector
 from brevitas.proxy.runtime_quant import ActQuantProxyFromInjectorBase
 from brevitas.quant_tensor import FloatQuantTensor
@@ -27,7 +28,7 @@ class ActFloatQuantProxyFromInjectorBase(ActQuantProxyFromInjectorBase, ABC):
     def exponent_bias(self, force_eval=True):
         return self.retrieve_attribute('exponent_bias', force_eval)
 
-    def saturating(self, force_eval=True):
+    def is_saturating(self, force_eval=True):
         return self.retrieve_attribute('saturating', force_eval)
 
     def inf_values(self, force_eval=True):
@@ -35,6 +36,13 @@ class ActFloatQuantProxyFromInjectorBase(ActQuantProxyFromInjectorBase, ABC):
 
     def nan_values(self, force_eval=True):
         return self.retrieve_attribute('nan_values', force_eval)
+
+    @property
+    def input_view_impl(self):
+        if self.fused_activation_quant_proxy.tensor_quant is not None:
+            return self.fused_activation_quant_proxy.tensor_quant.input_view_impl
+        else:
+            return Identity()
 
     @property
     def is_ocp(self):

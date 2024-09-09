@@ -4,6 +4,7 @@ from typing import Any, Optional, Tuple, Union
 from torch import Tensor
 import torch.nn as nn
 
+from brevitas.core.function_wrapper.misc import Identity
 from brevitas.inject import BaseInjector as Injector
 from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjectorBase
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjectorBase
@@ -83,6 +84,12 @@ class WeightFloatQuantProxyFromInjectorBase(WeightQuantProxyFromInjectorBase, AB
         ) is None and self.exponent_bias() == 16
         return is_fnuz_e4m3 or is_fnuz_e5m2
 
+    @property
+    def input_view_impl(self):
+        if self.tensor_quant is not None:
+            return self.tensor_quant.input_view_impl
+        else:
+            return Identity()
 
 class WeightFloatQuantProxyFromInjector(WeightFloatQuantProxyFromInjectorBase):
 

@@ -113,6 +113,32 @@ class FloatClamp(brevitas.jit.ScriptModule):
         else:
             self.max_available_float = None
 
+    def inf_nan_clamp(self, x, max_value):
+        inf_mask = x.isinf()
+
+        p_max_val_mask = x > max_value
+        n_max_val_mask = -x > max_value
+        # if non-saturating, we need to map values greater than max_val to nan or inf
+        if self.inf_values is not None:
+            # we have inf values, so we set abs values > max_value to +- inf, and leave inf at inf
+            x[p_max_val_mask] = torch.tensor(float('inf'))
+            x[n_max_val_mask] = torch.tensor(float('-inf'))
+        elif self.nan_values is not None:
+            # no inf values, so we need to map them to NaN
+            full_max_val_mask = torch.logical_or(p_max_val_mask, n_max_val_mask)
+            x[full_max_val_mask] = torch.tensor(float('nan'))
+
+            # we also map the inf values to NaN in this case
+            x[inf_mask] = torch.tensor(float('nan'))
+        else:
+            raise RuntimeError(
+                "Clamping is not saturating, but neither `inf_values` nor `nan_values` is specified"
+            )
+        return x
+
+    def saturating_clamp(self, x, max_value, min_value):
+        return self.tensor_clamp_impl(x, min_val=min_value, max_val=max_value)
+
     @brevitas.jit.script_method
     def forward(
             self,
@@ -120,33 +146,15 @@ class FloatClamp(brevitas.jit.ScriptModule):
             exponent_bit_width: Tensor,
             mantissa_bit_width: Tensor,
             exponent_bias: Tensor):
-        inf_mask = x.isinf()
         max_value = max_float(exponent_bit_width, mantissa_bit_width, exponent_bias)
         max_value = max_value if self.max_available_float is None else torch.min(
             max_value, self.max_available_float())
-        p_max_val_mask = x > max_value
-        n_max_val_mask = -x > max_value
-        min_float = torch.tensor(0.) if not self.signed else -max_value
+        min_value = torch.tensor(0.) if not self.signed else -max_value
 
         # first clamp everything to +- max_value, basically the saturating case
-        x = self.tensor_clamp_impl(x, min_val=min_float, max_val=max_value)
+        x = self.saturating_clamp(x, max_value, min_value)
 
         if not self.saturating:
-            # if non-saturating, we need to map values greater than max_val to nan or inf
-            if self.inf_values is not None:
-                # we have inf values, so we set abs values > max_value to +- inf, and leave inf at inf
-                x[p_max_val_mask] = torch.tensor(float('inf'))
-                x[n_max_val_mask] = torch.tensor(float('-inf'))
-            elif self.nan_values is not None:
-                # no inf values, so we need to map them to NaN
-                full_max_val_mask = torch.logical_or(p_max_val_mask, n_max_val_mask)
-                x[full_max_val_mask] = torch.tensor(float('nan'))
-
-                # we also map the inf values to NaN in this case
-                x[inf_mask] = torch.tensor(float('nan'))
-            else:
-                raise RuntimeError(
-                    "Clamping is not saturating, but neither `inf_values` nor `nan_values` is specified"
-                )
+            x = self.inf_nan_clamp(x, max_value)
 
         return x, self.saturating, self.inf_values, self.nan_values

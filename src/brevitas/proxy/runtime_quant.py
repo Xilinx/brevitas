@@ -106,6 +106,13 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
         self.cache_quant_io_metadata_only = True
         self.cache_class = None
 
+    @property
+    def input_view_impl(self):
+        if self.fused_activation_quant_proxy.tensor_quant is not None:
+            return self.fused_activation_quant_proxy.tensor_quant.int_quant.input_view_impl
+        else:
+            return Identity()
+
     def internal_forward(self, force_eval):
         current_status = self.training
         if force_eval:
@@ -124,7 +131,7 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
             return None
 
     def apply_input_view(self, x):
-        return self.fused_activation_quant_proxy.tensor_quant.int_quant.input_view_impl(x)
+        return self.input_view_impl(x)
 
     @property
     def is_quant_enabled(self):
