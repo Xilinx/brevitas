@@ -131,6 +131,9 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
         elif self._cached_act is None:
             return None
 
+    def apply_input_view(self, x):
+        return self.input_view_impl(x)
+
     @property
     def is_quant_enabled(self):
         return self._is_quant_enabled and not self.disable_quant
@@ -185,7 +188,7 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
             # A tuple helps later with control flows
             # The second None value is used later
             # If quant is not enabled, we still apply input_view in the case of groupwise + padding
-            y = self.input_view_impl(self.fused_activation_quant_proxy.activation_impl(y))
+            y = self.apply_input_view(self.fused_activation_quant_proxy.activation_impl(y))
             y = (y, None)
         else:
             y = self.fused_activation_quant_proxy(y)
