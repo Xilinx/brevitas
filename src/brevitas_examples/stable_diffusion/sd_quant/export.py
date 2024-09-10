@@ -64,7 +64,8 @@ def export_quant_params(pipe, output_dir, export_vae=False):
         print(f"Saving vae to {vae_output_path} ...")
     from brevitas.export.onnx.standard.qcdq.manager import StdQCDQONNXManager
     export_manager = StdQCDQONNXManager
-    export_manager.change_weight_export(export_weight_q_node=True) # We're exporting FP weights + quantization parameters
+    export_manager.change_weight_export(
+        export_weight_q_node=True)  # We're exporting FP weights + quantization parameters
     quant_params = dict()
     state_dict = pipe.unet.state_dict()
     state_dict = {k: v for (k, v) in state_dict.items() if 'tensor_quant' not in k}
