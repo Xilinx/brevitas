@@ -71,7 +71,7 @@ class IntWeightInferencetHandler(IntInferencetHandler):
             if module._cached_weight is not None and not module.cache_inference_quant_weight_metadata_only:
                 self.cached_weight = module._cached_weight
             else:
-                super.prepare_for_export(module)
+                super().prepare_for_export(module)
 
     def forward(self, x) -> Tuple[torch.Tensor]:
         if self.cached_weight is not None:
