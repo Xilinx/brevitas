@@ -392,7 +392,7 @@ def main(args):
                 weight_param_method=args.sdpa_param_method,
                 weight_scale_precision=args.sdpa_scale_precision,
                 weight_quant_granularity=args.sdpa_quant_granularity,
-                weight_group_size=32, # Not used, since args.sdpa_quant_granularity == 'per_tensor'
+                weight_group_size=32,  # Not used, since args.sdpa_quant_granularity == 'per_tensor'
                 quantize_weight_zero_point=args.quantize_sdpa_zero_point,
                 quantize_input_zero_point=args.quantize_sdpa_zero_point,
                 input_bit_width=args.sdpa_bit_width,
@@ -825,25 +825,33 @@ if __name__ == "__main__":
         type=str,
         default='stats',
         choices=['stats', 'mse'],
-        help='How scales/zero-point are determined for scaled dot product attention. Default: %(default)s.')
+        help=
+        'How scales/zero-point are determined for scaled dot product attention. Default: %(default)s.'
+    )
     parser.add_argument(
         '--sdpa-scale-stats-op',
         type=str,
         default='minmax',
         choices=['minmax', 'percentile'],
-        help='Define what statistics op to use for scaled dot product attention scale. Default: %(default)s.')
+        help=
+        'Define what statistics op to use for scaled dot product attention scale. Default: %(default)s.'
+    )
     parser.add_argument(
         '--sdpa-zp-stats-op',
         type=str,
         default='minmax',
         choices=['minmax', 'percentile'],
-        help='Define what statistics op to use for scaled dot product attention zero point. Default: %(default)s.')
+        help=
+        'Define what statistics op to use for scaled dot product attention zero point. Default: %(default)s.'
+    )
     parser.add_argument(
         '--sdpa-scale-precision',
         type=str,
         default='float_scale',
         choices=['float_scale', 'po2_scale'],
-        help='Whether the scaled dot product attention scale is a float value or a po2. Default: %(default)s.')
+        help=
+        'Whether the scaled dot product attention scale is a float value or a po2. Default: %(default)s.'
+    )
     parser.add_argument(
         '--sdpa-quant-type',
         type=str,
@@ -862,13 +870,16 @@ if __name__ == "__main__":
         type=str,
         default='per_tensor',
         choices=['per_tensor'],
-        help='Granularity for scales/zero-point of scaled dot product attention. Default: %(default)s.')
+        help=
+        'Granularity for scales/zero-point of scaled dot product attention. Default: %(default)s.')
     parser.add_argument(
         '--sdpa-scale-type',
         type=str,
         default='static',
         choices=['static', 'dynamic'],
-        help='Whether to do static or dynamic scaled dot product attention quantization. Default: %(default)s.')
+        help=
+        'Whether to do static or dynamic scaled dot product attention quantization. Default: %(default)s.'
+    )
     parser.add_argument(
         '--quant-blacklist',
         type=str,
