@@ -136,7 +136,6 @@ class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
         if self.is_quant_enabled:
             # If quant is enabled the priority is:
             # - export mode
-            # - cached weight
             # - quantization flow
             if self.export_mode:
                 out = self.export_handler(x)
@@ -144,11 +143,6 @@ class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
                     out = out[0]
                 else:
                     out = self.create_quant_tensor(out)
-            elif self._cached_weight is not None and not self.cache_inference_quant_weight_metadata_only:
-                if is_dynamo_compiling():
-                    out = self._cached_weight.value
-                else:
-                    out = self._cached_weight.quant_tensor
             else:
                 out = self.tensor_quant(x)
                 if is_dynamo_compiling():

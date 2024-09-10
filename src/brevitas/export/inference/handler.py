@@ -1,3 +1,8 @@
+# Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+
+from abc import ABC
+from abc import abstractmethod
 from typing import Tuple
 
 import torch
@@ -14,9 +19,26 @@ from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector
 from brevitas.utils.torch_utils import float_internal_scale
 
 
-class IntInferencetHandler(torch.nn.Module):
-    handled_layer = (
-        ActQuantProxyFromInjector, WeightQuantProxyFromInjector, BiasQuantProxyFromInjector)
+class InferenceHandler(torch.nn.Module, ABC):
+
+    def attach_debug_info(self, module):
+        pass
+
+    @abstractmethod
+    def prepare_for_export(self, module):
+        pass
+
+    @abstractmethod
+    def quantize(self, x):
+        pass
+
+    @abstractmethod
+    def dequantize(self, x):
+        pass
+
+
+class IntInferencetHandler(InferenceHandler):
+    handled_layer = (ActQuantProxyFromInjector, BiasQuantProxyFromInjector)
 
     def attach_debug_info(self, module):
         pass
@@ -29,22 +51,38 @@ class IntInferencetHandler(torch.nn.Module):
             self.min_clamp = min_int(module.is_signed, module.is_narrow_range, self.bit_width)
             self.max_clamp = max_int(module.is_signed, module.is_narrow_range, self.bit_width)
 
-    def quant(self, x):
+    def quantize(self, x):
         return torch.clamp(
             torch.round(x / self.scale + self.zero_point), self.min_clamp, self.max_clamp)
 
-    def dequant(self, x):
+    def dequantize(self, x):
         return (x - self.zero_point) * self.scale
 
     def forward(self, x, unused_scale=None) -> Tuple[torch.Tensor]:
-        return self.dequant(self.quant(x)), self.scale, self.zero_point, self.bit_width
+        return self.dequantize(self.quantize(x)), self.scale, self.zero_point, self.bit_width
 
 
-class FloatInferencetHandler(IntInferencetHandler):
-    handled_layer = (ActFloatQuantProxyFromInjector, WeightFloatQuantProxyFromInjector)
+class IntWeightInferencetHandler(IntInferencetHandler):
+    handled_layer = WeightQuantProxyFromInjector
 
-    def attach_debug_info(self, module):
-        pass
+    def prepare_for_export(self, module):
+        if module.is_quant_enabled:
+            self.cached_weight = None
+            if module._cached_weight is not None and not module.cache_inference_quant_weight_metadata_only:
+                self.cached_weight = module._cached_weight
+            else:
+                super.prepare_for_export(module)
+
+    def forward(self, x) -> Tuple[torch.Tensor]:
+        if self.cached_weight is not None:
+            x = self.cached_weight
+        else:
+            x = self.dequantize(self.quantize(x))
+        return x, self.scale, self.zero_point, self.bit_width
+
+
+class FloatInferencetHandler(InferenceHandler):
+    handled_layer = (ActFloatQuantProxyFromInjector, BiasQuantProxyFromInjector)
 
     def prepare_for_export(self, module):
         if module.is_quant_enabled:
@@ -72,20 +110,46 @@ class FloatInferencetHandler(IntInferencetHandler):
                 self.exponent_bit_width, self.mantissa_bit_width, self.exponent_bias)
             self.min_value = torch.tensor(0.) if not module.is_signed else -self.max_value
 
-    def quant(self, x):
+    def quantize(self, x):
         # Compute masks
         inf_mask = x.isinf()
         p_max_val_mask = x > self.max_value
         n_max_val_mask = -x > self.max_value
+
+        # Quantize
         x = x / self.scale
         internal_scale = float_internal_scale(
             x, self.mantissa_bit_width, self.fp_internal_scale_min, self.eps)
         x = internal_scale * self.float_to_int_impl(x / internal_scale)
+
+        # Clamp
         x = self.float_clamp_impl.saturating_clamp(x, self.max_value, self.min_value)
         if not self.saturating:
             x = self.float_clamp_impl.inf_nan_clamp(x, inf_mask, p_max_val_mask, n_max_val_mask)
 
         return x
 
-    def forward(self, x, unused_scale=None) -> Tuple[torch.Tensor]:
-        return self.dequant(self.quant(x)), self.scale, self.zero_point, self.exponent_bit_width, self.mantissa_bit_width, self.exponent_bias, self.saturating, self.inf_values, self.nan_values
+    def dequantize(self, x):
+        return (x - self.zero_point) * self.scale
+
+    def forward(self, x) -> Tuple[torch.Tensor]:
+        return self.dequantize(self.quantize(x)), self.scale, self.zero_point, self.exponent_bit_width, self.mantissa_bit_width, self.exponent_bias, self.saturating, self.inf_values, self.nan_values
+
+
+class FloatWeightInferencetHandler(FloatInferencetHandler):
+    handled_layer = (ActFloatQuantProxyFromInjector, WeightFloatQuantProxyFromInjector)
+
+    def prepare_for_export(self, module):
+        if module.is_quant_enabled:
+            self.cached_weight = None
+            if module._cached_weight is not None and not module.cache_inference_quant_weight_metadata_only:
+                self.cached_weight = module._cached_weight
+            else:
+                super().prepare_for_export(module)
+
+    def forward(self, x) -> Tuple[torch.Tensor]:
+        if self.cached_weight is not None:
+            x = self.cached_weight
+        else:
+            x = self.dequantize(self.quantize(x))
+        return x, self.scale, self.zero_point, self.exponent_bit_width, self.mantissa_bit_width, self.exponent_bias, self.saturating, self.inf_values, self.nan_values

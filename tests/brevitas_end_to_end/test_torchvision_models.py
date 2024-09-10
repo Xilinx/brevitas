@@ -13,7 +13,7 @@ import torchvision.models as modelzoo
 from brevitas import torch_version
 from brevitas.export import export_onnx_qcdq
 from brevitas.export import export_torch_qcdq
-from brevitas.export.inference.manager import inference_mode
+from brevitas.export.inference import quant_inference_mode
 from brevitas.graph.calibrate import calibration_mode
 from brevitas.graph.quantize import layerwise_quantize
 from brevitas.graph.quantize import quantize
@@ -28,19 +28,19 @@ IN_CH = 3
 MODEL_LIST = [
     'vit_b_32',
     'efficientnet_b0',
-    # 'mobilenet_v3_small',
-    # 'mobilenet_v2',
-    # 'resnet50',
-    # 'resnet18',
-    # 'mnasnet0_5',
-    # 'alexnet',
-    # 'googlenet',
-    # 'vgg11',
-    # 'densenet121',
-    # 'deeplabv3_resnet50',
-    # 'fcn_resnet50',
-    # 'regnet_x_400mf',
-    # 'squeezenet1_0',
+    'mobilenet_v3_small',
+    'mobilenet_v2',
+    'resnet50',
+    'resnet18',
+    'mnasnet0_5',
+    'alexnet',
+    'googlenet',
+    'vgg11',
+    'densenet121',
+    'deeplabv3_resnet50',
+    'fcn_resnet50',
+    'regnet_x_400mf',
+    'squeezenet1_0',
     'inception_v3']
 
 
@@ -71,7 +71,7 @@ def quantize_float(model):
 
 @fixture
 @parametrize('model_name', MODEL_LIST)
-@parametrize('quantize_fn', [quantize_float])
+@parametrize('quantize_fn', [quantize_float, quantize, layerwise_quantize, quantize_flexml])
 def torchvision_model(model_name, quantize_fn):
 
     inp = torch.randn(BATCH, IN_CH, HEIGHT, WIDTH)
@@ -122,28 +122,27 @@ def test_torchvision_graph_quantization_flexml_qcdq_onnx(
         pytest.skip('Model not instantiated')
     if enable_compile:
         model_name = test_id.split("-")[1]
-        if torch_version <= version.parse('2.0'):
-            pytest.skip("Pytorch 2.0 is required to test compile")
+        if torch_version <= version.parse('2.2'):
+            pytest.skip("Pytorch 2.2 is required to test compile")
+        else:
+            torch._dynamo.config.capture_scalar_outputs = True
         if 'vit' in model_name:
             pytest.skip("QuantMHA not supported with compile")
 
     inp = torch.randn(BATCH, IN_CH, HEIGHT, WIDTH)
 
     quantize_fn_name = test_id.split("-")[0]
-    if enable_compile:
-        torch._dynamo.config.capture_scalar_outputs = True
-        with torch.no_grad(), inference_mode(torchvision_model):
-            prehook_non_compiled_out = torchvision_model(inp)
-            post_hook_non_compiled_out = torchvision_model(inp)
-            assert torch.allclose(prehook_non_compiled_out, post_hook_non_compiled_out)
+    with torch.no_grad(), quant_inference_mode(torchvision_model):
+        prehook_non_compiled_out = torchvision_model(inp)
+        post_hook_non_compiled_out = torchvision_model(inp)
+        assert torch.allclose(prehook_non_compiled_out, post_hook_non_compiled_out)
 
+        if enable_compile:
             compiled_model = torch.compile(torchvision_model, fullgraph=True)
             compiled_out = compiled_model(inp)
 
-            # This fails! Compile might needs more small-scoped tests for accuracy evaluation
-            # assert torch.allclose(post_hook_non_compiled_out, compiled_out)
-    else:
-        torchvision_model(inp)
+        # This fails! Compile might needs more small-scoped tests for accuracy evaluation
+        # assert torch.allclose(post_hook_non_compiled_out, compiled_out)
 
     if quantize_fn_name != 'quantize_float' and not enable_compile:
         export_onnx_qcdq(torchvision_model, args=inp)

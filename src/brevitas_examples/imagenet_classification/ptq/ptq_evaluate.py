@@ -18,7 +18,7 @@ import torchvision
 
 from brevitas.export import export_onnx_qcdq
 from brevitas.export import export_torch_qcdq
-from brevitas.export.inference.manager import inference_mode
+from brevitas.export.inference import quant_inference_mode
 from brevitas.graph.quantize import preprocess_for_quantize
 from brevitas.graph.target.flexml import preprocess_for_flexml_quantize
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_act_equalization
@@ -268,6 +268,7 @@ add_bool_arg(
     'uint_sym_act_for_unsigned_values',
     default=True,
     help='Use unsigned act quant when possible (default: enabled)')
+add_bool_arg(parser, 'compile', default=False, help='Use torch.compile (default: disabled)')
 
 
 def generate_ref_input(args, device, dtype):
@@ -482,13 +483,14 @@ def main():
 
     # Validate the quant_model on the validation dataloader
     print("Starting validation:")
-    with torch.no_grad(), inference_mode(quant_model):
+    with torch.no_grad(), quant_inference_mode(quant_model):
         param = next(iter(quant_model.parameters()))
         device, dtype = param.device, param.dtype
         ref_input = generate_ref_input(args, device, dtype)
         quant_model(ref_input)
-        quant_model = torch.compile(quant_model, fullgraph=True, dynamic=True)
-        validate(val_loader, quant_model, stable=dtype != torch.bfloat16)
+        compiled_model = torch.compile(
+            quant_model, fullgraph=True, dynamic=True, disable=not args.compile)
+        validate(val_loader, compiled_model, stable=dtype != torch.bfloat16)
 
     if args.export_onnx_qcdq or args.export_torch_qcdq:
         # Generate reference input tensor to drive the export process
