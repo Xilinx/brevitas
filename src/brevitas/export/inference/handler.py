@@ -137,7 +137,7 @@ class FloatInferencetHandler(InferenceHandler):
 
 
 class FloatWeightInferencetHandler(FloatInferencetHandler):
-    handled_layer = (ActFloatQuantProxyFromInjector, WeightFloatQuantProxyFromInjector)
+    handled_layer = WeightFloatQuantProxyFromInjector
 
     def prepare_for_export(self, module):
         if module.is_quant_enabled:
