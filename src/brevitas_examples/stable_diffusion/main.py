@@ -149,7 +149,7 @@ def main(args):
     calibration_prompts = CALIBRATION_PROMPTS
     if args.calibration_prompt_path is not None:
         calibration_prompts = load_calib_prompts(args.calibration_prompt_path)
-        print(args.calibration_prompt, len(calibration_prompts))
+    print(args.calibration_prompt, len(calibration_prompts))
     assert args.calibration_prompt <= len(calibration_prompts) , f"Only {len(calibration_prompts)} prompts are available"
     calibration_prompts = calibration_prompts[:args.calibration_prompt]
 
