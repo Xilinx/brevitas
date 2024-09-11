@@ -485,7 +485,8 @@ def main(args):
             pipe = pipe.to(args.device)
         elif not args.dry_run:
             if (args.linear_input_bit_width > 0 or args.conv_input_bit_width > 0 or
-                    args.sdpa_bit_width > 0) and args.input_scale_type == 'static':
+                    args.sdpa_bit_width > 0 or
+                    args.quantize_sdp) and args.input_scale_type == 'static':
                 print("Applying activation calibration")
                 with torch.no_grad(), calibration_mode(pipe.unet):
                     run_val_inference(
@@ -699,7 +700,7 @@ if __name__ == "__main__":
         help='Resolution along height and width dimension. Default: 512.')
     parser.add_argument('--guidance-scale', type=float, default=7.5, help='Guidance scale.')
     parser.add_argument(
-        '--calibration-steps', type=float, default=8, help='Steps used during calibration')
+        '--calibration-steps', type=int, default=8, help='Steps used during calibration')
     add_bool_arg(
         parser,
         'output-path',
@@ -882,7 +883,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '--sdpa-quant-type',
         type=str,
-        default='asym',
+        default='sym',
         choices=['sym', 'asym'],
         help='Scaled dot product attention quantization type. Default: %(default)s.')
     parser.add_argument(
