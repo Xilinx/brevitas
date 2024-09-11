@@ -389,11 +389,11 @@ def main(args):
                 weight_bit_width=args.sdpa_bit_width,
                 weight_quant_format=args.sdpa_quant_format,
                 weight_quant_type=args.sdpa_quant_type,
-                weight_param_method=args.sdpa_param_method,
-                weight_scale_precision=args.sdpa_scale_precision,
-                weight_quant_granularity=args.sdpa_quant_granularity,
-                weight_group_size=32,  # Not used, since args.sdpa_quant_granularity == 'per_tensor'
-                quantize_weight_zero_point=args.quantize_sdpa_zero_point,
+                weight_param_method=args.weight_param_method,
+                weight_scale_precision=args.weight_scale_precision,
+                weight_quant_granularity=args.weight_quant_granularity, # Must be compatible with `args.sdpa_quant_format`
+                weight_group_size=args.weight_group_size,
+                quantize_weight_zero_point=args.quantize_weight_zero_point,
                 quantize_input_zero_point=args.quantize_sdpa_zero_point,
                 input_bit_width=args.sdpa_bit_width,
                 input_quant_format=args.sdpa_quant_format,
