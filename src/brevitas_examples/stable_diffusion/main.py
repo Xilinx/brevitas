@@ -493,7 +493,8 @@ def main(args):
                 args.input_scale_type,
                 args.input_scale_type,
                 args.sdpa_scale_type,]
-            needs_calibration = any(map(lambda b, st: (b > 0) and st == 'static', activation_bw, activation_st))
+            needs_calibration = any(
+                map(lambda b, st: (b > 0) and st == 'static', activation_bw, activation_st))
             if needs_calibration:
                 print("Applying activation calibration")
                 with torch.no_grad(), calibration_mode(pipe.unet):
