@@ -17,8 +17,11 @@
 
 from typing import Any, Mapping, Optional
 
+import diffusers
 from diffusers.models.attention_processor import Attention
 from diffusers.models.lora import LoRACompatibleLinear
+import packaging
+import packaging.version
 import torch
 import torch.nn.functional as F
 
@@ -119,6 +122,142 @@ class QuantizableAttention(Attention):
         return super().load_state_dict(state_dict, strict, assign)
 
 
+class QuantAttentionLast(Attention):
+
+    def __init__(
+            self,
+            query_dim: int,
+            cross_attention_dim: Optional[int] = None,
+            heads: int = 8,
+            kv_heads: Optional[int] = None,
+            dim_head: int = 64,
+            dropout: float = 0.0,
+            bias: bool = False,
+            upcast_attention: bool = False,
+            upcast_softmax: bool = False,
+            cross_attention_norm: Optional[str] = None,
+            cross_attention_norm_num_groups: int = 32,
+            qk_norm: Optional[str] = None,
+            added_kv_proj_dim: Optional[int] = None,
+            added_proj_bias: Optional[bool] = True,
+            norm_num_groups: Optional[int] = None,
+            spatial_norm_dim: Optional[int] = None,
+            out_bias: bool = True,
+            scale_qk: bool = True,
+            only_cross_attention: bool = False,
+            eps: float = 1e-5,
+            rescale_output_factor: float = 1.0,
+            residual_connection: bool = False,
+            _from_deprecated_attn_block: bool = False,
+            processor: Optional["AttnProcessor"] = None,
+            out_dim: int = None,
+            context_pre_only=None,
+            pre_only=False,
+            matmul_input_quant=None,
+            is_equalized=False,
+            fuse_qkv=False):
+
+        super().__init__(
+            query_dim,
+            cross_attention_dim,
+            heads,
+            kv_heads,
+            dim_head,
+            dropout,
+            bias,
+            upcast_attention,
+            upcast_softmax,
+            cross_attention_norm,
+            cross_attention_norm_num_groups,
+            qk_norm,
+            added_kv_proj_dim,
+            added_proj_bias,
+            norm_num_groups,
+            spatial_norm_dim,
+            out_bias,
+            scale_qk,
+            only_cross_attention,
+            eps,
+            rescale_output_factor,
+            residual_connection,
+            _from_deprecated_attn_block,
+            processor,
+            out_dim,
+            context_pre_only,
+            pre_only,
+        )
+        if fuse_qkv:
+            self.fuse_projections()
+
+        self.output_softmax_quant = QuantIdentity(matmul_input_quant)
+        self.out_q = QuantIdentity(matmul_input_quant)
+        self.out_k = QuantIdentity(matmul_input_quant)
+        self.out_v = QuantIdentity(matmul_input_quant)
+        if is_equalized:
+            replacements = []
+            for n, m in self.named_modules():
+                if isinstance(m, torch.nn.Linear):
+                    in_channels = m.in_features
+                    eq_m = EqualizedModule(ScaleBias(in_channels, False, (1, 1, -1)), m)
+                    r = ModuleInstanceToModuleInstance(m, eq_m)
+                    replacements.append(r)
+            for r in replacements:
+                r.apply(self)
+
+    def get_attention_scores(
+            self,
+            query: torch.Tensor,
+            key: torch.Tensor,
+            attention_mask: torch.Tensor = None) -> torch.Tensor:
+        r"""
+        Compute the attention scores.
+
+        Args:
+            query (`torch.Tensor`): The query tensor.
+            key (`torch.Tensor`): The key tensor.
+            attention_mask (`torch.Tensor`, *optional*): The attention mask to use. If `None`, no mask is applied.
+
+        Returns:
+            `torch.Tensor`: The attention probabilities/scores.
+        """
+        dtype = query.dtype
+        if self.upcast_attention:
+            query = query.float()
+            key = key.float()
+
+        if attention_mask is None:
+            baddbmm_input = torch.empty(
+                query.shape[0],
+                query.shape[1],
+                key.shape[1],
+                dtype=query.dtype,
+                device=query.device)
+            beta = 0
+        else:
+            baddbmm_input = attention_mask
+            beta = 1
+
+        attention_scores = torch.baddbmm(
+            baddbmm_input,
+            query,
+            key.transpose(-1, -2),
+            beta=beta,
+            alpha=self.scale,
+        )
+        del baddbmm_input
+
+        if self.upcast_softmax:
+            attention_scores = attention_scores.float()
+
+        attention_probs = attention_scores.softmax(dim=-1)
+        del attention_scores
+
+        attention_probs = attention_probs.to(dtype)
+
+        attention_probs = _unpack_quant_tensor(self.output_softmax_quant(attention_probs))
+        return attention_probs
+
+
 class QuantAttention(QuantizableAttention):
 
     def __init__(
@@ -172,7 +311,6 @@ class QuantAttention(QuantizableAttention):
             dtype,
             processor,
         )
-
         self.output_softmax_quant = QuantIdentity(matmul_input_quant)
         self.out_q = QuantIdentity(matmul_input_quant)
         self.out_k = QuantIdentity(matmul_input_quant)

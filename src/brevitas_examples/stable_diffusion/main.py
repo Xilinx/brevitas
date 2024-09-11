@@ -12,12 +12,14 @@ import os
 import time
 
 from dependencies import value
+import diffusers
 from diffusers import DiffusionPipeline
 from diffusers import EulerDiscreteScheduler
 from diffusers import StableDiffusionXLPipeline
 from diffusers.models.attention_processor import Attention
-from diffusers.models.attention_processor import AttnProcessor
 import numpy as np
+import packaging
+import packaging.version
 import pandas as pd
 import torch
 from torch import nn
@@ -35,7 +37,6 @@ from brevitas.graph.gptq import gptq_mode
 from brevitas.graph.quantize import layerwise_quantize
 from brevitas.inject.enum import StatsOp
 from brevitas.nn.equalized_layer import EqualizedModule
-from brevitas.nn.quant_activation import QuantIdentity
 from brevitas.utils.torch_utils import KwargsForwardHook
 from brevitas_examples.common.generative.quantize import generate_quant_maps
 from brevitas_examples.common.generative.quantize import generate_quantizers
@@ -47,14 +48,17 @@ from brevitas_examples.stable_diffusion.sd_quant.constants import SD_2_1_EMBEDDI
 from brevitas_examples.stable_diffusion.sd_quant.constants import SD_XL_EMBEDDINGS_SHAPE
 from brevitas_examples.stable_diffusion.sd_quant.export import export_onnx
 from brevitas_examples.stable_diffusion.sd_quant.export import export_quant_params
+from brevitas_examples.stable_diffusion.sd_quant.nn import AttnProcessor
 from brevitas_examples.stable_diffusion.sd_quant.nn import AttnProcessor2_0
 from brevitas_examples.stable_diffusion.sd_quant.nn import QuantAttention
+from brevitas_examples.stable_diffusion.sd_quant.nn import QuantAttentionLast
 from brevitas_examples.stable_diffusion.sd_quant.nn import QuantizableAttention
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_latents
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_unet_21_rand_inputs
 from brevitas_examples.stable_diffusion.sd_quant.utils import generate_unet_xl_rand_inputs
 from brevitas_examples.stable_diffusion.sd_quant.utils import unet_input_shape
 
+diffusers_version = packaging.version.parse(diffusers.__version__)
 TEST_SEED = 123456
 torch.manual_seed(TEST_SEED)
 
@@ -149,7 +153,7 @@ def main(args):
     calibration_prompts = CALIBRATION_PROMPTS
     if args.calibration_prompt_path is not None:
         calibration_prompts = load_calib_prompts(args.calibration_prompt_path)
-    print(args.calibration_prompt, len(calibration_prompts))
+
     assert args.calibration_prompt <= len(calibration_prompts) , f"Only {len(calibration_prompts)} prompts are available"
     calibration_prompts = calibration_prompts[:args.calibration_prompt]
 
@@ -178,18 +182,29 @@ def main(args):
         args.model, torch_dtype=dtype, variant=variant, use_safetensors=True)
     pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config)
     pipe.vae.config.force_upcast = True
-    if args.share_qkv_quant:
-        rewriter = ModuleToModuleByClass(
-            Attention,
-            QuantizableAttention,
-            query_dim=lambda module: module.to_q.in_features,
-            dim_head=lambda module: math.ceil(1 / (module.scale ** 2)),
-            bias=lambda module: hasattr(module.to_q, 'bias') and module.to_q.bias is not None,
-            processor=AttnProcessor2_0(),
-            dtype=dtype,
-            norm_num_groups=lambda module: None
-            if module.group_norm is None else module.group_norm.num_groups)
-        rewriter.apply(pipe.unet)
+    is_mlperf_diffusers = diffusers_version == packaging.version.parse('0.21.2')
+
+    AttClass = Attention
+    if is_mlperf_diffusers:
+        QuantAttClass = QuantAttention
+        if args.share_qkv_quant:
+            AttClass = QuantizableAttention
+            rewriter = ModuleToModuleByClass(
+                Attention,
+                QuantizableAttention,
+                query_dim=lambda module: module.to_q.in_features,
+                dim_head=lambda module: math.ceil(1 / (module.scale ** 2)),
+                bias=lambda module: hasattr(module.to_q, 'bias') and module.to_q.bias is not None,
+                processor=AttnProcessor2_0(),
+                dtype=dtype,
+                norm_num_groups=lambda module: None
+                if module.group_norm is None else module.group_norm.num_groups)
+            rewriter.apply(pipe.unet)
+    else:
+        QuantAttClass = QuantAttentionLast
+        if args.share_qkv_quant:
+            pipe.fuse_qkv_projections()
+
     print(f"Model loaded from {args.model}.")
 
     # Move model to target device
@@ -232,7 +247,7 @@ def main(args):
                 else:
                     non_blacklist[name_to_add] += 1
     print(f"Blacklisted layers: {set(blacklist)}")
-    print(f"Non blacklisted layers: {non_blacklist}")
+    print(f"Non blacklisted layers: {set(non_blacklist.keys())}")
 
     # Make sure there all LoRA layers are fused first, otherwise raise an error
     for m in pipe.unet.modules():
@@ -381,7 +396,6 @@ def main(args):
         layer_map[torch.nn.Conv2d] = (layer_map[torch.nn.Conv2d][0], conv_qkwargs)
 
         if args.quantize_sdp:
-            assert args.share_qkv_quant, "Currently SDPA quantization is supported only with shared QKV quantization"
             # `args.weight_quant_granularity` must be compatible with `args.sdpa_quant_format`
             sdpa_quantizers = generate_quantizers(
                 dtype=dtype,
@@ -406,14 +420,27 @@ def main(args):
             # We generate all quantizers, but we are only interested in activation quantization for
             # the output of softmax and the output of QKV
             input_quant = sdpa_quantizers[0]
+            if is_mlperf_diffusers:
+                extra_kwargs = {}
+                query_lambda = lambda module: module.to_qkv.in_features if hasattr(
+                    module, 'to_qkv') else module.to_q.in_features
+            else:
+                extra_kwargs = {
+                    'fuse_qkv':
+                        args.share_qkv_quant,
+                    'cross_attention_dim':
+                        lambda module: module.cross_attention_dim
+                        if module.is_cross_attention else None}
+                query_lambda = lambda module: module.query_dim
             rewriter = ModuleToModuleByClass(
-                Attention,
-                QuantAttention,
+                AttClass,
+                QuantAttClass,
                 matmul_input_quant=input_quant,
-                query_dim=lambda module: module.to_q.in_features,
+                query_dim=query_lambda,
                 dim_head=lambda module: math.ceil(1 / (module.scale ** 2)),
                 processor=AttnProcessor(),
-                is_equalized=args.activation_equalization)
+                is_equalized=args.activation_equalization,
+                **extra_kwargs)
             import brevitas.config as config
             config.IGNORE_MISSING_KEYS = True
             pipe.unet = rewriter.apply(pipe.unet)
