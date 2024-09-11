@@ -135,6 +135,7 @@ def run_test_models_run_args(args, model_with_ppl):
     float_ppl, quant_ppl, model = validate_args_and_run_main(args)
 
 
+# yapf: disable
 @pytest_cases.fixture(
     ids=[
         "defaults",
@@ -146,18 +147,13 @@ def run_test_models_run_args(args, model_with_ppl):
         "ln_affine_merge=True",],
     params=[
         {},
-        {
-            "bias_corr": True},
-        {
-            "act_equalization": "layerwise"},
-        {
-            "act_equalization": "fx"},
-        {
-            "weight_equalization": True},
-        {
-            "gptq": True},
-        {
-            "ln_affine_merge": True},])
+        {"bias_corr": True},
+        {"act_equalization": "layerwise"},
+        {"act_equalization": "fx"},
+        {"weight_equalization": True},
+        {"gptq": True},
+        {"ln_affine_merge": True},])
+# yapf: enable
 def toggle_run_args(default_run_args, request):
     args = default_run_args
     args.update(**request.param)
