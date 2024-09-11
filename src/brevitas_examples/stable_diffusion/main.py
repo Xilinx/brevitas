@@ -382,7 +382,7 @@ def main(args):
 
         if args.quantize_sdp:
             assert args.share_qkv_quant, "Currently SDPA quantization is supported only with shared QKV quantization"
-            # TODO: reformat this
+            # `args.weight_quant_granularity` must be compatible with `args.sdpa_quant_format`
             sdpa_quantizers = generate_quantizers(
                 dtype=dtype,
                 device=args.device,
@@ -391,7 +391,7 @@ def main(args):
                 weight_quant_type=args.sdpa_quant_type,
                 weight_param_method=args.weight_param_method,
                 weight_scale_precision=args.weight_scale_precision,
-                weight_quant_granularity=args.weight_quant_granularity, # Must be compatible with `args.sdpa_quant_format`
+                weight_quant_granularity=args.weight_quant_granularity,
                 weight_group_size=args.weight_group_size,
                 quantize_weight_zero_point=args.quantize_weight_zero_point,
                 quantize_input_zero_point=args.quantize_sdpa_zero_point,
