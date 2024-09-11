@@ -441,9 +441,7 @@ def create_quant_maps(
         if act_quant_type == 'asym' and act_quant_percentile is not None:
             act_quant = act_quant.let(**{'low_percentile_q': 100 - act_quant_percentile})
     if sym_act_quant is not None:
-        sym_act_quant = sym_act_quant.let(
-            **{
-                'high_percentile_q': act_quant_percentile})
+        sym_act_quant = sym_act_quant.let(**{'high_percentile_q': act_quant_percentile})
 
     weight_quant_dict = {'weight_quant': weight_quant}
 

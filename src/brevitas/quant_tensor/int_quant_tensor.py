@@ -15,7 +15,7 @@ from .int_torch_handler import INT_QUANT_TENSOR_FN_HANDLER
 from .torch_handler import QUANT_TENSOR_FN_HANDLER
 
 IS_VALID_ATOL = 2e-1
-BFLOAT16_IS_VALID_ATOL = 0.5
+B_FLOAT16_IS_VALID_ATOL = 0.5
 
 
 class IntQuantTensor(IntQuantTensorBase, QuantTensor):
@@ -78,7 +78,8 @@ class IntQuantTensor(IntQuantTensorBase, QuantTensor):
             pre_round_int_value = self._pre_round_int_value
             rounded_int_value = torch.round(pre_round_int_value)
             max_abs_diff = torch.max(torch.abs(pre_round_int_value - rounded_int_value))
-            atol = BFLOAT16_IS_VALID_ATOL if self.value.dtype == torch.bfloat16 else IS_VALID_ATOL
+            atol = B_FLOAT16_IS_VALID_ATOL if self.value.dtype in (
+                torch.bfloat16, torch.float16) else IS_VALID_ATOL
             is_int = max_abs_diff < atol
             if self.bit_width >= 2:
                 if self.signed:
