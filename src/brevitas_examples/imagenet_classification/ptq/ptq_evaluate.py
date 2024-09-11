@@ -488,8 +488,7 @@ def main():
         device, dtype = param.device, param.dtype
         ref_input = generate_ref_input(args, device, dtype)
         quant_model(ref_input)
-        compiled_model = torch.compile(
-            quant_model, fullgraph=True, dynamic=True, disable=not args.compile)
+        compiled_model = torch.compile(quant_model, fullgraph=True, disable=not args.compile)
         validate(val_loader, compiled_model, stable=dtype != torch.bfloat16)
 
     if args.export_onnx_qcdq or args.export_torch_qcdq:
