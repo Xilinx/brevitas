@@ -161,6 +161,8 @@ def run_test_models_run_args(args, model_with_ppl):
 def toggle_run_args(default_run_args, request):
     args = default_run_args
     args.update(**request.param)
+    if args.weight_param_method == 'hqo' and config.JIT_ENABLED:
+        pytest.skip("Local loss mode requires JIT to be disabled")
     yield args
 
 

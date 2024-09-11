@@ -14,6 +14,8 @@ from brevitas.nn import QuantLinear
 from brevitas.nn import QuantReLU
 from brevitas.quant_tensor import QuantTensor
 from brevitas_examples.imagenet_classification.ptq.ptq_common import quantize_model
+from tests.marker import jit_disabled_for_local_loss
+from tests.marker import jit_disabled_for_mock
 
 # CONSTANTS
 IMAGE_DIM = 16
@@ -568,6 +570,7 @@ def test_layerwise_percentile_for_calibration(simple_model, act_quant_percentile
 
 
 @pytest.mark.parametrize("quant_granularity", ["per_tensor", "per_channel"])
+@jit_disabled_for_local_loss()
 def test_layerwise_param_method_mse(simple_model, quant_granularity):
     """
     We test layerwise quantization, with the weight and activation quantization `mse` parameter
