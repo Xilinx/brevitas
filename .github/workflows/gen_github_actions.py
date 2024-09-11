@@ -8,6 +8,7 @@ BASE_YML_TEMPLATE = 'base.yml.template'
 BASE_YML_REDUCED_TEMPLATE = 'base_reduced.yml.template'
 PYTEST_YML = 'pytest.yml'
 EXAMPLES_PYTEST_YML = 'examples_pytest.yml'
+EXAMPLES_LLM_PYTEST_YML = 'examples_llm_pytest.yml'
 DEVELOP_INSTALL_YML = 'develop_install.yml'
 FINN_INTEGRATION_YML = 'finn_integration.yml'
 ORT_INTEGRATION_YML = 'ort_integration.yml'
@@ -24,6 +25,10 @@ PLATFORM_LIST_REDUCED = ['ubuntu-latest']
 MATRIX_REDUCED = od([('python_version', list(PYTHON_VERSIONS_REDUCED)),
                      ('pytorch_version', list(PYTORCH_LIST_REDUCED)),
                      ('platform', PLATFORM_LIST_REDUCED)])
+
+EXAMPLES_LLM_PYTEST_MATRIX_REDUCED = od([('python_version', list(PYTHON_VERSIONS_REDUCED)),
+                                         ('pytorch_version', list(
+                                             ('2.4.0',))), ('platform', PLATFORM_LIST_REDUCED)])
 
 FINN_MATRIX_REDUCED = od([('python_version', list(PYTHON_VERSIONS_REDUCED)),
                           ('pytorch_version', list(PYTORCH_LIST_REDUCED)),
@@ -61,6 +66,11 @@ END_TO_END_EXCLUDE_LIST = generate_exclusion_list([[['platform', [
 MATRIX = od([('python_version', list(PYTHON_VERSIONS)), ('pytorch_version', list(PYTORCH_VERSIONS)),
              ('platform', PLATFORM_LIST)])
 
+EXAMPLES_LLM_PYTEST_PYTORCH_VERSIONS = ('2.2.2', '2.3.1', '2.4.0')
+EXAMPLES_LLM_PYTEST_MATRIX = od([('python_version', list(PYTHON_VERSIONS)),
+                                 ('pytorch_version', list(EXAMPLES_LLM_PYTEST_PYTORCH_VERSIONS)),
+                                 ('platform', PLATFORM_LIST)])
+
 FINN_MATRIX = od([('python_version', list(PYTHON_VERSIONS)),
                   ('pytorch_version', list(PYTORCH_VERSIONS)), ('platform', FINN_PLATFORM_LIST)])
 
@@ -78,6 +88,13 @@ EXAMPLES_PYTEST_STEP_LIST = [
         (
             'run',
             'nox -v -s tests_brevitas_examples_cpu-${{ matrix.python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)'
+        )]),]
+
+EXAMPLES_LLM_PYTEST_STEP_LIST = [
+    od([('name', 'Run Nox session for brevitas_examples pytest'), ('shell', 'bash'),
+        (
+            'run',
+            'nox -v -s tests_brevitas_examples_llm-${{ matrix.python_version }}\(${{ matrix.jit_status }}\,\ pytorch_${{ matrix.pytorch_version }}\)'
         )]),]
 
 FINN_INTEGRATION_STEP_LIST = [
@@ -167,6 +184,23 @@ def gen_examples_pytest_yml():
     pytest.gen_yaml(BASE_YML_REDUCED_TEMPLATE, 'reduced_' + EXAMPLES_PYTEST_YML)
 
 
+def gen_examples_llm_pytest_yml():
+    pytest = Action(
+        'Examples LLM Pytest',
+        EXCLUDE_LIST + JIT_EXCLUDE_LIST,
+        combine_od_list([EXAMPLES_LLM_PYTEST_MATRIX, PYTEST_MATRIX_EXTRA]),
+        EXAMPLES_LLM_PYTEST_STEP_LIST,
+        STRATEGY)
+    pytest.gen_yaml(BASE_YML_TEMPLATE, EXAMPLES_LLM_PYTEST_YML)
+    pytest = Action(
+        'Examples LLM Pytest',
+        EXCLUDE_LIST,
+        combine_od_list([EXAMPLES_LLM_PYTEST_MATRIX_REDUCED, PYTEST_MATRIX_EXTRA_REDUCED]),
+        EXAMPLES_LLM_PYTEST_STEP_LIST,
+        STRATEGY)
+    pytest.gen_yaml(BASE_YML_REDUCED_TEMPLATE, 'reduced_' + EXAMPLES_LLM_PYTEST_YML)
+
+
 def gen_test_develop_install_yml():
     test_develop_install = Action(
         'Test develop install', EXCLUDE_LIST, MATRIX, TEST_INSTALL_DEV_STEP_LIST, STRATEGY)
@@ -243,6 +277,7 @@ def gen_test_brevitas_end_to_end():
 if __name__ == '__main__':
     gen_pytest_yml()
     gen_examples_pytest_yml()
+    gen_examples_llm_pytest_yml()
     gen_test_develop_install_yml()
     gen_test_brevitas_finn_integration()
     gen_test_brevitas_ort_integration()

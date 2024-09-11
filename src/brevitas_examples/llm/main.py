@@ -5,6 +5,7 @@ Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 
 import argparse
 import re
+import sys
 
 import numpy as np
 from optimum.amd.brevitas.accelerate_utils import offload_model
@@ -40,157 +41,6 @@ from brevitas_examples.llm.llm_quant.run_utils import CastFloat16ToFloat32
 from brevitas_examples.llm.llm_quant.run_utils import get_fx
 from brevitas_examples.llm.llm_quant.run_utils import modify_dataloader
 
-parser = argparse.ArgumentParser()
-parser.add_argument(
-    '--model',
-    type=str,
-    default="facebook/opt-125m",
-    help='HF model name. Default: facebook/opt-125m.')
-parser.add_argument(
-    '--seed', type=int, default=0, help='Seed for sampling the calibration data. Default: 0.')
-parser.add_argument(
-    '--nsamples', type=int, default=128, help='Number of calibration data samples. Default: 128.')
-parser.add_argument('--seqlen', type=int, default=2048, help='Sequence length. Default: 2048.')
-parser.add_argument('--eval', action='store_true', help='Eval model PPL on the chosen Dataset.')
-parser.add_argument(
-    '--dataset',
-    type=str,
-    choices=['wikitext2', 'c4'],
-    default='wikitext2',
-    help='Dataset to use for quantization (default: %(default)s)')
-parser.add_argument('--weight-bit-width', type=int, default=8, help='Weight bit width. Default: 8.')
-parser.add_argument(
-    '--weight-param-method',
-    type=str,
-    default='stats',
-    choices=['stats', 'mse'],
-    help='How scales/zero-point are determined. Default: stats.')
-parser.add_argument(
-    '--weight-scale-precision',
-    type=str,
-    default='float_scale',
-    choices=['float_scale', 'po2_scale'],
-    help='Whether scale is a float value or a po2. Default: po2.')
-parser.add_argument(
-    '--weight-quant-type',
-    type=str,
-    default='sym',
-    choices=['sym', 'asym'],
-    help='Weight quantization type. Default: asym.')
-parser.add_argument(
-    '--weight-quant-format',
-    type=quant_format_validator,
-    default='int',
-    help=
-    'Weight quantization type. Either int or eXmY, with X+Y==weight_bit_width-1. It\'s possible to add float_ocp_ or float_fnuz_ before the exponent/mantissa bitwidth. Default: int.'
-)
-parser.add_argument(
-    '--weight-quant-granularity',
-    type=str,
-    default='per_group',
-    choices=['per_channel', 'per_tensor', 'per_group'],
-    help='Granularity for scales/zero-point of weights. Default: per_group.')
-parser.add_argument(
-    '--weight-group-size',
-    type=int,
-    default=128,
-    help='Group size for per_group weight quantization. Default: 128.')
-parser.add_argument(
-    '--quantize-weight-zero-point', action='store_true', help='Quantize weight zero-point.')
-parser.add_argument(
-    '--input-bit-width',
-    type=int,
-    default=None,
-    help='Input bit width. Default: None (disables input quantization).')
-parser.add_argument(
-    '--input-quant-format',
-    type=quant_format_validator,
-    default='int',
-    help=
-    'Input quantization type. Either int or eXmY, with X+Y==weight_bit_width-1. It\'s possible to add float_ocp_ or float_fnuz_ before the exponent/mantissa bitwidth. Default: int.'
-)
-parser.add_argument(
-    '--input-param-method',
-    type=str,
-    default='stats',
-    choices=['stats', 'mse'],
-    help=
-    'How scales/zero-point are determined. Default: stats (percentile for static, absmax or minmax for dynamic).'
-)
-parser.add_argument(
-    '--input-scale-precision',
-    type=str,
-    default='float_scale',
-    choices=['float_scale', 'po2_scale'],
-    help='Whether input scale is a float value or a po2. Default: float.')
-parser.add_argument(
-    '--input-scale-type',
-    type=str,
-    default='static',
-    choices=['static', 'dynamic', 'no_scale'],
-    help='Whether input scale is a static value or a dynamic value.')
-parser.add_argument(
-    '--input-quant-type',
-    type=str,
-    default='asym',
-    choices=['sym', 'asym'],
-    help='Input quantization type. Default: asym.')
-parser.add_argument(
-    '--input-quant-granularity',
-    type=str,
-    default='per_tensor',
-    choices=['per_tensor', 'per_row', 'per_group'],
-    help='Granularity for scales/zero-point of inputs. Default: per_tensor.')
-parser.add_argument(
-    '--input-group-size',
-    type=int,
-    default=64,
-    help='Group size for per_group input quantization. Default: 64.')
-parser.add_argument(
-    '--quantize-input-zero-point', action='store_true', help='Quantize input zero-point.')
-parser.add_argument(
-    '--quantize-last-layer', action='store_true', help='Quantize last nn.Linear layer.')
-parser.add_argument('--gptq', action='store_true', help='Apply GPTQ.')
-parser.add_argument('--act-calibration', action='store_true', help='Apply activation calibration.')
-parser.add_argument('--bias-corr', action='store_true', help='Apply bias correction.')
-parser.add_argument('--ln-affine-merge', action='store_true', help='Merge LN affine params.')
-parser.add_argument('--no-quantize', action='store_true', help='Disable quantization.')
-parser.add_argument(
-    '--no-float16',
-    action='store_true',
-    help='Disable float16 as base datatype and switch to float32.')
-parser.add_argument(
-    '--replace-mha',
-    action='store_true',
-    help='Replace HuggingFace Attention with a quantizable version')
-parser.add_argument(
-    '--weight-equalization',
-    action='store_true',
-    help='Apply weight equalization. Relevant to ReLU based models (e.g. OPT).')
-parser.add_argument(
-    '--act-equalization',
-    default=None,
-    choices=[None, 'layerwise', 'fx'],
-    help='Apply activation equalization (SmoothQuant). Layerwise introduces standalone mul nodes,'
-    'while fx merges them whenever possible into previous tensors, which is possible on ReLU based models (e.g. OPT).'
-)
-parser.add_argument('--load-awq', type=str, default=None, help="Load the awq search results.")
-parser.add_argument(
-    '--export-target',
-    default=None,
-    choices=[
-        None,
-        'onnx_qcdq',
-        'torch_qcdq',
-        'sharded_torchmlir_group_weight',
-        'sharded_packed_torchmlir_group_weight'],
-    help='Model export.')
-parser.add_argument(
-    '--checkpoint-name',
-    type=str,
-    default=None,
-    help="Filename to save checkpoint. If `None`, no checkpoint is saved (default: %(default)s)")
-
 
 def set_seed(seed):
     np.random.seed(seed)
@@ -213,16 +63,15 @@ def model_export(model, ref_input, args):
             export_manager = StdQCDQONNXManager
             export_manager.change_weight_export(export_weight_q_node=True)
 
-        print(f"Exporting the model in ./quantized_onnx/{args.model.replace('/', '-')}")
+        print(f"Exporting the model in ./{args.export_prefix}")
         with torch.no_grad(), brevitas_proxy_export_mode(model, export_manager=export_manager):
             onnx_export_from_model(
                 model,
-                f"./quantized_onnx/{args.model.replace('/', '-')}",
+                f"./{args.export_prefix}",
                 task="text-generation-with-past",
                 do_validation=False)
     elif args.export_target == 'torch_qcdq':
-        export_torch_qcdq(
-            model, ref_input['input_ids'], export_path=f"{args.model.replace('/', '-')}.pt")
+        export_torch_qcdq(model, ref_input['input_ids'], export_path=f"{args.export_prefix}.pt")
 
 
 def validate(args):
@@ -261,10 +110,12 @@ def validate(args):
                 assert args.export_target != 'torch_qcdq', "Cannot export Torch QCDQ with FX"
 
 
-def main():
-    args = parser.parse_args()
+def main(args):
     validate(args)
     set_seed(args.seed)
+
+    if args.export_prefix is None:
+        args.export_prefix = f"{args.model.replace('/', '--')}"
 
     if args.no_float16:
         dtype = torch.float32
@@ -281,6 +132,8 @@ def main():
     print("Model loaded.")
     model.eval()
     tokenizer = AutoTokenizer.from_pretrained(args.model)
+    float_ppl = None
+    quant_ppl = None
 
     if args.load_awq:
         from brevitas_examples.llm.llm_quant.awq.pre_quant import apply_awq
@@ -325,10 +178,10 @@ def main():
         assert args.export_target != 'torch_qcdq', "TorchScript QCDQ export and Evaluation simultaneously"
         print("Float model eval...")
         model = offload_model(model)
-        ppl = compute_perplexity(
+        float_ppl = compute_perplexity(
             model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
         remove_hooks(model)
-        print(f"Float perplexity ({args.dataset}): {ppl}")
+        print(f"Float perplexity ({args.dataset}): {float_ppl}")
 
     if require_fx:
         model = get_fx(model)
@@ -432,9 +285,9 @@ def main():
 
     if args.eval:
         print("Model eval...")
-        ppl = compute_perplexity(
+        quant_ppl = compute_perplexity(
             model, validation_loader, context_length=args.seqlen // 2, tokenizer=tokenizer)
-        print(f"Quantized perplexity ({args.dataset}): {ppl}")
+        print(f"Quantized perplexity ({args.dataset}): {quant_ppl}")
     remove_hooks(model)
 
     if args.checkpoint_name is not None:
@@ -447,6 +300,176 @@ def main():
         model = model.to(dtype=torch.float32)
         model_export(model, calibration_loader[0], args)
 
+    return float_ppl, quant_ppl, model
+
+
+def parse_args(args):
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--model',
+        type=str,
+        default="facebook/opt-125m",
+        help='HF model name. Default: facebook/opt-125m.')
+    parser.add_argument(
+        '--seed', type=int, default=0, help='Seed for sampling the calibration data. Default: 0.')
+    parser.add_argument(
+        '--nsamples',
+        type=int,
+        default=128,
+        help='Number of calibration data samples. Default: 128.')
+    parser.add_argument('--seqlen', type=int, default=2048, help='Sequence length. Default: 2048.')
+    parser.add_argument('--eval', action='store_true', help='Eval model PPL on the chosen Dataset.')
+    parser.add_argument(
+        '--dataset',
+        type=str,
+        choices=['wikitext2', 'c4'],
+        default='wikitext2',
+        help='Dataset to use for quantization (default: %(default)s)')
+    parser.add_argument(
+        '--weight-bit-width', type=int, default=8, help='Weight bit width. Default: 8.')
+    parser.add_argument(
+        '--weight-param-method',
+        type=str,
+        default='stats',
+        choices=['stats', 'mse'],
+        help='How scales/zero-point are determined. Default: stats.')
+    parser.add_argument(
+        '--weight-scale-precision',
+        type=str,
+        default='float_scale',
+        choices=['float_scale', 'po2_scale'],
+        help='Whether scale is a float value or a po2. Default: po2.')
+    parser.add_argument(
+        '--weight-quant-type',
+        type=str,
+        default='sym',
+        choices=['sym', 'asym'],
+        help='Weight quantization type. Default: asym.')
+    parser.add_argument(
+        '--weight-quant-format',
+        type=quant_format_validator,
+        default='int',
+        help=
+        'Weight quantization type. Either int or eXmY, with X+Y==weight_bit_width-1. It\'s possible to add float_ocp_ or float_fnuz_ before the exponent/mantissa bitwidth. Default: int.'
+    )
+    parser.add_argument(
+        '--weight-quant-granularity',
+        type=str,
+        default='per_group',
+        choices=['per_channel', 'per_tensor', 'per_group'],
+        help='Granularity for scales/zero-point of weights. Default: per_group.')
+    parser.add_argument(
+        '--weight-group-size',
+        type=int,
+        default=128,
+        help='Group size for per_group weight quantization. Default: 128.')
+    parser.add_argument(
+        '--quantize-weight-zero-point', action='store_true', help='Quantize weight zero-point.')
+    parser.add_argument(
+        '--input-bit-width',
+        type=int,
+        default=None,
+        help='Input bit width. Default: None (disables input quantization).')
+    parser.add_argument(
+        '--input-quant-format',
+        type=quant_format_validator,
+        default='int',
+        help=
+        'Input quantization type. Either int or eXmY, with X+Y==weight_bit_width-1. It\'s possible to add float_ocp_ or float_fnuz_ before the exponent/mantissa bitwidth. Default: int.'
+    )
+    parser.add_argument(
+        '--input-param-method',
+        type=str,
+        default='stats',
+        choices=['stats', 'mse'],
+        help=
+        'How scales/zero-point are determined. Default: stats (percentile for static, absmax or minmax for dynamic).'
+    )
+    parser.add_argument(
+        '--input-scale-precision',
+        type=str,
+        default='float_scale',
+        choices=['float_scale', 'po2_scale'],
+        help='Whether input scale is a float value or a po2. Default: float.')
+    parser.add_argument(
+        '--input-scale-type',
+        type=str,
+        default='static',
+        choices=['static', 'dynamic', 'no_scale'],
+        help='Whether input scale is a static value or a dynamic value.')
+    parser.add_argument(
+        '--input-quant-type',
+        type=str,
+        default='asym',
+        choices=['sym', 'asym'],
+        help='Input quantization type. Default: asym.')
+    parser.add_argument(
+        '--input-quant-granularity',
+        type=str,
+        default='per_tensor',
+        choices=['per_tensor', 'per_row', 'per_group'],
+        help='Granularity for scales/zero-point of inputs. Default: per_tensor.')
+    parser.add_argument(
+        '--input-group-size',
+        type=int,
+        default=64,
+        help='Group size for per_group input quantization. Default: 64.')
+    parser.add_argument(
+        '--quantize-input-zero-point', action='store_true', help='Quantize input zero-point.')
+    parser.add_argument(
+        '--quantize-last-layer', action='store_true', help='Quantize last nn.Linear layer.')
+    parser.add_argument('--gptq', action='store_true', help='Apply GPTQ.')
+    parser.add_argument(
+        '--act-calibration', action='store_true', help='Apply activation calibration.')
+    parser.add_argument('--bias-corr', action='store_true', help='Apply bias correction.')
+    parser.add_argument('--ln-affine-merge', action='store_true', help='Merge LN affine params.')
+    parser.add_argument('--no-quantize', action='store_true', help='Disable quantization.')
+    parser.add_argument(
+        '--no-float16',
+        action='store_true',
+        help='Disable float16 as base datatype and switch to float32.')
+    parser.add_argument(
+        '--replace-mha',
+        action='store_true',
+        help='Replace HuggingFace Attention with a quantizable version')
+    parser.add_argument(
+        '--weight-equalization',
+        action='store_true',
+        help='Apply weight equalization. Relevant to ReLU based models (e.g. OPT).')
+    parser.add_argument(
+        '--act-equalization',
+        default=None,
+        choices=[None, 'layerwise', 'fx'],
+        help='Apply activation equalization (SmoothQuant). Layerwise introduces standalone mul nodes,'
+        'while fx merges them whenever possible into previous tensors, which is possible on ReLU based models (e.g. OPT).'
+    )
+    parser.add_argument('--load-awq', type=str, default=None, help="Load the awq search results.")
+    parser.add_argument(
+        '--export-target',
+        default=None,
+        choices=[
+            None,
+            'onnx_qcdq',
+            'torch_qcdq',
+            'sharded_torchmlir_group_weight',
+            'sharded_packed_torchmlir_group_weight'],
+        help='Model export.')
+    parser.add_argument(
+        '--export-prefix',
+        type=str,
+        default=None,
+        help=
+        "Path prefix to use for the various export flows. If None, a path will be derived from the model name (default: %(default)s)"
+    )
+    parser.add_argument(
+        '--checkpoint-name',
+        type=str,
+        default=None,
+        help="Filename to save checkpoint. If `None`, no checkpoint is saved (default: %(default)s)"
+    )
+    return parser.parse_args(args)
+
 
 if __name__ == '__main__':
-    main()
+    args = parse_args(sys.argv[1:])
+    main(args)

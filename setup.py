@@ -39,6 +39,7 @@ setup(
         "test": read_requirements('requirements-test.txt'),
         "tts": read_requirements('requirements-tts.txt'),
         "stt": read_requirements('requirements-stt.txt'),
+        "llm": read_requirements('requirements-llm.txt'),
         "vision": read_requirements('requirements-vision.txt'),
         "finn_integration": read_requirements('requirements-finn-integration.txt'),
         "ort_integration": read_requirements('requirements-ort-integration.txt')},
