@@ -395,7 +395,7 @@ def main(args):
             'weight_quant']
         layer_map[torch.nn.Conv2d] = (layer_map[torch.nn.Conv2d][0], conv_qkwargs)
 
-        if args.quantize_sdp:
+        if args.sdpa_bit_width > 0:
             # `args.weight_quant_granularity` must be compatible with `args.sdpa_quant_format`
             sdpa_quantizers = generate_quantizers(
                 dtype=dtype,
@@ -484,9 +484,17 @@ def main(args):
                 print(f"Checkpoint loaded!")
             pipe = pipe.to(args.device)
         elif not args.dry_run:
-            if (args.linear_input_bit_width > 0 or args.conv_input_bit_width > 0 or
-                    args.sdpa_bit_width > 0 or
-                    args.quantize_sdp) and args.input_scale_type == 'static':
+            # Model needs calibration if any of its activation quantizers are 'static'
+            activation_bw = [
+                args.linear_input_bit_width,
+                args.conv_input_bit_width,
+                args.sdpa_bit_width,]
+            activation_st = [
+                args.input_scale_type,
+                args.input_scale_type,
+                args.sdpa_scale_type,]
+            needs_calibration = any(map(lambda b, st: (b > 0) and st == 'static', activation_bw, activation_st))
+            if needs_calibration:
                 print("Applying activation calibration")
                 with torch.no_grad(), calibration_mode(pipe.unet):
                     run_val_inference(
@@ -952,7 +960,6 @@ if __name__ == "__main__":
         'dry-run',
         default=False,
         help='Generate a quantized model without any calibration. Default: Disabled')
-    add_bool_arg(parser, 'quantize-sdp', default=False, help='Quantize SDP. Default: Disabled')
     add_bool_arg(
         parser,
         'override-conv-quant-config',
