@@ -130,7 +130,7 @@ parser.add_argument(
 parser.add_argument(
     '--weight-quant-calibration-type',
     default='stats',
-    choices=['stats', 'mse'],
+    choices=['stats', 'mse', 'hqo'],
     help='Weight quantization calibration type (default: stats)')
 parser.add_argument(
     '--act-equalization',

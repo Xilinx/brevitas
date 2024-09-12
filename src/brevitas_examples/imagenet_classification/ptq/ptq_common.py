@@ -22,7 +22,6 @@ from brevitas.graph.quantize import quantize
 from brevitas.graph.target.flexml import quantize_flexml
 from brevitas.inject import value
 import brevitas.nn as qnn
-from brevitas.quant.experimental.float import Fp8e4m3Act
 from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloat
 from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloatMSE
 from brevitas.quant.experimental.float import Fp8e4m3WeightPerChannelFloat
@@ -52,17 +51,22 @@ from brevitas.quant.fixed_point import Int8WeightPerTensorFixedPointMSE
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8ActPerTensorFloatMSE
 from brevitas.quant.scaled_int import Int8WeightPerChannelFloat
+from brevitas.quant.scaled_int import Int8WeightPerChannelFloatHQO
 from brevitas.quant.scaled_int import Int8WeightPerChannelFloatMSE
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloat
+from brevitas.quant.scaled_int import Int8WeightPerTensorFloatHQO
 from brevitas.quant.scaled_int import Int8WeightPerTensorFloatMSE
 from brevitas.quant.scaled_int import Int16Bias
 from brevitas.quant.scaled_int import Int32Bias
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFixedPoint
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloat
+from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloatHQO
 from brevitas.quant.shifted_scaled_int import ShiftedUint8ActPerTensorFloatMSE
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloat
+from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloatHQO
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerChannelFloatMSE
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloat
+from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloatHQO
 from brevitas.quant.shifted_scaled_int import ShiftedUint8WeightPerTensorFloatMSE
 from brevitas_examples.common.generative.quantizers import Int8DynamicActPerTensorFloat
 from brevitas_examples.common.generative.quantizers import ShiftedUint8DynamicActPerTensorFloat
@@ -104,7 +108,14 @@ WEIGHT_QUANT_MAP = {
                     'asym': ShiftedUint8WeightPerTensorFloatMSE},
                 'per_channel': {
                     'sym': Int8WeightPerChannelFloatMSE,
-                    'asym': ShiftedUint8WeightPerChannelFloatMSE},},},
+                    'asym': ShiftedUint8WeightPerChannelFloatMSE}},
+            'hqo': {
+                'per_tensor': {
+                    'sym': Int8WeightPerTensorFloatHQO,
+                    'asym': ShiftedUint8WeightPerTensorFloatHQO},
+                'per_channel': {
+                    'sym': Int8WeightPerChannelFloatHQO,
+                    'asym': ShiftedUint8WeightPerChannelFloatHQO}}},
         'po2_scale': {
             'stats': {
                 'per_tensor': {
@@ -411,7 +422,9 @@ def create_quant_maps(
             act_scale_type][act_param_method][act_quant_granularity]['sym']
 
         act_quant = act_quant.let(**act_bit_width_dict)
+        act_quant = act_quant.let(**{'dtype': dtype, 'device': device})
         sym_act_quant = sym_act_quant.let(**act_bit_width_dict)
+        sym_act_quant = sym_act_quant.let(**{'dtype': dtype, 'device': device})
     else:
         act_quant = None
         sym_act_quant = None
@@ -424,15 +437,11 @@ def create_quant_maps(
     if weight_quant_type == 'asym':
         weight_quant = weight_quant.let(zero_point_impl=ParameterFromStatsFromParameterZeroPoint)
     if act_quant is not None:
-        act_quant = act_quant.let(
-            **{
-                'high_percentile_q': act_quant_percentile, 'dtype': dtype, 'device': device})
+        act_quant = act_quant.let(**{'high_percentile_q': act_quant_percentile})
         if act_quant_type == 'asym' and act_quant_percentile is not None:
             act_quant = act_quant.let(**{'low_percentile_q': 100 - act_quant_percentile})
     if sym_act_quant is not None:
-        sym_act_quant = sym_act_quant.let(
-            **{
-                'high_percentile_q': act_quant_percentile, 'dtype': dtype, 'device': device})
+        sym_act_quant = sym_act_quant.let(**{'high_percentile_q': act_quant_percentile})
 
     weight_quant_dict = {'weight_quant': weight_quant}
 

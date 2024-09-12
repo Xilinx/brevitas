@@ -3,6 +3,7 @@
 
 from brevitas.core.function_wrapper import TensorClamp
 from brevitas.quant.base import *
+from brevitas.quant.base import HQOSymmetricScale
 from brevitas.quant.solver.act import ActQuantSolver
 from brevitas.quant.solver.bias import BiasQuantSolver
 from brevitas.quant.solver.trunc import TruncQuantSolver
@@ -443,3 +444,27 @@ class Int8AccumulatorAwareZeroCenterWeightQuant(AccumulatorAwareZeroCenterWeight
         >>> conv.quant_weight()
     """
     bit_width = 8
+
+
+class Int8WeightPerTensorFloatHQO(HQOSymmetricScale, Int8WeightPerTensorFloat):
+    """
+    8-bit narrow per-tensor signed int weight quantizer with per-tensor floating-point scale factor computed
+    from HQO local loss.
+
+    Examples:
+        >>> from brevitas.nn import QuantLinear
+        >>> fc = QuantLinear(10, 5, bias=False, weight_quant=Int8WeightPerTensorFloatHQO)
+    """
+    pass
+
+
+class Int8WeightPerChannelFloatHQO(HQOSymmetricScale, Int8WeightPerChannelFloat):
+    """
+    8-bit narrow per-tensor signed int weight quantizer with per-tensor floating-point scale factor computed
+    from HQO local loss.
+
+    Examples:
+        >>> from brevitas.nn import QuantLinear
+        >>> fc = QuantLinear(10, 5, bias=False, weight_quant=Int8WeightPerChannelFloatHQO)
+    """
+    pass
