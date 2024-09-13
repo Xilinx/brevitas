@@ -11,6 +11,7 @@ import torch.nn as nn
 
 from brevitas import torch_version
 import brevitas.config as config
+from brevitas.inject.enum import ScalingPerOutputType
 from brevitas.nn import QuantConv1d
 from brevitas.nn import QuantConv2d
 from brevitas.nn import QuantConv3d
@@ -48,6 +49,11 @@ KERNEL_SIZE = 3
 EMBED_DIM = 9
 NUM_HEADS = 3
 
+
+class Int8WeightNormL2PerChannelPerTensorFixedPoint(Int8WeightNormL2PerChannelFixedPoint):
+    scaling_per_output_type = ScalingPerOutputType.TENSOR
+
+
 LSTM_WEIGHT_QUANTIZER = {
     'None': None,
     'quant_sym': Int8WeightPerTensorFloat,
@@ -62,6 +68,7 @@ WBIOL_WEIGHT_QUANTIZER = {
     'quant_sym': Int8WeightPerTensorFloat,
     'quant_asym': ShiftedUint8WeightPerTensorFloat,
     'quant_decoupled': Int8WeightNormL2PerChannelFixedPoint,
+    'quant_decoupled_per_tensor': Int8WeightNormL2PerChannelPerTensorFixedPoint,
     'quant_mx': MXInt8Weight,
     'quant_float': Fp8e4m3WeightPerTensorFloat,
     **A2Q_WBIOL_WEIGHT_QUANTIZER}
