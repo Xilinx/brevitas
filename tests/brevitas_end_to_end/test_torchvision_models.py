@@ -122,8 +122,11 @@ def test_torchvision_graph_quantization_flexml_qcdq_onnx(
         pytest.skip('Model not instantiated')
     if enable_compile:
         model_name = test_id.split("-")[1]
+        quant_func = test_id.split("-")[0]
         if torch_version <= version.parse('2.2'):
             pytest.skip("Pytorch 2.2 is required to test compile")
+        elif quant_func not in ('quantize_float', 'quantize'):
+            pytest.skip("Compile is tested only against base float and int quantization functions")
         else:
             torch._dynamo.config.capture_scalar_outputs = True
         if 'vit' in model_name:
@@ -141,8 +144,8 @@ def test_torchvision_graph_quantization_flexml_qcdq_onnx(
             compiled_model = torch.compile(torchvision_model, fullgraph=True)
             compiled_out = compiled_model(inp)
 
-        # This fails! Compile might needs more small-scoped tests for accuracy evaluation
-        # assert torch.allclose(post_hook_non_compiled_out, compiled_out)
+        print(torch.max(torch.abs(post_hook_non_compiled_out - compiled_out)))
+        assert torch.allclose(post_hook_non_compiled_out, compiled_out)
 
     if quantize_fn_name != 'quantize_float' and not enable_compile:
         export_onnx_qcdq(torchvision_model, args=inp)
