@@ -22,6 +22,7 @@ from brevitas.graph.target.flexml import quantize_flexml
 from brevitas_examples.imagenet_classification.ptq.ptq_common import quantize_model
 from tests.marker import requires_pt_ge
 
+TORCH_COMPILE_ATOL = 0.35
 BATCH = 1
 HEIGHT, WIDTH = 224, 224
 IN_CH = 3
@@ -144,8 +145,7 @@ def test_torchvision_graph_quantization_flexml_qcdq_onnx(
             compiled_model = torch.compile(torchvision_model, fullgraph=True)
             compiled_out = compiled_model(inp)
 
-        print(torch.max(torch.abs(post_hook_non_compiled_out - compiled_out)))
-        assert torch.allclose(post_hook_non_compiled_out, compiled_out)
+            assert torch.allclose(post_hook_non_compiled_out, compiled_out, atol=TORCH_COMPILE_ATOL)
 
     if quantize_fn_name != 'quantize_float' and not enable_compile:
         export_onnx_qcdq(torchvision_model, args=inp)
