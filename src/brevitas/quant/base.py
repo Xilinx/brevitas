@@ -53,7 +53,6 @@ from brevitas.inject.enum import ScalingPerOutputType
 from brevitas.inject.enum import StatsOp
 from brevitas.proxy import DecoupledWeightQuantProxyFromInjector
 from brevitas.proxy import DecoupledWeightQuantWithInputProxyFromInjector
-from brevitas.quant.solver.common import SolveScalingStatsInputViewShapeImplFromEnum
 from brevitas.quant.solver.common import SolveStatsReduceDimFromEnum
 from brevitas.quant.solver.parameter import SolveInputViewImpl
 from brevitas.quant.solver.parameter import SolveParameterScalingShape
@@ -370,7 +369,6 @@ class SolvePostScaleGranularity(ExtendedInjector):
 
 class WeightNormPerChannelFloatDecoupled(SolvePostScaleGranularity,
                                          SolveStatsReduceDimFromEnum,
-                                         SolveScalingStatsInputViewShapeImplFromEnum,
                                          SolveWeightScalingStatsInputDimsFromModule,
                                          SolveWeightScalingPerOutputChannelShapeFromModule,
                                          SolveParameterScalingShape,
