@@ -16,6 +16,7 @@ import torch.jit
 from torch.nn.utils.rnn import PackedSequence
 
 from brevitas import config
+from brevitas import is_dynamo_compiling
 from brevitas import torch_version
 from brevitas.common import ExportMixin
 from brevitas.inject import ExtendedInjector
@@ -28,11 +29,6 @@ from brevitas.quant_tensor.groupwise_float_quant_tensor import GroupwiseFloatQua
 from brevitas.quant_tensor.groupwise_int_quant_tensor import GroupwiseIntQuantTensor
 
 from .utils import filter_kwargs
-
-if torch_version < packaging.version.parse('2.0'):
-    is_dynamo_compiling = lambda: False
-else:
-    is_dynamo_compiling = torch._dynamo.is_compiling
 
 
 class QuantProxyMixin(object):

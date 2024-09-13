@@ -5,15 +5,7 @@ from abc import ABC
 from abc import abstractmethod
 from typing import Any, Optional, Tuple, Union
 
-import packaging.version
 import torch
-
-from brevitas import torch_version
-
-if torch_version < packaging.version.parse('2.0'):
-    is_dynamo_compiling = lambda: False
-else:
-    is_dynamo_compiling = torch._dynamo.is_compiling
 from torch import nn
 from torch import Tensor
 from torch.nn import Identity
@@ -21,6 +13,7 @@ from typing_extensions import Protocol
 from typing_extensions import runtime_checkable
 
 import brevitas
+from brevitas import is_dynamo_compiling
 from brevitas.quant_tensor import IntQuantTensor
 from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.quant_utils import _CachedIO
