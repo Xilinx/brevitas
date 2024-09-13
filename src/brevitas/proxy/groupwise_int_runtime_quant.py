@@ -31,7 +31,7 @@ class GroupwiseActQuantProxyFromInjector(ActQuantProxyFromInjector):
             qt_args: Union[torch.Tensor, Tuple[Any]],
             x: Optional[GroupwiseIntQuantTensor] = None) -> GroupwiseIntQuantTensor:
         if x is None:
-            value, scale, zero_point, bit_width, = qt_args
+            value, scale, zero_point, bit_width = qt_args
             out = GroupwiseIntQuantTensor(
                 value,
                 scale,

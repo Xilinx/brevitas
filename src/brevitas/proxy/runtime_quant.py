@@ -123,11 +123,11 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
         return out
 
     def retrieve_attribute(self, attribute, force_eval):
-        if self.is_quant_enabled:
+        if self._cached_act is not None:
+            return getattr(self._cached_act, attribute)
+        elif self.is_quant_enabled:
             out = self.internal_forward(force_eval)
             return getattr(out, attribute)
-        elif self._cached_act is not None:
-            return getattr(self._cached_act, attribute)
         elif self._cached_act is None:
             return None
 
