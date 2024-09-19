@@ -8,6 +8,7 @@ from torch import Tensor
 from torch.nn import Module
 
 import brevitas
+from brevitas.core.function_wrapper.misc import Identity
 from brevitas.core.quant.delay import DelayWrapper
 from brevitas.core.utils import StatelessBuffer
 from brevitas.function.ops_ste import round_ste
@@ -138,7 +139,8 @@ class RescalingIntQuant(brevitas.jit.ScriptModule):
             scaling_impl: Module,
             int_scaling_impl: Module,
             zero_point_impl: Module,
-            bit_width_impl: Module):
+            bit_width_impl: Module,
+            scaling_int_quant: Optional[Module] = None):
         super(RescalingIntQuant, self).__init__()
         self.int_quant = int_quant
         self.scaling_impl = scaling_impl
