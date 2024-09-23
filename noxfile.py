@@ -211,4 +211,4 @@ def tests_brevitas_end_to_end(session, pytorch):
     install_pytorch(pytorch, session)
     install_torchvision(pytorch, session)
     session.install('--upgrade', '-e', '.[test, ort_integration]')
-    session.run('pytest', '-v', 'tests/brevitas_end_to_end')
+    session.run('pytest', '-n', 'logical', '-v', 'tests/brevitas_end_to_end')

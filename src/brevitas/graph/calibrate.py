@@ -58,7 +58,7 @@ def disable_return_quant_tensor(model):
 
 def restore_return_quant_tensor(model, previous_state):
     for module in model.modules():
-        if hasattr(module, 'return_quant_tensor'):
+        if hasattr(module, 'return_quant_tensor') and module in previous_state:
             module.return_quant_tensor = previous_state[module]
 
 

@@ -13,6 +13,7 @@ from typing_extensions import Protocol
 from typing_extensions import runtime_checkable
 
 import brevitas
+from brevitas import is_dynamo_compiling
 from brevitas.quant_tensor import IntQuantTensor
 from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.quant_utils import _CachedIO
@@ -98,6 +99,14 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
         self.cache_quant_io_metadata_only = True
         self.cache_class = None
 
+    @property
+    def input_view_impl(self):
+        if self.fused_activation_quant_proxy.tensor_quant is not None and not isinstance(
+                self.fused_activation_quant_proxy.tensor_quant, _TensorQuantDisabledIdentity):
+            return self.fused_activation_quant_proxy.tensor_quant.int_quant.input_view_impl
+        else:
+            return Identity()
+
     def internal_forward(self, force_eval):
         current_status = self.training
         if force_eval:
@@ -107,13 +116,16 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
         return out
 
     def retrieve_attribute(self, attribute, force_eval):
-        if self.is_quant_enabled:
+        if self._cached_act is not None:
+            return getattr(self._cached_act, attribute)
+        elif self.is_quant_enabled:
             out = self.internal_forward(force_eval)
             return getattr(out, attribute)
-        elif self._cached_act is not None:
-            return getattr(self._cached_act, attribute)
         elif self._cached_act is None:
             return None
+
+    def apply_input_view(self, x):
+        return self.input_view_impl(x)
 
     @property
     def is_quant_enabled(self):
@@ -176,15 +188,18 @@ class ActQuantProxyFromInjectorBase(QuantProxyFromInjector, ActQuantProxyProtoco
         # If y is an empty QuantTensor, we need to check if this is a passthrough proxy,
         # otherwise return a simple Tensor
 
-        # If the second value (i.e., scale) is None, then quant is disabled
-        if isinstance(y, tuple) and y[1] is not None:
-            out = self.create_quant_tensor(y)
-        elif self.is_passthrough_act and isinstance(x, QuantTensor):
-            # preserve quant_metadata
-            y = y[0]
-            out = self.create_quant_tensor(y, x=x)
-        else:
+        if is_dynamo_compiling():
             out = y[0]
+        else:
+            # If the second value (i.e., scale) is None, then quant is disabled
+            if y[1] is not None:
+                out = self.create_quant_tensor(y)
+            elif self.is_passthrough_act and isinstance(x, QuantTensor):
+                # preserve scale/zp/bit/sign even without output quant
+                y = y[0]
+                out = self.create_quant_tensor(y, x=x)
+            else:
+                out = y[0]
 
         if not self.training and self.cache_inference_quant_act and isinstance(out, QuantTensor):
             cached_out = self.cache_class(out.detach(), self.cache_quant_io_metadata_only)

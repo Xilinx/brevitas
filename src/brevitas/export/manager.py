@@ -166,11 +166,15 @@ class BaseManager(ABC):
     @classmethod
     def handler_from_module(cls, module: Module, no_inheritance=False):
         for handler in cls.handlers:
+            if not isinstance(handler.handled_layer, tuple):
+                handled_classes = (handler.handled_layer,)
+            else:
+                handled_classes = handler.handled_layer
             if no_inheritance:
-                if type(module) == handler.handled_layer:
+                if type(module) in handled_classes:
                     return handler
             else:
-                if isinstance(module, handler.handled_layer):
+                if any([isinstance(module, handler) for handler in handled_classes]):
                     return handler
         return None
 

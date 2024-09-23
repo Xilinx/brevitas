@@ -190,7 +190,8 @@ INPUT_QUANT_MAP = {
                         'asym': CNNShiftedUint8DynamicActPerTensorFloat}}},
             'po2_scale': {
                 'stats': {
-                    'per_group': MXInt8Act}}}},
+                    'per_group': {
+                        'sym': MXInt8Act}}}}},
     'float': {
         'static': {
             'float_scale': {

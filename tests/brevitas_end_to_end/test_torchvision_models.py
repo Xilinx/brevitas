@@ -13,6 +13,7 @@ import torchvision.models as modelzoo
 from brevitas import torch_version
 from brevitas.export import export_onnx_qcdq
 from brevitas.export import export_torch_qcdq
+from brevitas.export.inference import quant_inference_mode
 from brevitas.graph.calibrate import calibration_mode
 from brevitas.graph.quantize import layerwise_quantize
 from brevitas.graph.quantize import quantize
@@ -21,9 +22,13 @@ from brevitas.graph.target.flexml import quantize_flexml
 from brevitas_examples.imagenet_classification.ptq.ptq_common import quantize_model
 from tests.marker import requires_pt_ge
 
+TORCH_COMPILE_ATOL = 0.35
 BATCH = 1
 HEIGHT, WIDTH = 224, 224
 IN_CH = 3
+
+COMPILE_MODEL_LIST = ['efficientnet_b0', 'resnet18', 'fcn_resnet50']
+
 MODEL_LIST = [
     'vit_b_32',
     'efficientnet_b0',
@@ -68,11 +73,7 @@ def quantize_float(model):
         quant_format='float')
 
 
-@fixture
-@parametrize('model_name', MODEL_LIST)
-@parametrize('quantize_fn', [quantize, quantize_flexml, layerwise_quantize])
-def torchvision_model(model_name, quantize_fn):
-
+def shared_quant_fn(model_name, quantize_fn):
     inp = torch.randn(BATCH, IN_CH, HEIGHT, WIDTH)
 
     if torch_version <= version.parse('1.9.1') and model_name == 'regnet_x_400mf':
@@ -112,20 +113,53 @@ def torchvision_model(model_name, quantize_fn):
     return model
 
 
-@requires_pt_ge('1.8.1')
+@fixture
+@parametrize('model_name', MODEL_LIST)
+@parametrize('quantize_fn', [quantize_float, quantize, layerwise_quantize, quantize_flexml])
+def torchvision_model(model_name, quantize_fn):
+    return shared_quant_fn(model_name, quantize_fn)
+
+
+@fixture
+@parametrize('model_name', COMPILE_MODEL_LIST)
+@parametrize('quantize_fn', [quantize_float, quantize])
+def torchvision_model_compile(model_name, quantize_fn):
+    return shared_quant_fn(model_name, quantize_fn)
+
+
+@requires_pt_ge('2.2')
+def test_torchvision_compile(torchvision_model_compile):
+    torch._dynamo.config.capture_scalar_outputs = True
+    if torchvision_model_compile is None:
+        pytest.skip('Model not instantiated')
+
+    inp = torch.randn(BATCH, IN_CH, HEIGHT, WIDTH)
+
+    with torch.no_grad(), quant_inference_mode(torchvision_model_compile):
+        prehook_non_compiled_out = torchvision_model_compile(inp)
+        post_hook_non_compiled_out = torchvision_model_compile(inp)
+
+        compiled_model = torch.compile(torchvision_model_compile, fullgraph=True)
+        compiled_out = compiled_model(inp)
+
+        assert torch.allclose(prehook_non_compiled_out, post_hook_non_compiled_out)
+        assert torch.allclose(post_hook_non_compiled_out, compiled_out, atol=TORCH_COMPILE_ATOL)
+
+
 def test_torchvision_graph_quantization_flexml_qcdq_onnx(torchvision_model, request):
+    test_id = request.node.callspec.id
     if torchvision_model is None:
         pytest.skip('Model not instantiated')
+
     inp = torch.randn(BATCH, IN_CH, HEIGHT, WIDTH)
-    test_id = request.node.callspec.id
 
     quantize_fn_name = test_id.split("-")[0]
     torchvision_model(inp)
+
     if quantize_fn_name != 'quantize_float':
         export_onnx_qcdq(torchvision_model, args=inp)
 
 
-@requires_pt_ge('1.9.1')
 def test_torchvision_graph_quantization_flexml_qcdq_torch(torchvision_model, request):
     if torchvision_model is None:
         pytest.skip('Model not instantiated')

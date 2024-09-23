@@ -18,6 +18,7 @@ import torchvision
 
 from brevitas.export import export_onnx_qcdq
 from brevitas.export import export_torch_qcdq
+from brevitas.export.inference import quant_inference_mode
 from brevitas.graph.quantize import preprocess_for_quantize
 from brevitas.graph.target.flexml import preprocess_for_flexml_quantize
 from brevitas_examples.imagenet_classification.ptq.ptq_common import apply_act_equalization
@@ -267,6 +268,14 @@ add_bool_arg(
     'uint_sym_act_for_unsigned_values',
     default=True,
     help='Use unsigned act quant when possible (default: enabled)')
+add_bool_arg(parser, 'compile', default=False, help='Use torch.compile (default: disabled)')
+
+
+def generate_ref_input(args, device, dtype):
+    model_config = get_model_config(args.model_name)
+    center_crop_shape = model_config['center_crop_shape']
+    img_shape = center_crop_shape
+    return torch.ones(1, 3, img_shape, img_shape, device=device, dtype=dtype)
 
 
 def main():
@@ -474,23 +483,28 @@ def main():
 
     # Validate the quant_model on the validation dataloader
     print("Starting validation:")
-    validate(val_loader, quant_model, stable=dtype != torch.bfloat16)
+    with torch.no_grad(), quant_inference_mode(quant_model):
+        param = next(iter(quant_model.parameters()))
+        device, dtype = param.device, param.dtype
+        ref_input = generate_ref_input(args, device, dtype)
+        quant_model(ref_input)
+        compiled_model = torch.compile(quant_model, fullgraph=True, disable=not args.compile)
+        validate(val_loader, compiled_model, stable=dtype != torch.bfloat16)
 
     if args.export_onnx_qcdq or args.export_torch_qcdq:
         # Generate reference input tensor to drive the export process
-        model_config = get_model_config(args.model_name)
-        center_crop_shape = model_config['center_crop_shape']
-        img_shape = center_crop_shape
-        device, dtype = next(model.parameters()).device, next(model.parameters()).dtype
-        ref_input = torch.ones(1, 3, img_shape, img_shape, device=device, dtype=dtype)
+        param = next(iter(quant_model.parameters()))
+        device, dtype = param.device, param.dtype
+        ref_input = generate_ref_input(args, device, dtype)
 
         export_name = os.path.join(args.export_dir, config)
         if args.export_onnx_qcdq:
             export_name = export_name + '.onnx'
-            export_onnx_qcdq(model, ref_input, export_name, opset_version=args.onnx_opset_version)
+            export_onnx_qcdq(
+                quant_model, ref_input, export_name, opset_version=args.onnx_opset_version)
         if args.export_torch_qcdq:
             export_name = export_name + '.pt'
-            export_torch_qcdq(model, ref_input, export_name)
+            export_torch_qcdq(quant_model, ref_input, export_name)
 
 
 if __name__ == '__main__':

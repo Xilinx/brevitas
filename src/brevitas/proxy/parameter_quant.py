@@ -4,7 +4,7 @@
 from abc import ABC
 from abc import ABCMeta
 from abc import abstractmethod
-from typing import Any, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union
 from warnings import warn
 
 import torch
@@ -14,8 +14,11 @@ from typing_extensions import Protocol
 from typing_extensions import runtime_checkable
 
 from brevitas import config
+from brevitas import is_dynamo_compiling
+from brevitas.core.function_wrapper.misc import Identity
 from brevitas.function import max_int
 from brevitas.inject import BaseInjector as Injector
+from brevitas.quant_tensor import _unpack_quant_tensor
 from brevitas.quant_tensor import IntQuantTensor
 from brevitas.quant_tensor import QuantTensor
 from brevitas.utils.quant_utils import _CachedIO
@@ -93,6 +96,13 @@ class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
         self.quant_tensor_class = None  # To be redefined by each class
 
     @property
+    def input_view_impl(self):
+        if self.tensor_quant is not None:
+            return self.tensor_quant.int_quant.input_view_impl
+        else:
+            return Identity()
+
+    @property
     def cache_inference_quant_weight(self):
         return self._cache_inference_quant_weight
 
@@ -118,19 +128,23 @@ class WeightQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector,
         if self.is_quant_enabled:
             # If quant is enabled the priority is:
             # - export mode
-            # - cached weight
             # - quantization flow
             if self.export_mode:
                 out = self.export_handler(x)
-                out = self.create_quant_tensor(out)
-            elif self._cached_weight is not None and not self.cache_inference_quant_weight_metadata_only:
-                out = self._cached_weight.quant_tensor
+                if is_dynamo_compiling():
+                    out = out[0]
+                else:
+                    out = self.create_quant_tensor(out)
             else:
                 out = self.tensor_quant(x)
-                out = self.create_quant_tensor(out)
-                if not self.training and self.cache_inference_quant_weight and self._cached_weight is None:
-                    self._cached_weight = self.cache_class(
-                        out.detach(), metadata_only=self.cache_inference_quant_weight_metadata_only)
+                if is_dynamo_compiling():
+                    out = out[0]
+                else:
+                    out = self.create_quant_tensor(out)
+                    if not self.training and self.cache_inference_quant_weight and self._cached_weight is None:
+                        self._cached_weight = self.cache_class(
+                            out.detach(),
+                            metadata_only=self.cache_inference_quant_weight_metadata_only)
         else:  # quantization disabled
             out = self.apply_input_view(x)
         return out
@@ -151,9 +165,10 @@ class BiasQuantProxyFromInjectorBase(ParameterQuantProxyFromInjector, BiasQuantP
 
     def get_cached(self, attr):
         if self._cached_bias is None:
-            warn(
-                "No quant bias cache found, set cache_inference_quant_bias=True and run an "
-                "inference pass first")
+            if not is_dynamo_compiling():
+                warn(
+                    "No quant bias cache found, set cache_inference_quant_bias=True and run an "
+                    "inference pass first")
             return None
         if self.training:
             warn("Cached quant bias scale is being used in training mode.")
@@ -268,7 +283,7 @@ class BiasQuantProxyFromInjector(BiasQuantProxyFromInjectorBase):
     def scale(self):
         if not self.is_quant_enabled:
             return None
-        if self.requires_input_scale and self.is_quant_enabled and self.is_quant_enabled:
+        if self.requires_input_scale and self.is_quant_enabled:
             cache = self.get_cached('scale')
             return cache
         zhs = self._zero_hw_sentinel()
@@ -335,12 +350,13 @@ class BiasQuantProxyFromInjector(BiasQuantProxyFromInjectorBase):
                 out, out_scale, out_zp, out_bit_width = impl(x, input_scale)
             else:
                 out, out_scale, out_zp, out_bit_width = impl(x)
-            out = IntQuantTensor(
-                out, out_scale, out_zp, out_bit_width, self.is_signed, self.training)
-            if not self.training and self.cache_inference_quant_bias:
-                cached_bias = _CachedIO(
-                    out.detach(), metadata_only=self.cache_inference_quant_bias_metadata_only)
-                self._cached_bias = cached_bias
+            if not is_dynamo_compiling():
+                out = IntQuantTensor(
+                    out, out_scale, out_zp, out_bit_width, self.is_signed, self.training)
+                if not self.training and self.cache_inference_quant_bias:
+                    cached_bias = _CachedIO(
+                        out.detach(), metadata_only=self.cache_inference_quant_bias_metadata_only)
+                    self._cached_bias = cached_bias
         else:
             out = x
         return out

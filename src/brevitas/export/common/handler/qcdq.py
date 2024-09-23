@@ -454,7 +454,7 @@ class FloatQCDQCastActQuantProxyHandlerMixin(FloatQMixin, FloatCDQCastProxyHandl
             self.symbolic_kwargs['exponent_bit_width'] = module.exponent_bit_width()
             self.symbolic_kwargs['mantissa_bit_width'] = module.mantissa_bit_width()
             self.symbolic_kwargs['exponent_bias'] = module.exponent_bias()
-            self.symbolic_kwargs['saturating'] = module.saturating()
+            self.symbolic_kwargs['saturating'] = module.is_saturating()
             self.symbolic_kwargs['inf_values'] = module.inf_values()
             self.symbolic_kwargs['nan_values'] = module.nan_values()
 
@@ -659,7 +659,7 @@ class FloatCDQCastBiasQuantProxyHandlerMixin(DQCastMixin,
                 'exponent_bit_width': module.exponent_bit_width(),
                 'mantissa_bit_width': module.mantissa_bit_width(),
                 'exponent_bias': module.exponent_bias(),
-                'saturating': module.saturating(),
+                'saturating': module.is_saturating(),
                 'inf_values': module.inf_values(),
                 'nan_values': module.nan_values()}
 

@@ -24,6 +24,12 @@ else:
     torch_version = version.parse(torch.__version__)
 
 try:
+    # Attempt _dynamo import
+    is_dynamo_compiling = torch._dynamo.is_compiling
+except:
+    is_dynamo_compiling = lambda: False
+
+try:
     __version__ = get_distribution(__name__).version
 except DistributionNotFound:
     # package is not installed
