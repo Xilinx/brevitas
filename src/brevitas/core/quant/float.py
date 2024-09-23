@@ -67,7 +67,7 @@ class FloatQuant(brevitas.jit.ScriptModule):
         self.observer_only = brevitas.jit.Attribute(False, bool)
 
     @brevitas.jit.script_method
-    def quantize(self, x: torch.Tensor, scale: torch.Tensor) -> Tuple[torch.Tensor]:
+    def quantize(self, x: torch.Tensor, scale: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         if self.float_scaling_impl is not None:
             float_scaling_impl_value = self.float_scaling_impl(
                 self.exponent_bit_width(), self.mantissa_bit_width(), self.exponent_bias())
