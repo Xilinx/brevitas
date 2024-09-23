@@ -63,7 +63,11 @@ def calc_a2q_plus_acc_bit_width(
     return min_bit_width
 
 
-calc_fnc = {"quant_a2q": calc_a2q_acc_bit_width, "quant_a2q_plus": calc_a2q_plus_acc_bit_width}
+calc_fnc = {
+    "quant_a2q": calc_a2q_acc_bit_width,
+    "quant_a2q_per_tensor": calc_a2q_acc_bit_width,
+    "quant_a2q_plus": calc_a2q_plus_acc_bit_width,
+    "quant_a2q_plus_per_tensor": calc_a2q_plus_acc_bit_width}
 
 
 @pytest_cases.parametrize_with_cases('model_input', cases=case_model_a2q)
@@ -94,6 +98,13 @@ def test_quant_wbiol_a2q(model_input, current_cases):
 
     # the tensor quantizer requires a QuantTensor with specified bit-width and sign
     quant_weight = model.conv.quant_weight(quant_input)
+
+    # test that the scaling factor is per-tensor or per-channel
+    if kwargs['weight_quant'].endswith('per_tensor'):
+        assert quant_weight.scale.numel() == 1
+    else:
+        assert quant_weight.scale.numel() == model.conv.out_channels
+
     quant_weight = quant_weight.int().float()
     if kwargs['model_type'] == 'QuantLinear':  # shape = (out_features, in_features)
         quant_weight_per_channel_l1_norm = quant_weight.norm(p=1, dim=1)

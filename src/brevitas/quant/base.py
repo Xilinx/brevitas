@@ -340,8 +340,12 @@ class PerChannelL2Norm(ExtendedInjector):
     normalize_stats_impl = L2Norm
 
 
-class PerChannelPreNorm(ExtendedInjector):
+class PerChannelL1Norm(ExtendedInjector):
+    stats_reduce_dim = SCALING_STATS_REDUCE_DIM
+    normalize_stats_impl = L1Norm
 
+
+class PerChannelPreNorm(ExtendedInjector):
     pre_scaling_impl = ParameterPreScalingWeightNorm
     scaling_stats_input_view_shape_impl = OverOutputChannelView
     scaling_impl = (this << 1).scaling_impl
@@ -349,6 +353,16 @@ class PerChannelPreNorm(ExtendedInjector):
     tracked_parameter_list = (this << 1).tracked_parameter_list
     pre_scaling_shape = (this << 1).pre_scaling_shape
     permute_dims = (this << 1).permute_dims
+
+
+class AccumulatorAwarePerChannelPreNorm(PerChannelPreNorm):
+
+    @value
+    def accumulator_bit_width_impl(accumulator_bit_width):
+        return BitWidthStatefulConst(accumulator_bit_width)
+
+    pre_scaling_impl = AccumulatorAwareParameterPreScaling
+    accumulator_bit_width = 32  # default maximum accumulator width is 32 bits
 
 
 class SolvePostScaleGranularity(ExtendedInjector):
@@ -438,17 +452,15 @@ class AccumulatorAwareWeightQuant(WeightNormPerChannelFloatDecoupled):
     details on the arithmetic, see `AccumulatorAwareParameterPreScalingWeightNorm`. For further
     details on accumulator-aware quantization (A2Q) technique, see the referenced paper."""
 
-    @value
-    def accumulator_bit_width_impl(accumulator_bit_width):
-        return BitWidthStatefulConst(accumulator_bit_width)
-
     proxy_class = DecoupledWeightQuantWithInputProxyFromInjector
     tensor_quant = DecoupledRescalingIntQuantWithInput
-    pre_scaling_impl = AccumulatorAwareParameterPreScaling
-    accumulator_bit_width = 32  # default maximum accumulator width is 32 bits
-    normalize_stats_impl = L1Norm  # required to align with derivations in paper
+    per_channel_pre_norm = AccumulatorAwarePerChannelPreNorm
+    normalize_stats_impl = PerChannelL1Norm.normalize_stats_impl  # required to align with derivations in paper
     float_to_int_impl = RoundToZeroSte  # required to ensure no upwards rounding violates constraints
 
+    @value
+    def accumulator_bit_width():
+        return this.per_channel_pre_norm.accumulator_bit_width
 
 class AccumulatorAwareZeroCenterWeightQuant(AccumulatorAwareWeightQuant):
     """Experimental zero-centered accumulator-aware weight quantized based on:
