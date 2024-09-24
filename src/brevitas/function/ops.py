@@ -10,7 +10,6 @@ import torch
 from torch import Tensor
 
 import brevitas
-from brevitas.utils.quant_utils import MAX_MANTISSA_DICT
 
 
 @brevitas.jit.script
