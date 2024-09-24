@@ -102,9 +102,8 @@ def test_scale_factors_ptq_calibration_reference(act_quant):
 
     computed_scale = model.act.act_quant.scale(), model.act_1.act_quant.scale()
     reference_values = REFERENCE_SCALES[reference]
-    assert all([
-        torch.allclose(comp, torch.tensor(ref)) for comp,
-        ref in zip(computed_scale, reference_values)])
+    assert torch.allclose(computed_scale[0], torch.tensor(reference_values[0]))
+    assert torch.allclose(computed_scale[1], torch.tensor(reference_values[1]))
 
 
 def test_calibration_training_state():
