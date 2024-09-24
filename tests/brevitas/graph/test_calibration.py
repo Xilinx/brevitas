@@ -19,7 +19,9 @@ from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 # Use custom implementation of kthvalue as work around to (b)float16 kernel limitations
 from brevitas.utils.torch_utils import kthvalue
 from tests.brevitas.hyp_helper import float_tensor_random_size_st
+from tests.conftest import SEED
 
+torch.manual_seed(SEED)
 IN_CH = 8
 OUT_CH = 16
 BATCH = 1
