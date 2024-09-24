@@ -15,6 +15,7 @@ from brevitas.core.scaling import ConstScaling
 from brevitas.core.scaling import FloatScaling
 from brevitas.function.ops import max_float
 from brevitas.utils.torch_utils import float_internal_scale
+from brevitas.utils.torch_utils import MAX_MANTISSA_DICT
 from tests.brevitas.hyp_helper import float_st
 from tests.brevitas.hyp_helper import float_tensor_random_shape_st
 from tests.brevitas.hyp_helper import random_minifloat_format
@@ -98,8 +99,8 @@ def test_float_to_quant_float(inp, minifloat_format):
             signed=signed,
             float_clamp_impl=float_clamp)
         expected_out, *_ = float_quant(inp)
-
-        out_quant, scale = float_quant.quantize(inp)
+        scale = float_quant.scaling_impl(inp)
+        out_quant, scale = float_quant.quantize(inp, scale)
         exponent_bit_width, mantissa_bit_width, exponent_bias  = torch.tensor(exponent_bit_width, dtype=torch.float), torch.tensor(mantissa_bit_width, dtype=torch.float), torch.tensor(exponent_bias, dtype=torch.float)
         out_quant, *_ = float_quant.float_clamp_impl(
             out_quant, exponent_bit_width, mantissa_bit_width, exponent_bias)
@@ -142,7 +143,8 @@ def test_scaling_impls_called_once(inp, minifloat_format):
             scaling_impl=scaling_impl,
             float_scaling_impl=float_scaling_impl,
             float_clamp_impl=float_clamp)
-        _ = float_quant.quantize(inp)
+        scale = float_quant.scaling_impl(inp)
+        _ = float_quant.quantize(inp, scale)
         # scaling implementations should be called exaclty once on the input
         float_scaling_impl.assert_called_once_with(
             torch.tensor(exponent_bit_width),
@@ -196,7 +198,7 @@ def test_inner_scale(inp, minifloat_format, scale):
         scaled_inp = inp / scale
         max_val = max_float(
             torch.tensor(exponent_bit_width),
-            torch.tensor(mantissa_bit_width),
+            MAX_MANTISSA_DICT[mantissa_bit_width],
             torch.tensor(exponent_bias))
         max_available_float = float_clamp.max_available_float
         max_value = max_val if max_available_float is None else torch.min(

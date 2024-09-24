@@ -442,6 +442,19 @@ def _set_local_loss_mode(module, enabled):
             m.local_loss_mode = enabled
 
 
+def _set_observer_mode(module, enabled, previous_observer_mode):
+    for m in module.modules():
+        if hasattr(m, 'observer_only'):
+            previous_observer_mode[m] = m.observer_only
+            m.observer_only = enabled
+
+
+def _restore_observer_mode(module, previous_observer_mode):
+    for m in module.modules():
+        if hasattr(m, 'observer_only'):
+            m.observer_only = previous_observer_mode[m]
+
+
 class MSE(torch.nn.Module):
     # References:
     # https://github.com/cornell-zhang/dnn-quant-ocs/blob/master/distiller/quantization/clip.py
@@ -459,7 +472,12 @@ class MSE(torch.nn.Module):
         self.mse_init_op = mse_init_op
         self.input_view_shape_impl = inner_stats_input_view_shape_impl
         self.proxy_forward = proxy_module.forward
+        self.previous_observer_mode = dict()
         self.set_local_loss_mode = lambda enabled: _set_local_loss_mode(proxy_module, enabled)
+        self.set_observer_mode = lambda enabled: _set_observer_mode(
+            proxy_module, enabled, self.previous_observer_mode)
+        self.restore_observer_mode = lambda: _restore_observer_mode(
+            proxy_module, self.previous_observer_mode)
         self.internal_candidate = None
         self.num = mse_iters
         self.search_method = mse_search_method
@@ -480,10 +498,12 @@ class MSE(torch.nn.Module):
         self.internal_candidate = candidate
         # Set to local_loss_mode before calling the proxy
         self.set_local_loss_mode(True)
+        self.set_observer_mode(False)
         quant_value = self.proxy_forward(x)
         quant_value = _unpack_quant_tensor(quant_value)
         loss = self.mse_loss_fn(x, quant_value)
         self.set_local_loss_mode(False)
+        self.restore_observer_mode()
         return loss
 
     def mse_grid_search(self, xl, x):

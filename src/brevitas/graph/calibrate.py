@@ -201,8 +201,9 @@ class DisableEnableQuantization(Transform):
             if isinstance(module, ActQuantProxyFromInjectorBase):
                 module.train(is_training)
                 if self.call_act_quantizer_impl:
-                    hook = module.register_forward_hook(self.disable_act_quant_hook)
-                    self.disable_act_quant_hooks.append(hook)
+                    for m in module.modules():
+                        if hasattr(m, 'observer_only'):
+                            m.observer_only = True
                 else:
                     module.disable_quant = True
             elif isinstance(module, _ACC_PROXIES):
@@ -229,9 +230,9 @@ class DisableEnableQuantization(Transform):
             elif isinstance(module, ActQuantProxyFromInjectorBase):
                 module.disable_quant = False
                 module.train(is_training)
-        for hook in self.disable_act_quant_hooks:
-            hook.remove()
-        self.disable_act_quant_hooks = []
+                for m in module.modules():
+                    if hasattr(m, 'observer_only'):
+                        m.observer_only = False
 
     def enable_param_quantization(self, model, is_training):
         for module in model.modules():
