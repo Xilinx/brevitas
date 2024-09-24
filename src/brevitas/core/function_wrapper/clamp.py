@@ -146,7 +146,8 @@ class FloatClamp(brevitas.jit.ScriptModule):
             mantissa_bit_width: Tensor,
             exponent_bias: Tensor):
 
-        max_value = max_float(exponent_bit_width, self.max_mantissa_dict[mantissa_bit_width.item()], exponent_bias)
+        max_value = max_float(
+            exponent_bit_width, self.max_mantissa_dict[mantissa_bit_width.item()], exponent_bias)
         max_value = max_value if self.max_available_float is None else torch.min(
             max_value, self.max_available_float())
         min_value = torch.tensor(0.) if not self.signed else -max_value

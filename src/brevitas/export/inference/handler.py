@@ -104,7 +104,9 @@ class FloatInferencetHandler(InferenceHandler):
 
             self.fp_internal_scale_min = 1. - self.exponent_bias - self.mantissa_bit_width
             self.max_value = max_float(
-                self.exponent_bit_width, MAX_MANTISSA_DICT[self.mantissa_bit_width.item()], self.exponent_bias)
+                self.exponent_bit_width,
+                MAX_MANTISSA_DICT[self.mantissa_bit_width.item()],
+                self.exponent_bias)
             self.min_value = torch.tensor(0.) if not module.is_signed else -self.max_value
 
     def quantize(self, x):

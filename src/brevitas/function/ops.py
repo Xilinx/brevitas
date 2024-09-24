@@ -190,7 +190,6 @@ def min_int(signed: bool, narrow_range: bool, bit_width: Tensor) -> Tensor:
     return value
 
 
-
 def max_float(exponent_bit_width: Tensor, max_mantissa: Tensor, exponent_bias: Tensor):
     max_exponent = (2. ** exponent_bit_width) - 1. - exponent_bias
     max_val = max_mantissa * (2 ** max_exponent)

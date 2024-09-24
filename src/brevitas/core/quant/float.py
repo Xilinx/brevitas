@@ -1,6 +1,7 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+import time
 from typing import Optional, Tuple
 
 import torch
@@ -11,7 +12,6 @@ from brevitas.core.function_wrapper import RoundSte
 from brevitas.core.scaling import ConstScaling
 from brevitas.core.utils import StatelessBuffer
 from brevitas.utils.torch_utils import float_internal_scale
-import time
 
 
 class FloatQuant(brevitas.jit.ScriptModule):
