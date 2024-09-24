@@ -14,7 +14,7 @@ from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPWeight
 from brevitas.quant.experimental.float_quant_ocp import Fp8e5m2OCPWeight
 from brevitas.utils.float_quant_utils import get_max_available_float
 from brevitas.utils.float_quant_utils import get_min_available_float
-from brevitas.utils.quant_utils import MAX_MANTISSA_DICT
+from brevitas.utils.torch_utils import MAX_MANTISSA_DICT
 from tests.brevitas.hyp_helper import float_tensor_random_shape_st
 
 from .minifloat_fixtures import *

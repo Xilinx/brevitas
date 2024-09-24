@@ -16,8 +16,8 @@ from brevitas.proxy.float_runtime_quant import ActFloatQuantProxyFromInjectorBas
 from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjector
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector
-from brevitas.utils.quant_utils import MAX_MANTISSA_DICT
 from brevitas.utils.torch_utils import float_internal_scale
+from brevitas.utils.torch_utils import MAX_MANTISSA_DICT
 
 
 class InferenceHandler(torch.nn.Module, ABC):

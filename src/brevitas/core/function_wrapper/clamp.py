@@ -14,7 +14,7 @@ import brevitas
 from brevitas.core.utils import StatelessBuffer
 from brevitas.function import tensor_clamp
 from brevitas.function.ops import max_float
-from brevitas.utils.quant_utils import MAX_MANTISSA_DICT
+from brevitas.utils.torch_utils import MAX_MANTISSA_DICT
 
 
 class TensorClamp(brevitas.jit.ScriptModule):
