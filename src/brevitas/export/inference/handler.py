@@ -16,6 +16,7 @@ from brevitas.proxy.float_runtime_quant import ActFloatQuantProxyFromInjectorBas
 from brevitas.proxy.parameter_quant import BiasQuantProxyFromInjector
 from brevitas.proxy.parameter_quant import WeightQuantProxyFromInjector
 from brevitas.proxy.runtime_quant import ActQuantProxyFromInjector
+from brevitas.utils.quant_utils import MAX_MANTISSA_DICT
 from brevitas.utils.torch_utils import float_internal_scale
 
 
@@ -101,12 +102,9 @@ class FloatInferencetHandler(InferenceHandler):
                 self.float_to_int_impl = module.fused_activation_quant_proxy.tensor_quant.float_to_int_impl
                 self.float_clamp_impl = module.fused_activation_quant_proxy.tensor_quant.float_clamp_impl
 
-            self.max_clamp = max_float(
-                self.exponent_bit_width, self.mantissa_bit_width, self.exponent_bias)
-            self.min_clamp = -self.max_clamp
             self.fp_internal_scale_min = 1. - self.exponent_bias - self.mantissa_bit_width
             self.max_value = max_float(
-                self.exponent_bit_width, self.mantissa_bit_width, self.exponent_bias)
+                self.exponent_bit_width, MAX_MANTISSA_DICT[self.mantissa_bit_width.item()], self.exponent_bias)
             self.min_value = torch.tensor(0.) if not module.is_signed else -self.max_value
 
     def quantize(self, x):

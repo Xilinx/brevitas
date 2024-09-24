@@ -9,7 +9,7 @@ from brevitas.quant_tensor import FloatQuantTensor
 from brevitas.quant_tensor import GroupwiseFloatQuantTensor
 from brevitas.quant_tensor import GroupwiseIntQuantTensor
 from brevitas.quant_tensor import IntQuantTensor
-
+import torch
 
 class _CachedIO:
 
@@ -221,3 +221,10 @@ def float_to_int_impl_to_enum(module):
             return FloatToIntImplType.STOCHASTIC_ROUND
     else:
         return None
+
+
+
+def max_mantissa_func(val):
+    return torch.sum((2. ** torch.arange(0, -1. * val - 1., -1.)))
+
+MAX_MANTISSA_DICT = {x: max_mantissa_func(x) for x in range(0, 16)}

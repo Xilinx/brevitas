@@ -14,6 +14,7 @@ from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPWeight
 from brevitas.quant.experimental.float_quant_ocp import Fp8e5m2OCPWeight
 from brevitas.utils.float_quant_utils import get_max_available_float
 from brevitas.utils.float_quant_utils import get_min_available_float
+from brevitas.utils.quant_utils import MAX_MANTISSA_DICT
 from tests.brevitas.hyp_helper import float_tensor_random_shape_st
 
 from .minifloat_fixtures import *
@@ -51,7 +52,7 @@ FORMAT_MINVAL_MAP = {
 def test_max_value(minifloat, expected_max_val):
     max_val = max_float(
         torch.tensor(minifloat.exponent_bit_width, dtype=torch.float32),
-        torch.tensor(minifloat.mantissa_bit_width, dtype=torch.float32),
+        MAX_MANTISSA_DICT[minifloat.mantissa_bit_width],
         torch.tensor(minifloat.exponent_bias, dtype=torch.float32))
     max_available_float = get_max_available_float(
         minifloat.exponent_bit_width,
@@ -84,7 +85,7 @@ def test_float_clamp(inp, fp8_clamp):
 
     max_val = max_float(
         torch.tensor(fp8_clamp.exponent_bit_width, dtype=torch.float32),
-        torch.tensor(fp8_clamp.mantissa_bit_width, dtype=torch.float32),
+        MAX_MANTISSA_DICT[fp8_clamp.mantissa_bit_width],
         torch.tensor(fp8_clamp.exponent_bias, dtype=torch.float32))
     max_available_float = get_max_available_float(
         fp8_clamp.exponent_bit_width,

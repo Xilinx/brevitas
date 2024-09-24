@@ -11,6 +11,7 @@ from brevitas.core.function_wrapper import RoundSte
 from brevitas.core.scaling import ConstScaling
 from brevitas.core.utils import StatelessBuffer
 from brevitas.utils.torch_utils import float_internal_scale
+import time
 
 
 class FloatQuant(brevitas.jit.ScriptModule):

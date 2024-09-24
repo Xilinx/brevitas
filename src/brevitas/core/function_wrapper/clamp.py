@@ -14,6 +14,7 @@ import brevitas
 from brevitas.core.utils import StatelessBuffer
 from brevitas.function import tensor_clamp
 from brevitas.function.ops import max_float
+from brevitas.utils.quant_utils import MAX_MANTISSA_DICT
 
 
 class TensorClamp(brevitas.jit.ScriptModule):
@@ -106,6 +107,7 @@ class FloatClamp(brevitas.jit.ScriptModule):
         self.inf_values = inf_values
         self.nan_values = nan_values
         self.signed = signed
+        self.max_mantissa_dict = MAX_MANTISSA_DICT
 
         if max_available_float:
             max_available_float = torch.tensor(max_available_float, device=device, dtype=dtype)
@@ -144,15 +146,16 @@ class FloatClamp(brevitas.jit.ScriptModule):
             mantissa_bit_width: Tensor,
             exponent_bias: Tensor):
 
-        max_value = max_float(exponent_bit_width, mantissa_bit_width, exponent_bias)
+        max_value = max_float(exponent_bit_width, self.max_mantissa_dict[mantissa_bit_width.item()], exponent_bias)
         max_value = max_value if self.max_available_float is None else torch.min(
             max_value, self.max_available_float())
         min_value = torch.tensor(0.) if not self.signed else -max_value
 
         # Compute masks
-        inf_mask = x.isinf()
-        p_max_val_mask = x > max_value
-        n_max_val_mask = -x > max_value
+        if not self.saturating:
+            inf_mask = x.isinf()
+            p_max_val_mask = x > max_value
+            n_max_val_mask = -x > max_value
 
         # first clamp everything to +- max_value, basically the saturating case
         x = self.saturating_clamp(x, max_value, min_value)

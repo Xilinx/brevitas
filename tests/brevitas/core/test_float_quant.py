@@ -14,6 +14,7 @@ from brevitas.core.quant.float import FloatQuant
 from brevitas.core.scaling import ConstScaling
 from brevitas.core.scaling import FloatScaling
 from brevitas.function.ops import max_float
+from brevitas.utils.quant_utils import MAX_MANTISSA_DICT
 from brevitas.utils.torch_utils import float_internal_scale
 from tests.brevitas.hyp_helper import float_st
 from tests.brevitas.hyp_helper import float_tensor_random_shape_st
@@ -197,7 +198,7 @@ def test_inner_scale(inp, minifloat_format, scale):
         scaled_inp = inp / scale
         max_val = max_float(
             torch.tensor(exponent_bit_width),
-            torch.tensor(mantissa_bit_width),
+            MAX_MANTISSA_DICT[mantissa_bit_width],
             torch.tensor(exponent_bias))
         max_available_float = float_clamp.max_available_float
         max_value = max_val if max_available_float is None else torch.min(

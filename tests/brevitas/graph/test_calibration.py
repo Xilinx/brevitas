@@ -15,6 +15,7 @@ from brevitas.graph.calibrate import load_quant_model_mode
 import brevitas.nn as qnn
 from brevitas.quant import Int8ActPerTensorFixedPoint
 from brevitas.quant.experimental.float import Fp8e4m3ActPerTensorFloat
+from brevitas.quant.experimental.float_quant_ocp import Fp8e4m3OCPActPerTensorFloat
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 # Use custom implementation of kthvalue as work around to (b)float16 kernel limitations
 from brevitas.utils.torch_utils import kthvalue
@@ -71,7 +72,7 @@ def test_scale_factors_ptq_calibration_po2(inp):
     assert torch.allclose(expected_scale, scale)
 
 
-QUANTS = {'int_quant': Int8ActPerTensorFloat, 'fp_quant': Fp8e4m3ActPerTensorFloat}
+QUANTS = {'int_quant': Int8ActPerTensorFloat, 'fp_quant': Fp8e4m3OCPActPerTensorFloat}
 
 
 @pytest_cases.parametrize("act_quant", QUANTS.items(), ids=QUANTS.keys())
