@@ -188,8 +188,7 @@ class DecoupledRescalingIntQuant(brevitas.jit.ScriptModule):
         pre_threshold = self.pre_scaling_impl(x)
         pre_scale = pre_threshold / int_threshold
         pre_zero_point = self.pre_zero_point_impl(x, pre_scale, bit_width)
-        threshold = self.scaling_impl(x)
-        scale = threshold / int_threshold
+        scale = self.scaling_impl(x, int_threshold)
         zero_point = self.zero_point_impl(x, scale, bit_width)
         if self.observer_only:
             y = x
@@ -257,8 +256,7 @@ class DecoupledRescalingIntQuantWithInput(DecoupledRescalingIntQuant):
         pre_threshold = self.pre_scaling_impl(x, input_bit_width, input_is_signed)
         pre_scale = pre_threshold / int_threshold
         pre_zero_point = self.pre_zero_point_impl(x, pre_scale, bit_width)
-        threshold = self.scaling_impl(x)
-        scale = threshold / int_threshold
+        scale = self.scaling_impl(x, int_threshold)
         zero_point = self.zero_point_impl(x, scale, bit_width)
         if self.observer_only:
             y = x
