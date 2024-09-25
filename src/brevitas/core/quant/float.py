@@ -71,7 +71,9 @@ class FloatQuant(brevitas.jit.ScriptModule):
         if self.float_scaling_impl is not None:
             float_scaling_impl_value = self.float_scaling_impl(
                 self.exponent_bit_width(), self.mantissa_bit_width(), self.exponent_bias())
-            scale = scale / float_scaling_impl_value
+        else:
+            float_scaling_impl_value = torch.tensor(1.).type_as(x)
+        scale = self.scaling_impl(x, float_scaling_impl_value)
         x = self.input_view_impl(x)
         scaled_x = x / scale
         internal_scale = float_internal_scale(

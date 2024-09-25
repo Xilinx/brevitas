@@ -77,8 +77,8 @@ class ConstScaling(brevitas.jit.ScriptModule):
             self.value = StatelessBuffer(torch.tensor(scaling_init, dtype=dtype, device=device))
 
     @brevitas.jit.script_method
-    def forward(self, placeholder: Tensor) -> Tensor:
-        value = self.value()
+    def forward(self, placeholder: Tensor, threshold: torch.Tensor) -> Tensor:
+        value = self.value() / threshold
         restricted_value = self.restrict_clamp_scaling(value)
         return restricted_value
 
@@ -149,8 +149,8 @@ class ParameterScaling(brevitas.jit.ScriptModule):
         self.restrict_clamp_scaling = _RestrictClampValue(scaling_min_val, restrict_scaling_impl)
 
     @brevitas.jit.script_method
-    def forward(self, placeholder: Tensor) -> Tensor:
-        value = abs_binary_sign_grad(self.restrict_clamp_scaling(self.value))
+    def forward(self, placeholder: Tensor, threshold: torch.Tensor) -> Tensor:
+        value = abs_binary_sign_grad(self.restrict_clamp_scaling(self.value / threshold))
         return value
 
     def _load_from_state_dict(
@@ -201,19 +201,21 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
         self.value = Parameter(torch.full(scaling_shape, 1.0, dtype=dtype, device=device))
 
     @brevitas.jit.script_method
-    def forward(self, ignored: torch.Tensor) -> torch.Tensor:
+    def forward(self, ignored: torch.Tensor, threshold: torch.Tensor) -> torch.Tensor:
         if self.init_done:
-            value = abs_binary_sign_grad(self.stats_scaling_impl.restrict_clamp_scaling(self.value))
+            value = abs_binary_sign_grad(
+                self.stats_scaling_impl.restrict_clamp_scaling(self.value / threshold))
             return value
         else:
             stats = self.parameter_list_stats()
             # workaround to avoid find_ununsed_parameter=True in DDP
             stats = stats + 0. * self.value
             if self.local_loss_mode:
-                return self.stats_scaling_impl(stats)
+                return self.stats_scaling_impl(stats, threshold)
             stats = self.restrict_inplace_preprocess(stats)
             inplace_tensor_mul(self.value.detach(), stats)
-            value = abs_binary_sign_grad(self.stats_scaling_impl.restrict_clamp_scaling(self.value))
+            value = abs_binary_sign_grad(
+                self.stats_scaling_impl.restrict_clamp_scaling(self.value / threshold))
             self.init_done = True
             return value
 
@@ -317,7 +319,7 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             self.restrict_preprocess = Identity()
 
     @brevitas.jit.script_method
-    def training_forward(self, stats_input: Tensor) -> Tensor:
+    def training_forward(self, stats_input: Tensor, threshold: torch.Tensor) -> Tensor:
         if self.counter < self.collect_stats_steps:
             stats_input = self.stats_input_view_shape_impl(stats_input)
             stats = self.stats(stats_input)
@@ -334,25 +336,27 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
                 inplace_momentum_update(
                     self.buffer, clamped_stats.detach(), self.momentum, self.counter, new_counter)
             self.counter = new_counter
-            return abs_binary_sign_grad(clamped_stats)
+            return abs_binary_sign_grad(clamped_stats) / threshold
         elif self.counter == self.collect_stats_steps:
             self.restrict_inplace_preprocess(self.buffer)
             inplace_tensor_mul(self.value.detach(), self.buffer)
             self.counter = self.counter + 1
-            return abs_binary_sign_grad(self.clamp_scaling(self.restrict_scaling(self.value)))
+            return abs_binary_sign_grad(
+                self.clamp_scaling(self.restrict_scaling(self.value / threshold)))
         else:
-            return abs_binary_sign_grad(self.clamp_scaling(self.restrict_scaling(self.value)))
+            return abs_binary_sign_grad(
+                self.clamp_scaling(self.restrict_scaling(self.value / threshold)))
 
     @brevitas.jit.script_method
-    def forward(self, stats_input: Tensor) -> Tensor:
+    def forward(self, stats_input: Tensor, threshold: torch.Tensor) -> Tensor:
         if self.training:
-            return self.training_forward(stats_input)
+            return self.training_forward(stats_input, threshold)
         else:
             if self.counter <= self.collect_stats_steps:
-                out = self.buffer
+                out = self.buffer / threshold
                 out = self.restrict_preprocess(out)
             else:
-                out = self.value
+                out = self.value / threshold
             out = abs_binary_sign_grad(self.clamp_scaling(self.restrict_scaling(out)))
         return out
 
