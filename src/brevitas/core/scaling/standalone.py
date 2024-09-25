@@ -212,10 +212,9 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
             stats = stats + 0. * self.value
             if self.local_loss_mode:
                 return self.stats_scaling_impl(stats, threshold)
-            stats = self.restrict_inplace_preprocess(stats)
+            stats = self.restrict_inplace_preprocess(stats / threshold)
             inplace_tensor_mul(self.value.detach(), stats)
-            value = abs_binary_sign_grad(
-                self.stats_scaling_impl.restrict_clamp_scaling(self.value / threshold))
+            value = abs_binary_sign_grad(self.stats_scaling_impl.restrict_clamp_scaling(self.value))
             self.init_done = True
             return value
 
@@ -338,14 +337,12 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             self.counter = new_counter
             return abs_binary_sign_grad(clamped_stats) / threshold
         elif self.counter == self.collect_stats_steps:
-            self.restrict_inplace_preprocess(self.buffer)
+            self.restrict_inplace_preprocess(self.buffer / threshold)
             inplace_tensor_mul(self.value.detach(), self.buffer)
             self.counter = self.counter + 1
-            return abs_binary_sign_grad(
-                self.clamp_scaling(self.restrict_scaling(self.value / threshold)))
+            return abs_binary_sign_grad(self.clamp_scaling(self.restrict_scaling(self.value)))
         else:
-            return abs_binary_sign_grad(
-                self.clamp_scaling(self.restrict_scaling(self.value / threshold)))
+            return abs_binary_sign_grad(self.clamp_scaling(self.restrict_scaling(self.valu)))
 
     @brevitas.jit.script_method
     def forward(self, stats_input: Tensor, threshold: torch.Tensor) -> Tensor:
@@ -356,7 +353,7 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
                 out = self.buffer / threshold
                 out = self.restrict_preprocess(out)
             else:
-                out = self.value / threshold
+                out = self.value
             out = abs_binary_sign_grad(self.clamp_scaling(self.restrict_scaling(out)))
         return out
 

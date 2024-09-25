@@ -47,9 +47,9 @@ def reference_implementation_scale_factors_po2(
     quant = compute_quantile(x, q)
     quant = torch.max(min_val, quant)
     quant_float_to_int = torch.ceil(
-        torch.log2(quant))  # Float to Int Implementation for PowerOfTwo scale
+        torch.log2(quant / int_scale))  # Float to Int Implementation for PowerOfTwo scale
 
-    scale = torch.pow(torch.tensor(2.), quant_float_to_int) / int_scale
+    scale = torch.pow(torch.tensor(2.), quant_float_to_int)
 
     return scale
 
