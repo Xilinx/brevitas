@@ -328,7 +328,7 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             new_counter = self.counter + 1
             # Whenever we are in local loss mode, we don't update the counter nor the buffer
             if self.local_loss_mode:
-                return abs_binary_sign_grad(clamped_stats)
+                return abs_binary_sign_grad(clamped_stats / threshold)
             if self.counter == 0:
                 inplace_tensor_mul(self.buffer, clamped_stats.detach())
             else:
