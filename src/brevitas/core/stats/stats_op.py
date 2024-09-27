@@ -692,7 +692,8 @@ class HalfQuadraticOptimizerZeroPoint(torch.nn.Module):
                 self.set_local_loss_mode(False)
                 qt_value = self.input_view_shape_impl(quant_tensor.value)
                 qt_scale = self.input_view_shape_impl(quant_tensor.scale)
-                qt_int = self.input_view_shape_impl(quant_tensor.int())
+                qt_zp = self.input_view_shape_impl(quant_tensor.zero_point)
+                qt_int = qt_value / qt_scale + qt_zp
                 loss = torch.abs(qt_value - x).mean()
                 best_candidate = torch.where(loss < best_loss, candidate, best_candidate)
                 if loss >= best_loss:
@@ -700,6 +701,9 @@ class HalfQuadraticOptimizerZeroPoint(torch.nn.Module):
                 best_loss = torch.min(loss, best_loss)
                 W_e = shrink_lp_op(x - qt_value, self.beta, self.lp_norm)
 
+                # Compared to the original formulation, the value we're looking for is:
+                # - scaled by qt_scale
+                # - opposite sign
                 val = self.input_view_shape_impl((x - W_e) - qt_int * qt_scale)
 
                 if self.stats_reduce_dim is None:
