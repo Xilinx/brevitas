@@ -36,9 +36,9 @@ def handle_quant_param(layer, layer_dict):
         output_scale = layer.output_quant.export_handler.symbolic_kwargs[
             'dequantize_symbolic_kwargs']['scale'].data
 
-        layer_dict['output_scale'] = output_scale.numpy().tolist()
+        layer_dict['output_scale'] = output_scale.cpu().numpy().tolist()
         layer_dict['output_scale_shape'] = output_scale.shape
-    layer_dict['input_scale'] = input_scale.numpy().tolist()
+    layer_dict['input_scale'] = input_scale.cpu().numpy().tolist()
     layer_dict['input_scale_shape'] = input_scale.shape
     layer_dict['input_zp'] = input_zp.to(torch.float32).cpu().numpy().tolist()
     layer_dict['input_zp_shape'] = input_zp.shape
@@ -83,7 +83,7 @@ def export_quant_params(pipe, output_dir, export_vae=False):
                     full_name = name
                     smoothquant_param = module.scale.weight
 
-                    layer_dict['smoothquant_mul'] = smoothquant_param.data.numpy().tolist()
+                    layer_dict['smoothquant_mul'] = smoothquant_param.data.cpu().numpy().tolist()
                     layer_dict['smoothquant_mul_shape'] = module.scale.runtime_shape
                     layer_dict = handle_quant_param(module.layer, layer_dict)
 
@@ -94,7 +94,7 @@ def export_quant_params(pipe, output_dir, export_vae=False):
                     full_name = name
                     smoothquant_param = module.scale.weight
 
-                    layer_dict['smoothquant_mul'] = smoothquant_param.data.numpy().tolist()
+                    layer_dict['smoothquant_mul'] = smoothquant_param.data.cpu().numpy().tolist()
                     layer_dict['smoothquant_mul_shape'] = module.scale.runtime_shape
                     quant_params[full_name] = layer_dict
                     handled_quant_layers.add(id(module.layer))
@@ -113,9 +113,9 @@ def export_quant_params(pipe, output_dir, export_vae=False):
                     'dequantize_symbolic_kwargs']['scale'].data
                 act_zp = module.act_quant.export_handler.symbolic_kwargs[
                     'dequantize_symbolic_kwargs']['zero_point'].data
-                layer_dict['act_scale'] = act_scale.numpy().tolist()
+                layer_dict['act_scale'] = act_scale.cpu().numpy().tolist()
                 layer_dict['act_scale_shape'] = act_scale.shape
-                layer_dict['act_zp'] = act_zp.to(torch.float32).numpy().tolist()
+                layer_dict['act_zp'] = act_zp.to(torch.float32).cpu().numpy().tolist()
                 layer_dict['act_zp_shape'] = act_zp.shape
                 layer_dict['act_zp_dtype'] = str(act_zp.dtype)
                 quant_params[full_name] = layer_dict

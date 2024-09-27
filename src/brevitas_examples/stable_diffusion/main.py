@@ -463,18 +463,17 @@ def main(args):
 
         pipe.set_progress_bar_config(disable=True)
 
-        if args.dry_run:
-            with torch.no_grad():
-                run_val_inference(
-                    pipe,
-                    args.resolution, [calibration_prompts[0]],
-                    test_seeds,
-                    args.device,
-                    dtype,
-                    total_steps=1,
-                    use_negative_prompts=args.use_negative_prompts,
-                    test_latents=latents,
-                    guidance_scale=args.guidance_scale)
+        with torch.no_grad():
+            run_val_inference(
+                pipe,
+                args.resolution, [calibration_prompts[0]],
+                test_seeds,
+                args.device,
+                dtype,
+                total_steps=1,
+                use_negative_prompts=args.use_negative_prompts,
+                test_latents=latents,
+                guidance_scale=args.guidance_scale)
 
         if args.load_checkpoint is not None:
             with load_quant_model_mode(pipe.unet):
@@ -574,6 +573,38 @@ def main(args):
             torch.save(
                 pipe.vae.state_dict(), os.path.join(output_dir, f"vae_{args.checkpoint_name}"))
 
+    if args.export_target:
+        # Move to cpu and to float32 to enable CPU export
+        if args.export_cpu_float32:
+            pipe.unet.to('cpu').to(torch.float32)
+        pipe.unet.eval()
+        device = next(iter(pipe.unet.parameters())).device
+        dtype = next(iter(pipe.unet.parameters())).dtype
+
+        # Define tracing input
+        if is_sd_xl:
+            generate_fn = generate_unet_xl_rand_inputs
+            shape = SD_XL_EMBEDDINGS_SHAPE
+        else:
+            generate_fn = generate_unet_21_rand_inputs
+            shape = SD_2_1_EMBEDDINGS_SHAPE
+        trace_inputs = generate_fn(
+            embedding_shape=shape,
+            unet_input_shape=unet_input_shape(args.resolution),
+            device=device,
+            dtype=dtype)
+
+        if args.export_target == 'onnx':
+            if args.weight_quant_granularity == 'per_group':
+                export_manager = BlockQuantProxyLevelManager
+            else:
+                export_manager = StdQCDQONNXManager
+                export_manager.change_weight_export(export_weight_q_node=args.export_weight_q_node)
+            export_onnx(pipe, trace_inputs, output_dir, export_manager)
+        if args.export_target == 'params_only':
+            pipe.to('cpu')
+            export_quant_params(pipe, output_dir, export_vae=args.vae_fp16_fix)
+
     # Perform inference
     if args.prompt > 0 and not args.dry_run:
         # with brevitas_proxy_inference_mode(pipe.unet):
@@ -618,38 +649,6 @@ def main(args):
             fid.update(float_images_values, real=True)
             fid.update(quant_images_values, real=False)
             print(f"FID: {float(fid.compute())}")
-
-    if args.export_target:
-        # Move to cpu and to float32 to enable CPU export
-        if args.export_cpu_float32:
-            pipe.unet.to('cpu').to(torch.float32)
-        pipe.unet.eval()
-        device = next(iter(pipe.unet.parameters())).device
-        dtype = next(iter(pipe.unet.parameters())).dtype
-
-        # Define tracing input
-        if is_sd_xl:
-            generate_fn = generate_unet_xl_rand_inputs
-            shape = SD_XL_EMBEDDINGS_SHAPE
-        else:
-            generate_fn = generate_unet_21_rand_inputs
-            shape = SD_2_1_EMBEDDINGS_SHAPE
-        trace_inputs = generate_fn(
-            embedding_shape=shape,
-            unet_input_shape=unet_input_shape(args.resolution),
-            device=device,
-            dtype=dtype)
-
-        if args.export_target == 'onnx':
-            if args.weight_quant_granularity == 'per_group':
-                export_manager = BlockQuantProxyLevelManager
-            else:
-                export_manager = StdQCDQONNXManager
-                export_manager.change_weight_export(export_weight_q_node=args.export_weight_q_node)
-            export_onnx(pipe, trace_inputs, output_dir, export_manager)
-        if args.export_target == 'params_only':
-            pipe.to('cpu')
-            export_quant_params(pipe, output_dir, export_vae=args.vae_fp16_fix)
 
 
 if __name__ == "__main__":
