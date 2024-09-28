@@ -15,7 +15,7 @@ TIME_BETWEEN_RETRIES = 2 * 60  # in seconds
 def get_model_config(model_name):
     config = dict()
     # Set-up config parameters
-    if model_name == 'inception_v3' or model_name == 'googlenet':
+    if 'inception_v3' in model_name or 'googlenet' in model_name:
         config['inception_preprocessing'] = True
     else:
         config['inception_preprocessing'] = False

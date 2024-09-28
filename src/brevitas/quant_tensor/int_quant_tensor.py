@@ -194,6 +194,9 @@ class IntQuantTensor(IntQuantTensorBase, QuantTensor):
     def dim(self):
         return self.value.dim()
 
+    def mean(self, *args, **kwargs):
+        return self.value.mean(*args, **kwargs)
+
     @property
     def shape(self):
         return self.value.shape
@@ -203,6 +206,15 @@ class IntQuantTensor(IntQuantTensorBase, QuantTensor):
 
     def add(self, other):
         return self + other
+
+    def sum(self, *args, **kwargs):
+        return self.value.sum(*args, **kwargs)
+
+    def unsqueeze(self, *args, **kwargs):
+        return self.value.unsqueeze(*args, **kwargs)
+
+    def sigmoid(self):
+        return self.value.sigmoid()
 
     @staticmethod
     def cat(tensors, dim, out=None):

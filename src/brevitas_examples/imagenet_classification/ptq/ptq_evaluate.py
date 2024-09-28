@@ -8,6 +8,7 @@ import random
 import warnings
 
 import numpy as np
+import timm
 import torch
 import torch.backends.cudnn as cudnn
 import torch.nn.parallel
@@ -33,6 +34,7 @@ from brevitas_examples.imagenet_classification.ptq.utils import add_bool_arg
 from brevitas_examples.imagenet_classification.ptq.utils import get_model_config
 from brevitas_examples.imagenet_classification.ptq.utils import get_torchvision_model
 from brevitas_examples.imagenet_classification.utils import generate_dataloader
+from brevitas_examples.imagenet_classification.utils import generate_dataloader_with_transform
 from brevitas_examples.imagenet_classification.utils import SEED
 from brevitas_examples.imagenet_classification.utils import validate
 
@@ -46,10 +48,6 @@ def parse_type(v, default_type):
     else:
         return default_type(v)
 
-
-model_names = sorted(
-    name for name in torchvision.models.__dict__ if name.islower() and not name.startswith("__") and
-    callable(torchvision.models.__dict__[name]) and not name.startswith("get_"))
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet PTQ Validation')
 parser.add_argument(
@@ -76,11 +74,15 @@ parser.add_argument('--gpu', default=None, type=int, help='GPU id to use (defaul
 parser.add_argument(
     '--calibration-samples', default=1000, type=int, help='Calibration size (default: 1000)')
 parser.add_argument(
+    '--repository',
+    default='torchvision',
+    choices=['torchvision', 'timm'],
+    help='Source of models (default: torchvision)')
+parser.add_argument(
     '--model-name',
     default='resnet18',
     metavar='ARCH',
-    choices=model_names,
-    help='model architecture: ' + ' | '.join(model_names) + ' (default: resnet18)')
+    help='model architecture: (default: resnet18)')
 parser.add_argument(
     '--dtype', default='float', choices=['float', 'bfloat16'], help='Data type to use')
 parser.add_argument(
@@ -187,6 +189,11 @@ add_bool_arg(
     'weight-narrow-range',
     default=False,
     help='Narrow range for weight quantization (default: disabled)')
+add_bool_arg(
+    parser,
+    'validate-before-quantize',
+    default=False,
+    help='Run validation on the model before it is quantized')
 parser.add_argument('--gpfq-p', default=1.0, type=float, help='P parameter for GPFQ (default: 1.0)')
 parser.add_argument(
     '--quant-format',
@@ -351,30 +358,58 @@ def main():
     # Get model-specific configurations about input shapes and normalization
     model_config = get_model_config(args.model_name)
 
-    # Generate calibration and validation dataloaders
-    resize_shape = model_config['resize_shape']
-    center_crop_shape = model_config['center_crop_shape']
-    inception_preprocessing = model_config['inception_preprocessing']
-    calib_loader = generate_dataloader(
-        args.calibration_dir,
-        args.batch_size_calibration,
-        args.workers,
-        resize_shape,
-        center_crop_shape,
-        args.calibration_samples,
-        inception_preprocessing)
-    val_loader = generate_dataloader(
-        args.validation_dir,
-        args.batch_size_validation,
-        args.workers,
-        resize_shape,
-        center_crop_shape,
-        inception_preprocessing=inception_preprocessing)
-
-    # Get the model from torchvision
-    model = get_torchvision_model(args.model_name)
+    # Get the model from torchvision or timm
+    if args.repository == 'torchvision':
+        model = get_torchvision_model(args.model_name)
+    else:
+        model = timm.create_model(args.model_name, pretrained=True)
+        data_cfg = timm.data.resolve_data_config(model.pretrained_cfg)
+        transform = timm.data.create_transform(**data_cfg)
+        model_config['resize_shape'] = transform.transforms[0].size
+        model_config['center_crop_shape'] = transform.transforms[1].size[0]
     model = model.to(dtype)
     model.eval()
+
+    # If available, use the selected GPU
+    if args.gpu is not None:
+        torch.cuda.set_device(args.gpu)
+        model = model.cuda(args.gpu)
+        cudnn.benchmark = False
+
+    # Generate calibration and validation dataloaders
+    if args.repository == 'torchvision':
+        resize_shape = model_config['resize_shape']
+        center_crop_shape = model_config['center_crop_shape']
+        inception_preprocessing = model_config['inception_preprocessing']
+
+        calib_loader = generate_dataloader(
+            args.calibration_dir,
+            args.batch_size_calibration,
+            args.workers,
+            resize_shape,
+            center_crop_shape,
+            args.calibration_samples,
+            inception_preprocessing)
+        val_loader = generate_dataloader(
+            args.validation_dir,
+            args.batch_size_validation,
+            args.workers,
+            resize_shape,
+            center_crop_shape,
+            inception_preprocessing=inception_preprocessing)
+    else:
+        calib_loader = generate_dataloader_with_transform(
+            args.calibration_dir,
+            args.batch_size_calibration,
+            args.workers,
+            transform,
+            args.calibration_samples)
+        val_loader = generate_dataloader_with_transform(
+            args.validation_dir, args.batch_size_validation, args.workers, transform)
+
+    if args.validate_before_quantize is True:
+        print("Starting validation of unquantized model")
+        validate(val_loader, model, stable=dtype != torch.bfloat16)
 
     # Preprocess the model for quantization
     if args.target_backend == 'flexml':
@@ -396,12 +431,6 @@ def main():
             channel_splitting_split_input=args.channel_splitting_split_input)
     else:
         raise RuntimeError(f"{args.target_backend} backend not supported.")
-
-    # If available, use the selected GPU
-    if args.gpu is not None:
-        torch.cuda.set_device(args.gpu)
-        model = model.cuda(args.gpu)
-        cudnn.benchmark = False
 
     if args.act_equalization is not None:
         print("Applying activation equalization:")
