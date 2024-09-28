@@ -202,6 +202,8 @@ class GPFQ(GPxQ):
             if len(inp.shape) > 2:
                 inp = inp.reshape((-1, sum(inp.shape[2:])))
             # For QuantLinear layer, groups will be 1
+            if isinstance(inp, QuantTensor):
+                inp = inp.value
             inp_processed = inp.unsqueeze(0)
 
         if isinstance(self.layer, SUPPORTED_CONV_OP):
@@ -286,14 +288,14 @@ class GPFQ(GPxQ):
         U = torch.zeros(
             weight.shape[0], weight.shape[1], self.float_input.shape[1], device=dev, dtype=dtype)
         # We don't need full Hessian, we just need the diagonal
-        self.H_diag = self.quantized_input.transpose(2, 1).square().sum(
-            2)  # summing over Batch dimension
+        H_diag = self.quantized_input.transpose(2,
+                                                1).square().sum(2)  # summing over Batch dimension
         permutation_list = []
         for group_index in range(self.groups):
             if self.act_order:
                 # Re-order Hessian_diagonal so that weights associated to
                 # higher magnitude activations are quantized first
-                perm = torch.argsort(self.H_diag[group_index, :], descending=True)
+                perm = torch.argsort(H_diag[group_index, :], descending=True)
             else:
                 # No permutation, permutation tensor is a ordered index
                 perm = torch.tensor(range(weight.shape[-1]), device=dev)
@@ -384,14 +386,14 @@ class GPFA2Q(GPFQ):
         z = torch.zeros(weight.shape[:-1], device=dev)
 
         # We don't need full Hessian, we just need the diagonal
-        self.H_diag = self.quantized_input.transpose(2, 1).square().sum(
-            2)  # summing over Batch dimension
+        H_diag = self.quantized_input.transpose(2,
+                                                1).square().sum(2)  # summing over Batch dimension
         permutation_list = []
         for group_index in range(self.groups):
             if self.act_order:
                 # Re-order Hessian_diagonal so that weights associated to
                 # higher magnitude activations are quantized first
-                perm = torch.argsort(self.H_diag[group_index, :], descending=True)
+                perm = torch.argsort(H_diag[group_index, :], descending=True)
             else:
                 # No permutation, permutation tensor is a ordered index
                 perm = torch.tensor(range(weight.shape[-1]), device=dev)

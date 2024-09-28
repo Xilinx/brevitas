@@ -14,6 +14,7 @@ from brevitas.graph.equalize import activation_equalization_mode
 from brevitas.graph.standardize import DuplicateSharedStatelessModule
 from brevitas.graph.standardize import TorchFunctionalToModule
 from brevitas.graph.utils import get_module
+from brevitas_examples.imagenet_classification.ptq.ptq_common import quantize_model
 
 from .equalization_fixtures import *
 
@@ -225,3 +226,87 @@ def test_act_equalization_torchvision_models(model_dict: dict, layerwise: bool):
     # Check that at least one region performs "true" equalization
     # If all shapes are scalar, no equalization has been performed
     assert any([shape != () for shape in shape_scale_regions])
+
+
+@pytest_cases.parametrize("backend", ['layerwise', 'fx'])
+def test_regions_quantized_models(toy_model, backend, request):
+    test_id = request.node.callspec.id
+
+    # mha produces torch error when quantizing
+    if 'mha' in test_id:
+        pytest.skip('MHA not supported for this test.')
+
+    model_class = toy_model
+    model = model_class()
+
+    model = symbolic_trace(model)
+    regions = _extract_regions(model)
+
+    # maybe think about other quantization params
+    quant_model = quantize_model(
+        model,
+        backend=backend,
+        weight_bit_width=8,
+        act_bit_width=8,
+        bias_bit_width=32,
+        scale_factor_type='float_scale',
+        weight_narrow_range=False,
+        weight_param_method='stats',
+        weight_quant_granularity='per_tensor',
+        weight_quant_type='sym',
+        layerwise_first_last_bit_width=8,
+        act_param_method='stats',
+        act_quant_percentile=99.999,
+        act_quant_type='sym',
+        quant_format='int')
+    quant_regions = _extract_regions(quant_model)
+
+    # check that the same regions were extracted for the quant_model
+    assert len(regions) == len(quant_regions)
+    for region, quant_region in zip(regions, quant_regions):
+        # we need to check the names, the modules will be different as they're quantized
+        assert region.srcs_names == quant_region.srcs_names
+        assert region.sinks_names == quant_region.sinks_names
+
+
+@pytest_cases.parametrize("backend", ['layerwise', 'fx'])
+def test_regions_quantized_torchvision_models(model_coverage, backend):
+    model, coverage = model_coverage
+
+    # mobilenet uses ReLU6, fx quantization replaces those modules with ReLU, yielding more regions
+    if model._get_name() == 'MobileNetV2' and backend == 'fx':
+        pytest.skip('Mobilenet_v2 quantized with fx not compatible with region extracting')
+
+    torch.manual_seed(SEED)
+    model.eval()
+    # The isistance does not work after symbolic trace
+    model = symbolic_trace(model)
+    model = TorchFunctionalToModule().apply(model)
+
+    regions = _extract_regions(model)
+
+    # maybe think about other quantization params
+    quant_model = quantize_model(
+        model,
+        backend=backend,
+        weight_bit_width=8,
+        act_bit_width=8,
+        bias_bit_width=32,
+        scale_factor_type='float_scale',
+        weight_narrow_range=False,
+        weight_param_method='stats',
+        weight_quant_granularity='per_tensor',
+        weight_quant_type='sym',
+        layerwise_first_last_bit_width=8,
+        act_param_method='stats',
+        act_quant_percentile=99.999,
+        act_quant_type='sym',
+        quant_format='int')
+    quant_regions = _extract_regions(quant_model)
+
+    # check that the same regions were extracted for the quant_model
+    assert len(regions) == len(quant_regions)
+    for region, quant_region in zip(regions, quant_regions):
+        # we need to check the names, the modules will be different as they're quantized
+        assert region.srcs_names == quant_region.srcs_names
+        assert region.sinks_names == quant_region.sinks_names
