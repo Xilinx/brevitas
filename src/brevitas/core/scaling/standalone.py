@@ -212,7 +212,7 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
     def forward(
             self, ignored: torch.Tensor, threshold: Optional[torch.Tensor] = None) -> torch.Tensor:
         if threshold is None:
-            threshold = torch.ones(1).type_as(stats_input)
+            threshold = torch.ones(1).type_as(ignored)
         # Threshold division must happen after we update self.value, but before we apply restrict_preproces
         # This is because we don't want to store a parameter dependant on a runtime value (threshold)
         # And because restrict needs to happen after we divide by threshold
@@ -342,8 +342,7 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             self.restrict_preprocess = Identity()
 
     @brevitas.jit.script_method
-    def training_forward(
-            self, stats_input: Tensor, threshold: Optional[torch.Tensor] = None) -> Tensor:
+    def training_forward(self, stats_input: Tensor, threshold: torch.Tensor) -> Tensor:
         # Threshold division must happen after we update self.value, but before we apply restrict_preproces
         # This is because we don't want to store a parameter dependant on a runtime value (threshold)
         # And because restrict needs to happen after we divide by threshold
