@@ -31,7 +31,7 @@ class TestBinaryUnit:
         scaling_impl = mock.Mock(return_value=scale_init)
         binary_quant = binary_quant_impl_all(scaling_impl)
         output, scale, zp, bit_width = binary_quant(inp)
-        scaling_impl.assert_called_once_with(inp)
+        scaling_impl.assert_called_once_with(inp, torch.tensor(1.).type_as(inp))
         assert is_binary_output_value_correct(scale, output)
         assert is_binary_output_sign_correct(inp, output)
         assert (scale == scale_init).all()
@@ -81,4 +81,4 @@ class TestBinaryIntegration:
     @given(inp=float_tensor_random_shape_st())
     def test_output_scale(self, binary_quant_all, scaling_impl_all, inp):
         _, scale, _, _ = binary_quant_all(inp)
-        assert_allclose(scale, scaling_impl_all(inp))
+        assert_allclose(scale, scaling_impl_all(inp, torch.tensor(1.).type_as(inp)))
