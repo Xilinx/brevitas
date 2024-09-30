@@ -203,8 +203,8 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
     @brevitas.jit.script_method
     def forward(self, ignored: torch.Tensor, threshold: torch.Tensor) -> torch.Tensor:
         if self.init_done:
-            value = abs_binary_sign_grad(
-                self.stats_scaling_impl.restrict_clamp_scaling(self.value / threshold))
+            value = self.restrict_inplace_preprocess(self.value / threshold)
+            value = abs_binary_sign_grad(self.stats_scaling_impl.restrict_clamp_scaling(value))
             return value
         else:
             stats = self.parameter_list_stats()
@@ -336,15 +336,15 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
                 inplace_momentum_update(
                     self.buffer, clamped_stats.detach(), self.momentum, self.counter, new_counter)
             self.counter = new_counter
-            return abs_binary_sign_grad(clamped_stats/threshold)
+            return abs_binary_sign_grad(clamped_stats / threshold)
         elif self.counter == self.collect_stats_steps:
             inplace_tensor_mul(self.value.detach(), self.buffer)
-            value = self.restrict_preprocess(self.value/threshold)
+            value = self.restrict_preprocess(self.value / threshold)
             # self.restrict_inplace_preprocess(self.value / threshold)
             self.counter = self.counter + 1
             return abs_binary_sign_grad(self.clamp_scaling(self.restrict_scaling(value)))
         else:
-            value = self.restrict_preprocess(self.value/threshold)
+            value = self.restrict_preprocess(self.value / threshold)
             return abs_binary_sign_grad(self.clamp_scaling(self.restrict_scaling(value)))
 
     @brevitas.jit.script_method
@@ -356,7 +356,7 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
                 out = self.buffer / threshold
                 out = self.restrict_preprocess(out)
             else:
-                out = self.restrict_preprocess(self.value/threshold)
+                out = self.restrict_preprocess(self.value / threshold)
             out = abs_binary_sign_grad(self.clamp_scaling(self.restrict_scaling(out)))
         return out
 
@@ -381,10 +381,11 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
         retrocomp_value_key = prefix + 'learned_value'
         if retrocomp_value_key in state_dict:
             state_dict[value_key] = state_dict.pop(retrocomp_value_key)
-        
+
         if config._RETROCOMPATIBLE_SCALING:
             if not isinstance(self.restrict_scaling.restrict_value_impl, Identity):
-                state_dict[value_key] = self.restrict_scaling.retrocompatibility_op(state_dict[value_key])
+                state_dict[value_key] = self.restrict_scaling.retrocompatibility_op(
+                    state_dict[value_key])
 
         super(ParameterFromRuntimeStatsScaling, self)._load_from_state_dict(
             state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
