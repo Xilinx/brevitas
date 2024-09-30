@@ -150,7 +150,7 @@ class ParameterScaling(brevitas.jit.ScriptModule):
 
     @brevitas.jit.script_method
     def forward(self, placeholder: Tensor, threshold: torch.Tensor) -> Tensor:
-        value = abs_binary_sign_grad(self.restrict_clamp_scaling(self.value / threshold))
+        value = abs_binary_sign_grad(self.restrict_clamp_scaling(self.value) / threshold)
         return value
 
     def _load_from_state_dict(
@@ -214,7 +214,6 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
             if self.local_loss_mode:
                 return self.stats_scaling_impl(stats, threshold)
             inplace_tensor_mul(self.value.detach(), stats)
-            print(self.restrict_inplace_preprocess)
             value = self.restrict_inplace_preprocess(self.value / threshold)
             value = abs_binary_sign_grad(self.stats_scaling_impl.restrict_clamp_scaling(self.value))
             self.init_done = True

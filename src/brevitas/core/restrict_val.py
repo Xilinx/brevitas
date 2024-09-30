@@ -142,7 +142,7 @@ class IntRestrictValue(brevitas.jit.ScriptModule):
 
     def restrict_init_inplace_module(self):
         return Identity()
-    
+
     def retrocompatibility_op(self, x):
         return x
 
@@ -170,7 +170,7 @@ class PowerOfTwoRestrictValue(brevitas.jit.ScriptModule):
 
     def restrict_init_inplace_module(self):
         return InplaceLogTwo()
-    
+
     def retrocompatibility_op(self, x):
         return self.power_of_two(x)
 
