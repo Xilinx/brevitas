@@ -190,6 +190,7 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
             scaling_stats_input_view_shape_impl,
             scaling_stats_input_concat_dim,
             tracked_parameter_list)
+        self.restrict_scaling_impl = restrict_scaling_impl
         self.stats_scaling_impl = _StatsScaling(
             restrict_scaling_impl, scaling_shape, scaling_min_val, False, False, dtype, device)
         self.init_done: bool = brevitas.jit.Attribute(False, bool)
@@ -230,9 +231,14 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
     def _load_from_state_dict(
             self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
             error_msgs):
+        value_key = prefix + 'value'
+        if config._RETROCOMPATIBLE_SCALING:
+            if not isinstance(self.restrict_scaling_impl, Identity):
+                state_dict[value_key] = self.restrict_scaling_impl.retrocompatibility_op(
+                    state_dict[value_key])
+
         super(ParameterFromStatsFromParameterScaling, self)._load_from_state_dict(
             state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
-        value_key = prefix + 'value'
         # disable stats collection when a pretrained value is loaded
         if value_key not in missing_keys:
             self.init_done = True
@@ -307,6 +313,7 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             scaling_stats_momentum, Optional[float])
         self.register_buffer('buffer', torch.full(scaling_shape, 1.0, dtype=dtype, device=device))
         self.value = Parameter(torch.full(scaling_shape, 1.0, dtype=dtype, device=device))
+        self.restrict_scaling_impl = restrict_scaling_impl
         self.restrict_scaling = _RestrictValue(restrict_scaling_impl)
         self.clamp_scaling = _ClampValue(scaling_min_val)
         self.local_loss_mode: bool = brevitas.jit.Attribute(
@@ -383,8 +390,8 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             state_dict[value_key] = state_dict.pop(retrocomp_value_key)
 
         if config._RETROCOMPATIBLE_SCALING:
-            if not isinstance(self.restrict_scaling.restrict_value_impl, Identity):
-                state_dict[value_key] = self.restrict_scaling.retrocompatibility_op(
+            if not isinstance(self.restrict_scaling_impl, Identity):
+                state_dict[value_key] = self.restrict_scaling_impl.retrocompatibility_op(
                     state_dict[value_key])
 
         super(ParameterFromRuntimeStatsScaling, self)._load_from_state_dict(
