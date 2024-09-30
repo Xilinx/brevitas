@@ -51,7 +51,10 @@ class StatsFromParameterScaling(brevitas.jit.ScriptModule):
             device)
 
     @brevitas.jit.script_method
-    def forward(self, ignored: torch.Tensor, threshold: torch.Tensor) -> torch.Tensor:
+    def forward(
+            self, ignored: torch.Tensor, threshold: Optional[torch.Tensor] = None) -> torch.Tensor:
+        if threshold is None:
+            threshold = torch.ones(1).type_as(stats)
         stats = self.parameter_list_stats()
         return self.stats_scaling_impl(stats, threshold)
 
@@ -80,7 +83,10 @@ class _StatsScaling(brevitas.jit.ScriptModule):
         self.restrict_scaling_pre = restrict_scaling_impl.restrict_init_module()
 
     @brevitas.jit.script_method
-    def forward(self, stats: torch.Tensor, threshold: torch.Tensor) -> torch.Tensor:
+    def forward(
+            self, stats: torch.Tensor, threshold: Optional[torch.Tensor] = None) -> torch.Tensor:
+        if threshold is None:
+            threshold = torch.ones(1).type_as(stats)
         stats = self.restrict_scaling_pre(stats / threshold)
         stats = self.affine_rescaling(stats)
         stats = self.restrict_clamp_scaling(stats)
@@ -120,7 +126,7 @@ class RuntimeStatsScaling(brevitas.jit.ScriptModule):
             device)
 
     @brevitas.jit.script_method
-    def forward(self, x: torch.Tensor, threshold: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, threshold: Optional[torch.Tensor] = None) -> torch.Tensor:
         stats = self.runtime_stats(x)
         return self.stats_scaling_impl(stats, threshold)
 
@@ -179,7 +185,12 @@ class RuntimeDynamicGroupStatsScaling(brevitas.jit.ScriptModule):
         self.restrict_clamp_scaling = _RestrictClampValue(scaling_min_val, restrict_scaling_impl)
 
     @brevitas.jit.script_method
-    def forward(self, stats_input: torch.Tensor, threshold: torch.Tensor) -> torch.Tensor:
+    def forward(
+            self,
+            stats_input: torch.Tensor,
+            threshold: Optional[torch.Tensor] = None) -> torch.Tensor:
+        if threshold is None:
+            threshold = torch.ones(1).type_as(stats_input)
         stats_input_reshaped = self.input_view_impl(stats_input)
         out = self.scaling_stats_impl(stats_input_reshaped) / threshold
         # Scaling min val

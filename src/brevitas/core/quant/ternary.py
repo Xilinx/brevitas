@@ -61,7 +61,7 @@ class TernaryQuant(brevitas.jit.ScriptModule):
 
     @brevitas.jit.script_method
     def forward(self, x: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
-        scale = self.scaling_impl(x, torch.tensor(1.).type_as(x))
+        scale = self.scaling_impl(x)
         mask = x.abs().gt(self.threshold * scale)
         y = mask.float() * ternary_sign_ste(x)
         y = y * scale
