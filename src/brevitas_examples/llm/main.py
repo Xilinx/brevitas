@@ -285,6 +285,8 @@ def main(args):
 
     model = offload_model(model)
 
+    model(**calibration_loader[0])
+
     if args.act_calibration:
         print("Apply act calibration...")
         apply_calibration(model, calibration_loader)
