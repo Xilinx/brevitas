@@ -366,9 +366,9 @@ class AccumulatorAwareZeroCenterPerChannelPreNorm(AccumulatorAwarePerChannelPreN
 
     pre_scaling_impl = AccumulatorAwareZeroCenterParameterPreScaling
     pre_zero_point_impl = PreZeroCenterZeroPoint
-    pre_zero_point_shape = this.scaling_shape  # TODO: decouple zero_point from scaling
+    pre_zero_point_shape = this.pre_scaling_shape  # TODO: decouple zero_point from scaling
     pre_zero_point_stats_input_view_shape_impl = this.scaling_stats_input_view_shape_impl
-    stats_reduce_dim = (this << 1).stats_reduce_dim
+    stats_reduce_dim = SCALING_STATS_REDUCE_DIM
     scaling_shape = (this << 1).scaling_shape
 
 
