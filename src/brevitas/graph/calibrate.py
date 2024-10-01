@@ -149,7 +149,6 @@ class load_quant_model_mode:
         for module in self.model.modules():
             if issubclass(type(module), QuantWBIOL):
                 module._quant_load_model_mode = False
-        return True
 
 
 class ClipFloatWeights(Transform):
