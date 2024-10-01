@@ -481,6 +481,10 @@ class AccumulatorAwareZeroCenterWeightQuant(AccumulatorAwareWeightQuant):
     """
     per_channel_pre_norm = AccumulatorAwareZeroCenterPerChannelPreNorm
 
+    @value
+    def pre_zero_point_impl():
+        return this.per_channel_pre_norm.pre_zero_point_impl
+
 
 class MSESubInjectorBase(ExtendedInjector):
 
