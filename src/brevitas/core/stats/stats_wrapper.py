@@ -97,7 +97,12 @@ class _ParameterListStats(brevitas.jit.ScriptModule):
         super(_ParameterListStats, self).__init__()
 
         self.stats_input_concat_dim = stats_input_concat_dim
-        self.first_tracked_param = _ViewParameter(stats_input_view_shape_impl)
+        if len(tracked_parameter_list) >= 1:
+            self.first_tracked_param = _ViewParameterWrapper(
+                tracked_parameter_list[0], stats_input_view_shape_impl)
+        else:
+            self.first_tracked_param = _ViewParameter(stats_input_view_shape_impl)
+
         if len(tracked_parameter_list) > 1:
             extra_list = [
                 _ViewCatParameterWrapper(
@@ -109,7 +114,7 @@ class _ParameterListStats(brevitas.jit.ScriptModule):
         self.stats = _Stats(stats_impl, stats_output_shape)
 
     @brevitas.jit.script_method
-    def forward(self, x) -> torch.Tensor:
+    def forward(self, x: Optional[torch.Tensor]) -> torch.Tensor:
         stats_input = self.first_tracked_param(x)
         if self.extra_tracked_params_list is not None:
             for extra_tracked_param in self.extra_tracked_params_list:

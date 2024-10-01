@@ -60,7 +60,7 @@ class StatsFromParameterScaling(brevitas.jit.ScriptModule):
 
     @brevitas.jit.script_method
     def forward(
-            self, x: torch.Tensor, threshold: Optional[torch.Tensor] = None) -> torch.Tensor:
+            self, x: Optional[torch.Tensor], threshold: Optional[torch.Tensor] = None) -> torch.Tensor:
         stats = self.parameter_list_stats(x)
         if threshold is None:
             threshold = torch.ones(1).type_as(stats)

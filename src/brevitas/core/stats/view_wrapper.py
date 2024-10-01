@@ -1,6 +1,8 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 
+from typing import Optional
+
 import torch
 from torch import Tensor
 from torch.nn import Module
@@ -19,8 +21,12 @@ class _ViewParameterWrapper(brevitas.jit.ScriptModule):
         self.view_shape_impl = view_shape_impl
 
     @brevitas.jit.script_method
-    def forward(self) -> Tensor:
-        return self.view_shape_impl(self.parameter)
+    def forward(self, x: Optional[Tensor]) -> Tensor:
+        if x is not None:
+            parameter = x
+        else:
+            parameter = self.parameter
+        return self.view_shape_impl(parameter)
 
     def _load_from_state_dict(
             self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys,
