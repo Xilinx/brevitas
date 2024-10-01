@@ -98,9 +98,6 @@ WEIGHT_QUANT_MAP = {
                     'sym': Int8WeightPerChannelFixedPoint},
                 'per_group': {
                     'sym': MXInt8Weight, 'asym': ShiftedMXUInt8Weight}},
-            'hqo': {
-                'per_group': {
-                    'asym': MXHQO}},
             'mse': {
                 'per_tensor': {
                     'sym': Int8WeightPerTensorFixedPointMSE},

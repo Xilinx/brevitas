@@ -429,21 +429,7 @@ class AccumulatorAwareZeroCenterWeightQuant(AccumulatorAwareWeightQuant):
     pre_zero_point_stats_input_view_shape_impl = this.scaling_stats_input_view_shape_impl
 
 
-class MSESubInjectorBase(ExtendedInjector):
-
-    @value
-    def inner_stats_input_view_shape_impl(scaling_per_output):
-        if scaling_per_output == ScalingPerOutputType.CHANNEL:
-            return StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS
-        elif scaling_per_output == ScalingPerOutputType.TENSOR:
-            return StatsInputViewShapeImpl.OVER_TENSOR
-        elif scaling_per_output == ScalingPerOutputType.GROUP:
-            raise RuntimeError("Not implemented yet")
-
-    permute_dims = (this << 1).permute_dims
-
-
-class MSESymmetricScaleSubInjector(MSESubInjectorBase):
+class MSESymmetricScaleSubInjector(ExtendedInjector):
     scaling_per_output = (this << 1).scaling_per_output
     proxy_module = (this << 1).proxy_module
     mse_init_op = AbsMax
@@ -451,9 +437,11 @@ class MSESymmetricScaleSubInjector(MSESubInjectorBase):
     stats_reduce_dim = (this << 1).stats_reduce_dim
     device = (this << 1).device
     type = (this << 1).type
+    permute_dims = (this << 1).permute_dims
+    inner_stats_input_view_shape_impl = (this << 1).inner_stats_input_view_shape_impl
 
 
-class MSEAsymmetricScaleSubInjector(MSESubInjectorBase):
+class MSEAsymmetricScaleSubInjector(ExtendedInjector):
     scaling_per_output = (this << 1).scaling_per_output
     proxy_module = (this << 1).proxy_module
     mse_init_op = AbsMinMax
@@ -461,9 +449,11 @@ class MSEAsymmetricScaleSubInjector(MSESubInjectorBase):
     stats_reduce_dim = (this << 1).stats_reduce_dim
     device = (this << 1).device
     dtype = (this << 1).dtype
+    permute_dims = (this << 1).permute_dims
+    inner_stats_input_view_shape_impl = (this << 1).inner_stats_input_view_shape_impl
 
 
-class MSEZeroPointSubInjector(MSESubInjectorBase):
+class MSEZeroPointSubInjector(ExtendedInjector):
     # zp is per channel when scaling is per channel
     scaling_per_output = (this << 1).scaling_per_output
     proxy_module = (this << 1).proxy_module
@@ -473,6 +463,8 @@ class MSEZeroPointSubInjector(MSESubInjectorBase):
     stats_reduce_dim = (this << 1).stats_reduce_dim
     device = (this << 1).device
     dtype = (this << 1).dtype
+    permute_dims = (this << 1).permute_dims
+    inner_stats_input_view_shape_impl = (this << 1).inner_stats_input_view_shape_impl
 
 
 class MSEAsymmetricScale(ExtendedInjector):
@@ -483,6 +475,15 @@ class MSEAsymmetricScale(ExtendedInjector):
     mse_scale = MSEAsymmetricScaleSubInjector
     scaling_impl_type = ScalingImplType.PARAMETER_FROM_STATS
     scaling_stats_input_view_shape_impl = nn.Identity()
+
+    @value
+    def inner_stats_input_view_shape_impl(scaling_per_output):
+        if scaling_per_output == ScalingPerOutputType.CHANNEL:
+            return StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS
+        elif scaling_per_output == ScalingPerOutputType.TENSOR:
+            return StatsInputViewShapeImpl.OVER_TENSOR
+        elif scaling_per_output == ScalingPerOutputType.GROUP:
+            return StatsInputViewShapeImpl.OVER_SUBCHANNEL_BLOCK
 
     @value
     def scaling_stats_impl():
@@ -499,6 +500,15 @@ class MSESymmetricScale(ExtendedInjector):
     scaling_stats_input_view_shape_impl = nn.Identity()
 
     @value
+    def inner_stats_input_view_shape_impl(scaling_per_output):
+        if scaling_per_output == ScalingPerOutputType.CHANNEL:
+            return StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS
+        elif scaling_per_output == ScalingPerOutputType.TENSOR:
+            return StatsInputViewShapeImpl.OVER_TENSOR
+        elif scaling_per_output == ScalingPerOutputType.GROUP:
+            return StatsInputViewShapeImpl.OVER_SUBCHANNEL_BLOCK
+
+    @value
     def scaling_stats_impl():
         return this.mse_scale.stats_impl
 
@@ -510,6 +520,15 @@ class MSEZeroPoint(ExtendedInjector):
 
     mse_zero_point = MSEZeroPointSubInjector
     zero_point_stats_input_view_shape_impl = nn.Identity()
+
+    @value
+    def inner_stats_input_view_shape_impl(scaling_per_output):
+        if scaling_per_output == ScalingPerOutputType.CHANNEL:
+            return StatsInputViewShapeImpl.OVER_OUTPUT_CHANNELS
+        elif scaling_per_output == ScalingPerOutputType.TENSOR:
+            return StatsInputViewShapeImpl.OVER_TENSOR
+        elif scaling_per_output == ScalingPerOutputType.GROUP:
+            return StatsInputViewShapeImpl.OVER_SUBCHANNEL_BLOCK
 
     @value
     def zero_point_stats_impl():
