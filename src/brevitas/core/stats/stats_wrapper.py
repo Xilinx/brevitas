@@ -114,7 +114,7 @@ class _ParameterListStats(brevitas.jit.ScriptModule):
         self.stats = _Stats(stats_impl, stats_output_shape)
 
     @brevitas.jit.script_method
-    def forward(self, x: Optional[torch.Tensor]) -> torch.Tensor:
+    def forward(self, x: Optional[torch.Tensor] = None) -> torch.Tensor:
         stats_input = self.first_tracked_param(x)
         if self.extra_tracked_params_list is not None:
             for extra_tracked_param in self.extra_tracked_params_list:
