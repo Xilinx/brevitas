@@ -13,6 +13,7 @@ from brevitas.core.utils import inplace_momentum_update
 from brevitas.core.utils import inplace_tensor_mul
 
 from .view_wrapper import _ViewCatParameterWrapper
+from .view_wrapper import _ViewParameter
 from .view_wrapper import _ViewParameterWrapper
 
 DEFAULT_MOMENTUM = 0.1
@@ -96,8 +97,7 @@ class _ParameterListStats(brevitas.jit.ScriptModule):
         super(_ParameterListStats, self).__init__()
 
         self.stats_input_concat_dim = stats_input_concat_dim
-        self.first_tracked_param = _ViewParameterWrapper(
-            tracked_parameter_list[0], stats_input_view_shape_impl)
+        self.first_tracked_param = _ViewParameter(stats_input_view_shape_impl)
         if len(tracked_parameter_list) > 1:
             extra_list = [
                 _ViewCatParameterWrapper(
@@ -109,8 +109,8 @@ class _ParameterListStats(brevitas.jit.ScriptModule):
         self.stats = _Stats(stats_impl, stats_output_shape)
 
     @brevitas.jit.script_method
-    def forward(self) -> torch.Tensor:
-        stats_input = self.first_tracked_param()
+    def forward(self, x) -> torch.Tensor:
+        stats_input = self.first_tracked_param(x)
         if self.extra_tracked_params_list is not None:
             for extra_tracked_param in self.extra_tracked_params_list:
                 stats_input = extra_tracked_param(stats_input)

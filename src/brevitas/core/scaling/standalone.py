@@ -241,9 +241,9 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
         self.value = Parameter(torch.full(scaling_shape, 1.0, dtype=dtype, device=device))
 
     @brevitas.jit.script_method
-    def forward(self, ignored: Tensor, threshold: Optional[Tensor] = None) -> Tensor:
+    def forward(self, x: torch.Tensor, threshold: Optional[Tensor] = None) -> Tensor:
         if threshold is None:
-            threshold = torch.ones(1).type_as(ignored)
+            threshold = torch.ones(1).type_as(x)
         if self.init_done:
             threshold = self.stats_scaling_impl.restrict_clamp_threshold(
                 self.restrict_threshold_pre(threshold))
@@ -251,7 +251,7 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
             value = value / threshold
             return value
         else:
-            stats = self.parameter_list_stats()
+            stats = self.parameter_list_stats(x)
             # workaround to avoid find_ununsed_parameter=True in DDP
             stats = stats + 0. * self.value
             if self.local_loss_mode:

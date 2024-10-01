@@ -39,6 +39,17 @@ class _ViewParameterWrapper(brevitas.jit.ScriptModule):
         return output_dict
 
 
+class _ViewParameter(brevitas.jit.ScriptModule):
+
+    def __init__(self, view_shape_impl: Module) -> None:
+        super(_ViewParameter, self).__init__()
+        self.view_shape_impl = view_shape_impl
+
+    @brevitas.jit.script_method
+    def forward(self, x: Tensor) -> Tensor:
+        return self.view_shape_impl(x)
+
+
 class _ViewCatParameterWrapper(brevitas.jit.ScriptModule):
     __constants__ = ['cat_dim']
 
