@@ -54,8 +54,7 @@ class Int8WeightNormL2PerChannelPerTensorFixedPoint(Int8WeightNormL2PerChannelFi
     scaling_per_output_type = ScalingPerOutputType.TENSOR
 
 
-class Int8AccumulatorAwareWeightQuantPerTensorFloat(
-        Int8AccumulatorAwareWeightQuant):
+class Int8AccumulatorAwareWeightQuantPerTensorFloat(Int8AccumulatorAwareWeightQuant):
     scaling_per_output_type = ScalingPerOutputType.TENSOR
 
 
