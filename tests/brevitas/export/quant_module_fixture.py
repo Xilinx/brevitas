@@ -7,6 +7,7 @@ from pytest_cases import set_case_id
 import torch
 from torch import nn
 
+from brevitas.inject.enum import ScalingPerOutputType
 from brevitas.nn import QuantConv1d
 from brevitas.nn import QuantConv2d
 from brevitas.nn import QuantConv3d
@@ -16,12 +17,11 @@ from brevitas.nn import QuantConvTranspose3d
 from brevitas.nn import QuantIdentity
 from brevitas.nn import QuantLinear
 from brevitas.nn import TruncAvgPool2d
-from brevitas.inject.enum import ScalingPerOutputType
-from brevitas.quant.scaled_int import Int8AccumulatorAwareZeroCenterWeightQuant
 from brevitas.quant.fixed_point import Int8ActPerTensorFixedPoint
 from brevitas.quant.fixed_point import Int8WeightPerChannelFixedPoint
 from brevitas.quant.fixed_point import Int8WeightPerTensorFixedPoint
 from brevitas.quant.scaled_int import Int8AccumulatorAwareWeightQuant
+from brevitas.quant.scaled_int import Int8AccumulatorAwareZeroCenterWeightQuant
 from brevitas.quant.scaled_int import Int8ActPerTensorFloat
 from brevitas.quant.scaled_int import Int8BiasPerTensorFloatInternalScaling
 from brevitas.quant.scaled_int import Int8WeightPerChannelFloat
@@ -41,13 +41,16 @@ FEATURES = 5
 KERNEL_SIZE = 3
 TOLERANCE = 1
 
+
 class Int8AccumulatorawareZeroCenterWeightQuantPerTensorFloat(
         Int8AccumulatorAwareZeroCenterWeightQuant):
     scaling_per_output_type = ScalingPerOutputType.TENSOR
 
+
 A2Q_QUANTIZERS = {
     'a2q_per_channel_float': (Int8AccumulatorAwareWeightQuant, Int8ActPerTensorFloat),
-    'a2q_plus_per_tensor_float': (Int8AccumulatorawareZeroCenterWeightQuantPerTensorFloat, Int8ActPerTensorFloat)}
+    'a2q_plus_per_tensor_float':
+        (Int8AccumulatorawareZeroCenterWeightQuantPerTensorFloat, Int8ActPerTensorFloat)}
 
 QUANTIZERS = {
     'asymmetric_per_tensor_float':

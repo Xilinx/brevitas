@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import os
+
 import torch
 
 from brevitas.export import enable_debug
@@ -80,6 +81,7 @@ def test_generic_decoupled_quant_linear_export():
     model(inp)  # collect scale factors
     model.eval()
     export_qonnx(model, inp, export_path='generic_decoupled_quant_linear.onnx')
+
 
 @jit_disabled_for_export()
 def test_a2q_quant_linear_export(a2q_weight_act_quantizers):
