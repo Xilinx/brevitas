@@ -273,7 +273,7 @@ class GPxQ(ABC):
                 index = permutation_list[0][i]
                 q = self.layer.quant_weight(quant_input=self.quant_metadata).value.unsqueeze(
                     0)  # [1, OC, 1]
-                q = q[:, :, i:i + 1]  # [groups, OC/groups, 1]
+                q = q[:, :, index:index + 1]  # [groups, OC/groups, 1]
             else:
                 index = permutation_list[0][i]
                 subtensor_slice_list = [None, (index, index + 1)]
