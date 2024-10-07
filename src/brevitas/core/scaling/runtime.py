@@ -81,13 +81,16 @@ class _StatsScaling(brevitas.jit.ScriptModule):
             self.affine_rescaling = Identity()
         self.restrict_clamp_scaling = _RestrictClampValue(scaling_min_val, restrict_scaling_impl)
         self.restrict_scaling_pre = restrict_scaling_impl.restrict_init_module()
+        self.restrict_scaling_impl = restrict_scaling_impl
 
     @brevitas.jit.script_method
     def forward(
             self, stats: torch.Tensor, threshold: Optional[torch.Tensor] = None) -> torch.Tensor:
         if threshold is None:
             threshold = torch.ones(1).type_as(stats)
-        stats = self.restrict_scaling_pre(stats / threshold)
+        threshold = self.restrict_scaling_pre(threshold)
+        stats = self.restrict_scaling_pre(stats)
+        stats = self.restrict_scaling_impl.combine_stats_threshold(stats, threshold)
         stats = self.affine_rescaling(stats)
         stats = self.restrict_clamp_scaling(stats)
         return stats
