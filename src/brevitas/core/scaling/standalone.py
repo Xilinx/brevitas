@@ -383,7 +383,7 @@ class ParameterFromRuntimeStatsScaling(brevitas.jit.ScriptModule):
             return abs_binary_sign_grad(self.clamp_scaling(self.restrict_scaling(value)))
         else:
             threshold = self.restrict_preprocess(threshold)
-            value = self.restrict_scaling_impl.combine_stats_threshold(value, threshold)
+            value = self.restrict_scaling_impl.combine_stats_threshold(self.value, threshold)
             return abs_binary_sign_grad(self.clamp_scaling(self.restrict_scaling(value)))
 
     @brevitas.jit.script_method
