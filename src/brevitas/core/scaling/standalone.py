@@ -201,12 +201,12 @@ class ParameterFromStatsFromParameterScaling(brevitas.jit.ScriptModule):
         self.value = Parameter(torch.full(scaling_shape, 1.0, dtype=dtype, device=device))
 
     @brevitas.jit.script_method
-    def forward(self, ignored: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: Optional[torch.Tensor]) -> torch.Tensor:
         if self.init_done:
             value = abs_binary_sign_grad(self.stats_scaling_impl.restrict_clamp_scaling(self.value))
             return value
         else:
-            stats = self.parameter_list_stats()
+            stats = self.parameter_list_stats(x)
             # workaround to avoid find_ununsed_parameter=True in DDP
             stats = stats + 0. * self.value
             if self.local_loss_mode:

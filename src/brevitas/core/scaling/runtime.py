@@ -51,8 +51,8 @@ class StatsFromParameterScaling(brevitas.jit.ScriptModule):
             device)
 
     @brevitas.jit.script_method
-    def forward(self, ignored: torch.Tensor) -> torch.Tensor:
-        stats = self.parameter_list_stats()
+    def forward(self, x: Optional[torch.Tensor]) -> torch.Tensor:
+        stats = self.parameter_list_stats(x)
         return self.stats_scaling_impl(stats)
 
 
